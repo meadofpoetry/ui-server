@@ -1,0 +1,19 @@
+Name: ui-server
+Version: 0.1
+Synopsis: UI server.
+Authors: freyr <sky_rider_93@mail.ru>
+License: LGPL with OCaml linking exception
+
+Description: FooBar allows to combine foo and bar efficiently. It also allows to interface with baz.
+Homepage: http://foobar.org
+
+OASISFormat: 0.4
+BuildTools: ocamlbuild
+Plugins: META (0.4), DevFiles (0.4)
+
+Executable "ui-server"
+  Path: src
+  MainIs: main.ml
+  CompiledObject: native
+  BuildDepends: containers, lwt, lwt.unix, lwt.react, cohttp, cohttp.unix, cohttp.lwt, websocket, websocket.cohttp, websocket.lwt, threads
+  NativeOpt: -O3 -unbox-closures

@@ -1,0 +1,4 @@
+S src/**
+B _build/**
+B +threads
+PKG containers react lwt cohttp websocket
