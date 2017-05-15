@@ -1,0 +1,6 @@
+<**/*.{ml,mli}> : annot, bin_annot, thread, debug, optimize(3), unbox_closures
+
+<src> : include
+<src/*> : package(containers), package(lwt), package(lwt.unix), package(lwt_react)
+<src/*> : package(cohttp), package(cohttp.lwt)
+<src/*> : package(websocket), package(websocket.cohttp), package(websocket.lwt)
