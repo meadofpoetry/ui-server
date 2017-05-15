@@ -3,7 +3,7 @@ open Lwt_react
 open Websocket_cohttp_lwt
 
 let listen_input () =
-  let e, push = E.create () in
+  let e, push = S.create "" in
   let rec loop () =
     Lwt_io.read_line Lwt_io.stdin
     >>= fun line ->
@@ -60,9 +60,10 @@ let create_handler event =
                let send line =
                  frames_out_fn @@ Some (of_bytes @@ BytesLabels.of_string @@ line)
                in
-               let _ = E.map send event
+               let _ = S.map send event
                in
                Lwt.return (resp, (body :> Cohttp_lwt_body.t))
+    | "/sig" -> Cohttp_lwt_unix.Server.respond_string ~status:`OK ~body:(S.value event) ()
     | _ -> Lwt_io.eprintf "[PATH] Catch-all\n%!"
            >>= fun () ->
            Cohttp_lwt_unix.Server.respond_string

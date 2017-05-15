@@ -15,5 +15,5 @@ Executable "ui-server"
   Path: src
   MainIs: main.ml
   CompiledObject: native
-  BuildDepends: containers, lwt, lwt.unix, lwt.react, cohttp, cohttp.unix, cohttp.lwt, websocket, websocket.cohttp, websocket.lwt, threads
+  BuildDepends: containers, lwt, lwt.unix, lwt_react, cohttp, cohttp.lwt, websocket, websocket.cohttp, websocket.lwt, threads
   NativeOpt: -O3 -unbox-closures
