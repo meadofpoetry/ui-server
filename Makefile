@@ -2,7 +2,7 @@ OCB = ocamlbuild
 BUILDFLAGS = -use-ocamlfind
 
 build: 
-	$(OCB) $(BUILDFLAGS) src/main.native
+	$(OCB) $(BUILDFLAGS) main.native
 
 doc: build
 
