@@ -4,3 +4,4 @@
 <src/*> : package(containers), package(lwt), package(lwt.unix), package(lwt_react)
 <src/*> : package(cohttp), package(cohttp.lwt)
 <src/*> : package(websocket), package(websocket.cohttp), package(websocket.lwt)
+<src/*> : package(sqlite3)
