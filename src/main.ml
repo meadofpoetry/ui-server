@@ -9,7 +9,7 @@ let rec main () =
            } in
   let ds = { path = "./db" } in
   let db = Database.create ds in
-  let server = Server_inst.create ss in
+  let server = Server_inst.create ~settings:ss ~database:db in
   Lwt_main.run server;
   main ()
 
