@@ -2,11 +2,21 @@ open Lwt
 open Cohttp
 open Cohttp_lwt_unix
 open Containers
+open Yojson
 open User
 open Database
-   
-let user = "root"
-let pswd = "pswd"
+
+type login_entry = { name     : string
+                   ; password : string
+                   } [@@deriving yojson]
+
+let login_entry_of_string s =
+  let open Result in
+  login_entry_of_yojson (Yojson.Safe.from_string s)
+  >>= fun le ->
+  Ok { name     = User.b64_dec le.name
+     ; password = User.b64_dec le.password
+     }
          
 let auth_needed dbs headers =
   let open Option in
@@ -16,17 +26,23 @@ let auth_needed dbs headers =
   >>= (fun tok -> if is_expired tok then None else Some tok)
   >>= function (usr,_) -> Some usr
 
-let auth dbs headers name pass =
-  if name = user && pass = pswd
-  then begin
-      let hsh = User.get_token (User.of_string name)
-                |> Database.push_token dbs
-      in
-      let cookie = Cookie.Set_cookie_hdr.(
-          make ~domain:"127.0.0.1" ~path:"/" ("auth_token", hsh)
-          |> serialize ~version:`HTTP_1_0)
-      in
-      let nh = Header.add_list headers [cookie] in
-      Server.respond_redirect ~headers:(nh) ~uri:(Uri.with_path Uri.empty "/") ()
-    end
-  else Server.respond_redirect ~uri:(Uri.with_path Uri.empty "/login") ()
+let auth dbs headers body =
+  let open Result in
+  let header =
+    login_entry_of_string body
+    >>= fun le ->
+    if le.name = "root" && le.password = "pswd"
+    then begin
+        let hsh = User.get_token (User.of_string le.name)
+                  |> Database.push_token dbs
+        in
+        let cookie = Cookie.Set_cookie_hdr.(
+            make ~domain:"127.0.0.1" ~path:"/" ("auth_token", hsh)
+            |> serialize ~version:`HTTP_1_0)
+        in
+        Ok (Header.add_list headers [cookie])
+      end
+    else Error "wrong name or passwd"
+  in match header with
+     | Ok hd   -> Server.respond_redirect ~headers:(hd) ~uri:(Uri.with_path Uri.empty "/") ()
+     | Error e -> Server.respond_error ~status:`Unauthorized ~body:e ()

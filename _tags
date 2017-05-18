@@ -5,3 +5,5 @@
 <src/*> : package(cohttp), package(cohttp.lwt)
 <src/*> : package(websocket), package(websocket.cohttp), package(websocket.lwt)
 <src/*> : package(sqlite3)
+<src/*> : package(cryptokit), package(yojson)
+<src/*> : package(ppx_deriving_yojson)
