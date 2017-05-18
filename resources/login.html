@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset-UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title></title>
+  </head>
+  <style>
+    input[type=text], input[type=password] {
+    margin: 8px 0;
+    }
+    button {
+    margin: 8px 0;
+    }
+  </style>
+  <body>
+    <main>
+      <h2>Login to ATS-3</h2>
+      <form action="{% url 'users:login' %" method="post">
+        <div>
+          <label>Username</label>
+          <br>
+          <input type="text" placeholder="Enter Username" name="uname" required>
+
+          <br>
+
+          <label>Password</label>
+          <br>
+          <input type="password" placeholder="Enter Password" name="pwd" required>
+
+          <br>
+
+          <button type="submit">Login</button>
+        </div>
+      </form>
+    </main>
+  </body>
+</html>
