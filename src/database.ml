@@ -14,7 +14,7 @@ type database = { db_desc     : db
                 }
               
 let create settings =
-  let dbs = { db_desc = Sqlite3.db_open ~mode:`NO_CREATE settings.path
+  let dbs = { db_desc = Sqlite3.db_open settings.path (* ~mode:`NO_CREATE *)
             ; tokens  = Tokentbl.create 200
             ; hash    = MAC.hmac_sha256 magic_key
             }
