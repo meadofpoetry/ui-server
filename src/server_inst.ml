@@ -38,7 +38,7 @@ let get_handler ~settings
       Cohttp_lwt_body.to_string body >>= fun body ->
       let redir = redirect_auth database headers in
       match meth, uri_list with
-      | `GET, []         -> redir (fun _ -> home settings.path) login_redirect
+      | `GET, []         -> redir (fun _ -> home settings.path) login_page
       | `GET, ["login"]  -> login settings.path
       | _, "api" :: path -> Api.handle ~database meth path headers body
       | `GET, path       -> redir (fun _ -> resource settings.path uri) not_found
