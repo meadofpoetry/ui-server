@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <meta charset="UTF-8">
     <meta http-equiv="Content-Type" content="text/html; charset-UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title></title>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.7.2/jquery.min.js" ></script>
   </head>
   <style>
     input[type=text], input[type=password] {
@@ -16,23 +18,39 @@
   <body>
     <main>
       <h2>Login to ATS-3</h2>
-      <form action="{% url 'users:login' %" method="post">
+      <form action="javascript:void(0);">
         <div>
           <label>Username</label>
           <br>
-          <input type="text" placeholder="Enter Username" name="uname" required>
+          <input type="text" placeholder="Enter Username" name="username" id="uname" required>
 
           <br>
 
           <label>Password</label>
           <br>
-          <input type="password" placeholder="Enter Password" name="pwd" required>
+          <input type="password" placeholder="Enter Password" name="password" id="pwd" required>
 
           <br>
-
-          <button type="submit">Login</button>
+          <button type="submit" onclick="login()">Login</button>
         </div>
       </form>
     </main>
+    <script>
+      function login() {
+      var user = document.getElementById("uname").value;
+      var pass = document.getElementById("pwd").value;
+      var b64 = "Basic " + btoa(user + ":" + pass);
+      $.ajax({
+      type: 'post',
+      url: "/api/login",
+      headers: {
+      "Authorization": b64
+      },
+      success: function () {
+     // window.location = "/";
+      }
+      });
+      }
+    </script>
   </body>
 </html>
