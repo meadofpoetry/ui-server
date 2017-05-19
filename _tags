@@ -1,9 +1,10 @@
-<**/*.{ml,mli}> : annot, bin_annot, thread, debug, optimize(3), unbox_closures
+true: thread, optimize(3), unbox_closures
+<**/*.{ml,mli}> : annot, bin_annot, debug
 
 <src> : include
 <src/*> : package(containers), package(lwt), package(lwt.unix), package(lwt_react)
 <src/*> : package(cohttp), package(cohttp.lwt)
 <src/*> : package(websocket), package(websocket.cohttp), package(websocket.lwt)
-<src/*> : package(sqlite3)
-<src/*> : package(cryptokit), package(yojson)
+<src/*> : package(sqlexpr)
+<src/*> : package(nocrypto), package(yojson)
 <src/*> : package(ppx_deriving_yojson)

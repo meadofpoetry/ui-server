@@ -1,14 +1,16 @@
 open Lwt
 open Containers
-open Cryptokit
+open Nocrypto
 
+let (%) = Fun.(%)
+   
 module Tokentbl = Hashtbl.Make(String)
 
-let b64_enc_trans = Cryptokit.Base64.encode_compact ()
-let b64_dec_trans = Cryptokit.Base64.encode_compact ()
-let b64_enc = transform_string b64_enc_trans
-let b64_dec = transform_string b64_dec_trans
-            
+let cstr_wrap f = Cstruct.to_string % (f % Cstruct.of_string)
+                
+let hash    = cstr_wrap @@ Hash.mac `SHA1 ~key:(Cstruct.of_string "todo:add_magick_string43")
+let b64_enc = cstr_wrap @@ Base64.encode
+                    
 let day   = 86400.
 let month = day *. 28. (* seconds in month *)
                 
@@ -36,4 +38,4 @@ let is_root : token -> bool = function
 let get_token usr : token = (usr, (Unix.time () +. month))
                   
 let hash_token hsh : token -> string = function
-  | (usr,tm) -> b64_enc @@ hash_string hsh (to_string usr ^ "|" ^ string_of_float tm)
+  | (usr,tm) -> b64_enc @@ hash (to_string usr ^ "|" ^ string_of_float tm)

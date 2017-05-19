@@ -1,5 +1,5 @@
 S src/**
 B _build/**
 B +threads
-PKG containers react lwt lwt_react cohttp cohttp.lwt websocket sqlite3 yojson
+PKG containers react lwt lwt_react cohttp cohttp.lwt websocket nocrypto sqlexpr yojson
 EXT lwt ppx_deriving_yojson

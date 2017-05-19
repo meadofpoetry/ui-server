@@ -4,6 +4,7 @@ open Database
 open Server_inst
 
 let rec main () =
+  Nocrypto_entropy_lwt.initialize () |> ignore;
   let ss = { path = Filename.concat Filename.current_dir_name "resources"
            ; port = 7777
            } in
