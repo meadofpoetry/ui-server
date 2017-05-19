@@ -37,5 +37,5 @@ let is_root : token -> bool = function
 
 let get_token usr : token = (usr, (Unix.time () +. month))
                   
-let hash_token hsh : token -> string = function
+let hash_token : token -> string = function
   | (usr,tm) -> b64_enc @@ hash (to_string usr ^ "|" ^ string_of_float tm)

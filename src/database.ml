@@ -1,27 +1,24 @@
 open Lwt
-open Sqlite3
-open Cryptokit
 open Containers
 open User
 
-let magic_key = "42_magic_42"
-   
+module Sqlexpr = Sqlexpr_sqlite.Make(Sqlexpr_concurrency.Lwt)
+open Sqlexpr
+               
 type database_settings = { path : string }
 
 type database = { db_desc     : db
-                ; hash        : hash
                 ; tokens      : token_table
                 }
               
 let create settings =
-  let dbs = { db_desc = Sqlite3.db_open settings.path (* ~mode:`NO_CREATE *)
+  let dbs = { db_desc = Sqlexpr.open_db settings.path (* ~mode:`NO_CREATE *)
             ; tokens  = Tokentbl.create 200
-            ; hash    = MAC.hmac_sha256 magic_key
             }
   in dbs (* add maintain later *)
 
 let push_token dat tok =
-  let hsh = hash_token dat.hash tok in
+  let hsh = hash_token tok in
   Tokentbl.add dat.tokens hsh tok;
   hsh
 

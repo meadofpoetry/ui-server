@@ -1,6 +1,6 @@
 * Project goals
 
-** TODO Pre-alpha goals [1/5]:
+** TODO Pre-alpha goals [2/5]:
 - [ ] Configs and command line arguments
   - [ ] Config parser
   - [ ] Command line parser (via Commandliner)
@@ -8,7 +8,7 @@
   - [ ] investigate `irmin` as a possible solution
 - [ ] Add database maintainance loop
 - [X] Replace Cryptokit with nocrypt
-- [ ] Replace Sqlite3 with sqlexpr
+- [X] Replace Sqlite3 with sqlexpr
 ** TODO Alpha goals [0/2]:
 - [ ] Interaction with the Qoe analyser
   - [ ] Data representation
