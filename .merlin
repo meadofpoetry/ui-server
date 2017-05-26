@@ -1,4 +1,6 @@
 S src/**
+S common/**
+S jsoo/**
 B _build/**
 B +threads
 PKG containers react lwt lwt_react cohttp cohttp.lwt websocket yojson sqlexpr

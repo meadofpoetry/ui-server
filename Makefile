@@ -1,8 +1,13 @@
 OCB = ocamlbuild
-BUILDFLAGS = -use-ocamlfind
+BUILDFLAGS = -use-ocamlfind -plugin-tag 'package(js_of_ocaml.ocamlbuild)'
 
-build: 
+build: backend jsoo
+
+backend:
 	$(OCB) $(BUILDFLAGS) main.native
+
+jsoo:
+	$(OCB) $(BUILDFLAGS) jsoo/script.js
 
 doc: build
 
