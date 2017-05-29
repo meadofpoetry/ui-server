@@ -1,13 +1,15 @@
-OCB = ocamlbuild
-BUILDFLAGS = -use-ocamlfind -plugin-tag 'package(js_of_ocaml.ocamlbuild)'
+BUILD = jbuilder build
 
 build: backend jsoo
 
-backend:
-	$(OCB) $(BUILDFLAGS) main.native
+ui_common:
+	$(BUILD)
+
+backend: ui_common
+	$(BUILD) src/main.exe
 
 jsoo:
-	$(OCB) $(BUILDFLAGS) jsoo/script.js
+	$(BUILD) jsoo/script.bc.js
 
 doc: build
 
@@ -16,6 +18,5 @@ test: build
 all: build
 
 clean:
-	$(OCB) -clean
 
 .PHONY: build doc test all clean
