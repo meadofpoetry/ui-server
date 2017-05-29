@@ -1,0 +1,6 @@
+(jbuild_version 1)
+
+(library
+ ((name        ui_common)
+  (public_name ui_common)
+  (libraries (lwt))))

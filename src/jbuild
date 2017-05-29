@@ -1,0 +1,8 @@
+(jbuild_version 1)
+
+(executable
+ ((name      main)
+  (ocamlopt_flags (-O3 -thread -unbox-closures -bin-annot -annot))
+  (preprocess (pps (ppx_deriving_yojson)))
+  (libraries (ui_common containers lwt.unix lwt_react cohttp.lwt websocket.cohttp websocket.lwt
+  	      sqlexpr yojson))))
