@@ -1,8 +1,4 @@
-let redirect_auth dbs headers good bad =
-  Authorize.auth_needed dbs headers
-  |> function
-    | Some id -> good id
-    | None    -> bad ()
+open Lwt
 
 let home_page ?headers =
   match headers with
@@ -14,3 +10,10 @@ let login_page = Cohttp_lwt_unix.Server.respond_redirect ~uri:(Uri.with_path Uri
 let not_found = Cohttp_lwt_unix.Server.respond_not_found
 
 let error_page e = Cohttp_lwt_unix.Server.respond_error ~status:`Unauthorized ~body:e ()
+          
+let redirect_auth dbs headers request =
+  Authorize.auth dbs headers
+  |> function
+    | Id id     -> request id
+    | Need_auth -> Cohttp_lwt_unix.Server.respond_need_auth ~auth:(`Basic "User Visible Realm") ()
+    | Done hd   -> home_page ~headers:hd ()
