@@ -4,11 +4,11 @@ FLAGS = -use-ocamlfind -plugin-tag 'package(js_of_ocaml.ocamlbuild)'
 build: frontend backend
 	@echo "Done"
 
-script:
-	$(BUILD) $(FLAGS) jsoo/script.js
-	cp _build/jsoo/script.js resources/js/script.js
+home:
+	$(BUILD) $(FLAGS) jsoo/home.js
+	cp _build/jsoo/home.js resources/js/home.js
 
-frontend: script
+frontend: home
 
 backend:
 	$(BUILD) $(FLAGS) src/main.native
