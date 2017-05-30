@@ -1,9 +1,3 @@
-open Containers
-open Lwt
-open Lwt_react
-open Cohttp_lwt_unix
-open User
-open Containers
 open Redirect
 
 let wrap api_call meth args headers body =

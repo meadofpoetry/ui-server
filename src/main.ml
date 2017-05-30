@@ -2,7 +2,6 @@
  *)
 open Database
 open Server_inst
-open Ui_common.Qoe
 
 let rec main () =
   Nocrypto_entropy_lwt.initialize () |> ignore;

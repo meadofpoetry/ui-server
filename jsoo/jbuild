@@ -1,6 +1,0 @@
-(jbuild_version 1)
-
-(executable
- ((name      script)
-  (libraries (js_of_ocaml js_of_ocaml.ppx))
-  (preprocess (pps (js_of_ocaml-ppx)))))

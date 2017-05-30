@@ -1,0 +1,27 @@
+B _build/**
+S src/**
+S common/**
+S jsoo/**
+FLG -w -40
+PKG cohttp
+PKG cohttp.lwt
+PKG cohttp.lwt-core
+PKG containers
+PKG lwt
+PKG lwt.ppx
+PKG lwt.unix
+PKG lwt_react
+PKG nocrypto
+PKG nocrypto.lwt
+PKG nocrypto.unix
+PKG ppx_deriving.api
+PKG ppx_deriving_yojson
+PKG ppx_tools
+PKG react
+PKG sqlexpr
+PKG threads
+PKG threads.posix
+PKG websocket
+PKG websocket.cohttp
+PKG websocket.lwt
+PKG yojson

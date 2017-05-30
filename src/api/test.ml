@@ -1,4 +1,4 @@
 open Containers
 
-let test id meth args headers body =
+let test _ _ args _ _ =
   Cohttp_lwt_unix.Server.respond_string ~status:`OK ~body:(String.concat " " args) ()

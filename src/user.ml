@@ -1,4 +1,3 @@
-open Lwt
 open Containers
 
 let (%) = Fun.(%)

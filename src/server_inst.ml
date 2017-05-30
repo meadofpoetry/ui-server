@@ -1,9 +1,7 @@
 open Lwt
-open Cohttp
 open Cohttp_lwt_unix
 open Containers
 open Redirect
-open User
 
 let (%) = Fun.(%)
 
@@ -24,6 +22,7 @@ let get_handler ~settings
         (conn : Conduit_lwt_unix.flow * Cohttp.Connection.t)
         (req  : Cohttp_lwt_unix.Request.t)
         (body : Cohttp_lwt_body.t) =
+    ignore conn;
     let headers  = Request.headers req in
     let uri      = Uri.path @@ Request.uri req in
     let uri_list = uri
@@ -36,7 +35,7 @@ let get_handler ~settings
     match meth, uri_list with
     | `GET, []         -> redir (fun _ -> home settings.path)
     | _, "api" :: path -> Api_handler.handle ~database meth path headers body
-    | `GET, path       -> redir (fun _ -> resource settings.path uri)
+    | `GET, _          -> redir (fun _ -> resource settings.path uri)
     | _                -> not_found ()
   in
   handler

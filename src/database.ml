@@ -1,7 +1,3 @@
-open Lwt
-open Containers
-open User
-
 module Sqlexpr = Sqlexpr_sqlite.Make(Sqlexpr_concurrency.Lwt)
 open Sqlexpr
                

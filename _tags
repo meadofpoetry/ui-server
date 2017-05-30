@@ -1,17 +1,16 @@
-<**/*.{ml,mli}> : annot, bin_annot, debug
-<**/*.{ml,mli,native}> : thread, optimize(3), unbox_closures
+true: annot, bin_annot, debug, strict_sequence
+true: warn(+1..49+60), warn(A-4-41-44-7)
+true: short_paths, optimize(3), unbox_closures
 
 <common> : include
+<common/*> : for-pack(Ui_common)
 
 <src> : include
 <src/api> : include
-<src/**> : package(containers), package(lwt), package(lwt.unix), package(lwt_react)
-<src/**> : package(cohttp), package(cohttp.lwt)
-<src/**> : package(websocket), package(websocket.cohttp), package(websocket.lwt)
-<src/**> : package(sqlexpr)
-<src/**> : package(nocrypto), package(yojson)
-<src/**> : package(ppx_deriving_yojson)
-<src/api/auth.cmx> : for-pack(Api)
+<src/**> : package(containers lwt lwt.unix lwt_react), thread
+<src/**> : package(cohttp cohttp.lwt websocket.cohttp websocket.lwt)
+<src/**> : package(sqlexpr nocrypto yojson ppx_deriving_yojson)
+<src/api/test.cmx> : for-pack(Api)
 
 <jsoo> : include
-<jsoo/*.{ml,mli,byte}> : syntax(camlp4o), package(js_of_ocaml), package(js_of_ocaml.syntax)
+<jsoo/*.{ml,mli,byte}> : syntax(camlp4o js_of_ocaml js_of_ocaml.syntax)
