@@ -1,11 +1,14 @@
 BUILD = ocamlbuild
 FLAGS = -use-ocamlfind -plugin-tag 'package(js_of_ocaml.ocamlbuild)'
 
-build: script backend
+build: frontend backend
 	@echo "Done"
 
 script:
 	$(BUILD) $(FLAGS) jsoo/script.js
+	cp _build/jsoo/script.js resources/js/script.js
+
+frontend: script
 
 backend:
 	$(BUILD) $(FLAGS) src/main.native
