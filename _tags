@@ -1,6 +1,7 @@
 true: annot, bin_annot, debug, strict_sequence
+true: short_paths
 true: warn(+1..49+60), warn(A-4-41-44-7)
-true: short_paths, optimize(3), unbox_closures
+<**/*.{ml,mli,native}> : thread, optimize(3), unbox_closures
 
 <common> : include
 <common/*> : for-pack(Ui_common)
@@ -13,4 +14,4 @@ true: short_paths, optimize(3), unbox_closures
 <src/api/test.cmx> : for-pack(Api)
 
 <jsoo> : include
-<jsoo/*.{ml,mli,byte}> : syntax(camlp4o js_of_ocaml js_of_ocaml.syntax)
+<jsoo/*.{ml,mli,byte}> : syntax(camlp4o), package(js_of_ocaml js_of_ocaml.syntax)
