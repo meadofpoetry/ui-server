@@ -5,8 +5,8 @@ build: frontend backend
 	@echo "Done"
 
 home:
-	$(BUILD) $(FLAGS) jsoo/home.js
-	cp _build/jsoo/home.js resources/js/home.js
+	$(BUILD) $(FLAGS) jsoo/home.byte
+	js_of_ocaml --opt 3 +weak.js -o resources/js/home.js _build/jsoo/home.byte
 
 frontend: home
 

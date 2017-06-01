@@ -14,5 +14,6 @@ true: warn(+1..49+60), warn(A-4-41-44-7)
 <src/api/test.cmx> : for-pack(Api)
 
 <jsoo> : include
-<jsoo/*.{ml,mli,byte}> : optimize(3), package(js_of_ocaml js_of_ocaml.ppx)
+<jsoo/*.{ml,mli,byte}> : optimize(3), package(js_of_ocaml js_of_ocaml.ppx js_of_ocaml.weak)
+<jsoo/*.{ml,mli,byte}> : package(react)
 <jsoo/*.js> : opt(3)
