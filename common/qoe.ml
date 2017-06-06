@@ -70,7 +70,21 @@ module Status_bar = struct
                       | Right
                       | Bottom_left
                       | Bottom_right
-                      [@@deriving yojson]
+  let status_bar_pos_of_yojson = function
+    | `String "top_left"     -> Ok Top_left
+    | `String "top_right"    -> Ok Top_right
+    | `String "left"         -> Ok Left
+    | `String "right"        -> Ok Right
+    | `String "bottom_left"  -> Ok Bottom_left
+    | `String "bottom_right" -> Ok Bottom_right
+    | err -> Error ("status_bar_pos_of_yojson: wrang data " ^ (Yojson.Safe.to_string err))
+  let status_bar_pos_to_yojson = function
+    | Top_left     -> `String "top_left"
+    | Top_right    -> `String "top_right"
+    | Left         -> `String "left"
+    | Right        -> `String "right"
+    | Bottom_left  -> `String "bottom_left"
+    | Bottom_right -> `String "bottom_right"
 
   type t =
     { enabled   : bool option
@@ -355,7 +369,18 @@ module Graph = struct
   type graph_state = Null
                    | Pause
                    | Play
-                   | Stop [@@deriving yojson]
+                   | Stop
+  let graph_state_of_yojson = function
+    | `String "Null"  -> Ok Null
+    | `String "Pause" -> Ok Pause
+    | `String "Play"  -> Ok Play
+    | `String "Stop"  -> Ok Stop
+    | err -> Error ("graph_state_of_yojson: wrang data" ^ (Yojson.Safe.to_string err))
+  let graph_state_to_yojson = function
+    | Null  -> `String "Null"
+    | Pause -> `String "Pause"
+    | Play  -> `String "Play"
+    | Stop  -> `String "Stop"
 
   type t =
     { state : graph_state option } [@@deriving yojson]

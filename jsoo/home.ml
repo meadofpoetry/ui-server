@@ -8,8 +8,8 @@ let (>|=) = Lwt.(>|=)
 let button_type = Js.string "button"
 
 let make_struct () =
-  let tmp = Ui_common.Qoe.default in
-  Ui_common.Qoe.Qoe_root.to_yojson tmp
+  let tmp = Qoe.default in
+  Qoe.Qoe_root.to_yojson tmp
   |> Yojson.Safe.to_string
 
 let onload _ =
@@ -18,9 +18,15 @@ let onload _ =
   print_endline str;
   
   let ask_server push =
+    let post_args = ["data", `String (Js.bytestring str)] in
     XmlHttpRequest.perform_raw
+      ~content_type:"application/json; charset=UTF-8"
+      ~headers:["Accept", "application/json, text/javascript, */*; q=0.01";
+                "X-Requested-With", "XMLHttpRequest"]
       ~override_method:`POST
-      ~response_type:XmlHttpRequest.Text "api/test"
+      ~post_args
+      ~response_type:XmlHttpRequest.Text
+      "api/test"
     >|= (fun resp ->
     push @@ Js.some resp.content)
   in

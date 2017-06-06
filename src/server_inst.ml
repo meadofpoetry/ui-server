@@ -30,7 +30,6 @@ let get_handler ~settings
                    |> List.filter (not % String.equal "")
     in
     let meth     = Request.meth req in
-    Cohttp_lwt_body.to_string body >>= fun body ->
     let redir = redirect_auth database headers in
     match meth, uri_list with
     | `GET, []         -> redir (fun _ -> home settings.path)

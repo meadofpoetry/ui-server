@@ -4,7 +4,6 @@ true: warn(+1..49+60), warn(A-4-41-44-7-39)
 <**/*.{ml,mli,native}> : thread, optimize(3), unbox_closures
 
 <common> : include
-<common/*> : for-pack(Ui_common)
 <common/*> : package(yojson ppx_deriving ppx_deriving_yojson)
 
 <src> : include
