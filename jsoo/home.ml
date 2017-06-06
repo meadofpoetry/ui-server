@@ -1,4 +1,5 @@
 open React
+open Yojson
    
 let return = Lwt.return
 let (>>=) = Lwt.(>>=)
@@ -6,14 +7,24 @@ let (>|=) = Lwt.(>|=)
 
 let button_type = Js.string "button"
 
+let make_struct () =
+  let tmp = Ui_common.Qoe.default in
+  Ui_common.Qoe.Qoe_root.to_yojson tmp
+  |> Yojson.Safe.to_string
+
 let onload _ =
+  let str = make_struct () in
+  
+  print_endline str;
+  
   let ask_server push =
-    XmlHttpRequest.perform_raw ~override_method:`POST ~response_type:XmlHttpRequest.Text "api/test"
+    XmlHttpRequest.perform_raw
+      ~override_method:`POST
+      ~response_type:XmlHttpRequest.Text "api/test"
     >|= (fun resp ->
     push @@ Js.some resp.content)
   in
   
-  let text = Js.some (Js.string "Default text") in
   let v, push = S.create Js.null in
   
   let doc = Dom_html.document in

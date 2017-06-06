@@ -1,10 +1,11 @@
 true: annot, bin_annot, debug, strict_sequence
 true: short_paths
-true: warn(+1..49+60), warn(A-4-41-44-7)
+true: warn(+1..49+60), warn(A-4-41-44-7-39)
 <**/*.{ml,mli,native}> : thread, optimize(3), unbox_closures
 
 <common> : include
 <common/*> : for-pack(Ui_common)
+<common/*> : package(yojson ppx_deriving ppx_deriving_yojson)
 
 <src> : include
 <src/api> : include
@@ -15,5 +16,5 @@ true: warn(+1..49+60), warn(A-4-41-44-7)
 
 <jsoo> : include
 <jsoo/*.{ml,mli,byte}> : optimize(3), package(js_of_ocaml js_of_ocaml.ppx js_of_ocaml.weak)
-<jsoo/*.{ml,mli,byte}> : package(react)
+<jsoo/*.{ml,mli,byte}> : package(react yojson ppx_deriving_yojson)
 <jsoo/*.js> : opt(3)
