@@ -1,5 +1,4 @@
 open React
-open Yojson
    
 let return = Lwt.return
 let (>>=) = Lwt.(>>=)

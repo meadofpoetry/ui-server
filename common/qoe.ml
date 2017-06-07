@@ -1,5 +1,3 @@
-open Yojson
-
 let (<+>) a b =
   match a,b with
   | _, Some _ -> b
@@ -283,12 +281,7 @@ module Position = struct
     ; height : int
     } [@@deriving yojson]
 
-  let update a b =
-    { x       = b.x
-    ; y       = b.y
-    ; width   = b.width
-    ; height  = b.height
-    }
+  let update _ b = b
 
 end
 
@@ -322,7 +315,7 @@ module Meta_pid = struct
     ; position         : Position.t option [@default None]
     } [@@deriving yojson]
 
-  let update a b = b
+  let update _ b = b
 
 end
 
@@ -393,7 +386,9 @@ end
 (* ------------- Root ------------------------- *)
 
 module Qoe_root = struct
-  open Graph
+  module Graph    = Graph
+  module Settings = Settings
+  module Options  = Options
   
   type t =
     { options  : Options.t option [@default None]

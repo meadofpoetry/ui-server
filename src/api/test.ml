@@ -11,7 +11,7 @@ let test _ _ _ _ body =
   let s =
     Common.Qoe.Qoe_root.of_yojson js
     |> function
-      | Error s -> "Sorry, something is wrong with your json"
+      | Error _ -> "Sorry, something is wrong with your json"
       | Ok (root : Qoe.Qoe_root.t) -> let prefix = "Thank you, master! " in
                    begin match (CCOpt.get_exn root.graph).state with
                    | Some Null  -> prefix ^ "You want me to stop the graph?"
