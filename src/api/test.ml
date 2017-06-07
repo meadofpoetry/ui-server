@@ -1,18 +1,19 @@
 open Containers
-
+open Qoe
+   
 let (>>=) = Lwt.(>>=)
 
 let test _ _ _ _ body =
-  let open Common in
   Cohttp_lwt_body.to_string body >>= fun body ->
   let jss = String.split_on_char '=' body |> fun l -> List.nth l 1 in
   let js  = Uri.pct_decode jss |> Yojson.Safe.from_string in
   Lwt_io.printf "Got: %s\n" (Yojson.Safe.to_string js) >>= fun _ ->
   let s =
-    Common.Qoe.Qoe_root.of_yojson js
+    Qoe_types.State.of_yojson js
     |> function
       | Error _ -> "Sorry, something is wrong with your json"
-      | Ok root -> let prefix = "Thank you, master! " in
+      | Ok root -> Lwt_io.printf "Msgpck: %s\n" (Qoe.Qoe_types.State.to_msgpck root) |> ignore;
+                   let prefix = "Thank you, master! " in
                    begin match (CCOpt.get_exn root.graph).state with
                    | Some Null  -> prefix ^ "You want me to stop the graph?"
                    | Some Stop  -> prefix ^ "Halting graph"

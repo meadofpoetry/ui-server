@@ -11,6 +11,7 @@ true: warn_error(+1..49+60), warn(A-4-7-39-40-41-42-44-45-48)
 <src/**> : package(containers lwt lwt.unix lwt_react), thread
 <src/**> : package(uri cohttp cohttp.lwt websocket.cohttp websocket.lwt)
 <src/**> : package(sqlexpr nocrypto yojson ppx_deriving_yojson lens lens.ppx_deriving)
+<src/**> : package(msgpck)
 <src/api/test.cmx> : for-pack(Api)
 
 <jsoo> : include

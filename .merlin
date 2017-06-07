@@ -27,3 +27,4 @@ PKG websocket.lwt
 PKG yojson
 PKG tyxml
 PKG js_of_ocaml
+PKG msgpck

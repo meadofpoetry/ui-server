@@ -7,9 +7,10 @@ let (>|=) = Lwt.(>|=)
 let button_type = Js.string "button"
 
 let make_struct () =
-  let tmp = Qoe.default in
-  Qoe.Qoe_root.to_yojson tmp
-  |> Qoe.filter_none
+  let open Common in
+  let tmp = Qoe_types.default in
+  Qoe_types.State.to_yojson tmp
+  |> Common.Qoe_types.filter_none
   |> Yojson.Safe.to_string
 
 let onload _ =
