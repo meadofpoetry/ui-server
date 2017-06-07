@@ -17,7 +17,7 @@ module Error_overlay = struct
   type t =
     { enabled     : bool option [@default None]
     ; error_color : int option [@default None]
-    } [@@deriving yojson]
+    } [@@deriving yojson, lens]
 
   let update a b =
     { enabled     = a.enabled <+> b.enabled
@@ -32,7 +32,7 @@ module Channel_name = struct
     { enabled   : bool option [@default None]
     ; font_size : int option [@default None]
     ; fmt       : string option [@default None]
-    } [@@deriving yojson]
+    } [@@deriving yojson, lens]
 
   let update a b =
     { enabled   = a.enabled <+> b.enabled
@@ -46,12 +46,18 @@ module Audio_meter = struct
 
   type audio_meter_pos = Left
                        | Right
-                       [@@deriving yojson]
+  let audio_meter_pos_of_yojson = function
+    | `String "left"  -> Ok Left
+    | `String "right" -> Ok Right
+    | err -> Error ("audio_meter_pos_of_yojson: wrang data " ^ (Yojson.Safe.to_string err))
+  let audio_meter_pos_to_yojson = function
+    | Left  -> `String "left"
+    | Right -> `String "right"
 
   type t =
     { enabled  : bool option [@default None]
     ; position : audio_meter_pos option [@default None]
-    } [@@deriving yojson]
+    } [@@deriving yojson, lens]
 
   let update a b =
     { enabled  = a.enabled <+> b.enabled
@@ -93,7 +99,7 @@ module Status_bar = struct
     ; eit       : bool option [@default None]
     ; qos       : bool option [@default None]
     ; scte35    : bool option [@default None]
-    } [@@deriving yojson]
+    } [@@deriving yojson, lens]
 
   let update a b =
     { enabled   = a.enabled <+> b.enabled
@@ -109,6 +115,10 @@ module Status_bar = struct
 end
 
 module Channel_settings = struct
+  module Error_overlay = Error_overlay
+  module Channel_name = Channel_name
+  module Audio_meter = Audio_meter
+  module Status_bar = Status_bar
 
   type t =
     { show_border         : bool option [@default None]
@@ -119,7 +129,7 @@ module Channel_settings = struct
     ; channel_name        : Channel_name.t option [@default None]
     ; audio_meter         : Audio_meter.t option [@default None]
     ; status_bar          : Status_bar.t option [@default None]
-    } [@@deriving yojson]
+    } [@@deriving yojson, lens]
 
   let update a b =
     { show_border         = a.show_border <+> b.show_border
@@ -143,7 +153,7 @@ module Qoe_settings = struct
     ; peak    : float option [@default None]
     ; cont_en : bool option [@default None]
     ; cont    : float option [@default None]
-    } [@@deriving yojson]
+    } [@@deriving yojson, lens]
 
   let setting_update a b =
     { peak_en = a.peak_en <+> b.peak_en
@@ -155,7 +165,7 @@ module Qoe_settings = struct
   type loss =
     { vloss : float option [@default None]
     ; aloss : float option [@default None]
-    } [@@deriving yojson]
+    } [@@deriving yojson, lens]
 
   let loss_update a b =
     { vloss = a.vloss <+> b.vloss
@@ -167,7 +177,7 @@ module Qoe_settings = struct
     ; luma        : setting option [@default None]
     ; black_pixel : int option [@default None]
     ; time        : float option [@default None]
-    } [@@deriving yojson]
+    } [@@deriving yojson, lens]
 
   let black_update a b =
     { black       = opt_update setting_update a.black b.black
@@ -181,7 +191,7 @@ module Qoe_settings = struct
     ; diff       : setting option [@default None]
     ; pixel_diff : int option [@default None]
     ; time       : float option [@default None]
-    } [@@deriving yojson]
+    } [@@deriving yojson, lens]
 
   let freeze_update a b =
     { freeze     = opt_update setting_update a.freeze b.freeze
@@ -194,7 +204,7 @@ module Qoe_settings = struct
     { blocky      : setting option [@default None]
     ; mark_blocks : bool option [@default None]
     ; time        : float option [@default None]
-    } [@@deriving yojson]
+    } [@@deriving yojson, lens]
 
   let blocky_update a b =
     { blocky      = opt_update setting_update a.blocky b.blocky
@@ -205,7 +215,7 @@ module Qoe_settings = struct
   type silence =
     { silence : setting option [@default None]
     ; time    : float option [@default None]
-    } [@@deriving yojson]
+    } [@@deriving yojson, lens]
 
   let silence_update a b =
     { silence = opt_update setting_update a.silence b.silence
@@ -215,7 +225,7 @@ module Qoe_settings = struct
   type loudness =
     { loudness : setting option [@default None]
     ; time     : float option [@default None]
-    } [@@deriving yojson]
+    } [@@deriving yojson, lens]
 
   let loudness_update a b =
     { loudness = opt_update setting_update a.loudness b.loudness
@@ -225,7 +235,7 @@ module Qoe_settings = struct
   type adv =
     { adv_diff : float option [@default None]
     ; adv_buf  : int option [@default None]
-    } [@@deriving yojson]
+    } [@@deriving yojson, lens]
 
   let adv_update a b =
     { adv_diff = a.adv_diff <+> b.adv_diff
@@ -240,7 +250,7 @@ module Qoe_settings = struct
     ; silence   : silence option [@default None]
     ; loudness  : loudness option [@default None]
     ; adv       : adv option [@default None]
-    } [@@deriving yojson]
+    } [@@deriving yojson, lens]
 
   let update a b =
     { loss     = opt_update loss_update a.loss b.loss
@@ -257,11 +267,13 @@ end
 (* -------------- Settings  ---------------- *)
 
 module Settings = struct
+  module Channel_settings = Channel_settings
+  module Qoe_settings = Qoe_settings
 
   type t =
     { channel_settings : Channel_settings.t option [@default None]
     ; qoe_settings     : Qoe_settings.t option [@default None]
-    } [@@deriving yojson]
+    } [@@deriving yojson, lens]
 
   let update a b =
     { channel_settings = opt_update Channel_settings.update a.channel_settings b.channel_settings
@@ -279,7 +291,7 @@ module Position = struct
     ; y      : int
     ; width  : int
     ; height : int
-    } [@@deriving yojson]
+    } [@@deriving yojson, lens]
 
   let update _ b = b
 
@@ -287,6 +299,7 @@ end
 
 
 module Meta_pid = struct
+  module Position = Position
 
   type video_pid =
     { codec      : string
@@ -294,13 +307,13 @@ module Meta_pid = struct
     ; aspect     : (int * int) option [@default None]
     ; interlaced : string option [@default None]
     ; frame_rate : float option [@default None]
-    } [@@deriving yojson]
+    } [@@deriving yojson, lens]
 
   type audio_pid =
     { codec       : string
     ; bitrate     : string option [@default None]
     ; sample_rate : int option [@default None]
-    } [@@deriving yojson]
+    } [@@deriving yojson, lens]
 
   type pid_content = Video of video_pid
                    | Audio of audio_pid
@@ -313,20 +326,21 @@ module Meta_pid = struct
     ; stream_type      : int option [@default None]
     ; stream_type_name : string option [@default None]
     ; position         : Position.t option [@default None]
-    } [@@deriving yojson]
+    } [@@deriving yojson, lens]
 
   let update _ b = b
 
 end
 
 module Meta_channel = struct
+  module Meta_pid = Meta_pid
 
   type t =
     { number        : int
     ; service_name  : string option [@default None]
     ; provider_name : string option [@default None]
     ; pids          : Meta_pid.t list
-    } [@@deriving yojson]
+    } [@@deriving yojson, lens]
 
   let update a b =
     { number        = b.number
@@ -337,15 +351,29 @@ module Meta_channel = struct
 
 end
 
+module Meta_stream = struct
+  module Meta_channel = Meta_channel
+
+  type t =
+    { stream   : int
+    ; uri      : string
+    ; channels : Meta_channel.t list
+    } [@@deriving yojson, lens]
+
+  let update _ b = b
+
+end
+
 (* ------------- Options ---------------------- *)
 
 module Options = struct
+  module Meta_stream = Meta_stream
 
   type t =
-    { prog_list         : Meta_channel.t list option [@default None]
+    { prog_list         : Meta_stream.t list option [@default None]
     ; mosaic_resolution : (int * int) option [@default None]
     ; mosaic_bg_color   : int option [@default None]
-    } [@@deriving yojson]
+    } [@@deriving yojson, lens]
 
   let update a b =
     { prog_list         = b.prog_list
@@ -364,16 +392,16 @@ module Graph = struct
                    | Play
                    | Stop
   let graph_state_of_yojson = function
-    | `String "Null"  -> Ok Null
-    | `String "Pause" -> Ok Pause
-    | `String "Play"  -> Ok Play
-    | `String "Stop"  -> Ok Stop
-    | err -> Error ("graph_state_of_yojson: wrang data" ^ (Yojson.Safe.to_string err))
+    | `String "null"  -> Ok Null
+    | `String "pause" -> Ok Pause
+    | `String "play"  -> Ok Play
+    | `String "stop"  -> Ok Stop
+    | err -> Error ("graph_state_of_yojson: wrong data" ^ (Yojson.Safe.to_string err))
   let graph_state_to_yojson = function
-    | Null  -> `String "Null"
-    | Pause -> `String "Pause"
-    | Play  -> `String "Play"
-    | Stop  -> `String "Stop"
+    | Null  -> `String "null"
+    | Pause -> `String "pause"
+    | Play  -> `String "play"
+    | Stop  -> `String "stop"
 
   type t =
     { state : graph_state option [@default None] } [@@deriving yojson]
@@ -394,7 +422,7 @@ module Qoe_root = struct
     { options  : Options.t option [@default None]
     ; settings : Settings.t option [@default None]
     ; graph    : Graph.t option [@default None]
-    } [@@deriving yojson]
+    } [@@deriving yojson, lens]
 
   let update a b =
     { options  = opt_update Options.update a.options b.options
@@ -413,7 +441,105 @@ let rec filter_none : Yojson.Safe.json -> Yojson.Safe.json = function
   | o -> o
 
 let default : Qoe_root.t =
-  { options  = None
-  ; settings = None
+  { options  =
+      (Some { prog_list =
+                (Some [ { stream   = 0
+                        ; uri      = "udp://127.0.0.1:1234"
+                        ; channels =
+                            [ { number        = 0
+                              ; service_name  = Some "Channel 1"
+                              ; provider_name = Some "RTRN"
+                              ; pids          =
+                                  [ { pid              = 1024
+                                    ; to_be_analyzed   = Some false
+                                    ; pid_content      = None
+                                    ; stream_type      = Some 4
+                                    ; stream_type_name = Some "video-h264"
+                                    ; position =
+                                        (Some { x      = 10
+                                              ; y      = 20
+                                              ; width  = 110
+                                              ; height = 120
+                                              })
+                                    }
+                                  ]
+                              }
+                            ]
+                        } ])
+            ; mosaic_resolution = Some (1920 , 1080)
+            ; mosaic_bg_color = Some 1000
+            })
+  ; settings =
+      (Some { qoe_settings =
+                (Some { loss =
+                          (Some { vloss = Some 2.0
+                                ; aloss = Some 3.0
+                                })
+                      ; black =
+                          (Some { black       =
+                                    (Some { peak_en = Some true
+                                          ; peak    = Some 100.0
+                                          ; cont_en = Some false
+                                          ; cont    = Some 90.0
+                                          })
+                                ; luma        =
+                                    (Some { peak_en = Some false
+                                          ; peak    = Some 20.0
+                                          ; cont_en = Some true
+                                          ; cont    = Some 17.0
+                                          })
+                                ; time        = Some 10.0
+                                ; black_pixel = Some 16
+                                })
+                      ; freeze =
+                          (Some { freeze      =
+                                    (Some { peak_en = Some true
+                                          ; peak    = Some 99.0
+                                          ; cont_en = Some false
+                                          ; cont    = Some 80.0
+                                          })
+                                ; diff        =
+                                    (Some { peak_en = Some false
+                                          ; peak    = Some 0.1
+                                          ; cont_en = Some true
+                                          ; cont    = Some 0.02
+                                          })
+                                ; time        = Some 14.0
+                                ; pixel_diff  = Some 2
+                                })
+                      ; blocky =
+                          (Some { blocky     =
+                                    (Some { peak_en = Some true
+                                          ; peak    = Some 7.0
+                                          ; cont_en = Some false
+                                          ; cont    = Some 4.0
+                                          })
+                                ; time       = Some 5.0
+                                ; mark_blocks = Some false
+                                })
+                      ; silence =
+                          (Some { silence     =
+                                    (Some { peak_en = Some false
+                                          ; peak    = Some (-35.0)
+                                          ; cont_en = Some true
+                                          ; cont    = Some (-33.0)
+                                          })
+                                ; time       = Some 3.0
+                                })
+                      ; loudness =
+                          (Some { loudness   =
+                                    (Some { peak_en = Some true
+                                          ; peak    = Some (-15.0)
+                                          ; cont_en = Some true
+                                          ; cont    = Some (-22.0)
+                                          })
+                                ; time       = Some 4.0
+                                })
+                      ; adv =
+                          (Some { adv_diff   = Some 1.5
+                                ; adv_buf    = Some (60 * 3200 * 3200)})
+                      })
+            ; channel_settings = None
+            })
   ; graph    =
       (Some { state = (Some Play) })}

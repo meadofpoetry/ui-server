@@ -4,16 +4,16 @@ true: warn_error(+1..49+60), warn(A-4-7-39-40-41-42-44-45-48)
 <**/*.{ml,mli,native}> : thread, optimize(3), unbox_closures
 
 <common> : include
-<common/*> : package(yojson ppx_deriving ppx_deriving_yojson)
+<common/*> : package(yojson ppx_deriving ppx_deriving_yojson lens lens.ppx_deriving)
 
 <src> : include
 <src/api> : include
 <src/**> : package(containers lwt lwt.unix lwt_react), thread
 <src/**> : package(uri cohttp cohttp.lwt websocket.cohttp websocket.lwt)
-<src/**> : package(sqlexpr nocrypto yojson ppx_deriving_yojson)
+<src/**> : package(sqlexpr nocrypto yojson ppx_deriving_yojson lens lens.ppx_deriving)
 <src/api/test.cmx> : for-pack(Api)
 
 <jsoo> : include
 <jsoo/*.{ml,mli,byte}> : optimize(3), package(js_of_ocaml js_of_ocaml.ppx js_of_ocaml.weak)
-<jsoo/*.{ml,mli,byte}> : package(react yojson ppx_deriving_yojson)
+<jsoo/*.{ml,mli,byte}> : package(react yojson ppx_deriving_yojson lens lens.ppx_deriving)
 <jsoo/*.js> : opt(3)
