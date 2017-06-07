@@ -393,7 +393,8 @@ end
 (* ------------- Root ------------------------- *)
 
 module Qoe_root = struct
-
+  open Graph
+  
   type t =
     { options  : Options.t option [@default None]
     ; settings : Settings.t option [@default None]

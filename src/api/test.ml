@@ -7,12 +7,13 @@ let test _ _ _ _ body =
   Cohttp_lwt_body.to_string body >>= fun body ->
   let jss = String.split_on_char '=' body |> fun l -> List.nth l 1 in
   let js  = Uri.pct_decode jss |> Yojson.Safe.from_string in
+  Lwt_io.printf "Got: %s\n" (Yojson.Safe.to_string js) >>= fun _ ->
   let s =
     Common.Qoe.Qoe_root.of_yojson js
     |> function
       | Error s -> "Sorry, something is wrong with your json"
-      | Ok (root : Qoe.Qoe_root.t) -> let prefix = "Thank you, master!\n" in
-                   begin match (CCOpt.get_exn root.graph).Qoe.Graph.state with
+      | Ok (root : Qoe.Qoe_root.t) -> let prefix = "Thank you, master! " in
+                   begin match (CCOpt.get_exn root.graph).state with
                    | Some Null  -> prefix ^ "You want me to stop the graph?"
                    | Some Stop  -> prefix ^ "Halting graph"
                    | Some Play  -> prefix ^ "Starting"
