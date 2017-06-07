@@ -9,7 +9,7 @@ true: warn(+1..49+60), warn(A-4-41-44-7-39)
 <src> : include
 <src/api> : include
 <src/**> : package(containers lwt lwt.unix lwt_react), thread
-<src/**> : package(cohttp cohttp.lwt websocket.cohttp websocket.lwt)
+<src/**> : package(uri cohttp cohttp.lwt websocket.cohttp websocket.lwt)
 <src/**> : package(sqlexpr nocrypto yojson ppx_deriving_yojson)
 <src/api/test.cmx> : for-pack(Api)
 
