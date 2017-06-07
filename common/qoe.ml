@@ -17,8 +17,8 @@ let opt_update f a b =
 module Error_overlay = struct
 
   type t =
-    { enabled     : bool option
-    ; error_color : int option
+    { enabled     : bool option [@default None]
+    ; error_color : int option [@default None]
     } [@@deriving yojson]
 
   let update a b =
@@ -31,9 +31,9 @@ end
 module Channel_name = struct
 
   type t =
-    { enabled   : bool option
-    ; font_size : int option
-    ; fmt       : string option
+    { enabled   : bool option [@default None]
+    ; font_size : int option [@default None]
+    ; fmt       : string option [@default None]
     } [@@deriving yojson]
 
   let update a b =
@@ -51,8 +51,8 @@ module Audio_meter = struct
                        [@@deriving yojson]
 
   type t =
-    { enabled  : bool option
-    ; position : audio_meter_pos option
+    { enabled  : bool option [@default None]
+    ; position : audio_meter_pos option [@default None]
     } [@@deriving yojson]
 
   let update a b =
@@ -87,14 +87,14 @@ module Status_bar = struct
     | Bottom_right -> `String "bottom_right"
 
   type t =
-    { enabled   : bool option
-    ; position  : status_bar_pos option
-    ; aspect    : bool option
-    ; subtitles : bool option
-    ; teletext  : bool option
-    ; eit       : bool option
-    ; qos       : bool option
-    ; scte35    : bool option
+    { enabled   : bool option [@default None]
+    ; position  : status_bar_pos option [@default None]
+    ; aspect    : bool option [@default None]
+    ; subtitles : bool option [@default None]
+    ; teletext  : bool option [@default None]
+    ; eit       : bool option [@default None]
+    ; qos       : bool option [@default None]
+    ; scte35    : bool option [@default None]
     } [@@deriving yojson]
 
   let update a b =
@@ -113,14 +113,14 @@ end
 module Channel_settings = struct
 
   type t =
-    { show_border         : bool option
-    ; border_color        : int option
-    ; show_aspect_border  : bool option
-    ; aspect_border_color : int option
-    ; error_overlay       : Error_overlay.t option
-    ; channel_name        : Channel_name.t option
-    ; audio_meter         : Audio_meter.t option
-    ; status_bar          : Status_bar.t option
+    { show_border         : bool option [@default None]
+    ; border_color        : int option [@default None]
+    ; show_aspect_border  : bool option [@default None]
+    ; aspect_border_color : int option [@default None]
+    ; error_overlay       : Error_overlay.t option [@default None]
+    ; channel_name        : Channel_name.t option [@default None]
+    ; audio_meter         : Audio_meter.t option [@default None]
+    ; status_bar          : Status_bar.t option [@default None]
     } [@@deriving yojson]
 
   let update a b =
@@ -141,10 +141,10 @@ end
 module Qoe_settings = struct
 
   type setting =
-    { peak_en : bool option
-    ; peak    : float option
-    ; cont_en : bool option
-    ; cont    : float option
+    { peak_en : bool option [@default None]
+    ; peak    : float option [@default None]
+    ; cont_en : bool option [@default None]
+    ; cont    : float option [@default None]
     } [@@deriving yojson]
 
   let setting_update a b =
@@ -155,8 +155,8 @@ module Qoe_settings = struct
     }
 
   type loss =
-    { vloss : float option
-    ; aloss : float option
+    { vloss : float option [@default None]
+    ; aloss : float option [@default None]
     } [@@deriving yojson]
 
   let loss_update a b =
@@ -165,10 +165,10 @@ module Qoe_settings = struct
     }
 
   type black =
-    { black       : setting option
-    ; luma        : setting option
-    ; black_pixel : int option
-    ; time        : float option
+    { black       : setting option [@default None]
+    ; luma        : setting option [@default None]
+    ; black_pixel : int option [@default None]
+    ; time        : float option [@default None]
     } [@@deriving yojson]
 
   let black_update a b =
@@ -179,10 +179,10 @@ module Qoe_settings = struct
     }
 
   type freeze =
-    { freeze     : setting option
-    ; diff       : setting option
-    ; pixel_diff : int option
-    ; time       : float option
+    { freeze     : setting option [@default None]
+    ; diff       : setting option [@default None]
+    ; pixel_diff : int option [@default None]
+    ; time       : float option [@default None]
     } [@@deriving yojson]
 
   let freeze_update a b =
@@ -193,9 +193,9 @@ module Qoe_settings = struct
     }
 
   type blocky =
-    { blocky      : setting option
-    ; mark_blocks : bool option
-    ; time        : float option
+    { blocky      : setting option [@default None]
+    ; mark_blocks : bool option [@default None]
+    ; time        : float option [@default None]
     } [@@deriving yojson]
 
   let blocky_update a b =
@@ -205,8 +205,8 @@ module Qoe_settings = struct
     }
 
   type silence =
-    { silence : setting option
-    ; time    : float option
+    { silence : setting option [@default None]
+    ; time    : float option [@default None]
     } [@@deriving yojson]
 
   let silence_update a b =
@@ -215,8 +215,8 @@ module Qoe_settings = struct
     }
 
   type loudness =
-    { loudness : setting option
-    ; time     : float option
+    { loudness : setting option [@default None]
+    ; time     : float option [@default None]
     } [@@deriving yojson]
 
   let loudness_update a b =
@@ -225,8 +225,8 @@ module Qoe_settings = struct
     }
 
   type adv =
-    { adv_diff : float option
-    ; adv_buf  : int option
+    { adv_diff : float option [@default None]
+    ; adv_buf  : int option [@default None]
     } [@@deriving yojson]
 
   let adv_update a b =
@@ -235,13 +235,13 @@ module Qoe_settings = struct
     }
 
   type t =
-    { loss      : loss option
-    ; black     : black option
-    ; freeze    : freeze option
-    ; blocky    : blocky option
-    ; silence   : silence option
-    ; loudness  : loudness option
-    ; adv       : adv option
+    { loss      : loss option [@default None]
+    ; black     : black option [@default None]
+    ; freeze    : freeze option [@default None]
+    ; blocky    : blocky option [@default None]
+    ; silence   : silence option [@default None]
+    ; loudness  : loudness option [@default None]
+    ; adv       : adv option [@default None]
     } [@@deriving yojson]
 
   let update a b =
@@ -261,8 +261,8 @@ end
 module Settings = struct
 
   type t =
-    { channel_settings : Channel_settings.t option
-    ; qoe_settings     : Qoe_settings.t option
+    { channel_settings : Channel_settings.t option [@default None]
+    ; qoe_settings     : Qoe_settings.t option [@default None]
     } [@@deriving yojson]
 
   let update a b =
@@ -297,16 +297,16 @@ module Meta_pid = struct
 
   type video_pid =
     { codec      : string
-    ; resolution : (int * int) option
-    ; aspect     : (int * int) option
-    ; interlaced : string option
-    ; frame_rate : float option
+    ; resolution : (int * int) option [@default None]
+    ; aspect     : (int * int) option [@default None]
+    ; interlaced : string option [@default None]
+    ; frame_rate : float option [@default None]
     } [@@deriving yojson]
 
   type audio_pid =
     { codec       : string
-    ; bitrate     : string option
-    ; sample_rate : int option
+    ; bitrate     : string option [@default None]
+    ; sample_rate : int option [@default None]
     } [@@deriving yojson]
 
   type pid_content = Video of video_pid
@@ -315,11 +315,11 @@ module Meta_pid = struct
 
   type t =
     { pid              : int
-    ; to_be_analyzed   : bool option
-    ; pid_content      : pid_content option
-    ; stream_type      : int option
-    ; stream_type_name : string option
-    ; position         : Position.t option
+    ; to_be_analyzed   : bool option [@default None]
+    ; pid_content      : pid_content option [@default None]
+    ; stream_type      : int option [@default None]
+    ; stream_type_name : string option [@default None]
+    ; position         : Position.t option [@default None]
     } [@@deriving yojson]
 
   let update a b = b
@@ -330,8 +330,8 @@ module Meta_channel = struct
 
   type t =
     { number        : int
-    ; service_name  : string option
-    ; provider_name : string option
+    ; service_name  : string option [@default None]
+    ; provider_name : string option [@default None]
     ; pids          : Meta_pid.t list
     } [@@deriving yojson]
 
@@ -349,9 +349,9 @@ end
 module Options = struct
 
   type t =
-    { prog_list         : Meta_channel.t list option
-    ; mosaic_resolution : (int * int) option
-    ; mosaic_bg_color   : int option
+    { prog_list         : Meta_channel.t list option [@default None]
+    ; mosaic_resolution : (int * int) option [@default None]
+    ; mosaic_bg_color   : int option [@default None]
     } [@@deriving yojson]
 
   let update a b =
@@ -383,7 +383,7 @@ module Graph = struct
     | Stop  -> `String "Stop"
 
   type t =
-    { state : graph_state option } [@@deriving yojson]
+    { state : graph_state option [@default None] } [@@deriving yojson]
 
   let update a b =
     { state = a.state <+> b.state }
@@ -395,9 +395,9 @@ end
 module Qoe_root = struct
 
   type t =
-    { options  : Options.t option
-    ; settings : Settings.t option
-    ; graph    : Graph.t option
+    { options  : Options.t option [@default None]
+    ; settings : Settings.t option [@default None]
+    ; graph    : Graph.t option [@default None]
     } [@@deriving yojson]
 
   let update a b =
@@ -407,6 +407,14 @@ module Qoe_root = struct
     }
 
 end
+
+let rec filter_none : Yojson.Safe.json -> Yojson.Safe.json = function
+  | `Assoc tl  -> let vk = List.filter (function (_, `Null) -> false | _ -> true) tl
+                  in `Assoc (List.map (fun (s,o) -> s, filter_none o) vk)
+  | `List lst  -> `List (List.map filter_none lst)
+  | `Tuple lst -> `Tuple (List.map filter_none lst)
+  | `Variant (s, Some o) -> `Variant (s,Some (filter_none o))
+  | o -> o
 
 let default : Qoe_root.t =
   { options  = None

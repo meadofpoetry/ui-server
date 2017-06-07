@@ -10,6 +10,7 @@ let button_type = Js.string "button"
 let make_struct () =
   let tmp = Qoe.default in
   Qoe.Qoe_root.to_yojson tmp
+  |> Qoe.filter_none
   |> Yojson.Safe.to_string
 
 let onload _ =
