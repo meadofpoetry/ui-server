@@ -543,3 +543,10 @@ let default : Qoe_root.t =
             })
   ; graph    =
       (Some { state = (Some Play) })}
+
+    (*
+      type xy = { x : string; y : int } [@@deriving lens];;
+      type st = { out : string; i : t option } [@@deriving lens];;
+      let mod_opt f v o = Option.(o >>= fun s -> return ((f ^= v) s));;
+      (st_i ^%= (mod_opt xy_y 17)) @@ { out = "12"; i = Some {x = "3"; y = 5} };;
+     *)
