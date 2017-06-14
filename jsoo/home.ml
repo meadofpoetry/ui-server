@@ -17,6 +17,11 @@ let onload _ =
   let str = make_struct () in
   
   print_endline str;
+
+  Janus.init ~debug:true ~callback:(fun () -> print_endline "Test janus") ();
+
+  let jan = Janus.create () in
+  Printf.printf "Janus is connected: %b\n" (Js.to_bool jan##.isConnected); 
   
   let ask_server push =
     let post_args = ["data", `String (Js.bytestring str)] in
