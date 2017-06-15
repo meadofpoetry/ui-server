@@ -6,6 +6,8 @@ let (>|=) = Lwt.(>|=)
 
 let button_type = Js.string "button"
 
+let server = "http://127.0.0.1:8088/janus"
+
 let make_struct () =
   let open Common in
   let tmp = Qoe_types.default in
@@ -15,17 +17,21 @@ let make_struct () =
 
 let init_janus () =
   Janus.init ~debug:true ~callback:(fun () -> Printf.printf "Here we are\n") ();
-  if Janus.isWebrtcSupported ()
-  then Printf.printf "Supported"
-  else Printf.printf "Not supported"
+  if not @@ Janus.isWebrtcSupported ()
+  then
+    Printf.printf "Webrtc is not supported\n"
+  else
+    let conn, connected = Lwt.wait () in
+    let _ = Janus.create ~server:server ~success:(fun () -> Lwt.wakeup connected ()) () in
+    Printf.printf "Janus obj created\n";
+    conn >>= (fun () ->
+    Lwt.return @@ Printf.printf "Success\n")
+    |> ignore
 
 let onload _ =
   let str = make_struct () in
   
   init_janus ();
-
-  let jan = Janus.create () in
-  Printf.printf "Janus is connected: %b\n" (Js.to_bool jan##.isConnected); 
   
   let ask_server push =
     let post_args = ["data", `String (Js.bytestring str)] in

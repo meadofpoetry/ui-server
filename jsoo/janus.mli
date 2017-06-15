@@ -21,4 +21,15 @@ val init : ?debug:bool -> ?callback:(unit -> unit) -> unit -> unit
 
 val isWebrtcSupported : unit -> bool
 
-val create : unit -> janus Js.t
+val create : server:string            ->
+             ?iceServers:string list  ->
+             ?ipv6:bool               ->
+             ?withCredentials:bool    ->
+             ?max_poll_events:float   ->
+             ?destroyOnUnload:bool    ->
+             ?token:string            ->
+             ?apisecret:string        ->
+             ?success:(unit -> unit)       ->
+             ?error:(Js.js_string -> unit) ->
+             ?destroyed:(unit -> unit)     ->
+             unit -> janus Js.t
