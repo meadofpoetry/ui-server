@@ -13,12 +13,16 @@ let make_struct () =
   |> Common.Qoe_types.filter_none
   |> Yojson.Safe.to_string
 
+let init_janus () =
+  Janus.init ~debug:true ~callback:(fun () -> Printf.printf "Here we are\n") ();
+  if Janus.isWebrtcSupported ()
+  then Printf.printf "Supported"
+  else Printf.printf "Not supported"
+
 let onload _ =
   let str = make_struct () in
   
-  print_endline str;
-
-  Janus.init ~debug:true ~callback:(fun () -> print_endline "Test janus") ();
+  init_janus ();
 
   let jan = Janus.create () in
   Printf.printf "Janus is connected: %b\n" (Js.to_bool jan##.isConnected); 

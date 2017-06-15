@@ -4,7 +4,7 @@ class type handle =
   end
 
 type parameters =
-  { plugin    : string
+  { plugin    : Js.js_string Js.opt
   ; success   : handle Js.t -> unit
   }
 
@@ -18,5 +18,7 @@ class type janus =
   end
 
 val init : ?debug:bool -> ?callback:(unit -> unit) -> unit -> unit
+
+val isWebrtcSupported : unit -> bool
 
 val create : unit -> janus Js.t

@@ -1,10 +1,12 @@
+let (>|=) x f = Js.Opt.map x f
+
 class type handle =
   object
     method getId  : Js.number Js.t Js.prop
   end
-
+  
 type parameters =
-  { plugin    : string
+  { plugin    : Js.js_string Js.opt
   ; success   : handle Js.t -> unit
   }
 
@@ -17,15 +19,15 @@ class type janus =
     method destroy       : parameters -> unit Js.meth
   end
 
-type init_params =
-  { debug    : bool Js.opt
-  ; callback : (unit -> unit) Js.opt
-  }
   
 let init ?debug ?callback () =
-  let opts = { debug = Js.Opt.option debug
-             ; callback = Js.Opt.option callback
-             } in
-  Js.Unsafe.fun_call (Js.Unsafe.js_expr "Janus.init") [|Js.Unsafe.inject opts|]
+  let debug = Js.Opt.option debug in
+  let cb    = (Js.Opt.option callback) >|= Js.wrap_callback in
+  Js.Unsafe.(
+    fun_call (Js.Unsafe.js_expr "Janus.init") [|obj [|("debug", inject debug);
+                                                      ("callback", inject cb)|] |]
+  )
 
+let isWebrtcSupported () = Js.Unsafe.fun_call (Js.Unsafe.js_expr "Janus.isWebrtcSupported") [||]
+  
 let create () = Js.Unsafe.new_obj Js.Unsafe.global##._Janus [||]
