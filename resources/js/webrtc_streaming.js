@@ -23,9 +23,9 @@ window.onload = function() {
     Janus.init({debug: "all", callback: function() {
         // check if browser support webrtc
         if(!Janus.isWebrtcSupported()) {
-				    alert("No WebRTC support... ");
-				    return;
-			  }
+	    alert("No WebRTC support... ");
+	    return;
+	}
         janus = new Janus(
             {
                 server: server,
@@ -48,41 +48,41 @@ window.onload = function() {
                                 Janus.debug(JSON.stringify(msg));
                                 var result = msg["result"];
                                 if(result !== null && result !== undefined) {
-										                if(result["status"] !== undefined && result["status"] !== null) {
-											                  var status = result["status"];
-											                  if(status === 'starting')
-												                    $('#status').removeClass('hide').text("Starting, please wait...").show();
-											                  else if(status === 'started')
-												                    $('#status').removeClass('hide').text("Started").show();
-											                  else if(status === 'stopped')
-												                    stopStream();
-										                }
-									              } else if(msg["error"] !== undefined && msg["error"] !== null) {
-										                bootbox.alert(msg["error"]);
-										                stopStream();
-										                return;
-									              }
-									              if(jsep !== undefined && jsep !== null) {
-										                Janus.debug("Handling SDP as well...");
-										                Janus.debug(jsep);
-										                // Answer
-										                streaming.createAnswer(
-											                  {
-												                    jsep: jsep,
-												                    media: { audioSend: false, videoSend: false },	// We want recvonly audio/video
-												                    success: function(jsep) {
-													                      Janus.debug("Got SDP!");
-													                      Janus.debug(jsep);
-													                      var body = { "request": "start" };
-													                      streaming.send({"message": body, "jsep": jsep});
-													                      $('#watch').html("Stop").removeAttr('disabled').click(stopStream);
-												                    },
-												                    error: function(error) {
-													                      Janus.error("WebRTC error:", error);
-													                      bootbox.alert("WebRTC error... " + JSON.stringify(error));
-												                    }
-											                  });
-									              }
+				    if(result["status"] !== undefined && result["status"] !== null) {
+					var status = result["status"];
+					if(status === 'starting')
+					    $('#status').removeClass('hide').text("Starting, please wait...").show();
+					else if(status === 'started')
+					    $('#status').removeClass('hide').text("Started").show();
+					else if(status === 'stopped')
+					    stopStream();
+				    }
+				} else if(msg["error"] !== undefined && msg["error"] !== null) {
+				    bootbox.alert(msg["error"]);
+				    stopStream();
+				    return;
+				}
+				if(jsep !== undefined && jsep !== null) {
+				    Janus.debug("Handling SDP as well...");
+				    Janus.debug(jsep);
+				    // Answer
+				    streaming.createAnswer(
+					{
+					    jsep: jsep,
+					    media: { audioSend: false, videoSend: false },	// We want recvonly audio/video
+					    success: function(jsep) {
+						Janus.debug("Got SDP!");
+						Janus.debug(jsep);
+						var body = { "request": "start" };
+						streaming.send({"message": body, "jsep": jsep});
+						$('#watch').html("Stop").removeAttr('disabled').click(stopStream);
+					    },
+					    error: function(error) {
+						Janus.error("WebRTC error:", error);
+						bootbox.alert("WebRTC error... " + JSON.stringify(error));
+					    }
+					});
+				}
                             },
                             onremotestream: function(stream) {
                                 Janus.debug(" ::: Got a remote stream ::: ");
