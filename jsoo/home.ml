@@ -6,8 +6,8 @@ let (>|=) = Lwt.(>|=)
 
 let button_type = Js.string "button"
 
-let server = "http://127.0.0.1:8088/janus"
-
+let server = "http://janus.conf.meetecho.com:8088/janus"
+           
 let make_struct () =
   let open Common in
   let tmp = Qoe_types.default in
@@ -35,12 +35,12 @@ let onload _ =
   
   let ask_server push =
     let post_args = ["data", `String (Js.bytestring str)] in
-    XmlHttpRequest.perform_raw
+    Lwt_xmlHttpRequest.perform_raw
       ~content_type:"application/json; charset=UTF-8"
       ~headers:["Accept", "application/json, text/javascript, */*; q=0.01";
                 "X-Requested-With", "XMLHttpRequest"]
       ~override_method:`POST
-      ~post_args
+      ~contents:(`POST_form post_args)
       ~response_type:XmlHttpRequest.Text
       "api/test"
     >|= (fun resp ->

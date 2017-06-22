@@ -10,7 +10,7 @@ common:
 
 home: common
 	$(BUILD) $(FLAGS) jsoo/home.byte
-	js_of_ocaml --opt 3 +weak.js -o resources/js/home.js _build/jsoo/home.byte
+	js_of_ocaml.exe --opt 3 +weak.js -o resources/js/home.js _build/jsoo/home.byte
 
 frontend: home
 
