@@ -3,10 +3,9 @@ class type handle =
     method getId  : Js.number Js.t Js.prop
   end
 
-type parameters =
-  { plugin    : Js.js_string Js.opt
-  ; success   : handle Js.t -> unit
-  }
+type parameters
+
+val make_parameters : ?plugin:string -> ?success:(handle Js.t -> unit) -> unit -> parameters
 
 class type janus = 
   object

@@ -5,11 +5,16 @@ class type handle =
     method getId  : Js.number Js.t Js.prop
   end
   
-type parameters =
-  { plugin    : Js.js_string Js.opt
-  ; success   : handle Js.t -> unit
-  }
+type parameters
 
+let make_parameters ?plugin
+                    ?success
+                    () =
+  let open Js.Unsafe in
+  let plugin' = ("plugin", Js.Opt.option plugin >|= Js.string |> inject) in
+  let success' = ("success", Js.Opt.option success >|= Js.wrap_callback |> inject) in
+  obj [|plugin'; success'|]
+    
 class type janus = 
   object
     method getServer     : Js.js_string Js.t Js.prop
