@@ -1,0 +1,6 @@
+_build/
+db
+*.byte
+*.native
+*.bak
+tmp
