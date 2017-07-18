@@ -1,124 +1,146 @@
 (* (\* Base mountpoint parameters for any kind (rtp, live, ondemand) *\) *)
-(* module Mp_base : sig *)
+module Mp_base : sig
 
-(*   type t = *)
-(*     { id          : int option *)
-(*     ; name        : string option *)
-(*     ; description : string option *)
-(*     ; is_private  : bool option *)
-(*     ; audio       : bool option *)
-(*     ; video       : bool option *)
-(*     ; data        : bool option *)
-(*     } *)
+  type t =
+    { id          : int option
+    ; name        : string option
+    ; description : string option
+    ; is_private  : bool option
+    ; audio       : bool option
+    ; video       : bool option
+    ; data        : bool option
+    }
 
-(* end *)
+  val to_js_obj : t -> (string * Js.Unsafe.any) array
 
-(* (\* Parameters for rtp mountpoint*\) *)
-(* module Mp_rtp : sig *)
+end
 
-(*   type t = { base : Mp_base.t option } *)
+(* Parameters for rtp mountpoint*)
+module Mp_rtp : sig
 
-(*   type audio = *)
-(*     { audiomcast  : string option *)
-(*     ; audioport   : int *)
-(*     ; audiopt     : int *)
-(*     ; audiortpmap : string *)
-(*     ; audiofmtp   : string option *)
-(*     ; audioiface  : string option *)
-(*     } *)
+  type audio =
+    { audiomcast  : string option
+    ; audioport   : int
+    ; audiopt     : int
+    ; audiortpmap : string
+    ; audiofmtp   : string option
+    ; audioiface  : string option
+    }
 
-(*   type video = *)
-(*     { videomcast    : string option *)
-(*     ; videoport     : int *)
-(*     ; videopt       : int *)
-(*     ; videortpmap   : string *)
-(*     ; videofmpt     : string option *)
-(*     ; videoiface    : string option *)
-(*     ; videobufferkf : bool option *)
-(*     } *)
+  type video =
+    { videomcast    : string option
+    ; videoport     : int
+    ; videopt       : int
+    ; videortpmap   : string
+    ; videofmtp     : string option
+    ; videoiface    : string option
+    ; videobufferkf : bool option
+    }
 
-(*   type data = *)
-(*     { dataport      : int *)
-(*     ; databuffermsg : bool option *)
-(*     ; dataiface     : string option *)
-(*     } *)
+  type data =
+    { dataport      : int
+    ; databuffermsg : bool option
+    ; dataiface     : string option
+    }
+    
+  type t = { base : Mp_base.t option
+           ; audio : audio option
+           ; video : video option
+           ; data  : data option
+           }
 
-(* end *)
+  val to_js_obj : t -> (string * Js.Unsafe.any) array
 
-(* (\* Parameters for live mountpoint *\) *)
-(* module Mp_live : sig *)
+end
 
-(*   type t = *)
-(*     { base : Mp_base.t option *)
-(*     ; filename : string *)
-(*     } *)
+(* Parameters for live mountpoint *)
+module Mp_live : sig
 
-(* end *)
+  type t =
+    { base : Mp_base.t option
+    ; filename : string
+    }
 
-(* (\* Parameters for ondemand mountpoint *\) *)
-(* module Mp_ondemand : sig *)
+  val to_js_obj : t -> (string * Js.Unsafe.any) array
 
-(*   type t = Mp_live.t *)
+end
 
-(* end *)
+(* Parameters for ondemand mountpoint *)
+module Mp_ondemand : sig
 
-(* (\* Parameters for rtps mountpoint *\) *)
-(* module Mp_rtsp : sig *)
+  type t = Mp_live.t
 
-(*   type t = *)
-(*     { base      : Mp_base.t option *)
-(*     ; url       : string option *)
-(*     ; rtsp_user : string option *)
-(*     ; rtsp_pwd  : string option *)
-(*     ; rtspiface : string option *)
-(*     } *)
+  val to_js_obj : t -> (string * Js.Unsafe.any) array
 
-(* end *)
+end
 
-(* (\* Parameters to start recording from a mountpoint *\) *)
-(* module Mp_recording : sig *)
+(* Parameters for rtps mountpoint *)
+module Mp_rtsp : sig
 
-(*   type recording_action = Start *)
-(*                         | Stop *)
+  type t =
+    { base      : Mp_base.t option
+    ; url       : string option
+    ; rtsp_user : string option
+    ; rtsp_pwd  : string option
+    ; rtspiface : string option
+    }
 
-(*   type t = *)
-(*     { id     : int *)
-(*     ; action : recording_action *)
-(*     ; secret : string option *)
-(*     ; audio  : bool option *)
-(*     ; video  : bool option *)
-(*     ; data   : bool option *)
-(*     } *)
+  val to_js_obj : t -> (string * Js.Unsafe.any) array
 
-(* end *)
+end
 
-(* module Mp_create : sig *)
+(* Parameters to start recording from a mountpoint *)
+module Mp_recording : sig
 
-(*   type mp_type = Rtp *)
-(*                | Live *)
-(*                | Ondemand *)
-(*                | Rtsp *)
+  type recording_action =
+    | Start of (string option * string option * string option) (* filenames *)
+    | Stop of (bool option * bool option * bool option) (* flags *)
 
-(*   type t = *)
-(*     { _type     : mp_type *)
-(*     ; adminkey  : string option *)
-(*     ; secret    : string option *)
-(*     ; pin       : string option *)
-(*     ; permanent : bool option *)
-(*     } *)
+  type t =
+    { id     : int
+    ; action : recording_action
+    ; secret : string option
+    }
 
-(* end *)
+  val action_to_string : recording_action -> string
 
-(* (\* Parameters to destroy a mountpoint *\) *)
-(* module Mp_destroy : sig *)
+  val to_js_obj        : t -> (string * Js.Unsafe.any) array
 
-(*   type t = *)
-(*     { id        : int *)
-(*     ; secret    : string option *)
-(*     ; permanent : bool option *)
-(*     } *)
+end
 
-(* end *)
+module Mp_create : sig
+
+  type mp_type = Rtp of Mp_rtp.t
+               | Live of Mp_live.t
+               | Ondemand of Mp_ondemand.t
+               | Rtsp of Mp_rtsp.t
+
+  type t =
+    { type_     : mp_type
+    ; admin_key : string option
+    ; secret    : string option
+    ; pin       : string option
+    ; permanent : bool option
+    }
+
+  val type_to_string : mp_type -> string
+
+  val to_js_obj      : t -> (string * Js.Unsafe.any) array
+
+end
+
+(* Parameters to destroy a mountpoint *)
+module Mp_destroy : sig
+
+  type t =
+    { id        : int
+    ; secret    : string option
+    ; permanent : bool option
+    }
+
+  val to_js_obj : t -> (string * Js.Unsafe.any) array
+
+end
 
 
 (* Janus plugin handler *)
@@ -128,11 +150,11 @@ module Plugin : sig
   type t = Janus.plugin Js.t
 
   (* Mountpoint info *)
-  type mp_info = { video_age_ms : int
-                 ; audio_age_ms : int
-                 ; id           : int
-                 ; _type        : string
-                 ; description  : string
+  type mp_info = { video_age_ms : int option
+                 ; audio_age_ms : int option
+                 ; id           : int option
+                 ; type_        : string option
+                 ; description  : string option
                  }
 
   type media_video = Bool of bool
@@ -158,17 +180,17 @@ module Plugin : sig
   (* Plugin request types *)
   type _ request =
     | List      : mp_info list request
-    | Info      : int -> mp_info request
-    | Create    : int -> string request
-    | Destroy   : int -> string request
-    | Recording : int -> string request
-    | Enable    : int -> string request
-    | Disable   : int -> string request
-    | Watch     : int -> string request
+    | Info      : int                   -> mp_info request
+    | Create    : Mp_create.t           -> string request
+    | Destroy   : Mp_destroy.t          -> string request
+    | Recording : Mp_recording.t        -> string request
+    | Enable    : (int * string option) -> string request
+    | Disable   : (int * string option) -> string request
+    | Watch     : (int * string option) -> unit request
     | Start     : unit request
     | Pause     : unit request
     | Stop      : unit request
-    | Switch    : int -> unit request
+    | Switch    : int                   -> unit request
 
   (* Get plugin id *)
   val get_id : t   -> int64
@@ -177,7 +199,7 @@ module Plugin : sig
   val get_name : t -> string
 
   (* Send message to plugin *)
-  val send  :  ?jsep:Js.json Js.t -> t -> 'a request -> 'a Lwt.t
+  val send  :  ?jsep:Js.json Js.t -> t -> 'a request -> ('a,string) Result.result Lwt.t
 
   (* Create WebRTC answer *)
   val create_answer : t -> media_props -> bool option -> Js.json Js.t -> unit
@@ -186,6 +208,13 @@ end
 
 (* Janus instance *)
 type janus = Janus.janus Js.t
+
+(* Possible Janus failures *)
+(* type janus_error = Janus_init_failure *)
+(*                  | Session_create_failure *)
+(*                  | Plugin_attach_failure *)
+(*                  | Plugin_send_failure *)
+(*                  | Plugin_answer_failure *)
 
 (* Available Janus debuggers *)
 type debug_token = Trace
