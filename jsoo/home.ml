@@ -67,16 +67,16 @@ let janus_pipe debug =
         (* FIXME do something useful in case of destroy*)
         res.destroy >>= (fun () -> Printf.printf "Session handle destroyed\n" |> return) |> ignore;
         res.success)
-  >>= (fun session -> let res = attach session { name = Plugin.Streaming
-                                               ; opaque_id = None
-                                               ; consent_dialog = None
-                                               ; webrtc_state = None
-                                               ; ice_state = None
-                                               ; media_state = None
-                                               ; slow_link = None
-                                               ; on_cleanup = None
-                                               ; detached = None
-                                               } in
+  >>= (fun session -> let res = Session.attach session { name = Plugin.Streaming
+                                                       ; opaque_id = None
+                                                       ; consent_dialog = None
+                                                       ; webrtc_state = None
+                                                       ; ice_state = None
+                                                       ; media_state = None
+                                                       ; slow_link = None
+                                                       ; on_cleanup = None
+                                                       ; detached = None
+                                                       } in
         res.error >>= (fun s -> Printf.printf "Error in plugin handle %s\n" s |> return) |> ignore;
         res.success)
   >>= (fun plugin -> Janus_streaming.send plugin (Watch { id = 1; secret = None }))

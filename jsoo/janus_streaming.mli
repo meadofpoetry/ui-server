@@ -274,4 +274,4 @@ type _ request =
   | Stop      : unit request
   | Switch    : Mp_switch.t    -> unit request
 
-val send : ?jsep:'a -> Janus_static.Plugin.t -> 'b request -> ('b,string) Result.result Lwt.t
+val send : ?jsep:'a -> Janus_static.Plugin.t -> 'b request -> 'b Janus_static.janus_result
