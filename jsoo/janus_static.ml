@@ -1,6 +1,7 @@
 let (>|=) x f = Js.Optdef.map x f
 let (>>=) = Lwt.(>>=)
 
+let int_of_number x = int_of_float @@ Js.float_of_number x
 let wrap_js_optdef x f = Js.Optdef.option x >|= f |> Js.Unsafe.inject
 let bind_undef_or_null x f =
   let open CCOpt in
@@ -8,237 +9,24 @@ let bind_undef_or_null x f =
   >>= Js.Opt.to_option
   >>= f
 
-module Mp_base = struct
-
-  type t =
-    { id          : int option
-    ; name        : string option
-    ; description : string option
-    ; is_private  : bool option
-    ; audio       : bool option
-    ; video       : bool option
-    ; data        : bool option
-    }
-
-  let to_js_obj x =
-    let id          = ("id", wrap_js_optdef x.id (fun x -> x)) in
-    let name        = ("name", wrap_js_optdef x.name Js.string) in
-    let description = ("description", wrap_js_optdef x.description Js.string) in
-    let is_private  = ("is_private", wrap_js_optdef x.is_private Js.bool) in
-    let audio       = ("audio", wrap_js_optdef x.audio Js.bool) in
-    let video       = ("video", wrap_js_optdef x.video Js.bool) in
-    let data        = ("data", wrap_js_optdef x.data Js.bool) in
-    [| id; name; description; is_private; audio; video; data |]
-
-end
-
-(* Parameters for rtp mountpoint*)
-module Mp_rtp = struct
-
-  type audio =
-    { audiomcast  : string option
-    ; audioport   : int
-    ; audiopt     : int
-    ; audiortpmap : string
-    ; audiofmtp   : string option
-    ; audioiface  : string option
-    }
-
-  type video =
-    { videomcast    : string option
-    ; videoport     : int
-    ; videopt       : int
-    ; videortpmap   : string
-    ; videofmtp     : string option
-    ; videoiface    : string option
-    ; videobufferkf : bool option
-    }
-
-  type data =
-    { dataport      : int
-    ; databuffermsg : bool option
-    ; dataiface     : string option
-    }
-
-  type t = { base  : Mp_base.t option
-           ; audio : audio option
-           ; video : video option
-           ; data  : data option
-           }
-
-  let to_js_obj x =
-    let base  = match x.base with
-      | Some x -> Mp_base.to_js_obj x
-      | None   -> [| |] in
-    let audio = match x.audio with
-      | Some aud -> [| ("audiomcast", wrap_js_optdef aud.audiomcast Js.string);
-                       ("audioport", Js.Unsafe.inject aud.audioport);
-                       ("audiopt", Js.Unsafe.inject @@ (fun x -> x) aud.audiopt);
-                       ("audiortpmap", Js.Unsafe.inject @@ Js.string aud.audiortpmap);
-                       ("audiofmtp", wrap_js_optdef aud.audiofmtp Js.string);
-                       ("audioiface", wrap_js_optdef aud.audioiface Js.string) |]
-      | None -> [| |] in
-    let video = match x.video with
-      | Some vid -> [| ("videomcast", wrap_js_optdef vid.videomcast Js.string);
-                       ("videoport", Js.Unsafe.inject vid.videoport);
-                       ("videopt", Js.Unsafe.inject @@ (fun x -> x) vid.videopt);
-                       ("videortpmap", Js.Unsafe.inject @@ Js.string vid.videortpmap);
-                       ("videofmtp", wrap_js_optdef vid.videofmtp Js.string);
-                       ("videoiface", wrap_js_optdef vid.videoiface Js.string);
-                       ("videobufferkf", wrap_js_optdef vid.videobufferkf Js.bool) |]
-      | None -> [| |] in
-    let data = match x.data with
-      | Some data -> [| ("dataport", Js.Unsafe.inject data.dataport);
-                        ("databuffermsg", wrap_js_optdef data.databuffermsg Js.bool);
-                        ("dataiface", wrap_js_optdef data.dataiface Js.string) |]
-      | None -> [| |] in
-    Array.concat [ base; audio; video; data ]
-
-end
-
-(* Parameters for live mountpoint *)
-module Mp_live = struct
-
-  type t =
-    { base : Mp_base.t option
-    ; filename : string
-    }
-
-  let to_js_obj x =
-    let base     = match x.base with
-      | Some x -> Mp_base.to_js_obj x
-      | None   -> [| |] in
-    let filename = [| ("filename", Js.Unsafe.inject @@ Js.string x.filename) |] in
-    Array.append base filename
-
-end
-
-(* Parameters for ondemand mountpoint *)
-module Mp_ondemand = struct
-
-  type t = Mp_live.t
-
-  let to_js_obj x = Mp_live.to_js_obj x
-
-end
-
-(* Parameters for rtps mountpoint *)
-module Mp_rtsp = struct
-
-  type t =
-    { base      : Mp_base.t option
-    ; url       : string option
-    ; rtsp_user : string option
-    ; rtsp_pwd  : string option
-    ; rtspiface : string option
-    }
-
-  let to_js_obj x =
-    let base = match x.base with
-      | Some x -> Mp_base.to_js_obj x
-      | None   -> [| |] in
-    let specific = [| ("url", wrap_js_optdef x.url Js.string);
-                      ("rtsp_user", wrap_js_optdef x.rtsp_user Js.string);
-                      ("rtsp_pwd", wrap_js_optdef x.rtsp_pwd Js.string);
-                      ("rtspiface", wrap_js_optdef x.rtspiface Js.string) |] in
-    Array.append base specific
-
-end
-
-(* Parameters to start recording from a mountpoint *)
-module Mp_recording = struct
-
-  type recording_action =
-    | Start of (string option * string option * string option) (* filenames *)
-    | Stop of (bool option * bool option * bool option) (* flags *)
-
-  type t =
-    { id     : int
-    ; action : recording_action
-    ; secret : string option
-    }
-
-  let action_to_string = function
-    | Start _ -> "start" | Stop _ -> "stop"
-
-  let to_js_obj x =
-    let id     = ("id", Js.Unsafe.inject x.id) in
-    let action = ("action", Js.Unsafe.inject @@ Js.string @@ action_to_string x.action) in
-    let secret = ("secret", wrap_js_optdef x.secret Js.string) in
-    let params = match x.action with
-      | Start (a,v,d) -> [| ("audio", wrap_js_optdef a Js.string);
-                            ("video", wrap_js_optdef v Js.string);
-                            ("data", wrap_js_optdef d Js.string) |]
-      | Stop (a,v,d)  -> [| ("audio", wrap_js_optdef a Js.bool);
-                            ("video", wrap_js_optdef v Js.bool);
-                            ("data", wrap_js_optdef d Js.bool) |] in
-    Array.append [| id; action; secret |] params
-
-end
-
-module Mp_create = struct
-
-  type mp_type = Rtp of Mp_rtp.t
-               | Live of Mp_live.t
-               | Ondemand of Mp_ondemand.t
-               | Rtsp of Mp_rtsp.t
-
-  type t =
-    { type_     : mp_type
-    ; admin_key : string option
-    ; secret    : string option
-    ; pin       : string option
-    ; permanent : bool option
-    }
-
-  let type_to_string = function
-    | Rtp _ -> "rtp" | Live _ -> "live" | Ondemand _ -> "ondemand" | Rtsp _ -> "rtsp"
-
-  let to_js_obj x =
-    let type_    = match x.type_ with
-      | Rtp rtp           -> Mp_rtp.to_js_obj rtp
-      | Live live         -> Mp_live.to_js_obj live
-      | Ondemand ondemand -> Mp_ondemand.to_js_obj ondemand
-      | Rtsp rtsp         -> Mp_rtsp.to_js_obj rtsp in
-    let specific = [| ("type", Js.Unsafe.inject @@ Js.string @@ type_to_string x.type_);
-                      ("admin_key", wrap_js_optdef x.admin_key Js.string);
-                      ("secret", wrap_js_optdef x.secret Js.string);
-                      ("pin", wrap_js_optdef x.pin Js.string);
-                      ("permanent", wrap_js_optdef x.permanent Js.bool) |] in
-    Array.append type_ specific
-
-end
-
-(* Parameters to destroy a mountpoint *)
-module Mp_destroy = struct
-
-  type t =
-    { id        : int
-    ; secret    : string option
-    ; permanent : bool option
-    }
-
-  let to_js_obj x =
-    let id        = ("id", Js.Unsafe.inject x.id) in
-    let secret    = ("secret", wrap_js_optdef x.secret Js.string) in
-    let permanent = ("permanent", wrap_js_optdef x.permanent Js.bool) in
-    [| id; secret; permanent |]
-
-end
-
 (** Janus plugin handler **)
 module Plugin = struct
 
+  (* Types *)
+
   type t = Janus.plugin Js.t
 
-  type mp_info = { video_age_ms : int option
-                 ; audio_age_ms : int option
-                 ; id           : int option
-                 ; type_        : string option
-                 ; description  : string option
-                 }
+  type plugin_type = Audiobridge
+                   | Echotest
+                   | Recordplay
+                   | Sip
+                   | Streaming
+                   | Textroom
+                   | Videocall
+                   | Videoroom
+                   | Voicemail
 
-   type media_video = Bool of bool
+  type media_video = Bool of bool
                    | Resolution of ([`Lowres | `Stdres | `Hires] * [`Wide | `Square ])
                    | Screen
                    | Device of (int * int * int)
@@ -258,146 +46,85 @@ module Plugin = struct
                      ; screen_rate : int option
                      }
 
-  type _ request =
-    (* sync requests, have response *)
-    | List      : mp_info list request
-    | Info      : int                   -> mp_info request
-    | Create    : Mp_create.t           -> string request
-    | Destroy   : Mp_destroy.t          -> string request
-    | Recording : Mp_recording.t        -> string request
-    | Enable    : (int * string option) -> string request
-    | Disable   : (int * string option) -> string request
-    (* async requests, have no response *)
-    | Watch     : (int * string option) -> unit request
-    | Start     : unit request
-    | Pause     : unit request
-    | Stop      : unit request
-    | Switch    : int                   -> unit request
+  type 'a send_response = Error of int option * string
+                        | Empty
+                        | Data of 'a
 
-  let default_streaming_media_props = { audio_send       = Some false
-                                      ; audio_recv       = None
-                                      ; audio            = None
-                                      ; video_send       = Some false
-                                      ; video_recv       = None
-                                      ; video            = None
-                                      ; data             = None
-                                      ; fail_if_no_video = None
-                                      ; fail_if_no_audio = None
-                                      ; screen_rate      = None
-                                      }
+  (* Helper functions *)
+
+  let plugin_type_to_string type_ =
+    let name = match type_ with
+      | Audiobridge -> "audiobridge" | Echotest  -> "echotest"  | Recordplay -> "recordplay"
+      | Sip         -> "sip"         | Streaming -> "streaming" | Textroom   -> "textroom"
+      | Videocall   -> "videocall"   | Videoroom -> "videoroom" | Voicemail  -> "voicemail" in
+    "janus.plugin." ^ name
+
+  let get_resolution_string quality aspect =
+    let q = match quality with
+      | `Lowres -> "lowres"
+      | `Stdres -> "stdres"
+      | `Hires -> "hires" in
+    let a = match aspect with
+      | `Wide -> "-16:9"
+      | `Square -> "" in
+    q ^ a
+
+  let parse_sync_response name f = function
+    | Empty         -> Result.Error "Empty message"
+    | Data d        -> (let prop = Js.Unsafe.get d name in
+                        Js.Optdef.bind prop (fun x -> Js.Unsafe.get d x)
+                        |> Js.Optdef.to_option
+                        |> (function
+                            | Some x -> f x
+                            | None   -> Result.Error "Bad response"))
+    | Error (_,msg) -> Result.Error msg
+
+  let parse_async_response = function
+    | Empty         -> Ok ()
+    | Error (_,msg) -> Result.Error msg (* FIXME add error code to error string? *)
+    | Data _        -> Result.Error "Data returned in async request"
+
+  let data_or_error response =
+    let response = Js.Optdef.to_option response in
+    match response with
+    | Some response ->
+      if (Js.Optdef.test ((Js.Unsafe.coerce response)##.error_code)) ||
+         (Js.Optdef.test ((Js.Unsafe.coerce response)##.error))
+      then
+        let error = match Js.Optdef.to_option (Js.Unsafe.coerce response)##.error with
+          | Some x -> Js.to_string x
+          | None   -> "" in
+        let code  = match Js.Optdef.to_option (Js.Unsafe.coerce response)##.error_code with
+          | Some x -> Some (int_of_number x)
+          | None   -> None in
+        Error (code, error)
+      else Data response
+    | None -> Empty
+
+  (* Plugin functions *)
 
   let get_id plugin   = plugin##getId () |> Js.float_of_number |> Int64.of_float
 
   let get_name plugin = plugin##getPlugin () |> Js.to_string
 
-  let request_to_string : type a. a request -> string = function
-    | List        -> "list"    | Info _      -> "info"      | Create _    -> "create"
-    | Destroy _   -> "destroy" | Recording _ -> "recording" | Enable _    -> "enable"
-    | Disable _   -> "disable" | Watch _     -> "watch"     | Start       -> "start"
-    | Pause       -> "pause"   | Stop        -> "stop"      | Switch _    -> "switch"
-
-  let request_to_params : type a. a request -> (string * Js.Unsafe.any) array = function
-    | List                -> [| |]
-    | Info x              -> [| ("id", Js.Unsafe.inject x) |]
-    | Create x            -> Mp_create.to_js_obj x
-    | Destroy x           -> Mp_destroy.to_js_obj x
-    | Recording x         -> Mp_recording.to_js_obj x
-    | Enable (id,secret)  -> [| ("id", Js.Unsafe.inject id);
-                                ("secret", wrap_js_optdef secret Js.string) |]
-    | Disable (id,secret) -> [| ("id", Js.Unsafe.inject id);
-                                ("secret", wrap_js_optdef secret Js.string) |]
-    | Watch (id,secret)   -> [| ("id", Js.Unsafe.inject id);
-                                ("secret", wrap_js_optdef secret Js.string)|]
-    | Start               -> [| |]
-    | Pause               -> [| |]
-    | Stop                -> [| |]
-    | Switch x            -> [| ("id", Js.Unsafe.inject x) |]
-
-  let obj_to_mp_info obj =
-    let open CCOpt in
-    { id           = (bind_undef_or_null
-                        obj##.id
-                        (fun x -> return @@ int_of_float @@ Js.float_of_number x))
-    ; video_age_ms = (bind_undef_or_null
-                        obj##.video_age_ms
-                        (fun x -> return @@ int_of_float @@ Js.float_of_number x))
-    ; audio_age_ms = (bind_undef_or_null
-                        obj##.audio_age_ms
-                        (fun x -> return @@ int_of_float @@ Js.float_of_number x))
-    ; type_        = (bind_undef_or_null
-                        obj##.type_
-                        (fun x -> return @@ Js.to_string x))
-    ; description  = (bind_undef_or_null
-                        obj##.description
-                        (fun x -> return @@ Js.to_string x))
-    }
-
-  let parse_mp_info response = 
-    CCOpt.(bind_undef_or_null response (fun resp ->
-        bind_undef_or_null resp##.info
-          (fun info -> return @@ obj_to_mp_info info)))
-
-  let parse_mp_list response =
-    CCOpt.(bind_undef_or_null response (fun resp ->
-        bind_undef_or_null resp##.list
-          (fun arr -> return @@ Array.to_list @@ Array.map obj_to_mp_info arr)))
-
-  let make_response (type a) response (request:a request) : (a,string) Result.result =
-    match request with
-    | List         ->
-      begin match (parse_mp_list response) with
-        | Some x -> Ok x
-        | None   -> Error "Unable to parse mountpoint list"
-      end
-    | Info _       ->
-      begin match (parse_mp_info response) with
-        | Some x -> Ok x
-        | None   -> Error "Unable to parse mounpoint info"
-      end
-    | Create _    -> Ok (Js.to_string @@ Json.output response)
-    | Destroy _   -> Ok (Js.to_string @@ Json.output response)
-    | Recording _ -> Ok (Js.to_string @@ Json.output response)
-    | Enable _    -> Ok (Js.to_string @@ Json.output response)
-    | Disable _   -> Ok (Js.to_string @@ Json.output response)
-    | Watch _     -> Ok ()
-    | Start       -> Ok ()
-    | Pause       -> Ok ()
-    | Stop        -> Ok ()
-    | Switch _    -> Ok ()
-
-  (* Send message to plugin *)
-  let send (type a) ?jsep (plugin:t) (request: a request) : (a,string) Result.result Lwt.t =
+  let send ?jsep (plugin:t) request request_to_string request_to_params parse_response =
     let open Js.Unsafe in
     let t,w      = Lwt.wait () in
-    let request' = ("request",
-                    request_to_string request |> Js.string |> inject) in
+    let request' = ("request", request_to_string request |> Js.string |> inject) in
     let params   = request_to_params request in
-    let message  = ("message", inject @@ obj @@ Array.append [| request'; |] params) in
+    let message  = ("message", inject @@ obj @@ Array.append [| request' |] params) in
     let jsep'    = ("jsep", inject @@ Js.Optdef.option jsep) in
     let success  = ("success", inject @@ Js.wrap_callback (fun resp -> Lwt.wakeup w resp)) in
     let error    = ("error", inject @@ Js.wrap_callback (fun err ->
         Lwt.wakeup_exn w (Failure (Js.to_string (Json.output err))))) in
     plugin##send (obj [| request'; message; success; error; jsep' |]);
     Lwt.catch
-      (fun () -> t >>= (fun result -> Lwt.return @@ make_response result request))
+      (fun () -> t >>= (fun response ->
+           Lwt.return @@ parse_response response request))
       (function
-        | Failure e -> Lwt.return @@ Error e
-        | _ -> Lwt.return @@ Error "Unknown exception")
+        | Failure e -> Lwt.return @@ Result.Error e
+        | e -> Lwt.return @@ Result.Error (Printexc.to_string e))
 
-
-  let get_resolution_string quality aspect =
-    begin match quality with
-      | `Lowres -> "lowres"
-      | `Stdres -> "stdres"
-      | `Hires -> "hires"
-    end
-    ^
-    begin match aspect with
-      | `Wide -> "-16:9"
-      | `Square -> ""
-    end
-
-  (* Create WebRTC answer *)
   (* FIXME includes undefined values in the resulting obj *)
   (* FIXME maybe make sending of Start message optional? *)
   (* FIXME return value *)
@@ -432,8 +159,8 @@ module Plugin = struct
                   |> Array.of_list |> obj |> inject ) in
     let trickle' = ("trickle", wrap_js_optdef trickle Js.bool) in
     let jsep' = ("jsep", inject jsep) in
-    let success = ("success", Js.wrap_callback (fun jsep'' -> send ~jsep:jsep'' plugin Start) |> inject) in
-    let error = ("error", Js.wrap_callback (fun _ -> ()) |> inject) in
+    let success = ("success", Js.wrap_callback (fun _ -> () (* send ~jsep:jsep'' plugin Start *)) |> inject) in
+    let error = ("error", Js.wrap_callback (fun _ -> ()) |> inject) in (* FIXME handle error properly *)
     plugin##createAnswer (obj [| media'; trickle'; jsep'; success; error|])
 
 end
@@ -469,7 +196,7 @@ type session_props = { server : [`One of string | `Many of string list]
 
 type 'a react_push = ('a -> unit)
 
-type plugin_props = { name : string
+type plugin_props = { name : Plugin.plugin_type
                     ; opaque_id : string option
                     ; consent_dialog : bool react_push option
                     ; webrtc_state : bool react_push option
@@ -479,6 +206,7 @@ type plugin_props = { name : string
                     ; on_cleanup : unit react_push option
                     ; detached : unit react_push option
                     }
+
 let debug_token_to_string = function
   | Trace -> "trace" | Debug -> "debug" | Log -> "log"
   | Warn  -> "warn"  | Error -> "error"
@@ -535,7 +263,17 @@ let handle_message (handle,msg,jsep) =
   bind_undef_or_null jsep (fun jsep' -> (CCOpt.return
                                          @@ Plugin.create_answer
                                            handle
-                                           Plugin.default_streaming_media_props
+                                           { audio_send       = Some false
+                                           ; audio_recv       = None
+                                           ; audio            = None
+                                           ; video_send       = Some false
+                                           ; video_recv       = None
+                                           ; video            = None
+                                           ; data             = None
+                                           ; fail_if_no_video = None
+                                           ; fail_if_no_audio = None
+                                           ; screen_rate      = None
+                                           }
                                            None
                                            jsep'))
 
@@ -548,7 +286,7 @@ let attach session props =
 
   let open Js.Unsafe in
   let wrap_cb name push = (name, wrap_js_optdef push (fun push -> Js.wrap_callback (fun data -> push data))) in
-  let name              = ("plugin", Js.string props.name |> inject) in
+  let name              = ("plugin", Plugin.plugin_type_to_string props.name|> Js.string |> inject) in
   let opaque_id         = ("opaqueId", wrap_js_optdef props.opaque_id Js.string) in
   let success           = ("success", Js.wrap_callback (fun plugin -> Lwt.wakeup ok_w plugin) |> inject) in
   let error             = ("error", Js.wrap_callback (fun s -> Lwt.wakeup err_w (Js.to_string s)) |> inject) in

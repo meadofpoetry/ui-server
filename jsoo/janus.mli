@@ -1,5 +1,22 @@
 type js_obj = (string * Js.Unsafe.any) array
 
+(* class type response = *)
+(*   object *)
+
+(*     (\* possible error info *\) *)
+(*     method error      : Js.js_string Js.t Js.optdef_prop *)
+(*     method error_code : Js.number Js.t Js.optdef_prop *)
+
+(*     (\* possible streaming plugin fields *\) *)
+(*     method list       : 'a array Js.optdef_prop *)
+(*     method info       : 'b Js.t Js.optdef_prop *)
+(*     method created    : 'c Js.t Js.optdef_prop *)
+(*     method destroyed  : 'd Js.t Js.optdef_prop *)
+
+(*     (\* mandatory (?) streaming plugin name containing string *\) *)
+(*     method streaming   : Js.js_string Js.t Js.optdef_prop *)
+(*   end *)
+
 class type plugin =
   object
     method getId        : unit   -> Js.number Js.t Js.meth
