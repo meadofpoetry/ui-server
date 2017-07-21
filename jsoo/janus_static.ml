@@ -156,6 +156,7 @@ module Plugin = struct
 
   let get_name plugin = plugin##getPlugin () |> Js.to_string
 
+  (* FIXME use call_js_method inside?? *)
   let send ?jsep (plugin:t) request request_to_string request_to_params parse_response =
     let t,w     = Lwt.wait () in
     let open Js.Unsafe in
@@ -205,6 +206,10 @@ module Session = struct
 
   type t = Janus.janus Js.t
 
+  type jsep = Offer of Js.json Js.t
+            | Answer of Js.json Js.t
+            | Unknown of Js.json Js.t
+
 
   type attach_result = { error : string Lwt.t
                        ; success : Plugin.t Lwt.t
@@ -212,39 +217,34 @@ module Session = struct
 
   type 'a react_push = ('a -> unit)
 
-  type plugin_props = { name : Plugin.plugin_type
-                      ; opaque_id : string option
-                      ; consent_dialog : bool react_push option
-                      ; webrtc_state : bool react_push option
-                      ; ice_state : string react_push option
-                      ; media_state : (string * bool) react_push option
-                      ; slow_link : bool react_push option
-                      ; on_cleanup : unit react_push option
-                      ; detached : unit react_push option
+  type plugin_props = { name             : Plugin.plugin_type
+                      ; opaque_id        : string option
+                      ; on_local_stream  : Janus.media_stream Js.t react_push option
+                      ; on_remote_stream : Janus.media_stream Js.t react_push option
+                      ; on_message       : (Plugin.t * Js.json Js.t) react_push option
+                      ; on_jsep          : (Plugin.t * jsep) react_push option
+                      ; consent_dialog   : bool react_push option
+                      ; webrtc_state     : bool react_push option
+                      ; ice_state        : string react_push option
+                      ; media_state      : (string * bool) react_push option
+                      ; slow_link        : bool react_push option
+                      ; on_cleanup       : unit react_push option
+                      ; detached         : unit react_push option
                       }
 
-
-  let handle_message (handle,msg,jsep) =
-    Printf.printf "Got a message: %s\n" (Js.to_string @@ Json.output msg); (* Ignore message for now FIXME*)
+  let handle_message (handle, msg,jsep,on_msg,on_jsep) =
+    (* Handle message *)
+    CCOpt.map (fun f -> f (handle, msg)) on_msg |> ignore;
     (* Handle jsep if some *)
-    (* FIXME possibly should parse jsep here to determine if it is offer or answer
-       and what to do with it further? *)
-    bind_undef_or_null jsep (fun jsep' -> (CCOpt.return
-                                           @@ Plugin.create_answer
-                                             handle
-                                             { audio_send       = Some false
-                                             ; audio_recv       = None
-                                             ; audio            = None
-                                             ; video_send       = Some false
-                                             ; video_recv       = None
-                                             ; video            = None
-                                             ; data             = None
-                                             ; fail_if_no_video = None
-                                             ; fail_if_no_audio = None
-                                             ; screen_rate      = None
-                                             }
-                                             None
-                                             jsep'))
+    bind_undef_or_null jsep (fun jsep' ->
+        let jsep_type = (Js.to_string (Js.Unsafe.coerce jsep')##.type_) in
+        CCOpt.map (fun f -> f (handle, (if String.equal jsep_type "offer"
+                                        then Offer jsep'
+                                        else if String.equal jsep_type "answer"
+                                        then Answer jsep'
+                                        else Unknown jsep')))
+          on_jsep |> CCOpt.return)
+
 
   let get_server (session:t) = session##getServer () |> Js.to_string
 
@@ -273,17 +273,19 @@ module Session = struct
     let on_cleanup        = wrap_cb "oncleanup" props.on_cleanup in
     let detached          = wrap_cb "detached" props.detached in
 
-    let on_remote_stream  = ("onremotestream",
-                             (Js.wrap_callback (fun stream -> Janus.attachMediaStream "remotevideo" stream))
-                             |> inject) in
+    let on_local_stream   = wrap_cb "onlocalstream" props.on_local_stream in
+    let on_remote_stream  = wrap_cb "onremotestream" props.on_remote_stream in
     let on_message        = ("onmessage",
-                             (Js.wrap_callback (fun m j -> ok_t >>= (fun handle -> Lwt.return @@ push (handle,m,j))))
+                             (Js.wrap_callback (fun m j ->
+                                  ok_t
+                                  >>= (fun handle ->
+                                      Lwt.return @@ push (handle,m,j,props.on_message,props.on_jsep))))
                              |> inject) in
 
     session##attach (obj [| name; opaque_id; success; error; on_message;
                             consent_dialog; webrtc_state; ice_state;
                             media_state; slow_link; on_cleanup;
-                            detached; on_remote_stream |]);
+                            detached; on_local_stream; on_remote_stream |]);
     { success = ok_t; error = err_t }
 
   let destroy (session:t) = call_js_method (fun x -> session##destroy x) [||]

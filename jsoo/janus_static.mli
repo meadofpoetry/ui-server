@@ -1,6 +1,6 @@
 type 'a janus_result = ('a,string) Result.result Lwt.t
 
-(* Janus plugin handler *)
+(** Janus plugin handler **)
 module Plugin : sig
 
   (* Types *)
@@ -130,17 +130,26 @@ module Plugin : sig
    **)
   val hangup : t -> bool -> unit
 
-  (** Detaches from the plugin and destroys the handle, tearing down the related PeerConnection **)
+  (**
+     Detaches from the plugin and destroys the handle, tearing down the related PeerConnection
+     FIXME: after that plugin handle will become null or undefined, how to handle this case?
+   **)
   val detach : t -> unit janus_result
 
 end
 
+(** Janus session instance **)
 module Session : sig
 
   (* Types *)
 
   (** Janus instance **)
   type t = Janus.janus Js.t
+
+  (** Types of JSEP **)
+  type jsep = Offer of Js.json Js.t
+            | Answer of Js.json Js.t
+            | Unknown of Js.json Js.t
 
   (**
      Result of attaching plugin to session
@@ -154,18 +163,20 @@ module Session : sig
   type 'a react_push = ('a -> unit)
 
   (** Properties to attach plugin to session **)
-  type plugin_props = { name : Plugin.plugin_type
-                      ; opaque_id : string option
-                      (* ; onlocalstream : bool react_push option *)
-                      (* ; onremotestream : bool react_push option *)
+  type plugin_props = { name             : Plugin.plugin_type
+                      ; opaque_id        : string option
+                      ; on_local_stream  : Janus.media_stream Js.t react_push option
+                      ; on_remote_stream : Janus.media_stream Js.t react_push option
+                      ; on_message       : (Plugin.t * Js.json Js.t) react_push option
+                      ; on_jsep          : (Plugin.t * jsep) react_push option
                       (* callbacks *)
-                      ; consent_dialog : bool react_push option
-                      ; webrtc_state : bool react_push option
-                      ; ice_state : string react_push option
-                      ; media_state : (string * bool) react_push option
-                      ; slow_link : bool react_push option
-                      ; on_cleanup : unit react_push option
-                      ; detached : unit react_push option
+                      ; consent_dialog   : bool react_push option
+                      ; webrtc_state     : bool react_push option
+                      ; ice_state        : string react_push option
+                      ; media_state      : (string * bool) react_push option
+                      ; slow_link        : bool react_push option
+                      ; on_cleanup       : unit react_push option
+                      ; detached         : unit react_push option
                       }
 
   (* Session functions *)

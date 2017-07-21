@@ -431,3 +431,17 @@ let send ?jsep plugin request =
     request_to_string
     request_to_params
     parse_response
+
+let default_media_props =
+  let open Janus_static.Plugin in
+  { audio_send       = Some false
+  ; audio_recv       = None
+  ; audio            = None
+  ; video_send       = Some false
+  ; video_recv       = None
+  ; video            = None
+  ; data             = None
+  ; fail_if_no_video = None
+  ; fail_if_no_audio = None
+  ; screen_rate      = None
+  }

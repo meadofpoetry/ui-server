@@ -51,7 +51,22 @@ let str_opt_to_string = function
 
 let janus_pipe debug =
   let open Janus_static in
-  let open Janus_streaming in
+  let e_msg, push_msg   = Lwt_react.E.create () in
+  let e_jsep, push_jsep = Lwt_react.E.create () in
+  let e_rs, push_rs     = Lwt_react.E.create () in
+  let _ = Lwt_react.E.map (fun (_,x)-> Printf.printf "Got a message: %s\n"
+                              (Js.to_string @@ Json.output x)) e_msg in
+  let _ = Lwt_react.E.map (fun (handle,x) ->
+      match x with
+      | Session.Offer x ->
+        Plugin.create_answer handle Janus_streaming.default_media_props None x
+        >>= (function
+            | Ok jsep -> Lwt.return @@ (Janus_streaming.send ~jsep:jsep handle Start |> ignore)
+            | Error e -> Lwt.return @@ Printf.printf "Error creating answer: %s\n" e) |> ignore
+      | Answer x        -> Plugin.handle_remote_jsep handle x |> ignore
+      | Unknown _       -> Printf.printf "Unknown jsep received\n" |> ignore) e_jsep in
+  let _ = Lwt_react.E.map (fun stream -> Janus.attachMediaStream "remotevideo" stream) e_rs in
+
   init debug
   >>= (fun () -> let res = create { server = `One server
                                   ; ice_servers = None
@@ -69,6 +84,10 @@ let janus_pipe debug =
         res.success)
   >>= (fun session -> let res = Session.attach session { name = Plugin.Streaming
                                                        ; opaque_id = None
+                                                       ; on_local_stream = None
+                                                       ; on_remote_stream = Some push_rs
+                                                       ; on_message = Some push_msg
+                                                       ; on_jsep = Some push_jsep
                                                        ; consent_dialog = None
                                                        ; webrtc_state = None
                                                        ; ice_state = None
@@ -79,12 +98,18 @@ let janus_pipe debug =
                                                        } in
         res.error >>= (fun s -> Printf.printf "Error in plugin handle %s\n" s |> return) |> ignore;
         res.success)
-  >>= (fun plugin -> Janus_streaming.send plugin (Watch { id = 1; secret = None }))
-  >>= (fun x -> 
-      begin match x with
-        | Ok _ -> Printf.printf "Sening message succeeded\n";
-        | Error s -> Printf.printf "Sending message failed: %s\n" s;
-      end;
+  >>= (fun plugin -> Janus_streaming.send plugin (Watch { id = 1; secret = None }) |> ignore ; Lwt.return plugin)
+  >>= (fun plugin ->
+      let doc = Dom_html.document in
+      let div = Dom_html.createDiv doc in
+      let h3 = Dom_html.createH3 doc in
+      h3##.textContent := Js.Opt.return @@ Js.string "Bitrate:";
+      Dom_html.window##setInterval
+        (Js.wrap_callback (fun () ->
+             h3##.textContent := Js.Opt.return @@ Js.string @@ "Bitrate: " ^ (Plugin.get_bitrate plugin)))
+        300.0 |> ignore;
+      Dom.appendChild div h3;
+      Dom.appendChild doc##.body div;
       Lwt.return ())
 
 let onload _ =
@@ -117,12 +142,10 @@ let onload _ =
   let doc = Dom_html.document in
   let div = Dom_html.createDiv doc in
   let h2 = Dom_html.createH2 doc in
-  let button_send  = Dom_html.createInput ~_type:button_type doc in
   let button_set   = Dom_html.createInput ~_type:button_type doc in
   let button_reset = Dom_html.createInput ~_type:button_type doc in
   button_set##.value := Js.string "Change Content";
   button_reset##.value := Js.string "Reset Content";
-  button_send##.value := Js.string "Send message";
 
   let _ = S.map (fun text -> h2##.textContent := text; text) v in
 
@@ -133,7 +156,6 @@ let onload _ =
   Dom.appendChild doc##.body div;
   Dom.appendChild doc##.body button_set;
   Dom.appendChild doc##.body button_reset;
-  Dom.appendChild doc##.body button_send;
   Js._false
 
 let () = Dom_html.window##.onload := Dom_html.handler onload

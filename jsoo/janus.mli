@@ -1,5 +1,13 @@
+(**
+   Represents a stream of media content.
+   A stream consists of several tracks such as video or audio track.
+   https://developer.mozilla.org/en-US/docs/Web/API/MediaStream
+ **)
+type media_stream
+
 type js_obj = (string * Js.Unsafe.any) array
 
+(** Plugin handle object API **)
 class type plugin =
   object
     method getId            : unit      -> Js.number Js.t Js.meth
@@ -15,6 +23,7 @@ class type plugin =
     method detach           : js_obj    -> unit Js.meth
   end
 
+(** Janus session object API **)
 class type janus =
   object
     method getServer    : unit   -> Js.js_string Js.t Js.meth
@@ -24,14 +33,19 @@ class type janus =
     method destroy      : js_obj -> unit Js.meth
   end
 
-(* Janus initialization *)
+(** Janus initialization **)
 val init : js_obj -> unit
 
-(* Create Janus session *)
+(** Create Janus session **)
 val create : js_obj -> 'a
 
-(* Helper method to check whether WebRTC is supported by the browser *)
+(** Helper method to check whether WebRTC is supported by the browser **)
 val isWebrtcSupported : unit -> bool
 
-(* Helper method to attach a stream to a html video element *)
-val attachMediaStream : string -> 'a Js.t -> unit
+(**
+   Helper method to attach a MediaStream to a html video element
+   Arguments:
+   element id - id of a Dom element to attach a stream to
+   stream     - MediaStream object
+ **)
+val attachMediaStream : string -> media_stream Js.t -> unit

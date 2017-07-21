@@ -1,4 +1,4 @@
-(*  Base mountpoint parameters for any kind (rtp, live, ondemand) *)
+(**  Base parameters for mountpoint of any kind (RTP, live, on demand) **)
 module Mp_base : sig
 
   type t =
@@ -15,7 +15,7 @@ module Mp_base : sig
 
 end
 
-(* Parameters for rtp mountpoint*)
+(** Parameters for RTP mountpoint **)
 module Mp_rtp : sig
 
   type audio =
@@ -42,7 +42,7 @@ module Mp_rtp : sig
     ; databuffermsg : bool option
     ; dataiface     : string option
     }
-    
+
   type t = { base : Mp_base.t option
            ; audio : audio option
            ; video : video option
@@ -53,7 +53,7 @@ module Mp_rtp : sig
 
 end
 
-(* Parameters for live mountpoint *)
+(** Parameters for live (file) mountpoint **)
 module Mp_live : sig
 
   type t =
@@ -65,7 +65,7 @@ module Mp_live : sig
 
 end
 
-(* Parameters for ondemand mountpoint *)
+(** Parameters for ondemand (file) mountpoint **)
 module Mp_ondemand : sig
 
   type t = Mp_live.t
@@ -74,7 +74,7 @@ module Mp_ondemand : sig
 
 end
 
-(* Parameters for rtps mountpoint *)
+(** Parameters for rtps mountpoint **)
 module Mp_rtsp : sig
 
   type t =
@@ -193,7 +193,7 @@ module Mp_recording : sig
 
 end
 
-(** A request to enable a mountpoint *)
+(** Request to enable a mountpoint **)
 module Mp_enable : sig
 
   type t = { id     : int
@@ -207,14 +207,14 @@ module Mp_enable : sig
 
 end
 
-(** A request to disable a mountpoint *)
+(** Request to disable a mountpoint **)
 module Mp_disable : sig
 
   include (module type of Mp_enable)
 
 end
 
-(** A request to watch a stream **)
+(** Request to watch a stream **)
 module Mp_watch : sig
 
   type t = { id     : int
@@ -225,7 +225,7 @@ module Mp_watch : sig
 
 end
 
-(** A request to start a stream **)
+(** Request to start a stream **)
 module Mp_start : sig
 
   type t = unit
@@ -234,21 +234,24 @@ module Mp_start : sig
 
 end
 
-(** A request to pause a stream **)
+(** Request to pause a stream **)
 module Mp_pause : sig
 
   include (module type of Mp_start)
 
 end
 
-(** A request to stop a stream **)
+(** Request to stop a stream **)
 module Mp_stop : sig
 
   include (module type of Mp_start)
 
 end
 
-(** A request to switch to a different mountpoint **)
+(**
+   Request to switch to a different mountpoint
+   NOTE: only working for RTP mountpoints
+ **)
 module Mp_switch : sig
 
   type t = int
@@ -274,4 +277,8 @@ type _ request =
   | Stop      : unit request
   | Switch    : Mp_switch.t    -> unit request
 
+(** Same as 'Janus_static.Plugin.send' function, but simplified for streaming plugin *)
 val send : ?jsep:'a -> Janus_static.Plugin.t -> 'b request -> 'b Janus_static.janus_result
+
+(** Default media properties to be passed to Janus_static.Plugin.create_answer *)
+val default_media_props : Janus_static.Plugin.media_props

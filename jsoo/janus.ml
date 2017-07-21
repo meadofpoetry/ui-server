@@ -1,3 +1,5 @@
+type media_stream
+
 type js_obj = (string * Js.Unsafe.any) array
 
 class type plugin =
