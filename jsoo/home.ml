@@ -12,8 +12,6 @@ let server =
   let protocol = (Js.to_string Dom_html.window##.location##.protocol) in
   protocol ^ "//" ^ (Js.to_string Dom_html.window##.location##.hostname) ^ ":8088/janus"
 
-let log = Printf.printf
-           
 let make_struct () =
   let open Common in
   let tmp = Qoe_types.default in
@@ -21,84 +19,40 @@ let make_struct () =
   |> Common.Qoe_types.filter_none
   |> Yojson.Safe.to_string
 
-let int_opt_to_string = function
-  | Some x -> string_of_int x
-  | None -> "unknown"
-
-let str_opt_to_string = function
-  | Some x -> x
-  | None -> "unknown"
-
-(* let info_to_string (i:Janus_static.Plugin.mp_info_ext) = *)
-(*   Printf.printf "Id : %s\n\ *)
-(*                  Type : %s\n\ *)
-(*                  Description: %s\n\ *)
-(*                  Video age ms: %s\n\ *)
-(*                  Audio age ms: %s\n\ *)
-(*                  Data age ms: %s\n\ *)
-(*                  Audio: %s\n\ *)
-(*                  Video: %s\n\ *)
-(*                  Data: %s\n" *)
-(*     (int_opt_to_string i.base.id) *)
-(*     (str_opt_to_string i.base.type_) *)
-(*     (str_opt_to_string i.base.description) *)
-(*     (int_opt_to_string i.base.video_age_ms) *)
-(*     (int_opt_to_string i.base.audio_age_ms) *)
-(*     (int_opt_to_string i.data_age_ms) *)
-(*     (str_opt_to_string i.audio) *)
-(*     (str_opt_to_string i.video) *)
-(*     (str_opt_to_string i.data) *)
-
 let janus_pipe debug =
   let open Janus_static in
   let e_msg, push_msg   = Lwt_react.E.create () in
   let e_jsep, push_jsep = Lwt_react.E.create () in
   let e_rs, push_rs     = Lwt_react.E.create () in
-  let _ = Lwt_react.E.map (fun (_,x)-> Printf.printf "Got a message: %s\n"
-                              (Js.to_string @@ Json.output x)) e_msg in
-  let _ = Lwt_react.E.map (fun (handle,x) ->
-      match x with
-      | Session.Offer x ->
-        Plugin.create_answer handle Janus_streaming.default_media_props None x
-        >>= (function
-            | Ok jsep -> Lwt.return @@ (Janus_streaming.send ~jsep:jsep handle Start |> ignore)
-            | Error e -> Lwt.return @@ Printf.printf "Error creating answer: %s\n" e) |> ignore
-      | Answer x        -> Plugin.handle_remote_jsep handle x |> ignore
-      | Unknown _       -> Printf.printf "Unknown jsep received\n" |> ignore) e_jsep in
-  let _ = Lwt_react.E.map (fun stream -> Janus.attachMediaStream "remotevideo" stream) e_rs in
 
   init debug
-  >>= (fun () -> let res = create { server = `One server
-                                  ; ice_servers = None
-                                  ; ipv6 = None
-                                  ; with_credentials = None
-                                  ; max_poll_events = None
-                                  ; destroy_on_unload = None
-                                  ; token = None
-                                  ; apisecret = None
-                                  } in
+  >>= (fun () -> let res = create ~server:(`One server) () in
         (* FIXME do something useful in case of error*)
         res.error >>= (fun s -> Printf.printf "Error in session handle %s\n" s |> return) |> ignore;
         (* FIXME do something useful in case of destroy*)
         res.destroy >>= (fun () -> Printf.printf "Session handle destroyed\n" |> return) |> ignore;
         res.success)
-  >>= (fun session -> let res = Session.attach session { name = Plugin.Streaming
-                                                       ; opaque_id = None
-                                                       ; on_local_stream = None
-                                                       ; on_remote_stream = Some push_rs
-                                                       ; on_message = Some push_msg
-                                                       ; on_jsep = Some push_jsep
-                                                       ; consent_dialog = None
-                                                       ; webrtc_state = None
-                                                       ; ice_state = None
-                                                       ; media_state = None
-                                                       ; slow_link = None
-                                                       ; on_cleanup = None
-                                                       ; detached = None
-                                                       } in
-        res.error >>= (fun s -> Printf.printf "Error in plugin handle %s\n" s |> return) |> ignore;
-        res.success)
-  >>= (fun plugin -> Janus_streaming.send plugin (Watch { id = 1; secret = None }) |> ignore ; Lwt.return plugin)
+  >>= (fun session -> Session.attach
+          ~session:session
+          ~plugin_type:Plugin.Streaming
+          ~on_remote_stream:push_rs
+          ~on_message:push_msg
+          ~on_jsep:push_jsep
+          ())
+  >>= (fun plugin ->
+      let _ = Lwt_react.E.map (fun x-> Printf.printf "Got a message: %s\n"
+                                  (Js.to_string @@ Json.output x)) e_msg in
+      let _ = Lwt_react.E.map (fun stream -> Janus.attachMediaStream "remotevideo" stream) e_rs in
+      let _ = Lwt_react.E.map (function
+          | Session.Offer x ->
+            Plugin.create_answer plugin Janus_streaming.default_media_props None x
+            >>= (function
+                | Ok jsep -> return @@ (Janus_streaming.send ~jsep:jsep plugin Start |> ignore)
+                | Error e -> return @@ Printf.printf "Error creating answer: %s\n" e) |> ignore
+          | Answer x        -> Plugin.handle_remote_jsep plugin x |> ignore
+          | Unknown _       -> Printf.printf "Unknown jsep received\n" |> ignore) e_jsep in
+      return plugin)
+  >>= (fun plugin -> Janus_streaming.send plugin (Watch { id = 1; secret = None }) |> ignore ; return plugin)
   >>= (fun plugin ->
       let doc = Dom_html.document in
       let div = Dom_html.createDiv doc in
@@ -110,15 +64,15 @@ let janus_pipe debug =
         300.0 |> ignore;
       Dom.appendChild div h3;
       Dom.appendChild doc##.body div;
-      Lwt.return ())
+      return ())
 
 let onload _ =
 
   let () = (Lwt.catch
               (fun () -> (janus_pipe (`All false)))
               (function
-                | Failure e -> Lwt.return @@ Printf.printf "Exception in janus pipe: %s\n" e
-                | _ -> Lwt.return @@ Printf.printf "Unknown exception in janus pipe\n"))
+                | Failure e -> return @@ Printf.printf "Exception in janus pipe: %s\n" e
+                | _ -> return @@ Printf.printf "Unknown exception in janus pipe\n"))
            |> ignore in
 
   let str = make_struct () in

@@ -340,7 +340,15 @@ module Mp_watch = struct
 
 end
 
-module Mp_start = struct
+module type Playback = sig
+
+  type t = unit
+
+  val to_js_obj : t -> (string * Js.Unsafe.any) array
+
+end
+
+module Mp_start : Playback = struct
 
   type t = unit
 
@@ -348,17 +356,9 @@ module Mp_start = struct
 
 end
 
-module Mp_pause = struct
+module Mp_pause : Playback = Mp_start
 
-  include Mp_start
-
-end
-
-module Mp_stop = struct
-
-  include Mp_start
-
-end
+module Mp_stop  : Playback = Mp_start
 
 module Mp_switch = struct
 

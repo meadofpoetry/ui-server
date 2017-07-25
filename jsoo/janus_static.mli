@@ -125,7 +125,7 @@ module Plugin : sig
   (**
      Tells Janus to close PeerConnection.
      If argument is 'true', then a 'hangup' Janus API request is sent to Janus as well.
-     (disabled by default, Janus can usually figure this out via DTLS alerts and the like
+     (disabled by detaefault, Janus can usually figure this out via DTLS alerts and the like
      but it may be useful to enable it sometimes)
    **)
   val hangup : t -> bool -> unit
@@ -151,33 +151,7 @@ module Session : sig
             | Answer of Js.json Js.t
             | Unknown of Js.json Js.t
 
-  (**
-     Result of attaching plugin to session
-     error   - plugin was not attached
-     success - plugin was attached
-   **)
-  type attach_result = { error : string Lwt.t
-                       ; success : Plugin.t Lwt.t
-                       }
-
   type 'a react_push = ('a -> unit)
-
-  (** Properties to attach plugin to session **)
-  type plugin_props = { name             : Plugin.plugin_type
-                      ; opaque_id        : string option
-                      ; on_local_stream  : Janus.media_stream Js.t react_push option
-                      ; on_remote_stream : Janus.media_stream Js.t react_push option
-                      ; on_message       : (Plugin.t * Js.json Js.t) react_push option
-                      ; on_jsep          : (Plugin.t * jsep) react_push option
-                      (* callbacks *)
-                      ; consent_dialog   : bool react_push option
-                      ; webrtc_state     : bool react_push option
-                      ; ice_state        : string react_push option
-                      ; media_state      : (string * bool) react_push option
-                      ; slow_link        : bool react_push option
-                      ; on_cleanup       : unit react_push option
-                      ; detached         : unit react_push option
-                      }
 
   (* Session functions *)
 
@@ -193,7 +167,23 @@ module Session : sig
   (** Attach plugin to Janus session.
       More than one plugin (even of the same type) can be attached to one session
    **)
-  val attach : t -> plugin_props -> attach_result
+  val attach :
+    session           : t                                  ->
+    plugin_type       : Plugin.plugin_type                 ->
+    ?opaque_id        : string                             ->
+    ?on_local_stream  : Janus.media_stream Js.t react_push ->
+    ?on_remote_stream : Janus.media_stream Js.t react_push ->
+    ?on_message       : Js.json Js.t react_push            ->
+    ?on_jsep          : jsep react_push                    ->
+    ?consent_dialog   : bool react_push                    ->
+    ?webrtc_state     : bool react_push                    ->
+    ?ice_state        : string react_push                  ->
+    ?media_state      : (string * bool) react_push         ->
+    ?slow_link        : bool react_push                    ->
+    ?on_cleanup       : unit react_push                    ->
+    ?detached         : unit react_push                    ->
+    unit                                                   ->
+    Plugin.t Lwt.t
 
   (** Destroy Janus session and close all the plugin handles and PeerConnections **)
   val destroy : t -> unit janus_result
@@ -207,17 +197,6 @@ type debug_token = Trace
                  | Warn
                  | Error
 
-(** Properties to create Janus session **)
-type session_props = { server : [`One of string | `Many of string list]
-                     ; ice_servers : string list option
-                     ; ipv6 : bool option
-                     ; with_credentials : bool option
-                     ; max_poll_events : int option
-                     ; destroy_on_unload : bool option
-                     ; token : string option
-                     ; apisecret : string option
-                     }
-
 (**
    Result of Janus session creation
    error   - session was not created or error happened during operation
@@ -230,7 +209,17 @@ type create_result = { error   : string Lwt.t
                      }
 
 (** Create Janus session **)
-val create : session_props -> create_result
+val create :
+  server             : [`One of string | `Many of string list] ->
+  ?ice_servers       : string list                             ->
+  ?ipv6              : bool                                    ->
+  ?with_credentials  : bool                                    ->
+  ?max_poll_events   : int                                     ->
+  ?destroy_on_unload : bool                                    ->
+  ?token             : string                                  ->
+  ?apisecret         : string                                  ->
+  unit                                                         ->
+  create_result
 
 (** Initialize Janus **)
 val init : [`All of bool | `Several of debug_token list ] -> unit Lwt.t

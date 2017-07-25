@@ -19,10 +19,10 @@ let call_js_method f params =
       Lwt.wakeup_exn w (Failure (Js.to_string (Json.output err))))) in
   f (obj @@ Array.append params [| success; error |]);
   Lwt.catch
-    (fun () -> t >>= (fun x -> Lwt.return @@ Ok x))
+    (fun () -> t >>= (fun x -> Lwt.return_ok x))
     (function
-      | Failure e -> Lwt.return @@ Result.Error e
-      | e -> Lwt.return @@ Result.Error (Printexc.to_string e))
+      | Failure e -> Lwt.return_error e
+      | e -> Lwt.return_error (Printexc.to_string e))
 
 (** Janus plugin handler **)
 module Plugin = struct
@@ -171,8 +171,8 @@ module Plugin = struct
     Lwt.catch
       (fun () -> t >>= (fun x -> Lwt.return @@ parse_response x request))
       (function
-        | Failure e -> Lwt.return @@ Result.Error e
-        | e -> Lwt.return @@ Result.Error (Printexc.to_string e))
+        | Failure e -> Lwt.return_error e
+        | e -> Lwt.return_error (Printexc.to_string e))
 
   let create_answer (plugin:t) media trickle jsep =
     prepare_offer_or_answer ~jsep:jsep media trickle |> call_js_method (fun x -> plugin##createAnswer x)
@@ -210,39 +210,19 @@ module Session = struct
             | Answer of Js.json Js.t
             | Unknown of Js.json Js.t
 
-
-  type attach_result = { error : string Lwt.t
-                       ; success : Plugin.t Lwt.t
-                       }
-
   type 'a react_push = ('a -> unit)
 
-  type plugin_props = { name             : Plugin.plugin_type
-                      ; opaque_id        : string option
-                      ; on_local_stream  : Janus.media_stream Js.t react_push option
-                      ; on_remote_stream : Janus.media_stream Js.t react_push option
-                      ; on_message       : (Plugin.t * Js.json Js.t) react_push option
-                      ; on_jsep          : (Plugin.t * jsep) react_push option
-                      ; consent_dialog   : bool react_push option
-                      ; webrtc_state     : bool react_push option
-                      ; ice_state        : string react_push option
-                      ; media_state      : (string * bool) react_push option
-                      ; slow_link        : bool react_push option
-                      ; on_cleanup       : unit react_push option
-                      ; detached         : unit react_push option
-                      }
-
-  let handle_message (handle, msg,jsep,on_msg,on_jsep) =
+  let handle_message (msg,jsep,on_msg,on_jsep) =
     (* Handle message *)
-    CCOpt.map (fun f -> f (handle, msg)) on_msg |> ignore;
+    CCOpt.map (fun f -> f msg) on_msg |> ignore;
     (* Handle jsep if some *)
     bind_undef_or_null jsep (fun jsep' ->
         let jsep_type = (Js.to_string (Js.Unsafe.coerce jsep')##.type_) in
-        CCOpt.map (fun f -> f (handle, (if String.equal jsep_type "offer"
-                                        then Offer jsep'
-                                        else if String.equal jsep_type "answer"
-                                        then Answer jsep'
-                                        else Unknown jsep')))
+        CCOpt.map (fun f -> f (if String.equal jsep_type "offer"
+                               then Offer jsep'
+                               else if String.equal jsep_type "answer"
+                               then Answer jsep'
+                               else Unknown jsep'))
           on_jsep |> CCOpt.return)
 
 
@@ -252,41 +232,38 @@ module Session = struct
 
   let get_session_id (session:t) = session##getSessionId () |> Js.float_of_number |> Int64.of_float
 
-  let attach (session:t) props =
-    let ok_t, ok_w = Lwt.wait () in
-    let err_t, err_w = Lwt.wait () in
-    let e, push = Lwt_react.E.create () in
-    let _ = Lwt_react.E.map handle_message e in
+  let attach ~session ~plugin_type ?opaque_id ?on_local_stream ?on_remote_stream ?on_message ?on_jsep
+      ?consent_dialog ?webrtc_state ?ice_state ?media_state ?slow_link ?on_cleanup ?detached () =
+    let t,w          = Lwt.wait () in
+    let e, push      = Lwt_react.E.create () in
+    let _            = Lwt_react.E.map handle_message e in
 
     let open Js.Unsafe in
-    let wrap_cb name push = (name, wrap_js_optdef push (fun push -> Js.wrap_callback (fun data -> push data))) in
-    let name              = ("plugin", Plugin.plugin_type_to_string props.name|> Js.string |> inject) in
-    let opaque_id         = ("opaqueId", wrap_js_optdef props.opaque_id Js.string) in
-    let success           = ("success", Js.wrap_callback (fun plugin -> Lwt.wakeup ok_w plugin) |> inject) in
-    let error             = ("error", Js.wrap_callback (fun s -> Lwt.wakeup err_w (Js.to_string s)) |> inject) in
-
-    let consent_dialog    = wrap_cb "consentDialog" props.consent_dialog in
-    let webrtc_state      = wrap_cb "webrtcState" props.webrtc_state in
-    let ice_state         = wrap_cb "iceState" props.ice_state in
-    let media_state       = wrap_cb "mediaState" props.media_state in
-    let slow_link         = wrap_cb "slowLink" props.slow_link in
-    let on_cleanup        = wrap_cb "oncleanup" props.on_cleanup in
-    let detached          = wrap_cb "detached" props.detached in
-
-    let on_local_stream   = wrap_cb "onlocalstream" props.on_local_stream in
-    let on_remote_stream  = wrap_cb "onremotestream" props.on_remote_stream in
-    let on_message        = ("onmessage",
-                             (Js.wrap_callback (fun m j ->
-                                  ok_t
-                                  >>= (fun handle ->
-                                      Lwt.return @@ push (handle,m,j,props.on_message,props.on_jsep))))
-                             |> inject) in
-
-    session##attach (obj [| name; opaque_id; success; error; on_message;
-                            consent_dialog; webrtc_state; ice_state;
-                            media_state; slow_link; on_cleanup;
-                            detached; on_local_stream; on_remote_stream |]);
-    { success = ok_t; error = err_t }
+    let wrap_cb           = fun ?f name f_push ->
+      (name, match f with
+        | Some f -> wrap_js_optdef f_push (fun push -> Js.wrap_callback (fun data -> push @@ f data))
+        | None   -> wrap_js_optdef f_push Js.wrap_callback) in
+    let plugin_name       = ("plugin", Plugin.plugin_type_to_string plugin_type |> Js.string |> inject) in
+    let opaque_id'        = ("opaqueId", wrap_js_optdef opaque_id Js.string) in
+    let success           = ("success", Js.wrap_callback (fun plugin -> Lwt.wakeup w plugin) |> inject) in
+    let error             = ("error", Js.wrap_callback (fun s -> Lwt.wakeup_exn w (Failure (Js.to_string s)))
+                                      |> inject) in
+    let consent_dialog'   = wrap_cb "consentDialog" consent_dialog ~f:Js.to_bool in
+    let webrtc_state'     = wrap_cb "webrtcState" webrtc_state ~f:Js.to_bool in
+    let ice_state'        = wrap_cb "iceState" ice_state ~f:Js.to_string in
+    let media_state'      = wrap_cb "mediaState" media_state ~f:(fun (s,b) -> (Js.to_string s, Js.to_bool b)) in
+    let slow_link'        = wrap_cb "slowLink" slow_link ~f:Js.to_bool in
+    let on_cleanup'       = wrap_cb "oncleanup" on_cleanup in
+    let detached'         = wrap_cb "detached" detached in
+    let on_local_stream'  = wrap_cb "onlocalstream" on_local_stream in
+    let on_remote_stream' = wrap_cb "onremotestream" on_remote_stream in
+    let on_message'       = ("onmessage", (Js.wrap_callback (fun m j -> push (m,j,on_message,on_jsep)))
+                                          |> inject) in
+    let params = [| plugin_name; opaque_id'; on_message'; consent_dialog'; webrtc_state'; ice_state';
+                    media_state'; slow_link'; on_cleanup'; detached'; on_local_stream'; on_remote_stream';
+                    success; error |] in
+    let () = session##attach (obj params) in
+    t
 
   let destroy (session:t) = call_js_method (fun x -> session##destroy x) [||]
 
@@ -298,43 +275,34 @@ type debug_token = Trace
                  | Warn
                  | Error
 
-type session_props = { server : [`One of string | `Many of string list]
-                     ; ice_servers : string list option
-                     ; ipv6 : bool option
-                     ; with_credentials : bool option
-                     ; max_poll_events : int option
-                     ; destroy_on_unload : bool option
-                     ; token : string option
-                     ; apisecret : string option
-                     }
-
 type create_result = { error   : string Lwt.t
                      ; success : Session.t Lwt.t
                      ; destroy : unit Lwt.t
                      }
 
-let create props =
+let create ~server ?ice_servers ?ipv6 ?with_credentials
+    ?max_poll_events ?destroy_on_unload ?token ?apisecret () =
   let open Js.Unsafe in
-  let ok_t, ok_w = Lwt.wait () in
-  let err_t, err_w = Lwt.wait () in
-  let destr_t, destr_w = Lwt.wait () in
-  let server = ("server", (match props.server with
+  let ok_t, ok_w         = Lwt.wait () in
+  let err_t, err_w       = Lwt.wait () in
+  let destr_t, destr_w   = Lwt.wait () in
+  let server'            = ("server", (match server with
       | `One x -> Js.string x |> inject
       | `Many x -> (List.map Js.string x |> Array.of_list |> Js.array |> inject))) in
-  let ice_servers       = ("iceServers", wrap_js_optdef props.ice_servers
-                             (fun l -> List.map Js.string l |> Array.of_list)) in
-  let ipv6              = ("ipv6", wrap_js_optdef props.ipv6 Js.bool) in
-  let with_credentials  = ("withCredentials", wrap_js_optdef props.with_credentials Js.bool) in
-  let max_poll_events   = ("max_poll_events", wrap_js_optdef props.max_poll_events (fun x -> x)) in
-  let destroy_on_unload = ("destroyOnUnload", wrap_js_optdef props.destroy_on_unload Js.bool) in
-  let token             = ("token", wrap_js_optdef props.token Js.string) in
-  let apisecret         = ("apisecret", wrap_js_optdef props.apisecret Js.string) in
-  let success           = ("success", Js.wrap_callback (fun () -> Lwt.wakeup ok_w ()) |> inject) in
-  let error             = ("error", Js.wrap_callback (fun s -> Lwt.wakeup err_w (Js.to_string s)) |> inject) in
-  let destroy           = ("destroy", Js.wrap_callback (fun () -> Lwt.wakeup destr_w ()) |> inject) in
+  let ice_servers'       = ("iceServers", wrap_js_optdef ice_servers
+                              (fun l -> List.map Js.string l |> Array.of_list)) in
+  let ipv6'              = ("ipv6", wrap_js_optdef ipv6 Js.bool) in
+  let with_credentials'  = ("withCredentials", wrap_js_optdef with_credentials Js.bool) in
+  let max_poll_events'   = ("max_poll_events", wrap_js_optdef max_poll_events (fun x -> x)) in
+  let destroy_on_unload' = ("destroyOnUnload", wrap_js_optdef destroy_on_unload Js.bool) in
+  let token'             = ("token", wrap_js_optdef token Js.string) in
+  let apisecret'         = ("apisecret", wrap_js_optdef apisecret Js.string) in
+  let success            = ("success", Js.wrap_callback (fun () -> Lwt.wakeup ok_w ()) |> inject) in
+  let error              = ("error", Js.wrap_callback (fun s -> Lwt.wakeup err_w (Js.to_string s)) |> inject) in
+  let destroy            = ("destroy", Js.wrap_callback (fun () -> Lwt.wakeup destr_w ()) |> inject) in
 
-  let j = Janus.create [| server; ice_servers; ipv6; with_credentials;
-                          max_poll_events; destroy_on_unload; token; apisecret;
+  let j = Janus.create [| server'; ice_servers'; ipv6'; with_credentials';
+                          max_poll_events'; destroy_on_unload'; token'; apisecret';
                           success; error; destroy |] in
 
   { success = ok_t >>= (fun () -> Lwt.return j)

@@ -225,8 +225,7 @@ module Mp_watch : sig
 
 end
 
-(** Request to start a stream **)
-module Mp_start : sig
+module type Playback = sig
 
   type t = unit
 
@@ -234,19 +233,14 @@ module Mp_start : sig
 
 end
 
+(** Request to start a stream **)
+module Mp_start : Playback
+
 (** Request to pause a stream **)
-module Mp_pause : sig
-
-  include (module type of Mp_start)
-
-end
+module Mp_pause : Playback
 
 (** Request to stop a stream **)
-module Mp_stop : sig
-
-  include (module type of Mp_start)
-
-end
+module Mp_stop : Playback
 
 (**
    Request to switch to a different mountpoint
