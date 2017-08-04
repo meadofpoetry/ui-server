@@ -30,3 +30,4 @@ PKG js_of_ocaml
 PKG js_of_ocaml-lwt
 PKG js_of_ocaml-ppx
 PKG msgpck
+PKG lwt-zmq
