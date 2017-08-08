@@ -10,140 +10,6 @@ let opt_update f a b =
   | Some x, None | None, Some x -> Some x
   | _ -> None
 
-(* -------------- Channel settings  ---------------- *)
-
-module Error_overlay = struct
-
-  type t =
-    { enabled     : bool option [@default None]
-    ; error_color : int option [@default None]
-    } [@@deriving yojson, lens]
-
-  let update a b =
-    { enabled     = a.enabled <+> b.enabled
-    ; error_color = a.error_color <+> b.error_color
-    }
-
-end
-
-module Channel_name = struct
-
-  type t =
-    { enabled   : bool option [@default None]
-    ; font_size : int option [@default None]
-    ; fmt       : string option [@default None]
-    } [@@deriving yojson, lens]
-
-  let update a b =
-    { enabled   = a.enabled <+> b.enabled
-    ; font_size = a.font_size <+> b.font_size
-    ; fmt       = a.fmt <+> b.fmt
-    }
-
-end
-
-module Audio_meter = struct
-
-  type audio_meter_pos = Left
-                       | Right
-  let audio_meter_pos_of_yojson = function
-    | `String "left"  -> Ok Left
-    | `String "right" -> Ok Right
-    | err -> Error ("audio_meter_pos_of_yojson: wrang data " ^ (Yojson.Safe.to_string err))
-  let audio_meter_pos_to_yojson = function
-    | Left  -> `String "left"
-    | Right -> `String "right"
-
-  type t =
-    { enabled  : bool option [@default None]
-    ; position : audio_meter_pos option [@default None]
-    } [@@deriving yojson, lens]
-
-  let update a b =
-    { enabled  = a.enabled <+> b.enabled
-    ; position = a.position <+> b.position
-    }
-
-end
-
-module Status_bar = struct
-
-  type status_bar_pos = Top_left
-                      | Top_right
-                      | Left
-                      | Right
-                      | Bottom_left
-                      | Bottom_right
-  let status_bar_pos_of_yojson = function
-    | `String "top_left"     -> Ok Top_left
-    | `String "top_right"    -> Ok Top_right
-    | `String "left"         -> Ok Left
-    | `String "right"        -> Ok Right
-    | `String "bottom_left"  -> Ok Bottom_left
-    | `String "bottom_right" -> Ok Bottom_right
-    | err -> Error ("status_bar_pos_of_yojson: wrang data " ^ (Yojson.Safe.to_string err))
-  let status_bar_pos_to_yojson = function
-    | Top_left     -> `String "top_left"
-    | Top_right    -> `String "top_right"
-    | Left         -> `String "left"
-    | Right        -> `String "right"
-    | Bottom_left  -> `String "bottom_left"
-    | Bottom_right -> `String "bottom_right"
-
-  type t =
-    { enabled   : bool option [@default None]
-    ; position  : status_bar_pos option [@default None]
-    ; aspect    : bool option [@default None]
-    ; subtitles : bool option [@default None]
-    ; teletext  : bool option [@default None]
-    ; eit       : bool option [@default None]
-    ; qos       : bool option [@default None]
-    ; scte35    : bool option [@default None]
-    } [@@deriving yojson, lens]
-
-  let update a b =
-    { enabled   = a.enabled <+> b.enabled
-    ; position  = a.position <+> b.position
-    ; aspect    = a.aspect <+> b.aspect
-    ; subtitles = a.subtitles <+> b.subtitles
-    ; teletext  = a.teletext <+> b.teletext
-    ; eit       = a.eit <+> b.eit
-    ; qos       = a.qos <+> b.qos
-    ; scte35    = a.scte35 <+> b.scte35
-    }
-
-end
-
-module Channel_settings = struct
-  module Error_overlay = Error_overlay
-  module Channel_name = Channel_name
-  module Audio_meter = Audio_meter
-  module Status_bar = Status_bar
-
-  type t =
-    { show_border         : bool option [@default None]
-    ; border_color        : int option [@default None]
-    ; show_aspect_border  : bool option [@default None]
-    ; aspect_border_color : int option [@default None]
-    ; error_overlay       : Error_overlay.t option [@default None]
-    ; channel_name        : Channel_name.t option [@default None]
-    ; audio_meter         : Audio_meter.t option [@default None]
-    ; status_bar          : Status_bar.t option [@default None]
-    } [@@deriving yojson, lens]
-
-  let update a b =
-    { show_border         = a.show_border <+> b.show_border
-    ; border_color        = a.border_color <+> b.border_color
-    ; show_aspect_border  = a.show_aspect_border <+> b.show_aspect_border
-    ; aspect_border_color = a.aspect_border_color <+> b.aspect_border_color
-    ; error_overlay       = opt_update Error_overlay.update a.error_overlay b.error_overlay
-    ; channel_name        = opt_update Channel_name.update a.channel_name b.channel_name
-    ; audio_meter         = opt_update Audio_meter.update a.audio_meter b.audio_meter
-    ; status_bar          = opt_update Status_bar.update a.status_bar b.status_bar
-    }
-
-end
-
 (* -------------- QoE settings  ---------------- *)
 
 module Qoe_settings = struct
@@ -267,39 +133,21 @@ end
 (* -------------- Settings  ---------------- *)
 
 module Settings = struct
-  module Channel_settings = Channel_settings
   module Qoe_settings = Qoe_settings
 
   type t =
-    { channel_settings : Channel_settings.t option [@default None]
-    ; qoe_settings     : Qoe_settings.t option [@default None]
+    { qoe_settings     : Qoe_settings.t option [@default None]
     } [@@deriving yojson, lens]
 
   let update a b =
-    { channel_settings = opt_update Channel_settings.update a.channel_settings b.channel_settings
-    ; qoe_settings     = opt_update Qoe_settings.update a.qoe_settings b.qoe_settings
+    { qoe_settings     = opt_update Qoe_settings.update a.qoe_settings b.qoe_settings
     }
 
 end
 
 (* ------------- Prog list (metadata) --------- *)
 
-module Position = struct
-
-  type t =
-    { x      : int
-    ; y      : int
-    ; width  : int
-    ; height : int
-    } [@@deriving yojson, lens]
-
-  let update _ b = b
-
-end
-
-
 module Meta_pid = struct
-  module Position = Position
 
   type video_pid =
     { codec      : string
@@ -325,7 +173,6 @@ module Meta_pid = struct
     ; pid_content      : pid_content option [@default None]
     ; stream_type      : int option [@default None]
     ; stream_type_name : string option [@default None]
-    ; position         : Position.t option [@default None]
     } [@@deriving yojson, lens]
 
   let update _ b = b
@@ -371,14 +218,10 @@ module Options = struct
 
   type t =
     { prog_list         : Meta_stream.t list option [@default None]
-    ; mosaic_resolution : (int * int) option [@default None]
-    ; mosaic_bg_color   : int option [@default None]
     } [@@deriving yojson, lens]
 
-  let update a b =
+  let update _ b =
     { prog_list         = b.prog_list
-    ; mosaic_resolution = a.mosaic_resolution <+> b.mosaic_resolution
-    ; mosaic_bg_color   = a.mosaic_bg_color <+> b.mosaic_bg_color
     }
 
 end
@@ -411,23 +254,78 @@ module Graph = struct
 
 end
 
+(* ------------- WM --------------------------- *)
+
+module Wm = struct
+
+  (* NOTE: just an assumption *)
+  type widget_type = Video
+                   | Audio
+                   | Subtitles
+                   | Teletext
+                   | Qos          (* qos errors/events *)
+                   | Qoe          (* qoe errors/events *)
+                   | Clock        (* digital or analog clock *)
+                   | Text         (* static text *)
+                   | Image        (* image (from file or from url, maybe) *)
+                   | Source       (* text with channel(stream,input,etc) name*)
+                   | Eit          (* text with EIT info *)
+                   | Service_info (* text with service desrciption (resolution,codec,etc) *)
+                   | Icons_bar    (* status bar with availability indication of eit, scte35, teletext etc  *)
+  [@@deriving yojson]
+
+  type background = (* NOTE incomplete *)
+    { color : int } [@@deriving yojson]
+
+  type position =
+    { left   : int
+    ; top    : int
+    ; right  : int
+    ; bottom : int
+    } [@@deriving yojson]
+
+  type widget =
+    { type_    : widget_type [@key "type"]
+    ; position : position
+    } [@@deriving yojson]
+
+  type window =
+    { position : position
+    ; widgets  : (string * widget) list option
+    } [@@deriving yojson]
+
+  type t =
+    { background : background
+    ; resolution : int * int
+    ; windows    : (string * window) list
+    ; widgets    : (string * widget) list
+    ; layout     : (string * window) list
+    } [@@deriving yojson]
+
+  let update _ b = b
+
+end
+
 (* ------------- Root ------------------------- *)
 
 module State = struct
   module Graph    = Graph
   module Settings = Settings
   module Options  = Options
+  module Wm       = Wm
   
   type t =
     { options  : Options.t option [@default None]
     ; settings : Settings.t option [@default None]
     ; graph    : Graph.t option [@default None]
+    ; wm       : Wm.t option [@default None]
     } [@@deriving yojson, lens]
 
   let update a b =
     { options  = opt_update Options.update a.options b.options
     ; settings = opt_update Settings.update a.settings b.settings
     ; graph    = opt_update Graph.update a.graph b.graph
+    ; wm       = opt_update Wm.update a.wm b.wm
     }
 
 end
@@ -455,19 +353,11 @@ let default : State.t =
                                     ; pid_content      = None
                                     ; stream_type      = Some 4
                                     ; stream_type_name = Some "video-h264"
-                                    ; position =
-                                        (Some { x      = 10
-                                              ; y      = 20
-                                              ; width  = 110
-                                              ; height = 120
-                                              })
                                     }
                                   ]
                               }
                             ]
                         } ])
-            ; mosaic_resolution = Some (1920 , 1080)
-            ; mosaic_bg_color = Some 1000
             })
   ; settings =
       (Some { qoe_settings =
@@ -537,12 +427,13 @@ let default : State.t =
                                 })
                       ; adv =
                           (Some { adv_diff   = Some 1.5
-                                ; adv_buf    = Some (60 * 3200 * 3200)})
+                                ; adv_buf    = Some (3200)})
                       })
-            ; channel_settings = None
             })
   ; graph    =
-      (Some { state = (Some Play) })}
+      (Some { state = (Some Play) })
+  ; wm       = None
+  }
 
     (*
       type xy = { x : string; y : int } [@@deriving lens];;
