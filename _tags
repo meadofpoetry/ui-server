@@ -1,6 +1,6 @@
 true: annot, bin_annot, debug, strict_sequence
 true: short_paths
-true: warn_error(+1..49+60), warn(A-4-7-23-39-40-41-42-44-45-48)
+true: warn_error(+1..49+60), warn(A-4-7-23-33-39-40-41-42-44-45-48)
 <**/*.{ml,mli,native}> : thread, optimize(3), unbox_closures
 
 <common> : include
@@ -10,7 +10,7 @@ true: warn_error(+1..49+60), warn(A-4-7-23-39-40-41-42-44-45-48)
 <src/api> : include
 <src/**> : package(containers lwt lwt.unix lwt_react), thread
 <src/**> : package(uri cohttp cohttp.lwt websocket.lwt)
-<src/**> : package(sqlexpr nocrypto yojson ppx_deriving_yojson lens lens.ppx_deriving)
+<src/**> : package(sqlexpr sqlexpr.ppx nocrypto yojson ppx_deriving_yojson lens lens.ppx_deriving)
 <src/**> : package(msgpck, lwt-zmq)
 
 <jsoo> : include
