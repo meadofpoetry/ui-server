@@ -1,22 +1,26 @@
 * Project goals
 
-** TODO Pre-alpha goals [2/5]:
-- [ ] Configs and command line arguments
-  - [ ] Config parser
+** TODO Pre-alpha goals [3/9]:
+- [ ] Api list
+- [ ] DB tables frameworks
+- [ ] UI template
+- [-] Configs and command line arguments
+  - [X] Config parser
   - [ ] Command line parser (via Commandliner)
-- [ ] Config storage
-  - [ ] investigate `irmin` as a possible solution
 - [ ] Add database maintainance loop
 - [X] Replace Cryptokit with nocrypt
 - [X] Replace Sqlite3 with sqlexpr
 ** TODO Alpha goals [0/2]:
-- [ ] Interaction with the Qoe analyser
-  - [ ] Data representation
-    - [ ] json
-    - [ ] msgpack
+- [-] Interaction with the Qoe analyser
+  - [X] Data representation
+    - [X] json
+    - [X] msgpack
   - [ ] Error storage
   - [ ] Settings api
+- [ ] Interaction with QoS via usb 
+  - [ ] USB control
 - [ ] Simple frontend
   - [ ] Qoe settings
   - [ ] Video frame
+  - [ ] Video frame layout control
   - [ ] Error indicating elements
