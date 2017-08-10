@@ -24,7 +24,8 @@ end
 module Conf = Config.Make(Settings)
   
 let get_handler ~settings
-                ~database
+                ~auth_filter
+                ~routes
   =
   let open Settings in
   let handler
@@ -39,17 +40,17 @@ let get_handler ~settings
                    |> List.filter (not % String.equal "")
     in
     let meth     = Request.meth req in
-    let redir = redirect_auth database headers in
+    let redir = auth_filter headers in
     match meth, uri_list with
     | `GET, []         -> redir (fun _ -> home settings.path)
-    | _, "api" :: path -> Api_handler.handle ~database meth path headers body
+    | _, "api" :: path -> Api_handler.handle routes redir meth path headers body
     | `GET, _          -> redir (fun _ -> resource settings.path uri)
     | _                -> not_found ()
   in
   handler
                  
-let create config db _ =
-  let cfg     = Conf.get config in
-  let handler = get_handler ~settings:cfg ~database:db in 
-  Cohttp_lwt_unix.Server.create ~mode:(`TCP (`Port cfg.port))
+let create config auth_filter routes =
+  let settings = Conf.get config in
+  let handler  = get_handler ~settings ~auth_filter ~routes in 
+  Cohttp_lwt_unix.Server.create ~mode:(`TCP (`Port settings.port))
                                 (Cohttp_lwt_unix.Server.make ~callback:handler ())

@@ -1,13 +1,26 @@
+open Containers
 open Redirect
-
-let (%) = CCFun.(%)
 
 let wrap api_call meth args headers body =
   fun id -> api_call id meth args headers body
-          
-let handle ~database
-           meth path headers body =
-  let redir = redirect_auth database headers in
-  match meth, path with
-  | `POST, "test"::tl   -> redir @@ wrap Api.Test.test meth tl headers body
+
+module type HANDLER = sig
+  val domain : string
+  val handle : User.user -> Cohttp.Code.meth -> string list ->
+               Cohttp.Header.t -> Cohttp_lwt_body.t -> (Cohttp.Response.t * Cohttp_lwt_body.t) Lwt.t
+end
+
+module Handlers = Hashtbl.Make(String)
+
+let create hndls =
+  let tbl = Handlers.create 50 in
+  List.iter (fun ((module H : HANDLER) as handler) ->
+      Handlers.add tbl H.domain handler) hndls;
+  tbl
+                
+let handle tbl redir meth path headers body =
+  match path with
+  | key::tl -> let (module H : HANDLER) = Handlers.find tbl key in
+               redir @@ wrap H.handle meth tl headers body
   | _ -> not_found ()
+  | exception Failure e -> error_page e

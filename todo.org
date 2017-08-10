@@ -10,6 +10,7 @@
 - [ ] Add database maintainance loop
 - [X] Replace Cryptokit with nocrypt
 - [X] Replace Sqlite3 with sqlexpr
+
 ** TODO Alpha goals [0/2]:
 - [-] Interaction with the Qoe analyser
   - [X] Data representation
