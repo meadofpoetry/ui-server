@@ -1,4 +1,4 @@
-type t = Yojson.Safe.json option
+type config = Yojson.Safe.json option
 
 let create path =
   try 
@@ -8,23 +8,33 @@ let create path =
       | Unix.S_REG -> Some (Yojson.Safe.from_file path)
       | _ -> None
   with _ -> None
-                    
+
 module type CONFIG = sig
   type t
-  val  get : (Yojson.Safe.json -> ('a , string) Result.result) -> string -> 'a -> t -> 'a
+  type settings
+  val  get      : t -> settings
 end
 
-let get of_json domain default cfg =
-  let ( >>= ) = CCResult.( >>= ) in
-  let rec find = function
-    | [] -> Error ("Domain " ^ domain ^ " was not found")
-    | (key, x)::_ when key = domain -> Ok x
-    | (_, _)::tl -> find tl
-  in
-  match cfg with
-  | None -> default
-  | Some cfg
-    -> cfg |> function 
-             | `Assoc lst
-               -> (find lst >>= of_json) |> (function Ok x -> x | Error _ -> default)
-             | _ -> default
+module type DOMAIN = sig
+  type t
+  val domain    : string
+  val default   : t
+  val of_yojson : Yojson.Safe.json -> (t , string) Result.result
+end
+
+module Make (D : DOMAIN) : (CONFIG with type t := config and type settings := D.t) = struct
+  let  get conf =
+    let ( >>= ) = CCResult.( >>= ) in
+    let rec find = function
+      | [] -> Error ("Domain " ^ D.domain ^ " was not found")
+      | (key, x)::_ when key = D.domain -> Ok x
+      | (_, _)::tl -> find tl
+    in
+    match conf with
+    | None -> D.default
+    | Some cfg
+      -> cfg |> function 
+               | `Assoc lst
+                 -> (find lst >>= D.of_yojson) |> (function Ok x -> x | Error _ -> D.default)
+               | _ -> D.default
+end
