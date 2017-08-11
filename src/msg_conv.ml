@@ -40,19 +40,20 @@ let rec msg_of_yojson : Yojson.Safe.json -> Msgpck.t = function
   | `Variant (k, Some v) ->   List [String k; (msg_of_yojson v)]
   | `Variant (k, None)   ->   List [String k]
 
-module Qoe_types = struct
-  module State = struct
-    include Common.Qoe_types.State
-          
-    let to_msgpck state =
-      to_yojson state
-      |> msg_of_yojson
-      |> Msgpck.String.to_string
+let of_string s = Yojson.Safe.from_string s
 
-    let of_msgpck msg =
-      let (_,m) = Msgpck.String.read msg in
-      m
-      |> msg_to_yojson
-      |> of_yojson
-  end
-end
+let to_string js = Yojson.Safe.to_string js
+                            
+let of_msg_string msg =
+  let (_,m) = Msgpck.String.read msg
+  in m |> msg_to_yojson
+
+let to_msg_string  = Msgpck.String.to_string % msg_of_yojson 
+
+type converter = { of_string : string -> Yojson.Safe.json
+                 ; to_string : Yojson.Safe.json -> string
+                 }
+
+let get_converter = function
+  | `Json    -> { of_string = of_string; to_string = to_string }
+  | `Msgpack -> { of_string = of_msg_string; to_string = to_msg_string }

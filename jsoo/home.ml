@@ -14,9 +14,9 @@ let server =
 
 let make_struct () =
   let open Common in
-  let tmp = Qoe_types.default in
-  Qoe_types.State.to_yojson tmp
-  |> Common.Qoe_types.filter_none
+  let tmp = Common.State.default in
+  Common.State.to_yojson tmp
+  |> Common.Opt_update.filter_none
   |> Yojson.Safe.to_string
 
 let janus_pipe debug =

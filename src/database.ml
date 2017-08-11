@@ -1,20 +1,5 @@
 module Sqlexpr = Sqlexpr_sqlite.Make(Sqlexpr_concurrency.Lwt)
 open Sqlexpr
-               
-module type STORAGE = sig
-  type _ req
-  val  request : 'a req -> 'a
-end
-
-module type DATABASE = sig
-  type config
-  type t
-  val  create     : config -> t
-  val  insert     : t -> ('a, int64 Sqlexpr.result) Sqlexpr.statement -> 'a
-  val  select     : t -> ?batch:int -> ('c, 'a, 'a list Sqlexpr.result) Sqlexpr.expression -> 'c
-  val  select_one : t -> ?batch:int -> ('c, 'a, 'a list Sqlexpr.result) Sqlexpr.expression -> 'c
-  val  finalize   : t -> unit
-end
 
 module Settings = struct
   type t = { db_path : string } [@@deriving yojson]
@@ -25,6 +10,11 @@ end
 module Conf = Config.Make(Settings)
  
 type t        = Sqlexpr.db
+
+module type STORAGE = sig
+  type _ req
+  val  request : t -> 'a req -> 'a
+end
                  
 let create config =
   let cfg = Conf.get config in

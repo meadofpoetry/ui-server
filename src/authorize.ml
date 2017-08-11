@@ -1,6 +1,7 @@
 open Containers
 open Cohttp
-
+open User
+   
 type auth_result = Id of User.user
                  | Done of Header.t
                  | Need_auth
@@ -13,9 +14,7 @@ let validate_headers dbs hds =
   | Some x -> match x with
     | `Other _ -> Lwt.return None
     | `Basic (name, pass) -> (
-      Database.select_one dbs
-                          [%sql "SELECT @d{type}, @s{password} FROM users \
-                                 WHERE login = %s"] name
+      Storage.request dbs (Get_info name)
       >>= fun (t, p) ->
       if pass = p
       then Lwt.return (Some (User.of_int t))
