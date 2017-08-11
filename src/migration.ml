@@ -12,6 +12,12 @@ let create_users db =
   >>= fun _ ->
   Sqlexpr.insert db [%sqlc "INSERT OR IGNORE INTO users(type,login,password) VALUES(0,'root','pswd')"]
 
+let create_streams db =
+  Sqlexpr.execute db [%sqlinit "CREATE TABLE IF NOT EXISTS streams( \
+                                stream TEXT NON NULL, \
+                                date   TIMESTAMP DEFAULT CURRENT_TIMESTAMP \
+                                );" ]
+  
 let create_errors db =
   Sqlexpr.execute db [%sqlinit "CREATE TABLE IF NOT EXISTS errors ( \
                                 type  INTEGER, \
@@ -20,4 +26,5 @@ let create_errors db =
  
 let migrate db =
   create_users db >>= fun _ ->
+  create_streams db >>= fun _ ->
   create_errors db

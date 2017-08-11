@@ -23,4 +23,3 @@ let handle tbl redir meth path headers body =
   | key::tl -> let (module H : HANDLER) = Handlers.find tbl key in
                redir @@ wrap H.handle meth tl headers body
   | _ -> not_found ()
-  | exception Failure e -> error_page e

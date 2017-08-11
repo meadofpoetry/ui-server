@@ -104,10 +104,18 @@ module Settings = struct
 end
 
 module Conf = Config.Make(Settings)
+module Storage : sig
+  type _ req =
+    | Store_opts : Options.t -> int64 Lwt.t req
+  include (Database.STORAGE with type 'a req := 'a req)
+end = Pipeline_storage
        
 type t = pipe
 
-let create config _ =
+let connect_db pipe dbs =
+  E.map_p (fun o -> Storage.request dbs (Store_opts o)) pipe.options_events
+
+let create config dbs =
   let cfg = Conf.get config in
   let converter = Msg_conv.get_converter cfg.msg_fmt in
   let exec_path = (Filename.concat cfg.bin_path cfg.bin_name) in
@@ -140,6 +148,7 @@ let create config _ =
                 settings_events; graph_events;
                 wm_events; data_events}
      in
+     connect_db obj dbs |> ignore;
      let rec loop () =
        Socket.recv ev_sock
        >>= fun msg ->
