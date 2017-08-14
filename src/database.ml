@@ -31,4 +31,3 @@ let select db = Sqlexpr.select db
 let select_one db = Sqlexpr.select_one db
 
 let finalize = Sqlexpr.close_db
-

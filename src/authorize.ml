@@ -14,10 +14,10 @@ let validate_headers dbs hds =
   | Some x -> match x with
     | `Other _ -> Lwt.return None
     | `Basic (name, pass) -> (
-      Storage.request dbs (Get_info name)
-      >>= fun (t, p) ->
-      if pass = p
-      then Lwt.return (Some (User.of_int t))
+      Storage.request dbs (Get_pass name)
+      >>= fun u ->
+      if pass = u.password
+      then Lwt.return (Some u.user)
       else Lwt.return None )
          
 let auth dbs headers =

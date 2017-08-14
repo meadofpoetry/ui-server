@@ -15,7 +15,10 @@ module Handlers = Hashtbl.Make(String)
 let create hndls =
   let tbl = Handlers.create 50 in
   List.iter (fun ((module H : HANDLER) as handler) ->
-      Handlers.add tbl H.domain handler) hndls;
+      try  ignore @@ Handlers.find tbl H.domain;
+           failwith ("Domain " ^ H.domain ^ " already exists")
+      with Not_found -> Handlers.add tbl H.domain handler)
+            hndls;
   tbl
                 
 let handle tbl redir meth path headers body =
