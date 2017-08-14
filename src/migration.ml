@@ -14,7 +14,8 @@ let create_users db =
 
 let create_streams db =
   Sqlexpr.execute db [%sqlinit "CREATE TABLE IF NOT EXISTS streams( \
-                                stream TEXT NON NULL, \
+                                input  TEXT NON NULL, \
+                                value  TEXT, \
                                 date   TIMESTAMP DEFAULT CURRENT_TIMESTAMP \
                                 );" ]
   

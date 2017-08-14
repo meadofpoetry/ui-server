@@ -1,5 +1,5 @@
 type t =
-  { options  : Options.t option [@default None]
+  { streams  : Streams.t  option [@default None]
   ; settings : Settings.t option [@default None]
   ; graph    : Graph.t option [@default None]
   ; wm       : Wm.t option [@default None]
@@ -8,16 +8,16 @@ type t =
 open Opt_update
   
 let update a b =
-  { options  = opt_update Options.update a.options b.options
+  { streams  = opt_update Streams.update a.streams b.streams
   ; settings = opt_update Settings.update a.settings b.settings
   ; graph    = opt_update Graph.update a.graph b.graph
   ; wm       = opt_update Wm.update a.wm b.wm
   }
 
 let default : t =
-  { options  =
+  { streams  =
       (Some { prog_list =
-                (Some [ { stream   = 0
+                (Some [ { input    = "0"
                         ; uri      = "udp://127.0.0.1:1234"
                         ; channels =
                             [ { number        = 0

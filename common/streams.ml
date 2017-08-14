@@ -32,8 +32,8 @@ type channel =
   } [@@deriving yojson, lens { optional = true } ]
 
 type stream =
-    { stream   : int
-    ; uri      : string
+    { input    : string
+    ; uri      : string (* ? *)
     ; channels : channel list
     } [@@deriving yojson, lens { optional = true } ]
 

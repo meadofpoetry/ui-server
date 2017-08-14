@@ -6,13 +6,19 @@ open Lwt.Infix
 let ( % ) = CCFun.(%)
    
 type _ req =
-  | Store_opts : Options.t -> int64 Lwt.t req
-
-let store_opts dbs opts =
-  let dump = Msg_conv.to_string % Options.to_yojson in
-  Database.insert dbs [%sql "INSERT INTO streams(stream) VALUES (%s)"]
-                      (dump opts)
+  | Store_streams : Streams.t -> unit Lwt.t req
   
+let store_streams dbs streams =
+  match (Streams_conv.dump_streams streams) with
+  | None   -> Lwt.return_unit
+  | Some s -> List.fold_left 
+                (fun thread (i,v) ->
+                  thread >>= fun () ->
+                  Database.execute dbs
+                                   [%sqlc "INSERT INTO streams(input, value) VALUES (%s, %s)"]
+                                   i v )
+                Lwt.return_unit s 
+            
 let request (type a) dbs (r : a req) : a =
   match r with
-  | Store_opts o -> store_opts dbs o
+  | Store_streams s -> store_streams dbs s
