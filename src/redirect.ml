@@ -24,11 +24,11 @@ let redirect_auth dbs headers request =
     | Done hd   -> home_page ~headers:hd ()
 
 let redirect_if_not id usr request =
-  if (User.eq usr id)
+  if User.(eq usr id.typ)
   then (request ())
   else Cohttp_lwt_unix.Server.respond_error ~status:`Forbidden ~body:"Operation not permitted." ()
 
 let redirect_if id usr request =
-  if not (User.eq usr id)
+  if not User.(eq usr id.typ)
   then (request ())
   else Cohttp_lwt_unix.Server.respond_error ~status:`Forbidden ~body:"Operation not permitted." ()
