@@ -11,10 +11,10 @@ type content = Streams of Streams.t
    
 type pipe = { set             : content list -> unit Lwt.t
             ; get             : [ `Streams | `Settings | `Graph | `Wm ] list -> content list Lwt.t
-            ; streams_events  : Common.Streams.t S.t
-            ; settings_events : Settings.t S.t
-            ; graph_events    : Graph.t S.t
-            ; wm_events       : Wm.t S.t
+            ; streams_events  : Common.Streams.t E.t
+            ; settings_events : Settings.t E.t
+            ; graph_events    : Graph.t E.t
+            ; wm_events       : Wm.t E.t
             ; data_events     : Data.t E.t
             }
 
@@ -40,10 +40,10 @@ let label = function
   | `Wm       -> "wm"
 
 let split_events s_to_input events =
-  let strm, strm_push = S.create Common.Streams.default in
-  let sets, sets_push = S.create Common.Settings.default in
-  let grap, grap_push = S.create Common.Graph.default in
-  let wm  , wm_push   = S.create Common.Wm.default in
+  let strm, strm_push = E.create () in
+  let sets, sets_push = E.create () in
+  let grap, grap_push = E.create () in
+  let wm  , wm_push   = E.create () in
   let data, data_push = E.create () in
   let (<||>) f result = if Result.is_ok result then f (Result.get_exn result) else () in
   let split = function
@@ -114,7 +114,7 @@ end = Pipeline_storage
 type t = pipe
 
 let connect_db pipe dbs =
-  S.map_s (fun s -> Storage.request dbs (Store_streams s)) pipe.streams_events
+  E.map_s (fun s -> Storage.request dbs (Store_streams s)) pipe.streams_events
 
 let create config dbs =
   let cfg = Conf.get config in
