@@ -43,3 +43,10 @@ type t =
   } [@@deriving yojson]
 
 let update _ b = b
+
+let default = { background = { color = 0 }
+              ; resolution = 1920, 1080
+              ; windows   = []
+              ; widgets   = []
+              ; layout    = []
+              }

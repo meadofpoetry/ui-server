@@ -57,3 +57,5 @@ let stream_update _ b = b
 let update _ b =
   { prog_list  = b.prog_list
   }
+
+let default = { prog_list = None }
