@@ -8,7 +8,8 @@ type content = Streams of Streams.t
              | Settings of Settings.t
              | Graph of Graph.t
              | Wm of Wm.t
-   
+
+type state = { ctx : ZMQ.Context.t; child_pid : int }
 type pipe = { set             : content list -> unit Lwt.t
             ; get             : [ `Streams | `Settings | `Graph | `Wm ] list -> content list Lwt.t
             ; streams_events  : Common.Streams.t E.t
@@ -16,7 +17,7 @@ type pipe = { set             : content list -> unit Lwt.t
             ; graph_events    : Graph.t E.t
             ; wm_events       : Wm.t E.t
             ; data_events     : Data.t E.t
-            ; ctx             : ZMQ.Context.t
+            ; state           : state
             }
 
 let content_to_pair input_to_s = function
@@ -123,9 +124,9 @@ let create config dbs =
   let exec_path = (Filename.concat cfg.bin_path cfg.bin_name) in
   let exec_opts = Array.of_list (cfg.bin_name :: "-m" :: (Settings.format_to_string cfg.msg_fmt) :: cfg.sources) in
   match Unix.fork () with
-  | -1 -> failwith "Ooops, fork failed"
-  | 0  -> Unix.execv exec_path exec_opts
-  | _  ->     
+  | -1        -> failwith "Ooops, fork failed"
+  | 0         -> Unix.execv exec_path exec_opts
+  | child_pid ->     
      let ctx = ZMQ.Context.create () in
      let msg_sock = ZMQ.Socket.create ctx ZMQ.Socket.req in
      let ev_sock  = ZMQ.Socket.create ctx ZMQ.Socket.sub in
@@ -151,7 +152,8 @@ let create config dbs =
      let get = get msg_sock s_to_input converter in
      let obj = {set; get; streams_events;
                 settings_events; graph_events;
-                wm_events; data_events; ctx}
+                wm_events; data_events;
+                state = { ctx; child_pid } }
      in
      connect_db obj dbs |> ignore;
      let rec loop () =
@@ -163,4 +165,7 @@ let create config dbs =
      in
      obj, (loop ())
 
-let finalize pipe = ZMQ.Context.terminate pipe.ctx
+let finalize pipe =
+  Unix.kill 9 pipe.state.child_pid;
+  let _ = Unix.wait () in
+  ZMQ.Context.terminate pipe.state.ctx
