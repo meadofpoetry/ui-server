@@ -16,6 +16,7 @@ type pipe = { set             : content list -> unit Lwt.t
             ; graph_events    : Graph.t E.t
             ; wm_events       : Wm.t E.t
             ; data_events     : Data.t E.t
+            ; ctx             : ZMQ.Context.t
             }
 
 let content_to_pair input_to_s = function
@@ -150,7 +151,7 @@ let create config dbs =
      let get = get msg_sock s_to_input converter in
      let obj = {set; get; streams_events;
                 settings_events; graph_events;
-                wm_events; data_events}
+                wm_events; data_events; ctx}
      in
      connect_db obj dbs |> ignore;
      let rec loop () =
@@ -162,4 +163,4 @@ let create config dbs =
      in
      obj, (loop ())
 
-let finalize : t -> unit = fun _ -> ()
+let finalize pipe = ZMQ.Context.terminate pipe.ctx
