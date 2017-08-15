@@ -34,8 +34,9 @@ let set_passwd dbs p =
                    p.password p.user.name
 
 let set_info dbs info =
-  Database.execute dbs [%sql "UPDATE users SET email = %s? WHERE login = %s"]
-                   info.email info.user.name
+  if info.user.name = "root" then Lwt.return_unit
+  else Database.execute dbs [%sql "UPDATE users SET email = %s? WHERE login = %s"]
+                        info.email info.user.name
 
 let set_typ dbs typ =
   Database.execute dbs [%sql "UPDATE users SET type = %d,  WHERE login = %s"]
