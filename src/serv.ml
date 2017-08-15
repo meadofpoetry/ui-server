@@ -1,14 +1,15 @@
 open Cohttp_lwt_unix
 open Containers
 open Redirect
-
+open Interaction
+   
 let (%) = Fun.(%)
 
 let home base =
-  Cohttp_lwt_unix.Server.respond_file ~fname:(Filename.concat base "index.html") ()
+  respond_file base "index.html" ()
 
 let resource base uri =
-  Cohttp_lwt_unix.Server.respond_file ~fname:(Filename.concat base uri) () 
+  respond_file base uri () 
 
 module Settings = struct
   type t = { path : string

@@ -29,3 +29,6 @@ let respond_redirect path =
 let respond_not_found = Cohttp_lwt_unix.Server.respond_not_found
 
 let respond_need_auth = Cohttp_lwt_unix.Server.respond_need_auth
+
+let respond_file base path =
+  Cohttp_lwt_unix.Server.respond_file ~fname:(Filename.concat base path)

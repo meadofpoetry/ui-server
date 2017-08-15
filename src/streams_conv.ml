@@ -11,14 +11,14 @@ let to_streams conv (s : t) : Common.Streams.t =
   List.map (fun x -> { input    = conv x.stream
                      ; uri      = x.uri
                      ; channels = x.channels } )
-    s
+           s
 
 let of_streams conv (s : Common.Streams.t) : t =
   let open Common.Streams in
   List.map (fun x -> { stream   = conv x.input
                      ; uri      = x.uri
                      ; channels = x.channels } )
-    s
+           s
 
 let streams_of_yojson conv js =
   let open CCResult in
