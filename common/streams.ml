@@ -1,33 +1,35 @@
 type video_pid =
-  { codec      : string
-  ; resolution : (int * int) option [@default None]
-  ; aspect     : (int * int) option [@default None]
-  ; interlaced : string option [@default None]
-  ; frame_rate : float option [@default None]
+  { codec        : string
+  ; resolution   : (int * int)
+  ; aspect_ratio : (int * int)
+  ; interlaced   : string
+  ; frame_rate   : float
   } [@@deriving yojson, lens { optional = true } ]
 
 type audio_pid =
   { codec       : string
-  ; bitrate     : string option [@default None]
-  ; sample_rate : int option [@default None]
-  } [@@deriving yojson, lens { optional = true } ]
+  ; bitrate     : string
+  ; channels    : int
+  ; sample_rate : int
+  } [@@deriving yojson, lens]
 
 type pid_content = Video of video_pid
                  | Audio of audio_pid
-                              [@@deriving yojson]
+                 | Empty
+[@@deriving yojson]
 
 type pid =
   { pid              : int
-  ; to_be_analyzed   : bool option [@default None]
-  ; pid_content      : pid_content option [@default None]
-  ; stream_type      : int option [@default None]
-  ; stream_type_name : string option [@default None]
+  ; to_be_analyzed   : bool
+  ; content          : pid_content
+  ; stream_type      : int
+  ; stream_type_name : string
   } [@@deriving yojson, lens { optional = true } ]
 
 type channel =
   { number        : int
-  ; service_name  : string option [@default None]
-  ; provider_name : string option [@default None]
+  ; service_name  : string
+  ; provider_name : string
   ; pids          : pid list
   } [@@deriving yojson, lens { optional = true } ]
 
@@ -38,22 +40,15 @@ type stream =
     } [@@deriving yojson, lens { optional = true } ]
 
 type t =
-  { prog_list         : stream list option [@default None]
+  { prog_list         : stream list
   } [@@deriving yojson, lens { optional = true } ]
 
 open Opt_update
 
 let pid_update _ b = b
   
-let channel_update a b =
-  { number        = b.number
-  ; service_name  = a.service_name <+> b.service_name
-  ; provider_name = a.provider_name <+> b.provider_name
-  ; pids          = b.pids
-  }
+let channel_update _ b = b
 
 let stream_update _ b = b
 
-let update _ b =
-  { prog_list  = b.prog_list
-  }
+let update _ b = b

@@ -15,26 +15,7 @@ let update a b =
   }
 
 let default : t =
-  { streams  =
-      (Some { prog_list =
-                (Some [ { input    = "0"
-                        ; uri      = "udp://127.0.0.1:1234"
-                        ; channels =
-                            [ { number        = 0
-                              ; service_name  = Some "Channel 1"
-                              ; provider_name = Some "RTRN"
-                              ; pids          =
-                                  [ { pid              = 1024
-                                    ; to_be_analyzed   = Some false
-                                    ; pid_content      = None
-                                    ; stream_type      = Some 4
-                                    ; stream_type_name = Some "video-h264"
-                                    }
-                                  ]
-                              }
-                            ]
-                        } ])
-            })
+  { streams  = None
   ; settings =
       (Some { qoe_settings =
                 (Some { loss =
