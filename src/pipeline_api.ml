@@ -1,6 +1,6 @@
 open Api_handler
 
-let (>>=) = Lwt.(>>=)
+open Lwt.Infix
 
 let test _ _ body =
   Cohttp_lwt_body.to_string body >>= fun body ->

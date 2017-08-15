@@ -15,8 +15,9 @@ type user = { typ : typ; name : string } [@@deriving yojson]
 
 type full = { user : user ; password : string; email : string option } [@@deriving yojson]
 type pass = { user : user ; password : string } [@@deriving yojson]
-type info = { user : user ; email : string } [@@deriving yojson]
-
+type info = { user : user ; email : string option } [@@deriving yojson]
+type info_list = info list [@@deriving yojson]
+          
 let to_int = function
   | `Root     -> 0
   | `Operator -> 1

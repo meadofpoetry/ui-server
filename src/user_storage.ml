@@ -20,13 +20,13 @@ let get_pass dbs name =
   Lwt.return { user = { name; typ = (of_int t)}; password = p } 
 
 let get_user dbs name =
-  Database.select_one dbs [%sql "SELECT @d{type}, @s{email} FROM users WHERE login = %s"]
+  Database.select_one dbs [%sql "SELECT @d{type}, @s?{email} FROM users WHERE login = %s"]
                       name
   >>= fun (t,e) ->
   Lwt.return { user = { name; typ = (of_int t)}; email = e }
 
 let get_users dbs =
-  Database.select dbs [%sql "SELECT @d{type}, @s{login}, @s{email} FROM users"]
+  Database.select dbs [%sql "SELECT @d{type}, @s{login}, @s?{email} FROM users"]
   >|= List.map (fun (t,name,e) -> { user = { name; typ = (of_int t)}; email = e } )
 
 let set_passwd dbs p =
@@ -34,7 +34,7 @@ let set_passwd dbs p =
                    p.password p.user.name
 
 let set_info dbs info =
-  Database.execute dbs [%sql "UPDATE users SET email = %s  WHERE login = %s"]
+  Database.execute dbs [%sql "UPDATE users SET email = %s? WHERE login = %s"]
                    info.email info.user.name
 
 let set_typ dbs typ =

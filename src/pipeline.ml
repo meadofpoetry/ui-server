@@ -123,7 +123,7 @@ let create config dbs =
   let exec_path = (Filename.concat cfg.bin_path cfg.bin_name) in
   let exec_opts = Array.of_list (cfg.bin_name :: "-m" :: (Settings.format_to_string cfg.msg_fmt) :: cfg.sources) in
   match Unix.fork () with
-  | -1 -> failwith "Ooops, fork faild"
+  | -1 -> failwith "Ooops, fork failed"
   | 0  -> Unix.execv exec_path exec_opts
   | _  ->     
      let ctx = ZMQ.Context.create () in
