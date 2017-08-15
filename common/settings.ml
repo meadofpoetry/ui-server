@@ -45,7 +45,7 @@ type adv =
   ; adv_buf  : int option [@default None]
   } [@@deriving yojson, lens { optional = true } ]
 
-type qoe_settings =
+type t =
   { loss      : loss option [@default None]
   ; black     : black option [@default None]
   ; freeze    : freeze option [@default None]
@@ -53,10 +53,6 @@ type qoe_settings =
   ; silence   : silence option [@default None]
   ; loudness  : loudness option [@default None]
   ; adv       : adv option [@default None]
-  } [@@deriving yojson, lens { optional = true } ]
-
-type t =
-  { qoe_settings     : qoe_settings option [@default None]
   } [@@deriving yojson, lens { optional = true } ]
 
 open Opt_update
@@ -109,7 +105,7 @@ let adv_update a b =
   ; adv_buf  = a.adv_buf <+> b.adv_buf
   }
 
-let qoe_settings_update a b =
+let update a b =
   { loss     = opt_update loss_update a.loss b.loss
   ; black    = opt_update black_update a.black b.black
   ; freeze   = opt_update freeze_update a.freeze b.freeze
@@ -118,7 +114,72 @@ let qoe_settings_update a b =
   ; loudness = opt_update loudness_update a.loudness b.loudness
   ; adv      = opt_update adv_update a.adv b.adv
   }
-  
-let update a b =
-  { qoe_settings     = opt_update qoe_settings_update a.qoe_settings b.qoe_settings
-  }
+
+let default = { loss =
+                  (Some { vloss = Some 2.0
+                        ; aloss = Some 3.0
+                  })
+              ; black =
+                  (Some { black       =
+                            (Some { peak_en = Some true
+                                  ; peak    = Some 100.0
+                                  ; cont_en = Some false
+                                  ; cont    = Some 90.0
+                            })
+                        ; luma        =
+                            (Some { peak_en = Some false
+                                  ; peak    = Some 20.0
+                                  ; cont_en = Some true
+                                  ; cont    = Some 17.0
+                            })
+                        ; time        = Some 10.0
+                        ; black_pixel = Some 16
+                  })
+              ; freeze =
+                  (Some { freeze      =
+                            (Some { peak_en = Some true
+                                  ; peak    = Some 99.0
+                                  ; cont_en = Some false
+                                  ; cont    = Some 80.0
+                            })
+                        ; diff        =
+                            (Some { peak_en = Some false
+                                  ; peak    = Some 0.1
+                                  ; cont_en = Some true
+                                  ; cont    = Some 0.02
+                            })
+                        ; time        = Some 14.0
+                        ; pixel_diff  = Some 2
+                  })
+              ; blocky =
+                  (Some { blocky     =
+                            (Some { peak_en = Some true
+                                  ; peak    = Some 7.0
+                                  ; cont_en = Some false
+                                  ; cont    = Some 4.0
+                            })
+                        ; time       = Some 5.0
+                        ; mark_blocks = Some false
+                  })
+              ; silence =
+                  (Some { silence     =
+                            (Some { peak_en = Some false
+                                  ; peak    = Some (-35.0)
+                                  ; cont_en = Some true
+                                  ; cont    = Some (-33.0)
+                            })
+                        ; time       = Some 3.0
+                  })
+              ; loudness =
+                  (Some { loudness   =
+                            (Some { peak_en = Some true
+                                  ; peak    = Some (-15.0)
+                                  ; cont_en = Some true
+                                  ; cont    = Some (-22.0)
+                            })
+                        ; time       = Some 4.0
+                  })
+              ; adv =
+                  (Some { adv_diff   = Some 1.5
+                        ; adv_buf    = Some (3200)})
+              }

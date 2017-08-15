@@ -23,3 +23,5 @@ open Opt_update
 
 let update a b =
   { state = a.state <+> b.state }
+
+let default = { state = None }

@@ -50,3 +50,5 @@ let channel_update _ b = b
 let stream_update _ b = b
 
 let update _ b = b
+
+let default = { prog_list = None }

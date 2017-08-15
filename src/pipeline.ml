@@ -114,7 +114,7 @@ end = Pipeline_storage
 type t = pipe
 
 let connect_db pipe dbs =
-  E.map_p (fun s -> Storage.request dbs (Store_streams s)) pipe.streams_events
+  E.map_s (fun s -> Storage.request dbs (Store_streams s)) pipe.streams_events
 
 let create config dbs =
   let cfg = Conf.get config in

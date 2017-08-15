@@ -10,7 +10,6 @@ let home base =
 let resource base uri =
   Cohttp_lwt_unix.Server.respond_file ~fname:(Filename.concat base uri) () 
 
-
 module Settings = struct
   type t = { path : string
            ; port : int
