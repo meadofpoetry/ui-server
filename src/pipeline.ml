@@ -47,12 +47,7 @@ let split_events s_to_input events =
   let data, data_push = E.create () in
   let (<||>) f result = if Result.is_ok result then f (Result.get_exn result) else () in
   let split = function
-    | `Assoc [("streams", tl)]  -> strm_push <||> ((Lwt_io.printf "%s\n" (Yojson.Safe.to_string tl)) |> ignore;
-                                                   begin match Streams_conv.streams_of_yojson s_to_input tl with
-                                                     | Ok _ -> Lwt_io.printf "Parsing ok\n\n" |> ignore;
-                                                     | Error s -> Lwt_io.printf "Parsing failed: %s\n\n" s |> ignore;
-                                                   end;
-                                                   Streams_conv.streams_of_yojson s_to_input tl)
+    | `Assoc [("streams", tl)]  -> strm_push <||> Streams_conv.streams_of_yojson s_to_input tl
     | `Assoc [("settings", tl)] -> sets_push <||> Settings.of_yojson tl
     | `Assoc [("graph", tl)]    -> grap_push <||> Graph.of_yojson tl
     | `Assoc [("wm", tl)]       -> wm_push   <||> Wm.of_yojson tl

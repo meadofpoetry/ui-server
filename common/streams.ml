@@ -39,9 +39,7 @@ type stream =
     ; channels : channel list
     } [@@deriving yojson, lens { optional = true } ]
 
-type t =
-  { prog_list         : stream list
-  } [@@deriving yojson, lens { optional = true } ]
+type t = stream list [@@deriving yojson]
 
 open Opt_update
 
