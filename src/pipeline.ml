@@ -9,7 +9,10 @@ type content = Streams of Streams.t
              | Graph of Graph.t
              | Wm of Wm.t
 
-type state = { ctx : ZMQ.Context.t; child_pid : int }
+type state = { ctx : ZMQ.Context.t
+             ; msg : [ `Req] ZMQ.Socket.t
+             ; ev  : [ `Sub] ZMQ.Socket.t
+             }
 type pipe = { set             : content list -> unit Lwt.t
             ; get             : [ `Streams | `Settings | `Graph | `Wm ] list -> content list Lwt.t
             ; streams_events  : Common.Streams.t E.t
@@ -124,19 +127,19 @@ let create config dbs =
   let exec_path = (Filename.concat cfg.bin_path cfg.bin_name) in
   let exec_opts = Array.of_list (cfg.bin_name :: "-m" :: (Settings.format_to_string cfg.msg_fmt) :: cfg.sources) in
   match Unix.fork () with
-  | -1        -> failwith "Ooops, fork failed"
-  | 0         -> Unix.execv exec_path exec_opts
-  | child_pid ->     
+  | -1   -> failwith "Ooops, fork failed"
+  | 0    -> Unix.execv exec_path exec_opts
+  | pid  ->     
      let ctx = ZMQ.Context.create () in
-     let msg_sock = ZMQ.Socket.create ctx ZMQ.Socket.req in
-     let ev_sock  = ZMQ.Socket.create ctx ZMQ.Socket.sub in
+     let msg = ZMQ.Socket.create ctx ZMQ.Socket.req in
+     let ev  = ZMQ.Socket.create ctx ZMQ.Socket.sub in
 
-     ZMQ.Socket.connect msg_sock cfg.sock_in;
-     ZMQ.Socket.connect ev_sock cfg.sock_out;
-     ZMQ.Socket.subscribe ev_sock "";
+     ZMQ.Socket.connect msg cfg.sock_in;
+     ZMQ.Socket.connect ev cfg.sock_out;
+     ZMQ.Socket.subscribe ev "";
 
-     let msg_sock = Socket.of_socket msg_sock in
-     let ev_sock  = Socket.of_socket ev_sock in
+     let msg_sock = Socket.of_socket msg in
+     let ev_sock  = Socket.of_socket ev in
 
      let input_to_s = int_of_string in
      let s_to_input = string_of_int in
@@ -153,19 +156,24 @@ let create config dbs =
      let obj = {set; get; streams_events;
                 settings_events; graph_events;
                 wm_events; data_events;
-                state = { ctx; child_pid } }
+                state = { ctx; msg; ev } }
      in
      connect_db obj dbs |> ignore;
      let rec loop () =
        Socket.recv ev_sock
        >>= fun msg ->
        epush (converter.of_string msg);
-       (*Lwt_io.printf "Some %s\n" msg |> ignore;*)
        loop ()
      in
-     obj, (loop ())
+     let fin () =
+       Lwt_unix.waitpid [] pid >>= fun _ ->
+       Lwt.fail_with "Child'd died for some reason"
+     in
+     obj, Lwt.pick [loop (); fin ()]
 
 let finalize pipe =
-  Unix.kill 9 pipe.state.child_pid;
-  let _ = Unix.wait () in
-  ZMQ.Context.terminate pipe.state.ctx
+  print_endline "closing pipe";
+  ZMQ.Socket.unsubscribe pipe.state.ev "";
+  ZMQ.Socket.close       pipe.state.ev;
+  ZMQ.Socket.close       pipe.state.msg;
+  ZMQ.Context.terminate  pipe.state.ctx
