@@ -8,10 +8,10 @@ let test _ _ body =
   let js  = Uri.pct_decode jss |> Yojson.Safe.from_string in
   Lwt_io.printf "Got: %s\n" (Yojson.Safe.to_string js) >>= fun _ ->
   let s =
-    State.of_yojson js
+    Common.State.of_yojson js
     |> function
       | Error _ -> "Sorry, something is wrong with your json"
-      | Ok root -> Lwt_io.printf "Msgpck: %s\n" (Msg_conv.to_msg_string @@ State.to_yojson root) |> ignore;
+      | Ok root -> Lwt_io.printf "Msgpck: %s\n" (Msg_conv.to_msg_string @@ Common.State.to_yojson root) |> ignore;
                    let prefix = "Thank you, master! " in
                    begin match (CCOpt.get_exn root.graph).state with
                    | Some Null  -> prefix ^ "You want me to stop the graph?"

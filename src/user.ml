@@ -2,7 +2,7 @@ open Containers
 
 let (%) = Fun.(%)
 
-include Common.Userl                    
+include Common.User
 
 module Storage : sig 
   type _ req =
