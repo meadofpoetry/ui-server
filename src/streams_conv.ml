@@ -9,6 +9,7 @@ type t = stream list [@@deriving yojson]
 let to_streams conv (s : t) : Common.Streams.t =
   let open Common.Streams in
   List.map (fun x -> { input    = conv x.stream
+                     ; id       = Int32.of_int x.stream
                      ; uri      = x.uri
                      ; channels = x.channels } )
            s
