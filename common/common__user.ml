@@ -1,22 +1,25 @@
-type typ  = [`Root | `Operator | `Guest ]
-          
-let typ_of_yojson = function
-  | `String "root"     -> Ok `Root
-  | `String "operator" -> Ok `Operator
-  | `String "guest"    -> Ok `Guest
+type t = [`Root | `Operator | `Guest ]
+
+let of_string = function
+  | "root"     -> Ok `Root
+  | "operator" -> Ok `Operator
+  | "guest"    -> Ok `Guest
+  | _ -> Error "Unknown user"
+
+let to_string = function
+  | `Root     -> "root"
+  | `Operator -> "operator"
+  | `Guest    -> "guest"
+       
+let of_yojson = function
+  | `String s -> of_string s
   | err -> Error ("typ_of_yojson: wrong data" ^ (Yojson.Safe.to_string err))
 
-let typ_to_yojson = function
-  | `Root     -> `String "root"
-  | `Operator -> `String "operator"
-  | `Guest    -> `String "guest"
-               
-type user = { typ : typ; name : string } [@@deriving yojson]
+let to_yojson u = `String (to_string u)
 
-type full = { user : user ; password : string; email : string option } [@@deriving yojson]
-type pass = { user : user ; password : string } [@@deriving yojson]
-type info = { user : user ; email : string option } [@@deriving yojson]
-type info_list = info list [@@deriving yojson]
+type pass = { user     : t
+            ; password : string
+            } [@@deriving yojson]
           
 let to_int = function
   | `Root     -> 0

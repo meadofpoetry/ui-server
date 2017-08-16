@@ -5,12 +5,11 @@ open Lwt.Infix
 let create_users db =
   Sqlexpr.execute db [%sqlinit "CREATE TABLE IF NOT EXISTS users( \
                                 type  INT2, \
-                                login TEXT UNIQUE, \
-                                password TEXT NON NULL, \
-                                email TEXT \
+                                password TEXT NON NULL \
                                 );" ]
-  >>= fun _ ->
-  Sqlexpr.insert db [%sqlc "INSERT OR IGNORE INTO users(type,login,password) VALUES(0,'root','pswd')"]
+  >>= fun _ -> Sqlexpr.insert db [%sqlc "INSERT OR IGNORE INTO users(type,password) VALUES(0,'pswd')"]
+  >>= fun _ -> Sqlexpr.insert db [%sqlc "INSERT OR IGNORE INTO users(type,password) VALUES(1,'pswd')"]
+  >>= fun _ -> Sqlexpr.insert db [%sqlc "INSERT OR IGNORE INTO users(type,password) VALUES(2,'pswd')"]
 
 let create_streams db =
   Sqlexpr.execute db [%sqlinit "CREATE TABLE IF NOT EXISTS streams( \

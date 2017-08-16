@@ -6,7 +6,7 @@ let wrap api_call meth args headers body =
 
 module type HANDLER = sig
   val domain : string
-  val handle : User.user -> Cohttp.Code.meth -> string list ->
+  val handle : User.t -> Cohttp.Code.meth -> string list ->
                Cohttp.Header.t -> Cohttp_lwt_body.t -> (Cohttp.Response.t * Cohttp_lwt_body.t) Lwt.t
 end
 

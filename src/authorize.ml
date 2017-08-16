@@ -2,7 +2,7 @@ open Containers
 open Cohttp
 open User
    
-type auth_result = Id of User.user
+type auth_result = Id of User.t
                  | Done of Header.t
                  | Need_auth
                  
@@ -14,11 +14,14 @@ let validate_headers dbs hds =
   | Some x -> match x with
     | `Other _ -> Lwt.return None
     | `Basic (name, pass) -> (
-      Storage.request dbs (Get_pass name)
-      >>= fun u ->
-      if pass = u.password
-      then Lwt.return (Some u.user)
-      else Lwt.return None )
+      match User.of_string name with
+      | Error _ -> Lwt.return None
+      | Ok id ->
+         Storage.request dbs (Get_passwd id)
+         >>= fun u ->
+         if pass = u.password
+         then Lwt.return (Some u.user)
+         else Lwt.return None )
          
 let auth dbs headers =
   let open Lwt.Infix in
