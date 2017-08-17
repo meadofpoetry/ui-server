@@ -39,11 +39,12 @@ let get_handler ~settings
                    |> String.split_on_char '/'
                    |> List.filter (not % String.equal "")
     in
-    let meth     = Request.meth req in
-    let redir = auth_filter headers in
+    let meth      = Request.meth req in
+    let redir     = auth_filter headers in
+    let sock_data = (req, (fst conn)) in
     match meth, uri_list with
     | `GET, []         -> redir (fun _ -> home settings.path)
-    | _, "api" :: path -> Api_handler.handle routes redir meth path headers body
+    | _, "api" :: path -> Api_handler.handle routes redir meth path sock_data headers body
     | `GET, _          -> redir (fun _ -> resource settings.path uri)
     | _                -> not_found ()
   in

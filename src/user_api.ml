@@ -10,7 +10,7 @@ let set_password dbs body () =
   | Ok pass -> User.Storage.(request dbs (Set_passwd pass))
                >>= fun () -> respond_ok ()
   
-let user_handle dbs id meth args _ body = (*headers body =*)
+let user_handle dbs id meth args _ _ body = (*headers body =*)
   let open Redirect in
   let open User in
   let not_root = not @@ User.eq id `Root in

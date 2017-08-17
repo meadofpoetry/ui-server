@@ -1,12 +1,14 @@
 open Containers
 open Redirect
 
-let wrap api_call meth args headers body =
-  fun id -> api_call id meth args headers body
+type socket_data = Cohttp_lwt_unix.Request.t * Conduit_lwt_unix.flow
+
+let wrap api_call meth args sock_data headers body =
+  fun id -> api_call id meth args sock_data headers body
 
 module type HANDLER = sig
   val domain : string
-  val handle : User.t -> Cohttp.Code.meth -> string list ->
+  val handle : User.t -> Cohttp.Code.meth -> string list -> socket_data ->
                Cohttp.Header.t -> Cohttp_lwt_body.t -> (Cohttp.Response.t * Cohttp_lwt_body.t) Lwt.t
 end
 
@@ -21,8 +23,8 @@ let create hndls =
             hndls;
   tbl
                 
-let handle tbl redir meth path headers body =
+let handle tbl redir meth path sock_data headers body =
   match path with
   | key::tl -> let (module H : HANDLER) = Handlers.find tbl key in
-               redir @@ wrap H.handle meth tl headers body
+               redir @@ wrap H.handle meth tl sock_data headers body
   | _ -> not_found ()

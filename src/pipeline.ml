@@ -4,6 +4,8 @@ open Lwt.Infix
 open Containers
 open Common
 
+let (%) = CCFun.(%)
+
 type content = Streams of Streams.t
              | Settings of Settings.t
              | Graph of Graph.t
@@ -51,6 +53,7 @@ let split_events s_to_input events =
   let wm  , wm_push   = E.create () in
   let data, data_push = E.create () in
   let (<||>) f result = if Result.is_ok result then f (Result.get_exn result) else () in
+  let _ = strm_push Common.Streams.default in
   let split = function
     | `Assoc [("streams", tl)]  -> strm_push <||> Streams_conv.streams_of_yojson s_to_input tl
     | `Assoc [("settings", tl)] -> sets_push <||> Settings.of_yojson tl
@@ -59,7 +62,7 @@ let split_events s_to_input events =
     | `Assoc [("data", tl)]     -> data_push <||> Data.of_yojson tl
     | _ -> ()
   in
-  let _ = E.map split events in
+  let _ = E.map_s (Lwt.return % split) events in
   strm, sets, grap, wm, data
 
 let set sock input_to_s (conv : Msg_conv.converter) lst =
@@ -162,6 +165,7 @@ let create config dbs =
      let rec loop () =
        Socket.recv ev_sock
        >>= fun msg ->
+       Lwt_io.printf "Msg: %s\n\n" msg |> ignore;
        epush (converter.of_string msg);
        loop ()
      in
