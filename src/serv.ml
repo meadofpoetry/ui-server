@@ -6,7 +6,16 @@ open Interaction
 let (%) = Fun.(%)
 
 let home base =
-  respond_file base "index.html" ()
+  let tmpl = Filename.concat base "templates/base.html"
+             |> CCIO.File.read_exn (* FIXME wrap in try/catch *)
+             |> Mustache.of_string in
+  let json =
+    `O [ "title", `String "АТС-3"
+       ; "scripts", `A [ `O ["script", `String "/js/home.js"]]
+       ; "stylesheets", `A []
+       ; "content", `String "home"] in
+  let html = Mustache.render tmpl json in
+  respond_string html ()
 
 let resource base uri =
   respond_file base uri () 

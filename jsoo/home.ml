@@ -92,9 +92,9 @@ let onload _ =
   Lwt.ignore_result @@ Lwt_js_events.clicks button_reset (fun _ _ -> return @@ push Js.null);
 
   Dom.appendChild div h2;
-  Dom.appendChild doc##.body div;
-  Dom.appendChild doc##.body button_set;
-  Dom.appendChild doc##.body button_reset;
+  Dom.appendChild (Dom_html.getElementById "main") div;
+  Dom.appendChild (Dom_html.getElementById "main") button_set;
+  Dom.appendChild (Dom_html.getElementById "main") button_reset;
   Js._false
 
 let () = Dom_html.window##.onload := Dom_html.handler onload

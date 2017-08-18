@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="">
+        <title>{{title}}</title>
+        <link rel="stylesheet" href="/css/main.css" type="text/css">
+        <link
+            rel="stylesheet"
+            href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+        <!-- Additional scripts -->
+        {{#scripts}}
+        <script src={{script}} type="text/javascript"></script>
+        {{/scripts}}
+        <!-- Additional stylesheets -->
+        {{#stylesheets}}
+        <link rel="stylesheet" href={{stylesheet}} type="text/css">
+        {{/stylesheets}}
+    </head>
+    <body class="mdc-typography">
+        <header class="mdc-toolbar mdc-toolbar--fixed">
+            <div class="mdc-toolbar--row">
+                <section class="mdc-toolbar__section mdc-toolbar__section--align-start">
+                    <a href="/" class="material-icons mdc-toolbar__icon--menu">menu</a>
+                    <span class="mdc-toolbar__title">АТС-3</span>
+                </section>
+            </div>
+        </header>
+        <div class="content mdc-toolbar-fixed-adjust">
+            <nav class="mdc-permanent-drawer">
+                <nav class="mdc-list">
+                    <a class="mdc-list-item" href="#">
+                        <i class="material-icons mdc-list-item__start-detail" aria-hidden="true">multiline_chart</i>
+                        Мониторинг
+                    </a>
+                    <a class="mdc-list-item" href="#">
+                        <i class="material-icons mdc-list-item__start-detail" aria-hidden="true">developer_board</i>
+                        Конфигурация
+                    </a>
+                    <a class="mdc-list-item" href="#">
+                        <i class="material-icons mdc-list-item__start-detail" aria-hidden="true">settings</i>
+                        Настройки
+                    </a>
+                </nav>
+            </nav>
+            <main class="main-with-sidebar">
+                <div class="content">
+                    {{content}}
+                </div>
+            </main>
+        </div>
+    </body>
+</html>
