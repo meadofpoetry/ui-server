@@ -11,6 +11,8 @@
             rel="stylesheet"
             href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css">
         <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto+Mono">
         <!-- Additional scripts -->
         {{#scripts}}
         <script src={{script}} type="text/javascript"></script>
@@ -31,6 +33,7 @@
         </header>
         <div class="content mdc-toolbar-fixed-adjust">
             <nav class="mdc-permanent-drawer">
+                <div class="mdc-list-group">
                 <nav class="mdc-list">
                     <a class="mdc-list-item" href="#">
                         <i class="material-icons mdc-list-item__start-detail" aria-hidden="true">multiline_chart</i>
@@ -40,17 +43,33 @@
                         <i class="material-icons mdc-list-item__start-detail" aria-hidden="true">developer_board</i>
                         Конфигурация
                     </a>
-                    <a class="mdc-list-item" href="#">
+                </nav>
+                <hr class="mdc-list-divider">
+                <nav class="mdc-list">
+                    <a class="mdc-list-item" href="/settings/users">
                         <i class="material-icons mdc-list-item__start-detail" aria-hidden="true">settings</i>
                         Настройки
                     </a>
+                    <a class="mdc-list-item" href="#">
+                        <i class="material-icons mdc-list-item__start-detail" aria-hidden="true">info</i>
+                        О приборе
+                    </a>
                 </nav>
+                </div>
             </nav>
             <main class="main-with-sidebar">
-                <div class="content">
-                    {{content}}
-                </div>
+                <section id="arbitrary-content">
+                    <div class="mdc-layout-grid">
+                        <div class="mdc-layout-grid__inner">
+                            {{#content}}
+                            {{{element}}}
+                            {{/content}}
+                        </div>
+                    </div>
+                </section>
             </main>
         </div>
+        <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+        <script>window.mdc.autoInit();</script>
     </body>
 </html>

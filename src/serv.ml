@@ -5,18 +5,6 @@ open Interaction
    
 let (%) = Fun.(%)
 
-let home base =
-  let tmpl = Filename.concat base "templates/base.html"
-             |> CCIO.File.read_exn (* FIXME wrap in try/catch *)
-             |> Mustache.of_string in
-  let json =
-    `O [ "title", `String "АТС-3"
-       ; "scripts", `A [ `O ["script", `String "/js/home.js"]]
-       ; "stylesheets", `A []
-       ; "content", `String "home"] in
-  let html = Mustache.render tmpl json in
-  respond_string html ()
-
 let resource base uri =
   respond_file base uri () 
 
@@ -52,7 +40,8 @@ let get_handler ~settings
     let redir     = auth_filter headers in
     let sock_data = (req, (fst conn)) in
     match meth, uri_list with
-    | `GET, []         -> redir (fun _ -> home settings.path)
+    | `GET, []                    -> redir (fun _ -> Responses.home settings.path)
+    | `GET, ["settings"; "users"] -> redir (fun _ -> Responses.Settings.users settings.path)
     | _, "api" :: path -> Api_handler.handle routes redir meth path sock_data headers body
     | `GET, _          -> redir (fun _ -> resource settings.path uri)
     | _                -> not_found ()
