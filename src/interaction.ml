@@ -32,3 +32,6 @@ let respond_need_auth = Cohttp_lwt_unix.Server.respond_need_auth
 
 let respond_file base path =
   Cohttp_lwt_unix.Server.respond_file ~fname:(Filename.concat base path)
+
+let respond_string ?(status = `OK) body =
+  Cohttp_lwt_unix.Server.respond_string ~status ~body
