@@ -3,10 +3,18 @@ open Interaction
 open Redirect
 open Pipeline
 open Websocket_cohttp_lwt
+open Frame
+open Containers
    
 open Lwt.Infix
 
 let ( % ) = CCFun.(%)
+
+(* TODO reason about random key *)
+let () = Random.init (int_of_float @@ Unix.time ())
+let rand_int = fun () -> Random.run (Random.int 10000000)
+       
+let socket_table = Hashtbl.create 1000
 
 let set body conv apply =
   yojson_of_body body >>= fun js ->
@@ -16,19 +24,23 @@ let set body conv apply =
                >>= fun () -> respond_ok ()
 
 let get_sock sock_data body conv event =
+  let id = rand_int () in
   Cohttp_lwt_body.drain_body body
   >>= fun () ->
   Websocket_cohttp_lwt.upgrade_connection
     (fst sock_data)
     (snd sock_data)
-    (fun _ -> ())
+    (fun f -> match f.opcode with
+              | Opcode.Close -> Hashtbl.remove socket_table id
+              | _ -> ())
   >>= fun (resp, body, frames_out_fn) ->
   let send x =
-    let _ = Msg_conv.to_string @@ conv x in
-    frames_out_fn @@ Some (Frame.create ~content:"msg" ())
+    let msg = Msg_conv.to_string @@ conv x in
+    frames_out_fn @@ Some (Frame.create ~content:msg ())
   in
-  let _ = Lwt_react.E.map_s (Lwt.return % send) event
-  in Lwt.return (resp, (body :> Cohttp_lwt_body.t))
+  let sock_events = Lwt_react.E.map send event in
+  Hashtbl.add socket_table id sock_events;
+  Lwt.return (resp, (body :> Cohttp_lwt_body.t))
 
 let set_streams pipe body () =
   set body Common.Streams.of_yojson

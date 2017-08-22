@@ -11,10 +11,13 @@ type content = Streams of Streams.t
              | Graph of Graph.t
              | Wm of Wm.t
 
-type state = { ctx : ZMQ.Context.t
-             ; msg : [ `Req] ZMQ.Socket.t
-             ; ev  : [ `Sub] ZMQ.Socket.t
+type state = { ctx         : ZMQ.Context.t
+             ; msg         : [ `Req] ZMQ.Socket.t
+             ; ev          : [ `Sub] ZMQ.Socket.t
+             ; sock_events : unit E.t
+             ; db_events   : unit E.t
              }
+           
 type pipe = { set             : content list -> unit Lwt.t
             ; get             : [ `Streams | `Settings | `Graph | `Wm ] list -> content list Lwt.t
             ; streams_events  : Common.Streams.t E.t
@@ -46,14 +49,14 @@ let label = function
   | `Graph    -> "graph"
   | `Wm       -> "wm"
 
-let split_events s_to_input events =
+let split_events s_to_input =
+  let events, epush   = E.create () in
   let strm, strm_push = E.create () in
   let sets, sets_push = E.create () in
   let grap, grap_push = E.create () in
   let wm  , wm_push   = E.create () in
   let data, data_push = E.create () in
   let (<||>) f result = if Result.is_ok result then f (Result.get_exn result) else () in
-  let _ = strm_push Common.Streams.default in
   let split = function
     | `Assoc [("streams", tl)]  -> strm_push <||> Streams_conv.streams_of_yojson s_to_input tl
     | `Assoc [("settings", tl)] -> sets_push <||> Settings.of_yojson tl
@@ -62,8 +65,8 @@ let split_events s_to_input events =
     | `Assoc [("data", tl)]     -> data_push <||> Data.of_yojson tl
     | _ -> ()
   in
-  let _ = E.map_s (Lwt.return % split) events in
-  strm, sets, grap, wm, data
+  let events = E.map split events in
+  events, epush, strm, sets, grap, wm, data
 
 let set sock input_to_s (conv : Msg_conv.converter) lst =
   let rec build = function
@@ -121,8 +124,8 @@ end = Pipeline_storage
        
 type t = pipe
 
-let connect_db pipe dbs =
-  E.map_s (fun s -> Storage.request dbs (Store_streams s)) pipe.streams_events
+let connect_db streams_events dbs =
+  E.map_s (fun s -> Storage.request dbs (Store_streams s)) streams_events
 
 let create config dbs =
   let cfg = Conf.get config in
@@ -147,28 +150,29 @@ let create config dbs =
      let input_to_s = int_of_string in
      let s_to_input = string_of_int in
 
-     let events, epush = E.create () in
-     let streams_events,
+     let sock_events, epush,
+         streams_events,
          settings_events,
          graph_events,
          wm_events,
-         data_events = split_events s_to_input events
+         data_events = split_events s_to_input
      in
      let set = set msg_sock input_to_s converter in
      let get = get msg_sock s_to_input converter in
+     let db_events = connect_db streams_events dbs in
      let obj = {set; get; streams_events;
                 settings_events; graph_events;
                 wm_events; data_events;
-                state = { ctx; msg; ev } }
+                state = { ctx; msg; ev; sock_events; db_events } }
      in
-     connect_db obj dbs |> ignore;
+     (* polling loop *)
      let rec loop () =
        Socket.recv ev_sock
        >>= fun msg ->
-       Lwt_io.printf "Msg: %s\n\n" msg |> ignore;
        epush (converter.of_string msg);
        loop ()
      in
+     (* finalizer *)
      let fin () =
        Lwt_unix.waitpid [] pid >>= fun _ ->
        Lwt.fail_with "Child'd died for some reason"
