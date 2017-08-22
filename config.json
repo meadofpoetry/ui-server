@@ -1,0 +1,9 @@
+{ "pipeline" : { "bin_name" : "ats3-backend",
+                 "bin_path" : "/home/freyr/Documents/soft/dev/ats-analyzer/build",
+                 "sources" : ["udp://224.1.2.2:1234"],
+                 "msg_fmt" : "json",
+                 "sock_in" : "ipc:///tmp/ats_qoe_in",
+                 "sock_out" : "ipc:///tmp/ats_qoe_out" },
+  "db" : { "db_path" : "./db" },
+  "server" : { "path" : "./resources",
+               "port" : 8080 } }

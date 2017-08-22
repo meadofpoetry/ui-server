@@ -1,4 +1,4 @@
-open React
+open Lwt_react
 
 let return = Lwt.return
 let (>>=) = Lwt.(>>=)
@@ -11,13 +11,6 @@ let button_type = Js.string "button"
 let server =
   let protocol = (Js.to_string Dom_html.window##.location##.protocol) in
   protocol ^ "//" ^ (Js.to_string Dom_html.window##.location##.hostname) ^ ":8088/janus"
-
-let make_struct () =
-  let open Common in
-  let tmp = Qoe_types.default in
-  Qoe_types.State.to_yojson tmp
-  |> Common.Qoe_types.filter_none
-  |> Yojson.Safe.to_string
 
 let janus_pipe debug =
   let open Janus_static in
@@ -68,6 +61,8 @@ let janus_pipe debug =
 
 let onload _ =
 
+  (*let streams, push_streams = S.create Js.null in*)
+
   let () = (Lwt.catch
               (fun () -> (janus_pipe (`All false)))
               (function
@@ -75,8 +70,36 @@ let onload _ =
                 | _ -> return @@ Printf.printf "Unknown exception in janus pipe\n"))
            |> ignore in
 
-  let str = make_struct () in
+  let doc = Dom_html.document in
+  let div = Dom_html.createDiv doc in
+  let h2 = Dom_html.createH2 doc in
+  let button_set   = Dom_html.createInput ~_type:button_type doc in
+  let button_reset = Dom_html.createInput ~_type:button_type doc in
+  button_set##.value := Js.string "Change Content";
+  button_reset##.value := Js.string "Reset Content";
 
+  let v, push = S.create Js.null in
+  
+  let _ = S.map_s (fun text -> Lwt.return (h2##.textContent := text)) v in
+
+  let sock =  new%js WebSockets.webSocket (Js.string ("ws://" ^ (Js.to_string Dom_html.window##.location##.hostname) ^ ":8080/api/streams/sock")) in
+
+  sock##.onmessage :=
+    Dom.handler (fun (msg : WebSockets.webSocket WebSockets.messageEvent Js.t)
+                 -> Printf.printf "%s\n" (Js.to_string msg##.data);  Js.bool true);
+
+  (*Lwt.ignore_result @@ Lwt_js_events.clicks button_set (fun _ _ -> ask_server push);*)
+  Lwt.ignore_result @@ Lwt_js_events.clicks button_reset (fun _ _ -> return @@ push Js.null);
+
+  Dom.appendChild div h2;
+  Dom.appendChild doc##.body div;
+  Dom.appendChild doc##.body button_set;
+  Dom.appendChild doc##.body button_reset;
+  Js._false
+
+let () = Dom_html.window##.onload := Dom_html.handler onload
+
+                                                      (*
   let ask_server push =
     let post_args = ["data", `String (Js.bytestring str)] in
     Lwt_xmlHttpRequest.perform_raw
@@ -89,27 +112,4 @@ let onload _ =
       "api/test"
     >|= (fun resp ->
         push @@ Js.some resp.content)
-  in
-
-  let v, push = S.create Js.null in
-
-  let doc = Dom_html.document in
-  let div = Dom_html.createDiv doc in
-  let h2 = Dom_html.createH2 doc in
-  let button_set   = Dom_html.createInput ~_type:button_type doc in
-  let button_reset = Dom_html.createInput ~_type:button_type doc in
-  button_set##.value := Js.string "Change Content";
-  button_reset##.value := Js.string "Reset Content";
-
-  let _ = S.map (fun text -> h2##.textContent := text; text) v in
-
-  Lwt.ignore_result @@ Lwt_js_events.clicks button_set (fun _ _ -> ask_server push);
-  Lwt.ignore_result @@ Lwt_js_events.clicks button_reset (fun _ _ -> return @@ push Js.null);
-
-  Dom.appendChild div h2;
-  Dom.appendChild doc##.body div;
-  Dom.appendChild doc##.body button_set;
-  Dom.appendChild doc##.body button_reset;
-  Js._false
-
-let () = Dom_html.window##.onload := Dom_html.handler onload
+  in*)

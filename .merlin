@@ -22,7 +22,7 @@ PKG sqlexpr
 PKG threads
 PKG threads.posix
 PKG websocket
-PKG websocket.cohttp
+PKG websocket-lwt.cohttp
 PKG websocket.lwt
 PKG yojson
 PKG tyxml

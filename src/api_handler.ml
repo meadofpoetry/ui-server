@@ -1,13 +1,30 @@
+open Containers
 open Redirect
 
-let (%) = CCFun.(%)
+type socket_data = Cohttp_lwt_unix.Request.t * Conduit_lwt_unix.flow
 
-let wrap api_call meth args headers body =
-  fun id -> api_call id meth args headers body
-          
-let handle ~database
-           meth path headers body =
-  let redir = redirect_auth database headers in
-  match meth, path with
-  | `POST, "test"::tl   -> redir @@ wrap Api.Test.test meth tl headers body
+let wrap api_call meth args sock_data headers body =
+  fun id -> api_call id meth args sock_data headers body
+
+module type HANDLER = sig
+  val domain : string
+  val handle : User.t -> Cohttp.Code.meth -> string list -> socket_data ->
+               Cohttp.Header.t -> Cohttp_lwt_body.t -> (Cohttp.Response.t * Cohttp_lwt_body.t) Lwt.t
+end
+
+module Handlers = Hashtbl.Make(String)
+
+let create hndls =
+  let tbl = Handlers.create 50 in
+  List.iter (fun ((module H : HANDLER) as handler) ->
+      try  ignore @@ Handlers.find tbl H.domain;
+           failwith ("Domain " ^ H.domain ^ " already exists")
+      with Not_found -> Handlers.add tbl H.domain handler)
+            hndls;
+  tbl
+                
+let handle tbl redir meth path sock_data headers body =
+  match path with
+  | key::tl -> let (module H : HANDLER) = Handlers.find tbl key in
+               redir @@ wrap H.handle meth tl sock_data headers body
   | _ -> not_found ()

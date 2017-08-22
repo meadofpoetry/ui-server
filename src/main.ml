@@ -1,19 +1,33 @@
-(*
- *)
-open Database
-open Server_inst
 
-let rec main () =
+let main config =
   Nocrypto_entropy_lwt.initialize () |> ignore;
-  let ss = { path = Filename.concat Filename.current_dir_name "resources"
-           ; port = 7777
-           } in
-  let ds = { path = "./db" } in
-  let db = Database.create ds in
-  let pipe, pipeloop = Pipeline.create () in
-  let server = Server_inst.create ~settings:ss ~database:db in
-  let _ = Lwt_react.E.map (fun js -> Lwt_io.printf "Event: %s\n" (Yojson.Safe.to_string js)|> ignore) pipe.options_events in
-  Lwt_main.run (Lwt.join [server; pipeloop ()]);
-  main ()
+  let rec mainloop () =
+    print_endline "Started.";
+    
+    let db = Database.create config in
+    let pipe, pipeloop = Pipeline.create config db in
+    let routes = Api_handler.create @@ (Pipeline_api.handlers pipe) @ (User_api.handlers db) in
+    let auth_filter = Redirect.redirect_auth db in
+    let server = Serv.create config auth_filter routes in
 
-let () = main ()
+    try 
+      Lwt_main.run (Lwt.pick [pipeloop; server]);
+    with
+    | Failure s -> begin
+       Printf.printf "Failed with msg: %s\nRestarting...\n" s;
+
+       print_endline "done";
+
+       Database.finalize db;
+       Pipeline.finalize pipe;
+       
+       mainloop ()
+      end
+
+    | _ -> print_endline "failed with unknown exception"
+
+  in mainloop ()
+
+let () =
+  let config = Config.create "./config.json" in
+  main config

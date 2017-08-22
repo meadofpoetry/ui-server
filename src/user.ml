@@ -1,17 +1,13 @@
 open Containers
 
 let (%) = Fun.(%)
-                     
-type user = Root | Guest
-                 
-let to_string = function
-  | Root  -> "root"
-  | Guest -> "guest"
 
-let of_string = function
-  | "root" -> Root
-  | _      -> Guest
+include Common.User
 
-let is_root = function
-  | Root -> true
-  | _    -> false
+module Storage : sig 
+  type _ req =
+    | Get_passwd : Common.User.t -> Common.User.pass Lwt.t req
+    | Set_passwd : Common.User.pass -> unit Lwt.t req
+    
+  include (Database.STORAGE with type 'a req := 'a req)
+end = User_storage

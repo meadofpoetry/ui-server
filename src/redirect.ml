@@ -1,19 +1,30 @@
 open Authorize
+open Interaction
    
 let home_page ?headers =
   match headers with
-  | Some headers -> (fun () -> Cohttp_lwt_unix.Server.respond_redirect ~headers ~uri:(Uri.with_path Uri.empty "/") ())
-  | None         -> (fun () -> Cohttp_lwt_unix.Server.respond_redirect ~uri:(Uri.with_path Uri.empty "/") ())
+  | Some headers -> (fun () -> respond_redirect ~headers "/" ())
+  | None         -> (fun () -> respond_redirect "/" ())
                   
-let login_page = Cohttp_lwt_unix.Server.respond_redirect ~uri:(Uri.with_path Uri.empty "/login")
+let login_page = respond_redirect "/login"
 
-let not_found = Cohttp_lwt_unix.Server.respond_not_found
+let not_found = respond_not_found
 
-let error_page e = Cohttp_lwt_unix.Server.respond_error ~status:`Unauthorized ~body:e ()
-          
+let error_page ?(status = `Unauthorized) = function
+  | Failure e -> respond_error ~status e ()
+  | _         -> respond_error ~status "Unknown error" ()
+               
 let redirect_auth dbs headers request =
-  auth dbs headers
-  |> function
-    | Id id     -> request id
-    | Need_auth -> Cohttp_lwt_unix.Server.respond_need_auth ~auth:(`Basic "User Visible Realm") ()
+  let open Lwt.Infix in
+  Lwt.catch 
+    (fun () -> auth dbs headers)
+    (fun _  -> Lwt.return Need_auth)
+  >>= function
+    | Id id     -> Lwt.catch (fun () -> request id) (fun e -> error_page e)
+    | Need_auth -> respond_need_auth ~auth:(`Basic "User Visible Realm") ()
     | Done hd   -> home_page ~headers:hd ()
+
+let redirect_if p request =
+  if not p
+  then request ()
+  else respond_error "Operation not permitted." ()
