@@ -14,4 +14,6 @@ module User = Common__user
 
 module Opt_update = Common__opt_update
 
+module Components = Common__components
+                  
 module Hardware = Common__hardware

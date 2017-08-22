@@ -4,7 +4,7 @@ true: warn_error(+1..49+60), warn(A-4-7-23-33-39-40-41-42-44-45-48)
 <**/*.{ml,mli,native}> : thread, optimize(3), unbox_closures
 
 <common> : include
-<common/*> : package(yojson ppx_deriving ppx_deriving_yojson lens lens.ppx_deriving)
+<common/*> : package(yojson ppx_deriving ppx_deriving_yojson lens lens.ppx_deriving tyxml)
 
 <src> : include
 <src/api> : include

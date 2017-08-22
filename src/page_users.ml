@@ -1,5 +1,5 @@
 open Tyxml.Html
-open Components
+open Common.Components
 
 let card title =
   let sections = [ Card.create_primary [ Card.create_title title ()
