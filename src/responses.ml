@@ -33,11 +33,8 @@ let home base =
                                            ; a_autoplay () ] []
                                 ]
                             |> (Format.asprintf "%a" (pp_elt ()))) in
-  let tmpl = Filename.concat base "html/templates/base.html"
-             |> CCIO.File.read_exn (* FIXME wrap in try/catch *)
-             |> Mustache.of_string in
   let json = fill_json ~scripts:[ "/js/home.js"; "/js/janus.nojquery.js"; "/js/adapter.min.js" ]
                        ~content:[content]
                        () in
-  let html = Mustache.render tmpl json in
+  let html = render_with_base_template base json in
   respond_string html ()
