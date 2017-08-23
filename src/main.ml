@@ -3,7 +3,8 @@ let main config =
   Nocrypto_entropy_lwt.initialize () |> ignore;
   let rec mainloop () =
     print_endline "Started.";
-    
+
+    let hw = Hardware.create config in
     let db = Database.create config in
     let pipe, pipeloop = Pipeline.create config db in
     let routes = Api_handler.create @@ (Pipeline_api.handlers pipe) @ (User_api.handlers db) in
@@ -18,6 +19,7 @@ let main config =
 
        print_endline "done";
 
+       Hardware.finalize hw;
        Database.finalize db;
        Pipeline.finalize pipe;
        
