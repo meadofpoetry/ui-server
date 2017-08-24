@@ -1,5 +1,6 @@
 BUILD = ocamlbuild
 FLAGS = -use-ocamlfind -plugin-tag 'package(js_of_ocaml.ocamlbuild)'
+LFLAGS = -lflags "-cclib -lcyusb"
 
 build: frontend backend
 	@echo "Done"
@@ -15,7 +16,7 @@ home: common
 frontend: home
 
 backend: common
-	$(BUILD) $(FLAGS) src/main.native
+	$(BUILD) $(FLAGS) $(LFLAGS) src/main.native
 
 doc: build
 
