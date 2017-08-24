@@ -47,15 +47,20 @@ let topology_of_config : Settings.t -> topology =
   List.map of_entry
 
 let create_board b =
-  typ_to_yojson b.typ |> Yojson.Safe.to_string |> Lwt_io.printf "%s\n\n" |> ignore
+  match (b.typ, b.version, b.model, b.manufacturer) with
+  | (Adapter DVB),  1, "rf",       "niitv"  -> Ok b
+  | (Adapter IP),   3, "dtm-3200", "dektec" -> Ok b
+  | (Adapter TS),   4, "qos",      "niitv"  -> Ok b
+  | (Converter IP), 2, "ts2ip",    "niitv"  -> Ok b
+  | _ -> Error ("create board: unknown board " ^ (topo_board_to_yojson b |> Yojson.Safe.to_string))
 
 let create config =
-  let topology = Conf.get config |> topology_of_config in
+  let topo = Conf.get config |> topology_of_config in
   let rec f acc = (function
                    | Board b -> List.fold_left (fun a x -> f a x.child) (b :: acc) b.ports
                    | Input _ -> acc) in
-  let boards = List.fold_left f [] topology in
-  List.map create_board boards
+  List.fold_left f [] topo
+  |> List.map create_board
 
 
 let finalize _ =
@@ -64,10 +69,13 @@ let finalize _ =
 module type BOARD =
   sig
     type t
-    val create : unit -> t
+    val create       : topo_board -> t
+    val connect_db   : t -> Database.t -> unit
+    val get_handlers : t -> (module Api_handler.HANDLER) list
   end
 
 module type BOARD_EVENTFUL =
   sig
     include BOARD
+    val get_streams_signal : t -> (int * string) list React.signal
   end
