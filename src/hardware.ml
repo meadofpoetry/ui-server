@@ -1,4 +1,5 @@
 open Common.Hardware
+open Board_types
 open Containers
 
 module Settings = struct
@@ -46,13 +47,28 @@ let topology_of_config : Settings.t -> topology =
   in
   List.map of_entry
 
-let create_board b =
-  match (b.typ, b.version, b.model, b.manufacturer) with
-  | (Adapter DVB),  1, "rf",       "niitv"  -> Ok b
-  | (Adapter IP),   3, "dtm-3200", "dektec" -> Ok b
-  | (Adapter TS),   4, "qos",      "niitv"  -> Ok b
-  | (Converter IP), 2, "ts2ip",    "niitv"  -> Ok b
-  | _ -> Error ("create board: unknown board " ^ (topo_board_to_yojson b |> Yojson.Safe.to_string))
+let create_board (b:topo_board) =
+  let module V : VERSION = (struct let ver = b.version end) in
+  let f (module B : BOARD) =
+    let board = B.create b in
+    B.get_handlers board in
+  match (b.typ, b.model, b.manufacturer) with
+  | (Adapter DVB), "rf", "niitv"  ->
+     let module B : BOARD  = Board_dvb.Make(V) in
+     f (module B)
+  | (Adapter IP), "dtm-3200", "dektec" ->
+     let module B : BOARD = Board_ts2ip.Make(V) in
+     f (module B)
+  | (Adapter TS), "qos", "niitv"  ->
+     Lwt_io.printf "%d\n" b.id |> ignore;
+     let module B : BOARD = Board_qos.Make(V) in
+     f (module B)
+  | (Converter IP), "ts2ip", "niitv"  ->
+     let module B : BOARD = Board_ip.Make(V) in
+     f (module B)
+  | _ -> raise (Failure ("create board: unknown board " ^ (topo_board_to_yojson b |> Yojson.Safe.to_string)))
+
+let handlers hw = hw
 
 let create config =
   let topo = Conf.get config |> topology_of_config in
@@ -60,22 +76,8 @@ let create config =
                    | Board b -> List.fold_left (fun a x -> f a x.child) (b :: acc) b.ports
                    | Input _ -> acc) in
   List.fold_left f [] topo
-  |> List.map create_board
+  |> List.map create_board |> List.concat
 
 
 let finalize _ =
   ()
-
-module type BOARD =
-  sig
-    type t
-    val create       : topo_board -> t
-    val connect_db   : t -> Database.t -> unit
-    val get_handlers : t -> (module Api_handler.HANDLER) list
-  end
-
-module type BOARD_EVENTFUL =
-  sig
-    include BOARD
-    val get_streams_signal : t -> (int * string) list React.signal
-  end

@@ -62,3 +62,6 @@ and topo_board = { id           : id
 and topo_port = { port  : int
                 ; child : topo_entry
                 }
+
+let get_api_path id =
+  "board_" ^ (string_of_int id)

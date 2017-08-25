@@ -7,11 +7,13 @@ let main config =
     let hw = Hardware.create config in
     let db = Database.create config in
     let pipe, pipeloop = Pipeline.create config db in
-    let routes = Api_handler.create @@ (Pipeline_api.handlers pipe) @ (User_api.handlers db) in
+    let routes = Api_handler.create @@ ((Pipeline_api.handlers pipe)
+                                        @ (User_api.handlers db)
+                                        @ (Hardware.handlers hw)) in
     let auth_filter = Redirect.redirect_auth db in
     let server = Serv.create config auth_filter routes in
 
-    try 
+    try
       Lwt_main.run (Lwt.pick [pipeloop; server]);
     with
     | Failure s -> begin
