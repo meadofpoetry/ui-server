@@ -19,7 +19,7 @@ type t = { handle  : Cyusb_raw.handl
               
 let create ?(inp = in_point) ?(outp = out_point) () =
   let i = Cyusb_raw.init () in
-  if i <> 1
+  if i <> 1 (* Only one device should be connected *)
   then failwith (Printf.sprintf "Usb init-tion failure %d" i);
   let handle = Cyusb_raw.get_handle 0 in
   if Cyusb_raw.get_vendor handle <> (Unsigned.UShort.of_int 0x04b4)
@@ -30,7 +30,6 @@ let create ?(inp = in_point) ?(outp = out_point) () =
   then failwith "Error in claiming interface";
   let in_max = Cyusb_raw.get_max_iso_packet_size handle (Unsigned.UChar.of_int inp) in
   let out_max = Cyusb_raw.get_max_iso_packet_size handle (Unsigned.UChar.of_int outp) in
-  Lwt_io.printf "In_max: %d\nOut_max: %d\n" in_max out_max |> ignore;
   { handle
   ; inp
   ; outp
@@ -44,7 +43,7 @@ let send usb b =
   let open Cbuffer in
   let open Ctypes in
   let got     = allocate int32_t 0l in
-  let buf_lst = Cbuffer.split_size b usb.out_max in
+  let buf_lst = Cbuffer.split_size usb.out_max b in
 
   let rec send' = function
     | [] -> ()

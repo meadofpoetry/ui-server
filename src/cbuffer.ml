@@ -6,6 +6,12 @@ let create sz =
   let buf = Bigarray.(Array1.create char c_layout sz) in
   { buf; sz }
 
+let to_bytes b =
+  let r = Bytes.create b.sz in
+  Bytes.iteri (fun i _ ->
+      let c = Bigarray.Array1.unsafe_get b.buf i in Bytes.set r i c) r;
+  r
+  
 let of_string s =
   let sz  = CCString.length s in
   let buf = Bigarray.(Array1.create char c_layout sz) in
@@ -43,7 +49,7 @@ let concat arrs = rev_concat (List.rev arrs)
 
 exception Not_equal
   
-let split buf on =
+let split on buf =
   let onsz = CCString.length on in
   if onsz >= buf.sz
   then []
@@ -78,7 +84,7 @@ let split buf on =
                        ; sz  = e - s })
          points
 
-let split_size buf size =
+let split_size size buf =
 
   let rec split point acc =
     if buf.sz - point < size
@@ -99,6 +105,19 @@ let fold f acc buf =
     then acc
     else fold' (succ point) (f acc (Bigarray.Array1.unsafe_get buf.buf point))
   in fold' 0 acc
+
+let map f buf =
+  let nb = create buf.sz in
+  let rec map' point =
+    if point = buf.sz
+    then nb
+    else begin
+      Bigarray.Array1.unsafe_get buf.buf point
+      |> f
+      |> Bigarray.Array1.unsafe_set nb.buf point;
+      map' (succ point)
+      end
+  in map' 0
 
 let sub buf ?(start = 0) len =
   { buf = Bigarray.Array1.sub buf.buf start len
