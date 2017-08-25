@@ -4,7 +4,7 @@ let main config =
   let rec mainloop () =
     print_endline "Started.";
     let usb = Cyusb.create () in
-    Lwt_io.printf "got: %s\n" (CCString.fold (fun s c -> s ^ (Printf.sprintf " %02x " (int_of_char c))) "" (Cyusb.recv usb)) |> ignore;
+    Lwt_io.printf "got: %s\n" (Cbuffer.fold (fun s c -> s ^ (Printf.sprintf " %02x " (int_of_char c))) "" (Cyusb.recv usb)) |> ignore;
     let db = Database.create config in
     let pipe, pipeloop = Pipeline.create config db in
     let routes = Api_handler.create @@ (Pipeline_api.handlers pipe) @ (User_api.handlers db) in
