@@ -3,12 +3,6 @@ open Cyusb_raw
 let in_point = 0x86
 
 let out_point = 0x02
-   
-let read arr sz =
-  let r = Bytes.create sz in
-  Bytes.iteri (fun i _ ->
-      let c = Ctypes.CArray.unsafe_get arr i in Bytes.set r i c) r;
-  Bytes.unsafe_to_string r
 
 type t = { handle  : Cyusb_raw.handl
          ; in_max  : int

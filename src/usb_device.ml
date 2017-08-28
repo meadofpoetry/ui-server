@@ -65,7 +65,7 @@ let serialize port buf =
   let h = { len  = buf.len
           ; port = port
           } in
-  concat [(to_header h); buf]
+  append (to_header h) buf
   
 let parse ~mstart ~mend buf_list =
   let open Option.Infix in
@@ -116,7 +116,7 @@ let send usb port =
   let open Cbuffer in
   let send' port data =
     let h = { len = data.len; port } in
-    let msg = concat [(to_header h); data] in
+    let msg = append (to_header h) data in
     Cyusb.send usb msg
   in 
   Lwt_preemptive.detach (send' port)
