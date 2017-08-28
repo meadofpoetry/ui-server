@@ -4,48 +4,15 @@ open Containers
 
 module Settings = struct
 
-  type t = config_entry list [@@deriving yojson]
-
-   and config_entry  = Input of input
-                     | Board  of typ * config_board
-   and config_board = { control      : int
-                      ; model        : string
-                      ; manufacturer : string
-                      ; version      : version
-                      ; ports        : config_port list
-                      }
-   and config_port = { port  : int
-                     ; child : config_entry
-                     }
-  let default = []
-  let domain = "topology"
+  type t = topology
+  let to_yojson = topology_to_yojson
+  let of_yojson = topology_of_yojson
+  let default   = []
+  let domain    = "topology"
 
 end
 
 module Conf = Config.Make(Settings)
-
-let topology_of_config : Settings.t -> topology =
-  let id = ref 0 in
-  let rec of_entry : Settings.config_entry -> topo_entry = function
-    | Input i       -> Input i
-    | Board (t, bc) -> Board (of_board t bc)
-
-  and of_board t bc =
-    { id           = (id := !id + 1; !id)
-    ; typ          = t
-    ; model        = bc.model
-    ; manufacturer = bc.manufacturer
-    ; version      = bc.version
-    ; control      = bc.control
-    ; ports        = List.map of_port bc.ports
-    }
-
-  and of_port port =
-    { port  = port.port
-    ; child = of_entry port.child
-    }
-  in
-  List.map of_entry
 
 let create_board (b:topo_board) =
   let module V : VERSION = (struct let ver = b.version end) in
@@ -60,7 +27,7 @@ let create_board (b:topo_board) =
      let module B : BOARD = Board_ts2ip.Make(V) in
      f (module B)
   | (Adapter TS), "qos", "niitv"  ->
-     Lwt_io.printf "%d\n" b.id |> ignore;
+     Lwt_io.printf "%d\n" b.control |> ignore;
      let module B : BOARD = Board_qos.Make(V) in
      f (module B)
   | (Converter IP), "ts2ip", "niitv"  ->
@@ -71,7 +38,7 @@ let create_board (b:topo_board) =
 let handlers hw = hw
 
 let create config =
-  let topo = Conf.get config |> topology_of_config in
+  let topo = Conf.get config in
   let rec f acc = (function
                    | Board b -> List.fold_left (fun a x -> f a x.child) (b :: acc) b.ports
                    | Input _ -> acc) in

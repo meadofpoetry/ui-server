@@ -25,7 +25,7 @@ module Make (V : VERSION) : BOARD = struct
          let handle = handle () ()
        end : HANDLER) ]
 
-  let create (b:topo_board) = { handlers = handlers b.id }
+  let create (b:topo_board) = { handlers = handlers b.control }
 
   let connect_db _ _ = ()
 
