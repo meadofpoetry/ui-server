@@ -3,8 +3,8 @@ let main config =
   Nocrypto_entropy_lwt.initialize () |> ignore;
   let rec mainloop () =
     print_endline "Started.";
-
     let hw = Hardware.create config in
+    let _, loop = Usb_device.create () in
     let db = Database.create config in
     let pipe, pipeloop = Pipeline.create config db in
     let routes = Api_handler.create @@ ((Pipeline_api.handlers pipe)
@@ -14,7 +14,7 @@ let main config =
     let server = Serv.create config auth_filter routes in
 
     try
-      Lwt_main.run (Lwt.pick [pipeloop; server]);
+      Lwt_main.run (Lwt.pick [pipeloop; server; loop ()]);
     with
     | Failure s -> begin
        Printf.printf "Failed with msg: %s\nRestarting...\n" s;
@@ -24,6 +24,7 @@ let main config =
        Hardware.finalize hw;
        Database.finalize db;
        Pipeline.finalize pipe;
+       Usb_device.finalize ();
        
        mainloop ()
       end
