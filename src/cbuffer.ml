@@ -58,3 +58,15 @@ let split_size size cs =
       split (point+size) (r::acc)
       
   in List.rev @@ split 0 []
+
+let modify f cs =
+  let module BA = Bigarray.Array1 in
+  for i = cs.off to cs.len do
+    BA.unsafe_set cs.buffer i @@ f @@ BA.unsafe_get cs.buffer i
+  done
+
+let modifyi f cs =
+  let module BA = Bigarray.Array1 in
+  for i = cs.off to cs.len do
+    BA.unsafe_set cs.buffer i @@ f i @@ BA.unsafe_get cs.buffer i
+done
