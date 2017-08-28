@@ -11,10 +11,6 @@ type header = { len    : int
             
 let divider = String.of_array [| (char_of_int 0x44); (char_of_int 0xBB) |]
 
-let print_buf b =
-  Cbuffer.iter (fun x -> Lwt_io.printf " %02x " (int_of_char x) |> ignore) b;
-  Lwt_io.printf "\n\n" |> ignore
-
 let char_to_b c =
   let c = int_of_char c in
   let rec loop i s =
@@ -35,57 +31,53 @@ let get_h h =
               
 let of_header buf =
   let open Cbuffer in
-  let h = to_bytes buf in
+  let h = to_string buf in
   let len = int_of_char h.[1] in
   let c   = h.[0] in
   let parity, port = get_h c in
   let len  = (len * 2) - (if parity then 1 else 0) in
   { port; len }
 
-let to_header h =
+let to_header (h : header) =
   let open Cbuffer in
-  let b = create 2 in
+  let cb = create 2 in
   let parity = not ((h.len mod 2) = 0) in
   let len    = char_of_int h.len   in
   let c      = set_h parity h.port in
-  Bigarray.Array1.unsafe_set b.buf 0 c;
-  Bigarray.Array1.unsafe_set b.buf 1 len;
-  b
+  Cbuffer.set_char cb 0 c;
+  Cbuffer.set_char cb 1 len;
+  cb
 
 let deserialize msg =
   let headersz = 2 in
-  let headerb  = Cbuffer.sub msg headersz in
+  let headerb  = Cbuffer.sub msg 0 headersz in
   let header   = of_header headerb in
-  let bodysz   = let sz = (msg.sz - headersz) in
+  let bodysz   = let sz = (msg.len - headersz) in
                  if sz < header.len then sz else header.len
   in
-  let body     =
-    try Cbuffer.sub msg ~start:headersz bodysz
-    with Cbuffer.Bad_boundaries -> failwith "bad msg";
-  in
-  if  (body.sz < header.len)
+  let body     = Cbuffer.sub msg headersz bodysz in
+  if  (body.len < header.len)
   then `Partial (header.port , header.len, body)
   else `Full    (header.port , body)
 
 let serialize port buf =
   let open Cbuffer in
-  let h = { len  = buf.sz
+  let h = { len  = buf.len
           ; port = port
           } in
-  rev_concat [buf; (to_header h)]
+  concat [(to_header h); buf]
   
-let parse ~old buf_list =
+let parse ~mstart ~mend buf_list =
   let open Option.Infix in
   (*  List.iter print_buf buf_list;*)
   let msgs = List.map deserialize buf_list in
-  let head = List.head_opt msgs
-             >>= function
-             | `Full x -> Some x
-             | `Partial (port, len, body) ->
-                old >>= fun (old_port, old_len, old_body) ->
-                if Cbuffer.(old_body.sz + body.sz) = len && old_port = port && old_len = len
-                then Some (port, Cbuffer.rev_concat [body; old_body])
-                else None
+
+  let fixed = mend   >>= fun mend ->
+              mstart >>= fun mstart ->
+              let (port, len, body) = mstart in
+              if Cbuffer.(mend.len + body.len) = len
+              then Some (port, Cbuffer.append body mend)
+              else None
   in
   let rec sieve acc = function
     | [] -> None, []
@@ -94,10 +86,28 @@ let parse ~old buf_list =
     | (`Full x)::xs -> sieve (x::acc) xs
     | (`Partial _)::xs -> sieve acc xs
   in
-  let new_old, msgs = sieve [] (try List.tl msgs with _ -> []) in
-  if Option.is_some head
-  then new_old, ((Option.get_exn head)::msgs)
-  else new_old, msgs
+  let new_mend, msgs = sieve [] (try List.tl msgs with _ -> []) in
+  if Option.is_some fixed
+  then new_mend, ((Option.get_exn fixed)::msgs)
+  else new_mend, msgs
+
+exception Not_equal
+  
+let msg_head divider msg =
+  
+  let rec find_head point =
+    try
+      String.iteri
+        (fun i c -> if c <> Cbuffer.get_char msg (i + point) then raise_notrace Not_equal)
+        divider;
+      point
+    with Not_equal -> find_head (succ point)
+       | _ -> 0
+  in
+  match find_head 0 with
+  | 0 -> None, msg
+  | x -> let h,tl = Cbuffer.split msg ~start:x (msg.len - x) in
+         Some h, tl
 
 let recv usb =
   Lwt_preemptive.detach (fun () -> Cyusb.recv usb)
@@ -105,8 +115,8 @@ let recv usb =
 let send usb port =
   let open Cbuffer in
   let send' port data =
-    let h = { len = data.sz; port } in
-    let msg = rev_concat [data; (to_header h)] in
+    let h = { len = data.len; port } in
+    let msg = concat [(to_header h); data] in
     Cyusb.send usb msg
   in 
   Lwt_preemptive.detach (send' port)
@@ -117,17 +127,20 @@ let forward disp (port, data) =
     push data
   with _ -> () (*print_buf data*)
   
-let create ?(sleep = 1.) () =
+let create ?(sleep = 1.) ?(divider = divider) () =
   let usb      = Cyusb.create () in
   let dispatch = Hashtbl.create 100 in
   let recv     = recv usb in
   let send     = send usb in
+
+  let msg_head = msg_head divider in
   
   let rec loop acc () =
     Lwt_unix.sleep sleep >>= fun () -> 
     recv () >>= fun buf ->
-    let blist = Cbuffer.split divider buf in
-    let new_acc, msgs = parse ~old:acc blist in
+    let head, rest = msg_head buf in
+    let msg_list   = Cbuffer.split_by_string divider rest in
+    let new_acc, msgs = parse ~mstart:acc ~mend:head msg_list in
     List.iter (forward dispatch) msgs;
     loop new_acc ()
   in

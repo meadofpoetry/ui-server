@@ -49,7 +49,7 @@ let send usb b =
     | [] -> ()
     | x::xs ->
        let _ = Cyusb_raw.bulk_transfer usb.handle (Unsigned.UChar.of_int usb.outp)
-                                       (bigarray_start array1 x.buf) x.sz
+                                       (get_ptr x) (len x)
                                        got 2
        in send' xs
   in
@@ -61,16 +61,18 @@ let recv usb =
   let open Ctypes in
   let got  = allocate int32_t 1l in
   let rec recv' () =
-    let buf = Cbuffer.create usb.in_max in
+    let buf = Cbuffer.create_unsafe usb.in_max in
     let _   = Cyusb_raw.bulk_transfer usb.handle (Unsigned.UChar.of_int usb.inp)
-                                      (bigarray_start array1 buf.buf) buf.sz
+                                      (get_ptr buf) (len buf)
                                       got 2
     in
     match Int32.to_int (!@ got) with
     | 0 -> []
     | x when x < 0 -> failwith "usb: reading failure"
     | len ->
-       let r = if len < buf.sz then Cbuffer.sub buf len else buf in
-       r::(recv' ())
+       let r = if len < (Cbuffer.len buf)
+               then Cbuffer.sub buf 0 len
+               else buf
+       in r::(recv' ())
   in 
-  Cbuffer.rev_concat @@ recv' ()
+  Cbuffer.concat @@ recv' ()
