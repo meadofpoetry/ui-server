@@ -152,6 +152,8 @@ let subscribe obj id push =
     failwith (Printf.sprintf "Usb_device: Board %d is already connected" id)
   with _ -> Hashtbl.add obj.dispatch id push
 
+let get_send obj id = obj.send id
+
 (* TODO add proper finalize *)
           
 let finalize () =

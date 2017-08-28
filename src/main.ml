@@ -3,9 +3,8 @@ let main config =
   Nocrypto_entropy_lwt.initialize () |> ignore;
   let rec mainloop () =
     print_endline "Started.";
-    let hw = Hardware.create config in
-    let _, loop = Usb_device.create () in
     let db = Database.create config in
+    let hw, loop = Hardware.create config db in
     let pipe, pipeloop = Pipeline.create config db in
     let routes = Api_handler.create @@ ((Pipeline_api.handlers pipe)
                                         @ (User_api.handlers db)
