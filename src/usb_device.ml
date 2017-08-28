@@ -8,7 +8,7 @@ type t = { dispatch : (int, Cbuffer.t -> unit) Hashtbl.t
 type header = { len    : int
               ; port   : int
               }
-
+            
 let divider = String.of_array [| (char_of_int 0x44); (char_of_int 0xBB) |]
 
 let print_buf b =
@@ -139,5 +139,7 @@ let subscribe obj id push =
     failwith (Printf.sprintf "Usb_device: Board %d is already connected" id)
   with _ -> Hashtbl.add obj.dispatch id push
 
+(* TODO add proper finalize *)
+          
 let finalize () =
   Cyusb.finalize ()
