@@ -7,9 +7,10 @@ let create sz =
   { buf; sz }
 
 let to_bytes b =
+  let module BA = Bigarray.Array1 in
   let r = Bytes.create b.sz in
   Bytes.iteri (fun i _ ->
-      let c = Bigarray.Array1.unsafe_get b.buf i in Bytes.set r i c) r;
+      let c = BA.unsafe_get b.buf i in Bytes.set r i c) r;
   r
   
 let of_string s =
@@ -19,9 +20,10 @@ let of_string s =
   { buf; sz }
 
 let to_string b =
+  let module BA = Bigarray.Array1 in
   let r = Bytes.create b.sz in
   Bytes.iteri (fun i _ ->
-      let c = Bigarray.Array1.unsafe_get b.buf i in Bytes.set r i c) r;
+      let c = BA.unsafe_get b.buf i in Bytes.set r i c) r;
   Bytes.unsafe_to_string r
   
 (**
@@ -50,6 +52,8 @@ let concat arrs = rev_concat (List.rev arrs)
 exception Not_equal
   
 let split on buf =
+  let module BA = Bigarray.Array1 in
+  
   let onsz = CCString.length on in
   if onsz >= buf.sz
   then []
@@ -65,7 +69,7 @@ let split on buf =
       if i < 0 then acc
       else try CCString.iteri
                  (fun j c ->
-                   if c <> Bigarray.Array1.unsafe_get buf.buf (i + j)
+                   if c <> BA.unsafe_get buf.buf (i + j)
                    then raise_notrace Not_equal)
                  on;
                find_subs (i - onsz) (i::(i+onsz)::acc)
@@ -80,46 +84,77 @@ let split on buf =
     | [] | [(_,_)] -> [buf]
     | _ ->
        List.map
-         (fun (s,e) -> { buf = Bigarray.Array1.sub buf.buf s (e - s)
+         (fun (s,e) -> { buf = BA.sub buf.buf s (e - s)
                        ; sz  = e - s })
          points
 
 let split_size size buf =
+  let module BA = Bigarray.Array1 in
 
   let rec split point acc =
     if buf.sz - point < size
     then
       let sz = (buf.sz - point) in
-      let r  = { buf = Bigarray.Array1.sub buf.buf point sz; sz } in
+      let r  = { buf = BA.sub buf.buf point sz; sz } in
       r::acc
     else
       let sz = size in
-      let r  = { buf = Bigarray.Array1.sub buf.buf point sz; sz } in
+      let r  = { buf = BA.sub buf.buf point sz; sz } in
       split (point+size) (r::acc)
 
   in List.rev @@ split 0 []
 
 let fold f acc buf =
+  let module BA = Bigarray.Array1 in
   let rec fold' point acc =
     if point = buf.sz
     then acc
-    else fold' (succ point) (f acc (Bigarray.Array1.unsafe_get buf.buf point))
+    else fold' (succ point) (f acc (BA.unsafe_get buf.buf point))
   in fold' 0 acc
 
 let map f buf =
+  let module BA = Bigarray.Array1 in
   let nb = create buf.sz in
   let rec map' point =
     if point = buf.sz
     then nb
     else begin
-      Bigarray.Array1.unsafe_get buf.buf point
+      BA.unsafe_get buf.buf point
       |> f
-      |> Bigarray.Array1.unsafe_set nb.buf point;
+      |> BA.unsafe_set nb.buf point;
       map' (succ point)
       end
   in map' 0
 
+let iter (f : char -> unit) buf =
+  let module BA = Bigarray.Array1 in
+  for i = 0 to buf.sz do
+    f (BA.unsafe_get buf.buf i)
+  done
+
+let iteri (f : int -> char -> unit) buf =
+  let module BA = Bigarray.Array1 in
+  for i = 0 to buf.sz do
+    f i (BA.unsafe_get buf.buf i)
+  done
+
+let modify f buf =
+  let module BA = Bigarray.Array1 in
+  for i = 0 to buf.sz do
+    BA.unsafe_set buf.buf i @@ f @@ BA.unsafe_get buf.buf i
+  done
+
+let modifyi f buf =
+  let module BA = Bigarray.Array1 in
+  for i = 0 to buf.sz do
+    BA.unsafe_set buf.buf i @@ f i @@ BA.unsafe_get buf.buf i
+  done
+
+exception Bad_boundaries
+   
 let sub buf ?(start = 0) len =
+  if len + start > buf.sz || start < 0 || len <= 0
+  then raise Bad_boundaries;
   { buf = Bigarray.Array1.sub buf.buf start len
   ; sz  = len
   }

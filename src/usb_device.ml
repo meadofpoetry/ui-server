@@ -9,7 +9,11 @@ type header = { len    : int
               ; port   : int
               }
 
-let divider = "╗D"
+let divider = String.of_array [| (char_of_int 0x44); (char_of_int 0xBB) |]
+
+let print_buf b =
+  Cbuffer.iter (fun x -> Lwt_io.printf " %02x " (int_of_char x) |> ignore) b;
+  Lwt_io.printf "\n\n" |> ignore
 
 let char_to_b c =
   let c = int_of_char c in
@@ -32,11 +36,8 @@ let get_h h =
 let of_header buf =
   let open Cbuffer in
   let h = to_bytes buf in
-  Lwt_io.printf "Got header: [0] %s [1] %s \n\n" (char_to_b h.[0]) (char_to_b h.[1]) |> ignore;
-  Cbuffer.fold (fun t c ->
-      t >>=  fun () -> Lwt_io.printf " %02x " (int_of_char c)) Lwt.return_unit buf |> ignore;
-  let len = int_of_char h.[0] in
-  let c   = h.[1] in
+  let len = int_of_char h.[1] in
+  let c   = h.[0] in
   let parity, port = get_h c in
   let len  = (len * 2) - (if parity then 1 else 0) in
   { port; len }
@@ -45,7 +46,7 @@ let to_header h =
   let open Cbuffer in
   let b = create 2 in
   let parity = not ((h.len mod 2) = 0) in
-  let len    = char_of_int h.len in
+  let len    = char_of_int h.len   in
   let c      = set_h parity h.port in
   Bigarray.Array1.unsafe_set b.buf 0 c;
   Bigarray.Array1.unsafe_set b.buf 1 len;
@@ -58,7 +59,10 @@ let deserialize msg =
   let bodysz   = let sz = (msg.sz - headersz) in
                  if sz < header.len then sz else header.len
   in
-  let body     = Cbuffer.sub msg ~start:headersz bodysz in
+  let body     =
+    try Cbuffer.sub msg ~start:headersz bodysz
+    with Cbuffer.Bad_boundaries -> failwith "bad msg";
+  in
   if  (body.sz < header.len)
   then `Partial (header.port , header.len, body)
   else `Full    (header.port , body)
@@ -72,6 +76,7 @@ let serialize port buf =
   
 let parse ~old buf_list =
   let open Option.Infix in
+  (*  List.iter print_buf buf_list;*)
   let msgs = List.map deserialize buf_list in
   let head = List.head_opt msgs
              >>= function
@@ -110,7 +115,7 @@ let forward disp (port, data) =
   try 
     let push = Hashtbl.find disp port in
     push data
-  with _ -> Lwt_io.printf "Got msg: %s\n\n" (Cbuffer.to_string data) |> ignore
+  with _ -> () (*print_buf data*)
   
 let create ?(sleep = 1.) () =
   let usb      = Cyusb.create () in

@@ -24,6 +24,7 @@ let main config =
 
        Database.finalize db;
        Pipeline.finalize pipe;
+       Usb_device.finalize ();
        
        mainloop ()
       end
