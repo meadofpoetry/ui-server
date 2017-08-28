@@ -54,7 +54,7 @@ let create_board (b:topo_board) =
     B.get_handlers board in
   match (b.typ, b.model, b.manufacturer) with
   | (Adapter DVB), "rf", "niitv"  ->
-     let module B : BOARD  = Board_dvb.Make(V) in
+     let (module B : BOARD)  = Board_dvb.create b.version in
      f (module B)
   | (Adapter IP), "dtm-3200", "dektec" ->
      let module B : BOARD = Board_ts2ip.Make(V) in
