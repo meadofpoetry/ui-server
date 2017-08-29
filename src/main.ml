@@ -4,7 +4,7 @@ let main config =
   let rec mainloop () =
     print_endline "Started.";
     let db = Database.create config in
-    let hw, loop = Hardware.create config db in
+    let hw, hwloop = Hardware.create config db in
     let pipe, pipeloop = Pipeline.create config db in
     let routes = Api_handler.create @@ ((Pipeline_api.handlers pipe)
                                         @ (User_api.handlers db)
@@ -13,7 +13,7 @@ let main config =
     let server = Serv.create config auth_filter routes in
 
     try
-      Lwt_main.run (Lwt.pick [pipeloop; server; loop ()]);
+      Lwt_main.run (Lwt.pick [pipeloop; hwloop; server]);
     with
     | Failure s -> begin
        Printf.printf "Failed with msg: %s\nRestarting...\n" s;

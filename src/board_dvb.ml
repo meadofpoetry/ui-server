@@ -1,7 +1,7 @@
 open Common.Hardware
 open Api_handler
 open Interaction
-open Board_types
+open Board_meta
 
 module V1 : BOARD = struct
 
@@ -350,12 +350,16 @@ module V1 : BOARD = struct
          let handle = handle () ()
        end : HANDLER) ]
 
-  let create (b:topo_board) = { handlers = handlers b.control }
+  let create (b:topo_board) _ = { handlers = handlers b.control }
 
   let connect_db _ _ = ()
 
   let get_handlers (b:t) = b.handlers
 
+  let get_receiver _ = (fun _ -> ())
+
+  let get_streams_signal _ = None
+                         
 end
 
 let create = function
