@@ -1,7 +1,5 @@
 open Containers
 open Lwt.Infix
-
-let io s = (Lwt_io.printf "%s\n" s) |> ignore
    
 type t = { dispatch : (int, Cbuffer.t -> unit) Hashtbl.t
          ; send     : int -> Cbuffer.t -> unit Lwt.t
@@ -115,7 +113,6 @@ let send usb divider port =
   let open Cbuffer in
   let send' port data =
     let msg = concat [divider; serialize port data] in
-    Cbuffer.hexdump msg;
     Cyusb.send usb msg
   in
   Lwt_preemptive.detach (send' port)

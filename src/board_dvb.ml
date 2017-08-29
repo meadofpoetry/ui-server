@@ -379,11 +379,6 @@ module V1 : BOARD = struct
 
   (* BOARD implementation *)
 
-  type t = { handlers : (module HANDLER) list
-           ; push     : Cbuffer.t -> unit
-           ; state    : (Cbuffer.t React.event * Cbuffer.t option React.event)
-           }
-
   let handle send _ id meth args _ _ _ =
     let open Redirect in
     let redirect_if_guest = redirect_if (User.eq id `Guest) in
@@ -424,20 +419,15 @@ module V1 : BOARD = struct
                                              (Some res))
                              None
                              e_msgs in
-    let state = (e_msgs, e_map) in
-    { handlers = handlers b.control send
-    ; push
-    ; state
+    let state = object method e_msgs = e_msgs; method emap = e_map end in
+    { handlers       = handlers b.control send
+    ; receiver       = push
+    ; streams_signal = None
+    ; is_converter   = false
+    ; state          = (state :> < >)
     }
 
-  let connect_db _ _ = ()
-
-  let get_handlers (b:t) = b.handlers
-
-  let get_receiver (b:t) = b.push
-
-  let get_streams_signal _ = None
-
+  let connect_db b _ = b
 end
 
 let create = function

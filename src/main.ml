@@ -23,8 +23,7 @@ let main config =
        Hardware.finalize hw;
        Database.finalize db;
        Pipeline.finalize pipe;
-       Usb_device.finalize ();
-       
+
        mainloop ()
       end
 
