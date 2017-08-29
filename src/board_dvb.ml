@@ -234,7 +234,7 @@ module V1 : BOARD = struct
   (* Message validation *)
 
   let check_tag_start msg =
-    let tag      = get_prefix_tag_start msg in
+    let tag = get_prefix_tag_start msg in
     if tag != tag_start then Error (Bad_tag_start tag) else Ok msg
 
   let check_length msg =
@@ -242,14 +242,12 @@ module V1 : BOARD = struct
     if (length < 2) || (length > 41) then Error (Bad_length length) else Ok msg
 
   let check_msg_code msg =
-    let msg_code = get_prefix_msg_code msg land 0xF0 in
-    match msg_code with
+    match get_prefix_msg_code msg land 0xF0 with
     | 0x10 | 0x20 | 0x30 | 0x40 | 0x50 | 0x60 -> Ok msg
     | x -> Error (Bad_msg_code x)
 
   let check_msg_addr msg =
-    let msg_addr = get_prefix_msg_code msg land 0x0F in
-    match msg_addr with
+    match get_prefix_msg_code msg land 0x0F with
     | 0 | 1 | 2 | 3 -> Ok msg
     | bad_id        -> Error (Bad_module_addr bad_id)
 
@@ -362,27 +360,17 @@ module V1 : BOARD = struct
                | Some x -> Cstruct.append x buf
                | None   -> buf
                end in
-    let rec f acc b = match b with
-      | `Sync b  -> if (Cstruct.len b) >= sizeof_prefix
-                    then let word = get_prefix_tag_start b in
-                         begin match word with
-                         | x when x = tag_start -> f acc (`Parse b)
-                         | _  -> let _,res = Cstruct.split b 1 in
-                                 f acc (`Sync res)
-                         end
-                    else acc,b
-      | `Parse b -> let length  = get_prefix_length b in
-                    let msg_len = ((length - 1) + sizeof_prefix + sizeof_suffix) in
-                    if (Cstruct.len b) >= msg_len
-                    then let msg,res = Cstruct.split b msg_len in
-                         begin match (check_msg msg) with
-                         | Ok x -> f (x::acc) (`Sync res)
-                         | Error e -> Printf.printf "%s\n" @@ string_of_err e;
-                                      let _,res = Cstruct.split b 1 in
-                                      f acc (`Sync res)
-                         end
-                    else acc,b in
-    f [] (`Sync buf')
+    let rec f acc b =
+      if Cstruct.len b > (sizeof_prefix + 1 + sizeof_suffix)
+      then begin match check_msg b with
+           | Ok x    -> let len     = ((get_prefix_length x) - 1) + sizeof_prefix + sizeof_suffix in
+                        let msg,res = Cstruct.split x len in
+                        f (msg::acc) res
+           | Error e -> let _,res = Cstruct.split b 1 in
+                        f acc res
+           end
+      else acc,b in
+    f [] buf'
 
   (* BOARD implementation *)
 
@@ -404,7 +392,7 @@ module V1 : BOARD = struct
     [ (module struct
          let domain = get_api_path id
          let handle = handle () ()
-       end : HANDLER) ]
+       end : HANDLER) ] 
 
   let create (b:topo_board) =
     { handlers = handlers b.id }
