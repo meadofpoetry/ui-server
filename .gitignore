@@ -4,3 +4,4 @@ db
 *.native
 *.bak
 tmp
+resources/js/home.js

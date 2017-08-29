@@ -1,82 +1,70 @@
 open Common.Hardware
-open Board_types
+open Board_meta
 open Containers
 
 module Settings = struct
 
-  type t = config_entry list [@@deriving yojson]
-
-   and config_entry  = Input of input
-                     | Board  of typ * config_board
-   and config_board = { control      : int
-                      ; model        : string
-                      ; manufacturer : string
-                      ; version      : version
-                      ; ports        : config_port list
-                      }
-   and config_port = { port  : int
-                     ; child : config_entry
-                     }
-  let default = []
-  let domain = "topology"
+  type t = topology
+  let to_yojson = topology_to_yojson
+  let of_yojson = topology_of_yojson
+  let default   = []
+  let domain    = "topology"
 
 end
 
 module Conf = Config.Make(Settings)
 
-let topology_of_config : Settings.t -> topology =
-  let id = ref 0 in
-  let rec of_entry : Settings.config_entry -> topo_entry = function
-    | Input i       -> Input i
-    | Board (t, bc) -> Board (of_board t bc)
+type t = { handlers : (module Api_handler.HANDLER) list
+         ; streams  : (int * string) list React.signal option
+         }
+            
+let create_adapter typ model manufacturer version =
+  match typ, model, manufacturer with
+  | DVB, "rf", "niitv"       -> Board_dvb.create version
+  | IP, "dtm-3200", "dektec" -> Board_ts2ip.create version
+  | TS, "qos", "niitv"       -> Board_qos.create version
+  | _ -> raise (Failure ("create board: unknown board "))
 
-  and of_board t bc =
-    { id           = (id := !id + 1; !id)
-    ; typ          = t
-    ; model        = bc.model
-    ; manufacturer = bc.manufacturer
-    ; version      = bc.version
-    ; control      = bc.control
-    ; ports        = List.map of_port bc.ports
-    }
+let create_converter typ model manufacturer version =
+  match typ, model, manufacturer with
+  | IP, "ts2ip", "niitv"  -> Board_ip.create version
+  | _ -> raise (Failure ("create board: unknown board "))
 
-  and of_port port =
-    { port  = port.port
-    ; child = of_entry port.child
-    }
+            
+let create_board db usb (b:topo_board)  =
+  let (module B : BOARD) = 
+    match b.typ with
+    | Adapter   t -> create_adapter t b.model b.manufacturer b.version
+    | Converter t -> create_converter t b.model b.manufacturer b.version
   in
-  List.map of_entry
+  let board    = B.create b (Usb_device.get_send usb b.control) in
+  B.connect_db board db;
+  Usb_device.subscribe usb b.control (B.get_receiver board);
+  let handlers = B.get_handlers board in
+  let streams  = B.get_streams_signal board in
+  handlers, streams
 
-let create_board (b:topo_board) =
-  let module V : VERSION = (struct let ver = b.version end) in
-  let f (module B : BOARD) =
-    let board = B.create b in
-    B.get_handlers board in
-  match (b.typ, b.model, b.manufacturer) with
-  | (Adapter DVB), "rf", "niitv"  ->
-     let (module B : BOARD)  = Board_dvb.create b.version in
-     f (module B)
-  | (Adapter IP), "dtm-3200", "dektec" ->
-     let module B : BOARD = Board_ts2ip.Make(V) in
-     f (module B)
-  | (Adapter TS), "qos", "niitv"  ->
-     Lwt_io.printf "%d\n" b.id |> ignore;
-     let module B : BOARD = Board_qos.Make(V) in
-     f (module B)
-  | (Converter IP), "ts2ip", "niitv"  ->
-     let module B : BOARD = Board_ip.Make(V) in
-     f (module B)
-  | _ -> raise (Failure ("create board: unknown board " ^ (topo_board_to_yojson b |> Yojson.Safe.to_string)))
+let handlers hw = hw.handlers
 
-let handlers hw = hw
-
-let create config =
-  let topo = Conf.get config |> topology_of_config in
-  let rec f acc = (function
-                   | Board b -> List.fold_left (fun a x -> f a x.child) (b :: acc) b.ports
-                   | Input _ -> acc) in
-  List.fold_left f [] topo
-  |> List.map create_board |> List.concat
+let create config db =
+  let topo      = Conf.get config in
+  let usb, loop = Usb_device.create () in
+  let rec traverse acc = (function
+                          | Board b -> List.fold_left (fun a x -> traverse a x.child) (b :: acc) b.ports
+                          | Input _ -> acc) in
+  let merge_signals a b =
+    match a with
+    | None   -> b
+    | Some a -> match b with None -> Some a | Some b -> Some (React.S.l2 (@) a b)
+  in
+  let create (acch, accs) b =
+    let h,s = create_board db usb b in
+    h @ acch, merge_signals accs s
+  in 
+  List.fold_left traverse [] topo
+  |> List.fold_left create ([],None)
+  |> fun (handlers, streams) ->
+     { handlers; streams }, loop ()
 
 
 let finalize _ =

@@ -44,14 +44,12 @@ type version = int [@@deriving yojson]
 
 type id = int [@@deriving yojson]
 
-
 type topology = topo_entry list [@@deriving yojson]
 
 and topo_entry = Input of input
                | Board  of topo_board
 
-and topo_board = { id           : id
-                 ; typ          : typ
+and topo_board = { typ          : typ
                  ; model        : string
                  ; manufacturer : string
                  ; version      : version

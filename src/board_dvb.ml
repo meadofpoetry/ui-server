@@ -1,7 +1,7 @@
 open Common.Hardware
 open Api_handler
 open Interaction
-open Board_types
+open Board_meta
 
 module V1 : BOARD = struct
 
@@ -366,7 +366,7 @@ module V1 : BOARD = struct
            | Ok x    -> let len     = ((get_prefix_length x) - 1) + sizeof_prefix + sizeof_suffix in
                         let msg,res = Cstruct.split x len in
                         f (msg::acc) res
-           | Error e -> let _,res = Cstruct.split b 1 in
+           | Error _ -> let _,res = Cstruct.split b 1 in
                         f acc res
            end
       else acc,b in
@@ -394,13 +394,16 @@ module V1 : BOARD = struct
          let handle = handle () ()
        end : HANDLER) ] 
 
-  let create (b:topo_board) =
-    { handlers = handlers b.id }
+  let create (b:topo_board) _ = { handlers = handlers b.control }
 
   let connect_db _ _ = ()
 
   let get_handlers (b:t) = b.handlers
 
+  let get_receiver _ = (fun _ -> ())
+
+  let get_streams_signal _ = None
+                         
 end
 
 let create = function
