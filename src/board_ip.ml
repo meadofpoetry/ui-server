@@ -38,4 +38,4 @@ end
 
 let create = function
   | 1 -> (module V1 : BOARD)
-  | v -> failwith ("dvb board: unknown version " ^ (string_of_int v))
+  | v -> failwith ("ip board: unknown version " ^ (string_of_int v))
