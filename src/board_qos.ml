@@ -5,7 +5,10 @@ open Board_meta
 
 module V1 : BOARD = struct
 
-  type t = { handlers : (module HANDLER) list }
+  type t = { handlers : (module HANDLER) list
+           ; push     : Cbuffer.t -> unit
+           ; state    : (Cbuffer.t React.event * unit React.event)
+           }
 
   let handle _ _ id meth args _ _ _ =
     let open Redirect in
@@ -25,16 +28,23 @@ module V1 : BOARD = struct
          let handle = handle () ()
        end : HANDLER) ]
 
-  let create (b:topo_board) _ = { handlers = handlers b.control }
+  let create (b:topo_board) _ =
+    let e_msgs,push = React.E.create () in
+    let e_map = React.E.map (fun _ -> () (* Cbuffer.hexdump x *)) e_msgs in
+    let state = (e_msgs, e_map) in
+    { handlers = handlers b.control
+    ; push
+    ; state
+    }
 
   let connect_db _ _ = ()
 
   let get_handlers (b:t) = b.handlers
 
-  let get_receiver _ = (fun _ -> ())
+  let get_receiver (b:t) = b.push
 
   let get_streams_signal _ = None
-                         
+
 end
 
 let create = function

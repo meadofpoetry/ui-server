@@ -167,52 +167,52 @@ module V1 : BOARD = struct
     | Bad_tag_stop x    -> "incorrect stop tag: "     ^ (string_of_int x)
     | Unknown_err s     -> s
 
-  let calc_crc (msg:Cstruct.t) =
-    let _,body = Cstruct.split msg (sizeof_prefix - 1) in
-    let iter = Cstruct.iter (fun _ -> Some 1)
-                            (fun buf -> Cstruct.get_uint8 buf 0)
+  let calc_crc (msg:Cbuffer.t) =
+    let _,body = Cbuffer.split msg (sizeof_prefix - 1) in
+    let iter = Cbuffer.iter (fun _ -> Some 1)
+                            (fun buf -> Cbuffer.get_uint8 buf 0)
                             body in
-    Cstruct.fold (fun acc el -> el lxor acc) iter 0
+    Cbuffer.fold (fun acc el -> el lxor acc) iter 0
 
-  let length (msg:Cstruct.t) =
-    (Cstruct.len msg) + 1
+  let length (msg:Cbuffer.t) =
+    (Cbuffer.len msg) + 1
 
   let bool_of_bool8 = function
     | True  -> true
     | False -> false
 
   let to_prefix ~length ~msg_code =
-    let prefix = Cstruct.create sizeof_prefix in
+    let prefix = Cbuffer.create sizeof_prefix in
     let () = set_prefix_tag_start prefix tag_start in
     let () = set_prefix_length prefix length in
     let () = set_prefix_msg_code prefix msg_code in
     prefix
 
   let to_suffix ~crc =
-    let suffix = Cstruct.create sizeof_suffix in
+    let suffix = Cbuffer.create sizeof_suffix in
     let () = set_suffix_crc suffix crc in
     let () = set_suffix_tag_stop suffix tag_stop in
     suffix
 
   let to_msg ~msg_code ~body =
     let prefix = to_prefix ~length:(length body) ~msg_code in
-    let msg = Cstruct.append prefix body in
+    let msg = Cbuffer.append prefix body in
     let suffix  = to_suffix ~crc:(calc_crc msg) in
-    Cstruct.append msg suffix |> Cstruct.to_string
+    Cbuffer.append msg suffix
 
-  let to_empty_msg ?(length=1) ~msg_code =
-    let body = Cstruct.create length in
+  let to_empty_msg ~msg_code =
+    let body = Cbuffer.create 1 in
     to_msg ~msg_code ~body
 
   (* Requests *)
 
   let cmd_devinfo reset =
-    let body = Cstruct.create sizeof_cmd_devinfo in
+    let body = Cbuffer.create sizeof_cmd_devinfo in
     let () = set_cmd_devinfo_reset body (if reset then 0xFF else 0) in
     to_msg ~msg_code:0x10 ~body
 
   let cmd_settings id settings =
-    let body = Cstruct.create sizeof_settings in
+    let body = Cbuffer.create sizeof_settings in
     let () = set_settings_mode body (mode_to_int settings.mode) in
     let () = set_settings_bw body (bw_to_int settings.bw) in
     let () = set_settings_dvbc_qam body (dvbc_qam_to_int settings.dvbc_qam) in
@@ -227,7 +227,7 @@ module V1 : BOARD = struct
     to_empty_msg ~msg_code:(0x50 lor id)
 
   let cmd_plp_set id plp =
-    let body = Cstruct.create sizeof_cmd_plp_set in
+    let body = Cbuffer.create sizeof_cmd_plp_set in
     let () = set_cmd_plp_set_plp_id body plp in
     to_msg ~msg_code:(0x60 lor id) ~body
 
@@ -242,27 +242,30 @@ module V1 : BOARD = struct
     if (length < 2) || (length > 41) then Error (Bad_length length) else Ok msg
 
   let check_msg_code msg =
-    match get_prefix_msg_code msg land 0xF0 with
-    | 0x10 | 0x20 | 0x30 | 0x40 | 0x50 | 0x60 -> Ok msg
-    | x -> Error (Bad_msg_code x)
+    let code = get_prefix_msg_code msg in
+    match (code lsr 4, code land 0x0F) with
+    | 0x1,_ | 0x2,_ | 0x3,_ | 0x4,_ | 0x5,_ | 0x6,_ | 0xE,0xE -> Ok msg
+    | _ -> Error (Bad_msg_code code)
 
   let check_msg_addr msg =
-    match get_prefix_msg_code msg land 0x0F with
-    | 0 | 1 | 2 | 3 -> Ok msg
-    | bad_id        -> Error (Bad_module_addr bad_id)
+    let code = get_prefix_msg_code msg in
+    match (code lsr 4, code land 0x0F) with
+    | 0xE,0xE               -> Ok msg
+    | _,0 | _,1 | _,2 | _,3 -> Ok msg
+    | _,bad_id              -> Error (Bad_module_addr bad_id)
 
   let check_msg_crc msg =
-    let prefix,msg' = Cstruct.split msg sizeof_prefix in
+    let prefix,msg' = Cbuffer.split msg sizeof_prefix in
     let length      = get_prefix_length prefix in
-    let body,suffix = Cstruct.split msg' (length - 1) in
-    let crc         = (calc_crc (Cstruct.append prefix body)) in
+    let body,suffix = Cbuffer.split msg' (length - 1) in
+    let crc         = (calc_crc (Cbuffer.append prefix body)) in
     let crc'        = get_suffix_crc suffix in
     if crc != crc' then Error (Bad_crc (crc,crc')) else Ok msg
 
   let check_tag_stop msg =
-    let prefix,msg' = Cstruct.split msg sizeof_prefix in
+    let prefix,msg' = Cbuffer.split msg sizeof_prefix in
     let length      = get_prefix_length prefix in
-    let _,suffix    = Cstruct.split msg' (length - 1) in
+    let _,suffix    = Cbuffer.split msg' (length - 1) in
     let tag         = get_suffix_tag_stop suffix in
     if tag != tag_stop then Error (Bad_tag_stop tag) else Ok msg
 
@@ -320,13 +323,13 @@ module V1 : BOARD = struct
     }
 
   let parse_plp_list_exn msg =
-    let plp_num     = Cstruct.get_uint8 msg 1 |> (fun x -> if x = 0xFF then None else Some x) in
-    { lock = int_to_bool8 (Cstruct.get_uint8 msg 0) |> CCOpt.get_exn |> bool_of_bool8
+    let plp_num     = Cbuffer.get_uint8 msg 1 |> (fun x -> if x = 0xFF then None else Some x) in
+    { lock = int_to_bool8 (Cbuffer.get_uint8 msg 0) |> CCOpt.get_exn |> bool_of_bool8
     ; plps = begin match plp_num with
-             | Some _ -> let iter = Cstruct.iter (fun _ -> Some 1)
-                                                 (fun buf -> Cstruct.get_uint8 buf 0)
-                                                 (Cstruct.shift msg 2) in
-                         Cstruct.fold (fun acc el -> el :: acc) iter []
+             | Some _ -> let iter = Cbuffer.iter (fun _ -> Some 1)
+                                                 (fun buf -> Cbuffer.get_uint8 buf 0)
+                                                 (Cbuffer.shift msg 2) in
+                         Cbuffer.fold (fun acc el -> el :: acc) iter []
              | None   -> []
              end
     }
@@ -340,70 +343,101 @@ module V1 : BOARD = struct
     let parsed = List.map (fun m -> let code     = (get_prefix_msg_code m) land 0xF0 in
                                     let id       = (get_prefix_msg_code m) land 0x0F in
                                     try
-                                      let (_,body) = Cstruct.split m sizeof_prefix in
-                                      match code with
-                                      | 0x10 -> `Devinfo (parse_devinfo_exn body)
-                                      | 0x20 -> `Settings (id, (parse_settings_exn body))
-                                      | 0x30 -> `Measure (id, (parse_measure_exn body))
-                                      | 0x50 -> `Plps (id, (parse_plp_list_exn body))
-                                      | 0x60 -> `Plp (id, (parse_plp_exn body))
-                                      | _    -> `Unknown
+                                      let (_,body) = Cbuffer.split m sizeof_prefix in
+                                      match (id,code) with
+                                      | 0xE,0xE0 -> `Ok
+                                      | _,0x10   -> `Devinfo (parse_devinfo_exn body)
+                                      | _,0x20   -> `Settings (id, (parse_settings_exn body))
+                                      | _,0x30   -> `Measure (id, (parse_measure_exn body))
+                                      | _,0x50   -> `Plps (id, (parse_plp_list_exn body))
+                                      | _,0x60   -> `Plp (id, (parse_plp_exn body))
+                                      | _        -> `Unknown
                                     with _ -> `Corrupted)
                           msgs in
-    List.filter (function
-                 | `Devinfo _ | `Settings _ | `Measure _ | `Plps _ | `Plp _ -> true
-                 | _ -> false)
-                parsed
+    parsed
+    (* List.filter (function *)
+    (*              | `Devinfo _ | `Settings _ | `Measure _ | `Plps _ | `Plp _ -> true *)
+    (*              | _ -> false) *)
+    (*             parsed *)
 
   let parse ?old buf =
     let buf' = begin match old with
-               | Some x -> Cstruct.append x buf
+               | Some x -> Cbuffer.append x buf
                | None   -> buf
                end in
     let rec f acc b =
-      if Cstruct.len b > (sizeof_prefix + 1 + sizeof_suffix)
+      if Cbuffer.len b > (sizeof_prefix + 1 + sizeof_suffix)
       then begin match check_msg b with
            | Ok x    -> let len     = ((get_prefix_length x) - 1) + sizeof_prefix + sizeof_suffix in
-                        let msg,res = Cstruct.split x len in
+                        let msg,res = Cbuffer.split x len in
                         f (msg::acc) res
-           | Error _ -> let _,res = Cstruct.split b 1 in
+           | Error _ -> let _,res = Cbuffer.split b 1 in
                         f acc res
            end
-      else acc,b in
+      else List.rev acc,b in
     f [] buf'
 
   (* BOARD implementation *)
 
-  type t = { handlers : (module HANDLER) list }
+  type t = { handlers : (module HANDLER) list
+           ; push     : Cbuffer.t -> unit
+           ; state    : (Cbuffer.t React.event * Cbuffer.t option React.event)
+           }
 
-  let handle _ _ id meth args _ _ _ =
+  let handle send _ id meth args _ _ _ =
     let open Redirect in
     let redirect_if_guest = redirect_if (User.eq id `Guest) in
     match meth, args with
     | `POST, ["settings"] -> redirect_if_guest not_found
     | `POST, ["plp"]      -> redirect_if_guest not_found
-    | `GET,  ["devinfo"]  -> respond_string (cmd_devinfo false) ()
+    | `GET,  ["devinfo"]  -> let cmd = (cmd_devinfo false) in
+                             send cmd |> ignore;
+                             respond_string "sent cmd devinfo!" ()
     | `GET,  ["params"]   -> not_found ()
     | `GET,  ["meas"]     -> not_found ()
-    | `GET,  ["plps"]     -> not_found ()
+    | `GET,  ["plps"]     -> let cmd = (cmd_plp_list 2) in
+                             send cmd |> ignore;
+                             respond_string "send cmd plp list" ()
     | _ -> not_found ()
 
-  let handlers id =
+  let handlers id send=
     [ (module struct
          let domain = get_api_path id
-         let handle = handle () ()
-       end : HANDLER) ] 
+         let handle = handle send ()
+       end : HANDLER) ]
 
-  let create (b:topo_board) _ = { handlers = handlers b.control }
+  let create (b:topo_board) send =
+    let e_msgs,push = React.E.create () in
+    let e_map = React.E.fold (fun old buf -> let msgs,res = parse ?old buf in
+                                             (parse_msgs msgs)
+                                             |> List.map (function
+                                                          | `Ok -> "rsp ok"
+                                                          | `Devinfo _ -> "devinfo"
+                                                          | `Settings _ -> "settings"
+                                                          | `Measure _ -> "measure"
+                                                          | `Plps _ -> "plps"
+                                                          | `Plp _ -> "plp"
+                                                          | `Corrupted -> "corrupted"
+                                                          | _ -> "unknown")
+                                             |> List.map (Lwt_io.printf "%s\n")
+                                             |> ignore;
+                                             (Some res))
+                             None
+                             e_msgs in
+    let state = (e_msgs, e_map) in
+    { handlers = handlers b.control send
+    ; push
+    ; state
+    }
 
   let connect_db _ _ = ()
 
   let get_handlers (b:t) = b.handlers
 
-  let get_receiver _ = (fun _ -> ())
+  let get_receiver (b:t) = b.push
 
   let get_streams_signal _ = None
-                         
+
 end
 
 let create = function

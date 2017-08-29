@@ -33,3 +33,5 @@ PKG msgpck
 PKG lwt-zmq
 PKG ctypes
 PKG ctypes.foreign
+PKG cstruct
+PKG ppx_cstruct

@@ -36,8 +36,8 @@ let split_by_string on cs =
       |> lst_to_pairs |> List.filter (fun (x,y) -> x <> y)
     in
     match points with
-    | [] | [(_,_)] -> [cs]
-    | _ ->
+    | [] -> [cs]
+    | _  ->
        List.map
          (fun (s,e) -> sub cs s (e - s))
          points

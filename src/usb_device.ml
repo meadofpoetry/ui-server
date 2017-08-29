@@ -1,5 +1,7 @@
 open Containers
 open Lwt.Infix
+
+let io s = (Lwt_io.printf "%s\n" s) |> ignore
    
 type t = { dispatch : (int, Cbuffer.t -> unit) Hashtbl.t
          ; send     : int -> Cbuffer.t -> unit Lwt.t
@@ -21,7 +23,7 @@ let char_to_b c =
 
 let set_h parity port =
   let p   = if parity then (1 lsl 4) else 0 in
-  char_of_int (p land port)
+  char_of_int (p lor port)
 
 let get_h h =
   let i = int_of_char h in
@@ -38,14 +40,12 @@ let of_header buf =
   let len  = (len * 2) - (if parity then 1 else 0) in
   { port; len }
 
-let to_header (h : header) =
+let to_header port parity length =
   let open Cbuffer in
   let cb = create 2 in
-  let parity = not ((h.len mod 2) = 0) in
-  let len    = char_of_int h.len   in
-  let c      = set_h parity h.port in
+  let c      = set_h parity port in
   Cbuffer.set_char cb 0 c;
-  Cbuffer.set_char cb 1 len;
+  Cbuffer.set_char cb 1 length;
   cb
 
 let deserialize msg =
@@ -62,14 +62,13 @@ let deserialize msg =
 
 let serialize port buf =
   let open Cbuffer in
-  let h = { len  = buf.len
-          ; port = port
-          } in
-  append (to_header h) buf
+  let parity = not ((buf.len mod 2) = 0) in
+  let len = (buf.len / 2) + (if parity then 1 else 0) |> char_of_int in
+  let buf'   = if parity then Cbuffer.append buf (Cstruct.create 1) else buf in
+  append (to_header port parity len) buf'
   
 let parse ~mstart ~mend buf_list =
   let open Option.Infix in
-  (*  List.iter print_buf buf_list;*)
   let msgs = List.map deserialize buf_list in
 
   let fixed = mend   >>= fun mend ->
@@ -86,7 +85,7 @@ let parse ~mstart ~mend buf_list =
     | (`Full x)::xs -> sieve (x::acc) xs
     | (`Partial _)::xs -> sieve acc xs
   in
-  let new_mend, msgs = sieve [] (try List.tl msgs with _ -> []) in
+  let new_mend, msgs = sieve [] msgs in
   if Option.is_some fixed
   then new_mend, ((Option.get_exn fixed)::msgs)
   else new_mend, msgs
@@ -112,17 +111,17 @@ let msg_head divider msg =
 let recv usb =
   Lwt_preemptive.detach (fun () -> Cyusb.recv usb)
 
-let send usb port =
+let send usb divider port =
   let open Cbuffer in
   let send' port data =
-    let h = { len = data.len; port } in
-    let msg = append (to_header h) data in
+    let msg = concat [divider; serialize port data] in
+    Cbuffer.hexdump msg;
     Cyusb.send usb msg
-  in 
+  in
   Lwt_preemptive.detach (send' port)
 
 let forward disp (port, data) =
-  try 
+  try
     let push = Hashtbl.find disp port in
     push data
   with _ -> () (*print_buf data*)
@@ -131,7 +130,7 @@ let create ?(sleep = 1.) ?(divider = divider) () =
   let usb      = Cyusb.create () in
   let dispatch = Hashtbl.create 100 in
   let recv     = recv usb in
-  let send     = send usb in
+  let send     = send usb (Cbuffer.of_string divider) in
 
   let msg_head = msg_head divider in
   
