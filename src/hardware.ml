@@ -61,10 +61,10 @@ let create config db =
     let h,s = create_board db usb b in
     h @ acch, merge_signals accs s
   in 
-  let (handlers, streams) = List.fold_left traverse [] topo
-                            |> List.fold_left create ([],None)
-  in
-  { handlers; streams }, loop ()
+  List.fold_left traverse [] topo
+  |> List.fold_left create ([],None)
+  |> fun (handlers, streams) ->
+     { handlers; streams }, loop ()
 
 
 let finalize _ =
