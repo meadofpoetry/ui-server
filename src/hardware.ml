@@ -14,8 +14,8 @@ end
 
 module Conf = Config.Make(Settings)
 
-type t = { handlers : (module Api_handler.HANDLER) list
-         ; streams  : (int * string) list React.signal option
+type t = { boards : Board_meta.board list
+         ; usb    : Usb_device.t
          }
             
 let create_adapter typ model manufacturer version =
@@ -37,14 +37,16 @@ let create_board db usb (b:topo_board)  =
     | Adapter   t -> create_adapter t b.model b.manufacturer b.version
     | Converter t -> create_converter t b.model b.manufacturer b.version
   in
-  let board    = B.create b (Usb_device.get_send usb b.control) in
-  B.connect_db board db;
+  let board = B.create b (Usb_device.get_send usb b.control) in
+  B.connect_db board db
+  (*
+  let board        = B.create b (Usb_device.get_send usb b.control) in
+  let write_events = B.connect_db board db in
   Usb_device.subscribe usb b.control (B.get_receiver board);
-  let handlers = B.get_handlers board in
-  let streams  = B.get_streams_signal board in
-  handlers, streams
-
-let handlers hw = hw.handlers
+  let handlers     = B.get_handlers board in
+  let streams      = B.get_streams_signal board in
+  handlers, streams, write_events
+   *)
 
 let create config db =
   let topo      = Conf.get config in
@@ -52,20 +54,31 @@ let create config db =
   let rec traverse acc = (function
                           | Board b -> List.fold_left (fun a x -> traverse a x.child) (b :: acc) b.ports
                           | Input _ -> acc) in
+  let boards = List.fold_left traverse [] topo
+               |> List.map (create_board db usb)
+  in
+  { boards; usb}, loop ()
+
+let handlers hw =
+  let hls = List.fold_left (fun acc x -> x.handlers @ acc) [] hw.boards in
+  [ Api_handler.add_layer "board" hls ]
+  
+(*
+  
   let merge_signals a b =
     match a with
     | None   -> b
     | Some a -> match b with None -> Some a | Some b -> Some (React.S.l2 (@) a b)
   in
-  let create (acch, accs) b =
-    let h,s = create_board db usb b in
-    h @ acch, merge_signals accs s
+  let create (acch, accs, acce) b =
+    let h,s,wevents = create_board db usb b in
+    h @ acch, merge_signals accs s, (wevents::acce)
   in 
   List.fold_left traverse [] topo
-  |> List.fold_left create ([],None)
-  |> fun (handlers, streams) ->
-     { handlers; streams }, loop ()
-
+  |> List.fold_left create ([],None,[])
+  |> fun (handlers, streams, write_events) ->
+     { handlers; streams; write_events }, loop ()
+   *)
 
 let finalize _ =
   ()

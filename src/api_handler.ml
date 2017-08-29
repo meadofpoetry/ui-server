@@ -28,3 +28,14 @@ let handle tbl redir meth path sock_data headers body =
   | key::tl -> let (module H : HANDLER) = Handlers.find tbl key in
                redir @@ wrap H.handle meth tl sock_data headers body
   | _ -> not_found ()
+
+let add_layer (domain : string) (l : (module HANDLER) list) : (module HANDLER) =
+  let tbl = create l in
+  (module struct
+    let domain = domain
+    let handle id meth path sock_data headers body =
+      match path with
+      | key::tl -> let (module H : HANDLER) = Handlers.find tbl key in
+                   H.handle id meth tl sock_data headers body
+      | _ -> not_found ()
+  end : HANDLER)

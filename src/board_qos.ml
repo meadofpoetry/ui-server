@@ -5,8 +5,6 @@ open Board_meta
 
 module V1 : BOARD = struct
 
-  type t = { handlers : (module HANDLER) list }
-
   let handle _ _ id meth args _ _ _ =
     let open Redirect in
     let redirect_if_guest = redirect_if (User.eq id `Guest) in
@@ -25,15 +23,15 @@ module V1 : BOARD = struct
          let handle = handle () ()
        end : HANDLER) ]
 
-  let create (b:topo_board) _ = { handlers = handlers b.control }
+  let create (b:topo_board) _ =
+    { handlers       = handlers b.control 
+    ; receiver       = (fun _ -> ())
+    ; streams_signal = None
+    ; is_converter   = true
+    ; state          = object end
+    }
 
-  let connect_db _ _ = ()
-
-  let get_handlers (b:t) = b.handlers
-
-  let get_receiver _ = (fun _ -> ())
-
-  let get_streams_signal _ = None
+  let connect_db b _ = b
                          
 end
 
