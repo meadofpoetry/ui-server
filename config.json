@@ -20,7 +20,7 @@
                 "control": 0,
                 "model": "ts2ip",
                 "manufacturer": "niitv",
-                "version": 2,
+                "version": 1,
                 "ports": [
                     {
                         "port": 0,
@@ -31,7 +31,7 @@
                                 "control": 1,
                                 "model": "qos",
                                 "manufacturer": "niitv",
-                                "version": 4,
+                                "version": 1,
                                 "ports": [
                                     {
                                         "port": 0,
@@ -75,7 +75,7 @@
                                 "control": 2,
                                 "model": "qos",
                                 "manufacturer": "niitv",
-                                "version": 4,
+                                "version": 1,
                                 "ports": [
                                     {
                                         "port": 0,
@@ -86,7 +86,7 @@
                                                 "control": 5,
                                                 "model": "dtm-3200",
                                                 "manufacturer": "dektec",
-                                                "version": 3,
+                                                "version": 1,
                                                 "ports": [
                                                     {
                                                         "port": 0,
