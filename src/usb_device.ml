@@ -3,6 +3,7 @@ open Lwt.Infix
    
 type t = { dispatch : (int, Cbuffer.t -> unit) Hashtbl.t
          ; send     : int -> Cbuffer.t -> unit Lwt.t
+         ; usb      : Cyusb.t
          }
 
 type header = { len    : int
@@ -140,7 +141,7 @@ let create ?(sleep = 1.) ?(divider = divider) () =
     List.iter (forward dispatch) msgs;
     loop new_acc ()
   in
-  { dispatch; send }, (fun () -> loop None ())
+  { usb; dispatch; send }, (fun () -> loop None ())
 
 let subscribe obj id push =
   try
@@ -152,5 +153,6 @@ let get_send obj id = obj.send id
 
 (* TODO add proper finalize *)
           
-let finalize () =
+let finalize obj =
+  Cyusb.send obj.usb (Cbuffer.create 10);
   Cyusb.finalize ()

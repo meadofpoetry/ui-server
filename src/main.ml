@@ -11,7 +11,7 @@ let main config =
                                         @ (Hardware.handlers hw)) in
     let auth_filter = Redirect.redirect_auth db in
     let server = Serv.create config auth_filter routes in
-
+    
     try
       Lwt_main.run (Lwt.pick [pipeloop; hwloop; server]);
     with

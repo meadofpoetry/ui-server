@@ -81,5 +81,5 @@ let handlers hw =
      { handlers; streams; write_events }, loop ()
    *)
 
-let finalize _ =
-  ()
+let finalize hw =
+  Usb_device.finalize hw.usb
