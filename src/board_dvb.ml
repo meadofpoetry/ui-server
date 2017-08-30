@@ -26,11 +26,27 @@ module V1 : BOARD = struct
      | T  [@id 2]
      | C  [@id 3] [@@uint8_t]]
 
+  let mode_to_yojson x = `String (mode_to_string x)
+  let mode_of_yojson = function
+    | `String s -> begin match string_to_mode s with
+                   | Some x -> Ok x
+                   | None   -> Error ("mode_of_yojson: unknown value " ^ s)
+                   end
+    | _ as e    -> Error ("mode_of_yojson: unknown value " ^ (Yojson.Safe.to_string e))
+
   [%%cenum
    type bw =
      | Bw8 [@id 1]
      | Bw7 [@id 2]
      | Bw6 [@id 3] [@@uint8_t]]
+
+  let bw_to_yojson x = `String (bw_to_string x)
+  let bw_of_yojson = function
+    | `String s -> begin match string_to_bw s with
+                   | Some x -> Ok x
+                   | None   -> Error ("bw_of_yojson: unknown value " ^ s)
+                   end
+    | _ as e    -> Error ("bw_of_yojson: unknown value " ^ (Yojson.Safe.to_string e))
 
   [%%cenum
    type dvbc_qam =
@@ -38,6 +54,14 @@ module V1 : BOARD = struct
      | Qam64
      | Qam128
      | Qam256 [@@uint8_t]]
+
+  let dvbc_qam_to_yojson x = `String (dvbc_qam_to_string x)
+  let dvbc_qam_of_yojson = function
+    | `String s -> begin match string_to_dvbc_qam s with
+                   | Some x -> Ok x
+                   | None   -> Error ("dvbc_qam_of_yojson: unknown value " ^ s)
+                   end
+    | _ as e    -> Error ("dvbc_qam_of_yojson: unknown value " ^ (Yojson.Safe.to_string e))
 
   [%%cstruct
    type prefix =
@@ -106,7 +130,7 @@ module V1 : BOARD = struct
     ; soft_ver : int
     ; asi      : bool
     ; modules  : int list
-    }
+    } [@@deriving to_yojson]
 
   type settings =
     { mode : mode
@@ -114,13 +138,13 @@ module V1 : BOARD = struct
     ; dvbc_qam : dvbc_qam
     ; freq     : int32
     ; plp_id   : int
-    }
+    } [@@deriving yojson]
 
   type settings_resp =
     { settings   : settings
     ; hw_present : bool
     ; lock       : bool
-    }
+    } [@@deriving to_yojson]
 
   type measure =
     { lock    : bool
@@ -129,17 +153,17 @@ module V1 : BOARD = struct
     ; ber     : float option
     ; freq    : int32 option
     ; bitrate : int32 option
-    }
+    } [@@deriving to_yojson]
 
   type plp_list =
     { lock    : bool
     ; plps    : int list
-    }
+    } [@@deriving to_yojson]
 
   type plp_set =
     { lock    : bool
     ; plp     : int
-    }
+    } [@@deriving to_yojson]
 
       [@@@ocaml.warning "-34-37"]
 
@@ -403,20 +427,26 @@ module V1 : BOARD = struct
 
   let create (b:topo_board) send =
     let e_msgs,push = React.E.create () in
-    let e_map = React.E.fold (fun old buf -> let msgs,res = parse ?old buf in
-                                             (parse_msgs msgs)
-                                             |> List.map (function
-                                                          | `Ok -> "rsp ok"
-                                                          | `Devinfo _ -> "devinfo"
-                                                          | `Settings _ -> "settings"
-                                                          | `Measure _ -> "measure"
-                                                          | `Plps _ -> "plps"
-                                                          | `Plp _ -> "plp"
-                                                          | `Corrupted -> "corrupted"
-                                                          | _ -> "unknown")
-                                             |> List.map (Lwt_io.printf "%s\n")
-                                             |> ignore;
-                                             (Some res))
+    let e_map = React.E.fold (fun old buf ->
+                    let msgs,res = parse ?old buf in
+                    (parse_msgs msgs)
+                    |> List.map (function
+                                 | `Ok             -> "rsp ok"
+                                 | `Devinfo x      -> "devinfo: "  ^ (devinfo_to_yojson x
+                                                                      |> Yojson.Safe.to_string)
+                                 | `Settings (_,x) -> "settings: " ^ (settings_resp_to_yojson x
+                                                                      |> Yojson.Safe.to_string)
+                                 | `Measure (_,x)  -> "measure: "  ^ (measure_to_yojson x
+                                                                      |> Yojson.Safe.to_string)
+                                 | `Plps (_,x)     -> "plps: "     ^ (plp_list_to_yojson x
+                                                                      |> Yojson.Safe.to_string)
+                                 | `Plp (_,x)      -> "plp: "      ^ (plp_set_to_yojson x
+                                                                      |> Yojson.Safe.to_string)
+                                 | `Corrupted      -> "corrupted"
+                                 | _               -> "unknown")
+                    |> List.map (Lwt_io.printf "%s\n")
+                    |> ignore;
+                    (Some res))
                              None
                              e_msgs in
     let state = object method e_msgs = e_msgs; method emap = e_map end in
