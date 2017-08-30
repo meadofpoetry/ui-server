@@ -127,7 +127,7 @@ type t = pipe
 let connect_db streams_events dbs =
   E.map_s (fun s -> Storage.request dbs (Store_streams s)) streams_events
 
-let create config dbs =
+let create config dbs _ =
   let cfg = Conf.get config in
   let converter = Msg_conv.get_converter cfg.msg_fmt in
   let exec_path = (Filename.concat cfg.bin_path cfg.bin_name) in

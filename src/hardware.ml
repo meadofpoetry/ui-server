@@ -79,7 +79,27 @@ let handlers hw =
   |> List.fold_left create ([],None,[])
   |> fun (handlers, streams, write_events) ->
      { handlers; streams; write_events }, loop ()
-   *)
+ *)
 
+let has_converters hw =
+  List.exists (fun b -> b.is_converter) hw.boards
+
+let streams hw =
+  let signals =
+    let open Option in
+    List.map (fun b -> b.streams_signal) hw.boards
+    |> Option.sequence_l
+    >|= React.S.merge ~eq:(Streams.equal String.equal)
+                      (Streams.union (fun _ _ b -> Some b))
+                      Streams.empty
+  in
+  match signals with
+  | Some s -> if has_converters hw
+              then Some s
+              else None
+  | None   -> if has_converters hw
+              then Some (React.S.const Streams.empty)
+              else None
+  
 let finalize hw =
   Usb_device.finalize hw.usb

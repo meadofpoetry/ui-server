@@ -1,8 +1,10 @@
 open Common.Hardware
 
+module Streams = CCMap.Make(CCInt)
+
 type board = { handlers        : (module Api_handler.HANDLER) list
              ; receiver        : Cbuffer.t -> unit
-             ; streams_signal  : (int * string) list React.signal option
+             ; streams_signal  : string Streams.t React.signal option
              ; is_converter    : bool
              ; state           : < >
              }

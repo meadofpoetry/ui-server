@@ -85,7 +85,11 @@ let settings_handle pipe id meth args sock_data _ body =
   | `GET,  []       -> get_settings pipe ()
   | _ ,    ["sock"] -> get_settings_sock sock_data body pipe ()
   | _               -> not_found ()
-  
+
+let not_implemented_handle _ meth args _ _ _ =
+  match meth, args with
+  | _               -> respond_error "QoE is not active" ()
+                     
 let handlers pipe =
   [ (module struct
        let domain = "streams"
@@ -96,6 +100,16 @@ let handlers pipe =
        let handle = settings_handle pipe
      end : HANDLER); ]
 
+let handlers_not_implemented () =
+  [ (module struct
+       let domain = "streams"
+       let handle = not_implemented_handle
+     end : HANDLER);
+    (module struct
+       let domain = "settings"
+       let handle = not_implemented_handle
+     end : HANDLER); ]
+  
     (*
 let test _ _ body =
   Cohttp_lwt_body.to_string body >>= fun body ->
