@@ -1,5 +1,13 @@
-module Make(MD : Board_meta.MSG_DESC)
-       : (Board_meta.PROTOCOL with type resp := MD.resp
-                               and type 'a req := 'a MD.req) = struct
+type resp  = Test of unit
+type req = Resp of unit
+  
+let (init : req) = Resp ()
 
-end
+let (probes : req list) = [Resp ()]
+
+let period = 5
+
+let (serialize : req -> Board_meta.req_typ * Cbuffer.t) = fun _ -> `Instant, (Cbuffer.create 5)
+
+let deserialize = fun _ _ -> None
+

@@ -426,16 +426,14 @@ module V1 : BOARD = struct
        end : HANDLER) ]
 
   (* TODO Все, что выше, убрать *)
-    
-  module Msg_desc : Board_meta.MSG_DESC = struct
-    type resp
-    type _ req
-  end
-  include Msg_desc
-    
-  module Protocol = Board_dvb_protocol.Make(Msg_desc)
+
+  module Protocol : Board_meta.PROTOCOL = Board_dvb_protocol
+
+  type req = Protocol.req
+  type resp = Protocol.resp
+
   module Messenger = Board_meta.Make(Protocol)
-  module Board_api = Board_dvb_api.Make(Msg_desc)
+  module Board_api = Board_dvb_api.Make(Protocol)
 
   let create (b:topo_board) send =
     let e_msgs,  push = React.E.create () in

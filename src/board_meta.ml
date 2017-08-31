@@ -8,17 +8,17 @@ type req_typ = [`Need_response | `Instant]
 
 module type MSG_DESC = sig
   type resp
-  type _ req
+  type req
 end
 
 module type PROTOCOL = sig
   include MSG_DESC
 
-  val init        : _ req
-  val probes      : _ req list
+  val init        : req
+  val probes      : req list
   val period      : int (* quantums *)
-  val serialize   : _ req -> req_typ * Cbuffer.t
-  val deserialize : resp req -> Cbuffer.t -> resp option
+  val serialize   : req -> req_typ * Cbuffer.t
+  val deserialize : req -> Cbuffer.t -> resp option
     
 end
 
@@ -28,12 +28,12 @@ module type MESSENGER = sig
   val create : (Cbuffer.t -> unit Lwt.t) ->
                (state -> unit) ->
                (resp -> unit) ->
-               (resp req -> resp Lwt.t) * (Cbuffer.t list -> 'c cc as 'c) cc
+               (req -> resp Lwt.t) * (Cbuffer.t list -> 'c cc as 'c) cc
 end
   
 module Make(P : PROTOCOL)
        : (MESSENGER with type resp := P.resp
-                     and type 'a req := 'a P.req) = struct
+                     and type req := P.req) = struct
   (* TODO XXX Warning; Stateful module *)
 
   let send_msg msgs sender msg waker =
@@ -134,7 +134,7 @@ type board = { handlers        : (module Api_handler.HANDLER) list
 module type BOARD_API = sig
   include MSG_DESC
 
-  val handlers : int -> (resp req -> resp Lwt.t)
+  val handlers : int -> (req -> resp Lwt.t)
                  -> state React.signal -> resp React.event
                  -> (module Api_handler.HANDLER) list
 end

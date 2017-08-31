@@ -21,13 +21,13 @@ type t = { boards : Board_meta.board list
 let create_adapter typ model manufacturer version =
   match typ, model, manufacturer with
   | DVB, "rf", "niitv"       -> Board_dvb.create version
-  | IP, "dtm-3200", "dektec" -> Board_ts2ip.create version
-  | TS, "qos", "niitv"       -> Board_qos.create version
+  (* | IP, "dtm-3200", "dektec" -> Board_ts2ip.create version*)
+  (*  | TS, "qos", "niitv"       -> Board_qos.create version*)
   | _ -> raise (Failure ("create board: unknown board "))
 
 let create_converter typ model manufacturer version =
   match typ, model, manufacturer with
-  | IP, "ts2ip", "niitv"  -> Board_ip.create version
+  (*| IP, "ts2ip", "niitv"  -> Board_ip.create version*)
   | _ -> raise (Failure ("create board: unknown board "))
 
             
