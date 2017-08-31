@@ -1,7 +1,9 @@
 open Containers
 open Lwt.Infix
+
+type 'a cc = 'a Board_meta.cc
    
-type t = { dispatch : (int, Cbuffer.t -> unit) Hashtbl.t
+type t = { dispatch : (int * (Cbuffer.t list -> 'c cc as 'c) cc) list ref
          ; send     : int -> Cbuffer.t -> unit Lwt.t
          ; usb      : Cyusb.t
          }
@@ -118,15 +120,19 @@ let send usb divider port =
   in
   Lwt_preemptive.detach (send' port)
 
-let forward disp (port, data) =
-  try
-    let push = Hashtbl.find disp port in
-    push data
-  with _ -> () (*print_buf data*)
+let apply disp msg_list =
+  let apply' (id, step) =
+    (* TODO opt *)
+    let msgs = List.filter_map
+                 (fun (i,msg) -> if Int.equal i id then Some msg else None)
+                 msg_list in
+    (id, Board_meta.apply step msgs)
+  in
+  List.map apply' disp
   
 let create ?(sleep = 1.) ?(divider = divider) () =
   let usb      = Cyusb.create () in
-  let dispatch = Hashtbl.create 100 in
+  let dispatch = ref [] in
   let recv     = recv usb in
   let send     = send usb (Cbuffer.of_string divider) in
 
@@ -138,16 +144,13 @@ let create ?(sleep = 1.) ?(divider = divider) () =
     let head, rest = msg_head buf in
     let msg_list   = Cbuffer.split_by_string divider rest in
     let new_acc, msgs = parse ~mstart:acc ~mend:head msg_list in
-    List.iter (forward dispatch) msgs;
+    dispatch := apply !dispatch msgs;
     loop new_acc ()
   in
   { usb; dispatch; send }, (fun () -> loop None ())
 
-let subscribe obj id push =
-  try
-    let _ = Hashtbl.find obj.dispatch id in
-    failwith (Printf.sprintf "Usb_device: Board %d is already connected" id)
-  with _ -> Hashtbl.add obj.dispatch id push
+let subscribe obj id step =
+  obj.dispatch := (id, step) :: !(obj.dispatch)
 
 let get_send obj id = obj.send id
 

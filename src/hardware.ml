@@ -25,7 +25,7 @@ let create_adapter typ model manufacturer version =
   (*  | TS, "qos", "niitv"       -> Board_qos.create version*)
   | _ -> raise (Failure ("create board: unknown board "))
 
-let create_converter typ model manufacturer version =
+let create_converter typ model manufacturer _ =
   match typ, model, manufacturer with
   (*| IP, "ts2ip", "niitv"  -> Board_ip.create version*)
   | _ -> raise (Failure ("create board: unknown board "))
@@ -56,7 +56,7 @@ let create config db =
                           | Input _ -> acc) in
   let boards = List.fold_left traverse [] topo
                |> List.map (fun b -> let board = create_board db usb b in
-                                     Usb_device.subscribe usb b.control board.receiver; board)
+                                     Usb_device.subscribe usb b.control board.step; board)
   in
   { boards; usb}, loop ()
 
