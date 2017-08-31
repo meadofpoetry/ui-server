@@ -419,15 +419,46 @@ module V1 : BOARD = struct
                              respond_string "send cmd plp list" ()
     | _ -> not_found ()
 
-  let handlers id send=
+  let handlers id send =
     [ (module struct
          let domain = get_api_path id
          let handle = handle send ()
        end : HANDLER) ]
 
+  (* TODO Все, что выше, убрать *)
+    
+  module Msg_desc : Board_meta.MSG_DESC = struct
+    type resp
+    type _ req
+  end
+  include Msg_desc
+    
+  module Protocol = Board_dvb_protocol.Make(Msg_desc)
+  module Messenger = Board_meta.Make(Protocol)
+  module Board_api = Board_dvb_api.Make(Msg_desc)
+
   let create (b:topo_board) send =
-    let e_msgs,push = React.E.create () in
-    let e_map = React.E.fold (fun old buf ->
+    let e_msgs,  push = React.E.create () in
+    let s_state, spush = React.S.create `No_response in
+    let send_msg, step = Messenger.create send spush push in
+    let handlers = Board_api.handlers b.control send_msg s_state e_msgs in
+    let state = object method e_msgs = e_msgs end in
+    { handlers       = handlers
+    ; connection     = s_state
+    ; streams_signal = None
+    ; step           = step
+    ; is_converter   = false
+    ; state          = (state :> < >)
+    }
+
+  let connect_db b _ = b
+end
+
+let create = function
+  | 1 -> (module V1 : BOARD)
+  | v -> failwith ("dvb board: unknown version " ^ (string_of_int v))
+
+                  (* React.E.fold (fun old buf ->
                     let msgs,res = parse ?old buf in
                     (parse_msgs msgs)
                     |> List.map (function
@@ -448,18 +479,4 @@ module V1 : BOARD = struct
                     |> ignore;
                     (Some res))
                              None
-                             e_msgs in
-    let state = object method e_msgs = e_msgs; method emap = e_map end in
-    { handlers       = handlers b.control send
-    ; receiver       = push
-    ; streams_signal = None
-    ; is_converter   = false
-    ; state          = (state :> < >)
-    }
-
-  let connect_db b _ = b
-end
-
-let create = function
-  | 1 -> (module V1 : BOARD)
-  | v -> failwith ("dvb board: unknown version " ^ (string_of_int v))
+                             e_msgs *)

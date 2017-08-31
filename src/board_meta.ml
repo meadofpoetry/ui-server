@@ -1,56 +1,63 @@
 open Common.Hardware
 open Lwt.Infix
 
-module Streams = CCMap.Make(CCInt)
-
-type board = { handlers        : (module Api_handler.HANDLER) list
-             ; receiver        : Cbuffer.t -> unit
-             ; streams_signal  : string Streams.t React.signal option
-             ; is_converter    : bool
-             ; state           : < >
-             }
+type 'a cc = [`Continue of 'a]
    
-module type BOARD =
-  sig
-    val create       : topo_board -> (Cbuffer.t -> unit Lwt.t) -> board
-    val connect_db   : board -> Database.t -> board
-  end
+type state = [ `Fine | `No_response]
+type req_typ = [`Need_response | `Instant]
 
-module type PROTOCOL = sig
+module type MSG_DESC = sig
   type resp
   type _ req
+end
+
+module type PROTOCOL = sig
+  include MSG_DESC
 
   val init        : _ req
   val probes      : _ req list
   val period      : int (* quantums *)
-  val serialize   : _ req -> Cbuffer.t
+  val serialize   : _ req -> req_typ * Cbuffer.t
   val deserialize : resp req -> Cbuffer.t -> resp option
     
 end
+
+module type MESSENGER = sig
+  include MSG_DESC
   
-module Make(P : PROTOCOL) = struct
+  val create : (Cbuffer.t -> unit Lwt.t) ->
+               (state -> unit) ->
+               (resp -> unit) ->
+               (resp req -> resp Lwt.t) * (Cbuffer.t list -> 'c cc as 'c) cc
+end
+  
+module Make(P : PROTOCOL)
+       : (MESSENGER with type resp := P.resp
+                     and type 'a req := 'a P.req) = struct
   (* TODO XXX Warning; Stateful module *)
 
+  let send_msg msgs sender msg waker =
+    match P.serialize msg with
+    | `Need_response, x -> msgs := CCArray.append !msgs [|(ref P.period, msg, waker)|];
+                           sender x
+    | `Instant, x       -> sender x
+  
   let send_probes msgs sender () =
     let req = P.probes in
     let rec send' = function
       | []    -> Lwt.return_unit
-      | x::xs -> msgs := CCArray.append !msgs [|(ref P.period, x, None)|];
-                 sender (P.serialize x) >>= fun () -> send' xs
+      | x::xs -> send_msg msgs sender x None >>= fun () -> send' xs
     in
     send' req
-
+   
   let send_init msgs sender () =
     let req = P.init in
-    msgs := CCArray.append !msgs [|(ref P.period, req, None)|];
-    sender (P.serialize req)
+    send_msg msgs sender req None
   
   let send msgs sender req =
-    let buf  = P.serialize req in
     let t, w = Lwt.wait () in
-    msgs := CCArray.append !msgs [|(ref P.period, req, Some w)|];
-    sender buf >>= fun () ->
-    t
+    send_msg msgs sender req (Some w)
+    >>= fun () -> t
 
   exception Timeout
   exception Found
@@ -77,9 +84,9 @@ module Make(P : PROTOCOL) = struct
       with
       | Timeout -> msgs := [||];
                    push_state `No_response;
-                   `Continue error_step
+                   `Continue no_response_step
 
-    and error_step recvd =
+    and no_response_step recvd =
 
       let lookup (period, req, waker) =
         let msg = CCList.find_map (P.deserialize req) recvd in
@@ -95,14 +102,14 @@ module Make(P : PROTOCOL) = struct
       try
         msgs := CCArray.filter_map lookup !msgs;
         send_init () |> ignore;
-        `Continue error_step
+        `Continue no_response_step
       with
       | Found -> push_state `Fine;
                  msgs := [||];
                  `Continue good_step
 
     in
-    good_step
+    no_response_step
     
   let create sender push_state push_event =
     let msgs = ref [||] in
@@ -112,6 +119,28 @@ module Make(P : PROTOCOL) = struct
 
 end
 
-let apply step recvd =
-  match step with
-  | `Continue step -> step recvd
+let apply = function `Continue step -> step
+
+module Streams = CCMap.Make(CCInt)
+
+type board = { handlers        : (module Api_handler.HANDLER) list
+             ; connection      : state React.signal
+             ; streams_signal  : string Streams.t React.signal option
+             ; step            : (Cbuffer.t list -> 'c cc as 'c) cc
+             ; is_converter    : bool
+             ; state           : < >
+             } 
+
+module type BOARD_API = sig
+  include MSG_DESC
+
+  val handlers : int -> (resp req -> resp Lwt.t)
+                 -> state React.signal -> resp React.event
+                 -> (module Api_handler.HANDLER) list
+end
+           
+module type BOARD = sig
+  include MSG_DESC
+  val create       : topo_board -> (Cbuffer.t -> unit Lwt.t) -> board
+  val connect_db   : board -> Database.t -> board
+end
