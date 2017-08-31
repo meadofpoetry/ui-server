@@ -17,15 +17,14 @@ module type BOARD =
   end
 
 module type PROTOCOL = sig
-  type req
   type resp
+  type _ req
 
-  val init        : req
-  val probes      : req list
+  val init        : _ req
+  val probes      : _ req list
   val period      : int (* quantums *)
-  val deserialize : Cbuffer.t -> resp
-  val serialize   : req -> Cbuffer.t
-  val is_resp     : req -> resp -> bool
+  val serialize   : _ req -> Cbuffer.t
+  val deserialize : resp req -> Cbuffer.t -> resp option
     
 end
   
@@ -58,10 +57,9 @@ module Make(P : PROTOCOL) = struct
   let step msgs send_init send_probes push_state push_event =
     
     let rec good_step recvd =
-      let msg_pool = List.map P.deserialize recvd in
       
       let lookup (period, req, waker) =
-        let msg = CCList.find_pred (P.is_resp req) msg_pool in
+        let msg = CCList.find_map (P.deserialize req) recvd in
         match msg with
         | None     ->
            decr period;
@@ -82,10 +80,9 @@ module Make(P : PROTOCOL) = struct
                    `Continue error_step
 
     and error_step recvd =
-      let msg_pool = List.map P.deserialize recvd in
 
       let lookup (period, req, waker) =
-        let msg = CCList.find_pred (P.is_resp req) msg_pool in
+        let msg = CCList.find_map (P.deserialize req) recvd in
         match msg with
         | None     ->
            decr period;
