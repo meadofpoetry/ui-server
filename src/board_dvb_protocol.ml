@@ -9,5 +9,6 @@ let period = 5
 
 let (serialize : req -> Board_meta.req_typ * Cbuffer.t) = fun _ -> `Instant, (Cbuffer.create 5)
 
-let deserialize = fun _ _ -> None
+let deserialize = fun _ -> [], None
 
+let is_response = fun _ _ -> None

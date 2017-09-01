@@ -18,7 +18,8 @@ module type PROTOCOL = sig
   val probes      : req list
   val period      : int (* quantums *)
   val serialize   : req -> req_typ * Cbuffer.t
-  val deserialize : req -> Cbuffer.t -> resp option
+  val deserialize : Cbuffer.t -> resp list * Cbuffer.t option
+  val is_response : req -> resp -> resp option
     
 end
 
@@ -35,7 +36,7 @@ module Make(P : PROTOCOL)
        : (MESSENGER with type resp := P.resp
                      and type req := P.req) = struct
   (* TODO XXX Warning; Stateful module *)
-
+  
   let send_msg msgs sender msg waker =
     match P.serialize msg with
     | `Need_response, x -> msgs := CCArray.append !msgs [|(ref P.period, msg, waker)|];
@@ -63,10 +64,15 @@ module Make(P : PROTOCOL)
   exception Found
   let step msgs send_init send_probes push_state push_event =
     
-    let rec good_step recvd =
-      
+    let rec good_step acc recvd =
+      let recvd = match acc with
+        | Some acc -> Cbuffer.append acc (Cbuffer.concat recvd)
+        | None     -> Cbuffer.concat recvd
+      in
+      let received, acc = P.deserialize recvd in
+    
       let lookup (period, req, waker) =
-        let msg = CCList.find_map (P.deserialize req) recvd in
+        let msg = CCList.find_map (P.is_response req) received in
         match msg with
         | None     ->
            decr period;
@@ -77,19 +83,25 @@ module Make(P : PROTOCOL)
            | None   -> push_event msg; None
            | Some w -> Lwt.wakeup w msg; None
       in
+      
       try
         msgs := CCArray.filter_map lookup !msgs;
         send_probes () |> ignore;
-        `Continue good_step
+        `Continue (good_step acc)
       with
       | Timeout -> msgs := [||];
                    push_state `No_response;
-                   `Continue no_response_step
+                   `Continue (no_response_step acc)
 
-    and no_response_step recvd =
+    and no_response_step acc recvd =      
+      let recvd = match acc with
+        | Some acc -> Cbuffer.append acc (Cbuffer.concat recvd)
+        | None     -> Cbuffer.concat recvd
+      in
+      let received, acc = P.deserialize recvd in
 
       let lookup (period, req, waker) =
-        let msg = CCList.find_map (P.deserialize req) recvd in
+        let msg = CCList.find_map (P.is_response req) received in
         match msg with
         | None     ->
            decr period;
@@ -102,21 +114,21 @@ module Make(P : PROTOCOL)
       try
         msgs := CCArray.filter_map lookup !msgs;
         send_init () |> ignore;
-        `Continue no_response_step
+        `Continue (no_response_step acc)
       with
       | Found -> push_state `Fine;
                  msgs := [||];
-                 `Continue good_step
-
+                 `Continue (good_step acc)
+                 
     in
-    no_response_step
+    `Continue (no_response_step None)
     
   let create sender push_state push_event =
     let msgs = ref [||] in
     let send_init   = send_init msgs sender in
     let send_probes = send_probes msgs sender in
-    (send msgs sender), `Continue (step msgs send_init send_probes push_state push_event)
-
+    (send msgs sender), (step msgs send_init send_probes push_state push_event)
+    
 end
 
 let apply = function `Continue step -> step
