@@ -19,7 +19,7 @@ module type PROTOCOL = sig
   val period      : int (* quantums *)
   val serialize   : req -> req_typ * Cbuffer.t
   val deserialize : req -> Cbuffer.t -> resp option
-    
+
 end
 
 module type MESSENGER = sig
