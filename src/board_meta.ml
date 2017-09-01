@@ -20,7 +20,7 @@ module type PROTOCOL = sig
   val serialize   : req -> req_typ * Cbuffer.t
   val deserialize : Cbuffer.t -> resp list * Cbuffer.t option
   val is_response : req -> resp -> resp option
-    
+
 end
 
 module type MESSENGER = sig

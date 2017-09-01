@@ -1,6 +1,3 @@
-type resp  = Test of unit
-type req   = Resp of unit
-
 let tag_start = 0x55AA
 let tag_stop  = 0xFE
 
@@ -182,6 +179,19 @@ type rsp_plp_set =
   ; plp     : int
   } [@@deriving to_yojson]
 
+type resp  = Ack
+           | Devinfo     of rsp_devinfo
+           | Settings    of (int * rsp_settings)
+           | Measure     of (int * rsp_measure)
+           | Plps        of (int * rsp_plp_list)
+           | Plp_setting of (int * rsp_plp_set)
+
+type req   = Devinfo     of bool
+           | Settings    of int * settings
+           | Measure     of int
+           | Plps        of int
+           | Plp_setting of int * int
+
 (* Helper functions *)
 
 let calc_crc (msg:Cbuffer.t) =
@@ -361,52 +371,54 @@ let of_rsp_plp_set_exn msg =
 
 (* Deserialize *)
 
-let parse_msgs msgs =
-    let parsed = List.map (fun m -> let code     = (get_prefix_msg_code m) land 0xF0 in
-                                    let id       = (get_prefix_msg_code m) land 0x0F in
-                                    try
-                                      let (_,body) = Cbuffer.split m sizeof_prefix in
-                                      match (id,code) with
-                                      | 0xE,0xE0 -> `Ok
-                                      | _,0x10   -> `Devinfo (of_rsp_devinfo_exn body)
-                                      | _,0x20   -> `Settings (id, (of_rsp_settings_exn body))
-                                      | _,0x30   -> `Measure (id, (of_rsp_measure_exn body))
-                                      | _,0x50   -> `Plps (id, (of_rsp_plp_list_exn body))
-                                      | _,0x60   -> `Plp (id, (of_rsp_plp_set_exn body))
-                                      | _        -> `Unknown
-                                    with _ -> `Corrupted)
-                          msgs in
-    parsed
-    (* List.filter (function *)
-    (*              | `Devinfo _ | `Settings _ | `Measure _ | `Plps _ | `Plp _ -> true *)
-    (*              | _ -> false) *)
-    (*             parsed *)
+let (init : req) = Devinfo false
 
-  let parse ?old buf =
-    let buf' = begin match old with
-               | Some x -> Cbuffer.append x buf
-               | None   -> buf
-               end in
-    let rec f acc b =
-      if Cbuffer.len b > (sizeof_prefix + 1 + sizeof_suffix)
-      then begin match check_msg b with
-           | Ok x    -> let len     = ((get_prefix_length x) - 1) + sizeof_prefix + sizeof_suffix in
-                        let msg,res = Cbuffer.split x len in
-                        f (msg::acc) res
-           | Error _ -> let _,res = Cbuffer.split b 1 in
-                        f acc res
-           end
-      else List.rev acc,b in
-    f [] buf'
-
-let (init : req) = Resp ()
-
-let (probes : req list) = [Resp ()]
+let (probes : req list) = []
 
 let period = 5
 
-let (serialize : req -> Board_meta.req_typ * Cbuffer.t) = fun _ -> `Instant, (Cbuffer.create 5)
+let (serialize : req -> Board_meta.req_typ * Cbuffer.t) = function
+  | Devinfo x            -> `Need_response, to_req_devinfo x
+  | Settings (id,x)      -> `Need_response, to_req_settings id x
+  | Measure id           -> `Need_response, to_req_measure id
+  | Plps id              -> `Need_response, to_req_plp_list id
+  | Plp_setting (id,plp) -> `Need_response, to_req_plp_set id plp
 
-let deserialize = fun _ -> [], None
+let deserialize buf =
+  (* split buffer into valid messages and residue (if any) *)
+  let rec f acc b =
+    if Cbuffer.len b > (sizeof_prefix + 1 + sizeof_suffix)
+    then begin match check_msg b with
+         | Ok x    -> let len     = ((get_prefix_length x) - 1) + sizeof_prefix + sizeof_suffix in
+                      let msg,res = Cbuffer.split x len in
+                      f (msg::acc) res
+         | Error _ -> let _,res = Cbuffer.split b 1 in
+                      f acc res
+         end
+    else List.rev acc, b in
+  let msgs,res = f [] buf in
+  let resp = List.fold_left (fun acc x -> let code     = (get_prefix_msg_code x) land 0xF0 in
+                                          let id       = (get_prefix_msg_code x) land 0x0F in
+                                          try
+                                            let (_,body) = Cbuffer.split x sizeof_prefix in
+                                            match (id,code) with
+                                            | 0xE,0xE0 -> Ack :: acc
+                                            | _,0x10   -> (Devinfo (of_rsp_devinfo_exn body))           :: acc
+                                            | _,0x20   -> (Settings (id, (of_rsp_settings_exn body)))   :: acc
+                                            | _,0x30   -> (Measure (id, (of_rsp_measure_exn body)))     :: acc
+                                            | _,0x50   -> (Plps (id, (of_rsp_plp_list_exn body)))       :: acc
+                                            | _,0x60   -> (Plp_setting (id, (of_rsp_plp_set_exn body))) :: acc
+                                            | _        -> acc
+                                          with _ -> acc)
+                            []
+                            msgs in
+  resp, if Cbuffer.len res > 0 then Some res else None
 
-let is_response = fun _ _ -> None
+let is_response (req:req) (resp:resp) =
+  match req, resp with
+  | (Devinfo _, Devinfo _) -> Some resp
+  | (Settings (id_req,_), Settings (id_rsp,_))       when id_req = id_rsp -> Some resp
+  | (Measure id_req, Measure (id_rsp,_))             when id_req = id_rsp -> Some resp
+  | (Plps id_req, Plps (id_rsp,_))                   when id_req = id_rsp -> Some resp
+  | (Plp_setting (id_req,_), Plp_setting (id_rsp,_)) when id_req = id_rsp -> Some resp
+  | _ -> None

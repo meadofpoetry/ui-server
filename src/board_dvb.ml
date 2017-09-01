@@ -5,26 +5,6 @@ open Board_meta
 
 module V1 : BOARD = struct
 
-  let handle send _ id meth args _ _ _ =
-    let open Redirect in
-    let redirect_if_guest = redirect_if (User.eq id `Guest) in
-    match meth, args with
-    | `POST, ["settings"] -> redirect_if_guest not_found
-    | `POST, ["plp"]      -> redirect_if_guest not_found
-    | `GET,  ["devinfo"]  -> respond_string "sent cmd devinfo!" ()
-    | `GET,  ["params"]   -> not_found ()
-    | `GET,  ["meas"]     -> not_found ()
-    | `GET,  ["plps"]     -> respond_string "send cmd plp list" ()
-    | _ -> not_found ()
-
-  let handlers id send =
-    [ (module struct
-         let domain = get_api_path id
-         let handle = handle send ()
-       end : HANDLER) ]
-
-  (* TODO Все, что выше, убрать *)
-
   module Protocol : Board_meta.PROTOCOL = Board_dvb_protocol
 
   type req = Protocol.req
@@ -53,26 +33,3 @@ end
 let create = function
   | 1 -> (module V1 : BOARD)
   | v -> failwith ("dvb board: unknown version " ^ (string_of_int v))
-
-                  (* React.E.fold (fun old buf ->
-                    let msgs,res = parse ?old buf in
-                    (parse_msgs msgs)
-                    |> List.map (function
-                                 | `Ok             -> "rsp ok"
-                                 | `Devinfo x      -> "devinfo: "  ^ (devinfo_to_yojson x
-                                                                      |> Yojson.Safe.to_string)
-                                 | `Settings (_,x) -> "settings: " ^ (settings_resp_to_yojson x
-                                                                      |> Yojson.Safe.to_string)
-                                 | `Measure (_,x)  -> "measure: "  ^ (measure_to_yojson x
-                                                                      |> Yojson.Safe.to_string)
-                                 | `Plps (_,x)     -> "plps: "     ^ (plp_list_to_yojson x
-                                                                      |> Yojson.Safe.to_string)
-                                 | `Plp (_,x)      -> "plp: "      ^ (plp_set_to_yojson x
-                                                                      |> Yojson.Safe.to_string)
-                                 | `Corrupted      -> "corrupted"
-                                 | _               -> "unknown")
-                    |> List.map (Lwt_io.printf "%s\n")
-                    |> ignore;
-                    (Some res))
-                             None
-                             e_msgs *)
