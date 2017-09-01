@@ -20,6 +20,7 @@ module type PROTOCOL = sig
   val serialize   : req -> req_typ * Cbuffer.t
   val deserialize : Cbuffer.t -> resp list * Cbuffer.t option
   val is_response : req -> resp -> resp option
+  val is_free     : resp -> resp option
 
 end
 
@@ -62,6 +63,10 @@ module Make(P : PROTOCOL)
 
   exception Timeout
   exception Found
+  let wakeup_timeout = function
+    | (_,_,Some waker) -> Lwt.wakeup_exn waker (Failure "timeout")
+    | (_,_,None) -> ()
+          
   let step msgs send_init send_probes push_state push_event =
     
     let rec good_step acc recvd =
@@ -85,11 +90,13 @@ module Make(P : PROTOCOL)
       in
       
       try
-        msgs := CCArray.filter_map lookup !msgs;
+        msgs := CCArray.filter_map lookup !msgs; (* XXX ?? *)
+        CCList.iter push_event (CCList.filter_map P.is_free received);
         send_probes () |> ignore;
         `Continue (good_step acc)
       with
-      | Timeout -> msgs := [||];
+      | Timeout -> Array.iter wakeup_timeout !msgs;
+                   msgs := [||];
                    push_state `No_response;
                    `Continue (no_response_step acc)
 
@@ -117,7 +124,8 @@ module Make(P : PROTOCOL)
         `Continue (no_response_step acc)
       with
       | Found -> push_state `Fine;
-                 msgs := [||];
+                 msgs := [||];      (* XXX ?? *)
+                 CCList.iter push_event (CCList.filter_map P.is_free received);
                  `Continue (good_step acc)
                  
     in

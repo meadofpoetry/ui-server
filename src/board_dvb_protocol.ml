@@ -422,3 +422,5 @@ let is_response (req:req) (resp:resp) =
   | (Plps id_req, Plps (id_rsp,_))                   when id_req = id_rsp -> Some resp
   | (Plp_setting (id_req,_), Plp_setting (id_rsp,_)) when id_req = id_rsp -> Some resp
   | _ -> None
+
+let is_free = fun _ -> None
