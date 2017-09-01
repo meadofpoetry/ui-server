@@ -139,7 +139,8 @@ let create ?(sleep = 1.) ?(divider = divider) () =
   let msg_head = msg_head divider in
   
   let rec loop acc () =
-    Lwt_unix.sleep sleep >>= fun () -> 
+    Lwt_unix.sleep sleep >>= fun () ->
+    (* Lwt_io.printf "loop step %d\n" (Unix.time () |> Unix.localtime |> (fun x -> x.tm_sec)) |> ignore; *)
     recv () >>= fun buf ->
     let head, rest = msg_head buf in
     let msg_list   = Cbuffer.split_by_string divider rest in

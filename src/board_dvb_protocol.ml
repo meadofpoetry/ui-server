@@ -27,13 +27,6 @@ let bool_of_bool8 = function
    | Bw7 [@id 2]
    | Bw6 [@id 3] [@@uint8_t]]
 
-[%%cenum
- type dvbc_qam =
-   | Qam32
-   | Qam64
-   | Qam128
-   | Qam256 [@@uint8_t]]
-
 let mode_to_yojson x = `String (mode_to_string x)
 let mode_of_yojson = function
   | `String s -> begin match string_to_mode s with
@@ -49,14 +42,6 @@ let bw_of_yojson = function
                  | None   -> Error ("bw_of_yojson: unknown value " ^ s)
                  end
   | _ as e    -> Error ("bw_of_yojson: unknown value " ^ (Yojson.Safe.to_string e))
-
-let dvbc_qam_to_yojson x = `String (dvbc_qam_to_string x)
-let dvbc_qam_of_yojson = function
-  | `String s -> begin match string_to_dvbc_qam s with
-                 | Some x -> Ok x
-                 | None   -> Error ("dvbc_qam_of_yojson: unknown value " ^ s)
-                 end
-  | _ as e    -> Error ("dvbc_qam_of_yojson: unknown value " ^ (Yojson.Safe.to_string e))
 
 [%%cstruct
  type prefix =
@@ -91,9 +76,9 @@ let dvbc_qam_of_yojson = function
    { mode       : uint8_t
    ; bw         : uint8_t
    ; hw_present : uint8_t  (* rfu in cmd *)
-   ; dvbc_qam   : uint8_t
+   ; rfu        : uint8_t  (* former dvb-c qam *)
    ; freq       : uint32_t
-   ; plp_id     : uint8_t
+   ; plp        : uint8_t
    ; lock       : uint8_t  (* rfu in cmd *)
    } [@@little_endian]]
 
@@ -147,11 +132,10 @@ type rsp_devinfo =
   } [@@deriving to_yojson]
 
 type settings =
-  { mode : mode
-  ; bw   : bw
-  ; dvbc_qam : dvbc_qam
+  { mode     : mode
+  ; bw       : bw
   ; freq     : int32
-  ; plp_id   : int
+  ; plp      : int
   } [@@deriving yojson]
 
 type rsp_settings =
@@ -178,6 +162,8 @@ type rsp_plp_set =
   { lock    : bool
   ; plp     : int
   } [@@deriving to_yojson]
+
+type init_conf = int list
 
 type resp  = Ack
            | Devinfo     of rsp_devinfo
@@ -304,9 +290,8 @@ let to_req_settings id settings =
   let body = Cbuffer.create sizeof_settings in
   let () = set_settings_mode body (mode_to_int settings.mode) in
   let () = set_settings_bw body (bw_to_int settings.bw) in
-  let () = set_settings_dvbc_qam body (dvbc_qam_to_int settings.dvbc_qam) in
   let () = set_settings_freq body settings.freq in
-  let () = set_settings_plp_id body settings.plp_id in
+  let () = set_settings_plp body settings.plp in
   to_msg ~msg_code:(0x20 lor id) ~body
 
 let of_rsp_settings_exn msg =
@@ -315,9 +300,8 @@ let of_rsp_settings_exn msg =
   ; hw_present = int_to_bool8 (get_settings_hw_present msg) |> get_exn |> bool_of_bool8
   ; settings   = { mode     = get_exn @@ int_to_mode (get_settings_mode msg)
                  ; bw       = get_exn @@ int_to_bw (get_settings_bw msg)
-                 ; dvbc_qam = get_exn @@ int_to_dvbc_qam (get_settings_dvbc_qam msg)
                  ; freq     = get_settings_freq msg
-                 ; plp_id   = get_settings_plp_id msg
+                 ; plp      = get_settings_plp msg
                  }
   }
 
@@ -330,10 +314,10 @@ let of_rsp_measure_exn msg =
   { lock    = int_to_bool8 (get_rsp_measure_lock msg) |> CCOpt.get_exn |> bool_of_bool8
   ; power   = get_rsp_measure_power msg
               |> (fun x -> if x = max_uint16 then None else Some (-.((float_of_int x) /. 10.)))
-  ; mer     = get_rsp_measure_power msg
-              |> (fun x -> if x = max_uint32 then None else Some ((float_of_int x) /. 10.))
-  ; ber     = Int32.to_int @@ get_rsp_measure_ber msg
-              |> (fun x -> if x = max_uint32 then None else Some ((float_of_int x) /. (2.**24.)))
+  ; mer     = get_rsp_measure_mer msg
+              |> (fun x -> if x = max_uint16 then None else Some ((float_of_int x) /. 10.))
+  ; ber     = get_rsp_measure_ber msg
+              |> (fun x -> if x = Int32.of_int max_uint32 then None else Some ((Int32.to_float x) /. (2.**24.)))
   ; freq    = get_rsp_measure_freq msg
               |> (fun x -> if x = Int32.of_int max_uint32 then None else Some x)
   ; bitrate = get_rsp_measure_bitrate msg
@@ -373,18 +357,25 @@ let of_rsp_plp_set_exn msg =
 
 let (init : req) = Devinfo false
 
-let (probes : req list) = []
+let probes config = List.map (fun x -> Measure x) config
+                    @ List.map (fun x -> Plps x) config
 
 let period = 5
 
+let to_init_conf : resp -> init_conf option = function
+  | Devinfo x -> Some x.modules
+  | _         -> None
+
 let make_req (s,_) =
   match s with
-  | "devinfo" -> Ok (Devinfo false)
-  | _         -> Error "unknown request"
+  | _          -> Error "unknown request"
 
 let to_yojson : resp -> Yojson.Safe.json = function
-  | Devinfo x -> rsp_devinfo_to_yojson x
-  | _         -> `String "dummy"
+  | Ack            -> `String "Ack"
+  | Devinfo x      -> rsp_devinfo_to_yojson x
+  | Measure (id,x) -> `Assoc [(string_of_int id), rsp_measure_to_yojson x]
+  | Plps (id,x)    -> `Assoc [(string_of_int id), rsp_plp_list_to_yojson x]
+  | _              -> `String "dummy"
 
 let (serialize : req -> Board_meta.req_typ * Cbuffer.t) = function
   | Devinfo x            -> `Need_response, to_req_devinfo x
@@ -395,41 +386,45 @@ let (serialize : req -> Board_meta.req_typ * Cbuffer.t) = function
 
 let deserialize buf =
   (* split buffer into valid messages and residue (if any) *)
+  let parse_msg = fun msg ->
+    try
+      let id       = (get_prefix_msg_code msg) land 0x0F in
+      let code     = (get_prefix_msg_code msg) land 0xF0 in
+      let (_,msg') = Cbuffer.split msg sizeof_prefix in
+      let (body,_) = Cbuffer.split msg' ((Cbuffer.len msg') - sizeof_suffix) in
+      (match (id,code) with
+       | 0xE,0xE0 -> Some Ack
+       | _,0x10   -> Some (Devinfo (of_rsp_devinfo_exn body))
+       | _,0x20   -> Some (Settings (id, (of_rsp_settings_exn body)))
+       | _,0x30   -> Some (Measure (id, (of_rsp_measure_exn body)))
+       | _,0x50   -> Some (Plps (id, (of_rsp_plp_list_exn body)))
+       | _,0x60   -> Some (Plp_setting (id, (of_rsp_plp_set_exn body)))
+       | _        -> Lwt_io.printf "\n\n !!! Unknown message !!! \n\n" |> ignore; None)
+    with _ -> Lwt_io.printf "\n\n !!! Corrupted message !!! \n\n" |> ignore; None in
   let rec f acc b =
     if Cbuffer.len b > (sizeof_prefix + 1 + sizeof_suffix)
-    then begin match check_msg b with
-         | Ok x    -> let len     = ((get_prefix_length x) - 1) + sizeof_prefix + sizeof_suffix in
-                      let msg,res = Cbuffer.split x len in
-                      f (msg::acc) res
-         | Error _ -> let _,res = Cbuffer.split b 1 in
-                      f acc res
-         end
+    then (match check_msg b with
+          | Ok x    -> let len     = ((get_prefix_length x) - 1) + sizeof_prefix + sizeof_suffix in
+                       let msg,res = Cbuffer.split x len in
+                       msg
+                       |> parse_msg
+                       |> (function
+                           | Some x -> f (x::acc) res
+                           | None   -> f acc res)
+          | Error _ -> let _,res = Cbuffer.split b 1 in
+                       f acc res)
     else List.rev acc, b in
   let msgs,res = f [] buf in
-  let resp = List.fold_left (fun acc x -> let code     = (get_prefix_msg_code x) land 0xF0 in
-                                          let id       = (get_prefix_msg_code x) land 0x0F in
-                                          try
-                                            let (_,body) = Cbuffer.split x sizeof_prefix in
-                                            match (id,code) with
-                                            | 0xE,0xE0 -> Ack :: acc
-                                            | _,0x10   -> (Devinfo (of_rsp_devinfo_exn body))           :: acc
-                                            | _,0x20   -> (Settings (id, (of_rsp_settings_exn body)))   :: acc
-                                            | _,0x30   -> (Measure (id, (of_rsp_measure_exn body)))     :: acc
-                                            | _,0x50   -> (Plps (id, (of_rsp_plp_list_exn body)))       :: acc
-                                            | _,0x60   -> (Plp_setting (id, (of_rsp_plp_set_exn body))) :: acc
-                                            | _        -> acc
-                                          with _ -> acc)
-                            []
-                            msgs in
-  resp, if Cbuffer.len res > 0 then Some res else None
+  msgs, if Cbuffer.len res > 0 then Some res else None
 
 let is_response (req:req) (resp:resp) =
   match req, resp with
-  | (Devinfo _, Devinfo _) -> Some resp
-  | (Settings (id_req,_), Settings (id_rsp,_))       when id_req = id_rsp -> Some resp
-  | (Measure id_req, Measure (id_rsp,_))             when id_req = id_rsp -> Some resp
-  | (Plps id_req, Plps (id_rsp,_))                   when id_req = id_rsp -> Some resp
-  | (Plp_setting (id_req,_), Plp_setting (id_rsp,_)) when id_req = id_rsp -> Some resp
-  | _ -> None
+  | Devinfo _, Devinfo _ -> Some resp
+  | Devinfo _, Ack       -> None
+  | _, Ack               -> Some resp
+  | _                    -> None
 
-let is_free = fun _ -> None
+let is_free : resp -> resp option = function
+  | Measure _ as x -> Some x
+  | Plps _ as x    -> Some x
+  | _ ->              None

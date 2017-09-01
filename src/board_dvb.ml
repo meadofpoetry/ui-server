@@ -18,7 +18,10 @@ module V1 : BOARD = struct
     let s_state, spush = React.S.create `No_response in
     let send_msg, step = Messenger.create send spush push in
     let handlers = Board_api.handlers b.control send_msg s_state e_msgs in
-    let state = object method e_msgs = e_msgs end in
+    let e_probes = React.E.map (fun x ->
+                       Lwt_io.printf "%s\n" (Protocol.to_yojson x |> Yojson.Safe.pretty_to_string) |> ignore)
+                               e_msgs in
+    let state = object method e_msgs = e_msgs; method e_probes = e_probes  end in
     { handlers       = handlers
     ; connection     = s_state
     ; streams_signal = None
