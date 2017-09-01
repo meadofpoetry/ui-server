@@ -62,6 +62,10 @@ module Make(P : PROTOCOL)
 
   exception Timeout
   exception Found
+  let wakeup_timeout = function
+    | (_,_,Some waker) -> Lwt.wakeup_exn waker (Failure "timeout")
+    | (_,_,None) -> ()
+          
   let step msgs send_init send_probes push_state push_event =
     
     let rec good_step acc recvd =
@@ -89,7 +93,8 @@ module Make(P : PROTOCOL)
         send_probes () |> ignore;
         `Continue (good_step acc)
       with
-      | Timeout -> msgs := [||];
+      | Timeout -> Array.iter wakeup_timeout !msgs;
+                   msgs := [||];
                    push_state `No_response;
                    `Continue (no_response_step acc)
 
@@ -117,7 +122,6 @@ module Make(P : PROTOCOL)
         `Continue (no_response_step acc)
       with
       | Found -> push_state `Fine;
-                 msgs := [||];
                  `Continue (good_step acc)
                  
     in
