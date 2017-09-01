@@ -14,6 +14,8 @@ end
 module type PROTOCOL = sig
   include MSG_DESC
 
+  val to_yojson   : resp -> Yojson.Safe.json
+  val make_req    : string * (Yojson.Safe.json option) -> (req, string) result
   val init        : req
   val probes      : req list
   val period      : int (* quantums *)
