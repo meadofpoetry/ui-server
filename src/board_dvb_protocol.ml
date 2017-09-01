@@ -377,6 +377,15 @@ let (probes : req list) = []
 
 let period = 5
 
+let make_req (s,_) =
+  match s with
+  | "devinfo" -> Ok (Devinfo false)
+  | _         -> Error "unknown request"
+
+let to_yojson : resp -> Yojson.Safe.json = function
+  | Devinfo x -> rsp_devinfo_to_yojson x
+  | _         -> `String "dummy"
+
 let (serialize : req -> Board_meta.req_typ * Cbuffer.t) = function
   | Devinfo x            -> `Need_response, to_req_devinfo x
   | Settings (id,x)      -> `Need_response, to_req_settings id x
