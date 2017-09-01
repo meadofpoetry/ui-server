@@ -12,3 +12,5 @@ let (serialize : req -> Board_meta.req_typ * Cbuffer.t) = fun _ -> `Instant, (Cb
 let deserialize = fun _ -> [], None
 
 let is_response = fun _ _ -> None
+
+let is_free = fun _ -> None

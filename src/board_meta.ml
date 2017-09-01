@@ -20,6 +20,7 @@ module type PROTOCOL = sig
   val serialize   : req -> req_typ * Cbuffer.t
   val deserialize : Cbuffer.t -> resp list * Cbuffer.t option
   val is_response : req -> resp -> resp option
+  val is_free     : resp -> resp option
     
 end
 
@@ -89,7 +90,8 @@ module Make(P : PROTOCOL)
       in
       
       try
-        msgs := CCArray.filter_map lookup !msgs;
+        msgs := CCArray.filter_map lookup !msgs; (* XXX ?? *)
+        CCList.iter push_event (CCList.filter_map P.is_free received);
         send_probes () |> ignore;
         `Continue (good_step acc)
       with
@@ -122,6 +124,8 @@ module Make(P : PROTOCOL)
         `Continue (no_response_step acc)
       with
       | Found -> push_state `Fine;
+                 msgs := [||];      (* XXX ?? *)
+                 CCList.iter push_event (CCList.filter_map P.is_free received);
                  `Continue (good_step acc)
                  
     in
