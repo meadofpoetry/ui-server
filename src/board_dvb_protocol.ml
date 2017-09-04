@@ -353,9 +353,13 @@ let of_rsp_plp_set_exn msg =
   ; plp  = get_rsp_plp_set_plp msg
   }
 
-(* Deserialize *)
+(* Board protocol implementation *)
 
-let (init : req) = Devinfo false
+let (init : req) = (* Devinfo false *) Settings (0, { mode = T2
+                                                    ; bw   = Bw8
+                                                    ; freq = Int32.of_int 586000000
+                                                    ; plp  = 0
+                                                })
 
 let probes config = List.map (fun x -> Measure x) config
                     @ List.map (fun x -> Plps x) config
@@ -364,6 +368,7 @@ let period = 5
 
 let to_init_conf : resp -> init_conf option = function
   | Devinfo x -> Some x.modules
+  | Ack -> Some [0] (* FIXME *)
   | _         -> None
 
 let make_req (s,_) =
@@ -427,4 +432,5 @@ let is_response (req:req) (resp:resp) =
 let is_free : resp -> resp option = function
   | Measure _ as x -> Some x
   | Plps _ as x    -> Some x
+  | Settings _     -> None
   | _ ->              None

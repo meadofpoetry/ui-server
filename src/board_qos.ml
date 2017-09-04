@@ -5,30 +5,29 @@ open Board_meta
 
 module V1 : BOARD = struct
 
-  let handle _ _ id meth args _ _ _ =
-    let open Redirect in
-    let redirect_if_guest = redirect_if (User.eq id `Guest) in
-    match meth, args with
-    | `POST, ["settings"] ->
-       redirect_if_guest not_found
-    | `GET, (["section"; _; _; _; _; _] as l) ->
-       respond_string (String.concat " " l) ()
-    | `GET, ["table"; stream_id; table_id] ->
-       respond_string (String.concat " " ["table"; stream_id; table_id]) ()
-    | _ -> not_found ()
+  module Protocol : Board_meta.PROTOCOL = Board_qos_protocol
 
-  let handlers id =
-    [ (module struct
-         let domain = get_api_path id
-         let handle = handle () ()
-       end : HANDLER) ]
+  type req = Protocol.req
+  type resp = Protocol.resp
 
-  let create (b:topo_board) _ =
-    { handlers       = handlers b.control 
-    ; receiver       = (fun _ -> ())
+  module Messenger = Board_meta.Make(Protocol)
+  module Board_api = Board_qos_api.Make(Protocol)
+
+  let create (b:topo_board) send =
+    let e_msgs,  push = React.E.create () in
+    let s_state, spush = React.S.create `No_response in
+    let send_msg, step = Messenger.create send spush push in
+    let handlers = Board_api.handlers b.control send_msg s_state e_msgs in
+    let e_probes = React.E.map (fun x ->
+                       Lwt_io.printf "%s\n" (Protocol.to_yojson x |> Yojson.Safe.pretty_to_string) |> ignore)
+                               e_msgs in
+    let state = object method e_msgs = e_msgs; method e_probes = e_probes  end in
+    { handlers       = handlers
+    ; connection     = s_state
     ; streams_signal = None
-    ; is_converter   = true
-    ; state          = object end
+    ; step           = step
+    ; is_converter   = false
+    ; state          = (state :> < >)
     }
 
   let connect_db b _ = b

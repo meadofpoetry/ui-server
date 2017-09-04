@@ -128,7 +128,7 @@ module Make(P : PROTOCOL)
 
       try
         msgs := CCArray.filter_map lookup !msgs;
-        if Array.length !msgs = 0 then send_init () |> ignore;
+        if Array.length !msgs = 0 then Lwt_io.printf "sending init\n" |> ignore; send_init () |> ignore;
         `Continue (no_response_step acc)
       with
       | Found init_conf -> push_state `Fine;

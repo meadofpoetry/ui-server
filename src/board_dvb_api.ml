@@ -7,7 +7,8 @@ module Make(P : Board_meta.PROTOCOL)
     let open Redirect in
     (* let redirect_if_guest = redirect_if (User.eq id `Guest) in *)
     match meth, args with
-    | `POST, ["settings"] -> not_found () 
+    | `POST, ["reset"]    -> not_found ()
+    | `POST, ["settings"] -> not_found ()
     | `POST, ["plp"]      -> not_found ()
     | _ -> not_found ()
 
