@@ -112,19 +112,18 @@ type instant = Board_meta.instant
 
 type init = rsp_devinfo
 
-type event = Settings    of (int * rsp_settings)
-           | Measure     of (int * rsp_measure)
+type event = Measure     of (int * rsp_measure)
            | Plps        of (int * rsp_plp_list)
-           | Plp_setting of (int * rsp_plp_set)
 
 type response  = Ack
-               | Init of rsp_devinfo
+               | Settings    of (int * rsp_settings)
+               | Plp_setting of (int * rsp_plp_set)
 
-type _ request = Init        : unit             -> init request
-               | Reset       : unit             -> response request
+type _ request = Init        : init request
+               | Reset       : response request
                | Settings    : (int * settings) -> response request
-               | Measure     : int              -> response request
-               | Plps        : int              -> response request
+               | Measure     : int              -> instant request
+               | Plps        : int              -> instant request
                | Plp_setting : int * int        -> response request
 
 (* Helper functions *)
@@ -316,18 +315,14 @@ let of_rsp_plp_set_exn msg =
 
 (* Board protocol implementation *)
 
-let (init : req) = (* Devinfo false *) Settings (0, { mode = T2
-                                                    ; bw   = Bw8
-                                                    ; freq = Int32.of_int 586000000
-                                                    ; plp  = 0
-                                                })
+let (init : init request) = Init
 
-let probes config = List.map (fun x -> Measure x) config
-                    @ List.map (fun x -> Plps x) config
+let probes config = List.map (fun x -> Measure x) config.modules
+                    @ List.map (fun x -> Plps x) config.modules
 
 let period = 5
-
-let to_init_conf : resp -> init_conf option = function
+(*
+let to_init_conf : i response -> init option = function
   | Devinfo x -> Some x.modules
   | Ack -> Some [0] (* FIXME *)
   | _         -> None
@@ -342,13 +337,14 @@ let to_yojson : resp -> Yojson.Safe.json = function
   | Measure (id,x) -> `Assoc [(string_of_int id), rsp_measure_to_yojson x]
   | Plps (id,x)    -> `Assoc [(string_of_int id), rsp_plp_list_to_yojson x]
   | _              -> `String "dummy"
-
-let (serialize : req -> Cbuffer.t) = function
-  | Devinfo x            -> `Need_response, to_req_devinfo x
-  | Settings (id,x)      -> `Need_response, to_req_settings id x
-  | Measure id           -> `Need_response, to_req_measure id
-  | Plps id              -> `Need_response, to_req_plp_list id
-  | Plp_setting (id,plp) -> `Need_response, to_req_plp_set id plp
+ *)
+let serialize : type a. a request -> Cbuffer.t = function
+  | Init                 -> to_req_devinfo false
+  | Reset                -> to_req_devinfo true
+  | Settings (id,x)      -> to_req_settings id x
+  | Measure id           -> to_req_measure id
+  | Plps id              -> to_req_plp_list id
+  | Plp_setting (id,plp) -> to_req_plp_set id plp
 
 let deserialize buf =
   (* split buffer into valid messages and residue (if any) *)
@@ -359,15 +355,15 @@ let deserialize buf =
       let (_,msg') = Cbuffer.split msg sizeof_prefix in
       let (body,_) = Cbuffer.split msg' ((Cbuffer.len msg') - sizeof_suffix) in
       (match (id,code) with
-       | 0xE,0xE0 -> Some Ack
-       | _,0x10   -> Some (Devinfo (of_rsp_devinfo_exn body))
-       | _,0x20   -> Some (Settings (id, (of_rsp_settings_exn body)))
-       | _,0x30   -> Some (Measure (id, (of_rsp_measure_exn body)))
-       | _,0x50   -> Some (Plps (id, (of_rsp_plp_list_exn body)))
-       | _,0x60   -> Some (Plp_setting (id, (of_rsp_plp_set_exn body)))
-       | _        -> Lwt_io.printf "\n\n !!! Unknown message !!! \n\n" |> ignore; None)
-    with _ -> Lwt_io.printf "\n\n !!! Corrupted message !!! \n\n" |> ignore; None in
-  let rec f acc b =
+       | 0xE,0xE0 -> `R (Ack : response)
+       | _,0x10   -> `I ((of_rsp_devinfo_exn body) : init)
+       | _,0x20   -> `R (Settings (id, (of_rsp_settings_exn body)) : response)
+       | _,0x30   -> `E (Measure (id, (of_rsp_measure_exn body)) : event)
+       | _,0x50   -> `E (Plps (id, (of_rsp_plp_list_exn body)) : event)
+       | _,0x60   -> `R (Plp_setting (id, (of_rsp_plp_set_exn body)) : response)
+       | _        -> Lwt_io.printf "\n\n !!! Unknown message !!! \n\n" |> ignore; `N)
+    with _ -> Lwt_io.printf "\n\n !!! Corrupted message !!! \n\n" |> ignore; `N in
+  let rec f init events responses b =
     if Cbuffer.len b > (sizeof_prefix + 1 + sizeof_suffix)
     then (match check_msg b with
           | Ok x    -> let len     = ((get_prefix_length x) - 1) + sizeof_prefix + sizeof_suffix in
@@ -375,23 +371,34 @@ let deserialize buf =
                        msg
                        |> parse_msg
                        |> (function
-                           | Some x -> f (x::acc) res
-                           | None   -> f acc res)
+                           | `I x   -> f (Some x) events responses res
+                           | `E x   -> f init (x::events) responses res
+                           | `R x   -> f init events (x::responses) res
+                           | `N     -> f init events responses res)
           | Error _ -> let _,res = Cbuffer.split b 1 in
-                       f acc res)
-    else List.rev acc, b in
-  let msgs,res = f [] buf in
-  msgs, if Cbuffer.len res > 0 then Some res else None
+                       f init events responses res)
+    else init, List.rev events, List.rev responses, b in
+  let init, events, responses, res = f None [] [] buf in
+  init, events, responses, if Cbuffer.len res > 0 then Some res else None
 
-let is_response (req:req) (resp:resp) =
+let is_response (req: response request) (resp: response) =
   match req, resp with
-  | Devinfo _, Devinfo _ -> Some resp
-  | Devinfo _, Ack       -> None
-  | _, Ack               -> Some resp
-  | _                    -> None
+  | Reset , Ack               -> Some resp
+  | Settings (id, _), Settings (ids, _) when id = ids -> Some resp
+  | Plp_setting (id, _), Plp_setting (ids, _) when id = ids -> Some resp
+  | _ -> None
 
+let is_instant : type a. a request -> bool =
+  function
+  | Measure _ -> true
+  | Plps _ -> true
+  | Init -> true
+  | _ -> false
+
+                              (*
 let is_free : resp -> resp option = function
   | Measure _ as x -> Some x
   | Plps _ as x    -> Some x
   | Settings _     -> None
   | _ ->              None
+   *)

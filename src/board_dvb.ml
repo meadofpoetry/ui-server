@@ -5,7 +5,7 @@ open Board_meta
 
 module V1 : BOARD = struct
 
-  module Protocol : Board_meta.PROTOCOL = Board_dvb_protocol
+  module Protocol = Board_dvb_protocol
 
   type init  = Protocol.init
   type event = Protocol.event
@@ -14,14 +14,13 @@ module V1 : BOARD = struct
                   
   module Messenger = Board_meta.Make(Protocol)
   module Board_api = Board_dvb_api.Make(Protocol)
-
+                   
   let create (b:topo_board) send =
     let e_msgs,  push = React.E.create () in
     let s_state, spush = React.S.create `No_response in
-    let send_msg, step = Messenger.create send spush push in
-    let handlers = Board_api.handlers b.control send_msg s_state e_msgs in
-    let e_probes = React.E.map (fun x ->
-                       Lwt_io.printf "%s\n" (Protocol.to_yojson x |> Yojson.Safe.pretty_to_string) |> ignore)
+    let send_resp, send_inst, step = Messenger.create send spush push in
+    let handlers = Board_api.handlers b.control send_resp send_inst s_state e_msgs in
+    let e_probes = React.E.map (fun _ -> ())
                                e_msgs in
     let state = object method e_msgs = e_msgs; method e_probes = e_probes  end in
     { handlers       = handlers

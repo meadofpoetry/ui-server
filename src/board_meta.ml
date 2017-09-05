@@ -147,7 +147,7 @@ module type BOARD_API = sig
   val handlers : int
                  -> (response request -> response Lwt.t)
                  -> (instant request -> instant Lwt.t)
-                 -> state React.signal -> response React.event
+                 -> state React.signal -> event React.event
                  -> (module Api_handler.HANDLER) list
 end
            
