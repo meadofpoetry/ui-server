@@ -17,3 +17,9 @@ module Opt_update = Common__opt_update
 module Components = Common__components
                   
 module Hardware = Common__hardware
+
+module Board = struct
+
+  module Dvb = Common__board_dvb
+  
+end
