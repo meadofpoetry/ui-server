@@ -7,9 +7,11 @@ module V1 : BOARD = struct
 
   module Protocol : Board_meta.PROTOCOL = Board_dvb_protocol
 
-  type req = Protocol.req
-  type resp = Protocol.resp
-
+  type init  = Protocol.init
+  type event = Protocol.event
+  type response = Protocol.response
+  type 'a request = 'a Protocol.request
+                  
   module Messenger = Board_meta.Make(Protocol)
   module Board_api = Board_dvb_api.Make(Protocol)
 

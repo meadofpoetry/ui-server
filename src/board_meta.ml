@@ -4,7 +4,6 @@ open Lwt.Infix
 type 'a cc = [`Continue of 'a]
    
 type state = [ `Fine | `No_response]
-type req_typ = [ `Need_response | `Instant]
 type instant = unit
              
 module type MSG_DESC = sig
@@ -124,7 +123,9 @@ module Make(P : PROTOCOL)
     let msgs = ref [||] in
     let send_init   = send_init sender in
     let send_probes = send_probes sender in
-    (send_await msgs sender), (send_instant sender), (step msgs send_init send_probes push_state push_event)
+    (send_await msgs sender),
+    (send_instant sender),
+    (step msgs send_init send_probes push_state push_event)
     
 end
 

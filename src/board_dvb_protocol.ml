@@ -16,32 +16,16 @@ let bool_of_bool8 = function
   | False -> false
 
 [%%cenum
- type mode =
+ type emode =
    | T2 [@id 1]
    | T  [@id 2]
    | C  [@id 3] [@@uint8_t]]
 
 [%%cenum
- type bw =
+ type ebw =
    | Bw8 [@id 1]
    | Bw7 [@id 2]
    | Bw6 [@id 3] [@@uint8_t]]
-
-let mode_to_yojson x = `String (mode_to_string x)
-let mode_of_yojson = function
-  | `String s -> begin match string_to_mode s with
-                 | Some x -> Ok x
-                 | None   -> Error ("mode_of_yojson: unknown value " ^ s)
-                 end
-  | _ as e    -> Error ("mode_of_yojson: unknown value " ^ (Yojson.Safe.to_string e))
-
-let bw_to_yojson x = `String (bw_to_string x)
-let bw_of_yojson = function
-  | `String s -> begin match string_to_bw s with
-                 | Some x -> Ok x
-                 | None   -> Error ("bw_of_yojson: unknown value " ^ s)
-                 end
-  | _ as e    -> Error ("bw_of_yojson: unknown value " ^ (Yojson.Safe.to_string e))
 
 [%%cstruct
  type prefix =
@@ -105,78 +89,7 @@ let bw_of_yojson = function
 
 [@@@ocaml.warning "+32"]
 
-type err = Bad_tag_start of int
-         | Bad_length of int
-         | Bad_msg_code of int
-         | Bad_module_addr of int
-         | Bad_crc of (int * int)
-         | Bad_tag_stop of int
-         | Unknown_err of string
-
-let string_of_err = function
-  | Bad_tag_start x   -> "incorrect start tag: "    ^ (string_of_int x)
-  | Bad_length x      -> "incorrect length: "       ^ (string_of_int x)
-  | Bad_msg_code x    -> "incorrect code: "         ^ (string_of_int x)
-  | Bad_module_addr x -> "incorrect address: "      ^ (string_of_int x)
-  | Bad_crc (x,y)     -> "incorrect crc: expected " ^ (string_of_int x) ^ ", got " ^ (string_of_int y)
-  | Bad_tag_stop x    -> "incorrect stop tag: "     ^ (string_of_int x)
-  | Unknown_err s     -> s
-
-type rsp_devinfo =
-  { serial   : int
-  ; hw_ver   : int
-  ; fpga_ver : int
-  ; soft_ver : int
-  ; asi      : bool
-  ; modules  : int list
-  } [@@deriving to_yojson]
-
-type settings =
-  { mode     : mode
-  ; bw       : bw
-  ; freq     : int32
-  ; plp      : int
-  } [@@deriving yojson]
-
-type rsp_settings =
-  { settings   : settings
-  ; hw_present : bool
-  ; lock       : bool
-  } [@@deriving to_yojson]
-
-type rsp_measure =
-  { lock    : bool
-  ; power   : float option
-  ; mer     : float option
-  ; ber     : float option
-  ; freq    : int32 option
-  ; bitrate : int32 option
-  } [@@deriving to_yojson]
-
-type rsp_plp_list =
-  { lock    : bool
-  ; plps    : int list
-  } [@@deriving to_yojson]
-
-type rsp_plp_set =
-  { lock    : bool
-  ; plp     : int
-  } [@@deriving to_yojson]
-
-type init_conf = int list
-
-type resp  = Ack
-           | Devinfo     of rsp_devinfo
-           | Settings    of (int * rsp_settings)
-           | Measure     of (int * rsp_measure)
-           | Plps        of (int * rsp_plp_list)
-           | Plp_setting of (int * rsp_plp_set)
-
-type req   = Devinfo     of bool
-           | Settings    of int * settings
-           | Measure     of int
-           | Plps        of int
-           | Plp_setting of int * int
+open Common.Board.Dvb
 
 (* Helper functions *)
 
@@ -262,6 +175,18 @@ let check_msg msg =
 
 (* Requests/responses *)
 
+let of_mode : mode -> emode = function
+  | T2 -> T2 | T -> T | C -> C
+          
+let to_mode : emode -> mode = function
+  | T2 -> T2 | T -> T | C -> C
+
+let of_bw : bw -> ebw = function
+  | Bw8 -> Bw8 | Bw7 -> Bw7 | Bw6 -> Bw6
+       
+let to_bw : ebw -> bw = function
+  | Bw8 -> Bw8 | Bw7 -> Bw7 | Bw6 -> Bw6
+          
 (* Devinfo *)
 
 let to_req_devinfo reset =
@@ -288,8 +213,8 @@ let of_rsp_devinfo_exn msg =
 
 let to_req_settings id settings =
   let body = Cbuffer.create sizeof_settings in
-  let () = set_settings_mode body (mode_to_int settings.mode) in
-  let () = set_settings_bw body (bw_to_int settings.bw) in
+  let () = set_settings_mode body (emode_to_int @@ of_mode settings.mode) in
+  let () = set_settings_bw body (ebw_to_int @@ of_bw settings.bw) in
   let () = set_settings_freq body settings.freq in
   let () = set_settings_plp body settings.plp in
   to_msg ~msg_code:(0x20 lor id) ~body
@@ -298,8 +223,8 @@ let of_rsp_settings_exn msg =
   let open CCOpt in
   { lock       = int_to_bool8 (get_settings_lock msg)       |> get_exn |> bool_of_bool8
   ; hw_present = int_to_bool8 (get_settings_hw_present msg) |> get_exn |> bool_of_bool8
-  ; settings   = { mode     = get_exn @@ int_to_mode (get_settings_mode msg)
-                 ; bw       = get_exn @@ int_to_bw (get_settings_bw msg)
+  ; settings   = { mode     = to_mode @@ get_exn @@ int_to_emode (get_settings_mode msg)
+                 ; bw       = to_bw @@ get_exn @@ int_to_ebw (get_settings_bw msg)
                  ; freq     = get_settings_freq msg
                  ; plp      = get_settings_plp msg
                  }
