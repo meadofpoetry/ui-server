@@ -16,11 +16,17 @@ module V1 : BOARD = struct
   module Board_api = Board_dvb_api.Make(Protocol)
                    
   let create (b:topo_board) send =
+    Lwt_io.printf "in create\n" |> ignore;
     let e_msgs,  push = React.E.create () in
     let s_state, spush = React.S.create `No_response in
     let send_resp, send_inst, step = Messenger.create send spush push in
     let handlers = Board_api.handlers b.control send_resp send_inst s_state e_msgs in
-    let e_probes = React.E.map (fun _ -> ())
+    let e_probes = React.E.map (function
+                                | Protocol.Measure (_,x) -> Common.Board.Dvb.rsp_measure_to_yojson x
+                                                            |> Yojson.Safe.to_string
+                                                            |> Lwt_io.printf "%s\n"
+                                                            |> ignore
+                                | _ -> Lwt_io.printf "smth\n" |> ignore)
                                e_msgs in
     let state = object method e_msgs = e_msgs; method e_probes = e_probes  end in
     { handlers       = handlers

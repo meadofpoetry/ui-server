@@ -119,12 +119,12 @@ type response  = Ack
                | Settings    of (int * rsp_settings)
                | Plp_setting of (int * rsp_plp_set)
 
-type _ request = Init        : init request
-               | Reset       : response request
-               | Settings    : (int * settings) -> response request
-               | Measure     : int              -> instant request
-               | Plps        : int              -> instant request
-               | Plp_setting : int * int        -> response request
+type _ request = Init            : init request
+               | Reset           : response request
+               | Req_settings    : (int * settings) -> response request
+               | Req_measure     : int              -> instant request
+               | Req_plps        : int              -> instant request
+               | Req_plp_setting : int * int        -> response request
 
 (* Helper functions *)
 
@@ -317,8 +317,8 @@ let of_rsp_plp_set_exn msg =
 
 let (init : init request) = Init
 
-let probes config = List.map (fun x -> Measure x) config.modules
-                    @ List.map (fun x -> Plps x) config.modules
+let probes config = List.map (fun x -> Req_measure x) config.modules
+                    @ List.map (fun x -> Req_plps x) config.modules
 
 let period = 5
 (*
@@ -339,12 +339,12 @@ let to_yojson : resp -> Yojson.Safe.json = function
   | _              -> `String "dummy"
  *)
 let serialize : type a. a request -> Cbuffer.t = function
-  | Init                 -> to_req_devinfo false
-  | Reset                -> to_req_devinfo true
-  | Settings (id,x)      -> to_req_settings id x
-  | Measure id           -> to_req_measure id
-  | Plps id              -> to_req_plp_list id
-  | Plp_setting (id,plp) -> to_req_plp_set id plp
+  | Init                     -> to_req_devinfo false
+  | Reset                    -> to_req_devinfo true
+  | Req_settings (id,x)      -> to_req_settings id x
+  | Req_measure id           -> to_req_measure id
+  | Req_plps id              -> to_req_plp_list id
+  | Req_plp_setting (id,plp) -> to_req_plp_set id plp
 
 let deserialize buf =
   (* split buffer into valid messages and residue (if any) *)
@@ -384,14 +384,14 @@ let deserialize buf =
 let is_response (req: response request) (resp: response) =
   match req, resp with
   | Reset , Ack               -> Some resp
-  | Settings (id, _), Settings (ids, _) when id = ids -> Some resp
-  | Plp_setting (id, _), Plp_setting (ids, _) when id = ids -> Some resp
+  | Req_settings (id, _), Settings (ids, _) when id = ids -> Some resp
+  | Req_plp_setting (id, _), Plp_setting (ids, _) when id = ids -> Some resp
   | _ -> None
 
 let is_instant : type a. a request -> bool =
   function
-  | Measure _ -> true
-  | Plps _ -> true
+  | Req_measure _ -> true
+  | Req_plps _ -> true
   | Init -> true
   | _ -> false
 

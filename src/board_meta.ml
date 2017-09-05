@@ -76,7 +76,7 @@ module Make(P : PROTOCOL)
   let step msgs send_init send_probes push_state push_event =
     
     let rec good_step acc probes recvd =
-      (* Lwt_io.printf "Good step\n" |> ignore; *)
+      Lwt_io.printf "Good step\n" |> ignore;
       let recvd = concat_acc acc recvd in
                 
       let _, events, responses, acc = P.deserialize recvd in
@@ -102,7 +102,7 @@ module Make(P : PROTOCOL)
                    `Continue (no_response_step acc initial_timeout)
 
     and no_response_step acc timeout recvd =
-      (*Lwt_io.printf "No response step\n" |> ignore; *)
+      Lwt_io.printf "No response step\n" |> ignore;
       let recvd = concat_acc acc recvd in
                 
       let init, _, _, acc = P.deserialize recvd in
