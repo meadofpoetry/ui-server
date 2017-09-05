@@ -72,6 +72,27 @@ let input_of_yojson = function
    ; rfu_7            : uint16_t [@len 146]
    } [@@little_endian]]
 
+[%%cstruct
+ type ts_error =
+   { index    : uint16_t
+   ; count    : uint16_t
+   ; err_code : uint8_t
+   ; err_ext  : uint8_t
+   ; pid      : uint16_t
+   ; packet   : uint32_t
+   ; param_1  : uint32_t
+   ; param_2  : uint32_t
+   } [@@little_endian]]
+
+[%%cstruct
+ type ts_errors =
+   { length    : uint16_t
+   ; ts_index  : uint16_t
+   ; stream_id : uint32_t
+   ; rfu       : uint16_t
+   ; count     : uint16_t
+   } [@@little_endian]]
+
 [@@@ocaml.warning "+32"]
 
 let prefix = 0x55AA
@@ -131,7 +152,7 @@ let check_prefix msg =
 let check_msg_code msg =
   let code = get_common_header_msg_code msg in
   match code lsr 8 with
-  | 0x01 | 0x02 | 0x03 | 0x04 | 0x05 | 0x09 | 0xFF -> Ok msg
+  | 0x01 | 0x02 | 0x03 | 0x04 | 0x05 | 0x09 | 0xFD | 0xFF -> Ok msg
   | _ -> Error (Bad_msg_code code)
 
 let check_length msg =
@@ -139,13 +160,14 @@ let check_length msg =
   let code = get_common_header_msg_code hdr in
   try
     let length = (match code lsr 8 with
-                  | 0x01 -> 4
-                  | 0x02 -> 8
-                  | 0x03 -> 504
-                  | 0x04 -> 0
-                  | 0x05 -> 0
-                  | 0x09 -> get_complex_req_header_length msg'
-                  | 0xFF -> 0
+                  | 0x01 -> 4                                         (* board info*)
+                  | 0x02 -> 8                                         (* board mode *)
+                  | 0x03 -> 504                                       (* status *)
+                  | 0x04 -> ((get_ts_errors_length msg') * 2) + 2     (* ts errors *)
+                  | 0x05 -> 0                                         (* t2mi errors *)
+                  | 0x09 -> get_complex_req_header_length msg'        (* complex msg *)
+                  | 0xFD -> 4                                         (* end of errors *)
+                  | 0xFF -> 0                                         (* end of transmission *)
                   | _    -> failwith "unknown message code") in
     if length <= max_payload_len
     then let body,_ = Cbuffer.split msg' length in
@@ -165,10 +187,39 @@ let check_msg msg =
 
 (* Requests/responses *)
 
+type stream = Single
+            | Ip of int32
+            | T2mi_plp of int
+            | Dvb_plp of int * int [@@deriving yojson]
+
+let stream_of_int32 : int32 -> stream = function
+  | x when x = Int32.zero -> Single
+  | x when (Int32.logand x (Int32.of_int 0xFFFF0000)) = Int32.zero
+    -> let x'     = Int32.to_int x in
+       let stream = (x' land 0x0000FF00) lsr 8 in
+       let plp    = (x' land 0xFF) in
+       (match stream with
+        | 1             -> T2mi_plp plp
+        | 2 | 3 | 4 | 5 -> Dvb_plp (stream - 2, plp)
+        | _             -> Ip x)
+  | _ as x -> Ip x
+
+let stream_to_int32 : stream -> int32 = function
+  | Single                -> Int32.zero
+  | T2mi_plp plp          -> 1
+                             |> (fun x -> x lsl 8)
+                             |> Int32.of_int
+                             |> Int32.logor (Int32.of_int plp)
+  | Dvb_plp (stream,plp)  -> stream + 2
+                             |> (fun x -> x lsl 8)
+                             |> Int32.of_int
+                             |> Int32.logor (Int32.of_int plp)
+  | Ip x                  -> x
+
 type t2mi_mode =
   { enabled   : bool
   ; pid       : int
-  ; stream_id : int32
+  ; stream_id : stream
   } [@@deriving yojson]
 
 type info =
@@ -201,6 +252,22 @@ type status =
   ; services_num : int
   } [@@deriving to_yojson]
 
+type ts_error =
+  { count     : int
+  ; err_code  : int
+  ; err_ext   : int
+  ; multi_pid : bool
+  ; pid       : int
+  ; packet    : int32
+  ; param_1   : int32
+  ; param_2   : int32
+  } [@@deriving to_yojson]
+
+type ts_errors =
+  { stream_id : stream
+  ; errors    : ts_error list
+  } [@@deriving to_yojson]
+
 (* Get board info *)
 
 let to_req_get_board_info () = to_common_header ~msg_code:0x0080
@@ -218,7 +285,7 @@ let to_mode mode t2mi_pid t2mi_stream_id =
   { input = CCOpt.get_exn @@ int_to_input (mode land 1)
   ; t2mi = Some { enabled   = if (mode land 4) > 0 then true else false
                 ; pid       = t2mi_pid
-                ; stream_id = t2mi_stream_id
+                ; stream_id = stream_of_int32 t2mi_stream_id
                 }
   }
 
@@ -233,13 +300,13 @@ let of_rsp_get_board_mode msg =
 let to_req_set_board_mode (mode:mode) =
   let t2mi_mode = CCOpt.get_or ~default:{ enabled   = false
                                         ; pid       = 0
-                                        ; stream_id = Int32.of_int 0
+                                        ; stream_id = stream_of_int32 @@ Int32.of_int 0
                                         }
                                mode.t2mi in
   let body = Cbuffer.create sizeof_board_mode in
   let ()   = set_board_mode_mode body (mode_to_int mode.input t2mi_mode.enabled) in
   let ()   = set_board_mode_t2mi_pid body t2mi_mode.pid in
-  let ()   = set_board_mode_t2mi_stream_id body t2mi_mode.stream_id in
+  let ()   = set_board_mode_t2mi_stream_id body (stream_to_int32 t2mi_mode.stream_id) in
   to_simple_req ~msg_code:0x0082 ~body
   |> fun x -> Cbuffer.hexdump x; x
 
@@ -263,11 +330,41 @@ let of_status msg =
   ; services_num = get_status_services_num msg
   }
 
+(* Ts errors *)
+
+let of_ts_error msg =
+  let pid'      = get_ts_error_pid msg in
+  let pid       = pid' land 0x1FFF in
+  let multi_pid = if (pid' land 0x8000) > 0 then true else false in
+  { count     = get_ts_error_count msg
+  ; err_code  = get_ts_error_err_code msg
+  ; err_ext   = get_ts_error_err_ext msg
+  ; multi_pid
+  ; pid
+  ; packet    = get_ts_error_packet msg
+  ; param_1   = get_ts_error_param_1 msg
+  ; param_2   = get_ts_error_param_2 msg
+  }
+
+let of_ts_errors msg =
+  let common,errors = Cbuffer.split msg sizeof_ts_errors in
+  let number        = get_ts_errors_count common in
+  if number * sizeof_ts_error = Cbuffer.len errors
+  then { stream_id = stream_of_int32 @@ get_ts_errors_stream_id msg
+       ; errors    = List.fold_left (fun acc x -> if sizeof_ts_error = Cbuffer.len x
+                                                  then (of_ts_error x) :: acc
+                                                  else acc)
+                                    []
+                                    (Cbuffer.split_size sizeof_ts_error errors)
+       }
+  else failwith "bad ts errors payload"
+
 type init_conf = unit
 
 type resp = Board_info of info
           | Board_mode of mode
-          | Status of status
+          | Status     of status
+          | Ts_errors  of ts_errors
 
 type req = Set_board_mode of mode
          | Get_board_info
@@ -275,10 +372,10 @@ type req = Set_board_mode of mode
 
 (* Board protocol implementation *)
 
-let (init:req) = Set_board_mode { input = ASI
-                                ; t2mi  = Some { enabled = true
+let (init:req) = Set_board_mode { input = SPI
+                                ; t2mi  = Some { enabled = false
                                                ; pid     = 4096
-                                               ; stream_id = Int32.of_int 0
+                                               ; stream_id = stream_of_int32 @@ Int32.of_int 0
                                                }
                                 }
 
@@ -296,6 +393,7 @@ let to_yojson : resp -> Yojson.Safe.json = function
   | Board_info x -> info_to_yojson x
   | Board_mode x -> mode_to_yojson x
   | Status x     -> status_to_yojson x
+  | Ts_errors x  -> ts_errors_to_yojson x
   (* | _ -> `String "dummy" *)
 
 let (serialize : req -> Board_meta.req_typ * Cbuffer.t) = function
@@ -306,6 +404,7 @@ let (serialize : req -> Board_meta.req_typ * Cbuffer.t) = function
 
 let deserialize buf =
   io (Printf.sprintf "in deserialize %d" @@ Cbuffer.len buf);
+  (* Cbuffer.hexdump buf; *)
   let parse_msg = fun msg ->
     try
       let code = get_common_header_msg_code msg lsr 8 in
@@ -314,13 +413,16 @@ let deserialize buf =
        | 0x01 -> Some (Board_info (of_rsp_get_board_info body))
        | 0x02 -> Some (Board_mode (of_rsp_get_board_mode body))
        | 0x03 -> Some (Status (of_status body))
+       | 0x04 -> Some (Ts_errors (of_ts_errors body))
+       | 0xFD -> None
        | 0xFF -> None
        | _ -> None)
-    with _ -> None in
+    with e -> io @@ Printexc.to_string e; None in
   let rec f acc b =
     if Cbuffer.len b >= sizeof_common_header
     then (match check_msg b with
           | Ok x    -> let _,res = Cbuffer.split b (Cbuffer.len x) in
+                       Cbuffer.hexdump x; Cbuffer.hexdump res;
                        io (Printf.sprintf "Got a message! %d" (Cbuffer.len x));
                        x
                        |> parse_msg
@@ -328,14 +430,14 @@ let deserialize buf =
                            | Some x -> f (x::acc) res
                            | None   -> f acc res)
           | Error e -> (match e with
-                        | (Bad_prefix _ | Bad_length _ | Bad_msg_code _ | Unknown_err _)  ->
-                           (* io (string_of_err x); *)
+                        | (Bad_prefix _ | Bad_length _ | Bad_msg_code _ | Unknown_err _) as x ->
+                           io (string_of_err x);
                            let _, res = Cbuffer.split b 1 in
                            f acc res
                         | Insufficient_payload x ->
                            io "Insufficient_payload";
                            List.rev acc, x))
-    else (io (Printf.sprintf "Small buffer %d" @@ Cbuffer.len b); List.rev acc, b) in
+    else ( (* io (Printf.sprintf "Small buffer %d" @@ Cbuffer.len b) ; *) List.rev acc, b) in
   let msgs, res = f [] buf in
   (msgs, if Cbuffer.len res > 0 then Some res else None)
 
@@ -347,5 +449,6 @@ let is_response req resp =
   | _                            -> None
 
 let is_free : resp -> resp option = function
-  | Status _ as x -> Some x
-  | _             -> None
+  | Status _ as x    -> Some x
+  | Ts_errors _ as x -> Some x
+  | _                -> None
