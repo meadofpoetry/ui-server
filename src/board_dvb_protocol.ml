@@ -110,20 +110,19 @@ let string_of_err = function
 
 type instant = Board_meta.instant
 
-type init = rsp_devinfo
-
 type event = Measure     of (int * rsp_measure)
            | Plps        of (int * rsp_plp_list)
 
 type response  = Ack
+               | Devinfo     of rsp_devinfo
                | Settings    of (int * rsp_settings)
                | Plp_setting of (int * rsp_plp_set)
 
-type _ request = Init            : init request
+type _ request = Init            : response request
                | Reset           : response request
                | Req_settings    : (int * settings) -> response request
-               | Req_measure     : int              -> instant request
-               | Req_plps        : int              -> instant request
+               | Req_measure     : int              -> event request
+               | Req_plps        : int              -> event request
                | Req_plp_setting : int * int        -> response request
 
 (* Helper functions *)
@@ -315,11 +314,15 @@ let of_rsp_plp_set_exn msg =
 
 (* Board protocol implementation *)
 
-let (init : init request) = Init
+let (detect : response request) = Init
 
-let probes config = List.map (fun x -> Req_measure x) config.modules
-                    @ List.map (fun x -> Req_plps x) config.modules
+let (init : response request list) = []
 
+let probes = function
+  | Devinfo config -> List.map (fun x -> Req_measure x) config.modules
+                      @ List.map (fun x -> Req_plps x) config.modules
+  | _ -> failwith "wrong probes resp"
+               
 let period = 5
 (*
 let to_init_conf : i response -> init option = function
@@ -356,14 +359,14 @@ let deserialize buf =
       let (body,_) = Cbuffer.split msg' ((Cbuffer.len msg') - sizeof_suffix) in
       (match (id,code) with
        | 0xE,0xE0 -> `R (Ack : response)
-       | _,0x10   -> `I ((of_rsp_devinfo_exn body) : init)
+       | _,0x10   -> `R (Devinfo (of_rsp_devinfo_exn body) : response)
        | _,0x20   -> `R (Settings (id, (of_rsp_settings_exn body)) : response)
        | _,0x30   -> `E (Measure (id, (of_rsp_measure_exn body)) : event)
        | _,0x50   -> `E (Plps (id, (of_rsp_plp_list_exn body)) : event)
        | _,0x60   -> `R (Plp_setting (id, (of_rsp_plp_set_exn body)) : response)
        | _        -> Lwt_io.printf "\n\n !!! Unknown message !!! \n\n" |> ignore; `N)
     with _ -> Lwt_io.printf "\n\n !!! Corrupted message !!! \n\n" |> ignore; `N in
-  let rec f init events responses b =
+  let rec f events responses b =
     if Cbuffer.len b > (sizeof_prefix + 1 + sizeof_suffix)
     then (match check_msg b with
           | Ok x    -> let len     = ((get_prefix_length x) - 1) + sizeof_prefix + sizeof_suffix in
@@ -371,17 +374,16 @@ let deserialize buf =
                        msg
                        |> parse_msg
                        |> (function
-                           | `I x   -> f (Some x) events responses res
-                           | `E x   -> f init (x::events) responses res
-                           | `R x   -> f init events (x::responses) res
-                           | `N     -> f init events responses res)
+                           | `E x   -> f (x::events) responses res
+                           | `R x   -> f events (x::responses) res
+                           | `N     -> f events responses res)
           | Error _ -> let _,res = Cbuffer.split b 1 in
-                       f init events responses res)
-    else init, List.rev events, List.rev responses, b in
-  let init, events, responses, res = f None [] [] buf in
-  init, events, responses, if Cbuffer.len res > 0 then Some res else None
+                       f events responses res)
+    else List.rev events, List.rev responses, b in
+  let events, responses, res = f [] [] buf in
+  events, responses, if Cbuffer.len res > 0 then Some res else None
 
-let is_response (req: response request) (resp: response) =
+let is_response (type a) (req: a request) (resp: a) =
   match req, resp with
   | Reset , Ack               -> Some resp
   | Req_settings (id, _), Settings (ids, _) when id = ids -> Some resp
