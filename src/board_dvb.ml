@@ -21,11 +21,15 @@ module V1 : BOARD = struct
     let send_resp, send_inst, step = Messenger.create send spush push in
     let handlers = Board_api.handlers b.control send_resp send_inst s_state e_msgs in
     let e_probes = React.E.map (function
-                                | Protocol.Measure (_,x) -> Common.Board.Dvb.rsp_measure_to_yojson x
-                                                            |> Yojson.Safe.to_string
-                                                            |> Lwt_io.printf "%s\n"
-                                                            |> ignore
-                                | _ -> Lwt_io.printf "smth\n" |> ignore)
+                                | Protocol.Measure (id,x) -> Common.Board.Dvb.rsp_measure_to_yojson x
+                                                             |> Yojson.Safe.to_string
+                                                             |> Lwt_io.printf "%d %s\n" id
+                                                             |> ignore
+                                | Protocol.Plps (id,x) -> Common.Board.Dvb.rsp_plp_list_to_yojson x
+                                                             |> Yojson.Safe.to_string
+                                                             |> Lwt_io.printf "%d %s\n" id
+                                                             |> ignore)
+                                (* | _ -> Lwt_io.printf "smth\n" |> ignore) *)
                                e_msgs in
     let state = object method e_msgs = e_msgs; method e_probes = e_probes  end in
     { handlers       = handlers

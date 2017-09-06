@@ -130,7 +130,7 @@ let apply disp msg_list =
   in
   List.map apply' disp
   
-let create ?(sleep = 1.) ?(divider = divider) () =
+let create ?(sleep = 1.0) ?(divider = divider) () =
   let usb      = Cyusb.create () in
   let dispatch = ref [] in
   let recv     = recv usb in
