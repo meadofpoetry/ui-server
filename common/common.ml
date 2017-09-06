@@ -21,5 +21,6 @@ module Hardware = Common__hardware
 module Board = struct
 
   module Dvb = Common__board_dvb
-  
+
+  module Qos = Common__board_qos
 end
