@@ -118,7 +118,7 @@ type response  = Ack
                | Settings    of (int * rsp_settings)
                | Plp_setting of (int * rsp_plp_set)
 
-type _ request = Init            : response request
+type _ request = Req_devinfo     : response request
                | Reset           : response request
                | Req_settings    : (int * settings) -> response request
                | Req_measure     : int              -> event request
@@ -314,35 +314,34 @@ let of_rsp_plp_set_exn msg =
 
 (* Board protocol implementation *)
 
-let (detect : response request) = Init
+let (detect : response request) = Req_devinfo
 
-let (init : response request list) = []
+let (init : response request list) = [ Req_settings (0, { mode = T2
+                                                        ; bw   = Bw8
+                                                        ; freq = 586000000l
+                                                        ; plp  = 0})
+                                     (* ; Req_settings (1, { mode = T2 *)
+                                     (*                    ; bw   = Bw8 *)
+                                     (*                    ; freq = 586000000l *)
+                                     (*                    ; plp  = 0}) *)
+                                     (* ; Req_settings (2, { mode = T2 *)
+                                     (*                    ; bw   = Bw8 *)
+                                     (*                    ; freq = 586000000l *)
+                                     (*                    ; plp  = 0}) *)
+                                     (* ; Req_settings (3, { mode = T2 *)
+                                     (*                    ; bw   = Bw8 *)
+                                     (*                    ; freq = 586000000l *)
+                                     (*                    ; plp  = 0}) *)]
 
 let probes = function
   | Devinfo config -> List.map (fun x -> Req_measure x) config.modules
-                      @ List.map (fun x -> Req_plps x) config.modules
+  (* @ List.map (fun x -> Req_plps x) config.modules *)
   | _ -> failwith "wrong probes resp"
-               
+
 let period = 5
-(*
-let to_init_conf : i response -> init option = function
-  | Devinfo x -> Some x.modules
-  | Ack -> Some [0] (* FIXME *)
-  | _         -> None
 
-let make_req (s,_) =
-  match s with
-  | _          -> Error "unknown request"
-
-let to_yojson : resp -> Yojson.Safe.json = function
-  | Ack            -> `String "Ack"
-  | Devinfo x      -> rsp_devinfo_to_yojson x
-  | Measure (id,x) -> `Assoc [(string_of_int id), rsp_measure_to_yojson x]
-  | Plps (id,x)    -> `Assoc [(string_of_int id), rsp_plp_list_to_yojson x]
-  | _              -> `String "dummy"
- *)
 let serialize : type a. a request -> Cbuffer.t = function
-  | Init                     -> to_req_devinfo false
+  | Req_devinfo              -> to_req_devinfo false
   | Reset                    -> to_req_devinfo true
   | Req_settings (id,x)      -> to_req_settings id x
   | Req_measure id           -> to_req_measure id
@@ -385,22 +384,20 @@ let deserialize buf =
 
 let is_response (type a) (req: a request) (resp: a) =
   match req, resp with
-  | Reset , Ack               -> Some resp
-  | Req_settings (id, _), Settings (ids, _) when id = ids -> Some resp
+  | Req_devinfo, Devinfo _                                      -> Some resp
+  | Reset , Ack                                                 -> Some resp
+  | Req_settings (id, _), Settings (ids, _)       when id = ids -> Some resp
   | Req_plp_setting (id, _), Plp_setting (ids, _) when id = ids -> Some resp
+  | Req_measure id, Measure (ids, _)              when id = ids -> Some resp
+  | Req_plps id, Plps (ids, _)                    when id = ids -> Some resp
   | _ -> None
 
-let is_instant : type a. a request -> bool =
-  function
-  | Req_measure _ -> true
-  | Req_plps _ -> true
-  | Init -> true
-  | _ -> false
-
-                              (*
-let is_free : resp -> resp option = function
-  | Measure _ as x -> Some x
-  | Plps _ as x    -> Some x
-  | Settings _     -> None
-  | _ ->              None
-   *)
+let pp (type a) (req: a request) =
+  let s = (match req with
+           | Req_devinfo -> "req devinfo"
+           | Reset       -> "req reset"
+           | Req_settings _ -> "req settings"
+           | Req_measure  _ -> "req measure"
+           | Req_plps     _ -> "req plps"
+           | Req_plp_setting _ -> "req plp setting") in
+  Lwt_io.printf "%s\n" s |> ignore

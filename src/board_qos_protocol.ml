@@ -211,11 +211,11 @@ let to_req_get_board_errors ?client_id ?request_id =
 
 (* Get section *)
 
-let to_req_get_section ?client_id ?request_id () = ()
+(* let to_req_get_section ?client_id ?request_id () = () *)
 
 (* Get simple table *)
 
-let to_req_get_simple_table ?client_id ?request_id () = ()
+(* let to_req_get_simple_table ?client_id ?request_id () = () *)
 
 (* Get t2mi frames sequence *)
 
@@ -329,47 +329,37 @@ let of_t2mi_errors msg =
                                         []
                                         (Cbuffer.split_size sizeof_t2mi_error errors)
        }
+  else failwith "bad t2mi errors payload"
 
 (* ------------------- Board protocol implementation ------------------- *)
 
-type init_conf = unit
+type instant = Board_meta.instant
 
-type resp = Board_info of info
-          | Board_mode of mode
-          | Status     of status
-          | Ts_errors  of ts_errors
+type event = Status of status
+           | Board_info of info
+           | Ts_errors of ts_errors
+           | T2mi_errors of t2mi_errors
 
-type req = Set_board_mode of mode
-         | Get_board_info
-         | Get_board_mode
+type response = Board_info of info
+              | Board_mode of mode
 
-let (init:req) = Set_board_mode { input = SPI
-                                ; t2mi  = Some { enabled = false
-                                               ; pid     = 4096
-                                               ; stream_id = Stream.src_single
-                                               }
-                                }
+type _ request = Get_board_info : event request
+               | Get_board_mode : response request
+               | Set_board_mode : mode -> instant request
+
+let (detect : response request) = Get_board_mode
+
+let (init : response request list) = [(* Set_board_mode { input = SPI *)
+                                      (*                ; t2mi  = None } *)]
 
 let probes _ = []
 
 let period = 5
 
-let to_init_conf : resp -> init_conf option = fun _ -> Some ()
-
-let make_req (s,_) =
-  match s with
-  | _ -> Error "unknown request"
-
-let to_yojson : resp -> Yojson.Safe.json = function
-  | Board_info x -> info_to_yojson x
-  | Board_mode x -> mode_to_yojson x
-  | Status x     -> status_to_yojson x
-  | Ts_errors x  -> ts_errors_to_yojson x
-
-let (serialize : req -> Board_meta.req_typ * Cbuffer.t) = function
-  | Set_board_mode mode -> `Need_response, to_req_set_board_mode ~mode
-  | Get_board_info      -> `Need_response, to_req_get_board_info
-  | Get_board_mode      -> `Need_response, to_req_get_board_mode
+let serialize : type a. a request -> Cbuffer.t = function
+  | Set_board_mode mode -> to_req_set_board_mode ~mode ()
+  | Get_board_info      -> to_req_get_board_info ()
+  | Get_board_mode      -> to_req_get_board_mode ()
 
 (* Deserialization *)
 
@@ -440,35 +430,35 @@ let deserialize buf =
       let code = get_common_header_msg_code msg lsr 8 in
       let _,body = Cbuffer.split msg sizeof_common_header in
       (match code with
-       | 0x01 -> Some (Board_info (of_rsp_get_board_info body))
-       | 0x02 -> Some (Board_mode (of_rsp_get_board_mode body))
-       | 0x03 -> Some (Status (of_status body))
-       | 0x04 -> Some (Ts_errors (of_ts_errors body))
-       | _ -> None)
-    with e -> io @@ Printexc.to_string e; None in
-  let rec f acc b =
+       | 0x01 -> `E (Board_info (of_rsp_get_board_info body) : event)
+       | 0x02 -> `R (Board_mode (of_rsp_get_board_mode body) : response)
+       | 0x03 -> `E (Status (of_status body) : event)
+       | 0x04 -> `E (Ts_errors (of_ts_errors body) : event)
+       | 0x05 -> `E (T2mi_errors (of_t2mi_errors body) : event)
+       | _ -> `N)
+    with e -> io @@ Printexc.to_string e; `N in
+  let rec f events responses b =
     if Cbuffer.len b >= sizeof_common_header
     then (match get_msg b with
           | Ok msg    -> let _,res = Cbuffer.split b (Cbuffer.len msg) in
                          io (Printf.sprintf "Got a message! %d" (Cbuffer.len msg));
                          parse_msg msg |> (function
-                                           | Some x -> f (x::acc) res
-                                           | None   -> f acc res)
+                                           | `E x -> f (x::events) responses res
+                                           | `R x -> f events (x::responses) res
+                                           | `N   -> f events responses res)
           | Error e -> (match e with
-                        | Insufficient_payload x -> io "Insufficient_payload"; List.rev acc, x
-                        | _ -> io (string_of_err e); Cbuffer.split b 1 |> fun (_,x) -> f acc x))
-    else List.rev acc, b in
-  let msgs, res = f [] buf in
-  (msgs, if Cbuffer.len res > 0 then Some res else None)
+                        | Insufficient_payload x -> io "Insufficient_payload";
+                                                    List.rev events, List.rev responses, x
+                        | _ -> io (string_of_err e); Cbuffer.split b 1 |> fun (_,x) -> f events responses x))
+    else List.rev events, List.rev responses, b in
+  let events, responses, res = f [] [] buf in
+  events, responses, if Cbuffer.len res > 0 then Some res else None
 
-let is_response req resp =
+let is_response (type a) (req: a request) (resp:a) =
   match (req,resp) with
   | Get_board_info, Board_info _ -> Some resp
   | Get_board_mode, Board_mode _ -> Some resp
   | Set_board_mode _, _          -> Some resp
   | _                            -> None
 
-let is_free : resp -> resp option = function
-  | Status _ as x    -> Some x
-  | Ts_errors _ as x -> Some x
-  | _                -> None
+let pp _ = ()

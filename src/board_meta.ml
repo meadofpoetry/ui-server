@@ -23,6 +23,7 @@ module type PROTOCOL = sig
   val is_response  : 'a request -> 'a -> 'a option
   val serialize    : _ request -> Cbuffer.t
   val deserialize  : Cbuffer.t -> event list * response list * Cbuffer.t option
+  val pp           : _ request -> unit
     
 end
 
@@ -76,9 +77,9 @@ module Make(P : PROTOCOL)
   let initial_timeout = -1
          
   let step msgs events sender push_state push_event =
-    let send_detect () = fun () -> send_msg sender P.detect in
-    let send_msg       = send_msg sender in
-    let send_probes    = send_probes events sender in
+    let send_detect  = fun () -> send_msg sender P.detect in
+    let send_msg     = send_msg sender in
+    let send_probes  = send_probes events sender in
    
     let rec step_detect timeout acc recvd =
       Lwt_io.printf "Detect step\n" |> ignore;
@@ -122,7 +123,7 @@ module Make(P : PROTOCOL)
         let msg = CCList.find_map (P.is_response req) responses in
         match msg with
         | None     -> decr period;
-                      if !period <= 0 then raise_notrace Timeout;
+                      if !period <= 0 then (Lwt_io.printf "msg\n" |> ignore; raise_notrace Timeout);
                       Some (period, req, waker)
         | Some msg -> Lwt.wakeup waker msg; None
       in
@@ -130,7 +131,9 @@ module Make(P : PROTOCOL)
         let msg = CCList.find_map (P.is_response req) eventslst in
         match msg with
         | None   -> decr period;
-                    if !period <= 0 then raise_notrace Timeout;
+                    if !period <= 0 then (Lwt_io.printf "event\n" |> ignore;
+                                          Array.iter (fun (_,x) -> P.pp x) !events;
+                                          raise_notrace Timeout);
                     Some (period, req)
         | Some _ -> None
       in   
