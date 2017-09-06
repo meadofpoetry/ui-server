@@ -7,7 +7,6 @@ module V1 : BOARD = struct
 
   module Protocol = Board_dvb_protocol
 
-  type init  = Protocol.init
   type event = Protocol.event
   type response = Protocol.response
   type 'a request = 'a Protocol.request

@@ -7,7 +7,6 @@ type state = [ `Fine | `No_response]
 type instant = unit
              
 module type MSG_DESC = sig
-  type init
   type event
   type response
   type _ request
@@ -17,12 +16,13 @@ module type PROTOCOL = sig
   include MSG_DESC
 
   val period       : int (* quantums *)
-  val init         : init request
-  val probes       : init -> instant request list
-  val is_instant   : _ request -> bool
-  val is_response  : response request -> response -> response option
+
+  val detect       : response request
+  val init         : response request list
+  val probes       : response  -> event request list
+  val is_response  : 'a request -> 'a -> 'a option
   val serialize    : _ request -> Cbuffer.t
-  val deserialize  : Cbuffer.t -> init option * event list * response list * Cbuffer.t option
+  val deserialize  : Cbuffer.t -> event list * response list * Cbuffer.t option
     
 end
 
@@ -38,32 +38,34 @@ module type MESSENGER = sig
 end
   
 module Make(P : PROTOCOL)
-       : (MESSENGER with type init := P.init
-                     and type event := P.event
+       : (MESSENGER with type event := P.event
                      and type response := P.response
                      and type 'a request := 'a P.request) = struct
   (* TODO XXX Warning; Stateful module *)
 
-  let send_instant (sender : Cbuffer.t -> instant Lwt.t) msg =
+  let send_msg sender msg =
+    sender (P.serialize msg)
+
+  let send_instant sender (msg : instant P.request) =
     sender (P.serialize msg)
 
   let send_await msgs sender msg =
     let t, w = Lwt.wait () in
     msgs := CCArray.append !msgs [|(ref P.period, msg, w)|];
     sender (P.serialize msg)
-    >>= fun () -> t
-
-  let send_init sender () =
-    let req = P.init in
-    send_instant sender req
+    >>= fun () -> t               
   
-  let send_probes sender probes =
-    let rec send' = function
-      | []    -> Lwt.return_unit
-      | x::xs -> send_instant sender x >>= fun () -> send' xs
+  let send_probes events sender probes =
+    let rec send' acc = function
+      | []    -> Lwt.return acc
+      | x::xs -> sender (P.serialize x)
+                 >>= fun () -> send' ((ref P.period, x)::acc) xs
     in
-    send' probes
-
+    send' [] probes
+    >>= fun lst ->
+    events := CCArray.append !events (CCArray.of_list lst);
+    Lwt.return_unit
+    
   exception Timeout
   let wakeup_timeout = fun (_,_,waker) -> Lwt.wakeup_exn waker (Failure "timeout")
 
@@ -72,16 +74,51 @@ module Make(P : PROTOCOL)
     | None     -> Cbuffer.concat recvd
 
   let initial_timeout = -1
-          
-  let step msgs send_init send_probes push_state push_event =
-    
-    let rec good_step acc probes recvd =
-      Lwt_io.printf "Good step\n" |> ignore;
+         
+  let step msgs events sender push_state push_event =
+    let send_detect () = fun () -> send_msg sender P.detect in
+    let send_msg       = send_msg sender in
+    let send_probes    = send_probes events sender in
+   
+    let rec step_detect timeout acc recvd =
+      Lwt_io.printf "Detect step\n" |> ignore;
       let recvd = concat_acc acc recvd in
-                
-      let _, events, responses, acc = P.deserialize recvd in
-    
-      let lookup (period, req, waker) =
+      let _, responses, acc = P.deserialize recvd in
+      let det = CCList.find_map (P.is_response P.detect) responses in
+      match det with
+      | Some detect -> step_start_init (P.probes detect)
+      | None        -> if timeout < 0
+                       then (send_detect () |> ignore; `Continue (step_detect P.period acc))
+                       else `Continue (step_detect (pred timeout) acc)
+
+    and step_start_init probes =
+      match P.init with
+      | [] -> `Continue (step_normal probes None)
+      | x::tl -> send_msg x |> ignore;
+                 `Continue (step_init P.period x tl probes None)
+ 
+    and step_init timeout prev_req reqs probes acc recvd =
+      Lwt_io.printf "Init step\n" |> ignore;
+      let recvd = concat_acc acc recvd in
+      let _, responses, acc = P.deserialize recvd in
+      let init = CCList.find_map (P.is_response prev_req) responses in
+      match init with
+      | None    -> if timeout < 0
+                   then (step_detect initial_timeout None [])
+                   else `Continue (step_init (pred timeout) prev_req reqs probes acc)
+      | Some _  ->
+         match reqs with
+         | []    -> push_state `Fine;
+                    `Continue (step_normal probes acc)
+         | x::tl -> send_msg x |> ignore;
+                    `Continue (step_init P.period x tl probes acc)
+ 
+    and step_normal probes acc recvd =
+      Lwt_io.printf "Normal step\n" |> ignore;
+      let recvd = concat_acc acc recvd in
+      let eventslst, responses, acc = P.deserialize recvd in
+
+      let lookup_msg (period, req, waker) =
         let msg = CCList.find_map (P.is_response req) responses in
         match msg with
         | None     -> decr period;
@@ -89,44 +126,36 @@ module Make(P : PROTOCOL)
                       Some (period, req, waker)
         | Some msg -> Lwt.wakeup waker msg; None
       in
-     
+      let lookup_event (period, req) =
+        let msg = CCList.find_map (P.is_response req) eventslst in
+        match msg with
+        | None   -> decr period;
+                    if !period <= 0 then raise_notrace Timeout;
+                    Some (period, req)
+        | Some _ -> None
+      in   
       try
-        msgs := CCArray.filter_map lookup !msgs; (* XXX ?? *)
-        CCList.iter push_event events;
-        send_probes probes |> ignore;
-        `Continue (good_step acc probes)
+        msgs := CCArray.filter_map lookup_msg !msgs; (* XXX ?? *)
+        events := CCArray.filter_map lookup_event !events; (* XXX *)
+        CCList.iter push_event eventslst;
+        send_probes probes |> ignore; 
+        `Continue (step_normal probes acc)
       with
       | Timeout -> Array.iter wakeup_timeout !msgs;
                    msgs := [||];
+                   events := [||];
                    push_state `No_response;
-                   `Continue (no_response_step acc initial_timeout)
-
-    and no_response_step acc timeout recvd =
-      Lwt_io.printf "No response step\n" |> ignore;
-      let recvd = concat_acc acc recvd in
-                
-      let init, _, _, acc = P.deserialize recvd in
-      match init with
-      | Some init ->
-         push_state `Fine;
-         `Continue (good_step acc (P.probes init))
-      | None      ->
-         if timeout >= 0
-         then `Continue (no_response_step acc (pred timeout))
-         else (send_init () |> ignore;
-               `Continue (no_response_step acc P.period))
-
+                   (step_detect initial_timeout None [])
     in
-    `Continue (no_response_step None initial_timeout)
+    `Continue (step_detect initial_timeout None)
     
   let create sender push_state push_event =
     let msgs = ref [||] in
-    let send_init   = send_init sender in
-    let send_probes = send_probes sender in
+    let events = ref [||] in
     (send_await msgs sender),
     (send_instant sender),
-    (step msgs send_init send_probes push_state push_event)
-    
+    (step msgs events sender push_state push_event)
+   
 end
 
 let apply = function `Continue step -> step

@@ -1,6 +1,5 @@
 module Make(P : Board_meta.PROTOCOL)
-       : (Board_meta.BOARD_API with type init := P.init
-                                and type event := P.event
+       : (Board_meta.BOARD_API with type event := P.event
                                 and type response := P.response
                                 and type 'a request := 'a P.request) = struct
 
