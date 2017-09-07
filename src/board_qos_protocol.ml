@@ -397,9 +397,9 @@ type err = Bad_prefix of int
          | Unknown_err of string
 
 let string_of_err = function
-  | Bad_prefix x            -> "incorrect start tag: "    ^ (string_of_int x)
-  | Bad_length x            -> "incorrect length: "       ^ (string_of_int x)
-  | Bad_msg_code x          -> "incorrect code: "         ^ (string_of_int x)
+  | Bad_prefix x            -> "incorrect prefix: " ^ (string_of_int x)
+  | Bad_length x            -> "incorrect length: " ^ (string_of_int x)
+  | Bad_msg_code x          -> "incorrect code: "   ^ (string_of_int x)
   | No_prefix_after_msg     -> "no prefix found after message payload"
   | Insufficient_payload _  -> "insufficient payload"
   | Unknown_err s           -> s
@@ -408,30 +408,24 @@ let check_prefix msg =
   let prefix' = get_common_header_prefix msg in
   if prefix != prefix' then Error (Bad_prefix prefix') else Ok msg
 
-let check_msg_code msg =
-  let code = get_common_header_msg_code msg in
-  match code lsr 8 with
-  | 0x01 | 0x02 | 0x03 | 0x04 | 0x05 | 0x09 | 0xFD | 0xFF -> Ok msg
-  | _ -> Error (Bad_msg_code code)
-
-let check_length_and_crop msg =
+let check_and_crop msg =
   let hdr,rest = Cbuffer.split msg sizeof_common_header in
   let code     = get_common_header_msg_code hdr in
   let crc_len  = if (code land 2) > 0 then 2 else 0 in
   try
     let length = (match code lsr 8 with
-                  | 0x01 -> 4                                             (* board info*)
-                  | 0x02 -> 8                                             (* board mode *)
-                  | 0x03 -> 504                                           (* status *)
+                  | 0x01 -> sizeof_board_info                             (* board info*)
+                  | 0x02 -> sizeof_board_mode                             (* board mode *)
+                  | 0x03 -> sizeof_status                                 (* status *)
                   | 0x04 -> (get_ts_errors_length rest * 2) + 2           (* ts errors *)
-                  | 0x05 -> 0                                             (* t2mi errors *)
+                  | 0x05 -> (get_t2mi_errors_length rest * 2) + 2         (* t2mi errors *)
                   | 0x09 -> (get_complex_rsp_header_length rest * 2) + 2  (* complex response *)
                   | 0xFD -> 4                                             (* end of errors *)
                   | 0xFF -> 0                                             (* end of transmission *)
                   | _    -> failwith "unknown message code") + crc_len in
-    if length <= ((256 * 2) - sizeof_common_header) (* max payload length *)
+    if length <= (512 - sizeof_common_header) (* max payload length *)
     then let body,next_data = Cbuffer.split rest length in
-         let valid_msg = Cbuffer.append hdr body in
+         let valid_msg      = Cbuffer.append hdr body in
          if Cbuffer.len next_data < sizeof_common_header
          then Ok valid_msg
          else (match check_prefix next_data with
@@ -446,8 +440,7 @@ let check_length_and_crop msg =
 let get_msg msg =
   try
     CCResult.(check_prefix msg
-              >>= check_msg_code
-              >>= check_length_and_crop)
+              >>= check_and_crop)
   with e -> Error (Unknown_err (Printexc.to_string e))
 
 let deserialize buf =
@@ -455,7 +448,7 @@ let deserialize buf =
   Cbuffer.hexdump buf;
   let parse_msg = fun msg ->
     try
-      let code = get_common_header_msg_code msg lsr 8 in
+      let code   = get_common_header_msg_code msg lsr 8 in
       let _,body = Cbuffer.split msg sizeof_common_header in
       (match code with
        | 0x01 -> `E (Board_info (of_rsp_get_board_info body) : event)
