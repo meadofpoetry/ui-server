@@ -46,18 +46,6 @@ let janus_pipe debug =
           | Unknown _       -> Printf.printf "Unknown jsep received\n" |> ignore) e_jsep in
       return plugin)
   >>= (fun plugin -> Janus_streaming.send plugin (Watch { id = 1; secret = None }) |> ignore ; return ())
-  (* >>= (fun plugin -> *)
-  (*     let doc = Dom_html.document in *)
-  (*     let div = Dom_html.createDiv doc in *)
-  (*     let h3 = Dom_html.createH3 doc in *)
-  (*     h3##.textContent := Js.Opt.return @@ Js.string "Bitrate:"; *)
-  (*     Dom_html.window##setInterval *)
-  (*       (Js.wrap_callback (fun () -> *)
-  (*            h3##.textContent := Js.Opt.return @@ Js.string @@ "Bitrate: " ^ (Plugin.get_bitrate plugin))) *)
-  (*       300.0 |> ignore; *)
-  (*     Dom.appendChild div h3; *)
-  (*     Dom.appendChild doc##.body div; *)
-  (*     return ()) *)
 
 let onload _ =
 
@@ -69,46 +57,23 @@ let onload _ =
                 | e -> return @@ Printf.printf "Exception in janus pipe: %s\n" (Printexc.to_string e)))
            |> ignore in
 
-  (* let doc = Dom_html.document in *)
-  (* let div = Dom_html.createDiv doc in *)
-  (* let h2 = Dom_html.createH2 doc in *)
-  (* let button_set   = Dom_html.createInput ~_type:button_type doc in *)
-  (* let button_reset = Dom_html.createInput ~_type:button_type doc in *)
-  (* button_set##.value := Js.string "Change Content"; *)
-  (* button_reset##.value := Js.string "Reset Content"; *)
-
-  (* let v, push = S.create Js.null in *)
+  let topology =
+    Jsrequest.get_js "/api/hardware"
+    >>= fun js ->
+    match Common.Hardware.topology_of_yojson js with
+    | Ok t -> Lwt.return t
+    | Error e -> Lwt.fail_with e
+  in 
   
-  (* let _ = S.map_s (fun text -> Lwt.return (h2##.textContent := text)) v in *)
+  let doc = Dom_html.document in
 
-  (* let sock =  new%js WebSockets.webSocket (Js.string ("ws://" ^ (Js.to_string Dom_html.window##.location##.hostname) ^ ":8080/api/streams/sock")) in *)
-
-  (* sock##.onmessage := *)
-  (*   Dom.handler (fun (msg : WebSockets.webSocket WebSockets.messageEvent Js.t) *)
-  (*                -> Printf.printf "%s\n" (Js.to_string msg##.data);  Js.bool true); *)
-
-  (* (\*Lwt.ignore_result @@ Lwt_js_events.clicks button_set (fun _ _ -> ask_server push);*\) *)
-  (* Lwt.ignore_result @@ Lwt_js_events.clicks button_reset (fun _ _ -> return @@ push Js.null); *)
-
-  (* Dom.appendChild div h2; *)
-  (* Dom.appendChild (Dom_html.getElementById "content") div; *)
-  (* Dom.appendChild (Dom_html.getElementById "content") button_set; *)
-  (* Dom.appendChild (Dom_html.getElementById "content") button_reset; *)
+  topology
+  >>= (fun t ->
+    let div = Topology_widg.Topology.create doc t in
+    Dom.appendChild (Dom_html.getElementById "arbitrary-content") div;
+    Lwt.return_unit)
+  |> ignore;
+  
   Js._false
 
 let () = Dom_html.window##.onload := Dom_html.handler onload
-
-                                                      (*
-  let ask_server push =
-    let post_args = ["data", `String (Js.bytestring str)] in
-    Lwt_xmlHttpRequest.perform_raw
-      ~content_type:"application/json; charset=UTF-8"
-      ~headers:["Accept", "application/json, text/javascript, */*; q=0.01";
-                "X-Requested-With", "XMLHttpRequest"]
-      ~override_method:`POST
-      ~contents:(`POST_form post_args)
-      ~response_type:XmlHttpRequest.Text
-      "api/test"
-    >|= (fun resp ->
-        push @@ Js.some resp.content)
-  in*)
