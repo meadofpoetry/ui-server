@@ -33,10 +33,13 @@ module V1 : BOARD = struct
                                e_msgs in
     let state = object method e_msgs = e_msgs; method e_probes = e_probes  end in
     { handlers       = handlers
+    ; control        = b.control
     ; connection     = s_state
     ; streams_signal = None
     ; step           = step
     ; is_converter   = false
+    ; is_active      = (React.S.const true)
+    ; ports_active   = (List.fold_left (fun m p -> Ports.add p.port (React.S.const true) m) Ports.empty b.ports)
     ; state          = (state :> < >)
     }
 

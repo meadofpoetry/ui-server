@@ -54,11 +54,13 @@ and topo_board = { typ          : typ
                  ; manufacturer : string
                  ; version      : version
                  ; control      : int
+                 ; active       : bool
                  ; ports        : topo_port list
                  }
 
-and topo_port = { port  : int
-                ; child : topo_entry
+and topo_port = { port      : int
+                ; listening : bool
+                ; child     : topo_entry
                 }
 
 let get_api_path = string_of_int

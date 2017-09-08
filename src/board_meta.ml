@@ -164,12 +164,16 @@ end
 let apply = function `Continue step -> step
 
 module Streams = CCMap.Make(CCInt)
+module Ports = CCMap.Make(CCInt)
 
 type board = { handlers        : (module Api_handler.HANDLER) list
+             ; control         : int
              ; connection      : state React.signal
              ; streams_signal  : string Streams.t React.signal option
              ; step            : (Cbuffer.t list -> 'c cc as 'c) cc
              ; is_converter    : bool
+             ; is_active       : bool React.signal
+             ; ports_active    : bool React.signal Ports.t
              ; state           : < >
              } 
 

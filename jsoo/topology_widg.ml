@@ -55,6 +55,7 @@ module Topology = struct
                                                                     ; manufacturer = ""
                                                                     ; version = 42
                                                                     ; control = 1
+                                                                    ; active = true
                                                                     ; ports = []});
               V2.v 0.75 0.75, Input_element.create Common.Hardware.(RF)]
 
@@ -83,8 +84,6 @@ module Topology = struct
                                     clc ()
                                   with _ -> print_endline "No callback"
                                 end;
-                                Printf.printf "Mouse clicked on %d %d\n"
-                                              x y;
                                 Js._false);
     List.fold_left merge I.void test
 

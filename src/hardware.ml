@@ -16,7 +16,7 @@ module Conf = Config.Make(Settings)
 
 type t = { boards : Board_meta.board list
          ; usb    : Usb_device.t
-         ; topo   : topology
+         ; topo   : topology React.signal
          }
             
 let create_adapter typ model manufacturer version =
@@ -41,6 +41,37 @@ let create_board db usb (b:topo_board)  =
   let board = B.create b (Usb_device.get_send usb b.control) in
   B.connect_db board db
 
+let topo_to_signal topo boards =
+  let build_board b active ports =
+    React.S.l2 (fun a p -> Board { b with active = a; ports = p }) active ports
+  in
+  let merge_ports lst =
+    List.map (fun (port, list, child) ->
+        React.S.l2 (fun l c -> { port = port; listening = l; child = c }) list child)
+             lst
+    |> React.S.merge (fun acc h -> h::acc) []
+  in
+  let rec board_to_signal = function
+    | Input _ as i -> React.S.const i
+    | Board b ->
+       let bstate    = List.find_pred (fun x -> Int.equal x.control b.control) boards in
+       let active, port_list =
+         match bstate with
+         | None       -> React.S.const false,
+                         fun _ -> React.S.const false
+         | Some state -> state.is_active,
+                         fun p -> Ports.get_or p state.ports_active ~default:(React.S.const false)
+       in
+       let ports = merge_ports @@
+                     List.map (fun p -> p.port,
+                                        port_list p.port,
+                                        board_to_signal p.child)
+                              b.ports
+       in build_board b active ports
+  in
+  List.map board_to_signal topo
+  |> React.S.merge (fun acc h -> h::acc) []
+  
 let create config db =
   let topo      = Conf.get config in
   let usb, loop = Usb_device.create () in
@@ -51,18 +82,8 @@ let create config db =
                |> List.map (fun b -> let board = create_board db usb b in
                                      Usb_device.subscribe usb b.control board.step; board)
   in
-  { boards; usb; topo }, loop ()
-
-let handlers hw =
-  let hls = List.fold_left (fun acc x -> x.handlers @ acc) [] hw.boards in
-  [ Api_handler.add_layer "board" hls ;
-    (module struct
-       let domain = "hardware"
-       let handle = fun _ meth args _ _ _ ->
-         match meth, args with
-         | `GET, [] -> Interaction.respond_js (topology_to_yojson hw.topo) ()
-         | _        -> Redirect.not_found ()
-     end : Api_handler.HANDLER) ]
+  let topo_signal = topo_to_signal topo boards in
+  { boards; usb; topo = topo_signal }, loop ()
 
 let has_converters hw =
   List.exists (fun b -> b.is_converter) hw.boards
