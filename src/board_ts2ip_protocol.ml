@@ -255,7 +255,7 @@ let string_of_err = function
 
 let check_prefix buf =
   let prefix' = get_header_prefix buf in
-  if prefix != prefix then Error (Bad_prefix prefix') else Ok buf
+  if prefix <> prefix then Error (Bad_prefix prefix') else Ok buf
 
 let check_rest_and_crop buf =
   let hdr,res = Cbuffer.split buf sizeof_header in
