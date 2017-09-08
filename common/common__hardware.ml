@@ -26,8 +26,8 @@ type typ = Adapter of adapter
          | Converter of converter [@@deriving yojson]
 
 type input = RF
-            | TSOIP
-            | ASI
+           | TSOIP
+           | ASI
 
 let input_of_yojson = function
   | `String "RF"    -> Ok RF
