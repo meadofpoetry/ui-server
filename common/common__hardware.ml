@@ -26,8 +26,8 @@ type typ = Adapter of adapter
          | Converter of converter [@@deriving yojson]
 
 type input = RF
-            | TSOIP
-            | ASI
+           | TSOIP
+           | ASI
 
 let input_of_yojson = function
   | `String "RF"    -> Ok RF
@@ -54,11 +54,13 @@ and topo_board = { typ          : typ
                  ; manufacturer : string
                  ; version      : version
                  ; control      : int
+                 ; active       : bool
                  ; ports        : topo_port list
                  }
 
-and topo_port = { port  : int
-                ; child : topo_entry
+and topo_port = { port      : int
+                ; listening : bool
+                ; child     : topo_entry
                 }
 
 let get_api_path = string_of_int

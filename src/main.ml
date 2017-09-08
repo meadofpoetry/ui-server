@@ -7,7 +7,7 @@ let main config =
     let user_api       = User_api.handlers db in
     (* Boards *)
     let hw, hwloop     = Hardware.create config db in
-    let hw_api         = Hardware.handlers hw in
+    let hw_api         = Hardware_api.handlers hw in
     (* QoE pipeline  *)
     let pipe, pipeloop =
       let open CCOpt in

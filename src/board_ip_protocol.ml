@@ -97,7 +97,8 @@ type parsed =
   { category : category
   ; setting  : int
   ; rw       : rw
-  ; data     : int64}
+  ; data     : int64
+  }
 
 let stx = 0x02
 let etx = 0x03
