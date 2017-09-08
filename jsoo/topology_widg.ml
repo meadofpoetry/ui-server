@@ -92,12 +92,12 @@ module Topology = struct
     ignore (Vgr.render r (`Image (size, view, image))); (* 5 *)
     ignore (Vgr.render r `End)
 
-  let create doc t = 
+  let create doc _ = 
     let div = Dom_html.createDiv   doc in
     let h2 = Dom_html.createH2     doc in
     let c  = Dom_html.createCanvas doc in
-    h2##.textContent := Js.some @@
-                          Js.string ("rendered: " ^ (Yojson.Safe.to_string @@ Common.Hardware.topology_to_yojson t));
+    (*h2##.textContent := Js.some @@
+                          Js.string ("rendered: " ^ (Yojson.Safe.to_string @@ Common.Hardware.topology_to_yojson t));*)
     Dom.appendChild div h2;
     Dom.appendChild div c;
     render c (merge_elems c);
