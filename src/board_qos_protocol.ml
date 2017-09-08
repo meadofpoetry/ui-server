@@ -19,6 +19,24 @@
    } [@@little_endian]]
 
 [%%cstruct
+ type complex_rsp_header =
+   { length     : uint16_t
+   ; client_id  : uint16_t
+   ; code_ext   : uint16_t
+   ; request_id : uint16_t
+   ; param      : uint16_t
+   } [@@little_endian]]
+
+[%%cstruct
+ type complex_rsp_header_ext =
+   { length     : uint16_t
+   ; client_id  : uint16_t
+   ; code_ext   : uint16_t
+   ; request_id : uint16_t
+   ; param      : uint32_t
+   } [@@little_endian]]
+
+[%%cstruct
  type board_info =
    { board_type    : uint8_t
    ; board_version : uint8_t
@@ -204,10 +222,13 @@ let to_req_set_board_mode ~mode =
   let ()   = set_board_mode_t2mi_stream_id body (Stream.to_int32 t2mi_mode.stream_id) in
   to_simple_req ~msg_code:0x0082 ~body
 
+(* Complex requests *)
+
 (* Get board errors *)
 
 let to_req_get_board_errors ?client_id ?request_id =
   to_complex_req ?client_id ?request_id ~msg_code:0x0110 ~body:(Cbuffer.create 0)
+  |> fun x -> Cbuffer.hexdump (x ()); x
 
 (* Get section *)
 
@@ -234,6 +255,7 @@ let to_req_get_ts_struct ?client_id ?request_id ~stream =
 let to_req_get_ts_structs ?client_id ?request_id =
   let stream = (Stream.of_int32 Unsigned.(UInt32.max_int |> UInt32.to_int32)) in
   to_req_get_ts_struct ?client_id ?request_id ~stream
+  |> fun x -> Cbuffer.hexdump (x ()); x
 
 (* Get bitrate *)
 
@@ -343,16 +365,18 @@ type event = Status of status
 type response = Board_info of info
               | Board_mode of mode
 
-type _ request = Get_board_info : event request
-               | Get_board_mode : response request
-               | Set_board_mode : mode -> instant request
+type _ request = Get_board_info   : event request
+               | Get_board_errors : event request
+               | Get_ts_struct    : event request
+               | Get_board_mode   : response request
+               | Set_board_mode   : mode -> response request
 
 let (detect : response request) = Get_board_mode
 
 let (init : response request list) = [(* Set_board_mode { input = SPI *)
                                       (*                ; t2mi  = None } *)]
 
-let probes _ = []
+let probes _ = [Get_ts_struct]
 
 let period = 5
 
@@ -360,6 +384,8 @@ let serialize : type a. a request -> Cbuffer.t = function
   | Set_board_mode mode -> to_req_set_board_mode ~mode ()
   | Get_board_info      -> to_req_get_board_info ()
   | Get_board_mode      -> to_req_get_board_mode ()
+  | Get_board_errors    -> to_req_get_board_errors ()
+  | Get_ts_struct       -> to_req_get_ts_structs ()
 
 (* Deserialization *)
 
@@ -371,9 +397,9 @@ type err = Bad_prefix of int
          | Unknown_err of string
 
 let string_of_err = function
-  | Bad_prefix x            -> "incorrect start tag: "    ^ (string_of_int x)
-  | Bad_length x            -> "incorrect length: "       ^ (string_of_int x)
-  | Bad_msg_code x          -> "incorrect code: "         ^ (string_of_int x)
+  | Bad_prefix x            -> "incorrect prefix: " ^ (string_of_int x)
+  | Bad_length x            -> "incorrect length: " ^ (string_of_int x)
+  | Bad_msg_code x          -> "incorrect code: "   ^ (string_of_int x)
   | No_prefix_after_msg     -> "no prefix found after message payload"
   | Insufficient_payload _  -> "insufficient payload"
   | Unknown_err s           -> s
@@ -382,29 +408,24 @@ let check_prefix msg =
   let prefix' = get_common_header_prefix msg in
   if prefix != prefix' then Error (Bad_prefix prefix') else Ok msg
 
-let check_msg_code msg =
-  let code = get_common_header_msg_code msg in
-  match code lsr 8 with
-  | 0x01 | 0x02 | 0x03 | 0x04 | 0x05 | 0x09 | 0xFD | 0xFF -> Ok msg
-  | _ -> Error (Bad_msg_code code)
-
-let check_length_and_crop msg =
+let check_and_crop msg =
   let hdr,rest = Cbuffer.split msg sizeof_common_header in
-  let code = get_common_header_msg_code hdr in
+  let code     = get_common_header_msg_code hdr in
+  let crc_len  = if (code land 2) > 0 then 2 else 0 in
   try
     let length = (match code lsr 8 with
-                  | 0x01 -> 4                                         (* board info*)
-                  | 0x02 -> 8                                         (* board mode *)
-                  | 0x03 -> 504                                       (* status *)
-                  | 0x04 -> ((get_ts_errors_length rest) * 2) + 2     (* ts errors *)
-                  | 0x05 -> 0                                         (* t2mi errors *)
-                  | 0x09 -> get_complex_req_header_length rest        (* complex msg *)
-                  | 0xFD -> 4                                         (* end of errors *)
-                  | 0xFF -> 0                                         (* end of transmission *)
-                  | _    -> failwith "unknown message code") in
-    if length <= ((256 * 2) - sizeof_common_header) (* max payload length *)
+                  | 0x01 -> sizeof_board_info                             (* board info*)
+                  | 0x02 -> sizeof_board_mode                             (* board mode *)
+                  | 0x03 -> sizeof_status                                 (* status *)
+                  | 0x04 -> (get_ts_errors_length rest * 2) + 2           (* ts errors *)
+                  | 0x05 -> (get_t2mi_errors_length rest * 2) + 2         (* t2mi errors *)
+                  | 0x09 -> (get_complex_rsp_header_length rest * 2) + 2  (* complex response *)
+                  | 0xFD -> 4                                             (* end of errors *)
+                  | 0xFF -> 0                                             (* end of transmission *)
+                  | _    -> failwith "unknown message code") + crc_len in
+    if length <= (512 - sizeof_common_header) (* max payload length *)
     then let body,next_data = Cbuffer.split rest length in
-         let valid_msg = Cbuffer.append hdr body in
+         let valid_msg      = Cbuffer.append hdr body in
          if Cbuffer.len next_data < sizeof_common_header
          then Ok valid_msg
          else (match check_prefix next_data with
@@ -419,15 +440,15 @@ let check_length_and_crop msg =
 let get_msg msg =
   try
     CCResult.(check_prefix msg
-              >>= check_msg_code
-              >>= check_length_and_crop)
+              >>= check_and_crop)
   with e -> Error (Unknown_err (Printexc.to_string e))
 
 let deserialize buf =
   io (Printf.sprintf "in deserialize %d" @@ Cbuffer.len buf);
+  Cbuffer.hexdump buf;
   let parse_msg = fun msg ->
     try
-      let code = get_common_header_msg_code msg lsr 8 in
+      let code   = get_common_header_msg_code msg lsr 8 in
       let _,body = Cbuffer.split msg sizeof_common_header in
       (match code with
        | 0x01 -> `E (Board_info (of_rsp_get_board_info body) : event)
@@ -435,27 +456,32 @@ let deserialize buf =
        | 0x03 -> `E (Status (of_status body) : event)
        | 0x04 -> `E (Ts_errors (of_ts_errors body) : event)
        | 0x05 -> `E (T2mi_errors (of_t2mi_errors body) : event)
+       | 0x09 -> `P msg
        | _ -> `N)
     with e -> io @@ Printexc.to_string e; `N in
-  let rec f events responses b =
+  let rec f events responses parts b =
     if Cbuffer.len b >= sizeof_common_header
     then (match get_msg b with
           | Ok msg    -> let _,res = Cbuffer.split b (Cbuffer.len msg) in
                          io (Printf.sprintf "Got a message! %d" (Cbuffer.len msg));
                          parse_msg msg |> (function
-                                           | `E x -> f (x::events) responses res
-                                           | `R x -> f events (x::responses) res
-                                           | `N   -> f events responses res)
+                                           | `E x -> f (x::events) responses parts res
+                                           | `R x -> f events (x::responses) parts res
+                                           | `P x -> f events responses (x::parts) res
+                                           | `N   -> f events responses parts res)
           | Error e -> (match e with
-                        | Insufficient_payload x -> io "Insufficient_payload";
-                                                    List.rev events, List.rev responses, x
-                        | _ -> io (string_of_err e); Cbuffer.split b 1 |> fun (_,x) -> f events responses x))
-    else List.rev events, List.rev responses, b in
-  let events, responses, res = f [] [] buf in
+                        | Insufficient_payload x -> io "!!! Insufficient_payload !!!";
+                                                    List.rev events, List.rev responses, List.rev parts, x
+                        | _ -> io (string_of_err e); Cbuffer.split b 1 |> fun (_,x) -> f events responses parts x))
+    else List.rev events, List.rev responses, List.rev parts, b in
+  let events, responses, parts, res = f [] [] [] buf in
+  io (Printf.sprintf "Total parts received: %d\n" @@ List.length parts);
   events, responses, if Cbuffer.len res > 0 then Some res else None
 
 let is_response (type a) (req: a request) (resp:a) =
   match (req,resp) with
+  | Get_board_errors,_           -> Some resp
+  | Get_ts_struct, _             -> Some resp
   | Get_board_info, Board_info _ -> Some resp
   | Get_board_mode, Board_mode _ -> Some resp
   | Set_board_mode _, _          -> Some resp

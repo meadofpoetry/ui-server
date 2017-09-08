@@ -67,7 +67,9 @@ let serialize port buf =
   let len = (buf.len / 2) + (if parity then 1 else 0) |> char_of_int in
   let buf'   = if parity then Cbuffer.append buf (Cstruct.create 1) else buf in
   append (to_header port parity len) buf'
-  
+
+let io x = Lwt_io.printf "%s\n" x |> ignore 
+
 let parse ~mstart ~mend buf_list =
   let open Option.Infix in
   let msgs = List.map deserialize buf_list in
@@ -80,10 +82,10 @@ let parse ~mstart ~mend buf_list =
               else None
   in
   let rec sieve acc = function
-    | [] -> None, []
-    | [`Partial x]  -> (Some x), acc
-    | [`Full x]     -> None, (x::acc)
-    | (`Full x)::xs -> sieve (x::acc) xs
+    | []               -> None, []
+    | [`Partial x]     -> (Some x), acc
+    | [`Full x]        -> None, (x::acc)
+    | (`Full x)::xs    -> sieve (x::acc) xs
     | (`Partial _)::xs -> sieve acc xs
   in
   let new_mend, msgs = sieve [] msgs in
@@ -130,7 +132,7 @@ let apply disp msg_list =
   in
   List.map apply' disp
   
-let create ?(sleep = 1.0) ?(divider = divider) () =
+let create ?(sleep = 1.) ?(divider = divider) () =
   let usb      = Cyusb.create () in
   let dispatch = ref [] in
   let recv     = recv usb in
