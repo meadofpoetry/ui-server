@@ -66,19 +66,17 @@ module SM = struct
                   
   let send_msg sender msg  = sender @@ serialize msg
   
-  let send (type a) msgs sender (msg : a request) : a Lwt.t =
+  let send msgs sender (msg : response request) : response Lwt.t =
     (* no instant msgs *)
     let t, w = Lwt.wait () in
     msgs := CCArray.append !msgs [|(ref period, msg, w)|];
     sender (serialize msg)
     >>= (fun () -> t)
 
-  let send_event (type a) events sender (msg : event request) : a Lwt.t =
+  let send_event events sender (msg : event request) : unit Lwt.t =
     (* no instant msgs *)
-    let t, w = Lwt.wait () in
-    events := CCArray.append !events [|(ref period, msg, w)|];
+    events := CCArray.append !events [|(ref period, msg)|];
     sender (serialize msg)
-    >>= fun () -> t
                 
   let send_probes events sender probes =
     let rec send' acc = function
