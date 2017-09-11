@@ -11,7 +11,12 @@
    | Normal [@@uint8_t]]
 
 [%%cenum
- type e_nw_method =
+ type e_overall_storage =
+   | ROM
+   | RAM [@@uint8_t]]
+
+[%%cenum
+ type e_ip_method =
    | Unicast
    | Multicast [@@uint8_t]]
 
@@ -62,32 +67,38 @@
 
 [%%cstruct
  type setting8 =
-   { data : uint8_t [@len 1]
-   } [@@little_endian]]
-
-[%%cstruct
- type setting16 =
    { data : uint8_t [@len 2]
    } [@@little_endian]]
 
 [%%cstruct
- type setting32 =
+ type setting16 =
    { data : uint8_t [@len 4]
    } [@@little_endian]]
 
 [%%cstruct
+ type setting32 =
+   { data : uint8_t [@len 8]
+   } [@@little_endian]]
+
+[%%cstruct
  type setting48 =
-   { data : uint8_t [@len 6]
+   { data : uint8_t [@len 12]
    } [@@little_endian]]
 
 [%%cstruct
  type setting64 =
-   { data : uint8_t [@len 8]
+   { data : uint8_t [@len 16]
    } [@@little_endian]]
 
 [@@@ocaml.warning "+32"]
 
 (* ------------------- Misc ------------------- *)
+
+type setting_size = I8 of int
+                  | I16 of int
+                  | I32 of int32
+                  | I48 of int64
+                  | I64 of int64
 
 type category = Devinfo | Overall | Nw | Ip | Asi
 
@@ -122,13 +133,28 @@ let rw_of_int = function
   | x when (x = int_of_char 'E') || (x = int_of_char 'e') -> Some Fail
   | _ -> None
 
-let int_to_hex_string x size =
-  Printf.sprintf "%x" x
-  |> (fun s -> if (String.length s) < size
+let get_setting_size = function
+  | I8  _ -> sizeof_setting8  | I16 _ -> sizeof_setting16 | I32 _ -> sizeof_setting32
+  | I48 _ -> sizeof_setting48 | I64 _ -> sizeof_setting64
+
+let int_to_hex_string x =
+  let size = get_setting_size x in
+  (match x with
+   | I8  x | I16 x -> Printf.sprintf "%X" x
+   | I32 x         -> Printf.sprintf "%lX" x
+   | I48 x | I64 x -> Printf.sprintf "%LX" x)
+  |> fun s -> if (String.length s) < size
               then ((String.make (size -  String.length s) '0') ^ s)
-              else if (String.length s) > size
-              then failwith "int_to_hex_string: cannot allocate int into size"
-               else s)
+              else s
+
+let pack_setting x =
+  let size = get_setting_size x in
+  let f = match x with
+    | I8  _ -> set_setting8_data  | I16 _ -> set_setting16_data | I32 _ -> set_setting32_data
+    | I48 _ -> set_setting48_data | I64 _ -> set_setting64_data in
+  let hs = int_to_hex_string x in
+  Cbuffer.create size |> fun b -> f hs 0 b; b
+
 let hex_string_of_ascii_buf x = "0x" ^ (Cstruct.to_string x)
 let int_of_ascii_buf x        = hex_string_of_ascii_buf x |> int_of_string
 let int32_of_ascii_buf x      = hex_string_of_ascii_buf x |> Int32.of_string
@@ -145,10 +171,10 @@ let calc_crc msg =
 let to_prefix ~category ~setting ~rw () =
   let pfx = Cbuffer.create sizeof_prefix in
   let ()  = set_prefix_stx pfx stx in
-  let ()  = set_prefix_address (int_to_hex_string address 2) 0 pfx in
-  let ()  = set_prefix_category (int_to_hex_string (category_to_int category) 2) 0 pfx in
-  let ()  = set_prefix_setting (int_to_hex_string setting 2) 0 pfx in
-  let ()  = set_prefix_index (int_to_hex_string 0 2) 0 pfx in
+  let ()  = set_prefix_address  (int_to_hex_string (I8 address)) 0 pfx in
+  let ()  = set_prefix_category (int_to_hex_string (I8 (category_to_int category))) 0 pfx in
+  let ()  = set_prefix_setting  (int_to_hex_string (I8 setting)) 0 pfx in
+  let ()  = set_prefix_index    (int_to_hex_string (I16 0)) 0 pfx in
   let ()  = set_prefix_rw pfx @@ rw_to_int rw in
   pfx
 
@@ -171,51 +197,87 @@ let to_empty_msg ~category ~setting ~rw =
 
 type instant = Board_meta.instant
 
-type response = Devinfo_fpga_ver   of int
-              | Devinfo_hw_ver     of int
-              | Devinfo_fw_ver     of float
-              | Devinfo_serial     of int
-              | Devinfo_type       of int
-              | Overall_mode       of rw * e_overall_mode
-              | Overall_app        of rw * e_overall_app
-              | Overall_volatile   of rw * bool
-              | Nw_ip              of rw * Ipaddr.V4.t
-              | Nw_mask            of rw * Ipaddr.V4.t
-              | Nw_gateway         of rw * Ipaddr.V4.t
-              | Nw_dhcp            of rw * bool
-              | Nw_reboot
-              | Nw_mac             of Macaddr.t
-              | Ip_method          of rw * e_nw_method
-              | Ip_enable          of rw * bool
-              | Ip_fec_delay       of int32
-              | Ip_fec_enable      of rw * bool
-              | Ip_fec_cols        of int
-              | Ip_fec_rows        of int
-              | Ip_jitter_tol      of int32
-              | Ip_lost_after_fec  of int64
-              | Ip_lost_before_fec of int64
-              | Ip_udp_port        of rw * int
-              | Ip_delay           of rw * int
-              | Ip_mcast_addr      of rw * Ipaddr.V4.t
-              | Ip_tp_per_ip       of int
-              | Ip_status          of e_ip_status
-              | Ip_protocol        of e_ip_protocol
-              | Ip_packet_size     of e_ip_packet_size
-              | Ip_bitrate         of int32
-              | Ip_pcr_present     of bool
-              | Ip_rate_change_cnt of int32
-              | Ip_rate_estimation of rw * e_ip_rate_estimation
-              | Ip_jitter_err_cnt  of int32
-              | Ip_lock_err_cnt    of int32
-              | Ip_delay_factor    of int32
-              | Asi_packet_size    of rw * e_asi_packet_size
-              | Asi_bitrate        of int32
+type resp = Devinfo_fpga_ver   of int
+          | Devinfo_hw_ver     of int
+          | Devinfo_fw_ver     of float
+          | Devinfo_serial     of int
+          | Devinfo_type       of int
+          | Overall_mode       of e_overall_mode
+          | Overall_app        of e_overall_app
+          | Overall_storage    of e_overall_storage
+          | Nw_ip              of Ipaddr.V4.t
+          | Nw_mask            of Ipaddr.V4.t
+          | Nw_gateway         of Ipaddr.V4.t
+          | Nw_dhcp            of bool
+          | Nw_reboot
+          | Nw_mac             of Macaddr.t
+          | Ip_method          of e_ip_method
+          | Ip_enable          of bool
+          | Ip_fec_delay       of int32
+          | Ip_fec_enable      of bool
+          | Ip_fec_cols        of int
+          | Ip_fec_rows        of int
+          | Ip_jitter_tol      of int32
+          | Ip_lost_after_fec  of int64
+          | Ip_lost_before_fec of int64
+          | Ip_udp_port        of int
+          | Ip_delay           of int
+          | Ip_mcast_addr      of Ipaddr.V4.t
+          | Ip_tp_per_ip       of int
+          | Ip_status          of e_ip_status
+          | Ip_protocol        of e_ip_protocol
+          | Ip_packet_size     of e_ip_packet_size
+          | Ip_bitrate         of int32
+          | Ip_pcr_present     of bool
+          | Ip_rate_change_cnt of int32
+          | Ip_rate_estimation of e_ip_rate_estimation
+          | Ip_jitter_err_cnt  of int32
+          | Ip_lock_err_cnt    of int32
+          | Ip_delay_factor    of int32
+          | Asi_packet_size    of e_asi_packet_size
+          | Asi_bitrate        of int32
 
-type _ request = Get_devinfo_fpga_ver : response request
-               | Get_devinfo_hw_ver   : response request
-               | Get_devinfo_fw_ver   : response request
-               | Get_devinfo_serial   : response request
-               | Get_devinfo_type     : response request
+type response = rw * resp
+
+type _ request = Get_devinfo_fpga_ver   : response request
+               | Get_devinfo_hw_ver     : response request
+               | Get_devinfo_fw_ver     : response request
+               | Get_devinfo_serial     : response request
+               | Get_devinfo_type       : response request
+               | Set_overall_mode       : e_overall_mode -> response request
+               | Set_overall_app        : e_overall_app  -> response request
+               | Set_overall_storage    : e_overall_storage -> response request
+               | Set_nw_ip              : Ipaddr.V4.t -> response request
+               | Set_nw_mask            : Ipaddr.V4.t -> response request
+               | Set_nw_gateway         : Ipaddr.V4.t -> response request
+               | Set_nw_dhcp            : bool -> response request
+               | Reboot                 : response request
+               | Get_nw_mac             : response request
+               | Set_ip_method          : e_ip_method -> response request
+               | Set_ip_enable          : bool -> response request
+               | Get_ip_fec_delay       : response request
+               | Set_ip_fec_enable      : bool -> response request
+               | Get_ip_fec_columns     : response request
+               | Get_ip_fec_rows        : response request
+               | Get_ip_jitter_tol      : response request
+               | Get_ip_lost_after_fec  : response request
+               | Get_ip_lost_before_fec : response request
+               | Set_ip_udp_port        : int -> response request
+               | Set_ip_delay           : int -> response request
+               | Set_ip_mcast_addr      : Ipaddr.V4.t -> response request
+               | Get_ip_tp_per_ip       : response request
+               | Get_ip_status          : response request
+               | Get_ip_protocol        : response request
+               | Get_ip_packet_size     : response request
+               | Get_ip_bitrate         : response request
+               | Get_ip_pcr_present     : response request
+               | Get_ip_rate_change_cnt : response request
+               | Get_ip_rate_estimation : response request
+               | Get_ip_jitter_err_cnt  : response request
+               | Get_ip_lock_err_cnt    : response request
+               | Get_ip_delay_factor    : response request
+               | Set_asi_packet_size    : e_asi_packet_size -> response request
+               | Get_asi_bitrate        : response request
 
 let (detect : response request) = Get_devinfo_serial
 
@@ -224,36 +286,6 @@ let (init : response request list) = []
 let probes = []
 
 let period = 5
-
-let serialize : type a. a request -> Cbuffer.t = function
-  | Get_devinfo_fpga_ver -> to_empty_msg ~category:Devinfo ~setting:0x01 ~rw:Read ()
-  | Get_devinfo_hw_ver   -> to_empty_msg ~category:Devinfo ~setting:0x02 ~rw:Read ()
-  | Get_devinfo_fw_ver   -> to_empty_msg ~category:Devinfo ~setting:0x03 ~rw:Read ()
-  | Get_devinfo_serial   -> to_empty_msg ~category:Devinfo ~setting:0x04 ~rw:Read ()
-  | Get_devinfo_type     -> to_empty_msg ~category:Devinfo ~setting:0x05 ~rw:Read ()
-
-(* ------------------- Requests/responses ------------------- *)
-
-(* Overall *)
-
-let to_req_set_overall_mode mode =
-  let body = Cbuffer.create sizeof_setting8 in
-  let ()   = set_setting8_data (e_overall_mode_to_int mode |> int_to_hex_string 1) 0 body in
-  to_msg ~category:Overall ~setting:0x01 ~rw:Write ~body
-
-let to_req_set_overall_application app =
-  let body = Cbuffer.create sizeof_setting8 in
-  let ()   = set_setting8_data (e_overall_app_to_int app |> int_to_hex_string 1) 0 body in
-  to_msg ~category:Overall ~setting:0x02 ~rw:Write ~body
-
-let to_req_set_overall_volatile enabled =
-  let body = Cbuffer.create sizeof_setting8 in
-  let ()   = set_setting8_data ((if enabled then 1 else 0) |> int_to_hex_string 1) 0 body in
-  to_msg ~category:Overall ~setting:0x03 ~rw:Write ~body
-
-(* Network *)
-
-(* Deserialization *)
 
 type err = Bad_stx              of int
          | Bad_length           of int
@@ -351,14 +383,18 @@ let get_msg buf =
   with e -> Error (Unknown_err (Printexc.to_string e))
 
 let parse_msg msg =
-  let d = msg.data in
-  match (msg.category, msg.setting) with
-  | Devinfo, 0x01 -> Some (Devinfo_fpga_ver (Int64.to_int d))
-  | Devinfo, 0x02 -> Some (Devinfo_hw_ver (Int64.to_int d))
-  | Devinfo, 0x03 -> Some (Devinfo_fw_ver (Int64.to_float d /. 10.))
-  | Devinfo, 0x04 -> Some (Devinfo_serial (Int64.to_int d))
-  | Devinfo, 0x05 -> Some (Devinfo_type (Int64.to_int d))
-  | _ -> None
+  let d  = msg.data in
+  let rw = msg.rw in
+  (match (msg.category, msg.setting) with
+   | Devinfo, 0x01 -> Some (Devinfo_fpga_ver (Int64.to_int d))
+   | Devinfo, 0x02 -> Some (Devinfo_hw_ver (Int64.to_int d))
+   | Devinfo, 0x03 -> Some (Devinfo_fw_ver (Int64.to_float d /. 10.))
+   | Devinfo, 0x04 -> Some (Devinfo_serial (Int64.to_int d))
+   | Devinfo, 0x05 -> Some (Devinfo_type (Int64.to_int d))
+   | _ -> None)
+  |> (function
+      | Some x -> Some (rw,x)
+      | None   -> None)
 
 let deserialize buf =
   let parts = Cbuffer.split_by_string (String.make 1 @@ char_of_int etx) buf in
@@ -377,3 +413,59 @@ let deserialize buf =
                                                         | None   -> f acc tl)
                                           | Error _ -> f acc tl) in
   f [] parts
+
+let to_req_get ~category ~setting =
+  to_empty_msg ~category ~setting ~rw:Read
+
+let to_req_set ~category ~setting x =
+  let body = pack_setting x in
+  to_msg ~category ~setting ~rw:Write ~body
+
+let to_req_set_bool ~category ~setting b =
+  let body = pack_setting (I8 (if b then 1 else 0)) in
+  to_msg ~category ~setting ~rw:Write ~body
+
+let to_req_set_ipaddr ~category ~setting ip =
+  let body = pack_setting (I32 (Ipaddr.V4.to_int32 ip)) in
+  to_msg ~category ~setting ~rw:Write ~body
+
+let serialize : type a. a request -> Cbuffer.t = function
+  | Get_devinfo_fpga_ver   -> to_req_get ~category:Devinfo ~setting:0x01 ()
+  | Get_devinfo_hw_ver     -> to_req_get ~category:Devinfo ~setting:0x02 ()
+  | Get_devinfo_fw_ver     -> to_req_get ~category:Devinfo ~setting:0x03 ()
+  | Get_devinfo_serial     -> to_req_get ~category:Devinfo ~setting:0x04 ()
+  | Get_devinfo_type       -> to_req_get ~category:Devinfo ~setting:0x05 ()
+  | Set_overall_mode x     -> to_req_set ~category:Overall ~setting:0x01 (I8 (e_overall_mode_to_int x)) ()
+  | Set_overall_app x      -> to_req_set ~category:Overall ~setting:0x02 (I8 (e_overall_app_to_int x)) ()
+  | Set_overall_storage x  -> to_req_set ~category:Overall ~setting:0x03 (I8 (e_overall_storage_to_int x)) ()
+  | Set_nw_ip ip           -> to_req_set_ipaddr ~category:Nw ~setting:0x01 ip ()
+  | Set_nw_mask mask       -> to_req_set_ipaddr ~category:Nw ~setting:0x02 mask ()
+  | Set_nw_gateway gw      -> to_req_set_ipaddr ~category:Nw ~setting:0x03 gw ()
+  | Set_nw_dhcp dhcp       -> to_req_set_bool ~category:Nw ~setting:0x04 dhcp ()
+  | Reboot                 -> to_req_set_bool ~category:Nw ~setting:0x05 true ()
+  | Get_nw_mac             -> to_req_get ~category:Nw ~setting:0x06 ()
+  | Set_ip_method x        -> to_req_set ~category:Ip ~setting:0x01 (I8 (e_ip_method_to_int x)) ()
+  | Set_ip_enable x        -> to_req_set_bool ~category:Ip ~setting:0x02 x ()
+  | Get_ip_fec_delay       -> to_req_get ~category:Ip ~setting:0x03 ()
+  | Set_ip_fec_enable x    -> to_req_set_bool ~category:Ip ~setting:0x04 x ()
+  | Get_ip_fec_columns     -> to_req_get ~category:Ip ~setting:0x05 ()
+  | Get_ip_fec_rows        -> to_req_get ~category:Ip ~setting:0x06 ()
+  | Get_ip_jitter_tol      -> to_req_get ~category:Ip ~setting:0x07 ()
+  | Get_ip_lost_after_fec  -> to_req_get ~category:Ip ~setting:0x08 ()
+  | Get_ip_lost_before_fec -> to_req_get ~category:Ip ~setting:0x09 ()
+  | Set_ip_udp_port x      -> to_req_set ~category:Ip ~setting:0x0A (I16 x) ()
+  | Set_ip_delay x         -> to_req_set ~category:Ip ~setting:0x0B (I16 x) ()
+  | Set_ip_mcast_addr x    -> to_req_set_ipaddr ~category:Ip ~setting:0x0C x ()
+  | Get_ip_tp_per_ip       -> to_req_get ~category:Ip ~setting:0x0D ()
+  | Get_ip_status          -> to_req_get ~category:Ip ~setting:0x0E ()
+  | Get_ip_protocol        -> to_req_get ~category:Ip ~setting:0x0F ()
+  | Get_ip_packet_size     -> to_req_get ~category:Ip ~setting:0x12 ()
+  | Get_ip_bitrate         -> to_req_get ~category:Ip ~setting:0x13 ()
+  | Get_ip_pcr_present     -> to_req_get ~category:Ip ~setting:0x14 ()
+  | Get_ip_rate_change_cnt -> to_req_get ~category:Ip ~setting:0x15 ()
+  | Get_ip_rate_estimation -> to_req_get ~category:Ip ~setting:0x16 ()
+  | Get_ip_jitter_err_cnt  -> to_req_get ~category:Ip ~setting:0x17 ()
+  | Get_ip_lock_err_cnt    -> to_req_get ~category:Ip ~setting:0x18 ()
+  | Get_ip_delay_factor    -> to_req_get ~category:Ip ~setting:0x19 ()
+  | Set_asi_packet_size x  -> to_req_set ~category:Asi ~setting:0x01 (I8 (e_asi_packet_size_to_int x)) ()
+  | Get_asi_bitrate        -> to_req_get ~category:Asi ~setting:0x03 ()
