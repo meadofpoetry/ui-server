@@ -4,40 +4,36 @@ open Lwt.Infix
 type 'a cc = [`Continue of 'a]
    
 type state = [ `Fine | `No_response]
-type instant = unit
-             
-module type MSG_DESC = sig
-  type event
-  type response
+
+type _ request
+                                     
+module Streams = CCMap.Make(CCInt)
+module Ports = CCMap.Make(CCInt)
+
+type board = { handlers        : (module Api_handler.HANDLER) list
+             ; control         : int
+             ; connection      : state React.signal
+             ; streams_signal  : string Streams.t React.signal option
+             ; step            : (Cbuffer.t list -> 'c cc as 'c) cc
+             ; is_converter    : bool
+             ; is_active       : bool React.signal
+             ; ports_active    : bool React.signal Ports.t
+             ; state           : < >
+             } 
+           
+module type BOARD = sig
   type _ request
+  val create       : topo_board -> (Cbuffer.t -> unit Lwt.t) -> board
+  val connect_db   : board -> Database.t -> board
 end
 
-module type PROTOCOL = sig
-  include MSG_DESC
+let concat_acc acc recvd = match acc with
+  | Some acc -> Cbuffer.append acc (Cbuffer.concat recvd)
+  | None     -> Cbuffer.concat recvd
 
-  val period       : int (* quantums *)
+let apply = function `Continue step -> step
 
-  val detect       : response request
-  val init         : response request list
-  val probes       : response  -> event request list
-  val is_response  : 'a request -> 'a -> 'a option
-  val serialize    : _ request -> Cbuffer.t
-  val deserialize  : Cbuffer.t -> event list * response list * Cbuffer.t option
-  val pp           : _ request -> unit
-    
-end
-
-module type MESSENGER = sig
-  include MSG_DESC
-  
-  val create : (Cbuffer.t -> unit Lwt.t) ->
-               (state -> unit) ->
-               (event -> unit) ->
-               (response request -> response Lwt.t) *
-                 (instant request -> instant Lwt.t) *
-                   (Cbuffer.t list -> 'c cc as 'c) cc
-end
-  
+(*
 module Make(P : PROTOCOL)
        : (MESSENGER with type event := P.event
                      and type response := P.response
@@ -160,35 +156,4 @@ module Make(P : PROTOCOL)
     (step msgs events sender push_state push_event)
    
 end
-
-let apply = function `Continue step -> step
-
-module Streams = CCMap.Make(CCInt)
-module Ports = CCMap.Make(CCInt)
-
-type board = { handlers        : (module Api_handler.HANDLER) list
-             ; control         : int
-             ; connection      : state React.signal
-             ; streams_signal  : string Streams.t React.signal option
-             ; step            : (Cbuffer.t list -> 'c cc as 'c) cc
-             ; is_converter    : bool
-             ; is_active       : bool React.signal
-             ; ports_active    : bool React.signal Ports.t
-             ; state           : < >
-             } 
-
-module type BOARD_API = sig
-  include MSG_DESC
-
-  val handlers : int
-                 -> (response request -> response Lwt.t)
-                 -> (instant request -> instant Lwt.t)
-                 -> state React.signal -> event React.event
-                 -> (module Api_handler.HANDLER) list
-end
-           
-module type BOARD = sig
-  include MSG_DESC
-  val create       : topo_board -> (Cbuffer.t -> unit Lwt.t) -> board
-  val connect_db   : board -> Database.t -> board
-end
+*)
