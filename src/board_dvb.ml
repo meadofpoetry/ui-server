@@ -10,12 +10,11 @@ module V1 : BOARD = struct
   type event = Protocol.event
   type response = Protocol.response
   type 'a request = 'a Protocol.request
-                  
+
   module Messenger = Board_meta.Make(Protocol)
   module Board_api = Board_dvb_api.Make(Protocol)
-                   
+
   let create (b:topo_board) send =
-    Lwt_io.printf "in create\n" |> ignore;
     let e_msgs,  push = React.E.create () in
     let s_state, spush = React.S.create `No_response in
     let send_resp, send_inst, step = Messenger.create send spush push in

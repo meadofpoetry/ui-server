@@ -24,7 +24,7 @@ let split_by_string on cs =
       if i < 0 then acc
       else try CCString.iteri
                  (fun j c ->
-                   if c <> BA.unsafe_get cs.buffer (i + j)
+                   if c <> (Cstruct.get_char cs (i + j))
                    then raise_notrace Not_equal)
                  on;
                find_subs (i - onsz) (i::(i+onsz)::acc)
