@@ -117,45 +117,22 @@ let string_of_err = function
   | Insufficient_payload _ -> "insufficient payload"
   | Unknown_err s          -> s
 
-                       (*
-                         type instant = Board_meta.instant
-
-type event = Measure     of (int * rsp_measure)
-           | Plps        of (int * rsp_plp_list)
-
-type response  = Ack
-               | Devinfo     of rsp_devinfo
-               | Settings    of (int * rsp_settings)
-               | Plp_setting of (int * rsp_plp_set)
-
-type _ request = Req_devinfo     : response request
-               | Reset           : response request
-               | Req_settings    : (int * settings) -> response request
-               | Req_measure     : int              -> event request
-               | Req_plps        : int              -> event request
-               | Req_plp_setting : int * int        -> response request
-
-                        *)
-
 type events = { measure : (int * rsp_measure) React.event
               ; plps    : (int * rsp_plp_list) React.event
               }
 
-type event = Measure of (int * rsp_measure)
-           | Plps    of (int * rsp_plp_list)
-
 type response  = Ack
                | Devinfo     of rsp_devinfo
                | Settings    of (int * rsp_settings)
                | Plp_setting of (int * rsp_plp_set)
-                              
-                     
-type _ request = Devinfo     : response request
-               | Reset       : response request
-               | Settings    : (int * settings) -> response request
-               | Plp_setting : int * int        -> response request
-               | Measure     : int -> event request
-               | Plps        : int -> event request
+
+type _ request = Devinfo     : rsp_devinfo request
+               | Reset       : unit request
+               | Settings    : (int * settings) -> (int * rsp_settings) request
+               | Plp_setting : int * int        -> (int * rsp_plp_set) request
+
+type _ event_request = Measure     : int -> (int * rsp_measure) event_request
+                     | Plps        : int -> (int * rsp_plp_list) event_request
 
 (* Helper functions *)
 
@@ -338,26 +315,18 @@ let of_rsp_plp_set_exn msg =
   ; plp  = get_rsp_plp_set_plp msg
   }
 
-let serialize : type a. a request -> Cbuffer.t = function
-  | Devinfo              -> to_req_devinfo false
-  | Reset                -> to_req_devinfo true
-  | Settings (id,x)      -> to_req_settings id x
-  | Plp_setting (id,plp) -> to_req_plp_set id plp
-  | Measure id           -> to_req_measure id
-  | Plps    id           -> to_req_plp_list id
-
 let deserialize buf =
   (* split buffer into valid messages and residue (if any) *)
   let parse_msg = fun {id;code;body;_} ->
     try
       (match (id,code) with
-       | 0xE,0xE -> `R (Ack)
-       | 0,1     -> `R (Devinfo (of_rsp_devinfo_exn body))
-       | _,2     -> `R (Settings (id, (of_rsp_settings_exn body)))
-       | _,3     -> `E (Measure (id, (of_rsp_measure_exn body)) : event)
-       | _,5     -> `E (Plps (id, (of_rsp_plp_list_exn body)) : event)
-       | _,6     -> `R (Plp_setting (id, (of_rsp_plp_set_exn body)))
-       | _       -> `N)
+       | 0xE,0xE0 -> `R `Ack
+       | 0,1      -> `R (`Devinfo body)
+       | _,2      -> `R (`Settings (id, body))
+       | _,3      -> `E (`Measure (id, body))
+       | _,5      -> `E (`Plps (id, body))
+       | _,6      -> `R (`Plp_setting (id, body))
+       | _        -> `N)
     with _ -> `N in
   let rec f events responses b =
     if Cbuffer.len b > (sizeof_prefix + 1 + sizeof_suffix)
@@ -373,3 +342,40 @@ let deserialize buf =
     else List.rev events, List.rev responses, b in
   let events, responses, res = f [] [] buf in
   events, responses, if Cbuffer.len res > 0 then Some res else None
+
+let try_parse f x =
+  try Some (f x)
+  with _ -> None
+
+let find_parse_devinfo w =
+  let find   = function `Devinfo buf -> Some buf | _ -> None in
+  let parser buf = Lwt.wakeup w (of_rsp_devinfo_exn buf) (* fix exn *) in
+  function Some l -> CCOpt.(CCList.find_map find l >>= (fun x -> try_parse parser x))
+         | None   -> Lwt.wakeup_exn w (Failure ""); None
+
+let find_parse_reset w =
+  let find   = function `Ack -> Some () | _ -> None in
+  function Some l -> CCOpt.(CCList.find_map find l >|= Lwt.wakeup w)
+         | None   -> Lwt.wakeup_exn w (Failure ""); None
+
+let find_parse_settings w id =
+  let find   = function `Settings (idx, buf) when idx = id -> Some buf | _ -> None in
+  let parser buf = Lwt.wakeup w (id, (of_rsp_settings_exn buf)) (* fix exn *) in
+  function Some l -> CCOpt.(CCList.find_map find l >>= (fun x -> try_parse parser x))
+         | None   -> Lwt.wakeup_exn w (Failure ""); None
+
+let find_parse_plp_settings w id =
+  let parser buf = Lwt.wakeup w (id, (of_rsp_plp_set_exn buf)) (* fix exn *) in
+  let find   = function `Plp_settings (idx, buf) when idx = id -> Some buf | _ -> None in
+  function Some l -> CCOpt.(CCList.find_map find l >>= (fun x -> try_parse parser x))
+         | None   -> Lwt.wakeup_exn w (Failure ""); None
+
+(* remove later *)
+                     
+let is_response (type a) (msg : a request) rsp =
+  match msg, rsp with
+  | Reset, `Ack -> true
+  | Devinfo, `Devinfo _ -> true
+  | Settings (id,_), `Settings (idx,_) when id = idx -> true
+  | Plp_setting (id,_), `Plp_setting (idx,_) when id = idx -> true
+  | _ -> false
