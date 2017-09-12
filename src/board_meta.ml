@@ -6,7 +6,7 @@ type 'a cc = [`Continue of 'a]
 type state = [ `Fine | `No_response]
 
 type _ request
-                                     
+                                        
 module Streams = CCMap.Make(CCInt)
 module Ports = CCMap.Make(CCInt)
 
