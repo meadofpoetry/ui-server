@@ -91,22 +91,31 @@ let bool_of_bool8 = function
 
 open Common.Board.Dvb
 
-type err = Bad_tag_start of int
-         | Bad_length of int
-         | Bad_msg_code of int
-         | Bad_module_addr of int
-         | Bad_crc of (int * int)
-         | Bad_tag_stop of int
-         | Unknown_err of string
+(* Misc *)
+
+type parsed =
+  { id   : int
+  ; code : int
+  ; body : Cbuffer.t
+  ; res  : Cbuffer.t
+  }
+
+type err = Bad_tag_start        of int
+         | Bad_length           of int
+         | Bad_msg_code         of int
+         | Bad_crc              of (int * int)
+         | Bad_tag_stop         of int
+         | Insufficient_payload of Cbuffer.t
+         | Unknown_err          of string
 
 let string_of_err = function
-  | Bad_tag_start x   -> "incorrect start tag: "    ^ (string_of_int x)
-  | Bad_length x      -> "incorrect length: "       ^ (string_of_int x)
-  | Bad_msg_code x    -> "incorrect code: "         ^ (string_of_int x)
-  | Bad_module_addr x -> "incorrect address: "      ^ (string_of_int x)
-  | Bad_crc (x,y)     -> "incorrect crc: expected " ^ (string_of_int x) ^ ", got " ^ (string_of_int y)
-  | Bad_tag_stop x    -> "incorrect stop tag: "     ^ (string_of_int x)
-  | Unknown_err s     -> s
+  | Bad_tag_start x        -> "incorrect start tag: "    ^ (string_of_int x)
+  | Bad_length x           -> "incorrect length: "       ^ (string_of_int x)
+  | Bad_msg_code x         -> "incorrect code/addr: "    ^ (string_of_int x)
+  | Bad_crc (x,y)          -> "incorrect crc: expected " ^ (string_of_int x) ^ ", got " ^ (string_of_int y)
+  | Bad_tag_stop x         -> "incorrect stop tag: "     ^ (string_of_int x)
+  | Insufficient_payload _ -> "insufficient payload"
+  | Unknown_err s          -> s
 
                        (*
                          type instant = Board_meta.instant
@@ -184,51 +193,45 @@ let to_empty_msg ~msg_code =
 
 (* Message validation *)
 
-let check_tag_start msg =
-  let tag = get_prefix_tag_start msg in
-  if tag != tag_start then Error (Bad_tag_start tag) else Ok msg
+let check_tag_start buf =
+  let tag = get_prefix_tag_start buf in
+  if tag <> tag_start then Error (Bad_tag_start tag) else Ok buf
 
-let check_length msg =
-  let length = get_prefix_length msg in
-  if (length < 2) || (length > 41) then Error (Bad_length length) else Ok msg
+let check_length buf =
+  let length = get_prefix_length buf in
+  if (length < 2) || (length > 41) then Error (Bad_length length) else Ok buf
 
-let check_msg_code msg =
-  let code = get_prefix_msg_code msg in
-  match (code lsr 4, code land 0x0F) with
-  | 0x1,_ | 0x2,_ | 0x3,_ | 0x4,_ | 0x5,_ | 0x6,_ | 0xE,0xE -> Ok msg
-  | _ -> Error (Bad_msg_code code)
+let check_msg_code buf =
+  let code'     = get_prefix_msg_code buf in
+  let (id,code) = (code' land 0x0F, code' lsr 4) in
+  match (id,code) with
+  | 0xE,0xE                                          -> Ok (id,code,buf)           (* ack*)
+  | 0,1                                              -> Ok (id,code,buf)           (* devinfo *)
+  | (x,y) when (x >= 0 && x < 4) && (y > 1 && y < 7) -> Ok (id,code,buf)           (* other *)
+  | _                                                -> Error (Bad_msg_code code')
 
-let check_msg_addr msg =
-  let code = get_prefix_msg_code msg in
-  match (code lsr 4, code land 0x0F) with
-  | 0xE,0xE               -> Ok msg
-  | _,0 | _,1 | _,2 | _,3 -> Ok msg
-  | _,bad_id              -> Error (Bad_module_addr bad_id)
-
-let check_msg_crc msg =
-  let prefix,msg' = Cbuffer.split msg sizeof_prefix in
-  let length      = get_prefix_length prefix in
-  let body,suffix = Cbuffer.split msg' (length - 1) in
-  let crc         = (calc_crc (Cbuffer.append prefix body)) in
-  let crc'        = get_suffix_crc suffix in
-  if crc != crc' then Error (Bad_crc (crc,crc')) else Ok msg
-
-let check_tag_stop msg =
-  let prefix,msg' = Cbuffer.split msg sizeof_prefix in
-  let length      = get_prefix_length prefix in
-  let _,suffix    = Cbuffer.split msg' (length - 1) in
-  let tag         = get_suffix_tag_stop suffix in
-  if tag != tag_stop then Error (Bad_tag_stop tag) else Ok msg
+let check_msg_crc (id,code,buf) =
+  let payload_len = (get_prefix_length buf) - 1 in
+  let total_len   = payload_len + sizeof_prefix + sizeof_suffix in
+  let msg,res     = Cbuffer.split buf total_len in
+  let pfx,msg'    = Cbuffer.split msg sizeof_prefix in
+  let body,sfx    = Cbuffer.split msg' payload_len in
+  let tag         = get_suffix_tag_stop sfx in
+  if tag <> tag_stop then Error (Bad_tag_stop tag)
+  else let crc  = (calc_crc (Cbuffer.append pfx body)) in
+       let crc' = get_suffix_crc sfx in
+       if crc <> crc' then Error (Bad_crc (crc,crc'))
+       else Ok { id; code; body; res }
 
 let check_msg msg =
   try
     CCResult.(check_tag_start msg
               >>= check_length
               >>= check_msg_code
-              >>= check_msg_addr
-              >>= check_tag_stop
               >>= check_msg_crc)
-  with e -> Error (Unknown_err (Printexc.to_string e))
+  with
+  | Invalid_argument _ -> Error (Insufficient_payload msg)
+  | e                  -> Error (Unknown_err (Printexc.to_string e))
 
 (* Requests/responses *)
 
@@ -345,35 +348,28 @@ let serialize : type a. a request -> Cbuffer.t = function
 
 let deserialize buf =
   (* split buffer into valid messages and residue (if any) *)
-  let parse_msg = fun msg ->
+  let parse_msg = fun {id;code;body;_} ->
     try
-      let id       = (get_prefix_msg_code msg) land 0x0F in
-      let code     = (get_prefix_msg_code msg) land 0xF0 in
-      let (_,msg') = Cbuffer.split msg sizeof_prefix in
-      let (body,_) = Cbuffer.split msg' ((Cbuffer.len msg') - sizeof_suffix) in
       (match (id,code) with
-       | 0xE,0xE0 -> `R (Ack)
-       | _,0x10   -> `R (Devinfo (of_rsp_devinfo_exn body))
-       | _,0x20   -> `R (Settings (id, (of_rsp_settings_exn body)))
-       | _,0x30   -> `E (Measure (id, (of_rsp_measure_exn body)) : event)
-       | _,0x50   -> `E (Plps (id, (of_rsp_plp_list_exn body)) : event)
-       | _,0x60   -> `R (Plp_setting (id, (of_rsp_plp_set_exn body)))
-       | _        -> Lwt_io.printf "\n\n !!! Unknown message !!! \n\n" |> ignore; `N)
-    with _ -> Lwt_io.printf "\n\n !!! Corrupted message !!! \n\n" |> ignore; `N in
+       | 0xE,0xE -> `R (Ack)
+       | 0,1     -> `R (Devinfo (of_rsp_devinfo_exn body))
+       | _,2     -> `R (Settings (id, (of_rsp_settings_exn body)))
+       | _,3     -> `E (Measure (id, (of_rsp_measure_exn body)) : event)
+       | _,5     -> `E (Plps (id, (of_rsp_plp_list_exn body)) : event)
+       | _,6     -> `R (Plp_setting (id, (of_rsp_plp_set_exn body)))
+       | _       -> `N)
+    with _ -> `N in
   let rec f events responses b =
     if Cbuffer.len b > (sizeof_prefix + 1 + sizeof_suffix)
     then (match check_msg b with
-          | Ok x    -> let len     = ((get_prefix_length x) - 1) + sizeof_prefix + sizeof_suffix in
-                       let msg,res = Cbuffer.split x len in
-                       msg
-                       |> parse_msg
+          | Ok x    -> parse_msg x
                        |> (function
-                           | `E x   -> f (x::events) responses res
-                           | `R x   -> f events (x::responses) res
-                           | `N     -> f events responses res)
-          | Error e -> let _,res = Cbuffer.split b 1 in
-                       Lwt_io.printf "\n\n !!! Error %s !!! \n\n" (string_of_err e) |> ignore;
-                       f events responses res)
+                           | `E e   -> f (e::events) responses x.res
+                           | `R r   -> f events (r::responses) x.res
+                           | `N     -> f events responses x.res)
+          | Error e -> (match e with
+                        | Insufficient_payload x -> List.rev events, List.rev responses, x
+                        | _ -> Cbuffer.split b 1 |> fun (_,x) -> f events responses x))
     else List.rev events, List.rev responses, b in
   let events, responses, res = f [] [] buf in
   events, responses, if Cbuffer.len res > 0 then Some res else None

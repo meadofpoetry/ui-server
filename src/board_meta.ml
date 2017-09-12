@@ -28,8 +28,8 @@ module type BOARD = sig
 end
 
 let concat_acc acc recvd = match acc with
-  | Some acc -> Cbuffer.append acc (Cbuffer.concat recvd)
-  | None     -> Cbuffer.concat recvd
+  | Some acc -> Cbuffer.append acc (Cbuffer.concat (List.rev recvd))
+  | None     -> Cbuffer.concat (List.rev recvd)
 
 let apply = function `Continue step -> step
 

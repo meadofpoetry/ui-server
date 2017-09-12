@@ -69,4 +69,16 @@ let modifyi f cs =
   let module BA = Bigarray.Array1 in
   for i = cs.off to cs.len do
     BA.unsafe_set cs.buffer i @@ f i @@ BA.unsafe_get cs.buffer i
-done
+  done
+
+let pp ?(line_sz=16) b =
+  let iter = Cstruct.iter (fun _ -> Some 1)
+                          (fun buf -> Cstruct.get_uint8 buf 0)
+                          b in
+  let s = Cstruct.fold (fun acc el -> acc ^ (Printf.sprintf "%02x " el)) iter "" in
+  let rec f = fun acc x -> if String.length x < (line_sz*16)
+                           then List.rev (x :: acc)
+                           else let s,res = CCString.take_drop (line_sz*16) x in
+                                f (s :: acc) res in
+  List.map (fun x -> x ^ "\n") (f [] s)
+  |> String.concat ""
