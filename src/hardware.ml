@@ -23,8 +23,8 @@ let create_adapter typ model manufacturer version =
   Lwt_io.printf "in create adapter\n" |> ignore;
   match typ, model, manufacturer with
   | DVB, "rf", "niitv"       -> Board_dvb.create version
-  | IP, "dtm-3200", "dektec" -> Board_ip.create version
-  (* | TS, "qos", "niitv"       -> Board_qos.create version*)
+  (* | IP, "dtm-3200", "dektec" -> Board_ip.create version *)
+  (* | TS, "qos", "niitv"       -> Board_qos.create version *)
   | _ -> raise (Failure ("create board: unknown board "))
 
 let create_converter typ model manufacturer _ =
@@ -75,7 +75,7 @@ let topo_to_signal topo boards =
   
 let create config db =
   let topo      = Conf.get config in
-  let usb, loop = Usb_device.create () in
+  let usb, loop = Usb_device.create ~sleep:0.1 () in
   let rec traverse acc = (function
                           | Board b -> List.fold_left (fun a x -> traverse a x.child) (b :: acc) b.ports
                           | Input _ -> acc) in

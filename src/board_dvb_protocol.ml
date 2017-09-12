@@ -1,403 +1,208 @@
-let tag_start = 0x55AA
-let tag_stop  = 0xFE
-
-let max_uint16 = Unsigned.(UInt16.to_int UInt16.max_int)
-let max_uint32 = Unsigned.(UInt32.to_int UInt32.max_int)
-
-[@@@ocaml.warning "-32"]
-
-[%%cenum
- type bool8 =
-   | True  [@id 0xFF]
-   | False [@id 0] [@@uint8_t]]
-
-let bool_of_bool8 = function
-  | True  -> true
-  | False -> false
-
-[%%cenum
- type emode =
-   | T2 [@id 1]
-   | T  [@id 2]
-   | C  [@id 3] [@@uint8_t]]
-
-[%%cenum
- type ebw =
-   | Bw8 [@id 1]
-   | Bw7 [@id 2]
-   | Bw6 [@id 3] [@@uint8_t]]
-
-[%%cstruct
- type prefix =
-   { tag_start : uint16_t
-   ; length    : uint8_t
-   ; msg_code  : uint8_t
-   } [@@little_endian]]
-
-[%%cstruct
- type suffix =
-   { crc      : uint8_t
-   ; tag_stop : uint8_t
-   } [@@little_endian]]
-
-[%%cstruct
- type cmd_devinfo =
-   { reset    : uint8_t
-   } [@@little_endian]]
-
-[%%cstruct
- type rsp_devinfo =
-   { serial    : uint16_t
-   ; hw_ver    : uint8_t
-   ; fpga_ver  : uint8_t
-   ; soft_ver  : uint8_t
-   ; hw_config : uint8_t
-   ; rfu       : uint32_t
-   } [@@little_endian]]
-
-[%%cstruct
- type settings =
-   { mode       : uint8_t
-   ; bw         : uint8_t
-   ; hw_present : uint8_t  (* rfu in cmd *)
-   ; rfu        : uint8_t  (* former dvb-c qam *)
-   ; freq       : uint32_t
-   ; plp        : uint8_t
-   ; lock       : uint8_t  (* rfu in cmd *)
-   } [@@little_endian]]
-
-[%%cstruct
- type rsp_measure =
-   { lock    : uint8_t
-   ; power   : uint16_t
-   ; mer     : uint16_t
-   ; ber     : uint32_t
-   ; freq    : uint32_t
-   ; bitrate : uint32_t
-   } [@@little_endian]]
-
-[%%cstruct
- type cmd_plp_set =
-   { plp_id : uint8_t
-   } [@@little_endian]]
-
-[%%cstruct
- type rsp_plp_set =
-   { lock : uint8_t
-   ; plp  : uint8_t
-   } [@@little_endian]]
-
-[@@@ocaml.warning "+32"]
-
 open Common.Board.Dvb
+open Lwt.Infix
 
-type err = Bad_tag_start of int
-         | Bad_length of int
-         | Bad_msg_code of int
-         | Bad_module_addr of int
-         | Bad_crc of (int * int)
-         | Bad_tag_stop of int
-         | Unknown_err of string
-
-let string_of_err = function
-  | Bad_tag_start x   -> "incorrect start tag: "    ^ (string_of_int x)
-  | Bad_length x      -> "incorrect length: "       ^ (string_of_int x)
-  | Bad_msg_code x    -> "incorrect code: "         ^ (string_of_int x)
-  | Bad_module_addr x -> "incorrect address: "      ^ (string_of_int x)
-  | Bad_crc (x,y)     -> "incorrect crc: expected " ^ (string_of_int x) ^ ", got " ^ (string_of_int y)
-  | Bad_tag_stop x    -> "incorrect stop tag: "     ^ (string_of_int x)
-  | Unknown_err s     -> s
-
-type instant = Board_meta.instant
-
-type event = Measure     of (int * rsp_measure)
-           | Plps        of (int * rsp_plp_list)
-
-type response  = Ack
-               | Devinfo     of rsp_devinfo
-               | Settings    of (int * rsp_settings)
-               | Plp_setting of (int * rsp_plp_set)
-
-type _ request = Req_devinfo     : response request
-               | Reset           : response request
-               | Req_settings    : (int * settings) -> response request
-               | Req_measure     : int              -> event request
-               | Req_plps        : int              -> event request
-               | Req_plp_setting : int * int        -> response request
-
-(* Helper functions *)
-
-let calc_crc (msg:Cbuffer.t) =
-  let _,body = Cbuffer.split msg (sizeof_prefix - 1) in
-  let iter = Cbuffer.iter (fun _ -> Some 1)
-                          (fun buf -> Cbuffer.get_uint8 buf 0)
-                          body in
-  Cbuffer.fold (fun acc el -> el lxor acc) iter 0
-
-(* Message constructors *)
-
-let to_prefix ~length ~msg_code =
-  let prefix = Cbuffer.create sizeof_prefix in
-  let () = set_prefix_tag_start prefix tag_start in
-  let () = set_prefix_length prefix length in
-  let () = set_prefix_msg_code prefix msg_code in
-  prefix
-
-let to_suffix ~crc =
-  let suffix = Cbuffer.create sizeof_suffix in
-  let () = set_suffix_crc suffix crc in
-  let () = set_suffix_tag_stop suffix tag_stop in
-  suffix
-
-let to_msg ~msg_code ~body =
-  let prefix = to_prefix ~length:(Cbuffer.len body + 1) ~msg_code in
-  let msg = Cbuffer.append prefix body in
-  let suffix  = to_suffix ~crc:(calc_crc msg) in
-  Cbuffer.append msg suffix
-
-let to_empty_msg ~msg_code =
-  let body = Cbuffer.create 1 in
-  to_msg ~msg_code ~body
-
-(* Message validation *)
-
-let check_tag_start msg =
-  let tag = get_prefix_tag_start msg in
-  if tag != tag_start then Error (Bad_tag_start tag) else Ok msg
-
-let check_length msg =
-  let length = get_prefix_length msg in
-  if (length < 2) || (length > 41) then Error (Bad_length length) else Ok msg
-
-let check_msg_code msg =
-  let code = get_prefix_msg_code msg in
-  match (code lsr 4, code land 0x0F) with
-  | 0x1,_ | 0x2,_ | 0x3,_ | 0x4,_ | 0x5,_ | 0x6,_ | 0xE,0xE -> Ok msg
-  | _ -> Error (Bad_msg_code code)
-
-let check_msg_addr msg =
-  let code = get_prefix_msg_code msg in
-  match (code lsr 4, code land 0x0F) with
-  | 0xE,0xE               -> Ok msg
-  | _,0 | _,1 | _,2 | _,3 -> Ok msg
-  | _,bad_id              -> Error (Bad_module_addr bad_id)
-
-let check_msg_crc msg =
-  let prefix,msg' = Cbuffer.split msg sizeof_prefix in
-  let length      = get_prefix_length prefix in
-  let body,suffix = Cbuffer.split msg' (length - 1) in
-  let crc         = (calc_crc (Cbuffer.append prefix body)) in
-  let crc'        = get_suffix_crc suffix in
-  if crc != crc' then Error (Bad_crc (crc,crc')) else Ok msg
-
-let check_tag_stop msg =
-  let prefix,msg' = Cbuffer.split msg sizeof_prefix in
-  let length      = get_prefix_length prefix in
-  let _,suffix    = Cbuffer.split msg' (length - 1) in
-  let tag         = get_suffix_tag_stop suffix in
-  if tag != tag_stop then Error (Bad_tag_stop tag) else Ok msg
-
-let check_msg msg =
-  try
-    CCResult.(check_tag_start msg
-              >>= check_length
-              >>= check_msg_code
-              >>= check_msg_addr
-              >>= check_tag_stop
-              >>= check_msg_crc)
-  with e -> Error (Unknown_err (Printexc.to_string e))
-
-(* Requests/responses *)
-
-let of_mode : mode -> emode = function
-  | T2 -> T2 | T -> T | C -> C
-          
-let to_mode : emode -> mode = function
-  | T2 -> T2 | T -> T | C -> C
-
-let of_bw : bw -> ebw = function
-  | Bw8 -> Bw8 | Bw7 -> Bw7 | Bw6 -> Bw6
-       
-let to_bw : ebw -> bw = function
-  | Bw8 -> Bw8 | Bw7 -> Bw7 | Bw6 -> Bw6
-          
-(* Devinfo *)
-
-let to_req_devinfo reset =
-  let body = Cbuffer.create sizeof_cmd_devinfo in
-  let () = set_cmd_devinfo_reset body (if reset then 0xFF else 0) in
-  to_msg ~msg_code:0x10 ~body
-
-let of_rsp_devinfo_exn msg =
-  let hw_cfg    = get_rsp_devinfo_hw_config msg in
-  { serial   = get_rsp_devinfo_serial msg
-  ; hw_ver   = get_rsp_devinfo_hw_ver msg
-  ; fpga_ver = get_rsp_devinfo_fpga_ver msg
-  ; soft_ver = get_rsp_devinfo_soft_ver msg
-  ; asi      = if (hw_cfg land 16) > 0 then true else false
-  ; modules  = List.fold_left (fun acc x -> let x' = float_of_int x in
-                                            if (hw_cfg land (int_of_float (2. ** x'))) > 0
-                                            then x :: acc
-                                            else acc)
-                              []
-                              (CCList.range 0 3)
-  }
-
-(* Settings *)
-
-let to_req_settings id settings =
-  let body = Cbuffer.create sizeof_settings in
-  let () = set_settings_mode body (emode_to_int @@ of_mode settings.mode) in
-  let () = set_settings_bw body (ebw_to_int @@ of_bw settings.bw) in
-  let () = set_settings_freq body settings.freq in
-  let () = set_settings_plp body settings.plp in
-  to_msg ~msg_code:(0x20 lor id) ~body
-
-let of_rsp_settings_exn msg =
-  let open CCOpt in
-  { lock       = int_to_bool8 (get_settings_lock msg)       |> get_exn |> bool_of_bool8
-  ; hw_present = int_to_bool8 (get_settings_hw_present msg) |> get_exn |> bool_of_bool8
-  ; settings   = { mode     = to_mode @@ get_exn @@ int_to_emode (get_settings_mode msg)
-                 ; bw       = to_bw @@ get_exn @@ int_to_ebw (get_settings_bw msg)
-                 ; freq     = get_settings_freq msg
-                 ; plp      = get_settings_plp msg
-                 }
-  }
-
-(* Measure *)
-
-let to_req_measure id =
-  to_empty_msg ~msg_code:(0x30 lor id)
-
-let of_rsp_measure_exn msg =
-  { lock    = int_to_bool8 (get_rsp_measure_lock msg) |> CCOpt.get_exn |> bool_of_bool8
-  ; power   = get_rsp_measure_power msg
-              |> (fun x -> if x = max_uint16 then None else Some (-.((float_of_int x) /. 10.)))
-  ; mer     = get_rsp_measure_mer msg
-              |> (fun x -> if x = max_uint16 then None else Some ((float_of_int x) /. 10.))
-  ; ber     = get_rsp_measure_ber msg
-              |> (fun x -> if x = Int32.of_int max_uint32 then None else Some ((Int32.to_float x) /. (2.**24.)))
-  ; freq    = get_rsp_measure_freq msg
-              |> (fun x -> if x = Int32.of_int max_uint32 then None else Some x)
-  ; bitrate = get_rsp_measure_bitrate msg
-              |> (fun x -> if x = Int32.of_int max_uint32 then None else Some x)
-  }
-
-(* Plp list *)
-
-let to_req_plp_list id =
-  to_empty_msg ~msg_code:(0x50 lor id)
-
-let of_rsp_plp_list_exn msg =
-  let plp_num     = Cbuffer.get_uint8 msg 1 |> (fun x -> if x = 0xFF then None else Some x) in
-  { lock = int_to_bool8 (Cbuffer.get_uint8 msg 0) |> CCOpt.get_exn |> bool_of_bool8
-  ; plps = begin match plp_num with
-           | Some _ -> let iter = Cbuffer.iter (fun _ -> Some 1)
-                                               (fun buf -> Cbuffer.get_uint8 buf 0)
-                                               (Cbuffer.shift msg 2) in
-                       Cbuffer.fold (fun acc el -> el :: acc) iter []
-           | None   -> []
-           end
-  }
-
-(* Plp set *)
-
-let to_req_plp_set id plp =
-  let body = Cbuffer.create sizeof_cmd_plp_set in
-  let () = set_cmd_plp_set_plp_id body plp in
-  to_msg ~msg_code:(0x60 lor id) ~body
-
-let of_rsp_plp_set_exn msg =
-  { lock = int_to_bool8 (get_rsp_plp_set_lock msg) |> CCOpt.get_exn |> bool_of_bool8
-  ; plp  = get_rsp_plp_set_plp msg
-  }
-
+include Board_dvb_parser
+   
 (* Board protocol implementation *)
 
-let (detect : response request) = Req_devinfo
+type 'a probe = { send : (unit -> unit Lwt.t)
+                ; pred : ('a -> bool)
+                }
+      
+let period = 50
 
-let (init : response request list) = [ Req_settings (0, { mode = T2
-                                                        ; bw   = Bw8
-                                                        ; freq = 586000000l
-                                                        ; plp  = 0})
-                                     (* ; Req_settings (1, { mode = T2 *)
-                                     (*                    ; bw   = Bw8 *)
-                                     (*                    ; freq = 586000000l *)
-                                     (*                    ; plp  = 0}) *)
-                                     (* ; Req_settings (2, { mode = T2 *)
-                                     (*                    ; bw   = Bw8 *)
-                                     (*                    ; freq = 586000000l *)
-                                     (*                    ; plp  = 0}) *)
-                                     (* ; Req_settings (3, { mode = T2 *)
-                                     (*                    ; bw   = Bw8 *)
-                                     (*                    ; freq = 586000000l *)
-                                     (*                    ; plp  = 0}) *)]
+let (detect : _ request) = Devinfo
 
-let probes = function
-  | Devinfo config -> List.map (fun x -> Req_measure x) config.modules
-  (* @ List.map (fun x -> Req_plps x) config.modules *)
-  | _ -> failwith "wrong probes resp"
+let (init : _ request list) = [ Settings (0, { mode = T2
+                                             ; bw   = Bw8
+                                             ; freq = 586000000l
+                                             ; plp  = 0})
+                              ; Settings (1, { mode = T2
+                                             ; bw   = Bw8
+                                             ; freq = 586000000l
+                                             ; plp  = 0})
+                              ; Settings (2, { mode = T2
+                                             ; bw   = Bw8
+                                             ; freq = 586000000l
+                                             ; plp  = 0})
+                              ; Settings (3, { mode = T2
+                                             ; bw   = Bw8
+                                             ; freq = 586000000l
+                                             ; plp  = 0})]
+                            
+let measure_probes (send_ev : 'a event_request -> unit Lwt.t) config =
+  List.map (fun x ->
+      { send = (fun () -> send_ev @@ Measure x)
+      ; pred = (function `Measure (id,_) when id = x -> true | _ -> false)
+    })
+    config.modules
 
-let period = 5
+let plp_probes (send_ev : 'a event_request -> unit Lwt.t) config =
+  List.map (fun x ->
+      { send = (fun () -> send_ev @@ Plps x)
+      ; pred = (function `Plps (id,_) when id = x -> true | _ -> false)
+    })
+    config.modules                 
+  
+module SM = struct
 
-let serialize : type a. a request -> Cbuffer.t = function
-  | Req_devinfo              -> to_req_devinfo false
-  | Reset                    -> to_req_devinfo true
-  | Req_settings (id,x)      -> to_req_settings id x
-  | Req_measure id           -> to_req_measure id
-  | Req_plps id              -> to_req_plp_list id
-  | Req_plp_setting (id,plp) -> to_req_plp_set id plp
+  exception Timeout
 
-let deserialize buf =
-  (* split buffer into valid messages and residue (if any) *)
-  let parse_msg = fun msg ->
-    try
-      let id       = (get_prefix_msg_code msg) land 0x0F in
-      let code     = (get_prefix_msg_code msg) land 0xF0 in
-      let (_,msg') = Cbuffer.split msg sizeof_prefix in
-      let (body,_) = Cbuffer.split msg' ((Cbuffer.len msg') - sizeof_suffix) in
-      (match (id,code) with
-       | 0xE,0xE0 -> `R (Ack : response)
-       | _,0x10   -> `R (Devinfo (of_rsp_devinfo_exn body) : response)
-       | _,0x20   -> `R (Settings (id, (of_rsp_settings_exn body)) : response)
-       | _,0x30   -> `E (Measure (id, (of_rsp_measure_exn body)) : event)
-       | _,0x50   -> `E (Plps (id, (of_rsp_plp_list_exn body)) : event)
-       | _,0x60   -> `R (Plp_setting (id, (of_rsp_plp_set_exn body)) : response)
-       | _        -> Lwt_io.printf "\n\n !!! Unknown message !!! \n\n" |> ignore; `N)
-    with _ -> Lwt_io.printf "\n\n !!! Corrupted message !!! \n\n" |> ignore; `N in
-  let rec f events responses b =
-    if Cbuffer.len b > (sizeof_prefix + 1 + sizeof_suffix)
-    then (match check_msg b with
-          | Ok x    -> let len     = ((get_prefix_length x) - 1) + sizeof_prefix + sizeof_suffix in
-                       let msg,res = Cbuffer.split x len in
-                       msg
-                       |> parse_msg
-                       |> (function
-                           | `E x   -> f (x::events) responses res
-                           | `R x   -> f events (x::responses) res
-                           | `N     -> f events responses res)
-          | Error _ -> let _,res = Cbuffer.split b 1 in
-                       f events responses res)
-    else List.rev events, List.rev responses, b in
-  let events, responses, res = f [] [] buf in
-  events, responses, if Cbuffer.len res > 0 then Some res else None
+  type event = [ `Measure of (int * Cbuffer.t)
+               | `Plps    of (int * Cbuffer.t)
+               ]
+                           
+  module Event_probe = struct
+    type t = { timeout : int
+             ; timer   : int
+             ; point   : int
+             ; reqs    : event probe array
+             }
 
-let is_response (type a) (req: a request) (resp: a) =
-  match req, resp with
-  | Req_devinfo, Devinfo _                                      -> Some resp
-  | Reset , Ack                                                 -> Some resp
-  | Req_settings (id, _), Settings (ids, _)       when id = ids -> Some resp
-  | Req_plp_setting (id, _), Plp_setting (ids, _) when id = ids -> Some resp
-  | Req_measure id, Measure (ids, _)              when id = ids -> Some resp
-  | Req_plps id, Plps (ids, _)                    when id = ids -> Some resp
-  | _ -> None
+    let create tm lst = { timeout = tm; timer = tm; point = 0; reqs = CCArray.of_list lst }
 
-let pp (type a) (req: a request) =
-  let s = (match req with
-           | Req_devinfo -> "req devinfo"
-           | Reset       -> "req reset"
-           | Req_settings _ -> "req settings"
-           | Req_measure  _ -> "req measure"
-           | Req_plps     _ -> "req plps"
-           | Req_plp_setting _ -> "req plp setting") in
-  Lwt_io.printf "%s\n" s |> ignore
+    let current t = t.reqs.(t.point)
+
+    let responsed t = CCList.exists (current t).pred
+
+    let send t = (current t).send
+
+    let step t = let tmr = pred t.timer in
+                 if tmr <= 0 then raise_notrace Timeout
+                 else { t with timer = tmr }
+
+    let next t = { t with point = ((succ t.point) mod (Array.length t.reqs)); timer = t.timeout }
+  end
+
+  let wakeup_timeout = fun (_, f) -> f None |> ignore
+
+  type push_events = { measure : (int * rsp_measure) -> unit
+                     ; plps    : (int * rsp_plp_list) -> unit
+                     }
+
+  let event_push pe = function
+    | `Measure (id, buf) -> pe.measure (id, of_rsp_measure_exn buf)
+    | `Plps    (id, buf) -> pe.plps (id, of_rsp_plp_list_exn buf)
+
+  let send_msg (type a) sender (msg : a request) : unit Lwt.t =
+    match msg with
+    | Devinfo    -> sender @@ (to_req_devinfo false)
+    | Reset      -> sender @@ (to_req_devinfo true)
+    | Settings (id, buf) -> sender @@ (to_req_settings id buf)
+    | Plp_setting (id, buf) -> sender @@ (to_req_plp_set id buf)
+                             
+  let send_event (type a) sender (msg : a event_request) : unit Lwt.t =
+    (* no instant msgs *)
+    match msg with
+    | Measure id -> sender @@ to_req_measure id
+    | Plps    id -> sender @@ to_req_plp_list id
+                           
+  let send (type a) msgs sender (msg : a request) : a Lwt.t =
+    (* no instant msgs *)
+    match msg with
+    | Devinfo -> let t, w = Lwt.wait () in
+                 let find_parse = find_parse_devinfo w in
+                 msgs := CCArray.append !msgs [| ref period, find_parse |];
+                 sender (to_req_devinfo false) >>= fun () -> t
+    | Reset ->   let t, w = Lwt.wait () in
+                 let find_parse = find_parse_reset w in
+                 msgs := CCArray.append !msgs [| ref period, find_parse |];
+                 sender (to_req_devinfo true) >>= fun () -> t
+    | Settings (id, buf) -> let t, w = Lwt.wait () in
+                            let find_parse = find_parse_settings w id in
+                            msgs := CCArray.append !msgs [| ref period, find_parse |];
+                            sender (to_req_settings id buf) >>= fun () -> t
+    | Plp_setting (id, buf) -> let t, w = Lwt.wait () in
+                               let find_parse = find_parse_plp_settings w id in
+                               msgs := CCArray.append !msgs [| ref period, find_parse |];
+                               sender (to_req_plp_set id buf) >>= fun () -> t
+    
+  let initial_timeout = -1
+                      
+  let step msgs sender push_state push_events =
+    let push_events  = event_push push_events in
+    let send_detect  = fun () -> send_msg sender detect in
+    let find_parse_detect = CCList.find_map (function `Devinfo buf -> Some (of_rsp_devinfo_exn buf)
+                                                    | _ -> None) in
+    
+    let rec step_detect timeout acc recvd =
+      Lwt_io.printf "Detect step\n" |> ignore;
+      let recvd = Board_meta.concat_acc acc recvd in
+      let _, responses, acc = deserialize recvd in
+      let det = find_parse_detect responses in
+      match det with
+      | Some detect -> step_start_init (List.append
+                                          (plp_probes (send_event sender) detect)
+                                          (measure_probes (send_event sender) detect))
+      | _           -> if timeout < 0
+                       then (send_detect () |> ignore; `Continue (step_detect period acc))
+                       else `Continue (step_detect (pred timeout) acc)
+
+    and step_start_init probes =
+      match init with
+      | [] -> let probes = Event_probe.create period probes in
+              Event_probe.send probes () |> ignore;
+              `Continue (step_normal probes None)
+      | x::tl -> send_msg sender x |> ignore;
+                 `Continue (step_init period x tl probes None)
+                 
+    and step_init timeout prev_req reqs probes acc recvd =
+      Lwt_io.printf "Init step\n" |> ignore;
+      let recvd = Board_meta.concat_acc acc recvd in
+      let _, responses, acc = deserialize recvd in
+      let init = CCList.find_pred (is_response prev_req) responses in
+      match init with
+      | None    -> if timeout < 0
+                   then (step_detect initial_timeout None [])
+                   else `Continue (step_init (pred timeout) prev_req reqs probes acc)
+      | Some _  ->
+         match reqs with
+         | []    -> push_state `Fine;
+                    let probes = Event_probe.create period probes in
+                    Event_probe.send probes () |> ignore;
+                    `Continue (step_normal probes acc)
+         | x::tl -> send_msg sender x |> ignore;
+                    `Continue (step_init period x tl probes acc)
+                    
+    and step_normal probes acc recvd =
+      Lwt_io.printf "Normal step\n" |> ignore;
+      let recvd = Board_meta.concat_acc acc recvd in
+      let events, responses, acc = deserialize recvd in
+
+      let lookup_msg (period, f) =
+        let msg = f @@ Some responses in
+        match msg with
+        | None     -> decr period;
+                      if !period <= 0 then raise_notrace Timeout;
+                      Some (period, f)
+        | Some ()  -> None
+      in
+      try
+        msgs := CCArray.filter_map lookup_msg !msgs; (* XXX ?? *)
+        let probes = if not @@ Event_probe.responsed probes events
+                     then Event_probe.step probes
+                     else let next = Event_probe.next probes in
+                          ignore @@ Event_probe.send next ();
+                          next
+        in
+        CCList.iter push_events events;
+        `Continue (step_normal probes acc)
+      with
+      | Timeout -> Array.iter wakeup_timeout !msgs;
+                   msgs := [||];
+                   push_state `No_response;
+                   (step_detect initial_timeout None [])
+    in
+    `Continue (step_detect initial_timeout None)
+    
+  let create sender push_state =
+    let measure, mpush = React.E.create () in
+    let plps, ppush = React.E.create () in
+    let (events : events) = { measure; plps } in
+    let push_events = { measure = mpush; plps = ppush } in
+    let msgs = ref [||] in
+    events,
+    (send msgs sender),
+    (step msgs sender push_state push_events)
+
+end
