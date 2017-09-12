@@ -74,7 +74,7 @@ let topo_to_signal topo boards =
   
 let create config db =
   let topo      = Conf.get config in
-  let usb, loop = Usb_device.create () in
+  let usb, loop = Usb_device.create ~sleep:0.1 () in
   let rec traverse acc = (function
                           | Board b -> List.fold_left (fun a x -> traverse a x.child) (b :: acc) b.ports
                           | Input _ -> acc) in

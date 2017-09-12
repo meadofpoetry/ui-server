@@ -5,7 +5,7 @@ include Board_dvb_parser
    
 (* Board protocol implementation *)
       
-let period = 5
+let period = 50
 
 let (detect : _ request) = Devinfo
 
@@ -68,13 +68,15 @@ module SM = struct
 
     let create tm lst = { timeout = tm; timer = tm; point = 0; reqs = CCArray.of_list lst }
                       
-    let responsed t = CCList.find_pred (is_event t.reqs.(t.point))
+    let responsed t = CCList.exists (is_event t.reqs.(t.point))
+
+    let current t = t.reqs.(t.point)
 
     let step t = let tmr = pred t.timer in
                  if tmr <= 0 then raise_notrace Timeout
                  else { t with timer = tmr }
 
-    let next t = { t with point = (succ t.point) mod CCArray.length t.reqs; timer = t.timeout }
+    let next t = { t with point = ((succ t.point) mod (Array.length t.reqs)); timer = t.timeout }
   end
 
   let wakeup_timeout = fun (_,_,waker) -> Lwt.wakeup_exn waker (Failure "timeout")
@@ -100,31 +102,12 @@ module SM = struct
     (* no instant msgs *)
     sender (serialize msg)
 
-  let send_probes_init sender probes =
-    CCList.map (fun p -> sender (serialize p)
-                         >>= fun () -> Lwt.return (period, p))
-      probes
-    
-  let send_probes sender events recvd =
-    CCList.map (fun st -> st >>= fun (t, req) ->
-                          match CCList.find_pred (is_event req) recvd with
-                          | None   -> if t <= 0 then raise_notrace Timeout else Lwt.return (pred t, req)
-                          | Some _ -> let s = match req with
-                                        | Plps id -> Printf.sprintf "Got resp from %d PLPS\n" id
-                                        | Measure id -> Printf.sprintf "Got resp from %d MEASURES\n" id
-                                      in Lwt_io.print s
-                                         >>= fun () ->
-                                         sender (serialize req)
-                                         >>= fun () -> Lwt.return (period, req))
-      events
-
   let initial_timeout = -1
                       
   let step msgs sender push_state push_events =
     let push_events  = event_push push_events in
     let send_detect  = fun () -> send_msg sender detect in
-    let send_probes_init = send_probes_init sender in
-    let send_probes      = send_probes sender in
+    let send_event   = send_event sender in
     
     let rec step_detect timeout acc recvd =
       Lwt_io.printf "Detect step\n" |> ignore;
@@ -139,7 +122,9 @@ module SM = struct
 
     and step_start_init probes =
       match init with
-      | [] -> `Continue (step_normal (send_probes_init probes) None)
+      | [] -> let probes = Event_probe.create period probes in
+              send_event (Event_probe.current probes) |> ignore;
+              `Continue (step_normal probes None)
       | x::tl -> send_msg sender x |> ignore;
                  `Continue (step_init period x tl probes None)
                  
@@ -155,11 +140,13 @@ module SM = struct
       | Some _  ->
          match reqs with
          | []    -> push_state `Fine;
-                    `Continue (step_normal (send_probes_init probes) acc)
+                    let probes = Event_probe.create period probes in
+                    send_event (Event_probe.current probes) |> ignore;
+                    `Continue (step_normal probes acc)
          | x::tl -> send_msg sender x |> ignore;
                     `Continue (step_init period x tl probes acc)
                     
-    and step_normal probe_state acc recvd =
+    and step_normal probes acc recvd =
       Lwt_io.printf "Normal step\n" |> ignore;
       let recvd = Board_meta.concat_acc acc recvd in
       let events, responses, acc = deserialize recvd in
@@ -168,15 +155,20 @@ module SM = struct
         let msg = CCList.find_pred (is_response req) responses in
         match msg with
         | None     -> decr period;
-                      if !period <= 0 then (Lwt_io.printf "msg\n" |> ignore; raise_notrace Timeout);
+                      if !period <= 0 then raise_notrace Timeout;
                       Some (period, req, waker)
         | Some msg -> Lwt.wakeup waker msg; None
       in
       try
         msgs := CCArray.filter_map lookup_msg !msgs; (* XXX ?? *)
-        let probe_state = send_probes probe_state events in
+        let probes = if not @@ Event_probe.responsed probes events
+                     then Event_probe.step probes
+                     else let next = Event_probe.next probes in
+                          ignore @@ send_event @@ Event_probe.current next;
+                          next
+        in
         CCList.iter push_events events;
-        `Continue (step_normal probe_state acc)
+        `Continue (step_normal probes acc)
       with
       | Timeout -> Array.iter wakeup_timeout !msgs;
                    msgs := [||];

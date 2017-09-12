@@ -371,7 +371,8 @@ let deserialize buf =
                            | `E x   -> f (x::events) responses res
                            | `R x   -> f events (x::responses) res
                            | `N     -> f events responses res)
-          | Error _ -> let _,res = Cbuffer.split b 1 in
+          | Error e -> let _,res = Cbuffer.split b 1 in
+                       Lwt_io.printf "\n\n !!! Error %s !!! \n\n" (string_of_err e) |> ignore;
                        f events responses res)
     else List.rev events, List.rev responses, b in
   let events, responses, res = f [] [] buf in
