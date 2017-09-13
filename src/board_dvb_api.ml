@@ -13,9 +13,3 @@ let handlers id send _ _ _ =
        let domain = Common.Hardware.get_api_path id
        let handle = handle send ()
      end : Api_handler.HANDLER) ]
-
-                                                           (* (match P.make_req ("settings", Some body) with *)
-                                                           (* | Error e -> Interaction.respond_error e () *)
-                                                           (* | Ok req  -> send req *)
-                                                           (*              >>= fun resp -> *)
-                                                           (*              Interaction.respond_js (P.to_yojson resp) ()) *)

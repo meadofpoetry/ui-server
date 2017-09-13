@@ -5,24 +5,16 @@ open Board_meta
 
 module V1 : BOARD = struct
 
-  module Protocol = Board_ip_protocol
+  type 'a request = 'a Board_ip_protocol.request
 
-  type event = Protocol.event
-  type response = Protocol.response
-  type 'a request = 'a Protocol.request
-                  
-  module Messenger = Board_meta.Make(Protocol)
-  module Board_api = Board_ip_api.Make(Protocol)
+  let create_sm = Board_ip_protocol.SM.create
 
   let create (b:topo_board) send =
     Lwt_io.printf "in ip create\n" |> ignore;
-    let e_msgs,  push = React.E.create () in
     let s_state, spush = React.S.create `No_response in
-    let send_resp, send_inst, step = Messenger.create send spush push in
-    let handlers = Board_api.handlers b.control send_resp send_inst s_state e_msgs in
-    let e_probes = React.E.map (fun _ -> ())
-                               e_msgs in
-    let state = object method e_msgs = e_msgs; method e_probes = e_probes  end in
+    let events, send, step = create_sm send spush in
+    let handlers = Board_ip_api.handlers b.control send events s_state s_state in
+    let state = object  end in
     { handlers       = handlers
     ; control        = b.control
     ; connection     = s_state

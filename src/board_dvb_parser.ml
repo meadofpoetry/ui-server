@@ -318,16 +318,14 @@ let of_rsp_plp_set_exn msg =
 let deserialize buf =
   (* split buffer into valid messages and residue (if any) *)
   let parse_msg = fun {id;code;body;_} ->
-    try
-      (match (id,code) with
-       | 0xE,0xE0 -> `R `Ack
-       | 0,1      -> `R (`Devinfo body)
-       | _,2      -> `R (`Settings (id, body))
-       | _,3      -> `E (`Measure (id, body))
-       | _,5      -> `E (`Plps (id, body))
-       | _,6      -> `R (`Plp_setting (id, body))
-       | _        -> `N)
-    with _ -> `N in
+    match (id,code) with
+    | 0xE,0xE0 -> `R `Ack
+    | 0,1      -> `R (`Devinfo body)
+    | _,2      -> `R (`Settings (id, body))
+    | _,3      -> `E (`Measure (id, body))
+    | _,5      -> `E (`Plps (id, body))
+    | _,6      -> `R (`Plp_setting (id, body))
+    | _        -> `N in
   let rec f events responses b =
     if Cbuffer.len b > (sizeof_prefix + 1 + sizeof_suffix)
     then (match check_msg b with

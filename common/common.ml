@@ -23,4 +23,6 @@ module Board = struct
   module Dvb = Common__board_dvb
 
   module Qos = Common__board_qos
+
+  module Ip  = Common__board_ip
 end

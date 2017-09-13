@@ -20,14 +20,14 @@ let (init : _ request list) = [ Settings (0, { mode = T2
                               ; Settings (1, { mode = T2
                                              ; bw   = Bw8
                                              ; freq = 586000000l
-                                             ; plp  = 0})
+                                             ; plp  = 1})
                               ; Settings (2, { mode = T2
                                              ; bw   = Bw8
                                              ; freq = 586000000l
-                                             ; plp  = 0})
+                                             ; plp  = 2})
                               ; Settings (3, { mode = T2
                                              ; bw   = Bw8
-                                             ; freq = 586000000l
+                                             ; freq = 666000000l
                                              ; plp  = 0})]
                             
 let measure_probes (send_ev : 'a event_request -> unit Lwt.t) config =
@@ -145,7 +145,7 @@ module SM = struct
               `Continue (step_normal probes None)
       | x::tl -> send_msg sender x |> ignore;
                  `Continue (step_init period x tl probes None)
-                 
+
     and step_init timeout prev_req reqs probes acc recvd =
       Lwt_io.printf "Init step\n" |> ignore;
       let recvd = Board_meta.concat_acc acc recvd in
