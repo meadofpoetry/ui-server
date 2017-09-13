@@ -345,35 +345,36 @@ let try_parse f x =
   try Some (f x)
   with _ -> None
 
-let find_parse_devinfo w =
-  let find   = function `Devinfo buf -> Some buf | _ -> None in
-  let parser buf = Lwt.wakeup w (of_rsp_devinfo_exn buf) (* fix exn *) in
-  function Some l -> CCOpt.(CCList.find_map find l >>= (fun x -> try_parse parser x))
-         | None   -> Lwt.wakeup_exn w (Failure ""); None
+let parse_devinfo = function
+  | `Devinfo buf -> try_parse of_rsp_devinfo_exn buf
+  | _ -> None
 
-let find_parse_reset w =
-  let find   = function `Ack -> Some () | _ -> None in
-  function Some l -> CCOpt.(CCList.find_map find l >|= Lwt.wakeup w)
-         | None   -> Lwt.wakeup_exn w (Failure ""); None
+let parse_reset = function `Ack -> Some () | _ -> None
 
-let find_parse_settings w id =
-  let find   = function `Settings (idx, buf) when idx = id -> Some buf | _ -> None in
-  let parser buf = Lwt.wakeup w (id, (of_rsp_settings_exn buf)) (* fix exn *) in
-  function Some l -> CCOpt.(CCList.find_map find l >>= (fun x -> try_parse parser x))
-         | None   -> Lwt.wakeup_exn w (Failure ""); None
+let parse_settings id = function
+  | `Settings (idx, buf) when idx = id -> try_parse (fun b -> id, (of_rsp_settings_exn b)) buf
+  | _ -> None
 
-let find_parse_plp_settings w id =
-  let parser buf = Lwt.wakeup w (id, (of_rsp_plp_set_exn buf)) (* fix exn *) in
-  let find   = function `Plp_settings (idx, buf) when idx = id -> Some buf | _ -> None in
-  function Some l -> CCOpt.(CCList.find_map find l >>= (fun x -> try_parse parser x))
-         | None   -> Lwt.wakeup_exn w (Failure ""); None
+let parse_plp_settings id = function
+  | `Plp_settings (idx, buf) when idx = id -> try_parse (fun b -> id, (of_rsp_plp_set_exn b)) buf
+  | _ -> None
 
-(* remove later *)
-                     
-let is_response (type a) (msg : a request) rsp =
-  match msg, rsp with
-  | Reset, `Ack -> true
-  | Devinfo, `Devinfo _ -> true
-  | Settings (id,_), `Settings (idx,_) when id = idx -> true
-  | Plp_setting (id,_), `Plp_setting (idx,_) when id = idx -> true
-  | _ -> false
+let parse_measures id = function
+  | `Measure (idx, buf) when idx = id -> try_parse (fun b -> id, (of_rsp_measure_exn b)) buf
+  | _ -> None
+
+let parse_plps id = function
+  | `Plps (idx, buf) when idx = id -> try_parse (fun b -> id, (of_rsp_plp_list_exn b)) buf
+  | _ -> None
+                   
+let is_response (type a) (req : a request) msg : a option =
+  match req with
+  | Reset              -> parse_reset msg
+  | Devinfo            -> parse_devinfo msg
+  | Settings (id,_)    -> parse_settings id msg
+  | Plp_setting (id,_) -> parse_plp_settings id msg
+
+let is_event (type a) (req : a event_request) msg : unit option =
+  match req with
+  | Measure id  -> CCOpt.(parse_measures id msg >>= fun _ -> Some ())
+  | Plps id     -> CCOpt.(parse_plps id msg     >>= fun _ -> Some ())

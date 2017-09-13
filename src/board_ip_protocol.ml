@@ -7,7 +7,7 @@ include Board_ip_parser
 
 let period = 50
 
-let (detect : _ request) = Devinfo Get_fpga_ver
+let (detect : _ request list) = [ Devinfo Get_fpga_ver ]
 
 let (init : _ request list ) = []
 
