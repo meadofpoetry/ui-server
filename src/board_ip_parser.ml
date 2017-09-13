@@ -48,7 +48,7 @@
 type _ devinfo =
   | Get_fpga_ver : int devinfo
   | Get_hw_ver   : int devinfo
-  | Get_fw_ver   : float devinfo
+  | Get_fw_ver   : int devinfo
   | Get_serial   : int devinfo
   | Get_type     : int devinfo
 
@@ -58,10 +58,16 @@ type storage     = Flash | Ram
 
 let mode_to_int = function
   | Asi2ip -> 0 | Ip2asi -> 1
+let mode_of_int = function
+  | 0 -> Some Asi2ip | 1 -> Some Ip2asi | _ -> None
 let application_to_int = function
   | Failsafe -> 0 | Normal -> 1
+let application_of_int = function
+  | 0 -> Some Failsafe | 1 -> Some Normal | _ -> None
 let storage_to_int = function
   | Flash -> 0 | Ram -> 1
+let storage_of_int = function
+  | 0 -> Some Flash | 1 -> Some Ram | _ -> None
 
 type _ overall =
   | Get_mode        : mode overall
@@ -84,7 +90,7 @@ type _ nw =
   | Get_mac     : Macaddr.t nw
 
 type meth      = Unicast | Multicast
-type status    = Enabled | Disalbed | Failure
+type status    = Enabled | Disabled | Failure
 type protocol  = Udp | Rtp
 type output    = Asi | Spi
 type packet_sz = Ts188 | Ts204
@@ -92,8 +98,20 @@ type rate_mode = On | Fixed | Without_pcr | Off
 
 let meth_to_int = function
   | Unicast -> 0 | Multicast -> 1
+let meth_of_int = function
+  | 0 -> Some Unicast | 1 -> Some Multicast | _ -> None
 let rate_mode_to_int = function
   | On -> 0 | Fixed -> 1 | Without_pcr -> 2 | Off -> 3
+let rate_mode_of_int = function
+  | 0 -> Some On | 1 -> Some Fixed | 2 -> Some Without_pcr | 3 -> Some Off | _ -> None
+let status_of_int = function
+  | 0 -> Some Enabled | 1 -> Some Disabled | 2 -> Some Failure | _ -> None
+let protocol_of_int = function
+  | 0 -> Some Udp | 1 -> Some Rtp | _ -> None
+let output_of_int = function
+  | 0 -> Some Asi | 1 -> Some Spi | _ -> None
+let packet_sz_of_int = function
+  | 0 -> Some Ts188 | 1 -> Some Ts204 | _ -> None
 
 type _ ip =
   | Get_method           : meth ip
@@ -132,10 +150,9 @@ type asi_packet_sz = Sz of packet_sz
                    | As_is
 
 let asi_packet_sz_to_int = function
-  | Sz x  -> (match x with
-             | Ts188 -> 0
-             | Ts204 -> 1)
-  | As_is -> 2
+  | Sz Ts188 -> 0 | Sz Ts204 -> 1 | As_is -> 2
+let asi_packet_sz_of_int = function
+  | 0 -> Some (Sz Ts188) | 1 -> Some (Sz Ts204) | 2 -> Some (As_is) | _ -> None
 
 type _ asi =
   | Get_packet_size : asi_packet_sz asi
@@ -266,10 +283,19 @@ let to_cbuffer x =
   let hs = to_hex_string x in
   Cbuffer.create (String.length hs) |> fun b -> f hs 0 b; b
 
+let try_parse f x             = try Some (f x) with _ -> None
 let hex_string_of_ascii_buf x = "0x" ^ (Cbuffer.to_string x)
-let int_of_ascii_buf x        = hex_string_of_ascii_buf x |> int_of_string
-let int32_of_ascii_buf x      = hex_string_of_ascii_buf x |> Int32.of_string
-let int64_of_ascii_buf x      = hex_string_of_ascii_buf x |> Int64.of_string
+let parse_int_exn x           = hex_string_of_ascii_buf x |> int_of_string
+let parse_int32_exn x         = hex_string_of_ascii_buf x |> Int32.of_string
+let parse_int64_exn x         = hex_string_of_ascii_buf x |> Int64.of_string
+let parse_ipaddr_exn x        = parse_int32_exn x |> Ipaddr.V4.of_int32
+let parse_bool_exn x          = parse_int_exn x
+                                |> function | 0 -> false | 1 -> true | _ -> failwith "bad bool value"
+let parse_int                 = try_parse parse_int_exn
+let parse_int32               = try_parse parse_int32_exn
+let parse_int64               = try_parse parse_int64_exn
+let parse_ipaddr              = try_parse parse_ipaddr_exn
+let parse_bool                = try_parse parse_bool_exn
 
 (* -------------------- Message constructors ------------------*)
 
@@ -307,22 +333,22 @@ let to_msg ~request ~rw ~body () =
 let to_empty_msg ~request ~rw =
   to_msg ~request ~rw ~body:(Cbuffer.create 0)
 
-let to_req_get ~request =
+let to_req_get request =
   to_empty_msg ~request ~rw:Read ()
 
-let to_req_set_bool ~request b =
+let to_req_set_bool request b =
   to_msg ~request ~rw:Write ~body:(to_cbuffer (`I8 (if b then 1 else 0))) ()
 
-let to_req_set_int8 ~request x =
+let to_req_set_int8 request x =
   to_msg ~request ~rw:Write ~body:(to_cbuffer (`I8 x)) ()
 
-let to_req_set_int16 ~request x =
+let to_req_set_int16 request x =
   to_msg ~request ~rw:Write ~body:(to_cbuffer (`I16 x)) ()
 
-let to_req_set_int32 ~request x =
+let to_req_set_int32 request x =
   to_msg ~request ~rw:Write ~body:(to_cbuffer (`I32 x)) ()
 
-let to_req_set_ipaddr ~request ip =
+let to_req_set_ipaddr request ip =
   to_msg ~request ~rw:Write ~body:(to_cbuffer (`I32 (Ipaddr.V4.to_int32 ip))) ()
 
 (* ----------------- Message deserialization ---------------- *)
@@ -355,17 +381,17 @@ let check_stx buf =
   if stx <> stx' then Error (Bad_stx stx') else Ok buf
 
 let check_address buf =
-  let address' = get_prefix_address buf |> int_of_ascii_buf in
+  let address' = get_prefix_address buf |> parse_int_exn in
   if address' <> address then Error (Bad_address address') else Ok buf
 
 let check_category buf =
-  let category' = get_prefix_category buf |> int_of_ascii_buf in
+  let category' = get_prefix_category buf |> parse_int_exn in
   match category' with
   | 0x01 | 0x02 | 0x03 | 0x81 | 0x84 -> Ok (category',buf)
   | _    -> Error (Bad_category category')
 
 let check_setting (cat,buf) =
-  let setting' = get_prefix_setting buf |> int_of_ascii_buf in
+  let setting' = get_prefix_setting buf |> parse_int_exn in
   match cat,setting' with
   | 0x01, x when x > 0 && x <= 0x05 -> Ok (cat,setting',buf)
   | 0x02, x when x > 0 && x <= 0x03 -> Ok (cat,setting',buf)
@@ -388,7 +414,7 @@ let check_rest (cat,set,rw,buf) =
                  else sizeof_prefix - sizeof_setting16 in
   let pfx,msg' = Cbuffer.split buf pfx_len in
   let body,sfx = Cbuffer.split msg' length in
-  let crc      = get_suffix_crc sfx |> int_of_ascii_buf in
+  let crc      = get_suffix_crc sfx |> parse_int_exn in
   let crc'     = calc_crc (Cbuffer.append pfx body) in
   if crc' <> crc then Error (Bad_crc (crc', crc))
   else Ok (cat,set,rw,body)
@@ -406,28 +432,92 @@ let get_msg buf =
   | e -> Error (Unknown_err (Printexc.to_string e))
 
 let deserialize buf =
-  let parse_msg = fun (cat,set,rw,body) ->
-    match cat with
-    | 0x01 -> `R (`Devinfo (set,rw,body))
-    | 0x02 -> `R (`Overall (set,rw,body))
-    | 0x03 -> `R (`Nw (set,rw,body))
-    | 0x81 -> `R (`Ip (set,rw,body))
-    | 0x84 -> `R (`Asi (set,rw,body))
-    | _    -> `N in
+  let parse = fun ((_,_,rw,_) as x) ->
+    match rw with
+    | Read | Write -> `Ok x
+    | Fail         -> `Error x in
   let parts = Cbuffer.split_by_string (String.make 1 (char_of_int etx)) buf in
   let rec f =
     fun acc x -> match x with
                  | []       -> acc, None
                  | [x]      -> (match get_msg x with
-                                | Ok msg  -> (match parse_msg msg with
-                                              | `R r -> r :: acc, None
-                                              | `N   -> acc, None)
+                                | Ok msg  -> (parse msg) :: acc, None
                                 | Error e -> (match e with
                                               | Insufficient_payload res -> acc, Some res
                                               | _                        -> acc, None))
                  | hd :: tl -> (match get_msg hd with
-                                | Ok msg  -> (match parse_msg msg with
-                                              | `R r -> f (r :: acc) tl
-                                              | `N   -> f acc tl)
+                                | Ok msg  -> f ((parse msg) :: acc) tl
                                 | Error _ -> f acc tl) in
   let r,res = f [] parts in (List.rev r, res)
+
+let is_response (type a) (req : a request) m : a option =
+  match m with
+  | `Ok (cat,set,_,b) ->
+     let c,s = request_to_cat_set req in
+     if c <> cat || s <> set then None
+     else (match req with
+           | Devinfo x -> let i = parse_int b in
+                          (match x with
+                           | Get_fpga_ver -> i
+                           | Get_hw_ver   -> i
+                           | Get_fw_ver   -> i
+                           | Get_serial   -> i
+                           | Get_type     -> i)
+           | Overall x -> let i = parse_int b in
+                          let open CCOpt.Infix in
+                          (match x with
+                           | Get_mode          -> i >>= mode_of_int
+                           | Get_application   -> i >>= application_of_int
+                           | Get_storage       -> i >>= storage_of_int
+                           | Set_mode _        -> i >>= mode_of_int
+                           | Set_application _ -> i >>= application_of_int
+                           | Set_storage _     -> i >>= storage_of_int)
+           | Nw x      -> (match x with
+                           | Get_ip        -> parse_ipaddr b
+                           | Get_mask      -> parse_ipaddr b
+                           | Get_gateway   -> parse_ipaddr b
+                           | Get_dhcp      -> parse_bool b
+                           | Get_mac       -> Macaddr.of_bytes (Cbuffer.to_string b)
+                           | Set_ip _      -> parse_ipaddr b
+                           | Set_mask _    -> parse_ipaddr b
+                           | Set_gateway _ -> parse_ipaddr b
+                           | Set_dhcp _    -> parse_bool b
+                           | Reboot        -> Some ())
+           | Ip x      -> (match x with
+                           | Get_method          -> CCOpt.(parse_int b >>= meth_of_int)
+                           | Get_enable          -> parse_bool b
+                           | Get_fec_delay       -> parse_int b
+                           | Get_fec_enable      -> parse_bool b
+                           | Get_fec_cols        -> parse_int b
+                           | Get_fec_rows        -> parse_int b
+                           | Get_jitter_tol      -> parse_int b
+                           | Get_lost_after_fec  -> parse_int64 b
+                           | Get_lost_before_fec -> parse_int64 b
+                           | Get_udp_port        -> parse_int b
+                           | Get_delay           -> parse_int b
+                           | Get_mcast_addr      -> parse_ipaddr b
+                           | Get_tp_per_ip       -> parse_int b
+                           | Get_status          -> CCOpt.(parse_int b >>= status_of_int)
+                           | Get_protocol        -> CCOpt.(parse_int b >>= protocol_of_int)
+                           | Get_output          -> CCOpt.(parse_int b >>= output_of_int)
+                           | Get_packet_size     -> CCOpt.(parse_int b >>= packet_sz_of_int)
+                           | Get_bitrate         -> parse_int b
+                           | Get_pcr_present     -> parse_bool b
+                           | Get_rate_change_cnt -> parse_int32 b
+                           | Get_rate_est_mode   -> CCOpt.(parse_int b >>= rate_mode_of_int)
+                           | Get_jitter_err_cnt  -> parse_int32 b
+                           | Get_lock_err_cnt    -> parse_int32 b
+                           | Get_delay_factor    -> parse_int32 b
+                           | Set_method _        -> CCOpt.(parse_int b >>= meth_of_int)
+                           | Set_enable _        -> parse_bool b
+                           | Set_fec_enable _    -> parse_bool b
+                           | Set_udp_port _      -> parse_int b
+                           | Set_delay _         -> parse_int b
+                           | Set_mcast_addr _    -> parse_ipaddr b
+                           | Set_rate_est_mode _ -> CCOpt.(parse_int b >>= rate_mode_of_int))
+           | Asi x     -> (match x with
+                           | Get_packet_size   -> CCOpt.(parse_int b >>= asi_packet_sz_of_int)
+                           | Get_bitrate       -> parse_int32 b
+                           | Set_packet_size _ -> CCOpt.(parse_int b >>= asi_packet_sz_of_int)))
+  | `Error _ -> None
+  | _        -> None
