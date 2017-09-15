@@ -120,6 +120,13 @@ let string_of_err = function
 type events = { measure : (int * rsp_measure) React.event
               }
 
+type api = { devinfo     : unit -> devinfo_response Lwt.t
+           ; reset       : unit -> unit Lwt.t
+           ; settings    : settings_request -> settings_response Lwt.t
+           ; plp_setting : plp_setting_request -> plp_setting_response Lwt.t
+           ; plps        : int -> plp_list_response Lwt.t
+           }
+
 type _ request = Devinfo     : rsp_devinfo request
                | Reset       : unit request
                | Settings    : (int * settings) -> (int * rsp_settings) request
