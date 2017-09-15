@@ -2,43 +2,86 @@ open Gg
 open Vg
 open Tyxml
 
-type element = { img   : I.t React.signal
+type element = { img   : I.t
                ; sz    : size2
                ; click : unit -> unit
                }
-  
+
+let font    = Font.{ name = "Roboto+Mono"; slant = `Normal; weight = `W800; size = 1. }
+
+let color_back  = (Color.v_srgbi 230 230 230)
+
+let color_ok  = (Color.v_srgbi 102 204 145)
+                
+let color_err = (Color.v_srgbi 255 55 46)
+
+let draw_input ~text () =
+  let size = Size2.v 1. 0.75 in
+  let black = I.const Color.black in
+  let back  = I.const color_back in
+  let box   = P.empty >> P.rect (Box2.v P2.o size) in
+  let area  = `O { P.o with P.width = 0.002 } in
+  let border = I.cut ~area box black in
+  let filling = I.cut box back in
+  let text    = I.cut_glyphs ~text { font with size = font.size /. 4. } [] black
+                >> I.scale (V2.v 2. 1.) in
+  (filling
+   >> I.blend border
+   >> I.blend text)
+  , size
+                    
+let draw_board ~header ~text ~state () =
+  ignore header;
+  let size = Size2.v 1. 0.75 in
+  let black = I.const Color.black in
+  let indc  = I.const (match state with `Ok -> color_ok | `Err -> color_err) in
+  let back  = I.const color_back in
+  let box   = P.empty >> P.rect (Box2.v P2.o size) in
+  let area  = `O { P.o with P.width = 0.002 } in
+  let cir   = P.empty >> P.circle (P2.v 0.0 0.0) 0.05 in
+  let indbor = I.cut ~area:area cir black in
+  let ind   = I.cut cir indc in
+  let border = I.cut ~area:area box black in
+  let filling = I.cut box back in
+  let text    = I.cut_glyphs ~text { font with size = font.size /. 4. } [] black
+                >> I.scale (V2.v 2. 1.)  in
+  let status  = I.cut_glyphs ~text:"status:" { font with size = font.size /. 8. } [] black
+                >> I.scale (V2.v 2. 1.)  in
+  let indicator = ind >> I.blend indbor in
+  let board     = filling >> I.blend border in
+  (board
+   >> I.blend (I.move (V2.v 0.25 0.25) text)
+   >> I.blend (I.move (V2.v 0.62 0.07) status)
+   >> I.blend (I.move (V2.v 0.9 0.1) indicator))
+  , size
+
 module type ELEMENT = sig
   type t
-  val create : ?sz:size2 -> t -> element
+  val create : t -> element
 end
                     
 module Board_element : ELEMENT with type t := Common.Hardware.topo_board = struct
   open Common.Hardware
-  let create ?(sz = Size2.v 0.04 0.02) b =
-    let rect =
-      let box = Box2.v P2.o sz in
-      I.const Color.blue >> I.cut (P.empty >> P.rect box)
-    in
-    { img   = React.S.const rect
-    ; sz    = sz
+     
+  let create b =
+    let (rect, size) = draw_board ~header:"board" ~text:"1" ~state:`Ok () in
+    { img   = rect
+    ; sz    = size
     ; click = (fun () -> Printf.printf "%d was clicked\n" b.control)
     }
 end
 
 module Input_element : ELEMENT with type t := Common.Hardware.input = struct
   open Common.Hardware
-  let create ?(sz = Size2.v 0.03 0.01) i =
+  let create i =
     let is = match i with
       | RF -> "RF"
       | TSOIP -> "TSOIP"
       | ASI -> "ASI"
     in 
-    let rect =
-      let box = Box2.v P2.o sz in
-      I.const Color.red >> I.cut (P.empty >> P.rect box)
-    in
-    { img   = React.S.const rect
-    ; sz    = sz
+    let (rect, size) = draw_input ~text:is () in
+    { img   = rect
+    ; sz    = size
     ; click = (fun () -> Printf.printf "%s was clicked\n" is)
     }
 end                                                                        
@@ -59,7 +102,7 @@ module Topology = struct
                                                                     ; ports = []});
               V2.v 0.75 0.75, Input_element.create Common.Hardware.(RF)]
 
-  let mark img pt = img >> I.move pt
+  let mark img pt = img >> I.scale (V2.v 0.3 0.3) >> I.move pt
   let blend acc (pt, img) = acc >> I.blend (mark img pt)
 
   let merge_elems c =
@@ -74,7 +117,7 @@ module Topology = struct
                    x >= elx && x <= (elx +. dx) && y >= ely && y <= (ely +. dy)
                  in p, elt.click) test
     in
-    let merge img (pt, elem) = blend img (pt, React.S.value elem.img) in
+    let merge img (pt, elem) = blend img (pt, elem.img) in
     c##.onclick := Dom.handler
                      (fun ev -> let w, h = (c##.offsetWidth, c##.offsetHeight) in
                                 let x, y = int_of_float @@ Js.float_of_number @@ (Js.Unsafe.get ev "offsetX"),

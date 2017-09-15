@@ -9,10 +9,10 @@ module V1 : BOARD = struct
 
   let create_sm = Board_ip_protocol.SM.create
 
-  let create (b:topo_board) send =
+  let create (b:topo_board) send step =
     Lwt_io.printf "in ip create\n" |> ignore;
     let s_state, spush = React.S.create `No_response in
-    let send, step = create_sm send spush in
+    let send, step = create_sm send spush step in
     let handlers = Board_ip_api.handlers b.control send [] s_state s_state in
     let state = object  end in
     { handlers       = handlers

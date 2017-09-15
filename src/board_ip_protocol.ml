@@ -10,8 +10,9 @@ let io x = Lwt_io.printf "%s\n" x |> ignore
 
 (* Board protocol implementation *)
 
-let period = 50
-let reboot_steps = 6
+let timeout_period step_duration = 2 * int_of_float (1. /. step_duration) (* 2 secs *)
+
+let request_period step_duration = 5 * int_of_float (1. /. step_duration) (* 5 secs *)
 
 module SM = struct
 
@@ -78,6 +79,11 @@ module SM = struct
                      | Set_packet_size x -> to_req_set_int8 msg (asi_packet_sz_to_int x)))
     |> sender
 
+  let send_event (type a) sender (msg : a event_request) : unit Lwt.t =
+    (match msg with
+     | _ -> to_req_get_event msg)
+    |> sender
+
   let send msgs sender msg =
     let t, w = Lwt.wait () in
     let pred = function
@@ -87,9 +93,10 @@ module SM = struct
     msgs := Msg_queue.append !msgs { send; pred };
     t
 
-  let initial_timeout = -1
+  let step msgs sender step_duration push_state =
 
-  let step msgs sender push_state =
+    let period = timeout_period step_duration in
+    let reboot_steps = 20 / (int_of_float (step_duration *. (float_of_int period))) in
 
     let find_resp req acc recvd ~success ~failure =
       let responses,acc = deserialize (Board_meta.concat_acc acc recvd) in
@@ -147,14 +154,34 @@ module SM = struct
 
     and step_detect_after_init ns p steps req acc recvd =
       find_resp req acc recvd
-                ~success:(fun _ _ -> (match ns with
-                                      | `Mode -> let r = Overall (Set_application Normal) in
-                                                 send_msg sender r |> ignore;
-                                                 `Continue (step_init_application period r None)
-                                      | `App  -> let r = Overall (Set_storage Ram) in
-                                                 send_msg sender r |> ignore;
-                                                 `Continue (step_init_storage period r None)
-                                      | `Nw   -> `Continue (step_normal None)))
+                ~success:(fun _ _ ->
+                  (match ns with
+                   | `Mode -> let r = Overall (Set_application Normal) in
+                              send_msg sender r |> ignore;
+                              `Continue (step_init_application period r None)
+                   | `App  -> let r = Overall (Set_storage Ram) in
+                              send_msg sender r |> ignore;
+                              `Continue (step_init_storage period r None)
+                   | `Nw   -> let msgs = List.map (fun x -> { send = (fun () -> send_event sender x)
+                                                            ; pred = (is_event x)})
+                                                  [ Get_fec_delay
+                                                  ; Get_fec_cols
+                                                  ; Get_fec_rows
+                                                  ; Get_jitter_tol
+                                                  ; Get_lost_after_fec
+                                                  ; Get_lost_before_fec
+                                                  ; Get_tp_per_ip
+                                                  ; Get_status
+                                                  ; Get_protocol
+                                                  ; Get_packet_size
+                                                  ; Get_bitrate
+                                                  ; Get_pcr_present
+                                                  ; Get_rate_change_cnt
+                                                  ; Get_jitter_err_cnt
+                                                  ; Get_lock_err_cnt
+                                                  ; Get_delay_factor] in
+                              let pool = Msg_pool.create period msgs in
+                              `Continue (step_normal_start pool 0 None)))
                 ~failure:(fun acc -> if p > 0
                                      then `Continue (step_detect_after_init ns (pred p) steps req acc)
                                      else if steps > 0
@@ -222,40 +249,91 @@ module SM = struct
                                      send r; `Continue (step_detect_after_init `Nw period reboot_steps r None))
                 ~failure:(fun acc -> bad_step p (step_finalize_init (pred p) req acc))
 
-    and step_normal acc recvd =
-      Lwt_io.printf "Normal step\n" |> ignore;
-      let recvd = Board_meta.concat_acc acc recvd in
-      let responses, acc = deserialize recvd in
+    and step_normal_start probes_pool period_timer acc _ =
+      io "normal step start";
+      if not @@ Msg_pool.empty probes_pool
+      then Msg_pool.send probes_pool () |> ignore;
+      `Continue (step_normal_probes probes_pool (succ period_timer) acc)
 
+    and step_normal_probes probes_pool period_timer acc recvd =
+      let responses,acc = deserialize (Board_meta.concat_acc acc recvd) in
       try
-        if not @@ Msg_queue.empty !msgs
-        then begin match Msg_queue.responsed !msgs responses with
-             | None    -> msgs := Msg_queue.step !msgs
-             | Some () -> msgs := Msg_queue.next !msgs;
-                          Msg_queue.send !msgs () |> ignore
-             end;
-        (* let probes_pool = if Msg_pool.empty probes_pool *)
-        (*                   then probes_pool *)
-        (*                   else (match Msg_pool.responsed probes_pool events with *)
-        (*                         | None -> Msg_pool.step probes_pool *)
-        (*                         | Some -> let probes_pool = Msg_pool.next probes_pool in *)
-        (*                                   Msg_pool.send probes_pool () |> ignore; *)
-        (*                                   probes_pool) *)
-        (* in *)
-        (* CCList.iter push_events events; *)
-        `Continue (step_normal acc)
-      with
-      | Timeout -> Msg_queue.iter !msgs wakeup_timeout;
-                   msgs := Msg_queue.create period [];
-                   push_state `No_response;
-                   (first_step ())
-    in
-    first_step ()
+        let sent,probes_pool = if Msg_pool.empty probes_pool
+                               then false, probes_pool
+                               else (match Msg_pool.responsed probes_pool events with
+                                     | None    -> false, Msg_pool.step probes_pool
+                                     | Some () -> let probes_pool = Msg_pool.next probes_pool in
+                                                  Msg_pool.send probes_pool () |> ignore;
+                                                  true, probes_pool)
+        in
+        CCList.iter push_events responses;
+        if Msg_pool.last probes_pool
+        then `Continue (step_normal_probes_cleanup sent probes_pool (succ period_timer) acc)
+        else `Continue (step_normal_probes probes_pool (succ period_timer) acc)
+      with Timeout -> first_step ()
 
-  let create sender push_state =
+    and step_normal_probes_cleanup sent probes_pool period_timer acc recvd =
+      io "normal step probes cleanup";
+      if not sent
+      then (step_normal_requests (Msg_pool.next probes_pool) period_timer acc recvd)
+      else
+        let responses,acc = deserialize (Board_meta.concat_acc acc recvd) in
+        try
+          let recvd = if Msg_pool.empty probes_pool
+                      then true
+                      else (match Msg_pool.responsed probes_pool responses with
+                            | None   -> false
+                            | Some _ -> true)
+          in
+          CCList.iter push_events responses;
+          if recvd
+          then let probes_pool = (Msg_pool.next probes_pool) in
+               if (period_timer > request_period)
+               then raise (Failure "board_ip sm invariant broken")
+               else `Continue (step_normal_requests probes_pool (succ period_timer) acc)
+          else `Continue (step_normal_probes_cleanup sent probes_pool (succ period_timer) acc)
+        with Timeout -> first_step ()
+
+    and step_normal_requests probes_pool period_timer acc recvd =
+      let responses,acc = deserialize (Board_meta.concat_acc acc recvd) in
+      try
+        let sent =
+          if not @@ Msg_queue.empty !msgs
+          then begin match Msg_queue.responded !msgs responses with
+               | None -> msgs := Msg_queue.step !msgs; false
+               | Some () -> msgs := Msg_queue.next !msgs;
+                            Msg_queue.send !msgs () |> ignore;
+                            true
+               end
+          else false
+        in
+        if (period_timer >= request_period)
+        then `Continue (step_normal_requests_clenup sent probes_pool (succ period_timer) acc)
+        else `Continue (step_normal_requests probes_pool (succ period_timer) acc)
+      with Timeout -> first_step ()
+
+    and step_normal_requests_cleanup sent probes_pool period_timer acc recvd =
+      io "normal step requests cleanup";
+      if not sent
+      then step_normal_start probes_pool ((succ period_timer) mod request_period) acc recvd
+      else
+        let responses,acc = deserialize (Board_meta.concat acc recvd) in
+        try
+          let recvd =
+            match Msg_queue.responded !msgs responses with
+            | None    -> msgs := Msg_queue.step !msgs; false
+            | Some () -> msgs := Msg_queue.next !msgs; true
+          in
+          if recvd
+          then `Continue (step_normal_start probes_pool ((succ_period_timer) mod request_period) acc)
+          else `Continue (step_normal_requests_cleanup sent probes_pool (succ period_timer) acc)
+        with Timeout -> first_step ()
+
+  let create sender push_state step_duration =
+    let period = request_period step_duration in
     let msgs = ref (Msg_queue.create period []) in
     (send msgs sender),
-    (step msgs sender push_state)
+    (step msgs sender step_duration push_state)
     
 
 end

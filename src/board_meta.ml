@@ -23,7 +23,7 @@ type board = { handlers        : (module Api_handler.HANDLER) list
            
 module type BOARD = sig
   type _ request
-  val create       : topo_board -> (Cbuffer.t -> unit Lwt.t) -> board
+  val create       : topo_board -> (Cbuffer.t -> unit Lwt.t) -> float -> board
   val connect_db   : board -> Database.t -> board
 end
 

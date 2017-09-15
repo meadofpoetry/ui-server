@@ -9,22 +9,17 @@ module V1 : BOARD = struct
 
   let create_sm = Board_dvb_protocol.SM.create
                    
-  let create (b:topo_board) send =
+  let create (b:topo_board) send step =
     Lwt_io.printf "in create\n" |> ignore;
     let s_state, spush = React.S.create `No_response in
-    let events, send, step = create_sm send spush in
+    let events, send, step = create_sm send spush step in
     let handlers = Board_dvb_api.handlers b.control send events s_state s_state in (* XXX temporary *)
     let e_probes = React.E.map (fun (id,x) -> Common.Board.Dvb.rsp_measure_to_yojson x
                                               |> Yojson.Safe.to_string
                                               |> Lwt_io.printf "%d %s\n" id
                                               |> ignore)
                      events.measure in
-    let e_probes2 = React.E.map (fun (id,x) -> Common.Board.Dvb.rsp_plp_list_to_yojson x
-                                               |> Yojson.Safe.to_string
-                                               |> Lwt_io.printf "%d %s\n" id
-                                               |> ignore)
-                               events.plps in 
-    let state = object method e_probes = e_probes method e_probes2 = e_probes2 end in
+    let state = object method e_probes = e_probes end in
     { handlers       = handlers
     ; control        = b.control
     ; connection     = s_state
