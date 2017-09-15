@@ -4,19 +4,14 @@ open Board_meta
 
 include Board_ip_parser
 
+[@@@ocaml.warning "-26"]
 
 let io x = Lwt_io.printf "%s\n" x |> ignore
 
 (* Board protocol implementation *)
 
 let period = 50
-
-let init  = [ Overall (Set_mode Ip2asi) ]
-
-let init_msgs (send_req : 'a request -> unit Lwt.t) =
-  List.map (fun x -> { send = (fun () -> send_req x)
-                     ; pred = (is_response x)})
-           init
+let reboot_steps = 6
 
 module SM = struct
 
@@ -96,14 +91,18 @@ module SM = struct
 
   let step msgs sender push_state =
 
+    let find_resp req = CCList.find_map (is_response req) in
+
     let rec first_step () =
+      io "first step";
       let req       = Devinfo Get_fpga_ver in
       send_msg sender req |> ignore;
       `Continue (step_detect_fpga_ver period req None)
 
     and step_detect_fpga_ver p req acc recvd =
+      io "step detect fpga";
       let responses,acc = deserialize (Board_meta.concat_acc acc recvd) in
-      match CCList.find_map (is_response req) responses with
+      match find_resp req responses with
       | Some x -> let r = (Devinfo Get_hw_ver) in
                   send_msg sender r |> ignore;
                   `Continue (step_detect_hw_ver period r x None)
@@ -112,40 +111,45 @@ module SM = struct
                   else (first_step ())
 
     and step_detect_hw_ver p req conf acc recvd =
+      io "step detect hw";
       let responses,acc = deserialize (Board_meta.concat_acc acc recvd) in
-      match CCList.find_map (is_response req) responses with
+      match find_resp req responses with
       | Some x -> let r = (Devinfo Get_fw_ver) in
                   send_msg sender r |> ignore;
                   `Continue (step_detect_fw_ver period r (conf,x) None)
       | None   -> if p > 0 then `Continue (step_detect_hw_ver (pred p) req conf acc) else (first_step ())
 
     and step_detect_fw_ver p req ((fpga,hw) as conf) acc recvd =
+      io "step detect fw";
       let responses,acc = deserialize (Board_meta.concat_acc acc recvd) in
-      match CCList.find_map (is_response req) responses with
+      match find_resp req responses with
       | Some x -> let r =  (Devinfo Get_serial) in
                   send_msg sender r |> ignore;
                   `Continue (step_detect_serial period r (fpga,hw,x) None)
       | None   -> if p > 0 then `Continue (step_detect_fw_ver (pred p) req conf acc) else (first_step ())
 
     and step_detect_serial p req ((fpga,hw,fw) as conf) acc recvd =
+      io "step detect serial";
       let responses,acc = deserialize (Board_meta.concat_acc acc recvd) in
-      match CCList.find_map (is_response req) responses with
+      match find_resp req responses with
       | Some x -> let r = (Devinfo Get_type) in
                   send_msg sender r |> ignore;
                   `Continue (step_detect_type period r (fpga,hw,fw,x) None)
       | None   -> if p > 0 then `Continue (step_detect_serial (pred p) req conf acc) else (first_step ())
 
     and step_detect_type p req ((fpga,hw,fw,ser) as conf) acc recvd =
+      io "step detect type";
       let responses,acc = deserialize (Board_meta.concat_acc acc recvd) in
-      match CCList.find_map (is_response req) responses with
+      match find_resp req responses with
       | Some x -> let r = (Nw Get_mac) in
                   send_msg sender r |> ignore;
                   `Continue (step_detect_mac period r (fpga,hw,fw,ser,x) None)
       | None   -> if p > 0 then `Continue (step_detect_type (pred p) req conf acc) else (first_step ())
 
     and step_detect_mac p req conf acc recvd =
+      io "step_detect_mac";
       let responses,acc = deserialize (Board_meta.concat_acc acc recvd) in
-      match CCList.find_map (is_response req) responses with
+      match find_resp req responses with
       | Some x -> let fpga_ver,hw_ver,fw_ver,serial,typ = conf in
                   let conf = { fpga_ver; hw_ver; fw_ver; serial; typ; mac = x } in
                   io (devinfo_to_yojson conf |> Yojson.Safe.to_string);
@@ -153,25 +157,102 @@ module SM = struct
       | None   -> if p > 0 then `Continue (step_detect_mac (pred p) req conf acc) else (first_step ())
 
     and step_start_init () =
-      let req = (Overall (Set_mode Asi2ip)) in
+      io "step start init";
+      let req = (Overall (Set_mode Ip2asi)) in
       send_msg sender req |> ignore;
-      `Continue (step_normal None)
+      `Continue (step_init_mode period req None)
 
-    (* and step_init_mode req acc recvd = *)
-    (*   Lwt_io.printf "Init step\n" |> ignore; *)
-    (*   let recvd = Board_meta.concat_acc acc recvd in *)
-    (*   let responses, acc = deserialize recvd in *)
-    (*   match Msg_pool.responsed init_pool responses with *)
-    (*   | None   -> if init_pool.timer < 0 *)
-    (*               then (first_step ()) *)
-    (*               else `Continue (step_init (Msg_pool.step init_pool) acc) *)
-    (*   | Some _ -> *)
-    (*      match Msg_pool.last init_pool with *)
-    (*      | true -> push_state `Fine; *)
-    (*                `Continue (step_normal acc) *)
-    (*      | false -> let init_pool = Msg_pool.next init_pool in *)
-    (*                 Msg_pool.send init_pool () |> ignore; *)
-    (*                 `Continue (step_init init_pool acc) *)
+    and step_detect_after_init ns p steps req acc recvd =
+      io "step detect after init";
+      let responses,acc = deserialize (Board_meta.concat_acc acc recvd) in
+      match find_resp req responses with
+      | Some _ -> (match ns with
+                   | `Mode -> let r = Overall (Set_application Normal) in
+                              send_msg sender r |> ignore;
+                              `Continue (step_init_application period r None)
+                   | `App  -> let r = Overall (Set_storage Ram) in
+                              send_msg sender r |> ignore;
+                              `Continue (step_init_storage period r None)
+                   | `Nw   -> `Continue (step_normal None))
+      | None   -> if p > 0
+                  then `Continue (step_detect_after_init ns (pred p) steps req acc)
+                  else if steps > 0
+                  then (send_msg sender req |> ignore;
+                        `Continue (step_detect_after_init ns period (pred steps) req acc))
+                  else (first_step ())
+
+    and step_init_mode p req acc recvd =
+      io "step init mode";
+      let responses,acc = deserialize (Board_meta.concat_acc acc recvd) in
+      match find_resp req responses with
+      | Some _ -> let r = Devinfo Get_fpga_ver in
+                  send_msg sender r |> ignore;
+                  `Continue (step_detect_after_init `Mode period reboot_steps r None)
+      | None   -> if p > 0 then `Continue (step_init_mode (pred p) req acc) else (first_step ())
+
+    and step_init_application p req acc recvd =
+      io "step init app";
+      let responses,acc = deserialize (Board_meta.concat_acc acc recvd) in
+      match find_resp req responses with
+      | Some _ -> let r = Devinfo Get_fpga_ver in
+                  send_msg sender r |> ignore;
+                  `Continue (step_detect_after_init `App period reboot_steps r None)
+      | None   -> if p > 0 then `Continue (step_init_application (pred p) req acc) else (first_step ())
+
+    and step_init_storage p req acc recvd =
+      io "step init storage";
+      let responses,acc = deserialize (Board_meta.concat_acc acc recvd) in
+      match find_resp req responses with
+      | Some _ -> `Continue (step_start_init_nw ())
+      | None   -> if p > 0 then `Continue (step_init_storage (pred p) req acc) else (first_step ())
+
+    and step_start_init_nw () =
+      let settings = { ip      = Ipaddr.V4.of_string_exn "192.168.111.68"
+                     ; mask    = Ipaddr.V4.of_string_exn "255.255.255.0"
+                     ; gateway = Ipaddr.V4.of_string_exn "192.168.111.1"
+                     ; dhcp    = false
+                     } in
+      let nw_msgs  = List.map (fun x -> { send = (fun () -> send_msg sender x)
+                                        ; pred = (is_response x)})
+                              [ Nw (Set_ip settings.ip)
+                              ; Nw (Set_mask settings.mask)
+                              ; Nw (Set_gateway settings.gateway)] in
+      let dhcp_msg = Nw (Set_dhcp settings.dhcp) in
+      let init_pool = Msg_pool.create period nw_msgs in
+      send_msg sender dhcp_msg |> ignore;
+      step_init_dhcp period dhcp_msg init_pool None
+
+    and step_init_dhcp p req init_pool acc recvd =
+      io "step init dhcp";
+      let responses,acc = deserialize (Board_meta.concat_acc acc recvd) in
+      match find_resp req responses with
+      | Some _ -> Msg_pool.send init_pool () |> ignore;
+                  `Continue (step_init_nw init_pool None)
+      | None   -> if p > 0 then `Continue (step_init_dhcp (pred p) req init_pool acc) else (first_step ())
+
+    and step_init_nw init_pool acc recvd =
+      io "step init nw";
+      let responses,acc = deserialize (Board_meta.concat_acc acc recvd) in
+      match Msg_pool.responsed init_pool responses with
+      | None   -> if init_pool.timer < 0 then (first_step ())
+                  else `Continue (step_init_nw (Msg_pool.step init_pool) acc)
+      | Some _ ->
+         match Msg_pool.last init_pool with
+         | true -> let r = (Nw Reboot) in
+                   send_msg sender r |> ignore;
+                   `Continue (step_finalize_init period r None)
+         | false -> let init_pool = Msg_pool.next init_pool in
+                    Msg_pool.send init_pool () |> ignore;
+                    `Continue (step_init_nw init_pool acc)
+
+    and step_finalize_init p req acc recvd =
+      io "step finalize init";
+      let responses,acc = deserialize (Board_meta.concat_acc acc recvd) in
+      match find_resp req responses with
+      | Some _ -> let r = Devinfo Get_fpga_ver in
+                  send_msg sender r |> ignore;
+                  `Continue (step_detect_after_init `Nw period reboot_steps r None)
+      | None   -> if p > 0 then `Continue (step_finalize_init (pred p) req acc) else (first_step ())
 
     and step_normal acc recvd =
       Lwt_io.printf "Normal step\n" |> ignore;

@@ -424,7 +424,6 @@ let get_msg buf =
   | e -> Error (Unknown_err (Printexc.to_string e))
 
 let deserialize buf =
-  io (Cbuffer.pp buf);
   let parse = fun ((_,_,rw,_) as x) ->
     match rw with
     | Read | Write -> `Ok x
@@ -447,7 +446,6 @@ let deserialize buf =
 let is_response (type a) (req : a request) m : a option =
   match m with
   | `Ok (cat,set,_,b) ->
-     io "Got a message!";
      let c,s = request_to_cat_set req in
      if c <> cat || s <> set then None
      else (match req with

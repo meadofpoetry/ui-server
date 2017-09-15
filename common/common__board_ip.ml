@@ -28,8 +28,11 @@ type devinfo = { fpga_ver : int
                } [@@deriving to_yojson]
 
 type nw_settings =
-  | DHCP
-  | Manual of (Ipaddr.V4.t * Ipaddr.V4.t * Ipaddr.V4.t)
+  { ip      : Ipaddr.V4.t
+  ; mask    : Ipaddr.V4.t
+  ; gateway : Ipaddr.V4.t
+  ; dhcp    : bool
+  }
 
 type ip_settings =
   { enable    : bool
