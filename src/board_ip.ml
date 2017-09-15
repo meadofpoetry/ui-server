@@ -12,8 +12,8 @@ module V1 : BOARD = struct
   let create (b:topo_board) send =
     Lwt_io.printf "in ip create\n" |> ignore;
     let s_state, spush = React.S.create `No_response in
-    let events, send, step = create_sm send spush in
-    let handlers = Board_ip_api.handlers b.control send events s_state s_state in
+    let send, step = create_sm send spush in
+    let handlers = Board_ip_api.handlers b.control send [] s_state s_state in
     let state = object  end in
     { handlers       = handlers
     ; control        = b.control

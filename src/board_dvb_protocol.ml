@@ -8,7 +8,7 @@ let ( % ) = CCFun.(%)
       
 (* Board protocol implementation *)
       
-let period = 50
+let period = 1000
 
 let detect = Devinfo
 

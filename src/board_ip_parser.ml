@@ -7,7 +7,6 @@
    ; category : uint8_t [@len 2]
    ; setting  : uint8_t [@len 2]
    ; rw       : uint8_t
-   ; index    : uint8_t [@len 4]
    } [@@little_endian]]
 
 [%%cstruct
@@ -43,6 +42,8 @@
 
 [@@@ocaml.warning "+32"]
 
+open Common.Board.Ip
+
 (* -------------------- Requests/responses ----------------- *)
 
 type _ devinfo =
@@ -51,10 +52,6 @@ type _ devinfo =
   | Get_fw_ver   : int devinfo
   | Get_serial   : int devinfo
   | Get_type     : int devinfo
-
-type mode        = Asi2ip | Ip2asi
-type application = Failsafe | Normal
-type storage     = Flash | Ram
 
 let mode_to_int = function
   | Asi2ip -> 0 | Ip2asi -> 1
@@ -90,11 +87,6 @@ type _ nw =
   | Get_mac     : Macaddr.t nw
 
 type meth      = Unicast | Multicast
-type status    = Enabled | Disabled | Failure
-type protocol  = Udp | Rtp
-type output    = Asi | Spi
-type packet_sz = Ts188 | Ts204
-type rate_mode = On | Fixed | Without_pcr | Off
 
 let meth_to_int = function
   | Unicast -> 0 | Multicast -> 1
@@ -145,9 +137,6 @@ type _ ip =
   | Get_jitter_err_cnt   : int32 ip
   | Get_lock_err_cnt     : int32 ip
   | Get_delay_factor     : int32 ip
-
-type asi_packet_sz = Sz of packet_sz
-                   | As_is
 
 let asi_packet_sz_to_int = function
   | Sz Ts188 -> 0 | Sz Ts204 -> 1 | As_is -> 2
@@ -233,7 +222,8 @@ let cat_set_to_data_length = function
                | _           -> sizeof_setting32)
   | 0x02,_ -> sizeof_setting8                       (* Overall *)
   | 0x03,x -> (match x with
-               | 0x04 | 0x05 -> sizeof_setting8
+               | 0x04        -> sizeof_setting8
+               | 0x05        -> 0
                | 0x06        -> sizeof_setting48
                | _           -> sizeof_setting32)
   | 0x81,x -> (match x with
@@ -314,9 +304,10 @@ let to_prefix ~request ~rw () =
   let ()  = set_prefix_address  (to_hex_string (`I8 address)) 0 pfx in
   let ()  = set_prefix_category (to_hex_string (`I8 c)) 0 pfx in
   let ()  = set_prefix_setting  (to_hex_string (`I8 s)) 0 pfx in
-  let ()  = set_prefix_index    (to_hex_string (`I16 0)) 0 pfx in
+  (* let ()  = set_prefix_index    (to_hex_string (`I16 0)) 0 pfx in *)
   let ()  = set_prefix_rw pfx @@ rw_to_int rw in
-  pfx
+  if (c >= 1 && c <= 3) then pfx
+  else Cbuffer.append pfx (to_cbuffer (`I16 0))
 
 let to_suffix ~crc =
   let sfx = Cbuffer.create sizeof_suffix in
@@ -335,6 +326,7 @@ let to_empty_msg ~request ~rw =
 
 let to_req_get request =
   to_empty_msg ~request ~rw:Read ()
+  |> fun x -> io ("Get request: " ^ Cbuffer.pp x); x
 
 let to_req_set_bool request b =
   to_msg ~request ~rw:Write ~body:(to_cbuffer (`I8 (if b then 1 else 0))) ()
@@ -410,8 +402,8 @@ let check_rest (cat,set,rw,buf) =
   let length   = (match rw with
                   | Fail -> 0
                   | _    -> cat_set_to_data_length (cat,set)) in
-  let pfx_len  = if (cat >= 0x01 && cat <= 0x03) then sizeof_prefix
-                 else sizeof_prefix - sizeof_setting16 in
+  let pfx_len  = if (cat >= 1 && cat <= 3) then sizeof_prefix
+                 else sizeof_prefix + sizeof_setting16 in
   let pfx,msg' = Cbuffer.split buf pfx_len in
   let body,sfx = Cbuffer.split msg' length in
   let crc      = get_suffix_crc sfx |> parse_int_exn in
@@ -432,6 +424,7 @@ let get_msg buf =
   | e -> Error (Unknown_err (Printexc.to_string e))
 
 let deserialize buf =
+  io (Cbuffer.pp buf);
   let parse = fun ((_,_,rw,_) as x) ->
     match rw with
     | Read | Write -> `Ok x
@@ -442,17 +435,19 @@ let deserialize buf =
                  | []       -> acc, None
                  | [x]      -> (match get_msg x with
                                 | Ok msg  -> (parse msg) :: acc, None
-                                | Error e -> (match e with
+                                | Error e -> io (string_of_err e);
+                                             (match e with
                                               | Insufficient_payload res -> acc, Some res
                                               | _                        -> acc, None))
                  | hd :: tl -> (match get_msg hd with
                                 | Ok msg  -> f ((parse msg) :: acc) tl
-                                | Error _ -> f acc tl) in
+                                | Error e -> io (string_of_err e); f acc tl) in
   let r,res = f [] parts in (List.rev r, res)
 
 let is_response (type a) (req : a request) m : a option =
   match m with
   | `Ok (cat,set,_,b) ->
+     io "Got a message!";
      let c,s = request_to_cat_set req in
      if c <> cat || s <> set then None
      else (match req with
@@ -477,7 +472,11 @@ let is_response (type a) (req : a request) m : a option =
                            | Get_mask      -> parse_ipaddr b
                            | Get_gateway   -> parse_ipaddr b
                            | Get_dhcp      -> parse_bool b
-                           | Get_mac       -> Macaddr.of_bytes (Cbuffer.to_string b)
+                           | Get_mac       -> let rec f = fun acc s ->
+                                                match CCString.take_drop 2 s with
+                                                | (x,"")  -> (acc ^ x)
+                                                | (x,res) -> f (acc ^ x ^ ":") res in
+                                              Macaddr.of_string (f "" (Cbuffer.to_string b))
                            | Set_ip _      -> parse_ipaddr b
                            | Set_mask _    -> parse_ipaddr b
                            | Set_gateway _ -> parse_ipaddr b
