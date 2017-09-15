@@ -118,16 +118,15 @@ let string_of_err = function
   | Unknown_err s          -> s
 
 type events = { measure : (int * rsp_measure) React.event
-              ; plps    : (int * rsp_plp_list) React.event
               }
 
 type _ request = Devinfo     : rsp_devinfo request
                | Reset       : unit request
                | Settings    : (int * settings) -> (int * rsp_settings) request
                | Plp_setting : int * int        -> (int * rsp_plp_set) request
+               | Plps        : int -> (int * rsp_plp_list) request
 
 type _ event_request = Measure     : int -> (int * rsp_measure) event_request
-                     | Plps        : int -> (int * rsp_plp_list) event_request
 
 (* Helper functions *)
 
@@ -318,7 +317,7 @@ let deserialize buf =
     | 0,1      -> `R (`Devinfo body)
     | _,2      -> `R (`Settings (id, body))
     | _,3      -> `E (`Measure (id, body))
-    | _,5      -> `E (`Plps (id, body))
+    | _,5      -> `R (`Plps (id, body))
     | _,6      -> `R (`Plp_setting (id, body))
     | _        -> `N in
   let rec f events responses b =
@@ -368,8 +367,8 @@ let is_response (type a) (req : a request) msg : a option =
   | Devinfo            -> parse_devinfo msg
   | Settings (id,_)    -> parse_settings id msg
   | Plp_setting (id,_) -> parse_plp_settings id msg
+  | Plps id            -> parse_plps id msg
 
 let is_event (type a) (req : a event_request) msg : unit option =
   match req with
   | Measure id  -> CCOpt.(parse_measures id msg >>= fun _ -> Some ())
-  | Plps id     -> CCOpt.(parse_plps id msg     >>= fun _ -> Some ())

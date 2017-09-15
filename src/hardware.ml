@@ -74,7 +74,7 @@ let topo_to_signal topo boards =
   |> React.S.merge (fun acc h -> h::acc) []
   
 let create config db =
-  let step_duration = 0.005 in
+  let step_duration = 0.01 in
   let topo      = Conf.get config in
   let usb, loop = Usb_device.create ~sleep:step_duration () in
   let rec traverse acc = (function

@@ -19,12 +19,7 @@ module V1 : BOARD = struct
                                               |> Lwt_io.printf "%d %s\n" id
                                               |> ignore)
                      events.measure in
-    let e_probes2 = React.E.map (fun (id,x) -> Common.Board.Dvb.rsp_plp_list_to_yojson x
-                                               |> Yojson.Safe.to_string
-                                               |> Lwt_io.printf "%d %s\n" id
-                                               |> ignore)
-                               events.plps in 
-    let state = object method e_probes = e_probes method e_probes2 = e_probes2 end in
+    let state = object method e_probes = e_probes end in
     { handlers       = handlers
     ; control        = b.control
     ; connection     = s_state
