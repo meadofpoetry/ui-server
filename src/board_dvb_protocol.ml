@@ -7,8 +7,6 @@ include Board_dvb_parser
 let ( % ) = CCFun.(%)
       
 (* Board protocol implementation *)
-      
-let period = 50
 
 let detect = Devinfo
 
@@ -94,7 +92,8 @@ module SM = struct
 
   let initial_timeout = -1
                       
-  let step msgs sender push_state push_events =
+  let step msgs sender step_duration push_state push_events =
+    let period       = 5 * (int_of_float (1. /. step_duration)) in
     let push_events  = event_push push_events in
     let detect_pool  = Msg_pool.create period (detect_msgs (send_msg sender)) in
 
@@ -103,46 +102,52 @@ module SM = struct
       `Continue (step_detect detect_pool None)
     
     and step_detect detect_pool acc recvd =
-      Lwt_io.printf "Detect step\n" |> ignore;
-      let recvd = Board_meta.concat_acc acc recvd in
-      let _, responses, acc = deserialize recvd in
-      match Msg_pool.responsed detect_pool responses with
-      | Some detect -> step_start_init (List.append
-                                          (plp_probes (send_event sender) detect)
-                                          (measure_probes (send_event sender) detect))
-      | _           -> if detect_pool.timer > 0
-                       then `Continue (step_detect (Msg_pool.step detect_pool) acc)
-                       else let detect_pool = Msg_pool.next detect_pool in
-                            Msg_pool.send detect_pool () |> ignore;
-                            `Continue (step_detect detect_pool acc)
+      try
+        Lwt_io.printf "Detect step\n" |> ignore;
+        let recvd = Board_meta.concat_acc acc recvd in
+        let _, responses, acc = deserialize recvd in
+        match Msg_pool.responsed detect_pool responses with
+        | Some detect -> step_start_init (List.append
+                                            (plp_probes (send_event sender) detect)
+                                            (measure_probes (send_event sender) detect))
+        | _           -> if detect_pool.timer > 0
+                         then `Continue (step_detect (Msg_pool.step detect_pool) acc)
+                         else let detect_pool = Msg_pool.next detect_pool in
+                              Msg_pool.send detect_pool () |> ignore;
+                              `Continue (step_detect detect_pool acc)
+      with Timeout -> first_step ()
 
     and step_start_init probes =
-      match init_msgs (send_msg sender) with
-      | [] -> let probes_pool = Msg_pool.create period probes in
-              Msg_pool.send probes_pool () |> ignore;
-              `Continue (step_normal probes_pool None)
-      | lst -> let init_pool = Msg_pool.create period lst in
-               Msg_pool.send init_pool () |> ignore;
-               `Continue (step_init init_pool probes None)
+      try
+        match init_msgs (send_msg sender) with
+        | [] -> let probes_pool = Msg_pool.create period probes in
+                Msg_pool.send probes_pool () |> ignore;
+                `Continue (step_normal probes_pool None)
+        | lst -> let init_pool = Msg_pool.create period lst in
+                 Msg_pool.send init_pool () |> ignore;
+                 `Continue (step_init init_pool probes None)
+      with Timeout -> first_step ()
                  
     and step_init init_pool probes acc recvd =
-      Lwt_io.printf "Init step\n" |> ignore;
-      let recvd = Board_meta.concat_acc acc recvd in
-      let _, responses, acc = deserialize recvd in
-      match Msg_pool.responsed init_pool responses with
-      | None    -> if init_pool.timer < 0
-                   then (first_step ())
-                   else `Continue (step_init (Msg_pool.step init_pool) probes acc)
-      | Some _  ->
-         match Msg_pool.last init_pool with
-         | true   -> push_state `Fine;
-                    let probes_pool = Msg_pool.create period probes in
-                    Msg_pool.send probes_pool () |> ignore;
-                    `Continue (step_normal probes_pool acc)
-         | false  -> let init_pool = Msg_pool.next init_pool in
-                     Msg_pool.send init_pool () |> ignore;
-                     `Continue (step_init init_pool probes acc)
-                    
+      try
+        Lwt_io.printf "Init step\n" |> ignore;
+        let recvd = Board_meta.concat_acc acc recvd in
+        let _, responses, acc = deserialize recvd in
+        match Msg_pool.responsed init_pool responses with
+        | None    -> if init_pool.timer < 0
+                     then (first_step ())
+                     else `Continue (step_init (Msg_pool.step init_pool) probes acc)
+        | Some _  ->
+           (match Msg_pool.last init_pool with
+            | true   -> push_state `Fine;
+                        let probes_pool = Msg_pool.create period probes in
+                        Msg_pool.send probes_pool () |> ignore;
+                        `Continue (step_normal probes_pool acc)
+            | false  -> let init_pool = Msg_pool.next init_pool in
+                        Msg_pool.send init_pool () |> ignore;
+                        `Continue (step_init init_pool probes acc))
+      with Timeout -> first_step ()
+                             
     and step_normal probes_pool acc recvd =
       Lwt_io.printf "Normal step\n" |> ignore;
       let recvd = Board_meta.concat_acc acc recvd in
@@ -165,15 +170,15 @@ module SM = struct
         in
         CCList.iter push_events events;
         `Continue (step_normal probes_pool acc)
-      with
-      | Timeout -> Msg_queue.iter !msgs wakeup_timeout;
-                   msgs := Msg_queue.create period [];
-                   push_state `No_response;
-                   (first_step ())
+      with Timeout -> Msg_queue.iter !msgs wakeup_timeout;
+                      msgs := Msg_queue.create period [];
+                      push_state `No_response;
+                      (first_step ())
     in
     first_step ()
     
-  let create sender push_state =
+  let create sender push_state step_duration =
+    let period = 5 * (int_of_float (1. /. step_duration)) in
     let measure, mpush = React.E.create () in
     let plps, ppush = React.E.create () in
     let (events : events) = { measure; plps } in
@@ -181,6 +186,6 @@ module SM = struct
     let msgs = ref (Msg_queue.create period []) in
     events,
     (send msgs sender),
-    (step msgs sender push_state push_events)
+    (step msgs sender step_duration push_state push_events)
 
 end

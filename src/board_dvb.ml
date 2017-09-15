@@ -9,10 +9,10 @@ module V1 : BOARD = struct
 
   let create_sm = Board_dvb_protocol.SM.create
                    
-  let create (b:topo_board) send =
+  let create (b:topo_board) send step =
     Lwt_io.printf "in create\n" |> ignore;
     let s_state, spush = React.S.create `No_response in
-    let events, send, step = create_sm send spush in
+    let events, send, step = create_sm send spush step in
     let handlers = Board_dvb_api.handlers b.control send events s_state s_state in (* XXX temporary *)
     let e_probes = React.E.map (fun (id,x) -> Common.Board.Dvb.rsp_measure_to_yojson x
                                               |> Yojson.Safe.to_string

@@ -121,11 +121,6 @@ type events = { measure : (int * rsp_measure) React.event
               ; plps    : (int * rsp_plp_list) React.event
               }
 
-type response  = Ack
-               | Devinfo     of rsp_devinfo
-               | Settings    of (int * rsp_settings)
-               | Plp_setting of (int * rsp_plp_set)
-
 type _ request = Devinfo     : rsp_devinfo request
                | Reset       : unit request
                | Settings    : (int * settings) -> (int * rsp_settings) request
