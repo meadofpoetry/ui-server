@@ -5,7 +5,7 @@ type rsp_devinfo =
   ; soft_ver : int
   ; asi      : bool
   ; modules  : int list
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 type mode =
   | T2
@@ -28,7 +28,7 @@ type rsp_settings =
   { settings   : settings
   ; hw_present : bool
   ; lock       : bool
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 type rsp_measure =
   { lock    : bool
@@ -42,10 +42,21 @@ type rsp_measure =
 type rsp_plp_list =
   { lock    : bool
   ; plps    : int list
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 type rsp_plp_set =
   { lock    : bool
   ; plp     : int
-  } [@@deriving to_yojson]
- 
+  } [@@deriving yojson]
+
+type devinfo_response = rsp_devinfo [@@deriving yojson]
+  
+type settings_request = (int * settings) [@@deriving yojson]
+
+type settings_response = (int * rsp_settings) [@@deriving yojson]
+
+type plp_setting_request = (int * int) [@@deriving yojson]
+
+type plp_setting_response = (int * rsp_plp_set) [@@deriving yojson]
+
+type plp_list_response = (int * rsp_plp_list) [@@deriving yojson]
