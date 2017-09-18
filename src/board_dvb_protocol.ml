@@ -200,11 +200,11 @@ module SM = struct
     let push_events = { measure = mpush } in
     let msgs = ref (Msg_queue.create period []) in
     let send x = send msgs sender x in
-    let api = { devinfo     = (fun () -> send Devinfo)
-              ; reset       = (fun () -> send Reset)
-              ; settings    = (fun s -> send (Settings s))
+    let api = { devinfo     = (fun ()    -> send Devinfo)
+              ; reset       = (fun ()    -> send Reset)
+              ; settings    = (fun s     -> send (Settings s))
               ; plp_setting = (fun (n,s) -> send (Plp_setting (n,s)))
-              ; plps        = (fun n -> send (Plps n))
+              ; plps        = (fun n     -> send (Plps n))
               }
     in
     events,
