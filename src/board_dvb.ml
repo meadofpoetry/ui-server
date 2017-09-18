@@ -3,6 +3,8 @@ open Api_handler
 open Interaction
 open Board_meta
 
+open Lwt.Infix
+
 module V1 : BOARD = struct
 
   type 'a request = 'a Board_dvb_protocol.request
@@ -12,8 +14,8 @@ module V1 : BOARD = struct
   let create (b:topo_board) send step =
     Lwt_io.printf "in create\n" |> ignore;
     let s_state, spush = React.S.create `No_response in
-    let events, send, step = create_sm send spush step in
-    let handlers = Board_dvb_api.handlers b.control send events s_state s_state in (* XXX temporary *)
+    let events, api, step = create_sm send spush step in
+    let handlers = Board_dvb_api.handlers b.control api events s_state in (* XXX temporary *)
     let e_probes = React.E.map (fun (id,x) -> Common.Board.Dvb.rsp_measure_to_yojson x
                                               |> Yojson.Safe.to_string
                                               |> Lwt_io.printf "%d %s\n" id
