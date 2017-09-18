@@ -47,7 +47,7 @@ let main config =
        mainloop ()
       end
 
-    | _ -> print_endline "failed with unknown exception"
+    | e -> print_endline (Printf.sprintf "failed with exn: %s" (Printexc.to_string e))
 
   in mainloop ()
 

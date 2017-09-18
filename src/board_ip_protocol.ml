@@ -12,11 +12,14 @@ let io x = Lwt_io.printf "%s\n" x |> ignore
 
 let timeout_period step_duration = 2 * int_of_float (1. /. step_duration) (* 2 secs *)
 
-let request_period step_duration = 5 * int_of_float (1. /. step_duration) (* 5 secs *)
+let request_period step_duration = 1 * int_of_float (1. /. step_duration) (* 5 secs *)
 
 module SM = struct
 
-  type event = [ `Ip of (int * rw * Cbuffer.t) ]
+  type events = { status : board_status React.event }
+
+  type push_events = { status : board_status -> unit
+                     }
 
   let wakeup_timeout t = t.pred `Timeout |> ignore
 
@@ -79,11 +82,6 @@ module SM = struct
                      | Set_packet_size x -> to_req_set_int8 msg (asi_packet_sz_to_int x)))
     |> sender
 
-  let send_event (type a) sender (msg : a event_request) : unit Lwt.t =
-    (match msg with
-     | _ -> to_req_get_event msg)
-    |> sender
-
   let send msgs sender msg =
     let t, w = Lwt.wait () in
     let pred = function
@@ -93,10 +91,32 @@ module SM = struct
     msgs := Msg_queue.append !msgs { send; pred };
     t
 
-  let step msgs sender step_duration push_state =
+  let step msgs sender step_duration push_state push_events =
 
-    let period = timeout_period step_duration in
-    let reboot_steps = 20 / (int_of_float (step_duration *. (float_of_int period))) in
+    let period             = timeout_period step_duration in
+    let request_period     = request_period step_duration in
+    let reboot_steps       = 20 / (int_of_float (step_duration *. (float_of_int period))) in
+    let push_events events =
+      let open CCOpt in
+      { fec_delay       = get_exn @@ CCList.find_map (function Fec_delay x -> Some x | _ -> None) events
+      ; fec_cols        = get_exn @@ CCList.find_map (function Fec_cols x -> Some x | _ -> None) events
+      ; fec_rows        = get_exn @@ CCList.find_map (function Fec_rows x -> Some x | _ -> None) events
+      ; jitter_tol      = get_exn @@ CCList.find_map (function Jitter_tol x -> Some x | _ -> None) events
+      ; lost_after_fec  = get_exn @@ CCList.find_map (function Lost_after_fec x -> Some x | _ -> None) events
+      ; lost_before_fec = get_exn @@ CCList.find_map (function Lost_before_fec x -> Some x | _ -> None) events
+      ; tp_per_ip       = get_exn @@ CCList.find_map (function Tp_per_ip x -> Some x | _ -> None) events
+      ; status          = get_exn @@ CCList.find_map (function Status x -> Some x | _ -> None) events
+      ; protocol        = get_exn @@ CCList.find_map (function Protocol x -> Some x | _ -> None) events
+      ; packet_size     = get_exn @@ CCList.find_map (function Packet_size x -> Some x | _ -> None) events
+      ; bitrate         = get_exn @@ CCList.find_map (function Bitrate x -> Some x | _ -> None) events
+      ; pcr_present     = get_exn @@ CCList.find_map (function Pcr_present x -> Some x | _ -> None) events
+      ; rate_change_cnt = get_exn @@ CCList.find_map (function Rate_change_cnt x -> Some x | _ -> None) events
+      ; jitter_err_cnt  = get_exn @@ CCList.find_map (function Jitter_err_cnt x -> Some x | _ -> None) events
+      ; lock_err_cnt    = get_exn @@ CCList.find_map (function Lock_err_cnt x -> Some x | _ -> None) events
+      ; delay_factor    = get_exn @@ CCList.find_map (function Delay_factor x -> Some x | _ -> None) events
+      ; asi_bitrate     = get_exn @@ CCList.find_map (function Asi_bitrate x -> Some x | _ -> None) events
+      }
+      |> push_events.status in
 
     let find_resp req acc recvd ~success ~failure =
       let responses,acc = deserialize (Board_meta.concat_acc acc recvd) in
@@ -107,7 +127,10 @@ module SM = struct
     let send x = send_msg sender x |> ignore in
 
     let rec first_step () =
-      let req       = Devinfo Get_fpga_ver in
+      Msg_queue.iter !msgs wakeup_timeout;
+      msgs := Msg_queue.create period [];
+      push_state `No_response;
+      let req = Devinfo Get_fpga_ver in
       send_msg sender req |> ignore;
       `Continue (step_detect_fpga_ver period req None)
 
@@ -154,40 +177,30 @@ module SM = struct
 
     and step_detect_after_init ns p steps req acc recvd =
       find_resp req acc recvd
-                ~success:(fun _ _ ->
-                  (match ns with
-                   | `Mode -> let r = Overall (Set_application Normal) in
-                              send_msg sender r |> ignore;
-                              `Continue (step_init_application period r None)
-                   | `App  -> let r = Overall (Set_storage Ram) in
-                              send_msg sender r |> ignore;
-                              `Continue (step_init_storage period r None)
-                   | `Nw   -> let msgs = List.map (fun x -> { send = (fun () -> send_event sender x)
-                                                            ; pred = (is_event x)})
-                                                  [ Get_fec_delay
-                                                  ; Get_fec_cols
-                                                  ; Get_fec_rows
-                                                  ; Get_jitter_tol
-                                                  ; Get_lost_after_fec
-                                                  ; Get_lost_before_fec
-                                                  ; Get_tp_per_ip
-                                                  ; Get_status
-                                                  ; Get_protocol
-                                                  ; Get_packet_size
-                                                  ; Get_bitrate
-                                                  ; Get_pcr_present
-                                                  ; Get_rate_change_cnt
-                                                  ; Get_jitter_err_cnt
-                                                  ; Get_lock_err_cnt
-                                                  ; Get_delay_factor] in
-                              let pool = Msg_pool.create period msgs in
-                              `Continue (step_normal_start pool 0 None)))
+                ~success:(fun _ _ -> `Continue (step_wait_after_detect ns period))
                 ~failure:(fun acc -> if p > 0
                                      then `Continue (step_detect_after_init ns (pred p) steps req acc)
                                      else if steps > 0
                                      then (send_msg sender req |> ignore;
                                            `Continue (step_detect_after_init ns period (pred steps) req acc))
                                      else (first_step ()))
+
+    and step_wait_after_detect ns p _ =
+      if p > 0 then `Continue (step_wait_after_detect ns (pred p))
+      else match ns with
+           | `Mode -> let r = Overall (Set_application Normal) in
+                      send r; `Continue (step_init_application period r None)
+           | `App  -> let r = Overall (Set_storage Ram) in
+                      send r; `Continue (step_init_storage period r None)
+           | `Nw   -> let s = { enable    = true
+                              ; fec       = true
+                              ; port      = 1234
+                              ; multicast = Some (Ipaddr.V4.of_string_exn "224.1.2.1")
+                              ; delay     = Some 100
+                              ; rate_mode = Some On
+                              } in
+                      let r = Ip (Set_enable s.enable) in
+                      send r; `Continue (step_init_ip_enable s period r None)
 
     and step_init_mode p req acc recvd =
       find_resp req acc recvd
@@ -229,7 +242,6 @@ module SM = struct
                 ~failure:(fun acc -> bad_step p (step_init_dhcp (pred p) req init_pool acc))
 
     and step_init_nw init_pool acc recvd =
-      io "step init nw";
       let responses,acc = deserialize (Board_meta.concat_acc acc recvd) in
       match Msg_pool.responsed init_pool responses with
       | None   -> if init_pool.timer < 0 then (first_step ())
@@ -245,95 +257,127 @@ module SM = struct
 
     and step_finalize_init p req acc recvd =
       find_resp req acc recvd
-                ~success:(fun _ _ -> let r = Devinfo Get_fpga_ver in
-                                     send r; `Continue (step_detect_after_init `Nw period reboot_steps r None))
+                ~success:(fun _ _ ->
+                  let r = Devinfo Get_fpga_ver in
+                  send r; `Continue (step_detect_after_init `Nw period reboot_steps r None))
                 ~failure:(fun acc -> bad_step p (step_finalize_init (pred p) req acc))
 
-    and step_normal_start probes_pool period_timer acc _ =
-      io "normal step start";
-      if not @@ Msg_pool.empty probes_pool
-      then Msg_pool.send probes_pool () |> ignore;
-      `Continue (step_normal_probes probes_pool (succ period_timer) acc)
+    and step_init_ip_enable s p req acc recvd =
+      find_resp req acc recvd
+                ~success:(fun _ _ -> let r = Ip (Set_fec_enable s.fec) in
+                                     send r; `Continue (step_init_ip_fec s period r None))
+                ~failure:(fun acc -> bad_step p (step_init_ip_enable s (pred p) req acc))
 
-    and step_normal_probes probes_pool period_timer acc recvd =
+    and step_init_ip_fec s p req acc recvd =
+      find_resp req acc recvd
+                ~success:(fun _ _ -> let r = Ip (Set_udp_port s.port) in
+                                     send r; `Continue (step_init_ip_udp_port s period r None))
+                ~failure:(fun acc -> bad_step p (step_init_ip_fec s (pred p) req acc))
+
+    and step_init_ip_udp_port s p req acc recvd =
+      find_resp req acc recvd
+                ~success:(fun _ _ -> (match s.multicast with
+                                      | Some x -> let r = Ip (Set_mcast_addr x) in
+                                                  send r; `Continue (step_init_ip_multicast s period r None)
+                                      | None   -> let r = Ip (Set_method Unicast) in
+                                                  send r; `Continue (step_init_ip_method s (pred p) r None)))
+                ~failure:(fun acc -> bad_step p (step_init_ip_udp_port s (pred p) req acc))
+
+    and step_init_ip_multicast s p req acc recvd =
+      find_resp req acc recvd
+                ~success:(fun _ _ -> let r = Ip (Set_method Multicast) in
+                                     send r; `Continue (step_init_ip_method s period r None))
+                ~failure:(fun acc -> bad_step p (step_init_ip_multicast s (pred p) req acc))
+
+    and step_init_ip_method s p req acc recvd =
+      find_resp req acc recvd
+                ~success:(fun _ _ -> let r = Ip (Set_delay (CCOpt.get_or ~default:100 s.delay)) in
+                                     send r; `Continue (step_init_ip_delay s period r None))
+                ~failure:(fun acc -> bad_step p (step_init_ip_method s (pred p) req acc))
+
+    and step_init_ip_delay s p req acc recvd =
+      find_resp req acc recvd
+                ~success:(fun _ _ -> let r = Ip (Set_rate_est_mode (CCOpt.get_or ~default:On s.rate_mode)) in
+                                     send r; `Continue (step_init_ip_rate_mode s period r None))
+                ~failure:(fun acc -> bad_step p (step_init_ip_delay s (pred p) req acc))
+
+    and step_init_ip_rate_mode s p req acc recvd =
+      find_resp req acc recvd
+                ~success:(fun _ _ -> let msgs = List.map (fun x ->
+                                                    { send = (fun () -> send_msg sender x)
+                                                    ; pred = (is_response x)})
+                                                         [ Ip Get_fec_delay
+                                                         ; Ip Get_fec_cols
+                                                         ; Ip Get_fec_rows
+                                                         ; Ip Get_jitter_tol
+                                                         ; Ip Get_bitrate
+                                                         ; Ip Get_lost_after_fec
+                                                         ; Ip Get_lost_before_fec
+                                                         ; Ip Get_tp_per_ip
+                                                         ; Ip Get_status
+                                                         ; Ip Get_protocol
+                                                         ; Ip Get_packet_size
+                                                         ; Ip Get_pcr_present
+                                                         ; Ip Get_rate_change_cnt
+                                                         ; Ip Get_jitter_err_cnt
+                                                         ; Ip Get_lock_err_cnt
+                                                         ; Ip Get_delay_factor
+                                                         ; Asi Get_bitrate ] in
+                                     let pool = Msg_pool.create period msgs in
+                                     `Continue (step_normal_probes_send pool [] 0 None))
+                ~failure:(fun acc -> bad_step p (step_init_ip_rate_mode s (pred p) req acc))
+
+    and step_normal_probes_send pool events period_timer acc _ =
+      if (period_timer >= request_period) then raise (Failure "board ip: sm invariant broken");
+
+      if Msg_pool.empty pool
+      then `Continue (step_normal_requests_send pool (succ period_timer) acc)
+      else (Msg_pool.send pool () |> ignore;
+            `Continue (step_normal_probes_wait pool events (succ period_timer) acc))
+
+    and step_normal_probes_wait pool events period_timer acc recvd =
       let responses,acc = deserialize (Board_meta.concat_acc acc recvd) in
+
       try
-        let sent,probes_pool = if Msg_pool.empty probes_pool
-                               then false, probes_pool
-                               else (match Msg_pool.responsed probes_pool events with
-                                     | None    -> false, Msg_pool.step probes_pool
-                                     | Some () -> let probes_pool = Msg_pool.next probes_pool in
-                                                  Msg_pool.send probes_pool () |> ignore;
-                                                  true, probes_pool)
-        in
-        CCList.iter push_events responses;
-        if Msg_pool.last probes_pool
-        then `Continue (step_normal_probes_cleanup sent probes_pool (succ period_timer) acc)
-        else `Continue (step_normal_probes probes_pool (succ period_timer) acc)
+        (match Msg_pool.responsed pool responses with
+         | None   -> let pool = Msg_pool.step pool in
+                     `Continue (step_normal_probes_wait pool events (succ period_timer) acc)
+         | Some e -> let new_pool = Msg_pool.next pool in
+                     if Msg_pool.last pool
+                     then (push_events (e :: events);
+                           `Continue (step_normal_requests_send new_pool period_timer acc))
+                     else step_normal_probes_send new_pool (e :: events) period_timer acc recvd)
       with Timeout -> first_step ()
 
-    and step_normal_probes_cleanup sent probes_pool period_timer acc recvd =
-      io "normal step probes cleanup";
-      if not sent
-      then (step_normal_requests (Msg_pool.next probes_pool) period_timer acc recvd)
+    and step_normal_requests_send probes_pool period_timer acc _ =
+      if (period_timer >= request_period)
+      then `Continue (step_normal_probes_send probes_pool [] ((succ period_timer) mod request_period) acc)
       else
-        let responses,acc = deserialize (Board_meta.concat_acc acc recvd) in
-        try
-          let recvd = if Msg_pool.empty probes_pool
-                      then true
-                      else (match Msg_pool.responsed probes_pool responses with
-                            | None   -> false
-                            | Some _ -> true)
-          in
-          CCList.iter push_events responses;
-          if recvd
-          then let probes_pool = (Msg_pool.next probes_pool) in
-               if (period_timer > request_period)
-               then raise (Failure "board_ip sm invariant broken")
-               else `Continue (step_normal_requests probes_pool (succ period_timer) acc)
-          else `Continue (step_normal_probes_cleanup sent probes_pool (succ period_timer) acc)
-        with Timeout -> first_step ()
+        if Msg_queue.empty !msgs
+        then `Continue (step_normal_requests_send probes_pool (succ period_timer) acc)
+        else (Msg_queue.send !msgs () |> ignore;
+              `Continue (step_normal_requests_wait probes_pool (succ period_timer) acc))
 
-    and step_normal_requests probes_pool period_timer acc recvd =
-      let responses,acc = deserialize (Board_meta.concat_acc acc recvd) in
+    and step_normal_requests_wait probes_pool period_timer acc recvd =
+      let responses, acc = deserialize (Board_meta.concat_acc acc recvd) in
       try
-        let sent =
-          if not @@ Msg_queue.empty !msgs
-          then begin match Msg_queue.responded !msgs responses with
-               | None -> msgs := Msg_queue.step !msgs; false
-               | Some () -> msgs := Msg_queue.next !msgs;
-                            Msg_queue.send !msgs () |> ignore;
-                            true
-               end
-          else false
-        in
-        if (period_timer >= request_period)
-        then `Continue (step_normal_requests_clenup sent probes_pool (succ period_timer) acc)
-        else `Continue (step_normal_requests probes_pool (succ period_timer) acc)
+        match Msg_queue.responsed !msgs responses with
+        | None    -> msgs := Msg_queue.step !msgs;
+                     `Continue (step_normal_requests_wait probes_pool (succ period_timer) acc)
+        | Some () -> msgs := Msg_queue.next !msgs;
+                     `Continue (step_normal_requests_send probes_pool (succ period_timer) acc)
       with Timeout -> first_step ()
 
-    and step_normal_requests_cleanup sent probes_pool period_timer acc recvd =
-      io "normal step requests cleanup";
-      if not sent
-      then step_normal_start probes_pool ((succ period_timer) mod request_period) acc recvd
-      else
-        let responses,acc = deserialize (Board_meta.concat acc recvd) in
-        try
-          let recvd =
-            match Msg_queue.responded !msgs responses with
-            | None    -> msgs := Msg_queue.step !msgs; false
-            | Some () -> msgs := Msg_queue.next !msgs; true
-          in
-          if recvd
-          then `Continue (step_normal_start probes_pool ((succ_period_timer) mod request_period) acc)
-          else `Continue (step_normal_requests_cleanup sent probes_pool (succ period_timer) acc)
-        with Timeout -> first_step ()
+    in first_step ()
 
   let create sender push_state step_duration =
     let period = request_period step_duration in
+    let status,status_push = React.E.create () in
+    let (events : events) = { status } in
+    let push_events = { status = status_push } in
     let msgs = ref (Msg_queue.create period []) in
+    events,
     (send msgs sender),
-    (step msgs sender step_duration push_state)
-    
+    (step msgs sender step_duration push_state push_events)
 
 end

@@ -46,6 +46,25 @@ open Common.Board.Ip
 
 (* -------------------- Requests/responses ----------------- *)
 
+type event =
+  | Fec_delay of int
+  | Fec_cols of int
+  | Fec_rows of int
+  | Jitter_tol of int
+  | Lost_after_fec of int64
+  | Lost_before_fec of int64
+  | Tp_per_ip of int
+  | Status of status
+  | Protocol of protocol
+  | Packet_size of packet_sz
+  | Bitrate of int
+  | Pcr_present of bool
+  | Rate_change_cnt of int32
+  | Jitter_err_cnt of int32
+  | Lock_err_cnt of int32
+  | Delay_factor of int32
+  | Asi_bitrate of int
+
 type _ devinfo =
   | Get_fpga_ver : int devinfo
   | Get_hw_ver   : int devinfo
@@ -110,16 +129,33 @@ type _ ip =
   | Set_method           : meth -> meth ip
   | Get_enable           : bool ip
   | Set_enable           : bool -> bool ip
+  | Get_fec_delay        : event ip
   | Get_fec_enable       : bool ip
   | Set_fec_enable       : bool -> bool ip
+  | Get_fec_cols         : event ip
+  | Get_fec_rows         : event ip
+  | Get_jitter_tol       : event ip
+  | Get_lost_after_fec   : event ip
+  | Get_lost_before_fec  : event ip
   | Get_udp_port         : int ip
   | Set_udp_port         : int -> int ip
   | Get_delay            : int ip
   | Set_delay            : int -> int ip
   | Get_mcast_addr       : Ipaddr.V4.t ip
   | Set_mcast_addr       : Ipaddr.V4.t -> Ipaddr.V4.t ip
+  | Get_tp_per_ip        : event ip
+  | Get_status           : event ip
+  | Get_protocol         : event ip
+  | Get_output           : output ip
+  | Get_packet_size      : event ip
+  | Get_bitrate          : event ip
+  | Get_pcr_present      : event ip
+  | Get_rate_change_cnt  : event ip
   | Get_rate_est_mode    : rate_mode ip
   | Set_rate_est_mode    : rate_mode -> rate_mode ip
+  | Get_jitter_err_cnt   : event ip
+  | Get_lock_err_cnt     : event ip
+  | Get_delay_factor     : event ip
 
 let asi_packet_sz_to_int = function
   | Sz Ts188 -> 0 | Sz Ts204 -> 1 | As_is -> 2
@@ -129,30 +165,13 @@ let asi_packet_sz_of_int = function
 type _ asi =
   | Get_packet_size : asi_packet_sz asi
   | Set_packet_size : asi_packet_sz -> asi_packet_sz asi
-  | Get_bitrate     : int32 asi
+  | Get_bitrate     : event asi
 
 type 'a request = Devinfo of 'a devinfo
                 | Overall of 'a overall
                 | Nw      of 'a nw
                 | Ip      of 'a ip
                 | Asi     of 'a asi
-
-type _ event_request = Get_fec_delay        : int event_request
-                     | Get_fec_cols         : int event_request
-                     | Get_fec_rows         : int event_request
-                     | Get_jitter_tol       : int event_request
-                     | Get_lost_after_fec   : int64 event_request
-                     | Get_lost_before_fec  : int64 event_request
-                     | Get_tp_per_ip        : int event_request
-                     | Get_status           : status event_request
-                     | Get_protocol         : protocol event_request
-                     | Get_packet_size      : packet_sz event_request
-                     | Get_bitrate          : int event_request
-                     | Get_pcr_present      : bool event_request
-                     | Get_rate_change_cnt  : int32 event_request
-                     | Get_jitter_err_cnt   : int32 event_request
-                     | Get_lock_err_cnt     : int32 event_request
-                     | Get_delay_factor     : int32 event_request
 
 let request_to_cat_set : type a. a request -> int * int = function
   | Devinfo x -> 0x01, (match x with
@@ -184,38 +203,37 @@ let request_to_cat_set : type a. a request -> int * int = function
                         | Set_method _         -> 0x01
                         | Get_enable           -> 0x02
                         | Set_enable _         -> 0x02
+                        | Get_fec_delay        -> 0x03
                         | Get_fec_enable       -> 0x04
                         | Set_fec_enable _     -> 0x04
+                        | Get_fec_cols         -> 0x05
+                        | Get_fec_rows         -> 0x06
+                        | Get_jitter_tol       -> 0x07
+                        | Get_lost_after_fec   -> 0x08
+                        | Get_lost_before_fec  -> 0x09
                         | Get_udp_port         -> 0x0A
                         | Set_udp_port _       -> 0x0A
                         | Get_delay            -> 0x0B
                         | Set_delay _          -> 0x0B
                         | Get_mcast_addr       -> 0x0C
                         | Set_mcast_addr _     -> 0x0C
+                        | Get_tp_per_ip        -> 0x0D
+                        | Get_status           -> 0x0E
+                        | Get_protocol         -> 0x0F
+                        | Get_output           -> 0x11
+                        | Get_packet_size      -> 0x12
+                        | Get_bitrate          -> 0x13
+                        | Get_pcr_present      -> 0x14
+                        | Get_rate_change_cnt  -> 0x15
                         | Get_rate_est_mode    -> 0x16
-                        | Set_rate_est_mode _  -> 0x16)
+                        | Set_rate_est_mode _  -> 0x16
+                        | Get_jitter_err_cnt   -> 0x17
+                        | Get_lock_err_cnt     -> 0x18
+                        | Get_delay_factor     -> 0x19)
   | Asi x     -> 0x84, (match x with
                        | Get_packet_size   -> 0x01
                        | Set_packet_size _ -> 0x01
                        | Get_bitrate       -> 0x03)
-
-let event_request_to_cat_set : type a. a event_request -> int * int = function
-  | Get_fec_delay       -> 0x81,0x03
-  | Get_fec_cols        -> 0x81,0x05
-  | Get_fec_rows        -> 0x81,0x06
-  | Get_jitter_tol      -> 0x81,0x07
-  | Get_lost_after_fec  -> 0x81,0x08
-  | Get_lost_before_fec -> 0x81,0x09
-  | Get_tp_per_ip       -> 0x81,0x0D
-  | Get_status          -> 0x81,0x0E
-  | Get_protocol        -> 0x81,0x0F
-  | Get_packet_size     -> 0x81,0x12
-  | Get_bitrate         -> 0x81,0x13
-  | Get_pcr_present     -> 0x81,0x14
-  | Get_rate_change_cnt -> 0x81,0x15
-  | Get_jitter_err_cnt  -> 0x81,0x17
-  | Get_lock_err_cnt    -> 0x81,0x18
-  | Get_delay_factor    -> 0x81,0x19
 
 let cat_set_to_data_length = function
   | 0x01,x -> (match x with                         (* Devinfo *)
@@ -228,10 +246,10 @@ let cat_set_to_data_length = function
                | 0x06        -> sizeof_setting48
                | _           -> sizeof_setting32)
   | 0x81,x -> (match x with
-               | 0x03 | 0x07 | 0x10 | 0x13 | 0x15 | 0x16 | 0x17 | 0x018 | 0x19 -> sizeof_setting32
-               | 0x05 | 0x06 | 0x0A | 0x0B                                     -> sizeof_setting16
-               | 0x08 | 0x09                                                   -> sizeof_setting64
-               | _                                                             -> sizeof_setting8)
+               | 0x03 | 0x07 | 0x0C |0x10 | 0x13 | 0x15 | 0x17 | 0x018 | 0x19 -> sizeof_setting32
+               | 0x05 | 0x06 | 0x0A | 0x0B                                    -> sizeof_setting16
+               | 0x08 | 0x09                                                  -> sizeof_setting64
+               | _                                                            -> sizeof_setting8)
   | 0x84,x -> (match x with
                | 0x01 | 0x02 -> sizeof_setting8
                | _           -> sizeof_setting32)
@@ -298,13 +316,13 @@ let calc_crc msg =
   Cbuffer.fold (fun acc el -> el + acc) iter 0
   |> fun x -> ((lnot x) + 1) land 0xFF
 
-let to_prefix (c,s) ~rw () =
+let to_prefix ~request ~rw () =
+  let c,s = request_to_cat_set request in
   let pfx = Cbuffer.create sizeof_prefix in
   let ()  = set_prefix_stx pfx stx in
   let ()  = set_prefix_address  (to_hex_string (`I8 address)) 0 pfx in
   let ()  = set_prefix_category (to_hex_string (`I8 c)) 0 pfx in
   let ()  = set_prefix_setting  (to_hex_string (`I8 s)) 0 pfx in
-  (* let ()  = set_prefix_index    (to_hex_string (`I16 0)) 0 pfx in *)
   let ()  = set_prefix_rw pfx @@ rw_to_int rw in
   if (c >= 1 && c <= 3) then pfx
   else Cbuffer.append pfx (to_cbuffer (`I16 0))
@@ -316,7 +334,7 @@ let to_suffix ~crc =
   sfx
 
 let to_msg ~request ~rw ~body () =
-  let pfx = to_prefix (request_to_cat_set request) ~rw () in
+  let pfx = to_prefix ~request ~rw () in
   let msg = Cbuffer.append pfx body in
   let sfx = to_suffix ~crc:(calc_crc msg) in
   Cbuffer.append msg sfx
@@ -326,7 +344,6 @@ let to_empty_msg ~request ~rw =
 
 let to_req_get request =
   to_empty_msg ~request ~rw:Read ()
-  |> fun x -> io ("Get request: " ^ Cbuffer.pp x); x
 
 let to_req_set_bool request b =
   to_msg ~request ~rw:Write ~body:(to_cbuffer (`I8 (if b then 1 else 0))) ()
@@ -342,11 +359,6 @@ let to_req_set_int32 request x =
 
 let to_req_set_ipaddr request ip =
   to_msg ~request ~rw:Write ~body:(to_cbuffer (`I32 (Ipaddr.V4.to_int32 ip))) ()
-
-let to_req_get_event ~event ~rw () =
-  let pfx = to_prefix (event_request_to_cat_set event) ~rw () in
-  let sfx = to_suffix ~crc:(calc_crc pfx) in
-  Cbuffer.append pfx sfx
 
 (* ----------------- Message deserialization ---------------- *)
 
@@ -429,6 +441,7 @@ let get_msg buf =
   | e -> Error (Unknown_err (Printexc.to_string e))
 
 let deserialize buf =
+  (* if Cbuffer.len buf > 0 then io @@ "In deserialize: " ^ Cbuffer.pp buf; *)
   let parse = fun ((_,_,rw,_) as x) ->
     match rw with
     | Read | Write -> `Ok x
@@ -449,6 +462,7 @@ let deserialize buf =
   let r,res = f [] parts in (List.rev r, res)
 
 let is_response (type a) (req : a request) m : a option =
+  let open CCOpt.Infix in
   match m with
   | `Ok (cat,set,_,b) ->
      let c,s = request_to_cat_set req in
@@ -462,7 +476,6 @@ let is_response (type a) (req : a request) m : a option =
                            | Get_serial   -> i
                            | Get_type     -> i)
            | Overall x -> let i = parse_int b in
-                          let open CCOpt.Infix in
                           (match x with
                            | Get_mode          -> i >>= mode_of_int
                            | Get_application   -> i >>= application_of_int
@@ -486,48 +499,40 @@ let is_response (type a) (req : a request) m : a option =
                            | Set_dhcp _    -> parse_bool b
                            | Reboot        -> Some ())
            | Ip x      -> (match x with
-                           | Get_method          -> CCOpt.(parse_int b >>= meth_of_int)
+                           | Get_method          -> parse_int b >>= meth_of_int
                            | Get_enable          -> parse_bool b
+                           | Get_fec_delay       -> parse_int b   >|= (fun x -> Fec_delay x)
                            | Get_fec_enable      -> parse_bool b
+                           | Get_fec_cols        -> parse_int b   >|= (fun x -> Fec_cols x)
+                           | Get_fec_rows        -> parse_int b   >|= (fun x -> Fec_rows x)
+                           | Get_jitter_tol      -> parse_int b   >|= (fun x -> Jitter_tol x)
+                           | Get_lost_after_fec  -> parse_int64 b >|= (fun x -> Lost_after_fec x)
+                           | Get_lost_before_fec -> parse_int64 b >|= (fun x -> Lost_before_fec x)
                            | Get_udp_port        -> parse_int b
                            | Get_delay           -> parse_int b
                            | Get_mcast_addr      -> parse_ipaddr b
-                           | Get_rate_est_mode   -> CCOpt.(parse_int b >>= rate_mode_of_int)
-                           | Set_method _        -> CCOpt.(parse_int b >>= meth_of_int)
+                           | Get_tp_per_ip       -> parse_int b >|= (fun x -> Tp_per_ip x)
+                           | Get_status          -> parse_int b >>= status_of_int    >|= (fun x -> Status x)
+                           | Get_protocol        -> parse_int b >>= protocol_of_int  >|= (fun x -> Protocol x)
+                           | Get_output          -> parse_int b >>= output_of_int
+                           | Get_packet_size     -> parse_int b >>= packet_sz_of_int >|= (fun x -> Packet_size x)
+                           | Get_bitrate         -> parse_int b   >|= (fun x -> Bitrate x)
+                           | Get_pcr_present     -> parse_bool b  >|= (fun x -> Pcr_present x)
+                           | Get_rate_change_cnt -> parse_int32 b >|= (fun x -> Rate_change_cnt x)
+                           | Get_rate_est_mode   -> parse_int b >>= rate_mode_of_int
+                           | Get_jitter_err_cnt  -> parse_int32 b >|= (fun x -> Jitter_err_cnt x)
+                           | Get_lock_err_cnt    -> parse_int32 b >|= (fun x -> Lock_err_cnt x)
+                           | Get_delay_factor    -> parse_int32 b >|= (fun x -> Delay_factor x)
+                           | Set_method _        -> parse_int b >>= meth_of_int
                            | Set_enable _        -> parse_bool b
                            | Set_fec_enable _    -> parse_bool b
                            | Set_udp_port _      -> parse_int b
                            | Set_delay _         -> parse_int b
                            | Set_mcast_addr _    -> parse_ipaddr b
-                           | Set_rate_est_mode _ -> CCOpt.(parse_int b >>= rate_mode_of_int))
+                           | Set_rate_est_mode _ -> parse_int b >>= rate_mode_of_int)
            | Asi x     -> (match x with
-                           | Get_packet_size   -> CCOpt.(parse_int b >>= asi_packet_sz_of_int)
-                           | Get_bitrate       -> parse_int32 b
-                           | Set_packet_size _ -> CCOpt.(parse_int b >>= asi_packet_sz_of_int)))
-  | `Error _ -> None
-  | _        -> None
-
-let is_event (type a) (req : a event_request) m : a option =
-  match m with
-  | `Ok (cat,set,_,b) ->
-     let c,s = event_request_to_cat_set req in
-     if c <> cat || s <> set then None
-     else (match req with
-           | Get_fec_delay       -> parse_int b
-           | Get_fec_cols        -> parse_int b
-           | Get_fec_rows        -> parse_int b
-           | Get_jitter_tol      -> parse_int b
-           | Get_lost_after_fec  -> parse_int64 b
-           | Get_lost_before_fec -> parse_int64 b
-           | Get_tp_per_ip       -> parse_int b
-           | Get_status          -> CCOpt.(parse_int b >>= status_of_int)
-           | Get_protocol        -> CCOpt.(parse_int b >>= protocol_of_int)
-           | Get_packet_size     -> CCOpt.(parse_int b >>= packet_sz_of_int)
-           | Get_bitrate         -> parse_int b
-           | Get_pcr_present     -> parse_bool b
-           | Get_rate_change_cnt -> parse_int32 b
-           | Get_jitter_err_cnt  -> parse_int32 b
-           | Get_lock_err_cnt    -> parse_int32 b
-           | Get_delay_factor    -> parse_int32 b)
+                           | Get_packet_size   -> parse_int b >>= asi_packet_sz_of_int
+                           | Get_bitrate       -> parse_int b >|= (fun x -> Asi_bitrate x)
+                           | Set_packet_size _ -> parse_int b >>= asi_packet_sz_of_int))
   | `Error _ -> None
   | _        -> None
