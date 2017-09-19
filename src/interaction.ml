@@ -10,8 +10,8 @@ let yojson_of_body body =
 
 let yojson_to_body js =
   Yojson.Safe.to_string js
-  (* |> Uri.pct_encode *)
-  (* |> (^) "body = " *)
+  |> Uri.pct_encode
+  |> (^) "body = "
   |> Cohttp_lwt_body.of_string
 
 let respond_error ?(status = `Forbidden) error = Cohttp_lwt_unix.Server.respond_error ~status ~body:error

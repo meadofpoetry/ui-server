@@ -1,5 +1,7 @@
 open Lwt_react
-
+open Board_dvb_requests
+open Pipeline_requests
+   
 let return = Lwt.return
 let (>>=) = Lwt.(>>=)
 let (>|=) = Lwt.(>|=)

@@ -1,3 +1,5 @@
+open Common__board_types
+
 type rsp_devinfo =
   { serial   : int
   ; hw_ver   : int
@@ -37,7 +39,7 @@ type rsp_measure =
   ; ber     : float option
   ; freq    : int32 option
   ; bitrate : int32 option
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 type rsp_plp_list =
   { lock    : bool
@@ -60,3 +62,5 @@ type plp_setting_request = (int * int) [@@deriving yojson]
 type plp_setting_response = (int * rsp_plp_set) [@@deriving yojson]
 
 type plp_list_response = (int * rsp_plp_list) [@@deriving yojson]
+
+type measure = (int * rsp_measure) [@@deriving yojson]
