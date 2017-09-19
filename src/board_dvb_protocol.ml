@@ -67,12 +67,12 @@ module SM = struct
     | Settings (id, buf) -> sender @@ (to_req_settings id buf)
     | Plp_setting (id, buf) -> sender @@ (to_req_plp_set id buf)
     | Plps id  -> sender @@ (to_req_plp_list id)
-                             
+
   let send_event (type a) sender (msg : a event_request) : unit Lwt.t =
     (* no instant msgs *)
     match msg with
     | Measure id -> sender @@ to_req_measure id
-                           
+
   let send (type a) msgs sender (msg : a request) : a Lwt.t =
     (* no instant msgs *)
     let t, w = Lwt.wait () in

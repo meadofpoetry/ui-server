@@ -4,7 +4,7 @@ true: warn_error(+1..49+60), warn(A-4-7-23-33-39-40-41-42-44-45-48)
 <**/*.{ml,mli,native}> : thread, optimize(3), unbox_closures
 
 <common> : include
-<common/*> : package(yojson ppx_deriving ppx_deriving_yojson lens lens.ppx_deriving tyxml)
+<common/*> : package(yojson ppx_deriving ppx_deriving_yojson lens lens.ppx_deriving tyxml ipaddr)
 
 <src> : include
 <src/api> : include
@@ -16,5 +16,5 @@ true: warn_error(+1..49+60), warn(A-4-7-23-33-39-40-41-42-44-45-48)
 <jsoo> : include
 <jsoo/*.{ml,mli,byte}> : optimize(3), package(js_of_ocaml js_of_ocaml.weak js_of_ocaml-ppx js_of_ocaml-lwt)
 <jsoo/*.{ml,mli,byte}> : package(react yojson ppx_deriving_yojson lens lens.ppx_deriving containers lwt_react)
-<jsoo/*.{ml,mli,byte}> : package(tyxml gg vg vg.htmlc)
+<jsoo/*.{ml,mli,byte}> : package(tyxml gg vg vg.htmlc ipaddr)
 <jsoo/*.js> : opt(3)

@@ -23,7 +23,7 @@ let create_adapter typ model manufacturer version =
   Lwt_io.printf "in create adapter\n" |> ignore;
   match typ, model, manufacturer with
   | DVB, "rf", "niitv"       -> Board_dvb.create version
-  (* | IP, "dtm-3200", "dektec" -> Board_ip.create version *)
+  | IP, "dtm-3200", "dektec" -> Board_ip.create version
   (* | TS, "qos", "niitv"       -> Board_qos.create version *)
   | _ -> raise (Failure ("create board: unknown board "))
 
