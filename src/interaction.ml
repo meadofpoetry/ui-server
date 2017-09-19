@@ -3,15 +3,12 @@ open Lwt.Infix
 let yojson_of_body body =
   Cohttp_lwt_body.to_string body
   >|= fun body ->
-  String.split_on_char '=' body
-  |> (fun l -> List.nth l 1)
-  |> Uri.pct_decode
+  Uri.pct_decode body
   |> Yojson.Safe.from_string
 
 let yojson_to_body js =
   Yojson.Safe.to_string js
   |> Uri.pct_encode
-  |> (^) "body = "
   |> Cohttp_lwt_body.of_string
 
 let respond_error ?(status = `Forbidden) error = Cohttp_lwt_unix.Server.respond_error ~status ~body:error

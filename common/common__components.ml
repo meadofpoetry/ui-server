@@ -1,5 +1,5 @@
 open Tyxml
-
+   
 type color_scheme = Primary
                   | Accent
 
@@ -14,21 +14,21 @@ let add_common_attrs ?id ?style l =
   |> (fun l -> match style with
                | Some x -> l @ [Html.a_style x]
                | None   -> l)
-
+  
 module Button = struct
   let base_class = "mdc-button"
 
   let create ?(classes=[])
-             ?id
-             ?style
-             ?(disabled=false)
-             ?color_scheme
-             ?(raised=false)
-             ?(ripple=false)
-             ?(dense=false)
-             ?(compact=false)
-             label
-             () =
+        ?id
+        ?style
+        ?(disabled=false)
+        ?color_scheme
+        ?(raised=false)
+        ?(ripple=false)
+        ?(dense=false)
+        ?(compact=false)
+        label
+        () =
     Html.button ~a:([Html.a_class (base_class :: classes
                                    |> (fun l -> match color_scheme with
                                                 | None   -> l
@@ -41,7 +41,7 @@ module Button = struct
                     |> add_common_attrs ?id ?style
                     |> (fun l -> if disabled then l @ [Html.a_disabled ()]                           else l)
                     |> (fun l -> if ripple   then l @ [Html.a_user_data "mdc-auto-init" "MDCRipple"] else l))
-                [Html.pcdata label]
+      [Html.pcdata label]
 end
 
 module Card = struct
@@ -51,78 +51,78 @@ module Card = struct
   (* Media section *)
 
   let create_media ?(classes=[])
-                   ?id
-                   ?style
-                   children
-                   () =
+        ?id
+        ?style
+        children
+        () =
     Html.section ~a:([Html.a_class ((base_class ^ "__media") :: classes)]
                      |> add_common_attrs ?id ?style)
-                 children
+      children
 
   (* Actions section *)
 
   let create_actions ?(classes=[])
-                     ?id
-                     ?style
-                     children
-                     () =
+        ?id
+        ?style
+        children
+        () =
     Html.section ~a:([Html.a_class ((base_class ^ "__actions") :: classes)]
                      |> add_common_attrs ?id ?style)
-                 children
+      children
 
   (* Primary section *)
 
   let create_title ?(classes=[])
-                   ?id
-                   ?style
-                   ?(large=false)
-                   title
-                   () =
+        ?id
+        ?style
+        ?(large=false)
+        title
+        () =
     let class' = base_class ^ "__title" in
     Html.h1 ~a:([Html.a_class (class' :: classes
                                |> (fun l -> if large then (class' ^ "--large") :: l else l))]
                 |> add_common_attrs ?id ?style)
-            [Html.pcdata title]
+      [Html.pcdata title]
 
   let create_subtitle ?(classes=[])
-                      ?id
-                      ?style
-                      subtitle
-                      () =
+        ?id
+        ?style
+        subtitle
+        () =
     Html.h2 ~a:([Html.a_class ((base_class ^ "__subtitle") :: classes)]
                 |> add_common_attrs ?id ?style)
-            [Html.pcdata subtitle]
+      [Html.pcdata subtitle]
 
   let create_primary ?(classes=[])
-                     ?id
-                     ?style
-                     children
-                     () =
+        ?id
+        ?style
+        children
+        () =
     Html.section ~a:([Html.a_class ((base_class ^ "__primary") :: classes)]
                      |> add_common_attrs ?id ?style)
-                 children
+      children
 
   (* Supporting text section *)
 
   let create_supporting_text ?(classes=[])
-                             ?id
-                             ?style
-                             children
-                             () =
+        ?id
+        ?style
+        children
+        () =
     Html.section ~a:([Html.a_class ((base_class ^ "__supporting-text") :: classes)]
                      |> add_common_attrs ?id ?style)
-                 children
+      children
 
   (* Card *)
 
   let create ?(sections=[])
-             ?id
-             ?style
-             ?(classes=[])
-             () =
+        ?id
+        ?style
+        ?(classes=[])
+        () =
     Html.div ~a:([Html.a_class ("mdc-card" :: classes)]
                  |> add_common_attrs ?id ?style)
-             sections
+      sections
 
 end
 
@@ -185,7 +185,7 @@ end
 module Switch = struct
 
 end
-
+              
 module Tabs = struct
 
   type tab_content = Text of string
@@ -197,57 +197,57 @@ module Tabs = struct
   let tab_class = "mdc-tab"
 
   let create_tab ?(classes=[])
-                 ?id
-                 ?style
-                 ?(active=false)
-                 ?href
-                 tab_content
-                 () =
+        ?id
+        ?style
+        ?(active=false)
+        ?href
+        tab_content
+        () =
     Html.a ~a:([Html.a_class (tab_class :: classes
                               |> (fun l -> if active then (tab_class ^ "--active") :: l else l))]
                |> add_common_attrs ?id ?style
                |> (fun l -> match href with
                             | Some x -> l @ [Html.a_href x]
                             | None   -> l))
-           (match tab_content with
-            | Text s -> [Html.pcdata s]
-            | Icon (i,fallback) -> [Html.i ~a:([Html.a_class ["material-icons"; (tab_class ^ "__icon")]]
-                                               |> (fun l -> match fallback with
-                                                            | Some x -> l @ [Html.a_aria "label" [x]]
-                                                            | None   -> l))
-                                           [Html.pcdata i]]
-            | Text_and_icon (s,i) -> [ Html.i ~a:([ Html.a_class ["material-icons"; (tab_class ^ "__icon")]
-                                                  ; Html.a_aria "hidden" ["true"]])
-                                              [Html.pcdata i]
-                                     ; Html.span ~a:[Html.a_class [(tab_class ^ "__icon-text")]]
-                                                 [Html.pcdata s]])
+      (match tab_content with
+       | Text s -> [Html.pcdata s]
+       | Icon (i,fallback) -> [Html.i ~a:([Html.a_class ["material-icons"; (tab_class ^ "__icon")]]
+                                          |> (fun l -> match fallback with
+                                                       | Some x -> l @ [Html.a_aria "label" [x]]
+                                                       | None   -> l))
+                                 [Html.pcdata i]]
+       | Text_and_icon (s,i) -> [ Html.i ~a:([ Html.a_class ["material-icons"; (tab_class ^ "__icon")]
+                                             ; Html.a_aria "hidden" ["true"]])
+                                    [Html.pcdata i]
+                                ; Html.span ~a:[Html.a_class [(tab_class ^ "__icon-text")]]
+                                    [Html.pcdata s]])
 
   let create_indicator ?(classes=[])
-                       ?id
-                       ?style
-                       () =
+        ?id
+        ?style
+        () =
     Html.span ~a:([Html.a_class ((base_class ^ "__indicator") :: classes)]
                   |> add_common_attrs ?id ?style) []
 
   let create ?(classes=[])
-             ?id
-             ?style
-             ?(with_indicator=true)
-             ?(accent_indicator=false)
-             tabs_type
-             children
-             () =
+        ?id
+        ?style
+        ?(with_indicator=true)
+        ?(accent_indicator=false)
+        tabs_type
+        children
+        () =
     Html.nav ~a:([ Html.a_class (base_class :: classes
-                                |> (fun l -> match tabs_type with
-                                             | `Text          -> l
-                                             | `Icon          -> (base_class ^ "--icon-tab-bar") :: l
-                                             | `Text_and_icon -> (base_class ^ "--icons-with-text") :: l)
-                                |> (fun l -> if accent_indicator
-                                             then (base_class ^ "--indicator-accent") :: l
-                                             else l))
+                                 |> (fun l -> match tabs_type with
+                                              | `Text          -> l
+                                              | `Icon          -> (base_class ^ "--icon-tab-bar") :: l
+                                              | `Text_and_icon -> (base_class ^ "--icons-with-text") :: l)
+                                 |> (fun l -> if accent_indicator
+                                              then (base_class ^ "--indicator-accent") :: l
+                                              else l))
                  ; Html.a_user_data "mdc-auto-init" "MDCTabBar"]
                  |> add_common_attrs ?id ?style)
-             (children |> (fun x -> if with_indicator then (x @ [create_indicator ()]) else x))
+      (children |> (fun x -> if with_indicator then (x @ [create_indicator ()]) else x))
 
 end
 
@@ -256,21 +256,21 @@ module Text_field = struct
   let base_class = "mdc-textfield"
 
   let create ?(classes=[])
-             ?id
-             ?style
-             ?(password=false)
-             ?(disabled=false)
-             label
-             () =
+        ?id
+        ?style
+        ?(password=false)
+        ?(disabled=false)
+        label
+        () =
     Html.label ~a:([ Html.a_class (base_class :: classes)
                    ; Html.a_user_data "mdc-auto-init" "MDCTextfield" ]
                    |> add_common_attrs ?id ?style)
-               [ Html.input ~a:([ Html.a_class [base_class ^ "__input"]
-                                ; Html.a_input_type (if password then `Password else `Text) ]
-                                |> (fun l -> if disabled then l @ [Html.a_disabled ()] else l))
-                            ()
-               ; Html.span ~a:[Html.a_class [base_class ^ "__label"]]
-                           [Html.pcdata label]]
+      [ Html.input ~a:([ Html.a_class [base_class ^ "__input"]
+                       ; Html.a_input_type (if password then `Password else `Text) ]
+                       |> (fun l -> if disabled then l @ [Html.a_disabled ()] else l))
+          ()
+      ; Html.span ~a:[Html.a_class [base_class ^ "__label"]]
+          [Html.pcdata label]]
 
 end
 
