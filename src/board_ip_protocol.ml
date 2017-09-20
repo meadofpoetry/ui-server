@@ -6,8 +6,6 @@ include Board_ip_parser
 
 [@@@ocaml.warning "-26"]
 
-let io x = Lwt_io.printf "%s\n" x |> ignore
-
 (* Board protocol implementation *)
 
 let timeout_period step_duration = 2 * int_of_float (1. /. step_duration) (* 2 secs *)
@@ -16,8 +14,22 @@ let request_period step_duration = 1 * int_of_float (1. /. step_duration) (* 5 s
 
 module SM = struct
 
-  type events = { status : board_status React.event }
+  type nw_settings =
+    { ip      : addr
+    ; mask    : mask
+    ; gateway : gateway
+    ; dhcp    : flag
+    }
 
+  type ip_settings =
+    { enable    : flag
+    ; fec       : flag
+    ; port      : port
+    ; multicast : multicast option
+    ; delay     : delay option
+    ; rate_mode : rate_mode option
+    }
+  
   type push_events = { status : board_status -> unit
                      }
 
@@ -170,7 +182,6 @@ module SM = struct
       find_resp req acc recvd
                 ~success:(fun x _ -> let fpga_ver,hw_ver,fw_ver,serial,typ = conf in
                                      let conf = { fpga_ver; hw_ver; fw_ver; serial; typ; mac = x } in
-                                     io (devinfo_to_yojson conf |> Yojson.Safe.to_string);
                                      let r = Overall (Set_mode Ip2asi) in
                                      send r; `Continue (step_init_mode period r None))
                 ~failure:(fun acc -> bad_step p (step_detect_mac (pred p) req conf acc))
@@ -242,19 +253,21 @@ module SM = struct
                 ~failure:(fun acc -> bad_step p (step_init_dhcp (pred p) req init_pool acc))
 
     and step_init_nw init_pool acc recvd =
-      let responses,acc = deserialize (Board_meta.concat_acc acc recvd) in
-      match Msg_pool.responsed init_pool responses with
-      | None   -> if init_pool.timer < 0 then (first_step ())
-                  else `Continue (step_init_nw (Msg_pool.step init_pool) acc)
-      | Some _ ->
-         match Msg_pool.last init_pool with
-         | true -> let r = (Nw Reboot) in
-                   send_msg sender r |> ignore;
-                   `Continue (step_finalize_init period r None)
-         | false -> let init_pool = Msg_pool.next init_pool in
-                    Msg_pool.send init_pool () |> ignore;
-                    `Continue (step_init_nw init_pool acc)
-
+      try
+        let responses,acc = deserialize (Board_meta.concat_acc acc recvd) in
+        match Msg_pool.responsed init_pool responses with
+        | None   -> if init_pool.timer < 0 then (first_step ())
+                    else `Continue (step_init_nw (Msg_pool.step init_pool) acc)
+        | Some _ ->
+           match Msg_pool.last init_pool with
+           | true -> let r = (Nw Reboot) in
+                     send_msg sender r |> ignore;
+                     `Continue (step_finalize_init period r None)
+           | false -> let init_pool = Msg_pool.next init_pool in
+                      Msg_pool.send init_pool () |> ignore;
+                      `Continue (step_init_nw init_pool acc)
+      with Timeout -> first_step ()
+                      
     and step_finalize_init p req acc recvd =
       find_resp req acc recvd
                 ~success:(fun _ _ ->
@@ -376,8 +389,22 @@ module SM = struct
     let (events : events) = { status } in
     let push_events = { status = status_push } in
     let msgs = ref (Msg_queue.create period []) in
+    let send x = send msgs sender x in
+    let api  = { addr      = (fun x -> send (Nw (Set_ip x)))
+               ; mask      = (fun x -> send (Nw (Set_mask x)))
+               ; gateway   = (fun x -> send (Nw (Set_gateway x)))
+               ; dhcp      = (fun x -> send (Nw (Set_dhcp x)))
+               ; enable    = (fun x -> send (Ip (Set_enable x)))
+               ; fec       = (fun x -> send (Ip (Set_fec_enable x)))
+               ; port      = (fun x -> send (Ip (Set_udp_port x)))
+               ; multicast = (fun x -> send (Ip (Set_mcast_addr x)))
+               ; delay     = (fun x -> send (Ip (Set_delay x)))
+               ; rate_mode = (fun x -> send (Ip (Set_rate_est_mode x)))
+               ; reset     = (fun () -> send (Nw Reboot))
+               }
+    in
     events,
-    (send msgs sender),
+    api,
     (step msgs sender step_duration push_state push_events)
 
 end

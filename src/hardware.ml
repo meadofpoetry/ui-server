@@ -43,8 +43,8 @@ let create_board db usb (b:topo_board) step_duration =
   B.connect_db board db
 
 let topo_to_signal topo boards =
-  let build_board b active ports =
-    React.S.l2 (fun a p -> Board { b with active = a; ports = p }) active ports
+  let build_board b connection ports =
+    React.S.l2 (fun a p -> Board { b with connection = a; ports = p }) connection ports
   in
   let merge_ports lst =
     List.map (fun (port, list, child) ->
@@ -56,11 +56,11 @@ let topo_to_signal topo boards =
     | Input _ as i -> React.S.const i
     | Board b ->
        let bstate    = List.find_pred (fun x -> Int.equal x.control b.control) boards in
-       let active, port_list =
+       let connection, port_list =
          match bstate with
-         | None       -> React.S.const false,
+         | None       -> React.S.const `No_response,
                          fun _ -> React.S.const false
-         | Some state -> state.is_active,
+         | Some state -> state.connection,
                          fun p -> Ports.get_or p state.ports_active ~default:(React.S.const false)
        in
        let ports = merge_ports @@
@@ -68,7 +68,7 @@ let topo_to_signal topo boards =
                                         port_list p.port,
                                         board_to_signal p.child)
                               b.ports
-       in build_board b active ports
+       in build_board b connection ports
   in
   List.map board_to_signal topo
   |> React.S.merge (fun acc h -> h::acc) []

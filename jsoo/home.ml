@@ -90,7 +90,7 @@ let onload _ =
   let s = Common.Board.Dvb.({ mode = T2; bw = Bw8; freq = 666_000_000l; plp = 0 }) in
 
   Lwt.ignore_result @@ Lwt_js_events.clicks button_set (fun _ _ ->
-                           let data = Board_dvb_requests.post_settings 1 (1, s) in
+                           let data = Board_dvb_requests.post_settings 4 (1, s) in
                            data >>= function
                            | Error e -> Lwt.return @@ (label##.textContent := Js.some @@ Js.string e)
                            | Ok devi -> Lwt.return @@ (label##.textContent := Js.some @@ Js.string
@@ -99,7 +99,7 @@ let onload _ =
 
   Lwt.ignore_result @@ Lwt_js_events.clicks button_reset (fun _ _ -> Lwt.return @@ (label##.textContent := Js.some @@ Js.string ""));
 
-  let _ = React.E.map (fun x -> ev_label##.textContent := Js.some @@ Js.string (Yojson.Safe.to_string @@ Common.Board.Dvb.measure_to_yojson x)) (Board_dvb_requests.get_measures_socket 1 ()) in
+  let _ = React.E.map (fun x -> ev_label##.textContent := Js.some @@ Js.string (Yojson.Safe.to_string @@ Common.Board.Dvb.measure_to_yojson x)) (Board_dvb_requests.get_measures_socket 4 ()) in
   
   Dom.appendChild (Dom_html.getElementById "arbitrary-content") label;
   Dom.appendChild (Dom_html.getElementById "arbitrary-content") button_set;

@@ -100,7 +100,7 @@ module SM = struct
     
     and step_detect detect_pool acc recvd =
       try
-        Lwt_io.printf "Detect step\n" |> ignore;
+        (*Lwt_io.printf "Detect step\n" |> ignore;*)
         let recvd = Board_meta.concat_acc acc recvd in
         let _, responses, acc = deserialize recvd in
         match Msg_pool.responsed detect_pool responses with
@@ -125,7 +125,7 @@ module SM = struct
                  
     and step_init init_pool probes acc recvd =
       try
-        Lwt_io.printf "Init step\n" |> ignore;
+        (*Lwt_io.printf "Init step\n" |> ignore;*)
         let recvd = Board_meta.concat_acc acc recvd in
         let _, responses, acc = deserialize recvd in
         match Msg_pool.responsed init_pool responses with
@@ -143,7 +143,7 @@ module SM = struct
       with Timeout -> first_step ()
 
     and step_normal_probes_send probes_pool period_timer acc _ =
-      Lwt_io.printf "Normal step probes send \n" |> ignore;
+      (*Lwt_io.printf "Normal step probes send \n" |> ignore;*)
       if (period_timer >= request_period) then raise (Failure "board_dvb: sm invariant is broken");
            
       if Msg_pool.empty probes_pool
@@ -152,7 +152,7 @@ module SM = struct
             `Continue (step_normal_probes_wait probes_pool (succ period_timer) acc))
 
     and step_normal_probes_wait probes_pool period_timer acc recvd =
-      Lwt_io.printf "Normal step probes recv\n" |> ignore;
+      (*Lwt_io.printf "Normal step probes recv\n" |> ignore;*)
       let recvd_buf = Board_meta.concat_acc acc recvd in
       let events, _, acc = deserialize recvd_buf in
 
@@ -168,7 +168,7 @@ module SM = struct
       with Timeout -> first_step ()
 
     and step_normal_requests_send probes_pool period_timer acc _ =
-      Lwt_io.printf "Normal step requests send\n" |> ignore;
+      (*Lwt_io.printf "Normal step requests send\n" |> ignore;*)
       if (period_timer >= request_period)
       then `Continue (step_normal_probes_send probes_pool ((succ period_timer) mod request_period) acc)
       else 
@@ -178,10 +178,9 @@ module SM = struct
               `Continue (step_normal_requests_wait probes_pool (succ period_timer) acc))
 
     and step_normal_requests_wait probes_pool period_timer acc recvd =
-      Lwt_io.printf "Normal step requests recv\n" |> ignore;
+      (*Lwt_io.printf "Normal step requests recv\n" |> ignore;*)
       let recvd = Board_meta.concat_acc acc recvd in
       let _, responses, acc = deserialize recvd in
-      Lwt_io.printf " -- %d pending %d got\n" (CCFQueue.size (!msgs).reqs) (List.length responses) |> ignore;
       try
         match Msg_queue.responsed !msgs responses with
         | None    -> msgs := Msg_queue.step !msgs;

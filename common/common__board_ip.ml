@@ -1,3 +1,4 @@
+open Common__board_types
 
 (* Overall types *)
 type mode        = Asi2ip | Ip2asi
@@ -5,11 +6,11 @@ type application = Failsafe | Normal
 type storage     = Flash | Ram
 
 (* Ip types *)
-type status    = Enabled | Disabled | Failure [@@deriving to_yojson]
-type protocol  = Udp | Rtp [@@deriving to_yojson]
+type status    = Enabled | Disabled | Failure [@@deriving yojson]
+type protocol  = Udp | Rtp [@@deriving yojson]
 type output    = Asi | Spi 
-type packet_sz = Ts188 | Ts204 [@@deriving to_yojson]
-type rate_mode = On | Fixed | Without_pcr | Off
+type packet_sz = Ts188 | Ts204 [@@deriving yojson]
+type rate_mode = On | Fixed | Without_pcr | Off [@@deriving yojson]
 
 (* Asi types *)
 type asi_packet_sz = Sz of packet_sz | As_is
@@ -27,21 +28,37 @@ type devinfo = { fpga_ver : int
                ; mac      : Macaddr.t
                } [@@deriving to_yojson]
 
-type nw_settings =
-  { ip      : Ipaddr.V4.t
-  ; mask    : Ipaddr.V4.t
-  ; gateway : Ipaddr.V4.t
-  ; dhcp    : bool
-  }
+let ipv4_to_yojson (a : Ipaddr.V4.t) : Yojson.Safe.json =
+  let s = Ipaddr.V4.to_string a in
+  `String s
 
-type ip_settings =
-  { enable    : bool
-  ; fec       : bool
-  ; port      : int
-  ; multicast : Ipaddr.V4.t option
-  ; delay     : int option
-  ; rate_mode : rate_mode option
-  }
+let ipv4_of_yojson = function
+  | `String s -> (match Ipaddr.V4.of_string s with
+                  | Some a -> Ok a
+                  | None -> Error ("bad address: " ^ s))
+  | _ -> Error "not an ip addr"
+             
+type addr = Ipaddr.V4.t
+let addr_to_yojson : addr -> Yojson.Safe.json = ipv4_to_yojson
+let addr_of_yojson : Yojson.Safe.json -> (addr, string) result = ipv4_of_yojson
+
+type mask = Ipaddr.V4.t
+let mask_to_yojson : mask -> Yojson.Safe.json = ipv4_to_yojson
+let mask_of_yojson : Yojson.Safe.json -> (mask, string) result = ipv4_of_yojson          
+
+type gateway = Ipaddr.V4.t
+let gateway_to_yojson : gateway -> Yojson.Safe.json = ipv4_to_yojson
+let gateway_of_yojson : Yojson.Safe.json -> (gateway, string) result = ipv4_of_yojson             
+
+type port = int [@@deriving yojson]
+
+type multicast = Ipaddr.V4.t
+let multicast_to_yojson : multicast -> Yojson.Safe.json = ipv4_to_yojson
+let multicast_of_yojson : Yojson.Safe.json -> (multicast, string) result = ipv4_of_yojson
+
+type delay = int [@@deriving yojson]
+
+type flag = bool [@@deriving yojson]
 
 type board_status =
   { fec_delay       : int
@@ -61,7 +78,7 @@ type board_status =
   ; lock_err_cnt    : int32
   ; delay_factor    : int32
   ; asi_bitrate     : int
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 let status_to_string = function
   | Enabled -> "Channel is enabled; No errors detected"

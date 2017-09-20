@@ -68,8 +68,6 @@ let serialize port buf =
   let buf'   = if parity then Cbuffer.append buf (Cstruct.create 1) else buf in
   append (to_header port parity len) buf'
 
-let io x = Lwt_io.printf "%s\n" x |> ignore 
-
 let parse ~mstart ~mend buf_list =
   let open Option.Infix in
   let msgs = List.map deserialize buf_list in

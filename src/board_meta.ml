@@ -2,8 +2,6 @@ open Common.Hardware
 open Lwt.Infix
 
 type 'a cc = [`Continue of 'a]
-   
-type state = [ `Fine | `No_response]
 
 type _ request
                                         
@@ -12,11 +10,10 @@ module Ports = CCMap.Make(CCInt)
 
 type board = { handlers        : (module Api_handler.HANDLER) list
              ; control         : int
-             ; connection      : state React.signal
              ; streams_signal  : string Streams.t React.signal option
              ; step            : (Cbuffer.t list -> 'c cc as 'c) cc
              ; is_converter    : bool
-             ; is_active       : bool React.signal
+             ; connection      : state React.signal
              ; ports_active    : bool React.signal Ports.t
              ; state           : < >
              } 

@@ -167,6 +167,21 @@ type _ asi =
   | Set_packet_size : asi_packet_sz -> asi_packet_sz asi
   | Get_bitrate     : event asi
 
+type events = { status : board_status React.event }
+
+type api = { addr      : addr -> addr Lwt.t
+           ; mask      : mask -> mask Lwt.t
+           ; gateway   : gateway -> gateway Lwt.t
+           ; dhcp      : flag -> flag Lwt.t
+           ; enable    : flag -> flag Lwt.t
+           ; fec       : flag -> flag Lwt.t
+           ; port      : port -> port Lwt.t
+           ; multicast : multicast -> multicast Lwt.t
+           ; delay     : delay -> delay Lwt.t
+           ; rate_mode : rate_mode -> rate_mode Lwt.t
+           ; reset     : unit -> unit Lwt.t
+           }
+  
 type 'a request = Devinfo of 'a devinfo
                 | Overall of 'a overall
                 | Nw      of 'a nw

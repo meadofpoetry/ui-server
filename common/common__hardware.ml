@@ -1,3 +1,8 @@
+type state = [ `Fine
+             | `No_response
+             | `Init
+             ] [@@deriving yojson]
+
 type adapter = | DVB
                | TS
                | IP
@@ -54,7 +59,7 @@ and topo_board = { typ          : typ
                  ; manufacturer : string
                  ; version      : version
                  ; control      : int
-                 ; active       : bool
+                 ; connection   : state
                  ; ports        : topo_port list
                  }
 

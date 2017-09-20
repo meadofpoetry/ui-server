@@ -98,7 +98,7 @@ module Topology = struct
                                                                     ; manufacturer = ""
                                                                     ; version = 42
                                                                     ; control = 1
-                                                                    ; active = true
+                                                                    ; connection = `Fine
                                                                     ; ports = []});
               V2.v 0.75 0.75, Input_element.create Common.Hardware.(RF)]
 
