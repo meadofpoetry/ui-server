@@ -64,3 +64,26 @@ type plp_setting_response = (int * rsp_plp_set) [@@deriving yojson]
 type plp_list_response = (int * rsp_plp_list) [@@deriving yojson]
 
 type measure = (int * rsp_measure) [@@deriving yojson]
+
+type config = (int * settings) list [@@deriving yojson]
+
+let config_to_string c = Yojson.Safe.to_string @@ config_to_yojson c
+
+let config_of_string s = config_of_yojson @@ Yojson.Safe.from_string s
+
+let config_default = [ (0, { mode = T2
+                           ; bw   = Bw8
+                           ; freq = 586000000l
+                           ; plp  = 0})
+                     ; (1, { mode = T2
+                           ; bw   = Bw8
+                           ; freq = 586000000l
+                           ; plp  = 0})
+                     ; (2, { mode = T2
+                           ; bw   = Bw8
+                           ; freq = 586000000l
+                           ; plp  = 0})
+                     ; (3, { mode = T2
+                           ; bw   = Bw8
+                           ; freq = 586000000l
+                           ; plp  = 0})]

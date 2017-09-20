@@ -7,13 +7,23 @@ open Lwt.Infix
 
 module V1 : BOARD = struct
 
+  module Data = struct
+    type t = Common.Board.Dvb.config
+    let default = Common.Board.Dvb.config_default
+    let dump = Common.Board.Dvb.config_to_string
+    let restore = Common.Board.Dvb.config_of_string
+  end
+  
+  module Config_storage = Config_storage.Make (Data)
+  
   type 'a request = 'a Board_dvb_protocol.request
 
   let create_sm = Board_dvb_protocol.SM.create
                    
-  let create (b:topo_board) send step =
+  let create (b:topo_board) send base step =
+    let storage      = Config_storage.create base ["board"; (string_of_int b.control)] in
     let s_state, spush = React.S.create `No_response in
-    let events, api, step = create_sm send spush step in
+    let events, api, step = create_sm send storage spush step in
     let handlers = Board_dvb_api.handlers b.control api events in (* XXX temporary *)
     let state = object end in
     { handlers       = handlers

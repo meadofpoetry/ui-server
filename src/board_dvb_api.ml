@@ -42,6 +42,10 @@ let plps (api : api) num =
     respond_js (plp_list_response_to_yojson plp_rsp) ()
   with _ -> respond_error (Printf.sprintf "plps: bad argument %s" num) ()
 
+let config api =
+  api.config () >>= fun conf ->
+  respond_js (config_to_yojson conf) ()
+
 let measures sock_data events body =
   let id = rand_int () in
   Cohttp_lwt_body.drain_body body
@@ -71,6 +75,7 @@ let handle api events _ meth args sock_data _ body =
   | `POST, ["settings"]     -> settings api body
   | `POST, ["plp_setting"]  -> plp_setting api body
   | `GET,  "plps"::[num]    -> plps api num
+  | `GET,  ["config"]       -> config api
   | _,     ["measures"]     -> measures sock_data events body
   | _ -> not_found ()
 

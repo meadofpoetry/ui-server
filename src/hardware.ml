@@ -33,13 +33,13 @@ let create_converter typ model manufacturer _ =
   | _ -> raise (Failure ("create board: unknown board "))
 
             
-let create_board db usb (b:topo_board) step_duration =
+let create_board db usb (b:topo_board) path step_duration =
   let (module B : BOARD) = 
     match b.typ with
     | Adapter   t -> create_adapter t b.model b.manufacturer b.version
     | Converter t -> create_converter t b.model b.manufacturer b.version
   in
-  let board = B.create b (Usb_device.get_send usb b.control) step_duration in
+  let board = B.create b (Usb_device.get_send usb b.control) path step_duration in
   B.connect_db board db
 
 let topo_to_signal topo boards =
@@ -76,12 +76,13 @@ let topo_to_signal topo boards =
 let create config db =
   let step_duration = 0.01 in
   let topo      = Conf.get config in
+  let stor      = Config_storage.Conf.get config in
   let usb, loop = Usb_device.create ~sleep:step_duration () in
   let rec traverse acc = (function
                           | Board b -> List.fold_left (fun a x -> traverse a x.child) (b :: acc) b.ports
                           | Input _ -> acc) in
   let boards = List.fold_left traverse [] topo
-               |> List.map (fun b -> let board = create_board db usb b step_duration in
+               |> List.map (fun b -> let board = create_board db usb b stor.config_dir step_duration in
                                      Usb_device.subscribe usb b.control board.step; board)
   in
   let topo_signal = topo_to_signal topo boards in

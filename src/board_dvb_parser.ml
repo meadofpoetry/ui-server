@@ -125,6 +125,7 @@ type api = { devinfo     : unit -> devinfo_response Lwt.t
            ; settings    : settings_request -> settings_response Lwt.t
            ; plp_setting : plp_setting_request -> plp_setting_response Lwt.t
            ; plps        : int -> plp_list_response Lwt.t
+           ; config      : unit -> config Lwt.t
            }
 
 type _ request = Devinfo     : rsp_devinfo request

@@ -1,9 +1,10 @@
 open Common.Board.Dvb
 open Lwt.Infix
 open Board_meta
+open Config_storage
 
 include Board_dvb_parser
-
+      
 let ( % ) = CCFun.(%)
       
 (* Board protocol implementation *)
@@ -14,7 +15,9 @@ let request_period step_duration = 5 * int_of_float (1. /. step_duration) (* 5 s
 
 let detect = Devinfo
 
-let init = [ Settings (0, { mode = T2
+let init = List.map (fun x -> Settings x)
+             (*
+  [ Settings (0, { mode = T2
                           ; bw   = Bw8
                           ; freq = 586000000l
                           ; plp  = 0})
@@ -30,16 +33,16 @@ let init = [ Settings (0, { mode = T2
                           ; bw   = Bw8
                           ; freq = 586000000l
                           ; plp  = 0})]
-
+              *)
 let detect_msgs (send_req : 'a request -> unit Lwt.t) =
   [ { send = (fun () -> send_req detect); pred = (is_response detect) } ]
 
-let init_msgs (send_req : 'a request -> unit Lwt.t) =
+let init_msgs (send_req : 'a request -> unit Lwt.t) d =
   List.map (fun x ->
       { send = (fun () -> send_req x)
       ; pred = (is_response x)
     })
-    init
+    (init d)
                             
 let measure_probes (send_ev : 'a event_request -> unit Lwt.t) config =
   List.map (fun x ->
@@ -73,19 +76,29 @@ module SM = struct
     match msg with
     | Measure id -> sender @@ to_req_measure id
 
-  let send (type a) msgs sender (msg : a request) : a Lwt.t =
+  let send (type a) msgs sender (storage : config storage) (msg : a request) : a Lwt.t =
     (* no instant msgs *)
     let t, w = Lwt.wait () in
     let pred = function
       | `Timeout -> Lwt.wakeup_exn w (Failure "msg timeout"); None
-      | l -> CCOpt.( is_response msg l >|= Lwt.wakeup w ) in
+      | l -> let open CCOpt in
+             is_response msg l >|= fun r ->
+             (match msg with
+              | Settings (d, dat) -> let conf = List.map (fun (i,old) -> if i = d
+                                                                         then (d, dat)
+                                                                         else (i, old))
+                                                  storage#get
+                                     in storage#store conf
+              | _ -> ());
+             Lwt.wakeup w r
+    in
     let send = fun () -> send_msg sender msg in
     msgs := Msg_queue.append !msgs { send; pred };
     t
 
   let initial_timeout = -1
                       
-  let step msgs sender step_duration push_state push_events =
+  let step msgs sender (storage : config storage) step_duration push_state push_events =
     let period         = timeout_period step_duration in
     let request_period = request_period step_duration in
     let push_events  = event_push push_events in
@@ -114,7 +127,7 @@ module SM = struct
 
     and step_start_init probes =
       try
-        match init_msgs (send_msg sender) with
+        match init_msgs (send_msg sender) storage#get with
         | [] -> let probes_pool = Msg_pool.create period probes in
                 Msg_pool.send probes_pool () |> ignore;
                 `Continue (step_normal_probes_send probes_pool 0 None)
@@ -192,22 +205,23 @@ module SM = struct
     in
     first_step ()
     
-  let create sender push_state step_duration =
+  let create sender (storage : config storage) push_state step_duration =
     let period = timeout_period step_duration in
     let measure, mpush = React.E.create () in
     let (events : events) = { measure } in
     let push_events = { measure = mpush } in
     let msgs = ref (Msg_queue.create period []) in
-    let send x = send msgs sender x in
+    let send x = send msgs sender storage x in
     let api = { devinfo     = (fun ()    -> send Devinfo)
               ; reset       = (fun ()    -> send Reset)
               ; settings    = (fun s     -> send (Settings s))
               ; plp_setting = (fun (n,s) -> send (Plp_setting (n,s)))
               ; plps        = (fun n     -> send (Plps n))
+              ; config      = (fun ()    -> Lwt.return storage#get)
               }
     in
     events,
     api,
-    (step msgs sender step_duration push_state push_events)
+    (step msgs sender storage step_duration push_state push_events)
 
 end
