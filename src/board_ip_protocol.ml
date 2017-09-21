@@ -1,6 +1,7 @@
 open Common.Board.Ip
 open Lwt.Infix
 open Board_meta
+open Config_storage
 
 include Board_ip_parser
 
@@ -13,22 +14,6 @@ let timeout_period step_duration = 2 * int_of_float (1. /. step_duration) (* 2 s
 let request_period step_duration = 1 * int_of_float (1. /. step_duration) (* 5 secs *)
 
 module SM = struct
-
-  type nw_settings =
-    { ip      : addr
-    ; mask    : mask
-    ; gateway : gateway
-    ; dhcp    : flag
-    }
-
-  type ip_settings =
-    { enable    : flag
-    ; fec       : flag
-    ; port      : port
-    ; multicast : multicast option
-    ; delay     : delay option
-    ; rate_mode : rate_mode option
-    }
   
   type push_events = { status : board_status -> unit
                      }
@@ -94,16 +79,31 @@ module SM = struct
                      | Set_packet_size x -> to_req_set_int8 msg (asi_packet_sz_to_int x)))
     |> sender
 
-  let send msgs sender msg =
+  let send (type a) msgs sender (storage : config storage) (msg : a request) : a Lwt.t =
     let t, w = Lwt.wait () in
     let pred = function
       | `Timeout -> Lwt.wakeup_exn w (Failure "msg timeout"); None
-      | l -> CCOpt.( is_response msg l >|= Lwt.wakeup w ) in
+      | l -> let open CCOpt in
+             is_response msg l >|= fun r ->
+             let conf = storage#get in
+             (match msg with
+              | Nw (Set_ip x) -> storage#store {conf with nw = {conf.nw with ip = x} }
+              | Nw (Set_mask x) -> storage#store {conf with nw = {conf.nw with mask = x} }
+              | Nw (Set_gateway x) -> storage#store {conf with nw = {conf.nw with gateway = x} }
+              | Nw (Set_dhcp x) -> storage#store {conf with nw = {conf.nw with dhcp = x} }
+              | Ip (Set_enable x) -> storage#store {conf with ip = {conf.ip with enable = x} }
+              | Ip (Set_fec_enable x) -> storage#store {conf with ip = {conf.ip with fec = x} }
+              | Ip (Set_udp_port x) -> storage#store {conf with ip = {conf.ip with port = x} }
+              | Ip (Set_mcast_addr x) -> storage#store {conf with ip = {conf.ip with multicast = Some x} }
+              | Ip (Set_delay x) -> storage#store {conf with ip = {conf.ip with delay = Some x} }
+              | Ip (Set_rate_est_mode x) -> storage#store {conf with ip = {conf.ip with rate_mode = Some x} }
+              | _ -> ());
+             Lwt.wakeup w r in
     let send = fun () -> send_msg sender msg in
     msgs := Msg_queue.append !msgs { send; pred };
     t
 
-  let step msgs sender step_duration push_state push_events =
+  let step msgs sender (storage : config storage) step_duration push_state push_events =
 
     let period             = timeout_period step_duration in
     let request_period     = request_period step_duration in
@@ -203,15 +203,8 @@ module SM = struct
                       send r; `Continue (step_init_application period r None)
            | `App  -> let r = Overall (Set_storage Ram) in
                       send r; `Continue (step_init_storage period r None)
-           | `Nw   -> let s = { enable    = true
-                              ; fec       = true
-                              ; port      = 1234
-                              ; multicast = Some (Ipaddr.V4.of_string_exn "224.1.2.1")
-                              ; delay     = Some 100
-                              ; rate_mode = Some On
-                              } in
-                      let r = Ip (Set_enable s.enable) in
-                      send r; `Continue (step_init_ip_enable s period r None)
+           | `Nw   -> let r = Ip (Set_enable storage#get.ip.enable) in
+                      send r; `Continue (step_init_ip_enable period r None)
 
     and step_init_mode p req acc recvd =
       find_resp req acc recvd
@@ -231,17 +224,12 @@ module SM = struct
                 ~failure:(fun acc -> bad_step p (step_init_storage (pred p) req acc))
 
     and step_start_init_nw () =
-      let settings = { ip      = Ipaddr.V4.of_string_exn "192.168.111.68"
-                     ; mask    = Ipaddr.V4.of_string_exn "255.255.255.0"
-                     ; gateway = Ipaddr.V4.of_string_exn "192.168.111.1"
-                     ; dhcp    = false
-                     } in
       let nw_msgs  = List.map (fun x -> { send = (fun () -> send_msg sender x)
                                         ; pred = (is_response x)})
-                              [ Nw (Set_ip settings.ip)
-                              ; Nw (Set_mask settings.mask)
-                              ; Nw (Set_gateway settings.gateway)] in
-      let dhcp_msg = Nw (Set_dhcp settings.dhcp) in
+                       [ Nw (Set_ip storage#get.nw.ip)
+                       ; Nw (Set_mask storage#get.nw.mask)
+                       ; Nw (Set_gateway storage#get.nw.gateway)] in
+      let dhcp_msg = Nw (Set_dhcp storage#get.nw.dhcp) in
       let init_pool = Msg_pool.create period nw_msgs in
       send_msg sender dhcp_msg |> ignore;
       step_init_dhcp period dhcp_msg init_pool None
@@ -275,46 +263,46 @@ module SM = struct
                   send r; `Continue (step_detect_after_init `Nw period reboot_steps r None))
                 ~failure:(fun acc -> bad_step p (step_finalize_init (pred p) req acc))
 
-    and step_init_ip_enable s p req acc recvd =
+    and step_init_ip_enable p req acc recvd =
       find_resp req acc recvd
-                ~success:(fun _ _ -> let r = Ip (Set_fec_enable s.fec) in
-                                     send r; `Continue (step_init_ip_fec s period r None))
-                ~failure:(fun acc -> bad_step p (step_init_ip_enable s (pred p) req acc))
+                ~success:(fun _ _ -> let r = Ip (Set_fec_enable storage#get.ip.fec) in
+                                     send r; `Continue (step_init_ip_fec period r None))
+                ~failure:(fun acc -> bad_step p (step_init_ip_enable (pred p) req acc))
 
-    and step_init_ip_fec s p req acc recvd =
+    and step_init_ip_fec p req acc recvd =
       find_resp req acc recvd
-                ~success:(fun _ _ -> let r = Ip (Set_udp_port s.port) in
-                                     send r; `Continue (step_init_ip_udp_port s period r None))
-                ~failure:(fun acc -> bad_step p (step_init_ip_fec s (pred p) req acc))
+                ~success:(fun _ _ -> let r = Ip (Set_udp_port storage#get.ip.port) in
+                                     send r; `Continue (step_init_ip_udp_port period r None))
+                ~failure:(fun acc -> bad_step p (step_init_ip_fec (pred p) req acc))
 
-    and step_init_ip_udp_port s p req acc recvd =
+    and step_init_ip_udp_port p req acc recvd =
       find_resp req acc recvd
-                ~success:(fun _ _ -> (match s.multicast with
+                ~success:(fun _ _ -> (match storage#get.ip.multicast with
                                       | Some x -> let r = Ip (Set_mcast_addr x) in
-                                                  send r; `Continue (step_init_ip_multicast s period r None)
+                                                  send r; `Continue (step_init_ip_multicast period r None)
                                       | None   -> let r = Ip (Set_method Unicast) in
-                                                  send r; `Continue (step_init_ip_method s (pred p) r None)))
-                ~failure:(fun acc -> bad_step p (step_init_ip_udp_port s (pred p) req acc))
+                                                  send r; `Continue (step_init_ip_method (pred p) r None)))
+                ~failure:(fun acc -> bad_step p (step_init_ip_udp_port (pred p) req acc))
 
-    and step_init_ip_multicast s p req acc recvd =
+    and step_init_ip_multicast p req acc recvd =
       find_resp req acc recvd
                 ~success:(fun _ _ -> let r = Ip (Set_method Multicast) in
-                                     send r; `Continue (step_init_ip_method s period r None))
-                ~failure:(fun acc -> bad_step p (step_init_ip_multicast s (pred p) req acc))
+                                     send r; `Continue (step_init_ip_method period r None))
+                ~failure:(fun acc -> bad_step p (step_init_ip_multicast (pred p) req acc))
 
-    and step_init_ip_method s p req acc recvd =
+    and step_init_ip_method p req acc recvd =
       find_resp req acc recvd
-                ~success:(fun _ _ -> let r = Ip (Set_delay (CCOpt.get_or ~default:100 s.delay)) in
-                                     send r; `Continue (step_init_ip_delay s period r None))
-                ~failure:(fun acc -> bad_step p (step_init_ip_method s (pred p) req acc))
+                ~success:(fun _ _ -> let r = Ip (Set_delay (CCOpt.get_or ~default:100 storage#get.ip.delay)) in
+                                     send r; `Continue (step_init_ip_delay period r None))
+                ~failure:(fun acc -> bad_step p (step_init_ip_method (pred p) req acc))
 
-    and step_init_ip_delay s p req acc recvd =
+    and step_init_ip_delay p req acc recvd =
       find_resp req acc recvd
-                ~success:(fun _ _ -> let r = Ip (Set_rate_est_mode (CCOpt.get_or ~default:On s.rate_mode)) in
-                                     send r; `Continue (step_init_ip_rate_mode s period r None))
-                ~failure:(fun acc -> bad_step p (step_init_ip_delay s (pred p) req acc))
+                ~success:(fun _ _ -> let r = Ip (Set_rate_est_mode (CCOpt.get_or ~default:On storage#get.ip.rate_mode)) in
+                                     send r; `Continue (step_init_ip_rate_mode period r None))
+                ~failure:(fun acc -> bad_step p (step_init_ip_delay (pred p) req acc))
 
-    and step_init_ip_rate_mode s p req acc recvd =
+    and step_init_ip_rate_mode p req acc recvd =
       find_resp req acc recvd
                 ~success:(fun _ _ -> let msgs = List.map (fun x ->
                                                     { send = (fun () -> send_msg sender x)
@@ -338,7 +326,7 @@ module SM = struct
                                                          ; Asi Get_bitrate ] in
                                      let pool = Msg_pool.create period msgs in
                                      `Continue (step_normal_probes_send pool [] 0 None))
-                ~failure:(fun acc -> bad_step p (step_init_ip_rate_mode s (pred p) req acc))
+                ~failure:(fun acc -> bad_step p (step_init_ip_rate_mode (pred p) req acc))
 
     and step_normal_probes_send pool events period_timer acc _ =
       if (period_timer >= request_period) then raise (Failure "board ip: sm invariant broken");
@@ -383,13 +371,13 @@ module SM = struct
 
     in first_step ()
 
-  let create sender push_state step_duration =
+  let create sender storage push_state step_duration =
     let period = request_period step_duration in
     let status,status_push = React.E.create () in
     let (events : events) = { status } in
     let push_events = { status = status_push } in
     let msgs = ref (Msg_queue.create period []) in
-    let send x = send msgs sender x in
+    let send x = send msgs sender storage x in
     let api  = { addr      = (fun x -> send (Nw (Set_ip x)))
                ; mask      = (fun x -> send (Nw (Set_mask x)))
                ; gateway   = (fun x -> send (Nw (Set_gateway x)))
@@ -401,10 +389,11 @@ module SM = struct
                ; delay     = (fun x -> send (Ip (Set_delay x)))
                ; rate_mode = (fun x -> send (Ip (Set_rate_est_mode x)))
                ; reset     = (fun () -> send (Nw Reboot))
+               ; config    = (fun () -> Lwt.return storage#get)
                }
     in
     events,
     api,
-    (step msgs sender step_duration push_state push_events)
+    (step msgs sender storage step_duration push_state push_events)
 
 end

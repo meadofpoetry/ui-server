@@ -180,13 +180,14 @@ type api = { addr      : addr -> addr Lwt.t
            ; delay     : delay -> delay Lwt.t
            ; rate_mode : rate_mode -> rate_mode Lwt.t
            ; reset     : unit -> unit Lwt.t
+           ; config    : unit -> config Lwt.t
            }
   
-type 'a request = Devinfo of 'a devinfo
-                | Overall of 'a overall
-                | Nw      of 'a nw
-                | Ip      of 'a ip
-                | Asi     of 'a asi
+type _ request = Devinfo : 'a devinfo -> 'a request
+               | Overall : 'a overall -> 'a request
+               | Nw      : 'a nw -> 'a request
+               | Ip      : 'a ip -> 'a request
+               | Asi     : 'a asi -> 'a request
 
 let request_to_cat_set : type a. a request -> int * int = function
   | Devinfo x -> 0x01, (match x with

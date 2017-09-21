@@ -92,3 +92,39 @@ let protocol_to_string = function
 let packet_sz_to_string = function
   | Ts188 -> "Ts 188"
   | Ts204 -> "Ts 204"
+
+type nw = { ip      : addr
+          ; mask    : mask
+          ; gateway : gateway
+          ; dhcp    : flag
+          } [@@deriving yojson]
+
+type ip = { enable    : flag
+          ; fec       : flag
+          ; port      : port
+          ; multicast : multicast option
+          ; delay     : delay option
+          ; rate_mode : rate_mode option
+          } [@@deriving yojson]
+           
+type config = { nw : nw
+              ; ip : ip
+              } [@@deriving yojson]
+
+let config_to_string c = Yojson.Safe.to_string @@ config_to_yojson c
+
+let config_of_string s = config_of_yojson @@ Yojson.Safe.from_string s
+            
+let config_default = { nw = { ip        = Ipaddr.V4.of_string_exn "192.168.111.68"
+                            ; mask      = Ipaddr.V4.of_string_exn "255.255.255.0"
+                            ; gateway   = Ipaddr.V4.of_string_exn "192.168.111.1"
+                            ; dhcp      = false
+                            }
+                     ; ip = { enable    = true
+                            ; fec       = true
+                            ; port      = 1234
+                            ; multicast = Some (Ipaddr.V4.of_string_exn "224.1.2.1")
+                            ; delay     = Some 100
+                            ; rate_mode = Some On
+                            }
+                     }

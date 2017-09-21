@@ -24,26 +24,30 @@ let set setter _of _to body =
 
 let address api = set api.addr addr_of_yojson addr_to_yojson
 
-let mask api = set api.mask mask_of_yojson mask_to_yojson
+let mask (api : api) = set api.mask mask_of_yojson mask_to_yojson
 
-let gateway api = set api.gateway gateway_of_yojson gateway_to_yojson
+let gateway (api : api) = set api.gateway gateway_of_yojson gateway_to_yojson
 
-let dhcp api = set api.dhcp flag_of_yojson flag_to_yojson
+let dhcp (api : api) = set api.dhcp flag_of_yojson flag_to_yojson
 
-let enable api = set api.enable flag_of_yojson flag_to_yojson
+let enable (api : api) = set api.enable flag_of_yojson flag_to_yojson
 
-let fec api = set api.fec flag_of_yojson flag_to_yojson
+let fec (api : api) = set api.fec flag_of_yojson flag_to_yojson
 
-let port api = set api.port port_of_yojson port_to_yojson
+let port (api : api) = set api.port port_of_yojson port_to_yojson
 
-let multicast api = set api.multicast multicast_of_yojson multicast_to_yojson
+let multicast (api : api) = set api.multicast multicast_of_yojson multicast_to_yojson
 
-let delay api = set api.delay delay_of_yojson delay_to_yojson
+let delay (api : api) = set api.delay delay_of_yojson delay_to_yojson
 
-let rate_mode api = set api.rate_mode rate_mode_of_yojson rate_mode_to_yojson
+let rate_mode (api : api) = set api.rate_mode rate_mode_of_yojson rate_mode_to_yojson
 
 let reset api () =
   api.reset () >>= respond_ok
+
+let config api () =
+  api.config () >>= fun conf ->
+  respond_js (config_to_yojson conf) ()
 
 let status sock_data (events : events) body =
   let id = rand_int () in
@@ -79,7 +83,8 @@ let handle api events _ meth args sock_data _ body =
   | `POST, ["delay"]     -> delay api body
   | `POST, ["rate_mode"] -> rate_mode api body
   | `POST, ["reset"]     -> reset api ()
-  | `GET,  ["status"]    -> status sock_data events body 
+  | `GET,  ["config"]    -> config api ()
+  | `GET,  ["status"]    -> status sock_data events body
   | _ -> not_found ()
 
 let handlers id api events =

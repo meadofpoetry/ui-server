@@ -16,24 +16,7 @@ let request_period step_duration = 5 * int_of_float (1. /. step_duration) (* 5 s
 let detect = Devinfo
 
 let init = List.map (fun x -> Settings x)
-             (*
-  [ Settings (0, { mode = T2
-                          ; bw   = Bw8
-                          ; freq = 586000000l
-                          ; plp  = 0})
-           ; Settings (1, { mode = T2
-                          ; bw   = Bw8
-                          ; freq = 586000000l
-                          ; plp  = 0})
-           ; Settings (2, { mode = T2
-                          ; bw   = Bw8
-                          ; freq = 586000000l
-                          ; plp  = 0})
-           ; Settings (3, { mode = T2
-                          ; bw   = Bw8
-                          ; freq = 586000000l
-                          ; plp  = 0})]
-              *)
+
 let detect_msgs (send_req : 'a request -> unit Lwt.t) =
   [ { send = (fun () -> send_req detect); pred = (is_response detect) } ]
 
