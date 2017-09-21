@@ -2,11 +2,11 @@ open Common.Board.Dvb
 open Jsrequest
 open Lwt.Infix
    
-let get_devinfo control () =
+let get_devinfo control =
   get_js (Printf.sprintf "api/board/%d/devinfo" control)
   >|= CCResult.(flat_map devinfo_response_of_yojson)
 
-let post_reset control () =
+let post_reset control =
   post_ok (Printf.sprintf "api/board/%d/reset" control)
 
 let post_settings control settings =
@@ -23,5 +23,9 @@ let get_plps control num =
   get_js (Printf.sprintf "api/board/%d/plps/%d" control num)
   >|= CCResult.(flat_map plp_list_response_of_yojson)
 
-let get_measures_socket control () =
+let get_config control =
+  get_js (Printf.sprintf "api/board/%d/config" control)
+  >|= CCResult.(flat_map config_of_yojson)
+  
+let get_measures_socket control =
   get_socket (Printf.sprintf "api/board/%d/measures" control) measure_of_yojson
