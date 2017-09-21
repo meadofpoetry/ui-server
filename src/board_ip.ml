@@ -18,7 +18,7 @@ module V1 : BOARD = struct
 
   let create_sm = Board_ip_protocol.SM.create
 
-  let create (b:topo_board) send base step =
+  let create (b:topo_board) send _ base step =
     Lwt_io.printf "in ip create\n" |> ignore;
     let storage      = Config_storage.create base ["board"; (string_of_int b.control)] in
     let s_state, spush = React.S.create `No_response in
@@ -34,9 +34,7 @@ module V1 : BOARD = struct
     ; ports_active   = (List.fold_left (fun m p -> Ports.add p.port (React.S.const true) m) Ports.empty b.ports)
     ; state          = (state :> < >)
     }
-
-  let connect_db b _ = b
-
+    
 end
 
 let create = function

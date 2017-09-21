@@ -39,8 +39,7 @@ let create_board db usb (b:topo_board) path step_duration =
     | Adapter   t -> create_adapter t b.model b.manufacturer b.version
     | Converter t -> create_converter t b.model b.manufacturer b.version
   in
-  let board = B.create b (Usb_device.get_send usb b.control) path step_duration in
-  B.connect_db board db
+  B.create b (Usb_device.get_send usb b.control) db path step_duration
 
 let topo_to_signal topo boards =
   let build_board b connection ports =

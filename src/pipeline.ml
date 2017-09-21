@@ -116,16 +116,19 @@ module Settings = struct
 end
 
 module Conf = Config.Make(Settings)
+
 module Storage : sig
   type _ req =
     | Store_streams : Streams.t -> unit Lwt.t req
+    
   include (Database.STORAGE with type 'a req := 'a req)
 end = Pipeline_storage
        
 type t = pipe
 
 let connect_db streams_events dbs =
-  E.map_s (fun s -> Storage.request dbs (Store_streams s)) streams_events
+  Lwt_main.run @@ Storage.init dbs;
+  E.map_s (fun s -> Storage.request dbs (Storage.Store_streams s)) streams_events
 
 let create config dbs _ =
   let cfg = Conf.get config in

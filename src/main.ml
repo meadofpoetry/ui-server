@@ -3,7 +3,8 @@ let main config =
   let rec mainloop () =
     print_endline "Started.";
     (* State *)
-    let db             = Database.create config in
+    let db, dbloop     = Database.create config 10.0 in
+    let ()             = User.init db in
     let user_api       = User_api.handlers db in
     (* Boards *)
     let hw, hwloop     = Hardware.create config db in
@@ -29,8 +30,8 @@ let main config =
     let server = Serv.create config auth_filter routes in
 
     let loops = match pipeloop with
-      | None          -> [server; hwloop]
-      | Some pipeloop -> [server; hwloop; pipeloop]
+      | None          -> [dbloop; server; hwloop]
+      | Some pipeloop -> [dbloop; server; hwloop; pipeloop]
     in
     try
       Lwt_main.run @@ Lwt.pick loops;

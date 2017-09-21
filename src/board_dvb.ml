@@ -15,17 +15,25 @@ module V1 : BOARD = struct
   end
   
   module Config_storage = Config_storage.Make (Data)
+
+  module Storage : sig
+    type _ req =
+      | Store_measures : Common.Board.Dvb.measure -> unit Lwt.t req
+    include (Database.STORAGE with type 'a req := 'a req)
+  end = Board_dvb_storage
   
   type 'a request = 'a Board_dvb_protocol.request
 
   let create_sm = Board_dvb_protocol.SM.create
                    
-  let create (b:topo_board) send base step =
+  let create (b:topo_board) send db base step =
     let storage      = Config_storage.create base ["board"; (string_of_int b.control)] in
     let s_state, spush = React.S.create `No_response in
     let events, api, step = create_sm send storage spush step in
     let handlers = Board_dvb_api.handlers b.control api events in (* XXX temporary *)
-    let state = object end in
+    Lwt_main.run @@ Storage.init db;
+    let _s = Lwt_react.E.map_p (fun m -> Storage.request db (Storage.Store_measures m)) events.measure in
+    let state = object method _s = _s end in
     { handlers       = handlers
     ; control        = b.control
     ; streams_signal = None
@@ -35,8 +43,7 @@ module V1 : BOARD = struct
     ; ports_active   = (List.fold_left (fun m p -> Ports.add p.port (React.S.const true) m) Ports.empty b.ports)
     ; state          = (state :> < >)
     }
-
-  let connect_db b _ = b
+                     
 end
 
 let create = function

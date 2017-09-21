@@ -11,3 +11,6 @@ module Storage : sig
     
   include (Database.STORAGE with type 'a req := 'a req)
 end = User_storage
+
+let init db =
+  Lwt_main.run @@ Storage.init db

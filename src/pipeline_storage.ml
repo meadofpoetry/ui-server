@@ -7,6 +7,14 @@ let ( % ) = CCFun.(%)
    
 type _ req =
   | Store_streams : Streams.t -> unit Lwt.t req
+
+let init o =
+  Database.execute o [%sqlinit "CREATE TABLE IF NOT EXISTS streams( \
+                                input  TEXT NON NULL, \
+                                value  TEXT, \
+                                date   TIMESTAMP DEFAULT CURRENT_TIMESTAMP \
+                                );" ]
+  >>= fun _ -> Lwt.return_unit
   
 let store_streams dbs streams =
   let s = Streams_conv.dump_streams streams in
