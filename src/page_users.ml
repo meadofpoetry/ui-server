@@ -1,6 +1,8 @@
 open Tyxml.Html
-open Common.Components
-
+module Widgets = Common.Components.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
+open Widgets
+   
+   
 let card title =
   let sections = [ Card.create_primary [ Card.create_title title ()
                                        ; Card.create_subtitle "Subtitle" () ]

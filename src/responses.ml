@@ -1,4 +1,6 @@
 open Interaction
+module Widgets = Common.Components.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
+open Widgets
 
 let fill_json ?(title="АТС-3") ?(scripts=[]) ?(stylesheets=[]) ?(content=[]) () =
   `O [ "title", `String title
