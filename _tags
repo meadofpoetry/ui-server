@@ -7,7 +7,7 @@ true: warn_error(+1..49+60), warn(A-4-7-23-33-39-40-41-42-44-45-48)
 <common/*> : package(yojson ppx_deriving ppx_deriving_yojson lens lens.ppx_deriving tyxml ipaddr)
 
 <src> : include
-<src/api> : include
+<src/*> : include
 <src/**> : package(containers containers.data lwt lwt.unix lwt.preemptive lwt_react)
 <src/**> : package(uri cohttp cohttp.lwt websocket-lwt.cohttp)
 <src/**> : package(sqlexpr sqlexpr.ppx nocrypto yojson ppx_deriving_yojson lens lens.ppx_deriving)
