@@ -16,101 +16,24 @@
         [
             "Board",
             {
-                "typ":["Converter","IP"],
-                "control": 0,
-                "model": "ts2ip",
+                "typ":["Adapter","DVB"],
+                "control": 4,
+                "model": "rf",
                 "manufacturer": "niitv",
+                "connection":["No_response"],
                 "version": 1,
-                "ports": [
-                    {
-                        "port": 0,
-                        "child": [
-                            "Board",
-                            {
-                                "typ":["Adapter","TS"],
-                                "control": 1,
-                                "model": "qos",
-                                "manufacturer": "niitv",
-                                "version": 1,
-                                "ports": [
-                                    {
-                                        "port": 0,
-                                        "child": [
-                                            "Board",
-                                            {
-                                                "typ":["Adapter","DVB"],
-                                                "control": 4,
-                                                "model": "rf",
-                                                "manufacturer": "niitv",
-                                                "version": 1,
-                                                "ports": [
-                                                    {
-                                                        "port": 0,
-                                                        "child": [
-                                                            "Input",
-                                                            "RF"
-                                                        ]
-                                                    }
-                                                ]
-                                            }
-                                        ]
-                                    },
-                                    {
-                                        "port": 1,
-                                        "child": [
-                                            "Input",
-                                            "ASI"
-                                        ]
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "port": 1,
-                        "child": [
-                            "Board",
-                            {
-                                "typ":["Adapter","TS"],
-                                "control": 2,
-                                "model": "qos",
-                                "manufacturer": "niitv",
-                                "version": 1,
-                                "ports": [
-                                    {
-                                        "port": 0,
-                                        "child": [
-                                            "Board",
-                                            {
-                                                "typ":["Adapter","IP"],
-                                                "control": 5,
-                                                "model": "dtm-3200",
-                                                "manufacturer": "dektec",
-                                                "version": 1,
-                                                "ports": [
-                                                    {
-                                                        "port": 0,
-                                                        "child": [
-                                                            "Input",
-                                                            "TSOIP"
-                                                        ]
-                                                    }
-                                                ]
-                                            }
-                                        ]
-                                    },
-                                    {
-                                        "port": 1,
-                                        "child": [
-                                            "Input",
-                                            "ASI"
-                                        ]
-                                    }
-                                ]
-                            }
-                        ]
-                    }
-                ]
+                "ports": []
+            } ],
+        [
+            "Board",
+            {
+                "typ":["Adapter","IP"],
+                "control": 5,
+                "model": "dtm-3200",
+                "manufacturer": "dektec",
+                "connection":["No_response"],
+                "version": 1,
+                "ports": []
             }
         ]
     ],
