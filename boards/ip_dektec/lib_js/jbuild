@@ -1,0 +1,14 @@
+(jbuild_version 1)
+
+(library
+ ((name        board_ip_dektec_js)
+  (public_name board-ip-dektec-js)
+  (modules     (requests board_types))
+  (synopsis "js interface of the ip_dektec board")
+  (libraries (containers ipaddr common api-js))
+  (preprocess (pps (ppx_deriving_yojson)))))
+
+(rule
+ ((targets (board_types.ml))
+  (deps (../board_types.ml))
+  (action (copy ${<} ${@}))))
