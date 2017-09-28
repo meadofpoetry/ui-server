@@ -1,6 +1,5 @@
-open Api_handler
-open Interaction
-open Redirect
+open Api.Interaction
+open Api.Redirect
 open Pipeline
 open Websocket_cohttp_lwt
 open Frame
@@ -8,6 +7,8 @@ open Containers
    
 open Lwt.Infix
 
+module Api_handler = Api.Handler.Make(Common.User)
+   
 let ( % ) = CCFun.(%)
 
 (* TODO reason about random key *)
@@ -35,7 +36,7 @@ let get_sock sock_data body conv event =
               | _ -> ())
   >>= fun (resp, body, frames_out_fn) ->
   let send x =
-    let msg = Msg_conv.to_string @@ conv x in
+    let msg = Api.Msg_conv.to_string @@ conv x in
     frames_out_fn @@ Some (Frame.create ~content:msg ())
   in
   let sock_events = Lwt_react.E.map send event in
@@ -43,35 +44,35 @@ let get_sock sock_data body conv event =
   Lwt.return (resp, (body :> Cohttp_lwt_body.t))
 
 let set_streams pipe body () =
-  set body Common.Streams.of_yojson
+  set body Streams.of_yojson
       (fun strm -> pipe.set [Streams strm])
 
 let get_streams pipe () =
   pipe.get [`Streams]
   >>= function
-  | [Streams s] -> Common.Streams.to_yojson s
+  | [Streams s] -> Streams.to_yojson s
                    |> fun js -> respond_js js ()
   | _ -> respond_error "Unknown error" ()
 
 let get_streams_sock sock_data body pipe () =
-  get_sock sock_data body Common.Streams.to_yojson pipe.streams_events
+  get_sock sock_data body Streams.to_yojson pipe.streams_events
 
 let set_settings pipe body () =
-  set body Common.Settings.of_yojson
+  set body Settings.of_yojson
       (fun sets -> pipe.set [Settings sets])
 
 let get_settings pipe () =
   pipe.get [`Settings]
   >>= function
-  | [Settings s] -> Common.Settings.to_yojson s
+  | [Settings s] -> Settings.to_yojson s
                    |> fun js -> respond_js js ()
   | _ -> respond_error "Unknown error" ()
 
 let get_settings_sock sock_data body pipe () =
-  get_sock sock_data body Common.Settings.to_yojson pipe.settings_events
+  get_sock sock_data body Settings.to_yojson pipe.settings_events
 
 let streams_handle pipe id meth args sock_data _ body =
-  let is_guest = User.eq id `Guest in
+  let is_guest = Common.User.eq id `Guest in
   match meth, args with
   | `POST, []       -> redirect_if is_guest @@ set_streams pipe body
   | `GET,  []       -> get_streams pipe ()
@@ -79,7 +80,7 @@ let streams_handle pipe id meth args sock_data _ body =
   | _               -> not_found ()
   
 let settings_handle pipe id meth args sock_data _ body =
-  let is_guest = User.eq id `Guest in
+  let is_guest = Common.User.eq id `Guest in
   match meth, args with
   | `POST, []       -> redirect_if is_guest @@ set_settings pipe body
   | `GET,  []       -> get_settings pipe ()
@@ -94,21 +95,21 @@ let handlers pipe =
   [ (module struct
        let domain = "streams"
        let handle = streams_handle pipe
-     end : HANDLER);
+     end : Api_handler.HANDLER);
     (module struct
        let domain = "settings"
        let handle = settings_handle pipe
-     end : HANDLER); ]
+     end : Api_handler.HANDLER); ]
 
 let handlers_not_implemented () =
   [ (module struct
        let domain = "streams"
        let handle = not_implemented_handle
-     end : HANDLER);
+     end : Api_handler.HANDLER);
     (module struct
        let domain = "settings"
        let handle = not_implemented_handle
-     end : HANDLER); ]
+     end : Api_handler.HANDLER); ]
   
     (*
 let test _ _ body =

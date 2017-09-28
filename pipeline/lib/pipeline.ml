@@ -2,7 +2,6 @@ open Lwt_zmq
 open Lwt_react
 open Lwt.Infix
 open Containers
-open Common
 
 let (%) = CCFun.(%)
 
@@ -20,7 +19,7 @@ type state = { ctx         : ZMQ.Context.t
            
 type pipe = { set             : content list -> unit Lwt.t
             ; get             : [ `Streams | `Settings | `Graph | `Wm ] list -> content list Lwt.t
-            ; streams_events  : Common.Streams.t E.t
+            ; streams_events  : Streams.t E.t
             ; settings_events : Settings.t E.t
             ; graph_events    : Graph.t E.t
             ; wm_events       : Wm.t E.t
@@ -68,7 +67,7 @@ let split_events s_to_input =
   let events = E.map split events in
   events, epush, strm, sets, grap, wm, data
 
-let set sock input_to_s (conv : Msg_conv.converter) lst =
+let set sock input_to_s (conv : Api.Msg_conv.converter) lst =
   let rec build = function
     | [] -> []
     | x::tl -> (content_to_pair input_to_s x)::(build tl)
@@ -77,7 +76,7 @@ let set sock input_to_s (conv : Msg_conv.converter) lst =
   >>= fun () -> Socket.recv sock
   >>= Lwt_io.printf "Send result: %s\n"
 
-let get sock s_to_input (conv : Msg_conv.converter) keys =
+let get sock s_to_input (conv : Api.Msg_conv.converter) keys =
   let keys = `List (List.map (fun k -> `String (label k)) keys) in
   Socket.send sock (conv.to_string (`Assoc ["get", keys]))
   >>= fun () -> Socket.recv sock
@@ -93,7 +92,7 @@ let get sock s_to_input (conv : Msg_conv.converter) keys =
       | _ -> Lwt.fail_with ("unknown resp: " ^ js))
               
 
-module Settings = struct
+module PSettings = struct
   type format = [ `Json | `Msgpack ]
   let format_of_yojson = function `String "json" -> Ok `Json | `String "msgpack" -> Ok `Msgpack | _ -> Error "Wrong fmt"
   let format_to_yojson = function `Json -> `String "json" | `Msgpack -> `String "msgpack"
@@ -115,13 +114,13 @@ module Settings = struct
   let domain = "pipeline"
 end
 
-module Conf = Config.Make(Settings)
+module Conf = Storage.Config.Make(PSettings)
 
 module Storage : sig
   type _ req =
     | Store_streams : Streams.t -> unit Lwt.t req
     
-  include (Database.STORAGE with type 'a req := 'a req)
+  include (Storage.Database.STORAGE with type 'a req := 'a req)
 end = Pipeline_storage
        
 type t = pipe
@@ -132,9 +131,9 @@ let connect_db streams_events dbs =
 
 let create config dbs _ =
   let cfg = Conf.get config in
-  let converter = Msg_conv.get_converter cfg.msg_fmt in
+  let converter = Api.Msg_conv.get_converter cfg.msg_fmt in
   let exec_path = (Filename.concat cfg.bin_path cfg.bin_name) in
-  let exec_opts = Array.of_list (cfg.bin_name :: "-m" :: (Settings.format_to_string cfg.msg_fmt) :: cfg.sources) in
+  let exec_opts = Array.of_list (cfg.bin_name :: "-m" :: (PSettings.format_to_string cfg.msg_fmt) :: cfg.sources) in
   match Unix.fork () with
   | -1   -> failwith "Ooops, fork failed"
   | 0    -> Unix.execv exec_path exec_opts
