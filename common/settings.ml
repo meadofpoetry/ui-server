@@ -55,7 +55,7 @@ type t =
   ; adv       : adv option [@default None]
   } [@@deriving yojson, lens { optional = true } ]
 
-open Common__opt_update
+open Opt_update
 
 let setting_update a b =
   { peak_en = a.peak_en <+> b.peak_en

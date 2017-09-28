@@ -1,0 +1,8 @@
+(jbuild_version 1)
+
+(library
+ ((name        common)
+  (public_name common)
+  (synopsis "code shared between frontend and backend")
+  (libraries (yojson ppx_deriving ppx_deriving_yojson tyxml))
+  (preprocess (pps (ppx_deriving_yojson)))))

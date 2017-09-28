@@ -19,7 +19,7 @@ let graph_state_to_yojson = function
 type t =
   { state : graph_state option [@default None] } [@@deriving yojson]
 
-open Common__opt_update
+open Opt_update
 
 let update a b =
   { state = a.state <+> b.state }
