@@ -4,14 +4,14 @@ type video_pid =
   ; aspect_ratio : (int * int)
   ; interlaced   : string
   ; frame_rate   : float
-  } [@@deriving yojson, lens]
+  } [@@deriving yojson]
 
 type audio_pid =
   { codec       : string
   ; bitrate     : string
   ; channels    : int
   ; sample_rate : int
-  } [@@deriving yojson, lens]
+  } [@@deriving yojson]
 
 type pid_content = Video of video_pid
                  | Audio of audio_pid
@@ -24,21 +24,21 @@ type pid =
   ; content          : pid_content
   ; stream_type      : int
   ; stream_type_name : string
-  } [@@deriving yojson, lens]
+  } [@@deriving yojson]
 
 type channel =
   { number        : int
   ; service_name  : string
   ; provider_name : string
   ; pids          : pid list
-  } [@@deriving yojson, lens]
+  } [@@deriving yojson]
 
 type stream =
   { id       : int32
   ; input    : string
   ; uri      : string
   ; channels : channel list
-  } [@@deriving yojson, lens]
+  } [@@deriving yojson]
 
 type t = stream list [@@deriving yojson]
 

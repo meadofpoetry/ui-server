@@ -3,7 +3,7 @@ type t =
   ; settings : Settings.t option [@default None]
   ; graph    : Graph.t option [@default None]
   ; wm       : Wm.t option [@default None]
-  } [@@deriving yojson, lens]
+  } [@@deriving yojson]
 
 open Opt_update
   

@@ -1,1 +1,1 @@
-type t = { error : int } [@@deriving yojson, lens]
+type t = { error : int } [@@deriving yojson]

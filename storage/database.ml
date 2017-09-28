@@ -2,7 +2,7 @@ open Lwt.Infix
 
 module Sqlexpr = Sqlexpr_sqlite.Make(Sqlexpr_concurrency.Lwt)
 open Sqlexpr
-
+   
 module Settings = struct
   type t = { db_path : string } [@@deriving yojson]
   let default   = { db_path = "./db" }

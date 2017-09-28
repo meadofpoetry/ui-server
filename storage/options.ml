@@ -1,7 +1,7 @@
 type path = string [@@deriving yojson]
 
 type 'a storage = < get : 'a ; store : 'a -> unit >
-
+                                               
 module type CONFIG_STORAGE = sig
   type data
 
