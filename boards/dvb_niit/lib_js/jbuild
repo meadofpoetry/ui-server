@@ -1,0 +1,14 @@
+(jbuild_version 1)
+
+(library
+ ((name        board_dvb_niit_js)
+  (public_name board-dvb-niit-js)
+  (modules     (requests board_types))
+  (synopsis "js interface of the dvb_niit board")
+  (libraries (containers common api-js))
+  (preprocess (pps (ppx_deriving_yojson)))))
+
+(rule
+ ((targets (board_types.ml))
+  (deps (../board_types.ml))
+  (action (copy ${<} ${@}))))

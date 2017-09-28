@@ -1,8 +1,8 @@
 (jbuild_version 1)
 
 (library
- ((name        board)
-  (public_name board)
+ ((name        meta_board)
+  (public_name meta_board)
   (wrapped false)
   (synopsis "common board description and related types")
   (libraries (containers lwt react common storage api cbuffer))))

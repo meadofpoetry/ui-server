@@ -3,9 +3,9 @@
 (library
  ((name        api)
   (public_name api)
-  (modules (api_handler authorize interaction redirect))
+  (modules (handler authorize interaction redirect msg_conv))
   (synopsis "api framework")
-  (libraries (containers cohttp cohttp.lwt yojson))))
+  (libraries (containers cohttp cohttp.lwt yojson msgpck))))
 
 (library
  ((name        api_js)

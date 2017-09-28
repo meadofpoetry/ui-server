@@ -2,7 +2,7 @@ open Common.Hardware
 open Storage.Options
 open Lwt.Infix
 
-module Api_handler = Api.Api_handler.Make(Common.User)
+module Api_handler = Api.Handler.Make(Common.User)
 
 type 'a cc = [`Continue of 'a]
 
