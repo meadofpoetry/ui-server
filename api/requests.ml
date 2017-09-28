@@ -68,11 +68,9 @@ let get_socket addr conv =
   let ev, push = React.E.create () in
   let sock = new%js WebSockets.webSocket addr in
   sock##.onmessage := Dom.handler (fun (msg : WebSockets.webSocket WebSockets.messageEvent Js.t)
-                                   -> let open CCResult in
-                                      Js.to_string msg##.data
+                                   -> Js.to_string msg##.data
                                       |> Yojson.Safe.from_string
                                       |> conv
-                                      >|= push
-                                      |> ignore;
+                                      |> (function Ok msg -> push msg | Error _ -> ());
                                       Js.bool true);
   ev

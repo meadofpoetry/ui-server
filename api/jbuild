@@ -1,0 +1,16 @@
+(jbuild_version 1)
+
+(library
+ ((name        api)
+  (public_name api)
+  (modules (api_handler authorize interaction redirect))
+  (synopsis "api framework")
+  (libraries (containers cohttp cohttp.lwt yojson))))
+
+(library
+ ((name        api_js)
+  (public_name api.js)
+  (modules (requests))
+  (synopsis "js api framework")
+  (libraries (lwt react uri js_of_ocaml js_of_ocaml-lwt yojson))
+  (preprocess (pps (js_of_ocaml-ppx)))))
