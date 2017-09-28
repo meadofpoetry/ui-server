@@ -3,13 +3,22 @@ type 'a janus_result = ('a,string) Result.result Lwt.t
 let (>|=) x f = Js.Optdef.map x f
 let (>>=) = Lwt.(>>=)
 
+let opt_bind f = function
+  | Some x -> f x
+  | None   -> None
+
+let opt_map f = function
+  | Some x -> Some (f x)
+  | None   -> None
+
+let is_some = function None -> false | _ -> true
+          
 let int_of_number x = int_of_float @@ Js.float_of_number x
 let wrap_js_optdef x f = Js.Optdef.option x >|= f |> Js.Unsafe.inject
 let bind_undef_or_null x f =
-  let open CCOpt in
   Js.Optdef.to_option x
-  >>= Js.Opt.to_option
-  >>= f
+  |> opt_bind Js.Opt.to_option
+  |> opt_bind f
 
 let call_js_method f params =
   let t,w     = Lwt.wait () in
@@ -148,7 +157,7 @@ module Plugin = struct
     let trickle' = ("trickle", wrap_js_optdef trickle Js.bool) in
     let jsep' = ("jsep", wrap_js_optdef jsep (fun x -> x)) in
     [| media'; trickle' |]
-    |> (fun a -> if CCOpt.is_some jsep then Array.append a [| jsep' |] else a)
+    |> (fun a -> if is_some jsep then Array.append a [| jsep' |] else a)
 
   (* Plugin functions *)
 
@@ -214,16 +223,16 @@ module Session = struct
 
   let handle_message (msg,jsep,on_msg,on_jsep) =
     (* Handle message *)
-    CCOpt.map (fun f -> f msg) on_msg |> ignore;
+    opt_map (fun f -> f msg) on_msg |> ignore;
     (* Handle jsep if some *)
     bind_undef_or_null jsep (fun jsep' ->
         let jsep_type = (Js.to_string (Js.Unsafe.coerce jsep')##.type_) in
-        CCOpt.map (fun f -> f (if String.equal jsep_type "offer"
+        opt_map (fun f -> f (if String.equal jsep_type "offer"
                                then Offer jsep'
                                else if String.equal jsep_type "answer"
                                then Answer jsep'
                                else Unknown jsep'))
-          on_jsep |> CCOpt.return)
+          on_jsep |> (fun x -> Some x))
 
 
   let get_server (session:t) = session##getServer () |> Js.to_string

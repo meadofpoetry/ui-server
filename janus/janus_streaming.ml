@@ -7,6 +7,10 @@ let parse_ok_response ok =
   then Ok ()
   else Error "Bad ok response"
 
+let opt_map f = function
+  | Some x -> Some (f x)
+  | None   -> None
+  
 module Mp_base = struct
 
   type t =
@@ -160,11 +164,11 @@ module Mp_list = struct
   let of_js_obj o =
     Array.map (fun el ->
         let el = Js.Unsafe.coerce el in
-        { id           = Js.Optdef.to_option el##.id           |> CCOpt.map int_of_number
-        ; type_        = Js.Optdef.to_option el##.type_        |> CCOpt.map Js.to_string
-        ; description  = Js.Optdef.to_option el##.description  |> CCOpt.map Js.to_string
-        ; video_age_ms = Js.Optdef.to_option el##.video_age_ms |> CCOpt.map int_of_number
-        ; audio_age_ms = Js.Optdef.to_option el##.audio_age_ms |> CCOpt.map int_of_number
+        { id           = Js.Optdef.to_option el##.id           |> opt_map int_of_number
+        ; type_        = Js.Optdef.to_option el##.type_        |> opt_map Js.to_string
+        ; description  = Js.Optdef.to_option el##.description  |> opt_map Js.to_string
+        ; video_age_ms = Js.Optdef.to_option el##.video_age_ms |> opt_map int_of_number
+        ; audio_age_ms = Js.Optdef.to_option el##.audio_age_ms |> opt_map int_of_number
         }) o
     |> Array.to_list
     |> (fun x -> Ok x)
@@ -190,15 +194,15 @@ module Mp_info = struct
 
   let of_js_obj o =
     let o = Js.Unsafe.coerce o in
-    Ok { id           = Js.Optdef.to_option o##.id           |> CCOpt.map int_of_number
-       ; type_        = Js.Optdef.to_option o##.type_        |> CCOpt.map Js.to_string
-       ; description  = Js.Optdef.to_option o##.description  |> CCOpt.map Js.to_string
-       ; video_age_ms = Js.Optdef.to_option o##.video_age_ms |> CCOpt.map int_of_number
-       ; audio_age_ms = Js.Optdef.to_option o##.audio_age_ms |> CCOpt.map int_of_number
-       ; data_age_ms  = Js.Optdef.to_option o##.data_age_msg  |> CCOpt.map int_of_number
-       ; video        = Js.Optdef.to_option o##.video         |> CCOpt.map Js.to_string
-       ; audio        = Js.Optdef.to_option o##.audio         |> CCOpt.map Js.to_string
-       ; data         = Js.Optdef.to_option o##.data          |> CCOpt.map Js.to_string
+    Ok { id           = Js.Optdef.to_option o##.id           |> opt_map int_of_number
+       ; type_        = Js.Optdef.to_option o##.type_        |> opt_map Js.to_string
+       ; description  = Js.Optdef.to_option o##.description  |> opt_map Js.to_string
+       ; video_age_ms = Js.Optdef.to_option o##.video_age_ms |> opt_map int_of_number
+       ; audio_age_ms = Js.Optdef.to_option o##.audio_age_ms |> opt_map int_of_number
+       ; data_age_ms  = Js.Optdef.to_option o##.data_age_msg  |> opt_map int_of_number
+       ; video        = Js.Optdef.to_option o##.video         |> opt_map Js.to_string
+       ; audio        = Js.Optdef.to_option o##.audio         |> opt_map Js.to_string
+       ; data         = Js.Optdef.to_option o##.data          |> opt_map Js.to_string
        }
 
 end
@@ -244,13 +248,13 @@ module Mp_create = struct
 
   let of_js_obj o =
     let o = Js.Unsafe.coerce o in
-    Ok { id          = Js.Optdef.to_option o##.id          |> CCOpt.map int_of_number
-       ; type_       = Js.Optdef.to_option o##.type_       |> CCOpt.map Js.to_string
-       ; description = Js.Optdef.to_option o##.description |> CCOpt.map Js.to_string
-       ; is_private  = Js.Optdef.to_option o##.is_private  |> CCOpt.map Js.to_bool
-       ; audio_port  = Js.Optdef.to_option o##.audio_port  |> CCOpt.map int_of_number
-       ; video_port  = Js.Optdef.to_option o##.video_port  |> CCOpt.map int_of_number
-       ; data_port   = Js.Optdef.to_option o##.data_port   |> CCOpt.map int_of_number
+    Ok { id          = Js.Optdef.to_option o##.id          |> opt_map int_of_number
+       ; type_       = Js.Optdef.to_option o##.type_       |> opt_map Js.to_string
+       ; description = Js.Optdef.to_option o##.description |> opt_map Js.to_string
+       ; is_private  = Js.Optdef.to_option o##.is_private  |> opt_map Js.to_bool
+       ; audio_port  = Js.Optdef.to_option o##.audio_port  |> opt_map int_of_number
+       ; video_port  = Js.Optdef.to_option o##.video_port  |> opt_map int_of_number
+       ; data_port   = Js.Optdef.to_option o##.data_port   |> opt_map int_of_number
        }
 
 end
