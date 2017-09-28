@@ -1,4 +1,4 @@
-open Interaction
+open Api.Interaction
 module Widgets = Common.Components.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
 open Widgets
 

@@ -1,9 +1,11 @@
+module Api_handler = Api.Handler.Make(Common.User)
+                   
 let main config =
   Nocrypto_entropy_lwt.initialize () |> ignore;
   let rec mainloop () =
     print_endline "Started.";
     (* State *)
-    let db, dbloop     = Database.create config 10.0 in
+    let db, dbloop     = Storage.Database.create config 10.0 in
     let ()             = User.init db in
     let user_api       = User_api.handlers db in
     (* Boards *)
@@ -25,7 +27,7 @@ let main config =
     in
                        
     let routes = Api_handler.create (pipe_api @ user_api @ hw_api) in
-    let auth_filter = Redirect.redirect_auth db in
+    let auth_filter = Api.Redirect.redirect_auth (User.validate db) in
         
     let server = Serv.create config auth_filter routes in
 
@@ -42,7 +44,7 @@ let main config =
        print_endline "done";
 
        Hardware.finalize hw;
-       Database.finalize db;
+       Storage.Database.finalize db;
        CCOpt.iter Pipeline.finalize pipe;
 
        mainloop ()
@@ -53,5 +55,5 @@ let main config =
   in mainloop ()
 
 let () =
-  let config = Config.create "./config.json" in
+  let config = Storage.Config.create "./config.json" in
   main config

@@ -1,0 +1,13 @@
+(jbuild_version 1)
+
+(executable
+ ((name        backend)
+  (modes (native))
+  (libraries (tyxml ctypes ctypes.foreign sqlexpr
+              lwt lwt.preemptive
+              containers mustache cohttp-lwt-unix
+              yojson ppx_deriving_yojson
+              common storage cbuffer pipeline
+              meta_board board-dvb-niit board-ip-dektec))
+  (flags (:standard -cclib -lcyusb))
+  (preprocess (pps (ppx_sqlexpr ppx_deriving_yojson)))))

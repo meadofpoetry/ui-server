@@ -1,7 +1,9 @@
 open Cohttp_lwt_unix
 open Containers
-open Redirect
-open Interaction
+open Api.Redirect
+open Api.Interaction
+
+module Api_handler = Api.Handler.Make(Common.User)
    
 let (%) = Fun.(%)
 
@@ -18,7 +20,7 @@ module Settings = struct
   let domain = "server"
 end
 
-module Conf = Config.Make(Settings)
+module Conf = Storage.Config.Make(Settings)
   
 let get_handler ~settings
                 ~auth_filter

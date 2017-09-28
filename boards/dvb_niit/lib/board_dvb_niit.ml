@@ -42,4 +42,3 @@ let create (b:topo_board) send db base step =
   ; ports_active   = (List.fold_left (fun m p -> Ports.add p.port (React.S.const true) m) Ports.empty b.ports)
   ; state          = (state :> < >)
   }
-    

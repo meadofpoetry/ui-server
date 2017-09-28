@@ -1,5 +1,5 @@
 open Common.Hardware
-open Board_meta
+open Meta_board
 open Containers
 
 module Settings = struct
@@ -12,29 +12,29 @@ module Settings = struct
 
 end
 
-module Conf = Config.Make(Settings)
+module Conf = Storage.Config.Make(Settings)
 
-type t = { boards : Board_meta.board list
+type t = { boards : Meta_board.board list
          ; usb    : Usb_device.t
          ; topo   : topology React.signal
          }
             
-let create_adapter typ model manufacturer version =
+let create_adapter typ model manufacturer version : (module Meta_board.BOARD) =
   Lwt_io.printf "in create adapter\n" |> ignore;
-  match typ, model, manufacturer with
-  | DVB, "rf", "niitv"       -> Board_dvb.create version
-  | IP, "dtm-3200", "dektec" -> Board_ip.create version
+  match typ, model, manufacturer, version with
+  | DVB, "rf", "niitv", 1       -> (module Board_dvb_niit : Meta_board.BOARD)
+  | IP, "dtm-3200", "dektec", 1 -> (module Board_ip_dektec : Meta_board.BOARD)
   (* | TS, "qos", "niitv"       -> Board_qos.create version *)
   | _ -> raise (Failure ("create board: unknown board "))
 
-let create_converter typ model manufacturer _ =
-  match typ, model, manufacturer with
+let create_converter typ model manufacturer version =
+  match typ, model, manufacturer, version with
   (*| IP, "ts2ip", "niitv"  -> Board_ip.create version*)
   | _ -> raise (Failure ("create board: unknown board "))
 
             
 let create_board db usb (b:topo_board) path step_duration =
-  let (module B : BOARD) = 
+  let (module B : Meta_board.BOARD) = 
     match b.typ with
     | Adapter   t -> create_adapter t b.model b.manufacturer b.version
     | Converter t -> create_converter t b.model b.manufacturer b.version
@@ -75,7 +75,7 @@ let topo_to_signal topo boards =
 let create config db =
   let step_duration = 0.01 in
   let topo      = Conf.get config in
-  let stor      = Config_storage.Conf.get config in
+  let stor      = Storage.Options.Conf.get config in
   let usb, loop = Usb_device.create ~sleep:step_duration () in
   let rec traverse acc = (function
                           | Board b -> List.fold_left (fun a x -> traverse a x.child) (b :: acc) b.ports

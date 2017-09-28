@@ -1,7 +1,7 @@
 open Containers
 open Lwt.Infix
 
-type 'a cc = 'a Board_meta.cc
+type 'a cc = 'a Meta_board.cc
    
 type t = { dispatch : (int * (Cbuffer.t list -> 'c cc as 'c) cc) list ref
          ; send     : int -> Cbuffer.t -> unit Lwt.t
@@ -126,7 +126,7 @@ let apply disp msg_list =
     let msgs = List.filter_map
                  (fun (i,msg) -> if Int.equal i id then Some msg else None)
                  msg_list in
-    (id, Board_meta.apply step msgs)
+    (id, Meta_board.apply step msgs)
   in
   List.map apply' disp
   

@@ -3,7 +3,6 @@
 (library
  ((name        board_dvb_niit)
   (public_name board-dvb-niit)
-  (wrapped false)
   (synopsis "dvb board implementation")
   (libraries (containers lwt_react websocket-lwt.cohttp common storage meta_board api))
   (preprocess (pps (ppx_cstruct ppx_deriving_yojson ppx_sqlexpr)))))

@@ -13,7 +13,8 @@ let validate_headers validate hds =
   | Some x -> match x with
     | `Other _ -> Lwt.return None
     | `Basic (name, pass) -> (
-      match validate name pass with
+      validate name pass
+      >>= function
       | Error _ -> Lwt.return_none
       | Ok user -> Lwt.return_some user
     )

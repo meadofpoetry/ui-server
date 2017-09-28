@@ -14,10 +14,10 @@ let error_page ?(status = `Unauthorized) = function
   | Failure e -> respond_error ~status e ()
   | _         -> respond_error ~status "Unknown error" ()
                
-let redirect_auth dbs headers request =
+let redirect_auth validate headers request =
   let open Lwt.Infix in
   Lwt.catch 
-    (fun () -> auth dbs headers)
+    (fun () -> auth validate headers)
     (fun _  -> Lwt.return Need_auth)
   >>= function
     | Id id     -> Lwt.catch (fun () -> request id) (fun e -> error_page e)

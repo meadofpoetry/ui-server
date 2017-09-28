@@ -1,5 +1,5 @@
 open Common.Hardware
-open Board_meta
+open Meta_board
 open Containers
 
 open Websocket_cohttp_lwt
@@ -26,7 +26,7 @@ let topology sock_data body topo () =
               | _ -> ())
   >>= fun (resp, body, frames_out_fn) ->
   let send x =
-    let msg = Msg_conv.to_string @@ topology_to_yojson x in
+    let msg = Api.Msg_conv.to_string @@ topology_to_yojson x in
     frames_out_fn @@ Some (Frame.create ~content:msg ())
   in
   let sock_events = Lwt_react.S.map send topo in
@@ -36,7 +36,7 @@ let topology sock_data body topo () =
 let handle hw _ meth args sock_data _ body =
   match meth, args with
   | `GET, [] -> topology sock_data body hw.topo ()
-  | _        -> Redirect.not_found ()
+  | _        -> Api.Redirect.not_found ()
 
 let handlers hw =
   let hls = List.fold_left (fun acc x -> x.handlers @ acc) [] hw.boards in

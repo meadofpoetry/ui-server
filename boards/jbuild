@@ -5,4 +5,4 @@
   (public_name meta_board)
   (wrapped false)
   (synopsis "common board description and related types")
-  (libraries (containers lwt react common storage api cbuffer))))
+  (libraries (containers containers.data lwt react common storage api cbuffer))))
