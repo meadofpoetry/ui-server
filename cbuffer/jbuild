@@ -1,0 +1,8 @@
+(jbuild_version 1)
+
+(library
+ ((name        cbuffer)
+  (public_name cbuffer)
+  (wrapped false)
+  (synopsis "cstruct extension")
+  (libraries (cstruct ctypes containers))))
