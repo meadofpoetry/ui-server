@@ -1,0 +1,10 @@
+(jbuild_version 1)
+
+(executable
+ ((name        home)
+  (libraries   (js_of_ocaml
+                gg vg vg.htmlc js_of_ocaml-tyxml lwt_react
+                common janus pipeline-js board-ip-dektec-js))
+  (js_of_ocaml ((flags (:standard +weak.js --disable genprim --opt 3))))
+  (preprocess  (pps (js_of_ocaml-ppx)))
+  ))

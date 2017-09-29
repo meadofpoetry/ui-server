@@ -4,7 +4,6 @@
  ((name        pipeline_js)
   (public_name pipeline-js)
   (modules (requests data graph settings streams wm state opt_update))
-  (wrapped false)
   (synopsis "pipeline js api")
   (libraries (containers yojson ppx_deriving_yojson
               api-js))
