@@ -6,7 +6,7 @@
   (libraries (tyxml ctypes ctypes.foreign sqlexpr
               lwt lwt.preemptive
               containers mustache cohttp-lwt-unix
-              yojson ppx_deriving_yojson
+              yojson ppx_deriving_yojson ppx_deriving_yojson.runtime
               common storage cbuffer pipeline
               meta_board board-dvb-niit board-ip-dektec))
   (flags (:standard -cclib -lcyusb))
