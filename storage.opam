@@ -1,11 +1,11 @@
 opam-version: "1.2"
-maintainer: "me"
-authors: ["me et al"]
+maintainer: "freyr"
+authors: ["et al"]
 tags: []
 license: ""
-homepage: ""
-dev-repo: ""
-bug-reports: ""
+homepage: "https://github.com/Freyr666/ui-server"
+dev-repo: "https://github.com/Freyr666/ui-server"
+bug-reports: "https://github.com/Freyr666/ui-server/issues"
 doc: ""
 build: [
   [ "jbuilder" "build" "-p" name "-j" jobs ]
@@ -15,4 +15,8 @@ depends: [
   "jbuilder" {build}
   "yojson"
   "ppx_deriving_yojson"
+  "containers"
+  "lwt"
+  "ppx_sqlexpr"
+  "sqlexpr"
 ]
