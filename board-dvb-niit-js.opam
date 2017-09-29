@@ -3,9 +3,9 @@ maintainer: "me"
 authors: ["me et al."]
 tags: []
 license: ""
-homepage: ""
-dev-repo: ""
-bug-reports: ""
+homepage: "https://github.com/Freyr666/ui-server"
+dev-repo: "https://github.com/Freyr666/ui-server"
+bug-reports: "https://github.com/Freyr666/ui-server/issues"
 doc: ""
 build: [
   [ "jbuilder" "build" "-p" name "-j" jobs ]
@@ -13,5 +13,7 @@ build: [
 build-test: [["jbuilder" "runtest" "-p" name "-j" jobs]]
 depends: [
   "jbuilder" {build}
-
+  "containers"
+  "common"
+  "api-js"
 ]
