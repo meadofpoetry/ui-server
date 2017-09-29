@@ -1,0 +1,11 @@
+(jbuild_version 1)
+
+(library
+ ((name        meta_board)
+  (public_name meta_board)
+  (wrapped false)
+  (synopsis "common board description and related types")
+  (ocamlopt_flags (:standard -short-paths -strict-sequence -bin-annot
+                   -thread -w "+1..49+60" -w "+a-4-7-23-33-39-40-41-42-44-45-48"
+                   -O3 -unbox-closures))
+  (libraries (containers containers.data lwt react common storage api cbuffer))))

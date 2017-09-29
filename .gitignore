@@ -3,5 +3,7 @@ db
 *.byte
 *.native
 *.bak
+*.install
+*.merlin
 tmp
 resources/js/home.js
