@@ -1,3 +1,5 @@
+open Common.Board_types
+
 (* Board info *)
 
 type info =
@@ -14,7 +16,7 @@ type input =
 type t2mi_mode =
   { enabled   : bool
   ; pid       : int
-  ; stream_id : Common__stream.t
+  ; stream_id : Common.Stream.t
   } [@@deriving yojson]
 
 type mode =
@@ -23,7 +25,7 @@ type mode =
   } [@@deriving yojson]
 
 type jitter_mode =
-  { stream_id : Common__stream.t
+  { stream_id : Common.Stream.t
   ; pid       : int} [@@deriving yojson]
 
 (* Status *)
@@ -70,7 +72,7 @@ type ts_error =
   } [@@deriving to_yojson]
 
 type ts_errors =
-  { stream_id : Common__stream.t
+  { stream_id : Common.Stream.t
   ; errors    : ts_error list
   } [@@deriving to_yojson]
 
@@ -118,7 +120,7 @@ type t2mi_error =
   } [@@deriving to_yojson]
 
 type t2mi_errors =
-  { stream_id        : Common__stream.t
+  { stream_id        : Common.Stream.t
   ; t2mi_pid         : int
   ; sync             : int list
   ; ts_parser_errors : ts_parser_error list
@@ -153,7 +155,7 @@ type board_errors =
 (* SI/PSI section *)
 
 type section =
-  { stream_id : Common__stream.t
+  { stream_id : Common.Stream.t
   ; data      : string (* FIXME*)
   }
 
@@ -350,7 +352,7 @@ type general_struct_block =
   } [@@deriving to_yojson]
 
 type ts_struct =
-  { stream_id    : Common__stream.t
+  { stream_id    : Common.Stream.t
   ; general      : general_struct_block
   ; pids         : pid list
   ; services     : service list
@@ -375,7 +377,7 @@ type table_bitrate =
   } [@@deriving to_yojson]
 
 type bitrate =
-  { stream_id  : Common__stream.t
+  { stream_id  : Common.Stream.t
   ; ts_bitrate : int
   ; pids       : pid_bitrate list
   ; tables     : table_bitrate list
@@ -383,7 +385,7 @@ type bitrate =
 
 (* T2-MI info *)
 type t2mi_info =
-  { stream_id : Common__stream.t
+  { stream_id : Common.Stream.t
   ; packets   : int list
   ; t2mi_pid  : int
   ; l1_pre    : string (* FIXME *)
@@ -394,5 +396,23 @@ type t2mi_info =
 
 type streams =
   { version : int
-  ; streams : Common__stream.t list
-} [@@deriving to_yojson]
+  ; streams : Common.Stream.t list
+  } [@@deriving to_yojson]
+
+
+type config = { mode        : mode
+              ; jitter_mode : jitter_mode
+              } [@@deriving yojson]
+
+let config_to_string c = Yojson.Safe.to_string @@ config_to_yojson c
+
+let config_of_string s = config_of_yojson @@ Yojson.Safe.from_string s
+
+let config_default =
+  { mode        = { input = ASI
+                  ; t2mi  = None
+                  }
+  ; jitter_mode = { stream_id = Single
+                  ; pid       = 65535
+                  }
+  }

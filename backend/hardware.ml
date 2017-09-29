@@ -22,9 +22,9 @@ type t = { boards : Meta_board.board list
 let create_adapter typ model manufacturer version : (module Meta_board.BOARD) =
   Lwt_io.printf "in create adapter\n" |> ignore;
   match typ, model, manufacturer, version with
-  | DVB, "rf", "niitv", 1       -> (module Board_dvb_niit : Meta_board.BOARD)
+  | DVB, "rf", "niitv", 1       -> (module Board_dvb_niit  : Meta_board.BOARD)
   | IP, "dtm-3200", "dektec", 1 -> (module Board_ip_dektec : Meta_board.BOARD)
-  (* | TS, "qos", "niitv"       -> Board_qos.create version *)
+  | TS, "qos", "niitv", 1       -> (module Board_qos_niit  : Meta_board.BOARD)
   | _ -> raise (Failure ("create board: unknown board "))
 
 let create_converter typ model manufacturer version =

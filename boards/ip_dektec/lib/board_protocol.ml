@@ -79,7 +79,7 @@ module SM = struct
                      | Set_packet_size x -> to_req_set_int8 msg (asi_packet_sz_to_int x)))
     |> sender
 
-  let send (type a) msgs sender (storage : config storage) (msg : a request) : a Lwt.t =
+  let send (type a) msgs sender (storage : config storage) (msg : a request) timeout exn : a Lwt.t =
     let t, w = Lwt.wait () in
     let pred = function
       | `Timeout -> Lwt.wakeup_exn w (Failure "msg timeout"); None
@@ -100,7 +100,7 @@ module SM = struct
               | _ -> ());
              Lwt.wakeup w r in
     let send = fun () -> send_msg sender msg in
-    msgs := Msg_queue.append !msgs { send; pred };
+    msgs := Msg_queue.append !msgs { send; pred; timeout; exn };
     t
 
   let step msgs sender (storage : config storage) step_duration push_state push_events =
@@ -140,7 +140,7 @@ module SM = struct
 
     let rec first_step () =
       Msg_queue.iter !msgs wakeup_timeout;
-      msgs := Msg_queue.create period [];
+      msgs := Msg_queue.create [];
       push_state `No_response;
       let req = Devinfo Get_fpga_ver in
       send_msg sender req |> ignore;
@@ -224,13 +224,15 @@ module SM = struct
                 ~failure:(fun acc -> bad_step p (step_init_storage (pred p) req acc))
 
     and step_start_init_nw () =
-      let nw_msgs  = List.map (fun x -> { send = (fun () -> send_msg sender x)
-                                        ; pred = (is_response x)})
+      let nw_msgs  = List.map (fun x -> { send    = (fun () -> send_msg sender x)
+                                        ; pred    = (is_response x)
+                                        ; timeout = period
+                                        ; exn     = None })
                        [ Nw (Set_ip storage#get.nw.ip)
                        ; Nw (Set_mask storage#get.nw.mask)
                        ; Nw (Set_gateway storage#get.nw.gateway)] in
       let dhcp_msg = Nw (Set_dhcp storage#get.nw.dhcp) in
-      let init_pool = Msg_pool.create period nw_msgs in
+      let init_pool = Msg_pool.create nw_msgs in
       send_msg sender dhcp_msg |> ignore;
       step_init_dhcp period dhcp_msg init_pool None
 
@@ -255,7 +257,7 @@ module SM = struct
                       Msg_pool.send init_pool () |> ignore;
                       `Continue (step_init_nw init_pool acc)
       with Timeout -> first_step ()
-                      
+
     and step_finalize_init p req acc recvd =
       find_resp req acc recvd
                 ~success:(fun _ _ ->
@@ -304,9 +306,10 @@ module SM = struct
 
     and step_init_ip_rate_mode p req acc recvd =
       find_resp req acc recvd
-                ~success:(fun _ _ -> let msgs = List.map (fun x ->
-                                                    { send = (fun () -> send_msg sender x)
-                                                    ; pred = (is_response x)})
+                ~success:(fun _ _ -> let msgs = List.map (fun x -> { send    = (fun () -> send_msg sender x)
+                                                                   ; pred    = (is_response x)
+                                                                   ; timeout = period
+                                                                   ; exn     = None })
                                                          [ Ip Get_fec_delay
                                                          ; Ip Get_fec_cols
                                                          ; Ip Get_fec_rows
@@ -324,7 +327,7 @@ module SM = struct
                                                          ; Ip Get_lock_err_cnt
                                                          ; Ip Get_delay_factor
                                                          ; Asi Get_bitrate ] in
-                                     let pool = Msg_pool.create period msgs in
+                                     let pool = Msg_pool.create msgs in
                                      `Continue (step_normal_probes_send pool [] 0 None))
                 ~failure:(fun acc -> bad_step p (step_init_ip_rate_mode (pred p) req acc))
 
@@ -376,19 +379,19 @@ module SM = struct
     let status,status_push = React.E.create () in
     let (events : events) = { status } in
     let push_events = { status = status_push } in
-    let msgs = ref (Msg_queue.create period []) in
+    let msgs = ref (Msg_queue.create []) in
     let send x = send msgs sender storage x in
-    let api  = { addr      = (fun x -> send (Nw (Set_ip x)))
-               ; mask      = (fun x -> send (Nw (Set_mask x)))
-               ; gateway   = (fun x -> send (Nw (Set_gateway x)))
-               ; dhcp      = (fun x -> send (Nw (Set_dhcp x)))
-               ; enable    = (fun x -> send (Ip (Set_enable x)))
-               ; fec       = (fun x -> send (Ip (Set_fec_enable x)))
-               ; port      = (fun x -> send (Ip (Set_udp_port x)))
-               ; multicast = (fun x -> send (Ip (Set_mcast_addr x)))
-               ; delay     = (fun x -> send (Ip (Set_delay x)))
-               ; rate_mode = (fun x -> send (Ip (Set_rate_est_mode x)))
-               ; reset     = (fun () -> send (Nw Reboot))
+    let api  = { addr      = (fun x  -> send (Nw (Set_ip x)) period None)
+               ; mask      = (fun x  -> send (Nw (Set_mask x)) period None)
+               ; gateway   = (fun x  -> send (Nw (Set_gateway x)) period None)
+               ; dhcp      = (fun x  -> send (Nw (Set_dhcp x)) period None)
+               ; enable    = (fun x  -> send (Ip (Set_enable x)) period None)
+               ; fec       = (fun x  -> send (Ip (Set_fec_enable x)) period None)
+               ; port      = (fun x  -> send (Ip (Set_udp_port x)) period None)
+               ; multicast = (fun x  -> send (Ip (Set_mcast_addr x)) period None)
+               ; delay     = (fun x  -> send (Ip (Set_delay x)) period None)
+               ; rate_mode = (fun x  -> send (Ip (Set_rate_est_mode x)) period None)
+               ; reset     = (fun () -> send (Nw Reboot) period None)
                ; config    = (fun () -> Lwt.return storage#get)
                }
     in

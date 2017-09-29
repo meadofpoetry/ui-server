@@ -339,13 +339,13 @@ let prefix = 0x55AA
 
 [@@@ocaml.warning "+32"]
 
-open Common.Board.Qos
+open Board_types
 
 type part =
   { first      : bool
   ; param      : int32
   ; data       : Cbuffer.t
-  } [@@deriving to_yojson]
+  }
 
 type event = Board_errors of board_errors
            | Bitrate      of (streams * bitrate list)
@@ -359,6 +359,7 @@ type api = { devinfo         : unit        -> info Lwt.t
            ; set_jitter_mode : jitter_mode -> unit Lwt.t
            ; get_t2mi_seq    : int         -> t2mi_packet list Lwt.t
            ; reset           : unit        -> unit Lwt.t
+           ; config          : unit        -> config Lwt.t
            }
 
 type _ instant_request = Set_board_mode  : mode -> unit instant_request
