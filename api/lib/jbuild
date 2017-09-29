@@ -6,11 +6,3 @@
   (modules (handler authorize interaction redirect msg_conv))
   (synopsis "api framework")
   (libraries (containers cohttp cohttp.lwt yojson msgpck))))
-
-(library
- ((name        api_js)
-  (public_name api-js)
-  (modules (requests))
-  (synopsis "js api framework")
-  (libraries (lwt react uri js_of_ocaml js_of_ocaml-lwt yojson))
-  (preprocess (pps (js_of_ocaml-ppx)))))
