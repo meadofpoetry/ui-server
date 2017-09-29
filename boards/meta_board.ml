@@ -32,7 +32,7 @@ type ('a, 'b) msg = { send    : (unit -> unit Lwt.t)
                     ; pred    : ('a -> 'b option)
                     ; timeout : int
                     ; exn     : exn option
-}
+                    }
 
 module Msg_pool = struct
   type ('a,'b) t = { timer   : int
@@ -74,7 +74,7 @@ module Msg_queue = struct
   let map t f       = CCFQueue.map f t.reqs
   let iter t f      = CCFQueue.iter f t.reqs
 end
-                 
+
 let concat_acc acc recvd = match acc with
   | Some acc -> Cbuffer.append acc (Cbuffer.concat (List.rev recvd))
   | None     -> Cbuffer.concat (List.rev recvd)

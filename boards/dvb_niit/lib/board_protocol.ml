@@ -51,12 +51,13 @@ module SM = struct
     | `Measure (id, buf) -> pe.measure (id, of_rsp_measure_exn buf)
 
   let send_msg (type a) sender (msg : a request) : unit Lwt.t =
-    match msg with
-    | Devinfo    -> sender @@ (to_req_devinfo false)
-    | Reset      -> sender @@ (to_req_devinfo true)
-    | Settings (id, buf) -> sender @@ (to_req_settings id buf)
-    | Plp_setting (id, buf) -> sender @@ (to_req_plp_set id buf)
-    | Plps id  -> sender @@ (to_req_plp_list id)
+    (match msg with
+     | Devinfo               -> to_req_devinfo false
+     | Reset                 -> to_req_devinfo true
+     | Settings (id, buf)    -> to_req_settings id buf
+     | Plp_setting (id, buf) -> to_req_plp_set id buf
+     | Plps id               -> to_req_plp_list id)
+    |> sender
 
   let send_event (type a) sender (msg : a event_request) : unit Lwt.t =
     (* no instant msgs *)
@@ -188,7 +189,6 @@ module SM = struct
         | Some () -> msgs := Msg_queue.next !msgs;
                      `Continue (step_normal_requests_send probes_pool (succ period_timer) acc)
       with Timeout -> first_step ()
-                      
     in
     first_step ()
     
@@ -198,12 +198,12 @@ module SM = struct
     let (events : events) = { measure } in
     let push_events = { measure = mpush } in
     let msgs = ref (Msg_queue.create []) in
-    let send x = send msgs sender storage x in
-    let api = { devinfo     = (fun ()    -> send Devinfo period None)
-              ; reset       = (fun ()    -> send Reset period None)
-              ; settings    = (fun s     -> send (Settings s) period None)
-              ; plp_setting = (fun (n,s) -> send (Plp_setting (n,s)) period None)
-              ; plps        = (fun n     -> send (Plps n) period None)
+    let send x = send msgs sender storage x period None in
+    let api = { devinfo     = (fun ()    -> send Devinfo)
+              ; reset       = (fun ()    -> send Reset)
+              ; settings    = (fun s     -> send (Settings s))
+              ; plp_setting = (fun (n,s) -> send (Plp_setting (n,s)))
+              ; plps        = (fun n     -> send (Plps n))
               ; config      = (fun ()    -> Lwt.return storage#get)
               }
     in

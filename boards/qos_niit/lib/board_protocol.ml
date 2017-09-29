@@ -1,10 +1,10 @@
 open Board_types
 open Lwt.Infix
+open Storage.Options
+open Api.Handler
 open Meta_board
 
 include Board_parser
-
-let (>|=) = CCOpt.(>|=)
 
 let io x = Lwt_io.printf "%s\n" x |> ignore
 
@@ -115,26 +115,26 @@ module SM = struct
       let version        = gp.status.streams_ver in
       let bitrate_req    = Get_bitrates { request_id = get_id (); version} in
       let jitter_req     = Get_jitter { request_id = get_id (); pointer = !jitter_ptr } in
-      (* let board_errs_req = if gp.status.has_board_errs then [ (Get_board_errors (get_id ())) ] else [] in *)
-      [ bitrate_req; jitter_req]
-      (* @ board_errs_req *)
+      let board_errs_req = if gp.status.has_board_errs then [ (Get_board_errors (get_id ())) ] else [] in
+      [ bitrate_req; jitter_req ]
+      @ board_errs_req
       @ (match old_gp with
          | Some old_gp -> (if old_gp.status.ts_ver_com <> gp.status.ts_ver_com
                            then [ Get_ts_structs { request_id = get_id (); version } ] else [])
-                          (* @ (List.map (fun (id,ver) -> Get_t2mi_info { request_id     = get_id () *)
-                          (*                                            ; version        = ver *)
-                          (*                                            ; t2mi_stream_id = id }) *)
-                          (*             (CCList.foldi (fun acc i x -> if x = (CCList.nth gp.status.t2mi_ver_lst i) *)
-                          (*                                           then acc *)
-                          (*                                           else (i,x) :: acc) *)
-                          (*                           [] old_gp.status.t2mi_ver_lst)) *)
+         (* @ (List.map (fun (id,ver) -> Get_t2mi_info { request_id     = get_id () *)
+         (*                                            ; version        = ver *)
+         (*                                            ; t2mi_stream_id = id }) *)
+         (*             (CCList.foldi (fun acc i x -> if x = (CCList.nth gp.status.t2mi_ver_lst i) *)
+         (*                                           then acc *)
+         (*                                           else (i,x) :: acc) *)
+         (*                           [] old_gp.status.t2mi_ver_lst)) *)
          | None -> (if CCList.is_empty gp.status.ts_sync_lst then []
                     else [ Get_ts_structs { request_id = get_id (); version } ])
-                   (* @ (if CCList.is_empty gp.status.t2mi_sync_lst then [] *)
-                   (*    else (List.map (fun id -> Get_t2mi_info { request_id  = get_id () *)
-                   (*                                            ; version = CCList.nth gp.status.ts_ver_lst id *)
-                   (*                                            ; t2mi_stream_id = id }) *)
-                   (*                   gp.status.t2mi_sync_lst)) *))
+        (* @ (if CCList.is_empty gp.status.t2mi_sync_lst then [] *)
+        (*    else (List.map (fun id -> Get_t2mi_info { request_id  = get_id () *)
+        (*                                            ; version = CCList.nth gp.status.ts_ver_lst id *)
+        (*                                            ; t2mi_stream_id = id }) *)
+        (*                   gp.status.t2mi_sync_lst)) *))
 
     let push gp _ (rsps : event list) (pe : push_events) =
       let streams = CCList.find_map (function
@@ -169,16 +169,16 @@ module SM = struct
                                              ~msg_code:0x0110
                                              ~body:(Cbuffer.create 0) ()
      | Get_jitter req      -> let body = Cbuffer.create sizeof_req_get_jitter in
-                                 let ()   = set_req_get_jitter_ptr body req.pointer in
-                                 to_complex_req ~request_id:req.request_id
-                                                ~msg_code:0x0307
-                                                ~body ()
+                              let ()   = set_req_get_jitter_ptr body req.pointer in
+                              to_complex_req ~request_id:req.request_id
+                                             ~msg_code:0x0307
+                                             ~body ()
      | Get_ts_structs req  -> let stream = (Common.Stream.of_int32 0xFFFFFFFFl) in
-                                 let body = Cbuffer.create sizeof_req_get_ts_struct in
-                                 let ()   = set_req_get_ts_struct_stream_id body @@ Common.Stream.to_int32 stream in
-                                 to_complex_req ~request_id:req.request_id
-                                                ~msg_code:0x0309
-                                                ~body ()
+                              let body = Cbuffer.create sizeof_req_get_ts_struct in
+                              let ()   = set_req_get_ts_struct_stream_id body @@ Common.Stream.to_int32 stream in
+                              to_complex_req ~request_id:req.request_id
+                                             ~msg_code:0x0309
+                                             ~body ()
      | Get_bitrates req    -> to_complex_req ~request_id:req.request_id ~msg_code:0x030A ~body:(Cbuffer.create 0) ()
      | Get_t2mi_info req   -> let body = Cbuffer.create sizeof_req_get_t2mi_info in
                               let ()   = set_req_get_t2mi_info_stream_id body req.t2mi_stream_id in
@@ -227,7 +227,7 @@ module SM = struct
     msgs := Msg_queue.append !msgs { send; pred; timeout = 0; exn = None };
     t
 
-    let step msgs imsgs sender step_duration push_state push_events =
+  let step msgs imsgs sender (storage : config storage) step_duration push_state push_events =
     let period         = to_period 5 step_duration in
     (* let section_period = to_period 120 step_duration in *)
 
@@ -242,31 +242,31 @@ module SM = struct
     and step_detect p acc recvd =
       let _, _, rsps, _, acc = deserialize [] (Meta_board.concat_acc acc recvd) in
       if CCOpt.is_some @@ CCList.find_map (is_response Get_board_info) rsps
-      then (send_instant sender (Set_board_mode { input = ASI
-                                                ; t2mi  = Some { enabled = false
-                                                               ; pid     = 4096
-                                                               ; stream_id = Single} }) |> ignore;
-            send_instant sender (Set_jitter_mode { stream_id = Single; pid = 1011 })
+      then (push_state `Init;
+            let config = storage#get in
+            send_instant sender (Set_board_mode config.mode) |> ignore;
+            send_instant sender (Set_jitter_mode config.jitter_mode)
             |> ignore;
             send_instant sender Reset |> ignore;
-            `Continue (step_normal_idle period None [] [] None))
+            step_normal_begin ())
       else (if p < 0 then first_step ()
             else `Continue (step_detect (pred p) acc))
 
     and step_normal_begin () =
       jitter_ptr := 0xFFFFFFFFl;
       push_state `No_response;
-      `Continue (step_normal_idle period None [] [] None)
+      `Continue (step_normal_idle period None [] [] [] None)
 
-    and step_normal_idle p prev_gp prev_events parts acc recvd =
+    and step_normal_idle p prev_gp prev_events prev_rsps parts acc recvd =
       let events,_,rsps,parts,acc = deserialize parts (Meta_board.concat_acc acc recvd) in
       if CCOpt.is_none @@ CCList.find_map (is_response Get_board_info) rsps
       then
         let events = prev_events @ events in
+        let rsps   = prev_rsps   @ rsps   in
         (match Msg_group.extract events with
          | None,rest_events -> if p < 0
                                then step_normal_begin ()
-                               else `Continue (step_normal_idle p prev_gp rest_events parts acc)
+                               else `Continue (step_normal_idle p prev_gp rest_events [] parts acc)
          | Some gp,rest_events ->
             let pool = Msg_pool.create @@ List.map (fun req -> { send    = (fun () -> send_event sender req)
                                                                ; pred    = (is_event req)
@@ -274,39 +274,39 @@ module SM = struct
                                                                ; exn     = None
                                                                })
                                                    (Msg_group.get_req_stack gp prev_gp) in
-            step_normal_probes_send pool [] prev_gp gp rest_events parts acc)
+            step_normal_probes_send pool [] prev_gp gp rest_events [] parts acc)
       else first_step ()
 
-    and step_normal_probes_send pool pool_rsps prev_gp gp prev_events parts acc =
+    and step_normal_probes_send pool pool_rsps prev_gp gp prev_events prev_rsps parts acc =
       if Msg_pool.empty pool
-      then step_normal_probes_finalize pool_rsps prev_gp gp prev_events parts acc
+      then step_normal_probes_finalize pool_rsps prev_gp gp prev_events [] parts acc
       else (Msg_pool.send pool () |> ignore;
-            `Continue (step_normal_probes_wait pool pool_rsps period prev_gp gp prev_events parts acc))
+            `Continue (step_normal_probes_wait pool pool_rsps period prev_gp gp prev_events prev_rsps parts acc))
 
-    and step_normal_probes_wait pool pool_rsps p prev_gp gp prev_events parts acc recvd =
-      let events,ev_rsps,_,parts,acc = deserialize parts (Meta_board.concat_acc acc recvd) in
+    and step_normal_probes_wait pool pool_rsps p prev_gp gp prev_events prev_rsps parts acc recvd =
+      let events,ev_rsps,rsps,parts,acc = deserialize parts (Meta_board.concat_acc acc recvd) in
       let events = prev_events @ events in
+      let rsps   = prev_rsps   @ rsps   in
       try
         (match Msg_pool.responsed pool ev_rsps with
          | None   -> let pool = Msg_pool.step pool in
-                     `Continue (step_normal_probes_wait pool pool_rsps (pred p) prev_gp gp events parts acc)
-         | Some x -> io "Got msg!";
-                     let new_pool = Msg_pool.next pool in
+                     `Continue (step_normal_probes_wait pool pool_rsps (pred p) prev_gp gp events rsps parts acc)
+         | Some x -> let new_pool = Msg_pool.next pool in
                      let pool_rsps = x :: pool_rsps in
                      if Msg_pool.last pool
-                     then step_normal_probes_finalize pool_rsps prev_gp gp events parts acc
-                     else step_normal_probes_send new_pool pool_rsps prev_gp gp events parts acc)
+                     then step_normal_probes_finalize pool_rsps prev_gp gp events rsps parts acc
+                     else step_normal_probes_send new_pool pool_rsps prev_gp gp events rsps parts acc)
       with
       | Timeout -> io "exit by timeout"; step_normal_begin ()
 
-    and step_normal_probes_finalize pool_rsps prev_gp gp prev_events parts acc =
+    and step_normal_probes_finalize pool_rsps prev_gp gp prev_events prev_rsps parts acc =
       push_state `Fine;
       let gp = Msg_group.push gp prev_gp pool_rsps push_events in
-      `Continue (step_normal_idle period (Some gp) prev_events parts acc)
+      `Continue (step_normal_idle period (Some gp) prev_events prev_rsps parts acc)
 
     in first_step ()
 
-  let create sender storage push_state step_duration =
+  let create sender (storage : config storage) push_state step_duration =
     let period = to_period 5 step_duration in
     let msgs   = ref (Msg_queue.create []) in
     let imsgs  = ref (Msg_queue.create []) in
@@ -353,6 +353,6 @@ module SM = struct
               } in
     events,
     api,
-    (step msgs imsgs sender step_duration push_state push_events)
+    (step msgs imsgs sender storage step_duration push_state push_events)
 
 end

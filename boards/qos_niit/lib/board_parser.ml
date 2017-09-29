@@ -777,7 +777,7 @@ let of_rsp_get_bitrates (version,msg) =
                                   match rest with
                                   | Some b -> parse (x :: acc) b
                                   | None   -> List.rev (x :: acc)) in
-  let bitrates  = parse [] bdy in
+  let bitrates  = if count > 0 then parse [] bdy else [] in
   let streams   = List.map (fun (x:bitrate) -> x.stream_id) bitrates in
   if List.length streams <> count
   then failwith (Printf.sprintf "of_rsp_get_bitrates: expected %d streams, got %d" count (List.length streams))
@@ -821,6 +821,7 @@ let of_status msg =
   ; ts_sync_lst      = Cbuffer.fold (fun acc el -> (int_to_bool_list el) @ acc)
                                     (iter @@ get_status_ts_absent_lst msg) []
                        |> CCList.rev
+                       (* |> (fun x -> io @@ CCList.fold_left (fun acc i -> acc ^ " " ^ string_of_bool i) "" x; x) *)
                        |> CCList.take ts_num
                        |> (fun x -> List.map not x)
   ; ts_verified_lst  = Cbuffer.fold (fun acc el -> (int_to_bool_list el) @ acc)
@@ -1085,8 +1086,7 @@ let parse_get_t2mi_frame_seq req_id = function
   | _ -> None
 
 let parse_get_jitter (req : jitter_req) = function
-  | `Jitter (r_id,pointer,buf) -> io @@ Printf.sprintf "Got jitter with pointer = %ld, expected pointer = %ld" pointer req.pointer;
-                                  if req.request_id <> r_id then None
+  | `Jitter (r_id,pointer,buf) -> if req.request_id <> r_id then None
                                   else if req.pointer <> pointer then None
                                   else (match try_parse of_rsp_get_jitter (pointer,buf) with
                                         | Some x -> Some (Jitter x)
@@ -1094,8 +1094,7 @@ let parse_get_jitter (req : jitter_req) = function
   | _ -> None
 
 let parse_get_ts_structs (req : ts_req) = function
-  | `Struct (r_id,version,buf) -> io @@ Printf.sprintf "Got structs with version = %d, expected version = %d" version req.version;
-                                  if req.request_id <> r_id then None
+  | `Struct (r_id,version,buf) -> if req.request_id <> r_id then None
                                   else if req.version <> version then None
                                   else (match try_parse of_rsp_get_ts_structs (version,buf) with
                                         | Some x -> Some (Struct x)
@@ -1103,8 +1102,7 @@ let parse_get_ts_structs (req : ts_req) = function
   | _ -> None
 
 let parse_get_bitrates (req : ts_req) = function
-  | `Bitrates (r_id,version,buf) -> io @@ Printf.sprintf "Got bitrates with version = %d, expected version = %d" version req.version;
-                                    if req.request_id <> r_id then None
+  | `Bitrates (r_id,version,buf) -> if req.request_id <> r_id then None
                                     else if req.version <> version then None
                                     else (match try_parse of_rsp_get_bitrates (version,buf) with
                                           | Some x -> Some (Bitrate x)
