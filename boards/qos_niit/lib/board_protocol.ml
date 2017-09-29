@@ -13,7 +13,6 @@ let to_period x step_duration  = x * int_of_float (1. /. step_duration)
 module SM = struct
 
   let request_id = ref (-1)
-  let jitter_ptr = ref (-1l)
 
   exception T2mi_seq_timeout
   exception Streams_timeout
@@ -62,6 +61,7 @@ module SM = struct
       ; streams     : Common.Stream.t list
       ; ts_errors   : ts_errors list
       ; t2mi_errors : t2mi_errors list
+      ; jitter_ptr  : int32
       }
     type msgs = [ `Status of Board_types.status
                 | `T2mi_errors of Cbuffer.t
@@ -99,7 +99,8 @@ module SM = struct
                                                    (Some { status      = x
                                                          ; ts_errors   = group_ts_errs gp |> sort_ts_errs
                                                          ; t2mi_errors = group_t2mi_errs gp
-                                                         ; streams     = [] }, rest)
+                                                         ; streams     = []
+                                                         ; jitter_ptr  = -1l }, rest)
                                                 | None -> None,events)
                         | _ -> None,events)
       | None -> None,events
@@ -114,7 +115,7 @@ module SM = struct
     let get_req_stack gp old_gp =
       let version        = gp.status.streams_ver in
       let bitrate_req    = Get_bitrates { request_id = get_id (); version} in
-      let jitter_req     = Get_jitter { request_id = get_id (); pointer = !jitter_ptr } in
+      let jitter_req     = Get_jitter { request_id = get_id (); pointer = gp.jitter_ptr } in
       let board_errs_req = if gp.status.has_board_errs then [ (Get_board_errors (get_id ())) ] else [] in
       [ bitrate_req; jitter_req ]
       @ board_errs_req
@@ -137,20 +138,28 @@ module SM = struct
         (*                   gp.status.t2mi_sync_lst)) *))
 
     let push gp _ (rsps : event list) (pe : push_events) =
-      let streams = CCList.find_map (function
-                                     | (Bitrate (x,_) | Struct (x,_)) -> Some x
-                                     | _                              -> None) rsps in
-      (match streams with
-       | Some x -> let new_sync = CCList.map2 CCPair.make x.streams gp.status.ts_sync_lst in
-                   let sync_lost,sync_found = CCList.partition_map (fun ((_,sync) as x) ->
-                                                  if sync then `Right x else `Left x) new_sync in
-                   pe.status gp.status.user_status;
-                   List.iter pe.ts_sync sync_found;
-                   List.iter pe.ts_errors gp.ts_errors;
-                   List.iter pe.t2mi_errors gp.t2mi_errors;
-                   List.iter pe.ts_sync sync_lost;
-                   { gp with streams = x.streams }
-       | None   -> assert false)
+      let streams    = CCOpt.get_exn @@ CCList.find_map (function
+                                                         | (Bitrate (x,_) | Struct (x,_)) -> Some x.streams
+                                                         | _                              -> None) rsps in
+      let jitter_ptr = CCOpt.get_exn @@ CCList.find_map (function
+                                                         | Jitter x -> Some x.next_ptr
+                                                         | _        -> None ) rsps in
+      let new_sync = CCList.map2 CCPair.make streams gp.status.ts_sync_lst in
+      let sync_lost,sync_found = CCList.partition_map (fun ((_,sync) as x) ->
+                                     if sync then `Right x else `Left x) new_sync in
+      pe.status gp.status.user_status;
+      List.iter pe.ts_sync sync_found;
+      List.iter pe.ts_errors gp.ts_errors;
+      List.iter pe.t2mi_errors gp.t2mi_errors;
+      List.iter pe.ts_sync sync_lost;
+      List.iter (function
+                 | Board_errors x -> pe.board_errors x
+                 | Bitrate (_,x)  -> pe.bitrate x
+                 | Struct  (_,x)  -> pe.structs x
+                 | T2mi_info x    -> pe.t2mi_info x
+                 | Jitter x       -> pe.jitter x
+                 | _              -> ()) rsps;
+      { gp with streams = streams; jitter_ptr = jitter_ptr }
 
   end
 
@@ -253,7 +262,6 @@ module SM = struct
             else `Continue (step_detect (pred p) acc))
 
     and step_normal_begin () =
-      jitter_ptr := 0xFFFFFFFFl;
       push_state `No_response;
       `Continue (step_normal_idle period None [] [] [] None)
 
@@ -262,7 +270,7 @@ module SM = struct
       if CCOpt.is_none @@ CCList.find_map (is_response Get_board_info) rsps
       then
         let events = prev_events @ events in
-        let rsps   = prev_rsps   @ rsps   in
+        (* let rsps   = prev_rsps   @ rsps   in *)
         (match Msg_group.extract events with
          | None,rest_events -> if p < 0
                                then step_normal_begin ()
