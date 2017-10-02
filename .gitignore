@@ -1,9 +1,10 @@
 _build/
-db
+dist/db
 *.byte
 *.native
 *.bak
 *.install
 *.merlin
 tmp
-resources/js/home.js
+dist/resources/js/home.js
+dist/backend

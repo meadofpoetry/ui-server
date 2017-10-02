@@ -3,6 +3,7 @@ open Lwt.Infix
 open Storage.Options
 open Api.Handler
 open Meta_board
+open Meta_board.Msg
    
 include Board_parser
    
@@ -18,20 +19,26 @@ let detect = Devinfo
 
 let init = List.map (fun x -> Settings x)
 
-let detect_msgs (send_req : 'a request -> unit Lwt.t) =
-  [ { send = (fun () -> send_req detect); pred = (is_response detect) } ]
+let detect_msgs (send_req : 'a request -> unit Lwt.t) timeout =
+  [ { send = (fun () -> send_req detect)
+    ; pred = (is_response detect)
+    ; timeout
+    ; exn = None
+  } ]
 
-let init_msgs (send_req : 'a request -> unit Lwt.t) d =
-  List.map (fun x ->
-      { send = (fun () -> send_req x)
-      ; pred = (is_response x)
-    })
+let init_msgs (send_req : 'a request -> unit Lwt.t) timeout d =
+  List.map (fun x -> { send = (fun () -> send_req x)
+                     ; pred = (is_response x)
+                     ; timeout
+                     ; exn = None })
     (init d)
-                            
-let measure_probes (send_ev : 'a event_request -> unit Lwt.t) config =
+  
+let measure_probes (send_ev : 'a event_request -> unit Lwt.t) timeout config =
   List.map (fun x ->
       { send = (fun () -> send_ev @@ Measure x)
       ; pred = (is_event (Measure x))
+      ; timeout
+      ; exn = None
     })
     config.modules               
   
@@ -60,7 +67,7 @@ module SM = struct
     match msg with
     | Measure id -> sender @@ to_req_measure id
 
-  let send (type a) msgs sender (storage : config storage) (msg : a request) : a Lwt.t =
+  let send (type a) msgs sender (storage : config storage) timeout (msg : a request) : a Lwt.t =
     (* no instant msgs *)
     let t, w = Lwt.wait () in
     let pred = function
@@ -77,7 +84,7 @@ module SM = struct
              Lwt.wakeup w r
     in
     let send = fun () -> send_msg sender msg in
-    msgs := Msg_queue.append !msgs { send; pred };
+    msgs := Queue.append !msgs { send; pred; timeout; exn = None };
     t
 
   let initial_timeout = -1
@@ -86,13 +93,13 @@ module SM = struct
     let period         = timeout_period step_duration in
     let request_period = request_period step_duration in
     let push_events  = event_push push_events in
-    let detect_pool  = Msg_pool.create period (detect_msgs (send_msg sender)) in
+    let detect_pool  = Pool.create (detect_msgs (send_msg sender) period) in
 
     let rec first_step () =
-      Msg_queue.iter !msgs wakeup_timeout;
-      msgs := Msg_queue.create period [];
+      Queue.iter !msgs wakeup_timeout;
+      msgs := Queue.create [];
       push_state `No_response;
-      Msg_pool.send detect_pool () |> ignore;
+      Pool.send detect_pool () |> ignore;
       `Continue (step_detect detect_pool None)
     
     and step_detect detect_pool acc recvd =
@@ -100,23 +107,23 @@ module SM = struct
         (*Lwt_io.printf "Detect step\n" |> ignore;*)
         let recvd = Meta_board.concat_acc acc recvd in
         let _, responses, acc = deserialize recvd in
-        match Msg_pool.responsed detect_pool responses with
-        | Some detect -> step_start_init (measure_probes (send_event sender) detect)
+        match Pool.responsed detect_pool responses with
+        | Some detect -> step_start_init (measure_probes (send_event sender) period detect)
         | _           -> if detect_pool.timer > 0
-                         then `Continue (step_detect (Msg_pool.step detect_pool) acc)
-                         else let detect_pool = Msg_pool.next detect_pool in
-                              Msg_pool.send detect_pool () |> ignore;
+                         then `Continue (step_detect (Pool.step detect_pool) acc)
+                         else let detect_pool = Pool.next detect_pool in
+                              Pool.send detect_pool () |> ignore;
                               `Continue (step_detect detect_pool acc)
       with Timeout -> first_step ()
 
     and step_start_init probes =
       try
-        match init_msgs (send_msg sender) storage#get with
-        | [] -> let probes_pool = Msg_pool.create period probes in
-                Msg_pool.send probes_pool () |> ignore;
+        match init_msgs (send_msg sender) period storage#get with
+        | [] -> let probes_pool = Pool.create probes in
+                Pool.send probes_pool () |> ignore;
                 `Continue (step_normal_probes_send probes_pool 0 None)
-        | lst -> let init_pool = Msg_pool.create period lst in
-                 Msg_pool.send init_pool () |> ignore;
+        | lst -> let init_pool = Pool.create lst in
+                 Pool.send init_pool () |> ignore;
                  `Continue (step_init init_pool probes None)
       with Timeout -> first_step ()
                  
@@ -125,17 +132,17 @@ module SM = struct
         (*Lwt_io.printf "Init step\n" |> ignore;*)
         let recvd = Meta_board.concat_acc acc recvd in
         let _, responses, acc = deserialize recvd in
-        match Msg_pool.responsed init_pool responses with
+        match Pool.responsed init_pool responses with
         | None    -> if init_pool.timer < 0
                      then (first_step ())
-                     else `Continue (step_init (Msg_pool.step init_pool) probes acc)
+                     else `Continue (step_init (Pool.step init_pool) probes acc)
         | Some _  ->
-           (match Msg_pool.last init_pool with
+           (match Pool.last init_pool with
             | true   -> push_state `Fine;
-                        let probes_pool = Msg_pool.create period probes in
+                        let probes_pool = Pool.create probes in
                         `Continue (step_normal_probes_send probes_pool 0 acc)
-            | false  -> let init_pool = Msg_pool.next init_pool in
-                        Msg_pool.send init_pool () |> ignore;
+            | false  -> let init_pool = Pool.next init_pool in
+                        Pool.send init_pool () |> ignore;
                         `Continue (step_init init_pool probes acc))
       with Timeout -> first_step ()
 
@@ -143,9 +150,9 @@ module SM = struct
       (*Lwt_io.printf "Normal step probes send \n" |> ignore;*)
       if (period_timer >= request_period) then raise (Failure "board_dvb: sm invariant is broken");
            
-      if Msg_pool.empty probes_pool
+      if Pool.empty probes_pool
       then `Continue (step_normal_requests_send probes_pool (succ period_timer) acc)
-      else (Msg_pool.send probes_pool () |> ignore;
+      else (Pool.send probes_pool () |> ignore;
             `Continue (step_normal_probes_wait probes_pool (succ period_timer) acc))
 
     and step_normal_probes_wait probes_pool period_timer acc recvd =
@@ -154,12 +161,12 @@ module SM = struct
       let events, _, acc = deserialize recvd_buf in
 
       try
-        (match Msg_pool.responsed probes_pool events with
-         | None    -> let probes_pool = Msg_pool.step probes_pool in
+        (match Pool.responsed probes_pool events with
+         | None    -> let probes_pool = Pool.step probes_pool in
                       `Continue (step_normal_probes_wait probes_pool (succ period_timer) acc)
-         | Some () -> let new_probes_pool = Msg_pool.next probes_pool in
+         | Some () -> let new_probes_pool = Pool.next probes_pool in
                       List.iter push_events events;
-                      if Msg_pool.last probes_pool
+                      if Pool.last probes_pool
                       then `Continue (step_normal_requests_send new_probes_pool period_timer acc)
                       else step_normal_probes_send new_probes_pool period_timer acc recvd)
       with Timeout -> first_step ()
@@ -169,9 +176,9 @@ module SM = struct
       if (period_timer >= request_period)
       then `Continue (step_normal_probes_send probes_pool ((succ period_timer) mod request_period) acc)
       else 
-        if Msg_queue.empty !msgs
+        if Queue.empty !msgs
         then `Continue (step_normal_requests_send probes_pool (succ period_timer) acc)
-        else (Msg_queue.send !msgs () |> ignore;
+        else (Queue.send !msgs () |> ignore;
               `Continue (step_normal_requests_wait probes_pool (succ period_timer) acc))
 
     and step_normal_requests_wait probes_pool period_timer acc recvd =
@@ -179,10 +186,10 @@ module SM = struct
       let recvd = Meta_board.concat_acc acc recvd in
       let _, responses, acc = deserialize recvd in
       try
-        match Msg_queue.responsed !msgs responses with
-        | None    -> msgs := Msg_queue.step !msgs;
+        match Queue.responsed !msgs responses with
+        | None    -> msgs := Queue.step !msgs;
                      `Continue (step_normal_requests_wait probes_pool (succ period_timer) acc)
-        | Some () -> msgs := Msg_queue.next !msgs;
+        | Some () -> msgs := Queue.next !msgs;
                      `Continue (step_normal_requests_send probes_pool (succ period_timer) acc)
       with Timeout -> first_step ()
                       
@@ -194,8 +201,8 @@ module SM = struct
     let measure, mpush = React.E.create () in
     let (events : events) = { measure } in
     let push_events = { measure = mpush } in
-    let msgs = ref (Msg_queue.create period []) in
-    let send x = send msgs sender storage x in
+    let msgs = ref (Queue.create []) in
+    let send x = send msgs sender storage period x in
     let api = { devinfo     = (fun ()    -> send Devinfo)
               ; reset       = (fun ()    -> send Reset)
               ; settings    = (fun s     -> send (Settings s))
