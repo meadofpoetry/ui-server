@@ -8,10 +8,6 @@ open Frame
 
 module Api_handler = Api.Handler.Make(Common.User)
 
-let devinfo api () =
-  api.devinfo () >>= fun devi ->
-  respond_js (info_to_yojson devi) ()
-
 let reset api () =
   api.reset () >>= respond_ok
 
@@ -36,7 +32,6 @@ let get_t2mi_seq api seconds () =
 let handle api _ _ meth args _ _ body =
   let open Api.Redirect in
   match meth, args with
-  | `GET,  ["devinfo"]      -> devinfo api ()
   | `POST, ["reset"]        -> reset api ()
   | `POST, ["mode"]         -> set_mode api body ()
   | `GET, "t2mi_seq"::[sec] -> get_t2mi_seq api sec ()

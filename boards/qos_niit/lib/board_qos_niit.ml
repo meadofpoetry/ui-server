@@ -46,12 +46,12 @@ let create (b:topo_board) send db base step =
                                      | `No_response -> Lwt_io.printf "QoS Board not responding\n"
                                      | `Fine        -> Lwt_io.printf "QoS Board is OK\n"
                                      | `Init        -> Lwt_io.printf "Qos Board is initializing\n") s_state in
-  let e_jitter        = React.E.map (fun x -> Lwt_io.printf "Got jitter with ptr = %ld, next_ptr = %ld, items = %d\n"
-                                                            x.req_ptr x.next_ptr (CCList.length x.values)
+  let e_jitter        = React.E.map (fun x -> Lwt_io.printf "Got jitter with next_ptr = %ld, items = %d\n"
+                                                            x.next_ptr (CCList.length x.values)
                                               |> ignore)
                                     events.jitter in
-  let e_struct        = React.E.map (fun x -> Lwt_io.printf "Got structs\n") events.structs in
-  let e_bitrate       = React.E.map (fun x -> Lwt_io.printf "Got bitrate\n") events.bitrate in
+  let e_struct        = React.E.map (fun _ -> Lwt_io.printf "Got structs\n") events.structs in
+  let e_bitrate       = React.E.map (fun _ -> Lwt_io.printf "Got bitrate\n") events.bitrate in
   let state           = (object
                            method e_status = e_status;
                            method e_state = e_state;

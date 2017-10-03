@@ -220,7 +220,6 @@ type jitter_item =
 type jitter =
   { pid         : int
   ; time        : int32
-  ; req_ptr     : int32
   ; next_ptr    : int32
   ; bitrate     : int32
   ; t_pcr       : int32
@@ -386,19 +385,16 @@ type bitrate =
 
 (* T2-MI info *)
 type t2mi_info =
-  { stream_id : Common.Stream.t
-  ; packets   : int list
-  ; t2mi_pid  : int
-  ; l1_pre    : string (* FIXME *)
-  ; l1_conf   : string (* FIXME *)
-  }
+  { packets        : int list
+  ; t2mi_pid       : int
+  ; t2mi_stream_id : int
+  ; l1_pre         : string (* FIXME *)
+  ; l1_conf        : string (* FIXME *)
+  } [@@deriving to_yojson]
 
 (* Streams list*)
 
-type streams =
-  { version : int
-  ; streams : Common.Stream.t list
-  } [@@deriving to_yojson]
+type streams = Common.Stream.t list [@@deriving to_yojson]
 
 
 type config = { mode        : mode
