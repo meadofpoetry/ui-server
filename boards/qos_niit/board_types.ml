@@ -56,6 +56,7 @@ type status =
   ; ts_ver_com       : int
   ; ts_ver_lst       : int list
   ; t2mi_ver_lst     : int list
+  ; streams          : Common.Stream.t list
   } [@@deriving to_yojson]
 
 (* MPEG-TS errors *)

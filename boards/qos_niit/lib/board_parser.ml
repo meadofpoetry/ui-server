@@ -347,12 +347,12 @@ type part =
   ; data       : Cbuffer.t
   }
 
-type event = Board_errors of board_errors
-           | Bitrate      of (streams * bitrate list)
-           | Struct       of (streams * ts_struct list)
-           | T2mi_info    of t2mi_info list
-           | Jitter       of jitter
-           | Streams      of streams
+type event_response = Board_errors of board_errors
+                    | Bitrate      of (streams * bitrate list)
+                    | Struct       of (streams * ts_struct list)
+                    | T2mi_info    of t2mi_info list
+                    | Jitter       of jitter
+                    | Streams      of streams
 
 type api = { devinfo         : unit        -> info Lwt.t
            ; set_mode        : mode        -> unit Lwt.t
@@ -382,12 +382,12 @@ type t2mi_req =
   ; version        : int
   }
 
-type _ event_request = Get_board_errors : int        -> event event_request
-                     | Get_jitter       : jitter_req -> event event_request
-                     | Get_ts_structs   : ts_req     -> event event_request
-                     | Get_bitrates     : ts_req     -> event event_request
-                     | Get_t2mi_info    : t2mi_req   -> event event_request
-                     | Get_streams      : ts_req     -> event event_request
+type _ event_request = Get_board_errors : int        -> event_response event_request
+                     | Get_jitter       : jitter_req -> event_response event_request
+                     | Get_ts_structs   : ts_req     -> event_response event_request
+                     | Get_bitrates     : ts_req     -> event_response event_request
+                     | Get_t2mi_info    : t2mi_req   -> event_response event_request
+                     | Get_streams      : ts_req     -> event_response event_request
 
 type _ request = Get_board_info     : info request
                | Get_board_mode     : mode request
@@ -821,14 +821,13 @@ let of_status msg =
   ; ts_sync_lst      = Cbuffer.fold (fun acc el -> (int_to_bool_list el) @ acc)
                                     (iter @@ get_status_ts_absent_lst msg) []
                        |> CCList.rev
-                       (* |> (fun x -> io @@ CCList.fold_left (fun acc i -> acc ^ " " ^ string_of_bool i) "" x; x) *)
                        |> CCList.take ts_num
-                       |> (fun x -> List.map not x)
+                       |> List.map (fun x -> if has_sync then not x else false)
   ; ts_verified_lst  = Cbuffer.fold (fun acc el -> (int_to_bool_list el) @ acc)
                                     (iter @@ get_status_ts_not_verified_lst msg) []
                        |> CCList.rev
                        |> CCList.take ts_num
-                       |> (fun x -> List.map not x)
+                       |> List.map not
   ; streams_ver      = get_status_streams_ver msg
   ; ts_ver_com       = get_status_ts_ver_com msg
   ; ts_ver_lst       = Cbuffer.fold (fun acc el -> el :: acc)
@@ -843,6 +842,7 @@ let of_status msg =
                                                          |> Int32.to_int)
                                                (CCList.range 0 7))
                        |> List.rev
+  ; streams          = []
   }
 
 (* Ts errors *)
