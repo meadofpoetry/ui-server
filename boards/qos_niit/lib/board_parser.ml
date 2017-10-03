@@ -315,7 +315,11 @@ let prefix = 0x55AA
    ; stream_id : uint8_t
    ; packets   : uint8_t [@len 32]
    ; length    : uint16_t
-   ; t2mi_pid  : uint16_t
+   } [@@little_endian]]
+
+[%%cstruct
+ type t2mi_info_ext =
+   { t2mi_pid  : uint16_t
    ; conf_len  : uint16_t
    ; l1_pre    : uint8_t [@len 21]
    } [@@little_endian]]
@@ -488,36 +492,37 @@ let of_rsp_get_board_errors msg =
 
 let of_rsp_get_t2mi_frame_seq msg =
   let iter = Cbuffer.iter (fun _ -> Some sizeof_t2mi_frame_seq_item) (fun buf -> buf) msg in
-  Cbuffer.fold (fun acc el -> let typ    = get_t2mi_frame_seq_item_typ el in
-                              let frame  = get_t2mi_frame_seq_item_frame el in
-                              let common = { id          = typ
-                                           ; super_frame = get_t2mi_frame_seq_item_sframe el
-                                           ; count       = Int32.to_int @@ get_t2mi_frame_seq_item_count el
-                                           } in
-                              (match typ with
-                               | 0x00 -> BB { common
-                                            ; frame
-                                            ; plp = get_t2mi_frame_seq_item_plp el
-                                            }
-                               | 0x01 -> Aux_stream_iq_data common
-                               | 0x02 -> Arbitrary_cell_insertion { common; frame }
-                               | 0x10 -> L1_current { common
-                                                    ; frame
-                                                    ; dyn_cur_frame = get_t2mi_frame_seq_item_dyn1_frame el
-                                                    }
-                               | 0x11 -> L1_future { common
-                                                   ; frame
-                                                   ; dyn_next_frame = get_t2mi_frame_seq_item_dyn1_frame el
-                                                   ; dyn_next2_frame = get_t2mi_frame_seq_item_dyn2_frame el
-                                                   }
-                               | 0x12 -> P2_bias_balancing_cells { common; frame }
-                               | 0x20 -> Timestamp common
-                               | 0x21 -> Individual_addressing common
-                               | 0x30 -> FEF_null common
-                               | 0x31 -> FEF_iq common
-                               | 0x32 -> FEF_composite common
-                               | 0x33 -> FEF_sub_part common
-                               | _    -> Unknown common) :: acc)
+  Cbuffer.fold (fun (acc : t2mi_packet list) el ->
+      let typ    = get_t2mi_frame_seq_item_typ el in
+      let frame  = get_t2mi_frame_seq_item_frame el in
+      let common = { id          = typ
+                   ; super_frame = get_t2mi_frame_seq_item_sframe el
+                   ; count       = Int32.to_int @@ get_t2mi_frame_seq_item_count el
+                   } in
+      (match typ with
+       | 0x00 -> BB { common
+                    ; frame
+                    ; plp = get_t2mi_frame_seq_item_plp el
+                    }
+       | 0x01 -> Aux_stream_iq_data common
+       | 0x02 -> Arbitrary_cell_insertion { common; frame }
+       | 0x10 -> L1_current { common
+                            ; frame
+                            ; dyn_cur_frame = get_t2mi_frame_seq_item_dyn1_frame el
+                            }
+       | 0x11 -> L1_future { common
+                           ; frame
+                           ; dyn_next_frame = get_t2mi_frame_seq_item_dyn1_frame el
+                           ; dyn_next2_frame = get_t2mi_frame_seq_item_dyn2_frame el
+                           }
+       | 0x12 -> P2_bias_balancing_cells { common; frame }
+       | 0x20 -> Timestamp common
+       | 0x21 -> Individual_addressing common
+       | 0x30 -> FEF_null common
+       | 0x31 -> FEF_iq common
+       | 0x32 -> FEF_composite common
+       | 0x33 -> FEF_sub_part common
+       | _    -> Unknown common) :: acc)
                iter []
   |> List.rev
 
@@ -718,7 +723,7 @@ let of_rsp_get_ts_structs msg =
                                      match rest with
                                      | Some b -> parse (x :: acc) b
                                      | None   -> List.rev (x :: acc)) in
-  let structs      = parse [] bdy in
+  let structs      =  if count > 0 then parse [] bdy else [] in
   streams_list, structs
 
 (* Get bitrate *)
@@ -783,20 +788,33 @@ let of_rsp_get_bitrates msg =
 
 let of_rsp_get_t2mi_info (t2mi_stream_id,msg) =
   let hdr,bdy'  = Cbuffer.split msg sizeof_t2mi_info in
-  let length    = get_t2mi_info_length hdr in
   let iter      = Cbuffer.iter (fun _ -> Some 1)
                                (fun buf -> Cbuffer.get_uint8 buf 0)
                                (get_t2mi_info_packets hdr) in
-  let packets   = Cbuffer.fold (fun acc el -> (int_to_bool_list el) @ acc) iter []
-                  |> CCList.foldi (fun acc i x -> if x then i :: acc else acc) [] in
+  let packets   = Cbuffer.fold (fun acc el -> (CCList.rev @@ int_to_bool_list el) @ acc) iter []
+                  |> CCList.rev
+                  |> CCList.foldi (fun acc i x -> if x then i :: acc else acc) []
+                  |> CCList.map (function
+                                 | 0x00 -> BB
+                                 | 0x01 -> Aux_stream_iq_data
+                                 | 0x02 -> Arbitrary_cell_insertion
+                                 | 0x10 -> L1_current
+                                 | 0x11 -> L1_future
+                                 | 0x12 -> P2_bias_balancing_cells
+                                 | 0x20 -> Timestamp
+                                 | 0x21 -> Individual_addressing
+                                 | 0x30 -> FEF_null
+                                 | 0x31 -> FEF_iq
+                                 | 0x32 -> FEF_composite
+                                 | 0x33 -> FEF_sub_part
+                                 | _    -> Unknown) in
+  let length    = get_t2mi_info_length hdr in
+  let bdy,_     = Cbuffer.split bdy' length in
   (* let conf_len  = get_t2mi_info_conf_len hdr in *)
-  let l1_pre    = get_t2mi_info_l1_pre hdr in
-  let l1_conf,_ = Cbuffer.split bdy' (length - 25) in
   { packets
-  ; t2mi_pid       = get_t2mi_info_t2mi_pid hdr
   ; t2mi_stream_id
-  ; l1_pre         = Cbuffer.to_string l1_pre
-  ; l1_conf        = Cbuffer.to_string l1_conf
+  ; l1_pre         = if length > 0 then Some (Cbuffer.to_string (get_t2mi_info_ext_l1_pre bdy)) else None
+  ; l1_conf        = None
   }
 
 (* Get streams list *)
@@ -855,7 +873,6 @@ let of_status msg =
                                                          |> Int32.logand 0xfl
                                                          |> Int32.to_int)
                                                (CCList.range 0 7))
-                       |> List.rev
   ; streams          = []
   }
 
@@ -1057,10 +1074,7 @@ let deserialize parts buf =
           | Error e ->
              (match e with
               | Insufficient_payload x -> (List.rev events, List.rev event_rsps, List.rev rsps, List.rev parts, x)
-              | _ -> (match e with
-                      | Bad_prefix _ -> ()
-                      | _            -> io (string_of_err e); io (Cbuffer.pp buf));
-                     Cbuffer.split b 1 |> fun (_,x) -> f events event_rsps rsps parts x))
+              | _ -> Cbuffer.split b 1 |> fun (_,x) -> f events event_rsps rsps parts x))
     else (List.rev events, List.rev event_rsps, List.rev rsps, List.rev parts, b) in
   let ev,ev_rsps,rsps,parts,res = f [] [] [] parts buf in
   let parts = List.filter (fun (_,x) -> let first_msgs = CCList.find_all (fun x -> x.first) x in
@@ -1130,7 +1144,7 @@ let parse_get_t2mi_info (req : t2mi_req) = function
                                                else if req.version <> version then None
                                                else if req.t2mi_stream_id <> stream_id then None
                                                else (match try_parse of_rsp_get_t2mi_info (stream_id,buf) with
-                                                     | Some x -> Some (T2mi_info x)
+                                                     | Some x -> io @@ Printf.sprintf "Got t2mi info: \n %s" @@ Yojson.Safe.pretty_to_string @@ t2mi_info_to_yojson x; Some (T2mi_info x)
                                                      | None   -> None)
   | _ -> None
 

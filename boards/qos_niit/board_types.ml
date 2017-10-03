@@ -384,12 +384,26 @@ type bitrate =
   } [@@deriving to_yojson]
 
 (* T2-MI info *)
+
+type t2mi_packet_type = BB
+                      | Aux_stream_iq_data
+                      | Arbitrary_cell_insertion
+                      | L1_current
+                      | L1_future
+                      | P2_bias_balancing_cells
+                      | Timestamp
+                      | Individual_addressing
+                      | FEF_null
+                      | FEF_iq
+                      | FEF_composite
+                      | FEF_sub_part
+                      | Unknown [@@deriving to_yojson]
+
 type t2mi_info =
-  { packets        : int list
-  ; t2mi_pid       : int
+  { packets        : t2mi_packet_type list
   ; t2mi_stream_id : int
-  ; l1_pre         : string (* FIXME *)
-  ; l1_conf        : string (* FIXME *)
+  ; l1_pre         : string option (* FIXME *)
+  ; l1_conf        : string option (* FIXME *)
   } [@@deriving to_yojson]
 
 (* Streams list*)
@@ -407,7 +421,9 @@ let config_of_string s = config_of_yojson @@ Yojson.Safe.from_string s
 
 let config_default =
   { mode        = { input = ASI
-                  ; t2mi  = None
+                  ; t2mi  = Some { enabled   = true
+                                 ; pid       = 4096
+                                 ; stream_id = Single }
                   }
   ; jitter_mode = { stream_id = Single
                   ; pid       = 65535

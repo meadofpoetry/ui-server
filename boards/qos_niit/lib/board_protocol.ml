@@ -20,7 +20,7 @@ module SM = struct
 
   let get_id ()  = incr request_id; !request_id
 
-  let wakeup_timeout t = t.pred `Timeout |> ignore
+  let wakeup_timeout (_,t) = t.pred `Timeout |> ignore
 
   type events = { status       : user_status React.event
                 ; ts_found     : Common.Stream.t React.event
@@ -105,9 +105,7 @@ module SM = struct
 
     let insert_streams t streams =
       let streams = streams
-                    |> CCList.map2 (fun verified stream-> if verified then Some stream else None)
-                                   t.status.ts_verified_lst
-                    |> CCList.map2 (fun sync stream -> if sync then stream else None)
+                    |> CCList.map2 (fun sync stream -> if sync then Some stream else None)
                                    t.status.ts_sync_lst
                     |> CCList.filter_map (fun x -> x) in
       { t with status = { t.status with streams = streams }}
@@ -133,19 +131,20 @@ module SM = struct
       [ bitrate_req; jitter_req ]
       @ board_errs_req
       @ (match prev_t with
-         | Some x -> (if x.status.ts_ver_com <> status.ts_ver_com
-                      then [ Get_ts_structs { request_id = get_id (); version } ] else [])
-                     @ (List.map (fun (id,ver) -> Get_t2mi_info { request_id     = get_id ()
-                                                                ; version        = ver
-                                                                ; t2mi_stream_id = id })
-                                 (CCList.foldi (fun acc i x -> if x = (CCList.nth status.t2mi_ver_lst i)
-                                                               then acc
-                                                               else (i,x) :: acc)
-                                               [] x.status.t2mi_ver_lst))
+         | Some old -> (if old.status.ts_ver_com <> status.ts_ver_com
+                        then [ Get_ts_structs { request_id = get_id (); version } ] else [])
+                       @ (List.map (fun (id,ver) -> Get_t2mi_info { request_id     = get_id ()
+                                                                  ; version        = ver
+                                                                  ; t2mi_stream_id = id })
+                                   (CCList.foldi (fun acc i x -> if (x <> (CCList.nth old.status.t2mi_ver_lst i))
+                                                                    && List.mem i status.t2mi_sync_lst
+                                                                 then (i,x) :: acc
+                                                                 else acc)
+                                                 [] status.t2mi_ver_lst))
          | None -> [ Get_ts_structs { request_id = get_id (); version } ]
                    @ (if CCList.is_empty status.t2mi_sync_lst then []
                       else (List.map (fun id -> Get_t2mi_info { request_id  = get_id ()
-                                                              ; version = CCList.nth status.ts_ver_lst id
+                                                              ; version = CCList.nth status.t2mi_ver_lst id
                                                               ; t2mi_stream_id = id })
                                      status.t2mi_sync_lst)))
 
@@ -238,7 +237,7 @@ module SM = struct
       | `Timeout -> Lwt.wakeup_exn w (Failure "msg timeout"); None
       | l        -> CCOpt.( is_response msg l >|= Lwt.wakeup w ) in
     let send = fun () -> send_msg sender msg in
-    msgs := Queue.append !msgs { send; pred; timeout; exn };
+    msgs := Await_queue.append !msgs { send; pred; timeout; exn };
     t
 
   let enqueue_instant (type a) msgs sender (msg : a instant_request) : unit Lwt.t =
@@ -253,8 +252,8 @@ module SM = struct
     (* let section_period = to_period 120 step_duration in *)
 
     let rec first_step () =
-      Queue.iter !msgs wakeup_timeout;
-      msgs := Queue.create [];
+      Await_queue.iter !msgs wakeup_timeout;
+      msgs := Await_queue.create [];
       imsgs := Queue.create [];
       push_state `No_response;
       send_msg sender Get_board_info |> ignore;
@@ -278,12 +277,19 @@ module SM = struct
       if CCOpt.is_none @@ CCList.find_map (is_response Get_board_info) rsps
       then
         let events = prev_events @ events in
-        (* let rsps   = prev_rsps   @ rsps   in *)
+        let rsps   = prev_rsps   @ rsps   in
         (match Events_handler.partition events with
          | events,[]  -> if p < 0
-                         then (push_state `No_response;
-                               `Continue (step_normal_idle period None [] [] [] None))
-                         else `Continue (step_normal_idle p prev_group events [] parts acc)
+                         then first_step ()
+                         else (if Await_queue.has_pending !msgs
+                               then (msgs := fst @@ Await_queue.responsed !msgs rsps;
+                                     (try
+                                        msgs := Await_queue.step !msgs;
+                                      with _ -> (Await_queue.iter !msgs wakeup_timeout;
+                                                 msgs := Await_queue.create [])));
+                               if not @@ Await_queue.empty !msgs
+                               then msgs := fst @@ Await_queue.send !msgs ();
+                               `Continue (step_normal_idle p prev_group events [] parts acc))
          | events,[x] ->
             (match prev_group with
             | Some x -> Events_handler.push (Events_handler.insert_events x events) push_events
@@ -295,9 +301,8 @@ module SM = struct
                                                })
                                                (Events_handler.get_req_stack x prev_group) in
             step_normal_probes_send pool [] prev_group x events [] parts acc
-         | _,_       -> io "Multiple statuses in a group!!!";
-                        push_state `No_response;
-                        `Continue (step_normal_idle period None [] [] [] None))
+         | _,x       -> io @@ Printf.sprintf "Multiple statuses in a group (%d)!!!" @@ CCList.length x;
+                        first_step ())
       else first_step ()
 
     and step_normal_probes_send pool pool_rsps prev_gp gp prev_events prev_rsps parts acc =
@@ -320,9 +325,7 @@ module SM = struct
                      then step_normal_probes_finalize pool_rsps prev_gp gp events rsps parts acc
                      else step_normal_probes_send new_pool pool_rsps prev_gp gp events rsps parts acc)
       with
-      | Timeout -> io "exit by timeout";
-                   push_state `No_response;
-                   `Continue (step_normal_idle period None [] [] [] None)
+      | Timeout -> io "exit by timeout"; first_step ()
 
     and step_normal_probes_finalize pool_rsps prev_group group events rsps parts acc =
       push_state `Fine;
@@ -337,7 +340,7 @@ module SM = struct
     in first_step ()
 
   let create sender (storage : config storage) push_state step_duration =
-    let msgs   = ref (Queue.create []) in
+    let msgs   = ref (Await_queue.create []) in
     let imsgs  = ref (Queue.create []) in
     let status,status_push             = React.E.create () in
     let ts_found,ts_found_push         = React.E.create () in
