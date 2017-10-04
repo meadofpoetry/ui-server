@@ -1,11 +1,12 @@
 open Common.Board_types
+open Common.Dvb_t2_types
 
 (* Board info *)
 
 type info =
   { typ : int
   ; ver : int
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 (* Board mode *)
 
@@ -32,7 +33,7 @@ type jitter_mode =
 
 type packet_sz = Ts188
                | Ts192
-               | Ts204 [@@deriving to_yojson]
+               | Ts204 [@@deriving yojson]
 
 type user_status =
   { load            : float
@@ -43,7 +44,7 @@ type user_status =
   ; bitrate         : int
   ; packet_sz       : packet_sz
   ; has_stream      : bool
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 type status =
   { user_status      : user_status
@@ -57,7 +58,7 @@ type status =
   ; ts_ver_lst       : int list
   ; t2mi_ver_lst     : int list
   ; streams          : Common.Stream.t list
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 (* MPEG-TS errors *)
 
@@ -70,12 +71,12 @@ type ts_error =
   ; packet    : int32
   ; param_1   : int32
   ; param_2   : int32
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 type ts_errors =
   { stream_id : Common.Stream.t
   ; errors    : ts_error list
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 (* T2-MI errors *)
 
@@ -92,33 +93,33 @@ type ts_errors =
 (*                        | L1_fut_too_small *)
 (*                        | L1_fut_found_but_not_needed *)
 (*                        | Bad_timestamp_length *)
-(*                        | L1_cur_absent [@@deriving to_yojson] *)
+(*                        | L1_cur_absent [@@deriving yojson] *)
 
 (* type t2mi_stream_error = *)
 (*   { err_code : int *)
 (*   ; count    : int *)
 (*   ; param    : int option *)
-(*   } [@@deriving to_yojson] *)
+(*   } [@@deriving yojson] *)
 
 (* type t2mi_err = Stream of t2mi_stream_error *)
-(*               | Parser of t2mi_parser_error [@@deriving to_yojson] *)
+(*               | Parser of t2mi_parser_error [@@deriving yojson] *)
 
 (* type t2mi_error = *)
 (*   { t2mi_stream_id : int *)
 (*   ; error          : t2mi_err *)
-(*   } [@@deriving to_yojson] *)
+(*   } [@@deriving yojson] *)
 
 type ts_parser_error = Af_too_long_for_new_packet
                      | Af_too_long
                      | Pf_out_of_bounds
-                     | Packet_intersection [@@deriving to_yojson]
+                     | Packet_intersection [@@deriving yojson]
 
 type t2mi_error =
   { t2mi_stream_id : int
   ; err_code       : int
   ; count          : int option
   ; param          : int option
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 type t2mi_errors =
   { stream_id        : Common.Stream.t
@@ -126,7 +127,7 @@ type t2mi_errors =
   ; sync             : int list
   ; ts_parser_errors : ts_parser_error list
   ; errors           : t2mi_error list
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 (* Board errors *)
 
@@ -146,12 +147,12 @@ type board_error = Unknown_request         of int32
                  | Dma_error               of int32
                  | Pcr_freq_error          of int32
                  | Packets_overflow        of int32
-                 | Streams_overflow        of int32 [@@deriving to_yojson]
+                 | Streams_overflow        of int32 [@@deriving yojson]
 
 type board_errors =
   { count  : int32
   ; errors : board_error list
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 (* SI/PSI section *)
 
@@ -166,31 +167,31 @@ type t2mi_packet_common =
   { id          : int
   ; super_frame : int
   ; count       : int
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 type t2mi_packet_common_with_frame =
   { common : t2mi_packet_common
   ; frame  : int
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 type bb =
   { common : t2mi_packet_common
   ; frame  : int
   ; plp    : int
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 type l1_current =
   { common        : t2mi_packet_common
   ; frame         : int
   ; dyn_cur_frame : int
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 type l1_future =
   { common          : t2mi_packet_common
   ; frame           : int
   ; dyn_next_frame  : int
   ; dyn_next2_frame : int
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 type t2mi_packet = BB                       of bb
                  | Aux_stream_iq_data       of t2mi_packet_common
@@ -204,7 +205,7 @@ type t2mi_packet = BB                       of bb
                  | FEF_iq                   of t2mi_packet_common
                  | FEF_composite            of t2mi_packet_common
                  | FEF_sub_part             of t2mi_packet_common
-                 | Unknown                  of t2mi_packet_common [@@deriving to_yojson]
+                 | Unknown                  of t2mi_packet_common [@@deriving yojson]
 
 (* Jitter *)
 
@@ -215,7 +216,7 @@ type jitter_item =
   ; drift    : int32
   ; fo       : int32
   ; jitter   : int
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 type jitter =
   { pid         : int
@@ -228,7 +229,7 @@ type jitter =
   ; k_fo        : int32
   ; k_jitter    : int32
   ; values      : jitter_item list
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 (* TS struct *)
 
@@ -237,19 +238,19 @@ type pid =
   ; has_pts   : bool
   ; scrambled : bool
   ; present   : bool
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 type es =
   { pid          : int
   ; has_pts      : bool
   ; es_type      : int
   ; es_stream_id : int
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 type ecm =
   { pid       : int
   ; ca_sys_id : int
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 type service =
   { id            : int
@@ -266,15 +267,15 @@ type service =
   ; free_ca_mode  : bool
   ; es            : es list
   ; ecm           : ecm list
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
-type emm = ecm [@@deriving to_yojson]
+type emm = ecm [@@deriving yojson]
 
 type table_section =
   { id       : int
   ; analyzed : bool
   ; length   : int
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 type table_info_common =
   { version        : int
@@ -283,42 +284,42 @@ type table_info_common =
   ; lsn            : int
   ; section_syntax : bool
   ; sections       : table_section list
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 type pat =
   { common : table_info_common
   ; ts_id  : int
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 type pmt =
   { common         : table_info_common
   ; program_number : int
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 type nit =
   { common : table_info_common
   ; nw_id  : int
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
-type sdt = pat [@@deriving to_yojson]
+type sdt = pat [@@deriving yojson]
 
 type bat =
   { common     : table_info_common
   ; bouquet_id : int
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 type eit_info =
   { ts_id         : int
   ; orig_nw_id    : int
   ; segment_lsn   : int
   ; last_table_id : int
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 type eit =
   { common     : table_info_common
   ; service_id : int
   ; eit_info   : eit_info
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 type table = PAT    of pat
            | CAT    of table_info_common
@@ -339,7 +340,7 @@ type table = PAT    of pat
            | TOT    of table_info_common
            | DIT    of table_info_common
            | SIT    of table_info_common
-           | Unknown of table_info_common [@@deriving to_yojson]
+           | Unknown of table_info_common [@@deriving yojson]
 
 type general_struct_block =
   { complete     : bool
@@ -349,7 +350,7 @@ type general_struct_block =
   ; nw_id        : int
   ; orig_nw_id   : int
   ; nw_name      : string
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 type ts_struct =
   { stream_id    : Common.Stream.t
@@ -358,14 +359,14 @@ type ts_struct =
   ; services     : service list
   ; emm          : emm list
   ; tables       : table list
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 (* Bitrate *)
 
 type pid_bitrate =
   { pid     : int
   ; bitrate : int
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 type table_bitrate =
   { id             : int
@@ -374,14 +375,14 @@ type table_bitrate =
   ; section_syntax : bool
   ; eit_info       : (int * int) option
   ; bitrate        : int
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 type bitrate =
   { stream_id  : Common.Stream.t
   ; ts_bitrate : int
   ; pids       : pid_bitrate list
   ; tables     : table_bitrate list
-  } [@@deriving to_yojson]
+  } [@@deriving yojson]
 
 (* T2-MI info *)
 
@@ -397,18 +398,98 @@ type t2mi_packet_type = BB
                       | FEF_iq
                       | FEF_composite
                       | FEF_sub_part
-                      | Unknown [@@deriving to_yojson]
+                      | Unknown [@@deriving yojson]
+
+type l1_pre =
+  { typ                : t2_streams_type
+  ; bwt_ext            : bool
+  ; l1_repetition_flag : bool
+  ; guard_interval     : t2_gi
+  ; papr               : t2_papr
+  ; l1_mod             : t2_l1_mod
+  ; l1_cod             : t2_l1_cod
+  ; l1_fec_type        : t2_l1_fec
+  ; l1_post_size       : int
+  ; l1_post_info_size  : int
+  ; pilot_pattern      : t2_pp
+  ; tx_id_availability : int
+  ; cell_id            : int
+  ; network_id         : int
+  ; t2_system_id       : int
+  ; num_t2_frames      : int
+  ; num_data_symbols   : int
+  ; regen_flag         : int
+  ; l1_post_extension  : bool
+  ; num_rf             : int
+  ; current_rf_idx     : int
+  ; t2_version         : t2_version
+  ; crc32              : int32
+  } [@@deriving yojson]
+
+type t2_l1_post_conf_rf =
+  { rf_idx    : int
+  ; frequency : int
+  } [@@deriving yojson]
+
+type t2_l1_post_conf_fef =
+  { fef_type     : int
+  ; fef_length   : int
+  ; fef_interval : int
+  } [@@deriving yojson]
+
+type t2_l1_post_conf_plp =
+  { plp_id              : int
+  ; plp_type            : t2_plp_type
+  ; plp_payload_type    : t2_plp_payload_type
+  ; ff_flag             : bool
+  ; first_rf_idx        : int
+  ; first_frame_idx     : int
+  ; plp_group_id        : int
+  ; plp_cod             : t2_plp_cod
+  ; plp_mod             : t2_plp_mod
+  ; plp_rotation        : bool
+  ; plp_fec_type        : t2_plp_fec
+  ; plp_num_blocks_max  : int
+  ; frame_interval      : int
+  ; time_il_length      : int
+  ; time_il_type        : bool
+  ; in_band_a_flag      : bool
+  ; in_band_b_flag      : bool
+  ; reserved_1          : bool
+  ; plp_mode            : t2_plp_mode
+  ; static_flag         : bool
+  ; static_padding_flag : bool
+  } [@@deriving yojson]
+
+type t2_aux_stream_type = TX_SIG
+                        | Unknown of int [@@deriving yojson]
+
+type t2_l1_post_conf_aux =
+  { aux_stream_type  : t2_aux_stream_type
+  ; aux_private_conf : int
+  } [@@deriving yojson]
+
+type l1_post_conf =
+  { sub_sclices_per_frame : int
+  ; aux_config_rfu        : int
+  ; rf                    : t2_l1_post_conf_rf list
+  ; fef                   : t2_l1_post_conf_fef option
+  ; plp                   : t2_l1_post_conf_plp list
+  ; fef_length_msb        : int
+  ; reserved_2            : int
+  ; aux                   : t2_l1_post_conf_aux list
+  } [@@deriving yojson]
 
 type t2mi_info =
   { packets        : t2mi_packet_type list
   ; t2mi_stream_id : int
-  ; l1_pre         : string option (* FIXME *)
-  ; l1_conf        : string option (* FIXME *)
-  } [@@deriving to_yojson]
+  ; l1_pre         : l1_pre option
+  ; l1_post_conf   : l1_post_conf option
+  } [@@deriving yojson]
 
 (* Streams list*)
 
-type streams = Common.Stream.t list [@@deriving to_yojson]
+type streams = Common.Stream.t list [@@deriving yojson]
 
 
 type config = { mode        : mode

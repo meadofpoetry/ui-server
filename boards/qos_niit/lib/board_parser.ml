@@ -813,8 +813,8 @@ let of_rsp_get_t2mi_info (t2mi_stream_id,msg) =
   (* let conf_len  = get_t2mi_info_conf_len hdr in *)
   { packets
   ; t2mi_stream_id
-  ; l1_pre         = if length > 0 then Some (Cbuffer.to_string (get_t2mi_info_ext_l1_pre bdy)) else None
-  ; l1_conf        = None
+  ; l1_pre         = None (* if length > 0 then Some (Cbuffer.to_string (get_t2mi_info_ext_l1_pre bdy)) else None *)
+  ; l1_post_conf   = None
   }
 
 (* Get streams list *)
