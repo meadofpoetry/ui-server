@@ -1,5 +1,5 @@
-open Common.Board_types
 open Common.Dvb_t2_types
+open Common.Hardware
 
 (* Board info *)
 
@@ -155,13 +155,6 @@ type board_errors =
   { count  : int32
   ; errors : board_error list
   } [@@deriving yojson]
-
-(* SI/PSI section *)
-
-type section =
-  { stream_id : Common.Stream.t
-  ; data      : string (* FIXME*)
-  }
 
 (* T2-MI frames sequence *)
 
@@ -361,6 +354,25 @@ type ts_struct =
   ; services     : service list
   ; emm          : emm list
   ; tables       : table list
+  } [@@deriving yojson]
+
+(* SI/PSI section *)
+
+type section_request =
+  { stream_id : Common.Stream.t
+  ; table     : table
+  ; section   : int
+  }
+
+type section_error = Zero_length
+                   | Table_not_found
+                   | Section_not_found
+                   | Stream_not_found
+                   | Unknown [@@deriving yojson]
+
+type section =
+  { stream_id : Common.Stream.t
+  ; data      : string (* FIXME*)
   } [@@deriving yojson]
 
 (* Bitrate *)

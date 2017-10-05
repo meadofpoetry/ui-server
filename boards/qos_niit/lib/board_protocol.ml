@@ -168,11 +168,12 @@ module SM = struct
 
   let send_msg (type a) sender (msg : a request) : unit Lwt.t =
     (match msg with
-     | Get_board_info                  -> to_common_header ~msg_code:0x0080 ()
-     | Get_board_mode                  -> to_common_header ~msg_code:0x0081 ()
-     | Get_t2mi_frame_seq (id,seconds) -> let body = Cbuffer.create sizeof_req_get_t2mi_frame_seq in
-                                          let ()   = set_req_get_t2mi_frame_seq_time body seconds in
-                                          to_complex_req ~request_id:id ~msg_code:0x0306 ~body ())
+     | Get_board_info       -> to_common_header ~msg_code:0x0080 ()
+     | Get_board_mode       -> to_common_header ~msg_code:0x0081 ()
+     | Get_t2mi_frame_seq x -> let body = Cbuffer.create sizeof_req_get_t2mi_frame_seq in
+                                          let ()   = set_req_get_t2mi_frame_seq_time body x.seconds in
+                                          to_complex_req ~request_id:x.request_id ~msg_code:0x0306 ~body ()
+     | Get_section (id,req) -> to_complex_req ~request_id:id ~msg_code:0x0302 ~body:(to_req_get_section req) ())
     |> sender
 
   let send_event (type a) sender (msg : a event_request) : unit Lwt.t =
@@ -258,6 +259,17 @@ module SM = struct
     let period         = to_period 5 step_duration in
     (* let section_period = to_period 120 step_duration in *)
 
+    let handle_msgs rsps =
+      if Await_queue.has_pending !msgs
+      then (msgs := fst @@ Await_queue.responsed !msgs rsps;
+            let new_msgs,tout = Await_queue.step !msgs in
+            msgs := new_msgs;
+            (match tout with
+             | [] -> ()
+             | l  -> CCList.iter (fun x -> x.pred `Timeout |> ignore) tout));
+      if not @@ Await_queue.empty !msgs
+      then msgs := fst @@ Await_queue.send !msgs () in
+
     let rec first_step () =
       Await_queue.iter !msgs wakeup_timeout;
       msgs := Await_queue.create [];
@@ -275,32 +287,23 @@ module SM = struct
             send_instant sender (Set_jitter_mode config.jitter_mode)
             |> ignore;
             (* send_instant sender Reset |> ignore; *)
-            `Continue (step_normal_idle period None [] [] [] None))
+            `Continue (step_normal_idle period None [] [] None))
       else (if p < 0 then first_step ()
             else `Continue (step_detect (pred p) acc))
 
-    and step_normal_idle p prev_group prev_events prev_rsps parts acc recvd =
+    and step_normal_idle p prev_group prev_events parts acc recvd =
       let events,_,rsps,parts,acc = deserialize parts (Meta_board.concat_acc acc recvd) in
       if CCOpt.is_none @@ CCList.find_map (is_response Get_board_info) rsps
       then
         let events = prev_events @ events in
-        let rsps   = prev_rsps   @ rsps   in
+        handle_msgs rsps;
         (match Events_handler.partition events prev_group with
          | events,[]  -> if p < 0
                          then first_step ()
-                         else ((* if Await_queue.has_pending !msgs *)
-                               (* then (msgs := fst @@ Await_queue.responsed !msgs rsps; *)
-                               (*       (try *)
-                               (*          msgs := Await_queue.step !msgs; *)
-                               (*        with _ -> (Await_queue.iter !msgs wakeup_timeout; *)
-                               (*                   msgs := Await_queue.create []))); *)
-                               (* if not @@ Await_queue.empty !msgs *)
-                               (* then msgs := fst @@ Await_queue.send !msgs (); *)
-                               `Continue (step_normal_idle (pred p) prev_group events [] parts acc))
+                         else `Continue (step_normal_idle (pred p) prev_group events parts acc)
          | prev_group_events,groups ->
             push_state `Fine;
             io @@ Printf.sprintf "Got %d statuses in idle!" @@ CCList.length groups;
-            (* CCList.iter (fun x -> io @@ Yojson.Safe.pretty_to_string @@ Events_handler.to_yojson x) groups; *)
             (match prev_group with
              | Some gp -> Events_handler.push (Events_handler.insert_events gp prev_group_events) push_events
              | None    -> ());
@@ -313,19 +316,19 @@ module SM = struct
                                                            ; exn     = None
                                                })
                                                (Events_handler.get_req_stack last prev_group) in
-            step_normal_probes_send pool last last events [] parts acc)
+            step_normal_probes_send pool last last events parts acc)
       else first_step ()
 
-    and step_normal_probes_send pool prev_idle_gp gp events rsps parts acc =
+    and step_normal_probes_send pool prev_idle_gp gp events parts acc =
       if Pool.empty pool
-      then `Continue (step_normal_idle period (Some gp) events rsps parts acc)
+      then `Continue (step_normal_idle period (Some gp) events parts acc)
       else (Pool.send pool () |> ignore;
-            `Continue (step_normal_probes_wait pool period prev_idle_gp gp events rsps parts acc))
+            `Continue (step_normal_probes_wait pool period prev_idle_gp gp events parts acc))
 
-    and step_normal_probes_wait pool p prev_idle_gp gp prev_events prev_rsps parts acc recvd =
+    and step_normal_probes_wait pool p prev_idle_gp gp prev_events parts acc recvd =
       let events,ev_rsps,rsps,parts,acc = deserialize parts (Meta_board.concat_acc acc recvd) in
       let events    = prev_events @ events in
-      let rsps      = prev_rsps   @ rsps   in
+      handle_msgs rsps;
       let events,gp = (match Events_handler.partition events (Some gp) with
                        | events, []            -> events,gp
                        | prev_gp_events,groups ->
@@ -336,7 +339,7 @@ module SM = struct
       try
         (match Pool.responsed pool ev_rsps with
          | None   -> let pool = Pool.step pool in
-                     `Continue (step_normal_probes_wait pool (pred p) prev_idle_gp gp events rsps parts acc)
+                     `Continue (step_normal_probes_wait pool (pred p) prev_idle_gp gp events parts acc)
          | Some x -> push_event_response push_events x;
                      (match x with
                       | Jitter x -> jitter_ptr := x.next_ptr;
@@ -346,10 +349,9 @@ module SM = struct
                      then `Continue (step_normal_idle period
                                                       (Some (Events_handler.insert_versions gp prev_idle_gp))
                                                       prev_events
-                                                      prev_rsps
                                                       parts
                                                       acc)
-                     else step_normal_probes_send new_pool prev_idle_gp gp events rsps parts acc)
+                     else step_normal_probes_send new_pool prev_idle_gp gp events parts acc)
       with
       | Timeout -> io "\n!!! exit by timeout !!!\n"; first_step ()
 
@@ -397,9 +399,23 @@ module SM = struct
                                         } in
     let api = { set_mode        = (fun m  -> enqueue_instant imsgs sender (Set_board_mode m))
               ; set_jitter_mode = (fun m  -> enqueue_instant imsgs sender (Set_jitter_mode m))
+              ; get_section     = (fun () -> enqueue msgs sender
+                                                     (Get_section (get_id (),
+                                                                   { stream_id = T2mi_plp 0
+                                                                   ; section   = 0
+                                                                   ; table     =  PAT { common = { version = 0
+                                                                                                 ; id      = 0
+                                                                                                 ; pid     = 0
+                                                                                                 ; lsn     = 1
+                                                                                                 ; section_syntax = false
+                                                                                                 ; sections = []}
+                                                                                      ; ts_id  = 1 }}))
+                                                     (to_period 10 step_duration)
+                                                     None)
               ; get_t2mi_seq    = (fun s  -> enqueue msgs sender
-                                                     (Get_t2mi_frame_seq (get_id (),s))
-                                                     (s + 10)
+                                                     (Get_t2mi_frame_seq { request_id = get_id ()
+                                                                         ; seconds    = s })
+                                                     (to_period (s + 10) step_duration)
                                                      (Some T2mi_seq_timeout))
               ; reset           = (fun () -> enqueue_instant imsgs sender Reset)
               ; config          = (fun () -> Lwt.return storage#get)

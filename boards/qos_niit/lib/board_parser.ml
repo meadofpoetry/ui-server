@@ -49,6 +49,16 @@ let prefix = 0x55AA
    } [@@little_endian]]
 
 [%%cstruct
+ type req_get_section =
+   { stream_id    : uint32_t
+   ; table_id     : uint8_t
+   ; section      : uint8_t
+   ; table_id_ext : uint16_t
+   ; adv_info_1   : uint16_t
+   ; adv_info_2   : uint16_t
+   } [@@little_endian]]
+
+[%%cstruct
  type req_get_t2mi_frame_seq =
    { time : uint16_t
    } [@@little_endian]]
@@ -147,6 +157,14 @@ let prefix = 0x55AA
  type board_errors =
    { count  : uint32_t
    ; errors : uint32_t [@len 17]
+   } [@@little_endian]]
+
+(* Get section *)
+
+[%%cstruct
+ type section =
+   { length    : uint16_t
+   ; result    : uint16_t
    } [@@little_endian]]
 
 (* T2-MI frame sequence*)
@@ -395,6 +413,7 @@ type event_response = Board_errors of board_errors
 
 type api = { set_mode        : mode        -> unit Lwt.t
            ; set_jitter_mode : jitter_mode -> unit Lwt.t
+           ; get_section     : unit        -> section Lwt.t
            ; get_t2mi_seq    : int         -> t2mi_packet list Lwt.t
            ; reset           : unit        -> unit Lwt.t
            ; config          : unit        -> config Lwt.t
@@ -420,9 +439,15 @@ type _ event_request = Get_board_errors : int           -> event_response event_
                      | Get_bitrates     : int           -> event_response event_request
                      | Get_t2mi_info    : t2mi_info_req -> event_response event_request
 
+type t2mi_frame_seq_req =
+  { request_id : int
+  ; seconds    : int
+  }
+
 type _ request = Get_board_info     : info request
                | Get_board_mode     : mode request
-               | Get_t2mi_frame_seq : (int * int) -> t2mi_packet list request
+               | Get_t2mi_frame_seq : t2mi_frame_seq_req -> t2mi_packet list request
+               | Get_section        : int * section_request -> section request
 
 (* ------------------- Misc ------------------- *)
 
@@ -517,6 +542,49 @@ let of_rsp_get_board_errors msg =
                                                      | 16 -> Streams_overflow x
                                                      | _  -> assert false) :: acc) [] in
   { count = get_board_errors_count msg; errors}
+
+(* Get section *)
+
+let to_req_get_section (req : section_request) =
+  let body = Cbuffer.create sizeof_req_get_section in
+  let ()   = set_req_get_section_stream_id body @@ Common.Stream.to_int32 req.stream_id in
+  let ()   = set_req_get_section_section body req.section in
+  (match req.table with
+   | PAT x  -> set_req_get_section_table_id body x.common.id;
+               set_req_get_section_table_id_ext body x.ts_id
+   | PMT x  -> set_req_get_section_table_id body x.common.id;
+               set_req_get_section_table_id_ext body x.program_number
+   | NIT_a x | NIT_o x -> set_req_get_section_table_id body x.common.id;
+                          set_req_get_section_table_id_ext body x.nw_id
+   | SDT_a x | SDT_o x -> set_req_get_section_table_id body x.common.id;
+                          set_req_get_section_table_id_ext body x.ts_id
+   | BAT x -> set_req_get_section_table_id body x.common.id;
+              set_req_get_section_table_id_ext body x.bouquet_id
+   | EIT_ap x | EIT_op x | EIT_as x | EIT_os x -> set_req_get_section_table_id body x.common.id;
+                                                  set_req_get_section_table_id_ext body x.service_id;
+                                                  set_req_get_section_adv_info_1 body x.eit_info.ts_id;
+                                                  set_req_get_section_adv_info_2 body x.eit_info.orig_nw_id
+   | ( CAT x   | TSDT x | TDT x | RST x | ST x
+       | TOT x | DIT x  | SIT x | Unknown x ) -> set_req_get_section_table_id body x.id);
+  body
+
+let of_rsp_get_section msg =
+  let hdr,bdy = Cbuffer.split msg sizeof_section in
+  let length  = get_section_length hdr in
+  let result  = get_section_result hdr in
+  if length > 0 && result = 0
+  then
+    let sid,data = Cbuffer.split bdy 4 in
+    Ok { stream_id = Common.Stream.of_int32 @@ Cbuffer.LE.get_uint32 sid 0
+       ; data      = Cbuffer.to_string data
+       }
+  else
+    Error (match result with
+           | 0 | 3 -> Zero_length
+           | 1 -> Table_not_found
+           | 2 -> Section_not_found
+           | 4 -> Stream_not_found
+           | _ -> Unknown)
 
 (* Get t2mi frames sequence *)
 
@@ -1119,7 +1187,12 @@ let parse_complex_msg = fun ((code,r_id),msg) ->
     let x = (r_id,msg) in
     (match code with
      | 0x0110 -> `ER (`Board_errors x)
-     | 0x0306 -> `R  (`T2mi_frame_seq x)
+     | 0x0302 -> io "Got section";
+                 (match of_rsp_get_section msg with
+                  | Ok x -> section_to_yojson x |> Yojson.Safe.to_string |> io
+                  | Error e -> section_error_to_yojson e |> Yojson.Safe.to_string |> io);
+                 `R (`Section x)
+     | 0x0306 -> io "Got t2mi frame seq";`R  (`T2mi_frame_seq x)
      | 0x0307 -> `ER (`Jitter (r_id,(get_jitter_req_ptr msg),msg))
      | 0x0309 -> `ER (`Struct (r_id,(get_ts_structs_version msg),msg))
      | 0x030A -> `ER (`Bitrates (r_id,(get_bitrates_version msg),msg))
@@ -1188,8 +1261,13 @@ let parse_get_board_errors req_id = function
                                       | None   -> None)
   | _ -> None
 
-let parse_get_t2mi_frame_seq req_id = function
-  | `T2mi_frame_seq (r_id,buf) -> if req_id <> r_id then None
+let parse_get_section (id,req) = function
+  | `Section (r_id,buf) -> if id <> r_id then None
+                           else try_parse of_rsp_get_section buf
+  | _ -> None
+
+let parse_get_t2mi_frame_seq (req : t2mi_frame_seq_req) = function
+  | `T2mi_frame_seq (r_id,buf) -> if req.request_id <> r_id then None
                                   else try_parse of_rsp_get_t2mi_frame_seq buf
   | _ -> None
 
@@ -1225,9 +1303,10 @@ let parse_get_t2mi_info (req : t2mi_info_req) = function
 
 let is_response (type a) (req : a request) msg : a option =
   match req with
-  | Get_board_info            -> parse_get_board_info msg
-  | Get_board_mode            -> parse_get_board_mode msg
-  | Get_t2mi_frame_seq (id,_) -> parse_get_t2mi_frame_seq id msg
+  | Get_board_info       -> parse_get_board_info msg
+  | Get_board_mode       -> parse_get_board_mode msg
+  | Get_t2mi_frame_seq x -> parse_get_t2mi_frame_seq x msg
+  | Get_section _        -> None
 
 let is_event (type a) (req : a event_request) msg : a option =
   match req with
