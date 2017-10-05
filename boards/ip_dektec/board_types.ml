@@ -1,4 +1,4 @@
-open Common.Board_types
+open Common.Hardware
 
 (* Overall types *)
 type mode        = Asi2ip | Ip2asi

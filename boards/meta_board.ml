@@ -126,13 +126,13 @@ module Msg = struct
       with _ -> t, Lwt.return_unit
 
     let step t =
-      { t with pending = CCList.map
-                           (fun (timer, msg) ->
-                             if timer > msg.timeout
-                             then raise_notrace @@ CCOpt.get_or ~default:Timeout msg.exn
-                             else (succ timer, msg))
-                           t.pending
-      }
+      let tout, pending = CCList.partition_map
+                            (fun (timer, msg) ->
+                              if timer > msg.timeout
+                              then `Left msg
+                              else `Right (succ timer, msg))
+                            t.pending
+      in { t with pending }, tout
 
     let iter t f = CCList.iter f t.pending
 

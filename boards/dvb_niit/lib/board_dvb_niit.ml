@@ -31,7 +31,7 @@ let create (b:topo_board) send db base step =
   let events, api, step = create_sm send storage spush step in
   let handlers = Board_api.handlers b.control api events in (* XXX temporary *)
   Lwt_main.run @@ Storage.init db;
-  let _s = Lwt_react.E.map_p (fun m -> Storage.request db (Storage.Store_measures m)) events.measure in
+  let _s = Lwt_react.E.map_p (fun m -> Storage.request db (Storage.Store_measures m)) @@ React.E.changes events.measure in
   let state = object method _s = _s end in
   { handlers       = handlers
   ; control        = b.control

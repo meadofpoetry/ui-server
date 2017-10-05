@@ -1,4 +1,4 @@
-open Common.Board_types
+open Common.Hardware
 
 type rsp_devinfo =
   { serial   : int
