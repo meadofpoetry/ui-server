@@ -13,17 +13,25 @@ end
 
 module Config_storage = Storage.Options.Make (Data)
 
+module Storage : sig
+  type _ req =
+    | Store_status : Board_types.board_status -> unit Lwt.t req
+  include (Storage.Database.STORAGE with type 'a req := 'a req)
+end = Db
+
 type 'a request = 'a Board_protocol.request
 
 let create_sm = Board_protocol.SM.create
 
-let create (b:topo_board) send _ base step =
+let create (b:topo_board) send db base step =
   Lwt_io.printf "in ip create\n" |> ignore;
   let storage      = Config_storage.create base ["board"; (string_of_int b.control)] in
   let s_state, spush = React.S.create `No_response in
   let events, api, step = create_sm send storage spush step in
   let handlers = Board_api.handlers b.control api events in
-  let state = object end in
+  Lwt_main.run @@ Storage.init db;
+  let _s = Lwt_react.E.map_p (fun s -> Storage.request db (Storage.Store_status s)) @@ React.E.changes events.status in
+  let state = object method s = _s end in
   { handlers       = handlers
   ; control        = b.control
   ; streams_signal = None
