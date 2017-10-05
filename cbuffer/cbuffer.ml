@@ -76,9 +76,9 @@ let pp ?(line_sz=16) b =
                           (fun buf -> Cstruct.get_uint8 buf 0)
                           b in
   let s = Cstruct.fold (fun acc el -> acc ^ (Printf.sprintf "%02x " el)) iter "" in
-  let rec f = fun acc x -> if String.length x < (line_sz*16)
+  let rec f = fun acc x -> if String.length x < (line_sz*3)
                            then List.rev (x :: acc)
-                           else let s,res = CCString.take_drop (line_sz*16) x in
+                           else let s,res = CCString.take_drop (line_sz*3) x in
                                 f (s :: acc) res in
   List.map (fun x -> x ^ "\n") (f [] s)
-  |> String.concat ""
+|> String.concat ""

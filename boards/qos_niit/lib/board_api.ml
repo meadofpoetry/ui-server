@@ -8,7 +8,7 @@ open Frame
 
 module Api_handler = Api.Handler.Make(Common.User)
 
-let reset api () =
+let reset (api : api) () =
   api.reset () >>= respond_ok
 
 let set_mode (api : api) body () =

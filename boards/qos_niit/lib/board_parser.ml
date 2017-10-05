@@ -309,6 +309,31 @@ let prefix = 0x55AA
 (* T2-MI info *)
 
 [%%cstruct
+ type l1_pre =
+   { typ                : uint8_t
+   ; bwt_ext__etc       : uint8_t
+   ; l1_rep_flag__etc   : uint8_t
+   ; l1_mod__etc        : uint8_t
+   ; post_size1         : uint16_t
+   ; post_size2         : uint16_t
+   ; post_size3__etc    : uint8_t
+   ; tx_id_availability : uint8_t
+   ; cell_id            : uint16_t
+   ; network_id         : uint16_t
+   ; t2_system_id       : uint16_t
+   ; num_t2_frames      : uint8_t
+   ; num_data_sym__etc  : uint16_t
+   ; num_rf__etc        : uint16_t
+   } [@@big_endian]]
+
+[%%cstruct
+ type l1_post_conf_hdr =
+   { sub_slices__etc     : uint16_t
+   ; num_plp__etc        : uint16_t
+   ; aux_config_rfu__etc : uint8_t
+   } [@@little_endian]]
+
+[%%cstruct
  type t2mi_info =
    { version   : uint16_t
    ; rfu       : uint8_t [@len 3]
@@ -333,6 +358,16 @@ let prefix = 0x55AA
    ; rfu     : uint16_t
    } [@@little_endian]]
 
+(* Streams list event *)
+
+[%%cstruct
+ type streams_list_event =
+   { length  : uint16_t
+   ; count   : uint8_t
+   ; version : uint8_t
+   ; rfu     : uint16_t
+   } [@@little_endian]]
+
 (* Set jitter mode *)
 
 [%%cstruct
@@ -344,6 +379,7 @@ let prefix = 0x55AA
 [@@@ocaml.warning "+32"]
 
 open Board_types
+open Common.Dvb_t2_types
 
 type part =
   { first      : bool
@@ -352,8 +388,8 @@ type part =
   }
 
 type event_response = Board_errors of board_errors
-                    | Bitrate      of (streams * bitrate list)
-                    | Struct       of (streams * ts_struct list)
+                    | Bitrate      of bitrate list
+                    | Struct       of ts_struct list
                     | T2mi_info    of t2mi_info
                     | Jitter       of jitter
 
@@ -373,24 +409,18 @@ type jitter_req =
   ; pointer    : int32
   }
 
-type ts_req =
+type t2mi_info_req =
   { request_id : int
-  ; version    : int
+  ; stream_id  : int
   }
 
-type t2mi_req =
-  { request_id     : int
-  ; t2mi_stream_id : int
-  ; version        : int
-  }
+type _ event_request = Get_board_errors : int           -> event_response event_request
+                     | Get_jitter       : jitter_req    -> event_response event_request
+                     | Get_ts_structs   : int           -> event_response event_request
+                     | Get_bitrates     : int           -> event_response event_request
+                     | Get_t2mi_info    : t2mi_info_req -> event_response event_request
 
-type _ event_request = Get_board_errors : int        -> event_response event_request
-                     | Get_jitter       : jitter_req -> event_response event_request
-                     | Get_ts_structs   : ts_req     -> event_response event_request
-                     | Get_bitrates     : ts_req     -> event_response event_request
-                     | Get_t2mi_info    : t2mi_req   -> event_response event_request
-
-type _ request = Get_board_info : info request
+type _ request = Get_board_info     : info request
                | Get_board_mode     : mode request
                | Get_t2mi_frame_seq : (int * int) -> t2mi_packet list request
 
@@ -715,16 +745,14 @@ let of_ts_struct msg =
   }, if Cbuffer.len rest > 0 then Some rest else None
 
 let of_rsp_get_ts_structs msg =
-  let hdr,bdy'     = Cbuffer.split msg sizeof_ts_structs in
-  let count        = get_ts_structs_count hdr in
-  let streams,bdy  = Cbuffer.split bdy' (count * 4) in
-  let streams_list = of_streams_list streams in
-  let rec parse    = (fun acc buf -> let x,rest = of_ts_struct buf in
-                                     match rest with
-                                     | Some b -> parse (x :: acc) b
-                                     | None   -> List.rev (x :: acc)) in
-  let structs      =  if count > 0 then parse [] bdy else [] in
-  streams_list, structs
+  let hdr,bdy'  = Cbuffer.split msg sizeof_ts_structs in
+  let count     = get_ts_structs_count hdr in
+  let _,bdy     = Cbuffer.split bdy' (count * 4) in
+  let rec parse = (fun acc buf -> let x,rest = of_ts_struct buf in
+                                  match rest with
+                                  | Some b -> parse (x :: acc) b
+                                  | None   -> List.rev (x :: acc)) in
+  if count > 0 then parse [] bdy else []
 
 (* Get bitrate *)
 
@@ -778,16 +806,65 @@ let of_rsp_get_bitrates msg =
                                   match rest with
                                   | Some b -> parse (x :: acc) b
                                   | None   -> List.rev (x :: acc)) in
-  let bitrates  = if count > 0 then parse [] bdy else [] in
-  let streams   = List.map (fun (x:bitrate) -> x.stream_id) bitrates in
-  if List.length streams <> count
-  then failwith (Printf.sprintf "of_rsp_get_bitrates: expected %d streams, got %d" count (List.length streams))
-  else streams, bitrates
+  if count > 0 then parse [] bdy else []
 
 (* Get t2mi info *)
 
+let of_l1_pre msg =
+  let bwt__etc           = get_l1_pre_bwt_ext__etc msg in
+  let l1_rep_flag__etc   = get_l1_pre_l1_rep_flag__etc msg in
+  let l1_mod__etc        = get_l1_pre_l1_mod__etc msg in
+  let l1_post_size1      = get_l1_pre_post_size1 msg in
+  let l1_post_size2      = get_l1_pre_post_size2 msg in
+  let l1_post_size3__etc = get_l1_pre_post_size3__etc msg in
+  let num_data_sym__etc  = get_l1_pre_num_data_sym__etc msg in
+  let num_rf__etc        = get_l1_pre_num_rf__etc msg in
+  let t2_version         = t2_version_of_int @@ (num_rf__etc land 0x3C0) lsr 6 in
+  { typ                = t2_streams_type_of_int @@ get_l1_pre_typ msg
+  ; bwt_ext            = bwt__etc land 0x80 <> 0
+  ; l1_repetition_flag = l1_rep_flag__etc land 0x80 <> 0
+  ; guard_interval     = t2_gi_of_int @@ (l1_rep_flag__etc land 0x70) lsr 4
+  ; papr               = t2_papr_of_int t2_version @@ l1_rep_flag__etc land 0x0F
+  ; l1_mod             = t2_l1_mod_of_int @@ (l1_mod__etc land 0xF0) lsr 4
+  ; l1_cod             = t2_l1_cod_of_int @@ (l1_mod__etc land 0x0C) lsr 2
+  ; l1_fec_type        = t2_l1_fec_of_int @@ l1_mod__etc land 3
+  ; l1_post_size       = (l1_post_size1 lsl 2) lor ((l1_post_size2 land 0xC000) lsr 14)
+  ; l1_post_info_size  = ((l1_post_size2 land 0x3FFF) lsl 4) lor ((l1_post_size3__etc land 0xF0) lsr 4)
+  ; pilot_pattern      = t2_pp_of_int @@ (l1_post_size3__etc land 0x0F)
+  ; tx_id_availability = get_l1_pre_tx_id_availability msg
+  ; cell_id            = get_l1_pre_cell_id msg
+  ; network_id         = get_l1_pre_network_id msg
+  ; t2_system_id       = get_l1_pre_t2_system_id msg
+  ; num_t2_frames      = get_l1_pre_num_t2_frames msg
+  ; num_data_symbols   = (num_data_sym__etc land 0xFFF0) lsr 4
+  ; regen_flag         = (num_data_sym__etc land 0x0E) lsr 1
+  ; l1_post_extension  = (num_data_sym__etc land 1) <> 0
+  ; num_rf             = (num_rf__etc land 0xE000) lsr 13
+  ; current_rf_idx     = (num_rf__etc land 0x1C00) lsr 10
+  ; t2_version
+  ; l1_post_scrambled  = (num_rf__etc land 0x20) lsr 5 <> 0
+  ; t2_base_lite       = (num_rf__etc land 0x10) lsr 4 <> 0
+  ; reserved           = num_rf__etc land 0x0F
+  }
+
+(* let of_l1_post_conf msg = *)
+(*   (\* let get        = (fun ?m ?s msg i -> let open CCOpt in *\) *)
+(*   (\*                                      Cbuffer.get_uint8 msg i *\) *)
+(*   (\*                                      |> (fun x -> match mask with *\) *)
+(*   (\*                                                   | Some mask -> x land mask *\) *)
+(*   (\*                                                   | None      -> x) *\) *)
+(*   (\*                                      |> (fun x -> match shift with *\) *)
+(*   (\*                                                   | Some (`L s) -> x lsl s *\) *)
+(*   (\*                                                   | Some (`R s) -> x lsr s *\) *)
+(*   (\*                                                   | None        -> x)) in *\) *)
+(*   let sub_slices = Cbuffer.BE.get_uint16 msg 0 in *)
+(*   let num_plp    = ((Cbuffer.get_uint8 msg 1) lsr 1) lor ((sub_slices land 1) lsl 7) in *)
+(*   let num_aux    = (((Cbuffer.get_uint8 msg 1) land 1) lsl 3) lor (((Cbuffer.get_uint8 msg 2) land 0x0E) lsr 5) in *)
+(*   { sub_slices_per_frame = sub_slices lsr 1 *)
+(*   } *)
+
 let of_rsp_get_t2mi_info (t2mi_stream_id,msg) =
-  let hdr,bdy'  = Cbuffer.split msg sizeof_t2mi_info in
+  let hdr,rest  = Cbuffer.split msg sizeof_t2mi_info in
   let iter      = Cbuffer.iter (fun _ -> Some 1)
                                (fun buf -> Cbuffer.get_uint8 buf 0)
                                (get_t2mi_info_packets hdr) in
@@ -809,11 +886,12 @@ let of_rsp_get_t2mi_info (t2mi_stream_id,msg) =
                                  | 0x33 -> FEF_sub_part
                                  | _    -> Unknown) in
   let length    = get_t2mi_info_length hdr in
-  let bdy,_     = Cbuffer.split bdy' length in
+  let body,_    = Cbuffer.split rest length in
+  let _,conf    = Cbuffer.split body sizeof_t2mi_info_ext in
   (* let conf_len  = get_t2mi_info_conf_len hdr in *)
   { packets
   ; t2mi_stream_id
-  ; l1_pre         = None (* if length > 0 then Some (Cbuffer.to_string (get_t2mi_info_ext_l1_pre bdy)) else None *)
+  ; l1_pre         = if length > 0 then Some (of_l1_pre (get_t2mi_info_ext_l1_pre body)) else None
   ; l1_post_conf   = None
   }
 
@@ -833,48 +911,47 @@ let of_status msg =
   let has_sync = not (flags land 0x04 > 0) in
   let ts_num   = get_status_ts_num msg in
   let flags2   = get_status_flags_2 msg in
-  { user_status = { load             = (float_of_int ((get_status_load msg) * 100)) /. 255.
-                  ; mode             = to_mode_exn (get_status_mode msg)
-                                                   (get_status_t2mi_pid msg)
-                                                   (get_status_t2mi_stream_id msg)
-                  ; jitter_mode      = { stream_id = Common.Stream.of_int32 (get_status_jitter_stream_id msg)
-                                       ; pid       = get_status_jitter_pid msg
-                                       }
-                  ; ts_num           = if has_sync then ts_num else 0
-                  ; services_num     = if has_sync then get_status_services_num msg else 0
-                  ; bitrate          = Int32.to_int @@ get_status_bitrate msg
-                  ; packet_sz        = if      (flags land 0x08) <> 0 then Ts192
-                                       else if (flags land 0x10) <> 0 then Ts204
-                                       else Ts188
-                  ; has_stream       = flags  land 0x80 = 0
-                  }
-  ; has_board_errs   = flags  land 0x20 <> 0
-  ; reset_flag       = flags2 land 0x02 <> 0
-  ; ts_sync_lst      = Cbuffer.fold (fun acc el -> (int_to_bool_list el) @ acc)
-                                    (iter @@ get_status_ts_absent_lst msg) []
-                       |> CCList.rev
-                       |> CCList.take ts_num
-                       |> List.map (fun x -> if has_sync then not x else false)
-  ; ts_verified_lst  = Cbuffer.fold (fun acc el -> (int_to_bool_list el) @ acc)
-                                    (iter @@ get_status_ts_not_verified_lst msg) []
-                       |> CCList.rev
-                       |> CCList.take ts_num
-                       |> List.map not
-  ; streams_ver      = get_status_streams_ver msg
-  ; ts_ver_com       = get_status_ts_ver_com msg
-  ; ts_ver_lst       = Cbuffer.fold (fun acc el -> el :: acc)
-                                    (iter @@ get_status_ts_ver_lst msg) []
-                       |> CCList.rev
-                       |> CCList.take ts_num
-  ; t2mi_sync_lst    = int_to_bool_list (get_status_t2mi_sync msg)
-                       |> (fun l -> CCList.foldi (fun acc i x -> if x then i :: acc else acc) [] l)
-  ; t2mi_ver_lst     = get_status_t2mi_ver_lst msg
-                       |> (fun v -> CCList.map (fun x -> Int32.shift_right v (4 * x)
-                                                         |> Int32.logand 0xfl
-                                                         |> Int32.to_int)
-                                               (CCList.range 0 7))
-  ; streams          = []
+  { status    = { load             = (float_of_int ((get_status_load msg) * 100)) /. 255.
+                ; mode             = to_mode_exn (get_status_mode msg)
+                                                 (get_status_t2mi_pid msg)
+                                                 (get_status_t2mi_stream_id msg)
+                ; jitter_mode      = { stream_id = Common.Stream.of_int32 (get_status_jitter_stream_id msg)
+                                     ; pid       = get_status_jitter_pid msg
+                                     }
+                ; ts_num           = if has_sync then ts_num else 0
+                ; services_num     = if has_sync then get_status_services_num msg else 0
+                ; bitrate          = Int32.to_int @@ get_status_bitrate msg
+                ; packet_sz        = if      (flags land 0x08) <> 0 then Ts192
+                                     else if (flags land 0x10) <> 0 then Ts204
+                                     else Ts188
+                ; has_stream       = flags  land 0x80 = 0
+                }
+  ; errors    = flags  land 0x20 <> 0
+  ; reset     = flags2 land 0x02 <> 0
+  ; t2mi_sync = int_to_bool_list (get_status_t2mi_sync msg)
+                |> (fun l -> CCList.foldi (fun acc i x -> if x then i :: acc else acc) [] l)
+  ; versions  = { streams_ver      = get_status_streams_ver msg
+                ; ts_ver_com       = get_status_ts_ver_com msg
+                ; ts_ver_lst       = Cbuffer.fold (fun acc el -> el :: acc)
+                                                  (iter @@ get_status_ts_ver_lst msg) []
+                                     |> CCList.rev
+                                     |> CCList.take ts_num
+                ; t2mi_ver_lst     = get_status_t2mi_ver_lst msg
+                                     |> (fun v -> CCList.map (fun x -> Int32.shift_right v (4 * x)
+                                                                       |> Int32.logand 0xfl
+                                                                       |> Int32.to_int)
+                                                             (CCList.range 0 7))
+                }
+  ; streams   = []
   }
+
+(* Streams list event *)
+
+let of_streams_event msg =
+  let hdr,bdy' = Cbuffer.split msg sizeof_streams_list_event in
+  let count    = get_streams_list_event_count hdr in
+  let bdy,_    = Cbuffer.split bdy' (count * 4) in
+  of_streams_list bdy
 
 (* Ts errors *)
 
@@ -964,6 +1041,7 @@ let check_msg_code buf =
                   | 0x04 -> Some ((get_ts_errors_length rest * 2) + 2)           (* ts errors *)
                   | 0x05 -> Some ((get_t2mi_errors_length rest * 2) + 2)         (* t2mi errors *)
                   | 0x09 -> Some ((get_complex_rsp_header_length rest * 2) + 2)  (* complex response *)
+                  | 0x0B -> Some ((get_streams_list_event_length rest * 2) + 2)  (* streams list event *)
                   | 0xFD -> Some 4                                               (* end of errors *)
                   | 0xFF -> Some 0                                               (* end of transmission *)
                   | _    -> None) in
@@ -1013,6 +1091,7 @@ let parse_simple_msg = fun (code,body,parts) ->
      | 0x03 -> `E (`Status (of_status body))
      | 0x04 -> `E (`Ts_errors body)
      | 0x05 -> `E (`T2mi_errors body)
+     | 0x0B -> `E (`Streams_event (of_streams_event body))
      | 0x09 -> let code_ext   = get_complex_rsp_header_code_ext body in
                let long       = code_ext land 0x2000 > 0 in
                let parity     = if code_ext land 0x1000 > 0 then 1 else 0 in
@@ -1074,7 +1153,7 @@ let deserialize parts buf =
           | Error e ->
              (match e with
               | Insufficient_payload x -> (List.rev events, List.rev event_rsps, List.rev rsps, List.rev parts, x)
-              | _ -> Cbuffer.split b 1 |> fun (_,x) -> f events event_rsps rsps parts x))
+              | e -> io @@ string_of_err e; Cbuffer.split b 1 |> fun (_,x) -> f events event_rsps rsps parts x))
     else (List.rev events, List.rev event_rsps, List.rev rsps, List.rev parts, b) in
   let ev,ev_rsps,rsps,parts,res = f [] [] [] parts buf in
   let parts = List.filter (fun (_,x) -> let first_msgs = CCList.find_all (fun x -> x.first) x in
@@ -1122,30 +1201,26 @@ let parse_get_jitter (req : jitter_req) = function
                                         | None   -> None)
   | _ -> None
 
-let parse_get_ts_structs (req : ts_req) = function
-  | `Struct (r_id,version,buf) -> if req.request_id <> r_id then None
-                                  else if req.version <> version then None
-                                  else (match try_parse of_rsp_get_ts_structs buf with
-                                        | Some x -> Some (Struct x)
-                                        | None   -> None)
+let parse_get_ts_structs req_id = function
+  | `Struct (r_id,_,buf) -> if req_id <> r_id then None
+                            else (match try_parse of_rsp_get_ts_structs buf with
+                                  | Some x -> Some (Struct x)
+                                  | None   -> None)
   | _ -> None
 
-let parse_get_bitrates (req : ts_req) = function
-  | `Bitrates (r_id,version,buf) -> if req.request_id <> r_id then None
-                                    else if req.version <> version then None
-                                    else (match try_parse of_rsp_get_bitrates buf with
-                                          | Some x -> Some (Bitrate x)
-                                          | None   -> None)
+let parse_get_bitrates req_id = function
+  | `Bitrates (r_id,_,buf) -> if req_id <> r_id then None
+                              else (match try_parse of_rsp_get_bitrates buf with
+                                    | Some x -> Some (Bitrate x)
+                                    | None   -> None)
   | _ -> None
 
 
-let parse_get_t2mi_info (req : t2mi_req) = function
-  | `T2mi_info (r_id,version,stream_id,buf) -> if req.request_id <> r_id then None
-                                               else if req.version <> version then None
-                                               else if req.t2mi_stream_id <> stream_id then None
-                                               else (match try_parse of_rsp_get_t2mi_info (stream_id,buf) with
-                                                     | Some x -> io @@ Printf.sprintf "Got t2mi info: \n %s" @@ Yojson.Safe.pretty_to_string @@ t2mi_info_to_yojson x; Some (T2mi_info x)
-                                                     | None   -> None)
+let parse_get_t2mi_info (req : t2mi_info_req) = function
+  | `T2mi_info (r_id,_,stream_id,buf) -> if req.request_id <> r_id then None
+                                         else (match try_parse of_rsp_get_t2mi_info (stream_id,buf) with
+                                               | Some x -> Some (T2mi_info x)
+                                               | None   -> None)
   | _ -> None
 
 let is_response (type a) (req : a request) msg : a option =

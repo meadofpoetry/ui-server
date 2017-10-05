@@ -46,18 +46,20 @@ type user_status =
   ; has_stream      : bool
   } [@@deriving yojson]
 
+type status_versions =
+  { streams_ver  : int
+  ; ts_ver_com   : int
+  ; ts_ver_lst   : int list
+  ; t2mi_ver_lst : int list
+  } [@@deriving yojson]
+
 type status =
-  { user_status      : user_status
-  ; has_board_errs   : bool
-  ; reset_flag       : bool
-  ; ts_sync_lst      : bool list
-  ; ts_verified_lst  : bool list
-  ; t2mi_sync_lst    : int list
-  ; streams_ver      : int
-  ; ts_ver_com       : int
-  ; ts_ver_lst       : int list
-  ; t2mi_ver_lst     : int list
-  ; streams          : Common.Stream.t list
+  { status    : user_status
+  ; errors    : bool
+  ; reset     : bool
+  ; t2mi_sync : int list
+  ; versions  : status_versions
+  ; streams   : Common.Stream.t list
   } [@@deriving yojson]
 
 (* MPEG-TS errors *)
@@ -423,7 +425,9 @@ type l1_pre =
   ; num_rf             : int
   ; current_rf_idx     : int
   ; t2_version         : t2_version
-  ; crc32              : int32
+  ; l1_post_scrambled  : bool
+  ; t2_base_lite       : bool
+  ; reserved           : int
   } [@@deriving yojson]
 
 type t2_l1_post_conf_rf =

@@ -1,9 +1,16 @@
+type t2_transmittion_format = SISO
+                            | MISO
+
+type t2_profile = Base
+                | Lite
+
 type t2_fft = FFT_1K
             | FFT_2K
             | FFT_4K
             | FFT_8K
             | FFT_16K
             | FFT_32K
+            | Unknown of int
 
 type t2_streams_type = TS
                      | GS
@@ -98,6 +105,35 @@ type t2_plp_mode = Not_specified
                  | Unknown of int [@@deriving yojson]
 
 let rfu_to_string x = Printf.sprintf "Reserved for future use (%d)" x
+
+let t2_fft_of_int t2_profile = function
+  | 0b000      -> FFT_2K
+  | 0b001      -> FFT_8K
+  | 0b010      -> FFT_4K
+  | 0b011      -> (match t2_profile with
+                   | Base -> FFT_1K
+                   | Lite -> FFT_16K)
+  | 0b100      -> FFT_16K
+  | 0b101 as x -> (match t2_profile with
+                   | Base -> FFT_32K
+                   | Lite -> Unknown x)
+  | 0b110      -> FFT_8K
+  | 0b111 as x -> (match t2_profile with
+                   | Base -> FFT_32K
+                   | Lite -> Unknown x)
+  | x          -> Unknown x
+
+let t2_streams_type_of_int : int -> t2_streams_type = function
+  | 0x00 -> TS | 0x01 -> GS | 0x02 -> Both | x -> Unknown x
+
+let t2_streams_type_to_int : t2_streams_type -> int = function
+  | TS -> 0x00 | GS -> 0x01 | Both -> 0x02 | Unknown x -> x
+
+let t2_streams_type_to_string : t2_streams_type -> string = function
+  | TS        -> "Transport Stream only"
+  | GS        -> "Generic Stream but not TS"
+  | Both      -> "Both TS and Generic Stream"
+  | Unknown x -> rfu_to_string x
 
 let t2_gi_of_int = function
   | 0b000 -> GI_1_32   | 0b001 -> GI_1_16   | 0b010 -> GI_1_8
@@ -220,3 +256,68 @@ let t2_plp_payload_type_to_int = function
 
 let t2_plp_payload_type_to_string = function
   | GFPS -> "GFPS" | GCS -> "GCS" | GSE -> "GSE" | TS -> "TS" | Unknown x -> rfu_to_string x
+
+let t2_plp_cod_of_int t2_profile = function
+  | 0b000      -> CR_1_2
+  | 0b001      -> CR_3_5
+  | 0b010      -> CR_2_3
+  | 0b011      -> CR_3_4
+  | 0b100 as x -> (match t2_profile with
+                   | Base -> CR_4_5
+                   | _    -> Unknown x)
+  | 0b101 as x -> (match t2_profile with
+                   | Base -> CR_5_6
+                   | _    -> Unknown x)
+  | 0b110 as x -> (match t2_profile with
+                   | Lite -> CR_1_3
+                   | _    -> Unknown x)
+  | 0b111 as x -> (match t2_profile with
+                   | Lite -> CR_2_5
+                   | _    -> Unknown x)
+  | x          -> Unknown x
+
+let t2_plp_cod_to_int = function
+  | CR_1_2 -> 0b000 | CR_3_5 -> 0b001 | CR_2_3 -> 0b010
+  | CR_3_4 -> 0b011 | CR_4_5 -> 0b100 | CR_5_6 -> 0b101
+  | CR_1_3 -> 0b110 | CR_2_5 -> 0b111 | Unknown x -> x
+
+let t2_plp_cod_to_string = function
+  | CR_1_2 -> "1/2" | CR_3_5 -> "3/5" | CR_2_3 -> "2/3"
+  | CR_3_4 -> "3/4" | CR_4_5 -> "4/5" | CR_5_6 -> "5/6"
+  | CR_1_3 -> "1/3" | CR_2_5 -> "2/5" | Unknown x -> rfu_to_string x
+
+let t2_plp_mod_of_int = function
+  | 0b000 -> QPSK | 0b001 -> QAM16 | 0b010 -> QAM64 | 0b011 -> QAM256 | x -> Unknown x
+
+let t2_plp_mod_to_int = function
+  | QPSK -> 0b000 | QAM16 -> 0b001 | QAM64 -> 0b010 | QAM256 -> 0b011 | Unknown x -> x
+
+let t2_plp_mod_to_string = function
+  | QPSK  -> "QPSK"   | QAM16  -> "16-QAM"
+  | QAM64 -> "64-QAM" | QAM256 -> "256-QAM"
+  | Unknown x -> rfu_to_string x
+
+let t2_plp_fec_of_int t2_profile = function
+  | 0b00      -> LDPC_16K
+  | 0b01 as x -> (match t2_profile with
+                  | Base -> LDPC_64K
+                  | _    -> Unknown x)
+  | x          -> Unknown x
+
+let t2_plp_fec_to_int = function
+  | LDPC_16K -> 0b00 | LDPC_64K -> 0b01 | Unknown x -> x
+
+let t2_plp_fec_to_string = function
+  | LDPC_16K -> "16K LDPC" | LDPC_64K -> "64K LDPC" | Unknown x -> rfu_to_string x
+
+let t2_plp_mode_of_int = function
+  | 0b00 -> Not_specified | 0b01 -> NM | 0b10 -> HEM | x -> Unknown x
+
+let t2_plp_mode_to_int = function
+  | Not_specified -> 0b00 | NM -> 0b01 | HEM -> 0b10 | Unknown x -> x
+
+let t2_plp_mode_to_string = function
+  | Not_specified -> "Not specified"
+  | NM            -> "Normal mode"
+  | HEM           -> "High efficiency mode"
+  | Unknown x     -> rfu_to_string x
