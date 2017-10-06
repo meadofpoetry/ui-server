@@ -880,6 +880,9 @@ let of_rsp_get_bitrates msg =
 
 let of_l1_pre msg =
   let bwt__etc           = get_l1_pre_bwt_ext__etc msg in
+  let s1                 = (bwt__etc land 0x70) lsr 4 in
+  let s2                 = bwt__etc land 0x0F in
+  let preamble           = l1_preamble_of_int s1 in
   let l1_rep_flag__etc   = get_l1_pre_l1_rep_flag__etc msg in
   let l1_mod__etc        = get_l1_pre_l1_mod__etc msg in
   let l1_post_size1      = get_l1_pre_post_size1 msg in
@@ -889,7 +892,14 @@ let of_l1_pre msg =
   let num_rf__etc        = get_l1_pre_num_rf__etc msg in
   let t2_version         = t2_version_of_int @@ (num_rf__etc land 0x3C0) lsr 6 in
   { typ                = t2_streams_type_of_int @@ get_l1_pre_typ msg
+  ; preamble
+  ; fft                = (match preamble with
+                          | T2 p -> Some (t2_fft_of_int p (s2 lsr 1))
+                          | _    -> None)
+  ; mixed_flag         = s2 land 1 <> 0
   ; bwt_ext            = bwt__etc land 0x80 <> 0
+  ; s1
+  ; s2
   ; l1_repetition_flag = l1_rep_flag__etc land 0x80 <> 0
   ; guard_interval     = t2_gi_of_int @@ (l1_rep_flag__etc land 0x70) lsr 4
   ; papr               = t2_papr_of_int t2_version @@ l1_rep_flag__etc land 0x0F
@@ -915,21 +925,55 @@ let of_l1_pre msg =
   ; reserved           = num_rf__etc land 0x0F
   }
 
-(* let of_l1_post_conf msg = *)
-(*   (\* let get        = (fun ?m ?s msg i -> let open CCOpt in *\) *)
-(*   (\*                                      Cbuffer.get_uint8 msg i *\) *)
-(*   (\*                                      |> (fun x -> match mask with *\) *)
-(*   (\*                                                   | Some mask -> x land mask *\) *)
-(*   (\*                                                   | None      -> x) *\) *)
-(*   (\*                                      |> (fun x -> match shift with *\) *)
-(*   (\*                                                   | Some (`L s) -> x lsl s *\) *)
-(*   (\*                                                   | Some (`R s) -> x lsr s *\) *)
-(*   (\*                                                   | None        -> x)) in *\) *)
-(*   let sub_slices = Cbuffer.BE.get_uint16 msg 0 in *)
-(*   let num_plp    = ((Cbuffer.get_uint8 msg 1) lsr 1) lor ((sub_slices land 1) lsl 7) in *)
-(*   let num_aux    = (((Cbuffer.get_uint8 msg 1) land 1) lsl 3) lor (((Cbuffer.get_uint8 msg 2) land 0x0E) lsr 5) in *)
-(*   { sub_slices_per_frame = sub_slices lsr 1 *)
-(*   } *)
+let of_l1_post_conf l1_pre msg =
+  let open Cbuffer in
+  let ba      = Cbitbuffer.create msg in
+  let num_plp = Cbitbuffer.get_int ba 15 8 in
+  (* let num_aux        = Cbitbuffer.get_int ba 23 4 in *)
+  let rf      = CCList.map (fun x -> let i = 35 + (35 * x) in
+                                     { rf_idx    = Cbitbuffer.get_int ba i 3
+                                     ; frequency = Cbitbuffer.get_int ba (3 + i) 32
+                           })
+                           (CCList.range' 0 l1_pre.num_rf) in
+  let plp     = CCList.map (fun x -> let i = 35 + (35 * l1_pre.num_rf) + (89 * x) in
+                                     { plp_id              = Cbitbuffer.get_int ba i 8
+                                     ; plp_type            = t2_plp_type_of_int
+                                                             @@ Cbitbuffer.get_int ba (i + 8) 3
+                                     ; plp_payload_type    = t2_plp_payload_type_of_int
+                                                             @@ Cbitbuffer.get_int ba (i + 11) 5
+                                     ; ff_flag             = Cbitbuffer.get_bool ba (i + 16)
+                                     ; first_rf_idx        = Cbitbuffer.get_int ba  (i + 17) 3
+                                     ; first_frame_idx     = Cbitbuffer.get_int ba  (i + 20) 8
+                                     ; plp_group_id        = Cbitbuffer.get_int ba  (i + 28) 8
+                                     ; plp_cod             = t2_plp_cod_of_int (Base MISO)
+                                                             @@ Cbitbuffer.get_int ba (i + 36) 3
+                                     ; plp_mod             = t2_plp_mod_of_int @@ Cbitbuffer.get_int ba (i + 39) 3
+                                     ; plp_rotation        = Cbitbuffer.get_bool ba (i + 42)
+                                     ; plp_fec_type        = t2_plp_fec_of_int (Base MISO)
+                                                             @@ Cbitbuffer.get_int ba (i + 43) 2
+                                     ; plp_num_blocks_max  = Cbitbuffer.get_int  ba (i + 45) 10
+                                     ; frame_interval      = Cbitbuffer.get_int  ba (i + 55) 8
+                                     ; time_il_length      = Cbitbuffer.get_int  ba (i + 63) 8
+                                     ; time_il_type        = Cbitbuffer.get_bool ba (i + 71)
+                                     ; in_band_a_flag      = Cbitbuffer.get_bool ba (i + 72)
+                                     ; in_band_b_flag      = Cbitbuffer.get_bool ba (i + 73)
+                                     ; reserved_1          = Cbitbuffer.get_int  ba (i+ 74) 11
+                                     ; plp_mode            = t2_plp_mode_of_int
+                                                             @@ Cbitbuffer.get_int ba (i + 85) 2
+                                     ; static_flag         = Cbitbuffer.get_bool ba (i + 87)
+                                     ; static_padding_flag = Cbitbuffer.get_bool ba (i + 88)})
+                           (CCList.range' 0 num_plp) in
+  (* let fef_length_msb = Cbitbuffer.get_int ba 2 in *)
+  (* let reserved_2 = Cbitbuffer.get_int ba 30 in *)
+  { sub_slices_per_frame = Cbitbuffer.get_int ba 0 15
+  ; aux_config_rfu       = Cbitbuffer.get_int ba 27 8
+  ; rf
+  ; fef = None
+  ; plp
+  ; fef_length_msb = 0
+  ; reserved_2 = 0
+  ; aux = []
+  }
 
 let of_rsp_get_t2mi_info (t2mi_stream_id,msg) =
   let hdr,rest  = Cbuffer.split msg sizeof_t2mi_info in
@@ -956,11 +1000,15 @@ let of_rsp_get_t2mi_info (t2mi_stream_id,msg) =
   let length    = get_t2mi_info_length hdr in
   let body,_    = Cbuffer.split rest length in
   let _,conf    = Cbuffer.split body sizeof_t2mi_info_ext in
-  (* let conf_len  = get_t2mi_info_conf_len hdr in *)
+  let conf_len  = get_t2mi_info_ext_conf_len body in
+  let l1_pre    = if length > 0 then Some (of_l1_pre (get_t2mi_info_ext_l1_pre body)) else None in
+  io @@ Cbuffer.hexdump_to_string conf;
   { packets
   ; t2mi_stream_id
-  ; l1_pre         = if length > 0 then Some (of_l1_pre (get_t2mi_info_ext_l1_pre body)) else None
-  ; l1_post_conf   = None
+  ; l1_pre
+  ; l1_post_conf   = (match l1_pre with
+                      | Some x -> if conf_len > 0 then Some (of_l1_post_conf x conf) else None
+                      | None   -> None)
   }
 
 (* Get streams list *)
@@ -1196,7 +1244,8 @@ let parse_complex_msg = fun ((code,r_id),msg) ->
      | 0x0307 -> `ER (`Jitter (r_id,(get_jitter_req_ptr msg),msg))
      | 0x0309 -> `ER (`Struct (r_id,(get_ts_structs_version msg),msg))
      | 0x030A -> `ER (`Bitrates (r_id,(get_bitrates_version msg),msg))
-     | 0x030B -> `ER (`T2mi_info (r_id,(get_t2mi_info_version msg),(get_t2mi_info_stream_id msg),msg))
+     | 0x030B -> io @@ Yojson.Safe.pretty_to_string @@ t2mi_info_to_yojson (of_rsp_get_t2mi_info ((get_t2mi_info_stream_id msg),msg));
+                 `ER (`T2mi_info (r_id,(get_t2mi_info_version msg),(get_t2mi_info_stream_id msg),msg))
      | 0x030C -> `ER (`Streams (r_id,(get_streams_list_version msg),msg))
      | _      -> `N)
   with _ -> `N
