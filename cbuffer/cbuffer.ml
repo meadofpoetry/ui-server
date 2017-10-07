@@ -90,6 +90,8 @@ module Cbitbuffer : sig
     }
 
   val create   : Cstruct.t -> t
+  val shift    : t -> int -> t
+  val split    : t -> int -> t * t
   val get_int  : t -> int -> int -> int
   val get_bool : t -> int -> bool
 
@@ -101,6 +103,12 @@ end = struct
     }
 
   let create buffer = { buffer; offset = 0 }
+
+  let shift t offset =
+    { buffer = Cstruct.shift t.buffer ((t.offset + offset) / 8)
+    ; offset = (t.offset + offset) mod 8 }
+
+  let split t bits = t,t
 
   let get_mask bits = (1 lsl bits) - 1
 
@@ -114,15 +122,13 @@ end = struct
   let get_int t offset bits =
     if bits > 32 then failwith "Cbitbuffer.get_int: bits size > 32";
 
-    let t         = { buffer = Cstruct.shift t.buffer ((t.offset + offset) / 8)
-                    ; offset = (t.offset + offset) mod 8 } in
+    let t         = shift t offset in
     let sz,fn     = get_sz_and_extract_fn bits in
     let available = sz - t.offset in
     let curr      = (fn t.buffer) land get_mask available in
     if bits < available
     then curr lsr (available - bits)
-    else (let new_buf  = { buffer = Cstruct.shift t.buffer ((t.offset + bits) / 8)
-                         ; offset = (t.offset + bits) mod 8 } in
+    else (let new_buf  = shift t bits in
           let new_bits = bits - available in
           let sz,fn    = get_sz_and_extract_fn new_bits in
           let next     = (fn new_buf.buffer) lsr (sz - new_bits) in

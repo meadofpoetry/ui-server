@@ -492,7 +492,7 @@ type t2_l1_post_conf_aux =
   } [@@deriving yojson]
 
 type l1_post_conf =
-  { sub_slices_per_frame : int
+  { sub_slices_per_frame  : int
   ; aux_config_rfu        : int
   ; rf                    : t2_l1_post_conf_rf list
   ; fef                   : t2_l1_post_conf_fef option
@@ -725,7 +725,7 @@ let t2_plp_mode_of_int = function
 let t2_plp_mode_to_int = function
   | Not_specified -> 0b00 | NM -> 0b01 | HEM -> 0b10 | Unknown x -> x
 
-                                                                      (* Aux stream type *)
+(* Aux stream type *)
 
 let aux_stream_type_of_int = function
   | 0b0000 -> TX_SIG | x -> Unknown x

@@ -929,13 +929,21 @@ let of_l1_post_conf l1_pre msg =
   let open Cbuffer in
   let ba      = Cbitbuffer.create msg in
   let num_plp = Cbitbuffer.get_int ba 15 8 in
-  (* let num_aux        = Cbitbuffer.get_int ba 23 4 in *)
-  let rf      = CCList.map (fun x -> let i = 35 + (35 * x) in
+  let num_aux = Cbitbuffer.get_int ba 23 4 in
+  let offset  = 35 in
+  let rf      = CCList.map (fun x -> let i = offset + (35 * x) in
                                      { rf_idx    = Cbitbuffer.get_int ba i 3
                                      ; frequency = Cbitbuffer.get_int ba (3 + i) 32
                            })
                            (CCList.range' 0 l1_pre.num_rf) in
-  let plp     = CCList.map (fun x -> let i = 35 + (35 * l1_pre.num_rf) + (89 * x) in
+  let offset  = offset + (35 * l1_pre.num_rf) in
+  let fef     = if l1_pre.s2 land 1 = 0 then None
+                else Some { fef_type     = Cbitbuffer.get_int ba offset 4
+                          ; fef_length   = Cbitbuffer.get_int ba (offset + 4) 22
+                          ; fef_interval = Cbitbuffer.get_int ba (offset + 26) 8
+                          } in
+  let offset  = offset + (if CCOpt.is_some fef then 34 else 0) in
+  let plp     = CCList.map (fun x -> let i = offset + (89 * x) in
                                      { plp_id              = Cbitbuffer.get_int ba i 8
                                      ; plp_type            = t2_plp_type_of_int
                                                              @@ Cbitbuffer.get_int ba (i + 8) 3
@@ -963,16 +971,23 @@ let of_l1_post_conf l1_pre msg =
                                      ; static_flag         = Cbitbuffer.get_bool ba (i + 87)
                                      ; static_padding_flag = Cbitbuffer.get_bool ba (i + 88)})
                            (CCList.range' 0 num_plp) in
-  (* let fef_length_msb = Cbitbuffer.get_int ba 2 in *)
-  (* let reserved_2 = Cbitbuffer.get_int ba 30 in *)
+  let offset         = offset + (89 * num_plp) in
+  let fef_length_msb = Cbitbuffer.get_int ba offset 2 in
+  let reserved_2     = Cbitbuffer.get_int ba offset 30 in
+  let offset         = offset + 32 in
+  let aux            = CCList.map (fun x -> let i = offset + (32 * x) in
+                                            { aux_stream_type = aux_stream_type_of_int
+                                                                @@ Cbitbuffer.get_int ba i 4
+                                            ; aux_private_conf = Cbitbuffer.get_int ba (i + 4) 28 })
+                                  (CCList.range' 0 num_aux) in
   { sub_slices_per_frame = Cbitbuffer.get_int ba 0 15
   ; aux_config_rfu       = Cbitbuffer.get_int ba 27 8
   ; rf
-  ; fef = None
+  ; fef
   ; plp
-  ; fef_length_msb = 0
-  ; reserved_2 = 0
-  ; aux = []
+  ; fef_length_msb
+  ; reserved_2
+  ; aux
   }
 
 let of_rsp_get_t2mi_info (t2mi_stream_id,msg) =
