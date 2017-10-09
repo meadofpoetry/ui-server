@@ -115,8 +115,7 @@ end = struct
   let get_sz_and_extract_fn = function
     | b when b < 9  -> 8, (fun x -> Cstruct.get_uint8 x 0)
     | b when b < 17 -> 16,(fun x -> Cstruct.BE.get_uint16 x 0)
-    | b when b < 25 -> 24,(fun x -> ((Cstruct.get_uint8 x 0) lsr 16)
-                                    lor Cstruct.BE.get_uint16 x 0)
+    | b when b < 25 -> 24,(fun x -> ((Cstruct.get_uint8 x 0) lsl 16) lor Cstruct.BE.get_uint16 x 1)
     | _             -> 32,(fun x -> Int32.to_int @@ Cstruct.BE.get_uint32 x 0)
 
   let get_int t offset bits =
@@ -131,7 +130,7 @@ end = struct
     else (let new_buf  = shift t bits in
           let new_bits = bits - available in
           let sz,fn    = get_sz_and_extract_fn new_bits in
-          let next     = (fn new_buf.buffer) lsr (sz - new_bits) in
+          let next     = if new_bits > 0 then (fn new_buf.buffer) lsr (sz - new_bits) else 0 in
           (curr lsl new_bits) lor next)
 
   let get_bool t offset =

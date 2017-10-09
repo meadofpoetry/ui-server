@@ -930,6 +930,7 @@ let of_l1_post_conf l1_pre msg =
   let ba      = Cbitbuffer.create msg in
   let num_plp = Cbitbuffer.get_int ba 15 8 in
   let num_aux = Cbitbuffer.get_int ba 23 4 in
+  io @@ Printf.sprintf "num plp = %d, num aux = %d" num_plp num_aux;
   let offset  = 35 in
   let rf      = CCList.map (fun x -> let i = offset + (35 * x) in
                                      { rf_idx    = Cbitbuffer.get_int ba i 3
@@ -1325,7 +1326,7 @@ let parse_get_board_errors req_id = function
                                       | None   -> None)
   | _ -> None
 
-let parse_get_section (id,req) = function
+let parse_get_section (id,_) = function
   | `Section (r_id,buf) -> if id <> r_id then None
                            else try_parse of_rsp_get_section buf
   | _ -> None

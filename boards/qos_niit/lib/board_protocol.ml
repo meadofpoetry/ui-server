@@ -266,7 +266,7 @@ module SM = struct
             msgs := new_msgs;
             (match tout with
              | [] -> ()
-             | l  -> CCList.iter (fun x -> x.pred `Timeout |> ignore) tout));
+             | l  -> CCList.iter (fun x -> x.pred `Timeout |> ignore) l));
       if not @@ Await_queue.empty !msgs
       then msgs := fst @@ Await_queue.send !msgs () in
 
