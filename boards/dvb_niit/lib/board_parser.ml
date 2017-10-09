@@ -338,7 +338,7 @@ let deserialize buf =
                            | `N     -> f events responses x.res)
           | Error e -> (match e with
                         | Insufficient_payload x -> List.rev events, List.rev responses, x
-                        | _ -> Cbuffer.split b 1 |> fun (_,x) -> f events responses x))
+                        | _                      -> f events responses (Cbuffer.shift b 1)))
     else List.rev events, List.rev responses, b in
   let events, responses, res = f [] [] buf in
   events, responses, if Cbuffer.len res > 0 then Some res else None

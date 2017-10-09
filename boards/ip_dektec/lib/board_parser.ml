@@ -313,9 +313,11 @@ let hex_string_of_ascii_buf x = "0x" ^ (Cbuffer.to_string x)
 let parse_int_exn x           = hex_string_of_ascii_buf x |> int_of_string
 let parse_int32_exn x         = hex_string_of_ascii_buf x |> Int32.of_string
 let parse_int64_exn x         = hex_string_of_ascii_buf x |> Int64.of_string
-let parse_ipaddr_exn x        = parse_int32_exn x |> Ipaddr.V4.of_int32
-let parse_bool_exn x          = parse_int_exn x
-                                |> function | 0 -> false | 1 -> true | _ -> failwith "bad bool value"
+let parse_ipaddr_exn x        = parse_int32_exn x         |> Ipaddr.V4.of_int32
+let parse_bool_exn x          = parse_int_exn x |> (function
+                                                    | 0 -> false
+                                                    | 1 -> true
+                                                    | _ -> failwith "bad bool value")
 let parse_int                 = try_parse parse_int_exn
 let parse_int32               = try_parse parse_int32_exn
 let parse_int64               = try_parse parse_int64_exn
@@ -457,7 +459,6 @@ let get_msg buf =
   | e -> Error (Unknown_err (Printexc.to_string e))
 
 let deserialize buf =
-  (* if Cbuffer.len buf > 0 then io @@ "In deserialize: " ^ Cbuffer.pp buf; *)
   let parse = fun ((_,_,rw,_) as x) ->
     match rw with
     | Read | Write -> `Ok x
@@ -468,13 +469,12 @@ let deserialize buf =
                  | []       -> acc, None
                  | [x]      -> (match get_msg x with
                                 | Ok msg  -> (parse msg) :: acc, None
-                                | Error e -> io (string_of_err e);
-                                             (match e with
+                                | Error e -> (match e with
                                               | Insufficient_payload res -> acc, Some res
                                               | _                        -> acc, None))
                  | hd :: tl -> (match get_msg hd with
                                 | Ok msg  -> f ((parse msg) :: acc) tl
-                                | Error e -> io (string_of_err e); f acc tl) in
+                                | Error e -> f acc tl) in
   let r,res = f [] parts in (List.rev r, res)
 
 let is_response (type a) (req : a request) m : a option =

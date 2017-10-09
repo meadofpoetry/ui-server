@@ -930,7 +930,6 @@ let of_l1_post_conf l1_pre msg =
   let ba      = Cbitbuffer.create msg in
   let num_plp = Cbitbuffer.get_int ba 15 8 in
   let num_aux = Cbitbuffer.get_int ba 23 4 in
-  io @@ Printf.sprintf "num plp = %d, num aux = %d" num_plp num_aux;
   let offset  = 35 in
   let rf      = CCList.map (fun x -> let i = offset + (35 * x) in
                                      { rf_idx    = Cbitbuffer.get_int ba i 3
@@ -1018,7 +1017,6 @@ let of_rsp_get_t2mi_info (t2mi_stream_id,msg) =
   let _,conf    = Cbuffer.split body sizeof_t2mi_info_ext in
   let conf_len  = get_t2mi_info_ext_conf_len body in
   let l1_pre    = if length > 0 then Some (of_l1_pre (get_t2mi_info_ext_l1_pre body)) else None in
-  io @@ Cbuffer.hexdump_to_string conf;
   { packets
   ; t2mi_stream_id
   ; l1_pre
@@ -1243,7 +1241,7 @@ let parse_simple_msg = fun (code,body,parts) ->
                                            | None   -> Some ([part]))
                                        parts)
      | _ -> `N)
-  with e -> io @@ Printexc.to_string e; `N
+  with e -> `N
 
 let parse_complex_msg = fun ((code,r_id),msg) ->
   (* no parsing here, only tag wrapping *)
@@ -1251,17 +1249,12 @@ let parse_complex_msg = fun ((code,r_id),msg) ->
     let x = (r_id,msg) in
     (match code with
      | 0x0110 -> `ER (`Board_errors x)
-     | 0x0302 -> io "Got section";
-                 (match of_rsp_get_section msg with
-                  | Ok x -> section_to_yojson x |> Yojson.Safe.to_string |> io
-                  | Error e -> section_error_to_yojson e |> Yojson.Safe.to_string |> io);
-                 `R (`Section x)
-     | 0x0306 -> io "Got t2mi frame seq";`R  (`T2mi_frame_seq x)
+     | 0x0302 -> `R  (`Section x)
+     | 0x0306 -> `R  (`T2mi_frame_seq x)
      | 0x0307 -> `ER (`Jitter (r_id,(get_jitter_req_ptr msg),msg))
      | 0x0309 -> `ER (`Struct (r_id,(get_ts_structs_version msg),msg))
      | 0x030A -> `ER (`Bitrates (r_id,(get_bitrates_version msg),msg))
-     | 0x030B -> io @@ Yojson.Safe.pretty_to_string @@ t2mi_info_to_yojson (of_rsp_get_t2mi_info ((get_t2mi_info_stream_id msg),msg));
-                 `ER (`T2mi_info (r_id,(get_t2mi_info_version msg),(get_t2mi_info_stream_id msg),msg))
+     | 0x030B -> `ER (`T2mi_info (r_id,(get_t2mi_info_version msg),(get_t2mi_info_stream_id msg),msg))
      | 0x030C -> `ER (`Streams (r_id,(get_streams_list_version msg),msg))
      | _      -> `N)
   with _ -> `N
@@ -1291,7 +1284,7 @@ let deserialize parts buf =
           | Error e ->
              (match e with
               | Insufficient_payload x -> (List.rev events, List.rev event_rsps, List.rev rsps, List.rev parts, x)
-              | e -> io @@ string_of_err e; Cbuffer.split b 1 |> fun (_,x) -> f events event_rsps rsps parts x))
+              | e -> f events event_rsps rsps parts (Cbuffer.shift b 1)))
     else (List.rev events, List.rev event_rsps, List.rev rsps, List.rev parts, b) in
   let ev,ev_rsps,rsps,parts,res = f [] [] [] parts buf in
   let parts = List.filter (fun (_,x) -> let first_msgs = CCList.find_all (fun x -> x.first) x in

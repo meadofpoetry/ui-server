@@ -86,9 +86,9 @@ let deserialize acc buf =
     if Cbuffer.len b >= sizeof_header
     then (match get_msg b with
           | Ok (msg,rest) -> f (msg :: acc) rest
-          | Error e       -> match e with
-                             | Insufficient_payload b -> acc, b
-                             | _ -> Cbuffer.split b 1 |> fun (_,x) -> f acc x)
+          | Error e       -> (match e with
+                              | Insufficient_payload b -> acc, b
+                              | _                      -> f acc (Cbuffer.shift b 1)))
     else acc,b in
   let msgs,new_acc = f [] buf in
   (if Cbuffer.len new_acc > 0 then Some new_acc else None), msgs

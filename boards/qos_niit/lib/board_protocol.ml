@@ -303,7 +303,6 @@ module SM = struct
                          else `Continue (step_normal_idle (pred p) prev_group events parts acc)
          | prev_group_events,groups ->
             push_state `Fine;
-            io @@ Printf.sprintf "Got %d statuses in idle!" @@ CCList.length groups;
             (match prev_group with
              | Some gp -> Events_handler.push (Events_handler.insert_events gp prev_group_events) push_events
              | None    -> ());
@@ -353,7 +352,7 @@ module SM = struct
                                                       acc)
                      else step_normal_probes_send new_pool prev_idle_gp gp events parts acc)
       with
-      | Timeout -> io "\n!!! exit by timeout !!!\n"; first_step ()
+      | Timeout -> first_step ()
 
     in first_step ()
 
