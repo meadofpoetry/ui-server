@@ -1,0 +1,48 @@
+(jbuild_version 1)
+
+(library
+ ((name        pipeline_js)
+  (public_name pipeline-js)
+  (modules (requests data graph settings streams wm state opt_update))
+  (synopsis "pipeline js api")
+  (libraries (containers yojson ppx_deriving_yojson.runtime
+              api-js))
+  (flags (:standard -short-paths -strict-sequence -bin-annot
+          -thread -w "+1..49+60" -w "+a-4-7-23-33-39-40-41-42-44-45-48"))
+  (js_of_ocaml ((flags (:standard +weak.js --opt 3))))
+  (preprocess (pps (ppx_deriving_yojson)))))
+
+(rule
+ ((targets (data.ml))
+  (deps (../data.ml))
+  (action (copy ${<} ${@}))))
+
+(rule
+ ((targets (graph.ml))
+  (deps (../graph.ml))
+  (action (copy ${<} ${@}))))
+
+(rule
+ ((targets (opt_update.ml))
+  (deps (../opt_update.ml))
+  (action (copy ${<} ${@}))))
+
+(rule
+ ((targets (settings.ml))
+  (deps (../settings.ml))
+  (action (copy ${<} ${@}))))
+
+(rule
+ ((targets (state.ml))
+  (deps (../state.ml))
+  (action (copy ${<} ${@}))))
+
+(rule
+ ((targets (streams.ml))
+  (deps (../streams.ml))
+  (action (copy ${<} ${@}))))
+
+(rule
+ ((targets (wm.ml))
+  (deps (../wm.ml))
+  (action (copy ${<} ${@}))))
