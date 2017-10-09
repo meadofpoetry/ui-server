@@ -97,15 +97,17 @@ module Msg = struct
   end
 
   module Await_queue = struct
-    type ('a, 'b) t = { reqs    : ('a,'b) msg CCFQueue.t
-                      ; pending : (int * ('a,'b) msg) list
-                      }
+    type ('a, 'b) t    = { reqs    : ('a,'b) msg CCFQueue.t
+                         ; pending : (int * ('a,'b) msg) list
+                         }
     let create lst     = { reqs = CCFQueue.of_list lst; pending = [] }
-                       
+
     let append t msg   = { t with reqs = CCFQueue.snoc t.reqs msg }
 
     let empty t        = CCFQueue.size t.reqs = 0
-                       
+
+    let has_pending t  = not @@ CCList.is_empty t.pending
+
     let responsed t m  =
       let open CCOpt.Infix in
       let pending, responses =
@@ -118,7 +120,7 @@ module Msg = struct
               | Some resp -> `Right resp)
           t.pending
       in { t with pending }, responses
-         
+
     let send t () =
       try
         let msg, reqs = CCFQueue.take_front_exn t.reqs in

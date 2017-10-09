@@ -55,12 +55,13 @@ module SM = struct
     | `Measure (id, buf) -> pe.measure (id, of_rsp_measure_exn buf)
 
   let send_msg (type a) sender (msg : a request) : unit Lwt.t =
-    match msg with
-    | Devinfo    -> sender @@ (to_req_devinfo false)
-    | Reset      -> sender @@ (to_req_devinfo true)
-    | Settings (id, buf) -> sender @@ (to_req_settings id buf)
-    | Plp_setting (id, buf) -> sender @@ (to_req_plp_set id buf)
-    | Plps id  -> sender @@ (to_req_plp_list id)
+    (match msg with
+     | Devinfo               -> to_req_devinfo false
+     | Reset                 -> to_req_devinfo true
+     | Settings (id, buf)    -> to_req_settings id buf
+     | Plp_setting (id, buf) -> to_req_plp_set id buf
+     | Plps id               -> to_req_plp_list id)
+    |> sender
 
   let send_event (type a) sender (msg : a event_request) : unit Lwt.t =
     (* no instant msgs *)
@@ -88,7 +89,7 @@ module SM = struct
     t
 
   let initial_timeout = -1
-                      
+
   let step msgs sender (storage : config storage) step_duration push_state push_events =
     let period         = timeout_period step_duration in
     let request_period = request_period step_duration in
@@ -101,7 +102,7 @@ module SM = struct
       push_state `No_response;
       Pool.send detect_pool () |> ignore;
       `Continue (step_detect detect_pool None)
-    
+
     and step_detect detect_pool acc recvd =
       try
         (*Lwt_io.printf "Detect step\n" |> ignore;*)
@@ -126,7 +127,7 @@ module SM = struct
                  Pool.send init_pool () |> ignore;
                  `Continue (step_init init_pool probes None)
       with Timeout -> first_step ()
-                 
+
     and step_init init_pool probes acc recvd =
       try
         (*Lwt_io.printf "Init step\n" |> ignore;*)
@@ -192,7 +193,6 @@ module SM = struct
         | Some () -> msgs := Queue.next !msgs;
                      `Continue (step_normal_requests_send probes_pool (succ period_timer) acc)
       with Timeout -> first_step ()
-                      
     in
     first_step ()
     

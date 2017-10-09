@@ -22,9 +22,9 @@ type t = { boards : Meta_board.board list
 let create_adapter typ model manufacturer version : (module Meta_board.BOARD) =
   Lwt_io.printf "in create adapter\n" |> ignore;
   match typ, model, manufacturer, version with
-  | DVB, "rf", "niitv", 1       -> (module Board_dvb_niit : Meta_board.BOARD)
+  | DVB, "rf", "niitv", 1       -> (module Board_dvb_niit  : Meta_board.BOARD)
   | IP, "dtm-3200", "dektec", 1 -> (module Board_ip_dektec : Meta_board.BOARD)
-  (* | TS, "qos", "niitv"       -> Board_qos.create version *)
+  | TS, "qos", "niitv", 1       -> (module Board_qos_niit  : Meta_board.BOARD)
   | _ -> raise (Failure ("create board: unknown board "))
 
 let create_converter typ model manufacturer version =
@@ -75,6 +75,7 @@ let topo_to_signal topo boards =
 let create config db =
   let step_duration = 0.01 in
   let topo      = Conf.get config in
+  Lwt_io.printf "got %d boards\n" @@ CCList.length topo |> ignore;
   let stor      = Storage.Options.Conf.get config in
   let usb, loop = Usb_device.create ~sleep:step_duration () in
   let rec traverse acc = (function

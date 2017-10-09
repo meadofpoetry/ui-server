@@ -258,7 +258,7 @@ module SM = struct
                       Pool.send init_pool () |> ignore;
                       `Continue (step_init_nw init_pool acc)
       with Timeout -> first_step ()
-                      
+
     and step_finalize_init p req acc recvd =
       find_resp req acc recvd
                 ~success:(fun _ _ ->
