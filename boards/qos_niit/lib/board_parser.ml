@@ -1241,7 +1241,7 @@ let parse_simple_msg = fun (code,body,parts) ->
                                            | None   -> Some ([part]))
                                        parts)
      | _ -> `N)
-  with e -> `N
+  with _ -> `N
 
 let parse_complex_msg = fun ((code,r_id),msg) ->
   (* no parsing here, only tag wrapping *)
@@ -1284,7 +1284,7 @@ let deserialize parts buf =
           | Error e ->
              (match e with
               | Insufficient_payload x -> (List.rev events, List.rev event_rsps, List.rev rsps, List.rev parts, x)
-              | e -> f events event_rsps rsps parts (Cbuffer.shift b 1)))
+              | _                      -> f events event_rsps rsps parts (Cbuffer.shift b 1)))
     else (List.rev events, List.rev event_rsps, List.rev rsps, List.rev parts, b) in
   let ev,ev_rsps,rsps,parts,res = f [] [] [] parts buf in
   let parts = List.filter (fun (_,x) -> let first_msgs = CCList.find_all (fun x -> x.first) x in

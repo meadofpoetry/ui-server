@@ -474,7 +474,7 @@ let deserialize buf =
                                               | _                        -> acc, None))
                  | hd :: tl -> (match get_msg hd with
                                 | Ok msg  -> f ((parse msg) :: acc) tl
-                                | Error e -> f acc tl) in
+                                | Error _ -> f acc tl) in
   let r,res = f [] parts in (List.rev r, res)
 
 let is_response (type a) (req : a request) m : a option =
