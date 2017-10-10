@@ -87,7 +87,7 @@ module Cbitbuffer : sig
   type t =
     { buffer : Cstruct.t
     ; offset : int
-    ; size   : int
+    ; len    : int
     }
 
   val create   : Cstruct.t -> t
@@ -101,23 +101,23 @@ end = struct
   type t =
     { buffer : Cstruct.t
     ; offset : int
-    ; size   : int
+    ; len    : int
     }
 
-  let create buffer = { buffer; offset = 0; size = Cstruct.len buffer * 8 }
+  let create buffer = { buffer; offset = 0; len = Cstruct.len buffer * 8 }
 
   let shift t offset =
     let buffer = Cstruct.shift t.buffer ((t.offset + offset) / 8) in
     let offset = (t.offset + offset) mod 8 in
-    { buffer; offset; size = ((Cstruct.len buffer) * 8) - offset }
+    { buffer; offset; len = ((Cstruct.len buffer) * 8) - offset }
 
   let split t offset =
     let bytes      = (t.offset + offset) / 8 in
     let fst,_      = Cstruct.split t.buffer (bytes + 1) in
     let snd        = Cstruct.shift t.buffer bytes in
     let snd_offset = (t.offset + offset) mod 8 in
-    { buffer = fst; offset = t.offset; size = offset },
-    { buffer = snd; offset = snd_offset; size = ((Cstruct.len snd) * 8) - snd_offset }
+    { buffer = fst; offset = t.offset; len = offset },
+    { buffer = snd; offset = snd_offset; len = ((Cstruct.len snd) * 8) - snd_offset }
 
   let get_mask bits = (1 lsl bits) - 1
 
@@ -129,7 +129,7 @@ end = struct
 
   let get_int t offset bits =
     if bits > 32 then raise (Invalid_argument "Cbitbuffer.get_int: bits size > 32");
-    if (offset + bits) > t.size then raise (Invalid_argument "Cbitbuffer.get_int: not enough bits");
+    if (offset + bits) > t.len then raise (Invalid_argument "Cbitbuffer.get_int: not enough bits");
 
     let t         = shift t offset in
     let sz,fn     = get_sz_and_extract_fn bits in
