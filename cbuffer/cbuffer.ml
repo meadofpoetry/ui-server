@@ -87,6 +87,7 @@ module Cbitbuffer : sig
   type t =
     { buffer : Cstruct.t
     ; offset : int
+    ; len    : int
     }
 
   val create   : Cstruct.t -> t
@@ -100,15 +101,23 @@ end = struct
   type t =
     { buffer : Cstruct.t
     ; offset : int
+    ; len    : int
     }
 
-  let create buffer = { buffer; offset = 0 }
+  let create buffer = { buffer; offset = 0; len = Cstruct.len buffer * 8 }
 
   let shift t offset =
-    { buffer = Cstruct.shift t.buffer ((t.offset + offset) / 8)
-    ; offset = (t.offset + offset) mod 8 }
+    let buffer = Cstruct.shift t.buffer ((t.offset + offset) / 8) in
+    let offset = (t.offset + offset) mod 8 in
+    { buffer; offset; len = ((Cstruct.len buffer) * 8) - offset }
 
-  let split t bits = t,t
+  let split t offset =
+    let bytes      = (t.offset + offset) / 8 in
+    let fst,_      = Cstruct.split t.buffer (bytes + 1) in
+    let snd        = Cstruct.shift t.buffer bytes in
+    let snd_offset = (t.offset + offset) mod 8 in
+    { buffer = fst; offset = t.offset; len = offset },
+    { buffer = snd; offset = snd_offset; len = ((Cstruct.len snd) * 8) - snd_offset }
 
   let get_mask bits = (1 lsl bits) - 1
 
@@ -119,7 +128,8 @@ end = struct
     | _             -> 32,(fun x -> Int32.to_int @@ Cstruct.BE.get_uint32 x 0)
 
   let get_int t offset bits =
-    if bits > 32 then failwith "Cbitbuffer.get_int: bits size > 32";
+    if bits > 32 then raise (Invalid_argument "Cbitbuffer.get_int: bits size > 32");
+    if (offset + bits) > t.len then raise (Invalid_argument "Cbitbuffer.get_int: not enough bits");
 
     let t         = shift t offset in
     let sz,fn     = get_sz_and_extract_fn bits in
@@ -127,13 +137,14 @@ end = struct
     let curr      = (fn t.buffer) land get_mask available in
     if bits < available
     then curr lsr (available - bits)
+    else if bits = available
+    then curr
     else (let new_buf  = shift t bits in
           let new_bits = bits - available in
           let sz,fn    = get_sz_and_extract_fn new_bits in
-          let next     = if new_bits > 0 then (fn new_buf.buffer) lsr (sz - new_bits) else 0 in
+          let next     = (fn new_buf.buffer) lsr (sz - new_bits) in
           (curr lsl new_bits) lor next)
 
-  let get_bool t offset =
-    (get_int t offset 1) <> 0
+  let get_bool t offset = (get_int t offset 1) <> 0
 
 end
