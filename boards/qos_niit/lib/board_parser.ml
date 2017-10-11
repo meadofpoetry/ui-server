@@ -494,7 +494,7 @@ let to_mode_exn mode t2mi_pid t2mi_stream_id =
   { input = CCOpt.get_exn @@ input_of_int (mode land 1)
   ; t2mi = Some { enabled   = if (mode land 4) > 0 then true else false
                 ; pid       = t2mi_pid
-                ; stream_id = Common.Stream.of_int32 t2mi_stream_id
+                ; stream_id = Common.Stream.id_of_int32 t2mi_stream_id
                 }
   }
 
@@ -547,7 +547,7 @@ let of_rsp_get_board_errors msg =
 
 let to_req_get_section (req : section_request) =
   let body = Cbuffer.create sizeof_req_get_section in
-  let ()   = set_req_get_section_stream_id body @@ Common.Stream.to_int32 req.stream_id in
+  let ()   = set_req_get_section_stream_id body @@ Common.Stream.id_to_int32 req.stream_id in
   let ()   = set_req_get_section_section body req.section in
   (match req.table with
    | PAT x  -> set_req_get_section_table_id body x.common.id;
@@ -575,7 +575,7 @@ let of_rsp_get_section msg =
   if length > 0 && result = 0
   then
     let sid,data = Cbuffer.split bdy 4 in
-    Ok { stream_id = Common.Stream.of_int32 @@ Cbuffer.LE.get_uint32 sid 0
+    Ok { stream_id = Common.Stream.id_of_int32 @@ Cbuffer.LE.get_uint32 sid 0
        ; data      = Cbuffer.to_string data
        }
   else
@@ -654,7 +654,7 @@ let of_rsp_get_jitter msg =
 
 let of_streams_list buf =
   let iter = Cbuffer.iter (fun _ -> Some 4) (fun buf -> Cbuffer.LE.get_uint32 buf 0) buf in
-  List.rev @@ Cbuffer.fold (fun acc el -> (Common.Stream.of_int32 el) :: acc) iter []
+  List.rev @@ Cbuffer.fold (fun acc el -> (Common.Stream.id_of_int32 el) :: acc) iter []
 
 let of_general_struct_block msg =
   let bdy,rest   = Cbuffer.split msg sizeof_general_struct_block in
@@ -804,7 +804,7 @@ let of_ts_struct msg =
   let len      = (Int32.to_int @@ get_ts_struct_length hdr) in
   let bdy,rest = Cbuffer.split rest len in
   let blocks   = of_ts_struct_blocks bdy [] in
-  { stream_id = Common.Stream.of_int32 @@ get_ts_struct_stream_id hdr
+  { stream_id = Common.Stream.id_of_int32 @@ get_ts_struct_stream_id hdr
   ; general   = get_exn @@ CCList.find_map (function `General x -> Some x | _ -> None) blocks
   ; pids      = get_exn @@ CCList.find_map (function `Pids x -> Some x | _ -> None) blocks
   ; services  = CCList.filter_map (function `Services x -> Some x | _ -> None) blocks
@@ -861,7 +861,7 @@ let of_stream_bitrate buf =
   let total_tbls = get_stream_bitrate_total_tables hdr in
   let pids,tbls  = of_pids_bitrate total_pids br_per_pkt bdy in
   let tables     = of_tbls_bitrate total_tbls br_per_pkt tbls in
-  { stream_id  = Common.Stream.of_int32 @@ get_stream_bitrate_stream_id hdr
+  { stream_id  = Common.Stream.id_of_int32 @@ get_stream_bitrate_stream_id hdr
   ; ts_bitrate
   ; pids
   ; tables
@@ -1045,7 +1045,7 @@ let of_status msg =
                 ; mode             = to_mode_exn (get_status_mode msg)
                                                  (get_status_t2mi_pid msg)
                                                  (get_status_t2mi_stream_id msg)
-                ; jitter_mode      = { stream_id = Common.Stream.of_int32 (get_status_jitter_stream_id msg)
+                ; jitter_mode      = { stream_id = Common.Stream.id_of_int32 (get_status_jitter_stream_id msg)
                                      ; pid       = get_status_jitter_pid msg
                                      }
                 ; ts_num           = if has_sync then ts_num else 0
@@ -1103,7 +1103,7 @@ let of_ts_errors msg =
                                                 ; param_2   = get_ts_error_param_2 el
                                                 } :: acc)
                                  iter [] in
-  { stream_id = Common.Stream.of_int32 (get_ts_errors_stream_id common); errors }
+  { stream_id = Common.Stream.id_of_int32 (get_ts_errors_stream_id common); errors }
 
 (* T2-MI errors *)
 
@@ -1124,7 +1124,7 @@ let of_t2mi_errors msg =
                                                      ; param          = if cnt_flag then None else Some _data
                                                      } :: acc)
                                  iter [] in
-  { stream_id        = Common.Stream.of_int32 (get_t2mi_errors_stream_id common)
+  { stream_id        = Common.Stream.id_of_int32 (get_t2mi_errors_stream_id common)
   ; t2mi_pid         = get_t2mi_errors_pid common
   ; sync             = int_to_t2mi_sync_list (get_t2mi_errors_sync common)
   ; ts_parser_errors = CCList.filter_map (fun x -> if CCOpt.is_some x then x else None)

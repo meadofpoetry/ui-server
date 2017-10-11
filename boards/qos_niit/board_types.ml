@@ -17,7 +17,7 @@ type input =
 type t2mi_mode =
   { enabled   : bool
   ; pid       : int
-  ; stream_id : Common.Stream.t
+  ; stream_id : Common.Stream.id
   } [@@deriving yojson]
 
 type mode =
@@ -26,7 +26,7 @@ type mode =
   } [@@deriving yojson]
 
 type jitter_mode =
-  { stream_id : Common.Stream.t
+  { stream_id : Common.Stream.id
   ; pid       : int} [@@deriving yojson]
 
 (* Status *)
@@ -59,7 +59,7 @@ type status =
   ; reset     : bool
   ; t2mi_sync : int list
   ; versions  : status_versions
-  ; streams   : Common.Stream.t list
+  ; streams   : Common.Stream.id list
   } [@@deriving yojson]
 
 (* MPEG-TS errors *)
@@ -76,7 +76,7 @@ type ts_error =
   } [@@deriving yojson]
 
 type ts_errors =
-  { stream_id : Common.Stream.t
+  { stream_id : Common.Stream.id
   ; errors    : ts_error list
   } [@@deriving yojson]
 
@@ -124,7 +124,7 @@ type t2mi_error =
   } [@@deriving yojson]
 
 type t2mi_errors =
-  { stream_id        : Common.Stream.t
+  { stream_id        : Common.Stream.id
   ; t2mi_pid         : int
   ; sync             : int list
   ; ts_parser_errors : ts_parser_error list
@@ -348,7 +348,7 @@ type general_struct_block =
   } [@@deriving yojson]
 
 type ts_struct =
-  { stream_id    : Common.Stream.t
+  { stream_id    : Common.Stream.id
   ; general      : general_struct_block
   ; pids         : pid list
   ; services     : service list
@@ -359,7 +359,7 @@ type ts_struct =
 (* SI/PSI section *)
 
 type section_request =
-  { stream_id : Common.Stream.t
+  { stream_id : Common.Stream.id
   ; table     : table
   ; section   : int
   }
@@ -371,7 +371,7 @@ type section_error = Zero_length
                    | Unknown [@@deriving yojson]
 
 type section =
-  { stream_id : Common.Stream.t
+  { stream_id : Common.Stream.id
   ; data      : string (* FIXME*)
   } [@@deriving yojson]
 
@@ -392,7 +392,7 @@ type table_bitrate =
   } [@@deriving yojson]
 
 type bitrate =
-  { stream_id  : Common.Stream.t
+  { stream_id  : Common.Stream.id
   ; ts_bitrate : int
   ; pids       : pid_bitrate list
   ; tables     : table_bitrate list
@@ -511,7 +511,7 @@ type t2mi_info =
 
 (* Streams list*)
 
-type streams = Common.Stream.t list [@@deriving yojson]
+type streams = Common.Stream.id list [@@deriving yojson]
 
 
 type config = { mode        : mode

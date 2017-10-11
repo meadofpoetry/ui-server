@@ -16,16 +16,15 @@ module SM = struct
   let request_id = ref (-1)
   let jitter_ptr = ref (-1l)
 
-  exception T2mi_seq_timeout
-  exception Streams_timeout
-
   let get_id ()  = incr request_id; !request_id
 
   let wakeup_timeout (_,t) = t.pred `Timeout |> ignore
 
   type events = { status       : user_status React.event
-                ; ts_found     : Common.Stream.t React.event
-                ; ts_lost      : Common.Stream.t React.event
+                ; reset        : unit React.event
+                ; streams      : Common.Stream.id list React.signal
+                ; ts_found     : Common.Stream.id React.event
+                ; ts_lost      : Common.Stream.id React.event
                 ; ts_errors    : ts_errors React.event
                 ; t2mi_found   : int React.event
                 ; t2mi_lost    : int React.event
@@ -37,18 +36,20 @@ module SM = struct
                 ; jitter       : jitter React.event
                 }
 
-  type push_events = { status       : user_status     -> unit
-                     ; ts_found     : Common.Stream.t -> unit
-                     ; ts_lost      : Common.Stream.t -> unit
-                     ; ts_errors    : ts_errors       -> unit
-                     ; t2mi_found   : int             -> unit
-                     ; t2mi_lost    : int             -> unit
-                     ; t2mi_errors  : t2mi_errors     -> unit
-                     ; board_errors : board_errors    -> unit
-                     ; bitrate      : bitrate list    -> unit
-                     ; structs      : ts_struct list  -> unit
-                     ; t2mi_info    : t2mi_info       -> unit
-                     ; jitter       : jitter          -> unit
+  type push_events = { status       : user_status           -> unit
+                     ; reset        : unit                  -> unit
+                     ; streams      : Common.Stream.id list -> unit
+                     ; ts_found     : Common.Stream.id      -> unit
+                     ; ts_lost      : Common.Stream.id      -> unit
+                     ; ts_errors    : ts_errors             -> unit
+                     ; t2mi_found   : int                   -> unit
+                     ; t2mi_lost    : int                   -> unit
+                     ; t2mi_errors  : t2mi_errors           -> unit
+                     ; board_errors : board_errors          -> unit
+                     ; bitrate      : bitrate list          -> unit
+                     ; structs      : ts_struct list        -> unit
+                     ; t2mi_info    : t2mi_info             -> unit
+                     ; jitter       : jitter                -> unit
                      }
 
   module Events_handler : sig
@@ -157,6 +158,8 @@ module SM = struct
                         | Some o -> List.filter (fun x -> not @@ List.mem x t.status.t2mi_sync) o.t2mi_sync
                         | None   -> []) in
       pe.status t.status.status;
+      pe.streams t.status.streams;
+      if t.status.reset then pe.reset ();
       List.iter pe.ts_found ts_found;
       List.iter pe.ts_errors @@ sort_ts_errs @@ group_ts_errs t.events;
       List.iter pe.t2mi_found t2mi_found;
@@ -189,9 +192,8 @@ module SM = struct
                                              ~msg_code:0x0307
                                              ~body ()
      | Get_ts_structs req  -> (* io "sent ts structs"; *)
-                              let stream = (Common.Stream.of_int32 0xFFFFFFFFl) in
                               let body = Cbuffer.create sizeof_req_get_ts_struct in
-                              let ()   = set_req_get_ts_struct_stream_id body @@ Common.Stream.to_int32 stream in
+                              let ()   = set_req_get_ts_struct_stream_id body 0xFFFFFFFFl in
                               to_complex_req ~request_id:req
                                              ~msg_code:0x0309
                                              ~body ()
@@ -212,17 +214,19 @@ module SM = struct
                                                                stream_id = Single
                                                              } x.t2mi in
                             let body = Cbuffer.create sizeof_board_mode in
-                            let ()   = input_to_int x.input
-                                       |> (lor) (if t2mi.enabled then 4 else 0)
-                                       |> (lor) 8 (* disable board storage by default *)
-                                       |> set_board_mode_mode body in
-                            let ()   = set_board_mode_t2mi_pid body t2mi.pid in
-                            let ()   = set_board_mode_t2mi_stream_id body (Common.Stream.to_int32 t2mi.stream_id) in
+                            let () = input_to_int x.input
+                                     |> (lor) (if t2mi.enabled then 4 else 0)
+                                     |> (lor) 8 (* disable board storage by default *)
+                                     |> set_board_mode_mode body in
+                            let () = set_board_mode_t2mi_pid body t2mi.pid in
+                            let () = set_board_mode_t2mi_stream_id body
+                                                                   (Common.Stream.id_to_int32 t2mi.stream_id) in
                             to_simple_req ~msg_code:0x0082 ~body ()
      | Reset             -> to_complex_req ~msg_code:0x0111 ~body:(Cbuffer.create 0) ()
      | Set_jitter_mode x -> let body = Cbuffer.create sizeof_req_set_jitter_mode in
-                            let ()   = set_req_set_jitter_mode_stream_id body (Common.Stream.to_int32 x.stream_id) in
-                            let ()   = set_req_set_jitter_mode_pid body x.pid in
+                            let () = set_req_set_jitter_mode_stream_id body
+                                                                       (Common.Stream.id_to_int32 x.stream_id) in
+                            let () = set_req_set_jitter_mode_pid body x.pid in
                             to_complex_req ~msg_code:0x0112 ~body ())
     |> sender
 
@@ -360,6 +364,8 @@ module SM = struct
     let msgs   = ref (Await_queue.create []) in
     let imsgs  = ref (Queue.create []) in
     let status,status_push             = React.E.create () in
+    let reset,reset_push               = React.E.create () in
+    let streams,streams_push           = React.S.create [] in
     let ts_found,ts_found_push         = React.E.create () in
     let ts_lost,ts_lost_push           = React.E.create () in
     let ts_errors,ts_errors_push       = React.E.create () in
@@ -372,6 +378,8 @@ module SM = struct
     let t2mi_info,t2mi_info_push       = React.E.create () in
     let jitter,jitter_push             = React.E.create () in
     let (events : events)              = { status
+                                         ; reset
+                                         ; streams
                                          ; ts_found
                                          ; ts_lost
                                          ; ts_errors
@@ -384,6 +392,8 @@ module SM = struct
                                          ; t2mi_info
                                          ; jitter } in
     let push_events                   = { status       = status_push
+                                        ; reset        = reset_push
+                                        ; streams      = streams_push
                                         ; ts_found     = ts_found_push
                                         ; ts_lost      = ts_lost_push
                                         ; ts_errors    = ts_errors_push
@@ -409,13 +419,13 @@ module SM = struct
                                                                                                  ; section_syntax = false
                                                                                                  ; sections = []}
                                                                                       ; ts_id  = 1 }}))
-                                                     (to_period 10 step_duration)
+                                                     (to_period 120 step_duration)
                                                      None)
               ; get_t2mi_seq    = (fun s  -> enqueue msgs sender
                                                      (Get_t2mi_frame_seq { request_id = get_id ()
                                                                          ; seconds    = s })
                                                      (to_period (s + 10) step_duration)
-                                                     (Some T2mi_seq_timeout))
+                                                     None)
               ; reset           = (fun () -> enqueue_instant imsgs sender Reset)
               ; config          = (fun () -> Lwt.return storage#get)
               } in

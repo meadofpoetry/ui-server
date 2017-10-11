@@ -71,11 +71,10 @@ let topo_to_signal topo boards =
   in
   List.map board_to_signal topo
   |> React.S.merge (fun acc h -> h::acc) []
-  
+
 let create config db =
   let step_duration = 0.01 in
   let topo      = Conf.get config in
-  Lwt_io.printf "got %d boards\n" @@ CCList.length topo |> ignore;
   let stor      = Storage.Options.Conf.get config in
   let usb, loop = Usb_device.create ~sleep:step_duration () in
   let rec traverse acc = (function

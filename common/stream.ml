@@ -1,9 +1,18 @@
-type t = Single
-       | Ip of int32
-       | T2mi_plp of int
-       | Dvb_plp of int * int [@@deriving yojson]
+open Hardware
 
-let of_int32 : int32 -> t = function
+type id = Single
+        | T2mi_plp of int
+        | Dvb of int * int
+        | Unknown of int32 [@@deriving yojson]
+
+type t =
+  { input       : input
+  ; id          : id
+  ; input_name  : string option
+  ; description : string option
+  } [@@deriving yojson]
+
+let id_of_int32 : int32 -> id = function
   | 0l -> Single
   | x when (Int32.logand x (Int32.of_int 0xFFFF0000)) = Int32.zero
     -> let x'     = Int32.to_int x in
@@ -11,18 +20,18 @@ let of_int32 : int32 -> t = function
        let plp    = (x' land 0xFF) in
        (match stream with
         | 1             -> T2mi_plp plp
-        | 2 | 3 | 4 | 5 -> Dvb_plp (stream - 2, plp)
-        | _             -> Ip x)
-  | _ as x -> Ip x
+        | 2 | 3 | 4 | 5 -> Dvb (stream - 2, plp)
+        | _             -> Unknown x)
+  | _ as x -> Unknown x
 
-let to_int32 : t -> int32 = function
-  | Single                -> 0l
-  | T2mi_plp plp          -> 1
-                             |> (fun x -> x lsl 8)
-                             |> Int32.of_int
-                             |> Int32.logor (Int32.of_int plp)
-  | Dvb_plp (stream,plp)  -> stream + 2
-                             |> (fun x -> x lsl 8)
-                             |> Int32.of_int
-                             |> Int32.logor (Int32.of_int plp)
-  | Ip x -> x
+let id_to_int32 : id -> int32 = function
+  | Single           -> 0l
+  | T2mi_plp plp     -> 1
+                        |> (fun x -> x lsl 8)
+                        |> Int32.of_int
+                        |> Int32.logor (Int32.of_int plp)
+  | Dvb (stream,plp) -> stream + 2
+                        |> (fun x -> x lsl 8)
+                        |> Int32.of_int
+                        |> Int32.logor (Int32.of_int plp)
+  | Unknown x        -> x

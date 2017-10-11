@@ -6,10 +6,10 @@ module Api_handler = Api.Handler.Make(Common.User)
 
 type 'a cc = [`Continue of 'a]
 
-type _ request
-                                        
 module Streams = CCMap.Make(CCInt)
 module Ports = CCMap.Make(CCInt)
+
+exception Invalid_port of string
 
 type board = { handlers        : (module Api_handler.HANDLER) list
              ; control         : int
@@ -19,15 +19,14 @@ type board = { handlers        : (module Api_handler.HANDLER) list
              ; connection      : state React.signal
              ; ports_active    : bool React.signal Ports.t
              ; state           : < >
-             } 
-           
+             }
+
 module type BOARD = sig
-  type _ request
   val create       : topo_board -> (Cbuffer.t -> unit Lwt.t) -> Storage.Database.t -> path -> float -> board
 end
 
 module Msg = struct
-                  
+
   exception Timeout
 
   type ('a, 'b) msg = { send    : (unit -> unit Lwt.t)
@@ -42,29 +41,29 @@ module Msg = struct
                      ; reqs    : ('a,'b) msg array
                      }
     let create lst    = { timer = 0; point = 0; reqs = CCArray.of_list lst }
-                      
+
     let append t msgs = { t with reqs = CCArray.append t.reqs msgs }
-                      
+
     let empty t       = CCArray.length t.reqs = 0
-                      
+
     let current t     = t.reqs.(t.point)
-                      
+
     let responsed t   = CCList.find_map (current t).pred
-                      
+
     let send t        = (current t).send
-                      
+
     let step t        =
       let tmr = succ t.timer in
       if tmr >= (current t).timeout
       then raise_notrace @@ CCOpt.get_or ~default:Timeout (current t).exn
       else { t with timer = tmr }
-      
+
     let next t        = { t with point = ((succ t.point) mod (Array.length t.reqs)); timer = 0 }
-                      
+
     let last t        = CCInt.equal t.point (CCArray.length t.reqs - 1)
 
     let map t f       = CCArray.map f t.reqs
-                      
+
     let iter t f      = CCArray.iter f t.reqs
   end
 
@@ -73,26 +72,26 @@ module Msg = struct
                      ; reqs    : ('a,'b) msg CCFQueue.t
                      }
     let create lst    = { timer = 0; reqs = CCFQueue.of_list lst }
-                      
+
     let append t msg  = { t with reqs = CCFQueue.snoc t.reqs msg }
-                      
+
     let empty t       = CCFQueue.size t.reqs = 0
-                      
+
     let responsed t m = CCOpt.(CCFQueue.first t.reqs >>= fun head -> CCList.find_map head.pred m)
-                      
+
     let send t ()     = try (CCFQueue.first_exn t.reqs).send () with _ -> Lwt.return_unit
-                                                                        
+
     let step t        = (match CCFQueue.first t.reqs with
                          | Some head -> let tmr = succ t.timer in
                                         if tmr >= head.timeout
                                         then raise_notrace @@ CCOpt.get_or ~default:Timeout head.exn
                                         else { t with timer = tmr }
                          | None      -> t)
-                      
+
     let next t        = { timer = 0; reqs = CCFQueue.tail t.reqs }
-                      
+
     let map t f       = CCFQueue.map f t.reqs
-                      
+
     let iter t f      = CCFQueue.iter f t.reqs
   end
 
