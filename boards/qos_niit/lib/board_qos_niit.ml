@@ -47,6 +47,11 @@ let create (b:topo_board) send db base step =
                             |> Yojson.Safe.to_string
                             |> Lwt_io.printf "Stream lost: %s\n"
                             |> ignore) events.ts_lost in
+  let e_t2mi_info     = React.E.map (fun x ->
+                            t2mi_info_to_yojson x
+                            |> Yojson.Safe.pretty_to_string
+                            |> Lwt_io.printf "T2-MI Info: %s\n"
+                            |> ignore) events.t2mi_info in
   let e_state         = React.S.map (function
                                      | `No_response -> Lwt_io.printf "QoS Board not responding\n"
                                      | `Fine        -> Lwt_io.printf "QoS Board is OK\n"
@@ -56,6 +61,7 @@ let create (b:topo_board) send db base step =
                            method e_state    = e_state;
                            method e_ts_found = e_ts_found;
                            method e_ts_lost  = e_ts_lost;
+                           method e_t2mi_info = e_t2mi_info;
                          end) in
   { handlers       = handlers
   ; control        = b.control

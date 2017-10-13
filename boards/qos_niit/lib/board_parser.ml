@@ -478,16 +478,17 @@ module type Request = sig
   type req
   type rsp
 
-  val msg_code   : int
-  val to_cbuffer : req -> Cbuffer.t
+  val req_code   : int
+  val rsp_code   : int  val to_cbuffer : req -> Cbuffer.t
   val of_cbuffer : Cbuffer.t -> rsp
 
 end
 
 module Get_board_info : (Request with type req := unit with type rsp := info) = struct
 
-  let msg_code = 0x0080
-  let to_cbuffer _ = to_common_header ~msg_code ()
+  let req_code = 0x0080
+  let rsp_code = 0x01
+  let to_cbuffer _ = to_common_header ~msg_code:req_code ()
   let of_cbuffer msg =
     { typ = get_board_info_board_type msg
     ; ver = get_board_info_board_version msg
@@ -497,8 +498,9 @@ end
 
 module Get_board_mode : (Request with type req := unit with type rsp := mode) = struct
 
-  let msg_code = 0x0081
-  let to_cbuffer _ = to_common_header ~msg_code ()
+  let req_code = 0x0081
+  let rsp_code = 0x02
+  let to_cbuffer _ = to_common_header ~msg_code:req_code ()
   let of_cbuffer msg = to_mode_exn (get_board_mode_mode msg)
                                    (get_board_mode_t2mi_pid msg)
                                    (get_board_mode_t2mi_stream_id msg)
@@ -507,8 +509,9 @@ end
 
 module Get_board_errors : (Request with type req := int with type rsp := board_errors) = struct
 
-  let msg_code = 0x0110
-  let to_cbuffer request_id = to_complex_req ~request_id ~msg_code ~body:(Cbuffer.create 0) ()
+  let req_code = 0x0110
+  let rsp_code = req_code
+  let to_cbuffer request_id = to_complex_req ~request_id ~msg_code:req_code ~body:(Cbuffer.create 0) ()
   let of_cbuffer msg =
     let iter = Cbuffer.iter (fun _ -> Some sizeof_t2mi_frame_seq_item)
                             (fun buf -> Cbuffer.LE.get_uint32 buf 0)
@@ -534,7 +537,8 @@ module Get_section : (Request
   type req = int * section_request
   type rsp = (section,section_error) result
 
-  let msg_code = 0x0302
+  let req_code = 0x0302
+  let rsp_code = req_code
 
   let to_cbuffer (id,(req : section_request)) =
     let body = Cbuffer.create sizeof_req_get_section in
@@ -557,7 +561,7 @@ module Get_section : (Request
                                                     set_req_get_section_adv_info_2 body x.eit_info.orig_nw_id
      | ( CAT x   | TSDT x | TDT x | RST x | ST x
          | TOT x | DIT x  | SIT x | Unknown x ) -> set_req_get_section_table_id body x.id);
-    to_complex_req ~request_id:id ~msg_code ~body ()
+    to_complex_req ~request_id:id ~msg_code:req_code ~body ()
 
   let of_cbuffer msg =
     let hdr,bdy = Cbuffer.split msg sizeof_section in
@@ -583,12 +587,13 @@ module Get_t2mi_frame_seq : (Request
 
   type rsp = t2mi_packet list
 
-  let msg_code = 0x0306
+  let req_code = 0x0306
+  let rsp_code = req_code
 
   let to_cbuffer { seconds; request_id } =
     let body = Cbuffer.create sizeof_req_get_t2mi_frame_seq in
     let ()   = set_req_get_t2mi_frame_seq_time body seconds in
-    to_complex_req ~request_id:request_id ~msg_code ~body ()
+    to_complex_req ~request_id:request_id ~msg_code:req_code ~body ()
 
   let of_cbuffer msg =
     let iter = Cbuffer.iter (fun _ -> Some sizeof_t2mi_frame_seq_item) (fun buf -> buf) msg in
@@ -623,12 +628,13 @@ end
 
 module Get_jitter : (Request with type req := jitter_req with type rsp := jitter) = struct
 
-  let msg_code = 0x0307
+  let req_code = 0x0307
+  let rsp_code = req_code
 
   let to_cbuffer { request_id; pointer } =
     let body = Cbuffer.create sizeof_req_get_jitter in
     let ()   = set_req_get_jitter_ptr body pointer in
-    to_complex_req ~request_id ~msg_code ~body ()
+    to_complex_req ~request_id ~msg_code:req_code ~body ()
 
   let of_cbuffer msg =
     let hdr,bdy' = Cbuffer.split msg sizeof_jitter in
@@ -660,12 +666,13 @@ module Get_ts_structs : (Request with type req := int with type rsp = ts_struct 
 
   type rsp = ts_struct list
 
-  let msg_code = 0x0309
+  let req_code = 0x0309
+  let rsp_code = req_code
 
   let to_cbuffer request_id =
     let body = Cbuffer.create sizeof_req_get_ts_struct in
     let ()   = set_req_get_ts_struct_stream_id body 0xFFFFFFFFl in
-    to_complex_req ~request_id ~msg_code ~body ()
+    to_complex_req ~request_id ~msg_code:req_code ~body ()
 
   let of_general_struct_block msg =
     let bdy,rest   = Cbuffer.split msg sizeof_general_struct_block in
@@ -833,9 +840,10 @@ module Get_bitrates : (Request with type req := int with type rsp = bitrate list
 
   type rsp = bitrate list
 
-  let msg_code = 0x030A
+  let req_code = 0x030A
+  let rsp_code = req_code
 
-  let to_cbuffer request_id = to_complex_req ~request_id ~msg_code ~body:(Cbuffer.create 0) ()
+  let to_cbuffer request_id = to_complex_req ~request_id ~msg_code:req_code ~body:(Cbuffer.create 0) ()
 
   let of_pids_bitrate total_pids br_per_pkt buf =
     let msg,rest = Cbuffer.split buf (sizeof_pid_bitrate * total_pids) in
@@ -893,12 +901,13 @@ end
 
 module Get_t2mi_info : (Request with type req := t2mi_info_req with type rsp := t2mi_info) = struct
 
-  let msg_code = 0x030B
+  let req_code = 0x030B
+  let rsp_code = req_code
 
   let to_cbuffer { request_id; stream_id } =
     let body = Cbuffer.create sizeof_req_get_t2mi_info in
     let ()   = set_req_get_t2mi_info_stream_id body stream_id in
-    to_complex_req ~request_id ~msg_code:0x030B ~body ()
+    to_complex_req ~request_id ~msg_code:req_code ~body ()
 
   let of_l1_pre msg =
     let bs = Bitstring.bitstring_of_string @@ Cbuffer.to_string msg in
@@ -982,7 +991,7 @@ module Get_t2mi_info : (Request with type req := t2mi_info_req with type rsp := 
     (match%bitstring bs with
      | {| sub_slices_per_frame : 15; num_plp : 8; num_aux : 4; aux_config_rfu : 8
         ; rf : (l1_pre.num_rf * 35) : bitstring
-        ; fef : if l1_pre.s2 land 1 = 0 then 34 else 0 : bitstring
+        ; fef : if l1_pre.s2 land 1 <> 0 then 34 else 0 : bitstring
         ; plp : num_plp * 89 : bitstring
         ; fef_length_msb : 2; reserved_2 : 30
         ; aux : num_aux * 32 : bitstring
@@ -1158,8 +1167,8 @@ let check_msg_code buf =
   let code     = get_common_header_msg_code hdr in
   let has_crc  = (code land 2) > 0 in
   let length   = (match code lsr 8 with
-                  | 0x01 -> Some sizeof_board_info                               (* board info*)
-                  | 0x02 -> Some sizeof_board_mode                               (* board mode *)
+                  | x when x = Get_board_info.rsp_code -> Some sizeof_board_info (* board info*)
+                  | x when x = Get_board_mode.rsp_code -> Some sizeof_board_mode (* board mode *)
                   | 0x03 -> Some sizeof_status                                   (* status *)
                   | 0x04 -> Some ((get_ts_errors_length rest * 2) + 2)           (* ts errors *)
                   | 0x05 -> Some ((get_t2mi_errors_length rest * 2) + 2)         (* t2mi errors *)
@@ -1236,13 +1245,13 @@ let parse_complex_msg = fun ((code,r_id),msg) ->
   try
     let data = (r_id,msg) in
     (match code with
-     | x when x = Get_board_errors.msg_code   -> `ER (`Board_errors data)
-     | x when x = Get_section.msg_code        -> `R  (`Section data)
-     | x when x = Get_t2mi_frame_seq.msg_code -> `R  (`T2mi_frame_seq data)
-     | x when x = Get_jitter.msg_code         -> `ER (`Jitter (r_id,(get_jitter_req_ptr msg),msg))
-     | x when x = Get_ts_structs.msg_code     -> `ER (`Struct (r_id,(get_ts_structs_version msg),msg))
-     | x when x = Get_bitrates.msg_code       -> `ER (`Bitrates (r_id,(get_bitrates_version msg),msg))
-     | x when x = Get_t2mi_info.msg_code      -> `ER (`T2mi_info (r_id,
+     | x when x = Get_board_errors.rsp_code   -> `ER (`Board_errors data)
+     | x when x = Get_section.rsp_code        -> `R  (`Section data)
+     | x when x = Get_t2mi_frame_seq.rsp_code -> `R  (`T2mi_frame_seq data)
+     | x when x = Get_jitter.rsp_code         -> `ER (`Jitter (r_id,(get_jitter_req_ptr msg),msg))
+     | x when x = Get_ts_structs.rsp_code     -> `ER (`Struct (r_id,(get_ts_structs_version msg),msg))
+     | x when x = Get_bitrates.rsp_code       -> `ER (`Bitrates (r_id,(get_bitrates_version msg),msg))
+     | x when x = Get_t2mi_info.rsp_code      -> `ER (`T2mi_info (r_id,
                                                                   (get_t2mi_info_version msg),
                                                                   (get_t2mi_info_stream_id msg),
                                                                   msg))
@@ -1344,6 +1353,7 @@ let parse_get_bitrates req_id = function
 
 let parse_get_t2mi_info (req : t2mi_info_req) = function
   | `T2mi_info (r_id,_,stream_id,buf) -> if req.request_id <> r_id then None
+                                         else if req.stream_id <> stream_id then None
                                          else (match try_parse Get_t2mi_info.of_cbuffer buf with
                                                | Some x -> Some (T2mi_info x)
                                                | None   -> None)
