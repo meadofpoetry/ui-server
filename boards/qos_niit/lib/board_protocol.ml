@@ -171,40 +171,19 @@ module SM = struct
 
   let send_msg (type a) sender (msg : a request) : unit Lwt.t =
     (match msg with
-     | Get_board_info       -> to_common_header ~msg_code:0x0080 ()
-     | Get_board_mode       -> to_common_header ~msg_code:0x0081 ()
-     | Get_t2mi_frame_seq x -> let body = Cbuffer.create sizeof_req_get_t2mi_frame_seq in
-                                          let ()   = set_req_get_t2mi_frame_seq_time body x.seconds in
-                                          to_complex_req ~request_id:x.request_id ~msg_code:0x0306 ~body ()
-     | Get_section (id,req) -> to_complex_req ~request_id:id ~msg_code:0x0302 ~body:(to_req_get_section req) ())
+     | Get_board_info       -> Get_board_info.to_cbuffer ()
+     | Get_board_mode       -> Get_board_mode.to_cbuffer ()
+     | Get_t2mi_frame_seq x -> Get_t2mi_frame_seq.to_cbuffer x
+     | Get_section (id,x)   -> Get_section.to_cbuffer (id,x))
     |> sender
 
   let send_event (type a) sender (msg : a event_request) : unit Lwt.t =
     (match msg with
-     | Get_board_errors id -> (* io "sent board errors"; *)
-                              to_complex_req ~request_id:id
-                                             ~msg_code:0x0110
-                                             ~body:(Cbuffer.create 0) ()
-     | Get_jitter req      -> (* io "sent jitter"; *)
-                              let body = Cbuffer.create sizeof_req_get_jitter in
-                              let ()   = set_req_get_jitter_ptr body req.pointer in
-                              to_complex_req ~request_id:req.request_id
-                                             ~msg_code:0x0307
-                                             ~body ()
-     | Get_ts_structs req  -> (* io "sent ts structs"; *)
-                              let body = Cbuffer.create sizeof_req_get_ts_struct in
-                              let ()   = set_req_get_ts_struct_stream_id body 0xFFFFFFFFl in
-                              to_complex_req ~request_id:req
-                                             ~msg_code:0x0309
-                                             ~body ()
-     | Get_bitrates req    -> (* io "sent bitrates"; *)
-                              to_complex_req ~request_id:req ~msg_code:0x030A ~body:(Cbuffer.create 0) ()
-     | Get_t2mi_info req   -> (* io "sent t2mi info"; *)
-                              let body = Cbuffer.create sizeof_req_get_t2mi_info in
-                              let ()   = set_req_get_t2mi_info_stream_id body req.stream_id in
-                              to_complex_req ~request_id:req.request_id
-                                             ~msg_code:0x030B
-                                             ~body ())
+     | Get_board_errors id -> Get_board_errors.to_cbuffer id
+     | Get_jitter req      -> Get_jitter.to_cbuffer req
+     | Get_ts_structs req  -> Get_ts_structs.to_cbuffer req
+     | Get_bitrates req    -> Get_bitrates.to_cbuffer req
+     | Get_t2mi_info req   -> Get_t2mi_info.to_cbuffer req)
     |> sender
 
   let send_instant (type a) sender (msg : a instant_request) : unit Lwt.t =
