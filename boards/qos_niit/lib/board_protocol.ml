@@ -76,7 +76,7 @@ module SM = struct
       }
 
     let group_ts_errs l   = CCList.filter_map (function
-                                               | `Ts_errors x -> try_parse of_ts_errors x
+                                               | `Ts_errors x -> try_parse Ts_errors.of_cbuffer x
                                                | _            -> None) l
                             |> CCList.group_succ ~eq:(fun (x:ts_errors) y -> x.stream_id = y.stream_id)
                             |> CCList.map (fun l -> CCList.fold_left (fun (acc : ts_errors) (x : ts_errors) ->
@@ -88,7 +88,7 @@ module SM = struct
                                                       Int32.compare x.packet y.packet) x.errors }) l
 
     let group_t2mi_errs l = CCList.filter_map (function
-                                               | `T2mi_errors x -> try_parse of_t2mi_errors x
+                                               | `T2mi_errors x -> try_parse T2mi_errors.of_cbuffer x
                                                | _ -> None) l
                             |> CCList.group_succ ~eq:(fun (x : t2mi_errors) y -> x.stream_id = y.stream_id)
                             |> CCList.map (fun l -> CCList.fold_left (fun (acc : t2mi_errors) (x : t2mi_errors) ->

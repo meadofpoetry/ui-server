@@ -479,8 +479,18 @@ module type Request = sig
   type rsp
 
   val req_code   : int
-  val rsp_code   : int  val to_cbuffer : req -> Cbuffer.t
+  val rsp_code   : int
+  val to_cbuffer : req -> Cbuffer.t
   val of_cbuffer : Cbuffer.t -> rsp
+
+end
+
+module type Event = sig
+
+  type msg
+
+  val msg_code : int
+  val of_cbuffer : Cbuffer.t -> msg
 
 end
 
@@ -1034,109 +1044,130 @@ module Get_t2mi_info : (Request with type req := t2mi_info_req with type rsp := 
 
 end
 
-(* Status *)
+(* ---------------------- Events --------------------- *)
 
-let of_status msg =
-  let iter     = fun x -> Cbuffer.iter (fun _ -> Some 1) (fun buf -> Cbuffer.get_uint8 buf 0) x in
-  let flags    = get_status_flags msg in
-  let has_sync = not (flags land 0x04 > 0) in
-  let ts_num   = get_status_ts_num msg in
-  let flags2   = get_status_flags_2 msg in
-  { status    = { load             = (float_of_int ((get_status_load msg) * 100)) /. 255.
-                ; mode             = to_mode_exn (get_status_mode msg)
-                                                 (get_status_t2mi_pid msg)
-                                                 (get_status_t2mi_stream_id msg)
-                ; jitter_mode      = { stream_id = Common.Stream.id_of_int32 (get_status_jitter_stream_id msg)
-                                     ; pid       = get_status_jitter_pid msg
-                                     }
-                ; ts_num           = if has_sync then ts_num else 0
-                ; services_num     = if has_sync then get_status_services_num msg else 0
-                ; bitrate          = Int32.to_int @@ get_status_bitrate msg
-                ; packet_sz        = if      (flags land 0x08) <> 0 then Ts192
-                                     else if (flags land 0x10) <> 0 then Ts204
-                                     else Ts188
-                ; has_stream       = flags land 0x80 = 0
-                }
-  ; errors    = flags  land 0x20 <> 0
-  ; reset     = flags2 land 0x02 <> 0
-  ; t2mi_sync = int_to_bool_list (get_status_t2mi_sync msg)
-                |> (fun l -> CCList.foldi (fun acc i x -> if x then i :: acc else acc) [] l)
-  ; versions  = { streams_ver      = get_status_streams_ver msg
-                ; ts_ver_com       = get_status_ts_ver_com msg
-                ; ts_ver_lst       = Cbuffer.fold (fun acc el -> el :: acc)
-                                                  (iter @@ get_status_ts_ver_lst msg) []
-                                     |> CCList.rev
-                                     |> CCList.take ts_num
-                ; t2mi_ver_lst     = get_status_t2mi_ver_lst msg
-                                     |> (fun v -> CCList.map (fun x -> Int32.shift_right v (4 * x)
-                                                                       |> Int32.logand 0xfl
-                                                                       |> Int32.to_int)
-                                                             (CCList.range 0 7))
-                }
-  ; streams   = []
-  }
+module Status : (Event with type msg := status) = struct
 
-(* Streams list event *)
+  let msg_code = 0x03
 
-let of_streams_event msg =
-  let hdr,bdy' = Cbuffer.split msg sizeof_streams_list_event in
-  let count    = get_streams_list_event_count hdr in
-  let bdy,_    = Cbuffer.split bdy' (count * 4) in
-  let iter     = Cbuffer.iter (fun _ -> Some 4) (fun buf -> Cbuffer.LE.get_uint32 buf 0) bdy in
-  List.rev @@ Cbuffer.fold (fun acc el -> (Common.Stream.id_of_int32 el) :: acc) iter []
+  let of_cbuffer msg =
+    let iter     = fun x -> Cbuffer.iter (fun _ -> Some 1) (fun buf -> Cbuffer.get_uint8 buf 0) x in
+    let flags    = get_status_flags msg in
+    let has_sync = not (flags land 0x04 > 0) in
+    let ts_num   = get_status_ts_num msg in
+    let flags2   = get_status_flags_2 msg in
+    { status    = { load             = (float_of_int ((get_status_load msg) * 100)) /. 255.
+                  ; mode             = to_mode_exn (get_status_mode msg)
+                                                   (get_status_t2mi_pid msg)
+                                                   (get_status_t2mi_stream_id msg)
+                  ; jitter_mode      = { stream_id = Common.Stream.id_of_int32 (get_status_jitter_stream_id msg)
+                                       ; pid       = get_status_jitter_pid msg
+                                       }
+                  ; ts_num           = if has_sync then ts_num else 0
+                  ; services_num     = if has_sync then get_status_services_num msg else 0
+                  ; bitrate          = Int32.to_int @@ get_status_bitrate msg
+                  ; packet_sz        = if      (flags land 0x08) <> 0 then Ts192
+                                       else if (flags land 0x10) <> 0 then Ts204
+                                       else Ts188
+                  ; has_stream       = flags land 0x80 = 0
+                  }
+    ; errors    = flags  land 0x20 <> 0
+    ; reset     = flags2 land 0x02 <> 0
+    ; t2mi_sync = int_to_bool_list (get_status_t2mi_sync msg)
+                  |> (fun l -> CCList.foldi (fun acc i x -> if x then i :: acc else acc) [] l)
+    ; versions  = { streams_ver      = get_status_streams_ver msg
+                  ; ts_ver_com       = get_status_ts_ver_com msg
+                  ; ts_ver_lst       = Cbuffer.fold (fun acc el -> el :: acc)
+                                                    (iter @@ get_status_ts_ver_lst msg) []
+                                       |> CCList.rev
+                                       |> CCList.take ts_num
+                  ; t2mi_ver_lst     = get_status_t2mi_ver_lst msg
+                                       |> (fun v -> CCList.map (fun x -> Int32.shift_right v (4 * x)
+                                                                         |> Int32.logand 0xfl
+                                                                         |> Int32.to_int)
+                                                               (CCList.range 0 7))
+                  }
+    ; streams   = []
+    }
 
-(* Ts errors *)
+end
 
-let of_ts_errors msg =
-  let common,rest = Cbuffer.split msg sizeof_ts_errors in
-  let number      = get_ts_errors_count common in
-  let errors,_    = Cbuffer.split rest (number * sizeof_ts_error) in
-  let iter        = Cbuffer.iter (fun _ -> Some sizeof_ts_error) (fun buf -> buf) errors in
-  let errors      = Cbuffer.fold (fun acc el -> let pid'      = get_ts_error_pid el in
-                                                let pid       = pid' land 0x1FFF in
-                                                let multi_pid = if (pid' land 0x8000) > 0 then true else false in
-                                                { count     = get_ts_error_count el
-                                                ; err_code  = get_ts_error_err_code el
-                                                ; err_ext   = get_ts_error_err_ext el
-                                                ; multi_pid
-                                                ; pid
-                                                ; packet    = get_ts_error_packet el
-                                                ; param_1   = get_ts_error_param_1 el
-                                                ; param_2   = get_ts_error_param_2 el
-                                                } :: acc)
-                                 iter [] in
-  { stream_id = Common.Stream.id_of_int32 (get_ts_errors_stream_id common); errors }
+module Streams : (Event with type msg = Common.Stream.id list) = struct
 
-(* T2-MI errors *)
+  type msg = Common.Stream.id list
 
-let of_t2mi_errors msg =
-  let common,rest = Cbuffer.split msg sizeof_t2mi_errors in
-  let number      = get_t2mi_errors_count common in
-  let errors,_    = Cbuffer.split rest (number * sizeof_t2mi_error) in
-  let iter        = Cbuffer.iter (fun _ -> Some sizeof_t2mi_error) (fun buf -> buf) errors in
-  let parser_errs = get_t2mi_errors_err_flags common in
-  let errors      = Cbuffer.fold (fun acc el -> let _index   = get_t2mi_error_index el in
-                                                let _data    = get_t2mi_error_data el in
-                                                let cnt_flag = _index land 8 = 0 in
-                                                let index    = _index lsr 4 in
-                                                if (not cnt_flag) && index = 0 then acc
-                                                else { count          = if cnt_flag then Some _data else None
-                                                     ; err_code       = _index lsr 4
-                                                     ; t2mi_stream_id = _index land 7
-                                                     ; param          = if cnt_flag then None else Some _data
-                                                     } :: acc)
-                                 iter [] in
-  { stream_id        = Common.Stream.id_of_int32 (get_t2mi_errors_stream_id common)
-  ; t2mi_pid         = get_t2mi_errors_pid common
-  ; sync             = int_to_t2mi_sync_list (get_t2mi_errors_sync common)
-  ; ts_parser_errors = CCList.filter_map (fun x -> if CCOpt.is_some x then x else None)
-                                         [ if parser_errs land 1 > 0 then Some Af_too_long_for_new_packet else None
-                                         ; if parser_errs land 2 > 0 then Some Af_too_long else None
-                                         ; if parser_errs land 4 > 0 then Some Pf_out_of_bounds else None
-                                         ; if parser_errs land 8 > 0 then Some Packet_intersection else None
-                                         ]
-  ; errors
-  }
+  let msg_code = 0x0B
+
+  let of_cbuffer msg =
+    let hdr,bdy' = Cbuffer.split msg sizeof_streams_list_event in
+    let count    = get_streams_list_event_count hdr in
+    let bdy,_    = Cbuffer.split bdy' (count * 4) in
+    let iter     = Cbuffer.iter (fun _ -> Some 4) (fun buf -> Cbuffer.LE.get_uint32 buf 0) bdy in
+    List.rev @@ Cbuffer.fold (fun acc el -> (Common.Stream.id_of_int32 el) :: acc) iter []
+
+end
+
+module Ts_errors : (Event with type msg := ts_errors) = struct
+
+  let msg_code = 0x04
+
+  let of_cbuffer msg =
+    let common,rest = Cbuffer.split msg sizeof_ts_errors in
+    let number      = get_ts_errors_count common in
+    let errors,_    = Cbuffer.split rest (number * sizeof_ts_error) in
+    let iter        = Cbuffer.iter (fun _ -> Some sizeof_ts_error) (fun buf -> buf) errors in
+    let errors      = Cbuffer.fold (fun acc el -> let pid'      = get_ts_error_pid el in
+                                                  let pid       = pid' land 0x1FFF in
+                                                  let multi_pid = if (pid' land 0x8000) > 0 then true else false in
+                                                  { count     = get_ts_error_count el
+                                                  ; err_code  = get_ts_error_err_code el
+                                                  ; err_ext   = get_ts_error_err_ext el
+                                                  ; multi_pid
+                                                  ; pid
+                                                  ; packet    = get_ts_error_packet el
+                                                  ; param_1   = get_ts_error_param_1 el
+                                                  ; param_2   = get_ts_error_param_2 el
+                                                  } :: acc)
+                                   iter [] in
+    { stream_id = Common.Stream.id_of_int32 (get_ts_errors_stream_id common); errors }
+
+end
+
+module T2mi_errors : (Event with type msg := t2mi_errors) = struct
+
+  let msg_code = 0x05
+
+  let of_cbuffer msg =
+    let common,rest = Cbuffer.split msg sizeof_t2mi_errors in
+    let number      = get_t2mi_errors_count common in
+    let errors,_    = Cbuffer.split rest (number * sizeof_t2mi_error) in
+    let iter        = Cbuffer.iter (fun _ -> Some sizeof_t2mi_error) (fun buf -> buf) errors in
+    let parser_errs = get_t2mi_errors_err_flags common in
+    let errors      = Cbuffer.fold (fun acc el -> let _index   = get_t2mi_error_index el in
+                                                  let _data    = get_t2mi_error_data el in
+                                                  let cnt_flag = _index land 8 = 0 in
+                                                  let index    = _index lsr 4 in
+                                                  if (not cnt_flag) && index = 0 then acc
+                                                  else { count          = if cnt_flag then Some _data else None
+                                                       ; err_code       = _index lsr 4
+                                                       ; t2mi_stream_id = _index land 7
+                                                       ; param          = if cnt_flag then None else Some _data
+                                                       } :: acc)
+                                   iter [] in
+    { stream_id        = Common.Stream.id_of_int32 (get_t2mi_errors_stream_id common)
+    ; t2mi_pid         = get_t2mi_errors_pid common
+    ; sync             = int_to_t2mi_sync_list (get_t2mi_errors_sync common)
+    ; ts_parser_errors = CCList.filter_map (fun x -> if CCOpt.is_some x then x else None)
+                                           [ if parser_errs land 1 <> 0 then Some Af_too_long_for_new_packet else None
+                                           ; if parser_errs land 2 <> 0 then Some Af_too_long else None
+                                           ; if parser_errs land 4 <> 0 then Some Pf_out_of_bounds else None
+                                           ; if parser_errs land 8 <> 0 then Some Packet_intersection else None
+                                           ]
+    ; errors
+    }
+
+end
+
 
 (* ----------------- Message deserialization ---------------- *)
 
@@ -1167,15 +1198,15 @@ let check_msg_code buf =
   let code     = get_common_header_msg_code hdr in
   let has_crc  = (code land 2) > 0 in
   let length   = (match code lsr 8 with
-                  | x when x = Get_board_info.rsp_code -> Some sizeof_board_info (* board info*)
-                  | x when x = Get_board_mode.rsp_code -> Some sizeof_board_mode (* board mode *)
-                  | 0x03 -> Some sizeof_status                                   (* status *)
-                  | 0x04 -> Some ((get_ts_errors_length rest * 2) + 2)           (* ts errors *)
-                  | 0x05 -> Some ((get_t2mi_errors_length rest * 2) + 2)         (* t2mi errors *)
-                  | 0x09 -> Some ((get_complex_rsp_header_length rest * 2) + 2)  (* complex response *)
-                  | 0x0B -> Some ((get_streams_list_event_length rest * 2) + 2)  (* streams list event *)
-                  | 0xFD -> Some 4                                               (* end of errors *)
-                  | 0xFF -> Some 0                                               (* end of transmission *)
+                  | x when x = Get_board_info.rsp_code -> Some sizeof_board_info
+                  | x when x = Get_board_mode.rsp_code -> Some sizeof_board_mode
+                  | x when x = Status.msg_code         -> Some sizeof_status
+                  | x when x = Ts_errors.msg_code      -> Some ((get_ts_errors_length rest * 2) + 2)
+                  | x when x = T2mi_errors.msg_code    -> Some ((get_t2mi_errors_length rest * 2) + 2)
+                  | x when x = Streams.msg_code        -> Some ((get_streams_list_event_length rest * 2) + 2)
+                  | 0x09 -> Some ((get_complex_rsp_header_length rest * 2) + 2)
+                  | 0xFD -> Some 4 (* end of errors *)
+                  | 0xFF -> Some 0 (* end of transmission *)
                   | _    -> None) in
   match length with
   | Some x -> Ok (x + (if has_crc then 2 else 0), has_crc, code, rest)
@@ -1214,12 +1245,12 @@ let get_msg buf =
 let parse_simple_msg = fun (code,body,parts) ->
   try
     (match code lsr 8 with
-     | 0x01 -> `R (`Board_info body)
-     | 0x02 -> `R (`Board_mode body)
-     | 0x03 -> `E (`Status (of_status body))
-     | 0x04 -> `E (`Ts_errors body)
-     | 0x05 -> `E (`T2mi_errors body)
-     | 0x0B -> `E (`Streams_event (of_streams_event body))
+     | x when x = Get_board_info.rsp_code -> `R (`Board_info body)
+     | x when x = Get_board_mode.rsp_code -> `R (`Board_mode body)
+     | x when x = Status.msg_code         -> `E (`Status (Status.of_cbuffer body))
+     | x when x = Ts_errors.msg_code      -> `E (`Ts_errors body)
+     | x when x = T2mi_errors.msg_code    -> `E (`T2mi_errors body)
+     | x when x = Streams.msg_code        -> `E (`Streams_event (Streams.of_cbuffer body))
      | 0x09 -> let code_ext   = get_complex_rsp_header_code_ext body in
                let long       = code_ext land 0x2000 > 0 in
                let parity     = if code_ext land 0x1000 > 0 then 1 else 0 in
