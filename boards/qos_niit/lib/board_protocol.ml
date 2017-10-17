@@ -16,16 +16,15 @@ module SM = struct
   let request_id = ref (-1)
   let jitter_ptr = ref (-1l)
 
-  exception T2mi_seq_timeout
-  exception Streams_timeout
-
   let get_id ()  = incr request_id; !request_id
 
   let wakeup_timeout (_,t) = t.pred `Timeout |> ignore
 
   type events = { status       : user_status React.event
-                ; ts_found     : Common.Stream.t React.event
-                ; ts_lost      : Common.Stream.t React.event
+                ; reset        : unit React.event
+                ; streams      : Common.Stream.id list React.signal
+                ; ts_found     : Common.Stream.id React.event
+                ; ts_lost      : Common.Stream.id React.event
                 ; ts_errors    : ts_errors React.event
                 ; t2mi_found   : int React.event
                 ; t2mi_lost    : int React.event
@@ -37,28 +36,30 @@ module SM = struct
                 ; jitter       : jitter React.event
                 }
 
-  type push_events = { status       : user_status     -> unit
-                     ; ts_found     : Common.Stream.t -> unit
-                     ; ts_lost      : Common.Stream.t -> unit
-                     ; ts_errors    : ts_errors       -> unit
-                     ; t2mi_found   : int             -> unit
-                     ; t2mi_lost    : int             -> unit
-                     ; t2mi_errors  : t2mi_errors     -> unit
-                     ; board_errors : board_errors    -> unit
-                     ; bitrate      : bitrate list    -> unit
-                     ; structs      : ts_struct list  -> unit
-                     ; t2mi_info    : t2mi_info       -> unit
-                     ; jitter       : jitter          -> unit
+  type push_events = { status       : user_status           -> unit
+                     ; reset        : unit                  -> unit
+                     ; streams      : Common.Stream.id list -> unit
+                     ; ts_found     : Common.Stream.id      -> unit
+                     ; ts_lost      : Common.Stream.id      -> unit
+                     ; ts_errors    : ts_errors             -> unit
+                     ; t2mi_found   : int                   -> unit
+                     ; t2mi_lost    : int                   -> unit
+                     ; t2mi_errors  : t2mi_errors           -> unit
+                     ; board_errors : board_errors          -> unit
+                     ; bitrate      : bitrate list          -> unit
+                     ; structs      : ts_struct list        -> unit
+                     ; t2mi_info    : t2mi_info             -> unit
+                     ; jitter       : jitter                -> unit
                      }
 
   module Events_handler : sig
     type event = [ `Status      of Board_types.status
                  | `Streams_event of streams
                  | `T2mi_errors of Cbuffer.t
-                 | `Ts_errors   of Cbuffer.t ]
+                 | `Ts_errors   of Cbuffer.t
+                 | `End_of_errors ]
     type t
-    val partition        : event list -> t option -> event list * t list
-    val insert_events    : t -> event list -> t
+    val partition        : event list -> t option -> t list * event list
     val insert_versions  : t -> t -> t
     val get_req_stack    : t -> t option -> event_response event_request list
     val push             : t -> push_events -> unit
@@ -66,7 +67,8 @@ module SM = struct
     type event = [ `Status of Board_types.status
                  | `Streams_event of streams
                  | `T2mi_errors of Cbuffer.t
-                 | `Ts_errors of Cbuffer.t ]
+                 | `Ts_errors of Cbuffer.t
+                 | `End_of_errors ]
 
     type t =
       { status       : status
@@ -75,7 +77,7 @@ module SM = struct
       }
 
     let group_ts_errs l   = CCList.filter_map (function
-                                               | `Ts_errors x -> try_parse of_ts_errors x
+                                               | `Ts_errors x -> try_parse Ts_errors.of_cbuffer x
                                                | _            -> None) l
                             |> CCList.group_succ ~eq:(fun (x:ts_errors) y -> x.stream_id = y.stream_id)
                             |> CCList.map (fun l -> CCList.fold_left (fun (acc : ts_errors) (x : ts_errors) ->
@@ -87,41 +89,35 @@ module SM = struct
                                                       Int32.compare x.packet y.packet) x.errors }) l
 
     let group_t2mi_errs l = CCList.filter_map (function
-                                               | `T2mi_errors x -> try_parse of_t2mi_errors x
+                                               | `T2mi_errors x -> try_parse T2mi_errors.of_cbuffer x
                                                | _ -> None) l
                             |> CCList.group_succ ~eq:(fun (x : t2mi_errors) y -> x.stream_id = y.stream_id)
                             |> CCList.map (fun l -> CCList.fold_left (fun (acc : t2mi_errors) (x : t2mi_errors) ->
                                                         { acc with errors = (acc.errors @ x.errors) })
                                                                      (CCList.hd l) l)
 
-    let insert_events t events = { t with events = t.events @ events }
-
     let insert_versions t old_t = { t with status = { t.status with versions = old_t.status.versions }}
 
+    let split_by l sep =
+      let res,acc = List.fold_left (fun (res,acc) x ->
+                        if x = sep then (((List.rev acc) :: res),[]) else (res,x::acc))
+                                   ([],[]) l in
+      (List.rev res),(List.rev acc)
+
     let partition events prev_group =
-      match CCList.find_idx (function | `Status _ -> true | _ -> false) events with
-      | Some (idx,_) -> let ev,other = CCList.take_drop idx events in
-                        let rec f = (fun acc (l : event list) ->
-                            let events,groups = acc in
-                            match l with
-                            | [] -> acc
-                            | (`Status status :: `Streams_event streams :: tl) ->
-                               let groups,prev_status = (match groups with
-                                                         | []      -> let open CCOpt in
-                                                                      groups,prev_group >|= (fun x -> x.status)
-                                                         | x :: tl -> let prev_group = insert_events x events in
-                                                                      prev_group :: tl,Some prev_group.status) in
-                               f ([], { status      = { status with streams = streams}
-                                      ; prev_status = prev_status
-                                      ; events      = [] } :: groups) tl
-                            | `Status _ :: _ :: _ -> failwith "got status without streams"
-                            | x :: tl -> f (x::events,groups) tl) in
-                        let events,groups = f ([],[]) other in
-                        let groups = (match groups with
-                                      | [] -> []
-                                      | x :: tl -> (insert_events x events) :: tl) in
-                        ev,CCList.rev groups
-      | None       -> events,[]
+      let groups,rest = split_by events `End_of_errors in
+      let groups = CCList.filter (function
+                                  | `Status _ :: `Streams_event streams :: _ -> true
+                                  | _                                        -> false) groups in
+      let groups = CCList.fold_left (fun acc x ->
+                       let prev_status = (match acc with
+                                          | [] -> CCOpt.(prev_group >|= (fun x -> x.status))
+                                          | x :: _ -> Some x.status) in
+                       match x with
+                       | `Status status :: `Streams_event streams :: events ->
+                          { status; prev_status; events } :: acc
+                       | _ -> assert false) [] groups in
+      (CCList.rev groups),rest
 
     let get_req_stack { status; _ } prev_t =
       let bitrate_req    = Get_bitrates (get_id ()) in
@@ -157,6 +153,8 @@ module SM = struct
                         | Some o -> List.filter (fun x -> not @@ List.mem x t.status.t2mi_sync) o.t2mi_sync
                         | None   -> []) in
       pe.status t.status.status;
+      pe.streams t.status.streams;
+      if t.status.reset then pe.reset ();
       List.iter pe.ts_found ts_found;
       List.iter pe.ts_errors @@ sort_ts_errs @@ group_ts_errs t.events;
       List.iter pe.t2mi_found t2mi_found;
@@ -168,41 +166,19 @@ module SM = struct
 
   let send_msg (type a) sender (msg : a request) : unit Lwt.t =
     (match msg with
-     | Get_board_info       -> to_common_header ~msg_code:0x0080 ()
-     | Get_board_mode       -> to_common_header ~msg_code:0x0081 ()
-     | Get_t2mi_frame_seq x -> let body = Cbuffer.create sizeof_req_get_t2mi_frame_seq in
-                                          let ()   = set_req_get_t2mi_frame_seq_time body x.seconds in
-                                          to_complex_req ~request_id:x.request_id ~msg_code:0x0306 ~body ()
-     | Get_section (id,req) -> to_complex_req ~request_id:id ~msg_code:0x0302 ~body:(to_req_get_section req) ())
+     | Get_board_info       -> Get_board_info.to_cbuffer ()
+     | Get_board_mode       -> Get_board_mode.to_cbuffer ()
+     | Get_t2mi_frame_seq x -> Get_t2mi_frame_seq.to_cbuffer x
+     | Get_section (id,x)   -> Get_section.to_cbuffer (id,x))
     |> sender
 
   let send_event (type a) sender (msg : a event_request) : unit Lwt.t =
     (match msg with
-     | Get_board_errors id -> (* io "sent board errors"; *)
-                              to_complex_req ~request_id:id
-                                             ~msg_code:0x0110
-                                             ~body:(Cbuffer.create 0) ()
-     | Get_jitter req      -> (* io "sent jitter"; *)
-                              let body = Cbuffer.create sizeof_req_get_jitter in
-                              let ()   = set_req_get_jitter_ptr body req.pointer in
-                              to_complex_req ~request_id:req.request_id
-                                             ~msg_code:0x0307
-                                             ~body ()
-     | Get_ts_structs req  -> (* io "sent ts structs"; *)
-                              let stream = (Common.Stream.of_int32 0xFFFFFFFFl) in
-                              let body = Cbuffer.create sizeof_req_get_ts_struct in
-                              let ()   = set_req_get_ts_struct_stream_id body @@ Common.Stream.to_int32 stream in
-                              to_complex_req ~request_id:req
-                                             ~msg_code:0x0309
-                                             ~body ()
-     | Get_bitrates req    -> (* io "sent bitrates"; *)
-                              to_complex_req ~request_id:req ~msg_code:0x030A ~body:(Cbuffer.create 0) ()
-     | Get_t2mi_info req   -> (* io "sent t2mi info"; *)
-                              let body = Cbuffer.create sizeof_req_get_t2mi_info in
-                              let ()   = set_req_get_t2mi_info_stream_id body req.stream_id in
-                              to_complex_req ~request_id:req.request_id
-                                             ~msg_code:0x030B
-                                             ~body ())
+     | Get_board_errors id -> Get_board_errors.to_cbuffer id
+     | Get_jitter req      -> Get_jitter.to_cbuffer req
+     | Get_ts_structs req  -> Get_ts_structs.to_cbuffer req
+     | Get_bitrates req    -> Get_bitrates.to_cbuffer req
+     | Get_t2mi_info req   -> Get_t2mi_info.to_cbuffer req)
     |> sender
 
   let send_instant (type a) sender (msg : a instant_request) : unit Lwt.t =
@@ -212,17 +188,19 @@ module SM = struct
                                                                stream_id = Single
                                                              } x.t2mi in
                             let body = Cbuffer.create sizeof_board_mode in
-                            let ()   = input_to_int x.input
-                                       |> (lor) (if t2mi.enabled then 4 else 0)
-                                       |> (lor) 8 (* disable board storage by default *)
-                                       |> set_board_mode_mode body in
-                            let ()   = set_board_mode_t2mi_pid body t2mi.pid in
-                            let ()   = set_board_mode_t2mi_stream_id body (Common.Stream.to_int32 t2mi.stream_id) in
+                            let () = input_to_int x.input
+                                     |> (lor) (if t2mi.enabled then 4 else 0)
+                                     |> (lor) 8 (* disable board storage by default *)
+                                     |> set_board_mode_mode body in
+                            let () = set_board_mode_t2mi_pid body t2mi.pid in
+                            let () = set_board_mode_t2mi_stream_id body
+                                                                   (Common.Stream.id_to_int32 t2mi.stream_id) in
                             to_simple_req ~msg_code:0x0082 ~body ()
      | Reset             -> to_complex_req ~msg_code:0x0111 ~body:(Cbuffer.create 0) ()
      | Set_jitter_mode x -> let body = Cbuffer.create sizeof_req_set_jitter_mode in
-                            let ()   = set_req_set_jitter_mode_stream_id body (Common.Stream.to_int32 x.stream_id) in
-                            let ()   = set_req_set_jitter_mode_pid body x.pid in
+                            let () = set_req_set_jitter_mode_stream_id body
+                                                                       (Common.Stream.id_to_int32 x.stream_id) in
+                            let () = set_req_set_jitter_mode_pid body x.pid in
                             to_complex_req ~msg_code:0x0112 ~body ())
     |> sender
 
@@ -298,17 +276,12 @@ module SM = struct
         let events = prev_events @ events in
         handle_msgs rsps;
         (match Events_handler.partition events prev_group with
-         | events,[]  -> if p < 0
-                         then first_step ()
+         | [],events  -> if p < 0 then first_step ()
                          else `Continue (step_normal_idle (pred p) prev_group events parts acc)
-         | prev_group_events,groups ->
+         | groups,events ->
             push_state `Fine;
-            (match prev_group with
-             | Some gp -> Events_handler.push (Events_handler.insert_events gp prev_group_events) push_events
-             | None    -> ());
-            let other = CCList.take (CCList.length groups - 1) groups in
+            CCList.iter (fun x -> Events_handler.push x push_events) groups;
             let last  = CCOpt.get_exn @@ CCList.last_opt groups in
-            CCList.iter (fun x -> Events_handler.push x push_events) other;
             let pool = Pool.create @@ List.map (fun req -> { send    = (fun () -> send_event sender req)
                                                            ; pred    = (is_event req)
                                                            ; timeout = period
@@ -328,13 +301,10 @@ module SM = struct
       let events,ev_rsps,rsps,parts,acc = deserialize parts (Meta_board.concat_acc acc recvd) in
       let events    = prev_events @ events in
       handle_msgs rsps;
-      let events,gp = (match Events_handler.partition events (Some gp) with
-                       | events, []            -> events,gp
-                       | prev_gp_events,groups ->
-                          Events_handler.push (Events_handler.insert_events gp prev_gp_events)
-                                              push_events;
-                          CCList.iter (fun x -> Events_handler.push x push_events) groups;
-                          [],CCOpt.get_exn @@ CCList.last_opt groups) in
+      let gp,events = (match Events_handler.partition events (Some gp) with
+                       | [],events -> gp,events
+                       | groups,events -> CCList.iter (fun x -> Events_handler.push x push_events) groups;
+                                          (CCOpt.get_exn @@ CCList.last_opt groups),events) in
       try
         (match Pool.responsed pool ev_rsps with
          | None   -> let pool = Pool.step pool in
@@ -360,6 +330,8 @@ module SM = struct
     let msgs   = ref (Await_queue.create []) in
     let imsgs  = ref (Queue.create []) in
     let status,status_push             = React.E.create () in
+    let reset,reset_push               = React.E.create () in
+    let streams,streams_push           = React.S.create [] in
     let ts_found,ts_found_push         = React.E.create () in
     let ts_lost,ts_lost_push           = React.E.create () in
     let ts_errors,ts_errors_push       = React.E.create () in
@@ -372,6 +344,8 @@ module SM = struct
     let t2mi_info,t2mi_info_push       = React.E.create () in
     let jitter,jitter_push             = React.E.create () in
     let (events : events)              = { status
+                                         ; reset
+                                         ; streams
                                          ; ts_found
                                          ; ts_lost
                                          ; ts_errors
@@ -384,6 +358,8 @@ module SM = struct
                                          ; t2mi_info
                                          ; jitter } in
     let push_events                   = { status       = status_push
+                                        ; reset        = reset_push
+                                        ; streams      = streams_push
                                         ; ts_found     = ts_found_push
                                         ; ts_lost      = ts_lost_push
                                         ; ts_errors    = ts_errors_push
@@ -409,13 +385,13 @@ module SM = struct
                                                                                                  ; section_syntax = false
                                                                                                  ; sections = []}
                                                                                       ; ts_id  = 1 }}))
-                                                     (to_period 10 step_duration)
+                                                     (to_period 120 step_duration)
                                                      None)
               ; get_t2mi_seq    = (fun s  -> enqueue msgs sender
                                                      (Get_t2mi_frame_seq { request_id = get_id ()
                                                                          ; seconds    = s })
                                                      (to_period (s + 10) step_duration)
-                                                     (Some T2mi_seq_timeout))
+                                                     None)
               ; reset           = (fun () -> enqueue_instant imsgs sender Reset)
               ; config          = (fun () -> Lwt.return storage#get)
               } in

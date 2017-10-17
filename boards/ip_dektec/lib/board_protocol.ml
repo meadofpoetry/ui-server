@@ -109,27 +109,32 @@ module SM = struct
     let period             = timeout_period step_duration in
     let request_period     = request_period step_duration in
     let reboot_steps       = 20 / (int_of_float (step_duration *. (float_of_int period))) in
-    let push_events events =
-      let open CCOpt in
-      { fec_delay       = get_exn @@ CCList.find_map (function Fec_delay x -> Some x | _ -> None) events
-      ; fec_cols        = get_exn @@ CCList.find_map (function Fec_cols x -> Some x | _ -> None) events
-      ; fec_rows        = get_exn @@ CCList.find_map (function Fec_rows x -> Some x | _ -> None) events
-      ; jitter_tol      = get_exn @@ CCList.find_map (function Jitter_tol x -> Some x | _ -> None) events
-      ; lost_after_fec  = get_exn @@ CCList.find_map (function Lost_after_fec x -> Some x | _ -> None) events
-      ; lost_before_fec = get_exn @@ CCList.find_map (function Lost_before_fec x -> Some x | _ -> None) events
-      ; tp_per_ip       = get_exn @@ CCList.find_map (function Tp_per_ip x -> Some x | _ -> None) events
-      ; status          = get_exn @@ CCList.find_map (function Status x -> Some x | _ -> None) events
-      ; protocol        = get_exn @@ CCList.find_map (function Protocol x -> Some x | _ -> None) events
-      ; packet_size     = get_exn @@ CCList.find_map (function Packet_size x -> Some x | _ -> None) events
-      ; bitrate         = get_exn @@ CCList.find_map (function Bitrate x -> Some x | _ -> None) events
-      ; pcr_present     = get_exn @@ CCList.find_map (function Pcr_present x -> Some x | _ -> None) events
-      ; rate_change_cnt = get_exn @@ CCList.find_map (function Rate_change_cnt x -> Some x | _ -> None) events
-      ; jitter_err_cnt  = get_exn @@ CCList.find_map (function Jitter_err_cnt x -> Some x | _ -> None) events
-      ; lock_err_cnt    = get_exn @@ CCList.find_map (function Lock_err_cnt x -> Some x | _ -> None) events
-      ; delay_factor    = get_exn @@ CCList.find_map (function Delay_factor x -> Some x | _ -> None) events
-      ; asi_bitrate     = get_exn @@ CCList.find_map (function Asi_bitrate x -> Some x | _ -> None) events
-      }
-      |> push_events.status in
+
+    let events_to_status ps events =
+      let get = fun f e -> CCOpt.get_exn @@ CCList.find_map f e in
+      { fec_delay       = get (function Fec_delay x -> Some x | _ -> None) events
+      ; fec_cols        = get (function Fec_cols x -> Some x | _ -> None) events
+      ; fec_rows        = get (function Fec_rows x -> Some x | _ -> None) events
+      ; jitter_tol      = get (function Jitter_tol x -> Some x | _ -> None) events
+      ; lost_after_fec  = Int64.sub ps.lost_after_fec
+                                    (get (function Lost_after_fec x -> Some x | _ -> None) events)
+      ; lost_before_fec = Int64.sub ps.lost_after_fec
+                                    (get (function Lost_before_fec x -> Some x | _ -> None) events)
+      ; tp_per_ip       = get (function Tp_per_ip x -> Some x | _ -> None) events
+      ; status          = get (function Status x -> Some x | _ -> None) events
+      ; protocol        = get (function Protocol x -> Some x | _ -> None) events
+      ; packet_size     = get (function Packet_size x -> Some x | _ -> None) events
+      ; bitrate         = get (function Bitrate x -> Some x | _ -> None) events
+      ; pcr_present     = get (function Pcr_present x -> Some x | _ -> None) events
+      ; rate_change_cnt = Int32.sub ps.rate_change_cnt
+                                    (get (function Rate_change_cnt x -> Some x | _ -> None) events)
+      ; jitter_err_cnt  = Int32.sub ps.jitter_err_cnt
+                                    (get (function Jitter_err_cnt x -> Some x | _ -> None) events)
+      ; lock_err_cnt    = Int32.sub ps.lock_err_cnt
+                                    (get (function Lock_err_cnt x -> Some x | _ -> None) events)
+      ; delay_factor    = get (function Delay_factor x -> Some x | _ -> None) events
+      ; asi_bitrate     = get (function Asi_bitrate x -> Some x | _ -> None) events
+      } in
 
     let find_resp req acc recvd ~success ~failure =
       let responses,acc = deserialize (Meta_board.concat_acc acc recvd) in
@@ -330,48 +335,52 @@ module SM = struct
                                                          ; Ip Get_delay_factor
                                                          ; Asi Get_bitrate ] in
                                      let pool = Pool.create msgs in
-                                     `Continue (step_normal_probes_send pool [] 0 None))
+                                     `Continue (step_normal_probes_send pool None [] 0 None))
                 ~failure:(fun acc -> bad_step p (step_init_ip_rate_mode (pred p) req acc))
 
-    and step_normal_probes_send pool events period_timer acc _ =
+    and step_normal_probes_send pool prev_status events period_timer acc _ =
       if (period_timer >= request_period) then raise (Failure "board ip: sm invariant broken");
 
       if Pool.empty pool
-      then `Continue (step_normal_requests_send pool (succ period_timer) acc)
+      then `Continue (step_normal_requests_send pool prev_status (succ period_timer) acc)
       else (Pool.send pool () |> ignore;
-            `Continue (step_normal_probes_wait pool events (succ period_timer) acc))
+            `Continue (step_normal_probes_wait pool prev_status events (succ period_timer) acc))
 
-    and step_normal_probes_wait pool events period_timer acc recvd =
+    and step_normal_probes_wait pool prev_status events period_timer acc recvd =
       let responses,acc = deserialize (Meta_board.concat_acc acc recvd) in
 
       try
         (match Pool.responsed pool responses with
          | None   -> let pool = Pool.step pool in
-                     `Continue (step_normal_probes_wait pool events (succ period_timer) acc)
+                     `Continue (step_normal_probes_wait pool prev_status events (succ period_timer) acc)
          | Some e -> let new_pool = Pool.next pool in
                      if Pool.last pool
-                     then (push_events (e :: events);
-                           `Continue (step_normal_requests_send new_pool period_timer acc))
-                     else step_normal_probes_send new_pool (e :: events) period_timer acc recvd)
+                     then (let status = (match prev_status with
+                                         | None   -> None
+                                         | Some x -> let status = events_to_status x (e :: events) in
+                                                     push_events.status status;
+                                                     Some status) in
+                           `Continue (step_normal_requests_send new_pool status period_timer acc))
+                     else step_normal_probes_send new_pool prev_status (e :: events) period_timer acc recvd)
       with Timeout -> first_step ()
 
-    and step_normal_requests_send probes_pool period_timer acc _ =
+    and step_normal_requests_send probes_pool status period_timer acc _ =
       if (period_timer >= request_period)
-      then `Continue (step_normal_probes_send probes_pool [] ((succ period_timer) mod request_period) acc)
+      then `Continue (step_normal_probes_send probes_pool status [] ((succ period_timer) mod request_period) acc)
       else
         if Queue.empty !msgs
-        then `Continue (step_normal_requests_send probes_pool (succ period_timer) acc)
+        then `Continue (step_normal_requests_send probes_pool status (succ period_timer) acc)
         else (Queue.send !msgs () |> ignore;
-              `Continue (step_normal_requests_wait probes_pool (succ period_timer) acc))
+              `Continue (step_normal_requests_wait probes_pool status (succ period_timer) acc))
 
-    and step_normal_requests_wait probes_pool period_timer acc recvd =
+    and step_normal_requests_wait probes_pool status period_timer acc recvd =
       let responses, acc = deserialize (Meta_board.concat_acc acc recvd) in
       try
         match Queue.responsed !msgs responses with
         | None    -> msgs := Queue.step !msgs;
-                     `Continue (step_normal_requests_wait probes_pool (succ period_timer) acc)
+                     `Continue (step_normal_requests_wait probes_pool status (succ period_timer) acc)
         | Some () -> msgs := Queue.next !msgs;
-                     `Continue (step_normal_requests_send probes_pool (succ period_timer) acc)
+                     `Continue (step_normal_requests_send probes_pool status (succ period_timer) acc)
       with Timeout -> first_step ()
 
     in first_step ()
