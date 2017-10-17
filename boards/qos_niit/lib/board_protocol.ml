@@ -56,10 +56,10 @@ module SM = struct
     type event = [ `Status      of Board_types.status
                  | `Streams_event of streams
                  | `T2mi_errors of Cbuffer.t
-                 | `Ts_errors   of Cbuffer.t ]
+                 | `Ts_errors   of Cbuffer.t
+                 | `End_of_errors ]
     type t
-    val partition        : event list -> t option -> event list * t list
-    val insert_events    : t -> event list -> t
+    val partition        : event list -> t option -> t list * event list
     val insert_versions  : t -> t -> t
     val get_req_stack    : t -> t option -> event_response event_request list
     val push             : t -> push_events -> unit
@@ -67,7 +67,8 @@ module SM = struct
     type event = [ `Status of Board_types.status
                  | `Streams_event of streams
                  | `T2mi_errors of Cbuffer.t
-                 | `Ts_errors of Cbuffer.t ]
+                 | `Ts_errors of Cbuffer.t
+                 | `End_of_errors ]
 
     type t =
       { status       : status
@@ -95,34 +96,28 @@ module SM = struct
                                                         { acc with errors = (acc.errors @ x.errors) })
                                                                      (CCList.hd l) l)
 
-    let insert_events t events = { t with events = t.events @ events }
-
     let insert_versions t old_t = { t with status = { t.status with versions = old_t.status.versions }}
 
+    let split_by l sep =
+      let res,acc = List.fold_left (fun (res,acc) x ->
+                        if x = sep then (((List.rev acc) :: res),[]) else (res,x::acc))
+                                   ([],[]) l in
+      (List.rev res),(List.rev acc)
+
     let partition events prev_group =
-      match CCList.find_idx (function | `Status _ -> true | _ -> false) events with
-      | Some (idx,_) -> let ev,other = CCList.take_drop idx events in
-                        let rec f = (fun acc (l : event list) ->
-                            let events,groups = acc in
-                            match l with
-                            | [] -> acc
-                            | (`Status status :: `Streams_event streams :: tl) ->
-                               let groups,prev_status = (match groups with
-                                                         | []      -> let open CCOpt in
-                                                                      groups,prev_group >|= (fun x -> x.status)
-                                                         | x :: tl -> let prev_group = insert_events x events in
-                                                                      prev_group :: tl,Some prev_group.status) in
-                               f ([], { status      = { status with streams = streams}
-                                      ; prev_status = prev_status
-                                      ; events      = [] } :: groups) tl
-                            | `Status _ :: _ :: _ -> failwith "got status without streams"
-                            | x :: tl -> f (x::events,groups) tl) in
-                        let events,groups = f ([],[]) other in
-                        let groups = (match groups with
-                                      | [] -> []
-                                      | x :: tl -> (insert_events x events) :: tl) in
-                        ev,CCList.rev groups
-      | None       -> events,[]
+      let groups,rest = split_by events `End_of_errors in
+      let groups = CCList.filter (function
+                                  | `Status _ :: `Streams_event streams :: _ -> true
+                                  | _                                        -> false) groups in
+      let groups = CCList.fold_left (fun acc x ->
+                       let prev_status = (match acc with
+                                          | [] -> CCOpt.(prev_group >|= (fun x -> x.status))
+                                          | x :: _ -> Some x.status) in
+                       match x with
+                       | `Status status :: `Streams_event streams :: events ->
+                          { status; prev_status; events } :: acc
+                       | _ -> assert false) [] groups in
+      (CCList.rev groups),rest
 
     let get_req_stack { status; _ } prev_t =
       let bitrate_req    = Get_bitrates (get_id ()) in
@@ -281,17 +276,12 @@ module SM = struct
         let events = prev_events @ events in
         handle_msgs rsps;
         (match Events_handler.partition events prev_group with
-         | events,[]  -> if p < 0
-                         then first_step ()
+         | [],events  -> if p < 0 then first_step ()
                          else `Continue (step_normal_idle (pred p) prev_group events parts acc)
-         | prev_group_events,groups ->
+         | groups,events ->
             push_state `Fine;
-            (match prev_group with
-             | Some gp -> Events_handler.push (Events_handler.insert_events gp prev_group_events) push_events
-             | None    -> ());
-            let other = CCList.take (CCList.length groups - 1) groups in
+            CCList.iter (fun x -> Events_handler.push x push_events) groups;
             let last  = CCOpt.get_exn @@ CCList.last_opt groups in
-            CCList.iter (fun x -> Events_handler.push x push_events) other;
             let pool = Pool.create @@ List.map (fun req -> { send    = (fun () -> send_event sender req)
                                                            ; pred    = (is_event req)
                                                            ; timeout = period
@@ -311,13 +301,10 @@ module SM = struct
       let events,ev_rsps,rsps,parts,acc = deserialize parts (Meta_board.concat_acc acc recvd) in
       let events    = prev_events @ events in
       handle_msgs rsps;
-      let events,gp = (match Events_handler.partition events (Some gp) with
-                       | events, []            -> events,gp
-                       | prev_gp_events,groups ->
-                          Events_handler.push (Events_handler.insert_events gp prev_gp_events)
-                                              push_events;
-                          CCList.iter (fun x -> Events_handler.push x push_events) groups;
-                          [],CCOpt.get_exn @@ CCList.last_opt groups) in
+      let gp,events = (match Events_handler.partition events (Some gp) with
+                       | [],events -> gp,events
+                       | groups,events -> CCList.iter (fun x -> Events_handler.push x push_events) groups;
+                                          (CCOpt.get_exn @@ CCList.last_opt groups),events) in
       try
         (match Pool.responsed pool ev_rsps with
          | None   -> let pool = Pool.step pool in

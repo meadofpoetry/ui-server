@@ -6,11 +6,14 @@ type id = Single
         | Unknown of int32 [@@deriving yojson]
 
 type t =
-  { input       : input
+  { source      : source
   ; id          : id
   ; input_name  : string option
   ; description : string option
   } [@@deriving yojson]
+
+ and source = Input of input
+            | Parent of t
 
 let id_of_int32 : int32 -> id = function
   | 0l -> Single

@@ -1251,6 +1251,7 @@ let parse_simple_msg = fun (code,body,parts) ->
      | x when x = Ts_errors.msg_code      -> `E (`Ts_errors body)
      | x when x = T2mi_errors.msg_code    -> `E (`T2mi_errors body)
      | x when x = Streams.msg_code        -> `E (`Streams_event (Streams.of_cbuffer body))
+     | 0xFD -> `E `End_of_errors;
      | 0x09 -> let code_ext   = get_complex_rsp_header_code_ext body in
                let long       = code_ext land 0x2000 > 0 in
                let parity     = if code_ext land 0x1000 > 0 then 1 else 0 in
