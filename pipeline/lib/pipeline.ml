@@ -130,56 +130,58 @@ let connect_db streams_events dbs =
   E.map_s (fun s -> Storage.request dbs (Storage.Store_streams s)) streams_events
 
 let create config dbs _ =
-  let cfg = Conf.get config in
-  let converter = Api.Msg_conv.get_converter cfg.msg_fmt in
-  let exec_path = (Filename.concat cfg.bin_path cfg.bin_name) in
-  let exec_opts = Array.of_list (cfg.bin_name :: "-m" :: (PSettings.format_to_string cfg.msg_fmt) :: cfg.sources) in
-  match Unix.fork () with
-  | -1   -> failwith "Ooops, fork failed"
-  | 0    -> Unix.execv exec_path exec_opts
-  | pid  ->     
-     let ctx = ZMQ.Context.create () in
-     let msg = ZMQ.Socket.create ctx ZMQ.Socket.req in
-     let ev  = ZMQ.Socket.create ctx ZMQ.Socket.sub in
+  match Conf.get_opt config with
+  | None     -> None, None
+  | Some cfg ->
+     let converter = Api.Msg_conv.get_converter cfg.msg_fmt in
+     let exec_path = (Filename.concat cfg.bin_path cfg.bin_name) in
+     let exec_opts = Array.of_list (cfg.bin_name :: "-m" :: (PSettings.format_to_string cfg.msg_fmt) :: cfg.sources) in
+     match Unix.fork () with
+     | -1   -> failwith "Ooops, fork failed"
+     | 0    -> Unix.execv exec_path exec_opts
+     | pid  ->     
+        let ctx = ZMQ.Context.create () in
+        let msg = ZMQ.Socket.create ctx ZMQ.Socket.req in
+        let ev  = ZMQ.Socket.create ctx ZMQ.Socket.sub in
 
-     ZMQ.Socket.connect msg cfg.sock_in;
-     ZMQ.Socket.connect ev cfg.sock_out;
-     ZMQ.Socket.subscribe ev "";
+        ZMQ.Socket.connect msg cfg.sock_in;
+        ZMQ.Socket.connect ev cfg.sock_out;
+        ZMQ.Socket.subscribe ev "";
 
-     let msg_sock = Socket.of_socket msg in
-     let ev_sock  = Socket.of_socket ev in
+        let msg_sock = Socket.of_socket msg in
+        let ev_sock  = Socket.of_socket ev in
 
-     let input_to_s = int_of_string in
-     let s_to_input = string_of_int in
+        let input_to_s = int_of_string in
+        let s_to_input = string_of_int in
 
-     let sock_events, epush,
-         streams_events,
-         settings_events,
-         graph_events,
-         wm_events,
-         data_events = split_events s_to_input
-     in
-     let set = set msg_sock input_to_s converter in
-     let get = get msg_sock s_to_input converter in
-     let db_events = connect_db streams_events dbs in
-     let obj = {set; get; streams_events;
-                settings_events; graph_events;
-                wm_events; data_events;
-                state = { ctx; msg; ev; sock_events; db_events } }
-     in
-     (* polling loop *)
-     let rec loop () =
-       Socket.recv ev_sock
-       >>= fun msg ->
-       epush (converter.of_string msg);
-       loop ()
-     in
-     (* finalizer *)
-     let fin () =
-       Lwt_unix.waitpid [] pid >>= fun _ ->
-       Lwt.fail_with "Child'd died for some reason"
-     in
-     obj, Lwt.pick [loop (); fin ()]
+        let sock_events, epush,
+            streams_events,
+            settings_events,
+            graph_events,
+            wm_events,
+            data_events = split_events s_to_input
+        in
+        let set = set msg_sock input_to_s converter in
+        let get = get msg_sock s_to_input converter in
+        let db_events = connect_db streams_events dbs in
+        let obj = {set; get; streams_events;
+                   settings_events; graph_events;
+                   wm_events; data_events;
+                   state = { ctx; msg; ev; sock_events; db_events } }
+        in
+        (* polling loop *)
+        let rec loop () =
+          Socket.recv ev_sock
+          >>= fun msg ->
+          epush (converter.of_string msg);
+          loop ()
+        in
+        (* finalizer *)
+        let fin () =
+          Lwt_unix.waitpid [] pid >>= fun _ ->
+          Lwt.fail_with "Child'd died for some reason"
+        in
+        Some obj, Some (Lwt.pick [loop (); fin ()])
 
 let finalize pipe =
   print_endline "closing pipe";
