@@ -116,22 +116,32 @@ module SM = struct
       ; fec_cols        = get (function Fec_cols x -> Some x | _ -> None) events
       ; fec_rows        = get (function Fec_rows x -> Some x | _ -> None) events
       ; jitter_tol      = get (function Jitter_tol x -> Some x | _ -> None) events
-      ; lost_after_fec  = Int64.sub ps.lost_after_fec
-                                    (get (function Lost_after_fec x -> Some x | _ -> None) events)
-      ; lost_before_fec = Int64.sub ps.lost_after_fec
-                                    (get (function Lost_before_fec x -> Some x | _ -> None) events)
+      ; lost_after_fec  = (let x = get (function Lost_after_fec x -> Some x | _ -> None) events in
+                           match ps with
+                           | Some ps -> Int64.sub x ps.lost_after_fec
+                           | None    -> x)
+      ; lost_before_fec = (let x = get (function Lost_before_fec x -> Some x | _ -> None) events in
+                           match ps with
+                           | Some ps -> Int64.sub x ps.lost_before_fec
+                           | None    -> x)
       ; tp_per_ip       = get (function Tp_per_ip x -> Some x | _ -> None) events
       ; status          = get (function Status x -> Some x | _ -> None) events
       ; protocol        = get (function Protocol x -> Some x | _ -> None) events
       ; packet_size     = get (function Packet_size x -> Some x | _ -> None) events
       ; bitrate         = get (function Bitrate x -> Some x | _ -> None) events
       ; pcr_present     = get (function Pcr_present x -> Some x | _ -> None) events
-      ; rate_change_cnt = Int32.sub ps.rate_change_cnt
-                                    (get (function Rate_change_cnt x -> Some x | _ -> None) events)
-      ; jitter_err_cnt  = Int32.sub ps.jitter_err_cnt
-                                    (get (function Jitter_err_cnt x -> Some x | _ -> None) events)
-      ; lock_err_cnt    = Int32.sub ps.lock_err_cnt
-                                    (get (function Lock_err_cnt x -> Some x | _ -> None) events)
+      ; rate_change_cnt = (let x = get (function Rate_change_cnt x -> Some x | _ -> None) events in
+                           match ps with
+                           | Some ps -> Int32.sub x ps.rate_change_cnt
+                           | None    -> x)
+      ; jitter_err_cnt  = (let x = get (function Jitter_err_cnt x -> Some x | _ -> None) events in
+                           match ps with
+                           | Some ps -> Int32.sub x ps.jitter_err_cnt
+                           | None    -> x)
+      ; lock_err_cnt    = (let x = get (function Lock_err_cnt x -> Some x | _ -> None) events in
+                           match ps with
+                           | Some ps -> Int32.sub x ps.lock_err_cnt
+                           | None    -> x)
       ; delay_factor    = get (function Delay_factor x -> Some x | _ -> None) events
       ; asi_bitrate     = get (function Asi_bitrate x -> Some x | _ -> None) events
       } in
@@ -355,12 +365,9 @@ module SM = struct
                      `Continue (step_normal_probes_wait pool prev_status events (succ period_timer) acc)
          | Some e -> let new_pool = Pool.next pool in
                      if Pool.last pool
-                     then (let status = (match prev_status with
-                                         | None   -> None
-                                         | Some x -> let status = events_to_status x (e :: events) in
-                                                     push_events.status status;
-                                                     Some status) in
-                           `Continue (step_normal_requests_send new_pool status period_timer acc))
+                     then (let status = events_to_status prev_status (e :: events) in
+                           if CCOpt.is_some prev_status then push_events.status status;
+                           `Continue (step_normal_requests_send new_pool (Some status) period_timer acc))
                      else step_normal_probes_send new_pool prev_status (e :: events) period_timer acc recvd)
       with Timeout -> first_step ()
 

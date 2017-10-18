@@ -56,12 +56,18 @@ let create (b:topo_board) send db base step =
                                      | `No_response -> Lwt_io.printf "QoS Board not responding\n"
                                      | `Fine        -> Lwt_io.printf "QoS Board is OK\n"
                                      | `Init        -> Lwt_io.printf "QoS Board is initializing\n") s_state in
+  let e_struct        = React.E.map (fun x ->
+                            `List (List.map ts_struct_to_yojson x)
+                            |> Yojson.Safe.pretty_to_string
+                            (* |> Lwt_io.printf "Structs: %s\n" *)
+                            |> ignore) events.structs in
   let state           = (object
                            method e_status   = e_status;
                            method e_state    = e_state;
                            method e_ts_found = e_ts_found;
                            method e_ts_lost  = e_ts_lost;
                            method e_t2mi_info = e_t2mi_info;
+                           method e_struct = e_struct;
                          end) in
   { handlers       = handlers
   ; control        = b.control
