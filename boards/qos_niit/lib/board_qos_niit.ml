@@ -1,4 +1,4 @@
-open Common.Hardware
+open Common.Topology
 open Api.Interaction
 open Meta_board
 open Board_types

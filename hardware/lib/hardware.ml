@@ -1,4 +1,4 @@
-open Common.Hardware
+open Common.Topology
 open Meta_board
 open Containers
 

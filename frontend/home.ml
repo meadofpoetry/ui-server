@@ -1,6 +1,7 @@
 open Lwt_react
 open Board_ip_dektec_js.Requests
 open Pipeline_js.Requests
+open Hardware_js.Requests
    
 let return = Lwt.return
 let (>>=) = Lwt.(>>=)
@@ -58,7 +59,7 @@ let onload _ =
               (function
                 | e -> return @@ Printf.printf "Exception in janus pipe: %s\n" (Printexc.to_string e)))
            |> ignore in
-  
+
   let doc = Dom_html.document in
 
   let label    = Dom_html.createH2 doc in

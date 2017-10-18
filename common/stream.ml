@@ -1,4 +1,4 @@
-open Hardware
+open Topology
 
 type id = Single
         | T2mi_plp of int
@@ -44,5 +44,5 @@ type t =
   ; description : string option
   }
 and source = Board  of int
-           | Input  of Hardware.input
+           | Input  of Topology.input
            | Parent of t
