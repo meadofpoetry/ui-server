@@ -19,25 +19,14 @@ type t = { boards : Meta_board.board list
          ; topo   : topology React.signal
          }
             
-let create_adapter typ model manufacturer version : (module Meta_board.BOARD) =
-  Lwt_io.printf "in create adapter\n" |> ignore;
-  match typ, model, manufacturer, version with
-  | DVB, "rf", "niitv", 1       -> (module Board_dvb_niit  : Meta_board.BOARD)
-  | IP, "dtm-3200", "dektec", 1 -> (module Board_ip_dektec : Meta_board.BOARD)
-  | TS, "qos", "niitv", 1       -> (module Board_qos_niit  : Meta_board.BOARD)
-  | _ -> raise (Failure ("create board: unknown board "))
-
-let create_converter typ model manufacturer version =
-  match typ, model, manufacturer, version with
-  (*| IP, "ts2ip", "niitv"  -> Board_ip.create version*)
-  | _ -> raise (Failure ("create board: unknown board "))
-
-            
 let create_board db usb (b:topo_board) path step_duration =
   let (module B : Meta_board.BOARD) = 
-    match b.typ with
-    | Adapter   t -> create_adapter t b.model b.manufacturer b.version
-    | Converter t -> create_converter t b.model b.manufacturer b.version
+    match b.typ, b.model, b.manufacturer, b.version with
+    | DVB,   "rf",       "niitv",  1  -> (module Board_dvb_niit  : Meta_board.BOARD)
+    | IP2TS, "dtm-3200", "dektec", 1  -> (module Board_ip_dektec : Meta_board.BOARD)
+    | TS,    "qos",      "niitv",  1  -> (module Board_qos_niit  : Meta_board.BOARD)
+    (* | IP, "ts2ip", "niitv"        -> Board_ip.create version*)
+    | _ -> raise (Failure ("create board: unknown board "))
   in
   B.create b (Usb_device.get_send usb b.control) db path step_duration
 
@@ -87,25 +76,5 @@ let create config db =
   let topo_signal = topo_to_signal topo boards in
   { boards; usb; topo = topo_signal }, loop ()
 
-let has_converters hw =
-  List.exists (fun b -> b.is_converter) hw.boards
-
-let streams hw =
-  let signals =
-    let open Option in
-    List.map (fun b -> b.streams_signal) hw.boards
-    |> Option.sequence_l
-    >|= React.S.merge ~eq:(Streams.equal String.equal)
-                      (Streams.union (fun _ _ b -> Some b))
-                      Streams.empty
-  in
-  match signals with
-  | Some s -> if has_converters hw
-              then Some s
-              else None
-  | None   -> if has_converters hw
-              then Some (React.S.const Streams.empty)
-              else None
-  
 let finalize hw =
   Usb_device.finalize hw.usb

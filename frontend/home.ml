@@ -58,25 +58,8 @@ let onload _ =
               (function
                 | e -> return @@ Printf.printf "Exception in janus pipe: %s\n" (Printexc.to_string e)))
            |> ignore in
-
-  (*let topology =
-    Jsrequest.get_js "/api/hardware"
-    >>= fun js ->
-    match Common.Hardware.topology_of_yojson js with
-    | Ok t -> Lwt.return t
-    | Error e -> Lwt.fail_with e
-  in *)
   
   let doc = Dom_html.document in
-(*
-  topology
-  >>= (fun t ->
-    let div = Topology_widg.Topology.create doc t in
-    Dom.appendChild (Dom_html.getElementById "arbitrary-content") div;
-    Lwt.return_unit)
-  |> ignore;*)
-  let div = Topology_widg.Topology.create doc () in
-  Dom.appendChild (Dom_html.getElementById "arbitrary-content") div;
 
   let label    = Dom_html.createH2 doc in
   let button_set = Dom_html.createButton ~_type:(Js.string "button") doc in

@@ -13,12 +13,8 @@ let main config =
     let hw_api         = Hardware_api.handlers hw in
     (* QoE pipeline  *)
     let pipe, pipeloop =
-      let open CCOpt in
-      Hardware.streams hw
-      >|= Pipeline.create config db
-      |> function
-        | None -> None, None
-        | Some (p,loop) -> Some p, Some loop
+      let p, loop = Pipeline.create config db [] in
+      Some p, Some loop
     in 
     let pipe_api       =
       match pipe with

@@ -6,16 +6,14 @@ module Api_handler = Api.Handler.Make(Common.User)
 
 type 'a cc = [`Continue of 'a]
 
-module Streams = CCMap.Make(CCInt)
 module Ports = CCMap.Make(CCInt)
 
 exception Invalid_port of string
 
 type board = { handlers        : (module Api_handler.HANDLER) list
              ; control         : int
-             ; streams_signal  : string Streams.t React.signal option
+             ; streams_signal  : Common.Stream.stream list React.signal
              ; step            : (Cbuffer.t list -> 'c cc as 'c) cc
-             ; is_converter    : bool
              ; connection      : state React.signal
              ; ports_active    : bool React.signal Ports.t
              ; state           : < >
