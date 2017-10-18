@@ -571,14 +571,23 @@ module Get_section : (Request
                                                     set_req_get_section_adv_info_2 body x.eit_info.orig_nw_id
      | ( CAT x   | TSDT x | TDT x | RST x | ST x
          | TOT x | DIT x  | SIT x | Unknown x ) -> set_req_get_section_table_id body x.id);
+    io "sent section request";
     to_complex_req ~request_id:id ~msg_code:req_code ~body ()
 
   let of_cbuffer msg =
     let hdr,bdy = Cbuffer.split msg sizeof_section in
     let length  = get_section_length hdr in
     let result  = get_section_result hdr in
+    io @@ string_of_int result ^ " " ^ string_of_int length;
     if length > 0 && result = 0
     then let sid,data = Cbuffer.split bdy 4 in
+         (try
+            (Si_psi_parser.PMT.of_cbuffer data
+             |> Si_psi_parser.PMT.to_yojson
+             |> Yojson.Safe.pretty_to_string
+             |> (fun x -> "PMT: " ^ x)
+             |> io)
+          with e -> io @@ Printexc.to_string e);
          Ok { stream_id = Common.Stream.id_of_int32 @@ Cbuffer.LE.get_uint32 sid 0
             ; data      = Cbuffer.to_string data
             }
@@ -1252,20 +1261,21 @@ let parse_simple_msg = fun (code,body,parts) ->
      | x when x = T2mi_errors.msg_code    -> `E (`T2mi_errors body)
      | x when x = Streams.msg_code        -> `E (`Streams_event (Streams.of_cbuffer body))
      | 0xFD -> `E `End_of_errors;
-     | 0x09 -> let code_ext   = get_complex_rsp_header_code_ext body in
-               let long       = code_ext land 0x2000 > 0 in
-               let parity     = if code_ext land 0x1000 > 0 then 1 else 0 in
-               let _,data'    = if long then Cbuffer.split body sizeof_complex_rsp_header_ext
-                                else Cbuffer.split body sizeof_complex_rsp_header in
-               let data,_     = Cbuffer.split data' (Cbuffer.len data' - parity) in
-               let part       = { first = code_ext land 0x8000 > 0
-                                ; param = Int32.mul 2l (if long then get_complex_rsp_header_ext_param body
-                                                        else Int32.of_int @@ get_complex_rsp_header_param body)
-                                ; data
-                                } in
-               let code       = code_ext land 0x0FFF in
-               let request_id = get_complex_rsp_header_request_id body in
-               `P (CCList.Assoc.update (code,request_id)
+     | 0x09 -> let code_ext = get_complex_rsp_header_code_ext body in
+               let long     = code_ext land 0x2000 <> 0 in
+               let parity   = if code_ext land 0x1000 <> 0 then 1 else 0 in
+               let data'    = if long then Cbuffer.shift body sizeof_complex_rsp_header_ext
+                              else Cbuffer.shift body sizeof_complex_rsp_header in
+               let data,_   = Cbuffer.split data' (Cbuffer.len data' - parity) in
+               let part     = { first = code_ext land 0x8000 <> 0
+                              ; param = Int32.mul 2l (if long then get_complex_rsp_header_ext_param body
+                                                      else Int32.of_int @@ get_complex_rsp_header_param body)
+                                        |> (fun x -> Int32.sub x (Int32.of_int parity))
+                              ; data
+                              } in
+               let code     = code_ext land 0x0FFF in
+               let req_id   = get_complex_rsp_header_request_id body in
+               `P (CCList.Assoc.update (code,req_id)
                                        ~f:(function
                                            | Some x -> Some (part :: x)
                                            | None   -> Some ([part]))
@@ -1278,7 +1288,9 @@ let parse_complex_msg = fun ((code,r_id),msg) ->
     let data = (r_id,msg) in
     (match code with
      | x when x = Get_board_errors.rsp_code   -> `ER (`Board_errors data)
-     | x when x = Get_section.rsp_code        -> `R  (`Section data)
+     | x when x = Get_section.rsp_code        -> io "Got section!";
+                                                 Get_section.of_cbuffer msg |> ignore;
+                                                 `R  (`Section data)
      | x when x = Get_t2mi_frame_seq.rsp_code -> `R  (`T2mi_frame_seq data)
      | x when x = Get_jitter.rsp_code         -> `ER (`Jitter (r_id,(get_jitter_req_ptr msg),msg))
      | x when x = Get_ts_structs.rsp_code     -> `ER (`Struct (r_id,(get_ts_structs_version msg),msg))
@@ -1287,8 +1299,8 @@ let parse_complex_msg = fun ((code,r_id),msg) ->
                                                                   (get_t2mi_info_version msg),
                                                                   (get_t2mi_info_stream_id msg),
                                                                   msg))
-     | _ -> `N)
-  with _ -> `N
+     | _ -> io "got unknown complex code"; `N)
+  with _ -> io "got exception in complex parser"; `N
 
 let try_compose_parts ((id,gp) as x) =
   let gp = CCList.sort (fun x y -> if x.first then (-1)

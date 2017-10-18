@@ -374,19 +374,19 @@ module SM = struct
                                         } in
     let api = { set_mode        = (fun m  -> enqueue_instant imsgs sender (Set_board_mode m))
               ; set_jitter_mode = (fun m  -> enqueue_instant imsgs sender (Set_jitter_mode m))
-              ; get_section     = (fun () -> enqueue msgs sender
-                                                     (Get_section (get_id (),
-                                                                   { stream_id = T2mi_plp 0
-                                                                   ; section   = 0
-                                                                   ; table     =  PAT { common = { version = 0
-                                                                                                 ; id      = 0
-                                                                                                 ; pid     = 0
-                                                                                                 ; lsn     = 1
-                                                                                                 ; section_syntax = false
-                                                                                                 ; sections = []}
-                                                                                      ; ts_id  = 1 }}))
-                                                     (to_period 120 step_duration)
-                                                     None)
+              ; get_section     = (fun () ->
+                enqueue msgs sender
+                        (Get_section (get_id (), { stream_id = T2mi_plp 0
+                                                 ; section   = 0
+                                                 ; table     =  PMT { common = { version = 13
+                                                                               ; id      = 2
+                                                                               ; pid     = 1050
+                                                                               ; lsn     = 0
+                                                                               ; section_syntax = true
+                                                                               ; sections = []}
+                                                                    ; program_number = 1050 }}))
+                        (to_period 120 step_duration)
+                        None)
               ; get_t2mi_seq    = (fun s  -> enqueue msgs sender
                                                      (Get_t2mi_frame_seq { request_id = get_id ()
                                                                          ; seconds    = s })
