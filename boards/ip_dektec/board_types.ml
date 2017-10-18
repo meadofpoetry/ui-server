@@ -1,4 +1,4 @@
-open Common.Hardware
+open Common.Topology
 
 (* Overall types *)
 type mode        = Asi2ip | Ip2asi

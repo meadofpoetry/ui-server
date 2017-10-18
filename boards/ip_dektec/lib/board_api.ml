@@ -91,6 +91,6 @@ let handle api events _ meth args sock_data _ body =
 
 let handlers id api events =
   [ (module struct
-       let domain = Common.Hardware.get_api_path id
+       let domain = Common.Topology.get_api_path id
        let handle = handle api events
      end : Api_handler.HANDLER) ]

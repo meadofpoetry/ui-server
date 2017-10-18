@@ -43,6 +43,6 @@ let handle api _ _ meth args _ _ body =
 
 let handlers id api _ =
   [ (module struct
-       let domain = Common.Hardware.get_api_path id
+       let domain = Common.Topology.get_api_path id
        let handle = handle api ()
      end : Api_handler.HANDLER) ]

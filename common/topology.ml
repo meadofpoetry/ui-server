@@ -3,37 +3,28 @@ type state = [ `Fine
              | `Init
              ] [@@deriving yojson]
 
-type adapter = | DVB
-               | TS
-               | IP
-
-let adapter_of_yojson = function
-  | `String "DVB" -> Ok DVB
-  | `String "TS"  -> Ok TS
-  | `String "IP"  -> Ok IP
-  | _ as e        -> Error ("adapter_of_yojson: unknown value " ^ (Yojson.Safe.to_string e))
-
-let adapter_to_yojson = function
-  | DVB   -> `String "DVB"
-  | TS    -> `String "TS"
-  | IP    -> `String "IP"
-
-type converter = IP
-
-let converter_of_yojson = function
-  | `String "IP" -> Ok IP
-  | _ as e       -> Error ("converter_of_yojson: unknown value " ^ (Yojson.Safe.to_string e))
-
-let converter_to_yojson = function
-  | IP -> `String "IP"
-
-type typ = Adapter of adapter
-         | Converter of converter [@@deriving yojson]
+type typ = DVB
+         | TS
+         | IP2TS
+         | TS2IP
 
 type input = RF
            | TSOIP
            | ASI
 
+let typ_of_yojson = function
+  | `String "DVB"    -> Ok DVB
+  | `String "TS"     -> Ok TS
+  | `String "IP2TS"  -> Ok IP2TS
+  | `String "TS2IP"  -> Ok TS2IP
+  | _ as e        -> Error ("typ_of_yojson: unknown value " ^ (Yojson.Safe.to_string e))
+
+let typ_to_yojson = function
+  | DVB    -> `String "DVB"
+  | TS     -> `String "TS"
+  | IP2TS  -> `String "IP2TS"
+  | TS2IP  -> `String "TS2IP"    
+                   
 let input_of_yojson = function
   | `String "RF"    -> Ok RF
   | `String "TSOIP" -> Ok TSOIP
@@ -51,8 +42,12 @@ type id = int [@@deriving yojson]
 
 type topology = topo_entry list [@@deriving yojson]
 
-and topo_entry = Input of input
+and topo_entry = Input  of topo_input
                | Board  of topo_board
+
+and topo_input = { input        : input
+                 ; id           : int
+                 }
 
 and topo_board = { typ          : typ
                  ; model        : string

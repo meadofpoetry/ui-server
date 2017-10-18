@@ -1,5 +1,5 @@
 open Common.Dvb_t2_types
-open Common.Hardware
+open Common.Topology
 
 (* Board info *)
 
