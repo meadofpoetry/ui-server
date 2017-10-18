@@ -1,30 +1,27 @@
-BUILD = ocamlbuild
-FLAGS = -use-ocamlfind -plugin-tag 'package(js_of_ocaml.ocamlbuild)'
-LFLAGS = -lflags "-cclib -lcyusb"
+BUILD = jbuilder
 
-build: frontend backend
-	@echo "Done"
-
-common:
-	$(BUILD) $(FLAGS) common/common.cma
-	$(BUILD) $(FLAGS) common/common.cmxs
-
-home: common
-	$(BUILD) $(FLAGS) jsoo/home.byte
-	js_of_ocaml.exe --opt 3 +weak.js -o resources/js/home.js _build/jsoo/home.byte
+home:
+	$(BUILD) build frontend/home.bc.js
+	cp _build/default/frontend/home.bc.js dist/resources/js/home.js
 
 frontend: home
 
-backend: common
-	$(BUILD) $(FLAGS) $(LFLAGS) src/main.native
+backend:
+	$(BUILD) build backend/backend.exe
+	cp _build/default/backend/backend.exe dist/backend
 
-doc: build
+build: backend frontend
+	@echo "Done"
 
-test: build
+doc:
+	echo "not implemented"
+
+test:
+	echo "not implemented"
 
 all: build
 
 clean:
-	$(BUILD) -clean
+	$(BUILD) clean
 
-.PHONY: build doc test all clean
+.PHONY: build doc test all frontend backend clean
