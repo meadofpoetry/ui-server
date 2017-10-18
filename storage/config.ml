@@ -18,6 +18,8 @@ module type CONFIG = sig
   type t
   type settings
   val  get      : t -> settings
+  val  get_opt  : t -> settings option
+  val  default  : settings
 end
 
 module type DOMAIN = sig
@@ -28,18 +30,19 @@ module type DOMAIN = sig
 end
 
 module Make (D : DOMAIN) : (CONFIG with type t := config and type settings := D.t) = struct
-  let  get conf =
-    let ( >>= ) = CCResult.( >>= ) in
+  let  get_opt conf =
+    let ( >>= ) = CCOpt.( >>= ) in
     let rec find = function
       | [] -> Error ("Domain " ^ D.domain ^ " was not found")
       | (key, x)::_ when key = D.domain -> Ok x
       | (_, _)::tl -> find tl
-    in
-    match conf with
-    | None -> D.default
-    | Some cfg
-      -> cfg |> function 
-               | `Assoc lst
-                 -> (find lst >>= D.of_yojson) |> (function Ok x -> x | Error _ -> D.default)
-               | _ -> D.default
+    in conf
+    >>= function 
+       | `Assoc lst -> CCResult.( find lst >>= D.of_yojson)
+                       |> (function Ok x -> Some x | Error _ -> None)
+       | _ -> None
+
+  let get conf = CCOpt.get_or ~default:D.default (get_opt conf)
+
+  let default = D.default
 end

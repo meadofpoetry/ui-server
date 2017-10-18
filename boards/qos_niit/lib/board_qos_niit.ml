@@ -1,4 +1,4 @@
-open Common.Hardware
+open Common.Topology
 open Api.Interaction
 open Meta_board
 open Board_types
@@ -65,9 +65,8 @@ let create (b:topo_board) send db base step =
                          end) in
   { handlers       = handlers
   ; control        = b.control
-  ; streams_signal = None
+  ; streams_signal = React.S.const []
   ; step           = step
-  ; is_converter   = false
   ; connection     = s_state
   ; ports_active   = (List.fold_left (fun acc p ->
                           (match p.port with

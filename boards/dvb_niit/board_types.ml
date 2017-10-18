@@ -1,4 +1,4 @@
-open Common.Hardware
+open Common.Topology
 
 type rsp_devinfo =
   { serial   : int

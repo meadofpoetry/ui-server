@@ -1,20 +1,19 @@
-open Hardware
+open Topology
 
 type id = Single
         | T2mi_plp of int
         | Dvb of int * int
         | Unknown of int32 [@@deriving yojson]
 
-type t =
-  { source      : source
+type stream =
+  { source      : src
   ; id          : id
-  ; input_name  : string option
   ; description : string option
-  } [@@deriving yojson]
-
- and source = Input of input
-            | Parent of t
-
+  } 
+and src = Port   of int
+        | Stream of id
+        [@@deriving yojson]
+                      
 let id_of_int32 : int32 -> id = function
   | 0l -> Single
   | x when (Int32.logand x (Int32.of_int 0xFFFF0000)) = Int32.zero
@@ -38,3 +37,12 @@ let id_to_int32 : id -> int32 = function
                         |> Int32.of_int
                         |> Int32.logor (Int32.of_int plp)
   | Unknown x        -> x
+
+type t =
+  { source      : source
+  ; id          : id
+  ; description : string option
+  }
+and source = Board  of int
+           | Input  of Topology.input
+           | Parent of t
