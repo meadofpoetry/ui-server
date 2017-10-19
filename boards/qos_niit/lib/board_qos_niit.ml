@@ -59,7 +59,7 @@ let create (b:topo_board) send db base step =
   let e_struct        = React.E.map (fun x ->
                             `List (List.map ts_struct_to_yojson x)
                             |> Yojson.Safe.pretty_to_string
-                            (* |> Lwt_io.printf "Structs: %s\n" *)
+                            |> Lwt_io.printf "Structs: %s\n"
                             |> ignore) events.structs in
   let state           = (object
                            method e_status   = e_status;

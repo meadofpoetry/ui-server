@@ -378,13 +378,13 @@ module SM = struct
                 enqueue msgs sender
                         (Get_section (get_id (), { stream_id = T2mi_plp 0
                                                  ; section   = 0
-                                                 ; table     =  PMT { common = { version = 13
-                                                                               ; id      = 2
-                                                                               ; pid     = 1050
-                                                                               ; lsn     = 0
-                                                                               ; section_syntax = true
-                                                                               ; sections = []}
-                                                                    ; program_number = 1050 }}))
+                                                 ; table     =  NIT_a { common = { version = 21
+                                                                                 ; id      = 64
+                                                                                 ; pid     = 16
+                                                                                 ; lsn     = 0
+                                                                                 ; section_syntax = true
+                                                                                 ; sections = []}
+                                                                    ; nw_id = 13583 }}))
                         (to_period 120 step_duration)
                         None)
               ; get_t2mi_seq    = (fun s  -> enqueue msgs sender
