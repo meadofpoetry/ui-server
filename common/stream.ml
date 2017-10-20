@@ -5,15 +5,6 @@ type id = Single
         | Dvb of int * int
         | Unknown of int32 [@@deriving yojson]
 
-type stream =
-  { source      : src
-  ; id          : id
-  ; description : string option
-  } 
-and src = Port   of int
-        | Stream of id
-        [@@deriving yojson]
-                      
 let id_of_int32 : int32 -> id = function
   | 0l -> Single
   | x when (Int32.logand x (Int32.of_int 0xFFFF0000)) = Int32.zero
@@ -38,9 +29,30 @@ let id_to_int32 : id -> int32 = function
                         |> Int32.logor (Int32.of_int plp)
   | Unknown x        -> x
 
+type ip = Ipaddr.V4.t
+let ip_to_yojson ip =
+  Ipaddr.V4.to_string ip
+  |> fun s -> `String s
+let ip_of_yojson = function
+  | `String s -> Ipaddr.V4.of_string s
+                 |> (function Some ip -> Ok ip | None -> Error ("ip_of_yojson: bad ip: " ^ s))
+  | _ -> Error "ip_of_yojson: bad js"
+type addr = { ip : ip
+            ; port : int
+            } [@@deriving yojson]
+                   
+type stream =
+  { source      : src
+  ; id          : [`Ip of addr | `Ts of id]
+  ; description : string option
+  } 
+and src = Port   of int
+        | Stream of id
+        [@@deriving yojson]
+
 type t =
   { source      : source
-  ; id          : id
+  ; id          : [`Ip of addr | `Ts of id]
   ; description : string option
   }
 and source = Board  of int
