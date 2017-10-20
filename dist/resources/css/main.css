@@ -1,3 +1,7 @@
+:root {
+    --mdc-theme-primary: #212121
+}
+
 html {
     height: 100%;
 }
@@ -28,4 +32,9 @@ main.main-with-sidebar {
 .mdc-theme--dark {
     --mdc-theme-primary: var(--mdc-theme-accent, #64dd17);
     background-color: #303030;
+}
+
+.mdc-toolbar__title {
+    font-weight: 300;
+    font-size: 24px;
 }
