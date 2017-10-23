@@ -46,7 +46,8 @@
                 "manufacturer": "niitv",
                 "connection":["No_response"],
                 "version": 1,
-                "ports": []
+                "ports": [ {"port": 0, "listening": true, "child": [ "Input", { "input":"RF", "id": 0}]},
+                           {"port": 1, "listening": false, "child": [ "Input", { "input": "ASI", "id": 0}]}]
             }
         ]
     ],
