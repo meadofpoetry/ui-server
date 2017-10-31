@@ -1,16 +1,18 @@
 type state = [ `Fine
              | `No_response
              | `Init
-             ] [@@deriving yojson]
+             ] [@@deriving yojson, show]
 
 type typ = DVB
          | TS
          | IP2TS
          | TS2IP
+         [@@deriving show]
 
 type input = RF
            | TSOIP
            | ASI
+           [@@deriving show]
 
 let typ_of_yojson = function
   | `String "DVB"    -> Ok DVB
@@ -36,11 +38,11 @@ let input_to_yojson = function
   | TSOIP -> `String "TSOIP"
   | ASI   -> `String "ASI"
 
-type version = int [@@deriving yojson]
+type version = int [@@deriving yojson, show]
 
-type id = int [@@deriving yojson]
+type id = int [@@deriving yojson, show]
 
-type topology = topo_entry list [@@deriving yojson]
+type topology = topo_entry list [@@deriving yojson, show]
 
 and topo_entry = Input  of topo_input
                | Board  of topo_board

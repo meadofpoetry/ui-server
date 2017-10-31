@@ -153,5 +153,5 @@ let merge_streams (boards : board Map.t)
                   (raw_streams : Common.Stream.stream list React.signal)
                   (topo : topo_board) 
     : Common.Stream.t list React.signal =
-  React.S.const []
+  React.S.const [ Common.Stream.{ id = `Ts Single; description = None; source = Parent { id = `Ts Single; description = (Some "this stream"); source = Input { id = 0; input = RF } } } ]
 
