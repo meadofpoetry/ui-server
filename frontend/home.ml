@@ -2,9 +2,7 @@ open Lwt_react
 open Board_ip_dektec_js.Requests
 open Pipeline_js.Requests
 open Hardware_js.Requests
-
-module Widgets = Common.Components.Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
-open Widgets
+open Components
 
 let return = Lwt.return
 let (>>=) = Lwt.(>>=)
@@ -86,16 +84,47 @@ let onload _ =
 
   let _ = React.E.map (fun x -> ev_label##.textContent := Js.some @@ Js.string (Yojson.Safe.to_string @@ Board_ip_dektec_js.Board_types.board_status_to_yojson x)) (Board_ip_dektec_js.Requests.get_status_socket 5) in
 
-  Dom.appendChild (Dom_html.getElementById "arbitrary-content")
-                  (toelt @@ Button.create ~raised:true
-                                          ~label:"test"
-                                          ~ripple:true
-                                          ~onclick:(fun _ -> print_endline "clicked"; true)
-                                          ());
-  Dom.appendChild (Dom_html.getElementById "arbitrary-content") label;
-  Dom.appendChild (Dom_html.getElementById "arbitrary-content") button_set;
-  Dom.appendChild (Dom_html.getElementById "arbitrary-content") button_reset;
-  Dom.appendChild (Dom_html.getElementById "arbitrary-content") ev_label;
+  let dialog   = Dialog.create ~description_id:"did"
+                               ~label_id:"lid"
+                               ~content:[ Dialog.Header.create ~id:"lid" ~label:"This is dialog" ()
+                                        ; Dialog.Body.create ~id:"did" ~children:[] ()
+                                        ; Dialog.Footer.create
+                                            ~children:[ Dialog.Footer.create_button ~_type:`Decline
+                                                                                    ~label:"Cancel"
+                                                                                    ()
+                                                      ; Dialog.Footer.create_button ~_type:`Accept
+                                                                                    ~label:"Accept"
+                                                                                    ()
+                                                      ] ()
+                                        ] () in
+  Dom_html.addEventListener dialog
+                            Dialog.events.accept
+                            (Dom_html.handler (fun _ -> print_endline "accepted!"; Js._false))
+                            Js._false
+  |> ignore;
+  let ac = Dom_html.getElementById "arbitrary-content" in
+  Dom.appendChild ac dialog;
+  let switch = Switch.create ~input_id:"sw" () in
+  Dom_html.addEventListener switch
+                            Dom_events.Typ.change
+                            (Dom_html.handler (fun _ -> print_endline "changed on switch!"; Js._false))
+                            Js._false
+  |> ignore;
+  let form_field = Form_field.create ~input:(of_dom switch)
+                                     ~label:(Form_field.Label.create ~label:"this is a switch"
+                                                                     ~for_id:"sw"
+                                                                     ())
+                                     () in
+  Dom.appendChild ac (Button.create ~raised:true
+                                    ~label:"show"
+                                    ~ripple:true
+                                    ~onclick:(fun _ -> dialog##.component_##show_ (); true)
+                                    ());
+  Dom.appendChild ac form_field;
+  Dom.appendChild ac label;
+  Dom.appendChild ac button_set;
+  Dom.appendChild ac button_reset;
+  Dom.appendChild ac ev_label;
   
   Js._false
 
