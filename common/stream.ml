@@ -48,13 +48,12 @@ type stream =
   } 
 and src = Port   of int
         | Stream of id
-        [@@deriving yojson]
 
 type t =
   { source      : source
   ; id          : [`Ip of addr | `Ts of id]
   ; description : string option
   }
-and source = Board  of int
-           | Input  of Topology.input
+and source = Input  of Topology.topo_input
            | Parent of t
+           [@@deriving yojson]

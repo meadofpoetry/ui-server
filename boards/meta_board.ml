@@ -12,7 +12,7 @@ exception Invalid_port of string
 
 type board = { handlers        : (module Api_handler.HANDLER) list
              ; control         : int
-             ; streams_signal  : Common.Stream.stream list React.signal
+             ; streams_signal  : Common.Stream.t list React.signal
              ; step            : (Cbuffer.t list -> 'c cc as 'c) cc
              ; connection      : state React.signal
              ; ports_active    : bool React.signal Ports.t
@@ -146,3 +146,12 @@ let concat_acc acc recvd = match acc with
   | None     -> Cbuffer.concat (List.rev recvd)
 
 let apply = function `Continue step -> step
+
+module Map  = CCMap.Make(CCInt)
+                                     
+let merge_streams (boards : board Map.t)
+                  (raw_streams : Common.Stream.stream list React.signal)
+                  (topo : topo_board) 
+    : Common.Stream.t list React.signal =
+  React.S.const []
+

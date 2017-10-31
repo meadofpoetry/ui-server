@@ -62,6 +62,30 @@ and topo_port = { port      : int
                 ; listening : bool
                 ; child     : topo_entry
                 }
-
+              
 let get_api_path = string_of_int
 
+let rec sub topo id =
+  let rec sub_port ports id =
+    match ports with
+    | []    -> None
+    | x::tl ->
+       let b = x.child in
+       match got_it b id with
+       | Some b -> Some b
+       | None   -> sub_port tl id
+  and got_it board id =
+     match board with
+     | Input _ -> None
+     | Board b -> 
+        if b.control = id
+        then Some (Board b)
+        else (sub_port b.ports id)
+  in
+  match topo with
+  | []    -> None
+  | x::tl ->
+     match got_it x id with
+     | Some b -> Some [b]
+     | None   -> sub tl id
+       

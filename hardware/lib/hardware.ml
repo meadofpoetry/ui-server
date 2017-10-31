@@ -13,8 +13,9 @@ module Settings = struct
 end
 
 module Conf = Storage.Config.Make(Settings)
-
-type t = { boards : Meta_board.board list
+module Map  = CCMap.Make(CCInt)
+            
+type t = { boards : Meta_board.board Map.t
          ; usb    : Usb_device.t
          ; topo   : topology React.signal
          }
@@ -43,7 +44,7 @@ let topo_to_signal topo boards =
   let rec board_to_signal = function
     | Input _ as i -> React.S.const i
     | Board b ->
-       let bstate    = List.find_pred (fun x -> Int.equal x.control b.control) boards in
+       let bstate    = Map.get b.control boards in
        let connection, port_list =
          match bstate with
          | None       -> React.S.const `No_response,
@@ -61,6 +62,27 @@ let topo_to_signal topo boards =
   List.map board_to_signal topo
   |> React.S.merge (fun acc h -> h::acc) []
 
+  (*
+let transform_streams topo_board boards (streams : Common.Stream.stream list) =
+  let open CCOpt.Infix in
+  
+  let rec for_streams (s : Common.Stream.stream) =
+    match s.source with
+    | Port n    -> (List.hd topo_board
+                    |> List.find_pred (fun p -> p.port = n)
+                    >>= fun p ->
+                    match p.child with
+                    | Input i -> Some ({ source = (Input i : Topology.source)
+                                      ; id     = (s.id :> [< `Ip_external | `Ip of Common.Stream.addr | `Ts of id])
+                                      ; description = s.description
+                                   } : Common.Stream.t)
+                    | Board b -> (Map.get b
+                                  >>= fun b ->
+                                  b.
+    | Stream id -> (CCList.find_pred (fun (s : Common.Stream.stream) -> match s.id with `Ts i -> i = id | _ -> false) streams
+                      >>= fun s ->
+                      for_streams s streams)
+   *)
 let create config db =
   let step_duration = 0.01 in
   let topo      = Conf.get config in
@@ -71,7 +93,9 @@ let create config db =
                           | Input _ -> acc) in
   let boards = List.fold_left traverse [] topo
                |> List.map (fun b -> let board = create_board db usb b stor.config_dir step_duration in
-                                     Usb_device.subscribe usb b.control board.step; board)
+                                     Usb_device.subscribe usb b.control board.step;
+                                     b.control, board)
+               |> Map.of_list
   in
   let topo_signal = topo_to_signal topo boards in
   { boards; usb; topo = topo_signal }, loop ()
