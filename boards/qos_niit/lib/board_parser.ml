@@ -582,10 +582,10 @@ module Get_section : (Request
     if length > 0 && result = 0
     then let sid,data = Cbuffer.split bdy 4 in
          (try
-            (Si_psi_parser.PMT.of_cbuffer data
-             |> Si_psi_parser.PMT.to_yojson
+            (Si_psi_parser.NIT.of_cbuffer data
+             |> Si_psi_parser.NIT.to_yojson
              |> Yojson.Safe.pretty_to_string
-             |> (fun x -> "PMT: " ^ x)
+             |> (fun x -> "NIT: " ^ x)
              |> io)
           with e -> io @@ Printexc.to_string e);
          Ok { stream_id = Common.Stream.id_of_int32 @@ Cbuffer.LE.get_uint32 sid 0

@@ -19,9 +19,9 @@ type t = { boards : Meta_board.board Map.t
          ; usb    : Usb_device.t
          ; topo   : topology React.signal
          }
-            
+
 let create_board db usb (b:topo_board) path step_duration =
-  let (module B : Meta_board.BOARD) = 
+  let (module B : Meta_board.BOARD) =
     match b.typ, b.model, b.manufacturer, b.version with
     | DVB,   "rf",       "niitv",  1  -> (module Board_dvb_niit  : Meta_board.BOARD)
     | IP2TS, "dtm-3200", "dektec", 1  -> (module Board_ip_dektec : Meta_board.BOARD)
@@ -30,6 +30,12 @@ let create_board db usb (b:topo_board) path step_duration =
     | _ -> raise (Failure ("create board: unknown board "))
   in
   B.create b (Usb_device.get_send usb b.control) db path step_duration
+
+let topo_inputs =
+  let rec f = (fun acc entry -> match entry with
+                                   | Input x -> x :: acc
+                                   | Board x -> List.concat @@ (List.map (fun x -> f acc x.child) x.ports)) in
+  List.fold_left f []
 
 let topo_to_signal topo boards =
   let build_board b connection ports =

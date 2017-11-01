@@ -19,7 +19,10 @@ module Settings = struct
   let title s = "Настройки - " ^ s
 
   let users base =
-    let content = List.map Common.Components.to_string (Page_users.users ()) in
+    let content = [ Common.Components.to_string
+                      (Widgets.Switch.create ~input_id:"input_id" ())
+                  ] in
+    (* List.map Common.Components.to_string (Page_users.users ()) *)
     let json    = fill_json ~title:(title "Пользователи")
                             ~content:content
                             () in

@@ -485,14 +485,57 @@ end
 
 module Table_common = struct
 
+  type header =
+    { table_id                 : int
+    ; section_syntax_indicator : bool
+    ; rfu                      : bool
+    ; reserved_1               : int
+    ; section_length           : int
+    } [@@deriving yojson]
+
+  type ts =
+    { transport_stream_id          : int
+    ; original_network_id          : int
+    ; rfu                          : int
+    ; transport_descriptors_length : int
+    ; descriptors                  : Descriptor.t list
+    } [@@deriving yojson]
+
+  let parse_header bs =
+    match%bitstring bs with
+    | {| table_id                 : 8
+       ; section_syntax_indicator : 1
+       ; rfu                      : 1
+       ; reserved_1               : 2
+       ; section_length           : 12
+       ; rest                     : -1 : bitstring
+       |} -> { table_id; section_syntax_indicator; rfu; reserved_1; section_length }, rest
+
   let rec parse_descriptors = (fun acc x ->
       if Bitstring.bitstring_length x = 0 then List.rev acc
       else let descr,rest = Descriptor.of_bitstring x in
            parse_descriptors (descr :: acc) rest)
 
+  let rec parse_ts = (fun acc x ->
+      if Bitstring.bitstring_length x = 0 then List.rev acc
+      else (match%bitstring x with
+            | {| transport_stream_id          : 16
+               ; original_network_id          : 16
+               ; rfu                          : 4
+               ; transport_descriptors_length : 12
+               ; descriptors                  : transport_descriptors_length * 8 : bitstring
+               ; rest                         : -1 : bitstring
+               |} -> parse_ts ({ transport_stream_id; original_network_id;
+                                 rfu; transport_descriptors_length;
+                                 descriptors = parse_descriptors [] descriptors} :: acc)
+                              rest))
+
 end
 
 module PAT = struct
+
+  open Table_common
+  open Bitstring
 
   type program =
     { program_number : int
@@ -501,52 +544,45 @@ module PAT = struct
     } [@@deriving yojson]
 
   type t =
-    { table_id                 : int
-    ; section_syntax_indicator : bool
-    ; zero                     : bool
-    ; reserved_1               : int
-    ; section_length           : int
-    ; transport_stream_id      : int
-    ; reserved_2               : int
-    ; version_number           : int
-    ; current_next_indicator   : bool
-    ; section_number           : int
-    ; last_section_number      : int
-    ; programs                 : program list
-    ; crc32                    : int32
+    { header                 : header
+    ; transport_stream_id    : int
+    ; reserved               : int
+    ; version_number         : int
+    ; current_next_indicator : bool
+    ; section_number         : int
+    ; last_section_number    : int
+    ; programs               : program list
+    ; crc32                  : int32
     } [@@deriving yojson]
 
   let of_cbuffer buf =
-    let bs = Bitstring.bitstring_of_string @@ Cbuffer.to_string buf in
+    let bs = bitstring_of_string @@ Cbuffer.to_string buf in
     let rec f = fun acc x ->
-      if Bitstring.bitstring_length x = 0 then List.rev acc
+      if bitstring_length x = 0 then List.rev acc
       else (match%bitstring x with
             | {| program_number : 16
                ; reserved       : 3
                ; pid            : 13
                ; rest           : -1 : bitstring
                |} -> f ({ program_number; reserved; pid } :: acc) rest) in
-    match%bitstring bs with
-    | {| table_id                 : 8
-       ; section_syntax_indicator : 1
-       ; zero                     : 1
-       ; reserved_1               : 2
-       ; section_length           : 12
-       ; transport_stream_id      : 16
-       ; reserved_2               : 2
-       ; version_number           : 5
-       ; current_next_indicator   : 1
-       ; section_number           : 8
-       ; last_section_number      : 8 : save_offset_to (hdr_offset)
-       ; rest                     : (Bitstring.bitstring_length bs - (hdr_offset + 8 + 32)) : bitstring
-       ; crc32                    : 32
-       |} -> { table_id; section_syntax_indicator; zero; reserved_1; section_length; transport_stream_id;
-               reserved_2; version_number; current_next_indicator; section_number; last_section_number;
-               programs = f [] rest; crc32 }
+    let header,rest = parse_header bs in
+    match%bitstring rest with
+    | {| transport_stream_id    : 16
+       ; reserved               : 2
+       ; version_number         : 5
+       ; current_next_indicator : 1
+       ; section_number         : 8
+       ; last_section_number    : 8 : save_offset_to (off)
+       ; programs               : bitstring_length bs - off - 8 - 32 : bitstring
+       ; crc32                  : 32
+       |} -> { header; transport_stream_id; reserved; version_number; current_next_indicator;
+               section_number; last_section_number; programs = f [] programs; crc32 }
 
 end
 
 module PMT = struct
+
+  open Table_common
 
   type stream =
     { stream_type    : int
@@ -558,24 +594,20 @@ module PMT = struct
     } [@@deriving yojson]
 
   type t =
-    { table_id                 : int
-    ; section_syntax_indicator : bool
-    ; zero                     : bool
-    ; reserved_1               : int
-    ; section_length           : int
-    ; program_number           : int
-    ; reserved_2               : int
-    ; version_number           : int
-    ; current_next_indicator   : bool
-    ; section_number           : int
-    ; last_section_number      : int
-    ; reserved_3               : int
-    ; pcr_pid                  : int
-    ; reserved_4               : int
-    ; program_info_length      : int
-    ; descriptors              : Descriptor.t list
-    ; streams                  : stream list
-    ; crc32                    : int32
+    { header                 : header
+    ; program_number         : int
+    ; reserved_1             : int
+    ; version_number         : int
+    ; current_next_indicator : bool
+    ; section_number         : int
+    ; last_section_number    : int
+    ; reserved_2             : int
+    ; pcr_pid                : int
+    ; reserved_3             : int
+    ; program_info_length    : int
+    ; descriptors            : Descriptor.t list
+    ; streams                : stream list
+    ; crc32                  : int32
     } [@@deriving yojson]
 
   let of_cbuffer buf =
@@ -592,70 +624,473 @@ module PMT = struct
                  ; rest           : -1 : bitstring
                  |} -> parse_streams ({ stream_type; reserved_1; elementary_pid;
                                         reserved_2; es_info_length;
-                                        descriptors = Table_common.parse_descriptors [] descriptors} :: acc)
+                                        descriptors = parse_descriptors [] descriptors} :: acc)
                                      rest)) in
-    let len = Bitstring.bitstring_length bs in
-    match%bitstring bs with
-    | {| table_id                 : 8
-       ; section_syntax_indicator : 1
-       ; zero                     : 1
-       ; reserved_1               : 2
-       ; section_length           : 12
-       ; program_number           : 16
-       ; reserved_2               : 2
-       ; version_number           : 5
-       ; current_next_indicator   : 1
-       ; section_number           : 8
-       ; last_section_number      : 8
-       ; reserved_3               : 3
-       ; pcr_pid                  : 13
-       ; reserved_4               : 4
-       ; program_info_length      : 12
-       ; descriptors              : program_info_length * 8 : bitstring, save_offset_to (off)
-       ; rest                     : len - (program_info_length * 8) - off - 32 : bitstring
-       ; crc32                    : 32
-       |} -> { table_id; section_syntax_indicator; zero; reserved_1; section_length; program_number;
-               reserved_2; version_number; current_next_indicator; section_number; last_section_number;
-               reserved_3; pcr_pid; reserved_4; program_info_length;
-               descriptors = Table_common.parse_descriptors [] descriptors;
-               streams = parse_streams [] rest; crc32 }
+    let header,rest = parse_header bs in
+    let len = Bitstring.bitstring_length rest in
+    match%bitstring rest with
+    | {| program_number         : 16
+       ; reserved_1             : 2
+       ; version_number         : 5
+       ; current_next_indicator : 1
+       ; section_number         : 8
+       ; last_section_number    : 8
+       ; reserved_2             : 3
+       ; pcr_pid                : 13
+       ; reserved_3             : 4
+       ; program_info_length    : 12
+       ; descriptors            : program_info_length * 8 : bitstring, save_offset_to (off)
+       ; streams                : len - (program_info_length * 8) - off - 32 : bitstring
+       ; crc32                  : 32
+       |} -> { header; program_number; reserved_1; version_number; current_next_indicator; section_number;
+               last_section_number; reserved_2; pcr_pid; reserved_3; program_info_length;
+               descriptors = parse_descriptors [] descriptors;
+               streams = parse_streams [] streams; crc32 }
 
 end
 
 module CAT = struct
 
+  open Table_common
+  open Bitstring
+
   type t =
-    { table_id                 : int
-    ; section_syntax_indicator : bool
-    ; zero                     : bool
-    ; reserved_1               : int
-    ; section_length           : int
-    ; reserved_2               : int
-    ; version_number           : int
-    ; current_next_indicator   : bool
-    ; section_number           : int
-    ; last_section_number      : int
-    ; descriptors              : Descriptor.t list
-    ; crc32                    : int32
-    }
+    { header                 : header
+    ; reserved               : int
+    ; version_number         : int
+    ; current_next_indicator : bool
+    ; section_number         : int
+    ; last_section_number    : int
+    ; descriptors            : Descriptor.t list
+    ; crc32                  : int32
+    } [@@deriving yojson]
+
+  let of_cbuffer buf =
+    let bs = bitstring_of_string @@ Cbuffer.to_string buf in
+    let header,rest = parse_header bs in
+    match%bitstring rest with
+    | {| reserved               : 18
+       ; version_number         : 5
+       ; current_next_indicator : 1
+       ; section_number         : 8
+       ; last_section_number    : 8 : save_offset_to (off)
+       ; descriptors            : bitstring_length rest - off - 8 - 32 : bitstring
+       ; crc32                  : 32
+       |} -> { header; reserved; version_number; current_next_indicator; section_number;
+               last_section_number; descriptors = parse_descriptors [] descriptors; crc32 }
+
+end
+
+module TSDT = struct
+
+  include CAT
+
+end
+
+module NIT = struct
+
+  open Table_common
+
+  type t =
+    { header                       : header
+    ; network_id                   : int
+    ; reserved                     : int
+    ; version_number               : int
+    ; current_next_indicator       : bool
+    ; section_number               : int
+    ; last_section_number          : int
+    ; rfu_1                        : int
+    ; network_descriptors_length   : int
+    ; descriptors                  : Descriptor.t list
+    ; rfu_2                        : int
+    ; transport_stream_loop_length : int
+    ; transport_streams            : ts list
+    ; crc32                        : int32
+    } [@@deriving yojson]
 
   let of_cbuffer buf =
     let bs = Bitstring.bitstring_of_string @@ Cbuffer.to_string buf in
-    match%bitstring bs with
-    | {| table_id                 : 8
-       ; section_syntax_indicator : 1
-       ; zero                     : 1
-       ; reserved_1               : 2
-       ; section_length           : 12
-       ; reserved_2               : 18
-       ; version_number           : 5
-       ; current_next_indicator   : 1
-       ; section_number           : 8
-       ; last_section_number      : 8 : save_offset_to(hdr_offset)
-       ; descriptors              : 8 + hdr_offset : bitstring
-       ; crc32                    : 32
-       |} -> { table_id; section_syntax_indicator; zero; reserved_1; section_length; reserved_2;
-               version_number; current_next_indicator; section_number; last_section_number;
-               descriptors = Table_common.parse_descriptors [] descriptors; crc32}
+    let header,rest = parse_header bs in
+    match%bitstring rest with
+    | {| network_id                   : 16
+       ; reserved                     : 2
+       ; version_number               : 5
+       ; current_next_indicator       : 1
+       ; section_number               : 8
+       ; last_section_number          : 8
+       ; rfu_1                        : 4
+       ; network_descriptors_length   : 12
+       ; descriptors                  : network_descriptors_length * 8 : bitstring
+       ; rfu_2                        : 4
+       ; transport_stream_loop_length : 12
+       ; transport_streams            : transport_stream_loop_length * 8 : bitstring
+       ; crc32                        : 32
+       |} -> { header; network_id; reserved; version_number; current_next_indicator; section_number;
+               last_section_number; rfu_1; network_descriptors_length;
+               descriptors = parse_descriptors [] descriptors;
+               rfu_2; transport_stream_loop_length;
+               transport_streams = parse_ts [] transport_streams; crc32 }
+
+end
+
+module BAT = struct
+
+  open Table_common
+
+  type t =
+    { header                       : header
+    ; bouquet_id                   : int
+    ; reserved                     : int
+    ; version_number               : int
+    ; current_next_indicator       : bool
+    ; section_number               : int
+    ; last_section_number          : int
+    ; rfu_1                        : int
+    ; bouquet_descriptors_length   : int
+    ; descriptors                  : Descriptor.t list
+    ; rfu_2                        : int
+    ; transport_stream_loop_length : int
+    ; transport_streams            : ts list
+    ; crc32                        : int32
+    } [@@deriving yojson]
+
+  let of_cbuffer buf =
+    let bs = Bitstring.bitstring_of_string @@ Cbuffer.to_string buf in
+    let header,rest = parse_header bs in
+    match%bitstring rest with
+    | {| bouquet_id                   : 16
+       ; reserved                     : 2
+       ; version_number               : 5
+       ; current_next_indicator       : 1
+       ; section_number               : 8
+       ; last_section_number          : 8
+       ; rfu_1                        : 4
+       ; bouquet_descriptors_length   : 12
+       ; descriptors                  : bouquet_descriptors_length * 8 : bitstring
+       ; rfu_2                        : 4
+       ; transport_stream_loop_length : 12
+       ; transport_streams            : transport_stream_loop_length * 8 : bitstring
+       ; crc32                        : 32
+       |} -> { header; bouquet_id; reserved; version_number; current_next_indicator; section_number;
+               last_section_number; rfu_1; bouquet_descriptors_length;
+               descriptors = Table_common.parse_descriptors [] descriptors;
+               rfu_2; transport_stream_loop_length;
+               transport_streams = Table_common.parse_ts [] transport_streams; crc32 }
+
+end
+
+module SDT = struct
+
+  open Table_common
+
+  type service =
+    { service_id                 : int
+    ; rfu                        : int
+    ; eit_schedule_flag          : bool
+    ; eit_present_following_flag : bool
+    ; running_status             : int
+    ; free_ca_mode               : bool
+    ; descriptors_loop_length    : int
+    ; descriptors                : Descriptor.t list
+    } [@@deriving yojson]
+
+  type t =
+    { header                 : header
+    ; transport_stream_id    : int
+    ; reserved               : int
+    ; version_number         : int
+    ; current_next_indicator : bool
+    ; section_number         : int
+    ; last_section_number    : int
+    ; original_network_id    : int
+    ; rfu                    : int
+    ; services               : service list
+    ; crc32                  : int32
+    } [@@deriving yojson]
+
+  let of_cbuffer buf =
+    let rec parse_services = (fun acc x ->
+        if Bitstring.bitstring_length x = 0 then List.rev acc
+        else (match%bitstring x with
+              | {| service_id                 : 16
+                 ; rfu                        : 6
+                 ; eit_schedule_flag          : 1
+                 ; eit_present_following_flag : 1
+                 ; running_status             : 3
+                 ; free_ca_mode               : 1
+                 ; descriptors_loop_length    : 12
+                 ; descriptors                : descriptors_loop_length * 8 : bitstring
+                 ; rest                       : -1 : bitstring
+                 |} -> parse_services ({ service_id; rfu; eit_schedule_flag; eit_present_following_flag;
+                                         running_status; free_ca_mode; descriptors_loop_length;
+                                         descriptors = parse_descriptors [] descriptors} :: acc)
+                                      rest)) in
+    let bs = Bitstring.bitstring_of_string @@ Cbuffer.to_string buf in
+    let header,rest = parse_header bs in
+    let len         = Bitstring.bitstring_length rest in
+    match%bitstring rest with
+    | {| transport_stream_id    : 16
+       ; reserved               : 2
+       ; version_number         : 5
+       ; current_next_indicator : 1
+       ; section_number         : 8
+       ; last_section_number    : 8
+       ; original_network_id    : 16
+       ; rfu                    : 8 : save_offset_to (off)
+       ; services               : len - off - 8 - 32 : bitstring
+       ; crc32                  : 32
+       |} -> { header; transport_stream_id; reserved; version_number; current_next_indicator;
+               section_number; last_section_number; original_network_id; rfu;
+               services = parse_services [] services; crc32 }
+
+end
+
+module EIT = struct
+
+  open Table_common
+
+  type event =
+    { event_id                : int
+    ; start_time              : int64
+    ; duration                : int
+    ; running_status          : int
+    ; free_ca_mode            : bool
+    ; descriptors_loop_length : int
+    ; descriptors             : Descriptor.t list
+    } [@@deriving yojson]
+
+  type t =
+    { header                      : header
+    ; service_id                  : int
+    ; reserved                    : int
+    ; version_number              : int
+    ; current_next_indicator      : bool
+    ; section_number              : int
+    ; last_section_number         : int
+    ; transport_stream_id         : int
+    ; original_network_id         : int
+    ; segment_last_section_number : int
+    ; last_table_id               : int
+    ; events                      : event list
+    ; crc32                       : int32
+    } [@@deriving yojson]
+
+  let of_cbuffer buf =
+    let rec parse_events = (fun acc x ->
+        if Bitstring.bitstring_length x = 0 then List.rev acc
+        else (match%bitstring x with
+              | {| event_id                   : 16
+                 ; start_time                 : 40
+                 ; duration                   : 24 : map (fun x -> Int32.to_int x)
+                 ; running_status             : 3
+                 ; free_ca_mode               : 1
+                 ; descriptors_loop_length    : 12
+                 ; descriptors                : descriptors_loop_length * 8 : bitstring
+                 ; rest                       : -1 : bitstring
+                 |} -> parse_events ({ event_id; start_time; duration; running_status; free_ca_mode;
+                                       descriptors_loop_length;
+                                       descriptors = parse_descriptors [] descriptors} :: acc)
+                                    rest)) in
+    let bs = Bitstring.bitstring_of_string @@ Cbuffer.to_string buf in
+    let header,rest = parse_header bs in
+    match%bitstring rest with
+    | {| service_id                  : 16
+       ; reserved                    : 2
+       ; version_number              : 5
+       ; current_next_indicator      : 1
+       ; section_number              : 8
+       ; last_section_number         : 8
+       ; transport_stream_id         : 16
+       ; original_network_id         : 16
+       ; segment_last_section_number : 8
+       ; last_table_id               : 8 : save_offset_to (off)
+       ; events                      : Bitstring.bitstring_length rest - off - 8 - 32 : bitstring
+       ; crc32                       : 32
+       |} -> { header; service_id; reserved; version_number; current_next_indicator; section_number;
+               last_section_number; transport_stream_id; original_network_id; segment_last_section_number;
+               last_table_id; events = parse_events [] events; crc32 }
+
+end
+
+module TDT = struct
+
+  open Table_common
+
+  type t =
+    { header   : header
+    ; utc_time : int64
+    } [@@deriving yojson]
+
+  let of_cbuffer buf =
+    let bs = Bitstring.bitstring_of_string @@ Cbuffer.to_string buf in
+    let header,rest = parse_header bs in
+    match%bitstring rest with
+    | {| utc_time : 40 |} -> { header; utc_time }
+
+end
+
+module TOT = struct
+
+  open Table_common
+
+  type t =
+    { header                  : header
+    ; utc_time                : int64
+    ; reserved                : int
+    ; descriptors_loop_length : int
+    ; descriptors             : Descriptor.t list
+    ; crc32                   : int32
+    } [@@deriving yojson]
+
+  let of_cbuffer buf =
+    let bs = Bitstring.bitstring_of_string @@ Cbuffer.to_string buf in
+    let header,rest = parse_header bs in
+    match%bitstring rest with
+    | {| utc_time               : 40
+       ; reserved               : 4
+       ; descriptors_loop_length : 12
+       ; descriptors            : descriptors_loop_length * 8 : bitstring
+       ; crc32                  : 32
+       |} -> { header; utc_time; reserved; descriptors_loop_length;
+               descriptors = parse_descriptors [] descriptors; crc32 }
+
+end
+
+module RST = struct
+
+  open Table_common
+
+  type event =
+    { transport_stream_id : int
+    ; original_network_id : int
+    ; service_id          : int
+    ; event_id            : int
+    ; rfu                 : int
+    ; running_status      : int
+    } [@@deriving yojson]
+
+  type t =
+    { header : header
+    ; events : event list
+    } [@@deriving yojson]
+
+  let of_cbuffer buf =
+    let bs = Bitstring.bitstring_of_string @@ Cbuffer.to_string buf in
+    let header,rest = parse_header bs in
+    let rec parse_events = fun acc x ->
+      if Bitstring.bitstring_length x = 0 then List.rev acc
+      else (match%bitstring x with
+            | {| transport_stream_id        : 16
+               ; original_network_id        : 16
+               ; service_id                 : 16
+               ; event_id                   : 16
+               ; rfu                        : 5
+               ; running_status             : 3
+               ; rest                       : -1 : bitstring
+               |} -> parse_events ({ transport_stream_id; original_network_id; service_id; event_id;
+                                     rfu; running_status} :: acc) rest) in
+    { header; events = parse_events [] rest }
+
+
+end
+
+module ST = struct
+
+  open Table_common
+
+  type t =
+    { header : header
+    ; bytes  : string
+    } [@@deriving yojson]
+
+  let of_cbuffer buf =
+    let bs = Bitstring.bitstring_of_string @@ Cbuffer.to_string buf in
+    let header,rest = parse_header bs in
+    { header; bytes = Bitstring.string_of_bitstring rest }
+
+end
+
+module DIT = struct
+
+  open Table_common
+
+  type t =
+    { header          : header
+    ; transition_flag : bool
+    ; rfu             : int
+    } [@@deriving yojson]
+
+  let of_cbuffer buf =
+    let bs = Bitstring.bitstring_of_string @@ Cbuffer.to_string buf in
+    let header,rest = parse_header bs in
+    match%bitstring rest with
+    | {| transition_flag : 1
+       ; rfu             : 7
+       ; rest            : -1 : bitstring
+       |} when Bitstring.bitstring_length rest = 0 -> { header; transition_flag; rfu }
+
+end
+
+module SIT = struct
+
+  open Table_common
+  open Bitstring
+
+  type service =
+    { service_id          : int
+    ; dvb_rfu             : bool
+    ; running_status      : int
+    ; service_loop_length : int
+    ; descriptors         : Descriptor.t list
+    } [@@deriving yojson]
+
+  type t =
+    { header                        : header
+    ; dvb_rfu_1                     : int
+    ; iso_reserved                  : int
+    ; version_number                : int
+    ; current_next_indicator        : bool
+    ; section_number                : int
+    ; last_section_number           : int
+    ; dvb_rfu_2                     : int
+    ; transmission_info_loop_length : int
+    ; descriptors                   : Descriptor.t list
+    ; services                      : service list
+    ; crc32                         : int32
+    } [@@deriving yojson]
+
+  let of_cbuffer buf =
+    let bs = bitstring_of_string @@ Cbuffer.to_string buf in
+    let header,rest = parse_header bs in
+    let len = bitstring_length rest in
+    let rec parse_services = fun acc x ->
+      if Bitstring.bitstring_length x = 0 then List.rev acc
+      else (match%bitstring x with
+            | {| service_id          : 16
+               ; dvb_rfu             : 1
+               ; running_status      : 3
+               ; service_loop_length : 12
+               ; descriptors         : service_loop_length * 8 : bitstring, map (fun x -> parse_descriptors [] x)
+               ; rest                : -1 : bitstring
+               |} -> parse_services ({ service_id; dvb_rfu; running_status;
+                                       service_loop_length; descriptors } :: acc) rest) in
+    match%bitstring rest with
+    | {| dvb_rfu_1                     : 16
+       ; iso_reserved                  : 2
+       ; version_number                : 5
+       ; current_next_indicator        : 1
+       ; section_number                : 8
+       ; last_section_number           : 8
+       ; dvb_rfu_2                     : 4
+       ; transmission_info_loop_length : 12
+       ; descriptors                   : transmission_info_loop_length * 8 : bitstring, save_offset_to (off)
+       ; services                      : len - off - (transmission_info_loop_length * 8) - 32 : bitstring
+       ; crc32                         : 32
+       ; rest                          : -1 : bitstring
+       |} when bitstring_length rest = 0 -> { header; dvb_rfu_1; iso_reserved; version_number;
+                                              current_next_indicator; section_number; last_section_number;
+                                              dvb_rfu_2; transmission_info_loop_length;
+                                              descriptors = parse_descriptors [] descriptors;
+                                              services = parse_services [] services; crc32 }
 
 end

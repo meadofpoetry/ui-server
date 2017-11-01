@@ -6,7 +6,6 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="">
         <title>{{title}}</title>
-        <link rel="stylesheet" href="/css/main.css" type="text/css">
         <link
             rel="stylesheet"
             href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css">
@@ -14,6 +13,7 @@
         <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500">
         <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto+Mono">
         <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans">
+        <link rel="stylesheet" href="/css/main.css" type="text/css">
         <style>
           @font-face {
           font-family: "Open Sans";
@@ -33,8 +33,8 @@
         <header class="mdc-toolbar mdc-toolbar--fixed">
             <div class="mdc-toolbar--row">
                 <section class="mdc-toolbar__section mdc-toolbar__section--align-start">
-                    <a href="/" class="material-icons mdc-toolbar__icon--menu">menu</a>
-                    <span class="mdc-toolbar__title">АТС-3</span>
+                    <a href="/" class="material-icons mdc-toolbar__menu-icon">menu</a>
+                    <span class="mdc-toolbar__title ui__title">АТС-3</span>
                 </section>
             </div>
         </header>
@@ -77,6 +77,9 @@
             </main>
         </div>
         <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
-        <script>window.mdc.autoInit();</script>
+        <script>
+         function rdy () { window.mdc.autoInit(); };
+         document.addEventListener('DOMContentLoaded', rdy, false);
+        </script>
     </body>
 </html>
