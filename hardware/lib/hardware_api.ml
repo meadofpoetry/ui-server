@@ -39,7 +39,7 @@ let handle hw _ meth args sock_data _ body =
   | _        -> Api.Redirect.not_found ()
 
 let handlers hw =
-  let hls = List.fold_left (fun acc x -> x.handlers @ acc) [] hw.boards in
+  let hls = Hardware.Map.fold (fun _ x acc -> x.handlers @ acc) hw.boards [] in
   [ Api_handler.add_layer "board" hls ;
     (module struct
        let domain = "hardware"

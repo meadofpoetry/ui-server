@@ -3,7 +3,7 @@ open Topology
 type id = Single
         | T2mi_plp of int
         | Dvb of int * int
-        | Unknown of int32 [@@deriving yojson]
+        | Unknown of int32 [@@deriving yojson, show]
 
 let id_of_int32 : int32 -> id = function
   | 0l -> Single
@@ -30,6 +30,7 @@ let id_to_int32 : id -> int32 = function
   | Unknown x        -> x
 
 type ip = Ipaddr.V4.t
+let pp_ip = Ipaddr.V4.pp_hum
 let ip_to_yojson ip =
   Ipaddr.V4.to_string ip
   |> fun s -> `String s
@@ -39,7 +40,7 @@ let ip_of_yojson = function
   | _ -> Error "ip_of_yojson: bad js"
 type addr = { ip : ip
             ; port : int
-            } [@@deriving yojson]
+            } [@@deriving yojson, show]
                    
 type stream =
   { source      : src
@@ -48,13 +49,12 @@ type stream =
   } 
 and src = Port   of int
         | Stream of id
-        [@@deriving yojson]
 
 type t =
   { source      : source
   ; id          : [`Ip of addr | `Ts of id]
   ; description : string option
   }
-and source = Board  of int
-           | Input  of Topology.input
+and source = Input  of Topology.topo_input
            | Parent of t
+           [@@deriving yojson, show]
