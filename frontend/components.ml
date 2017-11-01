@@ -161,7 +161,12 @@ module Form_field = struct
 
   include Widgets.Form_field
 
-  let create ?id ?style ?classes ?attrs ?align_end ~input ~label () =
+  class type t =
+    object
+      inherit Dom_html.element
+    end
+
+  let create ?id ?style ?classes ?attrs ?align_end ~input ~label () : t Js.t =
     create ?id ?style ?classes ?attrs ?align_end ~input ~label ()
     |> Tyxml_js.To_dom.of_element
 
@@ -171,11 +176,74 @@ module Grid_list = struct
 
   include Widgets.Grid_list
 
+  class type t =
+    object
+      inherit Dom_html.element
+    end
+
+  let create ?id ?style ?classes ?attrs
+             ?ar ?one_px_gutter ?header_caption ?twoline ?icon_align ~tiles () : t Js.t =
+    create ?id ?style ?classes ?attrs ?ar ?one_px_gutter ?header_caption ?twoline ?icon_align ~tiles ()
+    |> Tyxml_js.To_dom.of_element
+
 end
 
 module Icon_toggle = struct
 
   include Widgets.Icon_toggle
+
+  class type component =
+    object
+      method on_       : bool Js.t Js.prop
+      method disabled_ : bool Js.t Js.prop
+    end
+
+  class type t =
+    object
+      inherit Dom_html.element
+      method component_    : component Js.t Js.readonly_prop
+      method is_on_        : unit -> bool Js.t Js.meth
+      method set_on_       : bool Js.t -> unit Js.meth
+      method is_disabled_  : unit -> bool Js.t Js.meth
+      method set_disabled_ : bool Js.t -> unit Js.meth
+    end
+
+  class type detail =
+    object
+      method isOn : bool Js.t Js.readonly_prop
+    end
+
+  class type change_event =
+    object
+      inherit Dom_html.event
+      method detail : detail Js.t Js.readonly_prop
+    end
+
+  type events =
+    { change : change_event Js.t Dom_events.Typ.typ
+    }
+
+  let events =
+    { change = Dom_events.Typ.make "MDCIconToggle:change"
+    }
+
+  let create ?id ?style ?classes ?attrs ?disabled
+             ~on_content ?on_label ?on_class
+             ~off_content ?off_label ?off_class
+             () : t Js.t =
+    let (elt : t Js.t) = create ?id ?style ?classes ?attrs ?disabled
+                                ~on_content ?on_label ?on_class
+                                ~off_content ?off_label ?off_class ()
+                         |> Tyxml_js.To_dom.of_element
+                         |> Js.Unsafe.coerce in
+    let set = fun (x : t Js.t) (name : string) f -> Js.Unsafe.set x name f in
+    set elt "component"    @@ Js.Unsafe.(fun_call (js_expr "mdc.iconToggle.MDCIconToggle.attachTo")
+                                                  [| inject elt |]);
+    set elt "is_on"        @@ Js.wrap_callback (fun () -> elt##.component_##.on_);
+    set elt "set_on"       @@ Js.wrap_callback (fun x  -> elt##.component_##.on_ := x);
+    set elt "is_disabled"  @@ Js.wrap_callback (fun () -> elt##.component_##.disabled_);
+    set elt "set_disabled" @@ Js.wrap_callback (fun x  -> elt##.component_##.disabled_ := x);
+    elt
 
 end
 
@@ -183,11 +251,67 @@ module Layout_grid = struct
 
   include Widgets.Layout_grid
 
+  class type t =
+    object
+      inherit Dom_html.element
+    end
+
+  let create ?id ?style ?classes ?attrs ?align ?fixed_column_width ~content () : t Js.t =
+    create ?id ?style ?classes ?attrs ?align ?fixed_column_width ~content ()
+    |> Tyxml_js.To_dom.of_element
+
 end
 
 module Linear_progress = struct
 
   include Widgets.Linear_progress
+
+  class type component =
+    object
+      method determinate_ : bool Js.t Js.writeonly_prop
+      method progress_    : Js.number Js.writeonly_prop
+      method buffer_      : Js.number Js.writeonly_prop
+      method reverse_     : bool Js.t Js.writeonly_prop
+      method open_        : unit -> unit Js.meth
+      method close_       : unit -> unit Js.meth
+    end
+
+  class type t =
+    object
+      inherit Dom_html.element
+      method component_       : component Js.t Js.readonly_prop
+      method set_determinate_ : bool Js.t -> unit Js.meth
+      method set_progress_    : Js.number Js.t -> unit Js.meth
+      method set_buffer_      : Js.number Js.t -> unit Js.meth
+      method set_reverse_     : bool Js.t -> unit Js.meth
+      method open_            : unit -> unit Js.meth
+      method close_           : unit -> unit Js.meth
+    end
+
+  let create ?id ?style ?classes ?attrs
+             ?buffering_dots_id ?buffering_dots_style ?buffering_dots_classes ?buffering_dots_attrs
+             ?buffer_id ?buffer_style ?buffer_classes ?buffer_attrs
+             ?primary_bar_id ?primary_bar_style ?primary_bar_classes ?primary_bar_attrs
+             ?secondary_bar_id ?secondary_bar_style ?secondary_bar_classes ?secondary_bar_attrs
+             ?indeterminate ?reversed ?accent () : t Js.t =
+    let (elt : t Js.t) = create ?id ?style ?classes ?attrs
+                                ?buffering_dots_id ?buffering_dots_style ?buffering_dots_classes ?buffering_dots_attrs
+                                ?buffer_id ?buffer_style ?buffer_classes ?buffer_attrs
+                                ?primary_bar_id ?primary_bar_style ?primary_bar_classes ?primary_bar_attrs
+                                ?secondary_bar_id ?secondary_bar_style ?secondary_bar_classes ?secondary_bar_attrs
+                                ?indeterminate ?reversed ?accent ()
+                         |> Tyxml_js.To_dom.of_element
+                         |> Js.Unsafe.coerce in
+    let set = fun (x : t Js.t) (name : string) f -> Js.Unsafe.set x name f in
+    set elt "component"       @@ Js.Unsafe.(fun_call (js_expr "mdc.linearProgress.MDCLinearProgress.attachTo")
+                                                     [| inject elt |]);
+    set elt "set_determinate" @@ Js.wrap_callback (fun x  -> elt##.component_##.determinate_ := x);
+    set elt "set_progress"    @@ Js.wrap_callback (fun x  -> elt##.component_##.progress_ := x);
+    set elt "set_buffer"      @@ Js.wrap_callback (fun x  -> elt##.component_##.buffer_ := x);
+    set elt "set_reverse"     @@ Js.wrap_callback (fun x  -> elt##.component_##.reverse_ := x);
+    set elt "open"            @@ Js.wrap_callback (fun () -> elt##.component_##open_ ());
+    set elt "close"           @@ Js.wrap_callback (fun () -> elt##.component_##close_ ());
+    elt
 
 end
 
@@ -195,11 +319,21 @@ module List_ = struct
 
   include Widgets.List_
 
+  class type t =
+    object
+      inherit Dom_html.element
+    end
+
 end
 
 module Menu = struct
 
   include Widgets.Menu
+
+  class type t =
+    object
+      inherit Dom_html.element
+    end
 
 end
 
@@ -246,17 +380,32 @@ module Ripple = struct
 
   include Widgets.Ripple
 
+  class type t =
+    object
+      inherit Dom_html.element
+    end
+
 end
 
 module Select = struct
 
   include Widgets.Select
 
+  class type t =
+    object
+      inherit Dom_html.element
+    end
+
 end
 
 module Slider = struct
 
   include Widgets.Slider
+
+  class type t =
+    object
+      inherit Dom_html.element
+    end
 
 end
 
@@ -364,17 +513,32 @@ module Tabs = struct
 
   include Widgets.Tabs
 
+  class type t =
+    object
+      inherit Dom_html.element
+    end
+
 end
 
 module Textfield = struct
 
   include Widgets.Textfield
 
+  class type t =
+    object
+      inherit Dom_html.element
+    end
+
 end
 
 module Toolbar = struct
 
   include Widgets.Toolbar
+
+  class type t =
+    object
+      inherit Dom_html.element
+    end
 
 end
 

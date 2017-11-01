@@ -104,10 +104,40 @@ let onload _ =
   |> ignore;
   let ac = Dom_html.getElementById "arbitrary-content" in
   Dom.appendChild ac dialog;
+  let checkbox = Checkbox.create () in
   let switch = Switch.create ~input_id:"sw" () in
+  let toggle = Icon_toggle.create ~on_content:"favorite"
+                                  ~on_label:"Added to favorites"
+                                  ~off_label:"Removed from favorites"
+                                  ~off_content:"favorite_border"
+                                  () in
+  let tiles  = List.map (fun x -> let primary = Grid_list.Tile.create_primary
+                                                  ~is_div:true
+                                                  ~src:"https://cs5-3.4pda.to/5290239.png"
+                                                  () in
+                                  let secondary = Grid_list.Tile.create_secondary
+                                                    ~title:("My tile " ^ (string_of_int x))
+                                                    ~support_text:"Some text here"
+                                                    () in
+                                  Grid_list.Tile.create ~primary ~secondary ())
+                        (CCList.range 0 15) in
+  let grid   = Grid_list.create ~twoline:true
+                                ~header_caption:true
+                                ~icon_align:`Start
+                                ~tiles
+                                () in
   Dom_html.addEventListener switch
                             Dom_events.Typ.change
                             (Dom_html.handler (fun _ -> print_endline "changed on switch!"; Js._false))
+                            Js._false
+  |> ignore;
+  Dom_html.addEventListener toggle
+                            Icon_toggle.events.change
+                            (Dom_html.handler (fun d -> print_endline ("Icon Toggle is " ^ (if (Js.to_bool d##.detail##.isOn)
+                                                                                            then "on"
+                                                                                            else "off"));
+                                                        print_endline (Js.to_string d##._type);
+                                                        Js._false))
                             Js._false
   |> ignore;
   let form_field = Form_field.create ~input:(of_dom switch)
@@ -120,11 +150,69 @@ let onload _ =
                                     ~ripple:true
                                     ~onclick:(fun _ -> dialog##.component_##show_ (); true)
                                     ());
+  let cells = List.map (fun x -> Layout_grid.Cell.create ~content:[Tyxml_js.Html.pcdata (string_of_int x)]
+                                                         ~span:{ columns = 1
+                                                               ; device_type = None
+                                                               }
+                                                         ())
+                       (CCList.range 0 15) in
+  let layout_grid = Layout_grid.create ~content:[Layout_grid.create_inner ~cells ()]
+                                       () in
+  let linear_progress = Linear_progress.create () in
+  let lp_ind_btn     = Button.create ~label:"indeterminate"
+                                     ~onclick:(fun _ -> linear_progress##set_determinate_ Js._false; true)
+                                     () in
+  let lp_det_btn     = Button.create ~label:"determinate"
+                                     ~onclick:(fun _ -> linear_progress##set_determinate_ Js._true; true)
+                                     () in
+  let progress0_btn  = Button.create ~label:"progress0"
+                                     ~onclick:(fun _ -> linear_progress##set_progress_ (Js.number_of_float 0.); true)
+                                     () in
+  let progress20_btn = Button.create ~label:"progress20"
+                                     ~onclick:(fun _ -> linear_progress##set_progress_ (Js.number_of_float 0.2); true)
+                                     () in
+  let progress60_btn = Button.create ~label:"progress60"
+                                     ~onclick:(fun _ -> linear_progress##set_progress_ (Js.number_of_float 0.6); true)
+                                     () in
+  let buffer10_btn  = Button.create ~label:"buffer10"
+                                    ~onclick:(fun _ -> linear_progress##set_buffer_ (Js.number_of_float 0.1); true)
+                                    () in
+  let buffer30_btn = Button.create ~label:"buffer30"
+                                   ~onclick:(fun _ -> linear_progress##set_buffer_ (Js.number_of_float 0.3); true)
+                                   () in
+  let buffer70_btn = Button.create ~label:"buffer70"
+                                   ~onclick:(fun _ -> linear_progress##set_buffer_ (Js.number_of_float 0.7); true)
+                                   () in
+  let open_btn = Button.create ~label:"open"
+                               ~onclick:(fun _ -> linear_progress##open_ (); true)
+                               () in
+  let close_btn = Button.create ~label:"close"
+                                ~onclick:(fun _ -> linear_progress##close_ (); true)
+                                () in
+  let btn_div_1      = Dom_html.createDiv Dom_html.document in
+  let btn_div_2      = Dom_html.createDiv Dom_html.document in
+  Dom.appendChild ac checkbox;
   Dom.appendChild ac form_field;
+  Dom.appendChild ac toggle;
+  Dom.appendChild ac grid;
   Dom.appendChild ac label;
   Dom.appendChild ac button_set;
   Dom.appendChild ac button_reset;
   Dom.appendChild ac ev_label;
+  Dom.appendChild btn_div_1 lp_ind_btn;
+  Dom.appendChild btn_div_1 lp_det_btn;
+  Dom.appendChild btn_div_1 progress0_btn;
+  Dom.appendChild btn_div_1 progress20_btn;
+  Dom.appendChild btn_div_1 progress60_btn;
+  Dom.appendChild btn_div_2 buffer10_btn;
+  Dom.appendChild btn_div_2 buffer30_btn;
+  Dom.appendChild btn_div_2 buffer70_btn;
+  Dom.appendChild btn_div_2 open_btn;
+  Dom.appendChild btn_div_2 close_btn;
+  Dom.appendChild ac btn_div_1;
+  Dom.appendChild ac btn_div_2;
+  Dom.appendChild ac linear_progress;
+  Dom.appendChild ac layout_grid;
   
   Js._false
 
