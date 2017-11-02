@@ -133,7 +133,7 @@ let onload _ =
   |> ignore;
   Dom_html.addEventListener toggle
                             Icon_toggle.events.change
-                            (Dom_html.handler (fun d -> print_endline ("Icon Toggle is " ^ (if (Js.to_bool d##.detail##.isOn)
+                            (Dom_html.handler (fun d -> print_endline ("Icon Toggle is " ^ (if (Js.to_bool d##.detail_##.isOn)
                                                                                             then "on"
                                                                                             else "off"));
                                                         print_endline (Js.to_string d##._type);
@@ -145,11 +145,6 @@ let onload _ =
                                                                      ~for_id:"sw"
                                                                      ())
                                      () in
-  Dom.appendChild ac (Button.create ~raised:true
-                                    ~label:"show"
-                                    ~ripple:true
-                                    ~onclick:(fun _ -> dialog##.component_##show_ (); true)
-                                    ());
   let cells = List.map (fun x -> Layout_grid.Cell.create ~content:[Tyxml_js.Html.pcdata (string_of_int x)]
                                                          ~span:{ columns = 1
                                                                ; device_type = None
@@ -189,16 +184,106 @@ let onload _ =
   let close_btn = Button.create ~label:"close"
                                 ~onclick:(fun _ -> linear_progress##close_ (); true)
                                 () in
-  let btn_div_1      = Dom_html.createDiv Dom_html.document in
-  let btn_div_2      = Dom_html.createDiv Dom_html.document in
-  Dom.appendChild ac checkbox;
-  Dom.appendChild ac form_field;
-  Dom.appendChild ac toggle;
-  Dom.appendChild ac grid;
+  let btn_div_1 = Dom_html.createDiv Dom_html.document in
+  let btn_div_2 = Dom_html.createDiv Dom_html.document in
+  let list_items = List.map (fun x -> if x != 2
+                                      then List_.Item.create
+                                             ~text:("List item " ^ (string_of_int x))
+                                             ~secondary_text:"some subtext here"
+                                             ~start_detail:(let open Tyxml_js.Html in
+                                                            span
+                                                              ~a:[ a_class [List_.Item.start_detail_class]
+                                                                 ; a_style "background-color: lightgrey;\
+                                                                            display: inline-flex;\
+                                                                            align-items: center;\
+                                                                            justify-content: center;"]
+                                                              [ i ~a:[ a_class ["material-icons"]
+                                                                     ; a_style "color: white;"]
+                                                                  [pcdata "folder"]])
+                                             ~end_detail:(Checkbox.create
+                                                            ~style:"width:24px; height:18px"
+                                                            ~classes:[List_.Item.end_detail_class]
+                                                            ()
+                                                          |> of_dom)
+                                             ~ripple:true
+                                             ()
+                                      else List_.Item.create_divider ())
+                            (CCList.range 0 5) in
+  let list      = List_.create ~items:list_items
+                               ~avatar:true
+                               ~two_line:true
+                               ~style:"max-width: 400px;"
+                               () in
+  let menu_items = List.map (fun x -> if x != 2
+                                      then Menu.Item.create
+                                             ~text:("Menu item " ^ (string_of_int x))
+                                             ~disabled:(x = 4)
+                                             ()
+                                      else Menu.Item.create_divider ())
+                            (CCList.range 0 5) in
+  let menu = Menu.create ~items:menu_items
+                         () in
+  let menu_anchor = Button.create ~label:"Open menu"
+                                  ~onclick:(fun _ -> menu##show_ (Some ({focus_index = 2} : Menu.show )); true)
+                                  () in
+  let menu_div = Tyxml_js.Html.div ~a:[Tyxml_js.Html.a_class [Menu.anchor_class]]
+                                   [of_dom menu_anchor; of_dom menu] in
+  Dom_html.addEventListener menu
+                            Menu.events.selected
+                            (Dom_html.handler (fun d ->
+                                 print_endline ("Selected menu item is " ^ (d##.detail_##.index_
+                                                                            |> Js.float_of_number
+                                                                            |> int_of_float
+                                                                            |> string_of_int));
+                                 Js._false))
+                            Js._false
+  |> ignore;
+  Dom_html.addEventListener menu
+                            Menu.events.cancel
+                            (Dom_html.handler (fun _ -> print_endline "Menu cancelled"; Js._false))
+                            Js._false
+  |> ignore;
+  let ripple_div = Tyxml_js.Html.(div ~a:[ a_class [ Ripple.base_class
+                                                   ; Elevation.get_elevation_class 4
+                                                   ]
+                                         ; a_style "width: 300px; height: 300px"
+                                         ]
+                                      [pcdata "Here is a ripple"])
+                   |> fun x -> Ripple.create x () in
+  let slider = Slider.create ~label:"Select Value"
+                             ~style:"max-width: 400px;"
+                             ~value:10
+                             () in
+  let slider_div = Tyxml_js.Html.(div [of_dom slider]) in
+  Dom_html.addEventListener slider
+                            Slider.events.input
+                            (Dom_html.handler (fun _ -> print_endline "Input on slider!"; Js._false))
+                            Js._false
+  |> ignore;
+  Dom_html.addEventListener slider
+                            Slider.events.change
+                            (Dom_html.handler (fun e ->
+                                 print_endline ("Change on slider! " ^ (e##.detail_##.value_
+                                                                        |> Js.float_of_number
+                                                                        |> string_of_float));
+                                 Js._false))
+                            Js._false
+  |> ignore;
   Dom.appendChild ac label;
   Dom.appendChild ac button_set;
   Dom.appendChild ac button_reset;
   Dom.appendChild ac ev_label;
+  Dom.appendChild ac (Button.create ~raised:true
+                                    ~label:"show"
+                                    ~ripple:true
+                                    ~onclick:(fun _ -> dialog##.component_##show_ (); true)
+                                    ());
+  Dom.appendChild ac checkbox;
+  Dom.appendChild ac form_field;
+  Dom.appendChild ac toggle;
+  Dom.appendChild ac (Tyxml_js.To_dom.of_element menu_div);
+  Dom.appendChild ac ripple_div;
+  Dom.appendChild ac grid;
   Dom.appendChild btn_div_1 lp_ind_btn;
   Dom.appendChild btn_div_1 lp_det_btn;
   Dom.appendChild btn_div_1 progress0_btn;
@@ -213,6 +298,8 @@ let onload _ =
   Dom.appendChild ac btn_div_2;
   Dom.appendChild ac linear_progress;
   Dom.appendChild ac layout_grid;
+  Dom.appendChild ac list;
+  Dom.appendChild ac @@ Tyxml_js.To_dom.of_element slider_div;
   
   Js._false
 

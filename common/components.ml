@@ -251,7 +251,8 @@ module Make
     let base_class = "mdc-fab"
     let icon_class = CSS.add_element base_class "icon"
 
-    let create ?id ?style ?(classes=[]) ?attrs ?(mini=false) ?(plain=false) ?(ripple=false) ?label ~icon () =
+    let create ?id ?style ?(classes=[]) ?attrs ?onclick
+               ?(mini=false) ?(plain=false) ?(ripple=false) ?label ~icon () =
       button ~a:([a_class (base_class :: "material-icons" :: classes
                            |> (fun x -> if mini  then x @ [CSS.add_modifier base_class "mini"]  else x)
                            |> (fun x -> if plain then x @ [CSS.add_modifier base_class "plain"] else x))]
@@ -259,7 +260,10 @@ module Make
                  |> (fun x -> if ripple then (a_user_data "mdc-auto-init" "MDCRipple") :: x else x)
                  |> (fun x -> match label with
                               | Some label -> (a_aria "label" [label]) :: x
-                              | None       -> x))
+                              | None       -> x)
+                 |> (fun l -> match onclick with
+                              | Some x -> l @ [a_onclick x]
+                              | None   -> l))
              [ span ~a:[a_class [icon_class]] [pcdata icon] ]
 
   end
@@ -404,7 +408,7 @@ module Make
     let base_class  = "mdc-icon-toggle"
     let icons_class = "material-icons"
 
-    let create ?id ?style ?(classes=[]) ?attrs ?(disabled=false)
+    let create ?id ?style ?(classes=[]) ?attrs ?(disabled=false) ?color_scheme
                ~on_content ?on_label ?on_class
                ~off_content ?off_label ?off_class
                () =
@@ -421,7 +425,13 @@ module Make
                             |> data_to_yojson
                             |> Yojson.Safe.to_string in
       i ~a:([ a_class (base_class :: icons_class :: classes
-                       |> fun x -> if disabled then x @ [CSS.add_modifier base_class "disabled"] else x)
+                       |> (fun x -> if disabled then x @ [CSS.add_modifier base_class "disabled"] else x)
+                       |> (fun x -> match color_scheme with
+                                    | Some scheme -> x @ [(match scheme with
+                                                           | `Primary -> "primary"
+                                                           | `Accent  -> "accent")
+                                                          |> fun s -> CSS.add_modifier base_class s]
+                                    | None        -> x))
             ; a_role ["button"]
             ; a_user_data "toggle-on"  data_toggle_on
             ; a_user_data "toggle-off" data_toggle_off
@@ -571,14 +581,15 @@ module Make
       let _class               = "mdc-list-item"
       let text_class           = CSS.add_element _class "text"
       let secondary_text_class = CSS.add_element text_class "secondary"
-      let start_detail_class   = CSS.add_element base_class "start-detail"
-      let end_detail_class     = CSS.add_element base_class "end-detail"
+      let start_detail_class   = CSS.add_element _class "start-detail"
+      let end_detail_class     = CSS.add_element _class "end-detail"
       let divider_class        = "mdc-list-divider"
 
       let create_divider ?id ?style ?(classes=[]) ?attrs ?(tag=li) ?(inset=false) () =
         tag ~a:([ a_class (divider_class :: classes
                            |> (fun x -> if inset then x @ [CSS.add_modifier divider_class "inset"] else x))
-                ; a_role ["separator"] ])
+                ; a_role ["separator"] ]
+                |> add_common_attrs ?id ?style ?attrs)
             []
 
       let create ?id ?style ?(classes=[]) ?attrs ?(ripple=false) ?(tag=li)
@@ -607,10 +618,29 @@ module Make
 
     end
 
-    let create ?id ?style ?(classes=[]) ?attrs ?(tag=ul) ?(dense=false) ?(two_line=false) ~items () =
+    module List_group = struct
+
+      let _class          = "mdc-list-group"
+      let subheader_class = CSS.add_element _class "subheader"
+
+      let create_subheader ?id ?style ?(classes=[]) ?attrs ?(tag=h3) ~text () =
+        tag ~a:([ a_class (subheader_class :: classes) ]
+                |> add_common_attrs ?id ?style ?attrs)
+            [pcdata text]
+
+      let create ?id ?style ?(classes=[]) ?attrs ~content () =
+        div ~a:([ a_class (_class :: classes)]
+                |> add_common_attrs ?id ?style ?attrs)
+            content
+
+    end
+
+    let create ?id ?style ?(classes=[]) ?attrs ?(tag=ul) ?(avatar=false)
+               ?(dense=false) ?(two_line=false) ~items () =
       tag ~a:([ a_class (base_class :: classes
                          |> (fun x -> if dense then x @ [CSS.add_modifier base_class "dense"] else x)
-                         |> (fun x -> if two_line then x @ [CSS.add_modifier base_class "two-line"] else x)) ]
+                         |> (fun x -> if two_line then x @ [CSS.add_modifier base_class "two-line"] else x)
+                         |> (fun x -> if avatar then x @ [CSS.add_modifier base_class "avatar-list"] else x)) ]
               |> add_common_attrs ?id ?style ?attrs)
           items
 
@@ -618,7 +648,55 @@ module Make
 
   module Menu = struct
 
+    let base_class   = "mdc-simple-menu"
+    let items_class  = CSS.add_element base_class "items"
+    let anchor_class = "mdc-menu-anchor"
 
+    module Item = struct
+
+      include List_.Item
+
+      let create ?id ?style ?classes ?attrs
+                 ~text ?text_id ?text_style ?text_classes ?text_attrs ?secondary_text
+                 ?secondary_text_id ?secondary_text_style ?secondary_text_classes ?secondary_text_attrs
+                 ?(disabled=false) ?start_detail ?end_detail () =
+        List_.Item.create ?id ?style ?classes
+                          ~attrs:([ a_role ["menuitem"] ]
+                                  |> (fun x -> if disabled
+                                               then x @ [ a_aria "disabled" ["true"]
+                                                        ; a_tabindex (-1) ]
+                                               else x @ [ a_tabindex 0 ])
+                                  |> (fun x -> x @ (CCOpt.get_or ~default:[] attrs)))
+                          ~text ?text_id ?text_style ?text_classes ?text_attrs ?secondary_text
+                          ?secondary_text_id ?secondary_text_style ?secondary_text_classes ?secondary_text_attrs
+                          ?start_detail ?end_detail ()
+
+    end
+
+    let create ?id ?style ?(classes=[]) ?attrs
+               ?list_id ?list_style ?list_classes ?list_attrs
+               ?(opened=false) ?open_from ~items () =
+      div ~a:([ a_class (base_class :: classes
+                         |> (fun x -> if opened then x @ [CSS.add_modifier base_class "open"] else x)
+                         |> (fun x -> match open_from with
+                                      | Some open_from -> x @ [(match open_from with
+                                                                | `Top_left     -> "top-left"
+                                                                | `Top_right    -> "top-right"
+                                                                | `Bottom_left  -> "bottom-left"
+                                                                | `Bottom_right -> "bottom-right")
+                                                               |> (fun s -> CSS.add_modifier base_class
+                                                                                              ("open-from-" ^ s))]
+                                      | None           -> x))
+              ; a_tabindex (-1) ]
+              |> add_common_attrs ?id ?style ?attrs)
+          [ List_.create ?id:list_id
+                         ?style:list_style
+                         ~classes:([items_class]
+                                   |> (fun x -> x @ (CCOpt.get_or ~default:[] list_classes)))
+                         ~attrs:([ a_role ["menu"]
+                                 ; a_aria "hidden" ["true"] ]
+                                 |> (fun x -> x @ (CCOpt.get_or ~default:[] list_attrs)))
+                         ~items ()]
 
   end
 
@@ -651,6 +729,18 @@ module Make
 
   module Ripple = struct
 
+    let base_class      = "mdc-ripple-surface"
+    let primary_class   = CSS.add_modifier base_class "primary"
+    let accent_class    = CSS.add_modifier base_class "accent"
+    let unbounded_attr  = a_user_data "mdc-ripple-is-unbounded" ""
+
+  end
+
+  module Rtl = struct
+
+    let ltr_attr = a_dir `Ltr
+    let rtl_attr = a_dir `Rtl
+
   end
 
   module Select = struct
@@ -660,6 +750,41 @@ module Make
   end
 
   module Slider = struct
+
+    let base_class             = "mdc-slider"
+    let track_container_class  = CSS.add_element base_class "track-container"
+    let track_class            = CSS.add_element base_class "track"
+    let thumb_container_class  = CSS.add_element base_class "thumb-container"
+    let thumb_class            = CSS.add_element base_class "thumb"
+    let focus_ring_class       = CSS.add_element base_class "focus-ring"
+    let pin_class              = CSS.add_element base_class "pin"
+    let pin_value_marker_class = CSS.add_element base_class "pin-value-marker"
+
+    let create ?id ?style ?(classes=[]) ?attrs ?(discrete=false)
+               ?label ?(min=0) ?(max=100) ?(value=0) () =
+      div ~a:([ a_class (base_class :: classes
+                         |> fun x -> if discrete then x @ [CSS.add_modifier base_class "discrete"] else x)
+              ; a_tabindex 0
+              ; a_role ["slider"]
+              ; a_aria "valuemin" [ string_of_int min ]
+              ; a_aria "valuemax" [ string_of_int max ]
+              ; a_aria "valuenow" [ string_of_int value ]
+              ]
+              |> (fun x -> match label with
+                           | Some label -> x @ [a_aria "label" [label]]
+                           | None       -> x)
+              |> add_common_attrs ?id ?style ?attrs)
+          [ div ~a:([ a_class [track_container_class]])
+                [ div ~a:([ a_class [track_class]]) []]
+          ; div ~a:([ a_class [thumb_container_class]])
+                [ svg ~a:([ Svg.a_class [thumb_class]
+                          ; Svg.a_width (21., None)
+                          ; Svg.a_height (21., None)])
+                      [ Svg.circle ~a:[ Svg.a_cx (10.5, None)
+                                      ; Svg.a_cy (10.5, None)
+                                      ; Svg.a_r (7.875, None)] []]]
+          ; div ~a:([ a_class [focus_ring_class]]) []
+          ]
 
   end
 

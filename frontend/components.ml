@@ -216,7 +216,7 @@ module Icon_toggle = struct
   class type change_event =
     object
       inherit Dom_html.event
-      method detail : detail Js.t Js.readonly_prop
+      method detail_ : detail Js.t Js.readonly_prop
     end
 
   type events =
@@ -324,16 +324,82 @@ module List_ = struct
       inherit Dom_html.element
     end
 
+  let create ?id ?style ?classes ?attrs ?tag ?avatar ?dense ?two_line ~items () : t Js.t =
+    create ?id ?style ?classes ?attrs ?tag ?avatar ?dense ?two_line ~items ()
+    |> Tyxml_js.To_dom.of_element
+
 end
 
 module Menu = struct
 
   include Widgets.Menu
 
+  type show =
+    { focus_index : int
+    }
+
+  class type show_params =
+    object
+      method focusIndex : Js.number Js.t Js.prop
+    end
+
+  class type component =
+    object
+      method open_        : bool Js.t Js.prop
+      method hide_        : unit -> unit Js.meth
+      method show_        : unit -> unit Js.meth
+      method show_focused : show_params Js.t -> unit Js.meth
+    end
+
   class type t =
     object
       inherit Dom_html.element
+      method component_    : component Js.t Js.readonly_prop
+      method is_open_      : unit -> bool Js.t Js.meth
+      method hide_         : unit -> unit Js.meth
+      method show_         : show option -> unit Js.meth
     end
+
+  class type detail =
+    object
+      method item_  : Dom_html.element Js.t Js.readonly_prop
+      method index_ : Js.number Js.t Js.readonly_prop
+    end
+
+  class type event =
+    object
+      inherit Dom_html.event
+      method detail_ : detail Js.t Js.readonly_prop
+    end
+
+  type events =
+    { selected : event Js.t Dom_events.Typ.typ
+    ; cancel   : Dom_html.event Js.t Dom_events.Typ.typ
+    }
+
+  let events =
+    { selected = Dom_events.Typ.make "MDCSimpleMenu:selected"
+    ; cancel   = Dom_events.Typ.make "MDCSimpleMenu:cancel"
+    }
+
+  let create ?id ?style ?classes ?attrs ?list_id ?list_style ?list_classes ?list_attrs
+             ?opened ?open_from ~items () : t Js.t =
+    let (elt : t Js.t) = create ?id ?style ?classes ?attrs ?list_id ?list_style ?list_classes ?list_attrs
+                                ?opened ?open_from ~items ()
+                         |> Tyxml_js.To_dom.of_element
+                         |> Js.Unsafe.coerce in
+    let set = fun (x : t Js.t) (name : string) f -> Js.Unsafe.set x name f in
+    set elt "component" @@ Js.Unsafe.(fun_call (js_expr "mdc.menu.MDCSimpleMenu.attachTo")
+                                               [| inject elt |]);
+    set elt "is_open" @@ Js.wrap_callback (fun () -> elt##.component_##.open_);
+    set elt "hide"    @@ Js.wrap_callback (fun () -> elt##.component_##hide_ ());
+    set elt "show"    @@ Js.wrap_callback (function
+                                           | Some x -> let open Js.Unsafe in
+                                                       let idx = Js.number_of_float (float_of_int x.focus_index) in
+                                                       let o   = obj [| "focusIndex", inject idx |] in
+                                                       elt##.component_##show_focused o
+                                          | None   -> elt##.component_##show_ ());
+    elt
 
 end
 
@@ -380,10 +446,43 @@ module Ripple = struct
 
   include Widgets.Ripple
 
+  class type component =
+    object
+      method activate_   : unit -> unit Js.meth
+      method deactivate_ : unit -> unit Js.meth
+      method layout_     : unit -> unit Js.meth
+      method unbounded_  : bool Js.t Js.prop
+    end
+
   class type t =
     object
       inherit Dom_html.element
+      method component_     : component Js.t Js.readonly_prop
+      method activate_      : unit -> unit Js.meth
+      method deactivate_    : unit -> unit Js.meth
+      method layout_        : unit -> unit Js.meth
+      method is_unbounded_  : unit -> bool Js.t Js.meth
+      method set_unbounded_ : bool Js.t -> unit Js.meth
     end
+
+  let create ?unbounded surface () : t Js.t =
+    let (elt : t Js.t) = Tyxml_js.To_dom.of_element surface
+                         |> Js.Unsafe.coerce in
+    let set = fun (x : t Js.t) (name : string) f -> Js.Unsafe.set x name f in
+    set elt "component"     @@ Js.Unsafe.(fun_call (js_expr "mdc.ripple.MDCRipple.attachTo") [| inject elt |]);
+    set elt "activate"      @@ Js.wrap_callback (fun () -> elt##.component_##activate_ ());
+    set elt "deactivate"    @@ Js.wrap_callback (fun () -> elt##.component_##deactivate_ ());
+    set elt "layout"        @@ Js.wrap_callback (fun () -> elt##.component_##layout_ ());
+    set elt "is_unbounded"  @@ Js.wrap_callback (fun () -> elt##.component_##.unbounded_);
+    set elt "set_unbounded" @@ Js.wrap_callback (fun x  -> elt##.component_##.unbounded_ := x);
+    CCOpt.iter (fun x -> elt##set_unbounded_ (Js.bool x)) unbounded;
+    elt
+
+end
+
+module Rtl = struct
+
+  include Widgets.Rtl
 
 end
 
@@ -402,10 +501,79 @@ module Slider = struct
 
   include Widgets.Slider
 
+  class type component =
+    object
+      method value_         : Js.number Js.t Js.prop
+      method min_           : Js.number Js.t Js.prop
+      method max_           : Js.number Js.t Js.prop
+      method step_          : Js.number Js.t Js.prop
+      method disabled_      : bool Js.t Js.prop
+      method layout_        : unit -> unit Js.meth
+      method stepUp_        : unit -> unit Js.meth
+      method stepDown_      : unit -> unit Js.meth
+      method stepUp_value   : Js.number Js.t -> unit Js.meth
+      method stepDown_value : Js.number Js.t -> unit Js.meth
+    end
+
   class type t =
     object
       inherit Dom_html.element
+      method component_    : component Js.t Js.readonly_prop
+      method get_value_    : unit -> Js.number Js.t Js.meth
+      method set_value_    : Js.number Js.t -> unit Js.meth
+      method get_min_      : unit -> Js.number Js.t Js.meth
+      method set_min_      : Js.number Js.t -> unit Js.meth
+      method get_max_      : unit -> Js.number Js.t Js.meth
+      method set_max_      : Js.number Js.t -> unit Js.meth
+      method get_step_     : unit -> Js.number Js.t Js.meth
+      method set_step_     : Js.number Js.t -> unit Js.meth
+      method is_disabled_  : unit -> bool Js.t Js.meth
+      method set_disabled_ : bool Js.t -> unit Js.meth
+      method layout_       : unit -> unit Js.meth
+      method step_up_      : Js.number Js.t option -> unit Js.meth
+      method step_down_    : Js.number Js.t option -> unit Js.meth
     end
+
+  class type event =
+    object
+      inherit Dom_html.event
+      method detail_ : component Js.t Js.readonly_prop
+    end
+
+  type events =
+    { input  : event Js.t Dom_events.Typ.typ
+    ; change : event Js.t Dom_events.Typ.typ
+    }
+
+  let events =
+    { input  = Dom_events.Typ.make "MDCSlider:input"
+    ; change = Dom_events.Typ.make "MDCSlider:change"
+    }
+
+  let create ?id ?style ?classes ?attrs ?discrete ?label ?min ?max ?value () =
+    let (elt : t Js.t) = create ?id ?style ?classes ?attrs ?discrete ?label ?min ?max ?value ()
+                         |> Tyxml_js.To_dom.of_element
+                         |> Js.Unsafe.coerce in
+    let set = fun (x : t Js.t) (name : string) f -> Js.Unsafe.set x name f in
+    set elt "component"    @@ Js.Unsafe.(fun_call (js_expr "mdc.slider.MDCSlider.attachTo") [| inject elt |]);
+    set elt "get_value"    @@ Js.wrap_callback (fun () -> elt##.component_##.value_);
+    set elt "set_value"    @@ Js.wrap_callback (fun x  -> elt##.component_##.value_ := x);
+    set elt "get_min"      @@ Js.wrap_callback (fun () -> elt##.component_##.min_);
+    set elt "set_min"      @@ Js.wrap_callback (fun x  -> elt##.component_##.min_ := x);
+    set elt "get_max"      @@ Js.wrap_callback (fun () -> elt##.component_##.max_);
+    set elt "set_max"      @@ Js.wrap_callback (fun x  -> elt##.component_##.max_ := x);
+    set elt "get_step"     @@ Js.wrap_callback (fun () -> elt##.component_##.step_);
+    set elt "set_step"     @@ Js.wrap_callback (fun x  -> elt##.component_##.step_ := x);
+    set elt "is_disabled"  @@ Js.wrap_callback (fun () -> elt##.component_##.disabled_);
+    set elt "set_disabled" @@ Js.wrap_callback (fun x  -> elt##.component_##.disabled_ := x);
+    set elt "layout"       @@ Js.wrap_callback (fun () -> elt##.component_##layout_ ());
+    set elt "step_up"      @@ Js.wrap_callback (function
+                                                | Some x -> elt##.component_##stepUp_value x
+                                                | None   -> elt##.component_##stepUp_ ());
+    set elt "step_down"   @@ Js.wrap_callback (function
+                                               | Some x -> elt##.component_##stepUp_value x
+                                               | None   -> elt##.component_##stepUp_ ());
+    elt
 
 end
 
