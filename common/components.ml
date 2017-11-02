@@ -143,7 +143,7 @@ module Make
     let checkmark_path_class = CSS.add_element checkmark_class "path"
     let mixedmark_class      = CSS.add_element base_class "mixedmark"
 
-    let create ?(classes=[]) ?style ?id ?input_id ?(disabled=false) ?(js=true) ?(checked=false) ?attrs () =
+    let create ?(classes=[]) ?style ?id ?input_id ?(disabled=false) ?(js=false) ?(checked=false) ?attrs () =
       div ~a:([a_class (base_class :: classes
                         |> (fun x -> if disabled then (CSS.add_modifier base_class "disabled") :: x else x))]
               |> add_common_attrs ?id ?style ?attrs
@@ -290,25 +290,335 @@ module Make
 
   module Grid_list = struct
 
+    let base_class  = "mdc-grid-list"
+    let tiles_class = CSS.add_element base_class "tiles"
+
+    module Tile = struct
+
+      let _class                = "mdc-grid-tile"
+      let primary_class         = CSS.add_element _class "primary"
+      let primary_content_class = CSS.add_element _class "primary-content"
+      let secondary_class       = CSS.add_element _class "secondary"
+      let icon_class            = CSS.add_element _class "icon"
+      let title_class           = CSS.add_element _class "title"
+      let support_text_class    = CSS.add_element _class "support-text"
+
+      let create_primary ?id ?style ?(classes=[]) ?attrs
+                         ?content_id ?content_style ?(content_classes=[]) ?content_attrs
+                         ?(is_div=false) ?src ?alt () =
+        div ~a:([ a_class (primary_class :: classes) ]
+                |> add_common_attrs ?id ?style ?attrs)
+            [ match is_div with
+              | false -> img ~src:(Html.uri_of_string (CCOpt.get_or ~default:"" src))
+                             ~alt:(CCOpt.get_or ~default:"" alt)
+                             ~a:([ a_class (primary_content_class :: content_classes) ]
+                                 |> add_common_attrs ?id:content_id ?style:content_style ?attrs:content_attrs) ()
+              | true  -> div ~a:([ a_class (primary_content_class :: content_classes) ]
+                                 |> add_common_attrs ?id:content_id
+                                                     ?style:(match src with
+                                                             | Some x ->
+                                                                Printf.sprintf "background-image: url(%s);" x
+                                                                |> (fun s -> Some (match content_style with
+                                                                                   | Some x -> s ^ x
+                                                                                   | None   -> s))
+                                                             | None -> content_style)
+                                                     ?attrs:content_attrs) []]
+
+      let create_secondary
+            ?id ?style ?(classes=[]) ?attrs
+            ?title ?title_id ?title_style ?(title_classes=[]) ?title_attrs
+            ?support_text ?support_text_id ?support_text_style ?(support_text_classes=[]) ?support_text_attrs
+            ?icon () =
+        span ~a:([ a_class (secondary_class :: classes) ]
+                 |> add_common_attrs ?id ?style ?attrs)
+             ((match support_text with
+               | Some x -> [span ~a:([ a_class (support_text_class :: support_text_classes) ]
+                                     |> add_common_attrs ?id:support_text_id
+                                                         ?style:support_text_style
+                                                         ?attrs:support_text_attrs)
+                                 [pcdata x]]
+               | None   -> [])
+              |> (fun l -> match title with
+                           | Some x -> (span ~a:([ a_class (title_class :: title_classes) ]
+                                                 |> add_common_attrs ?id:title_id
+                                                                     ?style:title_style
+                                                                     ?attrs:title_attrs)
+                                             [pcdata x]) :: l
+                           | None   -> l)
+              |> (fun l -> match icon with
+                           | Some x -> x :: l
+                           | None   -> l))
+
+      let create ?id ?style ?(classes=[]) ?attrs ?primary ?secondary () =
+        li ~a:([ a_class (_class :: classes)]
+               |> add_common_attrs ?id ?style ?attrs)
+           ((match secondary with
+             | Some x -> [x]
+             | None   -> [])
+            |> (fun l -> match primary with
+                         | Some x -> x :: l
+                         | None   -> l))
+
+    end
+
+    let ar_to_string = function
+      | `AR_1_1  -> "1x1" | `AR_16_9 -> "16x9" | `AR_2_3  -> "2x3"
+      | `AR_3_2  -> "3x2" | `AR_4_3  -> "4x3"  | `AR_3_4  -> "3x4"
+
+    let create ?id ?style ?(classes=[]) ?attrs
+               ?ar ?(one_px_gutter=false) ?(header_caption=false) ?(twoline=false) ?icon_align
+               ~tiles () =
+      div ~a:([ a_class (base_class :: classes
+                         |> (fun x -> match ar with
+                                      | Some ar -> let s = ar_to_string ar in
+                                                   x @ [CSS.add_modifier base_class ("tile-aspect-" ^ s)]
+                                      | None    -> x)
+                         |> (fun x -> if one_px_gutter
+                                      then x @ [CSS.add_modifier base_class "tile-gutter-1"]
+                                      else x)
+                         |> (fun x -> if header_caption
+                                      then x @ [CSS.add_modifier base_class "header-caption"]
+                                      else x)
+                         |> (fun x -> if twoline
+                                      then x @ [CSS.add_modifier base_class "twoline-caption"]
+                                      else x)
+                         |> (fun x -> match icon_align with
+                                      | Some ia ->
+                                         x @ [(match ia with
+                                               | `Start -> CSS.add_modifier base_class "with-icon-align-start"
+                                               | `End   -> CSS.add_modifier base_class "with-icon-align-end")]
+                                      | None    -> x)) ]
+              |> add_common_attrs ?id ?style ?attrs)
+          [ ul ~a:[ a_class [tiles_class] ] tiles ]
+
   end
 
   module Icon_toggle = struct
+
+    type data =
+      { content   : string
+      ; label     : string option
+      ; css_class : string option [@key "cssClass"]
+      } [@@deriving to_yojson]
+
+    let base_class  = "mdc-icon-toggle"
+    let icons_class = "material-icons"
+
+    let create ?id ?style ?(classes=[]) ?attrs ?(disabled=false)
+               ~on_content ?on_label ?on_class
+               ~off_content ?off_label ?off_class
+               () =
+      let data_toggle_on = { content   = on_content
+                           ; label     = on_label
+                           ; css_class = on_class
+                           }
+                           |> data_to_yojson
+                           |> Yojson.Safe.to_string in
+      let data_toggle_off = { content   = off_content
+                            ; label     = off_label
+                            ; css_class = off_class
+                            }
+                            |> data_to_yojson
+                            |> Yojson.Safe.to_string in
+      i ~a:([ a_class (base_class :: icons_class :: classes
+                       |> fun x -> if disabled then x @ [CSS.add_modifier base_class "disabled"] else x)
+            ; a_role ["button"]
+            ; a_user_data "toggle-on"  data_toggle_on
+            ; a_user_data "toggle-off" data_toggle_off
+            ; a_aria "pressed" ["false"]
+            ; a_tabindex (if disabled then -1 else 0) ]
+            |> (fun x -> match off_label with
+                         | Some l -> x @ [a_aria "label" [l]]
+                         | None   -> x)
+            |> (fun x -> if disabled then x @ [ a_aria "disabled" ["true"]] else x)
+            |> add_common_attrs ?id ?style ?attrs)
+        [pcdata off_content]
 
   end
 
   module Layout_grid = struct
 
+    let max_columns = 12
+
+    let check_columns_number_exn n =
+      if n > max_columns || n < 0 then failwith "Layout grid: bad columns number"
+
+    let base_class  = "mdc-layout-grid"
+    let inner_class = CSS.add_element base_class "inner"
+
+    let get_grid_align position =
+      CSS.add_modifier base_class ("align-" ^ (match position with
+                                               | `Left  -> "left"
+                                               | `Right -> "right"))
+
+    module Cell = struct
+
+      type span =
+        { columns     : int
+        ; device_type : [ `Desktop | `Tablet | `Phone ] option
+        }
+
+      let _class  = CSS.add_element base_class "cell"
+
+      let get_cell_span ?device_type n =
+        check_columns_number_exn n;
+        CSS.add_modifier _class ("span-" ^ (string_of_int n))
+        |> (fun s -> match device_type with
+                     | Some dt -> (match dt with
+                                   | `Desktop -> s ^ "-desktop"
+                                   | `Tablet  -> s ^ "-tablet"
+                                   | `Phone   -> s ^ "-phone")
+                     | None    -> s)
+
+      let get_cell_order n =
+        check_columns_number_exn n;
+        CSS.add_modifier _class ("order" ^ (string_of_int n))
+
+      let get_cell_align align =
+        CSS.add_modifier _class ("align-" ^ (match align with
+                                             | `Top    -> "top"
+                                             | `Middle -> "middle"
+                                             | `Bottom -> "bottom"))
+
+      let create ?id ?style ?(classes=[]) ?attrs ?span ?align ?order ~content () =
+        div ~a:([ a_class (_class :: classes
+                           |> (fun x -> match span with
+                                        | Some span -> x @ [get_cell_span ?device_type:span.device_type
+                                                                          span.columns]
+                                        | None      -> x)
+                           |> (fun x -> match align with
+                                        | Some align -> x @ [get_cell_align align]
+                                        | None       -> x)
+                           |> (fun x -> match order with
+                                        | Some order -> x @ [get_cell_order order]
+                                        | None       -> x)) ]
+                |> add_common_attrs ?id ?style ?attrs)
+            content
+
+    end
+
+    let create_inner ?id ?style ?(classes=[]) ?attrs ~cells () =
+      div ~a:([ a_class (inner_class :: classes)]
+              |> add_common_attrs ?id ?style ?attrs)
+          cells
+
+    let create ?id ?style ?(classes=[]) ?attrs ?align ?(fixed_column_width=false) ~content () =
+      div ~a:([ a_class (base_class :: classes
+                         |> (fun x -> match align with
+                                      | Some align -> x @ [get_grid_align align]
+                                      | None       -> x)
+                         |> (fun x -> if fixed_column_width
+                                      then x @ [CSS.add_modifier base_class "fixed-column-width"]
+                                      else x)) ]
+              |> add_common_attrs ?id ?style ?attrs)
+          content
+
   end
 
   module Linear_progress = struct
+
+    let base_class           = "mdc-linear-progress"
+    let buffering_dots_class = CSS.add_element base_class "buffering-dots"
+    let buffer_class         = CSS.add_element base_class "buffer"
+    let bar_class            = CSS.add_element base_class "bar"
+    let primary_bar_class    = CSS.add_element base_class "primary-bar"
+    let secondary_bar_class  = CSS.add_element base_class "secondary-bar"
+    let inner_bar_class      = CSS.add_element base_class "bar-inner"
+
+    let create ?id ?style ?(classes=[]) ?attrs
+               ?buffering_dots_id ?buffering_dots_style ?(buffering_dots_classes=[]) ?buffering_dots_attrs
+               ?buffer_id ?buffer_style ?(buffer_classes=[]) ?buffer_attrs
+               ?primary_bar_id ?primary_bar_style ?(primary_bar_classes=[]) ?primary_bar_attrs
+               ?secondary_bar_id ?secondary_bar_style ?(secondary_bar_classes=[]) ?secondary_bar_attrs
+               ?(indeterminate=false) ?(reversed=false) ?(accent=false) () =
+      div ~a:([ a_role ["progressbar"]
+              ; a_class (base_class :: classes
+                         |> (fun x -> if indeterminate
+                                      then x @ [CSS.add_modifier base_class "indeterminate"]
+                                      else x)
+                         |> (fun x -> if reversed then x @ [CSS.add_modifier base_class "reversed"] else x)
+                         |> (fun x -> if accent then x @ [CSS.add_modifier base_class "accent"] else x)) ]
+              |> add_common_attrs ?id ?style ?attrs)
+          [ div ~a:([ a_class (buffering_dots_class :: buffering_dots_classes) ]
+                    |> add_common_attrs ?id:buffering_dots_id
+                                        ?style:buffering_dots_style
+                                        ?attrs:buffering_dots_attrs) []
+          ; div ~a:([ a_class (buffer_class :: buffer_classes) ]
+                    |> add_common_attrs ?id:buffer_id
+                                        ?style:buffer_style
+                                        ?attrs:buffer_attrs) []
+          ; div ~a:([ a_class (bar_class :: primary_bar_class :: primary_bar_classes) ]
+                    |> add_common_attrs ?id:primary_bar_id
+                                        ?style:primary_bar_style
+                                        ?attrs:primary_bar_attrs)
+                [ span ~a:[ a_class [inner_bar_class]] [] ]
+          ; div ~a:([ a_class (bar_class :: secondary_bar_class :: secondary_bar_classes) ]
+                    |> add_common_attrs ?id:secondary_bar_id
+                                        ?style:secondary_bar_style
+                                        ?attrs:secondary_bar_attrs)
+                [ span ~a:[ a_class [inner_bar_class]] [] ]
+          ]
 
   end
 
   module List_ = struct
 
+    let base_class   = "mdc-list"
+    let avatar_class = CSS.add_element base_class "avatar-list"
+
+    module Item = struct
+
+      let _class               = "mdc-list-item"
+      let text_class           = CSS.add_element _class "text"
+      let secondary_text_class = CSS.add_element text_class "secondary"
+      let start_detail_class   = CSS.add_element base_class "start-detail"
+      let end_detail_class     = CSS.add_element base_class "end-detail"
+      let divider_class        = "mdc-list-divider"
+
+      let create_divider ?id ?style ?(classes=[]) ?attrs ?(tag=li) ?(inset=false) () =
+        tag ~a:([ a_class (divider_class :: classes
+                           |> (fun x -> if inset then x @ [CSS.add_modifier divider_class "inset"] else x))
+                ; a_role ["separator"] ])
+            []
+
+      let create ?id ?style ?(classes=[]) ?attrs ?(ripple=false) ?(tag=li)
+                 ~text ?text_id ?text_style ?(text_classes=[]) ?text_attrs ?secondary_text
+                 ?secondary_text_id ?secondary_text_style ?(secondary_text_classes=[]) ?secondary_text_attrs
+                 ?start_detail ?end_detail () =
+        tag ~a:([ a_class (_class :: classes) ]
+                |> add_common_attrs ?id ?style ?attrs
+                |> (fun x -> if ripple then x @ [a_user_data "mdc-auto-init" "MDCRipple"] else x))
+            ((match secondary_text with
+              | Some x -> [ span ~a:([ a_class (text_class :: text_classes) ]
+                                     |> add_common_attrs ?id:text_id ?style:text_style ?attrs:text_attrs)
+                                 [ pcdata text
+                                 ; span ~a:([ a_class (secondary_text_class :: secondary_text_classes) ]
+                                            |> add_common_attrs ?id:secondary_text_id
+                                                                ?style:secondary_text_style
+                                                                ?attrs:secondary_text_attrs)
+                                        [pcdata x]] ]
+              | None   -> [pcdata text])
+             |> (fun x -> match start_detail with
+                          | Some detail -> detail :: x
+                          | None        -> x)
+             |> (fun x -> match end_detail with
+                          | Some detail -> x @ [detail]
+                          | None        -> x))
+
+    end
+
+    let create ?id ?style ?(classes=[]) ?attrs ?(tag=ul) ?(dense=false) ?(two_line=false) ~items () =
+      tag ~a:([ a_class (base_class :: classes
+                         |> (fun x -> if dense then x @ [CSS.add_modifier base_class "dense"] else x)
+                         |> (fun x -> if two_line then x @ [CSS.add_modifier base_class "two-line"] else x)) ]
+              |> add_common_attrs ?id ?style ?attrs)
+          items
+
   end
 
   module Menu = struct
+
+
 
   end
 
