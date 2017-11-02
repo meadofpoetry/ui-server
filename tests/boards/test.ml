@@ -163,7 +163,7 @@ let hierarchy () =
       |> (fun s -> Some s)
     with _ -> None
   in
-  let expected = Some (gen_stream_ts (Parent child) (Unknown 42l) ~desc:None) in
+  let expected = Some (child) in
   Alcotest.(check (option strmtst)) "hierarchy"
     expected
     reslt
@@ -266,7 +266,7 @@ let lost_stream () =
     expected
     reslt
 
-(* removed stream  *)
+(* removed stream *)
 let removed_stream () =
   let boards, raw_streams, topo, p1, p2, _, _ = init_topo () in
   let streams = Meta_board.merge_streams boards raw_streams topo in
@@ -283,7 +283,8 @@ let removed_stream () =
       List.find (fun s -> s.id = `Ts (Unknown 44l)) sms |> ignore; (* exists *)
       List.find (fun s -> s.id = `Ts (T2mi_plp 42)) sms |> ignore; (* exists *)
       p1 [(gen_raw_stream_ts (Port 1) (Unknown 13l) ~desc:None)];
-      try 
+      try
+        let sms = React.S.value streams in
         let a = List.find (fun s -> s.id = `Ts (Unknown 43l)) sms in
         let b = List.find (fun s -> s.id = `Ts (Unknown 44l)) sms in
         let p = List.find (fun s -> s.id = `Ts (T2mi_plp 42)) sms in
@@ -314,7 +315,8 @@ let removed_stream_v2 () =
       List.find (fun s -> s.id = `Ts (Unknown 44l)) sms |> ignore; (* exists *)
       List.find (fun s -> s.id = `Ts (T2mi_plp 42)) sms |> ignore; (* exists *)
       p1 [(gen_raw_stream_ts (Port 1) (Unknown 13l) ~desc:None)];
-      try 
+      try
+        let sms = React.S.value streams in
         let a = List.find (fun s -> s.id = `Ts (Unknown 13l)) sms in
         Some [a]
       with _ -> Some []
@@ -337,9 +339,11 @@ let removed_lost_stream () =
       let sms = React.S.value streams in
       List.find (fun s -> s.id = `Ts Single) sms |> ignore; (* exists *)
       p2 []; (* remove parent stream *)
+      let sms = React.S.value streams in
       List.find (fun s -> s.id = `Ts Single) sms |> ignore; (* still exists *)
       try
         p1 [];
+        let sms = React.S.value streams in
         List.find (fun s -> s.id = `Ts Single) sms
         |> (fun s -> Some (Some s))
       with _ -> Some None
