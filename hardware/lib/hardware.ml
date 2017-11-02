@@ -20,7 +20,7 @@ type t = { boards : Meta_board.board Map.t
          ; topo   : topology React.signal
          }
 
-let create_board db usb (b:topo_board) path step_duration =
+let create_board db usb (b:topo_board) boards path step_duration =
   let (module B : Meta_board.BOARD) =
     match b.typ, b.model, b.manufacturer, b.version with
     | DVB,   "rf",       "niitv",  1  -> (module Board_dvb_niit  : Meta_board.BOARD)
@@ -29,7 +29,10 @@ let create_board db usb (b:topo_board) path step_duration =
     (* | IP, "ts2ip", "niitv"        -> Board_ip.create version*)
     | _ -> raise (Failure ("create board: unknown board "))
   in
-  B.create b (Usb_device.get_send usb b.control) db path step_duration
+  B.create b
+    (Meta_board.merge_streams boards)
+    (Usb_device.get_send usb b.control)
+    db path step_duration
 
 let topo_inputs =
   let rec f = (fun acc entry -> match entry with
@@ -97,11 +100,12 @@ let create config db =
   let rec traverse acc = (function
                           | Board b -> List.fold_left (fun a x -> traverse a x.child) (b :: acc) b.ports
                           | Input _ -> acc) in
-  let boards = List.fold_left traverse [] topo
-               |> List.map (fun b -> let board = create_board db usb b stor.config_dir step_duration in
-                                     Usb_device.subscribe usb b.control board.step;
-                                     b.control, board)
-               |> Map.of_list
+  let boards = List.fold_left traverse [] topo (* TODO; Attention: traverse order now matters; 
+                                                  child nodes come before parents *)
+               |> List.fold_left (fun m b -> let board = create_board db usb b m stor.config_dir step_duration in
+                                             Usb_device.subscribe usb b.control board.step;
+                                             Map.add b.control board m)
+                    Map.empty
   in
   let topo_signal = topo_to_signal topo boards in
   { boards; usb; topo = topo_signal }, loop ()
