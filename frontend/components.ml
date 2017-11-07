@@ -13,10 +13,10 @@ module Button = struct
       inherit Dom_html.element
     end
 
-  let create ?classes ?id ?style ?disabled ?color_scheme ?raised
-             ?ripple ?dense ?compact ?label ?onclick ?attrs () =
-    create ?classes ?id ?style ?disabled ?color_scheme ?raised
-           ?ripple ?dense ?compact ?label ?onclick ?attrs ()
+  let create ?classes ?id ?style ?disabled ?raised
+             ?ripple ?unelevated ?stroked ?dense ?compact ?icon ?label ?onclick ?attrs () =
+    create ?classes ?id ?style ?disabled ?raised
+           ?ripple ?unelevated ?stroked ?dense ?compact ?icon ?label ?onclick ?attrs ()
     |> Tyxml_js.To_dom.of_element
 
 end
@@ -151,8 +151,8 @@ module Fab = struct
       inherit Dom_html.element
     end
 
-  let create ?id ?style ?classes ?attrs ?mini ?plain ?ripple ?label ~icon () : t Js.t =
-    create ?id ?style ?classes ?attrs ?mini ?plain ?ripple ?label ~icon ()
+  let create ?id ?style ?classes ?attrs ?mini ?ripple ?label ~icon () : t Js.t =
+    create ?id ?style ?classes ?attrs ?mini ?ripple ?label ~icon ()
     |> Tyxml_js.To_dom.of_element
 
 end

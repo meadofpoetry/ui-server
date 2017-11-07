@@ -42,28 +42,31 @@ module Make
   module Button = struct
 
     let base_class = "mdc-button"
+    let icon_class = CSS.add_element base_class "icon"
 
     let create ?(classes=[]) ?id ?style
-               ?(disabled=false) ?color_scheme ?(raised=false) ?(ripple=false)
-               ?(dense=false) ?(compact=false) ?label ?onclick ?attrs () =
+               ?(disabled=false) ?(raised=false) ?(ripple=false)
+               ?(unelevated=false) ?(stroked=false) ?(dense=false) ?(compact=false)
+               ?icon ?label ?onclick ?attrs () =
       button ~a:([ a_class (base_class :: classes
-                            |> (fun l -> match color_scheme with
-                                         | None   -> l
-                                         | Some x -> match x with
-                                                     | `Primary -> (CSS.add_modifier base_class "primary") :: l
-                                                     | `Accent  -> (CSS.add_modifier base_class "accent") :: l)
-                            |> (fun l -> if raised  then (CSS.add_modifier base_class "raised") :: l  else l)
-                            |> (fun l -> if dense   then (CSS.add_modifier base_class "dense") :: l   else l)
-                            |> (fun l -> if compact then (CSS.add_modifier base_class "compact") :: l else l)) ]
+                            |> (fun l -> if unelevated then (CSS.add_modifier base_class "unelevated") :: l else l)
+                            |> (fun l -> if stroked    then (CSS.add_modifier base_class "stroked") :: l else l)
+                            |> (fun l -> if raised     then (CSS.add_modifier base_class "raised") :: l  else l)
+                            |> (fun l -> if dense      then (CSS.add_modifier base_class "dense") :: l   else l)
+                            |> (fun l -> if compact    then (CSS.add_modifier base_class "compact") :: l else l)) ]
                  |> add_common_attrs ?id ?style ?attrs
                  |> (fun l -> match onclick with
                               | Some x -> l @ [a_onclick x]
                               | None   -> l)
                  |> (fun l -> if disabled then l @ [a_disabled ()] else l)
                  |> (fun l -> if ripple   then l @ [a_user_data "mdc-auto-init" "MDCRipple"] else l))
-             (match label with
-              | Some label -> [pcdata label]
-              | None       -> [])
+             ((match label with
+               | Some label -> [pcdata label]
+               | None       -> [])
+              |> (fun x -> match icon with
+                           | Some icon -> (Html.i ~a:[ a_class ["material-icons"; icon_class] ]
+                                                  [pcdata icon]) :: x
+                           | None      -> x))
   end
 
   module Card = struct
@@ -248,14 +251,14 @@ module Make
 
   module Fab = struct
 
-    let base_class = "mdc-fab"
-    let icon_class = CSS.add_element base_class "icon"
+    let base_class   = "mdc-fab"
+    let icon_class   = CSS.add_element base_class "icon"
+    let exited_class = CSS.add_modifier base_class "exited"
 
     let create ?id ?style ?(classes=[]) ?attrs ?onclick
-               ?(mini=false) ?(plain=false) ?(ripple=false) ?label ~icon () =
+               ?(mini=false) ?(ripple=false) ?label ~icon () =
       button ~a:([a_class (base_class :: "material-icons" :: classes
-                           |> (fun x -> if mini  then x @ [CSS.add_modifier base_class "mini"]  else x)
-                           |> (fun x -> if plain then x @ [CSS.add_modifier base_class "plain"] else x))]
+                           |> (fun x -> if mini  then x @ [CSS.add_modifier base_class "mini"]  else x))]
                  |> add_common_attrs ?id ?style ?attrs
                  |> (fun x -> if ripple then (a_user_data "mdc-auto-init" "MDCRipple") :: x else x)
                  |> (fun x -> match label with
