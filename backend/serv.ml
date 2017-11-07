@@ -43,6 +43,7 @@ let get_handler ~settings
     let sock_data = (req, (fst conn)) in
     match meth, uri_list with
     | `GET, []                    -> redir (fun _ -> Responses.home settings.path)
+    | `GET, ["demo"]              -> redir (fun _ -> Responses.mdc_demo settings.path)
     | `GET, ["settings"; "users"] -> redir (fun _ -> Responses.Settings.users settings.path)
     | _, "api" :: path -> Api_handler.handle routes redir meth path sock_data headers body
     | `GET, _          -> redir (fun _ -> resource settings.path uri)

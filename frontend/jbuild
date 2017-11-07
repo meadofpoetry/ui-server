@@ -1,7 +1,7 @@
 (jbuild_version 1)
 
-(executable
- ((name        home)
+(executables
+ ((names       (home demo))
   (libraries   (js_of_ocaml
                 gg vg vg.htmlc js_of_ocaml-tyxml lwt_react
                 common janus pipeline-js hardware-js board-ip-dektec-js))

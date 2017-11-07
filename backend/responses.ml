@@ -8,11 +8,14 @@ let fill_json ?(title="АТС-3") ?(scripts=[]) ?(stylesheets=[]) ?(content=[]) 
      ; "stylesheets", `A (List.map (fun x -> `O [ "stylesheet", `String x ]) stylesheets)
      ; "content", `A (List.map (fun x -> `O [ "element", `String x]) content) ]
 
-let render_with_base_template base json =
-  let tmpl = Filename.concat base "html/templates/base.html"
+let render_with_template base template_path json =
+  let tmpl = Filename.concat base template_path
              |> CCIO.File.read_exn (* FIXME *)
              |> Mustache.of_string in
   Mustache.render tmpl json
+
+let render_with_base_template base json =
+  render_with_template base "html/templates/base.html" json
 
 module Settings = struct
 
@@ -40,4 +43,12 @@ let home base =
                        ~content:[content]
                        () in
   let html = render_with_base_template base json in
+  respond_string html ()
+
+let mdc_demo base =
+  let content = "" in
+  let json    = fill_json ~scripts:[ "/js/demo.js"; "/js/janus.nojquery.js"; "/js/adapter.min.js" ]
+                          ~content:[content]
+                          () in
+  let html = render_with_template base "html/templates/empty.html" json in
   respond_string html ()

@@ -4,7 +4,11 @@ home:
 	$(BUILD) build frontend/home.bc.js
 	cp _build/default/frontend/home.bc.js dist/resources/js/home.js
 
-frontend: home
+demo:
+	$(BUILD) build frontend/demo.bc.js
+	cp _build/default/frontend/demo.bc.js dist/resources/js/demo.js
+
+frontend: home demo
 
 backend:
 	$(BUILD) build backend/backend.exe

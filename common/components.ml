@@ -751,19 +751,23 @@ module Make
 
   module Slider = struct
 
-    let base_class             = "mdc-slider"
-    let track_container_class  = CSS.add_element base_class "track-container"
-    let track_class            = CSS.add_element base_class "track"
-    let thumb_container_class  = CSS.add_element base_class "thumb-container"
-    let thumb_class            = CSS.add_element base_class "thumb"
-    let focus_ring_class       = CSS.add_element base_class "focus-ring"
-    let pin_class              = CSS.add_element base_class "pin"
-    let pin_value_marker_class = CSS.add_element base_class "pin-value-marker"
+    let base_class                   = "mdc-slider"
+    let track_container_class        = CSS.add_element base_class "track-container"
+    let track_class                  = CSS.add_element base_class "track"
+    let track_marker_container_class = CSS.add_element base_class "track-marker-container"
+    let thumb_container_class        = CSS.add_element base_class "thumb-container"
+    let thumb_class                  = CSS.add_element base_class "thumb"
+    let focus_ring_class             = CSS.add_element base_class "focus-ring"
+    let pin_class                    = CSS.add_element base_class "pin"
+    let pin_value_marker_class       = CSS.add_element base_class "pin-value-marker"
 
-    let create ?id ?style ?(classes=[]) ?attrs ?(discrete=false)
-               ?label ?(min=0) ?(max=100) ?(value=0) () =
+    let create ?id ?style ?(classes=[]) ?attrs ?(discrete=false) ?(markers=false) ?(disabled=false)
+               ?label ?step ?(min=0) ?(max=100) ?(value=0) () =
       div ~a:([ a_class (base_class :: classes
-                         |> fun x -> if discrete then x @ [CSS.add_modifier base_class "discrete"] else x)
+                         |> (fun x -> if discrete then x @ [CSS.add_modifier base_class "discrete"] else x)
+                         |> (fun x -> if discrete && markers
+                                      then x @ [CSS.add_modifier base_class "display-markers"]
+                                      else x))
               ; a_tabindex 0
               ; a_role ["slider"]
               ; a_aria "valuemin" [ string_of_int min ]
@@ -773,17 +777,28 @@ module Make
               |> (fun x -> match label with
                            | Some label -> x @ [a_aria "label" [label]]
                            | None       -> x)
+              |> (fun x -> match step with
+                           | Some step -> x @ [a_user_data "step" (string_of_int step)]
+                           | None      -> x)
+              |> (fun x -> if disabled then x @ [ a_aria "disabled" ["true"]] else x)
               |> add_common_attrs ?id ?style ?attrs)
           [ div ~a:([ a_class [track_container_class]])
-                [ div ~a:([ a_class [track_class]]) []]
+                ([ div ~a:([ a_class [track_class]]) []]
+                 |> (fun x -> if discrete && markers
+                              then x @ [ div ~a:[ a_class [track_marker_container_class]] []]
+                              else x))
           ; div ~a:([ a_class [thumb_container_class]])
-                [ svg ~a:([ Svg.a_class [thumb_class]
-                          ; Svg.a_width (21., None)
-                          ; Svg.a_height (21., None)])
-                      [ Svg.circle ~a:[ Svg.a_cx (10.5, None)
-                                      ; Svg.a_cy (10.5, None)
-                                      ; Svg.a_r (7.875, None)] []]]
-          ; div ~a:([ a_class [focus_ring_class]]) []
+                ([ svg ~a:([ Svg.a_class [thumb_class]
+                           ; Svg.a_width (21., None)
+                           ; Svg.a_height (21., None)])
+                       [ Svg.circle ~a:[ Svg.a_cx (10.5, None)
+                                       ; Svg.a_cy (10.5, None)
+                                       ; Svg.a_r (7.875, None)] []]
+                 ; div ~a:([ a_class [focus_ring_class]]) []]
+                 |> fun x -> if discrete
+                             then (div ~a:[a_class [pin_class]]
+                                       [span ~a:[a_class [pin_value_marker_class]] []]) :: x
+                             else x)
           ]
 
   end
@@ -834,51 +849,83 @@ module Make
 
   module Tabs = struct
 
-    type tab_content = Text of string
-                     | Icon of (string * string option)
-                     | Text_and_icon of (string * string)
-
     let base_class = "mdc-tab-bar"
 
-    let tab_class = "mdc-tab"
+    module Tab = struct
 
-    let create_tab ?(classes=[]) ?id ?style ?attrs ?(active=false) ?href ~content () =
-      a ~a:([a_class (tab_class :: classes
-                      |> (fun l -> if active then (tab_class ^ "--active") :: l else l))]
-            |> add_common_attrs ?id ?style ?attrs
-            |> (fun l -> match href with
-                         | Some x -> l @ [a_href x]
-                         | None   -> l))
-        (match content with
-         | Text s -> [pcdata s]
-         | Icon (i,fallback) -> [Html.i ~a:([a_class ["material-icons"; (tab_class ^ "__icon")]]
-                                            |> (fun l -> match fallback with
-                                                         | Some x -> l @ [a_aria "label" [x]]
-                                                         | None   -> l))
-                                        [pcdata i]]
-         | Text_and_icon (s,i) -> [ Html.i ~a:([ a_class ["material-icons"; (tab_class ^ "__icon")]
-                                               ; a_aria "hidden" ["true"]])
-                                           [pcdata i]
-                                  ; span ~a:[a_class [(tab_class ^ "__icon-text")]]
-                                         [pcdata s]])
+      let _class = "mdc-tab"
+      let icon_class      = CSS.add_element _class "icon"
+      let icon_text_class = CSS.add_element _class "icon-text"
 
-    let create_indicator ?(classes=[]) ?id ?style ?attrs () =
-      span ~a:([a_class ((base_class ^ "__indicator") :: classes)]
-               |> add_common_attrs ?id ?style ?attrs) []
-
-    let create ?(classes=[]) ?id ?style ?attrs
-               ?(with_indicator=true) ?(accent_indicator=false) ~_type ~children () =
-      nav ~a:([ a_class (base_class :: classes
-                         |> (fun l -> match _type with
-                                      | `Text          -> l
-                                      | `Icon          -> (base_class ^ "--icon-tab-bar") :: l
-                                      | `Text_and_icon -> (base_class ^ "--icons-with-text") :: l)
-                         |> (fun l -> if accent_indicator
-                                      then (base_class ^ "--indicator-accent") :: l
-                                      else l))
-              ; a_user_data "mdc-auto-init" "MDCTabBar"]
+      let create ?id ?style ?(classes=[]) ?attrs ?(active=false) ?href ~content () =
+        a ~a:([a_class (_class :: classes
+                        |> (fun x -> if active then x @ [CSS.add_modifier _class "active"] else x))]
+              |> (fun x -> match href with
+                           | Some href -> x @ [a_href href]
+                           | None      -> x)
               |> add_common_attrs ?id ?style ?attrs)
-          (children |> (fun x -> if with_indicator then (x @ [create_indicator ()]) else x))
+          (match content with
+           | `Text s              -> [ pcdata s ]
+           | `Icon (i,fallback)   -> [ Html.i ~a:([a_class ["material-icons"; icon_class]]
+                                                  |> (fun l -> match fallback with
+                                                               | Some x -> l @ [a_aria "label" [x]]
+                                                               | None   -> l))
+                                              [ pcdata i ] ]
+           | `Text_and_icon (s,i) -> [ Html.i ~a:([ a_class ["material-icons"; icon_class]
+                                                  ; a_aria "hidden" ["true"]])
+                                              [pcdata i]
+                                     ; span ~a:[ a_class [icon_text_class] ]
+                                            [ pcdata s ]])
+
+    end
+
+    module Scroller = struct
+
+      let _class                  = base_class ^ "-scroller"
+      let indicator_class         = CSS.add_element _class "indicator"
+      let indicator_back_class    = CSS.add_modifier indicator_class "back"
+      let indicator_forward_class = CSS.add_modifier indicator_class "forward"
+      let scroll_frame_class      = CSS.add_element _class "scroll-frame"
+      let scroll_frame_tabs_class = CSS.add_element scroll_frame_class "tabs"
+
+      let create ?id ?style ?(classes=[]) ?attrs ~tabs () =
+        let create_indicator = (fun direction -> div ~a:[a_class [ indicator_class;
+                                                                   (match direction with
+                                                                    | `Back    -> indicator_back_class
+                                                                    | `Forward -> indicator_forward_class)]]
+                                                     []) in
+        div ~a:([ a_class (_class :: classes) ]
+                |> add_common_attrs ?id ?style ?attrs)
+            [ create_indicator `Back
+            ; div ~a:[ a_class [scroll_frame_class] ] [ tabs ]
+            ; create_indicator `Forward
+            ]
+
+    end
+
+    module Indicator = struct
+
+      let create ?(classes=[]) ?id ?style ?attrs () =
+        span ~a:([a_class ((base_class ^ "__indicator") :: classes)]
+                 |> add_common_attrs ?id ?style ?attrs) []
+
+    end
+
+    let create ?id ?style ?(classes=[]) ?attrs
+               ?(with_indicator=true) ?color_scheme ~_type ~content () =
+      nav ~a:([ a_class (base_class :: classes
+                         |> (fun x -> match _type with
+                                      | `Text          -> x
+                                      | `Icon          -> x @ [CSS.add_modifier base_class "icon-tab-bar"]
+                                      | `Text_and_icon -> x @ [CSS.add_modifier base_class "icons-with-text"])
+                         |> (fun x -> match color_scheme with
+                                      | Some scheme ->
+                                         (match scheme with
+                                          | `Primary -> x @ [CSS.add_modifier base_class "indicator-primary"]
+                                          | `Accent  -> x @ [CSS.add_modifier base_class "indicator-accent"])
+                                      | None        -> x)) ]
+              |> add_common_attrs ?id ?style ?attrs)
+          (content |> (fun x -> if with_indicator then (x @ [Indicator.create ()]) else x))
 
   end
 
@@ -901,6 +948,70 @@ module Make
   end
 
   module Toolbar = struct
+
+    let base_class         = "mdc-toolbar"
+    let fixed_adjust_class = base_class ^ "-fixed-adjust"
+
+    module Row = struct
+
+      module Section = struct
+
+        let _class = CSS.add_element base_class "section"
+        let title_class        = CSS.add_element base_class "title"
+        let icon_class         = CSS.add_element base_class "icon"
+        let menu_icon_class    = CSS.add_element base_class "menu-icon"
+
+        let create_title ?id ?style ?(classes=[]) ?attrs ~title () =
+          span ~a:([ a_class (title_class :: classes)]
+                   |> add_common_attrs ?id ?style ?attrs)
+               [ pcdata title ]
+
+        let create ?id ?style ?(classes=[]) ?attrs ?align ?(shrink_to_fit=false) ~content () =
+          section ~a:([ a_class (_class :: classes
+                                 |> (fun x ->
+                                   match align with
+                                   | Some `Start -> x @ [CSS.add_modifier _class "align-start"]
+                                   | Some `End   -> x @ [CSS.add_modifier _class "align-end"]
+                                   | None        -> x)
+                                 |> (fun x -> if shrink_to_fit
+                                              then x @ [CSS.add_modifier _class "shrink-to-fit"]
+                                              else x)) ]
+                      |> add_common_attrs ?id ?style ?attrs)
+                  content
+
+      end
+
+      let _class = CSS.add_element base_class "row"
+
+      let create ?id ?style ?(classes=[]) ?attrs ~content () =
+        div ~a:([ a_class (_class :: classes) ]
+                |> add_common_attrs ?id ?style ?attrs)
+            content
+
+    end
+
+    let create ?id ?style ?(classes=[]) ?attrs
+               ?(fixed=false) ?(fixed_last_row=false) ?(waterfall=false)
+               ?(flexible=false) ?flexible_height ~content () =
+      header ~a:([ a_class (base_class :: classes
+                            |> (fun x -> if fixed then x @ [CSS.add_modifier base_class "fixed"] else x)
+                            |> (fun x -> if fixed && waterfall
+                                         then x @ [CSS.add_modifier base_class "waterfall"]
+                                         else x)
+                            |> (fun x -> if fixed && fixed_last_row
+                                         then x @ [CSS.add_modifier base_class "fixed-lastrow-only"]
+                                         else x)
+                            |> (fun x -> if flexible then x @ [CSS.add_modifier base_class "flexible"] else x)) ]
+                 |> add_common_attrs ?id
+                                     ?style:(let s = "--" ^ base_class ^ "-ratio-to-extend-flexible" in
+                                             match flexible_height with
+                                             | Some x -> let fh_style = Printf.sprintf "%s: %d;" s x in
+                                                         (match style with
+                                                          | Some style -> Some (fh_style ^ style)
+                                                          | None       -> Some fh_style)
+                                             | None   -> None)
+                                     ?attrs)
+             content
 
   end
 

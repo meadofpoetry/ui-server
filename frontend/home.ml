@@ -104,40 +104,10 @@ let onload _ =
   |> ignore;
   let ac = Dom_html.getElementById "arbitrary-content" in
   Dom.appendChild ac dialog;
-  let checkbox = Checkbox.create () in
   let switch = Switch.create ~input_id:"sw" () in
-  let toggle = Icon_toggle.create ~on_content:"favorite"
-                                  ~on_label:"Added to favorites"
-                                  ~off_label:"Removed from favorites"
-                                  ~off_content:"favorite_border"
-                                  () in
-  let tiles  = List.map (fun x -> let primary = Grid_list.Tile.create_primary
-                                                  ~is_div:true
-                                                  ~src:"https://cs5-3.4pda.to/5290239.png"
-                                                  () in
-                                  let secondary = Grid_list.Tile.create_secondary
-                                                    ~title:("My tile " ^ (string_of_int x))
-                                                    ~support_text:"Some text here"
-                                                    () in
-                                  Grid_list.Tile.create ~primary ~secondary ())
-                        (CCList.range 0 15) in
-  let grid   = Grid_list.create ~twoline:true
-                                ~header_caption:true
-                                ~icon_align:`Start
-                                ~tiles
-                                () in
   Dom_html.addEventListener switch
                             Dom_events.Typ.change
                             (Dom_html.handler (fun _ -> print_endline "changed on switch!"; Js._false))
-                            Js._false
-  |> ignore;
-  Dom_html.addEventListener toggle
-                            Icon_toggle.events.change
-                            (Dom_html.handler (fun d -> print_endline ("Icon Toggle is " ^ (if (Js.to_bool d##.detail_##.isOn)
-                                                                                            then "on"
-                                                                                            else "off"));
-                                                        print_endline (Js.to_string d##._type);
-                                                        Js._false))
                             Js._false
   |> ignore;
   let form_field = Form_field.create ~input:(of_dom switch)
@@ -186,8 +156,20 @@ let onload _ =
                                 () in
   let btn_div_1 = Dom_html.createDiv Dom_html.document in
   let btn_div_2 = Dom_html.createDiv Dom_html.document in
-  let list_items = List.map (fun x -> if x != 2
+  let list_items = List.map (fun x -> let checkbox = (Checkbox.create
+                                                        ~attrs:[Tyxml_js.Html.a_onclick (fun e ->
+                                                               Dom_html.stopPropagation e; true)]
+                                                        ~style:"width:24px; height:18px"
+                                                        ~classes:[List_.Item.end_detail_class]
+                                                        ()) in
+                                      if x != 2
                                       then List_.Item.create
+                                             ~attrs:[Tyxml_js.Html.a_onclick (fun _ ->
+                                                         let value = checkbox##is_checked_ ()
+                                                                     |> Js.to_bool
+                                                                     |> not
+                                                                     |> Js.bool in
+                                                         checkbox##set_checked_ value; true)]
                                              ~text:("List item " ^ (string_of_int x))
                                              ~secondary_text:"some subtext here"
                                              ~start_detail:(let open Tyxml_js.Html in
@@ -200,11 +182,7 @@ let onload _ =
                                                               [ i ~a:[ a_class ["material-icons"]
                                                                      ; a_style "color: white;"]
                                                                   [pcdata "folder"]])
-                                             ~end_detail:(Checkbox.create
-                                                            ~style:"width:24px; height:18px"
-                                                            ~classes:[List_.Item.end_detail_class]
-                                                            ()
-                                                          |> of_dom)
+                                             ~end_detail:(checkbox |> of_dom)
                                              ~ripple:true
                                              ()
                                       else List_.Item.create_divider ())
@@ -250,22 +228,31 @@ let onload _ =
                                          ]
                                       [pcdata "Here is a ripple"])
                    |> fun x -> Ripple.create x () in
-  let slider = Slider.create ~label:"Select Value"
-                             ~style:"max-width: 400px;"
-                             ~value:10
-                             () in
-  let slider_div = Tyxml_js.Html.(div [of_dom slider]) in
-  Dom_html.addEventListener slider
-                            Slider.events.input
-                            (Dom_html.handler (fun _ -> print_endline "Input on slider!"; Js._false))
-                            Js._false
-  |> ignore;
-  Dom_html.addEventListener slider
-                            Slider.events.change
+  let tab_items = List.map (fun x -> Tabs.Tab.create ~content:(`Text (string_of_int x)) ())
+                           (CCList.range 0 4) in
+  let tabs = Tabs.create ~classes:[Tabs.Scroller.scroll_frame_tabs_class]
+                         ~_type:`Text
+                         ~style:"margin-bottom: 30px"
+                         ~content:tab_items () in
+  let scroller = Tabs.Scroller_.create ~tabs:(of_dom tabs) () in
+  let sections = List.map (fun x -> Toolbar.Row.Section.create ~content:[ Tyxml_js.Html.pcdata (string_of_int x)]
+                                                               ())
+                          (CCList.range 0 1) in
+  let rows = [ Toolbar.Row.create ~content:[] ()
+             ; Toolbar.Row.create ~content:sections () ] in
+  let toolbar = Toolbar.create ~content:rows
+                               ~fixed:true
+                               ~waterfall:true
+                               () in
+  toolbar##set_fixed_adjust_elt_ (Dom_html.document##.body##querySelector (Js.string ".mdc-toolbar-fixed-adjust")
+                                  |> Js.Opt.to_option
+                                  |> CCOpt.get_exn);
+  Dom_html.addEventListener toolbar
+                            Toolbar.events.change
                             (Dom_html.handler (fun e ->
-                                 print_endline ("Change on slider! " ^ (e##.detail_##.value_
-                                                                        |> Js.float_of_number
-                                                                        |> string_of_float));
+                                 print_endline ("Change on toolbar! " ^ (e##.detail_##.flexibleExpansionRatio
+                                                                         |> Js.float_of_number
+                                                                         |> string_of_float));
                                  Js._false))
                             Js._false
   |> ignore;
@@ -278,12 +265,9 @@ let onload _ =
                                     ~ripple:true
                                     ~onclick:(fun _ -> dialog##.component_##show_ (); true)
                                     ());
-  Dom.appendChild ac checkbox;
   Dom.appendChild ac form_field;
-  Dom.appendChild ac toggle;
   Dom.appendChild ac (Tyxml_js.To_dom.of_element menu_div);
   Dom.appendChild ac ripple_div;
-  Dom.appendChild ac grid;
   Dom.appendChild btn_div_1 lp_ind_btn;
   Dom.appendChild btn_div_1 lp_det_btn;
   Dom.appendChild btn_div_1 progress0_btn;
@@ -299,8 +283,9 @@ let onload _ =
   Dom.appendChild ac linear_progress;
   Dom.appendChild ac layout_grid;
   Dom.appendChild ac list;
-  Dom.appendChild ac @@ Tyxml_js.To_dom.of_element slider_div;
-  
+  Dom.appendChild ac scroller;
+  Dom.appendChild ac (Tyxml_js.Html.div ~a:[Tyxml_js.Html.a_style "height:200px"] [] |> Tyxml_js.To_dom.of_element);
+
   Js._false
 
 let () = Dom_html.addEventListener Dom_html.document

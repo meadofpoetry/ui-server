@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="">
+        <title>{{title}}</title>
+        <link
+            rel="stylesheet"
+            href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto+Mono">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans">
+        <link rel="stylesheet" href="/css/main.css" type="text/css">
+        <style>
+         @font-face {
+             font-family: "Open Sans";
+             src: url("https://fonts.googleapis.com/css?family=Open+Sans");
+         }
+        </style>
+        <!-- Additional scripts -->
+        {{#scripts}}
+        <script src={{script}} type="text/javascript"></script>
+        {{/scripts}}
+        <!-- Additional stylesheets -->
+        {{#stylesheets}}
+        <link rel="stylesheet" href={{stylesheet}} type="text/css">
+        {{/stylesheets}}
+    </head>
+    <body class="mdc-typography">
+        {{#content}}
+        {{{element}}}
+        {{/content}}
+        <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+        <script>
+         function rdy () { window.mdc.autoInit(); };
+         document.addEventListener('DOMContentLoaded', rdy, false);
+        </script>
+    </body>
+</html>

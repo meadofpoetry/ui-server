@@ -550,8 +550,8 @@ module Slider = struct
     ; change = Dom_events.Typ.make "MDCSlider:change"
     }
 
-  let create ?id ?style ?classes ?attrs ?discrete ?label ?min ?max ?value () =
-    let (elt : t Js.t) = create ?id ?style ?classes ?attrs ?discrete ?label ?min ?max ?value ()
+  let create ?id ?style ?classes ?attrs ?discrete ?markers ?disabled ?label ?min ?max ?value () =
+    let (elt : t Js.t) = create ?id ?style ?classes ?attrs ?discrete ?markers ?disabled ?label ?min ?max ?value ()
                          |> Tyxml_js.To_dom.of_element
                          |> Js.Unsafe.coerce in
     let set = fun (x : t Js.t) (name : string) f -> Js.Unsafe.set x name f in
@@ -681,10 +681,48 @@ module Tabs = struct
 
   include Widgets.Tabs
 
+  class type component =
+    object
+    end
+
   class type t =
     object
       inherit Dom_html.element
+      method component_ : component Js.t Js.readonly_prop
     end
+
+  module Scroller_ = struct
+
+    include Widgets.Tabs.Scroller
+
+    class type component =
+      object
+      end
+
+    class type scroller =
+      object
+        inherit Dom_html.element
+        method component_ : component Js.t Js.readonly_prop
+      end
+
+    let create ?id ?style ?classes ?attrs ~tabs () : scroller Js.t =
+      let (elt : scroller Js.t) = create ?id ?style ?classes ?attrs ~tabs ()
+                                  |> Tyxml_js.To_dom.of_element
+                                  |> Js.Unsafe.coerce in
+      let set = fun (x : scroller Js.t) (name : string) f -> Js.Unsafe.set x name f in
+      set elt "component" @@ Js.Unsafe.(fun_call (js_expr "mdc.tabs.MDCTabBarScroller.attachTo") [| inject elt |]);
+      elt
+
+
+  end
+
+  let create ?id ?style ?classes ?attrs ?with_indicator ?color_scheme ~_type ~content () : t Js.t =
+    let (elt : t Js.t) = create ?id ?style ?classes ?attrs ?with_indicator ?color_scheme ~_type ~content ()
+                         |> Tyxml_js.To_dom.of_element
+                         |> Js.Unsafe.coerce in
+      let set = fun (x : t Js.t) (name : string) f -> Js.Unsafe.set x name f in
+      set elt "component" @@ Js.Unsafe.(fun_call (js_expr "mdc.tabs.MDCTabBar.attachTo") [| inject elt |]);
+      elt
 
 end
 
@@ -703,10 +741,49 @@ module Toolbar = struct
 
   include Widgets.Toolbar
 
+  class type component =
+    object
+      method fixedAdjustElement : Dom_html.element Js.t Js.prop
+    end
+
   class type t =
     object
       inherit Dom_html.element
+      method component_            : component Js.t Js.readonly_prop
+      method set_fixed_adjust_elt_ : Dom_html.element Js.t -> unit Js.meth
+      method get_fixed_adjust_elt_ : unit -> Dom_html.element Js.t Js.meth
     end
+
+  class type detail =
+    object
+      method flexibleExpansionRatio : Js.number Js.t Js.readonly_prop
+    end
+
+  class type event =
+    object
+      inherit Dom_html.event
+      method detail_ : detail Js.t Js.readonly_prop
+    end
+
+  type events =
+    { change : event Js.t Dom_events.Typ.typ
+    }
+
+  let events =
+    { change = Dom_events.Typ.make "MDCToolbar:change"
+    }
+
+  let create ?id ?style ?classes ?attrs ?fixed ?fixed_last_row ?waterfall
+             ?flexible ?flexible_height ~content () =
+    let (elt : t Js.t) = create ?id ?style ?classes ?attrs ?fixed ?fixed_last_row ?waterfall
+                                ?flexible ?flexible_height ~content ()
+                         |> Tyxml_js.To_dom.of_element
+                         |> Js.Unsafe.coerce in
+    let set = fun (x : t Js.t) (name : string) f -> Js.Unsafe.set x name f in
+    set elt "component" @@ Js.Unsafe.(fun_call (js_expr "mdc.toolbar.MDCToolbar.attachTo") [| inject elt |]);
+    set elt "set_fixed_adjust_elt" @@ Js.wrap_callback (fun x  -> elt##.component_##.fixedAdjustElement := x);
+    set elt "get_fixed_adjust_elt" @@ Js.wrap_callback (fun () -> elt##.component_##.fixedAdjustElement);
+    elt
 
 end
 
