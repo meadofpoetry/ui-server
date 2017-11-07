@@ -29,15 +29,21 @@ let create (b:topo_board) convert_streams send db base step =
   let s_state, spush = React.S.create `No_response in
   let events, api, step    = create_sm send storage spush step in
   let s_strms,s_strms_push = React.S.create [] in
-  let e_status = React.E.map (fun (x : board_status) -> (if x.asi_bitrate > 0 then [Common.Stream.Single] else [])
-                                                        |> s_strms_push) events.status in
+  let e_status = React.E.map (fun (x : board_status) ->
+                     let open Common.Stream in
+                     let (stream : stream) = { source      = Port 0
+                                             ; id          = `Ts Single
+                                             ; description = Some ""
+                                             } in
+                     s_strms_push @@ (if x.asi_bitrate > 0 then [stream] else []))
+                 @@ React.E.changes events.status in
   let handlers = Board_api.handlers b.control api events in
   Lwt_main.run @@ Storage.init db;
   let _s = Lwt_react.E.map_p (fun s -> Storage.request db (Storage.Store_status s)) @@ React.E.changes events.status in
   let state = object method s = _s; method e_status = e_status end in
   { handlers       = handlers
   ; control        = b.control
-  ; streams_signal = React.S.const []
+  ; streams_signal = convert_streams s_strms b
   ; step           = step
   ; connection     = s_state
   ; ports_active   = (List.fold_left (fun acc (p : topo_port) ->

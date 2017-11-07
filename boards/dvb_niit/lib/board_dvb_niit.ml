@@ -33,10 +33,25 @@ let create (b:topo_board) convert_streams send db base step =
   Lwt_main.run @@ Storage.init db;
   let _s = Lwt_react.E.map_p (fun m -> Storage.request db (Storage.Store_measures m))
            @@ React.E.changes events.measure in
-  let state = object method _s = _s end in
+  let s_streams,s_streams_push = React.S.create [] in
+  let e_meas = React.E.map (fun ((id,meas) : int * Board_types.rsp_measure) ->
+                   let open Common.Stream in
+                   let (stream : stream) = { source      = Port 0
+                                           ; id          = `Ts (Dvb (id,0))
+                                           ; description = Some ""
+                                           } in
+                   let streams = React.S.value s_streams in
+                   match meas.lock,meas.bitrate with
+                   | true,Some x when x > 0l -> s_streams_push @@ CCList.add_nodup stream streams
+                   | _                       -> s_streams_push @@ CCList.remove ~x:stream streams)
+               @@ React.E.changes events.measure in
+  let state = (object
+                 method _s = _s
+                 method e_meas = e_meas
+               end) in
   { handlers       = handlers
   ; control        = b.control
-  ; streams_signal = React.S.const []
+  ; streams_signal = convert_streams s_streams b
   ; step           = step
   ; connection     = s_state
   ; ports_active   = (List.fold_left (fun acc p ->

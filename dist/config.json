@@ -13,41 +13,51 @@
         "db_path": "./db"
     },
     "topology": [
-        // [
-        //     "Board",
-        //     {
-        //         "typ":"DVB",
-        //         "control": 4,
-        //         "model": "rf",
-        //         "manufacturer": "niitv",
-        //         "connection":["No_response"],
-        //         "version": 1,
-        //         "ports": []
-        //     }
-        // ],
-        // [
-        //     "Board",
-        //     {
-        //         "typ":"IP2TS",
-        //         "control": 5,
-        //         "model": "dtm-3200",
-        //         "manufacturer": "dektec",
-        //         "connection":["No_response"],
-        //         "version": 1,
-        //         "ports": []
-        //     }
-        // ]
         [
             "Board",
             {
                 "typ":"TS",
-                "control": 0,
+                "control": 2,
                 "model": "qos",
                 "manufacturer": "niitv",
                 "connection":["No_response"],
                 "version": 1,
-                "ports": [ {"port": 0, "listening": true, "child": [ "Input", { "input":"RF", "id": 0}]},
+                "ports": [ {"port": 0, "listening": true, "child": [ "Input", { "input":"TSOIP", "id": 0}]},
                            {"port": 1, "listening": false, "child": [ "Input", { "input": "ASI", "id": 0}]}]
+            }
+        ],
+        [
+            "Board",
+            {
+                "typ":"TS",
+                "control": 1,
+                "model": "qos",
+                "manufacturer": "niitv",
+                "connection":["No_response"],
+                "version": 1,
+                "ports": [
+                    {
+                        "port": 0,
+                        "listening": true, "child":
+                        [ "Board",
+                          {
+                              "typ":"DVB",
+                              "control": 5,
+                              "model": "rf",
+                              "manufacturer": "niitv",
+                              "connection":["No_response"],
+                              "version": 1,
+                              "ports": [
+                                  {
+                                      "port": 0,
+                                      "listening": true,
+                                      "child": [ "Input", { "input":"RF", "id": 0} ]
+                                  }
+                              ]
+                          }
+                        ]
+                    }
+                ]
             }
         ]
     ],
