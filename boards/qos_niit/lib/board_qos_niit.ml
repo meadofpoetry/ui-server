@@ -80,6 +80,8 @@ let create (b:topo_board) convert_streams send db base step =
                            | 1 -> s_asi
                            | x -> raise (Invalid_port ("Board_qos_niit: invalid port " ^ (string_of_int x))))
                           |> fun x -> Ports.add p.port x acc)
-                                     Ports.empty b.ports)
+                        Ports.empty b.ports)
+  ; settings_page  = ("QOS", React.S.const (Tyxml.Html.div []))
+  ; widgets_page   = [("QOS", React.S.const (Tyxml.Html.div []))]
   ; state          = (state :> < >)
   }
