@@ -934,19 +934,66 @@ module Make
 
   module Textfield = struct
 
-    let base_class  = "mdc-textfield"
-    let input_class = CSS.add_element base_class "input"
+    let base_class        = "mdc-textfield"
+    let input_class       = CSS.add_element base_class "input"
+    let label_class       = CSS.add_element base_class "label"
+    let bottom_line_class = CSS.add_element base_class "bottom-line"
 
-    let create ?(classes=[]) ?id ?style ?attrs ?(password=false) ?(disabled=false) ~label () =
-      Html.label ~a:([ a_class (base_class :: classes)
-                     ; a_user_data "mdc-auto-init" "MDCTextfield" ]
-                     |> add_common_attrs ?id ?style ?attrs)
-                 [ input ~a:([ a_class [input_class]
-                             ; a_input_type (if password then `Password else `Text) ]
-                             |> (fun l -> if disabled then l @ [a_disabled ()] else l))
-                         ()
-                 ; span ~a:[a_class [base_class ^ "__label"]]
-                        [pcdata label]]
+    module Help_text = struct
+
+      let _class = "mdc-textfield-helptext"
+
+      let create ?id ?style ?(classes=[]) ?attrs ?(persistent=false) ~content () =
+        p ~a:([ a_class (_class :: classes
+                         |> (fun x -> if persistent then x @ [CSS.add_modifier _class "persistent"] else x)) ]
+              |> (fun x -> if persistent then x else (a_aria "hidden" ["true"]) :: x)
+              |> add_common_attrs ?id ?style ?attrs)
+          (match content with
+           | `Text s -> [pcdata s]
+           | `Html x -> x)
+
+    end
+
+    let create ?id ?style ?(classes=[]) ?attrs ?placeholder
+               ?label_id ?label_style ?(label_classes=[]) ?label_attrs
+               ?value ?(password=false) ?(disabled=false) ?label ?input_id
+               ?(ripple=false) () =
+      div ~a:([ a_class (base_class :: classes
+                         |> (fun x -> if disabled then x @ [CSS.add_modifier base_class "disabled"] else x)
+                         |> (fun x -> if ripple then x @ [CSS.add_modifier base_class "box"] else x)
+                         |> (fun x -> match value with
+                                      | Some _ -> x @ [CSS.add_modifier base_class "upgraded"]
+                                      | None   -> x))]
+              |> add_common_attrs ?id ?style ?attrs)
+          ([ div ~a:([ a_class [bottom_line_class]]) [] ]
+           |> (fun x ->
+             match label with
+             | Some label ->
+                (Html.label ~a:([ a_class (label_class :: label_classes
+                                           |> (fun x ->
+                                             match value with
+                                             | Some _ -> x @ [CSS.add_modifier label_class "float-above"]
+                                             | None   -> x)) ]
+                                |> add_common_attrs ?id:label_id
+                                                    ?style:label_style
+                                                    ?attrs:label_attrs
+                                |> (fun x -> match input_id with
+                                             | Some id -> (a_label_for id) :: x
+                                             | None    -> x))
+                            [pcdata label]) :: x
+             | None       -> x)
+           |> (fun x -> (input ~a:([ a_class [input_class]
+                                   ; a_input_type (if password then `Password else `Text) ]
+                                   |> (fun x -> match value with
+                                                | Some value -> (a_value value) :: x
+                                                | None       -> x)
+                                   |> (fun x -> if disabled then (a_disabled ()) :: x else x)
+                                   |> (fun x -> match placeholder with
+                                                | Some ph -> (a_placeholder ph) :: x
+                                                | None    -> x)
+                                   |> (fun x -> match input_id with
+                                                | Some id -> (a_id id) :: x
+                                                | None    -> x)) ()) :: x))
 
   end
 

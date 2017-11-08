@@ -5,11 +5,11 @@ open Tyxml_js
 let demo_section ?(style="") title content =
   Html.section ~a:[ Html.a_style ("margin: 24px; padding: 24px;\
                                    border: 1px solid rgba(0, 0, 0, .12);" ^ style) ]
-               ( Html.h2 ~a:[ Html.a_class [Typography.title_class]] [Html.pcdata title]
+               ( Html.h2 ~a:[ Html.a_class [Typography.headline_class]] [Html.pcdata title]
                  :: content)
   |> Tyxml_js.To_dom.of_element
 
-let subsection name elt = Html.div [ Html.h3 ~a:[Html.a_class [Typography.caption_class]] [Html.pcdata name]
+let subsection name elt = Html.div [ Html.h3 ~a:[Html.a_class [Typography.subheading2_class]] [Html.pcdata name]
                                    ; elt ]
 
 let button_demo () =
@@ -26,36 +26,44 @@ let button_demo () =
                        justify-content:flex-start;\
                        align-items:flex-start"
                "Button"
-               (List.map of_dom [raised;flat;unelevated;stroked;ripple;dense;compact])
+               [raised;flat;unelevated;stroked;ripple;dense;compact]
 
 let fab_demo () =
   let style  = "margin:10px;" in
-  let fab    = subsection "General" (of_dom @@ Fab.create ~style ~icon:"favorite" ()) in
-  let mini   = subsection "Mini" (of_dom @@ Fab.create ~style ~mini:true ~icon:"favorite" ()) in
-  let ripple = subsection "Ripple" (of_dom @@ Fab.create ~style ~ripple:true ~icon:"favorite" ()) in
+  let fab    = subsection "General" @@ Fab.create ~style ~icon:"favorite" () in
+  let mini   = subsection "Mini"    @@ Fab.create ~style ~mini:true ~icon:"favorite" () in
+  let ripple = subsection "Ripple"  @@ Fab.create ~style ~ripple:true ~icon:"favorite" () in
   demo_section "FAB" [fab;mini;ripple]
+
+let radio_demo () =
+  let radio1 = Radio.create ~name:"radio" () |> Radio.attach in
+  let radio2 = Radio.create ~name:"radio" () |> Radio.attach in
+  let radio3 = Radio.create ~name:"radio" () |> Radio.attach in
+  demo_section "Radio button" [ of_dom radio1##.root__
+                              ; of_dom radio2##.root__
+                              ; of_dom radio3##.root__ ]
 
 let checkbox_demo () =
   let checkbox = Checkbox.create ~input_id:"demo-checkbox" () in
   let form_field = Form_field.create ~label:(Form_field.Label.create ~label:"checkbox label"
                                                                      ~for_id:"demo-checkbox"
                                                                      ())
-                                     ~input:(of_dom checkbox)
+                                     ~input:checkbox
                                      () in
-  let raw = subsection "Checkbox" (Checkbox.create () |> of_dom) in
-  let labelled = subsection "Checkbox with label" (of_dom form_field) in
+  let raw = subsection "Checkbox" @@ Checkbox.create () in
+  let labelled = subsection "Checkbox with label" form_field in
   demo_section "Checkbox" [ raw; labelled ]
 
 let switch_demo () =
-  let switch = Switch.create ~input_id:"demo-switch" () in
+  let switch = Switch.create ~input_id:"demo-switch" () |> Switch.attach in
   let form_field = Form_field.create ~label:(Form_field.Label.create ~label:"switch label"
                                                                      ~for_id:"demo-switch"
                                                                      ())
                                      ~input:(of_dom switch)
                                      () in
-  let raw = subsection "Switch" (Switch.create () |> of_dom) in
-  let labelled = subsection "Switch with label" (of_dom form_field) in
-  Dom_html.addEventListener (switch##querySelector (Js.string ("." ^ Switch.native_control_class))
+  let raw = subsection "Switch" @@ Switch.create () in
+  let labelled = subsection "Switch with label" form_field in
+  Dom_html.addEventListener (Switch.get_input switch
                              |> Js.Opt.to_option
                              |> CCOpt.get_exn)
                             Dom_events.Typ.change
@@ -73,8 +81,9 @@ let toggle_demo () =
                                   ~on_label:"Added to favorites"
                                   ~off_label:"Removed from favorites"
                                   ~off_content:"favorite_border"
-                                  () in
-  Dom_html.addEventListener toggle
+                                  ()
+             |> Icon_toggle.attach in
+  Dom_html.addEventListener toggle##.root__
                             Icon_toggle.events.change
                             (Dom_html.handler (fun e ->
                                  print_endline ("Icon Toggle is " ^ (if (Js.to_bool e##.detail_##.isOn)
@@ -82,7 +91,7 @@ let toggle_demo () =
                                                                      else "off"));
                                  Js._false))
                             Js._false |> ignore;
-  demo_section "Icon toggle" [ of_dom toggle ]
+  demo_section "Icon toggle" [ of_dom toggle##.root__ ]
 
 let card_demo () =
   let card = Card.create ~sections:[ Card.Media.create ~style:"background-image: url(\"https://maxcdn.icons8.com/app/uploads/2016/03/material-1-1000x563.jpg\");\
@@ -99,12 +108,12 @@ let card_demo () =
                                        ~children:[Html.pcdata "Supporting text"]
                                        ()
                                    ; Card.Actions.create
-                                       ~children:[ of_dom @@ Button.create ~label:"Action 1" ()
-                                                 ; of_dom @@ Button.create ~label:"Action 2" ()]
+                                       ~children:[ Button.create ~label:"Action 1" ()
+                                                 ; Button.create ~label:"Action 2" ()]
                                        ()]
                          ~style:"width:320px;"
                          () in
-  demo_section "Card" [ of_dom card ]
+  demo_section "Card" [ card ]
 
 let slider_demo () =
   let listen elt name = 
@@ -127,30 +136,37 @@ let slider_demo () =
                                  ~id:"continuous-slider"
                                  ~style:"max-width: 700px;"
                                  ~value:0
-                                 () in
+                                 ()
+                   |> Slider.attach in
   let discrete  = Slider.create ~label:"Select Value"
                                 ~id:"discrete-slider"
                                 ~style:"max-width: 700px;"
                                 ~value:0
                                 ~discrete:true
-                                () in
+                                ()
+                  |> Slider.attach in
   let with_markers = Slider.create ~label:"Select Value"
                                    ~id:"markered-slider"
                                    ~style:"max-width: 700px;"
                                    ~value:0
                                    ~discrete:true
                                    ~markers:true
-                                   () in
+                                   ()
+                   |> Slider.attach in
   let disabled = Slider.create ~style:"max-width: 700px;"
                                ~disabled:true
-                               () in
-  listen continuous "continuous";
-  listen discrete "discrete";
-  listen with_markers "markered";
-  demo_section "Slider" [ subsection "Continuous slider" (of_dom continuous)
-                        ; subsection "Discrete slider" (of_dom discrete)
-                        ; subsection "Discrete slider with markers" (of_dom with_markers)
-                        ; subsection "Disabled slider" (of_dom disabled) ]
+                               ()
+                 |> Slider.attach in
+  listen continuous##.root__ "continuous";
+  listen discrete##.root__ "discrete";
+  listen with_markers##.root__ "markered";
+  Dom_html.setTimeout (fun () -> continuous##layout_ ();
+                                 discrete##layout_ ();
+                                 with_markers##layout_ ()) 100. |> ignore;
+  demo_section "Slider" [ subsection "Continuous slider" @@ of_dom continuous##.root__
+                        ; subsection "Discrete slider" @@ of_dom discrete##.root__
+                        ; subsection "Discrete slider with markers" @@ of_dom with_markers##.root__
+                        ; subsection "Disabled slider" @@ of_dom disabled##.root__ ]
 
 let grid_list_demo () =
   let tiles  = List.map (fun x -> let primary = Grid_list.Tile.create_primary
@@ -166,23 +182,21 @@ let grid_list_demo () =
                                 ~header_caption:true
                                 ~tiles
                                 () in
-  demo_section "Grid list" [ of_dom grid ]
+  demo_section "Grid list" [ grid ]
 
 let ripple_demo () =
   let bounded = (Html.div ~a:[ Html.a_class [ Ripple.base_class
                                                           ; Elevation.get_elevation_class 4 ]
                                            ; Html.a_style "width: 200px; height: 150px" ] []
-                               |> (fun x -> Ripple.create x ())
-                               |> of_dom) in
-  let ripple_div = subsection "Bounded ripple. Click me!" bounded in
-  let unbounded_div = subsection "Unbounded ripple. Click me!"
-                                 (Html.div ~a:[ Html.a_class [ Ripple.base_class
+                 |> Ripple.attach) in
+  let ripple_div = subsection "Bounded ripple. Click me!" @@ of_dom bounded##.root__ in
+  let unbounded = (Html.div ~a:[ Html.a_class [ Ripple.base_class
                                                              ; "material-icons" ]
                                               ; Ripple.unbounded_attr
                                               ; Html.a_style "user-select:none;"
                                               ; Html.a_id "unbounded-ripple" ] [Html.pcdata "favorite"]
-                                  |> (fun x -> Ripple.create x ())
-                                  |> of_dom) in
+                                  |> Ripple.attach) in
+  let unbounded_div = subsection "Unbounded ripple. Click me!" @@ of_dom unbounded##.root__ in
   demo_section "Ripple" [ ripple_div
                         ; unbounded_div ]
 
@@ -205,7 +219,7 @@ let layout_grid_demo () =
                        (CCList.range 0 15) in
   let layout_grid = Layout_grid.create ~content:[Layout_grid.create_inner ~cells ()]
                                        () in
-  demo_section "Layout grid" [ of_dom layout_grid ]
+  demo_section "Layout grid" [ layout_grid ]
 
 let dialog_demo () =
   let dialog = Dialog.create ~description_id:"did"
@@ -220,21 +234,22 @@ let dialog_demo () =
                                                                                   ~label:"Accept"
                                                                                   ()
                                                     ] ()
-                                      ] () in
+                                      ] ()
+               |> Dialog.attach in
   let button = Button.create ~raised:true
                              ~label:"show dialog"
                              ~ripple:true
-                             ~onclick:(fun _ -> dialog##.component_##show_ (); true)
+                             ~onclick:(fun _ -> dialog##show_ (); true)
                              () in
-  Dom_html.addEventListener dialog
+  Dom_html.addEventListener dialog##.root__
                             Dialog.events.accept
                             (Dom_html.handler (fun _ -> print_endline "Dialog accepted!"; Js._false))
                             Js._false |> ignore;
-  Dom_html.addEventListener dialog
+  Dom_html.addEventListener dialog##.root__
                             Dialog.events.cancel
                             (Dom_html.handler (fun _ -> print_endline "Dialog cancelled!"; Js._false))
                             Js._false |> ignore;
-  demo_section "Dialog" [ of_dom dialog; of_dom button ]
+  demo_section "Dialog" [ of_dom dialog##.root__; button ]
 
 let list_demo () =
   let list_items = List.map (fun x -> let checkbox = (Checkbox.create
@@ -242,15 +257,16 @@ let list_demo () =
                                                                     Dom_html.stopPropagation e; true)]
                                                         ~style:"width:24px; height:18px"
                                                         ~classes:[List_.Item.end_detail_class]
-                                                        ()) in
+                                                        ()
+                                                      |> Checkbox.attach) in
                                       if x != 2
                                       then List_.Item.create
                                              ~attrs:[Tyxml_js.Html.a_onclick (fun _ ->
-                                                         let value = checkbox##is_checked_ ()
+                                                         let value = checkbox##.checked_
                                                                      |> Js.to_bool
                                                                      |> not
                                                                      |> Js.bool in
-                                                         checkbox##set_checked_ value; true)]
+                                                         checkbox##.checked_ := value; true)]
                                              ~text:("List item " ^ (string_of_int x))
                                              ~secondary_text:"some subtext here"
                                              ~start_detail:(let open Tyxml_js.Html in
@@ -263,7 +279,7 @@ let list_demo () =
                                                               [ i ~a:[ a_class ["material-icons"]
                                                                      ; a_style "color: white;"]
                                                                   [pcdata "folder"]])
-                                             ~end_detail:(checkbox |> of_dom)
+                                             ~end_detail:(checkbox##.root__ |> of_dom)
                                              ~ripple:true
                                              ()
                                       else List_.Item.create_divider ())
@@ -273,7 +289,7 @@ let list_demo () =
                           ~two_line:true
                           ~style:"max-width: 400px;"
                           () in
-  demo_section "List" [ of_dom list ]
+  demo_section "List" [ list ]
 
 let menu_demo () =
   let menu_items = List.map (fun x -> if x != 2
@@ -283,15 +299,15 @@ let menu_demo () =
                                              ()
                                       else Menu.Item.create_divider ())
                             (CCList.range 0 5) in
-  let menu = Menu.create ~items:menu_items
-                         () in
+  let menu = Menu.create ~items:menu_items () |> Menu.attach in
   let menu_anchor = Button.create ~label:"Open menu"
                                   ~raised:true
-                                  ~onclick:(fun _ -> menu##show_ (Some ({focus_index = 2} : Menu.show )); true)
+                                  ~onclick:(fun _ -> menu##show_focused (Menu.focus_index_to_js_obj 2);
+                                                     true)
                                   () in
   let menu_div = Html.div ~a:[Tyxml_js.Html.a_class [Menu.anchor_class]]
-                          [of_dom menu_anchor; of_dom menu] in
-  Dom_html.addEventListener menu
+                          [ menu_anchor; of_dom menu##.root__ ] in
+  Dom_html.addEventListener menu##.root__
                             Menu.events.selected
                             (Dom_html.handler (fun d ->
                                  print_endline ("Selected menu item is " ^ (d##.detail_##.index_
@@ -301,7 +317,7 @@ let menu_demo () =
                                  Js._false))
                             Js._false
   |> ignore;
-  Dom_html.addEventListener menu
+  Dom_html.addEventListener menu##.root__
                             Menu.events.cancel
                             (Dom_html.handler (fun _ -> print_endline "Menu cancelled"; Js._false))
                             Js._false
@@ -309,38 +325,44 @@ let menu_demo () =
   demo_section "Menu" [ menu_div ]
 
 let linear_progress_demo () =
-  let linear_progress = Linear_progress.create ~indeterminate:true () in
+  let linear_progress = Linear_progress.create ~indeterminate:true ()
+                        |> Linear_progress.attach in
   let lp_ind_btn = Button.create ~label:"set indeterminate"
                                  ~raised:true
-                                 ~onclick:(fun _ -> linear_progress##set_determinate_ Js._false; true)
+                                 ~onclick:(fun _ -> linear_progress##.determinate_ := Js._false; true)
                                  () in
   let lp_det_btn = Button.create ~label:"set determinate"
                                  ~raised:true
-                                 ~onclick:(fun _ -> linear_progress##set_determinate_ Js._true; true)
+                                 ~onclick:(fun _ -> linear_progress##.determinate_ := Js._true; true)
                                  () in
   let progress0_btn = Button.create ~label:"set progress 0"
                                     ~raised:true
-                                    ~onclick:(fun _ -> linear_progress##set_progress_ (Js.number_of_float 0.); true)
+                                    ~onclick:(fun _ -> linear_progress##.progress_ := (Js.number_of_float 0.);
+                                                       true)
                                     () in
   let progress20_btn = Button.create ~label:"set progress 20"
                                      ~raised:true
-                                     ~onclick:(fun _ -> linear_progress##set_progress_ (Js.number_of_float 0.2); true)
+                                     ~onclick:(fun _ -> linear_progress##.progress_ := (Js.number_of_float 0.2);
+                                                        true)
                                      () in
   let progress60_btn = Button.create ~label:"set progress 60"
                                      ~raised:true
-                                     ~onclick:(fun _ -> linear_progress##set_progress_ (Js.number_of_float 0.6); true)
+                                     ~onclick:(fun _ -> linear_progress##.progress_ := (Js.number_of_float 0.6);
+                                                        true)
                                      () in
   let buffer10_btn = Button.create ~label:"set buffer 10"
                                    ~raised:true
-                                   ~onclick:(fun _ -> linear_progress##set_buffer_ (Js.number_of_float 0.1); true)
+                                   ~onclick:(fun _ -> linear_progress##.buffer_ := (Js.number_of_float 0.1);
+                                                      true)
                                    () in
   let buffer30_btn = Button.create ~label:"set buffer 30"
                                    ~raised:true
-                                   ~onclick:(fun _ -> linear_progress##set_buffer_ (Js.number_of_float 0.3); true)
+                                   ~onclick:(fun _ -> linear_progress##.buffer_ := (Js.number_of_float 0.3);
+                                                      true)
                                    () in
   let buffer70_btn = Button.create ~label:"set buffer 70"
                                    ~raised:true
-                                   ~onclick:(fun _ -> linear_progress##set_buffer_ (Js.number_of_float 0.7); true)
+                                   ~onclick:(fun _ -> linear_progress##.buffer_ := (Js.number_of_float 0.7); true)
                                    () in
   let open_btn = Button.create ~label:"open"
                                ~raised:true
@@ -350,7 +372,7 @@ let linear_progress_demo () =
                                 ~raised:true
                                 ~onclick:(fun _ -> linear_progress##close_ (); true)
                                 () in
-  let cells = List.map (fun x -> Layout_grid.Cell.create ~content:[of_dom x]
+  let cells = List.map (fun x -> Layout_grid.Cell.create ~content:[x]
                                                          ~span:{ columns = 12
                                                                ; device_type = None
                                                                }
@@ -366,7 +388,7 @@ let linear_progress_demo () =
                        ; open_btn
                        ; close_btn ] in
   let btn_grid = Layout_grid.create ~content:[Layout_grid.create_inner ~cells ()] () in
-  demo_section "Linear progress" [ of_dom btn_grid; of_dom linear_progress ]
+  demo_section "Linear progress" [ btn_grid; of_dom linear_progress##.root__ ]
 
 let tabs_demo () =
   let tab_items = List.map (fun x -> Tabs.Tab.create ~content:(`Text ("Tab " ^ (string_of_int x))) ())
@@ -378,6 +400,56 @@ let tabs_demo () =
   let scroller = Tabs.Scroller_.create ~tabs:(of_dom tabs) () in
   demo_section "Tabs" [ of_dom scroller ]
 
+let snackbar_demo () =
+  let snackbar = Snackbar.create () |> Snackbar.attach in
+  let aligned  = Snackbar.create ~start_aligned:true () |> Snackbar.attach in
+  let snackbar_btn = Button.create
+                       ~onclick:(fun _ ->
+                         snackbar##show_ (Snackbar.data_to_js_obj { message = "I am a snackbar"
+                                                                  ; timeout = None
+                                                                  ; action  = Some { handler = (fun () -> print_endline "Clicked on snackbar action")
+                                                                                   ; text    = "Action"}
+                                                                  ; multiline = None });
+                         true)
+                       ~style:"margin:10px"
+                       ~raised:true
+                       ~label:"Open snackbar"
+                       ()in
+  let aligned_btn =  Button.create
+                       ~onclick:(fun _ ->
+                         aligned##show_ (Snackbar.data_to_js_obj { message = "I am a snackbar"
+                                                                 ; timeout = None
+                                                                 ; action  = Some { handler = (fun () -> print_endline "Clicked on snackbar action")
+                                                                                  ; text    = "Action"}
+                                                                 ; multiline = None });
+                         true)
+                       ~style:"margin:10px"
+                       ~raised:true
+                       ~label:"Open start-aligned snackbar"
+                       () in
+  demo_section "Snackbar" [ of_dom snackbar##.root__
+                          ; of_dom aligned ##.root__
+                          ; snackbar_btn
+                          ; aligned_btn ]
+
+let textfield_demo () =
+  let css_label = Form_field.Label.create ~for_id:"demo-css-textfield"
+                                          ~label:"css textfield label: "
+                                          () in
+  let css_textfield = Textfield.create ~placeholder:"placeholder"
+                                       ~input_id:"demo-css-textfield"
+                                       () in
+  let css_sect = subsection "CSS only textfield" (Form_field.create ~label:css_label
+                                                                    ~input:css_textfield
+                                                                    ~align_end:true
+                                                                    ()) in
+  let js_textfield = Textfield.create ~label:"js textfield label"
+                                      ~input_id:"demo-js-textfield"
+                                      ()
+                   |> Textfield.attach in
+  let js_sect = subsection "JS textfield" @@ of_dom js_textfield##.root__ in
+  demo_section "Textfield" [ css_sect; js_sect ]
+
 let add_demos parent demos =
   List.iter (fun x -> Dom.appendChild parent x) demos
 
@@ -386,9 +458,11 @@ let onload _ =
   let body = doc##.body in
   add_demos body [ button_demo ()
                  ; fab_demo ()
+                 ; radio_demo ()
                  ; checkbox_demo ()
                  ; switch_demo ()
                  ; toggle_demo ()
+                 ; textfield_demo ()
                  ; card_demo ()
                  ; slider_demo ()
                  ; grid_list_demo ()
@@ -397,18 +471,10 @@ let onload _ =
                  ; dialog_demo ()
                  ; list_demo ()
                  ; menu_demo ()
+                 ; snackbar_demo ()
                  ; linear_progress_demo ()
                  ; tabs_demo ()
                  ];
-  List.iter (fun x -> (body##querySelector (Js.string x)
-                       |> Js.Opt.to_option
-                       |> CCOpt.get_exn
-                       |> Js.Unsafe.coerce)##layout_ () |> ignore)
-            [ "#continuous-slider"; "#discrete-slider"; "#markered-slider" ];
-  (body##querySelector (Js.string "#unbounded-ripple")
-   |> Js.Opt.to_option
-   |> CCOpt.get_exn
-   |> Js.Unsafe.coerce)##layout_ () |> ignore;
   Js._false
 
 let () = Dom_html.addEventListener Dom_html.document
