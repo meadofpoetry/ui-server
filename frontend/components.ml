@@ -387,29 +387,33 @@ module Switch = struct
       method set_value_    : Js.js_string -> unit Js.meth
     end
 
-  let get_input (switch : t Js.t) =
+  let get_input (switch : t Js.t) : Dom_html.inputElement Js.t Js.opt =
     switch##querySelector (Js.string ("." ^ native_control_class))
+    |> Js.Opt.to_option
+    |> (function
+        | Some x -> Js.Opt.return @@ Js.Unsafe.coerce x
+        | None   -> Js.Opt.empty)
 
   let attach elt : t Js.t =
     let (elt : t Js.t) = elt |> Tyxml_js.To_dom.of_element |> Js.Unsafe.coerce in
     let set    = fun (x : t Js.t) (name : string) f -> Js.Unsafe.set x name f in
     set elt "is_checked"   @@ Js.wrap_callback (fun () -> match Js.Opt.to_option @@ get_input elt with
-                                                          | Some nc -> (Js.Unsafe.coerce nc)##.checked
+                                                          | Some nc -> nc##.checked
                                                           | None    -> Js._false);
     set elt "set_checked"  @@ Js.wrap_callback (fun x -> match Js.Opt.to_option @@ get_input elt with
-                                                         | Some nc -> (Js.Unsafe.coerce nc)##.checked := x
+                                                         | Some nc -> nc##.checked := x
                                                          | None    -> ());
     set elt "is_disabled"  @@ Js.wrap_callback (fun () -> match Js.Opt.to_option @@ get_input elt with
-                                                          | Some nc -> (Js.Unsafe.coerce nc)##.disabled
+                                                          | Some nc -> nc##.disabled
                                                           | None    -> Js._false);
     set elt "set_disabled" @@ Js.wrap_callback (fun x -> match Js.Opt.to_option @@ get_input elt with
-                                                         | Some nc -> (Js.Unsafe.coerce nc)##.disabled := x
+                                                         | Some nc -> nc##.disabled := x
                                                          | None    -> ());
     set elt "get_value"    @@ Js.wrap_callback (fun () -> match Js.Opt.to_option @@ get_input elt with
-                                                          | Some nc -> (Js.Unsafe.coerce nc)##.value
+                                                          | Some nc -> nc##.value
                                                           | None    -> Js.string "");
     set elt "set_value"    @@ Js.wrap_callback (fun x -> match Js.Opt.to_option @@ get_input elt with
-                                                         | Some nc -> (Js.Unsafe.coerce nc)##.value := x
+                                                         | Some nc -> nc##.value := x
                                                          | None    -> ());
     elt
 
@@ -418,50 +422,73 @@ end
 
 module Tabs = struct
 
-  include Widgets.Tabs
+  module Tab = struct
 
-  class type component =
-    object
-    end
+    include Widgets.Tabs.Tab
 
-  class type t =
-    object
-      inherit Dom_html.element
-      method component_ : component Js.t Js.readonly_prop
-    end
-
-  module Scroller_ = struct
-
-    include Widgets.Tabs.Scroller
-
-    class type component =
+    class type t =
       object
+        method root__                 : Dom_html.element Js.t Js.readonly_prop
+        method computedWidth_         : Js.number Js.t Js.readonly_prop
+        method computedLeft_          : Js.number Js.t Js.readonly_prop
+        method isActive_              : bool Js.t Js.prop
+        method preventDefaultOnClick_ : bool Js.t Js.prop
       end
 
-    class type scroller =
-      object
-        inherit Dom_html.element
-        method component_ : component Js.t Js.readonly_prop
-      end
+    type events =
+      { selected : Dom_html.event Js.t Dom_events.Typ.typ
+      }
 
-    let create ?id ?style ?classes ?attrs ~tabs () : scroller Js.t =
-      let (elt : scroller Js.t) = create ?id ?style ?classes ?attrs ~tabs ()
-                                  |> Tyxml_js.To_dom.of_element
-                                  |> Js.Unsafe.coerce in
-      let set = fun (x : scroller Js.t) (name : string) f -> Js.Unsafe.set x name f in
-      set elt "component" @@ Js.Unsafe.(fun_call (js_expr "mdc.tabs.MDCTabBarScroller.attachTo") [| inject elt |]);
-      elt
+    let events =
+      { selected = Dom_events.Typ.make "MDCTab:selected"
+      }
+
+    let attach elt : t Js.t =
+      Js.Unsafe.global##.mdc##.tabs##.MDCTab##attachTo elt
 
 
   end
 
-  let create ?id ?style ?classes ?attrs ?with_indicator ?color_scheme ~_type ~content () : t Js.t =
-    let (elt : t Js.t) = create ?id ?style ?classes ?attrs ?with_indicator ?color_scheme ~_type ~content ()
-                         |> Tyxml_js.To_dom.of_element
-                         |> Js.Unsafe.coerce in
-      let set = fun (x : t Js.t) (name : string) f -> Js.Unsafe.set x name f in
-      set elt "component" @@ Js.Unsafe.(fun_call (js_expr "mdc.tabs.MDCTabBar.attachTo") [| inject elt |]);
-      elt
+  module Tab_bar = struct
+
+    include Widgets.Tabs.Tab_bar
+
+    class type t =
+      object
+        method root__          : Dom_html.element Js.t Js.readonly_prop
+        method tabs_           : Tab.t Js.t Js.js_array Js.readonly_prop
+        method activeTab_      : Tab.t Js.t Js.prop
+        method activeTabIndex_ : Js.number Js.t Js.prop
+      end
+
+    type events =
+      { change : Dom_html.event Js.t Dom_events.Typ.typ
+      }
+
+    let events =
+      { change = Dom_events.Typ.make "MDCTabBar:change"
+      }
+
+
+    let attach elt : t Js.t =
+      Js.Unsafe.global##.mdc##.tabs##.MDCTabBar##attachTo elt
+
+  end
+
+  module Scroller = struct
+
+    include Widgets.Tabs.Scroller
+
+    class type t =
+      object
+        method root__  : Dom_html.element Js.t Js.readonly_prop
+        method tabBar_ : Tab_bar.t Js.t Js.readonly_prop
+      end
+
+    let attach elt : t Js.t =
+      Js.Unsafe.global##.mdc##.tabs##.MDCTabBarScroller##attachTo elt
+
+  end
 
 end
 
@@ -471,8 +498,27 @@ module Textfield = struct
 
   class type t =
     object
-      method root__ : Dom_html.divElement Js.t Js.readonly_prop
+      method root__           : Dom_html.divElement Js.t Js.readonly_prop
+      method helptextElement_ : Dom_html.element Js.t Js.prop
+      method disabled_        : bool Js.t Js.prop
+      method valid_           : bool Js.t Js.writeonly_prop
+      method ripple           : Ripple.t Js.t Js.prop
     end
+
+  type events =
+    { icon : Dom_html.event Js.t Dom_events.Typ.typ
+    }
+
+  let events =
+    { icon = Dom_events.Typ.make "MDCTextfield:icon"
+    }
+
+  let get_input (textfield : Dom_html.divElement Js.t) : Dom_html.inputElement Js.t Js.opt =
+    textfield##querySelector (Js.string ("." ^ input_class))
+    |> Js.Opt.to_option
+    |> (function
+        | Some x -> Js.Opt.return @@ Js.Unsafe.coerce x
+        | None   -> Js.Opt.empty)
 
   let attach elt : t Js.t =
     Js.Unsafe.global##.mdc##.textfield##.MDCTextfield##attachTo elt

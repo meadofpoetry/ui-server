@@ -22,12 +22,13 @@ let button_demo () =
   let ripple     = Button.create ~style ~label:"ripple" ~ripple:true () in
   let dense      = Button.create ~style ~label:"dense" ~raised:true ~dense:true () in
   let compact    = Button.create ~style ~label:"compact" ~raised:true ~compact:true () in
+  let icon       = Button.create ~style ~label:"icon" ~icon:"favorite" ~raised:true () in
   demo_section ~style:"display:flex; \
                        flex-direction:column;\
                        justify-content:flex-start;\
                        align-items:flex-start"
                "Button"
-               [raised;flat;unelevated;stroked;ripple;dense;compact]
+               [raised;flat;unelevated;stroked;ripple;dense;compact;icon]
 
 let fab_demo () =
   let style  = "margin:10px;" in
@@ -281,7 +282,7 @@ let list_demo () =
                                                                      ; a_style "color: white;"]
                                                                   [pcdata "folder"]])
                                              ~end_detail:(checkbox##.root__ |> of_dom)
-                                             ~ripple:true
+                                             ~auto_init:true
                                              ()
                                       else List_.Item.create_divider ())
                             (CCList.range 0 5) in
@@ -392,14 +393,48 @@ let linear_progress_demo () =
   demo_section "Linear progress" [ btn_grid; of_dom linear_progress##.root__ ]
 
 let tabs_demo () =
-  let tab_items = List.map (fun x -> Tabs.Tab.create ~content:(`Text ("Tab " ^ (string_of_int x))) ())
-                           (CCList.range 0 4) in
-  let tabs = Tabs.create ~classes:[Tabs.Scroller.scroll_frame_tabs_class]
-                         ~_type:`Text
-                         ~style:"margin-bottom: 30px"
-                         ~content:tab_items () in
-  let scroller = Tabs.Scroller_.create ~tabs:(of_dom tabs) () in
-  demo_section "Tabs" [ of_dom scroller ]
+  let icon_section = let items = List.map (fun x ->
+                                     Tabs.Tab.create ~content:(`Icon (match x with
+                                                                      | 0 -> "pets",None
+                                                                      | 1 -> "favorite",None
+                                                                      | 2 -> "grade",None
+                                                                      | _ -> "room",None))
+                                                     ())
+                                          (CCList.range 0 3) in
+                     let tabs = Tabs.Tab_bar.create ~_type:`Icon
+                                                    ~content:items ()
+                                |> Tabs.Tab_bar.attach in
+                     subsection "With icon labels" @@ of_dom tabs##.root__ in
+  let text_section = let items = List.map (fun x ->
+                                     Tabs.Tab.create ~content:(`Text ("Tab " ^ (string_of_int x))) ())
+                                          (CCList.range 0 3) in
+                     let tabs = Tabs.Tab_bar.create ~_type:`Text
+                                                    ~content:items ()
+                                |> Tabs.Tab_bar.attach in
+                     subsection "With text labels" @@ of_dom tabs##.root__ in
+  let it_section = let items = List.map (fun x ->
+                                   Tabs.Tab.create ~content:(`Text_and_icon ("Tab " ^ string_of_int x,
+                                                                             (match x with
+                                                                              | 0 -> "pets"
+                                                                              | 1 -> "favorite"
+                                                                              | 2 -> "grade"
+                                                                              | _ -> "room")))
+                                                   ())
+                                        (CCList.range 0 3) in
+                   let tabs = Tabs.Tab_bar.create ~_type:`Text_and_icon
+                                                  ~content:items ()
+                              |> Tabs.Tab_bar.attach in
+                   subsection "With icon and text labels" @@ of_dom tabs##.root__ in
+  let scroll_section = let tab_items = List.map (fun x ->
+                                           Tabs.Tab.create ~content:(`Text ("Tab " ^ (string_of_int x))) ())
+                                                (CCList.range 0 15) in
+                       let tabs = Tabs.Tab_bar.create ~classes:[Tabs.Scroller.scroll_frame_tabs_class]
+                                                      ~_type:`Text
+                                                      ~content:tab_items () in
+                       let scroller = Tabs.Scroller.create ~tabs ()
+                                      |> Tabs.Scroller.attach in
+                       subsection "With scroller" @@ of_dom scroller##.root__ in
+  demo_section "Tabs" [ text_section; icon_section; it_section; scroll_section ]
 
 let snackbar_demo () =
   let snackbar = Snackbar.create () |> Snackbar.attach in
@@ -448,17 +483,63 @@ let textfield_demo () =
                                                                     ()) in
   let js_textfield = Textfield.create ~label:"js textfield label"
                                       ~input_id:"demo-js-textfield"
-                                      ~leading_icon:"event"
-                                      ~ripple:true
                                       ~help_text_id:"demo-js-textfield-hint"
+                                      ~required:true
                                       ()
                      |> Textfield.attach in
   let js_help_text = Textfield.Help_text.create ~id:"demo-js-textfield-hint"
-                                                ~text:"Help text"
+                                                ~text:"This field must not be empty"
+                                                ~validation:true
                                                 () in
   let js_sect = subsection "JS textfield" @@ Html.div [ of_dom js_textfield##.root__
                                                       ; js_help_text ] in
-  demo_section "Textfield" [ css_sect; js_sect ]
+  let dense_textfield = Textfield.create ~label:"dense textfield label"
+                                         ~input_type:`Email
+                                         ~input_id:"demo-dense-textfield"
+                                         ~dense:true
+                                         ()
+                        |> Textfield.attach in
+  let dense_help_text = Textfield.Help_text.create ~id:"demo-dense-textfield-hint"
+                                                   ~text:"Provide valid e-mail"
+                                                   ~validation:true
+                                                   () in
+  let dense_sect = subsection "Dense textfield (with email validation)"
+                   @@ Html.div [ of_dom dense_textfield##.root__
+                               ; dense_help_text ] in
+  let lead_icon_textfield = Textfield.create ~label:"textfield label"
+                                             ~input_id:"lead-icon-textfield"
+                                             ~leading_icon:(Textfield.Icon.create ~icon:"event" ())
+                                             ~box:true
+                                             ()
+                            |> Textfield.attach in
+  let trail_icon_textfield = Textfield.create ~label:"textfield label"
+                                              ~input_id:"trail-icon-textfield"
+                                              ~trailing_icon:(Textfield.Icon.create ~icon:"delete" ())
+                                              ~style:"margin-top: 15px"
+                                              ~box:true
+                                              ()
+                             |> Textfield.attach in
+  let icon_sect = subsection "With icons" @@ Html.div ~a:([Html.a_style "display: flex;\
+                                                                         max-width: 300px;\
+                                                                         flex-direction: column;"])
+                                               [ of_dom lead_icon_textfield##.root__
+                                               ; of_dom trail_icon_textfield##.root__
+                                               ] in
+  let css_textarea = Textfield.create ~textarea:true
+                                      ~placeholder:"Enter something"
+                                      ~rows:8
+                                      ~cols:40
+                                      () in
+  let textarea = Textfield.create ~label:"textarea label"
+                                  ~input_id:"js-textarea-demo"
+                                  ~textarea:true
+                                  ~rows:8
+                                  ~cols:40
+                                  ()
+                 |> Textfield.attach in
+  let css_textarea_sect = subsection "Textarea (css only)" css_textarea in
+  let textarea_sect = subsection "Textarea" @@ of_dom textarea##.root__ in
+  demo_section "Textfield" [ css_sect; js_sect; dense_sect; icon_sect; css_textarea_sect; textarea_sect ]
 
 let add_demos parent demos =
   List.iter (fun x -> Dom.appendChild parent x) demos
