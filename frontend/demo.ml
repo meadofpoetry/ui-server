@@ -9,7 +9,8 @@ let demo_section ?(style="") title content =
                  :: content)
   |> Tyxml_js.To_dom.of_element
 
-let subsection name elt = Html.div [ Html.h3 ~a:[Html.a_class [Typography.subheading2_class]] [Html.pcdata name]
+let subsection name elt = Html.div [ Html.h3 ~a:[Html.a_class [Typography.subheading2_class]]
+                                             [Html.pcdata name]
                                    ; elt ]
 
 let button_demo () =
@@ -44,13 +45,13 @@ let radio_demo () =
                               ; of_dom radio3##.root__ ]
 
 let checkbox_demo () =
-  let checkbox = Checkbox.create ~input_id:"demo-checkbox" () in
+  let checkbox = Checkbox.create ~input_id:"demo-checkbox" () |> Checkbox.attach in
   let form_field = Form_field.create ~label:(Form_field.Label.create ~label:"checkbox label"
                                                                      ~for_id:"demo-checkbox"
                                                                      ())
-                                     ~input:checkbox
+                                     ~input:(of_dom checkbox##.root__)
                                      () in
-  let raw = subsection "Checkbox" @@ Checkbox.create () in
+  let raw      = subsection "Checkbox (css only)" @@ Checkbox.create () in
   let labelled = subsection "Checkbox with label" form_field in
   demo_section "Checkbox" [ raw; labelled ]
 
@@ -440,14 +441,23 @@ let textfield_demo () =
                                        ~input_id:"demo-css-textfield"
                                        () in
   let css_sect = subsection "CSS only textfield" (Form_field.create ~label:css_label
+                                                                    ~style:"margin-top:20px;\
+                                                                            margin-bottom:20px;"
                                                                     ~input:css_textfield
                                                                     ~align_end:true
                                                                     ()) in
   let js_textfield = Textfield.create ~label:"js textfield label"
                                       ~input_id:"demo-js-textfield"
+                                      ~leading_icon:"event"
+                                      ~ripple:true
+                                      ~help_text_id:"demo-js-textfield-hint"
                                       ()
-                   |> Textfield.attach in
-  let js_sect = subsection "JS textfield" @@ of_dom js_textfield##.root__ in
+                     |> Textfield.attach in
+  let js_help_text = Textfield.Help_text.create ~id:"demo-js-textfield-hint"
+                                                ~text:"Help text"
+                                                () in
+  let js_sect = subsection "JS textfield" @@ Html.div [ of_dom js_textfield##.root__
+                                                      ; js_help_text ] in
   demo_section "Textfield" [ css_sect; js_sect ]
 
 let add_demos parent demos =

@@ -938,34 +938,44 @@ module Make
     let input_class       = CSS.add_element base_class "input"
     let label_class       = CSS.add_element base_class "label"
     let bottom_line_class = CSS.add_element base_class "bottom-line"
+    let icon_class        = CSS.add_element base_class "icon"
 
     module Help_text = struct
 
       let _class = "mdc-textfield-helptext"
 
-      let create ?id ?style ?(classes=[]) ?attrs ?(persistent=false) ~content () =
+      let create ?id ?style ?(classes=[]) ?attrs ?(persistent=false) ~text () =
         p ~a:([ a_class (_class :: classes
                          |> (fun x -> if persistent then x @ [CSS.add_modifier _class "persistent"] else x)) ]
               |> (fun x -> if persistent then x else (a_aria "hidden" ["true"]) :: x)
               |> add_common_attrs ?id ?style ?attrs)
-          (match content with
-           | `Text s -> [pcdata s]
-           | `Html x -> x)
+          [pcdata text]
 
     end
 
     let create ?id ?style ?(classes=[]) ?attrs ?placeholder
                ?label_id ?label_style ?(label_classes=[]) ?label_attrs
-               ?value ?(password=false) ?(disabled=false) ?label ?input_id
-               ?(ripple=false) () =
+               ?value ?(password=false) ?(disabled=false) ?label ?input_id ?help_text_id
+               ?leading_icon ?trailing_icon ?(ripple=false) () =
       div ~a:([ a_class (base_class :: classes
                          |> (fun x -> if disabled then x @ [CSS.add_modifier base_class "disabled"] else x)
                          |> (fun x -> if ripple then x @ [CSS.add_modifier base_class "box"] else x)
+                         |> (fun x -> match leading_icon with
+                                      | Some _ -> x @ [CSS.add_modifier base_class "with-leading-icon"]
+                                      | None   -> x)
+                         |> (fun x -> match trailing_icon with
+                                      | Some _ -> x @ [CSS.add_modifier base_class "with-trailing-icon"]
+                                      | None   -> x)
                          |> (fun x -> match value with
                                       | Some _ -> x @ [CSS.add_modifier base_class "upgraded"]
                                       | None   -> x))]
               |> add_common_attrs ?id ?style ?attrs)
           ([ div ~a:([ a_class [bottom_line_class]]) [] ]
+           |> (fun x -> match trailing_icon with
+                        | Some icon -> (Html.i ~a:([ a_class ["material-icons";icon_class]
+                                                   ; a_tabindex 0])
+                                               [pcdata icon]) :: x
+                        | None      -> x)
            |> (fun x ->
              match label with
              | Some label ->
@@ -991,9 +1001,17 @@ module Make
                                    |> (fun x -> match placeholder with
                                                 | Some ph -> (a_placeholder ph) :: x
                                                 | None    -> x)
+                                   |> (fun x -> match help_text_id with
+                                                | Some id -> (a_aria "controls" [id]) :: x
+                                                | None    -> x)
                                    |> (fun x -> match input_id with
                                                 | Some id -> (a_id id) :: x
-                                                | None    -> x)) ()) :: x))
+                                                | None    -> x)) ()) :: x)
+           |> (fun x -> match leading_icon with
+                        | Some icon -> (Html.i ~a:([ a_class ["material-icons";icon_class]
+                                                   ; a_tabindex 0 ])
+                                               [pcdata icon]) :: x
+                        | None      -> x))
 
   end
 
