@@ -176,11 +176,12 @@ let merge_streams (boards : board Map.t)
                    ; description = s.description })
   in
   (* let g = S.fmap (function None -> None | Some x -> Some (string_of_int x)) "" a;; *)
-  let find_cor_stream (s : stream) lst = (* use S.fmap *)
+  let find_cor_stream (s : stream) lst = (* use S.fmap `None*)
     CCList.find_pred (fun n -> n.id = s.id) (S.value lst)
     |> function
-      | None   -> `None
-      | Some s -> `Done (S.fmap (fun l -> CCList.find_pred (fun n -> n.id = s.id) l) s lst)
+      | None    -> `None
+      | Some ns -> `Done (S.fmap (fun l -> CCList.find_pred (fun n -> n.id == s.id) l)
+                            ns lst)
   in
   let compose_hier (s : stream) id sms =
     CCList.find_pred (fun n -> (S.value n).id = `Ts id) sms
@@ -222,6 +223,6 @@ let merge_streams (boards : board Map.t)
                       with _ -> cleanup acc tl)
   in
   raw_streams
-  |> S.map (lookup [] [])
-  |> S.map (fun l -> S.merge (fun acc x -> x::acc) [] l)
-  |> S.switch
+  |> S.map ~eq:(fun x y -> try x == y with _ -> false) (lookup [] [])
+  |> S.map ~eq:(fun x y -> try x == y with _ -> false) (fun l -> S.merge ~eq:(fun x y -> try x = y with _ -> false) (fun acc x -> x::acc) [] l)
+  |> S.switch ~eq:(fun x y -> try x == y with _ -> false)

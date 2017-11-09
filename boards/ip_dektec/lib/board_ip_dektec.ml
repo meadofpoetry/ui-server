@@ -40,7 +40,16 @@ let create (b:topo_board) convert_streams send db base step =
   let handlers = Board_api.handlers b.control api events in
   Lwt_main.run @@ Storage.init db;
   let _s = Lwt_react.E.map_p (fun s -> Storage.request db (Storage.Store_status s)) @@ React.E.changes events.status in
-  let state = object method s = _s; method e_status = e_status end in
+ (* let sms = convert_streams s_strms b in
+  let _e = React.E.map (fun s ->
+      `List (List.map Common.Stream.to_yojson s)
+      |> Yojson.Safe.pretty_to_string
+      |> Lwt_io.printf "IP sms: %s\n"
+      |> ignore;) @@ React.S.changes sms in *)
+  let state = object
+      method s = _s;
+      method e_status = e_status
+    end in
   { handlers       = handlers
   ; control        = b.control
   ; streams_signal = convert_streams s_strms b

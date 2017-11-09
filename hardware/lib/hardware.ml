@@ -107,16 +107,11 @@ let create config db =
                                              Map.add b.control board m)
                     Map.empty
   in
-  (`List (List.map Common.Stream.to_yojson @@ React.S.value (Map.find 1 boards).streams_signal)
-   |> Yojson.Safe.to_string
-   |> Lwt_io.printf "Typed streams initial value: %s\n"
-   |> ignore);
-  React.E.map (fun streams -> `List (List.map Common.Stream.to_yojson streams)
-                              |> Yojson.Safe.pretty_to_string
-                              |> Lwt_io.printf "Typed streams: %s"
-                              |> ignore)
-              @@ React.S.changes (Map.find 1 boards).streams_signal
-  |> ignore;
+ (* let _e = React.E.map (fun s ->
+               `List (List.map Common.Stream.to_yojson s)
+               |> Yojson.Safe.pretty_to_string
+               |> Lwt_io.printf "DVB sms: %s\n"
+               |> ignore;) @@ React.S.changes sms in *)
   let topo_signal = topo_to_signal topo boards in
   { boards; usb; topo = topo_signal }, loop ()
 

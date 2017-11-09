@@ -29,17 +29,12 @@ let create (b:topo_board) convert_streams send db base step =
   let handlers         = Board_api.handlers b.control api events in
   let s_asi,s_asi_push = React.S.create false in
   let s_spi,s_spi_push = React.S.create false in
-  let s_streams,s_streams_push = React.S.create [] in
   let e_status         = React.E.map (fun (x : user_status) -> match x.mode.input with
                                                                | SPI -> s_spi_push true; s_asi_push false
                                                                | ASI -> s_asi_push true; s_spi_push false)
                                      events.status in
-  let e_streams        = React.S.map (fun x ->
+  let s_streams        = React.S.map (fun x ->
                              let open Common.Stream in
-                             (`List (List.map Common.Stream.id_to_yojson x)
-                              |> Yojson.Safe.to_string
-                              |> Lwt_io.printf "Mapped streams %s\n"
-                              |> ignore);
                              List.map (fun x : stream ->
                                                { source      = (match x with
                                                                 | T2mi_plp _ -> Stream Single
@@ -47,9 +42,8 @@ let create (b:topo_board) convert_streams send db base step =
                                                                                       then 0
                                                                                       else 1))
                                                ; id          = `Ts x
-                                               ; description = Some "" }) x
-                                     |> s_streams_push)
-                                     events.streams in
+                                               ; description = Some "" }) x)
+                           events.streams in
   let e_ts_found       = React.E.map (fun strm ->
                              Common.Stream.id_to_yojson strm
                              |> Yojson.Safe.to_string
@@ -75,18 +69,25 @@ let create (b:topo_board) convert_streams send db base step =
                             |> Yojson.Safe.pretty_to_string
                             (* |> Lwt_io.printf "Structs: %s\n" *)
                             |> ignore) events.structs in
+  let sms = convert_streams s_streams b in
+  let _e = React.E.map (fun s ->
+               `List (List.map Common.Stream.to_yojson s)
+               |> Yojson.Safe.pretty_to_string
+               |> Lwt_io.printf "QOS sms: %s\n"
+               |> ignore;) @@ React.S.changes sms in
   let state           = (object
                            method e_status   = e_status;
-                           method e_streams  = e_streams;
                            method e_state    = e_state;
                            method e_ts_found = e_ts_found;
                            method e_ts_lost  = e_ts_lost;
                            method e_t2mi_info = e_t2mi_info;
                            method e_struct = e_struct;
+                           method s_streams = s_streams;
+                           method _e = _e;
                          end) in
   { handlers       = handlers
   ; control        = b.control
-  ; streams_signal = convert_streams s_streams b
+  ; streams_signal = sms
   ; step           = step
   ; connection     = s_state
   ; ports_active   = (List.fold_left (fun acc p ->
