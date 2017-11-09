@@ -206,7 +206,7 @@ let unpacked_plp () =
       let b = List.find (fun s -> s.id = `Ts (Unknown 44l)) sms in
       let p = List.find (fun s -> s.id = `Ts (T2mi_plp 42)) sms in
       [a;b;p]
-    with _ -> []
+    with e -> []
   in
   let expected_a = gen_stream_ts (Parent parent) (Unknown 43l) ~desc:(Some "43rd stream") in
   let expected_b = gen_stream_ts (Parent parent) (Unknown 44l) ~desc:(Some "44th stream") in

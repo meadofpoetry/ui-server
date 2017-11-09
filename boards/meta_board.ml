@@ -171,24 +171,25 @@ let merge_streams (boards : board Map.t)
       Map.empty topo.ports
   in
   let create_in_stream (s : stream) i =
-    `Done (S.const { source = (Input i)
-                   ; id     = s.id
-                   ; description = s.description })
+    `Done (S.const (Some { source = (Input i)
+                         ; id     = s.id
+                         ; description = s.description }))
   in
   (* let g = S.fmap (function None -> None | Some x -> Some (string_of_int x)) "" a;; *)
   let find_cor_stream (s : stream) lst = (* use S.fmap `None*)
-    CCList.find_pred (fun n -> n.id = s.id) (S.value lst)
-    |> function
-      | None    -> `None
-      | Some ns -> `Done (S.fmap (fun l -> CCList.find_pred (fun n -> n.id == s.id) l)
-                            ns lst)
+    let initial = S.map (CCList.find_pred (fun n -> n.id = s.id)) lst in
+    `Done (S.fmap (function None -> None | Some x -> Some (Some x)) None initial)
   in
   let compose_hier (s : stream) id sms =
-    CCList.find_pred (fun n -> (S.value n).id = `Ts id) sms
-    |> function None   -> `Await s
-              | Some p -> `Done (S.const { source = (Parent (S.value p))
-                                         ; id     = s.id
-                                         ; description = s.description })
+    CCList.find_pred (fun ((stream : stream), _) -> stream.id = `Ts id) sms
+    |> function None        -> `Await s
+              | Some (_ ,v) ->
+                 `Done (S.map (function
+                              Some p -> Some ({ source = (Parent p)
+                                              ; id     = s.id
+                                              ; description = s.description })
+                            | None -> None)
+                          v)
   in
   let transform acc (s : stream) =
     match s.source with
@@ -203,7 +204,7 @@ let merge_streams (boards : board Map.t)
     | []    -> cleanup acc await
     | x::tl -> 
        (match transform acc x with
-        | `Done s  -> lookup (s::acc) await tl
+        | `Done s  -> lookup ((x,s)::acc) await tl
         | `Await s -> lookup acc (s::await) tl
         | `None    -> lookup acc await tl
         | `Error e -> failwith e)
@@ -211,7 +212,7 @@ let merge_streams (boards : board Map.t)
     | []    -> acc
     | x::tl ->
        (match transform acc x with
-        | `Done s  -> cleanup (s::acc) tl
+        | `Done s  -> cleanup ((x,s)::acc) tl
         | `None    -> cleanup acc tl
         | `Error e -> failwith e
         | `Await s -> try CCList.find (fun (p : stream) ->
@@ -223,6 +224,7 @@ let merge_streams (boards : board Map.t)
                       with _ -> cleanup acc tl)
   in
   raw_streams
-  |> S.map ~eq:(fun x y -> try x == y with _ -> false) (lookup [] [])
-  |> S.map ~eq:(fun x y -> try x == y with _ -> false) (fun l -> S.merge ~eq:(fun x y -> try x = y with _ -> false) (fun acc x -> x::acc) [] l)
-  |> S.switch ~eq:(fun x y -> try x == y with _ -> false)
+  |> S.map ~eq:(==) (lookup [] [])
+  |> S.map ~eq:(==) (List.map snd)
+  |> S.map ~eq:(==) (fun l -> S.merge ~eq:(==) (fun acc x -> match x with None -> acc | Some x -> x::acc) [] l)
+  |> S.switch ~eq:(==)
