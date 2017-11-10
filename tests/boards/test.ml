@@ -206,7 +206,7 @@ let unpacked_plp () =
       let b = List.find (fun s -> s.id = `Ts (Unknown 44l)) sms in
       let p = List.find (fun s -> s.id = `Ts (T2mi_plp 42)) sms in
       [a;b;p]
-    with _ -> []
+    with e -> []
   in
   let expected_a = gen_stream_ts (Parent parent) (Unknown 43l) ~desc:(Some "43rd stream") in
   let expected_b = gen_stream_ts (Parent parent) (Unknown 44l) ~desc:(Some "44th stream") in
@@ -403,6 +403,25 @@ let alot_streams () =
   Alcotest.(check (list strmtst)) "unpacked_plp_plus_single"
     expected
     reslt
+
+(* Appeared stream *)
+let appeared_stream () =
+  let boards, raw_streams, topo, p1, p2, _, _ = init_topo () in
+  let streams = Meta_board.merge_streams boards raw_streams topo in
+  let parent  = gen_stream_ts (Input { input = RF; id = 0 }) Single ~desc:(Some "this stream") in
+  p1 [(gen_raw_stream_ts (Port 1) Single ~desc:None)];
+  p2 [parent];
+  let reslt =
+    try 
+      React.S.value streams
+      |> List.find (fun s -> s.id = `Ts Single)
+      |> (fun s -> Some s)
+    with _ -> None
+  in
+  let expected = Some parent in
+  Alcotest.(check (option strmtst)) "appeared_stream"
+    expected
+    reslt
   
 let test_set =
   [
@@ -418,6 +437,7 @@ let test_set =
     "Case 10: removed_lost_stream"     , `Slow, removed_lost_stream;
     "Case 11: local_stream"            , `Slow, local_stream;
     "Case 12: alot_streams"            , `Slow, alot_streams;
+    "Case 13: appeared_stream"         , `Slow, appeared_stream;
   ]
 
 let () =

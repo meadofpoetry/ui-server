@@ -107,16 +107,18 @@ module SM = struct
     let partition events prev_group =
       let groups,rest = split_by events `End_of_errors in
       let groups = CCList.filter (function
-                                  | `Status _ :: `Streams_event streams :: _ -> true
-                                  | _                                        -> false) groups in
-      let groups = CCList.fold_left (fun acc x ->
-                       let prev_status = (match acc with
-                                          | [] -> CCOpt.(prev_group >|= (fun x -> x.status))
-                                          | x :: _ -> Some x.status) in
-                       match x with
-                       | `Status status :: `Streams_event streams :: events ->
-                          { status; prev_status; events } :: acc
-                       | _ -> assert false) [] groups in
+                                  | `Status _ :: `Streams_event _ :: _ -> true
+                                  | _                                  -> false) groups
+                   |> CCList.fold_left (fun acc x ->
+                          let prev_status = (match acc with
+                                             | [] -> CCOpt.(prev_group >|= (fun x -> x.status))
+                                             | x :: _ -> Some x.status) in
+                          match x with
+                          | `Status status :: `Streams_event streams :: events ->
+                             { status = { status with streams = streams }
+                             ; prev_status
+                             ; events } :: acc
+                          | _ -> assert false) [] in
       (CCList.rev groups),rest
 
     let get_req_stack { status; _ } prev_t =
@@ -289,7 +291,7 @@ module SM = struct
                                                })
                                                (Events_handler.get_req_stack last prev_group) in
             step_normal_probes_send pool last last events parts acc)
-      else first_step ()
+      else (io "Got board info in step normal idle"; first_step ())
 
     and step_normal_probes_send pool prev_idle_gp gp events parts acc =
       if Pool.empty pool
@@ -322,7 +324,7 @@ module SM = struct
                                                       acc)
                      else step_normal_probes_send new_pool prev_idle_gp gp events parts acc)
       with
-      | Timeout -> first_step ()
+      | Timeout -> (io "Got timeout in step normal probes wait"; first_step ())
 
     in first_step ()
 
