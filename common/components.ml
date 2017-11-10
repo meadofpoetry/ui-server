@@ -46,6 +46,25 @@ module Make
     |> map_cons_option ~f:Html.a_style style
     |> CCList.append attrs
 
+  module Typography = struct
+
+    let base_class          = "mdc-typography"
+    let display4_class      = CSS.add_modifier base_class "display4"
+    let display3_class      = CSS.add_modifier base_class "display3"
+    let display2_class      = CSS.add_modifier base_class "display2"
+    let display1_class      = CSS.add_modifier base_class "display1"
+    let headline_class      = CSS.add_modifier base_class "headline"
+    let title_class         = CSS.add_modifier base_class "title"
+    let subheading2_class   = CSS.add_modifier base_class "subheading2"
+    let subheading1_class   = CSS.add_modifier base_class "subheading1"
+    let body2_class         = CSS.add_modifier base_class "body2"
+    let body1_class         = CSS.add_modifier base_class "body1"
+    let caption_class       = CSS.add_modifier base_class "caption"
+    let button_class        = CSS.add_modifier base_class "button"
+    let adjust_margin_class = CSS.add_modifier base_class "adjust-margin"
+
+  end
+
   module Button = struct
 
     let base_class = "mdc-button"
@@ -247,10 +266,6 @@ module Make
                 |> add_common_attrs ?id ?style ?attrs)
             [ div ~a:([a_class [surface_class]]) content
             ; div ~a:([a_class [backdrop_class]]) [] ]
-
-  end
-
-  module Drawer = struct
 
   end
 
@@ -624,6 +639,87 @@ module Make
                          |> cons_if avatar   @@ CSS.add_modifier base_class "avatar-list") ]
               |> add_common_attrs ?id ?style ?attrs)
           items
+
+  end
+
+  module Drawer = struct
+
+    module type Base = sig val base_class : string end
+
+    module Make_item (M : Base) = struct
+
+      let _class = List_.Item._class
+
+      let create_icon ?id ?style ?(classes=[]) ?attrs ~icon () =
+        Html.i ~a:([ a_class ("material-icons" :: List_.Item.start_detail_class :: classes) ]
+                   |> add_common_attrs ?id ?style ?attrs)
+               [pcdata icon]
+
+      let create ?id ?style ?(classes=[]) ?attrs ?(selected=false) ?start_detail ?href ~text () =
+        Html.a ~a:([ a_class (classes
+                              |> cons_if selected @@ CSS.add_modifier M.base_class "selected"
+                              |> CCList.cons _class)
+                   ; a_aria "hidden" ["true"] ]
+                   |> map_cons_option ~f:(fun x -> a_href @@ uri_of_string x) href
+                   |> add_common_attrs ?id ?style ?attrs)
+               (cons_option start_detail [ pcdata text ])
+
+    end
+
+    module Permanent = struct
+
+      let base_class = "mdc-permanent-drawer"
+
+      module Item = Make_item(struct let base_class = base_class end)
+
+      let toolbar_spacer_class = CSS.add_element base_class "toolbar-spacer"
+      let content_class        = CSS.add_element base_class "content"
+
+      let create ?id ?style ?(classes=[]) ?attrs ?(spacer_content=[]) ~items () =
+        nav ~a:([ a_class (classes
+                           |> CCList.cons Typography.base_class
+                           |> CCList.cons base_class) ]
+                |> add_common_attrs ?id ?style ?attrs)
+            [ div ~a:([ a_class [toolbar_spacer_class] ]) spacer_content
+            ; div ~a:([ a_class [content_class] ])
+                  [ nav ~a:([ a_class [List_.base_class] ]) items ]
+            ]
+
+    end
+
+    module Persistent = struct
+
+      let base_class           = "mdc-persistent-drawer"
+      let drawer_class         = CSS.add_element base_class "drawer"
+      let header_class         = CSS.add_element base_class "header"
+      let header_content_class = CSS.add_element base_class "header-content"
+      let content_class        = CSS.add_element base_class "content"
+
+      module Item = Make_item(struct let base_class = base_class end)
+
+      let create ?id ?style ?(classes=[]) ?attrs ~header_content ~items () =
+        aside ~a:([ a_class (classes
+                             |> CCList.cons Typography.base_class
+                             |> CCList.cons base_class) ]
+                  |> add_common_attrs ?id ?style ?attrs)
+              [ nav ~a:([ a_class [drawer_class] ])
+                    [ header ~a:([ a_class [header_class] ])
+                             [ div ~a:([ a_class [header_content_class] ])
+                                   header_content]
+                    ; nav ~a:([ a_class [content_class; List_.base_class] ])
+                          items
+                    ]
+              ]
+
+    end
+
+    module Temporary = struct
+
+      let base_class = "mdc-temporary-drawer"
+
+      module Item = Make_item(struct let base_class = base_class end)
+
+    end
 
   end
 
@@ -1162,25 +1258,6 @@ module Make
                                              | None   -> None)
                                      ?attrs)
              content
-
-  end
-
-  module Typography = struct
-
-    let base_class          = "mdc-typography"
-    let display4_class      = CSS.add_modifier base_class "display4"
-    let display3_class      = CSS.add_modifier base_class "display3"
-    let display2_class      = CSS.add_modifier base_class "display2"
-    let display1_class      = CSS.add_modifier base_class "display1"
-    let headline_class      = CSS.add_modifier base_class "headline"
-    let title_class         = CSS.add_modifier base_class "title"
-    let subheading2_class   = CSS.add_modifier base_class "subheading2"
-    let subheading1_class   = CSS.add_modifier base_class "subheading1"
-    let body2_class         = CSS.add_modifier base_class "body2"
-    let body1_class         = CSS.add_modifier base_class "body1"
-    let caption_class       = CSS.add_modifier base_class "caption"
-    let button_class        = CSS.add_modifier base_class "button"
-    let adjust_margin_class = CSS.add_modifier base_class "adjust-margin"
 
   end
 

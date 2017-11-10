@@ -623,13 +623,17 @@ let select_demo () =
               subsection "CSS-only multi select" select in
   demo_section "Select" [ js_select; css_select; multi ]
 
-let toolbar_demo () =
+let toolbar_demo (drawer : Drawer.Persistent.t Js.t) () =
   let last_row = Toolbar.Row.create
                    ~content:[ Toolbar.Row.Section.create
                                 ~align:`Start
                                 ~content:[ Html.i ~a:[Html.a_class [ "material-icons"
-                                                                  ; Toolbar.Row.Section.icon_class]]
-                                                 [Html.pcdata "menu"]
+                                                                   ; Toolbar.Row.Section.icon_class]
+                                                     ; Html.a_onclick (fun _ -> if drawer##.open_ |> Js.to_bool
+                                                                                then drawer##.open_ := Js._false
+                                                                                else drawer##.open_ := Js._true
+                                                                              ; true)]
+                                                  [Html.pcdata "menu"]
                                          ; Toolbar.Row.Section.create_title ~title:"Widgets demo page" () ]
                                 ()
                             ; Toolbar.Row.Section.create
@@ -642,22 +646,35 @@ let toolbar_demo () =
                    () in
   let toolbar = Toolbar.create ~content:[ last_row ]
                                ~id:"toolbar"
-                               ~waterfall:true
-                               ~flexible:true
-                               ~fixed:true
+                               (* ~waterfall:true *)
+                               (* ~flexible:true *)
+                               (* ~fixed:true *)
                                () in
   To_dom.of_element toolbar
 
+let drawer_demo () =
+  Drawer.Persistent.create ~header_content:[Html.pcdata "Header"]
+                           ~items:[]
+                           ()
+  |> Drawer.Persistent.attach
+
 let add_demos demos =
-  Html.div ~a:[ Html.a_id "demo-div"]
+  Html.div ~a:[ Html.a_id "demo-div"
+              ; Html.a_style "display: inline-flex;\
+                              flex-direction: column;\
+                              flex-grow: 1;\
+                              height: 100%;\
+                              box-sizing: border-box;" ]
            @@ CCList.map Of_dom.of_element demos
   |> To_dom.of_element
 
 let onload _ =
   let doc = Dom_html.document in
   let body = doc##.body in
-  let toolbar = toolbar_demo () in
-  let demos = add_demos [ button_demo ()
+  let drawer  = drawer_demo () in
+  let toolbar = toolbar_demo drawer () in
+  let demos = add_demos [ toolbar
+                        ; button_demo ()
                         ; fab_demo ()
                         ; radio_demo ()
                         ; checkbox_demo ()
@@ -677,10 +694,11 @@ let onload _ =
                         ; linear_progress_demo ()
                         ; tabs_demo ()
                         ] in
+  Dom.appendChild body drawer##.root__;
   Dom.appendChild body demos;
-  Dom.appendChild body toolbar;
-  let js_toolbar = Toolbar.attach toolbar in
-  js_toolbar##.fixedAdjustElement_ := demos;
+  (* Dom.appendChild body toolbar; *)
+  (* let js_toolbar = Toolbar.attach toolbar in *)
+  (* js_toolbar##.fixedAdjustElement_ := demos; *)
   Js._false
 
 let () = Dom_html.addEventListener Dom_html.document
