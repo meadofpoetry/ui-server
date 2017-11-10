@@ -13,6 +13,16 @@ let () = Random.init (int_of_float @@ Unix.time ())
 let rand_int = fun () -> Random.run (Random.int 10000000)
 
 let socket_table = Hashtbl.create 1000
+                 
+let page id =
+  respond_html_elt
+    Tyxml.Html.(div
+                  [ script ( pcdata ("var boardId = " ^ (string_of_int id)) ) ;
+                    script ~a:[a_src "/js/dvb_niit.js"] ( pcdata "" );
+                    h2 [ pcdata "Test" ];
+                    p  [ pcdata "Dvb board" ];
+                    div ~a:[ a_id "dvb_widgets" ] [  ] ] )
+    ()
    
 let devinfo api =
   api.devinfo () >>= fun devi ->
@@ -67,11 +77,12 @@ let measures sock_data events body =
   Hashtbl.add socket_table id sock_events;
   Lwt.return (resp, (body :> Cohttp_lwt_body.t))
           
-let handle api events _ meth args sock_data _ body =
+let handle api events id _ meth args sock_data _ body =
   let open Lwt.Infix in
   let open Api.Redirect in
   (* let redirect_if_guest = redirect_if (User.eq id `Guest) in *)
   match meth, args with
+  | `GET,  []               -> page id
   | `GET,  ["devinfo"]      -> devinfo api
   | `POST, ["reset"]        -> reset api
   | `POST, ["settings"]     -> settings api body
@@ -84,5 +95,5 @@ let handle api events _ meth args sock_data _ body =
 let handlers id api events =
   [ (module struct
        let domain = Common.Topology.get_api_path id
-       let handle = handle api events
+       let handle = handle api events id
      end : Api_handler.HANDLER) ]

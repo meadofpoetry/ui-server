@@ -4,11 +4,15 @@ home:
 	$(BUILD) build frontend/home.bc.js
 	cp _build/default/frontend/home.bc.js dist/resources/js/home.js
 
+dvb:
+	$(BUILD) build frontend/dvb_niit.bc.js
+	cp _build/default/frontend/dvb_niit.bc.js dist/resources/js/dvb_niit.js
+
 demo:
 	$(BUILD) build frontend/demo.bc.js
 	cp _build/default/frontend/demo.bc.js dist/resources/js/demo.js
 
-frontend: home demo
+frontend: home dvb demo
 
 backend:
 	$(BUILD) build backend/backend.exe
