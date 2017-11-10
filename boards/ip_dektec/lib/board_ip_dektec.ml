@@ -60,6 +60,8 @@ let create (b:topo_board) convert_streams send db base step =
                            | 0 -> React.S.const true
                            | x -> raise (Invalid_port ("Board_ip_dektec: invalid_port " ^ (string_of_int x))))
                           |> fun x -> Ports.add p.port x acc)
-                                     Ports.empty b.ports)
+                        Ports.empty b.ports)
+  ; settings_page  = ("IP", React.S.const (Tyxml.Html.div []))
+  ; widgets_page   = [("IP", React.S.const (Tyxml.Html.div []))]
   ; state          = (state :> < >)
   }

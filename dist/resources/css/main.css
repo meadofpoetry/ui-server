@@ -1,6 +1,12 @@
-/* :root { */
-/*     --mdc-theme-primary: #212121 */
-/* } */
+:root {
+    --mdc-theme-primary: #212121;
+    --mdc-theme-primary-light: #686868;
+    --mdc-theme-primary-dark: #454545;
+    --mdc-theme-secondary: #64dd17;
+    --mdc-theme-secondary-light: #8ced4f;
+    --mdc-theme-secondary-dark: #479c10;
+    --mdc-theme-background: #fff;
+}
 
 html {
     height: 100%;

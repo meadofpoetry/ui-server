@@ -65,5 +65,7 @@ let create (b:topo_board) convert_streams send db base step =
                            | x -> raise (Invalid_port ("Board_dvb_niit: invalid port " ^ (string_of_int x))))
                           |> fun x -> Ports.add p.port x acc)
                         Ports.empty b.ports)
+  ; settings_page  = ("DVB", React.S.const (Tyxml.Html.div []))
+  ; widgets_page   = [("DVB", React.S.const (Tyxml.Html.div []))]
   ; state          = (state :> < >)
   }

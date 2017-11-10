@@ -16,6 +16,8 @@ type board = { handlers        : (module Api_handler.HANDLER) list
              ; step            : (Cbuffer.t list -> 'c cc as 'c) cc
              ; connection      : state React.signal
              ; ports_active    : bool React.signal Ports.t
+             ; settings_page   : (string * [`Div] Tyxml.Html.elt React.signal)
+             ; widgets_page    : (string * [`Div] Tyxml.Html.elt React.signal) list
              ; state           : < >
              }
 

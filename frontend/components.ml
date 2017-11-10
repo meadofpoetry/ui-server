@@ -2,22 +2,15 @@ module Widgets = Common.Components.Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Htm
 
                                        [@@@ocaml.warning "-60"]
 
-let of_dom el = Tyxml_js.Of_dom.of_element (Js.Unsafe.coerce el)
+let of_dom el = Tyxml_js.Of_dom.of_element (el :> Dom_html.element Js.t)
 
 module Button = struct
 
   include Widgets.Button
 
-  class type t =
-    object
-      inherit Dom_html.element
-    end
+  class type t = Dom_html.buttonElement
 
-  let create ?classes ?id ?style ?disabled ?raised
-             ?ripple ?unelevated ?stroked ?dense ?compact ?icon ?label ?onclick ?attrs () =
-    create ?classes ?id ?style ?disabled ?raised
-           ?ripple ?unelevated ?stroked ?dense ?compact ?icon ?label ?onclick ?attrs ()
-    |> Tyxml_js.To_dom.of_element
+  let attach elt : t Js.t = Tyxml_js.To_dom.of_button elt
 
 end
 
@@ -25,14 +18,9 @@ module Card = struct
 
   include Widgets.Card
 
-  class type t =
-    object
-      inherit Dom_html.element
-    end
+  class type t = Dom_html.divElement
 
-  let create ?sections ?id ?style ?classes ?attrs () : t Js.t =
-    Widgets.Card.create ?sections ?id ?style ?classes ?attrs ()
-    |> Tyxml_js.To_dom.of_element
+  let attach elt : t Js.t = Tyxml_js.To_dom.of_div elt
 
 end
 
@@ -40,44 +28,17 @@ module Checkbox = struct
 
   include Widgets.Checkbox
 
-  class type component =
+  class type t =
     object
+      method root__         : Dom_html.divElement Js.t Js.readonly_prop
       method checked_       : bool Js.t Js.prop
       method indeterminate_ : bool Js.t Js.prop
       method disabled_      : bool Js.t Js.prop
       method value_         : Js.js_string Js.prop
     end
 
-  class type t =
-    object
-      inherit Dom_html.element
-      method component_         : component Js.t Js.readonly_prop
-      method is_checked_        : unit -> bool Js.t Js.meth
-      method set_checked_       : bool Js.t -> unit Js.meth
-      method is_indeterminate_  : unit -> bool Js.t Js.meth
-      method set_indeterminate_ : bool Js.t -> unit Js.meth
-      method is_disabled_       : unit -> bool Js.t Js.meth
-      method set_disabled_      : bool Js.t -> unit Js.meth
-      method get_value_         : unit -> Js.js_string Js.meth
-      method set_value_         : Js.js_string -> unit Js.meth
-    end
-
-  let create ?classes ?style ?id ?input_id ?disabled ?js ?checked ?attrs () : t Js.t =
-    let open Js.Unsafe in
-    let (elt : t Js.t) = create ?classes ?style ?id ?input_id ?disabled ?js ?checked ?attrs ()
-                         |> Tyxml_js.To_dom.of_element
-                         |> Js.Unsafe.coerce in
-    let set = fun (x : t Js.t) (name : string) f -> Js.Unsafe.set x name f in
-    set elt "component" @@ fun_call (js_expr "mdc.checkbox.MDCCheckbox.attachTo") [| inject elt |];
-    set elt "is_checked"        @@ Js.wrap_callback (fun () -> elt##.component_##.checked_);
-    set elt "set_checked"       @@ Js.wrap_callback (fun x  -> elt##.component_##.checked_ := x);
-    set elt "is_indeterminate"  @@ Js.wrap_callback (fun () -> elt##.component_##.indeterminate_);
-    set elt "set_indeterminate" @@ Js.wrap_callback (fun x  -> elt##.component_##.indeterminate_ := x);
-    set elt "is_disabled"       @@ Js.wrap_callback (fun () -> elt##.component_##.disabled_);
-    set elt "set_disabled"      @@ Js.wrap_callback (fun x  -> elt##.component_##.disabled_ := x);
-    set elt "get_value"         @@ Js.wrap_callback (fun () -> elt##.component_##.value_);
-    set elt "set_value"         @@ Js.wrap_callback (fun x  -> elt##.component_##.value_ := x);
-    elt
+  let attach elt : t Js.t =
+    Js.Unsafe.global##.mdc##.checkbox##.MDCCheckbox##attachTo elt
 
 end
 
@@ -94,21 +55,13 @@ module Dialog = struct
       method cancel_  : bool Js.t -> unit Js.meth
     end
 
-  class type component =
-    object
-      method foundation_ : foundation Js.t Js.readonly_prop
-      method open_       : bool Js.t Js.prop
-      method show_       : unit -> unit Js.meth
-      method close_      : unit -> unit Js.meth
-    end
-
   class type t =
     object
-      inherit Dom_html.element
-      method component_ : component Js.t Js.readonly_prop
-      method show_      : unit -> unit Js.meth
-      method close_     : unit -> unit Js.meth
-      method is_open_   : unit -> bool Js.t Js.meth
+      method root__       : Dom_html.element Js.t Js.readonly_prop
+      method foundation__ : foundation Js.t Js.readonly_prop
+      method open_        : bool Js.t Js.prop
+      method show_        : unit -> unit Js.meth
+      method close_       : unit -> unit Js.meth
     end
 
   type events =
@@ -120,13 +73,8 @@ module Dialog = struct
                ; cancel = Dom_events.Typ.make "MDCDialog:cancel"
                }
 
-  let create ?id ?style ?classes ?attrs ~label_id ~description_id ~content () : t Js.t =
-    let (elt : t Js.t) = create ?id ?style ?classes ?attrs ~label_id ~description_id ~content ()
-                         |> Tyxml_js.To_dom.of_element
-                         |> Js.Unsafe.coerce in
-    let set = fun (x : t Js.t) (name : string) f -> Js.Unsafe.set x name f in
-    set elt "component" @@ Js.Unsafe.(fun_call (js_expr "mdc.dialog.MDCDialog.attachTo") [| inject elt |]);
-    elt
+  let attach (elt : Html_types.aside Tyxml_js.Html.elt) : t Js.t =
+    Js.Unsafe.global##.mdc##.dialog##.MDCDialog##attachTo elt
 
 end
 
@@ -146,14 +94,9 @@ module Fab = struct
 
   include Widgets.Fab
 
-  class type t =
-    object
-      inherit Dom_html.element
-    end
+  class type t = Dom_html.buttonElement
 
-  let create ?id ?style ?classes ?attrs ?mini ?ripple ?label ~icon () : t Js.t =
-    create ?id ?style ?classes ?attrs ?mini ?ripple ?label ~icon ()
-    |> Tyxml_js.To_dom.of_element
+  let attach elt : t Js.t = Tyxml_js.To_dom.of_button elt
 
 end
 
@@ -161,14 +104,9 @@ module Form_field = struct
 
   include Widgets.Form_field
 
-  class type t =
-    object
-      inherit Dom_html.element
-    end
+  class type t = Dom_html.divElement
 
-  let create ?id ?style ?classes ?attrs ?align_end ~input ~label () : t Js.t =
-    create ?id ?style ?classes ?attrs ?align_end ~input ~label ()
-    |> Tyxml_js.To_dom.of_element
+  let attach elt : t Js.t = Tyxml_js.To_dom.of_div elt
 
 end
 
@@ -176,15 +114,9 @@ module Grid_list = struct
 
   include Widgets.Grid_list
 
-  class type t =
-    object
-      inherit Dom_html.element
-    end
+  class type t = Dom_html.divElement
 
-  let create ?id ?style ?classes ?attrs
-             ?ar ?one_px_gutter ?header_caption ?twoline ?icon_align ~tiles () : t Js.t =
-    create ?id ?style ?classes ?attrs ?ar ?one_px_gutter ?header_caption ?twoline ?icon_align ~tiles ()
-    |> Tyxml_js.To_dom.of_element
+  let attach elt : t Js.t = Tyxml_js.To_dom.of_div elt
 
 end
 
@@ -200,23 +132,14 @@ module Icon_toggle = struct
 
   class type t =
     object
-      inherit Dom_html.element
-      method component_    : component Js.t Js.readonly_prop
-      method is_on_        : unit -> bool Js.t Js.meth
-      method set_on_       : bool Js.t -> unit Js.meth
-      method is_disabled_  : unit -> bool Js.t Js.meth
-      method set_disabled_ : bool Js.t -> unit Js.meth
-    end
-
-  class type detail =
-    object
-      method isOn : bool Js.t Js.readonly_prop
+      method root__     : Dom_html.element Js.t Js.readonly_prop
+      method component_ : component Js.t Js.readonly_prop
     end
 
   class type change_event =
     object
       inherit Dom_html.event
-      method detail_ : detail Js.t Js.readonly_prop
+      method detail_ : < isOn : bool Js.t Js.readonly_prop > Js.t Js.readonly_prop
     end
 
   type events =
@@ -227,23 +150,8 @@ module Icon_toggle = struct
     { change = Dom_events.Typ.make "MDCIconToggle:change"
     }
 
-  let create ?id ?style ?classes ?attrs ?disabled
-             ~on_content ?on_label ?on_class
-             ~off_content ?off_label ?off_class
-             () : t Js.t =
-    let (elt : t Js.t) = create ?id ?style ?classes ?attrs ?disabled
-                                ~on_content ?on_label ?on_class
-                                ~off_content ?off_label ?off_class ()
-                         |> Tyxml_js.To_dom.of_element
-                         |> Js.Unsafe.coerce in
-    let set = fun (x : t Js.t) (name : string) f -> Js.Unsafe.set x name f in
-    set elt "component"    @@ Js.Unsafe.(fun_call (js_expr "mdc.iconToggle.MDCIconToggle.attachTo")
-                                                  [| inject elt |]);
-    set elt "is_on"        @@ Js.wrap_callback (fun () -> elt##.component_##.on_);
-    set elt "set_on"       @@ Js.wrap_callback (fun x  -> elt##.component_##.on_ := x);
-    set elt "is_disabled"  @@ Js.wrap_callback (fun () -> elt##.component_##.disabled_);
-    set elt "set_disabled" @@ Js.wrap_callback (fun x  -> elt##.component_##.disabled_ := x);
-    elt
+  let attach elt : t Js.t =
+    Js.Unsafe.global##.mdc##.iconToggle##.MDCIconToggle##attachTo elt
 
 end
 
@@ -251,14 +159,9 @@ module Layout_grid = struct
 
   include Widgets.Layout_grid
 
-  class type t =
-    object
-      inherit Dom_html.element
-    end
+  class type t = Dom_html.divElement
 
-  let create ?id ?style ?classes ?attrs ?align ?fixed_column_width ~content () : t Js.t =
-    create ?id ?style ?classes ?attrs ?align ?fixed_column_width ~content ()
-    |> Tyxml_js.To_dom.of_element
+  let attach elt : t Js.t = Tyxml_js.To_dom.of_div elt
 
 end
 
@@ -266,52 +169,19 @@ module Linear_progress = struct
 
   include Widgets.Linear_progress
 
-  class type component =
+  class type t =
     object
+      method root__       : Dom_html.divElement Js.t Js.readonly_prop
       method determinate_ : bool Js.t Js.writeonly_prop
-      method progress_    : Js.number Js.writeonly_prop
-      method buffer_      : Js.number Js.writeonly_prop
+      method progress_    : Js.number Js.t Js.writeonly_prop
+      method buffer_      : Js.number Js.t Js.writeonly_prop
       method reverse_     : bool Js.t Js.writeonly_prop
       method open_        : unit -> unit Js.meth
       method close_       : unit -> unit Js.meth
     end
 
-  class type t =
-    object
-      inherit Dom_html.element
-      method component_       : component Js.t Js.readonly_prop
-      method set_determinate_ : bool Js.t -> unit Js.meth
-      method set_progress_    : Js.number Js.t -> unit Js.meth
-      method set_buffer_      : Js.number Js.t -> unit Js.meth
-      method set_reverse_     : bool Js.t -> unit Js.meth
-      method open_            : unit -> unit Js.meth
-      method close_           : unit -> unit Js.meth
-    end
-
-  let create ?id ?style ?classes ?attrs
-             ?buffering_dots_id ?buffering_dots_style ?buffering_dots_classes ?buffering_dots_attrs
-             ?buffer_id ?buffer_style ?buffer_classes ?buffer_attrs
-             ?primary_bar_id ?primary_bar_style ?primary_bar_classes ?primary_bar_attrs
-             ?secondary_bar_id ?secondary_bar_style ?secondary_bar_classes ?secondary_bar_attrs
-             ?indeterminate ?reversed ?accent () : t Js.t =
-    let (elt : t Js.t) = create ?id ?style ?classes ?attrs
-                                ?buffering_dots_id ?buffering_dots_style ?buffering_dots_classes ?buffering_dots_attrs
-                                ?buffer_id ?buffer_style ?buffer_classes ?buffer_attrs
-                                ?primary_bar_id ?primary_bar_style ?primary_bar_classes ?primary_bar_attrs
-                                ?secondary_bar_id ?secondary_bar_style ?secondary_bar_classes ?secondary_bar_attrs
-                                ?indeterminate ?reversed ?accent ()
-                         |> Tyxml_js.To_dom.of_element
-                         |> Js.Unsafe.coerce in
-    let set = fun (x : t Js.t) (name : string) f -> Js.Unsafe.set x name f in
-    set elt "component"       @@ Js.Unsafe.(fun_call (js_expr "mdc.linearProgress.MDCLinearProgress.attachTo")
-                                                     [| inject elt |]);
-    set elt "set_determinate" @@ Js.wrap_callback (fun x  -> elt##.component_##.determinate_ := x);
-    set elt "set_progress"    @@ Js.wrap_callback (fun x  -> elt##.component_##.progress_ := x);
-    set elt "set_buffer"      @@ Js.wrap_callback (fun x  -> elt##.component_##.buffer_ := x);
-    set elt "set_reverse"     @@ Js.wrap_callback (fun x  -> elt##.component_##.reverse_ := x);
-    set elt "open"            @@ Js.wrap_callback (fun () -> elt##.component_##open_ ());
-    set elt "close"           @@ Js.wrap_callback (fun () -> elt##.component_##close_ ());
-    elt
+  let attach elt : t Js.t =
+    Js.Unsafe.global##.mdc##.linearProgress##.MDCLinearProgress##attachTo elt
 
 end
 
@@ -319,14 +189,9 @@ module List_ = struct
 
   include Widgets.List_
 
-  class type t =
-    object
-      inherit Dom_html.element
-    end
+  class type t = Dom_html.element
 
-  let create ?id ?style ?classes ?attrs ?tag ?avatar ?dense ?two_line ~items () : t Js.t =
-    create ?id ?style ?classes ?attrs ?tag ?avatar ?dense ?two_line ~items ()
-    |> Tyxml_js.To_dom.of_element
+  let attach elt : t Js.t = Tyxml_js.To_dom.of_element elt
 
 end
 
@@ -334,42 +199,23 @@ module Menu = struct
 
   include Widgets.Menu
 
-  type show =
-    { focus_index : int
-    }
-
-  class type show_params =
-    object
-      method focusIndex : Js.number Js.t Js.prop
-    end
-
-  class type component =
-    object
-      method open_        : bool Js.t Js.prop
-      method hide_        : unit -> unit Js.meth
-      method show_        : unit -> unit Js.meth
-      method show_focused : show_params Js.t -> unit Js.meth
-    end
+  let focus_index_to_js_obj x : < focusIndex : Js.number Js.t Js.prop > Js.t =
+    Js.Unsafe.(obj [| "focusIndex", inject @@ Js.number_of_float (float_of_int x) |])
 
   class type t =
     object
-      inherit Dom_html.element
-      method component_    : component Js.t Js.readonly_prop
-      method is_open_      : unit -> bool Js.t Js.meth
-      method hide_         : unit -> unit Js.meth
-      method show_         : show option -> unit Js.meth
-    end
-
-  class type detail =
-    object
-      method item_  : Dom_html.element Js.t Js.readonly_prop
-      method index_ : Js.number Js.t Js.readonly_prop
+      method root__       : Dom_html.divElement Js.t Js.readonly_prop
+      method open_        : bool Js.t Js.prop
+      method hide_        : unit -> unit Js.meth
+      method show_        : unit -> unit Js.meth
+      method show_focused : < focusIndex : Js.number Js.t Js.prop > Js.t -> unit Js.meth
     end
 
   class type event =
     object
       inherit Dom_html.event
-      method detail_ : detail Js.t Js.readonly_prop
+      method detail_ : < item_  : Dom_html.element Js.t Js.readonly_prop;
+                         index_ : Js.number Js.t Js.readonly_prop > Js.t Js.readonly_prop
     end
 
   type events =
@@ -382,24 +228,9 @@ module Menu = struct
     ; cancel   = Dom_events.Typ.make "MDCSimpleMenu:cancel"
     }
 
-  let create ?id ?style ?classes ?attrs ?list_id ?list_style ?list_classes ?list_attrs
-             ?opened ?open_from ~items () : t Js.t =
-    let (elt : t Js.t) = create ?id ?style ?classes ?attrs ?list_id ?list_style ?list_classes ?list_attrs
-                                ?opened ?open_from ~items ()
-                         |> Tyxml_js.To_dom.of_element
-                         |> Js.Unsafe.coerce in
-    let set = fun (x : t Js.t) (name : string) f -> Js.Unsafe.set x name f in
-    set elt "component" @@ Js.Unsafe.(fun_call (js_expr "mdc.menu.MDCSimpleMenu.attachTo")
-                                               [| inject elt |]);
-    set elt "is_open" @@ Js.wrap_callback (fun () -> elt##.component_##.open_);
-    set elt "hide"    @@ Js.wrap_callback (fun () -> elt##.component_##hide_ ());
-    set elt "show"    @@ Js.wrap_callback (function
-                                           | Some x -> let open Js.Unsafe in
-                                                       let idx = Js.number_of_float (float_of_int x.focus_index) in
-                                                       let o   = obj [| "focusIndex", inject idx |] in
-                                                       elt##.component_##show_focused o
-                                          | None   -> elt##.component_##show_ ());
-    elt
+  let attach elt : t Js.t =
+    Js.Unsafe.global##.mdc##.menu##.MDCSimpleMenu##attachTo elt
+
 
 end
 
@@ -407,38 +238,16 @@ module Radio = struct
 
   include Widgets.Radio
 
-  class type component =
+  class type t =
     object
+      method root__    : Dom_html.divElement Js.t Js.readonly_prop
       method checked_  : bool Js.t Js.prop
       method disabled_ : bool Js.t Js.prop
       method value_    : Js.js_string Js.prop
     end
 
-  class type t =
-    object
-      inherit Dom_html.element
-      method component_    : component Js.t Js.readonly_prop
-      method is_checked_   : unit -> bool Js.t Js.meth
-      method set_checked_  : bool Js.t -> unit Js.meth
-      method is_disabled_  : unit -> bool Js.t Js.meth
-      method set_disabled_ : bool Js.t -> unit Js.meth
-      method get_value_    : unit -> Js.js_string Js.meth
-      method set_value_    : Js.js_string -> unit Js.meth
-    end
-
-  let create ?id ?input_id ?style ?classes ?attrs ?js ?checked ?disabled ~name () : t Js.t =
-    let (elt : t Js.t) = create ?id ?input_id ?style ?classes ?attrs ?js ?checked ?disabled ~name ()
-                         |> Tyxml_js.To_dom.of_element
-                         |> Js.Unsafe.coerce in
-    let set = fun (x : t Js.t) (name : string) f -> Js.Unsafe.set x name f in
-    set elt "component"    @@ Js.Unsafe.(fun_call (js_expr "mdc.radio.MDCRadio.attachTo") [| inject elt |]);
-    set elt "is_checked"   @@ Js.wrap_callback (fun () -> elt##.component_##.checked_);
-    set elt "set_checked"  @@ Js.wrap_callback (fun x  -> elt##.component_##.checked_ := x);
-    set elt "is_disabled"  @@ Js.wrap_callback (fun () -> elt##.component_##.disabled_);
-    set elt "set_disabled" @@ Js.wrap_callback (fun x  -> elt##.component_##.disabled_ := x);
-    set elt "get_value"    @@ Js.wrap_callback (fun () -> elt##.component_##.value_);
-    set elt "set_value"    @@ Js.wrap_callback (fun x  -> elt##.component_##.value_ := x);
-    elt
+  let attach elt : t Js.t =
+    Js.Unsafe.global##.mdc##.radio##.MDCRadio##attachTo elt
 
 end
 
@@ -446,37 +255,17 @@ module Ripple = struct
 
   include Widgets.Ripple
 
-  class type component =
+  class type t =
     object
+      method root__      : Dom_html.element Js.t Js.readonly_prop
       method activate_   : unit -> unit Js.meth
       method deactivate_ : unit -> unit Js.meth
       method layout_     : unit -> unit Js.meth
       method unbounded_  : bool Js.t Js.prop
     end
 
-  class type t =
-    object
-      inherit Dom_html.element
-      method component_     : component Js.t Js.readonly_prop
-      method activate_      : unit -> unit Js.meth
-      method deactivate_    : unit -> unit Js.meth
-      method layout_        : unit -> unit Js.meth
-      method is_unbounded_  : unit -> bool Js.t Js.meth
-      method set_unbounded_ : bool Js.t -> unit Js.meth
-    end
-
-  let create ?unbounded surface () : t Js.t =
-    let (elt : t Js.t) = Tyxml_js.To_dom.of_element surface
-                         |> Js.Unsafe.coerce in
-    let set = fun (x : t Js.t) (name : string) f -> Js.Unsafe.set x name f in
-    set elt "component"     @@ Js.Unsafe.(fun_call (js_expr "mdc.ripple.MDCRipple.attachTo") [| inject elt |]);
-    set elt "activate"      @@ Js.wrap_callback (fun () -> elt##.component_##activate_ ());
-    set elt "deactivate"    @@ Js.wrap_callback (fun () -> elt##.component_##deactivate_ ());
-    set elt "layout"        @@ Js.wrap_callback (fun () -> elt##.component_##layout_ ());
-    set elt "is_unbounded"  @@ Js.wrap_callback (fun () -> elt##.component_##.unbounded_);
-    set elt "set_unbounded" @@ Js.wrap_callback (fun x  -> elt##.component_##.unbounded_ := x);
-    CCOpt.iter (fun x -> elt##set_unbounded_ (Js.bool x)) unbounded;
-    elt
+  let attach elt : t Js.t =
+    Js.Unsafe.global##.mdc##.ripple##.MDCRipple##attachTo elt
 
 end
 
@@ -490,10 +279,7 @@ module Select = struct
 
   include Widgets.Select
 
-  class type t =
-    object
-      inherit Dom_html.element
-    end
+  class type t = Dom_html.element
 
 end
 
@@ -501,8 +287,9 @@ module Slider = struct
 
   include Widgets.Slider
 
-  class type component =
+  class type t =
     object
+      method root__         : Dom_html.divElement Js.t Js.readonly_prop
       method value_         : Js.number Js.t Js.prop
       method min_           : Js.number Js.t Js.prop
       method max_           : Js.number Js.t Js.prop
@@ -515,29 +302,10 @@ module Slider = struct
       method stepDown_value : Js.number Js.t -> unit Js.meth
     end
 
-  class type t =
-    object
-      inherit Dom_html.element
-      method component_    : component Js.t Js.readonly_prop
-      method get_value_    : unit -> Js.number Js.t Js.meth
-      method set_value_    : Js.number Js.t -> unit Js.meth
-      method get_min_      : unit -> Js.number Js.t Js.meth
-      method set_min_      : Js.number Js.t -> unit Js.meth
-      method get_max_      : unit -> Js.number Js.t Js.meth
-      method set_max_      : Js.number Js.t -> unit Js.meth
-      method get_step_     : unit -> Js.number Js.t Js.meth
-      method set_step_     : Js.number Js.t -> unit Js.meth
-      method is_disabled_  : unit -> bool Js.t Js.meth
-      method set_disabled_ : bool Js.t -> unit Js.meth
-      method layout_       : unit -> unit Js.meth
-      method step_up_      : Js.number Js.t option -> unit Js.meth
-      method step_down_    : Js.number Js.t option -> unit Js.meth
-    end
-
   class type event =
     object
       inherit Dom_html.event
-      method detail_ : component Js.t Js.readonly_prop
+      method detail_ : t Js.t Js.readonly_prop
     end
 
   type events =
@@ -550,30 +318,8 @@ module Slider = struct
     ; change = Dom_events.Typ.make "MDCSlider:change"
     }
 
-  let create ?id ?style ?classes ?attrs ?discrete ?markers ?disabled ?label ?min ?max ?value () =
-    let (elt : t Js.t) = create ?id ?style ?classes ?attrs ?discrete ?markers ?disabled ?label ?min ?max ?value ()
-                         |> Tyxml_js.To_dom.of_element
-                         |> Js.Unsafe.coerce in
-    let set = fun (x : t Js.t) (name : string) f -> Js.Unsafe.set x name f in
-    set elt "component"    @@ Js.Unsafe.(fun_call (js_expr "mdc.slider.MDCSlider.attachTo") [| inject elt |]);
-    set elt "get_value"    @@ Js.wrap_callback (fun () -> elt##.component_##.value_);
-    set elt "set_value"    @@ Js.wrap_callback (fun x  -> elt##.component_##.value_ := x);
-    set elt "get_min"      @@ Js.wrap_callback (fun () -> elt##.component_##.min_);
-    set elt "set_min"      @@ Js.wrap_callback (fun x  -> elt##.component_##.min_ := x);
-    set elt "get_max"      @@ Js.wrap_callback (fun () -> elt##.component_##.max_);
-    set elt "set_max"      @@ Js.wrap_callback (fun x  -> elt##.component_##.max_ := x);
-    set elt "get_step"     @@ Js.wrap_callback (fun () -> elt##.component_##.step_);
-    set elt "set_step"     @@ Js.wrap_callback (fun x  -> elt##.component_##.step_ := x);
-    set elt "is_disabled"  @@ Js.wrap_callback (fun () -> elt##.component_##.disabled_);
-    set elt "set_disabled" @@ Js.wrap_callback (fun x  -> elt##.component_##.disabled_ := x);
-    set elt "layout"       @@ Js.wrap_callback (fun () -> elt##.component_##layout_ ());
-    set elt "step_up"      @@ Js.wrap_callback (function
-                                                | Some x -> elt##.component_##stepUp_value x
-                                                | None   -> elt##.component_##stepUp_ ());
-    set elt "step_down"   @@ Js.wrap_callback (function
-                                               | Some x -> elt##.component_##stepUp_value x
-                                               | None   -> elt##.component_##stepUp_ ());
-    elt
+  let attach elt : t Js.t =
+    Js.Unsafe.global##.mdc##.slider##.MDCSlider##attachTo elt
 
 end
 
@@ -594,42 +340,35 @@ module Snackbar = struct
                    ; action_on_bottom : bool
                    }
 
-  class type component =
+  class type data_obj =
     object
-      method show_              : (string * Js.Unsafe.any) array -> unit Js.meth
-      method dismissesOnAction_ : bool Js.t Js.prop
+      method actionHandler  : (unit -> unit) Js.optdef Js.readonly_prop
+      method actionOnBottom : bool Js.t Js.optdef Js.readonly_prop
+      method actionText     : Js.js_string Js.t Js.optdef Js.readonly_prop
+      method message        : Js.js_string Js.t Js.readonly_prop
+      method multiline      : bool Js.t Js.optdef Js.readonly_prop
+      method timeout        : Js.number Js.t Js.optdef Js.readonly_prop
+    end
+
+  let data_to_js_obj x : data_obj Js.t =
+    object%js
+      val message        = Js.string x.message
+      val timeout        = CCOpt.map (fun x -> Js.number_of_float @@ float_of_int x) x.timeout |> Js.Optdef.option
+      val actionHandler  = CCOpt.map (fun x -> x.handler) x.action |> Js.Optdef.option
+      val actionText     = CCOpt.map (fun x -> Js.string x.text) x.action |> Js.Optdef.option
+      val multiline      = CCOpt.map (fun x -> Js.bool x.enable) x.multiline |> Js.Optdef.option
+      val actionOnBottom = CCOpt.map (fun x -> Js.bool x.action_on_bottom) x.multiline |> Js.Optdef.option
     end
 
   class type t =
     object
-      inherit Dom_html.element
-      method component_               : component Js.t Js.readonly_prop
-      method show_                    : data -> unit Js.meth
-      method is_dismisses_on_action_  : unit -> bool Js.t Js.meth
-      method set_dismisses_on_action_ : bool Js.t -> unit Js.meth
+      method root__             : Dom_html.divElement Js.t Js.readonly_prop
+      method show_              : data_obj Js.t -> unit Js.meth
+      method dismissesOnAction_ : bool Js.t Js.prop
     end
 
-  let create ?id ?style ?classes ?attrs ?start_aligned ?(dismisses_on_action=true) () : t Js.t =
-    let (>|=) x f = Js.Optdef.map x f in
-    let (elt : t Js.t) = create ?id ?style ?classes ?attrs ?start_aligned ()
-                         |> Tyxml_js.To_dom.of_element
-                         |> Js.Unsafe.coerce in
-    let set = fun (x : t Js.t) (name : string) f -> Js.Unsafe.set x name f in
-    set elt "component" @@ Js.Unsafe.(fun_call (js_expr "mdc.snackbar.MDCSnackbar.attachTo") [| inject elt |]);
-    elt##.component_##.dismissesOnAction_ := Js.bool dismisses_on_action;
-    set elt "show" @@ Js.wrap_callback (fun x ->
-                          let wrap = fun x f -> Js.Optdef.option x >|= f |> Js.Unsafe.inject in
-                          let data = [| "message",       Js.Unsafe.inject x.message
-                                      ; "timeout",       wrap x.timeout (fun x -> x)
-                                      ; "actionHandler", wrap x.action (fun x -> Js.wrap_callback x.handler)
-                                      ; "actionText",    wrap x.action (fun x -> Js.string x.text)
-                                      ; "multiline",     wrap x.multiline (fun x -> Js.bool x.enable)
-                                      ; "actionOnBottom",wrap x.multiline (fun x -> Js.bool x.action_on_bottom)
-                                     |] |> Js.Unsafe.obj in
-                          elt##.component_##show_ data);
-    set elt "is_dismisses_on_action"  @@ Js.wrap_callback (fun () -> elt##.component_##.dismissesOnAction_);
-    set elt "set_dismisses_on_action" @@ Js.wrap_callback (fun x  -> elt##.component_##.dismissesOnAction_ := x);
-    elt
+  let attach elt : t Js.t =
+    Js.Unsafe.global##.mdc##.snackbar##.MDCSnackbar##attachTo elt
 
 end
 
@@ -648,29 +387,33 @@ module Switch = struct
       method set_value_    : Js.js_string -> unit Js.meth
     end
 
-  let create ?id ?input_id ?style ?classes ?attrs ?disabled () : t Js.t =
-    let (elt : t Js.t) = create ?id ?input_id ?style ?classes ?attrs ?disabled ()
-                         |> Tyxml_js.To_dom.of_element
-                         |> Js.Unsafe.coerce in
+  let get_input (switch : t Js.t) : Dom_html.inputElement Js.t Js.opt =
+    switch##querySelector (Js.string ("." ^ native_control_class))
+    |> Js.Opt.to_option
+    |> (function
+        | Some x -> Js.Opt.return @@ Js.Unsafe.coerce x
+        | None   -> Js.Opt.empty)
+
+  let attach elt : t Js.t =
+    let (elt : t Js.t) = elt |> Tyxml_js.To_dom.of_element |> Js.Unsafe.coerce in
     let set    = fun (x : t Js.t) (name : string) f -> Js.Unsafe.set x name f in
-    let get_nc = fun () -> elt##querySelector (Js.string ("." ^ native_control_class)) in
-    set elt "is_checked"   @@ Js.wrap_callback (fun () -> match Js.Opt.to_option @@ get_nc () with
-                                                          | Some nc -> (Js.Unsafe.coerce nc)##.checked
+    set elt "is_checked"   @@ Js.wrap_callback (fun () -> match Js.Opt.to_option @@ get_input elt with
+                                                          | Some nc -> nc##.checked
                                                           | None    -> Js._false);
-    set elt "set_checked"  @@ Js.wrap_callback (fun x -> match Js.Opt.to_option @@ get_nc () with
-                                                         | Some nc -> (Js.Unsafe.coerce nc)##.checked := x
+    set elt "set_checked"  @@ Js.wrap_callback (fun x -> match Js.Opt.to_option @@ get_input elt with
+                                                         | Some nc -> nc##.checked := x
                                                          | None    -> ());
-    set elt "is_disabled"  @@ Js.wrap_callback (fun () -> match Js.Opt.to_option @@ get_nc () with
-                                                          | Some nc -> (Js.Unsafe.coerce nc)##.disabled
+    set elt "is_disabled"  @@ Js.wrap_callback (fun () -> match Js.Opt.to_option @@ get_input elt with
+                                                          | Some nc -> nc##.disabled
                                                           | None    -> Js._false);
-    set elt "set_disabled" @@ Js.wrap_callback (fun x -> match Js.Opt.to_option @@ get_nc () with
-                                                         | Some nc -> (Js.Unsafe.coerce nc)##.disabled := x
+    set elt "set_disabled" @@ Js.wrap_callback (fun x -> match Js.Opt.to_option @@ get_input elt with
+                                                         | Some nc -> nc##.disabled := x
                                                          | None    -> ());
-    set elt "get_value"    @@ Js.wrap_callback (fun () -> match Js.Opt.to_option @@ get_nc () with
-                                                          | Some nc -> (Js.Unsafe.coerce nc)##.value
+    set elt "get_value"    @@ Js.wrap_callback (fun () -> match Js.Opt.to_option @@ get_input elt with
+                                                          | Some nc -> nc##.value
                                                           | None    -> Js.string "");
-    set elt "set_value"    @@ Js.wrap_callback (fun x -> match Js.Opt.to_option @@ get_nc () with
-                                                         | Some nc -> (Js.Unsafe.coerce nc)##.value := x
+    set elt "set_value"    @@ Js.wrap_callback (fun x -> match Js.Opt.to_option @@ get_input elt with
+                                                         | Some nc -> nc##.value := x
                                                          | None    -> ());
     elt
 
@@ -679,50 +422,83 @@ end
 
 module Tabs = struct
 
-  include Widgets.Tabs
+  module Tab = struct
 
-  class type component =
-    object
-    end
+    include Widgets.Tabs.Tab
 
-  class type t =
-    object
-      inherit Dom_html.element
-      method component_ : component Js.t Js.readonly_prop
-    end
-
-  module Scroller_ = struct
-
-    include Widgets.Tabs.Scroller
-
-    class type component =
+    class type t =
       object
+        method root__                 : Dom_html.element Js.t Js.readonly_prop
+        method computedWidth_         : Js.number Js.t Js.readonly_prop
+        method computedLeft_          : Js.number Js.t Js.readonly_prop
+        method isActive_              : bool Js.t Js.prop
+        method preventDefaultOnClick_ : bool Js.t Js.prop
       end
 
-    class type scroller =
+    class type selected_event =
       object
-        inherit Dom_html.element
-        method component_ : component Js.t Js.readonly_prop
+        inherit Dom_html.event
+        method detail_ : < tab_ : t Js.t Js.readonly_prop > Js.t Js.readonly_prop
       end
 
-    let create ?id ?style ?classes ?attrs ~tabs () : scroller Js.t =
-      let (elt : scroller Js.t) = create ?id ?style ?classes ?attrs ~tabs ()
-                                  |> Tyxml_js.To_dom.of_element
-                                  |> Js.Unsafe.coerce in
-      let set = fun (x : scroller Js.t) (name : string) f -> Js.Unsafe.set x name f in
-      set elt "component" @@ Js.Unsafe.(fun_call (js_expr "mdc.tabs.MDCTabBarScroller.attachTo") [| inject elt |]);
-      elt
+    type events =
+      { selected : selected_event Js.t Dom_events.Typ.typ
+      }
 
+    let events =
+      { selected = Dom_events.Typ.make "MDCTab:selected"
+      }
+
+    let attach elt : t Js.t =
+      Js.Unsafe.global##.mdc##.tabs##.MDCTab##attachTo elt
 
   end
 
-  let create ?id ?style ?classes ?attrs ?with_indicator ?color_scheme ~_type ~content () : t Js.t =
-    let (elt : t Js.t) = create ?id ?style ?classes ?attrs ?with_indicator ?color_scheme ~_type ~content ()
-                         |> Tyxml_js.To_dom.of_element
-                         |> Js.Unsafe.coerce in
-      let set = fun (x : t Js.t) (name : string) f -> Js.Unsafe.set x name f in
-      set elt "component" @@ Js.Unsafe.(fun_call (js_expr "mdc.tabs.MDCTabBar.attachTo") [| inject elt |]);
-      elt
+  module Tab_bar = struct
+
+    include Widgets.Tabs.Tab_bar
+
+    class type t =
+      object
+        method root__          : Dom_html.element Js.t Js.readonly_prop
+        method tabs_           : Tab.t Js.t Js.js_array Js.readonly_prop
+        method activeTab_      : Tab.t Js.t Js.prop
+        method activeTabIndex_ : Js.number Js.t Js.prop
+      end
+
+    class type change_event =
+      object
+        inherit Dom_html.event
+        method detail_ : t Js.t Js.readonly_prop
+      end
+
+    type events =
+      { change : change_event Js.t Dom_events.Typ.typ
+      }
+
+    let events =
+      { change = Dom_events.Typ.make "MDCTabBar:change"
+      }
+
+    let attach elt : t Js.t =
+      Js.Unsafe.global##.mdc##.tabs##.MDCTabBar##attachTo elt
+
+  end
+
+  module Scroller = struct
+
+    include Widgets.Tabs.Scroller
+
+    class type t =
+      object
+        method root__  : Dom_html.element Js.t Js.readonly_prop
+        method tabBar_ : Tab_bar.t Js.t Js.readonly_prop
+      end
+
+    let attach elt : t Js.t =
+      Js.Unsafe.global##.mdc##.tabs##.MDCTabBarScroller##attachTo elt
+
+  end
 
 end
 
@@ -732,8 +508,30 @@ module Textfield = struct
 
   class type t =
     object
-      inherit Dom_html.element
+      method root__           : Dom_html.divElement Js.t Js.readonly_prop
+      method helptextElement_ : Dom_html.element Js.t Js.prop
+      method disabled_        : bool Js.t Js.prop
+      method valid_           : bool Js.t Js.writeonly_prop
+      method ripple           : Ripple.t Js.t Js.prop
     end
+
+  type events =
+    { icon : Dom_html.event Js.t Dom_events.Typ.typ
+    }
+
+  let events =
+    { icon = Dom_events.Typ.make "MDCTextfield:icon"
+    }
+
+  let get_input (textfield : Dom_html.divElement Js.t) : Dom_html.inputElement Js.t Js.opt =
+    textfield##querySelector (Js.string ("." ^ input_class))
+    |> Js.Opt.to_option
+    |> (function
+        | Some x -> Js.Opt.return @@ Js.Unsafe.coerce x
+        | None   -> Js.Opt.empty)
+
+  let attach elt : t Js.t =
+    Js.Unsafe.global##.mdc##.textfield##.MDCTextfield##attachTo elt
 
 end
 
