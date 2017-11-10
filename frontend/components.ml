@@ -57,11 +57,11 @@ module Dialog = struct
 
   class type t =
     object
-      method root__      : Dom_html.element Js.t Js.readonly_prop
-      method foundation_ : foundation Js.t Js.readonly_prop
-      method open_       : bool Js.t Js.prop
-      method show_       : unit -> unit Js.meth
-      method close_      : unit -> unit Js.meth
+      method root__       : Dom_html.element Js.t Js.readonly_prop
+      method foundation__ : foundation Js.t Js.readonly_prop
+      method open_        : bool Js.t Js.prop
+      method show_        : unit -> unit Js.meth
+      method close_       : unit -> unit Js.meth
     end
 
   type events =
@@ -435,8 +435,14 @@ module Tabs = struct
         method preventDefaultOnClick_ : bool Js.t Js.prop
       end
 
+    class type selected_event =
+      object
+        inherit Dom_html.event
+        method detail_ : < tab_ : t Js.t Js.readonly_prop > Js.t Js.readonly_prop
+      end
+
     type events =
-      { selected : Dom_html.event Js.t Dom_events.Typ.typ
+      { selected : selected_event Js.t Dom_events.Typ.typ
       }
 
     let events =
@@ -445,7 +451,6 @@ module Tabs = struct
 
     let attach elt : t Js.t =
       Js.Unsafe.global##.mdc##.tabs##.MDCTab##attachTo elt
-
 
   end
 
@@ -461,14 +466,19 @@ module Tabs = struct
         method activeTabIndex_ : Js.number Js.t Js.prop
       end
 
+    class type change_event =
+      object
+        inherit Dom_html.event
+        method detail_ : t Js.t Js.readonly_prop
+      end
+
     type events =
-      { change : Dom_html.event Js.t Dom_events.Typ.typ
+      { change : change_event Js.t Dom_events.Typ.typ
       }
 
     let events =
       { change = Dom_events.Typ.make "MDCTabBar:change"
       }
-
 
     let attach elt : t Js.t =
       Js.Unsafe.global##.mdc##.tabs##.MDCTabBar##attachTo elt

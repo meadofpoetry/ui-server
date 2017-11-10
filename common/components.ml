@@ -74,7 +74,17 @@ module Make
 
   module Card = struct
 
-    let base_class = "mdc-card"
+    let base_class             = "mdc-card"
+    let horizontal_block_class = CSS.add_element base_class "horizontal-block"
+
+    module Media_item = struct
+
+      let _class              = CSS.add_element base_class "media-item"
+      let height_1dot5x_class = CSS.add_modifier _class "1dot5x"
+      let height_2x_class     = CSS.add_modifier _class "2x"
+      let height_3x_class     = CSS.add_modifier _class "3x"
+
+    end
 
     module Media = struct
 
@@ -89,10 +99,13 @@ module Make
 
     module Actions = struct
 
-      let _class = CSS.add_element base_class "actions"
+      let _class       = CSS.add_element base_class "actions"
+      let action_class = CSS.add_element base_class "action"
 
-      let create ?(classes=[]) ?id ?style ?attrs ~children () =
-        section ~a:([a_class (_class :: classes)]
+      let create ?(classes=[]) ?id ?style ?attrs ?(vertical=false) ~children () =
+        section ~a:([ a_class (classes
+                               |> cons_if vertical @@ CSS.add_modifier _class "vertical"
+                               |> CCList.cons _class) ]
                     |> add_common_attrs ?id ?style ?attrs)
                 children
 
@@ -135,7 +148,7 @@ module Make
     end
 
     let create ?(sections=[]) ?id ?style ?(classes=[]) ?attrs () =
-      div ~a:([a_class ("mdc-card" :: classes)]
+      div ~a:([a_class (base_class :: classes)]
               |> add_common_attrs ?id ?style ?attrs)
           sections
 

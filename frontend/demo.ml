@@ -110,8 +110,12 @@ let card_demo () =
                                        ~children:[Html.pcdata "Supporting text"]
                                        ()
                                    ; Card.Actions.create
-                                       ~children:[ Button.create ~label:"Action 1" ()
-                                                 ; Button.create ~label:"Action 2" ()]
+                                       ~children:[ Button.create ~classes:[Card.Actions.action_class]
+                                                                 ~compact:true
+                                                                 ~label:"Action 1" ()
+                                                 ; Button.create ~classes:[Card.Actions.action_class]
+                                                                 ~compact:true
+                                                                 ~label:"Action 2" ()]
                                        ()]
                          ~style:"width:320px;"
                          () in
@@ -408,9 +412,26 @@ let tabs_demo () =
   let text_section = let items = List.map (fun x ->
                                      Tabs.Tab.create ~content:(`Text ("Tab " ^ (string_of_int x))) ())
                                           (CCList.range 0 3) in
-                     let tabs = Tabs.Tab_bar.create ~_type:`Text
-                                                    ~content:items ()
-                                |> Tabs.Tab_bar.attach in
+                     let tabs = Tabs.Tab_bar.create ~_type:`Text ~content:items () |> Tabs.Tab_bar.attach in
+                     Dom_html.addEventListener
+                       tabs##.root__
+                       Tabs.Tab.events.selected
+                       (Dom_html.handler (fun e ->
+                            print_endline ("Tab:selected " ^ (e##.detail_##.tab_##.computedLeft_
+                                                              |> Js.float_of_number
+                                                              |> string_of_float));
+                            Js._false))
+                       Js._false |> ignore;
+                     Dom_html.addEventListener
+                       tabs##.root__
+                       Tabs.Tab_bar.events.change
+                       (Dom_html.handler (fun e ->
+                            print_endline ("TabBar:change " ^ (e##.detail_##.activeTabIndex_
+                                                               |> Js.float_of_number
+                                                               |> int_of_float
+                                                               |> string_of_int));
+                            Js._false))
+                       Js._false |> ignore;
                      subsection "With text labels" @@ of_dom tabs##.root__ in
   let it_section = let items = List.map (fun x ->
                                    Tabs.Tab.create ~content:(`Text_and_icon ("Tab " ^ string_of_int x,
