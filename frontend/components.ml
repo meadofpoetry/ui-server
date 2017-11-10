@@ -277,9 +277,62 @@ end
 
 module Select = struct
 
-  include Widgets.Select
+  let base_class = Widgets.Select.base_class
 
-  class type t = Dom_html.element
+  module Base = struct
+
+    include Widgets.Select.Base
+
+    class type t =
+      object
+        method root__           : Dom_html.divElement Js.t Js.readonly_prop
+        method value_           : Js.js_string Js.t Js.readonly_prop
+        method options_         : Dom_html.element Js.js_array Js.t Js.readonly_prop
+        method selectedIndex_   : Js.number Js.t Js.prop
+        method selectedOptions_ : Dom_html.element Js.js_array Js.t Js.readonly_prop
+        method disabled_        : bool Js.t Js.prop
+        method item_            : (Js.number Js.t -> Dom_html.element Js.t Js.opt) Js.meth
+        method nameditem_       : (Js.js_string Js.t -> Dom_html.element Js.t Js.opt) Js.meth
+      end
+
+    class type change_event =
+      object
+        inherit Dom_html.event
+        method detail_ : t Js.t Js.readonly_prop
+      end
+
+    type events =
+      { change : change_event Js.t Dom_events.Typ.typ
+      }
+
+    let events =
+      { change = Dom_events.Typ.make "MDCSelect:change"
+      }
+
+    let attach elt : t Js.t =
+      Js.Unsafe.global##.mdc##.select##.MDCSelect##attachTo elt
+
+  end
+
+  module Pure = struct
+
+    include Widgets.Select.Pure
+
+    class type t = Dom_html.selectElement
+
+    let attach elt : t Js.t = Tyxml_js.To_dom.of_select elt
+
+  end
+
+  module Multi = struct
+
+    include Widgets.Select.Multi
+
+    class type t = Dom_html.selectElement
+
+    let attach elt : t Js.t = Tyxml_js.To_dom.of_select elt
+
+  end
 
 end
 
@@ -417,7 +470,6 @@ module Switch = struct
                                                          | None    -> ());
     elt
 
-
 end
 
 module Tabs = struct
@@ -539,49 +591,28 @@ module Toolbar = struct
 
   include Widgets.Toolbar
 
-  class type component =
-    object
-      method fixedAdjustElement : Dom_html.element Js.t Js.prop
-    end
-
   class type t =
     object
-      inherit Dom_html.element
-      method component_            : component Js.t Js.readonly_prop
-      method set_fixed_adjust_elt_ : Dom_html.element Js.t -> unit Js.meth
-      method get_fixed_adjust_elt_ : unit -> Dom_html.element Js.t Js.meth
+      method root__              : Dom_html.element Js.t Js.readonly_prop
+      method fixedAdjustElement_ : Dom_html.element Js.t Js.prop
     end
 
-  class type detail =
-    object
-      method flexibleExpansionRatio : Js.number Js.t Js.readonly_prop
-    end
-
-  class type event =
+  class type change_event =
     object
       inherit Dom_html.event
-      method detail_ : detail Js.t Js.readonly_prop
+      method detail_ : < flexibleExpansionRatio_ : Js.number Js.t Js.readonly_prop > Js.t Js.readonly_prop
     end
 
   type events =
-    { change : event Js.t Dom_events.Typ.typ
+    { change : change_event Js.t Dom_events.Typ.typ
     }
 
   let events =
     { change = Dom_events.Typ.make "MDCToolbar:change"
     }
 
-  let create ?id ?style ?classes ?attrs ?fixed ?fixed_last_row ?waterfall
-             ?flexible ?flexible_height ~content () =
-    let (elt : t Js.t) = create ?id ?style ?classes ?attrs ?fixed ?fixed_last_row ?waterfall
-                                ?flexible ?flexible_height ~content ()
-                         |> Tyxml_js.To_dom.of_element
-                         |> Js.Unsafe.coerce in
-    let set = fun (x : t Js.t) (name : string) f -> Js.Unsafe.set x name f in
-    set elt "component" @@ Js.Unsafe.(fun_call (js_expr "mdc.toolbar.MDCToolbar.attachTo") [| inject elt |]);
-    set elt "set_fixed_adjust_elt" @@ Js.wrap_callback (fun x  -> elt##.component_##.fixedAdjustElement := x);
-    set elt "get_fixed_adjust_elt" @@ Js.wrap_callback (fun () -> elt##.component_##.fixedAdjustElement);
-    elt
+  let attach elt : t Js.t =
+    Js.Unsafe.global##.mdc##.toolbar##.MDCToolbar##attachTo elt
 
 end
 

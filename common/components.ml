@@ -641,15 +641,15 @@ module Make
                  ~text ?text_id ?text_style ?text_classes ?text_attrs ?secondary_text
                  ?secondary_text_id ?secondary_text_style ?secondary_text_classes ?secondary_text_attrs
                  ?(disabled=false) ?start_detail ?end_detail () =
-        List_.Item.create ?id ?style ?classes
-                          ~attrs:([ a_role ["menuitem"] ]
-                                  |> cons_if disabled @@ a_aria "disabled" ["true"]
-                                  |> cons_if disabled @@ a_tabindex (-1)
-                                  |> cons_if (not disabled) @@ a_tabindex 0
-                                  |> (fun x -> x @ (CCOpt.get_or ~default:[] attrs)))
-                          ~text ?text_id ?text_style ?text_classes ?text_attrs ?secondary_text
-                          ?secondary_text_id ?secondary_text_style ?secondary_text_classes ?secondary_text_attrs
-                          ?start_detail ?end_detail ()
+        create ?id ?style ?classes
+               ~attrs:([ a_role ["menuitem"] ]
+                       |> cons_if disabled @@ a_aria "disabled" ["true"]
+                       |> cons_if disabled @@ a_tabindex (-1)
+                       |> cons_if (not disabled) @@ a_tabindex 0
+                       |> (fun x -> x @ (CCOpt.get_or ~default:[] attrs)))
+               ~text ?text_id ?text_style ?text_classes ?text_attrs ?secondary_text
+               ?secondary_text_id ?secondary_text_style ?secondary_text_classes ?secondary_text_attrs
+               ?start_detail ?end_detail ()
 
     end
 
@@ -727,7 +727,115 @@ module Make
 
   module Select = struct
 
-    let base_class = "mdc-select"
+    let base_class          = "mdc-select"
+
+    module Base = struct
+
+      let menu_class          = CSS.add_element base_class "menu"
+      let selected_text_class = CSS.add_element base_class "selected-text"
+
+      module Item = struct
+
+        include List_.Item
+
+        let create ?id ?style ?classes ?attrs ?(disabled=false) ?(selected=false)
+                   ~text ?text_id ?text_style ?text_classes ?text_attrs
+                   ?start_detail ?end_detail () =
+          create ?id ?style ?classes
+                 ~attrs:([ a_role ["option"]]
+                         |> cons_if selected @@ a_aria "selected" []
+                         |> cons_if disabled @@ a_aria "disabled" ["true"]
+                         |> cons_if disabled @@ a_tabindex (-1)
+                         |> cons_if (not disabled) @@ a_tabindex 0
+                         |> (fun x -> x @ (CCOpt.get_or ~default:[] attrs)))
+                 ~text ?text_id ?text_style ?text_classes ?text_attrs ?start_detail ?end_detail ()
+
+      end
+
+      let create ?id ?style ?(classes=[]) ?attrs ?(selected_text="") ?(disabled=false)
+                 ?menu_id ?menu_style ?(menu_classes=[]) ?menu_attrs ~items () =
+        div ~a:([ a_class (classes
+                           |> cons_if disabled @@ CSS.add_modifier base_class "disabled"
+                           |> CCList.cons base_class)
+                ; a_role ["listbox"]]
+                |> cons_if (not disabled) @@ a_tabindex 0
+                |> cons_if disabled       @@ a_tabindex (-1)
+                |> cons_if disabled       @@ a_aria "disabled" ["true"]
+                |> add_common_attrs ?id ?style ?attrs)
+            [ span ~a:([ a_class [selected_text_class] ]) [pcdata selected_text]
+            ; div  ~a:([ a_class (Menu.base_class :: menu_class :: menu_classes) ]
+                       |> add_common_attrs ?id:menu_id ?style:menu_style ?attrs:menu_attrs)
+                   [ List_.create ~classes:[Menu.items_class] ~items ()]
+            ]
+
+    end
+
+    module Pure = struct
+
+      module Item = struct
+
+        let create ?id ?style ?(classes=[]) ?attrs ?(disabled=false) ?(selected=false) ?value ~text () =
+          option ~a:([ a_class classes ]
+                     |> map_cons_option ~f:a_value value
+                     |> cons_if disabled @@ a_disabled ()
+                     |> cons_if selected @@ a_selected ()
+                     |> add_common_attrs ?id ?style ?attrs)
+                 (pcdata text)
+
+        let create_group ?id ?style ?(classes=[]) ?attrs ~label ~items () =
+          optgroup ~a:([ a_class classes ]
+                       |> add_common_attrs ?id ?style ?attrs)
+                   ~label
+                   items
+
+      end
+
+      let create ?id ?style ?(classes=[]) ?attrs ?(disabled=false) ~items () =
+        select ~a:([ a_class (base_class :: classes) ]
+                   |> cons_if disabled @@ a_disabled ()
+                   |> add_common_attrs ?id ?style ?attrs)
+               items
+
+    end
+
+    module Multi = struct
+
+      let _class = "mdc-multi-select"
+
+      module Item = struct
+
+        let create ?id ?style ?(classes=[]) ?attrs ?(disabled=false) ?(selected=false) ?value ~text () =
+          option ~a:([ a_class (List_.Item._class :: classes) ]
+                     |> map_cons_option ~f:a_value value
+                     |> cons_if disabled @@ a_disabled ()
+                     |> cons_if selected @@ a_selected ()
+                     |> add_common_attrs ?id ?style ?attrs)
+                 (pcdata text)
+
+        let create_divider ?id ?style ?(classes=[]) ?attrs () =
+          option ~a:([ a_class (List_.Item.divider_class :: classes)
+                     ; a_role ["presentation"]
+                     ; a_disabled () ]
+                     |> add_common_attrs ?id ?style ?attrs)
+                 (pcdata "")
+
+        let create_group ?id ?style ?(classes=[]) ?attrs ~label ~items () =
+          optgroup ~a:([ a_class (List_.List_group._class :: classes) ]
+                       |> add_common_attrs ?id ?style ?attrs)
+                   ~label
+                   items
+
+      end
+
+      let create ?id ?style ?(classes=[]) ?attrs ?(disabled=false) ?size ~items () =
+        select ~a:([ a_class (_class :: List_.base_class :: classes)
+                   ; a_multiple () ]
+                   |> map_cons_option ~f:a_size size
+                   |> cons_if disabled @@ a_disabled ()
+                   |> add_common_attrs ?id ?style ?attrs)
+               items
+
+    end
 
   end
 
@@ -1015,15 +1123,12 @@ module Make
                [ pcdata title ]
 
         let create ?id ?style ?(classes=[]) ?attrs ?align ?(shrink_to_fit=false) ~content () =
-          section ~a:([ a_class (_class :: classes
-                                 |> (fun x ->
-                                   match align with
-                                   | Some `Start -> x @ [CSS.add_modifier _class "align-start"]
-                                   | Some `End   -> x @ [CSS.add_modifier _class "align-end"]
-                                   | None        -> x)
-                                 |> (fun x -> if shrink_to_fit
-                                              then x @ [CSS.add_modifier _class "shrink-to-fit"]
-                                              else x)) ]
+          section ~a:([ a_class (classes
+                                 |> map_cons_option ~f:(function
+                                                        | `Start -> CSS.add_modifier _class "align-start"
+                                                        | `End   -> CSS.add_modifier _class "align-end") align
+                                 |> cons_if shrink_to_fit @@ CSS.add_modifier _class "shrink-to-fit"
+                                 |> CCList.cons _class) ]
                       |> add_common_attrs ?id ?style ?attrs)
                   content
 
@@ -1041,15 +1146,12 @@ module Make
     let create ?id ?style ?(classes=[]) ?attrs
                ?(fixed=false) ?(fixed_last_row=false) ?(waterfall=false)
                ?(flexible=false) ?flexible_height ~content () =
-      header ~a:([ a_class (base_class :: classes
-                            |> (fun x -> if fixed then x @ [CSS.add_modifier base_class "fixed"] else x)
-                            |> (fun x -> if fixed && waterfall
-                                         then x @ [CSS.add_modifier base_class "waterfall"]
-                                         else x)
-                            |> (fun x -> if fixed && fixed_last_row
-                                         then x @ [CSS.add_modifier base_class "fixed-lastrow-only"]
-                                         else x)
-                            |> (fun x -> if flexible then x @ [CSS.add_modifier base_class "flexible"] else x)) ]
+      header ~a:([ a_class (classes
+                            |> cons_if fixed @@ CSS.add_modifier base_class "fixed"
+                            |> cons_if (fixed && waterfall) @@ CSS.add_modifier base_class "waterfall"
+                            |> cons_if (fixed && fixed_last_row) @@ CSS.add_modifier base_class "fixed-lastrow-only"
+                            |> cons_if flexible @@ CSS.add_modifier base_class "flexible"
+                            |> CCList.cons base_class) ]
                  |> add_common_attrs ?id
                                      ?style:(let s = "--" ^ base_class ^ "-ratio-to-extend-flexible" in
                                              match flexible_height with

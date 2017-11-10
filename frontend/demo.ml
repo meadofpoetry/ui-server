@@ -2,9 +2,10 @@ open Lwt_react
 open Components
 open Tyxml_js
 
-let demo_section ?(style="") title content =
+let demo_section ?(style="") ?(classes=[]) title content =
   Html.section ~a:[ Html.a_style ("margin: 24px; padding: 24px;\
-                                   border: 1px solid rgba(0, 0, 0, .12);" ^ style) ]
+                                   border: 1px solid rgba(0, 0, 0, .12);" ^ style)
+                  ; Html.a_class classes ]
                ( Html.h2 ~a:[ Html.a_class [Typography.headline_class]] [Html.pcdata title]
                  :: content)
   |> Tyxml_js.To_dom.of_element
@@ -417,9 +418,9 @@ let tabs_demo () =
                        tabs##.root__
                        Tabs.Tab.events.selected
                        (Dom_html.handler (fun e ->
-                            print_endline ("Tab:selected " ^ (e##.detail_##.tab_##.computedLeft_
-                                                              |> Js.float_of_number
-                                                              |> string_of_float));
+                            print_endline ("Tab:selected. Left offset: " ^ (e##.detail_##.tab_##.computedLeft_
+                                                                            |> Js.float_of_number
+                                                                            |> string_of_float));
                             Js._false))
                        Js._false |> ignore;
                      Dom_html.addEventListener
@@ -562,31 +563,124 @@ let textfield_demo () =
   let textarea_sect = subsection "Textarea" @@ of_dom textarea##.root__ in
   demo_section "Textfield" [ css_sect; js_sect; dense_sect; icon_sect; css_textarea_sect; textarea_sect ]
 
-let add_demos parent demos =
-  List.iter (fun x -> Dom.appendChild parent x) demos
+let select_demo () =
+  let js_select = let items = List.map (fun x -> Select.Base.Item.create
+                                                   ~id:("index " ^ (string_of_int x))
+                                                   ~text:("Select item " ^ (string_of_int x))
+                                                   ~disabled:(x = 4)
+                                                   ())
+                                       (CCList.range 0 5) in
+                  let select = Select.Base.create ~selected_text:"Pick smth"
+                                                  ~items
+                                                  ()
+                               |> Select.Base.attach in
+                  Dom_html.addEventListener
+                    select##.root__
+                    Select.Base.events.change
+                    (Dom_html.handler (fun e ->
+                         print_endline ("Select:change "
+                                        ^ (e##.detail_##.selectedIndex_
+                                           |> Js.float_of_number
+                                           |> int_of_float
+                                           |> string_of_int)
+                                        ^ ". Value: "
+                                        ^ (e##.detail_##.value_
+                                           |> Js.to_string));
+                         Js._false))
+                    Js._false |> ignore;
+                  subsection "Full-fidelity select" @@ of_dom select##.root__ in
+  let css_select = let items = (Select.Pure.Item.create_group
+                                 ~label:"Group"
+                                 ~items:(List.map (fun x -> Select.Pure.Item.create
+                                                              ~text:("Group item " ^ (string_of_int x))
+                                                              ~disabled:(x = 1)
+                                                              ())
+                                                  (CCList.range 0 2))
+                                 ()) :: (List.map (fun x -> Select.Pure.Item.create
+                                                              ~text:("Select item " ^ (string_of_int x))
+                                                              ~disabled:(x = 4)
+                                                              ())
+                                                  (CCList.range 0 5)) in
+                   let select = Select.Pure.create ~items () in
+                   subsection "CSS-only select" select in
+  let multi = let items = (Select.Multi.Item.create_group
+                             ~label:"Group 1"
+                             ~items:(List.map (fun x -> Select.Multi.Item.create
+                                                          ~text:("Group item " ^ (string_of_int x))
+                                                          ())
+                                              (CCList.range 0 2))
+                             ())
+                          :: (Select.Multi.Item.create_divider ())
+                          :: (Select.Multi.Item.create_group
+                             ~label:"Group 2"
+                             ~items:(List.map (fun x -> Select.Multi.Item.create
+                                                          ~text:("Group item " ^ (string_of_int x))
+                                                          ())
+                                              (CCList.range 0 2))
+                             ())
+                          :: [] in
+              let select = Select.Multi.create ~items ~size:6 () in
+              subsection "CSS-only multi select" select in
+  demo_section "Select" [ js_select; css_select; multi ]
+
+let toolbar_demo () =
+  let last_row = Toolbar.Row.create
+                   ~content:[ Toolbar.Row.Section.create
+                                ~align:`Start
+                                ~content:[ Html.i ~a:[Html.a_class [ "material-icons"
+                                                                  ; Toolbar.Row.Section.icon_class]]
+                                                 [Html.pcdata "menu"]
+                                         ; Toolbar.Row.Section.create_title ~title:"Widgets demo page" () ]
+                                ()
+                            ; Toolbar.Row.Section.create
+                                ~align:`End
+                                ~content:[Html.i ~a:[Html.a_class [ "material-icons"
+                                                                  ; Toolbar.Row.Section.icon_class]]
+                                                 [Html.pcdata "favorite"]]
+                                ()
+                            ]
+                   () in
+  let toolbar = Toolbar.create ~content:[ last_row ]
+                               ~id:"toolbar"
+                               ~waterfall:true
+                               ~flexible:true
+                               ~fixed:true
+                               () in
+  To_dom.of_element toolbar
+
+let add_demos demos =
+  Html.div ~a:[ Html.a_id "demo-div"]
+           @@ CCList.map Of_dom.of_element demos
+  |> To_dom.of_element
 
 let onload _ =
   let doc = Dom_html.document in
   let body = doc##.body in
-  add_demos body [ button_demo ()
-                 ; fab_demo ()
-                 ; radio_demo ()
-                 ; checkbox_demo ()
-                 ; switch_demo ()
-                 ; toggle_demo ()
-                 ; textfield_demo ()
-                 ; card_demo ()
-                 ; slider_demo ()
-                 ; grid_list_demo ()
-                 ; ripple_demo ()
-                 ; layout_grid_demo ()
-                 ; dialog_demo ()
-                 ; list_demo ()
-                 ; menu_demo ()
-                 ; snackbar_demo ()
-                 ; linear_progress_demo ()
-                 ; tabs_demo ()
-                 ];
+  let toolbar = toolbar_demo () in
+  let demos = add_demos [ button_demo ()
+                        ; fab_demo ()
+                        ; radio_demo ()
+                        ; checkbox_demo ()
+                        ; switch_demo ()
+                        ; toggle_demo ()
+                        ; select_demo ()
+                        ; textfield_demo ()
+                        ; card_demo ()
+                        ; slider_demo ()
+                        ; grid_list_demo ()
+                        ; ripple_demo ()
+                        ; layout_grid_demo ()
+                        ; dialog_demo ()
+                        ; list_demo ()
+                        ; menu_demo ()
+                        ; snackbar_demo ()
+                        ; linear_progress_demo ()
+                        ; tabs_demo ()
+                        ] in
+  Dom.appendChild body demos;
+  Dom.appendChild body toolbar;
+  let js_toolbar = Toolbar.attach toolbar in
+  js_toolbar##.fixedAdjustElement_ := demos;
   Js._false
 
 let () = Dom_html.addEventListener Dom_html.document
