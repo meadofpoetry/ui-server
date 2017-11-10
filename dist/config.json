@@ -1,7 +1,7 @@
 {
     "pipeline": {
         "bin_name": "ats3-backend",
-        "bin_path": "/home/alexander/Documents/soft/dev/ats-analyzer/build",
+        "bin_path": "/home/freyr/Documents/soft/dev/ats-analyzer/build",
         "sources": [
             "udp://224.1.2.2:1234"
         ],
@@ -13,30 +13,37 @@
         "db_path": "./db"
     },
     "topology": [
-        // [
-        //     "Board",
-        //     {
-        //         "typ":"DVB",
-        //         "control": 4,
-        //         "model": "rf",
-        //         "manufacturer": "niitv",
-        //         "connection":["No_response"],
-        //         "version": 1,
-        //         "ports": []
-        //     }
-        // ],
-        // [
-        //     "Board",
-        //     {
-        //         "typ":"IP2TS",
-        //         "control": 5,
-        //         "model": "dtm-3200",
-        //         "manufacturer": "dektec",
-        //         "connection":["No_response"],
-        //         "version": 1,
-        //         "ports": []
-        //     }
-        // ]
+        [
+            "Board",
+            {
+                "typ":"TS",
+                "control": 2,
+                "model": "qos",
+                "manufacturer": "niitv",
+                "connection":["No_response"],
+                "version": 1,
+                "ports": [ {"port": 0, "listening": true, "child":
+                            [ "Board",
+                              {
+                                  "typ":"IP2TS",
+                                  "control": 4,
+                                  "model": "dtm-3200",
+                                  "manufacturer": "dektec",
+                                  "connection":["No_response"],
+                                  "version": 1,
+                                  "ports": [
+                                      {
+                                          "port": 0,
+                                          "listening": true,
+                                          "child": [ "Input", { "input":"TSOIP", "id": 5} ]
+                                      }
+                                  ]
+                              }
+                            ]
+                           },
+                           {"port": 1, "listening": false, "child": [ "Input", { "input": "ASI", "id": 2}]}]
+            }
+        ],
         [
             "Board",
             {
@@ -46,8 +53,29 @@
                 "manufacturer": "niitv",
                 "connection":["No_response"],
                 "version": 1,
-                "ports": [ {"port": 0, "listening": true, "child": [ "Input", { "input":"RF", "id": 0}]},
-                           {"port": 1, "listening": false, "child": [ "Input", { "input": "ASI", "id": 0}]}]
+                "ports": [
+                    {
+                        "port": 0,
+                        "listening": true, "child":
+                        [ "Board",
+                          {
+                              "typ":"DVB",
+                              "control": 5,
+                              "model": "rf",
+                              "manufacturer": "niitv",
+                              "connection":["No_response"],
+                              "version": 1,
+                              "ports": [
+                                  {
+                                      "port": 0,
+                                      "listening": true,
+                                      "child": [ "Input", { "input":"RF", "id": 3} ]
+                                  }
+                              ]
+                          }
+                        ]
+                    }
+                ]
             }
         ]
     ],

@@ -49,6 +49,7 @@ type stream =
   } 
 and src = Port   of int
         | Stream of id
+        [@@deriving yojson, show]
 
 type t =
   { source      : source

@@ -107,6 +107,11 @@ let create config db =
                                              Map.add b.control board m)
                     Map.empty
   in
+ (* let _e = React.E.map (fun s ->
+               `List (List.map Common.Stream.to_yojson s)
+               |> Yojson.Safe.pretty_to_string
+               |> Lwt_io.printf "DVB sms: %s\n"
+               |> ignore;) @@ React.S.changes sms in *)
   let topo_signal = topo_to_signal topo boards in
   { boards; usb; topo = topo_signal }, loop ()
 
