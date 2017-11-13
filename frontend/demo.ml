@@ -659,7 +659,8 @@ let drawer_demo () =
   |> Drawer.Temporary.attach
 
 let chart_demo () =
-  Chartjs.Line.create () |> Tyxml_js.To_dom.of_canvas
+  Chartjs.typ_to_string Chartjs.Line
+  (* Chartjs.Line.create () |> Tyxml_js.To_dom.of_canvas *)
 
 let add_demos demos =
   Html.div ~a:[ Html.a_id "demo-div"
@@ -676,9 +677,9 @@ let onload _ =
   let body = doc##.body in
   let drawer  = drawer_demo () in
   let toolbar = toolbar_demo drawer () in
-  let canvas = chart_demo () in
+  (* let canvas = chart_demo () in *)
   let demos = add_demos [ button_demo ()
-                        ; (canvas :> Dom_html.element Js.t)
+                        (* ; (canvas :> Dom_html.element Js.t) *)
                         ; fab_demo ()
                         ; radio_demo ()
                         ; checkbox_demo ()
@@ -704,7 +705,7 @@ let onload _ =
   Dom.appendChild body toolbar;
   let js_toolbar = Toolbar.attach toolbar in
   js_toolbar##.fixedAdjustElement_ := demos;
-  let _ = Chartjs.Line.attach canvas in
+  (* let _ = Chartjs.Line.attach canvas in *)
   Js._false
 
 let () = Dom_html.addEventListener Dom_html.document
