@@ -17,6 +17,15 @@ let rand_int = fun () -> Random.run (Random.int 10000000)
        
 let socket_table = Hashtbl.create 1000
 
+let get_page () =
+  respond_html_elt
+    Tyxml.Html.(div
+                  [ script ~a:[a_src "/js/pipeline.js"] ( pcdata "" );
+                    h2 [ pcdata "Pipeline page" ];
+                    p  [ pcdata "Some text" ];
+                    div ~a:[ a_id "pipeline_container" ] [  ] ] )
+    ()
+
 let set body conv apply =
   yojson_of_body body >>= fun js ->
   match conv js with
@@ -71,45 +80,26 @@ let get_settings pipe () =
 let get_settings_sock sock_data body pipe () =
   get_sock sock_data body Settings.to_yojson pipe.settings_events
 
-let streams_handle pipe id meth args sock_data _ body =
+let pipeline_handle pipe id meth args sock_data _ body =
   let is_guest = Common.User.eq id `Guest in
   match meth, args with
-  | `POST, []       -> redirect_if is_guest @@ set_streams pipe body
-  | `GET,  []       -> get_streams pipe ()
-  | _ ,    ["sock"] -> get_streams_sock sock_data body pipe ()
-  | _               -> not_found ()
-  
-let settings_handle pipe id meth args sock_data _ body =
-  let is_guest = Common.User.eq id `Guest in
-  match meth, args with
-  | `POST, []       -> redirect_if is_guest @@ set_settings pipe body
-  | `GET,  []       -> get_settings pipe ()
-  | _ ,    ["sock"] -> get_settings_sock sock_data body pipe ()
-  | _               -> not_found ()
-
-let not_implemented_handle _ meth args _ _ _ =
-  match meth, args with
-  | _               -> respond_error "QoE is not active" ()
+  | `GET,  []                -> get_page ()
+  | `POST, ["streams"]       -> redirect_if is_guest @@ set_streams pipe body
+  | `GET,  ["streams"]       -> get_streams pipe ()
+  | _ ,    ["streams_sock"]  -> get_streams_sock sock_data body pipe ()
+  | `POST, ["settings"]      -> redirect_if is_guest @@ set_settings pipe body
+  | `GET,  ["settings"]      -> get_settings pipe ()
+  | _ ,    ["settings_sock"] -> get_settings_sock sock_data body pipe ()                   
+  | _                        -> not_found ()
                      
 let handlers pipe =
   [ (module struct
-       let domain = "streams"
-       let handle = streams_handle pipe
-     end : Api_handler.HANDLER);
-    (module struct
-       let domain = "settings"
-       let handle = settings_handle pipe
-     end : Api_handler.HANDLER); ]
+       let domain = "pipeline"
+       let handle = pipeline_handle pipe
+     end : Api_handler.HANDLER) ]
 
 let handlers_not_implemented () =
-  [ (module struct
-       let domain = "streams"
-       let handle = not_implemented_handle
-     end : Api_handler.HANDLER);
-    (module struct
-       let domain = "settings"
-       let handle = not_implemented_handle
-     end : Api_handler.HANDLER); ]
+  []
   
     (*
 let test _ _ body =
