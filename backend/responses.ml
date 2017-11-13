@@ -47,7 +47,9 @@ let home base =
 
 let mdc_demo base =
   let content = "" in
-  let json    = fill_json ~scripts:[ "/js/demo.js"; "/js/janus.nojquery.js"; "/js/adapter.min.js" ]
+  let json    = fill_json ~scripts:[ "/js/Chart.min.js"
+                                   ; "/js/demo.js"
+                                   ]
                           ~content:[content]
                           () in
   let html = render_with_template base "html/templates/empty.html" json in
