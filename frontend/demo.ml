@@ -296,7 +296,40 @@ let list_demo () =
                           ~two_line:true
                           ~style:"max-width: 400px;"
                           () in
-  demo_section "List" [ list ]
+  let tree = (let items = List.map (fun x ->
+                              let inner_items = List.map
+                                                  (fun x -> List_.Item.create
+                                                              ~text:("Inner " ^ (string_of_int x))
+                                                              ~end_detail:(Checkbox.create 
+                                                                             ~style:"width:24px; height:18px"
+                                                                             ~classes:[List_.Item.end_detail_class]
+                                                                             ())
+                                                              ~auto_init:true
+                                                              ())
+                                                  (CCList.range 0 5) in
+                              let inner = List_.create ~items:inner_items
+                                                       ~style:"padding-right: 0px"
+                                                       ~classes:["hide"]
+                                                       ()
+                                          |> Tyxml_js.To_dom.of_element in
+                              Html.div [ List_.Item.create
+                                           ~attrs:[Tyxml_js.Html.a_onclick (fun _ ->
+                                                       inner##.classList##toggle (Js.string "hide")
+                                                       |> ignore;
+                                                       true)]
+                                           ~text:("List item " ^ (string_of_int x))
+                                           ~end_detail:(Checkbox.create 
+                                                        ~style:"width:24px; height:18px"
+                                                        ~classes:[List_.Item.end_detail_class]
+                                                        ())
+                                           ~auto_init:true
+                                           ()
+                                       ; Tyxml_js.Of_dom.of_element inner ])
+                                   (CCList.range 0 5) in
+              List_.create ~items
+                           ~style:"max-width: 400px;"
+                           ()) in
+  demo_section "List" [ list; tree ]
 
 let menu_demo () =
   let menu_items = List.map (fun x -> if x != 2

@@ -584,7 +584,7 @@ module Make
       let end_detail_class     = CSS.add_element _class "end-detail"
       let divider_class        = "mdc-list-divider"
 
-      let create_divider ?id ?style ?(classes=[]) ?attrs ?(tag=li) ?(inset=false) () =
+      let create_divider ?id ?style ?(classes=[]) ?attrs ?(tag=div) ?(inset=false) () =
         tag ~a:([ a_class (classes
                            |> cons_if inset @@ CSS.add_modifier divider_class "inset"
                            |> CCList.cons divider_class)
@@ -592,7 +592,7 @@ module Make
                 |> add_common_attrs ?id ?style ?attrs)
             []
 
-      let create ?id ?style ?(classes=[]) ?attrs ?(auto_init=false) ?(tag=li)
+      let create ?id ?style ?(classes=[]) ?attrs ?(auto_init=false) ?(tag=div)
                  ~text ?text_id ?text_style ?(text_classes=[]) ?text_attrs ?secondary_text
                  ?secondary_text_id ?secondary_text_style ?(secondary_text_classes=[]) ?secondary_text_attrs
                  ?start_detail ?end_detail () =
@@ -631,12 +631,13 @@ module Make
 
     end
 
-    let create ?id ?style ?(classes=[]) ?attrs ?(tag=ul) ?(avatar=false)
+    let create ?id ?style ?(classes=[]) ?attrs ?(tag=div) ?(avatar=false)
                ?(dense=false) ?(two_line=false) ~items () =
-      tag ~a:([ a_class (base_class :: classes
+      tag ~a:([ a_class (classes
                          |> cons_if dense    @@ CSS.add_modifier base_class "dense"
                          |> cons_if two_line @@ CSS.add_modifier base_class "two-line"
-                         |> cons_if avatar   @@ CSS.add_modifier base_class "avatar-list") ]
+                         |> cons_if avatar   @@ CSS.add_modifier base_class "avatar-list"
+                         |> CCList.cons base_class) ]
               |> add_common_attrs ?id ?style ?attrs)
           items
 

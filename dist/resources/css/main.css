@@ -8,6 +8,10 @@
     --mdc-theme-background: #fff;
 }
 
+.hide {
+    display: none
+}
+
 html {
     height: 100%;
 }
