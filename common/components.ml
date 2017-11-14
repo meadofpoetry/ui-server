@@ -1151,14 +1151,14 @@ module Make
 
   module Textfield = struct
 
-    let base_class        = "mdc-textfield"
+    let base_class        = "mdc-text-field"
     let input_class       = CSS.add_element base_class "input"
     let label_class       = CSS.add_element base_class "label"
     let bottom_line_class = CSS.add_element base_class "bottom-line"
 
     module Help_text = struct
 
-      let _class = "mdc-textfield-helptext"
+      let _class = "mdc-text-field-helper-text"
 
       let create ?id ?style ?(classes=[]) ?attrs ?(persistent=false) ?(validation=false) ~text () =
         p ~a:([ a_class (classes

@@ -639,7 +639,7 @@ module Textfield = struct
         | None   -> Js.Opt.empty)
 
   let attach elt : t Js.t =
-    Js.Unsafe.global##.mdc##.textfield##.MDCTextfield##attachTo elt
+    Js.Unsafe.global##.mdc##.textField##.MDCTextField##attachTo elt
 
 end
 
