@@ -21,6 +21,21 @@ module Obj = struct
   let (>|=) x f = Js.Optdef.map x f
   let map x f   = Js.Optdef.option x >|= f |> Js.Unsafe.inject
   let wrap x    = Js.Optdef.option x |> Js.Unsafe.inject
+
+  type 'a opt_field = string * 'a
+
+  let map_cons_option ~f name opt l = CCOpt.map_or ~default:l (fun x -> (name, Js.Unsafe.inject @@ f x) :: l) opt
+  let cons_option name opt l        = CCOpt.map_or ~default:l (fun x -> (name, Js.Unsafe.inject x) :: l) opt
+
+  let options_to_list (l : 'a opt_field list) =
+    CCList.filter_map (fun (k,v) -> match v with
+                                    | Some v -> Some (k,Js.Unsafe.inject v)
+                                    | None   -> None) l
+
+  let options_to_array l = options_to_list l |> Array.of_list
+
+  let options_to_obj l = options_to_array l |> Js.Unsafe.obj
+
 end
 
 module Canvas = struct
@@ -41,35 +56,6 @@ module Canvas = struct
 
 end
 
-module Font = struct
-
-  type font =
-    { family : string option
-    ; size   : int option
-    ; color  : string option
-    ; style  : string option
-    }
-
-  class type t =
-    object
-      method fontSize       : int Js.optdef_prop
-      method fontStyle      : Js.js_string Js.t Js.optdef_prop
-      method fontColor      : Js.js_string Js.t Js.optdef_prop (* FIXME to color type *)
-      method fontFamily     : Js.js_string Js.t Js.optdef_prop
-    end
-
-  let to_array ?prefix font =
-    let f = (fun x -> match prefix with
-                      | None   -> x
-                      | Some s -> s ^ (String.capitalize_ascii x)) in
-    let font_size'   = (f "fontSize",   Obj.wrap font.size) in
-    let font_style'  = (f "fontStyle",  Obj.map font.style Js.string) in
-    let font_color'  = (f "fontColor",  Obj.map font.color Js.string) in
-    let font_family' = (f "fontFamily", Obj.map font.family Js.string) in
-    [| font_size'; font_style'; font_color'; font_family' |]
-
-end
-
 module Responsive = struct
 
   class type t =
@@ -80,12 +66,12 @@ module Responsive = struct
       method onResize                    : (unit -> unit) Js.prop (* FIXME *)
     end
 
-  let to_obj ?responsive ?animation_duration ?maintain_ar ?on_resize () : t Js.t =
-    let responsive'         = ("responsive", Obj.map responsive Js.bool) in
-    let animation_duration' = ("responsiveAnimationDuration", Obj.wrap animation_duration) in
-    let maintain_ar'        = ("maintainAspectRatio", Obj.map maintain_ar Js.bool) in
-    let on_resize'          = ("onResize", Obj.wrap on_resize) in
-    Js.Unsafe.obj [| responsive'; animation_duration'; maintain_ar'; on_resize' |]
+  let to_array ?responsive ?responsive_animation_duration ?maintain_ar ?on_resize () =
+    Obj.map_cons_option ~f:Js.bool "responsive" responsive []
+    |> Obj.cons_option "responsiveAnimationDuration" responsive_animation_duration
+    |> Obj.map_cons_option ~f:Js.bool "maintainAspectRatio" maintain_ar
+    |> Obj.cons_option "onResize" on_resize
+    |> Array.of_list
 
 end
 
@@ -124,18 +110,156 @@ module Interaction = struct
       method onClick_ : (unit -> unit) Js.prop (* FIXME *)
     end
 
-  let to_hover_obj ?mode ?intersect ?axis ?animation_duration () : hover Js.t =
-    let mode'               = ("mode", Obj.map mode (interaction_mode_to_string %> Js.string)) in
-    let intersect'          = ("intersect", Obj.map intersect Js.bool) in
-    let axis'               = ("axis", Obj.map axis (axis_to_string %> Js.string)) in
-    let animation_duration' = ("animationDuration", Obj.wrap animation_duration) in
-    Js.Unsafe.obj [| mode'; intersect'; axis'; animation_duration' |]
+  let to_hover_obj ?mode ?intersect ?axis ?animation_duration () =
+    Obj.map_cons_option ~f:(interaction_mode_to_string %> Js.string) "mode" mode []
+    |> Obj.map_cons_option ~f:Js.bool "intersect" intersect
+    |> Obj.map_cons_option ~f:(axis_to_string %> Js.string) "axis" axis
+    |> Obj.cons_option "animationDuration" animation_duration
+    |> Array.of_list
+    |> Js.Unsafe.obj
 
-  let to_events_obj ?events ?on_hover ?on_click () : events Js.t =
-    let events'   = ("events", Obj.map events @@ List.map (event_to_string %> Js.string)) in
-    let on_hover' = ("onHover", Obj.wrap on_hover) in
-    let on_click' = ("onClick", Obj.wrap on_click) in
-    Js.Unsafe.obj [| events'; on_hover'; on_click' |]
+  let to_events_array ?events ?on_hover ?on_click () =
+    Obj.map_cons_option ~f:(List.map (event_to_string %> Js.string)) "events" events []
+    |> Obj.cons_option "onHover" on_hover
+    |> Obj.cons_option "onClick" on_click
+    |> Array.of_list
+
+end
+
+module Font = struct
+
+  type font =
+    { family : string option
+    ; size   : int option
+    ; color  : string option
+    ; style  : string option
+    }
+
+  class type t =
+    object
+      method fontSize       : int Js.optdef_prop
+      method fontStyle      : Js.js_string Js.t Js.optdef_prop
+      method fontColor      : Js.js_string Js.t Js.optdef_prop (* FIXME to color type *)
+      method fontFamily     : Js.js_string Js.t Js.optdef_prop
+    end
+
+  let to_array ?prefix font =
+    let f = (fun x -> match prefix with
+                      | None   -> x
+                      | Some s -> s ^ (String.capitalize_ascii x)) in
+    Obj.cons_option (f "fontSize") font.size []
+    |> Obj.map_cons_option ~f:Js.string (f "fontStyle") font.style
+    |> Obj.map_cons_option ~f:Js.string (f "fontColor") font.color
+    |> Obj.map_cons_option ~f:Js.string (f "fontFamily") font.family
+    |> Array.of_list
+
+end
+
+module Animations = struct
+
+  type easing = Linear
+              | Ease_in of animation_type
+              | Ease_out of animation_type
+              | Ease_in_out of animation_type
+   and animation_type = Quad
+                      | Cubic
+                      | Quart
+                      | Quint
+                      | Sine
+                      | Expo
+                      | Circ
+                      | Elastic
+                      | Back
+                      | Bounce
+
+  let animation_type_to_string = function
+    | Quad -> "Quad" | Cubic  -> "Cubic" | Quart -> "Quart" | Quint   -> "Quint"
+    | Sine -> "Sine" | Expo   -> "Expo"  | Circ  -> "Circ"  | Elastic -> "Elastic"
+    | Back -> "Back" | Bounce -> "Bounce"
+
+  let easing_to_string = function
+    | Linear        -> "linear"
+    | Ease_in x     -> "easeIn" ^ animation_type_to_string x
+    | Ease_out x    -> "easeOut" ^ animation_type_to_string x
+    | Ease_in_out x -> "easeInOut" ^ animation_type_to_string x
+
+  class type animation =
+    object
+      method chart               : unit Js.t Js.prop (* FIXME *)
+      method currentStep         : Js.number Js.t Js.prop
+      method numSteps            : Js.number Js.t Js.prop
+      method easing              : Js.js_string Js.t Js.prop
+      method render              : unit Js.t Js.prop (* FIXME *)
+      method onAnimationProgress : unit Js.t Js.prop (* FIXME *)
+      method onAnimationComplete : unit Js.t Js.prop (* FIXME *)
+    end
+
+  class type t =
+    object
+      method duration   : int Js.optdef_prop
+      method easing     : Js.js_string Js.t Js.optdef_prop
+      method onProgress : (animation Js.t -> unit) Js.meth Js.optdef_prop
+      method onComplete : (animation Js.t -> unit) Js.meth Js.optdef_prop
+    end
+
+  let to_obj ?duration ?easing ?on_progress ?on_complete () =
+    Obj.cons_option "duration" duration []
+    |> Obj.map_cons_option ~f:(easing_to_string %> Js.string) "easing" easing
+    |> Obj.map_cons_option ~f:Js.wrap_callback "onProgress" on_progress
+    |> Obj.map_cons_option ~f:Js.wrap_callback "onComplete" on_complete
+    |> Array.of_list
+    |> Js.Unsafe.obj
+
+end
+
+module Layout = struct
+
+  type num_or_obj
+
+  type padding = Number of int
+               | Object of padding_obj
+   and padding_obj =
+     { left   : int
+     ; right  : int
+     ; top    : int
+     ; bottom : int
+     }
+
+  class type coord =
+    object
+      method left   : int Js.optdef_prop
+      method right  : int Js.optdef_prop
+      method top    : int Js.optdef_prop
+      method bottom : int Js.optdef_prop
+    end
+
+  class type t =
+    object
+      method padding : num_or_obj Js.t Js.optdef_prop
+    end
+
+  let cast_number (x : num_or_obj Js.t)  : Js.number Js.t Js.opt =
+    if Js.typeof x = (Js.string "number")
+    then Js.some (Js.Unsafe.coerce x)
+    else Js.null
+
+  let cast_object (x : num_or_obj Js.t) : coord Js.t Js.opt =
+    if Js.typeof x = (Js.string "object")
+    then Js.some (Js.Unsafe.coerce x)
+    else Js.null
+
+  let to_obj ?padding () =
+    (match padding with
+     | Some x -> [| "padding", (match x with
+                                | Number n -> Js.Unsafe.inject n
+                                | Object o -> [| "left",   Js.Unsafe.inject o.left
+                                               ; "right",  Js.Unsafe.inject o.right
+                                               ; "top",    Js.Unsafe.inject o.top
+                                               ; "bottom", Js.Unsafe.inject o.bottom |]
+                                              |> Js.Unsafe.obj
+                                              |> Js.Unsafe.inject) |]
+     | None  -> [| |])
+    |> Js.Unsafe.obj
 
 end
 
@@ -182,23 +306,25 @@ module Legend = struct
     | Top -> "top" | Left -> "left" | Bottom -> "bottom" | Right -> "right"
 
   let labels_to_obj ?box_width ?font ?padding ?use_point_style () : labels Js.t =
-    [| "boxWidth", Obj.wrap box_width
-     ; "padding",  Obj.wrap padding
-     ; "usePointStyle", Obj.map use_point_style Js.bool |]
+    Obj.cons_option "boxWidth" box_width []
+    |> Obj.cons_option "padding" padding
+    |> Obj.map_cons_option ~f:Js.bool "usePointStyle" use_point_style
+    |> Array.of_list
     |> (fun x -> match font with
                  | Some font -> Array.append x @@ Font.to_array font
                  | None      -> x)
     |> Js.Unsafe.obj
 
   let to_obj ?display ?position ?full_width ?on_click ?on_hover ?reverse ?labels () : t Js.t =
-    let display'    = ("display",   Obj.map display Js.bool) in
-    let position'   = ("position",  Obj.map position @@ position_to_string %> Js.string) in
-    let full_width' = ("fullWidth", Obj.map full_width Js.bool) in
-    let on_click'   = ("onClick",   Obj.wrap on_click) in
-    let on_hover'   = ("onHover",   Obj.wrap on_hover) in
-    let reverse'    = ("reverse",   Obj.map reverse Js.bool) in
-    let labels'     = ("labels",    Obj.wrap labels) in
-    Js.Unsafe.obj [| display'; position'; full_width'; on_click'; on_hover'; reverse'; labels' |]
+    Obj.map_cons_option ~f:Js.bool "display" display []
+    |> Obj.map_cons_option ~f:(position_to_string %> Js.string) "position" position
+    |> Obj.map_cons_option ~f:Js.bool "fullWidth" full_width
+    |> Obj.cons_option "onClick" on_click
+    |> Obj.cons_option "onHover" on_hover
+    |> Obj.map_cons_option ~f:Js.bool "reverse" reverse
+    |> Obj.cons_option "labels" labels
+    |> Array.of_list
+    |> Js.Unsafe.obj
 
 end
 
@@ -217,11 +343,12 @@ module Title = struct
     end
 
   let to_obj ?display ?position ?font ?padding ?line_height ?text () : t Js.t =
-    [| "display",    Obj.map display Js.bool
-     ; "position",   Obj.map position @@ Legend.position_to_string %> Js.string
-     ; "padding",    Obj.wrap padding
-     ; "lineHeight", Obj.wrap line_height
-     ; "text",       Obj.map text Js.string |]
+    Obj.map_cons_option ~f:Js.bool "display" display []
+    |> Obj.map_cons_option ~f:(Legend.position_to_string %> Js.string) "position" position
+    |> Obj.cons_option "padding" padding
+    |> Obj.cons_option "lineHeight" line_height
+    |> Obj.map_cons_option ~f:Js.string "text" text
+    |> Array.of_list
     |> (fun x -> match font with
                  | Some font -> Array.append x @@ Font.to_array font
                  | None      -> x)
@@ -278,25 +405,26 @@ module Tooltip = struct
              ?x_padding ?y_padding ?caret_padding ?caret_size
              ?corner_radius ?multi_key_background ?display_colors
              ?border_color ?border_width () : t Js.t =
-    [| "enabled",            Obj.map enabled Js.bool
-     ; "mode",               Obj.map mode @@ interaction_mode_to_string %> Js.string
-     ; "intersect",          Obj.map intersect Js.bool
-     ; "position",           Obj.map position @@ position_to_string %> Js.string
-     ; "backgroundColor",    Obj.map background_color Js.string
-     ; "titleSpacing",       Obj.wrap title_spacing
-     ; "titleMarginBottom",  Obj.wrap title_margin_bottom
-     ; "bodySpacing",        Obj.wrap body_spacing
-     ; "footerSpacing",      Obj.wrap footer_spacing
-     ; "footerMarginTop",    Obj.wrap footer_margin_top
-     ; "xPadding",           Obj.wrap x_padding
-     ; "yPadding",           Obj.wrap y_padding
-     ; "caretPadding",       Obj.wrap caret_padding
-     ; "caretSize",          Obj.wrap caret_size
-     ; "cornerRadius",       Obj.wrap corner_radius
-     ; "multiKeyBackground", Obj.map multi_key_background Js.string
-     ; "displayColors",      Obj.map display_colors Js.bool
-     ; "borderColor",        Obj.map border_color Js.string
-     ; "borderWidth",        Obj.wrap border_width |]
+    Obj.map_cons_option ~f:Js.bool "enable" enabled []
+    |> Obj.map_cons_option ~f:(interaction_mode_to_string %> Js.string) "mode" mode
+    |> Obj.map_cons_option ~f:Js.bool "intersect" intersect
+    |> Obj.map_cons_option ~f:(position_to_string %> Js.string) "position" position
+    |> Obj.map_cons_option ~f:Js.string "backgroundColor" background_color
+    |> Obj.cons_option "titleSpacing" title_spacing
+    |> Obj.cons_option "titleMarginBottom" title_margin_bottom
+    |> Obj.cons_option "bodySpacing" body_spacing
+    |> Obj.cons_option "footerSpacing" footer_spacing
+    |> Obj.cons_option "footerMarginTop" footer_margin_top
+    |> Obj.cons_option "xPadding" x_padding
+    |> Obj.cons_option "yPadding" y_padding
+    |> Obj.cons_option "caretPadding" caret_padding
+    |> Obj.cons_option "caretSize" caret_size
+    |> Obj.cons_option "cornerRadius" corner_radius
+    |> Obj.map_cons_option ~f:Js.string "multiKeyBackground" multi_key_background
+    |> Obj.map_cons_option ~f:Js.string "displayColors" display_colors
+    |> Obj.map_cons_option ~f:Js.string "borderColor" border_color
+    |> Obj.cons_option "borderWidth" border_width
+    |> Array.of_list
     |> (fun x -> match title_font with
                  | Some font -> Array.append x @@ Font.to_array ~prefix:"title" font
                  | None      -> x)
@@ -345,18 +473,39 @@ module Elements = struct
 
     let to_obj ?radius ?point_style ?background_color ?border_width
                ?border_color ?hit_radius ?hover_radius ?hover_border_width () : t Js.t =
-      [| "radius",           Obj.wrap radius
-       ; "pointStyle",       Obj.map point_style @@ point_style_to_string %> Js.string
-       ; "backgroundColor",  Obj.map background_color Js.string
-       ; "borderWidth",      Obj.wrap border_width
-       ; "borderColor",      Obj.map border_color Js.string
-       ; "hitRadius",        Obj.wrap hit_radius
-       ; "hoverBorderWidth", Obj.wrap hover_border_width |]
+      Obj.cons_option "radius" radius []
+      |> Obj.map_cons_option ~f:(point_style_to_string %> Js.string) "pointStyle" point_style
+      |> Obj.map_cons_option ~f:Js.string "backgroundColor" background_color
+      |> Obj.cons_option "borderWidth" border_width
+      |> Obj.map_cons_option ~f:Js.string "borderColor" border_color
+      |> Obj.cons_option "hitRadius" hit_radius
+      |> Obj.cons_option "hoverRadius" hover_radius
+      |> Obj.cons_option "hoverBorderWidth" hover_border_width
+      |> Array.of_list
       |> Js.Unsafe.obj
 
   end
 
   module Line = struct
+
+    type fill = Bool of bool
+              | Start
+              | End
+              | Origin
+              | Absolute_index of int
+              | Relative_index of signed
+     and signed = Plus of int | Minus of int
+
+
+    let fill_to_any = function
+      | Bool b           -> Js.Unsafe.inject @@ Js.bool b
+      | Start            -> Js.Unsafe.inject @@ Js.string "start"
+      | End              -> Js.Unsafe.inject @@ Js.string "end"
+      | Origin           -> Js.Unsafe.inject @@ Js.string "origin"
+      | Absolute_index x -> Js.Unsafe.inject @@ Js.number_of_float @@ float_of_int x
+      | Relative_index x -> (match x with
+                             | Plus x  -> Js.Unsafe.inject @@ Js.string ("+" ^ string_of_int x)
+                             | Minus x -> Js.Unsafe.inject @@ Js.string ("-" ^ string_of_int x))
 
     class type t =
       object
@@ -372,6 +521,23 @@ module Elements = struct
         method fill             : Js.js_string Js.t Js.optdef_prop
         method stepped          : bool Js.t Js.optdef_prop
       end
+
+    let to_obj ?tension ?background_color ?border_width ?border_color
+               ?border_cap_style ?border_dash ?border_dash_offset ?border_join_style
+               ?cap_bezier_points ?fill ?stepped () : t Js.t =
+      Obj.cons_option "tension" tension []
+      |> Obj.map_cons_option ~f:Js.string "backgroundColor" background_color
+      |> Obj.cons_option "borderWidth" border_width
+      |> Obj.map_cons_option ~f:Js.string "borderColor" border_color
+      |> Obj.map_cons_option ~f:(Canvas.line_cap_to_string %> Js.string) "borderCapStyle" border_cap_style
+      |> Obj.map_cons_option ~f:(Array.of_list %> Js.array) "borderDash" border_dash
+      |> Obj.cons_option "borderDashOffset" border_dash_offset
+      |> Obj.map_cons_option ~f:(Canvas.line_join_to_string %> Js.string) "borderJoinStyle" border_join_style
+      |> Obj.map_cons_option ~f:Js.bool "capBezierPoints" cap_bezier_points
+      |> Obj.map_cons_option ~f:fill_to_any "fill" fill
+      |> Obj.map_cons_option ~f:Js.bool "stepped" stepped
+      |> Array.of_list
+      |> Js.Unsafe.obj
 
   end
 
@@ -390,10 +556,11 @@ module Elements = struct
       end
 
     let to_obj ?background_color ?border_width ?border_color ?border_skipped () : t Js.t =
-      [| "backgroundColor",  Obj.map background_color Js.string
-       ; "borderWidth",      Obj.wrap border_width
-       ; "borderColor",      Obj.map border_color Js.string
-       ; "borderSkipped",    Obj.map border_skipped @@ skipped_to_string %> Js.string |]
+      Obj.map_cons_option ~f:Js.string "backgroundColor" background_color []
+      |> Obj.cons_option "borderWidth" border_width
+      |> Obj.map_cons_option ~f:Js.string "borderColor" border_color
+      |> Obj.map_cons_option ~f:(skipped_to_string %> Js.string) "borderSkipped" border_skipped
+      |> Array.of_list
       |> Js.Unsafe.obj
 
   end
@@ -407,10 +574,11 @@ module Elements = struct
         method borderColor     : Js.js_string Js.t Js.optdef_prop
       end
 
-      let to_obj ?background_color ?border_width ?border_color () : t Js.t =
-      [| "backgroundColor",  Obj.map background_color Js.string
-       ; "borderWidth",      Obj.wrap border_width
-       ; "borderColor",      Obj.map border_color Js.string |]
+    let to_obj ?background_color ?border_width ?border_color () : t Js.t =
+      Obj.map_cons_option ~f:Js.string "backgroundColor" background_color []
+      |> Obj.cons_option "borderWidth" border_width
+      |> Obj.map_cons_option ~f:Js.string "borderColor" border_color
+      |> Array.of_list
       |> Js.Unsafe.obj
 
   end
@@ -427,15 +595,27 @@ end
 
 class type t =
   object
-    method legend   : Legend.t Js.t Js.optdef_prop
-    method title    : Title.t Js.t Js.optdef_prop
-    method tooltip  : Tooltip.t Js.t Js.optdef_prop
-    method elements : Elements.t Js.t Js.optdef_prop
+    inherit Responsive.t
+    inherit Interaction.events
+    method hover     : Interaction.hover Js.t Js.optdef_prop
+    method animation : Animations.t Js.t Js.optdef_prop
+    method layout    : Layout.t Js.t Js.optdef_prop
+    method legend    : Legend.t Js.t Js.optdef_prop
+    method title     : Title.t Js.t Js.optdef_prop
+    method tooltip   : Tooltip.t Js.t Js.optdef_prop
+    method elements  : Elements.t Js.t Js.optdef_prop
   end
 
-let to_obj ?legend ?title ?tooltip ?elements () : t Js.t =
-  [| "legend",   Obj.wrap legend
-   ; "title",    Obj.wrap title
-   ; "tooltip",  Obj.wrap tooltip
-   ; "elements", Obj.wrap elements |]
+let to_obj ?hover ?animation ?layout ?legend ?title ?tooltip ?elements
+           ?responsive ?responsive_animation_duration ?maintain_ar ?on_resize
+           ?events ?on_hover ?on_click () : t Js.t =
+  Obj.options_to_array [ "hover", hover
+                       ; "animation", animation
+                       ; "layout", layout
+                       ; "legend", legend
+                       ; "title", title
+                       ; "tooltip", tooltip
+                       ; "elements", elements ]
+  |> Array.append @@ Interaction.to_events_array ?events ?on_hover ?on_click ()
+  |> Array.append @@ Responsive.to_array ?responsive ?responsive_animation_duration ?maintain_ar ?on_resize ()
   |> Js.Unsafe.obj

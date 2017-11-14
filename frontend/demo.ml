@@ -692,8 +692,8 @@ let drawer_demo () =
   |> Drawer.Temporary.attach
 
 let chart_demo () =
-  Chartjs.typ_to_string Chartjs.Line
-  (* Chartjs.Line.create () |> Tyxml_js.To_dom.of_canvas *)
+  (* Chartjs.typ_to_string Chartjs.Line *)
+  Chartjs.create_canvas () |> Tyxml_js.To_dom.of_canvas
 
 let add_demos demos =
   Html.div ~a:[ Html.a_id "demo-div"
@@ -710,9 +710,11 @@ let onload _ =
   let body = doc##.body in
   let drawer  = drawer_demo () in
   let toolbar = toolbar_demo drawer () in
-  (* let canvas = chart_demo () in *)
+  let canvas = chart_demo () in
   let demos = add_demos [ button_demo ()
-                        (* ; (canvas :> Dom_html.element Js.t) *)
+                        ; Tyxml_js.Html.div ~a:[ Html.a_style "max-width:700px"]
+                                            [canvas |> Tyxml_js.Of_dom.of_canvas]
+                          |> Tyxml_js.To_dom.of_element
                         ; fab_demo ()
                         ; radio_demo ()
                         ; checkbox_demo ()
@@ -738,7 +740,40 @@ let onload _ =
   Dom.appendChild body toolbar;
   let js_toolbar = Toolbar.attach toolbar in
   js_toolbar##.fixedAdjustElement_ := demos;
-  (* let _ = Chartjs.Line.attach canvas in *)
+  let open Chartjs.Line in
+  Random.init (Unix.time () |> int_of_float);
+  let data = Data.to_obj ~datasets:[ Data.Dataset.to_obj ~label:"My data 1"
+                                                         ~fill:(Bool false)
+                                                         ~border_color:"rgba(255,0,0,1)"
+                                                         ~data:(Points (List.map
+                                                                          (fun x -> ({ x = (float_of_int x)
+                                                                                     ; y = Random.float 10.
+                                                                                     } : Data.Dataset.xy))
+                                                                          (CCList.range 0 20))
+                                                                : Data.Dataset.data)
+                                                         ()
+                                   ; Data.Dataset.to_obj ~label:"My data 2"
+                                                         ~fill:(Bool false)
+                                                         ~border_color:"rgba(0,255,0,1)"
+                                                         ~data:(Points (List.map
+                                                                          (fun x -> ({ x = (float_of_int x)
+                                                                                     ; y = Random.float 50.
+                                                                                     } : Data.Dataset.xy))
+                                                                          (CCList.range 0 20))
+                                                                : Data.Dataset.data)
+                                                         ()
+                                   ]
+                         ~labels:(CCList.range 0 20 |> List.map string_of_int)
+                         () in
+  let ch = Chartjs.Line.attach ~data
+                               canvas in
+  (* Dom.appendChild body (Button.create ~label:"Get image" *)
+  (*                                     ~onclick:(fun _ -> ch##toBase64Image () *)
+  (*                                                        |> Js.to_string *)
+  (*                                                        |> print_endline; *)
+  (*                                                        true) *)
+  (*                                     () *)
+  (*                       |> Tyxml_js.To_dom.of_element); *)
   Js._false
 
 let () = Dom_html.addEventListener Dom_html.document
