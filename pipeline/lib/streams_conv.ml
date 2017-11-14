@@ -1,35 +1,72 @@
-type stream =
-  { stream   : int
-  ; uri      : string
-  ; channels : Streams.channel list
-  } [@@deriving yojson, lens { optional = true } ]
+let parse_uri =
+  let open Angstrom in
+  let open Common.Stream in
+  let prefix   = string "udp://" in
+  let dot, col = char '.', char ':' in
+  let number   =
+    take_while1 (function '0'..'9' -> true | _ -> false)
+    >>| int_of_string
+  in
+  let digit    =
+    number >>= fun x ->
+    if x < 256
+    then return x
+    else fail "addr digit is gt than 255"
+  in
+  let port     =
+    number >>= fun x ->
+    if x < 65536
+    then return x
+    else fail "port is gt than 65535"
+  in
+  let addr     =
+    digit
+    >>= fun d1 -> dot *> digit
+    >>= fun d2 -> dot *> digit
+    >>= fun d3 -> dot *> digit
+    >>| fun d4 -> Ipaddr.V4.make d1 d2 d3 d4
+  in
+  let pre      = prefix <|> (string "") in
+  let parser   =
+    pre *> addr <* col
+    >>= fun ip   -> port
+    >>| fun port -> { ip; port }
+  in parse_string parser
 
-type t = stream list [@@deriving yojson]
-
-let to_streams conv (s : t) : Streams.t =
+let match_streams
+      (sources : Common.Stream.source list)
+      (s : Streams.streams) : Streams.entries =
   let open Streams in
-  List.map (fun x -> { input    = conv x.stream
-                     ; id       = Int32.of_int x.stream
-                     ; uri      = x.uri
-                     ; channels = x.channels } )
-           s
+  let create stream uri (s : Common.Stream.t) =
+    match s.id with
+    | `Ip u when u = uri -> Some { source = (Stream s); stream }
+    | _                  -> None
+  in
+  let from_input input uri stream =
+    match input with
+    | None -> { stream; source = Unknown }
+    | Some input ->
+       { stream
+       ; source = Stream (Common.Stream.{ source = Input input
+                                        ; id     = `Ip uri
+                                        ; description = None }) }
+  in
+  let rec merge input parents acc = function
+    | []    -> acc
+    | x::tl ->
+       match parse_uri x.uri with
+       | Error _ -> merge input parents acc tl
+       | Ok uri  ->
+          match CCList.find_map (create x uri) parents with
+          | None   -> merge input parents ((from_input input uri x)::acc) tl
+          | Some s -> merge input parents (s::acc) tl
+  in
+  let inputs, parents = CCList.partition_map
+                          Common.Stream.(function Input i -> `Left i | Parent p -> `Right p)
+                          sources in
+  let input = CCList.head_opt inputs in
+  merge input parents [] s
 
-let of_streams conv (s : Streams.t) : t =
+let dump_streams (entries : Streams.entries) =
   let open Streams in
-  List.map (fun x -> { stream   = conv x.input
-                     ; uri      = x.uri
-                     ; channels = x.channels } )
-           s
-
-let streams_of_yojson conv js =
-  let open CCResult in
-  of_yojson js
-  >|= (to_streams conv)
-
-let streams_to_yojson conv s =
-  of_streams conv s
-  |> to_yojson
-
-let dump_streams s =
-  let open Streams in
-  List.map (fun prog -> (prog.input, Api.Msg_conv.to_string @@ stream_to_yojson prog)) s
+  List.map (fun prog -> (prog.stream.uri, Api.Msg_conv.to_string @@ stream_to_yojson prog.stream)) entries

@@ -53,18 +53,16 @@ let get_sock sock_data body conv event =
   Lwt.return (resp, (body :> Cohttp_lwt_body.t))
 
 let set_streams pipe body () =
-  set body Streams.of_yojson
-      (fun strm -> pipe.set [Streams strm])
+  set body Streams.entries_of_yojson
+      (fun strm -> pipe.set [Streams (List.map (fun e -> Streams.(e.stream)) strm)])
 
 let get_streams pipe () =
-  pipe.get [`Streams]
-  >>= function
-  | [Streams s] -> Streams.to_yojson s
-                   |> fun js -> respond_js js ()
-  | _ -> respond_error "Unknown error" ()
+  React.S.value pipe.streams_signal
+  |> Streams.entries_to_yojson
+  |> fun js -> respond_js js ()
 
 let get_streams_sock sock_data body pipe () =
-  get_sock sock_data body Streams.to_yojson pipe.streams_events
+  get_sock sock_data body Streams.entries_to_yojson (React.S.changes pipe.streams_signal)
 
 let set_settings pipe body () =
   set body Settings.of_yojson

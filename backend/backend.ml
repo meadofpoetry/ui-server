@@ -12,7 +12,7 @@ let main config =
     let hw, hwloop     = Hardware.create config db in
     let hw_api         = Hardware_api.handlers hw in
     (* QoE pipeline  *)
-    let pipe, pipeloop = Pipeline.create config db [] in
+    let pipe, pipeloop = Pipeline.create config db hw.input_sources in
     let pipe_api       =
       match pipe with
       | None -> Pipeline_api.handlers_not_implemented ()

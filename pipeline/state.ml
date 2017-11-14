@@ -1,5 +1,5 @@
 type t =
-  { streams  : Streams.t  option [@default None]
+  { streams  : Streams.entries option [@default None]
   ; settings : Settings.t option [@default None]
   ; graph    : Graph.t option [@default None]
   ; wm       : Wm.t option [@default None]

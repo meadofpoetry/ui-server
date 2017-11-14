@@ -4,7 +4,7 @@ open Lwt.Infix
 let ( % ) = CCFun.(%)
    
 type _ req =
-  | Store_streams : Streams.t -> unit Lwt.t req
+  | Store_streams : Streams.entries -> unit Lwt.t req
 
 let init o =
   Storage.Database.execute o [%sqlinit "CREATE TABLE IF NOT EXISTS streams( \

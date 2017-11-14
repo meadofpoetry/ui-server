@@ -14,10 +14,11 @@ end
 
 module Conf = Storage.Config.Make(Settings)
 module Map  = CCMap.Make(CCInt)
-            
-type t = { boards : Meta_board.board Map.t
-         ; usb    : Usb_device.t
-         ; topo   : topology React.signal
+
+type t = { boards        : Meta_board.board Map.t
+         ; usb           : Usb_device.t
+         ; topo          : topology React.signal
+         ; input_sources : Common.Stream.source list React.signal
          }
 
 let create_board db usb (b:topo_board) boards path step_duration =
@@ -71,27 +72,24 @@ let topo_to_signal topo boards =
   List.map board_to_signal topo
   |> React.S.merge (fun acc h -> h::acc) []
 
-  (*
-let transform_streams topo_board boards (streams : Common.Stream.stream list) =
+let input_sources topology boards : Common.Stream.source list React.signal =
   let open CCOpt.Infix in
-  
-  let rec for_streams (s : Common.Stream.stream) =
-    match s.source with
-    | Port n    -> (List.hd topo_board
-                    |> List.find_pred (fun p -> p.port = n)
-                    >>= fun p ->
-                    match p.child with
-                    | Input i -> Some ({ source = (Input i : Topology.source)
-                                      ; id     = (s.id :> [< `Ip_external | `Ip of Common.Stream.addr | `Ts of id])
-                                      ; description = s.description
-                                   } : Common.Stream.t)
-                    | Board b -> (Map.get b
-                                  >>= fun b ->
-                                  b.
-    | Stream id -> (CCList.find_pred (fun (s : Common.Stream.stream) -> match s.id with `Ts i -> i = id | _ -> false) streams
-                      >>= fun s ->
-                      for_streams s streams)
-   *)
+  let open React in
+  let check_stream (s : Common.Stream.t) : Common.Stream.source option =
+    match s.id with
+    | `Ts _ -> None
+    | `Ip _ -> Some (Parent s)
+  in
+  let grep boards = function
+    | Input i -> S.const [ (Input i : Common.Stream.source) ]
+    | Board b ->
+       match Map.get b.control boards with
+       | None   -> S.const []
+       | Some b -> S.map (List.filter_map check_stream) b.streams_signal
+  in
+  List.map (grep boards) topology
+  |> S.merge ~eq:(==) (fun a v -> List.append v a) []
+
 let create config db =
   let step_duration = 0.01 in
   let topo      = Conf.get config in
@@ -112,8 +110,9 @@ let create config db =
                |> Yojson.Safe.pretty_to_string
                |> Lwt_io.printf "DVB sms: %s\n"
                |> ignore;) @@ React.S.changes sms in *)
-  let topo_signal = topo_to_signal topo boards in
-  { boards; usb; topo = topo_signal }, loop ()
+  let topo_signal   = topo_to_signal topo boards in
+  let input_sources = input_sources topo boards in
+  { boards; usb; topo = topo_signal; input_sources }, loop ()
 
 let finalize hw =
   Usb_device.finalize hw.usb
