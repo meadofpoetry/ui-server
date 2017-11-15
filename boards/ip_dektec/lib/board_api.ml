@@ -63,7 +63,7 @@ let status sock_data (events : events) body =
               | _ -> ())
   >>= fun (resp, body, frames_out_fn) ->
   let send x =
-    let msg = Api.Msg_conv.to_string @@ x in
+    let msg = Yojson.Safe.to_string @@ x in
     frames_out_fn @@ Some (Frame.create ~content:msg ())
   in
   let sock_events = Lwt_react.E.map (send % board_status_to_yojson) events.status in

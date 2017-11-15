@@ -33,32 +33,22 @@ type channel =
   ; pids          : pid list
   } [@@deriving yojson]
 
-type stream =
-  { stream   : int32 (* TODO replace by id *)
+type structure =
+  { id       : int32 [@key "stream"] (* TODO replace by id *)
   ; uri      : string
   ; channels : channel list
   } [@@deriving yojson]
 
-type streams = stream list [@@deriving yojson]
+type structure_list = structure list [@@deriving yojson]
 
 type source = Unknown
             | Stream  of Common.Stream.t
             [@@deriving yojson]
 
-type entry = { source : source
-             ; stream : stream
-             } [@@deriving yojson]
+type t = { source    : source
+         ; structure : structure
+         } [@@deriving yojson]
 
-type entries = entry list [@@deriving yojson]
+type t_list = t list [@@deriving yojson]
 
-open Opt_update
-
-let pid_update _ b = b
-  
-let channel_update _ b = b
-
-let stream_update _ b = b
-
-let update _ b = b
-
-let default : entries = []
+let default : t list = []

@@ -3,7 +3,7 @@
 (library
  ((name        pipeline_js)
   (public_name pipeline-js)
-  (modules (requests data graph settings streams wm state opt_update))
+  (modules (requests data graph settings structure wm opt_update))
   (synopsis "pipeline js api")
   (libraries (containers yojson ppx_deriving_yojson.runtime
               api-js common))
@@ -31,15 +31,10 @@
  ((targets (settings.ml))
   (deps (../settings.ml))
   (action (copy ${<} ${@}))))
-
+ 
 (rule
- ((targets (state.ml))
-  (deps (../state.ml))
-  (action (copy ${<} ${@}))))
-
-(rule
- ((targets (streams.ml))
-  (deps (../streams.ml))
+ ((targets (structure.ml))
+  (deps (../structure.ml))
   (action (copy ${<} ${@}))))
 
 (rule

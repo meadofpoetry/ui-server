@@ -26,7 +26,7 @@ let topology sock_data body topo () =
               | _ -> ())
   >>= fun (resp, body, frames_out_fn) ->
   let send x =
-    let msg = Api.Msg_conv.to_string @@ topology_to_yojson x in
+    let msg = Yojson.Safe.to_string @@ topology_to_yojson x in
     frames_out_fn @@ Some (Frame.create ~content:msg ())
   in
   let sock_events = Lwt_react.S.map send topo in

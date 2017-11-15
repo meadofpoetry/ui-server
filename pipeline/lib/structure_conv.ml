@@ -35,18 +35,18 @@ let parse_uri =
 
 let match_streams
       (sources : Common.Stream.source list)
-      (s : Streams.streams) : Streams.entries =
-  let open Streams in
-  let create stream uri (s : Common.Stream.t) =
+      (s : Structure.structure list) : Structure.t list =
+  let open Structure in
+  let create structure uri (s : Common.Stream.t) =
     match s.id with
-    | `Ip u when u = uri -> Some { source = (Stream s); stream }
+    | `Ip u when u = uri -> Some { source = (Stream s); structure }
     | _                  -> None
   in
-  let from_input input uri stream =
+  let from_input input uri structure =
     match input with
-    | None -> { stream; source = Unknown }
+    | None -> { structure; source = Unknown }
     | Some input ->
-       { stream
+       { structure
        ; source = Stream (Common.Stream.{ source = Input input
                                         ; id     = `Ip uri
                                         ; description = None }) }
@@ -67,6 +67,6 @@ let match_streams
   let input = CCList.head_opt inputs in
   merge input parents [] s
 
-let dump_streams (entries : Streams.entries) =
-  let open Streams in
-  List.map (fun prog -> (prog.stream.uri, Api.Msg_conv.to_string @@ stream_to_yojson prog.stream)) entries
+let dump_streams (entries : Structure.t list) =
+  let open Structure in
+  List.map (fun prog -> (prog.structure.uri, Msg_conv.to_string @@ structure_to_yojson prog.structure)) entries

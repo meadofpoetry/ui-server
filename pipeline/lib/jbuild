@@ -35,13 +35,8 @@
   (action (copy ${<} ${@}))))
 
 (rule
- ((targets (state.ml))
-  (deps (../state.ml))
-  (action (copy ${<} ${@}))))
-
-(rule
- ((targets (streams.ml))
-  (deps (../streams.ml))
+ ((targets (structure.ml))
+  (deps (../structure.ml))
   (action (copy ${<} ${@}))))
 
 (rule
