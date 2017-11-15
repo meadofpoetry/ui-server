@@ -766,6 +766,24 @@ let onload _ =
                          ~labels:(CCList.range 0 20 |> List.map string_of_int)
                          () in
   let ch = Chartjs.Line.attach ~data
+                               ~options:(Chartjs.Options.to_obj
+                                           ~on_hover:(fun e (a:'a Js.js_array Js.t) ->
+                                             print_endline ("hover! type: "
+                                                            ^ (Js.to_string @@ e##._type)
+                                                            ^ ", array length: "
+                                                            ^ (string_of_int @@ a##.length)))
+                                           ~on_click:(fun e (a:'a Js.js_array Js.t) ->
+                                             print_endline ("click! type: "
+                                                            ^ (Js.to_string @@ e##._type)
+                                                            ^ ", array length: "
+                                                            ^ (string_of_int @@ a##.length)))
+                                           ~hover:(Chartjs.Options.Interaction.to_hover_obj ~mode:Index
+                                                                                            ~intersect:false
+                                                                                            ())
+                                           ~tooltips:(Chartjs.Options.Tooltip.to_obj ~mode:Index
+                                                                                     ~intersect:false
+                                                                                     ())
+                                           ())
                                canvas in
   (* Dom.appendChild body (Button.create ~label:"Get image" *)
   (*                                     ~onclick:(fun _ -> ch##toBase64Image () *)

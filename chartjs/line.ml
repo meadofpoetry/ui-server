@@ -1,6 +1,6 @@
 [@@@ocaml.warning "-60"]
 
-module Obj = Options.Obj
+module Obj = Base.Obj
 
 let (%>) = CCFun.(%>)
 
@@ -19,8 +19,6 @@ module Data = struct
         method x : Js.number Js.t Js.prop
         method y : Js.number Js.t Js.prop
       end
-
-    type data_array = number_or_point Js.t Js.js_array Js.t
 
     let cast_number (x : number_or_point Js.t)  : Js.number Js.t Js.opt =
       if Js.typeof x = (Js.string "number")
@@ -43,12 +41,9 @@ module Data = struct
     (* type 'a point_setting = Single of 'a *)
     (*                       | Multi of 'a list *)
 
-    type cubic_interpolation_mode = Default
-                                  | Monotone
+    type cubic_interpolation_mode = Default | Monotone
 
-    type stepped_line = Bool of bool
-                      | Before
-                      | After
+    type stepped_line = Bool of bool | Before | After
 
     type fill = Options.Elements.Line.fill
     let fill_to_any = Options.Elements.Line.fill_to_any
@@ -62,7 +57,7 @@ module Data = struct
 
     class type t =
       object
-        method data                      : data_array Js.t Js.prop
+        method data                      : number_or_point Js.t Js.js_array Js.t Js.prop
         method label                     : Js.js_string Js.t Js.optdef_prop
         method xAxisID                   : Js.js_string Js.t Js.optdef_prop
         method yAxisID                   : Js.js_string Js.t Js.optdef_prop
@@ -94,7 +89,7 @@ module Data = struct
     let to_obj ?label ?x_axis_id ?y_axis_id ?background_color ?border_color ?border_width
                ?border_dash ?border_dash_offset ?border_cap_style ?border_join_style
                ?cubic_interpolation_mode ?fill ?line_tension ?show_line ?span_gaps ?stepped_line
-               ~(data : data) () =
+               ~(data : data) () : t Js.t =
       let inject = Js.Unsafe.inject in
       let stepped_line_to_any = (function
                                  | (Bool b : stepped_line) -> inject @@ Js.bool b

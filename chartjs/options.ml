@@ -17,26 +17,7 @@ let interaction_mode_to_string = function
   | X       -> "x"
   | Y       -> "y"
 
-module Obj = struct
-  let (>|=) x f = Js.Optdef.map x f
-  let map x f   = Js.Optdef.option x >|= f |> Js.Unsafe.inject
-  let wrap x    = Js.Optdef.option x |> Js.Unsafe.inject
-
-  type 'a opt_field = string * 'a
-
-  let map_cons_option ~f name opt l = CCOpt.map_or ~default:l (fun x -> (name, Js.Unsafe.inject @@ f x) :: l) opt
-  let cons_option name opt l        = CCOpt.map_or ~default:l (fun x -> (name, Js.Unsafe.inject x) :: l) opt
-
-  let options_to_list (l : 'a opt_field list) =
-    CCList.filter_map (fun (k,v) -> match v with
-                                    | Some v -> Some (k,Js.Unsafe.inject v)
-                                    | None   -> None) l
-
-  let options_to_array l = options_to_list l |> Array.of_list
-
-  let options_to_obj l = options_to_array l |> Js.Unsafe.obj
-
-end
+module Obj = Base.Obj
 
 module Canvas = struct
 
@@ -97,17 +78,17 @@ module Interaction = struct
 
   class type hover =
     object
-      method mode_              : Js.js_string Js.t Js.prop
-      method intersect_         : bool Js.t Js.prop
-      method axis_              : Js.js_string Js.t Js.prop
-      method animationDuration_ : float Js.prop
+      method mode_              : Js.js_string Js.t Js.optdef_prop
+      method intersect_         : bool Js.t Js.optdef_prop
+      method axis_              : Js.js_string Js.t Js.optdef_prop
+      method animationDuration_ : float Js.optdef_prop
     end
 
   class type events =
     object
-      method events_  : Js.js_string Js.t Js.js_array Js.t Js.prop
-      method onHover_ : (unit -> unit) Js.prop (* FIXME *)
-      method onClick_ : (unit -> unit) Js.prop (* FIXME *)
+      method events_  : Js.js_string Js.t Js.js_array Js.t Js.optdef_prop
+      method onHover_ : (Dom_html.event Js.t -> 'a Js.js_array Js.t -> unit) Js.meth Js.optdef_prop
+      method onClick_ : (Dom_html.event Js.t -> 'a Js.js_array Js.t -> unit) Js.meth Js.optdef_prop
     end
 
   let to_hover_obj ?mode ?intersect ?axis ?animation_duration () =
@@ -120,8 +101,8 @@ module Interaction = struct
 
   let to_events_array ?events ?on_hover ?on_click () =
     Obj.map_cons_option ~f:(List.map (event_to_string %> Js.string)) "events" events []
-    |> Obj.cons_option "onHover" on_hover
-    |> Obj.cons_option "onClick" on_click
+    |> Obj.map_cons_option ~f:Js.wrap_callback "onHover" on_hover
+    |> Obj.map_cons_option ~f:Js.wrap_callback "onClick" on_click
     |> Array.of_list
 
 end
@@ -157,35 +138,9 @@ end
 
 module Animations = struct
 
-  type easing = Linear
-              | Ease_in of animation_type
-              | Ease_out of animation_type
-              | Ease_in_out of animation_type
-   and animation_type = Quad
-                      | Cubic
-                      | Quart
-                      | Quint
-                      | Sine
-                      | Expo
-                      | Circ
-                      | Elastic
-                      | Back
-                      | Bounce
-
-  let animation_type_to_string = function
-    | Quad -> "Quad" | Cubic  -> "Cubic" | Quart -> "Quart" | Quint   -> "Quint"
-    | Sine -> "Sine" | Expo   -> "Expo"  | Circ  -> "Circ"  | Elastic -> "Elastic"
-    | Back -> "Back" | Bounce -> "Bounce"
-
-  let easing_to_string = function
-    | Linear        -> "linear"
-    | Ease_in x     -> "easeIn" ^ animation_type_to_string x
-    | Ease_out x    -> "easeOut" ^ animation_type_to_string x
-    | Ease_in_out x -> "easeInOut" ^ animation_type_to_string x
-
   class type animation =
     object
-      method chart               : unit Js.t Js.prop (* FIXME *)
+      method chart               : Base.chart Js.t Js.prop
       method currentStep         : Js.number Js.t Js.prop
       method numSteps            : Js.number Js.t Js.prop
       method easing              : Js.js_string Js.t Js.prop
@@ -204,7 +159,7 @@ module Animations = struct
 
   let to_obj ?duration ?easing ?on_progress ?on_complete () =
     Obj.cons_option "duration" duration []
-    |> Obj.map_cons_option ~f:(easing_to_string %> Js.string) "easing" easing
+    |> Obj.map_cons_option ~f:(Base.easing_to_string %> Js.string) "easing" easing
     |> Obj.map_cons_option ~f:Js.wrap_callback "onProgress" on_progress
     |> Obj.map_cons_option ~f:Js.wrap_callback "onComplete" on_complete
     |> Array.of_list
@@ -606,7 +561,7 @@ class type t =
     method elements  : Elements.t Js.t Js.optdef_prop
   end
 
-let to_obj ?hover ?animation ?layout ?legend ?title ?tooltip ?elements
+let to_obj ?hover ?animation ?layout ?legend ?title ?tooltips ?elements
            ?responsive ?responsive_animation_duration ?maintain_ar ?on_resize
            ?events ?on_hover ?on_click () : t Js.t =
   Obj.options_to_array [ "hover", hover
@@ -614,7 +569,7 @@ let to_obj ?hover ?animation ?layout ?legend ?title ?tooltip ?elements
                        ; "layout", layout
                        ; "legend", legend
                        ; "title", title
-                       ; "tooltip", tooltip
+                       ; "tooltips", tooltips
                        ; "elements", elements ]
   |> Array.append @@ Interaction.to_events_array ?events ?on_hover ?on_click ()
   |> Array.append @@ Responsive.to_array ?responsive ?responsive_animation_duration ?maintain_ar ?on_resize ()
