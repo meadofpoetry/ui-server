@@ -1,4 +1,39 @@
+[@@@ocaml.warning "-60"]
+
 let (%>) = CCFun.(%>)
+
+module Cast = struct
+
+  let to_number x : Js.number Js.t Js.opt =
+    if Js.typeof x = (Js.string "number")
+    then Js.some (Js.Unsafe.coerce x)
+    else Js.null
+
+  let to_string x : Js.js_string Js.t Js.opt =
+    if Js.typeof x = (Js.string "string")
+    then Js.some (Js.Unsafe.coerce x)
+    else Js.null
+
+  let to_object x =
+    if Js.typeof x = (Js.string "object")
+    then Js.some (Js.Unsafe.coerce x)
+    else Js.null
+
+end
+
+module Canvas = struct
+
+  type line_cap = Butt | Round | Square
+
+  type line_join = Bevel | Round | Miter
+
+  let line_cap_to_string = function
+    | Butt -> "butt" | Round -> "round" | Square -> "square"
+
+  let line_join_to_string = function
+    | Bevel -> "bevel" | Round -> "round" | Miter -> "miter"
+
+end
 
 module Obj = struct
   let (>|=) x f = Js.Optdef.map x f
@@ -10,16 +45,25 @@ module Obj = struct
   let map_cons_option ~f name opt l = CCOpt.map_or ~default:l (fun x -> (name, Js.Unsafe.inject @@ f x) :: l) opt
   let cons_option name opt l        = CCOpt.map_or ~default:l (fun x -> (name, Js.Unsafe.inject x) :: l) opt
 
-  let options_to_list (l : 'a opt_field list) =
-    CCList.filter_map (fun (k,v) -> match v with
-                                    | Some v -> Some (k,Js.Unsafe.inject v)
-                                    | None   -> None) l
-
-  let options_to_array l = options_to_list l |> Array.of_list
-
-  let options_to_obj l = options_to_array l |> Js.Unsafe.obj
+  let append_option opt l = CCOpt.map_or ~default:l (fun x -> x @ l) opt
+  let map_append_option ~f opt l = CCOpt.map_or ~default:l (fun x -> (f x) @ l) opt
 
 end
+
+type interaction_mode = Point
+                      | Nearest
+                      | Index
+                      | Dataset
+                      | X
+                      | Y
+
+let interaction_mode_to_string = function
+  | Point   -> "point"
+  | Nearest -> "nearest"
+  | Index   -> "index"
+  | Dataset -> "dataset"
+  | X       -> "x"
+  | Y       -> "y"
 
 type easing = Linear
             | Ease_in of animation_type

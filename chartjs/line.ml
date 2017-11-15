@@ -1,8 +1,6 @@
 [@@@ocaml.warning "-60"]
 
-module Obj = Base.Obj
-
-let (%>) = CCFun.(%>)
+open Base
 
 module Data = struct
 
@@ -45,8 +43,8 @@ module Data = struct
 
     type stepped_line = Bool of bool | Before | After
 
-    type fill = Options.Elements.Line.fill
-    let fill_to_any = Options.Elements.Line.fill_to_any
+    type fill = Elements.Line.fill
+    let fill_to_any = Elements.Line.fill_to_any
 
     let cubic_interpolation_mode_to_string = function
       | Default -> "default" | Monotone -> "monotone"
@@ -104,8 +102,8 @@ module Data = struct
       |> Obj.cons_option "borderWidth" border_width
       |> Obj.map_cons_option ~f:(Array.of_list %> Js.array) "borderDash" border_dash
       |> Obj.cons_option "borderDashOffset" border_dash_offset
-      |> Obj.map_cons_option ~f:(Options.Canvas.line_cap_to_string %> Js.string) "borderCapStyle" border_cap_style
-      |> Obj.map_cons_option ~f:(Options.Canvas.line_join_to_string %> Js.string) "borderJoinStyle" border_join_style
+      |> Obj.map_cons_option ~f:(Base.Canvas.line_cap_to_string %> Js.string) "borderCapStyle" border_cap_style
+      |> Obj.map_cons_option ~f:(Base.Canvas.line_join_to_string %> Js.string) "borderJoinStyle" border_join_style
       |> Obj.map_cons_option ~f:(cubic_interpolation_mode_to_string %> Js.string)
                              "cubicInterpolationMode"
                              cubic_interpolation_mode

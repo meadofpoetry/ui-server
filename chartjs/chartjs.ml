@@ -1,18 +1,21 @@
 [@@@ocaml.warning "-60"]
 
-module Options = Options
+module Options = struct
 
-module type Chart = sig
+  include Options
 
-  type dataset
-
-  type data_fmt
-
-  val typ : Base.typ
-
-  val data : data_fmt -> Js.Unsafe.any Js.js_array Js.t
+  module Axes      = Axes
+  module Hover     = Hover
+  module Title     = Title
+  module Layout    = Layout
+  module Animation = Animation
+  module Elements  = Elements
+  module Legend    = Legend
+  module Tooltip   = Tooltip
 
 end
+
+module Line = Line
 
 let create_canvas ?id ?width ?height () =
   let open Tyxml_js.Html in
@@ -20,5 +23,3 @@ let create_canvas ?id ?width ?height () =
              |> (fun attrs -> CCOpt.map_or ~default:attrs (fun x -> (a_width x) :: attrs) width)
              |> (fun attrs -> CCOpt.map_or ~default:attrs (fun x -> (a_height x) :: attrs) height))
          []
-
-module Line = Line
