@@ -33,12 +33,12 @@ type rsp_settings =
   } [@@deriving yojson]
 
 type rsp_measure =
-  { lock    : bool
-  ; power   : float option
-  ; mer     : float option
-  ; ber     : float option
-  ; freq    : int32 option
-  ; bitrate : int32 option
+  { lock      : bool
+  ; power     : float option
+  ; mer       : float option
+  ; ber       : float option
+  ; freq      : int32 option
+  ; bitrate   : int32 option
   } [@@deriving yojson]
 
 type rsp_plp_list =
@@ -63,7 +63,11 @@ type plp_setting_response = (int * rsp_plp_set) [@@deriving yojson]
 
 type plp_list_response = (int * rsp_plp_list) [@@deriving yojson]
 
-type measure = (int * rsp_measure) [@@deriving yojson]
+type measure =
+  { id        : int
+  ; timestamp : float
+  ; measures  : rsp_measure
+  } [@@deriving yojson]
 
 type config = (int * settings) list [@@deriving yojson]
 

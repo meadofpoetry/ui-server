@@ -48,7 +48,7 @@ module SM = struct
 
   let wakeup_timeout t = t.pred `Timeout |> ignore
 
-  type push_events = { measure : (int * rsp_measure) -> unit
+  type push_events = { measure : measure -> unit
                      }
 
   let event_push pe = function
@@ -95,6 +95,7 @@ module SM = struct
     let request_period = request_period step_duration in
     let push_events  = event_push push_events in
     let detect_pool  = Pool.create (detect_msgs (send_msg sender) period) in
+    let time         = ref 0.0 in
 
     let rec first_step () =
       Queue.iter !msgs wakeup_timeout;
@@ -110,11 +111,7 @@ module SM = struct
         let _, responses, acc = deserialize recvd in
         match Pool.responsed detect_pool responses with
         | Some detect -> step_start_init (measure_probes (send_event sender) period detect)
-        | _           -> if detect_pool.timer > 0
-                         then `Continue (step_detect (Pool.step detect_pool) acc)
-                         else let detect_pool = Pool.next detect_pool in
-                              Pool.send detect_pool () |> ignore;
-                              `Continue (step_detect detect_pool acc)
+        | _           -> `Continue (step_detect (Pool.step detect_pool) acc)
       with Timeout -> first_step ()
 
     and step_start_init probes =
@@ -134,9 +131,7 @@ module SM = struct
         let recvd = Meta_board.concat_acc acc recvd in
         let _, responses, acc = deserialize recvd in
         match Pool.responsed init_pool responses with
-        | None    -> if init_pool.timer < 0
-                     then (first_step ())
-                     else `Continue (step_init (Pool.step init_pool) probes acc)
+        | None    -> `Continue (step_init (Pool.step init_pool) probes acc)
         | Some _  ->
            (match Pool.last init_pool with
             | true   -> push_state `Fine;
@@ -150,10 +145,12 @@ module SM = struct
     and step_normal_probes_send probes_pool period_timer acc _ =
       (*Lwt_io.printf "Normal step probes send \n" |> ignore;*)
       if (period_timer >= request_period) then raise (Failure "board_dvb: sm invariant is broken");
-           
+
       if Pool.empty probes_pool
       then `Continue (step_normal_requests_send probes_pool (succ period_timer) acc)
       else (Pool.send probes_pool () |> ignore;
+            Lwt_io.printlf "sending probe" |> ignore;
+            time := Unix.gettimeofday ();
             `Continue (step_normal_probes_wait probes_pool (succ period_timer) acc))
 
     and step_normal_probes_wait probes_pool period_timer acc recvd =
@@ -165,12 +162,13 @@ module SM = struct
         (match Pool.responsed probes_pool events with
          | None    -> let probes_pool = Pool.step probes_pool in
                       `Continue (step_normal_probes_wait probes_pool (succ period_timer) acc)
-         | Some () -> let new_probes_pool = Pool.next probes_pool in
+         | Some () -> Lwt_io.printlf "received probe, %f" (Unix.gettimeofday () -. !time) |> ignore;
+                      let new_probes_pool = Pool.next probes_pool in
                       List.iter push_events events;
                       if Pool.last probes_pool
                       then `Continue (step_normal_requests_send new_probes_pool period_timer acc)
                       else step_normal_probes_send new_probes_pool period_timer acc recvd)
-      with Timeout -> first_step ()
+      with Timeout -> Lwt_io.printlf "probe not received, %f" (Unix.gettimeofday () -. !time)|> ignore; first_step ()
 
     and step_normal_requests_send probes_pool period_timer acc _ =
       (*Lwt_io.printf "Normal step requests send\n" |> ignore;*)

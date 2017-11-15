@@ -14,14 +14,14 @@ let init o =
                                         ber     REAL,
                                         freq    INTEGER,
                                         bitrate INTEGER,
-                                        date   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                                        date    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                                         );|} ]
   >>= fun _ -> Lwt.return_unit
 
-let store_measures o (i, (m : rsp_measure)) =
+let store_measures o {id; timestamp; measures = m } =
   Storage.Database.insert o [%sqlc {|INSERT INTO dvb_meas(tun,lock,power,mer,ber,freq,bitrate)
-                                    VALUES (%d,%b,%f?,%f?,%f?,%l?,%l?)|}]
-    i m.lock m.power m.mer m.ber m.freq m.bitrate
+                                    VALUES (%d,%b,%f?,%f?,%f?,%l?,%l?,%l)|}]
+    id m.lock m.power m.mer m.ber m.freq m.bitrate (Int32.of_float timestamp)
   >>= fun _ -> Lwt.return_unit
              
 let request (type a) o (req : a req) : a =
