@@ -51,8 +51,7 @@ module SM = struct
   type push_events = { measure : measure -> unit
                      }
 
-  let event_push pe = function
-    | `Measure (id, buf) -> pe.measure (id, of_rsp_measure_exn buf)
+  let event_push pe e = pe.measure e
 
   let send_msg (type a) sender (msg : a request) : unit Lwt.t =
     (match msg with
@@ -162,9 +161,9 @@ module SM = struct
         (match Pool.responsed probes_pool events with
          | None    -> let probes_pool = Pool.step probes_pool in
                       `Continue (step_normal_probes_wait probes_pool (succ period_timer) acc)
-         | Some () -> Lwt_io.printlf "received probe, %f" (Unix.gettimeofday () -. !time) |> ignore;
+         | Some ev -> Lwt_io.printlf "received probe, %f" (Unix.gettimeofday () -. !time) |> ignore;
                       let new_probes_pool = Pool.next probes_pool in
-                      List.iter push_events events;
+                      push_events ev;
                       if Pool.last probes_pool
                       then `Continue (step_normal_requests_send new_probes_pool period_timer acc)
                       else step_normal_probes_send new_probes_pool period_timer acc recvd)

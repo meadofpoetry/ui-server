@@ -19,9 +19,10 @@ let init o =
   >>= fun _ -> Lwt.return_unit
 
 let store_measures o {id; timestamp; measures = m } =
-  Storage.Database.insert o [%sqlc {|INSERT INTO dvb_meas(tun,lock,power,mer,ber,freq,bitrate)
+  print_endline "store measures";
+  Storage.Database.insert o [%sqlc {|INSERT INTO dvb_meas(tun,lock,power,mer,ber,freq,bitrate,date)
                                     VALUES (%d,%b,%f?,%f?,%f?,%l?,%l?,%l)|}]
-    id m.lock m.power m.mer m.ber m.freq m.bitrate (Int32.of_float timestamp)
+                          id m.lock m.power m.mer m.ber m.freq m.bitrate (Int32.of_float timestamp)
   >>= fun _ -> Lwt.return_unit
              
 let request (type a) o (req : a req) : a =

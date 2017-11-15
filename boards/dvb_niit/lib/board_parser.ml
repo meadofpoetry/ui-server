@@ -119,7 +119,7 @@ let string_of_err = function
   | Insufficient_payload _ -> "insufficient payload"
   | Unknown_err s          -> s
 
-type events = { measure : (int * rsp_measure) React.event
+type events = { measure : measure React.event
               }
 
 type api = { devinfo     : unit -> devinfo_response Lwt.t
@@ -136,7 +136,7 @@ type _ request = Devinfo     : rsp_devinfo request
                | Plp_setting : int * int        -> (int * rsp_plp_set) request
                | Plps        : int -> (int * rsp_plp_list) request
 
-type _ event_request = Measure     : int -> (int * rsp_measure) event_request
+type _ event_request = Measure     : int -> measure event_request
 
 (* Helper functions *)
 
@@ -394,6 +394,6 @@ let is_response (type a) (req : a request) msg : a option =
   | Plp_setting (id,_) -> parse_plp_settings id msg
   | Plps id            -> parse_plps id msg
 
-let is_event (type a) (req : a event_request) msg : unit option =
+let is_event (type a) (req : a event_request) msg : a option =
   match req with
-  | Measure id  -> CCOpt.(parse_measures id msg >>= fun _ -> Some ())
+  | Measure id  -> parse_measures id msg

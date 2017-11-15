@@ -35,13 +35,13 @@ let create (b:topo_board) convert_streams send db base step =
            @@ React.E.changes events.measure in
   let s_streams = React.S.fold
                     (fun (streams : Common.Stream.stream list)
-                         ((id,meas) : int * Board_types.rsp_measure) ->
+                         (m : Board_types.measure) ->
                       let open Common.Stream in
                       let (stream : stream) = { source      = Port 0
-                                              ; id          = `Ts (Dvb (id, id mod 3)) (* TODO fix this *)
+                                              ; id          = `Ts (Dvb (m.id,m.id mod 3)) (* TODO fix this *)
                                               ; description = Some ""
                                               } in
-                      match meas.lock,meas.bitrate with
+                      match m.measures.lock,m.measures.bitrate with
                       | true,Some x when x > 0l -> CCList.add_nodup stream streams
                       | _                       -> CCList.remove ~x:stream streams)
                     [] events.measure in
