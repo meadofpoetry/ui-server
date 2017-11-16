@@ -1,3 +1,4 @@
+open Api.Interaction
 open Common.Topology
 open Meta_board
 open Containers
@@ -13,7 +14,15 @@ let () = Random.init (int_of_float @@ Unix.time ())
 let rand_int = fun () -> Random.run (Random.int 10000000)
 
 let socket_table = Hashtbl.create 1000
-   
+
+let get_page () =
+  respond_html_elt
+    Tyxml.Html.(div
+                  [ h2 [ pcdata "Hardware page" ];
+                    p  [ pcdata "Some text" ];
+                    div ~a:[ a_id "hardware_container" ] [  ] ] )
+    ()
+                 
 let topology sock_data body topo () =
   let id = rand_int () in
   Cohttp_lwt_body.drain_body body
@@ -35,7 +44,8 @@ let topology sock_data body topo () =
    
 let handle hw _ meth args sock_data _ body =
   match meth, args with
-  | `GET, [] -> topology sock_data body hw.topo ()
+  | `GET, []                -> get_page ()
+  | `GET, ["topology_sock"] -> topology sock_data body hw.topo ()
   | _        -> Api.Redirect.not_found ()
 
 let handlers hw =

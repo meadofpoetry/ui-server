@@ -20,8 +20,7 @@ let socket_table = Hashtbl.create 1000
 let get_page () =
   respond_html_elt
     Tyxml.Html.(div
-                  [ script ~a:[a_src "/js/pipeline.js"] ( pcdata "" );
-                    h2 [ pcdata "Pipeline page" ];
+                  [ h2 [ pcdata "Pipeline page" ];
                     p  [ pcdata "Some text" ];
                     div ~a:[ a_id "pipeline_container" ] [  ] ] )
     ()
