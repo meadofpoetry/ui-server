@@ -9,8 +9,48 @@ let (>|=) = Lwt.(>|=)
 
 let (%) = CCFun.(%)
 
-let button_type = Js.string "button"
-                
+        
+let call addr =
+  print_endline "Page called\n";
+  Api_js.Requests.get addr >>=
+    function
+    | Error e -> Lwt.fail_with e
+    | Ok s    -> Lwt.return @@ Js.string s
+
+let attach content script (button, addr, js_addr) =
+  Lwt.ignore_result @@
+    Lwt_js_events.clicks
+      button
+      (fun _ _ -> call addr >|= (fun s -> content##.innerHTML := s; script##.src := Js.string js_addr))
+                            
+let onload _ =
+  let ac  = Dom_html.getElementById "arbitrary-content" in
+  let script = Js.coerce_opt
+                 (Js.some @@ Dom_html.getElementById "arbitrary-script")
+                 Dom_html.CoerceTo.script
+                 (fun _ -> assert false)
+  in
+
+  let pipe_button = Dom_html.getElementById "pipeline-button" in
+  let hw_button   = Dom_html.getElementById "hardware-button" in
+
+  let attach = attach ac script in
+
+  List.iter
+    attach
+    [(pipe_button, "api/pipeline", "js/pipeline.js");
+     (hw_button, "api/hardware", "js/hardware.js");];
+  
+  Js._false
+
+let () = Dom_html.addEventListener Dom_html.document
+                                   Dom_events.Typ.domContentLoaded
+                                   (Dom_html.handler onload)
+                                   Js._false
+         |> ignore
+
+
+              (*            
 let onload _ =
 
   (*let streams, push_streams = S.create Js.null in*)
@@ -45,9 +85,4 @@ let onload _ =
   Dom.appendChild ac ev_label;
 
   Js._false
-
-let () = Dom_html.addEventListener Dom_html.document
-                                   Dom_events.Typ.domContentLoaded
-                                   (Dom_html.handler onload)
-                                   Js._false
-         |> ignore
+               *)

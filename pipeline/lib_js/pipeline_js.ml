@@ -42,7 +42,7 @@ let janus_pipe debug =
     Lwt.return plugin)
   >>= (fun plugin -> Janus_streaming.send plugin (Watch { id = 1; secret = None }) |> ignore ; Lwt.return ())
 
-let onload _ =
+let load () =
   let () = (Lwt.catch
               (fun () -> (janus_pipe (`All false)))
               (function
@@ -62,6 +62,4 @@ let onload _ =
   let container = Dom_html.getElementById "pipeline_container" in
 
   Dom.appendChild container text;
-  Dom.appendChild container video;
-  
-  Js._false
+  Dom.appendChild container video

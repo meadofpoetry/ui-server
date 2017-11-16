@@ -1,7 +1,7 @@
 (jbuild_version 1)
 
 (executables
- ((names       (home pipeline dvb_niit demo))
+ ((names       (home pipeline hardware dvb_niit demo))
   (libraries   (js_of_ocaml
                 gg vg vg.htmlc js_of_ocaml-tyxml lwt_react
                 common components pipeline-js hardware-js
