@@ -3,14 +3,13 @@
 (library
  ((name        pipeline_js)
   (public_name pipeline-js)
-  (modules (requests data graph settings structure wm opt_update))
   (synopsis "pipeline js api")
   (libraries (containers yojson ppx_deriving_yojson.runtime
-              api-js common))
+              api-js common components janus))
   (flags (:standard -short-paths -strict-sequence -bin-annot
           -thread -w "+1..49+60" -w "+a-4-7-23-33-39-40-41-42-44-45-48"))
   (js_of_ocaml ((flags (:standard +weak.js --opt 3))))
-  (preprocess (pps (ppx_deriving_yojson)))))
+  (preprocess (pps (js_of_ocaml-ppx ppx_deriving_yojson)))))
 
 (rule
  ((targets (data.ml))

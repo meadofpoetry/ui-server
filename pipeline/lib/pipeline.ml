@@ -57,7 +57,7 @@ let create config dbs (hardware_streams : Common.Stream.source list React.signal
      let exec_opts = Array.of_list (cfg.bin_name :: "-m" :: (PSettings.format_to_string cfg.msg_fmt) :: cfg.sources) in   
      match Unix.fork () with
      | -1   -> failwith "Ooops, fork failed"
-     | 0    -> Unix.execv exec_path exec_opts
+     | 0    -> (try Unix.execv exec_path exec_opts with _ -> Unix.sleep 2; print_endline "fork failed"; exit (-1))
      | pid  ->
         let api, state, recv = Pipeline_protocol.create cfg.sock_in cfg.sock_out converter hardware_streams in
         let db_events = connect_db (S.changes api.structure) dbs in
