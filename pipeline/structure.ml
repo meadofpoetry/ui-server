@@ -16,7 +16,7 @@ type audio_pid =
 type pid_content = Video of video_pid
                  | Audio of audio_pid
                  | Empty
-[@@deriving yojson]
+                 [@@deriving yojson]
 
 type pid =
   { pid              : int
@@ -33,23 +33,22 @@ type channel =
   ; pids          : pid list
   } [@@deriving yojson]
 
-type stream =
-  { id       : int32
-  ; input    : string
+type structure =
+  { id       : int32 [@key "stream"] (* TODO replace by id *)
   ; uri      : string
   ; channels : channel list
   } [@@deriving yojson]
 
-type t = stream list [@@deriving yojson]
+type structure_list = structure list [@@deriving yojson]
 
-open Opt_update
+type source = Unknown
+            | Stream  of Common.Stream.t
+            [@@deriving yojson]
 
-let pid_update _ b = b
-  
-let channel_update _ b = b
+type t = { source    : source
+         ; structure : structure
+         } [@@deriving yojson]
 
-let stream_update _ b = b
+type t_list = t list [@@deriving yojson]
 
-let update _ b = b
-
-let default : stream list = []
+let default : t list = []

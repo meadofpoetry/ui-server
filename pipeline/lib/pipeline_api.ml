@@ -17,6 +17,14 @@ let rand_int = fun () -> Random.run (Random.int 10000000)
        
 let socket_table = Hashtbl.create 1000
 
+let get_page () =
+  respond_html_elt
+    Tyxml.Html.(div
+                  [ h2 [ pcdata "Pipeline page" ];
+                    p  [ pcdata "Some text" ];
+                    div ~a:[ a_id "pipeline_container" ] [  ] ] )
+    ()
+
 let set body conv apply =
   yojson_of_body body >>= fun js ->
   match conv js with
@@ -36,80 +44,61 @@ let get_sock sock_data body conv event =
               | _ -> ())
   >>= fun (resp, body, frames_out_fn) ->
   let send x =
-    let msg = Api.Msg_conv.to_string @@ conv x in
+    let msg = Msg_conv.to_string @@ conv x in
     frames_out_fn @@ Some (Frame.create ~content:msg ())
   in
   let sock_events = Lwt_react.E.map send event in
   Hashtbl.add socket_table id sock_events;
   Lwt.return (resp, (body :> Cohttp_lwt_body.t))
 
-let set_streams pipe body () =
-  set body Streams.of_yojson
-      (fun strm -> pipe.set [Streams strm])
+let set_structure api body () =
+  set body Structure.t_list_of_yojson
+      Pipeline_protocol.(fun x -> api.set (Set_structures x))
 
-let get_streams pipe () =
-  pipe.get [`Streams]
-  >>= function
-  | [Streams s] -> Streams.to_yojson s
-                   |> fun js -> respond_js js ()
-  | _ -> respond_error "Unknown error" ()
+let get_structure api () =
+  let open Pipeline_protocol in
+  api.get Get_structures
+  >|= Structure.t_list_to_yojson
+  >>= fun js -> respond_js js ()
 
-let get_streams_sock sock_data body pipe () =
-  get_sock sock_data body Streams.to_yojson pipe.streams_events
+let get_structure_sock sock_data body api () =
+  let open Pipeline_protocol in
+  get_sock sock_data body Structure.t_list_to_yojson (React.S.changes api.structure)
 
-let set_settings pipe body () =
+let set_settings api body () =
   set body Settings.of_yojson
-      (fun sets -> pipe.set [Settings sets])
+      Pipeline_protocol.(fun x -> api.set (Set_settings x))
 
-let get_settings pipe () =
-  pipe.get [`Settings]
-  >>= function
-  | [Settings s] -> Settings.to_yojson s
-                   |> fun js -> respond_js js ()
-  | _ -> respond_error "Unknown error" ()
+let get_settings api () =
+  let open Pipeline_protocol in
+  api.get Get_settings
+  >|= Settings.to_yojson
+  >>= fun js -> respond_js js ()
 
-let get_settings_sock sock_data body pipe () =
-  get_sock sock_data body Settings.to_yojson pipe.settings_events
+let get_settings_sock sock_data body api () =
+  let open Pipeline_protocol in
+  get_sock sock_data body Settings.to_yojson api.settings
 
-let streams_handle pipe id meth args sock_data _ body =
+let pipeline_handle api id meth args sock_data _ body =
   let is_guest = Common.User.eq id `Guest in
   match meth, args with
-  | `POST, []       -> redirect_if is_guest @@ set_streams pipe body
-  | `GET,  []       -> get_streams pipe ()
-  | _ ,    ["sock"] -> get_streams_sock sock_data body pipe ()
-  | _               -> not_found ()
-  
-let settings_handle pipe id meth args sock_data _ body =
-  let is_guest = Common.User.eq id `Guest in
-  match meth, args with
-  | `POST, []       -> redirect_if is_guest @@ set_settings pipe body
-  | `GET,  []       -> get_settings pipe ()
-  | _ ,    ["sock"] -> get_settings_sock sock_data body pipe ()
-  | _               -> not_found ()
-
-let not_implemented_handle _ meth args _ _ _ =
-  match meth, args with
-  | _               -> respond_error "QoE is not active" ()
+  | `GET,  []                 -> get_page ()
+  | `POST, ["strucutre"]      -> redirect_if is_guest @@ set_structure api body
+  | `GET,  ["structure"]      -> get_structure api ()
+  | `GET,  ["structure_sock"] -> get_structure_sock sock_data body api ()
+  | `POST, ["settings"]       -> redirect_if is_guest @@ set_settings api body
+  | `GET,  ["settings"]       -> get_settings api ()
+  | `GET,  ["settings_sock"]  -> get_settings_sock sock_data body api ()                   
+  | _                         -> not_found ()
                      
 let handlers pipe =
   [ (module struct
-       let domain = "streams"
-       let handle = streams_handle pipe
-     end : Api_handler.HANDLER);
-    (module struct
-       let domain = "settings"
-       let handle = settings_handle pipe
-     end : Api_handler.HANDLER); ]
+       let domain = "pipeline"
+       let handle = pipeline_handle pipe.api
+     end : Api_handler.HANDLER) ]
 
 let handlers_not_implemented () =
-  [ (module struct
-       let domain = "streams"
-       let handle = not_implemented_handle
-     end : Api_handler.HANDLER);
-    (module struct
-       let domain = "settings"
-       let handle = not_implemented_handle
-     end : Api_handler.HANDLER); ]
+  []
   
     (*
 let test _ _ body =

@@ -33,11 +33,7 @@ module Settings = struct
 end
 
 let home base =
-  let content = Tyxml.Html.(div [ p [pcdata "This is the main ATS-3 page"]
-                                ; video ~a:[ a_id "remotevideo"
-                                           ; a_width 640
-                                           ; a_autoplay () ] []
-                                ]
+  let content = Tyxml.Html.(div [ p [pcdata "This is the main ATS-3 page"] ]
                             |> (Format.asprintf "%a" (pp_elt ()))) in
   let json = fill_json ~scripts:[ "/js/home.js"; "/js/janus.nojquery.js"; "/js/adapter.min.js" ]
                        ~content:[content]

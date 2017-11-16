@@ -1,85 +1,94 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <meta charset="utf-8">
-        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta name="theme-color" content="">
-        <title>{{title}}</title>
-        <link
-            rel="stylesheet"
-            href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css">
-        <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500">
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto+Mono">
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans">
-        <link rel="stylesheet" href="/css/main.css" type="text/css">
-        <style>
-          @font-face {
-          font-family: "Open Sans";
-          src: url("https://fonts.googleapis.com/css?family=Open+Sans");
-          }
-        </style>
-        <!-- Additional scripts -->
-        {{#scripts}}
-        <script src={{script}} type="text/javascript"></script>
-        {{/scripts}}
-        <!-- Additional stylesheets -->
-        {{#stylesheets}}
-        <link rel="stylesheet" href={{stylesheet}} type="text/css">
-        {{/stylesheets}}
-    </head>
-    <body class="mdc-typography">
-        <header class="mdc-toolbar mdc-toolbar--fixed">
-            <div class="mdc-toolbar--row">
-                <section class="mdc-toolbar__section mdc-toolbar__section--align-start">
-                    <a href="/" class="material-icons mdc-toolbar__menu-icon">menu</a>
-                    <span class="mdc-toolbar__title ui__title">АТС-3</span>
-                </section>
-            </div>
-        </header>
-        <div class="content mdc-toolbar-fixed-adjust">
-            <nav class="mdc-permanent-drawer">
-                <div class="mdc-list-group">
-                <nav class="mdc-list">
-                    <a class="mdc-list-item" href="#">
-                        <i class="material-icons mdc-list-item__start-detail" aria-hidden="true">multiline_chart</i>
-                        Мониторинг
-                    </a>
-                    <a class="mdc-list-item" href="#">
-                        <i class="material-icons mdc-list-item__start-detail" aria-hidden="true">developer_board</i>
-                        Конфигурация
-                    </a>
-                </nav>
-                <hr class="mdc-list-divider">
-                <nav class="mdc-list">
-                    <a class="mdc-list-item" href="/settings/users">
-                        <i class="material-icons mdc-list-item__start-detail" aria-hidden="true">settings</i>
-                        Настройки
-                    </a>
-                    <a class="mdc-list-item" href="#">
-                        <i class="material-icons mdc-list-item__start-detail" aria-hidden="true">info</i>
-                        О приборе
-                    </a>
-                </nav>
-                </div>
-            </nav>
-            <main class="main-with-sidebar">
-                <section id="arbitrary-content">
-                    <div class="mdc-layout-grid">
-                        <div class="mdc-layout-grid__inner">
-                            {{#content}}
-                            {{{element}}}
-                            {{/content}}
-                        </div>
-                    </div>
-                </section>
-            </main>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="">
+    <title>{{title}}</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto+Mono">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans">
+    <link rel="stylesheet" href="/css/main.css" type="text/css">
+    <style>
+      @font-face {
+      font-family: "Open Sans";
+      src: url("https://fonts.googleapis.com/css?family=Open+Sans");
+      }
+    </style>
+    <!-- Additional scripts -->
+    {{#scripts}}
+    <script src={{script}} type="text/javascript"></script>
+    {{/scripts}}
+    <!-- Additional stylesheets -->
+    {{#stylesheets}}
+    <link rel="stylesheet" href={{stylesheet}} type="text/css">
+    {{/stylesheets}}
+  </head>
+  <body class="mdc-typography">
+    <header class="mdc-toolbar mdc-toolbar--fixed">
+      <div class="mdc-toolbar--row">
+        <section class="mdc-toolbar__section mdc-toolbar__section--align-start">
+          <a href="/" class="material-icons mdc-toolbar__menu-icon">menu</a>
+          <span class="mdc-toolbar__title ui__title">АТС-3</span>
+        </section>
+      </div>
+    </header>
+    <div class="content mdc-toolbar-fixed-adjust">
+      <nav class="mdc-permanent-drawer">
+        <div class="mdc-list-group">
+          <nav class="mdc-list">
+            <a class="mdc-list-item" id="pipeline-button" href="#">
+              <i class="material-icons mdc-list-item__start-detail" aria-hidden="true">multiline_chart</i>
+              Pipeline
+            </a>
+            <a class="mdc-list-item" id="hardware-button" href="#">
+              <i class="material-icons mdc-list-item__start-detail" aria-hidden="true">multiline_chart</i>
+              Hardware
+            </a>
+            <a class="mdc-list-item" href="#">
+              <i class="material-icons mdc-list-item__start-detail" aria-hidden="true">multiline_chart</i>
+              Мониторинг
+            </a>
+            <a class="mdc-list-item" href="#">
+              <i class="material-icons mdc-list-item__start-detail" aria-hidden="true">developer_board</i>
+              Конфигурация
+            </a>
+          </nav>
+          <hr class="mdc-list-divider">
+          <nav class="mdc-list">
+            <a class="mdc-list-item" href="/settings/users">
+              <i class="material-icons mdc-list-item__start-detail" aria-hidden="true">settings</i>
+              Настройки
+            </a>
+            <a class="mdc-list-item" href="#">
+              <i class="material-icons mdc-list-item__start-detail" aria-hidden="true">info</i>
+              О приборе
+            </a>
+          </nav>
         </div>
-        <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
-        <script>
-         function rdy () { window.mdc.autoInit(); };
-         document.addEventListener('DOMContentLoaded', rdy, false);
-        </script>
-    </body>
+      </nav>
+      <main class="main-with-sidebar">
+        <div id="arbitrary-script"></div>
+        <section id="arbitrary-content">
+          <div class="mdc-layout-grid">
+            <div class="mdc-layout-grid__inner">
+              {{#content}}
+              {{{element}}}
+              {{/content}}
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+    <script>
+      function rdy () { window.mdc.autoInit(); };
+      document.addEventListener('DOMContentLoaded', rdy, false);
+    </script>
+  </body>
 </html>

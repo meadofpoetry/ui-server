@@ -70,7 +70,7 @@ let measures sock_data events body =
               | _ -> ())
   >>= fun (resp, body, frames_out_fn) ->
   let send x =
-    let msg = Api.Msg_conv.to_string @@ x in
+    let msg = Yojson.Safe.to_string @@ x in
     frames_out_fn @@ Some (Frame.create ~content:msg ())
   in
   let sock_events = Lwt_react.E.map (send % measure_to_yojson) events.measure in

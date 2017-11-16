@@ -38,7 +38,7 @@ let ip_of_yojson = function
   | `String s -> Ipaddr.V4.of_string s
                  |> (function Some ip -> Ok ip | None -> Error ("ip_of_yojson: bad ip: " ^ s))
   | _ -> Error "ip_of_yojson: bad js"
-type addr = { ip : ip
+type addr = { ip   : ip
             ; port : int
             } [@@deriving yojson, show]
                    

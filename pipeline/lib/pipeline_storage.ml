@@ -4,7 +4,7 @@ open Lwt.Infix
 let ( % ) = CCFun.(%)
    
 type _ req =
-  | Store_streams : Streams.t -> unit Lwt.t req
+  | Store_structures : Structure.t list -> unit Lwt.t req
 
 let init o =
   Storage.Database.execute o [%sqlinit "CREATE TABLE IF NOT EXISTS streams( \
@@ -14,8 +14,8 @@ let init o =
                                         );" ]
   >>= fun _ -> Lwt.return_unit
              
-let store_streams dbs streams =
-  let s = Streams_conv.dump_streams streams in
+let store_structures dbs streams =
+  let s = Structure_conv.dump_streams streams in
   List.fold_left
     (fun thread (i,v) ->
        thread >>= fun () ->
@@ -26,4 +26,4 @@ let store_streams dbs streams =
 
 let request (type a) dbs (r : a req) : a =
   match r with
-  | Store_streams s -> store_streams dbs s
+  | Store_structures s -> store_structures dbs s
