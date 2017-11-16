@@ -2,9 +2,10 @@ open Lwt_react
 open Components
 open Tyxml_js
 
-let demo_section ?(style="") title content =
+let demo_section ?(style="") ?(classes=[]) title content =
   Html.section ~a:[ Html.a_style ("margin: 24px; padding: 24px;\
-                                   border: 1px solid rgba(0, 0, 0, .12);" ^ style) ]
+                                   border: 1px solid rgba(0, 0, 0, .12);" ^ style)
+                  ; Html.a_class classes ]
                ( Html.h2 ~a:[ Html.a_class [Typography.headline_class]] [Html.pcdata title]
                  :: content)
   |> Tyxml_js.To_dom.of_element
@@ -295,7 +296,40 @@ let list_demo () =
                           ~two_line:true
                           ~style:"max-width: 400px;"
                           () in
-  demo_section "List" [ list ]
+  let tree = (let items = List.map (fun x ->
+                              let inner_items = List.map
+                                                  (fun x -> List_.Item.create
+                                                              ~text:("Inner " ^ (string_of_int x))
+                                                              ~end_detail:(Checkbox.create 
+                                                                             ~style:"width:24px; height:18px"
+                                                                             ~classes:[List_.Item.end_detail_class]
+                                                                             ())
+                                                              ~auto_init:true
+                                                              ())
+                                                  (CCList.range 0 5) in
+                              let inner = List_.create ~items:inner_items
+                                                       ~style:"padding-right: 0px"
+                                                       ~classes:["hide"]
+                                                       ()
+                                          |> Tyxml_js.To_dom.of_element in
+                              Html.div [ List_.Item.create
+                                           ~attrs:[Tyxml_js.Html.a_onclick (fun _ ->
+                                                       inner##.classList##toggle (Js.string "hide")
+                                                       |> ignore;
+                                                       true)]
+                                           ~text:("List item " ^ (string_of_int x))
+                                           ~end_detail:(Checkbox.create 
+                                                        ~style:"width:24px; height:18px"
+                                                        ~classes:[List_.Item.end_detail_class]
+                                                        ())
+                                           ~auto_init:true
+                                           ()
+                                       ; Tyxml_js.Of_dom.of_element inner ])
+                                   (CCList.range 0 5) in
+              List_.create ~items
+                           ~style:"max-width: 400px;"
+                           ()) in
+  demo_section "List" [ list; tree ]
 
 let menu_demo () =
   let menu_items = List.map (fun x -> if x != 2
@@ -417,9 +451,9 @@ let tabs_demo () =
                        tabs##.root__
                        Tabs.Tab.events.selected
                        (Dom_html.handler (fun e ->
-                            print_endline ("Tab:selected " ^ (e##.detail_##.tab_##.computedLeft_
-                                                              |> Js.float_of_number
-                                                              |> string_of_float));
+                            print_endline ("Tab:selected. Left offset: " ^ (e##.detail_##.tab_##.computedLeft_
+                                                                            |> Js.float_of_number
+                                                                            |> string_of_float));
                             Js._false))
                        Js._false |> ignore;
                      Dom_html.addEventListener
@@ -562,31 +596,213 @@ let textfield_demo () =
   let textarea_sect = subsection "Textarea" @@ of_dom textarea##.root__ in
   demo_section "Textfield" [ css_sect; js_sect; dense_sect; icon_sect; css_textarea_sect; textarea_sect ]
 
-let add_demos parent demos =
-  List.iter (fun x -> Dom.appendChild parent x) demos
+let select_demo () =
+  let js_select = let items = List.map (fun x -> Select.Base.Item.create
+                                                   ~id:("index " ^ (string_of_int x))
+                                                   ~text:("Select item " ^ (string_of_int x))
+                                                   ~disabled:(x = 4)
+                                                   ())
+                                       (CCList.range 0 5) in
+                  let select = Select.Base.create ~selected_text:"Pick smth"
+                                                  ~items
+                                                  ()
+                               |> Select.Base.attach in
+                  Dom_html.addEventListener
+                    select##.root__
+                    Select.Base.events.change
+                    (Dom_html.handler (fun e ->
+                         print_endline ("Select:change "
+                                        ^ (e##.detail_##.selectedIndex_
+                                           |> Js.float_of_number
+                                           |> int_of_float
+                                           |> string_of_int)
+                                        ^ ". Value: "
+                                        ^ (e##.detail_##.value_
+                                           |> Js.to_string));
+                         Js._false))
+                    Js._false |> ignore;
+                  subsection "Full-fidelity select" @@ of_dom select##.root__ in
+  let css_select = let items = (Select.Pure.Item.create_group
+                                 ~label:"Group"
+                                 ~items:(List.map (fun x -> Select.Pure.Item.create
+                                                              ~text:("Group item " ^ (string_of_int x))
+                                                              ~disabled:(x = 1)
+                                                              ())
+                                                  (CCList.range 0 2))
+                                 ()) :: (List.map (fun x -> Select.Pure.Item.create
+                                                              ~text:("Select item " ^ (string_of_int x))
+                                                              ~disabled:(x = 4)
+                                                              ())
+                                                  (CCList.range 0 5)) in
+                   let select = Select.Pure.create ~items () in
+                   subsection "CSS-only select" select in
+  let multi = let items = (Select.Multi.Item.create_group
+                             ~label:"Group 1"
+                             ~items:(List.map (fun x -> Select.Multi.Item.create
+                                                          ~text:("Group item " ^ (string_of_int x))
+                                                          ())
+                                              (CCList.range 0 2))
+                             ())
+                          :: (Select.Multi.Item.create_divider ())
+                          :: (Select.Multi.Item.create_group
+                             ~label:"Group 2"
+                             ~items:(List.map (fun x -> Select.Multi.Item.create
+                                                          ~text:("Group item " ^ (string_of_int x))
+                                                          ())
+                                              (CCList.range 0 2))
+                             ())
+                          :: [] in
+              let select = Select.Multi.create ~items ~size:6 () in
+              subsection "CSS-only multi select" select in
+  demo_section "Select" [ js_select; css_select; multi ]
+
+let toolbar_demo (drawer : Drawer.Persistent.t Js.t) () =
+  let last_row = Toolbar.Row.create
+                   ~content:[ Toolbar.Row.Section.create
+                                ~align:`Start
+                                ~content:[ Html.i ~a:[Html.a_class [ "material-icons"
+                                                                   ; Toolbar.Row.Section.icon_class]
+                                                     ; Html.a_onclick (fun _ -> if drawer##.open_ |> Js.to_bool
+                                                                                then drawer##.open_ := Js._false
+                                                                                else drawer##.open_ := Js._true
+                                                                              ; true)]
+                                                  [Html.pcdata "menu"]
+                                         ; Toolbar.Row.Section.create_title ~title:"Widgets demo page" () ]
+                                ()
+                            ; Toolbar.Row.Section.create
+                                ~align:`End
+                                ~content:[Html.i ~a:[Html.a_class [ "material-icons"
+                                                                  ; Toolbar.Row.Section.icon_class]]
+                                                 [Html.pcdata "favorite"]]
+                                ()
+                            ]
+                   () in
+  let toolbar = Toolbar.create ~content:[ last_row ]
+                               ~id:"toolbar"
+                               ~waterfall:true
+                               ~flexible:true
+                               ~fixed:true
+                               () in
+  To_dom.of_element toolbar
+
+let drawer_demo () =
+  Drawer.Temporary.create ~content:[Drawer.Temporary.Toolbar_spacer.create ~content:[Html.pcdata "Demo"]
+                                                                           ()]
+                          ()
+  |> Drawer.Temporary.attach
+
+let chart_demo () =
+  (* Chartjs.typ_to_string Chartjs.Line *)
+  Chartjs.create_canvas () |> Tyxml_js.To_dom.of_canvas
+
+let add_demos demos =
+  Html.div ~a:[ Html.a_id "demo-div"
+              (* ; Html.a_style "display: inline-flex;\ *)
+              (*                 flex-direction: column;\ *)
+              (*                 flex-grow: 1;\ *)
+              (*                 height: 100%;\ *)
+              (*                 box-sizing: border-box;" *) ]
+           @@ CCList.map (fun x -> Of_dom.of_element (x :> Dom_html.element Js.t)) demos
+  |> To_dom.of_element
 
 let onload _ =
   let doc = Dom_html.document in
   let body = doc##.body in
-  add_demos body [ button_demo ()
-                 ; fab_demo ()
-                 ; radio_demo ()
-                 ; checkbox_demo ()
-                 ; switch_demo ()
-                 ; toggle_demo ()
-                 ; textfield_demo ()
-                 ; card_demo ()
-                 ; slider_demo ()
-                 ; grid_list_demo ()
-                 ; ripple_demo ()
-                 ; layout_grid_demo ()
-                 ; dialog_demo ()
-                 ; list_demo ()
-                 ; menu_demo ()
-                 ; snackbar_demo ()
-                 ; linear_progress_demo ()
-                 ; tabs_demo ()
-                 ];
+  let drawer  = drawer_demo () in
+  let toolbar = toolbar_demo drawer () in
+  let canvas = chart_demo () in
+  let demos = add_demos [ button_demo ()
+                        ; Tyxml_js.Html.div ~a:[ Html.a_style "max-width:700px"]
+                                            [canvas |> Tyxml_js.Of_dom.of_canvas]
+                          |> Tyxml_js.To_dom.of_element
+                        ; fab_demo ()
+                        ; radio_demo ()
+                        ; checkbox_demo ()
+                        ; switch_demo ()
+                        ; toggle_demo ()
+                        ; select_demo ()
+                        ; textfield_demo ()
+                        ; card_demo ()
+                        ; slider_demo ()
+                        ; grid_list_demo ()
+                        ; ripple_demo ()
+                        ; layout_grid_demo ()
+                        ; dialog_demo ()
+                        ; list_demo ()
+                        ; menu_demo ()
+                        ; snackbar_demo ()
+                        ; linear_progress_demo ()
+                        ; tabs_demo ()
+                        ] in
+  Dom.appendChild body toolbar;
+  Dom.appendChild body drawer##.root__;
+  Dom.appendChild body demos;
+  Dom.appendChild body toolbar;
+  let js_toolbar = Toolbar.attach toolbar in
+  js_toolbar##.fixedAdjustElement_ := demos;
+  let open Chartjs.Line in
+  Random.init (Unix.time () |> int_of_float);
+  let data = Data.to_obj ~datasets:[ Data.Dataset.to_obj ~label:"My data 1"
+                                                         ~fill:(Bool false)
+                                                         ~border_color:"rgba(255,0,0,1)"
+                                                         ~data:(Points (List.map
+                                                                          (fun x -> ({ x = (float_of_int x)
+                                                                                     ; y = Random.float 10.
+                                                                                     } : Data.Dataset.xy))
+                                                                          (CCList.range 0 20))
+                                                                : Data.Dataset.data)
+                                                         ()
+                                   ; Data.Dataset.to_obj ~label:"My data 2"
+                                                         ~fill:(Bool false)
+                                                         ~border_color:"rgba(0,255,0,1)"
+                                                         ~data:(Points (List.map
+                                                                          (fun x -> ({ x = (float_of_int x)
+                                                                                     ; y = Random.float 50.
+                                                                                     } : Data.Dataset.xy))
+                                                                          (CCList.range 0 20))
+                                                                : Data.Dataset.data)
+                                                         ()
+                                   ]
+                         ~labels:(CCList.range 0 20 |> List.map string_of_int)
+                         () in
+  let open Chartjs in
+  let ch = Chartjs.Line.attach
+             ~data
+             ~options:(Options.to_obj
+                         ~on_hover:(fun e (a:'a Js.js_array Js.t) ->
+                           print_endline ("hover! type: "
+                                          ^ (Js.to_string @@ e##._type)
+                                          ^ ", array length: "
+                                          ^ (string_of_int @@ a##.length)))
+                         ~on_click:(fun e (a:'a Js.js_array Js.t) ->
+                           print_endline ("click! type: "
+                                          ^ (Js.to_string @@ e##._type)
+                                          ^ ", array length: "
+                                          ^ (string_of_int @@ a##.length)))
+                         ~hover:(Options.Hover.to_obj ~mode:Index
+                                                      ~intersect:false
+                                                      ())
+                         ~tooltips:(Options.Tooltip.to_obj ~mode:Index
+                                                           ~intersect:false
+                                                           ())
+                         ~scales:(Options.Axes.to_obj
+                                    ~x_axes:[ Options.Axes.Cartesian.Linear.to_obj
+                                                ~scale_label:(Options.Axes.Scale_label.to_obj
+                                                                ~display:true
+                                                                ~label_string:"My x axis"
+                                                                ())
+                                                ()
+                                            ]
+                                    ())
+                         ())
+             canvas in
+  (* Dom.appendChild body (Button.create ~label:"Get image" *)
+  (*                                     ~onclick:(fun _ -> ch##toBase64Image () *)
+  (*                                                        |> Js.to_string *)
+  (*                                                        |> print_endline; *)
+  (*                                                        true) *)
+  (*                                     () *)
+  (*                       |> Tyxml_js.To_dom.of_element); *)
   Js._false
 
 let () = Dom_html.addEventListener Dom_html.document
