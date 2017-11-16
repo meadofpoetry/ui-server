@@ -130,13 +130,15 @@ type api = { devinfo     : unit -> devinfo_response Lwt.t
            ; config      : unit -> config Lwt.t
            }
 
-type _ request = Devinfo     : rsp_devinfo request
-               | Reset       : unit request
-               | Settings    : (int * settings) -> (int * rsp_settings) request
-               | Plp_setting : int * int        -> (int * rsp_plp_set) request
-               | Plps        : int -> (int * rsp_plp_list) request
+type _ request = Get_devinfo  : rsp_devinfo request
+               | Reset        : unit request
+               | Set_settings : (int * settings) -> (int * rsp_settings) request
+               | Set_plp      : int * int        -> (int * rsp_plp_set) request
+               | Get_plps     : int -> (int * rsp_plp_list) request
 
-type _ event_request = Measure     : int -> measure event_request
+type event = Measure of measure
+
+type _ event_request = Get_measure : int -> event event_request
 
 (* Helper functions *)
 
@@ -375,10 +377,9 @@ let parse_plp_settings id = function
 
 let parse_measures id = function
   | `Measure (idx, buf) when idx = id -> (match try_parse of_rsp_measure_exn buf with
-                                          | Some x -> Some { id
-                                                           ; timestamp = Unix.time ()
-                                                           ; measures = x
-                                                           }
+                                          | Some x -> Some (Measure { id
+                                                                    ; timestamp = Unix.time ()
+                                                                    ; measures = x })
                                           | None   -> None)
   | _ -> None
 
@@ -388,12 +389,12 @@ let parse_plps id = function
 
 let is_response (type a) (req : a request) msg : a option =
   match req with
-  | Reset              -> parse_reset msg
-  | Devinfo            -> parse_devinfo msg
-  | Settings (id,_)    -> parse_settings id msg
-  | Plp_setting (id,_) -> parse_plp_settings id msg
-  | Plps id            -> parse_plps id msg
+  | Reset               -> parse_reset msg
+  | Get_devinfo         -> parse_devinfo msg
+  | Set_settings (id,_) -> parse_settings id msg
+  | Set_plp (id,_)      -> parse_plp_settings id msg
+  | Get_plps id         -> parse_plps id msg
 
 let is_event (type a) (req : a event_request) msg : a option =
   match req with
-  | Measure id  -> parse_measures id msg
+  | Get_measure id -> parse_measures id msg

@@ -15,9 +15,9 @@ let timeout_period step_duration = 2 * int_of_float (1. /. step_duration) (* 2 s
           
 let request_period step_duration = 5 * int_of_float (1. /. step_duration) (* 5 secs *)
 
-let detect = Devinfo
+let detect = Get_devinfo
 
-let init = List.map (fun x -> Settings x)
+let init = List.map (fun x -> Set_settings x)
 
 let detect_msgs (send_req : 'a request -> unit Lwt.t) timeout =
   [ { send = (fun () -> send_req detect)
@@ -32,16 +32,16 @@ let init_msgs (send_req : 'a request -> unit Lwt.t) timeout d =
                      ; timeout
                      ; exn = None })
     (init d)
-  
+
 let measure_probes (send_ev : 'a event_request -> unit Lwt.t) timeout config =
   List.map (fun x ->
-      { send = (fun () -> send_ev @@ Measure x)
-      ; pred = (is_event (Measure x))
+      { send = (fun () -> send_ev @@ Get_measure x)
+      ; pred = (is_event (Get_measure x))
       ; timeout
       ; exn = None
     })
-    config.modules               
-  
+    config.modules
+
 module SM = struct
 
   type event = [ `Measure of (int * Cbuffer.t) ]
@@ -51,21 +51,22 @@ module SM = struct
   type push_events = { measure : measure -> unit
                      }
 
-  let event_push pe e = pe.measure e
+  let event_push pe = function
+    | Measure x -> pe.measure x
 
   let send_msg (type a) sender (msg : a request) : unit Lwt.t =
     (match msg with
-     | Devinfo               -> to_req_devinfo false
-     | Reset                 -> to_req_devinfo true
-     | Settings (id, buf)    -> to_req_settings id buf
-     | Plp_setting (id, buf) -> to_req_plp_set id buf
-     | Plps id               -> to_req_plp_list id)
+     | Get_devinfo            -> to_req_devinfo false
+     | Reset                  -> to_req_devinfo true
+     | Set_settings (id, buf) -> to_req_settings id buf
+     | Set_plp (id, buf)      -> to_req_plp_set id buf
+     | Get_plps id            -> to_req_plp_list id)
     |> sender
 
   let send_event (type a) sender (msg : a event_request) : unit Lwt.t =
     (* no instant msgs *)
     match msg with
-    | Measure id -> sender @@ to_req_measure id
+    | Get_measure id -> sender @@ to_req_measure id
 
   let send (type a) msgs sender (storage : config storage) timeout (msg : a request) : a Lwt.t =
     (* no instant msgs *)
@@ -75,11 +76,11 @@ module SM = struct
       | l -> let open CCOpt in
              is_response msg l >|= fun r ->
              (match msg with
-              | Settings (d, dat) -> let conf = List.map (fun (i,old) -> if i = d
-                                                                         then (d, dat)
-                                                                         else (i, old))
-                                                  storage#get
-                                     in storage#store conf
+              | Set_settings (d, dat) -> let conf = List.map (fun (i,old) -> if i = d
+                                                                             then (d, dat)
+                                                                             else (i, old))
+                                                             storage#get
+                                         in storage#store conf
               | _ -> ());
              Lwt.wakeup w r
     in
@@ -200,11 +201,11 @@ module SM = struct
     let push_events = { measure = mpush } in
     let msgs = ref (Queue.create []) in
     let send x = send msgs sender storage period x in
-    let api = { devinfo     = (fun ()    -> send Devinfo)
+    let api = { devinfo     = (fun ()    -> send Get_devinfo)
               ; reset       = (fun ()    -> send Reset)
-              ; settings    = (fun s     -> send (Settings s))
-              ; plp_setting = (fun (n,s) -> send (Plp_setting (n,s)))
-              ; plps        = (fun n     -> send (Plps n))
+              ; settings    = (fun s     -> send (Set_settings s))
+              ; plp_setting = (fun (n,s) -> send (Set_plp (n,s)))
+              ; plps        = (fun n     -> send (Get_plps n))
               ; config      = (fun ()    -> Lwt.return storage#get)
               }
     in

@@ -13,7 +13,7 @@ let () = Random.init (int_of_float @@ Unix.time ())
 let rand_int = fun () -> Random.run (Random.int 10000000)
 
 let socket_table = Hashtbl.create 1000
-                 
+
 let page id =
   respond_html_elt
     Tyxml.Html.(div
@@ -23,11 +23,11 @@ let page id =
                     p  [ pcdata "Dvb board" ];
                     div ~a:[ a_id "dvb_widgets" ] [  ] ] )
     ()
-   
+
 let devinfo api =
   api.devinfo () >>= fun devi ->
   respond_js (devinfo_response_to_yojson devi) ()
-   
+ 
 let reset api =
   api.reset () >>= respond_ok
 
@@ -76,7 +76,7 @@ let measures sock_data events body =
   let sock_events = Lwt_react.E.map (send % measure_to_yojson) events.measure in
   Hashtbl.add socket_table id sock_events;
   Lwt.return (resp, (body :> Cohttp_lwt_body.t))
-          
+
 let handle api events id _ meth args sock_data _ body =
   let open Lwt.Infix in
   let open Api.Redirect in
