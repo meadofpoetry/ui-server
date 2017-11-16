@@ -45,6 +45,13 @@ let home base =
   let html = render_with_base_template base json in
   respond_string html ()
 
+let configuration base =
+  let json = fill_json ~scripts:[ "js/configuration.js" ]
+                       ~content:[""]
+                       () in
+  let html = render_with_template base "html/templates/empty.html" json in
+  respond_string html ()
+
 let mdc_demo base =
   let content = "" in
   let json    = fill_json ~scripts:[ "/js/Chart.min.js"

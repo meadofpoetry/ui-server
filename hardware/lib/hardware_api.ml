@@ -5,6 +5,7 @@ open Containers
 open Websocket_cohttp_lwt
 open Frame
 open Lwt.Infix
+open Api.Interaction
    
 open Hardware
 
@@ -13,8 +14,11 @@ let () = Random.init (int_of_float @@ Unix.time ())
 let rand_int = fun () -> Random.run (Random.int 10000000)
 
 let socket_table = Hashtbl.create 1000
-   
-let topology sock_data body topo () =
+
+let topology topo () =
+  respond_js (topology_to_yojson (React.S.value topo)) ()
+
+let topology_socket sock_data body topo () =
   let id = rand_int () in
   Cohttp_lwt_body.drain_body body
   >>= fun () ->
@@ -32,11 +36,12 @@ let topology sock_data body topo () =
   let sock_events = Lwt_react.S.map send topo in
   Hashtbl.add socket_table id sock_events;
   Lwt.return (resp, (body :> Cohttp_lwt_body.t))
-   
+
 let handle hw _ meth args sock_data _ body =
   match meth, args with
-  | `GET, [] -> topology sock_data body hw.topo ()
-  | _        -> Api.Redirect.not_found ()
+  | `GET, []           -> topology_socket sock_data body hw.topo ()
+  | `GET, ["topology"] -> topology hw.topo ()
+  | _                  -> Api.Redirect.not_found ()
 
 let handlers hw =
   let hls = Hardware.Map.fold (fun _ x acc -> x.handlers @ acc) hw.boards [] in

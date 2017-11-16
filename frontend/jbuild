@@ -1,7 +1,7 @@
 (jbuild_version 1)
 
 (executables
- ((names       (home dvb_niit demo))
+ ((names       (home dvb_niit demo configuration))
   (libraries   (js_of_ocaml
                 gg vg vg.htmlc js_of_ocaml-tyxml lwt_react
                 common janus pipeline-js hardware-js board-ip-dektec-js board-dvb-niit-js chartjs))

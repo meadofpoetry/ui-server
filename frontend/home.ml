@@ -82,8 +82,8 @@ let onload _ =
 
   Lwt.ignore_result @@ Lwt_js_events.clicks button_reset (fun _ _ -> Lwt.return @@ (label##.textContent := Js.some @@ Js.string ""));
 
-  let _ = React.E.map (fun x -> ev_label##.textContent := Js.some @@ Js.string (Yojson.Safe.to_string @@ Board_ip_dektec_js.Board_types.board_status_to_yojson x)) (Board_ip_dektec_js.Requests.get_status_socket 5) in
-
+  (* let _ = React.E.map (fun x -> ev_label##.textContent := Js.some @@ Js.string (Yojson.Safe.to_string @@ Board_ip_dektec_js.Board_types.board_status_to_yojson x)) (Board_ip_dektec_js.Requests.get_status_socket 5) in *)
+  let _ = React.E.map (fun x -> ev_label##.textContent := Js.some @@ Js.string (Yojson.Safe.to_string @@ Board_dvb_niit_js.Board_types.measure_to_yojson x)) (Board_dvb_niit_js.Requests.get_measures_socket 5) in
   let ac = Dom_html.getElementById "arbitrary-content" in
   Dom.appendChild ac label;
   Dom.appendChild ac button_set;
