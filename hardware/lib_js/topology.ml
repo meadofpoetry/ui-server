@@ -77,21 +77,21 @@ let rec setting t x y y1 height l =
 
 let converter_ports y port number =
      match (port, number) with
-      | (1,1) -> y
-      | (1,2) -> y +. 2.
-      | (2,2) -> y
-      | (1,3) -> y +. 4.
-      | (2,3) -> y +. 2.
-      | (3,3) -> y
-      | (1,4) -> y +. 6.
-      | (2,4) -> y +. 4.
-      | (3,4) -> y +. 2.
-      | (4,4) -> y
-      | (1,5) -> y +. 8.
-      | (2,5) -> y +. 6.
-      | (3,5) -> y +. 4.
-      | (4,5) -> y +. 2.
-      | (5,5) -> y
+      | (0,1) -> y
+      | (0,2) -> y +. 2.
+      | (1,2) -> y
+      | (0,3) -> y +. 4.
+      | (1,3) -> y +. 2.
+      | (2,3) -> y
+      | (0,4) -> y +. 6.
+      | (1,4) -> y +. 4.
+      | (2,4) -> y +. 2.
+      | (3,4) -> y
+      | (0,5) -> y +. 8.
+      | (1,5) -> y +. 6.
+      | (2,5) -> y +. 4.
+      | (3,5) -> y +. 2.
+      | (4,5) -> y
       | (_,_) -> 0.
 
 let green = I.const (Color.v 0.1 1.0 0.1 0.95)
@@ -245,6 +245,7 @@ end
 module Board = struct
 
   let rec draw t (acc, acc_top) x y cols rows =
+    Printf.printf "x %f y %f cols %f rows %f\n" x y cols rows;
     let font       = Font.{ name = ""; slant = `Normal; weight = `W400; size = 0.012 } in
     let num        = List.length t.ports in
     (* the more children converter has the bigger it is *)
@@ -319,30 +320,30 @@ module Board = struct
     match t.ports with
     | [] -> (img1,acc_top)
     | l  ->
-       List.fold_left (fun (acc,acc_top) z ->
-           let colour1 = if z.listening = true then green else red in
+       CCList.foldi (fun (acc,acc_top) i z ->
+           let colour1 = if z.listening then green else red in
            match t.typ with
-           | TS2IP -> let y_child = converter_ports y z.port num in
+           | TS2IP -> let y_child = converter_ports y i num in
                       let draw_line x1 = (Port.draw_line acc colour1 x1 y_child x (y_child +. 0.5) cols rows),
                                          acc_top in
                       (match z.child with
                        | Input el -> Port.draw_input el (draw_line 2.0) 1.0 y_child cols rows
                        | Board el -> draw el (draw_line @@ x -. 1.0) (x -. 2.0) y_child cols rows)
-           | _ -> let y_child = (match z.port,num with
-                                 | (1,1) | (2,3) -> y
-                                 | (1,2)         -> y +. 0.5
-                                 | (2,2)         -> y -. 0.5
-                                 | (1,3)         -> y +. 1.
-                                 | (3,3)         -> y -. 1.
-                                 | (_,_)          -> 0.) in
-                  let y2 = (y +. 1.0 -. (float_of_int z.port) /. ((float_of_int num) +. 1.0)) in
+           | _ -> let y_child = (match i,num with
+                                 | (0,1) | (1,3) -> y
+                                 | (0,2)         -> y +. 0.5
+                                 | (1,2)         -> y -. 0.5
+                                 | (0,3)         -> y +. 1.
+                                 | (2,3)         -> y -. 1.
+                                 | (_,_)         -> 0.) in
+                  let y2 = y +. 1.0 -. (float_of_int (i + 1)) /. ((float_of_int num) +. 1.0) in
                   (match z.child with
                    | Input el -> let line = (Port.draw_line acc colour1 2.0 y_child x y2 cols rows), acc_top in
                                  Port.draw_input el line 1.0 y_child cols rows
                    | Board el -> let line = (Port.draw_line acc colour1 (x -. 1.0) y_child x y2 cols rows),
                                             acc_top in
                                  draw el line (x -. 2.0) y_child cols rows))
-                      (img1,acc_top) l
+                    (img1,acc_top) l
 end
 
 module Entry = struct
@@ -359,35 +360,37 @@ module Entry = struct
 
 end
 
-let render ?on_click ~topology ~width ~height ~canvas () =
+let render ?on_click ~topology ~(width : int) ~canvas () =
+  let height = ((Js.Optdef.to_option @@ Dom_html.window##.innerHeight
+                 |> CCOpt.get_or ~default:0) -16) / 10 in
   let t      = topology in
   let cols   = (get_list_depth t * 2 + 1) in
   let rows   = (get_list_height t + 1) in
-  let start = I.const @@ Color.v 1.0 1.0 1.0 0.0
-              >> I.cut (P.empty
-                        >> P.sub  (P2.v 0. 0.)
-                        >> P.line (P2.v 0. 1.)
-                        >> P.line (P2.v 1. 1.)
-                        >> P.line (P2.v 1. 0.)
-                        >> P.line (P2.v 0. 0.)) in
-  let draw_entry = (fun (acc_img, acc_top,number) x ->
+  let ar     = 4. /. 4. in
+  let cw     = width / cols in
+  let rh     = int_of_float @@ (float_of_int cw) /. ar in
+  let start  = I.const @@ Color.v 1.0 1.0 1.0 0.0
+               >> I.cut (P.empty
+                         >> P.sub  (P2.v 0. 0.)
+                         >> P.line (P2.v 0. 1.)
+                         >> P.line (P2.v 1. 1.)
+                         >> P.line (P2.v 1. 0.)
+                         >> P.line (P2.v 0. 0.)) in
+  let draw_entry = (fun (acc_img,acc_top,number) x ->
       Entry.draw x (acc_img, acc_top, number) cols rows (get_node_height 0 x + 1)) in
   let (acc_img, acc_top, _) = List.fold_left draw_entry (start,[],1) t in
-  render canvas (size width height) acc_img;
+  render canvas (size (cw * cols) (rh * rows)) acc_img;
   match on_click with
-  | Some f -> let h = (fun ev ->
-                  let x,y = (Js.Optdef.to_option @@ ev##.pageX
-                             |> CCOpt.get_or ~default:0) - 8,
-                            (Js.Optdef.to_option @@ ev##.pageY
-                             |> CCOpt.get_or ~default:0) - 8 in (* margin *)
-                  let x1,y1 = floor_to_five (float_of_int x /. float_of_int width),
-                              floor_to_five (float_of_int rows -. float_of_int y /. float_of_int height) in
-                  let name x1 y1 l =
-                    match CCList.Assoc.get (x1,y1) l with
-                    | None -> None
-                    | Some entry -> Some entry
-                  in
-                  f (name x1 y1 acc_top);
-                  Js._false) in
-              canvas##.onmousedown := Dom_html.handler h
+  | Some f -> (fun e -> let width = width / cols in
+                        let x,y = (Js.Optdef.to_option @@ e##.pageX
+                                   |> CCOpt.get_or ~default:0) - 8,
+                                  (Js.Optdef.to_option @@ e##.pageY
+                                   |> CCOpt.get_or ~default:0) - 8 in (* margin *)
+                        let x1,y1 = floor_to_five (float_of_int x /. float_of_int width),
+                                    floor_to_five (float_of_int rows -. float_of_int y /. float_of_int height) in
+                        (match CCList.Assoc.get (x1,y1) acc_top with
+                         | None       -> ()
+                         | Some entry -> f entry);
+                        Js._false)
+              |> (fun x -> canvas##.onmousedown := Dom_html.handler x)
   | None -> ()

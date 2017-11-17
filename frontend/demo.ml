@@ -266,6 +266,9 @@ let list_demo () =
                                                         ~classes:[List_.Item.end_detail_class]
                                                         ()
                                                       |> Checkbox.attach) in
+                                      Checkbox.listen_change checkbox
+                                                             (fun _ _ -> print_endline "changed!"; true)
+                                      |> ignore;
                                       if x != 2
                                       then List_.Item.create
                                              ~attrs:[Tyxml_js.Html.a_onclick (fun _ ->

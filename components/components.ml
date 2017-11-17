@@ -37,6 +37,13 @@ module Checkbox = struct
       method value_         : Js.js_string Js.prop
     end
 
+  let input (elt : t Js.t) : Dom_html.inputElement Js.t =
+    elt##.root__##querySelector (Js.string ("." ^ native_control_class))
+    |> Js.Opt.to_option |> CCOpt.get_exn |> Js.Unsafe.coerce
+
+  let listen_change elt handler =
+    Dom_events.listen (input elt) Dom_events.Typ.change handler
+
   let attach elt : t Js.t =
     Js.Unsafe.global##.mdc##.checkbox##.MDCCheckbox##attachTo elt
 
