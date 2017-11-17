@@ -15,28 +15,35 @@ let subsection name elt = Html.div [ Html.h3 ~a:[Html.a_class [Typography.subhea
                                    ; elt ]
 
 let button_demo () =
-  let style      = "margin:10px;" in
-  let raised     = Button.create ~style ~label:"raised" ~raised:true () in
-  let flat       = Button.create ~style ~label:"flat" () in
-  let unelevated = Button.create ~style ~unelevated:true ~label:"unelevated" () in
-  let stroked    = Button.create ~style ~stroked:true ~label:"stroked" () in
-  let ripple     = Button.create ~style ~label:"ripple" ~ripple:true () in
-  let dense      = Button.create ~style ~label:"dense" ~raised:true ~dense:true () in
-  let compact    = Button.create ~style ~label:"compact" ~raised:true ~compact:true () in
-  let icon       = Button.create ~style ~label:"icon" ~icon:"favorite" ~raised:true () in
+  let style      = "10px" in
+  let raised     = let b = new Button.t ~label:"raised" () in
+                   b#raised; b in
+  let flat       = new Button.t ~raised:false ~label:"flat" () in
+  let unelevated = let b = new Button.t ~label:"unelevated" () in
+                   b#unelevated; b in
+  let stroked    = let b = new Button.t ~label:"stroked" ~raised:false () in
+                   b#stroked; b in
+  let ripple     = new Button.t ~label:"ripple" ~ripple:true () in
+  let dense      = let b = new Button.t ~label:"dense" () in
+                   b#dense; b in
+  let compact    = let b = new Button.t ~label:"compact" () in
+                   b#compact; b in
+  let icon       = new Button.t ~label:"icon" ~icon:"favorite" () in
   demo_section ~style:"display:flex; \
                        flex-direction:column;\
                        justify-content:flex-start;\
                        align-items:flex-start"
                "Button"
-               [raised;flat;unelevated;stroked;ripple;dense;compact;icon]
+  @@ List.map (fun x -> x#style##.margin := Js.string style;
+                        of_dom x#root)
+              [raised;flat;unelevated;stroked;ripple;dense;compact;icon]
 
 let fab_demo () =
-  let style  = "margin:10px;" in
-  let fab    = subsection "General" @@ Fab.create ~style ~icon:"favorite" () in
-  let mini   = subsection "Mini"    @@ Fab.create ~style ~mini:true ~icon:"favorite" () in
-  let ripple = subsection "Ripple"  @@ Fab.create ~style ~ripple:true ~icon:"favorite" () in
-  demo_section "FAB" [fab;mini;ripple]
+  let fab    = subsection "General" @@ of_dom @@ (new Fab.t ~icon:"favorite" ())#root in
+  let mini   = subsection "Mini"    @@ of_dom @@ (let b = new Fab.t ~icon:"favorite" ()
+                                                  in b#mini; b#root) in
+  let ripple = subsection "Ripple"  @@ of_dom @@ (new Fab.t ~ripple:true ~icon:"favorite" ())#root in
+    demo_section "FAB" [fab;mini;ripple]
 
 let radio_demo () =
   let radio1 = Radio.create ~name:"radio" () |> Radio.attach in
@@ -47,54 +54,41 @@ let radio_demo () =
                               ; of_dom radio3##.root__ ]
 
 let checkbox_demo () =
-  let checkbox = Checkbox.create ~input_id:"demo-checkbox" () |> Checkbox.attach in
-  let form_field = Form_field.create ~label:(Form_field.Label.create ~label:"checkbox label"
-                                                                     ~for_id:"demo-checkbox"
-                                                                     ())
-                                     ~input:(of_dom checkbox##.root__)
-                                     () in
-  let raw      = subsection "Checkbox (css only)" @@ Checkbox.create () in
-  let labelled = subsection "Checkbox with label" form_field in
-  demo_section "Checkbox" [ raw; labelled ]
+  let checkbox = new Checkbox.t ~input_id:"checkbox-demo" () in
+  let form_field = new Form_field.t ~label:"checkbox label" ~input:checkbox () in
+  (* let raw      = subsection "Checkbox (css only)" @@ Checkbox.create () in *)
+  (* print_endline @@ string_of_bool checkbox#checked; *)
+  let labelled = subsection "Checkbox with label" (of_dom form_field#root) in
+  demo_section "Checkbox" [ labelled ]
 
 let switch_demo () =
-  let switch = Switch.create ~input_id:"demo-switch" () |> Switch.attach in
-  let form_field = Form_field.create ~label:(Form_field.Label.create ~label:"switch label"
-                                                                     ~for_id:"demo-switch"
-                                                                     ())
-                                     ~input:(of_dom switch)
-                                     () in
-  let raw = subsection "Switch" @@ Switch.create () in
-  let labelled = subsection "Switch with label" form_field in
-  Dom_html.addEventListener (Switch.get_input switch
-                             |> Js.Opt.to_option
-                             |> CCOpt.get_exn)
+  let switch = new Switch.t ~input_id:"demo-switch" () in
+  let form_field = new Form_field.t ~label:"switch label" ~input:switch () in
+  let raw = subsection "Switch" @@ of_dom (new Switch.t ())#root in
+  let labelled = subsection "Switch with label" (of_dom form_field#root) in
+  Dom_html.addEventListener switch#input
                             Dom_events.Typ.change
                             (Dom_html.handler (fun _ ->
-                                 let s = "Switch is " ^ (if (Js.to_bool (switch##is_checked_ ()))
-                                                         then "on"
-                                                         else "off") in
+                                 let s = "Switch is " ^ (if switch#checked then "on" else "off") in
                                  print_endline s;
                                  Js._false))
                             Js._false |> ignore;
   demo_section "Switch" [ raw; labelled ]
 
-let toggle_demo () =
-  let toggle = Icon_toggle.create ~on_content:"favorite"
-                                  ~on_label:"Added to favorites"
-                                  ~off_label:"Removed from favorites"
-                                  ~off_content:"favorite_border"
-                                  ()
-             |> Icon_toggle.attach in
-  Dom_html.addEventListener toggle##.root__
-                            Icon_toggle.events.change
-                            (Dom_html.handler (fun e ->
-                                 print_endline ("Icon Toggle is " ^ (if (Js.to_bool e##.detail_##.isOn)
-                                                                     then "on"
-                                                                     else "off"));
-                                 Js._false))
-                            Js._false |> ignore;
-  demo_section "Icon toggle" [ of_dom toggle##.root__ ]
+ let toggle_demo () =
+   let toggle = new Icon_toggle.t
+                    ~on_data:{ icon = "favorite"; label = None; css_class = None }
+                    ~off_data:{ icon = "favorite_border"; label = None; css_class = None }
+                    () in
+   Dom_html.addEventListener toggle#root
+                             Icon_toggle.events.change
+                             (Dom_html.handler (fun e ->
+                                  print_endline ("Icon Toggle is " ^ (if (Js.to_bool e##.detail_##.isOn)
+                                                                      then "on"
+                                                                      else "off"));
+                                  Js._false))
+                             Js._false |> ignore;
+  demo_section "Icon toggle" [ of_dom toggle#root ]
 
 let card_demo () =
   let card = Card.create ~sections:[ Card.Media.create ~style:"background-image: url(\"https://maxcdn.icons8.com/app/uploads/2016/03/material-1-1000x563.jpg\");\
@@ -111,12 +105,15 @@ let card_demo () =
                                        ~children:[Html.pcdata "Supporting text"]
                                        ()
                                    ; Card.Actions.create
-                                       ~children:[ Button.create ~classes:[Card.Actions.action_class]
-                                                                 ~compact:true
-                                                                 ~label:"Action 1" ()
-                                                 ; Button.create ~classes:[Card.Actions.action_class]
-                                                                 ~compact:true
-                                                                 ~label:"Action 2" ()]
+                                       ~children:[ (let b = new Button.t ~label:"action 1" () in
+                                                    b#add_class Card.Actions.action_class;
+                                                    b#compact;
+                                                    of_dom b#root)
+                                                 ; (let b = new Button.t ~label:"action 2" () in
+                                                    b#add_class Card.Actions.action_class;
+                                                    b#compact;
+                                                    of_dom b#root)
+                                                 ]
                                        ()]
                          ~style:"width:320px;"
                          () in
@@ -243,11 +240,7 @@ let dialog_demo () =
                                                     ] ()
                                       ] ()
                |> Dialog.attach in
-  let button = Button.create ~raised:true
-                             ~label:"show dialog"
-                             ~ripple:true
-                             ~onclick:(fun _ -> dialog##show_ (); true)
-                             () in
+  let button = new Button.t ~label:"show dialog" ~ripple:true () in
   Dom_html.addEventListener dialog##.root__
                             Dialog.events.accept
                             (Dom_html.handler (fun _ -> print_endline "Dialog accepted!"; Js._false))
@@ -256,27 +249,27 @@ let dialog_demo () =
                             Dialog.events.cancel
                             (Dom_html.handler (fun _ -> print_endline "Dialog cancelled!"; Js._false))
                             Js._false |> ignore;
-  demo_section "Dialog" [ of_dom dialog##.root__; button ]
+  demo_section "Dialog" [ of_dom dialog##.root__; of_dom button#root ]
 
 let list_demo () =
-  let list_items = List.map (fun x -> let checkbox = (Checkbox.create
-                                                        ~attrs:[Tyxml_js.Html.a_onclick (fun e ->
-                                                                    Dom_html.stopPropagation e; true)]
-                                                        ~style:"width:24px; height:18px"
-                                                        ~classes:[List_.Item.end_detail_class]
-                                                        ()
-                                                      |> Checkbox.attach) in
-                                      Checkbox.listen_change checkbox
-                                                             (fun _ _ -> print_endline "changed!"; true)
-                                      |> ignore;
+  let list_items = List.map (fun x -> (* let checkbox = (Checkbox.create
+                                       *                   ~attrs:[Tyxml_js.Html.a_onclick (fun e ->
+                                       *                               Dom_html.stopPropagation e; true)]
+                                       *                   ~style:"width:24px; height:18px"
+                                       *                   ~classes:[List_.Item.end_detail_class]
+                                       *                   ()
+                                       *                 |> Checkbox.attach) in
+                                       * Checkbox.listen_change checkbox
+                                       *                        (fun _ _ -> print_endline "changed!"; true)
+                                       * |> ignore; *)
                                       if x != 2
                                       then List_.Item.create
-                                             ~attrs:[Tyxml_js.Html.a_onclick (fun _ ->
-                                                         let value = checkbox##.checked_
-                                                                     |> Js.to_bool
-                                                                     |> not
-                                                                     |> Js.bool in
-                                                         checkbox##.checked_ := value; true)]
+                                             (* ~attrs:[Tyxml_js.Html.a_onclick (fun _ ->
+                                              *             let value = checkbox##.checked_
+                                              *                         |> Js.to_bool
+                                              *                         |> not
+                                              *                         |> Js.bool in
+                                              *             checkbox##.checked_ := value; true)] *)
                                              ~text:("List item " ^ (string_of_int x))
                                              ~secondary_text:"some subtext here"
                                              ~start_detail:(let open Tyxml_js.Html in
@@ -289,7 +282,7 @@ let list_demo () =
                                                               [ i ~a:[ a_class ["material-icons"]
                                                                      ; a_style "color: white;"]
                                                                   [pcdata "folder"]])
-                                             ~end_detail:(checkbox##.root__ |> of_dom)
+                                             (* ~end_detail:(checkbox##.root__ |> of_dom) *)
                                              ~auto_init:true
                                              ()
                                       else List_.Item.create_divider ())
@@ -303,10 +296,10 @@ let list_demo () =
                               let inner_items = List.map
                                                   (fun x -> List_.Item.create
                                                               ~text:("Inner " ^ (string_of_int x))
-                                                              ~end_detail:(Checkbox.create 
-                                                                             ~style:"width:24px; height:18px"
-                                                                             ~classes:[List_.Item.end_detail_class]
-                                                                             ())
+                                                              (* ~end_detail:(Checkbox.create 
+                                                               *                ~style:"width:24px; height:18px"
+                                                               *                ~classes:[List_.Item.end_detail_class]
+                                                               *                ()) *)
                                                               ~auto_init:true
                                                               ())
                                                   (CCList.range 0 5) in
@@ -321,10 +314,10 @@ let list_demo () =
                                                        |> ignore;
                                                        true)]
                                            ~text:("List item " ^ (string_of_int x))
-                                           ~end_detail:(Checkbox.create 
-                                                        ~style:"width:24px; height:18px"
-                                                        ~classes:[List_.Item.end_detail_class]
-                                                        ())
+                                           (* ~end_detail:(Checkbox.create 
+                                            *              ~style:"width:24px; height:18px"
+                                            *              ~classes:[List_.Item.end_detail_class]
+                                            *              ()) *)
                                            ~auto_init:true
                                            ()
                                        ; Tyxml_js.Of_dom.of_element inner ])
@@ -343,13 +336,9 @@ let menu_demo () =
                                       else Menu.Item.create_divider ())
                             (CCList.range 0 5) in
   let menu = Menu.create ~items:menu_items () |> Menu.attach in
-  let menu_anchor = Button.create ~label:"Open menu"
-                                  ~raised:true
-                                  ~onclick:(fun _ -> menu##show_focused (Menu.focus_index_to_js_obj 2);
-                                                     true)
-                                  () in
+  let menu_anchor = new Button.t ~label:"Open menu" () in
   let menu_div = Html.div ~a:[Tyxml_js.Html.a_class [Menu.anchor_class]]
-                          [ menu_anchor; of_dom menu##.root__ ] in
+                          [ of_dom menu_anchor#root; of_dom menu##.root__ ] in
   Dom_html.addEventListener menu##.root__
                             Menu.events.selected
                             (Dom_html.handler (fun d ->
@@ -370,68 +359,68 @@ let menu_demo () =
 let linear_progress_demo () =
   let linear_progress = Linear_progress.create ~indeterminate:true ()
                         |> Linear_progress.attach in
-  let lp_ind_btn = Button.create ~label:"set indeterminate"
-                                 ~raised:true
-                                 ~onclick:(fun _ -> linear_progress##.determinate_ := Js._false; true)
-                                 () in
-  let lp_det_btn = Button.create ~label:"set determinate"
-                                 ~raised:true
-                                 ~onclick:(fun _ -> linear_progress##.determinate_ := Js._true; true)
-                                 () in
-  let progress0_btn = Button.create ~label:"set progress 0"
-                                    ~raised:true
-                                    ~onclick:(fun _ -> linear_progress##.progress_ := (Js.number_of_float 0.);
-                                                       true)
-                                    () in
-  let progress20_btn = Button.create ~label:"set progress 20"
-                                     ~raised:true
-                                     ~onclick:(fun _ -> linear_progress##.progress_ := (Js.number_of_float 0.2);
-                                                        true)
-                                     () in
-  let progress60_btn = Button.create ~label:"set progress 60"
-                                     ~raised:true
-                                     ~onclick:(fun _ -> linear_progress##.progress_ := (Js.number_of_float 0.6);
-                                                        true)
-                                     () in
-  let buffer10_btn = Button.create ~label:"set buffer 10"
-                                   ~raised:true
-                                   ~onclick:(fun _ -> linear_progress##.buffer_ := (Js.number_of_float 0.1);
-                                                      true)
-                                   () in
-  let buffer30_btn = Button.create ~label:"set buffer 30"
-                                   ~raised:true
-                                   ~onclick:(fun _ -> linear_progress##.buffer_ := (Js.number_of_float 0.3);
-                                                      true)
-                                   () in
-  let buffer70_btn = Button.create ~label:"set buffer 70"
-                                   ~raised:true
-                                   ~onclick:(fun _ -> linear_progress##.buffer_ := (Js.number_of_float 0.7); true)
-                                   () in
-  let open_btn = Button.create ~label:"open"
-                               ~raised:true
-                               ~onclick:(fun _ -> linear_progress##open_ (); true)
-                               () in
-  let close_btn = Button.create ~label:"close"
-                                ~raised:true
-                                ~onclick:(fun _ -> linear_progress##close_ (); true)
-                                () in
-  let cells = List.map (fun x -> Layout_grid.Cell.create ~content:[x]
-                                                         ~span:{ columns = 12
-                                                               ; device_type = None
-                                                               }
-                                                         ())
-                       [ lp_ind_btn
-                       ; lp_det_btn
-                       ; progress0_btn
-                       ; progress20_btn
-                       ; progress60_btn
-                       ; buffer10_btn
-                       ; buffer30_btn
-                       ; buffer70_btn
-                       ; open_btn
-                       ; close_btn ] in
-  let btn_grid = Layout_grid.create ~content:[Layout_grid.create_inner ~cells ()] () in
-  demo_section "Linear progress" [ btn_grid; of_dom linear_progress##.root__ ]
+  (* let lp_ind_btn = Button.create ~label:"set indeterminate"
+   *                                ~raised:true
+   *                                ~onclick:(fun _ -> linear_progress##.determinate_ := Js._false; true)
+   *                                () in
+   * let lp_det_btn = Button.create ~label:"set determinate"
+   *                                ~raised:true
+   *                                ~onclick:(fun _ -> linear_progress##.determinate_ := Js._true; true)
+   *                                () in
+   * let progress0_btn = Button.create ~label:"set progress 0"
+   *                                   ~raised:true
+   *                                   ~onclick:(fun _ -> linear_progress##.progress_ := (Js.number_of_float 0.);
+   *                                                      true)
+   *                                   () in
+   * let progress20_btn = Button.create ~label:"set progress 20"
+   *                                    ~raised:true
+   *                                    ~onclick:(fun _ -> linear_progress##.progress_ := (Js.number_of_float 0.2);
+   *                                                       true)
+   *                                    () in
+   * let progress60_btn = Button.create ~label:"set progress 60"
+   *                                    ~raised:true
+   *                                    ~onclick:(fun _ -> linear_progress##.progress_ := (Js.number_of_float 0.6);
+   *                                                       true)
+   *                                    () in
+   * let buffer10_btn = Button.create ~label:"set buffer 10"
+   *                                  ~raised:true
+   *                                  ~onclick:(fun _ -> linear_progress##.buffer_ := (Js.number_of_float 0.1);
+   *                                                     true)
+   *                                  () in
+   * let buffer30_btn = Button.create ~label:"set buffer 30"
+   *                                  ~raised:true
+   *                                  ~onclick:(fun _ -> linear_progress##.buffer_ := (Js.number_of_float 0.3);
+   *                                                     true)
+   *                                  () in
+   * let buffer70_btn = Button.create ~label:"set buffer 70"
+   *                                  ~raised:true
+   *                                  ~onclick:(fun _ -> linear_progress##.buffer_ := (Js.number_of_float 0.7); true)
+   *                                  () in
+   * let open_btn = Button.create ~label:"open"
+   *                              ~raised:true
+   *                              ~onclick:(fun _ -> linear_progress##open_ (); true)
+   *                              () in
+   * let close_btn = Button.create ~label:"close"
+   *                               ~raised:true
+   *                               ~onclick:(fun _ -> linear_progress##close_ (); true)
+   *                               () in
+   * let cells = List.map (fun x -> Layout_grid.Cell.create ~content:[x]
+   *                                                        ~span:{ columns = 12
+   *                                                              ; device_type = None
+   *                                                              }
+   *                                                        ())
+   *                      [ lp_ind_btn
+   *                      ; lp_det_btn
+   *                      ; progress0_btn
+   *                      ; progress20_btn
+   *                      ; progress60_btn
+   *                      ; buffer10_btn
+   *                      ; buffer30_btn
+   *                      ; buffer70_btn
+   *                      ; open_btn
+   *                      ; close_btn ] in
+   * let btn_grid = Layout_grid.create ~content:[Layout_grid.create_inner ~cells ()] () in *)
+  demo_section "Linear progress" [ (* btn_grid; *) of_dom linear_progress##.root__ ]
 
 let tabs_demo () =
   let icon_section = let items = List.map (fun x ->
@@ -494,110 +483,108 @@ let tabs_demo () =
                        subsection "With scroller" @@ of_dom scroller##.root__ in
   demo_section "Tabs" [ text_section; icon_section; it_section; scroll_section ]
 
-let snackbar_demo () =
-  let snackbar = Snackbar.create () |> Snackbar.attach in
-  let aligned  = Snackbar.create ~start_aligned:true () |> Snackbar.attach in
-  let snackbar_btn = Button.create
-                       ~onclick:(fun _ ->
-                         snackbar##show_ (Snackbar.data_to_js_obj { message = "I am a snackbar"
-                                                                  ; timeout = None
-                                                                  ; action  = Some { handler = (fun () -> print_endline "Clicked on snackbar action")
-                                                                                   ; text    = "Action"}
-                                                                  ; multiline = None });
-                         true)
-                       ~style:"margin:10px"
-                       ~raised:true
-                       ~label:"Open snackbar"
-                       ()in
-  let aligned_btn =  Button.create
-                       ~onclick:(fun _ ->
-                         aligned##show_ (Snackbar.data_to_js_obj { message = "I am a snackbar"
-                                                                 ; timeout = None
-                                                                 ; action  = Some { handler = (fun () -> print_endline "Clicked on snackbar action")
-                                                                                  ; text    = "Action"}
-                                                                 ; multiline = None });
-                         true)
-                       ~style:"margin:10px"
-                       ~raised:true
-                       ~label:"Open start-aligned snackbar"
-                       () in
-  demo_section "Snackbar" [ of_dom snackbar##.root__
-                          ; of_dom aligned ##.root__
-                          ; snackbar_btn
-                          ; aligned_btn ]
+(* let snackbar_demo () =
+ *   let snackbar = Snackbar.create () |> Snackbar.attach in
+ *   let aligned  = Snackbar.create ~start_aligned:true () |> Snackbar.attach in
+ *   let snackbar_btn = Button.create
+ *                        ~onclick:(fun _ ->
+ *                          snackbar##show_ (Snackbar.data_to_js_obj { message = "I am a snackbar"
+ *                                                                   ; timeout = None
+ *                                                                   ; action  = Some { handler = (fun () -> print_endline "Clicked on snackbar action")
+ *                                                                                    ; text    = "Action"}
+ *                                                                   ; multiline = None });
+ *                          true)
+ *                        ~style:"margin:10px"
+ *                        ~raised:true
+ *                        ~label:"Open snackbar"
+ *                        ()in
+ *   let aligned_btn =  Button.create
+ *                        ~onclick:(fun _ ->
+ *                          aligned##show_ (Snackbar.data_to_js_obj { message = "I am a snackbar"
+ *                                                                  ; timeout = None
+ *                                                                  ; action  = Some { handler = (fun () -> print_endline "Clicked on snackbar action")
+ *                                                                                   ; text    = "Action"}
+ *                                                                  ; multiline = None });
+ *                          true)
+ *                        ~style:"margin:10px"
+ *                        ~raised:true
+ *                        ~label:"Open start-aligned snackbar"
+ *                        () in
+ *   demo_section "Snackbar" [ of_dom snackbar##.root__
+ *                           ; of_dom aligned ##.root__
+ *                           ; snackbar_btn
+ *                           ; aligned_btn ] *)
 
-let textfield_demo () =
-  let css_label = Form_field.Label.create ~for_id:"demo-css-textfield"
-                                          ~label:"css textfield label: "
-                                          () in
-  let css_textfield = Textfield.create ~placeholder:"placeholder"
-                                       ~input_id:"demo-css-textfield"
-                                       () in
-  let css_sect = subsection "CSS only textfield" (Form_field.create ~label:css_label
-                                                                    ~style:"margin-top:20px;\
-                                                                            margin-bottom:20px;"
-                                                                    ~input:css_textfield
-                                                                    ~align_end:true
-                                                                    ()) in
-  let js_textfield = Textfield.create ~label:"js textfield label"
-                                      ~input_id:"demo-js-textfield"
-                                      ~help_text_id:"demo-js-textfield-hint"
-                                      ~required:true
-                                      ()
-                     |> Textfield.attach in
-  let js_help_text = Textfield.Help_text.create ~id:"demo-js-textfield-hint"
-                                                ~text:"This field must not be empty"
-                                                ~validation:true
-                                                () in
-  let js_sect = subsection "JS textfield" @@ Html.div [ of_dom js_textfield##.root__
-                                                      ; js_help_text ] in
-  let dense_textfield = Textfield.create ~label:"dense textfield label"
-                                         ~input_type:`Email
-                                         ~input_id:"demo-dense-textfield"
-                                         ~dense:true
-                                         ()
-                        |> Textfield.attach in
-  let dense_help_text = Textfield.Help_text.create ~id:"demo-dense-textfield-hint"
-                                                   ~text:"Provide valid e-mail"
-                                                   ~validation:true
-                                                   () in
-  let dense_sect = subsection "Dense textfield (with email validation)"
-                   @@ Html.div [ of_dom dense_textfield##.root__
-                               ; dense_help_text ] in
-  let lead_icon_textfield = Textfield.create ~label:"textfield label"
-                                             ~input_id:"lead-icon-textfield"
-                                             ~leading_icon:(Textfield.Icon.create ~icon:"event" ())
-                                             ~box:true
-                                             ()
-                            |> Textfield.attach in
-  let trail_icon_textfield = Textfield.create ~label:"textfield label"
-                                              ~input_id:"trail-icon-textfield"
-                                              ~trailing_icon:(Textfield.Icon.create ~icon:"delete" ())
-                                              ~style:"margin-top: 15px"
-                                              ~box:true
-                                              ()
-                             |> Textfield.attach in
-  let icon_sect = subsection "With icons" @@ Html.div ~a:([Html.a_style "display: flex;\
-                                                                         max-width: 300px;\
-                                                                         flex-direction: column;"])
-                                               [ of_dom lead_icon_textfield##.root__
-                                               ; of_dom trail_icon_textfield##.root__
-                                               ] in
-  let css_textarea = Textfield.create ~textarea:true
-                                      ~placeholder:"Enter something"
-                                      ~rows:8
-                                      ~cols:40
-                                      () in
-  let textarea = Textfield.create ~label:"textarea label"
-                                  ~input_id:"js-textarea-demo"
-                                  ~textarea:true
-                                  ~rows:8
-                                  ~cols:40
-                                  ()
-                 |> Textfield.attach in
-  let css_textarea_sect = subsection "Textarea (css only)" css_textarea in
-  let textarea_sect = subsection "Textarea" @@ of_dom textarea##.root__ in
-  demo_section "Textfield" [ css_sect; js_sect; dense_sect; icon_sect; css_textarea_sect; textarea_sect ]
+(* let textfield_demo () =
+ *   let css_label = "css textfield label: " in
+ *   let css_textfield = Textfield.create ~placeholder:"placeholder"
+ *                                        ~input_id:"demo-css-textfield"
+ *                                        () in
+ *   let css_sect = subsection "CSS only textfield" @@ of_dom
+ *                                                       (new Form_field.t
+ *                                                            ~label:css_label
+ *                                                            ~input:(Tyxml_js.To_dom.of_element css_textfield)
+ *                                                            ~align_end:true
+ *                                                            ())#root in
+ *   let js_textfield = Textfield.create ~label:"js textfield label"
+ *                                       ~input_id:"demo-js-textfield"
+ *                                       ~help_text_id:"demo-js-textfield-hint"
+ *                                       ~required:true
+ *                                       ()
+ *                      |> Textfield.attach in
+ *   let js_help_text = Textfield.Help_text.create ~id:"demo-js-textfield-hint"
+ *                                                 ~text:"This field must not be empty"
+ *                                                 ~validation:true
+ *                                                 () in
+ *   let js_sect = subsection "JS textfield" @@ Html.div [ of_dom js_textfield##.root__
+ *                                                       ; js_help_text ] in
+ *   let dense_textfield = Textfield.create ~label:"dense textfield label"
+ *                                          ~input_type:`Email
+ *                                          ~input_id:"demo-dense-textfield"
+ *                                          ~dense:true
+ *                                          ()
+ *                         |> Textfield.attach in
+ *   let dense_help_text = Textfield.Help_text.create ~id:"demo-dense-textfield-hint"
+ *                                                    ~text:"Provide valid e-mail"
+ *                                                    ~validation:true
+ *                                                    () in
+ *   let dense_sect = subsection "Dense textfield (with email validation)"
+ *                    @@ Html.div [ of_dom dense_textfield##.root__
+ *                                ; dense_help_text ] in
+ *   let lead_icon_textfield = Textfield.create ~label:"textfield label"
+ *                                              ~input_id:"lead-icon-textfield"
+ *                                              ~leading_icon:(Textfield.Icon.create ~icon:"event" ())
+ *                                              ~box:true
+ *                                              ()
+ *                             |> Textfield.attach in
+ *   let trail_icon_textfield = Textfield.create ~label:"textfield label"
+ *                                               ~input_id:"trail-icon-textfield"
+ *                                               ~trailing_icon:(Textfield.Icon.create ~icon:"delete" ())
+ *                                               ~style:"margin-top: 15px"
+ *                                               ~box:true
+ *                                               ()
+ *                              |> Textfield.attach in
+ *   let icon_sect = subsection "With icons" @@ Html.div ~a:([Html.a_style "display: flex;\
+ *                                                                          max-width: 300px;\
+ *                                                                          flex-direction: column;"])
+ *                                                [ of_dom lead_icon_textfield##.root__
+ *                                                ; of_dom trail_icon_textfield##.root__
+ *                                                ] in
+ *   let css_textarea = Textfield.create ~textarea:true
+ *                                       ~placeholder:"Enter something"
+ *                                       ~rows:8
+ *                                       ~cols:40
+ *                                       () in
+ *   let textarea = Textfield.create ~label:"textarea label"
+ *                                   ~input_id:"js-textarea-demo"
+ *                                   ~textarea:true
+ *                                   ~rows:8
+ *                                   ~cols:40
+ *                                   ()
+ *                  |> Textfield.attach in
+ *   let css_textarea_sect = subsection "Textarea (css only)" css_textarea in
+ *   let textarea_sect = subsection "Textarea" @@ of_dom textarea##.root__ in
+ *   demo_section "Textfield" [ css_sect; js_sect; dense_sect; icon_sect; css_textarea_sect; textarea_sect ] *)
 
 let select_demo () =
   let js_select = let items = List.map (fun x -> Select.Base.Item.create
@@ -724,7 +711,7 @@ let onload _ =
                         ; switch_demo ()
                         ; toggle_demo ()
                         ; select_demo ()
-                        ; textfield_demo ()
+                        (* ; textfield_demo () *)
                         ; card_demo ()
                         ; slider_demo ()
                         ; grid_list_demo ()
@@ -733,7 +720,7 @@ let onload _ =
                         ; dialog_demo ()
                         ; list_demo ()
                         ; menu_demo ()
-                        ; snackbar_demo ()
+                        (* ; snackbar_demo () *)
                         ; linear_progress_demo ()
                         ; tabs_demo ()
                         ] in
@@ -769,7 +756,7 @@ let onload _ =
                          ~labels:(CCList.range 0 20 |> List.map string_of_int)
                          () in
   let open Chartjs in
-  let ch = Chartjs.Line.attach
+  let _ = Chartjs.Line.attach
              ~data
              ~options:(Options.to_obj
                          ~on_hover:(fun e (a:'a Js.js_array Js.t) ->

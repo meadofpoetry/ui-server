@@ -145,9 +145,9 @@ module Port = struct
             >> P.line   (sz 0.45 0.50) in
     let input = I.const Color.black >> I.cut ~area p in
     let with_label = I.blend (text ~text:(input_to_string t)
-                                   (true_size 0.48 0.0 x (y+.0.44) cols rows)
-                                   {font with size = (0.12/.cols); weight = `W100})
-                             input in
+                                (true_size 0.48 0.0 x (y+.0.44) cols rows)
+                                {font with size = (0.12/.cols); weight = `W100})
+                       input in
     ((I.blend with_label acc),acc_top)
 
   let draw_straight x1 y1 x2 _ cols rows =
@@ -245,7 +245,6 @@ end
 module Board = struct
 
   let rec draw t (acc, acc_top) x y cols rows =
-    Printf.printf "x %f y %f cols %f rows %f\n" x y cols rows;
     let font       = Font.{ name = ""; slant = `Normal; weight = `W400; size = 0.012 } in
     let num        = List.length t.ports in
     (* the more children converter has the bigger it is *)
@@ -354,20 +353,19 @@ module Entry = struct
     let (acc1,acc_top1) =
       match t with
       | Input x -> Port.draw_input x (acc, acc_top) 1.0 (float_of_int @@ num + h) cols_f rows_f
-      | Board x -> Board.draw x (acc, acc_top) (float_of_int cols -. 2.0) (float_of_int num) cols_f rows_f
+      | Board x -> Board.draw x (acc, acc_top) (cols_f -. 2.0) (float_of_int num) cols_f rows_f
     in
     (acc1, acc_top1, num + h)
 
 end
 
 let render ?on_click ~topology ~(width : int) ~canvas () =
-  let height = ((Js.Optdef.to_option @@ Dom_html.window##.innerHeight
-                 |> CCOpt.get_or ~default:0) -16) / 10 in
   let t      = topology in
   let cols   = (get_list_depth t * 2 + 1) in
-  let rows   = (get_list_height t + 1) in
-  let ar     = 4. /. 4. in
-  let cw     = width / cols in
+  let rows   = (get_list_height t - 1) in
+  let ar     = 1. in
+  let cw     = let calc = width / cols in
+               if calc > 150 then 150 else calc in
   let rh     = int_of_float @@ (float_of_int cw) /. ar in
   let start  = I.const @@ Color.v 1.0 1.0 1.0 0.0
                >> I.cut (P.empty
@@ -377,20 +375,18 @@ let render ?on_click ~topology ~(width : int) ~canvas () =
                          >> P.line (P2.v 1. 0.)
                          >> P.line (P2.v 0. 0.)) in
   let draw_entry = (fun (acc_img,acc_top,number) x ->
-      Entry.draw x (acc_img, acc_top, number) cols rows (get_node_height 0 x + 1)) in
+      Entry.draw x (acc_img, acc_top, number) cols rows (get_node_height 0 x)) in
   let (acc_img, acc_top, _) = List.fold_left draw_entry (start,[],1) t in
   render canvas (size (cw * cols) (rh * rows)) acc_img;
   match on_click with
-  | Some f -> (fun e -> let width = width / cols in
-                        let x,y = (Js.Optdef.to_option @@ e##.pageX
-                                   |> CCOpt.get_or ~default:0) - 8,
-                                  (Js.Optdef.to_option @@ e##.pageY
-                                   |> CCOpt.get_or ~default:0) - 8 in (* margin *)
-                        let x1,y1 = floor_to_five (float_of_int x /. float_of_int width),
-                                    floor_to_five (float_of_int rows -. float_of_int y /. float_of_int height) in
+  | Some f -> (fun e -> let x, y = int_of_float @@ Js.float_of_number @@ (Js.Unsafe.get e "offsetX"),
+                                   int_of_float @@ Js.float_of_number @@ (Js.Unsafe.get e "offsetY") in
+                        let x1,y1 = floor_to_five @@ (float_of_int x /. float_of_int cw),
+                                    (float_of_int rows) -. (floor_to_five @@ (float_of_int y /. float_of_int rh)) in
+                        Printf.printf "x: %d, y: %d, x1: %f, y1: %f\n" x y x1 y1;
                         (match CCList.Assoc.get (x1,y1) acc_top with
                          | None       -> ()
                          | Some entry -> f entry);
                         Js._false)
-              |> (fun x -> canvas##.onmousedown := Dom_html.handler x)
+              |> (fun x -> canvas##.onclick := Dom_html.handler x)
   | None -> ()

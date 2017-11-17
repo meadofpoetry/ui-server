@@ -70,16 +70,22 @@ module Make
     let base_class = "mdc-button"
     let icon_class = CSS.add_element base_class "icon"
 
+    let unelevated_class = CSS.add_modifier base_class "unelevated"
+    let stroked_class    = CSS.add_modifier base_class "stroked"
+    let raised_class     = CSS.add_modifier base_class "raised"
+    let dense_class      = CSS.add_modifier base_class "dense"
+    let compact_class    = CSS.add_modifier base_class "compact"
+
     let create ?(classes=[]) ?id ?style
-               ?(disabled=false) ?(raised=false) ?(ripple=false)
+               ?(disabled=false) ?(raised=true) ?(ripple=false)
                ?(unelevated=false) ?(stroked=false) ?(dense=false) ?(compact=false)
                ?icon ?label ?onclick ?attrs () =
       button ~a:([ a_class (classes
-                            |> cons_if unelevated @@ CSS.add_modifier base_class "unelevated"
-                            |> cons_if stroked    @@ CSS.add_modifier base_class "stroked"
-                            |> cons_if raised     @@ CSS.add_modifier base_class "raised"
-                            |> cons_if dense      @@ CSS.add_modifier base_class "dense"
-                            |> cons_if compact    @@ CSS.add_modifier base_class "compact"
+                            |> cons_if unelevated unelevated_class
+                            |> cons_if stroked    stroked_class
+                            |> cons_if raised     raised_class
+                            |> cons_if dense      dense_class
+                            |> cons_if compact    compact_class
                             |> CCList.cons base_class) ]
                  |> add_common_attrs ?id ?style ?attrs
                  |> map_cons_option ~f:a_onclick onclick
@@ -283,11 +289,12 @@ module Make
     let base_class   = "mdc-fab"
     let icon_class   = CSS.add_element base_class "icon"
     let exited_class = CSS.add_modifier base_class "exited"
+    let mini_class   = CSS.add_modifier base_class "mini"
 
     let create ?id ?style ?(classes=[]) ?attrs ?onclick
                ?(mini=false) ?(ripple=false) ?label ~icon () =
       button ~a:([ a_class (classes
-                            |> cons_if mini @@ CSS.add_modifier base_class "mini"
+                            |> cons_if mini @@ mini_class
                             |> CCList.cons base_class
                             |> CCList.cons "material-icons") ]
                  |> add_common_attrs ?id ?style ?attrs
@@ -300,7 +307,8 @@ module Make
 
   module Form_field = struct
 
-    let base_class = "mdc-form-field"
+    let base_class      = "mdc-form-field"
+    let align_end_class = CSS.add_modifier base_class "align-end"
 
     module Label = struct
 
@@ -314,7 +322,7 @@ module Make
 
     let create ?id ?style ?(classes=[]) ?attrs ?(align_end=false) ~input ~label () =
       div ~a:([ a_class (classes
-                         |> cons_if align_end @@ CSS.add_modifier base_class "align-end"
+                         |> cons_if align_end align_end_class
                          |> CCList.cons base_class) ]
               |> add_common_attrs ?id ?style ?attrs)
           [ input; label ]
@@ -410,7 +418,7 @@ module Make
   module Icon_toggle = struct
 
     type data =
-      { content   : string
+      { icon      : string        [@key "content"]
       ; label     : string option
       ; css_class : string option [@key "cssClass"]
       } [@@deriving to_yojson]
@@ -418,22 +426,9 @@ module Make
     let base_class  = "mdc-icon-toggle"
     let icons_class = "material-icons"
 
-    let create ?id ?style ?(classes=[]) ?attrs ?(disabled=false) ?color_scheme
-               ~on_content ?on_label ?on_class
-               ~off_content ?off_label ?off_class
-               () =
-      let data_toggle_on = { content   = on_content
-                           ; label     = on_label
-                           ; css_class = on_class
-                           }
-                           |> data_to_yojson
-                           |> Yojson.Safe.to_string in
-      let data_toggle_off = { content   = off_content
-                            ; label     = off_label
-                            ; css_class = off_class
-                            }
-                            |> data_to_yojson
-                            |> Yojson.Safe.to_string in
+    let create ?id ?style ?(classes=[]) ?attrs ?(disabled=false) ?color_scheme ~on_data ~off_data () =
+      let data_toggle_on  = on_data |> data_to_yojson |> Yojson.Safe.to_string in
+      let data_toggle_off = off_data |> data_to_yojson |> Yojson.Safe.to_string in
       i ~a:([ a_class (classes
                        |> cons_if disabled @@ CSS.add_modifier base_class "disabled"
                        |> map_cons_option ~f:(function
@@ -447,10 +442,10 @@ module Make
             ; a_user_data "toggle-off" data_toggle_off
             ; a_aria "pressed" ["false"]
             ; a_tabindex (if disabled then -1 else 0) ]
-            |> map_cons_option ~f:(fun x -> a_aria "label" [x]) off_label
+            |> map_cons_option ~f:(fun x -> a_aria "label" [x]) off_data.label
             |> cons_if disabled @@ a_aria "disabled" ["true"]
             |> add_common_attrs ?id ?style ?attrs)
-        [pcdata off_content]
+        [pcdata off_data.icon]
 
   end
 
@@ -1039,10 +1034,11 @@ module Make
     let native_control_class = CSS.add_element base_class "native-control"
     let background_class     = CSS.add_element base_class "background"
     let knob_class           = CSS.add_element base_class "knob"
+    let disabled_class       = CSS.add_modifier base_class "disabled"
 
     let create ?id ?input_id ?style ?(classes=[]) ?attrs ?(disabled=false) () =
       div ~a:([ a_class (classes
-                         |> cons_if disabled @@ CSS.add_modifier base_class "disabled"
+                         |> cons_if disabled disabled_class
                          |> CCList.cons base_class) ]
               |> add_common_attrs ?id ?style ?attrs)
           [ input ~a:([ a_input_type `Checkbox

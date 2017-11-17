@@ -110,7 +110,8 @@ module SM = struct
         let recvd = Meta_board.concat_acc acc recvd in
         let _, responses, acc = deserialize recvd in
         match Pool.responsed detect_pool responses with
-        | Some detect -> step_start_init (measure_probes (send_event sender) period detect)
+        | Some detect -> push_state `Init;
+                         step_start_init (measure_probes (send_event sender) period detect)
         | _           -> `Continue (step_detect (Pool.step detect_pool) acc)
       with Timeout -> first_step ()
 

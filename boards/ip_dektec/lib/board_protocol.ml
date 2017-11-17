@@ -155,6 +155,7 @@ module SM = struct
     let send x = send_msg sender x |> ignore in
 
     let rec first_step () =
+      print_endline "dektec first step";
       Queue.iter !msgs wakeup_timeout;
       msgs := Queue.create [];
       push_state `No_response;
@@ -165,6 +166,7 @@ module SM = struct
     and bad_step period next_step = if period < 0 then (first_step ()) else `Continue next_step
 
     and step_detect_fpga_ver p req acc recvd =
+      print_endline "dektec detect fpga step";
       find_resp req acc recvd
                 ~success:(fun x _ -> let r = Devinfo Get_hw_ver in
                                      send r; `Continue (step_detect_hw_ver period r x None))
@@ -199,6 +201,7 @@ module SM = struct
                 ~success:(fun x _ -> let fpga_ver,hw_ver,fw_ver,serial,typ = conf in
                                      let conf = { fpga_ver; hw_ver; fw_ver; serial; typ; mac = x } in
                                      let r = Overall (Set_mode Ip2asi) in
+                                     push_state `Init;
                                      send r; `Continue (step_init_mode period r None))
                 ~failure:(fun acc -> bad_step p (step_detect_mac (pred p) req conf acc))
 
@@ -345,6 +348,7 @@ module SM = struct
                                                          ; Ip Get_delay_factor
                                                          ; Asi Get_bitrate ] in
                                      let pool = Pool.create msgs in
+                                     push_state `Fine;
                                      `Continue (step_normal_probes_send pool None [] 0 None))
                 ~failure:(fun acc -> bad_step p (step_init_ip_rate_mode (pred p) req acc))
 

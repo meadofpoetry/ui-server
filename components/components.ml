@@ -4,13 +4,98 @@ module Widgets = Common.Components.Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Htm
 
 let of_dom el = Tyxml_js.Of_dom.of_element (el :> Dom_html.element Js.t)
 
+type rect =
+  { top    : float
+  ; right  : float
+  ; bottom : float
+  ; left   : float
+  ; width  : float option
+  ; height : float option
+  }
+
+class virtual widget () =
+        object(self)
+
+          method virtual private element : Dom_html.element Js.t
+
+          method id = Js.to_string self#element##.id
+          method set_id id = self#element##.id := Js.string id
+
+          method style = self#element##.style
+
+          method class_string = Js.to_string @@ self#element##.className
+          method set_class_string _classes = self#element##.className := (Js.string _classes)
+
+          method add_class    _class = self#element##.classList##add (Js.string _class)
+          method remove_class _class = self#element##.classList##remove (Js.string _class)
+          method toggle_class _class = self#element##.classList##toggle (Js.string _class)
+          method has_class    _class = Js.to_bool (self#element##.classList##contains (Js.string _class))
+
+          method client_left   = self#element##.clientLeft
+          method client_top    = self#element##.clientTop
+          method client_width  = self#element##.clientWidth
+          method client_height = self#element##.clientHeight
+
+          method offset_left   = self#element##.offsetLeft
+          method offset_top    = self#element##.offsetTop
+          method offset_width  = self#element##.offsetWidth
+          method offset_height = self#element##.offsetHeight
+
+          method scroll_left   = self#element##.scrollLeft
+          method scroll_top    = self#element##.scrollTop
+          method scroll_width  = self#element##.scrollWidth
+          method scroll_height = self#element##.scrollHeight
+
+          method client_rect   = (self#element##getBoundingClientRect)
+                                 |> (fun x -> { top    = x##.top
+                                              ; right  = x##.right
+                                              ; bottom = x##.bottom
+                                              ; left   = x##.left
+                                              ; width  = Js.Optdef.to_option x##.width
+                                              ; height = Js.Optdef.to_option x##.height })
+
+        end
+
+class virtual input_widget () =
+        object
+
+          inherit widget ()
+
+          method virtual input : Dom_html.inputElement Js.t
+
+        end
+
 module Button = struct
 
-  include Widgets.Button
+  class t ?raised ?icon ?ripple ~label () = object
 
-  class type t = Dom_html.buttonElement
+    inherit widget () as super
 
-  let attach elt : t Js.t = Tyxml_js.To_dom.of_button elt
+    val elt : Dom_html.buttonElement Js.t =
+      Widgets.Button.create ?raised ?icon ?ripple ~label ()
+      |> Tyxml_js.To_dom.of_button
+
+    method root = elt
+
+    method unelevated = super#add_class Widgets.Button.unelevated_class
+    method stroked    = super#add_class Widgets.Button.stroked_class
+    method raised     = super#add_class Widgets.Button.raised_class
+    method dense      = super#add_class Widgets.Button.dense_class
+    method compact    = super#add_class Widgets.Button.compact_class
+
+    method not_unelevated = super#remove_class Widgets.Button.unelevated_class
+    method not_stroked    = super#remove_class Widgets.Button.stroked_class
+    method not_raised     = super#remove_class Widgets.Button.raised_class
+    method not_dense      = super#remove_class Widgets.Button.dense_class
+    method not_compact    = super#remove_class Widgets.Button.compact_class
+
+    method disabled = Js.to_bool elt##.disabled
+    method disable  = elt##.disabled := Js._true
+    method enable   = elt##.disabled := Js._false
+
+    method private element = (elt :> Dom_html.element Js.t)
+
+  end
 
 end
 
@@ -26,9 +111,7 @@ end
 
 module Checkbox = struct
 
-  include Widgets.Checkbox
-
-  class type t =
+  class type mdc =
     object
       method root__         : Dom_html.divElement Js.t Js.readonly_prop
       method checked_       : bool Js.t Js.prop
@@ -37,15 +120,39 @@ module Checkbox = struct
       method value_         : Js.js_string Js.prop
     end
 
-  let input (elt : t Js.t) : Dom_html.inputElement Js.t =
-    elt##.root__##querySelector (Js.string ("." ^ native_control_class))
-    |> Js.Opt.to_option |> CCOpt.get_exn |> Js.Unsafe.coerce
+  class t ?input_id () = object(self)
 
-  let listen_change elt handler =
-    Dom_events.listen (input elt) Dom_events.Typ.change handler
+    inherit input_widget ()
 
-  let attach elt : t Js.t =
-    Js.Unsafe.global##.mdc##.checkbox##.MDCCheckbox##attachTo elt
+    val mdc : mdc Js.t = Widgets.Checkbox.create ?input_id ()
+                         |> (fun x -> Js.Unsafe.global##.mdc##.checkbox##.MDCCheckbox##attachTo x)
+
+    method root    = mdc##.root__
+    method input : Dom_html.inputElement Js.t =
+      self#root##querySelector (Js.string ("." ^ Widgets.Checkbox.native_control_class))
+      |> Js.Opt.to_option |> CCOpt.get_exn |> Js.Unsafe.coerce
+
+    method checked        = Js.to_bool mdc##.checked_
+    method check          = mdc##.checked_ := Js._true
+    method uncheck        = mdc##.checked_ := Js._false
+    method toggle_checked = mdc##.checked_ := Js.bool @@ not self#checked
+
+    method disabled        = Js.to_bool mdc##.disabled_
+    method disable         = mdc##.disabled_ := Js._true
+    method enable          = mdc##.disabled_ := Js._false
+    method toggle_disabled = mdc##.disabled_ := Js.bool @@ not self#disabled
+
+    method indeterminate        = Js.to_bool mdc##.indeterminate_
+    method set_indeterminate    = mdc##.indeterminate_ := Js._true
+    method set_determinate      = mdc##.indeterminate_ := Js._false
+    method toggle_indeterminate = mdc##.indeterminate_ := Js.bool @@ not self#indeterminate
+
+    method private element = (mdc##.root__ :> Dom_html.element Js.t)
+
+  (* method listen event handler      = Dom_events.listen self#input event handler
+   * method listen_root event handler = Dom_events.listen self#root event handler *)
+
+  end
 
 end
 
@@ -155,21 +262,59 @@ end
 
 module Fab = struct
 
-  include Widgets.Fab
+  class t ?ripple ~icon () = object
 
-  class type t = Dom_html.buttonElement
+    inherit widget () as super
 
-  let attach elt : t Js.t = Tyxml_js.To_dom.of_button elt
+    val elt : Dom_html.buttonElement Js.t = Widgets.Fab.create ?ripple ~icon () |> Tyxml_js.To_dom.of_button
+
+    method root = elt
+
+    method mini     = super#add_class Widgets.Fab.mini_class
+    method not_mini = super#remove_class Widgets.Fab.mini_class
+
+    method private element = (elt :> Dom_html.element Js.t)
+
+  end
 
 end
 
 module Form_field = struct
 
-  include Widgets.Form_field
+  class form_label ~for_id ~label = object
 
-  class type t = Dom_html.divElement
+    val elt : Dom_html.labelElement Js.t = Widgets.Form_field.Label.create ~for_id ~label ()
+                                           |> Tyxml_js.To_dom.of_label
 
-  let attach elt : t Js.t = Tyxml_js.To_dom.of_div elt
+    inherit widget ()
+
+    method root = elt
+    method private element = (elt :> Dom_html.element Js.t)
+
+  end
+
+  class ['a ] t ?align_end ~(input : 'a) ~label () =
+    let label = new form_label
+                    ~for_id:((input :> input_widget)#input##.id
+                             |> Js.to_string)
+                    ~label in
+    object
+
+      inherit widget ()
+
+      val elt : Dom_html.divElement Js.t =
+        Widgets.Form_field.create ?align_end
+                                  ~input:(Tyxml_js.Of_dom.of_element input#root)
+                                  ~label:(Tyxml_js.Of_dom.of_label label#root) ()
+        |> Tyxml_js.To_dom.of_div
+
+      method root  = elt
+      method input = input
+      method label = label
+
+      method private element = (elt :> Dom_html.element Js.t)
+
+    end
 
 end
 
@@ -185,19 +330,7 @@ end
 
 module Icon_toggle = struct
 
-  include Widgets.Icon_toggle
-
-  class type component =
-    object
-      method on_       : bool Js.t Js.prop
-      method disabled_ : bool Js.t Js.prop
-    end
-
-  class type t =
-    object
-      method root__     : Dom_html.element Js.t Js.readonly_prop
-      method component_ : component Js.t Js.readonly_prop
-    end
+  type data = Widgets.Icon_toggle.data
 
   class type change_event =
     object
@@ -213,8 +346,35 @@ module Icon_toggle = struct
     { change = Dom_events.Typ.make "MDCIconToggle:change"
     }
 
-  let attach elt : t Js.t =
-    Js.Unsafe.global##.mdc##.iconToggle##.MDCIconToggle##attachTo elt
+  class type mdc =
+    object
+      method root__    : Dom_html.element Js.t Js.readonly_prop
+      method on_       : bool Js.t Js.prop
+      method disabled_ : bool Js.t Js.prop
+    end
+
+  class t ~on_data ~off_data () = object(self)
+
+    inherit widget ()
+
+    val mdc : mdc Js.t =
+      Widgets.Icon_toggle.create ~on_data ~off_data ()
+      |> Tyxml_js.To_dom.of_i
+      |> (fun x -> Js.Unsafe.global##.mdc##.iconToggle##.MDCIconToggle##attachTo x)
+
+    method root = mdc##.root__
+
+    method disabled = Js.to_bool @@ mdc##.disabled_
+    method disable  = mdc##.disabled_ := Js._true
+    method enable   = mdc##.disabled_ := Js._false
+
+    method is_on = Js.to_bool @@ mdc##.on_
+    method on    = mdc##.on_ := Js._true
+    method off   = mdc##.on_ := Js._false
+
+    method private element = (self#root :> Dom_html.element Js.t)
+
+  end
 
 end
 
@@ -490,48 +650,29 @@ end
 
 module Switch = struct
 
-  include Widgets.Switch
+  class t ?input_id () = object(self)
 
-  class type t =
-    object
-      inherit Dom_html.element
-      method is_checked_   : unit -> bool Js.t Js.meth
-      method set_checked_  : bool Js.t -> unit Js.meth
-      method is_disabled_  : unit -> bool Js.t Js.meth
-      method set_disabled_ : bool Js.t -> unit Js.meth
-      method get_value_    : unit -> Js.js_string Js.meth
-      method set_value_    : Js.js_string -> unit Js.meth
-    end
+    inherit input_widget ()
 
-  let get_input (switch : t Js.t) : Dom_html.inputElement Js.t Js.opt =
-    switch##querySelector (Js.string ("." ^ native_control_class))
-    |> Js.Opt.to_option
-    |> (function
-        | Some x -> Js.Opt.return @@ Js.Unsafe.coerce x
-        | None   -> Js.Opt.empty)
+    val elt : Dom_html.divElement Js.t = Widgets.Switch.create ?input_id () |> Tyxml_js.To_dom.of_div
 
-  let attach elt : t Js.t =
-    let (elt : t Js.t) = elt |> Tyxml_js.To_dom.of_element |> Js.Unsafe.coerce in
-    let set    = fun (x : t Js.t) (name : string) f -> Js.Unsafe.set x name f in
-    set elt "is_checked"   @@ Js.wrap_callback (fun () -> match Js.Opt.to_option @@ get_input elt with
-                                                          | Some nc -> nc##.checked
-                                                          | None    -> Js._false);
-    set elt "set_checked"  @@ Js.wrap_callback (fun x -> match Js.Opt.to_option @@ get_input elt with
-                                                         | Some nc -> nc##.checked := x
-                                                         | None    -> ());
-    set elt "is_disabled"  @@ Js.wrap_callback (fun () -> match Js.Opt.to_option @@ get_input elt with
-                                                          | Some nc -> nc##.disabled
-                                                          | None    -> Js._false);
-    set elt "set_disabled" @@ Js.wrap_callback (fun x -> match Js.Opt.to_option @@ get_input elt with
-                                                         | Some nc -> nc##.disabled := x
-                                                         | None    -> ());
-    set elt "get_value"    @@ Js.wrap_callback (fun () -> match Js.Opt.to_option @@ get_input elt with
-                                                          | Some nc -> nc##.value
-                                                          | None    -> Js.string "");
-    set elt "set_value"    @@ Js.wrap_callback (fun x -> match Js.Opt.to_option @@ get_input elt with
-                                                         | Some nc -> nc##.value := x
-                                                         | None    -> ());
-    elt
+    method root = elt
+    method input = elt##querySelector (Js.string ("." ^ Widgets.Switch.native_control_class))
+                   |> Js.Opt.to_option |> CCOpt.get_exn |> Js.Unsafe.coerce
+
+    method disabled        = Js.to_bool self#input##.disabled
+    method disable         = self#input##.disabled := Js._true
+    method enable          = self#input##.disabled := Js._false
+    method toggle_disabled = self#input##.disabled := Js.bool @@ not self#disabled
+
+    method checked        = Js.to_bool self#input##.checked
+    method check          = self#input##.checked := Js._true
+    method uncheck        = self#input##.checked := Js._false
+    method toggle_checked = self#input##.disabled := Js.bool @@ not self#checked
+
+    method private element = (elt :> Dom_html.element Js.t)
+
+  end
 
 end
 

@@ -1,7 +1,7 @@
 {
     "pipeline": {
         "bin_name": "ats3-backend",
-        "bin_path": "/home/freyr/Documents/soft/dev/ats-analyzer/build",
+        "bin_path": "/home/alexander/Documents/soft/dev/ats-analyzer/build",
         "sources": [
             "udp://224.1.2.2:1234"
         ],
@@ -35,13 +35,13 @@
                                       {
                                           "port": 0,
                                           "listening": true,
-                                          "child": [ "Input", { "input":"TSOIP", "id": 5} ]
+                                          "child": [ "Input", { "input":"TSOIP", "id": 1} ]
                                       }
                                   ]
                               }
                             ]
                            },
-                           {"port": 1, "listening": false, "child": [ "Input", { "input": "ASI", "id": 2}]}]
+                           {"port": 1, "listening": false, "child": [ "Input", { "input": "ASI", "id": 1}]}]
             }
         ],
         [
@@ -69,12 +69,13 @@
                                   {
                                       "port": 0,
                                       "listening": true,
-                                      "child": [ "Input", { "input":"RF", "id": 3} ]
+                                      "child": [ "Input", { "input":"RF", "id": 1} ]
                                   }
                               ]
                           }
                         ]
-                    }
+                    },
+                    {"port": 1, "listening": false, "child": [ "Input", { "input": "ASI", "id": 2}]}
                 ]
             }
         ]
