@@ -49,17 +49,35 @@ let load () =
                | e -> Lwt.return @@ Printf.printf "Exception in janus pipe: %s\n" (Printexc.to_string e)))
            |> ignore in
 
+  let str = Requests.get_structure_socket () in
+  
   let doc = Dom_html.document in
 
+  let container = Dom_html.getElementById "pipeline_container" in
+  
   let text    = Dom_html.createP doc in
   text##.textContent := Js.some @@ Js.string "Pipeline widget";
+  text##.classList##add (Js.string Components.Typography.display1_class);
 
   let video   = Dom_html.createVideo doc in
   video##setAttribute (Js.string "id") (Js.string "remotevideo");
   video##setAttribute (Js.string "width") (Js.string "640");
   video##setAttribute (Js.string "autoplay") (Js.string "");
   
-  let container = Dom_html.getElementById "pipeline_container" in
-
+  let _ = React.E.map (fun s ->
+              print_endline "event";
+              (try Dom.removeChild container (Dom_html.getElementById Widg.WStructure.id)
+               with _ -> print_endline "No el");
+              let e = Widg.WStructure.create s (fun s ->
+                          let open Lwt.Infix in
+                          (Requests.post_structure s
+                           >|= function
+                           | Ok () -> ()
+                           | Error e -> print_endline e)
+                          |> ignore)
+              in Dom.appendChild container e.div) str
+  in
+                                                                                               
+      
   Dom.appendChild container text;
   Dom.appendChild container video

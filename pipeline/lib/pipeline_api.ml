@@ -52,6 +52,7 @@ let get_sock sock_data body conv event =
   Lwt.return (resp, (body :> Cohttp_lwt_body.t))
 
 let set_structure api body () =
+  Lwt_io.printf "set structure\n" |> ignore;
   set body Structure.t_list_of_yojson
       Pipeline_protocol.(fun x -> api.set (Set_structures x))
 
@@ -83,7 +84,7 @@ let pipeline_handle api id meth args sock_data _ body =
   let is_guest = Common.User.eq id `Guest in
   match meth, args with
   | `GET,  []                 -> get_page ()
-  | `POST, ["strucutre"]      -> redirect_if is_guest @@ set_structure api body
+  | `POST, ["structure"]      -> redirect_if is_guest @@ set_structure api body
   | `GET,  ["structure"]      -> get_structure api ()
   | `GET,  ["structure_sock"] -> get_structure_sock sock_data body api ()
   | `POST, ["settings"]       -> redirect_if is_guest @@ set_settings api body
