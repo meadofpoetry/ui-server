@@ -615,7 +615,8 @@ module Make
       let subheader_class = CSS.add_element _class "subheader"
 
       let create_subheader ?id ?style ?(classes=[]) ?attrs ?(tag=h3) ~text () =
-        tag ~a:([ a_class (subheader_class :: classes) ]
+        tag ~a:(
+            [ a_class (subheader_class :: classes) ]
                 |> add_common_attrs ?id ?style ?attrs)
             [pcdata text]
 
@@ -808,17 +809,18 @@ module Make
     let background_class     = CSS.add_element base_class "background"
     let outer_circle_class   = CSS.add_element base_class "outer-circle"
     let inner_circle_class   = CSS.add_element base_class "inner-circle"
+    let disabled_class       = CSS.add_modifier base_class "disabled"
 
     let create ?id ?input_id ?style ?(classes=[]) ?attrs ?(auto_init=true)
-               ?(checked=false) ?(disabled=false) ~name () =
+               ?(checked=false) ?(disabled=false) ?name () =
       div ~a:([ a_class (classes
-                         |> cons_if disabled @@ CSS.add_modifier base_class "disabled"
+                         |> cons_if disabled disabled_class
                          |> CCList.cons base_class) ]
               |> cons_if auto_init @@ a_user_data "mdc-auto-init" "MDCRadio"
               |> add_common_attrs ?id ?style ?attrs)
           [ input ~a:([ a_class [native_control_class]
-                      ; a_input_type `Radio
-                      ; a_name name ]
+                      ; a_input_type `Radio ]
+                      |> map_cons_option ~f:a_name name
                       |> cons_if checked @@ a_checked ()
                       |> cons_if disabled @@ a_disabled ()
                       |> add_common_attrs ?id:input_id)
@@ -854,6 +856,7 @@ module Make
 
       let menu_class          = CSS.add_element base_class "menu"
       let selected_text_class = CSS.add_element base_class "selected-text"
+      let disabled_class      = CSS.add_modifier base_class "disabled"
 
       module Item = struct
 
@@ -876,7 +879,7 @@ module Make
       let create ?id ?style ?(classes=[]) ?attrs ?(selected_text="") ?(disabled=false)
                  ?menu_id ?menu_style ?(menu_classes=[]) ?menu_attrs ~items () =
         div ~a:([ a_class (classes
-                           |> cons_if disabled @@ CSS.add_modifier base_class "disabled"
+                           |> cons_if disabled disabled_class
                            |> CCList.cons base_class)
                 ; a_role ["listbox"]]
                 |> cons_if (not disabled) @@ a_tabindex 0

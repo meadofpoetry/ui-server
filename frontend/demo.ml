@@ -46,12 +46,13 @@ let fab_demo () =
     demo_section "FAB" [fab;mini;ripple]
 
 let radio_demo () =
-  let radio1 = Radio.create ~name:"radio" () |> Radio.attach in
-  let radio2 = Radio.create ~name:"radio" () |> Radio.attach in
-  let radio3 = Radio.create ~name:"radio" () |> Radio.attach in
-  demo_section "Radio button" [ of_dom radio1##.root__
-                              ; of_dom radio2##.root__
-                              ; of_dom radio3##.root__ ]
+  let radio1 = new Radio.t ~name:"radio" () in
+  let radio2 = new Radio.t ~name:"radio" () in
+  let radio3 = new Radio.t ~name:"radio" () in
+  radio2#disable;
+  demo_section "Radio button" [ of_dom radio1#root
+                              ; of_dom radio2#root
+                              ; of_dom radio3#root ]
 
 let checkbox_demo () =
   let checkbox = new Checkbox.t ~input_id:"checkbox-demo" () in
@@ -587,45 +588,40 @@ let tabs_demo () =
  *   demo_section "Textfield" [ css_sect; js_sect; dense_sect; icon_sect; css_textarea_sect; textarea_sect ] *)
 
 let select_demo () =
-  let js_select = let items = List.map (fun x -> Select.Base.Item.create
-                                                   ~id:("index " ^ (string_of_int x))
-                                                   ~text:("Select item " ^ (string_of_int x))
-                                                   ~disabled:(x = 4)
-                                                   ())
-                                       (CCList.range 0 5) in
-                  let select = Select.Base.create ~selected_text:"Pick smth"
-                                                  ~items
-                                                  ()
-                               |> Select.Base.attach in
+  let js_select = let select = new Select.Base.t
+                                   ~placeholder:"Pick smth"
+                                   ~items:(List.map (fun x -> new Select.Base.item
+                                                                  ~id:("index " ^ (string_of_int x))
+                                                                  ~text:("Select item " ^ (string_of_int x))
+                                                                  ()
+                                                              |> (fun i -> if x = 3 then i#disable; i))
+                                                    (CCList.range 0 5))
+                                   () in
                   Dom_html.addEventListener
-                    select##.root__
+                    select#root
                     Select.Base.events.change
                     (Dom_html.handler (fun e ->
                          print_endline ("Select:change "
-                                        ^ (e##.detail_##.selectedIndex_
-                                           |> Js.float_of_number
-                                           |> int_of_float
-                                           |> string_of_int)
+                                        ^ (e##.detail_##.selectedIndex |> string_of_int)
                                         ^ ". Value: "
-                                        ^ (e##.detail_##.value_
-                                           |> Js.to_string));
+                                        ^ (e##.detail_##.value |> Js.to_string));
                          Js._false))
                     Js._false |> ignore;
-                  subsection "Full-fidelity select" @@ of_dom select##.root__ in
-  let css_select = let items = (Select.Pure.Item.create_group
-                                 ~label:"Group"
-                                 ~items:(List.map (fun x -> Select.Pure.Item.create
-                                                              ~text:("Group item " ^ (string_of_int x))
-                                                              ~disabled:(x = 1)
-                                                              ())
-                                                  (CCList.range 0 2))
-                                 ()) :: (List.map (fun x -> Select.Pure.Item.create
-                                                              ~text:("Select item " ^ (string_of_int x))
-                                                              ~disabled:(x = 4)
-                                                              ())
-                                                  (CCList.range 0 5)) in
-                   let select = Select.Pure.create ~items () in
-                   subsection "CSS-only select" select in
+                  subsection "Full-fidelity select" @@ of_dom select#root in
+  let css_select = let items = (new Select.Pure.Group.t
+                                    ~label:"Group"
+                                    ~items:(List.map (fun x -> (new Select.Pure.Item.t
+                                                                    ~text:("Group item " ^ (string_of_int x))
+                                                                    ~disabled:(x = 1)
+                                                                    ())#root)
+                                                     (CCList.range 0 2))
+                                    ()) (* :: (List.map (fun x -> (new Select.Pure.Item.t
+                                         *                             ~text:("Select item " ^ (string_of_int x))
+                                         *                             ~disabled:(x = 4)
+                                         *                             ())#root)
+                                         *              (CCList.range 0 5)) *) in
+                   let select = new Select.Pure.t ~items:[items] () in
+                   subsection "CSS-only select" @@ of_dom select#root in
   let multi = let items = (Select.Multi.Item.create_group
                              ~label:"Group 1"
                              ~items:(List.map (fun x -> Select.Multi.Item.create
