@@ -222,23 +222,23 @@ module Make
       let _class = CSS.add_element base_class "header"
       let title_class  = CSS.add_element _class "title"
 
-      let create ~id ?style ?(classes=[]) ?attrs ~label () =
+      let create ?id ?style ?(classes=[]) ?attrs ~title () =
         header ~a:([ a_class [_class]])
                [ h2 ~a:([ a_class (title_class :: classes) ]
-                        |> add_common_attrs ~id ?style ?attrs)
-                    [ pcdata label ]]
+                        |> add_common_attrs ?id ?style ?attrs)
+                    [ pcdata title ]]
     end
 
     module Body = struct
 
       let _class = CSS.add_element base_class "body"
 
-      let create ?(scrollable=false) ~id ?style ?(classes=[]) ?attrs ~children () =
+      let create ?(scrollable=false) ?id ?style ?(classes=[]) ?attrs ~content () =
         section ~a:([ a_class (classes
                                |> cons_if scrollable @@ CSS.add_modifier _class "scrollable"
                                |> CCList.cons _class) ]
-                    |> add_common_attrs ~id ?style ?attrs)
-                children
+                    |> add_common_attrs ?id ?style ?attrs)
+                content
 
     end
 
@@ -263,12 +263,11 @@ module Make
 
     end
 
-    let create ?id ?style ?(classes=[]) ?attrs ~label_id ~description_id ~content () =
+    let create ?id ?style ?(classes=[]) ?attrs ?label_id ?description_id ~content () =
       aside ~a:([ a_class (base_class :: classes)
-                ; a_role ["alertdialog"]
-                ; a_aria "labelledby" [label_id]
-                ; a_aria "describedby" [description_id]
-                ; a_user_data "mdc-auto-init" "MDCDialog"]
+                ; a_role ["alertdialog"]]
+                |> map_cons_option ~f:(fun x -> a_aria "labelledby" [x]) label_id
+                |> map_cons_option ~f:(fun x -> a_aria "describedby" [x]) description_id
                 |> add_common_attrs ?id ?style ?attrs)
             [ div ~a:([a_class [surface_class]]) content
             ; div ~a:([a_class [backdrop_class]]) [] ]
@@ -1157,7 +1156,7 @@ module Make
 
     module Help_text = struct
 
-      let _class = "mdc-text-field-helper-text"
+      let _class = "mdc-text-field-helptext"
 
       let create ?id ?style ?(classes=[]) ?attrs ?(persistent=false) ?(validation=false) ~text () =
         p ~a:([ a_class (classes
@@ -1174,13 +1173,19 @@ module Make
 
       let _class = CSS.add_element base_class "icon"
 
-      let create ?id ?style ?(classes=[]) ?attrs ?(unclickable=false) ~icon () =
+      let create ?id ?style ?(classes=[]) ?attrs ?(clickable=true) ~icon () =
         Html.i ~a:([ a_class ("material-icons" :: _class :: classes) ]
-                   |> cons_if (not unclickable) @@ a_tabindex 0
+                   |> cons_if clickable @@ a_tabindex 0
                    |> add_common_attrs ?id ?style ?attrs)
                [pcdata icon]
 
     end
+
+    let textarea_class  = CSS.add_modifier base_class "textarea"
+    let dense_class     = CSS.add_modifier base_class "dense"
+    let fullwidth_class = CSS.add_modifier base_class "fullwidth"
+    let disabled_class  = CSS.add_modifier base_class "disabled"
+    let box_class       = CSS.add_modifier base_class "box"
 
     let create ?id ?style ?(classes=[]) ?attrs ?placeholder
                ?label_id ?label_style ?(label_classes=[]) ?label_attrs
@@ -1188,11 +1193,11 @@ module Make
                ?leading_icon ?trailing_icon ?(box=false) ?(required=false) ?(full_width=false) ?(dense=false)
                ?(textarea=false) ?rows ?cols () =
       div ~a:([ a_class (classes
-                         |> cons_if textarea   @@ CSS.add_modifier base_class "textarea"
-                         |> cons_if full_width @@ CSS.add_modifier base_class "fullwidth"
-                         |> cons_if dense      @@ CSS.add_modifier base_class "dense"
-                         |> cons_if disabled   @@ CSS.add_modifier base_class "disabled"
-                         |> cons_if box        @@ CSS.add_modifier base_class "box"
+                         |> cons_if textarea   textarea_class
+                         |> cons_if full_width fullwidth_class
+                         |> cons_if dense      dense_class
+                         |> cons_if disabled   disabled_class
+                         |> cons_if box        box_class
                          |> cons_if (CCOpt.is_some leading_icon) (CSS.add_modifier base_class "with-leading-icon")
                          |> cons_if (CCOpt.is_some trailing_icon) (CSS.add_modifier base_class "with-trailing-icon")
                          |> cons_if (CCOpt.is_some value) (CSS.add_modifier base_class "upgraded")

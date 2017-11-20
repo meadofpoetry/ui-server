@@ -121,7 +121,7 @@ let card_demo () =
   demo_section "Card" [ card ]
 
 let slider_demo () =
-  let listen elt name = 
+  let listen elt name =
     Dom_html.addEventListener elt
                               Slider.events.input
                               (Dom_html.handler (fun _ ->
@@ -132,46 +132,23 @@ let slider_demo () =
                               Slider.events.change
                               (Dom_html.handler (fun e ->
                                    print_endline ((Printf.sprintf "Change event on %s slider! " name)
-                                                  ^ (e##.detail_##.value_
-                                                     |> Js.float_of_number
+                                                  ^ (e##.detail##.value
                                                      |> string_of_float));
                                    Js._false))
                               Js._false |> ignore in
-  let continuous = Slider.create ~label:"Select Value"
-                                 ~id:"continuous-slider"
-                                 ~style:"max-width: 700px;"
-                                 ~value:0
-                                 ()
-                   |> Slider.attach in
-  let discrete  = Slider.create ~label:"Select Value"
-                                ~id:"discrete-slider"
-                                ~style:"max-width: 700px;"
-                                ~value:0
-                                ~discrete:true
-                                ()
-                  |> Slider.attach in
-  let with_markers = Slider.create ~label:"Select Value"
-                                   ~id:"markered-slider"
-                                   ~style:"max-width: 700px;"
-                                   ~value:0
-                                   ~discrete:true
-                                   ~markers:true
-                                   ()
-                   |> Slider.attach in
-  let disabled = Slider.create ~style:"max-width: 700px;"
-                               ~disabled:true
-                               ()
-                 |> Slider.attach in
-  listen continuous##.root__ "continuous";
-  listen discrete##.root__ "discrete";
-  listen with_markers##.root__ "markered";
-  Dom_html.setTimeout (fun () -> continuous##layout_ ();
-                                 discrete##layout_ ();
-                                 with_markers##layout_ ()) 100. |> ignore;
-  demo_section "Slider" [ subsection "Continuous slider" @@ of_dom continuous##.root__
-                        ; subsection "Discrete slider" @@ of_dom discrete##.root__
-                        ; subsection "Discrete slider with markers" @@ of_dom with_markers##.root__
-                        ; subsection "Disabled slider" @@ of_dom disabled##.root__ ]
+  let continuous   = new Slider.t () in
+  let discrete     = new Slider.t ~discrete:true () in
+  let with_markers = new Slider.t ~discrete:true ~markers:true () in
+  let disabled     = new Slider.t () in
+  disabled#disable;
+  listen continuous#root "continuous";
+  listen discrete#root "discrete";
+  listen with_markers#root "markered";
+  Dom_html.setTimeout (fun () -> continuous#layout; discrete#layout; with_markers#layout) 100. |> ignore;
+  demo_section "Slider" [ subsection "Continuous slider"            @@ of_dom continuous#root
+                        ; subsection "Discrete slider"              @@ of_dom discrete#root
+                        ; subsection "Discrete slider with markers" @@ of_dom with_markers#root
+                        ; subsection "Disabled slider"              @@ of_dom disabled#root ]
 
 let grid_list_demo () =
   let tiles  = List.map (fun x -> let primary = Grid_list.Tile.create_primary
@@ -227,30 +204,34 @@ let layout_grid_demo () =
   demo_section "Layout grid" [ layout_grid ]
 
 let dialog_demo () =
-  let dialog = Dialog.create ~description_id:"did"
-                             ~label_id:"lid"
-                             ~content:[ Dialog.Header.create ~id:"lid" ~label:"This is dialog" ()
-                                      ; Dialog.Body.create ~id:"did" ~children:[] ()
-                                      ; Dialog.Footer.create
-                                          ~children:[ Dialog.Footer.create_button ~_type:`Decline
-                                                                                  ~label:"Cancel"
-                                                                                  ()
-                                                    ; Dialog.Footer.create_button ~_type:`Accept
-                                                                                  ~label:"Accept"
-                                                                                  ()
-                                                    ] ()
-                                      ] ()
-               |> Dialog.attach in
-  let button = new Button.t ~label:"show dialog" ~ripple:true () in
-  Dom_html.addEventListener dialog##.root__
+  let dialog = new Dialog.t
+                   ~title:"This is dialog"
+                   ~content:(`String "Dialog body") (* [ Dialog.Header.create ~id:"lid" ~label:"This is dialog" ()
+                             * ; Dialog.Body.create ~id:"did" ~children:[] ()
+                             * ; Dialog.Footer.create
+                             *     ~children:[ Dialog.Footer.create_button ~_type:`Decline
+                             *                                             ~label:"Cancel"
+                             *                                             ()
+                             *               ; Dialog.Footer.create_button ~_type:`Accept
+                             *                                             ~label:"Accept"
+                             *                                             ()
+                             *               ] ()
+                             * ] *)
+                   () in
+  let button = new Button.t ~label:"show dialog" () in
+  Dom_html.addEventListener button#root
+                            Dom_events.Typ.click
+                            (Dom_html.handler (fun _ -> dialog#show; Js._false))
+                            Js._false |> ignore;
+  Dom_html.addEventListener dialog#root
                             Dialog.events.accept
                             (Dom_html.handler (fun _ -> print_endline "Dialog accepted!"; Js._false))
                             Js._false |> ignore;
-  Dom_html.addEventListener dialog##.root__
+  Dom_html.addEventListener dialog#root
                             Dialog.events.cancel
                             (Dom_html.handler (fun _ -> print_endline "Dialog cancelled!"; Js._false))
                             Js._false |> ignore;
-  demo_section "Dialog" [ of_dom dialog##.root__; of_dom button#root ]
+  demo_section "Dialog" [ of_dom dialog#root; of_dom button#root ]
 
 let list_demo () =
   let list_items = List.map (fun x -> (* let checkbox = (Checkbox.create
@@ -358,8 +339,8 @@ let menu_demo () =
   demo_section "Menu" [ menu_div ]
 
 let linear_progress_demo () =
-  let linear_progress = Linear_progress.create ~indeterminate:true ()
-                        |> Linear_progress.attach in
+  let linear_progress = new Linear_progress.t () in
+  linear_progress#indeterminate;
   (* let lp_ind_btn = Button.create ~label:"set indeterminate"
    *                                ~raised:true
    *                                ~onclick:(fun _ -> linear_progress##.determinate_ := Js._false; true)
@@ -421,7 +402,7 @@ let linear_progress_demo () =
    *                      ; open_btn
    *                      ; close_btn ] in
    * let btn_grid = Layout_grid.create ~content:[Layout_grid.create_inner ~cells ()] () in *)
-  demo_section "Linear progress" [ (* btn_grid; *) of_dom linear_progress##.root__ ]
+  demo_section "Linear progress" [ (* btn_grid; *) of_dom linear_progress#root ]
 
 let tabs_demo () =
   let icon_section = let items = List.map (fun x ->
@@ -516,76 +497,51 @@ let tabs_demo () =
  *                           ; snackbar_btn
  *                           ; aligned_btn ] *)
 
-(* let textfield_demo () =
- *   let css_label = "css textfield label: " in
- *   let css_textfield = Textfield.create ~placeholder:"placeholder"
- *                                        ~input_id:"demo-css-textfield"
- *                                        () in
- *   let css_sect = subsection "CSS only textfield" @@ of_dom
- *                                                       (new Form_field.t
- *                                                            ~label:css_label
- *                                                            ~input:(Tyxml_js.To_dom.of_element css_textfield)
- *                                                            ~align_end:true
- *                                                            ())#root in
- *   let js_textfield = Textfield.create ~label:"js textfield label"
- *                                       ~input_id:"demo-js-textfield"
- *                                       ~help_text_id:"demo-js-textfield-hint"
- *                                       ~required:true
- *                                       ()
- *                      |> Textfield.attach in
- *   let js_help_text = Textfield.Help_text.create ~id:"demo-js-textfield-hint"
- *                                                 ~text:"This field must not be empty"
- *                                                 ~validation:true
- *                                                 () in
- *   let js_sect = subsection "JS textfield" @@ Html.div [ of_dom js_textfield##.root__
- *                                                       ; js_help_text ] in
- *   let dense_textfield = Textfield.create ~label:"dense textfield label"
- *                                          ~input_type:`Email
- *                                          ~input_id:"demo-dense-textfield"
- *                                          ~dense:true
- *                                          ()
- *                         |> Textfield.attach in
- *   let dense_help_text = Textfield.Help_text.create ~id:"demo-dense-textfield-hint"
- *                                                    ~text:"Provide valid e-mail"
- *                                                    ~validation:true
- *                                                    () in
- *   let dense_sect = subsection "Dense textfield (with email validation)"
- *                    @@ Html.div [ of_dom dense_textfield##.root__
- *                                ; dense_help_text ] in
- *   let lead_icon_textfield = Textfield.create ~label:"textfield label"
- *                                              ~input_id:"lead-icon-textfield"
- *                                              ~leading_icon:(Textfield.Icon.create ~icon:"event" ())
- *                                              ~box:true
- *                                              ()
- *                             |> Textfield.attach in
- *   let trail_icon_textfield = Textfield.create ~label:"textfield label"
- *                                               ~input_id:"trail-icon-textfield"
- *                                               ~trailing_icon:(Textfield.Icon.create ~icon:"delete" ())
- *                                               ~style:"margin-top: 15px"
- *                                               ~box:true
- *                                               ()
- *                              |> Textfield.attach in
- *   let icon_sect = subsection "With icons" @@ Html.div ~a:([Html.a_style "display: flex;\
- *                                                                          max-width: 300px;\
- *                                                                          flex-direction: column;"])
- *                                                [ of_dom lead_icon_textfield##.root__
- *                                                ; of_dom trail_icon_textfield##.root__
- *                                                ] in
- *   let css_textarea = Textfield.create ~textarea:true
- *                                       ~placeholder:"Enter something"
- *                                       ~rows:8
- *                                       ~cols:40
- *                                       () in
- *   let textarea = Textfield.create ~label:"textarea label"
- *                                   ~input_id:"js-textarea-demo"
- *                                   ~textarea:true
- *                                   ~rows:8
- *                                   ~cols:40
- *                                   ()
- *                  |> Textfield.attach in
- *   let css_textarea_sect = subsection "Textarea (css only)" css_textarea in
- *   let textarea_sect = subsection "Textarea" @@ of_dom textarea##.root__ in
- *   demo_section "Textfield" [ css_sect; js_sect; dense_sect; icon_sect; css_textarea_sect; textarea_sect ] *)
+let textfield_demo () =
+  let css_label = "css textfield label: " in
+  let css_textfield = new Textfield.Pure.t ~placeholder:"placeholder" ~input_id:"demo-css-textfield" () in
+  let css_sect = subsection "CSS only textfield" @@ of_dom
+                                                      (new Form_field.t
+                                                           ~label:css_label
+                                                           ~input:css_textfield
+                                                           ~align_end:true
+                                                           ())#root in
+  let js_textfield = new Textfield.t ~label:"js textfield label"
+                         ~help_text:{ validation = true
+                                    ; persistent = false
+                                    ; text = "This field must not be empty"
+                                    }
+                         () in
+  js_textfield#required;
+  let js_sect = subsection "JS textfield" @@ Html.div [ of_dom js_textfield#root ] in
+  let dense_textfield = new Textfield.t
+                            ~label:"dense textfield label"
+                            ~input_type:`Email
+                            ~help_text:{ validation = true
+                                       ; persistent = false
+                                       ; text = "Provide valid e-mail"
+                                       }
+                            () in
+  dense_textfield#dense;
+  let dense_sect = subsection "Dense textfield (with email validation)"
+                              @@ Html.div [ of_dom dense_textfield#root ] in
+  let lead_icon_textfield = new Textfield.t ~label:"textfield label" ~icon:{ icon = "event"
+                                                                           ; clickable = false
+                                                                           ; pos = `Leading } () in
+  let trail_icon_textfield = new Textfield.t ~label:"textfield label" ~icon:{ icon = "delete"
+                                                                            ; clickable = false
+                                                                            ; pos = `Trailing } () in
+  let icon_sect = subsection "With icons" @@ Html.div ~a:([Html.a_style "display: flex;\
+                                                                         max-width: 300px;\
+                                                                         flex-direction: column;"])
+                                               [ of_dom lead_icon_textfield#root
+                                               ; of_dom trail_icon_textfield#root
+                                               ] in
+  let css_textarea      = new Textarea.Pure.t ~placeholder:"Enter something" ~rows:8 ~cols:40 () in
+  let textarea          = new Textarea.t ~label:"textarea label" ~rows:8 ~cols:40 () in
+  let css_textarea_sect = subsection "Textarea (css only)" @@ of_dom css_textarea#root in
+  let textarea_sect     = subsection "Textarea" @@ of_dom textarea#root in
+  demo_section "Textfield" [ css_sect; js_sect; dense_sect; icon_sect; css_textarea_sect; textarea_sect ]
 
 let select_demo () =
   let js_select = let select = new Select.Base.t
@@ -608,20 +564,20 @@ let select_demo () =
                          Js._false))
                     Js._false |> ignore;
                   subsection "Full-fidelity select" @@ of_dom select#root in
-  let css_select = let items = (new Select.Pure.Group.t
-                                    ~label:"Group"
-                                    ~items:(List.map (fun x -> (new Select.Pure.Item.t
-                                                                    ~text:("Group item " ^ (string_of_int x))
-                                                                    ~disabled:(x = 1)
-                                                                    ())#root)
-                                                     (CCList.range 0 2))
-                                    ()) (* :: (List.map (fun x -> (new Select.Pure.Item.t
-                                         *                             ~text:("Select item " ^ (string_of_int x))
-                                         *                             ~disabled:(x = 4)
-                                         *                             ())#root)
-                                         *              (CCList.range 0 5)) *) in
-                   let select = new Select.Pure.t ~items:[items] () in
-                   subsection "CSS-only select" @@ of_dom select#root in
+  (* let css_select = let items = (new Select.Pure.Group.t
+   *                                   ~label:"Group"
+   *                                   ~items:(List.map (fun x -> (new Select.Pure.Item.t
+   *                                                                   ~text:("Group item " ^ (string_of_int x))
+   *                                                                   ~disabled:(x = 1)
+   *                                                                   ())#root)
+   *                                                    (CCList.range 0 2))
+   *                                   ()) (\* :: (List.map (fun x -> (new Select.Pure.Item.t
+   *                                        *                             ~text:("Select item " ^ (string_of_int x))
+   *                                        *                             ~disabled:(x = 4)
+   *                                        *                             ())#root)
+   *                                        *              (CCList.range 0 5)) *\) in
+   *                  let select = new Select.Pure.t ~items:[items] () in
+   *                  subsection "CSS-only select" @@ of_dom select#root in *)
   let multi = let items = (Select.Multi.Item.create_group
                              ~label:"Group 1"
                              ~items:(List.map (fun x -> Select.Multi.Item.create
@@ -640,7 +596,7 @@ let select_demo () =
                           :: [] in
               let select = Select.Multi.create ~items ~size:6 () in
               subsection "CSS-only multi select" select in
-  demo_section "Select" [ js_select; css_select; multi ]
+  demo_section "Select" [ js_select; (* css_select; *) multi ]
 
 let toolbar_demo (drawer : Drawer.Persistent.t Js.t) () =
   let last_row = Toolbar.Row.create
@@ -707,7 +663,7 @@ let onload _ =
                         ; switch_demo ()
                         ; toggle_demo ()
                         ; select_demo ()
-                        (* ; textfield_demo () *)
+                        ; textfield_demo ()
                         ; card_demo ()
                         ; slider_demo ()
                         ; grid_list_demo ()
