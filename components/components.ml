@@ -1,17 +1,19 @@
 module Widgets = Common.Components.Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
-                                       [@@@ocaml.warning "-60"]
+                   [@@@ocaml.warning "-60"]
 
 open Widget
 
 let of_dom el = Tyxml_js.Of_dom.of_element (el :> Dom_html.element Js.t)
 
+module Widget          = Widget
 module Button          = Button
 module Checkbox        = Checkbox
 module Dialog          = Dialog
 module Fab             = Fab
 module Form_field      = Form_field
 module Icon_toggle     = Icon_toggle
+module Layout_grid     = Layout_grid
 module Linear_progress = Linear_progress
 module Radio           = Radio
 module Slider          = Slider
@@ -107,15 +109,15 @@ module Grid_list = struct
 
 end
 
-module Layout_grid = struct
-
-  include Widgets.Layout_grid
-
-  class type t = Dom_html.divElement
-
-  let attach elt : t Js.t = Tyxml_js.To_dom.of_div elt
-
-end
+(* module Layout_grid = struct
+ * 
+ *   include Widgets.Layout_grid
+ * 
+ *   class type t = Dom_html.divElement
+ * 
+ *   let attach elt : t Js.t = Tyxml_js.To_dom.of_div elt
+ * 
+ * end *)
 
 module List_ = struct
 

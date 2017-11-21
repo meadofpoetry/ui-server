@@ -76,19 +76,19 @@ let switch_demo () =
                             Js._false |> ignore;
   demo_section "Switch" [ raw; labelled ]
 
- let toggle_demo () =
-   let toggle = new Icon_toggle.t
-                    ~on_data:{ icon = "favorite"; label = None; css_class = None }
-                    ~off_data:{ icon = "favorite_border"; label = None; css_class = None }
-                    () in
-   Dom_html.addEventListener toggle#root
-                             Icon_toggle.events.change
-                             (Dom_html.handler (fun e ->
-                                  print_endline ("Icon Toggle is " ^ (if (Js.to_bool e##.detail_##.isOn)
-                                                                      then "on"
-                                                                      else "off"));
-                                  Js._false))
-                             Js._false |> ignore;
+let toggle_demo () =
+  let toggle = new Icon_toggle.t
+                   ~on_data:{ icon = "favorite"; label = None; css_class = None }
+                   ~off_data:{ icon = "favorite_border"; label = None; css_class = None }
+                   () in
+  Dom_html.addEventListener toggle#root
+                            Icon_toggle.events.change
+                            (Dom_html.handler (fun e ->
+                                 print_endline ("Icon Toggle is " ^ (if (Js.to_bool e##.detail##.isOn)
+                                                                     then "on"
+                                                                     else "off"));
+                                 Js._false))
+                            Js._false |> ignore;
   demo_section "Icon toggle" [ of_dom toggle#root ]
 
 let card_demo () =
@@ -183,25 +183,41 @@ let ripple_demo () =
                         ; unbounded_div ]
 
 let layout_grid_demo () =
-  let cells = List.map (fun x -> Layout_grid.Cell.create ~style:"box-sizing: border-box;\
-                                                                 background-color: #666666;\
-                                                                 height: 200px;\
-                                                                 padding: 8px;\
-                                                                 color: white;\
-                                                                 font-size: 1.5em;"
-                                                         ~content:[Html.pcdata ( "id=" ^ (string_of_int x)
-                                                                                 ^ "\nspan="
-                                                                                 ^ (string_of_int (if x = 3
-                                                                                                   then 2
-                                                                                                   else 1)))]
-                                                         ~span:{ columns = if x = 3 then 2 else 1
-                                                               ; device_type = None
-                                                               }
-                                                         ())
+  let cells = List.map (fun x ->
+                  new Layout_grid.Cell.t
+                      ~content:[new Widget.widget
+                                    (Html.div ~a:[Html.a_style "box-sizing: border-box;\
+                                                                background-color: #666666;\
+                                                                height: 200px;\
+                                                                padding: 8px;\
+                                                                color: white;\
+                                                                font-size: 1.5em;"]
+                                              [Html.pcdata ( "id=" ^ (string_of_int x)
+                                                             ^ "\nspan="
+                                                             ^ (string_of_int (if x = 3
+                                                                               then 2
+                                                                               else 1)))]
+                                     |> Tyxml_js.To_dom.of_element)
+                                    ()]
+                      ()
+                  |> (fun x -> x#set_span 1; x))
                        (CCList.range 0 15) in
-  let layout_grid = Layout_grid.create ~content:[Layout_grid.create_inner ~cells ()]
-                                       () in
-  demo_section "Layout grid" [ layout_grid ]
+  let btn2 = new Button.t ~label:"set span 1" () in
+  let btn4 = new Button.t ~label:"set span 2" () in
+  Dom_html.addEventListener btn2#root
+                            Dom_events.Typ.click
+                            (Dom_html.handler (fun _ -> (CCList.get_at_idx_exn 4 cells)
+                                                        |> (fun cell -> cell#set_span 1);
+                                                        Js._false))
+                            Js._false |> ignore;
+  Dom_html.addEventListener btn4#root
+                            Dom_events.Typ.click
+                            (Dom_html.handler (fun _ -> (CCList.get_at_idx_exn 4 cells)
+                                                        |> (fun cell -> cell#set_span 2);
+                                                        Js._false))
+                            Js._false |> ignore;
+  let layout_grid = new Layout_grid.t ~cells () in
+  demo_section "Layout grid" [ of_dom layout_grid#root ; of_dom btn2#root; of_dom btn4#root ]
 
 let dialog_demo () =
   let dialog = new Dialog.t

@@ -455,8 +455,9 @@ module Make
     let check_columns_number_exn n =
       if n > max_columns || n < 0 then failwith "Layout grid: bad columns number"
 
-    let base_class  = "mdc-layout-grid"
-    let inner_class = CSS.add_element base_class "inner"
+    let base_class               = "mdc-layout-grid"
+    let inner_class              = CSS.add_element base_class "inner"
+    let fixed_column_width_class = CSS.add_modifier base_class "fixed-column-width"
 
     let get_grid_align position =
       CSS.add_modifier base_class ("align-" ^ (match position with
@@ -484,7 +485,7 @@ module Make
 
       let get_cell_order n =
         check_columns_number_exn n;
-        CSS.add_modifier _class ("order" ^ (string_of_int n))
+        CSS.add_modifier _class ("order-" ^ (string_of_int n))
 
       let get_cell_align align =
         CSS.add_modifier _class ("align-" ^ (match align with
@@ -512,7 +513,7 @@ module Make
     let create ?id ?style ?(classes=[]) ?attrs ?align ?(fixed_column_width=false) ~content () =
       div ~a:([ a_class (classes
                          |> map_cons_option ~f:get_grid_align align
-                         |> cons_if fixed_column_width @@ CSS.add_modifier base_class "fixed-column-width"
+                         |> cons_if fixed_column_width fixed_column_width_class
                          |> CCList.cons base_class) ]
               |> add_common_attrs ?id ?style ?attrs)
           content
