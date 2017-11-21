@@ -1,6 +1,6 @@
 open Widget
-open Markup
 open Tyxml_js
+module Dialog = Markup.Dialog
 
 class type mdc =
   object
@@ -18,31 +18,47 @@ let events = { accept = Dom_events.Typ.make "MDCDialog:accept"
              ; cancel = Dom_events.Typ.make "MDCDialog:cancel"
              }
 
-class ['a,'b] body content () =
+module Action = struct
 
-  let inner =
-    new widget (Dialog.Body.create ~content:[match content with
-                                             | `String s -> Html.pcdata s
-                                             | `Widget w -> let root = (w : 'a :> 'b widget)#root in
-                                                            Of_dom.of_element (root :> Dom_html.element Js.t) ]
-                                   ()
-                |> To_dom.of_element) () in
+  class t ?ripple ~typ ~label () =
 
-  object
+    object(self)
 
-    inherit ['b] widget inner#root ()
+      inherit Button.t ~raised:false ?ripple ~label ()
 
-    method inner_widget = inner
+      initializer
+        self#add_class (match typ with
+                        | `Accept  -> Dialog.Footer.accept_button_class
+                        | `Decline -> Dialog.Footer.cancel_button_class) 
 
-  end
+    end
+
+end
+
+module Body = struct
+
+  class t ~content () =
+
+    let content = (match content with
+                   | `String  s -> [Html.pcdata s]
+                   | `Widgets w -> List.map (fun x -> Of_dom.of_element x#element) w) in
+
+    let elt = Dialog.Body.create ~content () |> To_dom.of_element in
+
+    object
+
+      inherit [Dom_html.element Js.t] widget elt ()
+
+    end
+
+end
 
 class t ?title ~content () =
 
-  let title_widget =
-    CCOpt.map (fun x -> new widget (Dialog.Header.create ~title:x () |> To_dom.of_header) ())
-              title in
+  let title_widget = CCOpt.map (fun x -> new widget (Dialog.Header.create ~title:x () |> To_dom.of_header) ())
+                               title in
 
-  let body_widget = new body content () in
+  let body_widget = new Body.t ~content () in
 
   let elt = Dialog.create ~content:([ Of_dom.of_element body_widget#root ]
                                     |> (fun l -> (CCOpt.map_or ~default:l

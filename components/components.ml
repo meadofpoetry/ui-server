@@ -17,7 +17,9 @@ module Layout_grid     = Layout_grid
 module Linear_progress = Linear_progress
 module Radio           = Radio
 module Slider          = Slider
+module Snackbar        = Snackbar
 module Switch          = Switch
+module Tabs            = Tabs
 module Textfield       = Textfield
 module Textarea        = Textarea
 
@@ -108,16 +110,6 @@ module Grid_list = struct
   let attach elt : t Js.t = Tyxml_js.To_dom.of_div elt
 
 end
-
-(* module Layout_grid = struct
- * 
- *   include Widgets.Layout_grid
- * 
- *   class type t = Dom_html.divElement
- * 
- *   let attach elt : t Js.t = Tyxml_js.To_dom.of_div elt
- * 
- * end *)
 
 module List_ = struct
 
@@ -366,137 +358,6 @@ module Select = struct
     class type t = Dom_html.selectElement
 
     let attach elt : t Js.t = Tyxml_js.To_dom.of_select elt
-
-  end
-
-end
-
-module Snackbar = struct
-
-  include Widgets.Snackbar
-
-  type data =
-    { message          : string
-    ; timeout          : int option
-    ; action           : action option
-    ; multiline        : multiline option
-    }
-   and action    = { handler : unit -> unit
-                   ; text    : string
-                   }
-   and multiline = { enable           : bool
-                   ; action_on_bottom : bool
-                   }
-
-  class type data_obj =
-    object
-      method actionHandler  : (unit -> unit) Js.optdef Js.readonly_prop
-      method actionOnBottom : bool Js.t Js.optdef Js.readonly_prop
-      method actionText     : Js.js_string Js.t Js.optdef Js.readonly_prop
-      method message        : Js.js_string Js.t Js.readonly_prop
-      method multiline      : bool Js.t Js.optdef Js.readonly_prop
-      method timeout        : Js.number Js.t Js.optdef Js.readonly_prop
-    end
-
-  let data_to_js_obj x : data_obj Js.t =
-    object%js
-      val message        = Js.string x.message
-      val timeout        = CCOpt.map (fun x -> Js.number_of_float @@ float_of_int x) x.timeout |> Js.Optdef.option
-      val actionHandler  = CCOpt.map (fun x -> x.handler) x.action |> Js.Optdef.option
-      val actionText     = CCOpt.map (fun x -> Js.string x.text) x.action |> Js.Optdef.option
-      val multiline      = CCOpt.map (fun x -> Js.bool x.enable) x.multiline |> Js.Optdef.option
-      val actionOnBottom = CCOpt.map (fun x -> Js.bool x.action_on_bottom) x.multiline |> Js.Optdef.option
-    end
-
-  class type t =
-    object
-      method root__             : Dom_html.divElement Js.t Js.readonly_prop
-      method show_              : data_obj Js.t -> unit Js.meth
-      method dismissesOnAction_ : bool Js.t Js.prop
-    end
-
-  let attach elt : t Js.t =
-    Js.Unsafe.global##.mdc##.snackbar##.MDCSnackbar##attachTo elt
-
-end
-
-module Tabs = struct
-
-  module Tab = struct
-
-    include Widgets.Tabs.Tab
-
-    class type t =
-      object
-        method root__                 : Dom_html.element Js.t Js.readonly_prop
-        method computedWidth_         : Js.number Js.t Js.readonly_prop
-        method computedLeft_          : Js.number Js.t Js.readonly_prop
-        method isActive_              : bool Js.t Js.prop
-        method preventDefaultOnClick_ : bool Js.t Js.prop
-      end
-
-    class type selected_event =
-      object
-        inherit Dom_html.event
-        method detail_ : < tab_ : t Js.t Js.readonly_prop > Js.t Js.readonly_prop
-      end
-
-    type events =
-      { selected : selected_event Js.t Dom_events.Typ.typ
-      }
-
-    let events =
-      { selected = Dom_events.Typ.make "MDCTab:selected"
-      }
-
-    let attach elt : t Js.t =
-      Js.Unsafe.global##.mdc##.tabs##.MDCTab##attachTo elt
-
-  end
-
-  module Tab_bar = struct
-
-    include Widgets.Tabs.Tab_bar
-
-    class type t =
-      object
-        method root__          : Dom_html.element Js.t Js.readonly_prop
-        method tabs_           : Tab.t Js.t Js.js_array Js.readonly_prop
-        method activeTab_      : Tab.t Js.t Js.prop
-        method activeTabIndex_ : Js.number Js.t Js.prop
-      end
-
-    class type change_event =
-      object
-        inherit Dom_html.event
-        method detail_ : t Js.t Js.readonly_prop
-      end
-
-    type events =
-      { change : change_event Js.t Dom_events.Typ.typ
-      }
-
-    let events =
-      { change = Dom_events.Typ.make "MDCTabBar:change"
-      }
-
-    let attach elt : t Js.t =
-      Js.Unsafe.global##.mdc##.tabs##.MDCTabBar##attachTo elt
-
-  end
-
-  module Scroller = struct
-
-    include Widgets.Tabs.Scroller
-
-    class type t =
-      object
-        method root__  : Dom_html.element Js.t Js.readonly_prop
-        method tabBar_ : Tab_bar.t Js.t Js.readonly_prop
-      end
-
-    let attach elt : t Js.t =
-      Js.Unsafe.global##.mdc##.tabs##.MDCTabBarScroller##attachTo elt
 
   end
 

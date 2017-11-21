@@ -249,8 +249,8 @@ module Make
       let accept_button_class = CSS.add_modifier button_class "accept"
       let cancel_button_class = CSS.add_modifier button_class "cancel"
 
-      let create_button ?id ?style ?(classes=[]) ?attrs ?ripple ?(action=false) ~_type ~label () =
-        Button.create ~classes:((match _type with
+      let create_button ?id ?style ?(classes=[]) ?attrs ?ripple ?(action=false) ~typ ~label () =
+        Button.create ~classes:((match typ with
                                  | `Accept  -> accept_button_class
                                  | `Decline -> cancel_button_class) :: classes
                                 |> cons_if action @@ CSS.add_element base_class "action"
@@ -1013,10 +1013,11 @@ module Make
     let text_class           = CSS.add_element base_class "text"
     let action_wrapper_class = CSS.add_element base_class "action-wrapper"
     let action_button_class  = CSS.add_element base_class "action-button"
+    let align_start_class    = CSS.add_modifier base_class "align-start"
 
     let create ?id ?style ?(classes=[]) ?attrs ?(start_aligned=false) () =
       div ~a:([ a_class (classes
-                         |> cons_if start_aligned @@ CSS.add_modifier base_class "align-start"
+                         |> cons_if start_aligned align_start_class
                          |> CCList.cons base_class)
               ; a_aria "live" ["assertive"]
               ; a_aria "atomic" ["true"]
@@ -1059,10 +1060,11 @@ module Make
       let _class = "mdc-tab"
       let icon_class      = CSS.add_element _class "icon"
       let icon_text_class = CSS.add_element _class "icon-text"
+      let active_class    = CSS.add_modifier _class "active"
 
       let create ?id ?style ?(classes=[]) ?attrs ?(active=false) ?href ~content () =
         a ~a:([ a_class (classes
-                         |> cons_if active @@ CSS.add_modifier _class "active"
+                         |> cons_if active active_class
                          |> CCList.cons _class) ]
               |> map_cons_option ~f:a_href href
               |> add_common_attrs ?id ?style ?attrs)
@@ -1081,7 +1083,9 @@ module Make
 
     module Tab_bar = struct
 
-      let _class = "mdc-tab-bar"
+      let _class                 = "mdc-tab-bar"
+      let indicator_primary_class = CSS.add_modifier _class "indicator-primary"
+      let indicator_accent_class  = CSS.add_modifier _class "indicator-accent"
 
       module Indicator = struct
 
@@ -1094,19 +1098,19 @@ module Make
       end
 
       let create ?id ?style ?(classes=[]) ?attrs
-                 ?(indicator=Indicator.create ()) ?color_scheme ~_type ~content () =
+                 ?(indicator=Indicator.create ()) ?color_scheme ~typ ~tabs () =
         nav ~a:([ a_class (classes
-                           |> (fun x -> match _type with
+                           |> (fun x -> match typ with
                                         | `Text          -> x
                                         | `Icon          -> (CSS.add_modifier _class "icon-tab-bar") :: x
                                         | `Text_and_icon -> (CSS.add_modifier _class "icons-with-text") :: x)
                            |> map_cons_option ~f:(function
-                                                  | `Primary -> CSS.add_modifier _class "indicator-primary"
-                                                  | `Accent  -> CSS.add_modifier _class "indicator-accent")
+                                                  | `Primary -> indicator_primary_class
+                                                  | `Accent  -> indicator_accent_class)
                                               color_scheme
                            |> CCList.cons _class) ]
                 |> add_common_attrs ?id ?style ?attrs)
-            (content @ [indicator])
+            (tabs @ [indicator])
 
     end
 

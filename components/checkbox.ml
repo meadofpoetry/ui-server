@@ -10,15 +10,13 @@ class type mdc =
     method value         : Js.js_string Js.t Js.prop
   end
 
-class t ?input_id () =
+class t ?(ripple=true) ?input_id () =
 
   let elt = Checkbox.create ?input_id () |> To_dom.of_div in
 
   object(self)
 
     inherit [Dom_html.divElement Js.t] radio_or_cb_widget elt ()
-
-    val mdc : mdc Js.t = Js.Unsafe.global##.mdc##.checkbox##.MDCCheckbox##attachTo elt
 
     val input : Dom_html.inputElement Js.t =
       elt##querySelector (Js.string ("." ^ Checkbox.native_control_class))
@@ -30,5 +28,8 @@ class t ?input_id () =
     method set_indeterminate    = (Js.Unsafe.coerce input)##.indeterminate := Js._true
     method set_determinate      = (Js.Unsafe.coerce input)##.indeterminate := Js._false
     method toggle_indeterminate = (Js.Unsafe.coerce input)##.indeterminate := Js.bool @@ not self#indeterminate
+
+    initializer
+      if ripple then Js.Unsafe.global##.mdc##.checkbox##.MDCCheckbox##attachTo elt
 
   end
