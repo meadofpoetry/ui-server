@@ -1,5 +1,5 @@
 open Widget
-open Widget.Widgets.Slider
+open Markup
 open Tyxml_js
 
 class type mdc =
@@ -34,7 +34,7 @@ let events =
 
 class t ?discrete ?markers () =
 
-  let elt = create ?discrete ?markers () |> To_dom.of_div in
+  let elt = Slider.create ?discrete ?markers () |> To_dom.of_div in
 
   object(self)
 

@@ -1,5 +1,5 @@
 open Widget
-open Widget.Widgets.Checkbox
+open Markup
 open Tyxml_js
 
 class type mdc =
@@ -12,7 +12,7 @@ class type mdc =
 
 class t ?input_id () =
 
-  let elt = create ?input_id () |> To_dom.of_div in
+  let elt = Checkbox.create ?input_id () |> To_dom.of_div in
 
   object(self)
 
@@ -21,7 +21,7 @@ class t ?input_id () =
     val mdc : mdc Js.t = Js.Unsafe.global##.mdc##.checkbox##.MDCCheckbox##attachTo elt
 
     val input : Dom_html.inputElement Js.t =
-      elt##querySelector (Js.string ("." ^ native_control_class))
+      elt##querySelector (Js.string ("." ^ Checkbox.native_control_class))
       |> Js.Opt.to_option |> CCOpt.get_exn |> Js.Unsafe.coerce
 
     method private input = input

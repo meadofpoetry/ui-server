@@ -1,5 +1,5 @@
 open Widget
-open Widget.Widgets.Linear_progress
+open Markup
 open Tyxml_js
 
 class type mdc =
@@ -14,7 +14,7 @@ class type mdc =
 
 class t () =
 
-  let elt = create () |> To_dom.of_div in
+  let elt = Linear_progress.create () |> To_dom.of_div in
 
   object
 

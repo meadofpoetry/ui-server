@@ -1,11 +1,11 @@
 open Widget
-open Widget.Widgets.Icon_toggle
+open Markup
 open Tyxml_js
 
 class type change_event =
   object
     inherit Dom_html.event
-    method detail_ : < isOn : bool Js.t Js.readonly_prop > Js.t Js.readonly_prop
+    method detail : < isOn : bool Js.t Js.readonly_prop > Js.t Js.readonly_prop
   end
 
 type events =
@@ -24,7 +24,7 @@ class type mdc =
 
 class t ~on_data ~off_data () =
 
-  let elt = create ~on_data ~off_data () |> To_dom.of_i in
+  let elt = Icon_toggle.create ~on_data ~off_data () |> To_dom.of_i in
 
   object
 

@@ -1,5 +1,5 @@
 open Widget
-open Widget.Widgets.Dialog
+open Markup
 open Tyxml_js
 
 class type mdc =
@@ -21,11 +21,11 @@ let events = { accept = Dom_events.Typ.make "MDCDialog:accept"
 class ['a,'b] body content () =
 
   let inner =
-    new widget (Body.create ~content:[match content with
-                                      | `String s -> Html.pcdata s
-                                      | `Widget w -> let root = (w : 'a :> 'b widget)#root in
-                                                     Of_dom.of_element (root :> Dom_html.element Js.t) ]
-                            ()
+    new widget (Dialog.Body.create ~content:[match content with
+                                             | `String s -> Html.pcdata s
+                                             | `Widget w -> let root = (w : 'a :> 'b widget)#root in
+                                                            Of_dom.of_element (root :> Dom_html.element Js.t) ]
+                                   ()
                 |> To_dom.of_element) () in
 
   object
@@ -39,16 +39,16 @@ class ['a,'b] body content () =
 class t ?title ~content () =
 
   let title_widget =
-    CCOpt.map (fun x -> new widget (Header.create ~title:x () |> To_dom.of_header) ())
+    CCOpt.map (fun x -> new widget (Dialog.Header.create ~title:x () |> To_dom.of_header) ())
               title in
 
   let body_widget = new body content () in
 
-  let elt = create ~content:([ Of_dom.of_element body_widget#root ]
-                             |> (fun l -> (CCOpt.map_or ~default:l
-                                                        (fun x -> (Of_dom.of_element x#root) :: l)
-                                                        title_widget)))
-                   ()
+  let elt = Dialog.create ~content:([ Of_dom.of_element body_widget#root ]
+                                    |> (fun l -> (CCOpt.map_or ~default:l
+                                                               (fun x -> (Of_dom.of_element x#root) :: l)
+                                                               title_widget)))
+                          ()
             |> To_dom.of_aside in
 
   object

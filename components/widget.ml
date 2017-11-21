@@ -1,5 +1,3 @@
-module Widgets = Common.Components.Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
-
 type rect =
   { top    : float
   ; right  : float
@@ -11,7 +9,7 @@ type rect =
 
 class ['a] widget (elt : 'a) () = object(self)
 
-  method root : 'a = elt 
+  method root : 'a = elt
   method element : Dom_html.element Js.t = (elt :> Dom_html.element Js.t)
 
   method get_attribute a    = self#element##getAttribute (Js.string a)

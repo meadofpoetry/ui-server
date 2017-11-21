@@ -1,5 +1,5 @@
 open Widget
-open Widget.Widgets.Radio
+open Markup
 open Tyxml_js
 
 class type mdc =
@@ -9,9 +9,9 @@ class type mdc =
     method value    : Js.js_string Js.t Js.prop
   end
 
-class t ?input_id ?name () =
+class t ?input_id ~name () =
 
-  let elt = create ?input_id ?name () |> To_dom.of_i in
+  let elt = Radio.create ?input_id ~name () |> To_dom.of_i in
 
   object
 
@@ -19,7 +19,7 @@ class t ?input_id ?name () =
 
     val mdc : mdc Js.t = elt |> (fun x -> Js.Unsafe.global##.mdc##.radio##.MDCRadio##attachTo x)
     val input : Dom_html.inputElement Js.t =
-      elt##querySelector (Js.string ("." ^ native_control_class))
+      elt##querySelector (Js.string ("." ^ Radio.native_control_class))
       |> Js.Opt.to_option |> CCOpt.get_exn |> Js.Unsafe.coerce
 
     method private input = input
