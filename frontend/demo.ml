@@ -292,12 +292,25 @@ let menu_demo () =
                                     else `Divider (new Menu.Divider.t ()))
                           (CCList.range 0 5) in
   let anchor  = new Button.t ~label:"Open menu" () in
+  anchor#style##.marginBottom := Js.string "50px";
   let menu    = new Menu.t ~items () in
   let wrapper = new Menu.Wrapper.t ~menu ~anchor () in
   menu#dense;
+  let icon_anchor = new Icon.Font.t ~icon:"more_horiz" () in
+  let icon_menu   = new Menu.t
+                        ~items:[ `Item (new Menu.Item.t ~text:"Item 1" ())
+                               ; `Item (new Menu.Item.t ~text:"Item 2" ())
+                               ; `Item (new Menu.Item.t ~text:"Item 3" ()) ]
+                        () in
+  let icon_wrapper = new Menu.Wrapper.t ~menu:icon_menu ~anchor:icon_anchor () in
   Dom_html.addEventListener anchor#root
                             Dom_events.Typ.click
                             (Dom_html.handler (fun _ -> menu#show; Js._false))
+                            Js._false
+  |> ignore;
+  Dom_html.addEventListener icon_anchor#root
+                            Dom_events.Typ.click
+                            (Dom_html.handler (fun _ -> icon_menu#show; Js._false))
                             Js._false
   |> ignore;
   Dom_html.addEventListener menu#root
@@ -313,7 +326,7 @@ let menu_demo () =
                             (Dom_html.handler (fun _ -> print_endline "Menu cancelled"; Js._false))
                             Js._false
   |> ignore;
-  demo_section "Menu" [ of_dom wrapper#root ]
+  demo_section "Menu" [ of_dom wrapper#root; of_dom icon_wrapper#root ]
 
 let linear_progress_demo () =
   let linear_progress = new Linear_progress.t () in
