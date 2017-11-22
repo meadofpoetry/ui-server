@@ -35,6 +35,7 @@ class ['a] widget (elt : 'a) () = object(self)
   method class_string = Js.to_string @@ self#element##.className
   method set_class_string _classes = self#element##.className := (Js.string _classes)
 
+  method cons_class   _class = self#set_class_string @@ _class ^ " " ^ self#class_string
   method add_class    _class = self#element##.classList##add (Js.string _class)
   method remove_class _class = self#element##.classList##remove (Js.string _class)
   method toggle_class _class = self#element##.classList##toggle (Js.string _class)

@@ -202,17 +202,10 @@ let layout_grid_demo () =
 let dialog_demo () =
   let dialog = new Dialog.t
                    ~title:"This is dialog"
-                   ~content:(`String "Dialog body") (* [ Dialog.Header.create ~id:"lid" ~label:"This is dialog" ()
-                             * ; Dialog.Body.create ~id:"did" ~children:[] ()
-                             * ; Dialog.Footer.create
-                             *     ~children:[ Dialog.Footer.create_button ~_type:`Decline
-                             *                                             ~label:"Cancel"
-                             *                                             ()
-                             *               ; Dialog.Footer.create_button ~_type:`Accept
-                             *                                             ~label:"Accept"
-                             *                                             ()
-                             *               ] ()
-                             * ] *)
+                   ~content:(`String "Dialog body")
+                   ~actions:[ new Dialog.Action.t ~typ:`Decline ~label:"Decline" ()
+                            ; new Dialog.Action.t ~typ:`Accept  ~label:"Accept" ()
+                            ]
                    () in
   let button = new Button.t ~label:"show dialog" () in
   Dom_html.addEventListener button#root
@@ -230,109 +223,97 @@ let dialog_demo () =
   demo_section "Dialog" [ of_dom dialog#root; of_dom button#root ]
 
 let list_demo () =
-  let list_items = List.map (fun x -> (* let checkbox = (Checkbox.create
-                                       *                   ~attrs:[Tyxml_js.Html.a_onclick (fun e ->
-                                       *                               Dom_html.stopPropagation e; true)]
-                                       *                   ~style:"width:24px; height:18px"
-                                       *                   ~classes:[List_.Item.end_detail_class]
-                                       *                   ()
-                                       *                 |> Checkbox.attach) in
-                                       * Checkbox.listen_change checkbox
-                                       *                        (fun _ _ -> print_endline "changed!"; true)
-                                       * |> ignore; *)
-                                      if x != 2
-                                      then List_.Item.create
-                                             (* ~attrs:[Tyxml_js.Html.a_onclick (fun _ ->
-                                              *             let value = checkbox##.checked_
-                                              *                         |> Js.to_bool
-                                              *                         |> not
-                                              *                         |> Js.bool in
-                                              *             checkbox##.checked_ := value; true)] *)
-                                             ~text:("List item " ^ (string_of_int x))
-                                             ~secondary_text:"some subtext here"
-                                             ~start_detail:(let open Tyxml_js.Html in
-                                                            span
-                                                              ~a:[ a_class [List_.Item.start_detail_class]
-                                                                 ; a_style "background-color: lightgrey;\
-                                                                            display: inline-flex;\
-                                                                            align-items: center;\
-                                                                            justify-content: center;"]
-                                                              [ i ~a:[ a_class ["material-icons"]
-                                                                     ; a_style "color: white;"]
-                                                                  [pcdata "folder"]])
-                                             (* ~end_detail:(checkbox##.root__ |> of_dom) *)
-                                             ~auto_init:true
-                                             ()
-                                      else List_.Item.create_divider ())
-                            (CCList.range 0 5) in
-  let list = List_.create ~items:list_items
-                          ~avatar:true
-                          ~two_line:true
-                          ~style:"max-width: 400px;"
-                          () in
-  let tree = (let items = List.map (fun x ->
-                              let inner_items = List.map
-                                                  (fun x -> List_.Item.create
-                                                              ~text:("Inner " ^ (string_of_int x))
-                                                              (* ~end_detail:(Checkbox.create 
-                                                               *                ~style:"width:24px; height:18px"
-                                                               *                ~classes:[List_.Item.end_detail_class]
-                                                               *                ()) *)
-                                                              ~auto_init:true
-                                                              ())
-                                                  (CCList.range 0 5) in
-                              let inner = List_.create ~items:inner_items
-                                                       ~style:"padding-right: 0px"
-                                                       ~classes:["hide"]
-                                                       ()
-                                          |> Tyxml_js.To_dom.of_element in
-                              Html.div [ List_.Item.create
-                                           ~attrs:[Tyxml_js.Html.a_onclick (fun _ ->
-                                                       inner##.classList##toggle (Js.string "hide")
-                                                       |> ignore;
-                                                       true)]
-                                           ~text:("List item " ^ (string_of_int x))
-                                           (* ~end_detail:(Checkbox.create 
-                                            *              ~style:"width:24px; height:18px"
-                                            *              ~classes:[List_.Item.end_detail_class]
-                                            *              ()) *)
-                                           ~auto_init:true
-                                           ()
-                                       ; Tyxml_js.Of_dom.of_element inner ])
-                                   (CCList.range 0 5) in
-              List_.create ~items
-                           ~style:"max-width: 400px;"
-                           ()) in
-  demo_section "List" [ list; tree ]
+  let items = List.map (fun x -> if x = 3
+                                 then `Divider (new List_.Divider.t ())
+                                 else `Item (new List_.Item.t
+                                                 ~text:("List item " ^ (string_of_int x))
+                                                 ~secondary_text:"some subtext here"
+                                                 ~start_detail:(new Avatar.Letter.t ~text:"A" ())
+                                                 ~ripple:true
+                                                 ()))
+                       (CCList.range 0 5) in
+  let list = new List_.t ~avatar:true ~items () in
+  list#style##.maxWidth := Js.string "400px";
+  let list1 = new List_.t
+                  ~items:[ `Item (new List_.Item.t ~text:"Item 1" ~secondary_text:"Subtext" ())
+                         ; `Item (new List_.Item.t ~text:"Item 2" ~secondary_text:"Subtext" ())
+                         ; `Item (new List_.Item.t ~text:"Item 3" ~secondary_text:"Subtext" ())
+                         ]
+                  () in
+  let list2 = new List_.t
+                  ~items:[ `Item (new List_.Item.t ~text:"Item 1" ~secondary_text:"Subtext" ())
+                         ; `Item (new List_.Item.t ~text:"Item 2" ~secondary_text:"Subtext" ())
+                         ; `Item (new List_.Item.t ~text:"Item 3" ~secondary_text:"Subtext" ())
+                         ]
+                  () in
+  let group = new List_.List_group.t
+                  ~content:[ { subheader = Some "Group 1"; list = list1 }
+                           ; { subheader = Some "Group 2"; list = list2 }
+                           ]
+                  () in
+  (* let tree = (let items = List.map (fun x ->
+   *                             let inner_items = List.map
+   *                                                 (fun x -> List_.Item.create
+   *                                                             ~text:("Inner " ^ (string_of_int x))
+   *                                                             (\* ~end_detail:(Checkbox.create 
+   *                                                              *                ~style:"width:24px; height:18px"
+   *                                                              *                ~classes:[List_.Item.end_detail_class]
+   *                                                              *                ()) *\)
+   *                                                             ~auto_init:true
+   *                                                             ())
+   *                                                 (CCList.range 0 5) in
+   *                             let inner = List_.create ~items:inner_items
+   *                                                      ~style:"padding-right: 0px"
+   *                                                      ~classes:["hide"]
+   *                                                      ()
+   *                                         |> Tyxml_js.To_dom.of_element in
+   *                             Html.div [ List_.Item.create
+   *                                          ~attrs:[Tyxml_js.Html.a_onclick (fun _ ->
+   *                                                      inner##.classList##toggle (Js.string "hide")
+   *                                                      |> ignore;
+   *                                                      true)]
+   *                                          ~text:("List item " ^ (string_of_int x))
+   *                                          (\* ~end_detail:(Checkbox.create 
+   *                                           *              ~style:"width:24px; height:18px"
+   *                                           *              ~classes:[List_.Item.end_detail_class]
+   *                                           *              ()) *\)
+   *                                          ~auto_init:true
+   *                                          ()
+   *                                      ; Tyxml_js.Of_dom.of_element inner ])
+   *                                  (CCList.range 0 5) in
+   *             List_.create ~items
+   *                          ~style:"max-width: 400px;"
+   *                          ()) in *)
+  demo_section "List" [ of_dom list#root; of_dom group#root (* tree *) ]
 
 let menu_demo () =
-  let menu_items = List.map (fun x -> if x != 2
-                                      then Menu.Item.create
-                                             ~text:("Menu item " ^ (string_of_int x))
-                                             ~disabled:(x = 4)
-                                             ()
-                                      else Menu.Item.create_divider ())
-                            (CCList.range 0 5) in
-  let menu = Menu.create ~items:menu_items () |> Menu.attach in
-  let menu_anchor = new Button.t ~label:"Open menu" () in
-  let menu_div = Html.div ~a:[Tyxml_js.Html.a_class [Menu.anchor_class]]
-                          [ of_dom menu_anchor#root; of_dom menu##.root__ ] in
-  Dom_html.addEventListener menu##.root__
+  let items    = List.map (fun x -> if x != 2
+                                    then `Item (new Menu.Item.t ~text:("Menu item " ^ (string_of_int x)) ())
+                                    else `Divider (new Menu.Divider.t ()))
+                          (CCList.range 0 5) in
+  let anchor  = new Button.t ~label:"Open menu" () in
+  let menu    = new Menu.t ~items () in
+  let wrapper = new Menu.Wrapper.t ~menu ~anchor () in
+  menu#dense;
+  Dom_html.addEventListener anchor#root
+                            Dom_events.Typ.click
+                            (Dom_html.handler (fun _ -> menu#show; Js._false))
+                            Js._false
+  |> ignore;
+  Dom_html.addEventListener menu#root
                             Menu.events.selected
                             (Dom_html.handler (fun d ->
-                                 print_endline ("Selected menu item is " ^ (d##.detail_##.index_
-                                                                            |> Js.float_of_number
-                                                                            |> int_of_float
+                                 print_endline ("Selected menu item is " ^ (d##.detail##.index
                                                                             |> string_of_int));
                                  Js._false))
                             Js._false
   |> ignore;
-  Dom_html.addEventListener menu##.root__
+  Dom_html.addEventListener menu#root
                             Menu.events.cancel
                             (Dom_html.handler (fun _ -> print_endline "Menu cancelled"; Js._false))
                             Js._false
   |> ignore;
-  demo_section "Menu" [ menu_div ]
+  demo_section "Menu" [ of_dom wrapper#root ]
 
 let linear_progress_demo () =
   let linear_progress = new Linear_progress.t () in
@@ -369,27 +350,33 @@ let linear_progress_demo () =
   demo_section "Linear progress" [ of_dom btn_grid#root; of_dom linear_progress#root ]
 
 let tabs_demo () =
-  let icon = [ new Tabs.Tab.t ~icon:"pets" ()
-             ; new Tabs.Tab.t ~icon:"favorite" ()
-             ; new Tabs.Tab.t ~icon:"grade" ()
-             ; new Tabs.Tab.t ~icon:"room" () ]
-             |> (fun tabs -> new Tabs.Tab_bar.t ~tabs ())
-             |> (fun bar  -> subsection "With icon labels" @@ of_dom bar#root) in
-  let text = List.map (fun x -> new Tabs.Tab.t ~text:("Tab " ^ (string_of_int x)) ())
-                      (CCList.range 0 3)
-             |> (fun tabs -> new Tabs.Tab_bar.t ~tabs ())
-             |> (fun bar  -> subsection "With text labels" @@ of_dom bar#root) in
-  let both = [ new Tabs.Tab.t ~text:"Tab 0" ~icon:"pets" ()
-             ; new Tabs.Tab.t ~text:"Tab 1" ~icon:"favorite" ()
-             ; new Tabs.Tab.t ~text:"Tab 2" ~icon:"grade" ()
-             ; new Tabs.Tab.t ~text:"Tab 3" ~icon:"room" () ]
-             |> (fun tabs -> new Tabs.Tab_bar.t ~tabs ())
-             |> (fun bar  -> subsection "With icon and text labels" @@ of_dom bar#root) in
-  let scrl = List.map (fun x -> new Tabs.Tab.t ~text:("Tab " ^ (string_of_int x)) ())
-                      (CCList.range 0 15)
-             |> (fun tabs -> new Tabs.Scroller.t ~tabs ())
-             |> (fun bar  -> subsection "With scroller" @@ of_dom bar#root) in
-  demo_section "Tabs" [ text; icon; both; scrl ]
+  let icon_bar  = [ new Tabs.Tab.t ~icon:"pets" ()
+                  ; new Tabs.Tab.t ~icon:"favorite" ()
+                  ; new Tabs.Tab.t ~icon:"grade" ()
+                  ; new Tabs.Tab.t ~icon:"room" () ]
+                  |> (fun tabs -> new Tabs.Tab_bar.t ~tabs ()) in
+  let icon_sect = subsection "With icon labels" @@ of_dom icon_bar#root in
+  let text_bar  = List.map (fun x -> new Tabs.Tab.t ~text:("Tab " ^ (string_of_int x)) ())
+                           (CCList.range 0 3)
+                  |> (fun tabs -> new Tabs.Tab_bar.t ~tabs ()) in
+  let text_sect = subsection "With text labels" @@ of_dom text_bar#root in
+  let both_bar  = [ new Tabs.Tab.t ~text:"Tab 0" ~icon:"pets" ()
+                  ; new Tabs.Tab.t ~text:"Tab 1" ~icon:"favorite" ()
+                  ; new Tabs.Tab.t ~text:"Tab 2" ~icon:"grade" ()
+                  ; new Tabs.Tab.t ~text:"Tab 3" ~icon:"room" () ]
+                  |> (fun tabs -> new Tabs.Tab_bar.t ~tabs ()) in
+  let both_sect = subsection "With icon and text labels" @@ of_dom both_bar#root in
+  let scrl_bar  = List.map (fun x -> new Tabs.Tab.t ~text:("Tab " ^ (string_of_int x)) ())
+                           (CCList.range 0 15)
+                  |> (fun tabs -> new Tabs.Scroller.t ~tabs ()) in
+  let scrl_sect = subsection "With scroller" @@ of_dom scrl_bar#root in
+  (* let btn       = new Button.t ~label:"add" () in
+   * Dom_html.addEventListener
+   *   btn#root
+   *   Dom_events.Typ.click
+   *   (Dom_html.handler (fun _ -> both_bar#add_tab (new Tabs.Tab.t ~text:"Tab 0" ~icon:"pets" ()); Js._false))
+   *   Js._false |> ignore; *)
+  demo_section "Tabs" [ text_sect; icon_sect; both_sect; scrl_sect(* ; of_dom btn#root *) ]
 
 let snackbar_demo () =
   let listen x h = Dom_html.addEventListener x#root

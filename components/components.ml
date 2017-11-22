@@ -1,20 +1,21 @@
-module Widgets = Common.Components.Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
-
-                   [@@@ocaml.warning "-60"]
-
 open Widget
+module Widgets = Markup
 
 let of_dom el = Tyxml_js.Of_dom.of_element (el :> Dom_html.element Js.t)
 
+module Avatar          = Avatar
 module Widget          = Widget
 module Button          = Button
 module Checkbox        = Checkbox
 module Dialog          = Dialog
 module Fab             = Fab
 module Form_field      = Form_field
+module Icon            = Icon
 module Icon_toggle     = Icon_toggle
 module Layout_grid     = Layout_grid
 module Linear_progress = Linear_progress
+module List_           = List_
+module Menu            = Menu
 module Radio           = Radio
 module Slider          = Slider
 module Snackbar        = Snackbar
@@ -108,55 +109,6 @@ module Grid_list = struct
   class type t = Dom_html.divElement
 
   let attach elt : t Js.t = Tyxml_js.To_dom.of_div elt
-
-end
-
-module List_ = struct
-
-  include Widgets.List_
-
-  class type t = Dom_html.element
-
-  let attach elt : t Js.t = Tyxml_js.To_dom.of_element elt
-
-end
-
-module Menu = struct
-
-  include Widgets.Menu
-
-  let focus_index_to_js_obj x : < focusIndex : Js.number Js.t Js.prop > Js.t =
-    Js.Unsafe.(obj [| "focusIndex", inject @@ Js.number_of_float (float_of_int x) |])
-
-  class type t =
-    object
-      method root__       : Dom_html.divElement Js.t Js.readonly_prop
-      method open_        : bool Js.t Js.prop
-      method hide_        : unit -> unit Js.meth
-      method show_        : unit -> unit Js.meth
-      method show_focused : < focusIndex : Js.number Js.t Js.prop > Js.t -> unit Js.meth
-    end
-
-  class type event =
-    object
-      inherit Dom_html.event
-      method detail_ : < item_  : Dom_html.element Js.t Js.readonly_prop;
-                         index_ : Js.number Js.t Js.readonly_prop > Js.t Js.readonly_prop
-    end
-
-  type events =
-    { selected : event Js.t Dom_events.Typ.typ
-    ; cancel   : Dom_html.event Js.t Dom_events.Typ.typ
-    }
-
-  let events =
-    { selected = Dom_events.Typ.make "MDCSimpleMenu:selected"
-    ; cancel   = Dom_events.Typ.make "MDCSimpleMenu:cancel"
-    }
-
-  let attach elt : t Js.t =
-    Js.Unsafe.global##.mdc##.menu##.MDCSimpleMenu##attachTo elt
-
 
 end
 

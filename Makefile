@@ -16,15 +16,11 @@ dvb:
 	$(BUILD) build frontend/dvb_niit.bc.js
 	cp _build/default/frontend/dvb_niit.bc.js dist/resources/js/dvb_niit.js
 
-configuration:
-	$(BUILD) build frontend/configuration.bc.js
-	cp _build/default/frontend/configuration.bc.js dist/resources/js/configuration.js
-
 demo:
 	$(BUILD) build frontend/demo.bc.js
 	cp _build/default/frontend/demo.bc.js dist/resources/js/demo.js
 
-frontend: home pipeline hardware dvb demo configuration
+frontend: home pipeline hardware dvb demo
 
 backend:
 	$(BUILD) build backend/backend.exe

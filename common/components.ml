@@ -65,6 +65,67 @@ module Make
 
   end
 
+  module Icon = struct
+
+    let base_class = "mdc-icon"
+
+    module Font = struct
+
+      let create ?id ?style ?(classes=[]) ?attrs ~icon () =
+        Html.i ~a:([a_class ("material-icons" :: base_class :: classes)]
+                   |> add_common_attrs ?id ?style ?attrs)
+               [pcdata icon]
+
+    end
+
+  end
+
+  module Avatar = struct
+
+    let base_class  = "mdc-avatar"
+    let dense_class = CSS.add_modifier base_class "dense"
+
+    module Image = struct
+
+      let create ?id ?style ?(classes=[]) ?attrs ?(dense=false) ~src () =
+        img ~a:([ a_class (classes
+                           |> cons_if dense dense_class
+                           |> CCList.cons base_class) ]
+                |> add_common_attrs ?id ?style ?attrs)
+            ~src:(uri_of_string src)
+            ~alt:""
+
+    end
+
+    module Font_icon = struct
+
+      let icon_class = CSS.add_modifier base_class "icon"
+
+      let create ?id ?style ?(classes=[]) ?attrs ?(dense=false) ~icon () =
+        div ~a:([ a_class (classes
+                           |> cons_if dense dense_class
+                           |> CCList.cons base_class)]
+                |> add_common_attrs ?id ?style ?attrs)
+            [icon]
+
+    end
+
+    module Letter = struct
+
+      let letter_class = CSS.add_modifier base_class "letter"
+
+      let create ?id ?style ?(classes=[]) ?attrs ?(dense=false) ~text () =
+        div ~a:([ a_class (classes
+                           |> cons_if dense dense_class
+                           |> CCList.cons letter_class
+                           |> CCList.cons base_class)]
+                |> add_common_attrs ?id ?style ?attrs)
+            [pcdata text]
+
+    end
+
+  end
+
   module Button = struct
 
     let base_class = "mdc-button"
@@ -231,11 +292,12 @@ module Make
 
     module Body = struct
 
-      let _class = CSS.add_element base_class "body"
+      let _class           = CSS.add_element base_class "body"
+      let scrollable_class = CSS.add_modifier _class "scrollable"
 
       let create ?(scrollable=false) ?id ?style ?(classes=[]) ?attrs ~content () =
         section ~a:([ a_class (classes
-                               |> cons_if scrollable @@ CSS.add_modifier _class "scrollable"
+                               |> cons_if scrollable scrollable_class 
                                |> CCList.cons _class) ]
                     |> add_common_attrs ?id ?style ?attrs)
                 content
@@ -568,7 +630,6 @@ module Make
   module List_ = struct
 
     let base_class   = "mdc-list"
-    let avatar_class = CSS.add_element base_class "avatar-list"
 
     module Item = struct
 
@@ -627,12 +688,18 @@ module Make
 
     end
 
+    let dense_class    = CSS.add_modifier base_class "dense"
+    let two_line_class = CSS.add_modifier base_class "two-line"
+    let avatar_class   = CSS.add_modifier base_class "avatar-list"
+    let bordered_class = CSS.add_modifier base_class "bordered"
+
     let create ?id ?style ?(classes=[]) ?attrs ?(tag=div) ?(avatar=false)
-               ?(dense=false) ?(two_line=false) ~items () =
+               ?(dense=false) ?(bordered=false) ?(two_line=false) ~items () =
       tag ~a:([ a_class (classes
-                         |> cons_if dense    @@ CSS.add_modifier base_class "dense"
-                         |> cons_if two_line @@ CSS.add_modifier base_class "two-line"
-                         |> cons_if avatar   @@ CSS.add_modifier base_class "avatar-list"
+                         |> cons_if bordered bordered_class
+                         |> cons_if dense    dense_class
+                         |> cons_if two_line two_line_class
+                         |> cons_if avatar   avatar_class
                          |> CCList.cons base_class) ]
               |> add_common_attrs ?id ?style ?attrs)
           items
@@ -775,9 +842,16 @@ module Make
 
     end
 
-    let create ?id ?style ?(classes=[]) ?attrs
-               ?list_id ?list_style ?list_classes ?list_attrs
-               ?(opened=false) ?open_from ~items () =
+    let create_list ?id ?style ?classes ?attrs ~items () =
+      List_.create ?id ?style ~classes:([items_class]
+                                        |> (fun x -> x @ (CCOpt.get_or ~default:[] classes)))
+                   ~attrs:([ a_role ["menu"]
+                           ; a_aria "hidden" ["true"] ]
+                           |> (fun x -> x @ (CCOpt.get_or ~default:[] attrs)))
+                   ~items
+                   ()
+
+    let create ?id ?style ?(classes=[]) ?attrs ?(opened=false) ?open_from ~list () =
       div ~a:([ a_class (classes
                          |> cons_if opened @@ CSS.add_modifier base_class "open"
                          |> map_cons_option ~f:(fun x ->
@@ -791,14 +865,7 @@ module Make
                          |> CCList.cons base_class)
               ; a_tabindex (-1) ]
               |> add_common_attrs ?id ?style ?attrs)
-          [ List_.create ?id:list_id
-                         ?style:list_style
-                         ~classes:([items_class]
-                                   |> (fun x -> x @ (CCOpt.get_or ~default:[] list_classes)))
-                         ~attrs:([ a_role ["menu"]
-                                 ; a_aria "hidden" ["true"] ]
-                                 |> (fun x -> x @ (CCOpt.get_or ~default:[] list_attrs)))
-                         ~items ()]
+          [ list ]
 
   end
 

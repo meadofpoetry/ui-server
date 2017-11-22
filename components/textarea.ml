@@ -6,7 +6,7 @@ module Pure = struct
 
   class t ?input_id ?placeholder ?rows ?cols () =
 
-    let elt = (Textfield.create ?input_id ?placeholder ?rows ?cols ~textarea:true () |> To_dom.of_div) in
+    let elt = Textfield.create ?input_id ?placeholder ?rows ?cols ~textarea:true () |> To_dom.of_div in
 
     object
 

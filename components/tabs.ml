@@ -65,6 +65,7 @@ module Tab_bar = struct
       method tabs           : Tab.mdc Js.t Js.js_array Js.readonly_prop
       method activeTab      : Tab.mdc Js.t Js.prop
       method activeTabIndex : int Js.prop
+      method layout         : unit -> unit Js.meth
     end
 
   class type change_event =
@@ -103,6 +104,8 @@ module Tab_bar = struct
 
       inherit [Dom_html.element Js.t] widget elt ()
 
+
+      val mutable tabs = tabs
       val mdc : mdc Js.t = Js.Unsafe.global##.mdc##.tabs##.MDCTabBar##attachTo elt
 
       method typ : [ `Text | `Icon | `Text_and_icon ] = typ
@@ -116,6 +119,19 @@ module Tab_bar = struct
                                       |> (function
                                           | Some (idx,_) -> self#set_active_tab_index idx
                                           | None -> ())
+
+      method get_tab_at_index i     = CCList.get_at_idx i tabs
+
+      (* FIXME implement normally *)
+      method remove_tab_at_index i  = (match self#get_tab_at_index i with
+                                       | Some tab -> tabs <- CCList.remove_at_idx i tabs;
+                                                     Dom.removeChild elt tab#root;
+                                                     mdc##layout ()
+                                       | None -> ())
+      method add_tab (tab : Tab.t)  = tabs <- tabs @ [tab];
+                                      Dom.appendChild elt tab#root;
+                                      mdc##layout ()
+
 
     end
 
