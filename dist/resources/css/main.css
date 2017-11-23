@@ -1,12 +1,12 @@
-:root {
-    --mdc-theme-primary: #212121;
-    --mdc-theme-primary-light: #686868;
-    --mdc-theme-primary-dark: #454545;
-    --mdc-theme-secondary: #64dd17;
-    --mdc-theme-secondary-light: #8ced4f;
-    --mdc-theme-secondary-dark: #479c10;
-    --mdc-theme-background: #fff;
-}
+/* :root { */
+/*     --mdc-theme-primary: #212121; */
+/*     --mdc-theme-primary-light: #686868; */
+/*     --mdc-theme-primary-dark: #454545; */
+/*     --mdc-theme-secondary: #64dd17; */
+/*     --mdc-theme-secondary-light: #8ced4f; */
+/*     --mdc-theme-secondary-dark: #479c10; */
+/*     --mdc-theme-background: #fff; */
+/* } */
 
 .hide {
     display: none
@@ -69,6 +69,11 @@ main.main-with-sidebar {
     border-top: none;
 }
 
+.mdc-checkbox.mdc-list-item__start-detail, .mdc-checkbox.mdc-list-item__end-detail {
+    width: 18px;
+    height: 18px;
+}
+
 /* MDC Avatar */
 
 .mdc-avatar {
@@ -98,7 +103,7 @@ main.main-with-sidebar {
 }
 
 .mdc-tree .mdc-tree__item .mdc-tree__item__nested-list {
-    
+    padding-right: 0;
 }
 
 .mdc-tree .mdc-tree__item .mdc-tree__item__nested-list--hidden {

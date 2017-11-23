@@ -10,7 +10,7 @@ module Structure = struct
       | Video v -> "Video " ^ pid.stream_type_name, Printf.sprintf "Codec: %s; Resolution: %dx%d;"
                                                       v.codec (fst v.resolution) (snd v.resolution)
     in
-    let checkbox       = new Checkbox.t () in
+    let checkbox       = new Checkbox.t ~ripple:false () in
     checkbox#set_check pid.to_be_analyzed;
     let s, push        = React.S.create pid.to_be_analyzed in
     let pid_s          = React.S.map (fun b -> {pid with to_be_analyzed = b}) s in
@@ -46,6 +46,7 @@ module Structure = struct
     let wl, sl = CCList.split @@ CCList.map make_structure sl in
     let sl_s   = React.S.merge ~eq:(==) (fun a p -> p::a) [] sl in
     let lst    = new Tree.t ~items:wl () in
+    lst#dense;
     lst#style##.maxWidth := Js.string "400px";
     lst, sl_s
 
