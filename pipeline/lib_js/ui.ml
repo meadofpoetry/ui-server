@@ -1,6 +1,6 @@
 open Components
 
-module WStructure = struct
+module Structure = struct
   
   let make_pid (pid : Structure.pid) =
     let text, stext =
@@ -59,26 +59,34 @@ module WStructure = struct
     let lst    = List_.create ~items:wl ~two_line:true ~style:"max-width: 400px;" () in
     List_.attach lst, sl_s
 
-
-  let id = "structure-widget"
-  type t = { div : Dom_html.divElement Js.t
-           ; but : Button.t Js.t
-           ; dis : Dom_html.divElement Js.t
-           }
-
-  let create (str:Structure.t list) post =
+  let create
+        ~(init:   Structure.t list)
+        ~(events: Structure.t list React.event)
+        ~(post:   Structure.t list -> unit) =
+    let id  = "structure-place" in
     let div = Dom_html.createDiv Dom_html.document in
-    div##.id := Js.string id;
-    let but = Components.Button.attach @@ Components.Button.create ~label:"post" ~raised:true () in
-    let dis, s = make_structure_list str in
-    Dom.appendChild div dis;
-    Dom.appendChild div but;
-    but##.onclick := Dom.handler (fun _ -> post @@ React.S.value s; Js._false);
-    { div; but; dis }
+    let make (str : Structure.t list) =
+      let place  = Dom_html.createDiv Dom_html.document in
+      place##.id := Js.string id;
+      let but    = Components.Button.attach @@ Components.Button.create ~label:"send" ~raised:true () in
+      let dis, s = make_structure_list str in
+      Dom.appendChild place dis;
+      Dom.appendChild place but;
+      but##.onclick := Dom.handler (fun _ -> post @@ React.S.value s; Js._false);
+      place
+    in
+    let _ = React.E.map (fun s ->
+                (try Dom.removeChild div (Dom_html.getElementById id)
+                 with _ -> print_endline "No el");
+                Dom.appendChild div (make s))
+              events
+    in
+    Dom.appendChild div (make init);
+    div
     
 end
 
-module WLayout = struct
+module Wm = struct
   
   let make_layout div (wdgl : (string * Wm.widget) list) =
     let open Layout in
@@ -91,36 +99,45 @@ module WLayout = struct
     |> List.fold_left (fun acc e -> Layout.add_element e div acc 1 1 1 1 false) []
     |> List.rev
   
-  let id = "wm-widget"
-  type t = { div    : Dom_html.divElement Js.t
-           ; apply  : Button.t Js.t
-           ; dis    : Dom_html.divElement Js.t
-           }
-  
-  let create (wm : Wm.t) post =
+  let create
+        ~(init:   Wm.t)
+        ~(events: Wm.t React.event)
+        ~(post:   Wm.t -> unit) =
     let open Layout in
+    let id  = "wm-place" in
     let div = Dom_html.createDiv Dom_html.document in
-    div##.id := Js.string id;
-    let apply  = Components.Button.attach @@ Components.Button.create ~label:"choose" ~raised:true () in
-    let dis = Dom_html.createDiv Dom_html.document in
-    Layout.Style.class_name dis "div";
-    Layout.Style.width dis (hor*cols-5);
-    Layout.Style.height dis (vert*lines-5);
-    Dom.appendChild div dis;
-    Dom.appendChild div apply;
-    let lst = make_layout dis wm.widgets in
-    apply##.onclick :=
-      Dom.handler (fun _ ->
-          let layout = CCList.map2 (fun (name, widg) (e : Layout.Element.t) ->
-                           let (position : Wm.position) =
-                             { left = e.x * 100; right = (e.x + e.width) * 100; top = e.y * 100; bottom = (e.y + e.height) * 100 }
-                           in
-                           (name,
-                            { position = position
-                            ; widgets  =
-                                [ (name, { widg with position = position }) ] } : (string * Wm.container) ))
-                         wm.widgets lst
-          in post { wm with layout }; Js._false);
-    { div; apply; dis }
-  
+    let make (wm : Wm.t) =
+      let place = Dom_html.createDiv Dom_html.document in
+      place##.id := Js.string id;
+      let apply  = Components.Button.attach @@ Components.Button.create ~label:"apply" ~raised:true () in
+      let plane  = Dom_html.createDiv Dom_html.document in
+      Layout.Style.class_name plane "div";
+      Layout.Style.width plane (hor*cols-5);
+      Layout.Style.height plane (vert*lines-5);
+      Dom.appendChild place plane;
+      Dom.appendChild place apply;      
+      let lst = make_layout plane wm.widgets in
+      apply##.onclick :=
+        Dom.handler (fun _ ->
+            let layout = CCList.map2 (fun (name, widg) (e : Layout.Element.t) ->
+                             let (position : Wm.position) =
+                               { left = e.x * 100; right = (e.x + e.width) * 100; top = e.y * 100; bottom = (e.y + e.height) * 100 }
+                             in
+                             (name,
+                              { position = position
+                              ; widgets  =
+                                  [ (name, { widg with position = position }) ] } : (string * Wm.container) ))
+                           wm.widgets lst
+            in post { wm with layout }; Js._false);
+      place
+    in
+    let _ = React.E.map (fun s ->
+                (try Dom.removeChild div (Dom_html.getElementById id)
+                 with _ -> print_endline "No el");
+                Dom.appendChild div (make s))
+              events
+    in
+    Dom.appendChild div (make init);
+    div
+    
 end
