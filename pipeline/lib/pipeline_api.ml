@@ -80,6 +80,20 @@ let get_settings_sock sock_data body api () =
   let open Pipeline_protocol in
   get_sock sock_data body Settings.to_yojson api.settings
 
+let set_wm api body () =
+  set body Wm.of_yojson
+    Pipeline_protocol.(fun x -> api.set (Set_wm x))
+
+let get_wm api () =
+  let open Pipeline_protocol in
+  api.get Get_wm
+  >|= Wm.to_yojson
+  >>= fun js -> respond_js js ()
+
+let get_wm_sock sock_data body api () =
+  let open Pipeline_protocol in
+  get_sock sock_data body Wm.to_yojson api.wm
+
 let pipeline_handle api id meth args sock_data _ body =
   let is_guest = Common.User.eq id `Guest in
   match meth, args with
@@ -89,7 +103,10 @@ let pipeline_handle api id meth args sock_data _ body =
   | `GET,  ["structure_sock"] -> get_structure_sock sock_data body api ()
   | `POST, ["settings"]       -> redirect_if is_guest @@ set_settings api body
   | `GET,  ["settings"]       -> get_settings api ()
-  | `GET,  ["settings_sock"]  -> get_settings_sock sock_data body api ()                   
+  | `GET,  ["settings_sock"]  -> get_settings_sock sock_data body api ()
+  | `POST, ["wm"]             -> redirect_if is_guest @@ set_wm api body
+  | `GET,  ["wm"]             -> get_wm api ()
+  | `GET,  ["wm_sock"]        -> get_wm_sock sock_data body api ()     
   | _                         -> not_found ()
                      
 let handlers pipe =

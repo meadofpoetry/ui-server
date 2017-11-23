@@ -62,11 +62,11 @@ let create config dbs (hardware_streams : Common.Stream.source list React.signal
         let api, state, recv = Pipeline_protocol.create cfg.sock_in cfg.sock_out converter hardware_streams in
         let db_events = connect_db (S.changes api.structure) dbs in
         let _e = E.map (fun e ->
-                     Structure.t_list_to_yojson e
+                     Wm.to_yojson e
                      |> Yojson.Safe.pretty_to_string
                      |> Lwt_io.printlf "Got stream from pipeline:\n %s\n"
                      |> ignore)
-                   (S.changes api.structure)
+                   api.wm
         in
         let obj = { api; state; db_events; _e } in
         (* polling loop *)

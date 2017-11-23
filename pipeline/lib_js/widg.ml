@@ -77,3 +77,50 @@ module WStructure = struct
     { div; but; dis }
     
 end
+
+module WLayout = struct
+  
+  let make_layout div (wdgl : (string * Wm.widget) list) =
+    let open Layout in
+    List.map (fun (n,_) ->
+        let e = Dom_html.createDiv Dom_html.document in
+        Layout.Style.z_index e n;
+        Layout.Style.class_name e "doge";
+        e)
+      wdgl
+    |> List.fold_left (fun acc e -> Layout.add_element e div acc 1 1 1 1 false) []
+    |> List.rev
+  
+  let id = "wm-widget"
+  type t = { div    : Dom_html.divElement Js.t
+           ; apply  : Button.t Js.t
+           ; dis    : Dom_html.divElement Js.t
+           }
+  
+  let create (wm : Wm.t) post =
+    let open Layout in
+    let div = Dom_html.createDiv Dom_html.document in
+    div##.id := Js.string id;
+    let apply  = Components.Button.attach @@ Components.Button.create ~label:"choose" ~raised:true () in
+    let dis = Dom_html.createDiv Dom_html.document in
+    Layout.Style.class_name dis "div";
+    Layout.Style.width dis (hor*cols-5);
+    Layout.Style.height dis (vert*lines-5);
+    Dom.appendChild div dis;
+    Dom.appendChild div apply;
+    let lst = make_layout dis wm.widgets in
+    apply##.onclick :=
+      Dom.handler (fun _ ->
+          let layout = CCList.map2 (fun (name, widg) (e : Layout.Element.t) ->
+                           let (position : Wm.position) =
+                             { left = e.x * 100; right = (e.x + e.width) * 100; top = e.y * 100; bottom = (e.y + e.height) * 100 }
+                           in
+                           (name,
+                            { position = position
+                            ; widgets  =
+                                [ (name, { widg with position = position }) ] } : (string * Wm.container) ))
+                         wm.widgets lst
+          in post { wm with layout }; Js._false);
+    { div; apply; dis }
+  
+end

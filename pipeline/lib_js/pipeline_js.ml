@@ -50,6 +50,7 @@ let load () =
            |> ignore in
 
   let str = Requests.get_structure_socket () in
+  let wm  = Requests.get_wm_socket () in
   
   let doc = Dom_html.document in
 
@@ -77,7 +78,20 @@ let load () =
                           |> ignore)
               in Dom.appendChild container e.div) str
   in
-                                                                                               
+
+  let _ = React.E.map (fun s ->
+              print_endline "wm event";
+              (try Dom.removeChild container (Dom_html.getElementById Widg.WLayout.id)
+               with _ -> print_endline "No el");
+              let e = Widg.WLayout.create s (fun s ->
+                          let open Lwt.Infix in
+                          (Requests.post_wm s
+                           >|= function
+                           | Ok () -> ()
+                           | Error e -> print_endline e)
+                          |> ignore)
+              in Dom.appendChild container e.div) wm
+  in
       
   Dom.appendChild container text;
   Dom.appendChild container video

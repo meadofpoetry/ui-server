@@ -22,3 +22,14 @@ let post_settings s =
 
 let get_settings_socket () =
   get_socket "api/pipeline/settings" Settings.of_yojson
+
+let get_wm () =
+  get_js "api/pipeline/wm"
+  >|= CCResult.(flat_map Wm.of_yojson)
+
+let post_wm wm =
+  Wm.to_yojson wm
+  |> post_js_ok "api/pipeline/wm"
+
+let get_wm_socket () =
+  get_socket "api/pipeline/wm_sock" Wm.of_yojson
