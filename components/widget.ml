@@ -38,7 +38,7 @@ class ['a] widget (elt : 'a) () = object(self)
   method cons_class   _class = self#set_class_string @@ _class ^ " " ^ self#class_string
   method add_class    _class = self#element##.classList##add (Js.string _class)
   method remove_class _class = self#element##.classList##remove (Js.string _class)
-  method toggle_class _class = self#element##.classList##toggle (Js.string _class)
+  method toggle_class _class = self#element##.classList##toggle (Js.string _class) |> Js.to_bool
   method has_class    _class = Js.to_bool (self#element##.classList##contains (Js.string _class))
   method classes             = String.split_on_char ' ' self#class_string
 

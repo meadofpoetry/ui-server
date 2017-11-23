@@ -48,7 +48,7 @@ let split_events () =
     | `Assoc [("streams", tl)]  -> strm_push <$> Structure.structure_list_of_yojson tl
     | `Assoc [("settings", tl)] -> sets_push <$> Settings.of_yojson tl
     | `Assoc [("graph", tl)]    -> grap_push <$> Graph.of_yojson tl
-    | `Assoc [("wm", tl)]       -> wm_push   <$> Wm.of_yojson tl
+    | `Assoc [("wm", tl)]       -> (*print_endline (Yojson.Safe.pretty_to_string tl); *)wm_push   <$> Wm.of_yojson tl
     | `Assoc [("data", tl)]     -> data_push <$> Data.of_yojson tl
     | _ -> ()
   in

@@ -721,14 +721,16 @@ module Make
 
     module Item = struct
 
-      let _class = CSS.add_element base_class "item"
+      let _class                   = CSS.add_element base_class "item"
+      let nested_list_class        = CSS.add_element _class "nested-list"
+      let nested_list_hidden_class = CSS.add_modifier nested_list_class "hidden"
 
       let create_item = List_.Item.create
 
-      let create_nested_list = List_.create
+      let create_nested_list = List_.create ~classes:[nested_list_class]
 
       let create ?id ?style ?(classes=[]) ?attrs ?nested_list ~item () =
-        Html.div ~a:([ a_class classes]
+        Html.div ~a:([ a_class (_class :: classes) ]
                      |> add_common_attrs ?id ?style ?attrs)
                  (cons_option nested_list []
                   |> CCList.cons item)

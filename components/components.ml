@@ -1,8 +1,6 @@
 open Widget
 module Widgets = Markup
 
-let of_dom el = Tyxml_js.Of_dom.of_element (el :> Dom_html.element Js.t)
-
 module Avatar          = Avatar
 module Widget          = Widget
 module Button          = Button
@@ -27,6 +25,7 @@ module Switch          = Switch
 module Tabs            = Tabs
 module Textfield       = Textfield
 module Textarea        = Textarea
+module Tree            = Tree
 module Typography      = Typography
 
 module Card = struct
@@ -107,14 +106,13 @@ module Toolbar = struct
 
   class type t =
     object
-      method root__              : Dom_html.element Js.t Js.readonly_prop
-      method fixedAdjustElement_ : Dom_html.element Js.t Js.prop
+      method fixedAdjustElement : Dom_html.element Js.t Js.prop
     end
 
   class type change_event =
     object
       inherit Dom_html.event
-      method detail_ : < flexibleExpansionRatio_ : Js.number Js.t Js.readonly_prop > Js.t Js.readonly_prop
+      method detail_ : < flexibleExpansionRatio : Js.number Js.t Js.readonly_prop > Js.t Js.readonly_prop
     end
 
   type events =

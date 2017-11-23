@@ -2,6 +2,8 @@ open Lwt_react
 open Components
 open Tyxml_js
 
+let of_dom el = Tyxml_js.Of_dom.of_element (el :> Dom_html.element Js.t)
+
 let demo_section ?(style="") ?(classes=[]) title content =
   Html.section ~a:[ Html.a_style ("margin: 24px; padding: 24px;\
                                    border: 1px solid rgba(0, 0, 0, .12);" ^ style)
@@ -240,7 +242,22 @@ let list_demo () =
                            ]
                   () in
   group#style##.maxWidth := Js.string "400px";
-  demo_section "List" [ of_dom list#root; of_dom group#root (* tree *) ]
+  demo_section "List" [ of_dom list#root; of_dom group#root ]
+
+let tree_demo () =
+  let item x = new Tree.Item.t
+                   ~text:("Item " ^ string_of_int x)
+                   ~nested:(new Tree.t
+                                ~items:[ new Tree.Item.t ~text:"Item 0" ()
+                                       ; new Tree.Item.t ~text:"Item 1" ()
+                                       ; new Tree.Item.t ~text:"Item 2" () ]
+                                ())
+                   () in
+  let tree = new Tree.t
+                 ~items:(List.map (fun x -> item x) (CCList.range 0 5))
+                 () in
+  tree#style##.maxWidth := Js.string "400px";
+  demo_section "Tree" [ of_dom tree#root ]
 
 let menu_demo () =
   let items    = List.map (fun x -> if x != 2
@@ -549,6 +566,7 @@ let onload _ =
                         ; layout_grid_demo ()
                         ; dialog_demo ()
                         ; list_demo ()
+                        ; tree_demo ()
                         ; menu_demo ()
                         ; snackbar_demo ()
                         ; linear_progress_demo ()
@@ -559,7 +577,7 @@ let onload _ =
   Dom.appendChild body demos;
   Dom.appendChild body toolbar;
   let js_toolbar = Toolbar.attach toolbar in
-  js_toolbar##.fixedAdjustElement_ := demos;
+  js_toolbar##.fixedAdjustElement := demos;
   let open Chartjs.Line in
   Random.init (Unix.time () |> int_of_float);
   let data = Data.to_obj ~datasets:[ Data.Dataset.to_obj ~label:"My data 1"
