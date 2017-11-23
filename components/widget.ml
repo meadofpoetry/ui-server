@@ -90,6 +90,7 @@ class virtual ['a] radio_or_cb_widget (elt : 'a) () =
 
           inherit ['a] input_widget elt ()
 
+          method set_check x    = self#input##.checked := Js.bool x
           method checked        = Js.to_bool self#input##.checked
           method check          = self#input##.checked := Js._true
           method uncheck        = self#input##.checked := Js._false
