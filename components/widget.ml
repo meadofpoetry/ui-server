@@ -40,6 +40,7 @@ class ['a] widget (elt : 'a) () = object(self)
   method remove_class _class = self#element##.classList##remove (Js.string _class)
   method toggle_class _class = self#element##.classList##toggle (Js.string _class)
   method has_class    _class = Js.to_bool (self#element##.classList##contains (Js.string _class))
+  method classes             = String.split_on_char ' ' self#class_string
 
   method client_left   = self#element##.clientLeft
   method client_top    = self#element##.clientTop

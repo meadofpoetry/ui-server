@@ -1,5 +1,5 @@
 open Widget
-open Markup
+module Select = Markup.Select
 open Tyxml_js
 
 module Base = struct
@@ -30,32 +30,22 @@ module Base = struct
     }
 
   module Item = struct
+    class t ?id ?start_detail ?end_detail ~text () = object
+      inherit Menu.Item.t ?start_detail ?end_detail ~text () as super
 
-    class t ?id ?selected ?disabled ?start_detail ?end_detail ~text () =
-
-      let elt = Select.Base.Item.create ?id ?selected ?disabled ~text ()
-                |> To_dom.of_element in
-
-      object(self)
-
-        inherit [Dom_html.element Js.t] widget elt () as super
-
-        method disabled        = (match self#get_attribute "aria-disabled" with
-                                  | Some "true" -> true
-                                  | _           -> false)
-        method disable         = super#set_attribute "aria-disabled" "true"; super#set_attribute "tabindex" "-1"
-        method enable          = super#remove_attribute "aria-disabled"; super#set_attribute "tabindex" "0"
-        method toggle_disabled = if self#disabled then self#enable else self#disable
-
-      end
-
+      initializer
+        CCOpt.iter (fun x -> super#set_id x) id;
+        super#set_attribute "role" "option"
+    end
   end
 
   class t ?placeholder ~(items:Item.t list) () =
 
-    let elt = Select.Base.create ?selected_text:placeholder
-                                 ~items:(List.map (fun x -> Of_dom.of_element x#root) items)
-                                 ()
+    let menu = new Menu.t ~items:(List.map (fun x -> `Item (x : Item.t :> Menu.Item.t)) items) () in
+
+    let () = menu#add_class Select.Base.menu_class in
+
+    let elt = Select.Base.create ?selected_text:placeholder ~menu:(Of_dom.of_element menu#element) ()
               |> To_dom.of_element in
 
     object(self)
@@ -64,6 +54,10 @@ module Base = struct
 
       val mdc : mdc Js.t = elt |> (fun x -> Js.Unsafe.global##.mdc##.select##.MDCSelect##attachTo x)
       val items = items
+
+      method menu            = menu
+      method dense           = menu#list#dense
+      method not_dense       = menu#list#not_dense
 
       method value           = Js.to_string mdc##.value (* id of item (if available) or text *)
 
@@ -178,10 +172,62 @@ end
 
 module Multi = struct
 
-  include Select.Multi
+  module Divider = struct
+    class t () = object
+      inherit [Dom_html.optionElement Js.t] widget (Select.Multi.Item.create_divider () |> To_dom.of_option) ()
+    end
+  end
 
-  class type t = Dom_html.selectElement
+  module Item = struct
+    class t ?disabled ?value ~text () = object
+      inherit Pure.Item.t ?disabled ?value ~text () as super
 
-  let attach elt : t Js.t = To_dom.of_select elt
+      initializer
+        super#add_class Markup.List_.Item._class
+    end
+  end
+
+  module Group = struct
+    class t ~label ~(items:Item.t list) () = object
+      inherit Pure.Group.t ~label ~items:(List.map (fun x -> (x : Item.t :> Pure.Item.t)) items) () as super
+
+      initializer
+        super#add_class Markup.List_.List_group._class
+    end
+  end
+
+  class t ?size ~(items:[ `Item of Item.t | `Divider of Divider.t | `Group of Group.t ] list) () =
+
+    let item_elts = List.map (function
+                              | `Divider d -> Of_dom.of_element d#element
+                              | `Group g   -> Of_dom.of_element g#element
+                              | `Item i    -> i#style##.paddingLeft := Js.string "32px";
+                                              Of_dom.of_element i#element)
+                             items in
+
+    object(self)
+
+      inherit [Dom_html.selectElement Js.t] widget (Select.Multi.create ?size ~items:item_elts ()
+                                                    |> To_dom.of_select) () as super
+
+      method items = CCList.fold_left (fun acc x -> match x with
+                                                    | `Divider _ -> acc
+                                                    | `Group g   -> acc @ g#items
+                                                    | `Item i    -> acc @ [i])
+                                      [] items
+
+      method length = super#root##.length
+      method item n = CCList.get_at_idx n self#items
+
+      method selected_index    = super#root##.selectedIndex |> (fun x -> if x = -1 then None else Some x)
+      method select_at_index i = super#root##.selectedIndex := i
+      method selected_item     = CCOpt.map (fun x -> CCList.get_at_idx x self#items) self#selected_index
+
+      method disabled        = Js.to_bool super#root##.disabled
+      method disable         = super#root##.disabled := Js._true
+      method enable          = super#root##.disabled := Js._false
+      method toggle_disabled = super#root##.disabled := Js.bool @@ not self#disabled
+
+    end
 
 end

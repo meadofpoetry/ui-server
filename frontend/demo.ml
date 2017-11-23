@@ -6,11 +6,11 @@ let demo_section ?(style="") ?(classes=[]) title content =
   Html.section ~a:[ Html.a_style ("margin: 24px; padding: 24px;\
                                    border: 1px solid rgba(0, 0, 0, .12);" ^ style)
                   ; Html.a_class classes ]
-               ( Html.h2 ~a:[ Html.a_class [Typography.headline_class]] [Html.pcdata title]
+               ( Html.h2 ~a:[ Html.a_class [Typography.font_to_class Headline]] [Html.pcdata title]
                  :: content)
   |> Tyxml_js.To_dom.of_element
 
-let subsection name elt = Html.div [ Html.h3 ~a:[Html.a_class [Typography.subheading2_class]]
+let subsection name elt = Html.div [ Html.h3 ~a:[Html.a_class [Typography.font_to_class Subheading_2]]
                                              [Html.pcdata name]
                                    ; elt ]
 
@@ -134,36 +134,24 @@ let slider_demo () =
                         ; subsection "Disabled slider"              @@ of_dom disabled#root ]
 
 let grid_list_demo () =
-  let tiles  = List.map (fun x -> let primary = Grid_list.Tile.create_primary
-                                                  ~src:"https://cs5-3.4pda.to/5290239.png"
-                                                  () in
-                                  let secondary = Grid_list.Tile.create_secondary
-                                                    ~title:("My tile " ^ (string_of_int x))
-                                                    ~support_text:"Some text here"
-                                                    () in
-                                  Grid_list.Tile.create ~primary ~secondary ())
-                        (CCList.range 0 4) in
-  let grid   = Grid_list.create ~twoline:true
-                                ~header_caption:true
-                                ~tiles
-                                () in
-  demo_section "Grid list" [ grid ]
+  let tiles = List.map (fun x -> new Grid_list.Tile.t
+                                     ~src:"https://cs5-3.4pda.to/5290239.png"
+                                     ~title:("My tile " ^ (string_of_int x))
+                                     ~support_text:"Some text here"
+                                     ())
+                       (CCList.range 0 4) in
+  let grid  = new Grid_list.t ~tiles () in
+  demo_section "Grid list" [ of_dom grid#root ]
 
 let ripple_demo () =
-  let bounded = (Html.div ~a:[ Html.a_class [ Ripple.base_class
-                                                          ; Elevation.get_elevation_class 4 ]
-                                           ; Html.a_style "width: 200px; height: 150px" ] []
-                 |> Ripple.attach) in
-  let ripple_div = subsection "Bounded ripple. Click me!" @@ of_dom bounded##.root__ in
-  let unbounded = (Html.div ~a:[ Html.a_class [ Ripple.base_class
-                                                             ; "material-icons" ]
-                                              ; Ripple.unbounded_attr
-                                              ; Html.a_style "user-select:none;"
-                                              ; Html.a_id "unbounded-ripple" ] [Html.pcdata "favorite"]
-                                  |> Ripple.attach) in
-  let unbounded_div = subsection "Unbounded ripple. Click me!" @@ of_dom unbounded##.root__ in
-  demo_section "Ripple" [ ripple_div
-                        ; unbounded_div ]
+  let bounded        = new Widget.widget (Html.div ~a:[Html.a_style "height: 200px; width: 200px; margin: 20px"] []
+                                          |> To_dom.of_element) () in
+  Elevation.set_elevation bounded 5; Ripple.attach bounded |> ignore;
+  let bounded_sect   = subsection "Bounded ripple. Click me!" @@ of_dom bounded#root in
+  let unbounded      = new Icon.Font.t ~icon:"favorite" () in
+  Ripple.attach unbounded |> ignore; Ripple.set_unbounded unbounded;
+  let unbounded_sect = subsection "Unbounded ripple. Click me!" @@ of_dom unbounded#root in
+  demo_section "Ripple" [ bounded_sect; unbounded_sect ]
 
 let layout_grid_demo () =
   let cells = List.map (fun x -> let w = Html.div ~a:[Html.a_style "box-sizing: border-box;\
@@ -251,39 +239,7 @@ let list_demo () =
                            ; { subheader = Some "Group 2"; list = list2 }
                            ]
                   () in
-  (* let tree = (let items = List.map (fun x ->
-   *                             let inner_items = List.map
-   *                                                 (fun x -> List_.Item.create
-   *                                                             ~text:("Inner " ^ (string_of_int x))
-   *                                                             (\* ~end_detail:(Checkbox.create 
-   *                                                              *                ~style:"width:24px; height:18px"
-   *                                                              *                ~classes:[List_.Item.end_detail_class]
-   *                                                              *                ()) *\)
-   *                                                             ~auto_init:true
-   *                                                             ())
-   *                                                 (CCList.range 0 5) in
-   *                             let inner = List_.create ~items:inner_items
-   *                                                      ~style:"padding-right: 0px"
-   *                                                      ~classes:["hide"]
-   *                                                      ()
-   *                                         |> Tyxml_js.To_dom.of_element in
-   *                             Html.div [ List_.Item.create
-   *                                          ~attrs:[Tyxml_js.Html.a_onclick (fun _ ->
-   *                                                      inner##.classList##toggle (Js.string "hide")
-   *                                                      |> ignore;
-   *                                                      true)]
-   *                                          ~text:("List item " ^ (string_of_int x))
-   *                                          (\* ~end_detail:(Checkbox.create 
-   *                                           *              ~style:"width:24px; height:18px"
-   *                                           *              ~classes:[List_.Item.end_detail_class]
-   *                                           *              ()) *\)
-   *                                          ~auto_init:true
-   *                                          ()
-   *                                      ; Tyxml_js.Of_dom.of_element inner ])
-   *                                  (CCList.range 0 5) in
-   *             List_.create ~items
-   *                          ~style:"max-width: 400px;"
-   *                          ()) in *)
+  group#style##.maxWidth := Js.string "400px";
   demo_section "List" [ of_dom list#root; of_dom group#root (* tree *) ]
 
 let menu_demo () =
@@ -474,6 +430,7 @@ let select_demo () =
                                                    ())
                                      (CCList.range 0 5))
                     () in
+  js#dense;
   let js_sect = subsection "Full-fidelity select" @@ of_dom js#root in
   let pure    = new Select.Pure.t
                     ~items:[ `Group (new Select.Pure.Group.t
@@ -488,25 +445,25 @@ let select_demo () =
                            ]
                     () in
   let pure_sect = subsection "Pure (css-only) select" @@ of_dom pure#root in
-  let multi = let items = (Select.Multi.Item.create_group
-                             ~label:"Group 1"
-                             ~items:(List.map (fun x -> Select.Multi.Item.create
-                                                          ~text:("Group item " ^ (string_of_int x))
-                                                          ())
-                                              (CCList.range 0 2))
-                             ())
-                          :: (Select.Multi.Item.create_divider ())
-                          :: (Select.Multi.Item.create_group
-                             ~label:"Group 2"
-                             ~items:(List.map (fun x -> Select.Multi.Item.create
-                                                          ~text:("Group item " ^ (string_of_int x))
-                                                          ())
-                                              (CCList.range 0 2))
-                             ())
-                          :: [] in
-              let select = Select.Multi.create ~items ~size:6 () in
-              subsection "CSS-only multi select" select in
-  demo_section "Select" [ js_sect; pure_sect; multi ]
+  let multi = [ `Group (new Select.Multi.Group.t
+                            ~label:"Group 1"
+                            ~items:(List.map (fun x -> let text = "Group item " ^ (string_of_int x) in
+                                                       new Select.Multi.Item.t ~text ())
+                                             (CCList.range 0 2))
+                            ())
+              ; `Divider (new Select.Multi.Divider.t ())
+              ; `Group (new Select.Multi.Group.t
+                            ~label:"Group 2"
+                            ~items:(List.map (fun x -> let text = "Group item " ^ (string_of_int x) in
+                                                       new Select.Multi.Item.t ~text ())
+                                             (CCList.range 0 2))
+                            ())
+              ; `Divider (new Select.Multi.Divider.t ())
+              ; `Item (new Select.Multi.Item.t ~text:"Item 1" ())
+              ; `Item (new Select.Multi.Item.t ~text:"Item 2" ()) ]
+              |> (fun items -> new Select.Multi.t ~items ~size:12 ()) in
+  let multi_sect = subsection "CSS-only multi select" @@ of_dom multi#root in
+  demo_section "Select" [ js_sect; pure_sect; multi_sect ]
 
 let toolbar_demo (drawer : Drawer.Persistent.t Js.t) () =
   let last_row = Toolbar.Row.create
@@ -537,6 +494,22 @@ let toolbar_demo (drawer : Drawer.Persistent.t Js.t) () =
                                () in
   To_dom.of_element toolbar
 
+let elevation_demo () =
+  let d = new Widget.widget (Html.div ~a:[Html.a_style "height: 200px; width: 200px; margin: 20px"]
+                                      []
+                             |> To_dom.of_element) () in
+  let btn2 = new Button.t ~label:"elevation 2" () in
+  let btn8 = new Button.t ~label:"elevation 8" () in
+  Dom_html.addEventListener btn2#root
+                            Dom_events.Typ.click
+                            (Dom_html.handler (fun _ -> Elevation.set_elevation d 2; Js._false))
+                            Js._false |> ignore;
+  Dom_html.addEventListener btn8#root
+                            Dom_events.Typ.click
+                            (Dom_html.handler (fun _ -> Elevation.set_elevation d 8; Js._false))
+                            Js._false |> ignore;
+  demo_section "Elevation" [of_dom d#root; of_dom btn2#root; of_dom btn8#root]
+
 let drawer_demo () =
   Drawer.Temporary.create ~content:[Drawer.Temporary.Toolbar_spacer.create ~content:[Html.pcdata "Demo"]
                                                                            ()]
@@ -566,6 +539,7 @@ let onload _ =
                         ; checkbox_demo ()
                         ; switch_demo ()
                         ; toggle_demo ()
+                        ; elevation_demo ()
                         ; select_demo ()
                         ; textfield_demo ()
                         ; card_demo ()

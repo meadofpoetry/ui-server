@@ -1,7 +1,5 @@
 open Tyxml
 
-       [@@@ocaml.warning "-60"]
-
 module Make
          (Xml : Xml_sigs.NoWrap)
          (Svg : Svg_sigs.NoWrap with module Xml := Xml)
@@ -29,8 +27,7 @@ module Make
 
   end
 
-  let cons_option opt l =
-    CCOpt.map_or ~default:l (fun x -> x :: l) opt
+  let cons_option = CCList.cons_maybe
 
   let map_cons_option ~f opt l =
     CCOpt.map_or ~default:l (fun x -> (f x) :: l) opt
@@ -392,64 +389,76 @@ module Make
 
   module Grid_list = struct
 
-    let base_class  = "mdc-grid-list"
-    let tiles_class = CSS.add_element base_class "tiles"
+    let base_class             = "mdc-grid-list"
+    let tiles_class            = CSS.add_element base_class "tiles"
+    let tile_gutter_1_class    = CSS.add_modifier base_class "tile-gutter-1"
+    let icon_align_start_class = CSS.add_modifier base_class "with-icon-align-start"
+    let icon_align_end_class   = CSS.add_modifier base_class "with-icon-align-end"
+    let header_caption_class   = CSS.add_modifier base_class "header-caption"
+    let twoline_caption_class  = CSS.add_modifier base_class "twoline-caption"
 
     module Tile = struct
 
-      let _class                = "mdc-grid-tile"
-      let primary_class         = CSS.add_element _class "primary"
-      let primary_content_class = CSS.add_element _class "primary-content"
-      let secondary_class       = CSS.add_element _class "secondary"
-      let icon_class            = CSS.add_element _class "icon"
-      let title_class           = CSS.add_element _class "title"
-      let support_text_class    = CSS.add_element _class "support-text"
+      let _class = "mdc-grid-tile"
 
-      let create_primary ?id ?style ?(classes=[]) ?attrs
-                         ?content_id ?content_style ?(content_classes=[]) ?content_attrs
-                         ?(is_div=false) ?src ?alt () =
-        div ~a:([ a_class (primary_class :: classes) ]
-                |> add_common_attrs ?id ?style ?attrs)
-            [ match is_div with
-              | false -> img ~src:(Html.uri_of_string (CCOpt.get_or ~default:"" src))
-                             ~alt:(CCOpt.get_or ~default:"" alt)
-                             ~a:([ a_class (primary_content_class :: content_classes) ]
-                                 |> add_common_attrs ?id:content_id ?style:content_style ?attrs:content_attrs) ()
-              | true  -> div ~a:([ a_class (primary_content_class :: content_classes) ]
-                                 |> add_common_attrs ?id:content_id
-                                                     ?style:(match src with
-                                                             | Some x ->
-                                                                Printf.sprintf "background-image: url(%s);" x
-                                                                |> (fun s -> Some (match content_style with
-                                                                                   | Some x -> s ^ x
-                                                                                   | None   -> s))
-                                                             | None -> content_style)
-                                                     ?attrs:content_attrs) []]
+      module Primary = struct
 
-      let create_secondary
-            ?id ?style ?(classes=[]) ?attrs
-            ?title ?title_id ?title_style ?(title_classes=[]) ?title_attrs
-            ?support_text ?support_text_id ?support_text_style ?(support_text_classes=[]) ?support_text_attrs
-            ?icon () =
-        span ~a:([ a_class (secondary_class :: classes) ]
-                 |> add_common_attrs ?id ?style ?attrs)
-             ((map_cons_option ~f:(fun x -> span ~a:([ a_class (support_text_class :: support_text_classes) ]
-                                                     |> add_common_attrs ?id:support_text_id
-                                                                         ?style:support_text_style
-                                                                         ?attrs:support_text_attrs)
-                                                 [pcdata x]) support_text [])
-              |> map_cons_option ~f:(fun x -> span ~a:([ a_class (title_class :: title_classes) ]
-                                                       |> add_common_attrs ?id:title_id
-                                                                           ?style:title_style
-                                                                           ?attrs:title_attrs)
-                                                   [pcdata x])
-                                 title
-              |> cons_option icon)
+      let primary_class = CSS.add_element _class "primary"
+      let content_class = CSS.add_element _class "primary-content"
 
-      let create ?id ?style ?(classes=[]) ?attrs ?primary ?secondary () =
+        let create_content ?id ?style ?(classes=[]) ?attrs ?src ?alt ?(is_div=false) () =
+          if not is_div
+          then img ~src:(Html.uri_of_string (CCOpt.get_or ~default:"" src))
+                   ~alt:(CCOpt.get_or ~default:"" alt)
+                   ~a:([ a_class (content_class :: classes) ]
+                       |> add_common_attrs ?id ?style ?attrs) ()
+          else let style = (match src with
+                            | Some x -> Printf.sprintf "background-image: url(%s);" x
+                                        |> (fun s -> Some (match style with
+                                                           | Some x -> s ^ x
+                                                           | None   -> s))
+                            | None -> style) in
+               div ~a:([ a_class (content_class :: classes) ]
+                       |> add_common_attrs ?id ?style ?attrs)
+                   []
+
+        let create ?id ?style ?(classes=[]) ?attrs ~content () =
+          div ~a:([ a_class (primary_class :: classes) ]
+                  |> add_common_attrs ?id ?style ?attrs)
+              [ content ]
+
+      end
+
+      module Caption = struct
+
+        let secondary_class    = CSS.add_element _class "secondary"
+        let icon_class         = CSS.add_element _class "icon"
+        let title_class        = CSS.add_element _class "title"
+        let support_text_class = CSS.add_element _class "support-text"
+
+        let create_title ?id ?style ?(classes=[]) ?attrs ~text () =
+          span ~a:([ a_class (title_class :: classes) ]
+                   |> add_common_attrs ?id ?style ?attrs)
+               [pcdata text]
+
+        let create_support_text ?id ?style ?(classes=[]) ?attrs ~text () =
+          span ~a:([ a_class (support_text_class :: classes) ]
+                   |> add_common_attrs ?id ?style ?attrs)
+               [pcdata text]
+
+        let create ?id ?style ?(classes=[]) ?attrs ?title ?support_text ?icon () =
+          span ~a:([ a_class (secondary_class :: classes) ]
+                   |> add_common_attrs ?id ?style ?attrs)
+               (cons_option support_text []
+                |> cons_option title
+                |> cons_option icon)
+
+      end
+
+      let create ?id ?style ?(classes=[]) ?attrs ?caption ~primary () =
         li ~a:([ a_class (_class :: classes)]
                |> add_common_attrs ?id ?style ?attrs)
-           (cons_option secondary [] |> cons_option primary )
+           (cons_option caption [] |> CCList.cons primary)
 
     end
 
@@ -457,19 +466,19 @@ module Make
       | `AR_1_1  -> "1x1" | `AR_16_9 -> "16x9" | `AR_2_3  -> "2x3"
       | `AR_3_2  -> "3x2" | `AR_4_3  -> "4x3"  | `AR_3_4  -> "3x4"
 
+    let ar_to_class x = CSS.add_modifier base_class ("tile-aspect-" ^ (ar_to_string x))
+
     let create ?id ?style ?(classes=[]) ?attrs
                ?ar ?(one_px_gutter=false) ?(header_caption=false) ?(twoline=false) ?icon_align
                ~tiles () =
       div ~a:([ a_class (base_class :: classes
-                         |> map_cons_option ~f:(fun x -> CSS.add_modifier base_class
-                                                                          ("tile-aspect-" ^ (ar_to_string x)))
-                                            ar
-                         |> cons_if one_px_gutter  @@ CSS.add_modifier base_class "tile-gutter-1"
-                         |> cons_if header_caption @@ CSS.add_modifier base_class "header-caption"
-                         |> cons_if twoline        @@ CSS.add_modifier base_class "twoline-caption"
+                         |> map_cons_option ~f:ar_to_class ar
+                         |> cons_if one_px_gutter  tile_gutter_1_class
+                         |> cons_if header_caption header_caption_class
+                         |> cons_if twoline        twoline_caption_class
                          |> map_cons_option ~f:(function
-                                                | `Start -> CSS.add_modifier base_class "with-icon-align-start"
-                                                | `End   -> CSS.add_modifier base_class "with-icon-align-end")
+                                                | `Start -> icon_align_start_class
+                                                | `End   -> icon_align_end_class)
                                             icon_align) ]
               |> add_common_attrs ?id ?style ?attrs)
           [ ul ~a:[ a_class [tiles_class] ] tiles ]
@@ -706,6 +715,30 @@ module Make
 
   end
 
+  module Tree = struct
+
+    let base_class = "mdc-tree"
+
+    module Item = struct
+
+      let _class = CSS.add_element base_class "item"
+
+      let create_item = List_.Item.create
+
+      let create_nested_list = List_.create
+
+      let create ?id ?style ?(classes=[]) ?attrs ?nested_list ~item () =
+        Html.div ~a:([ a_class classes]
+                     |> add_common_attrs ?id ?style ?attrs)
+                 (cons_option nested_list []
+                  |> CCList.cons item)
+
+    end
+
+    let create = List_.create ~classes:[base_class]
+
+  end
+
   module Drawer = struct
 
     module type Base = sig val base_class : string end
@@ -908,13 +941,6 @@ module Make
 
   end
 
-  module Rtl = struct
-
-    let ltr_attr = a_dir `Ltr
-    let rtl_attr = a_dir `Rtl
-
-  end
-
   module Select = struct
 
     let base_class          = "mdc-select"
@@ -943,8 +969,13 @@ module Make
 
       end
 
-      let create ?id ?style ?(classes=[]) ?attrs ?(selected_text="") ?(disabled=false)
-                 ?menu_id ?menu_style ?(menu_classes=[]) ?menu_attrs ~items () =
+      let create_list ?id ?style ?attrs ?(classes=[]) ~items () =
+        List_.create ?id ?style ?attrs ~classes:(Menu.items_class :: classes) ~items ()
+
+      let create_menu ?id ?style ?(classes=[]) ?attrs ~list () =
+        Menu.create ?id ?style ?attrs ~classes:(menu_class :: classes) ~list ()
+
+      let create ?id ?style ?(classes=[]) ?attrs ?(selected_text="") ?(disabled=false) ~menu () =
         div ~a:([ a_class (classes
                            |> cons_if disabled disabled_class
                            |> CCList.cons base_class)
@@ -954,9 +985,7 @@ module Make
                 |> cons_if disabled       @@ a_aria "disabled" ["true"]
                 |> add_common_attrs ?id ?style ?attrs)
             [ span ~a:([ a_class [selected_text_class] ]) [pcdata selected_text]
-            ; div  ~a:([ a_class (Menu.base_class :: menu_class :: menu_classes) ]
-                       |> add_common_attrs ?id:menu_id ?style:menu_style ?attrs:menu_attrs)
-                   [ List_.create ~classes:[Menu.items_class] ~items ()]
+            ; menu
             ]
 
     end
