@@ -155,7 +155,6 @@ module SM = struct
     let send x = send_msg sender x |> ignore in
 
     let rec first_step () =
-      print_endline "dektec first step";
       Queue.iter !msgs wakeup_timeout;
       msgs := Queue.create [];
       push_state `No_response;
@@ -166,7 +165,6 @@ module SM = struct
     and bad_step period next_step = if period < 0 then (first_step ()) else `Continue next_step
 
     and step_detect_fpga_ver p req acc recvd =
-      print_endline "dektec detect fpga step";
       find_resp req acc recvd
                 ~success:(fun x _ -> let r = Devinfo Get_hw_ver in
                                      send r; `Continue (step_detect_hw_ver period r x None))

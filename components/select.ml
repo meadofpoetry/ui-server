@@ -29,25 +29,29 @@ module Base = struct
     { change = Dom_events.Typ.make "MDCSelect:change"
     }
 
-  class item ?id ?selected ?disabled ?start_detail ?end_detail ~text () =
+  module Item = struct
 
-    let elt = Select.Base.Item.create ?id ?selected ?disabled ~text ()
-              |> To_dom.of_element in
+    class t ?id ?selected ?disabled ?start_detail ?end_detail ~text () =
 
-    object(self)
+      let elt = Select.Base.Item.create ?id ?selected ?disabled ~text ()
+                |> To_dom.of_element in
 
-      inherit [Dom_html.element Js.t] widget elt () as super
+      object(self)
 
-      method disabled        = (match self#get_attribute "aria-disabled" with
-                                | Some "true" -> true
-                                | _           -> false)
-      method disable         = super#set_attribute "aria-disabled" "true"; super#set_attribute "tabindex" "-1"
-      method enable          = super#remove_attribute "aria-disabled"; super#set_attribute "tabindex" "0"
-      method toggle_disabled = if self#disabled then self#enable else self#disable
+        inherit [Dom_html.element Js.t] widget elt () as super
 
-    end
+        method disabled        = (match self#get_attribute "aria-disabled" with
+                                  | Some "true" -> true
+                                  | _           -> false)
+        method disable         = super#set_attribute "aria-disabled" "true"; super#set_attribute "tabindex" "-1"
+        method enable          = super#remove_attribute "aria-disabled"; super#set_attribute "tabindex" "0"
+        method toggle_disabled = if self#disabled then self#enable else self#disable
 
-  class t ?placeholder ~(items:item list) () =
+      end
+
+  end
+
+  class t ?placeholder ~(items:Item.t list) () =
 
     let elt = Select.Base.create ?selected_text:placeholder
                                  ~items:(List.map (fun x -> Of_dom.of_element x#root) items)
@@ -61,7 +65,7 @@ module Base = struct
       val mdc : mdc Js.t = elt |> (fun x -> Js.Unsafe.global##.mdc##.select##.MDCSelect##attachTo x)
       val items = items
 
-      method value          = Js.to_string mdc##.value (* id of item (if available) or text *)
+      method value           = Js.to_string mdc##.value (* id of item (if available) or text *)
 
       method items           = items
       method length          = CCList.length self#items
@@ -87,84 +91,90 @@ module Base = struct
 
 end
 
-(* module Pure = struct
- * 
- *   module Item = struct
- * 
- *     class t ?disabled ?value ?group ~text () = object(self)
- * 
- *       inherit widget () as super
- * 
- *       val elt : Dom_html.optionElement Js.t = Widgets.Select.Pure.Item.create ?disabled ?value ~text ()
- *                                               |> Tyxml_js.To_dom.of_option
- * 
- *       method root = elt
- * 
- *       method disabled        = Js.to_bool self#root##.disabled
- *       method disable         = self#root##.disabled := Js._true
- *       method enable          = self#root##.disabled := Js._false
- *       method toggle_disabled = self#root##.disabled := Js.bool @@ not self#disabled
- * 
- *       method element = (elt :> Dom_html.element Js.t)
- * 
- *     end
- * 
- *   end
- * 
- *   module Group = struct
- * 
- *     class t ~label ~items () = object(self)
- * 
- *       inherit widget () as super
- * 
- *       val elt : Dom_html.optGroupElement Js.t =
- *         Widgets.Select.Pure.Item.create_group ~label
- *                                               ~items:(List.map (fun x -> Tyxml_js.Of_dom.of_option x) items)
- *                                               ()
- *         |> Tyxml_js.To_dom.of_optgroup
- * 
- *       method root = elt
- * 
- *       method disabled        = Js.to_bool self#root##.disabled
- *       method disable         = self#root##.disabled := Js._true
- *       method enable          = self#root##.disabled := Js._false
- *       method toggle_disabled = self#root##.disabled := Js.bool @@ not self#disabled
- * 
- *       method element = (elt :> Dom_html.element Js.t)
- * 
- *     end
- * 
- *   end
- * 
- *   class t ~(items : Group.t list) () =
- *   object(self)
- * 
- *     inherit widget ()
- * 
- *     val elt : Dom_html.selectElement Js.t =
- *       Widgets.Select.Pure.create ~items:(List.map (fun x -> Tyxml_js.Of_dom.of_optGroup x#root) items) ()
- *       |> Tyxml_js.To_dom.of_select
- * 
- *     method root = elt
- * 
- *     method value = Js.to_string self#root##.value
- * 
- *     method items = items
- *     method length = self#root##.length
- * 
- *     method selected_index    = self#root##.selectedIndex |> (fun x -> if x = -1 then None else Some x)
- *     method select_at_index i = self#root##.selectedIndex := i
- * 
- *     method disabled        = Js.to_bool self#root##.disabled
- *     method disable         = self#root##.disabled := Js._true
- *     method enable          = self#root##.disabled := Js._false
- *     method toggle_disabled = self#root##.disabled := Js.bool @@ not self#disabled
- * 
- *     method private element = (elt :> Dom_html.element Js.t)
- * 
- *   end
- * 
- * end *)
+module Pure = struct
+
+  module Item = struct
+
+    class t ?disabled ?value ~text () = object(self)
+
+      inherit [Dom_html.optionElement Js.t] widget (Select.Pure.Item.create ?disabled ?value ~text ()
+                                                    |> Tyxml_js.To_dom.of_option) () as super
+
+      method text        = Js.to_string super#root##.text
+      method value       = Js.to_string super#root##.value
+      method set_value v = super#root##.value := Js.string v
+      method index       = super#root##.index
+
+      method selected    = Js.to_bool super#root##.selected
+      method select      = super#root##.selected := Js._true
+      method deselect    = super#root##.selected := Js._false
+
+      method disabled        = Js.to_bool super#root##.disabled
+      method disable         = super#root##.disabled := Js._true
+      method enable          = super#root##.disabled := Js._false
+      method toggle_disabled = super#root##.disabled := Js.bool @@ not self#disabled
+
+    end
+
+  end
+
+  module Group = struct
+
+    class t ~label ~(items:Item.t list) () =
+
+      let item_elts = List.map (fun x -> Of_dom.of_option x#root) items in
+
+      object(self)
+
+        inherit [Dom_html.optGroupElement Js.t] widget (Select.Pure.Item.create_group ~label ~items:item_elts ()
+                                                        |> To_dom.of_optgroup) () as super
+
+        method items           = items
+        method label           = Js.to_string super#root##.label
+        method set_label s     = super#root##.label := Js.string s
+
+        method disabled        = Js.to_bool super#root##.disabled
+        method disable         = super#root##.disabled := Js._true
+        method enable          = super#root##.disabled := Js._false
+        method toggle_disabled = super#root##.disabled := Js.bool @@ not self#disabled
+
+      end
+
+  end
+
+  class t ~(items : [ `Item of Item.t | `Group of Group.t ] list) () =
+
+    let item_elts = List.map (function
+                              | `Group g -> Of_dom.of_element g#element
+                              | `Item i  -> Of_dom.of_element i#element) items in
+
+  object(self)
+
+    inherit [Dom_html.selectElement Js.t] widget (Select.Pure.create ~items:item_elts ()
+                                                  |> To_dom.of_select) () as super
+
+    method value = Js.to_string super#root##.value
+
+    method items = CCList.fold_left (fun acc x -> match x with
+                                                  | `Group g -> acc @ g#items
+                                                  | `Item i  -> acc @ [i])
+                                    [] items
+
+    method length = super#root##.length
+    method item n = CCList.get_at_idx n self#items
+
+    method selected_index    = super#root##.selectedIndex |> (fun x -> if x = -1 then None else Some x)
+    method select_at_index i = super#root##.selectedIndex := i
+    method selected_item     = CCOpt.map (fun x -> CCList.get_at_idx x self#items) self#selected_index
+
+    method disabled        = Js.to_bool super#root##.disabled
+    method disable         = super#root##.disabled := Js._true
+    method enable          = super#root##.disabled := Js._false
+    method toggle_disabled = super#root##.disabled := Js.bool @@ not self#disabled
+
+  end
+
+end
 
 module Multi = struct
 

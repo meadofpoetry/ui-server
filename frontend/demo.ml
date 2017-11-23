@@ -466,16 +466,28 @@ let textfield_demo () =
   demo_section "Textfield" [ css_sect; js_sect; dense_sect; icon_sect; css_textarea_sect; textarea_sect ]
 
 let select_demo () =
-  let js = new Select.Base.t
-               ~placeholder:"Pick smth"
-               ~items:(List.map (fun x -> new Select.Base.item
-                                              ~id:("index " ^ (string_of_int x))
-                                              ~text:("Select item " ^ (string_of_int x))
-                                              ()
-                                          |> (fun i -> if x = 3 then i#disable; i))
-                                (CCList.range 0 5))
-               ()
-           |> (fun select -> subsection "Full-fidelity select" @@ of_dom select#root) in
+  let js      = new Select.Base.t
+                    ~placeholder:"Pick smth"
+                    ~items:(List.map (fun x -> new Select.Base.Item.t
+                                                   ~id:("index " ^ (string_of_int x))
+                                                   ~text:("Select item " ^ (string_of_int x))
+                                                   ())
+                                     (CCList.range 0 5))
+                    () in
+  let js_sect = subsection "Full-fidelity select" @@ of_dom js#root in
+  let pure    = new Select.Pure.t
+                    ~items:[ `Group (new Select.Pure.Group.t
+                                         ~label:"Group 1"
+                                         ~items:[ new Select.Pure.Item.t ~text:"Item 1" ()
+                                                ; new Select.Pure.Item.t ~text:"Item 2" ()
+                                                ; new Select.Pure.Item.t ~text:"Item 3" ()]
+                                         ())
+                           ; `Item (new Select.Pure.Item.t ~text:"Item 1" ())
+                           ; `Item (new Select.Pure.Item.t ~text:"Item 2" ())
+                           ; `Item (new Select.Pure.Item.t ~text:"Item 3" ())
+                           ]
+                    () in
+  let pure_sect = subsection "Pure (css-only) select" @@ of_dom pure#root in
   let multi = let items = (Select.Multi.Item.create_group
                              ~label:"Group 1"
                              ~items:(List.map (fun x -> Select.Multi.Item.create
@@ -494,7 +506,7 @@ let select_demo () =
                           :: [] in
               let select = Select.Multi.create ~items ~size:6 () in
               subsection "CSS-only multi select" select in
-  demo_section "Select" [ js; (* css_select; *) multi ]
+  demo_section "Select" [ js_sect; pure_sect; multi ]
 
 let toolbar_demo (drawer : Drawer.Persistent.t Js.t) () =
   let last_row = Toolbar.Row.create
