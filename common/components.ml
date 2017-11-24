@@ -182,12 +182,13 @@ module Make
 
     module Actions = struct
 
-      let _class       = CSS.add_element base_class "actions"
-      let action_class = CSS.add_element base_class "action"
+      let _class         = CSS.add_element base_class "actions"
+      let action_class   = CSS.add_element base_class "action"
+      let vertical_class = CSS.add_modifier _class "vertical"
 
       let create ?(classes=[]) ?id ?style ?attrs ?(vertical=false) ~children () =
         section ~a:([ a_class (classes
-                               |> cons_if vertical @@ CSS.add_modifier _class "vertical"
+                               |> cons_if vertical vertical_class
                                |> CCList.cons _class) ]
                     |> add_common_attrs ?id ?style ?attrs)
                 children
@@ -196,13 +197,14 @@ module Make
 
     module Primary = struct
 
-      let _class         = CSS.add_element base_class "primary"
-      let title_class    = CSS.add_element base_class "title"
-      let subtitle_class = CSS.add_element base_class "subtitle"
+      let _class            = CSS.add_element base_class "primary"
+      let title_class       = CSS.add_element base_class "title"
+      let subtitle_class    = CSS.add_element base_class "subtitle"
+      let large_title_class = CSS.add_modifier title_class "large"
 
       let create_title ?(classes=[]) ?id ?style ?attrs ?(large=false) ~title () =
         h1 ~a:([a_class (classes
-                         |> cons_if large @@ CSS.add_modifier title_class "large"
+                         |> cons_if large large_title_class
                          |> CCList.cons title_class)]
                |> add_common_attrs ?id ?style ?attrs)
            [pcdata title]
@@ -230,7 +232,7 @@ module Make
 
     end
 
-    let create ?(sections=[]) ?id ?style ?(classes=[]) ?attrs () =
+    let create ?id ?style ?(classes=[]) ?attrs ~sections () =
       div ~a:([a_class (base_class :: classes)]
               |> add_common_attrs ?id ?style ?attrs)
           sections
@@ -1338,17 +1340,24 @@ module Make
 
   module Toolbar = struct
 
-    let base_class         = "mdc-toolbar"
-    let fixed_adjust_class = base_class ^ "-fixed-adjust"
+    let base_class                = "mdc-toolbar"
+    let fixed_adjust_class        = base_class ^ "-fixed-adjust"
+    let fixed_class               = CSS.add_modifier base_class "fixed"
+    let waterfall_class           = CSS.add_modifier base_class "waterfall"
+    let fixed_last_row_only_class = CSS.add_modifier base_class "fixed-lastrow-only"
+    let flexible_class            = CSS.add_modifier base_class "flexible"
 
     module Row = struct
 
       module Section = struct
 
         let _class = CSS.add_element base_class "section"
-        let title_class        = CSS.add_element base_class "title"
-        let icon_class         = CSS.add_element base_class "icon"
-        let menu_icon_class    = CSS.add_element base_class "menu-icon"
+        let title_class         = CSS.add_element base_class "title"
+        let icon_class          = CSS.add_element base_class "icon"
+        let menu_icon_class     = CSS.add_element base_class "menu-icon"
+        let align_start_class   = CSS.add_modifier _class "align-start"
+        let align_end_class     = CSS.add_modifier _class "align-end"
+        let shrink_to_fit_class = CSS.add_modifier _class "shrink-to-fit"
 
         let create_title ?id ?style ?(classes=[]) ?attrs ~title () =
           span ~a:([ a_class (title_class :: classes)]
@@ -1358,9 +1367,9 @@ module Make
         let create ?id ?style ?(classes=[]) ?attrs ?align ?(shrink_to_fit=false) ~content () =
           section ~a:([ a_class (classes
                                  |> map_cons_option ~f:(function
-                                                        | `Start -> CSS.add_modifier _class "align-start"
-                                                        | `End   -> CSS.add_modifier _class "align-end") align
-                                 |> cons_if shrink_to_fit @@ CSS.add_modifier _class "shrink-to-fit"
+                                                        | `Start -> align_start_class
+                                                        | `End   -> align_end_class) align
+                                 |> cons_if shrink_to_fit shrink_to_fit_class
                                  |> CCList.cons _class) ]
                       |> add_common_attrs ?id ?style ?attrs)
                   content
@@ -1380,10 +1389,10 @@ module Make
                ?(fixed=false) ?(fixed_last_row=false) ?(waterfall=false)
                ?(flexible=false) ?flexible_height ~content () =
       header ~a:([ a_class (classes
-                            |> cons_if fixed @@ CSS.add_modifier base_class "fixed"
-                            |> cons_if (fixed && waterfall) @@ CSS.add_modifier base_class "waterfall"
-                            |> cons_if (fixed && fixed_last_row) @@ CSS.add_modifier base_class "fixed-lastrow-only"
-                            |> cons_if flexible @@ CSS.add_modifier base_class "flexible"
+                            |> cons_if fixed fixed_class
+                            |> cons_if (fixed && waterfall) waterfall_class
+                            |> cons_if (fixed && fixed_last_row) fixed_last_row_only_class
+                            |> cons_if flexible flexible_class
                             |> CCList.cons base_class) ]
                  |> add_common_attrs ?id
                                      ?style:(let s = "--" ^ base_class ^ "-ratio-to-extend-flexible" in

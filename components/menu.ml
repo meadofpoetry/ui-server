@@ -90,15 +90,21 @@ module Wrapper = struct
 
   type menu = t
 
-  class t ~anchor ~(menu:menu) () = object
+  class ['a] t ~(anchor:'a) ~(menu:menu) () = object
 
     inherit [Dom_html.divElement Js.t] widget (Html.div ~a:[Html.a_class [Menu.anchor_class]]
                                                         [ Of_dom.of_element anchor#element
                                                         ; Of_dom.of_element menu#element ]
                                                |> To_dom.of_div) ()
 
+    method anchor = anchor
+
     method menu   = menu
 
   end
 
 end
+
+let inject ~anchor ~(menu:t) =
+  Dom.appendChild anchor#element menu#element;
+  anchor#add_class Menu.anchor_class

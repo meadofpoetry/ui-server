@@ -107,3 +107,5 @@ class virtual ['a] text_input_widget (elt : 'a) () =
           method not_required = self#input##.required := Js._false
 
         end
+
+let coerce elt = (elt :> Dom_html.element Js.t widget)

@@ -56,13 +56,13 @@ let string_of_err = function
 
 let check_prefix buf =
   let prefix' = get_header_prefix buf in
-  if prefix <> prefix then Error (Bad_prefix prefix') else Ok buf
+  if prefix <> prefix' then Error (Bad_prefix prefix') else Ok buf
 
 let check_length buf =
   let hdr,buf'  = Cbuffer.split buf sizeof_header in
   let length    = get_header_length hdr in
   if (length <= 0) || (length > 256)
-  then (io @@ Cbuffer.hexdump_to_string buf; Error (Bad_length length))
+  then Error (Bad_length length)
   else let port'     = get_header_port hdr in
        let parity    = port' land 0x10 > 0 in
        let port      = port' land 0xF in
@@ -96,7 +96,7 @@ let deserialize acc buf =
           | Ok (msg,rest) -> f (msg :: acc) rest
           | Error e       -> (match e with
                               | Insufficient_payload b -> acc, b
-                              | e                      -> io ("Usb_device: " ^ string_of_err e);
+                              | e                      -> io ("\n !!! Usb_device: " ^ string_of_err e);
                                                           f acc (Cbuffer.shift b 1)))
     else acc,b in
   let msgs,new_acc = f [] buf in

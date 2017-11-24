@@ -2,7 +2,7 @@ open Lwt_react
 open Components
 open Tyxml_js
 
-let of_dom el = Tyxml_js.Of_dom.of_element (el :> Dom_html.element Js.t)
+let of_dom el = Of_dom.of_element (el :> Dom_html.element Js.t)
 
 let demo_section ?(style="") ?(classes=[]) title content =
   Html.section ~a:[ Html.a_style ("margin: 24px; padding: 24px;\
@@ -10,7 +10,7 @@ let demo_section ?(style="") ?(classes=[]) title content =
                   ; Html.a_class classes ]
                ( Html.h2 ~a:[ Html.a_class [Typography.font_to_class Headline]] [Html.pcdata title]
                  :: content)
-  |> Tyxml_js.To_dom.of_element
+  |> To_dom.of_element
 
 let subsection name elt = Html.div [ Html.h3 ~a:[Html.a_class [Typography.font_to_class Subheading_2]]
                                              [Html.pcdata name]
@@ -80,33 +80,34 @@ let toggle_demo () =
   demo_section "Icon toggle" [ of_dom toggle#root ]
 
 let card_demo () =
-  let card = Card.create ~sections:[ Card.Media.create ~style:"background-image: url(\"https://maxcdn.icons8.com/app/uploads/2016/03/material-1-1000x563.jpg\");\
-                                                               background-size: cover;\
-                                                               background-repeat: no-repeat;\
-                                                               height: 12.313rem;"
-                                                       ~children:[]
-                                                       ()
-                                   ; Card.Primary.create
-                                       ~children:[ Card.Primary.create_title ~large:true ~title:"Demo card title" ()
-                                                 ; Card.Primary.create_subtitle ~subtitle:"Subtitle" ()]
-                                       ()
-                                   ; Card.Supporting_text.create
-                                       ~children:[Html.pcdata "Supporting text"]
-                                       ()
-                                   ; Card.Actions.create
-                                       ~children:[ (let b = new Button.t ~label:"action 1" () in
-                                                    b#add_class Card.Actions.action_class;
-                                                    b#compact;
-                                                    of_dom b#root)
+  let card =
+    new Card.t
+        ~sections:[ (let media = new Card.Media.t ~children:[] () in
+                     let url = "url(\"https://maxcdn.icons8.com/app/uploads/2016/03/material-1-1000x563.jpg\")" in
+                     media#style##.backgroundImage := Js.string url;
+                     (Js.Unsafe.coerce media#style)##.backgroundSize := Js.string "cover";
+                     media#style##.backgroundRepeat := Js.string "no-repeat";
+                     media#style##.height := Js.string "12.313rem";
+                     Widget.coerce media)
+                  ; new Card.Primary.t
+                        ~children:[ (new Card.Primary.Title.t
+                                          ~large:true
+                                          ~title:"Demo card title"
+                                          ()
+                                     |> Widget.coerce)
+                                  ; (new Card.Primary.Subtitle.t ~subtitle:"Subtitle" ()
+                                     |> Widget.coerce)
+                                  ]
+                        ()
+                  ; new Card.Supporting_text.t ~text:"Supporting text" () |> Widget.coerce
+                  ; new Card.Actions.t ~children:[ (let b = new Button.t ~label:"action 1" () in
+                                                    b#compact; b#not_raised; b)
                                                  ; (let b = new Button.t ~label:"action 2" () in
-                                                    b#add_class Card.Actions.action_class;
-                                                    b#compact;
-                                                    of_dom b#root)
-                                                 ]
-                                       ()]
-                         ~style:"width:320px;"
-                         () in
-  demo_section "Card" [ card ]
+                                                    b#compact; b#not_raised; b) ] () |> Widget.coerce
+                  ]
+        () in
+  card#style##.width := Js.string "320px";
+  demo_section "Card" [ of_dom card#root ]
 
 let slider_demo () =
   let listen elt name =
@@ -356,13 +357,7 @@ let tabs_demo () =
                            (CCList.range 0 15)
                   |> (fun tabs -> new Tabs.Scroller.t ~tabs ()) in
   let scrl_sect = subsection "With scroller" @@ of_dom scrl_bar#root in
-  (* let btn       = new Button.t ~label:"add" () in
-   * Dom_html.addEventListener
-   *   btn#root
-   *   Dom_events.Typ.click
-   *   (Dom_html.handler (fun _ -> both_bar#add_tab (new Tabs.Tab.t ~text:"Tab 0" ~icon:"pets" ()); Js._false))
-   *   Js._false |> ignore; *)
-  demo_section "Tabs" [ text_sect; icon_sect; both_sect; scrl_sect(* ; of_dom btn#root *) ]
+  demo_section "Tabs" [ text_sect; icon_sect; both_sect; scrl_sect ]
 
 let snackbar_demo () =
   let listen x h = Dom_html.addEventListener x#root
@@ -483,33 +478,38 @@ let select_demo () =
   demo_section "Select" [ js_sect; pure_sect; multi_sect ]
 
 let toolbar_demo (drawer : Drawer.Persistent.t Js.t) () =
-  let last_row = Toolbar.Row.create
-                   ~content:[ Toolbar.Row.Section.create
-                                ~align:`Start
-                                ~content:[ Html.i ~a:[Html.a_class [ "material-icons"
-                                                                   ; Toolbar.Row.Section.icon_class]
-                                                     ; Html.a_onclick (fun _ -> if drawer##.open_ |> Js.to_bool
-                                                                                then drawer##.open_ := Js._false
-                                                                                else drawer##.open_ := Js._true
-                                                                              ; true)]
-                                                  [Html.pcdata "menu"]
-                                         ; Toolbar.Row.Section.create_title ~title:"Widgets demo page" () ]
-                                ()
-                            ; Toolbar.Row.Section.create
-                                ~align:`End
-                                ~content:[Html.i ~a:[Html.a_class [ "material-icons"
-                                                                  ; Toolbar.Row.Section.icon_class]]
-                                                 [Html.pcdata "favorite"]]
-                                ()
-                            ]
-                   () in
-  let toolbar = Toolbar.create ~content:[ last_row ]
-                               ~id:"toolbar"
-                               ~waterfall:true
-                               ~flexible:true
-                               ~fixed:true
-                               () in
-  To_dom.of_element toolbar
+  let icon = Html.i ~a:[Html.a_class [ "material-icons"; Markup.Toolbar.Row.Section.icon_class]
+                       ; Html.a_onclick (fun _ -> if drawer##.open_ |> Js.to_bool
+                                                  then drawer##.open_ := Js._false
+                                                  else drawer##.open_ := Js._true
+                                                ; true)]
+                    [Html.pcdata "menu"]
+             |> To_dom.of_i
+             |> (fun x -> new Widget.widget x ()) in
+  let title = new Toolbar.Row.Section.Title.t ~title:"Widgets demo page" () in
+  let section_start = new Toolbar.Row.Section.t ~content:[ Widget.coerce icon; Widget.coerce title ] () in
+  section_start#set_align `Start;
+  let icon_menu = new Menu.t
+                      ~open_from:`Top_right
+                      ~items:[ `Item (new Menu.Item.t ~text:"Item 1" ())
+                             ; `Item (new Menu.Item.t ~text:"Item 2" ())
+                             ; `Item (new Menu.Item.t ~text:"Item 3" ()) ]
+                      () in
+  let end_icon = Html.i ~a:[Html.a_class [ "material-icons"; Markup.Toolbar.Row.Section.icon_class]]
+                        [Html.pcdata "favorite"]
+                 |> To_dom.of_i
+                 |> (fun x -> new Widget.widget x ()) in
+  Menu.inject ~anchor:end_icon ~menu:icon_menu;
+  Dom_html.addEventListener end_icon#root
+                            Dom_events.Typ.click
+                            (Dom_html.handler (fun _ -> icon_menu#show; Js._false))
+                            Js._false
+  |> ignore;
+  let section_end = new Toolbar.Row.Section.t ~content:[end_icon] () in
+  section_end#set_align `End;
+  let row = new Toolbar.Row.t ~sections:[ section_start; section_end ] () in
+  let toolbar = new Toolbar.t ~rows:[ row ] () in
+  toolbar#root
 
 let elevation_demo () =
   let d = new Widget.widget (Html.div ~a:[Html.a_style "height: 200px; width: 200px; margin: 20px"]
@@ -542,42 +542,38 @@ let add_demos demos =
   |> To_dom.of_element
 
 let onload _ =
-  let doc = Dom_html.document in
-  let body = doc##.body in
+  let doc     = Dom_html.document in
+  let body    = doc##.body in
   let drawer  = drawer_demo () in
   let toolbar = toolbar_demo drawer () in
-  let canvas = chart_demo () in
-  let demos = add_demos [ button_demo ()
-                        ; Tyxml_js.Html.div ~a:[ Html.a_style "max-width:700px"]
-                                            [canvas |> Tyxml_js.Of_dom.of_canvas]
-                          |> Tyxml_js.To_dom.of_element
-                        ; fab_demo ()
-                        ; radio_demo ()
-                        ; checkbox_demo ()
-                        ; switch_demo ()
-                        ; toggle_demo ()
-                        ; elevation_demo ()
-                        ; select_demo ()
-                        ; textfield_demo ()
-                        ; card_demo ()
-                        ; slider_demo ()
-                        ; grid_list_demo ()
-                        ; ripple_demo ()
-                        ; layout_grid_demo ()
-                        ; dialog_demo ()
-                        ; list_demo ()
-                        ; tree_demo ()
-                        ; menu_demo ()
-                        ; snackbar_demo ()
-                        ; linear_progress_demo ()
-                        ; tabs_demo ()
-                        ] in
+  let canvas  = chart_demo () in
+  let demos   = add_demos [ button_demo ()
+                          ; Html.div ~a:[ Html.a_style "max-width:700px"] [canvas |> Of_dom.of_canvas]
+                            |> To_dom.of_element
+                          ; fab_demo ()
+                          ; radio_demo ()
+                          ; checkbox_demo ()
+                          ; switch_demo ()
+                          ; toggle_demo ()
+                          ; elevation_demo ()
+                          ; select_demo ()
+                          ; textfield_demo ()
+                          ; card_demo ()
+                          ; slider_demo ()
+                          ; grid_list_demo ()
+                          ; ripple_demo ()
+                          ; layout_grid_demo ()
+                          ; dialog_demo ()
+                          ; list_demo ()
+                          ; tree_demo ()
+                          ; menu_demo ()
+                          ; snackbar_demo ()
+                          ; linear_progress_demo ()
+                          ; tabs_demo ()
+                          ] in
   Dom.appendChild body toolbar;
   Dom.appendChild body drawer##.root__;
   Dom.appendChild body demos;
-  Dom.appendChild body toolbar;
-  let js_toolbar = Toolbar.attach toolbar in
-  js_toolbar##.fixedAdjustElement := demos;
   let open Chartjs.Line in
   Random.init (Unix.time () |> int_of_float);
   let data = Data.to_obj ~datasets:[ Data.Dataset.to_obj ~label:"My data 1"
@@ -605,35 +601,35 @@ let onload _ =
                          () in
   let open Chartjs in
   let _ = Chartjs.Line.attach
-             ~data
-             ~options:(Options.to_obj
-                         ~on_hover:(fun e (a:'a Js.js_array Js.t) ->
-                           print_endline ("hover! type: "
-                                          ^ (Js.to_string @@ e##._type)
-                                          ^ ", array length: "
-                                          ^ (string_of_int @@ a##.length)))
-                         ~on_click:(fun e (a:'a Js.js_array Js.t) ->
-                           print_endline ("click! type: "
-                                          ^ (Js.to_string @@ e##._type)
-                                          ^ ", array length: "
-                                          ^ (string_of_int @@ a##.length)))
-                         ~hover:(Options.Hover.to_obj ~mode:Index
-                                                      ~intersect:false
-                                                      ())
-                         ~tooltips:(Options.Tooltip.to_obj ~mode:Index
-                                                           ~intersect:false
-                                                           ())
-                         ~scales:(Options.Axes.to_obj
-                                    ~x_axes:[ Options.Axes.Cartesian.Linear.to_obj
-                                                ~scale_label:(Options.Axes.Scale_label.to_obj
-                                                                ~display:true
-                                                                ~label_string:"My x axis"
-                                                                ())
-                                                ()
-                                            ]
-                                    ())
-                         ())
-             canvas in
+            ~data
+            ~options:(Options.to_obj
+                        ~on_hover:(fun e (a:'a Js.js_array Js.t) ->
+                          print_endline ("hover! type: "
+                                         ^ (Js.to_string @@ e##._type)
+                                         ^ ", array length: "
+                                         ^ (string_of_int @@ a##.length)))
+                        ~on_click:(fun e (a:'a Js.js_array Js.t) ->
+                          print_endline ("click! type: "
+                                         ^ (Js.to_string @@ e##._type)
+                                         ^ ", array length: "
+                                         ^ (string_of_int @@ a##.length)))
+                        ~hover:(Options.Hover.to_obj ~mode:Index
+                                                     ~intersect:false
+                                                     ())
+                        ~tooltips:(Options.Tooltip.to_obj ~mode:Index
+                                                          ~intersect:false
+                                                          ())
+                        ~scales:(Options.Axes.to_obj
+                                   ~x_axes:[ Options.Axes.Cartesian.Linear.to_obj
+                                               ~scale_label:(Options.Axes.Scale_label.to_obj
+                                                               ~display:true
+                                                               ~label_string:"My x axis"
+                                                               ())
+                                               ()
+                                           ]
+                                   ())
+                        ())
+            canvas in
   Js._false
 
 let () = Dom_html.addEventListener Dom_html.document
