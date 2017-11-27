@@ -3,13 +3,13 @@
 (library
  ((name        board_ip_dektec_js)
   (public_name board-ip-dektec-js)
-  (modules     (requests board_types))
+  (modules     (requests board_types ip_dektec))
   (synopsis "js interface of the ip_dektec board")
-  (libraries (containers ipaddr common api-js))
+  (libraries (containers ipaddr common api-js components))
   (flags (:standard -short-paths -strict-sequence -bin-annot
           -thread -w "+1..49+60" -w "+a-4-7-23-33-39-40-41-42-44-45-48"))
   (js_of_ocaml ((flags (:standard +weak.js --opt 3))))
-  (preprocess (pps (ppx_deriving_yojson)))))
+  (preprocess (pps (ppx_deriving_yojson js_of_ocaml-ppx)))))
 
 (rule
  ((targets (board_types.ml))

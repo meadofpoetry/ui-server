@@ -16,11 +16,15 @@ dvb:
 	$(BUILD) build frontend/dvb_niit.bc.js
 	cp _build/default/frontend/dvb_niit.bc.js dist/resources/js/dvb_niit.js
 
+ip2ts:
+	$(BUILD) build frontend/ip2ts.bc.js
+	cp _build/default/frontend/ip2ts.bc.js dist/resources/js/ip2ts.js
+
 demo:
 	$(BUILD) build frontend/demo.bc.js
 	cp _build/default/frontend/demo.bc.js dist/resources/js/demo.js
 
-frontend: home pipeline hardware dvb demo
+frontend: home pipeline hardware dvb demo ip2ts
 
 backend:
 	$(BUILD) build backend/backend.exe

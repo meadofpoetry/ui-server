@@ -53,11 +53,7 @@ let rec get_node_height height = function
   | Board x -> List.fold_left (fun h x ->
                    get_node_height h x.child) height x.ports
 
-(*calcu commit your changes or stash them before you switch branches.
-Ab commit your changes or stash them before you switch branches.
-Aborting
-orting
-lates the height of the whole list*)
+(*calculates the height of the whole list*)
 let get_list_height l =
   List.fold_left (fun height x -> height + get_node_height 0 x) 0 l
 
@@ -320,9 +316,9 @@ module Board = struct
               let y_child =                                              (*if it's not a converter,*)
                 match num with                                           (*this part is used for calculating*)
                 | 1 -> y                                                 (*the height of the child*)
-                |_ -> match num mod 2 with
-                      | 1 -> if i <= num/2 then y +. float_of_int (num/2 - i) else y +. float_of_int (num/2 - i)
-                      | 0 -> if i <= num/2 then y +. float_of_int (num/2 - i) -. 0.5 else y +. float_of_int (num/2 - i - 1) +. 0.5 in
+                | _ -> match num mod 2 with
+                       | 1 -> if i <= num/2 then y +. float_of_int (num/2 - i) else y +. float_of_int (num/2 - i)
+                       | _ -> if i <= num/2 then y +. float_of_int (num/2 - i) -. 0.5 else y +. float_of_int (num/2 - i - 1) +. 0.5 in
               let y2 = y +. 1.0 -. (float_of_int (i + 1)) /. ((float_of_int num) +. 1.0) in
               (match z.child with
                | Input el ->
@@ -382,11 +378,9 @@ let render ?on_click ~topology ~(width : int) ~canvas () =
            match entry with
            | Input _ ->
               let real_y = float_of_int rows -. float_of_int y /. float_of_int rh in
-              if (CCList.Assoc.get (x1, y1 +. 0.5) acc_top = Some entry) && (real_y < y1 +. 0.25)
-              then ()
-              else if (CCList.Assoc.get (x1, y1 -. 0.5) acc_top = Some entry)&& (real_y > y1 +. 0.25)
-              then ()
-              else f entry;
+              if not ((CCList.Assoc.get (x1, y1 +. 0.5) acc_top = Some entry) && (real_y < y1 +. 0.25)
+                      || (CCList.Assoc.get (x1, y1 -. 0.5) acc_top = Some entry) && (real_y > y1 +. 0.25))
+              then f entry;
            | Board _ -> f entry);
        Js._false)
      |> (fun x -> canvas##.onclick := Dom_html.handler x)

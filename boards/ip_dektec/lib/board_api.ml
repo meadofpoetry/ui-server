@@ -70,7 +70,14 @@ let status sock_data (events : events) body =
   Hashtbl.add socket_table id sock_events;
   Lwt.return (resp, (body :> Cohttp_lwt_body.t))
 
-let handle api events _ meth args sock_data _ body =
+let page id =
+  respond_html_elt
+    Tyxml.Html.(div [ h2 [ pcdata "Test" ];
+                      p  [ pcdata ("Dektec ip2ts board " ^ (string_of_int id)) ];
+                      div ~a:[ a_id "ip_widgets" ] [  ] ] )
+    ()
+
+let handle api events id _ meth args sock_data _ body =
   let open Api.Redirect in
   (* let redirect_if_guest = redirect_if (User.eq id `Guest) in *)
   match meth, args with
@@ -85,6 +92,7 @@ let handle api events _ meth args sock_data _ body =
   | `POST, ["delay"]     -> delay api body
   | `POST, ["rate_mode"] -> rate_mode api body
   | `POST, ["reset"]     -> reset api ()
+  | `GET,  []            -> page id
   | `GET,  ["config"]    -> config api ()
   | `GET,  ["status"]    -> status sock_data events body
   | _ -> not_found ()
@@ -92,5 +100,5 @@ let handle api events _ meth args sock_data _ body =
 let handlers id api events =
   [ (module struct
        let domain = Common.Topology.get_api_path id
-       let handle = handle api events
+       let handle = handle api events id
      end : Api_handler.HANDLER) ]

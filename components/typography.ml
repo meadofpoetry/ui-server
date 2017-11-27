@@ -28,11 +28,11 @@ let font_to_class = function
   | Button       -> Typography.button_class
 
 
-let remove elt =
+let remove (elt:#Widget.widget) =
   CCList.iter (fun x -> if CCString.prefix ~pre:Typography.base_class x then elt#remove_class x)
               elt#classes
 
-let set ?(adjust_margin=true) ~font elt =
+let set ?(adjust_margin=true) ~font (elt:#Widget.widget) =
   remove elt;
   elt#add_class Typography.base_class;
   elt#add_class @@ font_to_class font;

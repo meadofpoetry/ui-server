@@ -90,8 +90,8 @@ let protocol_to_string = function
   | Rtp -> "RTP"
 
 let packet_sz_to_string = function
-  | Ts188 -> "Ts 188"
-  | Ts204 -> "Ts 204"
+  | Ts188 -> "188"
+  | Ts204 -> "204"
 
 type nw = { ip      : addr
           ; mask    : mask

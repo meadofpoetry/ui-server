@@ -39,11 +39,13 @@ let onload _ =
 
   let pipe_button = Dom_html.getElementById "pipeline-button" in
   let hw_button   = Dom_html.getElementById "hardware-button" in
+  let ip_button   = Dom_html.getElementById "ip2ts-button" in
 
   let attach = attach ac asc in
 
   attach (pipe_button, "api/pipeline", "js/pipeline.js");
   attach (hw_button, "api/hardware", "js/hardware.js");
+  attach (ip_button, "api/board/4/", "js/ip2ts.js");
   
   Js._false
 
