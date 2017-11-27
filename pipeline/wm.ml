@@ -26,10 +26,11 @@ type position =
   } [@@deriving yojson]
 
 type widget =
-  { type_    : string [@key "type"]
-  ; position : position
-  ; layer    : int
-  ; aspect   : (int * int)
+  { type_       : string [@key "type"]
+  ; position    : position
+  ; layer       : int
+  ; aspect      : (int * int)
+  ; description : string
   } [@@deriving yojson]
 
 type container =
