@@ -14,7 +14,7 @@ module Structure = struct
     checkbox#set_check pid.to_be_analyzed;
     let s, push        = React.S.create pid.to_be_analyzed in
     let pid_s          = React.S.map (fun b -> {pid with to_be_analyzed = b}) s in
-    checkbox#input##.onchange := Dom.handler (fun _ -> let b = React.S.value s in push @@ not b; Js._true);
+    checkbox#input_element##.onchange := Dom.handler (fun _ -> let b = React.S.value s in push @@ not b; Js._true);
     new Tree.Item.t ~text ~secondary_text:stext ~start_detail:checkbox (), pid_s
 
   let make_channel (ch : Structure.channel) =

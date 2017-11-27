@@ -5,14 +5,15 @@ open Tyxml_js
 
 module Cell = struct
 
-  class t ~content () =
+  class t ~(widgets:#widget list) () =
 
-    let elt = Layout_grid.Cell.create ~content:(List.map (fun x -> Of_dom.of_element x#element) content) ()
-              |> To_dom.of_div in
+    let elt = Layout_grid.Cell.create ~content:(widgets_to_markup widgets) () |> To_dom.of_div in
 
     object(self)
 
-      inherit [Dom_html.divElement Js.t] widget elt () as super
+      inherit widget elt () as super
+
+      val mutable widgets : widget list = List.map (fun x -> (x :> Widget.widget)) widgets
 
       val mutable span         : int option = None
       val mutable span_phone   : int option = None
@@ -60,21 +61,19 @@ module Cell = struct
       method align        = align
       method order        = order
 
+      method widgets = widgets
+
     end
 
 end
 
 class t ~(cells:Cell.t list) () =
 
-  let inner = new widget (Layout_grid.create_inner ~cells:(List.map (fun x -> Of_dom.of_div x#element) cells) ()
-                          |> To_dom.of_div) () in
-
-  let elt = Layout_grid.create ~content:[ Of_dom.of_div inner#root ] ()
-            |> To_dom.of_div in
+  let inner = new widget (Layout_grid.create_inner ~cells:(widgets_to_markup cells) () |> To_dom.of_div) () in
+  let elt = Layout_grid.create ~content:[widget_to_markup inner] () |> To_dom.of_div in
 
   object(self)
-
-    inherit [Dom_html.divElement Js.t] widget elt () as super
+    inherit widget elt () as super
 
     val mutable align : [ `Left | `Right ] option = None
 
@@ -89,5 +88,4 @@ class t ~(cells:Cell.t list) () =
 
     method fixed_column_width     = super#add_class Layout_grid.fixed_column_width_class
     method not_fixed_column_width = super#remove_class Layout_grid.fixed_column_width_class
-
   end

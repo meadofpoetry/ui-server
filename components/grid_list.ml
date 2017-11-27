@@ -7,15 +7,14 @@ module Tile = struct
   module Primary = struct
 
     class content ?src ?alt ?is_div () = object
-      inherit [Dom_html.element Js.t] widget (Grid_list.Tile.Primary.create_content ?src ?alt ?is_div ()
-                                              |> To_dom.of_element) ()
+      inherit widget (Grid_list.Tile.Primary.create_content ?src ?alt ?is_div () |> To_dom.of_element) ()
     end
 
     class t ?src ?alt ?(is_div=false) () =
 
       let content = new content ?src ?alt ~is_div () in
 
-      let elt = Grid_list.Tile.Primary.create ~content:(Of_dom.of_element content#element) ()
+      let elt = Grid_list.Tile.Primary.create ~content:(widget_to_markup content) ()
                 |> To_dom.of_div in
 
       object
@@ -23,10 +22,8 @@ module Tile = struct
         val content_widget = content
         val mutable src = src
 
-        inherit [Dom_html.element Js.t] widget elt ()
-
+        inherit widget elt ()
         method content_widget = content_widget
-
         method src       = src
         method set_src s = if is_div
                            then content_widget#style##.backgroundImage := Js.string ("url(" ^ s ^ ")")
@@ -40,31 +37,28 @@ module Tile = struct
   module Caption = struct
 
     class title ~title () = object
-      inherit [Dom_html.element Js.t] widget (Grid_list.Tile.Caption.create_title ~text:title ()
-                                              |> To_dom.of_element) () as super
+      inherit widget (Grid_list.Tile.Caption.create_title ~text:title () |> To_dom.of_element) () as super
       method text       = super#text_content
       method set_text s = super#set_text_content s
     end
 
     class support_text ~support_text () = object
-      inherit [Dom_html.element Js.t] widget (Grid_list.Tile.Caption.create_support_text ~text:support_text ()
-                                              |> To_dom.of_element) () as super
-
+      inherit widget (Grid_list.Tile.Caption.create_support_text ~text:support_text ()
+                      |> To_dom.of_element) () as super
       method text       = super#text_content
       method set_text s = super#set_text_content s
     end
 
     class t ?title ?support_text ?icon () =
 
-      let title_widget           = CCOpt.map (fun x -> new title ~title:x ()) title in
+      let title_widget = CCOpt.map (fun x -> new title ~title:x ()) title in
       let support_text_widget = CCOpt.map (fun x -> new support_text ~support_text:x ()) support_text in
       let () = CCOpt.iter (fun x -> x#add_class Grid_list.Tile.Caption.icon_class) icon in
 
-      let map_opt_to_elt x = CCOpt.map (fun x -> Of_dom.of_element x#element) x in
       let elt = Grid_list.Tile.Caption.create
-                  ?title:(map_opt_to_elt title_widget)
-                  ?support_text:(map_opt_to_elt support_text_widget)
-                  ?icon:(map_opt_to_elt icon)
+                  ?title:(CCOpt.map widget_to_markup title_widget)
+                  ?support_text:(CCOpt.map widget_to_markup support_text_widget)
+                  ?icon:(CCOpt.map widget_to_markup icon)
                   ()
                 |> To_dom.of_element in
 
@@ -73,7 +67,7 @@ module Tile = struct
         val title_widget        = title_widget
         val support_text_widget = support_text_widget
 
-        inherit [Dom_html.element Js.t] widget elt ()
+        inherit widget elt ()
 
         method title_widget        = title_widget
         method support_text_widget = support_text_widget
@@ -94,8 +88,8 @@ module Tile = struct
                           | None,None,None -> None
                           | _              -> Some (new Caption.t ?title ?support_text ?icon ())) in
     let primary_widget = new Primary.t ~is_div:true ?src () in
-    let elt = Grid_list.Tile.create ~primary:(Of_dom.of_element primary_widget#element)
-                                    ?caption:(CCOpt.map (fun x -> Of_dom.of_element x#element) caption_widget)
+    let elt = Grid_list.Tile.create ~primary:(widget_to_markup primary_widget)
+                                    ?caption:(CCOpt.map widget_to_markup caption_widget)
                                     ()
               |> To_dom.of_element in
 
@@ -104,7 +98,7 @@ module Tile = struct
       val caption_widget = caption_widget
       val primary_widget = primary_widget
 
-      inherit [Dom_html.liElement Js.t] widget elt ()
+      inherit widget elt ()
 
       method caption_widget = caption_widget
       method primary_widget = primary_widget
@@ -122,15 +116,14 @@ class t ~(tiles:Tile.t list) () =
                                            | None   -> false) tiles
                 |> CCOpt.is_some in
 
-  let elt = Grid_list.create ~tiles:(List.map (fun x -> Of_dom.of_element x#element) tiles) ()
-            |> To_dom.of_div in
+  let elt = Grid_list.create ~tiles:(widgets_to_markup tiles) () |> To_dom.of_div in
 
   object(self)
 
     val tiles = tiles
     val mutable ar : ar option = None
 
-    inherit [Dom_html.divElement Js.t] widget elt () as super
+    inherit widget elt () as super
 
     method tiles = tiles
 

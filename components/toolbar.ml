@@ -1,31 +1,31 @@
-open Widget
-open Tyxml_js
-
 module Row = struct
 
   module Section = struct
 
     module Title = struct
       class t ~title () = object
-        inherit [Dom_html.element Js.t] widget (Markup.Toolbar.Row.Section.create_title ~title ()
-                                                |> To_dom.of_element) () as super
+        inherit Widget.widget (Markup.Toolbar.Row.Section.create_title ~title ()
+                               |> Tyxml_js.To_dom.of_element) () as super
 
         method title       = super#text_content
         method set_title s = super#set_text_content s
       end
     end
 
-    class t ~content () =
+    class t ~(widgets:#Widget.widget list) () =
 
       let elt =
-        Markup.Toolbar.Row.Section.create ~content:(List.map (fun x -> Of_dom.of_element x#element) content) ()
-        |> To_dom.of_section in
+        Markup.Toolbar.Row.Section.create ~content:(Widget.widgets_to_markup widgets) ()
+        |> Tyxml_js.To_dom.of_section in
 
       object
 
         val mutable align : [ `Start | `End | `Center ] = `Center
+        val mutable widgets : Widget.widget list = List.map (fun x -> (x :> Widget.widget)) widgets
 
-        inherit [Dom_html.element Js.t] widget elt () as super
+        inherit Widget.widget elt () as super
+
+        method widgets = widgets
 
         method align        = align
         method remove_align = (match align with
@@ -46,12 +46,11 @@ module Row = struct
   end
 
   class t ~sections () =
-    let elt = Markup.Toolbar.Row.create ~content:(List.map (fun x -> Of_dom.of_element x#element) sections) ()
-              |> To_dom.of_div in
-
+    let elt = Markup.Toolbar.Row.create ~content:(Widget.widgets_to_markup sections) ()
+              |> Tyxml_js.To_dom.of_div in
     object
 
-      inherit [Dom_html.divElement Js.t] widget elt ()
+      inherit Widget.widget elt ()
 
     end
 
@@ -65,7 +64,7 @@ class type mdc =
 class type change_event =
   object
     inherit Dom_html.event
-    method detail_ : < flexibleExpansionRatio : Js.number Js.t Js.readonly_prop > Js.t Js.readonly_prop
+    method detail : < flexibleExpansionRatio : float Js.readonly_prop > Js.t Js.readonly_prop
   end
 
 type events =
@@ -78,14 +77,8 @@ let events =
 
 class t ~rows () =
 
-  let elt = Markup.Toolbar.create ~content:(List.map (fun x -> Of_dom.of_element x#element) rows)
-                                  ()
-            |> To_dom.of_header in
-
+  let elt = Markup.Toolbar.create ~content:(Widget.widgets_to_markup rows) () |> Tyxml_js.To_dom.of_header in
   object
-
-    inherit [Dom_html.element Js.t] widget elt ()
-
+    inherit Widget.widget elt ()
     val mdc : mdc Js.t = Js.Unsafe.global##.mdc##.toolbar##.MDCToolbar##attachTo elt
-
   end

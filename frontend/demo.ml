@@ -2,19 +2,20 @@ open Lwt_react
 open Components
 open Tyxml_js
 
-let of_dom el = Of_dom.of_element (el :> Dom_html.element Js.t)
-
 let demo_section ?(style="") ?(classes=[]) title content =
+  List.iter (fun x -> x#style##.margin := Js.string "10px") content;
   Html.section ~a:[ Html.a_style ("margin: 24px; padding: 24px;\
                                    border: 1px solid rgba(0, 0, 0, .12);" ^ style)
                   ; Html.a_class classes ]
                ( Html.h2 ~a:[ Html.a_class [Typography.font_to_class Headline]] [Html.pcdata title]
-                 :: content)
+                 :: Widget.widgets_to_markup content)
   |> To_dom.of_element
 
-let subsection name elt = Html.div [ Html.h3 ~a:[Html.a_class [Typography.font_to_class Subheading_2]]
-                                             [Html.pcdata name]
-                                   ; elt ]
+let subsection name w = Html.div [ Html.h3 ~a:[Html.a_class [Typography.font_to_class Subheading_2]]
+                                           [Html.pcdata name]
+                                 ; Widget.widget_to_markup w ]
+                        |> To_dom.of_element
+                        |> Widget.create
 
 let button_demo () =
   let raised     = new Button.t ~label:"raised" () in
@@ -31,40 +32,38 @@ let button_demo () =
                        justify-content:flex-start;\
                        align-items:flex-start"
                "Button"
-               (List.map (fun x -> x#style##.margin := Js.string "10px"; of_dom x#root)
-                         [raised;flat;unelevated;stroked;ripple;dense;compact;icon])
+               [raised;flat;unelevated;stroked;ripple;dense;compact;icon]
 
 let fab_demo () =
-  let fab    = subsection "General" @@ of_dom @@ (new Fab.t ~icon:"favorite" ())#root in
-  let mini   = subsection "Mini"    @@ of_dom @@ (let b = new Fab.t ~icon:"favorite" () in b#mini; b#root) in
-  let ripple = subsection "Ripple"  @@ of_dom @@ (new Fab.t ~ripple:true ~icon:"favorite" ())#root in
-  demo_section "FAB" [fab;mini;ripple]
+  let fab    = new Fab.t ~icon:"favorite" () in
+  let mini   = new Fab.t ~icon:"favorite" () in
+  let ripple = new Fab.t ~ripple:true ~icon:"favorite" () in
+  mini#mini;
+  demo_section "FAB" [ subsection "General" fab; subsection "Mini" mini; subsection "Ripple" ripple ]
 
 let radio_demo () =
   let radio1 = new Radio.t ~name:"radio" () in
   let radio2 = new Radio.t ~name:"radio" () in
   let radio3 = new Radio.t ~name:"radio" () in
   radio2#disable;
-  demo_section "Radio button" [ of_dom radio1#root; of_dom radio2#root; of_dom radio3#root ]
+  demo_section "Radio button" [ radio1; radio2; radio3 ]
 
 let checkbox_demo () =
   let checkbox   = new Checkbox.t ~input_id:"checkbox-demo" () in
   let form_field = new Form_field.t ~label:"checkbox label" ~input:checkbox () in
-  let raw        = subsection "Checkbox (css only)" @@ of_dom (new Checkbox.t ~ripple:false ())#root in
-  let labelled   = subsection "Checkbox with label" (of_dom form_field#root) in
-  demo_section "Checkbox" [ labelled; raw ]
+  demo_section "Checkbox" [ subsection "Checkbox (css only)" @@ new Checkbox.t ~ripple:false ()
+                          ; subsection "Checkbox with label" form_field ]
 
 let switch_demo () =
   let switch   = new Switch.t ~input_id:"demo-switch" () in
   let form     = new Form_field.t ~label:"switch label" ~input:switch () in
-  let raw      = subsection "Switch" @@ of_dom (new Switch.t ())#root in
-  let labelled = subsection "Switch with label" (of_dom form#root) in
-  Dom_html.addEventListener switch#input
+  Dom_html.addEventListener switch#input_element
                             Dom_events.Typ.change
                             (Dom_html.handler (fun _ -> "Switch is " ^ (if switch#checked then "on" else "off")
-                                                        |> fun s -> print_endline s; Js._false))
+                                                        |> print_endline;
+                                                        Js._false))
                             Js._false |> ignore;
-  demo_section "Switch" [ raw; labelled ]
+  demo_section "Switch" [ subsection "Switch" @@ new Switch.t (); subsection "Switch with label" form ]
 
 let toggle_demo () =
   let toggle = new Icon_toggle.t
@@ -77,37 +76,26 @@ let toggle_demo () =
                                  print_endline ("Icon Toggle is " ^ (if toggle#is_on then "on" else "off"));
                                  Js._false))
                             Js._false |> ignore;
-  demo_section "Icon toggle" [ of_dom toggle#root ]
+  demo_section "Icon toggle" [ toggle ]
 
 let card_demo () =
-  let card =
-    new Card.t
-        ~sections:[ (let media = new Card.Media.t ~children:[] () in
-                     let url = "url(\"https://maxcdn.icons8.com/app/uploads/2016/03/material-1-1000x563.jpg\")" in
-                     media#style##.backgroundImage := Js.string url;
-                     (Js.Unsafe.coerce media#style)##.backgroundSize := Js.string "cover";
-                     media#style##.backgroundRepeat := Js.string "no-repeat";
-                     media#style##.height := Js.string "12.313rem";
-                     Widget.coerce media)
-                  ; new Card.Primary.t
-                        ~children:[ (new Card.Primary.Title.t
-                                          ~large:true
-                                          ~title:"Demo card title"
-                                          ()
-                                     |> Widget.coerce)
-                                  ; (new Card.Primary.Subtitle.t ~subtitle:"Subtitle" ()
-                                     |> Widget.coerce)
-                                  ]
-                        ()
-                  ; new Card.Supporting_text.t ~text:"Supporting text" () |> Widget.coerce
-                  ; new Card.Actions.t ~children:[ (let b = new Button.t ~label:"action 1" () in
-                                                    b#compact; b#not_raised; b)
-                                                 ; (let b = new Button.t ~label:"action 2" () in
-                                                    b#compact; b#not_raised; b) ] () |> Widget.coerce
-                  ]
-        () in
+  let media = new Card.Media.t ~widgets:[] () in
+  let url = "url(\"https://maxcdn.icons8.com/app/uploads/2016/03/material-1-1000x563.jpg\")" in
+  media#style##.backgroundImage := Js.string url;
+  (Js.Unsafe.coerce media#style)##.backgroundSize := Js.string "cover";
+  media#style##.backgroundRepeat := Js.string "no-repeat";
+  media#style##.height := Js.string "12.313rem";
+  let title = new Card.Title.t ~large:true ~title:"Demo card title" () in
+  let subtitle = new Card.Subtitle.t ~subtitle:"Subtitle" () in
+  let primary  = new Card.Primary.t ~widgets:[ Widget.coerce title; Widget.coerce subtitle ] () in
+  let text     = new Card.Supporting_text.t ~text:"Supporting text" () in
+  let actions  = new Card.Actions.t ~widgets:[ (let b = new Button.t ~label:"action 1" () in
+                                                b#compact; b#not_raised; b)
+                                             ; (let b = new Button.t ~label:"action 2" () in
+                                                b#compact; b#not_raised; b) ] () in
+  let card = new Card.t ~sections:[ `Media media; `Primary primary; `Text text; `Actions actions ] () in
   card#style##.width := Js.string "320px";
-  demo_section "Card" [ of_dom card#root ]
+  demo_section "Card" [ card ]
 
 let slider_demo () =
   let listen elt name =
@@ -131,10 +119,10 @@ let slider_demo () =
   listen discrete#root "discrete";
   listen with_markers#root "markered";
   Dom_html.setTimeout (fun () -> continuous#layout; discrete#layout; with_markers#layout) 100. |> ignore;
-  demo_section "Slider" [ subsection "Continuous slider"            @@ of_dom continuous#root
-                        ; subsection "Discrete slider"              @@ of_dom discrete#root
-                        ; subsection "Discrete slider with markers" @@ of_dom with_markers#root
-                        ; subsection "Disabled slider"              @@ of_dom disabled#root ]
+  demo_section "Slider" [ subsection "Continuous slider" continuous
+                        ; subsection "Discrete slider" discrete
+                        ; subsection "Discrete slider with markers" with_markers
+                        ; subsection "Disabled slider" disabled ]
 
 let grid_list_demo () =
   let tiles = List.map (fun x -> new Grid_list.Tile.t
@@ -144,17 +132,16 @@ let grid_list_demo () =
                                      ())
                        (CCList.range 0 4) in
   let grid  = new Grid_list.t ~tiles () in
-  demo_section "Grid list" [ of_dom grid#root ]
+  demo_section "Grid list" [ grid ]
 
 let ripple_demo () =
-  let bounded        = new Widget.widget (Html.div ~a:[Html.a_style "height: 200px; width: 200px; margin: 20px"] []
-                                          |> To_dom.of_element) () in
+  let bounded = Widget.create (Html.div ~a:[Html.a_style "height: 200px; width: 200px; margin: 20px"] []
+                               |> To_dom.of_element) in
   Elevation.set_elevation bounded 5; Ripple.attach bounded |> ignore;
-  let bounded_sect   = subsection "Bounded ripple. Click me!" @@ of_dom bounded#root in
   let unbounded      = new Icon.Font.t ~icon:"favorite" () in
   Ripple.attach unbounded |> ignore; Ripple.set_unbounded unbounded;
-  let unbounded_sect = subsection "Unbounded ripple. Click me!" @@ of_dom unbounded#root in
-  demo_section "Ripple" [ bounded_sect; unbounded_sect ]
+  demo_section "Ripple" [ subsection "Bounded ripple. Click me!" bounded
+                        ; subsection "Unbounded ripple. Click me!" unbounded]
 
 let layout_grid_demo () =
   let cells = List.map (fun x -> let w = Html.div ~a:[Html.a_style "box-sizing: border-box;\
@@ -168,9 +155,9 @@ let layout_grid_demo () =
                                                                  ^ (string_of_int (if x = 3
                                                                                    then 2
                                                                                    else 1)))]
-                                       |> Tyxml_js.To_dom.of_element
-                                       |> (fun x -> new Widget.widget x ()) in
-                                 new Layout_grid.Cell.t ~content:[w] ()
+                                         |> Tyxml_js.To_dom.of_element
+                                         |> Widget.create in
+                                 new Layout_grid.Cell.t ~widgets:[w] ()
                                  |> (fun x -> x#set_span 1; x))
                        (CCList.range 0 15) in
   let btn2 = new Button.t ~label:"set span 1" () in
@@ -188,7 +175,7 @@ let layout_grid_demo () =
                                                         Js._false))
                             Js._false |> ignore;
   let layout_grid = new Layout_grid.t ~cells () in
-  demo_section "Layout grid" [ of_dom layout_grid#root ; of_dom btn2#root; of_dom btn4#root ]
+  demo_section "Layout grid" [ Widget.coerce layout_grid; Widget.coerce btn2; Widget.coerce btn4 ]
 
 let dialog_demo () =
   let dialog = new Dialog.t
@@ -211,7 +198,7 @@ let dialog_demo () =
                             Dialog.events.cancel
                             (Dom_html.handler (fun _ -> print_endline "Dialog cancelled!"; Js._false))
                             Js._false |> ignore;
-  demo_section "Dialog" [ of_dom dialog#root; of_dom button#root ]
+  demo_section "Dialog" [ Widget.coerce dialog; Widget.coerce button ]
 
 let list_demo () =
   let items = List.map (fun x -> if x = 3
@@ -243,7 +230,7 @@ let list_demo () =
                            ]
                   () in
   group#style##.maxWidth := Js.string "400px";
-  demo_section "List" [ of_dom list#root; of_dom group#root ]
+  demo_section "List" [ Widget.coerce list; Widget.coerce group ]
 
 let tree_demo () =
   let item x = new Tree.Item.t
@@ -258,7 +245,7 @@ let tree_demo () =
                  ~items:(List.map (fun x -> item x) (CCList.range 0 5))
                  () in
   tree#style##.maxWidth := Js.string "400px";
-  demo_section "Tree" [ of_dom tree#root ]
+  demo_section "Tree" [ tree ]
 
 let menu_demo () =
   let items    = List.map (fun x -> if x != 2
@@ -300,7 +287,7 @@ let menu_demo () =
                             (Dom_html.handler (fun _ -> print_endline "Menu cancelled"; Js._false))
                             Js._false
   |> ignore;
-  demo_section "Menu" [ of_dom wrapper#root; of_dom icon_wrapper#root ]
+  demo_section "Menu" [ Widget.coerce wrapper; Widget.coerce icon_wrapper ]
 
 let linear_progress_demo () =
   let linear_progress = new Linear_progress.t () in
@@ -329,12 +316,12 @@ let linear_progress_demo () =
   listen buf70_btn (fun () -> linear_progress#set_buffer 0.7);
   listen open_btn  (fun () -> linear_progress#show);
   listen close_btn (fun () -> linear_progress#hide);
-  let cells = List.map (fun x -> new Layout_grid.Cell.t ~content:[x] ()
+  let cells = List.map (fun x -> new Layout_grid.Cell.t ~widgets:[x] ()
                                  |> (fun x -> x#set_span 12; x))
                        [ind_btn  ; det_btn  ; pgs0_btn ; pgs20_btn; pgs60_btn;
                         buf10_btn; buf30_btn; buf70_btn; open_btn ; close_btn ] in
   let btn_grid = new Layout_grid.t ~cells () in
-  demo_section "Linear progress" [ of_dom btn_grid#root; of_dom linear_progress#root ]
+  demo_section "Linear progress" [ Widget.coerce btn_grid; Widget.coerce linear_progress ]
 
 let tabs_demo () =
   let icon_bar  = [ new Tabs.Tab.t ~icon:"pets" ()
@@ -342,22 +329,21 @@ let tabs_demo () =
                   ; new Tabs.Tab.t ~icon:"grade" ()
                   ; new Tabs.Tab.t ~icon:"room" () ]
                   |> (fun tabs -> new Tabs.Tab_bar.t ~tabs ()) in
-  let icon_sect = subsection "With icon labels" @@ of_dom icon_bar#root in
   let text_bar  = List.map (fun x -> new Tabs.Tab.t ~text:("Tab " ^ (string_of_int x)) ())
                            (CCList.range 0 3)
                   |> (fun tabs -> new Tabs.Tab_bar.t ~tabs ()) in
-  let text_sect = subsection "With text labels" @@ of_dom text_bar#root in
   let both_bar  = [ new Tabs.Tab.t ~text:"Tab 0" ~icon:"pets" ()
                   ; new Tabs.Tab.t ~text:"Tab 1" ~icon:"favorite" ()
                   ; new Tabs.Tab.t ~text:"Tab 2" ~icon:"grade" ()
                   ; new Tabs.Tab.t ~text:"Tab 3" ~icon:"room" () ]
                   |> (fun tabs -> new Tabs.Tab_bar.t ~tabs ()) in
-  let both_sect = subsection "With icon and text labels" @@ of_dom both_bar#root in
   let scrl_bar  = List.map (fun x -> new Tabs.Tab.t ~text:("Tab " ^ (string_of_int x)) ())
                            (CCList.range 0 15)
                   |> (fun tabs -> new Tabs.Scroller.t ~tabs ()) in
-  let scrl_sect = subsection "With scroller" @@ of_dom scrl_bar#root in
-  demo_section "Tabs" [ text_sect; icon_sect; both_sect; scrl_sect ]
+  demo_section "Tabs" [ subsection "With icon labels" icon_bar
+                      ; subsection "With text labels" text_bar
+                      ; subsection "With icon and text labels" both_bar
+                      ; subsection "With scroller" scrl_bar ]
 
 let snackbar_demo () =
   let listen x h = Dom_html.addEventListener x#root
@@ -379,14 +365,14 @@ let snackbar_demo () =
   let aligned_btn  = new Button.t ~label:"Open start-aligned snackbar" () in
   listen snackbar_btn (fun () -> snackbar#show);
   listen aligned_btn (fun () -> aligned#show);
-  demo_section "Snackbar" [of_dom snackbar#root    ; of_dom aligned#root;
-                           of_dom snackbar_btn#root; of_dom aligned_btn#root ]
+  Dom.appendChild Dom_html.document##.body snackbar#root;
+  Dom.appendChild Dom_html.document##.body aligned#root;
+  demo_section "Snackbar" [ snackbar_btn; aligned_btn ]
 
 let textfield_demo () =
   (* CSS only textbox *)
   let css      = new Textfield.Pure.t ~placeholder:"placeholder" ~input_id:"demo-css-textfield" () in
   let css_form = new Form_field.t ~label:"css textfield label: " ~input:css ~align_end:true () in
-  let css_sect = subsection "CSS only textfield" @@ of_dom css_form#root in
   (* Full-featured js textbox *)
   let js       = new Textfield.t
                      ~label:"js textfield label"
@@ -396,7 +382,6 @@ let textfield_demo () =
                                 }
                      () in
   js#required;
-  let js_sect  = subsection "JS textfield" @@ of_dom js#root in
   (* Dense js textbox with *)
   let dense    = new Textfield.t
                      ~label:"dense textfield label"
@@ -407,7 +392,6 @@ let textfield_demo () =
                                 }
                      () in
   dense#dense;
-  let dense_sect = subsection "Dense textfield (with email validation)" @@ of_dom dense#root in
   (* Textboxes with icons *)
   let lead_icon  = new Textfield.t
                        ~label:"textfield label"
@@ -421,17 +405,16 @@ let textfield_demo () =
                              ; clickable = false
                              ; pos       = `Trailing }
                        () in
-  let icon_sect   = subsection "With icons" @@ Html.div ~a:([Html.a_style "display: flex;\
-                                                                           max-width: 300px;\
-                                                                           flex-direction: column;"])
-                                                        [ of_dom lead_icon#root
-                                                        ; of_dom trail_icon#root ] in
   (* Textareas *)
   let css_textarea      = new Textarea.Pure.t ~placeholder:"Enter something" ~rows:8 ~cols:40 () in
   let textarea          = new Textarea.t ~label:"textarea label" ~rows:8 ~cols:40 () in
-  let css_textarea_sect = subsection "Textarea (css only)" @@ of_dom css_textarea#root in
-  let textarea_sect     = subsection "Textarea"            @@ of_dom textarea#root in
-  demo_section "Textfield" [ css_sect; js_sect; dense_sect; icon_sect; css_textarea_sect; textarea_sect ]
+  demo_section "Textfield" [ subsection "CSS only textfield" css_form
+                           ; subsection "JS textfield" js
+                           ; subsection "Dense textfield (with email validation)" dense
+                           ; subsection "With leading icon" lead_icon
+                           ; subsection "With trailing icon" trail_icon
+                           ; subsection "Textarea (css only)" css_textarea
+                           ; subsection "Textarea" textarea ]
 
 let select_demo () =
   let js      = new Select.Base.t
@@ -443,7 +426,6 @@ let select_demo () =
                                      (CCList.range 0 5))
                     () in
   js#dense;
-  let js_sect = subsection "Full-fidelity select" @@ of_dom js#root in
   let pure    = new Select.Pure.t
                     ~items:[ `Group (new Select.Pure.Group.t
                                          ~label:"Group 1"
@@ -456,7 +438,6 @@ let select_demo () =
                            ; `Item (new Select.Pure.Item.t ~text:"Item 3" ())
                            ]
                     () in
-  let pure_sect = subsection "Pure (css-only) select" @@ of_dom pure#root in
   let multi = [ `Group (new Select.Multi.Group.t
                             ~label:"Group 1"
                             ~items:(List.map (fun x -> let text = "Group item " ^ (string_of_int x) in
@@ -474,8 +455,9 @@ let select_demo () =
               ; `Item (new Select.Multi.Item.t ~text:"Item 1" ())
               ; `Item (new Select.Multi.Item.t ~text:"Item 2" ()) ]
               |> (fun items -> new Select.Multi.t ~items ~size:12 ()) in
-  let multi_sect = subsection "CSS-only multi select" @@ of_dom multi#root in
-  demo_section "Select" [ js_sect; pure_sect; multi_sect ]
+  demo_section "Select" [ subsection "Full-fidelity select" js
+                        ; subsection "Pure (css-only) select" pure
+                        ; subsection "CSS-only multi select" multi ]
 
 let toolbar_demo (drawer : Drawer.Persistent.t Js.t) () =
   let icon = Html.i ~a:[Html.a_class [ "material-icons"; Markup.Toolbar.Row.Section.icon_class]
@@ -485,9 +467,9 @@ let toolbar_demo (drawer : Drawer.Persistent.t Js.t) () =
                                                 ; true)]
                     [Html.pcdata "menu"]
              |> To_dom.of_i
-             |> (fun x -> new Widget.widget x ()) in
+             |> Widget.create in
   let title = new Toolbar.Row.Section.Title.t ~title:"Widgets demo page" () in
-  let section_start = new Toolbar.Row.Section.t ~content:[ Widget.coerce icon; Widget.coerce title ] () in
+  let section_start = new Toolbar.Row.Section.t ~widgets:[ Widget.coerce icon; Widget.coerce title ] () in
   section_start#set_align `Start;
   let icon_menu = new Menu.t
                       ~open_from:`Top_right
@@ -498,23 +480,23 @@ let toolbar_demo (drawer : Drawer.Persistent.t Js.t) () =
   let end_icon = Html.i ~a:[Html.a_class [ "material-icons"; Markup.Toolbar.Row.Section.icon_class]]
                         [Html.pcdata "favorite"]
                  |> To_dom.of_i
-                 |> (fun x -> new Widget.widget x ()) in
+                 |> Widget.create in
   Menu.inject ~anchor:end_icon ~menu:icon_menu;
   Dom_html.addEventListener end_icon#root
                             Dom_events.Typ.click
                             (Dom_html.handler (fun _ -> icon_menu#show; Js._false))
                             Js._false
   |> ignore;
-  let section_end = new Toolbar.Row.Section.t ~content:[end_icon] () in
+  let section_end = new Toolbar.Row.Section.t ~widgets:[end_icon] () in
   section_end#set_align `End;
   let row = new Toolbar.Row.t ~sections:[ section_start; section_end ] () in
   let toolbar = new Toolbar.t ~rows:[ row ] () in
   toolbar#root
 
 let elevation_demo () =
-  let d = new Widget.widget (Html.div ~a:[Html.a_style "height: 200px; width: 200px; margin: 20px"]
-                                      []
-                             |> To_dom.of_element) () in
+  let d = Widget.create (Html.div ~a:[Html.a_style "height: 200px; width: 200px; margin: 20px"]
+                                  []
+                         |> To_dom.of_element) in
   let btn2 = new Button.t ~label:"elevation 2" () in
   let btn8 = new Button.t ~label:"elevation 8" () in
   Dom_html.addEventListener btn2#root
@@ -525,12 +507,11 @@ let elevation_demo () =
                             Dom_events.Typ.click
                             (Dom_html.handler (fun _ -> Elevation.set_elevation d 8; Js._false))
                             Js._false |> ignore;
-  demo_section "Elevation" [of_dom d#root; of_dom btn2#root; of_dom btn8#root]
+  demo_section "Elevation" [ Widget.coerce d; Widget.coerce btn2; Widget.coerce btn8 ]
 
 let drawer_demo () =
   Drawer.Temporary.create ~content:[Drawer.Temporary.Toolbar_spacer.create ~content:[Html.pcdata "Demo"]
-                                                                           ()]
-                          ()
+                                                                           ()] ()
   |> Drawer.Temporary.attach
 
 let chart_demo () =

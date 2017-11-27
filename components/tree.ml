@@ -1,9 +1,12 @@
-open Widget
-open Tyxml_js
-
 module Item = struct
 
-  class ['a] t ?ripple ?secondary_text ?start_detail ?end_detail ?(nested:'a option) ~text () =
+  class ['a] t ?ripple
+             ?secondary_text
+             ?(start_detail:#Widget.widget option)
+             ?(end_detail:#Widget.widget option)
+             ?(nested:'a option)
+             ~text
+             () =
 
     let s,s_push = React.S.create false in
     let end_detail =
@@ -17,14 +20,14 @@ module Item = struct
 
     let item = new List_.Item.t ?ripple ?secondary_text ?start_detail ?end_detail ~text () in
 
-    let elt = Markup.Tree.Item.create ~item:(Of_dom.of_element item#element)
-                                      ?nested_list:(CCOpt.map (fun x -> Of_dom.of_element x#element) nested)
+    let elt = Markup.Tree.Item.create ~item:(Widget.widget_to_markup item)
+                                      ?nested_list:(CCOpt.map (fun x -> Widget.widget_to_markup x) nested)
                                       ()
-              |> To_dom.of_element in
+              |> Tyxml_js.To_dom.of_element in
 
     object
 
-      inherit [Dom_html.divElement Js.t] widget elt () as super
+      inherit Widget.widget elt () as super
 
       method item           = item
       method text           = item#text
@@ -50,17 +53,14 @@ end
 class t ~(items:t Item.t list) () =
 
   let two_line = CCOpt.is_some @@ CCList.find_pred (fun x -> CCOpt.is_some x#secondary_text) items in
-
-  let elt = Markup.Tree.create ~two_line
-                               ~items:(List.map (fun x -> Of_dom.of_element x#element) items)
-                               ()
-            |> To_dom.of_element in
+  let elt = Markup.Tree.create ~two_line ~items:(Widget.widgets_to_markup items) ()
+            |> Tyxml_js.To_dom.of_element in
 
   object(self)
 
     val mutable items = items
 
-    inherit [Dom_html.element Js.t] widget elt () as super
+    inherit Widget.widget elt () as super
 
     method dense        = super#add_class Markup.List_.dense_class;
                           self#iter (fun (i:t Item.t) -> CCOpt.iter (fun (x:t) -> x#dense) i#nested_tree)
@@ -69,11 +69,10 @@ class t ~(items:t Item.t list) () =
                           self#iter (fun (i:t Item.t) -> CCOpt.iter (fun (x:t) -> x#not_dense) i#nested_tree)
     method not_bordered = super#remove_class Markup.List_.bordered_class
 
-    method iter f       = let rec iter l = CCList.iter (fun (x : t Item.t) -> f x;
-                                                                              match x#nested_tree with
-                                                                              | Some n -> iter n#items
-                                                                              | None   -> ()) l in
-                          iter self#items
+    method iter f = let rec iter l = CCList.iter (fun (x : t Item.t) -> f x; match x#nested_tree with
+                                                                             | Some n -> iter n#items
+                                                                             | None   -> ()) l in
+                    iter self#items
 
     method items = items
 

@@ -1,22 +1,18 @@
-open Widget
-open Markup
-open Tyxml_js
-
 module Pure = struct
 
   class t ?input_type ?input_id ?placeholder ?box () =
 
-    let elt = (Textfield.create ?input_type ?input_id ?placeholder ?box () |> Tyxml_js.To_dom.of_div) in
+    let elt = (Markup.Textfield.create ?input_type ?input_id ?placeholder ?box () |> Tyxml_js.To_dom.of_div) in
 
     object
 
-      inherit [Dom_html.divElement Js.t] text_input_widget elt ()
+      inherit Widget.text_input_widget elt ()
 
-      val input : Dom_html.inputElement Js.t =
-        elt##querySelector (Js.string ("." ^ Textfield.input_class))
+      val input_element : Dom_html.inputElement Js.t =
+        elt##querySelector (Js.string ("." ^ Markup.Textfield.input_class))
         |> Js.Opt.to_option |> CCOpt.get_exn |> Js.Unsafe.coerce
 
-      method private input = input
+      method input_element = input_element
 
     end
 
@@ -46,44 +42,52 @@ let icon_event : Dom_html.event Dom_events.Typ.typ = Dom_events.Typ.make "MDCTex
 class t ?input_type ?input_id ?label ?placeholder ?icon ?help_text ?box () =
 
   let icon_widget =
-    CCOpt.map (fun { clickable; icon; _ } -> new widget
-                                                 (Textfield.Icon.create ~clickable ~icon () |> To_dom.of_i)
-                                                 ())
+    CCOpt.map (fun { clickable; icon; _ } ->
+        new Widget.widget
+            (Markup.Textfield.Icon.create ~clickable ~icon () |> Tyxml_js.To_dom.of_i)
+            ())
               icon in
 
   let help_text_widget =
     CCOpt.map (fun { persistent; validation; text } ->
-        new widget (Textfield.Help_text.create ~persistent ~validation ~text () |> To_dom.of_p) ())
+        new Widget.widget (Markup.Textfield.Help_text.create ~persistent ~validation ~text ()
+                           |> Tyxml_js.To_dom.of_p) ())
               help_text in
 
   let text_field_widget =
     let get_icon pos = (match icon,icon_widget with
-                        | (Some x,Some w) when x.pos = pos -> Some (Of_dom.of_element w#root)
+                        | (Some x,Some w) when x.pos = pos -> Some (Widget.widget_to_markup w)
                         | _ -> None) in
-    Textfield.create ?input_type ?input_id ?label ?placeholder ?leading_icon:(get_icon `Leading)
-                     ?trailing_icon:(get_icon `Trailing) ?box:(if CCOpt.is_some icon then Some true else box)  ()
-    |> To_dom.of_element
-    |> (fun x -> new widget x ()) in
+    Markup.Textfield.create ?input_type
+                            ?input_id
+                            ?label
+                            ?placeholder
+                            ?leading_icon:(get_icon `Leading)
+                            ?trailing_icon:(get_icon `Trailing)
+                            ?box:(if CCOpt.is_some icon then Some true else box)
+                            ()
+    |> Tyxml_js.To_dom.of_element
+    |> (fun x -> new Widget.widget x ()) in
 
   let elt =
-    let tf = Of_dom.of_element text_field_widget#root in
-    CCOpt.map_or ~default:tf (fun x -> Html.section [ tf; Of_dom.of_paragraph x#root ]) help_text_widget
-    |> To_dom.of_element in
+    let tf = Widget.widget_to_markup text_field_widget in
+    CCOpt.map_or ~default:tf (fun x -> Tyxml_js.Html.section [ tf; Widget.widget_to_markup x ]) help_text_widget
+    |> Tyxml_js.To_dom.of_element in
 
   object(self)
 
-    inherit [Dom_html.element Js.t] text_input_widget elt ()
+    inherit Widget.text_input_widget elt ()
 
     val mdc : mdc Js.t =
       text_field_widget#root
       |> (fun x -> Js.Unsafe.global##.mdc##.textField##.MDCTextField##attachTo x)
       |> (fun x -> CCOpt.map_or ~default:x (fun w -> x##.helperTextElement := w#root; x) help_text_widget)
 
-    val input : Dom_html.inputElement Js.t =
-      elt##querySelector (Js.string ("." ^ Textfield.input_class))
+    val input_element : Dom_html.inputElement Js.t =
+      elt##querySelector (Js.string ("." ^ Markup.Textfield.input_class))
       |> Js.Opt.to_option |> CCOpt.get_exn |> Js.Unsafe.coerce
 
-    method private input = input
+    method input_element = input_element
 
     method text_field_widget = text_field_widget
     method icon_widget       = icon_widget
@@ -92,10 +96,10 @@ class t ?input_type ?input_id ?label ?placeholder ?icon ?help_text ?box () =
     method set_help_text s   = CCOpt.iter (fun x -> x#set_text_content s) help_text_widget
     method get_help_text     = CCOpt.map (fun x -> x#text_content) help_text_widget
 
-    method dense             = self#add_class Textfield.dense_class
-    method full_width        = self#add_class Textfield.fullwidth_class
-    method not_dense         = self#remove_class Textfield.dense_class
-    method not_full_width    = self#remove_class Textfield.fullwidth_class
+    method dense             = self#add_class Markup.Textfield.dense_class
+    method full_width        = self#add_class Markup.Textfield.fullwidth_class
+    method not_dense         = self#remove_class Markup.Textfield.dense_class
+    method not_full_width    = self#remove_class Markup.Textfield.fullwidth_class
 
     method disable           = mdc##.disabled := Js._true
     method enable            = mdc##.disabled := Js._false

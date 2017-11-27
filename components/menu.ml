@@ -65,11 +65,11 @@ class t ?open_from ~(items:[ `Item of Item.t | `Divider of Divider.t ] list) () 
            list#set_attribute "aria-hidden" "true";
            list#add_class Menu.items_class in
 
-  let elt = Menu.create ?open_from ~list:(Of_dom.of_element list#element) () |> To_dom.of_div in
+  let elt = Menu.create ?open_from ~list:(widget_to_markup list) () |> To_dom.of_div in
 
   object
 
-    inherit [Dom_html.divElement Js.t] widget elt ()
+    inherit widget elt ()
 
     val mdc : mdc Js.t = Js.Unsafe.global##.mdc##.menu##.MDCSimpleMenu##attachTo elt
 
@@ -92,19 +92,15 @@ module Wrapper = struct
 
   class ['a] t ~(anchor:'a) ~(menu:menu) () = object
 
-    inherit [Dom_html.divElement Js.t] widget (Html.div ~a:[Html.a_class [Menu.anchor_class]]
-                                                        [ Of_dom.of_element anchor#element
-                                                        ; Of_dom.of_element menu#element ]
-                                               |> To_dom.of_div) ()
-
+    inherit widget (Html.div ~a:[Html.a_class [Menu.anchor_class]]
+                             [ widget_to_markup anchor; widget_to_markup menu ]
+                    |> To_dom.of_div) ()
     method anchor = anchor
-
     method menu   = menu
-
   end
 
 end
 
 let inject ~anchor ~(menu:t) =
-  Dom.appendChild anchor#element menu#element;
+  Dom.appendChild anchor#root menu#root;
   anchor#add_class Menu.anchor_class

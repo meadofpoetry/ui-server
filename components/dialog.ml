@@ -39,36 +39,28 @@ end
 module Header = struct
 
   class t ~title () =
-
     let elt = Dialog.Header.create ~title () |> To_dom.of_header in
-
     object
-
-      inherit [Dom_html.element Js.t] widget elt ()
-
-      method title = title
-
+      val h2_widget = elt##querySelector (Js.string @@ "." ^ Dialog.Header.title_class)
+                      |> Js.Opt.to_option |> CCOpt.get_exn |> (fun x -> new widget x ())
+      inherit widget elt ()
+      method title       = h2_widget#text_content
+      method set_title s = h2_widget#set_text_content s
     end
 
 end
 
 module Body = struct
 
-  class t ~content () =
-
+  class t ~(content:[ `String of string | `Widgets of #widget list ]) () =
     let content = (match content with
                    | `String  s -> [Html.pcdata s]
-                   | `Widgets w -> List.map (fun x -> Of_dom.of_element x#element) w) in
-
+                   | `Widgets w -> widgets_to_markup w) in
     let elt = Dialog.Body.create ~content () |> To_dom.of_element in
-
     object
-
-      inherit [Dom_html.element Js.t] widget elt () as super
-
+      inherit widget elt () as super
       method scrollable     = super#add_class Dialog.Body.scrollable_class
       method not_scrollable = super#remove_class Dialog.Body.scrollable_class
-
     end
 
 end
@@ -76,16 +68,11 @@ end
 module Footer = struct
 
   class t ~(actions:Action.t list) () =
-
-    let elt = Dialog.Footer.create ~children:(List.map (fun x -> Of_dom.of_button x#root) actions) ()
-              |> To_dom.of_footer in
-
+    let elt = Dialog.Footer.create ~children:(widgets_to_markup actions) () |> To_dom.of_footer in
     object
-
-      inherit [Dom_html.element Js.t] widget elt ()
-
+      val mutable actions = actions
+      inherit widget elt ()
       method actions = actions
-
     end
 
 end
@@ -98,16 +85,14 @@ class t ?title ?(actions:Action.t list option) ~content () =
 
   let elt = Dialog.create
               ~content:(Of_dom.of_element body_widget#root
-                        |> (fun b -> CCOpt.map_or ~default:[b] (fun x -> [b; Of_dom.of_element x#root])
-                                                  footer_widget)
-                        |> (fun l -> CCOpt.map_or ~default:l (fun x -> (Of_dom.of_element x#root) :: l)
-                                                  header_widget))
+                        |> (fun b -> CCOpt.map_or ~default:[b] (fun x -> [b; widget_to_markup x]) footer_widget)
+                        |> (fun l -> CCOpt.map_or ~default:l (fun x -> (widget_to_markup x) :: l) header_widget))
               ()
             |> To_dom.of_aside in
 
   object
 
-    inherit [Dom_html.element Js.t] widget elt ()
+    inherit widget elt ()
 
     val mdc : mdc Js.t = Js.Unsafe.global##.mdc##.dialog##.MDCDialog##attachTo elt
 

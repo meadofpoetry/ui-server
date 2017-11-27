@@ -1,7 +1,3 @@
-open Widget
-open Markup
-open Tyxml_js
-
 class type mdc =
   object
     method value          : float Js.prop
@@ -34,11 +30,11 @@ let events =
 
 class t ?discrete ?markers () =
 
-  let elt = Slider.create ?discrete ?markers () |> To_dom.of_div in
+  let elt = Markup.Slider.create ?discrete ?markers () |> Tyxml_js.To_dom.of_div in
 
   object(self)
 
-    inherit [Dom_html.divElement Js.t] widget elt ()
+    inherit Widget.widget elt ()
 
     val mdc : mdc Js.t = elt |> (fun x -> Js.Unsafe.global##.mdc##.slider##.MDCSlider##attachTo x)
 

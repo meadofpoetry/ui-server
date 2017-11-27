@@ -1,7 +1,3 @@
-open Widget
-open Markup
-open Tyxml_js
-
 module Tab = struct
 
   type tab_content = [ `Text of string | `Icon of (string * string option) | `Text_and_icon of (string * string)]
@@ -37,13 +33,18 @@ module Tab = struct
                   | _              -> failwith "at least icon or text must be provided for a tab widget"
                   end in
 
-    let elt = Tabs.Tab.create ?href ~content () |> To_dom.of_a in
+    let elt = Markup.Tabs.Tab.create ?href ~content () |> Tyxml_js.To_dom.of_a in
 
-    object
+    object(self)
 
-      inherit [Dom_html.anchorElement Js.t] widget elt ()
+      inherit Widget.widget elt ()
 
       val mdc : mdc Js.t = Js.Unsafe.global##.mdc##.tabs##.MDCTab##attachTo elt
+
+      method anchor_element = elt
+
+      method href       = Js.to_string self#anchor_element##.href
+      method set_href s = self#anchor_element##.href := Js.string s
 
       method content : tab_content = content
 
@@ -93,17 +94,16 @@ module Tab_bar = struct
                   | [x] -> x
                   | _   -> failwith "All tabs must be of the same type: text, icon or text with icon") in
 
-    let indicator = new widget (Tabs.Tab_bar.Indicator.create () |> To_dom.of_span) () in
+    let indicator = new Widget.widget (Markup.Tabs.Tab_bar.Indicator.create () |> Tyxml_js.To_dom.of_span) () in
 
-    let elt = Tabs.Tab_bar.create ~typ
-                                  ~indicator:(Of_dom.of_element indicator#root)
-                                  ~tabs:(List.map (fun x -> Of_dom.of_anchor x#root) tabs) ()
-              |> To_dom.of_nav in
+    let elt = Markup.Tabs.Tab_bar.create ~typ
+                                         ~indicator:(Widget.widget_to_markup indicator)
+                                         ~tabs:(Widget.widgets_to_markup tabs) ()
+              |> Tyxml_js.To_dom.of_nav in
 
     object(self)
 
-      inherit [Dom_html.element Js.t] widget elt ()
-
+      inherit Widget.widget elt ()
 
       val mutable tabs = tabs
       val mdc : mdc Js.t = Js.Unsafe.global##.mdc##.tabs##.MDCTabBar##attachTo elt
@@ -147,19 +147,16 @@ module Scroller = struct
   class t ~(tabs:Tab.t list) () =
 
     let tab_bar = new Tab_bar.t ~tabs () in
-
-    let elt = tab_bar#add_class Tabs.Scroller.scroll_frame_tabs_class;
-              Tabs.Scroller.create ~tabs:(Of_dom.of_element tab_bar#root) ()
-              |> To_dom.of_div in
+    let elt = tab_bar#add_class Markup.Tabs.Scroller.scroll_frame_tabs_class;
+              Markup.Tabs.Scroller.create ~tabs:(Widget.widget_to_markup tab_bar) ()
+              |> Tyxml_js.To_dom.of_div in
 
     object
-
-      inherit [Dom_html.divElement Js.t] widget elt ()
+      inherit Widget.widget elt ()
 
       val mdc : mdc Js.t = Js.Unsafe.global##.mdc##.tabs##.MDCTabBarScroller##attachTo elt
 
       method tab_bar = tab_bar
-
     end
 
 end

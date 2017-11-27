@@ -27,9 +27,7 @@ class t ~on_data ~off_data () =
   let elt = Icon_toggle.create ~on_data ~off_data () |> To_dom.of_i in
 
   object
-
-    inherit [Dom_html.element Js.t] widget elt ()
-
+    inherit widget elt ()
     val mdc : mdc Js.t = elt |> (fun x -> Js.Unsafe.global##.mdc##.iconToggle##.MDCIconToggle##attachTo x)
 
     method disabled = Js.to_bool @@ mdc##.disabled

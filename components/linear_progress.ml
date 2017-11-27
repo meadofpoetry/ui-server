@@ -1,7 +1,3 @@
-open Widget
-open Markup
-open Tyxml_js
-
 class type mdc =
   object
     method determinate : bool Js.t Js.writeonly_prop
@@ -14,11 +10,10 @@ class type mdc =
 
 class t () =
 
-  let elt = Linear_progress.create () |> To_dom.of_div in
+  let elt = Markup.Linear_progress.create () |> Tyxml_js.To_dom.of_div in
 
   object
-
-    inherit [Dom_html.element Js.t] widget elt ()
+    inherit Widget.widget elt ()
 
     val mdc : mdc Js.t = Js.Unsafe.global##.mdc##.linearProgress##.MDCLinearProgress##attachTo elt
 
@@ -33,5 +28,4 @@ class t () =
 
     method show = mdc##open_ ()
     method hide = mdc##close ()
-
   end

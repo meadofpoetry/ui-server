@@ -1,7 +1,3 @@
-open Widget
-open Markup
-open Tyxml_js
-
 class type mdc =
   object
     method checked  : bool Js.t Js.prop
@@ -11,19 +7,17 @@ class type mdc =
 
 class t ?(ripple=true) ?input_id ~name () =
 
-  let elt = Radio.create ?input_id ~name () |> To_dom.of_i in
+  let elt = Markup.Radio.create ?input_id ~name () |> Tyxml_js.To_dom.of_i in
 
   object
+    inherit Widget.radio_or_cb_widget elt ()
 
-    inherit [Dom_html.element Js.t] radio_or_cb_widget elt ()
-
-    val input : Dom_html.inputElement Js.t =
-      elt##querySelector (Js.string ("." ^ Radio.native_control_class))
+    val input_element : Dom_html.inputElement Js.t =
+      elt##querySelector (Js.string ("." ^ Markup.Radio.native_control_class))
       |> Js.Opt.to_option |> CCOpt.get_exn |> Js.Unsafe.coerce
 
-    method private input = input
+    method input_element = input_element
 
     initializer
       if ripple then Js.Unsafe.global##.mdc##.radio##.MDCRadio##attachTo elt
-
   end

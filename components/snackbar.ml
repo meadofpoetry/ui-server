@@ -50,11 +50,11 @@ class t ?start_aligned ?action ~message () =
              ; timeout = None
              } in
 
-  let elt = Snackbar.create ?start_aligned () |> To_dom.of_div in
+  let elt = Markup.Snackbar.create ?start_aligned () |> Tyxml_js.To_dom.of_div in
 
   object
 
-    inherit [Dom_html.divElement Js.t] widget elt () as super
+    inherit widget elt () as super
 
     val mutable data_obj : data_obj Js.t = data_to_js_obj data
     val mutable data     : data = data
@@ -63,8 +63,8 @@ class t ?start_aligned ?action ~message () =
 
     method show = mdc##show data_obj
 
-    method start_aligned     = super#add_class Snackbar.align_start_class
-    method not_start_aligned = super#remove_class Snackbar.align_start_class
+    method start_aligned     = super#add_class Markup.Snackbar.align_start_class
+    method not_start_aligned = super#remove_class Markup.Snackbar.align_start_class
 
     method dismisses_on_action   = Js.to_bool mdc##.dismissesOnAction
     method dismiss_on_action     = mdc##.dismissesOnAction := Js._true

@@ -7,57 +7,56 @@ type rect =
   ; height : float option
   }
 
-class ['a] widget (elt : 'a) () = object(self)
+class widget elt () = object(self)
 
-  method root : 'a = elt
-  method element : Dom_html.element Js.t = (elt :> Dom_html.element Js.t)
+  method root : Dom_html.element Js.t = (elt :> Dom_html.element Js.t)
 
-  method get_attribute a    = self#element##getAttribute (Js.string a)
+  method get_attribute a    = self#root##getAttribute (Js.string a)
                               |> Js.Opt.to_option
                               |> CCOpt.map Js.to_string
-  method set_attribute a v  = self#element##setAttribute (Js.string a) (Js.string v)
-  method remove_attribute a = self#element##removeAttribute (Js.string a)
-  method has_attribute a    = self#element##hasAttribute (Js.string a)
+  method set_attribute a v  = self#root##setAttribute (Js.string a) (Js.string v)
+  method remove_attribute a = self#root##removeAttribute (Js.string a)
+  method has_attribute a    = self#root##hasAttribute (Js.string a)
 
-  method inner_html       = Js.to_string self#element##.innerHTML
-  method set_inner_html s = self#element##.innerHTML := Js.string s
+  method inner_html       = Js.to_string self#root##.innerHTML
+  method set_inner_html s = self#root##.innerHTML := Js.string s
 
-  method text_content = self#element##.textContent
+  method text_content = self#root##.textContent
                         |> Js.Opt.to_option
                         |> CCOpt.map Js.to_string
-  method set_text_content s = self#element##.textContent := Js.some @@ Js.string s
+  method set_text_content s = self#root##.textContent := Js.some @@ Js.string s
 
-  method id = Js.to_string self#element##.id
-  method set_id id = self#element##.id := Js.string id
+  method id = Js.to_string self#root##.id
+  method set_id id = self#root##.id := Js.string id
 
-  method style = self#element##.style
+  method style = self#root##.style
 
-  method class_string = Js.to_string @@ self#element##.className
-  method set_class_string _classes = self#element##.className := (Js.string _classes)
+  method class_string = Js.to_string @@ self#root##.className
+  method set_class_string _classes = self#root##.className := (Js.string _classes)
 
   method cons_class   _class = self#set_class_string @@ _class ^ " " ^ self#class_string
-  method add_class    _class = self#element##.classList##add (Js.string _class)
-  method remove_class _class = self#element##.classList##remove (Js.string _class)
-  method toggle_class _class = self#element##.classList##toggle (Js.string _class) |> Js.to_bool
-  method has_class    _class = Js.to_bool (self#element##.classList##contains (Js.string _class))
+  method add_class    _class = self#root##.classList##add (Js.string _class)
+  method remove_class _class = self#root##.classList##remove (Js.string _class)
+  method toggle_class _class = self#root##.classList##toggle (Js.string _class) |> Js.to_bool
+  method has_class    _class = Js.to_bool (self#root##.classList##contains (Js.string _class))
   method classes             = String.split_on_char ' ' self#class_string
 
-  method client_left   = self#element##.clientLeft
-  method client_top    = self#element##.clientTop
-  method client_width  = self#element##.clientWidth
-  method client_height = self#element##.clientHeight
+  method client_left   = self#root##.clientLeft
+  method client_top    = self#root##.clientTop
+  method client_width  = self#root##.clientWidth
+  method client_height = self#root##.clientHeight
 
-  method offset_left   = self#element##.offsetLeft
-  method offset_top    = self#element##.offsetTop
-  method offset_width  = self#element##.offsetWidth
-  method offset_height = self#element##.offsetHeight
+  method offset_left   = self#root##.offsetLeft
+  method offset_top    = self#root##.offsetTop
+  method offset_width  = self#root##.offsetWidth
+  method offset_height = self#root##.offsetHeight
 
-  method scroll_left   = self#element##.scrollLeft
-  method scroll_top    = self#element##.scrollTop
-  method scroll_width  = self#element##.scrollWidth
-  method scroll_height = self#element##.scrollHeight
+  method scroll_left   = self#root##.scrollLeft
+  method scroll_top    = self#root##.scrollTop
+  method scroll_width  = self#root##.scrollWidth
+  method scroll_height = self#root##.scrollHeight
 
-  method client_rect   = (self#element##getBoundingClientRect)
+  method client_rect   = (self#root##getBoundingClientRect)
                          |> (fun x -> { top    = x##.top
                                       ; right  = x##.right
                                       ; bottom = x##.bottom
@@ -67,45 +66,49 @@ class ['a] widget (elt : 'a) () = object(self)
 
 end
 
-class virtual ['a] input_widget (elt : 'a) () =
+class virtual input_widget elt () =
         object(self)
 
-          inherit ['a] widget elt ()
+          inherit widget elt ()
 
-          method virtual input : Dom_html.inputElement Js.t
+          method virtual input_element : Dom_html.inputElement Js.t
 
-          method disabled        = Js.to_bool self#input##.disabled
-          method disable         = self#input##.disabled := Js._true
-          method enable          = self#input##.disabled := Js._false
-          method toggle_disabled = self#input##.disabled := Js.bool @@ not self#disabled
+          method disabled        = Js.to_bool self#input_element##.disabled
+          method disable         = self#input_element##.disabled := Js._true
+          method enable          = self#input_element##.disabled := Js._false
+          method toggle_disabled = self#input_element##.disabled := Js.bool @@ not self#disabled
 
-          method value       = Js.to_string self#input##.value
-          method set_value v = self#input##.value := Js.string v
+          method value       = Js.to_string self#input_element##.value
+          method set_value v = self#input_element##.value := Js.string v
 
 
         end
 
-class virtual ['a] radio_or_cb_widget (elt : 'a) () =
+class virtual radio_or_cb_widget elt () =
         object(self)
 
-          inherit ['a] input_widget elt ()
+          inherit input_widget elt ()
 
-          method set_check x    = self#input##.checked := Js.bool x
-          method checked        = Js.to_bool self#input##.checked
-          method check          = self#input##.checked := Js._true
-          method uncheck        = self#input##.checked := Js._false
-          method toggle_checked = self#input##.checked := Js.bool @@ not self#checked
+          method set_check x    = self#input_element##.checked := Js.bool x
+          method checked        = Js.to_bool self#input_element##.checked
+          method check          = self#input_element##.checked := Js._true
+          method uncheck        = self#input_element##.checked := Js._false
+          method toggle_checked = self#input_element##.checked := Js.bool @@ not self#checked
 
         end
 
-class virtual ['a] text_input_widget (elt : 'a) () =
+class virtual text_input_widget elt () =
         object(self)
 
-          inherit ['a] input_widget elt ()
+          inherit input_widget elt ()
 
-          method required     = self#input##.required := Js._true
-          method not_required = self#input##.required := Js._false
+          method required     = self#input_element##.required := Js._true
+          method not_required = self#input_element##.required := Js._false
 
         end
 
-let coerce elt = (elt :> Dom_html.element Js.t widget)
+let create x = new widget x ()
+let coerce (x : #widget) = (x :> widget)
+
+let widget_to_markup (x : #widget) = Tyxml_js.Of_dom.of_element x#root
+let widgets_to_markup (x : #widget list) = List.map widget_to_markup x

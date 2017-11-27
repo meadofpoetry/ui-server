@@ -17,12 +17,9 @@ module Letter = struct
     let elt = Avatar.Letter.create ~text () |> To_dom.of_div in
 
     object
-
-      inherit [Dom_html.divElement Js.t] widget elt () as super
-
+      inherit widget elt () as super
       method dense     = super#add_class Avatar.dense_class
       method not_dense = super#remove_class Avatar.dense_class
-
     end
 
 end

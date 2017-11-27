@@ -1,9 +1,8 @@
 (* Components toplevel *)
 
-module Markup          = Markup
+module Markup          = Markup (* FIXME remove *)
 
 module Avatar          = Avatar
-module Widget          = Widget
 module Button          = Button
 module Card            = Card
 module Checkbox        = Checkbox
@@ -31,3 +30,4 @@ module Textarea        = Textarea
 module Toolbar         = Toolbar
 module Tree            = Tree
 module Typography      = Typography
+module Widget          = Widget
