@@ -365,25 +365,37 @@ let render ?on_click ~topology ~(width : int) ~canvas () =
       Entry.draw x (acc_img, acc_top, number) cols rows (float_of_int @@ get_node_height 0 x)) in
   let (acc_img, acc_top, _) = List.fold_left draw_entry (start,[],-0.5) t in
   render canvas (size (cw * cols) (rh * rows)) acc_img;
+  let get_node e =
+    let x, y  = int_of_float @@ Js.float_of_number @@ (Js.Unsafe.get e "offsetX"),
+                int_of_float @@ Js.float_of_number @@ (Js.Unsafe.get e "offsetY") in
+    let x1,y1 = floor_to_five @@ (float_of_int x /. float_of_int cw),
+                (float_of_int rows) -. (ceil_to_five @@ (float_of_int y /. float_of_int rh)) in
+    (match CCList.Assoc.get (x1,y1) acc_top with
+     | None       -> None
+     | Some entry ->
+        match entry with
+        | Input _ -> let real_y = float_of_int rows -. float_of_int y /. float_of_int rh in
+                     if ((CCList.Assoc.get (x1, y1 +. 0.5) acc_top = Some entry) && (real_y < y1 +. 0.25)
+                         || (CCList.Assoc.get (x1, y1 -. 0.5) acc_top = Some entry) && (real_y > y1 +. 0.25))
+                     then None
+                     else Some entry;
+        | Board _ -> Some entry) in
+  Dom_events.listen canvas
+                    Dom_events.Typ.mousemove
+                    (fun _ e -> (match get_node e with
+                                 | Some _ -> "pointer"
+                                 | None   -> "default")
+                                |> (fun x -> (Js.Unsafe.coerce canvas##.style)##.cursor := Js.string x);
+                                false)
+  |> ignore;
   match on_click with
-  | Some f ->
-     (fun e ->
-       let x, y = int_of_float @@ Js.float_of_number @@ (Js.Unsafe.get e "offsetX"),
-                  int_of_float @@ Js.float_of_number @@ (Js.Unsafe.get e "offsetY") in
-       let x1,y1 = floor_to_five @@ (float_of_int x /. float_of_int cw),
-                   (float_of_int rows) -. (ceil_to_five @@ (float_of_int y /. float_of_int rh)) in
-       (match CCList.Assoc.get (x1,y1) acc_top with
-        | None       -> ()
-        | Some entry ->
-           match entry with
-           | Input _ ->
-              let real_y = float_of_int rows -. float_of_int y /. float_of_int rh in
-              if not ((CCList.Assoc.get (x1, y1 +. 0.5) acc_top = Some entry) && (real_y < y1 +. 0.25)
-                      || (CCList.Assoc.get (x1, y1 -. 0.5) acc_top = Some entry) && (real_y > y1 +. 0.25))
-              then f entry;
-           | Board _ -> f entry);
-       Js._false)
-     |> (fun x -> canvas##.onclick := Dom_html.handler x)
+  | Some f -> Dom_events.listen canvas
+                                Dom_events.Typ.click
+                                (fun _ e -> (match get_node e with
+                                             | Some node -> f node;
+                                             | None      -> ());
+                                            false)
+              |> ignore
   | None -> ()
 (*          ;
   Dom_events.listen Dom_html.window

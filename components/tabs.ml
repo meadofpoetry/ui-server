@@ -103,7 +103,7 @@ module Tab_bar = struct
 
     object(self)
 
-      inherit Widget.widget elt ()
+      inherit Widget.widget elt () as super
 
       val mutable tabs = tabs
       val mdc : mdc Js.t = Js.Unsafe.global##.mdc##.tabs##.MDCTabBar##attachTo elt
@@ -111,6 +111,14 @@ module Tab_bar = struct
       method typ : [ `Text | `Icon | `Text_and_icon ] = typ
       method indicator_widget = indicator
       method tabs             = tabs
+
+
+      method indicator_default      = super#remove_class Markup.Tabs.Tab_bar.indicator_accent_class;
+                                      super#remove_class Markup.Tabs.Tab_bar.indicator_primary_class
+      method indicator_primary      = super#remove_class Markup.Tabs.Tab_bar.indicator_accent_class;
+                                      super#add_class Markup.Tabs.Tab_bar.indicator_primary_class
+      method indicator_accent       = super#remove_class Markup.Tabs.Tab_bar.indicator_primary_class;
+                                      super#add_class Markup.Tabs.Tab_bar.indicator_accent_class
 
       method active_tab_index       = mdc##.activeTabIndex
       method set_active_tab_index x = mdc##.activeTabIndex := x
