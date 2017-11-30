@@ -9,6 +9,5 @@ class t ?ripple ~icon () =
   object
     inherit widget elt () as super
     method button_element : Dom_html.buttonElement Js.t = elt
-    method mini     = super#add_class Fab.mini_class
-    method not_mini = super#remove_class Fab.mini_class
+    method set_mini x = Fab.mini_class |> (fun c -> if x then super#add_class c else super#remove_class c)
   end

@@ -19,14 +19,19 @@ let subsection name w = Html.div [ Html.h3 ~a:[Html.a_class [Typography.font_to_
 
 let button_demo () =
   let raised     = new Button.t ~label:"raised" () in
-  let flat       = new Button.t ~raised:false ~label:"flat" () in
+  let flat       = new Button.t ~label:"flat" () in
   let unelevated = new Button.t ~label:"unelevated" () in
-  let stroked    = new Button.t ~label:"stroked" ~raised:false () in
+  let stroked    = new Button.t ~label:"stroked" () in
   let ripple     = new Button.t ~label:"ripple" ~ripple:true () in
   let dense      = new Button.t ~label:"dense" () in
   let compact    = new Button.t ~label:"compact" () in
   let icon       = new Button.t ~label:"icon" ~icon:"favorite" () in
-  raised#raised; unelevated#unelevated; stroked#stroked; dense#dense; compact#compact;
+  raised#set_raised true;
+  flat#set_raised false;
+  unelevated#set_unelevated true;
+  stroked#set_stroked true; stroked#set_raised false;
+  dense#set_dense true;
+  compact#set_compact true;
   demo_section ~style:"display:flex; \
                        flex-direction:column;\
                        justify-content:flex-start;\
@@ -38,31 +43,32 @@ let fab_demo () =
   let fab    = new Fab.t ~icon:"favorite" () in
   let mini   = new Fab.t ~icon:"favorite" () in
   let ripple = new Fab.t ~ripple:true ~icon:"favorite" () in
-  mini#mini;
+  mini#set_mini true;
   demo_section "FAB" [ subsection "General" fab; subsection "Mini" mini; subsection "Ripple" ripple ]
 
 let radio_demo () =
   let radio1 = new Radio.t ~name:"radio" () in
   let radio2 = new Radio.t ~name:"radio" () in
   let radio3 = new Radio.t ~name:"radio" () in
-  radio2#disable;
+  radio2#set_disabled true;
   demo_section "Radio button" [ radio1; radio2; radio3 ]
 
 let checkbox_demo () =
-  let checkbox   = new Checkbox.t ~input_id:"checkbox-demo" () in
-  let form_field = new Form_field.t ~label:"checkbox label" ~input:checkbox () in
-  demo_section "Checkbox" [ subsection "Checkbox (css only)" @@ new Checkbox.t ~ripple:false ()
-                          ; subsection "Checkbox with label" form_field ]
+  let checkbox     = new Checkbox.t ~input_id:"checkbox-demo" () in
+  let css_checkbox = new Checkbox.t ~ripple:false () in
+  let form_field   = new Form_field.t ~label:"checkbox label" ~input:checkbox () in
+  let btn          = new Button.t ~label:"toggle indeterminate" () in
+  React.E.map (fun () -> checkbox#set_indeterminate @@ not checkbox#get_indeterminate;
+                         css_checkbox#set_indeterminate @@ not css_checkbox#get_indeterminate)
+              btn#e_click |> ignore;
+  demo_section "Checkbox" [ Widget.coerce @@ subsection "Checkbox (css only)" css_checkbox
+                          ; Widget.coerce @@ subsection "Checkbox with label" form_field
+                          ; Widget.coerce btn ]
 
 let switch_demo () =
   let switch   = new Switch.t ~input_id:"demo-switch" () in
   let form     = new Form_field.t ~label:"switch label" ~input:switch () in
-  Dom_html.addEventListener switch#input_element
-                            Dom_events.Typ.change
-                            (Dom_html.handler (fun _ -> "Switch is " ^ (if switch#checked then "on" else "off")
-                                                        |> print_endline;
-                                                        Js._false))
-                            Js._false |> ignore;
+  React.S.map (fun x -> print_endline @@ "Switch is " ^ (if x then "on" else "off")) switch#s_state |> ignore;
   demo_section "Switch" [ subsection "Switch" @@ new Switch.t (); subsection "Switch with label" form ]
 
 let toggle_demo () =
@@ -70,12 +76,7 @@ let toggle_demo () =
                    ~on_data:{ icon = "favorite"; label = None; css_class = None }
                    ~off_data:{ icon = "favorite_border"; label = None; css_class = None }
                    () in
-  Dom_html.addEventListener toggle#root
-                            Icon_toggle.events.change
-                            (Dom_html.handler (fun _ ->
-                                 print_endline ("Icon Toggle is " ^ (if toggle#is_on then "on" else "off"));
-                                 Js._false))
-                            Js._false |> ignore;
+  React.S.map (fun x -> print_endline @@ "Icon toggle is " ^ (if x then "on" else "off")) toggle#s_state |> ignore;
   demo_section "Icon toggle" [ toggle ]
 
 let card_demo () =
@@ -90,34 +91,25 @@ let card_demo () =
   let primary  = new Card.Primary.t ~widgets:[ Widget.coerce title; Widget.coerce subtitle ] () in
   let text     = new Card.Supporting_text.t ~text:"Supporting text" () in
   let actions  = new Card.Actions.t ~widgets:[ (let b = new Button.t ~label:"action 1" () in
-                                                b#compact; b#not_raised; b)
+                                                b#set_compact true; b#set_raised false; b)
                                              ; (let b = new Button.t ~label:"action 2" () in
-                                                b#compact; b#not_raised; b) ] () in
+                                                b#set_compact true; b#set_raised false; b) ] () in
   let card = new Card.t ~sections:[ `Media media; `Primary primary; `Text text; `Actions actions ] () in
   card#style##.width := Js.string "320px";
   demo_section "Card" [ card ]
 
 let slider_demo () =
   let listen elt name =
-    Dom_html.addEventListener elt
-                              Slider.events.input
-                              (Dom_html.handler (fun _ -> print_endline (Printf.sprintf "Input on %s slider!" name);
-                                                          Js._false))
-                              Js._false |> ignore;
-    Dom_html.addEventListener elt
-                              Slider.events.change
-                              (Dom_html.handler (fun e -> print_endline ((Printf.sprintf "Change on %s slider! " name)
-                                                                         ^ (e##.detail##.value |> string_of_float));
-                                                          Js._false))
-                              Js._false |> ignore in
+    (* React.E.map (fun x -> Printf.printf "Input on %s slider, value = %f\n" name x) elt#e_input |> ignore; *)
+    React.E.map (fun x -> Printf.printf "Change on %s slider, value = %f\n" name x) elt#e_change |> ignore in
   let continuous   = new Slider.t () in
   let discrete     = new Slider.t ~discrete:true () in
   let with_markers = new Slider.t ~discrete:true ~markers:true () in
   let disabled     = new Slider.t () in
-  disabled#disable;
-  listen continuous#root "continuous";
-  listen discrete#root "discrete";
-  listen with_markers#root "markered";
+  disabled#set_disabled true;
+  listen continuous "continuous";
+  listen discrete "discrete";
+  listen with_markers "markered";
   Dom_html.setTimeout (fun () -> continuous#layout; discrete#layout; with_markers#layout) 100. |> ignore;
   demo_section "Slider" [ subsection "Continuous slider" continuous
                         ; subsection "Discrete slider" discrete
@@ -162,18 +154,8 @@ let layout_grid_demo () =
                        (CCList.range 0 15) in
   let btn2 = new Button.t ~label:"set span 1" () in
   let btn4 = new Button.t ~label:"set span 2" () in
-  Dom_html.addEventListener btn2#root
-                            Dom_events.Typ.click
-                            (Dom_html.handler (fun _ -> (CCList.get_at_idx_exn 4 cells)
-                                                        |> (fun cell -> cell#set_span 1);
-                                                        Js._false))
-                            Js._false |> ignore;
-  Dom_html.addEventListener btn4#root
-                            Dom_events.Typ.click
-                            (Dom_html.handler (fun _ -> (CCList.get_at_idx_exn 4 cells)
-                                                        |> (fun cell -> cell#set_span 2);
-                                                        Js._false))
-                            Js._false |> ignore;
+  React.E.map (fun () -> (CCList.get_at_idx_exn 4 cells)#set_span 1) btn2#e_click |> ignore;
+  React.E.map (fun () -> (CCList.get_at_idx_exn 4 cells)#set_span 2) btn4#e_click |> ignore;
   let layout_grid = new Layout_grid.t ~cells () in
   demo_section "Layout grid" [ Widget.coerce layout_grid; Widget.coerce btn2; Widget.coerce btn4 ]
 
@@ -186,18 +168,9 @@ let dialog_demo () =
                             ]
                    () in
   let button = new Button.t ~label:"show dialog" () in
-  Dom_html.addEventListener button#root
-                            Dom_events.Typ.click
-                            (Dom_html.handler (fun _ -> dialog#show; Js._false))
-                            Js._false |> ignore;
-  Dom_html.addEventListener dialog#root
-                            Dialog.events.accept
-                            (Dom_html.handler (fun _ -> print_endline "Dialog accepted!"; Js._false))
-                            Js._false |> ignore;
-  Dom_html.addEventListener dialog#root
-                            Dialog.events.cancel
-                            (Dom_html.handler (fun _ -> print_endline "Dialog cancelled!"; Js._false))
-                            Js._false |> ignore;
+  React.E.map (fun () -> dialog#show) button#e_click |> ignore;
+  React.E.map (fun () -> print_endline "Dialog accepted") dialog#e_accept |> ignore;
+  React.E.map (fun () -> print_endline "Dialog cancelled") dialog#e_cancel |> ignore;
   demo_section "Dialog" [ Widget.coerce dialog; Widget.coerce button ]
 
 let list_demo () =
@@ -256,7 +229,7 @@ let menu_demo () =
   anchor#style##.marginBottom := Js.string "50px";
   let menu    = new Menu.t ~items () in
   let wrapper = new Menu.Wrapper.t ~menu ~anchor () in
-  menu#dense;
+  menu#set_dense true;
   let icon_anchor = new Icon.Font.t ~icon:"more_horiz" () in
   let icon_menu   = new Menu.t
                         ~items:[ `Item (new Menu.Item.t ~text:"Item 1" ())
@@ -264,11 +237,7 @@ let menu_demo () =
                                ; `Item (new Menu.Item.t ~text:"Item 3" ()) ]
                         () in
   let icon_wrapper = new Menu.Wrapper.t ~menu:icon_menu ~anchor:icon_anchor () in
-  Dom_html.addEventListener anchor#root
-                            Dom_events.Typ.click
-                            (Dom_html.handler (fun _ -> menu#show; Js._false))
-                            Js._false
-  |> ignore;
+  React.E.map (fun () -> menu#show) anchor#e_click      |> ignore;
   Dom_html.addEventListener icon_anchor#root
                             Dom_events.Typ.click
                             (Dom_html.handler (fun _ -> icon_menu#show; Js._false))
@@ -291,11 +260,7 @@ let menu_demo () =
 
 let linear_progress_demo () =
   let linear_progress = new Linear_progress.t () in
-  linear_progress#indeterminate;
-  let listen x h = Dom_html.addEventListener x#root
-                                             Dom_events.Typ.click
-                                             (Dom_html.handler (fun _ -> h (); Js._false))
-                                             Js._false |> ignore in
+  linear_progress#set_indeterminate true;
   let ind_btn   = new Button.t ~label:"indeterminate" () in
   let det_btn   = new Button.t ~label:"determinate" () in
   let pgs0_btn  = new Button.t ~label:"progress 0" () in
@@ -306,16 +271,16 @@ let linear_progress_demo () =
   let buf70_btn = new Button.t ~label:"buffer 70" () in
   let open_btn  = new Button.t ~label:"open" () in
   let close_btn = new Button.t ~label:"close" () in
-  listen ind_btn   (fun () -> linear_progress#indeterminate);
-  listen det_btn   (fun () -> linear_progress#determinate);
-  listen pgs0_btn  (fun () -> linear_progress#set_progress 0.);
-  listen pgs20_btn (fun () -> linear_progress#set_progress 0.2);
-  listen pgs60_btn (fun () -> linear_progress#set_progress 0.6);
-  listen buf10_btn (fun () -> linear_progress#set_buffer 0.1);
-  listen buf30_btn (fun () -> linear_progress#set_buffer 0.3);
-  listen buf70_btn (fun () -> linear_progress#set_buffer 0.7);
-  listen open_btn  (fun () -> linear_progress#show);
-  listen close_btn (fun () -> linear_progress#hide);
+  React.E.map (fun () -> linear_progress#set_indeterminate true) ind_btn#e_click  |> ignore;
+  React.E.map (fun () -> linear_progress#set_indeterminate false) det_btn#e_click |> ignore;
+  React.E.map (fun () -> linear_progress#set_progress 0.) pgs0_btn#e_click        |> ignore;
+  React.E.map (fun () -> linear_progress#set_progress 0.2) pgs20_btn#e_click      |> ignore;
+  React.E.map (fun () -> linear_progress#set_progress 0.6) pgs60_btn#e_click      |> ignore;
+  React.E.map (fun () -> linear_progress#set_buffer 0.1) buf10_btn#e_click        |> ignore;
+  React.E.map (fun () -> linear_progress#set_buffer 0.3) buf30_btn#e_click        |> ignore;
+  React.E.map (fun () -> linear_progress#set_buffer 0.7) buf70_btn#e_click        |> ignore;
+  React.E.map (fun () -> linear_progress#show) open_btn#e_click                   |> ignore;
+  React.E.map (fun () -> linear_progress#hide) close_btn#e_click                  |> ignore;
   let cells = List.map (fun x -> new Layout_grid.Cell.t ~widgets:[x] ()
                                  |> (fun x -> x#set_span 12; x))
                        [ind_btn  ; det_btn  ; pgs0_btn ; pgs20_btn; pgs60_btn;
@@ -346,10 +311,6 @@ let tabs_demo () =
                       ; subsection "With scroller" scrl_bar ]
 
 let snackbar_demo () =
-  let listen x h = Dom_html.addEventListener x#root
-                                             Dom_events.Typ.click
-                                             (Dom_html.handler (fun _ -> h (); Js._false))
-                                             Js._false |> ignore in
   let snackbar = new Snackbar.t
                      ~message:"I am a snackbar"
                      ~action:{ handler = (fun () -> print_endline "Clicked on snackbar action")
@@ -363,8 +324,8 @@ let snackbar_demo () =
                      () in
   let snackbar_btn = new Button.t ~label:"Open snackbar" () in
   let aligned_btn  = new Button.t ~label:"Open start-aligned snackbar" () in
-  listen snackbar_btn (fun () -> snackbar#show);
-  listen aligned_btn (fun () -> aligned#show);
+  React.E.map (fun () -> snackbar#show) snackbar_btn#e_click |> ignore;
+  React.E.map (fun () -> aligned#show) aligned_btn#e_click |> ignore;
   Dom.appendChild Dom_html.document##.body snackbar#root;
   Dom.appendChild Dom_html.document##.body aligned#root;
   demo_section "Snackbar" [ snackbar_btn; aligned_btn ]
@@ -381,7 +342,7 @@ let textfield_demo () =
                                 ; text       = "This field must not be empty"
                                 }
                      () in
-  js#required;
+  js#set_required true;
   (* Dense js textbox with *)
   let dense    = new Textfield.t
                      ~label:"dense textfield label"
@@ -391,7 +352,7 @@ let textfield_demo () =
                                 ; text       = "Provide valid e-mail"
                                 }
                      () in
-  dense#dense;
+  dense#set_dense true;
   (* Textboxes with icons *)
   let lead_icon  = new Textfield.t
                        ~label:"textfield label"
@@ -425,7 +386,7 @@ let select_demo () =
                                                    ())
                                      (CCList.range 0 5))
                     () in
-  js#dense;
+  js#set_dense true;
   let pure    = new Select.Pure.t
                     ~items:[ `Group (new Select.Pure.Group.t
                                          ~label:"Group 1"
@@ -499,14 +460,8 @@ let elevation_demo () =
                          |> To_dom.of_element) in
   let btn2 = new Button.t ~label:"elevation 2" () in
   let btn8 = new Button.t ~label:"elevation 8" () in
-  Dom_html.addEventListener btn2#root
-                            Dom_events.Typ.click
-                            (Dom_html.handler (fun _ -> Elevation.set_elevation d 2; Js._false))
-                            Js._false |> ignore;
-  Dom_html.addEventListener btn8#root
-                            Dom_events.Typ.click
-                            (Dom_html.handler (fun _ -> Elevation.set_elevation d 8; Js._false))
-                            Js._false |> ignore;
+  React.E.map (fun () -> Elevation.set_elevation d 2) btn2#e_click |> ignore;
+  React.E.map (fun () -> Elevation.set_elevation d 8) btn8#e_click |> ignore;
   demo_section "Elevation" [ Widget.coerce d; Widget.coerce btn2; Widget.coerce btn8 ]
 
 let drawer_demo () =

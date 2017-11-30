@@ -8,7 +8,7 @@ type storage     = Flash | Ram
 (* Ip types *)
 type status    = Enabled | Disabled | Failure [@@deriving yojson]
 type protocol  = Udp | Rtp [@@deriving yojson]
-type output    = Asi | Spi 
+type output    = Asi | Spi
 type packet_sz = Ts188 | Ts204 [@@deriving yojson]
 type rate_mode = On | Fixed | Without_pcr | Off [@@deriving yojson]
 
@@ -81,9 +81,9 @@ type board_status =
   } [@@deriving yojson]
 
 let status_to_string = function
-  | Enabled -> "Channel is enabled; No errors detected"
+  | Enabled  -> "Channel is enabled; No errors detected"
   | Disabled -> "Channel has been disabled"
-  | Failure -> "Channel is enabled, but there is a problem when processing of the received IP stream"
+  | Failure  -> "Channel is enabled, but there is a problem when processing of the received IP stream"
 
 let protocol_to_string = function
   | Udp -> "UDP"
@@ -114,7 +114,7 @@ type config = { nw : nw
 let config_to_string c = Yojson.Safe.to_string @@ config_to_yojson c
 
 let config_of_string s = config_of_yojson @@ Yojson.Safe.from_string s
-            
+
 let config_default = { nw = { ip        = Ipaddr.V4.of_string_exn "192.168.111.68"
                             ; mask      = Ipaddr.V4.of_string_exn "255.255.255.0"
                             ; gateway   = Ipaddr.V4.of_string_exn "192.168.111.1"

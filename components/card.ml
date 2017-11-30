@@ -8,10 +8,10 @@ module Title = struct
   class t ?large ~title () = object
     inherit widget (Markup.Card.Primary.create_title ?large ~title () |> To_dom.of_h1) () as super
 
-    method large     = super#add_class Markup.Card.Primary.large_title_class
-    method not_large = super#remove_class Markup.Card.Primary.large_title_class
+    method set_large x = Markup.Card.Primary.large_title_class
+                         |> (fun c -> if x then super#add_class c else super#remove_class c)
 
-    method title       = super#text_content
+    method get_title   = super#get_text_content |> CCOpt.get_or ~default:""
     method set_title s = super#set_text_content s
   end
 
@@ -22,7 +22,7 @@ module Subtitle = struct
   class t ~subtitle () = object
     inherit widget (Markup.Card.Primary.create_subtitle ~subtitle () |> To_dom.of_h2) () as super
 
-    method subtitle       = super#text_content
+    method get_subtitle   = super#get_text_content |> CCOpt.get_or ~default:""
     method set_subtitle s = super#set_text_content s
   end
 
@@ -36,7 +36,7 @@ module Media_item = struct
 
     inherit Widget.widget widget () as super
 
-    method height        = height
+    method get_height    = height
     method remove_height = (match height with
                             | None -> ()
                             | Some `Height_1_5 -> super#remove_class Markup.Card.Media_item.height_1dot5x_class
@@ -62,7 +62,7 @@ module Media_item = struct
       inherit t ~widget:elt ()
 
       method image_element : Dom_html.imageElement Js.t = elt
-      method src       = Js.to_string self#image_element##.src
+      method get_src   = Js.to_string self#image_element##.src
       method set_src s = self#image_element##.src := Js.string s
 
     end
@@ -78,9 +78,9 @@ module Actions = struct
     object
       val mutable widgets : widget list = List.map (fun x -> (x :> Widget.widget)) widgets
       inherit widget elt () as super
-      method widgets = widgets
-      method vertical   = super#add_class Markup.Card.Actions.vertical_class
-      method horizontal = super#remove_class Markup.Card.Actions.vertical_class
+      method get_widgets = widgets
+      method set_vertical x = Markup.Card.Actions.vertical_class
+                              |> (fun c -> if x then super#add_class c else super#remove_class c)
 
       initializer
         List.iter (fun x -> x#add_class Markup.Card.Actions.action_class) widgets
@@ -96,7 +96,7 @@ module Media = struct
     object
       val mutable widgets : widget list = List.map (fun x -> (x :> Widget.widget)) widgets
       inherit widget elt ()
-      method widgets = widgets
+      method get_widgets = widgets
     end
 
 end
@@ -111,7 +111,7 @@ module Primary = struct
     object
       val mutable widgets : widget list = List.map (fun x -> (x :> Widget.widget)) widgets
       inherit widget elt ()
-      method widgets = widgets
+      method get_widgets = widgets
     end
 
 end
@@ -123,7 +123,7 @@ module Supporting_text = struct
               |> To_dom.of_section in
     object
       inherit widget elt () as super
-      method text       = super#text_content
+      method get_text   = super#get_text_content |> CCOpt.get_or ~default:""
       method set_text s = super#set_text_content s
     end
 
@@ -147,15 +147,15 @@ class t ~(sections:sections) () =
     inherit widget elt ()
     val mutable sections = sections
 
-    method sections = sections
+    method get_sections = sections
 
-    method get_primary = CCList.find_map (function `Primary x -> Some x | _ -> None) self#sections
-    method get_actions = CCList.find_map (function `Actions x -> Some x | _ -> None) self#sections
-    method get_media   = CCList.find_map (function `Media x -> Some x   | _ -> None) self#sections
-    method get_text    = CCList.find_map (function `Text x -> Some x    | _ -> None) self#sections
+    method get_primary = CCList.find_map (function `Primary x -> Some x | _ -> None) self#get_sections
+    method get_actions = CCList.find_map (function `Actions x -> Some x | _ -> None) self#get_sections
+    method get_media   = CCList.find_map (function `Media x -> Some x   | _ -> None) self#get_sections
+    method get_text    = CCList.find_map (function `Text x -> Some x    | _ -> None) self#get_sections
 
-    method get_all_primary = CCList.filter_map (function `Primary x -> Some x | _ -> None) self#sections
-    method get_all_actions = CCList.filter_map (function `Actions x -> Some x | _ -> None) self#sections
-    method get_all_media   = CCList.filter_map (function `Media x -> Some x   | _ -> None) self#sections
-    method get_all_text    = CCList.filter_map (function `Text x -> Some x    | _ -> None) self#sections
+    method get_all_primary = CCList.filter_map (function `Primary x -> Some x | _ -> None) self#get_sections
+    method get_all_actions = CCList.filter_map (function `Actions x -> Some x | _ -> None) self#get_sections
+    method get_all_media   = CCList.filter_map (function `Media x -> Some x   | _ -> None) self#get_sections
+    method get_all_text    = CCList.filter_map (function `Text x -> Some x    | _ -> None) self#get_sections
   end

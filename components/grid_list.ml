@@ -1,30 +1,21 @@
-open Widget
-open Markup
-open Tyxml_js
-
 module Tile = struct
 
   module Primary = struct
 
-    class content ?src ?alt ?is_div () = object
-      inherit widget (Grid_list.Tile.Primary.create_content ?src ?alt ?is_div () |> To_dom.of_element) ()
-    end
-
     class t ?src ?alt ?(is_div=false) () =
 
-      let content = new content ?src ?alt ~is_div () in
-
-      let elt = Grid_list.Tile.Primary.create ~content:(widget_to_markup content) ()
-                |> To_dom.of_div in
-
+      let content = new Widget.widget (Markup.Grid_list.Tile.Primary.create_content ?src ?alt ~is_div ()
+                                       |> Tyxml_js.To_dom.of_element) () in
+      let elt     = Markup.Grid_list.Tile.Primary.create ~content:(Widget.widget_to_markup content) ()
+                    |> Tyxml_js.To_dom.of_div in
       object
 
         val content_widget = content
         val mutable src = src
 
-        inherit widget elt ()
-        method content_widget = content_widget
-        method src       = src
+        inherit Widget.widget elt ()
+        method get_content_widget = content_widget
+        method get_src   = src
         method set_src s = if is_div
                            then content_widget#style##.backgroundImage := Js.string ("url(" ^ s ^ ")")
                            else (Js.Unsafe.coerce content_widget#root)##.src := Js.string s;
@@ -37,15 +28,16 @@ module Tile = struct
   module Caption = struct
 
     class title ~title () = object
-      inherit widget (Grid_list.Tile.Caption.create_title ~text:title () |> To_dom.of_element) () as super
-      method text       = super#text_content
+      inherit Widget.widget (Markup.Grid_list.Tile.Caption.create_title ~text:title ()
+                             |> Tyxml_js.To_dom.of_element) () as super
+      method get_text   = super#get_text_content |> CCOpt.get_or ~default:""
       method set_text s = super#set_text_content s
     end
 
     class support_text ~support_text () = object
-      inherit widget (Grid_list.Tile.Caption.create_support_text ~text:support_text ()
-                      |> To_dom.of_element) () as super
-      method text       = super#text_content
+      inherit Widget.widget (Markup.Grid_list.Tile.Caption.create_support_text ~text:support_text ()
+                             |> Tyxml_js.To_dom.of_element) () as super
+      method get_text   = super#get_text_content |> CCOpt.get_or ~default:""
       method set_text s = super#set_text_content s
     end
 
@@ -53,31 +45,31 @@ module Tile = struct
 
       let title_widget = CCOpt.map (fun x -> new title ~title:x ()) title in
       let support_text_widget = CCOpt.map (fun x -> new support_text ~support_text:x ()) support_text in
-      let () = CCOpt.iter (fun x -> x#add_class Grid_list.Tile.Caption.icon_class) icon in
-
-      let elt = Grid_list.Tile.Caption.create
-                  ?title:(CCOpt.map widget_to_markup title_widget)
-                  ?support_text:(CCOpt.map widget_to_markup support_text_widget)
-                  ?icon:(CCOpt.map widget_to_markup icon)
+      let elt = Markup.Grid_list.Tile.Caption.create
+                  ?title:(CCOpt.map Widget.widget_to_markup title_widget)
+                  ?support_text:(CCOpt.map Widget.widget_to_markup support_text_widget)
+                  ?icon:(CCOpt.map Widget.widget_to_markup icon)
                   ()
-                |> To_dom.of_element in
+                |> Tyxml_js.To_dom.of_element in
 
       object(self)
 
         val title_widget        = title_widget
         val support_text_widget = support_text_widget
 
-        inherit widget elt ()
+        inherit Widget.widget elt ()
 
-        method title_widget        = title_widget
-        method support_text_widget = support_text_widget
+        method get_title_widget        = title_widget
+        method get_support_text_widget = support_text_widget
 
-        method support_text = CCOpt.map (fun x -> x#text) self#support_text_widget
-        method title        = CCOpt.map (fun x -> x#text) self#title_widget
+        method get_support_text   = CCOpt.map  (fun x -> x#get_text)   self#get_support_text_widget
+        method set_support_text s = CCOpt.iter (fun x -> x#set_text s) self#get_support_text_widget
 
-        method set_support_text s = CCOpt.iter (fun x -> x#set_text s) self#support_text_widget
-        method set_title        s = CCOpt.iter (fun x -> x#set_text s) self#title_widget
+        method get_title   = CCOpt.map  (fun x -> x#get_text)   self#get_title_widget
+        method set_title s = CCOpt.iter (fun x -> x#set_text s) self#get_title_widget
 
+        initializer
+          CCOpt.iter (fun x -> x#add_class Markup.Grid_list.Tile.Caption.icon_class) icon
       end
 
   end
@@ -88,20 +80,20 @@ module Tile = struct
                           | None,None,None -> None
                           | _              -> Some (new Caption.t ?title ?support_text ?icon ())) in
     let primary_widget = new Primary.t ~is_div:true ?src () in
-    let elt = Grid_list.Tile.create ~primary:(widget_to_markup primary_widget)
-                                    ?caption:(CCOpt.map widget_to_markup caption_widget)
-                                    ()
-              |> To_dom.of_element in
+    let elt = Markup.Grid_list.Tile.create ~primary:(Widget.widget_to_markup primary_widget)
+                                           ?caption:(CCOpt.map Widget.widget_to_markup caption_widget)
+                                           ()
+              |> Tyxml_js.To_dom.of_element in
 
     object
 
       val caption_widget = caption_widget
       val primary_widget = primary_widget
 
-      inherit widget elt ()
+      inherit Widget.widget elt ()
 
-      method caption_widget = caption_widget
-      method primary_widget = primary_widget
+      method get_caption_widget = caption_widget
+      method get_primary_widget = primary_widget
 
     end
 
@@ -111,38 +103,32 @@ type ar = [ `AR_1_1 | `AR_16_9 | `AR_2_3 | `AR_3_2 | `AR_4_3 | `AR_3_4 ]
 
 class t ~(tiles:Tile.t list) () =
 
-  let twoline = CCList.find_pred (fun x -> match x#caption_widget with
-                                           | Some c -> CCOpt.is_some c#support_text
-                                           | None   -> false) tiles
-                |> CCOpt.is_some in
-
-  let elt = Grid_list.create ~tiles:(widgets_to_markup tiles) () |> To_dom.of_div in
+  let twoline = CCList.find_pred (fun x -> match x#get_caption_widget with
+                                           | Some c -> CCOpt.is_some c#get_support_text_widget
+                                           | None   -> false) tiles |> CCOpt.is_some in
+  let elt = Markup.Grid_list.create ~tiles:(Widget.widgets_to_markup tiles) () |> Tyxml_js.To_dom.of_div in
 
   object(self)
 
     val tiles = tiles
     val mutable ar : ar option = None
 
-    inherit widget elt () as super
+    inherit Widget.widget elt () as super
 
-    method tiles = tiles
+    method get_tiles = tiles
 
-    method ar            = ar
-    method remove_ar     = CCOpt.iter (fun x -> super#remove_class @@ Grid_list.ar_to_class x) ar
-    method set_ar (x:ar) = self#remove_ar; super#add_class @@ Grid_list.ar_to_class x
+    method get_ar        = ar
+    method remove_ar     = CCOpt.iter (fun x -> super#remove_class @@ Markup.Grid_list.ar_to_class x) ar
+    method set_ar (x:ar) = self#remove_ar; super#add_class @@ Markup.Grid_list.ar_to_class x
 
-    method one_px_gutter  = super#add_class Grid_list.tile_gutter_1_class
-    method default_gutter = super#remove_class Grid_list.tile_gutter_1_class
-
-    method caption_as_header = super#add_class Grid_list.header_caption_class
-    method caption_as_footer = super#remove_class Grid_list.header_caption_class
-
-    method icon_align_start  = super#remove_class Grid_list.icon_align_end_class;
-                               super#add_class Grid_list.icon_align_start_class
-    method icon_align_end    = super#remove_class Grid_list.icon_align_start_class;
-                               super#add_class Grid_list.icon_align_end_class
-
+    method private add_or_rm_class x c = if x then super#add_class c else super#remove_class c
+    method set_one_px_gutter x         = self#add_or_rm_class x Markup.Grid_list.tile_gutter_1_class
+    method set_caption_as_header x     = self#add_or_rm_class x Markup.Grid_list.header_caption_class
+    method set_icon_align_start        = super#remove_class Markup.Grid_list.icon_align_end_class;
+                                         super#add_class Markup.Grid_list.icon_align_start_class
+    method set_icon_align_end          = super#remove_class Markup.Grid_list.icon_align_start_class;
+                                         super#add_class Markup.Grid_list.icon_align_end_class
     initializer
-      if twoline then super#add_class Grid_list.twoline_caption_class
+      if twoline then super#add_class Markup.Grid_list.twoline_caption_class
 
   end

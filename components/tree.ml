@@ -29,11 +29,10 @@ module Item = struct
 
       inherit Widget.widget elt () as super
 
-      method item           = item
-      method text           = item#text
-      method secondary_text = item#secondary_text
-
-      method nested_tree : 'a option = nested
+      method get_item           = item
+      method get_text           = item#get_text
+      method get_secondary_text = item#get_secondary_text
+      method get_nested_tree : 'a option = nested
 
       initializer
         CCOpt.iter (fun x -> x#add_class Markup.Tree.Item.nested_list_class;
@@ -52,7 +51,7 @@ end
 
 class t ~(items:t Item.t list) () =
 
-  let two_line = CCOpt.is_some @@ CCList.find_pred (fun x -> CCOpt.is_some x#secondary_text) items in
+  let two_line = CCOpt.is_some @@ CCList.find_pred (fun x -> CCOpt.is_some x#get_secondary_text) items in
   let elt = Markup.Tree.create ~two_line ~items:(Widget.widgets_to_markup items) ()
             |> Tyxml_js.To_dom.of_element in
 
@@ -62,18 +61,19 @@ class t ~(items:t Item.t list) () =
 
     inherit Widget.widget elt () as super
 
-    method dense        = super#add_class Markup.List_.dense_class;
-                          self#iter (fun (i:t Item.t) -> CCOpt.iter (fun (x:t) -> x#dense) i#nested_tree)
-    method bordered     = super#add_class Markup.List_.bordered_class
-    method not_dense    = super#remove_class Markup.List_.dense_class;
-                          self#iter (fun (i:t Item.t) -> CCOpt.iter (fun (x:t) -> x#not_dense) i#nested_tree)
-    method not_bordered = super#remove_class Markup.List_.bordered_class
+    method get_items   = items
+    method set_dense x = if x
+                         then (super#add_class Markup.List_.dense_class;
+                               self#iter (fun (i:t Item.t) -> CCOpt.iter (fun (t:t) -> t#set_dense x)
+                                                                         i#get_nested_tree))
+                         else (super#remove_class Markup.List_.dense_class;
+                               self#iter (fun (i:t Item.t) -> CCOpt.iter (fun (t:t) -> t#set_dense x)
+                                                                         i#get_nested_tree))
 
-    method iter f = let rec iter l = CCList.iter (fun (x : t Item.t) -> f x; match x#nested_tree with
-                                                                             | Some n -> iter n#items
-                                                                             | None   -> ()) l in
-                    iter self#items
-
-    method items = items
+    method private iter f = let rec iter l = CCList.iter (fun (x : t Item.t) -> f x;
+                                                                                match x#get_nested_tree with
+                                                                                | Some n -> iter n#get_items
+                                                                                | None   -> ()) l in
+                            iter self#get_items
 
   end

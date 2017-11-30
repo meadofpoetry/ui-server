@@ -8,13 +8,13 @@ module Structure = struct
       | Empty   -> "Empty " ^ pid.stream_type_name, ""
       | Audio a -> "Audio " ^ pid.stream_type_name, Printf.sprintf "Codec: %s; Bitrate: %s;" a.codec a.bitrate
       | Video v -> "Video " ^ pid.stream_type_name, Printf.sprintf "Codec: %s; Resolution: %dx%d;"
-                                                      v.codec (fst v.resolution) (snd v.resolution)
+                                                                   v.codec (fst v.resolution) (snd v.resolution)
     in
     let checkbox       = new Checkbox.t ~ripple:false () in
-    checkbox#set_check pid.to_be_analyzed;
+    checkbox#set_checked pid.to_be_analyzed;
     let s, push        = React.S.create pid.to_be_analyzed in
     let pid_s          = React.S.map (fun b -> {pid with to_be_analyzed = b}) s in
-    checkbox#input_element##.onchange := Dom.handler (fun _ -> let b = React.S.value s in push @@ not b; Js._true);
+    React.S.map push checkbox#s_state |> ignore;
     new Tree.Item.t ~text ~secondary_text:stext ~start_detail:checkbox (), pid_s
 
   let make_channel (ch : Structure.channel) =
@@ -46,7 +46,7 @@ module Structure = struct
     let wl, sl = CCList.split @@ CCList.map make_structure sl in
     let sl_s   = React.S.merge ~eq:(==) (fun a p -> p::a) [] sl in
     let lst    = new Tree.t ~items:wl () in
-    lst#dense;
+    lst#set_dense true;
     lst#style##.maxWidth := Js.string "400px";
     lst, sl_s
 

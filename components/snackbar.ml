@@ -1,7 +1,3 @@
-open Widget
-open Markup
-open Tyxml_js
-
 type action =
   { handler : unit -> unit
   ; text    : string
@@ -54,7 +50,7 @@ class t ?start_aligned ?action ~message () =
 
   object
 
-    inherit widget elt () as super
+    inherit Widget.widget elt () as super
 
     val mutable data_obj : data_obj Js.t = data_to_js_obj data
     val mutable data     : data = data
@@ -63,42 +59,35 @@ class t ?start_aligned ?action ~message () =
 
     method show = mdc##show data_obj
 
-    method start_aligned     = super#add_class Markup.Snackbar.align_start_class
-    method not_start_aligned = super#remove_class Markup.Snackbar.align_start_class
+    method set_start_aligned x = Markup.Snackbar.align_start_class
+                                 |> (fun c -> if x then super#add_class c else super#remove_class c)
 
-    method dismisses_on_action   = Js.to_bool mdc##.dismissesOnAction
-    method dismiss_on_action     = mdc##.dismissesOnAction := Js._true
-    method not_dismiss_on_action = mdc##.dismissesOnAction := Js._false
+    method get_dismiss_on_action   = Js.to_bool mdc##.dismissesOnAction
+    method set_dismiss_on_action x = mdc##.dismissesOnAction := Js.bool x
 
-    method data          = data
-    method set_data x    = data <- x; data_obj <- data_to_js_obj x
+    method get_data   = data
+    method set_data x = data <- x; data_obj <- data_to_js_obj x
 
-    method message       = data.message
+    method get_message   = data.message
     method set_message x = let new_data = { data with message = x } in
                            data <- new_data; data_obj <- data_to_js_obj new_data
 
-    method timeout             = data.timeout
-    method set_timeout x       = let new_data = { data with timeout = Some x } in
-                                 data <- new_data; data_obj <- data_to_js_obj new_data
-    method set_default_timeout = let new_data = { data with timeout = None } in
-                                 data <- new_data; data_obj <- data_to_js_obj new_data
-
-    method action        = data.action
-    method set_action x  = let new_data = { data with action = Some x } in
+    method get_timeout   = data.timeout
+    method set_timeout x = let new_data = { data with timeout = Some x } in
                            data <- new_data; data_obj <- data_to_js_obj new_data
+
+    method get_action   = data.action
+    method set_action x = let new_data = { data with action = Some x } in
+                          data <- new_data; data_obj <- data_to_js_obj new_data
     method remove_action = let new_data = { data with action = None } in
                            data <- new_data; data_obj <- data_to_js_obj new_data
 
-    method multiline       = data.multiline
-    method set_multiline   = let new_data = { data with multiline = true } in
-                             data <- new_data; data_obj <- data_to_js_obj new_data
-    method set_single_line = let new_data = { data with multiline = false } in
+    method get_multiline   = data.multiline
+    method set_multiline x = let new_data = { data with multiline = x } in
                              data <- new_data; data_obj <- data_to_js_obj new_data
 
-    method action_on_bottom       = data.action_on_bottom
-    method set_action_on_bottom   = let new_data = { data with action_on_bottom = true } in
-                                    data <- new_data; data_obj <- data_to_js_obj new_data
-    method unset_action_on_bottom = let new_data = { data with action_on_bottom = false } in
+    method get_action_on_bottom   = data.action_on_bottom
+    method set_action_on_bottom x = let new_data = { data with action_on_bottom = x } in
                                     data <- new_data; data_obj <- data_to_js_obj new_data
 
   end

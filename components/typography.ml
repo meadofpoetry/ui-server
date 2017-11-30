@@ -30,7 +30,7 @@ let font_to_class = function
 
 let remove (elt:#Widget.widget) =
   CCList.iter (fun x -> if CCString.prefix ~pre:Typography.base_class x then elt#remove_class x)
-              elt#classes
+              elt#get_classes
 
 let set ?(adjust_margin=true) ~font (elt:#Widget.widget) =
   remove elt;

@@ -51,6 +51,28 @@ let config api () =
   api.config () >>= fun conf ->
   respond_js (config_to_yojson conf) ()
 
+let state state () =
+  respond_js (Common.Topology.state_to_yojson @@ Lwt_react.S.value state) ()
+
+let state_sock sock_data state body =
+  let id = rand_int () in
+  Cohttp_lwt_body.drain_body body
+  >>= fun () ->
+  Websocket_cohttp_lwt.upgrade_connection
+    (fst sock_data)
+    (snd sock_data)
+    (fun f -> match f.opcode with
+              | Opcode.Close -> Hashtbl.remove socket_table id
+              | _ -> ())
+  >>= fun (resp, body, frames_out_fn) ->
+  let send x =
+    let msg = Yojson.Safe.to_string @@ x in
+    frames_out_fn @@ Some (Frame.create ~content:msg ())
+  in
+  let sock_events = Lwt_react.E.map (send % Common.Topology.state_to_yojson) @@ Lwt_react.S.changes state in
+  Hashtbl.add socket_table id sock_events;
+  Lwt.return (resp, (body :> Cohttp_lwt_body.t))
+
 let status sock_data (events : events) body =
   let id = rand_int () in
   Cohttp_lwt_body.drain_body body
@@ -72,33 +94,32 @@ let status sock_data (events : events) body =
 
 let page id =
   respond_html_elt
-    Tyxml.Html.(div [ h2 [ pcdata "Test" ];
-                      p  [ pcdata ("Dektec ip2ts board " ^ (string_of_int id)) ];
-                      div ~a:[ a_id "ip_widgets" ] [  ] ] )
-    ()
+    Tyxml.Html.(div [ div ~a:[ a_id "ip_widgets" ] [ ] ] ) ()
 
-let handle api events id _ meth args sock_data _ body =
+let handle api events id s_state _ meth args sock_data _ body =
   let open Api.Redirect in
   (* let redirect_if_guest = redirect_if (User.eq id `Guest) in *)
   match meth, args with
-  | `POST, ["address"]   -> address api body
-  | `POST, ["mask"]      -> mask api body
-  | `POST, ["gateway"]   -> gateway api body
-  | `POST, ["dhcp"]      -> dhcp api body
-  | `POST, ["enable"]    -> enable api body
-  | `POST, ["fec"]       -> fec api body
-  | `POST, ["port"]      -> port api body
-  | `POST, ["multicast"] -> multicast api body
-  | `POST, ["delay"]     -> delay api body
-  | `POST, ["rate_mode"] -> rate_mode api body
-  | `POST, ["reset"]     -> reset api ()
-  | `GET,  []            -> page id
-  | `GET,  ["config"]    -> config api ()
-  | `GET,  ["status"]    -> status sock_data events body
+  | `POST, ["address"]    -> address api body
+  | `POST, ["mask"]       -> mask api body
+  | `POST, ["gateway"]    -> gateway api body
+  | `POST, ["dhcp"]       -> dhcp api body
+  | `POST, ["enable"]     -> enable api body
+  | `POST, ["fec"]        -> fec api body
+  | `POST, ["port"]       -> port api body
+  | `POST, ["multicast"]  -> multicast api body
+  | `POST, ["delay"]      -> delay api body
+  | `POST, ["rate_mode"]  -> rate_mode api body
+  | `POST, ["reset"]      -> reset api ()
+  | `GET,  []             -> page id
+  | `GET,  ["config"]     -> config api ()
+  | `GET,  ["status"]     -> status sock_data events body
+  | `GET,  ["state"]      -> state s_state ()
+  | `GET,  ["state_sock"] -> state_sock sock_data s_state body
   | _ -> not_found ()
 
-let handlers id api events =
+let handlers id api events state =
   [ (module struct
        let domain = Common.Topology.get_api_path id
-       let handle = handle api events id
+       let handle = handle api events id state
      end : Api_handler.HANDLER) ]

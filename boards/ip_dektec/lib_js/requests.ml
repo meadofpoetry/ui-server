@@ -61,3 +61,10 @@ let get_config control =
   
 let get_status_socket control =
   get_socket (Printf.sprintf "api/board/%d/status" control) board_status_of_yojson
+
+let get_state control =
+  get_js (Printf.sprintf "api/board/%d/state" control)
+  >|= CCResult.(flat_map Common.Topology.state_of_yojson)
+
+let get_state_socket control =
+  get_socket (Printf.sprintf "api/board/%d/state_sock" control) Common.Topology.state_of_yojson

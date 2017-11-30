@@ -43,17 +43,16 @@ module Tab = struct
 
       method anchor_element = elt
 
-      method href       = Js.to_string self#anchor_element##.href
+      method get_href   = Js.to_string self#anchor_element##.href
       method set_href s = self#anchor_element##.href := Js.string s
 
-      method content : tab_content = content
+      method get_content : tab_content = content
 
-      method active     = Js.to_bool mdc##.isActive
-      method activate   = mdc##.isActive := Js._true
-      method deactivate = mdc##.isActive := Js._false
+      method get_active   = Js.to_bool mdc##.isActive
+      method set_active x = mdc##.isActive := Js.bool x
 
-      method width = mdc##.computedWidth
-      method left  = mdc##.computedLeft
+      method get_width = mdc##.computedWidth
+      method get_left  = mdc##.computedLeft
 
     end
 
@@ -85,7 +84,7 @@ module Tab_bar = struct
 
   class t ~(tabs:Tab.t list) () =
 
-    let typ = List.map (fun x -> match x#content with
+    let typ = List.map (fun x -> match x#get_content with
                                  | `Text _          -> `Text
                                  | `Icon _          -> `Icon
                                  | `Text_and_icon _ -> `Text_and_icon) tabs
@@ -113,16 +112,16 @@ module Tab_bar = struct
       method tabs             = tabs
 
 
-      method indicator_default      = super#remove_class Markup.Tabs.Tab_bar.indicator_accent_class;
-                                      super#remove_class Markup.Tabs.Tab_bar.indicator_primary_class
-      method indicator_primary      = super#remove_class Markup.Tabs.Tab_bar.indicator_accent_class;
-                                      super#add_class Markup.Tabs.Tab_bar.indicator_primary_class
-      method indicator_accent       = super#remove_class Markup.Tabs.Tab_bar.indicator_primary_class;
-                                      super#add_class Markup.Tabs.Tab_bar.indicator_accent_class
+      method set_indicator_default = super#remove_class Markup.Tabs.Tab_bar.indicator_accent_class;
+                                     super#remove_class Markup.Tabs.Tab_bar.indicator_primary_class
+      method set_indicator_primary = super#remove_class Markup.Tabs.Tab_bar.indicator_accent_class;
+                                     super#add_class Markup.Tabs.Tab_bar.indicator_primary_class
+      method set_indicator_accent  = super#remove_class Markup.Tabs.Tab_bar.indicator_primary_class;
+                                     super#add_class Markup.Tabs.Tab_bar.indicator_accent_class
 
-      method active_tab_index       = mdc##.activeTabIndex
+      method get_active_tab_index   = mdc##.activeTabIndex
       method set_active_tab_index x = mdc##.activeTabIndex := x
-      method active_tab             = CCList.get_at_idx self#active_tab_index tabs
+      method get_active_tab         = CCList.get_at_idx self#get_active_tab_index tabs
       method set_active_tab tab     = CCList.find_idx (fun x -> x == tab) tabs
                                       |> (function
                                           | Some (idx,_) -> self#set_active_tab_index idx
@@ -161,10 +160,8 @@ module Scroller = struct
 
     object
       inherit Widget.widget elt ()
-
       val mdc : mdc Js.t = Js.Unsafe.global##.mdc##.tabs##.MDCTabBarScroller##attachTo elt
-
-      method tab_bar = tab_bar
+      method get_tab_bar = tab_bar
     end
 
 end

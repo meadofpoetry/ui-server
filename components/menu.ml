@@ -1,22 +1,16 @@
-open Widget
-open Tyxml_js
-module Menu = Markup.Menu
-
 module Divider = List_.Divider
 
 module Item = struct
 
-  class t ?secondary_text ?start_detail ?end_detail ~text () = object(self)
-
+  class t ?secondary_text ?start_detail ?end_detail ~text () = object
     inherit List_.Item.t ?secondary_text ?start_detail ?end_detail ~text () as super
 
-    method disabled        = (match super#get_attribute "aria-disabled" with
-                              | Some "true" -> true
-                              | _           -> false)
-    method disable         = super#set_attribute "aria-disabled" "true";
-                             super#set_attribute "tabindex" "-1"
-    method enable          = super#remove_attribute "aria-disabled"
-    method toggle_disabled = if self#disabled then self#enable else self#disable
+    method get_disabled   = (match super#get_attribute "aria-disabled" with
+                             | Some "true" -> true
+                             | _           -> false)
+    method set_disabled x = if x then (super#set_attribute "aria-disabled" "true";
+                                       super#set_attribute "tabindex" "-1")
+                            else super#remove_attribute "aria-disabled"
 
     initializer
       super#set_attribute "role" "menuitem";
@@ -41,7 +35,7 @@ class type event =
   object
     inherit Dom_html.event
     method detail : < item  : Dom_html.element Js.t Js.readonly_prop;
-           index : int Js.readonly_prop > Js.t Js.readonly_prop
+                      index : int Js.readonly_prop > Js.t Js.readonly_prop
   end
 
 type events =
@@ -63,27 +57,34 @@ class t ?open_from ~(items:[ `Item of Item.t | `Divider of Divider.t ] list) () 
 
   let () = list#set_attribute "role" "menu";
            list#set_attribute "aria-hidden" "true";
-           list#add_class Menu.items_class in
+           list#add_class Markup.Menu.items_class in
 
-  let elt = Menu.create ?open_from ~list:(widget_to_markup list) () |> To_dom.of_div in
-
+  let elt = Markup.Menu.create ?open_from ~list:(Widget.widget_to_markup list) () |> Tyxml_js.To_dom.of_div in
+  let e_selected,e_selected_push = React.E.create () in
+  let e_cancel,e_cancel_push     = React.E.create () in
   object
 
-    inherit widget elt ()
+    inherit Widget.widget elt () as super
 
     val mdc : mdc Js.t = Js.Unsafe.global##.mdc##.menu##.MDCSimpleMenu##attachTo elt
 
-    method items = items
-
-    method list      = list
-    method dense     = list#dense
-    method not_dense = list#not_dense
+    method get_items   = items
+    method get_list    = list
+    method set_dense x = list#set_dense x
 
     method show              = mdc##show ()
     method show_with_focus x = mdc##show_focused (focus_index_to_js_obj x)
     method hide              = mdc##hide ()
     method is_opened         = Js.to_bool mdc##.open_
 
+    method e_selected = e_selected
+    method e_cancel   = e_cancel
+
+    initializer
+      Dom_events.listen super#root events.selected
+                        (fun _ (e:event Js.t) -> e_selected_push e##.detail##.index; false)  |> ignore;
+      Dom_events.listen super#root events.cancel
+                        (fun _ _ -> e_cancel_push (); false) |> ignore
   end
 
 module Wrapper = struct
@@ -92,15 +93,16 @@ module Wrapper = struct
 
   class ['a] t ~(anchor:'a) ~(menu:menu) () = object
 
-    inherit widget (Html.div ~a:[Html.a_class [Menu.anchor_class]]
-                             [ widget_to_markup anchor; widget_to_markup menu ]
-                    |> To_dom.of_div) ()
-    method anchor = anchor
-    method menu   = menu
+    inherit Widget.widget (Tyxml_js.Html.div ~a:[Tyxml_js.Html.a_class [Markup.Menu.anchor_class]]
+                                             [ Widget.widget_to_markup anchor
+                                             ; Widget.widget_to_markup menu ]
+                           |> Tyxml_js.To_dom.of_div) ()
+    method get_anchor = anchor
+    method get_menu   = menu
   end
 
 end
 
 let inject ~anchor ~(menu:t) =
   Dom.appendChild anchor#root menu#root;
-  anchor#add_class Menu.anchor_class
+  anchor#add_class Markup.Menu.anchor_class

@@ -1,19 +1,11 @@
 module Pure = struct
 
   class t ?input_type ?input_id ?placeholder ?box () =
-
     let elt = (Markup.Textfield.create ?input_type ?input_id ?placeholder ?box () |> Tyxml_js.To_dom.of_div) in
-
+    let input_elt = elt##querySelector (Js.string ("." ^ Markup.Textfield.input_class))
+                    |> Js.Opt.to_option |> CCOpt.get_exn |> Js.Unsafe.coerce in
     object
-
-      inherit Widget.text_input_widget elt ()
-
-      val input_element : Dom_html.inputElement Js.t =
-        elt##querySelector (Js.string ("." ^ Markup.Textfield.input_class))
-        |> Js.Opt.to_option |> CCOpt.get_exn |> Js.Unsafe.coerce
-
-      method input_element = input_element
-
+      inherit Widget.text_input_widget ~input_elt elt ()
     end
 
 end
@@ -47,13 +39,11 @@ class t ?input_type ?input_id ?label ?placeholder ?icon ?help_text ?box () =
             (Markup.Textfield.Icon.create ~clickable ~icon () |> Tyxml_js.To_dom.of_i)
             ())
               icon in
-
   let help_text_widget =
     CCOpt.map (fun { persistent; validation; text } ->
         new Widget.widget (Markup.Textfield.Help_text.create ~persistent ~validation ~text ()
                            |> Tyxml_js.To_dom.of_p) ())
               help_text in
-
   let text_field_widget =
     let get_icon pos = (match icon,icon_widget with
                         | (Some x,Some w) when x.pos = pos -> Some (Widget.widget_to_markup w)
@@ -68,44 +58,51 @@ class t ?input_type ?input_id ?label ?placeholder ?icon ?help_text ?box () =
                             ()
     |> Tyxml_js.To_dom.of_element
     |> (fun x -> new Widget.widget x ()) in
-
   let elt =
     let tf = Widget.widget_to_markup text_field_widget in
     CCOpt.map_or ~default:tf (fun x -> Tyxml_js.Html.section [ tf; Widget.widget_to_markup x ]) help_text_widget
     |> Tyxml_js.To_dom.of_element in
+  let input_elt = elt##querySelector (Js.string ("." ^ Markup.Textfield.input_class))
+                  |> Js.Opt.to_option |> CCOpt.get_exn |> Js.Unsafe.coerce in
 
   object(self)
 
-    inherit Widget.text_input_widget elt ()
+    inherit Widget.text_input_widget ~input_elt elt () as super
 
     val mdc : mdc Js.t =
       text_field_widget#root
       |> (fun x -> Js.Unsafe.global##.mdc##.textField##.MDCTextField##attachTo x)
       |> (fun x -> CCOpt.map_or ~default:x (fun w -> x##.helperTextElement := w#root; x) help_text_widget)
 
-    val input_element : Dom_html.inputElement Js.t =
-      elt##querySelector (Js.string ("." ^ Markup.Textfield.input_class))
-      |> Js.Opt.to_option |> CCOpt.get_exn |> Js.Unsafe.coerce
+    val label_widget = elt##querySelector (Js.string @@ "." ^ Markup.Textfield.label_class)
+                       |> Js.Opt.to_option
+                       |> CCOpt.map (fun x -> new Widget.widget x ())
 
-    method input_element = input_element
+    method get_text_field_widget = text_field_widget
+    method get_icon_widget       = icon_widget
+    method get_help_text_widget  = help_text_widget
+    method get_label_widget      = label_widget
 
-    method text_field_widget = text_field_widget
-    method icon_widget       = icon_widget
-
-    method help_text_widget  = help_text_widget
     method set_help_text s   = CCOpt.iter (fun x -> x#set_text_content s) help_text_widget
-    method get_help_text     = CCOpt.map (fun x -> x#text_content) help_text_widget
+    method get_help_text     = CCOpt.map  (fun x -> x#get_text_content |> CCOpt.get_or ~default:"")
+                                          self#get_help_text_widget
 
-    method dense             = self#add_class Markup.Textfield.dense_class
-    method full_width        = self#add_class Markup.Textfield.fullwidth_class
-    method not_dense         = self#remove_class Markup.Textfield.dense_class
-    method not_full_width    = self#remove_class Markup.Textfield.fullwidth_class
+    method private add_or_rm_class x c = if x then self#get_text_field_widget#add_class c
+                                         else self#get_text_field_widget#remove_class c
+    method set_dense x       = self#add_or_rm_class x Markup.Textfield.dense_class
+    method set_full_width x  = self#add_or_rm_class x Markup.Textfield.fullwidth_class
 
-    method disable           = mdc##.disabled := Js._true
-    method enable            = mdc##.disabled := Js._false
-    method toggle_disabled   = mdc##.disabled := Js.bool @@ not self#disabled
+    method set_valid x = mdc##.valid := Js.bool x
 
-    method valid   = mdc##.valid := Js._true
-    method invalid = mdc##.valid := Js._false
+    method get_label   = CCOpt.map (fun x -> x#get_text_content |> CCOpt.get_or ~default:"") self#get_label_widget
+    method set_label s = CCOpt.map (fun x -> x#set_text_content s) self#get_label_widget
+
+    method! get_disabled   = Js.to_bool mdc##.disabled
+    method! set_disabled x = mdc##.disabled := Js.bool x
+
+    method! set_value x = super#set_value x;
+                          self#get_text_field_widget#add_class Markup.Textfield.upgraded_class;
+                          CCOpt.iter (fun x -> x#add_class Markup.Textfield.label_float_above_class)
+                                     self#get_label_widget
 
   end

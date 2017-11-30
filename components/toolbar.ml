@@ -7,7 +7,7 @@ module Row = struct
         inherit Widget.widget (Markup.Toolbar.Row.Section.create_title ~title ()
                                |> Tyxml_js.To_dom.of_element) () as super
 
-        method title       = super#text_content
+        method get_title   = super#get_text_content |> CCOpt.get_or ~default:""
         method set_title s = super#set_text_content s
       end
     end
@@ -27,7 +27,7 @@ module Row = struct
 
         method widgets = widgets
 
-        method align        = align
+        method get_align    = align
         method remove_align = (match align with
                                | `Start  -> super#remove_class Markup.Toolbar.Row.Section.align_start_class
                                | `End    -> super#remove_class Markup.Toolbar.Row.Section.align_end_class
@@ -39,19 +39,18 @@ module Row = struct
                                | `Center -> ());
                               align <- x
 
-        method shrink_to_fit     = super#add_class Markup.Toolbar.Row.Section.shrink_to_fit_class
-        method not_shrink_to_fit = super#remove_class Markup.Toolbar.Row.Section.shrink_to_fit_class
+        method set_shrink_to_fit x = Markup.Toolbar.Row.Section.shrink_to_fit_class
+                                     |> (fun c -> if x then super#add_class c else super#remove_class c)
       end
 
   end
 
-  class t ~sections () =
+  class t ~(sections:Section.t list) () =
     let elt = Markup.Toolbar.Row.create ~content:(Widget.widgets_to_markup sections) ()
               |> Tyxml_js.To_dom.of_div in
     object
-
       inherit Widget.widget elt ()
-
+      method get_sections = sections
     end
 
 end

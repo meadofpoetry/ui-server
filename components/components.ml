@@ -3,6 +3,7 @@
 module Markup          = Markup (* FIXME remove *)
 
 module Avatar          = Avatar
+module Box             = Box
 module Button          = Button
 module Card            = Card
 module Checkbox        = Checkbox

@@ -1,7 +1,3 @@
-open Widget
-open Markup
-open Tyxml_js
-
 module Image = struct
 
 end
@@ -13,13 +9,11 @@ end
 module Letter = struct
 
   class t ~text () =
-
-    let elt = Avatar.Letter.create ~text () |> To_dom.of_div in
-
+    let elt = Markup.Avatar.Letter.create ~text () |> Tyxml_js.To_dom.of_div in
     object
-      inherit widget elt () as super
-      method dense     = super#add_class Avatar.dense_class
-      method not_dense = super#remove_class Avatar.dense_class
+      inherit Widget.widget elt () as super
+      method set_dense x = Markup.Avatar.dense_class
+                           |> (fun c -> if x then super#add_class c  else super#remove_class c)
     end
 
 end

@@ -37,7 +37,7 @@ let create (b:topo_board) convert_streams send db base step =
                                              } in
                      s_strms_push @@ (if x.asi_bitrate > 0 then [stream] else []))
                  @@ React.E.changes events.status in
-  let handlers = Board_api.handlers b.control api events in
+  let handlers = Board_api.handlers b.control api events s_state in
   Lwt_main.run @@ Storage.init db;
   let _s = Lwt_react.E.map_p (fun s -> Storage.request db (Storage.Store_status s)) @@ React.E.changes events.status in
  (* let sms = convert_streams s_strms b in

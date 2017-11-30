@@ -43,6 +43,54 @@ module Make
     |> map_cons_option ~f:Html.a_style style
     |> CCList.append attrs
 
+  module Box = struct
+
+    let base_class = "mdc-box"
+    let vertical_class   = CSS.add_modifier base_class "vertical"
+    let horizontal_class = CSS.add_modifier base_class "horizontal"
+
+    let get_justify_content_class x =
+      let _class = CSS.add_modifier base_class "justify-content-" in
+      _class ^ (match x with
+                | `Start         -> "start"
+                | `End           -> "end"
+                | `Center        -> "center"
+                | `Space_between -> "space-between"
+                | `Space_around  -> "space-around"
+                | `Space_evenly  -> "space-evenly")
+
+    let get_align_items_class x =
+      let _class = CSS.add_modifier base_class "align-items-" in
+      _class ^ (match x with
+                | `Start    -> "start"
+                | `End      -> "end"
+                | `Center   -> "center"
+                | `Stretch  -> "stretch"
+                | `Baseline -> "baseline")
+
+    let get_align_content_class x =
+      let _class = CSS.add_modifier base_class "align-content-" in
+      _class ^ (match x with
+                | `Start         -> "start"
+                | `End           -> "end"
+                | `Center        -> "center"
+                | `Stretch       -> "stretch"
+                | `Space_between -> "space-between"
+                | `Space_around  -> "space-around")
+
+    let create ?id ?style ?(classes=[]) ?attrs
+               ?justify_content ?align_items ?align_content ?(vertical=false) ~content () =
+      div ~a:([ a_class (classes
+                         |> cons_if vertical vertical_class
+                         |> map_cons_option ~f:get_justify_content_class justify_content
+                         |> map_cons_option ~f:get_align_items_class align_items
+                         |> map_cons_option ~f:get_align_content_class align_content
+                         |> CCList.cons base_class) ]
+              |> add_common_attrs ?id ?style ?attrs)
+          content
+
+  end
+
   module Typography = struct
 
     let base_class          = "mdc-typography"
@@ -266,8 +314,8 @@ module Make
                                     ; Svg.a_fill `None
                                     ; Svg.a_stroke (`Color ("white",None))
                                     ; Svg.a_d "M1.73,12.91 8.1,19.28 22.79,4.59"])
-                                []]]
-          ; div ~a:[a_class [mixedmark_class]] []]
+                                []]
+                ; div ~a:[a_class [mixedmark_class]] []]]
 
   end
 
@@ -1261,12 +1309,14 @@ module Make
 
     module Help_text = struct
 
-      let _class = "mdc-text-field-helptext"
+      let _class               = "mdc-text-field-helper-text"
+      let persistent_class     = CSS.add_modifier _class "persistent"
+      let validation_msg_class = CSS.add_modifier _class "validation-msg"
 
       let create ?id ?style ?(classes=[]) ?attrs ?(persistent=false) ?(validation=false) ~text () =
         p ~a:([ a_class (classes
-                         |> cons_if validation @@ CSS.add_modifier _class "validation-msg"
-                         |> cons_if persistent @@ CSS.add_modifier _class "persistent"
+                         |> cons_if validation validation_msg_class
+                         |> cons_if persistent persistent_class
                          |> CCList.cons _class) ]
               |> cons_if (not persistent) @@ a_aria "hidden" ["true"]
               |> add_common_attrs ?id ?style ?attrs)
@@ -1286,11 +1336,13 @@ module Make
 
     end
 
-    let textarea_class  = CSS.add_modifier base_class "textarea"
-    let dense_class     = CSS.add_modifier base_class "dense"
-    let fullwidth_class = CSS.add_modifier base_class "fullwidth"
-    let disabled_class  = CSS.add_modifier base_class "disabled"
-    let box_class       = CSS.add_modifier base_class "box"
+    let textarea_class          = CSS.add_modifier base_class "textarea"
+    let dense_class             = CSS.add_modifier base_class "dense"
+    let fullwidth_class         = CSS.add_modifier base_class "fullwidth"
+    let disabled_class          = CSS.add_modifier base_class "disabled"
+    let box_class               = CSS.add_modifier base_class "box"
+    let upgraded_class          = CSS.add_modifier base_class "upgraded"
+    let label_float_above_class = CSS.add_modifier label_class "float-above"
 
     let create ?id ?style ?(classes=[]) ?attrs ?placeholder
                ?label_id ?label_style ?(label_classes=[]) ?label_attrs
@@ -1305,15 +1357,14 @@ module Make
                          |> cons_if box        box_class
                          |> cons_if (CCOpt.is_some leading_icon) (CSS.add_modifier base_class "with-leading-icon")
                          |> cons_if (CCOpt.is_some trailing_icon) (CSS.add_modifier base_class "with-trailing-icon")
-                         |> cons_if (CCOpt.is_some value) (CSS.add_modifier base_class "upgraded")
+                         |> cons_if (CCOpt.is_some value) upgraded_class
                          |> CCList.cons base_class) ]
               |> add_common_attrs ?id ?style ?attrs)
           ((if textarea then [] else [ div ~a:([ a_class [bottom_line_class]]) [] ])
            |> cons_option trailing_icon
            |> map_cons_option ~f:(fun x ->
                                 (Html.label ~a:([ a_class (label_classes
-                                                           |> cons_if (CCOpt.is_some value)
-                                                                      (CSS.add_modifier label_class "float-above")
+                                                           |> cons_if (CCOpt.is_some value) label_float_above_class
                                                            |> CCList.cons label_class) ]
                                                 |> map_cons_option ~f:a_label_for input_id
                                                 |> add_common_attrs ?id:label_id

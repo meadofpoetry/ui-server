@@ -31,31 +31,40 @@ let events =
 class t ?discrete ?markers () =
 
   let elt = Markup.Slider.create ?discrete ?markers () |> Tyxml_js.To_dom.of_div in
+  let e_input,e_input_push   = React.E.create () in
+  let e_change,e_change_push = React.E.create () in
+  let mdc : mdc Js.t = elt |> (fun x -> Js.Unsafe.global##.mdc##.slider##.MDCSlider##attachTo x) in
 
   object(self)
 
     inherit Widget.widget elt ()
 
-    val mdc : mdc Js.t = elt |> (fun x -> Js.Unsafe.global##.mdc##.slider##.MDCSlider##attachTo x)
-
-    method value       = mdc##.value
     method set_value x = mdc##.value := x
-    method min         = mdc##.min
-    method set_min x   = mdc##.min := x
-    method max         = mdc##.max
-    method set_max x   = mdc##.max := x
-    method step        = mdc##.step
-    method set_step x  = mdc##.step := x
+    method get_value   = mdc##.value
 
-    method disabled        = Js.to_bool mdc##.disabled
-    method disable         = mdc##.disabled := Js._true
-    method enable          = mdc##.disabled := Js._false
-    method toggle_disabled = mdc##.disabled := Js.bool @@ not self#disabled
+    method set_min x   = mdc##.min := x
+    method get_min     = mdc##.min
+
+    method set_max x   = mdc##.max := x
+    method get_max     = mdc##.max
+
+    method set_step x  = mdc##.step := x
+    method get_step    = mdc##.step
+
+    method get_disabled   = Js.to_bool mdc##.disabled
+    method set_disabled x = mdc##.disabled := Js.bool x
 
     method layout         = mdc##layout ()
     method step_down      = mdc##stepDown ()
     method step_down_by x = mdc##stepDown_value x
     method step_up        = mdc##stepUp ()
     method step_up_by x   = mdc##stepUp_value x
+
+    method e_input  = e_input
+    method e_change = e_change
+
+    initializer
+      Dom_events.listen self#root events.input  (fun _ _ -> e_input_push self#get_value; false)  |> ignore;
+      Dom_events.listen self#root events.change (fun _ _ -> e_change_push self#get_value; false) |> ignore;
 
   end
