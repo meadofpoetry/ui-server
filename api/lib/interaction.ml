@@ -22,7 +22,7 @@ let respond_html_elt ?(status = `OK) body =
   Cohttp_lwt_unix.Server.respond ~status
     ~body:(Cohttp_lwt_body.of_string @@ Format.asprintf "%a" (Tyxml.Html.pp_elt ()) body)
 
-let respond_ok = Cohttp_lwt_unix.Server.respond ~status:`OK ~body:Cohttp_lwt_body.empty                     
+let respond_ok = Cohttp_lwt_unix.Server.respond ~status:`OK ~body:Cohttp_lwt_body.empty
 
 let respond_redirect path =
   Cohttp_lwt_unix.Server.respond_redirect ~uri:(Uri.with_path Uri.empty path)

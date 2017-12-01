@@ -37,6 +37,11 @@ let post_port control port =
   |> post_js (Printf.sprintf "api/board/%d/port" control)
   >|= CCResult.(flat_map port_of_yojson)
 
+let post_meth control meth =
+  meth_to_yojson meth
+  |> post_js (Printf.sprintf "api/board/%d/meth" control)
+  >|= CCResult.(flat_map meth_of_yojson)
+
 let post_multicast control addr =
   multicast_to_yojson addr
   |> post_js (Printf.sprintf "api/board/%d/multicast" control)

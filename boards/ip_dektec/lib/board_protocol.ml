@@ -440,6 +440,7 @@ module SM = struct
                ; enable    = (fun x -> send (Ip (Set_enable x)))
                ; fec       = (fun x -> send (Ip (Set_fec_enable x)))
                ; port      = (fun x -> send (Ip (Set_udp_port x)))
+               ; meth      = (fun x -> send (Ip (Set_method x)))
                ; multicast = (fun x -> send (Ip (Set_mcast_addr x)))
                ; delay     = (fun x -> send (Ip (Set_delay x)))
                ; rate_mode = (fun x -> send (Ip (Set_rate_est_mode x)))

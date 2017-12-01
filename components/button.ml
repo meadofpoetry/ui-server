@@ -1,4 +1,4 @@
-class t ?icon ?ripple ~label () =
+class t ?(typ:[ `Submit | `Button | `File | `Reset ] option) ?icon ?ripple ~label () =
 
   let elt = Markup.Button.create ?icon ?ripple ~label () |> Tyxml_js.To_dom.of_button in
   let e_click,e_click_push = React.E.create () in
@@ -23,6 +23,13 @@ class t ?icon ?ripple ~label () =
     method e_click = e_click
 
     initializer
+      match typ with
+      | None   -> ()
+      | Some x -> super#set_attribute "type" (match x with
+                                              | `Submit -> "submit"
+                                              | `Button -> "button"
+                                              | `File   -> "file"
+                                              | `Reset  -> "reset");
       Dom_events.listen self#root Dom_events.Typ.click (fun _ _ -> e_click_push (); false) |> ignore;
 
   end

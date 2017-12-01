@@ -8,6 +8,7 @@ type storage     = Flash | Ram
 (* Ip types *)
 type status    = Enabled | Disabled | Failure [@@deriving yojson]
 type protocol  = Udp | Rtp [@@deriving yojson]
+type meth      = Unicast | Multicast [@@deriving yojson]
 type output    = Asi | Spi
 type packet_sz = Ts188 | Ts204 [@@deriving yojson]
 type rate_mode = On | Fixed | Without_pcr | Off [@@deriving yojson]

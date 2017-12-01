@@ -78,9 +78,10 @@ module Make
                 | `Space_between -> "space-between"
                 | `Space_around  -> "space-around")
 
-    let create ?id ?style ?(classes=[]) ?attrs
+    let create ?id ?style ?(classes=[]) ?attrs ?tag
                ?justify_content ?align_items ?align_content ?(vertical=false) ~content () =
-      div ~a:([ a_class (classes
+      let tag = CCOpt.get_or ~default:div tag in
+      tag ~a:([ a_class (classes
                          |> cons_if vertical vertical_class
                          |> map_cons_option ~f:get_justify_content_class justify_content
                          |> map_cons_option ~f:get_align_items_class align_items
@@ -280,8 +281,9 @@ module Make
 
     end
 
-    let create ?id ?style ?(classes=[]) ?attrs ~sections () =
-      div ~a:([a_class (base_class :: classes)]
+    let create ?id ?style ?(classes=[]) ?attrs ?tag ~sections () =
+      let tag = CCOpt.get_or ~default:div tag in
+      tag ~a:([a_class (base_class :: classes)]
               |> add_common_attrs ?id ?style ?attrs)
           sections
 
@@ -421,7 +423,7 @@ module Make
     module Label = struct
 
       let create ?id ?for_id ?style ?(classes=[]) ?attrs ~label () =
-        Html.label ~a:([ a_class (base_class :: classes) ]
+        Html.label ~a:([ a_class classes ]
                        |> map_cons_option ~f:a_label_for for_id
                        |> add_common_attrs ?id ?style ?attrs)
                    [pcdata label]
@@ -1307,20 +1309,32 @@ module Make
     let label_class       = CSS.add_element base_class "label"
     let bottom_line_class = CSS.add_element base_class "bottom-line"
 
+    module Wrapper = struct
+
+      let _class = "mdc-text-field-wrapper"
+
+      let create ?id ?style ?(classes=[]) ?attrs ~textfield ~helptext () =
+        section ~a:([ a_class (classes
+                               |> CCList.cons _class) ]
+                    |> add_common_attrs ?id ?style ?attrs)
+                [ textfield; helptext ]
+
+    end
+
     module Help_text = struct
 
       let _class               = "mdc-text-field-helper-text"
       let persistent_class     = CSS.add_modifier _class "persistent"
       let validation_msg_class = CSS.add_modifier _class "validation-msg"
 
-      let create ?id ?style ?(classes=[]) ?attrs ?(persistent=false) ?(validation=false) ~text () =
+      let create ?id ?style ?(classes=[]) ?attrs ?(persistent=false) ?(validation=false) ?text () =
         p ~a:([ a_class (classes
                          |> cons_if validation validation_msg_class
                          |> cons_if persistent persistent_class
                          |> CCList.cons _class) ]
               |> cons_if (not persistent) @@ a_aria "hidden" ["true"]
               |> add_common_attrs ?id ?style ?attrs)
-          [pcdata text]
+          [pcdata @@ CCOpt.get_or ~default:"" text]
 
     end
 

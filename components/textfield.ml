@@ -23,13 +23,29 @@ type icon =
   ; pos       : [ `Trailing | `Leading ]
   }
 
-type helptext =
-  { persistent : bool
-  ; validation : bool
-  ; text       : string
-  }
-
 let icon_event : Dom_html.event Dom_events.Typ.typ = Dom_events.Typ.make "MDCTextfield:icon"
+
+module Help_text = struct
+
+  type helptext =
+    { persistent : bool
+    ; validation : bool
+    ; text       : string option
+    }
+
+  class t {persistent;validation;text} () =
+    let elt = Markup.Textfield.Help_text.create ~persistent ~validation ?text ()
+              |> Tyxml_js.To_dom.of_p in
+    object
+      inherit Widget.widget elt () as super
+      method is_validation    = super#has_class Markup.Textfield.Help_text.validation_msg_class
+      method is_persistent    = super#has_class Markup.Textfield.Help_text.persistent_class
+      method set_validation x = super#add_or_remove_class x Markup.Textfield.Help_text.validation_msg_class
+      method set_persistent x = super#add_or_remove_class x Markup.Textfield.Help_text.persistent_class
+      method text             = text
+    end
+
+end
 
 class t ?input_type ?input_id ?label ?placeholder ?icon ?help_text ?box () =
 
@@ -39,11 +55,7 @@ class t ?input_type ?input_id ?label ?placeholder ?icon ?help_text ?box () =
             (Markup.Textfield.Icon.create ~clickable ~icon () |> Tyxml_js.To_dom.of_i)
             ())
               icon in
-  let help_text_widget =
-    CCOpt.map (fun { persistent; validation; text } ->
-        new Widget.widget (Markup.Textfield.Help_text.create ~persistent ~validation ~text ()
-                           |> Tyxml_js.To_dom.of_p) ())
-              help_text in
+  let help_text_widget  = CCOpt.map (fun x -> new Help_text.t x ()) help_text in
   let text_field_widget =
     let get_icon pos = (match icon,icon_widget with
                         | (Some x,Some w) when x.pos = pos -> Some (Widget.widget_to_markup w)
@@ -60,7 +72,9 @@ class t ?input_type ?input_id ?label ?placeholder ?icon ?help_text ?box () =
     |> (fun x -> new Widget.widget x ()) in
   let elt =
     let tf = Widget.widget_to_markup text_field_widget in
-    CCOpt.map_or ~default:tf (fun x -> Tyxml_js.Html.section [ tf; Widget.widget_to_markup x ]) help_text_widget
+    CCOpt.map_or ~default:tf
+                 (fun x -> Markup.Textfield.Wrapper.create ~textfield:tf ~helptext:(Widget.widget_to_markup x) ())
+                 help_text_widget
     |> Tyxml_js.To_dom.of_element in
   let input_elt = elt##querySelector (Js.string ("." ^ Markup.Textfield.input_class))
                   |> Js.Opt.to_option |> CCOpt.get_exn |> Js.Unsafe.coerce in
@@ -104,5 +118,10 @@ class t ?input_type ?input_id ?label ?placeholder ?icon ?help_text ?box () =
                           self#get_text_field_widget#add_class Markup.Textfield.upgraded_class;
                           CCOpt.iter (fun x -> x#add_class Markup.Textfield.label_float_above_class)
                                      self#get_label_widget
+
+    initializer
+      CCOpt.iter (fun x -> if x#is_validation && CCOpt.is_none x#text
+                           then React.E.map (fun (s,_) -> x#set_text_content s) super#e_invalid |> ignore)
+                 self#get_help_text_widget
 
   end

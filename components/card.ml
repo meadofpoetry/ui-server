@@ -134,14 +134,15 @@ type sections = [ `Actions of Actions.t
                 | `Primary of Primary.t
                 | `Text of Supporting_text.t ] list
 
-class t ~(sections:sections) () =
-  let elt = Markup.Card.create ~sections:(List.map (function
-                                                    | `Actions x -> widget_to_markup x
-                                                    | `Media x   -> widget_to_markup x
-                                                    | `Primary x -> widget_to_markup x
-                                                    | `Text x    -> widget_to_markup x) sections)
+class t ?(form=false) ~(sections:sections) () =
+  let tag = if form then Some Tyxml_js.Html.form else None in
+  let elt = Markup.Card.create ?tag ~sections:(List.map (function
+                                                         | `Actions x -> widget_to_markup x
+                                                         | `Media x   -> widget_to_markup x
+                                                         | `Primary x -> widget_to_markup x
+                                                         | `Text x    -> widget_to_markup x) sections)
                                ()
-            |> To_dom.of_div in
+            |> Tyxml_js.To_dom.of_element in
 
   object(self)
     inherit widget elt ()

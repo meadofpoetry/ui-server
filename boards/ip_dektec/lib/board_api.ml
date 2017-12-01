@@ -38,6 +38,8 @@ let fec (api : api) = set api.fec flag_of_yojson flag_to_yojson
 
 let port (api : api) = set api.port port_of_yojson port_to_yojson
 
+let meth (api : api) = set api.meth meth_of_yojson meth_to_yojson
+
 let multicast (api : api) = set api.multicast multicast_of_yojson multicast_to_yojson
 
 let delay (api : api) = set api.delay delay_of_yojson delay_to_yojson
@@ -96,10 +98,10 @@ let page id =
   respond_html_elt
     Tyxml.Html.(div [ div ~a:[ a_id "ip_widgets" ] [ ] ] ) ()
 
-let handle api events id s_state _ meth args sock_data _ body =
+let handle api events id s_state _ m args sock_data _ body =
   let open Api.Redirect in
   (* let redirect_if_guest = redirect_if (User.eq id `Guest) in *)
-  match meth, args with
+  match m, args with
   | `POST, ["address"]    -> address api body
   | `POST, ["mask"]       -> mask api body
   | `POST, ["gateway"]    -> gateway api body
@@ -107,6 +109,7 @@ let handle api events id s_state _ meth args sock_data _ body =
   | `POST, ["enable"]     -> enable api body
   | `POST, ["fec"]        -> fec api body
   | `POST, ["port"]       -> port api body
+  | `POST, ["meth"]       -> meth api body
   | `POST, ["multicast"]  -> multicast api body
   | `POST, ["delay"]      -> delay api body
   | `POST, ["rate_mode"]  -> rate_mode api body

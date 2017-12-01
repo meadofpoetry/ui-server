@@ -2,11 +2,11 @@ type justify_content = [ `Start | `End | `Center | `Space_between | `Space_aroun
 type align_items     = [ `Start | `End | `Center | `Stretch | `Baseline ]
 type align_content   = [ `Start | `End | `Center | `Stretch | `Space_between | `Space_around ]
 
-class t ~(widgets:#Widget.widget list) () =
-  let elt = Markup.Box.create ~content:(Widget.widgets_to_markup widgets) ()
+class t ?(vertical=false) ?tag ~(widgets:#Widget.widget list) () =
+  let elt = Markup.Box.create ~content:(Widget.widgets_to_markup widgets) ?tag ()
             |> Tyxml_js.To_dom.of_element in
   object(self)
-      
+
     val mutable widgets : Widget.widget list = List.map (fun x -> Widget.coerce x) widgets
     val mutable justify_content : justify_content option = None
     val mutable align_items     : align_items option     = None
@@ -46,5 +46,8 @@ class t ~(widgets:#Widget.widget list) () =
       self#remove_align_content;
       super#add_class @@ Markup.Box.get_align_content_class x;
       align_content <- Some x
+
+    initializer
+      if vertical then self#set_vertical
 
   end

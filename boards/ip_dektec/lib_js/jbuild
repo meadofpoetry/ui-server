@@ -3,7 +3,7 @@
 (library
  ((name        board_ip_dektec_js)
   (public_name board-ip-dektec-js)
-  (modules     (requests board_types ip_dektec))
+  (modules     (requests board_types ip_dektec ui))
   (synopsis "js interface of the ip_dektec board")
   (libraries (containers ipaddr common api-js components))
   (flags (:standard -short-paths -strict-sequence -bin-annot

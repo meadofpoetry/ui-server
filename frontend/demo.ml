@@ -339,7 +339,7 @@ let textfield_demo () =
                      ~label:"js textfield label"
                      ~help_text:{ validation = true
                                 ; persistent = false
-                                ; text       = "This field must not be empty"
+                                ; text       = Some "This field must not be empty"
                                 }
                      () in
   js#set_required true;
@@ -349,7 +349,7 @@ let textfield_demo () =
                      ~input_type:`Email
                      ~help_text:{ validation = true
                                 ; persistent = false
-                                ; text       = "Provide valid e-mail"
+                                ; text       = Some "Provide valid e-mail"
                                 }
                      () in
   dense#set_dense true;
