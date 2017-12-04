@@ -33,3 +33,18 @@ let post_wm wm =
 
 let get_wm_socket () =
   get_socket "api/pipeline/wm_sock" Wm.of_yojson
+
+let get_vdata_socket () =
+  get_socket "api/pipeline/vdata_sock" Video_data.of_yojson
+
+let get_vdata_socket_stream stream =
+  let path = Printf.sprintf "api/pipeline/vdata_sock/%d" stream in
+  get_socket path Video_data.of_yojson
+
+let get_vdata_socket_channel stream channel =
+  let path = Printf.sprintf "api/pipeline/vdata_sock/%d/%d" stream channel in
+  get_socket path Video_data.of_yojson
+
+let get_vdata_socket_pid stream channel pid =
+  let path = Printf.sprintf "api/pipeline/vdata_sock/%d/%d/%d" stream channel pid in
+  get_socket path Video_data.of_yojson

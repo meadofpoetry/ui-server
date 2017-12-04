@@ -12,8 +12,8 @@
   (preprocess (pps (js_of_ocaml-ppx ppx_deriving_yojson)))))
 
 (rule
- ((targets (data.ml))
-  (deps (../data.ml))
+ ((targets (video_data.ml))
+  (deps (../video_data.ml))
   (action (copy ${<} ${@}))))
 
 (rule

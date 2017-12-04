@@ -27,33 +27,34 @@ type api = { structure : Structure.t list signal
            ; settings  : Settings.t event
            ; graph     : Graph.t event
            ; wm        : Wm.t event
-           ; data      : Data.t event (* TODO to be split by purpose later *)
+           ; vdata     : Video_data.t event (* TODO to be split by purpose later *)
            ; get       : 'a.(get, 'a) req -> 'a Lwt.t
            ; set       : (set, unit) req -> unit Lwt.t
            }
 
 let split_events () =
   let _ = Lwt_io.printf "split_events\n" |> ignore in 
-  let events, epush   = E.create () in
-  let strm, strm_push = S.create [] in
-  let sets, sets_push = E.create () in
-  let grap, grap_push = E.create () in
-  let wm  , wm_push   = E.create () in
-  let data, data_push = E.create () in
+  let events, epush     = E.create () in
+  let strm, strm_push   = S.create [] in
+  let sets, sets_push   = E.create () in
+  let grap, grap_push   = E.create () in
+  let wm  , wm_push     = E.create () in
+  let vdata, vdata_push = E.create () in
   let (<$>) f result =
     match result with
     | Ok r -> (f r : unit)
     | Error e -> failwith @@ Printf.sprintf "parse error %s\n" e in
   let split = function
-    | `Assoc [("streams", tl)]  -> strm_push <$> Structure.structure_list_of_yojson tl
-    | `Assoc [("settings", tl)] -> sets_push <$> Settings.of_yojson tl
-    | `Assoc [("graph", tl)]    -> grap_push <$> Graph.of_yojson tl
-    | `Assoc [("wm", tl)]       -> (*print_endline (Yojson.Safe.pretty_to_string tl); *)wm_push   <$> Wm.of_yojson tl
-    | `Assoc [("data", tl)]     -> data_push <$> Data.of_yojson tl
-    | _ -> ()
+    | `Assoc [("streams", tl)]    -> strm_push  <$> Structure.structure_list_of_yojson tl
+    | `Assoc [("settings", tl)]   -> sets_push  <$> Settings.of_yojson tl
+    | `Assoc [("graph", tl)]      -> grap_push  <$> Graph.of_yojson tl
+    | `Assoc [("wm", tl)]         -> wm_push    <$> Wm.of_yojson tl
+    | `Assoc [("video_data", tl)] -> vdata_push <$> Video_data.of_yojson tl
+    | s -> Yojson.Safe.pretty_to_string s
+           |> prerr_endline
   in
   let events = E.map split events in
-  events, epush, strm, sets, grap, wm, data
+  events, epush, strm, sets, grap, wm, vdata
 
 let get (type a) sock (conv : Msg_conv.converter) (s : Structure.t list signal) (req : (get, a) req) : a Lwt.t =
   let find s kv =
@@ -105,14 +106,14 @@ let create sock_in sock_out converter hardware_streams =
   let sock_events, epush,
       structure', settings,
       graph, wm,
-      data = split_events ()
+      vdata = split_events ()
   in
   let structure = S.l2 Structure_conv.match_streams hardware_streams structure' in
   let set = set msg_sock converter in
   let get = fun x -> get msg_sock converter structure x in
   let api = {set; get; structure;
              settings; graph;
-             wm; data;} in
+             wm; vdata;} in
   let state = { ctx; msg; ev; sock_events } in
   let recv () =
     Socket.recv ev_sock
