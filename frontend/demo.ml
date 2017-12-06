@@ -469,8 +469,7 @@ let drawer_demo () =
                                                                            ()] ()
   |> Drawer.Temporary.attach
 
-let chart_demo () =
-  Chartjs.create_canvas () |> Tyxml_js.To_dom.of_canvas
+let chart_demo () = new Chartjs.t ()
 
 let add_demos demos =
   Html.div ~a:[ Html.a_id "demo-div" ]
@@ -483,8 +482,10 @@ let onload _ =
   let drawer  = drawer_demo () in
   let toolbar = toolbar_demo drawer () in
   let canvas  = chart_demo () in
+  let update  = new Button.t ~label:"update" () in
   let demos   = add_demos [ button_demo ()
-                          ; Html.div ~a:[ Html.a_style "max-width:700px"] [canvas |> Of_dom.of_canvas]
+                          ; Html.div ~a:[ Html.a_style "max-width:700px"] [ Widget.widget_to_markup canvas
+                                                                          ; Widget.widget_to_markup update ]
                             |> To_dom.of_element
                           ; fab_demo ()
                           ; radio_demo ()
@@ -536,36 +537,25 @@ let onload _ =
                          ~labels:(CCList.range 0 20 |> List.map string_of_int)
                          () in
   let open Chartjs in
-  let _ = Chartjs.Line.attach
-            ~data
-            ~options:(Options.to_obj
-                        ~on_hover:(fun e (a:'a Js.js_array Js.t) ->
-                          print_endline ("hover! type: "
-                                         ^ (Js.to_string @@ e##._type)
-                                         ^ ", array length: "
-                                         ^ (string_of_int @@ a##.length)))
-                        ~on_click:(fun e (a:'a Js.js_array Js.t) ->
-                          print_endline ("click! type: "
-                                         ^ (Js.to_string @@ e##._type)
-                                         ^ ", array length: "
-                                         ^ (string_of_int @@ a##.length)))
-                        ~hover:(Options.Hover.to_obj ~mode:Index
-                                                     ~intersect:false
-                                                     ())
-                        ~tooltips:(Options.Tooltip.to_obj ~mode:Index
-                                                          ~intersect:false
-                                                          ())
-                        ~scales:(Options.Axes.to_obj
-                                   ~x_axes:[ Options.Axes.Cartesian.Linear.to_obj
-                                               ~scale_label:(Options.Axes.Scale_label.to_obj
-                                                               ~display:true
-                                                               ~label_string:"My x axis"
-                                                               ())
-                                               ()
-                                           ]
-                                   ())
-                        ())
-            canvas in
+  let options = new Options.t () in
+  options#title#set_display true;
+  options#title#set_text @@ `String "Title";
+  options#hover#set_mode Index;
+  options#hover#set_intersect true;
+  options#elements#point#set_background_color @@ Name CSS.Color.Yellow;
+  (* axis#scale_label#set_display true;
+   * axis#scale_label#set_label_string "Supreme x axis"; *)
+  options#tooltip#set_mode Index;
+  options#tooltip#set_intersect false;
+  let chart = Chartjs.Line.attach
+                ~data
+                ~options:options#get_obj
+                canvas#get_canvas_element in
+  print_endline @@ Js.to_string @@ Json.output (Js.Unsafe.coerce chart)##.options##.scales;
+  options#replace (Js.Unsafe.coerce chart)##.options;
+  React.E.map (fun () -> options#title#set_text @@ `Lines ["New chart title"; "another line"];
+                         options#legend#set_reverse true;
+                         (Js.Unsafe.coerce chart)##update ()) update#e_click |> ignore;
   Js._false
 
 let () = Dom_html.addEventListener Dom_html.document

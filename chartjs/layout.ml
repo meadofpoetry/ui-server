@@ -1,3 +1,5 @@
+open Base
+
 type num_or_obj
 
 type padding = Number of int
@@ -11,29 +13,38 @@ type padding = Number of int
 
 class type coord =
   object
-    method left   : int Js.optdef_prop
-    method right  : int Js.optdef_prop
-    method top    : int Js.optdef_prop
-    method bottom : int Js.optdef_prop
+    method left   : int Js.prop
+    method right  : int Js.prop
+    method top    : int Js.prop
+    method bottom : int Js.prop
   end
 
-class type t =
+class type t_js =
   object
-    method padding : num_or_obj Js.t Js.optdef_prop
+    method padding : num_or_obj Js.t Js.prop
   end
 
-let cast_padding_number (x : num_or_obj Js.t) = Base.Cast.to_number x
-let cast_padding_object (x : num_or_obj Js.t) : coord Js.t Js.opt = Base.Cast.to_object x
+class t () = object(self)
+  inherit [t_js] base_option ()
 
-let to_obj ?padding () =
-  (match padding with
-   | Some x -> [| "padding", (match x with
-                              | Number n -> Js.Unsafe.inject n
-                              | Object o -> [| "left",   Js.Unsafe.inject o.left
-                                             ; "right",  Js.Unsafe.inject o.right
-                                             ; "top",    Js.Unsafe.inject o.top
-                                             ; "bottom", Js.Unsafe.inject o.bottom |]
-                                            |> Js.Unsafe.obj
-                                            |> Js.Unsafe.inject) |]
-   | None  -> [| |])
-  |> Js.Unsafe.obj
+  method set_padding = function
+    | Number x -> obj##.padding := Js.Unsafe.coerce @@ Js.number_of_float @@ float_of_int x
+    | Object x -> obj##.padding := Js.Unsafe.coerce @@ object%js
+                                                         val mutable left   = x.left
+                                                         val mutable right  = x.right
+                                                         val mutable top    = x.top
+                                                         val mutable bottom = x.bottom
+                                                       end
+  method get_padding =
+    match Cast.to_int obj##.padding with
+    | Some x -> Number x
+    | None   -> let (o:coord Js.t) = Js.Unsafe.coerce obj##.padding in
+                Object { left   = o##.left
+                       ; right  = o##.right
+                       ; top    = o##.top
+                       ; bottom = o##.bottom
+                       }
+
+  initializer
+    self#set_padding @@ Number 0
+end

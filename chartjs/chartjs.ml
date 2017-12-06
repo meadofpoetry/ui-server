@@ -1,4 +1,4 @@
-[@@@ocaml.warning "-60"]
+open Components
 
 module Options = struct
 
@@ -17,9 +17,11 @@ end
 
 module Line = Line
 
-let create_canvas ?id ?width ?height () =
-  let open Tyxml_js.Html in
-  canvas ~a:(CCOpt.map_or ~default:[] (fun x -> [a_id x]) id
-             |> (fun attrs -> CCOpt.map_or ~default:attrs (fun x -> (a_width x) :: attrs) width)
-             |> (fun attrs -> CCOpt.map_or ~default:attrs (fun x -> (a_height x) :: attrs) height))
-         []
+class t () =
+  let elt = Tyxml_js.Html.canvas [] |> Tyxml_js.To_dom.of_canvas in
+  object
+    inherit Widget.widget elt () as super
+    method get_canvas_element = elt
+    method set_width x        = super#set_attribute "width"  @@ string_of_int x
+    method set_height x       = super#set_attribute "height" @@ string_of_int x
+  end

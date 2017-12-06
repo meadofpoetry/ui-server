@@ -11,18 +11,21 @@ class type animation =
     method onAnimationComplete : unit Js.t Js.prop (* FIXME *)
   end
 
-class type t =
+class type t_js =
   object
-    method duration   : int Js.optdef_prop
-    method easing     : Js.js_string Js.t Js.optdef_prop
-    method onProgress : (animation Js.t -> unit) Js.meth Js.optdef_prop
-    method onComplete : (animation Js.t -> unit) Js.meth Js.optdef_prop
+    method duration   : int Js.prop
+    method easing     : Js.js_string Js.t Js.prop
+    method onProgress : (animation Js.t -> unit) Js.meth Js.opt Js.prop
+    method onComplete : (animation Js.t -> unit) Js.meth Js.opt Js.prop
   end
 
-let to_obj ?duration ?easing ?on_progress ?on_complete () =
-  Obj.cons_option "duration" duration []
-  |> Obj.map_cons_option ~f:(Base.easing_to_string %> Js.string) "easing" easing
-  |> Obj.map_cons_option ~f:Js.wrap_callback "onProgress" on_progress
-  |> Obj.map_cons_option ~f:Js.wrap_callback "onComplete" on_complete
-  |> Array.of_list
-  |> Js.Unsafe.obj
+class t () = object
+  inherit [t_js] base_option ()
+  initializer
+    obj <- object%js
+             val mutable duration   = 1000
+             val mutable easing     = Js.string @@ easing_to_string (Ease_out Quart)
+             val mutable onProgress = Js.null
+             val mutable onComplete = Js.null
+           end
+end

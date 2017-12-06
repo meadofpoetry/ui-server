@@ -4,20 +4,37 @@ let (%>) = CCFun.(%>)
 
 module Cast = struct
 
-  let to_number x : Js.number Js.t Js.opt =
-    if Js.typeof x = (Js.string "number")
-    then Js.some (Js.Unsafe.coerce x)
-    else Js.null
+  let to_bool x : bool option =
+    if Js.typeof x = (Js.string "boolean")
+    then Some (Js.to_bool @@ Js.Unsafe.coerce x)
+    else None
 
-  let to_string x : Js.js_string Js.t Js.opt =
+  let to_int x : int option =
+    if Js.typeof x = (Js.string "number")
+    then Some (int_of_float @@ Js.float_of_number (Js.Unsafe.coerce x))
+    else None
+
+  let to_float x : float option =
+    if Js.typeof x = (Js.string "number")
+    then Some (Js.float_of_number (Js.Unsafe.coerce x))
+    else None
+
+  let to_string x : string option =
     if Js.typeof x = (Js.string "string")
-    then Js.some (Js.Unsafe.coerce x)
-    else Js.null
+    then Some (Js.to_string @@ Js.Unsafe.coerce x)
+    else None
+
+  let to_list ~(f:'a -> 'c) (x:'b Js.t) : 'c list option =
+    let array_constr : 'a Js.js_array Js.t Js.constr = Js.Unsafe.global##._Array in
+    if Js.instanceof x array_constr
+    then Some (Array.to_list @@ Js.to_array (Js.Unsafe.coerce x)
+               |> List.map f)
+    else None
 
   let to_object x =
     if Js.typeof x = (Js.string "object")
-    then Js.some (Js.Unsafe.coerce x)
-    else Js.null
+    then Some (Js.Unsafe.coerce x)
+    else None
 
 end
 
@@ -29,9 +46,13 @@ module Canvas = struct
 
   let line_cap_to_string = function
     | Butt -> "butt" | Round -> "round" | Square -> "square"
+  let line_cap_of_string_exn = function
+    | "butt" -> Butt | "round" -> Round | "square" -> Square | _ -> failwith "Bad line cap string"
 
   let line_join_to_string = function
     | Bevel -> "bevel" | Round -> "round" | Miter -> "miter"
+  let line_join_of_string_exn = function
+    | "bevel" -> Bevel | "round" -> Round | "miter" -> Miter | _ -> failwith "Bad line join string"
 
 end
 
@@ -58,12 +79,12 @@ type interaction_mode = Point
                       | Y
 
 let interaction_mode_to_string = function
-  | Point   -> "point"
-  | Nearest -> "nearest"
-  | Index   -> "index"
-  | Dataset -> "dataset"
-  | X       -> "x"
-  | Y       -> "y"
+  | Point   -> "point"   | Nearest -> "nearest" | Index   -> "index"
+  | Dataset -> "dataset" | X       -> "x"       | Y       -> "y"
+let interaction_mode_of_string_exn = function
+  | "point"   -> Point   | "nearest" -> Nearest | "index" -> Index
+  | "dataset" -> Dataset | "x"       -> X       | "y"     -> Y
+  | _ -> failwith "Bad inderaction mode string"
 
 type easing = Linear
             | Ease_in of animation_type
@@ -84,12 +105,36 @@ let animation_type_to_string = function
   | Quad -> "Quad" | Cubic  -> "Cubic" | Quart -> "Quart" | Quint   -> "Quint"
   | Sine -> "Sine" | Expo   -> "Expo"  | Circ  -> "Circ"  | Elastic -> "Elastic"
   | Back -> "Back" | Bounce -> "Bounce"
+let animation_type_of_string_exn = function
+  | "Quad" -> Quad | "Cubic"  -> Cubic  | "Quart" -> Quart | "Quint"   -> Quint
+  | "Sine" -> Sine | "Expo"   -> Expo   | "Circ"  -> Circ  | "Elastic" -> Elastic
+  | "Back" -> Back | "Bounce" -> Bounce | _ -> failwith "Bad animation type string"
 
 let easing_to_string = function
   | Linear        -> "linear"
   | Ease_in x     -> "easeIn" ^ animation_type_to_string x
   | Ease_out x    -> "easeOut" ^ animation_type_to_string x
   | Ease_in_out x -> "easeInOut" ^ animation_type_to_string x
+
+let easing_of_string_exn x =
+  let in_s     = "easeIn" in
+  let out_s    = "easeOut" in
+  let in_out_s = "easeInOut" in
+  let f pre s =
+    let get_typ rest = (match pre with
+                        | x when x = in_s     -> Ease_in (animation_type_of_string_exn rest)
+                        | x when x = out_s    -> Ease_out (animation_type_of_string_exn rest)
+                        | x when x = in_out_s -> Ease_in_out (animation_type_of_string_exn rest)
+                        | _ -> failwith "Bad easing prefix value") in
+    match CCString.chop_prefix ~pre s with
+    | Some rest -> get_typ rest
+    | None      -> failwith "Bad easing prefix value" in
+  match x with
+  | "linear" -> Linear
+  | s when CCString.prefix ~pre:in_s s     -> f in_s s
+  | s when CCString.prefix ~pre:out_s s    -> f out_s s
+  | s when CCString.prefix ~pre:in_out_s s -> f in_out_s s
+  | _ -> failwith "Bad easing string"
 
 type typ = Line
          | Bar
@@ -104,6 +149,13 @@ let typ_to_string = function
   | Line   -> "line"   | Bar      -> "bar"      | Radar -> "radar"
   | Pie    -> "pie"    | Doughnut -> "doughnut" | Polar -> "polarArea"
   | Bubble -> "bubble" | Scatter  -> "scatter"
+
+class ['a] base_option () = object
+  val mutable obj : 'a Js.t = Js.Unsafe.obj [||]
+
+  method get_obj   = obj
+  method replace x = obj <- x
+end
 
 class type config =
   object

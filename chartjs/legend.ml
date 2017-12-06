@@ -16,47 +16,78 @@ class type item =
     method pointStyle     : Js.js_string Js.t Js.prop
   end
 
-class type labels =
+class type labels_js =
   object
-    inherit Font.t
-    method boxWidth       : float Js.optdef_prop
-    method padding        : int Js.optdef_prop
+    inherit Font.t_js
+    method boxWidth       : int Js.prop
+    method padding        : int Js.prop
     method generateLabels : (unit -> unit) Js.optdef_prop (* FIXME *)
     method filter         : (unit -> unit) Js.optdef_prop (* FIXME *)
-    method usePointStyle  : bool Js.t Js.optdef_prop
+    method usePointStyle  : bool Js.t Js.prop
   end
 
-class type t =
+class type t_js =
   object
-    method display_   : bool Js.t Js.optdef_prop
-    method position_  : Js.js_string Js.t Js.optdef_prop
-    method fullWidth_ : bool Js.t Js.optdef_prop
-    (* method onClick_   : (chart Js.t,(Dom_html.event Js.t -> item Js.t)) Js.meth_callback Js.optdef_prop *)
-    (* method onHover_   : (chart Js.t,(Dom_html.event Js.t -> item Js.t)) Js.meth_callback Js.optdef_prop *)
-    method reverse_   : bool Js.t Js.optdef_prop
-    method labels_    : labels Js.t Js.optdef_prop
+    method display   : bool Js.t Js.prop
+    method position  : Js.js_string Js.t Js.prop
+    method fullWidth : bool Js.t Js.prop
+    (* method onClick   : (chart Js.t,(Dom_html.event Js.t -> item Js.t)) Js.meth_callback Js.optdef_prop *)
+    (* method onHover   : (chart Js.t,(Dom_html.event Js.t -> item Js.t)) Js.meth_callback Js.optdef_prop *)
+    method reverse   : bool Js.t Js.prop
+    method labels    : labels_js Js.t Js.prop
   end
 
 let position_to_string = function
   | Top -> "top" | Left -> "left" | Bottom -> "bottom" | Right -> "right"
+let position_of_string_exn = function
+  | "top" -> Top | "left" -> Left | "bottom" -> Bottom | "right" -> Right | _ -> failwith "Bad position string"
 
-let labels_to_obj ?box_width ?font ?padding ?use_point_style () : labels Js.t =
-  Obj.cons_option "boxWidth" box_width []
-  |> Obj.cons_option "padding" padding
-  |> Obj.map_cons_option ~f:Js.bool "usePointStyle" use_point_style
-  |> Array.of_list
-  |> (fun x -> match font with
-               | Some font -> Array.append x @@ Font.to_array font
-               | None      -> x)
-  |> Js.Unsafe.obj
+class labels () = object
+  inherit [labels_js] base_option ()
 
-let to_obj ?display ?position ?full_width ?on_click ?on_hover ?reverse ?labels () : t Js.t =
-  Obj.map_cons_option ~f:Js.bool "display" display []
-  |> Obj.map_cons_option ~f:(position_to_string %> Js.string) "position" position
-  |> Obj.map_cons_option ~f:Js.bool "fullWidth" full_width
-  |> Obj.cons_option "onClick" on_click
-  |> Obj.cons_option "onHover" on_hover
-  |> Obj.map_cons_option ~f:Js.bool "reverse" reverse
-  |> Obj.cons_option "labels" labels
-  |> Array.of_list
-  |> Js.Unsafe.obj
+  method set_box_width x = obj##.boxWidth := x
+  method get_box_width   = obj##.boxWidth
+
+  method set_padding x = obj##.padding := x
+  method get_padding   = obj##.padding
+
+  method set_use_point_style x = obj##.usePointStyle := Js.bool x
+  method get_use_point_style   = Js.to_bool obj##.usePointStyle
+
+  initializer
+    obj##.boxWidth := 40;
+    obj##.padding := 10;
+    obj##.usePointStyle := Js._false
+end
+
+class t () = object(self)
+  inherit [t_js] base_option () as super
+  val labels = new labels ()
+
+  method private position_to_js x = Js.string @@ position_to_string x
+
+  method set_display x = obj##.display = Js.bool x
+  method get_display   = Js.to_bool obj##.display
+
+  method set_position x = obj##.position := self#position_to_js x
+  method get_position   = position_of_string_exn @@ Js.to_string obj##.position
+
+  method set_full_width x = obj##.fullWidth := Js.bool x
+  method get_full_width   = Js.to_bool obj##.fullWidth
+
+  method set_reverse x = obj##.reverse := Js.bool x
+  method get_reverse   = Js.to_bool obj##.reverse
+
+  method labels = labels
+
+  method! replace x = super#replace x; labels#replace obj##.labels
+
+  initializer
+    obj <- object%js
+             val mutable display   = Js._true
+             val mutable position  = self#position_to_js Top
+             val mutable fullWidth = Js._true
+             val mutable reverse   = Js._false
+             val mutable labels    = labels#get_obj
+           end
+end

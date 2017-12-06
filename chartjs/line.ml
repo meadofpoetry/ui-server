@@ -1,5 +1,3 @@
-[@@@ocaml.warning "-60"]
-
 open Base
 
 module Data = struct
@@ -43,8 +41,24 @@ module Data = struct
 
     type stepped_line = Bool of bool | Before | After
 
-    type fill = Elements.Line.fill
-    let fill_to_any = Elements.Line.fill_to_any
+    type fill = Bool of bool
+              | Start
+              | End
+              | Origin
+              | Absolute_index of int
+              | Relative_index of signed
+    and signed = Plus of int | Minus of int
+
+
+    let fill_to_js = function
+      | Bool b           -> Js.Unsafe.coerce @@ Js.bool b
+      | Start            -> Js.Unsafe.coerce @@ Js.string "start"
+      | End              -> Js.Unsafe.coerce @@ Js.string "end"
+      | Origin           -> Js.Unsafe.coerce @@ Js.string "origin"
+      | Absolute_index x -> Js.Unsafe.coerce @@ Js.number_of_float @@ float_of_int x
+      | Relative_index x -> (match x with
+                             | Plus x  -> Js.Unsafe.coerce @@ Js.string ("+" ^ string_of_int x)
+                             | Minus x -> Js.Unsafe.coerce @@ Js.string ("-" ^ string_of_int x))
 
     let cubic_interpolation_mode_to_string = function
       | Default -> "default" | Monotone -> "monotone"
@@ -107,7 +121,7 @@ module Data = struct
       |> Obj.map_cons_option ~f:(cubic_interpolation_mode_to_string %> Js.string)
                              "cubicInterpolationMode"
                              cubic_interpolation_mode
-      |> Obj.map_cons_option ~f:fill_to_any "fill" fill
+      |> Obj.map_cons_option ~f:fill_to_js "fill" fill
       |> Obj.cons_option "lineTension" line_tension
       |> Obj.map_cons_option ~f:Js.bool "showLine" show_line
       |> Obj.map_cons_option ~f:Js.bool "spanGaps" span_gaps
@@ -147,5 +161,4 @@ let attach ?options ~(data : Data.t Js.t) canvas =
                            |> Obj.cons_option "options" options
                            |> Array.of_list
                            |> Js.Unsafe.obj in
-  Json.output conf |> Js.to_string |> print_endline;
   new%js constr canvas conf
