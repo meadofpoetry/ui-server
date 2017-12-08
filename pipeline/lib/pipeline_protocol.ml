@@ -9,6 +9,7 @@ type state = { ctx         : ZMQ.Context.t
              ; msg         : [ `Req] ZMQ.Socket.t
              ; ev          : [ `Sub] ZMQ.Socket.t
              ; sock_events : unit event
+             ; _e : unit event
              }
 
 type get = Get_not_used
@@ -28,6 +29,7 @@ type api = { structure : Structure.t list signal
            ; graph     : Graph.t event
            ; wm        : Wm.t event
            ; vdata     : Video_data.t event (* TODO to be split by purpose later *)
+           ; adata     : Audio_data.t event
            ; get       : 'a.(get, 'a) req -> 'a Lwt.t
            ; set       : (set, unit) req -> unit Lwt.t
            }
@@ -40,6 +42,7 @@ let split_events () =
   let grap, grap_push   = E.create () in
   let wm  , wm_push     = E.create () in
   let vdata, vdata_push = E.create () in
+  let adata, adata_push = E.create () in
   let (<$>) f result =
     match result with
     | Ok r -> (f r : unit)
@@ -50,11 +53,17 @@ let split_events () =
     | `Assoc [("graph", tl)]      -> grap_push  <$> Graph.of_yojson tl
     | `Assoc [("wm", tl)]         -> wm_push    <$> Wm.of_yojson tl
     | `Assoc [("video_data", tl)] -> vdata_push <$> Video_data.of_yojson tl
+    | `Assoc [("audio_data", tl)] -> adata_push <$>
+                                       (match Audio_data.of_yojson tl with
+                                        | Error _ as e -> Yojson.Safe.pretty_to_string (`Assoc [("audio_data", tl)])
+                                                          |> Lwt_io.printlf "failed msg:\n%s\n"
+                                                          |> ignore; e
+                                        | ok -> ok)
     | s -> Yojson.Safe.pretty_to_string s
            |> prerr_endline
   in
   let events = E.map split events in
-  events, epush, strm, sets, grap, wm, vdata
+  events, epush, strm, sets, grap, wm, vdata, adata
 
 let get (type a) sock (conv : Msg_conv.converter) (s : Structure.t list signal) (req : (get, a) req) : a Lwt.t =
   let find s kv =
@@ -106,15 +115,19 @@ let create sock_in sock_out converter hardware_streams =
   let sock_events, epush,
       structure', settings,
       graph, wm,
-      vdata = split_events ()
+      vdata, adata = split_events ()
   in
   let structure = S.l2 Structure_conv.match_streams hardware_streams structure' in
   let set = set msg_sock converter in
   let get = fun x -> get msg_sock converter structure x in
   let api = {set; get; structure;
              settings; graph;
-             wm; vdata;} in
-  let state = { ctx; msg; ev; sock_events } in
+             wm; vdata; adata} in
+  let _e  = Lwt_react.E.map_p (fun x ->
+                Video_data.to_yojson x
+                |> Yojson.Safe.pretty_to_string
+                |> Lwt_io.printf "Video_data: %s\n") vdata in
+  let state = { ctx; msg; ev; sock_events; _e } in
   let recv () =
     Socket.recv ev_sock
     >>= fun msg ->

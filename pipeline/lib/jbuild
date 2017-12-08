@@ -15,6 +15,11 @@
   (preprocess (pps (ppx_deriving_yojson ppx_sqlexpr)))))
 
 (rule
+ ((targets (audio_data.ml))
+  (deps (../audio_data.ml))
+  (action (copy ${<} ${@}))))
+
+(rule
  ((targets (video_data.ml))
   (deps (../video_data.ml))
   (action (copy ${<} ${@}))))

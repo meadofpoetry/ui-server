@@ -12,6 +12,11 @@
   (preprocess (pps (js_of_ocaml-ppx ppx_deriving_yojson)))))
 
 (rule
+ ((targets (audio_data.ml))
+  (deps (../audio_data.ml))
+  (action (copy ${<} ${@}))))
+
+(rule
  ((targets (video_data.ml))
   (deps (../video_data.ml))
   (action (copy ${<} ${@}))))
