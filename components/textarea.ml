@@ -6,7 +6,7 @@ module Pure = struct
     let input_elt = elt##querySelector (Js.string ("." ^ Markup.Textfield.input_class))
                     |> Js.Opt.to_option |> CCOpt.get_exn |> Js.Unsafe.coerce in
     object
-      inherit Widget.text_input_widget ~input_elt elt ()
+      inherit [string] Widget.text_input_widget ~input_elt Widget.Text elt ()
     end
 
 end

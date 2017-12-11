@@ -175,29 +175,29 @@ let dialog_demo () =
 
 let list_demo () =
   let items = List.map (fun x -> if x = 3
-                                 then `Divider (new List_.Divider.t ())
-                                 else `Item (new List_.Item.t
+                                 then `Divider (new Item_list.Divider.t ())
+                                 else `Item (new Item_list.Item.t
                                                  ~text:("List item " ^ (string_of_int x))
                                                  ~secondary_text:"some subtext here"
                                                  ~start_detail:(new Avatar.Letter.t ~text:"A" ())
                                                  ~ripple:true
                                                  ()))
                        (CCList.range 0 5) in
-  let list = new List_.t ~avatar:true ~items () in
+  let list = new Item_list.t ~avatar:true ~items () in
   list#style##.maxWidth := Js.string "400px";
-  let list1 = new List_.t
-                  ~items:[ `Item (new List_.Item.t ~text:"Item 1" ~secondary_text:"Subtext" ())
-                         ; `Item (new List_.Item.t ~text:"Item 2" ~secondary_text:"Subtext" ())
-                         ; `Item (new List_.Item.t ~text:"Item 3" ~secondary_text:"Subtext" ())
+  let list1 = new Item_list.t
+                  ~items:[ `Item (new Item_list.Item.t ~text:"Item 1" ~secondary_text:"Subtext" ())
+                         ; `Item (new Item_list.Item.t ~text:"Item 2" ~secondary_text:"Subtext" ())
+                         ; `Item (new Item_list.Item.t ~text:"Item 3" ~secondary_text:"Subtext" ())
                          ]
                   () in
-  let list2 = new List_.t
-                  ~items:[ `Item (new List_.Item.t ~text:"Item 1" ~secondary_text:"Subtext" ())
-                         ; `Item (new List_.Item.t ~text:"Item 2" ~secondary_text:"Subtext" ())
-                         ; `Item (new List_.Item.t ~text:"Item 3" ~secondary_text:"Subtext" ())
+  let list2 = new Item_list.t
+                  ~items:[ `Item (new Item_list.Item.t ~text:"Item 1" ~secondary_text:"Subtext" ())
+                         ; `Item (new Item_list.Item.t ~text:"Item 2" ~secondary_text:"Subtext" ())
+                         ; `Item (new Item_list.Item.t ~text:"Item 3" ~secondary_text:"Subtext" ())
                          ]
                   () in
-  let group = new List_.List_group.t
+  let group = new Item_list.List_group.t
                   ~content:[ { subheader = Some "Group 1"; list = list1 }
                            ; { subheader = Some "Group 2"; list = list2 }
                            ]
@@ -346,7 +346,7 @@ let textfield_demo () =
   (* Dense js textbox with *)
   let dense    = new Textfield.t
                      ~label:"dense textfield label"
-                     ~input_type:`Email
+                     ~input_type:Widget.Email
                      ~help_text:{ validation = true
                                 ; persistent = false
                                 ; text       = Some "Provide valid e-mail"

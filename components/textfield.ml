@@ -1,11 +1,16 @@
 module Pure = struct
 
-  class t ?input_type ?input_id ?placeholder ?box () =
-    let elt = (Markup.Textfield.create ?input_type ?input_id ?placeholder ?box () |> Tyxml_js.To_dom.of_div) in
+  class ['a] t ?(input_type = Widget.Text) ?input_id ?placeholder ?box () =
+    let elt = (Markup.Textfield.create
+                 ~input_type:(Widget.input_type_of_validation input_type)
+                 ?input_id
+                 ?placeholder
+                 ?box ()
+               |> Tyxml_js.To_dom.of_div) in
     let input_elt = elt##querySelector (Js.string ("." ^ Markup.Textfield.input_class))
                     |> Js.Opt.to_option |> CCOpt.get_exn |> Js.Unsafe.coerce in
     object
-      inherit Widget.text_input_widget ~input_elt elt ()
+      inherit ['a] Widget.text_input_widget ~input_elt input_type elt ()
     end
 
 end
@@ -47,7 +52,7 @@ module Help_text = struct
 
 end
 
-class t ?input_type ?input_id ?label ?placeholder ?icon ?help_text ?box () =
+class ['a] t ?(input_type = Widget.Text) ?input_id ?label ?placeholder ?icon ?help_text ?box () =
 
   let icon_widget =
     CCOpt.map (fun { clickable; icon; _ } ->
@@ -60,7 +65,7 @@ class t ?input_type ?input_id ?label ?placeholder ?icon ?help_text ?box () =
     let get_icon pos = (match icon,icon_widget with
                         | (Some x,Some w) when x.pos = pos -> Some (Widget.widget_to_markup w)
                         | _ -> None) in
-    Markup.Textfield.create ?input_type
+    Markup.Textfield.create ~input_type:(Widget.input_type_of_validation input_type)
                             ?input_id
                             ?label
                             ?placeholder
@@ -81,7 +86,7 @@ class t ?input_type ?input_id ?label ?placeholder ?icon ?help_text ?box () =
 
   object(self)
 
-    inherit Widget.text_input_widget ~input_elt elt () as super
+    inherit ['a] Widget.text_input_widget ~input_elt input_type elt () as super
 
     val mdc : mdc Js.t =
       text_field_widget#root
@@ -121,7 +126,9 @@ class t ?input_type ?input_id ?label ?placeholder ?icon ?help_text ?box () =
 
     initializer
       CCOpt.iter (fun x -> if x#is_validation && CCOpt.is_none x#text
-                           then React.E.map (fun (s,_) -> x#set_text_content s) super#e_invalid |> ignore)
-                 self#get_help_text_widget
+                           then React.S.map (function Some _ -> ()
+                                                    | None   -> x#set_text_content super#get_validation_message)
+                                  super#s_input |> ignore)
+        self#get_help_text_widget
 
   end
