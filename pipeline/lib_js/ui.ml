@@ -141,11 +141,15 @@ module Wm = struct
     div
     
 end
-(*
+
+          (*
 module Settings = struct
 
   let make_video (v : Settings.video) =
-    
+    let loss_s, push = React.S.create v.loss in
+    let div    = Dom_html.createDiv Dom_html.document in
+    let lfield = Components.Textfield.create ~input_type:(`Number) () in
+    let vlabel = Dom_html.createLabel Dom_html.document in
 
   let make_layout (s : Settings.t) =
     let v, vs = make_video s.video in
@@ -188,4 +192,4 @@ module Settings = struct
     div
     
 end
- *)
+           *)
