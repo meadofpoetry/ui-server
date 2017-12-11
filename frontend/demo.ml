@@ -469,7 +469,58 @@ let drawer_demo () =
                                                                            ()] ()
   |> Drawer.Temporary.attach
 
-let chart_demo () = new Chartjs.t ()
+let chart_demo () =
+  Random.init (Unix.time () |> int_of_float);
+  let open Chartjs.Line in
+  let data =
+    Data.to_obj
+      ~datasets:[ Data.Dataset.to_obj
+                    ~label:"My data 1"
+                    ~fill:(Bool false)
+                    ~border_color:"rgba(255,0,0,1)"
+                    ~data:(Points (List.map
+                                     (fun x -> ({ x = (float_of_int x)
+                                                ; y = Random.float 10.
+                                                } : Data.Dataset.xy))
+                                     (CCList.range 0 20))
+                           : Data.Dataset.data)
+                    ()
+                ; Data.Dataset.to_obj
+                    ~label:"My data 2"
+                    ~fill:(Bool false)
+                    ~border_color:"rgba(0,255,0,1)"
+                    ~data:(Points (List.map
+                                     (fun x -> ({ x = (float_of_int x)
+                                                ; y = Random.float 50.
+                                                } : Data.Dataset.xy))
+                                     (CCList.range 0 20))
+                           : Data.Dataset.data)
+                    ()
+                ]
+      ~labels:(CCList.range 0 20 |> List.map string_of_int)
+      () in
+  let open Chartjs in
+  let options = new Options.t () in
+  options#title#set_display true;
+  options#title#set_text @@ `String "Title";
+  options#hover#set_mode Index;
+  options#hover#set_intersect true;
+  options#elements#point#set_background_color @@ Name CSS.Color.Yellow;
+  (* axis#scale_label#set_display true;
+   * axis#scale_label#set_label_string "Supreme x axis"; *)
+  options#tooltip#set_mode Index;
+  options#tooltip#set_intersect false;
+  let update = new Button.t ~label:"update" () in
+  let chart = new Chartjs.Line.t ~data ~options:options#get_obj () in
+  chart#pp;
+  (* print_endline @@ Js.to_string @@ Json.output (Js.Unsafe.coerce chart)##.options##.scales;
+   * options#replace (Js.Unsafe.coerce chart)##.options;
+   * React.E.map (fun () -> options#title#set_text @@ `Lines ["New chart title"; "another line"];
+   *                        options#legend#set_reverse true;
+   *                        (Js.Unsafe.coerce chart)##update ()) update#e_click |> ignore; *)
+  Html.div ~a:[ Html.a_style "max-width:700px"] [ Widget.widget_to_markup chart
+                                                ; Widget.widget_to_markup update ]
+  |> To_dom.of_element
 
 let add_demos demos =
   Html.div ~a:[ Html.a_id "demo-div" ]
@@ -481,12 +532,8 @@ let onload _ =
   let body    = doc##.body in
   let drawer  = drawer_demo () in
   let toolbar = toolbar_demo drawer () in
-  let canvas  = chart_demo () in
-  let update  = new Button.t ~label:"update" () in
   let demos   = add_demos [ button_demo ()
-                          ; Html.div ~a:[ Html.a_style "max-width:700px"] [ Widget.widget_to_markup canvas
-                                                                          ; Widget.widget_to_markup update ]
-                            |> To_dom.of_element
+                          ; chart_demo ()
                           ; fab_demo ()
                           ; radio_demo ()
                           ; checkbox_demo ()
@@ -511,51 +558,6 @@ let onload _ =
   Dom.appendChild body toolbar;
   Dom.appendChild body drawer##.root__;
   Dom.appendChild body demos;
-  let open Chartjs.Line in
-  Random.init (Unix.time () |> int_of_float);
-  let data = Data.to_obj ~datasets:[ Data.Dataset.to_obj ~label:"My data 1"
-                                                         ~fill:(Bool false)
-                                                         ~border_color:"rgba(255,0,0,1)"
-                                                         ~data:(Points (List.map
-                                                                          (fun x -> ({ x = (float_of_int x)
-                                                                                     ; y = Random.float 10.
-                                                                                     } : Data.Dataset.xy))
-                                                                          (CCList.range 0 20))
-                                                                : Data.Dataset.data)
-                                                         ()
-                                   ; Data.Dataset.to_obj ~label:"My data 2"
-                                                         ~fill:(Bool false)
-                                                         ~border_color:"rgba(0,255,0,1)"
-                                                         ~data:(Points (List.map
-                                                                          (fun x -> ({ x = (float_of_int x)
-                                                                                     ; y = Random.float 50.
-                                                                                     } : Data.Dataset.xy))
-                                                                          (CCList.range 0 20))
-                                                                : Data.Dataset.data)
-                                                         ()
-                                   ]
-                         ~labels:(CCList.range 0 20 |> List.map string_of_int)
-                         () in
-  let open Chartjs in
-  let options = new Options.t () in
-  options#title#set_display true;
-  options#title#set_text @@ `String "Title";
-  options#hover#set_mode Index;
-  options#hover#set_intersect true;
-  options#elements#point#set_background_color @@ Name CSS.Color.Yellow;
-  (* axis#scale_label#set_display true;
-   * axis#scale_label#set_label_string "Supreme x axis"; *)
-  options#tooltip#set_mode Index;
-  options#tooltip#set_intersect false;
-  let chart = Chartjs.Line.attach
-                ~data
-                ~options:options#get_obj
-                canvas#get_canvas_element in
-  print_endline @@ Js.to_string @@ Json.output (Js.Unsafe.coerce chart)##.options##.scales;
-  options#replace (Js.Unsafe.coerce chart)##.options;
-  React.E.map (fun () -> options#title#set_text @@ `Lines ["New chart title"; "another line"];
-                         options#legend#set_reverse true;
-                         (Js.Unsafe.coerce chart)##update ()) update#e_click |> ignore;
   Js._false
 
 let () = Dom_html.addEventListener Dom_html.document

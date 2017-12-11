@@ -297,6 +297,7 @@ module Cartesian = struct
           end
 
   class ['a] cartesian ~typ ~id ~position () = object(self)
+    constraint 'a = #cartesian_js
     inherit ['a] base_option () as super
     val grid_lines  = new Grid_line.t ()
     val scale_label = new Scale_label.t ()
@@ -338,7 +339,7 @@ module Cartesian = struct
           method max    : Js.js_string Js.t Js.opt Js.prop
         end
 
-      class t () = object
+      class t ~labels () = object(self)
         inherit [t_js] base_option ()
         inherit cartesian_tick ()
 
@@ -351,6 +352,9 @@ module Cartesian = struct
 
         method set_max x = obj##.max := Js.some @@ Js.string x
         method get_max   = CCOpt.map Js.to_string @@ Js.Opt.to_option obj##.max
+
+        initializer
+          self#set_labels labels
       end
 
     end
@@ -361,12 +365,13 @@ module Cartesian = struct
         method ticks : Tick.t_js Js.t Js.prop
       end
 
-    class t ~id ~position () = object
+    class t ~id ~position ~labels () = object
       inherit [t_js] cartesian ~typ:`Category ~id ~position () as super
-      val ticks = new Tick.t ()
+      val ticks = new Tick.t ~labels ()
 
       method ticks = ticks
       method! replace x = super#replace x; ticks#replace obj##.ticks
+
     end
 
   end
@@ -692,10 +697,8 @@ module Cartesian = struct
 
   end
 
-  type axis = Linear of Linear.t
-            | Category of Category.t
-            | Logarithmic of Logarithmic.t
-            | Time of Time.t
+  type axis = [ `Linear | `Logarithmic | `Time | `Category ]
+  type axes = (axis * axis)
 
   class type t_js =
     object
@@ -703,7 +706,9 @@ module Cartesian = struct
       method yAxes : 'a Js.t Js.js_array Js.t Js.prop
     end
 
-  class t ~(x_axes:axis list) ~(y_axes:axis list) () = object
+  class ['a,'b] t ~(x_axes:'a list) ~(y_axes:'b list) () = object
+    constraint 'a = < get_obj : #cartesian_js Js.t; .. >
+    constraint 'b = < get_obj : #cartesian_js Js.t; .. >
     inherit [t_js] base_option ()
     val x_axes = x_axes
     val y_axes = y_axes
@@ -711,30 +716,10 @@ module Cartesian = struct
     method x_axes = x_axes
     method y_axes = y_axes
 
-    method get_x_linear = CCList.filter_map (function Linear x -> Some x | _ -> None) x_axes
-    method get_y_linear = CCList.filter_map (function Linear x -> Some x | _ -> None) y_axes
-
-    method get_x_category = CCList.filter_map (function Category x -> Some x | _ -> None) x_axes
-    method get_y_category = CCList.filter_map (function Category x -> Some x | _ -> None) y_axes
-
-    method get_x_logarithmic = CCList.filter_map (function Logarithmic x -> Some x | _ -> None) x_axes
-    method get_y_logarithmic = CCList.filter_map (function Logarithmic x -> Some x | _ -> None) y_axes
-
-    method get_x_time = CCList.filter_map (function Time x -> Some x | _ -> None) x_axes
-    method get_y_time = CCList.filter_map (function Time x -> Some x | _ -> None) y_axes
-
-                                          (* TODO add replace *)
+    (* TODO add replace *)
     initializer
-      obj##.xAxes := Js.array @@ Array.of_list @@ List.map (function
-                                                            | Linear x      -> Js.Unsafe.coerce x#get_obj
-                                                            | Category x    -> Js.Unsafe.coerce x#get_obj
-                                                            | Logarithmic x -> Js.Unsafe.coerce x#get_obj
-                                                            | Time x        -> Js.Unsafe.coerce x#get_obj) x_axes;
-      obj##.yAxes := Js.array @@ Array.of_list @@ List.map (function
-                                                            | Linear x      -> Js.Unsafe.coerce x#get_obj
-                                                            | Category x    -> Js.Unsafe.coerce x#get_obj
-                                                            | Logarithmic x -> Js.Unsafe.coerce x#get_obj
-                                                            | Time x        -> Js.Unsafe.coerce x#get_obj) y_axes;
+      obj##.xAxes := Js.array @@ Array.of_list @@ List.map (fun x -> x#get_obj) x_axes;
+      obj##.yAxes := Js.array @@ Array.of_list @@ List.map (fun x -> x#get_obj) y_axes
   end
 
 end
@@ -742,3 +727,5 @@ end
 module Radial = struct
 
 end
+
+type typ = [ `Cartesian of Cartesian.axes | `Radial ]

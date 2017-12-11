@@ -1,5 +1,19 @@
 open Base
 
+module type P = sig
+  type t
+  val compare : t -> t -> int
+  val axis : [`Linear | `Logarithmic | `Category | `Time ]
+end
+
+module Make_numeric_coord (X : P) (Y : P) = struct
+  type t = { x : X.t
+           ; y : Y.t option
+           }
+
+  type lst = t list
+end
+
 module Data = struct
 
   module Dataset = struct
@@ -67,18 +81,18 @@ module Data = struct
 
     type 'a or_array
 
-    class type t =
+    class type t_js =
       object
         method data                      : number_or_point Js.t Js.js_array Js.t Js.prop
-        method label                     : Js.js_string Js.t Js.optdef_prop
+        method label                     : Js.js_string Js.t Js.prop
         method xAxisID                   : Js.js_string Js.t Js.optdef_prop
         method yAxisID                   : Js.js_string Js.t Js.optdef_prop
-        method backgroundColor           : Js.js_string Js.t Js.optdef_prop
-        method borderWidth               : float Js.optdef_prop
-        method borderColor               : Js.js_string Js.t Js.optdef_prop
+        method backgroundColor           : CSS.Color.js_t Js.optdef_prop
+        method borderWidth               : int Js.optdef_prop
+        method borderColor               : CSS.Color.js_t Js.optdef_prop
         method borderCapStyle            : Js.js_string Js.t Js.optdef_prop
-        method borderDash                : float Js.js_array Js.t Js.optdef_prop
-        method borderDashOffset          : float Js.optdef_prop
+        method borderDash                : int Js.js_array Js.t Js.optdef_prop
+        method borderDashOffset          : int Js.optdef_prop
         method borderJoinStyle           : Js.js_string Js.t Js.optdef_prop
         method cubicInterpolationMode    : Js.js_string Js.t Js.optdef_prop
         method fill                      : bool_or_string Js.t Js.optdef_prop
@@ -98,10 +112,28 @@ module Data = struct
         method steppedLine               : bool_or_string Js.t Js.optdef_prop
       end
 
+    class t () = object
+
+      inherit [t_js] base_option ()
+
+      method set_label x = obj##.label := Js.string x
+      method get_label   = Js.to_string obj##.label
+
+      method set_background_color x = obj##.backgroundColor := CSS.Color.js x
+      method get_background_color   = CCOpt.map CSS.Color.ml @@ Js.Optdef.to_option obj##.backgroundColor
+
+      method set_border_width x = obj##.borderWidth := x
+      method get_border_width   = Js.Optdef.to_option obj##.borderWidth
+
+      method set_border_color x = obj##.borderColor := CSS.Color.js x
+      method get_border_color   = CCOpt.map CSS.Color.ml @@ Js.Optdef.to_option obj##.borderColor
+
+    end
+
     let to_obj ?label ?x_axis_id ?y_axis_id ?background_color ?border_color ?border_width
                ?border_dash ?border_dash_offset ?border_cap_style ?border_join_style
                ?cubic_interpolation_mode ?fill ?line_tension ?show_line ?span_gaps ?stepped_line
-               ~(data : data) () : t Js.t =
+               ~(data : data) () : t_js Js.t =
       let inject = Js.Unsafe.inject in
       let stepped_line_to_any = (function
                                  | (Bool b : stepped_line) -> inject @@ Js.bool b
@@ -134,10 +166,10 @@ module Data = struct
   class type t =
     object
       method labels   : Js.js_string Js.t Js.js_array Js.t Js.optdef_prop
-      method datasets : Dataset.t Js.t Js.js_array Js.t Js.prop
+      method datasets : Dataset.t_js Js.t Js.js_array Js.t Js.prop
     end
 
-  let to_obj ?(labels : string list option) ?(datasets : Dataset.t Js.t list option) () : t Js.t =
+  let to_obj ?(labels : string list option) ?(datasets : Dataset.t_js Js.t list option) () : t Js.t =
     Obj.map_cons_option ~f:(List.map Js.string %> Array.of_list %> Js.array) "labels" labels []
     |> Obj.map_cons_option ~f:(Array.of_list %> Js.array) "datasets" datasets
     |> Array.of_list
@@ -145,20 +177,18 @@ module Data = struct
 
 end
 
-class type conf =
-  object
-    method type_   : Js.js_string Js.t Js.prop
-    method data    : Data.t Js.t Js.prop
-    method options : Options.t Js.t Js.optdef_prop
+module Options = struct
+
+  class t () = object
+    inherit Options.t ()
+
   end
 
-let constr : (Dom_html.canvasElement Js.t -> conf Js.t -> Base.chart Js.t) Js.constr =
-  Js.Unsafe.global##.Chart
+end
 
-let attach ?options ~(data : Data.t Js.t) canvas =
-  let (conf : conf Js.t) = [ "type", Js.Unsafe.inject @@ Js.string @@ Base.typ_to_string Base.Line
-                           ; "data", Js.Unsafe.inject data ]
-                           |> Obj.cons_option "options" options
-                           |> Array.of_list
-                           |> Js.Unsafe.obj in
-  new%js constr canvas conf
+class t ~options ~(data:Data.t Js.t) () = object
+  inherit Base_chart.t ~options ~typ:Line ~data:(Js.Unsafe.inject data) ()
+
+  initializer
+    ()
+end
