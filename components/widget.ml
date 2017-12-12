@@ -7,9 +7,10 @@ type rect =
   ; height : float option
   }
 
-class widget elt () = object(self)
+class widget elt () = object(self : 'self)
 
-  method root : Dom_html.element Js.t = (elt :> Dom_html.element Js.t)
+  method root   : Dom_html.element Js.t = (elt :> Dom_html.element Js.t)
+  method widget : widget = (self :> widget)
 
   method get_attribute a    = self#root##getAttribute (Js.string a) |> Js.Opt.to_option |> CCOpt.map Js.to_string
   method set_attribute a v  = self#root##setAttribute (Js.string a) (Js.string v)

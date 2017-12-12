@@ -94,8 +94,8 @@ class t ?title ?(actions:Action.t list option) ~content () =
     method get_body_widget   = body_widget
     method get_footer_widget = footer_widget
 
-    method show      = mdc##show ()
-    method show_lwt  =
+    method show       = mdc##show ()
+    method show_await =
       let t,w = Lwt.wait () in
       mdc##show ();
       React.E.map (fun x -> Lwt.wakeup w x) @@ React.E.once e_action  |> ignore;

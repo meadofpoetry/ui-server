@@ -55,9 +55,9 @@ let checkbox_demo () =
   React.E.map (fun () -> checkbox#set_indeterminate @@ not checkbox#get_indeterminate;
                          css_checkbox#set_indeterminate @@ not css_checkbox#get_indeterminate)
               btn#e_click |> ignore;
-  demo_section "Checkbox" [ Widget.coerce @@ subsection "Checkbox (css only)" css_checkbox
-                          ; Widget.coerce @@ subsection "Checkbox with label" form_field
-                          ; Widget.coerce btn ]
+  demo_section "Checkbox" [ (subsection "Checkbox (css only)" css_checkbox)#widget
+                          ; (subsection "Checkbox with label" form_field)#widget
+                          ; btn#widget ]
 
 let switch_demo () =
   let switch   = new Switch.t ~input_id:"demo-switch" () in
@@ -80,9 +80,9 @@ let card_demo () =
   (Js.Unsafe.coerce media#style)##.backgroundSize := Js.string "cover";
   media#style##.backgroundRepeat := Js.string "no-repeat";
   media#style##.height := Js.string "12.313rem";
-  let title = new Card.Title.t ~large:true ~title:"Demo card title" () in
+  let title    = new Card.Title.t ~large:true ~title:"Demo card title" () in
   let subtitle = new Card.Subtitle.t ~subtitle:"Subtitle" () in
-  let primary  = new Card.Primary.t ~widgets:[ Widget.coerce title; Widget.coerce subtitle ] () in
+  let primary  = new Card.Primary.t ~widgets:[ title#widget; subtitle#widget ] () in
   let text     = new Card.Supporting_text.t ~text:"Supporting text" () in
   let actions  = new Card.Actions.t ~widgets:[ new Button.t ~compact:true ~label:"action 1" ()
                                              ; new Button.t ~compact:true ~label:"action 2" () ] () in
@@ -149,7 +149,7 @@ let layout_grid_demo () =
   React.E.map (fun () -> (CCList.get_at_idx_exn 4 cells)#set_span 1) btn2#e_click |> ignore;
   React.E.map (fun () -> (CCList.get_at_idx_exn 4 cells)#set_span 2) btn4#e_click |> ignore;
   let layout_grid = new Layout_grid.t ~cells () in
-  demo_section "Layout grid" [ Widget.coerce layout_grid; Widget.coerce btn2; Widget.coerce btn4 ]
+  demo_section "Layout grid" [ layout_grid#widget; btn2#widget; btn4#widget ]
 
 let dialog_demo () =
   let dialog = new Dialog.t
@@ -160,12 +160,12 @@ let dialog_demo () =
                             ]
                    () in
   let button = new Button.t ~label:"show dialog" () in
-  React.E.map (fun () -> Lwt.bind dialog#show_lwt
+  React.E.map (fun () -> Lwt.bind dialog#show_await
                                   (function
                                    | `Accept -> print_endline "Dialog accepted"; Lwt.return ()
                                    | `Cancel -> print_endline "Dialog cancelled"; Lwt.return ()))
               button#e_click |> ignore;
-  demo_section "Dialog" [ Widget.coerce dialog; Widget.coerce button ]
+  demo_section "Dialog" [ dialog#widget; button#widget ]
 
 let list_demo () =
   let items = List.map (fun x -> if x = 3
@@ -197,7 +197,7 @@ let list_demo () =
                            ]
                   () in
   group#style##.maxWidth := Js.string "400px";
-  demo_section "List" [ Widget.coerce list; Widget.coerce group ]
+  demo_section "List" [ list#widget; group#widget ]
 
 let tree_demo () =
   let item x = new Tree.Item.t
@@ -250,7 +250,7 @@ let menu_demo () =
                             (Dom_html.handler (fun _ -> print_endline "Menu cancelled"; Js._false))
                             Js._false
   |> ignore;
-  demo_section "Menu" [ Widget.coerce wrapper; Widget.coerce icon_wrapper ]
+  demo_section "Menu" [ wrapper#widget; icon_wrapper#widget ]
 
 let linear_progress_demo () =
   let linear_progress = new Linear_progress.t () in
@@ -280,7 +280,7 @@ let linear_progress_demo () =
                        [ind_btn  ; det_btn  ; pgs0_btn ; pgs20_btn; pgs60_btn;
                         buf10_btn; buf30_btn; buf70_btn; open_btn ; close_btn ] in
   let btn_grid = new Layout_grid.t ~cells () in
-  demo_section "Linear progress" [ Widget.coerce btn_grid; Widget.coerce linear_progress ]
+  demo_section "Linear progress" [ btn_grid#widget; linear_progress#widget ]
 
 let tabs_demo () =
   let icon_bar  = [ new Tabs.Tab.t ~icon:"pets" ()
@@ -424,7 +424,7 @@ let toolbar_demo (drawer : Drawer.Persistent.t Js.t) () =
              |> To_dom.of_i
              |> Widget.create in
   let title = new Toolbar.Row.Section.Title.t ~title:"Widgets demo page" () in
-  let section_start = new Toolbar.Row.Section.t ~widgets:[ Widget.coerce icon; Widget.coerce title ] () in
+  let section_start = new Toolbar.Row.Section.t ~widgets:[ icon#widget; title#widget ] () in
   section_start#set_align `Start;
   let icon_menu = new Menu.t
                       ~open_from:`Top_right
@@ -456,7 +456,7 @@ let elevation_demo () =
   let btn8 = new Button.t ~label:"elevation 8" () in
   React.E.map (fun () -> Elevation.set_elevation d 2) btn2#e_click |> ignore;
   React.E.map (fun () -> Elevation.set_elevation d 8) btn8#e_click |> ignore;
-  demo_section "Elevation" [ Widget.coerce d; Widget.coerce btn2; Widget.coerce btn8 ]
+  demo_section "Elevation" [ d#widget; btn2#widget; btn8#widget ]
 
 let drawer_demo () =
   Drawer.Temporary.create ~content:[Drawer.Temporary.Toolbar_spacer.create ~content:[Html.pcdata "Demo"]
