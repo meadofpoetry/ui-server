@@ -56,7 +56,7 @@ let load () =
   
   let text    = Dom_html.createP doc in
   text##.textContent := Js.some @@ Js.string "Pipeline widget";
-  text##.classList##add (Js.string Components.Typography.display1_class);
+  text##.classList##add (Js.string @@ Components.Typography.font_to_class Display_1);
 
   let video   = Dom_html.createVideo doc in
   video##setAttribute (Js.string "id") (Js.string "remotevideo");
@@ -65,26 +65,33 @@ let load () =
 
   let str = Requests.get_structure_socket () in
   Requests.get_structure ()
-  >|= (function Error e -> print_endline e
+  >|= (function Error e -> print_endline @@ "error get: " ^ e
               | Ok s    ->
+                 Structure.t_list_to_yojson s
+                 |> Yojson.Safe.to_string
+                 |> print_endline;
                  let str_el = Ui.Structure.create ~init:s ~events:str
                                 ~post:(fun s -> Requests.post_structure s
-                                                >|= (function Ok () -> () | Error e -> print_endline e)
+                                                >|= (function
+                                                     | Ok () -> ()
+                                                     | Error e -> print_endline @@ "error post: " ^ e)
                                                 |> Lwt.ignore_result)
                  in Dom.appendChild container str_el)
   |> Lwt.ignore_result;
 
   let wm  = Requests.get_wm_socket () in
   Requests.get_wm ()
-  >|= (function Error e -> print_endline e
+  >|= (function Error e -> print_endline @@ "error get wm " ^ e
               | Ok w    ->
                  let wm_el = Ui.Wm.create ~init:w ~events:wm
                                ~post:(fun w -> Requests.post_wm w
-                                               >|= (function Ok () -> () | Error e -> print_endline e)
-                                               |> Lwt.ignore_result)                             
+                                               >|= (function
+                                                    | Ok () -> ()
+                                                    | Error e -> print_endline @@ "error post wm" ^ e)
+                                               |> Lwt.ignore_result)
                  in Dom.appendChild container wm_el)
   |> Lwt.ignore_result;
 
   
   Dom.appendChild container text;
-  Dom.appendChild container video
+Dom.appendChild container video
