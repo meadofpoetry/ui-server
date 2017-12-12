@@ -92,8 +92,8 @@ let card_demo () =
 
 let slider_demo () =
   let listen elt name =
-    (* React.E.map (fun x -> Printf.printf "Input on %s slider, value = %f\n" name x) elt#e_input |> ignore; *)
-    React.E.map (fun x -> Printf.printf "Change on %s slider, value = %f\n" name x) elt#e_change |> ignore in
+    React.S.map (fun x -> Printf.printf "Input on %s slider, value = %f\n" name x) elt#s_input |> ignore;
+    React.S.map (fun x -> Printf.printf "Value on %s slider, value = %f\n" name x) elt#s_value |> ignore in
   let continuous   = new Slider.t () in
   let discrete     = new Slider.t ~discrete:true () in
   let with_markers = new Slider.t ~discrete:true ~markers:true () in
@@ -161,8 +161,9 @@ let dialog_demo () =
                    () in
   let button = new Button.t ~label:"show dialog" () in
   React.E.map (fun () -> Lwt.bind dialog#show_lwt
-                                  (fun x -> print_endline (if x then "Dialog accepted" else "Dialog cancelled");
-                                            Lwt.return ()))
+                                  (function
+                                   | `Accept -> print_endline "Dialog accepted"; Lwt.return ()
+                                   | `Cancel -> print_endline "Dialog cancelled"; Lwt.return ()))
               button#e_click |> ignore;
   demo_section "Dialog" [ Widget.coerce dialog; Widget.coerce button ]
 

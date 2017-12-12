@@ -103,9 +103,9 @@ class t ?title ?(actions:Action.t list option) ~content () =
     method hide      = mdc##close ()
     method is_opened = Js.to_bool mdc##.open_
 
-    method e_action  = e_action
+    method e_action : [ `Accept | `Cancel ] React.event = e_action
 
     initializer
-      Dom_events.listen super#root events.accept (fun _ _ -> e_action_push true; false) |> ignore;
-      Dom_events.listen super#root events.cancel (fun _ _ -> e_action_push false; false) |> ignore
+      Dom_events.listen super#root events.accept (fun _ _ -> e_action_push `Accept; false) |> ignore;
+      Dom_events.listen super#root events.cancel (fun _ _ -> e_action_push `Cancel; false) |> ignore
   end

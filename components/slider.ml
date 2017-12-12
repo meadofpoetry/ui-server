@@ -45,8 +45,8 @@ class t ?discrete ?markers ?(config={step = 1.0; min = 0.0; max = 100.0; value =
                                  ?value:config.value
                                  ()
             |> Tyxml_js.To_dom.of_div in
-  let e_input,e_input_push   = React.E.create () in
-  let e_change,e_change_push = React.E.create () in
+  let s_input,s_input_push = React.S.create @@ CCOpt.get_or ~default:config.min config.value in
+  let s_value,s_value_push = React.S.create @@ CCOpt.get_or ~default:config.min config.value in
   let mdc : mdc Js.t = elt |> (fun x -> Js.Unsafe.global##.mdc##.slider##.MDCSlider##attachTo x) in
 
   object(self)
@@ -74,11 +74,11 @@ class t ?discrete ?markers ?(config={step = 1.0; min = 0.0; max = 100.0; value =
     method step_up        = mdc##stepUp ()
     method step_up_by x   = mdc##stepUp_value x
 
-    method e_input  = e_input
-    method e_change = e_change
+    method s_input = s_input
+    method s_value = s_value
 
     initializer
-      Dom_events.listen self#root events.input  (fun _ _ -> e_input_push self#get_value; false)  |> ignore;
-      Dom_events.listen self#root events.change (fun _ _ -> e_change_push self#get_value; false) |> ignore;
+      Dom_events.listen self#root events.input  (fun _ _ -> s_input_push self#get_value; false) |> ignore;
+      Dom_events.listen self#root events.change (fun _ _ -> s_value_push self#get_value; false) |> ignore;
 
   end
