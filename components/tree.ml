@@ -18,7 +18,7 @@ module Item = struct
                                        icon)
                              nested) in
 
-    let item = new List_.Item.t ?ripple ?secondary_text ?start_detail ?end_detail ~text () in
+    let item = new Item_list.Item.t ?ripple ?secondary_text ?start_detail ?end_detail ~text () in
 
     let elt = Markup.Tree.Item.create ~item:(Widget.widget_to_markup item)
                                       ?nested_list:(CCOpt.map (fun x -> Widget.widget_to_markup x) nested)

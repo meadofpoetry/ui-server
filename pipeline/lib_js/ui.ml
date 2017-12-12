@@ -56,6 +56,7 @@ module Structure = struct
         ~(post:   Structure.t list -> unit) =
     let id  = "structure-place" in
     let div = Dom_html.createDiv Dom_html.document in
+    print_endline (Yojson.Safe.pretty_to_string @@ Structure.t_list_to_yojson init);
     let make (str : Structure.t list) =
       let place  = Dom_html.createDiv Dom_html.document in
       place##.id := Js.string id;

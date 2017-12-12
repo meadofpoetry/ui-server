@@ -128,28 +128,50 @@ type validity =
   ; value_missing    : bool
   } [@@deriving to_yojson]
 
-class text_input_widget ~input_elt elt () =
-  let s_valid,s_valid_push     = React.S.create true in
-  let e_invalid,e_invalid_push = React.E.create () in
+type 'a validation =
+  | Email   : string validation
+  | Integer : (int * int) option -> int validation
+  | Float   : (float * float) option -> float validation
+  | Text    : string validation
+  | Custom  : (string    -> ('a, string) result) -> 'a validation
+
+let input_type_of_validation :
+      type a. a validation -> [> `Email | `Number | `Text ]
+  = function
+  | Email     -> `Email
+  | Integer _ -> `Number
+  | Float   _ -> `Number
+  | Text      -> `Text
+  | Custom  _ -> `Text
+
+let parse_valid (type a) (v : a validation) (on_fail : string -> unit) (s : string) : a option =
+  match v with
+  | Email        -> Some s
+  | Integer None -> Some (int_of_string s)
+  | Integer Some (min,max) -> let i = int_of_string s in
+                              if i <= max && i >= min then Some i
+                              else None
+  | Float None   -> Some (float_of_string s)
+  | Float Some (min,max) -> let i = float_of_string s in
+                            if i <= max && i >= min then Some i
+                            else None
+  | Text         -> Some s
+  | Custom f     ->
+     match f s with
+     | Ok v -> Some v
+     | Error s -> on_fail s; None
+   
+class ['a] text_input_widget ~input_elt (v : 'a validation) elt () =
+  let (s_input : 'a option React.signal), s_input_push = React.S.create None in
   object(self)
 
     inherit input_widget ~input_elt elt ()
-
-    val ip_pattern =
-      "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
-    val multicast_pattern =
-      "2(?:2[4-9]|3\\d)(?:\\.(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]\\d?|0)){3}"
 
     method get_max : float     = (Js.Unsafe.coerce input_elt)##.max
     method set_max (x : float) = (Js.Unsafe.coerce input_elt)##.max := x
 
     method get_min : float     = (Js.Unsafe.coerce input_elt)##.min
     method set_min (x : float) = (Js.Unsafe.coerce input_elt)##.min := x
-
-    method get_pattern   = Js.to_string (Js.Unsafe.coerce input_elt)##.pattern
-    method set_pattern s = (Js.Unsafe.coerce input_elt)##.pattern := Js.string s
-    method set_ip_pattern        = self#set_pattern ip_pattern;
-    method set_multicast_pattern = self#set_pattern multicast_pattern;
 
     method set_required x = input_elt##.required := Js.bool x
 
@@ -204,23 +226,24 @@ class text_input_widget ~input_elt elt () =
     method is_valid             = self#get_validity.valid
     method is_value_missing     = self#get_validity.value_missing
 
-    method e_invalid = e_invalid
-    method s_valid   = s_valid
+    method s_input   = s_input
 
     method private set_custom_validity s  = (Js.Unsafe.coerce input_elt)##setCustomValidity (Js.string s)
     method private remove_custom_validity = self#set_custom_validity ""
 
     initializer
-      Dom_events.listen input_elt Dom_events.Typ.input (fun _ _ -> s_valid_push true;
-                                                                   self#remove_custom_validity;false)
+      Dom_events.listen input_elt Dom_events.Typ.input (fun _ _ ->
+          (match parse_valid v self#set_custom_validity self#get_value with
+           | Some v -> s_input_push (Some v); self#remove_custom_validity
+           | None   -> s_input_push (None));
+          false)
       |> ignore;
       Dom_events.listen
         input_elt
         (Dom_events.Typ.make "invalid")
         (fun _ _ -> let v = self#get_validity in
                     let set_maybe s = CCOpt.iter self#set_custom_validity s in
-                    s_valid_push false;
-                    e_invalid_push (self#get_validation_message,v);
+                    s_input_push None;
                     if v.bad_input             then set_maybe bad_input_msg
                     else if v.custom_error     then set_maybe custom_error_msg
                     else if v.pattern_mismatch then set_maybe pattern_mismatch_msg
