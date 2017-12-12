@@ -10,11 +10,11 @@ class type conf =
 let constr : (Dom_html.canvasElement Js.t -> conf Js.t -> Base.chart Js.t) Js.constr =
   Js.Unsafe.global##.Chart
 
-class t ?options ~typ ~data () =
+class t ?(options:#Options.t option) ~typ ~data () =
   let elt = Tyxml_js.Html.canvas [] |> Tyxml_js.To_dom.of_canvas in
   let conf = [ "type", Js.Unsafe.inject @@ Js.string @@ Base.typ_to_string typ
              ; "data", data ]
-             |> Obj.cons_option "options" options
+             |> Obj.map_cons_option ~f:(fun x -> x#get_obj) "options" options
              |> Array.of_list
              |> Js.Unsafe.obj in
   object

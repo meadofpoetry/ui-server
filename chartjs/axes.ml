@@ -226,6 +226,13 @@ class virtual tick_common () =
 
         end
 
+type _ numeric =
+  | Integer : int numeric
+  | Float   : float numeric
+
+type _ time =
+  | Unix : Int32.t time
+
 module Cartesian = struct
 
   type position = Top | Left | Bottom | Right
@@ -372,6 +379,9 @@ module Cartesian = struct
       method ticks = ticks
       method! replace x = super#replace x; ticks#replace obj##.ticks
 
+      initializer
+        obj##.ticks := ticks#get_obj
+
     end
 
   end
@@ -380,30 +390,30 @@ module Cartesian = struct
 
     module Tick = struct
 
-      class type t_js =
+      class type ['a] t_js =
         object
           inherit cartesian_tick_js
           method beginAtZero   : bool Js.t Js.prop
-          method min           : float Js.opt Js.prop
-          method max           : float Js.opt Js.prop
+          method min           : 'a Js.opt Js.prop
+          method max           : 'a Js.opt Js.prop
           method maxTicksLimit : int Js.prop
           method stepSize      : float Js.opt Js.prop
-          method suggestedMax  : float Js.opt Js.prop
-          method suggestedMin  : float Js.opt Js.prop
+          method suggestedMax  : 'a Js.opt Js.prop
+          method suggestedMin  : 'a Js.opt Js.prop
         end
 
-      class t () = object(self)
-        inherit [t_js] base_option ()
+      class ['a] t () = object(self)
+        inherit ['a t_js] base_option ()
         inherit tick_common ()
 
         method set_begin_at_zero x = obj##.beginAtZero := Js.bool x
         method get_begin_at_zero   = Js.to_bool obj##.beginAtZero
 
-        method set_min x = obj##.min := Js.some x
-        method get_min   = Js.Opt.to_option obj##.min
+        method set_min (x:'a) = obj##.min := Js.some x
+        method get_min : 'a option = Js.Opt.to_option obj##.min
 
-        method set_max x = obj##.max := Js.some x
-        method get_max   = Js.Opt.to_option obj##.max
+        method set_max (x:'a) = obj##.max := Js.some x
+        method get_max : 'a option = Js.Opt.to_option obj##.max
 
         method set_max_ticks_limit x = obj##.maxTicksLimit := x
         method get_max_ticks_limit   = obj##.maxTicksLimit
@@ -411,11 +421,11 @@ module Cartesian = struct
         method set_step_size x = obj##.stepSize := Js.some x
         method get_step_size   = Js.Opt.to_option obj##.stepSize
 
-        method set_suggested_max x = obj##.suggestedMax := Js.some x
-        method get_suggested_max   = Js.Opt.to_option obj##.suggestedMax
+        method set_suggested_max (x:'a) = obj##.suggestedMax := Js.some x
+        method get_suggested_max : 'a option = Js.Opt.to_option obj##.suggestedMax
 
-        method set_suggested_min x = obj##.suggestedMin := Js.some x
-        method get_suggested_min   = Js.Opt.to_option obj##.suggestedMin
+        method set_suggested_min (x:'a) = obj##.suggestedMin := Js.some x
+        method get_suggested_min : 'a option = Js.Opt.to_option obj##.suggestedMin
 
         initializer
           self#set_begin_at_zero false;
@@ -424,18 +434,21 @@ module Cartesian = struct
 
     end
 
-    class type t_js =
+    class type ['a] t_js =
       object
         inherit cartesian_js
-        method ticks : Tick.t_js Js.t Js.prop
+        method ticks : 'a Tick.t_js Js.t Js.prop
       end
 
-    class t ~id ~position () = object
-      inherit [t_js] cartesian ~typ:`Linear ~id ~position () as super
+    class ['a] t ~id ~position () = object
+      inherit ['a t_js] cartesian ~typ:`Linear ~id ~position () as super
       val ticks = new Tick.t ()
 
       method ticks = ticks
       method! replace x = super#replace x; ticks#replace obj##.ticks
+
+      initializer
+        obj##.ticks := ticks#get_obj
     end
 
   end
@@ -444,38 +457,41 @@ module Cartesian = struct
 
     module Tick = struct
 
-      class type t_js =
+      class type ['a] t_js =
         object
           inherit cartesian_tick_js
-          method min : float Js.opt Js.prop
-          method max : float Js.opt Js.prop
+          method min : 'a Js.opt Js.prop
+          method max : 'a Js.opt Js.prop
         end
 
-      class t () = object
-        inherit [t_js] base_option ()
+      class ['a] t () = object
+        inherit ['a t_js] base_option ()
         inherit tick_common ()
 
-        method set_max x = obj##.max := Js.some x
-        method get_max   = Js.Opt.to_option obj##.max
+        method set_max (x:'a) = obj##.max := Js.some x
+        method get_max : 'a option = Js.Opt.to_option obj##.max
 
-        method set_min x = obj##.min := Js.some x
-        method get_min   = Js.Opt.to_option obj##.min
+        method set_min (x:'a) = obj##.min := Js.some x
+        method get_min : 'a option = Js.Opt.to_option obj##.min
       end
 
     end
 
-    class type t_js =
+    class type ['a] t_js =
       object
         inherit cartesian_js
-        method ticks : Tick.t_js Js.t Js.prop
+        method ticks : 'a Tick.t_js Js.t Js.prop
       end
 
-    class t ~id ~position () = object
-      inherit [t_js] cartesian ~typ:`Logarithmic ~id ~position () as super
+    class ['a] t ~id ~position () = object
+      inherit ['a t_js] cartesian ~typ:`Logarithmic ~id ~position () as super
       val ticks = new Tick.t ()
 
       method ticks = ticks
       method! replace x = super#replace x; ticks#replace obj##.ticks
+
+      initializer
+        obj##.ticks := ticks#get_obj
     end
 
   end
@@ -547,12 +563,12 @@ module Cartesian = struct
           method year        : Js.js_string Js.t Js.prop
         end
 
-      class type t_js =
+      class type ['a] t_js =
         object
           method displayFormats : display_formats_js Js.t Js.prop
           method isoWeekday     : bool Js.t Js.prop
-          method max            : float Js.t Js.opt Js.prop
-          method min            : float Js.t Js.opt Js.prop
+          method max            : 'a Js.opt Js.prop
+          method min            : 'a Js.opt Js.prop
           (* method parser_        : unit Js.t Js.optdef_prop *)
           method round          : bool_or_string Js.t Js.prop
           method tooltipFormat  : Js.js_string Js.t Js.opt Js.prop
@@ -605,8 +621,8 @@ module Cartesian = struct
 
       type bool_or_time = Bool of bool | Time_unit of time_unit
 
-      class t () = object(self)
-        inherit [t_js] base_option ()
+      class ['a] t () = object(self)
+        inherit ['a t_js] base_option ()
         val display_formats = new display_formats ()
 
         method display_formats = display_formats
@@ -614,11 +630,11 @@ module Cartesian = struct
         method set_iso_weekday x = obj##.isoWeekday := Js.bool x
         method get_iso_weekday   = Js.to_bool obj##.isoWeekday
 
-        method set_max x = obj##.max := x (* FIXME time type *)
-        method get_max   = obj##.max
+        method set_max (x:'a) = obj##.max := Js.some x (* FIXME time type *)
+        method get_max : 'a option = Js.Opt.to_option obj##.max
 
-        method set_min x = obj##.min := x
-        method get_min   = obj##.min
+        method set_min (x:'a) = obj##.min := Js.some x
+        method get_min : 'a option = Js.Opt.to_option obj##.min
 
         method set_round : bool_or_time -> unit = function
           | Bool x      -> obj##.round := Js.Unsafe.coerce @@ Js.bool x
@@ -669,17 +685,17 @@ module Cartesian = struct
     let bounds_of_string_exn = function
       | "data" -> Data | "ticks" -> Ticks | _ -> failwith "Bad bounds string"
 
-    class type t_js =
+    class type ['a] t_js =
       object
         inherit cartesian_js
         method distribution : Js.js_string Js.t Js.prop
         method bounds       : Js.js_string Js.t Js.prop
         method ticks        : Tick.t_js Js.t Js.prop
-        method time         : Time.t_js Js.t Js.prop
+        method time         : 'a Time.t_js Js.t Js.prop
       end
 
-    class t ~id ~position () = object
-      inherit [t_js] cartesian ~typ:`Logarithmic ~id ~position () as super
+    class ['a] t ~id ~position () = object
+      inherit ['a t_js] cartesian ~typ:`Logarithmic ~id ~position () as super
       val ticks = new Tick.t ()
       val time  = new Time.t ()
 
@@ -693,12 +709,26 @@ module Cartesian = struct
       method get_bounds   = bounds_of_string_exn @@ Js.to_string obj##.bounds
 
       method! replace x = super#replace x; ticks#replace obj##.ticks; time#replace obj##.time
+
+      initializer
+        obj##.time  := time#get_obj;
+        obj##.ticks := ticks#get_obj
     end
 
   end
 
-  type axis = [ `Linear | `Logarithmic | `Time | `Category ]
-  type axes = (axis * axis)
+  type (_,_) axis =
+    | Linear      : (string * position * 'a numeric)  -> ('a,'a Linear.t) axis
+    | Logarithmic : (string * position * 'a numeric)  -> ('a,'a Logarithmic.t) axis
+    | Category    : (string * position * string list) -> (string,Category.t) axis
+    | Time        : (string * position * 'a time)     -> ('a,'a Time.t) axis
+
+  let create (type a b) (axis:(a,b) axis) : b =
+    match axis with
+    | Linear (id,position,_)        -> new Linear.t ~id ~position ()
+    | Logarithmic (id,position,_)   -> new Logarithmic.t ~id ~position ()
+    | Category (id,position,labels) -> new Category.t ~id ~position ~labels ()
+    | Time (id,position,_)          -> new Time.t ~id ~position ()
 
   class type t_js =
     object
@@ -727,5 +757,3 @@ end
 module Radial = struct
 
 end
-
-type typ = [ `Cartesian of Cartesian.axes | `Radial ]

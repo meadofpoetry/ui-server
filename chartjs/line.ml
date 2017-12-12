@@ -1,55 +1,8 @@
 open Base
 
-module type P = sig
-  type t
-  val compare : t -> t -> int
-  val axis : [`Linear | `Logarithmic | `Category | `Time ]
-end
-
-module Make_numeric_coord (X : P) (Y : P) = struct
-  type t = { x : X.t
-           ; y : Y.t option
-           }
-
-  type lst = t list
-end
-
 module Data = struct
 
   module Dataset = struct
-
-    type data = Numbers of float list
-              | Points  of xy list
-     and xy = { x : float; y : float }
-
-    type number_or_point
-
-    class type point =
-      object
-        method x : Js.number Js.t Js.prop
-        method y : Js.number Js.t Js.prop
-      end
-
-    let cast_number (x : number_or_point Js.t)  : Js.number Js.t Js.opt =
-      if Js.typeof x = (Js.string "number")
-      then Js.some (Js.Unsafe.coerce x)
-      else Js.null
-
-    let cast_point (x : number_or_point Js.t) : point Js.t Js.opt =
-      if Js.typeof x = (Js.string "object")
-      then Js.some (Js.Unsafe.coerce x)
-      else Js.null
-
-    let data_to_array = function
-      | Numbers x -> List.map Js.Unsafe.inject x |> Array.of_list |> Js.array
-      | Points  x -> let point_to_obj (p : xy) = Js.Unsafe.obj [| "x", Js.Unsafe.inject p.x
-                                                                ; "y", Js.Unsafe.inject p.y |] in
-                     List.map (point_to_obj %> Js.Unsafe.inject) x
-                     |> Array.of_list
-                     |> Js.array
-
-    (* type 'a point_setting = Single of 'a *)
-    (*                       | Multi of 'a list *)
 
     type cubic_interpolation_mode = Default | Monotone
 
@@ -83,7 +36,7 @@ module Data = struct
 
     class type t_js =
       object
-        method data                      : number_or_point Js.t Js.js_array Js.t Js.prop
+        method data                      : 'a Js.js_array Js.t Js.prop
         method label                     : Js.js_string Js.t Js.prop
         method xAxisID                   : Js.js_string Js.t Js.optdef_prop
         method yAxisID                   : Js.js_string Js.t Js.optdef_prop
@@ -112,7 +65,7 @@ module Data = struct
         method steppedLine               : bool_or_string Js.t Js.optdef_prop
       end
 
-    class t () = object
+    class ['a,'b] t ~data () = object
 
       inherit [t_js] base_option ()
 
@@ -130,48 +83,15 @@ module Data = struct
 
     end
 
-    let to_obj ?label ?x_axis_id ?y_axis_id ?background_color ?border_color ?border_width
-               ?border_dash ?border_dash_offset ?border_cap_style ?border_join_style
-               ?cubic_interpolation_mode ?fill ?line_tension ?show_line ?span_gaps ?stepped_line
-               ~(data : data) () : t_js Js.t =
-      let inject = Js.Unsafe.inject in
-      let stepped_line_to_any = (function
-                                 | (Bool b : stepped_line) -> inject @@ Js.bool b
-                                 | Before -> inject @@ Js.string "before"
-                                 | After  -> inject @@ Js.string "after") in
-      [ "data", inject @@ data_to_array data ]
-      |> Obj.map_cons_option ~f:Js.string "label" label
-      |> Obj.map_cons_option ~f:Js.string "xAxisID" x_axis_id
-      |> Obj.map_cons_option ~f:Js.string "yAxisID" y_axis_id
-      |> Obj.map_cons_option ~f:Js.string "backgroundColor" background_color
-      |> Obj.map_cons_option ~f:Js.string "borderColor" border_color
-      |> Obj.cons_option "borderWidth" border_width
-      |> Obj.map_cons_option ~f:(Array.of_list %> Js.array) "borderDash" border_dash
-      |> Obj.cons_option "borderDashOffset" border_dash_offset
-      |> Obj.map_cons_option ~f:(Base.Canvas.line_cap_to_string %> Js.string) "borderCapStyle" border_cap_style
-      |> Obj.map_cons_option ~f:(Base.Canvas.line_join_to_string %> Js.string) "borderJoinStyle" border_join_style
-      |> Obj.map_cons_option ~f:(cubic_interpolation_mode_to_string %> Js.string)
-                             "cubicInterpolationMode"
-                             cubic_interpolation_mode
-      |> Obj.map_cons_option ~f:fill_to_js "fill" fill
-      |> Obj.cons_option "lineTension" line_tension
-      |> Obj.map_cons_option ~f:Js.bool "showLine" show_line
-      |> Obj.map_cons_option ~f:Js.bool "spanGaps" span_gaps
-      |> Obj.map_cons_option ~f:stepped_line_to_any "steppedLine" stepped_line
-      |> Array.of_list
-      |> Js.Unsafe.obj
-
   end
 
   class type t =
     object
-      method labels   : Js.js_string Js.t Js.js_array Js.t Js.optdef_prop
       method datasets : Dataset.t_js Js.t Js.js_array Js.t Js.prop
     end
 
-  let to_obj ?(labels : string list option) ?(datasets : Dataset.t_js Js.t list option) () : t Js.t =
-    Obj.map_cons_option ~f:(List.map Js.string %> Array.of_list %> Js.array) "labels" labels []
-    |> Obj.map_cons_option ~f:(Array.of_list %> Js.array) "datasets" datasets
+  let to_obj ?(datasets : Dataset.t_js Js.t list option) () : t Js.t =
+    Obj.map_cons_option ~f:(Array.of_list %> Js.array) "datasets" datasets []
     |> Array.of_list
     |> Js.Unsafe.obj
 
@@ -179,15 +99,36 @@ end
 
 module Options = struct
 
-  class t () = object
+  type ('a,'b) axis = ('a,'b) Axes.Cartesian.axis
+  type ('a,'b) axes = ('a,'b) axis * ('a,'b) axis list option
+
+  class ['a,'b,'c,'d] t ~(x_axes:('a,'b) axes) ~(y_axes:('c,'d) axes) () = object
+
     inherit Options.t ()
+
+    val x_axes = Axes.Cartesian.create (fst x_axes)
+                 |> (fun x -> match (snd x_axes) with
+                              | Some tl -> x :: List.map Axes.Cartesian.create tl
+                              | None    -> CCList.return x)
+    val y_axes = Axes.Cartesian.create (fst y_axes)
+                 |> (fun x -> match (snd y_axes) with
+                              | Some tl -> x :: List.map Axes.Cartesian.create tl
+                              | None    -> CCList.return x)
+
+    method x_axes = x_axes
+    method y_axes = y_axes
+
+    initializer
+      obj##.scales := (new Axes.Cartesian.t ~x_axes ~y_axes ())#get_obj
 
   end
 
 end
 
-class t ~options ~(data:Data.t Js.t) () = object
-  inherit Base_chart.t ~options ~typ:Line ~data:(Js.Unsafe.inject data) ()
+type ('a,'b) point = { x : 'a; y : 'b }
+
+class ['a,'b,'c,'d] t ~(options:('a,'b,'c,'d) Options.t) ~(data:('a,'c) point list list) () = object
+  inherit Base_chart.t ~options ~typ:Line ~data:(Js.Unsafe.inject @@ Js.Unsafe.obj [||]) ()
 
   initializer
     ()

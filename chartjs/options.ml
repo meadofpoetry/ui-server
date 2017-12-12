@@ -31,6 +31,7 @@ class type t_js =
     method title                       : Title.t_js Js.t Js.prop
     method tooltip                     : Tooltip.t_js Js.t Js.prop
     method elements                    : Elements.t_js Js.t Js.prop
+    method scales                      : Axes.Cartesian.t_js Js.t Js.prop
   end
 
 class t () = object(self)
@@ -84,5 +85,5 @@ class t () = object(self)
     obj##.legend    := legend#get_obj;
     obj##.title     := title#get_obj;
     obj##.tooltip   := tooltip#get_obj;
-    obj##.elements  := elements#get_obj
+    obj##.elements  := elements#get_obj;
 end

@@ -472,35 +472,37 @@ let drawer_demo () =
 let chart_demo () =
   Random.init (Unix.time () |> int_of_float);
   let open Chartjs.Line in
-  let data =
-    Data.to_obj
-      ~datasets:[ Data.Dataset.to_obj
-                    ~label:"My data 1"
-                    ~fill:(Bool false)
-                    ~border_color:"rgba(255,0,0,1)"
-                    ~data:(Points (List.map
-                                     (fun x -> ({ x = (float_of_int x)
-                                                ; y = Random.float 10.
-                                                } : Data.Dataset.xy))
-                                     (CCList.range 0 20))
-                           : Data.Dataset.data)
-                    ()
-                ; Data.Dataset.to_obj
-                    ~label:"My data 2"
-                    ~fill:(Bool false)
-                    ~border_color:"rgba(0,255,0,1)"
-                    ~data:(Points (List.map
-                                     (fun x -> ({ x = (float_of_int x)
-                                                ; y = Random.float 50.
-                                                } : Data.Dataset.xy))
-                                     (CCList.range 0 20))
-                           : Data.Dataset.data)
-                    ()
-                ]
-      ~labels:(CCList.range 0 20 |> List.map string_of_int)
-      () in
+   (* let data =
+   *   Data.to_obj
+   *     ~datasets:[ Data.Dataset.to_obj
+   *                   ~label:"My data 1"
+   *                   ~fill:(Bool false)
+   *                   ~border_color:"rgba(255,0,0,1)"
+   *                   ~data:(Points (List.map
+   *                                    (fun x -> ({ x = (float_of_int x)
+   *                                               ; y = Random.float 10.
+   *                                               } : Data.Dataset.xy))
+   *                                    (CCList.range 0 20))
+   *                          : Data.Dataset.data)
+   *                   ()
+   *               ; Data.Dataset.to_obj
+   *                   ~label:"My data 2"
+   *                   ~fill:(Bool false)
+   *                   ~border_color:"rgba(0,255,0,1)"
+   *                   ~data:(Points (List.map
+   *                                    (fun x -> ({ x = (float_of_int x)
+   *                                               ; y = Random.float 50.
+   *                                               } : Data.Dataset.xy))
+   *                                    (CCList.range 0 20))
+   *                          : Data.Dataset.data)
+   *                   ()
+   *               ]
+   *     ~labels:(CCList.range 0 20 |> List.map string_of_int)
+   *     () in *)
   let open Chartjs in
-  let options = new Options.t () in
+  let (x_axes:('a,'b) Line.Options.axes) = Linear ("my-x-axis",Bottom,Integer),None in
+  let (y_axes:('a,'b) Line.Options.axes) = Linear ("my-y-axis",Left,Integer),None in
+  let options = new Options.t ~x_axes ~y_axes () in
   options#title#set_display true;
   options#title#set_text @@ `String "Title";
   options#hover#set_mode Index;
@@ -510,8 +512,13 @@ let chart_demo () =
    * axis#scale_label#set_label_string "Supreme x axis"; *)
   options#tooltip#set_mode Index;
   options#tooltip#set_intersect false;
+  (CCList.hd options#x_axes)#ticks#set_min 10;
+  (CCList.hd options#x_axes)#scale_label#set_label_string "x axis";
+  (CCList.hd options#x_axes)#scale_label#set_display true;
+  (CCList.hd options#x_axes)#ticks#set_max 100;
+  print_endline @@ Js.to_string @@ Json.output options#get_obj;
   let update = new Button.t ~label:"update" () in
-  let chart = new Chartjs.Line.t ~data ~options:options#get_obj () in
+  let chart  = new Chartjs.Line.t ~options () in
   chart#pp;
   (* print_endline @@ Js.to_string @@ Json.output (Js.Unsafe.coerce chart)##.options##.scales;
    * options#replace (Js.Unsafe.coerce chart)##.options;
@@ -540,7 +547,7 @@ let onload _ =
                           ; switch_demo ()
                           ; toggle_demo ()
                           ; elevation_demo ()
-                          ; select_demo ()
+                          (* ; select_demo () *)
                           ; textfield_demo ()
                           ; card_demo ()
                           ; slider_demo ()
