@@ -19,7 +19,6 @@ module Action = struct
   class t ?ripple ~typ ~label () = object
     inherit Button.t ?ripple ~label () as super
     initializer
-      super#set_raised false;
       super#add_class Markup.Dialog.Footer.button_class;
       super#add_class (match typ with
                        | `Accept  -> Markup.Dialog.Footer.accept_button_class
@@ -83,8 +82,7 @@ class t ?title ?(actions:Action.t list option) ~content () =
                         |> CCList.cons_maybe @@ CCOpt.map Widget.widget_to_markup header_widget)
               ()
             |> Tyxml_js.To_dom.of_aside in
-  let e_accept,e_accept_push = React.E.create () in
-  let e_cancel,e_cancel_push = React.E.create () in
+  let e_action,e_action_push = React.E.create () in
 
   object
 
@@ -97,13 +95,17 @@ class t ?title ?(actions:Action.t list option) ~content () =
     method get_footer_widget = footer_widget
 
     method show      = mdc##show ()
+    method show_lwt  =
+      let t,w = Lwt.wait () in
+      mdc##show ();
+      React.E.map (fun x -> Lwt.wakeup w x) @@ React.E.once e_action  |> ignore;
+      t
     method hide      = mdc##close ()
     method is_opened = Js.to_bool mdc##.open_
 
-    method e_accept  = e_accept
-    method e_cancel  = e_cancel
+    method e_action  = e_action
 
     initializer
-      Dom_events.listen super#root events.accept (fun _ _ -> e_accept_push (); false) |> ignore;
-      Dom_events.listen super#root events.cancel (fun _ _ -> e_cancel_push (); false) |> ignore
+      Dom_events.listen super#root events.accept (fun _ _ -> e_action_push true; false) |> ignore;
+      Dom_events.listen super#root events.cancel (fun _ _ -> e_action_push false; false) |> ignore
   end

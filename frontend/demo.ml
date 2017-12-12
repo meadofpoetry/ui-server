@@ -18,20 +18,14 @@ let subsection name w = Html.div [ Html.h3 ~a:[Html.a_class [Typography.font_to_
                         |> Widget.create
 
 let button_demo () =
-  let raised     = new Button.t ~label:"raised" () in
+  let raised     = new Button.t ~label:"raised" ~style:`Raised () in
   let flat       = new Button.t ~label:"flat" () in
-  let unelevated = new Button.t ~label:"unelevated" () in
-  let stroked    = new Button.t ~label:"stroked" () in
+  let unelevated = new Button.t ~label:"unelevated" ~style:`Unelevated () in
+  let stroked    = new Button.t ~label:"stroked" ~style:`Stroked () in
   let ripple     = new Button.t ~label:"ripple" ~ripple:true () in
-  let dense      = new Button.t ~label:"dense" () in
-  let compact    = new Button.t ~label:"compact" () in
+  let dense      = new Button.t ~label:"dense" ~dense:true () in
+  let compact    = new Button.t ~label:"compact" ~compact:true () in
   let icon       = new Button.t ~label:"icon" ~icon:"favorite" () in
-  raised#set_raised true;
-  flat#set_raised false;
-  unelevated#set_unelevated true;
-  stroked#set_stroked true; stroked#set_raised false;
-  dense#set_dense true;
-  compact#set_compact true;
   demo_section ~style:"display:flex; \
                        flex-direction:column;\
                        justify-content:flex-start;\
@@ -90,10 +84,8 @@ let card_demo () =
   let subtitle = new Card.Subtitle.t ~subtitle:"Subtitle" () in
   let primary  = new Card.Primary.t ~widgets:[ Widget.coerce title; Widget.coerce subtitle ] () in
   let text     = new Card.Supporting_text.t ~text:"Supporting text" () in
-  let actions  = new Card.Actions.t ~widgets:[ (let b = new Button.t ~label:"action 1" () in
-                                                b#set_compact true; b#set_raised false; b)
-                                             ; (let b = new Button.t ~label:"action 2" () in
-                                                b#set_compact true; b#set_raised false; b) ] () in
+  let actions  = new Card.Actions.t ~widgets:[ new Button.t ~compact:true ~label:"action 1" ()
+                                             ; new Button.t ~compact:true ~label:"action 2" () ] () in
   let card = new Card.t ~sections:[ `Media media; `Primary primary; `Text text; `Actions actions ] () in
   card#style##.width := Js.string "320px";
   demo_section "Card" [ card ]
@@ -168,9 +160,10 @@ let dialog_demo () =
                             ]
                    () in
   let button = new Button.t ~label:"show dialog" () in
-  React.E.map (fun () -> dialog#show) button#e_click |> ignore;
-  React.E.map (fun () -> print_endline "Dialog accepted") dialog#e_accept |> ignore;
-  React.E.map (fun () -> print_endline "Dialog cancelled") dialog#e_cancel |> ignore;
+  React.E.map (fun () -> Lwt.bind dialog#show_lwt
+                                  (fun x -> print_endline (if x then "Dialog accepted" else "Dialog cancelled");
+                                            Lwt.return ()))
+              button#e_click |> ignore;
   demo_section "Dialog" [ Widget.coerce dialog; Widget.coerce button ]
 
 let list_demo () =
@@ -379,7 +372,7 @@ let textfield_demo () =
 
 let select_demo () =
   let js      = new Select.Base.t
-                    ~placeholder:"Pick smth"
+                    ~label:"Pick smth"
                     ~items:(List.map (fun x -> new Select.Base.Item.t
                                                    ~id:("index " ^ (string_of_int x))
                                                    ~text:("Select item " ^ (string_of_int x))
