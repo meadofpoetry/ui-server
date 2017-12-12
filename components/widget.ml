@@ -7,7 +7,7 @@ type rect =
   ; height : float option
   }
 
-class widget elt () = object(self : 'self)
+class widget elt () = object(self)
 
   method root   : Dom_html.element Js.t = (elt :> Dom_html.element Js.t)
   method widget : widget = (self :> widget)
