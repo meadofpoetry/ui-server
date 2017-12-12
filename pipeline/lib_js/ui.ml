@@ -133,3 +133,55 @@ module Wm = struct
     div
     
 end
+
+          (*
+module Settings = struct
+
+  let make_video (v : Settings.video) =
+    let loss_s, push = React.S.create v.loss in
+    let div    = Dom_html.createDiv Dom_html.document in
+    let lfield = Components.Textfield.create ~input_type:(`Number) () in
+    let vlabel = Dom_html.createLabel Dom_html.document in
+
+  let make_layout (s : Settings.t) =
+    let v, vs = make_video s.video in
+    let a, as = make_audio s.audio in
+    let s     = React.S.l2 (fun v a -> Settings.{ video = v; audio = a; }) vs as in
+    let div    = Dom_html.createDiv Dom_html.document in
+    let vlabel = Dom_html.createLabel Dom_html.document in
+    let alabel = Dom_html.createLabel Dom_html.document in
+    vlabel##.textContent := Js.some @@ Js.string "Video:";
+    alabel##.textContent := Js.some @@ Js.string "Audio:";
+    Dom.appendChild div vlabel;
+    Dom.appendChild div v;
+    Dom.appendChild div alabel;
+    Dom.appendChild div a;
+    div, s
+  
+  let create
+        ~(init:   Settings.t)
+        ~(events: Settings.t React.event)
+        ~(post:   Settings.t -> unit) =
+    let id  = "settings-place" in
+    let div = Dom_html.createDiv Dom_html.document in
+    let make (set : Settings.t) =
+      let place  = Dom_html.createDiv Dom_html.document in
+      place##.id := Js.string id;
+      let but    = Components.Button.attach @@ Components.Button.create ~label:"send" ~raised:true () in
+      let dis, s = make_layout set in
+      Dom.appendChild place dis;
+      Dom.appendChild place but;
+      but##.onclick := Dom.handler (fun _ -> post @@ React.S.value s; Js._false);
+      place
+    in
+    let _ = React.E.map (fun s ->
+                (try Dom.removeChild div (Dom_html.getElementById id)
+                 with _ -> print_endline "No el");
+                Dom.appendChild div (make s))
+              events
+    in
+    Dom.appendChild div (make init);
+    div
+    
+end
+           *)
