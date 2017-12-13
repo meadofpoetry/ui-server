@@ -134,7 +134,7 @@ type 'a validation =
   | Integer : (int * int) option -> int validation
   | Float   : (float * float) option -> float validation
   | Text    : string validation
-  | Custom  : (string    -> ('a, string) result) -> 'a validation
+  | Custom  : ((string    -> ('a, string) result) * ('a -> string)) -> 'a validation
 
 let input_type_of_validation :
       type a. a validation -> [> `Email | `Number | `Text ]
@@ -157,11 +157,19 @@ let parse_valid (type a) (v : a validation) (on_fail : string -> unit) (s : stri
                             if i <= max && i >= min then Some i
                             else None
   | Text         -> Some s
-  | Custom f     ->
+  | Custom (f,_) ->
      match f s with
      | Ok v -> Some v
      | Error s -> on_fail s; None
-   
+
+let valid_to_string (type a) (v : a validation) (e : a) : string =
+  match v with
+  | Custom (_,conv) -> conv e
+  | Float   _       -> string_of_float e
+  | Integer _       -> string_of_int e
+  | Email           -> e
+  | Text            -> e
+
 class ['a] text_input_widget ~input_elt (v : 'a validation) elt () =
   let (s_input : 'a option React.signal), s_input_push = React.S.create None in
   object(self)
@@ -233,6 +241,15 @@ class ['a] text_input_widget ~input_elt (v : 'a validation) elt () =
     method private remove_custom_validity = self#set_custom_validity ""
 
     initializer
+      let apply_border (type a) (v : a validation) (bord : a -> a -> unit) : unit =
+        (match v with
+        | Float (Some (min, max))  -> bord min max
+        | Integer (Some (min,max)) -> bord min max
+        | _ -> ())
+      in
+      apply_border v (fun min max ->
+          (Js.Unsafe.coerce input_elt)##.max := max;
+          (Js.Unsafe.coerce input_elt)##.min := min);
       Dom_events.listen input_elt Dom_events.Typ.input (fun _ _ ->
           (match parse_valid v self#set_custom_validity self#get_value with
            | Some v -> s_input_push (Some v); self#remove_custom_validity

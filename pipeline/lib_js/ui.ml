@@ -141,18 +141,23 @@ module Settings = struct
     header##.textContent   := Js.some @@ Js.string h;
     let peak_en_chck       = new Checkbox.t () in
     let peak_en_field      = new Form_field.t ~label:"Peak enable" ~input:peak_en_chck () in
-    let peak_field         = new Textfield.t ~label:"Peak" ~input_type:(Widget.Float (Some (0., 100.))) () in
+    let peak_field         = new Textfield.t ~label:"Peak" ~input_type:(Widget.Float (Some (-100., 100.))) () in
     let cont_en_chck       = new Checkbox.t () in
     let cont_en_field      = new Form_field.t ~label:"Cont enable" ~input:cont_en_chck () in
-    let cont_field         = new Textfield.t ~label:"Cont" ~input_type:(Widget.Float (Some (0., 100.))) () in
-    let dur_field          = new Textfield.t ~label:"Duration" ~input_type:(Widget.Float (Some (0., 100.))) () in
+    let cont_field         = new Textfield.t ~label:"Cont" ~input_type:(Widget.Float (Some (-100., 100.))) () in
+    let dur_field          = new Textfield.t ~label:"Duration" ~input_type:(Widget.Float (Some (-100., 100.))) () in
     peak_en_chck#set_checked s.peak_en;
     cont_en_chck#set_checked s.cont_en;
+    peak_field#fill_in s.peak;
+    cont_field#fill_in s.cont;
+    dur_field#fill_in s.duration;
+    let peak_box           = new Box.t ~vertical:false
+                               ~widgets:[peak_en_field#widget; peak_field#widget;] () in
+    let cont_box           = new Box.t ~vertical:false
+                               ~widgets:[cont_en_field#widget; cont_field#widget;] () in
     let box                = new Box.t ~widgets:[(Widget.create header);
-                                                 peak_en_field#widget;
-                                                 peak_field#widget;
-                                                 cont_en_field#widget;
-                                                 cont_field#widget;
+                                                 peak_box#widget;
+                                                 cont_box#widget;
                                                  dur_field#widget] () in
     let signal             = React.S.l5 (fun peak_en peak cont_en cont dur ->
                                  Settings.{ peak_en
@@ -171,6 +176,7 @@ module Settings = struct
     let black_w, black_s   = make_setting "black" b.black in
     let luma_w, luma_s     = make_setting "luma" b.luma in
     let bpixel_field       = new Textfield.t ~label:"pixel_field" ~input_type:(Widget.Integer (Some (1,256))) () in
+    bpixel_field#fill_in b.black_pixel;
     let box                = new Box.t ~widgets:[(Widget.create header);
                                                  black_w#widget;
                                                  luma_w#widget;
@@ -188,6 +194,7 @@ module Settings = struct
     let freeze_w, freeze_s = make_setting "freeze" f.freeze in
     let diff_w, diff_s     = make_setting "diff" f.diff in
     let pixeld_field       = new Textfield.t ~label:"pixel_diff" ~input_type:(Widget.Integer (Some (1,256))) () in
+    pixeld_field#fill_in f.pixel_diff;
     let box                = new Box.t ~widgets:[(Widget.create header);
                                                  freeze_w#widget;
                                                  diff_w#widget;
@@ -217,6 +224,7 @@ module Settings = struct
     let header             = Dom_html.createH5 Dom_html.document in
     header##.textContent   := Js.some @@ Js.string "Video";
     let loss_field         = new Textfield.t ~label:"loss" ~input_type:(Widget.Float (Some (0.,1.))) () in
+    loss_field#fill_in v.loss;
     let black_w, black_s   = make_black v.black in
     let freeze_w, freeze_s = make_freeze v.freeze in
     let blocky_w, blocky_s = make_blocky v.blocky in
@@ -253,6 +261,8 @@ module Settings = struct
     header##.textContent   := Js.some @@ Js.string "Adv";
     let diff               = new Textfield.t ~label:"diff" ~input_type:(Widget.Float (Some (0.,100.))) () in
     let buf                = new Textfield.t ~label:"buf" ~input_type:(Widget.Integer (Some (0,100))) () in
+    diff#fill_in s.adv_diff;
+    buf#fill_in s.adv_buf;
     let box                = new Box.t ~widgets:[(Widget.create header); diff#widget; buf#widget] () in
     let signal             = React.S.l2 (fun diff buf ->
                                  Settings.{ adv_diff = CCOpt.get_or ~default:(s.adv_diff) diff
@@ -264,6 +274,7 @@ module Settings = struct
     let header             = Dom_html.createH5 Dom_html.document in
     header##.textContent   := Js.some @@ Js.string "Audio";
     let loss_field         = new Textfield.t ~label:"loss" ~input_type:(Widget.Float (Some (0.,1.))) () in
+    loss_field#fill_in a.loss;
     let silence_w, sil_s   = make_silence  a.silence in
     let loudness_w, loud_s = make_loudness a.loudness in
     let adv_w, adv_s       = make_adv      a.adv in
