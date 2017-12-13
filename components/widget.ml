@@ -165,7 +165,7 @@ let parse_valid (type a) (v : a validation) (on_fail : string -> unit) (s : stri
 let valid_to_string (type a) (v : a validation) (e : a) : string =
   match v with
   | Custom (_,conv) -> conv e
-  | Float   _       -> string_of_float e
+  | Float   _       -> string_of_float e |> (fun x -> if CCString.suffix ~suf:"." x then x ^ "0" else x)
   | Integer _       -> string_of_int e
   | Email           -> e
   | Text            -> e
