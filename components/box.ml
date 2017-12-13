@@ -2,7 +2,7 @@ type justify_content = [ `Start | `End | `Center | `Space_between | `Space_aroun
 type align_items     = [ `Start | `End | `Center | `Stretch | `Baseline ]
 type align_content   = [ `Start | `End | `Center | `Stretch | `Space_between | `Space_around ]
 
-class t ?(vertical=false) ?tag ~(widgets:#Widget.widget list) () =
+class t ?(vertical=true) ?tag ~(widgets:#Widget.widget list) () =
   let elt = Markup.Box.create ~content:(Widget.widgets_to_markup widgets) ?tag ()
             |> Tyxml_js.To_dom.of_element in
   object(self)

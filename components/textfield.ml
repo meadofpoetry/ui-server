@@ -52,7 +52,7 @@ module Help_text = struct
 
 end
 
-class ['a] t ?(input_type = Widget.Text) ?input_id ?label ?placeholder ?icon ?help_text ?box () =
+class ['a] t ~input_type ?input_id ?label ?placeholder ?icon ?help_text ?box () =
 
   let icon_widget =
     CCOpt.map (fun { clickable; icon; _ } ->

@@ -330,12 +330,13 @@ let textfield_demo () =
   let css_form = new Form_field.t ~label:"css textfield label: " ~input:css ~align_end:true () in
   (* Full-featured js textbox *)
   let js       = new Textfield.t
-                     ~label:"js textfield label"
-                     ~help_text:{ validation = true
-                                ; persistent = false
-                                ; text       = Some "This field must not be empty"
-                                }
-                     () in
+                   ~input_type:Widget.Text 
+                   ~label:"js textfield label"
+                   ~help_text:{ validation = true
+                              ; persistent = false
+                              ; text       = Some "This field must not be empty"
+                   }
+                   () in
   js#set_required true;
   (* Dense js textbox with *)
   let dense    = new Textfield.t
@@ -349,17 +350,19 @@ let textfield_demo () =
   dense#set_dense true;
   (* Textboxes with icons *)
   let lead_icon  = new Textfield.t
-                       ~label:"textfield label"
-                       ~icon:{ icon      = "event"
-                             ; clickable = false
-                             ; pos       = `Leading }
-                       () in
+                     ~input_type:Widget.Text
+                     ~label:"textfield label"
+                     ~icon:{ icon      = "event"
+                           ; clickable = false
+                           ; pos       = `Leading }
+                     () in
   let trail_icon = new Textfield.t
-                       ~label:"textfield label"
-                       ~icon:{ icon      = "delete"
-                             ; clickable = false
-                             ; pos       = `Trailing }
-                       () in
+                     ~input_type:Widget.Text
+                     ~label:"textfield label"
+                     ~icon:{ icon      = "delete"
+                           ; clickable = false
+                           ; pos       = `Trailing }
+                     () in
   (* Textareas *)
   let css_textarea      = new Textarea.Pure.t ~placeholder:"Enter something" ~rows:8 ~cols:40 () in
   let textarea          = new Textarea.t ~label:"textarea label" ~rows:8 ~cols:40 () in

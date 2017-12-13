@@ -21,7 +21,7 @@ let post_settings s =
   |> post_js_ok "api/pipeline/settings"
 
 let get_settings_socket () =
-  get_socket "api/pipeline/settings" Settings.of_yojson
+  get_socket "api/pipeline/settings_sock" Settings.of_yojson
 
 let get_wm () =
   get_js "api/pipeline/wm"

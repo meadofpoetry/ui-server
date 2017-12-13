@@ -123,6 +123,7 @@ let create sock_in sock_out converter hardware_streams =
   let api = {set; get; structure;
              settings; graph;
              wm; vdata; adata} in
+  set (Set_settings Settings.default) |> ignore;
   let _e  = Lwt_react.E.map_p (fun x ->
                 Video_data.to_yojson x
                 |> Yojson.Safe.pretty_to_string

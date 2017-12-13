@@ -63,6 +63,19 @@ let load () =
   video##setAttribute (Js.string "width") (Js.string "640");
   video##setAttribute (Js.string "autoplay") (Js.string "");
 
+  let settings  = Requests.get_settings_socket () in
+  Requests.get_settings ()
+  >|= (function Error e -> print_endline @@ "error get settings " ^ e
+              | Ok s    ->
+                 let s_el = Ui.Settings.create ~init:s ~events:settings
+                              ~post:(fun s -> Requests.post_settings s
+                                              >|= (function
+                                                   | Ok () -> ()
+                                                   | Error e -> print_endline @@ "error post settings" ^ e)
+                                              |> Lwt.ignore_result)
+                 in Dom.appendChild container s_el)
+  |> Lwt.ignore_result;
+  
   let str = Requests.get_structure_socket () in
   Requests.get_structure ()
   >|= (function Error e -> print_endline @@ "error get: " ^ e
@@ -94,4 +107,4 @@ let load () =
 
   
   Dom.appendChild container text;
-Dom.appendChild container video
+  Dom.appendChild container video
