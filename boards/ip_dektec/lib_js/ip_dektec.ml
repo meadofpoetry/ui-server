@@ -53,20 +53,20 @@ let fec_status_card s_state e_status =
 
 let nw_settings_block s_state (cfg:Board_types.config) =
   let help_text : Textfield.Help_text.helptext = { validation=true;persistent=false;text=None } in
-  let ip        = new Textfield.t ~help_text ~label:"IP адрес" () in
-  let mask      = new Textfield.t ~help_text ~label:"Маска подсети" () in
-  let gw        = new Textfield.t ~help_text ~label:"Шлюз" () in
+  let ip        = new Textfield.t ~input_type:Text ~help_text ~label:"IP адрес" () in
+  let mask      = new Textfield.t ~input_type:Text ~help_text ~label:"Маска подсети" () in
+  let gw        = new Textfield.t ~input_type:Text ~help_text ~label:"Шлюз" () in
   let dhcp      = new Switch.t ~input_id:"dhcp" () in
   let settings  = new Box.t
                       ~vertical:true
-                      ~widgets:[ Widget.coerce @@ new Form_field.t ~input:dhcp ~label:"DHCP" ~align_end:true ()
-                               ; Widget.coerce ip
-                               ; Widget.coerce mask
-                               ; Widget.coerce gw ]
+                      ~widgets:[ (new Form_field.t ~input:dhcp ~label:"DHCP" ~align_end:true ())#widget
+                               ; ip#widget
+                               ; mask#widget
+                               ; gw#widget ]
                       () in
   let media     = new Card.Media.t ~widgets:[settings] () in
   ip#set_required true; mask#set_required true; gw#set_required true;
-  ip#set_ip_pattern; mask#set_ip_pattern; gw#set_ip_pattern;
+  (* ip#set_ip_pattern; mask#set_ip_pattern; gw#set_ip_pattern; *)
   ip#set_value   @@ Ipaddr.V4.to_string cfg.nw.ip;
   mask#set_value @@ Ipaddr.V4.to_string cfg.nw.mask;
   gw#set_value   @@ Ipaddr.V4.to_string cfg.nw.gateway;
@@ -85,7 +85,7 @@ let nw_settings_block s_state (cfg:Board_types.config) =
         >>= (fun _ -> Requests.post_mask 4    @@ Ipaddr.V4.of_string_exn mask#get_value)
         >>= (fun _ -> Requests.post_gateway 4 @@ Ipaddr.V4.of_string_exn gw#get_value)
         >>= (fun _ -> Requests.post_reset 4))
-      ~s_valid:(React.S.merge (fun a s -> a && s) true [ip#s_valid;mask#s_valid;gw#s_valid])
+      ~s_valid:(React.S.const true)(* (React.S.merge (fun a s -> a && s) true [ip#s_valid;mask#s_valid;gw#s_valid]) *)
       ~title:"Сетевые настройки"
       ~sections:[ `Media media ]
       ()
@@ -95,8 +95,8 @@ let ip_settings_block s_state (cfg:Board_types.config) =
   let en        = new Switch.t ~input_id:"enable" () in
   let fec       = new Switch.t ~input_id:"fec" () in
   let mcast_en  = new Switch.t ~input_id:"mcast_en" () in
-  let port      = new Textfield.t ~help_text ~label:"UDP порт" ~input_type:`Number () in
-  let multicast = new Textfield.t ~help_text ~label:"Multicast адрес" ~input_type:`Text () in
+  let port      = new Textfield.t ~help_text ~label:"UDP порт" ~input_type:(Integer (Some (0,65535))) () in
+  let multicast = new Textfield.t ~help_text ~label:"Multicast адрес" ~input_type:Text () in
   let widgets   = [ Widget.coerce @@ new Form_field.t ~label:"Включить приём TSoIP" ~align_end:true ~input:en ()
                   ; Widget.coerce @@ new Form_field.t ~label:"Включить FEC" ~align_end:true ~input:fec ()
                   ; Widget.coerce @@ new Form_field.t ~label:"Включить Multicast" ~align_end:true ~input:mcast_en ()
@@ -104,7 +104,7 @@ let ip_settings_block s_state (cfg:Board_types.config) =
                   ; Widget.coerce port] in
   let media     = new Card.Media.t ~widgets:[ new Box.t ~vertical:true ~widgets () ] () in
   mcast_en#set_checked @@ CCOpt.is_some cfg.ip.multicast;
-  multicast#set_multicast_pattern;
+  (* multicast#set_multicast_pattern; *)
   multicast#set_required true;
   port#set_min 0.0;
   port#set_max 65535.0;
@@ -128,7 +128,7 @@ let ip_settings_block s_state (cfg:Board_types.config) =
         >>= (fun _ -> Requests.post_port 4 @@ int_of_string @@ port#get_value)
         >>= (fun _ -> Requests.post_meth 4 @@ if mcast_en#get_checked then Multicast else Unicast)
         >>= (fun _ -> Requests.post_multicast 4 @@ Ipaddr.V4.of_string_exn multicast#get_value))
-      ~s_valid:(React.S.merge (fun a s -> a && s) true [port#s_valid; multicast#s_valid])
+      ~s_valid:(React.S.const true) (* (React.S.merge (fun a s -> a && s) true [port#s_valid; multicast#s_valid]) *)
       ~title:"Настройки приёма TSoIP"
       ~sections:[ `Media media ]
       ()

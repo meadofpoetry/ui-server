@@ -180,22 +180,24 @@ module Make
     let unelevated_class = CSS.add_modifier base_class "unelevated"
     let stroked_class    = CSS.add_modifier base_class "stroked"
     let raised_class     = CSS.add_modifier base_class "raised"
+
     let dense_class      = CSS.add_modifier base_class "dense"
     let compact_class    = CSS.add_modifier base_class "compact"
 
-    let create ?(classes=[]) ?id ?style
-               ?(disabled=false) ?(raised=true) ?(ripple=false)
-               ?(unelevated=false) ?(stroked=false) ?(dense=false) ?(compact=false)
+    let create ?(classes=[]) ?id ?style ?button_type ?button_style
+               ?(disabled=false) ?(ripple=false)?(dense=false) ?(compact=false)
                ?icon ?label ?onclick ?attrs () =
       button ~a:([ a_class (classes
-                            |> cons_if unelevated unelevated_class
-                            |> cons_if stroked    stroked_class
-                            |> cons_if raised     raised_class
+                            |> map_cons_option ~f:(function
+                                                   | `Raised     -> raised_class
+                                                   | `Stroked    -> stroked_class
+                                                   | `Unelevated -> unelevated_class) button_style
                             |> cons_if dense      dense_class
                             |> cons_if compact    compact_class
                             |> CCList.cons base_class) ]
                  |> add_common_attrs ?id ?style ?attrs
                  |> map_cons_option ~f:a_onclick onclick
+                 |> map_cons_option ~f:a_button_type button_type
                  |> cons_if disabled @@ a_disabled ()
                  |> cons_if ripple   @@ a_user_data "mdc-auto-init" "MDCRipple")
              ((map_cons_option ~f:pcdata label [])
@@ -998,10 +1000,13 @@ module Make
   module Select = struct
 
     let base_class          = "mdc-select"
+    let surface_class     = CSS.add_element base_class "surface"
+    let bottom_line_class = CSS.add_element base_class "bottom-line"
 
     module Base = struct
 
       let menu_class          = CSS.add_element base_class "menu"
+      let label_class         = CSS.add_element base_class "label"
       let selected_text_class = CSS.add_element base_class "selected-text"
       let disabled_class      = CSS.add_modifier base_class "disabled"
 
@@ -1029,7 +1034,7 @@ module Make
       let create_menu ?id ?style ?(classes=[]) ?attrs ~list () =
         Menu.create ?id ?style ?attrs ~classes:(menu_class :: classes) ~list ()
 
-      let create ?id ?style ?(classes=[]) ?attrs ?(selected_text="") ?(disabled=false) ~menu () =
+      let create ?id ?style ?(classes=[]) ?attrs ?(disabled=false) ~label ~menu () =
         div ~a:([ a_class (classes
                            |> cons_if disabled disabled_class
                            |> CCList.cons base_class)
@@ -1038,7 +1043,10 @@ module Make
                 |> cons_if disabled       @@ a_tabindex (-1)
                 |> cons_if disabled       @@ a_aria "disabled" ["true"]
                 |> add_common_attrs ?id ?style ?attrs)
-            [ span ~a:([ a_class [selected_text_class] ]) [pcdata selected_text]
+            [ div ~a:[ a_class [surface_class]]
+                  [ div ~a:[ a_class [label_class]] [pcdata label]
+                  ; div ~a:[ a_class [selected_text_class]] []
+                  ; div ~a:[ a_class [bottom_line_class]] [] ]
             ; menu
             ]
 
@@ -1065,10 +1073,12 @@ module Make
       end
 
       let create ?id ?style ?(classes=[]) ?attrs ?(disabled=false) ~items () =
-        select ~a:([ a_class (base_class :: classes) ]
-                   |> cons_if disabled @@ a_disabled ()
-                   |> add_common_attrs ?id ?style ?attrs)
-               items
+        div ~a:([ a_class (base_class :: classes)]
+                |> add_common_attrs ?id ?style ?attrs)
+            [ select ~a:([ a_class [surface_class] ]
+                         |> cons_if disabled @@ a_disabled ())
+                     items
+            ; div ~a:([ a_class [bottom_line_class]]) [] ]
 
     end
 
@@ -1126,18 +1136,18 @@ module Make
     let pin_value_marker_class       = CSS.add_element base_class "pin-value-marker"
 
     let create ?id ?style ?(classes=[]) ?attrs ?(discrete=false) ?(markers=false) ?(disabled=false)
-               ?label ?step ?(min=0) ?(max=100) ?(value=0) () =
+               ?label ?step ?(min=0.) ?(max=100.) ?(value=0.) () =
       div ~a:([ a_class (classes
                          |> cons_if discrete @@ CSS.add_modifier base_class "discrete"
                          |> cons_if (discrete && markers) @@ CSS.add_modifier base_class "display-markers"
                          |> CCList.cons base_class)
               ; a_tabindex 0
               ; a_role ["slider"]
-              ; a_aria "valuemin" [ string_of_int min ]
-              ; a_aria "valuemax" [ string_of_int max ]
-              ; a_aria "valuenow" [ string_of_int value ] ]
+              ; a_aria "valuemin" [ string_of_float min ]
+              ; a_aria "valuemax" [ string_of_float max ]
+              ; a_aria "valuenow" [ string_of_float value ] ]
               |> map_cons_option ~f:(fun x -> a_aria "label" [x]) label
-              |> map_cons_option ~f:(fun x -> a_user_data "step" (string_of_int x)) step
+              |> map_cons_option ~f:(fun x -> a_user_data "step" (string_of_float x)) step
               |> cons_if disabled @@ a_aria "disabled" ["true"]
               |> add_common_attrs ?id ?style ?attrs)
           [ div ~a:([ a_class [track_container_class]])

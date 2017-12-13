@@ -1,9 +1,9 @@
-module Divider = List_.Divider
+module Divider = Item_list.Divider
 
 module Item = struct
 
   class t ?secondary_text ?start_detail ?end_detail ~text () = object
-    inherit List_.Item.t ?secondary_text ?start_detail ?end_detail ~text () as super
+    inherit Item_list.Item.t ?secondary_text ?start_detail ?end_detail ~text () as super
 
     method get_disabled   = (match super#get_attribute "aria-disabled" with
                              | Some "true" -> true
@@ -50,10 +50,10 @@ let events =
 
 class t ?open_from ~(items:[ `Item of Item.t | `Divider of Divider.t ] list) () =
 
-  let list = new List_.t ~items:(List.map (function
-                                           | `Item x    -> `Item (x : Item.t :> List_.Item.t)
-                                           | `Divider x -> `Divider x)
-                                          items) () in
+  let list = new Item_list.t ~items:(List.map (function
+                                         | `Item x    -> `Item (x : Item.t :> Item_list.Item.t)
+                                         | `Divider x -> `Divider x)
+                                       items) () in
 
   let () = list#set_attribute "role" "menu";
            list#set_attribute "aria-hidden" "true";

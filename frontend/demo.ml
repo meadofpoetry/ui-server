@@ -18,20 +18,14 @@ let subsection name w = Html.div [ Html.h3 ~a:[Html.a_class [Typography.font_to_
                         |> Widget.create
 
 let button_demo () =
-  let raised     = new Button.t ~label:"raised" () in
+  let raised     = new Button.t ~label:"raised" ~style:`Raised () in
   let flat       = new Button.t ~label:"flat" () in
-  let unelevated = new Button.t ~label:"unelevated" () in
-  let stroked    = new Button.t ~label:"stroked" () in
+  let unelevated = new Button.t ~label:"unelevated" ~style:`Unelevated () in
+  let stroked    = new Button.t ~label:"stroked" ~style:`Stroked () in
   let ripple     = new Button.t ~label:"ripple" ~ripple:true () in
-  let dense      = new Button.t ~label:"dense" () in
-  let compact    = new Button.t ~label:"compact" () in
+  let dense      = new Button.t ~label:"dense" ~dense:true () in
+  let compact    = new Button.t ~label:"compact" ~compact:true () in
   let icon       = new Button.t ~label:"icon" ~icon:"favorite" () in
-  raised#set_raised true;
-  flat#set_raised false;
-  unelevated#set_unelevated true;
-  stroked#set_stroked true; stroked#set_raised false;
-  dense#set_dense true;
-  compact#set_compact true;
   demo_section ~style:"display:flex; \
                        flex-direction:column;\
                        justify-content:flex-start;\
@@ -61,9 +55,9 @@ let checkbox_demo () =
   React.E.map (fun () -> checkbox#set_indeterminate @@ not checkbox#get_indeterminate;
                          css_checkbox#set_indeterminate @@ not css_checkbox#get_indeterminate)
               btn#e_click |> ignore;
-  demo_section "Checkbox" [ Widget.coerce @@ subsection "Checkbox (css only)" css_checkbox
-                          ; Widget.coerce @@ subsection "Checkbox with label" form_field
-                          ; Widget.coerce btn ]
+  demo_section "Checkbox" [ (subsection "Checkbox (css only)" css_checkbox)#widget
+                          ; (subsection "Checkbox with label" form_field)#widget
+                          ; btn#widget ]
 
 let switch_demo () =
   let switch   = new Switch.t ~input_id:"demo-switch" () in
@@ -86,22 +80,20 @@ let card_demo () =
   (Js.Unsafe.coerce media#style)##.backgroundSize := Js.string "cover";
   media#style##.backgroundRepeat := Js.string "no-repeat";
   media#style##.height := Js.string "12.313rem";
-  let title = new Card.Title.t ~large:true ~title:"Demo card title" () in
+  let title    = new Card.Title.t ~large:true ~title:"Demo card title" () in
   let subtitle = new Card.Subtitle.t ~subtitle:"Subtitle" () in
-  let primary  = new Card.Primary.t ~widgets:[ Widget.coerce title; Widget.coerce subtitle ] () in
+  let primary  = new Card.Primary.t ~widgets:[ title#widget; subtitle#widget ] () in
   let text     = new Card.Supporting_text.t ~text:"Supporting text" () in
-  let actions  = new Card.Actions.t ~widgets:[ (let b = new Button.t ~label:"action 1" () in
-                                                b#set_compact true; b#set_raised false; b)
-                                             ; (let b = new Button.t ~label:"action 2" () in
-                                                b#set_compact true; b#set_raised false; b) ] () in
+  let actions  = new Card.Actions.t ~widgets:[ new Button.t ~compact:true ~label:"action 1" ()
+                                             ; new Button.t ~compact:true ~label:"action 2" () ] () in
   let card = new Card.t ~sections:[ `Media media; `Primary primary; `Text text; `Actions actions ] () in
   card#style##.width := Js.string "320px";
   demo_section "Card" [ card ]
 
 let slider_demo () =
   let listen elt name =
-    (* React.E.map (fun x -> Printf.printf "Input on %s slider, value = %f\n" name x) elt#e_input |> ignore; *)
-    React.E.map (fun x -> Printf.printf "Change on %s slider, value = %f\n" name x) elt#e_change |> ignore in
+    React.S.map (fun x -> Printf.printf "Input on %s slider, value = %f\n" name x) elt#s_input |> ignore;
+    React.S.map (fun x -> Printf.printf "Value on %s slider, value = %f\n" name x) elt#s_value |> ignore in
   let continuous   = new Slider.t () in
   let discrete     = new Slider.t ~discrete:true () in
   let with_markers = new Slider.t ~discrete:true ~markers:true () in
@@ -157,7 +149,7 @@ let layout_grid_demo () =
   React.E.map (fun () -> (CCList.get_at_idx_exn 4 cells)#set_span 1) btn2#e_click |> ignore;
   React.E.map (fun () -> (CCList.get_at_idx_exn 4 cells)#set_span 2) btn4#e_click |> ignore;
   let layout_grid = new Layout_grid.t ~cells () in
-  demo_section "Layout grid" [ Widget.coerce layout_grid; Widget.coerce btn2; Widget.coerce btn4 ]
+  demo_section "Layout grid" [ layout_grid#widget; btn2#widget; btn4#widget ]
 
 let dialog_demo () =
   let dialog = new Dialog.t
@@ -168,42 +160,44 @@ let dialog_demo () =
                             ]
                    () in
   let button = new Button.t ~label:"show dialog" () in
-  React.E.map (fun () -> dialog#show) button#e_click |> ignore;
-  React.E.map (fun () -> print_endline "Dialog accepted") dialog#e_accept |> ignore;
-  React.E.map (fun () -> print_endline "Dialog cancelled") dialog#e_cancel |> ignore;
-  demo_section "Dialog" [ Widget.coerce dialog; Widget.coerce button ]
+  React.E.map (fun () -> Lwt.bind dialog#show_await
+                                  (function
+                                   | `Accept -> print_endline "Dialog accepted"; Lwt.return ()
+                                   | `Cancel -> print_endline "Dialog cancelled"; Lwt.return ()))
+              button#e_click |> ignore;
+  demo_section "Dialog" [ dialog#widget; button#widget ]
 
 let list_demo () =
   let items = List.map (fun x -> if x = 3
-                                 then `Divider (new List_.Divider.t ())
-                                 else `Item (new List_.Item.t
+                                 then `Divider (new Item_list.Divider.t ())
+                                 else `Item (new Item_list.Item.t
                                                  ~text:("List item " ^ (string_of_int x))
                                                  ~secondary_text:"some subtext here"
                                                  ~start_detail:(new Avatar.Letter.t ~text:"A" ())
                                                  ~ripple:true
                                                  ()))
                        (CCList.range 0 5) in
-  let list = new List_.t ~avatar:true ~items () in
+  let list = new Item_list.t ~avatar:true ~items () in
   list#style##.maxWidth := Js.string "400px";
-  let list1 = new List_.t
-                  ~items:[ `Item (new List_.Item.t ~text:"Item 1" ~secondary_text:"Subtext" ())
-                         ; `Item (new List_.Item.t ~text:"Item 2" ~secondary_text:"Subtext" ())
-                         ; `Item (new List_.Item.t ~text:"Item 3" ~secondary_text:"Subtext" ())
+  let list1 = new Item_list.t
+                  ~items:[ `Item (new Item_list.Item.t ~text:"Item 1" ~secondary_text:"Subtext" ())
+                         ; `Item (new Item_list.Item.t ~text:"Item 2" ~secondary_text:"Subtext" ())
+                         ; `Item (new Item_list.Item.t ~text:"Item 3" ~secondary_text:"Subtext" ())
                          ]
                   () in
-  let list2 = new List_.t
-                  ~items:[ `Item (new List_.Item.t ~text:"Item 1" ~secondary_text:"Subtext" ())
-                         ; `Item (new List_.Item.t ~text:"Item 2" ~secondary_text:"Subtext" ())
-                         ; `Item (new List_.Item.t ~text:"Item 3" ~secondary_text:"Subtext" ())
+  let list2 = new Item_list.t
+                  ~items:[ `Item (new Item_list.Item.t ~text:"Item 1" ~secondary_text:"Subtext" ())
+                         ; `Item (new Item_list.Item.t ~text:"Item 2" ~secondary_text:"Subtext" ())
+                         ; `Item (new Item_list.Item.t ~text:"Item 3" ~secondary_text:"Subtext" ())
                          ]
                   () in
-  let group = new List_.List_group.t
+  let group = new Item_list.List_group.t
                   ~content:[ { subheader = Some "Group 1"; list = list1 }
                            ; { subheader = Some "Group 2"; list = list2 }
                            ]
                   () in
   group#style##.maxWidth := Js.string "400px";
-  demo_section "List" [ Widget.coerce list; Widget.coerce group ]
+  demo_section "List" [ list#widget; group#widget ]
 
 let tree_demo () =
   let item x = new Tree.Item.t
@@ -256,7 +250,7 @@ let menu_demo () =
                             (Dom_html.handler (fun _ -> print_endline "Menu cancelled"; Js._false))
                             Js._false
   |> ignore;
-  demo_section "Menu" [ Widget.coerce wrapper; Widget.coerce icon_wrapper ]
+  demo_section "Menu" [ wrapper#widget; icon_wrapper#widget ]
 
 let linear_progress_demo () =
   let linear_progress = new Linear_progress.t () in
@@ -286,7 +280,7 @@ let linear_progress_demo () =
                        [ind_btn  ; det_btn  ; pgs0_btn ; pgs20_btn; pgs60_btn;
                         buf10_btn; buf30_btn; buf70_btn; open_btn ; close_btn ] in
   let btn_grid = new Layout_grid.t ~cells () in
-  demo_section "Linear progress" [ Widget.coerce btn_grid; Widget.coerce linear_progress ]
+  demo_section "Linear progress" [ btn_grid#widget; linear_progress#widget ]
 
 let tabs_demo () =
   let icon_bar  = [ new Tabs.Tab.t ~icon:"pets" ()
@@ -336,17 +330,18 @@ let textfield_demo () =
   let css_form = new Form_field.t ~label:"css textfield label: " ~input:css ~align_end:true () in
   (* Full-featured js textbox *)
   let js       = new Textfield.t
-                     ~label:"js textfield label"
-                     ~help_text:{ validation = true
-                                ; persistent = false
-                                ; text       = Some "This field must not be empty"
-                                }
-                     () in
+                   ~input_type:Widget.Text 
+                   ~label:"js textfield label"
+                   ~help_text:{ validation = true
+                              ; persistent = false
+                              ; text       = Some "This field must not be empty"
+                   }
+                   () in
   js#set_required true;
   (* Dense js textbox with *)
   let dense    = new Textfield.t
                      ~label:"dense textfield label"
-                     ~input_type:`Email
+                     ~input_type:Widget.Email
                      ~help_text:{ validation = true
                                 ; persistent = false
                                 ; text       = Some "Provide valid e-mail"
@@ -355,17 +350,19 @@ let textfield_demo () =
   dense#set_dense true;
   (* Textboxes with icons *)
   let lead_icon  = new Textfield.t
-                       ~label:"textfield label"
-                       ~icon:{ icon      = "event"
-                             ; clickable = false
-                             ; pos       = `Leading }
-                       () in
+                     ~input_type:Widget.Text
+                     ~label:"textfield label"
+                     ~icon:{ icon      = "event"
+                           ; clickable = false
+                           ; pos       = `Leading }
+                     () in
   let trail_icon = new Textfield.t
-                       ~label:"textfield label"
-                       ~icon:{ icon      = "delete"
-                             ; clickable = false
-                             ; pos       = `Trailing }
-                       () in
+                     ~input_type:Widget.Text
+                     ~label:"textfield label"
+                     ~icon:{ icon      = "delete"
+                           ; clickable = false
+                           ; pos       = `Trailing }
+                     () in
   (* Textareas *)
   let css_textarea      = new Textarea.Pure.t ~placeholder:"Enter something" ~rows:8 ~cols:40 () in
   let textarea          = new Textarea.t ~label:"textarea label" ~rows:8 ~cols:40 () in
@@ -379,7 +376,7 @@ let textfield_demo () =
 
 let select_demo () =
   let js      = new Select.Base.t
-                    ~placeholder:"Pick smth"
+                    ~label:"Pick smth"
                     ~items:(List.map (fun x -> new Select.Base.Item.t
                                                    ~id:("index " ^ (string_of_int x))
                                                    ~text:("Select item " ^ (string_of_int x))
@@ -430,7 +427,7 @@ let toolbar_demo (drawer : Drawer.Persistent.t Js.t) () =
              |> To_dom.of_i
              |> Widget.create in
   let title = new Toolbar.Row.Section.Title.t ~title:"Widgets demo page" () in
-  let section_start = new Toolbar.Row.Section.t ~widgets:[ Widget.coerce icon; Widget.coerce title ] () in
+  let section_start = new Toolbar.Row.Section.t ~widgets:[ icon#widget; title#widget ] () in
   section_start#set_align `Start;
   let icon_menu = new Menu.t
                       ~open_from:`Top_right
@@ -462,7 +459,7 @@ let elevation_demo () =
   let btn8 = new Button.t ~label:"elevation 8" () in
   React.E.map (fun () -> Elevation.set_elevation d 2) btn2#e_click |> ignore;
   React.E.map (fun () -> Elevation.set_elevation d 8) btn8#e_click |> ignore;
-  demo_section "Elevation" [ Widget.coerce d; Widget.coerce btn2; Widget.coerce btn8 ]
+  demo_section "Elevation" [ d#widget; btn2#widget; btn8#widget ]
 
 let drawer_demo () =
   Drawer.Temporary.create ~content:[Drawer.Temporary.Toolbar_spacer.create ~content:[Html.pcdata "Demo"]
@@ -539,7 +536,7 @@ let onload _ =
                           ; switch_demo ()
                           ; toggle_demo ()
                           ; elevation_demo ()
-                          (* ; select_demo () *)
+                          ; select_demo ()
                           ; textfield_demo ()
                           ; card_demo ()
                           ; slider_demo ()
@@ -563,4 +560,4 @@ let () = Dom_html.addEventListener Dom_html.document
                                    Dom_events.Typ.domContentLoaded
                                    (Dom_html.handler onload)
                                    Js._false
-         |> ignore
+|> ignore

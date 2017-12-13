@@ -10,7 +10,7 @@ module Row = struct
              then new Icon.Font.t ~icon:"" () |> Widget.coerce
              else span [pcdata "-"] |> Tyxml_js.To_dom.of_element |> Widget.create in
     object
-      inherit Box.t ~widgets:[Widget.coerce nw; Widget.coerce vw] () as super
+      inherit Box.t ~vertical:false ~widgets:[Widget.coerce nw; Widget.coerce vw] () as super
       method has_icon = icon
       method get_value_widget = vw
       method get_label_widget = nw
@@ -26,13 +26,12 @@ end
 module Rows = struct
 
   class t ~(rows:Row.t list) ~s_state () = object
-    inherit Box.t ~widgets:rows () as super
+    inherit Box.t ~widgets:rows ()
     initializer
       React.S.map (fun x -> if not x
                             then List.iter (fun row -> let s = if row#has_icon then "" else "-" in
                                                        row#get_value_widget#set_text_content s)
                                            rows) s_state |> ignore;
-      super#set_vertical
   end
 
 end
@@ -81,7 +80,7 @@ end
 module Settings_card = struct
 
   class t ?subtitle ~title ~sections ~s_state ~f_submit ~s_valid () =
-    let apply_btn = new Button.t ~label:"Применить" ~typ:`Submit () in
+    let apply_btn = new Button.t ~compact:true ~label:"Применить" ~typ:`Submit () in
     object
       inherit Stateful_card.t ~form:true
                               ?subtitle
@@ -98,8 +97,6 @@ module Settings_card = struct
                                      >|= (fun _ -> apply_btn#set_disabled false) |> ignore))
                     apply_btn#e_click |> ignore;
         React.S.map (fun x  -> apply_btn#set_disabled @@ not x) s_state |> ignore;
-        apply_btn#set_raised false;
-        apply_btn#set_compact true
     end
 
 end

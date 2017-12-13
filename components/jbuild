@@ -3,7 +3,11 @@
 (library
  ((name        components)
   (public_name components)
-  (synopsis "various js widgets")
+  (synopsis    "various js widgets")
+  (modules     (widget markup avatar box button card checkbox dialog
+                drawer elevation fab form_field grid_list icon icon_toggle
+                item_list layout_grid linear_progress menu radio ripple select slider
+                snackbar switch tabs textfield textarea toolbar tree typography))
   (libraries (common react js_of_ocaml js_of_ocaml-tyxml js_of_ocaml-lwt))
   (flags (:standard -short-paths -strict-sequence -bin-annot
           -thread -w "+1..49+60" -w "+a-4-7-23-33-39-40-41-42-44-45-48"))

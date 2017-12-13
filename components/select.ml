@@ -34,11 +34,11 @@ module Base = struct
     end
   end
 
-  class t ?placeholder ~(items:Item.t list) () =
+  class t ~label ~(items:Item.t list) () =
 
     let menu = new Menu.t ~items:(List.map (fun x -> `Item (x : Item.t :> Menu.Item.t)) items) () in
     let () = menu#add_class Markup.Select.Base.menu_class in
-    let elt = Markup.Select.Base.create ?selected_text:placeholder ~menu:(Widget.widget_to_markup menu) ()
+    let elt = Markup.Select.Base.create ~label ~menu:(Widget.widget_to_markup menu) ()
               |> Tyxml_js.To_dom.of_element in
 
     object(self)
@@ -132,13 +132,15 @@ module Pure = struct
     let item_elts = List.map (function
                               | `Group g -> Widget.widget_to_markup g
                               | `Item i  -> Widget.widget_to_markup i) items in
-    let elt = Markup.Select.Pure.create ~items:item_elts () |> Tyxml_js.To_dom.of_select in
+    let elt = Markup.Select.Pure.create ~items:item_elts () |> Tyxml_js.To_dom.of_div in
+    let select_elt = elt##querySelector (Js.string ("." ^ Markup.Select.surface_class))
+                     |> Js.Opt.to_option |> CCOpt.get_exn |> Js.Unsafe.coerce in
 
     object(self)
 
       inherit Widget.widget elt ()
 
-      method select_element = elt
+      method select_element : Dom_html.selectElement Js.t = select_elt
 
       method get_value = Js.to_string self#select_element##.value
       method get_items = CCList.fold_left (fun acc x -> match x with

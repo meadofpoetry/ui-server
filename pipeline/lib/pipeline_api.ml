@@ -94,20 +94,63 @@ let get_wm_sock sock_data body api () =
   let open Pipeline_protocol in
   get_sock sock_data body Wm.to_yojson api.wm
 
+let get_vdata_sock sock_data body api () =
+  let open Pipeline_protocol in
+  get_sock sock_data body Video_data.to_yojson api.vdata
+  
+let get_vdata_sock_stream sock_data body api stream () =
+  try
+    let stream = int_of_string stream in
+    let pred (x : Video_data.t) =
+      x.stream = stream
+    in
+    let open Pipeline_protocol in
+    get_sock sock_data body Video_data.to_yojson (React.E.filter pred api.vdata)
+  with _ -> respond_error ~status:`Bad_request "bad request" ()
+
+let get_vdata_sock_channel sock_data body api stream channel () =
+  try
+    let stream = int_of_string stream in
+    let channel = int_of_string channel in
+    let pred (x : Video_data.t) =
+      x.channel = channel && x.stream = stream
+    in
+    let open Pipeline_protocol in
+    get_sock sock_data body Video_data.to_yojson (React.E.filter pred api.vdata)
+  with _ -> respond_error ~status:`Bad_request "bad request" ()
+
+let get_vdata_sock_pid sock_data body api stream channel pid () =
+  try
+    let stream = int_of_string stream in
+    let channel = int_of_string channel in
+    let pid = int_of_string pid in
+    let pred (x : Video_data.t) =
+      x.pid = pid
+      && x.channel = channel
+      && x.stream = stream
+    in
+    let open Pipeline_protocol in
+    get_sock sock_data body Video_data.to_yojson (React.E.filter pred api.vdata)
+  with _ -> respond_error ~status:`Bad_request "bad request" ()
+    
 let pipeline_handle api id meth args sock_data _ body =
   let is_guest = Common.User.eq id `Guest in
   match meth, args with
-  | `GET,  []                 -> get_page ()
-  | `POST, ["structure"]      -> redirect_if is_guest @@ set_structure api body
-  | `GET,  ["structure"]      -> get_structure api ()
-  | `GET,  ["structure_sock"] -> get_structure_sock sock_data body api ()
-  | `POST, ["settings"]       -> redirect_if is_guest @@ set_settings api body
-  | `GET,  ["settings"]       -> get_settings api ()
-  | `GET,  ["settings_sock"]  -> get_settings_sock sock_data body api ()
-  | `POST, ["wm"]             -> redirect_if is_guest @@ set_wm api body
-  | `GET,  ["wm"]             -> get_wm api ()
-  | `GET,  ["wm_sock"]        -> get_wm_sock sock_data body api ()     
-  | _                         -> not_found ()
+  | `GET,  []                   -> get_page ()
+  | `POST, ["structure"]        -> redirect_if is_guest @@ set_structure api body
+  | `GET,  ["structure"]        -> get_structure api ()
+  | `GET,  ["structure_sock"]   -> get_structure_sock sock_data body api ()
+  | `POST, ["settings"]         -> redirect_if is_guest @@ set_settings api body
+  | `GET,  ["settings"]         -> get_settings api ()
+  | `GET,  ["settings_sock"]    -> get_settings_sock sock_data body api ()
+  | `POST, ["wm"]               -> redirect_if is_guest @@ set_wm api body
+  | `GET,  ["wm"]               -> get_wm api ()
+  | `GET,  ["wm_sock"]          -> get_wm_sock sock_data body api ()
+  | `GET,  ["vdata_sock"]       -> get_vdata_sock sock_data body api ()
+  | `GET,  ["vdata_sock";s]     -> get_vdata_sock_stream sock_data body api s ()
+  | `GET,  ["vdata_sock";s;c]   -> get_vdata_sock_channel sock_data body api s c ()
+  | `GET,  ["vdata_sock";s;c;p] -> get_vdata_sock_pid sock_data body api s c p ()
+  | _                           -> not_found ()
                      
 let handlers pipe =
   [ (module struct
