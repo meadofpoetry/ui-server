@@ -13,17 +13,10 @@ class type t_js =
     method text       : string_or_string_array Js.t Js.prop (* FIXME can be a string array *)
   end
 
-let cast_text_to_string (x : string_or_string_array Js.t) =
-  Base.Cast.to_string x |> CCOpt.map (fun x -> `String x)
-let cast_text_to_string_list (x : string_or_string_array Js.t)=
-  Base.Cast.to_list ~f:Js.to_string x |> CCOpt.map (fun x -> `Lines x)
-
 let position_to_string = function
   | Top -> "top" | Left -> "left" | Bottom -> "bottom" | Right -> "right"
 let position_of_string_exn = function
   | "top" -> Top | "left" -> Left | "bottom" -> Bottom | "right" -> Right | _ -> failwith "Bad position string"
-
-type text = [`String of string | `Lines of string list ]
 
 class t () = object(self)
   inherit [t_js] base_option ()
@@ -32,40 +25,35 @@ class t () = object(self)
                         ; family = "'Helvetica Neue','Helvetica','Arial',sans-serif"
                         ; style  = `Bold
                         } ()
-  method private display_to_js x     = obj##.display    := Js.bool x
-  method private position_to_js x    = obj##.position   := Js.string @@ position_to_string x
-  method private padding_to_js x     = obj##.padding    := x
-  method private line_height_to_js x = obj##.lineHeight := x
-  method private text_to_js (x:text) = obj##.text := (match x with
-                                                      | `String s -> Js.Unsafe.coerce @@ Js.string s
-                                                      | `Lines  l -> List.map Js.string l
-                                                                     |> Array.of_list
-                                                                     |> Js.array
-                                                                     |> Js.Unsafe.coerce)
 
-  method set_display x = self#display_to_js x
+  method set_display x = obj##.display := Js.bool x
   method get_display   = Js.to_bool obj##.display
 
-  method set_position x = self#position_to_js x
+  method set_position x = obj##.position := Js.string @@ position_to_string x
   method get_position   = position_of_string_exn @@ Js.to_string obj##.position
 
-  method set_padding x = self#padding_to_js x
+  method set_padding x = obj##.padding := x
   method get_padding   = obj##.padding
 
-  method set_line_height x = self#line_height_to_js x
+  method set_line_height x = obj##.lineHeight := x
   method get_line_height   = obj##.lineHeight
 
-  method set_text x      = self#text_to_js x
-  method get_text : text = cast_text_to_string obj##.text
-                           |> (function
-                               | Some x -> x
-                               | None   -> CCOpt.get_exn @@ cast_text_to_string_list obj##.text)
+  method set_text x =
+    obj##.text := (match CCString.lines x with
+                   | [s] -> Js.Unsafe.coerce @@ Js.string s
+                   | l   -> List.map Js.string l |> Array.of_list |> Js.array |> Js.Unsafe.coerce)
+  method get_text =
+    match Cast.to_list ~f:Js.to_string obj##.text with
+    | Some l -> CCString.unlines l
+    | None   -> (match Cast.to_string obj##.text with
+                 | Some s -> s
+                 | None   -> failwith "Bad title text value")
 
   initializer
     (* Fill object with default values *)
-    self#display_to_js     false;
-    self#position_to_js    Top;
-    self#padding_to_js     10;
-    self#line_height_to_js 1.2;
-    self#text_to_js        (`String "")
+    self#set_display     false;
+    self#set_position    Top;
+    self#set_padding     10;
+    self#set_line_height 1.2;
+    self#set_text        ""
 end

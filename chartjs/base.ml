@@ -156,30 +156,3 @@ class ['a] base_option () = object
   method get_obj   = obj
   method replace x = obj <- x
 end
-
-class type config =
-  object
-    method duration : int Js.prop
-    method lazy_    : bool Js.t Js.prop
-    method easing   : Js.js_string Js.t Js.prop
-  end
-
-let config_to_obj ?duration ?lazy_ ?easing () : config Js.t =
-  Obj.cons_option "duration" duration []
-  |> Obj.map_cons_option ~f:Js.bool "lazy" lazy_
-  |> Obj.map_cons_option ~f:(easing_to_string %> Js.string) "easing" easing
-  |> Array.of_list
-  |> Js.Unsafe.obj
-
-class type chart =
-  object
-    method destroy        : unit -> unit Js.meth
-    method update         : config Js.t -> unit Js.meth
-    method reset          : unit -> unit Js.meth
-    method render         : config Js.t -> unit Js.meth
-    method stop           : unit -> chart Js.t Js.meth
-    method resize         : unit -> chart Js.t Js.meth
-    method clear          : unit -> chart Js.t Js.meth
-    method toBase64Image  : unit -> Js.js_string Js.t Js.meth
-    method generateLegend : unit -> Js.js_string Js.t Js.meth
-  end

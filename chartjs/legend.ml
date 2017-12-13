@@ -66,7 +66,7 @@ class t () = object(self)
 
   method private position_to_js x = Js.string @@ position_to_string x
 
-  method set_display x = obj##.display = Js.bool x
+  method set_display x = obj##.display := Js.bool x
   method get_display   = Js.to_bool obj##.display
 
   method set_position x = obj##.position := self#position_to_js x
@@ -83,11 +83,9 @@ class t () = object(self)
   method! replace x = super#replace x; labels#replace obj##.labels
 
   initializer
-    obj <- object%js
-             val mutable display   = Js._true
-             val mutable position  = self#position_to_js Top
-             val mutable fullWidth = Js._true
-             val mutable reverse   = Js._false
-             val mutable labels    = labels#get_obj
-           end
+    self#set_display true;
+    (* self#set_position Top; *)
+    self#set_full_width true;
+    self#set_reverse false;
+    obj##.labels := labels#get_obj;
 end

@@ -29,7 +29,7 @@ class type t_js =
     method layout                      : Layout.t_js Js.t Js.prop
     method legend                      : Legend.t_js Js.t Js.prop
     method title                       : Title.t_js Js.t Js.prop
-    method tooltip                     : Tooltip.t_js Js.t Js.prop
+    method tooltips                    : Tooltip.t_js Js.t Js.prop
     method elements                    : Elements.t_js Js.t Js.prop
     method scales                      : Axes.Cartesian.t_js Js.t Js.prop
   end
@@ -71,7 +71,7 @@ class t () = object(self)
                       layout#replace    obj##.layout;
                       legend#replace    obj##.legend;
                       title#replace     obj##.title;
-                      tooltip#replace   obj##.tooltip;
+                      tooltip#replace   obj##.tooltips;
                       elements#replace  obj##.elements
 
   initializer
@@ -84,6 +84,6 @@ class t () = object(self)
     obj##.layout    := layout#get_obj;
     obj##.legend    := legend#get_obj;
     obj##.title     := title#get_obj;
-    obj##.tooltip   := tooltip#get_obj;
+    obj##.tooltips  := tooltip#get_obj;
     obj##.elements  := elements#get_obj;
 end

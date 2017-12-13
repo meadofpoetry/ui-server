@@ -470,63 +470,55 @@ let drawer_demo () =
   |> Drawer.Temporary.attach
 
 let chart_demo () =
+  let x = ref 20 in
   Random.init (Unix.time () |> int_of_float);
   let open Chartjs.Line in
-   (* let data =
-   *   Data.to_obj
-   *     ~datasets:[ Data.Dataset.to_obj
-   *                   ~label:"My data 1"
-   *                   ~fill:(Bool false)
-   *                   ~border_color:"rgba(255,0,0,1)"
-   *                   ~data:(Points (List.map
-   *                                    (fun x -> ({ x = (float_of_int x)
-   *                                               ; y = Random.float 10.
-   *                                               } : Data.Dataset.xy))
-   *                                    (CCList.range 0 20))
-   *                          : Data.Dataset.data)
-   *                   ()
-   *               ; Data.Dataset.to_obj
-   *                   ~label:"My data 2"
-   *                   ~fill:(Bool false)
-   *                   ~border_color:"rgba(0,255,0,1)"
-   *                   ~data:(Points (List.map
-   *                                    (fun x -> ({ x = (float_of_int x)
-   *                                               ; y = Random.float 50.
-   *                                               } : Data.Dataset.xy))
-   *                                    (CCList.range 0 20))
-   *                          : Data.Dataset.data)
-   *                   ()
-   *               ]
-   *     ~labels:(CCList.range 0 20 |> List.map string_of_int)
-   *     () in *)
-  let open Chartjs in
-  let (x_axes:('a,'b) Line.Options.axes) = Linear ("my-x-axis",Bottom,Integer),None in
-  let (y_axes:('a,'b) Line.Options.axes) = Linear ("my-y-axis",Left,Integer),None in
-  let options = new Options.t ~x_axes ~y_axes () in
-  options#title#set_display true;
-  options#title#set_text @@ `String "Title";
-  options#hover#set_mode Index;
-  options#hover#set_intersect true;
-  options#elements#point#set_background_color @@ Name CSS.Color.Yellow;
-  (* axis#scale_label#set_display true;
-   * axis#scale_label#set_label_string "Supreme x axis"; *)
-  options#tooltip#set_mode Index;
-  options#tooltip#set_intersect false;
-  (CCList.hd options#x_axes)#ticks#set_min 10;
-  (CCList.hd options#x_axes)#scale_label#set_label_string "x axis";
-  (CCList.hd options#x_axes)#scale_label#set_display true;
-  (CCList.hd options#x_axes)#ticks#set_max 100;
-  print_endline @@ Js.to_string @@ Json.output options#get_obj;
+  let data = [ { data = (List.map (fun x -> { x ; y = Random.int 10 }) (CCList.range 0 !x))
+               ; label = "Dataset 1"
+               }
+             ; { data = (List.map (fun x -> { x ; y = Random.int 10 }) (CCList.range 0 !x))
+               ; label = "Dataset 2"
+               }
+             ] in
+  let config = new Config.t
+                   ~x_axis:(Linear ("my-x-axis",Bottom,Integer))
+                   ~y_axis:(Linear ("my-y-axis",Left,Integer))
+                   ~data
+                   () in
+  config#options#title#set_display true;
+  config#options#title#set_text "Title";
+  config#options#hover#set_mode Index;
+  config#options#hover#set_intersect true;
+  config#options#tooltip#set_mode Index;
+  config#options#tooltip#set_intersect false;
+  config#options#y_axis#ticks#set_suggested_max 10;
+  config#options#x_axis#scale_label#set_label_string "x axis";
+  config#options#x_axis#scale_label#set_display true;
+  List.iter (fun x -> x#set_fill Disabled) config#datasets;
+  print_endline @@ Js.to_string @@ Json.output config#options#get_obj;
   let update = new Button.t ~label:"update" () in
-  let chart  = new Chartjs.Line.t ~options () in
-  chart#pp;
-  (* print_endline @@ Js.to_string @@ Json.output (Js.Unsafe.coerce chart)##.options##.scales;
-   * options#replace (Js.Unsafe.coerce chart)##.options;
-   * React.E.map (fun () -> options#title#set_text @@ `Lines ["New chart title"; "another line"];
-   *                        options#legend#set_reverse true;
-   *                        (Js.Unsafe.coerce chart)##update ()) update#e_click |> ignore; *)
+  let push   = new Button.t ~label:"push" () in
+  let pop    = new Button.t ~label:"pop" () in
+  let chart  = new Chartjs.Line.t ~config () in
+  React.E.map (fun () -> List.iter (fun x -> x#set_label "Fuck!") chart#config#datasets;
+                         List.iter (fun x -> x#set_stepped_line After) chart#config#datasets;
+                         chart#update None)
+              update#e_click |> ignore;
+  React.E.map (fun () -> x := !x + 1;
+                         List.iter (fun ds -> ds#push_back { x = !x; y = Random.int 10 } )
+                                   chart#config#datasets;
+                         chart#update (Some { duration = Some 400
+                                            ; is_lazy  = Some false
+                                            ; easing   = None }))
+              push#e_click |> ignore;
+  React.E.map (fun () -> List.iter (fun ds -> ds#take_back |> ignore) chart#config#datasets;
+                         if !x > 0 then x := !x - 1;
+                         chart#update None)
+              pop#e_click |> ignore;
   Html.div ~a:[ Html.a_style "max-width:700px"] [ Widget.widget_to_markup chart
-                                                ; Widget.widget_to_markup update ]
+                                                ; Widget.widget_to_markup update
+                                                ; Widget.widget_to_markup push
+                                                ; Widget.widget_to_markup pop ]
   |> To_dom.of_element
 
 let add_demos demos =

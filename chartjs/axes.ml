@@ -739,12 +739,16 @@ module Cartesian = struct
   class ['a,'b] t ~(x_axes:'a list) ~(y_axes:'b list) () = object
     constraint 'a = < get_obj : #cartesian_js Js.t; .. >
     constraint 'b = < get_obj : #cartesian_js Js.t; .. >
-    inherit [t_js] base_option ()
+    inherit [t_js] base_option () as super
     val x_axes = x_axes
     val y_axes = y_axes
 
     method x_axes = x_axes
     method y_axes = y_axes
+
+    method! replace x = super#replace x;
+                        CCList.iter2 (fun x y -> x#replace y) x_axes (Array.to_list @@ Js.to_array obj##.xAxes);
+                        CCList.iter2 (fun x y -> x#replace y) y_axes (Array.to_list @@ Js.to_array obj##.yAxes)
 
     (* TODO add replace *)
     initializer
