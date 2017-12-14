@@ -493,9 +493,8 @@ let chart_demo () =
   config#options#x_axis#scale_label#set_display true;
   config#options#elements#line#set_border_width 3;
   List.iter (fun x -> if x#get_label = "Dataset 1"
-                      then x#set_border_color @@ CSS.Color.Name CSS.Color.Lightblue
-                      else x#set_border_color @@ CSS.Color.Name CSS.Color.Lightsalmon;
-                      x#set_point_radius (`Val 5);
+                      then x#set_border_color @@ Color.rgb_of_name (Color.Lime C500)
+                      else x#set_border_color @@ Color.rgb_of_name (Color.Pink C500);
                       x#set_fill Disabled) config#datasets;
   print_endline @@ Js.to_string @@ Json.output config#options#get_obj;
   let update = new Button.t ~label:"update" () in
