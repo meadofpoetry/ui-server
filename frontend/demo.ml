@@ -26,7 +26,7 @@ let button_demo () =
   let dense      = new Button.t ~label:"dense" ~dense:true () in
   let compact    = new Button.t ~label:"compact" ~compact:true () in
   let icon       = new Button.t ~label:"icon" ~icon:"favorite" () in
-  demo_section ~style:"display:flex; \
+  demo_section ~style:"display:flex;\
                        flex-direction:column;\
                        justify-content:flex-start;\
                        align-items:flex-start"
@@ -470,10 +470,10 @@ let chart_demo () =
   let x = ref 20 in
   Random.init (Unix.time () |> int_of_float);
   let open Chartjs.Line in
-  let data = [ { data = (List.map (fun x -> { x ; y = Random.int 10 }) (CCList.range 0 !x))
+  let data = [ { data = (List.map (fun x -> { x ; y = Random.int 100 }) (CCList.range 0 !x))
                ; label = "Dataset 1"
                }
-             ; { data = (List.map (fun x -> { x ; y = Random.int 10 }) (CCList.range 0 !x))
+             ; { data = (List.map (fun x -> { x ; y = Random.int 100 }) (CCList.range 0 !x))
                ; label = "Dataset 2"
                }
              ] in
@@ -491,22 +491,28 @@ let chart_demo () =
   config#options#y_axis#ticks#set_suggested_max 10;
   config#options#x_axis#scale_label#set_label_string "x axis";
   config#options#x_axis#scale_label#set_display true;
-  List.iter (fun x -> x#set_fill Disabled) config#datasets;
+  config#options#elements#line#set_border_width 3;
+  List.iter (fun x -> if x#get_label = "Dataset 1"
+                      then x#set_border_color @@ CSS.Color.Name CSS.Color.Lightblue
+                      else x#set_border_color @@ CSS.Color.Name CSS.Color.Lightsalmon;
+                      x#set_point_radius (`Val 5);
+                      x#set_fill Disabled) config#datasets;
   print_endline @@ Js.to_string @@ Json.output config#options#get_obj;
   let update = new Button.t ~label:"update" () in
   let push   = new Button.t ~label:"push" () in
   let pop    = new Button.t ~label:"pop" () in
   let chart  = new Chartjs.Line.t ~config () in
   React.E.map (fun () -> List.iter (fun x -> x#set_label "Fuck!") chart#config#datasets;
-                         List.iter (fun x -> x#set_stepped_line After) chart#config#datasets;
+                         List.iter (fun x -> x#set_point_radius (`Fun (fun i _ -> if i mod 2 > 0
+                                                                                  then 10
+                                                                                  else 5))
+                                   ) chart#config#datasets;
                          chart#update None)
               update#e_click |> ignore;
   React.E.map (fun () -> x := !x + 1;
-                         List.iter (fun ds -> ds#push_back { x = !x; y = Random.int 10 } )
+                         List.iter (fun ds -> ds#push_back { x = !x; y = Random.int 100 } )
                                    chart#config#datasets;
-                         chart#update (Some { duration = Some 400
-                                            ; is_lazy  = Some false
-                                            ; easing   = None }))
+                         chart#update None)
               push#e_click |> ignore;
   React.E.map (fun () -> List.iter (fun ds -> ds#take_back |> ignore) chart#config#datasets;
                          if !x > 0 then x := !x - 1;
