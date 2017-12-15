@@ -18,29 +18,37 @@ type ('a,'b) dataset =
   ; label : string
   }
 
+let set_min_max (type a b) (t:(a,b) Axes.Cartesian.axis) (axis:b) (min:a) (max:a): unit =
+  let open Axes.Cartesian in
+  match t with
+  | Linear _      -> axis#ticks#set_max max; axis#ticks#set_min min
+  | Logarithmic _ -> axis#ticks#set_max max; axis#ticks#set_min min
+  | Time _        -> axis#time#set_max max;  axis#time#set_min min
+  | Category _    -> axis#ticks#set_max max; axis#ticks#set_min min
+
 let point_to_js (type a b) (axis:(a,b) Axes.Cartesian.axis) : (a -> point_js Js.t) =
   let open Axes in
   let open Axes.Cartesian in
   let (%>) = CCFun.(%>) in
   match axis with
-  | Linear (_,_,Integer)      -> float_of_int %> Js.number_of_float %> Js.Unsafe.coerce
-  | Linear (_,_,Float)        -> Js.number_of_float %> Js.Unsafe.coerce
-  | Logarithmic (_,_,Integer) -> float_of_int %> Js.number_of_float %> Js.Unsafe.coerce
-  | Logarithmic (_,_,Float)   -> Js.number_of_float %> Js.Unsafe.coerce
-  | Time (_,_,Unix)           -> Int32.to_float %> Js.number_of_float %> Js.Unsafe.coerce
-  | Category _                -> Js.string %> Js.Unsafe.coerce
+  | Linear (_,_,Integer,_)      -> float_of_int %> Js.number_of_float %> Js.Unsafe.coerce
+  | Linear (_,_,Float,_)        -> Js.number_of_float %> Js.Unsafe.coerce
+  | Logarithmic (_,_,Integer,_) -> float_of_int %> Js.number_of_float %> Js.Unsafe.coerce
+  | Logarithmic (_,_,Float,_)   -> Js.number_of_float %> Js.Unsafe.coerce
+  | Time (_,_,Unix,_)           -> Int32.to_float %> Js.number_of_float %> Js.Unsafe.coerce
+  | Category _                  -> Js.string %> Js.Unsafe.coerce
 
 let point_of_js (type a b) (axis:(a,b) Axes.Cartesian.axis) : (point_js Js.t -> a) =
   let open Axes in
   let open Axes.Cartesian in
   let (%>) = CCFun.(%>) in
   match axis with
-  | Linear (_,_,Integer)      -> Js.Unsafe.coerce %> Js.float_of_number %> int_of_float
-  | Linear (_,_,Float)        -> Js.Unsafe.coerce %> Js.float_of_number
-  | Logarithmic (_,_,Integer) -> Js.Unsafe.coerce %> Js.float_of_number %> int_of_float
-  | Logarithmic (_,_,Float)   -> Js.Unsafe.coerce %> Js.float_of_number
-  | Time (_,_,Unix)           -> Js.Unsafe.coerce %> Js.float_of_number %> Int32.of_float
-  | Category _                -> Js.Unsafe.coerce %> Js.to_string
+  | Linear (_,_,Integer,_)      -> Js.Unsafe.coerce %> Js.float_of_number %> int_of_float
+  | Linear (_,_,Float,_)        -> Js.Unsafe.coerce %> Js.float_of_number
+  | Logarithmic (_,_,Integer,_) -> Js.Unsafe.coerce %> Js.float_of_number %> int_of_float
+  | Logarithmic (_,_,Float,_)   -> Js.Unsafe.coerce %> Js.float_of_number
+  | Time (_,_,Unix,_)           -> Js.Unsafe.coerce %> Js.float_of_number %> Int32.of_float
+  | Category _                  -> Js.Unsafe.coerce %> Js.to_string
 
 module Dataset = struct
 
@@ -133,8 +141,14 @@ module Dataset = struct
                                                   | None   -> failwith "Bad point setting value")))
                 @@ Js.Optdef.to_option v
 
-  class ['a,'b] t ~(data:('a,'b) dataset) ~(x_to_js:'a -> point_js Js.t) ~(y_to_js:'b -> point_js Js.t)
-                ~(x_of_js:point_js Js.t -> 'a) ~(y_of_js:point_js Js.t -> 'b) () = object(self)
+  class ['a,'b] t
+                ~(data:('a,'b) dataset)
+                ~(x_to_js:'a -> point_js Js.t)
+                ~(y_to_js:'b -> point_js Js.t)
+                ~(x_of_js:point_js Js.t -> 'a)
+                ~(y_of_js:point_js Js.t -> 'b)
+                ~(e_axis_push:'a * 'a -> unit)
+                () = object(self)
 
     inherit [t_js] base_option ()
 
@@ -224,8 +238,21 @@ module Dataset = struct
 
     method get_data : ('a,'b) point list = List.map self#point_of_js (Array.to_list @@ Js.to_array obj##.data)
 
-    method push_back (x:('a,'b) point)  = obj##.data##push (self#point_to_js x) |> ignore; self#ps_push_back [x]
-    method push_front (x:('a,'b) point) = obj##.data##unshift (self#point_to_js x) |> ignore; self#ps_push_front [x]
+    method peek_back : ('a,'b) point option =
+      let p = self#take_back in
+      CCOpt.iter (fun x -> self#push_back x) p;
+      p
+    method peek_front : ('a,'b) point option =
+      let p = self#take_front in
+      CCOpt.iter (fun x -> self#push_front x) p;
+      p
+
+    method push_back (x:('a,'b) point)  =
+      obj##.data##push (self#point_to_js x) |> ignore;
+      self#ps_push_back [x]
+    method push_front (x:('a,'b) point) =
+      obj##.data##unshift (self#point_to_js x) |> ignore;
+      self#ps_push_front [x]
 
     method take_back : ('a,'b) point option =
       let p = obj##.data##pop |> Js.Optdef.to_option |> CCOpt.map self#point_of_js in
@@ -462,8 +489,16 @@ module Config = struct
     let y_to_js = point_to_js y_axis in
     let x_of_js = point_of_js x_axis in
     let y_of_js = point_of_js y_axis in
+    let e,e_push = React.E.create () in
 
-    let datasets = List.map (fun x -> new Dataset.t ~data:x ~x_to_js ~y_to_js ~x_of_js ~y_of_js ()) data in
+    let datasets = List.map (fun x -> new Dataset.t
+                                          ~data:x
+                                          ~x_to_js
+                                          ~y_to_js
+                                          ~x_of_js
+                                          ~y_of_js
+                                          ~e_axis_push:e_push
+                                          ()) data in
     let (data:data_js Js.t) = object%js
                                 val mutable datasets  = List.map (fun x -> x#get_obj) datasets
                                                         |> Array.of_list
@@ -482,6 +517,9 @@ module Config = struct
       method datasets = datasets
 
       method data = data
+
+      initializer
+        React.E.map (fun (min,max) -> set_min_max x_axis options#x_axis min max) e |> ignore
     end
 
 end

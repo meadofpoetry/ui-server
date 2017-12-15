@@ -478,8 +478,8 @@ let chart_demo () =
                }
              ] in
   let config = new Config.t
-                   ~x_axis:(Linear ("my-x-axis",Bottom,Integer))
-                   ~y_axis:(Linear ("my-y-axis",Left,Integer))
+                   ~x_axis:(Linear ("my-x-axis",Bottom,Integer,Some 20))
+                   ~y_axis:(Linear ("my-y-axis",Left,Integer,None))
                    ~data
                    () in
   config#options#title#set_display true;

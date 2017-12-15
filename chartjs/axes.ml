@@ -718,17 +718,17 @@ module Cartesian = struct
   end
 
   type (_,_) axis =
-    | Linear      : (string * position * 'a numeric)  -> ('a,'a Linear.t) axis
-    | Logarithmic : (string * position * 'a numeric)  -> ('a,'a Logarithmic.t) axis
-    | Category    : (string * position * string list) -> (string,Category.t) axis
-    | Time        : (string * position * 'a time)     -> ('a,'a Time.t) axis
+    | Linear      : (string * position * 'a numeric * 'a option) -> ('a,'a Linear.t) axis
+    | Logarithmic : (string * position * 'a numeric * 'a option) -> ('a,'a Logarithmic.t) axis
+    | Category    : (string * position * string list)            -> (string,Category.t) axis
+    | Time        : (string * position * 'a time * 'a option)    -> ('a,'a Time.t) axis
 
   let create (type a b) (axis:(a,b) axis) : b =
     match axis with
-    | Linear (id,position,_)        -> new Linear.t ~id ~position ()
-    | Logarithmic (id,position,_)   -> new Logarithmic.t ~id ~position ()
+    | Linear (id,position,_,_)      -> new Linear.t ~id ~position ()
+    | Logarithmic (id,position,_,_) -> new Logarithmic.t ~id ~position ()
     | Category (id,position,labels) -> new Category.t ~id ~position ~labels ()
-    | Time (id,position,_)          -> new Time.t ~id ~position ()
+    | Time (id,position,_,_)        -> new Time.t ~id ~position ()
 
   class type t_js =
     object
