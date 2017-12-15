@@ -47,7 +47,7 @@ type t = pipe
 let connect_db streams_events dbs =
   Lwt_main.run @@ Storage.init dbs;
   E.map_s (fun s -> Storage.request dbs (Storage.Store_structures s)) streams_events
-
+  
 let create config dbs (hardware_streams : Common.Stream.source list React.signal) =
   match Conf.get_opt config with
   | None     -> None, None
@@ -61,12 +61,14 @@ let create config dbs (hardware_streams : Common.Stream.source list React.signal
      | pid  ->
         let api, state, recv = Pipeline_protocol.create cfg.sock_in cfg.sock_out converter hardware_streams in
         let db_events = connect_db (S.changes api.structure) dbs in
-        let _e = E.map (fun e ->
+        let _e = E.map (function
+                     | None -> ()
+                     | Some e ->
                      Wm.to_yojson e
                      |> Yojson.Safe.pretty_to_string
                      |> Lwt_io.printlf "Got stream from pipeline:\n %s\n"
                      |> ignore)
-                   api.wm
+                   (S.changes api.wm)
         in
         let obj = { api; state; db_events; _e } in
         (* polling loop *)

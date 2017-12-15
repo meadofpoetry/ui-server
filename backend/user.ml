@@ -21,7 +21,9 @@ let validate dbs id pass =
   |> function
     | Error e -> Lwt.return_error e
     | Ok user ->
-       Storage.request dbs (Storage.Get_passwd user)
+       Lwt.catch
+         (fun () -> Storage.request dbs (Storage.Get_passwd user))
+         (fun e  -> Lwt_io.printf "DB user error: %s\n" (Printexc.to_string e) >>= fun () -> Lwt.fail e)
        >>= fun u ->
        if pass = u.password
        then Lwt.return_ok u.user

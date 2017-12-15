@@ -15,7 +15,7 @@ let validate_headers validate hds =
     | `Basic (name, pass) -> (
       validate name pass
       >>= function
-      | Error _ -> Lwt.return_none
+      | Error e -> Lwt.return_none
       | Ok user -> Lwt.return_some user
     )
          
