@@ -478,7 +478,7 @@ let chart_demo () =
                }
              ] in
   let config = new Config.t
-                   ~x_axis:(Linear ("my-x-axis",Bottom,Integer,Some 20))
+                   ~x_axis:(Linear ("my-x-axis",Bottom,Integer,Some 10))
                    ~y_axis:(Linear ("my-y-axis",Left,Integer,None))
                    ~data
                    () in
@@ -496,22 +496,23 @@ let chart_demo () =
                       then x#set_border_color @@ Color.rgb_of_name (Color.Lime C500)
                       else x#set_border_color @@ Color.rgb_of_name (Color.Pink C500);
                       x#set_fill Disabled) config#datasets;
-  print_endline @@ Js.to_string @@ Json.output config#options#get_obj;
   let update = new Button.t ~label:"update" () in
   let push   = new Button.t ~label:"push" () in
   let pop    = new Button.t ~label:"pop" () in
   let chart  = new Chartjs.Line.t ~config () in
   React.E.map (fun () -> List.iter (fun x -> x#set_label "Fuck!") chart#config#datasets;
-                         List.iter (fun x -> x#set_point_radius (`Fun (fun i _ -> if i mod 2 > 0
+                         List.iter (fun x -> x#set_point_radius (`Fun (fun _ x -> if x.x mod 2 > 0
                                                                                   then 10
                                                                                   else 5))
                                    ) chart#config#datasets;
                          chart#update None)
               update#e_click |> ignore;
   React.E.map (fun () -> x := !x + 1;
-                         List.iter (fun ds -> ds#push_back { x = !x; y = Random.int 100 } )
+                         List.iter (fun ds -> ds#push { x = !x; y = Random.int 100 } )
                                    chart#config#datasets;
-                         chart#update None)
+                         chart#update (Some { duration = Some 0
+                                            ; is_lazy  = None
+                                            ; easing   = None }))
               push#e_click |> ignore;
   React.E.map (fun () -> List.iter (fun ds -> ds#take_back |> ignore) chart#config#datasets;
                          if !x > 0 then x := !x - 1;

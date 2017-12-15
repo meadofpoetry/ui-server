@@ -18,6 +18,34 @@ type ('a,'b) dataset =
   ; label : string
   }
 
+let a_to_string (type a b) (t:(a,b) Axes.Cartesian.axis) (x:a) : string =
+  let open Axes in
+  let open Axes.Cartesian in
+  match t with
+  | Linear (_,_,Integer,_) -> string_of_int x
+  | Linear (_,_,Float,_) -> string_of_float x
+  | Logarithmic (_,_,Integer,_) -> string_of_int x
+  | Logarithmic (_,_,Float,_) -> string_of_float x
+  | Time (_,_,Unix,_) -> Int32.to_string x
+  | Category _ -> x
+
+let get_max_x (type a b) (t:(a,b) Axes.Cartesian.axis) (data:a list) : a option =
+  let f_numeric x = CCList.fold_left (fun acc x -> match acc with
+                                                   | None   -> Some x
+                                                   | Some a -> if x > a then Some x else Some a) None x in
+  match t with
+  | Axes.Cartesian.Linear _               -> f_numeric data
+  | Axes.Cartesian.Logarithmic _          -> f_numeric data
+  | Axes.Cartesian.Time (_,_,Axes.Unix,_) -> f_numeric data
+  | Axes.Cartesian.Category _             -> None
+
+let get_delta (type a b) (t:(a,b) Axes.Cartesian.axis) : a option =
+  (match t with
+   | Axes.Cartesian.Linear (_,_,_,d)      -> d
+   | Axes.Cartesian.Logarithmic (_,_,_,d) -> d
+   | Axes.Cartesian.Time (_,_,_,d)        -> d
+   | Axes.Cartesian.Category _            -> None)
+
 let set_min_max (type a b) (t:(a,b) Axes.Cartesian.axis) (axis:b) (min:a) (max:a): unit =
   let open Axes.Cartesian in
   match t with
@@ -143,14 +171,20 @@ module Dataset = struct
 
   class ['a,'b] t
                 ~(data:('a,'b) dataset)
-                ~(x_to_js:'a -> point_js Js.t)
-                ~(y_to_js:'b -> point_js Js.t)
-                ~(x_of_js:point_js Js.t -> 'a)
-                ~(y_of_js:point_js Js.t -> 'b)
+                ~(x_axis:('a,_) Axes.Cartesian.axis)
+                ~(y_axis:('b,_) Axes.Cartesian.axis)
                 ~(e_axis_push:'a * 'a -> unit)
+                ~(s_shift:'a option React.signal)
+                ~(s_shift_push:'a option -> unit)
                 () = object(self)
 
     inherit [t_js] base_option ()
+
+    val x_to_js = point_to_js x_axis
+    val y_to_js = point_to_js y_axis
+    val x_of_js = point_of_js x_axis
+    val y_of_js = point_of_js y_axis
+    val delta   = get_delta x_axis
 
     val mutable point_f =
       { background_color       = None
@@ -234,26 +268,18 @@ module Dataset = struct
 
     (* Data methods *)
 
+    method private shift = function
+      | Some threshold -> List.iter (fun x -> if x.x < threshold then self#take_front |> ignore) self#get_data
+      | None -> ()
     method n_points = obj##.data##.length
-
     method get_data : ('a,'b) point list = List.map self#point_of_js (Array.to_list @@ Js.to_array obj##.data)
-
-    method peek_back : ('a,'b) point option =
-      let p = self#take_back in
-      CCOpt.iter (fun x -> self#push_back x) p;
-      p
-    method peek_front : ('a,'b) point option =
-      let p = self#take_front in
-      CCOpt.iter (fun x -> self#push_front x) p;
-      p
-
-    method push_back (x:('a,'b) point)  =
+    method push (x:('a,'b) point) =
       obj##.data##push (self#point_to_js x) |> ignore;
-      self#ps_push_back [x]
-    method push_front (x:('a,'b) point) =
-      obj##.data##unshift (self#point_to_js x) |> ignore;
-      self#ps_push_front [x]
-
+      self#ps_push_back [x];
+      CCOpt.iter (fun delta -> let threshold = x.x - delta in
+                               (* e_axis_push (threshold,x.x); *)
+                               s_shift_push @@ Some threshold)
+                 delta
     method take_back : ('a,'b) point option =
       let p = obj##.data##pop |> Js.Optdef.to_option |> CCOpt.map self#point_of_js in
       self#ps_take_back 1; p
@@ -261,17 +287,7 @@ module Dataset = struct
       let p = obj##.data##shift |> Js.Optdef.to_option |> CCOpt.map self#point_of_js in
       self#ps_take_front 1; p
 
-    method append_back  (x:('a,'b) point list) = List.iter (fun p -> self#push_back p) x; self#ps_push_back x
-    method append_front (x:('a,'b) point list) = List.iter (fun p -> self#push_front p) x; self#ps_push_front x
-
-    method detach_back x : ('a,'b) point list =
-      let p = CCList.fold_left (fun acc _ -> self#take_back :: acc) [] @@ CCList.range 0 (x-1)
-              |> CCList.filter_map (fun x -> x) in
-      self#ps_take_back x; CCList.rev p
-    method detach_front x : ('a,'b) point list =
-      let p = CCList.fold_left (fun acc _ -> self#take_front :: acc) [] @@ CCList.range 0 (x-1)
-              |> CCList.filter_map (fun x -> x) in
-      self#ps_take_front x; CCList.rev p
+    method append (x:('a,'b) point list) = List.iter (fun p -> self#push p) x
 
     (* Config setters/getters *)
 
@@ -435,7 +451,8 @@ module Dataset = struct
       obj##.data := List.map (fun p -> self#point_to_js p) data.data
                     |> Array.of_list
                     |> Js.array;
-      self#ps_push_back data.data
+      self#ps_push_back data.data;
+      React.S.map (fun x -> self#shift x) s_shift |> ignore;
 
   end
 
@@ -485,41 +502,29 @@ module Config = struct
     end
 
   class ['a,'b,'c,'d] t ~(x_axis:('a,'b) axis) ~(y_axis:('c,'d) axis) ~(data:('a,'c) dataset list) () =
-    let x_to_js = point_to_js x_axis in
-    let y_to_js = point_to_js y_axis in
-    let x_of_js = point_of_js x_axis in
-    let y_of_js = point_of_js y_axis in
-    let e,e_push = React.E.create () in
+    let max_x = CCList.map (fun x -> get_max_x x_axis @@ CCList.map (fun x -> x.x) x.data) data
+                |> CCList.filter_map (fun x -> x)
+                |> get_max_x x_axis in
+    let e_axis,e_axis_push   = React.E.create () in
+    let s_shift,s_shift_push = React.S.create @@ CCOpt.map2 (fun max delta -> max - delta)
+                                                            max_x
+                                                            (get_delta x_axis) in
 
-    let datasets = List.map (fun x -> new Dataset.t
-                                          ~data:x
-                                          ~x_to_js
-                                          ~y_to_js
-                                          ~x_of_js
-                                          ~y_of_js
-                                          ~e_axis_push:e_push
-                                          ()) data in
-    let (data:data_js Js.t) = object%js
-                                val mutable datasets  = List.map (fun x -> x#get_obj) datasets
-                                                        |> Array.of_list
-                                                        |> Js.array
-                              end in
+    let datasets = List.map (fun data -> new Dataset.t ~data ~x_axis ~y_axis
+                                             ~s_shift ~s_shift_push
+                                             ~e_axis_push ()) data in
+    let (data:data_js Js.t) =
+      object%js
+        val mutable datasets = List.map (fun x -> x#get_obj) datasets |> Array.of_list |> Js.array
+      end in
 
     object
-      val options = new options ~x_axis ~y_axis ()
-
-      method x_to_js = x_to_js
-      method y_to_js = y_to_js
-      method x_of_js = x_of_js
-      method y_of_js = y_of_js
-
+      val options     = new options ~x_axis ~y_axis ()
       method options  = options
       method datasets = datasets
-
-      method data = data
-
+      method data     = data
       initializer
-        React.E.map (fun (min,max) -> set_min_max x_axis options#x_axis min max) e |> ignore
+        React.E.map (fun (min,max) -> set_min_max x_axis options#x_axis min max) e_axis |> ignore
     end
 
 end
