@@ -468,7 +468,7 @@ let drawer_demo () =
 
 let chart_demo () =
   let range = 10 in
-  let x = ref 20 in
+  let x = ref 10000 in
   Random.init (Unix.time () |> int_of_float);
   let open Chartjs.Line in
   let data = [ { data = (List.map (fun x -> { x ; y = Random.int range }) (CCList.range_by ~step:2 0 !x))
@@ -494,6 +494,7 @@ let chart_demo () =
   List.iter (fun x -> if x#get_label = "Dataset 1"
                       then x#set_border_color @@ Color.rgb_of_name (Color.Lime C500)
                       else x#set_border_color @@ Color.rgb_of_name (Color.Pink C500);
+                      x#set_cubic_interpolation_mode Monotone;
                       x#set_fill Disabled) config#datasets;
   let update = new Button.t ~label:"update" () in
   let push   = new Button.t ~label:"push" () in
@@ -537,8 +538,12 @@ let time_chart_demo () =
   config#options#x_axis#time#set_min_unit Second;
   config#options#elements#line#set_border_width 3;
   List.iter (fun x -> if x#get_label = "Dataset 1"
+                      then x#set_background_color @@ Color.rgb_of_name (Color.Indigo C500)
+                      else x#set_background_color @@ Color.rgb_of_name (Color.Amber C500);
+                      if x#get_label = "Dataset 1"
                       then x#set_border_color @@ Color.rgb_of_name (Color.Indigo C500)
                       else x#set_border_color @@ Color.rgb_of_name (Color.Amber C500);
+                      x#set_cubic_interpolation_mode Monotone;
                       x#set_fill Disabled) config#datasets;
   let update = new Button.t ~label:"update" () in
   let push   = new Button.t ~label:"push" () in
@@ -570,7 +575,7 @@ let onload _ =
   let toolbar = toolbar_demo drawer () in
   let demos   = add_demos [ button_demo ()
                           ; chart_demo ()
-                          ; time_chart_demo ()
+                          (* ; time_chart_demo () *)
                           ; fab_demo ()
                           ; radio_demo ()
                           ; checkbox_demo ()

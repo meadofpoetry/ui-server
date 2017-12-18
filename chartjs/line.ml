@@ -107,26 +107,27 @@ module Dataset = struct
     }
 
   let set_point_setting (type a b)
-                        (f_set : 'd or_array Js.t -> unit)
-                        (f_set_f : (int -> ('a,'b) point -> a) -> unit)
-                        (f_conv : a -> b Js.t)
+                        (set_val : 'd or_array Js.t -> unit)
+                        (set_fun : (int -> ('a,'b) point -> a) -> unit)
+                        (to_js : a -> b Js.t)
                         (data:('a,'b) point list)
                         (s : ('a,'b,a) point_setting) =
     match s with
-    | `Val c -> f_set @@ Js.Unsafe.coerce @@ f_conv c
-    | `Lst l -> f_set @@ Js.Unsafe.coerce @@ Js.array @@ Array.of_list @@ List.map (fun x -> f_conv x) l
-    | `Fun f -> f_set_f f; f_set @@ Js.Unsafe.coerce @@ Js.array @@ Array.of_list
-                           @@ List.mapi (fun i x -> f_conv @@ f i x) data
+    | `Val c -> set_val @@ Js.Unsafe.coerce @@ to_js c
+    | `Lst l -> set_val @@ Js.Unsafe.coerce @@ Js.array @@ Array.of_list @@ List.map to_js l
+    | `Fun f -> set_fun f;
+                set_val @@ Js.Unsafe.coerce @@ Js.array @@ Array.of_list
+                @@ List.mapi (fun i x -> to_js @@ f i x) data
   let get_point_setting (type a b)
                         (v:'d or_array Js.t Js.optdef)
                         (f:(int -> ('a,'b) point -> a) option)
-                        (f_conv:b Js.t -> a)
-                        (f_cast:'e -> a option) =
+                        (of_js :b Js.t -> a)
+                        (cast:'e -> a option) =
     match f with
     | Some f -> Some (`Fun f)
-    | None   -> CCOpt.map (fun x -> (match Cast.to_list ~f:f_conv x with
+    | None   -> CCOpt.map (fun x -> (match Cast.to_list ~f:of_js x with
                                      | Some l -> `Lst l
-                                     | None   -> (match f_cast x with
+                                     | None   -> (match cast x with
                                                   | Some c -> `Val c
                                                   | None   -> failwith "Bad point setting value")))
                 @@ Js.Optdef.to_option v
@@ -182,17 +183,30 @@ module Dataset = struct
     method private point_of_js (o:point_js Js.t) = { x = x_of_js o##.x
                                                    ; y = y_of_js o##.y }
 
-    method private ps_push (data:('a,'b) point list) m =
+    method private ps_action action =
       let apply v to_js = function
-        | Some f_prop -> let a = (match Cast.to_js_array (Js.Unsafe.get obj "v") with
-                                  | Some x -> x
-                                  | None   -> let a = Js.array [||] in
-                                              Js.Unsafe.set obj v a;
-                                              a) in
-                         CCList.iter (fun x -> let p = to_js @@ f_prop a##.length x in
-                                               match m with
-                                               | `Tail -> a##push p    |> ignore
-                                               | `Head -> a##unshift p |> ignore) data
+        | Some f_prop ->
+           (match action with
+            | `Push (d,m) ->
+               let a = (match Cast.to_js_array (Js.Unsafe.get obj v) with
+                        | Some x -> x
+                        | None   -> let a = Js.array [||] in
+                                    Js.Unsafe.set obj v a;
+                                    a) in
+               CCList.iter (fun x -> let p = to_js @@ f_prop a##.length x in
+                                     match m with
+                                     | `Tail -> a##push p    |> ignore
+                                     | `Head -> a##unshift p |> ignore) d
+            | `Remove (n,m) ->
+               (match Cast.to_js_array @@ Js.Unsafe.get obj v with
+                | Some x -> CCList.iter (fun _ -> match m with
+                                                  | `Head -> x##shift |> ignore
+                                                  | `Tail -> x##pop   |> ignore) (CCList.range 0 (n-1))
+                | None   -> Js.Unsafe.delete obj v)
+            | `Replace d ->
+               let a = Js.array [||] in
+               Js.Unsafe.set obj v a;
+               CCList.iter (fun x -> a##push (to_js @@ f_prop a##.length x) |> ignore) d)
         | None -> () in
       apply "pointBackgroundColor"      CSS.Color.js f_point_props.bg_clr;
       apply "pointBorderColor"          CSS.Color.js f_point_props.border_clr;
@@ -204,61 +218,47 @@ module Dataset = struct
       apply "pointHoverBorderColor"     CSS.Color.js f_point_props.hover_border_clr;
       apply "pointHoverBorderWidth"     (fun x -> x) f_point_props.hover_border_width;
       apply "pointHoverRadius"          (fun x -> x) f_point_props.hover_radius
-
-    method private ps_replace data =
-      let apply v to_js = function
-        | Some f_prop -> let a = Js.array [||] in
-                         Js.Unsafe.set obj v a;
-                         CCList.iter (fun x -> a##push (to_js @@ f_prop a##.length x) |> ignore) data
-        | None -> () in
-      apply "pointBackgroundColor"      CSS.Color.js f_point_props.bg_clr;
-      apply "pointBorderColor"          CSS.Color.js f_point_props.border_clr;
-      apply "pointBorderWidth"          (fun x -> x) f_point_props.border_width;
-      apply "pointRadius"               (fun x -> x) f_point_props.radius;
-      apply "pointStyle"                Js.string f_point_props.style;
-      apply "pointHitRadius"            (fun x -> x) f_point_props.hit_radius;
-      apply "pointHoverBackgroundColor" CSS.Color.js f_point_props.hover_bg_clr;
-      apply "pointHoverBorderColor"     CSS.Color.js f_point_props.hover_border_clr;
-      apply "pointHoverBorderWidth"     (fun x -> x) f_point_props.hover_border_width;
-      apply "pointHoverRadius"          (fun x -> x) f_point_props.hover_radius
-
-    method private ps_remove n m =
-      let apply v = function
-        | Some _ -> (match Cast.to_js_array @@ Js.Unsafe.get obj v with
-                     | Some x -> CCList.iter (fun _ -> match m with
-                                                       | `Head -> x##shift |> ignore
-                                                       | `Tail -> x##pop   |> ignore) (CCList.range 0 (n-1))
-                     | None   -> Js.Unsafe.delete obj v)
-        | None -> () in
-      apply "pointBackgroundColor"      f_point_props.bg_clr;
-      apply "pointBorderColor"          f_point_props.border_clr;
-      apply "pointBorderWidth"          f_point_props.border_width;
-      apply "pointRadius"               f_point_props.radius;
-      apply "pointStyle"                f_point_props.style;
-      apply "pointHitRadius"            f_point_props.hit_radius;
-      apply "pointHoverBackgroundColor" f_point_props.hover_bg_clr;
-      apply "pointHoverBorderColor"     f_point_props.hover_border_clr;
-      apply "pointHoverBorderWidth"     f_point_props.hover_border_width;
-      apply "pointHoverRadius"          f_point_props.hover_radius
+    method private ps_push data m  = self#ps_action (`Push (data,m))
+    method private ps_replace data = self#ps_action (`Replace data)
+    method private ps_remove n m   = self#ps_action (`Remove (n,m))
 
     (* Data methods *)
 
     method private tl = Js.array_get obj##.data (self#n_points - 1)
                         |> (fun x -> Js.Optdef.map x (fun x -> self#point_of_js x))
                         |> Js.Optdef.to_option
-    method private push_ x = obj##.data##push (self#point_to_js x) |> ignore
-    method private add_nodup x =
-      let change = ref false in
-      if self#has_functional_point_props then self#ps_replace self#get_data;
-      obj##.data##forEach (Js.wrap_callback (fun p_js i a ->
-                               let p = self#point_of_js p_js in
-                               if p.x = x.x then (change := true;
-                                                  Js.array_set a i (self#point_to_js x))));
-      if (not !change)
-      then (self#push_ x;
-            obj##.data##sort (Js.wrap_callback (fun x y -> (cmp (self#point_of_js x).x
-                                                                (self#point_of_js y).x)
-                                                           |> float_of_int)) |> ignore)
+    method private push_ x     = obj##.data##push (self#point_to_js x) |> ignore
+    method sorted_insert_uniq data x =
+      let cmp = (fun p1 p2 -> cmp p1.x p2.x) in
+      let rec aux x left l = match l with
+        | [] -> List.rev_append left [x]
+        | y :: tail ->
+           match cmp x y with
+           | 0 -> List.rev_append left (x :: tail)
+           | n when n<0 -> List.rev_append left (x :: l)
+           | _ -> aux x (y::left) tail
+      in
+      let data = aux x [] data in
+      data
+    method sorted_merge_uniq data x =
+      let cmp = (fun p1 p2 -> cmp p1.x p2.x) in
+      let x   = CCList.sort cmp x in
+      let push acc x = match acc with
+        | [] -> [x]
+        | y :: _ when cmp x y > 0 -> x :: acc
+        | _ -> acc (* duplicate, do not yield *)
+      in
+      let rec recurse acc l1 l2 = match l1,l2 with
+        | [], l | l, [] -> let acc = List.fold_left push acc l in
+                           List.rev acc
+        | x1::l1', x2::l2' ->
+           let c = cmp x1 x2 in
+           if c < 0 then recurse (push acc x1) l1' l2
+           else if c > 0 then recurse (push acc x2) l1 l2'
+           else recurse acc l1' l2 (* drop one of the [x] *)
+      in
+      recurse [] data x
+
     method private shift max_x =
       CCOpt.map2 (fun d max ->
           let rec iter = (fun () ->
@@ -273,15 +273,20 @@ module Dataset = struct
 
     method n_points = obj##.data##.length
 
-    method set_data (data:('a,'b) point list) =
+    method private set_data_no_sort (data:('a,'b) point list) =
       obj##.data := Js.array @@ Array.of_list @@ List.map (fun x -> self#point_to_js x) data;
       self#ps_replace data
-    method get_data : ('a,'b) point list = List.map (fun x -> self#point_of_js x)
-                                                    (Array.to_list @@ Js.to_array obj##.data)
+    method set_data (data:('a,'b) point list) =
+      let data = CCList.sort_uniq ~cmp:(fun p1 p2 -> cmp p1.x p2.x) data in
+      obj##.data := Js.array @@ Array.of_list @@ List.map (fun x -> self#point_to_js x) data;
+      self#ps_replace data
+    method get_data : ('a,'b) point list =
+      List.map (fun x -> self#point_of_js x) (Array.to_list @@ Js.to_array obj##.data)
 
     method push (x:('a,'b) point) =
       (match self#tl with
-       | Some tl when cmp tl.x x.x > 0 -> self#add_nodup x
+       | Some tl when cmp tl.x x.x > 0 -> let data = self#sorted_insert_uniq self#get_data x in
+                                          self#set_data_no_sort data
        | Some tl when cmp tl.x x.x = 0 -> obj##.data##pop |> ignore;
                                           self#ps_remove 1 `Tail;
                                           self#push x
@@ -294,8 +299,12 @@ module Dataset = struct
       match x with
       | []  -> ()
       | [x] -> self#push x
-      | l   -> let points = CCList.sort (fun x y -> cmp x.x y.x) l in
-               CCList.iter (fun x -> self#push x) points
+      | l   -> let data = self#sorted_merge_uniq self#get_data l in
+               self#set_data_no_sort data;
+               (match self#tl,React.S.value s_max_x with
+                | Some tl,Some max -> if cmp max tl.x < 0 then s_max_x_push @@ Some tl.x
+                | Some tl,None     -> s_max_x_push @@ Some tl.x
+                | _ -> ())
 
     (* Config setters/getters *)
 
