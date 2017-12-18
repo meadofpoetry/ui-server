@@ -471,10 +471,10 @@ let chart_demo () =
   let x = ref 20 in
   Random.init (Unix.time () |> int_of_float);
   let open Chartjs.Line in
-  let data = [ { data = (List.map (fun x -> { x ; y = Random.int range }) (CCList.range 0 !x))
+  let data = [ { data = (List.map (fun x -> { x ; y = Random.int range }) (CCList.range_by ~step:2 0 !x))
                ; label = "Dataset 1"
                }
-             ; { data = (List.map (fun x -> { x ; y = Random.int range }) (CCList.range 0 !x))
+             ; { data = (List.map (fun x -> { x ; y = Random.int range }) (CCList.range_by ~step:2 0 !x))
                ; label = "Dataset 2"
                }
              ] in
@@ -497,37 +497,34 @@ let chart_demo () =
                       x#set_fill Disabled) config#datasets;
   let update = new Button.t ~label:"update" () in
   let push   = new Button.t ~label:"push" () in
-  let pop    = new Button.t ~label:"pop" () in
+  let push_less = new Button.t ~label:"push less" () in
   let chart  = new Chartjs.Line.t ~config () in
   React.E.map (fun () -> List.iter (fun x -> x#set_point_radius (`Fun (fun _ x -> if x.x mod 2 > 0 then 10 else 5))
                                    ) chart#config#datasets;
                          chart#update None)
               update#e_click |> ignore;
-  React.E.map (fun () -> x := !x + 1;
+  React.E.map (fun () -> x := !x + 2;
                          List.iter (fun ds -> ds#push { x = !x; y = Random.int range }) chart#config#datasets;
                          chart#update None)
               push#e_click |> ignore;
-  React.E.map (fun () -> List.iter (fun ds -> ds#take_tl |> ignore) chart#config#datasets;
-                         if !x > 0 then x := !x - 1;
+  React.E.map (fun () -> List.iter (fun ds -> ds#push { x = !x - 1; y = Random.int range }) chart#config#datasets;
                          chart#update None)
-              pop#e_click |> ignore;
+              push_less#e_click |> ignore;
   Html.div ~a:[ Html.a_style "max-width:1000px"] [ Widget.widget_to_markup chart
-                                                ; Widget.widget_to_markup update
-                                                ; Widget.widget_to_markup push
-                                                ; Widget.widget_to_markup pop ]
+                                                 ; Widget.widget_to_markup update
+                                                 ; Widget.widget_to_markup push
+                                                 ; Widget.widget_to_markup push_less ]
   |> To_dom.of_element
 
 let time_chart_demo () =
-  let x = ref 20 in
   let range = 20 in
-  let now = Int32.of_float @@ (Unix.time ()) *. 1000. in
   Random.init (Unix.time () |> int_of_float);
   let open Chartjs.Line in
   let data = [ { data = []; label = "Dataset 1" }
              ; { data = []; label = "Dataset 2" }
              ] in
   let config = new Config.t
-                   ~x_axis:(Time ("my-x-axis",Bottom,Unix,Some 20000l))
+                   ~x_axis:(Time ("my-x-axis",Bottom,Unix,Some 20000L))
                    ~y_axis:(Linear ("my-y-axis",Left,Integer,None))
                    ~data
                    () in
@@ -545,26 +542,20 @@ let time_chart_demo () =
                       x#set_fill Disabled) config#datasets;
   let update = new Button.t ~label:"update" () in
   let push   = new Button.t ~label:"push" () in
-  let pop    = new Button.t ~label:"pop" () in
   let chart  = new Chartjs.Line.t ~config () in
   let e_update,e_update_push = React.E.create () in
   React.E.map (fun () -> List.iter (fun x -> x#set_point_radius (`Fun (fun _ _ -> 5))
                                    ) chart#config#datasets;
                          chart#update None)
               update#e_click |> ignore;
-  React.E.map (fun () -> List.iter (fun ds -> ds#push { x = Unix.time () *. 1000. |> Int32.of_float
+  React.E.map (fun () -> List.iter (fun ds -> ds#push { x = Unix.time () *. 1000. |> Int64.of_float
                                                       ; y = Random.int range }) chart#config#datasets;
                          chart#update None)
               e_update |> ignore;
-  (* React.E.map (fun () -> List.iter (fun ds -> ds#take_tl |> ignore) chart#config#datasets;
-   *                        if !x > 0 then x := !x - 1;
-   *                        chart#update None)
-   *             pop#e_click |> ignore; *)
   Dom_html.window##setInterval (Js.wrap_callback (fun () -> e_update_push () |> ignore)) 1000. |> ignore;
   Html.div ~a:[ Html.a_style "max-width:1000px"] [ Widget.widget_to_markup chart
                                                  ; Widget.widget_to_markup update
-                                                 ; Widget.widget_to_markup push
-                                                 ; Widget.widget_to_markup pop ]
+                                                 ; Widget.widget_to_markup push ]
   |> To_dom.of_element
 
 let add_demos demos =

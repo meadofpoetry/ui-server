@@ -1,6 +1,6 @@
 open Base
 
-type point_js
+type axis_value_js
 type cubic_interpolation_mode = Default | Monotone
 type stepped_line             = Disabled | Before | After
 type fill                     = Disabled
@@ -18,75 +18,26 @@ type ('a,'b) dataset =
   ; label : string
   }
 
-let point_to_string (type a b) (t:(a,b) Axes.Cartesian.axis) (x:a) : string =
+let axis_value_to_js (type a b) (t:(a,b) Axes.Cartesian.axis) : (a -> axis_value_js Js.t) =
   let open Axes in
   let open Axes.Cartesian in
   match t with
-  | Linear (_,_,Integer,_)      -> string_of_int x
-  | Linear (_,_,Float,_)        -> string_of_float x
-  | Logarithmic (_,_,Integer,_) -> string_of_int x
-  | Logarithmic (_,_,Float,_)   -> string_of_float x
-  | Time (_,_,Unix,_)           -> Int32.to_string x
-  | Category _                  -> x
-
-let get_axis_new_min (type a b) (t:(a,b) Axes.Cartesian.axis) (min:a) (max:a) (delta:a) : a =
-  let open Axes in
-  let open Axes.Cartesian in
-  match t with
-  | Linear (_,_,Integer,_)      -> max - delta
-  | Linear (_,_,Float,_)        -> max -. delta
-  | Logarithmic (_,_,Integer,_) -> max - delta
-  | Logarithmic (_,_,Float,_)   -> max -. delta
-  | Time (_,_,Unix,_)           -> Int32.sub max delta
-  | Category _                  -> min
-
-let set_axis_min_max (type a b) (t:(a,b) Axes.Cartesian.axis) (axis:b) (min:a) (max:a): unit =
-  let open Axes.Cartesian in
-  match t with
-  | Linear _      -> axis#ticks#set_max max; axis#ticks#set_min min
-  | Logarithmic _ -> axis#ticks#set_max max; axis#ticks#set_min min
-  | Time _        -> axis#time#set_max max;  axis#time#set_min min
-  | Category _    -> axis#ticks#set_max max; axis#ticks#set_min min
-
-let get_axis_max (type a b) (t:(a,b) Axes.Cartesian.axis) (data:a list) : a option =
-  let f_numeric x = CCList.fold_left (fun acc x -> match acc with
-                                                   | None   -> Some x
-                                                   | Some a -> if x > a then Some x else Some a) None x in
-  match t with
-  | Axes.Cartesian.Linear _               -> f_numeric data
-  | Axes.Cartesian.Logarithmic _          -> f_numeric data
-  | Axes.Cartesian.Time (_,_,Axes.Unix,_) -> f_numeric data
-  | Axes.Cartesian.Category _             -> None
-
-let get_axis_delta (type a b) (t:(a,b) Axes.Cartesian.axis) : a option =
-  (match t with
-   | Axes.Cartesian.Linear (_,_,_,d)      -> d
-   | Axes.Cartesian.Logarithmic (_,_,_,d) -> d
-   | Axes.Cartesian.Time (_,_,_,d)        -> d
-   | Axes.Cartesian.Category _            -> None)
-
-let point_to_js (type a b) (axis:(a,b) Axes.Cartesian.axis) : (a -> point_js Js.t) =
-  let open Axes in
-  let open Axes.Cartesian in
-  let (%>) = CCFun.(%>) in
-  match axis with
   | Linear (_,_,Integer,_)      -> float_of_int %> Js.number_of_float %> Js.Unsafe.coerce
   | Linear (_,_,Float,_)        -> Js.number_of_float %> Js.Unsafe.coerce
   | Logarithmic (_,_,Integer,_) -> float_of_int %> Js.number_of_float %> Js.Unsafe.coerce
   | Logarithmic (_,_,Float,_)   -> Js.number_of_float %> Js.Unsafe.coerce
-  | Time (_,_,Unix,_)           -> Int32.to_float %> Js.number_of_float %> Js.Unsafe.coerce
+  | Time (_,_,Unix,_)           -> Int64.to_float %> Js.number_of_float %> Js.Unsafe.coerce
   | Category _                  -> Js.string %> Js.Unsafe.coerce
 
-let point_of_js (type a b) (axis:(a,b) Axes.Cartesian.axis) : (point_js Js.t -> a) =
+let axis_value_of_js (type a b) (t:(a,b) Axes.Cartesian.axis) : (axis_value_js Js.t -> a) =
   let open Axes in
   let open Axes.Cartesian in
-  let (%>) = CCFun.(%>) in
-  match axis with
+  match t with
   | Linear (_,_,Integer,_)      -> Js.Unsafe.coerce %> Js.float_of_number %> int_of_float
   | Linear (_,_,Float,_)        -> Js.Unsafe.coerce %> Js.float_of_number
   | Logarithmic (_,_,Integer,_) -> Js.Unsafe.coerce %> Js.float_of_number %> int_of_float
   | Logarithmic (_,_,Float,_)   -> Js.Unsafe.coerce %> Js.float_of_number
-  | Time (_,_,Unix,_)           -> Js.Unsafe.coerce %> Js.float_of_number %> Int32.of_float
+  | Time (_,_,Unix,_)           -> Js.Unsafe.coerce %> Js.float_of_number %> Int64.of_float
   | Category _                  -> Js.Unsafe.coerce %> Js.to_string
 
 module Dataset = struct
@@ -103,15 +54,15 @@ module Dataset = struct
   let cubic_interpolation_mode_of_string_exn = function
     | "default" -> Default | "monotone" -> Monotone | _ -> failwith "Bad cubic interpolation mode string"
 
-  class type data_js =
+  class type point_js =
     object
-      method x : point_js Js.t Js.prop
-      method y : point_js Js.t Js.prop
+      method x : axis_value_js Js.t Js.prop
+      method y : axis_value_js Js.t Js.prop
     end
 
   class type t_js =
     object
-      method data                      : data_js Js.t Js.js_array Js.t Js.prop
+      method data                      : point_js Js.t Js.js_array Js.t Js.prop
       method label                     : Js.js_string Js.t Js.prop
       method xAxisID                   : Js.js_string Js.t Js.optdef_prop
       method yAxisID                   : Js.js_string Js.t Js.optdef_prop
@@ -142,17 +93,17 @@ module Dataset = struct
       method steppedLine               : bool_or_string Js.t Js.optdef_prop
     end
 
-  type ('a,'b) point_f =
-    { background_color       : (int -> ('a,'b) point -> CSS.Color.t) option
-    ; border_color           : (int -> ('a,'b) point -> CSS.Color.t) option
-    ; border_width           : (int -> ('a,'b) point -> int) option
-    ; radius                 : (int -> ('a,'b) point -> int) option
-    ; style                  : (int -> ('a,'b) point -> string) option
-    ; hit_radius             : (int -> ('a,'b) point -> int) option
-    ; hover_background_color : (int -> ('a,'b) point -> CSS.Color.t) option
-    ; hover_border_color     : (int -> ('a,'b) point -> CSS.Color.t) option
-    ; hover_border_width     : (int -> ('a,'b) point -> int) option
-    ; hover_radius           : (int -> ('a,'b) point -> int) option
+  type ('a,'b) f_point_props =
+    { bg_clr             : (int -> ('a,'b) point -> CSS.Color.t) option
+    ; border_clr         : (int -> ('a,'b) point -> CSS.Color.t) option
+    ; border_width       : (int -> ('a,'b) point -> int) option
+    ; radius             : (int -> ('a,'b) point -> int) option
+    ; style              : (int -> ('a,'b) point -> string) option
+    ; hit_radius         : (int -> ('a,'b) point -> int) option
+    ; hover_bg_clr       : (int -> ('a,'b) point -> CSS.Color.t) option
+    ; hover_border_clr   : (int -> ('a,'b) point -> CSS.Color.t) option
+    ; hover_border_width : (int -> ('a,'b) point -> int) option
+    ; hover_radius       : (int -> ('a,'b) point -> int) option
     }
 
   let set_point_setting (type a b)
@@ -190,116 +141,161 @@ module Dataset = struct
 
     inherit [t_js] base_option ()
 
-    val x_to_js = point_to_js x_axis
-    val y_to_js = point_to_js y_axis
-    val x_of_js = point_of_js x_axis
-    val y_of_js = point_of_js y_axis
-    val delta   = get_axis_delta x_axis
+    val x_to_js = axis_value_to_js x_axis
+    val y_to_js = axis_value_to_js y_axis
+    val x_of_js = axis_value_of_js x_axis
+    val y_of_js = axis_value_of_js y_axis
+    val delta   = Axes.Cartesian.get_axis_delta x_axis
+    val cmp     = Axes.Cartesian.get_axis_cmp_fn x_axis
+    val get_min = Axes.Cartesian.get_axis_new_min x_axis
 
-    val mutable point_f =
-      { background_color       = None
-      ; border_color           = None
-      ; border_width           = None
-      ; radius                 = None
-      ; style                  = None
-      ; hit_radius             = None
-      ; hover_background_color = None
-      ; hover_border_color     = None
-      ; hover_border_width     = None
-      ; hover_radius           = None
+    val mutable f_point_props =
+      { bg_clr             = None
+      ; border_clr         = None
+      ; border_width       = None
+      ; radius             = None
+      ; style              = None
+      ; hit_radius         = None
+      ; hover_bg_clr       = None
+      ; hover_border_clr   = None
+      ; hover_border_width = None
+      ; hover_radius       = None
       }
 
-    method private point_to_js p = object%js
-                                     val mutable x = x_to_js p.x
-                                     val mutable y = y_to_js p.y
-                                   end
-    method private point_of_js o = { x = x_of_js o##.x
-                                   ; y = y_of_js o##.y
-                                   }
+    method private has_functional_point_props =
+      CCOpt.is_some f_point_props.bg_clr
+      || CCOpt.is_some f_point_props.border_clr
+      || CCOpt.is_some f_point_props.border_width
+      || CCOpt.is_some f_point_props.radius
+      || CCOpt.is_some f_point_props.style
+      || CCOpt.is_some f_point_props.hit_radius
+      || CCOpt.is_some f_point_props.hover_bg_clr
+      || CCOpt.is_some f_point_props.hover_border_clr
+      || CCOpt.is_some f_point_props.hover_border_width
+      || CCOpt.is_some f_point_props.hover_radius
 
-    method private ps_add_action data m =
-      let coerce = Js.Unsafe.coerce in
-      let f p f_c f_d x =
-        let open Js.Unsafe in
-        CCOpt.iter (fun f -> let a = match Js.Optdef.to_option p with
-                               | Some x -> (match Cast.to_js_array x with
-                                            | Some a -> a
-                                            | None   -> let a = Js.array [||] in f_d a; a)
-                               | None -> let a = Js.array [||] in f_d a; a in
-                             CCList.iter (fun x -> let p = (f_c @@ f a##.length x) in
-                                                   match m with
-                                                   | `Tail -> a##push p    |> ignore
-                                                   | `Head -> a##unshift p |> ignore) data) x in
-      f obj##.pointBackgroundColor CSS.Color.js (fun x -> obj##.pointBackgroundColor := coerce x)
-        point_f.background_color;
-      f obj##.pointBorderColor CSS.Color.js (fun x -> obj##.pointBorderColor := coerce x) point_f.border_color;
-      f obj##.pointBorderWidth (fun x -> x) (fun x -> obj##.pointBorderWidth := coerce x) point_f.border_width;
-      f obj##.pointRadius (fun x -> x) (fun x -> obj##.pointRadius := coerce x) point_f.radius;
-      f obj##.pointStyle Js.string (fun x -> obj##.pointStyle := coerce x) point_f.style;
-      f obj##.pointHitRadius (fun x -> x) (fun x -> obj##.pointHitRadius := coerce x) point_f.hit_radius;
-      f obj##.pointHoverBackgroundColor CSS.Color.js (fun x -> obj##.pointHoverBackgroundColor := coerce x)
-        point_f.hover_background_color;
-      f obj##.pointHoverBorderColor CSS.Color.js (fun x -> obj##.pointHoverBorderColor := coerce x)
-        point_f.hover_border_color;
-      f obj##.pointHoverBorderWidth (fun x -> x) (fun x -> obj##.pointHoverBorderWidth := coerce x)
-        point_f.hover_border_width;
-      f obj##.pointHoverRadius (fun x -> x) (fun x -> obj##.pointHoverRadius := coerce x) point_f.hover_radius
+    method private point_to_js (p:('a,'b) point) : point_js Js.t =
+      object%js
+        val mutable x = x_to_js p.x
+        val mutable y = y_to_js p.y
+      end
+    method private point_of_js (o:point_js Js.t) = { x = x_of_js o##.x
+                                                   ; y = y_of_js o##.y }
 
-    method private ps_remove_action n m =
-      let coerce = Js.Unsafe.coerce in
-      let f p f_d x =
-        CCOpt.iter (fun _ ->
-            let a = match Js.Optdef.to_option p with
-              | Some x -> (match Cast.to_js_array x with
-                           | Some a -> a
-                           | None   -> let a = Js.array [||] in f_d a; a)
-              | None -> let a = Js.array [||] in f_d a; a in
-            CCList.iter (fun _ -> match m with
-                                  | `Head -> a##shift |> ignore
-                                  | `Tail -> a##pop   |> ignore) (CCList.range 0 (n-1))) x in
-      f obj##.pointBackgroundColor (fun x -> obj##.pointBackgroundColor := coerce x) point_f.background_color;
-      f obj##.pointBorderColor (fun x -> obj##.pointBorderColor := coerce x) point_f.border_color;
-      f obj##.pointBorderWidth (fun x -> obj##.pointBorderWidth := coerce x) point_f.border_width;
-      f obj##.pointRadius (fun x -> obj##.pointRadius := coerce x) point_f.radius;
-      f obj##.pointStyle (fun x -> obj##.pointStyle := coerce x) point_f.style;
-      f obj##.pointHitRadius (fun x -> obj##.pointHitRadius := coerce x) point_f.hit_radius;
-      f obj##.pointHoverBackgroundColor (fun x -> obj##.pointHoverBackgroundColor := coerce x)
-        point_f.hover_background_color;
-      f obj##.pointHoverBorderColor (fun x -> obj##.pointHoverBorderColor := coerce x) point_f.hover_border_color;
-      f obj##.pointHoverBorderWidth (fun x -> obj##.pointHoverBorderWidth := coerce x) point_f.hover_border_width;
-      f obj##.pointHoverRadius (fun x -> obj##.pointHoverRadius := coerce x) point_f.hover_radius
+    method private ps_push (data:('a,'b) point list) m =
+      let apply v to_js = function
+        | Some f_prop -> let a = (match Cast.to_js_array (Js.Unsafe.get obj "v") with
+                                  | Some x -> x
+                                  | None   -> let a = Js.array [||] in
+                                              Js.Unsafe.set obj v a;
+                                              a) in
+                         CCList.iter (fun x -> let p = to_js @@ f_prop a##.length x in
+                                               match m with
+                                               | `Tail -> a##push p    |> ignore
+                                               | `Head -> a##unshift p |> ignore) data
+        | None -> () in
+      apply "pointBackgroundColor"      CSS.Color.js f_point_props.bg_clr;
+      apply "pointBorderColor"          CSS.Color.js f_point_props.border_clr;
+      apply "pointBorderWidth"          (fun x -> x) f_point_props.border_width;
+      apply "pointRadius"               (fun x -> x) f_point_props.radius;
+      apply "pointStyle"                Js.string f_point_props.style;
+      apply "pointHitRadius"            (fun x -> x) f_point_props.hit_radius;
+      apply "pointHoverBackgroundColor" CSS.Color.js f_point_props.hover_bg_clr;
+      apply "pointHoverBorderColor"     CSS.Color.js f_point_props.hover_border_clr;
+      apply "pointHoverBorderWidth"     (fun x -> x) f_point_props.hover_border_width;
+      apply "pointHoverRadius"          (fun x -> x) f_point_props.hover_radius
 
-    method private ps_push x pos = self#ps_add_action x pos
-    method private ps_take x pos = self#ps_remove_action x pos
+    method private ps_replace data =
+      let apply v to_js = function
+        | Some f_prop -> let a = Js.array [||] in
+                         Js.Unsafe.set obj v a;
+                         CCList.iter (fun x -> a##push (to_js @@ f_prop a##.length x) |> ignore) data
+        | None -> () in
+      apply "pointBackgroundColor"      CSS.Color.js f_point_props.bg_clr;
+      apply "pointBorderColor"          CSS.Color.js f_point_props.border_clr;
+      apply "pointBorderWidth"          (fun x -> x) f_point_props.border_width;
+      apply "pointRadius"               (fun x -> x) f_point_props.radius;
+      apply "pointStyle"                Js.string f_point_props.style;
+      apply "pointHitRadius"            (fun x -> x) f_point_props.hit_radius;
+      apply "pointHoverBackgroundColor" CSS.Color.js f_point_props.hover_bg_clr;
+      apply "pointHoverBorderColor"     CSS.Color.js f_point_props.hover_border_clr;
+      apply "pointHoverBorderWidth"     (fun x -> x) f_point_props.hover_border_width;
+      apply "pointHoverRadius"          (fun x -> x) f_point_props.hover_radius
+
+    method private ps_remove n m =
+      let apply v = function
+        | Some _ -> (match Cast.to_js_array @@ Js.Unsafe.get obj v with
+                     | Some x -> CCList.iter (fun _ -> match m with
+                                                       | `Head -> x##shift |> ignore
+                                                       | `Tail -> x##pop   |> ignore) (CCList.range 0 (n-1))
+                     | None   -> Js.Unsafe.delete obj v)
+        | None -> () in
+      apply "pointBackgroundColor"      f_point_props.bg_clr;
+      apply "pointBorderColor"          f_point_props.border_clr;
+      apply "pointBorderWidth"          f_point_props.border_width;
+      apply "pointRadius"               f_point_props.radius;
+      apply "pointStyle"                f_point_props.style;
+      apply "pointHitRadius"            f_point_props.hit_radius;
+      apply "pointHoverBackgroundColor" f_point_props.hover_bg_clr;
+      apply "pointHoverBorderColor"     f_point_props.hover_border_clr;
+      apply "pointHoverBorderWidth"     f_point_props.hover_border_width;
+      apply "pointHoverRadius"          f_point_props.hover_radius
 
     (* Data methods *)
 
+    method private tl = Js.array_get obj##.data (self#n_points - 1)
+                        |> (fun x -> Js.Optdef.map x (fun x -> self#point_of_js x))
+                        |> Js.Optdef.to_option
+    method private push_ x = obj##.data##push (self#point_to_js x) |> ignore
+    method private add_nodup x =
+      let change = ref false in
+      if self#has_functional_point_props then self#ps_replace self#get_data;
+      obj##.data##forEach (Js.wrap_callback (fun p_js i a ->
+                               let p = self#point_of_js p_js in
+                               if p.x = x.x then (change := true;
+                                                  Js.array_set a i (self#point_to_js x))));
+      if (not !change)
+      then (self#push_ x;
+            obj##.data##sort (Js.wrap_callback (fun x y -> (cmp (self#point_of_js x).x
+                                                                (self#point_of_js y).x)
+                                                           |> float_of_int)) |> ignore)
     method private shift max_x =
-      CCOpt.map2 (fun max d ->
+      CCOpt.map2 (fun d max ->
           let rec iter = (fun () ->
-              (match Js.Optdef.to_option obj##.data##shift with
+              (match Js.Optdef.to_option @@ Js.array_get obj##.data 0 with
                | Some js_p -> let p = self#point_of_js js_p in
-                              if p.x < (get_axis_new_min x_axis p.x max d)
-                              then (iter (); self#ps_take 1 `Head)
-                              else obj##.data##unshift js_p |> ignore
+                              if p.x < get_min max d
+                              then (self#ps_remove 1 `Head; obj##.data##shift |> ignore; iter ())
+                              else ()
                | None -> ())) in
-          iter ()) max_x delta
+          iter ()) delta max_x
       |> ignore
 
     method n_points = obj##.data##.length
-    method get_data : ('a,'b) point list = List.map self#point_of_js (Array.to_list @@ Js.to_array obj##.data)
-    method push (x:('a,'b) point) =
-      obj##.data##push (self#point_to_js x) |> ignore;
-      self#ps_push [x] `Tail;
-      s_max_x_push @@ Some x.x;
-    method take_tl : ('a,'b) point option =
-      let p = obj##.data##pop |> Js.Optdef.to_option |> CCOpt.map self#point_of_js in
-      self#ps_take 1 `Tail; p
-    method take_hd : ('a,'b) point option =
-      let p = obj##.data##shift |> Js.Optdef.to_option |> CCOpt.map self#point_of_js in
-      self#ps_take 1 `Head; p
 
-    method append (x:('a,'b) point list) = List.iter (fun p -> self#push p) x
+    method set_data (data:('a,'b) point list) =
+      obj##.data := Js.array @@ Array.of_list @@ List.map (fun x -> self#point_to_js x) data;
+      self#ps_replace data
+    method get_data : ('a,'b) point list = List.map (fun x -> self#point_of_js x)
+                                                    (Array.to_list @@ Js.to_array obj##.data)
+
+    method push (x:('a,'b) point) =
+      (match self#tl with
+       | Some tl when cmp tl.x x.x > 0 -> self#add_nodup x
+       | Some tl when cmp tl.x x.x = 0 -> obj##.data##pop |> ignore;
+                                          self#ps_remove 1 `Tail;
+                                          self#push x
+       | _                             -> self#push_ x; self#ps_push [x] `Tail);
+      (match React.S.value s_max_x with
+       | Some max -> if cmp max x.x < 0 then s_max_x_push @@ Some x.x
+       | None     -> s_max_x_push @@ Some x.x)
+
+    method append (x:('a,'b) point list) =
+      match x with
+      | []  -> ()
+      | [x] -> self#push x
+      | l   -> let points = CCList.sort (fun x y -> cmp x.x y.x) l in
+               CCList.iter (fun x -> self#push x) points
 
     (* Config setters/getters *)
 
@@ -308,32 +304,32 @@ module Dataset = struct
 
     method set_background_color x = obj##.backgroundColor := CSS.Color.js x
     method get_background_color   = CCOpt.map CSS.Color.ml @@ Js.Optdef.to_option obj##.backgroundColor
-
+    
     method set_border_width x = obj##.borderWidth := x
     method get_border_width   = Js.Optdef.to_option obj##.borderWidth
-
+    
     method set_border_color x = obj##.borderColor := CSS.Color.js x
     method get_border_color   = CCOpt.map CSS.Color.ml @@ Js.Optdef.to_option obj##.borderColor
-
+    
     method set_border_cap_style x = obj##.borderCapStyle := Js.string @@ Canvas.line_cap_to_string x
     method get_border_cap_style   = CCOpt.map (Js.to_string %> Canvas.line_cap_of_string_exn)
                                     @@ Js.Optdef.to_option obj##.borderCapStyle
-
+    
     method set_border_dash x = obj##.borderDash := Js.array @@ Array.of_list x
     method get_border_dash   = CCOpt.map (Js.to_array %> Array.to_list) @@ Js.Optdef.to_option obj##.borderDash
-
+    
     method set_border_dash_offset x = obj##.borderDashOffset := x
     method get_border_dash_offset   = Js.Optdef.to_option obj##.borderDashOffset
-
+    
     method set_border_join_style x = obj##.borderJoinStyle := Js.string @@ Canvas.line_join_to_string x
     method get_border_join_style   = CCOpt.map (Js.to_string %> Canvas.line_join_of_string_exn)
                                      @@ Js.Optdef.to_option obj##.borderJoinStyle
-
+    
     method set_cubic_interpolation_mode x = Js.string @@ cubic_interpolation_mode_to_string x
                                             |> (fun x -> obj##.cubicInterpolationMode := x)
     method get_cubic_interpolation_mode   = CCOpt.map (Js.to_string %> cubic_interpolation_mode_of_string_exn)
                                             @@ Js.Optdef.to_option obj##.cubicInterpolationMode
-
+    
     method set_fill : fill -> unit = function
       | Disabled         -> obj##.fill := Js.Unsafe.coerce Js._false
       | Start            -> obj##.fill := Js.Unsafe.coerce @@ Js.string "start"
@@ -357,92 +353,92 @@ module Dataset = struct
 
     method set_point_background_color (x : ('a,'b,CSS.Color.t) point_setting) =
       set_point_setting (fun x -> obj##.pointBackgroundColor := x)
-                        (fun f -> point_f <- { point_f with background_color = Some f})
+                        (fun f -> f_point_props <- { f_point_props with bg_clr = Some f})
                         (fun c -> Js.string @@ CSS.Color.string_of_t c) self#get_data x
     method get_point_background_color : (('a,'b,CSS.Color.t) point_setting) option =
-      get_point_setting obj##.pointBackgroundColor point_f.background_color
+      get_point_setting obj##.pointBackgroundColor f_point_props.bg_clr
                         (CSS.Color.js_t_of_js_string %> CSS.Color.ml) Cast.to_color
     
     method set_point_border_color (x : ('a,'b,CSS.Color.t) point_setting) =
       set_point_setting (fun x -> obj##.pointBorderColor := x)
-                        (fun f -> point_f <- { point_f with border_color = Some f})
+                        (fun f -> f_point_props <- { f_point_props with border_clr = Some f})
                         (fun c -> Js.string @@ CSS.Color.string_of_t c) self#get_data x
     method get_point_border_color : (('a,'b,CSS.Color.t) point_setting) option =
-      get_point_setting obj##.pointBorderColor point_f.border_color
+      get_point_setting obj##.pointBorderColor f_point_props.border_clr
                         (CSS.Color.js_t_of_js_string %> CSS.Color.ml) Cast.to_color
     
     method set_point_border_width (x : ('a,'b,int) point_setting) =
       set_point_setting (fun x -> obj##.pointBorderWidth := x)
-                        (fun f -> point_f <- { point_f with border_width = Some f})
+                        (fun f -> f_point_props <- { f_point_props with border_width = Some f})
                         (fun x -> Js.number_of_float @@ float_of_int x) self#get_data x
     method get_point_border_width : (('a,'b,int) point_setting) option =
-      get_point_setting obj##.pointBorderWidth point_f.border_width
+      get_point_setting obj##.pointBorderWidth f_point_props.border_width
                         (Js.float_of_number %> int_of_float) Cast.to_int
     
     method set_point_radius (x : ('a,'b,int) point_setting) =
       set_point_setting (fun x -> obj##.pointRadius := x)
-                        (fun f -> point_f <- { point_f with radius = Some f})
+                        (fun f -> f_point_props <- { f_point_props with radius = Some f})
                         (fun x -> Js.number_of_float @@ float_of_int x) self#get_data x
     method get_point_radius : (('a,'b,int) point_setting) option =
-      get_point_setting obj##.pointRadius point_f.radius
+      get_point_setting obj##.pointRadius f_point_props.radius
                         (Js.float_of_number %> int_of_float) Cast.to_int
     
     method set_point_style (x : ('a,'b,string) point_setting) =
       set_point_setting (fun x -> obj##.pointStyle := x)
-                        (fun f -> point_f <- { point_f with style = Some f})
+                        (fun f -> f_point_props <- { f_point_props with style = Some f})
                         Js.string self#get_data x
     method get_point_style : (('a,'b,string) point_setting) option =
-      get_point_setting obj##.pointStyle point_f.style Js.to_string Cast.to_string
+      get_point_setting obj##.pointStyle f_point_props.style Js.to_string Cast.to_string
     
     method set_point_hit_radius (x : ('a,'b,int) point_setting) =
       set_point_setting (fun x -> obj##.pointHitRadius := x)
-                        (fun f -> point_f <- { point_f with hit_radius = Some f})
+                        (fun f -> f_point_props <- { f_point_props with hit_radius = Some f})
                         (fun x -> Js.number_of_float @@ float_of_int x) self#get_data x
     method get_point_hit_radius : (('a,'b,int) point_setting) option =
-      get_point_setting obj##.pointHitRadius point_f.hit_radius
+      get_point_setting obj##.pointHitRadius f_point_props.hit_radius
                         (Js.float_of_number %> int_of_float) Cast.to_int
     
     method set_point_hover_background_color (x : ('a,'b,CSS.Color.t) point_setting) =
       set_point_setting (fun x -> obj##.pointHoverBackgroundColor := x)
-                        (fun f -> point_f <- { point_f with hover_background_color = Some f})
+                        (fun f -> f_point_props <- { f_point_props with hover_bg_clr = Some f})
                         (fun c -> Js.string @@ CSS.Color.string_of_t c) self#get_data x
     method get_point_hover_background_color : (('a,'b,CSS.Color.t) point_setting) option =
-      get_point_setting obj##.pointHoverBackgroundColor point_f.hover_background_color
+      get_point_setting obj##.pointHoverBackgroundColor f_point_props.hover_bg_clr
                         (CSS.Color.js_t_of_js_string %> CSS.Color.ml) Cast.to_color
     
     method set_point_hover_border_color (x : ('a,'b,CSS.Color.t) point_setting) =
       set_point_setting (fun x -> obj##.pointHoverBorderColor := x)
-                        (fun f -> point_f <- { point_f with hover_border_color = Some f})
+                        (fun f -> f_point_props <- { f_point_props with hover_border_clr = Some f})
                         (fun c -> Js.string @@ CSS.Color.string_of_t c) self#get_data x
     method get_point_hover_border_color : (('a,'b,CSS.Color.t) point_setting) option =
-      get_point_setting obj##.pointHoverBorderColor point_f.hover_border_color
+      get_point_setting obj##.pointHoverBorderColor f_point_props.hover_border_clr
                         (CSS.Color.js_t_of_js_string %> CSS.Color.ml) Cast.to_color
     
     method set_point_hover_border_width (x : ('a,'b,int) point_setting) =
       set_point_setting (fun x -> obj##.pointHoverBorderWidth := x)
-                        (fun f -> point_f <- { point_f with hover_border_width = Some f})
+                        (fun f -> f_point_props <- { f_point_props with hover_border_width = Some f})
                         (fun x -> Js.number_of_float @@ float_of_int x) self#get_data x
     method get_point_hover_border_width : (('a,'b,int) point_setting) option =
-      get_point_setting obj##.pointHoverBorderWidth point_f.hover_border_width
+      get_point_setting obj##.pointHoverBorderWidth f_point_props.hover_border_width
                         (Js.float_of_number %> int_of_float) Cast.to_int
     
     method set_point_hover_radius (x : ('a,'b,int) point_setting) =
       set_point_setting (fun x -> obj##.pointHoverRadius := x)
-                        (fun f -> point_f <- { point_f with hover_radius = Some f})
+                        (fun f -> f_point_props <- { f_point_props with hover_radius = Some f})
                         (fun x -> Js.number_of_float @@ float_of_int x) self#get_data x
     method get_point_hover_radius : (('a,'b,int) point_setting) option =
-      get_point_setting obj##.pointHoverRadius point_f.hover_radius
+      get_point_setting obj##.pointHoverRadius f_point_props.hover_radius
                         (Js.float_of_number %> int_of_float) Cast.to_int
-
+    
     method set_line_tension x = obj##.lineTension := x
     method get_line_tension   = Js.Optdef.to_option obj##.lineTension
-
+    
     method set_show_line x = obj##.showLine := Js.bool x
     method get_show_line   = CCOpt.map Js.to_bool @@ Js.Optdef.to_option obj##.showLine
-
+    
     method set_span_gaps x = obj##.spanGaps := Js.bool x
     method get_span_gaps   = CCOpt.map Js.to_bool @@ Js.Optdef.to_option obj##.spanGaps
-
+    
     method set_stepped_line : stepped_line -> unit = function
       | Disabled -> obj##.steppedLine := Js.Unsafe.coerce Js._false
       | Before   -> obj##.steppedLine := Js.Unsafe.coerce @@ Js.string "before"
@@ -460,11 +456,8 @@ module Dataset = struct
 
     initializer
       self#set_label data.label;
-      obj##.data := List.map (fun p -> self#point_to_js p) data.data
-                    |> Array.of_list
-                    |> Js.array;
-      self#ps_push data.data `Tail;
-      React.S.map (fun x -> self#shift x) s_max_x |> ignore;
+      self#set_data data.data;
+      React.S.map (fun x -> self#shift x) s_max_x |> ignore
 
   end
 
@@ -514,9 +507,12 @@ module Config = struct
     end
 
   class ['a,'b,'c,'d] t ~(x_axis:('a,'b) axis) ~(y_axis:('c,'d) axis) ~(data:('a,'c) dataset list) () =
-    let max_x = CCList.map (fun x -> get_axis_max x_axis @@ CCList.map (fun x -> x.x) x.data) data
-                |> CCList.filter_map (fun x -> x)
-                |> get_axis_max x_axis in
+    let get_max = Axes.Cartesian.get_axis_max x_axis in
+    let get_min = Axes.Cartesian.get_axis_new_min x_axis in
+    let delta   = Axes.Cartesian.get_axis_delta x_axis in
+    let max_x   = CCList.map (fun x -> get_max @@ CCList.map (fun x -> x.x) x.data) data
+                  |> CCList.filter_map (fun x -> x) |> get_max in
+    let set_min_max = Axes.Cartesian.set_axis_min_max x_axis in
     let s_max_x,s_max_x_push = React.S.create max_x in
 
     let datasets = List.map (fun data -> new Dataset.t ~data ~x_axis ~y_axis ~s_max_x ~s_max_x_push ()) data in
@@ -530,12 +526,12 @@ module Config = struct
       method options  = options
       method datasets = datasets
       method data     = data
-      (* initializer
-       *   React.S.map (fun max_x -> match max_x,get_axis_delta x_axis with
-       *                             | Some max, Some d -> let min = max - d in
-       *                                                   set_axis_min_max x_axis options#x_axis min max
-       *                             | _ -> ())
-       *               s_max_x |> ignore *)
+      initializer
+        React.S.map (fun max_x -> match max_x,delta with
+                                  | Some max, Some d -> let min = get_min max d in
+                                                        set_min_max options#x_axis min max
+                                  | _ -> ())
+                    s_max_x |> ignore
     end
 
 end
