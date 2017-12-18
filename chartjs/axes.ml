@@ -695,7 +695,7 @@ module Cartesian = struct
       end
 
     class ['a] t ~id ~position () = object
-      inherit ['a t_js] cartesian ~typ:`Logarithmic ~id ~position () as super
+      inherit ['a t_js] cartesian ~typ:`Time ~id ~position () as super
       val ticks = new Tick.t ()
       val time  = new Time.t ()
 

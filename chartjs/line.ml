@@ -2,13 +2,13 @@ open Base
 
 type point_js
 type cubic_interpolation_mode = Default | Monotone
-type stepped_line = Disabled | Before | After
-type fill = Disabled
-          | Start
-          | End
-          | Origin
-          | Absolute_index of int
-          | Relative_index of int
+type stepped_line             = Disabled | Before | After
+type fill                     = Disabled
+                              | Start
+                              | End
+                              | Origin
+                              | Absolute_index of int
+                              | Relative_index of int
 type ('a,'b) point =
   { x : 'a
   ; y : 'b
@@ -18,18 +18,37 @@ type ('a,'b) dataset =
   ; label : string
   }
 
-let a_to_string (type a b) (t:(a,b) Axes.Cartesian.axis) (x:a) : string =
+let point_to_string (type a b) (t:(a,b) Axes.Cartesian.axis) (x:a) : string =
   let open Axes in
   let open Axes.Cartesian in
   match t with
-  | Linear (_,_,Integer,_) -> string_of_int x
-  | Linear (_,_,Float,_) -> string_of_float x
+  | Linear (_,_,Integer,_)      -> string_of_int x
+  | Linear (_,_,Float,_)        -> string_of_float x
   | Logarithmic (_,_,Integer,_) -> string_of_int x
-  | Logarithmic (_,_,Float,_) -> string_of_float x
-  | Time (_,_,Unix,_) -> Int32.to_string x
-  | Category _ -> x
+  | Logarithmic (_,_,Float,_)   -> string_of_float x
+  | Time (_,_,Unix,_)           -> Int32.to_string x
+  | Category _                  -> x
 
-let get_max_x (type a b) (t:(a,b) Axes.Cartesian.axis) (data:a list) : a option =
+let get_axis_new_min (type a b) (t:(a,b) Axes.Cartesian.axis) (min:a) (max:a) (delta:a) : a =
+  let open Axes in
+  let open Axes.Cartesian in
+  match t with
+  | Linear (_,_,Integer,_)      -> max - delta
+  | Linear (_,_,Float,_)        -> max -. delta
+  | Logarithmic (_,_,Integer,_) -> max - delta
+  | Logarithmic (_,_,Float,_)   -> max -. delta
+  | Time (_,_,Unix,_)           -> Int32.sub max delta
+  | Category _                  -> min
+
+let set_axis_min_max (type a b) (t:(a,b) Axes.Cartesian.axis) (axis:b) (min:a) (max:a): unit =
+  let open Axes.Cartesian in
+  match t with
+  | Linear _      -> axis#ticks#set_max max; axis#ticks#set_min min
+  | Logarithmic _ -> axis#ticks#set_max max; axis#ticks#set_min min
+  | Time _        -> axis#time#set_max max;  axis#time#set_min min
+  | Category _    -> axis#ticks#set_max max; axis#ticks#set_min min
+
+let get_axis_max (type a b) (t:(a,b) Axes.Cartesian.axis) (data:a list) : a option =
   let f_numeric x = CCList.fold_left (fun acc x -> match acc with
                                                    | None   -> Some x
                                                    | Some a -> if x > a then Some x else Some a) None x in
@@ -39,20 +58,12 @@ let get_max_x (type a b) (t:(a,b) Axes.Cartesian.axis) (data:a list) : a option 
   | Axes.Cartesian.Time (_,_,Axes.Unix,_) -> f_numeric data
   | Axes.Cartesian.Category _             -> None
 
-let get_delta (type a b) (t:(a,b) Axes.Cartesian.axis) : a option =
+let get_axis_delta (type a b) (t:(a,b) Axes.Cartesian.axis) : a option =
   (match t with
    | Axes.Cartesian.Linear (_,_,_,d)      -> d
    | Axes.Cartesian.Logarithmic (_,_,_,d) -> d
    | Axes.Cartesian.Time (_,_,_,d)        -> d
    | Axes.Cartesian.Category _            -> None)
-
-let set_min_max (type a b) (t:(a,b) Axes.Cartesian.axis) (axis:b) (min:a) (max:a): unit =
-  let open Axes.Cartesian in
-  match t with
-  | Linear _      -> axis#ticks#set_max max; axis#ticks#set_min min
-  | Logarithmic _ -> axis#ticks#set_max max; axis#ticks#set_min min
-  | Time _        -> axis#time#set_max max;  axis#time#set_min min
-  | Category _    -> axis#ticks#set_max max; axis#ticks#set_min min
 
 let point_to_js (type a b) (axis:(a,b) Axes.Cartesian.axis) : (a -> point_js Js.t) =
   let open Axes in
@@ -173,9 +184,8 @@ module Dataset = struct
                 ~(data:('a,'b) dataset)
                 ~(x_axis:('a,_) Axes.Cartesian.axis)
                 ~(y_axis:('b,_) Axes.Cartesian.axis)
-                ~(e_axis_push:'a * 'a -> unit)
-                ~(s_shift:'a option React.signal)
-                ~(s_shift_push:'a option -> unit)
+                ~(s_max_x:'a option React.signal)
+                ~(s_max_x_push:'a option -> unit)
                 () = object(self)
 
     inherit [t_js] base_option ()
@@ -184,7 +194,7 @@ module Dataset = struct
     val y_to_js = point_to_js y_axis
     val x_of_js = point_of_js x_axis
     val y_of_js = point_of_js y_axis
-    val delta   = get_delta x_axis
+    val delta   = get_axis_delta x_axis
 
     val mutable point_f =
       { background_color       = None
@@ -218,8 +228,8 @@ module Dataset = struct
                                | None -> let a = Js.array [||] in f_d a; a in
                              CCList.iter (fun x -> let p = (f_c @@ f a##.length x) in
                                                    match m with
-                                                   | `Back -> a##push p     |> ignore
-                                                   | `Front -> a##unshift p |> ignore) data) x in
+                                                   | `Tail -> a##push p    |> ignore
+                                                   | `Head -> a##unshift p |> ignore) data) x in
       f obj##.pointBackgroundColor CSS.Color.js (fun x -> obj##.pointBackgroundColor := coerce x)
         point_f.background_color;
       f obj##.pointBorderColor CSS.Color.js (fun x -> obj##.pointBorderColor := coerce x) point_f.border_color;
@@ -237,7 +247,6 @@ module Dataset = struct
 
     method private ps_remove_action n m =
       let coerce = Js.Unsafe.coerce in
-      let l = CCList.range 0 (n-1) in
       let f p f_d x =
         CCOpt.iter (fun _ ->
             let a = match Js.Optdef.to_option p with
@@ -246,8 +255,8 @@ module Dataset = struct
                            | None   -> let a = Js.array [||] in f_d a; a)
               | None -> let a = Js.array [||] in f_d a; a in
             CCList.iter (fun _ -> match m with
-                                  | `Front -> a##shift |> ignore
-                                  | `Back  -> a##pop |> ignore) l) x in
+                                  | `Head -> a##shift |> ignore
+                                  | `Tail -> a##pop   |> ignore) (CCList.range 0 (n-1))) x in
       f obj##.pointBackgroundColor (fun x -> obj##.pointBackgroundColor := coerce x) point_f.background_color;
       f obj##.pointBorderColor (fun x -> obj##.pointBorderColor := coerce x) point_f.border_color;
       f obj##.pointBorderWidth (fun x -> obj##.pointBorderWidth := coerce x) point_f.border_width;
@@ -260,32 +269,35 @@ module Dataset = struct
       f obj##.pointHoverBorderWidth (fun x -> obj##.pointHoverBorderWidth := coerce x) point_f.hover_border_width;
       f obj##.pointHoverRadius (fun x -> obj##.pointHoverRadius := coerce x) point_f.hover_radius
 
-    method private ps_push_back x  = self#ps_add_action x `Back
-    method private ps_push_front x = self#ps_add_action x `Front
-
-    method private ps_take_back x  = self#ps_remove_action x `Back
-    method private ps_take_front x = self#ps_remove_action x `Front
+    method private ps_push x pos = self#ps_add_action x pos
+    method private ps_take x pos = self#ps_remove_action x pos
 
     (* Data methods *)
 
-    method private shift = function
-      | Some threshold -> List.iter (fun x -> if x.x < threshold then self#take_front |> ignore) self#get_data
-      | None -> ()
+    method private shift max_x =
+      CCOpt.map2 (fun max d ->
+          let rec iter = (fun () ->
+              (match Js.Optdef.to_option obj##.data##shift with
+               | Some js_p -> let p = self#point_of_js js_p in
+                              if p.x < (get_axis_new_min x_axis p.x max d)
+                              then (iter (); self#ps_take 1 `Head)
+                              else obj##.data##unshift js_p |> ignore
+               | None -> ())) in
+          iter ()) max_x delta
+      |> ignore
+
     method n_points = obj##.data##.length
     method get_data : ('a,'b) point list = List.map self#point_of_js (Array.to_list @@ Js.to_array obj##.data)
     method push (x:('a,'b) point) =
       obj##.data##push (self#point_to_js x) |> ignore;
-      self#ps_push_back [x];
-      CCOpt.iter (fun delta -> let threshold = x.x - delta in
-                               (* e_axis_push (threshold,x.x); *)
-                               s_shift_push @@ Some threshold)
-                 delta
-    method take_back : ('a,'b) point option =
+      self#ps_push [x] `Tail;
+      s_max_x_push @@ Some x.x;
+    method take_tl : ('a,'b) point option =
       let p = obj##.data##pop |> Js.Optdef.to_option |> CCOpt.map self#point_of_js in
-      self#ps_take_back 1; p
-    method take_front : ('a,'b) point option =
+      self#ps_take 1 `Tail; p
+    method take_hd : ('a,'b) point option =
       let p = obj##.data##shift |> Js.Optdef.to_option |> CCOpt.map self#point_of_js in
-      self#ps_take_front 1; p
+      self#ps_take 1 `Head; p
 
     method append (x:('a,'b) point list) = List.iter (fun p -> self#push p) x
 
@@ -451,8 +463,8 @@ module Dataset = struct
       obj##.data := List.map (fun p -> self#point_to_js p) data.data
                     |> Array.of_list
                     |> Js.array;
-      self#ps_push_back data.data;
-      React.S.map (fun x -> self#shift x) s_shift |> ignore;
+      self#ps_push data.data `Tail;
+      React.S.map (fun x -> self#shift x) s_max_x |> ignore;
 
   end
 
@@ -502,17 +514,12 @@ module Config = struct
     end
 
   class ['a,'b,'c,'d] t ~(x_axis:('a,'b) axis) ~(y_axis:('c,'d) axis) ~(data:('a,'c) dataset list) () =
-    let max_x = CCList.map (fun x -> get_max_x x_axis @@ CCList.map (fun x -> x.x) x.data) data
+    let max_x = CCList.map (fun x -> get_axis_max x_axis @@ CCList.map (fun x -> x.x) x.data) data
                 |> CCList.filter_map (fun x -> x)
-                |> get_max_x x_axis in
-    let e_axis,e_axis_push   = React.E.create () in
-    let s_shift,s_shift_push = React.S.create @@ CCOpt.map2 (fun max delta -> max - delta)
-                                                            max_x
-                                                            (get_delta x_axis) in
+                |> get_axis_max x_axis in
+    let s_max_x,s_max_x_push = React.S.create max_x in
 
-    let datasets = List.map (fun data -> new Dataset.t ~data ~x_axis ~y_axis
-                                             ~s_shift ~s_shift_push
-                                             ~e_axis_push ()) data in
+    let datasets = List.map (fun data -> new Dataset.t ~data ~x_axis ~y_axis ~s_max_x ~s_max_x_push ()) data in
     let (data:data_js Js.t) =
       object%js
         val mutable datasets = List.map (fun x -> x#get_obj) datasets |> Array.of_list |> Js.array
@@ -523,8 +530,12 @@ module Config = struct
       method options  = options
       method datasets = datasets
       method data     = data
-      initializer
-        React.E.map (fun (min,max) -> set_min_max x_axis options#x_axis min max) e_axis |> ignore
+      (* initializer
+       *   React.S.map (fun max_x -> match max_x,get_axis_delta x_axis with
+       *                             | Some max, Some d -> let min = max - d in
+       *                                                   set_axis_min_max x_axis options#x_axis min max
+       *                             | _ -> ())
+       *               s_max_x |> ignore *)
     end
 
 end
