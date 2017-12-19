@@ -257,6 +257,13 @@ module Cartesian = struct
       method id         : Js.js_string Js.t Js.prop
       method gridLines  : Grid_line.t_js Js.t Js.prop
       method scaleLabel : Scale_label.t_js Js.t Js.prop
+
+      (* FIXME specific to bar chart only, make as functor? *)
+      method barPercentage      : float Js.prop
+      method categoryPercentage : float Js.prop
+      method barThickness       : int Js.optdef_prop
+      method maxBarThickness    : int Js.optdef_prop
+      method stacked            : bool Js.t Js.optdef_prop
     end
 
   let position_to_string = function
@@ -321,6 +328,22 @@ module Cartesian = struct
     method grid_lines  = grid_lines
     method scale_label = scale_label
 
+    (* FIXME specific for bar chart only !!! *)
+    method set_bar_percentage x = obj##.barPercentage := x
+    method get_bar_percentage   = obj##.barPercentage
+
+    method set_category_percentage x = obj##.categoryPercentage := x
+    method get_category_percentage   = obj##.categoryPercentage
+
+    method set_bar_thickness x = obj##.barThickness := x
+    method get_bar_thickness   = Js.Optdef.to_option obj##.barThickness
+
+    method set_max_bar_thickness x = obj##.maxBarThickness := x
+    method get_max_bar_thickness   = Js.Optdef.to_option obj##.maxBarThickness
+
+    method set_stacked x = obj##.stacked := Js.bool x
+    method get_stacked   = CCOpt.map Js.to_bool @@ Js.Optdef.to_option obj##.stacked
+
     method! replace x = super#replace x;
                         grid_lines#replace obj##.gridLines;
                         scale_label#replace obj##.scaleLabel
@@ -331,7 +354,10 @@ module Cartesian = struct
       self#set_offset false;
       obj##.id := Js.string id;
       obj##.gridLines  := grid_lines#get_obj;
-      obj##.scaleLabel := scale_label#get_obj
+      obj##.scaleLabel := scale_label#get_obj;
+      (* FIXME specific for bar chart only !!! *)
+      self#set_bar_percentage 0.9;
+      self#set_category_percentage 0.8
   end
 
   module Category = struct

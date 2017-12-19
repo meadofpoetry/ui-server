@@ -468,7 +468,7 @@ let drawer_demo () =
 
 let chart_demo () =
   let range = 10 in
-  let x = ref 10000 in
+  let x = ref 40 in
   Random.init (Unix.time () |> int_of_float);
   let open Chartjs.Line in
   let data = [ { data = (List.map (fun x -> { x ; y = Random.int range }) (CCList.range_by ~step:2 0 !x))
@@ -499,6 +499,7 @@ let chart_demo () =
   let update = new Button.t ~label:"update" () in
   let push   = new Button.t ~label:"push" () in
   let push_less = new Button.t ~label:"push less" () in
+  let append    = new Button.t ~label:"append" () in
   let chart  = new Chartjs.Line.t ~config () in
   React.E.map (fun () -> List.iter (fun x -> x#set_point_radius (`Fun (fun _ x -> if x.x mod 2 > 0 then 10 else 5))
                                    ) chart#config#datasets;
@@ -511,10 +512,19 @@ let chart_demo () =
   React.E.map (fun () -> List.iter (fun ds -> ds#push { x = !x - 1; y = Random.int range }) chart#config#datasets;
                          chart#update None)
               push_less#e_click |> ignore;
-  Html.div ~a:[ Html.a_style "max-width:1000px"] [ Widget.widget_to_markup chart
-                                                 ; Widget.widget_to_markup update
-                                                 ; Widget.widget_to_markup push
-                                                 ; Widget.widget_to_markup push_less ]
+  React.E.map (fun () -> x := !x + 6;
+                         List.iter (fun ds -> ds#append [ { x = !x - 6; y = Random.int range }
+                                                        ; { x = !x - 4; y = Random.int range }
+                                                        ; { x = !x - 2; y = Random.int range }
+                                                        ; { x = !x    ; y = Random.int range } ])
+                                   chart#config#datasets;
+                         chart#update None)
+              append#e_click |> ignore;
+  Html.div ~a:[ Html.a_style "max-width:700px"] [ Widget.widget_to_markup chart
+                                                ; Widget.widget_to_markup update
+                                                ; Widget.widget_to_markup push
+                                                ; Widget.widget_to_markup push_less
+                                                ; Widget.widget_to_markup append ]
   |> To_dom.of_element
 
 let time_chart_demo () =
@@ -545,22 +555,14 @@ let time_chart_demo () =
                       else x#set_border_color @@ Color.rgb_of_name (Color.Amber C500);
                       x#set_cubic_interpolation_mode Monotone;
                       x#set_fill Disabled) config#datasets;
-  let update = new Button.t ~label:"update" () in
-  let push   = new Button.t ~label:"push" () in
   let chart  = new Chartjs.Line.t ~config () in
   let e_update,e_update_push = React.E.create () in
-  React.E.map (fun () -> List.iter (fun x -> x#set_point_radius (`Fun (fun _ _ -> 5))
-                                   ) chart#config#datasets;
-                         chart#update None)
-              update#e_click |> ignore;
   React.E.map (fun () -> List.iter (fun ds -> ds#push { x = Unix.time () *. 1000. |> Int64.of_float
                                                       ; y = Random.int range }) chart#config#datasets;
                          chart#update None)
               e_update |> ignore;
   Dom_html.window##setInterval (Js.wrap_callback (fun () -> e_update_push () |> ignore)) 1000. |> ignore;
-  Html.div ~a:[ Html.a_style "max-width:1000px"] [ Widget.widget_to_markup chart
-                                                 ; Widget.widget_to_markup update
-                                                 ; Widget.widget_to_markup push ]
+  Html.div ~a:[ Html.a_style "max-width:700px"] [ Widget.widget_to_markup chart ]
   |> To_dom.of_element
 
 let add_demos demos =
@@ -575,7 +577,7 @@ let onload _ =
   let toolbar = toolbar_demo drawer () in
   let demos   = add_demos [ button_demo ()
                           ; chart_demo ()
-                          (* ; time_chart_demo () *)
+                          ; time_chart_demo ()
                           ; fab_demo ()
                           ; radio_demo ()
                           ; checkbox_demo ()
