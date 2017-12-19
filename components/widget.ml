@@ -130,20 +130,24 @@ type validity =
   } [@@deriving to_yojson]
 
 type 'a validation =
-  | Email   : string validation
-  | Integer : (int * int) option -> int validation
-  | Float   : (float * float) option -> float validation
-  | Text    : string validation
-  | Custom  : ((string    -> ('a, string) result) * ('a -> string)) -> 'a validation
+  | Email       : string validation
+  | Integer     : (int * int) option -> int validation
+  | Float       : (float * float) option -> float validation
+  | Text        : string validation
+  | IPV4        : Ipaddr.V4.t validation
+  | MulticastV4 : Ipaddr.V4.t validation
+  | Custom      : ((string    -> ('a, string) result) * ('a -> string)) -> 'a validation
 
 let input_type_of_validation :
       type a. a validation -> [> `Email | `Number | `Text ]
   = function
-  | Email     -> `Email
-  | Integer _ -> `Number
-  | Float   _ -> `Number
-  | Text      -> `Text
-  | Custom  _ -> `Text
+  | Email       -> `Email
+  | Integer _   -> `Number
+  | Float   _   -> `Number
+  | Text        -> `Text
+  | IPV4        -> `Text
+  | MulticastV4 -> `Text
+  | Custom  _   -> `Text
 
 let parse_valid (type a) (v : a validation) (on_fail : string -> unit) (s : string) : a option =
   match v with
@@ -157,6 +161,8 @@ let parse_valid (type a) (v : a validation) (on_fail : string -> unit) (s : stri
                             if i <= max && i >= min then Some i
                             else None
   | Text         -> Some s
+  | IPV4         -> Ipaddr.V4.of_string s
+  | MulticastV4  -> CCOpt.(Ipaddr.V4.of_string s >>= (fun x -> if Ipaddr.V4.is_multicast x then Some x else None))
   | Custom (f,_) ->
      match f s with
      | Ok v -> Some v
@@ -168,6 +174,8 @@ let valid_to_string (type a) (v : a validation) (e : a) : string =
   | Float   _       -> string_of_float e |> (fun x -> if CCString.suffix ~suf:"." x then x ^ "0" else x)
   | Integer _       -> string_of_int e
   | Email           -> e
+  | IPV4            -> Ipaddr.V4.to_string e
+  | MulticastV4     -> Ipaddr.V4.to_string e
   | Text            -> e
 
 class ['a] text_input_widget ~input_elt (v : 'a validation) elt () =
@@ -247,9 +255,20 @@ class ['a] text_input_widget ~input_elt (v : 'a validation) elt () =
         | Integer (Some (min,max)) -> bord min max
         | _ -> ())
       in
+      let apply_pattern (type a) (v : a validation) : unit =
+        let set p = (Js.Unsafe.coerce input_elt)##.pattern := Js.string p in
+        (match v with
+         | IPV4        -> let p = "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.)\
+                                   {3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$" in
+                          set p
+         | MulticastV4 -> let p = "2(?:2[4-9]|3\\d)(?:\\.(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]\\d?|0)){3}" in
+                          set p
+         | _ -> ())
+      in
       apply_border v (fun min max ->
           (Js.Unsafe.coerce input_elt)##.max := max;
           (Js.Unsafe.coerce input_elt)##.min := min);
+      apply_pattern v;
       Dom_events.listen input_elt Dom_events.Typ.input (fun _ _ ->
           (match parse_valid v self#set_custom_validity self#get_value with
            | Some v -> s_input_push (Some v); self#remove_custom_validity

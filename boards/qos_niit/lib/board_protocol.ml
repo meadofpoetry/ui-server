@@ -185,10 +185,11 @@ module SM = struct
 
   let send_instant (type a) sender (msg : a instant_request) : unit Lwt.t =
     (match msg with
-     | Set_board_mode x  -> let t2mi = CCOpt.get_or ~default:{ enabled = false;
-                                                               pid = 0;
-                                                               stream_id = Single
-                                                             } x.t2mi in
+     | Set_board_mode x  -> let t2mi = CCOpt.get_or ~default:{ enabled = false
+                                                             ; pid = 0
+                                                             ; stream_id = Single
+                                                             }
+                                                    x.t2mi in
                             let body = Cbuffer.create sizeof_board_mode in
                             let () = input_to_int x.input
                                      |> (lor) (if t2mi.enabled then 4 else 0)
@@ -277,6 +278,9 @@ module SM = struct
       then
         let events = prev_events @ events in
         handle_msgs rsps;
+        (* FIXME *)
+        Queue.send !imsgs () |> ignore;
+        imsgs := Queue.next !imsgs;
         (match Events_handler.partition events prev_group with
          | [],events  -> if p < 0 then first_step ()
                          else `Continue (step_normal_idle (pred p) prev_group events parts acc)
@@ -376,19 +380,19 @@ module SM = struct
                                         } in
     let api = { set_mode        = (fun m  -> enqueue_instant imsgs sender (Set_board_mode m))
               ; set_jitter_mode = (fun m  -> enqueue_instant imsgs sender (Set_jitter_mode m))
-              ; get_section     = (fun () ->
-                enqueue msgs sender
-                        (Get_section (get_id (), { stream_id = T2mi_plp 0
-                                                 ; section   = 0
-                                                 ; table     =  NIT_a { common = { version = 21
-                                                                                 ; id      = 64
-                                                                                 ; pid     = 16
-                                                                                 ; lsn     = 0
-                                                                                 ; section_syntax = true
-                                                                                 ; sections = []}
-                                                                    ; nw_id = 13583 }}))
-                        (to_period 120 step_duration)
-                        None)
+              (* ; get_section     = (fun () ->
+               *   enqueue msgs sender
+               *           (Get_section (get_id (), { stream_id = T2mi_plp 0
+               *                                    ; section   = 0
+               *                                    ; table     =  NIT_a { common = { version = 21
+               *                                                                    ; id      = 64
+               *                                                                    ; pid     = 16
+               *                                                                    ; lsn     = 0
+               *                                                                    ; section_syntax = true
+               *                                                                    ; sections = []}
+               *                                                       ; nw_id = 13583 }}))
+               *           (to_period 120 step_duration)
+               *           None) *)
               ; get_t2mi_seq    = (fun s  -> enqueue msgs sender
                                                      (Get_t2mi_frame_seq { request_id = get_id ()
                                                                          ; seconds    = s })

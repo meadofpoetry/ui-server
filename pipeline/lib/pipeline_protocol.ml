@@ -9,7 +9,7 @@ type state = { ctx         : ZMQ.Context.t
              ; msg         : [ `Req] ZMQ.Socket.t
              ; ev          : [ `Sub] ZMQ.Socket.t
              ; sock_events : unit event
-             ; _e : unit event
+                                  (*; _e : unit event*)
              }
 
 type get = Get_not_used
@@ -25,9 +25,9 @@ type (_,_) req =
   | Set_wm         : Wm.t -> (set, unit) req
                    
 type api = { structure : Structure.t list signal
-           ; settings  : Settings.t event
+           ; settings  : Settings.t option signal
            ; graph     : Graph.t event
-           ; wm        : Wm.t event
+           ; wm        : Wm.t option signal
            ; vdata     : Video_data.t event (* TODO to be split by purpose later *)
            ; adata     : Audio_data.t event
            ; get       : 'a.(get, 'a) req -> 'a Lwt.t
@@ -38,9 +38,9 @@ let split_events () =
   let _ = Lwt_io.printf "split_events\n" |> ignore in 
   let events, epush     = E.create () in
   let strm, strm_push   = S.create [] in
-  let sets, sets_push   = E.create () in
+  let sets, sets_push   = S.create None in
   let grap, grap_push   = E.create () in
-  let wm  , wm_push     = E.create () in
+  let wm  , wm_push     = S.create None in
   let vdata, vdata_push = E.create () in
   let adata, adata_push = E.create () in
   let (<$>) f result =
@@ -49,9 +49,9 @@ let split_events () =
     | Error e -> failwith @@ Printf.sprintf "parse error %s\n" e in
   let split = function
     | `Assoc [("streams", tl)]    -> strm_push  <$> Structure.structure_list_of_yojson tl
-    | `Assoc [("settings", tl)]   -> sets_push  <$> Settings.of_yojson tl
+    | `Assoc [("settings", tl)]   -> (fun x -> sets_push (Some x)) <$> Settings.of_yojson tl
     | `Assoc [("graph", tl)]      -> grap_push  <$> Graph.of_yojson tl
-    | `Assoc [("wm", tl)]         -> wm_push    <$> Wm.of_yojson tl
+    | `Assoc [("wm", tl)]         -> (fun x -> wm_push (Some x))   <$> Wm.of_yojson tl
     | `Assoc [("video_data", tl)] -> vdata_push <$> Video_data.of_yojson tl
     | `Assoc [("audio_data", tl)] -> adata_push <$>
                                        (match Audio_data.of_yojson tl with
@@ -65,7 +65,12 @@ let split_events () =
   let events = E.map split events in
   events, epush, strm, sets, grap, wm, vdata, adata
 
-let get (type a) sock (conv : Msg_conv.converter) (s : Structure.t list signal) (req : (get, a) req) : a Lwt.t =
+let get (type a) sock
+      (conv : Msg_conv.converter)
+      (s : Structure.t list signal)
+      (wm : Wm.t option signal)
+      (st : Settings.t option signal)
+      (req : (get, a) req) : a Lwt.t =
   let find s kv =
     List.find_map (fun (k,v) -> if k = s then Some v else None) kv
     |> function None -> Error "key not found" | Some v -> Ok v
@@ -73,19 +78,37 @@ let get (type a) sock (conv : Msg_conv.converter) (s : Structure.t list signal) 
   let send s  = Socket.send sock (conv.to_string (`Assoc ["get", `List [`String s]])) in
   let get' s decode =
     send s >>= fun () ->
-    Socket.recv sock >>= fun js ->
+    Socket.recv sock
+    >>= fun js ->
     match conv.of_string js with
     | `Assoc ["ok", `Assoc kvs] ->
+       Lwt_io.printf  "Pipeline: request decode: %s\n" (Yojson.Safe.pretty_to_string (`Assoc kvs)) |> ignore;
        Result.(find s kvs >>= decode)
-       |> (function Ok v ->  Lwt.return v | Error e -> Lwt.fail_with e)
-    | `Assoc ["error", `String msg] -> Lwt.fail_with msg
-    | _ -> Lwt.fail_with ("unknown resp: " ^ js)
+       |> (function Ok v -> Lwt.return v
+                  | Error e -> Lwt_io.printf  "Pipeline: request decode failure: %s\n" e >>= fun () -> Lwt.fail_with e)
+    | `Assoc ["error", `String msg] ->
+       Lwt_io.printf "Pipeline: request failure: %s\n" msg >>= fun () ->
+       Lwt.fail_with msg
+    | _ ->
+       Lwt_io.printf "Pipeline: unknown failure: %s\n" js >>= fun () ->
+       Lwt.fail_with ("unknown resp: " ^ js)
+  in
+  let unpack_opt = function
+    | None -> Lwt.fail_with "no data"
+    | Some v -> Lwt.return v
   in
   match req with
-  | Get_structures -> Lwt.return (React.S.value s) (* TODO fixlater *)
-  | Get_settings   -> get' "settings" Settings.of_yojson
+  | Get_structures ->
+     Lwt.return (React.S.value s) (* TODO fixlater *)
+  | Get_settings   ->
+     Lwt.catch
+       (fun () -> get' "settings" Settings.of_yojson)
+       (fun _  -> unpack_opt (React.S.value st))
   | Get_graph      -> get' "graph" Graph.of_yojson
-  | Get_wm         -> get' "wm" Wm.of_yojson
+  | Get_wm         ->
+     Lwt.catch
+       (fun () -> get' "wm" Wm.of_yojson)
+       (fun _  -> unpack_opt (React.S.value wm))
   
 let set (type a) sock (conv : Msg_conv.converter) (req : (set, a) req) : unit Lwt.t =
   let set' s encode v =
@@ -119,16 +142,15 @@ let create sock_in sock_out converter hardware_streams =
   in
   let structure = S.l2 Structure_conv.match_streams hardware_streams structure' in
   let set = set msg_sock converter in
-  let get = fun x -> get msg_sock converter structure x in
+  let get = fun x -> get msg_sock converter structure wm settings x in
   let api = {set; get; structure;
              settings; graph;
              wm; vdata; adata} in
   set (Set_settings Settings.default) |> ignore;
-  let _e  = Lwt_react.E.map_p (fun x ->
-                Video_data.to_yojson x
-                |> Yojson.Safe.pretty_to_string
-                |> Lwt_io.printf "Video_data: %s\n") vdata in
-  let state = { ctx; msg; ev; sock_events; _e } in
+  (*let _e  = Lwt_react.E.map_p (fun x ->
+                Yojson.Safe.pretty_to_string x
+                |> Lwt_io.printf "Video_data: %s\n") msgs in*)
+  let state = { ctx; msg; ev; sock_events;} in
   let recv () =
     Socket.recv ev_sock
     >>= fun msg ->

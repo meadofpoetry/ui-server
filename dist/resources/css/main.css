@@ -233,7 +233,7 @@ main.main-with-sidebar {
     cursor: default;
 }
 .div {
-    position: absolute;
+   /* position: absolute; */
     background-color: RGB(240,240,240);
     background-position: center center;
 }
