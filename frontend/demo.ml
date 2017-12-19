@@ -26,7 +26,7 @@ let button_demo () =
   let dense      = new Button.t ~label:"dense" ~dense:true () in
   let compact    = new Button.t ~label:"compact" ~compact:true () in
   let icon       = new Button.t ~label:"icon" ~icon:"favorite" () in
-  demo_section ~style:"display:flex; \
+  demo_section ~style:"display:flex;\
                        flex-direction:column;\
                        justify-content:flex-start;\
                        align-items:flex-start"
@@ -467,55 +467,102 @@ let drawer_demo () =
   |> Drawer.Temporary.attach
 
 let chart_demo () =
-  let x = ref 20 in
+  let range = 10 in
+  let x = ref 40 in
   Random.init (Unix.time () |> int_of_float);
   let open Chartjs.Line in
-  let data = [ { data = (List.map (fun x -> { x ; y = Random.int 10 }) (CCList.range 0 !x))
+  let data = [ { data = (List.map (fun x -> { x ; y = Random.int range }) (CCList.range_by ~step:2 0 !x))
                ; label = "Dataset 1"
                }
-             ; { data = (List.map (fun x -> { x ; y = Random.int 10 }) (CCList.range 0 !x))
+             ; { data = (List.map (fun x -> { x ; y = Random.int range }) (CCList.range_by ~step:2 0 !x))
                ; label = "Dataset 2"
                }
              ] in
   let config = new Config.t
-                   ~x_axis:(Linear ("my-x-axis",Bottom,Integer))
-                   ~y_axis:(Linear ("my-y-axis",Left,Integer))
+                   ~x_axis:(Linear ("my-x-axis",Bottom,Integer,Some !x))
+                   ~y_axis:(Linear ("my-y-axis",Left,Integer,None))
                    ~data
                    () in
-  config#options#title#set_display true;
-  config#options#title#set_text "Title";
   config#options#hover#set_mode Index;
   config#options#hover#set_intersect true;
   config#options#tooltip#set_mode Index;
   config#options#tooltip#set_intersect false;
-  config#options#y_axis#ticks#set_suggested_max 10;
+  config#options#y_axis#ticks#set_suggested_max range;
   config#options#x_axis#scale_label#set_label_string "x axis";
   config#options#x_axis#scale_label#set_display true;
-  List.iter (fun x -> x#set_fill Disabled) config#datasets;
-  print_endline @@ Js.to_string @@ Json.output config#options#get_obj;
+  config#options#elements#line#set_border_width 3;
+  List.iter (fun x -> if x#get_label = "Dataset 1"
+                      then x#set_border_color @@ Color.rgb_of_name (Color.Lime C500)
+                      else x#set_border_color @@ Color.rgb_of_name (Color.Pink C500);
+                      x#set_cubic_interpolation_mode Monotone;
+                      x#set_fill Disabled) config#datasets;
   let update = new Button.t ~label:"update" () in
   let push   = new Button.t ~label:"push" () in
-  let pop    = new Button.t ~label:"pop" () in
+  let push_less = new Button.t ~label:"push less" () in
+  let append    = new Button.t ~label:"append" () in
   let chart  = new Chartjs.Line.t ~config () in
-  React.E.map (fun () -> List.iter (fun x -> x#set_label "Fuck!") chart#config#datasets;
-                         List.iter (fun x -> x#set_stepped_line After) chart#config#datasets;
+  React.E.map (fun () -> List.iter (fun x -> x#set_point_radius (`Fun (fun _ x -> if x.x mod 2 > 0 then 10 else 5))
+                                   ) chart#config#datasets;
                          chart#update None)
               update#e_click |> ignore;
-  React.E.map (fun () -> x := !x + 1;
-                         List.iter (fun ds -> ds#push_back { x = !x; y = Random.int 10 } )
-                                   chart#config#datasets;
-                         chart#update (Some { duration = Some 400
-                                            ; is_lazy  = Some false
-                                            ; easing   = None }))
-              push#e_click |> ignore;
-  React.E.map (fun () -> List.iter (fun ds -> ds#take_back |> ignore) chart#config#datasets;
-                         if !x > 0 then x := !x - 1;
+  React.E.map (fun () -> x := !x + 2;
+                         List.iter (fun ds -> ds#push { x = !x; y = Random.int range }) chart#config#datasets;
                          chart#update None)
-              pop#e_click |> ignore;
+              push#e_click |> ignore;
+  React.E.map (fun () -> List.iter (fun ds -> ds#push { x = !x - 1; y = Random.int range }) chart#config#datasets;
+                         chart#update None)
+              push_less#e_click |> ignore;
+  React.E.map (fun () -> x := !x + 6;
+                         List.iter (fun ds -> ds#append [ { x = !x - 6; y = Random.int range }
+                                                        ; { x = !x - 4; y = Random.int range }
+                                                        ; { x = !x - 2; y = Random.int range }
+                                                        ; { x = !x    ; y = Random.int range } ])
+                                   chart#config#datasets;
+                         chart#update None)
+              append#e_click |> ignore;
   Html.div ~a:[ Html.a_style "max-width:700px"] [ Widget.widget_to_markup chart
                                                 ; Widget.widget_to_markup update
                                                 ; Widget.widget_to_markup push
-                                                ; Widget.widget_to_markup pop ]
+                                                ; Widget.widget_to_markup push_less
+                                                ; Widget.widget_to_markup append ]
+  |> To_dom.of_element
+
+let time_chart_demo () =
+  let range = 20 in
+  Random.init (Unix.time () |> int_of_float);
+  let open Chartjs.Line in
+  let data = [ { data = []; label = "Dataset 1" }
+             ; { data = []; label = "Dataset 2" }
+             ] in
+  let config = new Config.t
+                   ~x_axis:(Time ("my-x-axis",Bottom,Unix,Some 20000L))
+                   ~y_axis:(Linear ("my-y-axis",Left,Integer,None))
+                   ~data
+                   () in
+  config#options#hover#set_mode Index;
+  config#options#hover#set_intersect true;
+  config#options#tooltip#set_mode Index;
+  config#options#tooltip#set_intersect false;
+  config#options#x_axis#scale_label#set_label_string "x axis";
+  config#options#x_axis#scale_label#set_display true;
+  config#options#x_axis#time#set_min_unit Second;
+  config#options#elements#line#set_border_width 3;
+  List.iter (fun x -> if x#get_label = "Dataset 1"
+                      then x#set_background_color @@ Color.rgb_of_name (Color.Indigo C500)
+                      else x#set_background_color @@ Color.rgb_of_name (Color.Amber C500);
+                      if x#get_label = "Dataset 1"
+                      then x#set_border_color @@ Color.rgb_of_name (Color.Indigo C500)
+                      else x#set_border_color @@ Color.rgb_of_name (Color.Amber C500);
+                      x#set_cubic_interpolation_mode Monotone;
+                      x#set_fill Disabled) config#datasets;
+  let chart  = new Chartjs.Line.t ~config () in
+  let e_update,e_update_push = React.E.create () in
+  React.E.map (fun () -> List.iter (fun ds -> ds#push { x = Unix.time () *. 1000. |> Int64.of_float
+                                                      ; y = Random.int range }) chart#config#datasets;
+                         chart#update None)
+              e_update |> ignore;
+  Dom_html.window##setInterval (Js.wrap_callback (fun () -> e_update_push () |> ignore)) 1000. |> ignore;
+  Html.div ~a:[ Html.a_style "max-width:700px"] [ Widget.widget_to_markup chart ]
   |> To_dom.of_element
 
 let add_demos demos =
@@ -530,6 +577,7 @@ let onload _ =
   let toolbar = toolbar_demo drawer () in
   let demos   = add_demos [ button_demo ()
                           ; chart_demo ()
+                          ; time_chart_demo ()
                           ; fab_demo ()
                           ; radio_demo ()
                           ; checkbox_demo ()

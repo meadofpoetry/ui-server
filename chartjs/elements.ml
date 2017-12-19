@@ -81,20 +81,20 @@ end
 module Line = struct
 
   type bool_or_string
-  type fill = Bool of bool
+  type fill = Disabled
             | Zero
             | Top
             | Bottom
 
   let fill_to_js : fill -> bool_or_string Js.t = function
-    | Bool b -> Js.Unsafe.coerce @@ Js.bool b
-    | Zero   -> Js.Unsafe.coerce @@ Js.string "zero"
-    | Top    -> Js.Unsafe.coerce @@ Js.string "top"
-    | Bottom -> Js.Unsafe.coerce @@ Js.string "bottom"
+    | Disabled -> Js.Unsafe.coerce @@ Js._false
+    | Zero     -> Js.Unsafe.coerce @@ Js.string "zero"
+    | Top      -> Js.Unsafe.coerce @@ Js.string "top"
+    | Bottom   -> Js.Unsafe.coerce @@ Js.string "bottom"
 
   let fill_of_js_exn (x : bool_or_string Js.t) : fill =
     match Cast.to_bool x with
-    | Some b -> Bool b
+    | Some b -> if b then Zero else Disabled
     | None   -> (match CCOpt.get_exn @@ Cast.to_string x with
                  | "zero"   -> Zero
                  | "top"    -> Top
@@ -163,7 +163,7 @@ module Line = struct
                val mutable borderDashOffset = 0
                val mutable borderJoinStyle  = Js.string @@ Canvas.line_join_to_string Miter
                val mutable capBezierPoints  = Js._true
-               val mutable fill             = fill_to_js @@ Bool true
+               val mutable fill             = fill_to_js Zero
                val mutable stepped          = Js._false
              end
   end

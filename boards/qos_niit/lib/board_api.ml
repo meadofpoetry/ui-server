@@ -23,8 +23,8 @@ let set_jitter_mode api body () =
   | Error e -> respond_error e ()
   | Ok mode -> api.set_jitter_mode mode >>= respond_ok
 
-let get_section api () =
-  api.get_section () |> ignore; respond_ok ()
+(* let get_section api () =
+ *   api.get_section () |> ignore; respond_ok () *)
 
 let get_t2mi_seq api seconds () =
   match CCInt.of_string seconds with
@@ -37,7 +37,8 @@ let handle api _ _ meth args _ _ body =
   match meth, args with
   | `POST, ["reset"]        -> reset api ()
   | `POST, ["mode"]         -> set_mode api body ()
-  | `GET, ["section"]       -> get_section api ()
+  | `POST, ["jitter_mode"]  -> set_jitter_mode api body ()
+  (* | `GET, ["section"]       -> get_section api () *)
   | `GET, "t2mi_seq"::[sec] -> get_t2mi_seq api sec ()
   | _ -> not_found ()
 

@@ -19,10 +19,13 @@ module Cast = struct
     then Some (Js.float_of_number (Js.Unsafe.coerce x))
     else None
 
-  let to_string x : string option =
+  let to_js_string x : Js.js_string Js.t option =
     if Js.typeof x = (Js.string "string")
-    then Some (Js.to_string @@ Js.Unsafe.coerce x)
+    then Some (Js.Unsafe.coerce x)
     else None
+
+  let to_string x : string option =
+    CCOpt.map Js.to_string @@ to_js_string x
 
   let to_list ~(f:'a -> 'c) (x:'b Js.t) : 'c list option =
     let array_constr : 'a Js.js_array Js.t Js.constr = Js.Unsafe.global##._Array in
@@ -30,6 +33,15 @@ module Cast = struct
     then Some (Array.to_list @@ Js.to_array (Js.Unsafe.coerce x)
                |> List.map f)
     else None
+
+  let to_js_array x : 'a Js.js_array Js.t option =
+    let array_constr : 'a Js.js_array Js.t Js.constr = Js.Unsafe.global##._Array in
+    if Js.instanceof x array_constr
+    then Some (Js.Unsafe.coerce x)
+    else None
+
+  let to_color x : CSS.Color.t option =
+    CCOpt.map (fun x -> CSS.Color.ml @@ CSS.Color.js_t_of_js_string x) @@ to_js_string x
 
   let to_object x =
     if Js.typeof x = (Js.string "object")

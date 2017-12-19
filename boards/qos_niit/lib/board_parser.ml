@@ -388,7 +388,7 @@ type event_response = Board_errors of board_errors
 
 type api = { set_mode        : mode        -> unit Lwt.t
            ; set_jitter_mode : jitter_mode -> unit Lwt.t
-           ; get_section     : unit        -> section Lwt.t
+           (* ; get_section     : unit        -> section Lwt.t *)
            ; get_t2mi_seq    : int         -> t2mi_packet list Lwt.t
            ; reset           : unit        -> unit Lwt.t
            ; config          : unit        -> config Lwt.t
@@ -421,7 +421,7 @@ type t2mi_frame_seq_req =
 
 type _ request = Get_board_info     : info request
                | Get_board_mode     : mode request
-               | Get_t2mi_frame_seq : t2mi_frame_seq_req -> t2mi_packet list request
+               | Get_t2mi_frame_seq : t2mi_frame_seq_req    -> t2mi_seq request
                | Get_section        : int * section_request -> section request
 
 (* ------------------- Misc ------------------- *)
@@ -602,7 +602,7 @@ end
 
 module Get_t2mi_frame_seq : (Request
                              with type req := t2mi_frame_seq_req
-                             with type rsp = t2mi_packet list) = struct
+                             with type rsp = t2mi_seq) = struct
 
   type rsp = t2mi_packet list
 
@@ -616,7 +616,7 @@ module Get_t2mi_frame_seq : (Request
 
   let of_cbuffer msg =
     let iter = Cbuffer.iter (fun _ -> Some sizeof_t2mi_frame_seq_item) (fun buf -> buf) msg in
-    Cbuffer.fold (fun (acc : t2mi_packet list) el ->
+    Cbuffer.fold (fun (acc : t2mi_seq) el ->
         let typ    = get_t2mi_frame_seq_item_typ el in
         let frame  = get_t2mi_frame_seq_item_frame el in
         let common = { id          = typ

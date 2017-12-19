@@ -124,7 +124,7 @@ let config_default = { nw = { ip        = Ipaddr.V4.of_string_exn "192.168.111.6
                      ; ip = { enable    = true
                             ; fec       = true
                             ; port      = 1234
-                            ; multicast = Some (Ipaddr.V4.of_string_exn "224.1.2.1")
+                            ; multicast = Some (Ipaddr.V4.of_string_exn "224.1.2.2")
                             ; delay     = Some 100
                             ; rate_mode = Some On
                             }
