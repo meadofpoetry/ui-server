@@ -345,6 +345,7 @@ module Config = struct
                           scales#replace obj##.scales
 
       initializer
+        x_axis#grid_lines#set_offset_grid_lines true;
         obj##.scales := scales#get_obj;
 
     end
