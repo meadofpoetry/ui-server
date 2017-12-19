@@ -51,11 +51,121 @@ let fec_status_card s_state e_status =
   let media  = new Card.Media.t ~widgets:[params] () in
   new Stateful_card.t ~title:"Статус FEC" ~sections:[ `Media media ] ~s_state ()
 
+let fec_chart s_state e_status =
+  let open Board_types in
+  let open Chartjs.Line in
+  let config = new Config.t
+                   ~x_axis:(Time ("my-x-axis",Bottom,Unix,Some 60000L))
+                   ~y_axis:(Linear ("my-y-axis",Left,Integer,None))
+                   ~data:[ { data = []; label = "Lost before FEC" }
+                         ; { data = []; label = "Lost after FEC"} ]
+                   () in
+  config#options#hover#set_mode Index;
+  config#options#hover#set_intersect true;
+  config#options#tooltip#set_mode Index;
+  config#options#tooltip#set_intersect false;
+  config#options#x_axis#time#set_min_unit Second;
+  config#options#y_axis#ticks#set_begin_at_zero true;
+  List.iter (fun x -> if x#get_label = "Lost before FEC"
+                      then x#set_background_color @@ Color.rgb_of_name (Color.Indigo C500)
+                      else x#set_background_color @@ Color.rgb_of_name (Color.Amber C500);
+                      if x#get_label = "Lost before FEC"
+                      then x#set_border_color @@ Color.rgb_of_name (Color.Indigo C500)
+                      else x#set_border_color @@ Color.rgb_of_name (Color.Amber C500);
+                      x#set_cubic_interpolation_mode Monotone;
+                      x#set_fill Disabled) config#datasets;
+  let chart = new t ~config () in
+  let before_ds = CCList.find (fun x -> x#get_label = "Lost before FEC") chart#config#datasets in
+  let after_ds  = CCList.find (fun x -> x#get_label = "Lost after FEC") chart#config#datasets in
+  React.E.map (fun s -> let now = Int64.of_float @@ Unix.time () *. 1000. in
+                        before_ds#push { x = now; y = Int64.to_int s.lost_before_fec };
+                        after_ds#push { x = now; y = Int64.to_int s.lost_after_fec };
+                        chart#update None)
+              e_status |> ignore;
+  chart
+
+
+let fec_bar_chart s_state e_status =
+  let open Board_types in
+  let open Chartjs.Bar in
+  let config = new Config.t
+                   ~x_axis:(Time ("my-x-axis",Bottom,Unix,Some 60000L))
+                   ~y_axis:(Linear ("my-y-axis",Left,Integer,None))
+                   ~data:[ { data = []; label = "Lost before FEC"; stack = None }
+                         ; { data = []; label = "Lost after FEC" ; stack = None } ]
+                   () in
+  config#options#hover#set_mode Index;
+  config#options#hover#set_intersect true;
+  config#options#tooltip#set_mode Index;
+  config#options#tooltip#set_intersect false;
+  config#options#x_axis#time#set_min_unit Second;
+  config#options#y_axis#ticks#set_begin_at_zero true;
+  config#options#x_axis#set_bar_percentage 1.;
+  config#options#x_axis#set_category_percentage 0.5;
+  config#options#x_axis#ticks#set_source Data;
+  List.iter (fun x -> if x#get_label = "Lost before FEC"
+                      then x#set_background_color @@ `Val (Color.rgb_of_name (Color.Indigo C500))
+                      else x#set_background_color @@ `Val (Color.rgb_of_name (Color.Amber C500));
+                      if x#get_label = "Lost before FEC"
+                      then x#set_border_color @@ `Val (Color.rgb_of_name (Color.Indigo C500))
+                      else x#set_border_color @@ `Val (Color.rgb_of_name (Color.Amber C500));) config#datasets;
+  let chart = new t ~config () in
+  let before_ds = CCList.find (fun x -> x#get_label = "Lost before FEC") chart#config#datasets in
+  let after_ds  = CCList.find (fun x -> x#get_label = "Lost after FEC") chart#config#datasets in
+  React.E.map (fun s -> let now = Int64.of_float @@ Unix.time () *. 1000. in
+                        before_ds#push { x = now; y = Int64.to_int s.lost_before_fec };
+                        after_ds#push { x = now; y = Int64.to_int s.lost_after_fec };
+                        chart#update None)
+              e_status |> ignore;
+  chart
+
+let bitrate_chart s_state e_status =
+  let open Board_types in
+  let open Chartjs.Line in
+  let config = new Config.t
+                   ~x_axis:(Time ("my-x-axis",Bottom,Unix,Some 60000L))
+                   ~y_axis:(Linear ("my-y-axis",Left,Float,None))
+                   ~data:[ { data = []; label = "Input bitrate" }
+                         ; { data = []; label = "Output bitrate"} ]
+                   () in
+  config#options#hover#set_mode Index;
+  config#options#hover#set_intersect true;
+  config#options#tooltip#set_mode Index;
+  config#options#tooltip#set_intersect false;
+  config#options#x_axis#time#set_min_unit Second;
+  config#options#y_axis#scale_label#set_display true;
+  config#options#y_axis#scale_label#set_label_string "Mbit/s";
+  config#options#y_axis#ticks#set_begin_at_zero true;
+  List.iter (fun x -> if x#get_label = "Input bitrate"
+                      then x#set_background_color @@ Color.rgb_of_name (Color.Indigo C500)
+                      else x#set_background_color @@ Color.rgb_of_name (Color.Amber C500);
+                      if x#get_label = "Input bitrate"
+                      then x#set_border_color @@ Color.rgb_of_name (Color.Indigo C500)
+                      else x#set_border_color @@ Color.rgb_of_name (Color.Amber C500);
+                      x#set_cubic_interpolation_mode Monotone;
+                      x#set_fill Disabled) config#datasets;
+  let chart = new t ~config () in
+  let input_ds  = CCList.find (fun x -> x#get_label = "Input bitrate") chart#config#datasets in
+  let output_ds = CCList.find (fun x -> x#get_label = "Output bitrate") chart#config#datasets in
+  React.E.map (fun s -> let now = Int64.of_float @@ Unix.time () *. 1000. in
+                        input_ds#push { x = now; y = (float_of_int s.bitrate) /. 1000000.};
+                        output_ds#push { x = now; y = (float_of_int s.asi_bitrate) /. 1000000. };
+                        chart#update None)
+              e_status |> ignore;
+  chart
+
+let charts s_state e_status =
+  new Box.t ~widgets:[ (new Box.t
+                            ~vertical:false
+                            ~widgets:[(fec_chart s_state e_status)#widget
+                                     ; (fec_bar_chart s_state e_status)#widget] ())#widget
+                     ; (bitrate_chart s_state e_status)#widget ] ()
+
 let nw_settings_block s_state (cfg:Board_types.config) =
   let help_text : Textfield.Help_text.helptext = { validation=true;persistent=false;text=None } in
-  let ip        = new Textfield.t ~input_type:Text ~help_text ~label:"IP адрес" () in
-  let mask      = new Textfield.t ~input_type:Text ~help_text ~label:"Маска подсети" () in
-  let gw        = new Textfield.t ~input_type:Text ~help_text ~label:"Шлюз" () in
+  let ip        = new Textfield.t ~input_type:IPV4 ~help_text ~label:"IP адрес" () in
+  let mask      = new Textfield.t ~input_type:IPV4 ~help_text ~label:"Маска подсети" () in
+  let gw        = new Textfield.t ~input_type:IPV4 ~help_text ~label:"Шлюз" () in
   let dhcp      = new Switch.t ~input_id:"dhcp" () in
   let settings  = new Box.t
                       ~vertical:true
@@ -96,7 +206,7 @@ let ip_settings_block s_state (cfg:Board_types.config) =
   let fec       = new Switch.t ~input_id:"fec" () in
   let mcast_en  = new Switch.t ~input_id:"mcast_en" () in
   let port      = new Textfield.t ~help_text ~label:"UDP порт" ~input_type:(Integer (Some (0,65535))) () in
-  let multicast = new Textfield.t ~help_text ~label:"Multicast адрес" ~input_type:Text () in
+  let multicast = new Textfield.t ~help_text ~label:"Multicast адрес" ~input_type:MulticastV4 () in
   let widgets   = [ Widget.coerce @@ new Form_field.t ~label:"Включить приём TSoIP" ~align_end:true ~input:en ()
                   ; Widget.coerce @@ new Form_field.t ~label:"Включить FEC" ~align_end:true ~input:fec ()
                   ; Widget.coerce @@ new Form_field.t ~label:"Включить Multicast" ~align_end:true ~input:mcast_en ()
@@ -133,6 +243,25 @@ let ip_settings_block s_state (cfg:Board_types.config) =
       ~sections:[ `Media media ]
       ()
 
+let qos () =
+  let items = [ `Item (new Select.Pure.Item.t ~text:"ASI" ())
+              ; `Item (new Select.Pure.Item.t ~text:"SPI" ())
+              ] in
+  let select = new Select.Pure.t ~items () in
+  Dom_events.listen select#select_element
+                    Dom_events.Typ.change
+                    (fun _ _ -> let open Board_qos_niit_js in
+                                let open Board_qos_niit_js.Board_types in
+                                (match select#get_selected_index with
+                                 | Some 0 -> Requests.post_mode 2 { input = ASI
+                                                                  ; t2mi  = None } |> ignore;
+                                 | Some 1 -> Requests.post_mode 2 { input = SPI
+                                                                  ; t2mi  = None } |> ignore;
+                                 | _   -> ());
+                                false)
+  |> ignore;
+  select
+
 let load () =
   let open Lwt_result.Infix in
   Requests.get_config 4
@@ -156,7 +285,11 @@ let load () =
          let settings_grid = new Layout_grid.t ~cells:[ new Layout_grid.Cell.t ~widgets:[ nw_card ] ()
                                                       ; new Layout_grid.Cell.t ~widgets:[ ip_card ] ()
                                                       ] () in
+         let charts_grid = charts s_state e_status in
+         charts_grid#style##.maxWidth := Js.string "700px";
+         Dom.appendChild container (qos ())#root;
          Dom.appendChild container settings_grid#root;
          Dom.appendChild container status_grid#root;
+         Dom.appendChild container charts_grid#root;
          Lwt_result.return ()))
   |> ignore

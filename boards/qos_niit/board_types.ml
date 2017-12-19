@@ -10,20 +10,16 @@ type info =
 
 (* Board mode *)
 
-type input =
-   | SPI
-   | ASI [@@deriving yojson]
-
-type t2mi_mode =
-  { enabled   : bool
-  ; pid       : int
-  ; stream_id : Common.Stream.id
-  } [@@deriving yojson]
-
 type mode =
   { input : input
   ; t2mi  : t2mi_mode option
-  } [@@deriving yojson]
+  }
+and t2mi_mode =
+  { enabled   : bool
+  ; pid       : int
+  ; stream_id : Common.Stream.id
+  }
+and input = SPI | ASI [@@deriving yojson]
 
 type jitter_mode =
   { stream_id : Common.Stream.id
@@ -201,6 +197,8 @@ type t2mi_packet = BB                       of bb
                  | FEF_composite            of t2mi_packet_common
                  | FEF_sub_part             of t2mi_packet_common
                  | Unknown                  of t2mi_packet_common [@@deriving yojson]
+
+type t2mi_seq = t2mi_packet list [@@deriving yojson]
 
 (* Jitter *)
 

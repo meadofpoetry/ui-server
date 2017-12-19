@@ -231,7 +231,7 @@ type _ numeric =
   | Float   : float numeric
 
 type _ time =
-  | Unix : Int32.t time
+  | Unix : Int64.t time
 
 module Cartesian = struct
 
@@ -257,6 +257,13 @@ module Cartesian = struct
       method id         : Js.js_string Js.t Js.prop
       method gridLines  : Grid_line.t_js Js.t Js.prop
       method scaleLabel : Scale_label.t_js Js.t Js.prop
+
+      (* FIXME specific to bar chart only, make as functor? *)
+      method barPercentage      : float Js.prop
+      method categoryPercentage : float Js.prop
+      method barThickness       : int Js.optdef_prop
+      method maxBarThickness    : int Js.optdef_prop
+      method stacked            : bool Js.t Js.optdef_prop
     end
 
   let position_to_string = function
@@ -321,6 +328,22 @@ module Cartesian = struct
     method grid_lines  = grid_lines
     method scale_label = scale_label
 
+    (* FIXME specific for bar chart only !!! *)
+    method set_bar_percentage x = obj##.barPercentage := x
+    method get_bar_percentage   = obj##.barPercentage
+
+    method set_category_percentage x = obj##.categoryPercentage := x
+    method get_category_percentage   = obj##.categoryPercentage
+
+    method set_bar_thickness x = obj##.barThickness := x
+    method get_bar_thickness   = Js.Optdef.to_option obj##.barThickness
+
+    method set_max_bar_thickness x = obj##.maxBarThickness := x
+    method get_max_bar_thickness   = Js.Optdef.to_option obj##.maxBarThickness
+
+    method set_stacked x = obj##.stacked := Js.bool x
+    method get_stacked   = CCOpt.map Js.to_bool @@ Js.Optdef.to_option obj##.stacked
+
     method! replace x = super#replace x;
                         grid_lines#replace obj##.gridLines;
                         scale_label#replace obj##.scaleLabel
@@ -331,7 +354,10 @@ module Cartesian = struct
       self#set_offset false;
       obj##.id := Js.string id;
       obj##.gridLines  := grid_lines#get_obj;
-      obj##.scaleLabel := scale_label#get_obj
+      obj##.scaleLabel := scale_label#get_obj;
+      (* FIXME specific for bar chart only !!! *)
+      self#set_bar_percentage 0.9;
+      self#set_category_percentage 0.8
   end
 
   module Category = struct
@@ -563,13 +589,12 @@ module Cartesian = struct
           method year        : Js.js_string Js.t Js.prop
         end
 
-      class type ['a] t_js =
+      class type t_js =
         object
           method displayFormats : display_formats_js Js.t Js.prop
           method isoWeekday     : bool Js.t Js.prop
-          method max            : 'a Js.opt Js.prop
-          method min            : 'a Js.opt Js.prop
-          (* method parser_        : unit Js.t Js.optdef_prop *)
+          method max            : Js.number Js.t Js.opt Js.prop
+          method min            : Js.number Js.t Js.opt Js.prop
           method round          : bool_or_string Js.t Js.prop
           method tooltipFormat  : Js.js_string Js.t Js.opt Js.prop
           method unit           : bool_or_string Js.t Js.prop
@@ -608,21 +633,22 @@ module Cartesian = struct
         method get_year   = Js.to_string obj##.year
 
         initializer
-          self#set_millisecond "h:mm:ss.SSS a";
-          self#set_second "h:mm:ss a";
-          self#set_minute "h:mm a";
-          self#set_hour "hA";
-          self#set_day "MMM D";
+          self#set_millisecond "HH:mm:ss.SSS";
+          self#set_second "HH:mm:ss";
+          self#set_minute "HH:mm";
+          self#set_hour "HH:mm";
+          self#set_day "DD.MM";
           self#set_week "ll";
-          self#set_month "MMM YYYY";
+          self#set_month "MM.YYYY";
           self#set_quarter "[Q]Q - YYYY";
           self#set_year "YYYY"
       end
 
       type bool_or_time = Bool of bool | Time_unit of time_unit
 
-      class ['a] t () = object(self)
-        inherit ['a t_js] base_option ()
+      class ['a] t ~(value_to_js_number:'a -> Js.number Js.t)
+                 ~(value_of_js_number:Js.number Js.t -> 'a) () = object(self)
+        inherit [t_js] base_option ()
         val display_formats = new display_formats ()
 
         method display_formats = display_formats
@@ -630,11 +656,11 @@ module Cartesian = struct
         method set_iso_weekday x = obj##.isoWeekday := Js.bool x
         method get_iso_weekday   = Js.to_bool obj##.isoWeekday
 
-        method set_max (x:'a) = obj##.max := Js.some x (* FIXME time type *)
-        method get_max : 'a option = Js.Opt.to_option obj##.max
+        method set_max (x:'a) = obj##.max := Js.some (value_to_js_number x)
+        method get_max : 'a option = CCOpt.map value_of_js_number @@ Js.Opt.to_option obj##.max
 
-        method set_min (x:'a) = obj##.min := Js.some x
-        method get_min : 'a option = Js.Opt.to_option obj##.min
+        method set_min (x:'a) = obj##.min := Js.some (value_to_js_number x)
+        method get_min : 'a option = CCOpt.map value_of_js_number @@ Js.Opt.to_option obj##.min
 
         method set_round : bool_or_time -> unit = function
           | Bool x      -> obj##.round := Js.Unsafe.coerce @@ Js.bool x
@@ -662,6 +688,7 @@ module Cartesian = struct
         method get_min_unit   = time_unit_of_string_exn @@ Js.to_string obj##.minUnit
 
         initializer
+          obj##.displayFormats := display_formats#get_obj;
           self#set_iso_weekday false;
           self#set_round @@ Bool false;
           self#set_unit @@ Bool false;
@@ -691,13 +718,15 @@ module Cartesian = struct
         method distribution : Js.js_string Js.t Js.prop
         method bounds       : Js.js_string Js.t Js.prop
         method ticks        : Tick.t_js Js.t Js.prop
-        method time         : 'a Time.t_js Js.t Js.prop
+        method time         : Time.t_js Js.t Js.prop
       end
 
-    class ['a] t ~id ~position () = object
-      inherit ['a t_js] cartesian ~typ:`Logarithmic ~id ~position () as super
+    class ['a] t ~id ~position
+               ~(value_to_js_number:'a -> Js.number Js.t)
+               ~(value_of_js_number:Js.number Js.t -> 'a) () = object
+      inherit ['a t_js] cartesian ~typ:`Time ~id ~position () as super
       val ticks = new Tick.t ()
-      val time  = new Time.t ()
+      val time  = new Time.t ~value_to_js_number ~value_of_js_number ()
 
       method ticks = ticks
       method time  = time
@@ -718,17 +747,71 @@ module Cartesian = struct
   end
 
   type (_,_) axis =
-    | Linear      : (string * position * 'a numeric)  -> ('a,'a Linear.t) axis
-    | Logarithmic : (string * position * 'a numeric)  -> ('a,'a Logarithmic.t) axis
-    | Category    : (string * position * string list) -> (string,Category.t) axis
-    | Time        : (string * position * 'a time)     -> ('a,'a Time.t) axis
+    | Linear      : (string * position * 'a numeric * 'a option) -> ('a,'a Linear.t) axis
+    | Logarithmic : (string * position * 'a numeric * 'a option) -> ('a,'a Logarithmic.t) axis
+    | Category    : (string * position * string list)            -> (string,Category.t) axis
+    | Time        : (string * position * 'a time * 'a option)    -> ('a,'a Time.t) axis
+
+  let point_to_string (type a b) (t:(a,b) axis) (x:a) : string =
+    match t with
+    | Linear (_,_,Integer,_)      -> string_of_int x
+    | Linear (_,_,Float,_)        -> string_of_float x
+    | Logarithmic (_,_,Integer,_) -> string_of_int x
+    | Logarithmic (_,_,Float,_)   -> string_of_float x
+    | Time (_,_,Unix,_)           -> Int64.to_string x
+    | Category _                  -> x
+
+  let get_axis_cmp_fn (type a b) (t:(a,b) axis) : (a -> a -> int) =
+    match t with
+    | Linear (_,_,Integer,_)      -> compare
+    | Linear (_,_,Float,_)        -> compare
+    | Logarithmic (_,_,Integer,_) -> compare
+    | Logarithmic (_,_,Float,_)   -> compare
+    | Time (_,_,Unix,_)           -> Int64.compare
+    | Category _                  -> (fun _ _ -> 0)
+
+  let get_axis_new_min (type a b) (t:(a,b) axis) (max:a) (delta:a) : a =
+    match t with
+    | Linear (_,_,Integer,_)      -> max - delta
+    | Linear (_,_,Float,_)        -> max -. delta
+    | Logarithmic (_,_,Integer,_) -> max - delta
+    | Logarithmic (_,_,Float,_)   -> max -. delta
+    | Time (_,_,Unix,_)           -> Int64.sub max delta
+    | Category _                  -> ""
+
+  let set_axis_min_max (type a b) (t:(a,b) axis) (axis:b) (min:a) (max:a): unit =
+    match t with
+    | Linear _          -> axis#ticks#set_max max; axis#ticks#set_min min
+    | Logarithmic _     -> axis#ticks#set_max max; axis#ticks#set_min min
+    | Time (_,_,Unix,_) -> axis#time#set_max max;  axis#time#set_min min
+    | Category _        -> axis#ticks#set_max max; axis#ticks#set_min min
+
+  let get_axis_max (type a b) (t:(a,b) axis) (data:a list) : a option =
+    let f_numeric x = CCList.fold_left (fun acc x -> match acc with
+                                                     | None   -> Some x
+                                                     | Some a -> if x > a then Some x else Some a) None x in
+    match t with
+    | Linear _          -> f_numeric data
+    | Logarithmic _     -> f_numeric data
+    | Time (_,_,Unix,_) -> f_numeric data
+    | Category _        -> None
+
+  let get_axis_delta (type a b) (t:(a,b) axis) : a option =
+    match t with
+    | Linear (_,_,_,d)      -> d
+    | Logarithmic (_,_,_,d) -> d
+    | Time (_,_,_,d)        -> d
+    | Category _            -> None
 
   let create (type a b) (axis:(a,b) axis) : b =
     match axis with
-    | Linear (id,position,_)        -> new Linear.t ~id ~position ()
-    | Logarithmic (id,position,_)   -> new Logarithmic.t ~id ~position ()
+    | Linear (id,position,_,_)      -> new Linear.t ~id ~position ()
+    | Logarithmic (id,position,_,_) -> new Logarithmic.t ~id ~position ()
     | Category (id,position,labels) -> new Category.t ~id ~position ~labels ()
-    | Time (id,position,_)          -> new Time.t ~id ~position ()
+    | Time (id,position,Unix,_)     -> new Time.t ~id ~position
+                                           ~value_to_js_number:(Int64.to_float %> Js.number_of_float)
+                                           ~value_of_js_number:(Js.float_of_number %> Int64.of_float)
+                                           ()
 
   class type t_js =
     object

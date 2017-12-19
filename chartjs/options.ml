@@ -31,11 +31,12 @@ class type t_js =
     method title                       : Title.t_js Js.t Js.prop
     method tooltips                    : Tooltip.t_js Js.t Js.prop
     method elements                    : Elements.t_js Js.t Js.prop
-    method scales                      : Axes.Cartesian.t_js Js.t Js.prop
   end
 
-class t () = object(self)
-  inherit [t_js] base_option () as super
+class ['a] t () = object(self)
+  constraint 'a = #t_js
+
+  inherit ['a] base_option () as super
 
   val hover     = new Hover.t ()
   val animation = new Animation.t ()
