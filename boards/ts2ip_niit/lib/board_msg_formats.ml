@@ -43,15 +43,15 @@
 [%%cstruct
  type req_settings_packers =
    { cmd : uint16_t
-   ; rfu : uint16 [@len 3]
+   ; rfu : uint16_t [@len 3]
    } [@@little_endian]]
 
 [%%cstruct
  type status =
-   { rfu_1     : uint16_t
-   ; phy       : uint16_t
-   ; rfu_2     : uint16_t
-   ; byterates : uint32_t [@len 30]
+   { sub_cmd : uint16_t
+   ; phy     : uint16_t
+   ; rfu     : uint32_t
+   ; data    : uint32_t [@len 30]
    } [@@little_endian]]
 
 [@@@ocaml.warning "+32"]

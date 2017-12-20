@@ -39,6 +39,13 @@ module SM = struct
     let period = to_period 5 step_duration in
 
     let wakeup_timeout (_,t) = t.pred `Timeout |> ignore in
+    let events_push info = function
+      | `Status x -> let status = (* match info.packers_num,x.data with
+                        * | Some n,General g -> { x with data = General (CCList.take n g) }
+                        * | None, General g  -> { x with data = General [] }
+                        * | _                -> x *) x
+                     in
+                     push_events.status status in
 
     let rec first_step () =
       Await_queue.iter !msgs wakeup_timeout;
@@ -51,27 +58,25 @@ module SM = struct
     and step_detect p acc recvd =
       let _,rsps,acc = deserialize (Meta_board.concat_acc acc recvd) in
       match CCList.find_map (is_response Get_board_info) rsps with
-      | Some _ -> push_state `Init;
+      | Some r -> push_state `Init;
                   let config = storage#get in
                   send_instant sender (Set_factory_mode config.factory_mode) |> ignore;
                   send_instant sender (Set_board_mode config.board_mode) |> ignore;
-                  `Continue (step_normal_idle period None)
+                  `Continue (step_normal_idle r period None)
       | None -> if p < 0 then first_step ()
                 else `Continue (step_detect (pred p) acc)
 
-    and step_normal_idle p acc recvd =
+    and step_normal_idle info p acc recvd =
       let events,rsps,acc = deserialize (Meta_board.concat_acc acc recvd) in
       if CCOpt.is_none @@ CCList.find_map (is_response Get_board_info) rsps
       then (Queue.send !imsgs () |> ignore;
             imsgs := Queue.next !imsgs;
             match events with
             | [] -> if p < 0 then first_step ()
-                    else `Continue (step_normal_idle (pred p) acc)
+                    else `Continue (step_normal_idle info (pred p) acc)
             | l  -> push_state `Fine;
-                    List.iter (function
-                               | `Status s -> push_events.status s)
-                              l;
-                    `Continue (step_normal_idle period acc))
+                    List.iter (events_push info) l;
+                    `Continue (step_normal_idle info period acc))
       else first_step ()
 
     in first_step ()

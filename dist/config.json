@@ -13,71 +13,90 @@
         "db_path": "./db"
     },
     "topology": [
-        [
-            "Board",
-            {
-                "typ":"TS",
-                "control": 2,
-                "model": "qos",
-                "manufacturer": "niitv",
-                "connection":["No_response"],
-                "version": 1,
-                "ports": [ {"port": 0, "listening": true, "child":
-                            [ "Board",
+        [ "Board",
+          {
+              "typ":"TS2IP",
+              "control":0,
+              "model":"ts2ip",
+              "manufacturer":"niitv",
+              "connection":["No_response"],
+              "version":1,
+              "ports": [ {"port":0, "listening":true, "child":
+                          [
+                              "Board",
                               {
-                                  "typ":"IP2TS",
-                                  "control": 4,
-                                  "model": "dtm-3200",
-                                  "manufacturer": "dektec",
+                                  "typ":"TS",
+                                  "control": 2,
+                                  "model": "qos",
+                                  "manufacturer": "niitv",
+                                  "connection":["No_response"],
+                                  "version": 1,
+                                  "ports": [ {"port": 0, "listening": true, "child":
+                                              [ "Board",
+                                                {
+                                                    "typ":"IP2TS",
+                                                    "control": 4,
+                                                    "model": "dtm-3200",
+                                                    "manufacturer": "dektec",
+                                                    "connection":["No_response"],
+                                                    "version": 1,
+                                                    "ports": [
+                                                        {
+                                                            "port": 0,
+                                                            "listening": true,
+                                                            "child": [ "Input", { "input":"TSOIP", "id": 1} ]
+                                                        }
+                                                    ]
+                                                }
+                                              ]
+                                             },
+                                             {"port": 1,
+                                              "listening": false,
+                                              "child": [ "Input", { "input": "ASI", "id": 1}]}]
+                              }
+                          ]
+                         },
+                         {"port":1,"listening":true,"child":
+                          [
+                              "Board",
+                              {
+                                  "typ":"TS",
+                                  "control": 3,
+                                  "model": "qos",
+                                  "manufacturer": "niitv",
                                   "connection":["No_response"],
                                   "version": 1,
                                   "ports": [
                                       {
                                           "port": 0,
-                                          "listening": true,
-                                          "child": [ "Input", { "input":"TSOIP", "id": 1} ]
-                                      }
+                                          "listening": true, "child":
+                                          [ "Board",
+                                            {
+                                                "typ":"DVB",
+                                                "control": 5,
+                                                "model": "rf",
+                                                "manufacturer": "niitv",
+                                                "connection":["No_response"],
+                                                "version": 1,
+                                                "ports": [
+                                                    {
+                                                        "port": 0,
+                                                        "listening": true,
+                                                        "child": [ "Input", { "input":"RF", "id": 1} ]
+                                                    }
+                                                ]
+                                            }
+                                          ]
+                                      },
+                                      {"port": 1,
+                                       "listening": false,
+                                       "child": [ "Input", { "input": "ASI", "id": 2}]}
                                   ]
                               }
-                            ]
-                           },
-                           {"port": 1, "listening": false, "child": [ "Input", { "input": "ASI", "id": 1}]}]
-            }
-        ],
-        [
-            "Board",
-            {
-                "typ":"TS",
-                "control": 1,
-                "model": "qos",
-                "manufacturer": "niitv",
-                "connection":["No_response"],
-                "version": 1,
-                "ports": [
-                    {
-                        "port": 0,
-                        "listening": true, "child":
-                        [ "Board",
-                          {
-                              "typ":"DVB",
-                              "control": 5,
-                              "model": "rf",
-                              "manufacturer": "niitv",
-                              "connection":["No_response"],
-                              "version": 1,
-                              "ports": [
-                                  {
-                                      "port": 0,
-                                      "listening": true,
-                                      "child": [ "Input", { "input":"RF", "id": 1} ]
-                                  }
-                              ]
-                          }
-                        ]
-                    },
-                    {"port": 1, "listening": false, "child": [ "Input", { "input": "ASI", "id": 2}]}
-                ]
-            }
+                          ]
+                         }
+                       ]
+          }
         ]
     ],
     "server": {

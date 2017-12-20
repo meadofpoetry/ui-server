@@ -32,18 +32,18 @@ type factory_settings =
   { mac : Macaddr.t
   } [@@deriving yojson]
 
+type packer_settings =
+  { stream_id : int32 (* FIXME *)
+  ; port      : int
+  ; dst_ip    : Ipaddr.V4.t
+  ; dst_port  : int
+  ; enabled   : bool
+  } [@@deriving yojson]
 type settings =
   { ip      : Ipaddr.V4.t
   ; mask    : Ipaddr.V4.t
   ; gateway : Ipaddr.V4.t
   ; packers : packer_settings list
-  }
-and packer_settings =
-  { stream_id : unit (* FIXME *)
-  ; port_id   : int
-  ; dst_ip    : Ipaddr.V4.t
-  ; dst_port  : int
-  ; enabled   : bool
   } [@@deriving yojson]
 
 type speed = Speed10
@@ -55,8 +55,10 @@ type status =
   { phy_ok  : bool
   ; speed   : speed
   ; link_ok : bool
-  ; packers : packer_status list
+  ; data    : status_data
   }
+and status_data = General of packer_status list
+                | Unknown of string
 and packer_status =
   { bitrate  : int option
   ; enabled  : bool
@@ -73,6 +75,25 @@ let config_default =
   { board_mode = { ip = Ipaddr.V4.make 192 168 111 200
                  ; mask = Ipaddr.V4.make 255 255 255 0
                  ; gateway = Ipaddr.V4.make 192 168 111 1
-                 ; packers = [] }
-  ; factory_mode = { mac = Macaddr.of_string_exn "00:50:c2:88:ac:ab"}
+                 ; packers = [ { stream_id = 0l
+                               ; port      = 1
+                               ; dst_ip    = Ipaddr.V4.make 224 1 2 1
+                               ; dst_port  = 1234
+                               ; enabled   = true }
+                             ; { stream_id = 0l
+                               ; port      = 0
+                               ; dst_ip    = Ipaddr.V4.make 224 1 2 2
+                               ; dst_port  = 1234
+                               ; enabled   = false }
+                             ; { stream_id = 0l
+                               ; port      = 0
+                               ; dst_ip    = Ipaddr.V4.make 224 1 2 3
+                               ; dst_port  = 1234
+                               ; enabled   = false }
+                             ; { stream_id = 0l
+                               ; port      = 0
+                               ; dst_ip    = Ipaddr.V4.make 224 1 2 4
+                               ; dst_port  = 1234
+                               ; enabled   = false }] }
+  ; factory_mode = { mac = Macaddr.of_string_exn "00:50:c2:88:50:ab"}
   }
