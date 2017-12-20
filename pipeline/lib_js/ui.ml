@@ -118,7 +118,7 @@ module Wm = struct
                              (name,
                               { position = position
                               ; widgets  =
-                                  [ (name, { widg with position = position }) ] } : (string * Wm.container) ))
+                                  [ (name, { widg with position = position; layer = 2  }) ] } : (string * Wm.container) ))
                            wm.widgets lst
             in post { wm with layout }; Js._false);
       place

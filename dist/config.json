@@ -1,7 +1,7 @@
 {
     "pipeline": {
         "bin_name": "ats3-backend",
-        "bin_path": "/home/freyr/Documents/soft/dev/ats-analyzer/build",
+        "bin_path": "/home/ntkcontrol/Documents/soft/ats-analyzer/build",
         "sources": [
             "udp://224.1.2.2:1234"
         ],
