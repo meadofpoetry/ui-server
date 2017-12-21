@@ -79,8 +79,6 @@ class input_widget ~(input_elt:Dom_html.inputElement Js.t) elt () =
 
     method input_element  = input_elt
 
-    (* method disable_signal s = React.S.map (fun d -> if d then self#disable else self#enable) s |> ignore *)
-
   end
 
 class radio_or_cb_widget ~input_elt elt () =

@@ -41,12 +41,12 @@ let ip_of_yojson = function
 type addr = { ip   : ip
             ; port : int
             } [@@deriving yojson, show]
-                   
+
 type stream =
   { source      : src
   ; id          : [`Ip of addr | `Ts of id]
   ; description : string option
-  } 
+  }
 and src = Port   of int
         | Stream of id
         [@@deriving yojson, show]

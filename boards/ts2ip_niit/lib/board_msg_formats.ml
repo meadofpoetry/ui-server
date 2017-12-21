@@ -23,7 +23,7 @@
 [%%cstruct
  type packer_settings =
    { self_port : uint16_t
-   ; dst_mac   : uint16_t [@len 3]
+   ; dst_mac   : uint8_t [@len 6]
    ; dst_ip    : uint32_t
    ; dst_port  : uint16_t
    ; stream_id : uint32_t

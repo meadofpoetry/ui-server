@@ -62,6 +62,7 @@ and status_data = General of packer_status list
 and packer_status =
   { bitrate  : int option
   ; enabled  : bool
+  ; has_data : bool
   ; overflow : bool
   } [@@deriving yojson]
 

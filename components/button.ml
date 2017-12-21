@@ -18,8 +18,8 @@ class t ?typ ?style ?icon ?dense ?compact ?ripple ~label () =
 
     method button_element : Dom_html.buttonElement Js.t = elt
 
-    method get_disabled     = Js.to_bool self#button_element##.disabled
-    method set_disabled x   = self#button_element##.disabled := Js.bool x
+    method get_disabled   = Js.to_bool self#button_element##.disabled
+    method set_disabled x = self#button_element##.disabled := Js.bool x
 
     method e_click = e_click
 

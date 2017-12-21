@@ -28,11 +28,8 @@ let create (b:topo_board) convert_streams send db base step =
   let events,api,step  = create_sm send storage spush step in
   let handlers         = Board_api.handlers b.control api events in
   let s_streams        = React.S.const [] in
-  let _e               = React.E.map (fun x -> print_endline @@ Yojson.Safe.pretty_to_string @@ status_to_yojson x)
-                                     events.status in
   let sms              = convert_streams s_streams b in
   let state           = (object
-                           method _e = _e
                          end) in
   { handlers       = handlers
   ; control        = b.control

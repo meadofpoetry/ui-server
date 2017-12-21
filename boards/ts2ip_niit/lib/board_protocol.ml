@@ -40,10 +40,10 @@ module SM = struct
 
     let wakeup_timeout (_,t) = t.pred `Timeout |> ignore in
     let events_push info = function
-      | `Status x -> let status = (* match info.packers_num,x.data with
-                        * | Some n,General g -> { x with data = General (CCList.take n g) }
-                        * | None, General g  -> { x with data = General [] }
-                        * | _                -> x *) x
+      | `Status x -> let status = match info.packers_num,x.data with
+                       | Some n,General g -> { x with data = General (CCList.take n g) }
+                       | None, General g  -> { x with data = General [] }
+                       | _                -> x
                      in
                      push_events.status status in
 

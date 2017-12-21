@@ -69,75 +69,46 @@ module Set_board_mode : (Instant_request with type req := settings) = struct
   let msg_code  = 0x0088
   let self_port = 2028
 
-  (*
-   * let blit_packer i settings offset body =
-   *   let dstoff = i * sizeof_packer_settings + offset in
-   *   let buf    = Cbuffer.create sizeof_packer_settings in
-   *   let mode   = settings.port lsl 1 |> fun x -> if settings.enabled then x lor 1 else x in
-   *   let ()     = Ipaddr.V4.to_int32 settings.dst_ip |> set_packer_settings_dst_ip buf in
-   *   let ()     = settings.dst_port                  |> set_packer_settings_dst_port buf in
-   *   let ()     = Ipaddr.V4.multicast_to_mac settings.dst_ip |> Macaddr.to_string
-   *                |> fun mac -> set_packer_settings_dst_mac mac 0 buf in
-   *   let ()     = set_packer_settings_self_port buf self_port in
-   *   let ()     = set_packer_settings_mode buf mode in
-   *   (\* let ()     = set_packer_settings_stream_id buf @@ Common.Stream.to_int32 settings.stream_id in *\)
-   *   Cbuffer.blit buf 0 body dstoff sizeof_packer_settings
-   * 
-   * let pack_main s p =
-   *   let body = Cbuffer.create (sizeof_req_settings_main + (4 * sizeof_packer_settings)) in
-   *   let ()   = set_req_settings_main_cmd body 0 in
-   *   let ()   = Ipaddr.V4.to_int32 s.ip      |> set_req_settings_main_ip body in
-   *   let ()   = Ipaddr.V4.to_int32 s.mask    |> set_req_settings_main_mask body in
-   *   let ()   = Ipaddr.V4.to_int32 s.gateway |> set_req_settings_main_gateway body in
-   *   let ()   = List.iteri (fun i x -> blit_packer i x sizeof_req_settings_main body) p in
-   *   to_msg ~msg_code:0x0088 ~body ()
-   * 
-   * let to_cbuffer (settings:settings) =
-   *   let ppm         = 6 in (\* packers per message *\)
-   *   let max_packers = ppm * 3 in
-   *   let req_num     = List.length settings.packers - 4
-   *                     |> (fun x -> if x > max_packers then max_packers else if x < 0 then 0 else x)
-   *                     |> (fun x -> ( x / ppm ) + (if ( x mod ppm ) > 0 then 1 else 0))
-   *                     |> (fun x -> x + 1) in
-   *   let rec pack = (fun acc req_id l ->
-   *       (match req_id with
-   *        | 0 -> acc
-   *        | x when x = req_num -> let (_,tl) = CCList.take_drop 4 l in
-   *                                let msg     = pack_main settings @@ CCList.take 4 l in
-   *                                pack (msg::acc) (req_id - 1) tl
-   *        | _ -> let body    = Cbuffer.create (sizeof_req_settings_packers + (ppm * sizeof_packer_settings)) in
-   *               let (hd,tl) = CCList.take_drop ppm l in
-   *               let ()      = set_req_settings_packers_cmd body req_id in
-   *               let ()      = List.iteri (fun i x -> blit_packer i x sizeof_req_settings_packers body) hd in
-   *               let msg     = to_msg ~msg_code:0x0088 ~body () in
-   *               pack (msg::acc) (req_id - 1) tl)) in
-   *   Cbuffer.concat @@ List.rev (pack [] req_num settings.packers) **)
+  let packer_settings_to_cbuffer (s:packer_settings) =
+    let buf  = Cbuffer.create sizeof_packer_settings in
+    let mode = (s.port lsl 1) |> (fun x -> if s.enabled then x lor 1 else x) in
+    let ip   = Ipaddr.V4.to_bytes s.dst_ip |> CCString.rev |> Ipaddr.V4.of_bytes_exn in
+    let ()   = Ipaddr.V4.to_int32 ip |> set_packer_settings_dst_ip buf in
+    let ()   = s.dst_port |> set_packer_settings_dst_port buf in
+    let ()   = Ipaddr.V4.multicast_to_mac s.dst_ip |> Macaddr.to_bytes
+               |> fun mac -> set_packer_settings_dst_mac mac 0 buf in
+    let ()   = set_packer_settings_self_port buf self_port in
+    let ()   = set_packer_settings_mode buf mode in
+    buf
+
+  let main_to_cbuffer ip mask gw (pkrs:packer_settings list) =
+    let buf  = Cbuffer.create sizeof_req_settings_main in
+    let ()   = set_req_settings_main_cmd buf 0 in
+    let ()   = Ipaddr.V4.to_int32 ip   |> set_req_settings_main_ip buf in
+    let ()   = Ipaddr.V4.to_int32 mask |> set_req_settings_main_mask buf in
+    let ()   = Ipaddr.V4.to_int32 gw   |> set_req_settings_main_gateway buf in
+    let pkrs = CCList.map packer_settings_to_cbuffer pkrs in
+    let len  = sizeof_req_settings_main + (4 * sizeof_packer_settings) in
+    Cbuffer.concat @@ buf :: pkrs
+    |> (fun b -> Cbuffer.append b @@ Cbuffer.create (len - Cbuffer.len b))
+    |> (fun body -> to_msg ~msg_code ~body ())
+
+  let rest_to_cbuffer i (pkrs:packer_settings list) =
+    let buf  = Cbuffer.create sizeof_req_settings_packers in
+    let ()   = set_req_settings_packers_cmd buf i in
+    let pkrs = CCList.map packer_settings_to_cbuffer pkrs in
+    let len  = sizeof_req_settings_packers + (6 * sizeof_packer_settings) in
+    Cbuffer.concat @@ buf :: pkrs
+    |> (fun b -> Cbuffer.append b @@ Cbuffer.create (len - Cbuffer.len b))
+    |> (fun body -> to_msg ~msg_code ~body ())
 
   let to_cbuffer (s:settings) =
-    let body = Cbuffer.create sizeof_req_settings_main in
-    let ()   = set_req_settings_main_cmd body 0 in
-    let ()   = Ipaddr.V4.to_int32 s.ip      |> set_req_settings_main_ip body in
-    let ()   = Ipaddr.V4.to_int32 s.mask    |> set_req_settings_main_mask body in
-    let ()   = Ipaddr.V4.to_int32 s.gateway |> set_req_settings_main_gateway body in
-    let pkrs =
-      CCList.map (fun (ps:packer_settings) ->
-          let buf  = Cbuffer.create sizeof_packer_settings in
-          let mode = (ps.port lsl 1) |> (fun x -> if ps.enabled then x lor 1 else x) in
-          let ip   = Ipaddr.V4.to_bytes ps.dst_ip |> CCString.rev |> Ipaddr.V4.of_bytes_exn in
-          let ()   = Ipaddr.V4.to_int32 ip |> set_packer_settings_dst_ip buf in
-          let ()   = ps.dst_port |> set_packer_settings_dst_port buf in
-          let ()   = Ipaddr.V4.multicast_to_mac ps.dst_ip |> Macaddr.to_bytes
-                     |> fun mac -> set_packer_settings_dst_mac mac 0 buf in
-          let ()   = set_packer_settings_self_port buf self_port in
-          let ()   = set_packer_settings_mode buf mode in
-          buf) @@ CCList.take 4 s.packers in
-    let body = Cbuffer.concat @@ body :: pkrs in
-    let len  = sizeof_req_settings_main + (4 * sizeof_packer_settings) in
-    let body = Cbuffer.append body @@ Cbuffer.create (len - Cbuffer.len body) in
-    to_msg ~msg_code ~body ()
-    |> fun x -> print_endline @@ string_of_int @@ Cbuffer.len x;
-                print_endline @@ Cbuffer.hexdump_to_string x;
-                x
+    let fst_pkrs,rest_pkrs =
+      let hd,tl = CCList.take_drop 4 s.packers in
+      hd,CCList.take 3 @@ CCList.sublists_of_len ~last:CCOpt.return 6 tl in
+    let main = main_to_cbuffer s.ip s.mask s.gateway fst_pkrs in
+    let rest = CCList.mapi (fun i x -> rest_to_cbuffer (succ i) x) rest_pkrs in
+    Cbuffer.concat (main :: rest)
 
 end
 
@@ -154,29 +125,20 @@ module Status : (Event with type msg := status) = struct
   let msg_code = 0x0F40
 
   let parse_packers data =
-    Cbuffer.split_size 4 data
-    |> List.filter (fun x -> Cbuffer.len x > 0)
-    |> List.map (fun x -> let b        = Cbuffer.LE.get_uint32 x 0 in
-                          { bitrate  = (if (Int32.logand b 0x10000000l) = 0l then None
-                                        else Some (((Int32.to_int b) land 0x0FFFFFFF) * 8))
-                          ; enabled  = (Int32.logand b 0x40000000l) <> 0l
-                          ; overflow = (Int32.logand b 0x80000000l) <> 0l
-                })
-    (* let iter data =
-     *   Cbuffer.iter (fun _ -> Some 4)
-     *                (fun b -> let bs = Bitstring.bitstring_of_string @@ Cbuffer.to_string b in
-     *                          print_endline @@ Cbuffer.hexdump_to_string b;
-     *                          match%bitstring bs with
-     *                          | {| overflow : 1
-     *                             ; enabled  : 1
-     *                             ; rfu      : 1
-     *                             ; br_ready : 1
-     *                             ; bitrate  : 27 : map (fun x -> if br_ready then Some (x * 8) else None)
-     *                             |} -> { overflow; enabled; bitrate })
-     *                data
-     * in
-     * print_endline "";
-     * List.rev @@ Cbuffer.fold (fun acc el -> el :: acc) (iter data) [] *)
+    let iter data =
+      Cbuffer.iter (fun _ -> Some 4)
+                   (fun b -> let bs = Bitstring.bitstring_of_string @@ CCString.rev @@ Cbuffer.to_string b in
+                             match%bitstring bs with
+                             | {| overflow : 1
+                                ; enabled  : 1
+                                ; has_data : 1
+                                ; br_en    : 1
+                                ; bitrate  : 28 : map (fun x -> if br_en then Some (x * 8) else None)
+                                |} -> { overflow; enabled; has_data; bitrate })
+                   data
+    in
+    List.rev @@ Cbuffer.fold (fun acc el -> el :: acc) (iter data) []
+
   let of_cbuffer msg =
     let data = get_status_data msg in
     let phy  = get_status_phy msg in
