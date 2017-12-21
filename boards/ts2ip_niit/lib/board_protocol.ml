@@ -13,8 +13,7 @@ let to_period x step_duration = x * int_of_float (1. /. step_duration)
 
 module SM = struct
 
-  type events = { status : status React.event }
-
+  type events      = { status : status React.event }
   type push_events = { status : status -> unit }
 
   let send_msg (type a) sender (msg : a request) : unit Lwt.t =
@@ -35,7 +34,7 @@ module SM = struct
     msgs := Queue.append !msgs { send; pred; timeout = 0; exn = None };
     t
 
-  let step msgs imsgs sender (storage : config storage) step_duration push_state push_events =
+  let step msgs imsgs sender (storage : config storage) step_duration push_state push_events push_info =
     let period = to_period 5 step_duration in
 
     let wakeup_timeout (_,t) = t.pred `Timeout |> ignore in
@@ -59,6 +58,7 @@ module SM = struct
       let _,rsps,acc = deserialize (Meta_board.concat_acc acc recvd) in
       match CCList.find_map (is_response Get_board_info) rsps with
       | Some r -> push_state `Init;
+                  push_info @@ Some r;
                   let config = storage#get in
                   send_instant sender (Set_factory_mode config.factory_mode) |> ignore;
                   send_instant sender (Set_board_mode config.board_mode) |> ignore;
@@ -81,15 +81,37 @@ module SM = struct
 
     in first_step ()
 
+  let to_settings_req s_info config (streams:Common.Stream.t list) =
+    match CCOpt.(React.S.value s_info >>= (fun x -> x.packers_num)) with
+    | Some n -> let len = CCList.length streams in
+                if len > n
+                then Error (Printf.sprintf "Got more packers then available (%d)" len)
+                else (let packers = CCList.filter_map (fun (stream:Common.Stream.t) ->
+                                        match stream.id with
+                                        | `Ts id -> Some { stream_id = Common.Stream.id_to_int32 id
+                                                         ; port      = 0                        (* FIXME *)
+                                                         ; dst_ip    = Ipaddr.V4.make 224 1 2 2 (* FIXME *)
+                                                         ; dst_port  = 1234                     (* FIXME *)
+                                                         ; enabled   = true
+                                                         }
+                                        | `Ip ip -> None) streams in
+                      Ok { config.board_mode with packers })
+    | None -> Error "Undetermined number of available packers"
+
   let create sender (storage : config storage) push_state step_duration =
+    let s_info,push_info = React.S.create None in
     let msgs  = ref (Await_queue.create []) in
     let imsgs = ref (Queue.create []) in
     let status,status_push = React.E.create () in
     let (events : events) = { status = status } in
     let push_events = { status = status_push } in
-    let api = { set_mode = (fun m -> enqueue_instant imsgs sender (Set_board_mode m))} in
+    let api = { set_mode = (fun (x:Common.Stream.t list) ->
+                  match to_settings_req s_info storage#get x with
+                  | Ok x    -> enqueue_instant imsgs sender (Set_board_mode x) >>= (fun _ -> Lwt.return_ok ())
+                  | Error e -> Lwt.return_error e)
+              } in
     events,
     api,
-    (step msgs imsgs sender storage step_duration push_state push_events)
+    (step msgs imsgs sender storage step_duration push_state push_events push_info)
 
 end

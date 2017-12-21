@@ -330,13 +330,13 @@ let textfield_demo () =
   let css_form = new Form_field.t ~label:"css textfield label: " ~input:css ~align_end:true () in
   (* Full-featured js textbox *)
   let js       = new Textfield.t
-                   ~input_type:Widget.Text 
-                   ~label:"js textfield label"
-                   ~help_text:{ validation = true
-                              ; persistent = false
-                              ; text       = Some "This field must not be empty"
-                   }
-                   () in
+                     ~input_type:Widget.Text 
+                     ~label:"js textfield label"
+                     ~help_text:{ validation = true
+                                ; persistent = false
+                                ; text       = Some "This field must not be empty"
+                                }
+                     () in
   js#set_required true;
   (* Dense js textbox with *)
   let dense    = new Textfield.t
@@ -350,19 +350,21 @@ let textfield_demo () =
   dense#set_dense true;
   (* Textboxes with icons *)
   let lead_icon  = new Textfield.t
-                     ~input_type:Widget.Text
-                     ~label:"textfield label"
-                     ~icon:{ icon      = "event"
-                           ; clickable = false
-                           ; pos       = `Leading }
-                     () in
+                       ~input_type:Widget.Text
+                       ~label:"textfield label"
+                       ~icon:{ icon      = "event"
+                             ; clickable = false
+                             ; pos       = `Leading
+                             }
+                       () in
   let trail_icon = new Textfield.t
-                     ~input_type:Widget.Text
-                     ~label:"textfield label"
-                     ~icon:{ icon      = "delete"
-                           ; clickable = false
-                           ; pos       = `Trailing }
-                     () in
+                       ~input_type:Widget.Text
+                       ~label:"textfield label"
+                       ~icon:{ icon      = "delete"
+                             ; clickable = false
+                             ; pos       = `Trailing
+                             }
+                       () in
   (* Textareas *)
   let css_textarea      = new Textarea.Pure.t ~placeholder:"Enter something" ~rows:8 ~cols:40 () in
   let textarea          = new Textarea.t ~label:"textarea label" ~rows:8 ~cols:40 () in
@@ -555,7 +557,7 @@ let time_chart_demo () =
                       else x#set_border_color @@ Color.rgb_of_name (Color.Amber C500);
                       x#set_cubic_interpolation_mode Monotone;
                       x#set_fill Disabled) config#datasets;
-  let chart  = new Chartjs.Line.t ~config () in
+  let chart = new Chartjs.Line.t ~config () in
   let e_update,e_update_push = React.E.create () in
   React.E.map (fun () -> List.iter (fun ds -> ds#push { x = Unix.time () *. 1000. |> Int64.of_float
                                                       ; y = Random.int range }) chart#config#datasets;
@@ -608,4 +610,4 @@ let () = Dom_html.addEventListener Dom_html.document
                                    Dom_events.Typ.domContentLoaded
                                    (Dom_html.handler onload)
                                    Js._false
-|> ignore
+         |> ignore

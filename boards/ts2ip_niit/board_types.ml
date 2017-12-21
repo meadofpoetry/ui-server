@@ -32,18 +32,19 @@ type factory_settings =
   { mac : Macaddr.t
   } [@@deriving yojson]
 
-type packer_settings =
+type packer_setting =
   { stream_id : int32 (* FIXME *)
   ; port      : int
   ; dst_ip    : Ipaddr.V4.t
   ; dst_port  : int
   ; enabled   : bool
   } [@@deriving yojson]
+type packer_settings = packer_setting list [@@deriving yojson]
 type settings =
   { ip      : Ipaddr.V4.t
   ; mask    : Ipaddr.V4.t
   ; gateway : Ipaddr.V4.t
-  ; packers : packer_settings list
+  ; packers : packer_settings
   } [@@deriving yojson]
 
 type speed = Speed10

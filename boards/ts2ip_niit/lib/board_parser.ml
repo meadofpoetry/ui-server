@@ -4,7 +4,7 @@ open Board_msg_formats
 type _ request = Get_board_info : info request
 type _ instant_request = Set_board_mode   : settings         -> unit instant_request
                        | Set_factory_mode : factory_settings -> unit instant_request
-type api = { set_mode : settings -> unit Lwt.t }
+type api = { set_mode : Common.Stream.t list -> (unit,string) Lwt_result.t }
 
 let prefix = 0x55AA
 
@@ -69,7 +69,7 @@ module Set_board_mode : (Instant_request with type req := settings) = struct
   let msg_code  = 0x0088
   let self_port = 2028
 
-  let packer_settings_to_cbuffer (s:packer_settings) =
+  let packer_settings_to_cbuffer (s:packer_setting) =
     let buf  = Cbuffer.create sizeof_packer_settings in
     let mode = (s.port lsl 1) |> (fun x -> if s.enabled then x lor 1 else x) in
     let ip   = Ipaddr.V4.to_bytes s.dst_ip |> CCString.rev |> Ipaddr.V4.of_bytes_exn in
@@ -81,7 +81,7 @@ module Set_board_mode : (Instant_request with type req := settings) = struct
     let ()   = set_packer_settings_mode buf mode in
     buf
 
-  let main_to_cbuffer ip mask gw (pkrs:packer_settings list) =
+  let main_to_cbuffer ip mask gw (pkrs:packer_settings) =
     let buf  = Cbuffer.create sizeof_req_settings_main in
     let ()   = set_req_settings_main_cmd buf 0 in
     let ()   = Ipaddr.V4.to_int32 ip   |> set_req_settings_main_ip buf in
@@ -93,7 +93,7 @@ module Set_board_mode : (Instant_request with type req := settings) = struct
     |> (fun b -> Cbuffer.append b @@ Cbuffer.create (len - Cbuffer.len b))
     |> (fun body -> to_msg ~msg_code ~body ())
 
-  let rest_to_cbuffer i (pkrs:packer_settings list) =
+  let rest_to_cbuffer i (pkrs:packer_settings) =
     let buf  = Cbuffer.create sizeof_req_settings_packers in
     let ()   = set_req_settings_packers_cmd buf i in
     let pkrs = CCList.map packer_settings_to_cbuffer pkrs in
@@ -174,7 +174,7 @@ let string_of_err = function
   | Unknown_err s           -> s
 
 
-                             let check_prefix buf =
+let check_prefix buf =
   let prefix' = get_header_prefix buf in
   if prefix <> prefix then Error (Bad_prefix prefix') else Ok buf
 
@@ -218,7 +218,7 @@ let deserialize buf =
       (match code with
        | x when x = Get_board_info.rsp_code -> `R (`Board_info body)
        | x when x = Status.msg_code         -> `E (`Status (Status.of_cbuffer body))
-       | _      -> `N)
+       | _ -> `N)
     with _ -> `N in
   let rec f events responses b =
     if Cbuffer.len b >= sizeof_header

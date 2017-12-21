@@ -27,10 +27,10 @@ let create (b:topo_board) convert_streams send db base step =
   let s_state, spush   = React.S.create `No_response in
   let events,api,step  = create_sm send storage spush step in
   let handlers         = Board_api.handlers b.control api events in
-  let s_streams        = React.S.const [] in
+  let s_streams        = React.S.const [] in (* FIXME here should be ip streams that are transformed from user-selected ts streams*)
   let sms              = convert_streams s_streams b in
-  let state           = (object
-                         end) in
+  let state            = (object
+                          end) in
   { handlers       = handlers
   ; control        = b.control
   ; streams_signal = sms

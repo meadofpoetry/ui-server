@@ -59,3 +59,5 @@ type t =
 and source = Input  of Topology.topo_input
            | Parent of t
            [@@deriving yojson, show]
+
+type t_list = t list [@@deriving yojson]

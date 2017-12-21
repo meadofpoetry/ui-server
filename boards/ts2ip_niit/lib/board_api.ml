@@ -10,14 +10,18 @@ module Api_handler = Api.Handler.Make(Common.User)
 
 let set_mode (api : api) body () =
   yojson_of_body body >>= fun mode ->
-  match settings_of_yojson mode with
+  match Common.Stream.t_list_of_yojson mode with
   | Error e -> respond_error e ()
-  | Ok mode -> api.set_mode mode >>= respond_ok
+  | Ok mode -> api.set_mode mode
+               >>= function
+               | Error e -> respond_error e ()
+               | Ok ()   -> respond_ok ()
 
 let handle api _ _ meth args _ _ body =
   let open Api.Redirect in
   match meth, args with
-  | `POST, ["mode"]         -> set_mode api body ()
+  | `POST, ["mode"]    -> set_mode api body ()
+  | `GET,  ["streams"] -> respond_ok ()
   | _ -> not_found ()
 
 let handlers id api _ =
