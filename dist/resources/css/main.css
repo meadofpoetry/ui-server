@@ -50,6 +50,10 @@ main.main-with-sidebar {
     font-size: 24px;
 }
 
+.material-icons {
+    user-select: none;
+}
+
 /* Color */
 
 /* on primary */
@@ -216,10 +220,24 @@ main.main-with-sidebar {
 
 .mdc-tree .mdc-tree__item .mdc-tree__item__nested-list {
     padding-right: 0;
+
+    overflow: hidden;
+    max-height: 1800px;
+    -webkit-transition: max-height 0.2s; 
+    -moz-transition: max-height 0.2s; 
+    -ms-transition: max-height 0.2s; 
+    -o-transition: max-height 0.2s; 
+    transition: max-height 0.2s;
 }
 
 .mdc-tree .mdc-tree__item .mdc-tree__item__nested-list--hidden {
-    display:none;
+    /* display:none; */
+
+    max-height: 0;
+}
+
+.mdc-permanent-drawer .mdc-list .mdc-tree__item__nested-list .mdc-list-item {
+    padding-left: 30px;
 }
 
 /* Mosaic */

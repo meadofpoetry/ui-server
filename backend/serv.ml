@@ -20,9 +20,16 @@ module Settings = struct
   let domain = "server"
 end
 
+module Template = struct
+  let topo = []
+  let path = ""
+end
+module Rsp = Responses.Make(Template)
+
 module Conf = Storage.Config.Make(Settings)
-  
-let get_handler ~settings
+
+let get_handler ~topo
+                ~settings
                 ~auth_filter
                 ~routes
   =
@@ -38,22 +45,28 @@ let get_handler ~settings
                    |> String.split_on_char '/'
                    |> List.filter (not % String.equal "")
     in
+    let (module T : Responses.Template) = (module struct
+                                             let topo = topo
+                                             let path = settings.path
+                                           end) in
+    let module R  = Responses.Make(T) in
     let meth      = Request.meth req in
     let redir     = auth_filter headers in
     let sock_data = (req, (fst conn)) in
     match meth, uri_list with
-    | `GET, []                    -> redir (fun _ -> Responses.home settings.path)
-    | `GET, ["configuration"]     -> redir (fun _ -> Responses.configuration settings.path)
-    | `GET, ["demo"]              -> redir (fun _ -> Responses.mdc_demo settings.path)
-    | `GET, ["settings"; "users"] -> redir (fun _ -> Responses.Settings.users settings.path)
-    | _, "api" :: path -> Api_handler.handle routes redir meth path sock_data headers body
-    | `GET, _          -> redir (fun _ -> resource settings.path uri)
-    | _                -> not_found ()
+    | `GET, []                  -> redir (fun _ -> R.home ())
+    | `GET, ["hardware"]        -> redir (fun _ -> R.hardware ())
+    | `GET, ["pipeline"]        -> redir (fun _ -> R.pipeline ())
+    | `GET, "input"::name::[id] -> respond_string ("selected input " ^ name ^ " " ^ id) ()
+    | `GET, ["demo"]            -> redir (fun _ -> R.demo ())
+    | _, "api" :: path          -> Api_handler.handle routes redir meth path sock_data headers body
+    | `GET, _                   -> redir (fun _ -> resource settings.path uri)
+    | _                         -> not_found ()
   in
   handler
-                 
-let create config auth_filter routes =
+
+let create topo config auth_filter routes =
   let settings = Conf.get config in
-  let handler  = get_handler ~settings ~auth_filter ~routes in 
+  let handler  = get_handler ~topo ~settings ~auth_filter ~routes in
   Cohttp_lwt_unix.Server.create ~mode:(`TCP (`Port settings.port))
                                 (Cohttp_lwt_unix.Server.make ~callback:handler ())

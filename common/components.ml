@@ -783,6 +783,8 @@ module Make
 
       let create_nested_list = List_.create ~classes:[nested_list_class]
 
+      let create_divider = List_.Item.create_divider
+
       let create ?id ?style ?(classes=[]) ?attrs ?nested_list ~item () =
         Html.div ~a:([ a_class (_class :: classes) ]
                      |> add_common_attrs ?id ?style ?attrs)

@@ -44,6 +44,7 @@ let janus_pipe debug =
   >>= (fun plugin -> Janus_streaming.send plugin (Watch { id = 1; secret = None }) |> ignore ; Lwt.return ())
 
 let load () =
+  print_endline "load";
   let () = (Lwt.catch
               (fun () -> (janus_pipe (`All false)))
               (function
@@ -52,7 +53,7 @@ let load () =
   
   let doc = Dom_html.document in
 
-  let container = Dom_html.getElementById "pipeline_container" in
+  let container = Dom_html.getElementById "arbitrary-content" in
   
   let text    = Dom_html.createP doc in
   text##.textContent := Js.some @@ Js.string "Pipeline widget";

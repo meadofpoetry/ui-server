@@ -25,13 +25,22 @@ let typ_to_yojson = function
   | DVB    -> `String "DVB"
   | TS     -> `String "TS"
   | IP2TS  -> `String "IP2TS"
-  | TS2IP  -> `String "TS2IP"    
-                   
+  | TS2IP  -> `String "TS2IP"
+
+let input_to_string = function
+  | RF    -> "RF"
+  | TSOIP -> "TSOIP"
+  | ASI   -> "ASI"
+
+let input_of_string = function
+  | "RF"    -> Ok RF
+  | "TSOIP" -> Ok TSOIP
+  | "ASI"   -> Ok ASI
+  | s       -> Error ("input_of_string: bad input string: " ^ s)
+
 let input_of_yojson = function
-  | `String "RF"    -> Ok RF
-  | `String "TSOIP" -> Ok TSOIP
-  | `String "ASI"   -> Ok ASI
-  | _ as e -> Error ("output_of_yojson: unknown value " ^ (Yojson.Safe.to_string e))
+  | `String s -> input_of_string s
+  | _ as e    -> Error ("output_of_yojson: unknown value " ^ (Yojson.Safe.to_string e))
 
 let input_to_yojson = function
   | RF    -> `String "RF"
