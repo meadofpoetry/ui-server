@@ -90,7 +90,7 @@ module Make (M : Template) = struct
                 ; pre_scripts  = [ "/js/moment.min.js"; "/js/Chart.min.js" ]
                 ; post_scripts = [ "/js/demo.js" ]
                 ; stylesheets  = []
-                ; content      = [""]
+                ; content      = []
                 } in
     respond_string (template ~tmpl:"empty.html" M.path props) ()
 

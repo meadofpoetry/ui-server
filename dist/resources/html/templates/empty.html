@@ -6,13 +6,11 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="">
         <title>{{title}}</title>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+        <link rel="stylesheet" href="/css/icon.css">
         <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500">
         <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto+Mono">
         <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans">
-        <link
-            rel="stylesheet"
-            href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css">
+        <link rel="stylesheet" href="/css/material-components-web.min.css">
         <link rel="stylesheet" href="/css/main.css" type="text/css">
         <style>
          @font-face {
@@ -21,9 +19,9 @@
          }
         </style>
         <!-- Additional scripts -->
-        {{#scripts}}
+        {{#pre_scripts}}
         <script src={{script}} type="text/javascript"></script>
-        {{/scripts}}
+        {{/pre_scripts}}
         <!-- Additional stylesheets -->
         {{#stylesheets}}
         <link rel="stylesheet" href={{stylesheet}} type="text/css">
@@ -33,7 +31,11 @@
         {{#content}}
         {{{element}}}
         {{/content}}
-        <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+        <script src="/js/material-components-web.min.js"></script>
+        <!-- Additional scripts -->
+        {{#post_scripts}}
+        <script src={{script}} type="text/javascript"></script>
+        {{/post_scripts}}
         <script>
          function rdy () { window.mdc.autoInit(); };
          document.addEventListener('DOMContentLoaded', rdy, false);

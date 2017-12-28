@@ -95,14 +95,14 @@
           </main>
       </div>
       <script src="/js/material-components-web.min.js"></script>
+      <!-- Additional scripts -->
+      {{#post_scripts}}
+      <script src={{script}} type="text/javascript"></script>
+      {{/post_scripts}}
       <script>
        function rdy () { window.mdc.autoInit(); };
        document.addEventListener('DOMContentLoaded', rdy, false);
       </script>
       <script src="/js/sidebar_nav.js" type="text/javascript"></script>
-      <!-- Additional scripts -->
-      {{#post_scripts}}
-      <script src={{script}} type="text/javascript"></script>
-      {{/post_scripts}}
   </body>
 </html>
