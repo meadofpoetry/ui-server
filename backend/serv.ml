@@ -57,7 +57,9 @@ let get_handler ~topo
     | `GET, []                  -> redir (fun _ -> R.home ())
     | `GET, ["hardware"]        -> redir (fun _ -> R.hardware ())
     | `GET, ["pipeline"]        -> redir (fun _ -> R.pipeline ())
-    | `GET, "input"::name::[id] -> respond_string ("selected input " ^ name ^ " " ^ id) ()
+    | `GET, "input"::name::[id] -> (match Common.Topology.input_of_string name, CCInt.of_string id with
+                                    | Ok input,Some id -> redir (fun _ -> R.input {input;id} ())
+                                    | _ -> not_found ())
     | `GET, ["demo"]            -> redir (fun _ -> R.demo ())
     | _, "api" :: path          -> Api_handler.handle routes redir meth path sock_data headers body
     | `GET, _                   -> redir (fun _ -> resource settings.path uri)
