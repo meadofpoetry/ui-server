@@ -102,7 +102,8 @@ module Make (M : Template) = struct
     match path with
     | Some path -> let boards = CCList.map (fun x -> string_of_int x.control) path |> CCString.concat "," in
                    let props  = { title        = None
-                                ; pre_scripts  = [ Raw (Printf.sprintf "var boards = [%s]" boards) ]
+                                ; pre_scripts  = [ Raw (Printf.sprintf "var boards = [%s]" boards)
+                                                 ; Src "/js/input.js" ]
                                 ; post_scripts = []
                                 ; stylesheets  = []
                                 ; content      = CCList.map (fun b -> b.model) path

@@ -4,6 +4,10 @@ home:
 	$(BUILD) build frontend/home.bc.js
 	cp _build/default/frontend/home.bc.js dist/resources/js/home.js
 
+home:
+	$(BUILD) build frontend/input.bc.js
+	cp _build/default/frontend/input.bc.js dist/resources/js/input.js
+
 pipeline:
 	$(BUILD) build frontend/pipeline.bc.js
 	cp _build/default/frontend/pipeline.bc.js dist/resources/js/pipeline.js
