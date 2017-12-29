@@ -4,7 +4,7 @@ home:
 	$(BUILD) build frontend/home.bc.js
 	cp _build/default/frontend/home.bc.js dist/resources/js/home.js
 
-home:
+input:
 	$(BUILD) build frontend/input.bc.js
 	cp _build/default/frontend/input.bc.js dist/resources/js/input.js
 
@@ -28,7 +28,7 @@ demo:
 	$(BUILD) build frontend/demo.bc.js
 	cp _build/default/frontend/demo.bc.js dist/resources/js/demo.js
 
-frontend: home pipeline hardware dvb demo ip2ts
+frontend: home pipeline hardware dvb demo ip2ts input
 
 backend:
 	$(BUILD) build backend/backend.exe
