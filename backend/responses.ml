@@ -24,8 +24,9 @@ module Make (M : Template) = struct
 
   let elt_to_string x = Tyxml.Html.(Format.asprintf "%a" (pp_elt ()) x)
 
-  let get_input_name x inputs =
-    let open Common.Topology in
+  let inputs = Hardware.topo_inputs M.topo
+
+  let get_input_name x =
     let single = CCList.find_pred (fun input -> input.input = x.input && input.id <> x.id)
                                   inputs
                  |> CCOpt.is_none in
@@ -40,9 +41,7 @@ module Make (M : Template) = struct
     let id   = string_of_int x.id in
     Filename.concat name id
 
-  let input_props =
-    let inputs = Hardware.topo_inputs M.topo in
-    CCList.map (fun x -> get_input_href x,get_input_name x inputs) inputs
+  let input_props = CCList.map (fun x -> get_input_href x,get_input_name x) inputs
 
   let topo_paths = Hardware.topo_paths M.topo
 
@@ -101,12 +100,11 @@ module Make (M : Template) = struct
     let path  = CCList.find_map (fun (i,p) -> if i = topo_input then Some p else None) topo_paths in
     match path with
     | Some path -> let boards = CCList.map (fun x -> string_of_int x.control) path |> CCString.concat "," in
-                   let props  = { title        = None
-                                ; pre_scripts  = [ Raw (Printf.sprintf "var boards = [%s]" boards)
-                                                 ; Src "/js/input.js" ]
-                                ; post_scripts = []
+                   let props  = { title        = Some ("Вход " ^ (get_input_name topo_input))
+                                ; pre_scripts  = [ Raw (Printf.sprintf "var boards = [%s]" boards) ]
+                                ; post_scripts = [ Src "/js/input.js" ]
                                 ; stylesheets  = []
-                                ; content      = CCList.map (fun b -> b.model) path
+                                ; content      = []
                                 } in
                    respond_string (template M.path props) ()
     | None      -> respond_error "This input does not exist" ()

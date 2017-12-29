@@ -1,5 +1,12 @@
 module Tab = struct
 
+  type tab =
+    { active : bool
+    ; href   : string option
+    ; text   : string option
+    ; icon   : string option
+    }
+
   type tab_content = [ `Text of string | `Icon of (string * string option) | `Text_and_icon of (string * string)]
 
   class type mdc =
@@ -62,7 +69,7 @@ module Tab_bar = struct
 
   class type mdc =
     object
-      method tabs           : Tab.mdc Js.t Js.js_array Js.readonly_prop
+      method tabs           : Tab.mdc Js.t Js.js_array Js.t Js.readonly_prop
       method activeTab      : Tab.mdc Js.t Js.prop
       method activeTabIndex : int Js.prop
       method layout         : unit -> unit Js.meth
@@ -138,6 +145,11 @@ module Tab_bar = struct
       method add_tab (tab : Tab.t)  = tabs <- tabs @ [tab];
                                       Dom.appendChild elt tab#root;
                                       mdc##layout ()
+
+      initializer
+        match Js.Optdef.to_option @@ Js.array_get mdc##.tabs 0 with
+        | Some tab -> mdc##.activeTab := tab
+        | None     -> ()
 
 
     end
