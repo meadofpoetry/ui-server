@@ -283,26 +283,49 @@ let linear_progress_demo () =
   demo_section "Linear progress" [ btn_grid#widget; linear_progress#widget ]
 
 let tabs_demo () =
-  let icon_bar  = [ new Tabs.Tab.t ~icon:"pets" ()
-                  ; new Tabs.Tab.t ~icon:"favorite" ()
-                  ; new Tabs.Tab.t ~icon:"grade" ()
-                  ; new Tabs.Tab.t ~icon:"room" () ]
-                  |> (fun tabs -> new Tabs.Tab_bar.t ~tabs ()) in
-  let text_bar  = List.map (fun x -> new Tabs.Tab.t ~text:("Tab " ^ (string_of_int x)) ())
+  let open Components.Tabs in
+  let idx       = new Textfield.t ~input_type:(Integer None) ~label:"index" () in
+  let add       = new Button.t ~label:"add" () in
+  let remove    = new Button.t ~label:"remove" () in
+  let icon_bar  = [ { content = `Icon ("pets", None)     ; href = Some "#1"; disabled = false }
+                  ; { content = `Icon ("favorite", None) ; href = Some "#2"; disabled = false }
+                  ; { content = `Icon ("grade", None)    ; href = Some "#3"; disabled = false }
+                  ; { content = `Icon ("room", None)     ; href = Some "#4"; disabled = false }
+                  ] |> (fun tabs -> new Tabs.Tab_bar.t ~tabs ()) in
+  let text_bar  = List.map (fun x -> { content  = `Text ("Tab " ^ (string_of_int x))
+                                     ; href     = None
+                                     ; disabled = if x = 2 then true else false })
                            (CCList.range 0 3)
                   |> (fun tabs -> new Tabs.Tab_bar.t ~tabs ()) in
-  let both_bar  = [ new Tabs.Tab.t ~text:"Tab 0" ~icon:"pets" ()
-                  ; new Tabs.Tab.t ~text:"Tab 1" ~icon:"favorite" ()
-                  ; new Tabs.Tab.t ~text:"Tab 2" ~icon:"grade" ()
-                  ; new Tabs.Tab.t ~text:"Tab 3" ~icon:"room" () ]
-                  |> (fun tabs -> new Tabs.Tab_bar.t ~tabs ()) in
-  let scrl_bar  = List.map (fun x -> new Tabs.Tab.t ~text:("Tab " ^ (string_of_int x)) ())
+  let both_bar  = [ { content = `Text_and_icon ("Tab 0", "pets");     href = None; disabled = false }
+                  ; { content = `Text_and_icon ("Tab 1", "favorite"); href = None; disabled = false }
+                  ; { content = `Text_and_icon ("Tab 2", "grade");    href = None; disabled = true }
+                  ; { content = `Text_and_icon ("Tab 3", "room");     href = None; disabled = false }
+                  ] |> (fun tabs -> new Tabs.Tab_bar.t ~tabs ()) in
+  let scrl_bar  = List.map (fun x -> { content = `Text ("Tab " ^ (string_of_int x)); href = None; disabled = false })
                            (CCList.range 0 15)
                   |> (fun tabs -> new Tabs.Scroller.t ~tabs ()) in
-  demo_section "Tabs" [ subsection "With icon labels" icon_bar
-                      ; subsection "With text labels" text_bar
-                      ; subsection "With icon and text labels" both_bar
-                      ; subsection "With scroller" scrl_bar ]
+  React.E.map (fun () ->
+      let len  = CCList.length text_bar#tabs in
+      let name = Printf.sprintf "Tab %d" len in
+      match React.S.value idx#s_input with
+      | Some idx -> text_bar#insert_tab_at_index idx { content = `Text name; href = None; disabled = false }
+      | None     -> text_bar#append_tab { content = `Text name; href = None; disabled = false })
+              add#e_click
+  |> ignore;
+  React.E.map (fun () ->
+      match React.S.value idx#s_input with
+      | Some idx -> text_bar#remove_tab_at_index idx |> ignore
+      | None     -> ())
+              remove#e_click
+  |> ignore;
+  demo_section "Tabs" [ (subsection "With icon labels" icon_bar)#widget
+                      ; (subsection "With text labels" text_bar)#widget
+                      ; idx#widget
+                      ; add#widget
+                      ; remove#widget
+                      ; (subsection "With icon and text labels" both_bar)#widget
+                      ; (subsection "With scroller" scrl_bar)#widget ]
 
 let snackbar_demo () =
   let snackbar = new Snackbar.t

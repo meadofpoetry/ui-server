@@ -121,6 +121,15 @@ main.main-with-sidebar {
 .background--secondary-dark  { background-color: var(--mdc-theme-secondary-dark); }
 .background--background      { background-color: var(--mdc-theme-background); }
 
+.mdc-expand {
+    cursor: default;
+    transform: rotate(0deg);
+    transition: transform 150ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;
+}
+.mdc-expand--rotated {
+    transform: rotate(180deg);
+}
+
 /* MDC Form-field */
 .mdc-form-field { margin-bottom: 16px; }
 .mdc-form-field.mdc-form-field--align-end label { flex-grow: 1; }
@@ -208,6 +217,14 @@ main.main-with-sidebar {
     font-size: 15px;
 }
 
+/* MDC Tab bar */
+
+.mdc-tab[disabled=true] {
+    color: var(--mdc-theme-text-disabled-on-background);
+    pointer-events: none;
+    cursor: default;
+}
+
 /* MDC Tree */
 
 .mdc-tree {
@@ -215,7 +232,7 @@ main.main-with-sidebar {
 }
 
 .mdc-tree .mdc-tree__item {
-    
+    cursor: pointer;
 }
 
 .mdc-tree .mdc-tree__item .mdc-tree__item__nested-list {

@@ -1,65 +1,70 @@
+type tab =
+  { href     : string option
+  ; content  : content
+  ; disabled : bool
+  }
+and content = [ `Text of string | `Icon of string * (string option) | `Text_and_icon of string * string ]
+
 module Tab = struct
 
-  type tab =
-    { active : bool
-    ; href   : string option
-    ; text   : string option
-    ; icon   : string option
-    }
+  class t push props () =
 
-  type tab_content = [ `Text of string | `Icon of (string * string option) | `Text_and_icon of (string * string)]
-
-  class type mdc =
-    object
-      method computedWidth         : float Js.readonly_prop
-      method computedLeft          : float Js.readonly_prop
-      method isActive              : bool Js.t Js.prop
-      method preventDefaultOnClick : bool Js.t Js.prop
-    end
-
-  class type selected_event =
-    object
-      inherit Dom_html.event
-      method detail : < tab : mdc Js.t Js.readonly_prop > Js.t Js.readonly_prop
-    end
-
-  type events =
-    { selected : selected_event Js.t Dom_events.Typ.typ
-    }
-
-  let events =
-    { selected = Dom_events.Typ.make "MDCTab:selected"
-    }
-
-  class t ?href ?text ?icon () =
-
-    let content = begin match text,icon with
-                  | Some t, Some i -> `Text_and_icon (t,i)
-                  | Some t, None   -> `Text t
-                  | None,   Some i -> `Icon (i,None)
-                  | _              -> failwith "at least icon or text must be provided for a tab widget"
-                  end in
-
-    let elt = Markup.Tabs.Tab.create ?href ~content () |> Tyxml_js.To_dom.of_a in
+    let elt = Markup.Tabs.Tab.create ~content:props.content () |> Tyxml_js.To_dom.of_a in
 
     object(self)
 
       inherit Widget.widget elt ()
 
-      val mdc : mdc Js.t = Js.Unsafe.global##.mdc##.tabs##.MDCTab##attachTo elt
+      val mutable tab    = props
+      val mutable active = false
+      val mutable prevent_default_on_click = false
+      val mutable left  = 0
+      val mutable width = 0
 
       method anchor_element = elt
+
+      method get_disabled   = tab.disabled
+      method set_disabled x = tab <- { tab with disabled = x };
+                              let a = "disabled" in
+                              if x then self#set_attribute a "true" else self#remove_attribute a
 
       method get_href   = Js.to_string self#anchor_element##.href
       method set_href s = self#anchor_element##.href := Js.string s
 
-      method get_content : tab_content = content
+      method get_content : content = tab.content
 
-      method get_active   = Js.to_bool mdc##.isActive
-      method set_active x = mdc##.isActive := Js.bool x
+      method get_active   = active
+      method set_active x = active <- x;
+                            if x
+                            then (self#add_class Markup.Tabs.Tab.active_class;
+                                  push (Some self))
+                            else self#remove_class Markup.Tabs.Tab.active_class
 
-      method get_width = mdc##.computedWidth
-      method get_left  = mdc##.computedLeft
+      method get_width = width
+      method get_left  = left
+
+      method measure_self = width <- self#get_offset_width;
+                            left  <- self#get_offset_left
+
+      method get_prevent_default_on_click   = prevent_default_on_click
+      method set_prevent_default_on_click x = prevent_default_on_click <- x
+
+      initializer
+        Ripple.attach self |> ignore;
+        self#set_attribute "tabindex" "0";
+        self#set_disabled tab.disabled;
+        CCOpt.iter (fun x -> self#set_href x) props.href;
+        Dom_events.listen self#root Dom_events.Typ.click (fun _ _ ->
+                            self#set_active true;
+                            not prevent_default_on_click)
+        |> ignore;
+        Dom_events.listen self#root Dom_events.Typ.keydown (fun _ (ev:Dom_html.keyboardEvent Js.t) ->
+                            let key  = CCOpt.map Js.to_string @@ Js.Optdef.to_option ev##.key in
+                            (match key,ev##.keyCode with
+                             | Some "Enter", _ | _, 13 -> self#set_active true
+                             | _ -> ());
+                            true)
+        |> ignore
 
     end
 
@@ -67,56 +72,40 @@ end
 
 module Tab_bar = struct
 
-  class type mdc =
-    object
-      method tabs           : Tab.mdc Js.t Js.js_array Js.t Js.readonly_prop
-      method activeTab      : Tab.mdc Js.t Js.prop
-      method activeTabIndex : int Js.prop
-      method layout         : unit -> unit Js.meth
-    end
+  class t ~(tabs:tab list) () =
 
-  class type change_event =
-    object
-      inherit Dom_html.event
-      method detail : mdc Js.t Js.readonly_prop
-    end
-
-  type events =
-    { change : change_event Js.t Dom_events.Typ.typ
-    }
-
-  let events =
-    { change = Dom_events.Typ.make "MDCTabBar:change"
-    }
-
-  class t ~(tabs:Tab.t list) () =
-
-    let typ = List.map (fun x -> match x#get_content with
-                                 | `Text _          -> `Text
-                                 | `Icon _          -> `Icon
-                                 | `Text_and_icon _ -> `Text_and_icon) tabs
+    let s_active,s_active_push = React.S.create None in
+    let tabs      = CCList.map (fun x -> new Tab.t s_active_push x ()) tabs in
+    let indicator = new Widget.widget (Markup.Tabs.Tab_bar.Indicator.create () |> Tyxml_js.To_dom.of_span) () in
+    let typ_of_tab_content = function
+      | `Text _          -> `Text
+      | `Icon _          -> `Icon
+      | `Text_and_icon _ -> `Text_and_icon
+    in
+    let typ = CCList.map (fun x -> typ_of_tab_content x#get_content) tabs
               |> CCList.sort_uniq
               |> (function
                   | [x] -> x
                   | _   -> failwith "All tabs must be of the same type: text, icon or text with icon") in
-
-    let indicator = new Widget.widget (Markup.Tabs.Tab_bar.Indicator.create () |> Tyxml_js.To_dom.of_span) () in
-
     let elt = Markup.Tabs.Tab_bar.create ~typ
                                          ~indicator:(Widget.widget_to_markup indicator)
                                          ~tabs:(Widget.widgets_to_markup tabs) ()
               |> Tyxml_js.To_dom.of_nav in
+    let ()  = CCOpt.iter (fun x -> x#set_active true) (CCList.head_opt tabs) in
 
     object(self)
 
       inherit Widget.widget elt () as super
 
-      val mutable tabs = tabs
-      val mdc : mdc Js.t = Js.Unsafe.global##.mdc##.tabs##.MDCTabBar##attachTo elt
+      val mutable init         = false
+      val mutable tabs         = tabs
+      val mutable layout_frame = None
+      val mutable width        = 0
 
       method typ : [ `Text | `Icon | `Text_and_icon ] = typ
       method indicator_widget = indicator
       method tabs             = tabs
+      method s_active         = s_active
 
 
       method set_indicator_default = super#remove_class Markup.Tabs.Tab_bar.indicator_accent_class;
@@ -126,30 +115,95 @@ module Tab_bar = struct
       method set_indicator_accent  = super#remove_class Markup.Tabs.Tab_bar.indicator_primary_class;
                                      super#add_class Markup.Tabs.Tab_bar.indicator_accent_class
 
-      method get_active_tab_index   = mdc##.activeTabIndex
-      method set_active_tab_index x = mdc##.activeTabIndex := x
-      method get_active_tab         = CCList.get_at_idx self#get_active_tab_index tabs
-      method set_active_tab tab     = CCList.find_idx (fun x -> x == tab) tabs
-                                      |> (function
-                                          | Some (idx,_) -> self#set_active_tab_index idx
-                                          | None -> ())
+      method get_active_tab_index = match React.S.value s_active with
+        | Some tab -> CCList.find_idx (fun x -> x == tab) self#tabs
+                      |> (function Some (idx,_) -> Some idx | None -> None)
+        | None     -> None
+      method set_active_tab_index x = match CCList.get_at_idx x self#tabs with
+        | Some tab -> Ok (tab#set_active true)
+        | None     -> Error (Printf.sprintf "set_active_tab_index: tab with index %d not found" x)
+      method get_active_tab = React.S.value s_active
+      method set_active_tab tab = match CCList.find_idx (fun x -> x == tab) self#tabs with
+        | Some (_,tab) -> Ok (tab#set_active true)
+        | None         -> Error "set_active_tab: tab not found"
 
-      method get_tab_at_index i     = CCList.get_at_idx i tabs
+      method get_tab_at_index i = CCList.get_at_idx i self#tabs
 
-      (* FIXME implement normally *)
-      method remove_tab_at_index i  = (match self#get_tab_at_index i with
-                                       | Some tab -> tabs <- CCList.remove_at_idx i tabs;
-                                                     Dom.removeChild elt tab#root;
-                                                     mdc##layout ()
-                                       | None -> ())
-      method add_tab (tab : Tab.t)  = tabs <- tabs @ [tab];
-                                      Dom.appendChild elt tab#root;
-                                      mdc##layout ()
+      method append_tab (tab : tab) =
+        if typ_of_tab_content tab.content = self#typ
+        then (let t = new Tab.t s_active_push tab () in
+              tabs <- tabs @ [t];
+              Dom.appendChild self#root t#root;
+              self#layout;
+              Ok ())
+        else (Error "append_tab: tab content mismatch")
+
+      method insert_tab_at_index index (tab : tab) =
+        if typ_of_tab_content tab.content = self#typ
+        then (let t = new Tab.t s_active_push tab () in
+              tabs <- CCList.insert_at_idx index t tabs;
+              let tab_elts = self#root##.childNodes in
+              let item     = tab_elts##item index in
+              let _        = match Js.Opt.to_option item with
+                | Some _ -> self#root##insertBefore (t#root :> Dom.node Js.t) item
+                | None   -> self#root##appendChild  (t#root :> Dom.node Js.t)
+              in
+              self#layout;
+              Ok ())
+        else (Error "insert_tab_at_index: tab content mismatch")
+
+      method remove_tab_at_index i = match self#get_tab_at_index i with
+        | Some tab -> tabs <- CCList.remove_at_idx i tabs;
+                      Dom.removeChild self#root tab#root;
+                      if tab#get_active then s_active_push None;
+                      self#layout;
+                      Ok ()
+        | None     -> Error (Printf.sprintf "remove_tab_at_index: tab with index %d not found" i)
+
+      method private layout_internal = match self#get_active_tab with
+        | Some tab ->
+           let f () =
+             CCList.iter (fun x -> x#measure_self) self#tabs;
+             width <- self#get_offset_width;
+             let l = tab#get_left in
+             let w = match width with
+               | 0 -> 0.
+               | x -> (float_of_int tab#get_width) /. (float_of_int x)
+             in
+             let t = Printf.sprintf "translateX(%dpx) scale(%f,1)" l w in
+             if not init then (Js.Unsafe.coerce indicator#style)##.transition := Js.string "none";
+             indicator#style##.transform := Js.string t;
+             if not init then (indicator#get_offset_width |> ignore;
+                               (Js.Unsafe.coerce indicator#style)##.transition := Js.string "";
+                               indicator#style##.visibility := Js.string "visible";
+                               init <- true)
+           in
+           (match Js.Opt.to_option @@ self#root##.parentNode with
+            | None   -> let p_vis = self#style##.visibility in
+                        let p_pos = self#style##.position in
+                        self#style##.visibility := Js.string "hidden";
+                        self#style##.position   := Js.string "absolute";
+                        Dom.appendChild Dom_html.document##.body self#root;
+                        f ();
+                        Dom.removeChild Dom_html.document##.body self#root;
+                        self#style##.visibility := p_vis;
+                        self#style##.position   := p_pos
+            | Some _ -> f ())
+        | None -> (Js.Unsafe.coerce indicator#style)##.transition := Js.string "none";
+                  indicator#style##.visibility := Js.string "hidden";
+                  init <- false
+
+      method private layout =
+        CCOpt.iter (fun x -> Dom_html.window##cancelAnimationFrame x) layout_frame;
+        let f = fun _ -> self#layout_internal; layout_frame <- None in
+        layout_frame <- Some (Dom_html.window##requestAnimationFrame (Js.wrap_callback f))
 
       initializer
-        match Js.Optdef.to_option @@ Js.array_get mdc##.tabs 0 with
-        | Some tab -> mdc##.activeTab := tab
-        | None     -> ()
+        self#add_class (Markup.Tabs.Tab_bar._class ^ "-upgraded");
+        Dom_events.listen Dom_html.window Dom_events.Typ.resize (fun _ _ -> self#layout; false) |> ignore;
+        React.S.map (fun _   -> self#layout) s_active |> ignore;
+        React.E.map (fun tab -> CCOpt.iter (fun x -> x#set_active false) tab) (React.S.diff (fun _ x -> x) s_active)
+        |> ignore
 
 
     end
@@ -160,10 +214,10 @@ module Scroller = struct
 
   class type mdc =
     object
-      method tabBar : Tab_bar.mdc Js.t Js.readonly_prop
+      method tabBar : unit Js.t Js.readonly_prop
     end
 
-  class t ~(tabs:Tab.t list) () =
+  class t ~(tabs:tab list) () =
 
     let tab_bar = new Tab_bar.t ~tabs () in
     let elt = tab_bar#add_class Markup.Tabs.Scroller.scroll_frame_tabs_class;
