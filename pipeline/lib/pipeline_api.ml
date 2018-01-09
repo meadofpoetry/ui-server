@@ -34,7 +34,7 @@ let set body conv apply =
 
 let get_sock sock_data body conv event =
   let id = rand_int () in
-  Cohttp_lwt_body.drain_body body
+  Cohttp_lwt.Body.drain_body body
   >>= fun () ->
   Websocket_cohttp_lwt.upgrade_connection
     (fst sock_data)
@@ -49,7 +49,7 @@ let get_sock sock_data body conv event =
   in
   let sock_events = Lwt_react.E.map send event in
   Hashtbl.add socket_table id sock_events;
-  Lwt.return (resp, (body :> Cohttp_lwt_body.t))
+  Lwt.return (resp, (body :> Cohttp_lwt.Body.t))
 
 let set_structure api body () =
   Lwt_io.printf "set structure\n" |> ignore;
@@ -163,7 +163,7 @@ let handlers_not_implemented () =
   
     (*
 let test _ _ body =
-  Cohttp_lwt_body.to_string body >>= fun body ->
+  Cohttp_lwt.Body.to_string body >>= fun body ->
   let jss = String.split_on_char '=' body |> fun l -> List.nth l 1 in
   let js  = Uri.pct_decode jss |> Yojson.Safe.from_string in
   Lwt_io.printf "Got: %s\n" (Yojson.Safe.to_string js) >>= fun _ ->

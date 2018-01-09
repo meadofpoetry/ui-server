@@ -1,4 +1,3 @@
-open Msgpck
 open Containers
 
 let (%) = Fun.(%)
@@ -25,7 +24,9 @@ let rec msg_to_yojson : Msgpck.t -> Yojson.Safe.json = function
   | List  lst -> `List  (List.map msg_to_yojson lst)
   | Ext (i,s) -> `Tuple [(`Int i); (`String s)]
 
-let rec msg_of_yojson : Yojson.Safe.json -> Msgpck.t = function
+let rec msg_of_yojson : Yojson.Safe.json -> Msgpck.t = fun j ->
+  let open Msgpck in
+  match j with
   | `Null        -> Nil
   | `Bool x      -> Bool x
   | `Int x       -> Int x
@@ -40,7 +41,7 @@ let rec msg_of_yojson : Yojson.Safe.json -> Msgpck.t = function
   | `Variant (k, Some v) ->   List [String k; (msg_of_yojson v)]
   | `Variant (k, None)   ->   List [String k]
 
-let of_string s = Yojson.Safe.from_string s
+let of_string (s : string) = Yojson.Safe.from_string s
 
 let to_string js = Yojson.Safe.to_string js
                             
@@ -48,12 +49,12 @@ let of_msg_string msg =
   let (_,m) = Msgpck.String.read msg
   in m |> msg_to_yojson
 
-let to_msg_string  = Msgpck.String.to_string % msg_of_yojson 
+let to_msg_string j = Bytes.to_string @@ Msgpck.String.to_string @@ msg_of_yojson j
 
 type converter = { of_string : string -> Yojson.Safe.json
                  ; to_string : Yojson.Safe.json -> string
                  }
 
-let get_converter = function
+let get_converter : [> `Json | `Msgpack ] -> converter = function
   | `Json    -> { of_string = of_string; to_string = to_string }
   | `Msgpack -> { of_string = of_msg_string; to_string = to_msg_string }
