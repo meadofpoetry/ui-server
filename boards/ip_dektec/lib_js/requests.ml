@@ -70,7 +70,7 @@ let get_state control =
 
 let get_devinfo control =
   get_js (Printf.sprintf "/api/board/%d/devinfo" control)
-  >|= CCResult.(flat_map devinfo_opt_of_yojson)
+  >|= CCResult.(flat_map devinfo_of_yojson)
 
 let get_status_ws control =
   get_socket (Printf.sprintf "api/board/%d/status_ws" control) board_status_of_yojson

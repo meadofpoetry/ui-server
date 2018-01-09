@@ -51,8 +51,8 @@ type rsp_plp_set =
   ; plp     : int
   } [@@deriving yojson]
 
-type devinfo_response = rsp_devinfo [@@deriving yojson]
-  
+type devinfo_response = rsp_devinfo option [@@deriving yojson]
+
 type settings_request = (int * settings) [@@deriving yojson]
 
 type settings_response = (int * rsp_settings) [@@deriving yojson]

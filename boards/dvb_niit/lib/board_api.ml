@@ -14,20 +14,10 @@ let rand_int = fun () -> Random.run (Random.int 10000000)
 
 let socket_table = Hashtbl.create 1000
 
-let page id =
-  respond_html_elt
-    Tyxml.Html.(div
-                  [ script ( pcdata ("var boardId = " ^ (string_of_int id)) ) ;
-                    script ~a:[a_src "/js/dvb_niit.js"] ( pcdata "" );
-                    h2 [ pcdata "Test" ];
-                    p  [ pcdata "Dvb board" ];
-                    div ~a:[ a_id "dvb_widgets" ] [  ] ] )
-    ()
-
 let devinfo api =
   api.devinfo () >>= fun devi ->
   respond_js (devinfo_response_to_yojson devi) ()
- 
+
 let reset api =
   api.reset () >>= respond_ok
 
@@ -91,7 +81,6 @@ let handle api events id s_state _ meth args sock_data _ body =
   let open Api.Redirect in
   (* let redirect_if_guest = redirect_if (User.eq id `Guest) in *)
   match meth, args with
-  | `GET,  []              -> page id
   | `GET,  ["devinfo"]     -> devinfo api
   | `POST, ["reset"]       -> reset api
   | `POST, ["settings"]    -> settings api body

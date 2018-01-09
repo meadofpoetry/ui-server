@@ -77,7 +77,7 @@ let sock_handler sock_data (event:'a React.event) (to_yojson:'a -> Yojson.Safe.j
 
 let devinfo api () =
   api.devinfo () >>= fun info ->
-  respond_js (devinfo_opt_to_yojson info) ()
+  respond_js (devinfo_to_yojson info) ()
 
 let state_ws sock_data s_state body =
   sock_handler sock_data (Lwt_react.S.changes s_state) Common.Topology.state_to_yojson body

@@ -180,7 +180,7 @@ type api = { addr      : addr -> addr Lwt.t
            ; rate_mode : rate_mode -> rate_mode Lwt.t
            ; reset     : unit -> unit Lwt.t
            ; config    : unit -> config Lwt.t
-           ; devinfo   : unit -> Board_types.devinfo option Lwt.t
+           ; devinfo   : unit -> Board_types.devinfo Lwt.t
            }
 
 type _ request = Devinfo : 'a devinfo -> 'a request

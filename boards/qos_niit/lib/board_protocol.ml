@@ -20,22 +20,6 @@ module SM = struct
 
   let wakeup_timeout (_,t) = t.pred `Timeout |> ignore
 
-  type events = { status       : user_status React.event
-                ; reset        : unit React.event
-                ; streams      : Common.Stream.id list React.signal
-                ; ts_found     : Common.Stream.id React.event
-                ; ts_lost      : Common.Stream.id React.event
-                ; ts_errors    : ts_errors React.event
-                ; t2mi_found   : int React.event
-                ; t2mi_lost    : int React.event
-                ; t2mi_errors  : t2mi_errors React.event
-                ; board_errors : board_errors React.event
-                ; bitrate      : bitrate list React.event
-                ; structs      : ts_struct list React.event
-                ; t2mi_info    : t2mi_info React.event
-                ; jitter       : jitter React.event
-                }
-
   type push_events = { status       : user_status           -> unit
                      ; reset        : unit                  -> unit
                      ; streams      : Common.Stream.id list -> unit
@@ -46,8 +30,8 @@ module SM = struct
                      ; t2mi_lost    : int                   -> unit
                      ; t2mi_errors  : t2mi_errors           -> unit
                      ; board_errors : board_errors          -> unit
-                     ; bitrate      : bitrate list          -> unit
-                     ; structs      : ts_struct list        -> unit
+                     ; bitrates     : bitrates              -> unit
+                     ; structs      : ts_structs            -> unit
                      ; t2mi_info    : t2mi_info             -> unit
                      ; jitter       : jitter                -> unit
                      }
@@ -228,7 +212,7 @@ module SM = struct
     | Board_errors x -> (* io "got board errors"; *)
                         pe.board_errors x
     | Bitrate x      -> (* io "got bitrate"; *)
-                        pe.bitrate x
+                        pe.bitrates x
     | Struct  x      -> (* io "got struct"; *)
                         pe.structs x
     | T2mi_info x    -> (* io "got t2mi info"; *)
@@ -236,7 +220,7 @@ module SM = struct
     | Jitter x       -> (* io "got jitter"; *)
                         pe.jitter x
 
-  let step msgs imsgs sender (storage : config storage) step_duration push_state push_events =
+  let step msgs imsgs sender (storage : config storage) step_duration push_state push_devinfo push_events =
     let period         = to_period 5 step_duration in
     (* let section_period = to_period 120 step_duration in *)
 
@@ -261,16 +245,17 @@ module SM = struct
 
     and step_detect p acc recvd =
       let _, _, rsps, _, acc = deserialize [] (Meta_board.concat_acc acc recvd) in
-      if CCOpt.is_some @@ CCList.find_map (is_response Get_board_info) rsps
-      then (push_state `Init;
-            let config = storage#get in
-            send_instant sender (Set_board_mode config.mode) |> ignore;
-            send_instant sender (Set_jitter_mode config.jitter_mode)
-            |> ignore;
-            (* send_instant sender Reset |> ignore; *)
-            `Continue (step_normal_idle period None [] [] None))
-      else (if p < 0 then first_step ()
-            else `Continue (step_detect (pred p) acc))
+      match CCList.find_map (is_response Get_board_info) rsps with
+      | Some info -> push_state `Init;
+                     push_devinfo (Some info);
+                     let config = storage#get in
+                     send_instant sender (Set_board_mode config.mode) |> ignore;
+                     send_instant sender (Set_jitter_mode config.jitter_mode)
+                     |> ignore;
+                     (* send_instant sender Reset |> ignore; *)
+                     `Continue (step_normal_idle period None [] [] None)
+      | None      -> if p < 0 then first_step ()
+                     else `Continue (step_detect (pred p) acc)
 
     and step_normal_idle p prev_group prev_events parts acc recvd =
       let events,_,rsps,parts,acc = deserialize parts (Meta_board.concat_acc acc recvd) in
@@ -335,6 +320,7 @@ module SM = struct
   let create sender (storage : config storage) push_state step_duration =
     let msgs   = ref (Await_queue.create []) in
     let imsgs  = ref (Queue.create []) in
+    let devinfo,push_devinfo           = React.S.create None in
     let status,status_push             = React.E.create () in
     let reset,reset_push               = React.E.create () in
     let streams,streams_push           = React.S.create [] in
@@ -345,7 +331,7 @@ module SM = struct
     let t2mi_lost,t2mi_lost_push       = React.E.create () in
     let t2mi_errors,t2mi_errors_push   = React.E.create () in
     let board_errors,board_errors_push = React.E.create () in
-    let bitrate,bitrate_push           = React.E.create () in
+    let bitrates,bitrates_push         = React.E.create () in
     let structs,structs_push           = React.E.create () in
     let t2mi_info,t2mi_info_push       = React.E.create () in
     let jitter,jitter_push             = React.E.create () in
@@ -359,7 +345,7 @@ module SM = struct
                                          ; t2mi_lost
                                          ; t2mi_errors
                                          ; board_errors
-                                         ; bitrate
+                                         ; bitrates
                                          ; structs
                                          ; t2mi_info
                                          ; jitter } in
@@ -373,7 +359,7 @@ module SM = struct
                                         ; t2mi_lost    = t2mi_lost_push
                                         ; t2mi_errors  = t2mi_errors_push
                                         ; board_errors = board_errors_push
-                                        ; bitrate      = bitrate_push
+                                        ; bitrates     = bitrates_push
                                         ; structs      = structs_push
                                         ; t2mi_info    = t2mi_info_push
                                         ; jitter       = jitter_push
@@ -393,6 +379,7 @@ module SM = struct
                *                                                       ; nw_id = 13583 }}))
                *           (to_period 120 step_duration)
                *           None) *)
+              ; get_devinfo     = (fun () -> Lwt.return @@ React.S.value devinfo)
               ; get_t2mi_seq    = (fun s  -> enqueue msgs sender
                                                      (Get_t2mi_frame_seq { request_id = get_id ()
                                                                          ; seconds    = s })
@@ -403,6 +390,6 @@ module SM = struct
               } in
     events,
     api,
-    (step msgs imsgs sender storage step_duration push_state push_events)
+    (step msgs imsgs sender storage step_duration push_state push_devinfo push_events)
 
 end

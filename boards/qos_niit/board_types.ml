@@ -3,7 +3,7 @@ open Common.Topology
 
 (* Board info *)
 
-type info =
+type devinfo =
   { typ : int
   ; ver : int
   } [@@deriving yojson]
@@ -23,13 +23,10 @@ and input = SPI | ASI [@@deriving yojson]
 
 type jitter_mode =
   { stream_id : Common.Stream.id
-  ; pid       : int} [@@deriving yojson]
+  ; pid       : int
+  } [@@deriving yojson]
 
 (* Status *)
-
-type packet_sz = Ts188
-               | Ts192
-               | Ts204 [@@deriving yojson]
 
 type user_status =
   { load            : float
@@ -40,14 +37,17 @@ type user_status =
   ; bitrate         : int
   ; packet_sz       : packet_sz
   ; has_stream      : bool
-  } [@@deriving yojson]
+  }
+and packet_sz = Ts188
+              | Ts192
+              | Ts204 [@@deriving yojson]
 
 type status_versions =
   { streams_ver  : int
   ; ts_ver_com   : int
   ; ts_ver_lst   : int list
   ; t2mi_ver_lst : int list
-  } [@@deriving yojson]
+  }
 
 type status =
   { status    : user_status
@@ -56,7 +56,7 @@ type status =
   ; t2mi_sync : int list
   ; versions  : status_versions
   ; streams   : Common.Stream.id list
-  } [@@deriving yojson]
+  }
 
 (* MPEG-TS errors *)
 
@@ -129,28 +129,27 @@ type t2mi_errors =
 
 (* Board errors *)
 
-type board_error = Unknown_request         of int32
-                 | Too_many_args           of int32
-                 | Msg_queue_overflow      of int32
-                 | Not_enough_memory       of int32
-                 | Total_packets_overflow  of int32
-                 | Tables_overflow         of int32
-                 | Sections_overflow       of int32
-                 | Table_list_overflow     of int32
-                 | Services_overflow       of int32
-                 | Es_overflow             of int32
-                 | Ecm_overflow            of int32
-                 | Emm_overflow            of int32
-                 | Section_array_not_found of int32
-                 | Dma_error               of int32
-                 | Pcr_freq_error          of int32
-                 | Packets_overflow        of int32
-                 | Streams_overflow        of int32 [@@deriving yojson]
-
 type board_errors =
   { count  : int32
   ; errors : board_error list
-  } [@@deriving yojson]
+  }
+and board_error = Unknown_request         of int32
+                | Too_many_args           of int32
+                | Msg_queue_overflow      of int32
+                | Not_enough_memory       of int32
+                | Total_packets_overflow  of int32
+                | Tables_overflow         of int32
+                | Sections_overflow       of int32
+                | Table_list_overflow     of int32
+                | Services_overflow       of int32
+                | Es_overflow             of int32
+                | Ecm_overflow            of int32
+                | Emm_overflow            of int32
+                | Section_array_not_found of int32
+                | Dma_error               of int32
+                | Pcr_freq_error          of int32
+                | Packets_overflow        of int32
+                | Streams_overflow        of int32 [@@deriving yojson]
 
 (* T2-MI frames sequence *)
 
@@ -202,15 +201,6 @@ type t2mi_seq = t2mi_packet list [@@deriving yojson]
 
 (* Jitter *)
 
-type jitter_item =
-  { status   : int
-  ; d_packet : int
-  ; d_pcr    : int32
-  ; drift    : int32
-  ; fo       : int32
-  ; jitter   : int
-  } [@@deriving yojson]
-
 type jitter =
   { pid         : int
   ; time        : int32
@@ -222,7 +212,15 @@ type jitter =
   ; k_fo        : int32
   ; k_jitter    : int32
   ; values      : jitter_item list
-  } [@@deriving yojson]
+  }
+and jitter_item =
+  { status   : int
+  ; d_packet : int
+  ; d_pcr    : int32
+  ; drift    : int32
+  ; fo       : int32
+  ; jitter   : int
+  }[@@deriving yojson]
 
 (* TS struct *)
 
@@ -354,6 +352,8 @@ type ts_struct =
   ; tables       : table list
   } [@@deriving yojson]
 
+type ts_structs = ts_struct list [@@deriving yojson]
+
 (* SI/PSI section *)
 
 type section_request =
@@ -395,6 +395,8 @@ type bitrate =
   ; pids       : pid_bitrate list
   ; tables     : table_bitrate list
   } [@@deriving yojson]
+
+type bitrates = bitrate list [@@deriving yojson]
 
 (* T2-MI info *)
 
@@ -730,3 +732,9 @@ let aux_stream_type_of_int = function
 
 let aux_stream_type_to_int = function
   | TX_SIG -> 0xb0000 | Unknown x -> x
+
+
+type devinfo_response    = devinfo option [@@deriving yojson]
+type mode_request        = mode [@@deriving yojson]
+type jitter_mode_request = jitter_mode [@@deriving yojson]
+type t2mi_seq_response   = t2mi_packet list [@@deriving yojson]

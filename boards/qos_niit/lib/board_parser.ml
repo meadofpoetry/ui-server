@@ -386,12 +386,29 @@ type event_response = Board_errors of board_errors
                     | T2mi_info    of t2mi_info
                     | Jitter       of jitter
 
-type api = { set_mode        : mode        -> unit Lwt.t
-           ; set_jitter_mode : jitter_mode -> unit Lwt.t
+type events = { status       : user_status React.event
+              ; reset        : unit React.event
+              ; streams      : Common.Stream.id list React.signal
+              ; ts_found     : Common.Stream.id React.event
+              ; ts_lost      : Common.Stream.id React.event
+              ; ts_errors    : ts_errors React.event
+              ; t2mi_found   : int React.event
+              ; t2mi_lost    : int React.event
+              ; t2mi_errors  : t2mi_errors React.event
+              ; board_errors : board_errors React.event
+              ; bitrates     : bitrates React.event
+              ; structs      : ts_structs React.event
+              ; t2mi_info    : t2mi_info React.event
+              ; jitter       : jitter React.event
+              }
+
+type api = { get_devinfo     : unit -> devinfo_response Lwt.t
+           ; set_mode        : mode_request -> unit Lwt.t
+           ; set_jitter_mode : jitter_mode_request -> unit Lwt.t
            (* ; get_section     : unit        -> section Lwt.t *)
-           ; get_t2mi_seq    : int         -> t2mi_packet list Lwt.t
-           ; reset           : unit        -> unit Lwt.t
-           ; config          : unit        -> config Lwt.t
+           ; get_t2mi_seq    : int  -> t2mi_seq_response Lwt.t
+           ; reset           : unit -> unit Lwt.t
+           ; config          : unit -> config Lwt.t
            }
 
 type _ instant_request = Set_board_mode  : mode -> unit instant_request
@@ -419,7 +436,7 @@ type t2mi_frame_seq_req =
   ; seconds    : int
   }
 
-type _ request = Get_board_info     : info request
+type _ request = Get_board_info     : devinfo request
                | Get_board_mode     : mode request
                | Get_t2mi_frame_seq : t2mi_frame_seq_req    -> t2mi_seq request
                | Get_section        : int * section_request -> section request
@@ -494,7 +511,7 @@ module type Event = sig
 
 end
 
-module Get_board_info : (Request with type req := unit with type rsp := info) = struct
+module Get_board_info : (Request with type req := unit with type rsp := devinfo) = struct
 
   let req_code = 0x0080
   let rsp_code = 0x01

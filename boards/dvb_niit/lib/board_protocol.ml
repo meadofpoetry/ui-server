@@ -90,7 +90,7 @@ module SM = struct
 
   let initial_timeout = -1
 
-  let step msgs sender (storage : config storage) step_duration push_state push_events =
+  let step msgs sender (storage : config storage) step_duration push_state push_info push_events =
     let period         = timeout_period step_duration in
     let request_period = request_period step_duration in
     let push_events  = event_push push_events in
@@ -111,6 +111,7 @@ module SM = struct
         let _, responses, acc = deserialize recvd in
         match Pool.responsed detect_pool responses with
         | Some detect -> push_state `Init;
+                         push_info (Some detect);
                          step_start_init (measure_probes (send_event sender) period detect)
         | _           -> `Continue (step_detect (Pool.step detect_pool) acc)
       with Timeout -> first_step ()
@@ -197,12 +198,13 @@ module SM = struct
     
   let create sender (storage : config storage) push_state step_duration =
     let period = timeout_period step_duration in
-    let measure, mpush = React.E.create () in
-    let (events : events) = { measure } in
-    let push_events = { measure = mpush } in
+    let s_measure, s_measure_push = React.E.create () in
+    let s_info, s_info_push = React.S.create None in
+    let (events : events)   = { measure = s_measure } in
+    let push_events         = { measure = s_measure_push } in
     let msgs = ref (Queue.create []) in
     let send x = send msgs sender storage period x in
-    let api = { devinfo     = (fun ()    -> send Get_devinfo)
+    let api = { devinfo     = (fun ()    -> Lwt.return @@ React.S.value s_info)
               ; reset       = (fun ()    -> send Reset)
               ; settings    = (fun s     -> send (Set_settings s))
               ; plp_setting = (fun (n,s) -> send (Set_plp (n,s)))
@@ -212,6 +214,6 @@ module SM = struct
     in
     events,
     api,
-    (step msgs sender storage step_duration push_state push_events)
+    (step msgs sender storage step_duration push_state s_info_push push_events)
 
 end
