@@ -13,7 +13,7 @@ module Tab = struct
 
     object(self)
 
-      inherit Widget.widget elt ()
+      inherit Widget.widget elt () as super
 
       val mutable tab    = props
       val mutable active = false
@@ -32,6 +32,28 @@ module Tab = struct
       method set_href s = self#anchor_element##.href := Js.string s
 
       method get_content : content = tab.content
+      method set_content (x : content) =
+        match self#get_content,x with
+        | `Text _, `Text x ->
+           super#set_text_content x;
+           CCResult.return ()
+        | `Icon _, `Icon (i,fallback) ->
+           let icon = super#get_child_element_by_class Markup.Tabs.Tab.icon_class in
+           (match icon with
+            | Some icon -> icon##.textContent := Js.some @@ Js.string i;
+                           CCOpt.iter (fun x -> icon##setAttribute (Js.string "aria-label") (Js.string x)) fallback;
+                           CCResult.return ()
+            | None      -> CCResult.fail "icon element not found")
+        | `Text_and_icon _, `Text_and_icon (t,i) ->
+           let icon = super#get_child_element_by_class Markup.Tabs.Tab.icon_class in
+           let text = super#get_child_element_by_class Markup.Tabs.Tab.icon_text_class in
+           (match icon,text with
+            | Some icon, Some text -> icon##.textContent := Js.some @@ Js.string i;
+                                      text##.textContent := Js.some @@ Js.string t;
+                                      CCResult.return ()
+            | None, _ -> CCResult.fail "icon element not found"
+            | _, None -> CCResult.fail "text element not found")
+        | _  -> CCResult.fail "tab content type mismatch"
 
       method get_active   = active
       method set_active x = active <- x;

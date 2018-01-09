@@ -99,9 +99,12 @@ module Make (M : Template) = struct
   let input (topo_input:topo_input) () =
     let path  = CCList.find_map (fun (i,p) -> if i = topo_input then Some p else None) topo_paths in
     match path with
-    | Some path -> let boards = CCList.map (fun x -> string_of_int x.control) path |> CCString.concat "," in
+    | Some path -> let boards = CCList.map (fun x -> x.control,x.typ ) path
+                                |> boards_to_yojson
+                                |> Yojson.Safe.to_string
+                   in
                    let props  = { title        = Some ("Вход " ^ (get_input_name topo_input))
-                                ; pre_scripts  = [ Raw (Printf.sprintf "var boards = [%s]" boards) ]
+                                ; pre_scripts  = [ Raw (Printf.sprintf "var boards = %s" boards) ]
                                 ; post_scripts = [ Src "/js/input.js" ]
                                 ; stylesheets  = []
                                 ; content      = []

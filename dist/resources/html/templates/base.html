@@ -21,7 +21,7 @@
     </style>
     <!-- Additional scripts -->
     {{#pre_scripts}}
-    <script {{#src}}src="{{script}}"{{/src}} type="text/javascript">{{^src}}{{script}}{{/src}}</script>
+    <script {{#src}}src="{{script}}"{{/src}} type="text/javascript">{{^src}}{{{script}}}{{/src}}</script>
     {{/pre_scripts}}
     <!-- Additional stylesheets -->
     {{#stylesheets}}
@@ -98,7 +98,7 @@
       <script src="/js/material-components-web.min.js"></script>
       <!-- Additional scripts -->
       {{#post_scripts}}
-      <script {{#src}}src="{{script}}"{{/src}} type="text/javascript">{{^src}}{{script}}{{/src}}</script>
+      <script {{#src}}src="{{script}}"{{/src}} type="text/javascript">{{^src}}{{{script}}}{{/src}}</script>
       {{/post_scripts}}
       <script>
        function rdy () { window.mdc.autoInit(); };

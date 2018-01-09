@@ -79,7 +79,7 @@ end
 
 module Settings_card = struct
 
-  class t ?subtitle ~title ~sections ~s_state ~f_submit ~s_valid () =
+  class t ?subtitle ~title ~sections ~s_state ~f_submit () =
     let apply_btn = new Button.t ~compact:true ~label:"Применить" ~typ:`Submit () in
     object
       inherit Stateful_card.t ~form:true
@@ -90,11 +90,10 @@ module Settings_card = struct
                               ()
       method get_apply_button = apply_btn
       initializer
-        React.E.map (fun () -> if React.S.value s_valid
-                               then (apply_btn#set_disabled true;
-                                     let open Lwt.Infix in
-                                     f_submit ()
-                                     >|= (fun _ -> apply_btn#set_disabled false) |> ignore))
+        React.E.map (fun () -> (apply_btn#set_disabled true;
+                                let open Lwt.Infix in
+                                f_submit ()
+                                >|= (fun _ -> apply_btn#set_disabled false) |> ignore))
                     apply_btn#e_click |> ignore;
         React.S.map (fun x  -> apply_btn#set_disabled @@ not x) s_state |> ignore;
     end

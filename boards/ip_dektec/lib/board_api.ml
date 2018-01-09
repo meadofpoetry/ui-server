@@ -53,10 +53,10 @@ let config api () =
   api.config () >>= fun conf ->
   respond_js (config_to_yojson conf) ()
 
-let state state () =
-  respond_js (Common.Topology.state_to_yojson @@ Lwt_react.S.value state) ()
+let state s_state () =
+  respond_js (Common.Topology.state_to_yojson @@ Lwt_react.S.value s_state) ()
 
-let state_sock sock_data state body =
+let sock_handler sock_data (event:'a React.event) (to_yojson:'a -> Yojson.Safe.json) body =
   let id = rand_int () in
   Cohttp_lwt_body.drain_body body
   >>= fun () ->
@@ -68,35 +68,22 @@ let state_sock sock_data state body =
               | _ -> ())
   >>= fun (resp, body, frames_out_fn) ->
   let send x =
-    let msg = Yojson.Safe.to_string @@ x in
+    let msg = Yojson.Safe.to_string x in
     frames_out_fn @@ Some (Frame.create ~content:msg ())
   in
-  let sock_events = Lwt_react.E.map (send % Common.Topology.state_to_yojson) @@ Lwt_react.S.changes state in
+  let sock_events = Lwt_react.E.map (send % to_yojson) event in
   Hashtbl.add socket_table id sock_events;
   Lwt.return (resp, (body :> Cohttp_lwt_body.t))
 
-let status sock_data (events : events) body =
-  let id = rand_int () in
-  Cohttp_lwt_body.drain_body body
-  >>= fun () ->
-  Websocket_cohttp_lwt.upgrade_connection
-    (fst sock_data)
-    (snd sock_data)
-    (fun f -> match f.opcode with
-              | Opcode.Close -> Hashtbl.remove socket_table id
-              | _ -> ())
-  >>= fun (resp, body, frames_out_fn) ->
-  let send x =
-    let msg = Yojson.Safe.to_string @@ x in
-    frames_out_fn @@ Some (Frame.create ~content:msg ())
-  in
-  let sock_events = Lwt_react.E.map (send % board_status_to_yojson) events.status in
-  Hashtbl.add socket_table id sock_events;
-  Lwt.return (resp, (body :> Cohttp_lwt_body.t))
+let devinfo api () =
+  api.devinfo () >>= fun info ->
+  respond_js (devinfo_opt_to_yojson info) ()
 
-let page id =
-  respond_html_elt
-    Tyxml.Html.(div [ div ~a:[ a_id "ip_widgets" ] [ ] ] ) ()
+let state_ws sock_data s_state body =
+  sock_handler sock_data (Lwt_react.S.changes s_state) Common.Topology.state_to_yojson body
+
+let status_ws sock_data (events : events) body =
+  sock_handler sock_data events.status board_status_to_yojson body
 
 let handle api events id s_state _ m args sock_data _ body =
   let open Api.Redirect in
@@ -114,15 +101,15 @@ let handle api events id s_state _ m args sock_data _ body =
   | `POST, ["delay"]      -> delay api body
   | `POST, ["rate_mode"]  -> rate_mode api body
   | `POST, ["reset"]      -> reset api ()
-  | `GET,  []             -> page id
   | `GET,  ["config"]     -> config api ()
-  | `GET,  ["status"]     -> status sock_data events body
   | `GET,  ["state"]      -> state s_state ()
-  | `GET,  ["state_sock"] -> state_sock sock_data s_state body
+  | `GET,  ["devinfo"]    -> devinfo api ()
+  | `GET,  ["status_ws"]  -> status_ws sock_data events body
+  | `GET,  ["state_ws"]   -> state_ws sock_data s_state body
   | _ -> not_found ()
 
-let handlers id api events state =
+let handlers id api events s_state =
   [ (module struct
        let domain = Common.Topology.get_api_path id
-       let handle = handle api events id state
+       let handle = handle api events id s_state
      end : Api_handler.HANDLER) ]

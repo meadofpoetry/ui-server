@@ -6,8 +6,6 @@ open Meta_board.Msg
 
 include Board_parser
 
-[@@@ocaml.warning "-26"]
-
 (* Board protocol implementation *)
 
 let timeout_period step_duration = 2 * int_of_float (1. /. step_duration) (* 2 secs *)
@@ -104,7 +102,7 @@ module SM = struct
     msgs := Queue.append !msgs { send; pred; timeout; exn = None };
     t
 
-  let step msgs sender (storage : config storage) step_duration push_state push_events =
+  let step msgs sender (storage : config storage) step_duration push_state push_info push_events =
 
     let period             = timeout_period step_duration in
     let request_period     = request_period step_duration in
@@ -197,8 +195,8 @@ module SM = struct
     and step_detect_mac p req conf acc recvd =
       find_resp req acc recvd
                 ~success:(fun x _ -> let fpga_ver,hw_ver,fw_ver,serial,typ = conf in
-                                     let conf = { fpga_ver; hw_ver; fw_ver; serial; typ; mac = x } in
                                      let r = Overall (Set_mode Ip2asi) in
+                                     push_info (Some { fpga_ver; hw_ver; fw_ver; serial; typ; mac = x });
                                      push_state `Init;
                                      send r; `Continue (step_init_mode period r None))
                 ~failure:(fun acc -> bad_step p (step_detect_mac (pred p) req conf acc))
@@ -429,27 +427,29 @@ module SM = struct
   let create sender storage push_state step_duration =
     let period = request_period step_duration in
     let status,status_push = React.E.create () in
-    let (events : events) = { status } in
+    let info,push_info     = React.S.create None in
+    let (events : events)  = { status } in
     let push_events = { status = status_push } in
     let msgs = ref (Queue.create []) in
     let send x = send msgs sender storage period x in
-    let api  = { addr      = (fun x -> send (Nw (Set_ip x)))
-               ; mask      = (fun x -> send (Nw (Set_mask x)))
-               ; gateway   = (fun x -> send (Nw (Set_gateway x)))
-               ; dhcp      = (fun x -> send (Nw (Set_dhcp x)))
-               ; enable    = (fun x -> send (Ip (Set_enable x)))
-               ; fec       = (fun x -> send (Ip (Set_fec_enable x)))
-               ; port      = (fun x -> send (Ip (Set_udp_port x)))
-               ; meth      = (fun x -> send (Ip (Set_method x)))
-               ; multicast = (fun x -> send (Ip (Set_mcast_addr x)))
-               ; delay     = (fun x -> send (Ip (Set_delay x)))
-               ; rate_mode = (fun x -> send (Ip (Set_rate_est_mode x)))
+    let api  = { addr      = (fun x  -> send (Nw (Set_ip x)))
+               ; mask      = (fun x  -> send (Nw (Set_mask x)))
+               ; gateway   = (fun x  -> send (Nw (Set_gateway x)))
+               ; dhcp      = (fun x  -> send (Nw (Set_dhcp x)))
+               ; enable    = (fun x  -> send (Ip (Set_enable x)))
+               ; fec       = (fun x  -> send (Ip (Set_fec_enable x)))
+               ; port      = (fun x  -> send (Ip (Set_udp_port x)))
+               ; meth      = (fun x  -> send (Ip (Set_method x)))
+               ; multicast = (fun x  -> send (Ip (Set_mcast_addr x)))
+               ; delay     = (fun x  -> send (Ip (Set_delay x)))
+               ; rate_mode = (fun x  -> send (Ip (Set_rate_est_mode x)))
                ; reset     = (fun () -> send (Nw Reboot))
                ; config    = (fun () -> Lwt.return storage#get)
+               ; devinfo   = (fun () -> Lwt.return @@ React.S.value info)
                }
     in
     events,
     api,
-    (step msgs sender storage step_duration push_state push_events)
+    (step msgs sender storage step_duration push_state push_info push_events)
 
 end

@@ -19,6 +19,11 @@ type asi_packet_sz = Sz of packet_sz | As_is
 module Macaddr = struct
   include Macaddr
   let to_yojson x = `String (Macaddr.to_string x)
+  let of_yojson = function
+    | `String s -> (match Macaddr.of_string s with
+                    | Some m -> Ok m
+                    | None   -> Error ("bad mac: " ^ s))
+    | x         -> Error ("not a mac addr: " ^ (Yojson.Safe.to_string x))
 end
 
 type devinfo = { fpga_ver : int
@@ -27,7 +32,9 @@ type devinfo = { fpga_ver : int
                ; serial   : int
                ; typ      : int
                ; mac      : Macaddr.t
-               } [@@deriving to_yojson]
+               } [@@deriving yojson]
+
+type devinfo_opt = devinfo option [@@deriving yojson]
 
 let ipv4_to_yojson (a : Ipaddr.V4.t) : Yojson.Safe.json =
   let s = Ipaddr.V4.to_string a in

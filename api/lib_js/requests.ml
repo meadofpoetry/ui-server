@@ -73,4 +73,4 @@ let get_socket addr conv =
                                       |> conv
                                       |> (function Ok msg -> push msg | Error _ -> ());
                                       Js.bool true);
-  ev
+  ev,sock
