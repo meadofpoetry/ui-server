@@ -58,7 +58,7 @@ let state state () =
 
 let state_sock sock_data state body =
   let id = rand_int () in
-  Cohttp_lwt_body.drain_body body
+  Cohttp_lwt.Body.drain_body body
   >>= fun () ->
   Websocket_cohttp_lwt.upgrade_connection
     (fst sock_data)
@@ -73,11 +73,11 @@ let state_sock sock_data state body =
   in
   let sock_events = Lwt_react.E.map (send % Common.Topology.state_to_yojson) @@ Lwt_react.S.changes state in
   Hashtbl.add socket_table id sock_events;
-  Lwt.return (resp, (body :> Cohttp_lwt_body.t))
+  Lwt.return (resp, (body :> Cohttp_lwt.Body.t))
 
 let status sock_data (events : events) body =
   let id = rand_int () in
-  Cohttp_lwt_body.drain_body body
+  Cohttp_lwt.Body.drain_body body
   >>= fun () ->
   Websocket_cohttp_lwt.upgrade_connection
     (fst sock_data)
@@ -92,7 +92,7 @@ let status sock_data (events : events) body =
   in
   let sock_events = Lwt_react.E.map (send % board_status_to_yojson) events.status in
   Hashtbl.add socket_table id sock_events;
-  Lwt.return (resp, (body :> Cohttp_lwt_body.t))
+  Lwt.return (resp, (body :> Cohttp_lwt.Body.t))
 
 let page id =
   respond_html_elt
