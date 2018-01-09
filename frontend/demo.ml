@@ -491,6 +491,16 @@ let drawer_demo () =
                                                                            ()] ()
   |> Drawer.Temporary.attach
 
+let table_demo () =
+  let header = new Table.Header.t ~content:[ Text "col 1"; Text "col 2"; Text "col 3"] () in
+  let table = new Table.t ~header ~content:[ [ Text "cell 1 1"; Text "cell 1 2"; Text "cell 1 3" ]
+                                           ; [ Text "cell 2 1"; Text "cell 2 2"; Text "cell 2 3" ]
+                                           ; [ Text "cell 3 1"; Text "cell 3 2"; Text "cell 3 3" ]
+                                           ] () in
+  table#style##.maxWidth := Js.string "600px";
+  table#add_class @@ Elevation.get_elevation_class 2;
+  demo_section "Table" [ table#widget ]
+
 let chart_demo () =
   let range = 10 in
   let x = ref 40 in
@@ -600,7 +610,8 @@ let onload _ =
   let body    = doc##.body in
   let drawer  = drawer_demo () in
   let toolbar = toolbar_demo drawer () in
-  let demos   = add_demos [ button_demo ()
+  let demos   = add_demos [ table_demo ()
+                          ; button_demo ()
                           ; chart_demo ()
                           ; time_chart_demo ()
                           ; fab_demo ()
