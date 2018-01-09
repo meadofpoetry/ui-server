@@ -60,7 +60,7 @@ let config api =
 
 let measures sock_data events body =
   let id = rand_int () in
-  Cohttp_lwt_body.drain_body body
+  Cohttp_lwt.Body.drain_body body
   >>= fun () ->
   Websocket_cohttp_lwt.upgrade_connection
     (fst sock_data)
@@ -75,7 +75,7 @@ let measures sock_data events body =
   in
   let sock_events = Lwt_react.E.map (send % measure_to_yojson) events.measure in
   Hashtbl.add socket_table id sock_events;
-  Lwt.return (resp, (body :> Cohttp_lwt_body.t))
+  Lwt.return (resp, (body :> Cohttp_lwt.Body.t))
 
 let handle api events id _ meth args sock_data _ body =
   let open Lwt.Infix in
