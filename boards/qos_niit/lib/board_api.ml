@@ -49,6 +49,12 @@ let get_t2mi_seq api seconds () =
   | Some x -> api.get_t2mi_seq x >>= fun rsp ->
               respond_js (t2mi_seq_response_to_yojson rsp) ()
 
+let get_structs events =
+  respond_js (ts_structs_to_yojson @@ React.S.value events.structs) ()
+
+let get_bitrates events =
+  respond_js (ts_structs_to_yojson @@ React.S.value events.bitrates) ()
+
 let sock_handler sock_data (event:'a React.event) (to_yojson:'a -> Yojson.Safe.json) body =
   let id = rand_int () in
   Cohttp_lwt_body.drain_body body
@@ -84,10 +90,10 @@ let board_errors_ws sock_data (events : events) body =
   sock_handler sock_data events.board_errors board_errors_to_yojson body
 
 let bitrate_ws sock_data (events : events) body =
-  sock_handler sock_data events.bitrates bitrates_to_yojson body
+  sock_handler sock_data (React.S.changes events.bitrates) ts_structs_to_yojson body
 
 let structs_ws sock_data (events : events) body =
-  sock_handler sock_data events.structs ts_structs_to_yojson body
+  sock_handler sock_data (React.S.changes events.structs) ts_structs_to_yojson body
 
 let t2mi_info_ws sock_data (events : events) body =
   sock_handler sock_data events.t2mi_info t2mi_info_to_yojson body
@@ -105,6 +111,8 @@ let handle api events s_state _ meth args sock_data _ body =
   | `GET, ["config"]          -> config api ()
   | `GET, ["devinfo"]         -> devinfo api ()
   | `GET, "t2mi_seq"::[sec]   -> get_t2mi_seq api sec ()
+  | `GET, ["structs"]         -> get_structs events
+  | `GET, ["bitrates"]        -> get_bitrates events
 
   | `GET, ["state_ws"]        -> state_ws sock_data s_state body
   | `GET, ["status_ws"]       -> status_ws sock_data events body

@@ -698,7 +698,7 @@ module Make
 
       let _class               = "mdc-list-item"
       let text_class           = CSS.add_element _class "text"
-      let secondary_text_class = CSS.add_element text_class "secondary"
+      let secondary_text_class = CSS.add_element _class "secondary-text"
       let start_detail_class   = CSS.add_element _class "start-detail"
       let end_detail_class     = CSS.add_element _class "end-detail"
       let divider_class        = "mdc-list-divider"
