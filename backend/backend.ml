@@ -6,8 +6,8 @@ let main config =
     print_endline "Started.";
     (* State *)
     let db, dbloop     = Storage.Database.create config 10.0 in
-    let ()             = User.init db in
-    let user_api       = User_api.handlers db in
+    let users          = User.create config in
+    let user_api       = User_api.handlers users in
     (* Boards *)
     let hw, hwloop     = Hardware.create config db in
     let hw_api         = Hardware_api.handlers hw in
@@ -20,7 +20,7 @@ let main config =
     in
                        
     let routes = Api_handler.create (pipe_api @ user_api @ hw_api) in
-    let auth_filter = Api.Redirect.redirect_auth (User.validate db) in
+    let auth_filter = Api.Redirect.redirect_auth (User.validate users) in
 
     let server = Serv.create config auth_filter routes in
 

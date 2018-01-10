@@ -22,7 +22,8 @@ let redirect_auth validate headers request =
   >>= function
     | Id id     -> Lwt.catch (fun () -> request id) (fun e -> error_page e)
     | Need_auth -> respond_need_auth ~headers:headers ~auth:(`Basic "User Visible Realm") ()
-    | Done hd   -> home_page ~headers:hd ()
+    | Unknown e -> respond_error e ()
+(* | Done hd   -> home_page ~headers:hd ()*)
 
 let redirect_if p request =
   if not p

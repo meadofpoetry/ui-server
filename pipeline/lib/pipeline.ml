@@ -8,7 +8,7 @@ let (%) = CCFun.(%)
 type pipe = { api       : Pipeline_protocol.api 
             ; state     : Pipeline_protocol.state
             ; db_events : unit event
-            ; _e        : unit event
+                               (* ; _e        : unit event*)
             }
     
 module PSettings = struct
@@ -61,16 +61,15 @@ let create config dbs (hardware_streams : Common.Stream.source list React.signal
      | pid  ->
         let api, state, recv = Pipeline_protocol.create cfg.sock_in cfg.sock_out converter hardware_streams in
         let db_events = connect_db (S.changes api.structure) dbs in
-        let _e = E.map (function
+       (* let _e = E.map (function
                      | None -> ()
                      | Some e ->
                      Wm.to_yojson e
                      |> Yojson.Safe.pretty_to_string
                      |> Lwt_io.printlf "Got stream from pipeline:\n %s\n"
                      |> ignore)
-                   (S.changes api.wm)
-        in
-        let obj = { api; state; db_events; _e } in
+                   (S.changes api.wm) in*)
+        let obj = { api; state; db_events } in
         (* polling loop *)
         let rec loop () =
           recv () >>= loop
