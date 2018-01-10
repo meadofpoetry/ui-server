@@ -53,12 +53,7 @@ let split_events () =
     | `Assoc [("graph", tl)]      -> grap_push  <$> Graph.of_yojson tl
     | `Assoc [("wm", tl)]         -> (fun x -> wm_push (Some x))   <$> Wm.of_yojson tl
     | `Assoc [("video_data", tl)] -> vdata_push <$> Video_data.of_yojson tl
-    | `Assoc [("audio_data", tl)] -> adata_push <$>
-                                       (match Audio_data.of_yojson tl with
-                                        | Error _ as e -> Yojson.Safe.pretty_to_string (`Assoc [("audio_data", tl)])
-                                                          |> Lwt_io.printlf "failed msg:\n%s\n"
-                                                          |> ignore; e
-                                        | ok -> ok)
+    | `Assoc [("audio_data", tl)] -> adata_push <$> Audio_data.of_yojson tl
     | s -> Yojson.Safe.pretty_to_string s
            |> prerr_endline
   in
@@ -82,7 +77,7 @@ let get (type a) sock
     >>= fun js ->
     match conv.of_string js with
     | `Assoc ["ok", `Assoc kvs] ->
-       Lwt_io.printf  "Pipeline: request decode: %s\n" (Yojson.Safe.pretty_to_string (`Assoc kvs)) |> ignore;
+       (* Lwt_io.printf  "Pipeline: request decode: %s\n" (Yojson.Safe.pretty_to_string (`Assoc kvs)) |> ignore;*)
        Result.(find s kvs >>= decode)
        |> (function Ok v -> Lwt.return v
                   | Error e -> Lwt_io.printf  "Pipeline: request decode failure: %s\n" e >>= fun () -> Lwt.fail_with e)

@@ -58,7 +58,7 @@ let state s_state () =
 
 let sock_handler sock_data (event:'a React.event) (to_yojson:'a -> Yojson.Safe.json) body =
   let id = rand_int () in
-  Cohttp_lwt_body.drain_body body
+  Cohttp_lwt.Body.drain_body body
   >>= fun () ->
   Websocket_cohttp_lwt.upgrade_connection
     (fst sock_data)
@@ -73,7 +73,7 @@ let sock_handler sock_data (event:'a React.event) (to_yojson:'a -> Yojson.Safe.j
   in
   let sock_events = Lwt_react.E.map (send % to_yojson) event in
   Hashtbl.add socket_table id sock_events;
-  Lwt.return (resp, (body :> Cohttp_lwt_body.t))
+  Lwt.return (resp, (body :> Cohttp_lwt.Body.t))
 
 let devinfo api () =
   api.devinfo () >>= fun info ->

@@ -29,7 +29,7 @@ let get_page () =
 
 let topology_socket sock_data body topo () =
   let id = rand_int () in
-  Cohttp_lwt_body.drain_body body
+  Cohttp_lwt.Body.drain_body body
   >>= fun () ->
   Websocket_cohttp_lwt.upgrade_connection
     (fst sock_data)
@@ -44,7 +44,7 @@ let topology_socket sock_data body topo () =
   in
   let sock_events = Lwt_react.S.map send topo in
   Hashtbl.add socket_table id sock_events;
-  Lwt.return (resp, (body :> Cohttp_lwt_body.t))
+  Lwt.return (resp, (body :> Cohttp_lwt.Body.t))
 
 let handle hw _ meth args sock_data _ body =
   match meth, args with

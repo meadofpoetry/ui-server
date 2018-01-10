@@ -92,7 +92,7 @@ module Make (M : Template) = struct
                 ; pre_scripts  = []
                 ; post_scripts = [ Src "js/hardware.js" ]
                 ; stylesheets  = []
-                ; content      = [  ]
+                ; content      = [ ]
                 } in
     respond_string (template M.path props) ()
 

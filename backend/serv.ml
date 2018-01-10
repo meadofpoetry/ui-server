@@ -37,7 +37,7 @@ let get_handler ~topo
   let handler
         (conn : Conduit_lwt_unix.flow * Cohttp.Connection.t)
         (req  : Cohttp_lwt_unix.Request.t)
-        (body : Cohttp_lwt_body.t) =
+        (body : Cohttp_lwt.Body.t) =
     ignore conn;
     let headers  = Request.headers req in
     let uri      = Uri.path @@ Request.uri req in

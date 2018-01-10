@@ -9,3 +9,4 @@ tmp
 dist/resources/js/home.js
 dist/resources/js/demo.js
 dist/backend
+dist/config.json
