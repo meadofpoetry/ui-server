@@ -35,15 +35,17 @@ let make_service (service : service) =
   let pmt_pid = new Tree.Item.t ~text:(Printf.sprintf "PMT PID: %d" service.pmt_pid) () in
   let pcr_pid = new Tree.Item.t ~text:(Printf.sprintf "PCR PID: %d" service.pcr_pid) () in
   let es      = if not (CCList.is_empty service.es)
-                then Some (new Tree.Item.t
+                then Some (let es = CCList.sort (fun (x:es) y -> compare x.pid y.pid) service.es in
+                           new Tree.Item.t
                                ~text:"Элементарные потоки"
-                               ~nested:(new Tree.t ~items:(CCList.map make_es service.es) ())
+                               ~nested:(new Tree.t ~items:(CCList.map make_es es) ())
                                ())
                 else None in
   let ecm     = if not (CCList.is_empty service.ecm)
-                then Some (new Tree.Item.t
+                then Some (let ecm = CCList.sort (fun (x:ecm) y -> compare x.pid y.pid) service.ecm in
+                           new Tree.Item.t
                                ~text:"ECM"
-                               ~nested:(new Tree.t ~items:(CCList.map make_ecm service.ecm) ())
+                               ~nested:(new Tree.t ~items:(CCList.map make_ecm ecm) ())
                                ())
                 else None in
   let opt     = es ^:: ecm ^:: [] in
@@ -88,21 +90,26 @@ let make_stream (ts : ts_struct) =
                             ())
              else None in
   let serv = if not (CCList.is_empty ts.services)
-             then Some (new Tree.Item.t
+             then Some (let serv = CCList.sort (fun (x:service) y -> compare x.id y.id) ts.services in
+                        new Tree.Item.t
                             ~text:"Сервисы"
-                            ~nested:(new Tree.t ~items:(CCList.map make_service ts.services) ())
+                            ~nested:(new Tree.t ~items:(CCList.map make_service serv) ())
                             ())
              else None in
   let emm  = if not (CCList.is_empty ts.emm)
-             then Some (new Tree.Item.t
+             then Some (let emm = CCList.sort (fun (x:emm) y -> compare x.pid y.pid) ts.emm in
+                        new Tree.Item.t
                             ~text:"EMM"
-                            ~nested:(new Tree.t ~items:(CCList.map make_emm ts.emm) ())
+                            ~nested:(new Tree.t ~items:(CCList.map make_emm emm) ())
                             ())
              else None in
   let tabl = if not (CCList.is_empty ts.tables)
-             then Some (new Tree.Item.t
+             then Some (let tabl = CCList.sort (fun (x:table) y -> compare (table_common_of_table x).pid
+                                                                           (table_common_of_table y).pid)
+                                               ts.tables in
+                        new Tree.Item.t
                             ~text:"Таблицы"
-                            ~nested:(new Tree.t ~items:(CCList.map make_table ts.tables) ())
+                            ~nested:(new Tree.t ~items:(CCList.map make_table tabl) ())
                             ())
              else None in
   let text, stext = "Поток", "" in

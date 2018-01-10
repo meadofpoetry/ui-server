@@ -13,6 +13,7 @@ build: [
 build-test: [["jbuilder" "runtest" "-p" name "-j" jobs]]
 depends: [
   "jbuilder" {build}
+  "bitstring"
   "ppx_cstruct"
   "ppx_deriving_yojson"
   "ppx_sqlexpr"
