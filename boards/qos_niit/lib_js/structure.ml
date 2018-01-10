@@ -128,7 +128,7 @@ let create
       ~(div   : Dom_html.element Js.t)
       ~(init  : ts_structs)
       ~(event : ts_structs React.event) =
-  let id  = "ts-structures" in
+  let id = "ts-structures" in
   let make (ts : ts_structs) =
     let tree = make_streams_tree ts in
     tree#set_id id;
