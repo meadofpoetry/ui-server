@@ -119,12 +119,14 @@ class ['a] t ~input_type ?input_id ?label ?placeholder ?icon ?help_text ?box () 
     method! get_disabled   = Js.to_bool mdc##.disabled
     method! set_disabled x = mdc##.disabled := Js.bool x
 
-    method set_value x = super#set_value x;
-                         self#get_text_field_widget#add_class Markup.Textfield.upgraded_class;
-                         CCOpt.iter (fun x -> x#add_class Markup.Textfield.label_float_above_class)
-                                    self#get_label_widget
-
-    method fill_in (x : 'a) = self#set_value (Widget.valid_to_string input_type x)
+    method! fill_in (x : 'a) = super#fill_in x;
+                               self#get_text_field_widget#add_class Markup.Textfield.upgraded_class;
+                               CCOpt.iter (fun x -> x#add_class Markup.Textfield.label_float_above_class)
+                                          self#get_label_widget
+    method! clear = super#clear;
+                    self#get_text_field_widget#remove_class Markup.Textfield.upgraded_class;
+                    CCOpt.iter (fun x -> x#remove_class Markup.Textfield.label_float_above_class)
+                               self#get_label_widget
 
     initializer
       CCOpt.iter (fun x -> if x#is_validation && CCOpt.is_none x#text

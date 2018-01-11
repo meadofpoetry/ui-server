@@ -36,6 +36,9 @@ let get_bitrates control =
 let get_state_ws control =
   get_socket (Printf.sprintf "api/board/%d/state_ws" control) Common.Topology.state_of_yojson
 
+let get_config_ws control =
+  get_socket (Printf.sprintf "api/board/%d/config_ws" control) config_of_yojson
+
 let get_status_ws control =
   get_socket (Printf.sprintf "api/board/%d/status_ws" control) user_status_of_yojson
 

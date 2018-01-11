@@ -23,7 +23,7 @@ let () =
   let board_to_tabs control = function
     | IP2TS -> [ "IP", (fun () -> Board_ip_dektec_js.Ip_dektec.page control) ]
     | DVB   -> [ "RF", (fun () -> Board_dvb_niit_js.Dvb_niit.page control) ]
-    | TS    -> [ "QoS",       placeholder
+    | TS    -> [ "QoS",       (fun () -> Board_qos_niit_js.Settings.page control)
                ; "Структура", (fun () -> Board_qos_niit_js.Structure.page control)
                ; "Битрейт",   placeholder
                ; "Джиттер",   placeholder ]

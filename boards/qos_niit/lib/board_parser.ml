@@ -386,7 +386,8 @@ type event_response = Board_errors of board_errors
                     | T2mi_info    of t2mi_info
                     | Jitter       of jitter
 
-type events = { status       : user_status React.event
+type events = { config       : config React.event
+              ; status       : user_status React.event
               ; streams      : Common.Stream.id list React.signal
               ; ts_found     : Common.Stream.id React.event
               ; ts_lost      : Common.Stream.id React.event
@@ -395,8 +396,8 @@ type events = { status       : user_status React.event
               ; t2mi_lost    : int React.event
               ; t2mi_errors  : t2mi_errors React.event
               ; board_errors : board_errors React.event
-              ; structs      : ts_structs React.signal
-              ; bitrates     : ts_structs React.signal
+              ; structs      : ts_structs React.event
+              ; bitrates     : ts_structs React.event
               ; t2mi_info    : t2mi_info React.event
               ; jitter       : jitter React.event
               }
@@ -404,8 +405,9 @@ type events = { status       : user_status React.event
 type api = { get_devinfo     : unit -> devinfo_response Lwt.t
            ; set_mode        : mode_request -> unit Lwt.t
            ; set_jitter_mode : jitter_mode_request -> unit Lwt.t
-           (* ; get_section     : unit        -> section Lwt.t *)
            ; get_t2mi_seq    : int  -> t2mi_seq_response Lwt.t
+           ; get_structs     : unit -> ts_structs Lwt.t
+           ; get_bitrates    : unit -> ts_structs Lwt.t
            ; reset           : unit -> unit Lwt.t
            ; config          : unit -> config Lwt.t
            }

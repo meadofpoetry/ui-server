@@ -248,10 +248,16 @@ module SM = struct
     msgs := Await_queue.append !msgs { send; pred; timeout; exn };
     t
 
-  let enqueue_instant (type a) msgs sender (msg : a instant_request) : unit Lwt.t =
+  let enqueue_instant (type a) msgs sender storage (msg : a instant_request) : unit Lwt.t =
     let t,w = Lwt.wait () in
     let send = fun () -> (send_instant sender msg) >>= (fun x -> Lwt.return @@ Lwt.wakeup w x) in
     let pred = fun _  -> None in
+    let conf = storage#get in
+    let _    = match msg with
+      | Set_board_mode  mode        -> storage#store { conf with mode }
+      | Set_jitter_mode jitter_mode -> storage#store { conf with jitter_mode }
+      | Reset                       -> ()
+    in
     msgs := Queue.append !msgs { send; pred; timeout = 0; exn = None };
     t
 
@@ -367,6 +373,7 @@ module SM = struct
   let create sender (storage : config storage) push_state step_duration =
     let msgs   = ref (Await_queue.create []) in
     let imsgs  = ref (Queue.create []) in
+    let config,push_config             = React.S.create storage#get in
     let devinfo,push_devinfo           = React.S.create None in
     let status,status_push             = React.E.create () in
     let streams,streams_push           = React.S.create [] in
@@ -381,7 +388,8 @@ module SM = struct
     let bitrates,bitrates_push         = React.S.create [] in
     let t2mi_info,t2mi_info_push       = React.E.create () in
     let jitter,jitter_push             = React.E.create () in
-    let (events : events) = { status
+    let (events : events) = { config   = React.S.changes config
+                            ; status
                             ; streams
                             ; ts_found
                             ; ts_lost
@@ -390,8 +398,8 @@ module SM = struct
                             ; t2mi_lost
                             ; t2mi_errors
                             ; board_errors
-                            ; structs
-                            ; bitrates
+                            ; structs  = React.S.changes structs
+                            ; bitrates = React.S.changes bitrates
                             ; t2mi_info
                             ; jitter } in
     let push_events       = { status       = status_push
@@ -408,30 +416,24 @@ module SM = struct
                             ; t2mi_info    = t2mi_info_push
                             ; jitter       = jitter_push
                             } in
-    let api = { set_mode        = (fun m  -> enqueue_instant imsgs sender (Set_board_mode m))
-              ; set_jitter_mode = (fun m  -> enqueue_instant imsgs sender (Set_jitter_mode m))
-              (* ; get_section     = (fun () ->
-               *   enqueue msgs sender
-               *           (Get_section (get_id (), { stream_id = T2mi_plp 0
-               *                                    ; section   = 0
-               *                                    ; table     =  NIT_a { common = { version = 21
-               *                                                                    ; id      = 64
-               *                                                                    ; pid     = 16
-               *                                                                    ; lsn     = 0
-               *                                                                    ; section_syntax = true
-               *                                                                    ; sections = []}
-               *                                                       ; nw_id = 13583 }}))
-               *           (to_period 120 step_duration)
-               *           None) *)
-              ; get_devinfo     = (fun () -> Lwt.return @@ React.S.value devinfo)
-              ; get_t2mi_seq    = (fun s  -> enqueue msgs sender
-                                                     (Get_t2mi_frame_seq { request_id = get_id ()
-                                                                         ; seconds    = s })
-                                                     (to_period (s + 10) step_duration)
-                                                     None)
-              ; reset           = (fun () -> enqueue_instant imsgs sender Reset)
-              ; config          = (fun () -> Lwt.return storage#get)
-              } in
+    let api =
+      { set_mode        = (fun m  -> enqueue_instant imsgs sender storage (Set_board_mode m)
+                                     >>= (fun () -> push_config { (React.S.value config) with mode = m };
+                                                    Lwt.return_unit))
+      ; set_jitter_mode = (fun m  -> enqueue_instant imsgs sender storage (Set_jitter_mode m)
+                                     >>= (fun () -> push_config { (React.S.value config) with jitter_mode = m};
+                                                    Lwt.return_unit))
+      ; get_devinfo     = (fun () -> Lwt.return @@ React.S.value devinfo)
+      ; reset           = (fun () -> enqueue_instant imsgs sender storage Reset)
+      ; get_structs     = (fun () -> Lwt.return @@ React.S.value structs)
+      ; get_bitrates    = (fun () -> Lwt.return @@ React.S.value bitrates)
+      ; get_t2mi_seq    = (fun s  -> enqueue msgs sender
+                                             (Get_t2mi_frame_seq { request_id = get_id ()
+                                                                 ; seconds    = s })
+                                             (to_period (s + 10) step_duration)
+                                             None)
+      ; config          = (fun () -> Lwt.return @@ React.S.value config)
+      } in
     events,
     api,
     (step msgs imsgs sender storage step_duration push_state push_devinfo push_events)

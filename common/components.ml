@@ -1007,10 +1007,11 @@ module Make
 
     module Base = struct
 
-      let menu_class          = CSS.add_element base_class "menu"
-      let label_class         = CSS.add_element base_class "label"
-      let selected_text_class = CSS.add_element base_class "selected-text"
-      let disabled_class      = CSS.add_modifier base_class "disabled"
+      let menu_class              = CSS.add_element base_class "menu"
+      let label_class             = CSS.add_element base_class "label"
+      let label_float_above_class = CSS.add_modifier label_class "float-above"
+      let selected_text_class     = CSS.add_element base_class "selected-text"
+      let disabled_class          = CSS.add_modifier base_class "disabled"
 
       module Item = struct
 

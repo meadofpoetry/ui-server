@@ -64,14 +64,14 @@ module Stateful_card = struct
       CCOpt.iter (fun x -> x#style##.height := Js.string "100%";
                            (Js.Unsafe.coerce x#style)##.justifyContent := Js.string "flex-start") super#get_media;
       React.S.map (function
-                   | false -> super#style##.backgroundColor := Js.string "#ef9a9a";
-                              CCList.iter (function
-                                           | `Media x -> x#add_class "color--disabled-on-background"
-                                           | _ -> ()) sections;
-                   | true  -> super#style##.backgroundColor := Js.string "";
-                              CCList.iter (function
-                                           | `Media x -> x#remove_class "color--disabled-on-background"
-                                           | _ -> ()) sections)
+                   | false -> (* super#style##.backgroundColor := Js.string "#ef9a9a"; *)
+                      CCList.iter (function
+                                   | `Media x -> x#add_class "color--disabled-on-background"
+                                   | _ -> ()) sections;
+                   | true  -> (* super#style##.backgroundColor := Js.string ""; *)
+                      CCList.iter (function
+                                   | `Media x -> x#remove_class "color--disabled-on-background"
+                                   | _ -> ()) sections)
                   s_state |> ignore
   end
 

@@ -71,9 +71,9 @@ let nw_settings_block control s_state (cfg:Board_types.config) =
                       () in
   let media     = new Card.Media.t ~widgets:[settings] () in
   ip#set_required true; mask#set_required true; gw#set_required true;
-  ip#set_value   @@ Ipaddr.V4.to_string cfg.nw.ip;
-  mask#set_value @@ Ipaddr.V4.to_string cfg.nw.mask;
-  gw#set_value   @@ Ipaddr.V4.to_string cfg.nw.gateway;
+  ip#fill_in cfg.nw.ip;
+  mask#fill_in cfg.nw.mask;
+  gw#fill_in cfg.nw.gateway;
   dhcp#set_checked cfg.nw.dhcp;
   React.S.map (fun x -> ip#set_disabled x; mask#set_disabled x; gw#set_disabled x) dhcp#s_state |> ignore;
   React.S.map (fun x -> dhcp#set_disabled @@ not x;
@@ -117,8 +117,8 @@ let ip_settings_block control s_state (cfg:Board_types.config) =
   port#set_required true;
   en#set_checked  cfg.ip.enable;
   fec#set_checked cfg.ip.fec;
-  port#set_value @@ string_of_int cfg.ip.port;
-  CCOpt.iter (fun x -> multicast#set_value @@ Ipaddr.V4.to_string x) cfg.ip.multicast;
+  port#fill_in cfg.ip.port;
+  CCOpt.iter (fun x -> multicast#fill_in x) cfg.ip.multicast;
   React.S.map (fun x -> multicast#set_disabled @@ not x) mcast_en#s_state |> ignore;
   React.S.map (fun x -> en#set_disabled @@ not x;
                         fec#set_disabled @@ not x;

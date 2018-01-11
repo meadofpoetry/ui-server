@@ -75,8 +75,13 @@ class input_widget ~(input_elt:Dom_html.inputElement Js.t) elt () =
     method set_disabled x = input_elt##.disabled := Js.bool x; s_disabled_push x
     method get_disabled   = Js.to_bool input_elt##.disabled
 
-    method set_value x    = input_elt##.value := Js.string x
-    method get_value      = Js.to_string input_elt##.value
+    method set_input_id x = input_elt##.id := Js.string x
+    method get_input_id   = match Js.to_string input_elt##.id with
+      | "" -> None
+      | s  -> Some s
+
+    method private set_value x = input_elt##.value := Js.string x
+    method private get_value   = Js.to_string input_elt##.value
 
     method s_disabled     = s_disabled
 
@@ -236,6 +241,9 @@ class ['a] text_input_widget ?v_msg ~input_elt (v : 'a validation) elt () =
                                     }
 
     method s_input   = s_input
+
+    method fill_in (x : 'a) = s_input_push (Some x); self#set_value (valid_to_string v x)
+    method clear            = s_input_push None; self#set_value ""
 
     method private set_max (x : float) = (Js.Unsafe.coerce input_elt)##.max := x
     method private set_min (x : float) = (Js.Unsafe.coerce input_elt)##.min := x

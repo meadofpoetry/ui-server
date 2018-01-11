@@ -76,10 +76,10 @@ module SM = struct
       | l -> let open CCOpt in
              is_response msg l >|= fun r ->
              (match msg with
-              | Set_settings (d, dat) -> let conf = List.map (fun (i,old) -> if i = d
-                                                                             then (d, dat)
-                                                                             else (i, old))
-                                                             storage#get
+              | Set_settings (d, dat) -> let conf = CCList.map (fun (i,old) -> if i = d
+                                                                               then (d, dat)
+                                                                               else (i, old))
+                                                               storage#get
                                          in storage#store conf
               | _ -> ());
              Lwt.wakeup w r

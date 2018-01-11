@@ -405,6 +405,7 @@ let select_demo () =
                     ~items:(List.map (fun x -> new Select.Base.Item.t
                                                    ~id:("index " ^ (string_of_int x))
                                                    ~text:("Select item " ^ (string_of_int x))
+                                                   ~value:()
                                                    ())
                                      (CCList.range 0 5))
                     () in
