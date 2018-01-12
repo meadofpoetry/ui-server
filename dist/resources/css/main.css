@@ -8,6 +8,10 @@
 /*     --mdc-theme-background: #fff; */
 /* } */
 
+:root {
+    --mdc-box-margin: 0px;
+}
+
 .hide {
     display: none
 }
@@ -137,6 +141,8 @@ main.main-with-sidebar {
 /* MDC Box */
 
 .mdc-box { display: flex; }
+.mdc-box > * { margin-bottom: var(--mdc-box-margin); }
+.mdc-box > *:last-child { margin-bottom : 0; }
 
 .mdc-box--vertical   { flex-direction: column; }
 .mdc-box--horizontal { flex-direction: row; }

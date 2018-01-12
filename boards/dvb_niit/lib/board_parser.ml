@@ -257,12 +257,12 @@ let of_rsp_devinfo_exn msg =
 
 (* Settings *)
 
-let to_req_settings id settings =
+let to_req_settings id (settings : settings) =
   let body = Cbuffer.create sizeof_settings in
   let () = set_settings_mode body (emode_to_int @@ of_mode settings.mode) in
-  let () = set_settings_bw body (ebw_to_int @@ of_bw settings.bw) in
-  let () = set_settings_freq body settings.freq in
-  let () = set_settings_plp body settings.plp in
+  let () = set_settings_bw body (ebw_to_int @@ of_bw settings.channel.bw) in
+  let () = set_settings_freq body settings.channel.freq in
+  let () = set_settings_plp body settings.channel.plp in
   to_msg ~msg_code:(0x20 lor id) ~body
 
 let of_rsp_settings_exn msg =
@@ -271,9 +271,10 @@ let of_rsp_settings_exn msg =
     { lock       = int_to_bool8 (get_settings_lock msg)       |> get_exn |> bool_of_bool8
     ; hw_present = int_to_bool8 (get_settings_hw_present msg) |> get_exn |> bool_of_bool8
     ; settings   = { mode     = to_mode @@ get_exn @@ int_to_emode (get_settings_mode msg)
-                   ; bw       = to_bw @@ get_exn @@ int_to_ebw (get_settings_bw msg)
-                   ; freq     = get_settings_freq msg
-                   ; plp      = get_settings_plp msg
+                   ; channel  = { bw       = to_bw @@ get_exn @@ int_to_ebw (get_settings_bw msg)
+                                ; freq     = get_settings_freq msg
+                                ; plp      = get_settings_plp msg
+                                }
                    }
     }
   with _ -> raise Parse_error
@@ -337,10 +338,10 @@ let deserialize buf =
   (* split buffer into valid messages and residue (if any) *)
   let parse_msg = fun {id;code;body;_} ->
     match (id,code) with
-    | 0xE,0xE0 -> Lwt_io.printl "got ack" |> ignore; `R `Ack
-    | 0,1      -> Lwt_io.printl "got devinfo" |> ignore; `R (`Devinfo body)
-    | _,2      -> Lwt_io.printlf "got settings (id = %d)" id |> ignore; `R (`Settings (id, body))
-    | _,3      -> Lwt_io.printlf "got measure (id = %d)" id |> ignore; `E (`Measure (id, body))
+    | 0xE,0xE0 -> (* Lwt_io.printl "got ack" |> ignore; *) `R `Ack
+    | 0,1      -> (* Lwt_io.printl "got devinfo" |> ignore; *) `R (`Devinfo body)
+    | _,2      -> (* Lwt_io.printlf "got settings (id = %d)" id |> ignore; *) `R (`Settings (id, body))
+    | _,3      -> (* Lwt_io.printlf "got measure (id = %d)" id |> ignore; *) `E (`Measure (id, body))
     | _,5      -> `R (`Plps (id, body))
     | _,6      -> `R (`Plp_setting (id, body))
     | _        -> `N in

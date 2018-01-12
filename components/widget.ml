@@ -12,6 +12,9 @@ class widget (elt:#Dom_html.element Js.t) () = object(self)
   method root   : Dom_html.element Js.t = (elt :> Dom_html.element Js.t)
   method widget : widget = (self :> widget)
 
+  method hide = self#style##.display := Js.string "none"
+  method show = self#style##.display := Js.string ""
+
   method get_child_element_by_class x = Js.Opt.to_option @@ self#root##querySelector (Js.string ("." ^ x))
   method get_child_element_by_id    x = Js.Opt.to_option @@ self#root##querySelector (Js.string ("#" ^ x))
 

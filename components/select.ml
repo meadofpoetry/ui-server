@@ -91,6 +91,7 @@ module Base = struct
         | Some (idx,_) -> Ok (self#select_at_index idx)
         | None         -> Error "Select.Base,select value: no item found with provided value"
       method select_at_index i = mdc##.selectedIndex := i;
+                                 s_selected_push self#get_selected_value;
                                  label_widget#add_class Markup.Select.Base.label_float_above_class
       method select_item i     = (match CCList.find_idx (fun x -> x == i) self#get_items with
                                   | Some (idx,_) -> self#select_at_index idx

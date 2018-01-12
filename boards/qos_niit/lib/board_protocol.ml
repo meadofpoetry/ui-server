@@ -374,7 +374,7 @@ module SM = struct
   let create sender (storage : config storage) push_state step_duration =
     let msgs   = ref (Await_queue.create []) in
     let imsgs  = ref (Queue.create []) in
-    let config,push_config             = React.S.create storage#get in
+    let config,push_config             = React.E.create () in
     let devinfo,devinfo_push           = React.S.create None in
     let status,status_push             = React.E.create () in
     let streams,streams_push           = React.S.create [] in
@@ -389,7 +389,7 @@ module SM = struct
     let bitrates,bitrates_push         = React.S.create [] in
     let t2mi_info,t2mi_info_push       = React.E.create () in
     let jitter,jitter_push             = React.E.create () in
-    let (events : events) = { config   = React.S.changes config
+    let (events : events) = { config   = React.E.changes config
                             ; status
                             ; streams
                             ; ts_found
@@ -420,11 +420,9 @@ module SM = struct
                             } in
     let api =
       { set_mode        = (fun m  -> enqueue_instant imsgs sender storage (Set_board_mode m)
-                                     >>= (fun () -> push_config { (React.S.value config) with mode = m };
-                                                    Lwt.return_unit))
+                                     >>= (fun () -> push_config storage#get; Lwt.return_unit))
       ; set_jitter_mode = (fun m  -> enqueue_instant imsgs sender storage (Set_jitter_mode m)
-                                     >>= (fun () -> push_config { (React.S.value config) with jitter_mode = m};
-                                                    Lwt.return_unit))
+                                     >>= (fun () -> push_config storage#get; Lwt.return_unit))
       ; get_devinfo     = (fun () -> Lwt.return @@ React.S.value devinfo)
       ; reset           = (fun () -> enqueue_instant imsgs sender storage Reset)
       ; get_structs     = (fun () -> Lwt.return @@ React.S.value structs)
@@ -434,7 +432,7 @@ module SM = struct
                                                                  ; seconds    = s })
                                              (to_period (s + 10) step_duration)
                                              None)
-      ; config          = (fun () -> Lwt.return @@ React.S.value config)
+      ; config          = (fun () -> Lwt.return storage#get)
       } in
     events,
     api,

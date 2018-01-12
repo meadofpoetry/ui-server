@@ -35,7 +35,7 @@ let get_state_ws control =
   get_socket (Printf.sprintf "api/board/%d/state_ws" control) Common.Topology.state_of_yojson
 
 let get_config_ws control =
-  get_socket (Printf.sprintf "api/board/%d/state_ws" control) config_of_yojson
+  get_socket (Printf.sprintf "api/board/%d/config_ws" control) config_of_yojson
 
 let get_measures_ws control =
   get_socket (Printf.sprintf "api/board/%d/measures_ws" control) measure_of_yojson
