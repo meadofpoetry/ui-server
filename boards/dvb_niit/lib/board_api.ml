@@ -70,11 +70,14 @@ let sock_handler sock_data (event:'a React.event) (to_yojson:'a -> Yojson.Safe.j
   Hashtbl.add socket_table id sock_events;
   Lwt.return (resp, (body :> Cohttp_lwt.Body.t))
 
-let measures_ws sock_data events body =
-  sock_handler sock_data events.measure measure_to_yojson body
-
 let state_ws sock_data s_state body =
   sock_handler sock_data (React.S.changes s_state) Common.Topology.state_to_yojson body
+
+let config_ws sock_data (events : events) body =
+  sock_handler sock_data events.config config_to_yojson body
+
+let measures_ws sock_data (events : events) body =
+  sock_handler sock_data events.measure measure_response_to_yojson body
 
 let handle api events id s_state _ meth args sock_data _ body =
   let open Lwt.Infix in
@@ -82,13 +85,16 @@ let handle api events id s_state _ meth args sock_data _ body =
   (* let redirect_if_guest = redirect_if (User.eq id `Guest) in *)
   match meth, args with
   | `GET,  ["devinfo"]     -> devinfo api
-  | `POST, ["reset"]       -> reset api
-  | `POST, ["settings"]    -> settings api body
-  | `POST, ["plp_setting"] -> plp_setting api body
   | `GET,  "plps"::[num]   -> plps api num
   | `GET,  ["config"]      -> config api
   | `GET,  ["state"]       -> state s_state
+
+  | `POST, ["reset"]       -> reset api
+  | `POST, ["settings"]    -> settings api body
+  | `POST, ["plp_setting"] -> plp_setting api body
+
   | `GET,  ["state_ws"]    -> state_ws sock_data s_state body
+  | `GET,  ["config_ws"]   -> config_ws sock_data events body
   | `GET,  ["measures_ws"] -> measures_ws sock_data events body
   | _ -> not_found ()
 

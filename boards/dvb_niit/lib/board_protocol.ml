@@ -48,7 +48,8 @@ module SM = struct
 
   let wakeup_timeout t = t.pred `Timeout |> ignore
 
-  type push_events = { measure : measure -> unit
+  type push_events = { measure : measure_response -> unit
+                     ; devinfo : devinfo_response -> unit
                      }
 
   let event_push pe = function
@@ -93,7 +94,6 @@ module SM = struct
   let step msgs sender (storage : config storage) step_duration push_state push_info push_events =
     let period         = timeout_period step_duration in
     let request_period = request_period step_duration in
-    let push_events  = event_push push_events in
     let detect_pool  = Pool.create (detect_msgs (send_msg sender) period) in
     let time         = ref 0.0 in
 
@@ -111,6 +111,7 @@ module SM = struct
         let _, responses, acc = deserialize recvd in
         match Pool.responsed detect_pool responses with
         | Some detect -> push_state `Init;
+                         push_events.devinfo (Some detect);
                          push_info (Some detect);
                          step_start_init (measure_probes (send_event sender) period detect)
         | _           -> `Continue (step_detect (Pool.step detect_pool) acc)
@@ -166,7 +167,7 @@ module SM = struct
                       `Continue (step_normal_probes_wait probes_pool (succ period_timer) acc)
          | Some ev -> Lwt_io.printlf "received probe, %f" (Unix.gettimeofday () -. !time) |> ignore;
                       let new_probes_pool = Pool.next probes_pool in
-                      push_events ev;
+                      event_push push_events ev;
                       if Pool.last probes_pool
                       then `Continue (step_normal_requests_send new_probes_pool period_timer acc)
                       else step_normal_probes_send new_probes_pool period_timer acc recvd)
@@ -198,10 +199,18 @@ module SM = struct
     
   let create sender (storage : config storage) push_state step_duration =
     let period = timeout_period step_duration in
+    let s_config, s_config_push   = React.S.create storage#get in
+    let s_devinfo, s_devinfo_push = React.S.create None in
     let s_measure, s_measure_push = React.E.create () in
     let s_info, s_info_push = React.S.create None in
-    let (events : events)   = { measure = s_measure } in
-    let push_events         = { measure = s_measure_push } in
+    let (events : events)   = { measure = s_measure
+                              ; config  = React.S.changes s_config
+                              }
+    in
+    let (push_events : push_events) = { measure = s_measure_push
+                                      ; devinfo = s_devinfo_push
+                                      }
+    in
     let msgs = ref (Queue.create []) in
     let send x = send msgs sender storage period x in
     let api = { devinfo     = (fun ()    -> Lwt.return @@ React.S.value s_info)
@@ -209,7 +218,7 @@ module SM = struct
               ; settings    = (fun s     -> send (Set_settings s))
               ; plp_setting = (fun (n,s) -> send (Set_plp (n,s)))
               ; plps        = (fun n     -> send (Get_plps n))
-              ; config      = (fun ()    -> Lwt.return storage#get)
+              ; config      = (fun ()    -> Lwt.return @@ React.S.value s_config)
               }
     in
     events,

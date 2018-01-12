@@ -1,13 +1,14 @@
-type tab =
+type 'a tab =
   { href     : string option
   ; content  : content
   ; disabled : bool
+  ; value    : 'a
   }
 and content = [ `Text of string | `Icon of string * (string option) | `Text_and_icon of string * string ]
 
 module Tab = struct
 
-  class t push props () =
+  class ['a] t push (props:'a tab) () =
 
     let elt = Markup.Tabs.Tab.create ~content:props.content () |> Tyxml_js.To_dom.of_a in
 
@@ -20,8 +21,12 @@ module Tab = struct
       val mutable prevent_default_on_click = false
       val mutable left  = 0
       val mutable width = 0
+      val mutable value : 'a = props.value
 
       method anchor_element = elt
+
+      method set_value (x:'a) = value <- x
+      method get_value : 'a   = value
 
       method get_disabled   = tab.disabled
       method set_disabled x = tab <- { tab with disabled = x };
@@ -94,7 +99,7 @@ end
 
 module Tab_bar = struct
 
-  class t ~(tabs:tab list) () =
+  class ['a] t ~(tabs:'a tab list) () =
 
     let s_active,s_active_push = React.S.create None in
     let tabs      = CCList.map (fun x -> new Tab.t s_active_push x ()) tabs in
@@ -137,21 +142,27 @@ module Tab_bar = struct
       method set_indicator_accent  = super#remove_class Markup.Tabs.Tab_bar.indicator_primary_class;
                                      super#add_class Markup.Tabs.Tab_bar.indicator_accent_class
 
+      (* Active getters *)
+
       method get_active_tab_index = match React.S.value s_active with
         | Some tab -> CCList.find_idx (fun x -> x == tab) self#tabs
                       |> (function Some (idx,_) -> Some idx | None -> None)
         | None     -> None
+      method get_active_tab = React.S.value s_active
+      method get_active_value = CCOpt.map (fun x -> x#get_value) self#get_active_tab
+
+      (* Active setters *)
+
       method set_active_tab_index x = match CCList.get_at_idx x self#tabs with
         | Some tab -> Ok (tab#set_active true)
         | None     -> Error (Printf.sprintf "set_active_tab_index: tab with index %d not found" x)
-      method get_active_tab = React.S.value s_active
       method set_active_tab tab = match CCList.find_idx (fun x -> x == tab) self#tabs with
         | Some (_,tab) -> Ok (tab#set_active true)
         | None         -> Error "set_active_tab: tab not found"
 
       method get_tab_at_index i = CCList.get_at_idx i self#tabs
 
-      method append_tab (tab : tab) =
+      method append_tab (tab : 'a tab) =
         if typ_of_tab_content tab.content = self#typ
         then (let t = new Tab.t s_active_push tab () in
               tabs <- tabs @ [t];
@@ -160,7 +171,7 @@ module Tab_bar = struct
               Ok ())
         else (Error "append_tab: tab content mismatch")
 
-      method insert_tab_at_index index (tab : tab) =
+      method insert_tab_at_index index (tab : 'a tab) =
         if typ_of_tab_content tab.content = self#typ
         then (let t = new Tab.t s_active_push tab () in
               tabs <- CCList.insert_at_idx index t tabs;
@@ -239,7 +250,7 @@ module Scroller = struct
       method tabBar : unit Js.t Js.readonly_prop
     end
 
-  class t ~(tabs:tab list) () =
+  class ['a] t ~(tabs:'a tab list) () =
 
     let tab_bar = new Tab_bar.t ~tabs () in
     let elt = tab_bar#add_class Markup.Tabs.Scroller.scroll_frame_tabs_class;

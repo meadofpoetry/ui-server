@@ -17,7 +17,7 @@ module Config_storage = Storage.Options.Make (Data)
 
 module Storage : sig
   type _ req =
-    | Store_measures : Board_types.measure -> unit Lwt.t req
+    | Store_measures : Board_types.measure_response -> unit Lwt.t req
   include (Storage.Database.STORAGE with type 'a req := 'a req)
 end = Db
     
@@ -35,13 +35,13 @@ let create (b:topo_board) convert_streams send db base step =
            @@ React.E.changes events.measure in
   let s_streams = React.S.fold
                     (fun (streams : Common.Stream.stream list)
-                         (m : Board_types.measure) ->
+                         ((id,m) : Board_types.measure_response) ->
                       let open Common.Stream in
                       let (stream : stream) = { source      = Port 0
-                                              ; id          = `Ts (Dvb (m.id,m.id mod 3)) (* TODO fix this *)
+                                              ; id          = `Ts (Dvb (id,id mod 3)) (* TODO fix this *)
                                               ; description = Some ""
                                               } in
-                      match m.measures.lock,m.measures.bitrate with
+                      match m.lock,m.bitrate with
                       | true,Some x when x > 0l -> CCList.add_nodup stream streams
                       | _                       -> CCList.remove ~x:stream streams)
                     [] events.measure in

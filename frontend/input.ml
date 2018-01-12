@@ -22,7 +22,7 @@ let () =
   let placeholder = (fun () -> (Dom_html.createDiv Dom_html.document), (fun () -> ())) in
   let board_to_tabs control = function
     | IP2TS -> [ "IP", (fun () -> Board_ip_dektec_js.Ip_dektec.page control) ]
-    | DVB   -> [ "RF", (fun () -> Board_dvb_niit_js.Dvb_niit.page control) ]
+    | DVB   -> [ "RF", (fun () -> Board_dvb_niit_js.Settings.page control) ]
     | TS    -> [ "QoS",       (fun () -> Board_qos_niit_js.Settings.page control)
                ; "Структура", (fun () -> Board_qos_niit_js.Structure.page control)
                ; "Битрейт",   placeholder
@@ -31,9 +31,10 @@ let () =
   in
   let tabs = CCList.fold_left (fun acc (c,typ) -> (CCList.rev @@ board_to_tabs c typ) @ acc) [] boards
              |> CCList.rev in
-  let bar  = new Tabs.Tab_bar.t ~tabs:(CCList.map (fun (name,_) -> { content = `Text name
+  let bar  = new Tabs.Tab_bar.t ~tabs:(CCList.map (fun (name,_) -> { content  = `Text name
                                                                    ; disabled = false
-                                                                   ; href = None })
+                                                                   ; href     = None
+                                                                   ; value    = () })
                                                   tabs) () in
   let s    = React.S.map ~eq:(==) (fun _ -> CCOpt.map (fun idx -> snd @@ CCList.get_at_idx_exn idx tabs)
                                                       bar#get_active_tab_index)

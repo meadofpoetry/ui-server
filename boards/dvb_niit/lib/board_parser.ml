@@ -119,7 +119,8 @@ let string_of_err = function
   | Insufficient_payload _ -> "insufficient payload"
   | Unknown_err s          -> s
 
-type events = { measure : measure React.event
+type events = { measure : measure_response React.event
+              ; config  : config React.event
               }
 
 type api = { devinfo     : unit -> devinfo_response Lwt.t
@@ -130,13 +131,13 @@ type api = { devinfo     : unit -> devinfo_response Lwt.t
            ; config      : unit -> config Lwt.t
            }
 
-type _ request = Get_devinfo  : rsp_devinfo request
+type _ request = Get_devinfo  : devinfo request
                | Reset        : unit request
-               | Set_settings : (int * settings) -> (int * rsp_settings) request
-               | Set_plp      : int * int        -> (int * rsp_plp_set) request
-               | Get_plps     : int -> (int * rsp_plp_list) request
+               | Set_settings : (int * settings) -> settings_response request
+               | Set_plp      : int * int        -> plp_setting_response request
+               | Get_plps     : int              -> plp_list_response request
 
-type event = Measure of measure
+type event = Measure of measure_response
 
 type _ event_request = Get_measure : int -> event event_request
 
@@ -284,17 +285,18 @@ let to_req_measure id =
 
 let of_rsp_measure_exn msg =
   try
-    { lock    = int_to_bool8 (get_rsp_measure_lock msg) |> CCOpt.get_exn |> bool_of_bool8
-    ; power   = get_rsp_measure_power msg
-                |> (fun x -> if x = max_uint16 then None else Some (-.((float_of_int x) /. 10.)))
-    ; mer     = get_rsp_measure_mer msg
-                |> (fun x -> if x = max_uint16 then None else Some ((float_of_int x) /. 10.))
-    ; ber     = get_rsp_measure_ber msg
-                |> (fun x -> if x = Int32.of_int max_uint32 then None else Some ((Int32.to_float x) /. (2.**24.)))
-    ; freq    = get_rsp_measure_freq msg
-                |> (fun x -> if x = Int32.of_int max_uint32 then None else Some x)
-    ; bitrate = get_rsp_measure_bitrate msg
-                |> (fun x -> if x = Int32.of_int max_uint32 then None else Some x)
+    { timestamp = Unix.gettimeofday ()
+    ; lock      = int_to_bool8 (get_rsp_measure_lock msg) |> CCOpt.get_exn |> bool_of_bool8
+    ; power     = get_rsp_measure_power msg
+                  |> (fun x -> if x = max_uint16 then None else Some (-.((float_of_int x) /. 10.)))
+    ; mer       = get_rsp_measure_mer msg
+                  |> (fun x -> if x = max_uint16 then None else Some ((float_of_int x) /. 10.))
+    ; ber       = get_rsp_measure_ber msg
+                  |> (fun x -> if x = Int32.of_int max_uint32 then None else Some ((Int32.to_float x) /. (2.**24.)))
+    ; freq      = get_rsp_measure_freq msg
+                  |> (fun x -> if x = Int32.of_int max_uint32 then None else Some x)
+    ; bitrate   = get_rsp_measure_bitrate msg
+                  |> (fun x -> if x = Int32.of_int max_uint32 then None else Some x)
     }
   with _ -> raise Parse_error
 
@@ -376,11 +378,7 @@ let parse_plp_settings id = function
   | _ -> None
 
 let parse_measures id = function
-  | `Measure (idx, buf) when idx = id -> (match try_parse of_rsp_measure_exn buf with
-                                          | Some x -> Some (Measure { id
-                                                                    ; timestamp = Unix.time ()
-                                                                    ; measures = x })
-                                          | None   -> None)
+  | `Measure (idx, buf) when idx = id -> try_parse (fun b -> Measure (id, (of_rsp_measure_exn b))) buf
   | _ -> None
 
 let parse_plps id = function

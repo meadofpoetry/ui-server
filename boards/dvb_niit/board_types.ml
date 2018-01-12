@@ -1,6 +1,6 @@
 open Common.Topology
 
-type rsp_devinfo =
+type devinfo =
   { serial   : int
   ; hw_ver   : int
   ; fpga_ver : int
@@ -32,16 +32,7 @@ type rsp_settings =
   ; lock       : bool
   } [@@deriving yojson]
 
-type rsp_measure =
-  { lock      : bool
-  ; power     : float option
-  ; mer       : float option
-  ; ber       : float option
-  ; freq      : int32 option
-  ; bitrate   : int32 option
-  } [@@deriving yojson]
-
-type rsp_plp_list =
+type plp_list =
   { lock    : bool
   ; plps    : int list
   } [@@deriving yojson]
@@ -51,7 +42,17 @@ type rsp_plp_set =
   ; plp     : int
   } [@@deriving yojson]
 
-type devinfo_response = rsp_devinfo option [@@deriving yojson]
+type measure =
+  { timestamp : float
+  ; lock      : bool
+  ; power     : float option
+  ; mer       : float option
+  ; ber       : float option
+  ; freq      : int32 option
+  ; bitrate   : int32 option
+  } [@@deriving yojson]
+
+type devinfo_response = devinfo option [@@deriving yojson]
 
 type settings_request = (int * settings) [@@deriving yojson]
 
@@ -61,13 +62,9 @@ type plp_setting_request = (int * int) [@@deriving yojson]
 
 type plp_setting_response = (int * rsp_plp_set) [@@deriving yojson]
 
-type plp_list_response = (int * rsp_plp_list) [@@deriving yojson]
+type plp_list_response = (int * plp_list) [@@deriving yojson]
 
-type measure =
-  { id        : int
-  ; timestamp : float
-  ; measures  : rsp_measure
-  } [@@deriving yojson]
+type measure_response = (int * measure) [@@deriving yojson]
 
 type config = (int * settings) list [@@deriving yojson]
 

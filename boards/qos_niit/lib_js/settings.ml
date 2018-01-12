@@ -31,9 +31,11 @@ let card control
          ~(event : config React.event) =
   let title       = new Card.Title.t ~title:"Настройки" () in
   let primary     = new Card.Primary.t ~widgets:[title] () in
-  let asi         = new Select.Base.Item.t ~text:"ASI" ~value:ASI () in
-  let spi         = new Select.Base.Item.t ~text:"SPI" ~value:SPI () in
-  let inp         = new Select.Base.t ~label:"Вход" ~items:[asi;spi] () in
+  let items       = [ new Select.Base.Item.t ~text:"ASI" ~value:ASI ()
+                    ; new Select.Base.Item.t ~text:"SPI" ~value:SPI ()
+                    ]
+  in
+  let inp         = new Select.Base.t ~label:"Вход" ~items () in
   let _           = inp#select_value init.mode.input in
   let t2mi,s_t2mi = t2mi_mode ~init ~event in
   let common_sect = new Card.Media.t ~widgets:[inp#widget] () in

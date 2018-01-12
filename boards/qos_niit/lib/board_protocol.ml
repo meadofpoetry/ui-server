@@ -25,7 +25,8 @@ module SM = struct
 
   let wakeup_timeout (_,t) = t.pred `Timeout |> ignore
 
-  type push_events = { status       : user_status           -> unit
+  type push_events = { devinfo      : devinfo_response      -> unit
+                     ; status       : user_status           -> unit
                      ; streams      : Common.Stream.id list -> unit
                      ; ts_found     : Common.Stream.id      -> unit
                      ; ts_lost      : Common.Stream.id      -> unit
@@ -263,12 +264,12 @@ module SM = struct
 
   let push_event_response (pe:push_events) = function
     | Board_errors x -> pe.board_errors x
-    | Bitrate x      -> ()
+    | Bitrate _      -> ()
     | Struct  x      -> pe.structs x
     | T2mi_info x    -> pe.t2mi_info x
     | Jitter x       -> jitter_ptr := x.next_ptr; pe.jitter x
 
-  let step msgs imsgs sender (storage : config storage) step_duration push_state push_devinfo push_events =
+  let step msgs imsgs sender (storage : config storage) step_duration push_state push_events =
     let period         = to_period 5 step_duration in
     (* let section_period = to_period 120 step_duration in *)
 
@@ -295,7 +296,7 @@ module SM = struct
       let _, _, rsps, _, acc = deserialize [] (Meta_board.concat_acc acc recvd) in
       match CCList.find_map (is_response Get_board_info) rsps with
       | Some info -> push_state `Init;
-                     push_devinfo (Some info);
+                     push_events.devinfo (Some info);
                      let config = storage#get in
                      send_instant sender (Set_board_mode config.mode) |> ignore;
                      send_instant sender (Set_jitter_mode config.jitter_mode)
@@ -374,7 +375,7 @@ module SM = struct
     let msgs   = ref (Await_queue.create []) in
     let imsgs  = ref (Queue.create []) in
     let config,push_config             = React.S.create storage#get in
-    let devinfo,push_devinfo           = React.S.create None in
+    let devinfo,devinfo_push           = React.S.create None in
     let status,status_push             = React.E.create () in
     let streams,streams_push           = React.S.create [] in
     let ts_found,ts_found_push         = React.E.create () in
@@ -402,7 +403,8 @@ module SM = struct
                             ; bitrates = React.S.changes bitrates
                             ; t2mi_info
                             ; jitter } in
-    let push_events       = { status       = status_push
+    let push_events       = { devinfo      = devinfo_push
+                            ; status       = status_push
                             ; streams      = streams_push
                             ; ts_found     = ts_found_push
                             ; ts_lost      = ts_lost_push
@@ -436,6 +438,6 @@ module SM = struct
       } in
     events,
     api,
-    (step msgs imsgs sender storage step_duration push_state push_devinfo push_events)
+    (step msgs imsgs sender storage step_duration push_state push_events)
 
 end
