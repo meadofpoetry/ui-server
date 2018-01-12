@@ -611,15 +611,55 @@ let time_chart_demo () =
 
 let add_demos demos =
   Html.div ~a:[ Html.a_id "demo-div" ]
-           @@ CCList.map (fun x -> Of_dom.of_element (x :> Dom_html.element Js.t)) demos
+  @@ CCList.map (fun x -> Of_dom.of_element (x :> Dom_html.element Js.t)) demos
   |> To_dom.of_element
+
+let dynamic_grid_demo () =
+  let (props:Dynamic_grid.grid) =
+    { width            = 1920 (* px*)
+    ; height           = None
+    ; cols             = Some 20
+    ; row_height       = Some 70
+    ; vertical_compact = false
+    ; items_margin     = None
+    } in
+  let items    = [ Dynamic_grid.Item.to_item ~pos:{ x = 0  ; y = 0; w = 100; h = 100 } ()
+                 ; Dynamic_grid.Item.to_item ~pos:{ x = 100; y = 0; w = 100; h = 100 } ()
+                 ]
+  in
+  let x        = new Textfield.t ~label:"x position" ~input_type:(Widget.Integer None) () in
+  let y        = new Textfield.t ~label:"y position" ~input_type:(Widget.Integer None) () in
+  let w        = new Textfield.t ~label:"width"      ~input_type:(Widget.Integer None) () in
+  let h        = new Textfield.t ~label:"height"     ~input_type:(Widget.Integer None) () in
+  let add      = new Button.t ~label:"add" () in
+  let add_free = new Button.t ~label:"add free" () in
+  let grid     = new Dynamic_grid.t ~grid:props ~items () in
+  React.E.map (fun () -> let open Lwt.Infix in
+                         let widget = (new Button.t ~label:(string_of_int @@ CCList.length grid#items) ())#widget in
+                         grid#add_free ~widget () >>= (function
+                                                       | Ok _    -> print_endline "ok"   ; Lwt.return_unit
+                                                       | Error _ -> print_endline "error"; Lwt.return_unit)
+                         |> ignore) add_free#e_click
+  |> ignore;
+  React.E.map (fun () -> match React.S.value x#s_input,React.S.value y#s_input,
+                               React.S.value w#s_input,React.S.value h#s_input with
+                         | Some x, Some y, Some w, Some h ->
+                            grid#add (Dynamic_grid.Item.to_item ~pos:{ x;y;w;h } ())
+                            |> (function
+                                | Ok _    -> print_endline "ok"
+                                | Error l -> Printf.printf "Collides with %d items\n" @@ CCList.length l)
+                         | _ -> ()) add#e_click |> ignore;
+  React.S.map (fun x -> Printf.printf "%d items in grid\n" @@ CCList.length x) grid#s_items |> ignore;
+  demo_section "Dynamic grid" [ grid#widget; x#widget; y#widget; w#widget; h#widget; add#widget; add_free#widget ]
+
 
 let onload _ =
   let doc     = Dom_html.document in
   let body    = doc##.body in
   let drawer  = drawer_demo () in
   let toolbar = toolbar_demo drawer () in
-  let demos   = add_demos [ table_demo ()
+  let demos   = add_demos [ dynamic_grid_demo ()
+                          ; table_demo ()
                           ; button_demo ()
                           ; chart_demo ()
                           ; time_chart_demo ()

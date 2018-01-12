@@ -1,0 +1,475 @@
+module Utils = struct
+
+  (** rounds a number the right way **)
+  let round x =
+    if x < (floor x +. 0.5)
+    then int_of_float @@ floor x
+    else int_of_float @@ ceil x
+
+  let px n = Js.string @@ Printf.sprintf "%dpx" n
+
+end
+
+module Position = struct
+
+  type t =
+    { x : int
+    ; y : int
+    ; w : int
+    ; h : int
+    }
+
+  let empty = { x=0;y=0;w=0;h=0 }
+
+  (** checks if two elements collide, returns true if do and false otherwise **)
+  let collides (pos1:t) (pos2:t) =
+    if (pos1.x + pos1.w <= pos2.x)      then false
+    else if (pos1.x >= pos2.x + pos2.w) then false
+    else if (pos1.y + pos1.h <= pos2.y) then false
+    else if (pos1.y >= pos2.y + pos2.h) then false
+    else true
+
+  (** get first element that collides with position **)
+  let get_first_collision ~(f:'a -> t) pos (l:'a list) =
+    CCList.fold_while (fun acc (x:'a) -> if collides pos (f x)
+                                         then (Some x,`Stop)
+                                         else (acc,`Continue)) None l
+
+  (** get all elements that collides with position **)
+  let get_all_collisions ~(f:'a -> t) pos (l:'a list) =
+    CCList.fold_left (fun acc (x:'a) -> if collides pos (f x)
+                                        then x::acc else acc) [] l
+
+  (** check if element collides with other elements **)
+  let has_collision ~(f:'a -> t) x (l:'a list) =
+    CCOpt.is_some @@ get_first_collision ~f x l
+
+  let get_free_rect ~(f:'a -> t) (pos:t) (items:'a list) w h =
+    if has_collision ~f:(fun x -> x) pos items
+    then None
+    else
+      let items = CCList.map f items in
+      let area pos = pos.w * pos.h in
+      (* FIXME obviously not optimized algorithm *)
+      (* get only elements that are on the way to cursor proection to the left/right side *)
+      let x_filtered = CCList.filter (fun i -> pos.y >= i.y && pos.y <= i.y + i.h) items in
+      (* get cursor proection to the left side *)
+      let l = CCList.filter (fun i -> i.x < pos.x) x_filtered
+              |> CCList.fold_left (fun acc i -> if i.x + i.w > acc.x + acc.w then i else acc) empty
+              |> (fun x -> x.x + x.w) in
+      (* get cursor proection to the right side *)
+      let r = CCList.filter (fun i -> i.x > pos.x) x_filtered
+              |> CCList.fold_left (fun acc i -> if i.x < acc.x then i else acc) { x=w;y=0;w=0;h=0 }
+              |> (fun x -> x.x) in
+      (* get only elements that are on the way to cursor proection to the top/bottom side *)
+      let y_filtered = CCList.filter (fun i -> pos.x >= i.x && pos.x <= i.x + i.w && i.x + i.w > l && i.x < r)
+                                     items in
+      (* get cursor proection to the top side *)
+      let t = CCList.filter (fun i -> i.y < pos.y) y_filtered
+              |> CCList.fold_left (fun acc i -> if i.y + i.h > acc.y + acc.h then i else acc) empty
+              |> (fun x -> x.y + x.h) in
+      (* get cursor proection to the bottom side *)
+      let b = CCList.filter (fun i -> i.y > pos.y) y_filtered
+              |> CCList.fold_left (fun acc i -> if i.y < acc.y then i else acc) { x=0;y=h;w=0;h=0}
+              |> (fun x -> x.y) in
+      (* get available x points, FIXME obviously we don't need to iterate over all items *)
+      let xs = CCList.fold_left (fun acc i ->
+                   let join = fun x lst -> if x >= l && x <= r then x :: lst else lst in
+                   let acc  = join i.x acc |> join (i.x + i.w) in
+                   acc) [] items
+               |> (fun x -> l :: x @ [r])
+               |> CCList.sort_uniq
+      in
+      (* get available y points, FIXME obviously we don't need to iterate over all items *)
+      let ys = CCList.fold_left (fun acc i ->
+                   let join = fun y lst -> if y >= t && y <= b then y :: lst else lst in
+                   let acc  = join i.y acc |> join (i.y + i.h) in
+                   acc) [] items
+               |> (fun x -> t :: x @ [b])
+               |> CCList.sort_uniq
+      in
+      (* get biggest non-overlapping rectangle under the cursor *)
+      (* FIXME obviously not optimized at all *)
+      let a,_ = CCList.fold_left (fun acc x0 ->
+                    let xs = CCList.filter (fun i -> i > x0) xs in
+                    CCList.fold_left (fun acc x1 ->
+                        CCList.fold_left (fun acc y0 ->
+                            let ys = CCList.filter (fun i -> i > y0) ys in
+                            CCList.fold_left (fun acc y1 ->
+                                let _,acc_area = acc in
+                                let (new_pos:t) = { x = x0; y = y0; w = x1 - x0; h = y1 - y0 } in
+                                let new_area = area new_pos in
+                                (*
+                                 * new rect must be the biggest one available,
+                                 * it must not overlap with other rects,
+                                 * it must be under the mouse cursor
+                                 *)
+                                match (new_area > acc_area),
+                                      get_first_collision ~f:(fun x -> x) new_pos items,
+                                      collides pos new_pos with
+                                | true,None,true -> new_pos,new_area
+                                | _         -> acc) acc ys) acc ys) acc xs)
+                                 (empty,0) xs in
+      Some a
+
+end
+
+type item =
+  { pos       : Position.t
+  ; min_w     : int option
+  ; min_h     : int option
+  ; max_w     : int option
+  ; max_h     : int option
+  ; static    : bool
+  ; resizable : bool
+  ; draggable : bool
+  ; widget    : Widget.widget option
+  }
+
+type grid =
+  { width            : int
+  ; height           : int option
+  ; cols             : int option
+  ; row_height       : int option
+  ; vertical_compact : bool
+  ; items_margin     : int option
+  }
+
+module Item = struct
+
+  let to_item ?min_w ?min_h ?max_w ?max_h
+                   ?(static=false) ?(resizable=true) ?(draggable=true) ?widget ~pos () =
+    { pos; min_w; min_h; max_w; max_h; static; resizable; draggable; widget }
+
+  let correct_w ?(use_cols=false) grid item x w hor =
+    let w = match use_cols,grid.cols with
+      | true,Some c -> let single_w = hor / c in
+                       let n = ceil @@ (float_of_int w) /. (float_of_int single_w) in
+                       (int_of_float n) * single_w
+      | _   -> w in
+    let w = match item.max_w,item.min_w with
+      | Some max,Some min -> if w > max then max else if w < min then min else w
+      | Some max,None     -> if w > max then max else w
+      | None,Some min     -> if w < min then min else w
+      | None,None         -> w
+    in
+    if x + w > hor then hor - x else w
+
+  let correct_h ?(use_rows=false) grid item y h ver =
+    let h = match use_rows,grid.row_height with
+      | true, Some x -> let n = ceil @@ (float_of_int h) /. (float_of_int x) in
+                        (int_of_float n * x)
+      | _ -> h
+    in
+    let h = match item.max_h,item.min_h with
+      | Some max,Some min -> if h > max then max else if h < min then min else h
+      | Some max,None     -> if h > max then max else h
+      | None,Some min     -> if h < min then min else h
+      | None,None         -> h
+    in
+    match grid.height with
+    | Some _ -> if y + h > ver then ver - y else h
+    | None   -> h
+
+  let correct_w_h grid item x y w h hor ver =
+    correct_w grid item x w hor,
+    correct_h grid item y h ver
+
+  let correct_xy grid x y w h hor ver =
+    let x = match grid.cols with
+      | Some c -> (hor / c) * (Utils.round @@ float_of_int x /. float_of_int (hor / c))
+      | None   -> x
+    in
+    let y = match grid.row_height with
+      | Some rh -> rh * (Utils.round @@ float_of_int y /. float_of_int rh)
+      | None    -> y
+    in
+    let x = if x < 0 then 0 else if x + w > hor then hor - w else x in
+    let y = match grid.height with
+      | Some _ -> if y < 0 then 0 else if y + h > ver then ver - h else y
+      | None   -> if y < 0 then 0 else y
+    in
+    x,y
+
+  class cell ?(typ=`Item) ~item () =
+    let resize =
+      if item.resizable
+      then Some (Markup.Dynamic_grid.Item.create_resize_button () |> Tyxml_js.To_dom.of_element |> Widget.create)
+      else None
+    in
+    let elt = match typ with
+      | `Item ->
+         Markup.Dynamic_grid.Item.create ?resize_button:(CCOpt.map Widget.widget_to_markup resize) ()
+         |> Tyxml_js.To_dom.of_element
+      | `Ghost -> Markup.Dynamic_grid.Item.create_ghost () |> Tyxml_js.To_dom.of_element
+    in
+    let s_pos, s_pos_push = React.S.create item.pos in
+
+    object(self)
+
+      inherit Widget.widget elt ()
+
+      (** API **)
+
+      method pos        = React.S.value s_pos
+      method s_pos      = s_pos
+      method s_pos_push = s_pos_push
+
+      (** Private methods **)
+
+      method private _resize_button = resize
+      method private set_x x = self#root##.style##.left   := Utils.px x
+      method private set_y y = self#root##.style##.top    := Utils.px y
+      method private set_w w = self#root##.style##.width  := Utils.px w
+      method private set_h h = self#root##.style##.height := Utils.px h
+
+      initializer
+        React.S.map (fun (pos:Position.t) -> self#set_x pos.x; self#set_y pos.y;
+                                             self#set_w pos.w; self#set_h pos.h) self#s_pos |> ignore
+
+    end
+
+
+  class t ~grid          (* grid props *)
+          ~item          (* item props *)
+          ~e_modify_push (* add/delete item event *)
+          ~s_items       (* items signal *)
+          () =
+    let s_xy_init,s_xy_init_push     = React.S.create (0,0) in
+    let s_wh_init,s_wh_init_push     = React.S.create (0,0) in
+    let ghost                        = new cell ~typ:`Ghost ~item () in
+
+    object(self)
+
+      inherit cell ~typ:`Item ~item ()
+
+      val mutable mousemove_listener = None
+      val mutable mouseup_listener   = None
+
+      (** API **)
+
+      method ghost         = ghost
+      method remove : unit = e_modify_push (`Remove self)
+
+      (** Private methods **)
+
+      method private has_collision (pos : Position.t) =
+        Position.has_collision ~f:(fun x -> React.S.value x#s_pos)
+                               pos
+                               (CCList.filter (fun x -> x#root != self#root) (React.S.value s_items))
+
+      method private get_parent    = CCOpt.get_exn @@ Js.Opt.to_option self#root##.parentNode
+      method private get_parent_wh = let par = self#get_parent in
+                                     (Js.Unsafe.coerce par)##.offsetWidth,
+                                     (Js.Unsafe.coerce par)##.offsetHeight
+
+      method private apply_position ev =
+        match ev##.clientX,ev##.clientY with
+        | 0,0 -> ()
+        | _   ->
+           let x,y   = React.S.value s_xy_init in
+           let pw,ph = self#get_parent_wh in
+           let x,y   = correct_xy grid
+                                  (self#get_offset_left + ev##.clientX - x)
+                                  (self#get_offset_top  + ev##.clientY - y)
+                                  self#get_offset_width
+                                  self#get_offset_height
+                                  pw ph in
+           match Js.to_string ev##._type with
+           | "drag"    -> let open Position in
+                          (* check if new ghost position collides with other elements *)
+                          let pos = { self#pos with x;y } in
+                          (* if no collision detected, update ghost position *)
+                          if not (self#has_collision pos) then ghost#s_pos_push pos
+           | "dragend" -> self#style##.opacity := Js.def @@ Js.string "1";
+                          (* update element position from ghost *)
+                          self#s_pos_push ghost#pos;
+                          Dom.removeChild self#get_parent ghost#root
+           | _         -> ()
+
+      method private apply_size ev =
+        let w,h     = React.S.value s_wh_init in
+        let x,y     = React.S.value s_xy_init in
+        let w1,h1   = w + ev##.clientX - x,h + ev##.clientY - y in
+        let hor,ver = self#get_parent_wh in
+        let w,h     = correct_w_h grid item self#get_offset_left self#get_offset_top w1 h1 hor ver in
+        (* update element width and height -- temporary *)
+        self#set_w w; self#set_h h;
+        match Js.to_string ev##._type with
+        | "mousemove" -> let open Position in
+                         (* get new cell width and height *)
+                         let w   = correct_w ~use_cols:true grid item self#get_offset_left w1 hor in
+                         let h   = correct_h ~use_rows:true grid item self#get_offset_top h1 ver in
+                         let pos = { x = self#get_offset_left; y = self#get_offset_top; w; h } in
+                         (* if no collision detected, update ghost position *)
+                         if not (self#has_collision pos) then ghost#s_pos_push pos
+        | "mouseup"   -> let open Position in
+                         (* stop listen to resize events despite start *)
+                         CCOpt.iter (fun l -> Dom_events.stop_listen l) mousemove_listener;
+                         CCOpt.iter (fun l -> Dom_events.stop_listen l) mouseup_listener;
+                         (* update cell position *)
+                         self#s_pos_push ghost#pos;
+                         (* remove ghost from dom *)
+                         Dom.removeChild self#get_parent ghost#root
+        | _ -> ()
+
+      initializer
+        (* set draggable attribute on element if necessary *)
+        self#set_attribute "draggable" (string_of_bool item.draggable);
+        (* append widget to cell if provided *)
+        CCOpt.iter (fun x -> Dom.appendChild self#root x#root) item.widget;
+
+        (* add item move listeners *)
+        Dom_events.listen self#root
+                          Dom_events.Typ.dragstart
+                          (fun _ e -> s_xy_init_push (e##.clientX,e##.clientY);
+                                      e##.dataTransfer##setData (Js.string "text/html") (Js.string "anything");
+                                      ghost#style##.zIndex := Js.string "1";
+                                      (* add ghost item to dom to show possible element position *)
+                                      Dom.appendChild self#get_parent ghost#root;
+                                      (* hide element itself while dragging *)
+                                      Dom_html.setTimeout (fun () -> let s = Js.def @@ Js.string "0" in
+                                                                     self#style##.opacity := s) 0.1
+                                      |> ignore;
+                                      true)
+        |> ignore;
+        Dom_events.listen self#root Dom_events.Typ.drag    (fun _ ev -> self#apply_position ev; false) |> ignore;
+        Dom_events.listen self#root Dom_events.Typ.dragend (fun _ ev -> self#apply_position ev; false) |> ignore;
+
+        (* add item start resize listener if needed *)
+        CCOpt.iter (fun button ->
+            Dom_events.listen button#root
+                              Dom_events.Typ.mousedown
+                              (fun _ e -> s_xy_init_push (e##.clientX,e##.clientY);
+                                          s_wh_init_push (self#get_offset_width,self#get_offset_height);
+                                          (* add ghost item to dom to show possible element position *)
+                                          Dom.appendChild self#get_parent ghost#root;
+                                          (* add proper ghost styles *)
+                                          ghost#style##.zIndex := Js.string "3";
+                                          (* add resize/stop resize event listeners *)
+                                          Dom_events.listen Dom_html.document
+                                                            Dom_events.Typ.mousemove
+                                                            (fun _ e -> self#apply_size e; false)
+                                          |> (fun x -> mousemove_listener <- Some x);
+                                          Dom_events.listen Dom_html.document
+                                                            Dom_events.Typ.mouseup
+                                                            (fun _ e -> self#apply_size e; false)
+                                          |> (fun x -> mouseup_listener <- Some x);
+                                          Dom_html.stopPropagation e;
+                                          false)
+            |> ignore) self#_resize_button
+
+    end
+
+end
+
+class t ~grid ~(items:item list) () =
+  let e_modify,e_modify_push = React.E.create () in
+  let s_items  = React.S.fold (fun acc x -> match x with
+                                           | `Add x    -> x :: acc
+                                           | `Remove x -> CCList.filter (fun i -> i#root != x#root) acc)
+                             [] e_modify in
+  let items    = CCList.map (fun item -> new Item.t ~grid ~s_items ~e_modify_push ~item ()) items in
+  let s_change =
+    let m a x = x :: a in
+    React.S.map (fun l -> React.S.merge m [] (CCList.map (fun x -> x#s_pos) l)) s_items
+    |> React.S.switch
+  in
+  let s_changing =
+    let m a x = x :: a in
+    React.S.map (fun l -> React.S.merge m [] (CCList.map (fun x -> x#ghost#s_pos) l)) s_items
+    |> React.S.switch
+  in
+  let s_height = match grid.height with
+    | Some h -> React.S.const h
+    | None   -> let merge = (fun acc (x:Position.t) -> if (x.h + x.y) > acc then (x.h + x.y) else acc) in
+                React.S.map (fun (l:Position.t list) -> CCList.fold_left merge 0 l) s_changing
+  in
+  let elt = Markup.Dynamic_grid.create ~items:[] () |> Tyxml_js.To_dom.of_element in
+
+  object(self)
+
+    inherit Widget.widget elt ()
+
+    (** API **)
+
+    method s_changing = s_changing
+    method s_change   = s_change
+    method s_items    = s_items
+
+    method items      = React.S.value s_items
+    method positions  = React.S.value s_change
+
+    method remove (x:Item.t) = x#remove
+
+    method add (x:item) =
+      let items = CCList.map (fun x -> x#pos) (React.S.value s_items) in
+      match Position.get_all_collisions ~f:(fun x -> x) x.pos items with
+      | [] -> let item = new Item.t ~grid ~e_modify_push ~s_items ~item:x () in
+              e_modify_push (`Add item);
+              Dom.appendChild self#root item#root;
+              Ok ()
+      | l  -> Error l
+
+    method add_free ?min_w ?min_h ?max_w ?max_h
+                    ?(static=false)
+                    ?(resizable=true)
+                    ?(draggable=true)
+                    ?widget
+                    () =
+      let open Lwt.Infix in
+      let t,wakener = Lwt.wait () in
+      let item = { pos = Position.empty
+                 ; min_w; min_h; max_w; max_h; static; resizable; draggable; widget } in
+      let items = CCList.map (fun x -> x#pos) @@ React.S.value s_items in
+      let ghost = new Item.cell ~typ:`Ghost ~item () in
+      Dom.appendChild self#root ghost#root;
+      let mv_l  =
+        Dom_events.listen elt
+                          Dom_events.Typ.mousemove
+                          (fun _ e -> let w = self#get_offset_width in
+                                      let h = self#get_offset_height in
+                                      let pos = Position.get_free_rect ~f:(fun x -> x)
+                                                                       (self#get_event_pos e)
+                                                                       items w h
+                                      in
+                                      begin match pos with
+                                      | Some pos -> ghost#s_pos_push pos
+                                      | None     -> ghost#s_pos_push Position.empty
+                                      end;
+                                      false)
+      in
+      let cl_l  = Dom_events.listen elt
+                                    Dom_events.Typ.click
+                                    (fun _ _ -> begin match ghost#pos with
+                                                | x when x.w = 0 || x.h = 0 -> Lwt.wakeup wakener (Error [])
+                                                | pos -> Lwt.wakeup wakener (self#add { item with pos })
+                                                end;
+                                                false)
+      in
+      t >>= (fun _ -> Dom_events.stop_listen mv_l;
+                      Dom_events.stop_listen cl_l;
+                      Dom.removeChild self#root ghost#root;
+                      Lwt.return_unit) |> ignore;
+      t
+
+    (** Private methods *)
+
+    method private get_event_pos e =
+      let x = (CCOpt.get_exn @@ Js.Optdef.to_option e##.pageX) - self#get_offset_left in
+      let y = (CCOpt.get_exn @@ Js.Optdef.to_option e##.pageY) - self#get_offset_top in
+      { x; y; w = 1; h = 1 }
+
+    initializer
+      (* add item add/remove listener *)
+      React.E.map (function
+                   | `Add (x:Item.t) -> Dom.appendChild self#root x#root
+                   | `Remove x       -> Dom.removeChild self#root x#root) e_modify |> ignore;
+      (* add initial items *)
+      CCList.iter (fun x -> e_modify_push (`Add x)) items;
+      (* add height update listener *)
+      React.S.map (fun x -> self#style##.height := Utils.px x) s_height |> ignore;
+
+      Dom_events.listen elt Dom_events.Typ.drop (fun _ ev -> Dom.preventDefault ev; false) |> ignore
+
+end

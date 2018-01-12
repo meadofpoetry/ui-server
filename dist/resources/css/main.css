@@ -263,6 +263,59 @@ main.main-with-sidebar {
     padding-left: 30px;
 }
 
+/* MDC Dynamic grid */
+
+.mdc-dynamic-grid {
+    background-color: var(--mdc-theme-primary-light);
+    position:relative;
+    transition: height 200ms ease;
+    width: 100%;
+}
+.mdc-dynamic-grid__item {
+    -moz-user-select: none;
+    -ms-user-select: none;
+    -webkit-user-select: none;
+    /* transition: top 0.1s; */
+    position: absolute;
+    background-color: RGB(215,215,215);
+    background-position: center center;
+    border: 1px ridge black;
+    box-sizing: border-box;
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.2); 
+    z-index: 2;
+    transition: width 0.1s, height 0.1s;
+}
+.mdc-dynamic-grid__item__ghost {
+    /* transition: top 0.1s, left 0.1s; */
+    position: absolute;
+    opacity: 0.5;
+    background-color: RGB(255,200,200);
+    width: 50px;
+    height: 50px;
+}
+.mdc-dynamic-grid__item__resize {
+    -moz-user-select: none;
+    -ms-user-select: none;
+    -webkit-user-select: none;
+    position: absolute;
+    bottom: 0px;
+    right: 0px;
+    width: 20px;
+    height: 20px;
+    z-index: 3;
+    cursor: se-resize;
+}
+.mdc-dynamic-grid__item__resize::after {
+    content: "";
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+    width: 5px;
+    height: 5px;
+    border-right: 2px solid rgba(0, 0, 0, 0.4);
+    border-bottom: 2px solid rgba(0, 0, 0, 0.4);
+}
+
 /* Mosaic */
 
 .adding {
