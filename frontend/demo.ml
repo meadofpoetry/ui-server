@@ -616,15 +616,17 @@ let add_demos demos =
 
 let dynamic_grid_demo () =
   let (props:Dynamic_grid.grid) =
-    { width            = 1920 (* px*)
-    ; height           = None
-    ; cols             = Some 20
-    ; row_height       = Some 70
+    { rows             = None
+    ; cols             = 12
+    ; min_col_width    = 50
+    ; max_col_width    = Some 100
+    ; row_height       = None
+
     ; vertical_compact = false
     ; items_margin     = None
     } in
-  let items    = [ Dynamic_grid.Item.to_item ~pos:{ x = 0  ; y = 0; w = 100; h = 100 } ()
-                 ; Dynamic_grid.Item.to_item ~pos:{ x = 100; y = 0; w = 100; h = 100 } ()
+  let items    = [ Dynamic_grid.Item.to_item ~pos:{ x = 0 ; y = 0; w = 1; h = 2 } ~max_w:3 ()
+                 ; Dynamic_grid.Item.to_item ~pos:{ x = 2 ; y = 1; w = 2; h = 1 } ~max_h:3 ()
                  ]
   in
   let x        = new Textfield.t ~label:"x position" ~input_type:(Widget.Integer None) () in

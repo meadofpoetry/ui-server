@@ -268,8 +268,8 @@ main.main-with-sidebar {
 .mdc-dynamic-grid {
     background-color: var(--mdc-theme-primary-light);
     position:relative;
-    transition: height 200ms ease;
-    width: 100%;
+    /* transition: height 200ms ease; */
+    box-sizing: border-box;
 }
 .mdc-dynamic-grid__item {
     -moz-user-select: none;
@@ -283,15 +283,12 @@ main.main-with-sidebar {
     box-sizing: border-box;
     box-shadow: 0 0 6px rgba(0, 0, 0, 0.2); 
     z-index: 2;
-    transition: width 0.1s, height 0.1s;
+    /* transition: width 0.1s, height 0.1s; */
 }
 .mdc-dynamic-grid__item__ghost {
-    /* transition: top 0.1s, left 0.1s; */
     position: absolute;
     opacity: 0.5;
     background-color: RGB(255,200,200);
-    width: 50px;
-    height: 50px;
 }
 .mdc-dynamic-grid__item__resize {
     -moz-user-select: none;
@@ -314,74 +311,4 @@ main.main-with-sidebar {
     height: 5px;
     border-right: 2px solid rgba(0, 0, 0, 0.4);
     border-bottom: 2px solid rgba(0, 0, 0, 0.4);
-}
-
-/* Mosaic */
-
-.adding {
-    position: absolute;
-    bottom: 0px;
-    right: 0px;
-    width: 30px;
-    height: 25px;
-    cursor: default;
-}
-.div {
-   /* position: absolute; */
-    background-color: RGB(240,240,240);
-    background-position: center center;
-}
-.closing {
-    position: absolute;
-    top: 0px;
-    right: 0px;
-    width: 25px;
-    height: 5px;
-    cursor: default;
-}
-.ghost {
-    transition: top 0.1s;
-    position: absolute;
-    background-color: RGB(255,200,200);
-    background-position: center center;
-    opacity: 0.5;
-}
-.button {
-    -moz-user-select: none;
-    -ms-user-select: none;
-    -webkit-user-select: none;
-    transition: top 0.1s;
-    position: absolute;
-    bottom: 0px;
-    right: 0px;
-    width: 10px;
-    height: 10px;
-    z-index: 3;
-    cursor: se-resize;
-}
-.visual {
-    -moz-user-select: none;
-    -ms-user-select: none;
-    -webkit-user-select: none;
-    transition: top 0.1s;
-    position: absolute;
-    bottom: 3px;
-    right: 3px;
-    width: 7px;
-    height: 7px;
-    z-index: 3;
-    border-bottom: 2px ridge black;
-    border-right: 2px ridge black
-}
-.element {
-    -moz-user-select: none;
-    -ms-user-select: none;
-    -webkit-user-select: none;
-    transition: top 0.1s;
-    position: absolute;
-    background-color: RGB(215,215,215);
-    background-position: center center;
-    border: 1px ridge black;
-    z-index: 2;
-    box-shadow: 0 0 6px rgba(0, 0, 0, 0.2);
 }
