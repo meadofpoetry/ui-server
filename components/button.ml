@@ -24,6 +24,6 @@ class t ?typ ?style ?icon ?dense ?compact ?ripple ~label () =
     method e_click = e_click
 
     initializer
-      Dom_events.listen self#root Dom_events.Typ.click (fun _ _ -> e_click_push (); false) |> ignore;
+      Dom_events.listen self#root Dom_events.Typ.click (fun _ e -> e_click_push e; false) |> ignore;
 
   end

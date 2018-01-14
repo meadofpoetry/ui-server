@@ -184,11 +184,11 @@ let card control
   let apply   = new Button.t ~label:"Применить" () in
   let actions = new Card.Actions.t ~widgets:[apply] () in
   let card    = Ui.card ~title:"Настройки" ~tab_bar:bar ~sections:[`Actions actions] in
-  let _       = React.E.map (fun () -> CCOpt.map (fun p -> match React.S.value p#get_s with
-                                                  | Ok x    -> Requests.post_settings control x
-                                                  | Error e -> Lwt_result.fail e)
-                                                 bar#get_active_value
-                                       |> ignore)
+  let _       = React.E.map (fun _ -> CCOpt.map (fun p -> match React.S.value p#get_s with
+                                                          | Ok x    -> Requests.post_settings control x
+                                                          | Error e -> Lwt_result.fail e)
+                                                bar#get_active_value
+                                      |> ignore)
                             apply#e_click
   in
   card
