@@ -428,6 +428,7 @@ class t ~grid ~(items:item list) () =
 
     val mutable adding = false
     val mutable in_dom = false
+    val mutable residue = 0
 
     (** API **)
 
@@ -518,10 +519,11 @@ class t ~grid ~(items:item list) () =
         t
 
     method layout =
-      let w   = self#get_offset_width in
+      let w   = self#get_offset_width + residue in
       let col = w / grid.cols in
       let res = w mod col in
       s_col_w_push col;
+      residue <- res;
       self#style##.width := Js.string @@ Printf.sprintf "calc(100%% - %dpx)" res
 
     (** Private methods *)

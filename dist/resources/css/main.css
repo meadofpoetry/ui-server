@@ -270,6 +270,7 @@ main.main-with-sidebar {
     position:relative;
     /* transition: height 200ms ease; */
     box-sizing: border-box;
+    width: 100%;
 }
 .mdc-dynamic-grid__item {
     -moz-user-select: none;
