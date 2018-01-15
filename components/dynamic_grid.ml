@@ -58,7 +58,7 @@ module Position = struct
       let area pos = pos.w * pos.h in
       (* FIXME obviously not optimized algorithm *)
       (* get only elements that are on the way to cursor proection to the left/right side *)
-      let x_filtered = CCList.filter (fun i -> pos.y >= i.y && pos.y <= i.y + i.h) items in
+      let x_filtered = CCList.filter (fun i -> pos.y > i.y && pos.y < i.y + i.h) items in
       (* get cursor proection to the left side *)
       let l = CCList.filter (fun i -> i.x < pos.x) x_filtered
               |> CCList.fold_left (fun acc i -> if i.x + i.w > acc.x + acc.w then i else acc) empty
@@ -68,7 +68,7 @@ module Position = struct
               |> CCList.fold_left (fun acc i -> if i.x < acc.x then i else acc) { x=w;y=0;w=0;h=0 }
               |> (fun x -> x.x) in
       (* get only elements that are on the way to cursor proection to the top/bottom side *)
-      let y_filtered = CCList.filter (fun i -> pos.x >= i.x && pos.x <= i.x + i.w && i.x + i.w > l && i.x < r)
+      let y_filtered = CCList.filter (fun i -> pos.x > i.x && pos.x < i.x + i.w && i.x + i.w > l && i.x < r)
                                      items in
       (* get cursor proection to the top side *)
       let t = CCList.filter (fun i -> i.y < pos.y) y_filtered
@@ -220,14 +220,6 @@ module Item = struct
 
     end
 
-  let dragstart_str,dragstart_ev = "dragstart", Dom_events.Typ.dragstart
-  let drag_str,drag_ev           = "drag",      Dom_events.Typ.drag
-  let dragend_str,dragend_ev     = "dragend",   Dom_events.Typ.dragend
-
-  (* let dragstart_str,dragstart_ev = "mousedown", Dom_events.Typ.mousedown
-   * let drag_str,drag_ev           = "mousemove", Dom_events.Typ.mousemove
-   * let dragend_str,dragend_ev     = "mouseup",   Dom_events.Typ.mouseup *)
-
   class t ~grid          (* grid props *)
           ~item          (* item props *)
           ~e_modify_push (* add/delete item event *)
@@ -274,60 +266,76 @@ module Item = struct
       { x = ev##.clientX;          y = ev##.clientY;
         w = self#get_offset_width; h = self#get_offset_height }
 
+    method private get_px_pos : Position.t =
+      { x = self#get_offset_left;  y = self#get_offset_top;
+        w = self#get_offset_width; h = self#get_offset_height }
+
     method private start_dragging ev =
-      let init_ev_pos = self#ev_to_pos (ev :> Dom_html.mouseEvent Js.t) in
+      let init_ev  = (ev :> Dom_html.mouseEvent Js.t) in
+      let init_pos = self#get_px_pos in
       (* e##.dataTransfer##setData (Js.string "text/html") (Js.string "anything"); *)
       ghost#style##.zIndex := Js.string "1";
       (* add ghost item to dom to show possible element position *)
       Dom.appendChild self#get_parent ghost#root;
-      (* hide element itself while dragging *)
-      Dom_html.setTimeout (fun () -> self#style##.opacity := (Js.def @@ Js.string "0")) 0.1 |> ignore;
-      Dom_events.listen self#root drag_ev    (fun _ ev -> self#apply_position ~ev ~init_ev_pos; false)
+      Dom_events.listen Dom_html.document Dom_events.Typ.mousemove (fun _ ev -> self#apply_position ~ev ~init_ev ~init_pos; false)
       |> (fun x -> mov_listener <- Some x);
-      Dom_events.listen self#root dragend_ev (fun _ ev -> self#apply_position ~ev ~init_ev_pos; false)
+      Dom_events.listen Dom_html.document Dom_events.Typ.mouseup   (fun _ ev -> self#apply_position ~ev ~init_ev ~init_pos; false)
       |> (fun x -> end_listener <- Some x)
 
-    method private apply_position ~ev ~init_ev_pos =
+    method private apply_position ~ev ~init_ev ~init_pos =
       match ev##.clientX,ev##.clientY with
       | 0,0 -> ()
       | _   ->
          match Js.to_string ev##._type with
-         | t when t = drag_str ->
+         | "mousemove"->
             let open Utils in
-            let x   = (self#get_offset_left + ev##.clientX - init_ev_pos.x) // (React.S.value s_col_w) in
-            let y   = (self#get_offset_top  + ev##.clientY - init_ev_pos.y) // (React.S.value s_row_h) in
-            let pos = Position.correct_xy { self#pos with x;y } grid.cols grid.rows in
-            if not (self#has_collision pos) then ghost#s_pos_push pos
-         | t when t = dragend_str ->
-            self#style##.opacity := Js.def @@ Js.string "1";
+            let col_px = React.S.value s_col_w in
+            let row_px = React.S.value s_row_h in
+            let x = init_pos.x + ev##.clientX - init_ev##.clientX in
+            let y = init_pos.y + ev##.clientY - init_ev##.clientY in
+            let pos = Position.correct_xy { self#pos with x = x // col_px;
+                                                          y = y // row_px }
+                                          grid.cols grid.rows in
+            if not (self#has_collision pos) then ghost#s_pos_push pos;
+            (* temporary update element's position *)
+            self#set_x x;
+            self#set_y y
+         | "mouseup"->
+            self#root##.style##.cursor := Js.string "move";
+            self#root##.style##.cursor := Js.string "grab";
+            self#root##.style##.cursor := Js.string "-moz-grab";
+            self#root##.style##.cursor := Js.string "-webkit-grab";
             CCOpt.iter (fun l -> Dom_events.stop_listen l) mov_listener;
             CCOpt.iter (fun l -> Dom_events.stop_listen l) end_listener;
             (* update element position from ghost *)
             self#s_pos_push ghost#pos;
+            self#set_x @@ React.S.value s_col_w * ghost#pos.x;
+            self#set_y @@ React.S.value s_row_h * ghost#pos.y;
             Dom.removeChild self#get_parent ghost#root
          | _ -> ()
 
     method private start_resizing ev =
+      let init_ev  = (ev :> Dom_html.mouseEvent Js.t) in
+      let init_pos = self#get_px_pos in
       ghost#style##.zIndex := Js.string "3";
       Dom.appendChild self#get_parent ghost#root;
-      let init_ev_pos = self#ev_to_pos (ev :> Dom_html.mouseEvent Js.t) in
       (* add resize/stop resize event listeners *)
       Dom_events.listen Dom_html.document Dom_events.Typ.mousemove
-                        (fun _ ev -> self#apply_size ~ev ~init_ev_pos; false)
+                        (fun _ ev -> self#apply_size ~ev ~init_ev ~init_pos; false)
       |> (fun x -> mov_listener <- Some x);
       Dom_events.listen Dom_html.document Dom_events.Typ.mouseup
-                        (fun _ ev -> self#apply_size ~ev ~init_ev_pos; false)
+                        (fun _ ev -> self#apply_size ~ev ~init_ev ~init_pos; false)
       |> (fun x -> end_listener <- Some x);
       Dom_html.stopPropagation ev
 
-    method private apply_size ~ev ~init_ev_pos =
+    method private apply_size ~ev ~init_ev ~init_pos =
       match Js.to_string ev##._type with
       | "mousemove" ->
          let open Utils in
          let col_px = React.S.value s_col_w in
          let row_px = React.S.value s_row_h in
-         let w   = init_ev_pos.w + ev##.clientX - init_ev_pos.x in
-         let h   = init_ev_pos.h + ev##.clientY - init_ev_pos.y in
+         let w   = init_pos.w + ev##.clientX - init_ev##.clientX in
+         let h   = init_pos.h + ev##.clientY - init_ev##.clientY in
          let pos = correct_wh ?max_w:item.max_w
                               ?min_w:item.min_w
                               ?max_h:item.max_h
@@ -364,17 +372,21 @@ module Item = struct
       | _ -> ()
 
     initializer
-      (* set draggable attribute on element if necessary *)
-      (match dragstart_str with
-       | "dragstart" -> self#set_attribute "draggable" (string_of_bool item.draggable)
-       | _           -> self#set_attribute "draggable" "");
+      self#root##.style##.cursor := Js.string "move";
+      self#root##.style##.cursor := Js.string "grab";
+      self#root##.style##.cursor := Js.string "-moz-grab";
+      self#root##.style##.cursor := Js.string "-webkit-grab";
       (* append resize button to element if necessary *)
       if item.resizable then Dom.appendChild self#root resize_button#root;
       (* append widget to cell if provided *)
       CCOpt.iter (fun x -> Dom.appendChild self#root x#root) item.widget;
 
       (* add item move listener *)
-      Dom_events.listen self#root dragstart_ev (fun _ e -> if item.draggable then self#start_dragging e; true)
+      Dom_events.listen self#root Dom_events.Typ.mousedown
+                        (fun _ e -> self#root##.style##.cursor := Js.string "grabbing";
+                                    self#root##.style##.cursor := Js.string "-moz-grabbing";
+                                    self#root##.style##.cursor := Js.string "-webkit-grabbing";
+                                    if item.draggable then self#start_dragging e; true)
       |> ignore;
 
       (* add item start resize listener if needed *)
