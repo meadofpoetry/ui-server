@@ -72,9 +72,19 @@ let build_templates ?(href_base="") template vals =
   in List.fold_left (fun acc v -> (fill_in v) @ acc) [] vals
 
 type route_table = (string list, string option) Hashtbl.t (* TODO: proper hash *)
-   
+
+exception Path_not_uniq of string list
+                 
+let rec uniq_paths = function
+  | [] -> ()
+  | (path, _)::tl -> 
+     match List.find_opt (fun (p,_) -> path = p) tl with
+     | Some _ -> raise (Path_not_uniq path)
+     | None   -> uniq_paths tl
+                 
 let build_root_table ?(href_base="") template vals =
   let pages = build_templates ~href_base template vals in
+  uniq_paths pages;
   let tbl : route_table = Hashtbl.create 20 in
   List.iter (fun (path, page) -> Hashtbl.add tbl path page) pages;
   tbl
