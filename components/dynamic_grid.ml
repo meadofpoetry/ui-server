@@ -11,9 +11,6 @@ module Utils = struct
   let (//) x y =
     round @@ (float_of_int x) /. (float_of_int y)
 
-  let (///) x y =
-    int_of_float @@ ceil @@ (float_of_int x) /. (float_of_int y)
-
 end
 
 module Position = struct
@@ -58,7 +55,7 @@ module Position = struct
       let area pos = pos.w * pos.h in
       (* FIXME obviously not optimized algorithm *)
       (* get only elements that are on the way to cursor proection to the left/right side *)
-      let x_filtered = CCList.filter (fun i -> pos.y >= i.y && pos.y <= i.y + i.h) items in
+      let x_filtered = CCList.filter (fun i -> pos.y > i.y && pos.y < i.y + i.h) items in
       (* get cursor proection to the left side *)
       let l = CCList.filter (fun i -> i.x < pos.x) x_filtered
               |> CCList.fold_left (fun acc i -> if i.x + i.w > acc.x + acc.w then i else acc) empty
@@ -68,7 +65,7 @@ module Position = struct
               |> CCList.fold_left (fun acc i -> if i.x < acc.x then i else acc) { x=w;y=0;w=0;h=0 }
               |> (fun x -> x.x) in
       (* get only elements that are on the way to cursor proection to the top/bottom side *)
-      let y_filtered = CCList.filter (fun i -> pos.x >= i.x && pos.x <= i.x + i.w && i.x + i.w > l && i.x < r)
+      let y_filtered = CCList.filter (fun i -> pos.x > i.x && pos.x < i.x + i.w && i.x + i.w > l && i.x < r)
                                      items in
       (* get cursor proection to the top side *)
       let t = CCList.filter (fun i -> i.y < pos.y) y_filtered
@@ -179,7 +176,7 @@ module Item = struct
   open Position
 
   let to_item ?min_w ?min_h ?max_w ?max_h
-                   ?(static=false) ?(resizable=true) ?(draggable=true) ?widget ~pos () =
+              ?(static=false) ?(resizable=true) ?(draggable=true) ?widget ~pos () =
     { pos; min_w; min_h; max_w; max_h; static; resizable; draggable; widget }
 
   class cell ?(typ=`Item)
@@ -188,7 +185,7 @@ module Item = struct
              ~item
              () =
     let elt = match typ with
-      | `Item  -> Markup.Dynamic_grid.Item.create () |> Tyxml_js.To_dom.of_element
+      | `Item  -> Markup.Dynamic_grid.Item.create ()       |> Tyxml_js.To_dom.of_element
       | `Ghost -> Markup.Dynamic_grid.Item.create_ghost () |> Tyxml_js.To_dom.of_element
     in
     let s_pos, s_pos_push = React.S.create item.pos in
@@ -228,7 +225,7 @@ module Item = struct
    * let drag_str,drag_ev           = "mousemove", Dom_events.Typ.mousemove
    * let dragend_str,dragend_ev     = "mouseup",   Dom_events.Typ.mouseup *)
 
-  class t ~grid          (* grid props *)
+  class t ~grid          (* grid props *) (* NOTE maybe should be a signal *)
           ~item          (* item props *)
           ~e_modify_push (* add/delete item event *)
           ~s_col_w       (* column width signal -- px *)
