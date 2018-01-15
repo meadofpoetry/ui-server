@@ -11,6 +11,7 @@ let main config =
     (* Boards *)
     let topo, hw, hwloop = Hardware.create config db in
     let hw_api           = Hardware_api.handlers hw in
+    let hw_pages         = Hardware_template.create hw in
     (* QoE pipeline  *)
     let pipe, pipeloop   = Pipeline.create config db hw.input_sources in
     let pipe_api         =
@@ -18,11 +19,17 @@ let main config =
       | None -> Pipeline_api.handlers_not_implemented ()
       | Some pipe -> Pipeline_api.handlers pipe
     in
+    let pipe_pages       =
+      match pipe with
+      | None -> []
+      | Some pipe -> Pipeline_template.create ()
+    in
                        
     let routes = Api_handler.create (pipe_api @ user_api @ hw_api) in
+    let pages  = List.concat [(Responses.home_template ()); hw_pages; pipe_pages] in
     let auth_filter = Api.Redirect.redirect_auth (User.validate users) in
-
-    let server = Serv.create topo config auth_filter routes in
+    
+    let server = Serv.create config auth_filter routes pages in
 
     let loops = match pipeloop with
       | None          -> [dbloop; server; hwloop]

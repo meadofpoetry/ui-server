@@ -2,6 +2,7 @@ open Cohttp_lwt_unix
 open Containers
 open Api.Redirect
 open Api.Interaction
+open Api.Template
 
 module Api_handler = Api.Handler.Make(Common.User)
    
@@ -20,18 +21,12 @@ module Settings = struct
   let domain = "server"
 end
 
-module Template = struct
-  let topo = []
-  let path = ""
-end
-module Rsp = Responses.Make(Template)
-
 module Conf = Storage.Config.Make(Settings)
 
-let get_handler ~topo
-                ~settings
+let get_handler ~settings
                 ~auth_filter
                 ~routes
+                ~pages
   =
   let open Settings in
   let handler
@@ -45,30 +40,25 @@ let get_handler ~topo
                    |> String.split_on_char '/'
                    |> List.filter (not % String.equal "")
     in
-    let (module T : Responses.Template) = (module struct
-                                             let topo = topo
-                                             let path = settings.path
-                                           end) in
-    let module R  = Responses.Make(T) in
+    let tmpl = Filename.concat settings.path "html/templates/base.html"
+               |> CCIO.File.read_exn (* FIXME *) in
+    let pages     = Api.Template.build_root_table tmpl pages in
     let meth      = Request.meth req in
     let redir     = auth_filter headers in
     let sock_data = (req, (fst conn)) in
     match meth, uri_list with
-    | `GET, []                  -> redir (fun _ -> R.home ())
-    | `GET, ["hardware"]        -> redir (fun _ -> R.hardware ())
-    | `GET, ["pipeline"]        -> redir (fun _ -> R.pipeline ())
-    | `GET, "input"::name::[id] -> (match Common.Topology.input_of_string name, CCInt.of_string id with
-                                    | Ok input,Some id -> redir (fun _ -> R.input {input;id} ())
-                                    | _ -> not_found ())
-    | `GET, ["demo"]            -> redir (fun _ -> R.demo ())
     | _, "api" :: path          -> Api_handler.handle routes redir meth path sock_data headers body
-    | `GET, _                   -> redir (fun _ -> resource settings.path uri)
+    | `GET, path                ->
+       (try match Hashtbl.find pages path with
+            | None -> respond_ok ()
+            | Some page -> respond_string page ()
+        with _ -> redir (fun _ -> resource settings.path uri))
     | _                         -> not_found ()
   in
   handler
 
-let create topo config auth_filter routes =
+let create config auth_filter routes pages =
   let settings = Conf.get config in
-  let handler  = get_handler ~topo ~settings ~auth_filter ~routes in
+  let handler  = get_handler ~settings ~auth_filter ~routes ~pages in
   Cohttp_lwt_unix.Server.create ~mode:(`TCP (`Port settings.port))
                                 (Cohttp_lwt_unix.Server.make ~callback:handler ())

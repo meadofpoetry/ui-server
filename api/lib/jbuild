@@ -3,10 +3,10 @@
 (library
  ((name        api)
   (public_name api)
-  (modules (handler authorize interaction redirect))
+  (modules (handler authorize interaction redirect template))
   (synopsis "api framework")
   (modes (native))
   (ocamlopt_flags (:standard -short-paths -strict-sequence -bin-annot
                    -thread -w "+1..49+60" -w "+a-4-7-23-33-39-40-41-42-44-45-48"
                    -O3 -unbox-closures))
-  (libraries (containers cohttp cohttp.lwt tyxml yojson msgpck))))
+  (libraries (containers cohttp cohttp.lwt tyxml yojson mustache msgpck))))
