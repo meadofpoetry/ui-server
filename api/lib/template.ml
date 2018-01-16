@@ -77,20 +77,21 @@ let make_subtree href (subitems : inner ordered_item list) =
                                            else path_abs_string x.href) ]
   in List.map make_ref subitems
 
-let make_item = function
-  | (_, Home _)          -> None
-  | (_, Ref  r)          -> Some (`O [ "title",   `String r.title
-                                     ; "href",    `String (if r.absolute
-                                                           then path_abs_ref_string r.href
-                                                           else path_abs_string r.href)
-                                     ; "simple",  `Bool true ])
-  | (_, Simple s)        -> Some (`O [ "title",   `String s.title
-                                     ; "href",    `String (path_abs_string s.href)
-                                     ; "simple",  `Bool true ])
-  | (_, Subtree s)       -> Some (`O [ "title",   `String s.title
-                                     ; "href",    `Null
-                                     ; "subtree", `A (make_subtree s.href s.templates)
-                                     ; "simple",  `Bool false])
+let make_item (_, v) =
+  match v with
+  | Home _    -> None
+  | Ref  r    -> Some (`O [ "title",   `String r.title
+                          ; "href",    `String (if r.absolute
+                                                then path_abs_ref_string r.href
+                                                else path_abs_string r.href)
+                          ; "simple",  `Bool true ])
+  | Simple s  -> Some (`O [ "title",   `String s.title
+                          ; "href",    `String (path_abs_string s.href)
+                          ; "simple",  `Bool true ])
+  | Subtree s -> Some (`O [ "title",   `String s.title
+                          ; "href",    `Null
+                          ; "subtree", `A (make_subtree s.href s.templates)
+                          ; "simple",  `Bool false])
 
 let sort_items items =
   let compare : type a. a ordered_item -> a ordered_item -> int = fun (x,_) (y,_) ->
