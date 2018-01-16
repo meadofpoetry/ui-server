@@ -95,11 +95,9 @@ module Wm = struct
       let place = Dom_html.createDiv Dom_html.document in
       place##.id := Js.string id;
       let apply  = new Button.t ~label:"apply" () in
-      let lst = make_layout place wm.widgets wm.resolution in
+      let layout = make_layout place wm.widgets wm.resolution in
       apply#root##.onclick :=
-        Dom.handler (fun _ ->
-            let layout = Wm.(React.S.value lst).layout
-            in post { wm with layout }; Js._false);
+        Dom.handler (fun _ -> post { wm with layout }; Js._false);
       place
     in
     let _ = React.E.map (fun s ->

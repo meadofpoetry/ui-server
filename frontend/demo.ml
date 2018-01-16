@@ -41,17 +41,16 @@ let fab_demo () =
   demo_section "FAB" [ subsection "General" fab; subsection "Mini" mini; subsection "Ripple" ripple ]
 
 let radio_demo () =
-  let radio1 = new Radio.t ~name:"radio" () in
-  let radio2 = new Radio.t ~name:"radio" () in
-  let radio3 = new Radio.t ~name:"radio" () in
-  radio2#set_disabled true;
+  let radio1 = new Radio.t ~name:"radio" ~value:() () in
+  let radio2 = new Radio.t ~name:"radio" ~value:() () in
+  let radio3 = new Radio.t ~name:"radio" ~value:() () in
   demo_section "Radio button" [ radio1; radio2; radio3 ]
 
 let checkbox_demo () =
   let checkbox     = new Checkbox.t ~input_id:"checkbox-demo" () in
   let css_checkbox = new Checkbox.t ~ripple:false () in
-  let form_field   = new Form_field.t ~label:"checkbox label" ~input:checkbox () in
   let btn          = new Button.t ~label:"toggle indeterminate" () in
+  let form_field   = new Form_field.t ~label:"checkbox label" ~input:checkbox () in
   React.E.map (fun _ -> checkbox#set_indeterminate @@ not checkbox#get_indeterminate;
                          css_checkbox#set_indeterminate @@ not css_checkbox#get_indeterminate)
               btn#e_click |> ignore;

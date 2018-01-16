@@ -21,13 +21,16 @@ let add_demos demos =
 
 
 let initialize d (resolution: int * int) (widgets: (string * Wm.widget) list) =
-  let acc = List.fold_left (fun acc (str,_) ->
-                let radio = new Radio.t ~name:str ~value:str in
-                List.append acc [radio]
-    ) [] widgets in
+  let wd_list = List.fold_left (fun acc (x:string * Wm.widget) ->
+                    let str,_ = x in
+                    let radio = new Radio.t ~name:" " ~value:x in
+                    let form_field =
+                      new Form_field.t ~label:str ~input:radio () in
+                    List.append acc [form_field]
+                  ) [] widgets in
   let dialog = new Dialog.t
                    ~title:"What widget u'd like to add?"
-                   ~content:(`Widgets acc)
+                   ~content:(`Widgets wd_list)
                    ~actions:[ new Dialog.Action.t ~typ:`Decline ~label:"Decline" ()
                             ; new Dialog.Action.t ~typ:`Accept  ~label:"Accept"  ()
                             ]
@@ -51,7 +54,10 @@ let initialize d (resolution: int * int) (widgets: (string * Wm.widget) list) =
                          Lwt.bind dialog#show_await
                                   (function
                                    | `Accept ->
-                                      grid#add_free ~min_w ~min_h ()
+                                      let value = (List.find
+                                                     (fun x -> x#get_checked)
+                                                     wd_list)#get_value in
+                                      grid#add_free ~min_w ~min_h ~value ()
                                       >>= (function
                                            | Ok _    ->  Lwt.return_unit
                                            | Error _ -> print_endline "error"; Lwt.return_unit)
@@ -89,7 +95,5 @@ let initialize d (resolution: int * int) (widgets: (string * Wm.widget) list) =
             ({ position = container_pos
              ; widgets  = [(str,wd1)]}: Wm.container)
           ) (React.S.value grid#s_change) in
-      ({ resolution = resolution
-       ; widgets    = widgets1
-       ; layout     = layout}: Wm.t)) grid#s_change
+      (layout)) grid#s_change
 
