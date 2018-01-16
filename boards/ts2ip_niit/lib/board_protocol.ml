@@ -13,7 +13,6 @@ let to_period x step_duration = x * int_of_float (1. /. step_duration)
 
 module SM = struct
 
-  type events      = { status : status React.event }
   type push_events = { status : status -> unit }
 
   let send_msg (type a) sender (msg : a request) : unit Lwt.t =
@@ -99,21 +98,23 @@ module SM = struct
     | None -> Error "Undetermined number of available packers"
 
   let create sender (storage : config storage) push_state step_duration =
-    let s_info,push_info = React.S.create None in
+    let s_devinfo,s_devinfo_push = React.S.create None in
     let msgs  = ref (Await_queue.create []) in
     let imsgs = ref (Queue.create []) in
     let status,status_push = React.E.create () in
     let (events : events) = { status = status } in
     let push_events = { status = status_push } in
-    let api = { set_mode = (fun (x:Common.Stream.t list) ->
-                  match to_settings_req s_info storage#get x with
-                  | Ok x    -> enqueue_instant imsgs sender (Set_board_mode x) >>= (fun _ -> Lwt.return_ok ())
-                  | Error e -> Lwt.return_error e)
-              ; set_factory_mode = (fun (x : factory_settings) -> enqueue_instant imsgs sender (Set_factory_mode x)
-                                                                  >>= (fun _ -> Lwt.return_ok ()))
+    let api = { devinfo  = (fun () -> Lwt.return @@ React.S.value s_devinfo)
+              ; set_mode = (fun (x:Common.Stream.t list) ->
+                match to_settings_req s_devinfo storage#get x with
+                | Ok x    -> enqueue_instant imsgs sender (Set_board_mode x) >>= (fun _ -> Lwt.return_ok ())
+                | Error e -> Lwt.return_error e)
+              ; set_factory_mode = (fun (x : factory_settings) ->
+                enqueue_instant imsgs sender (Set_factory_mode x)
+                >>= (fun _ -> Lwt.return_unit))
               } in
     events,
     api,
-    (step msgs imsgs sender storage step_duration push_state push_events push_info)
+    (step msgs imsgs sender storage step_duration push_state push_events s_devinfo_push)
 
 end

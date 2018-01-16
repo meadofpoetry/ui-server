@@ -1,13 +1,17 @@
 open Board_types
 open Board_msg_formats
 
-type _ request = Get_board_info : devinfo request
+type _ request         = Get_board_info   : devinfo request
+
 type _ instant_request = Set_board_mode   : settings         -> unit instant_request
                        | Set_factory_mode : factory_settings -> unit instant_request
-type api = { devinfo          : unit -> devinfo_response Lwt.t
-           ; set_mode         : Common.Stream.t list -> (unit,string) Lwt_result.t
-           ; set_factory_mode : factory_settings     -> unit Lwt.t
-           }
+
+type api    = { devinfo          : unit                 -> devinfo_response Lwt.t
+              ; set_mode         : Common.Stream.t list -> (unit,string) Lwt_result.t
+              ; set_factory_mode : factory_settings     -> unit Lwt.t
+              }
+
+type events = { status : status React.event }
 
 let prefix = 0x55AA
 
