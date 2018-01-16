@@ -49,7 +49,7 @@ let get_handler ~settings
     match meth, uri_list with
     | _, "api" :: path          -> Api_handler.handle routes redir meth path sock_data headers body
     | `GET, path                ->
-       (try match Hashtbl.find pages path with
+       (try match Hashtbl.find pages (String.concat "/" path) with
             | None -> respond_ok ()
             | Some page -> respond_string page ()
         with _ -> redir (fun _ -> resource settings.path uri))

@@ -40,13 +40,28 @@
     <div class="content mdc-toolbar-fixed-adjust">
       <nav class="mdc-permanent-drawer">
         <div class="mdc-list-group">
-          <nav class="mdc-list mdc-tree">
-            {{#navigation}}
-            <div class="mdc-tree__item">
-              <a href={{href}} class="mdc-list-item">{{title}}</a>
-            </div>
-            {{/navigation}}
-          </nav>
+            <nav class="mdc-list mdc-tree">
+                {{#navigation}}
+                {{#simple}}
+                <div class="mdc-tree__item">
+                    <a href="/{{href}}" class="mdc-list-item">{{title}}</a>
+                </div>
+                {{/simple}}
+                {{^simple}}
+                <div class="mdc-tree__item">
+                    <a class="mdc-list-item">{{title}}</a>
+                    <div id="nav-inputs-nested" class="mdc-list mdc-tree__item__nested-list">
+                        {{#subtree}}
+                        <div class="mdc-tree__item">
+                            <a href="/{{href}}" class="mdc-list-item">{{title}}</a>
+                        </div>
+                        {{/subtree}}
+                    </div>
+                <div
+                </div>
+                {{/simple}}
+                {{/navigation}}
+            </nav>
         </div>
       </nav>
       <main class="main-with-sidebar">

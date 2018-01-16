@@ -9,7 +9,7 @@ let main config =
     let users          = User.create config in
     let user_api       = User_api.handlers users in
     (* Boards *)
-    let topo, hw, hwloop = Hardware.create config db in
+    let hw, hwloop       = Hardware.create config db in
     let hw_api           = Hardware_api.handlers hw in
     let hw_pages         = Hardware_template.create hw in
     (* QoE pipeline  *)

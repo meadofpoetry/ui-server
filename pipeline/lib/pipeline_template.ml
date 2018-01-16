@@ -7,4 +7,4 @@ let create () : Api.Template.item list =
               ; stylesheets  = []
               ; content      = []
               }
-  in [Simple { title = "pipeline"; template = props }]
+  in [Simple { title = "Pipeline"; href = "pipeline"; template = props }]
