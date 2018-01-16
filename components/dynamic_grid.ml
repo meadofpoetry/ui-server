@@ -11,9 +11,6 @@ module Utils = struct
   let (//) x y =
     round @@ (float_of_int x) /. (float_of_int y)
 
-  let (///) x y =
-    int_of_float @@ ceil @@ (float_of_int x) /. (float_of_int y)
-
 end
 
 module Position = struct
@@ -182,7 +179,7 @@ module Item = struct
               | Touch of Dom_html.touchEvent Js.t
 
   let to_item ?min_w ?min_h ?max_w ?max_h
-                   ?(static=false) ?(resizable=true) ?(draggable=true) ?widget ~pos () =
+              ?(static=false) ?(resizable=true) ?(draggable=true) ?widget ~pos () =
     { pos; min_w; min_h; max_w; max_h; static; resizable; draggable; widget }
 
   class cell ?(typ=`Item)
@@ -191,7 +188,7 @@ module Item = struct
              ~item
              () =
     let elt = match typ with
-      | `Item  -> Markup.Dynamic_grid.Item.create () |> Tyxml_js.To_dom.of_element
+      | `Item  -> Markup.Dynamic_grid.Item.create ()       |> Tyxml_js.To_dom.of_element
       | `Ghost -> Markup.Dynamic_grid.Item.create_ghost () |> Tyxml_js.To_dom.of_element
     in
     let s_pos, s_pos_push = React.S.create item.pos in
