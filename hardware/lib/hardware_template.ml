@@ -33,7 +33,7 @@ let input topo (topo_input:topo_input) =
                                 ; stylesheets  = []
                                 ; content      = []
                                 } in
-                 Simple { title; href = Path.of_string @@ get_input_href topo_input; template }
+                 `Index topo_input.id, Simple { title; href = Path.of_string @@ get_input_href topo_input; template }
 
 let create (hw : Hardware.t) =
   let topo  = React.S.value hw.topo in
@@ -44,7 +44,7 @@ let create (hw : Hardware.t) =
               ; content      = []
               } in
   let templates = CCList.map (input topo) (Hardware.topo_inputs topo) |> CCList.rev in
-  [ Subtree { title = "Входы"; href = Path.of_string "input"; templates }
-  ; Simple  { title = "Конфигурация"; href = Path.of_string "hardware"; template = props }
-  ; Ref     { title = "Wiki"; absolute = true; href = Path.of_string "wikipedia.org"}
+  [ `Index 2, Subtree { title = "Входы"; href = Path.of_string "input"; templates }
+  ; `Index 3, Simple  { title = "Конфигурация"; href = Path.of_string "hardware"; template = props }
+  ; `Index 4, Ref     { title = "Wiki"; absolute = true; href = Path.of_string "wikipedia.org"}
   ]
