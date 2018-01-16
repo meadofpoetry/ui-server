@@ -286,6 +286,11 @@ main.main-with-sidebar {
     z-index: 2;
     /* transition: width 0.1s, height 0.1s; */
 }
+.mdc-dynamic-grid__item--dragging {
+    cursor: grabbing;
+    cursor: -webkit-grabbing;
+    cursor: -moz-grabbing;
+}
 .mdc-dynamic-grid__item__ghost {
     position: absolute;
     opacity: 0.5;

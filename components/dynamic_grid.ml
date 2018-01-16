@@ -178,6 +178,9 @@ module Item = struct
 
   open Position
 
+  type action = Mouse of Dom_html.mouseEvent Js.t
+              | Touch of Dom_html.touchEvent Js.t
+
   let to_item ?min_w ?min_h ?max_w ?max_h
                    ?(static=false) ?(resizable=true) ?(draggable=true) ?widget ~pos () =
     { pos; min_w; min_h; max_w; max_h; static; resizable; draggable; widget }
@@ -263,36 +266,72 @@ module Item = struct
       }
 
     method private ev_to_pos ev : Position.t =
-      { x = ev##.clientX;          y = ev##.clientY;
-        w = self#get_offset_width; h = self#get_offset_height }
+         { x = ev##.clientX
+         ; y = ev##.clientY
+         ; w = self#get_offset_width
+         ; h = self#get_offset_height }
 
     method private get_px_pos : Position.t =
       { x = self#get_offset_left;  y = self#get_offset_top;
         w = self#get_offset_width; h = self#get_offset_height }
 
-    method private start_dragging ev =
-      let init_ev  = (ev :> Dom_html.mouseEvent Js.t) in
+    method private start_dragging (ev: action) =
       let init_pos = self#get_px_pos in
-      (* e##.dataTransfer##setData (Js.string "text/html") (Js.string "anything"); *)
+      self#add_class Markup.Dynamic_grid.Item.dragging_class;
       ghost#style##.zIndex := Js.string "1";
       (* add ghost item to dom to show possible element position *)
       Dom.appendChild self#get_parent ghost#root;
-      Dom_events.listen Dom_html.document Dom_events.Typ.mousemove (fun _ ev -> self#apply_position ~ev ~init_ev ~init_pos; false)
-      |> (fun x -> mov_listener <- Some x);
-      Dom_events.listen Dom_html.document Dom_events.Typ.mouseup   (fun _ ev -> self#apply_position ~ev ~init_ev ~init_pos; false)
-      |> (fun x -> end_listener <- Some x)
+      match ev with
+      | Mouse ev ->
+         let init_x, init_y = ev##.clientX, ev##.clientY in
+         Dom_events.listen Dom_html.document Dom_events.Typ.mousemove
+           (fun _ ev ->
+             let x, y = ev##.clientX, ev##.clientY in
+             self#apply_position ~x ~y ~init_x ~init_y ~init_pos "move"; false)
+         |> (fun x -> mov_listener <- Some x);
+         Dom_events.listen Dom_html.document Dom_events.Typ.mouseup
+           (fun _ ev ->
+             let x, y = ev##.clientX, ev##.clientY in
+             self#apply_position ~x ~y ~init_x ~init_y ~init_pos "end"; false)
+         |> (fun x -> end_listener <- Some x)
+      | Touch ev ->
+         Js.Optdef.iter (ev##.changedTouches##item 0)
+           ( fun touch ->
+             let id = touch##.identifier in
+             let init_x, init_y = touch##.clientX, touch##.clientY in
+             Dom_events.listen Dom_html.document Dom_events.Typ.touchmove
+               (fun _ ev ->
+                 let length = ev##.changedTouches##.length - 1 in
+                 Js.Optdef.iter (ev##.changedTouches##item length)
+                   (fun touch ->
+                     let x, y = touch##.clientX, touch##.clientY in
+                     if touch##.identifier = id then
+                     self#apply_position ~x ~y ~init_x ~init_y ~init_pos "move");
+                 false)
+             |> (fun x -> mov_listener <- Some x);
+             Dom_events.listen Dom_html.document Dom_events.Typ.touchend
+               (fun _ ev ->
+                 let length = ev##.changedTouches##.length - 1 in
+                 Js.Optdef.iter (ev##.changedTouches##item length)
+                   (fun touch ->
+                     let x, y = touch##.clientX, touch##.clientY in
+                     if touch##.identifier = id then
+                     self#apply_position ~x ~y ~init_x ~init_y ~init_pos "end");
+                 false)
+             |> (fun x -> end_listener <- Some x))
 
-    method private apply_position ~ev ~init_ev ~init_pos =
-      match ev##.clientX,ev##.clientY with
+
+    method private apply_position ~x ~y ~init_x ~init_y ~init_pos typ =
+      match x, y with
       | 0,0 -> ()
       | _   ->
-         match Js.to_string ev##._type with
-         | "mousemove"->
+         match typ with
+         | "move"->
             let open Utils in
             let col_px = React.S.value s_col_w in
             let row_px = React.S.value s_row_h in
-            let x = init_pos.x + ev##.clientX - init_ev##.clientX in
-            let y = init_pos.y + ev##.clientY - init_ev##.clientY in
+            let x = init_pos.x + x - init_x in
+            let y = init_pos.y + y - init_y in
             let pos = Position.correct_xy { self#pos with x = x // col_px;
                                                           y = y // row_px }
                                           grid.cols grid.rows in
@@ -300,42 +339,73 @@ module Item = struct
             (* temporary update element's position *)
             self#set_x x;
             self#set_y y
-         | "mouseup"->
-            self#root##.style##.cursor := Js.string "move";
-            self#root##.style##.cursor := Js.string "grab";
-            self#root##.style##.cursor := Js.string "-moz-grab";
-            self#root##.style##.cursor := Js.string "-webkit-grab";
+         | "end"->
+            self#remove_class Markup.Dynamic_grid.Item.dragging_class;
             CCOpt.iter (fun l -> Dom_events.stop_listen l) mov_listener;
             CCOpt.iter (fun l -> Dom_events.stop_listen l) end_listener;
             (* update element position from ghost *)
-            self#s_pos_push ghost#pos;
             self#set_x @@ React.S.value s_col_w * ghost#pos.x;
             self#set_y @@ React.S.value s_row_h * ghost#pos.y;
+            self#s_pos_push ghost#pos;
             Dom.removeChild self#get_parent ghost#root
          | _ -> ()
 
-    method private start_resizing ev =
-      let init_ev  = (ev :> Dom_html.mouseEvent Js.t) in
+    method private start_resizing (ev: action) =
       let init_pos = self#get_px_pos in
       ghost#style##.zIndex := Js.string "3";
       Dom.appendChild self#get_parent ghost#root;
       (* add resize/stop resize event listeners *)
-      Dom_events.listen Dom_html.document Dom_events.Typ.mousemove
-                        (fun _ ev -> self#apply_size ~ev ~init_ev ~init_pos; false)
-      |> (fun x -> mov_listener <- Some x);
-      Dom_events.listen Dom_html.document Dom_events.Typ.mouseup
-                        (fun _ ev -> self#apply_size ~ev ~init_ev ~init_pos; false)
-      |> (fun x -> end_listener <- Some x);
-      Dom_html.stopPropagation ev
+      match ev with
+      | Mouse ev ->
+         let init_x, init_y = ev##.clientX, ev##.clientY in
+         Dom_events.listen Dom_html.document Dom_events.Typ.mousemove
+           (fun _ ev ->
+             let x,y = ev##.clientX, ev##.clientY in
+             self#apply_size ~x ~y ~init_x ~init_y ~init_pos "move";
+             false)
+         |> (fun x -> mov_listener <- Some x);
+         Dom_events.listen Dom_html.document Dom_events.Typ.mouseup
+           (fun _ ev ->
+             let x,y = ev##.clientX, ev##.clientY in
+             self#apply_size ~x ~y ~init_x ~init_y ~init_pos "end";
+             false)
+         |> (fun x -> end_listener <- Some x);
+         Dom_html.stopPropagation ev
+      | Touch ev ->
+         Dom_html.stopPropagation ev;
+         Js.Optdef.iter (ev##.changedTouches##item 0)
+           ( fun touch ->
+             let id = touch##.identifier in
+             let init_x, init_y = touch##.clientX, touch##.clientY in
+             Dom_events.listen Dom_html.document Dom_events.Typ.touchmove
+               (fun _ ev ->
+                 let length = ev##.changedTouches##.length - 1 in
+                 Js.Optdef.iter (ev##.changedTouches##item length)
+                   (fun touch ->
+                     let x, y = touch##.clientX, touch##.clientY in
+                     if touch##.identifier = id then
+                     self#apply_size ~x ~y ~init_x ~init_y ~init_pos "move");
+                 false)
+             |> (fun x -> mov_listener <- Some x);
+             Dom_events.listen Dom_html.document Dom_events.Typ.touchend
+               (fun _ ev ->
+                 let length = ev##.changedTouches##.length - 1 in
+                 Js.Optdef.iter (ev##.changedTouches##item length)
+                   (fun touch ->
+                     let x, y = touch##.clientX, touch##.clientY in
+                     if touch##.identifier = id then
+                     self#apply_size ~x ~y ~init_x ~init_y ~init_pos "end");
+                 false)
+             |> (fun x -> end_listener <- Some x))
 
-    method private apply_size ~ev ~init_ev ~init_pos =
-      match Js.to_string ev##._type with
-      | "mousemove" ->
+    method private apply_size ~x ~y ~init_x ~init_y ~init_pos typ =
+      match typ with
+      | "move" ->
          let open Utils in
          let col_px = React.S.value s_col_w in
          let row_px = React.S.value s_row_h in
-         let w   = init_pos.w + ev##.clientX - init_ev##.clientX in
-         let h   = init_pos.h + ev##.clientY - init_ev##.clientY in
+         let w   = init_pos.w + x - init_x in
+         let h   = init_pos.h + y - init_y in
          let pos = correct_wh ?max_w:item.max_w
                               ?min_w:item.min_w
                               ?max_h:item.max_h
@@ -362,20 +432,18 @@ module Item = struct
                                  (CCOpt.map (fun x -> x * row_px) grid.rows)
          in
          self#set_w pos_px.w;
-         self#set_h pos_px.h;
-      | "mouseup" ->
+         self#set_h pos_px.h
+      | "end" ->
          CCOpt.iter (fun l -> Dom_events.stop_listen l) mov_listener;
          CCOpt.iter (fun l -> Dom_events.stop_listen l) end_listener;
          (* update element position from ghost *)
+         self#set_w @@ React.S.value s_col_w * ghost#pos.w;
+         self#set_h @@ React.S.value s_row_h * ghost#pos.h;
          self#s_pos_push ghost#pos;
          Dom.removeChild self#get_parent ghost#root
       | _ -> ()
 
     initializer
-      self#root##.style##.cursor := Js.string "move";
-      self#root##.style##.cursor := Js.string "grab";
-      self#root##.style##.cursor := Js.string "-moz-grab";
-      self#root##.style##.cursor := Js.string "-webkit-grab";
       (* append resize button to element if necessary *)
       if item.resizable then Dom.appendChild self#root resize_button#root;
       (* append widget to cell if provided *)
@@ -383,16 +451,22 @@ module Item = struct
 
       (* add item move listener *)
       Dom_events.listen self#root Dom_events.Typ.mousedown
-                        (fun _ e -> self#root##.style##.cursor := Js.string "grabbing";
-                                    self#root##.style##.cursor := Js.string "-moz-grabbing";
-                                    self#root##.style##.cursor := Js.string "-webkit-grabbing";
-                                    if item.draggable then self#start_dragging e; true)
+        (fun _ e -> if item.draggable then self#start_dragging (Mouse e); false)
+      |> ignore;
+
+      Dom_events.listen self#root Dom_events.Typ.touchstart
+        (fun _ e -> if item.draggable then self#start_dragging (Touch e); false)
       |> ignore;
 
       (* add item start resize listener if needed *)
       Dom_events.listen resize_button#root Dom_events.Typ.mousedown
-                        (fun _ e -> if item.resizable then self#start_resizing e; false)
+        (fun _ e -> if item.resizable then self#start_resizing (Mouse e); false)
+      |> ignore;
+
+      Dom_events.listen resize_button#root Dom_events.Typ.touchstart
+        (fun _ e -> if item.resizable then self#start_resizing (Touch e); false)
       |> ignore
+
 
   end
 

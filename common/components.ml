@@ -446,9 +446,10 @@ module Make
 
     module Item = struct
 
-      let _class       = CSS.add_element base_class "item"
-      let ghost_class  = CSS.add_element _class "ghost"
-      let resize_class = CSS.add_element _class "resize"
+      let _class         = CSS.add_element base_class "item"
+      let ghost_class    = CSS.add_element _class "ghost"
+      let resize_class   = CSS.add_element _class "resize"
+      let dragging_class = CSS.add_modifier _class "dragging"
 
       let create_ghost ?id ?style ?(classes=[]) ?attrs () =
         div ~a:([ a_class (ghost_class :: classes)]
