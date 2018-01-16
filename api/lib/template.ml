@@ -70,12 +70,12 @@ let make_template (props : tmpl_props) =
 let make_subtree href (subitems : inner ordered_item list) =
   let make_ref (_,v) =
     match v with
-    | Simple -> `O [ "title", `String x.title
-                   ; "href", `String (path_abs_concat [href; x.href]) ]
-    | Ref x  ->  `O [ "title", `String x.title
-                    ; "href", `String (if x.absolute
-                                       then path_abs_ref_string x.href
-                                       else path_abs_string x.href) ]
+    | Simple x -> `O [ "title", `String x.title
+                     ; "href", `String (path_abs_concat [href; x.href]) ]
+    | Ref x    -> `O [ "title", `String x.title
+                     ; "href", `String (if x.absolute
+                                        then path_abs_ref_string x.href
+                                        else path_abs_string x.href) ]
   in List.map make_ref subitems
 
 let make_item (_, v) =
