@@ -68,13 +68,14 @@ let make_template (props : tmpl_props) =
   ; "content",      `A (List.map (fun x -> `O [ "element", `String x]) props.content) ]
 
 let make_subtree href (subitems : inner ordered_item list) =
-  let make_ref = function
-    | (_, Simple x) -> `O [ "title", `String x.title
-                          ; "href", `String (path_abs_concat [href; x.href]) ]
-    | (_, Ref x) ->  `O [ "title", `String x.title
-                        ; "href", `String (if x.absolute
-                                           then path_abs_ref_string x.href
-                                           else path_abs_string x.href) ]
+  let make_ref (_,v) =
+    match v with
+    | Simple -> `O [ "title", `String x.title
+                   ; "href", `String (path_abs_concat [href; x.href]) ]
+    | Ref x  ->  `O [ "title", `String x.title
+                    ; "href", `String (if x.absolute
+                                       then path_abs_ref_string x.href
+                                       else path_abs_string x.href) ]
   in List.map make_ref subitems
 
 let make_item (_, v) =
