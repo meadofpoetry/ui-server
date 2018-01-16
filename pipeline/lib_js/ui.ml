@@ -79,18 +79,11 @@ module Structure = struct
 end
 
 module Wm = struct
-  
-  let make_layout div (wdgl : (string * Wm.widget) list) =
+
+  let make_layout d (wdgl : (string * Wm.widget) list) (resolution: int * int) =
     let open Layout in
-    List.map (fun (n,_) ->
-        let e = Dom_html.createDiv Dom_html.document in
-        Layout.Style.z_index e n;
-        Layout.Style.class_name e "doge";
-        e)
-      wdgl
-    |> List.fold_left (fun acc e -> Layout.add_element e div acc 1 1 1 1 false) []
-    |> List.rev
-  
+    Layout.initialize d resolution wdgl
+
   let create
         ~(init:   Wm.t)
         ~(events: Wm.t React.event)
@@ -102,24 +95,10 @@ module Wm = struct
       let place = Dom_html.createDiv Dom_html.document in
       place##.id := Js.string id;
       let apply  = new Button.t ~label:"apply" () in
-      let plane  = Dom_html.createDiv Dom_html.document in
-      Layout.Style.class_name plane "div";
-      Layout.Style.width plane (hor*cols-5);
-      Layout.Style.height plane (vert*lines-5);
-      Dom.appendChild place plane;
-      Dom.appendChild place apply#root;
-      let lst = make_layout plane wm.widgets in
+      let lst = make_layout place wm.widgets wm.resolution in
       apply#root##.onclick :=
         Dom.handler (fun _ ->
-            let layout = CCList.map2 (fun (name, widg) (e : Layout.Element.t) ->
-                             let (position : Wm.position) =
-                               { left = e.x * 100; right = (e.x + e.width) * 100; top = e.y * 100; bottom = (e.y + e.height) * 100 }
-                             in
-                             (name,
-                              { position = position
-                              ; widgets  =
-                                  [ (name, { widg with position = position; layer = 2  }) ] } : (string * Wm.container) ))
-                           wm.widgets lst
+            let layout = Wm.(React.S.value lst).layout
             in post { wm with layout }; Js._false);
       place
     in
@@ -131,7 +110,6 @@ module Wm = struct
     in
     Dom.appendChild div (make init);
     div
-    
 end
 
 module Settings = struct

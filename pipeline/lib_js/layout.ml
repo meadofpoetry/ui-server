@@ -20,11 +20,11 @@ let add_demos demos =
   |> To_dom.of_element
 
 
-let initialize d (resolution: int * int) (widgets1: (string * Wm.widget) list) =
+let initialize d (resolution: int * int) (widgets: (string * Wm.widget) list) =
   let acc = List.fold_left (fun acc (str,_) ->
                 let radio = new Radio.t ~name:str ~value:str in
                 List.append acc [radio]
-    ) [] widgets1 in
+    ) [] widgets in
   let dialog = new Dialog.t
                    ~title:"What widget u'd like to add?"
                    ~content:(`Widgets acc)
@@ -34,7 +34,6 @@ let initialize d (resolution: int * int) (widgets1: (string * Wm.widget) list) =
                    () in
   Dom.appendChild Dom_html.document##.body dialog#root;
   let a, b = resolution in
-  let asp = float_of_int a /. float_of_int b in
   let (props:Dynamic_grid.grid) =
     { min_col_width    = 1
     ; max_col_width    = None
@@ -54,7 +53,7 @@ let initialize d (resolution: int * int) (widgets1: (string * Wm.widget) list) =
                                    | `Accept ->
                                       grid#add_free ~min_w ~min_h ()
                                       >>= (function
-                                           | Ok _    -> print_endline "ok"; Lwt.return_unit
+                                           | Ok _    ->  Lwt.return_unit
                                            | Error _ -> print_endline "error"; Lwt.return_unit)
                                       |> ignore;
                                       Lwt.return ()
@@ -68,7 +67,7 @@ let initialize d (resolution: int * int) (widgets1: (string * Wm.widget) list) =
   React.S.map (fun _ ->
       let layout =
         List.map (fun (x: Dynamic_grid.Position.t) ->
-            let str,wd = List.hd widgets1 in
+            let str,wd = List.hd widgets in
             (* let a, b = wd.aspect in *)
             (* let wid_w, wid_h = *)
             (*   if x.pos.w / a * b > x.pos.h *)
