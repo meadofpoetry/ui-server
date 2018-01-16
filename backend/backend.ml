@@ -26,7 +26,10 @@ let main config =
     in
                        
     let routes = Api_handler.create (pipe_api @ user_api @ hw_api) in
-    let pages  = List.concat [(Responses.home_template ()); hw_pages; pipe_pages] in
+    let pages  = List.concat [Responses.home_template ();
+                              User_template.create ();
+                              hw_pages;
+                              pipe_pages] in
     let auth_filter = Api.Redirect.redirect_auth (User.validate users) in
     
     let server = Serv.create config auth_filter routes pages in

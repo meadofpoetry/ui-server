@@ -23,7 +23,7 @@ module Settings = struct
 end
 
 module Conf = Storage.Config.Make(Settings)
-
+            
 let get_handler ~settings
                 ~auth_filter
                 ~routes
@@ -34,25 +34,35 @@ let get_handler ~settings
         (conn : Conduit_lwt_unix.flow * Cohttp.Connection.t)
         (req  : Cohttp_lwt_unix.Request.t)
         (body : Cohttp_lwt.Body.t) =
-    ignore conn;
     let headers  = Request.headers req in
     let uri      = Uri.path @@ Request.uri req in
     let uri_list = uri
                    |> String.split_on_char '/'
                    |> List.filter (not % String.equal "")
     in
-    let tmpl = Filename.concat settings.path "html/templates/base.html"
+    let tmpl   = Filename.concat settings.path "html/templates/base.html"
                |> CCIO.File.read_exn (* FIXME *) in
-    let pages     = Api.Template.build_root_table tmpl pages in
+    let pages  =
+      Common.User.{ root     = Api.Template.build_route_table tmpl "root" pages
+                  ; operator = Api.Template.build_route_table tmpl "operator" pages
+                  ; guest    = Api.Template.build_route_table tmpl "guest" pages
+      }
+    in
+    let respond_page path id =
+      let tbl = match id with
+        | `Root     -> pages.root
+        | `Operator -> pages.operator
+        | `Guest    -> pages.guest
+      in (try Hashtbl.find tbl (String.concat "/" path)
+              |> fun page -> respond_string page ()
+          with _ -> resource settings.path uri)
+    in
     let meth      = Request.meth req in
     let redir     = auth_filter headers in
     let sock_data = (req, (fst conn)) in
     match meth, uri_list with
     | _, "api" :: path          -> Api_handler.handle routes redir meth path sock_data headers body
-    | `GET, path                ->
-       (try Hashtbl.find pages (String.concat "/" path)
-            |> fun page -> respond_string page ()
-        with _ -> redir (fun _ -> resource settings.path uri))
+    | `GET, path                -> redir (respond_page path)
     | _                         -> not_found ()
   in
   handler

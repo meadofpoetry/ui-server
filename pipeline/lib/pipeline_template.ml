@@ -8,4 +8,4 @@ let create () : upper ordered_item list =
               ; stylesheets  = []
               ; content      = []
               }
-  in [`Index 1, Simple { title = "Pipeline"; href = Path.of_string "pipeline"; template = props }]
+  in [`Index 1, Simple { title = "Анализ QoE"; href = Path.of_string "pipeline"; template = props }]

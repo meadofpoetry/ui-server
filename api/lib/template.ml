@@ -101,15 +101,16 @@ let sort_items items =
                     items
   in List.sort compare subsorted
 
-let build_templates ?(href_base="") mustache_tmpl (vals : upper ordered_item list) =
+let build_templates ?(href_base="") mustache_tmpl user (vals : upper ordered_item list) =
   let vals          = sort_items @@ merge_subtree vals in
   let mustache_tmpl = Mustache.of_string mustache_tmpl in
-  let items         = [ "navigation",
-                        `A (List.rev @@ List.fold_left
-                                          (fun acc v ->
-                                            match make_item v with
-                                            | None -> acc
-                                            | Some v -> v::acc) [] vals) ]
+  let items         =
+    [ "user",       `String user
+    ; "navigation", `A (List.rev @@ List.fold_left
+                                      (fun acc v ->
+                                        match make_item v with
+                                        | None -> acc
+                                        | Some v -> v::acc) [] vals) ]
   in
   let fill_in_sub base_href = function
     | _, Simple { title;href;template } -> Some (Path.concat [base_href;href],
@@ -135,8 +136,8 @@ let rec uniq_paths = function
      | Some _ -> raise (Path_not_uniq (Path.to_string path))
      | None   -> uniq_paths tl
                
-let build_root_table ?(href_base="") template vals =
-  let pages = build_templates ~href_base template vals in
+let build_route_table ?(href_base="") template user vals =
+  let pages = build_templates ~href_base template user vals in
   uniq_paths pages;
   let tbl : route_table = Hashtbl.create 20 in
   List.iter (fun (path, page) -> Hashtbl.add tbl (Path.to_string path) page) pages;
