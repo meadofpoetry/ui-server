@@ -321,10 +321,8 @@ module Item = struct
       (* add ghost item to dom to show possible element position *)
       Dom.appendChild self#get_parent ghost#root;
       match ev with
-      | Mouse ev ->
-         self#mouse_action self#apply_position ev
-      | Touch ev ->
-         self#touch_action self#apply_position ev
+      | Mouse ev -> self#mouse_action self#apply_position ev
+      | Touch ev -> self#touch_action self#apply_position ev
 
 
     method private apply_position ~x ~y ~init_x ~init_y ~init_pos typ =
@@ -361,12 +359,10 @@ module Item = struct
       Dom.appendChild self#get_parent ghost#root;
       (* add resize/stop resize event listeners *)
       match ev with
-      | Mouse ev ->
-         Dom_html.stopPropagation ev;
-         self#mouse_action self#apply_size ev
-      | Touch ev ->
-         Dom_html.stopPropagation ev;
-         self#touch_action self#apply_size ev
+      | Mouse ev -> Dom_html.stopPropagation ev;
+                    self#mouse_action self#apply_size ev
+      | Touch ev -> Dom_html.stopPropagation ev;
+                    self#touch_action self#apply_size ev
 
     method private apply_size ~x ~y ~init_x ~init_y ~init_pos typ =
       match typ with
