@@ -22,7 +22,7 @@ module Position = struct
     ; h : int
     }
 
-  let empty = { x=0;y=0;w=0;h=0 }
+  let empty = { x = 0; y = 0; w = 0; h = 0 }
 
   (** checks if two elements collide, returns true if do and false otherwise **)
   let collides (pos1:t) (pos2:t) =
@@ -166,7 +166,6 @@ type grid =
   ; cols             : int
   ; rows             : int option
   ; row_height       : int option
-
   ; vertical_compact : bool
   ; items_margin     : int option
   }
@@ -180,7 +179,7 @@ module Item = struct
 
   let to_item ?min_w ?min_h ?max_w ?max_h
               ?(static=false) ?(resizable=true) ?(draggable=true) ?widget ~pos () =
-    { pos; min_w; min_h; max_w; max_h; static; resizable; draggable; widget }
+    { pos; min_w; min_h; max_w; max_h; static; resizable; draggable; widget}
 
   class cell ?(typ=`Item)
              ~s_col_w
