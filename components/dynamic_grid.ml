@@ -148,7 +148,7 @@ module Position = struct
 
 end
 
-type item =
+type 'a item =
   { pos       : Position.t
   ; min_w     : int option
   ; min_h     : int option
@@ -158,6 +158,7 @@ type item =
   ; resizable : bool
   ; draggable : bool
   ; widget    : Widget.widget option
+  ; value     : 'a
   }
 
 type grid =
@@ -178,14 +179,14 @@ module Item = struct
               | Touch of Dom_html.touchEvent Js.t
 
   let to_item ?min_w ?min_h ?max_w ?max_h
-              ?(static=false) ?(resizable=true) ?(draggable=true) ?widget ~pos () =
-    { pos; min_w; min_h; max_w; max_h; static; resizable; draggable; widget}
+              ?(static=false) ?(resizable=true) ?(draggable=true) ?widget ~pos ~value() =
+    { pos; min_w; min_h; max_w; max_h; static; resizable; draggable; widget; value}
 
-  class cell ?(typ=`Item)
-             ~s_col_w
-             ~s_row_h
-             ~item
-             () =
+  class ['a] cell ?(typ=`Item)
+          ~s_col_w
+          ~s_row_h
+          ~(item: 'a item)
+          () =
     let elt = match typ with
       | `Item  -> Markup.Dynamic_grid.Item.create ()       |> Tyxml_js.To_dom.of_element
       | `Ghost -> Markup.Dynamic_grid.Item.create_ghost () |> Tyxml_js.To_dom.of_element
@@ -219,16 +220,16 @@ module Item = struct
 
     end
 
-  class t ~grid          (* grid props *)
-          ~item          (* item props *)
+  class ['a] t ~grid          (* grid props *)
+          ~(item: 'a item)    (* item props *)
           ~e_modify_push (* add/delete item event *)
           ~s_col_w       (* column width signal -- px *)
           ~s_row_h       (* row height signal   -- px *)
           ~s_items       (* items signal *)
           () =
-  object(self)
+  object(self: 'self)
 
-    inherit cell ~typ:`Item ~s_col_w ~s_row_h ~item ()
+    inherit ['a] cell ~typ:`Item ~s_col_w ~s_row_h ~item ()
 
 
     val resize_button = Markup.Dynamic_grid.Item.create_resize_button ()
@@ -236,12 +237,15 @@ module Item = struct
 
     val mutable mov_listener = None
     val mutable end_listener = None
+    val mutable value        = item.value
     val ghost = new cell ~typ:`Ghost ~s_col_w ~s_row_h ~item ()
 
     (** API **)
+    method set_value (x:'a) = value <- x
+    method get_value : 'a   = value
 
     method ghost         = ghost
-    method remove : unit = e_modify_push (`Remove self)
+    method remove : unit = e_modify_push (`Remove (self: 'self))
 
     (** Private methods **)
 
@@ -441,7 +445,7 @@ type add_error = Collides  of Position.t list
                | Cancelled
                | In_progress
 
-class t ~grid ~(items:item list) () =
+class ['a] t ~grid ~(items:'a item list) () =
   let e_modify,e_modify_push = React.E.create () in
   let s_col_w,s_col_w_push   = React.S.create grid.min_col_width in
   let s_row_h,_              = match grid.row_height with
@@ -490,9 +494,9 @@ class t ~grid ~(items:item list) () =
     method items      = React.S.value s_items
     method positions  = React.S.value s_change
 
-    method remove (x:Item.t) = x#remove
+    method remove (x:'a Item.t) = x#remove
 
-    method add (x:item) =
+    method add (x:'a item) =
       let items = CCList.map (fun x -> x#pos) (React.S.value s_items) in
       match Position.get_all_collisions ~f:(fun x -> x) x.pos items with
       | [] -> let item = new Item.t ~grid ~e_modify_push ~s_col_w ~s_row_h ~s_items ~item:x () in
@@ -506,6 +510,7 @@ class t ~grid ~(items:item list) () =
                     ?(resizable=true)
                     ?(draggable=true)
                     ?widget
+                    ~(value: 'a)
                     () =
       if adding
       then Lwt.return_error In_progress
@@ -514,7 +519,7 @@ class t ~grid ~(items:item list) () =
         adding <- true;
         let t,wakener = Lwt.wait () in
         let item = { pos = Position.empty
-                   ; min_w; min_h; max_w; max_h; static; resizable; draggable; widget } in
+                   ; min_w; min_h; max_w; max_h; static; resizable; draggable; widget; value } in
         let items = CCList.map (fun x -> x#pos) @@ React.S.value s_items in
         let ghost = new Item.cell ~typ:`Ghost ~s_col_w ~s_row_h ~item () in
         Dom.appendChild self#root ghost#root;
@@ -557,7 +562,7 @@ class t ~grid ~(items:item list) () =
                                          (match key,ev##.keyCode with
                                           | Some "Esc"     ,_
                                             | Some "Escape",_
-                                            | _,27 -> Lwt.wakeup wakener (Error (Collides []))
+                                            | _, 27 -> Lwt.wakeup wakener (Error (Collides []))
                                           | _      -> ());
                                          true)
         in
@@ -592,7 +597,7 @@ class t ~grid ~(items:item list) () =
       CCOpt.iter (fun x -> self#style##.maxWidth := Utils.px @@ grid.cols * x) grid.max_col_width;
       (* add item add/remove listener *)
       React.E.map (function
-                   | `Add (x:Item.t) -> Dom.appendChild self#root x#root
+                   | `Add (x:'a Item.t) -> Dom.appendChild self#root x#root
                    | `Remove x       -> Dom.removeChild self#root x#root) e_modify |> ignore;
       (* add initial items *)
       CCList.iter (fun x -> e_modify_push (`Add x)) items;
