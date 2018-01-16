@@ -109,6 +109,8 @@ module SM = struct
                   match to_settings_req s_info storage#get x with
                   | Ok x    -> enqueue_instant imsgs sender (Set_board_mode x) >>= (fun _ -> Lwt.return_ok ())
                   | Error e -> Lwt.return_error e)
+              ; set_factory_mode = (fun (x : factory_settings) -> enqueue_instant imsgs sender (Set_factory_mode x)
+                                                                  >>= (fun _ -> Lwt.return_ok ()))
               } in
     events,
     api,

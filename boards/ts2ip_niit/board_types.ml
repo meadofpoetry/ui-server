@@ -22,7 +22,7 @@ module Ipaddr = struct
   end
 end
 
-type info =
+type devinfo =
   { typ         : int
   ; ver         : int
   ; packers_num : int option

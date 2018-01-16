@@ -1,10 +1,13 @@
 open Board_types
 open Board_msg_formats
 
-type _ request = Get_board_info : info request
+type _ request = Get_board_info : devinfo request
 type _ instant_request = Set_board_mode   : settings         -> unit instant_request
                        | Set_factory_mode : factory_settings -> unit instant_request
-type api = { set_mode : Common.Stream.t list -> (unit,string) Lwt_result.t }
+type api = { devinfo          : unit -> devinfo_response Lwt.t
+           ; set_mode         : Common.Stream.t list -> (unit,string) Lwt_result.t
+           ; set_factory_mode : factory_settings     -> unit Lwt.t
+           }
 
 let prefix = 0x55AA
 
@@ -31,7 +34,7 @@ module type Request = sig
   val of_cbuffer : Cbuffer.t -> rsp
 end
 
-module Get_board_info : (Request with type req := unit with type rsp := info) = struct
+module Get_board_info : (Request with type req := unit with type rsp := devinfo) = struct
 
   let req_code = 0x0080
   let rsp_code = 0x0140
