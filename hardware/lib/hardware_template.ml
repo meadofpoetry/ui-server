@@ -1,5 +1,6 @@
 open Common.Topology
 open Api.Template
+open Api
 
 let get_input_name x topo =
   let single = CCList.find_pred (fun input -> input.input = x.input && input.id <> x.id)
@@ -32,7 +33,7 @@ let input topo (topo_input:topo_input) =
                                 ; stylesheets  = []
                                 ; content      = []
                                 } in
-                 { title; href = get_input_href topo_input; template }
+                 Simple { title; href = Path.of_string @@ get_input_href topo_input; template }
 
 let create (hw : Hardware.t) =
   let topo  = React.S.value hw.topo in
@@ -43,7 +44,7 @@ let create (hw : Hardware.t) =
               ; content      = []
               } in
   let templates = CCList.map (input topo) (Hardware.topo_inputs topo) |> CCList.rev in
-  [ Subtree { title = "Входы"; href = "input"; templates }
-  ; Simple  { title = "Конфигурация"; href = "hardware"; template = props }
-  ; Ref     ("Wiki","//wikipedia.org")
+  [ Subtree { title = "Входы"; href = Path.of_string "input"; templates }
+  ; Simple  { title = "Конфигурация"; href = Path.of_string "hardware"; template = props }
+  ; Ref     { title = "Wiki"; absolute = true; href = Path.of_string "wikipedia.org"}
   ]

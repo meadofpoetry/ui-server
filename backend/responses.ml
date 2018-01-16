@@ -1,6 +1,7 @@
 open Api.Template
-
-let home_template () : Api.Template.item list =
+open Api
+   
+let home_template () : upper item list =
   let content = Tyxml.Html.(div [ p [pcdata "This is the main ATS-3 page"] ]
                             |> (Format.asprintf "%a" (pp_elt ())))
   in

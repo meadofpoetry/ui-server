@@ -3,6 +3,7 @@ open Containers
 open Api.Redirect
 open Api.Interaction
 open Api.Template
+open Api
 
 module Api_handler = Api.Handler.Make(Common.User)
    
@@ -49,9 +50,8 @@ let get_handler ~settings
     match meth, uri_list with
     | _, "api" :: path          -> Api_handler.handle routes redir meth path sock_data headers body
     | `GET, path                ->
-       (try match Hashtbl.find pages (String.concat "/" path) with
-            | None -> respond_ok ()
-            | Some page -> respond_string page ()
+       (try Hashtbl.find pages (String.concat "/" path)
+            |> fun page -> respond_string page ()
         with _ -> redir (fun _ -> resource settings.path uri))
     | _                         -> not_found ()
   in

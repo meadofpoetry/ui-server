@@ -1,5 +1,9 @@
 open Interaction
 
+let path_abs_string p = Path.to_string @@ Path.make_absolute p
+let path_abs_ref_string p = Path.to_string @@ Path.make_absolute_ref p
+let path_abs_concat pl = Path.to_string @@ Path.make_absolute @@ Path.concat pl
+   
 type script = Src of string
             | Raw of string
 
@@ -11,16 +15,17 @@ type tmpl_props =
   ; content      : string list
   }
 
-type item =
-  | Ref     of string * string
-  | Home    of tmpl_props
-  | Simple  of item_entry
-  | Subtree of { title : string; href : string; templates : item_entry list }
-and item_entry = { title : string; href : string; template : tmpl_props }
+type upper = Loc_upper
+type inner = Loc_inner
+type _ item =
+  | Home    : tmpl_props -> upper item
+  | Ref     : { title : string; href : Path.t; absolute : bool } -> _ item
+  | Simple  : { title : string; href : Path.t; template : tmpl_props } -> _ item
+  | Subtree : { title : string; href : Path.t; templates : inner item list } -> upper item
 
 let rec merge_subtree = function
   | []              -> []
-  | (Ref (n,r))::tl -> (Ref (n,r))::(merge_subtree tl)
+  | (Ref r)::tl     -> (Ref r)::(merge_subtree tl)
   | (Simple s)::tl  -> (Simple s)::(merge_subtree tl)
   | (Home t)::tl    -> (Home t)::(merge_subtree tl)
   | (Subtree { title; href; templates })::tl ->
@@ -47,16 +52,25 @@ let make_template (props : tmpl_props) =
   ; "stylesheets",  `A (List.map (fun x -> `O [ "stylesheet", `String x ]) props.stylesheets)
   ; "content",      `A (List.map (fun x -> `O [ "element", `String x]) props.content) ]
 
-let make_subtree href x =
-  List.map (fun x -> `O [ "title", `String x.title; "href", `String (String.concat "/" [href;x.href]) ]) x
+let make_subtree href (subitems : inner item list) =
+  List.map (function
+      | Simple x -> `O [ "title", `String x.title
+                       ; "href", `String (path_abs_concat [href; x.href]) ]
+      | Ref x -> `O [ "title", `String x.title
+                    ; "href", `String (if x.absolute
+                                       then path_abs_ref_string x.href
+                                       else path_abs_string x.href) ] )
+    subitems
 
 let make_item = function
   | Home _          -> None
-  | Ref (name, ref) -> Some (`O [ "title",   `String name
-                                ; "href",    `String ref
+  | Ref  r          -> Some (`O [ "title",   `String r.title
+                                ; "href",    `String (if r.absolute
+                                                      then path_abs_ref_string r.href
+                                                      else path_abs_string r.href)
                                 ; "simple",  `Bool true ])
   | Simple s        -> Some (`O [ "title",   `String s.title
-                                ; "href",    `String s.href
+                                ; "href",    `String (path_abs_string s.href)
                                 ; "simple",  `Bool true ])
   | Subtree s       -> Some (`O [ "title",   `String s.title
                                 ; "href",    `Null
@@ -74,17 +88,18 @@ let build_templates ?(href_base="") mustache_tmpl vals =
                                             | Some v -> v::acc) [] vals) ] in
   let fill_in v =
     match v with
-    | Ref (n,_) -> [ n,   None]
-    | Home temp -> [ "", Some (Mustache.render mustache_tmpl (`O (items @ make_template temp)))]
-    | Simple s  -> [ s.href, Some (Mustache.render mustache_tmpl (`O (items @ make_template s.template)))]
+    | Ref  r    -> [ ]
+    | Home t    -> [ Path.empty, (Mustache.render mustache_tmpl (`O (items @ make_template t)))]
+    | Simple s  -> [ s.href,     (Mustache.render mustache_tmpl (`O (items @ make_template s.template)))]
     | Subtree s ->
-       List.map (fun { title;href;template } ->
-           String.concat "/" [s.href;href],
-           Some (Mustache.render mustache_tmpl (`O (items @ make_template template))))
+       CCList.filter_map (function
+           | Simple { title;href;template } ->
+              Some (Path.concat [s.href;href],(Mustache.render mustache_tmpl (`O (items @ make_template template))))
+           | _                              -> None)
          s.templates
   in List.fold_left (fun acc v -> (fill_in v) @ acc) [] vals
 
-type route_table = (string, string option) Hashtbl.t (* TODO: proper hash *)
+type route_table = (string, string) Hashtbl.t (* TODO: proper hash *)
 
 exception Path_not_uniq of string
                  
@@ -92,23 +107,12 @@ let rec uniq_paths = function
   | [] -> ()
   | (path, _)::tl ->
      match List.find_opt (fun (p,_) -> path = p) tl with
-     | Some _ -> raise (Path_not_uniq path)
+     | Some _ -> raise (Path_not_uniq (Path.to_string path))
      | None   -> uniq_paths tl
                  
 let build_root_table ?(href_base="") template vals =
   let pages = build_templates ~href_base template vals in
   uniq_paths pages;
   let tbl : route_table = Hashtbl.create 20 in
-  List.iter (fun (path, page) -> Hashtbl.add tbl path page) pages;
+  List.iter (fun (path, page) -> Hashtbl.add tbl (Path.to_string path) page) pages;
   tbl
-
-   (*
-let template ?(tmpl="base.html") path props =
-  let tmpl = Filename.concat path ("html/templates/" ^ tmpl)
-             |> CCIO.File.read_exn (* FIXME *)
-             |> Mustache.of_string in
-  try
-    Mustache.render tmpl (fill_json props)
-  with
-  | e -> Printexc.to_string e
-    *)
