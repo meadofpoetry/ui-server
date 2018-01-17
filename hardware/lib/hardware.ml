@@ -128,7 +128,7 @@ let create config db =
                |> ignore;) @@ React.S.changes sms in *)
   let topo_signal   = topo_to_signal topo boards in
   let input_sources = input_sources topo boards in
-  topo,{ boards; usb; topo = topo_signal; input_sources }, loop ()
+  { boards; usb; topo = topo_signal; input_sources }, loop ()
 
 let finalize hw =
   Usb_device.finalize hw.usb

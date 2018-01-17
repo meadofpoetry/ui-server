@@ -39,3 +39,9 @@ let eq usr1 usr2 =
   match usr1, usr2 with
   | `Root, `Root | `Operator, `Operator | `Guest, `Guest -> true
   | _ -> false
+
+type 'a user_table =
+  { root     : 'a
+  ; operator : 'a
+  ; guest    : 'a
+  }

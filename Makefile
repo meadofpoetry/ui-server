@@ -17,6 +17,10 @@ hardware:
 	$(BUILD) build frontend/hardware.bc.js
 	cp _build/default/frontend/hardware.bc.js dist/resources/js/hardware.js
 
+user:
+	$(BUILD) build frontend/user.bc.js
+	cp _build/default/frontend/user.bc.js dist/resources/js/user.js
+
 demo:
 	$(BUILD) build frontend/demo.bc.js
 	cp _build/default/frontend/demo.bc.js dist/resources/js/demo.js
@@ -24,7 +28,7 @@ demo:
 css:
 	$(CSS) dist/resources/css/table.scss dist/resources/css/table.css
 
-frontend: home pipeline hardware demo input css
+frontend: home pipeline hardware user demo input css
 
 backend:
 	$(BUILD) build backend/backend.exe

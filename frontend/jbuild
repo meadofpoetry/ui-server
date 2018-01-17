@@ -1,7 +1,7 @@
 (jbuild_version 1)
 
 (executables
- ((names       (home pipeline hardware demo input))
+ ((names       (home pipeline hardware user demo input))
   (libraries   (js_of_ocaml
                 gg vg vg.htmlc js_of_ocaml-tyxml lwt_react
                 common components pipeline-js hardware-js
