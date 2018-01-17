@@ -85,7 +85,7 @@ let initialize d (resolution: int * int) (widgets: (string * Wm.widget) list) =
                                  (List.find
                                     (fun x -> x#get_input_widget#get_checked)
                                     wd_list)#get_input_widget#get_value in
-                               grid#add_free ~min_w:3 ~min_h:3 ~value:chosen_wdg ()
+                               grid#add_free ~value:chosen_wdg ()
                                >>= (function
                                     | Ok _    -> Lwt.return_unit
                                     | Error _ -> Lwt.return_unit)

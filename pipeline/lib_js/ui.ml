@@ -299,6 +299,6 @@ module Settings = struct
                 Dom.appendChild div (make s)#root)
               events
     in
-    Dom.appendChild div (make init)#root;
+(*    Dom.appendChild div (make init)#root;*)
     div
 end

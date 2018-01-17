@@ -615,8 +615,8 @@ let add_demos demos =
 
 let dynamic_grid_demo () =
   let (props:Dynamic_grid.grid) =
-    { rows             = None
-    ; cols             = 100
+    { rows             = Some 20
+    ; cols             = 30
     ; min_col_width    = 1
     ; max_col_width    = None
     ; row_height       = None

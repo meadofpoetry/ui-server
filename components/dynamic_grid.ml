@@ -272,13 +272,13 @@ module Item = struct
     method private mouse_action meth ev =
       let init_pos = self#get_px_pos in
        let init_x, init_y = ev##.clientX, ev##.clientY in
-         Dom_events.listen Dom_html.document Dom_events.Typ.mousemove
+         Dom_events.listen Dom_html.window Dom_events.Typ.mousemove
            (fun _ ev ->
              let x, y = ev##.clientX, ev##.clientY in
              meth ~x ~y ~init_x ~init_y ~init_pos `Move;
              false)
          |> (fun x -> mov_listener <- Some x);
-         Dom_events.listen Dom_html.document Dom_events.Typ.mouseup
+         Dom_events.listen Dom_html.window Dom_events.Typ.mouseup
            (fun _ ev ->
              let x, y = ev##.clientX, ev##.clientY in
              meth ~x ~y ~init_x ~init_y ~init_pos `End;
@@ -291,7 +291,7 @@ module Item = struct
         ( fun touch ->
           let id = touch##.identifier in
           let init_x, init_y = touch##.clientX, touch##.clientY in
-          Dom_events.listen Dom_html.document Dom_events.Typ.touchmove
+          Dom_events.listen Dom_html.window Dom_events.Typ.touchmove
             (fun _ ev ->
               let length = ev##.changedTouches##.length - 1 in
               Js.Optdef.iter (ev##.changedTouches##item length)
@@ -301,7 +301,7 @@ module Item = struct
                     meth ~x ~y ~init_x ~init_y ~init_pos `Move);
               false)
           |> (fun x -> mov_listener <- Some x);
-          Dom_events.listen Dom_html.document Dom_events.Typ.touchend
+          Dom_events.listen Dom_html.window Dom_events.Typ.touchend
             (fun _ ev ->
               let length = ev##.changedTouches##.length - 1 in
               Js.Optdef.iter (ev##.changedTouches##item length)
@@ -380,22 +380,22 @@ module Item = struct
          in
          if not (self#has_collision pos) then ghost#s_pos_push pos;
          (* temporary update element's width and height in pixels *)
-         let pos_px = correct_wh ?max_w:(CCOpt.map (fun x -> x * col_px) item.max_w)
-                                 ~min_w:(CCOpt.get_or ~default:col_px
-                                                      (CCOpt.map (fun x -> x * col_px) item.min_w))
-                                 ?max_h:(CCOpt.map (fun x -> x * row_px) item.max_h)
-                                 ~min_h:(CCOpt.get_or ~default:row_px
-                                                      (CCOpt.map (fun x -> x * row_px) item.min_h))
-                                 { x = self#pos.x * col_px
-                                 ; y = self#pos.x * col_px
-                                 ; w
-                                 ; h
-                                 }
-                                 (grid.cols * col_px)
-                                 (CCOpt.map (fun x -> x * row_px) grid.rows)
-         in
-         self#set_w pos_px.w;
-         self#set_h pos_px.h
+         (* let pos_px = correct_wh ?max_w:(CCOpt.map (fun x -> x * col_px) item.max_w)
+          *                         ~min_w:(CCOpt.get_or ~default:col_px
+          *                                              (CCOpt.map (fun x -> x * col_px) item.min_w))
+          *                         ?max_h:(CCOpt.map (fun x -> x * row_px) item.max_h)
+          *                         ~min_h:(CCOpt.get_or ~default:row_px
+          *                                              (CCOpt.map (fun x -> x * row_px) item.min_h))
+          *                         { x = self#pos.x * col_px
+          *                         ; y = self#pos.x * col_px
+          *                         ; w
+          *                         ; h
+          *                         }
+          *                         (grid.cols * col_px)
+          *                         (CCOpt.map (fun x -> x * row_px) grid.rows)
+          * in *)
+         self#set_w w;
+         self#set_h h
       | `End ->
          CCOpt.iter (fun l -> Dom_events.stop_listen l) mov_listener;
          CCOpt.iter (fun l -> Dom_events.stop_listen l) end_listener;
@@ -573,12 +573,10 @@ class ['a] t ~grid ~(items:'a item list) () =
 
     method layout =
       let w   = self#get_offset_width + residue in
-      Printf.printf "Start res %d, " residue;
       let col = w / grid.cols in
       let res = w mod grid.cols in
       s_col_w_push col;
       residue <- res;
-      Printf.printf "width %d, col %d, res %d\n" w col res;
       self#style##.width := Js.string @@ Printf.sprintf "calc(100%% - %dpx)" res
 
     (** Private methods *)
