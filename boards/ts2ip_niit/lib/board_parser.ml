@@ -3,15 +3,20 @@ open Board_msg_formats
 
 type _ request         = Get_board_info   : devinfo request
 
-type _ instant_request = Set_board_mode   : settings         -> unit instant_request
-                       | Set_factory_mode : factory_settings -> unit instant_request
+type _ instant_request = Set_board_mode   : nw_settings * packer_setting list -> unit instant_request
+                       | Set_factory_mode : factory_settings                  -> unit instant_request
 
-type api    = { devinfo          : unit                 -> devinfo_response Lwt.t
-              ; set_mode         : Common.Stream.t list -> (unit,string) Lwt_result.t
-              ; set_factory_mode : factory_settings     -> unit Lwt.t
+type api    = { devinfo            : unit                   -> devinfo_response Lwt.t
+              ; set_mode           : nw_settings            -> unit Lwt.t
+              ; set_factory_mode   : factory_settings       -> unit Lwt.t
+              ; set_streams_simple : streams_request_simple -> (unit,string) Lwt_result.t
+              ; set_streams_full   : streams_request_full   -> (unit,string) Lwt_result.t
+              ; config             : unit                   -> config Lwt.t
               }
 
-type events = { status : status React.event }
+type events = { status : status React.event
+              ; config : config React.event
+              }
 
 let prefix = 0x55AA
 
@@ -71,10 +76,9 @@ module Set_factory_mode : (Instant_request with type req := factory_settings) = 
 
 end
 
-module Set_board_mode : (Instant_request with type req := settings) = struct
+module Set_board_mode : (Instant_request with type req := (nw_settings * (packer_setting list))) = struct
 
   let msg_code  = 0x0088
-  let self_port = 2028
 
   let packer_settings_to_cbuffer (s:packer_setting) =
     let buf  = Cbuffer.create sizeof_packer_settings in
@@ -84,11 +88,11 @@ module Set_board_mode : (Instant_request with type req := settings) = struct
     let ()   = s.dst_port |> set_packer_settings_dst_port buf in
     let ()   = Ipaddr.V4.multicast_to_mac s.dst_ip |> Macaddr.to_bytes
                |> fun mac -> set_packer_settings_dst_mac mac 0 buf in
-    let ()   = set_packer_settings_self_port buf self_port in
+    let ()   = set_packer_settings_self_port buf s.self_port in
     let ()   = set_packer_settings_mode buf mode in
     buf
 
-  let main_to_cbuffer ip mask gw (pkrs:packer_settings) =
+  let main_to_cbuffer ip mask gw (pkrs:packer_setting list) =
     let buf  = Cbuffer.create sizeof_req_settings_main in
     let ()   = set_req_settings_main_cmd buf 0 in
     let ()   = Ipaddr.V4.to_int32 ip   |> set_req_settings_main_ip buf in
@@ -100,7 +104,7 @@ module Set_board_mode : (Instant_request with type req := settings) = struct
     |> (fun b -> Cbuffer.append b @@ Cbuffer.create (len - Cbuffer.len b))
     |> (fun body -> to_msg ~msg_code ~body ())
 
-  let rest_to_cbuffer i (pkrs:packer_settings) =
+  let rest_to_cbuffer i (pkrs:packer_setting list) =
     let buf  = Cbuffer.create sizeof_req_settings_packers in
     let ()   = set_req_settings_packers_cmd buf i in
     let pkrs = CCList.map packer_settings_to_cbuffer pkrs in
@@ -109,11 +113,11 @@ module Set_board_mode : (Instant_request with type req := settings) = struct
     |> (fun b -> Cbuffer.append b @@ Cbuffer.create (len - Cbuffer.len b))
     |> (fun body -> to_msg ~msg_code ~body ())
 
-  let to_cbuffer (s:settings) =
+  let to_cbuffer (nw,packers) =
     let fst_pkrs,rest_pkrs =
-      let hd,tl = CCList.take_drop 4 s.packers in
+      let hd,tl = CCList.take_drop 4 packers in
       hd,CCList.take 3 @@ CCList.sublists_of_len ~last:CCOpt.return 6 tl in
-    let main = main_to_cbuffer s.ip s.mask s.gateway fst_pkrs in
+    let main = main_to_cbuffer nw.ip nw.mask nw.gateway fst_pkrs in
     let rest = CCList.mapi (fun i x -> rest_to_cbuffer (succ i) x) rest_pkrs in
     Cbuffer.concat (main :: rest)
 

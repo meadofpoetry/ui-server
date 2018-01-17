@@ -33,18 +33,19 @@ type factory_settings =
   } [@@deriving yojson]
 
 type packer_setting =
-  { stream_id : int32 (* FIXME *)
+  { stream    : Common.Stream.t
+  ; stream_id : int32
   ; port      : int
   ; dst_ip    : Ipaddr.V4.t
   ; dst_port  : int
+  ; self_port : int
   ; enabled   : bool
   } [@@deriving yojson]
-type packer_settings = packer_setting list [@@deriving yojson]
-type settings =
+
+type nw_settings     =
   { ip      : Ipaddr.V4.t
   ; mask    : Ipaddr.V4.t
   ; gateway : Ipaddr.V4.t
-  ; packers : packer_settings
   } [@@deriving yojson]
 
 type speed = Speed10
@@ -67,37 +68,28 @@ and packer_status =
   ; overflow : bool
   } [@@deriving yojson]
 
-type config = { board_mode   : settings
+type config = { board_mode   : nw_settings
               ; factory_mode : factory_settings
+              ; streams      : packer_setting list
               } [@@deriving yojson]
 let config_to_string c = Yojson.Safe.to_string @@ config_to_yojson c
 let config_of_string s = config_of_yojson @@ Yojson.Safe.from_string s
 
 let config_default =
-  { board_mode = { ip      = Ipaddr.V4.make 192 168 111 200
-                 ; mask    = Ipaddr.V4.make 255 255 255 0
-                 ; gateway = Ipaddr.V4.make 192 168 111 1
-                 ; packers = [ { stream_id = 0l
-                               ; port      = 1
-                               ; dst_ip    = Ipaddr.V4.make 224 1 2 1
-                               ; dst_port  = 1234
-                               ; enabled   = true }
-                             ; { stream_id = 0l
-                               ; port      = 0
-                               ; dst_ip    = Ipaddr.V4.make 224 1 2 2
-                               ; dst_port  = 1234
-                               ; enabled   = false }
-                             ; { stream_id = 0l
-                               ; port      = 0
-                               ; dst_ip    = Ipaddr.V4.make 224 1 2 3
-                               ; dst_port  = 1234
-                               ; enabled   = false }
-                             ; { stream_id = 0l
-                               ; port      = 0
-                               ; dst_ip    = Ipaddr.V4.make 224 1 2 4
-                               ; dst_port  = 1234
-                               ; enabled   = false }] }
-  ; factory_mode = { mac = Macaddr.of_string_exn "00:50:c2:88:50:ab"}
+  { board_mode   = { ip      = Ipaddr.V4.make 192 168 111 200
+                   ; mask    = Ipaddr.V4.make 255 255 255 0
+                   ; gateway = Ipaddr.V4.make 192 168 111 1
+                   }
+  ; factory_mode = { mac = Macaddr.of_string_exn "00:50:c2:88:50:ab" }
+  ; streams      = []
   }
 
-type devinfo_response = devinfo option [@@deriving yojson]
+type devinfo_response       = devinfo option [@@deriving yojson]
+type streams_request_full   = stream_setting list
+and stream_setting =
+  { stream   : Common.Stream.t
+  ; dst_ip   : Ipaddr.V4.t
+  ; dst_port : int
+  ; enabled  : bool
+  } [@@deriving yojson]
+type streams_request_simple = Common.Stream.t_list [@@deriving yojson]

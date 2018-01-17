@@ -19,14 +19,12 @@ let () =
   let boards = Yojson.Safe.from_string @@ Js.to_string @@ Json.output @@ Js.Unsafe.variable "boards"
                |> boards_of_yojson
                |> CCResult.get_exn in
-  let placeholder = (fun () -> (Dom_html.createDiv Dom_html.document), (fun () -> ())) in
   let board_to_tabs control = function
     | IP2TS -> [ "IP", (fun () -> Board_ip_dektec_js.Ip_dektec.page control) ]
     | DVB   -> [ "RF", (fun () -> Board_dvb_niit_js.Settings.page control) ]
     | TS    -> [ "QoS",       (fun () -> Board_qos_niit_js.Settings.page control)
                ; "Структура", (fun () -> Board_qos_niit_js.Structure.page control)
-               ; "Битрейт",   placeholder
-               ; "Джиттер",   placeholder ]
+               ]
     | TS2IP -> [ ]
   in
   let tabs = CCList.fold_left (fun acc (c,typ) -> (CCList.rev @@ board_to_tabs c typ) @ acc) [] boards

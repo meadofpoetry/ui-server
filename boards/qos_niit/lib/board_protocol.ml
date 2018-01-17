@@ -351,9 +351,7 @@ module SM = struct
          | None   -> let pool = Pool.step pool in
                      `Continue (step_normal_probes_wait sb pool (pred p) prev_idle_gp gp events parts acc)
          | Some x -> let sb = (match x with
-                               | Struct s  -> Lwt_io.printf "Pids: %d\n"
-                                              @@ (CCList.fold_left (fun acc (x:ts_struct) -> acc + CCList.length x.pids) 0 s) |> ignore;
-                                              push_events.structs s; { sb with structs  = s }
+                               | Struct s  -> push_events.structs s; { sb with structs  = s }
                                | Bitrate b -> { sb with bitrates = b }
                                | e         -> push_event_response push_events e; sb) in
                      let new_pool = Pool.next pool in

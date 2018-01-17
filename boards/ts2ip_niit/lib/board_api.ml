@@ -23,17 +23,35 @@ let devinfo api () =
 let state s_state =
   respond_js (Common.Topology.state_to_yojson @@ React.S.value s_state) ()
 
-let set_factory_mode (api : api) body () =
+let streams s_streams =
+  respond_js (Common.Stream.t_list_to_yojson @@ React.S.value s_streams) ()
+
+let set_factory_mode (api:api) body () =
   yojson_of_body body >>= fun mode ->
   match factory_settings_of_yojson mode with
   | Error e -> respond_error e ()
   | Ok mode -> api.set_factory_mode mode >>= respond_ok
 
-let set_mode (api : api) body () =
+let set_mode (api:api) body () =
   yojson_of_body body >>= fun mode ->
-  match Common.Stream.t_list_of_yojson mode with
+  match nw_settings_of_yojson mode with
   | Error e -> respond_error e ()
-  | Ok mode -> api.set_mode mode
+  | Ok mode -> api.set_mode mode >>= respond_ok
+
+let set_streams_simple (api:api) body () =
+  yojson_of_body body >>= fun sms ->
+  match Common.Stream.t_list_of_yojson sms with
+  | Error e -> respond_error e ()
+  | Ok sms  -> api.set_streams_simple sms
+               >>= function
+               | Error e -> respond_error e ()
+               | Ok ()   -> respond_ok ()
+
+let set_streams_full (api:api) body () =
+  yojson_of_body body >>= fun sms ->
+  match streams_request_full_of_yojson sms with
+  | Error e -> respond_error e ()
+  | Ok sms  -> api.set_streams_full sms
                >>= function
                | Error e -> respond_error e ()
                | Ok ()   -> respond_ok ()
@@ -63,21 +81,27 @@ let state_ws sock_data s_state body =
 let status_ws sock_data (events : events) body =
   sock_handler sock_data events.status status_to_yojson body
 
-let handle api events s_state _ meth args sock_data _ body =
+let streams_ws sock_data s_streams body =
+  sock_handler sock_data (Lwt_react.S.changes s_streams) Common.Stream.t_list_to_yojson body
+
+let handle api events s_state s_streams _ meth args sock_data _ body =
   let open Api.Redirect in
   match meth, args with
-  | `POST, ["factory_mode"] -> set_factory_mode api body ()
-  | `POST, ["mode"]         -> set_mode api body ()
-  | `GET,  ["devinfo"]      -> devinfo api ()
-  | `GET,  ["state"]        -> state s_state
-  | `GET,  ["streams"]      -> respond_ok ()
+  | `POST, ["factory_mode"]   -> set_factory_mode api body ()
+  | `POST, ["mode"]           -> set_mode api body ()
+  | `POST, ["streams_simple"] -> set_streams_simple api body ()
+  | `POST, ["streams_full"]   -> set_streams_full api body ()
+  | `GET,  ["devinfo"]        -> devinfo api ()
+  | `GET,  ["state"]          -> state s_state
+  | `GET,  ["streams"]        -> streams s_streams
 
-  | `GET,  ["state_ws"]     -> state_ws sock_data s_state body
-  | `GET,  ["status_ws"]    -> status_ws sock_data events body
+  | `GET,  ["state_ws"]       -> state_ws sock_data s_state body
+  | `GET,  ["status_ws"]      -> status_ws sock_data events body
+  | `GET,  ["streams_ws"]     -> streams_ws sock_data s_streams body
   | _ -> not_found ()
 
-let handlers id api events s_state =
+let handlers id api events s_state s_streams =
   [ (module struct
        let domain = Common.Topology.get_api_path id
-       let handle = handle api events s_state
+       let handle = handle api events s_state s_streams
      end : Api_handler.HANDLER) ]

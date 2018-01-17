@@ -81,6 +81,28 @@ and topo_port = { port      : int
               
 let get_api_path = string_of_int
 
+let topo_inputs =
+  let rec f acc = (function
+                   | Input x -> x :: acc
+                   | Board x -> CCList.concat @@ (CCList.map (fun x -> f acc x.child) x.ports)) in
+  CCList.fold_left f []
+
+let topo_boards =
+  let rec f acc = (function
+                   | Board b -> CCList.fold_left (fun a x -> f a x.child) (b :: acc) b.ports
+                   | Input _ -> acc) in
+  CCList.fold_left f []
+
+let topo_paths =
+  let rec add_node acc paths = function
+    | Input i -> (i,acc) :: paths
+    | Board b -> (let ports = List.map (fun x -> x.child) b.ports in
+                  match ports with
+                  | [] -> paths
+                  | l  -> List.fold_left (fun a x -> add_node (b :: acc) a x) paths l)
+  in
+  CCList.fold_left (fun a x -> add_node [] a x) []
+
 let rec sub topo id =
   let rec sub_port ports id =
     match ports with

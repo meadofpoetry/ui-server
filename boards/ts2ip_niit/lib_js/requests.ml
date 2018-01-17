@@ -25,8 +25,8 @@ let post_settings control settings =
 let get_state_ws control =
   get_socket (Printf.sprintf "api/board/%d/state_ws" control) Common.Topology.state_of_yojson
 
-let get_config_ws control =
-  get_socket (Printf.sprintf "api/board/%d/config_ws" control) config_of_yojson
-
 let get_status_ws control =
   get_socket (Printf.sprintf "api/board/%d/status_ws" control) status_of_yojson
+
+let get_streams_ws control =
+  get_socket (Printf.sprintf "api/board/%d/streams_ws" control) Common.Stream.t_list_of_yojson

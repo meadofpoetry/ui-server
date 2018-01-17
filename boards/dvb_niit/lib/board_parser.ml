@@ -353,8 +353,7 @@ let deserialize buf =
                            | `E e   -> f (e::events) responses x.res
                            | `R r   -> f events (r::responses) x.res
                            | `N     -> f events responses x.res)
-          | Error e -> Lwt_io.printlf "DVB: %s" (string_of_err e) |> ignore;
-                       (match e with
+          | Error e -> (match e with
                         | Insufficient_payload x -> List.rev events, List.rev responses, x
                         | _                      -> f events responses (Cbuffer.shift b 1)))
     else List.rev events, List.rev responses, b in

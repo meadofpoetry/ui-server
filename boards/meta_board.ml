@@ -23,6 +23,7 @@ type board = { handlers        : (module Api_handler.HANDLER) list
 
 module type BOARD = sig
   val create       : topo_board ->
+                     Common.Stream.t list React.signal ->
                      (Common.Stream.stream list React.signal -> topo_board -> Common.Stream.t list React.signal) ->
                      (Cbuffer.t -> unit Lwt.t) ->
                      Storage.Database.t ->

@@ -4,7 +4,7 @@ open Api
 
 let get_input_name x topo =
   let single = CCList.find_pred (fun input -> input.input = x.input && input.id <> x.id)
-                                (Hardware.topo_inputs topo)
+                                (topo_inputs topo)
                |> CCOpt.is_none in
   let to_string s = if single then Printf.sprintf "%s" s else Printf.sprintf "%s %d" s x.id in
   match x.input with
@@ -19,7 +19,7 @@ let get_input_href x =
 
 let input topo (topo_input:topo_input) =
   let path = CCList.find_map (fun (i,p) -> if i = topo_input then Some p else None)
-                              (Hardware.topo_paths topo) in
+                             (topo_paths topo) in
   match path with
   | None      -> failwith "input not found"
   | Some path -> let title  = get_input_name topo_input topo in
@@ -43,7 +43,7 @@ let create (hw : Hardware.t) =
               ; stylesheets  = []
               ; content      = []
               } in
-  let templates = CCList.map (input topo) (Hardware.topo_inputs topo) |> CCList.rev in
+  let templates = CCList.map (input topo) (topo_inputs topo) |> CCList.rev in
   [ `Index 2, Subtree { title = "Входы"; href = Path.of_string "input"; templates }
   ; `Index 3, Simple  { title = "Конфигурация"; href = Path.of_string "hardware"; template = props }
   ; `Index 4, Ref     { title = "Wiki"; absolute = true; href = Path.of_string "wikipedia.org"}
