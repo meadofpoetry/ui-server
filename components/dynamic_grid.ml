@@ -265,12 +265,6 @@ module Item = struct
       ; h = par##.offsetHeight
       }
 
-    method private ev_to_pos ev : Position.t =
-         { x = ev##.clientX
-         ; y = ev##.clientY
-         ; w = self#get_offset_width
-         ; h = self#get_offset_height }
-
     method private get_px_pos : Position.t =
       { x = self#get_offset_left;  y = self#get_offset_top;
         w = self#get_offset_width; h = self#get_offset_height }
@@ -526,45 +520,48 @@ class ['a] t ~grid ~(items:'a item list) () =
         let mv_l  =
           Dom_events.listen Dom_html.document##.body
                             Dom_events.Typ.mousemove
-                            (fun _ e -> (match self#get_event_pos e with
-                                         | Some ev_pos ->
-                                            let ev_pos =
-                                              { ev_pos with x = ev_pos.x / React.S.value s_col_w;
-                                                            y = ev_pos.y / React.S.value s_row_h
-                                              }
-                                            in
-                                            let pos = Position.get_free_rect ~f:(fun x -> x)
-                                                                             ev_pos
-                                                                             items
-                                                                             grid.cols
-                                                                             (React.S.value s_rows)
-                                            in
-                                            begin match pos with
-                                            | Some pos -> ghost#s_pos_push pos
-                                            | None     -> ghost#s_pos_push Position.empty
-                                            end;
-                                         | None -> ghost#s_pos_push Position.empty);
-                                        true)
+                            (fun _ e ->
+                              (match self#get_event_pos e with
+                               | Some ev_pos ->
+                                  let ev_pos =
+                                    { ev_pos with x = ev_pos.x / React.S.value s_col_w;
+                                                  y = ev_pos.y / React.S.value s_row_h
+                                    }
+                                  in
+                                  let pos = Position.get_free_rect ~f:(fun x -> x)
+                                              ev_pos
+                                              items
+                                              grid.cols
+                                              (React.S.value s_rows)
+                                  in
+                                  begin match pos with
+                                  | Some pos -> ghost#s_pos_push pos
+                                  | None     -> ghost#s_pos_push Position.empty
+                                  end;
+                               | None -> ghost#s_pos_push Position.empty);
+                              true)
         in
         let cl_l  =
-          Dom_events.listen Dom_html.document##.body
+          Dom_events.listen self#root
                             Dom_events.Typ.click
-                            (fun _ _ -> begin match ghost#pos with
-                                        | x when x.w = 0 || x.h = 0 -> Lwt.wakeup wakener (Error (Collides []))
-                                        | pos -> Lwt.wakeup wakener (self#add { item with pos })
-                                        end;
-                                        false)
+                            (fun _ _ ->
+                              begin match ghost#pos with
+                              | x when x.w = 0 || x.h = 0 -> Lwt.wakeup wakener (Error (Collides []))
+                              | pos -> Lwt.wakeup wakener (self#add { item with pos })
+                              end;
+                              false)
         in
         let esc_l =
-          Dom_events.listen Dom_html.document
+          Dom_events.listen Dom_html.window
                             Dom_events.Typ.keydown
-                            (fun _ ev -> let key  = CCOpt.map Js.to_string @@ Js.Optdef.to_option ev##.key in
-                                         (match key,ev##.keyCode with
-                                          | Some "Esc"     ,_
-                                            | Some "Escape",_
-                                            | _, 27 -> Lwt.wakeup wakener (Error (Collides []))
-                                          | _      -> ());
-                                         true)
+                            (fun _ ev ->
+                              let key  = CCOpt.map Js.to_string @@ Js.Optdef.to_option ev##.key in
+                              (match key,ev##.keyCode with
+                               | Some "Esc"     ,_
+                                 | Some "Escape",_
+                                 | _, 27 -> Lwt.wakeup wakener (Error (Collides []))
+                               | _      -> ());
+                              true)
         in
         t >>= (fun _ -> adding <- false;
                         Dom_events.stop_listen mv_l;
@@ -576,10 +573,12 @@ class ['a] t ~grid ~(items:'a item list) () =
 
     method layout =
       let w   = self#get_offset_width + residue in
+      Printf.printf "Start res %d, " residue;
       let col = w / grid.cols in
-      let res = w mod col in
+      let res = w mod grid.cols in
       s_col_w_push col;
       residue <- res;
+      Printf.printf "width %d, col %d, res %d\n" w col res;
       self#style##.width := Js.string @@ Printf.sprintf "calc(100%% - %dpx)" res
 
     (** Private methods *)
@@ -587,7 +586,7 @@ class ['a] t ~grid ~(items:'a item list) () =
     method private get_event_pos e : Position.t option =
       let x = (CCOpt.get_exn @@ Js.Optdef.to_option e##.pageX) - self#get_offset_left in
       let y = (CCOpt.get_exn @@ Js.Optdef.to_option e##.pageY) - self#get_offset_top in
-      let (pos:Position.t) = { x; y; w=1;h=1 } in
+      let (pos:Position.t) = { x; y; w = 1; h = 1 } in
       if x <= self#get_offset_width && x >= 0 && y<= self#get_offset_height && y >= 0
       then Some pos else None
 
@@ -604,7 +603,6 @@ class ['a] t ~grid ~(items:'a item list) () =
       (* add height update listener *)
       React.S.l2 (fun h row_h -> self#style##.height := Utils.px (h * row_h)) s_rows s_row_h |> ignore;
       Dom_events.listen Dom_html.window Dom_events.Typ.resize (fun _ _ -> self#layout; true) |> ignore;
-      Dom_events.listen elt Dom_events.Typ.drop (fun _ ev -> Dom.preventDefault ev; false)   |> ignore;
       MutationObserver.observe
         ~node:Dom_html.document
         ~f:(fun _ _ -> let in_dom_new = (Js.Unsafe.coerce Dom_html.document)##contains self#root in

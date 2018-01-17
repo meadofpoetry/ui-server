@@ -616,16 +616,15 @@ let add_demos demos =
 let dynamic_grid_demo () =
   let (props:Dynamic_grid.grid) =
     { rows             = None
-    ; cols             = 7
-    ; min_col_width    = 50
+    ; cols             = 100
+    ; min_col_width    = 1
     ; max_col_width    = None
     ; row_height       = None
-
     ; vertical_compact = false
     ; items_margin     = None
     } in
-  let items    = [ Dynamic_grid.Item.to_item ~pos:{ x = 0; y = 0; w = 1; h = 2 } ~max_w:3 ()
-                 ; Dynamic_grid.Item.to_item ~pos:{ x = 2; y = 1; w = 2; h = 1 } ~max_h:3 ()
+  let items    = [ Dynamic_grid.Item.to_item ~pos:{ x = 0; y = 0; w = 10; h = 10 } ~value:() ()
+                 ; Dynamic_grid.Item.to_item ~pos:{ x = 20; y = 30; w = 10; h = 20 } ~value:() ()
                  ]
   in
   let x        = new Textfield.t ~label:"x position" ~input_type:(Widget.Integer None) () in
@@ -637,7 +636,7 @@ let dynamic_grid_demo () =
   let grid     = new Dynamic_grid.t ~grid:props ~items () in
   React.E.map (fun e -> let open Lwt.Infix in
                         Dom_html.stopPropagation e;
-                        grid#add_free ()
+                        grid#add_free ~value:() ()
                         >>= (function
                              | Ok _    -> print_endline "ok"   ; Lwt.return_unit
                              | Error _ -> print_endline "error"; Lwt.return_unit)
@@ -646,7 +645,7 @@ let dynamic_grid_demo () =
   React.E.map (fun _ -> match React.S.value x#s_input,React.S.value y#s_input,
                               React.S.value w#s_input,React.S.value h#s_input with
                         | Some x, Some y, Some w, Some h ->
-                           grid#add (Dynamic_grid.Item.to_item ~pos:{ x;y;w;h } ())
+                           grid#add (Dynamic_grid.Item.to_item ~pos:{ x;y;w;h } ~value:() ())
                            |> (function
                                | Ok _    -> print_endline "ok"
                                | Error _ -> ())
