@@ -4,7 +4,7 @@ open Tyxml_js
 
 let js = Js.string
 
-let greatest_divisor resolution =
+let resolution_to_aspect resolution =
   let w, h = resolution in
   let rec deja_vu a b =
     if a != 0 && b != 0 then
@@ -35,8 +35,8 @@ let add demos =
   |> To_dom.of_element
 
 
-let initialize d (resolution: int * int) (widgets: (string * Wm.widget) list) =
-  let asp  =  greatest_divisor resolution in
+let initialize d (wm: Wm.t) =
+  let asp  = resolution_to_aspect wm.resolution in
   let cols, rows =
     match asp with
     | 4  , 3   -> 32 , 24
@@ -55,15 +55,15 @@ let initialize d (resolution: int * int) (widgets: (string * Wm.widget) list) =
                     let form_field =
                       new Form_field.t ~label ~input:radio () in
                     List.append acc [form_field]
-                  ) [] widgets in
-  let dialog = new Dialog.t
+                  ) [] wm.widgets in
+  let dialogue = new Dialog.t
                    ~title:"What widget u'd like to add?"
                    ~content:(`Widgets wd_list)
                    ~actions:[ new Dialog.Action.t ~typ:`Decline ~label:"Decline" ()
                             ; new Dialog.Action.t ~typ:`Accept  ~label:"Accept"  ()
                             ]
                    () in
-  Dom.appendChild Dom_html.document##.body dialog#root;
+  Dom.appendChild Dom_html.document##.body dialogue#root;
   let (props:Dynamic_grid.grid) =
     { min_col_width    = 1
     ; max_col_width    = None
@@ -73,19 +73,34 @@ let initialize d (resolution: int * int) (widgets: (string * Wm.widget) list) =
     ; vertical_compact = false
     ; items_margin     = None
     } in
-  let (items:'a Dynamic_grid.item list) = [] in
+  let (items:'a Dynamic_grid.item list) =
+    List.map
+      (fun (x: string * Wm.container) ->
+        let str, cont = x in
+        Printf.printf "%s\n" str;
+        let res_w, res_h = wm.resolution in
+        let x = cols * cont.position.left / res_w in
+        let w = cols * (cont.position.right - cont.position.left) / res_w in
+        let y = rows * cont.position.top / res_h in
+        let h = rows * (cont.position.bottom - cont.position.top) / res_h in
+        Dynamic_grid.Item.to_item
+          ~pos:{ x; y; w; h }
+          ~min_w:1
+          ~min_h:1
+          ~value:(List.hd cont.widgets) ()
+      ) wm.layout in
   let add_free = new Button.t ~label:"add" () in
   let grid  = new Dynamic_grid.t ~grid:props ~items () in
   React.E.map (fun e -> let open Lwt.Infix in
                         Dom_html.stopPropagation e;
-                         Lwt.bind dialog#show_await
+                         Lwt.bind dialogue#show_await
                            (function
                             | `Accept ->
                                let chosen_wdg =
                                  (List.find
                                     (fun x -> x#get_input_widget#get_checked)
                                     wd_list)#get_input_widget#get_value in
-                               grid#add_free ~value:chosen_wdg ()
+                               grid#add_free ~min_w:1 ~min_h:1 ~value:chosen_wdg ()
                                >>= (function
                                     | Ok _    -> Lwt.return_unit
                                     | Error _ -> Lwt.return_unit)
@@ -93,8 +108,6 @@ let initialize d (resolution: int * int) (widgets: (string * Wm.widget) list) =
                                Lwt.return ()
                             | `Cancel -> print_endline "Dialog cancelled"; Lwt.return ()))
     add_free#e_click
-  |> ignore;
-  React.S.map (fun x -> Printf.printf "%d items in grid\n" @@ CCList.length x) grid#s_items
   |> ignore;
   let demo = add[(section "Dynamic grid" [grid#widget; add_free#widget])] in
   Dom.appendChild d demo;
@@ -115,7 +128,7 @@ let initialize d (resolution: int * int) (widgets: (string * Wm.widget) list) =
               then x#pos.h * row / b * a, x#pos.h * row
               else x#pos.w * col, x#pos.w * col / a * b
             in
-            let real_w, real_h = resolution in
+            let real_w, real_h = wm.resolution in
             let (container_pos : Wm.position) =
               { left   = x#pos.x * col * real_w / width
               ; right  = (x#pos.x + x#pos.w) * col * real_w / width

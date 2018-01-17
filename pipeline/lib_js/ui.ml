@@ -80,9 +80,9 @@ end
 
 module Wm = struct
 
-  let make_layout d (wdgl : (string * Wm.widget) list) (resolution: int * int) =
+  let make_layout d (wm: Wm.t) =
     let open Layout in
-    Layout.initialize d resolution wdgl
+    Layout.initialize d wm
 
   let create
         ~(init:   Wm.t)
@@ -96,7 +96,7 @@ module Wm = struct
       place##.id := Js.string id;
       let apply  = new Button.t ~label:"apply" () in
       Dom.appendChild place apply#root;
-      let layout = make_layout place wm.widgets wm.resolution in
+      let layout = make_layout place wm in
       apply#root##.onclick :=
         Dom.handler (fun _ -> post { wm with layout = React.S.value layout }; Js._false);
       place

@@ -50,11 +50,11 @@ let load () =
               (function
                | e -> Lwt.return @@ Printf.printf "Exception in janus pipe: %s\n" (Printexc.to_string e)))
            |> ignore in
-  
+
   let doc = Dom_html.document in
 
   let container = Dom_html.getElementById "arbitrary-content" in
-  
+
   let text    = Dom_html.createP doc in
   text##.textContent := Js.some @@ Js.string "Pipeline widget";
   text##.classList##add (Js.string @@ Components.Typography.font_to_class Display_1);
@@ -76,14 +76,14 @@ let load () =
                                               |> Lwt.ignore_result)
                  in Dom.appendChild container s_el)
   |> Lwt.ignore_result;
-  
+
   let str,_ = Requests.get_structure_socket () in
   Requests.get_structure ()
   >|= (function Error e -> print_endline @@ "error get: " ^ e
               | Ok s    ->
-                 Structure.t_list_to_yojson s
-                 |> Yojson.Safe.to_string
-                 |> print_endline;
+                 (* Structure.t_list_to_yojson s
+                  * |> Yojson.Safe.to_string
+                  * |> print_endline; *)
                  let str_el = Ui.Structure.create ~init:s ~events:str
                                 ~post:(fun s -> Requests.post_structure s
                                                 >|= (function
@@ -97,6 +97,10 @@ let load () =
   Requests.get_wm ()
   >|= (function Error e -> print_endline @@ "error get wm " ^ e
               | Ok w    ->
+                 Wm.to_yojson w
+                 |> Yojson.Safe.to_string
+                 |> print_endline;
+                 Printf.printf "%d\n" @@ List.length w.layout;
                  let wm_el = Ui.Wm.create ~init:w ~events:wm
                                ~post:(fun w -> Requests.post_wm w
                                                >|= (function
@@ -106,6 +110,5 @@ let load () =
                  in Dom.appendChild container wm_el)
   |> Lwt.ignore_result;
 
-  
   Dom.appendChild container text;
   Dom.appendChild container video
