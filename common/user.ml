@@ -20,6 +20,11 @@ let to_yojson u = `String (to_string u)
 type pass = { user     : t
             ; password : string
             } [@@deriving yojson]
+
+type pass_change = { user     : t
+                   ; old_pass : string
+                   ; new_pass : string
+                   } [@@deriving yojson]
           
 let to_int = function
   | `Root     -> 0
