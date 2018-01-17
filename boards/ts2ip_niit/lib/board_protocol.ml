@@ -32,7 +32,7 @@ module SM = struct
     let pred = fun _  -> None in
     let conf = storage#get in
     let _    = match msg with
-      | Set_board_mode (nw,streams) -> storage#store { conf with board_mode = nw; streams }
+      | Set_board_mode (nw,streams) -> storage#store ({ conf with nw_mode = nw; streams }:config)
       | _                           -> ()
     in
     msgs := Queue.append !msgs { send; pred; timeout = 0; exn = None };
@@ -65,7 +65,7 @@ module SM = struct
                   push_info @@ Some r;
                   let config = storage#get in
                   send_instant sender (Set_factory_mode config.factory_mode) |> ignore;
-                  send_instant sender (Set_board_mode (config.board_mode,[])) |> ignore;
+                  send_instant sender (Set_board_mode (config.nw_mode,config.streams)) |> ignore;
                   `Continue (step_normal_idle r period None)
       | None -> if p < 0 then first_step ()
                 else `Continue (step_detect (pred p) acc)
@@ -121,7 +121,7 @@ module SM = struct
     let imsgs = ref (Queue.create []) in
     let status,status_push = React.E.create () in
     let (events : events) = { status = status
-                            ; config = React.S.changes s_config
+                            ; config = React.S.changes @@ React.S.map config_to_config_response s_config
                             } in
     let push_events = { status = status_push } in
     let api = { devinfo            = (fun () -> Lwt.return @@ React.S.value s_devinfo)
@@ -134,17 +134,17 @@ module SM = struct
               ; set_streams_simple = (fun (x:Common.Stream.t list) ->
                 let ss = streams_to_stream_settings x in
                 match stream_settings_to_packer_settings s_devinfo convert ss with
-                | Ok x    -> let nw = storage#get.board_mode in
+                | Ok x    -> let nw = storage#get.nw_mode in
                              enqueue_instant imsgs sender storage (Set_board_mode (nw,x))
                              >>= (fun _ -> s_config_push storage#get; Lwt.return_ok ())
                 | Error e -> Lwt.return_error e)
               ; set_streams_full   = (fun (x:stream_setting list) ->
                 match stream_settings_to_packer_settings s_devinfo convert x with
-                | Ok x    -> let nw = storage#get.board_mode in
+                | Ok x    -> let nw = storage#get.nw_mode in
                              enqueue_instant imsgs sender storage (Set_board_mode (nw,x))
                              >>= (fun _ -> s_config_push storage#get; Lwt.return_ok ())
                 | Error e -> Lwt.return_error e)
-              ; config = (fun () -> Lwt.return storage#get)
+              ; config = (fun () -> Lwt.return @@ config_to_config_response storage#get)
               }
     in
     events,

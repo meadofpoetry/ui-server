@@ -16,12 +16,16 @@ let rand_int = fun () -> Random.run (Random.int 10000000)
 
 let socket_table = Hashtbl.create 1000
 
-let devinfo api () =
+let devinfo (api:api) () =
   api.devinfo () >>= fun devi ->
   respond_js (devinfo_response_to_yojson devi) ()
 
 let state s_state =
   respond_js (Common.Topology.state_to_yojson @@ React.S.value s_state) ()
+
+let config (api:api) ()=
+  api.config () >>= fun cfg ->
+  respond_js (config_response_to_yojson cfg) ()
 
 let streams s_streams =
   respond_js (Common.Stream.t_list_to_yojson @@ React.S.value s_streams) ()
@@ -32,7 +36,7 @@ let set_factory_mode (api:api) body () =
   | Error e -> respond_error e ()
   | Ok mode -> api.set_factory_mode mode >>= respond_ok
 
-let set_mode (api:api) body () =
+let set_nw_mode (api:api) body () =
   yojson_of_body body >>= fun mode ->
   match nw_settings_of_yojson mode with
   | Error e -> respond_error e ()
@@ -49,7 +53,7 @@ let set_streams_simple (api:api) body () =
 
 let set_streams_full (api:api) body () =
   yojson_of_body body >>= fun sms ->
-  match streams_request_full_of_yojson sms with
+  match streams_full_request_of_yojson sms with
   | Error e -> respond_error e ()
   | Ok sms  -> api.set_streams_full sms
                >>= function
@@ -81,6 +85,9 @@ let state_ws sock_data s_state body =
 let status_ws sock_data (events : events) body =
   sock_handler sock_data events.status status_to_yojson body
 
+let config_ws sock_data (events : events) body =
+  sock_handler sock_data events.config config_response_to_yojson body
+
 let streams_ws sock_data s_streams body =
   sock_handler sock_data (Lwt_react.S.changes s_streams) Common.Stream.t_list_to_yojson body
 
@@ -88,15 +95,18 @@ let handle api events s_state s_streams _ meth args sock_data _ body =
   let open Api.Redirect in
   match meth, args with
   | `POST, ["factory_mode"]   -> set_factory_mode api body ()
-  | `POST, ["mode"]           -> set_mode api body ()
+  | `POST, ["nw_mode"]        -> set_nw_mode api body ()
   | `POST, ["streams_simple"] -> set_streams_simple api body ()
   | `POST, ["streams_full"]   -> set_streams_full api body ()
+
   | `GET,  ["devinfo"]        -> devinfo api ()
   | `GET,  ["state"]          -> state s_state
+  | `GET,  ["config"]         -> config api ()
   | `GET,  ["streams"]        -> streams s_streams
 
   | `GET,  ["state_ws"]       -> state_ws sock_data s_state body
   | `GET,  ["status_ws"]      -> status_ws sock_data events body
+  | `GET,  ["config_ws"]      -> config_ws sock_data events body
   | `GET,  ["streams_ws"]     -> streams_ws sock_data s_streams body
   | _ -> not_found ()
 

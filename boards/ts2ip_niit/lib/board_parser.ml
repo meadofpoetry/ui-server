@@ -9,13 +9,13 @@ type _ instant_request = Set_board_mode   : nw_settings * packer_setting list ->
 type api    = { devinfo            : unit                   -> devinfo_response Lwt.t
               ; set_mode           : nw_settings            -> unit Lwt.t
               ; set_factory_mode   : factory_settings       -> unit Lwt.t
-              ; set_streams_simple : streams_request_simple -> (unit,string) Lwt_result.t
-              ; set_streams_full   : streams_request_full   -> (unit,string) Lwt_result.t
-              ; config             : unit                   -> config Lwt.t
+              ; set_streams_simple : Common.Stream.t list   -> (unit,string) Lwt_result.t
+              ; set_streams_full   : streams_full_request   -> (unit,string) Lwt_result.t
+              ; config             : unit                   -> config_response Lwt.t
               }
 
 type events = { status : status React.event
-              ; config : config React.event
+              ; config : config_response React.event
               }
 
 let prefix = 0x55AA

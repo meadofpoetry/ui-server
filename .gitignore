@@ -15,5 +15,6 @@ dist/resources/js/configuration.js
 dist/resources/js/hardware.js
 dist/resources/js/input.js
 dist/resources/js/pipeline.js
+dist/resources/js/user.js
 dist/backend
 dist/config.json

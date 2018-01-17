@@ -40,7 +40,14 @@ let create (b:topo_board) (streams:Common.Stream.t list React.signal) _ send db 
   let convert          = stream_to_packer b in
   let events,api,step  = create_sm send storage spush step convert in
   let handlers         = Board_api.handlers b.control api events s_state streams in
-  let s_sms,s_sms_push = React.S.create [] in
+  let s_sms            =
+    React.E.map (fun x -> CCList.map (fun s -> ({ source      = s.stream.source
+                                                ; id          = `Ip { ip = s.dst_ip; port = s.dst_port }
+                                                ; description = s.stream.description } : Common.Stream.t))
+                                     x.streams)
+                events.config
+    |> React.S.hold []
+  in
   let state        = (object end) in
   { handlers       = handlers
   ; control        = b.control
