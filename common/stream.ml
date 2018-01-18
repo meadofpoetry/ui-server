@@ -41,12 +41,12 @@ let ip_of_yojson = function
 type addr = { ip   : ip
             ; port : int
             } [@@deriving yojson, show]
-                   
+
 type stream =
   { source      : src
   ; id          : [`Ip of addr | `Ts of id]
   ; description : string option
-  } 
+  }
 and src = Port   of int
         | Stream of id
         [@@deriving yojson, show]
@@ -59,3 +59,20 @@ type t =
 and source = Input  of Topology.topo_input
            | Parent of t
            [@@deriving yojson, show]
+
+type t_list = t list [@@deriving yojson]
+
+let t_to_topo_port (b:topo_board) (t:t) =
+  let rec get_input = function
+    | Parent x -> get_input x.source
+    | Input x  -> x
+  in
+  let input = get_input t.source in
+  let rec get_port = function
+    | []    -> None
+    | h::tl -> (match h.child with
+                | Input x -> if x = input then Some h else get_port tl
+                | Board x -> (match get_port x.ports with
+                              | Some _ -> Some h
+                              | None   -> get_port tl))
+  in get_port b.ports

@@ -2,7 +2,7 @@ type justify_content = [ `Start | `End | `Center | `Space_between | `Space_aroun
 type align_items     = [ `Start | `End | `Center | `Stretch | `Baseline ]
 type align_content   = [ `Start | `End | `Center | `Stretch | `Space_between | `Space_around ]
 
-class t ?(vertical=true) ?tag ~(widgets:#Widget.widget list) () =
+class t ?(vertical=true) ?tag ?(gap=0) ~(widgets:#Widget.widget list) () =
   let elt = Markup.Box.create ~vertical ~content:(Widget.widgets_to_markup widgets) ?tag ()
             |> Tyxml_js.To_dom.of_element in
   object(self)
@@ -11,6 +11,7 @@ class t ?(vertical=true) ?tag ~(widgets:#Widget.widget list) () =
     val mutable justify_content : justify_content option = None
     val mutable align_items     : align_items option     = None
     val mutable align_content   : align_content option   = None
+    val mutable gap             : int                    = gap
 
     inherit Widget.widget elt () as super
 
@@ -19,6 +20,13 @@ class t ?(vertical=true) ?tag ~(widgets:#Widget.widget list) () =
                             super#add_class Markup.Box.vertical_class
     method set_horizontal = super#remove_class Markup.Box.vertical_class;
                             super#add_class Markup.Box.horizontal_class
+
+    method set_gap x : unit =
+      gap <- x;
+      (Js.Unsafe.coerce self#root##.style)##setProperty
+                                          (Js.string "--mdc-box-margin")
+                                          (Js.string @@ Printf.sprintf "%dpx" x)
+    method get_gap = gap
 
     method get_justify_content = justify_content
     method remove_justify_content =
@@ -46,5 +54,8 @@ class t ?(vertical=true) ?tag ~(widgets:#Widget.widget list) () =
       self#remove_align_content;
       super#add_class @@ Markup.Box.get_align_content_class x;
       align_content <- Some x
+
+    initializer
+      self#set_gap gap
 
   end

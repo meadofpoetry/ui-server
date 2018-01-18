@@ -8,6 +8,10 @@
 /*     --mdc-theme-background: #fff; */
 /* } */
 
+:root {
+    --mdc-box-margin: 0px;
+}
+
 .hide {
     display: none
 }
@@ -48,6 +52,10 @@ main.main-with-sidebar {
 .mdc-toolbar__title {
     font-weight: 300;
     font-size: 24px;
+}
+
+.material-icons {
+    user-select: none;
 }
 
 /* Color */
@@ -117,6 +125,15 @@ main.main-with-sidebar {
 .background--secondary-dark  { background-color: var(--mdc-theme-secondary-dark); }
 .background--background      { background-color: var(--mdc-theme-background); }
 
+.mdc-expand {
+    cursor: default;
+    transform: rotate(0deg);
+    transition: transform 150ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;
+}
+.mdc-expand--rotated {
+    transform: rotate(180deg);
+}
+
 /* MDC Form-field */
 .mdc-form-field { margin-bottom: 16px; }
 .mdc-form-field.mdc-form-field--align-end label { flex-grow: 1; }
@@ -124,6 +141,8 @@ main.main-with-sidebar {
 /* MDC Box */
 
 .mdc-box { display: flex; }
+.mdc-box > * { margin-bottom: var(--mdc-box-margin); }
+.mdc-box > *:last-child { margin-bottom : 0; }
 
 .mdc-box--vertical   { flex-direction: column; }
 .mdc-box--horizontal { flex-direction: row; }
@@ -204,6 +223,14 @@ main.main-with-sidebar {
     font-size: 15px;
 }
 
+/* MDC Tab bar */
+
+.mdc-tab[disabled=true] {
+    color: var(--mdc-theme-text-disabled-on-background);
+    pointer-events: none;
+    cursor: default;
+}
+
 /* MDC Tree */
 
 .mdc-tree {
@@ -211,15 +238,29 @@ main.main-with-sidebar {
 }
 
 .mdc-tree .mdc-tree__item {
-    
+    cursor: pointer;
 }
 
 .mdc-tree .mdc-tree__item .mdc-tree__item__nested-list {
     padding-right: 0;
+
+    overflow: hidden;
+    max-height: 1800px;
+    -webkit-transition: max-height 0.2s; 
+    -moz-transition: max-height 0.2s; 
+    -ms-transition: max-height 0.2s; 
+    -o-transition: max-height 0.2s; 
+    transition: max-height 0.2s;
 }
 
 .mdc-tree .mdc-tree__item .mdc-tree__item__nested-list--hidden {
-    display:none;
+    /* display:none; */
+
+    max-height: 0;
+}
+
+.mdc-permanent-drawer .mdc-list .mdc-tree__item__nested-list .mdc-list-item {
+    padding-left: 30px;
 }
 
 /* Mosaic */

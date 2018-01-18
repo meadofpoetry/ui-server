@@ -353,7 +353,7 @@ module Descriptor = struct
       let rec f  = fun acc x ->
         if Bitstring.bitstring_length x = 0 then List.rev acc
         else (match%bitstring bs with
-              | {| iso_639_language_code : 24 : map (fun x -> Int32.to_int x)
+              | {| iso_639_language_code : 24
                  ; audio_type            : 8  : map (fun x -> audio_type_of_int x)
                  ; rest                  : -1 : bitstring
                  |} -> f ({ iso_639_language_code; audio_type } :: acc) rest) in
@@ -881,7 +881,7 @@ module EIT = struct
         else (match%bitstring x with
               | {| event_id                   : 16
                  ; start_time                 : 40
-                 ; duration                   : 24 : map (fun x -> Int32.to_int x)
+                 ; duration                   : 24
                  ; running_status             : 3
                  ; free_ca_mode               : 1
                  ; descriptors_loop_length    : 12
@@ -1070,10 +1070,14 @@ module SIT = struct
                ; dvb_rfu             : 1
                ; running_status      : 3
                ; service_loop_length : 12
-               ; descriptors         : service_loop_length * 8 : bitstring, map (fun x -> parse_descriptors [] x)
+               ; descriptors         : service_loop_length * 8 : bitstring
                ; rest                : -1 : bitstring
-               |} -> parse_services ({ service_id; dvb_rfu; running_status;
-                                       service_loop_length; descriptors } :: acc) rest) in
+               |} -> parse_services ({ service_id
+                                     ; dvb_rfu
+                                     ; running_status
+                                     ; service_loop_length
+                                     ; descriptors = parse_descriptors [] descriptors
+                                     } :: acc) rest) in
     match%bitstring rest with
     | {| dvb_rfu_1                     : 16
        ; iso_reserved                  : 2

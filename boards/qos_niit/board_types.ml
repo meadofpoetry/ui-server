@@ -3,7 +3,7 @@ open Common.Topology
 
 (* Board info *)
 
-type info =
+type devinfo =
   { typ : int
   ; ver : int
   } [@@deriving yojson]
@@ -23,16 +23,14 @@ and input = SPI | ASI [@@deriving yojson]
 
 type jitter_mode =
   { stream_id : Common.Stream.id
-  ; pid       : int} [@@deriving yojson]
+  ; pid       : int
+  } [@@deriving yojson]
 
 (* Status *)
 
-type packet_sz = Ts188
-               | Ts192
-               | Ts204 [@@deriving yojson]
-
 type user_status =
   { load            : float
+  ; reset           : bool
   ; mode            : mode
   ; jitter_mode     : jitter_mode
   ; ts_num          : int
@@ -40,23 +38,25 @@ type user_status =
   ; bitrate         : int
   ; packet_sz       : packet_sz
   ; has_stream      : bool
-  } [@@deriving yojson]
+  }
+and packet_sz = Ts188
+              | Ts192
+              | Ts204 [@@deriving yojson]
 
 type status_versions =
   { streams_ver  : int
   ; ts_ver_com   : int
   ; ts_ver_lst   : int list
   ; t2mi_ver_lst : int list
-  } [@@deriving yojson]
+  }
 
 type status =
   { status    : user_status
   ; errors    : bool
-  ; reset     : bool
   ; t2mi_sync : int list
   ; versions  : status_versions
   ; streams   : Common.Stream.id list
-  } [@@deriving yojson]
+  }
 
 (* MPEG-TS errors *)
 
@@ -129,28 +129,27 @@ type t2mi_errors =
 
 (* Board errors *)
 
-type board_error = Unknown_request         of int32
-                 | Too_many_args           of int32
-                 | Msg_queue_overflow      of int32
-                 | Not_enough_memory       of int32
-                 | Total_packets_overflow  of int32
-                 | Tables_overflow         of int32
-                 | Sections_overflow       of int32
-                 | Table_list_overflow     of int32
-                 | Services_overflow       of int32
-                 | Es_overflow             of int32
-                 | Ecm_overflow            of int32
-                 | Emm_overflow            of int32
-                 | Section_array_not_found of int32
-                 | Dma_error               of int32
-                 | Pcr_freq_error          of int32
-                 | Packets_overflow        of int32
-                 | Streams_overflow        of int32 [@@deriving yojson]
-
 type board_errors =
   { count  : int32
   ; errors : board_error list
-  } [@@deriving yojson]
+  }
+and board_error = Unknown_request         of int32
+                | Too_many_args           of int32
+                | Msg_queue_overflow      of int32
+                | Not_enough_memory       of int32
+                | Total_packets_overflow  of int32
+                | Tables_overflow         of int32
+                | Sections_overflow       of int32
+                | Table_list_overflow     of int32
+                | Services_overflow       of int32
+                | Es_overflow             of int32
+                | Ecm_overflow            of int32
+                | Emm_overflow            of int32
+                | Section_array_not_found of int32
+                | Dma_error               of int32
+                | Pcr_freq_error          of int32
+                | Packets_overflow        of int32
+                | Streams_overflow        of int32 [@@deriving yojson]
 
 (* T2-MI frames sequence *)
 
@@ -202,15 +201,6 @@ type t2mi_seq = t2mi_packet list [@@deriving yojson]
 
 (* Jitter *)
 
-type jitter_item =
-  { status   : int
-  ; d_packet : int
-  ; d_pcr    : int32
-  ; drift    : int32
-  ; fo       : int32
-  ; jitter   : int
-  } [@@deriving yojson]
-
 type jitter =
   { pid         : int
   ; time        : int32
@@ -222,12 +212,21 @@ type jitter =
   ; k_fo        : int32
   ; k_jitter    : int32
   ; values      : jitter_item list
-  } [@@deriving yojson]
+  }
+and jitter_item =
+  { status   : int
+  ; d_packet : int
+  ; d_pcr    : int32
+  ; drift    : int32
+  ; fo       : int32
+  ; jitter   : int
+  }[@@deriving yojson]
 
 (* TS struct *)
 
 type pid =
   { pid       : int
+  ; bitrate   : int option
   ; has_pts   : bool
   ; scrambled : bool
   ; present   : bool
@@ -235,6 +234,7 @@ type pid =
 
 type es =
   { pid          : int
+  ; bitrate      : int option
   ; has_pts      : bool
   ; es_type      : int
   ; es_stream_id : int
@@ -242,11 +242,13 @@ type es =
 
 type ecm =
   { pid       : int
+  ; bitrate   : int option
   ; ca_sys_id : int
   } [@@deriving yojson]
 
 type service =
   { id            : int
+  ; bitrate       : int option
   ; name          : string
   ; provider_name : string
   ; pmt_pid       : int
@@ -264,14 +266,19 @@ type service =
 
 type emm = ecm [@@deriving yojson]
 
+type actual_other = Actual | Other [@@deriving yojson]
+
+type eit_type = Present | Schedule [@@deriving yojson]
+
 type table_section =
   { id       : int
   ; analyzed : bool
   ; length   : int
   } [@@deriving yojson]
 
-type table_info_common =
+type table_common =
   { version        : int
+  ; bitrate        : int option
   ; id             : int
   ; pid            : int
   ; lsn            : int
@@ -280,24 +287,29 @@ type table_info_common =
   } [@@deriving yojson]
 
 type pat =
-  { common : table_info_common
+  { common : table_common
   ; ts_id  : int
   } [@@deriving yojson]
 
 type pmt =
-  { common         : table_info_common
+  { common         : table_common
   ; program_number : int
   } [@@deriving yojson]
 
 type nit =
-  { common : table_info_common
+  { common : table_common
+  ; ts     : actual_other
   ; nw_id  : int
   } [@@deriving yojson]
 
-type sdt = pat [@@deriving yojson]
+type sdt =
+  { common : table_common
+  ; ts_id  : int
+  ; ts     : actual_other
+  } [@@deriving yojson]
 
 type bat =
-  { common     : table_info_common
+  { common     : table_common
   ; bouquet_id : int
   } [@@deriving yojson]
 
@@ -309,31 +321,28 @@ type eit_info =
   } [@@deriving yojson]
 
 type eit =
-  { common     : table_info_common
+  { common     : table_common
   ; service_id : int
+  ; ts         : actual_other
+  ; typ        : eit_type
   ; eit_info   : eit_info
   } [@@deriving yojson]
 
 type table = PAT    of pat
-           | CAT    of table_info_common
+           | CAT    of table_common
            | PMT    of pmt
-           | TSDT   of table_info_common
-           | NIT_a  of nit
-           | NIT_o  of nit
-           | SDT_a  of sdt
-           | SDT_o  of sdt
+           | TSDT   of table_common
+           | NIT    of nit
+           | SDT    of sdt
            | BAT    of bat
-           | EIT_ap of eit
-           | EIT_op of eit
-           | EIT_as of eit
-           | EIT_os of eit
-           | TDT    of table_info_common
-           | RST    of table_info_common
-           | ST     of table_info_common
-           | TOT    of table_info_common
-           | DIT    of table_info_common
-           | SIT    of table_info_common
-           | Unknown of table_info_common [@@deriving yojson]
+           | EIT    of eit
+           | TDT    of table_common
+           | RST    of table_common
+           | ST     of table_common
+           | TOT    of table_common
+           | DIT    of table_common
+           | SIT    of table_common
+           | Unknown of table_common [@@deriving yojson]
 
 type general_struct_block =
   { complete     : bool
@@ -347,12 +356,15 @@ type general_struct_block =
 
 type ts_struct =
   { stream_id    : Common.Stream.id
+  ; bitrate      : int option
   ; general      : general_struct_block
   ; pids         : pid list
   ; services     : service list
   ; emm          : emm list
   ; tables       : table list
   } [@@deriving yojson]
+
+type ts_structs = ts_struct list [@@deriving yojson]
 
 (* SI/PSI section *)
 
@@ -378,7 +390,7 @@ type section =
 type pid_bitrate =
   { pid     : int
   ; bitrate : int
-  } [@@deriving yojson]
+  }
 
 type table_bitrate =
   { id             : int
@@ -387,14 +399,16 @@ type table_bitrate =
   ; section_syntax : bool
   ; eit_info       : (int * int) option
   ; bitrate        : int
-  } [@@deriving yojson]
+  }
 
 type bitrate =
   { stream_id  : Common.Stream.id
   ; ts_bitrate : int
   ; pids       : pid_bitrate list
   ; tables     : table_bitrate list
-  } [@@deriving yojson]
+  }
+
+type bitrates = bitrate list
 
 (* T2-MI info *)
 
@@ -730,3 +744,41 @@ let aux_stream_type_of_int = function
 
 let aux_stream_type_to_int = function
   | TX_SIG -> 0xb0000 | Unknown x -> x
+
+
+type devinfo_response    = devinfo option [@@deriving yojson]
+type mode_request        = mode [@@deriving yojson]
+type jitter_mode_request = jitter_mode [@@deriving yojson]
+type t2mi_seq_response   = t2mi_packet list [@@deriving yojson]
+
+let table_common_of_table = function
+  | PAT x     -> x.common | CAT x     -> x        | PMT x     -> x.common
+  | TSDT x    -> x        | NIT x     -> x.common | SDT x     -> x.common
+  | BAT x     -> x.common | EIT x     -> x.common | TDT x     -> x
+  | RST x     -> x        | ST  x     -> x        | TOT x     -> x
+  | DIT x     -> x        | SIT x     -> x        | Unknown x -> x
+
+let table_to_string = function
+  | PAT _     -> "PAT"
+  | CAT _     -> "CAT"
+  | PMT _     -> "PMT"
+  | TSDT _    -> "TSDT"
+  | NIT x     -> (match x.ts with
+                  | Actual -> "NIT actual"
+                  | Other  -> "NIT other")
+  | SDT x     -> (match x.ts with
+                  | Actual -> "SDT actual"
+                  | Other  -> "SDT other")
+  | BAT _     -> "BAT"
+  | EIT x     -> (match x.ts,x.typ with
+                  | Actual,Present  -> "EIT actual present"
+                  | Other, Present  -> "EIT other present"
+                  | Actual,Schedule -> "EIT actual schedule"
+                  | Other, Schedule -> "EIT other schedule")
+  | TDT _     -> "TDT"
+  | RST _     -> "RST"
+  | ST  _     -> "ST"
+  | TOT _     -> "TOT"
+  | DIT _     -> "DIT"
+  | SIT _     -> "SIT"
+  | Unknown _ -> "Unknown"

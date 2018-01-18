@@ -64,14 +64,14 @@ module Stateful_card = struct
       CCOpt.iter (fun x -> x#style##.height := Js.string "100%";
                            (Js.Unsafe.coerce x#style)##.justifyContent := Js.string "flex-start") super#get_media;
       React.S.map (function
-                   | false -> super#style##.backgroundColor := Js.string "#ef9a9a";
-                              CCList.iter (function
-                                           | `Media x -> x#add_class "color--disabled-on-background"
-                                           | _ -> ()) sections;
-                   | true  -> super#style##.backgroundColor := Js.string "";
-                              CCList.iter (function
-                                           | `Media x -> x#remove_class "color--disabled-on-background"
-                                           | _ -> ()) sections)
+                   | false -> (* super#style##.backgroundColor := Js.string "#ef9a9a"; *)
+                      CCList.iter (function
+                                   | `Media x -> x#add_class "color--disabled-on-background"
+                                   | _ -> ()) sections;
+                   | true  -> (* super#style##.backgroundColor := Js.string ""; *)
+                      CCList.iter (function
+                                   | `Media x -> x#remove_class "color--disabled-on-background"
+                                   | _ -> ()) sections)
                   s_state |> ignore
   end
 
@@ -79,7 +79,7 @@ end
 
 module Settings_card = struct
 
-  class t ?subtitle ~title ~sections ~s_state ~f_submit ~s_valid () =
+  class t ?subtitle ~title ~sections ~s_state ~f_submit () =
     let apply_btn = new Button.t ~compact:true ~label:"Применить" ~typ:`Submit () in
     object
       inherit Stateful_card.t ~form:true
@@ -90,11 +90,10 @@ module Settings_card = struct
                               ()
       method get_apply_button = apply_btn
       initializer
-        React.E.map (fun () -> if React.S.value s_valid
-                               then (apply_btn#set_disabled true;
-                                     let open Lwt.Infix in
-                                     f_submit ()
-                                     >|= (fun _ -> apply_btn#set_disabled false) |> ignore))
+        React.E.map (fun () -> (apply_btn#set_disabled true;
+                                let open Lwt.Infix in
+                                f_submit ()
+                                >|= (fun _ -> apply_btn#set_disabled false) |> ignore))
                     apply_btn#e_click |> ignore;
         React.S.map (fun x  -> apply_btn#set_disabled @@ not x) s_state |> ignore;
     end

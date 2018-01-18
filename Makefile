@@ -1,8 +1,13 @@
 BUILD = jbuilder
+CSS   = scss
 
 home:
 	$(BUILD) build frontend/home.bc.js
 	cp _build/default/frontend/home.bc.js dist/resources/js/home.js
+
+input:
+	$(BUILD) build frontend/input.bc.js
+	cp _build/default/frontend/input.bc.js dist/resources/js/input.js
 
 pipeline:
 	$(BUILD) build frontend/pipeline.bc.js
@@ -12,19 +17,18 @@ hardware:
 	$(BUILD) build frontend/hardware.bc.js
 	cp _build/default/frontend/hardware.bc.js dist/resources/js/hardware.js
 
-dvb:
-	$(BUILD) build frontend/dvb_niit.bc.js
-	cp _build/default/frontend/dvb_niit.bc.js dist/resources/js/dvb_niit.js
-
-ip2ts:
-	$(BUILD) build frontend/ip2ts.bc.js
-	cp _build/default/frontend/ip2ts.bc.js dist/resources/js/ip2ts.js
+user:
+	$(BUILD) build frontend/user.bc.js
+	cp _build/default/frontend/user.bc.js dist/resources/js/user.js
 
 demo:
 	$(BUILD) build frontend/demo.bc.js
 	cp _build/default/frontend/demo.bc.js dist/resources/js/demo.js
 
-frontend: home pipeline hardware dvb demo ip2ts
+css:
+	$(CSS) dist/resources/css/table.scss dist/resources/css/table.css
+
+frontend: home pipeline hardware user demo input css
 
 backend:
 	$(BUILD) build backend/backend.exe

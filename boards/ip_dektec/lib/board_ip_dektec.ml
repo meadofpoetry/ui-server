@@ -24,11 +24,11 @@ type 'a request = 'a Board_protocol.request
 
 let create_sm = Board_protocol.SM.create
 
-let create (b:topo_board) convert_streams send db base step =
-  let storage      = Config_storage.create base ["board"; (string_of_int b.control)] in
-  let s_state, spush = React.S.create `No_response in
-  let events, api, step    = create_sm send storage spush step in
-  let s_strms,s_strms_push = React.S.create [] in
+let create (b:topo_board) _ convert_streams send db base step =
+  let storage               = Config_storage.create base ["board"; (string_of_int b.control)] in
+  let s_state, s_state_push = React.S.create `No_response in
+  let events, api, step     = create_sm send storage s_state_push step in
+  let s_strms,s_strms_push  = React.S.create [] in
   let e_status = React.E.map (fun (x : board_status) ->
                      let open Common.Stream in
                      let (stream : stream) = { source      = Port 0

@@ -26,20 +26,35 @@ module Base = struct
     }
 
   module Item = struct
-    class t ?id ?start_detail ?end_detail ~text () = object
+
+    class ['a] t ?id ?start_detail ?end_detail ~text ~(value:'a) () = object
+
       inherit Menu.Item.t ?start_detail ?end_detail ~text () as super
+
+      val mutable value : 'a = value
+
+      method get_value   = value
+      method set_value x = value <- x
+
       initializer
         CCOpt.iter (fun x -> super#set_id x) id;
         super#set_attribute "role" "option"
+
     end
+
   end
 
-  class t ~label ~(items:Item.t list) () =
+  class ['a] t ~label ~(items:'a Item.t list) () =
 
-    let menu = new Menu.t ~items:(List.map (fun x -> `Item (x : Item.t :> Menu.Item.t)) items) () in
+    let s_selected,s_selected_push = React.S.create None in
+    let menu = new Menu.t ~items:(List.map (fun x -> `Item (x : 'a Item.t :> Menu.Item.t)) items) () in
     let () = menu#add_class Markup.Select.Base.menu_class in
     let elt = Markup.Select.Base.create ~label ~menu:(Widget.widget_to_markup menu) ()
               |> Tyxml_js.To_dom.of_element in
+    let label_widget = elt##querySelector (Js.string @@ "." ^ Markup.Select.Base.label_class)
+                       |> Js.Opt.to_option
+                       |> CCOpt.get_exn
+                       |> (fun x -> new Widget.widget x ()) in
 
     object(self)
 
@@ -48,11 +63,12 @@ module Base = struct
       val mdc : mdc Js.t = elt |> (fun x -> Js.Unsafe.global##.mdc##.select##.MDCSelect##attachTo x)
       val items = items
 
+      method s_selected  =  s_selected
+
       method get_menu    = menu
       method set_dense x = menu#get_list#set_dense x
-      method get_value   = Js.to_string mdc##.value (* id of item (if available) or text *)
 
-      method get_items   = items
+      method get_items : 'a Item.t list = items
       method get_length  = CCList.length self#get_items
       method get_item n  = CCList.get_at_idx n self#get_items
       method get_named_item key = CCList.find_pred (fun x -> x#get_id = key && (match x#get_attribute "name" with
@@ -60,15 +76,42 @@ module Base = struct
                                                                                 | None   -> false))
                                                    self#get_items
 
-      method get_selected_index = mdc##.selectedIndex |> (fun x -> if x = -1 then None else Some x)
-      method get_selected_item  = CCOpt.map (fun x -> CCList.get_at_idx x self#get_items) self#get_selected_index
-      method select_at_index i  = mdc##.selectedIndex := i
-      method select_item i      = (match CCList.find_idx (fun x -> x == i) self#get_items with
-                                   | Some (idx,_) -> self#select_at_index idx
-                                   | None         -> ())
+      (* Selected getters *)
+
+      method get_selected_value : 'a option =
+        CCOpt.map (fun x -> x#get_value) self#get_selected_item
+      method get_selected_index : int option =
+        mdc##.selectedIndex |> (fun x -> if x = -1 then None else Some x)
+      method get_selected_item : 'a Item.t option =
+        CCOpt.map (fun x -> CCOpt.get_exn @@ CCList.get_at_idx x self#get_items) self#get_selected_index
+
+      (* Selected setters *)
+
+      method select_value v = match CCList.find_idx (fun x -> x#get_value = v) self#get_items with
+        | Some (idx,_) -> Ok (self#select_at_index idx)
+        | None         -> Error "Select.Base,select value: no item found with provided value"
+      method select_at_index i = mdc##.selectedIndex := i;
+                                 s_selected_push self#get_selected_value;
+                                 label_widget#add_class Markup.Select.Base.label_float_above_class
+      method select_item i     = (match CCList.find_idx (fun x -> x == i) self#get_items with
+                                  | Some (idx,_) -> self#select_at_index idx
+                                  | None         -> ())
 
       method get_disabled   = Js.to_bool mdc##.disabled
       method set_disabled x = mdc##.disabled := Js.bool x
+
+      initializer
+        (* FIXME add open listener, - opens not only by click *)
+        Dom_events.listen self#root
+                          Dom_events.Typ.click
+                          (fun _ _ -> let w = Printf.sprintf "%dpx" self#get_offset_width in
+                                      self#get_menu#style##.width := Js.string w;
+                                      true)
+        |> ignore;
+        Dom_events.listen self#root
+                          events.change
+                          (fun _ _ -> s_selected_push @@ self#get_selected_value; false)
+        |> ignore
 
     end
 

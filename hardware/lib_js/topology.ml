@@ -306,7 +306,7 @@ module Board = struct
            let colour1 = if z.listening then green else gray in          (*a color of line due to state "listening"*)
            match t.typ with                                              (*so if board type is*)
            | TS2IP ->
-              let y_child = y +. float_of_int ((num-i-1)*2) in           (*converter, then child height is <-*)
+              let y_child = y +. float_of_int ((num-i-1)*2) +. 0.5 in    (*converter, then child height is <-*)
               let draw_line x1 = (Port.draw_line acc colour1 x1 y_child x (y_child +. 0.5) cols rows),
                                  acc_top in                              (*we blend the image of line with acc_top*)
               (match z.child with                                        (*then we decide what to draw - input or board*)
@@ -363,7 +363,7 @@ let render ?on_click ~topology ~(width : int) ~canvas () =
                          >> P.line (P2.v 0. 0.)) in
   let draw_entry = (fun (acc_img,acc_top,number) x ->
       Entry.draw x (acc_img, acc_top, number) cols rows (float_of_int @@ get_node_height 0 x)) in
-  let (acc_img, acc_top, _) = List.fold_left draw_entry (start,[],-0.5) t in
+  let (acc_img, acc_top, _) = List.fold_left draw_entry (start,[],-1.5) t in
   render canvas (size (cw * cols) (rh * rows)) acc_img;
   let get_node e =
     let x, y  = int_of_float @@ Js.float_of_number @@ (Js.Unsafe.get e "offsetX"),

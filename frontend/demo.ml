@@ -283,26 +283,57 @@ let linear_progress_demo () =
   demo_section "Linear progress" [ btn_grid#widget; linear_progress#widget ]
 
 let tabs_demo () =
-  let icon_bar  = [ new Tabs.Tab.t ~icon:"pets" ()
-                  ; new Tabs.Tab.t ~icon:"favorite" ()
-                  ; new Tabs.Tab.t ~icon:"grade" ()
-                  ; new Tabs.Tab.t ~icon:"room" () ]
-                  |> (fun tabs -> new Tabs.Tab_bar.t ~tabs ()) in
-  let text_bar  = List.map (fun x -> new Tabs.Tab.t ~text:("Tab " ^ (string_of_int x)) ())
+  let open Components.Tabs in
+  let idx       = new Textfield.t ~input_type:(Integer None) ~label:"index" () in
+  let add       = new Button.t ~label:"add" () in
+  let remove    = new Button.t ~label:"remove" () in
+  let icon_bar  = [ { content = `Icon ("pets", None)     ; href = Some "#1"; disabled = false; value = () }
+                  ; { content = `Icon ("favorite", None) ; href = Some "#2"; disabled = false; value = () }
+                  ; { content = `Icon ("grade", None)    ; href = Some "#3"; disabled = false; value = () }
+                  ; { content = `Icon ("room", None)     ; href = Some "#4"; disabled = false; value = () }
+                  ] |> (fun tabs -> new Tabs.Tab_bar.t ~tabs ()) in
+  let text_bar  = List.map (fun x -> { content  = `Text ("Tab " ^ (string_of_int x))
+                                     ; href     = None
+                                     ; disabled = if x = 2 then true else false
+                                     ; value    = ()})
                            (CCList.range 0 3)
                   |> (fun tabs -> new Tabs.Tab_bar.t ~tabs ()) in
-  let both_bar  = [ new Tabs.Tab.t ~text:"Tab 0" ~icon:"pets" ()
-                  ; new Tabs.Tab.t ~text:"Tab 1" ~icon:"favorite" ()
-                  ; new Tabs.Tab.t ~text:"Tab 2" ~icon:"grade" ()
-                  ; new Tabs.Tab.t ~text:"Tab 3" ~icon:"room" () ]
-                  |> (fun tabs -> new Tabs.Tab_bar.t ~tabs ()) in
-  let scrl_bar  = List.map (fun x -> new Tabs.Tab.t ~text:("Tab " ^ (string_of_int x)) ())
+  let both_bar  = [ { content = `Text_and_icon ("Tab 0", "pets");     href = None; disabled = false; value = () }
+                  ; { content = `Text_and_icon ("Tab 1", "favorite"); href = None; disabled = false; value = () }
+                  ; { content = `Text_and_icon ("Tab 2", "grade");    href = None; disabled = true ; value = () }
+                  ; { content = `Text_and_icon ("Tab 3", "room");     href = None; disabled = false; value = () }
+                  ] |> (fun tabs -> new Tabs.Tab_bar.t ~tabs ()) in
+  let scrl_bar  = List.map (fun x -> { content = `Text ("Tab " ^ (string_of_int x))
+                                     ; href = None
+                                     ; disabled = false
+                                     ; value = () })
                            (CCList.range 0 15)
                   |> (fun tabs -> new Tabs.Scroller.t ~tabs ()) in
-  demo_section "Tabs" [ subsection "With icon labels" icon_bar
-                      ; subsection "With text labels" text_bar
-                      ; subsection "With icon and text labels" both_bar
-                      ; subsection "With scroller" scrl_bar ]
+  React.E.map (fun () ->
+      let len  = CCList.length text_bar#tabs in
+      let name = Printf.sprintf "Tab %d" len in
+      match React.S.value idx#s_input with
+      | Some idx -> text_bar#insert_tab_at_index idx { content = `Text name
+                                                     ; href = None
+                                                     ; disabled = false
+                                                     ; value = ()
+                                                     }
+      | None     -> text_bar#append_tab { content = `Text name; href = None; disabled = false; value = () })
+              add#e_click
+  |> ignore;
+  React.E.map (fun () ->
+      match React.S.value idx#s_input with
+      | Some idx -> text_bar#remove_tab_at_index idx |> ignore
+      | None     -> ())
+              remove#e_click
+  |> ignore;
+  demo_section "Tabs" [ (subsection "With icon labels" icon_bar)#widget
+                      ; (subsection "With text labels" text_bar)#widget
+                      ; idx#widget
+                      ; add#widget
+                      ; remove#widget
+                      ; (subsection "With icon and text labels" both_bar)#widget
+                      ; (subsection "With scroller" scrl_bar)#widget ]
 
 let snackbar_demo () =
   let snackbar = new Snackbar.t
@@ -330,13 +361,13 @@ let textfield_demo () =
   let css_form = new Form_field.t ~label:"css textfield label: " ~input:css ~align_end:true () in
   (* Full-featured js textbox *)
   let js       = new Textfield.t
-                   ~input_type:Widget.Text 
-                   ~label:"js textfield label"
-                   ~help_text:{ validation = true
-                              ; persistent = false
-                              ; text       = Some "This field must not be empty"
-                   }
-                   () in
+                     ~input_type:Widget.Text 
+                     ~label:"js textfield label"
+                     ~help_text:{ validation = true
+                                ; persistent = false
+                                ; text       = Some "This field must not be empty"
+                                }
+                     () in
   js#set_required true;
   (* Dense js textbox with *)
   let dense    = new Textfield.t
@@ -350,19 +381,21 @@ let textfield_demo () =
   dense#set_dense true;
   (* Textboxes with icons *)
   let lead_icon  = new Textfield.t
-                     ~input_type:Widget.Text
-                     ~label:"textfield label"
-                     ~icon:{ icon      = "event"
-                           ; clickable = false
-                           ; pos       = `Leading }
-                     () in
+                       ~input_type:Widget.Text
+                       ~label:"textfield label"
+                       ~icon:{ icon      = "event"
+                             ; clickable = false
+                             ; pos       = `Leading
+                             }
+                       () in
   let trail_icon = new Textfield.t
-                     ~input_type:Widget.Text
-                     ~label:"textfield label"
-                     ~icon:{ icon      = "delete"
-                           ; clickable = false
-                           ; pos       = `Trailing }
-                     () in
+                       ~input_type:Widget.Text
+                       ~label:"textfield label"
+                       ~icon:{ icon      = "delete"
+                             ; clickable = false
+                             ; pos       = `Trailing
+                             }
+                       () in
   (* Textareas *)
   let css_textarea      = new Textarea.Pure.t ~placeholder:"Enter something" ~rows:8 ~cols:40 () in
   let textarea          = new Textarea.t ~label:"textarea label" ~rows:8 ~cols:40 () in
@@ -380,6 +413,7 @@ let select_demo () =
                     ~items:(List.map (fun x -> new Select.Base.Item.t
                                                    ~id:("index " ^ (string_of_int x))
                                                    ~text:("Select item " ^ (string_of_int x))
+                                                   ~value:()
                                                    ())
                                      (CCList.range 0 5))
                     () in
@@ -465,6 +499,16 @@ let drawer_demo () =
   Drawer.Temporary.create ~content:[Drawer.Temporary.Toolbar_spacer.create ~content:[Html.pcdata "Demo"]
                                                                            ()] ()
   |> Drawer.Temporary.attach
+
+let table_demo () =
+  let header = new Table.Header.t ~content:[ Text "col 1"; Text "col 2"; Text "col 3"] () in
+  let table = new Table.t ~header ~content:[ [ Text "cell 1 1"; Text "cell 1 2"; Text "cell 1 3" ]
+                                           ; [ Text "cell 2 1"; Text "cell 2 2"; Text "cell 2 3" ]
+                                           ; [ Text "cell 3 1"; Text "cell 3 2"; Text "cell 3 3" ]
+                                           ] () in
+  table#style##.maxWidth := Js.string "600px";
+  table#add_class @@ Elevation.get_elevation_class 2;
+  demo_section "Table" [ table#widget ]
 
 let chart_demo () =
   let range = 10 in
@@ -555,7 +599,7 @@ let time_chart_demo () =
                       else x#set_border_color @@ Color.rgb_of_name (Color.Amber C500);
                       x#set_cubic_interpolation_mode Monotone;
                       x#set_fill Disabled) config#datasets;
-  let chart  = new Chartjs.Line.t ~config () in
+  let chart = new Chartjs.Line.t ~config () in
   let e_update,e_update_push = React.E.create () in
   React.E.map (fun () -> List.iter (fun ds -> ds#push { x = Unix.time () *. 1000. |> Int64.of_float
                                                       ; y = Random.int range }) chart#config#datasets;
@@ -575,7 +619,8 @@ let onload _ =
   let body    = doc##.body in
   let drawer  = drawer_demo () in
   let toolbar = toolbar_demo drawer () in
-  let demos   = add_demos [ button_demo ()
+  let demos   = add_demos [ table_demo ()
+                          ; button_demo ()
                           ; chart_demo ()
                           ; time_chart_demo ()
                           ; fab_demo ()
@@ -608,4 +653,4 @@ let () = Dom_html.addEventListener Dom_html.document
                                    Dom_events.Typ.domContentLoaded
                                    (Dom_html.handler onload)
                                    Js._false
-|> ignore
+         |> ignore

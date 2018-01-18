@@ -44,6 +44,7 @@ let janus_pipe debug =
   >>= (fun plugin -> Janus_streaming.send plugin (Watch { id = 1; secret = None }) |> ignore ; Lwt.return ())
 
 let load () =
+  print_endline "load";
   let () = (Lwt.catch
               (fun () -> (janus_pipe (`All false)))
               (function
@@ -52,7 +53,7 @@ let load () =
   
   let doc = Dom_html.document in
 
-  let container = Dom_html.getElementById "pipeline_container" in
+  let container = Dom_html.getElementById "arbitrary-content" in
   
   let text    = Dom_html.createP doc in
   text##.textContent := Js.some @@ Js.string "Pipeline widget";
@@ -63,7 +64,7 @@ let load () =
   video##setAttribute (Js.string "width") (Js.string "640");
   video##setAttribute (Js.string "autoplay") (Js.string "");
 
-  let settings  = Requests.get_settings_socket () in
+  let settings,_ = Requests.get_settings_socket () in
   Requests.get_settings ()
   >|= (function Error e -> print_endline @@ "error get settings " ^ e
               | Ok s    ->
@@ -76,7 +77,7 @@ let load () =
                  in Dom.appendChild container s_el)
   |> Lwt.ignore_result;
   
-  let str = Requests.get_structure_socket () in
+  let str,_ = Requests.get_structure_socket () in
   Requests.get_structure ()
   >|= (function Error e -> print_endline @@ "error get: " ^ e
               | Ok s    ->
@@ -92,7 +93,7 @@ let load () =
                  in Dom.appendChild container str_el)
   |> Lwt.ignore_result;
 
-  let wm  = Requests.get_wm_socket () in
+  let wm,_  = Requests.get_wm_socket () in
   Requests.get_wm ()
   >|= (function Error e -> print_endline @@ "error get wm " ^ e
               | Ok w    ->

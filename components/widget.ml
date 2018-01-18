@@ -7,10 +7,16 @@ type rect =
   ; height : float option
   }
 
-class widget elt () = object(self)
+class widget (elt:#Dom_html.element Js.t) () = object(self)
 
   method root   : Dom_html.element Js.t = (elt :> Dom_html.element Js.t)
   method widget : widget = (self :> widget)
+
+  method hide = self#style##.display := Js.string "none"
+  method show = self#style##.display := Js.string ""
+
+  method get_child_element_by_class x = Js.Opt.to_option @@ self#root##querySelector (Js.string ("." ^ x))
+  method get_child_element_by_id    x = Js.Opt.to_option @@ self#root##querySelector (Js.string ("#" ^ x))
 
   method get_attribute a    = self#root##getAttribute (Js.string a) |> Js.Opt.to_option |> CCOpt.map Js.to_string
   method set_attribute a v  = self#root##setAttribute (Js.string a) (Js.string v)
@@ -72,14 +78,17 @@ class input_widget ~(input_elt:Dom_html.inputElement Js.t) elt () =
     method set_disabled x = input_elt##.disabled := Js.bool x; s_disabled_push x
     method get_disabled   = Js.to_bool input_elt##.disabled
 
-    method set_value x    = input_elt##.value := Js.string x
-    method get_value      = Js.to_string input_elt##.value
+    method set_input_id x = input_elt##.id := Js.string x
+    method get_input_id   = match Js.to_string input_elt##.id with
+      | "" -> None
+      | s  -> Some s
+
+    method private set_value x = input_elt##.value := Js.string x
+    method private get_value   = Js.to_string input_elt##.value
 
     method s_disabled     = s_disabled
 
     method input_element  = input_elt
-
-    (* method disable_signal s = React.S.map (fun d -> if d then self#disable else self#enable) s |> ignore *)
 
   end
 
@@ -127,7 +136,33 @@ type validity =
   ; type_mismatch    : bool
   ; valid            : bool
   ; value_missing    : bool
-  } [@@deriving to_yojson]
+  }
+
+type email_v_msgs   =
+  { mismatch : string option
+  ; too_long : string option
+  }
+type integer_v_msgs =
+  { overflow  : string option
+  ; underflow : string option
+  ; step      : string option
+  ; mismatch  : string option
+  }
+type float_v_msg = integer_v_msgs
+type text_v_msgs =
+  { too_long  : string option
+  ; too_short : string option
+  ; pattern   : string option
+  }
+type ipv4_v_msgs =
+  { mismatch : string option
+  }
+type multicastv4_v_msgs = ipv4_v_msgs
+type custom_v_msgs =
+  { mismatch  : string option
+  ; too_long  : string option
+  ; too_short : string option
+  }
 
 type 'a validation =
   | Email       : string validation
@@ -136,6 +171,7 @@ type 'a validation =
   | Text        : string validation
   | IPV4        : Ipaddr.V4.t validation
   | MulticastV4 : Ipaddr.V4.t validation
+  | Password    : (string -> (unit, string) result) -> string validation
   | Custom      : ((string    -> ('a, string) result) * ('a -> string)) -> 'a validation
 
 let input_type_of_validation :
@@ -147,6 +183,7 @@ let input_type_of_validation :
   | Text        -> `Text
   | IPV4        -> `Text
   | MulticastV4 -> `Text
+  | Password _  -> `Password
   | Custom  _   -> `Text
 
 let parse_valid (type a) (v : a validation) (on_fail : string -> unit) (s : string) : a option =
@@ -163,10 +200,14 @@ let parse_valid (type a) (v : a validation) (on_fail : string -> unit) (s : stri
   | Text         -> Some s
   | IPV4         -> Ipaddr.V4.of_string s
   | MulticastV4  -> CCOpt.(Ipaddr.V4.of_string s >>= (fun x -> if Ipaddr.V4.is_multicast x then Some x else None))
+  | Password vf  ->
+     (match vf s with
+      | Ok () -> Some s
+      | Error e -> on_fail e; None)
   | Custom (f,_) ->
-     match f s with
-     | Ok v -> Some v
-     | Error s -> on_fail s; None
+     (match f s with
+      | Ok v -> Some v
+      | Error s -> on_fail s; None)
 
 let valid_to_string (type a) (v : a validation) (e : a) : string =
   match v with
@@ -176,21 +217,23 @@ let valid_to_string (type a) (v : a validation) (e : a) : string =
   | Email           -> e
   | IPV4            -> Ipaddr.V4.to_string e
   | MulticastV4     -> Ipaddr.V4.to_string e
+  | Password _      -> e
   | Text            -> e
 
-class ['a] text_input_widget ~input_elt (v : 'a validation) elt () =
+class ['a] text_input_widget ?v_msg ~input_elt (v : 'a validation) elt () =
   let (s_input : 'a option React.signal), s_input_push = React.S.create None in
   object(self)
 
     inherit input_widget ~input_elt elt ()
 
-    method get_max : float     = (Js.Unsafe.coerce input_elt)##.max
-    method set_max (x : float) = (Js.Unsafe.coerce input_elt)##.max := x
+    val mutable v_msg = v_msg
+    val mutable req   = false
 
-    method get_min : float     = (Js.Unsafe.coerce input_elt)##.min
-    method set_min (x : float) = (Js.Unsafe.coerce input_elt)##.min := x
+    method get_v_msg : string option = v_msg
+    method set_v_msg x = v_msg <- x
 
-    method set_required x = input_elt##.required := Js.bool x
+    method set_required x = req <- x; input_elt##.required := Js.bool x
+    method get_required   = req
 
     method get_validation_message = Js.to_string (Js.Unsafe.coerce input_elt)##.validationMessage
     method get_validity           = let (v:validity_state Js.t) = (Js.Unsafe.coerce input_elt)##.validity in
@@ -207,43 +250,16 @@ class ['a] text_input_widget ~input_elt (v : 'a validation) elt () =
                                     ; value_missing    = Js.to_bool v##.valueMissing
                                     }
 
-    val mutable bad_input_msg        : string option = None
-    val mutable custom_error_msg     : string option = None
-    val mutable pattern_mismatch_msg : string option = None
-    val mutable range_overflow_msg   : string option = None
-    val mutable range_underflow_msg  : string option = None
-    val mutable step_mismatch_msg    : string option = None
-    val mutable too_long_msg         : string option = None
-    val mutable too_short_msg        : string option = None
-    val mutable type_mismatch_msg    : string option = None
-    val mutable invalid_msg          : string option = None
-    val mutable value_missing_msg    : string option = None
-
-    method set_bad_input_message    s = bad_input_msg        <- Some s
-    method set_custom_error_msg     s = custom_error_msg     <- Some s
-    method set_pattern_mismatch_msg s = pattern_mismatch_msg <- Some s
-    method set_range_overflow_msg   s = range_overflow_msg   <- Some s
-    method set_range_underflow_msg  s = range_underflow_msg  <- Some s
-    method set_step_mismatch_msg    s = step_mismatch_msg    <- Some s
-    method set_too_long_msg         s = too_long_msg         <- Some s
-    method set_too_short_msg        s = too_short_msg        <- Some s
-    method set_type_mismatch_msg    s = type_mismatch_msg    <- Some s
-    method set_invalid_msg          s = invalid_msg          <- Some s
-    method set_value_missing_msg    s = value_missing_msg    <- Some s
-
-    method has_bad_input        = self#get_validity.bad_input
-    method has_custom_error     = self#get_validity.custom_error
-    method has_pattern_mismatch = self#get_validity.pattern_mismatch
-    method has_range_overflow   = self#get_validity.range_overflow
-    method has_range_underflow  = self#get_validity.range_underflow
-    method has_step_mismatch    = self#get_validity.step_mismatch
-    method is_too_long          = self#get_validity.too_long
-    method is_too_short         = self#get_validity.too_short
-    method has_type_mismatch    = self#get_validity.type_mismatch
-    method is_valid             = self#get_validity.valid
-    method is_value_missing     = self#get_validity.value_missing
-
     method s_input   = s_input
+
+    method fill_in (x : 'a) = s_input_push (Some x); self#set_value (valid_to_string v x)
+    method clear            = s_input_push None; self#set_value ""
+
+    method private set_max (x : float) = (Js.Unsafe.coerce input_elt)##.max := x
+    method private set_min (x : float) = (Js.Unsafe.coerce input_elt)##.min := x
+
+    method private set_max_length (x : int) = input_elt##.maxLength := x
+    method private set_min_length (x : int) = (Js.Unsafe.coerce input_elt)##.minLength := x
 
     method private set_custom_validity s  = (Js.Unsafe.coerce input_elt)##setCustomValidity (Js.string s)
     method private remove_custom_validity = self#set_custom_validity ""
@@ -278,20 +294,21 @@ class ['a] text_input_widget ~input_elt (v : 'a validation) elt () =
       Dom_events.listen
         input_elt
         (Dom_events.Typ.make "invalid")
-        (fun _ _ -> let v = self#get_validity in
-                    let set_maybe s = CCOpt.iter self#set_custom_validity s in
+        (fun _ _ -> (* let v = self#get_validity in
+                     * let set_maybe s = CCOpt.iter self#set_custom_validity s in *)
                     s_input_push None;
-                    if v.bad_input             then set_maybe bad_input_msg
-                    else if v.custom_error     then set_maybe custom_error_msg
-                    else if v.pattern_mismatch then set_maybe pattern_mismatch_msg
-                    else if v.range_overflow   then set_maybe range_overflow_msg
-                    else if v.range_underflow  then set_maybe range_underflow_msg
-                    else if v.step_mismatch    then set_maybe step_mismatch_msg
-                    else if v.too_long         then set_maybe too_long_msg
-                    else if v.too_short        then set_maybe too_short_msg
-                    else if v.type_mismatch    then set_maybe type_mismatch_msg
-                    else if v.valid            then set_maybe invalid_msg
-                    else if v.value_missing    then set_maybe value_missing_msg; false)
+                    (* if v.bad_input             then set_maybe bad_input_msg
+                     * else if v.custom_error     then set_maybe custom_error_msg
+                     * else if v.pattern_mismatch then set_maybe pattern_mismatch_msg
+                     * else if v.range_overflow   then set_maybe range_overflow_msg
+                     * else if v.range_underflow  then set_maybe range_underflow_msg
+                     * else if v.step_mismatch    then set_maybe step_mismatch_msg
+                     * else if v.too_long         then set_maybe too_long_msg
+                     * else if v.too_short        then set_maybe too_short_msg
+                     * else if v.type_mismatch    then set_maybe type_mismatch_msg
+                     * else if v.valid            then set_maybe invalid_msg
+                     * else if v.value_missing    then set_maybe value_missing_msg; *)
+                    false)
       |> ignore
 
   end

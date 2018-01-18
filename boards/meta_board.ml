@@ -23,6 +23,7 @@ type board = { handlers        : (module Api_handler.HANDLER) list
 
 module type BOARD = sig
   val create       : topo_board ->
+                     Common.Stream.t list React.signal ->
                      (Common.Stream.stream list React.signal -> topo_board -> Common.Stream.t list React.signal) ->
                      (Cbuffer.t -> unit Lwt.t) ->
                      Storage.Database.t ->
@@ -155,7 +156,20 @@ let concat_acc acc recvd = match acc with
 let apply = function `Continue step -> step
 
 module Map  = CCMap.Make(CCInt)
-       
+
+let get_streams (boards : board Map.t)
+                (topo : topo_board)
+    : Common.Stream.t list React.signal =
+  let rec get_streams' acc = function
+    | []    -> acc
+    | h::tl -> match h.child with
+               | Input i -> get_streams' acc tl
+               | Board b -> match Map.get b.control boards with
+                            | Some b -> get_streams' (React.S.l2 (@) b.streams_signal acc) tl
+                            | None   -> get_streams' acc tl
+  in
+  get_streams' (React.S.const []) topo.ports
+
 let merge_streams (boards : board Map.t)
                   (raw_streams : Common.Stream.stream list React.signal)
                   (topo : topo_board) 

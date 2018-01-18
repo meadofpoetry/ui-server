@@ -13,6 +13,11 @@ let to_period x step_duration  = x * int_of_float (1. /. step_duration)
 
 module SM = struct
 
+  type structs_and_br =
+    { structs  : ts_structs
+    ; bitrates : bitrates
+    }
+
   let request_id = ref (-1)
   let jitter_ptr = ref (-1l)
 
@@ -20,24 +25,8 @@ module SM = struct
 
   let wakeup_timeout (_,t) = t.pred `Timeout |> ignore
 
-  type events = { status       : user_status React.event
-                ; reset        : unit React.event
-                ; streams      : Common.Stream.id list React.signal
-                ; ts_found     : Common.Stream.id React.event
-                ; ts_lost      : Common.Stream.id React.event
-                ; ts_errors    : ts_errors React.event
-                ; t2mi_found   : int React.event
-                ; t2mi_lost    : int React.event
-                ; t2mi_errors  : t2mi_errors React.event
-                ; board_errors : board_errors React.event
-                ; bitrate      : bitrate list React.event
-                ; structs      : ts_struct list React.event
-                ; t2mi_info    : t2mi_info React.event
-                ; jitter       : jitter React.event
-                }
-
-  type push_events = { status       : user_status           -> unit
-                     ; reset        : unit                  -> unit
+  type push_events = { devinfo      : devinfo_response      -> unit
+                     ; status       : user_status           -> unit
                      ; streams      : Common.Stream.id list -> unit
                      ; ts_found     : Common.Stream.id      -> unit
                      ; ts_lost      : Common.Stream.id      -> unit
@@ -46,8 +35,8 @@ module SM = struct
                      ; t2mi_lost    : int                   -> unit
                      ; t2mi_errors  : t2mi_errors           -> unit
                      ; board_errors : board_errors          -> unit
-                     ; bitrate      : bitrate list          -> unit
-                     ; structs      : ts_struct list        -> unit
+                     ; structs      : ts_structs            -> unit
+                     ; bitrates     : ts_structs            -> unit
                      ; t2mi_info    : t2mi_info             -> unit
                      ; jitter       : jitter                -> unit
                      }
@@ -156,7 +145,6 @@ module SM = struct
                         | None   -> []) in
       pe.status t.status.status;
       pe.streams t.status.streams;
-      if t.status.reset then pe.reset ();
       List.iter pe.ts_found ts_found;
       List.iter pe.ts_errors @@ sort_ts_errs @@ group_ts_errs t.events;
       List.iter pe.t2mi_found t2mi_found;
@@ -165,6 +153,50 @@ module SM = struct
       List.iter pe.ts_lost ts_lost
 
   end
+
+  module Pids = CCMap.Make(CCInt)
+
+  let merge_service_and_bitrates (m:int Pids.t) (s:Board_types.service) =
+    let ecm     = List.map (fun (ecm:ecm) -> { ecm with bitrate = Pids.get ecm.pid m }) s.ecm in
+    let es      = List.map (fun (es:es) -> { es with bitrate = Pids.get es.pid m }) s.es in
+    let bitrate = List.fold_left (fun acc (x:es) -> match acc,x.bitrate with
+                                                    | None,Some x     -> Some x
+                                                    | Some acc,Some x -> Some (acc + x)
+                                                    | Some acc, None  -> Some acc
+                                                    | None, None      -> None) None es in
+    { s with bitrate; ecm; es }
+
+  let merge_struct_and_bitrates (s:Board_types.ts_struct) (b:Board_types.bitrate) =
+    let pids_m = List.fold_left (fun m {pid;bitrate} -> Pids.add pid bitrate m) Pids.empty b.pids in
+    let pids   = List.map (fun (pid:pid) -> { pid with bitrate = Pids.get pid.pid pids_m }) s.pids in
+    let emm    = List.map (fun (emm:emm) -> { emm with bitrate = Pids.get emm.pid pids_m }) s.emm in
+    let services = List.map (merge_service_and_bitrates pids_m) s.services in
+    let update_table_common (c:table_common) = { c with bitrate = Pids.get c.pid pids_m } in
+    let tables = List.map (function
+                           | PAT x     -> PAT { x with common = update_table_common x.common }
+                           | CAT x     -> CAT (update_table_common x)
+                           | PMT x     -> PMT { x with common = update_table_common x.common }
+                           | TSDT x    -> TSDT (update_table_common x)
+                           | NIT x     -> NIT { x with common = update_table_common x.common }
+                           | SDT x     -> SDT { x with common = update_table_common x.common }
+                           | BAT x     -> BAT { x with common = update_table_common x.common }
+                           | EIT x     -> EIT { x with common = update_table_common x.common }
+                           | TDT x     -> TDT (update_table_common x)
+                           | RST x     -> RST (update_table_common x)
+                           | ST  x     -> ST (update_table_common x)
+                           | TOT x     -> TOT (update_table_common x)
+                           | DIT x     -> DIT (update_table_common x)
+                           | SIT x     -> SIT (update_table_common x)
+                           | Unknown x -> Unknown (update_table_common x)) s.tables
+    in
+    { s with bitrate = Some b.ts_bitrate; pids; services; emm; tables }
+
+  let merge_structs_and_bitrates (s:Board_types.ts_structs) (b:Board_types.bitrates) =
+    CCList.map (fun (s:ts_struct) -> let br = CCList.find_pred (fun (x:bitrate) -> x.stream_id = s.stream_id) b in
+                                     match br with
+                                     | Some x -> merge_struct_and_bitrates s x
+                                     | None   -> s)
+               s
 
   let send_msg (type a) sender (msg : a request) : unit Lwt.t =
     (match msg with
@@ -217,24 +249,25 @@ module SM = struct
     msgs := Await_queue.append !msgs { send; pred; timeout; exn };
     t
 
-  let enqueue_instant (type a) msgs sender (msg : a instant_request) : unit Lwt.t =
+  let enqueue_instant (type a) msgs sender storage (msg : a instant_request) : unit Lwt.t =
     let t,w = Lwt.wait () in
     let send = fun () -> (send_instant sender msg) >>= (fun x -> Lwt.return @@ Lwt.wakeup w x) in
     let pred = fun _  -> None in
+    let conf = storage#get in
+    let _    = match msg with
+      | Set_board_mode  mode        -> storage#store { conf with mode }
+      | Set_jitter_mode jitter_mode -> storage#store { conf with jitter_mode }
+      | Reset                       -> ()
+    in
     msgs := Queue.append !msgs { send; pred; timeout = 0; exn = None };
     t
 
-  let push_event_response pe = function
-    | Board_errors x -> (* io "got board errors"; *)
-                        pe.board_errors x
-    | Bitrate x      -> (* io "got bitrate"; *)
-                        pe.bitrate x
-    | Struct  x      -> (* io "got struct"; *)
-                        pe.structs x
-    | T2mi_info x    -> (* io "got t2mi info"; *)
-                        pe.t2mi_info x
-    | Jitter x       -> (* io "got jitter"; *)
-                        pe.jitter x
+  let push_event_response (pe:push_events) = function
+    | Board_errors x -> pe.board_errors x
+    | Bitrate _      -> ()
+    | Struct  x      -> pe.structs x
+    | T2mi_info x    -> pe.t2mi_info x
+    | Jitter x       -> jitter_ptr := x.next_ptr; pe.jitter x
 
   let step msgs imsgs sender (storage : config storage) step_duration push_state push_events =
     let period         = to_period 5 step_duration in
@@ -261,18 +294,20 @@ module SM = struct
 
     and step_detect p acc recvd =
       let _, _, rsps, _, acc = deserialize [] (Meta_board.concat_acc acc recvd) in
-      if CCOpt.is_some @@ CCList.find_map (is_response Get_board_info) rsps
-      then (push_state `Init;
-            let config = storage#get in
-            send_instant sender (Set_board_mode config.mode) |> ignore;
-            send_instant sender (Set_jitter_mode config.jitter_mode)
-            |> ignore;
-            (* send_instant sender Reset |> ignore; *)
-            `Continue (step_normal_idle period None [] [] None))
-      else (if p < 0 then first_step ()
-            else `Continue (step_detect (pred p) acc))
+      match CCList.find_map (is_response Get_board_info) rsps with
+      | Some info -> push_state `Init;
+                     push_events.devinfo (Some info);
+                     let config = storage#get in
+                     send_instant sender (Set_board_mode config.mode) |> ignore;
+                     send_instant sender (Set_jitter_mode config.jitter_mode)
+                     |> ignore;
+                     (* send_instant sender Reset |> ignore; *)
+                     let sb = { structs = []; bitrates = []} in
+                     `Continue (step_normal_idle sb period None [] [] None)
+      | None      -> if p < 0 then first_step ()
+                     else `Continue (step_detect (pred p) acc)
 
-    and step_normal_idle p prev_group prev_events parts acc recvd =
+    and step_normal_idle sb p prev_group prev_events parts acc recvd =
       let events,_,rsps,parts,acc = deserialize parts (Meta_board.concat_acc acc recvd) in
       if CCOpt.is_none @@ CCList.find_map (is_response Get_board_info) rsps
       then
@@ -283,7 +318,7 @@ module SM = struct
         imsgs := Queue.next !imsgs;
         (match Events_handler.partition events prev_group with
          | [],events  -> if p < 0 then first_step ()
-                         else `Continue (step_normal_idle (pred p) prev_group events parts acc)
+                         else `Continue (step_normal_idle sb (pred p) prev_group events parts acc)
          | groups,events ->
             push_state `Fine;
             CCList.iter (fun x -> Events_handler.push x push_events) groups;
@@ -294,18 +329,18 @@ module SM = struct
                                                            ; exn     = None
                                                })
                                                (Events_handler.get_req_stack last prev_group) in
-            step_normal_probes_send pool last last events parts acc)
+            step_normal_probes_send sb pool last last events parts acc)
       else (io "Got board info in step normal idle"; first_step ())
 
-    and step_normal_probes_send pool prev_idle_gp gp events parts acc =
+    and step_normal_probes_send sb pool prev_idle_gp gp events parts acc =
       if Pool.empty pool
-      then `Continue (step_normal_idle period (Some gp) events parts acc)
+      then `Continue (step_normal_idle sb period (Some gp) events parts acc)
       else (Pool.send pool () |> ignore;
-            `Continue (step_normal_probes_wait pool period prev_idle_gp gp events parts acc))
+            `Continue (step_normal_probes_wait sb pool period prev_idle_gp gp events parts acc))
 
-    and step_normal_probes_wait pool p prev_idle_gp gp prev_events parts acc recvd =
+    and step_normal_probes_wait sb pool p prev_idle_gp gp prev_events parts acc recvd =
       let events,ev_rsps,rsps,parts,acc = deserialize parts (Meta_board.concat_acc acc recvd) in
-      let events    = prev_events @ events in
+      let events = prev_events @ events in
       handle_msgs rsps;
       let gp,events = (match Events_handler.partition events (Some gp) with
                        | [],events -> gp,events
@@ -314,19 +349,21 @@ module SM = struct
       try
         (match Pool.responsed pool ev_rsps with
          | None   -> let pool = Pool.step pool in
-                     `Continue (step_normal_probes_wait pool (pred p) prev_idle_gp gp events parts acc)
-         | Some x -> push_event_response push_events x;
-                     (match x with
-                      | Jitter x -> jitter_ptr := x.next_ptr;
-                      | _        -> ());
+                     `Continue (step_normal_probes_wait sb pool (pred p) prev_idle_gp gp events parts acc)
+         | Some x -> let sb = (match x with
+                               | Struct s  -> push_events.structs s; { sb with structs  = s }
+                               | Bitrate b -> { sb with bitrates = b }
+                               | e         -> push_event_response push_events e; sb) in
                      let new_pool = Pool.next pool in
                      if Pool.last pool
-                     then `Continue (step_normal_idle period
-                                                      (Some (Events_handler.insert_versions gp prev_idle_gp))
-                                                      prev_events
-                                                      parts
-                                                      acc)
-                     else step_normal_probes_send new_pool prev_idle_gp gp events parts acc)
+                     then (push_events.bitrates (merge_structs_and_bitrates sb.structs sb.bitrates);
+                           `Continue (step_normal_idle sb
+                                                       period
+                                                       (Some (Events_handler.insert_versions gp prev_idle_gp))
+                                                       prev_events
+                                                       parts
+                                                       acc))
+                     else step_normal_probes_send sb new_pool prev_idle_gp gp events parts acc)
       with
       | Timeout -> (io "Got timeout in step normal probes wait"; first_step ())
 
@@ -335,8 +372,9 @@ module SM = struct
   let create sender (storage : config storage) push_state step_duration =
     let msgs   = ref (Await_queue.create []) in
     let imsgs  = ref (Queue.create []) in
+    let config,push_config             = React.E.create () in
+    let devinfo,devinfo_push           = React.S.create None in
     let status,status_push             = React.E.create () in
-    let reset,reset_push               = React.E.create () in
     let streams,streams_push           = React.S.create [] in
     let ts_found,ts_found_push         = React.E.create () in
     let ts_lost,ts_lost_push           = React.E.create () in
@@ -345,62 +383,55 @@ module SM = struct
     let t2mi_lost,t2mi_lost_push       = React.E.create () in
     let t2mi_errors,t2mi_errors_push   = React.E.create () in
     let board_errors,board_errors_push = React.E.create () in
-    let bitrate,bitrate_push           = React.E.create () in
-    let structs,structs_push           = React.E.create () in
+    let structs,structs_push           = React.S.create [] in
+    let bitrates,bitrates_push         = React.S.create [] in
     let t2mi_info,t2mi_info_push       = React.E.create () in
     let jitter,jitter_push             = React.E.create () in
-    let (events : events)              = { status
-                                         ; reset
-                                         ; streams
-                                         ; ts_found
-                                         ; ts_lost
-                                         ; ts_errors
-                                         ; t2mi_found
-                                         ; t2mi_lost
-                                         ; t2mi_errors
-                                         ; board_errors
-                                         ; bitrate
-                                         ; structs
-                                         ; t2mi_info
-                                         ; jitter } in
-    let push_events                   = { status       = status_push
-                                        ; reset        = reset_push
-                                        ; streams      = streams_push
-                                        ; ts_found     = ts_found_push
-                                        ; ts_lost      = ts_lost_push
-                                        ; ts_errors    = ts_errors_push
-                                        ; t2mi_found   = t2mi_found_push
-                                        ; t2mi_lost    = t2mi_lost_push
-                                        ; t2mi_errors  = t2mi_errors_push
-                                        ; board_errors = board_errors_push
-                                        ; bitrate      = bitrate_push
-                                        ; structs      = structs_push
-                                        ; t2mi_info    = t2mi_info_push
-                                        ; jitter       = jitter_push
-                                        } in
-    let api = { set_mode        = (fun m  -> enqueue_instant imsgs sender (Set_board_mode m))
-              ; set_jitter_mode = (fun m  -> enqueue_instant imsgs sender (Set_jitter_mode m))
-              (* ; get_section     = (fun () ->
-               *   enqueue msgs sender
-               *           (Get_section (get_id (), { stream_id = T2mi_plp 0
-               *                                    ; section   = 0
-               *                                    ; table     =  NIT_a { common = { version = 21
-               *                                                                    ; id      = 64
-               *                                                                    ; pid     = 16
-               *                                                                    ; lsn     = 0
-               *                                                                    ; section_syntax = true
-               *                                                                    ; sections = []}
-               *                                                       ; nw_id = 13583 }}))
-               *           (to_period 120 step_duration)
-               *           None) *)
-              ; get_t2mi_seq    = (fun s  -> enqueue msgs sender
-                                                     (Get_t2mi_frame_seq { request_id = get_id ()
-                                                                         ; seconds    = s })
-                                                     (to_period (s + 10) step_duration)
-                                                     None)
-              ; reset           = (fun () -> enqueue_instant imsgs sender Reset)
-              ; config          = (fun () -> Lwt.return storage#get)
-              } in
+    let (events : events) = { config   = React.E.changes config
+                            ; status
+                            ; streams
+                            ; ts_found
+                            ; ts_lost
+                            ; ts_errors
+                            ; t2mi_found
+                            ; t2mi_lost
+                            ; t2mi_errors
+                            ; board_errors
+                            ; structs  = React.S.changes structs
+                            ; bitrates = React.S.changes bitrates
+                            ; t2mi_info
+                            ; jitter } in
+    let push_events       = { devinfo      = devinfo_push
+                            ; status       = status_push
+                            ; streams      = streams_push
+                            ; ts_found     = ts_found_push
+                            ; ts_lost      = ts_lost_push
+                            ; ts_errors    = ts_errors_push
+                            ; t2mi_found   = t2mi_found_push
+                            ; t2mi_lost    = t2mi_lost_push
+                            ; t2mi_errors  = t2mi_errors_push
+                            ; board_errors = board_errors_push
+                            ; structs      = structs_push
+                            ; bitrates     = bitrates_push
+                            ; t2mi_info    = t2mi_info_push
+                            ; jitter       = jitter_push
+                            } in
+    let api =
+      { set_mode        = (fun m  -> enqueue_instant imsgs sender storage (Set_board_mode m)
+                                     >>= (fun () -> push_config storage#get; Lwt.return_unit))
+      ; set_jitter_mode = (fun m  -> enqueue_instant imsgs sender storage (Set_jitter_mode m)
+                                     >>= (fun () -> push_config storage#get; Lwt.return_unit))
+      ; get_devinfo     = (fun () -> Lwt.return @@ React.S.value devinfo)
+      ; reset           = (fun () -> enqueue_instant imsgs sender storage Reset)
+      ; get_structs     = (fun () -> Lwt.return @@ React.S.value structs)
+      ; get_bitrates    = (fun () -> Lwt.return @@ React.S.value bitrates)
+      ; get_t2mi_seq    = (fun s  -> enqueue msgs sender
+                                             (Get_t2mi_frame_seq { request_id = get_id ()
+                                                                 ; seconds    = s })
+                                             (to_period (s + 10) step_duration)
+                                             None)
+      ; config          = (fun () -> Lwt.return storage#get)
+      } in
     events,
     api,
     (step msgs imsgs sender storage step_duration push_state push_events)

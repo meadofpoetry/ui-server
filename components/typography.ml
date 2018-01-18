@@ -37,3 +37,35 @@ let set ?(adjust_margin=true) ~font (elt:#Widget.widget) =
   elt#add_class Typography.base_class;
   elt#add_class @@ font_to_class font;
   if adjust_margin then elt#add_class Typography.adjust_margin_class
+
+module Text = struct
+
+  class t ?(adjust_margin=false) ?font ~text () =
+
+    let elt = Tyxml_js.Html.(span [pcdata text]) |> Tyxml_js.To_dom.of_element in
+
+    object(self)
+
+      inherit Widget.widget elt ()
+
+      val mutable font : font option = font
+
+      method set_font x =
+        CCOpt.iter (fun x -> self#remove_class @@ font_to_class x) font;
+        self#add_class @@ font_to_class x;
+        font <- Some x
+      method get_font   = font
+
+      method set_adjust_margin = function
+        | true  -> self#add_class Typography.adjust_margin_class
+        | false -> self#remove_class Typography.adjust_margin_class
+      method get_adjust_margin = self#has_class Typography.adjust_margin_class
+
+      initializer
+        self#add_class Typography.base_class;
+        self#set_adjust_margin adjust_margin;
+        CCOpt.iter (fun x -> self#add_class @@ font_to_class x) font
+
+    end
+
+end

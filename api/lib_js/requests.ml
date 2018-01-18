@@ -9,6 +9,13 @@ let get addr =
   then Ok frame.content
   else Error (Printf.sprintf "Code %d" frame.code)
 
+let get_ok addr =
+  Lwt_xmlHttpRequest.get addr
+  >|= fun frame ->
+  if frame.code = 200
+  then Ok ()
+  else Error (Printf.sprintf "Code %d" frame.code)
+
 let get_js addr =
   Lwt_xmlHttpRequest.get addr
   >|= fun frame ->
@@ -73,4 +80,4 @@ let get_socket addr conv =
                                       |> conv
                                       |> (function Ok msg -> push msg | Error _ -> ());
                                       Js.bool true);
-  ev
+  ev,sock

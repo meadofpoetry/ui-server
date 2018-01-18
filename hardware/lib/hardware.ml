@@ -24,22 +24,17 @@ type t = { boards        : Meta_board.board Map.t
 let create_board db usb (b:topo_board) boards path step_duration =
   let (module B : Meta_board.BOARD) =
     match b.typ, b.model, b.manufacturer, b.version with
-    | DVB,   "rf",       "niitv",  1  -> (module Board_dvb_niit  : Meta_board.BOARD)
-    | IP2TS, "dtm-3200", "dektec", 1  -> (module Board_ip_dektec : Meta_board.BOARD)
-    | TS,    "qos",      "niitv",  1  -> (module Board_qos_niit  : Meta_board.BOARD)
-    (* | IP, "ts2ip", "niitv"        -> Board_ip.create version*)
+    | DVB,   "rf",       "niitv",  1  -> (module Board_dvb_niit   : Meta_board.BOARD)
+    | IP2TS, "dtm-3200", "dektec", 1  -> (module Board_ip_dektec  : Meta_board.BOARD)
+    | TS,    "qos",      "niitv",  1  -> (module Board_qos_niit   : Meta_board.BOARD)
+    | TS2IP, "ts2ip",    "niitv",  1  -> (module Board_ts2ip_niit : Meta_board.BOARD)
     | _ -> raise (Failure ("create board: unknown board "))
   in
   B.create b
-    (Meta_board.merge_streams boards)
-    (Usb_device.get_send usb b.control)
-    db path step_duration
-
-let topo_inputs =
-  let rec f = (fun acc entry -> match entry with
-                                   | Input x -> x :: acc
-                                   | Board x -> List.concat @@ (List.map (fun x -> f acc x.child) x.ports)) in
-  List.fold_left f []
+           (Meta_board.get_streams boards b)
+           (Meta_board.merge_streams boards)
+           (Usb_device.get_send usb b.control)
+           db path step_duration
 
 let topo_to_signal topo boards =
   let build_board b connection ports =

@@ -119,7 +119,8 @@ let string_of_err = function
   | Insufficient_payload _ -> "insufficient payload"
   | Unknown_err s          -> s
 
-type events = { measure : measure React.event
+type events = { measure : measure_response React.event
+              ; config  : config React.event
               }
 
 type api = { devinfo     : unit -> devinfo_response Lwt.t
@@ -130,13 +131,13 @@ type api = { devinfo     : unit -> devinfo_response Lwt.t
            ; config      : unit -> config Lwt.t
            }
 
-type _ request = Get_devinfo  : rsp_devinfo request
+type _ request = Get_devinfo  : devinfo request
                | Reset        : unit request
-               | Set_settings : (int * settings) -> (int * rsp_settings) request
-               | Set_plp      : int * int        -> (int * rsp_plp_set) request
-               | Get_plps     : int -> (int * rsp_plp_list) request
+               | Set_settings : (int * settings) -> settings_response request
+               | Set_plp      : int * int        -> plp_setting_response request
+               | Get_plps     : int              -> plp_list_response request
 
-type event = Measure of measure
+type event = Measure of measure_response
 
 type _ event_request = Get_measure : int -> event event_request
 
@@ -256,12 +257,12 @@ let of_rsp_devinfo_exn msg =
 
 (* Settings *)
 
-let to_req_settings id settings =
+let to_req_settings id (settings : settings) =
   let body = Cbuffer.create sizeof_settings in
   let () = set_settings_mode body (emode_to_int @@ of_mode settings.mode) in
-  let () = set_settings_bw body (ebw_to_int @@ of_bw settings.bw) in
-  let () = set_settings_freq body settings.freq in
-  let () = set_settings_plp body settings.plp in
+  let () = set_settings_bw body (ebw_to_int @@ of_bw settings.channel.bw) in
+  let () = set_settings_freq body settings.channel.freq in
+  let () = set_settings_plp body settings.channel.plp in
   to_msg ~msg_code:(0x20 lor id) ~body
 
 let of_rsp_settings_exn msg =
@@ -270,9 +271,10 @@ let of_rsp_settings_exn msg =
     { lock       = int_to_bool8 (get_settings_lock msg)       |> get_exn |> bool_of_bool8
     ; hw_present = int_to_bool8 (get_settings_hw_present msg) |> get_exn |> bool_of_bool8
     ; settings   = { mode     = to_mode @@ get_exn @@ int_to_emode (get_settings_mode msg)
-                   ; bw       = to_bw @@ get_exn @@ int_to_ebw (get_settings_bw msg)
-                   ; freq     = get_settings_freq msg
-                   ; plp      = get_settings_plp msg
+                   ; channel  = { bw       = to_bw @@ get_exn @@ int_to_ebw (get_settings_bw msg)
+                                ; freq     = get_settings_freq msg
+                                ; plp      = get_settings_plp msg
+                                }
                    }
     }
   with _ -> raise Parse_error
@@ -284,17 +286,18 @@ let to_req_measure id =
 
 let of_rsp_measure_exn msg =
   try
-    { lock    = int_to_bool8 (get_rsp_measure_lock msg) |> CCOpt.get_exn |> bool_of_bool8
-    ; power   = get_rsp_measure_power msg
-                |> (fun x -> if x = max_uint16 then None else Some (-.((float_of_int x) /. 10.)))
-    ; mer     = get_rsp_measure_mer msg
-                |> (fun x -> if x = max_uint16 then None else Some ((float_of_int x) /. 10.))
-    ; ber     = get_rsp_measure_ber msg
-                |> (fun x -> if x = Int32.of_int max_uint32 then None else Some ((Int32.to_float x) /. (2.**24.)))
-    ; freq    = get_rsp_measure_freq msg
-                |> (fun x -> if x = Int32.of_int max_uint32 then None else Some x)
-    ; bitrate = get_rsp_measure_bitrate msg
-                |> (fun x -> if x = Int32.of_int max_uint32 then None else Some x)
+    { timestamp = Unix.gettimeofday ()
+    ; lock      = int_to_bool8 (get_rsp_measure_lock msg) |> CCOpt.get_exn |> bool_of_bool8
+    ; power     = get_rsp_measure_power msg
+                  |> (fun x -> if x = max_uint16 then None else Some (-.((float_of_int x) /. 10.)))
+    ; mer       = get_rsp_measure_mer msg
+                  |> (fun x -> if x = max_uint16 then None else Some ((float_of_int x) /. 10.))
+    ; ber       = get_rsp_measure_ber msg
+                  |> (fun x -> if x = Int32.of_int max_uint32 then None else Some ((Int32.to_float x) /. (2.**24.)))
+    ; freq      = get_rsp_measure_freq msg
+                  |> (fun x -> if x = Int32.of_int max_uint32 then None else Some x)
+    ; bitrate   = get_rsp_measure_bitrate msg
+                  |> (fun x -> if x = Int32.of_int max_uint32 then None else Some x)
     }
   with _ -> raise Parse_error
 
@@ -335,10 +338,10 @@ let deserialize buf =
   (* split buffer into valid messages and residue (if any) *)
   let parse_msg = fun {id;code;body;_} ->
     match (id,code) with
-    | 0xE,0xE0 -> Lwt_io.printl "got ack" |> ignore; `R `Ack
-    | 0,1      -> Lwt_io.printl "got devinfo" |> ignore; `R (`Devinfo body)
-    | _,2      -> Lwt_io.printlf "got settings (id = %d)" id |> ignore; `R (`Settings (id, body))
-    | _,3      -> Lwt_io.printlf "got measure (id = %d)" id |> ignore; `E (`Measure (id, body))
+    | 0xE,0xE0 -> (* Lwt_io.printl "got ack" |> ignore; *) `R `Ack
+    | 0,1      -> (* Lwt_io.printl "got devinfo" |> ignore; *) `R (`Devinfo body)
+    | _,2      -> (* Lwt_io.printlf "got settings (id = %d)" id |> ignore; *) `R (`Settings (id, body))
+    | _,3      -> (* Lwt_io.printlf "got measure (id = %d)" id |> ignore; *) `E (`Measure (id, body))
     | _,5      -> `R (`Plps (id, body))
     | _,6      -> `R (`Plp_setting (id, body))
     | _        -> `N in
@@ -350,8 +353,7 @@ let deserialize buf =
                            | `E e   -> f (e::events) responses x.res
                            | `R r   -> f events (r::responses) x.res
                            | `N     -> f events responses x.res)
-          | Error e -> Lwt_io.printlf "DVB: %s" (string_of_err e) |> ignore;
-                       (match e with
+          | Error e -> (match e with
                         | Insufficient_payload x -> List.rev events, List.rev responses, x
                         | _                      -> f events responses (Cbuffer.shift b 1)))
     else List.rev events, List.rev responses, b in
@@ -376,11 +378,7 @@ let parse_plp_settings id = function
   | _ -> None
 
 let parse_measures id = function
-  | `Measure (idx, buf) when idx = id -> (match try_parse of_rsp_measure_exn buf with
-                                          | Some x -> Some (Measure { id
-                                                                    ; timestamp = Unix.time ()
-                                                                    ; measures = x })
-                                          | None   -> None)
+  | `Measure (idx, buf) when idx = id -> try_parse (fun b -> Measure (id, (of_rsp_measure_exn b))) buf
   | _ -> None
 
 let parse_plps id = function

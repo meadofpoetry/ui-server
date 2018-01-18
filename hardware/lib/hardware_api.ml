@@ -48,9 +48,9 @@ let topology_socket sock_data body topo () =
 
 let handle hw _ meth args sock_data _ body =
   match meth, args with
-  | `GET, []                -> get_page ()
-  | `GET, ["topology_sock"] -> topology_socket sock_data body hw.topo ()
-  | `GET, ["topology"]      -> topology hw.topo ()
+  | `GET, []                  -> get_page ()
+  | `GET, ["topology_sock"]   -> topology_socket sock_data body hw.topo ()
+  | `GET, ["topology"]        -> topology hw.topo ()
   | _        -> Api.Redirect.not_found ()
 
 let handlers hw =

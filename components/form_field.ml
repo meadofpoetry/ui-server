@@ -1,6 +1,14 @@
+let x = ref (Unix.time () |> int_of_float)
+let get_id = fun () -> incr x; Printf.sprintf "form-input-%d" !x
+
 class ['a] t ?align_end ~(input: 'a) ~label () =
 
-  let for_id = ((input : 'a :> #Widget.input_widget)#input_element##.id |> Js.to_string) in
+  let for_id = match (input : 'a :> #Widget.input_widget)#get_input_id with
+    | None -> let id = get_id () in
+              input#set_input_id id;
+              id
+    | Some id -> id
+  in
   let label = new Widget.widget (Markup.Form_field.Label.create ~for_id ~label ()
                                  |> Tyxml_js.To_dom.of_label) () in
   let elt = Markup.Form_field.create ?align_end

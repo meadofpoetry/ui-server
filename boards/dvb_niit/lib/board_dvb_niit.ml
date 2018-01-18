@@ -17,7 +17,7 @@ module Config_storage = Storage.Options.Make (Data)
 
 module Storage : sig
   type _ req =
-    | Store_measures : Board_types.measure -> unit Lwt.t req
+    | Store_measures : Board_types.measure_response -> unit Lwt.t req
   include (Storage.Database.STORAGE with type 'a req := 'a req)
 end = Db
     
@@ -25,23 +25,29 @@ type 'a request = 'a Board_protocol.request
 
 let create_sm = Board_protocol.SM.create
 
-let create (b:topo_board) convert_streams send db base step =
+let create (b:topo_board) _ convert_streams send db base step =
   let storage      = Config_storage.create base ["board"; (string_of_int b.control)] in
   let s_state, spush = React.S.create `No_response in
   let events, api, step = create_sm send storage spush step in
-  let handlers = Board_api.handlers b.control api events in (* XXX temporary *)
+  let handlers = Board_api.handlers b.control api events s_state in (* XXX temporary *)
   Lwt_main.run @@ Storage.init db;
   let _s = Lwt_react.E.map_p (fun m -> Storage.request db (Storage.Store_measures m))
            @@ React.E.changes events.measure in
   let s_streams = React.S.fold
                     (fun (streams : Common.Stream.stream list)
-                         (m : Board_types.measure) ->
+                         ((id,m) : Board_types.measure_response) ->
                       let open Common.Stream in
+                      let plp = CCList.find_map (fun (x,c) -> if id = x then Some c else None) storage#get
+                                |> CCOpt.get_exn
+                                |> (fun x -> match x. mode with
+                                             | T2 -> x.t2.plp
+                                             | _  -> 0)
+                      in
                       let (stream : stream) = { source      = Port 0
-                                              ; id          = `Ts (Dvb (m.id,m.id mod 3)) (* TODO fix this *)
+                                              ; id          = `Ts (Dvb (id,plp)) (* TODO fix this *)
                                               ; description = Some ""
                                               } in
-                      match m.measures.lock,m.measures.bitrate with
+                      match m.lock,m.bitrate with
                       | true,Some x when x > 0l -> CCList.add_nodup stream streams
                       | _                       -> CCList.remove ~x:stream streams)
                     [] events.measure in
