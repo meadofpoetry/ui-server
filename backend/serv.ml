@@ -1,7 +1,10 @@
 open Cohttp_lwt_unix
 open Containers
+open Common.User
 open Api.Redirect
 open Api.Interaction
+open Api.Template
+open Api
 
 module Api_handler = Api.Handler.Make(Common.User)
    
@@ -21,37 +24,50 @@ module Settings = struct
 end
 
 module Conf = Storage.Config.Make(Settings)
-  
+            
 let get_handler ~settings
                 ~auth_filter
                 ~routes
+                ~pages
   =
   let open Settings in
   let handler
         (conn : Conduit_lwt_unix.flow * Cohttp.Connection.t)
         (req  : Cohttp_lwt_unix.Request.t)
-        (body : Cohttp_lwt_body.t) =
-    ignore conn;
+        (body : Cohttp_lwt.Body.t) =
     let headers  = Request.headers req in
     let uri      = Uri.path @@ Request.uri req in
     let uri_list = uri
                    |> String.split_on_char '/'
                    |> List.filter (not % String.equal "")
     in
+    let respond_page path id =
+      let tbl = match id with
+        | `Root     -> pages.root
+        | `Operator -> pages.operator
+        | `Guest    -> pages.guest
+      in (try Hashtbl.find tbl (String.concat "/" path)
+              |> fun page -> respond_string page ()
+          with _ -> resource settings.path uri)
+    in
     let meth      = Request.meth req in
     let redir     = auth_filter headers in
     let sock_data = (req, (fst conn)) in
     match meth, uri_list with
-    | `GET, []                    -> redir (fun _ -> Responses.home settings.path)
-    | `GET, ["settings"; "users"] -> redir (fun _ -> Responses.Settings.users settings.path)
-    | _, "api" :: path -> Api_handler.handle routes redir meth path sock_data headers body
-    | `GET, _          -> redir (fun _ -> resource settings.path uri)
-    | _                -> not_found ()
+    | _, "api" :: path          -> Api_handler.handle routes redir meth path sock_data headers body
+    | `GET, path                -> redir (respond_page path)
+    | _                         -> not_found ()
   in
   handler
-                 
-let create config auth_filter routes =
+
+let create config auth_filter routes templates =
   let settings = Conf.get config in
-  let handler  = get_handler ~settings ~auth_filter ~routes in 
+  let tmpl     = Filename.concat settings.path "html/templates/base.html"
+                 |> CCIO.File.read_exn (* FIXME *) in
+  let pages    = Common.User.map_table
+                   (fun u ts -> Api.Template.build_route_table tmpl (Common.User.to_string u) ts)
+                   templates
+  in
+  let handler  = get_handler ~settings ~auth_filter ~routes ~pages in
   Cohttp_lwt_unix.Server.create ~mode:(`TCP (`Port settings.port))
                                 (Cohttp_lwt_unix.Server.make ~callback:handler ())

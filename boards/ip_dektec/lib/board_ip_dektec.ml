@@ -24,20 +24,35 @@ type 'a request = 'a Board_protocol.request
 
 let create_sm = Board_protocol.SM.create
 
-let create (b:topo_board) send db base step =
-  let storage      = Config_storage.create base ["board"; (string_of_int b.control)] in
-  let s_state, spush = React.S.create `No_response in
-  let events, api, step    = create_sm send storage spush step in
-  let s_strms,s_strms_push = React.S.create [] in
-  let e_status = React.E.map (fun (x : board_status) -> (if x.asi_bitrate > 0 then [Common.Stream.Single] else [])
-                                                        |> s_strms_push) events.status in
-  let handlers = Board_api.handlers b.control api events in
+let create (b:topo_board) _ convert_streams send db base step =
+  let storage               = Config_storage.create base ["board"; (string_of_int b.control)] in
+  let s_state, s_state_push = React.S.create `No_response in
+  let events, api, step     = create_sm send storage s_state_push step in
+  let s_strms,s_strms_push  = React.S.create [] in
+  let e_status = React.E.map (fun (x : board_status) ->
+                     let open Common.Stream in
+                     let (stream : stream) = { source      = Port 0
+                                             ; id          = `Ts Single
+                                             ; description = Some ""
+                                             } in
+                     s_strms_push @@ (if x.asi_bitrate > 0 then [stream] else []))
+                 @@ React.E.changes events.status in
+  let handlers = Board_api.handlers b.control api events s_state in
   Lwt_main.run @@ Storage.init db;
   let _s = Lwt_react.E.map_p (fun s -> Storage.request db (Storage.Store_status s)) @@ React.E.changes events.status in
-  let state = object method s = _s; method e_status = e_status end in
+ (* let sms = convert_streams s_strms b in
+  let _e = React.E.map (fun s ->
+      `List (List.map Common.Stream.to_yojson s)
+      |> Yojson.Safe.pretty_to_string
+      |> Lwt_io.printf "IP sms: %s\n"
+      |> ignore;) @@ React.S.changes sms in *)
+  let state = object
+      method s = _s;
+      method e_status = e_status
+    end in
   { handlers       = handlers
   ; control        = b.control
-  ; streams_signal = React.S.const []
+  ; streams_signal = convert_streams s_strms b
   ; step           = step
   ; connection     = s_state
   ; ports_active   = (List.fold_left (fun acc (p : topo_port) ->
@@ -45,6 +60,8 @@ let create (b:topo_board) send db base step =
                            | 0 -> React.S.const true
                            | x -> raise (Invalid_port ("Board_ip_dektec: invalid_port " ^ (string_of_int x))))
                           |> fun x -> Ports.add p.port x acc)
-                                     Ports.empty b.ports)
+                        Ports.empty b.ports)
+  ; settings_page  = ("IP", React.S.const (Tyxml.Html.div []))
+  ; widgets_page   = [("IP", React.S.const (Tyxml.Html.div []))]
   ; state          = (state :> < >)
   }

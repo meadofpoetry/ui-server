@@ -91,6 +91,8 @@ let bool_of_bool8 = function
 
 open Board_types
 
+exception Parse_error
+
 (* Misc *)
 
 type parsed =
@@ -117,7 +119,8 @@ let string_of_err = function
   | Insufficient_payload _ -> "insufficient payload"
   | Unknown_err s          -> s
 
-type events = { measure : (int * rsp_measure) React.event
+type events = { measure : measure_response React.event
+              ; config  : config React.event
               }
 
 type api = { devinfo     : unit -> devinfo_response Lwt.t
@@ -128,13 +131,15 @@ type api = { devinfo     : unit -> devinfo_response Lwt.t
            ; config      : unit -> config Lwt.t
            }
 
-type _ request = Devinfo     : rsp_devinfo request
-               | Reset       : unit request
-               | Settings    : (int * settings) -> (int * rsp_settings) request
-               | Plp_setting : int * int        -> (int * rsp_plp_set) request
-               | Plps        : int -> (int * rsp_plp_list) request
+type _ request = Get_devinfo  : devinfo request
+               | Reset        : unit request
+               | Set_settings : (int * settings) -> settings_response request
+               | Set_plp      : int * int        -> plp_setting_response request
+               | Get_plps     : int              -> plp_list_response request
 
-type _ event_request = Measure     : int -> (int * rsp_measure) event_request
+type event = Measure of measure_response
+
+type _ event_request = Get_measure : int -> event event_request
 
 (* Helper functions *)
 
@@ -234,40 +239,45 @@ let to_req_devinfo reset =
   to_msg ~msg_code:0x10 ~body
 
 let of_rsp_devinfo_exn msg =
-  let hw_cfg    = get_rsp_devinfo_hw_config msg in
-  { serial   = get_rsp_devinfo_serial msg
-  ; hw_ver   = get_rsp_devinfo_hw_ver msg
-  ; fpga_ver = get_rsp_devinfo_fpga_ver msg
-  ; soft_ver = get_rsp_devinfo_soft_ver msg
-  ; asi      = if (hw_cfg land 16) > 0 then true else false
-  ; modules  = List.fold_left (fun acc x -> let x' = float_of_int x in
-                                            if (hw_cfg land (int_of_float (2. ** x'))) > 0
-                                            then x :: acc
-                                            else acc)
-                 []
-                 (CCList.range 0 3)
-  }
+  try
+    let hw_cfg    = get_rsp_devinfo_hw_config msg in
+    { serial   = get_rsp_devinfo_serial msg
+    ; hw_ver   = get_rsp_devinfo_hw_ver msg
+    ; fpga_ver = get_rsp_devinfo_fpga_ver msg
+    ; soft_ver = get_rsp_devinfo_soft_ver msg
+    ; asi      = if (hw_cfg land 16) > 0 then true else false
+    ; modules  = List.fold_left (fun acc x -> let x' = float_of_int x in
+                                              if (hw_cfg land (int_of_float (2. ** x'))) > 0
+                                              then x :: acc
+                                              else acc)
+                                []
+                                (CCList.range 0 3)
+    }
+  with _ -> raise Parse_error
 
 (* Settings *)
 
-let to_req_settings id settings =
+let to_req_settings id (settings : settings) =
   let body = Cbuffer.create sizeof_settings in
   let () = set_settings_mode body (emode_to_int @@ of_mode settings.mode) in
-  let () = set_settings_bw body (ebw_to_int @@ of_bw settings.bw) in
-  let () = set_settings_freq body settings.freq in
-  let () = set_settings_plp body settings.plp in
+  let () = set_settings_bw body (ebw_to_int @@ of_bw settings.channel.bw) in
+  let () = set_settings_freq body settings.channel.freq in
+  let () = set_settings_plp body settings.channel.plp in
   to_msg ~msg_code:(0x20 lor id) ~body
 
 let of_rsp_settings_exn msg =
-  let open CCOpt in
-  { lock       = int_to_bool8 (get_settings_lock msg)       |> get_exn |> bool_of_bool8
-  ; hw_present = int_to_bool8 (get_settings_hw_present msg) |> get_exn |> bool_of_bool8
-  ; settings   = { mode     = to_mode @@ get_exn @@ int_to_emode (get_settings_mode msg)
-                 ; bw       = to_bw @@ get_exn @@ int_to_ebw (get_settings_bw msg)
-                 ; freq     = get_settings_freq msg
-                 ; plp      = get_settings_plp msg
-                 }
-  }
+  try
+    let open CCOpt in
+    { lock       = int_to_bool8 (get_settings_lock msg)       |> get_exn |> bool_of_bool8
+    ; hw_present = int_to_bool8 (get_settings_hw_present msg) |> get_exn |> bool_of_bool8
+    ; settings   = { mode     = to_mode @@ get_exn @@ int_to_emode (get_settings_mode msg)
+                   ; channel  = { bw       = to_bw @@ get_exn @@ int_to_ebw (get_settings_bw msg)
+                                ; freq     = get_settings_freq msg
+                                ; plp      = get_settings_plp msg
+                                }
+                   }
+    }
+  with _ -> raise Parse_error
 
 (* Measure *)
 
@@ -275,18 +285,21 @@ let to_req_measure id =
   to_empty_msg ~msg_code:(0x30 lor id)
 
 let of_rsp_measure_exn msg =
-  { lock    = int_to_bool8 (get_rsp_measure_lock msg) |> CCOpt.get_exn |> bool_of_bool8
-  ; power   = get_rsp_measure_power msg
-              |> (fun x -> if x = max_uint16 then None else Some (-.((float_of_int x) /. 10.)))
-  ; mer     = get_rsp_measure_mer msg
-              |> (fun x -> if x = max_uint16 then None else Some ((float_of_int x) /. 10.))
-  ; ber     = get_rsp_measure_ber msg
-              |> (fun x -> if x = Int32.of_int max_uint32 then None else Some ((Int32.to_float x) /. (2.**24.)))
-  ; freq    = get_rsp_measure_freq msg
-              |> (fun x -> if x = Int32.of_int max_uint32 then None else Some x)
-  ; bitrate = get_rsp_measure_bitrate msg
-              |> (fun x -> if x = Int32.of_int max_uint32 then None else Some x)
-  }
+  try
+    { timestamp = Unix.gettimeofday ()
+    ; lock      = int_to_bool8 (get_rsp_measure_lock msg) |> CCOpt.get_exn |> bool_of_bool8
+    ; power     = get_rsp_measure_power msg
+                  |> (fun x -> if x = max_uint16 then None else Some (-.((float_of_int x) /. 10.)))
+    ; mer       = get_rsp_measure_mer msg
+                  |> (fun x -> if x = max_uint16 then None else Some ((float_of_int x) /. 10.))
+    ; ber       = get_rsp_measure_ber msg
+                  |> (fun x -> if x = Int32.of_int max_uint32 then None else Some ((Int32.to_float x) /. (2.**24.)))
+    ; freq      = get_rsp_measure_freq msg
+                  |> (fun x -> if x = Int32.of_int max_uint32 then None else Some x)
+    ; bitrate   = get_rsp_measure_bitrate msg
+                  |> (fun x -> if x = Int32.of_int max_uint32 then None else Some x)
+    }
+  with _ -> raise Parse_error
 
 (* Plp list *)
 
@@ -294,16 +307,18 @@ let to_req_plp_list id =
   to_empty_msg ~msg_code:(0x50 lor id)
 
 let of_rsp_plp_list_exn msg =
-  let plp_num     = Cbuffer.get_uint8 msg 1 |> (fun x -> if x = 0xFF then None else Some x) in
-  { lock = int_to_bool8 (Cbuffer.get_uint8 msg 0) |> CCOpt.get_exn |> bool_of_bool8
-  ; plps = begin match plp_num with
-           | Some _ -> let iter = Cbuffer.iter (fun _ -> Some 1)
-                                    (fun buf -> Cbuffer.get_uint8 buf 0)
-                                    (Cbuffer.shift msg 2) in
-                       Cbuffer.fold (fun acc el -> el :: acc) iter []
-           | None   -> []
-           end
-  }
+  try
+    let plp_num     = Cbuffer.get_uint8 msg 1 |> (fun x -> if x = 0xFF then None else Some x) in
+    { lock = int_to_bool8 (Cbuffer.get_uint8 msg 0) |> CCOpt.get_exn |> bool_of_bool8
+    ; plps = begin match plp_num with
+             | Some _ -> let iter = Cbuffer.iter (fun _ -> Some 1)
+                                                 (fun buf -> Cbuffer.get_uint8 buf 0)
+                                                 (Cbuffer.shift msg 2) in
+                         Cbuffer.fold (fun acc el -> el :: acc) iter []
+             | None   -> []
+             end
+    }
+  with _ -> raise Parse_error
 
 (* Plp set *)
 
@@ -313,18 +328,20 @@ let to_req_plp_set id plp =
   to_msg ~msg_code:(0x60 lor id) ~body
 
 let of_rsp_plp_set_exn msg =
-  { lock = int_to_bool8 (get_rsp_plp_set_lock msg) |> CCOpt.get_exn |> bool_of_bool8
-  ; plp  = get_rsp_plp_set_plp msg
-  }
+  try
+    { lock = int_to_bool8 (get_rsp_plp_set_lock msg) |> CCOpt.get_exn |> bool_of_bool8
+    ; plp  = get_rsp_plp_set_plp msg
+    }
+  with _ -> raise Parse_error
 
 let deserialize buf =
   (* split buffer into valid messages and residue (if any) *)
   let parse_msg = fun {id;code;body;_} ->
     match (id,code) with
-    | 0xE,0xE0 -> `R `Ack
-    | 0,1      -> `R (`Devinfo body)
-    | _,2      -> `R (`Settings (id, body))
-    | _,3      -> `E (`Measure (id, body))
+    | 0xE,0xE0 -> (* Lwt_io.printl "got ack" |> ignore; *) `R `Ack
+    | 0,1      -> (* Lwt_io.printl "got devinfo" |> ignore; *) `R (`Devinfo body)
+    | _,2      -> (* Lwt_io.printlf "got settings (id = %d)" id |> ignore; *) `R (`Settings (id, body))
+    | _,3      -> (* Lwt_io.printlf "got measure (id = %d)" id |> ignore; *) `E (`Measure (id, body))
     | _,5      -> `R (`Plps (id, body))
     | _,6      -> `R (`Plp_setting (id, body))
     | _        -> `N in
@@ -344,8 +361,7 @@ let deserialize buf =
   events, responses, if Cbuffer.len res > 0 then Some res else None
 
 let try_parse f x =
-  try Some (f x)
-  with _ -> None
+  try Some (f x) with Parse_error -> None
 
 let parse_devinfo = function
   | `Devinfo buf -> try_parse of_rsp_devinfo_exn buf
@@ -362,21 +378,21 @@ let parse_plp_settings id = function
   | _ -> None
 
 let parse_measures id = function
-  | `Measure (idx, buf) when idx = id -> try_parse (fun b -> id, (of_rsp_measure_exn b)) buf
+  | `Measure (idx, buf) when idx = id -> try_parse (fun b -> Measure (id, (of_rsp_measure_exn b))) buf
   | _ -> None
 
 let parse_plps id = function
   | `Plps (idx, buf) when idx = id -> try_parse (fun b -> id, (of_rsp_plp_list_exn b)) buf
   | _ -> None
-                   
+
 let is_response (type a) (req : a request) msg : a option =
   match req with
-  | Reset              -> parse_reset msg
-  | Devinfo            -> parse_devinfo msg
-  | Settings (id,_)    -> parse_settings id msg
-  | Plp_setting (id,_) -> parse_plp_settings id msg
-  | Plps id            -> parse_plps id msg
+  | Reset               -> parse_reset msg
+  | Get_devinfo         -> parse_devinfo msg
+  | Set_settings (id,_) -> parse_settings id msg
+  | Set_plp (id,_)      -> parse_plp_settings id msg
+  | Get_plps id         -> parse_plps id msg
 
-let is_event (type a) (req : a event_request) msg : unit option =
+let is_event (type a) (req : a event_request) msg : a option =
   match req with
-  | Measure id  -> CCOpt.(parse_measures id msg >>= fun _ -> Some ())
+  | Get_measure id -> parse_measures id msg

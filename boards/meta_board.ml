@@ -12,15 +12,23 @@ exception Invalid_port of string
 
 type board = { handlers        : (module Api_handler.HANDLER) list
              ; control         : int
-             ; streams_signal  : Common.Stream.stream list React.signal
+             ; streams_signal  : Common.Stream.t list React.signal
              ; step            : (Cbuffer.t list -> 'c cc as 'c) cc
              ; connection      : state React.signal
              ; ports_active    : bool React.signal Ports.t
+             ; settings_page   : (string * [`Div] Tyxml.Html.elt React.signal)
+             ; widgets_page    : (string * [`Div] Tyxml.Html.elt React.signal) list
              ; state           : < >
              }
 
 module type BOARD = sig
-  val create       : topo_board -> (Cbuffer.t -> unit Lwt.t) -> Storage.Database.t -> path -> float -> board
+  val create       : topo_board ->
+                     Common.Stream.t list React.signal ->
+                     (Common.Stream.stream list React.signal -> topo_board -> Common.Stream.t list React.signal) ->
+                     (Cbuffer.t -> unit Lwt.t) ->
+                     Storage.Database.t ->
+                     path ->
+                     float -> board
 end
 
 module Msg = struct
@@ -146,3 +154,93 @@ let concat_acc acc recvd = match acc with
   | None     -> Cbuffer.concat (List.rev recvd)
 
 let apply = function `Continue step -> step
+
+module Map  = CCMap.Make(CCInt)
+
+let get_streams (boards : board Map.t)
+                (topo : topo_board)
+    : Common.Stream.t list React.signal =
+  let rec get_streams' acc = function
+    | []    -> acc
+    | h::tl -> match h.child with
+               | Input i -> get_streams' acc tl
+               | Board b -> match Map.get b.control boards with
+                            | Some b -> get_streams' (React.S.l2 (@) b.streams_signal acc) tl
+                            | None   -> get_streams' acc tl
+  in
+  get_streams' (React.S.const []) topo.ports
+
+let merge_streams (boards : board Map.t)
+                  (raw_streams : Common.Stream.stream list React.signal)
+                  (topo : topo_board) 
+    : Common.Stream.t list React.signal =
+  let open React in
+  let open Common.Stream in
+  let open CCOpt in
+  let ports =
+    List.fold_left (fun m port ->
+        match port.child with
+        | Input i -> Map.add port.port (`Input i) m
+        | Board b -> try let b = Map.find b.control boards in
+                         Map.add port.port (`Streams b.streams_signal) m
+                     with _ -> m)
+      Map.empty topo.ports
+  in
+  let create_in_stream (s : stream) i =
+    `Done (S.const (Some { source = (Input i)
+                         ; id     = s.id
+                         ; description = s.description }))
+  in
+  (* let g = S.fmap (function None -> None | Some x -> Some (string_of_int x)) "" a;; *)
+  let find_cor_stream (s : stream) lst = (* use S.fmap `None*)
+    let initial = S.map (CCList.find_pred (fun n -> n.id = s.id)) lst in
+    `Done (S.fmap (function None -> None | Some x -> Some (Some x)) None initial)
+  in
+  let compose_hier (s : stream) id sms =
+    CCList.find_pred (fun ((stream : stream), _) -> stream.id = `Ts id) sms
+    |> function None        -> `Await s
+              | Some (_ ,v) ->
+                 `Done (S.map (function
+                              Some p -> Some ({ source = (Parent p)
+                                              ; id     = s.id
+                                              ; description = s.description })
+                            | None -> None)
+                          v)
+  in
+  let transform acc (s : stream) =
+    match s.source with
+    | Port i -> (Map.get i ports
+                 |> function
+                   | None                -> `Error (Printf.sprintf "merge_streams: port %d is not connected" i) 
+                   | Some (`Input i)     -> create_in_stream s i
+                   | Some (`Streams lst) -> find_cor_stream s lst)
+    | Stream id -> compose_hier s id acc
+  in
+  let rec lookup acc await = function
+    | []    -> cleanup acc await
+    | x::tl -> 
+       (match transform acc x with
+        | `Done s  -> lookup ((x,s)::acc) await tl
+        | `Await s -> lookup acc (s::await) tl
+        | `None    -> lookup acc await tl
+        | `Error e -> failwith e)
+  and cleanup acc = function
+    | []    -> acc
+    | x::tl ->
+       (match transform acc x with
+        | `Done s  -> cleanup ((x,s)::acc) tl
+        | `None    -> cleanup acc tl
+        | `Error e -> failwith e
+        | `Await s -> try CCList.find (fun (p : stream) ->
+                              match s.source with
+                              | Stream id -> (`Ts id) = p.id
+                              | _ -> false)
+                            tl |> ignore; (* parent exists TODO: check it more thoroughly *)
+                          cleanup acc (CCList.append tl [s])
+                      with _ -> cleanup acc tl)
+  in
+  raw_streams
+  |> S.map ~eq:(==) (lookup [] [])
+  |> S.map ~eq:(==) (List.map snd)
+  |> S.map ~eq:(==) (fun l -> S.merge ~eq:(==) (fun acc x -> match x with None -> acc | Some x -> x::acc) [] l)
+  |> S.switch ~eq:(==)

@@ -16,12 +16,7 @@ let graph_state_to_yojson = function
   | Play  -> `String "play"
   | Stop  -> `String "stop"
 
-type t =
-  { state : graph_state option [@default None] } [@@deriving yojson]
+type t ={ state : graph_state
+        } [@@deriving yojson]
 
-open Opt_update
-
-let update a b =
-  { state = a.state <+> b.state }
-
-let default = { state = None }
+let default = { state = Null }

@@ -12,5 +12,5 @@
   (libraries (ctypes ctypes.foreign lwt lwt.preemptive
               websocket-lwt.cohttp lwt_react
               common meta_board board-dvb-niit
-              board-ip-dektec board-qos-niit))
+              board-ip-dektec board-qos-niit board-ts2ip-niit))
   (preprocess (pps (ppx_deriving_yojson ppx_sqlexpr ppx_cstruct)))))
