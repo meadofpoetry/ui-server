@@ -29,7 +29,7 @@ let get_state control =
 
 let get_config control =
   get_js (Printf.sprintf "/api/board/%d/config" control)
-  >|= CCResult.(flat_map config_of_yojson)
+  >|= CCResult.(flat_map config_response_of_yojson)
 
 let get_streams control =
   get_js (Printf.sprintf "/api/board/%d/streams" control)

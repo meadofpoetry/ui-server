@@ -38,17 +38,20 @@ module SM = struct
     msgs := Queue.append !msgs { send; pred; timeout = 0; exn = None };
     t
 
-  let step msgs imsgs sender (storage : config storage) step_duration push_state push_events push_info =
+  let step msgs imsgs sender (storage : config storage) step_duration push_state (push_events:push_events) push_info =
     let period = to_period 5 step_duration in
 
     let wakeup_timeout (_,t) = t.pred `Timeout |> ignore in
-    let events_push info = function
-      | `Status x -> let status = match info.packers_num,x.data with
-                       | Some n,General g -> { x with data = General (CCList.take n g) }
-                       | None, General g  -> { x with data = General [] }
-                       | _                -> x
-                     in
-                     push_events.status status in
+    let events_push _ = function
+      | `Status (brd,General x) -> let sms  = CCList.map (fun x -> x.base) storage#get.streams in
+                                   let pkrs = CCList.take (CCList.length sms) x in
+                                   let status = { board_status   = brd
+                                                ; packers_status = CCList.map2 CCPair.make sms pkrs
+                                                }
+                                   in
+                                   push_events.status status
+      | _ -> ()
+    in
 
     let rec first_step () =
       Await_queue.iter !msgs wakeup_timeout;
@@ -105,12 +108,10 @@ module SM = struct
 
   let streams_to_stream_settings (streams:Common.Stream.t list) =
     let succ_mcast addr = Int32.add (Ipaddr.V4.to_int32 addr) 1l |> Ipaddr.V4.of_int32 in
-    let rec pack addr port acc = function
+    let rec pack dst_ip dst_port acc = function
       | []         -> acc
-      | stream::tl -> let dst_ip   = succ_mcast addr in
-                      let dst_port = succ port in
-                      let s        = { dst_ip; dst_port; enabled = true; stream } in
-                      pack dst_ip dst_port (s :: acc) tl
+      | stream::tl -> let s = { dst_ip; dst_port; enabled = true; stream } in
+                      pack (succ_mcast dst_ip) (succ dst_port) (s :: acc) tl
     in
     pack (Ipaddr.V4.make 224 1 2 2) 1234 [] streams
 
@@ -120,7 +121,7 @@ module SM = struct
     let msgs  = ref (Await_queue.create []) in
     let imsgs = ref (Queue.create []) in
     let status,status_push = React.E.create () in
-    let (events : events) = { status = status
+    let (events : events) = { status = React.E.changes status
                             ; config = React.S.changes @@ React.S.map config_to_config_response s_config
                             } in
     let push_events = { status = status_push } in

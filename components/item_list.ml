@@ -7,16 +7,15 @@ end
 module Item = struct
 
   (* TODO add ripple manually, without auto-init *)
-  class t ?ripple ?secondary_text ?start_detail ?end_detail ~text () =
+  class t ?(ripple=false) ?secondary_text ?start_detail ?end_detail ~text () =
 
-    let elt = Markup.List_.Item.create ?auto_init:ripple
-                                       ?secondary_text
+    let elt = Markup.List_.Item.create ?secondary_text
                                        ?start_detail:(CCOpt.map Widget.widget_to_markup start_detail)
                                        ?end_detail:(CCOpt.map Widget.widget_to_markup end_detail)
                                        ~text ()
               |> Tyxml_js.To_dom.of_element in
 
-    object
+    object(self)
       inherit Widget.widget elt ()
 
       (* TODO add setters, real getters *)
@@ -24,6 +23,7 @@ module Item = struct
       method get_secondary_text = secondary_text
 
       initializer
+        if ripple then Ripple.attach self |> ignore;
         CCOpt.iter (fun x -> x#add_class Markup.List_.Item.start_detail_class) start_detail;
         CCOpt.iter (fun x -> x#add_class Markup.List_.Item.end_detail_class) end_detail
     end

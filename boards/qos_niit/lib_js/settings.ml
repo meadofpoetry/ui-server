@@ -82,7 +82,7 @@ let page control =
     Requests.get_config control
     >>= (fun init ->
       let event,sock = Requests.get_config_ws control in
-      Dom.appendChild div(layout control ~init ~event)#root;
+      Dom.appendChild div (layout control ~init ~event)#root;
       Lwt_result.return sock)
   in
   div,(fun () -> t >>= (fun x -> x##close; Lwt_result.return ()) |> ignore)

@@ -25,7 +25,7 @@ let () =
     | TS    -> [ "QoS",       (fun () -> Board_qos_niit_js.Settings.page control)
                ; "Структура", (fun () -> Board_qos_niit_js.Structure.page control)
                ]
-    | TS2IP -> [ ]
+    | TS2IP -> [ "TS2IP", (fun () -> Board_ts2ip_niit_js.Settings.page control) ]
   in
   let tabs = CCList.fold_left (fun acc (c,typ) -> (CCList.rev @@ board_to_tabs c typ) @ acc) [] boards
              |> CCList.rev in

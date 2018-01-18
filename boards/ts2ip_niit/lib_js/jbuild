@@ -3,7 +3,7 @@
 (library
  ((name        board_ts2ip_niit_js)
   (public_name board-ts2ip-niit-js)
-  (modules     (requests board_types))
+  (modules     (requests board_types settings))
   (synopsis "js interface of the ts2ip_niit board")
   (libraries (containers common api-js components))
   (flags (:standard -short-paths -strict-sequence -bin-annot

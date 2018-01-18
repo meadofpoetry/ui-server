@@ -32,21 +32,18 @@ type factory_settings =
   { mac : Macaddr.t
   } [@@deriving yojson]
 
-type packer_setting =
-  { stream    : Common.Stream.t
-  ; stream_id : int32
-  ; port      : int
-  ; dst_ip    : Ipaddr.V4.t
-  ; dst_port  : int
-  ; self_port : int
-  ; enabled   : bool
-  } [@@deriving yojson]
-
 type stream_setting =
   { stream   : Common.Stream.t
   ; dst_ip   : Ipaddr.V4.t
   ; dst_port : int
   ; enabled  : bool
+  } [@@deriving yojson]
+
+type packer_setting =
+  { base      : stream_setting
+  ; stream_id : int32
+  ; port      : int
+  ; self_port : int
   } [@@deriving yojson]
 
 type nw_settings     =
@@ -60,20 +57,19 @@ type speed = Speed10
            | Speed1000
            | Speed_failure [@@deriving yojson]
 
-type status =
+type board_status =
   { phy_ok  : bool
   ; speed   : speed
   ; link_ok : bool
-  ; data    : status_data
-  }
-and status_data = General of packer_status list
-                | Unknown of string
-and packer_status =
+  } [@@deriving yojson]
+type packer_status =
   { bitrate  : int option
   ; enabled  : bool
   ; has_data : bool
   ; overflow : bool
   } [@@deriving yojson]
+type status_data = General of packer_status list
+                 | Unknown of string
 
 type config = { nw_mode      : nw_settings
               ; factory_mode : factory_settings
@@ -98,16 +94,12 @@ type config_response        = { nw_mode      : nw_settings
                               ; streams      : stream_setting list
                               } [@@deriving yojson]
 type streams_full_request   = stream_setting list [@@deriving yojson]
-
-let packer_setting_to_stream_setting (s:packer_setting) : stream_setting =
-  { stream   = s.stream
-  ; dst_ip   = s.dst_ip
-  ; dst_port = s.dst_port
-  ; enabled  = s.enabled
-  }
+type status                 = { board_status   : board_status
+                              ; packers_status : (stream_setting * packer_status) list
+                              } [@@deriving yojson]
 
 let config_to_config_response (c:config) : config_response =
   { nw_mode      = c.nw_mode
   ; factory_mode = c.factory_mode
-  ; streams      = CCList.map packer_setting_to_stream_setting c.streams
+  ; streams      = CCList.map (fun x -> x.base) c.streams
   }
