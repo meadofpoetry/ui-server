@@ -271,19 +271,19 @@ module Item = struct
 
     method private mouse_action meth ev =
       let init_pos = self#get_px_pos in
-       let init_x, init_y = ev##.clientX, ev##.clientY in
-         Dom_events.listen Dom_html.window Dom_events.Typ.mousemove
-           (fun _ ev ->
-             let x, y = ev##.clientX, ev##.clientY in
-             meth ~x ~y ~init_x ~init_y ~init_pos `Move;
-             false)
-         |> (fun x -> mov_listener <- Some x);
-         Dom_events.listen Dom_html.window Dom_events.Typ.mouseup
-           (fun _ ev ->
-             let x, y = ev##.clientX, ev##.clientY in
-             meth ~x ~y ~init_x ~init_y ~init_pos `End;
-             false)
-         |> (fun x -> end_listener <- Some x)
+      let init_x, init_y = ev##.clientX, ev##.clientY in
+      Dom_events.listen Dom_html.window Dom_events.Typ.mousemove
+        (fun _ ev ->
+          let x, y = ev##.clientX, ev##.clientY in
+          meth ~x ~y ~init_x ~init_y ~init_pos `Move;
+          false)
+      |> (fun x -> mov_listener <- Some x);
+      Dom_events.listen Dom_html.window Dom_events.Typ.mouseup
+        (fun _ ev ->
+          let x, y = ev##.clientX, ev##.clientY in
+          meth ~x ~y ~init_x ~init_y ~init_pos `End;
+          false)
+      |> (fun x -> end_listener <- Some x)
 
     method private touch_action meth ev =
       let init_pos = self#get_px_pos in
@@ -595,12 +595,15 @@ class ['a] t ~grid ~(items:'a item list) () =
       (* add item add/remove listener *)
       React.E.map (function
                    | `Add (x:'a Item.t) -> Dom.appendChild self#root x#root
-                   | `Remove x       -> Dom.removeChild self#root x#root) e_modify |> ignore;
+                   | `Remove x       -> Dom.removeChild self#root x#root) e_modify
+      |> ignore;
       (* add initial items *)
       CCList.iter (fun x -> e_modify_push (`Add x)) items;
       (* add height update listener *)
-      React.S.l2 (fun h row_h -> self#style##.height := Utils.px (h * row_h)) s_rows s_row_h |> ignore;
-      Dom_events.listen Dom_html.window Dom_events.Typ.resize (fun _ _ -> self#layout; true) |> ignore;
+      React.S.l2 (fun h row_h -> self#style##.height := Utils.px (h * row_h)) s_rows s_row_h
+      |> ignore;
+      Dom_events.listen Dom_html.window Dom_events.Typ.resize (fun _ _ -> self#layout; true)
+      |> ignore;
       MutationObserver.observe
         ~node:Dom_html.document
         ~f:(fun _ _ -> let in_dom_new = (Js.Unsafe.coerce Dom_html.document)##contains self#root in

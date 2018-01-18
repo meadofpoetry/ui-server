@@ -6,17 +6,17 @@ let js = Js.string
 
 let resolution_to_aspect resolution =
   let w, h = resolution in
-  let rec deja_vu a b =
+  let rec greatest_common_divisor a b =
     if a != 0 && b != 0 then
       let a, b =
       if a > b
       then a mod b, b
       else a, b mod a
       in
-      deja_vu a b
+      greatest_common_divisor a b
     else a + b in
-  let divisor = deja_vu w h in
-  let new_res = w / divisor, h / divisor in
+  let d = greatest_common_divisor w h in
+  let new_res = w / d, h / d in
   new_res
 
 
@@ -76,17 +76,22 @@ let initialize d (wm: Wm.t) =
   let (items:'a Dynamic_grid.item list) =
     List.map
       (fun (x: string * Wm.container) ->
-        let _, cont = x in
+        let _, cont      = x in
         let res_w, res_h = wm.resolution in
-        let x = cols * cont.position.left / res_w in
-        let w = cols * (cont.position.right - cont.position.left) / res_w in
-        let y = rows * cont.position.top / res_h in
-        let h = rows * (cont.position.bottom - cont.position.top) / res_h in
+        let x            = cols * cont.position.left / res_w in
+        let w            = cols * (cont.position.right - cont.position.left) / res_w in
+        let y            = rows * cont.position.top / res_h in
+        let h            = rows * (cont.position.bottom - cont.position.top) / res_h in
+        let value        =
+          match cont.widgets with
+          | [] -> List.hd wm.widgets
+          | _ -> List.hd cont.widgets
+        in
         Dynamic_grid.Item.to_item
           ~pos:{ x; y; w; h }
           ~min_w:1
           ~min_h:1
-          ~value:(List.hd cont.widgets) ()
+          ~value ()
       ) wm.layout in
   let add_free = new Button.t ~label:"add" () in
   let grid  = new Dynamic_grid.t ~grid:props ~items () in
@@ -105,7 +110,9 @@ let initialize d (wm: Wm.t) =
                                     | Error _ -> Lwt.return_unit)
                                |> ignore;
                                Lwt.return ()
-                            | `Cancel -> print_endline "Dialog cancelled"; Lwt.return ()))
+                            | `Cancel ->
+                               print_endline "Dialog cancelled";
+                               Lwt.return ()))
     add_free#e_click
   |> ignore;
   let demo = add[(section "Dynamic grid" [grid#widget; add_free#widget])] in
@@ -114,7 +121,11 @@ let initialize d (wm: Wm.t) =
       let layout =
         List.map (fun (x: 'a Dynamic_grid.Item.t) ->
             let wd = x#get_value in
-            let width, height = grid#root##.offsetWidth, grid#root##.offsetHeight in
+            let width, height =
+              match grid#root##.offsetWidth, grid#root##.offsetHeight with
+              | 0,0 -> 100, 100
+              | x,y -> x  , y
+            in
             let col = width / props.cols in
             let row = match props.rows with
               | Some rows -> height / rows
