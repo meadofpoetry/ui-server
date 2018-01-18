@@ -13,11 +13,11 @@ let () = Random.init (int_of_float @@ Unix.time ())
 let rand_int = fun () -> Random.run (Random.int 10000000)
 
 let socket_table = Hashtbl.create 1000
-
+   
 let devinfo api =
   api.devinfo () >>= fun devi ->
   respond_js (devinfo_response_to_yojson devi) ()
-
+   
 let reset api =
   api.reset () >>= respond_ok
 
@@ -48,12 +48,9 @@ let config api =
   api.config () >>= fun conf ->
   respond_js (config_to_yojson conf) ()
 
-let state s_state =
-  respond_js (Common.Topology.state_to_yojson @@ Lwt_react.S.value s_state) ()
-
-let sock_handler sock_data (event:'a React.event) (to_yojson:'a -> Yojson.Safe.json) body =
+let measures sock_data events body =
   let id = rand_int () in
-  Cohttp_lwt.Body.drain_body body
+  Cohttp_lwt_body.drain_body body
   >>= fun () ->
   Websocket_cohttp_lwt.upgrade_connection
     (fst sock_data)
@@ -63,43 +60,29 @@ let sock_handler sock_data (event:'a React.event) (to_yojson:'a -> Yojson.Safe.j
               | _ -> ())
   >>= fun (resp, body, frames_out_fn) ->
   let send x =
-    let msg = Yojson.Safe.to_string x in
+    let msg = Api.Msg_conv.to_string @@ x in
     frames_out_fn @@ Some (Frame.create ~content:msg ())
   in
-  let sock_events = Lwt_react.E.map (send % to_yojson) event in
+  let sock_events = Lwt_react.E.map (send % measure_to_yojson) events.measure in
   Hashtbl.add socket_table id sock_events;
-  Lwt.return (resp, (body :> Cohttp_lwt.Body.t))
-
-let state_ws sock_data s_state body =
-  sock_handler sock_data (React.S.changes s_state) Common.Topology.state_to_yojson body
-
-let config_ws sock_data (events : events) body =
-  sock_handler sock_data events.config config_to_yojson body
-
-let measures_ws sock_data (events : events) body =
-  sock_handler sock_data events.measure measure_response_to_yojson body
-
-let handle api events id s_state _ meth args sock_data _ body =
+  Lwt.return (resp, (body :> Cohttp_lwt_body.t))
+          
+let handle api events _ meth args sock_data _ body =
   let open Lwt.Infix in
   let open Api.Redirect in
   (* let redirect_if_guest = redirect_if (User.eq id `Guest) in *)
   match meth, args with
-  | `GET,  ["devinfo"]     -> devinfo api
-  | `GET,  "plps"::[num]   -> plps api num
-  | `GET,  ["config"]      -> config api
-  | `GET,  ["state"]       -> state s_state
-
-  | `POST, ["reset"]       -> reset api
-  | `POST, ["settings"]    -> settings api body
-  | `POST, ["plp_setting"] -> plp_setting api body
-
-  | `GET,  ["state_ws"]    -> state_ws sock_data s_state body
-  | `GET,  ["config_ws"]   -> config_ws sock_data events body
-  | `GET,  ["measures_ws"] -> measures_ws sock_data events body
+  | `GET,  ["devinfo"]      -> devinfo api
+  | `POST, ["reset"]        -> reset api
+  | `POST, ["settings"]     -> settings api body
+  | `POST, ["plp_setting"]  -> plp_setting api body
+  | `GET,  "plps"::[num]    -> plps api num
+  | `GET,  ["config"]       -> config api
+  | _,     ["measures"]     -> measures sock_data events body
   | _ -> not_found ()
 
-let handlers id api events s_state =
+let handlers id api events =
   [ (module struct
        let domain = Common.Topology.get_api_path id
-       let handle = handle api events id s_state
+       let handle = handle api events
      end : Api_handler.HANDLER) ]

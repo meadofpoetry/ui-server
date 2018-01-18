@@ -1,5 +1,4 @@
 (* NOTE: just an assumption *)
-(*
 type widget_type = Video
                  | Audio
                  | Subtitles
@@ -14,7 +13,7 @@ type widget_type = Video
                  | Service_info (* text with service desrciption (resolution,codec,etc) *)
                  | Icons_bar    (* status bar with availability indication of eit, scte35, teletext etc  *)
 [@@deriving yojson]
- *)
+
 type background = (* NOTE incomplete *)
   { color : int } [@@deriving yojson]
 
@@ -26,27 +25,28 @@ type position =
   } [@@deriving yojson]
 
 type widget =
-  { type_       : string [@key "type"]
-  ; position    : position
-  ; layer       : int
-  ; aspect      : (int * int)
-  ; description : string
+  { type_    : widget_type [@key "type"]
+  ; position : position
   } [@@deriving yojson]
 
-type container =
+type window =
   { position : position
-  ; widgets  : (string * widget) list
+  ; widgets  : (string * widget) list option
   } [@@deriving yojson]
 
 type t =
-  { resolution : int * int
+  { background : background
+  ; resolution : int * int
+  ; windows    : (string * window) list
   ; widgets    : (string * widget) list
-  ; layout     : (string * container) list
+  ; layout     : (string * window) list
   } [@@deriving yojson]
 
 let update _ b = b
 
-let default = { resolution = 1920, 1080
+let default = { background = { color = 0 }
+              ; resolution = 1920, 1080
+              ; windows   = []
               ; widgets   = []
               ; layout    = []
               }

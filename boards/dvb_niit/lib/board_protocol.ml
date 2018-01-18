@@ -15,15 +15,9 @@ let timeout_period step_duration = 2 * int_of_float (1. /. step_duration) (* 2 s
           
 let request_period step_duration = 5 * int_of_float (1. /. step_duration) (* 5 secs *)
 
-let detect = Get_devinfo
+let detect = Devinfo
 
-let init =
-  let get_s x = match x.mode with
-    | T2 -> { mode = T2; channel = x.t2 }
-    | T  -> { mode = T ; channel = x.t  }
-    | C  -> { mode = C ; channel = x.c  }
-  in
-  CCList.map (fun (i,x) -> Set_settings (i,get_s x))
+let init = List.map (fun x -> Settings x)
 
 let detect_msgs (send_req : 'a request -> unit Lwt.t) timeout =
   [ { send = (fun () -> send_req detect)
@@ -33,47 +27,46 @@ let detect_msgs (send_req : 'a request -> unit Lwt.t) timeout =
   } ]
 
 let init_msgs (send_req : 'a request -> unit Lwt.t) timeout d =
-  CCList.map (fun x -> { send = (fun () -> send_req x)
-                       ; pred = (is_response x)
-                       ; timeout
-                       ; exn = None })
-             (init d)
-
+  List.map (fun x -> { send = (fun () -> send_req x)
+                     ; pred = (is_response x)
+                     ; timeout
+                     ; exn = None })
+    (init d)
+  
 let measure_probes (send_ev : 'a event_request -> unit Lwt.t) timeout config =
   List.map (fun x ->
-      { send = (fun () -> send_ev @@ Get_measure x)
-      ; pred = (is_event (Get_measure x))
+      { send = (fun () -> send_ev @@ Measure x)
+      ; pred = (is_event (Measure x))
       ; timeout
       ; exn = None
     })
-    config.modules
-
+    config.modules               
+  
 module SM = struct
 
   type event = [ `Measure of (int * Cbuffer.t) ]
 
   let wakeup_timeout t = t.pred `Timeout |> ignore
 
-  type push_events = { measure : measure_response -> unit
-                     ; devinfo : devinfo_response -> unit
+  type push_events = { measure : (int * rsp_measure) -> unit
                      }
 
   let event_push pe = function
-    | Measure x -> pe.measure x
+    | `Measure (id, buf) -> pe.measure (id, of_rsp_measure_exn buf)
 
   let send_msg (type a) sender (msg : a request) : unit Lwt.t =
     (match msg with
-     | Get_devinfo            -> to_req_devinfo false
-     | Reset                  -> to_req_devinfo true
-     | Set_settings (id, buf) -> to_req_settings id buf
-     | Set_plp (id, buf)      -> to_req_plp_set id buf
-     | Get_plps id            -> to_req_plp_list id)
+     | Devinfo               -> to_req_devinfo false
+     | Reset                 -> to_req_devinfo true
+     | Settings (id, buf)    -> to_req_settings id buf
+     | Plp_setting (id, buf) -> to_req_plp_set id buf
+     | Plps id               -> to_req_plp_list id)
     |> sender
 
   let send_event (type a) sender (msg : a event_request) : unit Lwt.t =
     (* no instant msgs *)
     match msg with
-    | Get_measure id -> sender @@ to_req_measure id
+    | Measure id -> sender @@ to_req_measure id
 
   let send (type a) msgs sender (storage : config storage) timeout (msg : a request) : a Lwt.t =
     (* no instant msgs *)
@@ -83,17 +76,11 @@ module SM = struct
       | l -> let open CCOpt in
              is_response msg l >|= fun r ->
              (match msg with
-              | Set_settings (i,ns) ->
-                 let upd =
-                   CCList.Assoc.update ~f:(function
-                                           | Some os -> let os = { os with mode = ns.mode } in
-                                                        Some (match ns.mode with
-                                                              | T2 -> { os with t2 = ns.channel }
-                                                              | T  -> { os with t  = ns.channel }
-                                                              | C  -> { os with c  = ns.channel })
-                                           | None   -> None)
-                                       i storage#get
-                 in storage#store upd;
+              | Settings (d, dat) -> let conf = List.map (fun (i,old) -> if i = d
+                                                                         then (d, dat)
+                                                                         else (i, old))
+                                                  storage#get
+                                     in storage#store conf
               | _ -> ());
              Lwt.wakeup w r
     in
@@ -106,8 +93,8 @@ module SM = struct
   let step msgs sender (storage : config storage) step_duration push_state push_events =
     let period         = timeout_period step_duration in
     let request_period = request_period step_duration in
+    let push_events  = event_push push_events in
     let detect_pool  = Pool.create (detect_msgs (send_msg sender) period) in
-    let time         = ref 0.0 in
 
     let rec first_step () =
       Queue.iter !msgs wakeup_timeout;
@@ -122,10 +109,12 @@ module SM = struct
         let recvd = Meta_board.concat_acc acc recvd in
         let _, responses, acc = deserialize recvd in
         match Pool.responsed detect_pool responses with
-        | Some detect -> push_state `Init;
-                         push_events.devinfo (Some detect);
-                         step_start_init (measure_probes (send_event sender) period detect)
-        | _           -> `Continue (step_detect (Pool.step detect_pool) acc)
+        | Some detect -> step_start_init (measure_probes (send_event sender) period detect)
+        | _           -> if detect_pool.timer > 0
+                         then `Continue (step_detect (Pool.step detect_pool) acc)
+                         else let detect_pool = Pool.next detect_pool in
+                              Pool.send detect_pool () |> ignore;
+                              `Continue (step_detect detect_pool acc)
       with Timeout -> first_step ()
 
     and step_start_init probes =
@@ -145,7 +134,9 @@ module SM = struct
         let recvd = Meta_board.concat_acc acc recvd in
         let _, responses, acc = deserialize recvd in
         match Pool.responsed init_pool responses with
-        | None    -> `Continue (step_init (Pool.step init_pool) probes acc)
+        | None    -> if init_pool.timer < 0
+                     then (first_step ())
+                     else `Continue (step_init (Pool.step init_pool) probes acc)
         | Some _  ->
            (match Pool.last init_pool with
             | true   -> push_state `Fine;
@@ -159,12 +150,10 @@ module SM = struct
     and step_normal_probes_send probes_pool period_timer acc _ =
       (*Lwt_io.printf "Normal step probes send \n" |> ignore;*)
       if (period_timer >= request_period) then raise (Failure "board_dvb: sm invariant is broken");
-
+           
       if Pool.empty probes_pool
       then `Continue (step_normal_requests_send probes_pool (succ period_timer) acc)
       else (Pool.send probes_pool () |> ignore;
-            (* Lwt_io.printlf "sending probe" |> ignore; *)
-            time := Unix.gettimeofday ();
             `Continue (step_normal_probes_wait probes_pool (succ period_timer) acc))
 
     and step_normal_probes_wait probes_pool period_timer acc recvd =
@@ -176,14 +165,12 @@ module SM = struct
         (match Pool.responsed probes_pool events with
          | None    -> let probes_pool = Pool.step probes_pool in
                       `Continue (step_normal_probes_wait probes_pool (succ period_timer) acc)
-         | Some ev -> (* Lwt_io.printlf "received probe, %f" (Unix.gettimeofday () -. !time) |> ignore; *)
-                      let new_probes_pool = Pool.next probes_pool in
-                      event_push push_events ev;
+         | Some () -> let new_probes_pool = Pool.next probes_pool in
+                      List.iter push_events events;
                       if Pool.last probes_pool
                       then `Continue (step_normal_requests_send new_probes_pool period_timer acc)
                       else step_normal_probes_send new_probes_pool period_timer acc recvd)
-      with Timeout -> (* Lwt_io.printlf "probe not received, %f" (Unix.gettimeofday () -. !time)|> ignore; *)
-        first_step ()
+      with Timeout -> first_step ()
 
     and step_normal_requests_send probes_pool period_timer acc _ =
       (*Lwt_io.printf "Normal step requests send\n" |> ignore;*)
@@ -208,28 +195,19 @@ module SM = struct
       with Timeout -> first_step ()
     in
     first_step ()
-
+    
   let create sender (storage : config storage) push_state step_duration =
     let period = timeout_period step_duration in
-    let e_config, e_config_push   = React.E.create () in
-    let s_devinfo, s_devinfo_push = React.S.create None in
-    let e_measure, e_measure_push = React.E.create () in
-    let (events : events)   = { measure = e_measure
-                              ; config  = React.E.changes ~eq:equal_config e_config
-                              }
-    in
-    let (push_events : push_events) = { measure = e_measure_push
-                                      ; devinfo = s_devinfo_push
-                                      }
-    in
+    let measure, mpush = React.E.create () in
+    let (events : events) = { measure } in
+    let push_events = { measure = mpush } in
     let msgs = ref (Queue.create []) in
     let send x = send msgs sender storage period x in
-    let api = { devinfo     = (fun ()    -> Lwt.return @@ React.S.value s_devinfo)
+    let api = { devinfo     = (fun ()    -> send Devinfo)
               ; reset       = (fun ()    -> send Reset)
-              ; settings    = (fun s     -> send (Set_settings s)
-                                            >>= (fun x -> e_config_push storage#get; Lwt.return x))
-              ; plp_setting = (fun (n,s) -> send (Set_plp (n,s)))
-              ; plps        = (fun n     -> send (Get_plps n))
+              ; settings    = (fun s     -> send (Settings s))
+              ; plp_setting = (fun (n,s) -> send (Plp_setting (n,s)))
+              ; plps        = (fun n     -> send (Plps n))
               ; config      = (fun ()    -> Lwt.return storage#get)
               }
     in

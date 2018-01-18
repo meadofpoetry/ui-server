@@ -22,42 +22,56 @@ type 'a request = 'a Board_protocol.request
 
 let create_sm = Board_protocol.SM.create
 
-let create (b:topo_board) _ convert_streams send db base step =
+let create (b:topo_board) send db base step =
   let storage          = Config_storage.create base ["board"; (string_of_int b.control)] in
   let s_state, spush   = React.S.create `No_response in
   let events,api,step  = create_sm send storage spush step in
-  let handlers         = Board_api.handlers b.control api events s_state in
+  let handlers         = Board_api.handlers b.control api events in
   let s_asi,s_asi_push = React.S.create false in
   let s_spi,s_spi_push = React.S.create false in
-  let e_status         = React.E.map (fun (x : user_status) -> match x.mode.input with
-                                                               | SPI -> s_spi_push true; s_asi_push false
-                                                               | ASI -> s_asi_push true; s_spi_push false)
+  (* let _                = React.S.map (fun x -> Lwt_io.printf "%s" ("spi is " ^ (if x then "active" else "inactive"))) *)
+  (*                                    s_spi in *)
+  (* let _                = React.S.map (fun x -> Lwt_io.printf "%s" ("asi is " ^ (if x then "active" else "inactive"))) *)
+  (*                                    s_asi in *)
+  let e_status         = React.E.map (fun (x : user_status) -> (match x.mode.input with
+                                                                | SPI -> s_spi_push true; s_asi_push false
+                                                                | ASI -> s_asi_push true; s_spi_push false))
                                      events.status in
-  let s_streams        = React.S.map (fun x ->
-                             let open Common.Stream in
-                             List.map (fun x : stream ->
-                                               { source      = (match x with
-                                                                | T2mi_plp _ -> Stream Single
-                                                                | _          -> Port (if React.S.value s_spi
-                                                                                      then 0
-                                                                                      else 1))
-                                               ; id          = `Ts x
-                                               ; description = Some "" }) x)
-                                     events.streams in
-  let sms = convert_streams s_streams b in
-  let _e = React.E.map (fun s ->
-               `List (List.map Common.Stream.to_yojson s)
-               |> Yojson.Safe.pretty_to_string
-               (* |> Lwt_io.printf "QOS sms: %s\n" *)
-               |> ignore;) @@ React.S.changes sms in
+  let e_ts_found       = React.E.map (fun strm ->
+                             Common.Stream.id_to_yojson strm
+                             |> Yojson.Safe.to_string
+                             |> Lwt_io.printf "Stream found: %s\n"
+                             |> ignore) events.ts_found in
+  let e_ts_lost       = React.E.map (fun strm ->
+                            Common.Stream.id_to_yojson strm
+                            |> Yojson.Safe.to_string
+                            |> Lwt_io.printf "Stream lost: %s\n"
+                            |> ignore) events.ts_lost in
+  let e_t2mi_info     = React.E.map (fun x ->
+                            t2mi_info_to_yojson x
+                            |> Yojson.Safe.pretty_to_string
+                            |> Lwt_io.printf "T2-MI Info: %s\n"
+                            |> ignore) events.t2mi_info in
+  let e_state         = React.S.map (function
+                                     | `No_response -> Lwt_io.printf "QoS Board not responding\n"
+                                     | `Fine        -> Lwt_io.printf "QoS Board is OK\n"
+                                     | `Init        -> Lwt_io.printf "QoS Board is initializing\n") s_state in
+  let e_struct        = React.E.map (fun x ->
+                            `List (List.map ts_struct_to_yojson x)
+                            |> Yojson.Safe.pretty_to_string
+                            (* |> Lwt_io.printf "Structs: %s\n" *)
+                            |> ignore) events.structs in
   let state           = (object
                            method e_status   = e_status;
-                           method s_streams = s_streams;
-                           method _e = _e;
+                           method e_state    = e_state;
+                           method e_ts_found = e_ts_found;
+                           method e_ts_lost  = e_ts_lost;
+                           method e_t2mi_info = e_t2mi_info;
+                           method e_struct = e_struct;
                          end) in
   { handlers       = handlers
   ; control        = b.control
-  ; streams_signal = sms
+  ; streams_signal = React.S.const []
   ; step           = step
   ; connection     = s_state
   ; ports_active   = (List.fold_left (fun acc p ->
@@ -66,8 +80,6 @@ let create (b:topo_board) _ convert_streams send db base step =
                            | 1 -> s_asi
                            | x -> raise (Invalid_port ("Board_qos_niit: invalid port " ^ (string_of_int x))))
                           |> fun x -> Ports.add p.port x acc)
-                        Ports.empty b.ports)
-  ; settings_page  = ("QOS", React.S.const (Tyxml.Html.div []))
-  ; widgets_page   = [("QOS", React.S.const (Tyxml.Html.div []))]
+                                     Ports.empty b.ports)
   ; state          = (state :> < >)
   }

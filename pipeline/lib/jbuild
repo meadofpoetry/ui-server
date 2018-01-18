@@ -9,19 +9,14 @@
   (ocamlopt_flags (:standard -short-paths -strict-sequence -bin-annot
                    -thread -w "+1..49+60" -w "+a-4-7-23-33-39-40-41-42-44-45-48"
                    -O3 -unbox-closures))
-  (libraries (containers yojson sqlexpr angstrom
+  (libraries (containers yojson sqlexpr
               lwt lwt-zmq lwt_react websocket-lwt.cohttp
               api storage common))
   (preprocess (pps (ppx_deriving_yojson ppx_sqlexpr)))))
 
 (rule
- ((targets (audio_data.ml))
-  (deps (../audio_data.ml))
-  (action (copy ${<} ${@}))))
-
-(rule
- ((targets (video_data.ml))
-  (deps (../video_data.ml))
+ ((targets (data.ml))
+  (deps (../data.ml))
   (action (copy ${<} ${@}))))
 
 (rule
@@ -40,8 +35,13 @@
   (action (copy ${<} ${@}))))
 
 (rule
- ((targets (structure.ml))
-  (deps (../structure.ml))
+ ((targets (state.ml))
+  (deps (../state.ml))
+  (action (copy ${<} ${@}))))
+
+(rule
+ ((targets (streams.ml))
+  (deps (../streams.ml))
   (action (copy ${<} ${@}))))
 
 (rule

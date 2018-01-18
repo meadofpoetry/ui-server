@@ -17,7 +17,7 @@ module Config_storage = Storage.Options.Make (Data)
 
 module Storage : sig
   type _ req =
-    | Store_measures : Board_types.measure_response -> unit Lwt.t req
+    | Store_measures : Board_types.measure -> unit Lwt.t req
   include (Storage.Database.STORAGE with type 'a req := 'a req)
 end = Db
     
@@ -25,44 +25,18 @@ type 'a request = 'a Board_protocol.request
 
 let create_sm = Board_protocol.SM.create
 
-let create (b:topo_board) _ convert_streams send db base step =
+let create (b:topo_board) send db base step =
   let storage      = Config_storage.create base ["board"; (string_of_int b.control)] in
   let s_state, spush = React.S.create `No_response in
   let events, api, step = create_sm send storage spush step in
-  let handlers = Board_api.handlers b.control api events s_state in (* XXX temporary *)
+  let handlers = Board_api.handlers b.control api events in (* XXX temporary *)
   Lwt_main.run @@ Storage.init db;
   let _s = Lwt_react.E.map_p (fun m -> Storage.request db (Storage.Store_measures m))
            @@ React.E.changes events.measure in
-  let s_streams = React.S.fold
-                    (fun (streams : Common.Stream.stream list)
-                         ((id,m) : Board_types.measure_response) ->
-                      let open Common.Stream in
-                      let plp = CCList.find_map (fun (x,c) -> if id = x then Some c else None) storage#get
-                                |> CCOpt.get_exn
-                                |> (fun x -> match x. mode with
-                                             | T2 -> x.t2.plp
-                                             | _  -> 0)
-                      in
-                      let (stream : stream) = { source      = Port 0
-                                              ; id          = `Ts (Dvb (id,plp)) (* TODO fix this *)
-                                              ; description = Some ""
-                                              } in
-                      match m.lock,m.bitrate with
-                      | true,Some x when x > 0l -> CCList.add_nodup stream streams
-                      | _                       -> CCList.remove ~x:stream streams)
-                    [] events.measure in
-  (*  let sms = convert_streams s_streams b in
-  let _e = React.E.map (fun s ->
-               `List (List.map Common.Stream.to_yojson s)
-               |> Yojson.Safe.pretty_to_string
-               |> Lwt_io.printf "QOS sms: %s\n"
-               |> ignore;) @@ React.S.changes sms in *)
-  let state = (object
-                 method _s = _s;
-               end) in
+  let state = object method _s = _s end in
   { handlers       = handlers
   ; control        = b.control
-  ; streams_signal = convert_streams s_streams b
+  ; streams_signal = React.S.const []
   ; step           = step
   ; connection     = s_state
   ; ports_active   = (List.fold_left (fun acc p ->
@@ -70,8 +44,6 @@ let create (b:topo_board) _ convert_streams send db base step =
                            | 0 -> React.S.const true
                            | x -> raise (Invalid_port ("Board_dvb_niit: invalid port " ^ (string_of_int x))))
                           |> fun x -> Ports.add p.port x acc)
-                        Ports.empty b.ports)
-  ; settings_page  = ("DVB", React.S.const (Tyxml.Html.div []))
-  ; widgets_page   = [("DVB", React.S.const (Tyxml.Html.div []))]
+                                     Ports.empty b.ports)
   ; state          = (state :> < >)
   }

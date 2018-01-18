@@ -11,7 +11,7 @@ module Make ( User : sig type t end ) = struct
   module type HANDLER = sig
     val domain : string
     val handle : User.t -> Cohttp.Code.meth -> string list -> socket_data ->
-                 Cohttp.Header.t -> Cohttp_lwt.Body.t -> (Cohttp.Response.t * Cohttp_lwt.Body.t) Lwt.t
+                 Cohttp.Header.t -> Cohttp_lwt_body.t -> (Cohttp.Response.t * Cohttp_lwt_body.t) Lwt.t
   end
   
   module Handlers = Hashtbl.Make(String)
