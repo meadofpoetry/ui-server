@@ -100,7 +100,6 @@ let load () =
                  Wm.to_yojson w
                  |> Yojson.Safe.to_string
                  |> print_endline;
-                 Printf.printf "%d\n" @@ List.length w.layout;
                  let wm_el = Ui.Wm.create ~init:w ~events:wm
                                ~post:(fun w -> Requests.post_wm w
                                                >|= (function

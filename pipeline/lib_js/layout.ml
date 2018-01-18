@@ -76,8 +76,7 @@ let initialize d (wm: Wm.t) =
   let (items:'a Dynamic_grid.item list) =
     List.map
       (fun (x: string * Wm.container) ->
-        let str, cont = x in
-        Printf.printf "%s\n" str;
+        let _, cont = x in
         let res_w, res_h = wm.resolution in
         let x = cols * cont.position.left / res_w in
         let w = cols * (cont.position.right - cont.position.left) / res_w in

@@ -371,7 +371,7 @@ let render ?on_click ~topology ~(width : int) ~canvas () =
                          >> P.line (P2.v 0. 0.)) in
   let draw_entry = (fun (acc_img,acc_top,number) x ->
       Entry.draw x (acc_img, acc_top, number) cols rows sz (float_of_int @@ get_node_height 0 x)) in
-  let (acc_img, acc_top, _) = List.fold_left draw_entry (start,[],-1.5) t in
+  let (acc_img, acc_top, _) = List.fold_left draw_entry (start,[],-0.5) t in
   render canvas (size (cw * cols) (rh * rows)) acc_img;
   let get_node e =
     let x, y  = int_of_float @@ Js.float_of_number @@ (Js.Unsafe.get e "offsetX"),
