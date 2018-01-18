@@ -1,7 +1,8 @@
+open Common.User
 open Api.Template
 open Api
    
-let home_template () : upper ordered_item list =
+let home_template () : upper ordered_item list user_table =
   let content = Tyxml.Html.(div [ p [pcdata "This is the main ATS-3 page"] ]
                             |> (Format.asprintf "%a" (pp_elt ())))
   in
@@ -11,4 +12,9 @@ let home_template () : upper ordered_item list =
               ; stylesheets  = []
               ; content      = [content]
               }
-  in [`None, Home props]
+  in
+  let rval = [`None, Home props] in
+  { root = rval
+  ; operator = rval
+  ; guest = rval
+  }

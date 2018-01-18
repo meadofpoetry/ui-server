@@ -36,8 +36,6 @@ type _ item =
   | Simple  : { title : string; href : Path.t; template : tmpl_props } -> _ item
   | Subtree : { title : string; href : Path.t; templates : inner ordered_item list } -> upper item
 and 'a ordered_item = (priority * 'a item)
-
-
                     
 let rec merge_subtree items =
   let subtree_eq priority title href = function

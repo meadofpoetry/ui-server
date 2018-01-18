@@ -171,6 +171,7 @@ type 'a validation =
   | Text        : string validation
   | IPV4        : Ipaddr.V4.t validation
   | MulticastV4 : Ipaddr.V4.t validation
+  | Password    : (string -> (unit, string) result) -> string validation
   | Custom      : ((string    -> ('a, string) result) * ('a -> string)) -> 'a validation
 
 let input_type_of_validation :
@@ -182,6 +183,7 @@ let input_type_of_validation :
   | Text        -> `Text
   | IPV4        -> `Text
   | MulticastV4 -> `Text
+  | Password _  -> `Password
   | Custom  _   -> `Text
 
 let parse_valid (type a) (v : a validation) (on_fail : string -> unit) (s : string) : a option =
@@ -198,10 +200,14 @@ let parse_valid (type a) (v : a validation) (on_fail : string -> unit) (s : stri
   | Text         -> Some s
   | IPV4         -> Ipaddr.V4.of_string s
   | MulticastV4  -> CCOpt.(Ipaddr.V4.of_string s >>= (fun x -> if Ipaddr.V4.is_multicast x then Some x else None))
+  | Password vf  ->
+     (match vf s with
+      | Ok () -> Some s
+      | Error e -> on_fail e; None)
   | Custom (f,_) ->
-     match f s with
-     | Ok v -> Some v
-     | Error s -> on_fail s; None
+     (match f s with
+      | Ok v -> Some v
+      | Error s -> on_fail s; None)
 
 let valid_to_string (type a) (v : a validation) (e : a) : string =
   match v with
@@ -211,6 +217,7 @@ let valid_to_string (type a) (v : a validation) (e : a) : string =
   | Email           -> e
   | IPV4            -> Ipaddr.V4.to_string e
   | MulticastV4     -> Ipaddr.V4.to_string e
+  | Password _      -> e
   | Text            -> e
 
 class ['a] text_input_widget ?v_msg ~input_elt (v : 'a validation) elt () =

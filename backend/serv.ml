@@ -1,5 +1,6 @@
 open Cohttp_lwt_unix
 open Containers
+open Common.User
 open Api.Redirect
 open Api.Interaction
 open Api.Template
@@ -40,14 +41,6 @@ let get_handler ~settings
                    |> String.split_on_char '/'
                    |> List.filter (not % String.equal "")
     in
-    let tmpl   = Filename.concat settings.path "html/templates/base.html"
-               |> CCIO.File.read_exn (* FIXME *) in
-    let pages  =
-      Common.User.{ root     = Api.Template.build_route_table tmpl "root" pages
-                  ; operator = Api.Template.build_route_table tmpl "operator" pages
-                  ; guest    = Api.Template.build_route_table tmpl "guest" pages
-      }
-    in
     let respond_page path id =
       let tbl = match id with
         | `Root     -> pages.root
@@ -67,8 +60,14 @@ let get_handler ~settings
   in
   handler
 
-let create config auth_filter routes pages =
+let create config auth_filter routes templates =
   let settings = Conf.get config in
+  let tmpl     = Filename.concat settings.path "html/templates/base.html"
+                 |> CCIO.File.read_exn (* FIXME *) in
+  let pages    = Common.User.map_table
+                   (fun u ts -> Api.Template.build_route_table tmpl (Common.User.to_string u) ts)
+                   templates
+  in
   let handler  = get_handler ~settings ~auth_filter ~routes ~pages in
   Cohttp_lwt_unix.Server.create ~mode:(`TCP (`Port settings.port))
                                 (Cohttp_lwt_unix.Server.make ~callback:handler ())
