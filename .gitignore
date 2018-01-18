@@ -6,5 +6,15 @@ dist/db
 *.install
 *.merlin
 tmp
+.sass-cache/*
+dist/resources/css/table.css
+dist/resources/css/table.css.map
 dist/resources/js/home.js
+dist/resources/js/demo.js
+dist/resources/js/configuration.js
+dist/resources/js/hardware.js
+dist/resources/js/input.js
+dist/resources/js/pipeline.js
+dist/resources/js/user.js
 dist/backend
+dist/config.json

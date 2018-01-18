@@ -105,8 +105,6 @@ type _ nw =
   | Reboot      : unit nw
   | Get_mac     : Macaddr.t nw
 
-type meth      = Unicast | Multicast
-
 let meth_to_int = function
   | Unicast -> 0 | Multicast -> 1
 let meth_of_int = function
@@ -176,13 +174,15 @@ type api = { addr      : addr -> addr Lwt.t
            ; enable    : flag -> flag Lwt.t
            ; fec       : flag -> flag Lwt.t
            ; port      : port -> port Lwt.t
+           ; meth      : meth -> meth Lwt.t
            ; multicast : multicast -> multicast Lwt.t
            ; delay     : delay -> delay Lwt.t
            ; rate_mode : rate_mode -> rate_mode Lwt.t
            ; reset     : unit -> unit Lwt.t
            ; config    : unit -> config Lwt.t
+           ; devinfo   : unit -> Board_types.devinfo Lwt.t
            }
-  
+
 type _ request = Devinfo : 'a devinfo -> 'a request
                | Overall : 'a overall -> 'a request
                | Nw      : 'a nw -> 'a request
