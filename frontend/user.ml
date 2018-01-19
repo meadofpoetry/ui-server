@@ -49,7 +49,7 @@ let make_card user =
                                          ; `Media   media
                                          ; `Actions actions ]
                       () in
-  let _ = React.E.map (fun () ->
+  let _ = React.E.map (fun _ ->
               let open Lwt_result.Infix in
               match (React.S.value old_form#s_input, React.S.value acc_form#s_input) with
               | Some old_pass, Some new_pass ->

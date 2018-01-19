@@ -475,9 +475,10 @@ class ['a] t ~grid ~(items:'a item list) () =
 
     inherit Widget.widget elt ()
 
-    val mutable adding = false
-    val mutable in_dom = false
-    val mutable residue = 0
+    val mutable adding   = false
+    val mutable removing = false
+    val mutable in_dom   = false
+    val mutable residue  = 0
 
     (** API **)
 
@@ -489,6 +490,84 @@ class ['a] t ~grid ~(items:'a item list) () =
     method positions  = React.S.value s_change
 
     method remove (x:'a Item.t) = x#remove
+
+    method remove_free () =
+      if removing
+      then Lwt.return_error In_progress
+      else
+        let open Lwt.Infix in
+        removing <- true;
+        let t,wakener = Lwt.wait () in
+        let items = CCList.map (fun x -> x#pos) @@ React.S.value s_items in
+        let item = { pos = Position.empty
+                   ; min_w = Some 1
+                   ; min_h = Some 1
+                   ; max_w = Some 1
+                   ; max_h = Some 1
+                   ; static = false
+                   ; resizable = true
+                   ; draggable = true
+                   ; widget = None
+                   ; value = () }
+        in
+        let ghost = new Item.cell ~typ:`Ghost ~s_col_w ~s_row_h ~item () in
+        ghost#style##.zIndex := Js.string "3";
+        Dom.appendChild self#root ghost#root;
+         let mv_l  =
+           Dom_events.listen
+             self#root
+             Dom_events.Typ.mousemove
+             (fun _ e ->
+               (match self#get_event_pos e with
+                | Some ev_pos ->
+                   let ev_pos =
+                     { ev_pos with x = ev_pos.x / React.S.value s_col_w;
+                                   y = ev_pos.y / React.S.value s_row_h
+                     }
+                   in
+                   begin match Position.get_first_collision ~f:(fun x -> x) ev_pos items with
+                   | Some x  -> ghost#s_pos_push x
+                   | None    -> ghost#s_pos_push Position.empty
+                   end;
+                | None -> ghost#s_pos_push Position.empty);
+               true)
+         in
+         let cl_l  =
+          Dom_events.listen self#root
+            Dom_events.Typ.click
+            (fun _ _ ->
+              begin
+              let el = CCList.fold_while
+                         (fun acc x ->
+                           if Position.collides ghost#pos x#pos
+                           then (Some x, `Stop)
+                           else (acc, `Continue)) None (React.S.value self#s_items) in
+              match el with
+              | Some x -> (self#remove x);
+                          Lwt.wakeup wakener (Ok ())
+              | None   -> Lwt.wakeup wakener (Error (Collides []));
+              end;
+              false)
+         in
+         let esc_l =
+          Dom_events.listen Dom_html.window
+                            Dom_events.Typ.keydown
+                            (fun _ ev ->
+                              let key  = CCOpt.map Js.to_string @@ Js.Optdef.to_option ev##.key in
+                              (match key,ev##.keyCode with
+                               | Some "Esc"     ,_
+                                 | Some "Escape",_
+                                 | _, 27 -> Lwt.wakeup wakener (Error (Collides []))
+                               | _      -> ());
+                              true)
+         in
+         t >>= (fun _ -> removing <- false;
+                         Dom_events.stop_listen mv_l;
+                         Dom_events.stop_listen cl_l;
+                         Dom_events.stop_listen esc_l;
+                         Dom.removeChild self#root ghost#root;
+                         Lwt.return_unit) |> ignore;
+         t
 
     method add (x:'a item) =
       let items = CCList.map (fun x -> x#pos) (React.S.value s_items) in

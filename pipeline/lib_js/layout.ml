@@ -4,6 +4,10 @@ open Tyxml_js
 
 let js = Js.string
 
+let refers_to_any (el: string * Wm.widget) (list: (string * Wm.widget) list) =
+  CCList.fold_while (fun acc x ->
+    if x = el then (true, `Stop) else (acc, `Continue)) false list
+
 let resolution_to_aspect resolution =
   let w, h = resolution in
   let rec greatest_common_divisor a b =
@@ -48,22 +52,14 @@ let initialize d (wm: Wm.t) =
     | 256, 135 -> 256, 135 (*UHD N*K*)        (*!!!*)
     | _        -> 30 , 20
   in
-  let wd_list = List.fold_left (fun acc (x: (string * Wm.widget)) ->
+  let wd_list list = List.fold_left (fun acc (x: (string * Wm.widget)) ->
                     let str, wd = x in
                     let label = str ^ " " ^ wd.description in
                     let radio = new Radio.t ~name:"radio" ~value:x () in
                     let form_field =
                       new Form_field.t ~label ~input:radio () in
                     List.append acc [form_field]
-                  ) [] wm.widgets in
-  let dialogue = new Dialog.t
-                   ~title:"What widget u'd like to add?"
-                   ~content:(`Widgets wd_list)
-                   ~actions:[ new Dialog.Action.t ~typ:`Decline ~label:"Decline" ()
-                            ; new Dialog.Action.t ~typ:`Accept  ~label:"Accept"  ()
-                            ]
-                   () in
-  Dom.appendChild Dom_html.document##.body dialogue#root;
+                  ) [] list in
   let (props:Dynamic_grid.grid) =
     { min_col_width    = 1
     ; max_col_width    = None
@@ -94,28 +90,54 @@ let initialize d (wm: Wm.t) =
           ~value ()
       ) wm.layout in
   let add_free = new Button.t ~label:"add" () in
+  let remove   = new Button.t ~label:"remove" () in
   let grid  = new Dynamic_grid.t ~grid:props ~items () in
   React.E.map (fun e -> let open Lwt.Infix in
                         Dom_html.stopPropagation e;
-                         Lwt.bind dialogue#show_await
-                           (function
-                            | `Accept ->
-                               let chosen_wdg =
-                                 (List.find
-                                    (fun x -> x#get_input_widget#get_checked)
-                                    wd_list)#get_input_widget#get_value in
-                               grid#add_free ~min_w:1 ~min_h:1 ~value:chosen_wdg ()
-                               >>= (function
-                                    | Ok _    -> Lwt.return_unit
-                                    | Error _ -> Lwt.return_unit)
-                               |> ignore;
-                               Lwt.return ()
-                            | `Cancel ->
-                               print_endline "Dialog cancelled";
-                               Lwt.return ()))
+                        grid#remove_free ()
+                        >>= (function
+                             | Ok _    -> print_endline "ok"   ; Lwt.return_unit
+                             | Error _ -> print_endline "error"; Lwt.return_unit)
+                        |> ignore) remove#e_click
+  |> ignore;
+  React.E.map (fun e ->
+      (try Dom.removeChild Dom_html.document##.body (Dom_html.getElementById "dialogue")
+      with _ -> print_endline "No current dialogue to remove");
+      let current_wd_list = List.map (fun x -> x#get_value) (React.S.value grid#s_items) in
+      let widgets  = wd_list (List.filter
+                                (fun x -> not (refers_to_any x current_wd_list))
+                                wm.widgets) in
+      let dialogue = new Dialog.t
+                       ~title:"What widget u'd like to add?"
+                       ~content:(`Widgets widgets)
+                       ~actions:[ new Dialog.Action.t ~typ:`Decline ~label:"Decline" ()
+                                ; new Dialog.Action.t ~typ:`Accept  ~label:"Accept"  ()
+                       ] ()
+      in
+      dialogue#root##.id := Js.string "dialogue";
+      Dom.appendChild Dom_html.document##.body dialogue#root;
+      let open Lwt.Infix in
+      Dom_html.stopPropagation e;
+      Lwt.bind dialogue#show_await
+        (function
+         | `Accept ->
+            let chosen_wdg =
+              (List.find
+                 (fun x -> x#get_input_widget#get_checked)
+                 widgets)#get_input_widget#get_value in
+            grid#add_free ~min_w:1 ~min_h:1 ~value:chosen_wdg ()
+            >>= (function
+                 | Ok _    -> Lwt.return_unit
+                 | Error _ -> print_endline "grid - add_free error!";
+                              Lwt.return_unit)
+            |> ignore;
+            Lwt.return ()
+         | `Cancel ->
+            print_endline "Dialog cancelled";
+            Lwt.return ()))
     add_free#e_click
   |> ignore;
-  let demo = add[(section "Dynamic grid" [grid#widget; add_free#widget])] in
+  let demo = add[(section "Dynamic grid" [grid#widget; add_free#widget; remove#widget])] in
   Dom.appendChild d demo;
   React.S.map (fun _ ->
       let layout =
