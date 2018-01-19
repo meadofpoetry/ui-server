@@ -31,31 +31,10 @@ let create_board db usb (b:topo_board) boards path step_duration =
     | _ -> raise (Failure ("create board: unknown board "))
   in
   B.create b
-    (Meta_board.merge_streams boards)
-    (Usb_device.get_send usb b.control)
-    db path step_duration
-
-let topo_inputs =
-  let rec f acc = (function
-                   | Input x -> x :: acc
-                   | Board x -> CCList.concat @@ (CCList.map (fun x -> f acc x.child) x.ports)) in
-  CCList.fold_left f []
-
-let topo_boards =
-  let rec f acc = (function
-                   | Board b -> CCList.fold_left (fun a x -> f a x.child) (b :: acc) b.ports
-                   | Input _ -> acc) in
-  CCList.fold_left f []
-
-let topo_paths =
-  let rec add_node acc paths = function
-    | Input i -> (i,acc) :: paths
-    | Board b -> (let ports = List.map (fun x -> x.child) b.ports in
-                  match ports with
-                  | [] -> paths
-                  | l  -> List.fold_left (fun a x -> add_node (b :: acc) a x) paths l)
-  in
-  CCList.fold_left (fun a x -> add_node [] a x) []
+           (Meta_board.get_streams boards b)
+           (Meta_board.merge_streams boards)
+           (Usb_device.get_send usb b.control)
+           db path step_duration
 
 let topo_to_signal topo boards =
   let build_board b connection ports =
@@ -128,7 +107,7 @@ let create config db =
                |> ignore;) @@ React.S.changes sms in *)
   let topo_signal   = topo_to_signal topo boards in
   let input_sources = input_sources topo boards in
-  topo,{ boards; usb; topo = topo_signal; input_sources }, loop ()
+  { boards; usb; topo = topo_signal; input_sources }, loop ()
 
 let finalize hw =
   Usb_device.finalize hw.usb

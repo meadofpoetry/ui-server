@@ -444,8 +444,6 @@ type _ request = Get_board_info     : devinfo request
 
 (* ------------------- Misc ------------------- *)
 
-let io = fun x -> Lwt_io.printf "%s\n" x |> ignore
-
 let input_to_int = function
   | SPI -> 0 | ASI -> 1
 let input_of_int = function
@@ -589,23 +587,14 @@ module Get_section : (Request
                 set_req_get_section_adv_info_2 body x.eit_info.orig_nw_id
      | ( CAT x   | TSDT x | TDT x | RST x | ST x
          | TOT x | DIT x  | SIT x | Unknown x ) -> set_req_get_section_table_id body x.id);
-    io "sent section request";
     to_complex_req ~request_id:id ~msg_code:req_code ~body ()
 
   let of_cbuffer msg =
     let hdr,bdy = Cbuffer.split msg sizeof_section in
     let length  = get_section_length hdr in
     let result  = get_section_result hdr in
-    io @@ string_of_int result ^ " " ^ string_of_int length;
     if length > 0 && result = 0
     then let sid,data = Cbuffer.split bdy 4 in
-         (try
-            (Si_psi_parser.NIT.of_cbuffer data
-             |> Si_psi_parser.NIT.to_yojson
-             |> Yojson.Safe.pretty_to_string
-             |> (fun x -> "NIT: " ^ x)
-             |> io)
-          with e -> io @@ Printexc.to_string e);
          Ok { stream_id = Common.Stream.id_of_int32 @@ Cbuffer.LE.get_uint32 sid 0
             ; data      = Cbuffer.to_string data
             }
@@ -1312,8 +1301,7 @@ let parse_complex_msg = fun ((code,r_id),msg) ->
     let data = (r_id,msg) in
     (match code with
      | x when x = Get_board_errors.rsp_code   -> `ER (`Board_errors data)
-     | x when x = Get_section.rsp_code        -> io "Got section!";
-                                                 Get_section.of_cbuffer msg |> ignore;
+     | x when x = Get_section.rsp_code        -> Get_section.of_cbuffer msg |> ignore;
                                                  `R  (`Section data)
      | x when x = Get_t2mi_frame_seq.rsp_code -> `R  (`T2mi_frame_seq data)
      | x when x = Get_jitter.rsp_code         -> `ER (`Jitter (r_id,(get_jitter_req_ptr msg),msg))
@@ -1323,8 +1311,8 @@ let parse_complex_msg = fun ((code,r_id),msg) ->
                                                                   (get_t2mi_info_version msg),
                                                                   (get_t2mi_info_stream_id msg),
                                                                   msg))
-     | _ -> io "got unknown complex code"; `N)
-  with _ -> io "got exception in complex parser"; `N
+     | _ -> `N)
+  with _ -> `N
 
 let try_compose_parts ((id,gp) as x) =
   let gp = CCList.sort (fun x y -> if x.first then (-1)

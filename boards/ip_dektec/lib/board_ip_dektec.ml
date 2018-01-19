@@ -24,7 +24,7 @@ type 'a request = 'a Board_protocol.request
 
 let create_sm = Board_protocol.SM.create
 
-let create (b:topo_board) convert_streams send db base step =
+let create (b:topo_board) _ convert_streams send db base step =
   let storage               = Config_storage.create base ["board"; (string_of_int b.control)] in
   let s_state, s_state_push = React.S.create `No_response in
   let events, api, step     = create_sm send storage s_state_push step in

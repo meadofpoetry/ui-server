@@ -25,7 +25,7 @@ type 'a request = 'a Board_protocol.request
 
 let create_sm = Board_protocol.SM.create
 
-let create (b:topo_board) convert_streams send db base step =
+let create (b:topo_board) _ convert_streams send db base step =
   let storage      = Config_storage.create base ["board"; (string_of_int b.control)] in
   let s_state, spush = React.S.create `No_response in
   let events, api, step = create_sm send storage spush step in
@@ -37,8 +37,14 @@ let create (b:topo_board) convert_streams send db base step =
                     (fun (streams : Common.Stream.stream list)
                          ((id,m) : Board_types.measure_response) ->
                       let open Common.Stream in
+                      let plp = CCList.find_map (fun (x,c) -> if id = x then Some c else None) storage#get
+                                |> CCOpt.get_exn
+                                |> (fun x -> match x. mode with
+                                             | T2 -> x.t2.plp
+                                             | _  -> 0)
+                      in
                       let (stream : stream) = { source      = Port 0
-                                              ; id          = `Ts (Dvb (id,id mod 3)) (* TODO fix this *)
+                                              ; id          = `Ts (Dvb (id,plp)) (* TODO fix this *)
                                               ; description = Some ""
                                               } in
                       match m.lock,m.bitrate with

@@ -9,8 +9,9 @@ let main config =
     let users          = User.create config in
     let user_api       = User_api.handlers users in
     (* Boards *)
-    let topo, hw, hwloop = Hardware.create config db in
+    let hw, hwloop       = Hardware.create config db in
     let hw_api           = Hardware_api.handlers hw in
+    let hw_templates     = Hardware_template.create hw in
     (* QoE pipeline  *)
     let pipe, pipeloop   = Pipeline.create config db hw.input_sources in
     let pipe_api         =
@@ -18,11 +19,20 @@ let main config =
       | None -> Pipeline_api.handlers_not_implemented ()
       | Some pipe -> Pipeline_api.handlers pipe
     in
+    let pipe_templates   =
+      match pipe with
+      | None -> Common.User.empty_table
+      | Some pipe -> Pipeline_template.create ()
+    in
                        
-    let routes = Api_handler.create (pipe_api @ user_api @ hw_api) in
+    let routes     = Api_handler.create (pipe_api @ user_api @ hw_api) in
+    let templates  = Common.User.concat_table [Responses.home_template ();
+                                               User_template.create ();
+                                               hw_templates;
+                                               pipe_templates] in
     let auth_filter = Api.Redirect.redirect_auth (User.validate users) in
-
-    let server = Serv.create topo config auth_filter routes in
+    
+    let server = Serv.create config auth_filter routes templates in
 
     let loops = match pipeloop with
       | None          -> [dbloop; server; hwloop]

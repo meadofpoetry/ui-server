@@ -22,7 +22,7 @@ type 'a request = 'a Board_protocol.request
 
 let create_sm = Board_protocol.SM.create
 
-let create (b:topo_board) convert_streams send db base step =
+let create (b:topo_board) _ convert_streams send db base step =
   let storage          = Config_storage.create base ["board"; (string_of_int b.control)] in
   let s_state, spush   = React.S.create `No_response in
   let events,api,step  = create_sm send storage spush step in
@@ -48,7 +48,7 @@ let create (b:topo_board) convert_streams send db base step =
   let _e = React.E.map (fun s ->
                `List (List.map Common.Stream.to_yojson s)
                |> Yojson.Safe.pretty_to_string
-               |> Lwt_io.printf "QOS sms: %s\n"
+               (* |> Lwt_io.printf "QOS sms: %s\n" *)
                |> ignore;) @@ React.S.changes sms in
   let state           = (object
                            method e_status   = e_status;

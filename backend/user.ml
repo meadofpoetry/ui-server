@@ -33,7 +33,7 @@ let get_pass storage = function
   | `Operator -> (storage#get).operator
   | `Guest    -> (storage#get).guest
 
-let set_pass storage pass_entry =
+let set_pass storage (pass_entry : pass) =
   let table = storage#get in
   match pass_entry.user with
   | `Root     -> storage#store { table with root     = { pass = pass_entry.password } }
