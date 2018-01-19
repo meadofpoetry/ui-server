@@ -441,6 +441,39 @@ module Make
 
   end
 
+  module Dynamic_grid = struct
+    let base_class = "mdc-dynamic-grid"
+
+    module Item = struct
+
+      let _class         = CSS.add_element base_class "item"
+      let ghost_class    = CSS.add_element _class "ghost"
+      let resize_class   = CSS.add_element _class "resize"
+      let dragging_class = CSS.add_modifier _class "dragging"
+
+      let create_ghost ?id ?style ?(classes=[]) ?attrs () =
+        div ~a:([ a_class (ghost_class :: classes)]
+                |> add_common_attrs ?id ?style ?attrs)
+            []
+
+      let create_resize_button ?id ?style ?(classes=[]) ?attrs () =
+        span ~a:([ a_class (resize_class :: classes)]
+                 |> add_common_attrs ?id ?style ?attrs)
+             []
+
+      let create ?id ?style ?(classes=[]) ?attrs ?resize_button () =
+        div ~a:([ a_class (_class :: classes)
+                (* ; a_draggable true *) ]
+                |> add_common_attrs ?id ?style ?attrs)
+            (cons_option resize_button [])
+    end
+
+    let create ?id ?style ?(classes=[]) ?attrs ~items () =
+      div ~a:([ a_class (base_class :: classes) ]
+              |> add_common_attrs ?id ?style ?attrs)
+          items
+  end
+
   module Grid_list = struct
 
     let base_class             = "mdc-grid-list"

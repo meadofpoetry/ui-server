@@ -41,18 +41,17 @@ let fab_demo () =
   demo_section "FAB" [ subsection "General" fab; subsection "Mini" mini; subsection "Ripple" ripple ]
 
 let radio_demo () =
-  let radio1 = new Radio.t ~name:"radio" () in
-  let radio2 = new Radio.t ~name:"radio" () in
-  let radio3 = new Radio.t ~name:"radio" () in
-  radio2#set_disabled true;
+  let radio1 = new Radio.t ~name:"radio" ~value:() () in
+  let radio2 = new Radio.t ~name:"radio" ~value:() () in
+  let radio3 = new Radio.t ~name:"radio" ~value:() () in
   demo_section "Radio button" [ radio1; radio2; radio3 ]
 
 let checkbox_demo () =
   let checkbox     = new Checkbox.t ~input_id:"checkbox-demo" () in
   let css_checkbox = new Checkbox.t ~ripple:false () in
-  let form_field   = new Form_field.t ~label:"checkbox label" ~input:checkbox () in
   let btn          = new Button.t ~label:"toggle indeterminate" () in
-  React.E.map (fun () -> checkbox#set_indeterminate @@ not checkbox#get_indeterminate;
+  let form_field   = new Form_field.t ~label:"checkbox label" ~input:checkbox () in
+  React.E.map (fun _ -> checkbox#set_indeterminate @@ not checkbox#get_indeterminate;
                          css_checkbox#set_indeterminate @@ not css_checkbox#get_indeterminate)
               btn#e_click |> ignore;
   demo_section "Checkbox" [ (subsection "Checkbox (css only)" css_checkbox)#widget
@@ -146,8 +145,8 @@ let layout_grid_demo () =
                        (CCList.range 0 15) in
   let btn2 = new Button.t ~label:"set span 1" () in
   let btn4 = new Button.t ~label:"set span 2" () in
-  React.E.map (fun () -> (CCList.get_at_idx_exn 4 cells)#set_span 1) btn2#e_click |> ignore;
-  React.E.map (fun () -> (CCList.get_at_idx_exn 4 cells)#set_span 2) btn4#e_click |> ignore;
+  React.E.map (fun _ -> (CCList.get_at_idx_exn 4 cells)#set_span 1) btn2#e_click |> ignore;
+  React.E.map (fun _ -> (CCList.get_at_idx_exn 4 cells)#set_span 2) btn4#e_click |> ignore;
   let layout_grid = new Layout_grid.t ~cells () in
   demo_section "Layout grid" [ layout_grid#widget; btn2#widget; btn4#widget ]
 
@@ -160,10 +159,10 @@ let dialog_demo () =
                             ]
                    () in
   let button = new Button.t ~label:"show dialog" () in
-  React.E.map (fun () -> Lwt.bind dialog#show_await
-                                  (function
-                                   | `Accept -> print_endline "Dialog accepted"; Lwt.return ()
-                                   | `Cancel -> print_endline "Dialog cancelled"; Lwt.return ()))
+  React.E.map (fun _ -> Lwt.bind dialog#show_await
+                                 (function
+                                  | `Accept -> print_endline "Dialog accepted"; Lwt.return ()
+                                  | `Cancel -> print_endline "Dialog cancelled"; Lwt.return ()))
               button#e_click |> ignore;
   demo_section "Dialog" [ dialog#widget; button#widget ]
 
@@ -231,7 +230,7 @@ let menu_demo () =
                                ; `Item (new Menu.Item.t ~text:"Item 3" ()) ]
                         () in
   let icon_wrapper = new Menu.Wrapper.t ~menu:icon_menu ~anchor:icon_anchor () in
-  React.E.map (fun () -> menu#show) anchor#e_click      |> ignore;
+  React.E.map (fun _ -> menu#show) anchor#e_click      |> ignore;
   Dom_html.addEventListener icon_anchor#root
                             Dom_events.Typ.click
                             (Dom_html.handler (fun _ -> icon_menu#show; Js._false))
@@ -265,16 +264,16 @@ let linear_progress_demo () =
   let buf70_btn = new Button.t ~label:"buffer 70" () in
   let open_btn  = new Button.t ~label:"open" () in
   let close_btn = new Button.t ~label:"close" () in
-  React.E.map (fun () -> linear_progress#set_indeterminate true) ind_btn#e_click  |> ignore;
-  React.E.map (fun () -> linear_progress#set_indeterminate false) det_btn#e_click |> ignore;
-  React.E.map (fun () -> linear_progress#set_progress 0.) pgs0_btn#e_click        |> ignore;
-  React.E.map (fun () -> linear_progress#set_progress 0.2) pgs20_btn#e_click      |> ignore;
-  React.E.map (fun () -> linear_progress#set_progress 0.6) pgs60_btn#e_click      |> ignore;
-  React.E.map (fun () -> linear_progress#set_buffer 0.1) buf10_btn#e_click        |> ignore;
-  React.E.map (fun () -> linear_progress#set_buffer 0.3) buf30_btn#e_click        |> ignore;
-  React.E.map (fun () -> linear_progress#set_buffer 0.7) buf70_btn#e_click        |> ignore;
-  React.E.map (fun () -> linear_progress#show) open_btn#e_click                   |> ignore;
-  React.E.map (fun () -> linear_progress#hide) close_btn#e_click                  |> ignore;
+  React.E.map (fun _ -> linear_progress#set_indeterminate true) ind_btn#e_click  |> ignore;
+  React.E.map (fun _ -> linear_progress#set_indeterminate false) det_btn#e_click |> ignore;
+  React.E.map (fun _ -> linear_progress#set_progress 0.) pgs0_btn#e_click        |> ignore;
+  React.E.map (fun _ -> linear_progress#set_progress 0.2) pgs20_btn#e_click      |> ignore;
+  React.E.map (fun _ -> linear_progress#set_progress 0.6) pgs60_btn#e_click      |> ignore;
+  React.E.map (fun _ -> linear_progress#set_buffer 0.1) buf10_btn#e_click        |> ignore;
+  React.E.map (fun _ -> linear_progress#set_buffer 0.3) buf30_btn#e_click        |> ignore;
+  React.E.map (fun _ -> linear_progress#set_buffer 0.7) buf70_btn#e_click        |> ignore;
+  React.E.map (fun _ -> linear_progress#show) open_btn#e_click                   |> ignore;
+  React.E.map (fun _ -> linear_progress#hide) close_btn#e_click                  |> ignore;
   let cells = List.map (fun x -> new Layout_grid.Cell.t ~widgets:[x] ()
                                  |> (fun x -> x#set_span 12; x))
                        [ind_btn  ; det_btn  ; pgs0_btn ; pgs20_btn; pgs60_btn;
@@ -309,7 +308,7 @@ let tabs_demo () =
                                      ; value = () })
                            (CCList.range 0 15)
                   |> (fun tabs -> new Tabs.Scroller.t ~tabs ()) in
-  React.E.map (fun () ->
+  React.E.map (fun _ ->
       let len  = CCList.length text_bar#tabs in
       let name = Printf.sprintf "Tab %d" len in
       match React.S.value idx#s_input with
@@ -321,7 +320,7 @@ let tabs_demo () =
       | None     -> text_bar#append_tab { content = `Text name; href = None; disabled = false; value = () })
               add#e_click
   |> ignore;
-  React.E.map (fun () ->
+  React.E.map (fun _ ->
       match React.S.value idx#s_input with
       | Some idx -> text_bar#remove_tab_at_index idx |> ignore
       | None     -> ())
@@ -349,8 +348,8 @@ let snackbar_demo () =
                      () in
   let snackbar_btn = new Button.t ~label:"Open snackbar" () in
   let aligned_btn  = new Button.t ~label:"Open start-aligned snackbar" () in
-  React.E.map (fun () -> snackbar#show) snackbar_btn#e_click |> ignore;
-  React.E.map (fun () -> aligned#show) aligned_btn#e_click |> ignore;
+  React.E.map (fun _ -> snackbar#show) snackbar_btn#e_click |> ignore;
+  React.E.map (fun _ -> aligned#show) aligned_btn#e_click |> ignore;
   Dom.appendChild Dom_html.document##.body snackbar#root;
   Dom.appendChild Dom_html.document##.body aligned#root;
   demo_section "Snackbar" [ snackbar_btn; aligned_btn ]
@@ -491,8 +490,8 @@ let elevation_demo () =
                          |> To_dom.of_element) in
   let btn2 = new Button.t ~label:"elevation 2" () in
   let btn8 = new Button.t ~label:"elevation 8" () in
-  React.E.map (fun () -> Elevation.set_elevation d 2) btn2#e_click |> ignore;
-  React.E.map (fun () -> Elevation.set_elevation d 8) btn8#e_click |> ignore;
+  React.E.map (fun _ -> Elevation.set_elevation d 2) btn2#e_click |> ignore;
+  React.E.map (fun _ -> Elevation.set_elevation d 8) btn8#e_click |> ignore;
   demo_section "Elevation" [ d#widget; btn2#widget; btn8#widget ]
 
 let drawer_demo () =
@@ -545,24 +544,24 @@ let chart_demo () =
   let push_less = new Button.t ~label:"push less" () in
   let append    = new Button.t ~label:"append" () in
   let chart  = new Chartjs.Line.t ~config () in
-  React.E.map (fun () -> List.iter (fun x -> x#set_point_radius (`Fun (fun _ x -> if x.x mod 2 > 0 then 10 else 5))
-                                   ) chart#config#datasets;
-                         chart#update None)
+  React.E.map (fun _ -> List.iter (fun x -> x#set_point_radius (`Fun (fun _ x -> if x.x mod 2 > 0 then 10 else 5))
+                                  ) chart#config#datasets;
+                        chart#update None)
               update#e_click |> ignore;
-  React.E.map (fun () -> x := !x + 2;
-                         List.iter (fun ds -> ds#push { x = !x; y = Random.int range }) chart#config#datasets;
-                         chart#update None)
+  React.E.map (fun _ -> x := !x + 2;
+                        List.iter (fun ds -> ds#push { x = !x; y = Random.int range }) chart#config#datasets;
+                        chart#update None)
               push#e_click |> ignore;
-  React.E.map (fun () -> List.iter (fun ds -> ds#push { x = !x - 1; y = Random.int range }) chart#config#datasets;
-                         chart#update None)
+  React.E.map (fun _ -> List.iter (fun ds -> ds#push { x = !x - 1; y = Random.int range }) chart#config#datasets;
+                        chart#update None)
               push_less#e_click |> ignore;
-  React.E.map (fun () -> x := !x + 6;
-                         List.iter (fun ds -> ds#append [ { x = !x - 6; y = Random.int range }
-                                                        ; { x = !x - 4; y = Random.int range }
-                                                        ; { x = !x - 2; y = Random.int range }
-                                                        ; { x = !x    ; y = Random.int range } ])
-                                   chart#config#datasets;
-                         chart#update None)
+  React.E.map (fun _ -> x := !x + 6;
+                        List.iter (fun ds -> ds#append [ { x = !x - 6; y = Random.int range }
+                                                       ; { x = !x - 4; y = Random.int range }
+                                                       ; { x = !x - 2; y = Random.int range }
+                                                       ; { x = !x    ; y = Random.int range } ])
+                                  chart#config#datasets;
+                        chart#update None)
               append#e_click |> ignore;
   Html.div ~a:[ Html.a_style "max-width:700px"] [ Widget.widget_to_markup chart
                                                 ; Widget.widget_to_markup update
@@ -611,15 +610,57 @@ let time_chart_demo () =
 
 let add_demos demos =
   Html.div ~a:[ Html.a_id "demo-div" ]
-           @@ CCList.map (fun x -> Of_dom.of_element (x :> Dom_html.element Js.t)) demos
+  @@ CCList.map (fun x -> Of_dom.of_element (x :> Dom_html.element Js.t)) demos
   |> To_dom.of_element
+
+let dynamic_grid_demo () =
+  let (props:Dynamic_grid.grid) =
+    { rows             = Some 20
+    ; cols             = 30
+    ; min_col_width    = 1
+    ; max_col_width    = None
+    ; row_height       = None
+    ; vertical_compact = false
+    ; items_margin     = None
+    } in
+  let items    = [ Dynamic_grid.Item.to_item ~pos:{ x = 0; y = 0; w = 10; h = 10 } ~value:() ()
+                 ; Dynamic_grid.Item.to_item ~pos:{ x = 20; y = 30; w = 10; h = 20 } ~value:() ()
+                 ]
+  in
+  let x        = new Textfield.t ~label:"x position" ~input_type:(Widget.Integer None) () in
+  let y        = new Textfield.t ~label:"y position" ~input_type:(Widget.Integer None) () in
+  let w        = new Textfield.t ~label:"width"      ~input_type:(Widget.Integer None) () in
+  let h        = new Textfield.t ~label:"height"     ~input_type:(Widget.Integer None) () in
+  let add      = new Button.t ~label:"add" () in
+  let add_free = new Button.t ~label:"add free" () in
+  let grid     = new Dynamic_grid.t ~grid:props ~items () in
+  React.E.map (fun e -> let open Lwt.Infix in
+                        Dom_html.stopPropagation e;
+                        grid#add_free ~value:() ()
+                        >>= (function
+                             | Ok _    -> print_endline "ok"   ; Lwt.return_unit
+                             | Error _ -> print_endline "error"; Lwt.return_unit)
+                        |> ignore) add_free#e_click
+  |> ignore;
+  React.E.map (fun _ -> match React.S.value x#s_input,React.S.value y#s_input,
+                              React.S.value w#s_input,React.S.value h#s_input with
+                        | Some x, Some y, Some w, Some h ->
+                           grid#add (Dynamic_grid.Item.to_item ~pos:{ x;y;w;h } ~value:() ())
+                           |> (function
+                               | Ok _    -> print_endline "ok"
+                               | Error _ -> ())
+                        | _ -> ()) add#e_click |> ignore;
+  React.S.map (fun x -> Printf.printf "%d items in grid\n" @@ CCList.length x) grid#s_items |> ignore;
+  demo_section "Dynamic grid" [ grid#widget; x#widget; y#widget; w#widget; h#widget; add#widget; add_free#widget ]
+
 
 let onload _ =
   let doc     = Dom_html.document in
   let body    = doc##.body in
   let drawer  = drawer_demo () in
   let toolbar = toolbar_demo drawer () in
-  let demos   = add_demos [ table_demo ()
+  let demos   = add_demos [ dynamic_grid_demo ()
+                          ; table_demo ()
                           ; button_demo ()
                           ; chart_demo ()
                           ; time_chart_demo ()

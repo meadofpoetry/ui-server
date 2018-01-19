@@ -61,9 +61,9 @@ let card control
               | _                   -> Error "input not provided") inp#s_selected s_t2mi
   in
   let _ = React.E.map (fun config -> inp#select_value config.mode.input) event in
-  let _ = React.E.map (fun () -> match React.S.value s with
-                                 | Ok mode -> Requests.post_mode control mode
-                                 | Error e -> Lwt_result.fail e) apply#e_click
+  let _ = React.E.map (fun _ -> match React.S.value s with
+                                | Ok mode -> Requests.post_mode control mode
+                                | Error e -> Lwt_result.fail e) apply#e_click
   in
   card
 

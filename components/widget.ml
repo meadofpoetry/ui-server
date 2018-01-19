@@ -83,8 +83,8 @@ class input_widget ~(input_elt:Dom_html.inputElement Js.t) elt () =
       | "" -> None
       | s  -> Some s
 
-    method private set_value x = input_elt##.value := Js.string x
-    method private get_value   = Js.to_string input_elt##.value
+    method private _set_value x = input_elt##.value := Js.string x
+    method private _get_value   = Js.to_string input_elt##.value
 
     method s_disabled     = s_disabled
 
@@ -252,8 +252,8 @@ class ['a] text_input_widget ?v_msg ~input_elt (v : 'a validation) elt () =
 
     method s_input   = s_input
 
-    method fill_in (x : 'a) = s_input_push (Some x); self#set_value (valid_to_string v x)
-    method clear            = s_input_push None; self#set_value ""
+    method fill_in (x : 'a) = s_input_push (Some x); self#_set_value (valid_to_string v x)
+    method clear            = s_input_push None; self#_set_value ""
 
     method private set_max (x : float) = (Js.Unsafe.coerce input_elt)##.max := x
     method private set_min (x : float) = (Js.Unsafe.coerce input_elt)##.min := x
@@ -286,7 +286,7 @@ class ['a] text_input_widget ?v_msg ~input_elt (v : 'a validation) elt () =
           (Js.Unsafe.coerce input_elt)##.min := min);
       apply_pattern v;
       Dom_events.listen input_elt Dom_events.Typ.input (fun _ _ ->
-          (match parse_valid v self#set_custom_validity self#get_value with
+          (match parse_valid v self#set_custom_validity self#_get_value with
            | Some v -> s_input_push (Some v); self#remove_custom_validity
            | None   -> s_input_push (None));
           false)

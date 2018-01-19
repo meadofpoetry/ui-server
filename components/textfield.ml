@@ -28,7 +28,7 @@ type icon =
   ; pos       : [ `Trailing | `Leading ]
   }
 
-let icon_event : Dom_html.event Dom_events.Typ.typ = Dom_events.Typ.make "MDCTextfield:icon"
+let icon_event : Dom_html.event Js.t Dom_events.Typ.typ = Dom_events.Typ.make "MDCTextfield:icon"
 
 module Help_text = struct
 
