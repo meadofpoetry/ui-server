@@ -633,6 +633,7 @@ let dynamic_grid_demo () =
   let h        = new Textfield.t ~label:"height"     ~input_type:(Widget.Integer None) () in
   let add      = new Button.t ~label:"add" () in
   let add_free = new Button.t ~label:"add free" () in
+  let remove   = new Button.t ~label:"remove" () in
   let grid     = new Dynamic_grid.t ~grid:props ~items () in
   React.E.map (fun e -> let open Lwt.Infix in
                         Dom_html.stopPropagation e;
@@ -641,6 +642,14 @@ let dynamic_grid_demo () =
                              | Ok _    -> print_endline "ok"   ; Lwt.return_unit
                              | Error _ -> print_endline "error"; Lwt.return_unit)
                         |> ignore) add_free#e_click
+  |> ignore;
+  React.E.map (fun e -> let open Lwt.Infix in
+                        Dom_html.stopPropagation e;
+                        grid#remove_free ()
+                        >>= (function
+                             | Ok _    -> print_endline "ok"   ; Lwt.return_unit
+                             | Error _ -> print_endline "error"; Lwt.return_unit)
+                        |> ignore) remove#e_click
   |> ignore;
   React.E.map (fun _ -> match React.S.value x#s_input,React.S.value y#s_input,
                               React.S.value w#s_input,React.S.value h#s_input with
@@ -651,7 +660,7 @@ let dynamic_grid_demo () =
                                | Error _ -> ())
                         | _ -> ()) add#e_click |> ignore;
   React.S.map (fun x -> Printf.printf "%d items in grid\n" @@ CCList.length x) grid#s_items |> ignore;
-  demo_section "Dynamic grid" [ grid#widget; x#widget; y#widget; w#widget; h#widget; add#widget; add_free#widget ]
+  demo_section "Dynamic grid" [ grid#widget; x#widget; y#widget; w#widget; h#widget; add#widget; add_free#widget; remove#widget ]
 
 
 let onload _ =
