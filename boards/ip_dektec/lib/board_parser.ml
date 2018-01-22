@@ -381,6 +381,7 @@ let to_req_set_ipaddr request ip =
 (* ----------------- Message deserialization ---------------- *)
 
 type err = Bad_stx              of int
+         | Bad_etx              of int
          | Bad_length           of int
          | Bad_address          of int
          | Bad_category         of int
@@ -393,6 +394,7 @@ type err = Bad_stx              of int
 
 let string_of_err = function
   | Bad_stx x              -> "incorrect STX: "          ^ (string_of_int x)
+  | Bad_etx x              -> "incorrect ETX: "          ^ (string_of_int x)
   | Bad_length x           -> "incorrect length: "       ^ (string_of_int x)
   | Bad_address x          -> "incorrect address: "      ^ (string_of_int x)
   | Bad_category x         -> "incorrect category: "     ^ (string_of_int x)
@@ -403,6 +405,11 @@ let string_of_err = function
   | Insufficient_payload _ -> "insufficient payload"
   | Unknown_err s          -> s
 
+let check_header_length buf =
+  if Cbuffer.len buf < sizeof_prefix
+  then Error (Insufficient_payload buf)
+  else Ok buf
+                            
 let check_stx buf =
   let stx' = get_prefix_stx buf in
   if stx <> stx' then Error (Bad_stx stx') else Ok buf
@@ -439,16 +446,22 @@ let check_rest (cat,set,rw,buf) =
                   | _    -> cat_set_to_data_length (cat,set)) in
   let pfx_len  = if (cat >= 1 && cat <= 3) then sizeof_prefix
                  else sizeof_prefix + sizeof_setting16 in
-  let pfx,msg' = Cbuffer.split buf pfx_len in
-  let body,sfx = Cbuffer.split msg' length in
-  let crc      = get_suffix_crc sfx |> parse_int_exn in
-  let crc'     = calc_crc (Cbuffer.append pfx body) in
-  if crc' <> crc then Error (Bad_crc (crc', crc))
-  else Ok (cat,set,rw,body)
+  if Cbuffer.len buf < (pfx_len + length + sizeof_suffix) 
+  then Error (Insufficient_payload buf)
+  else (let pfx,msg'  = Cbuffer.split buf pfx_len in
+        let body,rst' = Cbuffer.split msg' length in
+        let sfx,rest  = Cbuffer.split rst' sizeof_suffix in
+        let crc       = get_suffix_crc sfx |> parse_int_exn in
+        let crc'      = calc_crc (Cbuffer.append pfx body) in
+        let etx'      = get_suffix_etx sfx in
+        if crc' <> crc then Error (Bad_crc (crc', crc))
+        else if etx <> etx' then Error (Bad_etx etx')
+        else Ok (cat,set,rw,body,rest))
 
 let get_msg buf =
   try
-    CCResult.(check_stx buf
+    CCResult.(check_header_length buf
+              >>= check_stx
               >>= check_address
               >>= check_category
               >>= check_setting
@@ -459,23 +472,20 @@ let get_msg buf =
   | e -> Error (Unknown_err (Printexc.to_string e))
 
 let deserialize buf =
-  let parse = fun ((_,_,rw,_) as x) ->
+  let parse = fun ((cat,set,rw,body,rest) as x) ->
     match rw with
-    | Read | Write -> `Ok x
-    | Fail         -> `Error x in
-  let parts = Cbuffer.split_by_string (String.make 1 (char_of_int etx)) buf in
-  let rec f =
-    fun acc x -> match x with
-                 | []       -> acc, None
-                 | [x]      -> (match get_msg x with
-                                | Ok msg  -> (parse msg) :: acc, None
-                                | Error e -> (match e with
-                                              | Insufficient_payload res -> acc, Some res
-                                              | _                        -> acc, None))
-                 | hd :: tl -> (match get_msg hd with
-                                | Ok msg  -> f ((parse msg) :: acc) tl
-                                | Error _ -> f acc tl) in
-  let r,res = f [] parts in (List.rev r, res)
+    | Read | Write -> `Ok (cat,set,rw,body)
+    | Fail         -> `Error (cat,set,rw,body) in
+  let get_rest = (fun (_,_,_,_,x) -> x) in
+  let rec f responses b =
+    if Cbuffer.len b > (sizeof_prefix + 1 + sizeof_suffix)
+    then (match get_msg b with
+          | Ok x -> f ((parse x) :: responses) (get_rest x)
+          | Error e -> (match e with
+                        | Insufficient_payload x -> List.rev responses, x
+                        | _                      -> f responses (Cbuffer.shift b 1)))
+    else List.rev responses, b in
+  let r,res = f [] buf in (List.rev r, if Cbuffer.len res > 0 then Some res else None)
 
 let is_response (type a) (req : a request) m : a option =
   let open CCOpt.Infix in
