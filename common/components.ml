@@ -206,6 +206,20 @@ module Make
                                  icon)
   end
 
+  module Divider = struct
+
+    let base_class  = "mdc-divider"
+    let inset_class = CSS.add_modifier base_class "inset"
+
+    let create ?id ?style ?(classes=[]) ?attrs ?(inset=false) () =
+      hr ~a:([ a_class (classes
+                        |> cons_if inset inset_class
+                        |> CCList.cons base_class) ]
+             |> add_common_attrs ?id ?style ?attrs)
+         ()
+
+  end
+
   module Card = struct
 
     let base_class             = "mdc-card"

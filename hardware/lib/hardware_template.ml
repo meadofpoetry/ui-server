@@ -38,7 +38,7 @@ let input topo (topo_input:topo_input) =
 
 let create (hw : Hardware.t) : upper ordered_item list user_table =
   let topo  = React.S.value hw.topo in
-  let props = { title        = None
+  let props = { title        = Some "Конфигурация"
               ; pre_scripts  = []
               ; post_scripts = [ Src "js/hardware.js" ]
               ; stylesheets  = []

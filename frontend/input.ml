@@ -35,11 +35,19 @@ let () =
                                                                    ; value    = () })
                                                   tabs) () in
   let s    = React.S.map ~eq:(==) (fun _ -> CCOpt.map (fun idx -> snd @@ CCList.get_at_idx_exn idx tabs)
-                                                      bar#get_active_tab_index)
+                                     bar#get_active_tab_index)
                          bar#s_active in
-  let s_free = insert s box#root in
-  let _      = React.S.diff (fun _ free -> CCOpt.iter (fun f -> f ()) free) s_free in
-  let ac     = Dom_html.getElementById "arbitrary-content" in
-  Dom.appendChild ac bar#root;
+  let s_free  = insert s box#root in
+  let _       = React.S.diff (fun _ free -> CCOpt.iter (fun f -> f ()) free) s_free in
+  let ac      = Dom_html.getElementById "arbitrary-content" in
+  let section = new Toolbar.Row.Section.t ~align:`Start ~widgets:[bar] () in
+  let row     = new Toolbar.Row.t ~sections:[section] () in
+  let toolbar = Dom_html.getElementById "main-toolbar" in
+  let content = Dom_html.getElementById "main-content" in
+  bar#style##.marginLeft := Js.string "72px";
+  content##.style##.marginTop := Js.string "128px";
+  bar#set_indicator_accent;
+  (Js.Unsafe.coerce section#style)##.alignItems := Js.string "flex-end";
+  Dom.appendChild toolbar row#root;
   Dom.appendChild ac box#root
 

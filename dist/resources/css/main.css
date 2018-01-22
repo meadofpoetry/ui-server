@@ -138,6 +138,17 @@ main.main-with-sidebar {
 .mdc-form-field { margin-bottom: 16px; }
 .mdc-form-field.mdc-form-field--align-end label { flex-grow: 1; }
 
+/* MDC Divider */
+.mdc-divider {
+    background-color: rgba(0, 0, 0, .12);
+    height: 1px;
+    margin: 0;
+    border: none;
+    flex-shrink: 0;
+    box-sizing: inherit;
+}
+.mdc-divider--inset { margin-left: 72px; }
+
 /* MDC Box */
 
 .mdc-box { display: flex; }

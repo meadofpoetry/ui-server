@@ -201,15 +201,42 @@ let layout control
   let grid = new Layout_grid.t ~cells:[cell] () in
   grid
 
+class t control () = object(self)
+
+  val mutable in_dom = false
+  val mutable state  = None
+  val mutable observer = None
+
+  inherit Widget.widget (Dom_html.createDiv Dom_html.document) ()
+
+  method private observe =
+    MutationObserver.observe
+      ~node:Dom_html.document
+      ~f:(fun _ _ -> let in_dom_new = (Js.Unsafe.coerce Dom_html.document)##contains self#root in
+                     print_endline ((string_of_bool in_dom) ^ " " ^ (string_of_bool in_dom_new));
+                     (match in_dom,in_dom_new with
+                      | true,false -> Printf.printf "deleted dvb settings";
+                                      CCOpt.iter (fun x -> x##close; state <- None) state
+                      | _          -> ());
+                     in_dom <- in_dom_new)
+      ~child_list:true
+      ~subtree:true
+      ()
+    |> (fun o -> observer <- Some o)
+
+  initializer
+    self#observe;
+    (let open Lwt_result.Infix in
+     Requests.get_config control
+     >>= (fun init ->
+       let event,sock = Requests.get_config_ws control in
+       let grid = layout control ~init ~event in
+       Dom.appendChild self#root grid#root;
+       state <- Some sock;
+       Lwt_result.return ())
+     |> ignore)
+
+end
+
 let page control =
-  let open Lwt_result.Infix in
-  let div = Dom_html.createDiv Dom_html.document in
-  let t   =
-    Requests.get_config control
-    >>= (fun init ->
-      let event,sock = Requests.get_config_ws control in
-      let grid = layout control ~init ~event in
-      Dom.appendChild div grid#root;
-      Lwt_result.return sock)
-  in
-  div,(fun () -> t >>= (fun x -> x##close; Lwt_result.return ()) |> ignore)
+  (new t control ())#root, (fun () -> ())
