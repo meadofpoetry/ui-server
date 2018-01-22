@@ -197,14 +197,17 @@ let layout control
            ~(init  : config)
            ~(event : config React.event) =
   let card = card control ~init ~event in
-  let cell = new Layout_grid.Cell.t ~widgets:[card] () in
-  let grid = new Layout_grid.t ~cells:[cell] () in
-  grid
+  (* let cell = new Layout_grid.Cell.t ~widgets:[card] () in
+   * let grid = new Layout_grid.t ~cells:[cell] () in
+   * grid *)
+  card#style##.margin := Js.string "24px";
+  card#style##.maxWidth := Js.string "640px";
+  card
 
-class t control () = object(self)
+class settings control () = object(self)
 
-  val mutable in_dom = false
-  val mutable state  = None
+  val mutable in_dom   = false
+  val mutable state    = None
   val mutable observer = None
 
   inherit Widget.widget (Dom_html.createDiv Dom_html.document) ()
@@ -213,11 +216,18 @@ class t control () = object(self)
     MutationObserver.observe
       ~node:Dom_html.document
       ~f:(fun _ _ -> let in_dom_new = (Js.Unsafe.coerce Dom_html.document)##contains self#root in
-                     print_endline ((string_of_bool in_dom) ^ " " ^ (string_of_bool in_dom_new));
-                     (match in_dom,in_dom_new with
-                      | true,false -> Printf.printf "deleted dvb settings";
-                                      CCOpt.iter (fun x -> x##close; state <- None) state
-                      | _          -> ());
+                     if in_dom && (not in_dom_new)
+                     then CCOpt.iter (fun x -> x##close; state <- None) state
+                     else if (not in_dom) && in_dom_new
+                     then (let open Lwt_result.Infix in
+                           Requests.get_config control
+                           >>= (fun init ->
+                             let event,sock = Requests.get_config_ws control in
+                             let grid = layout control ~init ~event in
+                             Dom.appendChild self#root grid#root;
+                             state <- Some sock;
+                             Lwt_result.return ())
+                           |> ignore);
                      in_dom <- in_dom_new)
       ~child_list:true
       ~subtree:true
@@ -225,18 +235,6 @@ class t control () = object(self)
     |> (fun o -> observer <- Some o)
 
   initializer
-    self#observe;
-    (let open Lwt_result.Infix in
-     Requests.get_config control
-     >>= (fun init ->
-       let event,sock = Requests.get_config_ws control in
-       let grid = layout control ~init ~event in
-       Dom.appendChild self#root grid#root;
-       state <- Some sock;
-       Lwt_result.return ())
-     |> ignore)
+    self#observe
 
 end
-
-let page control =
-  (new t control ())#root, (fun () -> ())

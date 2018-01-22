@@ -4,21 +4,17 @@ open Common.Topology
 open Components
 
 let insert s (container:#Dom.node Js.t) =
-  React.S.map ~eq:(==)
-              (function
-               | Some f -> let el,free = f () in
-                           Dom.list_of_nodeList @@ container##.childNodes
+  React.S.map (function
+               | Some p -> Dom.list_of_nodeList @@ container##.childNodes
                            |> CCList.iter (fun x -> Dom.removeChild container x);
-                           Dom.appendChild container el;
-                           Some free
-               | None   -> None) s
+                           Dom.appendChild container p#root
+               | None   -> ()) s
 
 let settings_section s =
   let title  = new Typography.Text.t ~font:Headline ~text:"Настройки" () in
   let cont   = Widget.create @@ Dom_html.createDiv Dom_html.document in
   let box    = new Box.t ~widgets:[title#widget; cont#widget] () in
-  let s_free = insert s cont#root in
-  let _      = React.S.diff (fun _ free -> CCOpt.iter (fun f -> f ()) free) s_free in
+  let _      = insert s cont#root in
   box
 
 let () =
@@ -36,15 +32,16 @@ let () =
   Dom.appendChild ac canvas;
   Dom.appendChild ac divider#root;
   Dom.appendChild ac (settings_section s)#root;
+
   Requests.get_topology ()
   >>= (fun resp ->
     match resp with
     | Ok t    ->
        let f b = match b.typ with
-         | DVB   -> (fun () -> Board_dvb_niit_js.Settings.page b.control)
-         | IP2TS -> (fun () -> Board_ts2ip_niit_js.Settings.page b.control)
-         | TS2IP -> (fun () -> Board_ip_dektec_js.Ip_dektec.page b.control)
-         | TS    -> (fun () -> Board_qos_niit_js.Settings.page b.control)
+         | DVB   -> (new Board_dvb_niit_js.Settings.settings b.control ())#widget
+         | TS2IP -> (new Board_ts2ip_niit_js.Settings.settings b.control ())#widget
+         | IP2TS -> Widget.create @@ fst @@ Board_ip_dektec_js.Ip_dektec.page b.control
+         | TS    -> Widget.create @@ fst @@ Board_qos_niit_js.Settings.page b.control
        in
        Topology.render ~topology:t
                        ~canvas

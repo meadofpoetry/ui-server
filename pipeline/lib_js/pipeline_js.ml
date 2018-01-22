@@ -60,9 +60,11 @@ let load () =
   text##.classList##add (Js.string @@ Components.Typography.font_to_class Display_1);
 
   let video   = Dom_html.createVideo doc in
-  video##setAttribute (Js.string "id") (Js.string "remotevideo");
+  video##.autoplay := Js._true;
+  video##.controls := Js._true;
+  video##.id       := Js.string "remotevideo";
+  video##.style##.backgroundColor := Js.string "rgba(0,0,0,1)";
   video##setAttribute (Js.string "width") (Js.string "640");
-  video##setAttribute (Js.string "autoplay") (Js.string "");
 
   let settings,_ = Requests.get_settings_socket () in
   Requests.get_settings ()
