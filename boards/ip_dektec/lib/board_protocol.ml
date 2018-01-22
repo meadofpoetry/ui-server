@@ -86,15 +86,15 @@ module SM = struct
              is_response msg l >|= fun r ->
              let conf = storage#get in
              (match msg with
-              | Nw (Set_ip x) -> storage#store {conf with nw = {conf.nw with ip = x} }
-              | Nw (Set_mask x) -> storage#store {conf with nw = {conf.nw with mask = x} }
-              | Nw (Set_gateway x) -> storage#store {conf with nw = {conf.nw with gateway = x} }
-              | Nw (Set_dhcp x) -> storage#store {conf with nw = {conf.nw with dhcp = x} }
-              | Ip (Set_enable x) -> storage#store {conf with ip = {conf.ip with enable = x} }
-              | Ip (Set_fec_enable x) -> storage#store {conf with ip = {conf.ip with fec = x} }
-              | Ip (Set_udp_port x) -> storage#store {conf with ip = {conf.ip with port = x} }
-              | Ip (Set_mcast_addr x) -> storage#store {conf with ip = {conf.ip with multicast = Some x} }
-              | Ip (Set_delay x) -> storage#store {conf with ip = {conf.ip with delay = Some x} }
+              | Nw (Set_ip x)            -> storage#store {conf with nw = {conf.nw with ip = x} }
+              | Nw (Set_mask x)          -> storage#store {conf with nw = {conf.nw with mask = x} }
+              | Nw (Set_gateway x)       -> storage#store {conf with nw = {conf.nw with gateway = x} }
+              | Nw (Set_dhcp x)          -> storage#store {conf with nw = {conf.nw with dhcp = x} }
+              | Ip (Set_enable x)        -> storage#store {conf with ip = {conf.ip with enable = x} }
+              | Ip (Set_fec_enable x)    -> storage#store {conf with ip = {conf.ip with fec = x} }
+              | Ip (Set_udp_port x)      -> storage#store {conf with ip = {conf.ip with port = x} }
+              | Ip (Set_mcast_addr x)    -> storage#store {conf with ip = {conf.ip with multicast = Some x} }
+              | Ip (Set_delay x)         -> storage#store {conf with ip = {conf.ip with delay = Some x} }
               | Ip (Set_rate_est_mode x) -> storage#store {conf with ip = {conf.ip with rate_mode = Some x} }
               | _ -> ());
              Lwt.wakeup w r in

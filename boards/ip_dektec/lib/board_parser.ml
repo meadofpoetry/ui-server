@@ -1,48 +1,5 @@
-[@@@ocaml.warning "-32"]
-
-[%%cstruct
- type prefix =
-   { stx      : uint8_t
-   ; address  : uint8_t [@len 2]
-   ; category : uint8_t [@len 2]
-   ; setting  : uint8_t [@len 2]
-   ; rw       : uint8_t
-   } [@@little_endian]]
-
-[%%cstruct
- type suffix =
-   { crc : uint8_t [@len 2]
-   ; etx : uint8_t
-   } [@@little_endian]]
-
-[%%cstruct
- type setting8 =
-   { data : uint8_t [@len 2]
-   } [@@little_endian]]
-
-[%%cstruct
- type setting16 =
-   { data : uint8_t [@len 4]
-   } [@@little_endian]]
-
-[%%cstruct
- type setting32 =
-   { data : uint8_t [@len 8]
-   } [@@little_endian]]
-
-[%%cstruct
- type setting48 =
-   { data : uint8_t [@len 12]
-   } [@@little_endian]]
-
-[%%cstruct
- type setting64 =
-   { data : uint8_t [@len 16]
-   } [@@little_endian]]
-
-[@@@ocaml.warning "+32"]
-
 open Board_types
+include Board_msg_formats
 
 (* -------------------- Requests/responses ----------------- *)
 
@@ -278,6 +235,15 @@ let etx = 0x03
 let address = 0x40
 
 type rw = Read | Write | Fail
+
+type parsed =
+  { category : int
+  ; setting  : int
+  ; rw       : rw
+  ; body     : Cbuffer.t
+  ; rest     : Cbuffer.t
+  }
+
 let rw_to_int = function
   | Read  -> int_of_char 'R'
   | Write -> int_of_char 'W'
@@ -287,8 +253,6 @@ let rw_of_int = function
   | x when (x = int_of_char 'W') || (x = int_of_char 'w') -> Some Write
   | x when (x = int_of_char 'E') || (x = int_of_char 'e') -> Some Fail
   | _ -> None
-
-let io = fun x -> Lwt_io.printf "%s\n" x |> ignore
 
 let to_hex_string x =
   let size,s = (match x with
@@ -389,8 +353,7 @@ type err = Bad_stx              of int
          | Bad_rw               of int
          | Bad_crc              of int * int
          | Insufficient_payload of Cbuffer.t
-         | No_stx_after_msg
-         | Unknown_err          of string
+         | Unknown              of string
 
 let string_of_err = function
   | Bad_stx x              -> "incorrect STX: "          ^ (string_of_int x)
@@ -401,15 +364,9 @@ let string_of_err = function
   | Bad_setting (x,y)      -> "incorrect setting: "      ^ (string_of_int y) ^ ", in category " ^ (string_of_int x)
   | Bad_rw x               -> "incorrect rw: "           ^ (string_of_int x)
   | Bad_crc (x,y)          -> "incorrect crc, expected " ^ (string_of_int x) ^ ", got " ^ (string_of_int y)
-  | No_stx_after_msg       -> "no STX found after message payload"
   | Insufficient_payload _ -> "insufficient payload"
-  | Unknown_err s          -> s
+  | Unknown s              -> s
 
-let check_header_length buf =
-  if Cbuffer.len buf < sizeof_prefix
-  then Error (Insufficient_payload buf)
-  else Ok buf
-                            
 let check_stx buf =
   let stx' = get_prefix_stx buf in
   if stx <> stx' then Error (Bad_stx stx') else Ok buf
@@ -422,7 +379,7 @@ let check_category buf =
   let category' = get_prefix_category buf |> parse_int_exn in
   match category' with
   | 0x01 | 0x02 | 0x03 | 0x81 | 0x84 -> Ok (category',buf)
-  | _    -> Error (Bad_category category')
+  | _                                -> Error (Bad_category category')
 
 let check_setting (cat,buf) =
   let setting' = get_prefix_setting buf |> parse_int_exn in
@@ -441,27 +398,29 @@ let check_rw (cat,set,buf) =
   | None   -> Error (Bad_rw rw')
 
 let check_rest (cat,set,rw,buf) =
-  let length   = (match rw with
-                  | Fail -> 0
-                  | _    -> cat_set_to_data_length (cat,set)) in
-  let pfx_len  = if (cat >= 1 && cat <= 3) then sizeof_prefix
-                 else sizeof_prefix + sizeof_setting16 in
-  if Cbuffer.len buf < (pfx_len + length + sizeof_suffix) 
+  let length   = match rw with
+    | Fail -> 0
+    | _    -> cat_set_to_data_length (cat,set)
+  in
+  let pfx_len  = if (cat >= 1 && cat <= 3)
+                 then sizeof_prefix
+                 else sizeof_prefix + sizeof_setting16
+  in
+  if Cbuffer.len buf < (pfx_len + length + sizeof_suffix)
   then Error (Insufficient_payload buf)
   else (let pfx,msg'  = Cbuffer.split buf pfx_len in
         let body,rst' = Cbuffer.split msg' length in
         let sfx,rest  = Cbuffer.split rst' sizeof_suffix in
-        let crc       = get_suffix_crc sfx |> parse_int_exn in
-        let crc'      = calc_crc (Cbuffer.append pfx body) in
+        let crc'      = get_suffix_crc sfx |> parse_int_exn in
         let etx'      = get_suffix_etx sfx in
-        if crc' <> crc then Error (Bad_crc (crc', crc))
-        else if etx <> etx' then Error (Bad_etx etx')
-        else Ok (cat,set,rw,body,rest))
+        let crc       = calc_crc (Cbuffer.append pfx body) in
+        if      crc' <> crc then Error (Bad_crc (crc, crc'))
+        else if etx' <> etx then Error (Bad_etx etx')
+        else Ok { category = cat; setting = set; rw; body = buf; rest })
 
 let get_msg buf =
   try
-    CCResult.(check_header_length buf
-              >>= check_stx
+    CCResult.(check_stx buf
               >>= check_address
               >>= check_category
               >>= check_setting
@@ -469,30 +428,30 @@ let get_msg buf =
               >>= check_rest)
   with
   | Invalid_argument _ -> Error (Insufficient_payload buf)
-  | e -> Error (Unknown_err (Printexc.to_string e))
+  | e                  -> Error (Unknown (Printexc.to_string e))
 
 let deserialize buf =
-  let parse = fun ((cat,set,rw,body,rest) as x) ->
-    match rw with
-    | Read | Write -> `Ok (cat,set,rw,body)
-    | Fail         -> `Error (cat,set,rw,body) in
-  let get_rest = (fun (_,_,_,_,x) -> x) in
+  let parse x = match x.rw with
+    | Read | Write -> `Ok x
+    | Fail         -> `Error x
+  in
   let rec f responses b =
-    if Cbuffer.len b > (sizeof_prefix + 1 + sizeof_suffix)
-    then (match get_msg b with
-          | Ok x -> f ((parse x) :: responses) (get_rest x)
-          | Error e -> (match e with
-                        | Insufficient_payload x -> List.rev responses, x
-                        | _                      -> f responses (Cbuffer.shift b 1)))
+    if Cbuffer.len b > (sizeof_prefix + sizeof_suffix)
+    then match get_msg b with
+         | Ok x -> f ((parse x) :: responses) x.rest
+         | Error e -> (match e with
+                       | Insufficient_payload x -> List.rev responses, x
+                       | _                      -> f responses (Cbuffer.shift b 1))
     else List.rev responses, b in
   let r,res = f [] buf in (List.rev r, if Cbuffer.len res > 0 then Some res else None)
 
 let is_response (type a) (req : a request) m : a option =
   let open CCOpt.Infix in
   match m with
-  | `Ok (cat,set,_,b) ->
+  | `Ok x ->
      let c,s = request_to_cat_set req in
-     if c <> cat || s <> set then None
+     let b   = x.body in
+     if c <> x.category || s <> x.setting then None
      else (match req with
            | Devinfo x -> let i = parse_int b in
                           (match x with
