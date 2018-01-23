@@ -416,7 +416,7 @@ let check_rest (cat,set,rw,buf) =
         let crc       = calc_crc (Cbuffer.append pfx body) in
         if      crc' <> crc then Error (Bad_crc (crc, crc'))
         else if etx' <> etx then Error (Bad_etx etx')
-        else Ok { category = cat; setting = set; rw; body = buf; rest })
+        else Ok { category = cat; setting = set; rw; body; rest })
 
 let get_msg buf =
   try
@@ -438,7 +438,7 @@ let deserialize buf =
   let rec f responses b =
     if Cbuffer.len b > (sizeof_prefix + sizeof_suffix)
     then match get_msg b with
-         | Ok x -> f ((parse x) :: responses) x.rest
+         | Ok x    -> f ((parse x) :: responses) x.rest
          | Error e -> (match e with
                        | Insufficient_payload x -> List.rev responses, x
                        | _                      -> f responses (Cbuffer.shift b 1))
