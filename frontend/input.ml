@@ -21,7 +21,8 @@ let () =
                |> CCResult.get_exn in
   let board_to_tabs control = function
     | IP2TS -> [ "IP", (fun () -> Board_ip_dektec_js.Ip_dektec.page control) ]
-    | DVB   -> [ "RF", (fun () -> (new Board_dvb_niit_js.Settings.settings control ())#root, (fun () -> ())) ]
+    | DVB   -> [ "RF", (fun () -> print_endline "new rf page!";
+                                  (new Board_dvb_niit_js.Measures.measures control ())#root, (fun () -> ())) ]
     | TS    -> [ "QoS",       (fun () -> Board_qos_niit_js.Settings.page control)
                ; "Структура", (fun () -> Board_qos_niit_js.Structure.page control)
                ]

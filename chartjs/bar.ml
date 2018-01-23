@@ -15,23 +15,31 @@ let axis_value_to_js (type a b) (t:(a,b) Axes.Cartesian.axis) : (a -> axis_value
   let open Axes in
   let open Axes.Cartesian in
   match t with
-  | Linear (_,_,Integer,_)      -> float_of_int %> Js.number_of_float %> Js.Unsafe.coerce
-  | Linear (_,_,Float,_)        -> Js.number_of_float %> Js.Unsafe.coerce
-  | Logarithmic (_,_,Integer,_) -> float_of_int %> Js.number_of_float %> Js.Unsafe.coerce
-  | Logarithmic (_,_,Float,_)   -> Js.number_of_float %> Js.Unsafe.coerce
-  | Time (_,_,Unix,_)           -> Int64.to_float %> Js.number_of_float %> Js.Unsafe.coerce
-  | Category _                  -> Js.string %> Js.Unsafe.coerce
+  | Linear (_,_,Int,_)        -> float_of_int %> Js.number_of_float %> Js.Unsafe.coerce
+  | Linear (_,_,Int32,_)      -> Int32.to_float %> Js.number_of_float %> Js.Unsafe.coerce
+  | Linear (_,_,Int64,_)      -> Int64.to_float %> Js.number_of_float %> Js.Unsafe.coerce
+  | Linear (_,_,Float,_)      -> Js.number_of_float %> Js.Unsafe.coerce
+  | Logarithmic (_,_,Int,_)   -> float_of_int %> Js.number_of_float %> Js.Unsafe.coerce
+  | Logarithmic (_,_,Int32,_) -> Int32.to_float %> Js.number_of_float %> Js.Unsafe.coerce
+  | Logarithmic (_,_,Int64,_) -> Int64.to_float %> Js.number_of_float %> Js.Unsafe.coerce
+  | Logarithmic (_,_,Float,_) -> Js.number_of_float %> Js.Unsafe.coerce
+  | Time (_,_,Unix,_)         -> Int64.to_float %> Js.number_of_float %> Js.Unsafe.coerce
+  | Category _                -> Js.string %> Js.Unsafe.coerce
 
 let axis_value_of_js (type a b) (t:(a,b) Axes.Cartesian.axis) : (axis_value_js Js.t -> a) =
   let open Axes in
   let open Axes.Cartesian in
   match t with
-  | Linear (_,_,Integer,_)      -> Js.Unsafe.coerce %> Js.float_of_number %> int_of_float
-  | Linear (_,_,Float,_)        -> Js.Unsafe.coerce %> Js.float_of_number
-  | Logarithmic (_,_,Integer,_) -> Js.Unsafe.coerce %> Js.float_of_number %> int_of_float
-  | Logarithmic (_,_,Float,_)   -> Js.Unsafe.coerce %> Js.float_of_number
-  | Time (_,_,Unix,_)           -> Js.Unsafe.coerce %> Js.float_of_number %> Int64.of_float
-  | Category _                  -> Js.Unsafe.coerce %> Js.to_string
+  | Linear (_,_,Int,_)        -> Js.Unsafe.coerce %> Js.float_of_number %> int_of_float
+  | Linear (_,_,Int32,_)      -> Js.Unsafe.coerce %> Js.float_of_number %> Int32.of_float
+  | Linear (_,_,Int64,_)      -> Js.Unsafe.coerce %> Js.float_of_number %> Int64.of_float
+  | Linear (_,_,Float,_)      -> Js.Unsafe.coerce %> Js.float_of_number
+  | Logarithmic (_,_,Int,_)   -> Js.Unsafe.coerce %> Js.float_of_number %> int_of_float
+  | Logarithmic (_,_,Int32,_) -> Js.Unsafe.coerce %> Js.float_of_number %> Int32.of_float
+  | Logarithmic (_,_,Int64,_) -> Js.Unsafe.coerce %> Js.float_of_number %> Int64.of_float
+  | Logarithmic (_,_,Float,_) -> Js.Unsafe.coerce %> Js.float_of_number
+  | Time (_,_,Unix,_)         -> Js.Unsafe.coerce %> Js.float_of_number %> Int64.of_float
+  | Category _                -> Js.Unsafe.coerce %> Js.to_string
 
 module Dataset = struct
 
