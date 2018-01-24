@@ -432,7 +432,7 @@ module Cartesian = struct
 
       class ['a] t () = object(self)
         inherit ['a t_js] base_option ()
-        inherit tick_common ()
+        inherit cartesian_tick ()
 
         method set_begin_at_zero x = obj##.beginAtZero := Js.bool x
         method get_begin_at_zero   = Js.to_bool obj##.beginAtZero
@@ -494,7 +494,7 @@ module Cartesian = struct
 
       class ['a] t () = object
         inherit ['a t_js] base_option ()
-        inherit tick_common ()
+        inherit cartesian_tick ()
 
         method set_max (x:'a) = obj##.max := Js.some x
         method get_max : 'a option = Js.Opt.to_option obj##.max
@@ -543,7 +543,7 @@ module Cartesian = struct
 
       class t () = object(self)
         inherit [t_js] base_option ()
-        inherit tick_common ()
+        inherit cartesian_tick ()
 
         method set_source x = obj##.source := Js.string @@ source_to_string x
         method get_source   = source_of_string_exn @@ Js.to_string obj##.source

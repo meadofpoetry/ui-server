@@ -20,6 +20,7 @@ let chart ~typ ~e () =
                    ()
   in
   let chart = new t ~config () in
+  config#options#x_axis#ticks#set_auto_skip_padding 2;
   List.iter (fun x -> (match x#get_label with
                        | "Модуль 1" -> x#set_background_color @@ Color.rgb_of_name (Color.Indigo C500);
                                        x#set_border_color @@ Color.rgb_of_name (Color.Indigo C500)
