@@ -14,16 +14,27 @@ let chart ~typ ~e () =
              ; { data = []; label = "Модуль 4"}
              ] in
   let config = new Config.t
-                   ~x_axis:(Time ("my-x-axis",Bottom,Unix,Some 20000L))
+                   ~x_axis:(Time ("my-x-axis",Bottom,Unix,Some 120000L))
                    ~y_axis:(Linear ("my-y-axis",Left,typ,None))
                    ~data
                    ()
   in
   let chart = new t ~config () in
+  List.iter (fun x -> (match x#get_label with
+                       | "Модуль 1" -> x#set_background_color @@ Color.rgb_of_name (Color.Indigo C500);
+                                       x#set_border_color @@ Color.rgb_of_name (Color.Indigo C500)
+                       | "Модуль 2" -> x#set_background_color @@ Color.rgb_of_name (Color.Amber C500);
+                                       x#set_border_color @@ Color.rgb_of_name (Color.Amber C500)
+                       | "Модуль 3" -> x#set_background_color @@ Color.rgb_of_name (Color.Green C500);
+                                       x#set_border_color @@ Color.rgb_of_name (Color.Green C500)
+                       | "Модуль 4" -> x#set_background_color @@ Color.rgb_of_name (Color.Cyan C500);
+                                       x#set_border_color @@ Color.rgb_of_name (Color.Cyan C500));
+                      x#set_cubic_interpolation_mode Monotone;
+                      x#set_fill Disabled) config#datasets;
   let _ = React.E.map (fun (id,time,y) ->
               match y with
               | Some y -> let ds = CCList.get_at_idx_exn id chart#config#datasets in
-                          ds#push { x = Int64.of_float time; y };
+                          ds#push { x = Int64.of_float (time *. 1000.); y };
                           chart#update None
               | None   -> ()) e in
   chart
