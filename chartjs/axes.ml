@@ -227,8 +227,10 @@ class virtual tick_common () =
         end
 
 type _ numeric =
-  | Integer : int numeric
-  | Float   : float numeric
+  | Int   : int numeric
+  | Int32 : int32 numeric
+  | Int64 : int64 numeric
+  | Float : float numeric
 
 type _ time =
   | Unix : Int64.t time
@@ -430,7 +432,7 @@ module Cartesian = struct
 
       class ['a] t () = object(self)
         inherit ['a t_js] base_option ()
-        inherit tick_common ()
+        inherit cartesian_tick ()
 
         method set_begin_at_zero x = obj##.beginAtZero := Js.bool x
         method get_begin_at_zero   = Js.to_bool obj##.beginAtZero
@@ -492,7 +494,7 @@ module Cartesian = struct
 
       class ['a] t () = object
         inherit ['a t_js] base_option ()
-        inherit tick_common ()
+        inherit cartesian_tick ()
 
         method set_max (x:'a) = obj##.max := Js.some x
         method get_max : 'a option = Js.Opt.to_option obj##.max
@@ -541,7 +543,7 @@ module Cartesian = struct
 
       class t () = object(self)
         inherit [t_js] base_option ()
-        inherit tick_common ()
+        inherit cartesian_tick ()
 
         method set_source x = obj##.source := Js.string @@ source_to_string x
         method get_source   = source_of_string_exn @@ Js.to_string obj##.source
@@ -754,30 +756,42 @@ module Cartesian = struct
 
   let point_to_string (type a b) (t:(a,b) axis) (x:a) : string =
     match t with
-    | Linear (_,_,Integer,_)      -> string_of_int x
+    | Linear (_,_,Int,_)          -> string_of_int x
+    | Linear (_,_,Int32,_)        -> Int32.to_string x
+    | Linear (_,_,Int64,_)        -> Int64.to_string x
     | Linear (_,_,Float,_)        -> string_of_float x
-    | Logarithmic (_,_,Integer,_) -> string_of_int x
+    | Logarithmic (_,_,Int,_)     -> string_of_int x
+    | Logarithmic (_,_,Int32,_)   -> Int32.to_string x
+    | Logarithmic (_,_,Int64,_)   -> Int64.to_string x
     | Logarithmic (_,_,Float,_)   -> string_of_float x
     | Time (_,_,Unix,_)           -> Int64.to_string x
     | Category _                  -> x
 
   let get_axis_cmp_fn (type a b) (t:(a,b) axis) : (a -> a -> int) =
     match t with
-    | Linear (_,_,Integer,_)      -> compare
-    | Linear (_,_,Float,_)        -> compare
-    | Logarithmic (_,_,Integer,_) -> compare
-    | Logarithmic (_,_,Float,_)   -> compare
-    | Time (_,_,Unix,_)           -> Int64.compare
-    | Category _                  -> (fun _ _ -> 0)
+    | Linear (_,_,Int,_)        -> compare
+    | Linear (_,_,Int32,_)      -> Int32.compare
+    | Linear (_,_,Int64,_)      -> Int64.compare
+    | Linear (_,_,Float,_)      -> compare
+    | Logarithmic (_,_,Int,_)   -> compare
+    | Logarithmic (_,_,Int32,_) -> Int32.compare
+    | Logarithmic (_,_,Int64,_) -> Int64.compare
+    | Logarithmic (_,_,Float,_) -> compare
+    | Time (_,_,Unix,_)         -> Int64.compare
+    | Category _                -> (fun _ _ -> 0)
 
   let get_axis_new_min (type a b) (t:(a,b) axis) (max:a) (delta:a) : a =
     match t with
-    | Linear (_,_,Integer,_)      -> max - delta
-    | Linear (_,_,Float,_)        -> max -. delta
-    | Logarithmic (_,_,Integer,_) -> max - delta
-    | Logarithmic (_,_,Float,_)   -> max -. delta
-    | Time (_,_,Unix,_)           -> Int64.sub max delta
-    | Category _                  -> ""
+    | Linear (_,_,Int,_)        -> max - delta
+    | Linear (_,_,Int32,_)      -> Int32.sub max delta
+    | Linear (_,_,Int64,_)      -> Int64.sub max delta
+    | Linear (_,_,Float,_)      -> max -. delta
+    | Logarithmic (_,_,Int,_)   -> max - delta
+    | Logarithmic (_,_,Int32,_) -> Int32.sub max delta
+    | Logarithmic (_,_,Int64,_) -> Int64.sub max delta
+    | Logarithmic (_,_,Float,_) -> max -. delta
+    | Time (_,_,Unix,_)         -> Int64.sub max delta
+    | Category _                -> ""
 
   let set_axis_min_max (type a b) (t:(a,b) axis) (axis:b) (min:a) (max:a): unit =
     match t with

@@ -3,9 +3,9 @@
 (library
  ((name        board_dvb_niit_js)
   (public_name board-dvb-niit-js)
-  (modules     (requests board_types dvb_niit settings ui))
+  (modules     (requests board_types dvb_niit settings measures ui))
   (synopsis "js interface of the dvb_niit board")
-  (libraries (containers common api-js components))
+  (libraries (containers common api-js components chartjs))
   (flags (:standard -short-paths -strict-sequence -bin-annot
           -thread -w "+1..49+60" -w "+a-4-7-23-33-39-40-41-42-44-45-48"))
   (js_of_ocaml ((flags (:standard +weak.js --opt 3))))
