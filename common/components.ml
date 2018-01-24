@@ -986,6 +986,28 @@ module Make
 
   end
 
+  module Expansion_panel = struct
+
+    let base_class     = "mdc-expansion-panel"
+    let expanded_class = CSS.add_modifier base_class "expanded"
+    let summary_class  = CSS.add_element base_class "summary"
+    let content_class  = CSS.add_element base_class "summary-content"
+    let icon_class     = CSS.add_element base_class "icon"
+
+    let create ?id ?style ?(classes=[]) ?attrs ~content () =
+      div ~a:([ a_class (classes
+                         |> CCList.cons base_class)]
+              |> add_common_attrs ?id ?style ?attrs)
+          [ div ~a:([ a_class [summary_class]
+                    ; a_tabindex 0 ])
+                [ div ~a:([ a_class [content_class] ]) []
+                ; div ~a:([ a_class [icon_class]; a_tabindex (-1) ]) []
+                ]
+          ; content
+          ]
+
+  end
+
   module Menu = struct
 
     let base_class   = "mdc-simple-menu"
