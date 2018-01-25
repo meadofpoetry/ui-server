@@ -47,12 +47,18 @@ module Position = struct
   let has_collision ~(f:'a -> t) x (l:'a list) =
     CCOpt.is_some @@ get_first_collision ~f x l
 
-  let get_free_rect ~(f:'a -> t) (pos:t) (items:'a list) w h ?width ?height () =
+  let get_free_rect ~(f:'a -> t) (pos:t) (items:'a list) w h ?(cmp:(t -> t -> int) option) () =
     if has_collision ~f:(fun x -> x) pos items
     then None
     else
-      let items    = CCList.map f items in
       let area pos = pos.w * pos.h in
+      let cmp = match cmp with
+        | Some f -> f
+        | None   -> (fun new_pos old_pos -> let new_area = area new_pos in
+                                            let old_area = area old_pos in
+                                            compare new_area old_area)
+      in
+      let items    = CCList.map f items in
       (* FIXME obviously not optimized algorithm *)
       (* get only elements that are on the way to cursor proection to the left/right side *)
       let x_filtered = CCList.filter (fun i -> pos.y > i.y && pos.y < i.y + i.h) items in
@@ -61,9 +67,7 @@ module Position = struct
               |> CCList.fold_left (fun acc i -> if i.x + i.w > acc.x + acc.w then i else acc) empty
               |> (fun x -> x.x + x.w) in
       (* get cursor proection to the right side *)
-      let r = match width with
-        | Some width -> l + width
-        | None       ->
+      let r =
            CCList.filter (fun i -> i.x > pos.x) x_filtered
            |> CCList.fold_left (fun acc i -> if i.x < acc.x then i else acc)
                 { x=w; y=0; w=0; h=0 }
@@ -77,9 +81,7 @@ module Position = struct
               |> CCList.fold_left (fun acc i -> if i.y + i.h > acc.y + acc.h then i else acc) empty
               |> (fun x -> x.y + x.h) in
       (* get cursor proection to the bottom side *)
-      let b = match height with
-        | Some height -> t + height
-        | None        ->
+      let b = 
            CCList.filter (fun i -> i.y > pos.y) y_filtered
            |> CCList.fold_left (fun acc i -> if i.y < acc.y then i else acc)
                 { x=0; y=h; w=0; h=0}
@@ -102,27 +104,25 @@ module Position = struct
       in
       (* get biggest non-overlapping rectangle under the cursor *)
       (* FIXME obviously not optimized at all *)
-      let a,_ = CCList.fold_left (fun acc x0 ->
-                    let xs = CCList.filter (fun i -> i > x0) xs in
-                    CCList.fold_left (fun acc x1 ->
-                        CCList.fold_left (fun acc y0 ->
-                            let ys = CCList.filter (fun i -> i > y0) ys in
-                            CCList.fold_left (fun acc y1 ->
-                                let _,acc_area  = acc in
-                                let (new_pos:t) = { x = x0; y = y0; w = x1 - x0; h = y1 - y0 } in
-                                let new_area    = area new_pos in
-                                (*
-                                 * new rect must be the biggest one available,
-                                 * it must not overlap with other rects,
-                                 * it must be under the mouse cursor
-                                 *)
-                                let new_pos = { new_pos with w; h } in
-                                match (new_area > acc_area),
-                                      get_first_collision ~f:(fun x -> x) new_pos items,
-                                      collides pos new_pos with
-                                | true,None,true -> new_pos,new_area
-                                | _         -> acc) acc ys) acc ys) acc xs)
-                  (empty,0) xs in
+      let a = CCList.fold_left (fun acc x0 ->
+                  let xs = CCList.filter (fun i -> i > x0) xs in
+                  CCList.fold_left (fun acc x1 ->
+                      CCList.fold_left (fun acc y0 ->
+                          let ys = CCList.filter (fun i -> i > y0) ys in
+                          CCList.fold_left (fun acc y1 ->
+                              let (new_pos:t) = { x = x0; y = y0; w = x1 - x0; h = y1 - y0 } in
+                              (*
+                               * new rect must be the biggest one available,
+                               * it must not overlap with other rects,
+                               * it must be under the mouse cursor
+                               *)
+                              let new_pos = { new_pos with w; h } in
+                              match (cmp new_pos acc),
+                                    get_first_collision ~f:(fun x -> x) new_pos items,
+                                    collides pos new_pos with
+                              | 1, None, true -> new_pos
+                              | _             -> acc) acc ys) acc ys) acc xs)
+                empty xs in
       Some a
 
   let correct_xy (p:t) par_w par_h =
@@ -389,21 +389,6 @@ module Item = struct
                               grid.rows
          in
          if not (self#has_collision pos) then ghost#s_pos_push pos;
-         (* temporary update element's width and height in pixels *)
-         (* let pos_px = correct_wh ?max_w:(CCOpt.map (fun x -> x * col_px) item.max_w)
-          *                         ~min_w:(CCOpt.get_or ~default:col_px
-          *                                              (CCOpt.map (fun x -> x * col_px) item.min_w))
-          *                         ?max_h:(CCOpt.map (fun x -> x * row_px) item.max_h)
-          *                         ~min_h:(CCOpt.get_or ~default:row_px
-          *                                              (CCOpt.map (fun x -> x * row_px) item.min_h))
-          *                         { x = self#pos.x * col_px
-          *                         ; y = self#pos.x * col_px
-          *                         ; w
-          *                         ; h
-          *                         }
-          *                         (grid.cols * col_px)
-          *                         (CCOpt.map (fun x -> x * row_px) grid.rows)
-          * in *)
          self#set_w w;
          self#set_h h
       | `End ->
@@ -597,8 +582,8 @@ class ['a] t ~grid ~(items:'a item list) () =
                     ?(resizable=true)
                     ?(draggable=true)
                     ?widget
-                    ?width
-                    ?height
+                    ?(width:int option)
+                    ?(height:int option)
                     ~(value: 'a)
                     () =
       if adding
@@ -627,13 +612,16 @@ class ['a] t ~grid ~(items:'a item list) () =
                                   let pos =
                                     match width, height with
                                     | Some width, Some height ->
+                                       let cmp (pos1: Position.t) _ =
+                                         if width <= pos1.w && height <= pos1.h
+                                         then 1 else 0
+                                       in
                                        Position.get_free_rect ~f:(fun x -> x)
                                          ev_pos
                                          items
                                          grid.cols
                                          (React.S.value s_rows)
-                                         ~width
-                                         ~height
+                                         ~cmp
                                          ()
                                     | _ ->
                                        Position.get_free_rect ~f:(fun x -> x)
@@ -644,7 +632,15 @@ class ['a] t ~grid ~(items:'a item list) () =
                                          ()
                                   in
                                   begin match pos with
-                                  | Some pos -> ghost#s_pos_push pos
+                                  | Some pos ->
+                                     begin
+                                       match width, height with
+                                       | Some width, Some height ->
+                                          let w = if width < 1 then 1 else width in
+                                          let h = if height < 1 then 1 else height in
+                                          ghost#s_pos_push {pos with w; h}
+                                       | _ -> ghost#s_pos_push pos
+                                     end;
                                   | None     -> ghost#s_pos_push Position.empty
                                   end;
                                | None -> ghost#s_pos_push Position.empty);
