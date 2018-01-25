@@ -70,8 +70,9 @@ let initialize d (wm: Wm.t) =
     | 5  , 4   -> 30 , 24
     | 8  , 5   -> 32 , 20
     | 25 , 16  -> 25 , 16
+    | 20 , 11  -> 40 , 22
     | 256, 135 -> 256, 135 (*UHD N*K*)        (*!!!*)
-    | _        -> 30 , 20
+    | _        -> 32 , 18
   in
   let wd_list list =
     let wds =
@@ -166,7 +167,6 @@ let initialize d (wm: Wm.t) =
               List.fold_left
                 (fun acc x ->
                   let id = x#get_input_widget#get_id in
-                  print_endline id;
                   let w  = CCList.find_pred (fun (x: (string * Wm.widget)) -> id = (fst x))
                              wm.widgets in
                   match w with

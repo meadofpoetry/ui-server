@@ -597,12 +597,15 @@ class ['a] t ~grid ~(items:'a item list) () =
                     ?(resizable=true)
                     ?(draggable=true)
                     ?widget
+                    ?width
+                    ?height
                     ~(value: 'a)
                     () =
       if adding
       then Lwt.return_error In_progress
       else
         let open Lwt.Infix in
+
         adding <- true;
         let t,wakener = Lwt.wait () in
         let item = { pos = Position.empty
@@ -621,12 +624,24 @@ class ['a] t ~grid ~(items:'a item list) () =
                                                   y = ev_pos.y / React.S.value s_row_h
                                     }
                                   in
-                                  let pos = Position.get_free_rect ~f:(fun x -> x)
-                                              ev_pos
-                                              items
-                                              grid.cols
-                                              (React.S.value s_rows)
-                                              ()
+                                  let pos =
+                                    match width, height with
+                                    | Some width, Some height ->
+                                       Position.get_free_rect ~f:(fun x -> x)
+                                         ev_pos
+                                         items
+                                         grid.cols
+                                         (React.S.value s_rows)
+                                         ~width
+                                         ~height
+                                         ()
+                                    | _ ->
+                                       Position.get_free_rect ~f:(fun x -> x)
+                                         ev_pos
+                                         items
+                                         grid.cols
+                                         (React.S.value s_rows)
+                                         ()
                                   in
                                   begin match pos with
                                   | Some pos -> ghost#s_pos_push pos
@@ -656,128 +671,6 @@ class ['a] t ~grid ~(items:'a item list) () =
                                  | _, 27 -> Lwt.wakeup wakener (Error (Collides []))
                                | _      -> ());
                               true)
-        in
-        t >>= (fun _ -> adding <- false;
-                        Dom_events.stop_listen mv_l;
-                        Dom_events.stop_listen cl_l;
-                        Dom_events.stop_listen esc_l;
-                        Dom.removeChild self#root ghost#root;
-                        Lwt.return_unit) |> ignore;
-        t
-
-    method add_with_size ?min_w ?min_h ?max_w ?max_h
-             ?(static=false)
-             ?(resizable=true)
-             ?(draggable=true)
-             ?widget
-             ~(value: 'a)
-             ~width    (** cols **)
-             ~height   (** rows **)
-             () =
-      if adding
-      then Lwt.return_error In_progress
-      else
-        let open Lwt.Infix in
-        let width  = if width < 1 then 1
-                     else if width > grid.cols then grid.cols
-                     else width in
-        let height = if height < 1 then 1
-                     else if height > (React.S.value s_rows) then (React.S.value s_rows)
-                     else height in
-        adding <- true;
-        let t,wakener = Lwt.wait () in
-        let item = { pos = Position.empty
-                   ; min_w; min_h; max_w; max_h; static; resizable; draggable; widget; value } in
-        let items = CCList.map (fun x -> x#pos) @@ React.S.value s_items in
-        let ghost = new Item.cell ~typ:`Ghost ~s_col_w ~s_row_h ~item () in
-        Dom.appendChild self#root ghost#root;
-        let mv_l  =
-          Dom_events.listen Dom_html.document##.body
-            Dom_events.Typ.mousemove
-            (fun _ e ->
-              (match self#get_event_pos e with
-               | Some ev_pos ->
-                  let ev_pos =
-                    { ev_pos with x = ev_pos.x / React.S.value s_col_w
-                                ; y = ev_pos.y / React.S.value s_row_h
-                                ; w = width
-                                ; h = height
-                    } in
-                  let pos = Position.get_free_rect ~f:(fun x -> x)
-                                              ev_pos
-                                              items
-                                              grid.cols
-                                              (React.S.value s_rows)
-                                              ~width: width
-                                              ~height: height
-                                              ()
-                  in
-                  begin match pos with
-                  | Some pos ->
-                     let pos = Position.correct_xy pos grid.cols (Some (React.S.value s_rows)) in
-                     ghost#s_pos_push pos
-                  | None     -> ghost#s_pos_push Position.empty
-                  end;
-               | None -> ghost#s_pos_push Position.empty);
-               (*    let pos = { ev_pos with x = ev_pos.x - width / 2
-                *                          ; y = ev_pos.y - height / 2 } in
-                *    let pos = Position.correct_xy pos grid.cols (Some (React.S.value s_rows)) in
-                *    let free_pos = Position.get_free_rect ~f:(fun x -> x)
-                *                     ev_pos
-                *                     items
-                *                     grid.cols
-                *                     (React.S.value s_rows) in
-                *    let collision = Position.has_collision ~f:(fun x -> x) pos items in
-                *    begin
-                *      if not collision
-                *      then ghost#s_pos_push pos
-                *      else match free_pos with
-                *           | Some free_pos ->
-                *              if free_pos.w >= width && free_pos.h >= height
-                *              then if pos.x < free_pos.x &&
-                *                        pos.y + pos.w > free_pos.y + free_pos.w
-                *                   then ghost#s_pos_push
-                *                            {pos with y = free_pos.y + free_pos.w - pos.w
-                *                                    ; x = free_pos.x}
-                *                   else
-                *                     if pos.x < free_pos.x
-                *                     then ghost#s_pos_push
-                *                            {pos with x = free_pos.x
-                *                                    ; y = ev_pos.y - height / 2}
-                *                     else
-                *                       if pos.y + pos.w > free_pos.y + free_pos.w
-                *                       then ghost#s_pos_push
-                *                              {pos with y = free_pos.y + free_pos.w - pos.w
-                *                                      ; x = ev_pos.x - width / 2}
-                *                       else ghost#s_pos_push
-                *                              {pos with y = ev_pos.y - height / 2
-                *                                      ; x = ev_pos.x - width / 2}
-                *           | None -> ()
-                *    end;
-                * | None -> ghost#s_pos_push Position.empty); *)
-              true)
-        in
-        let cl_l  =
-          Dom_events.listen self#root
-            Dom_events.Typ.click
-            (fun _ _ ->
-              begin match ghost#pos with
-              | x when x.w = 0 || x.h = 0 -> Lwt.wakeup wakener (Error (Collides []))
-              | pos -> Lwt.wakeup wakener (self#add { item with pos })
-              end;
-              false)
-        in
-        let esc_l =
-          Dom_events.listen Dom_html.window
-            Dom_events.Typ.keydown
-            (fun _ ev ->
-              let key  = CCOpt.map Js.to_string @@ Js.Optdef.to_option ev##.key in
-              (match key,ev##.keyCode with
-               | Some "Esc"     ,_
-                 | Some "Escape",_
-                 | _, 27 -> Lwt.wakeup wakener (Error (Collides []))
-               | _      -> ());
-              true)
         in
         t >>= (fun _ -> adding <- false;
                         Dom_events.stop_listen mv_l;
