@@ -66,10 +66,13 @@ module Plots = struct
     let chart = new t ~config () in
     config#options#y_axis#ticks#set_max y_max;
     config#options#y_axis#ticks#set_min y_min;
+    config#options#elements#point#set_radius 0;
     config#options#x_axis#ticks#set_auto_skip_padding 2;
     List.iteri (fun id x ->
         let r, g, b = colors.( id mod Array.length colors ) in
         x#set_background_color @@ Color.rgb r g b;
+        x#set_border_color @@ Color.rgb r g b;
+        x#set_line_tension 0.;
         x#set_cubic_interpolation_mode Monotone;
         x#set_fill Disabled) config#datasets;
     let _ = React.E.map (fun (id,data) ->
