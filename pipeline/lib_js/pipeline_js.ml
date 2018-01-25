@@ -43,6 +43,21 @@ let janus_pipe debug =
     Lwt.return plugin)
   >>= (fun plugin -> Janus_streaming.send plugin (Watch { id = 1; secret = None }) |> ignore ; Lwt.return ())
 
+let make_text () =
+  let text    = Dom_html.createP Dom_html.document in
+  text##.textContent := Js.some @@ Js.string "Pipeline widget";
+  text##.classList##add (Js.string @@ Components.Typography.font_to_class Display_1);
+  text
+
+let make_video () =
+  let video   = Dom_html.createVideo Dom_html.document in
+  video##.autoplay := Js._true;
+  video##.controls := Js._true;
+  video##.id       := Js.string "remotevideo";
+  video##.style##.backgroundColor := Js.string "rgba(0,0,0,1)";
+  video##setAttribute (Js.string "width") (Js.string "640");
+  video
+  
 let load () =
   print_endline "load";
   let () = (Lwt.catch
@@ -51,26 +66,16 @@ let load () =
                | e -> Lwt.return @@ Printf.printf "Exception in janus pipe: %s\n" (Printexc.to_string e)))
            |> ignore in
 
-  let doc = Dom_html.document in
-
   let container = Dom_html.getElementById "arbitrary-content" in
 
-  let text    = Dom_html.createP doc in
-  text##.textContent := Js.some @@ Js.string "Pipeline widget";
-  text##.classList##add (Js.string @@ Components.Typography.font_to_class Display_1);
-
-  let video   = Dom_html.createVideo doc in
-  video##.autoplay := Js._true;
-  video##.controls := Js._true;
-  video##.id       := Js.string "remotevideo";
-  video##.style##.backgroundColor := Js.string "rgba(0,0,0,1)";
-  video##setAttribute (Js.string "width") (Js.string "640");
-
+  let text    = make_text () in
+  let video   = make_video () in  
+  
   let settings,_ = Requests.get_settings_socket () in
   let str,_ = Requests.get_structure_socket () in
   let wm,_  = Requests.get_wm_socket () in
   let vdata,_  = Requests.get_vdata_socket () in
-  
+
   Requests.get_settings ()
   >|= (function Error e -> print_endline @@ "error get settings " ^ e
               | Ok s    ->
@@ -106,13 +111,13 @@ let load () =
                                                |> Lwt.ignore_result)
                  in Dom.appendChild container wm_el)
   |> Lwt.ignore_result;
-(*
+
   Requests.get_structure ()
   >|= (function Error e -> print_endline @@ "error get video_data " ^ e
               | Ok s    ->
                  let plots_el = Ui.Plots.create ~init:s ~events:str ~data:vdata
                  in Dom.appendChild container plots_el)
   |> Lwt.ignore_result;
- *)
+
   Dom.appendChild container text;
   Dom.appendChild container video
