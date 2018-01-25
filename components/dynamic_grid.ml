@@ -47,11 +47,11 @@ module Position = struct
   let has_collision ~(f:'a -> t) x (l:'a list) =
     CCOpt.is_some @@ get_first_collision ~f x l
 
-  let get_free_rect ~(f:'a -> t) (pos:t) (items:'a list) w h =
+  let get_free_rect ~(f:'a -> t) (pos:t) (items:'a list) w h ?width ?height () =
     if has_collision ~f:(fun x -> x) pos items
     then None
     else
-      let items = CCList.map f items in
+      let items    = CCList.map f items in
       let area pos = pos.w * pos.h in
       (* FIXME obviously not optimized algorithm *)
       (* get only elements that are on the way to cursor proection to the left/right side *)
@@ -61,20 +61,29 @@ module Position = struct
               |> CCList.fold_left (fun acc i -> if i.x + i.w > acc.x + acc.w then i else acc) empty
               |> (fun x -> x.x + x.w) in
       (* get cursor proection to the right side *)
-      let r = CCList.filter (fun i -> i.x > pos.x) x_filtered
-              |> CCList.fold_left (fun acc i -> if i.x < acc.x then i else acc) { x=w;y=0;w=0;h=0 }
-              |> (fun x -> x.x) in
+      let r = match width with
+        | Some width -> l + width
+        | None       ->
+           CCList.filter (fun i -> i.x > pos.x) x_filtered
+           |> CCList.fold_left (fun acc i -> if i.x < acc.x then i else acc)
+                { x=w; y=0; w=0; h=0 }
+           |> (fun x -> x.x) in
       (* get only elements that are on the way to cursor proection to the top/bottom side *)
-      let y_filtered = CCList.filter (fun i -> pos.x > i.x && pos.x < i.x + i.w && i.x + i.w > l && i.x < r)
-                                     items in
+      let y_filtered = CCList.filter
+                         (fun i -> pos.x > i.x && pos.x < i.x + i.w && i.x + i.w > l && i.x < r)
+                         items in
       (* get cursor proection to the top side *)
       let t = CCList.filter (fun i -> i.y < pos.y) y_filtered
               |> CCList.fold_left (fun acc i -> if i.y + i.h > acc.y + acc.h then i else acc) empty
               |> (fun x -> x.y + x.h) in
       (* get cursor proection to the bottom side *)
-      let b = CCList.filter (fun i -> i.y > pos.y) y_filtered
-              |> CCList.fold_left (fun acc i -> if i.y < acc.y then i else acc) { x=0;y=h;w=0;h=0}
-              |> (fun x -> x.y) in
+      let b = match height with
+        | Some height -> t + height
+        | None        ->
+           CCList.filter (fun i -> i.y > pos.y) y_filtered
+           |> CCList.fold_left (fun acc i -> if i.y < acc.y then i else acc)
+                { x=0; y=h; w=0; h=0}
+           |> (fun x -> x.y) in
       (* get available x points, FIXME obviously we don't need to iterate over all items *)
       let xs = CCList.fold_left (fun acc i ->
                    let join = fun x lst -> if x >= l && x <= r then x :: lst else lst in
@@ -99,20 +108,21 @@ module Position = struct
                         CCList.fold_left (fun acc y0 ->
                             let ys = CCList.filter (fun i -> i > y0) ys in
                             CCList.fold_left (fun acc y1 ->
-                                let _,acc_area = acc in
+                                let _,acc_area  = acc in
                                 let (new_pos:t) = { x = x0; y = y0; w = x1 - x0; h = y1 - y0 } in
-                                let new_area = area new_pos in
+                                let new_area    = area new_pos in
                                 (*
                                  * new rect must be the biggest one available,
                                  * it must not overlap with other rects,
                                  * it must be under the mouse cursor
                                  *)
+                                let new_pos = { new_pos with w; h } in
                                 match (new_area > acc_area),
                                       get_first_collision ~f:(fun x -> x) new_pos items,
                                       collides pos new_pos with
                                 | true,None,true -> new_pos,new_area
                                 | _         -> acc) acc ys) acc ys) acc xs)
-                                 (empty,0) xs in
+                  (empty,0) xs in
       Some a
 
   let correct_xy (p:t) par_w par_h =
@@ -447,11 +457,14 @@ class ['a] t ~grid ~(items:'a item list) () =
     | None    -> s_col_w, s_col_w_push
   in
   (* let s_row_h,s_row_h_push = React.S.create 0 in *)
-  let s_items  = React.S.fold (fun acc x -> match x with
-                                            | `Add x    -> x :: acc
-                                            | `Remove x -> CCList.filter (fun i -> i#root != x#root) acc)
-                             [] e_modify in
-  let items    = CCList.map (fun item -> new Item.t ~grid ~s_items ~e_modify_push ~s_col_w ~s_row_h ~item ())
+  let s_items  = React.S.fold
+                   (fun acc x ->
+                     match x with
+                     | `Add x    -> x :: acc
+                     | `Remove x -> CCList.filter (fun i -> i#root != x#root) acc)
+                   [] e_modify in
+  let items    = CCList.map
+                   (fun item -> new Item.t ~grid ~s_items ~e_modify_push ~s_col_w ~s_row_h ~item ())
                             items
   in
   let s_change =
@@ -466,8 +479,9 @@ class ['a] t ~grid ~(items:'a item list) () =
   in
   let s_rows = match grid.rows with
     | Some h -> React.S.const h
-    | None   -> let merge = (fun acc (x:Position.t) -> if (x.h + x.y) > acc then (x.h + x.y) else acc) in
-                React.S.map (fun (l:Position.t list) -> CCList.fold_left merge 0 l) s_changing
+    | None   ->
+       let merge = (fun acc (x:Position.t) -> if (x.h + x.y) > acc then (x.h + x.y) else acc) in
+       React.S.map (fun (l:Position.t list) -> CCList.fold_left merge 0 l) s_changing
   in
   let elt = Markup.Dynamic_grid.create ~items:[] () |> Tyxml_js.To_dom.of_element in
 
@@ -583,12 +597,15 @@ class ['a] t ~grid ~(items:'a item list) () =
                     ?(resizable=true)
                     ?(draggable=true)
                     ?widget
+                    ?width
+                    ?height
                     ~(value: 'a)
                     () =
       if adding
       then Lwt.return_error In_progress
       else
         let open Lwt.Infix in
+
         adding <- true;
         let t,wakener = Lwt.wait () in
         let item = { pos = Position.empty
@@ -607,11 +624,24 @@ class ['a] t ~grid ~(items:'a item list) () =
                                                   y = ev_pos.y / React.S.value s_row_h
                                     }
                                   in
-                                  let pos = Position.get_free_rect ~f:(fun x -> x)
-                                              ev_pos
-                                              items
-                                              grid.cols
-                                              (React.S.value s_rows)
+                                  let pos =
+                                    match width, height with
+                                    | Some width, Some height ->
+                                       Position.get_free_rect ~f:(fun x -> x)
+                                         ev_pos
+                                         items
+                                         grid.cols
+                                         (React.S.value s_rows)
+                                         ~width
+                                         ~height
+                                         ()
+                                    | _ ->
+                                       Position.get_free_rect ~f:(fun x -> x)
+                                         ev_pos
+                                         items
+                                         grid.cols
+                                         (React.S.value s_rows)
+                                         ()
                                   in
                                   begin match pos with
                                   | Some pos -> ghost#s_pos_push pos
