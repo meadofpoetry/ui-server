@@ -67,6 +67,10 @@ let load () =
   video##setAttribute (Js.string "width") (Js.string "640");
 
   let settings,_ = Requests.get_settings_socket () in
+  let str,_ = Requests.get_structure_socket () in
+  let wm,_  = Requests.get_wm_socket () in
+  let vdata,_  = Requests.get_vdata_socket () in
+  
   Requests.get_settings ()
   >|= (function Error e -> print_endline @@ "error get settings " ^ e
               | Ok s    ->
@@ -79,13 +83,9 @@ let load () =
                  in Dom.appendChild container s_el)
   |> Lwt.ignore_result;
 
-  let str,_ = Requests.get_structure_socket () in
   Requests.get_structure ()
   >|= (function Error e -> print_endline @@ "error get: " ^ e
               | Ok s    ->
-                 (* Structure.t_list_to_yojson s
-                  * |> Yojson.Safe.to_string
-                  * |> print_endline; *)
                  let str_el = Ui.Structure.create ~init:s ~events:str
                                 ~post:(fun s -> Requests.post_structure s
                                                 >|= (function
@@ -95,13 +95,9 @@ let load () =
                  in Dom.appendChild container str_el)
   |> Lwt.ignore_result;
 
-  let wm,_  = Requests.get_wm_socket () in
   Requests.get_wm ()
   >|= (function Error e -> print_endline @@ "error get wm " ^ e
               | Ok w    ->
-                 Wm.to_yojson w
-                 |> Yojson.Safe.to_string
-                 |> print_endline;
                  let wm_el = Ui.Wm.create ~init:w ~events:wm
                                ~post:(fun w -> Requests.post_wm w
                                                >|= (function
@@ -110,6 +106,13 @@ let load () =
                                                |> Lwt.ignore_result)
                  in Dom.appendChild container wm_el)
   |> Lwt.ignore_result;
-
+(*
+  Requests.get_structure ()
+  >|= (function Error e -> print_endline @@ "error get video_data " ^ e
+              | Ok s    ->
+                 let plots_el = Ui.Plots.create ~init:s ~events:str ~data:vdata
+                 in Dom.appendChild container plots_el)
+  |> Lwt.ignore_result;
+ *)
   Dom.appendChild container text;
   Dom.appendChild container video

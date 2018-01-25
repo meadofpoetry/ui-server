@@ -1,5 +1,132 @@
 open Components
 
+module Plots = struct
+
+  type plot_meta = { stream  : int
+                   ; channel : int
+                   ; pid     : int
+                   ; desc    : string
+                   }
+
+  let to_plot_meta (sl : Structure.t list) =
+    let of_stream (s : Structure.t) =
+      let str = s.structure in
+      let stream = Int32.to_int str.id in
+      let stream_desc = "Поток " ^ str.uri in
+      let of_channel (c : Structure.channel) =
+        let channel = c.number in
+        let channel_desc = Printf.sprintf "%d %s (%s)"
+                             channel
+                             c.service_name
+                             c.provider_name in
+        let of_pid (p : Structure.pid) =
+          if not p.to_be_analyzed
+          then None
+          else Some { stream
+                    ; channel
+                    ; pid = p.pid
+                    ; desc = Printf.sprintf "%s %s, pid: %d" stream_desc channel_desc p.pid
+                 }
+        in
+        CCList.filter_map of_pid c.pids
+      in
+      CCList.concat @@ CCList.map of_channel str.channels
+    in
+    CCList.concat @@ CCList.map of_stream sl
+
+  module M = CCMap.Make(struct
+                 type t = int * int * int
+                 let compare (l : t) (r : t) = compare l r
+               end)
+    
+  let chart ~typ ~metas ~(extract : Video_data.params -> float) ~y_max ~y_min ~e () =
+    let open Chartjs.Line in
+    let pairs = List.mapi (fun idx pm -> ((pm.stream, pm.channel, pm.pid), idx),
+                                         { data = []; label = pm.desc } )
+                  metas in
+    let t, data = List.split pairs in
+    let table = M.of_list t in
+    let config = new Config.t
+                   ~x_axis:(Time ("my-x-axis",Bottom,Unix,Some 40000L))
+                   ~y_axis:(Linear ("my-y-axis",Left,typ,None))
+                   ~data
+                   ()
+    in
+    let chart = new t ~config () in
+    config#options#y_axis#ticks#set_max y_max;
+    config#options#y_axis#ticks#set_min y_min;
+    config#options#x_axis#ticks#set_auto_skip_padding 2;
+    List.iter (fun x ->
+        x#set_cubic_interpolation_mode Monotone;
+        x#set_fill Disabled) config#datasets;
+    let _ = React.E.map (fun (id,data) ->
+                let open Video_data in
+                let open CCOpt in
+                (M.get id table >|= fun id ->
+                 CCList.get_at_idx id chart#config#datasets >|= fun ds ->
+                 let data = List.map (fun (p : params) -> { x = Int64.(div p.time 1000L); y = extract p } ) data in
+                 ds#append data;
+                 chart#update None)
+                |> ignore) e in
+    chart
+
+  let chart_card ~typ ~title ~extract ~metas  ~y_max ~y_min ~e () =
+    let title = new Card.Title.t ~title () in
+    let prim  = new Card.Primary.t ~widgets:[title] () in
+    let media = new Card.Media.t ~widgets:[chart ~typ ~metas ~extract  ~y_max ~y_min ~e ()] () in
+    new Card.t ~sections:[ `Primary prim; `Media media ] ()
+
+  let create
+        ~(init:   Structure.t list)
+        ~(events: Structure.t list React.event)
+        ~(data:   Video_data.t React.event) =
+    let id  = "plot-place" in
+    let div = Dom_html.createDiv Dom_html.document in
+    let make (str : Structure.t list) =
+      let open Video_data in
+      let metas = to_plot_meta str in
+      let e = React.E.map (fun d -> ((d.stream, d.channel,d.pid), d.parameters)) data in
+      let froz_chart = chart_card
+                         ~title:"Заморозка" ~typ:Float
+                         ~metas  ~extract:(fun x -> x.frozen_pix)
+                          ~y_max:100. ~y_min:0. ~e () in
+      let blac_chart = chart_card
+                         ~title:"Черный кадр" ~typ:Float
+                         ~metas ~extract:(fun x -> x.black_pix)
+                          ~y_max:100. ~y_min:0. ~e () in
+      let bloc_chart = chart_card
+                         ~title:"Блочность" ~typ:Float
+                         ~metas ~extract:(fun x -> x.blocks)
+                          ~y_max:100. ~y_min:0. ~e () in
+      let brig_chart = chart_card
+                         ~title:"Средняя яркость" ~typ:Float
+                         ~metas ~extract:(fun x -> x.avg_bright)
+                          ~y_max:250. ~y_min:0. ~e () in
+      let diff_chart = chart_card
+                         ~title:"Средняя разность" ~typ:Float
+                         ~metas ~extract:(fun x -> x.avg_diff)
+                          ~y_max:250. ~y_min:0. ~e () in
+      let cells     = CCList.map (fun x -> let cell = new Layout_grid.Cell.t ~widgets:[x] () in
+                                           cell#set_span 6;
+                                           cell#set_span_phone 12;
+                                           cell#set_span_tablet 12;
+                                           cell)
+                        [ froz_chart#widget; blac_chart#widget; bloc_chart#widget;
+                          brig_chart#widget; diff_chart#widget ]
+      in
+      new Layout_grid.t ~cells ()
+    in
+    let _ = React.E.map (fun s ->
+                (try Dom.removeChild div (Dom_html.getElementById id)
+                 with _ -> print_endline "No el");
+                Dom.appendChild div (make s)#root)
+              events
+    in
+    Dom.appendChild div (make init)#root;
+    div
+    
+end
+
 module Structure = struct
 
   let make_pid (pid : Structure.pid) =
@@ -299,6 +426,6 @@ module Settings = struct
                 Dom.appendChild div (make s)#root)
               events
     in
-(*    Dom.appendChild div (make init)#root;*)
+    Dom.appendChild div (make init)#root;
     div
 end
