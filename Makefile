@@ -27,8 +27,9 @@ demo:
 
 css:
 	$(CSS) dist/resources/css/table.scss dist/resources/css/table.css
+	$(CSS) dist/resources/css/expansion_panel.scss dist/resources/css/expansion_panel.css
 
-frontend: home pipeline hardware user demo input css
+frontend: home pipeline hardware user demo input
 
 backend:
 	$(BUILD) build backend/backend.exe
