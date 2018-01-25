@@ -128,59 +128,10 @@ let initialize d (wm: Wm.t) =
           ~min_h:1
           ~value ()
       ) wm.layout in
-  let w = new Textfield.t ~label:(Printf.sprintf "width: max %d" cols)
-            ~input_type:(Widget.Integer None) () in
-  let h = new Textfield.t ~label:(Printf.sprintf "height: max %d" rows)
-            ~input_type:(Widget.Integer None) () in
-  let add_size = new Button.t ~label:"add with size" () in
+
   let add_auto = new Button.t ~label:"add auto" () in
   let remove   = new Button.t ~label:"remove" () in
   let grid  = new Dynamic_grid.t ~grid:props ~items () in
-
-  React.E.map (fun e ->
-      (try Dom.removeChild Dom_html.document##.body (Dom_html.getElementById "dialogue")
-       with _ -> ());
-      let current_wd_list = List.map (fun x -> x#get_value) (React.S.value grid#s_items) in
-      let widgets  = wd_list current_wd_list in
-      let dialogue = new Dialog.t
-                       ~title:"What widget you'd like to add?"
-                       ~content:(`Widgets widgets)
-                       ~actions:[ new Dialog.Action.t ~typ:`Decline ~label:"Decline" ()
-                                ; new Dialog.Action.t ~typ:`Accept  ~label:"Accept"  ()
-                       ] ()
-      in
-      dialogue#root##.id := Js.string "dialogue";
-      Dom.appendChild Dom_html.document##.body dialogue#root;
-      let open Lwt.Infix in
-      Dom_html.stopPropagation e;
-      Lwt.bind dialogue#show_await
-        (function
-         | `Accept ->
-            (match React.S.value w#s_input, React.S.value h#s_input with
-             | Some w, Some h ->
-                 let chosen_buttons =
-                   List.filter (fun x -> x#get_input_widget#get_checked) widgets in
-                 let (chosen_widgets: (string * Wm.widget) list) =
-                   List.fold_left
-                     (fun acc x ->
-                       let id = x#get_input_widget#get_id in
-                       let w  = CCList.find_pred (fun (x: (string * Wm.widget)) -> id = (fst x))
-                                  wm.widgets in
-                       match w with
-                       | Some w -> w :: acc
-                       | None   -> acc)
-                     [] chosen_buttons in
-                 grid#add_free ~width:w ~height:h ~value:(List.hd chosen_widgets) ()
-               >>= (function
-                    | Ok _    -> print_endline "ok add with size"; Lwt.return_unit
-                    | Error _ -> print_endline "error add with size"; Lwt.return_unit)
-               |> ignore
-            | _ -> ());
-            Lwt.return ()
-         | `Cancel ->
-            print_endline "Dialog cancelled";
-            Lwt.return ())) add_size#e_click
-|> ignore;
 
   React.E.map (fun e -> let open Lwt.Infix in
                         Dom_html.stopPropagation e;
@@ -190,6 +141,7 @@ let initialize d (wm: Wm.t) =
                              | Error _ -> print_endline "error"; Lwt.return_unit)
                         |> ignore) remove#e_click
   |> ignore;
+
   React.E.map (fun e ->
       (try Dom.removeChild Dom_html.document##.body (Dom_html.getElementById "dialogue")
       with _ -> ());
@@ -245,8 +197,7 @@ let initialize d (wm: Wm.t) =
             Lwt.return ()))
     add_auto#e_click
   |> ignore;
-  let demo = add[(section "Dynamic grid" [grid#widget; w#widget; h#widget; add_size#widget;
-                                          add_auto#widget; remove#widget])] in
+  let demo = add[(section "Dynamic grid" [grid#widget; add_auto#widget; remove#widget])] in
   Dom.appendChild d demo;
   React.S.map (fun _ ->
       let layout =
