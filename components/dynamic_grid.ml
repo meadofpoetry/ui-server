@@ -623,7 +623,27 @@ class ['a] t ~grid ~(items:'a item list) () =
                                          (React.S.value s_rows)
                                          ~cmp
                                          ()
-                                    | _ ->
+                                    | Some width, _ ->
+                                       let cmp (pos1: Position.t) _ =
+                                         if width <= pos1.w then 1 else 0 in
+                                       Position.get_free_rect ~f:(fun x -> x)
+                                         ev_pos
+                                         items
+                                         grid.cols
+                                         (React.S.value s_rows)
+                                         ~cmp
+                                         ()
+                                    | _, Some height ->
+                                       let cmp (pos1: Position.t) _ =
+                                         if height <= pos1.h then 1 else 0 in
+                                       Position.get_free_rect ~f:(fun x -> x)
+                                         ev_pos
+                                         items
+                                         grid.cols
+                                         (React.S.value s_rows)
+                                         ~cmp
+                                         ()
+                                      | _ ->
                                        Position.get_free_rect ~f:(fun x -> x)
                                          ev_pos
                                          items
@@ -639,6 +659,12 @@ class ['a] t ~grid ~(items:'a item list) () =
                                           let w = if width < 1 then 1 else width in
                                           let h = if height < 1 then 1 else height in
                                           ghost#s_pos_push {pos with w; h}
+                                       | Some width, _ ->
+                                          let w = if width < 1 then 1 else width in
+                                          ghost#s_pos_push {pos with w}
+                                       | _, Some height ->
+                                          let h = if height < 1 then 1 else height in
+                                          ghost#s_pos_push {pos with h}
                                        | _ -> ghost#s_pos_push pos
                                      end;
                                   | None     -> ghost#s_pos_push Position.empty
