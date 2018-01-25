@@ -2,6 +2,8 @@ open Components
 
 module Plots = struct
 
+  let colors = Array.init 100 (fun _ -> Random.int 255, Random.int 255, Random.int 255)
+  
   type plot_meta = { stream  : int
                    ; channel : int
                    ; pid     : int
@@ -41,11 +43,20 @@ module Plots = struct
     
   let chart ~typ ~metas ~(extract : Video_data.params -> float) ~y_max ~y_min ~e () =
     let open Chartjs.Line in
+    let filter_data ds =
+      let sz, sum  = List.fold_left (fun (sz, sum) d -> succ sz, sum +. d.y) (0, 0.) ds in
+      let szf      = float_of_int sz in
+      let mean     = sum /. szf in
+     (* let dev      = List.fold_left (fun acc d -> acc +. abs_float (d.y -. mean)) 0. ds in
+      let mean_dev = dev /. szf in*)
+      let mean_v   = CCList.get_at_idx_exn (sz / 2) ds in
+      [ { mean_v with y = mean } ](* :: (List.filter (fun d -> abs_float (d.y -. mean) > mean_dev *. 4.) ds)*)
+    in
     let pairs = List.mapi (fun idx pm -> ((pm.stream, pm.channel, pm.pid), idx),
                                          { data = []; label = pm.desc } )
                   metas in
     let t, data = List.split pairs in
-    let table = M.of_list t in
+    let table  = M.of_list t in
     let config = new Config.t
                    ~x_axis:(Time ("my-x-axis",Bottom,Unix,Some 40000L))
                    ~y_axis:(Linear ("my-y-axis",Left,typ,None))
@@ -56,7 +67,9 @@ module Plots = struct
     config#options#y_axis#ticks#set_max y_max;
     config#options#y_axis#ticks#set_min y_min;
     config#options#x_axis#ticks#set_auto_skip_padding 2;
-    List.iter (fun x ->
+    List.iteri (fun id x ->
+        let r, g, b = colors.( id mod Array.length colors ) in
+        x#set_background_color @@ Color.rgb r g b;
         x#set_cubic_interpolation_mode Monotone;
         x#set_fill Disabled) config#datasets;
     let _ = React.E.map (fun (id,data) ->
@@ -65,8 +78,12 @@ module Plots = struct
                 (M.get id table >|= fun id ->
                  CCList.get_at_idx id chart#config#datasets >|= fun ds ->
                  let data = List.map (fun (p : params) -> { x = Int64.(div p.time 1000L); y = extract p } ) data in
+                 let data = filter_data data in
                  ds#append data;
-                 chart#update None)
+                 chart#update (Some { duration = Some 0
+                                    ; is_lazy  = None
+                                    ; easing   = None
+                }))
                 |> ignore) e in
     chart
 
