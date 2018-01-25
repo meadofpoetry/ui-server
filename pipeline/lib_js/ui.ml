@@ -224,35 +224,40 @@ end
 
 module Wm = struct
 
-  let make_layout d (wm: Wm.t) =
-    let open Layout in
-    Layout.initialize d wm
+  let make_layout (wm: Wm.t) =
+    Layout.initialize wm
 
   let create
         ~(init:   Wm.t)
         ~(events: Wm.t React.event)
         ~(post:   Wm.t -> unit) =
     let open Layout in
-    let id  = "wm-place" in
-    let div = Dom_html.createDiv Dom_html.document in
+    let id   = "wm-widget" in
+    let div  = Dom_html.createDiv Dom_html.document in
+    let cell = new Layout_grid.Cell.t ~widgets:[Widget.create div] () in
+    cell#set_span 12;
+    let grid = new Layout_grid.t ~cells:[cell] () in
     let make (wm : Wm.t) =
-      let place = Dom_html.createDiv Dom_html.document in
-      place##.id := Js.string id;
-      let apply  = new Button.t ~label:"apply" () in
-      Dom.appendChild place apply#root;
-      let layout = make_layout place wm in
-      apply#root##.onclick :=
-        Dom.handler (fun _ -> post { wm with layout = React.S.value layout }; Js._false);
-      place
+      let grid,layout,f_add,f_rm = make_layout wm in
+      let add     = new Button.t ~label:"Добавить"  () in
+      let rm      = new Button.t ~label:"Удалить"   () in
+      let apply   = new Button.t ~label:"Применить" () in
+      let btn_box = new Box.t ~vertical:false ~widgets:[add; rm; apply] () in
+      let box     = new Box.t ~gap:20 ~widgets:[btn_box#widget;grid#widget] () in
+      let _       = f_add add#e_click in
+      let _       = f_rm  rm#e_click  in
+      let _       = React.E.map (fun _ -> post { wm with layout = React.S.value layout }) apply#e_click in
+      box#set_id id;
+      box
     in
     let _ = React.E.map (fun s ->
                 (try Dom.removeChild div (Dom_html.getElementById id)
                  with _ -> print_endline "No el");
-                Dom.appendChild div (make s))
-              events
+                Dom.appendChild div (make s)#root) events
     in
-    Dom.appendChild div (make init);
-    div
+    Dom.appendChild div (make init)#root;
+    grid#root
+
 end
 
 module Settings = struct
