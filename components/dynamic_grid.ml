@@ -81,7 +81,7 @@ module Position = struct
               |> CCList.fold_left (fun acc i -> if i.y + i.h > acc.y + acc.h then i else acc) empty
               |> (fun x -> x.y + x.h) in
       (* get cursor proection to the bottom side *)
-      let b = 
+      let b =
            CCList.filter (fun i -> i.y > pos.y) y_filtered
            |> CCList.fold_left (fun acc i -> if i.y < acc.y then i else acc)
                 { x=0; y=h; w=0; h=0}

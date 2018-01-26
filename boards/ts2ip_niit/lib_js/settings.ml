@@ -78,20 +78,44 @@ let layout control
   let grid = new Layout_grid.t ~cells:[cell] () in
   grid
 
-let page control =
-  let open Lwt_result.Infix in
-  let div = Dom_html.createDiv Dom_html.document in
-  let t   =
-    Requests.get_config control
-    >>= (fun config ->
-      Requests.get_streams control
-      >>= (fun streams ->
-           let config_ws,config_sock   = Requests.get_config_ws control in
-           let streams_ws,streams_sock = Requests.get_streams_ws control in
-           Dom.appendChild div (layout control
-                                       ~init:{ streams; config }
-                                       ~events:{ streams = streams_ws; config = config_ws })#root;
-           Lwt_result.return ({ streams = streams_sock
-                              ; config  = config_sock } : state)))
-  in
-  div,(fun () -> t >>= (fun x -> clean_state x; Lwt_result.return ()) |> ignore)
+class settings control () = object(self)
+
+  val mutable in_dom               = false
+  val mutable state : state option = None
+  val mutable observer             = None
+
+  inherit Widget.widget (Dom_html.createDiv Dom_html.document) ()
+
+  method private observe =
+    MutationObserver.observe
+      ~node:Dom_html.document
+      ~f:(fun _ _ ->
+        let in_dom_new = (Js.Unsafe.coerce Dom_html.document)##contains self#root in
+        if in_dom && (not in_dom_new)
+        then CCOpt.iter (fun (x:state) -> x.streams##close; x.config##close; state <- None) state
+        else if (not in_dom) && in_dom_new
+        then (let open Lwt_result.Infix in
+              Requests.get_config control
+              >>= (fun config ->
+                Requests.get_streams control
+                >>= (fun streams ->
+                     let config_ws,config_sock   = Requests.get_config_ws control in
+                     let streams_ws,streams_sock = Requests.get_streams_ws control in
+                     Dom.appendChild self#root (layout control
+                                                       ~init:{ streams; config }
+                                                       ~events:{ streams = streams_ws
+                                                               ; config = config_ws })#root;
+                     state <- Some { streams = streams_sock
+                                   ; config  = config_sock };
+                     Lwt_result.return ()))
+              |> ignore;
+              in_dom <- in_dom_new))
+      ~child_list:true
+      ~subtree:true
+      ()
+    |> (fun o -> observer <- Some o)
+
+  initializer
+    self#observe
+
+end

@@ -40,7 +40,7 @@ let set ?(adjust_margin=true) ~font (elt:#Widget.widget) =
 
 module Text = struct
 
-  class t ?(adjust_margin=false) ?font ~text () =
+  class t ?(adjust_margin=true) ?font ~text () =
 
     let elt = Tyxml_js.Html.(span [pcdata text]) |> Tyxml_js.To_dom.of_element in
 

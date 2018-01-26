@@ -12,15 +12,15 @@ module Row = struct
       end
     end
 
-    class t ~(widgets:#Widget.widget list) () =
+    class t ?(align=`Center) ~(widgets:#Widget.widget list) () =
 
       let elt =
         Markup.Toolbar.Row.Section.create ~content:(Widget.widgets_to_markup widgets) ()
         |> Tyxml_js.To_dom.of_section in
 
-      object
+      object(self)
 
-        val mutable align : [ `Start | `End | `Center ] = `Center
+        val mutable align : [ `Start | `End | `Center ] = align
         val mutable widgets : Widget.widget list = List.map (fun x -> (x :> Widget.widget)) widgets
 
         inherit Widget.widget elt () as super
@@ -41,6 +41,9 @@ module Row = struct
 
         method set_shrink_to_fit x = Markup.Toolbar.Row.Section.shrink_to_fit_class
                                      |> (fun c -> if x then super#add_class c else super#remove_class c)
+
+        initializer
+          self#set_align align
       end
 
   end

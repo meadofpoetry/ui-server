@@ -29,7 +29,9 @@ let input topo (topo_input:topo_input) =
                               |> Yojson.Safe.to_string
                  in
                  let template = { title        = Some ("Вход " ^ title)
-                                ; pre_scripts  = [ Raw (Printf.sprintf "var boards = %s" boards) ]
+                                ; pre_scripts  = [ Raw (Printf.sprintf "var boards = %s" boards)
+                                                 ; Src "/js/moment.min.js"
+                                                 ; Src "/js/Chart.min.js" ]
                                 ; post_scripts = [ Src "/js/input.js" ]
                                 ; stylesheets  = []
                                 ; content      = []
@@ -38,7 +40,7 @@ let input topo (topo_input:topo_input) =
 
 let create (hw : Hardware.t) : upper ordered_item list user_table =
   let topo  = React.S.value hw.topo in
-  let props = { title        = None
+  let props = { title        = Some "Конфигурация"
               ; pre_scripts  = []
               ; post_scripts = [ Src "js/hardware.js" ]
               ; stylesheets  = []

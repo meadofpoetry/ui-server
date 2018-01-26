@@ -522,8 +522,8 @@ let chart_demo () =
                }
              ] in
   let config = new Config.t
-                   ~x_axis:(Linear ("my-x-axis",Bottom,Integer,Some !x))
-                   ~y_axis:(Linear ("my-y-axis",Left,Integer,None))
+                   ~x_axis:(Linear ("my-x-axis",Bottom,Int,Some !x))
+                   ~y_axis:(Linear ("my-y-axis",Left,Int,None))
                    ~data
                    () in
   config#options#hover#set_mode Index;
@@ -579,7 +579,7 @@ let time_chart_demo () =
              ] in
   let config = new Config.t
                    ~x_axis:(Time ("my-x-axis",Bottom,Unix,Some 20000L))
-                   ~y_axis:(Linear ("my-y-axis",Left,Integer,None))
+                   ~y_axis:(Linear ("my-y-axis",Left,Int,None))
                    ~data
                    () in
   config#options#hover#set_mode Index;
