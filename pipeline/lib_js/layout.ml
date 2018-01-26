@@ -100,15 +100,20 @@ let initialize (wm: Wm.t) =
     List.map
       (fun (x: string * Wm.container) ->
         let _, cont      = x in
+        let left, right, top, bottom =
+          float_of_int cont.position.left, float_of_int cont.position.right,
+          float_of_int cont.position.top, float_of_int cont.position.bottom in
         let res_w, res_h = wm.resolution in
-        let x            = cols * cont.position.left / res_w in
-        let w            = cols * (cont.position.right - cont.position.left) / res_w in
-        let y            = rows * cont.position.top / res_h in
-        let h            = rows * (cont.position.bottom - cont.position.top) / res_h in
+        let res_w, res_h = float_of_int res_w, float_of_int res_h in
+        let open Dynamic_grid.Utils in
+        let x            = int_of_float @@ ceil @@ float_of_int cols *. (left /. res_w) in
+        let w            = int_of_float @@ ceil @@ float_of_int cols *. ((right -. left) /. res_w) in
+        let y            = int_of_float @@ ceil @@ float_of_int rows *. (top /. res_h) in
+        let h            = int_of_float @@ ceil @@ float_of_int rows *. ((bottom -. top) /. res_h) in
         let value        =
           match cont.widgets with
           | [] -> List.hd wm.widgets
-          | _ -> List.hd cont.widgets
+          | _  -> List.hd cont.widgets
         in
         Dynamic_grid.Item.to_item
           ~pos:{ x; y; w; h }
@@ -160,7 +165,6 @@ let initialize (wm: Wm.t) =
                                      | Some w -> w :: acc
                                      | None   -> acc)
                                    [] chosen_buttons in
-                               List.iter (fun (str,_) -> print_endline str) chosen_widgets;
                                let res_x, res_y = wm.resolution in
                                let grid_asp = float_of_int res_x /. float_of_int res_y in
                                let cont_asp = 16. /. 9. in
@@ -170,9 +174,8 @@ let initialize (wm: Wm.t) =
                                    let w = cols / opt_cols in
                                    let h = rows / opt_rows in
                                    let row_num = i / opt_cols in
-                                   let x = i * (opt_cols - 1) * w in
+                                   let x = (i - opt_cols * row_num) * w in
                                    let y = row_num * h in
-                                   Printf.printf "Pos of %d is x %d y %d w %d h %d" i x y w h;
                                    grid#add (Dynamic_grid.Item.to_item ~pos:{x;y;w;h} ~value:el ())
                                    |> (function
                                        | Ok _    -> print_endline "grid - add okay!";
@@ -188,10 +191,9 @@ let initialize (wm: Wm.t) =
   let s = React.S.map (fun _ ->
               let layout =
                 List.map (fun (x: 'a Dynamic_grid.Item.t) ->
-                    let wd = x#get_value in
                     let width, height =
                       match grid#root##.offsetWidth, grid#root##.offsetHeight with
-                      | 0,0 -> 100, 100
+                      | 0,0 -> 640, 360
                       | x,y -> x  , y
                     in
                     let col = width / props.cols in
@@ -199,10 +201,10 @@ let initialize (wm: Wm.t) =
                       | Some rows -> height / rows
                       | None      -> 1
                     in
-                    let str, wd1 = wd in
-                    let a, b = wd1.aspect in
+                    let str, wd = x#get_value in
+                    let a, b = wd.aspect in
                     let wid_w, wid_h =
-                      if x#pos.w * col / a * b > x#pos.h * row
+                      if x#pos.w * col / a > x#pos.h * row / b
                       then x#pos.h * row / b * a, x#pos.h * row
                       else x#pos.w * col, x#pos.w * col / a * b
                     in
@@ -213,12 +215,12 @@ let initialize (wm: Wm.t) =
                       ; top    = (x#pos.y * row) * real_h / height
                       ; bottom = (x#pos.y + x#pos.h) * row * real_h / height }
                     in
-                    let left   = container_pos.left   + (x#pos.w * col - wid_w) / 2 * real_w / width in
-                    let right  = container_pos.right  - (x#pos.w * col - wid_w) / 2 * real_w / width in
-                    let top    = container_pos.top    + (x#pos.h * row - wid_h) / 2 * real_h / height in
-                    let bottom = container_pos.bottom - (x#pos.h * row - wid_h) / 2 * real_h / height in
+                    let left   = container_pos.left   + (x#pos.w * col - wid_w) * real_w / width / 2 in
+                    let right  = container_pos.right  - (x#pos.w * col - wid_w) * real_w / width / 2 in
+                    let top    = container_pos.top    + (x#pos.h * row - wid_h) * real_h / height / 2 in
+                    let bottom = container_pos.bottom - (x#pos.h * row - wid_h) * real_h / height / 2 in
                     let (widget_pos : Wm.position) = { left; right; top; bottom } in
-                    let wd1 = {wd1 with position = widget_pos } in
+                    let wd1 = {wd with position = widget_pos } in
                     str,
                     ({ position = container_pos
                      ; widgets  = [str,wd1]}: Wm.container)
