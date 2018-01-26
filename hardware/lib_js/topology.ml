@@ -100,6 +100,8 @@ let size x y = Size2.v (float_of_int x *. 0.26458333) (float_of_int y *. 0.26458
 
 (*a function for rendering an image to an html canvas of given size*)
 let render canvas size image =
+  (* let warn w = Vgr.pp_warning Format.err_formatter w in
+   * let r = Vgr.create ~warn (Vgr_svg.target canvas ())  (`Channel stdout) in*)
   let r = Vgr.create (Vgr_htmlc.target canvas) `Other in
   ignore (Vgr.render r (`Image (size, Box2.unit, image)));
   ignore (Vgr.render r `End)

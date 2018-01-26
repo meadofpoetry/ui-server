@@ -1,5 +1,152 @@
 open Components
 
+module Plots = struct
+
+  let colors = Array.init 100 (fun _ -> Random.int 255, Random.int 255, Random.int 255)
+  
+  type plot_meta = { stream  : int
+                   ; channel : int
+                   ; pid     : int
+                   ; desc    : string
+                   }
+
+  let to_plot_meta (sl : Structure.t list) =
+    let of_stream (s : Structure.t) =
+      let str = s.structure in
+      let stream = Int32.to_int str.id in
+      let stream_desc = "Поток " ^ str.uri in
+      let of_channel (c : Structure.channel) =
+        let channel = c.number in
+        let channel_desc = Printf.sprintf "%d %s (%s)"
+                             channel
+                             c.service_name
+                             c.provider_name in
+        let of_pid (p : Structure.pid) =
+          if not p.to_be_analyzed
+          then None
+          else Some { stream
+                    ; channel
+                    ; pid = p.pid
+                    ; desc = Printf.sprintf "%s %s, pid: %d" stream_desc channel_desc p.pid
+                 }
+        in
+        CCList.filter_map of_pid c.pids
+      in
+      CCList.concat @@ CCList.map of_channel str.channels
+    in
+    CCList.concat @@ CCList.map of_stream sl
+
+  module M = CCMap.Make(struct
+                 type t = int * int * int
+                 let compare (l : t) (r : t) = compare l r
+               end)
+    
+  let chart ~typ ~metas ~(extract : Video_data.params -> float) ~y_max ~y_min ~e () =
+    let open Chartjs.Line in
+    let filter_data ds =
+      let sz, sum  = List.fold_left (fun (sz, sum) d -> succ sz, sum +. d.y) (0, 0.) ds in
+      let szf      = float_of_int sz in
+      let mean     = sum /. szf in
+     (* let dev      = List.fold_left (fun acc d -> acc +. abs_float (d.y -. mean)) 0. ds in
+      let mean_dev = dev /. szf in*)
+      let mean_v   = CCList.get_at_idx_exn (sz / 2) ds in
+      [ { mean_v with y = mean } ](* :: (List.filter (fun d -> abs_float (d.y -. mean) > mean_dev *. 4.) ds)*)
+    in
+    let pairs = List.mapi (fun idx pm -> ((pm.stream, pm.channel, pm.pid), idx),
+                                         { data = []; label = pm.desc } )
+                  metas in
+    let t, data = List.split pairs in
+    let table  = M.of_list t in
+    let config = new Config.t
+                   ~x_axis:(Time ("my-x-axis",Bottom,Unix,Some 40000L))
+                   ~y_axis:(Linear ("my-y-axis",Left,typ,None))
+                   ~data
+                   ()
+    in
+    let chart = new t ~config () in
+    config#options#y_axis#ticks#set_max y_max;
+    config#options#y_axis#ticks#set_min y_min;
+    config#options#elements#point#set_radius 0;
+    config#options#x_axis#ticks#set_auto_skip_padding 2;
+    List.iteri (fun id x ->
+        let r, g, b = colors.( id mod Array.length colors ) in
+        x#set_background_color @@ Color.rgb r g b;
+        x#set_border_color @@ Color.rgb r g b;
+        x#set_line_tension 0.;
+        x#set_cubic_interpolation_mode Monotone;
+        x#set_fill Disabled) config#datasets;
+    let _ = React.E.map (fun (id,data) ->
+                let open Video_data in
+                let open CCOpt in
+                (M.get id table >|= fun id ->
+                 CCList.get_at_idx id chart#config#datasets >|= fun ds ->
+                 let data = List.map (fun (p : params) -> { x = Int64.(div p.time 1000L); y = extract p } ) data in
+                 let data = filter_data data in
+                 ds#append data;
+                 chart#update (Some { duration = Some 0
+                                    ; is_lazy  = None
+                                    ; easing   = None
+                }))
+                |> ignore) e in
+    chart
+
+  let chart_card ~typ ~title ~extract ~metas  ~y_max ~y_min ~e () =
+    let title = new Card.Title.t ~title () in
+    let prim  = new Card.Primary.t ~widgets:[title] () in
+    let media = new Card.Media.t ~widgets:[chart ~typ ~metas ~extract  ~y_max ~y_min ~e ()] () in
+    new Card.t ~sections:[ `Primary prim; `Media media ] ()
+
+  let create
+        ~(init:   Structure.t list)
+        ~(events: Structure.t list React.event)
+        ~(data:   Video_data.t React.event) =
+    let id  = "plot-place" in
+    let div = Dom_html.createDiv Dom_html.document in
+    let make (str : Structure.t list) =
+      let open Video_data in
+      let metas = to_plot_meta str in
+      let e = React.E.map (fun d -> ((d.stream, d.channel,d.pid), d.parameters)) data in
+      let froz_chart = chart_card
+                         ~title:"Заморозка" ~typ:Float
+                         ~metas  ~extract:(fun x -> x.frozen_pix)
+                          ~y_max:100. ~y_min:0. ~e () in
+      let blac_chart = chart_card
+                         ~title:"Черный кадр" ~typ:Float
+                         ~metas ~extract:(fun x -> x.black_pix)
+                          ~y_max:100. ~y_min:0. ~e () in
+      let bloc_chart = chart_card
+                         ~title:"Блочность" ~typ:Float
+                         ~metas ~extract:(fun x -> x.blocks)
+                          ~y_max:100. ~y_min:0. ~e () in
+      let brig_chart = chart_card
+                         ~title:"Средняя яркость" ~typ:Float
+                         ~metas ~extract:(fun x -> x.avg_bright)
+                          ~y_max:250. ~y_min:0. ~e () in
+      let diff_chart = chart_card
+                         ~title:"Средняя разность" ~typ:Float
+                         ~metas ~extract:(fun x -> x.avg_diff)
+                          ~y_max:250. ~y_min:0. ~e () in
+      let cells     = CCList.map (fun x -> let cell = new Layout_grid.Cell.t ~widgets:[x] () in
+                                           cell#set_span 6;
+                                           cell#set_span_phone 12;
+                                           cell#set_span_tablet 12;
+                                           cell)
+                        [ froz_chart#widget; blac_chart#widget; bloc_chart#widget;
+                          brig_chart#widget; diff_chart#widget ]
+      in
+      new Layout_grid.t ~cells ()
+    in
+    let _ = React.E.map (fun s ->
+                (try Dom.removeChild div (Dom_html.getElementById id)
+                 with _ -> print_endline "No el");
+                Dom.appendChild div (make s)#root)
+              events
+    in
+    Dom.appendChild div (make init)#root;
+    div
+    
+end
+
 module Structure = struct
 
   let make_pid (pid : Structure.pid) =
@@ -80,35 +227,40 @@ end
 
 module Wm = struct
 
-  let make_layout d (wm: Wm.t) =
-    let open Layout in
-    Layout.initialize d wm
+  let make_layout (wm: Wm.t) =
+    Layout.initialize wm
 
   let create
         ~(init:   Wm.t)
         ~(events: Wm.t React.event)
         ~(post:   Wm.t -> unit) =
     let open Layout in
-    let id  = "wm-place" in
-    let div = Dom_html.createDiv Dom_html.document in
+    let id   = "wm-widget" in
+    let div  = Dom_html.createDiv Dom_html.document in
+    let cell = new Layout_grid.Cell.t ~widgets:[Widget.create div] () in
+    cell#set_span 12;
+    let grid = new Layout_grid.t ~cells:[cell] () in
     let make (wm : Wm.t) =
-      let place = Dom_html.createDiv Dom_html.document in
-      place##.id := Js.string id;
-      let apply  = new Button.t ~label:"apply" () in
-      Dom.appendChild place apply#root;
-      let layout = make_layout place wm in
-      apply#root##.onclick :=
-        Dom.handler (fun _ -> post { wm with layout = React.S.value layout }; Js._false);
-      place
+      let grid,layout,f_add,f_rm = make_layout wm in
+      let add     = new Button.t ~label:"Добавить"  () in
+      let rm      = new Button.t ~label:"Удалить"   () in
+      let apply   = new Button.t ~label:"Применить" () in
+      let btn_box = new Box.t ~vertical:false ~widgets:[add; rm; apply] () in
+      let box     = new Box.t ~gap:20 ~widgets:[btn_box#widget;grid#widget] () in
+      let _       = f_add add#e_click in
+      let _       = f_rm  rm#e_click  in
+      let _       = React.E.map (fun _ -> post { wm with layout = React.S.value layout }) apply#e_click in
+      box#set_id id;
+      box
     in
     let _ = React.E.map (fun s ->
                 (try Dom.removeChild div (Dom_html.getElementById id)
                  with _ -> print_endline "No el");
-                Dom.appendChild div (make s))
-              events
+                Dom.appendChild div (make s)#root) events
     in
-    Dom.appendChild div (make init);
-    div
+    Dom.appendChild div (make init)#root;
+    grid#root
+
 end
 
 module Settings = struct
@@ -299,6 +451,6 @@ module Settings = struct
                 Dom.appendChild div (make s)#root)
               events
     in
-(*    Dom.appendChild div (make init)#root;*)
+    Dom.appendChild div (make init)#root;
     div
 end
