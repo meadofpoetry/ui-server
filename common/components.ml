@@ -1385,8 +1385,10 @@ module Make
       let indicator_back_class    = CSS.add_modifier indicator_class "back"
       let indicator_forward_class = CSS.add_modifier indicator_class "forward"
       let indicator_inner_class   = CSS.add_element indicator_class "inner"
-      let scroll_frame_class      = CSS.add_element _class "scroll-frame"
-      let scroll_frame_tabs_class = CSS.add_element scroll_frame_class "tabs"
+      let flex_container_class    = CSS.add_element _class "flex-container"
+      let scroller_class          = CSS.add_element _class "scroller"
+      (* let scroll_frame_class      = CSS.add_element _class "scroll-frame"
+       * let scroll_frame_tabs_class = CSS.add_element scroll_frame_class "tabs" *)
 
       let create_indicator ~direction () =
         div ~a:[a_class [ indicator_class;
@@ -1408,7 +1410,9 @@ module Make
         div ~a:([ a_class (_class :: classes) ]
                 |> add_common_attrs ?id ?style ?attrs)
             [ create_indicator ~direction:`Back ()
-            ; div ~a:[ a_class [scroll_frame_class] ] [ tabs ]
+            ; div ~a:[ a_class [flex_container_class]]
+                  [ div ~a:[ a_class [scroller_class]
+                           ; a_role ["tablist"]] [ tabs ] ]
             ; create_indicator ~direction:`Forward ()
             ]
 

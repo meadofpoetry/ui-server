@@ -623,8 +623,8 @@ let dynamic_grid_demo () =
     ; vertical_compact = false
     ; items_margin     = None
     } in
-  let items    = [ Dynamic_grid.Item.to_item ~pos:{ x = 0; y = 0; w = 10; h = 10 } ~value:() ()
-                 ; Dynamic_grid.Item.to_item ~pos:{ x = 20; y = 30; w = 10; h = 20 } ~value:() ()
+  let items    = [(*  Dynamic_grid.Item.to_item ~pos:{ x = 0; y = 0; w = 10; h = 10 } ~value:() ()
+                  * ; Dynamic_grid.Item.to_item ~pos:{ x = 20; y = 0; w = 10; h = 20 } ~value:() () *)
                  ]
   in
   let x        = new Textfield.t ~label:"x position" ~input_type:(Widget.Integer None) () in
@@ -664,10 +664,11 @@ let dynamic_grid_demo () =
 
 
 let onload _ =
-  let doc     = Dom_html.document in
-  let body    = doc##.body in
-  let drawer  = drawer_demo () in
-  let toolbar = toolbar_demo drawer () in
+  let ac = Dom_html.getElementById "arbitrary-content" in
+  (* let doc     = Dom_html.document in
+   * let body    = doc##.body in
+   * let drawer  = drawer_demo () in
+   * let toolbar = toolbar_demo drawer () in *)
   let demos   = add_demos [ dynamic_grid_demo ()
                           ; table_demo ()
                           ; button_demo ()
@@ -694,9 +695,9 @@ let onload _ =
                           ; linear_progress_demo ()
                           ; tabs_demo ()
                           ] in
-  Dom.appendChild body toolbar;
-  Dom.appendChild body drawer##.root__;
-  Dom.appendChild body demos;
+  (* Dom.appendChild body toolbar;
+   * Dom.appendChild body drawer##.root__; *)
+  Dom.appendChild ac demos;
   Js._false
 
 let () = Dom_html.addEventListener Dom_html.document

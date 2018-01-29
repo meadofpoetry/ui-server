@@ -243,6 +243,29 @@ module Tab_bar = struct
 
 end
 
+let in_out_sine x =
+  let pi = 4.0 *. atan 1.0 in
+  0.5 *. (1. -. (cos (pi *. x)))
+
+let animate ~(timing   : float -> float)
+            ~(draw     : float -> unit)
+            ~(duration : float) =
+  let start = Unix.gettimeofday () *. 1000. in
+
+  let rec cb = (fun time ->
+      let time_fraction = min ((time -. start) /. duration) 1. in
+      let progress      = timing time_fraction in
+      let ()            = draw progress in
+
+      if time_fraction < 1.
+      then
+        let _ = Dom_html.window##requestAnimationFrame (Js.wrap_callback cb) in
+        ())
+  in
+
+  let _ = Dom_html.window##requestAnimationFrame (Js.wrap_callback cb) in
+  ()
+
 module Scroller = struct
 
   class type mdc =
@@ -253,14 +276,29 @@ module Scroller = struct
   class ['a] t ~(tabs:'a tab list) () =
 
     let tab_bar = new Tab_bar.t ~tabs () in
-    let elt = tab_bar#add_class Markup.Tabs.Scroller.scroll_frame_tabs_class;
+    let elt = (* tab_bar#add_class Markup.Tabs.Scroller.scroll_frame_tabs_class; *)
               Markup.Tabs.Scroller.create ~tabs:(Widget.widget_to_markup tab_bar) ()
               |> Tyxml_js.To_dom.of_div in
 
-    object
+    object(self)
+
       inherit Widget.widget elt ()
-      val mdc : mdc Js.t = Js.Unsafe.global##.mdc##.tabs##.MDCTabBarScroller##attachTo elt
-      method get_tab_bar = tab_bar
+      method tab_bar = tab_bar
+
+      method private handle_left_scroll_click = ()
+      method private handle_right_scroll_click = ()
+      method private move_tabs_scroll (delta:int) =
+        let multiplier = 1 in
+        let next_scroll_left = self#tab_bar#root##.scrollLeft + delta * multiplier in
+        animate ~timing:in_out_sine
+                ~draw:(fun x -> let v = (float_of_int next_scroll_left) *. x in
+                                self#root##.scrollLeft := int_of_float v)
+                ~duration:0.35
+
+      method private scroll_selected_into_view = ()
+
+      method private handle_tabs_scroll = ()
+
     end
 
 end
