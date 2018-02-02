@@ -663,16 +663,22 @@ let dynamic_grid_demo () =
   demo_section "Dynamic grid" [ grid#widget; x#widget; y#widget; w#widget; h#widget; add#widget; add_free#widget; remove#widget ]
 
 let expansion_panel_demo () =
-  let ep1 = new Expansion_panel.t ~primary:{ title   = "Заголовок 1"
-                                           ; details = [ (new Typography.Text.t ~text:"Detail" ())#widget ]
-                                           } () in
-  let ep2 = new Expansion_panel.t ~primary:{ title   = "Заголовок 2"
-                                           ; details = [ (new Typography.Text.t ~text:"Detail" ())#widget ]
-                                           } () in
-  let ep3 = new Expansion_panel.t ~primary:{ title   = "Заголовок 3"
-                                           ; details = [ (new Typography.Text.t ~text:"Detail" ())#widget ]
-                                           } () in
+  let ep1 = new Expansion_panel.t
+                ~primary:{ title   = "Trip name"
+                         ; details = [ (new Typography.Text.t ~text:"Caribbean cruise" ())#widget ]
+                         } () in
+  let ep2 = new Expansion_panel.t
+                ~primary:{ title   = "Location"
+                         ; details = [ (new Typography.Text.t ~text:"Barbados" ())#widget ]
+                         } () in
+  let ep3 = new Expansion_panel.t
+                ~primary:{ title   = "Start and end dates"
+                         ; details = [ (new Typography.Text.t ~text:"Start date: Feb 29, 2016" ())#widget
+                                     ; (new Typography.Text.t ~text:"End date: Not set" ())#widget
+                                     ]
+                         } () in
   let box = new Box.t ~widgets:[ep1;ep2;ep3] () in
+  box#add_class (Elevation.get_elevation_class 2);
   demo_section "Expansion panel" [ box ]
 
 let onload _ =

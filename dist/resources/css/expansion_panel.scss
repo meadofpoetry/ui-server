@@ -57,7 +57,7 @@
     align-items: center;
     min-height: 48px;
     position: relative;
-    padding: 0 24px 0 24px;
+    padding: 0 8px 0 24px;
     outline: 0;
     transition: min-height 150ms cubic-bezier(0.4, 0, 0.2, 1) 0ms,
                 background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;
@@ -76,11 +76,32 @@
             letter-spacing: 0.04em;
             text-decoration: inherit;
             text-transform: inherit;
+
+            flex-basis: 33.33%;
+            flex-shrink: 0;
         }
 
         .mdc-expansion-panel__details {
+            > *            { padding-left:  16px; }
+            > *:last-child { padding-right: 16px; }
+            flex-grow: 1;
+            justify-content: space-between;
+            display: flex;
+            font-size: 0.9375rem;
+            line-height: 1.5em;
             color: var(--mdc-theme-text-secondary-on-background);
         }
+
+    }
+
+    .mdc-expansion-panel__icon {
+        outline: none;
+        width:  48px;
+        height: 48px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: var(--mdc-theme-text-icon-on-background);
     }
 }
 

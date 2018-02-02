@@ -1006,7 +1006,8 @@ module Make
                   [ div ~a:([ a_class [heading_class]]) [pcdata title]
                   ; div ~a:([ a_class [details_class]]) details
                   ]
-            ; div ~a:([ a_class [icon_class]; a_tabindex (-1) ]) []
+            ; div ~a:([ a_class [icon_class]; a_tabindex (-1) ])
+                  [Icon.Font.create ~icon:"expand_more" ()]
             ]
 
     end
