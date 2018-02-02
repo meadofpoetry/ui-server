@@ -990,20 +990,48 @@ module Make
 
     let base_class     = "mdc-expansion-panel"
     let expanded_class = CSS.add_modifier base_class "expanded"
-    let summary_class  = CSS.add_element base_class "summary"
-    let content_class  = CSS.add_element base_class "summary-content"
-    let icon_class     = CSS.add_element base_class "icon"
 
-    let create ?id ?style ?(classes=[]) ?attrs ~content () =
-      div ~a:([ a_class (classes
-                         |> CCList.cons base_class)]
+    module Primary = struct
+
+      let _class        = CSS.add_element base_class "primary"
+      let summary_class = CSS.add_element base_class "summary"
+      let details_class = CSS.add_element base_class "details"
+      let heading_class = CSS.add_element base_class "heading"
+      let icon_class    = CSS.add_element base_class "icon"
+
+      let create ?id ?style ?(classes=[]) ?attrs ~title ~details () =
+        div ~a:([ a_class (classes |> CCList.cons _class)
+                ; a_tabindex 0 ])
+            [ div ~a:([ a_class [summary_class] ])
+                  [ div ~a:([ a_class [heading_class]]) [pcdata title]
+                  ; div ~a:([ a_class [details_class]]) details
+                  ]
+            ; div ~a:([ a_class [icon_class]; a_tabindex (-1) ])
+                  [Icon.Font.create ~icon:"expand_more" ()]
+            ]
+
+    end
+
+    module Actions = struct
+
+      let _class       = CSS.add_element base_class "actions"
+      let action_class = CSS.add_element base_class "action"
+
+      let create ?id ?style ?(classes=[]) ?attrs ~actions () =
+        div ~a:([ a_class (classes |> CCList.cons _class) ]
+                |> add_common_attrs ?id ?style ?attrs)
+            actions
+
+    end
+
+    module Panel = struct
+
+    end
+
+    let create ?id ?style ?(classes=[]) ?attrs ~primary ~panel () =
+      div ~a:([ a_class (classes |> CCList.cons base_class)]
               |> add_common_attrs ?id ?style ?attrs)
-          [ div ~a:([ a_class [summary_class]
-                    ; a_tabindex 0 ])
-                [ div ~a:([ a_class [content_class] ]) []
-                ; div ~a:([ a_class [icon_class]; a_tabindex (-1) ]) []
-                ]
-          ; content
+          [ primary; panel
           ]
 
   end
