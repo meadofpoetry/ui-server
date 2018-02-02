@@ -2,14 +2,8 @@ open Lwt_react
 open Components
 open Tyxml_js
 
-let demo_section ?(style="") ?(classes=[]) title content =
-  List.iter (fun x -> x#style##.margin := Js.string "10px") content;
-  Html.section ~a:[ Html.a_style ("margin: 24px; padding: 24px;\
-                                   border: 1px solid rgba(0, 0, 0, .12);" ^ style)
-                  ; Html.a_class classes ]
-               ( Html.h2 ~a:[ Html.a_class [Typography.font_to_class Headline]] [Html.pcdata title]
-                 :: Widget.widgets_to_markup content)
-  |> To_dom.of_element
+let demo_section title content =
+  (new Expansion_panel.t ~title ~content ())#root
 
 let subsection name w = Html.div [ Html.h3 ~a:[Html.a_class [Typography.font_to_class Subheading_2]]
                                            [Html.pcdata name]
@@ -26,19 +20,21 @@ let button_demo () =
   let dense      = new Button.t ~label:"dense" ~dense:true () in
   let compact    = new Button.t ~label:"compact" ~compact:true () in
   let icon       = new Button.t ~label:"icon" ~icon:"favorite" () in
-  demo_section ~style:"display:flex;\
-                       flex-direction:column;\
-                       justify-content:flex-start;\
-                       align-items:flex-start"
-               "Button"
-               [raised;flat;unelevated;stroked;ripple;dense;compact;icon]
+  let box        = new Box.t ~widgets:[raised;flat;unelevated;stroked;ripple;dense;compact;icon] () in
+  box#set_gap 20;
+  demo_section "Button" [box]
 
 let fab_demo () =
   let fab    = new Fab.t ~icon:"favorite" () in
-  let mini   = new Fab.t ~icon:"favorite" () in
+  let mini   = new Fab.t ~mini:true ~icon:"favorite" () in
   let ripple = new Fab.t ~ripple:true ~icon:"favorite" () in
-  mini#set_mini true;
-  demo_section "FAB" [ subsection "General" fab; subsection "Mini" mini; subsection "Ripple" ripple ]
+  let box    = new Box.t ~widgets:[ subsection "General" fab
+                                  ; subsection "Mini" mini
+                                  ; subsection "Ripple" ripple
+                                  ]
+                   ()
+  in
+  demo_section "FAB" [box]
 
 let radio_demo () =
   let radio1 = new Radio.t ~name:"radio" ~value:() () in
@@ -563,12 +559,15 @@ let chart_demo () =
                                   chart#config#datasets;
                         chart#update None)
               append#e_click |> ignore;
-  Html.div ~a:[ Html.a_style "max-width:700px"] [ Widget.widget_to_markup chart
-                                                ; Widget.widget_to_markup update
-                                                ; Widget.widget_to_markup push
-                                                ; Widget.widget_to_markup push_less
-                                                ; Widget.widget_to_markup append ]
-  |> To_dom.of_element
+  let w = Html.div ~a:[ Html.a_style "max-width:700px"] [ Widget.widget_to_markup chart
+                                                        ; Widget.widget_to_markup update
+                                                        ; Widget.widget_to_markup push
+                                                        ; Widget.widget_to_markup push_less
+                                                        ; Widget.widget_to_markup append ]
+          |> To_dom.of_element
+          |> Widget.create
+  in
+  demo_section "Chart" [w]
 
 let time_chart_demo () =
   let range = 20 in
@@ -605,8 +604,11 @@ let time_chart_demo () =
                          chart#update None)
               e_update |> ignore;
   Dom_html.window##setInterval (Js.wrap_callback (fun () -> e_update_push () |> ignore)) 1000. |> ignore;
-  Html.div ~a:[ Html.a_style "max-width:700px"] [ Widget.widget_to_markup chart ]
-  |> To_dom.of_element
+  let w = Html.div ~a:[ Html.a_style "max-width:700px"] [ Widget.widget_to_markup chart ]
+          |> To_dom.of_element
+          |> Widget.create
+  in
+  demo_section "Timeline chart" [w]
 
 let add_demos demos =
   Html.div ~a:[ Html.a_id "demo-div" ]
@@ -664,30 +666,42 @@ let dynamic_grid_demo () =
 
 let expansion_panel_demo () =
   let ep1 = new Expansion_panel.t
-                ~primary:{ title   = "Trip name"
-                         ; details = [ (new Typography.Text.t ~text:"Caribbean cruise" ())#widget ]
-                         } () in
+                ~title:"Trip name"
+                ~details:[ new Box.t ~widgets:[ new Typography.Text.t ~text:"Caribbean cruise" ()
+                                              ; new Typography.Text.t ~text:"Second line" ()
+                                              ] () ]
+                ~content:[]
+                () in
   let ep2 = new Expansion_panel.t
-                ~primary:{ title   = "Location"
-                         ; details = [ (new Typography.Text.t ~text:"Barbados" ())#widget ]
-                         } () in
+                ~title:"Location"
+                ~heading_details:[ new Typography.Text.t ~text:"Optional" () ]
+                ~details:[ new Typography.Text.t ~text:"Barbados" () ]
+                ~content:[ new Typography.Text.t ~text:"This is an expansion panel body text!!!" () ]
+                ~actions:[ new Button.t ~label:"Cancel" ()
+                         ; new Button.t ~label:"Save" () ]
+                () in
   let ep3 = new Expansion_panel.t
-                ~primary:{ title   = "Start and end dates"
-                         ; details = [ (new Typography.Text.t ~text:"Start date: Feb 29, 2016" ())#widget
-                                     ; (new Typography.Text.t ~text:"End date: Not set" ())#widget
-                                     ]
-                         } () in
+                ~title:"Start and end dates"
+                ~details:[ new Typography.Text.t ~text:"Start date: Feb 29, 2016" ()
+                         ; new Typography.Text.t ~text:"End date: Not set" ()
+                         ]
+                ~content:[]
+                () in
+  ep1#add_class (Elevation.get_elevation_class 2);
+  ep2#add_class (Elevation.get_elevation_class 2);
+  ep3#add_class (Elevation.get_elevation_class 2);
   let box = new Box.t ~widgets:[ep1;ep2;ep3] () in
-  box#add_class (Elevation.get_elevation_class 2);
   demo_section "Expansion panel" [ box ]
 
 let onload _ =
   let ac = Dom_html.getElementById "arbitrary-content" in
+  ac##.style##.margin := Js.string "20px";
   (* let doc     = Dom_html.document in
    * let body    = doc##.body in
    * let drawer  = drawer_demo () in
    * let toolbar = toolbar_demo drawer () in *)
-  let demos   = add_demos [ dynamic_grid_demo ()
+  let demos   = add_demos [ expansion_panel_demo ()
+                          ; dynamic_grid_demo ()
                           ; table_demo ()
                           ; button_demo ()
                           ; chart_demo ()

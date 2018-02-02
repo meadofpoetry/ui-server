@@ -988,8 +988,9 @@ module Make
 
   module Expansion_panel = struct
 
-    let base_class     = "mdc-expansion-panel"
-    let expanded_class = CSS.add_modifier base_class "expanded"
+    let base_class          = "mdc-expansion-panel"
+    let expanded_class      = CSS.add_modifier base_class "expanded"
+    let panel_wrapper_class = CSS.add_element base_class "panel-wrapper"
 
     module Primary = struct
 
@@ -999,11 +1000,14 @@ module Make
       let heading_class = CSS.add_element base_class "heading"
       let icon_class    = CSS.add_element base_class "icon"
 
-      let create ?id ?style ?(classes=[]) ?attrs ~title ~details () =
+      let create ?id ?style ?(classes=[]) ?attrs ?(heading_details=[]) ?(details=[]) ~title () =
         div ~a:([ a_class (classes |> CCList.cons _class)
                 ; a_tabindex 0 ])
             [ div ~a:([ a_class [summary_class] ])
-                  [ div ~a:([ a_class [heading_class]]) [pcdata title]
+                  [ div ~a:([ a_class [heading_class]])
+                        [ pcdata title
+                        ; div ~a:[ a_class [details_class]] heading_details
+                        ]
                   ; div ~a:([ a_class [details_class]]) details
                   ]
             ; div ~a:([ a_class [icon_class]; a_tabindex (-1) ])
@@ -1026,13 +1030,23 @@ module Make
 
     module Panel = struct
 
+      let _class = CSS.add_element base_class "panel"
+
+      let create ?id ?style ?(classes=[]) ?attrs ~content () =
+        div ~a:([ a_class (classes |> CCList.cons _class) ]
+                |> add_common_attrs ?id ?style ?attrs)
+            content
+
     end
 
-    let create ?id ?style ?(classes=[]) ?attrs ~primary ~panel () =
+    let create ?id ?style ?(classes=[]) ?attrs ?actions ~primary ~panel () =
       div ~a:([ a_class (classes |> CCList.cons base_class)]
               |> add_common_attrs ?id ?style ?attrs)
-          [ primary; panel
-          ]
+          [ primary
+          ; div ~a:[a_class [panel_wrapper_class]]
+                (match actions with
+                 | Some x -> panel :: Divider.create () :: x :: []
+                 | None   -> [panel])]
 
   end
 
