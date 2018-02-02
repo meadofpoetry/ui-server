@@ -57,8 +57,7 @@ let create (hw : Hardware.t) : upper ordered_item list user_table =
   let templates = CCList.map (input topo) (Common.Topology.topo_inputs topo) |> CCList.rev in
   let rval = [ `Index 2, Subtree { title = "Входы"; href = Path.of_string "input"; templates }
              ; `Index 3, Simple  { title = "Конфигурация"; href = Path.of_string "hardware"; template = props }
-             ; `Index 4, Ref     { title = "Wiki"; absolute = true; href = Path.of_string "wikipedia.org"}
-             ; `Index 5, Simple  { title = "Демо"; href = Path.of_string "demo"; template = demo_props }
+             ; `Index 4, Simple  { title = "Демо"; href = Path.of_string "demo"; template = demo_props }
              ]
   in { root = rval
      ; operator = rval
