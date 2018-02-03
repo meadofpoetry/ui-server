@@ -72,15 +72,18 @@ class t ?(expanded=false)
 
     method s_expanded     = s_expanded
 
-    method set_expanded x = s_expanded_push x;
-                            self#add_or_remove_class (self#get_expanded) Markup.Expansion_panel.expanded_class;
-                            if not self#get_expanded then wrapper#style##.display := Js.string "none"
-                            else wrapper#style##.display := Js.string ""
+    method set_expanded x = self#add_or_remove_class x Markup.Expansion_panel.expanded_class;
+                            if not x
+                            then wrapper#style##.display := Js.string "none"
+                            else wrapper#style##.display := Js.string "";
+                            s_expanded_push x
     method get_expanded   = React.S.value s_expanded
 
     method set_elevation x = Elevation.remove_elevation self;
                              self#add_class @@ Elevation.get_elevation_class x
     method get_elevation   = elevation
+
+    method get_title = title
 
     initializer
       self#set_elevation elevation;
@@ -88,6 +91,17 @@ class t ?(expanded=false)
       Dom_events.listen primary#root
                         Dom_events.Typ.click
                         (fun _ _ -> self#set_expanded (not self#get_expanded); true)
+      |> ignore;
+      Dom_events.listen primary#root
+                        Dom_events.Typ.keydown
+                        (fun _ (ev:Dom_html.keyboardEvent Js.t) ->
+                          let key  = CCOpt.map Js.to_string @@ Js.Optdef.to_option ev##.key in
+                          (match key,ev##.keyCode with
+                           | Some "Enter", _ | _, 13 | Some "Space", _ | _, 32 ->
+                              Dom.preventDefault ev;
+                              self#set_expanded (not self#get_expanded)
+                           | _ -> ());
+                          true)
       |> ignore
 
   end

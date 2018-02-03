@@ -3,7 +3,7 @@ open Components
 open Tyxml_js
 
 let demo_section title content =
-  (new Expansion_panel.t ~title ~content ())#root
+  new Expansion_panel.t ~title ~content ()
 
 let subsection name w = Html.div [ Html.h3 ~a:[Html.a_class [Typography.font_to_class Subheading_2]]
                                            [Html.pcdata name]
@@ -22,6 +22,7 @@ let button_demo () =
   let icon       = new Button.t ~label:"icon" ~icon:"favorite" () in
   let box        = new Box.t ~widgets:[raised;flat;unelevated;stroked;ripple;dense;compact;icon] () in
   box#set_gap 20;
+  box#set_align_items `Start;
   demo_section "Button" [box]
 
 let fab_demo () =
@@ -608,12 +609,7 @@ let time_chart_demo () =
           |> To_dom.of_element
           |> Widget.create
   in
-  demo_section "Timeline chart" [w]
-
-let add_demos demos =
-  Html.div ~a:[ Html.a_id "demo-div" ]
-  @@ CCList.map (fun x -> Of_dom.of_element (x :> Dom_html.element Js.t)) demos
-  |> To_dom.of_element
+  demo_section "Chart (timeline)" [w]
 
 let dynamic_grid_demo () =
   let (props:Dynamic_grid.grid) =
@@ -639,7 +635,10 @@ let dynamic_grid_demo () =
   let grid     = new Dynamic_grid.t ~grid:props ~items () in
   React.E.map (fun e -> let open Lwt.Infix in
                         Dom_html.stopPropagation e;
-                        grid#add_free ~value:() ()
+                        grid#add_free ?width:(React.S.value w#s_input)
+                                      ?height:(React.S.value h#s_input)
+                                      ~value:()
+                                      ()
                         >>= (function
                              | Ok _    -> print_endline "ok"   ; Lwt.return_unit
                              | Error _ -> print_endline "error"; Lwt.return_unit)
@@ -662,7 +661,18 @@ let dynamic_grid_demo () =
                                | Error _ -> ())
                         | _ -> ()) add#e_click |> ignore;
   React.S.map (fun x -> Printf.printf "%d items in grid\n" @@ CCList.length x) grid#s_items |> ignore;
-  demo_section "Dynamic grid" [ grid#widget; x#widget; y#widget; w#widget; h#widget; add#widget; add_free#widget; remove#widget ]
+  let sect = demo_section "Dynamic grid" [ grid#widget
+                                         ; x#widget
+                                         ; y#widget
+                                         ; w#widget
+                                         ; h#widget
+                                         ; add#widget
+                                         ; add_free#widget
+                                         ; remove#widget
+                                         ]
+  in
+  let _ = React.S.map (fun x -> if x then grid#layout) sect#s_expanded in
+  sect
 
 let expansion_panel_demo () =
   let ep1 = new Expansion_panel.t
@@ -692,6 +702,12 @@ let expansion_panel_demo () =
   ep3#add_class (Elevation.get_elevation_class 2);
   let box = new Box.t ~widgets:[ep1;ep2;ep3] () in
   demo_section "Expansion panel" [ box ]
+
+let add_demos demos =
+  let demos = CCList.sort (fun x y -> CCString.compare x#get_title y#get_title) demos in
+  Html.div ~a:[ Html.a_id "demo-div" ]
+  @@ CCList.map (fun x -> Of_dom.of_element x#root) demos
+  |> To_dom.of_element
 
 let onload _ =
   let ac = Dom_html.getElementById "arbitrary-content" in

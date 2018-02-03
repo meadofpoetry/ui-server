@@ -24,6 +24,8 @@ module Position = struct
 
   let empty = { x = 0; y = 0; w = 0; h = 0 }
 
+  let to_string (pos:t) = Printf.sprintf "x=%d, y=%d, w=%d, h=%d" pos.x pos.y pos.w pos.h
+
   (** checks if two elements collide, returns true if do and false otherwise **)
   let collides (pos1:t) (pos2:t) =
     if (pos1.x + pos1.w <= pos2.x)      then false
@@ -47,7 +49,7 @@ module Position = struct
   let has_collision ~(f:'a -> t) x (l:'a list) =
     CCOpt.is_some @@ get_first_collision ~f x l
 
-  let get_free_rect ~(f:'a -> t) (pos:t) (items:'a list) w h ?(cmp:(t -> t -> int) option) () =
+  let get_free_rect ?(cmp:(t -> t -> int) option) ~(f:'a -> t) (pos:t) (items:'a list) w h () =
     if has_collision ~f:(fun x -> x) pos items
     then None
     else
@@ -116,14 +118,13 @@ module Position = struct
                                * it must not overlap with other rects,
                                * it must be under the mouse cursor
                                *)
-                              let new_pos = { new_pos with w; h } in
                               match (cmp new_pos acc),
                                     get_first_collision ~f:(fun x -> x) new_pos items,
                                     collides pos new_pos with
                               | 1, None, true -> new_pos
                               | _             -> acc) acc ys) acc ys) acc xs)
                 empty xs in
-      Some a
+      if a = empty then None else Some a
 
   let correct_xy (p:t) par_w par_h =
     let x = if p.x < 0 then 0 else if p.x + p.w > par_w then par_w - p.w else p.x in
@@ -599,78 +600,51 @@ class ['a] t ~grid ~(items:'a item list) () =
         let ghost = new Item.cell ~typ:`Ghost ~s_col_w ~s_row_h ~item () in
         Dom.appendChild self#root ghost#root;
         let mv_l  =
-          Dom_events.listen Dom_html.document##.body
-                            Dom_events.Typ.mousemove
-                            (fun _ e ->
-                              (match self#get_event_pos e with
-                               | Some ev_pos ->
-                                  let ev_pos =
-                                    { ev_pos with x = ev_pos.x / React.S.value s_col_w;
-                                                  y = ev_pos.y / React.S.value s_row_h
-                                    }
-                                  in
-                                  let pos =
-                                    match width, height with
-                                    | Some width, Some height ->
-                                       let cmp (pos1: Position.t) _ =
-                                         if width <= pos1.w && height <= pos1.h
-                                         then 1 else 0
-                                       in
-                                       Position.get_free_rect ~f:(fun x -> x)
-                                         ev_pos
-                                         items
-                                         grid.cols
-                                         (React.S.value s_rows)
-                                         ~cmp
-                                         ()
-                                    | Some width, _ ->
-                                       let cmp (pos1: Position.t) _ =
-                                         if width <= pos1.w then 1 else 0 in
-                                       Position.get_free_rect ~f:(fun x -> x)
-                                         ev_pos
-                                         items
-                                         grid.cols
-                                         (React.S.value s_rows)
-                                         ~cmp
-                                         ()
-                                    | _, Some height ->
-                                       let cmp (pos1: Position.t) _ =
-                                         if height <= pos1.h then 1 else 0 in
-                                       Position.get_free_rect ~f:(fun x -> x)
-                                         ev_pos
-                                         items
-                                         grid.cols
-                                         (React.S.value s_rows)
-                                         ~cmp
-                                         ()
-                                      | _ ->
-                                       Position.get_free_rect ~f:(fun x -> x)
-                                         ev_pos
-                                         items
-                                         grid.cols
-                                         (React.S.value s_rows)
-                                         ()
-                                  in
-                                  begin match pos with
-                                  | Some pos ->
-                                     begin
-                                       match width, height with
-                                       | Some width, Some height ->
-                                          let w = if width < 1 then 1 else width in
-                                          let h = if height < 1 then 1 else height in
-                                          ghost#s_pos_push {pos with w; h}
-                                       | Some width, _ ->
-                                          let w = if width < 1 then 1 else width in
-                                          ghost#s_pos_push {pos with w}
-                                       | _, Some height ->
-                                          let h = if height < 1 then 1 else height in
-                                          ghost#s_pos_push {pos with h}
-                                       | _ -> ghost#s_pos_push pos
-                                     end;
-                                  | None     -> ghost#s_pos_push Position.empty
-                                  end;
-                               | None -> ghost#s_pos_push Position.empty);
-                              true)
+          Dom_events.listen
+            Dom_html.document##.body
+            Dom_events.Typ.mousemove
+            (fun _ e ->
+              (match self#get_event_pos e with
+               | Some ev_pos ->
+                  let ev_pos = { ev_pos with x = ev_pos.x / React.S.value s_col_w;
+                                             y = ev_pos.y / React.S.value s_row_h
+                               }
+                  in
+                  let open Position in
+                  let cmp =
+                    match width, height with
+                    | Some w, Some h -> Some (fun n o -> if n.w < w || n.h < h || (n.w * n.h) < (o.w * o.h)
+                                                         then 0 else 1)
+                    | Some w, _      -> Some (fun n o -> if n.w < w || n.h < o.h then 0 else 1)
+                    | _, Some h      -> Some (fun n o -> if n.h < h || n.w < o.w then 0 else 1)
+                    | _              -> None
+                  in
+                  let pos = get_free_rect ?cmp ~f:(fun x -> x) ev_pos items grid.cols (React.S.value s_rows) () in
+                  let pos = CCOpt.map (fun pos ->
+                                let corr_x = fun w -> if ev_pos.x + w > pos.x + pos.w
+                                                      then (pos.x + pos.w) - w
+                                                      else ev_pos.x
+                                in
+                                let corr_y = fun h -> if ev_pos.y + h > pos.y + pos.h
+                                                      then (pos.y + pos.h) - h
+                                                      else ev_pos.y
+                                in
+                                match width, height with
+                                | Some w, Some h ->
+                                   let w = if w < 1 then 1 else w in
+                                   let h = if h < 1 then 1 else h in
+                                   {x=corr_x w;y=corr_y h;w;h}
+                                | Some w, _  -> let w = if w < 1 then 1 else w in
+                                                {pos with x=corr_x w;w}
+                                | _, Some h  -> let h = if h < 1 then 1 else h in
+                                                {pos with y=corr_y h;h}
+                                | _          -> pos) pos
+                  in
+                  (match pos with
+                   | Some x -> ghost#s_pos_push x
+                   | None   -> ghost#s_pos_push Position.empty)
+               | None -> ghost#s_pos_push Position.empty);
+              true)
         in
         let cl_l  =
           Dom_events.listen self#root
@@ -713,8 +687,11 @@ class ['a] t ~grid ~(items:'a item list) () =
     (** Private methods *)
 
     method private get_event_pos e : Position.t option =
-      let x = (CCOpt.get_exn @@ Js.Optdef.to_option e##.pageX) - self#get_offset_left in
-      let y = (CCOpt.get_exn @@ Js.Optdef.to_option e##.pageY) - self#get_offset_top in
+      let rect = self#get_client_rect in
+      let left = int_of_float rect.left in
+      let top  = int_of_float rect.top in
+      let x = e##.clientX - left in
+      let y = e##.clientY - top  in
       let (pos:Position.t) = { x; y; w = 1; h = 1 } in
       if x <= self#get_offset_width && x >= 0 && y<= self#get_offset_height && y >= 0
       then Some pos else None
