@@ -19,9 +19,9 @@ let load () =
 
   let open Tabs in
   let tab_pages =
-    [ "Мозайка",           (fun () -> (Mosaic.page ())#widget)
+    [ "Мозаика",           (fun () -> (Mosaic.page ())#widget)
     ; "Выбор программ",    (fun () -> (Structure_settings.page ())#widget)
-    ; "Настройки мозайки", (fun () -> (Mosaic_settings.page ())#widget)
+    ; "Настройки мозаики", (fun () -> (Mosaic_settings.page ())#widget)
     ; "Настройки анализа", (fun () -> (Analysis_settings.page ())#widget)
     ; "Графики",           (fun () -> (Charts.page ())#widget)
     ]
