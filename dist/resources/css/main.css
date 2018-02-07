@@ -277,6 +277,17 @@ main.main-with-sidebar {
     cursor: default;
 }
 
+.mdc-tab-bar-scroller__flex-container {
+    display: flex;
+}
+.mdc-tab-bar-scroller__scroller {
+    overflow-x: scroll;
+    flex: 1 1 auto;
+    display: inline-block;
+    position: relative;
+    white-space: nowrap;
+}
+
 /* MDC Tree */
 
 .mdc-tree {
