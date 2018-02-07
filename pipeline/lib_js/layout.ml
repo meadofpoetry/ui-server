@@ -26,7 +26,6 @@ let resolution_to_aspect resolution =
   new_res
 
 let calc_rows_cols grid_asp cont_asp list =
-  Printf.printf "I am starting to calc cols rows\n";
   let num = List.length list in
   let squares =
     List.mapi (fun rows _ ->
@@ -35,7 +34,7 @@ let calc_rows_cols grid_asp cont_asp list =
         let w = 1. in
         let h = w /. grid_asp in
         if (w /. cols *. cont_asp) *. float_of_int rows <= h
-        then int_of_float cols, rows, (w /. cols *. w /. cols *. cont_asp)
+        then int_of_float cols, rows, (w /. cols *. w /. cols /. cont_asp)
         else int_of_float cols, rows,
              (h /. (float_of_int rows) *. h /. (float_of_int rows) *. cont_asp)
       ) list in
@@ -45,7 +44,6 @@ let calc_rows_cols grid_asp cont_asp list =
         let _,_,gr = acc in
         if gr > sq then acc else x)
       (0,0,0.) squares in
-  Printf.printf "I've ended calc and cols and rows are %d %d\n" cols rows;
   cols, rows
 
 let initialize (wm: Wm.t) =
@@ -72,7 +70,6 @@ let initialize (wm: Wm.t) =
           if (refers_to_any x list)
           then checkbox#set_checked true
           else  checkbox#set_checked false;
-          (*new Radio.t ~name:"str" ~value:x () in*)
           let form_field =
             new Form_field.t ~label ~input:checkbox () in
           List.append acc [form_field]
@@ -93,7 +90,7 @@ let initialize (wm: Wm.t) =
     ; cols
     ; rows             = Some rows
     ; row_height       = None
-    ; vertical_compact = false
+    ; vertical_compact = true
     ; items_margin     = None
     } in
   let (items:'a Dynamic_grid.item list) =
@@ -171,8 +168,9 @@ let initialize (wm: Wm.t) =
                                let opt_cols, opt_rows =
                                  calc_rows_cols grid_asp cont_asp chosen_widgets in
                                List.iteri (fun i el ->
-                                   let w = cols / opt_cols in
-                                   let h = rows / opt_rows in
+                                   let w_f = float_of_int cols /. float_of_int opt_cols in
+                                   let h = int_of_float @@ floor @@ w_f /. 16. *. 9.  in
+                                   let w = int_of_float @@ floor w_f in
                                    let row_num = i / opt_cols in
                                    let x = (i - opt_cols * row_num) * w in
                                    let y = row_num * h in

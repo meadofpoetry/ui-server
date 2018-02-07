@@ -47,7 +47,7 @@ module Position = struct
   let has_collision ~(f:'a -> t) x (l:'a list) =
     CCOpt.is_some @@ get_first_collision ~f x l
 
-  let get_free_rect ~(f:'a -> t) (pos:t) (items:'a list) w h ?(cmp:(t -> t -> int) option) () =
+  let get_free_rect ~( f:'a -> t) (pos:t) (items:'a list) w h ?(cmp:(t -> t -> int) option) () =
     if has_collision ~f:(fun x -> x) pos items
     then None
     else
@@ -425,7 +425,6 @@ module Item = struct
         (fun _ e -> if item.resizable then self#start_resizing (Touch e); false)
       |> ignore
 
-
   end
 
 end
@@ -487,6 +486,24 @@ class ['a] t ~grid ~(items:'a item list) () =
 
     method items      = React.S.value s_items
     method positions  = React.S.value s_change
+
+    method sorted_by_height =
+      let compare (t1: 'a Item.t) (t2: 'a Item.t) =
+        if t1#pos.y = t2#pos.y then 0
+        else if t1#pos.y > t2#pos.y then 1
+        else -1 in
+      List.sort compare @@ React.S.value self#s_items
+
+    method vertical_compaction () =
+      let sorted = self#sorted_by_height in
+      List.iter (fun (x:'a Item.t) ->
+          let except_current_el = List.filter (fun el -> el != x#pos) self#positions in
+          while ((React.S.value x#s_pos).y - 1 >= 0) &&
+                  (not @@ Position.has_collision
+                            ~f:(fun x -> x)
+                            {(React.S.value x#s_pos) with y = (React.S.value x#s_pos).y - 1}
+                            except_current_el)
+          do x#s_pos_push {x#pos with y = (React.S.value x#s_pos).y - 1} done) sorted
 
     method remove (x:'a Item.t) = x#remove
 
@@ -720,6 +737,11 @@ class ['a] t ~grid ~(items:'a item list) () =
       then Some pos else None
 
     initializer
+      (* compact items vertically on grid's change *)
+      React.S.map (fun _ ->
+          if grid.vertical_compact then self#vertical_compaction () else ()) self#s_change
+      |> ignore;
+
       (* set min/max width of grid *)
       self#style##.minWidth := Utils.px (grid.cols * grid.min_col_width);
       CCOpt.iter (fun x -> self#style##.maxWidth := Utils.px @@ grid.cols * x) grid.max_col_width;
