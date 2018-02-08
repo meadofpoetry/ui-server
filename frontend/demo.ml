@@ -618,7 +618,7 @@ let dynamic_grid_demo () =
     ; min_col_width    = 1
     ; max_col_width    = None
     ; row_height       = None
-    ; vertical_compact = false
+    ; vertical_compact = true
     ; items_margin     = None
     } in
   let items    = [ Dynamic_grid.Item.to_item ~pos:{ x = 0; y = 0; w = 10; h = 10 } ~value:() ()
@@ -660,7 +660,7 @@ let dynamic_grid_demo () =
                                | Ok _    -> print_endline "ok"
                                | Error _ -> ())
                         | _ -> ()) add#e_click |> ignore;
-  React.S.map (fun x -> Printf.printf "%d items in grid\n" @@ CCList.length x) grid#s_items |> ignore;
+(*React.S.map (fun x -> Printf.printf "%d items in grid\n" @@ CCList.length x) grid#s_items |> ignore;*)
   let sect = demo_section "Dynamic grid" [ grid#widget
                                          ; x#widget
                                          ; y#widget
