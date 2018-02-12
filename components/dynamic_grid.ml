@@ -261,7 +261,7 @@ module Item = struct
     method ghost         = ghost
     method remove : unit = e_modify_push (`Remove (self: 'self))
 
-    method vc (pos: Position.t) list =                    (** review is needed **)
+    method vc (pos: Position.t) list =                    (* review is needed *)
       let rec up (pos: Position.t) =
         if pos.y - 1 >= 0 &&
              (not @@ Position.has_collision
@@ -272,21 +272,47 @@ module Item = struct
         else pos in
       up pos
 
-    method move_away y =
-      self#s_pos_push {self#pos with y};
-      self#set_y @@ React.S.value s_row_h * y;
-      let except_self = List.filter (fun x -> x#pos != self#pos) @@ React.S.value s_items in
-      List.iter (fun x -> if Position.collides x#pos self#pos
-                          then x#move_away @@ self#pos.y + self#pos.h) except_self
+    method move_away (y : int) : bool =
+      let except_self =
+        List.filter (fun x -> x#pos != self#pos) @@ React.S.value s_items in
+      let should_move =
+        match grid.rows with
+        | Some rows ->
+           if y + self#pos.h <= rows
+           then
+             ( CCList.fold_while
+                 ( fun acc x -> let new_bound = y + self#pos.h + x#pos.h in
+                                if Position.collides x#pos {self#pos with y} then
+                                  ( if new_bound <= rows
+                                    then ( if x#move_away @@ y + self#pos.h
+                                         then (acc, `Continue)
+                                           else (false, `Stop))
+                                    else (false, `Stop))
+                                else (acc, `Continue)) true except_self )
+           else false
+        | None ->
+           CCList.fold_while
+             ( fun acc x -> if x#move_away @@ self#pos.y + self#pos.h
+                            then (acc, `Continue)
+                            else (false, `Stop)) true except_self in
+      if should_move
+      then
+        ( self#s_pos_push {self#pos with y};
+          self#set_y @@ React.S.value s_row_h * y;
+          true )
+      else false
+
     (** Private methods **)
 
     method private has_collision (pos : Position.t) =
       Position.has_collision ~f:(fun x -> React.S.value x#s_pos)
                              pos
-                             (CCList.filter (fun x -> x#root != self#root) (React.S.value s_items))
+                             (CCList.filter (fun x -> x#root != self#root)
+                                (React.S.value s_items))
 
     method private get_parent : Dom_html.element Js.t =
-      let par_opt = Js.Opt.to_option self#root##.parentNode |> CCOpt.map Js.Unsafe.coerce in
+      let par_opt = Js.Opt.to_option self#root##.parentNode
+                    |> CCOpt.map Js.Unsafe.coerce in
       CCOpt.get_exn par_opt
 
     method private get_parent_pos : Position.t =
@@ -294,8 +320,7 @@ module Item = struct
       { x = par##.offsetLeft
       ; y = par##.offsetTop
       ; w = par##.offsetWidth
-      ; h = par##.offsetHeight
-      }
+      ; h = par##.offsetHeight }
 
     method private get_px_pos : Position.t =
       { x = self#get_offset_left;  y = self#get_offset_top;
@@ -364,25 +389,39 @@ module Item = struct
             let open Utils in
             let col_px = React.S.value s_col_w in
             let row_px = React.S.value s_row_h in
-            let x = init_pos.x + x - init_x in
-            let y = init_pos.y + y - init_y in
+            let x, y = init_pos.x + x - init_x, init_pos.y + y - init_y in
             let pos = Position.correct_xy { self#pos with x = x // col_px;
                                                           y = y // row_px }
                         grid.cols grid.rows in
-            let except_current_el = List.filter (fun el -> el#pos != self#pos) @@ React.S.value s_items in
+            let except_current_el =
+              List.filter (fun el -> el#pos != self#pos) @@ React.S.value s_items in
             let pos_except = List.map (fun x -> x#pos) except_current_el in
             if not (self#has_collision pos)
             then
-              ( let pos = self#vc pos pos_except in
-                ghost#s_pos_push pos)
-            else ( let collisions = List.filter (fun x -> Position.collides pos x#pos) except_current_el in
-                   List.iter (fun x -> x#move_away @@ pos.y + pos.h) collisions;
-                   let pos = self#vc pos pos_except in
-                   ghost#s_pos_push pos);
-            (* temporary update element's position *)
-            (* self#set_x x;
-             * self#set_y y; *)
-            self#s_pos_push pos
+              ( let pos = if grid.vertical_compact
+                          then self#vc pos pos_except
+                          else pos in
+                ghost#s_pos_push pos )
+            else ( let collisions =
+                     List.filter (fun x -> Position.collides pos x#pos) except_current_el in
+                   let continue =
+                     CCList.fold_while (fun acc x ->
+                         if x#move_away @@ pos.y + pos.h
+                         then (acc, `Continue) else (false, `Stop)) true collisions in
+                   if continue
+                   then if grid.vertical_compact
+                        then ghost#s_pos_push @@ self#vc pos pos_except
+                        else ghost#s_pos_push pos
+                   else (*@@ self#vc
+                                              (Position.{ x = init_pos.x // col_px; y = init_pos.y // row_px;
+                                                          w = init_pos.w // col_px; h = init_pos.h // row_px})
+                                              pos_except);*)
+                     if grid.vertical_compact
+                     then ghost#s_pos_push @@ self#vc {pos with y = ghost#pos.y} pos_except
+                     else ghost#s_pos_push {pos with y = ghost#pos.y});
+            self#s_pos_push pos;
+            self#set_x x;
+            self#set_y y
          | `End->
             self#remove_class Markup.Dynamic_grid.Item.dragging_class;
             CCOpt.iter (fun l -> Dom_events.stop_listen l) mov_listener;
@@ -423,11 +462,37 @@ module Item = struct
                               grid.cols
                               grid.rows
          in
+         (* if not (self#has_collision pos)
+          * then ( let except_current_el =
+          *          List.filter (fun el -> el#pos != self#pos) @@ React.S.value s_items in
+          *        let pos_except = List.map (fun x -> x#pos) except_current_el in
+          *        let pos = self#vc pos pos_except in
+          *        ghost#s_pos_push pos);
+          * self#set_w w;
+          * self#set_h h *)
+         let except_current_el =
+           List.filter (fun el -> el#pos != self#pos) @@ React.S.value s_items in
+         let pos_except = List.map (fun x -> x#pos) except_current_el in
          if not (self#has_collision pos)
-         then ( let except_current_el = List.filter (fun el -> el#pos != self#pos) @@ React.S.value s_items in
-                let pos_except = List.map (fun x -> x#pos) except_current_el in
-                let pos = self#vc pos pos_except in
-                ghost#s_pos_push pos);
+         then
+           ( let pos = if grid.vertical_compact
+                       then self#vc pos pos_except
+                       else pos in
+             ghost#s_pos_push pos )
+         else ( let collisions =
+                  List.filter (fun x -> Position.collides pos x#pos) except_current_el in
+                let continue =
+                  CCList.fold_while (fun acc x ->
+                      if x#move_away @@ pos.y + pos.h
+                      then (acc, `Continue) else (false, `Stop)) true collisions in
+                if continue
+                then if grid.vertical_compact
+                     then ghost#s_pos_push @@ self#vc pos pos_except
+                     else ghost#s_pos_push pos
+                else if grid.vertical_compact
+                then ghost#s_pos_push @@ self#vc { pos with h = ghost#pos.h } pos_except
+                else ghost#s_pos_push {pos with h = ghost#pos.h});
+         self#s_pos_push pos;
          self#set_w w;
          self#set_h h
       | `End ->
