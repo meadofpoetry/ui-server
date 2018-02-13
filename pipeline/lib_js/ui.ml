@@ -14,20 +14,16 @@ module Plots = struct
     let of_stream (s : Structure.t) =
       let str = s.structure in
       let stream = Int32.to_int str.id in
-      let stream_desc = "Поток " ^ str.uri in
+      (* let stream_desc = "Поток " ^ str.uri in *)
       let of_channel (c : Structure.channel) =
-        let channel = c.number in
-        let channel_desc = Printf.sprintf "%d %s (%s)"
-                             channel
-                             c.service_name
-                             c.provider_name in
+        let channel_desc = c.service_name in
         let of_pid (p : Structure.pid) =
           if not p.to_be_analyzed
           then None
           else Some { stream
-                    ; channel
+                    ; channel = c.number
                     ; pid = p.pid
-                    ; desc = Printf.sprintf "%s %s, pid: %d" stream_desc channel_desc p.pid
+                    ; desc = Printf.sprintf "%s, PID: %d" channel_desc p.pid
                  }
         in
         CCList.filter_map of_pid c.pids
@@ -153,8 +149,8 @@ module Structure = struct
     let text, stext =
       match pid.content with
       | Empty   -> "Empty " ^ pid.stream_type_name, ""
-      | Audio a -> "Audio " ^ pid.stream_type_name, Printf.sprintf "Codec: %s; Bitrate: %s;" a.codec a.bitrate
-      | Video v -> "Video " ^ pid.stream_type_name, Printf.sprintf "Codec: %s; Resolution: %dx%d;"
+      | Audio a -> "Аудио " ^ pid.stream_type_name, Printf.sprintf "Кодек: %s; Битрейт: %s;" a.codec a.bitrate
+      | Video v -> "Видео " ^ pid.stream_type_name, Printf.sprintf "Кодек: %s; Разрешение: %dx%d;"
                                                                    v.codec (fst v.resolution) (snd v.resolution)
     in
     let checkbox       = new Checkbox.t ~ripple:false () in
@@ -166,8 +162,8 @@ module Structure = struct
 
   let make_channel (ch : Structure.channel) =
     let text, stext =
-      Printf.sprintf "Channel %d" ch.number,
-      Printf.sprintf "Serv: %s; Provider: %s" ch.service_name ch.provider_name
+      Printf.sprintf "%s" ch.service_name,
+      Printf.sprintf "Провайдер: %s"  ch.provider_name
     in
     let wl, sl = CCList.split @@ CCList.map make_pid ch.pids in
     let ch_s   = React.S.map (fun pl -> {ch with pids = pl}) @@ React.S.merge ~eq:(==) (fun a p -> p::a) [] sl in
@@ -179,7 +175,7 @@ module Structure = struct
     let text, stext =
       let h = match s.source with
         | Unknown    -> Printf.sprintf "Unknown source"
-        | Stream src -> Printf.sprintf "Source: %s" (CCOpt.get_or ~default:"stream" src.description)
+        | Stream src -> Printf.sprintf "Поток: %s" (CCOpt.get_or ~default:"-" src.description)
       in h, (Printf.sprintf "ip: %s" s.structure.uri)
     in
     let wl, cl = CCList.split @@ CCList.map make_channel s.structure.channels in
@@ -205,11 +201,15 @@ module Structure = struct
     let div = Dom_html.createDiv Dom_html.document in
     let make (str : Structure.t list) =
       let dis, s = make_structure_list str in
-      let but    = new Components.Button.t ~label:"send" () in
+      let title  = new Card.Title.t ~title:"Потоки" () in
+      let prim   = new Card.Primary.t ~widgets:[title] () in
+      let but    = new Components.Button.t ~label:"Применить" () in
       let place  = new Components.Card.t
-                     ~sections:[`Primary (new Card.Primary.t ~widgets:[dis] ());
-                                `Actions (new Card.Actions.t ~widgets:[but] ())]
-                     () in
+                       ~sections:[ `Primary prim
+                                 ; `Media (new Card.Media.t ~widgets:[dis] ())
+                                 ; `Actions (new Card.Actions.t ~widgets:[but] ())
+                                 ]
+                       () in
       place#set_id id;
       but#button_element##.onclick := Dom.handler (fun _ -> post @@ React.S.value s; Js._false);
       place
@@ -242,8 +242,8 @@ module Wm = struct
     let grid = new Layout_grid.t ~cells:[cell] () in
     let make (wm : Wm.t) =
       let grid,layout,f_add,f_rm = make_layout wm in
-      let add     = new Button.t ~label:"Добавить"  () in
-      let rm      = new Button.t ~label:"Удалить"   () in
+      let add     = new Button.t ~label:"Добавить виджет"  () in
+      let rm      = new Button.t ~label:"Удалить виджет"   () in
       let apply   = new Button.t ~label:"Применить" () in
       let btn_box = new Box.t ~vertical:false ~widgets:[add; rm; apply] () in
       let box     = new Box.t ~gap:20 ~widgets:[btn_box#widget;grid#widget] () in
@@ -269,20 +269,20 @@ module Settings = struct
     let header             = Dom_html.createH5 Dom_html.document in
     header##.textContent   := Js.some @@ Js.string h;
     let peak_en_chck       = new Checkbox.t () in
-    let peak_en_field      = new Form_field.t ~label:"Peak enable" ~input:peak_en_chck () in
-    let peak_field         = new Textfield.t ~label:"Peak" ~input_type:(Widget.Float (Some (-100., 100.))) () in
+    let peak_en_field      = new Form_field.t ~label:"Пиковая ошибка" ~input:peak_en_chck () in
+    let peak_field         = new Textfield.t ~label:"Значение" ~input_type:(Widget.Float (Some (-100., 100.))) () in
     let cont_en_chck       = new Checkbox.t () in
-    let cont_en_field      = new Form_field.t ~label:"Cont enable" ~input:cont_en_chck () in
-    let cont_field         = new Textfield.t ~label:"Cont" ~input_type:(Widget.Float (Some (-100., 100.))) () in
-    let dur_field          = new Textfield.t ~label:"Duration" ~input_type:(Widget.Float (Some (-100., 100.))) () in
+    let cont_en_field      = new Form_field.t ~label:"Длительная ошибка" ~input:cont_en_chck () in
+    let cont_field         = new Textfield.t ~label:"Значение" ~input_type:(Widget.Float (Some (-100., 100.))) () in
+    let dur_field          = new Textfield.t ~label:"Длительность" ~input_type:(Widget.Float (Some (-100., 100.))) () in
     peak_en_chck#set_checked s.peak_en;
     cont_en_chck#set_checked s.cont_en;
     peak_field#fill_in s.peak;
     cont_field#fill_in s.cont;
     dur_field#fill_in s.duration;
-    let peak_box           = new Box.t ~vertical:false
+    let peak_box           = new Box.t ~vertical:true
                                ~widgets:[peak_en_field#widget; peak_field#widget;] () in
-    let cont_box           = new Box.t ~vertical:false
+    let cont_box           = new Box.t ~vertical:true
                                ~widgets:[cont_en_field#widget; cont_field#widget;] () in
     let box                = new Box.t ~widgets:[(Widget.create header);
                                                  peak_box#widget;
@@ -301,10 +301,10 @@ module Settings = struct
     
   let make_black (b : Settings.black) =
     let header             = Dom_html.createH5 Dom_html.document in
-    header##.textContent   := Js.some @@ Js.string "Black";
-    let black_w, black_s   = make_setting "black" b.black in
-    let luma_w, luma_s     = make_setting "luma" b.luma in
-    let bpixel_field       = new Textfield.t ~label:"pixel_field" ~input_type:(Widget.Integer (Some (1,256))) () in
+    header##.textContent   := Js.some @@ Js.string "Чёрный кадр";
+    let black_w, black_s   = make_setting "Доля чёрных пикселей" b.black in
+    let luma_w, luma_s     = make_setting "Средняя яркость" b.luma in
+    let bpixel_field       = new Textfield.t ~label:"Чёрный пиксель" ~input_type:(Widget.Integer (Some (1,256))) () in
     bpixel_field#fill_in b.black_pixel;
     let box                = new Box.t ~widgets:[(Widget.create header);
                                                  black_w#widget;
@@ -319,10 +319,10 @@ module Settings = struct
 
   let make_freeze (f : Settings.freeze) =
     let header             = Dom_html.createH5 Dom_html.document in
-    header##.textContent   := Js.some @@ Js.string "Freeze";
-    let freeze_w, freeze_s = make_setting "freeze" f.freeze in
-    let diff_w, diff_s     = make_setting "diff" f.diff in
-    let pixeld_field       = new Textfield.t ~label:"pixel_diff" ~input_type:(Widget.Integer (Some (1,256))) () in
+    header##.textContent   := Js.some @@ Js.string "Заморозка видео";
+    let freeze_w, freeze_s = make_setting "Доля идентичных пикселей" f.freeze in
+    let diff_w, diff_s     = make_setting "Средняя разность" f.diff in
+    let pixeld_field       = new Textfield.t ~label:"Идентичный пиксель" ~input_type:(Widget.Integer (Some (1,256))) () in
     pixeld_field#fill_in f.pixel_diff;
     let box                = new Box.t ~widgets:[(Widget.create header);
                                                  freeze_w#widget;
@@ -337,10 +337,10 @@ module Settings = struct
 
   let make_blocky (b : Settings.blocky) =
     let header             = Dom_html.createH5 Dom_html.document in
-    header##.textContent   := Js.some @@ Js.string "Blocky";
-    let blocky_w, blocky_s = make_setting "blocky" b.blocky in
+    header##.textContent   := Js.some @@ Js.string "Блочность";
+    let blocky_w, blocky_s = make_setting "Блочность" b.blocky in
     let mark_chck          = new Checkbox.t () in
-    let mark_field         = new Form_field.t ~label:"Mark blocks" ~input:mark_chck () in
+    let mark_field         = new Form_field.t ~label:"Визуализировать блоки" ~input:mark_chck () in
     mark_chck#set_checked b.mark_blocks;
     let box                = new Box.t ~widgets:[(Widget.create header);
                                                  blocky_w#widget;
@@ -351,8 +351,8 @@ module Settings = struct
     
   let make_video (v : Settings.video) =
     let header             = Dom_html.createH5 Dom_html.document in
-    header##.textContent   := Js.some @@ Js.string "Video";
-    let loss_field         = new Textfield.t ~label:"loss" ~input_type:(Widget.Float (Some (0.,1.))) () in
+    header##.textContent   := Js.some @@ Js.string "Видео";
+    let loss_field         = new Textfield.t ~label:"Пропадание видео" ~input_type:(Widget.Float (Some (0.,1.))) () in
     loss_field#fill_in v.loss;
     let black_w, black_s   = make_black v.black in
     let freeze_w, freeze_s = make_freeze v.freeze in
@@ -371,23 +371,23 @@ module Settings = struct
 
   let make_silence (s : Settings.silence) =
     let header             = Dom_html.createH5 Dom_html.document in
-    header##.textContent   := Js.some @@ Js.string "Silence";
-    let sil_w, sil_s       = make_setting "silence" s.silence in
+    header##.textContent   := Js.some @@ Js.string "Тишина";
+    let sil_w, sil_s       = make_setting "Громкость" s.silence in
     let box                = new Box.t ~widgets:[(Widget.create header); sil_w#widget] () in
     let signal             = React.S.map (fun silence -> Settings.{ silence } ) sil_s in
     box, signal
 
   let make_loudness (s : Settings.loudness) =
     let header             = Dom_html.createH5 Dom_html.document in
-    header##.textContent   := Js.some @@ Js.string "Loudness";
-    let sil_w, sil_s       = make_setting "silence" s.loudness in
+    header##.textContent   := Js.some @@ Js.string "Перегрузка звука";
+    let sil_w, sil_s       = make_setting "Громкость" s.loudness in
     let box                = new Box.t ~widgets:[(Widget.create header); sil_w#widget] () in
     let signal             = React.S.map (fun loudness -> Settings.{ loudness } ) sil_s in
     box, signal
 
   let make_adv (s : Settings.adv) =
     let header             = Dom_html.createH5 Dom_html.document in
-    header##.textContent   := Js.some @@ Js.string "Adv";
+    header##.textContent   := Js.some @@ Js.string "Рекламные вставки";
     let diff               = new Textfield.t ~label:"diff" ~input_type:(Widget.Float (Some (0.,100.))) () in
     let buf                = new Textfield.t ~label:"buf" ~input_type:(Widget.Integer (Some (0,100))) () in
     diff#fill_in s.adv_diff;
@@ -401,8 +401,8 @@ module Settings = struct
 
   let make_audio (a : Settings.audio) =
     let header             = Dom_html.createH5 Dom_html.document in
-    header##.textContent   := Js.some @@ Js.string "Audio";
-    let loss_field         = new Textfield.t ~label:"loss" ~input_type:(Widget.Float (Some (0.,1.))) () in
+    header##.textContent   := Js.some @@ Js.string "Аудио";
+    let loss_field         = new Textfield.t ~label:"Пропадание аудио" ~input_type:(Widget.Float (Some (0.,1.))) () in
     loss_field#fill_in a.loss;
     let silence_w, sil_s   = make_silence  a.silence in
     let loudness_w, loud_s = make_loudness a.loudness in
@@ -411,7 +411,7 @@ module Settings = struct
                                                  loss_field#widget;
                                                  silence_w#widget;
                                                  loudness_w#widget;
-                                                 adv_w#widget] () in
+                                                 (* adv_w#widget *)] () in
     let signal             = React.S.l4 (fun loss silence loudness adv ->
                                  match loss with
                                  | None -> Settings.{ loss = a.loss; silence; loudness; adv }
@@ -421,7 +421,7 @@ module Settings = struct
 
   let make_layout (s : Settings.t) =
     let header             = Dom_html.createH5 Dom_html.document in
-    header##.textContent   := Js.some @@ Js.string "Settings";
+    header##.textContent   := Js.some @@ Js.string "Настройки";
     let v, v_s = make_video s.video in
     let a, a_s = make_audio s.audio in
     let s      = React.S.l2 (fun v a -> Settings.{ video = v; audio = a; }) v_s a_s in
@@ -436,7 +436,7 @@ module Settings = struct
     let div = Dom_html.createDiv Dom_html.document in
     let make (set : Settings.t) =
       let dis, s = make_layout set in
-      let but    = new Components.Button.t ~label:"send" () in
+      let but    = new Components.Button.t ~label:"Применить" () in
       let place  = new Components.Card.t
                      ~sections:[`Primary (new Card.Primary.t ~widgets:[dis] ());
                                 `Actions (new Card.Actions.t ~widgets:[but] ())]

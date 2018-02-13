@@ -2,14 +2,8 @@ open Lwt_react
 open Components
 open Tyxml_js
 
-let demo_section ?(style="") ?(classes=[]) title content =
-  List.iter (fun x -> x#style##.margin := Js.string "10px") content;
-  Html.section ~a:[ Html.a_style ("margin: 24px; padding: 24px;\
-                                   border: 1px solid rgba(0, 0, 0, .12);" ^ style)
-                  ; Html.a_class classes ]
-               ( Html.h2 ~a:[ Html.a_class [Typography.font_to_class Headline]] [Html.pcdata title]
-                 :: Widget.widgets_to_markup content)
-  |> To_dom.of_element
+let demo_section title content =
+  new Expansion_panel.t ~title ~content ()
 
 let subsection name w = Html.div [ Html.h3 ~a:[Html.a_class [Typography.font_to_class Subheading_2]]
                                            [Html.pcdata name]
@@ -26,19 +20,22 @@ let button_demo () =
   let dense      = new Button.t ~label:"dense" ~dense:true () in
   let compact    = new Button.t ~label:"compact" ~compact:true () in
   let icon       = new Button.t ~label:"icon" ~icon:"favorite" () in
-  demo_section ~style:"display:flex;\
-                       flex-direction:column;\
-                       justify-content:flex-start;\
-                       align-items:flex-start"
-               "Button"
-               [raised;flat;unelevated;stroked;ripple;dense;compact;icon]
+  let box        = new Box.t ~widgets:[raised;flat;unelevated;stroked;ripple;dense;compact;icon] () in
+  box#set_gap 20;
+  box#set_align_items `Start;
+  demo_section "Button" [box]
 
 let fab_demo () =
   let fab    = new Fab.t ~icon:"favorite" () in
-  let mini   = new Fab.t ~icon:"favorite" () in
+  let mini   = new Fab.t ~mini:true ~icon:"favorite" () in
   let ripple = new Fab.t ~ripple:true ~icon:"favorite" () in
-  mini#set_mini true;
-  demo_section "FAB" [ subsection "General" fab; subsection "Mini" mini; subsection "Ripple" ripple ]
+  let box    = new Box.t ~widgets:[ subsection "General" fab
+                                  ; subsection "Mini" mini
+                                  ; subsection "Ripple" ripple
+                                  ]
+                   ()
+  in
+  demo_section "FAB" [box]
 
 let radio_demo () =
   let radio1 = new Radio.t ~name:"radio" ~value:() () in
@@ -332,7 +329,7 @@ let tabs_demo () =
                       ; add#widget
                       ; remove#widget
                       ; (subsection "With icon and text labels" both_bar)#widget
-                      ; (subsection "With scroller" scrl_bar)#widget ]
+                      (* ; (subsection "With scroller" scrl_bar)#widget  *)]
 
 let snackbar_demo () =
   let snackbar = new Snackbar.t
@@ -563,12 +560,15 @@ let chart_demo () =
                                   chart#config#datasets;
                         chart#update None)
               append#e_click |> ignore;
-  Html.div ~a:[ Html.a_style "max-width:700px"] [ Widget.widget_to_markup chart
-                                                ; Widget.widget_to_markup update
-                                                ; Widget.widget_to_markup push
-                                                ; Widget.widget_to_markup push_less
-                                                ; Widget.widget_to_markup append ]
-  |> To_dom.of_element
+  let w = Html.div ~a:[ Html.a_style "max-width:700px"] [ Widget.widget_to_markup chart
+                                                        ; Widget.widget_to_markup update
+                                                        ; Widget.widget_to_markup push
+                                                        ; Widget.widget_to_markup push_less
+                                                        ; Widget.widget_to_markup append ]
+          |> To_dom.of_element
+          |> Widget.create
+  in
+  demo_section "Chart" [w]
 
 let time_chart_demo () =
   let range = 20 in
@@ -605,13 +605,11 @@ let time_chart_demo () =
                          chart#update None)
               e_update |> ignore;
   Dom_html.window##setInterval (Js.wrap_callback (fun () -> e_update_push () |> ignore)) 1000. |> ignore;
-  Html.div ~a:[ Html.a_style "max-width:700px"] [ Widget.widget_to_markup chart ]
-  |> To_dom.of_element
-
-let add_demos demos =
-  Html.div ~a:[ Html.a_id "demo-div" ]
-  @@ CCList.map (fun x -> Of_dom.of_element (x :> Dom_html.element Js.t)) demos
-  |> To_dom.of_element
+  let w = Html.div ~a:[ Html.a_style "max-width:700px"] [ Widget.widget_to_markup chart ]
+          |> To_dom.of_element
+          |> Widget.create
+  in
+  demo_section "Chart (timeline)" [w]
 
 let dynamic_grid_demo () =
   let (props:Dynamic_grid.grid) =
@@ -620,11 +618,11 @@ let dynamic_grid_demo () =
     ; min_col_width    = 1
     ; max_col_width    = None
     ; row_height       = None
-    ; vertical_compact = false
+    ; vertical_compact = true
     ; items_margin     = None
     } in
   let items    = [ Dynamic_grid.Item.to_item ~pos:{ x = 0; y = 0; w = 10; h = 10 } ~value:() ()
-                 ; Dynamic_grid.Item.to_item ~pos:{ x = 20; y = 30; w = 10; h = 20 } ~value:() ()
+                 ; Dynamic_grid.Item.to_item ~pos:{ x = 20; y = 0; w = 10; h = 20 } ~value:() ()
                  ]
   in
   let x        = new Textfield.t ~label:"x position" ~input_type:(Widget.Integer None) () in
@@ -637,7 +635,10 @@ let dynamic_grid_demo () =
   let grid     = new Dynamic_grid.t ~grid:props ~items () in
   React.E.map (fun e -> let open Lwt.Infix in
                         Dom_html.stopPropagation e;
-                        grid#add_free ~value:() ()
+                        grid#add_free ?width:(React.S.value w#s_input)
+                                      ?height:(React.S.value h#s_input)
+                                      ~value:()
+                                      ()
                         >>= (function
                              | Ok _    -> print_endline "ok"   ; Lwt.return_unit
                              | Error _ -> print_endline "error"; Lwt.return_unit)
@@ -659,16 +660,64 @@ let dynamic_grid_demo () =
                                | Ok _    -> print_endline "ok"
                                | Error _ -> ())
                         | _ -> ()) add#e_click |> ignore;
-  React.S.map (fun x -> Printf.printf "%d items in grid\n" @@ CCList.length x) grid#s_items |> ignore;
-  demo_section "Dynamic grid" [ grid#widget; x#widget; y#widget; w#widget; h#widget; add#widget; add_free#widget; remove#widget ]
+(*React.S.map (fun x -> Printf.printf "%d items in grid\n" @@ CCList.length x) grid#s_items |> ignore;*)
+  let sect = demo_section "Dynamic grid" [ grid#widget
+                                         ; x#widget
+                                         ; y#widget
+                                         ; w#widget
+                                         ; h#widget
+                                         ; add#widget
+                                         ; add_free#widget
+                                         ; remove#widget
+                                         ]
+  in
+  let _ = React.S.map (fun x -> if x then grid#layout) sect#s_expanded in
+  sect
 
+let expansion_panel_demo () =
+  let ep1 = new Expansion_panel.t
+                ~title:"Trip name"
+                ~details:[ new Box.t ~widgets:[ new Typography.Text.t ~text:"Caribbean cruise" ()
+                                              ; new Typography.Text.t ~text:"Second line" ()
+                                              ] () ]
+                ~content:[]
+                () in
+  let ep2 = new Expansion_panel.t
+                ~title:"Location"
+                ~heading_details:[ new Typography.Text.t ~text:"Optional" () ]
+                ~details:[ new Typography.Text.t ~text:"Barbados" () ]
+                ~content:[ new Typography.Text.t ~text:"This is an expansion panel body text!!!" () ]
+                ~actions:[ new Button.t ~label:"Cancel" ()
+                         ; new Button.t ~label:"Save" () ]
+                () in
+  let ep3 = new Expansion_panel.t
+                ~title:"Start and end dates"
+                ~details:[ new Typography.Text.t ~text:"Start date: Feb 29, 2016" ()
+                         ; new Typography.Text.t ~text:"End date: Not set" ()
+                         ]
+                ~content:[]
+                () in
+  ep1#add_class (Elevation.get_elevation_class 2);
+  ep2#add_class (Elevation.get_elevation_class 2);
+  ep3#add_class (Elevation.get_elevation_class 2);
+  let box = new Box.t ~widgets:[ep1;ep2;ep3] () in
+  demo_section "Expansion panel" [ box ]
+
+let add_demos demos =
+  let demos = CCList.sort (fun x y -> CCString.compare x#get_title y#get_title) demos in
+  Html.div ~a:[ Html.a_id "demo-div" ]
+  @@ CCList.map (fun x -> Of_dom.of_element x#root) demos
+  |> To_dom.of_element
 
 let onload _ =
-  let doc     = Dom_html.document in
-  let body    = doc##.body in
-  let drawer  = drawer_demo () in
-  let toolbar = toolbar_demo drawer () in
-  let demos   = add_demos [ dynamic_grid_demo ()
+  let ac = Dom_html.getElementById "arbitrary-content" in
+  ac##.style##.margin := Js.string "20px";
+  (* let doc     = Dom_html.document in
+   * let body    = doc##.body in
+   * let drawer  = drawer_demo () in
+   * let toolbar = toolbar_demo drawer () in *)
+  let demos   = add_demos [ expansion_panel_demo ()
+                          ; dynamic_grid_demo ()
                           ; table_demo ()
                           ; button_demo ()
                           ; chart_demo ()
@@ -694,9 +743,9 @@ let onload _ =
                           ; linear_progress_demo ()
                           ; tabs_demo ()
                           ] in
-  Dom.appendChild body toolbar;
-  Dom.appendChild body drawer##.root__;
-  Dom.appendChild body demos;
+  (* Dom.appendChild body toolbar;
+   * Dom.appendChild body drawer##.root__; *)
+  Dom.appendChild ac demos;
   Js._false
 
 let () = Dom_html.addEventListener Dom_html.document

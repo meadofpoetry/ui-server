@@ -189,14 +189,12 @@ let input_type_of_validation :
 let parse_valid (type a) (v : a validation) (on_fail : string -> unit) (s : string) : a option =
   match v with
   | Email        -> Some s
-  | Integer None -> Some (int_of_string s)
-  | Integer Some (min,max) -> let i = int_of_string s in
-                              if i <= max && i >= min then Some i
-                              else None
-  | Float None   -> Some (float_of_string s)
-  | Float Some (min,max) -> let i = float_of_string s in
-                            if i <= max && i >= min then Some i
-                            else None
+  | Integer None -> CCInt.of_string s
+  | Integer Some (min,max) -> CCOpt.flat_map (fun i -> if i <= max && i >= min then Some i else None)
+                                             (CCInt.of_string s)
+  | Float None   -> (try Some (float_of_string s) with _ -> None)
+  | Float Some (min,max)   -> CCOpt.flat_map (fun i -> if i <= max && i >= min then Some i else None)
+                                             (try Some (float_of_string s) with _ -> None)
   | Text         -> Some s
   | IPV4         -> Ipaddr.V4.of_string s
   | MulticastV4  -> CCOpt.(Ipaddr.V4.of_string s >>= (fun x -> if Ipaddr.V4.is_multicast x then Some x else None))

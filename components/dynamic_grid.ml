@@ -24,6 +24,8 @@ module Position = struct
 
   let empty = { x = 0; y = 0; w = 0; h = 0 }
 
+  let to_string (pos:t) = Printf.sprintf "x=%d, y=%d, w=%d, h=%d" pos.x pos.y pos.w pos.h
+
   (** checks if two elements collide, returns true if do and false otherwise **)
   let collides (pos1:t) (pos2:t) =
     if (pos1.x + pos1.w <= pos2.x)      then false
@@ -47,12 +49,18 @@ module Position = struct
   let has_collision ~(f:'a -> t) x (l:'a list) =
     CCOpt.is_some @@ get_first_collision ~f x l
 
-  let get_free_rect ~(f:'a -> t) (pos:t) (items:'a list) w h ?width ?height () =
+  let get_free_rect ?(cmp:(t -> t -> int) option) ~(f:'a -> t) (pos:t) (items:'a list) w h () =
     if has_collision ~f:(fun x -> x) pos items
     then None
     else
-      let items    = CCList.map f items in
       let area pos = pos.w * pos.h in
+      let cmp = match cmp with
+        | Some f -> f
+        | None   -> (fun new_pos old_pos -> let new_area = area new_pos in
+                                            let old_area = area old_pos in
+                                            compare new_area old_area)
+      in
+      let items    = CCList.map f items in
       (* FIXME obviously not optimized algorithm *)
       (* get only elements that are on the way to cursor proection to the left/right side *)
       let x_filtered = CCList.filter (fun i -> pos.y > i.y && pos.y < i.y + i.h) items in
@@ -61,9 +69,7 @@ module Position = struct
               |> CCList.fold_left (fun acc i -> if i.x + i.w > acc.x + acc.w then i else acc) empty
               |> (fun x -> x.x + x.w) in
       (* get cursor proection to the right side *)
-      let r = match width with
-        | Some width -> l + width
-        | None       ->
+      let r =
            CCList.filter (fun i -> i.x > pos.x) x_filtered
            |> CCList.fold_left (fun acc i -> if i.x < acc.x then i else acc)
                 { x=w; y=0; w=0; h=0 }
@@ -77,9 +83,7 @@ module Position = struct
               |> CCList.fold_left (fun acc i -> if i.y + i.h > acc.y + acc.h then i else acc) empty
               |> (fun x -> x.y + x.h) in
       (* get cursor proection to the bottom side *)
-      let b = match height with
-        | Some height -> t + height
-        | None        ->
+      let b =
            CCList.filter (fun i -> i.y > pos.y) y_filtered
            |> CCList.fold_left (fun acc i -> if i.y < acc.y then i else acc)
                 { x=0; y=h; w=0; h=0}
@@ -102,28 +106,25 @@ module Position = struct
       in
       (* get biggest non-overlapping rectangle under the cursor *)
       (* FIXME obviously not optimized at all *)
-      let a,_ = CCList.fold_left (fun acc x0 ->
-                    let xs = CCList.filter (fun i -> i > x0) xs in
-                    CCList.fold_left (fun acc x1 ->
-                        CCList.fold_left (fun acc y0 ->
-                            let ys = CCList.filter (fun i -> i > y0) ys in
-                            CCList.fold_left (fun acc y1 ->
-                                let _,acc_area  = acc in
-                                let (new_pos:t) = { x = x0; y = y0; w = x1 - x0; h = y1 - y0 } in
-                                let new_area    = area new_pos in
-                                (*
-                                 * new rect must be the biggest one available,
-                                 * it must not overlap with other rects,
-                                 * it must be under the mouse cursor
-                                 *)
-                                let new_pos = { new_pos with w; h } in
-                                match (new_area > acc_area),
-                                      get_first_collision ~f:(fun x -> x) new_pos items,
-                                      collides pos new_pos with
-                                | true,None,true -> new_pos,new_area
-                                | _         -> acc) acc ys) acc ys) acc xs)
-                  (empty,0) xs in
-      Some a
+      let a = CCList.fold_left (fun acc x0 ->
+                  let xs = CCList.filter (fun i -> i > x0) xs in
+                  CCList.fold_left (fun acc x1 ->
+                      CCList.fold_left (fun acc y0 ->
+                          let ys = CCList.filter (fun i -> i > y0) ys in
+                          CCList.fold_left (fun acc y1 ->
+                              let (new_pos:t) = { x = x0; y = y0; w = x1 - x0; h = y1 - y0 } in
+                              (*
+                               * new rect must be the biggest one available,
+                               * it must not overlap with other rects,
+                               * it must be under the mouse cursor
+                               *)
+                              match (cmp new_pos acc),
+                                    get_first_collision ~f:(fun x -> x) new_pos items,
+                                    collides pos new_pos with
+                              | 1, None, true -> new_pos
+                              | _             -> acc) acc ys) acc ys) acc xs)
+                empty xs in
+      if a = empty then None else Some a
 
   let correct_xy (p:t) par_w par_h =
     let x = if p.x < 0 then 0 else if p.x + p.w > par_w then par_w - p.w else p.x in
@@ -245,35 +246,81 @@ module Item = struct
     val resize_button = Markup.Dynamic_grid.Item.create_resize_button ()
                         |> Tyxml_js.To_dom.of_element |> Widget.create
 
-    val mutable mov_listener = None
-    val mutable end_listener = None
-    val mutable value        = item.value
+    val mutable dragged = false
+    val mutable mov_listener  = None
+    val mutable end_listener  = None
+    val mutable value         = item.value
     val ghost = new cell ~typ:`Ghost ~s_col_w ~s_row_h ~item ()
 
     (** API **)
     method set_value (x:'a) = value <- x
     method get_value : 'a   = value
 
+    method dragged : bool   = dragged
+
     method ghost         = ghost
     method remove : unit = e_modify_push (`Remove (self: 'self))
+
+    method vc (pos: Position.t) list =                    (* review is needed *)
+      let rec up (pos: Position.t) =
+        if pos.y - 1 >= 0 &&
+             (not @@ Position.has_collision
+                       ~f:(fun x -> x)
+                       {pos with y = pos.y - 1}
+                       list)
+        then up {pos with y = pos.y - 1}
+        else pos in
+      up pos
+
+    method move_away (y : int) : bool =
+      let except_self =
+        List.filter (fun x -> x#pos != self#pos) @@ React.S.value s_items in
+      let should_move =
+        match grid.rows with
+        | Some rows ->
+           if y + self#pos.h <= rows
+           then
+             ( CCList.fold_while
+                 ( fun acc x -> let new_bound = y + self#pos.h + x#pos.h in
+                                if Position.collides x#pos {self#pos with y} then
+                                  ( if new_bound <= rows
+                                    then ( if x#move_away @@ y + self#pos.h
+                                         then (acc, `Continue)
+                                           else (false, `Stop))
+                                    else (false, `Stop))
+                                else (acc, `Continue)) true except_self )
+           else false
+        | None ->
+           CCList.fold_while
+             ( fun acc x -> if x#move_away @@ self#pos.y + self#pos.h
+                            then (acc, `Continue)
+                            else (false, `Stop)) true except_self in
+      if should_move
+      then
+        ( self#s_pos_push {self#pos with y};
+          self#set_y @@ React.S.value s_row_h * y;
+          true )
+      else false
 
     (** Private methods **)
 
     method private has_collision (pos : Position.t) =
       Position.has_collision ~f:(fun x -> React.S.value x#s_pos)
                              pos
-                             (CCList.filter (fun x -> x#root != self#root) (React.S.value s_items))
+                             (CCList.filter (fun x -> x#root != self#root)
+                                (React.S.value s_items))
 
     method private get_parent : Dom_html.element Js.t =
-      let par_opt = Js.Opt.to_option self#root##.parentNode |> CCOpt.map Js.Unsafe.coerce in
+      let par_opt = Js.Opt.to_option self#root##.parentNode
+                    |> CCOpt.map Js.Unsafe.coerce in
       CCOpt.get_exn par_opt
+
     method private get_parent_pos : Position.t =
       let par = self#get_parent in
       { x = par##.offsetLeft
       ; y = par##.offsetTop
       ; w = par##.offsetWidth
-      ; h = par##.offsetHeight
-      }
+      ; h = par##.offsetHeight }
 
     method private get_px_pos : Position.t =
       { x = self#get_offset_left;  y = self#get_offset_top;
@@ -323,6 +370,7 @@ module Item = struct
           |> (fun x -> end_listener <- Some x))
 
     method private start_dragging (ev: action) =
+      dragged <- true;
       self#add_class Markup.Dynamic_grid.Item.dragging_class;
       ghost#style##.zIndex := Js.string "1";
       (* add ghost item to dom to show possible element position *)
@@ -341,13 +389,37 @@ module Item = struct
             let open Utils in
             let col_px = React.S.value s_col_w in
             let row_px = React.S.value s_row_h in
-            let x = init_pos.x + x - init_x in
-            let y = init_pos.y + y - init_y in
+            let x, y = init_pos.x + x - init_x, init_pos.y + y - init_y in
             let pos = Position.correct_xy { self#pos with x = x // col_px;
                                                           y = y // row_px }
-                                          grid.cols grid.rows in
-            if not (self#has_collision pos) then ghost#s_pos_push pos;
-            (* temporary update element's position *)
+                        grid.cols grid.rows in
+            let except_current_el =
+              List.filter (fun el -> el#pos != self#pos) @@ React.S.value s_items in
+            let pos_except = List.map (fun x -> x#pos) except_current_el in
+            if not (self#has_collision pos)
+            then
+              ( let pos = if grid.vertical_compact
+                          then self#vc pos pos_except
+                          else pos in
+                ghost#s_pos_push pos )
+            else ( let collisions =
+                     List.filter (fun x -> Position.collides pos x#pos) except_current_el in
+                   let continue =
+                     CCList.fold_while (fun acc x ->
+                         if x#move_away @@ pos.y + pos.h
+                         then (acc, `Continue) else (false, `Stop)) true collisions in
+                   if continue
+                   then if grid.vertical_compact
+                        then ghost#s_pos_push @@ self#vc pos pos_except
+                        else ghost#s_pos_push pos
+                   else (*@@ self#vc
+                                              (Position.{ x = init_pos.x // col_px; y = init_pos.y // row_px;
+                                                          w = init_pos.w // col_px; h = init_pos.h // row_px})
+                                              pos_except);*)
+                     if grid.vertical_compact
+                     then ghost#s_pos_push @@ self#vc {pos with y = ghost#pos.y} pos_except
+                     else ghost#s_pos_push {pos with y = ghost#pos.y});
+            self#s_pos_push pos;
             self#set_x x;
             self#set_y y
          | `End->
@@ -358,10 +430,12 @@ module Item = struct
             self#set_x @@ React.S.value s_col_w * ghost#pos.x;
             self#set_y @@ React.S.value s_row_h * ghost#pos.y;
             self#s_pos_push ghost#pos;
-            Dom.removeChild self#get_parent ghost#root
+            Dom.removeChild self#get_parent ghost#root;
+            dragged <- false
          | _ -> ()
 
     method private start_resizing (ev: action) =
+      dragged <- true;
       ghost#style##.zIndex := Js.string "3";
       Dom.appendChild self#get_parent ghost#root;
       (* add resize/stop resize event listeners *)
@@ -388,22 +462,37 @@ module Item = struct
                               grid.cols
                               grid.rows
          in
-         if not (self#has_collision pos) then ghost#s_pos_push pos;
-         (* temporary update element's width and height in pixels *)
-         (* let pos_px = correct_wh ?max_w:(CCOpt.map (fun x -> x * col_px) item.max_w)
-          *                         ~min_w:(CCOpt.get_or ~default:col_px
-          *                                              (CCOpt.map (fun x -> x * col_px) item.min_w))
-          *                         ?max_h:(CCOpt.map (fun x -> x * row_px) item.max_h)
-          *                         ~min_h:(CCOpt.get_or ~default:row_px
-          *                                              (CCOpt.map (fun x -> x * row_px) item.min_h))
-          *                         { x = self#pos.x * col_px
-          *                         ; y = self#pos.x * col_px
-          *                         ; w
-          *                         ; h
-          *                         }
-          *                         (grid.cols * col_px)
-          *                         (CCOpt.map (fun x -> x * row_px) grid.rows)
-          * in *)
+         (* if not (self#has_collision pos)
+          * then ( let except_current_el =
+          *          List.filter (fun el -> el#pos != self#pos) @@ React.S.value s_items in
+          *        let pos_except = List.map (fun x -> x#pos) except_current_el in
+          *        let pos = self#vc pos pos_except in
+          *        ghost#s_pos_push pos);
+          * self#set_w w;
+          * self#set_h h *)
+         let except_current_el =
+           List.filter (fun el -> el#pos != self#pos) @@ React.S.value s_items in
+         let pos_except = List.map (fun x -> x#pos) except_current_el in
+         if not (self#has_collision pos)
+         then
+           ( let pos = if grid.vertical_compact
+                       then self#vc pos pos_except
+                       else pos in
+             ghost#s_pos_push pos )
+         else ( let collisions =
+                  List.filter (fun x -> Position.collides pos x#pos) except_current_el in
+                let continue =
+                  CCList.fold_while (fun acc x ->
+                      if x#move_away @@ pos.y + pos.h
+                      then (acc, `Continue) else (false, `Stop)) true collisions in
+                if continue
+                then if grid.vertical_compact
+                     then ghost#s_pos_push @@ self#vc pos pos_except
+                     else ghost#s_pos_push pos
+                else if grid.vertical_compact
+                then ghost#s_pos_push @@ self#vc { pos with h = ghost#pos.h } pos_except
+                else ghost#s_pos_push {pos with h = ghost#pos.h});
+         self#s_pos_push pos;
          self#set_w w;
          self#set_h h
       | `End ->
@@ -413,7 +502,8 @@ module Item = struct
          self#set_w @@ React.S.value s_col_w * ghost#pos.w;
          self#set_h @@ React.S.value s_row_h * ghost#pos.h;
          self#s_pos_push ghost#pos;
-         Dom.removeChild self#get_parent ghost#root
+         Dom.removeChild self#get_parent ghost#root;
+         dragged <- false
       | _ -> ()
 
     initializer
@@ -439,7 +529,6 @@ module Item = struct
       Dom_events.listen resize_button#root Dom_events.Typ.touchstart
         (fun _ e -> if item.resizable then self#start_resizing (Touch e); false)
       |> ignore
-
 
   end
 
@@ -502,6 +591,26 @@ class ['a] t ~grid ~(items:'a item list) () =
 
     method items      = React.S.value s_items
     method positions  = React.S.value s_change
+
+    method sorted_by_height =
+      let compare (t1: 'a Item.t) (t2: 'a Item.t) =
+        if t1#pos.y = t2#pos.y then 0
+        else if t1#pos.y > t2#pos.y then 1
+        else -1 in
+      List.sort compare @@ React.S.value self#s_items
+
+    method vertical_compacting () =
+      let sorted = self#sorted_by_height in
+      List.iter (fun (x:'a Item.t) ->
+          if not x#dragged then
+            (
+              let except_current_el = List.filter (fun el -> el != x#pos) self#positions in
+              while ((React.S.value x#s_pos).y - 1 >= 0) &&
+                      (not @@ Position.has_collision
+                                ~f:(fun x -> x)
+                                {(React.S.value x#s_pos) with y = (React.S.value x#s_pos).y - 1}
+                                except_current_el)
+              do x#s_pos_push {x#pos with y = (React.S.value x#s_pos).y - 1} done)) sorted
 
     method remove (x:'a Item.t) = x#remove
 
@@ -597,15 +706,14 @@ class ['a] t ~grid ~(items:'a item list) () =
                     ?(resizable=true)
                     ?(draggable=true)
                     ?widget
-                    ?width
-                    ?height
+                    ?(width:int option)
+                    ?(height:int option)
                     ~(value: 'a)
                     () =
       if adding
       then Lwt.return_error In_progress
       else
         let open Lwt.Infix in
-
         adding <- true;
         let t,wakener = Lwt.wait () in
         let item = { pos = Position.empty
@@ -614,41 +722,50 @@ class ['a] t ~grid ~(items:'a item list) () =
         let ghost = new Item.cell ~typ:`Ghost ~s_col_w ~s_row_h ~item () in
         Dom.appendChild self#root ghost#root;
         let mv_l  =
-          Dom_events.listen Dom_html.document##.body
-                            Dom_events.Typ.mousemove
-                            (fun _ e ->
-                              (match self#get_event_pos e with
-                               | Some ev_pos ->
-                                  let ev_pos =
-                                    { ev_pos with x = ev_pos.x / React.S.value s_col_w;
-                                                  y = ev_pos.y / React.S.value s_row_h
-                                    }
-                                  in
-                                  let pos =
-                                    match width, height with
-                                    | Some width, Some height ->
-                                       Position.get_free_rect ~f:(fun x -> x)
-                                         ev_pos
-                                         items
-                                         grid.cols
-                                         (React.S.value s_rows)
-                                         ~width
-                                         ~height
-                                         ()
-                                    | _ ->
-                                       Position.get_free_rect ~f:(fun x -> x)
-                                         ev_pos
-                                         items
-                                         grid.cols
-                                         (React.S.value s_rows)
-                                         ()
-                                  in
-                                  begin match pos with
-                                  | Some pos -> ghost#s_pos_push pos
-                                  | None     -> ghost#s_pos_push Position.empty
-                                  end;
-                               | None -> ghost#s_pos_push Position.empty);
-                              true)
+          Dom_events.listen
+            Dom_html.document##.body
+            Dom_events.Typ.mousemove
+            (fun _ e ->
+              (match self#get_event_pos e with
+               | Some ev_pos ->
+                  let ev_pos = { ev_pos with x = ev_pos.x / React.S.value s_col_w;
+                                             y = ev_pos.y / React.S.value s_row_h }
+                  in
+                  let open Position in
+                  let cmp =
+                    match width, height with
+                    | Some w, Some h -> Some (fun n o -> if n.w < w || n.h < h || (n.w * n.h) < (o.w * o.h)
+                                                         then 0 else 1)
+                    | Some w, _      -> Some (fun n o -> if n.w < w || n.h < o.h then 0 else 1)
+                    | _, Some h      -> Some (fun n o -> if n.h < h || n.w < o.w then 0 else 1)
+                    | _              -> None
+                  in
+                  let pos = get_free_rect ?cmp ~f:(fun x -> x) ev_pos items grid.cols (React.S.value s_rows) () in
+                  let pos = CCOpt.map (fun pos ->
+                                let corr_x = fun w -> if ev_pos.x + w > pos.x + pos.w
+                                                      then (pos.x + pos.w) - w
+                                                      else ev_pos.x
+                                in
+                                let corr_y = fun h -> if ev_pos.y + h > pos.y + pos.h
+                                                      then (pos.y + pos.h) - h
+                                                      else ev_pos.y
+                                in
+                                match width, height with
+                                | Some w, Some h ->
+                                   let w = if w < 1 then 1 else w in
+                                   let h = if h < 1 then 1 else h in
+                                   { x = corr_x w; y = corr_y h; w; h}
+                                | Some w, _  -> let w = if w < 1 then 1 else w in
+                                                {pos with x = corr_x w; w}
+                                | _, Some h  -> let h = if h < 1 then 1 else h in
+                                                {pos with y = corr_y h; h}
+                                | _          -> pos) pos
+                  in
+                  (match pos with
+                   | Some x -> ghost#s_pos_push x
+                   | None   -> ghost#s_pos_push Position.empty)
+               | None -> ghost#s_pos_push Position.empty);
+              true)
         in
         let cl_l  =
           Dom_events.listen self#root
@@ -691,13 +808,21 @@ class ['a] t ~grid ~(items:'a item list) () =
     (** Private methods *)
 
     method private get_event_pos e : Position.t option =
-      let x = (CCOpt.get_exn @@ Js.Optdef.to_option e##.pageX) - self#get_offset_left in
-      let y = (CCOpt.get_exn @@ Js.Optdef.to_option e##.pageY) - self#get_offset_top in
+      let rect = self#get_client_rect in
+      let left = int_of_float rect.left in
+      let top  = int_of_float rect.top in
+      let x = e##.clientX - left in
+      let y = e##.clientY - top  in
       let (pos:Position.t) = { x; y; w = 1; h = 1 } in
       if x <= self#get_offset_width && x >= 0 && y<= self#get_offset_height && y >= 0
       then Some pos else None
 
     initializer
+      (* compact items vertically on grid's change *)
+      React.S.map (fun _ ->
+          if grid.vertical_compact then self#vertical_compacting () else ()) self#s_change
+      |> ignore;
+
       (* set min/max width of grid *)
       self#style##.minWidth := Utils.px (grid.cols * grid.min_col_width);
       CCOpt.iter (fun x -> self#style##.maxWidth := Utils.px @@ grid.cols * x) grid.max_col_width;

@@ -277,6 +277,17 @@ main.main-with-sidebar {
     cursor: default;
 }
 
+.mdc-tab-bar-scroller__flex-container {
+    display: flex;
+}
+.mdc-tab-bar-scroller__scroller {
+    overflow-x: scroll;
+    flex: 1 1 auto;
+    display: inline-block;
+    position: relative;
+    white-space: nowrap;
+}
+
 /* MDC Tree */
 
 .mdc-tree {
@@ -322,7 +333,7 @@ main.main-with-sidebar {
     -moz-user-select: none;
     -ms-user-select: none;
     -webkit-user-select: none;
-    /* transition: top 0.1s; */
+    transition: top 0.14s;
     position: absolute;
     background-color: RGB(215,215,215);
     background-position: center center;
