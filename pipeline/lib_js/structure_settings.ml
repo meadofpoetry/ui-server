@@ -1,3 +1,4 @@
+open Containers
 open Components
 open Requests
 open Lwt_result.Infix
@@ -21,19 +22,19 @@ class t () =
         ~f:(fun _ _ ->
           let in_dom_new = (Js.Unsafe.coerce Dom_html.document)##contains self#root in
           if in_dom && (not in_dom_new)
-          then CCOpt.iter (fun x -> x##close; sock <- None) sock
+          then Option.iter (fun x -> x##close; sock <- None) sock
           else if (not in_dom) && in_dom_new
           then (Requests.get_structure ()
                 >>= (fun structure ->
                   let e_structure,structure_sock = Requests.get_structure_socket () in
                   let open Lwt.Infix in
                   let el = Ui.Structure.create ~init:structure ~events:e_structure
-                                               ~post:(fun s ->
-                                                 Requests.post_structure s
-                                                 >|= (function
-                                                      | Ok () -> ()
-                                                      | Error e -> print_endline @@ "error post settings" ^ e)
-                                                 |> Lwt.ignore_result)
+                             ~post:(fun s ->
+                               Requests.post_structure s
+                               >|= (function
+                                    | Ok () -> ()
+                                    | Error e -> print_endline @@ "error post settings" ^ e)
+                               |> Lwt.ignore_result)
                   in
                   sock <- Some structure_sock;
                   Dom.appendChild self#root el;

@@ -1,10 +1,12 @@
+open Containers
+
 module Pure = struct
 
   class t ?input_id ?placeholder ?rows ?cols () =
     let elt = Markup.Textfield.create ?input_id ?placeholder ?rows ?cols ~textarea:true ()
               |> Tyxml_js.To_dom.of_div in
     let input_elt = elt##querySelector (Js.string ("." ^ Markup.Textfield.input_class))
-                    |> Js.Opt.to_option |> CCOpt.get_exn |> Js.Unsafe.coerce in
+                    |> Js.Opt.to_option |> Option.get_exn |> Js.Unsafe.coerce in
     object
       inherit [string] Widget.text_input_widget ~input_elt Widget.Text elt ()
     end
@@ -22,7 +24,7 @@ class t ?input_id ?label ?placeholder ?rows ?cols () =
   let elt = (Markup.Textfield.create ?input_id ?label ?placeholder ?rows ?cols ~textarea:true ()
              |> Tyxml_js.To_dom.of_div) in
   let input_elt = elt##querySelector (Js.string ("." ^ Markup.Textfield.input_class))
-                  |> Js.Opt.to_option |> CCOpt.get_exn |> Js.Unsafe.coerce in
+                  |> Js.Opt.to_option |> Option.get_exn |> Js.Unsafe.coerce in
 
   object(self)
 

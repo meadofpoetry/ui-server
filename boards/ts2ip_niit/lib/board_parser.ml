@@ -1,3 +1,4 @@
+open Containers
 open Board_types
 open Board_msg_formats
 
@@ -80,7 +81,7 @@ module Set_board_mode : (Instant_request with type req := (nw_settings * (packer
 
   let msg_code  = 0x0088
 
-  let reverse_ip x   = Ipaddr.V4.to_bytes x |> CCString.rev |> Ipaddr.V4.of_bytes_exn
+  let reverse_ip x   = Ipaddr.V4.to_bytes x |> String.rev |> Ipaddr.V4.of_bytes_exn
   let reverse_port x = let msb = (x land 0xFF00) lsr 8 in
                        let lsb = (x land 0x00FF) in
                        (lsb lsl 8) lor msb
@@ -107,7 +108,7 @@ module Set_board_mode : (Instant_request with type req := (nw_settings * (packer
     let ()   = Ipaddr.V4.to_int32 (reverse_ip ip)   |> set_req_settings_main_ip buf in
     let ()   = Ipaddr.V4.to_int32 (reverse_ip mask) |> set_req_settings_main_mask buf in
     let ()   = Ipaddr.V4.to_int32 (reverse_ip gw)   |> set_req_settings_main_gateway buf in
-    let pkrs = CCList.map packer_settings_to_cbuffer pkrs in
+    let pkrs = List.map packer_settings_to_cbuffer pkrs in
     let len  = sizeof_req_settings_main + (4 * sizeof_packer_settings) in
     Cbuffer.concat @@ buf :: pkrs
     |> (fun b -> Cbuffer.append b @@ Cbuffer.create (len - Cbuffer.len b))
@@ -116,7 +117,7 @@ module Set_board_mode : (Instant_request with type req := (nw_settings * (packer
   let rest_to_cbuffer i (pkrs:packer_setting list) =
     let buf  = Cbuffer.create sizeof_req_settings_packers in
     let ()   = set_req_settings_packers_cmd buf i in
-    let pkrs = CCList.map packer_settings_to_cbuffer pkrs in
+    let pkrs = List.map packer_settings_to_cbuffer pkrs in
     let len  = sizeof_req_settings_packers + (6 * sizeof_packer_settings) in
     Cbuffer.concat @@ buf :: pkrs
     |> (fun b -> Cbuffer.append b @@ Cbuffer.create (len - Cbuffer.len b))
@@ -132,15 +133,15 @@ module Set_board_mode : (Instant_request with type req := (nw_settings * (packer
      *               ; self_port = 0
      *               }
      * in
-     * let packers = if CCList.length packers < 22
-     *               then packers @ CCList.repeat (22 - CCList.length packers) [default]
+     * let packers = if List.length packers < 22
+     *               then packers @ List.repeat (22 - List.length packers) [default]
      *               else packers
      * in *)
     let fst_pkrs,rest_pkrs =
-      let hd,tl = CCList.take_drop 4 packers in
-      hd,CCList.take 3 @@ CCList.sublists_of_len ~last:CCOpt.return 6 tl in
+      let hd,tl = List.take_drop 4 packers in
+      hd,List.take 3 @@ List.sublists_of_len ~last:Option.return 6 tl in
     let main = main_to_cbuffer nw.ip nw.mask nw.gateway fst_pkrs in
-    let rest = CCList.mapi (fun i x -> rest_to_cbuffer (succ i) x) rest_pkrs in
+    let rest = List.mapi (fun i x -> rest_to_cbuffer (succ i) x) rest_pkrs in
     Cbuffer.concat (main :: rest)
 
 end
@@ -160,15 +161,15 @@ module Status : (Event with type msg := (board_status * status_data)) = struct
   let parse_packers data =
     let iter data =
       Cbuffer.iter (fun _ -> Some 4)
-                   (fun b -> let bs = Bitstring.bitstring_of_string @@ CCString.rev @@ Cbuffer.to_string b in
-                             match%bitstring bs with
-                             | {| overflow : 1
-                                ; enabled  : 1
-                                ; has_data : 1
-                                ; br_en    : 1
-                                ; bitrate  : 28 : map (fun x -> if br_en then Some (x * 8) else None)
-                                |} -> { overflow; enabled; has_data; bitrate })
-                   data
+        (fun b -> let bs = Bitstring.bitstring_of_string @@ String.rev @@ Cbuffer.to_string b in
+                  match%bitstring bs with
+                  | {| overflow : 1
+                     ; enabled  : 1
+                     ; has_data : 1
+                     ; br_en    : 1
+                     ; bitrate  : 28 : map (fun x -> if br_en then Some (x * 8) else None)
+                     |} -> { overflow; enabled; has_data; bitrate })
+        data
     in
     List.rev @@ Cbuffer.fold (fun acc el -> el :: acc) (iter data) []
 
@@ -240,10 +241,10 @@ let check_next_prefix ((code,_,rest) as x) =
 
 let get_msg buf =
   try
-    CCResult.(check_prefix buf
-              >>= check_msg_code
-              >>= check_length
-              >>= check_next_prefix)
+    Result.(check_prefix buf
+            >>= check_msg_code
+            >>= check_length
+            >>= check_next_prefix)
   with
   | Invalid_argument _ -> Error (Insufficient_payload buf)
   | e -> Error (Unknown_err (Printexc.to_string e))

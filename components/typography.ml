@@ -1,3 +1,4 @@
+open Containers
 open Markup
 
 type font = Display_4
@@ -29,8 +30,8 @@ let font_to_class = function
 
 
 let remove (elt:#Widget.widget) =
-  CCList.iter (fun x -> if CCString.prefix ~pre:Typography.base_class x then elt#remove_class x)
-              elt#get_classes
+  List.iter (fun x -> if String.prefix ~pre:Typography.base_class x then elt#remove_class x)
+    elt#get_classes
 
 let set ?(adjust_margin=true) ~font (elt:#Widget.widget) =
   remove elt;
@@ -51,7 +52,7 @@ module Text = struct
       val mutable font : font option = font
 
       method set_font x =
-        CCOpt.iter (fun x -> self#remove_class @@ font_to_class x) font;
+        Option.iter (fun x -> self#remove_class @@ font_to_class x) font;
         self#add_class @@ font_to_class x;
         font <- Some x
       method get_font   = font
@@ -64,7 +65,7 @@ module Text = struct
       initializer
         self#add_class Typography.base_class;
         self#set_adjust_margin adjust_margin;
-        CCOpt.iter (fun x -> self#add_class @@ font_to_class x) font
+        Option.iter (fun x -> self#add_class @@ font_to_class x) font
 
     end
 

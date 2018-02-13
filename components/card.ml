@@ -1,3 +1,4 @@
+open Containers
 open Widget
 open Tyxml_js
 
@@ -11,7 +12,7 @@ module Title = struct
     method set_large x = Markup.Card.Primary.large_title_class
                          |> (fun c -> if x then super#add_class c else super#remove_class c)
 
-    method get_title   = super#get_text_content |> CCOpt.get_or ~default:""
+    method get_title   = super#get_text_content |> Option.get_or ~default:""
     method set_title s = super#set_text_content s
   end
 
@@ -22,7 +23,7 @@ module Subtitle = struct
   class t ~subtitle () = object
     inherit widget (Markup.Card.Primary.create_subtitle ~subtitle () |> To_dom.of_h2) () as super
 
-    method get_subtitle   = super#get_text_content |> CCOpt.get_or ~default:""
+    method get_subtitle   = super#get_text_content |> Option.get_or ~default:""
     method set_subtitle s = super#set_text_content s
   end
 
@@ -123,7 +124,7 @@ module Supporting_text = struct
               |> To_dom.of_section in
     object
       inherit widget elt () as super
-      method get_text   = super#get_text_content |> CCOpt.get_or ~default:""
+      method get_text   = super#get_text_content |> Option.get_or ~default:""
       method set_text s = super#set_text_content s
     end
 
@@ -155,13 +156,13 @@ class t ?(form=false) ~(sections:sections) () =
 
     method get_sections = sections
 
-    method get_primary = CCList.find_map (function `Primary x -> Some x | _ -> None) self#get_sections
-    method get_actions = CCList.find_map (function `Actions x -> Some x | _ -> None) self#get_sections
-    method get_media   = CCList.find_map (function `Media x -> Some x   | _ -> None) self#get_sections
-    method get_text    = CCList.find_map (function `Text x -> Some x    | _ -> None) self#get_sections
+    method get_primary = List.find_map (function `Primary x -> Some x | _ -> None) self#get_sections
+    method get_actions = List.find_map (function `Actions x -> Some x | _ -> None) self#get_sections
+    method get_media   = List.find_map (function `Media x -> Some x   | _ -> None) self#get_sections
+    method get_text    = List.find_map (function `Text x -> Some x    | _ -> None) self#get_sections
 
-    method get_all_primary = CCList.filter_map (function `Primary x -> Some x | _ -> None) self#get_sections
-    method get_all_actions = CCList.filter_map (function `Actions x -> Some x | _ -> None) self#get_sections
-    method get_all_media   = CCList.filter_map (function `Media x -> Some x   | _ -> None) self#get_sections
-    method get_all_text    = CCList.filter_map (function `Text x -> Some x    | _ -> None) self#get_sections
+    method get_all_primary = List.filter_map (function `Primary x -> Some x | _ -> None) self#get_sections
+    method get_all_actions = List.filter_map (function `Actions x -> Some x | _ -> None) self#get_sections
+    method get_all_media   = List.filter_map (function `Media x -> Some x   | _ -> None) self#get_sections
+    method get_all_text    = List.filter_map (function `Text x -> Some x    | _ -> None) self#get_sections
   end

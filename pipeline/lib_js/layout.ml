@@ -1,3 +1,4 @@
+open Containers
 open Components
 open React
 open Tyxml_js
@@ -6,8 +7,9 @@ let js = Js.string
 
 (* returns true if el matches any part of the list*)
 let refers_to_any (el: string * Wm.widget) (list: (string * Wm.widget) list) =
-  CCList.fold_while (fun acc x ->
-    if x = el then (true, `Stop) else (acc, `Continue)) false list
+  List.fold_while (fun acc x ->
+      (* TODO reconsider this *)
+      if String.equal (fst x) (fst el) then (true, `Stop) else (acc, `Continue)) false list
 
 (* a function that *)
 let resolution_to_aspect resolution =
@@ -15,9 +17,9 @@ let resolution_to_aspect resolution =
   let rec greatest_common_divisor a b =
     if a != 0 && b != 0 then
       let a, b =
-      if a > b
-      then a mod b, b
-      else a, b mod a
+        if a > b
+        then a mod b, b
+        else a, b mod a
       in
       greatest_common_divisor a b
     else a + b in
@@ -32,7 +34,7 @@ let calc_rows_cols grid_asp cont_asp list =
         let cols = ceil (float_of_int num /. float_of_int rows) in
         let w = 1. in
         let h = w /. grid_asp in
-        if (w /. cols *. cont_asp) *. float_of_int rows <= h
+        if Float.((w /. cols *. cont_asp) *. float_of_int rows <= h)
         then int_of_float cols, rows, (w /. cols *. w /. cols *. cont_asp)
         else int_of_float cols, rows,
              (h /. (float_of_int rows) *. h /. (float_of_int rows) *. cont_asp)
@@ -41,7 +43,7 @@ let calc_rows_cols grid_asp cont_asp list =
     List.fold_left (fun acc x ->
         let _,_,sq = x in
         let _,_,gr = acc in
-        if gr > sq then acc else x)
+        if Float.(gr > sq) then acc else x)
       (0,0,0.) squares in
   cols, rows
 
@@ -130,53 +132,53 @@ let initialize (wm: Wm.t) =
                   let current_wd_list = List.map (fun x -> x#get_value) (React.S.value grid#s_items) in
                   let widgets  = wd_list current_wd_list in
                   let dialogue = new Dialog.t
-                                     ~title:"What widget u'd like to add?"
-                                     ~content:(`Widgets widgets)
-                                     ~actions:[ new Dialog.Action.t ~typ:`Decline ~label:"Decline" ()
-                                              ; new Dialog.Action.t ~typ:`Accept  ~label:"Accept"  ()
-                                              ] ()
+                                   ~title:"What widget u'd like to add?"
+                                   ~content:(`Widgets widgets)
+                                   ~actions:[ new Dialog.Action.t ~typ:`Decline ~label:"Decline" ()
+                                            ; new Dialog.Action.t ~typ:`Accept  ~label:"Accept"  ()
+                                   ] ()
                   in
                   dialogue#root##.id := Js.string "dialogue";
                   Dom.appendChild Dom_html.document##.body dialogue#root;
                   let open Lwt.Infix in
                   Dom_html.stopPropagation e;
                   Lwt.bind dialogue#show_await
-                           (function
-                            | `Accept ->
-                               List.iter (fun item -> item#remove) (React.S.value grid#s_items);
-                               let chosen_buttons =
-                                 List.filter (fun x -> x#get_input_widget#get_checked) widgets in
-                               let (chosen_widgets: (string * Wm.widget) list) =
-                                 List.fold_left
-                                   (fun acc x ->
-                                     let id = x#get_input_widget#get_id in
-                                     let w  = CCList.find_pred (fun (x: (string * Wm.widget)) -> id = (fst x))
-                                                               wm.widgets in
-                                     match w with
-                                     | Some w -> w :: acc
-                                     | None   -> acc)
-                                   [] chosen_buttons in
-                               let res_x, res_y = wm.resolution in
-                               let grid_asp = float_of_int res_x /. float_of_int res_y in
-                               let cont_asp = 4. /. 3. in
-                               let opt_cols, opt_rows = calc_rows_cols grid_asp cont_asp chosen_widgets in
-                               List.iteri (fun i el ->
-                                   let w = cols / opt_cols in
-                                   let h = rows / opt_rows in
-                                   let row_num = i / opt_cols in
-                                   let x = (i - row_num * opt_cols) * w in
-                                   let y = row_num * h in
-                                   grid#add (Dynamic_grid.Item.to_item ~pos:{x;y;w;h} ~value:el ())
-                                   |> (function
-                                       | Ok _    -> print_endline "grid - add okay!";
-                                                    Lwt.return_unit
-                                       | Error _ -> print_endline "grid - add error!";
-                                                    Lwt.return_unit)
-                                   |> ignore) chosen_widgets;
-                               Lwt.return ()
-                            | `Cancel ->
-                               print_endline "Dialog cancelled";
-                               Lwt.return ()))
+                    (function
+                     | `Accept ->
+                        List.iter (fun item -> item#remove) (React.S.value grid#s_items);
+                        let chosen_buttons =
+                          List.filter (fun x -> x#get_input_widget#get_checked) widgets in
+                        let (chosen_widgets: (string * Wm.widget) list) =
+                          List.fold_left
+                            (fun acc x ->
+                              let id = x#get_input_widget#get_id in
+                              let w  = List.find_pred (fun (x: (string * Wm.widget)) -> String.equal id (fst x))
+                                         wm.widgets in
+                              match w with
+                              | Some w -> w :: acc
+                              | None   -> acc)
+                            [] chosen_buttons in
+                        let res_x, res_y = wm.resolution in
+                        let grid_asp = float_of_int res_x /. float_of_int res_y in
+                        let cont_asp = 4. /. 3. in
+                        let opt_cols, opt_rows = calc_rows_cols grid_asp cont_asp chosen_widgets in
+                        List.iteri (fun i el ->
+                            let w = cols / opt_cols in
+                            let h = rows / opt_rows in
+                            let row_num = i / opt_cols in
+                            let x = (i - row_num * opt_cols) * w in
+                            let y = row_num * h in
+                            grid#add (Dynamic_grid.Item.to_item ~pos:{x;y;w;h} ~value:el ())
+                            |> (function
+                                | Ok _    -> print_endline "grid - add okay!";
+                                             Lwt.return_unit
+                                | Error _ -> print_endline "grid - add error!";
+                                             Lwt.return_unit)
+                            |> ignore) chosen_widgets;
+                        Lwt.return ()
+                     | `Cancel ->
+                        print_endline "Dialog cancelled";
+                        Lwt.return ()))
   in
   let s = React.S.map (fun _ ->
               let layout =

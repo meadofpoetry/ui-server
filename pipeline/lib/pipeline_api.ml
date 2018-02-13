@@ -1,20 +1,20 @@
+open Containers
 open Api.Interaction
 open Api.Redirect
 open Pipeline
 open Websocket_cohttp_lwt
 open Frame
-open Containers
    
 open Lwt.Infix
 
 module Api_handler = Api.Handler.Make(Common.User)
-   
-let ( % ) = CCFun.(%)
+                   
+let ( % ) = Fun.(%)
 
 (* TODO reason about random key *)
 let () = Random.init (int_of_float @@ Unix.time ())
 let rand_int = fun () -> Random.run (Random.int 10000000)
-       
+                       
 let socket_table = Hashtbl.create 1000
 
 let get_page () =
@@ -54,7 +54,7 @@ let get_sock sock_data body conv event =
 let set_structure api body () =
   Lwt_io.printf "set structure\n" |> ignore;
   set body Structure.t_list_of_yojson
-      Pipeline_protocol.(fun x -> api.set (Set_structures x))
+    Pipeline_protocol.(fun x -> api.set (Set_structures x))
 
 let get_structure api () =
   let open Pipeline_protocol in
@@ -68,7 +68,7 @@ let get_structure_sock sock_data body api () =
 
 let set_settings api body () =
   set body Settings.of_yojson
-      Pipeline_protocol.(fun x -> api.set (Set_settings x))
+    Pipeline_protocol.(fun x -> api.set (Set_settings x))
 
 let get_settings api () =
   let open Pipeline_protocol in
@@ -132,7 +132,7 @@ let get_vdata_sock_pid sock_data body api stream channel pid () =
     let open Pipeline_protocol in
     get_sock sock_data body Video_data.to_yojson (React.E.filter pred api.vdata)
   with _ -> respond_error ~status:`Bad_request "bad request" ()
-    
+          
 let pipeline_handle api id meth args sock_data _ body =
   let is_guest = Common.User.eq id `Guest in
   match meth, args with
@@ -151,7 +151,7 @@ let pipeline_handle api id meth args sock_data _ body =
   | `GET,  ["vdata_sock";s;c]   -> get_vdata_sock_channel sock_data body api s c ()
   | `GET,  ["vdata_sock";s;c;p] -> get_vdata_sock_pid sock_data body api s c p ()
   | _                           -> not_found ()
-                     
+                                 
 let handlers pipe =
   [ (module struct
        let domain = "pipeline"
@@ -160,7 +160,7 @@ let handlers pipe =
 
 let handlers_not_implemented () =
   []
-  
+    
     (*
 let test _ _ body =
   Cohttp_lwt.Body.to_string body >>= fun body ->
@@ -173,7 +173,7 @@ let test _ _ body =
       | Error _ -> "Sorry, something is wrong with your json"
       | Ok root -> Lwt_io.printf "Msgpck: %s\n" (Msg_conv.to_msg_string @@ Common.State.to_yojson root) |> ignore;
                    let prefix = "Thank you, master! " in
-                   begin match (CCOpt.get_exn root.graph).state with
+                   begin match (Option.get_exn root.graph).state with
                    | Some Null  -> prefix ^ "You want me to stop the graph?"
                    | Some Stop  -> prefix ^ "Halting graph"
                    | Some Play  -> prefix ^ "Starting"
@@ -182,4 +182,4 @@ let test _ _ body =
                    end
   in
   Cohttp_lwt_unix.Server.respond_string ~status:`OK ~body:s ()
-        *)
+     *)

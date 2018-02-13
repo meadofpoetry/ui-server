@@ -1,3 +1,4 @@
+open Containers
 open Base
 
 type position = Top | Left | Bottom | Right
@@ -39,12 +40,12 @@ class t () = object(self)
   method get_line_height   = obj##.lineHeight
 
   method set_text x =
-    obj##.text := (match CCString.lines x with
+    obj##.text := (match String.lines x with
                    | [s] -> Js.Unsafe.coerce @@ Js.string s
                    | l   -> List.map Js.string l |> Array.of_list |> Js.array |> Js.Unsafe.coerce)
   method get_text =
     match Cast.to_list ~f:Js.to_string obj##.text with
-    | Some l -> CCString.unlines l
+    | Some l -> String.unlines l
     | None   -> (match Cast.to_string obj##.text with
                  | Some s -> s
                  | None   -> failwith "Bad title text value")

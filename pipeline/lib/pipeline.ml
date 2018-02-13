@@ -1,16 +1,17 @@
+open Containers
 open Lwt_react
 open Lwt.Infix
 open Containers
 open Pipeline_protocol
    
-let (%) = CCFun.(%)
+let (%) = Fun.(%)
 
 type pipe = { api       : Pipeline_protocol.api 
             ; state     : Pipeline_protocol.state
             ; db_events : unit event
                                (* ; _e        : unit event*)
             }
-    
+          
 module PSettings = struct
   type format = [ `Json | `Msgpack ]
   let format_of_yojson = function `String "json" -> Ok `Json | `String "msgpack" -> Ok `Msgpack | _ -> Error "Wrong fmt"
@@ -41,7 +42,7 @@ module Storage : sig
     
   include (Storage.Database.STORAGE with type 'a req := 'a req)
 end = Pipeline_storage
-       
+    
 type t = pipe
 
 let connect_db streams_events dbs =
@@ -61,7 +62,7 @@ let create config dbs (hardware_streams : Common.Stream.source list React.signal
      | pid  ->
         let api, state, recv = Pipeline_protocol.create cfg.sock_in cfg.sock_out converter hardware_streams in
         let db_events = connect_db (S.changes api.structure) dbs in
-       (* let _e = E.map (function
+        (* let _e = E.map (function
                      | None -> ()
                      | Some e ->
                      Wm.to_yojson e

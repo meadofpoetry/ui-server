@@ -1,4 +1,8 @@
+open Containers
 open Base
+
+(* TODO remove *)
+let (<) = Pervasives.(<)
 
 type axis_value_js
 type cubic_interpolation_mode = Default | Monotone
@@ -39,13 +43,13 @@ let axis_value_of_js (type a b) (t:(a,b) Axes.Cartesian.axis) : (axis_value_js J
   match t with
   | Linear (_,_,Int,_)        -> Js.Unsafe.coerce %> Js.float_of_number %> int_of_float
   | Linear (_,_,Int32,_)      -> Js.Unsafe.coerce %> Js.float_of_number %> Int32.of_float
-  | Linear (_,_,Int64,_)      -> Js.Unsafe.coerce %> Js.float_of_number %> Int64.of_float
+  | Linear (_,_,Int64,_)      -> Js.Unsafe.coerce %> Js.float_of_number %> Int64.of_float_exn
   | Linear (_,_,Float,_)      -> Js.Unsafe.coerce %> Js.float_of_number
   | Logarithmic (_,_,Int,_)   -> Js.Unsafe.coerce %> Js.float_of_number %> int_of_float
   | Logarithmic (_,_,Int32,_) -> Js.Unsafe.coerce %> Js.float_of_number %> Int32.of_float
-  | Logarithmic (_,_,Int64,_) -> Js.Unsafe.coerce %> Js.float_of_number %> Int64.of_float
+  | Logarithmic (_,_,Int64,_) -> Js.Unsafe.coerce %> Js.float_of_number %> Int64.of_float_exn
   | Logarithmic (_,_,Float,_) -> Js.Unsafe.coerce %> Js.float_of_number
-  | Time (_,_,Unix,_)         -> Js.Unsafe.coerce %> Js.float_of_number %> Int64.of_float
+  | Time (_,_,Unix,_)         -> Js.Unsafe.coerce %> Js.float_of_number %> Int64.of_float_exn
   | Category _                -> Js.Unsafe.coerce %> Js.to_string
 
 module Dataset = struct
@@ -133,7 +137,7 @@ module Dataset = struct
                         (cast:'e -> a option) =
     match f with
     | Some f -> Some (`Fun f)
-    | None   -> CCOpt.map (fun x -> (match Cast.to_list ~f:of_js x with
+    | None   -> Option.map (fun x -> (match Cast.to_list ~f:of_js x with
                                      | Some l -> `Lst l
                                      | None   -> (match cast x with
                                                   | Some c -> `Val c
@@ -172,16 +176,16 @@ module Dataset = struct
       }
 
     method private has_functional_point_props =
-      CCOpt.is_some f_point_props.bg_clr
-      || CCOpt.is_some f_point_props.border_clr
-      || CCOpt.is_some f_point_props.border_width
-      || CCOpt.is_some f_point_props.radius
-      || CCOpt.is_some f_point_props.style
-      || CCOpt.is_some f_point_props.hit_radius
-      || CCOpt.is_some f_point_props.hover_bg_clr
-      || CCOpt.is_some f_point_props.hover_border_clr
-      || CCOpt.is_some f_point_props.hover_border_width
-      || CCOpt.is_some f_point_props.hover_radius
+      Option.is_some f_point_props.bg_clr
+      || Option.is_some f_point_props.border_clr
+      || Option.is_some f_point_props.border_width
+      || Option.is_some f_point_props.radius
+      || Option.is_some f_point_props.style
+      || Option.is_some f_point_props.hit_radius
+      || Option.is_some f_point_props.hover_bg_clr
+      || Option.is_some f_point_props.hover_border_clr
+      || Option.is_some f_point_props.hover_border_width
+      || Option.is_some f_point_props.hover_radius
 
     method private point_to_js (p:('a,'b) point) : point_js Js.t =
       object%js
@@ -203,20 +207,20 @@ module Dataset = struct
                                     Js.Unsafe.set obj v a;
                                     a)
                in
-               CCList.iter (fun x -> let p = to_js @@ f_prop a##.length x in
+               List.iter (fun x -> let p = to_js @@ f_prop a##.length x in
                                      match m with
                                      | `Tail -> a##push p    |> ignore
                                      | `Head -> a##unshift p |> ignore) d
             | `Remove (n,m) ->
                (match Cast.to_js_array @@ Js.Unsafe.get obj v with
-                | Some x -> CCList.iter (fun _ -> match m with
+                | Some x -> List.iter (fun _ -> match m with
                                                   | `Head -> x##shift |> ignore
-                                                  | `Tail -> x##pop   |> ignore) (CCList.range 0 (n-1))
+                                                  | `Tail -> x##pop   |> ignore) (List.range 0 (n-1))
                 | None   -> Js.Unsafe.delete obj v)
             | `Replace d ->
                let a = Js.array [||] in
                Js.Unsafe.set obj v a;
-               CCList.iter (fun x -> a##push (to_js @@ f_prop a##.length x) |> ignore) d)
+               List.iter (fun x -> a##push (to_js @@ f_prop a##.length x) |> ignore) d)
         | None -> ()
       in
       apply "pointBackgroundColor"      CSS.Color.js f_point_props.bg_clr;
@@ -250,7 +254,7 @@ module Dataset = struct
       in aux x [] data
 
     method private shift max_x =
-      CCOpt.map2 (fun d max ->
+      Option.map2 (fun d max ->
           let rec iter = (fun () ->
               (match Js.Optdef.to_option @@ Js.array_get obj##.data 0 with
                | Some js_p -> let p = self#point_of_js js_p in
@@ -273,7 +277,7 @@ module Dataset = struct
       self#ps_replace data;
       self#update_max
     method set_data (data:('a,'b) point list) =
-      let data = CCList.sort_uniq ~cmp:(fun p1 p2 -> cmp p1.x p2.x) data in
+      let data = List.sort_uniq ~cmp:(fun p1 p2 -> cmp p1.x p2.x) data in
       obj##.data := Js.array @@ Array.of_list @@ List.map (fun x -> self#point_to_js x) data;
       self#ps_replace data;
       self#update_max
@@ -294,8 +298,8 @@ module Dataset = struct
       | []  -> ()
       | [x] -> self#push x
       | l   -> let cmp_x = (fun p1 p2 -> cmp p1.x p2.x) in
-               let l     = CCList.sort cmp_x l in
-               let data  = CCList.sorted_merge_uniq ~cmp:cmp_x l self#get_data in
+               let l     = List.sort cmp_x l in
+               let data  = List.sorted_merge_uniq ~cmp:cmp_x l self#get_data in
                self#set_data_no_sort data
 
     (* Config setters/getters *)
@@ -304,31 +308,31 @@ module Dataset = struct
     method get_label   = Js.to_string obj##.label
 
     method set_background_color x = obj##.backgroundColor := CSS.Color.js x
-    method get_background_color   = CCOpt.map CSS.Color.ml @@ Js.Optdef.to_option obj##.backgroundColor
+    method get_background_color   = Option.map CSS.Color.ml @@ Js.Optdef.to_option obj##.backgroundColor
     
     method set_border_width x = obj##.borderWidth := x
     method get_border_width   = Js.Optdef.to_option obj##.borderWidth
     
     method set_border_color x = obj##.borderColor := CSS.Color.js x
-    method get_border_color   = CCOpt.map CSS.Color.ml @@ Js.Optdef.to_option obj##.borderColor
+    method get_border_color   = Option.map CSS.Color.ml @@ Js.Optdef.to_option obj##.borderColor
     
     method set_border_cap_style x = obj##.borderCapStyle := Js.string @@ Canvas.line_cap_to_string x
-    method get_border_cap_style   = CCOpt.map (Js.to_string %> Canvas.line_cap_of_string_exn)
+    method get_border_cap_style   = Option.map (Js.to_string %> Canvas.line_cap_of_string_exn)
                                     @@ Js.Optdef.to_option obj##.borderCapStyle
     
     method set_border_dash x = obj##.borderDash := Js.array @@ Array.of_list x
-    method get_border_dash   = CCOpt.map (Js.to_array %> Array.to_list) @@ Js.Optdef.to_option obj##.borderDash
+    method get_border_dash   = Option.map (Js.to_array %> Array.to_list) @@ Js.Optdef.to_option obj##.borderDash
     
     method set_border_dash_offset x = obj##.borderDashOffset := x
     method get_border_dash_offset   = Js.Optdef.to_option obj##.borderDashOffset
     
     method set_border_join_style x = obj##.borderJoinStyle := Js.string @@ Canvas.line_join_to_string x
-    method get_border_join_style   = CCOpt.map (Js.to_string %> Canvas.line_join_of_string_exn)
+    method get_border_join_style   = Option.map (Js.to_string %> Canvas.line_join_of_string_exn)
                                      @@ Js.Optdef.to_option obj##.borderJoinStyle
     
     method set_cubic_interpolation_mode x = Js.string @@ cubic_interpolation_mode_to_string x
                                             |> (fun x -> obj##.cubicInterpolationMode := x)
-    method get_cubic_interpolation_mode   = CCOpt.map (Js.to_string %> cubic_interpolation_mode_of_string_exn)
+    method get_cubic_interpolation_mode   = Option.map (Js.to_string %> cubic_interpolation_mode_of_string_exn)
                                             @@ Js.Optdef.to_option obj##.cubicInterpolationMode
     
     method set_fill : fill -> unit = function
@@ -339,7 +343,7 @@ module Dataset = struct
       | Absolute_index x -> obj##.fill := Js.Unsafe.coerce @@ Js.number_of_float @@ float_of_int x
       | Relative_index x -> obj##.fill := Js.Unsafe.coerce @@ Js.string @@ Printf.sprintf "%+d" x
     method get_fill : fill option =
-      CCOpt.map (fun fill -> match Cast.to_bool fill with
+      Option.map (fun fill -> match Cast.to_bool fill with
                              | Some true  -> Origin
                              | Some false -> Disabled
                              | None   -> (match Cast.to_int fill with
@@ -435,17 +439,17 @@ module Dataset = struct
     method get_line_tension   = Js.Optdef.to_option obj##.lineTension
     
     method set_show_line x = obj##.showLine := Js.bool x
-    method get_show_line   = CCOpt.map Js.to_bool @@ Js.Optdef.to_option obj##.showLine
+    method get_show_line   = Option.map Js.to_bool @@ Js.Optdef.to_option obj##.showLine
     
     method set_span_gaps x = obj##.spanGaps := Js.bool x
-    method get_span_gaps   = CCOpt.map Js.to_bool @@ Js.Optdef.to_option obj##.spanGaps
+    method get_span_gaps   = Option.map Js.to_bool @@ Js.Optdef.to_option obj##.spanGaps
     
     method set_stepped_line : stepped_line -> unit = function
       | Disabled -> obj##.steppedLine := Js.Unsafe.coerce Js._false
       | Before   -> obj##.steppedLine := Js.Unsafe.coerce @@ Js.string "before"
       | After    -> obj##.steppedLine := Js.Unsafe.coerce @@ Js.string "after"
     method get_stepped_line : stepped_line option =
-      CCOpt.map (fun x -> match Cast.to_string x with
+      Option.map (fun x -> match Cast.to_string x with
                           | Some "before" -> Before
                           | Some "after"  -> After
                           | Some _        -> failwith "Bad stepped line string"
@@ -511,8 +515,8 @@ module Config = struct
     let get_max = Axes.Cartesian.get_axis_max x_axis in
     let get_min = Axes.Cartesian.get_axis_new_min x_axis in
     let delta   = Axes.Cartesian.get_axis_delta x_axis in
-    let max_x   = CCList.map (fun x -> get_max @@ CCList.map (fun x -> x.x) x.data) data
-                  |> CCList.filter_map (fun x -> x) |> get_max in
+    let max_x   = List.map (fun x -> get_max @@ List.map (fun x -> x.x) x.data) data
+                  |> List.filter_map (fun x -> x) |> get_max in
     let set_min_max = Axes.Cartesian.set_axis_min_max x_axis in
     let s_max_x,s_max_x_push = React.S.create max_x in
 

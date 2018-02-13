@@ -1,3 +1,5 @@
+open Containers
+
 type 'a tab =
   { href     : string option
   ; content  : content
@@ -41,24 +43,24 @@ module Tab = struct
         match self#get_content,x with
         | `Text _, `Text x ->
            super#set_text_content x;
-           CCResult.return ()
+           Result.return ()
         | `Icon _, `Icon (i,fallback) ->
            let icon = super#get_child_element_by_class Markup.Tabs.Tab.icon_class in
            (match icon with
             | Some icon -> icon##.textContent := Js.some @@ Js.string i;
-                           CCOpt.iter (fun x -> icon##setAttribute (Js.string "aria-label") (Js.string x)) fallback;
-                           CCResult.return ()
-            | None      -> CCResult.fail "icon element not found")
+                           Option.iter (fun x -> icon##setAttribute (Js.string "aria-label") (Js.string x)) fallback;
+                           Result.return ()
+            | None      -> Result.fail "icon element not found")
         | `Text_and_icon _, `Text_and_icon (t,i) ->
            let icon = super#get_child_element_by_class Markup.Tabs.Tab.icon_class in
            let text = super#get_child_element_by_class Markup.Tabs.Tab.icon_text_class in
            (match icon,text with
             | Some icon, Some text -> icon##.textContent := Js.some @@ Js.string i;
                                       text##.textContent := Js.some @@ Js.string t;
-                                      CCResult.return ()
-            | None, _ -> CCResult.fail "icon element not found"
-            | _, None -> CCResult.fail "text element not found")
-        | _  -> CCResult.fail "tab content type mismatch"
+                                      Result.return ()
+            | None, _ -> Result.fail "icon element not found"
+            | _, None -> Result.fail "text element not found")
+        | _  -> Result.fail "tab content type mismatch"
 
       method get_active   = active
       method set_active x = active <- x;
@@ -80,13 +82,13 @@ module Tab = struct
         Ripple.attach self |> ignore;
         self#set_attribute "tabindex" "0";
         self#set_disabled tab.disabled;
-        CCOpt.iter (fun x -> self#set_href x) props.href;
+        Option.iter (fun x -> self#set_href x) props.href;
         Dom_events.listen self#root Dom_events.Typ.click (fun _ _ ->
                             self#set_active true;
                             not prevent_default_on_click)
         |> ignore;
         Dom_events.listen self#root Dom_events.Typ.keydown (fun _ (ev:Dom_html.keyboardEvent Js.t) ->
-                            let key  = CCOpt.map Js.to_string @@ Js.Optdef.to_option ev##.key in
+                            let key  = Option.map Js.to_string @@ Js.Optdef.to_option ev##.key in
                             (match key,ev##.keyCode with
                              | Some "Enter", _ | _, 13 -> self#set_active true
                              | _ -> ());
@@ -102,15 +104,15 @@ module Tab_bar = struct
   class ['a] t ~(tabs:'a tab list) () =
 
     let s_active,s_active_push = React.S.create None in
-    let tabs      = CCList.map (fun x -> new Tab.t s_active_push x ()) tabs in
+    let tabs      = List.map (fun x -> new Tab.t s_active_push x ()) tabs in
     let indicator = new Widget.widget (Markup.Tabs.Tab_bar.Indicator.create () |> Tyxml_js.To_dom.of_span) () in
     let typ_of_tab_content = function
       | `Text _          -> `Text
       | `Icon _          -> `Icon
       | `Text_and_icon _ -> `Text_and_icon
     in
-    let typ = CCList.map (fun x -> typ_of_tab_content x#get_content) tabs
-              |> CCList.sort_uniq ~cmp:Pervasives.compare
+    let typ = List.map (fun x -> typ_of_tab_content x#get_content) tabs
+              |> List.sort_uniq ~cmp:Pervasives.compare
               |> (function
                   | [x] -> x
                   | _   -> failwith "All tabs must be of the same type: text, icon or text with icon") in
@@ -118,7 +120,7 @@ module Tab_bar = struct
                                          ~indicator:(Widget.widget_to_markup indicator)
                                          ~tabs:(Widget.widgets_to_markup tabs) ()
               |> Tyxml_js.To_dom.of_nav in
-    let ()  = CCOpt.iter (fun x -> x#set_active true) (CCList.head_opt tabs) in
+    let ()  = Option.iter (fun x -> x#set_active true) (List.head_opt tabs) in
 
     object(self)
 
@@ -145,25 +147,25 @@ module Tab_bar = struct
       (* Active getters *)
 
       method get_active_tab_index = match React.S.value s_active with
-        | Some tab -> CCList.find_idx (fun x -> x == tab) self#tabs
+        | Some tab -> List.find_idx (fun x -> Equal.physical x tab) self#tabs
                       |> (function Some (idx,_) -> Some idx | None -> None)
         | None     -> None
       method get_active_tab = React.S.value s_active
-      method get_active_value = CCOpt.map (fun x -> x#get_value) self#get_active_tab
+      method get_active_value = Option.map (fun x -> x#get_value) self#get_active_tab
 
       (* Active setters *)
 
-      method set_active_tab_index x = match CCList.get_at_idx x self#tabs with
+      method set_active_tab_index x = match List.get_at_idx x self#tabs with
         | Some tab -> Ok (tab#set_active true)
         | None     -> Error (Printf.sprintf "set_active_tab_index: tab with index %d not found" x)
-      method set_active_tab tab = match CCList.find_idx (fun x -> x == tab) self#tabs with
+      method set_active_tab tab = match List.find_idx (fun x -> Equal.physical x tab) self#tabs with
         | Some (_,tab) -> Ok (tab#set_active true)
         | None         -> Error "set_active_tab: tab not found"
 
-      method get_tab_at_index i = CCList.get_at_idx i self#tabs
+      method get_tab_at_index i = List.get_at_idx i self#tabs
 
       method append_tab (tab : 'a tab) =
-        if typ_of_tab_content tab.content = self#typ
+        if Equal.poly (typ_of_tab_content tab.content) self#typ
         then (let t = new Tab.t s_active_push tab () in
               tabs <- tabs @ [t];
               Dom.appendChild self#root t#root;
@@ -172,9 +174,9 @@ module Tab_bar = struct
         else (Error "append_tab: tab content mismatch")
 
       method insert_tab_at_index index (tab : 'a tab) =
-        if typ_of_tab_content tab.content = self#typ
+        if Equal.poly (typ_of_tab_content tab.content) self#typ
         then (let t = new Tab.t s_active_push tab () in
-              tabs <- CCList.insert_at_idx index t tabs;
+              tabs <- List.insert_at_idx index t tabs;
               let tab_elts = self#root##.childNodes in
               let item     = tab_elts##item index in
               let _        = match Js.Opt.to_option item with
@@ -186,7 +188,7 @@ module Tab_bar = struct
         else (Error "insert_tab_at_index: tab content mismatch")
 
       method remove_tab_at_index i = match self#get_tab_at_index i with
-        | Some tab -> tabs <- CCList.remove_at_idx i tabs;
+        | Some tab -> tabs <- List.remove_at_idx i tabs;
                       Dom.removeChild self#root tab#root;
                       if tab#get_active then s_active_push None;
                       self#layout;
@@ -196,7 +198,7 @@ module Tab_bar = struct
       method private layout_internal = match self#get_active_tab with
         | Some tab ->
            let f () =
-             CCList.iter (fun x -> x#measure_self) self#tabs;
+             List.iter (fun x -> x#measure_self) self#tabs;
              width <- self#get_offset_width;
              let l = tab#get_left in
              let w = match width with
@@ -227,7 +229,7 @@ module Tab_bar = struct
                   init <- false
 
       method private layout =
-        CCOpt.iter (fun x -> Dom_html.window##cancelAnimationFrame x) layout_frame;
+        Option.iter (fun x -> Dom_html.window##cancelAnimationFrame x) layout_frame;
         let f = fun _ -> self#layout_internal; layout_frame <- None in
         layout_frame <- Some (Dom_html.window##requestAnimationFrame (Js.wrap_callback f))
 
@@ -235,7 +237,7 @@ module Tab_bar = struct
         self#add_class (Markup.Tabs.Tab_bar._class ^ "-upgraded");
         Dom_events.listen Dom_html.window Dom_events.Typ.resize (fun _ _ -> self#layout; false) |> ignore;
         React.S.map (fun _   -> self#layout) s_active |> ignore;
-        React.E.map (fun tab -> CCOpt.iter (fun x -> x#set_active false) tab) (React.S.diff (fun _ x -> x) s_active)
+        React.E.map (fun tab -> Option.iter (fun x -> x#set_active false) tab) (React.S.diff (fun _ x -> x) s_active)
         |> ignore
 
 

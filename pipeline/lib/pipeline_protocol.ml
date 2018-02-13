@@ -1,9 +1,9 @@
+open Containers
 open Lwt_zmq
 open Lwt_react
 open Lwt.Infix
-open Containers
 
-let (%) = CCFun.(%)
+let (%) = Fun.(%)
 (* TODO make 'active type label *)        
 type state = { ctx         : ZMQ.Context.t
              ; msg         : [ `Req] ZMQ.Socket.t
@@ -23,7 +23,7 @@ type (_,_) req =
   | Set_settings   : Settings.t -> (set, unit) req
   | Set_graph      : Graph.t -> (set, unit) req
   | Set_wm         : Wm.t -> (set, unit) req
-                   
+  
 type api = { structure : Structure.t list signal
            ; settings  : Settings.t option signal
            ; graph     : Graph.t event
@@ -104,7 +104,7 @@ let get (type a) sock
      Lwt.catch
        (fun () -> get' "wm" Wm.of_yojson)
        (fun _  -> unpack_opt (React.S.value wm))
-  
+    
 let set (type a) sock (conv : Msg_conv.converter) (req : (set, a) req) : unit Lwt.t =
   let set' s encode v =
     Socket.send sock (conv.to_string (`Assoc ["set", `Assoc [s, (encode v)]]))
@@ -117,7 +117,7 @@ let set (type a) sock (conv : Msg_conv.converter) (req : (set, a) req) : unit Lw
   | Set_settings   x -> set' "settings" Settings.to_yojson x
   | Set_graph      x -> set' "graph" Graph.to_yojson x
   | Set_wm         x -> set' "wm" Wm.to_yojson x
-       
+                      
 let create sock_in sock_out converter hardware_streams =
   let ctx = ZMQ.Context.create () in
   let msg = ZMQ.Socket.create ctx ZMQ.Socket.req in

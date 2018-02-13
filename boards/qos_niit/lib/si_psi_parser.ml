@@ -1,3 +1,5 @@
+open Containers
+
 let value_to_string name x = Printf.sprintf "%s (%d)" name x
 let rfu_to_string          = value_to_string "Reserved"
 
@@ -78,7 +80,7 @@ module Descriptor = struct
       frame_rate_to_string fr
       |> fun x -> match another with
                   | [] -> x
-                  | l  -> let s = CCString.concat ", " (List.map (fun x -> frame_rate_to_string x) l) in
+                  | l  -> let s = String.concat ", " (List.map (fun x -> frame_rate_to_string x) l) in
                           x ^ (Printf.sprintf " (Also includes %s)" s)
 
     let chroma_format_of_int = function
@@ -100,8 +102,8 @@ module Descriptor = struct
          ; mpeg_1_only_flag : 1
          ; constrained_parameter_flag : 1
          ; still_picture_flag : 1
-         |} when mpeg_1_only_flag = false -> { mfr_flag; frame_rate; mpeg_1_only_flag; constrained_parameter_flag;
-                                               still_picture_flag; mpeg_1_only = None }
+         |} when not mpeg_1_only_flag -> { mfr_flag; frame_rate; mpeg_1_only_flag; constrained_parameter_flag;
+                                           still_picture_flag; mpeg_1_only = None }
       | {| mfr_flag : 1
          ; frame_rate : 4 : map (fun x -> frame_rate_of_int x)
          ; mpeg_1_only_flag : 1
@@ -347,7 +349,7 @@ module Descriptor = struct
     let name = "ISO 639 language descriptor"
 
     let lang_code_to_string x =
-      CCList.map char_of_int [ (x lsr 16) land 0xFF; (x lsr 8) land 0xFF; x land 0xFF ] |> CCString.of_list
+      List.map char_of_int [ (x lsr 16) land 0xFF; (x lsr 8) land 0xFF; x land 0xFF ] |> String.of_list
 
     let decode bs =
       let rec f  = fun acc x ->
@@ -419,7 +421,7 @@ module Descriptor = struct
 
   (* module MPEG_4_audio = struct *)
 
-                                            (* end *)
+  (* end *)
 
   module Unknown : Descriptor_base = struct
 
@@ -431,11 +433,11 @@ module Descriptor = struct
 
   end
 
-  [%%cstruct
-   type descriptor =
-     { tag    : uint8_t
-     ; length : uint8_t
-     } [@@big_endian]]
+                                       [%%cstruct
+                                        type descriptor =
+                                          { tag    : uint8_t
+                                          ; length : uint8_t
+                                          } [@@big_endian]]
 
   type descriptor = Video_stream           of Video_stream.t
                   | Audio_stream           of Audio_stream.t
@@ -528,7 +530,7 @@ module Table_common = struct
                |} -> parse_ts ({ transport_stream_id; original_network_id;
                                  rfu; transport_descriptors_length;
                                  descriptors = parse_descriptors [] descriptors} :: acc)
-                              rest))
+                       rest))
 
 end
 
@@ -625,7 +627,7 @@ module PMT = struct
                  |} -> parse_streams ({ stream_type; reserved_1; elementary_pid;
                                         reserved_2; es_info_length;
                                         descriptors = parse_descriptors [] descriptors} :: acc)
-                                     rest)) in
+                         rest)) in
     let header,rest = parse_header bs in
     let len = Bitstring.bitstring_length rest in
     match%bitstring rest with
@@ -824,7 +826,7 @@ module SDT = struct
                  |} -> parse_services ({ service_id; rfu; eit_schedule_flag; eit_present_following_flag;
                                          running_status; free_ca_mode; descriptors_loop_length;
                                          descriptors = parse_descriptors [] descriptors} :: acc)
-                                      rest)) in
+                         rest)) in
     let bs = Bitstring.bitstring_of_string @@ Cbuffer.to_string buf in
     let header,rest = parse_header bs in
     let len         = Bitstring.bitstring_length rest in
@@ -890,7 +892,7 @@ module EIT = struct
                  |} -> parse_events ({ event_id; start_time; duration; running_status; free_ca_mode;
                                        descriptors_loop_length;
                                        descriptors = parse_descriptors [] descriptors} :: acc)
-                                    rest)) in
+                         rest)) in
     let bs = Bitstring.bitstring_of_string @@ Cbuffer.to_string buf in
     let header,rest = parse_header bs in
     match%bitstring rest with

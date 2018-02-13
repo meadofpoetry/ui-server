@@ -1,5 +1,7 @@
+open Containers
+
 let round x =
-  if x < (floor x +. 0.5) then floor x else ceil x
+  if Float.(x < (floor x +. 0.5)) then floor x else ceil x
 
 class t ?(max=1.) ?(min=0.) ?(value=0.) ?(indeterminate=true) ?(thickness=3.6) ?(size=40) () =
 
@@ -11,7 +13,7 @@ class t ?(max=1.) ?(min=0.) ?(value=0.) ?(indeterminate=true) ?(thickness=3.6) ?
     inherit Widget.widget elt ()
 
     val circle      = elt##querySelector (Js.string ("." ^ Markup.Circular_progress.circle_class))
-                      |> Js.Opt.to_option |> CCOpt.get_exn |> Js.Unsafe.coerce
+                      |> Js.Opt.to_option |> Option.get_exn |> Js.Unsafe.coerce
 
     val mutable value = value
     val mutable min   = min
@@ -38,7 +40,7 @@ class t ?(max=1.) ?(min=0.) ?(value=0.) ?(indeterminate=true) ?(thickness=3.6) ?
     method get_indeterminate = self#has_class Markup.Circular_progress.indeterminate_class
 
     method set_progress v =
-      let v             = if v < min then min else if v > max then max else v in
+      let v             = if Float.(<) v min then min else if Float.(>) v max then max else v in
       let rel_val       = (v -. min) /. (max -. min) *. 100. in
       let circumference = 2. *. pi *. (Markup.Circular_progress.sz /. 2. -. 5.) in
       let dash_offset   = (round ((100. -. rel_val) /. 100. *. circumference *. 1000.)) /. 1000. in

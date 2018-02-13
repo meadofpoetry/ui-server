@@ -1,3 +1,5 @@
+open Containers
+
 type config = Yojson.Safe.json option
 (*
 let () =
@@ -31,18 +33,18 @@ end
 
 module Make (D : DOMAIN) : (CONFIG with type t := config and type settings := D.t) = struct
   let  get_opt conf =
-    let ( >>= ) = CCOpt.( >>= ) in
+    let ( >>= ) = Option.( >>= ) in
     let rec find = function
       | [] -> Error ("Domain " ^ D.domain ^ " was not found")
-      | (key, x)::_ when key = D.domain -> Ok x
+      | (key, x)::_ when String.equal key D.domain -> Ok x
       | (_, _)::tl -> find tl
     in conf
     >>= function 
-       | `Assoc lst -> CCResult.( find lst >>= D.of_yojson)
+       | `Assoc lst -> Result.( find lst >>= D.of_yojson)
                        |> (function Ok x -> Some x | Error _ -> None)
        | _ -> None
 
-  let get conf = CCOpt.get_or ~default:D.default (get_opt conf)
+  let get conf = Option.get_or ~default:D.default (get_opt conf)
 
   let default = D.default
 end

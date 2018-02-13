@@ -1,3 +1,5 @@
+open Containers
+
 let prefix = 0x55AA
 
 include Board_msg_formats
@@ -80,10 +82,10 @@ let input_to_int = function
 let input_of_int = function
   | 0 -> Some SPI | 1 -> Some ASI | _ -> None
 
-let int_to_bool_list x = CCList.map (fun i -> (x land CCInt.pow 2 i) > 0) (CCList.range 0 7)
+let int_to_bool_list x = List.map (fun i -> (x land Int.pow 2 i) > 0) (List.range 0 7)
 
 let int_to_t2mi_sync_list x = int_to_bool_list x
-                              |> CCList.foldi (fun acc i x -> if x then i :: acc else acc) []
+                              |> List.foldi (fun acc i x -> if x then i :: acc else acc) []
 
 (* -------------------- Message constructors ------------------*)
 
@@ -111,11 +113,11 @@ let to_complex_req ?client_id ?request_id ~msg_code ~body () =
   Cbuffer.append hdr body
 
 let to_mode_exn mode t2mi_pid t2mi_stream_id =
-  { input = CCOpt.get_exn @@ input_of_int (mode land 1)
+  { input = Option.get_exn @@ input_of_int (mode land 1)
   ; t2mi = Some { enabled   = if (mode land 4) > 0 then true else false
                 ; pid       = t2mi_pid
                 ; stream_id = Common.Stream.id_of_int32 t2mi_stream_id
-                }
+             }
   }
 
 (* -------------------- Requests/responses/events ------------------*)
@@ -159,8 +161,8 @@ module Get_board_mode : (Request with type req := unit with type rsp := mode) = 
   let rsp_code = 0x02
   let to_cbuffer _ = to_common_header ~msg_code:req_code ()
   let of_cbuffer msg = to_mode_exn (get_board_mode_mode msg)
-                                   (get_board_mode_t2mi_pid msg)
-                                   (get_board_mode_t2mi_stream_id msg)
+                         (get_board_mode_t2mi_pid msg)
+                         (get_board_mode_t2mi_stream_id msg)
 
 end
 
@@ -171,11 +173,11 @@ module Get_board_errors : (Request with type req := int with type rsp := board_e
   let to_cbuffer request_id = to_complex_req ~request_id ~msg_code:req_code ~body:(Cbuffer.create 0) ()
   let of_cbuffer msg =
     let iter = Cbuffer.iter (fun _ -> Some sizeof_t2mi_frame_seq_item)
-                            (fun buf -> Cbuffer.LE.get_uint32 buf 0)
-                            (get_board_errors_errors msg) in
+                 (fun buf -> Cbuffer.LE.get_uint32 buf 0)
+                 (get_board_errors_errors msg) in
     List.rev @@ Cbuffer.fold (fun acc el -> el :: acc) iter []
-    |> CCList.foldi (fun acc i x ->
-           if x = 0l then acc
+    |> List.foldi (fun acc i x ->
+           if Int32.equal x 0l then acc
            else (match i with
                  | 0  -> Unknown_request x         | 1  -> Too_many_args x          | 2  -> Msg_queue_overflow x
                  | 3  -> Not_enough_memory x       | 4  -> Total_packets_overflow x | 5  -> Tables_overflow x
@@ -228,7 +230,7 @@ module Get_section : (Request
     then let sid,data = Cbuffer.split bdy 4 in
          Ok { stream_id = Common.Stream.id_of_int32 @@ Cbuffer.LE.get_uint32 sid 0
             ; data      = Cbuffer.to_string data
-            }
+           }
     else (Error (match result with
                  | 0 | 3 -> Zero_length
                  | 1     -> Table_not_found
@@ -267,9 +269,9 @@ module Get_t2mi_frame_seq : (Request
          | 0x02 -> Arbitrary_cell_insertion { common; frame }
          | 0x10 -> L1_current { common; frame; dyn_cur_frame = get_t2mi_frame_seq_item_dyn1_frame el }
          | 0x11 -> L1_future { common; frame
-                             ; dyn_next_frame  = get_t2mi_frame_seq_item_dyn1_frame el
-                             ; dyn_next2_frame = get_t2mi_frame_seq_item_dyn2_frame el
-                             }
+                               ; dyn_next_frame  = get_t2mi_frame_seq_item_dyn1_frame el
+                               ; dyn_next2_frame = get_t2mi_frame_seq_item_dyn2_frame el
+                     }
          | 0x12 -> P2_bias_balancing_cells { common; frame }
          | 0x20 -> Timestamp common
          | 0x21 -> Individual_addressing common
@@ -278,7 +280,7 @@ module Get_t2mi_frame_seq : (Request
          | 0x32 -> FEF_composite common
          | 0x33 -> FEF_sub_part common
          | _    -> Unknown common) :: acc)
-                 iter []
+      iter []
     |> List.rev
 
 end
@@ -304,7 +306,7 @@ module Get_jitter : (Request with type req := jitter_req with type rsp := jitter
                                                             ; drift    = get_jitter_item_drift el
                                                             ; fo       = get_jitter_item_fo el
                                                             ; jitter   = get_jitter_item_jitter el }) :: acc)
-                                            iter [] in
+                                 iter [] in
     { pid         = get_jitter_pid hdr
     ; time        = get_jitter_time hdr
     ; next_ptr    = get_jitter_req_next hdr
@@ -395,7 +397,7 @@ module Get_ts_structs : (Request with type req := int with type rsp = ts_struct 
   let of_table_struct_block msg =
     let bdy,rest = Cbuffer.split msg sizeof_table_struct_block in
     let iter     = Cbuffer.iter (fun _ -> Some 2)
-                                (fun buf -> Cbuffer.LE.get_uint16 buf 0) rest in
+                     (fun buf -> Cbuffer.LE.get_uint16 buf 0) rest in
     let sections = Cbuffer.fold (fun acc x -> { id = List.length acc
                                               ; analyzed = x land 0x8000 > 0
                                               ; length   = x land 0x0FFF } :: acc) iter []
@@ -473,18 +475,18 @@ module Get_ts_structs : (Request with type req := int with type rsp = ts_struct 
                | x -> of_ts_struct_blocks rest (x :: acc))
 
   let of_ts_struct msg =
-    let open CCOpt in
+    let open Option in
     let hdr,rest = Cbuffer.split msg sizeof_ts_struct in
     let len      = (Int32.to_int @@ get_ts_struct_length hdr) in
     let bdy,rest = Cbuffer.split rest len in
     let blocks   = of_ts_struct_blocks bdy [] in
     { stream_id = Common.Stream.id_of_int32 @@ get_ts_struct_stream_id hdr
     ; bitrate   = None
-    ; general   = get_exn @@ CCList.find_map (function `General x -> Some x | _ -> None) blocks
-    ; pids      = get_exn @@ CCList.find_map (function `Pids x -> Some x | _ -> None) blocks
-    ; services  = CCList.filter_map (function `Services x -> Some x | _ -> None) blocks
-    ; emm       = get_exn @@ CCList.find_map (function `Emm x -> Some x | _ -> None) blocks
-    ; tables    = CCList.filter_map (function `Tables x -> Some x | _ -> None) blocks
+    ; general   = get_exn @@ List.find_map (function `General x -> Some x | _ -> None) blocks
+    ; pids      = get_exn @@ List.find_map (function `Pids x -> Some x | _ -> None) blocks
+    ; services  = List.filter_map (function `Services x -> Some x | _ -> None) blocks
+    ; emm       = get_exn @@ List.find_map (function `Emm x -> Some x | _ -> None) blocks
+    ; tables    = List.filter_map (function `Tables x -> Some x | _ -> None) blocks
     }, if Cbuffer.len rest > 0 then Some rest else None
 
   let of_cbuffer msg =
@@ -515,7 +517,7 @@ module Get_bitrates : (Request with type req := int with type rsp = bitrate list
                         let packets = get_pid_bitrate_packets el in
                         { pid     = get_pid_bitrate_pid el land 0x1FFF
                         ; bitrate = int_of_float @@ br_per_pkt *. (Int32.to_float packets) } :: acc)
-                                 iter []) in
+                      iter []) in
     List.rev pids, rest
 
   let of_tbls_bitrate total_tbls br_per_pkt buf =
@@ -531,7 +533,7 @@ module Get_bitrates : (Request with type req := int with type rsp = bitrate list
                                 ; section_syntax = flags land 1 > 0
                                 ; eit_info       = Some (adv_info_1, adv_info_2)
                                 ; bitrate        = int_of_float @@ br_per_pkt *. (Int32.to_float packets) } :: acc)
-                 iter []
+      iter []
     |> List.rev
 
   let of_stream_bitrate buf =
@@ -669,19 +671,19 @@ module Get_t2mi_info : (Request with type req := t2mi_info_req with type rsp := 
   let of_cbuffer msg =
     let hdr,rest  = Cbuffer.split msg sizeof_t2mi_info in
     let iter      = Cbuffer.iter (fun _ -> Some 1)
-                                 (fun buf -> Cbuffer.get_uint8 buf 0)
-                                 (get_t2mi_info_packets hdr) in
-    let packets   = Cbuffer.fold (fun acc el -> (CCList.rev @@ int_to_bool_list el) @ acc) iter []
-                    |> CCList.rev
-                    |> CCList.foldi (fun acc i x -> if x then i :: acc else acc) []
-                    |> CCList.map (function
-                                   | 0x00 -> BB                       | 0x01 -> Aux_stream_iq_data
-                                   | 0x02 -> Arbitrary_cell_insertion | 0x10 -> L1_current
-                                   | 0x11 -> L1_future                | 0x12 -> P2_bias_balancing_cells
-                                   | 0x20 -> Timestamp                | 0x21 -> Individual_addressing
-                                   | 0x30 -> FEF_null                 | 0x31 -> FEF_iq
-                                   | 0x32 -> FEF_composite            | 0x33 -> FEF_sub_part
-                                   | _    -> Unknown) in
+                      (fun buf -> Cbuffer.get_uint8 buf 0)
+                      (get_t2mi_info_packets hdr) in
+    let packets   = Cbuffer.fold (fun acc el -> (List.rev @@ int_to_bool_list el) @ acc) iter []
+                    |> List.rev
+                    |> List.foldi (fun acc i x -> if x then i :: acc else acc) []
+                    |> List.map (function
+                           | 0x00 -> BB                       | 0x01 -> Aux_stream_iq_data
+                           | 0x02 -> Arbitrary_cell_insertion | 0x10 -> L1_current
+                           | 0x11 -> L1_future                | 0x12 -> P2_bias_balancing_cells
+                           | 0x20 -> Timestamp                | 0x21 -> Individual_addressing
+                           | 0x30 -> FEF_null                 | 0x31 -> FEF_iq
+                           | 0x32 -> FEF_composite            | 0x33 -> FEF_sub_part
+                           | _    -> Unknown) in
     let length    = get_t2mi_info_length hdr in
     let body,_    = Cbuffer.split rest length in
     let _,conf    = Cbuffer.split body sizeof_t2mi_info_ext in
@@ -712,8 +714,8 @@ module Status : (Event with type msg := status) = struct
     { status    = { load         = (float_of_int ((get_status_load msg) * 100)) /. 255.
                   ; reset        = flags2 land 0x02 <> 0
                   ; mode         = to_mode_exn (get_status_mode msg)
-                                               (get_status_t2mi_pid msg)
-                                               (get_status_t2mi_stream_id msg)
+                                     (get_status_t2mi_pid msg)
+                                     (get_status_t2mi_stream_id msg)
                   ; jitter_mode  = { stream_id = Common.Stream.id_of_int32 (get_status_jitter_stream_id msg)
                                    ; pid       = get_status_jitter_pid msg
                                    }
@@ -727,18 +729,18 @@ module Status : (Event with type msg := status) = struct
                   }
     ; errors    = flags  land 0x20 <> 0
     ; t2mi_sync = int_to_bool_list (get_status_t2mi_sync msg)
-                  |> (fun l -> CCList.foldi (fun acc i x -> if x then i :: acc else acc) [] l)
+                  |> (fun l -> List.foldi (fun acc i x -> if x then i :: acc else acc) [] l)
     ; versions  = { streams_ver      = get_status_streams_ver msg
                   ; ts_ver_com       = get_status_ts_ver_com msg
                   ; ts_ver_lst       = Cbuffer.fold (fun acc el -> el :: acc)
-                                                    (iter @@ get_status_ts_ver_lst msg) []
-                                       |> CCList.rev
-                                       |> CCList.take ts_num
+                                         (iter @@ get_status_ts_ver_lst msg) []
+                                       |> List.rev
+                                       |> List.take ts_num
                   ; t2mi_ver_lst     = get_status_t2mi_ver_lst msg
-                                       |> (fun v -> CCList.map (fun x -> Int32.shift_right v (4 * x)
-                                                                         |> Int32.logand 0xfl
-                                                                         |> Int32.to_int)
-                                                               (CCList.range 0 7))
+                                       |> (fun v -> List.map (fun x -> Int32.shift_right v (4 * x)
+                                                                       |> Int32.logand 0xfl
+                                                                       |> Int32.to_int)
+                                                      (List.range 0 7))
                   }
     ; streams   = []
     }
@@ -781,7 +783,7 @@ module Ts_errors : (Event with type msg := ts_errors) = struct
                                                   ; param_1   = get_ts_error_param_1 el
                                                   ; param_2   = get_ts_error_param_2 el
                                                   } :: acc)
-                                   iter [] in
+                        iter [] in
     { stream_id = Common.Stream.id_of_int32 (get_ts_errors_stream_id common); errors }
 
 end
@@ -806,16 +808,16 @@ module T2mi_errors : (Event with type msg := t2mi_errors) = struct
                                                        ; t2mi_stream_id = _index land 7
                                                        ; param          = if cnt_flag then None else Some _data
                                                        } :: acc)
-                                   iter [] in
+                        iter [] in
     { stream_id        = Common.Stream.id_of_int32 (get_t2mi_errors_stream_id common)
     ; t2mi_pid         = get_t2mi_errors_pid common
     ; sync             = int_to_t2mi_sync_list (get_t2mi_errors_sync common)
-    ; ts_parser_errors = CCList.filter_map (fun x -> if CCOpt.is_some x then x else None)
-                                           [ if parser_errs land 1 <> 0 then Some Af_too_long_for_new_packet else None
-                                           ; if parser_errs land 2 <> 0 then Some Af_too_long else None
-                                           ; if parser_errs land 4 <> 0 then Some Pf_out_of_bounds else None
-                                           ; if parser_errs land 8 <> 0 then Some Packet_intersection else None
-                                           ]
+    ; ts_parser_errors = List.filter_map (fun x -> if Option.is_some x then x else None)
+                           [ if parser_errs land 1 <> 0 then Some Af_too_long_for_new_packet else None
+                           ; if parser_errs land 2 <> 0 then Some Af_too_long else None
+                           ; if parser_errs land 4 <> 0 then Some Pf_out_of_bounds else None
+                           ; if parser_errs land 8 <> 0 then Some Packet_intersection else None
+                           ]
     ; errors
     }
 
@@ -837,7 +839,7 @@ let string_of_err = function
   | Bad_length x           -> "incorrect length: " ^ (string_of_int x)
   | Bad_msg_code x         -> "incorrect code: "   ^ (string_of_int x)
   | Bad_crc (code,x,y)     -> (Printf.sprintf "incorrect crc in msg with code = 0x%x, expected %d, got %d"
-                                              code x y)
+                                 code x y)
   | No_prefix_after_msg x  -> (Printf.sprintf "no prefix found after message payload, code = 0x%x" x)
   | Insufficient_payload _ -> "insufficient payload"
   | Unknown_err s          -> s
@@ -886,11 +888,11 @@ let check_crc (code,body,rest) =
 
 let get_msg buf =
   try
-    CCResult.(check_prefix buf
-              >>= check_msg_code
-              >>= check_length
-              >>= (fun (has_crc,code,body,rest) -> if has_crc then check_crc (code,body,rest)
-                                                   else check_next_prefix (code,body,rest)))
+    Result.(check_prefix buf
+            >>= check_msg_code
+            >>= check_length
+            >>= (fun (has_crc,code,body,rest) -> if has_crc then check_crc (code,body,rest)
+                                                 else check_next_prefix (code,body,rest)))
   with
   | Invalid_argument _ -> Error (Insufficient_payload buf)
   | e                  -> Error (Unknown_err (Printexc.to_string e))
@@ -919,12 +921,12 @@ let parse_simple_msg = fun (code,body,parts) ->
                               } in
                let code     = code_ext land 0x0FFF in
                let req_id   = get_complex_rsp_header_request_id body in
-               `P (CCList.Assoc.update (code,req_id)
-                                       ~eq:(=)
-                                       ~f:(function
-                                           | Some x -> Some (part :: x)
-                                           | None   -> Some ([part]))
-                                       parts)
+               `P (List.Assoc.update (code,req_id)
+                     ~eq:(Pair.equal (=) (=))
+                     ~f:(function
+                       | Some x -> Some (part :: x)
+                       | None   -> Some ([part]))
+                     parts)
      | _ -> `N)
   with _ -> `N
 
@@ -947,15 +949,15 @@ let parse_complex_msg = fun ((code,r_id),msg) ->
   with _ -> `N
 
 let try_compose_parts ((id,gp) as x) =
-  let gp = CCList.sort (fun x y -> if x.first then (-1)
-                                   else if y.first then 1
-                                   else Int32.compare x.param y.param) gp in
-  let first,rest = CCList.hd_tl gp in
-  try (let acc = List.fold_left (fun acc x -> if x.param = Int32.of_int (Cbuffer.len acc)
+  let gp = List.sort (fun x y -> if x.first then (-1)
+                                 else if y.first then 1
+                                 else Int32.compare x.param y.param) gp in
+  let first,rest = List.hd_tl gp in
+  try (let acc = List.fold_left (fun acc x -> if Int32.equal x.param (Int32.of_int (Cbuffer.len acc))
                                               then Cbuffer.append acc x.data
                                               else failwith "Incorrect part offset")
-                                first.data rest in
-       if first.param = Int32.of_int (Cbuffer.len acc) then `F (id,acc) else `P x)
+                   first.data rest in
+       if Int32.equal first.param (Int32.of_int (Cbuffer.len acc)) then `F (id,acc) else `P x)
   with _ -> `N
 
 let deserialize parts buf =
@@ -974,7 +976,7 @@ let deserialize parts buf =
               | _                      -> f events event_rsps rsps parts (Cbuffer.shift b 1)))
     else (List.rev events, List.rev event_rsps, List.rev rsps, List.rev parts, b) in
   let ev,ev_rsps,rsps,parts,res = f [] [] [] parts buf in
-  let parts = List.filter (fun (_,x) -> let first_msgs = CCList.find_all (fun x -> x.first) x in
+  let parts = List.filter (fun (_,x) -> let first_msgs = List.find_all (fun x -> x.first) x in
                                         match first_msgs with
                                         | [_] -> true
                                         | _   -> false) parts in
@@ -986,7 +988,7 @@ let deserialize parts buf =
                                                                     | `N   -> acc)
                                                          | `P x -> e,r,x::p
                                                          | `N   -> e,r,p))
-                                          (ev_rsps,rsps,[]) parts in
+                             (ev_rsps,rsps,[]) parts in
   ev, ev_rsps, rsps, parts, if Cbuffer.len res > 0 then Some res else None
 
 let try_parse f x = try Some (f x) with _ -> None
@@ -1018,7 +1020,7 @@ let parse_get_t2mi_frame_seq (req : t2mi_frame_seq_req) = function
 
 let parse_get_jitter (req : jitter_req) = function
   | `Jitter (r_id,pointer,buf) -> if req.request_id <> r_id then None
-                                  else if req.pointer <> pointer then None
+                                  else if not (Int32.equal req.pointer pointer) then None
                                   else (match try_parse Get_jitter.of_cbuffer buf with
                                         | Some x -> Some (Jitter x)
                                         | None   -> None)

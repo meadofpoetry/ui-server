@@ -1,7 +1,8 @@
+open Containers
 open Board_types
 open Components
 
-let (%>) = CCFun.(%>)
+let (%>) = Fun.(%>)
 
 type page_state =
   { config : WebSockets.webSocket Js.t
@@ -40,7 +41,7 @@ module Channel = struct
                            let freq = (chan * 8 + 306) * mhz in
                            { chan; freq; spec = false; name = to_string chan freq false }
       in
-      CCList.map f (CCList.range 1 56)
+      List.map f (List.range 1 56)
 
   end
 
@@ -77,7 +78,7 @@ module Channel = struct
                                        let spec = false in
                                        { chan; freq; spec; name = to_string chan freq spec }
       in
-      CCList.map f (CCList.range 1 99)
+      List.map f (List.range 1 99)
 
   end
 
@@ -112,11 +113,11 @@ let bw ~(init : bw) =
   bw
 
 let freq ~(typ  : mode)
-         ~(init : int32) =
-  let freq_items = CCList.map (fun (c:Channel.t) -> new Select.Base.Item.t ~text:c.name ~value:c.freq ())
-                              (match typ with
-                               | T2 | T -> Channel.Terrestrial.lst
-                               | C      -> Channel.Cable.lst)
+      ~(init : int32) =
+  let freq_items = List.map (fun (c:Channel.t) -> new Select.Base.Item.t ~text:c.name ~value:c.freq ())
+                     (match typ with
+                      | T2 | T -> Channel.Terrestrial.lst
+                      | C      -> Channel.Cable.lst)
   in
   let freq  = new Select.Base.t ~label:"ТВ канал" ~items:freq_items () in
   let _ = freq#select_value (Int32.to_int init) in
@@ -124,24 +125,24 @@ let freq ~(typ  : mode)
   freq
 
 let mode_box ~(typ     : mode)
-             ~(s_mode  : channel_settings React.signal)
-             ~(s_state : Common.Topology.state React.signal)=
+      ~(s_mode  : channel_settings React.signal)
+      ~(s_state : Common.Topology.state React.signal)=
   let init = React.S.value s_mode in
   let freq = freq ~typ ~init:init.freq in
   let bw   = bw ~init:init.bw in
   let plp  = new Textfield.t ~input_type:(Integer (Some (0,255))) ~box:true ~label:"PLP ID" () in
   let _    = plp#fill_in init.plp in
   let box  = new Box.t
-                 ~gap:20
-                 ~widgets:(match typ with
-                           | T | C -> [ freq#widget; bw#widget ]
-                           | T2    -> [ freq#widget; bw#widget; plp#widget ])
-                 () in
+               ~gap:20
+               ~widgets:(match typ with
+                         | T | C -> [ freq#widget; bw#widget ]
+                         | T2    -> [ freq#widget; bw#widget; plp#widget ])
+               () in
   let s    = React.S.l3 (fun freq bw plp ->
                  match freq,bw,plp with
                  | Some freq,Some bw,Some plp -> Ok { freq = Int32.of_int freq; bw; plp }
                  | _                  -> Error "mode box: some values missing")
-                        freq#s_selected bw#s_selected plp#s_input
+               freq#s_selected bw#s_selected plp#s_input
   in
   let _    = React.S.map (fun (s:channel_settings) -> freq#select_value (Int32.to_int s.freq) |> ignore;
                                                       bw#select_value s.bw                    |> ignore;
@@ -159,8 +160,8 @@ let mode_box ~(typ     : mode)
 
 
 let module_settings ~(id      : int)
-                    ~(s_mode  : config_item React.signal)
-                    ~(s_state : Common.Topology.state React.signal) =
+      ~(s_mode  : config_item React.signal)
+      ~(s_state : Common.Topology.state React.signal) =
   let init        = React.S.value s_mode in
   let mode        = mode ~init:init.mode in
   let t2_box,s_t2 = mode_box ~typ:T2 ~s_state ~s_mode:(React.S.map (fun x -> x.t2) s_mode) in
@@ -172,7 +173,7 @@ let module_settings ~(id      : int)
                                             | Some T,_,Ok t,_   -> Ok (id,{ mode = T ; channel = t })
                                             | Some C,_,_,Ok c   -> Ok (id,{ mode = C ; channel = c })
                                             | _                 -> Error "all: some values missing")
-                        mode#s_selected s_t2 s_t s_c
+               mode#s_selected s_t2 s_t s_c
   in
   let box = new page ~s ~widgets:[ mode#widget; t2_box#widget; t_box#widget; c_box#widget ] () in
   let update_visibility = function
@@ -193,39 +194,39 @@ let module_settings ~(id      : int)
   let _ = React.S.map update_visibility mode#s_selected in
   let _ = React.S.map (fun s -> mode#select_value s.mode) s_mode in
   let _ = React.S.map (function
-                       | `No_response | `Init -> mode#set_disabled true
-                       | `Fine                -> mode#set_disabled false) s_state
+              | `No_response | `Init -> mode#set_disabled true
+              | `Fine                -> mode#set_disabled false) s_state
   in
   box
 
 let card control ~(signals : signals) =
   let open Tabs in
   let tabs =
-    CCList.map (fun (id,_) ->
+    List.map (fun (id,_) ->
         let page   = module_settings ~id
-                                     ~s_state:signals.state
-                                     ~s_mode:(React.S.map (fun x -> CCList.Assoc.get_exn ~eq:Pervasives.(=) id x) signals.config)
+                       ~s_state:signals.state
+                       ~s_mode:(React.S.map (fun x -> List.Assoc.get_exn ~eq:Pervasives.(=) id x) signals.config)
         in
         { href     = None
         ; content  = `Text (Printf.sprintf "Модуль %d" (succ id))
         ; disabled = false
         ; value    = page })
-               (CCList.sort (fun (id1,_) (id2,_) -> compare id1 id2) @@ React.S.value signals.config)
+      (List.sort (fun (id1,_) (id2,_) -> compare id1 id2) @@ React.S.value signals.config)
   in
   let bar     = new Tabs.Tab_bar.t ~tabs () in
   let apply   = new Button.t ~label:"Применить" () in
   let actions = new Card.Actions.t ~widgets:[apply] () in
   let card    = Ui.card ~title:"Настройки" ~tab_bar:bar ~sections:[`Actions actions] in
-  let _       = React.E.map (fun _ -> CCOpt.map (fun p -> match React.S.value p#get_s with
-                                                          | Ok x    -> Requests.post_settings control x
-                                                          | Error e -> Lwt_result.fail e)
-                                                bar#get_active_value
+  let _       = React.E.map (fun _ -> Option.map (fun p -> match React.S.value p#get_s with
+                                                           | Ok x    -> Requests.post_settings control x
+                                                           | Error e -> Lwt_result.fail e)
+                                        bar#get_active_value
                                       |> ignore)
-                            apply#e_click
+                  apply#e_click
   in
   let _       = React.S.map (function
-                             | `No_response | `Init -> apply#set_disabled true
-                             | `Fine                -> apply#set_disabled false) signals.state
+                    | `No_response | `Init -> apply#set_disabled true
+                    | `Fine                -> apply#set_disabled false) signals.state
   in
   card
 
@@ -252,7 +253,7 @@ class settings control () = object(self)
       ~f:(fun _ _ ->
         let in_dom_new = (Js.Unsafe.coerce Dom_html.document)##contains self#root in
         if in_dom && (not in_dom_new)
-        then CCOpt.iter (fun (x:page_state) -> x.state##close; x.config##close; page_state <- None) page_state
+        then Option.iter (fun (x:page_state) -> x.state##close; x.config##close; page_state <- None) page_state
         else if (not in_dom) && in_dom_new
         then (let open Lwt_result.Infix in
               Requests.get_config control

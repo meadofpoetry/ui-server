@@ -1,3 +1,4 @@
+open Containers
 open Base
 module Obj = Base.Obj
 
@@ -344,7 +345,7 @@ module Cartesian = struct
     method get_max_bar_thickness   = Js.Optdef.to_option obj##.maxBarThickness
 
     method set_stacked x = obj##.stacked := Js.bool x
-    method get_stacked   = CCOpt.map Js.to_bool @@ Js.Optdef.to_option obj##.stacked
+    method get_stacked   = Option.map Js.to_bool @@ Js.Optdef.to_option obj##.stacked
 
     method! replace x = super#replace x;
                         grid_lines#replace obj##.gridLines;
@@ -379,14 +380,14 @@ module Cartesian = struct
         inherit cartesian_tick ()
 
         method set_labels x = obj##.labels := Js.some @@ Js.array @@ Array.of_list @@ List.map Js.string x
-        method get_labels   = CCOpt.map (fun x -> List.map Js.to_string @@ Array.to_list @@ Js.to_array x)
+        method get_labels   = Option.map (fun x -> List.map Js.to_string @@ Array.to_list @@ Js.to_array x)
                                         (Js.Opt.to_option obj##.labels)
 
         method set_min x = obj##.min := Js.some @@ Js.string x
-        method get_min   = CCOpt.map Js.to_string @@ Js.Opt.to_option obj##.min
+        method get_min   = Option.map Js.to_string @@ Js.Opt.to_option obj##.min
 
         method set_max x = obj##.max := Js.some @@ Js.string x
-        method get_max   = CCOpt.map Js.to_string @@ Js.Opt.to_option obj##.max
+        method get_max   = Option.map Js.to_string @@ Js.Opt.to_option obj##.max
 
         initializer
           self#set_labels labels
@@ -659,10 +660,10 @@ module Cartesian = struct
         method get_iso_weekday   = Js.to_bool obj##.isoWeekday
 
         method set_max (x:'a) = obj##.max := Js.some (value_to_js_number x)
-        method get_max : 'a option = CCOpt.map value_of_js_number @@ Js.Opt.to_option obj##.max
+        method get_max : 'a option = Option.map value_of_js_number @@ Js.Opt.to_option obj##.max
 
         method set_min (x:'a) = obj##.min := Js.some (value_to_js_number x)
-        method get_min : 'a option = CCOpt.map value_of_js_number @@ Js.Opt.to_option obj##.min
+        method get_min : 'a option = Option.map value_of_js_number @@ Js.Opt.to_option obj##.min
 
         method set_round : bool_or_time -> unit = function
           | Bool x      -> obj##.round := Js.Unsafe.coerce @@ Js.bool x
@@ -670,10 +671,10 @@ module Cartesian = struct
         method get_round : bool_or_time =
           match Cast.to_string obj##.round with
           | Some s -> Time_unit (time_unit_of_string_exn s)
-          | None   -> Bool (CCOpt.get_exn @@ Cast.to_bool obj##.round)
+          | None   -> Bool (Option.get_exn @@ Cast.to_bool obj##.round)
 
         method set_tooltip_format x = obj##.tooltipFormat := Js.some @@ Js.string x
-        method get_tooltip_format   = CCOpt.map Js.to_string @@ Js.Opt.to_option obj##.tooltipFormat
+        method get_tooltip_format   = Option.map Js.to_string @@ Js.Opt.to_option obj##.tooltipFormat
 
         method set_unit : bool_or_time -> unit = function
           | Bool x      -> obj##.unit := Js.Unsafe.coerce @@ Js.bool x
@@ -681,7 +682,7 @@ module Cartesian = struct
         method get_unit : bool_or_time =
           match Cast.to_string obj##.unit with
           | Some s -> Time_unit (time_unit_of_string_exn s)
-          | None   -> Bool (CCOpt.get_exn @@ Cast.to_bool obj##.unit)
+          | None   -> Bool (Option.get_exn @@ Cast.to_bool obj##.unit)
 
         method set_step_size x = obj##.stepSize := x
         method get_step_size   = obj##.stepSize
@@ -772,11 +773,11 @@ module Cartesian = struct
     | Linear (_,_,Int,_)        -> compare
     | Linear (_,_,Int32,_)      -> Int32.compare
     | Linear (_,_,Int64,_)      -> Int64.compare
-    | Linear (_,_,Float,_)      -> compare
+    | Linear (_,_,Float,_)      -> Float.compare
     | Logarithmic (_,_,Int,_)   -> compare
     | Logarithmic (_,_,Int32,_) -> Int32.compare
     | Logarithmic (_,_,Int64,_) -> Int64.compare
-    | Logarithmic (_,_,Float,_) -> compare
+    | Logarithmic (_,_,Float,_) -> Float.compare
     | Time (_,_,Unix,_)         -> Int64.compare
     | Category _                -> (fun _ _ -> 0)
 
@@ -784,13 +785,13 @@ module Cartesian = struct
     match t with
     | Linear (_,_,Int,_)        -> max - delta
     | Linear (_,_,Int32,_)      -> Int32.sub max delta
-    | Linear (_,_,Int64,_)      -> Int64.sub max delta
+    | Linear (_,_,Int64,_)      -> Int64.(max - delta)
     | Linear (_,_,Float,_)      -> max -. delta
     | Logarithmic (_,_,Int,_)   -> max - delta
     | Logarithmic (_,_,Int32,_) -> Int32.sub max delta
-    | Logarithmic (_,_,Int64,_) -> Int64.sub max delta
+    | Logarithmic (_,_,Int64,_) -> Int64.(max - delta)
     | Logarithmic (_,_,Float,_) -> max -. delta
-    | Time (_,_,Unix,_)         -> Int64.sub max delta
+    | Time (_,_,Unix,_)         -> Int64.(max - delta)
     | Category _                -> ""
 
   let set_axis_min_max (type a b) (t:(a,b) axis) (axis:b) (min:a) (max:a): unit =
@@ -801,9 +802,9 @@ module Cartesian = struct
     | Category _        -> axis#ticks#set_max max; axis#ticks#set_min min
 
   let get_axis_max (type a b) (t:(a,b) axis) (data:a list) : a option =
-    let f_numeric x = CCList.fold_left (fun acc x -> match acc with
-                                                     | None   -> Some x
-                                                     | Some a -> if x > a then Some x else Some a) None x in
+    let f_numeric x = List.fold_left (fun acc x -> match acc with
+                                                   | None   -> Some x
+                                                   | Some a -> if Pervasives.(>) x a then Some x else Some a) None x in
     match t with
     | Linear _          -> f_numeric data
     | Logarithmic _     -> f_numeric data
@@ -824,7 +825,7 @@ module Cartesian = struct
     | Category (id,position,labels) -> new Category.t ~id ~position ~labels ()
     | Time (id,position,Unix,_)     -> new Time.t ~id ~position
                                            ~value_to_js_number:(Int64.to_float %> Js.number_of_float)
-                                           ~value_of_js_number:(Js.float_of_number %> Int64.of_float)
+                                           ~value_of_js_number:(Js.float_of_number %> Int64.of_float_exn)
                                            ()
 
   class type t_js =
@@ -844,8 +845,8 @@ module Cartesian = struct
     method y_axes = y_axes
 
     method! replace x = super#replace x;
-                        CCList.iter2 (fun x y -> x#replace y) x_axes (Array.to_list @@ Js.to_array obj##.xAxes);
-                        CCList.iter2 (fun x y -> x#replace y) y_axes (Array.to_list @@ Js.to_array obj##.yAxes)
+                        List.iter2 (fun x y -> x#replace y) x_axes (Array.to_list @@ Js.to_array obj##.xAxes);
+                        List.iter2 (fun x y -> x#replace y) y_axes (Array.to_list @@ Js.to_array obj##.yAxes)
 
     (* TODO add replace *)
     initializer

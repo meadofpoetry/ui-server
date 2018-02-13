@@ -1,3 +1,4 @@
+open Containers
 open Board_types
 open Api_js.Requests
 open Lwt.Infix
@@ -21,19 +22,19 @@ let post_streams_full control streams =
 
 let get_devinfo control =
   get_js (Printf.sprintf "/api/board/%d/devinfo" control)
-  >|= CCResult.(flat_map devinfo_of_yojson)
+  >|= Result.(flat_map devinfo_of_yojson)
 
 let get_state control =
   get_js (Printf.sprintf "/api/board/%d/state" control)
-  >|= CCResult.(flat_map Common.Topology.state_of_yojson)
+  >|= Result.(flat_map Common.Topology.state_of_yojson)
 
 let get_config control =
   get_js (Printf.sprintf "/api/board/%d/config" control)
-  >|= CCResult.(flat_map config_response_of_yojson)
+  >|= Result.(flat_map config_response_of_yojson)
 
 let get_streams control =
   get_js (Printf.sprintf "/api/board/%d/streams" control)
-  >|= CCResult.(flat_map Common.Stream.t_list_of_yojson)
+  >|= Result.(flat_map Common.Stream.t_list_of_yojson)
 
 
 let get_state_ws control =

@@ -1,3 +1,5 @@
+open Containers
+
 type state = [ `Fine
              | `No_response
              | `Init
@@ -84,14 +86,14 @@ let get_api_path = string_of_int
 let topo_inputs =
   let rec f acc = (function
                    | Input x -> x :: acc
-                   | Board x -> CCList.concat @@ (CCList.map (fun x -> f acc x.child) x.ports)) in
-  CCList.fold_left f []
+                   | Board x -> List.concat @@ (List.map (fun x -> f acc x.child) x.ports)) in
+  List.fold_left f []
 
 let topo_boards =
   let rec f acc = (function
-                   | Board b -> CCList.fold_left (fun a x -> f a x.child) (b :: acc) b.ports
+                   | Board b -> List.fold_left (fun a x -> f a x.child) (b :: acc) b.ports
                    | Input _ -> acc) in
-  CCList.fold_left f []
+  List.fold_left f []
 
 let topo_paths =
   let rec add_node acc paths = function
@@ -101,7 +103,7 @@ let topo_paths =
                   | [] -> paths
                   | l  -> List.fold_left (fun a x -> add_node (b :: acc) a x) paths l)
   in
-  CCList.fold_left (fun a x -> add_node [] a x) []
+  List.fold_left (fun a x -> add_node [] a x) []
 
 let rec sub topo id =
   let rec sub_port ports id =

@@ -1,3 +1,5 @@
+open Containers
+
 type path = string [@@deriving yojson]
 
 type 'a storage = < get : 'a ; store : 'a -> unit >
@@ -18,7 +20,7 @@ end
 module Make (D : DATA)
        : (CONFIG_STORAGE with type data = D.t) = struct
 
-  open CCIO
+  open IO
   
   type data = D.t
 

@@ -1,4 +1,15 @@
+open Containers
 open Interaction
+
+(* TODO remove this *)
+let (=) = Pervasives.(=)
+ 
+let rec filter_map f = function
+  | []    -> []
+  | x::xs ->
+     match f x with
+     | Some v -> v::(filter_map f xs)
+     | None   -> filter_map f xs
 
 let path_abs_string p = Path.to_string @@ Path.make_absolute p
 let path_abs_ref_string p = Path.to_string @@ Path.make_absolute_ref p
@@ -122,7 +133,7 @@ let build_templates ?(href_base="") mustache_tmpl user (vals : upper ordered_ite
     | Ref  r    -> [ ]
     | Home t    -> [ Path.empty, (Mustache.render mustache_tmpl (`O (items @ make_template t)))]
     | Simple s  -> [ s.href,     (Mustache.render mustache_tmpl (`O (items @ make_template s.template)))]
-    | Subtree s -> CCList.filter_map (fill_in_sub s.href) s.templates
+    | Subtree s -> List.filter_map (fill_in_sub s.href) s.templates
   in List.fold_left (fun acc v -> (fill_in v) @ acc) [] vals
 
 type route_table = (string, string) Hashtbl.t (* TODO: proper hash *)
