@@ -83,7 +83,7 @@ let input_sources topology boards : Common.Stream.source list React.signal =
        | Some b -> S.map (List.filter_map check_stream) b.streams_signal
   in
   List.map (grep boards) topology
-  |> S.merge ~eq:(==) (fun a v -> List.append v a) []
+  |> S.merge ~eq:(Equal.physical) (fun a v -> List.append v a) []
 
 let create config db =
   let step_duration = 0.01 in

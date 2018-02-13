@@ -48,8 +48,8 @@ let create (b:topo_board) _ convert_streams send db base step =
                                               ; description = Some ""
                                               } in
                       match m.lock,m.bitrate with
-                      | true,Some x when x > 0l -> CCList.add_nodup stream streams
-                      | _                       -> CCList.remove ~x:stream streams)
+                      | true,Some x when x > 0l -> CCList.add_nodup ~eq:(Common.Stream.equal_stream) stream streams
+                      | _                       -> CCList.remove ~eq:(Common.Stream.equal_stream) ~x:stream streams)
                     [] events.measure in
   (*  let sms = convert_streams s_streams b in
   let _e = React.E.map (fun s ->

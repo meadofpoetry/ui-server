@@ -90,7 +90,7 @@ module Position = struct
                    let acc  = join i.x acc |> join (i.x + i.w) in
                    acc) [] items
                |> (fun x -> l :: x @ [r])
-               |> CCList.sort_uniq
+               |> CCList.sort_uniq ~cmp:(Pervasives.compare)
       in
       (* get available y points, FIXME obviously we don't need to iterate over all items *)
       let ys = CCList.fold_left (fun acc i ->
@@ -98,7 +98,7 @@ module Position = struct
                    let acc  = join i.y acc |> join (i.y + i.h) in
                    acc) [] items
                |> (fun x -> t :: x @ [b])
-               |> CCList.sort_uniq
+               |> CCList.sort_uniq ~cmp:(Pervasives.compare)
       in
       (* get biggest non-overlapping rectangle under the cursor *)
       (* FIXME obviously not optimized at all *)

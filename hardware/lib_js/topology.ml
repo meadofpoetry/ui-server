@@ -74,8 +74,8 @@ let get_list_depth l =
 let rec setting t x y y1 height l =
   match t with
     | Board el ->
-      let l = CCList.Assoc.set (x , y) (Board el) l in
-      let l = CCList.Assoc.set (x +. 0.5, y) (Board el) l in
+      let l = CCList.Assoc.set ~eq:(Pervasives.(=)) (x , y) (Board el) l in
+      let l = CCList.Assoc.set ~eq:(Pervasives.(=)) (x +. 0.5, y) (Board el) l in
       let l =
         if (y +. 0.5) < y1 +. height
         then setting t x (y +. 0.5) y1 height l
@@ -83,7 +83,7 @@ let rec setting t x y y1 height l =
       in
       l
     | Input el ->
-      let l = CCList.Assoc.set (x,y) (Input el) l in
+      let l = CCList.Assoc.set ~eq:(Pervasives.(=)) (x,y) (Input el) l in
       let l =
         if (y +. 0.5) < y1 +. height
         then setting t x (y +. 0.5) y1 height l
@@ -379,14 +379,14 @@ let render ?on_click ~topology ~(width : int) ~canvas () =
                 int_of_float @@ Js.float_of_number @@ (Js.Unsafe.get e "offsetY") in
     let x1,y1 = floor_to_five @@ (float_of_int x /. float_of_int cw),
                 (float_of_int rows) -. (ceil_to_five @@ (float_of_int y /. float_of_int rh)) in
-    (match CCList.Assoc.get (x1,y1) acc_top with
+    (match CCList.Assoc.get ~eq:(Pervasives.(=)) (x1,y1) acc_top with
      | None       -> None
      | Some entry ->
         match entry with
         | Input _ ->
            let real_y = float_of_int rows -. float_of_int y /. float_of_int rh in
-           if ((CCList.Assoc.get (x1, y1 +. 0.5) acc_top = Some entry) && (real_y < y1 +. 0.25)
-               || (CCList.Assoc.get (x1, y1 -. 0.5) acc_top = Some entry) && (real_y > y1 +. 0.25))
+           if ((CCList.Assoc.get ~eq:(Pervasives.(=)) (x1, y1 +. 0.5) acc_top = Some entry) && (real_y < y1 +. 0.25)
+               || (CCList.Assoc.get ~eq:(Pervasives.(=)) (x1, y1 -. 0.5) acc_top = Some entry) && (real_y > y1 +. 0.25))
            then None
            else Some entry;
         | Board _ -> Some entry) in

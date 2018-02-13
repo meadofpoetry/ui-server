@@ -204,7 +204,7 @@ let card control ~(signals : signals) =
     CCList.map (fun (id,_) ->
         let page   = module_settings ~id
                                      ~s_state:signals.state
-                                     ~s_mode:(React.S.map (fun x -> CCList.Assoc.get_exn id x) signals.config)
+                                     ~s_mode:(React.S.map (fun x -> CCList.Assoc.get_exn ~eq:Pervasives.(=) id x) signals.config)
         in
         { href     = None
         ; content  = `Text (Printf.sprintf "Модуль %d" (succ id))

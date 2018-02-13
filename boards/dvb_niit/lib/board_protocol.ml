@@ -85,14 +85,16 @@ module SM = struct
              (match msg with
               | Set_settings (i,ns) ->
                  let upd =
-                   CCList.Assoc.update ~f:(function
-                                           | Some os -> let os = { os with mode = ns.mode } in
-                                                        Some (match ns.mode with
-                                                              | T2 -> { os with t2 = ns.channel }
-                                                              | T  -> { os with t  = ns.channel }
-                                                              | C  -> { os with c  = ns.channel })
-                                           | None   -> None)
-                                       i storage#get
+                   CCList.Assoc.update
+                     ~eq:(=)
+                     ~f:(function
+                       | Some os -> let os = { os with mode = ns.mode } in
+                                    Some (match ns.mode with
+                                          | T2 -> { os with t2 = ns.channel }
+                                          | T  -> { os with t  = ns.channel }
+                                          | C  -> { os with c  = ns.channel })
+                       | None   -> None)
+                     i storage#get
                  in storage#store upd;
               | _ -> ());
              Lwt.wakeup w r

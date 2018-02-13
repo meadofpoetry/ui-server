@@ -67,7 +67,7 @@ let get (type a) sock
       (st : Settings.t option signal)
       (req : (get, a) req) : a Lwt.t =
   let find s kv =
-    List.find_map (fun (k,v) -> if k = s then Some v else None) kv
+    List.find_map (fun (k,v) -> if String.equal k s then Some v else None) kv
     |> function None -> Error "key not found" | Some v -> Ok v
   in
   let send s  = Socket.send sock (conv.to_string (`Assoc ["get", `List [`String s]])) in

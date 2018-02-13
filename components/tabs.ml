@@ -110,7 +110,7 @@ module Tab_bar = struct
       | `Text_and_icon _ -> `Text_and_icon
     in
     let typ = CCList.map (fun x -> typ_of_tab_content x#get_content) tabs
-              |> CCList.sort_uniq
+              |> CCList.sort_uniq ~cmp:Pervasives.compare
               |> (function
                   | [x] -> x
                   | _   -> failwith "All tabs must be of the same type: text, icon or text with icon") in

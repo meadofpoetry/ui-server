@@ -920,6 +920,7 @@ let parse_simple_msg = fun (code,body,parts) ->
                let code     = code_ext land 0x0FFF in
                let req_id   = get_complex_rsp_header_request_id body in
                `P (CCList.Assoc.update (code,req_id)
+                                       ~eq:(=)
                                        ~f:(function
                                            | Some x -> Some (part :: x)
                                            | None   -> Some ([part]))
