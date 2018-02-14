@@ -60,8 +60,8 @@ let create config dbs (hardware_streams : Common.Stream.source list React.signal
      | -1   -> failwith "Ooops, fork failed"
      | 0    -> (try Unix.execv exec_path exec_opts with _ -> Unix.sleep 2; print_endline "fork failed"; exit (-1))
      | pid  ->
-        let api, state, recv = Pipeline_protocol.create cfg.sock_in cfg.sock_out converter hardware_streams in
-        let db_events = connect_db (S.changes api.structure) dbs in
+        let api, state, recv = Pipeline_protocol.create cfg.sock_in cfg.sock_out hardware_streams in
+        let db_events = connect_db (S.changes api.streams) dbs in
         (* let _e = E.map (function
                      | None -> ()
                      | Some e ->
