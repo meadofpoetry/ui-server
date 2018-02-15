@@ -619,7 +619,7 @@ let dynamic_grid_demo () =
     ; min_col_width    = 1
     ; max_col_width    = None
     ; row_height       = None
-    ; vertical_compact = false
+    ; vertical_compact = true
     ; items_margin     = None
     } in
   let items    = [ Dynamic_grid.Item.to_item ~pos:{ x = 0; y = 0; w = 10; h = 10 } ~value:() ()
@@ -636,10 +636,10 @@ let dynamic_grid_demo () =
   let grid     = new Dynamic_grid.t ~grid:props ~items () in
   React.E.map (fun e -> let open Lwt.Infix in
                         Dom_html.stopPropagation e;
-                        grid#add_free ?width:(React.S.value w#s_input)
-                                      ?height:(React.S.value h#s_input)
-                                      ~value:()
-                                      ()
+                        grid#free ?width:(React.S.value w#s_input)
+                          ?height:(React.S.value h#s_input)
+                          ~value:() ~act:Add
+                          ()
                         >>= (function
                              | Ok _    -> print_endline "ok"   ; Lwt.return_unit
                              | Error _ -> print_endline "error"; Lwt.return_unit)
@@ -647,7 +647,7 @@ let dynamic_grid_demo () =
   |> ignore;
   React.E.map (fun e -> let open Lwt.Infix in
                         Dom_html.stopPropagation e;
-                        grid#remove_free ()
+                        grid#free ~act:Remove ~value:() ()
                         >>= (function
                              | Ok _    -> print_endline "ok"   ; Lwt.return_unit
                              | Error _ -> print_endline "error"; Lwt.return_unit)

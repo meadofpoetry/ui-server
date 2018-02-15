@@ -28,7 +28,6 @@ let resolution_to_aspect resolution =
   new_res
 
 let calc_rows_cols grid_asp cont_asp list =
-  Printf.printf "I am starting to calc cols rows\n";
   let num = List.length list in
   let squares =
     List.mapi (fun rows _ ->
@@ -47,7 +46,6 @@ let calc_rows_cols grid_asp cont_asp list =
         let _,_,gr = acc in
         if Float.(gr > sq) then acc else x)
       (0,0,0.) squares in
-  Printf.printf "I've ended calc and cols and rows are %d %d\n" cols rows;
   cols, rows
 
 let initialize (wm: Wm.t) =
@@ -107,7 +105,6 @@ let initialize (wm: Wm.t) =
           float_of_int cont.position.top, float_of_int cont.position.bottom in
         let res_w, res_h = wm.resolution in
         let res_w, res_h = float_of_int res_w, float_of_int res_h in
-        let open Dynamic_grid.Utils in
         let x            = int_of_float @@ ceil @@ float_of_int cols *. (left /. res_w) in
         let w            = int_of_float @@ ceil @@ float_of_int cols *. ((right -. left) /. res_w) in
         let y            = int_of_float @@ ceil @@ float_of_int rows *. (top /. res_h) in
@@ -128,7 +125,7 @@ let initialize (wm: Wm.t) =
 
   let f_rm = React.E.map (fun e -> let open Lwt.Infix in
                                    Dom_html.stopPropagation e;
-                                   grid#remove_free ()
+                                   grid#free ~act:Remove ~value:(List.hd wm.widgets) ()
                                    >>= (function
                                         | Ok _    -> print_endline "ok"   ; Lwt.return_unit
                                         | Error _ -> print_endline "error"; Lwt.return_unit)
@@ -160,8 +157,10 @@ let initialize (wm: Wm.t) =
                                  List.fold_left
                                    (fun acc x ->
                                      let id = x#get_input_widget#get_id in
-                                     let w  = List.find_pred (fun (x: (string * Wm.widget)) -> String.equal id (fst x))
-                                                             wm.widgets in
+                                     let w  = List.find_pred
+                                                (fun (x: (string * Wm.widget)) ->
+                                                   String.equal id (fst x))
+                                                wm.widgets in
                                      match w with
                                      | Some w -> w :: acc
                                      | None   -> acc)
@@ -169,12 +168,13 @@ let initialize (wm: Wm.t) =
                                let res_x, res_y = wm.resolution in
                                let grid_asp = float_of_int res_x /. float_of_int res_y in
                                let cont_asp = 16. /. 9. in
-                               let opt_cols, opt_rows = calc_rows_cols grid_asp cont_asp chosen_widgets in
+                               let opt_cols, opt_rows =
+                                 calc_rows_cols grid_asp cont_asp chosen_widgets in
                                List.iteri (fun i el ->
                                    let w = cols / opt_cols in
-                                   let h = rows / opt_rows in
+                                   let h = rows / opt_rows  in
                                    let row_num = i / opt_cols in
-                                   let x = (i - row_num * opt_cols) * w in
+                                   let x = (i - opt_cols * row_num) * w in
                                    let y = row_num * h in
                                    grid#add (Dynamic_grid.Item.to_item ~pos:{x;y;w;h} ~value:el ())
                                    |> (function
@@ -203,6 +203,11 @@ let initialize (wm: Wm.t) =
                     in
                     let str, wd = x#get_value in
                     let a, b = wd.aspect in
+                    let a, b =
+                      match a, b with
+                      | 0, _ | _, 0 -> 1,1
+                      | _, _ -> a, b
+                    in
                     let wid_w, wid_h =
                       if x#pos.w * col / a > x#pos.h * row / b
                       then x#pos.h * row / b * a, x#pos.h * row
