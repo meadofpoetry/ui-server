@@ -33,7 +33,7 @@
         border-bottom-right-radius: 2px;
     }
 
-    &.mdc-expansion-panel--expanded {
+    &--expanded {
         margin: 16px 0;
         &+ .mdc-expansion-panel:before { display: none; }
         &:first-child                  { margin-top: 0; }

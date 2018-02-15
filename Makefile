@@ -26,8 +26,7 @@ demo:
 	cp _build/default/frontend/demo.bc.js dist/resources/js/demo.js
 
 css:
-	$(CSS) dist/resources/css/table.scss dist/resources/css/table.css
-	$(CSS) dist/resources/css/expansion_panel.scss dist/resources/css/expansion_panel.css
+	$(CSS) dist/resources/css/main.scss dist/resources/css/main.css
 
 frontend: home pipeline hardware user demo input
 
