@@ -30,6 +30,7 @@ type position =
 
 type widget =
   { type_       : string [@key "type"]
+  ; domain      : string
   ; position    : position
   ; layer       : int
   ; aspect      : (int * int)
