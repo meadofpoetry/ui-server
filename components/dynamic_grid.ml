@@ -26,6 +26,10 @@ module Position = struct
 
   let empty = { x = 0; y = 0; w = 0; h = 0 }
 
+  let equal a b = a.x = b.x && a.y = b.y && a.w = b.w && a.h = b.h
+
+  let to_string (pos:t) = Printf.sprintf "x=%d, y=%d, w=%d, h=%d" pos.x pos.y pos.w pos.h
+
   (** checks if two elements collide, returns true if do and false otherwise **)
   let collides (pos1:t) (pos2:t) =
     if (pos1.x + pos1.w <= pos2.x)      then false
@@ -49,12 +53,18 @@ module Position = struct
   let has_collision ~(f:'a -> t) x (l:'a list) =
     Option.is_some @@ get_first_collision ~f x l
 
-  let get_free_rect ~(f:'a -> t) (pos:t) (items:'a list) w h ?width ?height () =
+  let get_free_rect ?(cmp:(t -> t -> int) option) ~(f:'a -> t) (pos:t) (items:'a list) w h () =
     if has_collision ~f:(fun x -> x) pos items
     then None
     else
-      let items    = List.map f items in
       let area pos = pos.w * pos.h in
+      let cmp = match cmp with
+        | Some f -> f
+        | None   -> (fun new_pos old_pos -> let new_area = area new_pos in
+                                            let old_area = area old_pos in
+                                            compare new_area old_area)
+      in
+      let items    = CCList.map f items in
       (* FIXME obviously not optimized algorithm *)
       (* get only elements that are on the way to cursor proection to the left/right side *)
       let x_filtered = List.filter (fun i -> pos.y > i.y && pos.y < i.y + i.h) items in
@@ -63,13 +73,11 @@ module Position = struct
               |> List.fold_left (fun acc i -> if i.x + i.w > acc.x + acc.w then i else acc) empty
               |> (fun x -> x.x + x.w) in
       (* get cursor proection to the right side *)
-      let r = match width with
-        | Some width -> l + width
-        | None       ->
-           List.filter (fun i -> i.x > pos.x) x_filtered
-           |> List.fold_left (fun acc i -> if i.x < acc.x then i else acc)
-                { x=w; y=0; w=0; h=0 }
-           |> (fun x -> x.x) in
+      let r =
+        List.filter (fun i -> i.x > pos.x) x_filtered
+        |> List.fold_left (fun acc i -> if i.x < acc.x then i else acc)
+                          { x=w; y=0; w=0; h=0 }
+        |> (fun x -> x.x) in
       (* get only elements that are on the way to cursor proection to the top/bottom side *)
       let y_filtered = List.filter
                          (fun i -> pos.x > i.x && pos.x < i.x + i.w && i.x + i.w > l && i.x < r)
@@ -79,13 +87,11 @@ module Position = struct
               |> List.fold_left (fun acc i -> if i.y + i.h > acc.y + acc.h then i else acc) empty
               |> (fun x -> x.y + x.h) in
       (* get cursor proection to the bottom side *)
-      let b = match height with
-        | Some height -> t + height
-        | None        ->
-           List.filter (fun i -> i.y > pos.y) y_filtered
-           |> List.fold_left (fun acc i -> if i.y < acc.y then i else acc)
-                { x=0; y=h; w=0; h=0}
-           |> (fun x -> x.y) in
+      let b =
+        List.filter (fun i -> i.y > pos.y) y_filtered
+        |> List.fold_left (fun acc i -> if i.y < acc.y then i else acc)
+                          { x=0; y=h; w=0; h=0}
+        |> (fun x -> x.y) in
       (* get available x points, FIXME obviously we don't need to iterate over all items *)
       let xs = List.fold_left (fun acc i ->
                    let join = fun x lst -> if x >= l && x <= r then x :: lst else lst in
@@ -104,28 +110,26 @@ module Position = struct
       in
       (* get biggest non-overlapping rectangle under the cursor *)
       (* FIXME obviously not optimized at all *)
-      let a,_ = List.fold_left (fun acc x0 ->
-                    let xs = List.filter (fun i -> i > x0) xs in
-                    List.fold_left (fun acc x1 ->
-                        List.fold_left (fun acc y0 ->
-                            let ys = List.filter (fun i -> i > y0) ys in
-                            List.fold_left (fun acc y1 ->
-                                let _,acc_area  = acc in
-                                let (new_pos:t) = { x = x0; y = y0; w = x1 - x0; h = y1 - y0 } in
-                                let new_area    = area new_pos in
-                                (*
-                                 * new rect must be the biggest one available,
-                                 * it must not overlap with other rects,
-                                 * it must be under the mouse cursor
-                                 *)
-                                let new_pos = { new_pos with w; h } in
-                                match (new_area > acc_area),
-                                      get_first_collision ~f:(fun x -> x) new_pos items,
-                                      collides pos new_pos with
-                                | true,None,true -> new_pos,new_area
-                                | _         -> acc) acc ys) acc ys) acc xs)
-                  (empty,0) xs in
-      Some a
+      let a = List.fold_left (fun acc x0 ->
+                  let xs = List.filter (fun i -> i > x0) xs in
+                  List.fold_left (fun acc x1 ->
+                      List.fold_left (fun acc y0 ->
+                          let ys = List.filter (fun i -> i > y0) ys in
+                          List.fold_left (fun acc y1 ->
+                              let (new_pos:t) = { x = x0; y = y0; w = x1 - x0; h = y1 - y0 } in
+                              (*
+                               * new rect must be the biggest one available,
+                               * it must not overlap with other rects,
+                               * it must be under the mouse cursor
+                               *)
+                              match (cmp new_pos acc),
+                                    get_first_collision ~f:(fun x -> x) new_pos items,
+                                    collides pos new_pos with
+                              | 1, None, true -> new_pos
+                              | _             -> acc) acc ys) acc ys) acc xs)
+                             empty xs
+      in
+      if equal a empty then None else Some a
 
   let correct_xy (p:t) par_w par_h =
     let x = if p.x < 0 then 0 else if p.x + p.w > par_w then par_w - p.w else p.x in
@@ -391,21 +395,6 @@ module Item = struct
                      grid.rows
          in
          if not (self#has_collision pos) then ghost#s_pos_push pos;
-         (* temporary update element's width and height in pixels *)
-         (* let pos_px = correct_wh ?max_w:(Option.map (fun x -> x * col_px) item.max_w)
-          *                         ~min_w:(Option.get_or ~default:col_px
-          *                                              (Option.map (fun x -> x * col_px) item.min_w))
-          *                         ?max_h:(Option.map (fun x -> x * row_px) item.max_h)
-          *                         ~min_h:(Option.get_or ~default:row_px
-          *                                              (Option.map (fun x -> x * row_px) item.min_h))
-          *                         { x = self#pos.x * col_px
-          *                         ; y = self#pos.x * col_px
-          *                         ; w
-          *                         ; h
-          *                         }
-          *                         (grid.cols * col_px)
-          *                         (Option.map (fun x -> x * row_px) grid.rows)
-          * in *)
          self#set_w w;
          self#set_h h
       | `End ->
@@ -595,14 +584,14 @@ class ['a] t ~grid ~(items:'a item list) () =
       | l  -> Error (Collides l)
 
     method add_free ?min_w ?min_h ?max_w ?max_h
-             ?(static=false)
-             ?(resizable=true)
-             ?(draggable=true)
-             ?widget
-             ?width
-             ?height
-             ~(value: 'a)
-             () =
+                    ?(static=false)
+                    ?(resizable=true)
+                    ?(draggable=true)
+                    ?widget
+                    ?(width:int option)
+                    ?(height:int option)
+                    ~(value: 'a)
+                    () =
       if adding
       then Lwt.return_error In_progress
       else
@@ -616,39 +605,49 @@ class ['a] t ~grid ~(items:'a item list) () =
         let ghost = new Item.cell ~typ:`Ghost ~s_col_w ~s_row_h ~item () in
         Dom.appendChild self#root ghost#root;
         let mv_l  =
-          Dom_events.listen Dom_html.document##.body
+          Dom_events.listen
+            Dom_html.document##.body
             Dom_events.Typ.mousemove
             (fun _ e ->
               (match self#get_event_pos e with
                | Some ev_pos ->
-                  let ev_pos =
-                    { ev_pos with x = ev_pos.x / React.S.value s_col_w;
-                                  y = ev_pos.y / React.S.value s_row_h
-                    }
+                  let ev_pos = { ev_pos with x = ev_pos.x / React.S.value s_col_w;
+                                             y = ev_pos.y / React.S.value s_row_h
+                               }
                   in
-                  let pos =
+                  let open Position in
+                  let cmp =
                     match width, height with
-                    | Some width, Some height ->
-                       Position.get_free_rect ~f:(fun x -> x)
-                         ev_pos
-                         items
-                         grid.cols
-                         (React.S.value s_rows)
-                         ~width
-                         ~height
-                         ()
-                    | _ ->
-                       Position.get_free_rect ~f:(fun x -> x)
-                         ev_pos
-                         items
-                         grid.cols
-                         (React.S.value s_rows)
-                         ()
+                    | Some w, Some h -> Some (fun n o -> if n.w < w || n.h < h || (n.w * n.h) < (o.w * o.h)
+                                                         then 0 else 1)
+                    | Some w, _      -> Some (fun n o -> if n.w < w || n.h < o.h then 0 else 1)
+                    | _, Some h      -> Some (fun n o -> if n.h < h || n.w < o.w then 0 else 1)
+                    | _              -> None
                   in
-                  begin match pos with
-                  | Some pos -> ghost#s_pos_push pos
-                  | None     -> ghost#s_pos_push Position.empty
-                  end;
+                  let pos = get_free_rect ?cmp ~f:(fun x -> x) ev_pos items grid.cols (React.S.value s_rows) () in
+                  let pos = Option.map (fun pos ->
+                                let corr_x = fun w -> if ev_pos.x + w > pos.x + pos.w
+                                                      then (pos.x + pos.w) - w
+                                                      else ev_pos.x
+                                in
+                                let corr_y = fun h -> if ev_pos.y + h > pos.y + pos.h
+                                                      then (pos.y + pos.h) - h
+                                                      else ev_pos.y
+                                in
+                                match width, height with
+                                | Some w, Some h ->
+                                   let w = if w < 1 then 1 else w in
+                                   let h = if h < 1 then 1 else h in
+                                   {x=corr_x w;y=corr_y h;w;h}
+                                | Some w, _  -> let w = if w < 1 then 1 else w in
+                                                {pos with x=corr_x w;w}
+                                | _, Some h  -> let h = if h < 1 then 1 else h in
+                                                {pos with y=corr_y h;h}
+                                | _          -> pos) pos
+                  in
+                  (match pos with
+                   | Some x -> ghost#s_pos_push x
+                   | None   -> ghost#s_pos_push Position.empty)
                | None -> ghost#s_pos_push Position.empty);
               true)
         in
@@ -693,8 +692,11 @@ class ['a] t ~grid ~(items:'a item list) () =
     (** Private methods *)
 
     method private get_event_pos e : Position.t option =
-      let x = (Option.get_exn @@ Js.Optdef.to_option e##.pageX) - self#get_offset_left in
-      let y = (Option.get_exn @@ Js.Optdef.to_option e##.pageY) - self#get_offset_top in
+      let rect = self#get_client_rect in
+      let left = int_of_float rect.left in
+      let top  = int_of_float rect.top in
+      let x = e##.clientX - left in
+      let y = e##.clientY - top  in
       let (pos:Position.t) = { x; y; w = 1; h = 1 } in
       if x <= self#get_offset_width && x >= 0 && y<= self#get_offset_height && y >= 0
       then Some pos else None

@@ -27,10 +27,10 @@ let input_to_string ({ input; id }:topo_input) =
 
 let board_to_string (tp:typ) =
   match tp with
-  | DVB   -> "Adapter DVB"
-  | TS    -> "Adapter TS"
-  | IP2TS -> "Adapter IP"
-  | TS2IP -> "Converter IP"
+  | DVB   -> "DVB-T/T2/C"
+  | TS    -> "QoS"
+  | IP2TS -> "TSoIP"
+  | TS2IP -> "QoE"
 
 let floor_to_five x =
   let fx = floor x +. 0.5 in

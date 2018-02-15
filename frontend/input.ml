@@ -24,10 +24,11 @@ let () =
     | IP2TS -> [ "IP", (fun () -> Board_ip_dektec_js.Ip_dektec.page control) ]
     | DVB   -> [ "RF", (fun () -> print_endline "new rf page!";
                                   (new Board_dvb_niit_js.Measures.measures control ())#root, (fun () -> ())) ]
-    | TS    -> [ "QoS",       (fun () -> Board_qos_niit_js.Settings.page control)
-               ; "Структура", (fun () -> Board_qos_niit_js.Structure.page control)
+    | TS    -> [ (* "QoS",       (fun () -> Board_qos_niit_js.Settings.page control) 
+               ; *) "Структура", (fun () -> Board_qos_niit_js.Structure.page control)
                ]
-    | TS2IP -> [ "TS2IP", (fun () -> (new Board_ts2ip_niit_js.Settings.settings control ())#root, (fun () -> ())) ]
+    | TS2IP -> [ (* "TS2IP", (fun () -> (new Board_ts2ip_niit_js.Settings.settings control ())#root, (fun () -> ())) *)
+      ]
   in
   let tabs = List.fold_left (fun acc (c,typ) -> (List.rev @@ board_to_tabs c typ) @ acc) [] boards
              |> List.rev in

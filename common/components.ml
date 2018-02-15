@@ -987,6 +987,71 @@ module Make
 
   end
 
+  module Expansion_panel = struct
+
+    let base_class          = "mdc-expansion-panel"
+    let expanded_class      = CSS.add_modifier base_class "expanded"
+    let panel_wrapper_class = CSS.add_element base_class "panel-wrapper"
+
+    module Primary = struct
+
+      let _class        = CSS.add_element base_class "primary"
+      let summary_class = CSS.add_element base_class "summary"
+      let details_class = CSS.add_element base_class "details"
+      let heading_class = CSS.add_element base_class "heading"
+      let icon_class    = CSS.add_element base_class "icon"
+
+      let create ?id ?style ?(classes=[]) ?attrs ?(heading_details=[]) ?(details=[]) ~title () =
+        div ~a:([ a_class (classes |> CCList.cons _class)
+                ; a_tabindex 0 ]
+                |> add_common_attrs ?id ?style ?attrs)
+            [ div ~a:([ a_class [summary_class] ])
+                  [ div ~a:([ a_class [heading_class]])
+                        [ pcdata title
+                        ; div ~a:[ a_class [details_class]] heading_details
+                        ]
+                  ; div ~a:([ a_class [details_class]]) details
+                  ]
+            ; div ~a:([ a_class [icon_class]; a_tabindex (-1) ])
+                  [Icon.Font.create ~icon:"expand_more" ()]
+            ]
+
+    end
+
+    module Actions = struct
+
+      let _class       = CSS.add_element base_class "actions"
+      let action_class = CSS.add_element base_class "action"
+
+      let create ?id ?style ?(classes=[]) ?attrs ~actions () =
+        div ~a:([ a_class (classes |> CCList.cons _class) ]
+                |> add_common_attrs ?id ?style ?attrs)
+            actions
+
+    end
+
+    module Panel = struct
+
+      let _class = CSS.add_element base_class "panel"
+
+      let create ?id ?style ?(classes=[]) ?attrs ~content () =
+        div ~a:([ a_class (classes |> CCList.cons _class) ]
+                |> add_common_attrs ?id ?style ?attrs)
+            content
+
+    end
+
+    let create ?id ?style ?(classes=[]) ?attrs ?actions ~primary ~panel () =
+      div ~a:([ a_class (classes |> CCList.cons base_class)]
+              |> add_common_attrs ?id ?style ?attrs)
+          [ primary
+          ; div ~a:[a_class [panel_wrapper_class]]
+                (match actions with
+                 | Some x -> panel :: Divider.create () :: x :: []
+                 | None   -> [panel])]
+
+  end
+
   module Menu = struct
 
     let base_class   = "mdc-simple-menu"
@@ -1364,8 +1429,10 @@ module Make
       let indicator_back_class    = CSS.add_modifier indicator_class "back"
       let indicator_forward_class = CSS.add_modifier indicator_class "forward"
       let indicator_inner_class   = CSS.add_element indicator_class "inner"
-      let scroll_frame_class      = CSS.add_element _class "scroll-frame"
-      let scroll_frame_tabs_class = CSS.add_element scroll_frame_class "tabs"
+      let flex_container_class    = CSS.add_element _class "flex-container"
+      let scroller_class          = CSS.add_element _class "scroller"
+      (* let scroll_frame_class      = CSS.add_element _class "scroll-frame"
+       * let scroll_frame_tabs_class = CSS.add_element scroll_frame_class "tabs" *)
 
       let create_indicator ~direction () =
         div ~a:[a_class [ indicator_class;
@@ -1386,10 +1453,12 @@ module Make
       let create ?id ?style ?(classes=[]) ?attrs ~tabs () =
         div ~a:([ a_class (_class :: classes) ]
                 |> add_common_attrs ?id ?style ?attrs)
-          [ create_indicator ~direction:`Back ()
-          ; div ~a:[ a_class [scroll_frame_class] ] [ tabs ]
-          ; create_indicator ~direction:`Forward ()
-          ]
+            [ create_indicator ~direction:`Back ()
+            ; div ~a:[ a_class [flex_container_class]]
+                  [ div ~a:[ a_class [scroller_class]
+                           ; a_role ["tablist"]] [ tabs ] ]
+            ; create_indicator ~direction:`Forward ()
+            ]
 
     end
 
