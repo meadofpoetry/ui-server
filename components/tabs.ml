@@ -19,8 +19,6 @@ module Tab = struct
       val mutable tab    = props
       val mutable active = false
       val mutable prevent_default_on_click = false
-      val mutable left  = 0
-      val mutable width = 0
       val mutable value : 'a = props.value
 
       method anchor_element = elt
@@ -67,11 +65,8 @@ module Tab = struct
                                   push (Some self))
                             else self#remove_class Markup.Tabs.Tab.active_class
 
-      method get_width = width
-      method get_left  = left
-
-      method measure_self = width <- self#get_offset_width;
-                            left  <- self#get_offset_left
+      method get_width = self#get_offset_width
+      method get_left  = self#get_offset_left
 
       method get_prevent_default_on_click   = prevent_default_on_click
       method set_prevent_default_on_click x = prevent_default_on_click <- x
@@ -193,10 +188,14 @@ module Tab_bar = struct
                       Ok ()
         | None     -> Error (Printf.sprintf "remove_tab_at_index: tab with index %d not found" i)
 
+      method layout =
+        CCOpt.iter (fun x -> Dom_html.window##cancelAnimationFrame x) layout_frame;
+        let f = fun _ -> self#layout_internal; layout_frame <- None in
+        layout_frame <- Some (Dom_html.window##requestAnimationFrame (Js.wrap_callback f))
+
       method private layout_internal = match self#get_active_tab with
         | Some tab ->
            let f () =
-             CCList.iter (fun x -> x#measure_self) self#tabs;
              width <- self#get_offset_width;
              let l = tab#get_left in
              let w = match width with
@@ -226,11 +225,6 @@ module Tab_bar = struct
                   indicator#style##.visibility := Js.string "hidden";
                   init <- false
 
-      method private layout =
-        CCOpt.iter (fun x -> Dom_html.window##cancelAnimationFrame x) layout_frame;
-        let f = fun _ -> self#layout_internal; layout_frame <- None in
-        layout_frame <- Some (Dom_html.window##requestAnimationFrame (Js.wrap_callback f))
-
       initializer
         self#add_class (Markup.Tabs.Tab_bar._class ^ "-upgraded");
         Dom_events.listen Dom_html.window Dom_events.Typ.resize (fun _ _ -> self#layout; false) |> ignore;
@@ -250,9 +244,11 @@ let in_out_sine x =
 let animate ~(timing   : float -> float)
             ~(draw     : float -> unit)
             ~(duration : float) =
-  let start = Unix.gettimeofday () *. 1000. in
+  let start = Unix.gettimeofday () in
 
-  let rec cb = (fun time ->
+  let rec cb = (fun _ ->
+
+      let time          = Unix.gettimeofday () in
       let time_fraction = min ((time -. start) /. duration) 1. in
       let progress      = timing time_fraction in
       let ()            = draw progress in
@@ -279,25 +275,69 @@ module Scroller = struct
     let elt = (* tab_bar#add_class Markup.Tabs.Scroller.scroll_frame_tabs_class; *)
               Markup.Tabs.Scroller.create ~tabs:(Widget.widget_to_markup tab_bar) ()
               |> Tyxml_js.To_dom.of_div in
+    let wrapper = elt##querySelector (Js.string ("." ^ Markup.Tabs.Scroller.tab_bar_wrapper_class))
+                  |> Js.Opt.to_option |> CCOpt.get_exn |> Widget.create
+    in
+    let back    = elt##querySelector (Js.string ("." ^ Markup.Tabs.Scroller.indicator_back_class))
+                  |> Js.Opt.to_option |> CCOpt.get_exn |> Widget.create
+    in
+    let forward = elt##querySelector (Js.string ("." ^ Markup.Tabs.Scroller.indicator_forward_class))
+                  |> Js.Opt.to_option |> CCOpt.get_exn |> Widget.create
+    in
 
     object(self)
 
       inherit Widget.widget elt ()
-      method tab_bar = tab_bar
 
-      method private handle_left_scroll_click = ()
-      method private handle_right_scroll_click = ()
-      method private move_tabs_scroll (delta:int) =
-        let multiplier = 1 in
-        let next_scroll_left = self#tab_bar#root##.scrollLeft + delta * multiplier in
+      (* User methods *)
+
+      method tab_bar        = tab_bar
+      method scroll_back    = self#move_tabs_scroll (- wrapper#get_client_width)
+      method scroll_forward = self#move_tabs_scroll wrapper#get_client_width
+      method layout         = self#update_scroll_buttons;
+                              self#tab_bar#layout
+
+      (* Private methods *)
+
+      method private scroll next =
+        let old = wrapper#root##.scrollLeft in
         animate ~timing:in_out_sine
-                ~draw:(fun x -> let v = (float_of_int next_scroll_left) *. x in
-                                self#root##.scrollLeft := int_of_float v)
+                ~draw:(fun x -> let n = float_of_int next in
+                                let o = float_of_int old in
+                                let v = int_of_float @@ (x *. (n -. o)) +. o in
+                                wrapper#root##.scrollLeft := v)
                 ~duration:0.35
 
-      method private scroll_selected_into_view = ()
+      method private move_tabs_scroll (delta:int) =
+        let multiplier = 1 in
+        let old        = wrapper#root##.scrollLeft in
+        let next       = old + delta * multiplier in
+        self#scroll next
 
-      method private handle_tabs_scroll = ()
+      method private scroll_tab_into_view tab =
+        let left  = wrapper#root##.scrollLeft in
+        let right = left + wrapper#get_client_width in
+        if tab#get_left < left
+        then self#scroll tab#get_left
+        else if tab#get_left + tab#get_width > right
+        then self#scroll @@ left + (tab#get_width + tab#get_left - right)
+
+      method private update_scroll_buttons =
+        let scroll_width = wrapper#root##.scrollWidth in
+        let scroll_left  = wrapper#root##.scrollLeft in
+        let client_width = wrapper#root##.clientWidth in
+        let show_left    = scroll_left > 0 in
+        let show_rigth   = scroll_width > client_width + scroll_left in
+        let f x w        = w#add_or_remove_class x Markup.Tabs.Scroller.indicator_enabled_class in
+        f show_left back;
+        f show_rigth forward
+
+      initializer
+        self#layout;
+        Dom_events.listen back#root    Dom_events.Typ.click  (fun _ _ -> self#scroll_back;    true)        |> ignore;
+        Dom_events.listen forward#root Dom_events.Typ.click  (fun _ _ -> self#scroll_forward; true)        |> ignore;
+        Dom_events.listen wrapper#root Dom_events.Typ.scroll (fun _ _ -> self#update_scroll_buttons; true) |> ignore;
+        React.S.map (fun x -> CCOpt.iter self#scroll_tab_into_view x) self#tab_bar#s_active                |> ignore;
 
     end
 

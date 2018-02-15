@@ -1002,7 +1002,8 @@ module Make
 
       let create ?id ?style ?(classes=[]) ?attrs ?(heading_details=[]) ?(details=[]) ~title () =
         div ~a:([ a_class (classes |> CCList.cons _class)
-                ; a_tabindex 0 ])
+                ; a_tabindex 0 ]
+                |> add_common_attrs ?id ?style ?attrs)
             [ div ~a:([ a_class [summary_class] ])
                   [ div ~a:([ a_class [heading_class]])
                         [ pcdata title
@@ -1283,6 +1284,7 @@ module Make
 
     let create ?id ?style ?(classes=[]) ?attrs ?(discrete=false) ?(markers=false) ?(disabled=false)
                ?label ?step ?(min=0.) ?(max=100.) ?(value=0.) () =
+      let discrete = if markers then true else discrete in
       div ~a:([ a_class (classes
                          |> cons_if discrete @@ CSS.add_modifier base_class "discrete"
                          |> cons_if (discrete && markers) @@ CSS.add_modifier base_class "display-markers"
@@ -1422,15 +1424,15 @@ module Make
 
     module Scroller = struct
 
-      let _class                  = "mdc-tab-bar-scroller"
+      let _class                  = "mdc-tab-bar-scroll"
+      let container_class         = CSS.add_element _class "container"
+      let tab_bar_wrapper_class   = CSS.add_element _class "tab-bar-wrapper"
+
       let indicator_class         = CSS.add_element _class "indicator"
+      let indicator_enabled_class = CSS.add_modifier indicator_class "enabled"
+      let indicator_inner_class   = CSS.add_element indicator_class "inner"
       let indicator_back_class    = CSS.add_modifier indicator_class "back"
       let indicator_forward_class = CSS.add_modifier indicator_class "forward"
-      let indicator_inner_class   = CSS.add_element indicator_class "inner"
-      let flex_container_class    = CSS.add_element _class "flex-container"
-      let scroller_class          = CSS.add_element _class "scroller"
-      (* let scroll_frame_class      = CSS.add_element _class "scroll-frame"
-       * let scroll_frame_tabs_class = CSS.add_element scroll_frame_class "tabs" *)
 
       let create_indicator ~direction () =
         div ~a:[a_class [ indicator_class;
@@ -1438,7 +1440,7 @@ module Make
                            | `Back    -> indicator_back_class
                            | `Forward -> indicator_forward_class)]]
             [ a ~a:([ a_class [ indicator_inner_class; "material-icons" ]
-                    ; a_href @@ uri_of_string "#"
+                    (* ; a_href @@ uri_of_string "#" *)
                     ; a_aria "label" ["scroll"
                                      ; (match direction with
                                         | `Back -> "back"
@@ -1451,11 +1453,12 @@ module Make
       let create ?id ?style ?(classes=[]) ?attrs ~tabs () =
         div ~a:([ a_class (_class :: classes) ]
                 |> add_common_attrs ?id ?style ?attrs)
-            [ create_indicator ~direction:`Back ()
-            ; div ~a:[ a_class [flex_container_class]]
-                  [ div ~a:[ a_class [scroller_class]
-                           ; a_role ["tablist"]] [ tabs ] ]
-            ; create_indicator ~direction:`Forward ()
+            [ div ~a:[ a_class [container_class]]
+                  [ create_indicator ~direction:`Back ()
+                  ; div ~a:[ a_class [tab_bar_wrapper_class]
+                           ; a_role ["tablist"]] [ tabs ]
+                  ; create_indicator ~direction:`Forward ()
+                  ]
             ]
 
     end

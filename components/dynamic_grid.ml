@@ -170,6 +170,7 @@ type 'a item =
   ; draggable : bool
   ; widget    : Widget.widget option
   ; value     : 'a
+  ; on_resize : (Position.t -> int -> int -> unit) option
   }
 
 type grid =
@@ -189,9 +190,9 @@ module Item = struct
   type action = Mouse of Dom_html.mouseEvent Js.t
               | Touch of Dom_html.touchEvent Js.t
 
-  let to_item ?min_w ?min_h ?max_w ?max_h
+  let to_item ?min_w ?min_h ?max_w ?max_h ?on_resize
               ?(static=false) ?(resizable=true) ?(draggable=true) ?widget ~pos ~value() =
-    { pos; min_w; min_h; max_w; max_h; static; resizable; draggable; widget; value}
+    { pos; min_w; min_h; max_w; max_h; static; resizable; draggable; widget; value; on_resize }
 
   class ['a] cell ?(typ=`Item)
           ~s_col_w
@@ -399,10 +400,15 @@ module Item = struct
          self#set_w @@ React.S.value s_col_w * ghost#pos.w;
          self#set_h @@ React.S.value s_row_h * ghost#pos.h;
          self#s_pos_push ghost#pos;
+         CCOpt.iter (fun f -> f ghost#pos
+                                (React.S.value s_row_h)
+                                (React.S.value s_col_w))
+                    item.on_resize;
          Dom.removeChild self#get_parent ghost#root
       | _ -> ()
 
     initializer
+      Elevation.set_elevation self 2;
       (* append resize button to element if necessary *)
       if item.resizable then Dom.appendChild self#root resize_button#root;
       (* append widget to cell if provided *)
@@ -508,7 +514,9 @@ class ['a] t ~grid ~(items:'a item list) () =
                    ; resizable = true
                    ; draggable = true
                    ; widget = None
-                   ; value = () }
+                   ; value = ()
+                   ; on_resize = None
+                   }
         in
         let ghost = new Item.cell ~typ:`Ghost ~s_col_w ~s_row_h ~item () in
         ghost#style##.zIndex := Js.string "3";
@@ -585,6 +593,7 @@ class ['a] t ~grid ~(items:'a item list) () =
                     ?widget
                     ?(width:int option)
                     ?(height:int option)
+                    ?on_resize
                     ~(value: 'a)
                     () =
       if adding
@@ -595,7 +604,7 @@ class ['a] t ~grid ~(items:'a item list) () =
         adding <- true;
         let t,wakener = Lwt.wait () in
         let item = { pos = Position.empty
-                   ; min_w; min_h; max_w; max_h; static; resizable; draggable; widget; value } in
+                   ; min_w; min_h; max_w; max_h; static; resizable; draggable; widget; value; on_resize } in
         let items = CCList.map (fun x -> x#pos) @@ React.S.value s_items in
         let ghost = new Item.cell ~typ:`Ghost ~s_col_w ~s_row_h ~item () in
         Dom.appendChild self#root ghost#root;

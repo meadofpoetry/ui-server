@@ -25,6 +25,18 @@ let button_demo () =
   box#set_align_items `Start;
   demo_section "Button" [box]
 
+let circular_progress_demo () =
+  let indeterminate = new Circular_progress.t ~indeterminate:true () in
+  let determinate   = new Circular_progress.t ~indeterminate:false ~max:100. () in
+  let slider        = new Slider.t ~min:0.0 ~max:100. ~markers:true () in
+  let box           = new Box.t ~widgets:[ determinate#widget; slider#widget ] () in
+  let _             = React.S.map (fun v -> determinate#set_progress v) slider#s_input in
+  let section = demo_section "Circular progress" [ subsection "Indeterminate" indeterminate
+                                                 ; subsection "Determinate" box ]
+  in
+  let _             = React.S.map (fun x -> if x then slider#layout) section#s_expanded in
+  section
+
 let fab_demo () =
   let fab    = new Fab.t ~icon:"favorite" () in
   let mini   = new Fab.t ~mini:true ~icon:"favorite" () in
@@ -98,11 +110,15 @@ let slider_demo () =
   listen continuous "continuous";
   listen discrete "discrete";
   listen with_markers "markered";
-  Dom_html.setTimeout (fun () -> continuous#layout; discrete#layout; with_markers#layout) 100. |> ignore;
-  demo_section "Slider" [ subsection "Continuous slider" continuous
-                        ; subsection "Discrete slider" discrete
-                        ; subsection "Discrete slider with markers" with_markers
-                        ; subsection "Disabled slider" disabled ]
+  let section = demo_section "Slider" [ subsection "Continuous slider" continuous
+                                      ; subsection "Discrete slider" discrete
+                                      ; subsection "Discrete slider with markers" with_markers
+                                      ; subsection "Disabled slider" disabled ]
+  in
+  let _ = React.S.map (fun x -> if x then (continuous#layout; discrete#layout; with_markers#layout))
+                      section#s_expanded
+  in
+  section
 
 let grid_list_demo () =
   let tiles = List.map (fun x -> new Grid_list.Tile.t
@@ -323,13 +339,19 @@ let tabs_demo () =
       | None     -> ())
               remove#e_click
   |> ignore;
-  demo_section "Tabs" [ (subsection "With icon labels" icon_bar)#widget
-                      ; (subsection "With text labels" text_bar)#widget
-                      ; idx#widget
-                      ; add#widget
-                      ; remove#widget
-                      ; (subsection "With icon and text labels" both_bar)#widget
-                      (* ; (subsection "With scroller" scrl_bar)#widget  *)]
+  let section = demo_section "Tabs" [ (subsection "With icon labels" icon_bar)#widget
+                                    ; (subsection "With text labels" text_bar)#widget
+                                    ; idx#widget
+                                    ; add#widget
+                                    ; remove#widget
+                                    ; (subsection "With icon and text labels" both_bar)#widget
+                                    ; (subsection "With scroller" scrl_bar)#widget
+                                    ]
+  in
+  let _ = React.S.map (fun x -> if x then (icon_bar#layout; text_bar#layout; both_bar#layout; scrl_bar#layout))
+                      section#s_expanded
+  in
+  section
 
 let snackbar_demo () =
   let snackbar = new Snackbar.t
@@ -482,14 +504,13 @@ let toolbar_demo (drawer : Drawer.Persistent.t Js.t) () =
   toolbar#root
 
 let elevation_demo () =
-  let d = Widget.create (Html.div ~a:[Html.a_style "height: 200px; width: 200px; margin: 20px"]
-                                  []
-                         |> To_dom.of_element) in
-  let btn2 = new Button.t ~label:"elevation 2" () in
-  let btn8 = new Button.t ~label:"elevation 8" () in
-  React.E.map (fun _ -> Elevation.set_elevation d 2) btn2#e_click |> ignore;
-  React.E.map (fun _ -> Elevation.set_elevation d 8) btn8#e_click |> ignore;
-  demo_section "Elevation" [ d#widget; btn2#widget; btn8#widget ]
+  let d       = Widget.create (Html.div ~a:[Html.a_style "height: 200px; width: 200px; margin: 20px"] []
+                               |> To_dom.of_element) in
+  let slider  = new Slider.t ~markers:true ~max:24.0 () in
+  let _       = React.S.map (fun v -> Elevation.set_elevation d @@ int_of_float v) slider#s_input in
+  let section = demo_section "Elevation" [ d#widget; slider#widget ] in
+  let _       = React.S.map (fun x -> if x then slider#layout) section#s_expanded in
+  section
 
 let drawer_demo () =
   Drawer.Temporary.create ~content:[Drawer.Temporary.Toolbar_spacer.create ~content:[Html.pcdata "Demo"]
@@ -612,6 +633,45 @@ let time_chart_demo () =
   demo_section "Chart (timeline)" [w]
 
 let dynamic_grid_demo () =
+  let widget () = (
+      let range = 20 in
+      Random.init (Unix.time () |> int_of_float);
+      let open Chartjs.Line in
+      let data = [ { data = []; label = "Dataset 1" }
+                 ; { data = []; label = "Dataset 2" }
+                 ] in
+      let config = new Config.t
+                       ~x_axis:(Time ("my-x-axis",Bottom,Unix,Some 20000L))
+                       ~y_axis:(Linear ("my-y-axis",Left,Int,None))
+                       ~data
+                       () in
+      config#options#set_maintain_aspect_ratio false;
+      config#options#hover#set_mode Index;
+      config#options#hover#set_intersect true;
+      config#options#tooltip#set_mode Index;
+      config#options#tooltip#set_intersect false;
+      config#options#x_axis#scale_label#set_label_string "x axis";
+      config#options#x_axis#scale_label#set_display true;
+      config#options#x_axis#time#set_min_unit Second;
+      config#options#elements#line#set_border_width 3;
+      List.iter (fun x -> if x#get_label = "Dataset 1"
+                          then x#set_background_color @@ Color.rgb_of_name (Color.Indigo C500)
+                          else x#set_background_color @@ Color.rgb_of_name (Color.Amber C500);
+                          if x#get_label = "Dataset 1"
+                          then x#set_border_color @@ Color.rgb_of_name (Color.Indigo C500)
+                          else x#set_border_color @@ Color.rgb_of_name (Color.Amber C500);
+                          x#set_cubic_interpolation_mode Monotone;
+                          x#set_fill Disabled) config#datasets;
+      let chart = new Chartjs.Line.t ~config () in
+      let e_update,e_update_push = React.E.create () in
+      React.E.map (fun () -> List.iter (fun ds -> ds#push { x = Unix.time () *. 1000. |> Int64.of_float
+                                                          ; y = Random.int range }) chart#config#datasets;
+                             chart#update None)
+                  e_update |> ignore;
+      Dom_html.window##setInterval (Js.wrap_callback (fun () -> e_update_push () |> ignore)) 1000. |> ignore;
+      let _ = chart#style##.backgroundColor := Js.string "white" in
+      chart)
+  in
   let (props:Dynamic_grid.grid) =
     { rows             = Some 20
     ; cols             = 30
@@ -621,9 +681,13 @@ let dynamic_grid_demo () =
     ; vertical_compact = false
     ; items_margin     = None
     } in
-  let items    = [ Dynamic_grid.Item.to_item ~pos:{ x = 0; y = 0; w = 10; h = 10 } ~value:() ()
-                 ; Dynamic_grid.Item.to_item ~pos:{ x = 20; y = 0; w = 10; h = 20 } ~value:() ()
-                 ]
+  let items    =
+    [ Dynamic_grid.Item.to_item ~pos:{ x = 0; y = 0; w = 30; h = 10 }
+                                ~value:()
+                                ~widget:(widget ())#widget
+                                ()
+    (* ; Dynamic_grid.Item.to_item ~pos:{ x = 20; y = 0; w = 10; h = 20 } ~value:() () *)
+    ]
   in
   let x        = new Textfield.t ~label:"x position" ~input_type:(Widget.Integer None) () in
   let y        = new Textfield.t ~label:"y position" ~input_type:(Widget.Integer None) () in
@@ -637,6 +701,7 @@ let dynamic_grid_demo () =
                         Dom_html.stopPropagation e;
                         grid#add_free ?width:(React.S.value w#s_input)
                                       ?height:(React.S.value h#s_input)
+                                      ~widget:(widget ())#widget
                                       ~value:()
                                       ()
                         >>= (function
@@ -655,7 +720,10 @@ let dynamic_grid_demo () =
   React.E.map (fun _ -> match React.S.value x#s_input,React.S.value y#s_input,
                               React.S.value w#s_input,React.S.value h#s_input with
                         | Some x, Some y, Some w, Some h ->
-                           grid#add (Dynamic_grid.Item.to_item ~pos:{ x;y;w;h } ~value:() ())
+                           grid#add (Dynamic_grid.Item.to_item ~pos:{ x;y;w;h }
+                                                               ~value:()
+                                                               ~widget:(widget ())#widget
+                                                               ())
                            |> (function
                                | Ok _    -> print_endline "ok"
                                | Error _ -> ())
@@ -741,6 +809,7 @@ let onload _ =
                           ; menu_demo ()
                           ; snackbar_demo ()
                           ; linear_progress_demo ()
+                          ; circular_progress_demo ()
                           ; tabs_demo ()
                           ] in
   (* Dom.appendChild body toolbar;

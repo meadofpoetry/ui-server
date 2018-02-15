@@ -1,3 +1,9 @@
+(*
+ * TODO
+ * add keyboard focus + styling
+ * add enable/disable + styling
+ *)
+
 module Primary = struct
 
   class t ~(title           : string)

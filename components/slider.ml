@@ -28,25 +28,11 @@ let events =
   ; change = Dom_events.Typ.make "MDCSlider:change"
   }
 
-type conf =
-  { step  : float
-  ; min   : float
-  ; max   : float
-  ; value : float option
-  }
+class t ?discrete ?markers ?step ?(min=0.0) ?(max=100.0) ?value  () =
 
-class t ?discrete ?markers ?(config={step = 1.0; min = 0.0; max = 100.0; value = None }) () =
-
-  let elt = Markup.Slider.create ?discrete
-                                 ?markers
-                                 ~min:config.min
-                                 ~max:config.max
-                                 ~step:config.step
-                                 ?value:config.value
-                                 ()
-            |> Tyxml_js.To_dom.of_div in
-  let s_input,s_input_push = React.S.create @@ CCOpt.get_or ~default:config.min config.value in
-  let s_value,s_value_push = React.S.create @@ CCOpt.get_or ~default:config.min config.value in
+  let elt = Markup.Slider.create ?discrete ?markers ?value ?step ~min ~max () |> Tyxml_js.To_dom.of_div in
+  let s_input,s_input_push = React.S.create @@ CCOpt.get_or ~default:min value in
+  let s_value,s_value_push = React.S.create @@ CCOpt.get_or ~default:min value in
   let mdc : mdc Js.t = elt |> (fun x -> Js.Unsafe.global##.mdc##.slider##.MDCSlider##attachTo x) in
 
   object(self)
