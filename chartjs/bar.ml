@@ -1,3 +1,4 @@
+open Containers
 open Base
 
 type axis_value_js
@@ -32,13 +33,13 @@ let axis_value_of_js (type a b) (t:(a,b) Axes.Cartesian.axis) : (axis_value_js J
   match t with
   | Linear (_,_,Int,_)        -> Js.Unsafe.coerce %> Js.float_of_number %> int_of_float
   | Linear (_,_,Int32,_)      -> Js.Unsafe.coerce %> Js.float_of_number %> Int32.of_float
-  | Linear (_,_,Int64,_)      -> Js.Unsafe.coerce %> Js.float_of_number %> Int64.of_float
+  | Linear (_,_,Int64,_)      -> Js.Unsafe.coerce %> Js.float_of_number %> Int64.of_float_exn
   | Linear (_,_,Float,_)      -> Js.Unsafe.coerce %> Js.float_of_number
   | Logarithmic (_,_,Int,_)   -> Js.Unsafe.coerce %> Js.float_of_number %> int_of_float
   | Logarithmic (_,_,Int32,_) -> Js.Unsafe.coerce %> Js.float_of_number %> Int32.of_float
-  | Logarithmic (_,_,Int64,_) -> Js.Unsafe.coerce %> Js.float_of_number %> Int64.of_float
+  | Logarithmic (_,_,Int64,_) -> Js.Unsafe.coerce %> Js.float_of_number %> Int64.of_float_exn
   | Logarithmic (_,_,Float,_) -> Js.Unsafe.coerce %> Js.float_of_number
-  | Time (_,_,Unix,_)         -> Js.Unsafe.coerce %> Js.float_of_number %> Int64.of_float
+  | Time (_,_,Unix,_)         -> Js.Unsafe.coerce %> Js.float_of_number %> Int64.of_float_exn
   | Category _                -> Js.Unsafe.coerce %> Js.to_string
 
 module Dataset = struct
@@ -83,11 +84,11 @@ module Dataset = struct
     }
 
   let set_point_setting (type a b)
-                        (set_val : 'd or_array Js.t -> unit)
-                        (set_fun : (int -> ('a,'b) point -> a) -> unit)
-                        (to_js : a -> b Js.t)
-                        (data:('a,'b) point list)
-                        (s : ('a,'b,a) point_setting) =
+        (set_val : 'd or_array Js.t -> unit)
+        (set_fun : (int -> ('a,'b) point -> a) -> unit)
+        (to_js : a -> b Js.t)
+        (data:('a,'b) point list)
+        (s : ('a,'b,a) point_setting) =
     match s with
     | `Val c -> set_val @@ Js.Unsafe.coerce @@ to_js c
     | `Lst l -> set_val @@ Js.Unsafe.coerce @@ Js.array @@ Array.of_list @@ List.map to_js l
@@ -95,26 +96,26 @@ module Dataset = struct
                 set_val @@ Js.Unsafe.coerce @@ Js.array @@ Array.of_list
                 @@ List.mapi (fun i x -> to_js @@ f i x) data
   let get_point_setting (type a b)
-                        (v:'d or_array Js.t Js.optdef)
-                        (f:(int -> ('a,'b) point -> a) option)
-                        (of_js :b Js.t -> a)
-                        (cast:'e -> a option) =
+        (v:'d or_array Js.t Js.optdef)
+        (f:(int -> ('a,'b) point -> a) option)
+        (of_js :b Js.t -> a)
+        (cast:'e -> a option) =
     match f with
     | Some f -> Some (`Fun f)
-    | None   -> CCOpt.map (fun x -> (match Cast.to_list ~f:of_js x with
-                                     | Some l -> `Lst l
-                                     | None   -> (match cast x with
-                                                  | Some c -> `Val c
-                                                  | None   -> failwith "Bad point setting value")))
+    | None   -> Option.map (fun x -> (match Cast.to_list ~f:of_js x with
+                                      | Some l -> `Lst l
+                                      | None   -> (match cast x with
+                                                   | Some c -> `Val c
+                                                   | None   -> failwith "Bad point setting value")))
                 @@ Js.Optdef.to_option v
 
   class ['a,'b] t
-                ~(data:('a,'b) dataset)
-                ~(x_axis:('a,_) Axes.Cartesian.axis)
-                ~(y_axis:('b,_) Axes.Cartesian.axis)
-                ~(s_max_x:'a option React.signal)
-                ~(s_max_x_push:'a option -> unit)
-                () = object(self)
+          ~(data:('a,'b) dataset)
+          ~(x_axis:('a,_) Axes.Cartesian.axis)
+          ~(y_axis:('b,_) Axes.Cartesian.axis)
+          ~(s_max_x:'a option React.signal)
+          ~(s_max_x_push:'a option -> unit)
+          () = object(self)
 
     inherit [t_js] base_option ()
 
@@ -136,12 +137,12 @@ module Dataset = struct
       }
 
     method private has_functional_point_props =
-      CCOpt.is_some f_point_props.bg_clr
-      || CCOpt.is_some f_point_props.border_clr
-      || CCOpt.is_some f_point_props.border_width
-      || CCOpt.is_some f_point_props.hover_bg_clr
-      || CCOpt.is_some f_point_props.hover_border_clr
-      || CCOpt.is_some f_point_props.hover_border_width
+      Option.is_some f_point_props.bg_clr
+      || Option.is_some f_point_props.border_clr
+      || Option.is_some f_point_props.border_width
+      || Option.is_some f_point_props.hover_bg_clr
+      || Option.is_some f_point_props.hover_border_clr
+      || Option.is_some f_point_props.hover_border_width
 
     method private point_to_js (p:('a,'b) point) : point_js Js.t =
       object%js
@@ -163,20 +164,20 @@ module Dataset = struct
                                     Js.Unsafe.set obj v a;
                                     a)
                in
-               CCList.iter (fun x -> let p = to_js @@ f_prop a##.length x in
-                                     match m with
-                                     | `Tail -> a##push p    |> ignore
-                                     | `Head -> a##unshift p |> ignore) d
+               List.iter (fun x -> let p = to_js @@ f_prop a##.length x in
+                                   match m with
+                                   | `Tail -> a##push p    |> ignore
+                                   | `Head -> a##unshift p |> ignore) d
             | `Remove (n,m) ->
                (match Cast.to_js_array @@ Js.Unsafe.get obj v with
-                | Some x -> CCList.iter (fun _ -> match m with
-                                                  | `Head -> x##shift |> ignore
-                                                  | `Tail -> x##pop   |> ignore) (CCList.range 0 (n-1))
+                | Some x -> List.iter (fun _ -> match m with
+                                                | `Head -> x##shift |> ignore
+                                                | `Tail -> x##pop   |> ignore) (List.range 0 (n-1))
                 | None   -> Js.Unsafe.delete obj v)
             | `Replace d ->
                let a = Js.array [||] in
                Js.Unsafe.set obj v a;
-               CCList.iter (fun x -> a##push (to_js @@ f_prop a##.length x) |> ignore) d)
+               List.iter (fun x -> a##push (to_js @@ f_prop a##.length x) |> ignore) d)
         | None -> ()
       in
       apply "backgroundColor"      CSS.Color.js f_point_props.bg_clr;
@@ -206,7 +207,7 @@ module Dataset = struct
       in aux x [] data
 
     method private shift max_x =
-      CCOpt.map2 (fun d max ->
+      Option.map2 (fun d max ->
           let rec iter = (fun () ->
               (match Js.Optdef.to_option @@ Js.array_get obj##.data 0 with
                | Some js_p -> let p = self#point_of_js js_p in
@@ -229,7 +230,7 @@ module Dataset = struct
       self#ps_replace data;
       self#update_max
     method set_data (data:('a,'b) point list) =
-      let data = CCList.sort_uniq ~cmp:(fun p1 p2 -> cmp p1.x p2.x) data in
+      let data = List.sort_uniq ~cmp:(fun p1 p2 -> cmp p1.x p2.x) data in
       obj##.data := Js.array @@ Array.of_list @@ List.map (fun x -> self#point_to_js x) data;
       self#ps_replace data;
       self#update_max
@@ -250,8 +251,8 @@ module Dataset = struct
       | []  -> ()
       | [x] -> self#push x
       | l   -> let cmp_x = (fun p1 p2 -> cmp p1.x p2.x) in
-               let l     = CCList.sort cmp_x l in
-               let data  = CCList.sorted_merge_uniq ~cmp:cmp_x l self#get_data in
+               let l     = List.sort cmp_x l in
+               let data  = List.sorted_merge_uniq ~cmp:cmp_x l self#get_data in
                self#set_data_no_sort data
 
     (* Config setters/getters *)
@@ -262,55 +263,55 @@ module Dataset = struct
     method set_stack = function
       | Some x -> obj##.stack := Js.string x
       | None   -> Js.Unsafe.delete obj "stack"
-    method get_stack   = CCOpt.map Js.to_string @@ Js.Optdef.to_option obj##.stack
+    method get_stack   = Option.map Js.to_string @@ Js.Optdef.to_option obj##.stack
 
     method set_background_color (x : ('a,'b,CSS.Color.t) point_setting) =
       set_point_setting (fun x -> obj##.backgroundColor := x)
-                        (fun f -> f_point_props <- { f_point_props with bg_clr = Some f})
-                        (fun c -> Js.string @@ CSS.Color.string_of_t c) self#get_data x
+        (fun f -> f_point_props <- { f_point_props with bg_clr = Some f})
+        (fun c -> Js.string @@ CSS.Color.string_of_t c) self#get_data x
     method get_background_color : (('a,'b,CSS.Color.t) point_setting) option =
       get_point_setting obj##.backgroundColor f_point_props.bg_clr
-                        (CSS.Color.js_t_of_js_string %> CSS.Color.ml) Cast.to_color
+        (CSS.Color.js_t_of_js_string %> CSS.Color.ml) Cast.to_color
 
     method set_border_color (x : ('a,'b,CSS.Color.t) point_setting) =
       set_point_setting (fun x -> obj##.borderColor := x)
-                        (fun f -> f_point_props <- { f_point_props with border_clr = Some f})
-                        (fun c -> Js.string @@ CSS.Color.string_of_t c) self#get_data x
+        (fun f -> f_point_props <- { f_point_props with border_clr = Some f})
+        (fun c -> Js.string @@ CSS.Color.string_of_t c) self#get_data x
     method get_border_color : (('a,'b,CSS.Color.t) point_setting) option =
       get_point_setting obj##.borderColor f_point_props.border_clr
-                        (CSS.Color.js_t_of_js_string %> CSS.Color.ml) Cast.to_color
+        (CSS.Color.js_t_of_js_string %> CSS.Color.ml) Cast.to_color
 
     method set_border_width (x : ('a,'b,int) point_setting) =
       set_point_setting (fun x -> obj##.borderWidth := x)
-                        (fun f -> f_point_props <- { f_point_props with border_width = Some f})
-                        (fun x -> Js.number_of_float @@ float_of_int x) self#get_data x
+        (fun f -> f_point_props <- { f_point_props with border_width = Some f})
+        (fun x -> Js.number_of_float @@ float_of_int x) self#get_data x
     method get_border_width : (('a,'b,int) point_setting) option =
       get_point_setting obj##.borderWidth f_point_props.border_width
-                        (Js.float_of_number %> int_of_float) Cast.to_int
+        (Js.float_of_number %> int_of_float) Cast.to_int
 
     method set_hover_background_color (x : ('a,'b,CSS.Color.t) point_setting) =
       set_point_setting (fun x -> obj##.hoverBackgroundColor := x)
-                        (fun f -> f_point_props <- { f_point_props with hover_bg_clr = Some f})
-                        (fun c -> Js.string @@ CSS.Color.string_of_t c) self#get_data x
+        (fun f -> f_point_props <- { f_point_props with hover_bg_clr = Some f})
+        (fun c -> Js.string @@ CSS.Color.string_of_t c) self#get_data x
     method get_hover_background_color : (('a,'b,CSS.Color.t) point_setting) option =
       get_point_setting obj##.hoverBackgroundColor f_point_props.hover_bg_clr
-                        (CSS.Color.js_t_of_js_string %> CSS.Color.ml) Cast.to_color
+        (CSS.Color.js_t_of_js_string %> CSS.Color.ml) Cast.to_color
 
     method set_hover_border_color (x : ('a,'b,CSS.Color.t) point_setting) =
       set_point_setting (fun x -> obj##.hoverBorderColor := x)
-                        (fun f -> f_point_props <- { f_point_props with hover_border_clr = Some f})
-                        (fun c -> Js.string @@ CSS.Color.string_of_t c) self#get_data x
+        (fun f -> f_point_props <- { f_point_props with hover_border_clr = Some f})
+        (fun c -> Js.string @@ CSS.Color.string_of_t c) self#get_data x
     method get_hover_border_color : (('a,'b,CSS.Color.t) point_setting) option =
       get_point_setting obj##.hoverBorderColor f_point_props.hover_border_clr
-                        (CSS.Color.js_t_of_js_string %> CSS.Color.ml) Cast.to_color
+        (CSS.Color.js_t_of_js_string %> CSS.Color.ml) Cast.to_color
 
     method set_hover_border_width (x : ('a,'b,int) point_setting) =
       set_point_setting (fun x -> obj##.hoverBorderWidth := x)
-                        (fun f -> f_point_props <- { f_point_props with hover_border_width = Some f})
-                        (fun x -> Js.number_of_float @@ float_of_int x) self#get_data x
+        (fun f -> f_point_props <- { f_point_props with hover_border_width = Some f})
+        (fun x -> Js.number_of_float @@ float_of_int x) self#get_data x
     method get_point_border_width : (('a,'b,int) point_setting) option =
       get_point_setting obj##.hoverBorderWidth f_point_props.hover_border_width
-                        (Js.float_of_number %> int_of_float) Cast.to_int
+        (Js.float_of_number %> int_of_float) Cast.to_int
 
     initializer
       self#set_label data.label;
@@ -362,8 +363,8 @@ module Config = struct
     let get_max = Axes.Cartesian.get_axis_max x_axis in
     let get_min = Axes.Cartesian.get_axis_new_min x_axis in
     let delta   = Axes.Cartesian.get_axis_delta x_axis in
-    let max_x   = CCList.map (fun x -> get_max @@ CCList.map (fun x -> x.x) x.data) data
-                  |> CCList.filter_map (fun x -> x) |> get_max in
+    let max_x   = List.map (fun x -> get_max @@ List.map (fun x -> x.x) x.data) data
+                  |> List.filter_map (fun x -> x) |> get_max in
     let set_min_max = Axes.Cartesian.set_axis_min_max x_axis in
     let s_max_x,s_max_x_push = React.S.create max_x in
 
@@ -383,15 +384,15 @@ module Config = struct
                                   | Some max, Some d -> let min = get_min max d in
                                                         set_min_max options#x_axis min max
                                   | _ -> ())
-                    s_max_x |> ignore
+          s_max_x |> ignore
     end
 
 end
 
 class ['a,'b,'c,'d] t ~(config:('a,'b,'c,'d) Config.t) () = object
   inherit [('a,'b,'c,'d) Config.options,Config.options_js] Base_chart.t ~typ:Bar
-                                                           ~options:config#options
-                                                           ~data:(Js.Unsafe.inject config#data) ()
+            ~options:config#options
+            ~data:(Js.Unsafe.inject config#data) ()
 
   method config = config
 end

@@ -4,7 +4,8 @@ open Js_of_ocaml
 open Gg
 open Vg
 open Common.Topology
-
+open Containers
+   
 (*All positioning constants in GG and VG mean: *)
 (*X from left to right and Y from bottom to top*)
 (*    0.0,1.0 __________________  1.0,1.0      *)
@@ -33,11 +34,11 @@ let board_to_string (tp:typ) =
 
 let floor_to_five x =
   let fx = floor x +. 0.5 in
-  if (x > fx) then fx else floor x
+  if Float.(x > fx) then fx else floor x
 
 let ceil_to_five x =
   let cx = ceil x -. 0.5 in
-  if (x < cx) then cx else ceil x
+  if Float.(x < cx) then cx else ceil x
 
 let find_max l =
   let rec f = (fun max l ->
@@ -74,18 +75,18 @@ let get_list_depth l =
 let rec setting t x y y1 height l =
   match t with
     | Board el ->
-      let l = CCList.Assoc.set (x , y) (Board el) l in
-      let l = CCList.Assoc.set (x +. 0.5, y) (Board el) l in
+      let l = List.Assoc.set ~eq:(Pair.equal Float.equal Float.equal) (x , y) (Board el) l in
+      let l = List.Assoc.set ~eq:(Pair.equal Float.equal Float.equal) (x +. 0.5, y) (Board el) l in
       let l =
-        if (y +. 0.5) < y1 +. height
+        if Float.((y +. 0.5) < y1 +. height)
         then setting t x (y +. 0.5) y1 height l
         else l
       in
       l
     | Input el ->
-      let l = CCList.Assoc.set (x,y) (Input el) l in
+      let l = List.Assoc.set ~eq:(Pair.equal Float.equal Float.equal) (x,y) (Input el) l in
       let l =
-        if (y +. 0.5) < y1 +. height
+        if Float.((y +. 0.5) < y1 +. height)
         then setting t x (y +. 0.5) y1 height l
         else l
       in
@@ -230,16 +231,16 @@ module Port = struct
 
   (* draws a line between elements of given x and y. usually x1,y1 is a child and x2,y2 is a parent *)
   let draw_line acc colour x1 y_1 x2 y2 cols rows sz =                 (*draws a connecting line between elements*)
-    let x1      = (if x1 == 1. then 0.5 else x1) in                    (*for proper drowing of line to input*)
+    let x1      = (if Float.equal x1 1. then 0.5 else x1) in                    (*for proper drowing of line to input*)
     let y1      = y_1 +. 0.5 in                                        (*a line should be a half higher*)
     let area    = `O { P.o with P.width = 0.3 /. sz } in
-    (if y1 = y2                                                        (*if the level is equal*)
+    (if Float.equal y1 y2                                                        (*if the level is equal*)
      then draw_straight x1 y1 x2 y2 cols rows                          (*draw straight line*)
-     else if (x2 -. x1) >= 2.0                                         (*if the line is long*)
-     then (if y2 > y1                                                  (*if parent is higher*)
+     else if Float.((x2 -. x1) >= 2.0)                                      (*if the line is long*)
+     then (if Float.(y2 > y1)                                                  (*if parent is higher*)
            then draw_long_if_parent_higher x1 y1 x2 y2 cols rows
            else draw_long_if_child_higher x1 y1 x2 y2 cols rows)       (*if child is higher*)
-     else if y2 > y1                                                   (*if the line is short*)
+     else if Float.(y2 > y1)                                                  (*if the line is short*)
      then draw_short_if_parent_higher x1 y1 x2 y2 cols rows            (*if parent is higher*)
      else draw_short_if_child_higher x1 y1 x2 y2 cols rows)            (*if child is higher*)
     |> (fun p -> let img = colour >> I.cut ~area p in                  (*cut the image of line with path p*)
@@ -252,9 +253,9 @@ module Board = struct
   let rec draw t (acc, acc_top) x y cols rows sz =
     let num        = List.length t.ports in
     (* the more children converter has the bigger it is *)
-    let height     = if t.typ = TS2IP then (float_of_int num *. 2.) else 1. in
+    let height     = if Equal.poly t.typ TS2IP then (float_of_int num *. 2.) else 1. in
     (*then we must place converter in a right place due to its height*)
-    let y          = if t.typ = TS2IP then y -. 0.5 else y in
+    let y          = if Equal.poly t.typ TS2IP then y -. 0.5 else y in
     (*set the name of a board to list*)
     let acc_top    = setting (Board t) x y y height acc_top in
     let area       = `O {P.o with P.width = 0.2 /. sz} in
@@ -305,7 +306,7 @@ module Board = struct
     match t.ports with
     | [] -> (img1,acc_top)                                               (*if ports list is empty*)
     | l  ->
-       CCList.foldi (fun (acc,acc_top) i z ->
+       List.foldi (fun (acc,acc_top) i z ->
            let colour1 = if z.listening then green else gray in          (*a color of line due to state "listening"*)
            match t.typ with                                              (*so if board type is*)
            | TS2IP ->
@@ -379,14 +380,20 @@ let render ?on_click ~topology ~(width : int) ~canvas () =
                 int_of_float @@ Js.float_of_number @@ (Js.Unsafe.get e "offsetY") in
     let x1,y1 = floor_to_five @@ (float_of_int x /. float_of_int cw),
                 (float_of_int rows) -. (ceil_to_five @@ (float_of_int y /. float_of_int rh)) in
-    (match CCList.Assoc.get (x1,y1) acc_top with
+    (match List.Assoc.get ~eq:(Pervasives.(=)) (x1,y1) acc_top with
      | None       -> None
      | Some entry ->
         match entry with
         | Input _ ->
            let real_y = float_of_int rows -. float_of_int y /. float_of_int rh in
-           if ((CCList.Assoc.get (x1, y1 +. 0.5) acc_top = Some entry) && (real_y < y1 +. 0.25)
-               || (CCList.Assoc.get (x1, y1 -. 0.5) acc_top = Some entry) && (real_y > y1 +. 0.25))
+           if ((Equal.poly
+                  (List.Assoc.get ~eq:(Pair.equal Float.equal Float.equal) (x1, y1 +. 0.5) acc_top)
+                  (Some entry))
+               && Float.(real_y < y1 +. 0.25)
+               || ( Equal.poly
+                      (List.Assoc.get ~eq:(Pair.equal Float.equal Float.equal) (x1, y1 -. 0.5) acc_top)
+                      (Some entry))
+                  && Float.(real_y > y1 +. 0.25))
            then None
            else Some entry;
         | Board _ -> Some entry) in
@@ -413,7 +420,7 @@ let render ?on_click ~topology ~(width : int) ~canvas () =
    *                   Dom_events.Typ.resize
    *                   (fun _ _ ->
    *                     let width =
-   *                       |> Js.Opt.to_option |> CCOpt.get_exn
+   *                       |> Js.Opt.to_option |> Option.get_exn
    *                                 |> Js.Unsafe.coerce
    *                                 |> (fun x -> x##.offsetWidth) in
    *                     let depth = get_list_depth t * 2 - 1 in

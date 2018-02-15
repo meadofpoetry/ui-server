@@ -1,7 +1,11 @@
+open Containers
 open Common.Topology
 open Api.Interaction
 open Meta_board
 
+(* TODO remove *)
+let (>) = Pervasives.(>)
+   
 module Api_handler = Api.Handler.Make (Common.User)
    
 open Lwt.Infix
@@ -37,8 +41,8 @@ let create (b:topo_board) _ convert_streams send db base step =
                     (fun (streams : Common.Stream.stream list)
                          ((id,m) : Board_types.measure_response) ->
                       let open Common.Stream in
-                      let plp = CCList.find_map (fun (x,c) -> if id = x then Some c else None) storage#get
-                                |> CCOpt.get_exn
+                      let plp = List.find_map (fun (x,c) -> if id = x then Some c else None) storage#get
+                                |> Option.get_exn
                                 |> (fun x -> match x. mode with
                                              | T2 -> x.t2.plp
                                              | _  -> 0)
@@ -48,8 +52,8 @@ let create (b:topo_board) _ convert_streams send db base step =
                                               ; description = Some ""
                                               } in
                       match m.lock,m.bitrate with
-                      | true,Some x when x > 0l -> CCList.add_nodup stream streams
-                      | _                       -> CCList.remove ~x:stream streams)
+                      | true,Some x when Int32.(x > 0l) -> List.add_nodup ~eq:(Common.Stream.equal_stream) stream streams
+                      | _                       -> List.remove ~eq:(Common.Stream.equal_stream) ~x:stream streams)
                     [] events.measure in
   (*  let sms = convert_streams s_streams b in
   let _e = React.E.map (fun s ->

@@ -1,8 +1,7 @@
+open Containers
 open Storage.Database
 open Lwt.Infix
-   
-let ( % ) = CCFun.(%)
-   
+      
 type _ req =
   | Store_structures : Structure.t list -> unit Lwt.t req
 

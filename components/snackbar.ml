@@ -1,3 +1,5 @@
+open Containers
+
 type action =
   { handler : unit -> unit
   ; text    : string
@@ -25,8 +27,8 @@ let data_to_js_obj x : data_obj Js.t =
   object%js
     val message        = Js.string x.message
     val timeout        = Js.Optdef.option x.timeout
-    val actionHandler  = CCOpt.map (fun x -> x.handler) x.action |> Js.Optdef.option
-    val actionText     = CCOpt.map (fun x -> Js.string x.text) x.action |> Js.Optdef.option
+    val actionHandler  = Option.map (fun x -> x.handler) x.action |> Js.Optdef.option
+    val actionText     = Option.map (fun x -> Js.string x.text) x.action |> Js.Optdef.option
     val multiline      = Js.bool x.multiline
     val actionOnBottom = Js.bool x.action_on_bottom
   end

@@ -1,12 +1,16 @@
+open Containers
 open Common.Topology
 open Storage.Options
 open Lwt.Infix
 
+(* TODO remove *)
+let (=) = Pervasives.(=)
+   
 module Api_handler = Api.Handler.Make(Common.User)
 
 type 'a cc = [`Continue of 'a]
 
-module Ports = CCMap.Make(CCInt)
+module Ports = Map.Make(Int)
 
 exception Invalid_port of string
 
@@ -46,31 +50,31 @@ module Msg = struct
                      ; point   : int
                      ; reqs    : ('a,'b) msg array
                      }
-    let create lst    = { timer = 0; point = 0; reqs = CCArray.of_list lst }
+    let create lst    = { timer = 0; point = 0; reqs = Array.of_list lst }
 
-    let append t msgs = { t with reqs = CCArray.append t.reqs msgs }
+    let append t msgs = { t with reqs = Array.append t.reqs msgs }
 
-    let empty t       = CCArray.length t.reqs = 0
+    let empty t       = Array.length t.reqs = 0
 
     let current t     = t.reqs.(t.point)
 
-    let responsed t   = CCList.find_map (current t).pred
+    let responsed t   = List.find_map (current t).pred
 
     let send t        = (current t).send
 
     let step t        =
       let tmr = succ t.timer in
       if tmr >= (current t).timeout
-      then raise_notrace @@ CCOpt.get_or ~default:Timeout (current t).exn
+      then raise_notrace @@ Option.get_or ~default:Timeout (current t).exn
       else { t with timer = tmr }
 
     let next t        = { t with point = ((succ t.point) mod (Array.length t.reqs)); timer = 0 }
 
-    let last t        = CCInt.equal t.point (CCArray.length t.reqs - 1)
+    let last t        = Int.equal t.point (Array.length t.reqs - 1)
 
-    let map t f       = CCArray.map f t.reqs
+    let map t f       = Array.map f t.reqs
 
-    let iter t f      = CCArray.iter f t.reqs
+    let iter t f      = Array.iter f t.reqs
   end
 
   module Queue = struct
@@ -83,14 +87,14 @@ module Msg = struct
 
     let empty t       = CCFQueue.size t.reqs = 0
 
-    let responsed t m = CCOpt.(CCFQueue.first t.reqs >>= fun head -> CCList.find_map head.pred m)
+    let responsed t m = Option.(CCFQueue.first t.reqs >>= fun head -> List.find_map head.pred m)
 
     let send t ()     = try (CCFQueue.first_exn t.reqs).send () with _ -> Lwt.return_unit
 
     let step t        = (match CCFQueue.first t.reqs with
                          | Some head -> let tmr = succ t.timer in
                                         if tmr >= head.timeout
-                                        then raise_notrace @@ CCOpt.get_or ~default:Timeout head.exn
+                                        then raise_notrace @@ Option.get_or ~default:Timeout head.exn
                                         else { t with timer = tmr }
                          | None      -> t)
 
@@ -111,13 +115,13 @@ module Msg = struct
 
     let empty t        = CCFQueue.size t.reqs = 0
 
-    let has_pending t  = not @@ CCList.is_empty t.pending
+    let has_pending t  = not @@ List.is_empty t.pending
 
     let responsed t m  =
-      let open CCOpt.Infix in
+      let open Option.Infix in
       let pending, responses =
-        CCList.partition_map (fun (timer, req) ->
-            CCList.find_map req.pred m
+        List.partition_map (fun (timer, req) ->
+            List.find_map req.pred m
             |> function
               (* No response -> retain request *)
               | None -> `Left (timer, req)
@@ -133,7 +137,7 @@ module Msg = struct
       with _ -> t, Lwt.return_unit
 
     let step t =
-      let tout, pending = CCList.partition_map
+      let tout, pending = List.partition_map
                             (fun (timer, msg) ->
                               if timer > msg.timeout
                               then `Left msg
@@ -141,9 +145,9 @@ module Msg = struct
                             t.pending
       in { t with pending }, tout
 
-    let iter t f = CCList.iter f t.pending
+    let iter t f = List.iter f t.pending
 
-    let map t f = { t with pending = CCList.map f t.pending }
+    let map t f = { t with pending = List.map f t.pending }
          
   end
 
@@ -155,7 +159,7 @@ let concat_acc acc recvd = match acc with
 
 let apply = function `Continue step -> step
 
-module Map  = CCMap.Make(CCInt)
+module Map  = Map.Make(Int)
 
 let get_streams (boards : board Map.t)
                 (topo : topo_board)
@@ -176,7 +180,7 @@ let merge_streams (boards : board Map.t)
     : Common.Stream.t list React.signal =
   let open React in
   let open Common.Stream in
-  let open CCOpt in
+  let open Option in
   let ports =
     List.fold_left (fun m port ->
         match port.child with
@@ -193,11 +197,11 @@ let merge_streams (boards : board Map.t)
   in
   (* let g = S.fmap (function None -> None | Some x -> Some (string_of_int x)) "" a;; *)
   let find_cor_stream (s : stream) lst = (* use S.fmap `None*)
-    let initial = S.map (CCList.find_pred (fun n -> n.id = s.id)) lst in
+    let initial = S.map (List.find_pred (fun n -> n.id = s.id)) lst in
     `Done (S.fmap (function None -> None | Some x -> Some (Some x)) None initial)
   in
   let compose_hier (s : stream) id sms =
-    CCList.find_pred (fun ((stream : stream), _) -> stream.id = `Ts id) sms
+    List.find_pred (fun ((stream : stream), _) -> stream.id = `Ts id) sms
     |> function None        -> `Await s
               | Some (_ ,v) ->
                  `Done (S.map (function
@@ -231,16 +235,16 @@ let merge_streams (boards : board Map.t)
         | `Done s  -> cleanup ((x,s)::acc) tl
         | `None    -> cleanup acc tl
         | `Error e -> failwith e
-        | `Await s -> try CCList.find (fun (p : stream) ->
+        | `Await s -> try List.find (fun (p : stream) ->
                               match s.source with
                               | Stream id -> (`Ts id) = p.id
                               | _ -> false)
                             tl |> ignore; (* parent exists TODO: check it more thoroughly *)
-                          cleanup acc (CCList.append tl [s])
+                          cleanup acc (List.append tl [s])
                       with _ -> cleanup acc tl)
   in
   raw_streams
-  |> S.map ~eq:(==) (lookup [] [])
-  |> S.map ~eq:(==) (List.map snd)
-  |> S.map ~eq:(==) (fun l -> S.merge ~eq:(==) (fun acc x -> match x with None -> acc | Some x -> x::acc) [] l)
-  |> S.switch ~eq:(==)
+  |> S.map ~eq:(Equal.physical) (lookup [] [])
+  |> S.map ~eq:(Equal.physical) (List.map snd)
+  |> S.map ~eq:(Equal.physical) (fun l -> S.merge ~eq:(Equal.physical) (fun acc x -> match x with None -> acc | Some x -> x::acc) [] l)
+  |> S.switch ~eq:(Equal.physical)

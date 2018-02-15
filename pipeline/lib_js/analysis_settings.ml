@@ -1,3 +1,4 @@
+open Containers
 open Components
 open Requests
 open Lwt_result.Infix
@@ -21,19 +22,19 @@ class t () =
         ~f:(fun _ _ ->
           let in_dom_new = (Js.Unsafe.coerce Dom_html.document)##contains self#root in
           if in_dom && (not in_dom_new)
-          then CCOpt.iter (fun x -> x##close; sock <- None) sock
+          then Option.iter (fun x -> x##close; sock <- None) sock
           else if (not in_dom) && in_dom_new
           then (Requests.get_settings ()
                 >>= (fun settings ->
                   let e_settings,settings_sock = Requests.get_settings_socket () in
                   let open Lwt.Infix in
                   let el = Ui.Settings.create ~init:settings ~events:e_settings
-                                              ~post:(fun s ->
-                                                Requests.post_settings s
-                                                >|= (function
-                                                     | Ok () -> ()
-                                                     | Error e -> print_endline @@ "error post settings" ^ e)
-                                                |> Lwt.ignore_result)
+                             ~post:(fun s ->
+                               Requests.post_settings s
+                               >|= (function
+                                    | Ok () -> ()
+                                    | Error e -> print_endline @@ "error post settings" ^ e)
+                               |> Lwt.ignore_result)
                   in
                   sock <- Some settings_sock;
                   Dom.appendChild self#root el;

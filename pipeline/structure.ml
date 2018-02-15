@@ -1,3 +1,5 @@
+let name = "structure"
+
 type video_pid =
   { codec        : string
   ; resolution   : (int * int)
@@ -16,7 +18,21 @@ type audio_pid =
 type pid_content = Video of video_pid
                  | Audio of audio_pid
                  | Empty
-                 [@@deriving yojson]
+let pid_content_to_yojson = function
+  | Empty   -> `String "Empty"
+  | Video v -> `Assoc [("Video", (video_pid_to_yojson v))]
+  | Audio a -> `Assoc [("Audio", (audio_pid_to_yojson a))]
+let pid_content_of_yojson = function
+  | `String "Empty" -> Ok(Empty)
+  | `Assoc [("Video", v)] ->
+     (match video_pid_of_yojson v with
+      | Ok v -> Ok(Video v)
+      | _    -> Error("failure in video_pid deserialize"))
+  | `Assoc [("Audio", a)] ->
+     (match audio_pid_of_yojson a with
+      | Ok a -> Ok(Audio a)
+      | _    -> Error("failure in audio_pid deserialize"))
+  | _ -> Error("failure in pid_content deserialize")
 
 type pid =
   { pid              : int
@@ -34,7 +50,7 @@ type channel =
   } [@@deriving yojson]
 
 type structure =
-  { id       : int32 [@key "stream"] (* TODO replace by id *)
+  { id       : int32 
   ; uri      : string
   ; channels : channel list
   } [@@deriving yojson]
@@ -52,3 +68,6 @@ type t = { source    : source
 type t_list = t list [@@deriving yojson]
 
 let default : t list = []
+
+let unwrap : t list -> structure list =
+  List.map (fun { source; structure } -> structure )

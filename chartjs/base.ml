@@ -1,6 +1,10 @@
 [@@@ocaml.warning "-60"]
+open Containers
 
-let (%>) = CCFun.(%>)
+(* TODO remove *)
+let (=) = Pervasives.(=)
+   
+let (%>) = Fun.(%>)
 
 module Cast = struct
 
@@ -25,7 +29,7 @@ module Cast = struct
     else None
 
   let to_string x : string option =
-    CCOpt.map Js.to_string @@ to_js_string x
+    Option.map Js.to_string @@ to_js_string x
 
   let to_list ~(f:'a -> 'c) (x:'b Js.t) : 'c list option =
     let array_constr : 'a Js.js_array Js.t Js.constr = Js.Unsafe.global##._Array in
@@ -41,7 +45,7 @@ module Cast = struct
     else None
 
   let to_color x : CSS.Color.t option =
-    CCOpt.map (fun x -> CSS.Color.ml @@ CSS.Color.js_t_of_js_string x) @@ to_js_string x
+    Option.map (fun x -> CSS.Color.ml @@ CSS.Color.js_t_of_js_string x) @@ to_js_string x
 
   let to_object x =
     if Js.typeof x = (Js.string "object")
@@ -75,11 +79,11 @@ module Obj = struct
 
   type 'a opt_field = string * 'a
 
-  let map_cons_option ~f name opt l = CCOpt.map_or ~default:l (fun x -> (name, Js.Unsafe.inject @@ f x) :: l) opt
-  let cons_option name opt l        = CCOpt.map_or ~default:l (fun x -> (name, Js.Unsafe.inject x) :: l) opt
+  let map_cons_option ~f name opt l = Option.map_or ~default:l (fun x -> (name, Js.Unsafe.inject @@ f x) :: l) opt
+  let cons_option name opt l        = Option.map_or ~default:l (fun x -> (name, Js.Unsafe.inject x) :: l) opt
 
-  let append_option opt l = CCOpt.map_or ~default:l (fun x -> x @ l) opt
-  let map_append_option ~f opt l = CCOpt.map_or ~default:l (fun x -> (f x) @ l) opt
+  let append_option opt l = Option.map_or ~default:l (fun x -> x @ l) opt
+  let map_append_option ~f opt l = Option.map_or ~default:l (fun x -> (f x) @ l) opt
 
 end
 
@@ -138,14 +142,14 @@ let easing_of_string_exn x =
                         | x when x = out_s    -> Ease_out (animation_type_of_string_exn rest)
                         | x when x = in_out_s -> Ease_in_out (animation_type_of_string_exn rest)
                         | _ -> failwith "Bad easing prefix value") in
-    match CCString.chop_prefix ~pre s with
+    match String.chop_prefix ~pre s with
     | Some rest -> get_typ rest
     | None      -> failwith "Bad easing prefix value" in
   match x with
   | "linear" -> Linear
-  | s when CCString.prefix ~pre:in_s s     -> f in_s s
-  | s when CCString.prefix ~pre:out_s s    -> f out_s s
-  | s when CCString.prefix ~pre:in_out_s s -> f in_out_s s
+  | s when String.prefix ~pre:in_s s     -> f in_s s
+  | s when String.prefix ~pre:out_s s    -> f out_s s
+  | s when String.prefix ~pre:in_out_s s -> f in_out_s s
   | _ -> failwith "Bad easing string"
 
 type typ = Line

@@ -1,3 +1,4 @@
+open Containers
 open Board_types
 open Lwt.Infix
 open Storage.Options
@@ -43,10 +44,10 @@ module SM = struct
 
     let wakeup_timeout (_,t) = t.pred `Timeout |> ignore in
     let events_push _ = function
-      | `Status (brd,General x) -> let sms  = CCList.map (fun x -> x.base) storage#get.streams in
-                                   let pkrs = CCList.take (CCList.length sms) x in
+      | `Status (brd,General x) -> let sms  = List.map (fun x -> x.base) storage#get.streams in
+                                   let pkrs = List.take (List.length sms) x in
                                    let status = { board_status   = brd
-                                                ; packers_status = CCList.map2 CCPair.make sms pkrs
+                                                ; packers_status = List.map2 Pair.make sms pkrs
                                                 }
                                    in
                                    push_events.status status
@@ -63,7 +64,7 @@ module SM = struct
 
     and step_detect p acc recvd =
       let _,rsps,acc = deserialize (Meta_board.concat_acc acc recvd) in
-      match CCList.find_map (is_response Get_board_info) rsps with
+      match List.find_map (is_response Get_board_info) rsps with
       | Some r -> push_state `Init;
                   push_info @@ Some r;
                   let config = storage#get in
@@ -75,7 +76,7 @@ module SM = struct
 
     and step_normal_idle info p acc recvd =
       let events,rsps,acc = deserialize (Meta_board.concat_acc acc recvd) in
-      if CCOpt.is_none @@ CCList.find_map (is_response Get_board_info) rsps
+      if Option.is_none @@ List.find_map (is_response Get_board_info) rsps
       then (Queue.send !imsgs () |> ignore;
             imsgs := Queue.next !imsgs;
             match events with
@@ -89,11 +90,11 @@ module SM = struct
     in first_step ()
 
   let stream_settings_to_packer_settings s_info convert (streams:stream_setting list) =
-    match CCOpt.(React.S.value s_info >>= (fun x -> x.packers_num)) with
+    match Option.(React.S.value s_info >>= (fun x -> x.packers_num)) with
     | None   -> Error "Undetermined number of available packers"
     | Some n ->
-       let streams = CCList.filter (fun (s:'a) -> match s.stream.id with `Ts _ -> true | _ -> false) streams in
-       let len = CCList.length streams in
+       let streams = List.filter (fun (s:'a) -> match s.stream.id with `Ts _ -> true | _ -> false) streams in
+       let len = List.length streams in
        if len > n
        then Error (Printf.sprintf "Can't set so many packers. Available: %d, got: %d" n len)
        else

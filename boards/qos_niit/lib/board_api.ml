@@ -1,3 +1,4 @@
+open Containers
 open Lwt.Infix
 open Api.Interaction
 open Board_protocol
@@ -9,7 +10,7 @@ open Frame
 
 module Api_handler = Api.Handler.Make(Common.User)
 
-let ( % ) = CCFun.(%)
+let ( % ) = Fun.(%)
 
 (* TODO reason about random key *)
 let () = Random.init (int_of_float @@ Unix.time ())
@@ -41,7 +42,7 @@ let config api () =
   respond_js (config_to_yojson conf) ()
 
 let get_t2mi_seq api seconds () =
-  match CCInt.of_string seconds with
+  match Int.of_string seconds with
   | None   -> respond_error "seconds parameter must be an integer" ()
   | Some x -> api.get_t2mi_seq x >>= fun rsp ->
               respond_js (t2mi_seq_response_to_yojson rsp) ()

@@ -1,6 +1,6 @@
+open Containers
 open Common.Topology
 open Meta_board
-open Containers
 
 module Settings = struct
 
@@ -13,7 +13,7 @@ module Settings = struct
 end
 
 module Conf = Storage.Config.Make(Settings)
-module Map  = CCMap.Make(CCInt)
+module Map  = CCMap.Make(Int)
 
 type t = { boards        : Meta_board.board Map.t
          ; usb           : Usb_device.t
@@ -68,7 +68,7 @@ let topo_to_signal topo boards =
   |> React.S.merge (fun acc h -> h::acc) []
 
 let input_sources topology boards : Common.Stream.source list React.signal =
-  let open CCOpt.Infix in
+  let open Option.Infix in
   let open React in
   let check_stream (s : Common.Stream.t) : Common.Stream.source option =
     match s.id with
@@ -83,7 +83,7 @@ let input_sources topology boards : Common.Stream.source list React.signal =
        | Some b -> S.map (List.filter_map check_stream) b.streams_signal
   in
   List.map (grep boards) topology
-  |> S.merge ~eq:(==) (fun a v -> List.append v a) []
+  |> S.merge ~eq:(Equal.physical) (fun a v -> List.append v a) []
 
 let create config db =
   let step_duration = 0.01 in

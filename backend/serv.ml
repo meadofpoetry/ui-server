@@ -1,5 +1,5 @@
-open Cohttp_lwt_unix
 open Containers
+open Cohttp_lwt_unix
 open Common.User
 open Api.Redirect
 open Api.Interaction
@@ -63,7 +63,7 @@ let get_handler ~settings
 let create config auth_filter routes templates =
   let settings = Conf.get config in
   let tmpl     = Filename.concat settings.path "html/templates/base.html"
-                 |> CCIO.File.read_exn (* FIXME *) in
+                 |> Containers.IO.File.read_exn (* FIXME *) in
   let pages    = Common.User.map_table
                    (fun u ts -> Api.Template.build_route_table tmpl (Common.User.to_string u) ts)
                    templates

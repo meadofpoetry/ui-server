@@ -1,3 +1,5 @@
+open Containers
+
 module Row = struct
 
   module Section = struct
@@ -7,7 +9,7 @@ module Row = struct
         inherit Widget.widget (Markup.Toolbar.Row.Section.create_title ~title ()
                                |> Tyxml_js.To_dom.of_element) () as super
 
-        method get_title   = super#get_text_content |> CCOpt.get_or ~default:""
+        method get_title   = super#get_text_content |> Option.get_or ~default:""
         method set_title s = super#set_text_content s
       end
     end

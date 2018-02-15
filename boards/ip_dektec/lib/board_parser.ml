@@ -1,3 +1,4 @@
+open Containers
 open Board_types
 include Board_msg_formats
 
@@ -259,9 +260,9 @@ let to_hex_string x =
                 | `I8 x  -> sizeof_setting8, Printf.sprintf "%X" x
                 | `I16 x -> sizeof_setting16, Printf.sprintf "%X" x
                 | `I32 x -> sizeof_setting32, Printf.sprintf "%lX" x) in
-  let s_sz = CCString.length s in
-  if s_sz < size        then ((CCString.make (size -  s_sz) '0') ^ s)
-  else if (s_sz > size) then CCString.drop (s_sz - size) s
+  let s_sz = String.length s in
+  if s_sz < size        then ((String.make (size -  s_sz) '0') ^ s)
+  else if (s_sz > size) then String.drop (s_sz - size) s
   else s
 
 let to_cbuffer x =
@@ -276,7 +277,7 @@ let try_parse f x             = try Some (f x) with _ -> None
 let hex_string_of_ascii_buf x = "0x" ^ (Cbuffer.to_string x)
 let parse_int_exn x           = hex_string_of_ascii_buf x |> int_of_string
 let parse_int32_exn x         = hex_string_of_ascii_buf x |> Int32.of_string
-let parse_int64_exn x         = hex_string_of_ascii_buf x |> Int64.of_string
+let parse_int64_exn x         = hex_string_of_ascii_buf x |> Int64.of_string_exn
 let parse_ipaddr_exn x        = parse_int32_exn x         |> Ipaddr.V4.of_int32
 let parse_bool_exn x          = parse_int_exn x |> (function
                                                     | 0 -> false
@@ -420,7 +421,7 @@ let check_rest (cat,set,rw,buf) =
 
 let get_msg buf =
   try
-    CCResult.(check_stx buf
+    Result.(check_stx buf
               >>= check_address
               >>= check_category
               >>= check_setting
@@ -446,7 +447,7 @@ let deserialize buf =
   let r,res = f [] buf in (List.rev r, if Cbuffer.len res > 0 then Some res else None)
 
 let is_response (type a) (req : a request) m : a option =
-  let open CCOpt.Infix in
+  let open Option.Infix in
   match m with
   | `Ok x ->
      let c,s = request_to_cat_set req in
@@ -474,7 +475,7 @@ let is_response (type a) (req : a request) m : a option =
                            | Get_gateway   -> parse_ipaddr b
                            | Get_dhcp      -> parse_bool b
                            | Get_mac       -> let rec f = fun acc s ->
-                                                match CCString.take_drop 2 s with
+                                                match String.take_drop 2 s with
                                                 | (x,"")  -> (acc ^ x)
                                                 | (x,res) -> f (acc ^ x ^ ":") res in
                                               Macaddr.of_string (f "" (Cbuffer.to_string b))

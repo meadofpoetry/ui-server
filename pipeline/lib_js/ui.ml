@@ -1,9 +1,12 @@
+open Containers
 open Components
 
 module Plots = struct
 
-  let colors = Array.init 100 (fun _ -> Random.int 255, Random.int 255, Random.int 255)
-  
+  let colors = Array.init 100 (fun _ -> Random.run (Random.int 255),
+                                        Random.run (Random.int 255),
+                                        Random.run (Random.int 255))
+             
   type plot_meta = { stream  : int
                    ; channel : int
                    ; pid     : int
@@ -30,26 +33,32 @@ module Plots = struct
                     ; desc = Printf.sprintf "%s %s, pid: %d" stream_desc channel_desc p.pid
                  }
         in
-        CCList.filter_map of_pid c.pids
+        List.filter_map of_pid c.pids
       in
-      CCList.concat @@ CCList.map of_channel str.channels
+      List.concat @@ List.map of_channel str.channels
     in
-    CCList.concat @@ CCList.map of_stream sl
+    List.concat @@ List.map of_stream sl
 
   module M = CCMap.Make(struct
                  type t = int * int * int
-                 let compare (l : t) (r : t) = compare l r
+                 let compare ((l1, l2, l3) : t) ((r1, r2, r3) : t) =
+                   let c1 = compare l1 r1 in
+                   if not (c1 = 0) then c1
+                   else let c2 = compare l2 r2 in
+                        if not (c2 = 0) then c2
+                        else compare l3 r3
+                             
                end)
-    
+           
   let chart ~typ ~metas ~(extract : Video_data.params -> float) ~y_max ~y_min ~e () =
     let open Chartjs.Line in
     let filter_data ds =
       let sz, sum  = List.fold_left (fun (sz, sum) d -> succ sz, sum +. d.y) (0, 0.) ds in
       let szf      = float_of_int sz in
       let mean     = sum /. szf in
-     (* let dev      = List.fold_left (fun acc d -> acc +. abs_float (d.y -. mean)) 0. ds in
+      (* let dev      = List.fold_left (fun acc d -> acc +. abs_float (d.y -. mean)) 0. ds in
       let mean_dev = dev /. szf in*)
-      let mean_v   = CCList.get_at_idx_exn (sz / 2) ds in
+      let mean_v   = List.get_at_idx_exn (sz / 2) ds in
       [ { mean_v with y = mean } ](* :: (List.filter (fun d -> abs_float (d.y -. mean) > mean_dev *. 4.) ds)*)
     in
     let pairs = List.mapi (fun idx pm -> ((pm.stream, pm.channel, pm.pid), idx),
@@ -77,10 +86,10 @@ module Plots = struct
         x#set_fill Disabled) config#datasets;
     let _ = React.E.map (fun (id,data) ->
                 let open Video_data in
-                let open CCOpt in
+                let open Option in
                 (M.get id table >|= fun id ->
-                 CCList.get_at_idx id chart#config#datasets >|= fun ds ->
-                 let data = List.map (fun (p : params) -> { x = Int64.(div p.time 1000L); y = extract p } ) data in
+                 List.get_at_idx id chart#config#datasets >|= fun ds ->
+                 let data = List.map (fun (p : params) -> { x = Int64.(p.time / 1000L); y = extract p } ) data in
                  let data = filter_data data in
                  ds#append data;
                  chart#update (Some { duration = Some 0
@@ -109,28 +118,28 @@ module Plots = struct
       let froz_chart = chart_card
                          ~title:"Заморозка" ~typ:Float
                          ~metas  ~extract:(fun x -> x.frozen_pix)
-                          ~y_max:100. ~y_min:0. ~e () in
+                         ~y_max:100. ~y_min:0. ~e () in
       let blac_chart = chart_card
                          ~title:"Черный кадр" ~typ:Float
                          ~metas ~extract:(fun x -> x.black_pix)
-                          ~y_max:100. ~y_min:0. ~e () in
+                         ~y_max:100. ~y_min:0. ~e () in
       let bloc_chart = chart_card
                          ~title:"Блочность" ~typ:Float
                          ~metas ~extract:(fun x -> x.blocks)
-                          ~y_max:100. ~y_min:0. ~e () in
+                         ~y_max:100. ~y_min:0. ~e () in
       let brig_chart = chart_card
                          ~title:"Средняя яркость" ~typ:Float
                          ~metas ~extract:(fun x -> x.avg_bright)
-                          ~y_max:250. ~y_min:0. ~e () in
+                         ~y_max:250. ~y_min:0. ~e () in
       let diff_chart = chart_card
                          ~title:"Средняя разность" ~typ:Float
                          ~metas ~extract:(fun x -> x.avg_diff)
-                          ~y_max:250. ~y_min:0. ~e () in
-      let cells     = CCList.map (fun x -> let cell = new Layout_grid.Cell.t ~widgets:[x] () in
-                                           cell#set_span 6;
-                                           cell#set_span_phone 12;
-                                           cell#set_span_tablet 12;
-                                           cell)
+                         ~y_max:250. ~y_min:0. ~e () in
+      let cells     = List.map (fun x -> let cell = new Layout_grid.Cell.t ~widgets:[x] () in
+                                         cell#set_span 6;
+                                         cell#set_span_phone 12;
+                                         cell#set_span_tablet 12;
+                                         cell)
                         [ froz_chart#widget; blac_chart#widget; bloc_chart#widget;
                           brig_chart#widget; diff_chart#widget ]
       in
@@ -155,7 +164,7 @@ module Structure = struct
       | Empty   -> "Empty " ^ pid.stream_type_name, ""
       | Audio a -> "Audio " ^ pid.stream_type_name, Printf.sprintf "Codec: %s; Bitrate: %s;" a.codec a.bitrate
       | Video v -> "Video " ^ pid.stream_type_name, Printf.sprintf "Codec: %s; Resolution: %dx%d;"
-                                                                   v.codec (fst v.resolution) (snd v.resolution)
+                                                      v.codec (fst v.resolution) (snd v.resolution)
     in
     let checkbox       = new Checkbox.t ~ripple:false () in
     checkbox#set_checked pid.to_be_analyzed;
@@ -169,8 +178,8 @@ module Structure = struct
       Printf.sprintf "Channel %d" ch.number,
       Printf.sprintf "Serv: %s; Provider: %s" ch.service_name ch.provider_name
     in
-    let wl, sl = CCList.split @@ CCList.map make_pid ch.pids in
-    let ch_s   = React.S.map (fun pl -> {ch with pids = pl}) @@ React.S.merge ~eq:(==) (fun a p -> p::a) [] sl in
+    let wl, sl = List.split @@ List.map make_pid ch.pids in
+    let ch_s   = React.S.map (fun pl -> {ch with pids = pl}) @@ React.S.merge ~eq:Equal.physical (fun a p -> p::a) [] sl in
     let nested = new Tree.t ~items:wl () in
     let e = new Tree.Item.t ~text ~secondary_text:stext ~nested ()
     in e, ch_s
@@ -179,19 +188,19 @@ module Structure = struct
     let text, stext =
       let h = match s.source with
         | Unknown    -> Printf.sprintf "Unknown source"
-        | Stream src -> Printf.sprintf "Source: %s" (CCOpt.get_or ~default:"stream" src.description)
+        | Stream src -> Printf.sprintf "Source: %s" (Option.get_or ~default:"stream" src.description)
       in h, (Printf.sprintf "ip: %s" s.structure.uri)
     in
-    let wl, cl = CCList.split @@ CCList.map make_channel s.structure.channels in
+    let wl, cl = List.split @@ List.map make_channel s.structure.channels in
     let st_s   = React.S.map (fun chl -> {s with structure = {s.structure with channels = chl}}) @@
-                   React.S.merge ~eq:(==) (fun a p -> p::a) [] cl in
+                   React.S.merge ~eq:Equal.physical (fun a p -> p::a) [] cl in
     let nested = new Tree.t ~items:wl () in
     let e      = new Tree.Item.t ~text ~secondary_text:stext ~nested ()
     in e, st_s
 
   let make_structure_list (sl : Structure.t list) =
-    let wl, sl = CCList.split @@ CCList.map make_structure sl in
-    let sl_s   = React.S.merge ~eq:(==) (fun a p -> p::a) [] sl in
+    let wl, sl = List.split @@ List.map make_structure sl in
+    let sl_s   = React.S.merge ~eq:Equal.physical (fun a p -> p::a) [] sl in
     let lst    = new Tree.t ~items:wl () in
     lst#set_dense true;
     lst#style##.maxWidth := Js.string "400px";
@@ -290,10 +299,10 @@ module Settings = struct
                                                  dur_field#widget] () in
     let signal             = React.S.l5 (fun peak_en peak cont_en cont dur ->
                                  Settings.{ peak_en
-                                          ; peak     = CCOpt.get_or ~default:(s.peak) peak
+                                          ; peak     = Option.get_or ~default:(s.peak) peak
                                           ; cont_en
-                                          ; cont     = CCOpt.get_or ~default:(s.cont) cont
-                                          ; duration = CCOpt.get_or ~default:(s.duration) dur } )
+                                          ; cont     = Option.get_or ~default:(s.cont) cont
+                                          ; duration = Option.get_or ~default:(s.duration) dur } )
                                peak_en_chck#s_state peak_field#s_input
                                cont_en_chck#s_state cont_field#s_input
                                dur_field#s_input in
@@ -394,8 +403,8 @@ module Settings = struct
     buf#fill_in s.adv_buf;
     let box                = new Box.t ~widgets:[(Widget.create header); diff#widget; buf#widget] () in
     let signal             = React.S.l2 (fun diff buf ->
-                                 Settings.{ adv_diff = CCOpt.get_or ~default:(s.adv_diff) diff
-                                          ; adv_buf  = CCOpt.get_or ~default:(s.adv_buf) buf })
+                                 Settings.{ adv_diff = Option.get_or ~default:(s.adv_diff) diff
+                                          ; adv_buf  = Option.get_or ~default:(s.adv_buf) buf })
                                diff#s_input buf#s_input in
     box, signal
 
@@ -427,7 +436,7 @@ module Settings = struct
     let s      = React.S.l2 (fun v a -> Settings.{ video = v; audio = a; }) v_s a_s in
     let box    = new Box.t ~widgets:[(Widget.create header); v#widget; a#widget] () in
     box, s
-  
+    
   let create
         ~(init:   Settings.t)
         ~(events: Settings.t React.event)

@@ -1,9 +1,10 @@
+open Containers
 open Api_js.Requests
 open Lwt.Infix
    
 let get_structure () =
   get_js "api/pipeline/structure"
-  >|= CCResult.(flat_map Structure.t_list_of_yojson)
+  >|= Result.(flat_map Structure.t_list_of_yojson)
 
 let post_structure s =
   Structure.t_list_to_yojson s
@@ -14,7 +15,7 @@ let get_structure_socket () =
 
 let get_settings () =
   get_js "api/pipeline/settings"
-  >|= CCResult.(flat_map Settings.of_yojson)
+  >|= Result.(flat_map Settings.of_yojson)
 
 let post_settings s =
   Settings.to_yojson s
@@ -25,7 +26,7 @@ let get_settings_socket () =
 
 let get_wm () =
   get_js "api/pipeline/wm"
-  >|= CCResult.(flat_map Wm.of_yojson)
+  >|= Result.(flat_map Wm.of_yojson)
 
 let post_wm wm =
   Wm.to_yojson wm

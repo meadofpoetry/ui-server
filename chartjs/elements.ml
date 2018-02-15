@@ -1,3 +1,4 @@
+open Containers
 open Base
 
 module Point = struct
@@ -95,7 +96,7 @@ module Line = struct
   let fill_of_js_exn (x : bool_or_string Js.t) : fill =
     match Cast.to_bool x with
     | Some b -> if b then Zero else Disabled
-    | None   -> (match CCOpt.get_exn @@ Cast.to_string x with
+    | None   -> (match Option.get_exn @@ Cast.to_string x with
                  | "zero"   -> Zero
                  | "top"    -> Top
                  | "bottom" -> Bottom

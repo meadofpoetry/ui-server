@@ -1,3 +1,9 @@
+open Containers
+
+(* TODO remove *)
+let (<=) = Pervasives.(<=)
+let (>=) = Pervasives.(>=)
+   
 type rect =
   { top    : float
   ; right  : float
@@ -18,7 +24,7 @@ class widget (elt:#Dom_html.element Js.t) () = object(self)
   method get_child_element_by_class x = Js.Opt.to_option @@ self#root##querySelector (Js.string ("." ^ x))
   method get_child_element_by_id    x = Js.Opt.to_option @@ self#root##querySelector (Js.string ("#" ^ x))
 
-  method get_attribute a    = self#root##getAttribute (Js.string a) |> Js.Opt.to_option |> CCOpt.map Js.to_string
+  method get_attribute a    = self#root##getAttribute (Js.string a) |> Js.Opt.to_option |> Option.map Js.to_string
   method set_attribute a v  = self#root##setAttribute (Js.string a) (Js.string v)
   method remove_attribute a = self#root##removeAttribute (Js.string a)
   method has_attribute a    = self#root##hasAttribute (Js.string a)
@@ -26,7 +32,7 @@ class widget (elt:#Dom_html.element Js.t) () = object(self)
   method get_inner_html   = Js.to_string self#root##.innerHTML
   method set_inner_html s = self#root##.innerHTML := Js.string s
 
-  method get_text_content   = self#root##.textContent |> Js.Opt.to_option |> CCOpt.map Js.to_string
+  method get_text_content   = self#root##.textContent |> Js.Opt.to_option |> Option.map Js.to_string
   method set_text_content s = self#root##.textContent := Js.some @@ Js.string s
 
   method get_id    = Js.to_string self#root##.id
@@ -199,7 +205,7 @@ let parse_valid (type a) (v : a validation) (on_fail : string -> unit) (s : stri
                             else None
   | Text         -> Some s
   | IPV4         -> Ipaddr.V4.of_string s
-  | MulticastV4  -> CCOpt.(Ipaddr.V4.of_string s >>= (fun x -> if Ipaddr.V4.is_multicast x then Some x else None))
+  | MulticastV4  -> Option.(Ipaddr.V4.of_string s >>= (fun x -> if Ipaddr.V4.is_multicast x then Some x else None))
   | Password vf  ->
      (match vf s with
       | Ok () -> Some s
@@ -212,7 +218,7 @@ let parse_valid (type a) (v : a validation) (on_fail : string -> unit) (s : stri
 let valid_to_string (type a) (v : a validation) (e : a) : string =
   match v with
   | Custom (_,conv) -> conv e
-  | Float   _       -> string_of_float e |> (fun x -> if CCString.suffix ~suf:"." x then x ^ "0" else x)
+  | Float   _       -> string_of_float e |> (fun x -> if String.suffix ~suf:"." x then x ^ "0" else x)
   | Integer _       -> string_of_int e
   | Email           -> e
   | IPV4            -> Ipaddr.V4.to_string e
@@ -295,7 +301,7 @@ class ['a] text_input_widget ?v_msg ~input_elt (v : 'a validation) elt () =
         input_elt
         (Dom_events.Typ.make "invalid")
         (fun _ _ -> (* let v = self#get_validity in
-                     * let set_maybe s = CCOpt.iter self#set_custom_validity s in *)
+                     * let set_maybe s = Option.iter self#set_custom_validity s in *)
                     s_input_push None;
                     (* if v.bad_input             then set_maybe bad_input_msg
                      * else if v.custom_error     then set_maybe custom_error_msg

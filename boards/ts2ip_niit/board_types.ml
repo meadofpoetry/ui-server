@@ -1,3 +1,5 @@
+open Containers
+
 module Macaddr = struct
   include Macaddr
 
@@ -101,5 +103,5 @@ type status                 = { board_status   : board_status
 let config_to_config_response (c:config) : config_response =
   { nw_mode      = c.nw_mode
   ; factory_mode = c.factory_mode
-  ; streams      = CCList.map (fun x -> x.base) c.streams
+  ; streams      = List.map (fun x -> x.base) c.streams
   }

@@ -1,3 +1,5 @@
+open Containers
+
 class type mdc =
   object
     method open_        : bool Js.t Js.prop
@@ -33,9 +35,9 @@ module Header = struct
     let elt = Markup.Dialog.Header.create ~title () |> Tyxml_js.To_dom.of_header in
     object
       val h2_widget = elt##querySelector (Js.string @@ "." ^ Markup.Dialog.Header.title_class)
-                      |> Js.Opt.to_option |> CCOpt.get_exn |> Widget.create
+                      |> Js.Opt.to_option |> Option.get_exn |> Widget.create
       inherit Widget.widget elt ()
-      method get_title   = h2_widget#get_text_content |> CCOpt.get_or ~default:""
+      method get_title   = h2_widget#get_text_content |> Option.get_or ~default:""
       method set_title s = h2_widget#set_text_content s
     end
 
@@ -71,15 +73,15 @@ end
 
 class t ?title ?(actions:Action.t list option) ~content () =
 
-  let header_widget = CCOpt.map (fun x -> new Header.t ~title:x ()) title in
+  let header_widget = Option.map (fun x -> new Header.t ~title:x ()) title in
   let body_widget   = new Body.t ~content () in
-  let footer_widget = CCOpt.map (fun x -> new Footer.t ~actions:x ()) actions in
+  let footer_widget = Option.map (fun x -> new Footer.t ~actions:x ()) actions in
 
   let elt = Markup.Dialog.create
               ~content:([]
-                        |> CCList.cons_maybe @@ CCOpt.map Widget.widget_to_markup footer_widget
-                        |> CCList.cons @@ Widget.widget_to_markup body_widget
-                        |> CCList.cons_maybe @@ CCOpt.map Widget.widget_to_markup header_widget)
+                        |> List.cons_maybe @@ Option.map Widget.widget_to_markup footer_widget
+                        |> List.cons @@ Widget.widget_to_markup body_widget
+                        |> List.cons_maybe @@ Option.map Widget.widget_to_markup header_widget)
               ()
             |> Tyxml_js.To_dom.of_aside in
   let e_action,e_action_push = React.E.create () in

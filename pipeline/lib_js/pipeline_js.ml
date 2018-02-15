@@ -1,3 +1,4 @@
+open Containers
 open Lwt_react
 open Requests
 open Components
@@ -7,7 +8,7 @@ open Lwt.Infix
 let insert s (container:#Dom.node Js.t) =
   React.S.map (function
                | Some p -> Dom.list_of_nodeList @@ container##.childNodes
-                           |> CCList.iter (fun x -> Dom.removeChild container x);
+                           |> List.iter (fun x -> Dom.removeChild container x);
                            Dom.appendChild container p#root
                | None   -> ()) s
 
@@ -26,7 +27,7 @@ let load () =
     ; "Графики",           (fun () -> (Charts.page ())#widget)
     ]
   in
-  let tabs = CCList.map (fun x -> { content  = `Text (fst x)
+  let tabs = List.map (fun x -> { content  = `Text (fst x)
                                   ; disabled = false
                                   ; href     = None
                                   ; value    = (snd x) }) tab_pages in

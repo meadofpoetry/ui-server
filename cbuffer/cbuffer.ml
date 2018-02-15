@@ -1,3 +1,4 @@
+open Containers
 include Cstruct
 
 let get_ptr cs =
@@ -8,7 +9,7 @@ exception Not_equal
 let split_by_string on cs =
   let module BA = Bigarray.Array1 in
   
-  let onsz  = CCString.length on in
+  let onsz  = String.length on in
   let bufsz = cs.len in
   if onsz >= bufsz
   then []
@@ -22,9 +23,9 @@ let split_by_string on cs =
 
     let rec find_subs i acc =
       if i < 0 then acc
-      else try CCString.iteri
+      else try String.iteri
                  (fun j c ->
-                   if c <> (Cstruct.get_char cs (i + j))
+                   if not (Char.equal c (Cstruct.get_char cs (i + j)))
                    then raise_notrace Not_equal)
                  on;
                find_subs (i - onsz) (i::(i+onsz)::acc)
@@ -78,7 +79,7 @@ let hexdump_to_string ?(line_sz=16) b =
   let s = Cstruct.fold (fun acc el -> acc ^ (Printf.sprintf "%02x " el)) iter "" in
   let rec f = fun acc x -> if String.length x < (line_sz*3)
                            then List.rev (x :: acc)
-                           else let s,res = CCString.take_drop (line_sz*3) x in
+                           else let s,res = String.take_drop (line_sz*3) x in
                                 f ((s ^ "\n") :: acc) res in
   String.concat "" (f [] s)
 

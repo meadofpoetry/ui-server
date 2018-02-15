@@ -1,3 +1,5 @@
+open Containers
+
 module Base = struct
 
   class type mdc =
@@ -37,7 +39,7 @@ module Base = struct
       method set_value x = value <- x
 
       initializer
-        CCOpt.iter (fun x -> super#set_id x) id;
+        Option.iter (fun x -> super#set_id x) id;
         super#set_attribute "role" "option"
 
     end
@@ -53,7 +55,7 @@ module Base = struct
               |> Tyxml_js.To_dom.of_element in
     let label_widget = elt##querySelector (Js.string @@ "." ^ Markup.Select.Base.label_class)
                        |> Js.Opt.to_option
-                       |> CCOpt.get_exn
+                       |> Option.get_exn
                        |> (fun x -> new Widget.widget x ()) in
 
     object(self)
@@ -69,31 +71,31 @@ module Base = struct
       method set_dense x = menu#get_list#set_dense x
 
       method get_items : 'a Item.t list = items
-      method get_length  = CCList.length self#get_items
-      method get_item n  = CCList.get_at_idx n self#get_items
-      method get_named_item key = CCList.find_pred (fun x -> x#get_id = key && (match x#get_attribute "name" with
-                                                                                | Some n -> n = key
-                                                                                | None   -> false))
-                                                   self#get_items
+      method get_length  = List.length self#get_items
+      method get_item n  = List.get_at_idx n self#get_items
+      method get_named_item key = List.find_pred (fun x -> String.equal x#get_id key && (match x#get_attribute "name" with
+                                                                                         | Some n -> String.equal n key
+                                                                                         | None   -> false))
+                                    self#get_items
 
       (* Selected getters *)
 
       method get_selected_value : 'a option =
-        CCOpt.map (fun x -> x#get_value) self#get_selected_item
+        Option.map (fun x -> x#get_value) self#get_selected_item
       method get_selected_index : int option =
         mdc##.selectedIndex |> (fun x -> if x = -1 then None else Some x)
       method get_selected_item : 'a Item.t option =
-        CCOpt.map (fun x -> CCOpt.get_exn @@ CCList.get_at_idx x self#get_items) self#get_selected_index
+        Option.map (fun x -> Option.get_exn @@ List.get_at_idx x self#get_items) self#get_selected_index
 
       (* Selected setters *)
 
-      method select_value v = match CCList.find_idx (fun x -> x#get_value = v) self#get_items with
+      method select_value v = match List.find_idx (fun x -> Equal.poly x#get_value v) self#get_items with
         | Some (idx,_) -> Ok (self#select_at_index idx)
         | None         -> Error "Select.Base,select value: no item found with provided value"
       method select_at_index i = mdc##.selectedIndex := i;
                                  s_selected_push self#get_selected_value;
                                  label_widget#add_class Markup.Select.Base.label_float_above_class
-      method select_item i     = (match CCList.find_idx (fun x -> x == i) self#get_items with
+      method select_item i     = (match List.find_idx (fun x -> Equal.physical x i) self#get_items with
                                   | Some (idx,_) -> self#select_at_index idx
                                   | None         -> ())
 
@@ -103,14 +105,14 @@ module Base = struct
       initializer
         (* FIXME add open listener, - opens not only by click *)
         Dom_events.listen self#root
-                          Dom_events.Typ.click
-                          (fun _ _ -> let w = Printf.sprintf "%dpx" self#get_offset_width in
-                                      self#get_menu#style##.width := Js.string w;
-                                      true)
+          Dom_events.Typ.click
+          (fun _ _ -> let w = Printf.sprintf "%dpx" self#get_offset_width in
+                      self#get_menu#style##.width := Js.string w;
+                      true)
         |> ignore;
         Dom_events.listen self#root
-                          events.change
-                          (fun _ _ -> s_selected_push @@ self#get_selected_value; false)
+          events.change
+          (fun _ _ -> s_selected_push @@ self#get_selected_value; false)
         |> ignore
 
     end
@@ -173,11 +175,11 @@ module Pure = struct
   class t ~(items : [ `Item of Item.t | `Group of Group.t ] list) () =
 
     let item_elts = List.map (function
-                              | `Group g -> Widget.widget_to_markup g
-                              | `Item i  -> Widget.widget_to_markup i) items in
+                        | `Group g -> Widget.widget_to_markup g
+                        | `Item i  -> Widget.widget_to_markup i) items in
     let elt = Markup.Select.Pure.create ~items:item_elts () |> Tyxml_js.To_dom.of_div in
     let select_elt = elt##querySelector (Js.string ("." ^ Markup.Select.surface_class))
-                     |> Js.Opt.to_option |> CCOpt.get_exn |> Js.Unsafe.coerce in
+                     |> Js.Opt.to_option |> Option.get_exn |> Js.Unsafe.coerce in
 
     object(self)
 
@@ -186,15 +188,15 @@ module Pure = struct
       method select_element : Dom_html.selectElement Js.t = select_elt
 
       method get_value = Js.to_string self#select_element##.value
-      method get_items = CCList.fold_left (fun acc x -> match x with
-                                                        | `Group g -> acc @ g#get_items
-                                                        | `Item i  -> acc @ [i]) [] items
+      method get_items = List.fold_left (fun acc x -> match x with
+                                                      | `Group g -> acc @ g#get_items
+                                                      | `Item i  -> acc @ [i]) [] items
 
       method get_length = self#select_element##.length
-      method get_item n = CCList.get_at_idx n self#get_items
+      method get_item n = List.get_at_idx n self#get_items
 
       method get_selected_index = self#select_element##.selectedIndex |> (fun x -> if x = -1 then None else Some x)
-      method get_selected_item  = CCOpt.map (fun x -> CCList.get_at_idx x self#get_items) self#get_selected_index
+      method get_selected_item  = Option.map (fun x -> List.get_at_idx x self#get_items) self#get_selected_index
       method select_at_index i  = self#select_element##.selectedIndex := i
 
       method get_disabled   = Js.to_bool self#select_element##.disabled
@@ -231,10 +233,10 @@ module Multi = struct
   class t ?size ~(items:[ `Item of Item.t | `Divider of Divider.t | `Group of Group.t ] list) () =
 
     let item_elts = List.map (function
-                              | `Divider d -> Widget.widget_to_markup d
-                              | `Group g   -> Widget.widget_to_markup g
-                              | `Item i    -> i#style##.paddingLeft := Js.string "32px"; Widget.widget_to_markup i)
-                             items in
+                        | `Divider d -> Widget.widget_to_markup d
+                        | `Group g   -> Widget.widget_to_markup g
+                        | `Item i    -> i#style##.paddingLeft := Js.string "32px"; Widget.widget_to_markup i)
+                      items in
     let elt = Markup.Select.Multi.create ?size ~items:item_elts () |> Tyxml_js.To_dom.of_select in
 
     object(self)
@@ -243,16 +245,16 @@ module Multi = struct
 
       method select_element = elt
 
-      method get_items = CCList.fold_left (fun acc x -> match x with
-                                                        | `Divider _ -> acc
-                                                        | `Group g   -> acc @ g#get_items
-                                                        | `Item i    -> acc @ [i]) [] items
+      method get_items = List.fold_left (fun acc x -> match x with
+                                                      | `Divider _ -> acc
+                                                      | `Group g   -> acc @ g#get_items
+                                                      | `Item i    -> acc @ [i]) [] items
 
       method get_length = self#select_element##.length
-      method get_item n = CCList.get_at_idx n self#get_items
+      method get_item n = List.get_at_idx n self#get_items
 
       method get_selected_index = self#select_element##.selectedIndex |> (fun x -> if x = -1 then None else Some x)
-      method get_selected_item  = CCOpt.map (fun x -> CCList.get_at_idx x self#get_items) self#get_selected_index
+      method get_selected_item  = Option.map (fun x -> List.get_at_idx x self#get_items) self#get_selected_index
       method select_at_index i  = self#select_element##.selectedIndex := i
 
       method get_disabled   = Js.to_bool self#select_element##.disabled

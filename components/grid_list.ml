@@ -1,3 +1,5 @@
+open Containers
+
 module Tile = struct
 
   module Primary = struct
@@ -30,25 +32,25 @@ module Tile = struct
     class title ~title () = object
       inherit Widget.widget (Markup.Grid_list.Tile.Caption.create_title ~text:title ()
                              |> Tyxml_js.To_dom.of_element) () as super
-      method get_text   = super#get_text_content |> CCOpt.get_or ~default:""
+      method get_text   = super#get_text_content |> Option.get_or ~default:""
       method set_text s = super#set_text_content s
     end
 
     class support_text ~support_text () = object
       inherit Widget.widget (Markup.Grid_list.Tile.Caption.create_support_text ~text:support_text ()
                              |> Tyxml_js.To_dom.of_element) () as super
-      method get_text   = super#get_text_content |> CCOpt.get_or ~default:""
+      method get_text   = super#get_text_content |> Option.get_or ~default:""
       method set_text s = super#set_text_content s
     end
 
     class t ?title ?support_text ?icon () =
 
-      let title_widget = CCOpt.map (fun x -> new title ~title:x ()) title in
-      let support_text_widget = CCOpt.map (fun x -> new support_text ~support_text:x ()) support_text in
+      let title_widget = Option.map (fun x -> new title ~title:x ()) title in
+      let support_text_widget = Option.map (fun x -> new support_text ~support_text:x ()) support_text in
       let elt = Markup.Grid_list.Tile.Caption.create
-                  ?title:(CCOpt.map Widget.widget_to_markup title_widget)
-                  ?support_text:(CCOpt.map Widget.widget_to_markup support_text_widget)
-                  ?icon:(CCOpt.map Widget.widget_to_markup icon)
+                  ?title:(Option.map Widget.widget_to_markup title_widget)
+                  ?support_text:(Option.map Widget.widget_to_markup support_text_widget)
+                  ?icon:(Option.map Widget.widget_to_markup icon)
                   ()
                 |> Tyxml_js.To_dom.of_element in
 
@@ -62,14 +64,14 @@ module Tile = struct
         method get_title_widget        = title_widget
         method get_support_text_widget = support_text_widget
 
-        method get_support_text   = CCOpt.map  (fun x -> x#get_text)   self#get_support_text_widget
-        method set_support_text s = CCOpt.iter (fun x -> x#set_text s) self#get_support_text_widget
+        method get_support_text   = Option.map  (fun x -> x#get_text)   self#get_support_text_widget
+        method set_support_text s = Option.iter (fun x -> x#set_text s) self#get_support_text_widget
 
-        method get_title   = CCOpt.map  (fun x -> x#get_text)   self#get_title_widget
-        method set_title s = CCOpt.iter (fun x -> x#set_text s) self#get_title_widget
+        method get_title   = Option.map  (fun x -> x#get_text)   self#get_title_widget
+        method set_title s = Option.iter (fun x -> x#set_text s) self#get_title_widget
 
         initializer
-          CCOpt.iter (fun x -> x#add_class Markup.Grid_list.Tile.Caption.icon_class) icon
+          Option.iter (fun x -> x#add_class Markup.Grid_list.Tile.Caption.icon_class) icon
       end
 
   end
@@ -81,8 +83,8 @@ module Tile = struct
                           | _              -> Some (new Caption.t ?title ?support_text ?icon ())) in
     let primary_widget = new Primary.t ~is_div:true ?src () in
     let elt = Markup.Grid_list.Tile.create ~primary:(Widget.widget_to_markup primary_widget)
-                                           ?caption:(CCOpt.map Widget.widget_to_markup caption_widget)
-                                           ()
+                ?caption:(Option.map Widget.widget_to_markup caption_widget)
+                ()
               |> Tyxml_js.To_dom.of_element in
 
     object
@@ -103,9 +105,9 @@ type ar = [ `AR_1_1 | `AR_16_9 | `AR_2_3 | `AR_3_2 | `AR_4_3 | `AR_3_4 ]
 
 class t ~(tiles:Tile.t list) () =
 
-  let twoline = CCList.find_pred (fun x -> match x#get_caption_widget with
-                                           | Some c -> CCOpt.is_some c#get_support_text_widget
-                                           | None   -> false) tiles |> CCOpt.is_some in
+  let twoline = List.find_pred (fun x -> match x#get_caption_widget with
+                                         | Some c -> Option.is_some c#get_support_text_widget
+                                         | None   -> false) tiles |> Option.is_some in
   let elt = Markup.Grid_list.create ~tiles:(Widget.widgets_to_markup tiles) () |> Tyxml_js.To_dom.of_div in
 
   object(self)
@@ -118,7 +120,7 @@ class t ~(tiles:Tile.t list) () =
     method get_tiles = tiles
 
     method get_ar        = ar
-    method remove_ar     = CCOpt.iter (fun x -> super#remove_class @@ Markup.Grid_list.ar_to_class x) ar
+    method remove_ar     = Option.iter (fun x -> super#remove_class @@ Markup.Grid_list.ar_to_class x) ar
     method set_ar (x:ar) = self#remove_ar; super#add_class @@ Markup.Grid_list.ar_to_class x
 
     method private add_or_rm_class x c = if x then super#add_class c else super#remove_class c

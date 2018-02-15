@@ -15,6 +15,9 @@ type widget_type = Video
                  | Icons_bar    (* status bar with availability indication of eit, scte35, teletext etc  *)
 [@@deriving yojson]
  *)
+
+let name = "wm"
+
 type background = (* NOTE incomplete *)
   { color : int } [@@deriving yojson]
 
@@ -27,6 +30,7 @@ type position =
 
 type widget =
   { type_       : string [@key "type"]
+  ; domain      : string
   ; position    : position
   ; layer       : int
   ; aspect      : (int * int)

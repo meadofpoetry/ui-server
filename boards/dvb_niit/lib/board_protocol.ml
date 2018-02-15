@@ -1,3 +1,4 @@
+open Containers
 open Board_types
 open Lwt.Infix
 open Storage.Options
@@ -6,13 +7,13 @@ open Meta_board
 open Meta_board.Msg
    
 include Board_parser
-   
-let ( % ) = CCFun.(%)
       
+let ( % ) = Fun.(%)
+          
 (* Board protocol implementation *)
 
 let timeout_period step_duration = 2 * int_of_float (1. /. step_duration) (* 2 secs *)
-          
+                                 
 let request_period step_duration = 5 * int_of_float (1. /. step_duration) (* 5 secs *)
 
 let detect = Get_devinfo
@@ -23,7 +24,7 @@ let init =
     | T  -> { mode = T ; channel = x.t  }
     | C  -> { mode = C ; channel = x.c  }
   in
-  CCList.map (fun (i,x) -> Set_settings (i,get_s x))
+  List.map (fun (i,x) -> Set_settings (i,get_s x))
 
 let detect_msgs (send_req : 'a request -> unit Lwt.t) timeout =
   [ { send = (fun () -> send_req detect)
@@ -33,11 +34,11 @@ let detect_msgs (send_req : 'a request -> unit Lwt.t) timeout =
   } ]
 
 let init_msgs (send_req : 'a request -> unit Lwt.t) timeout d =
-  CCList.map (fun x -> { send = (fun () -> send_req x)
-                       ; pred = (is_response x)
-                       ; timeout
-                       ; exn = None })
-             (init d)
+  List.map (fun x -> { send = (fun () -> send_req x)
+                     ; pred = (is_response x)
+                     ; timeout
+                     ; exn = None })
+    (init d)
 
 let measure_probes (send_ev : 'a event_request -> unit Lwt.t) timeout config =
   List.map (fun x ->
@@ -80,19 +81,21 @@ module SM = struct
     let t, w = Lwt.wait () in
     let pred = function
       | `Timeout -> Lwt.wakeup_exn w (Failure "msg timeout"); None
-      | l -> let open CCOpt in
+      | l -> let open Option in
              is_response msg l >|= fun r ->
              (match msg with
               | Set_settings (i,ns) ->
                  let upd =
-                   CCList.Assoc.update ~f:(function
-                                           | Some os -> let os = { os with mode = ns.mode } in
-                                                        Some (match ns.mode with
-                                                              | T2 -> { os with t2 = ns.channel }
-                                                              | T  -> { os with t  = ns.channel }
-                                                              | C  -> { os with c  = ns.channel })
-                                           | None   -> None)
-                                       i storage#get
+                   List.Assoc.update
+                     ~eq:(=)
+                     ~f:(function
+                       | Some os -> let os = { os with mode = ns.mode } in
+                                    Some (match ns.mode with
+                                          | T2 -> { os with t2 = ns.channel }
+                                          | T  -> { os with t  = ns.channel }
+                                          | C  -> { os with c  = ns.channel })
+                       | None   -> None)
+                     i storage#get
                  in storage#store upd;
               | _ -> ());
              Lwt.wakeup w r
@@ -177,11 +180,11 @@ module SM = struct
          | None    -> let probes_pool = Pool.step probes_pool in
                       `Continue (step_normal_probes_wait probes_pool (succ period_timer) acc)
          | Some ev -> (* Lwt_io.printlf "received probe, %f" (Unix.gettimeofday () -. !time) |> ignore; *)
-                      let new_probes_pool = Pool.next probes_pool in
-                      event_push push_events ev;
-                      if Pool.last probes_pool
-                      then `Continue (step_normal_requests_send new_probes_pool period_timer acc)
-                      else step_normal_probes_send new_probes_pool period_timer acc recvd)
+            let new_probes_pool = Pool.next probes_pool in
+            event_push push_events ev;
+            if Pool.last probes_pool
+            then `Continue (step_normal_requests_send new_probes_pool period_timer acc)
+            else step_normal_probes_send new_probes_pool period_timer acc recvd)
       with Timeout -> (* Lwt_io.printlf "probe not received, %f" (Unix.gettimeofday () -. !time)|> ignore; *)
         first_step ()
 

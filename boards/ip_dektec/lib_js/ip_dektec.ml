@@ -1,6 +1,10 @@
+open Containers
 open Components
 open Ui
 
+(* TODO remove *)
+let (>=) = Pervasives.(>=)
+   
 type page_state =
   { state_ws  : WebSockets.webSocket Js.t
   ; status_ws : WebSockets.webSocket Js.t
@@ -112,13 +116,13 @@ let ip_settings_block control s_state (cfg:Board_types.config) =
                   ; Widget.coerce multicast
                   ; Widget.coerce port] in
   let media     = new Card.Media.t ~widgets:[ new Box.t ~vertical:true ~widgets () ] () in
-  mcast_en#set_checked @@ CCOpt.is_some cfg.ip.multicast;
+  mcast_en#set_checked @@ Option.is_some cfg.ip.multicast;
   multicast#set_required true;
   port#set_required true;
   en#set_checked  cfg.ip.enable;
   fec#set_checked cfg.ip.fec;
   port#fill_in cfg.ip.port;
-  CCOpt.iter (fun x -> multicast#fill_in x) cfg.ip.multicast;
+  Option.iter (fun x -> multicast#fill_in x) cfg.ip.multicast;
   React.S.map (fun x -> multicast#set_disabled @@ not x) mcast_en#s_state |> ignore;
   React.S.map (fun x -> en#set_disabled @@ not x;
                         fec#set_disabled @@ not x;

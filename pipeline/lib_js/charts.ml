@@ -1,3 +1,4 @@
+open Containers
 open Components
 open Requests
 open Lwt_result.Infix
@@ -21,7 +22,7 @@ class t () =
         ~f:(fun _ _ ->
           let in_dom_new = (Js.Unsafe.coerce Dom_html.document)##contains self#root in
           if in_dom && (not in_dom_new)
-          then CCOpt.iter (fun (x,y) -> x##close;y##close; sock <- None) sock
+          then Option.iter (fun (x,y) -> x##close;y##close; sock <- None) sock
           else if (not in_dom) && in_dom_new
           then (Requests.get_structure ()
                 >>= (fun structure ->

@@ -1,3 +1,5 @@
+open Containers
+
 type justify_content = [ `Start | `End | `Center | `Space_between | `Space_around | `Space_evenly ]
 type align_items     = [ `Start | `End | `Center | `Stretch | `Baseline ]
 type align_content   = [ `Start | `End | `Center | `Stretch | `Space_between | `Space_around ]
@@ -30,7 +32,7 @@ class t ?(vertical=true) ?tag ?(gap=0) ~(widgets:#Widget.widget list) () =
 
     method get_justify_content = justify_content
     method remove_justify_content =
-      CCOpt.iter (fun x -> super#remove_class @@ Markup.Box.get_justify_content_class x) justify_content;
+      Option.iter (fun x -> super#remove_class @@ Markup.Box.get_justify_content_class x) justify_content;
       justify_content <- None
     method set_justify_content x =
       self#remove_justify_content;
@@ -39,7 +41,7 @@ class t ?(vertical=true) ?tag ?(gap=0) ~(widgets:#Widget.widget list) () =
 
     method get_align_items = align_items
     method remove_align_items =
-      CCOpt.iter (fun x -> super#remove_class @@ Markup.Box.get_align_items_class x) align_items;
+      Option.iter (fun x -> super#remove_class @@ Markup.Box.get_align_items_class x) align_items;
       align_items <- None
     method set_align_items x =
       self#remove_align_items;
@@ -48,7 +50,7 @@ class t ?(vertical=true) ?tag ?(gap=0) ~(widgets:#Widget.widget list) () =
 
     method get_align_content = align_content
     method remove_align_content =
-      CCOpt.iter (fun x -> super#remove_class @@ Markup.Box.get_align_content_class x) align_content;
+      Option.iter (fun x -> super#remove_class @@ Markup.Box.get_align_content_class x) align_content;
       align_content <- None
     method set_align_content x =
       self#remove_align_content;

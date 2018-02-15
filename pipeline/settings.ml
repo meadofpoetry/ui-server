@@ -1,3 +1,6 @@
+
+let name = "settings"
+
 type setting =
   { peak_en  : bool
   ; peak     : float
