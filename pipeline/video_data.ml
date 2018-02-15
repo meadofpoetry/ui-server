@@ -1,3 +1,5 @@
+let name = "video_data"
+
 type params =
   { frozen_pix : float
   ; black_pix  : float
