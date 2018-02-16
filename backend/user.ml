@@ -49,6 +49,6 @@ let validate storage id pass =
   |> function
     | Error e -> Error (`Unknown e)
     | Ok user -> let actual_pass = get_pass storage user in
-                 if pass = actual_pass.pass
+                 if String.equal pass actual_pass.pass
                  then Ok user
                  else Error `Wrong_password

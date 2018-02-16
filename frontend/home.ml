@@ -1,3 +1,4 @@
+open Containers
 open Lwt_react
 open Board_ip_dektec_js.Requests
 open Hardware_js.Requests
@@ -7,7 +8,7 @@ let return = Lwt.return
 let (>>=) = Lwt.(>>=)
 let (>|=) = Lwt.(>|=)
 
-let (%) = CCFun.(%)
+let (%) = Fun.(%)
 
         
 let call addr =

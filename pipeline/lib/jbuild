@@ -45,6 +45,11 @@
   (action (copy ${<} ${@}))))
 
 (rule
+ ((targets (streams.ml))
+  (deps (../streams.ml))
+  (action (copy ${<} ${@}))))
+
+(rule
  ((targets (wm.ml))
   (deps (../wm.ml))
   (action (copy ${<} ${@}))))

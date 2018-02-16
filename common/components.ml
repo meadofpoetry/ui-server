@@ -1,3 +1,4 @@
+open Containers
 open Tyxml
 
 module Make
@@ -5,7 +6,7 @@ module Make
          (Svg : Svg_sigs.NoWrap with module Xml := Xml)
          (Html : Html_sigs.NoWrap
           with module Xml := Xml
-                         and module Svg := Svg) = struct
+           and module Svg := Svg) = struct
   open Html
 
   module CSS : sig
@@ -27,10 +28,10 @@ module Make
 
   end
 
-  let cons_option = CCList.cons_maybe
+  let cons_option = List.cons_maybe
 
   let map_cons_option ~f opt l =
-    CCOpt.map_or ~default:l (fun x -> (f x) :: l) opt
+    Option.map_or ~default:l (fun x -> (f x) :: l) opt
 
   let cons_if case x l =
     if case then x :: l else l
@@ -41,7 +42,7 @@ module Make
   let add_common_attrs ?id ?style ?(attrs=[]) l =
     map_cons_option ~f:Html.a_id id l
     |> map_cons_option ~f:Html.a_style style
-    |> CCList.append attrs
+    |> List.append attrs
 
   module Box = struct
 
@@ -79,16 +80,16 @@ module Make
                 | `Space_around  -> "space-around")
 
     let create ?id ?style ?(classes=[]) ?attrs ?tag
-               ?justify_content ?align_items ?align_content ?(vertical=false) ~content () =
-      let tag = CCOpt.get_or ~default:div tag in
+          ?justify_content ?align_items ?align_content ?(vertical=false) ~content () =
+      let tag = Option.get_or ~default:div tag in
       tag ~a:([ a_class (classes
                          |> cons_if vertical vertical_class
                          |> map_cons_option ~f:get_justify_content_class justify_content
                          |> map_cons_option ~f:get_align_items_class align_items
                          |> map_cons_option ~f:get_align_content_class align_content
-                         |> CCList.cons base_class) ]
+                         |> List.cons base_class) ]
               |> add_common_attrs ?id ?style ?attrs)
-          content
+        content
 
   end
 
@@ -120,7 +121,7 @@ module Make
       let create ?id ?style ?(classes=[]) ?attrs ~icon () =
         Html.i ~a:([a_class ("material-icons" :: base_class :: classes)]
                    |> add_common_attrs ?id ?style ?attrs)
-               [pcdata icon]
+          [pcdata icon]
 
     end
 
@@ -136,10 +137,10 @@ module Make
       let create ?id ?style ?(classes=[]) ?attrs ?(dense=false) ~src () =
         img ~a:([ a_class (classes
                            |> cons_if dense dense_class
-                           |> CCList.cons base_class) ]
+                           |> List.cons base_class) ]
                 |> add_common_attrs ?id ?style ?attrs)
-            ~src:(uri_of_string src)
-            ~alt:""
+          ~src:(uri_of_string src)
+          ~alt:""
 
     end
 
@@ -150,9 +151,9 @@ module Make
       let create ?id ?style ?(classes=[]) ?attrs ?(dense=false) ~icon () =
         div ~a:([ a_class (classes
                            |> cons_if dense dense_class
-                           |> CCList.cons base_class)]
+                           |> List.cons base_class)]
                 |> add_common_attrs ?id ?style ?attrs)
-            [icon]
+          [icon]
 
     end
 
@@ -163,10 +164,10 @@ module Make
       let create ?id ?style ?(classes=[]) ?attrs ?(dense=false) ~text () =
         div ~a:([ a_class (classes
                            |> cons_if dense dense_class
-                           |> CCList.cons letter_class
-                           |> CCList.cons base_class)]
+                           |> List.cons letter_class
+                           |> List.cons base_class)]
                 |> add_common_attrs ?id ?style ?attrs)
-            [pcdata text]
+          [pcdata text]
 
     end
 
@@ -185,25 +186,25 @@ module Make
     let compact_class    = CSS.add_modifier base_class "compact"
 
     let create ?(classes=[]) ?id ?style ?button_type ?button_style
-               ?(disabled=false) ?(ripple=false)?(dense=false) ?(compact=false)
-               ?icon ?label ?onclick ?attrs () =
+          ?(disabled=false) ?(ripple=false)?(dense=false) ?(compact=false)
+          ?icon ?label ?onclick ?attrs () =
       button ~a:([ a_class (classes
                             |> map_cons_option ~f:(function
-                                                   | `Raised     -> raised_class
-                                                   | `Stroked    -> stroked_class
-                                                   | `Unelevated -> unelevated_class) button_style
+                                   | `Raised     -> raised_class
+                                   | `Stroked    -> stroked_class
+                                   | `Unelevated -> unelevated_class) button_style
                             |> cons_if dense      dense_class
                             |> cons_if compact    compact_class
-                            |> CCList.cons base_class) ]
+                            |> List.cons base_class) ]
                  |> add_common_attrs ?id ?style ?attrs
                  |> map_cons_option ~f:a_onclick onclick
                  |> map_cons_option ~f:a_button_type button_type
                  |> cons_if disabled @@ a_disabled ()
                  |> cons_if ripple   @@ a_user_data "mdc-auto-init" "MDCRipple")
-             ((map_cons_option ~f:pcdata label [])
-              |> map_cons_option ~f:(fun x -> Html.i ~a:[ a_class [icon_class;"material-icons"] ]
-                                                     [pcdata x])
-                                 icon)
+        ((map_cons_option ~f:pcdata label [])
+         |> map_cons_option ~f:(fun x -> Html.i ~a:[ a_class [icon_class;"material-icons"] ]
+                                           [pcdata x])
+              icon)
   end
 
   module Divider = struct
@@ -214,9 +215,9 @@ module Make
     let create ?id ?style ?(classes=[]) ?attrs ?(inset=false) () =
       hr ~a:([ a_class (classes
                         |> cons_if inset inset_class
-                        |> CCList.cons base_class) ]
+                        |> List.cons base_class) ]
              |> add_common_attrs ?id ?style ?attrs)
-         ()
+        ()
 
   end
 
@@ -241,7 +242,7 @@ module Make
       let create ?(classes=[]) ?id ?style ?attrs ~children () =
         section ~a:([a_class (_class :: classes)]
                     |> add_common_attrs ?id ?style ?attrs)
-                children
+          children
 
     end
 
@@ -254,9 +255,9 @@ module Make
       let create ?(classes=[]) ?id ?style ?attrs ?(vertical=false) ~children () =
         section ~a:([ a_class (classes
                                |> cons_if vertical vertical_class
-                               |> CCList.cons _class) ]
+                               |> List.cons _class) ]
                     |> add_common_attrs ?id ?style ?attrs)
-                children
+          children
 
     end
 
@@ -270,19 +271,19 @@ module Make
       let create_title ?(classes=[]) ?id ?style ?attrs ?(large=false) ~title () =
         h1 ~a:([a_class (classes
                          |> cons_if large large_title_class
-                         |> CCList.cons title_class)]
+                         |> List.cons title_class)]
                |> add_common_attrs ?id ?style ?attrs)
-           [pcdata title]
+          [pcdata title]
 
       let create_subtitle ?(classes=[]) ?id ?style ?attrs ~subtitle () =
         h2 ~a:([a_class (subtitle_class :: classes)]
                |> add_common_attrs ?id ?style ?attrs)
-           [pcdata subtitle]
+          [pcdata subtitle]
 
       let create ?(classes=[]) ?id ?style ?attrs ~children () =
         section ~a:([a_class (_class :: classes)]
                     |> add_common_attrs ?id ?style ?attrs)
-                children
+          children
 
     end
 
@@ -293,15 +294,15 @@ module Make
       let create ?(classes=[]) ?id ?style ?attrs ~children () =
         section ~a:([a_class (_class :: classes)]
                     |> add_common_attrs ?id ?style ?attrs)
-                children
+          children
 
     end
 
     let create ?id ?style ?(classes=[]) ?attrs ?tag ~sections () =
-      let tag = CCOpt.get_or ~default:div tag in
+      let tag = Option.get_or ~default:div tag in
       tag ~a:([a_class (base_class :: classes)]
               |> add_common_attrs ?id ?style ?attrs)
-          sections
+        sections
 
   end
 
@@ -317,23 +318,23 @@ module Make
     let create ?(classes=[]) ?style ?id ?input_id ?(disabled=false) ?(auto_init=false) ?(checked=false) ?attrs () =
       div ~a:([a_class (classes
                         |> cons_if disabled @@ CSS.add_modifier base_class "disabled"
-                        |> CCList.cons base_class)]
+                        |> List.cons base_class)]
               |> add_common_attrs ?id ?style ?attrs
               |> cons_if auto_init @@ a_user_data "mdc-auto-init" "MDCCheckbox")
-          [ input ~a:([ a_input_type `Checkbox
-                      ; a_class [native_control_class]]
-                      |> add_common_attrs ?id:input_id ?style:None
-                      |> cons_if disabled @@ a_disabled ()
-                      |> cons_if checked  @@ a_checked ()) ()
-          ; div ~a:([a_class [background_class]])
-                [ svg ~a:([ Svg.a_class [checkmark_class]
-                          ; Svg.a_viewBox (0.0, 0.0, 24.0, 24.0)])
-                      [Svg.path ~a:([ Svg.a_class [checkmark_path_class]
-                                    ; Svg.a_fill `None
-                                    ; Svg.a_stroke (`Color ("white",None))
-                                    ; Svg.a_d "M1.73,12.91 8.1,19.28 22.79,4.59"])
-                                []]
-                ; div ~a:[a_class [mixedmark_class]] []]]
+        [ input ~a:([ a_input_type `Checkbox
+                    ; a_class [native_control_class]]
+                    |> add_common_attrs ?id:input_id ?style:None
+                    |> cons_if disabled @@ a_disabled ()
+                    |> cons_if checked  @@ a_checked ()) ()
+        ; div ~a:([a_class [background_class]])
+            [ svg ~a:([ Svg.a_class [checkmark_class]
+                      ; Svg.a_viewBox (0.0, 0.0, 24.0, 24.0)])
+                [Svg.path ~a:([ Svg.a_class [checkmark_path_class]
+                              ; Svg.a_fill `None
+                              ; Svg.a_stroke (`Color ("white",None))
+                              ; Svg.a_d "M1.73,12.91 8.1,19.28 22.79,4.59"])
+                   []]
+            ; div ~a:[a_class [mixedmark_class]] []]]
 
   end
 
@@ -350,9 +351,9 @@ module Make
 
       let create ?id ?style ?(classes=[]) ?attrs ~title () =
         header ~a:([ a_class [_class]])
-               [ h2 ~a:([ a_class (title_class :: classes) ]
-                        |> add_common_attrs ?id ?style ?attrs)
-                    [ pcdata title ]]
+          [ h2 ~a:([ a_class (title_class :: classes) ]
+                   |> add_common_attrs ?id ?style ?attrs)
+              [ pcdata title ]]
     end
 
     module Body = struct
@@ -363,9 +364,9 @@ module Make
       let create ?(scrollable=false) ?id ?style ?(classes=[]) ?attrs ~content () =
         section ~a:([ a_class (classes
                                |> cons_if scrollable scrollable_class 
-                               |> CCList.cons _class) ]
+                               |> List.cons _class) ]
                     |> add_common_attrs ?id ?style ?attrs)
-                content
+          content
 
     end
 
@@ -381,8 +382,8 @@ module Make
                                  | `Accept  -> accept_button_class
                                  | `Decline -> cancel_button_class) :: classes
                                 |> cons_if action @@ CSS.add_element base_class "action"
-                                |> CCList.cons button_class)
-                      ?id ?style ?attrs ?ripple ~label ()
+                                |> List.cons button_class)
+          ?id ?style ?attrs ?ripple ~label ()
 
       let create ?id ?style ?(classes=[]) ?attrs ~children () =
         footer ~a:([ a_class (_class :: classes)]
@@ -396,8 +397,8 @@ module Make
                 |> map_cons_option ~f:(fun x -> a_aria "labelledby" [x]) label_id
                 |> map_cons_option ~f:(fun x -> a_aria "describedby" [x]) description_id
                 |> add_common_attrs ?id ?style ?attrs)
-            [ div ~a:([a_class [surface_class]]) content
-            ; div ~a:([a_class [backdrop_class]]) [] ]
+        [ div ~a:([a_class [surface_class]]) content
+        ; div ~a:([a_class [backdrop_class]]) [] ]
 
   end
 
@@ -418,16 +419,16 @@ module Make
     let mini_class   = CSS.add_modifier base_class "mini"
 
     let create ?id ?style ?(classes=[]) ?attrs ?onclick
-               ?(mini=false) ?(ripple=false) ?label ~icon () =
+          ?(mini=false) ?(ripple=false) ?label ~icon () =
       button ~a:([ a_class (classes
                             |> cons_if mini @@ mini_class
-                            |> CCList.cons base_class
-                            |> CCList.cons "material-icons") ]
+                            |> List.cons base_class
+                            |> List.cons "material-icons") ]
                  |> add_common_attrs ?id ?style ?attrs
                  |> cons_if ripple @@ a_user_data "mdc-auto-init" "MDCRipple"
                  |> map_cons_option ~f:(fun x -> a_aria "label" [x]) label
                  |> map_cons_option ~f:a_onclick onclick)
-             [ span ~a:[a_class [icon_class]] [pcdata icon] ]
+        [ span ~a:[a_class [icon_class]] [pcdata icon] ]
 
   end
 
@@ -442,16 +443,16 @@ module Make
         Html.label ~a:([ a_class classes ]
                        |> map_cons_option ~f:a_label_for for_id
                        |> add_common_attrs ?id ?style ?attrs)
-                   [pcdata label]
+          [pcdata label]
 
     end
 
     let create ?id ?style ?(classes=[]) ?attrs ?(align_end=false) ~input ~label () =
       div ~a:([ a_class (classes
                          |> cons_if align_end align_end_class
-                         |> CCList.cons base_class) ]
+                         |> List.cons base_class) ]
               |> add_common_attrs ?id ?style ?attrs)
-          [ input; label ]
+        [ input; label ]
 
   end
 
@@ -468,24 +469,24 @@ module Make
       let create_ghost ?id ?style ?(classes=[]) ?attrs () =
         div ~a:([ a_class (ghost_class :: classes)]
                 |> add_common_attrs ?id ?style ?attrs)
-            []
+          []
 
       let create_resize_button ?id ?style ?(classes=[]) ?attrs () =
         span ~a:([ a_class (resize_class :: classes)]
                  |> add_common_attrs ?id ?style ?attrs)
-             []
+          []
 
       let create ?id ?style ?(classes=[]) ?attrs ?resize_button () =
         div ~a:([ a_class (_class :: classes)
-                (* ; a_draggable true *) ]
+                  (* ; a_draggable true *) ]
                 |> add_common_attrs ?id ?style ?attrs)
-            (cons_option resize_button [])
+          (cons_option resize_button [])
     end
 
     let create ?id ?style ?(classes=[]) ?attrs ~items () =
       div ~a:([ a_class (base_class :: classes) ]
               |> add_common_attrs ?id ?style ?attrs)
-          items
+        items
   end
 
   module Grid_list = struct
@@ -504,15 +505,15 @@ module Make
 
       module Primary = struct
 
-      let primary_class = CSS.add_element _class "primary"
-      let content_class = CSS.add_element _class "primary-content"
+        let primary_class = CSS.add_element _class "primary"
+        let content_class = CSS.add_element _class "primary-content"
 
         let create_content ?id ?style ?(classes=[]) ?attrs ?src ?alt ?(is_div=false) () =
           if not is_div
-          then img ~src:(Html.uri_of_string (CCOpt.get_or ~default:"" src))
-                   ~alt:(CCOpt.get_or ~default:"" alt)
-                   ~a:([ a_class (content_class :: classes) ]
-                       |> add_common_attrs ?id ?style ?attrs) ()
+          then img ~src:(Html.uri_of_string (Option.get_or ~default:"" src))
+                 ~alt:(Option.get_or ~default:"" alt)
+                 ~a:([ a_class (content_class :: classes) ]
+                     |> add_common_attrs ?id ?style ?attrs) ()
           else let style = (match src with
                             | Some x -> Printf.sprintf "background-image: url(%s);" x
                                         |> (fun s -> Some (match style with
@@ -521,12 +522,12 @@ module Make
                             | None -> style) in
                div ~a:([ a_class (content_class :: classes) ]
                        |> add_common_attrs ?id ?style ?attrs)
-                   []
+                 []
 
         let create ?id ?style ?(classes=[]) ?attrs ~content () =
           div ~a:([ a_class (primary_class :: classes) ]
                   |> add_common_attrs ?id ?style ?attrs)
-              [ content ]
+            [ content ]
 
       end
 
@@ -540,26 +541,26 @@ module Make
         let create_title ?id ?style ?(classes=[]) ?attrs ~text () =
           span ~a:([ a_class (title_class :: classes) ]
                    |> add_common_attrs ?id ?style ?attrs)
-               [pcdata text]
+            [pcdata text]
 
         let create_support_text ?id ?style ?(classes=[]) ?attrs ~text () =
           span ~a:([ a_class (support_text_class :: classes) ]
                    |> add_common_attrs ?id ?style ?attrs)
-               [pcdata text]
+            [pcdata text]
 
         let create ?id ?style ?(classes=[]) ?attrs ?title ?support_text ?icon () =
           span ~a:([ a_class (secondary_class :: classes) ]
                    |> add_common_attrs ?id ?style ?attrs)
-               (cons_option support_text []
-                |> cons_option title
-                |> cons_option icon)
+            (cons_option support_text []
+             |> cons_option title
+             |> cons_option icon)
 
       end
 
       let create ?id ?style ?(classes=[]) ?attrs ?caption ~primary () =
         li ~a:([ a_class (_class :: classes)]
                |> add_common_attrs ?id ?style ?attrs)
-           (cons_option caption [] |> CCList.cons primary)
+          (cons_option caption [] |> List.cons primary)
 
     end
 
@@ -570,19 +571,19 @@ module Make
     let ar_to_class x = CSS.add_modifier base_class ("tile-aspect-" ^ (ar_to_string x))
 
     let create ?id ?style ?(classes=[]) ?attrs
-               ?ar ?(one_px_gutter=false) ?(header_caption=false) ?(twoline=false) ?icon_align
-               ~tiles () =
+          ?ar ?(one_px_gutter=false) ?(header_caption=false) ?(twoline=false) ?icon_align
+          ~tiles () =
       div ~a:([ a_class (base_class :: classes
                          |> map_cons_option ~f:ar_to_class ar
                          |> cons_if one_px_gutter  tile_gutter_1_class
                          |> cons_if header_caption header_caption_class
                          |> cons_if twoline        twoline_caption_class
                          |> map_cons_option ~f:(function
-                                                | `Start -> icon_align_start_class
-                                                | `End   -> icon_align_end_class)
-                                            icon_align) ]
+                                | `Start -> icon_align_start_class
+                                | `End   -> icon_align_end_class)
+                              icon_align) ]
               |> add_common_attrs ?id ?style ?attrs)
-          [ ul ~a:[ a_class [tiles_class] ] tiles ]
+        [ ul ~a:[ a_class [tiles_class] ] tiles ]
 
   end
 
@@ -603,11 +604,11 @@ module Make
       i ~a:([ a_class (classes
                        |> cons_if disabled @@ CSS.add_modifier base_class "disabled"
                        |> map_cons_option ~f:(function
-                                              | `Primary -> CSS.add_modifier base_class "primary"
-                                              | `Accent  -> CSS.add_modifier base_class "accent")
-                                          color_scheme
-                       |> CCList.cons base_class
-                       |> CCList.cons icons_class)
+                              | `Primary -> CSS.add_modifier base_class "primary"
+                              | `Accent  -> CSS.add_modifier base_class "accent")
+                            color_scheme
+                       |> List.cons base_class
+                       |> List.cons icons_class)
             ; a_role ["button"]
             ; a_user_data "toggle-on"  data_toggle_on
             ; a_user_data "toggle-off" data_toggle_off
@@ -668,27 +669,27 @@ module Make
       let create ?id ?style ?(classes=[]) ?attrs ?span ?align ?order ~content () =
         div ~a:([ a_class (_class :: classes
                            |> map_cons_option ~f:(fun x -> get_cell_span ?device_type:x.device_type
-                                                                         x.columns)
-                                              span
+                                                             x.columns)
+                                span
                            |> map_cons_option ~f:get_cell_align align
                            |> map_cons_option ~f:get_cell_order order) ]
                 |> add_common_attrs ?id ?style ?attrs)
-            content
+          content
 
     end
 
     let create_inner ?id ?style ?(classes=[]) ?attrs ~cells () =
       div ~a:([ a_class (inner_class :: classes)]
               |> add_common_attrs ?id ?style ?attrs)
-          cells
+        cells
 
     let create ?id ?style ?(classes=[]) ?attrs ?align ?(fixed_column_width=false) ~content () =
       div ~a:([ a_class (classes
                          |> map_cons_option ~f:get_grid_align align
                          |> cons_if fixed_column_width fixed_column_width_class
-                         |> CCList.cons base_class) ]
+                         |> List.cons base_class) ]
               |> add_common_attrs ?id ?style ?attrs)
-          content
+        content
 
   end
 
@@ -710,17 +711,17 @@ module Make
       in
       div ~a:([ a_class (classes
                          |> cons_if indeterminate indeterminate_class
-                         |> CCList.cons base_class)
+                         |> List.cons base_class)
               ; a_role ["progressbar"]]
               |> add_common_attrs ?id ~style ?attrs)
-          [ svg ~a:([ Svg.a_class []
-                    ; Svg.a_viewBox (0.,0.,sz,sz)])
-                [ Svg.circle ~a:[ Svg.a_class [circle_class]
-                                ; Svg.a_cx (sz /. 2., None)
-                                ; Svg.a_cy (sz /. 2., None)
-                                ; Svg.a_fill `None
-                                ; Svg.a_stroke_width (thickness, None)
-                                ; Svg.a_r ((sz /. 2.) -. 5., None)] []]]
+        [ svg ~a:([ Svg.a_class []
+                  ; Svg.a_viewBox (0.,0.,sz,sz)])
+            [ Svg.circle ~a:[ Svg.a_class [circle_class]
+                            ; Svg.a_cx (sz /. 2., None)
+                            ; Svg.a_cy (sz /. 2., None)
+                            ; Svg.a_fill `None
+                            ; Svg.a_stroke_width (thickness, None)
+                            ; Svg.a_r ((sz /. 2.) -. 5., None)] []]]
 
   end
 
@@ -735,37 +736,37 @@ module Make
     let inner_bar_class      = CSS.add_element base_class "bar-inner"
 
     let create ?id ?style ?(classes=[]) ?attrs
-               ?buffering_dots_id ?buffering_dots_style ?(buffering_dots_classes=[]) ?buffering_dots_attrs
-               ?buffer_id ?buffer_style ?(buffer_classes=[]) ?buffer_attrs
-               ?primary_bar_id ?primary_bar_style ?(primary_bar_classes=[]) ?primary_bar_attrs
-               ?secondary_bar_id ?secondary_bar_style ?(secondary_bar_classes=[]) ?secondary_bar_attrs
-               ?(indeterminate=false) ?(reversed=false) ?(accent=false) () =
+          ?buffering_dots_id ?buffering_dots_style ?(buffering_dots_classes=[]) ?buffering_dots_attrs
+          ?buffer_id ?buffer_style ?(buffer_classes=[]) ?buffer_attrs
+          ?primary_bar_id ?primary_bar_style ?(primary_bar_classes=[]) ?primary_bar_attrs
+          ?secondary_bar_id ?secondary_bar_style ?(secondary_bar_classes=[]) ?secondary_bar_attrs
+          ?(indeterminate=false) ?(reversed=false) ?(accent=false) () =
       div ~a:([ a_role ["progressbar"]
               ; a_class (classes
                          |> cons_if indeterminate @@ CSS.add_modifier base_class "indeterminate"
                          |> cons_if reversed      @@ CSS.add_modifier base_class "reversed"
                          |> cons_if accent        @@ CSS.add_modifier base_class "accent"
-                         |> CCList.cons base_class) ]
+                         |> List.cons base_class) ]
               |> add_common_attrs ?id ?style ?attrs)
-          [ div ~a:([ a_class (buffering_dots_class :: buffering_dots_classes) ]
-                    |> add_common_attrs ?id:buffering_dots_id
-                                        ?style:buffering_dots_style
-                                        ?attrs:buffering_dots_attrs) []
-          ; div ~a:([ a_class (buffer_class :: buffer_classes) ]
-                    |> add_common_attrs ?id:buffer_id
-                                        ?style:buffer_style
-                                        ?attrs:buffer_attrs) []
-          ; div ~a:([ a_class (bar_class :: primary_bar_class :: primary_bar_classes) ]
-                    |> add_common_attrs ?id:primary_bar_id
-                                        ?style:primary_bar_style
-                                        ?attrs:primary_bar_attrs)
-                [ span ~a:[ a_class [inner_bar_class]] [] ]
-          ; div ~a:([ a_class (bar_class :: secondary_bar_class :: secondary_bar_classes) ]
-                    |> add_common_attrs ?id:secondary_bar_id
-                                        ?style:secondary_bar_style
-                                        ?attrs:secondary_bar_attrs)
-                [ span ~a:[ a_class [inner_bar_class]] [] ]
-          ]
+        [ div ~a:([ a_class (buffering_dots_class :: buffering_dots_classes) ]
+                  |> add_common_attrs ?id:buffering_dots_id
+                       ?style:buffering_dots_style
+                       ?attrs:buffering_dots_attrs) []
+        ; div ~a:([ a_class (buffer_class :: buffer_classes) ]
+                  |> add_common_attrs ?id:buffer_id
+                       ?style:buffer_style
+                       ?attrs:buffer_attrs) []
+        ; div ~a:([ a_class (bar_class :: primary_bar_class :: primary_bar_classes) ]
+                  |> add_common_attrs ?id:primary_bar_id
+                       ?style:primary_bar_style
+                       ?attrs:primary_bar_attrs)
+            [ span ~a:[ a_class [inner_bar_class]] [] ]
+        ; div ~a:([ a_class (bar_class :: secondary_bar_class :: secondary_bar_classes) ]
+                  |> add_common_attrs ?id:secondary_bar_id
+                       ?style:secondary_bar_style
+                       ?attrs:secondary_bar_attrs)
+            [ span ~a:[ a_class [inner_bar_class]] [] ]
+        ]
 
   end
 
@@ -785,30 +786,30 @@ module Make
       let create_divider ?id ?style ?(classes=[]) ?attrs ?(tag=div) ?(inset=false) () =
         tag ~a:([ a_class (classes
                            |> cons_if inset @@ CSS.add_modifier divider_class "inset"
-                           |> CCList.cons divider_class)
+                           |> List.cons divider_class)
                 ; a_role ["separator"] ]
                 |> add_common_attrs ?id ?style ?attrs)
-            []
+          []
 
       let create ?id ?style ?(classes=[]) ?attrs ?(auto_init=false) ?(tag=div)
-                 ~text ?text_id ?text_style ?(text_classes=[]) ?text_attrs ?secondary_text
-                 ?secondary_text_id ?secondary_text_style ?(secondary_text_classes=[]) ?secondary_text_attrs
-                 ?start_detail ?end_detail () =
+            ~text ?text_id ?text_style ?(text_classes=[]) ?text_attrs ?secondary_text
+            ?secondary_text_id ?secondary_text_style ?(secondary_text_classes=[]) ?secondary_text_attrs
+            ?start_detail ?end_detail () =
         tag ~a:([ a_class (_class :: classes) ]
                 |> add_common_attrs ?id ?style ?attrs
                 |> cons_if auto_init @@ a_user_data "mdc-auto-init" "MDCRipple")
-            ((match secondary_text with
-              | Some x -> span ~a:([ a_class (text_class :: text_classes) ]
-                                   |> add_common_attrs ?id:text_id ?style:text_style ?attrs:text_attrs)
-                               [ pcdata text
-                               ; span ~a:([ a_class (secondary_text_class :: secondary_text_classes) ]
-                                          |> add_common_attrs ?id:secondary_text_id
-                                                              ?style:secondary_text_style
-                                                              ?attrs:secondary_text_attrs)
-                                      [pcdata x]]
-              | None   -> pcdata text)
-             :: cons_option end_detail []
-             |> cons_option start_detail)
+          ((match secondary_text with
+            | Some x -> span ~a:([ a_class (text_class :: text_classes) ]
+                                 |> add_common_attrs ?id:text_id ?style:text_style ?attrs:text_attrs)
+                          [ pcdata text
+                          ; span ~a:([ a_class (secondary_text_class :: secondary_text_classes) ]
+                                     |> add_common_attrs ?id:secondary_text_id
+                                          ?style:secondary_text_style
+                                          ?attrs:secondary_text_attrs)
+                              [pcdata x]]
+            | None   -> pcdata text)
+           :: cons_option end_detail []
+           |> cons_option start_detail)
 
     end
 
@@ -820,13 +821,13 @@ module Make
       let create_subheader ?id ?style ?(classes=[]) ?attrs ?(tag=h3) ~text () =
         tag ~a:(
             [ a_class (subheader_class :: classes) ]
-                |> add_common_attrs ?id ?style ?attrs)
-            [pcdata text]
+            |> add_common_attrs ?id ?style ?attrs)
+          [pcdata text]
 
       let create ?id ?style ?(classes=[]) ?attrs ~content () =
         div ~a:([ a_class (_class :: classes)]
                 |> add_common_attrs ?id ?style ?attrs)
-            content
+          content
 
     end
 
@@ -836,15 +837,15 @@ module Make
     let bordered_class = CSS.add_modifier base_class "bordered"
 
     let create ?id ?style ?(classes=[]) ?attrs ?(tag=div) ?(avatar=false)
-               ?(dense=false) ?(bordered=false) ?(two_line=false) ~items () =
+          ?(dense=false) ?(bordered=false) ?(two_line=false) ~items () =
       tag ~a:([ a_class (classes
                          |> cons_if bordered bordered_class
                          |> cons_if dense    dense_class
                          |> cons_if two_line two_line_class
                          |> cons_if avatar   avatar_class
-                         |> CCList.cons base_class) ]
+                         |> List.cons base_class) ]
               |> add_common_attrs ?id ?style ?attrs)
-          items
+        items
 
   end
 
@@ -867,8 +868,8 @@ module Make
       let create ?id ?style ?(classes=[]) ?attrs ?nested_list ~item () =
         Html.div ~a:([ a_class (_class :: classes) ]
                      |> add_common_attrs ?id ?style ?attrs)
-                 (cons_option nested_list []
-                  |> CCList.cons item)
+          (cons_option nested_list []
+           |> List.cons item)
 
     end
 
@@ -888,16 +889,16 @@ module Make
       let create_icon ?id ?style ?(classes=[]) ?attrs ~icon () =
         Html.i ~a:([ a_class ("material-icons" :: List_.Item.start_detail_class :: classes) ]
                    |> add_common_attrs ?id ?style ?attrs)
-               [pcdata icon]
+          [pcdata icon]
 
       let create ?id ?style ?(classes=[]) ?attrs ?(selected=false) ?start_detail ?href ~text () =
         Html.a ~a:([ a_class (classes
                               |> cons_if selected selected_class
-                              |> CCList.cons _class)
+                              |> List.cons _class)
                    ; a_aria "hidden" ["true"] ]
                    |> map_cons_option ~f:(fun x -> a_href @@ uri_of_string x) href
                    |> add_common_attrs ?id ?style ?attrs)
-               (cons_option start_detail [ pcdata text ])
+          (cons_option start_detail [ pcdata text ])
 
     end
 
@@ -908,7 +909,7 @@ module Make
       let create ?id ?style ?(classes=[]) ?attrs ~content () =
         div ~a:([ a_class (_class :: classes) ]
                 |> add_common_attrs ?id ?style ?attrs)
-            content
+          content
 
     end
 
@@ -920,8 +921,8 @@ module Make
       let create ?id ?style ?(classes=[]) ?attrs ~content () =
         header ~a:([ a_class (_class :: classes) ]
                    |> add_common_attrs ?id ?style ?attrs)
-               [ div ~a:([ a_class [header_content_class] ])
-                     content]
+          [ div ~a:([ a_class [header_content_class] ])
+              content]
 
     end
 
@@ -935,10 +936,10 @@ module Make
 
       let create ?id ?style ?(classes=[]) ?attrs ~content () =
         nav ~a:([ a_class (classes
-                           |> CCList.cons Typography.base_class
-                           |> CCList.cons base_class) ]
+                           |> List.cons Typography.base_class
+                           |> List.cons base_class) ]
                 |> add_common_attrs ?id ?style ?attrs)
-            content
+          content
 
     end
 
@@ -954,12 +955,12 @@ module Make
 
       let create ?id ?style ?(classes=[]) ?attrs ~content () =
         aside ~a:([ a_class (classes
-                             |> CCList.cons Typography.base_class
-                             |> CCList.cons base_class) ]
+                             |> List.cons Typography.base_class
+                             |> List.cons base_class) ]
                   |> add_common_attrs ?id ?style ?attrs)
-              [ nav ~a:([ a_class [drawer_class] ])
-                    content
-              ]
+          [ nav ~a:([ a_class [drawer_class] ])
+              content
+          ]
 
     end
 
@@ -975,12 +976,12 @@ module Make
 
       let create ?id ?style ?(classes=[]) ?attrs ~content () =
         aside ~a:([ a_class (classes
-                             |> CCList.cons Typography.base_class
-                             |> CCList.cons base_class) ]
+                             |> List.cons Typography.base_class
+                             |> List.cons base_class) ]
                   |> add_common_attrs ?id ?style ?attrs)
-              [ nav ~a:([ a_class [drawer_class] ])
-                    content
-              ]
+          [ nav ~a:([ a_class [drawer_class] ])
+              content
+          ]
 
     end
 
@@ -1062,45 +1063,45 @@ module Make
       include List_.Item
 
       let create ?id ?style ?classes ?attrs
-                 ~text ?text_id ?text_style ?text_classes ?text_attrs ?secondary_text
-                 ?secondary_text_id ?secondary_text_style ?secondary_text_classes ?secondary_text_attrs
-                 ?(disabled=false) ?start_detail ?end_detail () =
+            ~text ?text_id ?text_style ?text_classes ?text_attrs ?secondary_text
+            ?secondary_text_id ?secondary_text_style ?secondary_text_classes ?secondary_text_attrs
+            ?(disabled=false) ?start_detail ?end_detail () =
         create ?id ?style ?classes
-               ~attrs:([ a_role ["menuitem"] ]
-                       |> cons_if disabled @@ a_aria "disabled" ["true"]
-                       |> cons_if disabled @@ a_tabindex (-1)
-                       |> cons_if (not disabled) @@ a_tabindex 0
-                       |> (fun x -> x @ (CCOpt.get_or ~default:[] attrs)))
-               ~text ?text_id ?text_style ?text_classes ?text_attrs ?secondary_text
-               ?secondary_text_id ?secondary_text_style ?secondary_text_classes ?secondary_text_attrs
-               ?start_detail ?end_detail ()
+          ~attrs:([ a_role ["menuitem"] ]
+                  |> cons_if disabled @@ a_aria "disabled" ["true"]
+                  |> cons_if disabled @@ a_tabindex (-1)
+                  |> cons_if (not disabled) @@ a_tabindex 0
+                  |> (fun x -> x @ (Option.get_or ~default:[] attrs)))
+          ~text ?text_id ?text_style ?text_classes ?text_attrs ?secondary_text
+          ?secondary_text_id ?secondary_text_style ?secondary_text_classes ?secondary_text_attrs
+          ?start_detail ?end_detail ()
 
     end
 
     let create_list ?id ?style ?classes ?attrs ~items () =
       List_.create ?id ?style ~classes:([items_class]
-                                        |> (fun x -> x @ (CCOpt.get_or ~default:[] classes)))
-                   ~attrs:([ a_role ["menu"]
-                           ; a_aria "hidden" ["true"] ]
-                           |> (fun x -> x @ (CCOpt.get_or ~default:[] attrs)))
-                   ~items
-                   ()
+                                        |> (fun x -> x @ (Option.get_or ~default:[] classes)))
+        ~attrs:([ a_role ["menu"]
+                ; a_aria "hidden" ["true"] ]
+                |> (fun x -> x @ (Option.get_or ~default:[] attrs)))
+        ~items
+        ()
 
     let create ?id ?style ?(classes=[]) ?attrs ?(opened=false) ?open_from ~list () =
       div ~a:([ a_class (classes
                          |> cons_if opened @@ CSS.add_modifier base_class "open"
                          |> map_cons_option ~f:(fun x ->
-                                              (match x with
-                                               | `Top_left     -> "top-left"
-                                               | `Top_right    -> "top-right"
-                                               | `Bottom_left  -> "bottom-left"
-                                               | `Bottom_right -> "bottom-right")
-                                              |> (fun s -> CSS.add_modifier base_class ("open-from-" ^ s)))
-                                            open_from
-                         |> CCList.cons base_class)
+                                (match x with
+                                 | `Top_left     -> "top-left"
+                                 | `Top_right    -> "top-right"
+                                 | `Bottom_left  -> "bottom-left"
+                                 | `Bottom_right -> "bottom-right")
+                                |> (fun s -> CSS.add_modifier base_class ("open-from-" ^ s)))
+                              open_from
+                         |> List.cons base_class)
               ; a_tabindex (-1) ]
               |> add_common_attrs ?id ?style ?attrs)
-          [ list ]
+        [ list ]
 
   end
 
@@ -1114,23 +1115,23 @@ module Make
     let disabled_class       = CSS.add_modifier base_class "disabled"
 
     let create ?id ?input_id ?style ?(classes=[]) ?attrs ?(auto_init=true)
-               ?(checked=false) ?(disabled=false) ?name () =
+          ?(checked=false) ?(disabled=false) ?name () =
       div ~a:([ a_class (classes
                          |> cons_if disabled disabled_class
-                         |> CCList.cons base_class) ]
+                         |> List.cons base_class) ]
               |> cons_if auto_init @@ a_user_data "mdc-auto-init" "MDCRadio"
               |> add_common_attrs ?id ?style ?attrs)
-          [ input ~a:([ a_class [native_control_class]
-                      ; a_input_type `Radio ]
-                      |> map_cons_option ~f:a_name name
-                      |> cons_if checked @@ a_checked ()
-                      |> cons_if disabled @@ a_disabled ()
-                      |> add_common_attrs ?id:input_id)
-                  ()
-          ; div ~a:[ a_class [background_class] ]
-                [ div ~a:[ a_class [outer_circle_class]] []
-                ; div ~a:[ a_class [inner_circle_class]] [] ]
-          ]
+        [ input ~a:([ a_class [native_control_class]
+                    ; a_input_type `Radio ]
+                    |> map_cons_option ~f:a_name name
+                    |> cons_if checked @@ a_checked ()
+                    |> cons_if disabled @@ a_disabled ()
+                    |> add_common_attrs ?id:input_id)
+            ()
+        ; div ~a:[ a_class [background_class] ]
+            [ div ~a:[ a_class [outer_circle_class]] []
+            ; div ~a:[ a_class [inner_circle_class]] [] ]
+        ]
 
   end
 
@@ -1162,16 +1163,16 @@ module Make
         include List_.Item
 
         let create ?id ?style ?classes ?attrs ?(disabled=false) ?(selected=false)
-                   ~text ?text_id ?text_style ?text_classes ?text_attrs
-                   ?start_detail ?end_detail () =
+              ~text ?text_id ?text_style ?text_classes ?text_attrs
+              ?start_detail ?end_detail () =
           create ?id ?style ?classes
-                 ~attrs:([ a_role ["option"]]
-                         |> cons_if selected @@ a_aria "selected" []
-                         |> cons_if disabled @@ a_aria "disabled" ["true"]
-                         |> cons_if disabled @@ a_tabindex (-1)
-                         |> cons_if (not disabled) @@ a_tabindex 0
-                         |> (fun x -> x @ (CCOpt.get_or ~default:[] attrs)))
-                 ~text ?text_id ?text_style ?text_classes ?text_attrs ?start_detail ?end_detail ()
+            ~attrs:([ a_role ["option"]]
+                    |> cons_if selected @@ a_aria "selected" []
+                    |> cons_if disabled @@ a_aria "disabled" ["true"]
+                    |> cons_if disabled @@ a_tabindex (-1)
+                    |> cons_if (not disabled) @@ a_tabindex 0
+                    |> (fun x -> x @ (Option.get_or ~default:[] attrs)))
+            ~text ?text_id ?text_style ?text_classes ?text_attrs ?start_detail ?end_detail ()
 
       end
 
@@ -1184,18 +1185,18 @@ module Make
       let create ?id ?style ?(classes=[]) ?attrs ?(disabled=false) ~label ~menu () =
         div ~a:([ a_class (classes
                            |> cons_if disabled disabled_class
-                           |> CCList.cons base_class)
+                           |> List.cons base_class)
                 ; a_role ["listbox"]]
                 |> cons_if (not disabled) @@ a_tabindex 0
                 |> cons_if disabled       @@ a_tabindex (-1)
                 |> cons_if disabled       @@ a_aria "disabled" ["true"]
                 |> add_common_attrs ?id ?style ?attrs)
-            [ div ~a:[ a_class [surface_class]]
-                  [ div ~a:[ a_class [label_class]] [pcdata label]
-                  ; div ~a:[ a_class [selected_text_class]] []
-                  ; div ~a:[ a_class [bottom_line_class]] [] ]
-            ; menu
-            ]
+          [ div ~a:[ a_class [surface_class]]
+              [ div ~a:[ a_class [label_class]] [pcdata label]
+              ; div ~a:[ a_class [selected_text_class]] []
+              ; div ~a:[ a_class [bottom_line_class]] [] ]
+          ; menu
+          ]
 
     end
 
@@ -1209,23 +1210,23 @@ module Make
                      |> cons_if disabled @@ a_disabled ()
                      |> cons_if selected @@ a_selected ()
                      |> add_common_attrs ?id ?style ?attrs)
-                 (pcdata text)
+            (pcdata text)
 
         let create_group ?id ?style ?(classes=[]) ?attrs ~label ~items () =
           optgroup ~a:([ a_class classes ]
                        |> add_common_attrs ?id ?style ?attrs)
-                   ~label
-                   items
+            ~label
+            items
 
       end
 
       let create ?id ?style ?(classes=[]) ?attrs ?(disabled=false) ~items () =
         div ~a:([ a_class (base_class :: classes)]
                 |> add_common_attrs ?id ?style ?attrs)
-            [ select ~a:([ a_class [surface_class] ]
-                         |> cons_if disabled @@ a_disabled ())
-                     items
-            ; div ~a:([ a_class [bottom_line_class]]) [] ]
+          [ select ~a:([ a_class [surface_class] ]
+                       |> cons_if disabled @@ a_disabled ())
+              items
+          ; div ~a:([ a_class [bottom_line_class]]) [] ]
 
     end
 
@@ -1241,20 +1242,20 @@ module Make
                      |> cons_if disabled @@ a_disabled ()
                      |> cons_if selected @@ a_selected ()
                      |> add_common_attrs ?id ?style ?attrs)
-                 (pcdata text)
+            (pcdata text)
 
         let create_divider ?id ?style ?(classes=[]) ?attrs () =
           option ~a:([ a_class (List_.Item.divider_class :: classes)
                      ; a_role ["presentation"]
                      ; a_disabled () ]
                      |> add_common_attrs ?id ?style ?attrs)
-                 (pcdata "")
+            (pcdata "")
 
         let create_group ?id ?style ?(classes=[]) ?attrs ~label ~items () =
           optgroup ~a:([ a_class (List_.List_group._class :: classes) ]
                        |> add_common_attrs ?id ?style ?attrs)
-                   ~label
-                   items
+            ~label
+            items
 
       end
 
@@ -1264,7 +1265,7 @@ module Make
                    |> map_cons_option ~f:a_size size
                    |> cons_if disabled @@ a_disabled ()
                    |> add_common_attrs ?id ?style ?attrs)
-               items
+          items
 
     end
 
@@ -1288,7 +1289,7 @@ module Make
       div ~a:([ a_class (classes
                          |> cons_if discrete @@ CSS.add_modifier base_class "discrete"
                          |> cons_if (discrete && markers) @@ CSS.add_modifier base_class "display-markers"
-                         |> CCList.cons base_class)
+                         |> List.cons base_class)
               ; a_tabindex 0
               ; a_role ["slider"]
               ; a_aria "valuemin" [ string_of_float min ]
@@ -1298,20 +1299,20 @@ module Make
               |> map_cons_option ~f:(fun x -> a_user_data "step" (string_of_float x)) step
               |> cons_if disabled @@ a_aria "disabled" ["true"]
               |> add_common_attrs ?id ?style ?attrs)
-          [ div ~a:([ a_class [track_container_class]])
-                (cons_if (discrete && markers) (div ~a:[ a_class [track_marker_container_class]] []) []
-                 |> CCList.cons @@ div ~a:([ a_class [track_class]]) [])
-          ; div ~a:([ a_class [thumb_container_class]])
-                ([ svg ~a:([ Svg.a_class [thumb_class]
-                           ; Svg.a_width (21., None)
-                           ; Svg.a_height (21., None)])
-                       [ Svg.circle ~a:[ Svg.a_cx (10.5, None)
-                                       ; Svg.a_cy (10.5, None)
-                                       ; Svg.a_r (7.875, None)] []]
-                 ; div ~a:([ a_class [focus_ring_class]]) []]
-                 |> cons_if discrete (div ~a:[a_class [pin_class]]
-                                          [span ~a:[a_class [pin_value_marker_class]] []]))
-          ]
+        [ div ~a:([ a_class [track_container_class]])
+            (cons_if (discrete && markers) (div ~a:[ a_class [track_marker_container_class]] []) []
+             |> List.cons @@ div ~a:([ a_class [track_class]]) [])
+        ; div ~a:([ a_class [thumb_container_class]])
+            ([ svg ~a:([ Svg.a_class [thumb_class]
+                       ; Svg.a_width (21., None)
+                       ; Svg.a_height (21., None)])
+                 [ Svg.circle ~a:[ Svg.a_cx (10.5, None)
+                                 ; Svg.a_cy (10.5, None)
+                                 ; Svg.a_r (7.875, None)] []]
+             ; div ~a:([ a_class [focus_ring_class]]) []]
+             |> cons_if discrete (div ~a:[a_class [pin_class]]
+                                    [span ~a:[a_class [pin_value_marker_class]] []]))
+        ]
 
   end
 
@@ -1326,17 +1327,17 @@ module Make
     let create ?id ?style ?(classes=[]) ?attrs ?(start_aligned=false) () =
       div ~a:([ a_class (classes
                          |> cons_if start_aligned align_start_class
-                         |> CCList.cons base_class)
+                         |> List.cons base_class)
               ; a_aria "live" ["assertive"]
               ; a_aria "atomic" ["true"]
               ; a_aria "hidden" ["true"]]
               |> add_common_attrs ?id ?style ?attrs)
-          [ div ~a:([a_class [text_class]]) []
-          ; div ~a:([a_class [action_wrapper_class]])
-                [ button ~a:[ a_class [action_button_class]
-                            ; a_button_type `Button ]
-                         [] ]
-          ]
+        [ div ~a:([a_class [text_class]]) []
+        ; div ~a:([a_class [action_wrapper_class]])
+            [ button ~a:[ a_class [action_button_class]
+                        ; a_button_type `Button ]
+                [] ]
+        ]
 
   end
 
@@ -1351,13 +1352,13 @@ module Make
     let create ?id ?input_id ?style ?(classes=[]) ?attrs ?(disabled=false) () =
       div ~a:([ a_class (classes
                          |> cons_if disabled disabled_class
-                         |> CCList.cons base_class) ]
+                         |> List.cons base_class) ]
               |> add_common_attrs ?id ?style ?attrs)
-          [ input ~a:([ a_input_type `Checkbox
-                      ; a_class [native_control_class]]
-                      |> cons_if disabled @@ a_disabled ()
-                      |> add_common_attrs ?id:input_id) ()
-          ; div ~a:([ a_class [background_class]]) [ div ~a:([ a_class [knob_class]]) []] ]
+        [ input ~a:([ a_input_type `Checkbox
+                    ; a_class [native_control_class]]
+                    |> cons_if disabled @@ a_disabled ()
+                    |> add_common_attrs ?id:input_id) ()
+        ; div ~a:([ a_class [background_class]]) [ div ~a:([ a_class [knob_class]]) []] ]
 
   end
 
@@ -1373,19 +1374,19 @@ module Make
       let create ?id ?style ?(classes=[]) ?attrs ?(active=false) ?href ~content () =
         a ~a:([ a_class (classes
                          |> cons_if active active_class
-                         |> CCList.cons _class) ]
+                         |> List.cons _class) ]
               |> map_cons_option ~f:a_href href
               |> add_common_attrs ?id ?style ?attrs)
           (match content with
            | `Text s              -> [ pcdata s ]
            | `Icon (i,fallback)   -> [ Html.i ~a:([a_class ["material-icons"; icon_class]]
                                                   |> map_cons_option ~f:(fun x -> a_aria "label" [x]) fallback)
-                                              [ pcdata i ] ]
+                                         [ pcdata i ] ]
            | `Text_and_icon (s,i) -> [ Html.i ~a:([ a_class ["material-icons"; icon_class]
                                                   ; a_aria "hidden" ["true"]])
-                                              [pcdata i]
+                                         [pcdata i]
                                      ; span ~a:[ a_class [icon_text_class] ]
-                                            [ pcdata s ]])
+                                         [ pcdata s ]])
 
     end
 
@@ -1406,19 +1407,19 @@ module Make
       end
 
       let create ?id ?style ?(classes=[]) ?attrs
-                 ?(indicator=Indicator.create ()) ?color_scheme ~typ ~tabs () =
+            ?(indicator=Indicator.create ()) ?color_scheme ~typ ~tabs () =
         nav ~a:([ a_class (classes
                            |> (fun x -> match typ with
                                         | `Text          -> x
                                         | `Icon          -> (CSS.add_modifier _class "icon-tab-bar") :: x
                                         | `Text_and_icon -> (CSS.add_modifier _class "icons-with-text") :: x)
                            |> map_cons_option ~f:(function
-                                                  | `Primary -> indicator_primary_class
-                                                  | `Accent  -> indicator_accent_class)
-                                              color_scheme
-                           |> CCList.cons _class) ]
+                                  | `Primary -> indicator_primary_class
+                                  | `Accent  -> indicator_accent_class)
+                                color_scheme
+                           |> List.cons _class) ]
                 |> add_common_attrs ?id ?style ?attrs)
-            (tabs @ [indicator])
+          (tabs @ [indicator])
 
     end
 
@@ -1478,9 +1479,9 @@ module Make
 
       let create ?id ?style ?(classes=[]) ?attrs ~textfield ~helptext () =
         section ~a:([ a_class (classes
-                               |> CCList.cons _class) ]
+                               |> List.cons _class) ]
                     |> add_common_attrs ?id ?style ?attrs)
-                [ textfield; helptext ]
+          [ textfield; helptext ]
 
     end
 
@@ -1494,10 +1495,10 @@ module Make
         p ~a:([ a_class (classes
                          |> cons_if validation validation_msg_class
                          |> cons_if persistent persistent_class
-                         |> CCList.cons _class) ]
+                         |> List.cons _class) ]
               |> cons_if (not persistent) @@ a_aria "hidden" ["true"]
               |> add_common_attrs ?id ?style ?attrs)
-          [pcdata @@ CCOpt.get_or ~default:"" text]
+          [pcdata @@ Option.get_or ~default:"" text]
 
     end
 
@@ -1509,7 +1510,7 @@ module Make
         Html.i ~a:([ a_class ("material-icons" :: _class :: classes) ]
                    |> cons_if clickable @@ a_tabindex 0
                    |> add_common_attrs ?id ?style ?attrs)
-               [pcdata icon]
+          [pcdata icon]
 
     end
 
@@ -1522,47 +1523,47 @@ module Make
     let label_float_above_class = CSS.add_modifier label_class "float-above"
 
     let create ?id ?style ?(classes=[]) ?attrs ?placeholder
-               ?label_id ?label_style ?(label_classes=[]) ?label_attrs
-               ?value ?(input_type=`Text) ?(disabled=false) ?label ?input_id ?help_text_id
-               ?leading_icon ?trailing_icon ?(box=false) ?(required=false) ?(full_width=false) ?(dense=false)
-               ?(textarea=false) ?rows ?cols () =
+          ?label_id ?label_style ?(label_classes=[]) ?label_attrs
+          ?value ?(input_type=`Text) ?(disabled=false) ?label ?input_id ?help_text_id
+          ?leading_icon ?trailing_icon ?(box=false) ?(required=false) ?(full_width=false) ?(dense=false)
+          ?(textarea=false) ?rows ?cols () =
       div ~a:([ a_class (classes
                          |> cons_if textarea   textarea_class
                          |> cons_if full_width fullwidth_class
                          |> cons_if dense      dense_class
                          |> cons_if disabled   disabled_class
                          |> cons_if box        box_class
-                         |> cons_if (CCOpt.is_some leading_icon) (CSS.add_modifier base_class "with-leading-icon")
-                         |> cons_if (CCOpt.is_some trailing_icon) (CSS.add_modifier base_class "with-trailing-icon")
-                         |> cons_if (CCOpt.is_some value) upgraded_class
-                         |> CCList.cons base_class) ]
+                         |> cons_if (Option.is_some leading_icon) (CSS.add_modifier base_class "with-leading-icon")
+                         |> cons_if (Option.is_some trailing_icon) (CSS.add_modifier base_class "with-trailing-icon")
+                         |> cons_if (Option.is_some value) upgraded_class
+                         |> List.cons base_class) ]
               |> add_common_attrs ?id ?style ?attrs)
-          ((if textarea then [] else [ div ~a:([ a_class [bottom_line_class]]) [] ])
-           |> cons_option trailing_icon
-           |> map_cons_option ~f:(fun x ->
-                                (Html.label ~a:([ a_class (label_classes
-                                                           |> cons_if (CCOpt.is_some value) label_float_above_class
-                                                           |> CCList.cons label_class) ]
-                                                |> map_cons_option ~f:a_label_for input_id
-                                                |> add_common_attrs ?id:label_id
-                                                                    ?style:label_style
-                                                                    ?attrs:label_attrs)
-                                            [pcdata x]))
-                              label
-           |> CCList.cons (let common_attrs = ([ a_class [input_class] ]
-                                               |> cons_if required @@ a_required ()
-                                               |> cons_if disabled @@ a_disabled ()
-                                               |> map_cons_option ~f:a_placeholder placeholder
-                                               |> map_cons_option ~f:a_id input_id) in
-                           (if not textarea
-                            then (input ~a:(common_attrs @ [ a_input_type input_type ]
-                                            |> map_cons_option ~f:a_value value
-                                            |> map_cons_option ~f:(fun x -> a_aria "controls" [x]) help_text_id) ())
-                            else (Html.textarea ~a:(common_attrs
-                                                    |> map_cons_option ~f:a_rows rows
-                                                    |> map_cons_option ~f:a_cols cols)
-                                                (pcdata @@ CCOpt.get_or ~default:"" value))))
-           |> cons_option leading_icon)
+        ((if textarea then [] else [ div ~a:([ a_class [bottom_line_class]]) [] ])
+         |> cons_option trailing_icon
+         |> map_cons_option ~f:(fun x ->
+                (Html.label ~a:([ a_class (label_classes
+                                           |> cons_if (Option.is_some value) label_float_above_class
+                                           |> List.cons label_class) ]
+                                |> map_cons_option ~f:a_label_for input_id
+                                |> add_common_attrs ?id:label_id
+                                     ?style:label_style
+                                     ?attrs:label_attrs)
+                   [pcdata x]))
+              label
+         |> List.cons (let common_attrs = ([ a_class [input_class] ]
+                                           |> cons_if required @@ a_required ()
+                                           |> cons_if disabled @@ a_disabled ()
+                                           |> map_cons_option ~f:a_placeholder placeholder
+                                           |> map_cons_option ~f:a_id input_id) in
+                       (if not textarea
+                        then (input ~a:(common_attrs @ [ a_input_type input_type ]
+                                        |> map_cons_option ~f:a_value value
+                                        |> map_cons_option ~f:(fun x -> a_aria "controls" [x]) help_text_id) ())
+                        else (Html.textarea ~a:(common_attrs
+                                                |> map_cons_option ~f:a_rows rows
+                                                |> map_cons_option ~f:a_cols cols)
+                                (pcdata @@ Option.get_or ~default:"" value))))
+         |> cons_option leading_icon)
 
   end
 
@@ -1590,17 +1591,17 @@ module Make
         let create_title ?id ?style ?(classes=[]) ?attrs ~title () =
           span ~a:([ a_class (title_class :: classes)]
                    |> add_common_attrs ?id ?style ?attrs)
-               [ pcdata title ]
+            [ pcdata title ]
 
         let create ?id ?style ?(classes=[]) ?attrs ?align ?(shrink_to_fit=false) ~content () =
           section ~a:([ a_class (classes
                                  |> map_cons_option ~f:(function
-                                                        | `Start -> align_start_class
-                                                        | `End   -> align_end_class) align
+                                        | `Start -> align_start_class
+                                        | `End   -> align_end_class) align
                                  |> cons_if shrink_to_fit shrink_to_fit_class
-                                 |> CCList.cons _class) ]
+                                 |> List.cons _class) ]
                       |> add_common_attrs ?id ?style ?attrs)
-                  content
+            content
 
       end
 
@@ -1609,29 +1610,29 @@ module Make
       let create ?id ?style ?(classes=[]) ?attrs ~content () =
         div ~a:([ a_class (_class :: classes) ]
                 |> add_common_attrs ?id ?style ?attrs)
-            content
+          content
 
     end
 
     let create ?id ?style ?(classes=[]) ?attrs
-               ?(fixed=false) ?(fixed_last_row=false) ?(waterfall=false)
-               ?(flexible=false) ?flexible_height ~content () =
+          ?(fixed=false) ?(fixed_last_row=false) ?(waterfall=false)
+          ?(flexible=false) ?flexible_height ~content () =
       header ~a:([ a_class (classes
                             |> cons_if fixed fixed_class
                             |> cons_if (fixed && waterfall) waterfall_class
                             |> cons_if (fixed && fixed_last_row) fixed_last_row_only_class
                             |> cons_if flexible flexible_class
-                            |> CCList.cons base_class) ]
+                            |> List.cons base_class) ]
                  |> add_common_attrs ?id
-                                     ?style:(let s = "--" ^ base_class ^ "-ratio-to-extend-flexible" in
-                                             match flexible_height with
-                                             | Some x -> let fh_style = Printf.sprintf "%s: %d;" s x in
-                                                         (match style with
-                                                          | Some style -> Some (fh_style ^ style)
-                                                          | None       -> Some fh_style)
-                                             | None   -> None)
-                                     ?attrs)
-             content
+                      ?style:(let s = "--" ^ base_class ^ "-ratio-to-extend-flexible" in
+                              match flexible_height with
+                              | Some x -> let fh_style = Printf.sprintf "%s: %d;" s x in
+                                          (match style with
+                                           | Some style -> Some (fh_style ^ style)
+                                           | None       -> Some fh_style)
+                              | None   -> None)
+                      ?attrs)
+        content
 
   end
 
@@ -1663,15 +1664,15 @@ module Make
                                         | _      -> l)
                            |> cons_if dense dense_class
                            |> cons_if checkbox checkbox_class
-                           |> CCList.cons _class)]
+                           |> List.cons _class)]
                 |> add_common_attrs ?id ?style ?attrs)
-            (match content with
-             | Text s  -> [ pcdata s]
-             | Float x -> [ pcdata (string_of_float x) ]
-             | Int x   -> [ pcdata (string_of_int x) ]
-             | Int32 x -> [ pcdata (Int32.to_string x) ]
-             | Int64 x -> [ pcdata (Int64.to_string x) ]
-             | Other x -> [ x ])
+          (match content with
+           | Text s  -> [ pcdata s]
+           | Float x -> [ pcdata (string_of_float x) ]
+           | Int x   -> [ pcdata (string_of_int x) ]
+           | Int32 x -> [ pcdata (Int32.to_string x) ]
+           | Int64 x -> [ pcdata (Int64.to_string x) ]
+           | Other x -> [ x ])
 
     end
 
@@ -1681,9 +1682,9 @@ module Make
 
       let create ?id ?style ?(classes=[]) ?attrs ~cells () =
         tr ~a:([ a_class (classes
-                          |> CCList.cons _class )]
+                          |> List.cons _class )]
                |> add_common_attrs ?id ?style ?attrs)
-           cells
+          cells
 
     end
 
@@ -1693,9 +1694,9 @@ module Make
 
       let create ?id ?style ?(classes=[]) ?attrs ~row () =
         thead ~a:([ a_class (classes
-                             |> CCList.cons _class )]
+                             |> List.cons _class )]
                   |> add_common_attrs ?id ?style ?attrs)
-              [ row ]
+          [ row ]
 
     end
 
@@ -1705,9 +1706,9 @@ module Make
 
       let create ?id ?style ?(classes=[]) ?attrs ~rows () =
         tbody ~a:([ a_class (classes
-                             |> CCList.cons _class ) ]
+                             |> List.cons _class ) ]
                   |> add_common_attrs ?id ?style ?attrs)
-              rows
+          rows
 
     end
 
@@ -1717,25 +1718,25 @@ module Make
 
       let create ?id ?style ?(classes=[]) ?attrs ~row () =
         tfoot ~a:([ a_class (classes
-                             |> CCList.cons _class ) ]
+                             |> List.cons _class ) ]
                   |> add_common_attrs ?id ?style ?attrs)
-              [ row ]
+          [ row ]
 
     end
 
     let create_table ?id ?style ?(classes=[]) ?attrs ?header ?footer ~body () =
       table ?thead:header
-            ?tfoot:footer
-            ~a:([ a_class (classes
-                           |> CCList.cons container_class)]
-                |> add_common_attrs ?id ?style ?attrs)
-            [body]
+        ?tfoot:footer
+        ~a:([ a_class (classes
+                       |> List.cons container_class)]
+            |> add_common_attrs ?id ?style ?attrs)
+        [body]
 
     let create ?id ?style ?(classes=[]) ?attrs ~table () =
       div ~a:([ a_class (classes
-                         |> CCList.cons base_class)]
+                         |> List.cons base_class)]
               |> add_common_attrs ?id ?style ?attrs)
-          [table]
+        [table]
 
   end
 

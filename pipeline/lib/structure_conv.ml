@@ -1,3 +1,5 @@
+open Containers
+
 let parse_uri =
   let open Angstrom in
   let open Common.Stream in
@@ -39,8 +41,9 @@ let match_streams
   let open Structure in
   let create structure uri (s : Common.Stream.t) =
     match s.id with
-    | `Ip u when u = uri -> Some { source = (Stream s); structure }
-    | _                  -> None
+    | `Ip u when (Common.Stream.equal_addr u uri)
+      -> Some { source = (Stream s); structure }
+    | _ -> None
   in
   let from_input input uri structure =
     match input with
@@ -57,14 +60,14 @@ let match_streams
        match parse_uri x.uri with
        | Error _ -> merge input parents acc tl
        | Ok uri  ->
-          match CCList.find_map (create x uri) parents with
+          match List.find_map (create x uri) parents with
           | None   -> merge input parents ((from_input input uri x)::acc) tl
           | Some s -> merge input parents (s::acc) tl
   in
-  let inputs, parents = CCList.partition_map
+  let inputs, parents = List.partition_map
                           Common.Stream.(function Input i -> `Left i | Parent p -> `Right p)
                           sources in
-  let input = CCList.head_opt inputs in
+  let input = List.head_opt inputs in
   merge input parents [] s
 
 let dump_streams (entries : Structure.t list) =

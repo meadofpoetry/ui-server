@@ -1,3 +1,4 @@
+open Containers
 open Components
 
 let card ~(title    : string)
@@ -15,7 +16,7 @@ let card ~(title    : string)
   in
   let _ = React.S.map (function
                        | Some tab -> Dom.list_of_nodeList @@ inner##.childNodes
-                                     |> CCList.iter (fun x -> Dom.removeChild inner x);
+                                     |> List.iter (fun x -> Dom.removeChild inner x);
                                      Dom.appendChild inner tab#get_value#root
                        | None     -> ()) tab_bar#s_active
   in

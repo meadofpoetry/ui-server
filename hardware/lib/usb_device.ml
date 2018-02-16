@@ -1,19 +1,19 @@
 open Containers
 open Lwt.Infix
 
-[@@@ocaml.warning "-32"]
+       [@@@ocaml.warning "-32"]
 
-[%%cstruct
- type header =
-   { prefix : uint16_t
-   ; port   : uint8_t
-   ; length : uint8_t
-   } [@@big_endian]]
+       [%%cstruct
+        type header =
+          { prefix : uint16_t
+          ; port   : uint8_t
+          ; length : uint8_t
+          } [@@big_endian]]
 
-[@@@ocaml.warning "+32"]
+       [@@@ocaml.warning "+32"]
 
 type 'a cc = 'a Meta_board.cc
-   
+           
 type t = { dispatch : (int * (Cbuffer.t list -> 'c cc as 'c) cc) list ref
          ; send     : int -> Cbuffer.t -> unit Lwt.t
          ; usb      : Cyusb.t
@@ -81,9 +81,9 @@ let check_next_prefix ((_,rest) as x) =
 
 let get_msg buf =
   try
-    CCResult.(check_prefix buf
-              >>= check_length
-              >>= check_next_prefix)
+    Result.(check_prefix buf
+            >>= check_length
+            >>= check_next_prefix)
   with e -> Error (Unknown_err (Printexc.to_string e))
 
 let deserialize acc buf =
@@ -143,7 +143,7 @@ let subscribe obj id step =
 let get_send obj id = obj.send id
 
 (* TODO add proper finalize *)
-          
+                    
 let finalize obj =
   Cyusb.send obj.usb (Cbuffer.create 10);
-Cyusb.finalize ()
+  Cyusb.finalize ()

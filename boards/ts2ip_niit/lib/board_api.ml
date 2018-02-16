@@ -1,14 +1,14 @@
+open Containers
 open Lwt.Infix
 open Api.Interaction
 open Board_protocol
 open Board_types
-open Containers
 open Websocket_cohttp_lwt
 open Frame
 
 module Api_handler = Api.Handler.Make(Common.User)
 
-let ( % ) = CCFun.(%)
+let ( % ) = Fun.(%)
 
 (* TODO reason about random key *)
 let () = Random.init (int_of_float @@ Unix.time ())

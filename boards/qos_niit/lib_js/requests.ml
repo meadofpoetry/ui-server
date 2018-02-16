@@ -1,3 +1,4 @@
+open Containers
 open Board_types
 open Api_js.Requests
 open Lwt.Infix
@@ -15,23 +16,23 @@ let post_jitter_mode control mode =
 
 let get_config control =
   get_js (Printf.sprintf "/api/board/%d/config" control)
-  >|= CCResult.(flat_map config_of_yojson)
+  >|= Result.(flat_map config_of_yojson)
 
 let get_devinfo control =
   get_js (Printf.sprintf "/api/board/%d/devinfo" control)
-  >|= CCResult.(flat_map devinfo_response_of_yojson)
+  >|= Result.(flat_map devinfo_response_of_yojson)
 
 let get_t2mi_seq control seconds =
   get_js (Printf.sprintf "/api/board/%d/t2mi_seq/%d" control seconds)
-  >|= CCResult.(flat_map t2mi_seq_of_yojson)
+  >|= Result.(flat_map t2mi_seq_of_yojson)
 
 let get_structs control =
   get_js (Printf.sprintf "/api/board/%d/structs" control)
-  >|= CCResult.(flat_map ts_structs_of_yojson)
+  >|= Result.(flat_map ts_structs_of_yojson)
 
 let get_bitrates control =
   get_js (Printf.sprintf "/api/board/%d/bitrates" control)
-  >|= CCResult.(flat_map ts_structs_of_yojson)
+  >|= Result.(flat_map ts_structs_of_yojson)
 
 let get_state_ws control =
   get_socket (Printf.sprintf "api/board/%d/state_ws" control) Common.Topology.state_of_yojson

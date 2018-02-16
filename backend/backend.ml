@@ -1,3 +1,5 @@
+open Containers
+   
 module Api_handler = Api.Handler.Make(Common.User)
                    
 let main config =
@@ -52,7 +54,7 @@ let main config =
         
         Hardware.finalize hw;
         Storage.Database.finalize db;
-        CCOpt.iter Pipeline.finalize pipe;
+        Option.iter Pipeline.finalize pipe;
 
         (* mainloop () *)
       end

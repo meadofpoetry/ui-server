@@ -1,3 +1,4 @@
+open Containers
 open Lwt_react
 open Components
 open Tyxml_js
@@ -6,7 +7,7 @@ let demo_section title content =
   new Expansion_panel.t ~title ~content ()
 
 let subsection name w = Html.div [ Html.h3 ~a:[Html.a_class [Typography.font_to_class Subheading_2]]
-                                           [Html.pcdata name]
+                                     [Html.pcdata name]
                                  ; Widget.widget_to_markup w ]
                         |> To_dom.of_element
                         |> Widget.create
@@ -61,8 +62,8 @@ let checkbox_demo () =
   let btn          = new Button.t ~label:"toggle indeterminate" () in
   let form_field   = new Form_field.t ~label:"checkbox label" ~input:checkbox () in
   React.E.map (fun _ -> checkbox#set_indeterminate @@ not checkbox#get_indeterminate;
-                         css_checkbox#set_indeterminate @@ not css_checkbox#get_indeterminate)
-              btn#e_click |> ignore;
+                        css_checkbox#set_indeterminate @@ not css_checkbox#get_indeterminate)
+    btn#e_click |> ignore;
   demo_section "Checkbox" [ (subsection "Checkbox (css only)" css_checkbox)#widget
                           ; (subsection "Checkbox with label" form_field)#widget
                           ; btn#widget ]
@@ -75,9 +76,9 @@ let switch_demo () =
 
 let toggle_demo () =
   let toggle = new Icon_toggle.t
-                   ~on_data:{ icon = "favorite"; label = None; css_class = None }
-                   ~off_data:{ icon = "favorite_border"; label = None; css_class = None }
-                   () in
+                 ~on_data:{ icon = "favorite"; label = None; css_class = None }
+                 ~off_data:{ icon = "favorite_border"; label = None; css_class = None }
+                 () in
   React.S.map (fun x -> print_endline @@ "Icon toggle is " ^ (if x then "on" else "off")) toggle#s_state |> ignore;
   demo_section "Icon toggle" [ toggle ]
 
@@ -122,11 +123,11 @@ let slider_demo () =
 
 let grid_list_demo () =
   let tiles = List.map (fun x -> new Grid_list.Tile.t
-                                     ~src:"https://cs5-3.4pda.to/5290239.png"
-                                     ~title:("My tile " ^ (string_of_int x))
-                                     ~support_text:"Some text here"
-                                     ())
-                       (CCList.range 0 4) in
+                                   ~src:"https://cs5-3.4pda.to/5290239.png"
+                                   ~title:("My tile " ^ (string_of_int x))
+                                   ~support_text:"Some text here"
+                                   ())
+                (List.range 0 4) in
   let grid  = new Grid_list.t ~tiles () in
   demo_section "Grid list" [ grid ]
 
@@ -146,83 +147,83 @@ let layout_grid_demo () =
                                                                     padding: 8px;\
                                                                     color: white;\
                                                                     font-size: 1.5em;"]
-                                                  [Html.pcdata ( "id=" ^ (string_of_int x)
-                                                                 ^ "\nspan="
-                                                                 ^ (string_of_int (if x = 3
-                                                                                   then 2
-                                                                                   else 1)))]
+                                           [Html.pcdata ( "id=" ^ (string_of_int x)
+                                                          ^ "\nspan="
+                                                          ^ (string_of_int (if x = 3
+                                                                            then 2
+                                                                            else 1)))]
                                          |> Tyxml_js.To_dom.of_element
                                          |> Widget.create in
                                  new Layout_grid.Cell.t ~widgets:[w] ()
                                  |> (fun x -> x#set_span 1; x))
-                       (CCList.range 0 15) in
+                (List.range 0 15) in
   let btn2 = new Button.t ~label:"set span 1" () in
   let btn4 = new Button.t ~label:"set span 2" () in
-  React.E.map (fun _ -> (CCList.get_at_idx_exn 4 cells)#set_span 1) btn2#e_click |> ignore;
-  React.E.map (fun _ -> (CCList.get_at_idx_exn 4 cells)#set_span 2) btn4#e_click |> ignore;
+  React.E.map (fun _ -> (List.get_at_idx_exn 4 cells)#set_span 1) btn2#e_click |> ignore;
+  React.E.map (fun _ -> (List.get_at_idx_exn 4 cells)#set_span 2) btn4#e_click |> ignore;
   let layout_grid = new Layout_grid.t ~cells () in
   demo_section "Layout grid" [ layout_grid#widget; btn2#widget; btn4#widget ]
 
 let dialog_demo () =
   let dialog = new Dialog.t
-                   ~title:"This is dialog"
-                   ~content:(`String "Dialog body")
-                   ~actions:[ new Dialog.Action.t ~typ:`Decline ~label:"Decline" ()
-                            ; new Dialog.Action.t ~typ:`Accept  ~label:"Accept" ()
-                            ]
-                   () in
+                 ~title:"This is dialog"
+                 ~content:(`String "Dialog body")
+                 ~actions:[ new Dialog.Action.t ~typ:`Decline ~label:"Decline" ()
+                          ; new Dialog.Action.t ~typ:`Accept  ~label:"Accept" ()
+                 ]
+                 () in
   let button = new Button.t ~label:"show dialog" () in
   React.E.map (fun _ -> Lwt.bind dialog#show_await
-                                 (function
-                                  | `Accept -> print_endline "Dialog accepted"; Lwt.return ()
-                                  | `Cancel -> print_endline "Dialog cancelled"; Lwt.return ()))
-              button#e_click |> ignore;
+                          (function
+                           | `Accept -> print_endline "Dialog accepted"; Lwt.return ()
+                           | `Cancel -> print_endline "Dialog cancelled"; Lwt.return ()))
+    button#e_click |> ignore;
   demo_section "Dialog" [ dialog#widget; button#widget ]
 
 let list_demo () =
   let items = List.map (fun x -> if x = 3
                                  then `Divider (new Item_list.Divider.t ())
                                  else `Item (new Item_list.Item.t
-                                                 ~text:("List item " ^ (string_of_int x))
-                                                 ~secondary_text:"some subtext here"
-                                                 ~start_detail:(new Avatar.Letter.t ~text:"A" ())
-                                                 ~ripple:true
-                                                 ()))
-                       (CCList.range 0 5) in
+                                               ~text:("List item " ^ (string_of_int x))
+                                               ~secondary_text:"some subtext here"
+                                               ~start_detail:(new Avatar.Letter.t ~text:"A" ())
+                                               ~ripple:true
+                                               ()))
+                (List.range 0 5) in
   let list = new Item_list.t ~avatar:true ~items () in
   list#style##.maxWidth := Js.string "400px";
   let list1 = new Item_list.t
-                  ~items:[ `Item (new Item_list.Item.t ~text:"Item 1" ~secondary_text:"Subtext" ())
-                         ; `Item (new Item_list.Item.t ~text:"Item 2" ~secondary_text:"Subtext" ())
-                         ; `Item (new Item_list.Item.t ~text:"Item 3" ~secondary_text:"Subtext" ())
-                         ]
-                  () in
+                ~items:[ `Item (new Item_list.Item.t ~text:"Item 1" ~secondary_text:"Subtext" ())
+                       ; `Item (new Item_list.Item.t ~text:"Item 2" ~secondary_text:"Subtext" ())
+                       ; `Item (new Item_list.Item.t ~text:"Item 3" ~secondary_text:"Subtext" ())
+                ]
+                () in
   let list2 = new Item_list.t
-                  ~items:[ `Item (new Item_list.Item.t ~text:"Item 1" ~secondary_text:"Subtext" ())
-                         ; `Item (new Item_list.Item.t ~text:"Item 2" ~secondary_text:"Subtext" ())
-                         ; `Item (new Item_list.Item.t ~text:"Item 3" ~secondary_text:"Subtext" ())
-                         ]
-                  () in
+                ~items:[ `Item (new Item_list.Item.t ~text:"Item 1" ~secondary_text:"Subtext" ())
+                       ; `Item (new Item_list.Item.t ~text:"Item 2" ~secondary_text:"Subtext" ())
+                       ; `Item (new Item_list.Item.t ~text:"Item 3" ~secondary_text:"Subtext" ())
+                ]
+                () in
   let group = new Item_list.List_group.t
-                  ~content:[ { subheader = Some "Group 1"; list = list1 }
-                           ; { subheader = Some "Group 2"; list = list2 }
-                           ]
-                  () in
+                ~content:[ { subheader = Some "Group 1"; list = list1 }
+                         ; { subheader = Some "Group 2"; list = list2 }
+                ]
+                () in
   group#style##.maxWidth := Js.string "400px";
   demo_section "List" [ list#widget; group#widget ]
 
 let tree_demo () =
   let item x = new Tree.Item.t
-                   ~text:("Item " ^ string_of_int x)
-                   ~nested:(new Tree.t
-                                ~items:[ new Tree.Item.t ~text:"Item 0" ()
-                                       ; new Tree.Item.t ~text:"Item 1" ()
-                                       ; new Tree.Item.t ~text:"Item 2" () ]
-                                ())
-                   () in
-  let tree = new Tree.t
-                 ~items:(List.map (fun x -> item x) (CCList.range 0 5))
+                 ~text:("Item " ^ string_of_int x)
+                 ~nested:(new Tree.t
+                            ~items:[ new Tree.Item.t ~text:"Item 0" ()
+                                   ; new Tree.Item.t ~text:"Item 1" ()
+                                   ; new Tree.Item.t ~text:"Item 2" () ]
+                            ())
                  () in
+  let tree = new Tree.t
+               ~items:(List.map (fun x -> item x) (List.range 0 5))
+               () in
   tree#style##.maxWidth := Js.string "400px";
   demo_section "Tree" [ tree ]
 
@@ -230,7 +231,7 @@ let menu_demo () =
   let items    = List.map (fun x -> if x != 2
                                     then `Item (new Menu.Item.t ~text:("Menu item " ^ (string_of_int x)) ())
                                     else `Divider (new Menu.Divider.t ()))
-                          (CCList.range 0 5) in
+                   (List.range 0 5) in
   let anchor  = new Button.t ~label:"Open menu" () in
   anchor#style##.marginBottom := Js.string "50px";
   let menu    = new Menu.t ~items () in
@@ -238,29 +239,29 @@ let menu_demo () =
   menu#set_dense true;
   let icon_anchor = new Icon.Font.t ~icon:"more_horiz" () in
   let icon_menu   = new Menu.t
-                        ~items:[ `Item (new Menu.Item.t ~text:"Item 1" ())
-                               ; `Item (new Menu.Item.t ~text:"Item 2" ())
-                               ; `Item (new Menu.Item.t ~text:"Item 3" ()) ]
-                        () in
+                      ~items:[ `Item (new Menu.Item.t ~text:"Item 1" ())
+                             ; `Item (new Menu.Item.t ~text:"Item 2" ())
+                             ; `Item (new Menu.Item.t ~text:"Item 3" ()) ]
+                      () in
   let icon_wrapper = new Menu.Wrapper.t ~menu:icon_menu ~anchor:icon_anchor () in
   React.E.map (fun _ -> menu#show) anchor#e_click      |> ignore;
   Dom_html.addEventListener icon_anchor#root
-                            Dom_events.Typ.click
-                            (Dom_html.handler (fun _ -> icon_menu#show; Js._false))
-                            Js._false
+    Dom_events.Typ.click
+    (Dom_html.handler (fun _ -> icon_menu#show; Js._false))
+    Js._false
   |> ignore;
   Dom_html.addEventListener menu#root
-                            Menu.events.selected
-                            (Dom_html.handler (fun d ->
-                                 print_endline ("Selected menu item is " ^ (d##.detail##.index
-                                                                            |> string_of_int));
-                                 Js._false))
-                            Js._false
+    Menu.events.selected
+    (Dom_html.handler (fun d ->
+         print_endline ("Selected menu item is " ^ (d##.detail##.index
+                                                    |> string_of_int));
+         Js._false))
+    Js._false
   |> ignore;
   Dom_html.addEventListener menu#root
-                            Menu.events.cancel
-                            (Dom_html.handler (fun _ -> print_endline "Menu cancelled"; Js._false))
-                            Js._false
+    Menu.events.cancel
+    (Dom_html.handler (fun _ -> print_endline "Menu cancelled"; Js._false))
+    Js._false
   |> ignore;
   demo_section "Menu" [ wrapper#widget; icon_wrapper#widget ]
 
@@ -289,8 +290,8 @@ let linear_progress_demo () =
   React.E.map (fun _ -> linear_progress#hide) close_btn#e_click                  |> ignore;
   let cells = List.map (fun x -> new Layout_grid.Cell.t ~widgets:[x] ()
                                  |> (fun x -> x#set_span 12; x))
-                       [ind_btn  ; det_btn  ; pgs0_btn ; pgs20_btn; pgs60_btn;
-                        buf10_btn; buf30_btn; buf70_btn; open_btn ; close_btn ] in
+                [ind_btn  ; det_btn  ; pgs0_btn ; pgs20_btn; pgs60_btn;
+                 buf10_btn; buf30_btn; buf70_btn; open_btn ; close_btn ] in
   let btn_grid = new Layout_grid.t ~cells () in
   demo_section "Linear progress" [ btn_grid#widget; linear_progress#widget ]
 
@@ -308,7 +309,7 @@ let tabs_demo () =
                                      ; href     = None
                                      ; disabled = if x = 2 then true else false
                                      ; value    = ()})
-                           (CCList.range 0 3)
+                    (List.range 0 3)
                   |> (fun tabs -> new Tabs.Tab_bar.t ~tabs ()) in
   let both_bar  = [ { content = `Text_and_icon ("Tab 0", "pets");     href = None; disabled = false; value = () }
                   ; { content = `Text_and_icon ("Tab 1", "favorite"); href = None; disabled = false; value = () }
@@ -319,25 +320,25 @@ let tabs_demo () =
                                      ; href = None
                                      ; disabled = false
                                      ; value = () })
-                           (CCList.range 0 15)
+                    (List.range 0 15)
                   |> (fun tabs -> new Tabs.Scroller.t ~tabs ()) in
   React.E.map (fun _ ->
-      let len  = CCList.length text_bar#tabs in
+      let len  = List.length text_bar#tabs in
       let name = Printf.sprintf "Tab %d" len in
       match React.S.value idx#s_input with
       | Some idx -> text_bar#insert_tab_at_index idx { content = `Text name
                                                      ; href = None
                                                      ; disabled = false
                                                      ; value = ()
-                                                     }
+                      }
       | None     -> text_bar#append_tab { content = `Text name; href = None; disabled = false; value = () })
-              add#e_click
+    add#e_click
   |> ignore;
   React.E.map (fun _ ->
       match React.S.value idx#s_input with
       | Some idx -> text_bar#remove_tab_at_index idx |> ignore
       | None     -> ())
-              remove#e_click
+    remove#e_click
   |> ignore;
   let section = demo_section "Tabs" [ (subsection "With icon labels" icon_bar)#widget
                                     ; (subsection "With text labels" text_bar)#widget
@@ -355,16 +356,16 @@ let tabs_demo () =
 
 let snackbar_demo () =
   let snackbar = new Snackbar.t
-                     ~message:"I am a snackbar"
-                     ~action:{ handler = (fun () -> print_endline "Clicked on snackbar action")
-                             ; text    = "Action"}
-                     () in
+                   ~message:"I am a snackbar"
+                   ~action:{ handler = (fun () -> print_endline "Clicked on snackbar action")
+                           ; text    = "Action"}
+                   () in
   let aligned  = new Snackbar.t
-                     ~start_aligned:true
-                     ~message:"I am a snackbar"
-                     ~action:{ handler = (fun () -> print_endline "Clicked on snackbar action")
-                             ; text    = "Action"}
-                     () in
+                   ~start_aligned:true
+                   ~message:"I am a snackbar"
+                   ~action:{ handler = (fun () -> print_endline "Clicked on snackbar action")
+                           ; text    = "Action"}
+                   () in
   let snackbar_btn = new Button.t ~label:"Open snackbar" () in
   let aligned_btn  = new Button.t ~label:"Open start-aligned snackbar" () in
   React.E.map (fun _ -> snackbar#show) snackbar_btn#e_click |> ignore;
@@ -379,41 +380,41 @@ let textfield_demo () =
   let css_form = new Form_field.t ~label:"css textfield label: " ~input:css ~align_end:true () in
   (* Full-featured js textbox *)
   let js       = new Textfield.t
-                     ~input_type:Widget.Text 
-                     ~label:"js textfield label"
-                     ~help_text:{ validation = true
-                                ; persistent = false
-                                ; text       = Some "This field must not be empty"
-                                }
-                     () in
+                   ~input_type:Widget.Text 
+                   ~label:"js textfield label"
+                   ~help_text:{ validation = true
+                              ; persistent = false
+                              ; text       = Some "This field must not be empty"
+                   }
+                   () in
   js#set_required true;
   (* Dense js textbox with *)
   let dense    = new Textfield.t
-                     ~label:"dense textfield label"
-                     ~input_type:Widget.Email
-                     ~help_text:{ validation = true
-                                ; persistent = false
-                                ; text       = Some "Provide valid e-mail"
-                                }
-                     () in
+                   ~label:"dense textfield label"
+                   ~input_type:Widget.Email
+                   ~help_text:{ validation = true
+                              ; persistent = false
+                              ; text       = Some "Provide valid e-mail"
+                   }
+                   () in
   dense#set_dense true;
   (* Textboxes with icons *)
   let lead_icon  = new Textfield.t
-                       ~input_type:Widget.Text
-                       ~label:"textfield label"
-                       ~icon:{ icon      = "event"
-                             ; clickable = false
-                             ; pos       = `Leading
-                             }
-                       () in
+                     ~input_type:Widget.Text
+                     ~label:"textfield label"
+                     ~icon:{ icon      = "event"
+                           ; clickable = false
+                           ; pos       = `Leading
+                     }
+                     () in
   let trail_icon = new Textfield.t
-                       ~input_type:Widget.Text
-                       ~label:"textfield label"
-                       ~icon:{ icon      = "delete"
-                             ; clickable = false
-                             ; pos       = `Trailing
-                             }
-                       () in
+                     ~input_type:Widget.Text
+                     ~label:"textfield label"
+                     ~icon:{ icon      = "delete"
+                           ; clickable = false
+                           ; pos       = `Trailing
+                     }
+                     () in
   (* Textareas *)
   let css_textarea      = new Textarea.Pure.t ~placeholder:"Enter something" ~rows:8 ~cols:40 () in
   let textarea          = new Textarea.t ~label:"textarea label" ~rows:8 ~cols:40 () in
@@ -427,40 +428,40 @@ let textfield_demo () =
 
 let select_demo () =
   let js      = new Select.Base.t
-                    ~label:"Pick smth"
-                    ~items:(List.map (fun x -> new Select.Base.Item.t
-                                                   ~id:("index " ^ (string_of_int x))
-                                                   ~text:("Select item " ^ (string_of_int x))
-                                                   ~value:()
-                                                   ())
-                                     (CCList.range 0 5))
-                    () in
+                  ~label:"Pick smth"
+                  ~items:(List.map (fun x -> new Select.Base.Item.t
+                                               ~id:("index " ^ (string_of_int x))
+                                               ~text:("Select item " ^ (string_of_int x))
+                                               ~value:()
+                                               ())
+                            (List.range 0 5))
+                  () in
   js#set_dense true;
   let pure    = new Select.Pure.t
-                    ~items:[ `Group (new Select.Pure.Group.t
-                                         ~label:"Group 1"
-                                         ~items:[ new Select.Pure.Item.t ~text:"Item 1" ()
-                                                ; new Select.Pure.Item.t ~text:"Item 2" ()
-                                                ; new Select.Pure.Item.t ~text:"Item 3" ()]
-                                         ())
-                           ; `Item (new Select.Pure.Item.t ~text:"Item 1" ())
-                           ; `Item (new Select.Pure.Item.t ~text:"Item 2" ())
-                           ; `Item (new Select.Pure.Item.t ~text:"Item 3" ())
-                           ]
-                    () in
+                  ~items:[ `Group (new Select.Pure.Group.t
+                                     ~label:"Group 1"
+                                     ~items:[ new Select.Pure.Item.t ~text:"Item 1" ()
+                                            ; new Select.Pure.Item.t ~text:"Item 2" ()
+                                            ; new Select.Pure.Item.t ~text:"Item 3" ()]
+                                     ())
+                         ; `Item (new Select.Pure.Item.t ~text:"Item 1" ())
+                         ; `Item (new Select.Pure.Item.t ~text:"Item 2" ())
+                         ; `Item (new Select.Pure.Item.t ~text:"Item 3" ())
+                  ]
+                  () in
   let multi = [ `Group (new Select.Multi.Group.t
-                            ~label:"Group 1"
-                            ~items:(List.map (fun x -> let text = "Group item " ^ (string_of_int x) in
-                                                       new Select.Multi.Item.t ~text ())
-                                             (CCList.range 0 2))
-                            ())
+                          ~label:"Group 1"
+                          ~items:(List.map (fun x -> let text = "Group item " ^ (string_of_int x) in
+                                                     new Select.Multi.Item.t ~text ())
+                                    (List.range 0 2))
+                          ())
               ; `Divider (new Select.Multi.Divider.t ())
               ; `Group (new Select.Multi.Group.t
-                            ~label:"Group 2"
-                            ~items:(List.map (fun x -> let text = "Group item " ^ (string_of_int x) in
-                                                       new Select.Multi.Item.t ~text ())
-                                             (CCList.range 0 2))
-                            ())
+                          ~label:"Group 2"
+                          ~items:(List.map (fun x -> let text = "Group item " ^ (string_of_int x) in
+                                                     new Select.Multi.Item.t ~text ())
+                                    (List.range 0 2))
+                          ())
               ; `Divider (new Select.Multi.Divider.t ())
               ; `Item (new Select.Multi.Item.t ~text:"Item 1" ())
               ; `Item (new Select.Multi.Item.t ~text:"Item 2" ()) ]
@@ -471,31 +472,31 @@ let select_demo () =
 
 let toolbar_demo (drawer : Drawer.Persistent.t Js.t) () =
   let icon = Html.i ~a:[Html.a_class [ "material-icons"; Markup.Toolbar.Row.Section.icon_class]
-                       ; Html.a_onclick (fun _ -> if drawer##.open_ |> Js.to_bool
-                                                  then drawer##.open_ := Js._false
-                                                  else drawer##.open_ := Js._true
-                                                ; true)]
-                    [Html.pcdata "menu"]
+                      ; Html.a_onclick (fun _ -> if drawer##.open_ |> Js.to_bool
+                                                 then drawer##.open_ := Js._false
+                                                 else drawer##.open_ := Js._true
+                                               ; true)]
+               [Html.pcdata "menu"]
              |> To_dom.of_i
              |> Widget.create in
   let title = new Toolbar.Row.Section.Title.t ~title:"Widgets demo page" () in
   let section_start = new Toolbar.Row.Section.t ~widgets:[ icon#widget; title#widget ] () in
   section_start#set_align `Start;
   let icon_menu = new Menu.t
-                      ~open_from:`Top_right
-                      ~items:[ `Item (new Menu.Item.t ~text:"Item 1" ())
-                             ; `Item (new Menu.Item.t ~text:"Item 2" ())
-                             ; `Item (new Menu.Item.t ~text:"Item 3" ()) ]
-                      () in
+                    ~open_from:`Top_right
+                    ~items:[ `Item (new Menu.Item.t ~text:"Item 1" ())
+                           ; `Item (new Menu.Item.t ~text:"Item 2" ())
+                           ; `Item (new Menu.Item.t ~text:"Item 3" ()) ]
+                    () in
   let end_icon = Html.i ~a:[Html.a_class [ "material-icons"; Markup.Toolbar.Row.Section.icon_class]]
-                        [Html.pcdata "favorite"]
+                   [Html.pcdata "favorite"]
                  |> To_dom.of_i
                  |> Widget.create in
   Menu.inject ~anchor:end_icon ~menu:icon_menu;
   Dom_html.addEventListener end_icon#root
-                            Dom_events.Typ.click
-                            (Dom_html.handler (fun _ -> icon_menu#show; Js._false))
-                            Js._false
+    Dom_events.Typ.click
+    (Dom_html.handler (fun _ -> icon_menu#show; Js._false))
+    Js._false
   |> ignore;
   let section_end = new Toolbar.Row.Section.t ~widgets:[end_icon] () in
   section_end#set_align `End;
@@ -514,7 +515,7 @@ let elevation_demo () =
 
 let drawer_demo () =
   Drawer.Temporary.create ~content:[Drawer.Temporary.Toolbar_spacer.create ~content:[Html.pcdata "Demo"]
-                                                                           ()] ()
+                                      ()] ()
   |> Drawer.Temporary.attach
 
 let table_demo () =
@@ -522,7 +523,7 @@ let table_demo () =
   let table = new Table.t ~header ~content:[ [ Text "cell 1 1"; Text "cell 1 2"; Text "cell 1 3" ]
                                            ; [ Text "cell 2 1"; Text "cell 2 2"; Text "cell 2 3" ]
                                            ; [ Text "cell 3 1"; Text "cell 3 2"; Text "cell 3 3" ]
-                                           ] () in
+                ] () in
   table#style##.maxWidth := Js.string "600px";
   table#add_class @@ Elevation.get_elevation_class 2;
   demo_section "Table" [ table#widget ]
@@ -532,18 +533,18 @@ let chart_demo () =
   let x = ref 40 in
   Random.init (Unix.time () |> int_of_float);
   let open Chartjs.Line in
-  let data = [ { data = (List.map (fun x -> { x ; y = Random.int range }) (CCList.range_by ~step:2 0 !x))
+  let data = [ { data = (List.map (fun x -> { x ; y = Random.run (Random.int range) }) (List.range_by ~step:2 0 !x))
                ; label = "Dataset 1"
                }
-             ; { data = (List.map (fun x -> { x ; y = Random.int range }) (CCList.range_by ~step:2 0 !x))
+             ; { data = (List.map (fun x -> { x ; y = Random.run (Random.int range) }) (List.range_by ~step:2 0 !x))
                ; label = "Dataset 2"
                }
              ] in
   let config = new Config.t
-                   ~x_axis:(Linear ("my-x-axis",Bottom,Int,Some !x))
-                   ~y_axis:(Linear ("my-y-axis",Left,Int,None))
-                   ~data
-                   () in
+                 ~x_axis:(Linear ("my-x-axis",Bottom,Int,Some !x))
+                 ~y_axis:(Linear ("my-y-axis",Left,Int,None))
+                 ~data
+                 () in
   config#options#hover#set_mode Index;
   config#options#hover#set_intersect true;
   config#options#tooltip#set_mode Index;
@@ -552,7 +553,7 @@ let chart_demo () =
   config#options#x_axis#scale_label#set_label_string "x axis";
   config#options#x_axis#scale_label#set_display true;
   config#options#elements#line#set_border_width 3;
-  List.iter (fun x -> if x#get_label = "Dataset 1"
+  List.iter (fun x -> if String.equal x#get_label "Dataset 1"
                       then x#set_border_color @@ Color.rgb_of_name (Color.Lime C500)
                       else x#set_border_color @@ Color.rgb_of_name (Color.Pink C500);
                       x#set_cubic_interpolation_mode Monotone;
@@ -563,22 +564,22 @@ let chart_demo () =
   let append    = new Button.t ~label:"append" () in
   let chart  = new Chartjs.Line.t ~config () in
   React.E.map (fun _ -> List.iter (fun x -> x#set_point_radius (`Fun (fun _ x -> if x.x mod 2 > 0 then 10 else 5))
-                                  ) chart#config#datasets;
+                          ) chart#config#datasets;
                         chart#update None)
-              update#e_click |> ignore;
+    update#e_click |> ignore;
   React.E.map (fun _ -> x := !x + 2;
-                        List.iter (fun ds -> ds#push { x = !x; y = Random.int range }) chart#config#datasets;
+                        List.iter (fun ds -> ds#push { x = !x; y = Random.run (Random.int range) }) chart#config#datasets;
                         chart#update None)
-              push#e_click |> ignore;
-  React.E.map (fun _ -> List.iter (fun ds -> ds#push { x = !x - 1; y = Random.int range }) chart#config#datasets;
+    push#e_click |> ignore;
+  React.E.map (fun _ -> List.iter (fun ds -> ds#push { x = !x - 1; y = Random.run (Random.int range) }) chart#config#datasets;
                         chart#update None)
-              push_less#e_click |> ignore;
+    push_less#e_click |> ignore;
   React.E.map (fun _ -> x := !x + 6;
-                        List.iter (fun ds -> ds#append [ { x = !x - 6; y = Random.int range }
-                                                       ; { x = !x - 4; y = Random.int range }
-                                                       ; { x = !x - 2; y = Random.int range }
-                                                       ; { x = !x    ; y = Random.int range } ])
-                                  chart#config#datasets;
+                        List.iter (fun ds -> ds#append [ { x = !x - 6; y = Random.run (Random.int range) }
+                                                       ; { x = !x - 4; y = Random.run (Random.int range) }
+                                                       ; { x = !x - 2; y = Random.run (Random.int range) }
+                                                       ; { x = !x    ; y = Random.run (Random.int range) } ])
+                          chart#config#datasets;
                         chart#update None)
               append#e_click |> ignore;
   let w = Html.div ~a:[ Html.a_style "max-width:700px"] [ Widget.widget_to_markup chart
@@ -599,10 +600,10 @@ let time_chart_demo () =
              ; { data = []; label = "Dataset 2" }
              ] in
   let config = new Config.t
-                   ~x_axis:(Time ("my-x-axis",Bottom,Unix,Some 20000L))
-                   ~y_axis:(Linear ("my-y-axis",Left,Int,None))
-                   ~data
-                   () in
+                 ~x_axis:(Time ("my-x-axis",Bottom,Unix,Some 20000L))
+                 ~y_axis:(Linear ("my-y-axis",Left,Int,None))
+                 ~data
+                 () in
   config#options#hover#set_mode Index;
   config#options#hover#set_intersect true;
   config#options#tooltip#set_mode Index;
@@ -611,20 +612,20 @@ let time_chart_demo () =
   config#options#x_axis#scale_label#set_display true;
   config#options#x_axis#time#set_min_unit Second;
   config#options#elements#line#set_border_width 3;
-  List.iter (fun x -> if x#get_label = "Dataset 1"
+  List.iter (fun x -> if String.equal x#get_label "Dataset 1"
                       then x#set_background_color @@ Color.rgb_of_name (Color.Indigo C500)
                       else x#set_background_color @@ Color.rgb_of_name (Color.Amber C500);
-                      if x#get_label = "Dataset 1"
+                      if String.equal x#get_label "Dataset 1"
                       then x#set_border_color @@ Color.rgb_of_name (Color.Indigo C500)
                       else x#set_border_color @@ Color.rgb_of_name (Color.Amber C500);
                       x#set_cubic_interpolation_mode Monotone;
                       x#set_fill Disabled) config#datasets;
   let chart = new Chartjs.Line.t ~config () in
   let e_update,e_update_push = React.E.create () in
-  React.E.map (fun () -> List.iter (fun ds -> ds#push { x = Unix.time () *. 1000. |> Int64.of_float
-                                                      ; y = Random.int range }) chart#config#datasets;
+  React.E.map (fun () -> List.iter (fun ds -> ds#push { x = Unix.time () *. 1000. |> Int64.of_float_exn
+                                                      ; y = Random.run (Random.int range) }) chart#config#datasets;
                          chart#update None)
-              e_update |> ignore;
+    e_update |> ignore;
   Dom_html.window##setInterval (Js.wrap_callback (fun () -> e_update_push () |> ignore)) 1000. |> ignore;
   let w = Html.div ~a:[ Html.a_style "max-width:700px"] [ Widget.widget_to_markup chart ]
           |> To_dom.of_element
@@ -654,18 +655,19 @@ let dynamic_grid_demo () =
       config#options#x_axis#scale_label#set_display true;
       config#options#x_axis#time#set_min_unit Second;
       config#options#elements#line#set_border_width 3;
-      List.iter (fun x -> if x#get_label = "Dataset 1"
+      List.iter (fun x -> if String.equal x#get_label "Dataset 1"
                           then x#set_background_color @@ Color.rgb_of_name (Color.Indigo C500)
                           else x#set_background_color @@ Color.rgb_of_name (Color.Amber C500);
-                          if x#get_label = "Dataset 1"
+                          if String.equal x#get_label "Dataset 1"
                           then x#set_border_color @@ Color.rgb_of_name (Color.Indigo C500)
                           else x#set_border_color @@ Color.rgb_of_name (Color.Amber C500);
                           x#set_cubic_interpolation_mode Monotone;
                           x#set_fill Disabled) config#datasets;
       let chart = new Chartjs.Line.t ~config () in
       let e_update,e_update_push = React.E.create () in
-      React.E.map (fun () -> List.iter (fun ds -> ds#push { x = Unix.time () *. 1000. |> Int64.of_float
-                                                          ; y = Random.int range }) chart#config#datasets;
+      React.E.map (fun () -> List.iter (fun ds -> ds#push { x = Unix.time () *. 1000. |> Int64.of_float_exn
+                                                          ; y = Random.run (Random.int range) })
+                                       chart#config#datasets;
                              chart#update None)
                   e_update |> ignore;
       Dom_html.window##setInterval (Js.wrap_callback (fun () -> e_update_push () |> ignore)) 1000. |> ignore;
@@ -678,7 +680,7 @@ let dynamic_grid_demo () =
     ; min_col_width    = 1
     ; max_col_width    = None
     ; row_height       = None
-    ; vertical_compact = false
+    ; vertical_compact = true
     ; items_margin     = None
     } in
   let items    =
@@ -711,7 +713,7 @@ let dynamic_grid_demo () =
   |> ignore;
   React.E.map (fun e -> let open Lwt.Infix in
                         Dom_html.stopPropagation e;
-                        grid#remove_free ()
+                        grid#remove_free
                         >>= (function
                              | Ok _    -> print_endline "ok"   ; Lwt.return_unit
                              | Error _ -> print_endline "error"; Lwt.return_unit)
@@ -818,7 +820,7 @@ let onload _ =
   Js._false
 
 let () = Dom_html.addEventListener Dom_html.document
-                                   Dom_events.Typ.domContentLoaded
-                                   (Dom_html.handler onload)
-                                   Js._false
+           Dom_events.Typ.domContentLoaded
+           (Dom_html.handler onload)
+           Js._false
          |> ignore

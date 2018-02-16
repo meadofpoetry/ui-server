@@ -1,3 +1,5 @@
+open Containers
+
 class type mdc =
   object
     method value          : float Js.prop
@@ -31,8 +33,8 @@ let events =
 class t ?discrete ?markers ?step ?(min=0.0) ?(max=100.0) ?value  () =
 
   let elt = Markup.Slider.create ?discrete ?markers ?value ?step ~min ~max () |> Tyxml_js.To_dom.of_div in
-  let s_input,s_input_push = React.S.create @@ CCOpt.get_or ~default:min value in
-  let s_value,s_value_push = React.S.create @@ CCOpt.get_or ~default:min value in
+  let s_input,s_input_push = React.S.create @@ Option.get_or ~default:min value in
+  let s_value,s_value_push = React.S.create @@ Option.get_or ~default:min value in
   let mdc : mdc Js.t = elt |> (fun x -> Js.Unsafe.global##.mdc##.slider##.MDCSlider##attachTo x) in
 
   object(self)

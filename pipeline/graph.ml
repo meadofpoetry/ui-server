@@ -1,3 +1,5 @@
+let name = "graph"
+
 type graph_state = Null
                  | Pause
                  | Play

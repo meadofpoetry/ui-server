@@ -3,6 +3,7 @@
  * add keyboard focus + styling
  * add enable/disable + styling
  *)
+open Containers
 
 module Primary = struct
 
@@ -12,8 +13,8 @@ module Primary = struct
           () =
     let elt = Markup.Expansion_panel.Primary.create
                 ~title
-                ~heading_details:(CCList.map Widget.widget_to_markup heading_details)
-                ~details:(CCList.map Widget.widget_to_markup details)
+                ~heading_details:(List.map Widget.widget_to_markup heading_details)
+                ~details:(List.map Widget.widget_to_markup details)
                 ()
               |> Tyxml_js.To_dom.of_element
     in
@@ -26,7 +27,7 @@ end
 module Panel = struct
 
   class t ~(content : #Widget.widget list) () =
-    let elt = Markup.Expansion_panel.Panel.create ~content:(CCList.map Widget.widget_to_markup content) ()
+    let elt = Markup.Expansion_panel.Panel.create ~content:(List.map Widget.widget_to_markup content) ()
               |> Tyxml_js.To_dom.of_element
     in
     object
@@ -38,7 +39,7 @@ end
 module Actions = struct
 
   class t ~(actions : #Widget.widget list) () =
-    let elt = Markup.Expansion_panel.Actions.create ~actions:(CCList.map Widget.widget_to_markup actions) ()
+    let elt = Markup.Expansion_panel.Actions.create ~actions:(List.map Widget.widget_to_markup actions) ()
               |> Tyxml_js.To_dom.of_element
     in
     object
@@ -55,19 +56,19 @@ class t ?(expanded=false)
         ~(title           : string)
         ~(content         : #Widget.widget list)
         () =
-  let heading_details = CCOpt.get_or ~default:[] heading_details in
-  let details = CCOpt.get_or ~default:[] details in
+  let heading_details = Option.get_or ~default:[] heading_details in
+  let details = Option.get_or ~default:[] details in
   let primary = new Primary.t ~title ~details ~heading_details () in
-  let actions = CCOpt.map (fun actions -> new Actions.t ~actions ()) actions in
+  let actions = Option.map (fun actions -> new Actions.t ~actions ()) actions in
   let panel   = new Panel.t ~content () in
   let elt     = Markup.Expansion_panel.create ~primary:(Widget.widget_to_markup primary)
                                               ~panel:(Widget.widget_to_markup panel)
-                                              ?actions:(CCOpt.map Widget.widget_to_markup actions)
+                                              ?actions:(Option.map Widget.widget_to_markup actions)
                                               ()
                 |> Tyxml_js.To_dom.of_element
   in
   let wrapper = elt##querySelector (Js.string ("." ^ Markup.Expansion_panel.panel_wrapper_class))
-                |> Js.Opt.to_option |> CCOpt.get_exn |> Widget.create in
+                |> Js.Opt.to_option |> Option.get_exn |> Widget.create in
   let s_expanded,s_expanded_push = React.S.create expanded in
 
   object(self)
@@ -101,7 +102,7 @@ class t ?(expanded=false)
       Dom_events.listen primary#root
                         Dom_events.Typ.keydown
                         (fun _ (ev:Dom_html.keyboardEvent Js.t) ->
-                          let key  = CCOpt.map Js.to_string @@ Js.Optdef.to_option ev##.key in
+                          let key  = Option.map Js.to_string @@ Js.Optdef.to_option ev##.key in
                           (match key,ev##.keyCode with
                            | Some "Enter", _ | _, 13 | Some "Space", _ | _, 32 ->
                               Dom.preventDefault ev;

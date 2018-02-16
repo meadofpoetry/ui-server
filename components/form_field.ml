@@ -1,3 +1,5 @@
+open Containers
+
 let x = ref (Unix.time () |> int_of_float)
 let get_id = fun () -> incr x; Printf.sprintf "form-input-%d" !x
 
@@ -20,7 +22,7 @@ class ['a] t ?align_end ~(input: 'a) ~label () =
     inherit Widget.widget elt ()
     method get_label_widget = label
     method get_input_widget : 'a = input
-    method get_label    = self#get_label_widget#get_text_content |> CCOpt.get_or ~default:""
+    method get_label    = self#get_label_widget#get_text_content |> Option.get_or ~default:""
     method set_label s  = self#get_label_widget#set_text_content s
 
     initializer

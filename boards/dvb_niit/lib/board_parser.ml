@@ -1,3 +1,8 @@
+open Containers
+
+(* TODO remove *)
+let (=) = Pervasives.(=)
+   
 let tag_start = 0x55AA
 let tag_stop  = 0xFE
 
@@ -209,10 +214,10 @@ let check_msg_crc (id,code,buf) =
 
 let check_msg msg =
   try
-    CCResult.(check_tag_start msg
-              >>= check_length
-              >>= check_msg_code
-              >>= check_msg_crc)
+    Result.(check_tag_start msg
+            >>= check_length
+            >>= check_msg_code
+            >>= check_msg_crc)
   with
   | Invalid_argument _ -> Error (Insufficient_payload msg)
   | e                  -> Error (Unknown_err (Printexc.to_string e))
@@ -251,7 +256,7 @@ let of_rsp_devinfo_exn msg =
                                               then x :: acc
                                               else acc)
                                 []
-                                (CCList.range 0 3)
+                                (List.range 0 3)
     }
   with _ -> raise Parse_error
 
@@ -267,7 +272,7 @@ let to_req_settings id (settings : settings) =
 
 let of_rsp_settings_exn msg =
   try
-    let open CCOpt in
+    let open Option in
     { lock       = int_to_bool8 (get_settings_lock msg)       |> get_exn |> bool_of_bool8
     ; hw_present = int_to_bool8 (get_settings_hw_present msg) |> get_exn |> bool_of_bool8
     ; settings   = { mode     = to_mode @@ get_exn @@ int_to_emode (get_settings_mode msg)
@@ -287,7 +292,7 @@ let to_req_measure id =
 let of_rsp_measure_exn msg =
   try
     { timestamp = Unix.gettimeofday ()
-    ; lock      = int_to_bool8 (get_rsp_measure_lock msg) |> CCOpt.get_exn |> bool_of_bool8
+    ; lock      = int_to_bool8 (get_rsp_measure_lock msg) |> Option.get_exn |> bool_of_bool8
     ; power     = get_rsp_measure_power msg
                   |> (fun x -> if x = max_uint16 then None else Some (-.((float_of_int x) /. 10.)))
     ; mer       = get_rsp_measure_mer msg
@@ -309,7 +314,7 @@ let to_req_plp_list id =
 let of_rsp_plp_list_exn msg =
   try
     let plp_num     = Cbuffer.get_uint8 msg 1 |> (fun x -> if x = 0xFF then None else Some x) in
-    { lock = int_to_bool8 (Cbuffer.get_uint8 msg 0) |> CCOpt.get_exn |> bool_of_bool8
+    { lock = int_to_bool8 (Cbuffer.get_uint8 msg 0) |> Option.get_exn |> bool_of_bool8
     ; plps = begin match plp_num with
              | Some _ -> let iter = Cbuffer.iter (fun _ -> Some 1)
                                                  (fun buf -> Cbuffer.get_uint8 buf 0)
@@ -329,7 +334,7 @@ let to_req_plp_set id plp =
 
 let of_rsp_plp_set_exn msg =
   try
-    { lock = int_to_bool8 (get_rsp_plp_set_lock msg) |> CCOpt.get_exn |> bool_of_bool8
+    { lock = int_to_bool8 (get_rsp_plp_set_lock msg) |> Option.get_exn |> bool_of_bool8
     ; plp  = get_rsp_plp_set_plp msg
     }
   with _ -> raise Parse_error

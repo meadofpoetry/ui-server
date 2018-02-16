@@ -1,3 +1,4 @@
+open Containers
 open Board_types
 open Components
 open Chartjs
@@ -34,8 +35,8 @@ let chart ~typ ~e () =
                       x#set_fill Disabled) config#datasets;
   let _ = React.E.map (fun (id,time,y) ->
               match y with
-              | Some y -> let ds = CCList.get_at_idx_exn id chart#config#datasets in
-                          ds#push { x = Int64.of_float (time *. 1000.); y };
+              | Some y -> let ds = List.get_at_idx_exn id chart#config#datasets in
+                          ds#push { x = Int64.of_float_exn (time *. 1000.); y };
                           chart#update None
               | None   -> ()) e in
   chart
@@ -53,7 +54,7 @@ let chart_grid ~e_measures () =
   let ber_chart = chart_card ~title:"BER"      ~typ:Float ~f_extract:(fun m -> m.ber)     ~e_measures () in
   let frq_chart = chart_card ~title:"Частота"  ~typ:Int32 ~f_extract:(fun m -> m.freq)    ~e_measures () in
   let br_chart  = chart_card ~title:"Битрейт"  ~typ:Int32 ~f_extract:(fun m -> m.bitrate) ~e_measures () in
-  let cells     = CCList.map (fun x -> let cell = new Layout_grid.Cell.t ~widgets:[x] () in
+  let cells     = List.map (fun x -> let cell = new Layout_grid.Cell.t ~widgets:[x] () in
                                        cell#set_span 6;
                                        cell#set_span_phone 12;
                                        cell#set_span_tablet 12;
@@ -77,7 +78,7 @@ class measures control () = object(self)
       ~f:(fun _ _ ->
         let in_dom_new = (Js.Unsafe.coerce Dom_html.document)##contains self#root in
         if in_dom && (not in_dom_new)
-        then CCOpt.iter (fun (x:page_state) -> x.measures##close; page_state <- None) page_state
+        then Option.iter (fun (x:page_state) -> x.measures##close; page_state <- None) page_state
         else if (not in_dom) && in_dom_new
         then (let e_measures,meas_sock = Requests.get_measures_ws control in
               let grid = chart_grid ~e_measures () in

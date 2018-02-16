@@ -1,20 +1,20 @@
+open Containers
 open Api.Interaction
 open Api.Redirect
 open Pipeline
 open Websocket_cohttp_lwt
 open Frame
-open Containers
    
 open Lwt.Infix
 
 module Api_handler = Api.Handler.Make(Common.User)
-   
-let ( % ) = CCFun.(%)
+                   
+let ( % ) = Fun.(%)
 
 (* TODO reason about random key *)
 let () = Random.init (int_of_float @@ Unix.time ())
 let rand_int = fun () -> Random.run (Random.int 10000000)
-       
+                       
 let socket_table = Hashtbl.create 1000
 
 let get_page () =
@@ -30,7 +30,7 @@ let set body conv apply =
   match conv js with
   | Error e -> respond_error e ()
   | Ok x    -> apply x
-               >>= fun () -> respond_ok ()
+               >>= function Ok () -> respond_ok ()
 
 let get_sock sock_data body conv event =
   let id = rand_int () in
@@ -54,39 +54,45 @@ let get_sock sock_data body conv event =
 let set_structure api body () =
   Lwt_io.printf "set structure\n" |> ignore;
   set body Structure.t_list_of_yojson
-      Pipeline_protocol.(fun x -> api.set (Set_structures x))
+    Pipeline_protocol.(fun x -> api.requests.streams.set x)
 
 let get_structure api () =
   let open Pipeline_protocol in
-  api.get Get_structures
+  api.requests.streams.get ()
+  >>= (function
+       | Error e -> Lwt.fail_with e
+       | Ok v -> Lwt.return v)
   >|= Structure.t_list_to_yojson
   >>= fun js -> respond_js js ()
 
 let get_structure_sock sock_data body api () =
   let open Pipeline_protocol in
-  get_sock sock_data body Structure.t_list_to_yojson (React.S.changes api.structure)
-
+  get_sock sock_data body Structure.t_list_to_yojson (React.S.changes api.streams)
+(*
 let set_settings api body () =
   set body Settings.of_yojson
-      Pipeline_protocol.(fun x -> api.set (Set_settings x))
+    Pipeline_protocol.(fun x -> api.set (Set_settings x))
 
 let get_settings api () =
   let open Pipeline_protocol in
   api.get Get_settings
   >|= Settings.to_yojson
   >>= fun js -> respond_js js ()
-
+ *)
 let get_settings_sock sock_data body api () =
   let open Pipeline_protocol in
   get_sock sock_data body Settings.to_yojson (React.E.Option.value @@ React.S.changes api.settings)
 
 let set_wm api body () =
   set body Wm.of_yojson
-    Pipeline_protocol.(fun x -> api.set (Set_wm x))
+    Pipeline_protocol.(fun x -> api.requests.wm.set x)
 
 let get_wm api () =
   let open Pipeline_protocol in
-  api.get Get_wm
+  api.requests.wm.get ()
+  >>= (function
+       | Error e -> Lwt.fail_with e
+       | Ok v -> Lwt.return v)
   >|= Wm.to_yojson
   >>= fun js -> respond_js js ()
 
@@ -132,7 +138,7 @@ let get_vdata_sock_pid sock_data body api stream channel pid () =
     let open Pipeline_protocol in
     get_sock sock_data body Video_data.to_yojson (React.E.filter pred api.vdata)
   with _ -> respond_error ~status:`Bad_request "bad request" ()
-    
+          
 let pipeline_handle api id meth args sock_data _ body =
   let is_guest = Common.User.eq id `Guest in
   match meth, args with
@@ -140,8 +146,8 @@ let pipeline_handle api id meth args sock_data _ body =
   | `POST, ["structure"]        -> redirect_if is_guest @@ set_structure api body
   | `GET,  ["structure"]        -> get_structure api ()
   | `GET,  ["structure_sock"]   -> get_structure_sock sock_data body api ()
-  | `POST, ["settings"]         -> redirect_if is_guest @@ set_settings api body
-  | `GET,  ["settings"]         -> get_settings api ()
+ (* | `POST, ["settings"]         -> redirect_if is_guest @@ set_settings api body
+  | `GET,  ["settings"]         -> get_settings api () *)
   | `GET,  ["settings_sock"]    -> get_settings_sock sock_data body api ()
   | `POST, ["wm"]               -> redirect_if is_guest @@ set_wm api body
   | `GET,  ["wm"]               -> get_wm api ()
@@ -151,7 +157,7 @@ let pipeline_handle api id meth args sock_data _ body =
   | `GET,  ["vdata_sock";s;c]   -> get_vdata_sock_channel sock_data body api s c ()
   | `GET,  ["vdata_sock";s;c;p] -> get_vdata_sock_pid sock_data body api s c p ()
   | _                           -> not_found ()
-                     
+                                 
 let handlers pipe =
   [ (module struct
        let domain = "pipeline"
@@ -160,7 +166,7 @@ let handlers pipe =
 
 let handlers_not_implemented () =
   []
-  
+    
     (*
 let test _ _ body =
   Cohttp_lwt.Body.to_string body >>= fun body ->
@@ -173,7 +179,7 @@ let test _ _ body =
       | Error _ -> "Sorry, something is wrong with your json"
       | Ok root -> Lwt_io.printf "Msgpck: %s\n" (Msg_conv.to_msg_string @@ Common.State.to_yojson root) |> ignore;
                    let prefix = "Thank you, master! " in
-                   begin match (CCOpt.get_exn root.graph).state with
+                   begin match (Option.get_exn root.graph).state with
                    | Some Null  -> prefix ^ "You want me to stop the graph?"
                    | Some Stop  -> prefix ^ "Halting graph"
                    | Some Play  -> prefix ^ "Starting"
@@ -182,4 +188,4 @@ let test _ _ body =
                    end
   in
   Cohttp_lwt_unix.Server.respond_string ~status:`OK ~body:s ()
-        *)
+     *)

@@ -1,3 +1,4 @@
+open Containers
 open Lwt.Infix
 open Hardware_js
 open Common.Topology
@@ -6,7 +7,7 @@ open Components
 let insert s (container:#Dom.node Js.t) =
   React.S.map (function
                | Some p -> Dom.list_of_nodeList @@ container##.childNodes
-                           |> CCList.iter (fun x -> Dom.removeChild container x);
+                           |> List.iter (fun x -> Dom.removeChild container x);
                            Dom.appendChild container p#root
                | None   -> ()) s
 
@@ -21,12 +22,12 @@ let () =
   let doc = Dom_html.document in
   let ac  = Dom_html.getElementById "arbitrary-content" in
 
-  let s,push = React.S.create ~eq:(==) None in
+  let s,push = React.S.create ~eq:Equal.physical None in
   let divider = new Divider.t () in
   divider#style##.margin := Js.string "15px 0";
   let canvas = Dom_html.createCanvas doc in
   let width () = canvas##.parentNode
-                 |> Js.Opt.to_option |> CCOpt.get_exn
+                 |> Js.Opt.to_option |> Option.get_exn
                  |> Js.Unsafe.coerce
                  |> (fun x -> x##.offsetWidth) in
   Dom.appendChild ac canvas;

@@ -1,9 +1,13 @@
+open Containers
 open Board_types
 open Lwt.Infix
 open Storage.Options
 open Meta_board
 open Meta_board.Msg
 
+(* TODO remove *)
+let (=) = Pervasives.(=)
+   
 include Board_parser
 
 (* Board protocol implementation *)
@@ -82,7 +86,7 @@ module SM = struct
     let t, w = Lwt.wait () in
     let pred = function
       | `Timeout -> Lwt.wakeup_exn w (Failure "msg timeout"); None
-      | l -> let open CCOpt in
+      | l -> let open Option in
              is_response msg l >|= fun r ->
              let conf = storage#get in
              (match msg with
@@ -109,18 +113,18 @@ module SM = struct
     let reboot_steps       = 20 / (int_of_float (step_duration *. (float_of_int period))) in
 
     let events_to_status ps events =
-      let get = fun f e -> CCOpt.get_exn @@ CCList.find_map f e in
+      let get = fun f e -> Option.get_exn @@ List.find_map f e in
       { fec_delay       = get (function Fec_delay x -> Some x | _ -> None) events
       ; fec_cols        = get (function Fec_cols x -> Some x | _ -> None) events
       ; fec_rows        = get (function Fec_rows x -> Some x | _ -> None) events
       ; jitter_tol      = get (function Jitter_tol x -> Some x | _ -> None) events
       ; lost_after_fec  = (let x = get (function Lost_after_fec x -> Some x | _ -> None) events in
                            match ps with
-                           | Some ps -> Int64.sub x ps.lost_after_fec
+                           | Some ps -> Int64.(x - ps.lost_after_fec)
                            | None    -> x)
       ; lost_before_fec = (let x = get (function Lost_before_fec x -> Some x | _ -> None) events in
                            match ps with
-                           | Some ps -> Int64.sub x ps.lost_before_fec
+                           | Some ps -> Int64.(x - ps.lost_before_fec)
                            | None    -> x)
       ; tp_per_ip       = get (function Tp_per_ip x -> Some x | _ -> None) events
       ; status          = get (function Status x -> Some x | _ -> None) events
@@ -146,7 +150,7 @@ module SM = struct
 
     let find_resp req acc recvd ~success ~failure =
       let responses,acc = deserialize (Meta_board.concat_acc acc recvd) in
-      (match CCList.find_map (is_response req) responses with
+      (match List.find_map (is_response req) responses with
        | Some x -> success x acc
        | None   -> failure acc) in
 
@@ -341,13 +345,13 @@ module SM = struct
 
     and step_init_ip_method p req acc recvd =
       find_resp req acc recvd
-                ~success:(fun _ _ -> let r = Ip (Set_delay (CCOpt.get_or ~default:100 storage#get.ip.delay)) in
+                ~success:(fun _ _ -> let r = Ip (Set_delay (Option.get_or ~default:100 storage#get.ip.delay)) in
                                      send r; `Continue (step_init_ip_delay period r None))
                 ~failure:(fun acc -> bad_step p (step_init_ip_method (pred p) req acc))
 
     and step_init_ip_delay p req acc recvd =
       find_resp req acc recvd
-                ~success:(fun _ _ -> let r = Ip (Set_rate_est_mode (CCOpt.get_or ~default:On storage#get.ip.rate_mode)) in
+                ~success:(fun _ _ -> let r = Ip (Set_rate_est_mode (Option.get_or ~default:On storage#get.ip.rate_mode)) in
                                      send r; `Continue (step_init_ip_rate_mode period r None))
                 ~failure:(fun acc -> bad_step p (step_init_ip_delay (pred p) req acc))
 
@@ -398,7 +402,7 @@ module SM = struct
          | Some e -> let new_pool = Pool.next pool in
                      if Pool.last pool
                      then (let status = events_to_status prev_status (e :: events) in
-                           if CCOpt.is_some prev_status then push_events.status status;
+                           if Option.is_some prev_status then push_events.status status;
                            `Continue (step_normal_requests_send new_pool (Some status) period_timer acc))
                      else step_normal_probes_send new_pool prev_status (e :: events) period_timer acc recvd)
       with Timeout -> first_step ()

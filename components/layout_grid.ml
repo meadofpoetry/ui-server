@@ -1,3 +1,5 @@
+open Containers
+
 module Cell = struct
 
   class t ~(widgets:#Widget.widget list) () =
@@ -22,7 +24,7 @@ module Cell = struct
       method private rm_span ?dt x = super#remove_class @@ Markup.Layout_grid.Cell.get_cell_span ?device_type:dt x
 
       method remove_span =
-        CCOpt.iter self#rm_span span;
+        Option.iter self#rm_span span;
         span <- None
       method get_span = span
       method set_span x =
@@ -31,7 +33,7 @@ module Cell = struct
         span <- Some x
 
       method remove_span_phone =
-        CCOpt.iter (self#rm_span ~dt:`Phone) span_phone;
+        Option.iter (self#rm_span ~dt:`Phone) span_phone;
         span_phone <- None
       method get_span_phone = span_phone
       method set_span_phone x =
@@ -40,7 +42,7 @@ module Cell = struct
         span_phone <- Some x
 
       method remove_span_tablet =
-        CCOpt.iter (self#rm_span ~dt:`Tablet) span_tablet;
+        Option.iter (self#rm_span ~dt:`Tablet) span_tablet;
         span_tablet <- None
       method get_span_tablet = span_tablet
       method set_span_tablet x =
@@ -49,7 +51,7 @@ module Cell = struct
         span_tablet <- Some x
 
       method remove_span_desktop =
-        CCOpt.iter (self#rm_span ~dt:`Desktop) span_desktop;
+        Option.iter (self#rm_span ~dt:`Desktop) span_desktop;
         span_desktop <- None
       method get_span_desktop = span_desktop
       method set_span_desktop x =
@@ -58,7 +60,7 @@ module Cell = struct
         span_tablet <- Some x
 
       method remove_order =
-        CCOpt.iter (fun x -> super#remove_class @@ Markup.Layout_grid.Cell.get_cell_order x) order;
+        Option.iter (fun x -> super#remove_class @@ Markup.Layout_grid.Cell.get_cell_order x) order;
         order <- None
       method get_order = order
       method set_order x =
@@ -67,7 +69,7 @@ module Cell = struct
         order <- Some x
 
       method remove_align =
-        CCOpt.iter (fun x -> super#remove_class @@ Markup.Layout_grid.Cell.get_cell_align x) align;
+        Option.iter (fun x -> super#remove_class @@ Markup.Layout_grid.Cell.get_cell_align x) align;
         align <- None
       method get_align = align
       method set_align x =
@@ -97,7 +99,7 @@ class t ~(cells:Cell.t list) () =
     method get_cells        = cells
 
     method remove_align =
-      CCOpt.iter (fun x -> super#remove_class @@ Markup.Layout_grid.get_grid_align x) align;
+      Option.iter (fun x -> super#remove_class @@ Markup.Layout_grid.get_grid_align x) align;
       align <- None
     method get_align = align
     method set_align x =

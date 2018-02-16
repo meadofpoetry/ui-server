@@ -47,21 +47,23 @@ let janus_pipe debug =
 
 let make_video () =
   let video   = Dom_html.createVideo Dom_html.document in
-  video##.autoplay := Js._true;
-  video##.controls := Js._true;
-  video##.id       := Js.string "remotevideo";
+  video##setAttribute (Js.string "playsinline") (Js.string "true");
+  video##setAttribute (Js.string "autoplay") (Js.string "true");
+  video##setAttribute (Js.string "controls") (Js.string "true");
+  (* video##.autoplay    := Js._true;
+   * video##.controls    := Js._true; *)
+  video##.id          := Js.string "remotevideo";
   video##.style##.backgroundColor := Js.string "rgba(0,0,0,1)";
   video##setAttribute (Js.string "width") (Js.string "100%");
   video
 
 let page () =
+  let video = make_video () in
+  let cell  = new Layout_grid.Cell.t ~widgets:[Widget.create video] () in
   let () = (Lwt.catch
               (fun () -> (janus_pipe (`All false)))
               (function
                | e -> Lwt.return @@ Printf.printf "Exception in janus pipe: %s\n" (Printexc.to_string e)))
            |> ignore in
-
-  let video = make_video () in
-  let cell  = new Layout_grid.Cell.t ~widgets:[Widget.create video] () in
   cell#set_span 12;
   new Layout_grid.t ~cells:[cell] ()
