@@ -8,7 +8,9 @@ module Utils = struct
     then int_of_float @@ floor x
     else int_of_float @@ ceil x
 
-  let px n = Js.string @@ Printf.sprintf "%dpx" n
+  let px = Printf.sprintf "%dpx"
+
+  let translate = Printf.sprintf "translate(%dpx, %dpx)"
 
   let (//) x y =
     round @@ (float_of_int x) /. (float_of_int y)
@@ -214,6 +216,8 @@ module Item = struct
 
       inherit Widget.widget elt ()
 
+      val mutable px_pos = Position.empty
+
       (** API **)
 
       method pos        : Position.t              = React.S.value s_pos
@@ -222,10 +226,18 @@ module Item = struct
 
       (** Private methods **)
 
-      method private set_x x = self#root##.style##.left   := Utils.px x
-      method private set_y y = self#root##.style##.top    := Utils.px y
-      method private set_w w = self#root##.style##.width  := Utils.px w
-      method private set_h h = self#root##.style##.height := Utils.px h
+      method private set_x x =
+        px_pos <- { px_pos with x };
+        self#root##.style##.transform := Js.string @@ Utils.translate px_pos.x px_pos.y
+      method private set_y y =
+        px_pos <- { px_pos with y };
+        self#root##.style##.transform := Js.string @@ Utils.translate px_pos.x px_pos.y
+      method private set_w w =
+        px_pos <- { px_pos with w };
+        self#root##.style##.width := Js.string @@ Utils.px w
+      method private set_h h =
+        px_pos <- { px_pos with h };
+        self#root##.style##.height := Js.string @@ Utils.px h
 
       initializer
         React.S.l3 (fun (pos:Position.t) w h ->
@@ -342,12 +354,8 @@ module Item = struct
       ; w = par##.offsetWidth
       ; h = par##.offsetHeight }
 
-    method private get_px_pos : Position.t =
-      {  x = self#get_offset_left;  y = self#get_offset_top
-       ; w = self#get_offset_width; h = self#get_offset_height }
-
     method private mouse_action meth ev =
-      let init_pos = self#get_px_pos in
+      let init_pos = px_pos in
       let init_x, init_y = ev##.clientX, ev##.clientY in
       Dom_events.listen Dom_html.window Dom_events.Typ.mousemove
         (fun _ ev ->
@@ -363,7 +371,7 @@ module Item = struct
       |> (fun x -> end_listener <- Some x)
 
     method private touch_action meth ev =
-      let init_pos = self#get_px_pos in
+      let init_pos = px_pos in
       Js.Optdef.iter (ev##.changedTouches##item 0)
         ( fun touch ->
           let id = touch##.identifier in
@@ -800,8 +808,8 @@ class ['a] t ~grid ~(items:'a item list) () =
 
     initializer
       (* set min/max width of grid *)
-      self#style##.minWidth := Utils.px (grid.cols * grid.min_col_width);
-      Option.iter (fun x -> self#style##.maxWidth := Utils.px @@ grid.cols * x) grid.max_col_width;
+      self#style##.minWidth := Js.string @@ Utils.px (grid.cols * grid.min_col_width);
+      Option.iter (fun x -> self#style##.maxWidth := Js.string @@ Utils.px @@ grid.cols * x) grid.max_col_width;
       (* add item add/remove listener *)
       React.E.map (function
           | `Add (x:'a Item.t) -> Dom.appendChild self#root x#root
@@ -810,7 +818,7 @@ class ['a] t ~grid ~(items:'a item list) () =
       (* add initial items *)
       List.iter (fun x -> e_modify_push (`Add x)) items;
       (* add height update listener *)
-      React.S.l2 (fun h row_h -> self#style##.height := Utils.px (h * row_h)) s_rows s_row_h
+      React.S.l2 (fun h row_h -> self#style##.height := Js.string @@ Utils.px (h * row_h)) s_rows s_row_h
       |> ignore;
       Dom_events.listen Dom_html.window Dom_events.Typ.resize (fun _ _ -> self#layout; true)
       |> ignore

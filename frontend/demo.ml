@@ -675,8 +675,8 @@ let dynamic_grid_demo () =
       chart)
   in
   let (props:Dynamic_grid.grid) =
-    { rows             = Some 20
-    ; cols             = 30
+    { rows             = Some 4
+    ; cols             = 6
     ; min_col_width    = 1
     ; max_col_width    = None
     ; row_height       = None
@@ -684,11 +684,13 @@ let dynamic_grid_demo () =
     ; items_margin     = None
     } in
   let items    =
-    [ Dynamic_grid.Item.to_item ~pos:{ x = 0; y = 0; w = 30; h = 10 }
-                                ~value:()
-                                ~widget:(widget ())#widget
-                                ()
-    (* ; Dynamic_grid.Item.to_item ~pos:{ x = 20; y = 0; w = 10; h = 20 } ~value:() () *)
+    [ Dynamic_grid.Item.to_item ~pos:{ x = 0; y = 0; w = 6; h = 1 } ~value:() ~widget:(widget ())#widget ()
+    ; Dynamic_grid.Item.to_item ~pos:{ x = 0; y = 1; w = 3; h = 1 } ~value:() ~widget:(widget ())#widget ()
+    ; Dynamic_grid.Item.to_item ~pos:{ x = 3; y = 1; w = 3; h = 1 } ~value:() ~widget:(widget ())#widget ()
+    ; Dynamic_grid.Item.to_item ~pos:{ x = 0; y = 2; w = 6; h = 1 } ~value:() ~widget:(widget ())#widget ()
+    ; Dynamic_grid.Item.to_item ~pos:{ x = 0; y = 3; w = 2; h = 1 } ~value:() ~widget:(widget ())#widget ()
+    ; Dynamic_grid.Item.to_item ~pos:{ x = 2; y = 3; w = 2; h = 1 } ~value:() ~widget:(widget ())#widget ()
+    ; Dynamic_grid.Item.to_item ~pos:{ x = 4; y = 3; w = 2; h = 1 } ~value:() ~widget:(widget ())#widget ()
     ]
   in
   let x        = new Textfield.t ~label:"x position" ~input_type:(Widget.Integer None) () in
