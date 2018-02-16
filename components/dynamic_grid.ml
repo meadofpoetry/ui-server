@@ -67,7 +67,7 @@ module Position = struct
              let old_area = area old_pos in
              compare new_area old_area)
       in
-      let items    = CCList.map f items in
+      let items    = List.map f items in
       (* FIXME obviously not optimized algorithm *)
       (* get only elements that are on the way to cursor proection to the left/right side *)
       let x_filtered = List.filter (fun i -> pos.y > i.y && pos.y < i.y + i.h) items in
@@ -285,7 +285,7 @@ module Item = struct
         match grid.rows with
         | Some rows ->
            if y + self#pos.h <= rows
-           then CCList.fold_while
+           then List.fold_while
                   ( fun acc x ->
                     let open Position in
                     let new_bound = y + self#pos.h + x#pos.h in
@@ -299,7 +299,7 @@ module Item = struct
                     else (acc, `Continue)) true self#get_other_items
            else false
         | None ->
-           CCList.fold_while
+           List.fold_while
              ( fun acc x -> if x#move_away @@ self#pos.y + self#pos.h
                             then (acc, `Continue)
                             else (false, `Stop)) true self#get_other_items in
@@ -310,25 +310,93 @@ module Item = struct
           true )
       else false
 
-   method vc (pos: Position.t) : Position.t =
+   (* method move_away (y : int) (y1 : int) (pos : Position.t) (list : 'a t list) : bool =
+    *    let pos_list = List.filter (fun x -> x#root != self#root) list in
+    *    let h = if self#pos.y < pos.y then self#pos.h
+    *            else int_of_float @@ floor @@ float_of_int pos.h /. 2. in
+    *    if not (Position.has_collision                         (\* needs comments *\)
+    *              ~f:(fun x -> x#pos)
+    *              {self#pos with y = y1}
+    *              pos_list) &&
+    *         not @@ Position.collides
+    *                  pos
+    *                  {self#pos with y = y1; h }
+    *         && not (self#pos.y + self#pos.h > pos.y + pos.h / 2)
+    *    then
+    *      ( self#s_pos_push {self#pos with y = y1}; true )
+    *    else
+    *      ( let should_move =
+    *          match grid.rows with
+    *          | Some rows ->
+    *             if self#pos.y + self#pos.h + pos.h <= rows
+    *             then List.fold_while
+    *                    ( fun acc x ->
+    *                      let open Position in
+    *                      let new_bound = x#pos.y + self#pos.h in
+    *                      if Position.collides x#pos {self#pos with y}
+    *                      then
+    *                        if new_bound <= rows
+    *                        then ( if x#move_away
+    *                                    (y + self#pos.h)
+    *                                    self#pos.y
+    *                                    self#pos
+    *                                    self#get_other_items
+    *                               then (acc, `Continue)
+    *                               else (false, `Stop))
+    *                        else (false, `Stop)
+    *                      else (acc, `Continue)) true self#get_other_items
+    *             else false
+    *          | None ->
+    *             List.fold_while
+    *               ( fun acc x -> if x#move_away
+    *                                   (self#pos.y + self#pos.h)
+    *                                   self#pos.y
+    *                                   self#pos
+    *                                   self#get_other_items
+    *                              then (acc, `Continue)
+    *                              else (false, `Stop)) true self#get_other_items in
+    * if should_move
+    * then
+    * ( self#s_pos_push {self#pos with y};
+    *  self#set_y @@ React.S.value s_row_h * y;
+    *  true )
+    *  else false*)
+
+    method vc (pos: Position.t) : Position.t =
       let rec up (pos: Position.t) =
-        let positions_except_current = List.map (fun x -> x#pos) self#get_other_items in
         if pos.y - 1 >= 0 &&
              (not @@ Position.has_collision
-                       ~f:(fun x -> x)
+                       ~f:(fun x -> x#pos)
                        {pos with y = pos.y - 1}
-                       positions_except_current)
+                       self#get_other_items)
         then up {pos with y = pos.y - 1}
-        else pos in
-      up pos
+        else pos
+      in
+(*      let rec down (pos: Position.t) =
+        if Position.has_collision
+             ~f:(fun x -> x#pos)
+             pos
+             self#get_other_items
+        then down {pos with y = pos.y + 1}
+        else pos
+      in
+      if Position.has_collision
+           ~f:(fun x -> x#pos)
+           {pos with y = pos.y - 1}
+           self#get_other_items
+      then down pos
+      else*) up pos
 
     method get_other_items : 'a t list =
       List.filter (fun x -> x#root != self#root) @@ React.S.value s_items
 
+    method get_other_positions : Position.t list =
+      List.map (fun x -> x#pos) self#get_other_items
+
     (** Private methods **)
 
     method private has_collision (pos : Position.t) =
-      Position.has_collision ~f:(fun x -> React.S.value x#s_pos)
+      Position.has_collision ~f:(fun x -> x#pos)
         pos
         (List.filter (fun x -> x#root != self#root) (React.S.value s_items))
 
@@ -416,18 +484,26 @@ module Item = struct
                         grid.cols grid.rows in
             if grid.vertical_compact
             then
-              if not (self#has_collision pos)
+              if not @@ self#has_collision pos
               then ghost#s_pos_push @@ self#vc pos
-              else ( let collisions =
-                       List.filter (fun x -> Position.collides pos x#pos)
-                         @@ self#get_other_items in
-                     let continue =
-                       List.fold_while (fun acc x ->
-                           if x#move_away @@ pos.y + pos.h
-                           then (acc, `Continue)
-                           else (false, `Stop)) true collisions in
-                     if continue
-                     then ghost#s_pos_push @@ self#vc pos)
+              else
+                  ( let collisions =
+                      List.filter (fun x -> Position.collides pos x#pos)
+                      @@ self#get_other_items in
+                    let continue =
+                      List.fold_while (fun acc x ->
+                          let open Position in
+                          if not (x#pos.y > pos.y + pos.h / 2) && x#pos.y <> 0
+                          then ( let y = x#pos.y in
+                                 x#s_pos_push {x#pos with y = ghost#pos.y};
+                                 ghost#s_pos_push {pos with y};
+                                 (false, `Stop))
+                          else
+                            if x#move_away @@ pos.y + pos.h
+                            then (acc, `Continue)
+                            else (false, `Stop)) true collisions in
+                    if continue
+                    then ghost#s_pos_push @@ self#vc pos)
             else
               if not (self#has_collision pos)
               then ghost#s_pos_push pos;
@@ -526,7 +602,9 @@ module Item = struct
 
       (* add item move listener *)
       Dom_events.listen self#root Dom_events.Typ.mousedown
-        (fun _ e -> if item.draggable then self#start_dragging (Mouse e); false)
+        (fun _ e -> if e##.button = 0 && item.draggable
+                    then self#start_dragging (Mouse e);
+                    false)
       |> ignore;
 
       Dom_events.listen self#root Dom_events.Typ.touchstart
@@ -535,7 +613,9 @@ module Item = struct
 
       (* add item start resize listener if needed *)
       Dom_events.listen resize_button#root Dom_events.Typ.mousedown
-        (fun _ e -> if item.resizable then self#start_resizing (Mouse e); false)
+        (fun _ e -> if e##.button = 0 && item.resizable
+                    then self#start_resizing (Mouse e);
+                    false)
       |> ignore;
 
       Dom_events.listen resize_button#root Dom_events.Typ.touchstart
@@ -741,7 +821,10 @@ class ['a] t ~grid ~(items:'a item list) () =
                                 }
                               in
                               begin
-                                match Position.get_first_collision ~f:(fun x -> x) ev_pos items with
+                                match Position.get_first_collision
+                                        ~f:(fun x -> x)
+                                        ev_pos
+                                        items with
                                 | Some x  -> ghost#s_pos_push x
                                 | None    -> ghost#s_pos_push Position.empty
                               end;
@@ -760,7 +843,7 @@ class ['a] t ~grid ~(items:'a item list) () =
                   end
                | Remove ->
                   begin
-                    let el = CCList.fold_while
+                    let el = List.fold_while
                                (fun acc x ->
                                  if Position.collides ghost#pos x#pos
                                  then (Some x, `Stop)
@@ -789,8 +872,8 @@ class ['a] t ~grid ~(items:'a item list) () =
                         Dom_events.stop_listen cl_l;
                         Dom_events.stop_listen esc_l;
                         Dom.removeChild self#root ghost#root;
+                        self#vertical_compacting ();
                         Lwt.return_unit) |> ignore;
-        self#vertical_compacting ();
         t
 
     method layout =
