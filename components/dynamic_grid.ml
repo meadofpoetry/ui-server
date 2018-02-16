@@ -189,7 +189,7 @@ type grid =
   ; rows             : int option
   ; row_height       : int option
   ; vertical_compact : bool
-  ; items_margin     : int option
+  ; items_margin     : (int * int) option
   }
 
 module Item = struct
@@ -202,10 +202,11 @@ module Item = struct
     { pos; min_w; min_h; max_w; max_h; static; resizable; draggable; widget; value; on_resize }
 
   class ['a] cell ?(typ=`Item)
-          ~s_col_w
-          ~s_row_h
-          ~(item: 'a item)
-          () =
+             ~s_col_w
+             ~s_row_h
+             ~s_item_margin
+             ~(item: 'a item)
+             () =
     let elt = match typ with
       | `Item  -> Markup.Dynamic_grid.Item.create ()       |> Tyxml_js.To_dom.of_element
       | `Ghost -> Markup.Dynamic_grid.Item.create_ghost () |> Tyxml_js.To_dom.of_element
@@ -227,24 +228,24 @@ module Item = struct
       (** Private methods **)
 
       method private set_x x =
-        px_pos <- { px_pos with x };
+        px_pos <- { px_pos with x = x + (fst @@ React.S.value s_item_margin) };
         self#root##.style##.transform := Js.string @@ Utils.translate px_pos.x px_pos.y
       method private set_y y =
-        px_pos <- { px_pos with y };
+        px_pos <- { px_pos with y = y + (snd @@ React.S.value s_item_margin) };
         self#root##.style##.transform := Js.string @@ Utils.translate px_pos.x px_pos.y
       method private set_w w =
-        px_pos <- { px_pos with w };
-        self#root##.style##.width := Js.string @@ Utils.px w
+        px_pos <- { px_pos with w = w - (fst @@ React.S.value s_item_margin) };
+        self#root##.style##.width := Js.string @@ Utils.px px_pos.w
       method private set_h h =
-        px_pos <- { px_pos with h };
-        self#root##.style##.height := Js.string @@ Utils.px h
+        px_pos <- { px_pos with h = h - (snd @@ React.S.value s_item_margin) };
+        self#root##.style##.height := Js.string @@ Utils.px px_pos.h
 
       initializer
-        React.S.l3 (fun (pos:Position.t) w h ->
+        React.S.l4 (fun (pos:Position.t) w h _ ->
             self#set_x (pos.x * w);
             self#set_y (pos.y * h);
             self#set_w (pos.w * w);
-            self#set_h (pos.h * h)) self#s_pos s_col_w s_row_h
+            self#set_h (pos.h * h)) self#s_pos s_col_w s_row_h s_item_margin
         |> ignore
 
     end
@@ -254,11 +255,12 @@ module Item = struct
           ~e_modify_push (* add/delete item event *)
           ~s_col_w       (* column width signal -- px *)
           ~s_row_h       (* row height signal   -- px *)
+          ~s_item_margin (* item margin         -- px *)
           ~(s_items : 'a t list React.signal) (* items signal *)
           () =
   object(self: 'self)
 
-    inherit ['a] cell ~typ:`Item ~s_col_w ~s_row_h ~item ()
+    inherit ['a] cell ~typ:`Item ~s_col_w ~s_row_h ~s_item_margin ~item ()
 
 
     val resize_button = Markup.Dynamic_grid.Item.create_resize_button ()
@@ -270,7 +272,7 @@ module Item = struct
     val mutable value         = item.value
     val mutable static        = item.static
 
-    val ghost = new cell ~typ:`Ghost ~s_col_w ~s_row_h ~item ()
+    val ghost = new cell ~typ:`Ghost ~s_col_w ~s_row_h ~s_item_margin ~item ()
 
     (** API **)
     method set_value (x:'a) = value <- x
@@ -566,10 +568,11 @@ type add_error = Collides  of Position.t list
 class ['a] t ~grid ~(items:'a item list) () =
   let e_modify,e_modify_push = React.E.create () in
   let s_col_w,s_col_w_push   = React.S.create grid.min_col_width in
-  let s_row_h,_              = match grid.row_height with
-    | Some rh -> React.S.create rh
-    | None    -> s_col_w, s_col_w_push
+  let s_row_h                = match grid.row_height with
+    | Some rh -> React.S.const rh
+    | None    -> s_col_w
   in
+  let s_item_margin,s_item_margin_push = React.S.create (Option.get_or ~default:(0,0) grid.items_margin) in
   (* let s_row_h,s_row_h_push = React.S.create 0 in *)
   let s_items  = React.S.fold
                    (fun acc x ->
@@ -578,7 +581,7 @@ class ['a] t ~grid ~(items:'a item list) () =
                      | `Remove x -> List.filter (fun i -> i#root != x#root) acc)
                    [] e_modify in
   let items    = List.map
-                   (fun item -> new Item.t ~grid ~s_items ~e_modify_push ~s_col_w ~s_row_h ~item ())
+                   (fun item -> new Item.t ~grid ~s_items ~e_modify_push ~s_col_w ~s_row_h ~s_item_margin ~item ())
                    items
   in
   let s_change =
@@ -616,10 +619,13 @@ class ['a] t ~grid ~(items:'a item list) () =
     method items      = React.S.value s_items
     method positions  = React.S.value s_change
 
+    method get_item_margin = React.S.value s_item_margin
+    method set_item_margin margin = s_item_margin_push margin
+
     method add (x:'a item) =
       let items = List.map (fun x -> x#pos) (React.S.value s_items) in
       match Position.get_all_collisions ~f:(fun x -> x) x.pos items with
-      | [] -> let item = new Item.t ~grid ~e_modify_push ~s_col_w ~s_row_h ~s_items ~item:x () in
+      | [] -> let item = new Item.t ~grid ~e_modify_push ~s_col_w ~s_row_h ~s_item_margin ~s_items ~item:x () in
               e_modify_push (`Add item);
               Dom.appendChild self#root item#root;
               (* FIXME make vertical compact variable *)
@@ -724,7 +730,7 @@ class ['a] t ~grid ~(items:'a item list) () =
       self#action_wrapper ~on_init ~on_move ~on_click
 
     method layout =
-      let w   = self#get_offset_width + residue in
+      let w   = self#get_offset_width + residue - (fst self#get_item_margin) in
       let col = w / grid.cols in
       let res = w mod grid.cols in
       s_col_w_push col;
@@ -773,7 +779,7 @@ class ['a] t ~grid ~(items:'a item list) () =
          let open Lwt.Infix in
          let t,wakener = Lwt.wait () in
          let item      = Item.to_item ~pos:Position.empty ~min_w:1 ~min_h:1 ~max_w:1 ~max_h:1 ~value:() () in
-         let ghost     = new Item.cell ~typ:`Ghost ~s_col_w ~s_row_h ~item () in
+         let ghost     = new Item.cell ~typ:`Ghost ~s_col_w ~s_row_h ~s_item_margin ~item () in
          on_init ghost;
          Dom.appendChild self#root ghost#root;
          let move_listener  =
@@ -807,18 +813,24 @@ class ['a] t ~grid ~(items:'a item list) () =
          t
 
     initializer
-      (* set min/max width of grid *)
-      self#style##.minWidth := Js.string @@ Utils.px (grid.cols * grid.min_col_width);
-      Option.iter (fun x -> self#style##.maxWidth := Js.string @@ Utils.px @@ grid.cols * x) grid.max_col_width;
       (* add item add/remove listener *)
       React.E.map (function
           | `Add (x:'a Item.t) -> Dom.appendChild self#root x#root
-          | `Remove x       -> Dom.removeChild self#root x#root) e_modify
+          | `Remove x          -> Dom.removeChild self#root x#root) e_modify
       |> ignore;
       (* add initial items *)
       List.iter (fun x -> e_modify_push (`Add x)) items;
+      (* add min/max width update listener *)
+      React.S.map (fun margin ->
+          let m_top = snd margin in
+          self#style##.minWidth := Js.string @@ Utils.px (grid.cols * grid.min_col_width + m_top);
+          Option.iter (fun x -> self#style##.maxWidth := Js.string @@ Utils.px @@ grid.cols * x + m_top)
+                      grid.max_col_width)
+                  s_item_margin
+      |> ignore;
       (* add height update listener *)
-      React.S.l2 (fun h row_h -> self#style##.height := Js.string @@ Utils.px (h * row_h)) s_rows s_row_h
+      React.S.l3 (fun h row_h margin -> self#style##.height := Js.string @@ Utils.px (h * row_h + (snd margin)))
+                 s_rows s_row_h s_item_margin
       |> ignore;
       Dom_events.listen Dom_html.window Dom_events.Typ.resize (fun _ _ -> self#layout; true)
       |> ignore

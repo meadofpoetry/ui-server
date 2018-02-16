@@ -681,7 +681,7 @@ let dynamic_grid_demo () =
     ; max_col_width    = None
     ; row_height       = None
     ; vertical_compact = true
-    ; items_margin     = None
+    ; items_margin     = Some (10,10)
     } in
   let items    =
     [ Dynamic_grid.Item.to_item ~pos:{ x = 0; y = 0; w = 6; h = 1 } ~value:() ~widget:(widget ())#widget ()
