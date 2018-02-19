@@ -718,8 +718,10 @@ class ['a] t ~grid ~(items:'a item list) () =
                  ; min_w; min_h
                  ; max_w; max_h
                  ; resizable
-                 ; draggable; widget
-                 ; move_widget ; value }
+                 ; draggable
+                 ; widget
+                 ; move_widget
+                 ; value }
       in
       if progress
       then Lwt.return_error In_progress
