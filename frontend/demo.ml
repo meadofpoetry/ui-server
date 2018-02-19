@@ -634,46 +634,47 @@ let time_chart_demo () =
   demo_section "Chart (timeline)" [w]
 
 let dynamic_grid_demo () =
-  let widget () = (
-      let range = 20 in
-      Random.init (Unix.time () |> int_of_float);
-      let open Chartjs.Line in
-      let data = [ { data = []; label = "Dataset 1" }
-                 ; { data = []; label = "Dataset 2" }
-                 ] in
-      let config = new Config.t
-                       ~x_axis:(Time ("my-x-axis",Bottom,Unix,Some 20000L))
-                       ~y_axis:(Linear ("my-y-axis",Left,Int,None))
-                       ~data
-                       () in
-      config#options#set_maintain_aspect_ratio false;
-      config#options#hover#set_mode Index;
-      config#options#hover#set_intersect true;
-      config#options#tooltip#set_mode Index;
-      config#options#tooltip#set_intersect false;
-      config#options#x_axis#scale_label#set_label_string "x axis";
-      config#options#x_axis#scale_label#set_display true;
-      config#options#x_axis#time#set_min_unit Second;
-      config#options#elements#line#set_border_width 3;
-      List.iter (fun x -> if String.equal x#get_label "Dataset 1"
-                          then x#set_background_color @@ Color.rgb_of_name (Color.Indigo C500)
-                          else x#set_background_color @@ Color.rgb_of_name (Color.Amber C500);
-                          if String.equal x#get_label "Dataset 1"
-                          then x#set_border_color @@ Color.rgb_of_name (Color.Indigo C500)
-                          else x#set_border_color @@ Color.rgb_of_name (Color.Amber C500);
-                          x#set_cubic_interpolation_mode Monotone;
-                          x#set_fill Disabled) config#datasets;
-      let chart = new Chartjs.Line.t ~config () in
-      let e_update,e_update_push = React.E.create () in
-      React.E.map (fun () -> List.iter (fun ds -> ds#push { x = Unix.time () *. 1000. |> Int64.of_float_exn
-                                                          ; y = Random.run (Random.int range) })
-                                       chart#config#datasets;
-                             chart#update None)
-                  e_update |> ignore;
-      Dom_html.window##setInterval (Js.wrap_callback (fun () -> e_update_push () |> ignore)) 1000. |> ignore;
-      let _ = chart#style##.backgroundColor := Js.string "white" in
-      chart)
-  in
+  let widget () = Dom_html.createDiv Dom_html.document |> Widget.create in
+  (* let widget () = (
+   *     let range = 20 in
+   *     Random.init (Unix.time () |> int_of_float);
+   *     let open Chartjs.Line in
+   *     let data = [ { data = []; label = "Dataset 1" }
+   *                ; { data = []; label = "Dataset 2" }
+   *                ] in
+   *     let config = new Config.t
+   *                      ~x_axis:(Time ("my-x-axis",Bottom,Unix,Some 20000L))
+   *                      ~y_axis:(Linear ("my-y-axis",Left,Int,None))
+   *                      ~data
+   *                      () in
+   *     config#options#set_maintain_aspect_ratio false;
+   *     config#options#hover#set_mode Index;
+   *     config#options#hover#set_intersect true;
+   *     config#options#tooltip#set_mode Index;
+   *     config#options#tooltip#set_intersect false;
+   *     config#options#x_axis#scale_label#set_label_string "x axis";
+   *     config#options#x_axis#scale_label#set_display true;
+   *     config#options#x_axis#time#set_min_unit Second;
+   *     config#options#elements#line#set_border_width 3;
+   *     List.iter (fun x -> if String.equal x#get_label "Dataset 1"
+   *                         then x#set_background_color @@ Color.rgb_of_name (Color.Indigo C500)
+   *                         else x#set_background_color @@ Color.rgb_of_name (Color.Amber C500);
+   *                         if String.equal x#get_label "Dataset 1"
+   *                         then x#set_border_color @@ Color.rgb_of_name (Color.Indigo C500)
+   *                         else x#set_border_color @@ Color.rgb_of_name (Color.Amber C500);
+   *                         x#set_cubic_interpolation_mode Monotone;
+   *                         x#set_fill Disabled) config#datasets;
+   *     let chart = new Chartjs.Line.t ~config () in
+   *     let e_update,e_update_push = React.E.create () in
+   *     React.E.map (fun () -> List.iter (fun ds -> ds#push { x = Unix.time () *. 1000. |> Int64.of_float_exn
+   *                                                         ; y = Random.run (Random.int range) })
+   *                                      chart#config#datasets;
+   *                            chart#update None)
+   *                 e_update |> ignore;
+   *     Dom_html.window##setInterval (Js.wrap_callback (fun () -> e_update_push () |> ignore)) 1000. |> ignore;
+   *     let _ = chart#style##.backgroundColor := Js.string "white" in
+   *     chart)
+   * in *)
   let (props:Dynamic_grid.grid) =
     { rows             = Some 4
     ; cols             = 6

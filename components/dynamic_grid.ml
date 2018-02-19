@@ -55,6 +55,19 @@ module Position = struct
   let has_collision ~(f:'a -> t) x (l:'a list) =
     Option.is_some @@ get_first_collision ~f x l
 
+  (** compacts the position vertically **)
+  let compact ~(f:'a -> t) (pos:t) (l:'a list) : t =
+    let rec up (pos:t) =
+      let y = pos.y - 1 in
+      if y >= 0 && (not @@ has_collision ~f { pos with y } l)
+      then up { pos with y }
+      else pos in
+    up pos
+
+  (** Sorts positions by top **)
+  let sort_by_y ~(f:'a -> t) (l:'a list) =
+    List.sort (fun p1 p2 -> compare (f p1).y (f p2).y) l
+
   let get_free_rect ?(cmp:(t -> t -> int) option) ~(f:'a -> t) (pos:t) (items:'a list) w h () =
     if has_collision ~f:(fun x -> x) pos items
     then None
@@ -223,7 +236,7 @@ module Item = struct
 
       method pos        : Position.t              = React.S.value s_pos
       method s_pos      : Position.t React.signal = s_pos
-      method s_pos_push : Position.t -> unit      = s_pos_push ?step:None
+      method set_pos    : Position.t -> unit      = s_pos_push ?step:None
 
       (** Private methods **)
 
@@ -250,23 +263,27 @@ module Item = struct
 
     end
 
-  class ['a] t ~grid          (* grid props *)
-          ~(item: 'a item)    (* item props *)
-          ~e_modify_push (* add/delete item event *)
-          ~s_col_w       (* column width signal -- px *)
-          ~s_row_h       (* row height signal   -- px *)
-          ~s_item_margin (* item margin         -- px *)
-          ~(s_items : 'a t list React.signal) (* items signal *)
-          () =
-  object(self: 'self)
 
-    inherit ['a] cell ~typ:`Item ~s_col_w ~s_row_h ~s_item_margin ~item ()
+  let filter ~(exclude:#Widget.widget list) (l:#Widget.widget list) =
+    List.filter (fun x -> not (List.mem ~eq:(fun x y -> Equal.physical x#root y#root) x exclude)) l
 
+  class ['a] t ~grid             (* grid props *)
+             ~(item: 'a item)    (* item props *)
+             ~e_modify_push      (* add/delete item event *)
+             ~s_col_w            (* column width signal -- px *)
+             ~s_row_h            (* row height signal   -- px *)
+             ~s_item_margin      (* item margin         -- px *)
+             ~(s_items : 'a t list React.signal) (* items signal *)
+             () =
 
-    val resize_button = Markup.Dynamic_grid.Item.create_resize_button ()
-                        |> Tyxml_js.To_dom.of_element |> Widget.create
+  object(self)
 
-    val mutable dragged       = false
+    inherit ['a] cell ~typ:`Item ~s_col_w ~s_row_h ~s_item_margin ~item () as super
+
+    val s_change       = React.S.create item.pos
+    val resize_button  = Markup.Dynamic_grid.Item.create_resize_button ()
+                         |> Tyxml_js.To_dom.of_element |> Widget.create
+
     val mutable mov_listener  = None
     val mutable end_listener  = None
     val mutable value         = item.value
@@ -275,86 +292,74 @@ module Item = struct
     val ghost = new cell ~typ:`Ghost ~s_col_w ~s_row_h ~s_item_margin ~item ()
 
     (** API **)
+
+    method set_pos pos = super#set_pos pos; ghost#set_pos pos
+
+    method s_changing = ghost#s_pos
+    method s_change   = fst s_change
+
     method set_value (x:'a) = value <- x
     method get_value : 'a   = value
 
     method set_static (s: bool) = static <- s
     method get_static : bool    = static
 
-    method dragged : bool   = dragged
+    method remove : unit = e_modify_push (`Remove self)
 
-    method ghost         = ghost
-    method remove : unit = e_modify_push (`Remove (self: 'self))
-
-    method sort_by_height (list: 'a t list) =
-      let open Position in
-      let compare t1 t2 =
-        if t1#pos.y = t2#pos.y then 0
-        else if t1#pos.y > t2#pos.y then 1
-        else -1 in
-      List.sort compare @@ list
-
-    method move_away (y : int) : bool =
+    method move_away (move_from:'a t) (new_top : int) : bool =
+      let other i     = filter ~exclude:[move_from; i] self#items in
       let should_move =
         match grid.rows with
+        | None      ->
+           let other i = filter ~exclude:[move_from; i] self#items in
+           List.fold_while (fun acc x -> if Position.collides x#pos { self#pos with y = new_top }
+                                         then
+                                           if x#move_away move_from @@ self#pos.y + self#pos.h
+                                           then (acc, `Continue)
+                                           else (false, `Stop)
+                                         else (acc, `Continue))
+                           true (other (self :> 'a t))
         | Some rows ->
-           if y + self#pos.h <= rows
-           then List.fold_while
-                  ( fun acc x ->
-                    let open Position in
-                    let new_bound = y + self#pos.h + x#pos.h in
-                    if Position.collides x#pos {self#pos with y}
-                    then
-                      if new_bound <= rows
-                      then ( if x#move_away @@ y + self#pos.h
-                             then (acc, `Continue)
-                             else (false, `Stop))
-                      else (false, `Stop)
-                    else (acc, `Continue)) true self#get_other_items
+           if new_top + self#pos.h <= rows
+           then List.fold_while (fun acc x -> let open Position in
+                                              let new_bound = new_top + self#pos.h + x#pos.h in
+                                              if Position.collides x#pos { self#pos with y = new_top }
+                                              then
+                                                if new_bound <= rows
+                                                then ( if x#move_away move_from @@ new_top + self#pos.h
+                                                       then (acc, `Continue)
+                                                       else (false, `Stop))
+                                                else (false, `Stop)
+                                              else (acc, `Continue))
+                                true (other (self :> 'a t))
            else false
-        | None ->
-           List.fold_while
-             ( fun acc x -> if x#move_away @@ self#pos.y + self#pos.h
-                            then (acc, `Continue)
-                            else (false, `Stop)) true self#get_other_items in
+      in
       if should_move
-      then
-        ( self#s_pos_push {self#pos with y};
-          self#set_y @@ React.S.value s_row_h * y;
-          true )
+      then (self#set_pos { self#pos with y = new_top };
+            self#set_y @@ React.S.value s_row_h * new_top;
+            true)
       else false
-
-   method vc (pos: Position.t) : Position.t =
-      let rec up (pos: Position.t) =
-        let positions_except_current = List.map (fun x -> x#pos) self#get_other_items in
-        if pos.y - 1 >= 0 &&
-             (not @@ Position.has_collision
-                       ~f:(fun x -> x)
-                       {pos with y = pos.y - 1}
-                       positions_except_current)
-        then up {pos with y = pos.y - 1}
-        else pos in
-      up pos
-
-    method get_other_items : 'a t list =
-      List.filter (fun x -> x#root != self#root) @@ React.S.value s_items
 
     (** Private methods **)
 
+    method private items = React.S.value s_items
+
     method private has_collision (pos : Position.t) =
       Position.has_collision ~f:(fun x -> React.S.value x#s_pos)
-        pos
-        (List.filter (fun x -> x#root != self#root) (React.S.value s_items))
+                             pos
+                             (List.filter (fun x -> x#root != self#root) (React.S.value s_items))
 
     method private get_parent : Dom_html.element Js.t =
       let par_opt = Js.Opt.to_option self#root##.parentNode |> Option.map Js.Unsafe.coerce in
       Option.get_exn par_opt
+
     method private get_parent_pos : Position.t =
       let par = self#get_parent in
       { x = par##.offsetLeft
       ; y = par##.offsetTop
       ; w = par##.offsetWidth
-      ; h = par##.offsetHeight }
+      ; h = par##.offsetHeight
+      }
 
     method private mouse_action meth ev =
       let init_pos = px_pos in
@@ -399,18 +404,58 @@ module Item = struct
               false)
           |> (fun x -> end_listener <- Some x))
 
-    method private start_dragging (ev: action) =
-      if not self#get_static then
-        (
-          dragged <- true;
-          self#add_class Markup.Dynamic_grid.Item.dragging_class;
-          ghost#style##.zIndex := Js.string "1";
-          (* add ghost item to dom to show possible element position *)
-          Dom.appendChild self#get_parent ghost#root;
-          match ev with
-          | Mouse ev -> self#mouse_action self#apply_position ev
-          | Touch ev -> self#touch_action self#apply_position ev )
+    method private resolve_pos_conflicts ~action (pos : Position.t) =
+      let other   = filter ~exclude:[(self :> 'a t)] self#items in
+      let new_pos = match List.filter (fun x -> Position.collides pos x#pos) other with
+        | [] -> pos
+        | l  ->
+           if not grid.vertical_compact
+           then ghost#pos
+           else
+             let baseline  = pos.y + pos.h in
+             let moved_top = match action with
+               | `Drag -> List.fold_while (fun acc x ->
+                              let lst = filter ~exclude:[(x:>'a t)] other in
+                              let pos = Position.compact ~f:(fun x -> x#pos) x#pos lst in
+                              if pos.y + pos.h < baseline
+                              then ((pos,x) :: acc),`Continue
+                              else [], `Stop) [] l
+               | `Size -> []
+             in
+             match moved_top with
+             | [] -> let ok = List.fold_while (fun acc x -> if x#move_away (self :> 'a t) baseline
+                                                            then acc,`Continue
+                                                            else false,`Stop) true l
+                     in
+                     if ok then pos else ghost#pos
+             | l  -> List.iter (fun (pos,item) -> item#set_pos pos) l;
+                     pos
+      in
+      (match action with
+       | `Drag -> if grid.vertical_compact
+                  then ghost#set_pos @@ Position.compact ~f:(fun x -> x#pos) new_pos other
+                  else ghost#set_pos new_pos;
+       | `Size -> ghost#set_pos new_pos);
+      if grid.vertical_compact;
+      then List.iter (fun x -> let lst = filter ~exclude:[(x:>'a t)] other
+                                         |> List.map (fun x -> x#pos)
+                                         |> List.cons ghost#pos
+                               in
+                               let pos = Position.compact ~f:(fun x -> x) x#pos lst in
+                               x#set_pos pos)
+                     (Position.sort_by_y ~f:(fun x -> x#pos) other)
 
+    method private start_dragging (ev: action) =
+      if not self#get_static
+      then
+        (self#add_class Markup.Dynamic_grid.Item.dragging_class;
+         ghost#style##.zIndex := Js.string "1";
+         self#style##.zIndex  := Js.string "3";
+         (* add ghost item to dom to show possible element position *)
+         Dom.appendChild self#get_parent ghost#root;
+         match ev with
+         | Mouse ev -> self#mouse_action self#apply_position ev
+         | Touch ev -> self#touch_action self#apply_position ev)
 
     method private apply_position ~x ~y ~init_x ~init_y ~init_pos typ =
       match x, y with
@@ -420,119 +465,80 @@ module Item = struct
          | `Move->
             let open Utils in
             let col_px, row_px = React.S.value s_col_w, React.S.value s_row_h in
-            let x, y = init_pos.x + x - init_x, init_pos.y + y - init_y in
-            let pos = Position.correct_xy { self#pos with x = x // col_px
-                                                        ; y = y // row_px }
-                        grid.cols grid.rows in
-            if grid.vertical_compact
-            then
-              if not (self#has_collision pos)
-              then ghost#s_pos_push @@ self#vc pos
-              else ( let collisions =
-                       List.filter (fun x -> Position.collides pos x#pos)
-                         @@ self#get_other_items in
-                     let continue =
-                       List.fold_while (fun acc x ->
-                           if x#move_away @@ pos.y + pos.h
-                           then (acc, `Continue)
-                           else (false, `Stop)) true collisions in
-                     if continue
-                     then ghost#s_pos_push @@ self#vc pos)
-            else
-              if not (self#has_collision pos)
-              then ghost#s_pos_push pos;
-            self#s_pos_push ghost#pos;
-            self#set_x x;
-            self#set_y y;
-            if grid.vertical_compact
-            then List.iter (fun x -> x#s_pos_push @@ x#vc x#pos)
-                 @@ self#sort_by_height self#get_other_items
+            let x, y  = init_pos.x + x - init_x, init_pos.y + y - init_y in
+            let pos   = Position.correct_xy { self#pos with x = x // col_px
+                                                          ; y = y // row_px }
+                                            grid.cols grid.rows in
+            self#resolve_pos_conflicts ~action:`Drag pos;
+            self#set_x x; self#set_y y
          | `End->
             self#remove_class Markup.Dynamic_grid.Item.dragging_class;
             Option.iter (fun l -> Dom_events.stop_listen l) mov_listener;
             Option.iter (fun l -> Dom_events.stop_listen l) end_listener;
+            self#style##.zIndex := Js.string "";
             (* update element position from ghost *)
             self#set_x @@ React.S.value s_col_w * ghost#pos.x;
             self#set_y @@ React.S.value s_row_h * ghost#pos.y;
-            self#s_pos_push ghost#pos;
+            self#set_pos ghost#pos;
             Dom.removeChild self#get_parent ghost#root;
-            dragged <- false;
             if grid.vertical_compact
-            then List.iter (fun x -> x#s_pos_push @@ x#vc x#pos)
-                 @@ self#sort_by_height self#get_other_items
+            then List.iter (fun x -> let lst = filter ~exclude:[(x:>'a t)] self#items in
+                                     let pos = Position.compact ~f:(fun x -> x#pos) x#pos lst in
+                                     x#set_pos pos)
+                           (Position.sort_by_y ~f:(fun x -> x#pos) self#items);
+            (snd s_change) self#pos
          | _ -> ()
 
     method private start_resizing (ev: action) =
-      if not self#get_static then
-        (
-          dragged <- true;
-          ghost#style##.zIndex := Js.string "3";
-          Dom.appendChild self#get_parent ghost#root;
-          (* add resize/stop resize event listeners *)
-          match ev with
-          | Mouse ev -> Dom_html.stopPropagation ev;
-                        self#mouse_action self#apply_size ev
-          | Touch ev -> Dom_html.stopPropagation ev;
-                        self#touch_action self#apply_size ev)
+      if not self#get_static
+      then
+        (ghost#style##.zIndex := Js.string "4";
+         self#style##.zIndex  := Js.string "3";
+         Dom.appendChild self#get_parent ghost#root;
+         (* add resize/stop resize event listeners *)
+         match ev with
+         | Mouse ev -> Dom_html.stopPropagation ev;
+                       self#mouse_action self#apply_size ev
+         | Touch ev -> Dom_html.stopPropagation ev;
+                       self#touch_action self#apply_size ev)
 
     method private apply_size ~x ~y ~init_x ~init_y ~init_pos typ =
       match typ with
       | `Move ->
          let open Utils in
          let col_px, row_px = React.S.value s_col_w, React.S.value s_row_h in
-         let w, h   = init_pos.w + x - init_x, init_pos.h + y - init_y in
-         let pos = Position.correct_wh ?max_w:item.max_w
-                     ?min_w:item.min_w
-                     ?max_h:item.max_h
-                     ?min_h:item.min_h
-                     { self#pos with w = w // col_px;
-                                     h = h // row_px }
-                     grid.cols
-                     grid.rows
+         let w, h = init_pos.w + x - init_x, init_pos.h + y - init_y in
+         let pos  = Position.correct_wh ?max_w:item.max_w
+                                        ?min_w:item.min_w
+                                        ?max_h:item.max_h
+                                        ?min_h:item.min_h
+                                        { self#pos with w = w // col_px;
+                                                        h = h // row_px }
+                                        grid.cols
+                                        grid.rows
          in
-         (* NOTE compacting logic *)
-         if grid.vertical_compact
-         then
-           if not (self#has_collision pos)
-           then ghost#s_pos_push @@ self#vc pos
-           else ( let collisions =
-                    List.filter (fun x -> Position.collides pos x#pos)
-                    @@ self#get_other_items in
-                  let continue =
-                    List.fold_while (fun acc x ->
-                        if x#move_away @@ pos.y + pos.h
-                        then (acc, `Continue)
-                        else (false, `Stop)) true collisions in
-                  if continue
-                  then ghost#s_pos_push @@ self#vc pos)
-         else
-           if not (self#has_collision pos)
-           then ghost#s_pos_push pos;
-         (* NOTE end *)
-         self#s_pos_push ghost#pos;
-         self#set_w w;
-         self#set_h h;
-         if grid.vertical_compact
-         then List.iter (fun x -> x#s_pos_push @@ x#vc x#pos)
-              @@ self#sort_by_height self#get_other_items
+         self#resolve_pos_conflicts ~action:`Size pos;
+         self#set_w w; self#set_h h
       | `End ->
          Option.iter (fun l -> Dom_events.stop_listen l) mov_listener;
          Option.iter (fun l -> Dom_events.stop_listen l) end_listener;
+         self#style##.zIndex := Js.string "";
          (* update element position from ghost *)
          self#set_w @@ React.S.value s_col_w * ghost#pos.w;
          self#set_h @@ React.S.value s_row_h * ghost#pos.h;
-         self#s_pos_push ghost#pos;
+         self#set_pos ghost#pos;
          Dom.removeChild self#get_parent ghost#root;
-         dragged <- false;
-         (* NOTE compacting logic *)
          if grid.vertical_compact
-         then List.iter (fun x -> x#s_pos_push @@ x#vc x#pos)
-              @@ self#sort_by_height self#get_other_items
-         (* NOTE end *)
+         then List.iter (fun x -> let lst = filter ~exclude:[(x:>'a t)] self#items in
+                                  let pos = Position.compact ~f:(fun x -> x#pos) x#pos lst in
+                                  x#set_pos pos)
+                        (Position.sort_by_y ~f:(fun x -> x#pos) self#items);
+         (snd s_change) self#pos
       | _ -> ()
 
     initializer
-      Elevation.set_elevation self 2;
+      let _ = React.S.map (fun x -> Printf.printf "changing! : %s\n" @@ Position.to_string x) self#s_changing in
+      Elevation.set_elevation self#widget 2;
       (* append resize button to element if necessary *)
       if item.resizable && not item.static
       then Dom.appendChild self#root resize_button#root;
@@ -586,19 +592,20 @@ class ['a] t ~grid ~(items:'a item list) () =
   in
   let s_change =
     let m a x = x :: a in
-    React.S.map (fun l -> React.S.merge m [] (List.map (fun x -> x#s_pos) l)) s_items
+    React.S.map (fun l -> React.S.merge m [] (List.map (fun x -> x#s_change) l)) s_items
     |> React.S.switch
   in
+  (* FIXME *)
   let s_changing =
     let m a x = x :: a in
-    React.S.map (fun l -> React.S.merge m [] (List.map (fun x -> x#ghost#s_pos) l)) s_items
+    React.S.map (fun l -> React.S.merge m [] (List.map (fun x -> x#s_changing) l)) s_items
     |> React.S.switch
   in
   let s_rows = match grid.rows with
     | Some h -> React.S.const h
     | None   ->
        let merge = (fun acc (x:Position.t) -> if (x.h + x.y) > acc then (x.h + x.y) else acc) in
-       React.S.map (fun (l:Position.t list) -> List.fold_left merge 0 l) s_changing
+       React.S.map (fun (l:Position.t list) -> Printf.printf "grid changing!\n"; List.fold_left merge 0 l) s_changing
   in
   let elt = Markup.Dynamic_grid.create ~items:[] () |> Tyxml_js.To_dom.of_element in
 
@@ -649,7 +656,7 @@ class ['a] t ~grid ~(items:'a item list) () =
       let items         = List.map (fun x -> x#pos) @@ React.S.value s_items in
       let on_init _     = () in
       let on_move ghost = function
-        | None      -> ghost#s_pos_push Position.empty
+        | None      -> ghost#set_pos Position.empty
         | Some epos -> let epos =
                          Position.({ epos with x = epos.x / React.S.value s_col_w;
                                                y = epos.y / React.S.value s_row_h })
@@ -687,8 +694,8 @@ class ['a] t ~grid ~(items:'a item list) () =
                                      | _          -> pos) pos
                        in
                        (match pos with
-                        | Some x -> ghost#s_pos_push x
-                        | None   -> ghost#s_pos_push Position.empty)
+                        | Some x -> ghost#set_pos x
+                        | None   -> ghost#set_pos Position.empty)
       in
       let open Position in
       let on_click ghost = match ghost#pos with
@@ -706,7 +713,7 @@ class ['a] t ~grid ~(items:'a item list) () =
       let items         = List.map (fun x -> x#pos) @@ React.S.value s_items in
       let on_init ghost = ghost#style##.zIndex := Js.string "3" in
       let on_move ghost = function
-        | None      -> ghost#s_pos_push Position.empty
+        | None      -> ghost#set_pos Position.empty
         | Some epos -> let epos =
                          Position.({ epos with x = epos.x / React.S.value s_col_w;
                                                y = epos.y / React.S.value s_row_h
@@ -714,8 +721,8 @@ class ['a] t ~grid ~(items:'a item list) () =
                        in
                        begin
                          match Position.get_first_collision ~f:(fun x -> x) epos items with
-                         | Some x  -> ghost#s_pos_push x
-                         | None    -> ghost#s_pos_push Position.empty
+                         | Some x  -> ghost#set_pos x
+                         | None    -> ghost#set_pos Position.empty
                        end
       in
       let on_click ghost =
@@ -737,29 +744,14 @@ class ['a] t ~grid ~(items:'a item list) () =
       residue <- res;
       self#style##.width := Js.string @@ Printf.sprintf "calc(100%% - %dpx)" res
 
-    (** Private methods *)
-
-    method private sort_items_by_height =
-      let open Position in
-      let compare t1 t2 =
-        if t1#pos.y = t2#pos.y then 0
-        else if t1#pos.y > t2#pos.y then 1
-        else -1 in
-      List.sort compare @@ React.S.value s_items
+    (** Private methods **)
 
     method private compact =
-      let sorted = self#sort_items_by_height in
-      List.iter (fun (x:'a Item.t) ->
-          if not x#dragged then
-            (
-              let except_current_el = x#get_other_items in
-              let positions = List.map (fun x -> x#pos) except_current_el in
-              while (x#pos.y - 1 >= 0) &&
-                      (not @@ Position.has_collision
-                                ~f:(fun x -> x)
-                                { x#pos with y = x#pos.y - 1}
-                                positions)
-              do x#s_pos_push { x#pos with y = x#pos.y - 1} done)) sorted
+      let sorted = Position.sort_by_y ~f:(fun x -> x#pos) self#items in
+      let other (i:'a Item.t) = List.filter (fun x -> not @@ Equal.physical x#root i#root) self#items in
+      List.iter (fun (x:'a Item.t) -> let new_pos = Position.compact ~f:(fun x -> x#pos) x#pos (other x) in
+                                      x#set_pos new_pos)
+                sorted
 
     method private get_event_pos e : Position.t option =
       let rect = self#get_client_rect in
