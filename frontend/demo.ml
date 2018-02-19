@@ -614,7 +614,7 @@ let time_chart_demo () =
 
 let dynamic_grid_demo () =
   let (props:Dynamic_grid.grid) =
-    { rows             = Some 20
+    { rows             = None
     ; cols             = 30
     ; min_col_width    = 1
     ; max_col_width    = None
@@ -622,8 +622,15 @@ let dynamic_grid_demo () =
     ; vertical_compact = true
     ; items_margin     = None
     } in
-  let items    = [ Dynamic_grid.Item.to_item ~pos:{ x = 0; y = 0; w = 10; h = 10 } ~value:() ()
-                 ; Dynamic_grid.Item.to_item ~pos:{ x = 20; y = 0; w = 10; h = 20 } ~value:() ()
+  let move () = new Icon_toggle.t
+                 ~on_data:{ icon = "open_with"; label = None; css_class = None }
+                 ~off_data:{ icon = "open_with"; label = None; css_class = None }
+                 () in
+  let items    = [ Dynamic_grid.Item.to_item ~pos:{ x = 0; y = 0; w = 10; h = 10 }
+                     ?move_widget:(Some (move())#widget) ~draggable:false ~resizable:false
+                     ~value:() ()
+                 ; Dynamic_grid.Item.to_item ~pos:{ x = 20; y = 0; w = 10; h = 20 }
+                     ?move_widget:(Some (move())#widget) ~value:() ()
                  ]
   in
   let x        = new Textfield.t ~label:"x position" ~input_type:(Widget.Integer None) () in
@@ -633,12 +640,12 @@ let dynamic_grid_demo () =
   let add      = new Button.t ~label:"add" () in
   let add_free = new Button.t ~label:"add free" () in
   let remove   = new Button.t ~label:"remove" () in
+  let rem_all  = new Button.t ~label:"remove all" () in
   let grid     = new Dynamic_grid.t ~grid:props ~items () in
   React.E.map (fun e -> let open Lwt.Infix in
                         Dom_html.stopPropagation e;
-                        grid#free ?width:(React.S.value w#s_input)
-                          ?height:(React.S.value h#s_input)
-                          ~value:() ~act:Add
+                        grid#free ?move_widget:(Some (move())#widget) ?width:(React.S.value w#s_input)
+                          ?height:(React.S.value h#s_input) ~value:() ~act:Add
                           ()
                         >>= (function
                              | Ok _    -> print_endline "ok"   ; Lwt.return_unit
@@ -653,10 +660,12 @@ let dynamic_grid_demo () =
                              | Error _ -> print_endline "error"; Lwt.return_unit)
                         |> ignore) remove#e_click
   |> ignore;
+  React.E.map (fun _ -> grid#remove_all()) rem_all#e_click |> ignore;
   React.E.map (fun _ -> match React.S.value x#s_input,React.S.value y#s_input,
                               React.S.value w#s_input,React.S.value h#s_input with
                         | Some x, Some y, Some w, Some h ->
-                           grid#add (Dynamic_grid.Item.to_item ~pos:{ x;y;w;h } ~value:() ())
+                           grid#add (Dynamic_grid.Item.to_item ~pos:{ x;y;w;h }
+                                       ?move_widget:(Some (move())#widget) ~value:() ())
                            |> (function
                                | Ok _    -> print_endline "ok"
                                | Error _ -> ())
@@ -670,6 +679,7 @@ let dynamic_grid_demo () =
                                          ; add#widget
                                          ; add_free#widget
                                          ; remove#widget
+                                         ; rem_all#widget
                                          ]
   in
   let _ = React.S.map (fun x -> if x then grid#layout) sect#s_expanded in

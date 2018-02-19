@@ -31,7 +31,7 @@ module Position = struct
 
   let to_string (pos:t) = Printf.sprintf "x=%d, y=%d, w=%d, h=%d" pos.x pos.y pos.w pos.h
 
-  (** checks if two elements collide, returns true if do and false otherwise **)
+  (* checks if two elements collide, returns true if do and false otherwise *)
   let collides (pos1:t) (pos2:t) =
     if (pos1.x + pos1.w <= pos2.x)      then false
     else if (pos1.x >= pos2.x + pos2.w) then false
@@ -168,16 +168,16 @@ module Position = struct
 end
 
 type 'a item =
-  { pos       : Position.t
-  ; min_w     : int option
-  ; min_h     : int option
-  ; max_w     : int option
-  ; max_h     : int option
-  ; static    : bool
-  ; resizable : bool
-  ; draggable : bool
-  ; widget    : Widget.widget option
-  ; value     : 'a
+  { pos         : Position.t
+  ; min_w       : int option
+  ; min_h       : int option
+  ; max_w       : int option
+  ; max_h       : int option
+  ; resizable   : bool
+  ; draggable   : bool
+  ; move_widget : Widget.widget option
+  ; widget      : Widget.widget option
+  ; value       : 'a
   }
 
 type grid =
@@ -196,8 +196,8 @@ module Item = struct
               | Touch of Dom_html.touchEvent Js.t
 
   let to_item ?min_w ?min_h ?max_w ?max_h
-        ?(static=false) ?(resizable=true) ?(draggable=true) ?widget ~pos ~value() =
-    { pos; min_w; min_h; max_w; max_h; static; resizable; draggable; widget; value}
+        ?(resizable=true) ?(draggable=true) ?move_widget ?widget ~pos ~value() =
+    { pos; min_w; min_h; max_w; max_h; resizable; draggable; move_widget; widget; value}
 
   class ['a] cell ?(typ=`Item)
           ~s_col_w
@@ -256,7 +256,8 @@ module Item = struct
     val mutable mov_listener  = None
     val mutable end_listener  = None
     val mutable value         = item.value
-    val mutable static        = item.static
+    val mutable draggable     = item.draggable
+    val mutable resizable     = item.resizable
 
     val ghost = new cell ~typ:`Ghost ~s_col_w ~s_row_h ~item ()
 
@@ -264,8 +265,23 @@ module Item = struct
     method set_value (x:'a) = value <- x
     method get_value : 'a   = value
 
-    method set_static (s: bool) = static <- s
-    method get_static : bool    = static
+    method set_draggable (x : bool) =
+      begin
+        match item.move_widget with
+        | Some widget ->
+           if x
+           then Dom.appendChild self#root widget#root
+           else Dom.removeChild self#root widget#root
+        | None -> ()
+      end;
+      draggable <- x
+    method get_draggable : bool     = draggable
+
+    method set_resizable (x : bool) = if x
+                                      then Dom.appendChild self#root resize_button#root
+                                      else Dom.removeChild self#root resize_button#root;
+                                      resizable <- x
+    method get_resizable : bool     = resizable
 
     method dragged : bool   = dragged
 
@@ -280,7 +296,7 @@ module Item = struct
         else -1 in
       List.sort compare @@ list
 
-    method move_away (y : int) : bool =
+    method move_away (y : int) : bool = 
       let should_move =
         match grid.rows with
         | Some rows ->
@@ -300,67 +316,17 @@ module Item = struct
            else false
         | None ->
            List.fold_while
-             ( fun acc x -> if x#move_away @@ self#pos.y + self#pos.h
-                            then (acc, `Continue)
-                            else (false, `Stop)) true self#get_other_items in
+             ( fun acc x -> if Position.collides x#pos {self#pos with y}
+                            then if x#move_away @@ y + self#pos.h
+                                 then (acc, `Continue)
+                                 else (false, `Stop)
+                            else (acc, `Continue)) true self#get_other_items in
       if should_move
       then
         ( self#s_pos_push {self#pos with y};
           self#set_y @@ React.S.value s_row_h * y;
           true )
       else false
-
-   (* method move_away (y : int) (y1 : int) (pos : Position.t) (list : 'a t list) : bool =
-    *    let pos_list = List.filter (fun x -> x#root != self#root) list in
-    *    let h = if self#pos.y < pos.y then self#pos.h
-    *            else int_of_float @@ floor @@ float_of_int pos.h /. 2. in
-    *    if not (Position.has_collision                         (\* needs comments *\)
-    *              ~f:(fun x -> x#pos)
-    *              {self#pos with y = y1}
-    *              pos_list) &&
-    *         not @@ Position.collides
-    *                  pos
-    *                  {self#pos with y = y1; h }
-    *         && not (self#pos.y + self#pos.h > pos.y + pos.h / 2)
-    *    then
-    *      ( self#s_pos_push {self#pos with y = y1}; true )
-    *    else
-    *      ( let should_move =
-    *          match grid.rows with
-    *          | Some rows ->
-    *             if self#pos.y + self#pos.h + pos.h <= rows
-    *             then List.fold_while
-    *                    ( fun acc x ->
-    *                      let open Position in
-    *                      let new_bound = x#pos.y + self#pos.h in
-    *                      if Position.collides x#pos {self#pos with y}
-    *                      then
-    *                        if new_bound <= rows
-    *                        then ( if x#move_away
-    *                                    (y + self#pos.h)
-    *                                    self#pos.y
-    *                                    self#pos
-    *                                    self#get_other_items
-    *                               then (acc, `Continue)
-    *                               else (false, `Stop))
-    *                        else (false, `Stop)
-    *                      else (acc, `Continue)) true self#get_other_items
-    *             else false
-    *          | None ->
-    *             List.fold_while
-    *               ( fun acc x -> if x#move_away
-    *                                   (self#pos.y + self#pos.h)
-    *                                   self#pos.y
-    *                                   self#pos
-    *                                   self#get_other_items
-    *                              then (acc, `Continue)
-    *                              else (false, `Stop)) true self#get_other_items in
-    * if should_move
-    * then
-    * ( self#s_pos_push {self#pos with y};
-    *  self#set_y @@ React.S.value s_row_h * y;
-    *  true )
-    *  else false*)
 
     method vc (pos: Position.t) : Position.t =
       let rec up (pos: Position.t) =
@@ -372,20 +338,23 @@ module Item = struct
         then up {pos with y = pos.y - 1}
         else pos
       in
-(*      let rec down (pos: Position.t) =
-        if Position.has_collision
-             ~f:(fun x -> x#pos)
-             pos
-             self#get_other_items
-        then down {pos with y = pos.y + 1}
-        else pos
-      in
-      if Position.has_collision
-           ~f:(fun x -> x#pos)
-           {pos with y = pos.y - 1}
-           self#get_other_items
-      then down pos
-      else*) up pos
+      up pos
+
+    method vacant_pos (pos : Position.t) (bottom : int) : Position.t option =
+      let rec new_pos check_pos result =
+        let open Position in
+        let next_pos = {check_pos with y = check_pos.y - 1} in
+        if check_pos.y - 1 >= 0
+        then if not @@ Position.has_collision
+                         ~f:(fun x -> x#pos)
+                         next_pos
+                         (React.S.value s_items)
+             then new_pos next_pos next_pos
+             else new_pos next_pos result
+        else result in
+      let start_pos = { pos with y = bottom - pos.h } in
+      let result = new_pos start_pos {Position.empty with y = bottom} in
+      if result.y <> bottom then Some result else None
 
     method get_other_items : 'a t list =
       List.filter (fun x -> x#root != self#root) @@ React.S.value s_items
@@ -403,6 +372,7 @@ module Item = struct
     method private get_parent : Dom_html.element Js.t =
       let par_opt = Js.Opt.to_option self#root##.parentNode |> Option.map Js.Unsafe.coerce in
       Option.get_exn par_opt
+
     method private get_parent_pos : Position.t =
       let par = self#get_parent in
       { x = par##.offsetLeft
@@ -458,7 +428,7 @@ module Item = struct
           |> (fun x -> end_listener <- Some x))
 
     method private start_dragging (ev: action) =
-      if not self#get_static then
+      if self#get_draggable then
         (
           dragged <- true;
           self#add_class Markup.Dynamic_grid.Item.dragging_class;
@@ -487,23 +457,16 @@ module Item = struct
               if not @@ self#has_collision pos
               then ghost#s_pos_push @@ self#vc pos
               else
-                  ( let collisions =
-                      List.filter (fun x -> Position.collides pos x#pos)
-                      @@ self#get_other_items in
-                    let continue =
-                      List.fold_while (fun acc x ->
-                          let open Position in
-                          if not (x#pos.y > pos.y + pos.h / 2) && x#pos.y <> 0
-                          then ( let y = x#pos.y in
-                                 x#s_pos_push {x#pos with y = ghost#pos.y};
-                                 ghost#s_pos_push {pos with y};
-                                 (false, `Stop))
-                          else
-                            if x#move_away @@ pos.y + pos.h
-                            then (acc, `Continue)
-                            else (false, `Stop)) true collisions in
-                    if continue
-                    then ghost#s_pos_push @@ self#vc pos)
+                ( let collisions =
+                    List.filter (fun x -> Position.collides pos x#pos)
+                    @@ self#get_other_items in
+                  let continue =
+                    List.fold_while (fun acc x ->
+                        if x#move_away @@ pos.y + pos.h
+                        then (acc, `Continue)
+                        else (false, `Stop)) true collisions in
+                  if continue
+                  then ghost#s_pos_push @@ self#vc pos)
             else
               if not (self#has_collision pos)
               then ghost#s_pos_push pos;
@@ -529,7 +492,7 @@ module Item = struct
          | _ -> ()
 
     method private start_resizing (ev: action) =
-      if not self#get_static then
+      if self#get_resizable then
         (
           dragged <- true;
           ghost#style##.zIndex := Js.string "3";
@@ -573,7 +536,6 @@ module Item = struct
          else
            if not (self#has_collision pos)
            then ghost#s_pos_push pos;
-         self#s_pos_push ghost#pos;
          self#set_w w;
          self#set_h h;
          if grid.vertical_compact
@@ -595,31 +557,38 @@ module Item = struct
 
     initializer
       (* append resize button to element if necessary *)
-      if item.resizable && not item.static
+      if item.resizable
       then Dom.appendChild self#root resize_button#root;
       (* append widget to cell if provided *)
       Option.iter (fun x -> Dom.appendChild self#root x#root) item.widget;
-
+      (* append move widget to cell if provided *)
+      Option.iter (fun x -> if item.draggable then Dom.appendChild self#root x#root) item.move_widget;
       (* add item move listener *)
-      Dom_events.listen self#root Dom_events.Typ.mousedown
-        (fun _ e -> if e##.button = 0 && item.draggable
+      let move_target =
+        match item.move_widget with
+        | Some widget -> widget#root
+        | None        -> self#root
+      in
+      Dom_events.listen move_target Dom_events.Typ.mousedown
+        (fun _ e -> if e##.button = 0 && draggable
                     then self#start_dragging (Mouse e);
                     false)
       |> ignore;
 
-      Dom_events.listen self#root Dom_events.Typ.touchstart
-        (fun _ e -> if item.draggable then self#start_dragging (Touch e); false)
+      Dom_events.listen move_target Dom_events.Typ.touchstart
+        (fun _ e -> if draggable then self#start_dragging (Touch e);
+                    false)
       |> ignore;
 
       (* add item start resize listener if needed *)
       Dom_events.listen resize_button#root Dom_events.Typ.mousedown
-        (fun _ e -> if e##.button = 0 && item.resizable
+        (fun _ e -> if e##.button = 0 && resizable
                     then self#start_resizing (Mouse e);
                     false)
       |> ignore;
 
       Dom_events.listen resize_button#root Dom_events.Typ.touchstart
-        (fun _ e -> if item.resizable then self#start_resizing (Touch e); false)
+        (fun _ e -> if resizable then self#start_resizing (Touch e); false)
       |> ignore
 
   end
@@ -662,7 +631,7 @@ class ['a] t ~grid ~(items:'a item list) () =
     | Some h -> React.S.const h
     | None   ->
        let merge = (fun acc (x:Position.t) -> if (x.h + x.y) > acc then (x.h + x.y) else acc) in
-       React.S.map (fun (l:Position.t list) -> List.fold_left merge 0 l) s_changing
+       React.S.map (fun (l:Position.t list) -> List.fold_left merge 1 l) s_changing
   in
   let elt = Markup.Dynamic_grid.create ~items:[] () |> Tyxml_js.To_dom.of_element in
 
@@ -708,6 +677,8 @@ class ['a] t ~grid ~(items:'a item list) () =
 
     method remove (x:'a Item.t) = x#remove; self#vertical_compacting ()
 
+    method remove_all () = List.iter (fun x -> x#remove) @@ React.S.value s_items
+
     method add (x:'a item) =
       let items = List.map (fun x -> x#pos) (React.S.value s_items) in
       match Position.get_all_collisions ~f:(fun x -> x) x.pos items with
@@ -720,10 +691,10 @@ class ['a] t ~grid ~(items:'a item list) () =
       | l  -> Error (Collides l)
 
     method free ?min_w ?min_h ?max_w ?max_h
-                    ?(static = false)
                     ?(resizable = true)
                     ?(draggable = true)
                     ?widget
+                    ?(move_widget: Widget.widget option)
                     ?(width: int option)
                     ?(height: int option)
                     ~(value: 'a)
@@ -737,18 +708,18 @@ class ['a] t ~grid ~(items:'a item list) () =
                     ; min_h     = Some 1
                     ; max_w     = Some 1
                     ; max_h     = Some 1
-                    ; static    = false
                     ; resizable = true
                     ; draggable = true
                     ; widget    = None
+                    ; move_widget = None
                     ; value }
         | Add -> adding,
                  { pos = Position.empty
                  ; min_w; min_h
                  ; max_w; max_h
-                 ; static; resizable
+                 ; resizable
                  ; draggable; widget
-                 ; value }
+                 ; move_widget ; value }
       in
       if progress
       then Lwt.return_error In_progress

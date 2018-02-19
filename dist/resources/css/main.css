@@ -364,7 +364,13 @@ main.main-with-sidebar {
     height: 20px;
     z-index: 3;
     cursor: se-resize;
+    visibility: hidden;
 }
+
+.mdc-dynamic-grid__item:hover > .mdc-dynamic-grid__item__resize {
+    visibility: visible;
+}
+
 .mdc-dynamic-grid__item__resize::after {
     content: "";
     position: absolute;
