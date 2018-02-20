@@ -268,32 +268,33 @@ let menu_demo () =
 let linear_progress_demo () =
   let linear_progress = new Linear_progress.t () in
   linear_progress#set_indeterminate true;
-  let ind_btn   = new Button.t ~label:"indeterminate" () in
-  let det_btn   = new Button.t ~label:"determinate" () in
-  let pgs0_btn  = new Button.t ~label:"progress 0" () in
-  let pgs20_btn = new Button.t ~label:"progress 20" () in
-  let pgs60_btn = new Button.t ~label:"progress 60" () in
-  let buf10_btn = new Button.t ~label:"buffer 10" () in
-  let buf30_btn = new Button.t ~label:"buffer 30" () in
-  let buf70_btn = new Button.t ~label:"buffer 70" () in
-  let open_btn  = new Button.t ~label:"open" () in
-  let close_btn = new Button.t ~label:"close" () in
+  let ind_btn    = new Button.t ~label:"indeterminate" () in
+  let det_btn    = new Button.t ~label:"determinate" () in
+  let open_btn   = new Button.t ~label:"open" () in
+  let close_btn  = new Button.t ~label:"close" () in
+  let pgrs_txt   = new Typography.Text.t ~text:"Progress" () in
+  let pgrs       = new Slider.t ~markers:true ~min:0.0 ~max:100.0 ~step:1. () in
+  let buffer_txt = new Typography.Text.t ~text:"Buffer" () in
+  let buffer     = new Slider.t ~markers:true ~min:0.0 ~max:100.0 ~step:1. () in
+  let _ = React.S.map (fun x -> linear_progress#set_progress (x /. 100.)) pgrs#s_input in
+  let _ = React.S.map (fun x -> linear_progress#set_buffer (x /. 100.)) buffer#s_input in
   React.E.map (fun _ -> linear_progress#set_indeterminate true) ind_btn#e_click  |> ignore;
-  React.E.map (fun _ -> linear_progress#set_indeterminate false) det_btn#e_click |> ignore;
-  React.E.map (fun _ -> linear_progress#set_progress 0.) pgs0_btn#e_click        |> ignore;
-  React.E.map (fun _ -> linear_progress#set_progress 0.2) pgs20_btn#e_click      |> ignore;
-  React.E.map (fun _ -> linear_progress#set_progress 0.6) pgs60_btn#e_click      |> ignore;
-  React.E.map (fun _ -> linear_progress#set_buffer 0.1) buf10_btn#e_click        |> ignore;
-  React.E.map (fun _ -> linear_progress#set_buffer 0.3) buf30_btn#e_click        |> ignore;
-  React.E.map (fun _ -> linear_progress#set_buffer 0.7) buf70_btn#e_click        |> ignore;
+  React.E.map (fun _ -> linear_progress#set_indeterminate false;
+                        linear_progress#set_progress (React.S.value pgrs#s_value /. 100.);
+                        linear_progress#set_buffer (React.S.value buffer#s_value /. 100.))
+              det_btn#e_click |> ignore;
   React.E.map (fun _ -> linear_progress#show) open_btn#e_click                   |> ignore;
   React.E.map (fun _ -> linear_progress#hide) close_btn#e_click                  |> ignore;
-  let cells = List.map (fun x -> new Layout_grid.Cell.t ~widgets:[x] ()
-                                 |> (fun x -> x#set_span 12; x))
-                [ind_btn  ; det_btn  ; pgs0_btn ; pgs20_btn; pgs60_btn;
-                 buf10_btn; buf30_btn; buf70_btn; open_btn ; close_btn ] in
-  let btn_grid = new Layout_grid.t ~cells () in
-  demo_section "Linear progress" [ btn_grid#widget; linear_progress#widget ]
+  let btn_box = new Box.t ~widgets:[ind_btn; det_btn; open_btn; close_btn ] () in
+  let sld_box = new Box.t ~widgets:[pgrs_txt#widget; pgrs#widget; buffer_txt#widget; buffer#widget] () in
+  btn_box#set_justify_content `Start;
+  btn_box#set_align_items `Start;
+  btn_box#set_gap 20;
+  linear_progress#style##.marginTop := Js.string "50px";
+  sld_box#style##.marginTop := Js.string "50px";
+  let sect = demo_section "Linear progress" [ btn_box#widget; sld_box#widget; linear_progress#widget ] in
+  let _ = React.S.map (fun _ -> pgrs#layout; buffer#layout) sect#s_expanded in
+  sect
 
 let tabs_demo () =
   let open Components.Tabs in

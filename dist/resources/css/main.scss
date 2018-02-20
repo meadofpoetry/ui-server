@@ -14,25 +14,25 @@
 
 .hide { display: none }
 
-html { height: 100%; }
+html {
+    box-sizing: border-box;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
 body {
-    /*display: flex; */
-    /* flex-direction: row; */
-    /* padding: 0; */
     margin: 0;
-    /* box-sizing: border-box; */
-    height: 100%;
-    /* width: 100%; */
 }
 .content {
+    width: 100%;
     display: flex;
-    flex: 1 1 auto;
-    justify-content: stretch;
-    height: 100%;
-    box-sizing: border-box;
+    min-height: 100vh;
+    align-items: stretch;
 }
-main { flex: 1; }
-main.main-with-sidebar     { padding-left: 16px; }
+.main-with-sidebar     {
+    padding-left: 16px;
+    max-width: calc(100% - 256px);
+    flex: 1 1 100%;
+}
 .mdc-layout-grid.max-width { max-width: 1280px; }
 .mdc-theme--dark {
     --mdc-theme-primary: var(--mdc-theme-accent, #64dd17);
