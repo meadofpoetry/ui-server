@@ -239,44 +239,13 @@ module Tab_bar = struct
 
 end
 
-let in_out_sine x =
-  let pi = 4.0 *. atan 1.0 in
-  0.5 *. (1. -. (cos (pi *. x)))
-
-let animate ~(timing   : float -> float)
-            ~(draw     : float -> unit)
-            ~(duration : float) =
-  let start = Unix.gettimeofday () in
-
-  let rec cb = (fun _ ->
-
-      let time          = Unix.gettimeofday () in
-      let time_fraction = Float.min ((time -. start) /. duration) 1. in
-      let progress      = timing time_fraction in
-      let ()            = draw progress in
-
-      if Float.(time_fraction < 1.)
-      then
-        let _ = Dom_html.window##requestAnimationFrame (Js.wrap_callback cb) in
-        ())
-  in
-
-  let _ = Dom_html.window##requestAnimationFrame (Js.wrap_callback cb) in
-  ()
-
 module Scroller = struct
-
-  class type mdc =
-    object
-      method tabBar : unit Js.t Js.readonly_prop
-    end
 
   class ['a] t ~(tabs:'a tab list) () =
 
     let tab_bar = new Tab_bar.t ~tabs () in
-    let elt = (* tab_bar#add_class Markup.Tabs.Scroller.scroll_frame_tabs_class; *)
-              Markup.Tabs.Scroller.create ~tabs:(Widget.widget_to_markup tab_bar) ()
-              |> Tyxml_js.To_dom.of_div in
+    let elt     = Markup.Tabs.Scroller.create ~tabs:(Widget.widget_to_markup tab_bar) ()
+                  |> Tyxml_js.To_dom.of_div in
     let wrapper = elt##querySelector (Js.string ("." ^ Markup.Tabs.Scroller.tab_bar_wrapper_class))
                   |> Js.Opt.to_option |> Option.get_exn |> Widget.create
     in
@@ -286,6 +255,8 @@ module Scroller = struct
     let forward = elt##querySelector (Js.string ("." ^ Markup.Tabs.Scroller.indicator_forward_class))
                   |> Js.Opt.to_option |> Option.get_exn |> Widget.create
     in
+    let on_scroll_change = (fun _ h -> wrapper#style##.marginBottom := Js.string (Printf.sprintf "-%dpx" h)) in
+    let scroll_listener  = new Utils.Scroll_size_listener.t ~on_change:on_scroll_change () in
 
     object(self)
 
@@ -297,18 +268,19 @@ module Scroller = struct
       method scroll_back    = self#move_tabs_scroll (- wrapper#get_client_width)
       method scroll_forward = self#move_tabs_scroll wrapper#get_client_width
       method layout         = self#update_scroll_buttons;
-                              self#tab_bar#layout
+                              self#tab_bar#layout;
+                              scroll_listener#measure
 
       (* Private methods *)
 
       method private scroll next =
         let old = wrapper#root##.scrollLeft in
-        animate ~timing:in_out_sine
-                ~draw:(fun x -> let n = float_of_int next in
-                                let o = float_of_int old in
-                                let v = int_of_float @@ (x *. (n -. o)) +. o in
-                                wrapper#root##.scrollLeft := v)
-                ~duration:0.35
+        Utils.Animation.animate ~timing:Utils.Animation.Timing.in_out_sine
+                                ~draw:(fun x -> let n = float_of_int next in
+                                                let o = float_of_int old in
+                                                let v = int_of_float @@ (x *. (n -. o)) +. o in
+                                                wrapper#root##.scrollLeft := v)
+                                ~duration:0.35
 
       method private move_tabs_scroll (delta:int) =
         let multiplier = 1 in
@@ -336,6 +308,7 @@ module Scroller = struct
 
       initializer
         self#layout;
+        Dom.appendChild self#root scroll_listener#root;
         Dom_events.listen back#root    Dom_events.Typ.click  (fun _ _ -> self#scroll_back;    true)        |> ignore;
         Dom_events.listen forward#root Dom_events.Typ.click  (fun _ _ -> self#scroll_forward; true)        |> ignore;
         Dom_events.listen wrapper#root Dom_events.Typ.scroll (fun _ _ -> self#update_scroll_buttons; true) |> ignore;

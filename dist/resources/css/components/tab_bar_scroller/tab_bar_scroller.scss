@@ -1,6 +1,7 @@
 $mdc-tab-bar-scroller-indicator-width: 48px;
 
 .mdc-tab {
+    flex: none;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -26,8 +27,6 @@ $mdc-tab-bar-scroller-indicator-width: 48px;
         display: inline-block;
         position: relative;
         white-space: nowrap;
-
-        margin-bottom: -12px;
     }
 
     &__indicator {
@@ -60,6 +59,12 @@ $mdc-tab-bar-scroller-indicator-width: 48px;
 
     &__indicator--enabled {
         visibility: visible;
+    }
+
+    @media (max-width: 599.95px) {
+        &__indicator {
+            display: none;
+        }
     }
 
 }

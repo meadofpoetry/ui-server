@@ -6,7 +6,7 @@
   (synopsis    "various js widgets")
   (modules     (widget markup avatar box button card checkbox dialog divider expansion_panel
                 drawer elevation fab form_field grid_list icon icon_toggle circular_progress
-                item_list layout_grid linear_progress menu radio ripple select slider
+                item_list layout_grid linear_progress menu radio ripple select slider utils
                 snackbar switch tabs table textfield textarea toolbar tree typography color dynamic_grid))
   (libraries (common react js_of_ocaml js_of_ocaml-tyxml js_of_ocaml-lwt))
   (flags (:standard -short-paths -strict-sequence -bin-annot

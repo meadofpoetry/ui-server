@@ -31,21 +31,22 @@ let load () =
                                   ; disabled = false
                                   ; href     = None
                                   ; value    = (snd x) }) tab_pages in
-  let bar  = new Tabs.Tab_bar.t ~tabs () in
+  let bar  = new Tabs.Scroller.t ~tabs () in
   let s    = React.S.map (function
                           | Some x -> Some (x#get_value ())
-                          | None   -> None) bar#s_active in
+                          | None   -> None) bar#tab_bar#s_active in
   let _    = insert s container in
 
   let section = new Toolbar.Row.Section.t ~align:`Start ~widgets:[bar] () in
   let row     = new Toolbar.Row.t ~sections:[section] () in
   let toolbar = Dom_html.getElementById "main-toolbar" in
   let content = Dom_html.getElementById "main-content" in
-  bar#style##.marginLeft := Js.string "72px";
+  (* bar#style##.marginLeft := Js.string "72px"; *)
   content##.style##.marginTop := Js.string "128px";
-  bar#set_indicator_accent;
+  bar#tab_bar#set_indicator_accent;
   (Js.Unsafe.coerce row#style)##.alignItems := Js.string "flex-end";
   (Js.Unsafe.coerce section#style)##.alignItems := Js.string "flex-end";
 
   Dom.appendChild toolbar   row#root;
+  (Js.Unsafe.coerce bar#style)##.flexGrow := 1; bar#layout;
   Dom.appendChild container box#root

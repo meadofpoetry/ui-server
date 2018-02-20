@@ -32,14 +32,14 @@ let () =
   in
   let tabs = List.fold_left (fun acc (c,typ) -> (List.rev @@ board_to_tabs c typ) @ acc) [] boards
              |> List.rev in
-  let bar  = new Tabs.Tab_bar.t ~tabs:(List.map (fun (name,_) -> { content  = `Text name
-                                                                 ; disabled = false
-                                                                 ; href     = None
-                                                                 ; value    = () })
-                                         tabs) () in
+  let bar  = new Tabs.Scroller.t ~tabs:(List.map (fun (name,_) -> { content  = `Text name
+                                                                  ; disabled = false
+                                                                  ; href     = None
+                                                                  ; value    = () })
+                                                 tabs) () in
   let s    = React.S.map ~eq:Equal.physical (fun _ -> Option.map (fun idx -> snd @@ List.get_at_idx_exn idx tabs)
-                                                        bar#get_active_tab_index)
-               bar#s_active in
+                                                                 bar#tab_bar#get_active_tab_index)
+                         bar#tab_bar#s_active in
   let s_free  = insert s box#root in
   let _       = React.S.diff (fun _ free -> Option.iter (fun f -> f ()) free) s_free in
   let ac      = Dom_html.getElementById "arbitrary-content" in
@@ -49,9 +49,11 @@ let () =
   let content = Dom_html.getElementById "main-content" in
   bar#style##.marginLeft := Js.string "72px";
   content##.style##.marginTop := Js.string "128px";
-  bar#set_indicator_accent;
+  bar#tab_bar#set_indicator_accent;
   (Js.Unsafe.coerce row#style)##.alignItems := Js.string "flex-end";
   (Js.Unsafe.coerce section#style)##.alignItems := Js.string "flex-end";
   Dom.appendChild toolbar row#root;
+  (Js.Unsafe.coerce bar#style)##.flexGrow := 1;
+  bar#layout;
   Dom.appendChild ac box#root
 
