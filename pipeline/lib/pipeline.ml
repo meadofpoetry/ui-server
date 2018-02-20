@@ -55,32 +55,21 @@ let create config dbs (hardware_streams : Common.Stream.source list React.signal
   | Some cfg ->
      let converter = Msg_conv.get_converter cfg.msg_fmt in
      let exec_path = (Filename.concat cfg.bin_path cfg.bin_name) in
-     let exec_opts = Array.of_list (cfg.bin_name :: "-m" :: (PSettings.format_to_string cfg.msg_fmt) :: cfg.sources) in   
-     match Unix.fork () with
-     | -1   -> failwith "Ooops, fork failed"
-     | 0    -> (try Unix.execv exec_path exec_opts with _ -> Unix.sleep 2; print_endline "fork failed"; exit (-1))
-     | pid  ->
-        let api, state, recv = Pipeline_protocol.create cfg.sock_in cfg.sock_out hardware_streams in
-        let db_events = connect_db (S.changes api.streams) dbs in
-        (* let _e = E.map (function
-                     | None -> ()
-                     | Some e ->
-                     Wm.to_yojson e
-                     |> Yojson.Safe.pretty_to_string
-                     |> Lwt_io.printlf "Got stream from pipeline:\n %s\n"
-                     |> ignore)
-                   (S.changes api.wm) in*)
-        let obj = { api; state; db_events } in
-        (* polling loop *)
-        let rec loop () =
-          recv () >>= loop
-        in
-        (* finalizer *)
-        let fin () =
-          Lwt_unix.waitpid [] pid >>= fun _ ->
-          Lwt.fail_with "Child'd died for some reason"
-        in
-        Some obj, Some (Lwt.pick [loop (); fin ()])
+     let exec_opts =
+       Array.of_list (cfg.bin_name :: "-m" :: (PSettings.format_to_string cfg.msg_fmt) :: cfg.sources) in
+     let api, state, recv = Pipeline_protocol.create cfg.sock_in cfg.sock_out hardware_streams in
+     let db_events = connect_db (S.changes api.streams) dbs in
+     let obj = { api; state; db_events } in
+     (* polling loop *)
+     let rec loop () =
+       recv () >>= loop
+     in
+     (* finalizer *)
+     let fin () =
+       Lwt_process.exec (exec_path, exec_opts) >>= fun _ ->
+       Lwt.fail_with "Child'd died for some reason"
+     in
+     Some obj, Some (Lwt.pick [loop (); fin ()])
 
 let finalize pipe =
   Pipeline_protocol.finalize pipe.state

@@ -11,7 +11,7 @@
                    -O3 -unbox-closures))
   (libraries (containers yojson sqlexpr angstrom
               lwt lwt-zmq lwt_react websocket-lwt.cohttp
-              api storage common))
+              api storage common process))
   (preprocess (pps (ppx_deriving_yojson ppx_sqlexpr)))))
 
 (rule
