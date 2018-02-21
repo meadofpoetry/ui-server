@@ -677,14 +677,15 @@ let dynamic_grid_demo () =
    *     chart)
    * in *)
   let (props:Dynamic_grid.grid) =
-    { rows             = Some 30
+    { rows             = Some 20
     ; cols             = 30
     ; min_col_width    = 1
     ; max_col_width    = None
     ; row_height       = None
     ; vertical_compact = true
     ; items_margin     = Some (10,10)
-    } in
+    }
+  in
   let move () = new Icon_toggle.t
                   ~on_data:{ icon = "open_with"
                            ; label = None
@@ -692,7 +693,8 @@ let dynamic_grid_demo () =
                   ~off_data:{ icon = "open_with"
                             ; label = None
                             ; css_class = None }
-                  () in
+                  ()
+  in
   let items    = [ Dynamic_grid.Item.to_item
                      ~pos:{ x = 0
                           ; y = 0

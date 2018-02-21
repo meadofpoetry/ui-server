@@ -68,6 +68,55 @@ module Position = struct
   let sort_by_y ~(f:'a -> t) (l:'a list) =
     List.sort (fun p1 p2 -> compare (f p1).y (f p2).y) l
 
+  (** Given a list of collisions and overall items in grid, resolve these collisions by moving down **)
+  let rec move_down ?rows ~f ~(eq:'a -> 'a -> bool) ~(collisions:'a list) (pos : t) (l:'a list) =
+    let y            = pos.y + pos.h in
+   (* let move x acc  =
+      let new_pos    = {(f x) with y} in
+      let new_list   = (new_pos, x)::acc in
+      let filtered   = List.filter (fun i -> eq x i) l in
+      let collisions = List.filter (fun x -> collides new_pos (f x)) filtered in
+      let further    = move_down ?rows ~f ~eq ~collisions new_pos filtered in
+      List.append new_list further
+    in*)
+    match rows with
+    | None      -> List.fold_left (fun acc x ->
+                       let new_pos    = {(f x) with y} in
+                       let new_list   = (new_pos, x)::acc in
+                       let filtered   = List.filter (fun i -> eq x i) l in
+                       let collisions = List.filter (fun x -> collides new_pos (f x)) filtered in
+                       let further    = move_down ?rows ~f ~eq ~collisions new_pos filtered in
+                       List.append new_list further) [] collisions
+    | Some rows -> List.fold_while (fun acc x ->
+                       if y + (f x).h <= rows
+                       then ( let new_pos    = {(f x) with y} in
+                              let new_list   = (new_pos, x)::acc in
+                              let filtered   = List.filter (fun i -> eq x i) l in
+                              let collisions = List.filter (fun x -> collides new_pos (f x)) filtered in
+                              let further    = move_down ~rows ~f ~eq ~collisions new_pos filtered in
+                              let result     = List.append new_list further in
+                              match collisions, further with
+                              | hd::[], [] -> [], `Stop
+                              | hd::tl, [] -> [], `Stop
+                              | _,_        -> result, `Continue)
+                       else [], `Stop) [] collisions
+
+  (** Given a list of collisions and overall items in grid, resolve these collisions by moving up **)
+  let move_top ~f ~(eq:'a -> 'a -> bool) ~(collisions:'a list) (pos : t) (l:'a list) =
+    List.fold_while (fun acc x ->
+        let lst = List.filter (fun i -> eq x i) l in
+        let new_pos = compact ~f (f x) lst in
+        if new_pos.y + new_pos.h <= pos.y
+        then ((new_pos, x) :: acc), `Continue
+        else [], `Stop) [] collisions
+
+  (** Swap positions if possible **)
+  let swap (pos_to_place: t) (pos_to_move : t) =
+    if pos_to_place.w <= pos_to_move.w && pos_to_place.h <= pos_to_move.h
+    then Some {pos_to_place with x = pos_to_move.x
+                               ; y = pos_to_move.y}
+    else None
+
   let get_free_rect ?(cmp:(t -> t -> int) option) ~(f:'a -> t) (pos:t) (items:'a list) w h () =
     if has_collision ~f:(fun x -> x) pos items
     then None
@@ -178,25 +227,6 @@ module Position = struct
   let correct_wh ?max_w ?min_w ?max_h ?min_h p par_w par_h =
     correct_w ?max_w ?min_w p par_w
     |> (fun p -> correct_h ?max_h ?min_h p par_h)
-
-  let compact ~f (pos: t) list : t =
-      let rec up (pos: t) =
-        if pos.y - 1 >= 0 &&
-             (not @@ has_collision
-                       ~f
-                       {pos with y = pos.y - 1}
-                       list)
-        then up {pos with y = pos.y - 1}
-        else pos
-      in
-      up pos
-
-  let sort_by_y ~f list =
-      let compare t1 t2 =
-        if (f t1).y = (f t2).y then 0
-        else if (f t1).y > (f t2).y then 1
-        else -1 in
-      List.sort compare list
 
 end
 
@@ -339,40 +369,6 @@ module Item = struct
 
     method remove : unit = e_modify_push (`Remove self)
 
-    method move_away (move_from:'a t) (new_top : int) : bool =
-      let other i     = filter ~exclude:[move_from; i] self#items in
-      let should_move =
-        match grid.rows with
-        | None      ->
-           let other i = filter ~exclude:[move_from; i] self#items in
-           List.fold_while (fun acc x -> if Position.collides x#pos { self#pos with y = new_top }
-                                         then
-                                           if x#move_away move_from @@ new_top + self#pos.h
-                                           then (acc, `Continue)
-                                           else (false, `Stop)
-                                         else (acc, `Continue))
-                           true (other (self :> 'a t))
-        | Some rows ->
-           if new_top + self#pos.h <= rows
-           then List.fold_while (fun acc x -> let open Position in
-                                              let new_bound = new_top + self#pos.h + x#pos.h in
-                                              if Position.collides x#pos { self#pos with y = new_top }
-                                              then
-                                                if new_bound <= rows
-                                                then ( if x#move_away move_from @@ new_top + self#pos.h
-                                                       then (acc, `Continue)
-                                                       else (false, `Stop))
-                                                else (false, `Stop)
-                                              else (acc, `Continue))
-                                true (other (self :> 'a t))
-           else false
-      in
-      if should_move
-      then (self#set_pos { self#pos with y = new_top };
-            self#set_y @@ React.S.value s_row_h * new_top;
-            true)
-      else false
-
     (** Private methods **)
 
     method private items = React.S.value s_items
@@ -445,23 +441,27 @@ module Item = struct
            if not grid.vertical_compact
            then ghost#pos
            else
-             let baseline  = pos.y in
-             let moved_top = match action with
-               | `Drag -> List.fold_while (fun acc x ->
-                              let lst = filter ~exclude:[(x:>'a t)] other in
-                              let new_pos = Position.compact ~f:(fun x -> x#pos) x#pos lst in
-                              if new_pos.y + new_pos.h <= baseline
-                              then ((new_pos,x) :: acc),`Continue
-                              else [], `Stop) [] l
+             let bind f    = function [] -> f () | l -> l in
+             let (>>=) x f = bind f x in
+             let check_top () = match action with
                | `Size -> []
+               | `Drag -> Position.move_top
+                            ~f:(fun x -> x#pos)
+                            ~eq:(fun x y -> x#root != y#root)
+                            ~collisions:l
+                            pos other
              in
-             match moved_top with
-             | [] -> let baseline  = pos.y + pos.h in
-                     let ok = List.fold_while (fun acc x -> if x#move_away (self :> 'a t) baseline
-                                                            then acc,`Continue
-                                                            else false,`Stop) true l
-                     in
-                     if ok then pos else ghost#pos
+             let check_bot () = Position.move_down ?rows:grid.rows
+                                  ~f:(fun x -> x#pos)
+                                  ~eq:(fun x y -> x#root != y#root)
+                                  ~collisions:l pos other
+             in
+             let res = check_top ()
+                       >>= check_bot
+                       >>= (fun () -> [])
+             in
+             match res with
+             | [] -> ghost#pos
              | l  -> List.iter (fun (pos,item) -> item#set_pos pos) l;
                      pos
       in
