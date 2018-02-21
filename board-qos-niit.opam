@@ -16,7 +16,7 @@ depends: [
   "bitstring"
   "ppx_cstruct"
   "ppx_deriving_yojson"
-  "ppx_sqlexpr"
+  "caqti-lwt"
   "containers"
   "websocket-lwt"
   "common"

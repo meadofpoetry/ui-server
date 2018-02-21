@@ -3,7 +3,7 @@
 (executable
  ((name        backend)
   (modes (native))
-  (libraries (tyxml sqlexpr lwt
+  (libraries (tyxml caqti-lwt lwt
               containers mustache cohttp-lwt-unix
               yojson ppx_deriving_yojson.runtime
               common storage cbuffer pipeline
@@ -12,4 +12,4 @@
   (ocamlopt_flags (:standard -short-paths -bin-annot
                    -thread -w "+1..49+60" -w "+a-4-7-23-33-39-40-41-42-44-45-48"
                    -O3 -unbox-closures))
-  (preprocess (pps (ppx_sqlexpr ppx_deriving_yojson)))))
+  (preprocess (pps (ppx_deriving_yojson)))))
