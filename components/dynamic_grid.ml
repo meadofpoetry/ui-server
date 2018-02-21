@@ -32,7 +32,7 @@ module Position = struct
 
   let to_string (pos:t) = Printf.sprintf "x=%d, y=%d, w=%d, h=%d" pos.x pos.y pos.w pos.h
 
-  (** checks if two elements collide, returns true if do and false otherwise **)
+  (* checks if two elements collide, returns true if do and false otherwise *)
   let collides (pos1:t) (pos2:t) =
     if (pos1.x + pos1.w <= pos2.x)      then false
     else if (pos1.x >= pos2.x + pos2.w) then false
@@ -179,20 +179,38 @@ module Position = struct
     correct_w ?max_w ?min_w p par_w
     |> (fun p -> correct_h ?max_h ?min_h p par_h)
 
+  let compact ~f (pos: t) list : t =
+      let rec up (pos: t) =
+        if pos.y - 1 >= 0 &&
+             (not @@ has_collision
+                       ~f
+                       {pos with y = pos.y - 1}
+                       list)
+        then up {pos with y = pos.y - 1}
+        else pos
+      in
+      up pos
+
+  let sort_by_y ~f list =
+      let compare t1 t2 =
+        if (f t1).y = (f t2).y then 0
+        else if (f t1).y > (f t2).y then 1
+        else -1 in
+      List.sort compare list
+
 end
 
 type 'a item =
-  { pos       : Position.t
-  ; min_w     : int option
-  ; min_h     : int option
-  ; max_w     : int option
-  ; max_h     : int option
-  ; static    : bool
-  ; resizable : bool
-  ; draggable : bool
-  ; widget    : Widget.widget option
-  ; value     : 'a
-  ; on_resize : (Position.t -> int -> int -> unit) option
+  { pos         : Position.t
+  ; min_w       : int option
+  ; min_h       : int option
+  ; max_w       : int option
+  ; max_h       : int option
+  ; resizable   : bool
+  ; draggable   : bool
+  ; move_widget : Widget.widget option
+  ; widget      : Widget.widget option
+  ; value       : 'a
   }
 
 type grid =
@@ -210,9 +228,9 @@ module Item = struct
   type action = Mouse of Dom_html.mouseEvent Js.t
               | Touch of Dom_html.touchEvent Js.t
 
-  let to_item ?min_w ?min_h ?max_w ?max_h ?on_resize
-              ?(static=false) ?(resizable=true) ?(draggable=true) ?widget ~pos ~value() =
-    { pos; min_w; min_h; max_w; max_h; static; resizable; draggable; widget; value; on_resize }
+  let to_item ?min_w ?min_h ?max_w ?max_h
+        ?(resizable=true) ?(draggable=true) ?move_widget ?widget ~pos ~value() =
+    { pos; min_w; min_h; max_w; max_h; resizable; draggable; move_widget; widget; value}
 
   class ['a] cell ?(typ=`Item)
              ~s_col_w
@@ -267,32 +285,30 @@ module Item = struct
   let filter ~(exclude:#Widget.widget list) (l:#Widget.widget list) =
     List.filter (fun x -> not (List.mem ~eq:(fun x y -> Equal.physical x#root y#root) x exclude)) l
 
-  class ['a] t ~grid             (* grid props *)
-             ~(item: 'a item)    (* item props *)
-             ~e_modify_push      (* add/delete item event *)
-             ~s_col_w            (* column width signal -- px *)
-             ~s_row_h            (* row height signal   -- px *)
-             ~s_item_margin      (* item margin         -- px *)
-             ~(s_items : 'a t list React.signal) (* items signal *)
-             () =
+  class ['a] t ~grid          (* grid props *)
+          ~(item: 'a item)    (* item props *)
+          ~e_modify_push  (* add/delete item event *)
+          ~s_col_w        (* column width signal -- px *)
+          ~s_row_h        (* row height signal   -- px *)
+          ~(s_items : 'a t list React.signal) (* items signal *)
+          () =
+  object(self: 'self)
 
-  object(self)
+    inherit ['a] cell ~typ:`Item ~s_col_w ~s_row_h ~item () as super
 
-    inherit ['a] cell ~typ:`Item ~s_col_w ~s_row_h ~s_item_margin ~item () as super
-
-    val s_change       = React.S.create item.pos
-    val resize_button  = Markup.Dynamic_grid.Item.create_resize_button ()
-                         |> Tyxml_js.To_dom.of_element |> Widget.create
+    val s_change      = React.S.create item.pos
+    val resize_button = Markup.Dynamic_grid.Item.create_resize_button ()
+                        |> Tyxml_js.To_dom.of_element |> Widget.create
 
     val mutable mov_listener  = None
     val mutable end_listener  = None
     val mutable value         = item.value
-    val mutable static        = item.static
+    val mutable draggable     = item.draggable
+    val mutable resizable     = item.resizable
 
     val ghost = new cell ~typ:`Ghost ~s_col_w ~s_row_h ~s_item_margin ~item ()
 
     (** API **)
-
     method set_pos pos = super#set_pos pos; ghost#set_pos pos
 
     method s_changing = ghost#s_pos
@@ -301,8 +317,24 @@ module Item = struct
     method set_value (x:'a) = value <- x
     method get_value : 'a   = value
 
-    method set_static (s: bool) = static <- s
-    method get_static : bool    = static
+    method set_draggable (x : bool) =
+      begin
+        match item.move_widget with
+        | Some widget ->
+           if x
+           then Dom.appendChild self#root widget#root
+           else Dom.removeChild self#root widget#root
+        | None -> ()
+      end;
+      draggable <- x
+
+    method get_draggable : bool     = draggable
+
+    method set_resizable (x : bool) = if x
+                                      then Dom.appendChild self#root resize_button#root
+                                      else Dom.removeChild self#root resize_button#root;
+                                      resizable <- x
+    method get_resizable : bool     = resizable
 
     method remove : unit = e_modify_push (`Remove self)
 
@@ -446,7 +478,7 @@ module Item = struct
                      (Position.sort_by_y ~f:(fun x -> x#pos) other)
 
     method private start_dragging (ev: action) =
-      if not self#get_static
+      if self#get_draggable
       then
         (self#add_class Markup.Dynamic_grid.Item.dragging_class;
          ghost#style##.zIndex := Js.string "1";
@@ -456,6 +488,7 @@ module Item = struct
          match ev with
          | Mouse ev -> self#mouse_action self#apply_position ev
          | Touch ev -> self#touch_action self#apply_position ev)
+
 
     method private apply_position ~x ~y ~init_x ~init_y ~init_pos typ =
       match x, y with
@@ -490,7 +523,7 @@ module Item = struct
          | _ -> ()
 
     method private start_resizing (ev: action) =
-      if not self#get_static
+      if self#get_resizable
       then
         (ghost#style##.zIndex := Js.string "4";
          self#style##.zIndex  := Js.string "3";
@@ -501,6 +534,7 @@ module Item = struct
                        self#mouse_action self#apply_size ev
          | Touch ev -> Dom_html.stopPropagation ev;
                        self#touch_action self#apply_size ev)
+
 
     method private apply_size ~x ~y ~init_x ~init_y ~init_pos typ =
       match typ with
@@ -540,27 +574,40 @@ module Item = struct
       let _ = React.S.map (fun x -> Printf.printf "changing! : %s\n" @@ Position.to_string x) self#s_changing in
       Elevation.set_elevation self#widget 2;
       (* append resize button to element if necessary *)
-      if item.resizable && not item.static
+      if item.resizable
       then Dom.appendChild self#root resize_button#root;
       (* append widget to cell if provided *)
       Option.iter (fun x -> Dom.appendChild self#root x#root) item.widget;
-
+      (* append move widget to cell if provided *)
+      Option.iter (fun x -> if item.draggable then Dom.appendChild self#root x#root) item.move_widget;
       (* add item move listener *)
-      Dom_events.listen self#root Dom_events.Typ.mousedown
-                        (fun _ e -> if e##.button = 0 && item.draggable then self#start_dragging (Mouse e); false)
+
+      let move_target =
+        match item.move_widget with
+        | Some widget -> widget#root
+        | None        -> self#root
+      in
+      Dom_events.listen move_target Dom_events.Typ.mousedown
+        (fun _ e -> if e##.button = 0 && draggable
+                    then self#start_dragging (Mouse e);
+                    false)
       |> ignore;
 
-      Dom_events.listen self#root Dom_events.Typ.touchstart
-                        (fun _ e -> if item.draggable then self#start_dragging (Touch e); false)
+      Dom_events.listen move_target Dom_events.Typ.touchstart
+        (fun _ e -> if draggable then self#start_dragging (Touch e);
+                    false)
       |> ignore;
 
       (* add item start resize listener if needed *)
       Dom_events.listen resize_button#root Dom_events.Typ.mousedown
-                        (fun _ e -> if e##.button = 0 && item.resizable then self#start_resizing (Mouse e); false)
+
+        (fun _ e -> if e##.button = 0 && resizable
+                    then self#start_resizing (Mouse e);
+                    false)
       |> ignore;
 
       Dom_events.listen resize_button#root Dom_events.Typ.touchstart
-                        (fun _ e -> if item.resizable then self#start_resizing (Touch e); false)
+        (fun _ e -> if resizable then self#start_resizing (Touch e); false)
       |> ignore
 
   end
@@ -605,7 +652,7 @@ class ['a] t ~grid ~(items:'a item list) () =
     | Some h -> React.S.const h
     | None   ->
        let merge = (fun acc (x:Position.t) -> if (x.h + x.y) > acc then (x.h + x.y) else acc) in
-       React.S.map (fun (l:Position.t list) -> Printf.printf "grid changing!\n"; List.fold_left merge 0 l) s_changing
+       React.S.map (fun (l:Position.t list) -> List.fold_left merge 1 l) s_changing
   in
   let elt = Markup.Dynamic_grid.create ~items:[] () |> Tyxml_js.To_dom.of_element in
 
@@ -645,13 +692,13 @@ class ['a] t ~grid ~(items:'a item list) () =
                     ?(resizable=true)
                     ?(draggable=true)
                     ?widget
+                    ?(move_widget: Widget.widget option)
                     ?(width:int option)
                     ?(height:int option)
-                    ?on_resize
                     ~(value: 'a)
                     () =
       let item          = { pos = Position.empty
-                          ; min_w; min_h; max_w; max_h; static; resizable; draggable; widget; value; on_resize }
+                          ; min_w; min_h; max_w; max_h; static; resizable; draggable; move_widget; widget; value; on_resize }
       in
       let items         = List.map (fun x -> x#pos) @@ React.S.value s_items in
       let on_init _     = () in
@@ -704,10 +751,12 @@ class ['a] t ~grid ~(items:'a item list) () =
       in
       self#action_wrapper ~on_init ~on_move ~on_click
 
-    method remove (x:'a Item.t) =
+    method remove (x:'a Item.t) vc =
       x#remove;
       (* FIXME make vertical compact variable *)
-      if grid.vertical_compact then self#compact
+      if grid.vertical_compact && vc then self#compact
+
+    method remove_all () = List.iter (fun x -> x#remove false) @@ React.S.value s_items
 
     method remove_free =
       let items         = List.map (fun x -> x#pos) @@ React.S.value s_items in
@@ -731,7 +780,7 @@ class ['a] t ~grid ~(items:'a item list) () =
                                                else (acc, `Continue)) None (React.S.value self#s_items)
         in
         match el with
-        | Some x -> self#remove x; Ok ()
+        | Some x -> self#remove x true; Ok ()
         | None   -> Error (Collides [])
       in
       self#action_wrapper ~on_init ~on_move ~on_click
