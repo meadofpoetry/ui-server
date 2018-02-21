@@ -17,6 +17,6 @@ depends: [
   "ppx_deriving_yojson"
   "containers"
   "lwt"
-  "ppx_sqlexpr"
-  "sqlexpr"
+  "caqti-lwt"
+  "caqti-driver-sqlite3"
 ]

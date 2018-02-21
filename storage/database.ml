@@ -1,8 +1,28 @@
+open Containers
 open Lwt.Infix
 
-module Sqlexpr = Sqlexpr_sqlite.Make(Sqlexpr_concurrency.Lwt)
-open Sqlexpr
-   
+(* TODO fix-it *)
+let realpath path =
+  if not @@ Filename.is_relative path
+  then path
+  else begin
+      let top::rest = String.split ~by:Filename.dir_sep path in
+      let top = match top with
+        | "~"  -> Sys.getenv "HOME"
+        | "."  -> Unix.getcwd ()
+        | ".." -> Unix.getcwd () ^ ".."
+        | top  -> top
+      in
+      let rest = List.filter_map (function
+                     | "." -> None
+                     | str when String.prefix str "$" ->
+                        Option.(String.chop_prefix ~pre:"$" str >>= Sys.getenv_opt)
+                     | str -> Some str)
+                   rest
+      in
+      String.concat Filename.dir_sep (top::rest)
+    end
+  
 module Settings = struct
   type t = { db_path : string } [@@deriving yojson]
   let default   = { db_path = "./db" }
@@ -10,8 +30,8 @@ module Settings = struct
 end
 
 module Conf = Config.Make(Settings)
- 
-type t        = { db      : Sqlexpr.db
+            
+type t        = { db      : (module Caqti_lwt.CONNECTION)
                 ; workers : (t -> unit Lwt.t) list ref
                 }
 
@@ -20,10 +40,14 @@ module type STORAGE = sig
   val init     : t -> unit Lwt.t
   val request  : t -> 'a req -> 'a
 end
-                 
+                    
 let create config period =
-  let cfg = Conf.get config in
-  let db  = Sqlexpr.open_db cfg.db_path (* ~mode:`NO_CREATE *) in
+  let cfg  = Conf.get config in
+  let path = Printf.sprintf "sqlite3:%s?create=true&write=true" (realpath cfg.db_path) in
+  let db   = match Lwt_main.run @@ Caqti_lwt.connect (Uri.of_string path) with
+    | Ok db   -> db
+    | Error e -> failwith "Db connect failed with an error: %s\n" @@ Caqti_error.show e
+  in
   let workers = ref [] in
   let obj = { db; workers } in
   let rec loop () =
@@ -36,17 +60,12 @@ let create config period =
   in
   obj, loop ()
 
-let insert o = Sqlexpr.insert o.db
-
-let execute o = Sqlexpr.execute o.db
-
-let select o = Sqlexpr.select o.db
-
-let select_one o = Sqlexpr.select_one o.db
+let connection o : (module Caqti_lwt.CONNECTION) = o.db
 
 let add_maintainer o f =
   o.workers := f :: !(o.workers)
 
 let finalize o =
+  let (module Db : Caqti_lwt.CONNECTION) = o.db in
   print_endline "closing db";
-  Sqlexpr.close_db o.db;
+  Lwt.ignore_result @@ Db.disconnect ()
