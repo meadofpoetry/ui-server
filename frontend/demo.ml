@@ -677,8 +677,8 @@ let dynamic_grid_demo () =
    *     chart)
    * in *)
   let (props:Dynamic_grid.grid) =
-    { rows             = Some 4
-    ; cols             = 6
+    { rows             = Some 30
+    ; cols             = 30
     ; min_col_width    = 1
     ; max_col_width    = None
     ; row_height       = None
@@ -696,19 +696,15 @@ let dynamic_grid_demo () =
   let items    = [ Dynamic_grid.Item.to_item
                      ~pos:{ x = 0
                           ; y = 0
-                          ; w = 10
-                          ; h = 10 }
-                     ?move_widget:(Some (move())#widget)
-                     ~draggable:false
-                     ~resizable:false
+                          ; w = 4
+                          ; h = 8 }
                      ~value:()
                      ()
                  ; Dynamic_grid.Item.to_item
-                     ~pos:{ x = 20
+                     ~pos:{ x = 10
                           ; y = 0
-                          ; w = 10
-                          ; h = 20 }
-                     ?move_widget:(Some (move())#widget)
+                          ; w = 3
+                          ; h = 6 }
                      ~value:()
                      ()
                  ]
@@ -726,7 +722,6 @@ let dynamic_grid_demo () =
                         Dom_html.stopPropagation e;
                         grid#add_free ?width:(React.S.value w#s_input)
                           ?height:(React.S.value h#s_input)
-                          ?move_widget:(Some (move())#widget)
                           ~widget:(widget ())#widget
                           ~value:()
                           ()
@@ -750,7 +745,6 @@ let dynamic_grid_demo () =
                         | Some x, Some y, Some w, Some h ->
                            grid#add (Dynamic_grid.Item.to_item
                                        ~pos:{ x; y; w; h }
-                                       ?move_widget:(Some (move())#widget)
                                        ~value:()
                                        ())
                            |> (function

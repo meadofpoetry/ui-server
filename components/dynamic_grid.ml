@@ -290,11 +290,12 @@ module Item = struct
           ~e_modify_push  (* add/delete item event *)
           ~s_col_w        (* column width signal -- px *)
           ~s_row_h        (* row height signal   -- px *)
+          ~s_item_margin      (* item margin         -- px *)
           ~(s_items : 'a t list React.signal) (* items signal *)
           () =
-  object(self: 'self)
+  object(self)
 
-    inherit ['a] cell ~typ:`Item ~s_col_w ~s_row_h ~item () as super
+    inherit ['a] cell ~typ:`Item ~s_col_w ~s_row_h ~s_item_margin ~item () as super
 
     val s_change      = React.S.create item.pos
     val resize_button = Markup.Dynamic_grid.Item.create_resize_button ()
@@ -346,7 +347,7 @@ module Item = struct
            let other i = filter ~exclude:[move_from; i] self#items in
            List.fold_while (fun acc x -> if Position.collides x#pos { self#pos with y = new_top }
                                          then
-                                           if x#move_away move_from @@ self#pos.y + self#pos.h
+                                           if x#move_away move_from @@ new_top + self#pos.h
                                            then (acc, `Continue)
                                            else (false, `Stop)
                                          else (acc, `Continue))
@@ -444,18 +445,19 @@ module Item = struct
            if not grid.vertical_compact
            then ghost#pos
            else
-             let baseline  = pos.y + pos.h in
+             let baseline  = pos.y in
              let moved_top = match action with
                | `Drag -> List.fold_while (fun acc x ->
                               let lst = filter ~exclude:[(x:>'a t)] other in
-                              let pos = Position.compact ~f:(fun x -> x#pos) x#pos lst in
-                              if pos.y + pos.h < baseline
-                              then ((pos,x) :: acc),`Continue
+                              let new_pos = Position.compact ~f:(fun x -> x#pos) x#pos lst in
+                              if new_pos.y + new_pos.h <= baseline
+                              then ((new_pos,x) :: acc),`Continue
                               else [], `Stop) [] l
                | `Size -> []
              in
              match moved_top with
-             | [] -> let ok = List.fold_while (fun acc x -> if x#move_away (self :> 'a t) baseline
+             | [] -> let baseline  = pos.y + pos.h in
+                     let ok = List.fold_while (fun acc x -> if x#move_away (self :> 'a t) baseline
                                                             then acc,`Continue
                                                             else false,`Stop) true l
                      in
@@ -475,7 +477,7 @@ module Item = struct
                                in
                                let pos = Position.compact ~f:(fun x -> x) x#pos lst in
                                x#set_pos pos)
-                     (Position.sort_by_y ~f:(fun x -> x#pos) other)
+             (Position.sort_by_y ~f:(fun x -> x#pos) other)
 
     method private start_dragging (ev: action) =
       if self#get_draggable
@@ -571,7 +573,6 @@ module Item = struct
       | _ -> ()
 
     initializer
-      let _ = React.S.map (fun x -> Printf.printf "changing! : %s\n" @@ Position.to_string x) self#s_changing in
       Elevation.set_elevation self#widget 2;
       (* append resize button to element if necessary *)
       if item.resizable
@@ -688,7 +689,6 @@ class ['a] t ~grid ~(items:'a item list) () =
       | l  -> Error (Collides l)
 
     method add_free ?min_w ?min_h ?max_w ?max_h
-                    ?(static=false)
                     ?(resizable=true)
                     ?(draggable=true)
                     ?widget
@@ -698,7 +698,7 @@ class ['a] t ~grid ~(items:'a item list) () =
                     ~(value: 'a)
                     () =
       let item          = { pos = Position.empty
-                          ; min_w; min_h; max_w; max_h; static; resizable; draggable; move_widget; widget; value; on_resize }
+                          ; min_w; min_h; max_w; max_h; resizable; draggable; move_widget; widget; value }
       in
       let items         = List.map (fun x -> x#pos) @@ React.S.value s_items in
       let on_init _     = () in
@@ -756,7 +756,7 @@ class ['a] t ~grid ~(items:'a item list) () =
       (* FIXME make vertical compact variable *)
       if grid.vertical_compact && vc then self#compact
 
-    method remove_all () = List.iter (fun x -> x#remove false) @@ React.S.value s_items
+    method remove_all () = List.iter (fun x -> self#remove x false) self#items
 
     method remove_free =
       let items         = List.map (fun x -> x#pos) @@ React.S.value s_items in
