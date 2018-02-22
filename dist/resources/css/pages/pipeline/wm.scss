@@ -1,0 +1,44 @@
+.mdc-card.wm {
+    .mdc-card__actions {
+        > i {
+            margin: 0;
+            padding: 12px;
+            color: var(--mdc-theme-text-icon-on-background);
+        }
+    }
+}
+
+.mdc-toolbar.wm-toolbar {
+
+    .mdc-toolbar__row {
+        padding-left: 24px;
+        padding-right: 24px;
+    }
+    .mdc-button {
+        color: var(--mdc-theme-text-primary-on-primary);
+    }
+}
+
+.mdc-dynamic-grid.wm-grid {
+    background-color: var(--mdc-theme-primary-light);
+    margin: 0 auto;
+}
+
+.wm-grid-placeholder {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    display: flex;
+    justify-content: center;
+
+    .mdc-typography {
+        margin-top: 12px;
+        color: var(--mdc-theme-text-secondary-on-primary-light);
+        order: 1;
+    }
+    .mdc-icon {
+        font-size: 48px;
+        order: 0;
+        color: var(--mdc-theme-text-icon-on-primary-light);
+    }
+}

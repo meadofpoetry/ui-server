@@ -1,6 +1,6 @@
 .mdc-dynamic-grid {
 
-    background-color: var(--mdc-theme-primary-light);
+    /* background-color: var(--mdc-theme-primary-light); */
     position: relative;
     box-sizing: border-box;
     width: 100%;
@@ -10,7 +10,7 @@
         -ms-user-select: none;
         -webkit-user-select: none;
         position: absolute;
-        background-color: RGB(215,215,215);
+        /* background-color: RGB(215,215,215); */
         background-position: center center;
         // border: 1px ridge black;
         box-sizing: border-box;

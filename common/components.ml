@@ -114,14 +114,15 @@ module Make
 
   module Icon = struct
 
-    let base_class = "mdc-icon"
+    let base_class   = "mdc-icon"
+    let button_class = CSS.add_modifier base_class "button"
 
     module Font = struct
 
       let create ?id ?style ?(classes=[]) ?attrs ~icon () =
         Html.i ~a:([a_class ("material-icons" :: base_class :: classes)]
                    |> add_common_attrs ?id ?style ?attrs)
-          [pcdata icon]
+               [pcdata icon]
 
     end
 
@@ -1504,7 +1505,7 @@ module Make
 
     module Icon = struct
 
-      let _class = CSS.add_element base_class "icon"
+      let _class       = CSS.add_element base_class "icon"
 
       let create ?id ?style ?(classes=[]) ?attrs ?(clickable=true) ~icon () =
         Html.i ~a:([ a_class ("material-icons" :: _class :: classes) ]
