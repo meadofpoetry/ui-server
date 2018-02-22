@@ -224,21 +224,16 @@ module Make
 
   module Card = struct
 
-    let base_class             = "mdc-card"
-    let horizontal_block_class = CSS.add_element base_class "horizontal-block"
-
-    module Media_item = struct
-
-      let _class              = CSS.add_element base_class "media-item"
-      let height_1dot5x_class = CSS.add_modifier _class "1dot5x"
-      let height_2x_class     = CSS.add_modifier _class "2x"
-      let height_3x_class     = CSS.add_modifier _class "3x"
-
-    end
+    let base_class           = "mdc-card"
+    let stroked_class        = CSS.add_modifier "stroked"
+    let primary_action_class = CSS.add_element "primary-action"
 
     module Media = struct
 
-      let _class = CSS.add_element base_class "media"
+      let _class           = CSS.add_element base_class "media"
+      let content_class    = CSS.add_element base_class "media-content"
+      let square_class     = CSS.add_modifier _class "square"
+      let widescreen_class = CSS.add_modifier _class "16-9"
 
       let create ?(classes=[]) ?id ?style ?attrs ~children () =
         section ~a:([a_class (_class :: classes)]
@@ -249,16 +244,18 @@ module Make
 
     module Actions = struct
 
-      let _class         = CSS.add_element base_class "actions"
-      let action_class   = CSS.add_element base_class "action"
-      let vertical_class = CSS.add_modifier _class "vertical"
+      let _class              = CSS.add_element base_class "actions"
+      let full_bleed_class    = CSS.add_modifier _class "full-bleed"
+      let action_class        = CSS.add_element base_class "action"
+      let action_button_class = CSS.add_modifier action_class "button"
+      let action_icon_class   = CSS.add_modifier action_class "icon"
+      let buttons_class       = CSS.add_element base_class "action-buttons"
+      let icons_class         = CSS.add_element base_class "action-icons"
 
-      let create ?(classes=[]) ?id ?style ?attrs ?(vertical=false) ~children () =
-        section ~a:([ a_class (classes
-                               |> cons_if vertical vertical_class
-                               |> List.cons _class) ]
+      let create ?(classes=[]) ?id ?style ?attrs ~children () =
+        section ~a:([ a_class (classes |> List.cons _class) ]
                     |> add_common_attrs ?id ?style ?attrs)
-          children
+                children
 
     end
 
@@ -280,17 +277,6 @@ module Make
         h2 ~a:([a_class (subtitle_class :: classes)]
                |> add_common_attrs ?id ?style ?attrs)
           [pcdata subtitle]
-
-      let create ?(classes=[]) ?id ?style ?attrs ~children () =
-        section ~a:([a_class (_class :: classes)]
-                    |> add_common_attrs ?id ?style ?attrs)
-          children
-
-    end
-
-    module Supporting_text = struct
-
-      let _class = CSS.add_element base_class "supporting-text"
 
       let create ?(classes=[]) ?id ?style ?attrs ~children () =
         section ~a:([a_class (_class :: classes)]
