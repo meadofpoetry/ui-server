@@ -104,6 +104,19 @@ class widget (elt:#Dom_html.element Js.t) () = object(self)
 
 end
 
+class button_widget elt () =
+  let e_click,e_click_push = React.E.create () in
+  object(self)
+
+    inherit widget elt ()
+
+    method e_click = e_click
+
+    initializer
+      Dom_events.listen self#root Dom_events.Typ.click (fun _ e -> e_click_push e; false) |> ignore
+
+  end
+
 class input_widget ~(input_elt:Dom_html.inputElement Js.t) elt () =
   let s_disabled,s_disabled_push = React.S.create false in
   object

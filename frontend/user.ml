@@ -21,10 +21,10 @@ let make_card user =
                   then Ok ()
                   else Error "pass mismatch"
   in
-  let title     = new Card.Title.t ~title:("Пароль " ^ username) () in
-  let primary   = new Card.Primary.t ~widgets:[title] () in
-  title#add_class "color--primary-on-primary";
-  primary#add_class "background--primary";
+  (* let title     = new Card.Title.t ~title:("Пароль " ^ username) () in
+   * let primary   = new Card.Primary.t ~widgets:[title] () in *)
+  (* title#add_class "color--primary-on-primary";
+   * primary#add_class "background--primary"; *)
   let old_form  = new Textfield.t
                     ~label:"Пароль пользователя"
                     ~input_type:(Widget.Password (fun pass -> Ok ())) () in
@@ -45,10 +45,7 @@ let make_card user =
 
   let apply       = new Button.t ~label:"Применить" () in
   let actions     = new Card.Actions.t ~widgets:[ apply ] () in
-  let card        = new Card.t ~sections:[ `Primary primary
-                                         ; `Media   media
-                                         ; `Actions actions ]
-                      () in
+  let card        = new Card.t ~widgets:[media#widget; actions#widget] () in
   let _ = React.E.map (fun _ ->
               let open Lwt_result.Infix in
               match (React.S.value old_form#s_input, React.S.value acc_form#s_input) with

@@ -1,44 +1,69 @@
-.mdc-card.wm {
-    .mdc-card__actions {
-        > i {
-            margin: 0;
-            padding: 12px;
-            color: var(--mdc-theme-text-icon-on-background);
+@import '../../components/theme/_mixins';
+@import '../../components/theme/_variables';
+@import '../../components/ripple/_mixins';
+@import '../../components/elevation/_mixins';
+
+$wm-grid-background-color: background;
+$wm-placeholder-color: text-icon-on-background;
+
+.main-with-sidebar {
+    background-color: #e0e0e0;
+}
+
+.wm {
+}
+
+.wm-grid {
+    @include mdc-theme-prop(background-color,$wm-grid-background-color);
+    @include mdc-elevation(2);
+    margin: 0 auto;
+
+    .mdc-dynamic-grid__item {
+        @include mdc-theme-prop(background-color, primary-light);
+        @include mdc-theme-prop(color, text-primary-on-primary-light);
+        border: 2px solid rgba(0,0,0,.12);
+
+        &--selected {
+            @include mdc-theme-prop(background-color, primary-dark);
+        }
+
+    }
+    .mdc-dynamic-grid__item__ghost {
+        @include mdc-theme-prop(background-color, secondary);
+    }
+
+    &__placeholder {
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        display: flex;
+        justify-content: center;
+
+        .mdc-typography {
+            @include mdc-theme-prop(color, $wm-placeholder-color);
+            margin-top: 12px;
+            order: 1;
+        }
+        .mdc-icon {
+            @include mdc-theme-prop(color, $wm-placeholder-color);
+            font-size: 48px;
+            order: 0;
         }
     }
 }
 
-.mdc-toolbar.wm-toolbar {
+.wm-left-toolbar {
+    &__action {
+        @include mdc-theme-prop(background-color,background);
+        @include mdc-theme-prop(color,text-icon-on-background);
+        @include mdc-states-base-color(mdc-theme-prop-value(text-secondary-on-background));
 
-    .mdc-toolbar__row {
-        padding-left: 24px;
-        padding-right: 24px;
-    }
-    .mdc-button {
-        color: var(--mdc-theme-text-primary-on-primary);
+        margin-bottom: 20px;
+        &:last-child {
+            margin-bottom: 0;
+        }
     }
 }
 
-.mdc-dynamic-grid.wm-grid {
-    background-color: var(--mdc-theme-primary-light);
-    margin: 0 auto;
-}
-
-.wm-grid-placeholder {
-    width: 100%;
-    height: 100%;
-    position: absolute;
-    display: flex;
-    justify-content: center;
-
-    .mdc-typography {
-        margin-top: 12px;
-        color: var(--mdc-theme-text-secondary-on-primary-light);
-        order: 1;
-    }
-    .mdc-icon {
-        font-size: 48px;
-        order: 0;
-        color: var(--mdc-theme-text-icon-on-primary-light);
-    }
+.wm-right-toolbar {
 }

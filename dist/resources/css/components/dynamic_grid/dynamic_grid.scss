@@ -1,34 +1,43 @@
+@import '../theme/_mixins';
+
+@mixin mdc-no-selection {
+    -moz-user-select: none;
+    -ms-user-select: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
 .mdc-dynamic-grid {
 
-    /* background-color: var(--mdc-theme-primary-light); */
+    background-color: transparent;
     position: relative;
     box-sizing: border-box;
     width: 100%;
 
     &__item {
-        -moz-user-select: none;
-        -ms-user-select: none;
-        -webkit-user-select: none;
         position: absolute;
-        /* background-color: RGB(215,215,215); */
         background-position: center center;
-        // border: 1px ridge black;
         box-sizing: border-box;
-        // box-shadow: 0 0 6px rgba(0, 0, 0, 0.2); 
         z-index: 2;
+        @include mdc-no-selection;
         /* transition: transform 150ms ease-out; */
+    }
+
+    &__item__drag-handle {
+        cursor: pointer;
+    }
+
+    &__item__select-handle {
+        cursor: pointer;
     }
 
     &__item__ghost {
         position: absolute;
         opacity: 0.5;
-        background-color: RGB(255,200,200);
+        @include mdc-theme-prop(background-color, secondary);
     }
 
     &__item__resize {
-        -moz-user-select: none;
-        -ms-user-select: none;
-        -webkit-user-select: none;
         position: absolute;
         bottom: 0px;
         right: 0px;
@@ -36,6 +45,7 @@
         height: 20px;
         z-index: 3;
         cursor: se-resize;
+        @include mdc-no-selection;
     }
 
     &__item__resize::after {

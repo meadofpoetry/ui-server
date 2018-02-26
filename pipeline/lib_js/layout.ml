@@ -96,7 +96,8 @@ let initialize (wm: Wm.t) =
     ; rows             = Some rows
     ; row_height       = None
     ; vertical_compact = false
-    ; items_margin     = None
+    ; items_margin     = Some (2,2)
+    ; multi_select     = false
     } in
   let (items:'a Dynamic_grid.item list) =
     List.map
@@ -121,6 +122,7 @@ let initialize (wm: Wm.t) =
           ~pos:{ x; y; w; h }
           ~min_w:1
           ~min_h:1
+          ~selectable:true
           ~value ()
       ) wm.layout in
 
@@ -179,7 +181,7 @@ let initialize (wm: Wm.t) =
                                    let row_num = i / opt_cols in
                                    let x = (i - opt_cols * row_num) * w in
                                    let y = row_num * h in
-                                   grid#add (Dynamic_grid.Item.to_item ~pos:{x;y;w;h} ~value:el ())
+                                   grid#add (Dynamic_grid.Item.to_item ~pos:{x;y;w;h} ~selectable:true ~value:el ())
                                    |> (function
                                        | Ok _    -> print_endline "grid - add okay!";
                                                     Lwt.return_unit

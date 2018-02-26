@@ -28,9 +28,9 @@ let load () =
     ]
   in
   let tabs = List.map (fun x -> { content  = `Text (fst x)
-                                  ; disabled = false
-                                  ; href     = None
-                                  ; value    = (snd x) }) tab_pages in
+                                ; disabled = false
+                                ; href     = None
+                                ; value    = (snd x) }) tab_pages in
   let bar  = new Tabs.Scroller.t ~tabs () in
   let s    = React.S.map (function
                           | Some x -> Some (x#get_value ())
@@ -42,6 +42,7 @@ let load () =
   let toolbar = Dom_html.getElementById "main-toolbar" in
   let content = Dom_html.getElementById "main-content" in
   (* bar#style##.marginLeft := Js.string "72px"; *)
+  bar#tab_bar#set_active_tab_index 2 |> ignore;
   content##.style##.marginTop := Js.string "128px";
   bar#tab_bar#set_indicator_accent;
   (Js.Unsafe.coerce row#style)##.alignItems := Js.string "flex-end";
