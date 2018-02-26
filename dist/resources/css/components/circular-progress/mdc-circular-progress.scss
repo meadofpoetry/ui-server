@@ -1,23 +1,15 @@
-@keyframes mdc-circular-progress-rotate {
-    100% { transform: rotate(350deg) }
-}
+@import './_keyframes';
+@import './_mixins';
 
-@keyframes mdc-circular-progress-dash {
-    0%   { stroke-dasharray: 1px, 200px;   stroke-dashoffset: 0px; }
-    50%  { stroke-dasharray: 100px, 200px; stroke-dashoffset: -15px; }
-    100% { stroke-dasharray: 100px, 200px; stroke-dashoffset: -120px; }
-}
+@include mdc-circular-progress-color(primary);
 
 .mdc-circular-progress {
+
     display: inline-block;
-    color: var(--mdc-theme-primary);
 
     &:not(.mdc-circular-progress--indeterminate) svg {
         transform: rotate(-90deg);
     }
-
-    &--primary   { color: var(--mdc-theme-primary); }
-    &--secondary { color: var(--mdc-theme-secondary); }
 
     &__circle {
         stroke: currentColor;

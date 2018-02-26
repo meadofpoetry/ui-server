@@ -1,0 +1,8 @@
+@import "../theme/_mixins";
+@import "../theme/_variables";
+
+@mixin mdc-circular-progress-color($color) {
+    .mdc-circular-progress {
+        @include mdc-theme-prop(color, $color);
+    }
+}
