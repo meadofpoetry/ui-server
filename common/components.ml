@@ -249,10 +249,30 @@ module Make
       let action_class        = CSS.add_element base_class "action"
       let action_button_class = CSS.add_modifier action_class "button"
       let action_icon_class   = CSS.add_modifier action_class "icon"
-      let buttons_class       = CSS.add_element base_class "action-buttons"
-      let icons_class         = CSS.add_element base_class "action-icons"
 
-      let create ?(classes=[]) ?id ?style ?attrs ~children () =
+      module Buttons = struct
+
+        let _class = CSS.add_element base_class "action-buttons"
+
+        let create ?id ?style ?(classes=[]) ?attrs ~children () =
+          div ~a:([ a_class (_class :: classes) ]
+                  |> add_common_attrs ?id ?style ?attrs)
+              children
+
+      end
+
+      module Icons = struct
+
+        let _class = CSS.add_element base_class "action-icons"
+
+        let create ?id ?style ?(classes=[]) ?attrs ~children () =
+          div ~a:([ a_class (_class :: classes) ]
+                  |> add_common_attrs ?id ?style ?attrs)
+              children
+
+      end
+
+      let create ?id ?style ?(classes=[]) ?attrs ~children () =
         section ~a:([ a_class (classes |> List.cons _class) ]
                     |> add_common_attrs ?id ?style ?attrs)
                 children
@@ -299,7 +319,7 @@ module Make
     let native_control_class = CSS.add_element base_class "native-control"
     let background_class     = CSS.add_element base_class "background"
     let checkmark_class      = CSS.add_element base_class "checkmark"
-    let checkmark_path_class = CSS.add_element checkmark_class "path"
+    let checkmark_path_class = CSS.add_element base_class "checkmark-path"
     let mixedmark_class      = CSS.add_element base_class "mixedmark"
 
     let create ?(classes=[]) ?style ?id ?input_id ?(disabled=false) ?(auto_init=false) ?(checked=false) ?attrs () =
@@ -1412,9 +1432,9 @@ module Make
 
     module Scroller = struct
 
-      let _class                  = "mdc-tab-bar-scroll"
-      let container_class         = CSS.add_element _class "container"
-      let tab_bar_wrapper_class   = CSS.add_element _class "tab-bar-wrapper"
+      let _class                  = "mdc-tab-bar-scroller"
+      let scroll_frame_class      = CSS.add_element _class "scroll-frame"
+      let scroll_frame_tabs_class = CSS.add_element scroll_frame_class "tabs"
 
       let indicator_class         = CSS.add_element _class "indicator"
       let indicator_enabled_class = CSS.add_modifier indicator_class "enabled"
@@ -1441,9 +1461,9 @@ module Make
       let create ?id ?style ?(classes=[]) ?attrs ~tabs () =
         div ~a:([ a_class (_class :: classes) ]
                 |> add_common_attrs ?id ?style ?attrs)
-            [ div ~a:[ a_class [container_class]]
+            [ div ~a:[ a_class [scroll_frame_class]]
                   [ create_indicator ~direction:`Back ()
-                  ; div ~a:[ a_class [tab_bar_wrapper_class]
+                  ; div ~a:[ a_class [scroll_frame_tabs_class]
                            ; a_role ["tablist"]] [ tabs ]
                   ; create_indicator ~direction:`Forward ()
                   ]

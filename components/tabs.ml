@@ -246,7 +246,7 @@ module Scroller = struct
     let tab_bar = new Tab_bar.t ~tabs () in
     let elt     = Markup.Tabs.Scroller.create ~tabs:(Widget.widget_to_markup tab_bar) ()
                   |> Tyxml_js.To_dom.of_div in
-    let wrapper = elt##querySelector (Js.string ("." ^ Markup.Tabs.Scroller.tab_bar_wrapper_class))
+    let wrapper = elt##querySelector (Js.string ("." ^ Markup.Tabs.Scroller.scroll_frame_tabs_class))
                   |> Js.Opt.to_option |> Option.get_exn |> Widget.create
     in
     let back    = elt##querySelector (Js.string ("." ^ Markup.Tabs.Scroller.indicator_back_class))

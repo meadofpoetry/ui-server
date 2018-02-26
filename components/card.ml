@@ -6,15 +6,21 @@ open Tyxml_js
 
 module Actions = struct
 
-  class t ?vertical ~(widgets:#widget list) () =
-    let elt = Markup.Card.Actions.create ?vertical ~children:(widgets_to_markup widgets) ()
+  module Buttons = struct
+
+  end
+
+  module Icons = struct
+
+  end
+
+  class t ~(widgets:#widget list) () =
+    let elt = Markup.Card.Actions.create ~children:(widgets_to_markup widgets) ()
               |> To_dom.of_section in
     object
       val mutable widgets : widget list = List.map (fun x -> (x :> Widget.widget)) widgets
       inherit widget elt () as super
       method get_widgets = widgets
-      method set_vertical x = Markup.Card.Actions.vertical_class
-                              |> (fun c -> if x then super#add_class c else super#remove_class c)
 
       initializer
         List.iter (fun x -> x#add_class Markup.Card.Actions.action_class) widgets

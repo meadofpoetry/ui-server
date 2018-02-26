@@ -89,13 +89,13 @@ let card_demo () =
   (Js.Unsafe.coerce media#style)##.backgroundSize := Js.string "cover";
   media#style##.backgroundRepeat := Js.string "no-repeat";
   media#style##.height := Js.string "12.313rem";
-  let title    = new Card.Title.t ~large:true ~title:"Demo card title" () in
-  let subtitle = new Card.Subtitle.t ~subtitle:"Subtitle" () in
-  let primary  = new Card.Primary.t ~widgets:[ title#widget; subtitle#widget ] () in
-  let text     = new Card.Supporting_text.t ~text:"Supporting text" () in
+  (* let title    = new Card.Title.t ~large:true ~title:"Demo card title" () in
+   * let subtitle = new Card.Subtitle.t ~subtitle:"Subtitle" () in
+   * let primary  = new Card.Primary.t ~widgets:[ title#widget; subtitle#widget ] () in
+   * let text     = new Card.Supporting_text.t ~text:"Supporting text" () in *)
   let actions  = new Card.Actions.t ~widgets:[ new Button.t ~compact:true ~label:"action 1" ()
                                              ; new Button.t ~compact:true ~label:"action 2" () ] () in
-  let card = new Card.t ~sections:[ `Media media; `Primary primary; `Text text; `Actions actions ] () in
+  let card = new Card.t ~widgets:[ media#widget; actions#widget ] () in
   card#style##.width := Js.string "320px";
   demo_section "Card" [ card ]
 
@@ -822,8 +822,8 @@ let onload _ =
                           ; switch_demo ()
                           ; toggle_demo ()
                           ; elevation_demo ()
-                          ; select_demo ()
-                          ; textfield_demo ()
+                          (* ; select_demo ()
+                           * ; textfield_demo () *)
                           ; card_demo ()
                           ; slider_demo ()
                           ; grid_list_demo ()
@@ -832,7 +832,7 @@ let onload _ =
                           ; dialog_demo ()
                           ; list_demo ()
                           ; tree_demo ()
-                          ; menu_demo ()
+                          (* ; menu_demo () *)
                           ; snackbar_demo ()
                           ; linear_progress_demo ()
                           ; circular_progress_demo ()

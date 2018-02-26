@@ -6,7 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="">
     <title>{{title}}</title>
-    <link rel="stylesheet" href="/css/material-components-web.min.css">
+    <!-- https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css -->
+    <link rel="stylesheet" href="/css/components.css">
     <link rel="stylesheet" href="/css/icon.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto+Mono">
@@ -72,8 +73,9 @@
           {{/content}}
         </section>
       </main>
-    </div>
-    <script src="/js/material-components-web.min.js"></script>
+        </div>
+        <!-- https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js -->
+        <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
     <!-- Additional scripts -->
     {{#post_scripts}}
     <script {{#src}}src="{{script}}"{{/src}} type="text/javascript">{{^src}}{{{script}}}{{/src}}</script>

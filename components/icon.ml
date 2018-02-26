@@ -29,7 +29,8 @@ module Button = struct
         self#add_class Markup.Icon.button_class;
         (let r = Ripple.attach self in
          self#add_class "mdc-ripple-surface"; (*FIXME*)
-         r##.unbounded := Js.bool true)
+         r##.unbounded := Js.bool true;
+         Ripple.set_unbounded self)
     end
 
   end

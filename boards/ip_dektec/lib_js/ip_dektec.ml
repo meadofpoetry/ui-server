@@ -45,7 +45,7 @@ let main_status_card s_state e_status =
     ] in
   let params = new Rows.t ~s_state ~rows () in
   let media  = new Card.Media.t ~widgets:[params] () in
-  new Stateful_card.t ~title:"Статус" ~s_state ~sections:[`Media media ] ()
+  new Stateful_card.t ~title:"Статус" ~s_state ~sections:[media] ()
 
 let fec_status_card s_state e_status =
   let open Board_types in
@@ -58,7 +58,7 @@ let fec_status_card s_state e_status =
     ] in
   let params = new Rows.t ~s_state ~rows () in
   let media  = new Card.Media.t ~widgets:[params] () in
-  new Stateful_card.t ~title:"Статус FEC" ~sections:[ `Media media ] ~s_state ()
+  new Stateful_card.t ~title:"Статус FEC" ~sections:[ media ] ~s_state ()
 
 let nw_settings_block control s_state (cfg:Board_types.config) =
   let help_text : Textfield.Help_text.helptext = { validation=true;persistent=false;text=None } in
@@ -100,7 +100,7 @@ let nw_settings_block control s_state (cfg:Board_types.config) =
                       | None   -> Lwt_result.fail "Incorrect or empty ip gateway")
         >>= (fun _ -> Requests.post_reset control))
       ~title:"Сетевые настройки"
-      ~sections:[ `Media media ]
+      ~sections:[ media#widget ]
       ()
 
 let ip_settings_block control s_state (cfg:Board_types.config) =
@@ -143,7 +143,7 @@ let ip_settings_block control s_state (cfg:Board_types.config) =
                       | Some x -> Requests.post_multicast control x
                       | None   -> Lwt_result.fail "Incorrect or empty multicast address"))
       ~title:"Настройки приёма TSoIP"
-      ~sections:[ `Media media ]
+      ~sections:[ media#widget ]
       ()
 
 let free state =

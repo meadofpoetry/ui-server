@@ -96,10 +96,10 @@ module Plots = struct
     chart
 
   let chart_card ~typ ~title ~extract ~metas  ~y_max ~y_min ~e () =
-    let title = new Card.Title.t ~title () in
-    let prim  = new Card.Primary.t ~widgets:[title] () in
+    (* let title = new Card.Title.t ~title () in
+     * let prim  = new Card.Primary.t ~widgets:[title] () in *)
     let media = new Card.Media.t ~widgets:[chart ~typ ~metas ~extract  ~y_max ~y_min ~e ()] () in
-    new Card.t ~sections:[ `Primary prim; `Media media ] ()
+    new Card.t ~widgets:[ media ] ()
 
   let create
         ~(init:   Structure.t list)
@@ -210,14 +210,13 @@ module Structure = struct
     let div = Dom_html.createDiv Dom_html.document in
     let make (str : Structure.t list) =
       let dis, s = make_structure_list str in
-      let title  = new Card.Title.t ~title:"Потоки" () in
-      let prim   = new Card.Primary.t ~widgets:[title] () in
+      (* let title  = new Card.Title.t ~title:"Потоки" () in
+       * let prim   = new Card.Primary.t ~widgets:[title] () in *)
       let but    = new Components.Button.t ~label:"Применить" () in
       let place  = new Components.Card.t
-                       ~sections:[ `Primary prim
-                                 ; `Media (new Card.Media.t ~widgets:[dis] ())
-                                 ; `Actions (new Card.Actions.t ~widgets:[but] ())
-                                 ]
+                       ~widgets:[ (new Card.Media.t ~widgets:[dis] ())#widget
+                                ; (new Card.Actions.t ~widgets:[but] ())#widget
+                                ]
                        () in
       place#set_id id;
       but#button_element##.onclick := Dom.handler (fun _ -> post @@ React.S.value s; Js._false);
@@ -409,9 +408,8 @@ module Settings = struct
       let dis, s = make_layout set in
       let but    = new Components.Button.t ~label:"Применить" () in
       let place  = new Components.Card.t
-                     ~sections:[`Primary (new Card.Primary.t ~widgets:[dis] ());
-                                `Actions (new Card.Actions.t ~widgets:[but] ())]
-                     () in
+                       ~widgets:[ (new Card.Actions.t ~widgets:[but] ())#widget ]
+                       () in
       place#set_id id;
       but#button_element##.onclick := Dom.handler (fun _ -> post @@ React.S.value s; Js._false);
       place

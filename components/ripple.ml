@@ -6,7 +6,7 @@ class type mdc =
     method unbounded  : bool Js.t Js.prop
   end
 
-let attach (elt:#Widget.widget) : mdc Js.t = elt#add_class Markup.Ripple.base_class;
+let attach (elt:#Widget.widget) : mdc Js.t = (* elt#add_class Markup.Ripple.base_class; *)
                                              Js.Unsafe.global##.mdc##.ripple##.MDCRipple##attachTo elt#root
 
 let remove_accent (elt:#Widget.widget)  = elt#remove_class Markup.Ripple.accent_class

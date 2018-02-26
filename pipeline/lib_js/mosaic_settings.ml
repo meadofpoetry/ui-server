@@ -50,6 +50,7 @@ module Wm = struct
       let media   = new Card.Media.t ~widgets:[box] () in
 
       let ph      = make_placeholder ~text:"Добавьте элементы в раскладку" ~icon:"add_box" () in
+      let _       = add#set_attribute "title" "Добавить" in
       let _       = grid#add_class "wm-grid" in
       let _       = grid#set_on_load @@ Some (fun () -> grid#layout) in
       let _       = f_add add#e_click in
@@ -60,7 +61,7 @@ module Wm = struct
                                  | _  -> try Dom.removeChild grid#root ph#root with _ -> ())
                                 grid#s_items
       in
-      let card    = new Card.t ~sections:[`Actions actions; `Media media] () in
+      let card    = new Card.t ~widgets:[actions#widget; media#widget] () in
       card#add_class "wm";
       card#set_id id;
       card
