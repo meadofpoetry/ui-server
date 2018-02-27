@@ -6,7 +6,6 @@ open Lwt_result.Infix
 class t () =
 
   let div  = Dom_html.createDiv Dom_html.document in
-  let cell = new Layout_grid.Cell.t ~widgets:[Widget.create div] () in
 
   object(self)
 
@@ -14,7 +13,7 @@ class t () =
     val mutable observer = None
     val mutable sock : (WebSockets.webSocket Js.t * WebSockets.webSocket Js.t) option = None
 
-    inherit Layout_grid.t ~cells:[cell] ()
+    inherit Widget.widget div ()
 
     method private observe =
       MutationObserver.observe

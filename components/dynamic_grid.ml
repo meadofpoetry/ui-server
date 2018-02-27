@@ -243,6 +243,11 @@ type 'a item =
   ; move_widget : Widget.widget option
   ; widget      : Widget.widget option
   ; value       : 'a
+
+  ; on_resize   : (Position.t -> Position.t -> int -> int -> unit) option
+  ; on_resizing : (Position.t -> Position.t -> int -> int -> unit) option
+  ; on_drag     : (Position.t -> Position.t -> int -> int -> unit) option
+  ; on_dragging : (Position.t -> Position.t -> int -> int -> unit) option
   }
 
 type grid =
@@ -254,6 +259,7 @@ type grid =
   ; vertical_compact : bool
   ; items_margin     : (int * int) option
   ; multi_select     : bool
+  ; restrict_move    : bool
   }
 
 module Item = struct
@@ -262,8 +268,12 @@ module Item = struct
               | Touch of Dom_html.touchEvent Js.t
 
   let to_item ?min_w ?min_h ?max_w ?max_h
-        ?(resizable=true) ?(draggable=true) ?(selectable=false) ?move_widget ?widget ~pos ~value() =
-    { pos; min_w; min_h; max_w; max_h; resizable; draggable; selectable; move_widget; widget; value}
+              ?(resizable=true) ?(draggable=true) ?(selectable=false)
+              ?on_resize ?on_resizing ?on_drag ?on_dragging
+              ?move_widget ?widget ~pos ~value() =
+    { pos; min_w; min_h; max_w; max_h; resizable; draggable; selectable;
+      on_resize; on_resizing; on_drag; on_dragging;
+      move_widget; widget; value}
 
   class ['a] cell ?(typ=`Item)
              ~s_col_w
@@ -290,6 +300,8 @@ module Item = struct
       method set_pos    : Position.t -> unit      = s_pos_push ?step:None
 
       (** Private methods **)
+
+      method private px_pos = px_pos
 
       method private set_x x =
         px_pos <- { px_pos with x = x + (fst @@ React.S.value s_item_margin) };
@@ -394,6 +406,10 @@ module Item = struct
     method get_selected   = selected
 
     (** Private methods **)
+
+    method private get_drag_target = match item.move_widget with
+      | Some w -> w
+      | None   -> (self :> Widget.widget)
 
     method private items = React.S.value s_items
 
@@ -506,7 +522,7 @@ module Item = struct
     method private start_dragging (ev: action) =
       if self#get_draggable
       then
-        (self#add_class Markup.Dynamic_grid.Item.dragging_class;
+        (self#get_drag_target#add_class Markup.Dynamic_grid.Item.dragging_class;
          ghost#style##.zIndex := Js.string "1";
          self#style##.zIndex  := Js.string "3";
          (* add ghost item to dom to show possible element position *)
@@ -519,18 +535,27 @@ module Item = struct
       match x, y with
       | 0,0 -> ()
       | _   ->
+         let col_px, row_px = React.S.value s_col_w, React.S.value s_row_h in
          match typ with
          | `Move->
             let open Utils in
-            let col_px, row_px = React.S.value s_col_w, React.S.value s_row_h in
             let x, y  = init_pos.x + x - init_x, init_pos.y + y - init_y in
             let pos   = Position.correct_xy { self#pos with x = x // col_px
                                                           ; y = y // row_px }
                                             grid.cols grid.rows in
             self#resolve_pos_conflicts ~action:`Drag pos;
-            self#set_x x; self#set_y y
+            let x,y = if grid.restrict_move
+                      then (let pos = Position.correct_xy { self#px_pos with x;y }
+                                                          (grid.cols * col_px)
+                                                          (Option.map (fun x -> x * row_px) grid.rows)
+                            in
+                            pos.x, pos.y)
+                      else x,y
+            in
+            self#set_x x; self#set_y y;
+            Option.iter (fun f -> f self#pos ghost#pos col_px row_px) item.on_dragging
          | `End->
-            self#remove_class Markup.Dynamic_grid.Item.dragging_class;
+            self#get_drag_target#remove_class Markup.Dynamic_grid.Item.dragging_class;
             Option.iter (fun l -> Dom_events.stop_listen l) mov_listener;
             Option.iter (fun l -> Dom_events.stop_listen l) end_listener;
             self#style##.zIndex := Js.string "";
@@ -544,7 +569,8 @@ module Item = struct
                                      let pos = Position.compact ~f:(fun x -> x#pos) x#pos lst in
                                      x#set_pos pos)
                            (Position.sort_by_y ~f:(fun x -> x#pos) self#items);
-            (snd s_change) self#pos
+            (snd s_change) self#pos;
+            Option.iter (fun f -> f self#pos ghost#pos col_px row_px) item.on_drag
          | _ -> ()
 
     method private start_resizing (ev: action) =
@@ -562,10 +588,10 @@ module Item = struct
 
 
     method private apply_size ~x ~y ~init_x ~init_y ~init_pos typ =
+      let col_px, row_px = React.S.value s_col_w, React.S.value s_row_h in
       match typ with
       | `Move ->
          let open Utils in
-         let col_px, row_px = React.S.value s_col_w, React.S.value s_row_h in
          let w, h = init_pos.w + x - init_x, init_pos.h + y - init_y in
          let pos  = Position.correct_wh ?max_w:item.max_w
                                         ?min_w:item.min_w
@@ -577,7 +603,16 @@ module Item = struct
                                         grid.rows
          in
          self#resolve_pos_conflicts ~action:`Size pos;
-         self#set_w w; self#set_h h
+         let w,h = if grid.restrict_move
+                   then (let pos = Position.correct_wh { self#px_pos with x;y }
+                                                       (grid.cols * col_px)
+                                                       (Option.map (fun x -> x * row_px) grid.rows)
+                         in
+                         pos.x, pos.y)
+                   else x,y
+         in
+         self#set_w w; self#set_h h;
+         Option.iter (fun f -> f self#pos ghost#pos col_px row_px) item.on_resizing
       | `End ->
          Option.iter (fun l -> Dom_events.stop_listen l) mov_listener;
          Option.iter (fun l -> Dom_events.stop_listen l) end_listener;
@@ -592,7 +627,8 @@ module Item = struct
                                   let pos = Position.compact ~f:(fun x -> x#pos) x#pos lst in
                                   x#set_pos pos)
                         (Position.sort_by_y ~f:(fun x -> x#pos) self#items);
-         (snd s_change) self#pos
+         (snd s_change) self#pos;
+         Option.iter (fun f -> f self#pos ghost#pos col_px row_px) item.on_resize
       | _ -> ()
 
     initializer
@@ -602,23 +638,17 @@ module Item = struct
       (* append widget to cell if provided *)
       Option.iter (fun x -> Dom.appendChild self#root x#root) item.widget;
       (* add item move listener *)
-
-      let move_target =
-        match item.move_widget with
-        | Some widget -> (widget :> Widget.widget)
-        | None        -> (self :> Widget.widget)
-      in
       let select_target = (self :> Widget.widget) in
       if draggable
-      then move_target#add_class Markup.Dynamic_grid.Item.drag_handle_class;
+      then self#get_drag_target#add_class Markup.Dynamic_grid.Item.drag_handle_class;
       if selectable
       then select_target#add_class Markup.Dynamic_grid.Item.select_handle_class;
 
-      Dom_events.listen move_target#root Dom_events.Typ.mousedown
+      Dom_events.listen self#get_drag_target#root Dom_events.Typ.mousedown
                         (fun _ e -> if e##.button = 0 && draggable then self#start_dragging (Mouse e); true)
       |> ignore;
 
-      Dom_events.listen move_target#root Dom_events.Typ.touchstart
+      Dom_events.listen self#get_drag_target#root Dom_events.Typ.touchstart
                         (fun _ e -> if draggable then self#start_dragging (Touch e); false)
       |> ignore;
 
@@ -725,6 +755,7 @@ class ['a] t ~grid ~(items:'a item list) () =
                     ?(resizable=true)
                     ?(draggable=true)
                     ?(selectable=true)
+                    ?on_resize ?on_resizing ?on_drag ?on_dragging
                     ?widget
                     ?(move_widget: Widget.widget option)
                     ?(width:int option)
@@ -734,6 +765,7 @@ class ['a] t ~grid ~(items:'a item list) () =
       let item          = { pos = Position.empty
                           ; min_w; min_h; max_w; max_h
                           ; resizable; draggable; selectable
+                          ; on_resize; on_resizing; on_drag; on_dragging
                           ; move_widget; widget; value }
       in
       let items         = List.map (fun x -> x#pos) @@ React.S.value s_items in
