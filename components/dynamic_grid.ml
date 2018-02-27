@@ -669,7 +669,7 @@ module Item = struct
       |> ignore;
 
       Dom_events.listen resize_button#root Dom_events.Typ.touchstart
-                        (fun _ e -> if resizable then self#start_resizing (Touch e); true)
+                        (fun _ e -> if resizable then self#start_resizing (Touch e); false)
       |> ignore
 
   end
