@@ -71,14 +71,15 @@ module Wm = struct
     let () = box#add_class _class in
     box
 
-  let make_placeholder ~text ~icon () =
+  let make_placeholder ?action ~text ~icon () =
     let ph = Dom_html.createDiv Dom_html.document |> Widget.create in
     ph#add_class "wm-grid__placeholder";
     let txt = new Typography.Text.t ~text () in
-    let ico = new Icon.Font.t ~icon () in
+    let ico = new Icon.Button.Font.t ~icon () in
     let box = new Box.t ~widgets:[txt#widget;ico#widget] () in
     let _   = box#set_align_items `Center in
     let _   = box#set_justify_content `Center in
+    Option.iter (fun f -> f ico#e_click |> ignore) action;
     Dom.appendChild ph#root box#root;
     ph
 
@@ -86,11 +87,11 @@ module Wm = struct
              ~(post: Wm.t -> unit) =
     let open Layout in
     (* grid *)
-    let ph = make_placeholder ~text:"Добавьте элементы в раскладку" ~icon:"add_box" () in
     let grid,layout,f_add,_= make_grid wm in
     let grid_wp  = Dom_html.createDiv Dom_html.document |> Widget.create in
     let ()       = Dom.appendChild grid_wp#root grid#root in
     let grid_box = new Box.t ~vertical:false ~widgets:[grid_wp] () in
+    let ph = make_placeholder ~text:"Добавьте элементы в раскладку" ~icon:"add_box" ~action:f_add () in
     let () = grid_wp#add_class "wm-grid-wrapper" in
     let () = grid_box#add_class "wm-grid-container" in
     let () = grid_box#set_align_items `Center in

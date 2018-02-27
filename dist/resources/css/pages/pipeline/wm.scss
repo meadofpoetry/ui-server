@@ -104,7 +104,7 @@ $wm-placeholder-color: text-icon-on-background;
         @include mdc-theme-prop(background-color,background);
 
         flex-grow: 1;
-        padding: 10px;
+        padding: 10px 20px;
         display: flex;
         align-items: center;
         align-content: stretch;
