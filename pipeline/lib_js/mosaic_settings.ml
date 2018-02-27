@@ -11,7 +11,50 @@ module Wm = struct
     res
 
   let make_layers () =
-    new Card.t ~widgets:[] ()
+    let (grid:Dynamic_grid.grid) = { rows             = None
+                                   ; cols             = 3
+                                   ; min_col_width    = 20
+                                   ; max_col_width    = None
+                                   ; row_height       = Some 50
+                                   ; vertical_compact = true
+                                   ; items_margin     = None
+                                   ; multi_select     = false
+                                   }
+    in
+    let grid   = new Dynamic_grid.t ~grid ~items:[] () in
+    let layers = Dom_html.createDiv Dom_html.document |> Widget.create in
+    let ()     = layers#add_class "wm-layers" in
+    let ()     = Dom.appendChild layers#root grid#root in
+    let add    = new Icon.Button.Font.t ~icon:"add_box" () in
+    let rm     = new Icon.Button.Font.t ~icon:"delete" () in
+    let icons  = new Card.Actions.Icons.t ~widgets:[add#widget;rm#widget] () in
+    let tools  = new Card.Actions.t ~widgets:[icons#widget] () in
+    let box    = new Box.t ~widgets:[layers#widget; tools#widget] () in
+    let card   = new Card.t ~widgets:[box] () in
+    let ()     = grid#set_on_load @@ Some (fun () -> grid#layout) in
+    let ()     = grid#add_class "wm-layers-grid" in
+    let _      = React.E.map (fun _ ->
+                     let y    = match List.rev @@ grid#items with
+                       | []    -> 0
+                       | hd::_ -> hd#pos.y + 1
+                     in
+                     let drag   = new Icon.Font.t ~icon:"drag_handle" () in
+                     let text   = new Typography.Text.t ~text:(Printf.sprintf "Слой %d" (y + 1)) () in
+                     let box    = new Box.t ~vertical:false ~widgets:[text#widget; drag#widget] () in
+                     let ()     = box#set_justify_content `Space_between in
+                     let ()     = box#add_class "wm-layer" in
+                     let (pos:Dynamic_grid.Position.t) = { x = 0; y; w = 3; h = 1 } in
+                     let item = Dynamic_grid.Item.to_item ~pos
+                                                          ~move_widget:drag#widget
+                                                          ~widget:box#widget
+                                                          ~resizable:false
+                                                          ~selectable:false
+                                                          ~value:()
+                                                          ()
+                     in
+                     grid#add item)
+                             add#e_click in
+    card
 
   let make_left_toolbar widgets =
     let _class = "wm-left-toolbar" in

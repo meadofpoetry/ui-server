@@ -8,9 +8,35 @@ module Actions = struct
 
   module Buttons = struct
 
+    class t ~(widgets:#Widget.widget list) () =
+      let children = List.map (fun x -> Widget.widget_to_markup x#widget) widgets in
+      let elt = Markup.Card.Actions.Buttons.create ~children () |> Tyxml_js.To_dom.of_element in
+      object
+        inherit Widget.widget elt ()
+
+        initializer
+          List.iter (fun x -> x#add_class Markup.Card.Actions.action_class;
+                              x#add_class Markup.Card.Actions.action_button_class)
+                    widgets
+
+      end
+
   end
 
   module Icons = struct
+
+    class t ~(widgets:#Widget.widget list) () =
+      let children = List.map (fun x -> Widget.widget_to_markup x#widget) widgets in
+      let elt = Markup.Card.Actions.Icons.create ~children () |> Tyxml_js.To_dom.of_element in
+      object
+        inherit Widget.widget elt ()
+
+        initializer
+          List.iter (fun x -> x#add_class Markup.Card.Actions.action_class;
+                              x#add_class Markup.Card.Actions.action_icon_class)
+                    widgets
+
+      end
 
   end
 

@@ -357,24 +357,15 @@ module Item = struct
     method set_value (x:'a) = value <- x
     method get_value : 'a   = value
 
-    method set_draggable (x : bool) =
-      begin
-        match item.move_widget with
-        | Some widget ->
-           if x
-           then Dom.appendChild self#root widget#root
-           else Dom.removeChild self#root widget#root
-        | None -> ()
-      end;
-      draggable <- x
-
+    method set_draggable (x : bool) = draggable <- x
     method get_draggable : bool     = draggable
 
-    method set_resizable (x : bool) = if x
-                                      then Dom.appendChild self#root resize_button#root
-                                      else Dom.removeChild self#root resize_button#root;
-                                      resizable <- x
-    method get_resizable : bool     = resizable
+    method set_resizable (x : bool) =
+      if x
+      then Dom.appendChild self#root resize_button#root
+      else (try Dom.removeChild self#root resize_button#root; with _ -> ());
+      resizable <- x
+    method get_resizable : bool = resizable
 
     method set_selectable x = if not x then self#set_selected false;
                               selectable <- x
@@ -524,7 +515,6 @@ module Item = struct
          | Mouse ev -> self#mouse_action self#apply_position ev
          | Touch ev -> self#touch_action self#apply_position ev)
 
-
     method private apply_position ~x ~y ~init_x ~init_y ~init_pos typ =
       match x, y with
       | 0,0 -> ()
@@ -611,8 +601,6 @@ module Item = struct
       then Dom.appendChild self#root resize_button#root;
       (* append widget to cell if provided *)
       Option.iter (fun x -> Dom.appendChild self#root x#root) item.widget;
-      (* append move widget to cell if provided *)
-      Option.iter (fun x -> if item.draggable then Dom.appendChild self#root x#root) item.move_widget;
       (* add item move listener *)
 
       let move_target =
@@ -621,33 +609,27 @@ module Item = struct
         | None        -> (self :> Widget.widget)
       in
       let select_target = (self :> Widget.widget) in
-      move_target#add_class Markup.Dynamic_grid.Item.drag_handle_class;
-      select_target#add_class Markup.Dynamic_grid.Item.select_handle_class;
+      if draggable
+      then move_target#add_class Markup.Dynamic_grid.Item.drag_handle_class;
+      if selectable
+      then select_target#add_class Markup.Dynamic_grid.Item.select_handle_class;
 
       Dom_events.listen move_target#root Dom_events.Typ.mousedown
-                        (fun _ e ->
-                          if e##.button = 0 && draggable
-                          then (let tmr = Dom_html.setTimeout (fun () -> self#start_dragging (Mouse e)) 100. in
-                                drag_timer <- Some tmr);
-                          true)
+                        (fun _ e -> if e##.button = 0 && draggable then self#start_dragging (Mouse e); true)
       |> ignore;
 
       Dom_events.listen move_target#root Dom_events.Typ.touchstart
-                        (fun _ e ->
-                          if draggable
-                          then (let tmr = Dom_html.setTimeout (fun () -> self#start_dragging (Touch e)) 100. in
-                                drag_timer <- Some tmr);
-                          false)
+                        (fun _ e -> if draggable then self#start_dragging (Touch e); false)
       |> ignore;
 
-      Dom_events.listen select_target#root Dom_events.Typ.click
-                        (fun _ _ -> Option.iter (fun tmr -> Dom_html.clearTimeout tmr) drag_timer;
-                                    if selectable
-                                    then (if grid.multi_select
-                                          then self#set_selected @@ not self#get_selected
-                                          else self#set_selected true);
-                                    true)
-      |> ignore;
+      (* Dom_events.listen select_target#root Dom_events.Typ.click
+       *                   (fun _ _ -> Option.iter (fun tmr -> Dom_html.clearTimeout tmr) drag_timer;
+       *                               if selectable
+       *                               then (if grid.multi_select
+       *                                     then self#set_selected @@ not self#get_selected
+       *                                     else self#set_selected true);
+       *                               true)
+       * |> ignore; *)
 
       (* add item start resize listener if needed *)
       Dom_events.listen resize_button#root Dom_events.Typ.mousedown
@@ -722,7 +704,7 @@ class ['a] t ~grid ~(items:'a item list) () =
 
     method s_selected : 'a Item.t list React.signal = s_selected
 
-    method items      = React.S.value s_items
+    method items      = Position.sort_by_y ~f:(fun x -> x#pos) @@ React.S.value s_items
     method positions  = React.S.value s_change
 
     method get_item_margin = React.S.value s_item_margin

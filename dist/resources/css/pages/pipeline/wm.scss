@@ -66,4 +66,32 @@ $wm-placeholder-color: text-icon-on-background;
 }
 
 .wm-right-toolbar {
+    height: 100%;
+    display: flex;
+    > * {
+        margin-bottom: 20px;
+        flex-grow: 1;
+    }
+    > *:last-child { margin-bottom: 0; }
+}
+
+.wm-layers-grid .mdc-dynamic-grid__item {
+    display: flex;
+    align-items: stretch;
+}
+
+.wm-layers {
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.wm-layer {
+    @include mdc-theme-prop(background-color,background);
+
+    flex-grow: 1;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    align-content: stretch;
+    border-bottom: 1px solid rgba(0,0,0,.12);
 }
