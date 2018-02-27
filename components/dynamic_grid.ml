@@ -608,8 +608,8 @@ module Item = struct
                                                        (grid.cols * col_px)
                                                        (Option.map (fun x -> x * row_px) grid.rows)
                          in
-                         pos.x, pos.y)
-                   else x,y
+                         pos.w, pos.h)
+                   else w,h
          in
          self#set_w w; self#set_h h;
          Option.iter (fun f -> f self#pos ghost#pos col_px row_px) item.on_resizing
