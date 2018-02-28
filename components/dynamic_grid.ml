@@ -694,7 +694,7 @@ module Item = struct
       Dom_events.listen self#get_drag_target#root Dom_events.Typ.mousedown
         (fun _ e -> Dom_html.stopPropagation e;
                     if e##.button = 0
-                    then ( let timer   = 100. in                 (**  TIMER is here **)
+                    then ( let timer   = 150. in                 (**  TIMER is here **)
                            let wrapped = Js.wrap_callback
                                            (fun _ -> if draggable
                                                      then self#start_dragging (Mouse e))
@@ -704,15 +704,11 @@ module Item = struct
                                                  Option.iter (fun l -> Dom_events.stop_listen l) mov_listener;
                                                  Option.iter (fun l -> Dom_events.stop_listen l) end_listener
                            in
-                           (* Dom_events.listen Dom_html.window Dom_events.Typ.mousemove
-                            *   (fun _ ev ->
-                            *     let dx = ev##. < 0 || ev##.offsetLeft > self#root##.offsetWidth in
-                            *     let dy = ev##.offsetY  < 0 || ev##.offsetTop  > self#root##.offsetHeight in
-                            *     if dx || dy
-                            *     then ( Dom_html.window##clearTimeout timeout;
-                            *            Option.iter (fun l -> Dom_events.stop_listen l) mov_listener);
-                            *     false)
-                            * |> (fun x -> mov_listener <- Some x); *)
+                           Dom_events.listen self#get_drag_target#root Dom_events.Typ.mouseout
+                             (fun _ _ ->  Dom_html.window##clearTimeout timeout;
+                                           Option.iter (fun l -> Dom_events.stop_listen l) mov_listener;
+                                           false)
+                           |> (fun x -> mov_listener <- Some x);
                            Dom_events.listen Dom_html.window Dom_events.Typ.mouseup
                              (fun _ e -> if e##.button = 0
                                          then stop_timeout ();
