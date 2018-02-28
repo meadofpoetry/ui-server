@@ -688,15 +688,15 @@ let dynamic_grid_demo () =
     ; restrict_move    = false
     }
   in
-  let move () = new Icon_toggle.t
-                  ~on_data:{ icon = "open_with"
-                           ; label = None
-                           ; css_class = None }
-                  ~off_data:{ icon = "open_with"
-                            ; label = None
-                            ; css_class = None }
-                  ()
-  in
+  (* let move () = new Icon_toggle.t
+   *                 ~on_data:{ icon = "open_with"
+   *                          ; label = None
+   *                          ; css_class = None }
+   *                 ~off_data:{ icon = "open_with"
+   *                           ; label = None
+   *                           ; css_class = None }
+   *                 ()
+   * in *)
   let items    = [ Dynamic_grid.Item.to_item
                      ~pos:{ x = 0
                           ; y = 0

@@ -49,16 +49,14 @@ let calc_rows_cols grid_asp cont_asp list =
 let initialize (wm: Wm.t) =
   let asp  = resolution_to_aspect wm.resolution in
   let cols, rows =
-    match asp with
-    | 4  , 3   -> 32 , 24
-    | 16 , 9   -> 32 , 18  (*HD 720, 1080*)
-    | 5  , 3   -> 30 , 18
-    | 5  , 4   -> 30 , 24
-    | 8  , 5   -> 32 , 20
-    | 25 , 16  -> 25 , 16
-    | 20 , 11  -> 40 , 22
-    | 256, 135 -> 256, 135 (*UHD N*K*)        (*!!!*)
-    | _        -> 32 , 18
+    let open Dynamic_grid.Utils in
+    if fst asp <= 40
+    then
+      let weight = round (30. /. (float_of_int @@ fst asp)) in
+      weight * (fst asp), weight * (snd asp)
+    else
+      let weight = round (float_of_int (fst asp) /. 30.) in  (* not proper but okay i guess *)
+      (fst asp) / weight, (snd asp) / weight
   in
   let wd_list list =
     let wds =
@@ -104,7 +102,6 @@ let initialize (wm: Wm.t) =
           float_of_int cont.position.top, float_of_int cont.position.bottom in
         let res_w, res_h = wm.resolution in
         let res_w, res_h = float_of_int res_w, float_of_int res_h in
-        let open Dynamic_grid.Utils in
         let x            = int_of_float @@ ceil @@ float_of_int cols *. (left /. res_w) in
         let w            = int_of_float @@ ceil @@ float_of_int cols *. ((right -. left) /. res_w) in
         let y            = int_of_float @@ ceil @@ float_of_int rows *. (top /. res_h) in
@@ -199,7 +196,11 @@ let initialize (wm: Wm.t) =
                       then x#pos.h * row / b * a, x#pos.h * row
                       else x#pos.w * col, x#pos.w * col / a * b
                     in
-                    let real_w, real_h = wm.resolution in
+                    let real_w, real_h =
+                      match wm.resolution with
+                      | 0, 0 -> 1, 1
+                      | _, _ -> wm.resolution
+                    in
                     let (container_pos : Wm.position) =
                       { left   = x#pos.x * col * real_w / width
                       ; right  = (x#pos.x + x#pos.w) * col * real_w / width

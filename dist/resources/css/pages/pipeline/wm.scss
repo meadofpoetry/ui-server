@@ -145,15 +145,30 @@ $wm-placeholder-color: text-secondary-on-background;
         }
     }
 
-    &__layers__layer {
+    &__layer {
         @include mdc-theme-prop(background-color,background);
 
         flex-grow: 1;
-        padding: 10px 20px;
+        padding: 10px 0 10px 20px;
         display: flex;
         align-items: center;
         align-content: stretch;
         border-bottom: 1px solid rgba(0,0,0,.12);
+
+        &__drag-handle {
+            padding: 12px;
+        }
+    }
+
+    .mdc-dynamic-grid__item--selected {
+        .wm-right-toolbar__layer {
+            @include mdc-theme-prop(color,text-primary-on-primary);
+            @include mdc-theme-prop(background-color,primary);
+
+            &__drag-handle {
+                @include mdc-theme-prop(color,text-primary-on-primary);
+            }
+        }
     }
 }
 

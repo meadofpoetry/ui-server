@@ -48,8 +48,7 @@ module Position = struct
 
   (** get all elements that collides with position **)
   let get_all_collisions ~(f:'a -> t) pos (l:'a list) =
-    List.fold_left (fun acc (x:'a) -> if collides pos (f x)
-                                      then x::acc else acc) [] l
+    List.fold_left (fun acc (x:'a) -> if collides pos (f x) then x::acc else acc) [] l
 
   (** check if element collides with other elements **)
   let has_collision ~(f:'a -> t) x (l:'a list) =
@@ -71,51 +70,58 @@ module Position = struct
   (** Given a list of collisions and overall items in grid, resolve these collisions by moving down **)
   let rec move_down ?rows ~f ~(eq:'a -> 'a -> bool) ~(collisions:'a list) (pos : t) (l:'a list) =
     let y            = pos.y + pos.h in
-   (* let move x acc  =
+    let move x acc   =
       let new_pos    = {(f x) with y} in
       let new_list   = (new_pos, x)::acc in
       let filtered   = List.filter (fun i -> eq x i) l in
       let collisions = List.filter (fun x -> collides new_pos (f x)) filtered in
       let further    = move_down ?rows ~f ~eq ~collisions new_pos filtered in
-      List.append new_list further
-    in*)
+      let result     = List.append new_list further in
+      match collisions, further with
+      | _::_, [] -> false, []
+      | _,_      -> true, result
+    in
     match rows with
-    | None      -> List.fold_left (fun acc x ->
-                       let new_pos    = {(f x) with y} in
-                       let new_list   = (new_pos, x)::acc in
-                       let filtered   = List.filter (fun i -> eq x i) l in
-                       let collisions = List.filter (fun x -> collides new_pos (f x)) filtered in
-                       let further    = move_down ?rows ~f ~eq ~collisions new_pos filtered in
-                       List.append new_list further) [] collisions
+    | None      -> List.fold_left (fun acc x -> snd @@ move x acc) [] collisions
     | Some rows -> List.fold_while (fun acc x ->
                        if y + (f x).h <= rows
-                       then ( let new_pos    = {(f x) with y} in
-                              let new_list   = (new_pos, x)::acc in
-                              let filtered   = List.filter (fun i -> eq x i) l in
-                              let collisions = List.filter (fun x -> collides new_pos (f x)) filtered in
-                              let further    = move_down ~rows ~f ~eq ~collisions new_pos filtered in
-                              let result     = List.append new_list further in
-                              match collisions, further with
-                              | _::[], [] -> [], `Stop
-                              | _::_, []  -> [], `Stop
-                              | _,_       -> result, `Continue)
+                       then let result = move x acc in
+                            if fst result
+                            then snd result,`Continue
+                            else [], `Stop
                        else [], `Stop) [] collisions
 
   (** Given a list of collisions and overall items in grid, resolve these collisions by moving up **)
-  let move_top ~f ~(eq:'a -> 'a -> bool) ~(collisions:'a list) (pos : t) (l:'a list) =
+  let move_top ~f ~(eq:'a -> 'a -> bool) ~(collisions:'a list) (pos:t) (l:'a list) =
     List.fold_while (fun acc x ->
-        let lst = List.filter (fun i -> eq x i) l in
+        let lst     = List.filter (fun i -> eq x i) l in
         let new_pos = compact ~f (f x) lst in
         if new_pos.y + new_pos.h <= pos.y
         then ((new_pos, x) :: acc), `Continue
         else [], `Stop) [] collisions
 
-  (** Swap positions if possible **)
-  let swap (pos_to_place: t) (pos_to_move : t) =
-    if pos_to_place.w <= pos_to_move.w && pos_to_place.h <= pos_to_move.h
-    then Some {pos_to_place with x = pos_to_move.x
-                               ; y = pos_to_move.y}
-    else None
+  (** Given a list of collisions, overall items in grid and ghost current position,**)
+  (** resolves these collisions by swapping elements if its possible **)
+  let swap ~cols ~f ~(eq:'a -> 'a -> bool) ~(collisions:'a list) ~(ghost_pos:t) (pos:t) (l:'a list) =
+    List.fold_left (fun acc x ->
+        let lst               = List.filter (fun i -> eq x i) l in
+        let x_pos             = f x in
+        let coll_pos, new_pos =
+          if ghost_pos.x < x_pos.x
+          then {x_pos with x  = ghost_pos.x}, {ghost_pos with x = x_pos.x + x_pos.w - ghost_pos.w}
+          else {x_pos with x  = ghost_pos.x + ghost_pos.w - x_pos.w}, {ghost_pos with x = x_pos.x}
+        in
+        List.append acc @@
+          if ghost_pos.y = x_pos.y
+             && (ghost_pos.x = x_pos.x + x_pos.w || ghost_pos.x + ghost_pos.w = x_pos.x)
+             && not @@ has_collision ~f coll_pos lst
+             && not @@ has_collision ~f new_pos lst
+             && not @@ has_collision ~f pos lst
+             && not @@ collides coll_pos pos
+             && coll_pos.x + coll_pos.w <= cols
+             && coll_pos.x >= 0
+          then [coll_pos, x]
+          else []) [] collisions
 
   let get_free_rect ?(cmp:(t -> t -> int) option) ~(f:'a -> t) (pos:t) (items:'a list) w h () =
     if has_collision ~f:(fun x -> x) pos items
@@ -130,7 +136,7 @@ module Position = struct
              let old_area = area old_pos in
              compare new_area old_area)
       in
-      let items    = List.map f items in
+      let items      = List.map f items in
       (* FIXME obviously not optimized algorithm *)
       (* get only elements that are on the way to cursor proection to the left/right side *)
       let x_filtered = List.filter (fun i -> pos.y > i.y && pos.y < i.y + i.h) items in
@@ -268,12 +274,22 @@ module Item = struct
               | Touch of Dom_html.touchEvent Js.t
 
   let to_item ?min_w ?min_h ?max_w ?max_h
-              ?(resizable=true) ?(draggable=true) ?(selectable=false)
+              ?(resizable=true) ?(draggable=true) ?(selectable=true)
               ?on_resize ?on_resizing ?on_drag ?on_dragging
               ?move_widget ?widget ~pos ~value() =
     { pos; min_w; min_h; max_w; max_h; resizable; draggable; selectable;
       on_resize; on_resizing; on_drag; on_dragging;
       move_widget; widget; value}
+
+  let rec find_touch id num source =
+    if num < 0 then None
+    else
+      if Js.Optdef.test (source##item num)
+      then let touch = Js.Optdef.get (source##item num) (fun () -> failwith "No touch with such id") in
+           if touch##.identifier = id
+           then Some touch
+           else find_touch id (num - 1) source
+      else find_touch id (num - 1) source
 
   class ['a] cell ?(typ=`Item)
              ~s_col_w
@@ -349,18 +365,22 @@ module Item = struct
     val resize_button = Markup.Dynamic_grid.Item.create_resize_button ()
                         |> Tyxml_js.To_dom.of_element |> Widget.create
 
-    val mutable mov_listener  = None
-    val mutable end_listener  = None
-    val mutable value         = item.value
-    val mutable draggable     = item.draggable
-    val mutable resizable     = item.resizable
-    val mutable selectable    = item.selectable
-    val mutable selected      = false
-    val mutable drag_timer    = None
+    val mutable mov_listener    = None
+    val mutable end_listener    = None
+    val mutable cancel_listener = None
+    val mutable value           = item.value
+    val mutable draggable       = item.draggable
+    val mutable resizable       = item.resizable
+    val mutable selectable      = item.selectable
+    val mutable selected        = false
+    val mutable drag_timer      = None
 
     val ghost = new cell ~typ:`Ghost ~s_col_w ~s_row_h ~s_item_margin ~item ()
 
     (** API **)
+
+    method get_widget = item.widget
+
     method set_pos pos = super#set_pos pos; ghost#set_pos pos
 
     method s_changing = ghost#s_pos
@@ -387,6 +407,8 @@ module Item = struct
       self#set_selected false;
       e_modify_push (`Remove self)
 
+    method selected (x : bool)   = selected <- x
+
     method set_selected x : unit =
       let o = React.S.value s_selected in
       match x with
@@ -395,14 +417,17 @@ module Item = struct
                  if grid.multi_select
                  then (if not self#get_selected then s_selected_push (i :: o))
                  else (List.iter (fun x -> if not @@ eq x self
-                                           then x#remove_class Markup.Dynamic_grid.Item.selected_class) o;
+                                           then (x#selected false;
+                                                 x#remove_class Markup.Dynamic_grid.Item.selected_class)) o;
                        s_selected_push [(self :> 'a t)]);
+                 selected <- true
       | false -> self#remove_class Markup.Dynamic_grid.Item.selected_class;
                  if grid.multi_select
                  then (if self#get_selected
                        then (let n = List.filter (fun x -> not @@ eq x self) o in
                              s_selected_push n))
-                 else s_selected_push []
+                 else s_selected_push [];
+                 selected <- false
     method get_selected   = selected
 
     (** Private methods **)
@@ -434,44 +459,50 @@ module Item = struct
       let init_pos = px_pos in
       let init_x, init_y = ev##.clientX, ev##.clientY in
       Dom_events.listen Dom_html.window Dom_events.Typ.mousemove
-                        (fun _ ev ->
-                          let x, y = ev##.clientX, ev##.clientY in
-                          meth ~x ~y ~init_x ~init_y ~init_pos `Move;
-                          false)
+        (fun _ ev ->
+(*          if self#get_selected && self#get_selectable
+          then self#set_selected false;*)
+          let x, y = ev##.clientX, ev##.clientY in
+          meth ~x ~y ~init_x ~init_y ~init_pos `Move;
+          false)
       |> (fun x -> mov_listener <- Some x);
       Dom_events.listen Dom_html.window Dom_events.Typ.mouseup
-                        (fun _ ev ->
-                          let x, y = ev##.clientX, ev##.clientY in
-                          meth ~x ~y ~init_x ~init_y ~init_pos `End;
-                          false)
+        (fun _ ev ->
+          if ev##.button = 0
+          then
+            ( let x, y = ev##.clientX, ev##.clientY in
+              meth ~x ~y ~init_x ~init_y ~init_pos `End);
+            false)
       |> (fun x -> end_listener <- Some x)
 
     method private touch_action meth ev =
       let init_pos = px_pos in
-      Js.Optdef.iter (ev##.changedTouches##item 0)
-                     ( fun touch ->
-                       let id = touch##.identifier in
-                       let init_x, init_y = touch##.clientX, touch##.clientY in
-                       Dom_events.listen Dom_html.window Dom_events.Typ.touchmove
-                                         (fun _ ev ->
-                                           let length = ev##.changedTouches##.length - 1 in
-                                           Js.Optdef.iter (ev##.changedTouches##item length)
-                                                          (fun touch ->
-                                                            let x, y = touch##.clientX, touch##.clientY in
-                                                            if touch##.identifier = id then
-                                                              meth ~x ~y ~init_x ~init_y ~init_pos `Move);
-                                           false)
-                       |> (fun x -> mov_listener <- Some x);
-                       Dom_events.listen Dom_html.window Dom_events.Typ.touchend
-                                         (fun _ ev ->
-                                           let length = ev##.changedTouches##.length - 1 in
-                                           Js.Optdef.iter (ev##.changedTouches##item length)
-                                                          (fun touch ->
-                                                            let x, y = touch##.clientX, touch##.clientY in
-                                                            if touch##.identifier = id then
-                                                              meth ~x ~y ~init_x ~init_y ~init_pos `End);
-                                           false)
-                       |> (fun x -> end_listener <- Some x))
+      Js.Optdef.iter (ev##.touches##item (ev##.touches##.length - 1))
+        ( fun touch ->
+          let id = touch##.identifier in
+          let init_x, init_y = touch##.clientX, touch##.clientY in
+          Dom_events.listen Dom_html.window Dom_events.Typ.touchmove
+            (fun _ ev ->
+              (match find_touch id (ev##.changedTouches##.length-1) ev##.changedTouches with
+               | Some touch ->
+                  meth ~x:touch##.clientX ~y:touch##.clientY ~init_x ~init_y ~init_pos `Move
+               | None       -> ());
+              false)
+          |> (fun x -> mov_listener <- Some x);
+          Dom_events.listen Dom_html.window Dom_events.Typ.touchend
+            (fun _ ev ->
+              (match find_touch id (ev##.changedTouches##.length-1) ev##.changedTouches with
+               | Some touch -> meth ~x:touch##.clientX ~y:touch##.clientY ~init_x ~init_y ~init_pos `End
+               | None       -> ());
+              false)
+          |> (fun x -> end_listener <- Some x);
+          Dom_events.listen Dom_html.window Dom_events.Typ.touchcancel
+            (fun _ ev ->
+              (match find_touch id (ev##.changedTouches##.length-1) ev##.changedTouches with
+               | Some touch -> meth ~x:touch##.clientX ~y:touch##.clientY ~init_x ~init_y ~init_pos `End
+               | None -> ());
+              false)
+          |> (fun x -> cancel_listener <- Some x))
 
     method private resolve_pos_conflicts ~action (pos : Position.t) =
       let other   = filter ~exclude:[(self :> 'a t)] self#items in
@@ -486,18 +517,31 @@ module Item = struct
              let check_top () = match action with
                | `Size -> []
                | `Drag -> Position.move_top
-                            ~f:(fun x -> x#pos)
+                            ~f: (fun x   -> x#pos)
                             ~eq:(fun x y -> x#root != y#root)
                             ~collisions:l
-                            pos other
+                            pos
+                            other
              in
-             let check_bot () = Position.move_down ?rows:grid.rows
-                                                   ~f:(fun x -> x#pos)
-                                                   ~eq:(fun x y -> x#root != y#root)
-                                                   ~collisions:l pos other
+             let check_bot ()  = Position.move_down ?rows:grid.rows
+                                   ~f: (fun x   -> x#pos)
+                                   ~eq:(fun x y -> x#root != y#root)
+                                   ~collisions:l
+                                   pos
+                                   other
+             in
+             let check_swap () = Position.swap
+                                   ~cols:grid.cols
+                                   ~f: (fun x   -> x#pos)
+                                   ~eq:(fun x y -> x#root != y#root)
+                                   ~collisions:l
+                                   ~ghost_pos:ghost#pos
+                                   pos
+                                   other
              in
              let res = check_top ()
                        >>= check_bot
+                       >>= check_swap
                        >>= (fun () -> [])
              in
              match res with
@@ -520,6 +564,9 @@ module Item = struct
                      (Position.sort_by_y ~f:(fun x -> x#pos) other)
 
     method private start_dragging (ev: action) =
+      Option.iter (fun l -> Dom_events.stop_listen l) mov_listener;
+      Option.iter (fun l -> Dom_events.stop_listen l) end_listener;
+      Option.iter (fun l -> Dom_events.stop_listen l) cancel_listener;
       if self#get_draggable
       then
         (self#get_drag_target#add_class Markup.Dynamic_grid.Item.dragging_class;
@@ -558,6 +605,7 @@ module Item = struct
             self#get_drag_target#remove_class Markup.Dynamic_grid.Item.dragging_class;
             Option.iter (fun l -> Dom_events.stop_listen l) mov_listener;
             Option.iter (fun l -> Dom_events.stop_listen l) end_listener;
+            Option.iter (fun l -> Dom_events.stop_listen l) cancel_listener;
             self#style##.zIndex := Js.string "";
             (* update element position from ghost *)
             self#set_x @@ React.S.value s_col_w * ghost#pos.x;
@@ -597,8 +645,8 @@ module Item = struct
                                         ?min_w:item.min_w
                                         ?max_h:item.max_h
                                         ?min_h:item.min_h
-                                        { self#pos with w = w // col_px;
-                                                        h = h // row_px }
+                                        { self#pos with w = w // col_px
+                                                      ; h = h // row_px }
                                         grid.cols
                                         grid.rows
          in
@@ -616,6 +664,7 @@ module Item = struct
       | `End ->
          Option.iter (fun l -> Dom_events.stop_listen l) mov_listener;
          Option.iter (fun l -> Dom_events.stop_listen l) end_listener;
+         Option.iter (fun l -> Dom_events.stop_listen l) cancel_listener;
          self#style##.zIndex := Js.string "";
          (* update element position from ghost *)
          self#set_w @@ React.S.value s_col_w * ghost#pos.w;
@@ -641,27 +690,128 @@ module Item = struct
       let select_target = (self :> Widget.widget) in
       if draggable
       then self#get_drag_target#add_class Markup.Dynamic_grid.Item.drag_handle_class;
+
       if selectable
       then select_target#add_class Markup.Dynamic_grid.Item.select_handle_class;
 
       Dom_events.listen self#get_drag_target#root Dom_events.Typ.mousedown
-                        (fun _ e -> if e##.button = 0 && draggable then self#start_dragging (Mouse e); true)
+        (fun _ e -> Dom_html.stopPropagation e;
+                    if e##.button = 0
+                    then ( let timer   = 150. in                 (**  TIMER is here **)
+                           let wrapped = Js.wrap_callback
+                                           (fun _ -> if draggable
+                                                     then self#start_dragging (Mouse e))
+                           in
+                           let timeout = Dom_html.window##setTimeout wrapped timer in
+                           let stop_timeout () = Dom_html.window##clearTimeout timeout;
+                                                 Option.iter (fun l -> Dom_events.stop_listen l) mov_listener;
+                                                 Option.iter (fun l -> Dom_events.stop_listen l) end_listener
+                           in
+                           Dom_events.listen self#get_drag_target#root Dom_events.Typ.mouseout
+                             (fun _ _ ->  Dom_html.window##clearTimeout timeout;
+                                           Option.iter (fun l -> Dom_events.stop_listen l) mov_listener;
+                                           false)
+                           |> (fun x -> mov_listener <- Some x);
+                           Dom_events.listen Dom_html.window Dom_events.Typ.mouseup
+                             (fun _ e -> if e##.button = 0
+                                         then stop_timeout ();
+                                         false)
+                           |> (fun x -> end_listener <- Some x));
+                    true)
       |> ignore;
 
       Dom_events.listen self#get_drag_target#root Dom_events.Typ.touchstart
-                        (fun _ e -> if draggable then self#start_dragging (Touch e); false)
+        (fun _ e -> Dom_html.stopPropagation e;
+                    let timer   = 400. in                 (**  TIMER is here **)
+                    let touch   = Js.Optdef.get (e##.touches##item 0)
+                                    (fun () -> failwith "No touch with such id") in
+                    let id      = touch##.identifier in
+                    let wrapped = Js.wrap_callback
+                          (fun _ -> if draggable
+                                    then self#start_dragging (Touch e))
+                    in
+                    let timeout = Dom_html.window##setTimeout wrapped timer in
+                    let stop_timeout e =
+                      let touch = Js.Optdef.get (e##.touches##item 0)
+                                    (fun () -> failwith "No touch with such id") in
+                      if touch##.identifier = id
+                      then
+                        ( Dom_html.window##clearTimeout timeout;
+                          Option.iter (fun l -> Dom_events.stop_listen l) mov_listener;
+                          Option.iter (fun l -> Dom_events.stop_listen l) end_listener;
+                          Option.iter (fun l -> Dom_events.stop_listen l) cancel_listener)
+                    in
+                    Dom_events.listen Dom_html.window Dom_events.Typ.touchmove
+                      (fun _ ev ->
+                        (match find_touch id (ev##.changedTouches##.length-1) ev##.changedTouches with
+                         | Some touch1 ->
+                            let dx = abs @@ touch1##.clientX - touch##.clientX in
+                            let dy = abs @@ touch1##.clientY - touch##.clientY in
+                            if dx > 8 || dy > 8
+                            then ( Dom_html.window##clearTimeout timeout;
+                                   Option.iter (fun l -> Dom_events.stop_listen l) mov_listener);
+                         | None       -> ());
+                        false)
+                    |> (fun x -> mov_listener <- Some x);
+                     Dom_events.listen Dom_html.window Dom_events.Typ.touchcancel
+                       (fun _ e -> stop_timeout e;
+                                   false)
+                     |> (fun x -> cancel_listener <- Some x);
+                     Dom_events.listen Dom_html.window Dom_events.Typ.touchend
+                       (fun _ e -> stop_timeout e;
+                                   false)
+                     |> (fun x -> end_listener <- Some x);
+                    false)
+      |> ignore;
+
+      Dom_events.listen select_target#root Dom_events.Typ.mousedown
+        (fun _ e -> Dom_html.stopPropagation e;
+                    if selectable
+                    then if grid.multi_select
+                         then self#set_selected @@ not self#get_selected
+                         else self#set_selected true;
+                    false)
+      |> ignore;
+
+      Dom_events.listen select_target#root Dom_events.Typ.touchstart
+        (fun _ e -> Dom_html.stopPropagation e;
+                    if selectable
+                    then if grid.multi_select
+                         then self#set_selected @@ not self#get_selected
+                         else self#set_selected true;
+                    false)
       |> ignore;
 
       (* add item start resize listener if needed *)
       Dom_events.listen resize_button#root Dom_events.Typ.mousedown
-                        (fun _ e -> if e##.button = 0 && resizable
-                                    then self#start_resizing (Mouse e);
-                                    false)
+        (fun _ e -> Dom_html.stopPropagation e;
+                    if e##.button = 0 && resizable
+                    then self#start_resizing (Mouse e);
+                    false)
       |> ignore;
 
       Dom_events.listen resize_button#root Dom_events.Typ.touchstart
-                        (fun _ e -> if resizable then self#start_resizing (Touch e); false)
-      |> ignore
+        (fun _ e -> Dom_html.stopPropagation e;
+                    if resizable
+                    then self#start_resizing (Touch e);
+                    false)
+      |> ignore;
+
+      (* Dom_events.listen Dom_html.window Dom_events.Typ.mousedown
+       *   ( fun _ _ -> List.iter (fun x -> x#selected false;
+       *                                    x#remove_class Markup.Dynamic_grid.Item.selected_class)
+       *                @@ React.S.value s_selected;
+       *                s_selected_push [];
+       *                false)
+       * |> ignore;
+       * 
+       * Dom_events.listen Dom_html.window Dom_events.Typ.touchstart
+       *   ( fun _ _ -> List.iter (fun x -> x#selected false;
+       *                                    x#remove_class Markup.Dynamic_grid.Item.selected_class)
+       *                @@ React.S.value s_selected;
+       *                s_selected_push [];
+       *                false)
+       * |> ignore *)
 
   end
 

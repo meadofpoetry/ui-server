@@ -78,9 +78,29 @@ module Wm = struct
       box,s
 
     let make_layers () =
-      let _class          = Markup.CSS.add_element base_class "layers" in
-      let container_class = Markup.CSS.add_element _class "container" in
-      let layer_class     = Markup.CSS.add_element _class "layer" in
+      let _class            = Markup.CSS.add_element base_class  "layers"      in
+      let container_class   = Markup.CSS.add_element _class      "container"   in
+      let layer_class       = Markup.CSS.add_element base_class  "layer"       in
+      let drag_handle_class = Markup.CSS.add_element layer_class "drag-handle" in
+
+      let make_layer items =
+        let open Dynamic_grid.Position in
+        let y = match List.rev items with
+          | []    -> 0
+          | hd::_ -> hd#pos.y + 1
+        in
+        let drag  = new Icon.Font.t ~icon:"drag_handle" () in
+        let text  = new Typography.Text.t ~text:(Printf.sprintf "Слой %d" (y + 1)) () in
+        let box   = new Box.t ~vertical:false ~widgets:[text#widget; drag#widget] () in
+        let pos   = { x = 0; y; w = 1; h = 1 } in
+        let item  = Dynamic_grid.Item.to_item ~pos ~move_widget:drag#widget ~widget:box#widget
+                                              ~resizable:false ~selectable:true ~value:() ()
+        in
+        let ()    = drag#add_class drag_handle_class in
+        let ()    = box#set_justify_content `Space_between in
+        let ()    = box#add_class layer_class in
+        item
+      in
 
       let (grid:Dynamic_grid.grid) = { rows             = None
                                      ; cols             = 1
@@ -93,7 +113,7 @@ module Wm = struct
                                      ; restrict_move    = true
                                      }
       in
-      let grid    = new Dynamic_grid.t ~grid ~items:[] () in
+      let grid    = new Dynamic_grid.t ~grid ~items:[make_layer []] () in
       let layers  = Dom_html.createDiv Dom_html.document |> Widget.create in
       let add     = new Icon.Button.Font.t ~icon:"add_box" () in
       let rm      = new Icon.Button.Font.t ~icon:"delete" () in
@@ -103,27 +123,12 @@ module Wm = struct
       let actions = new Card.Actions.t ~widgets:[icons#widget] () in
       let card    = new Card.t ~widgets:[layers#widget;actions#widget] () in
 
+      let ()      = Option.iter (fun x -> x#set_selected true) @@ List.head_opt grid#items in
       let ()      = layers#add_class container_class in
       let ()      = Dom.appendChild layers#root grid#root in
       let ()      = grid#set_on_load @@ Some (fun () -> grid#layout) in
       let ()      = card#add_class _class in
-      let _       =
-        React.E.map (fun _ ->
-            let y = match List.rev @@ grid#items with
-              | []    -> 0
-              | hd::_ -> hd#pos.y + 1
-            in
-            let drag  = new Icon.Font.t ~icon:"drag_handle" () in
-            let text  = new Typography.Text.t ~text:(Printf.sprintf "Слой %d" (y + 1)) () in
-            let box   = new Box.t ~vertical:false ~widgets:[text#widget; drag#widget] () in
-            let pos   = ({ x = 0; y; w = 1; h = 1 } : Dynamic_grid.Position.t) in
-            let item  = Dynamic_grid.Item.to_item ~pos ~move_widget:drag#widget ~widget:box#widget
-                                                  ~resizable:false ~selectable:false ~value:() ()
-            in
-            let ()    = box#set_justify_content `Space_between in
-            let ()    = box#add_class layer_class in
-            grid#add item)
-                    add#e_click in
+      let _       = React.E.map (fun _ -> make_layer grid#items) add#e_click in
       card
 
     let make widgets =
@@ -201,6 +206,7 @@ module Wm = struct
     let ()    = add#set_attribute  "title" "Добавить" in
     let ()    = rm#set_attribute   "title" "Удалить" in
     let ()    = edit#set_attribute "title" "Редактировать" in
+    let _     = React.E.map (fun _ -> Option.iter (fun w -> w#remove) @@ React.S.value sel) rm#e_click in
     let _     = React.E.map (fun _ -> post { wm with layout = React.S.value layout }) apply#e_click in
     let _     = React.E.map (fun _ -> conf_dlg#show) conf#e_click in
     let _     = f_add add#e_click in
