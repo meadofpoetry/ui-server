@@ -79,14 +79,16 @@ $wm-placeholder-color: text-icon-on-background;
 .wm-right-toolbar {
     height: 100%;
     display: flex;
-    > * {
-        margin-bottom: 20px;
-        flex-grow: 1;
-    }
+    > * { margin-bottom: 15px; }
     > *:last-child { margin-bottom: 0; }
+
+    &__title {
+        padding: 0 15px;
+    }
 }
 
 .wm-layers-card {
+    flex-grow: 1;
     justify-content: space-between;
 }
 

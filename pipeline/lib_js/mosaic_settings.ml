@@ -123,8 +123,10 @@ module Wm = struct
     let _     = React.E.map (fun _ -> Option.iter (fun x -> x#remove) @@ React.S.value sel) rm#e_click in
     let left_toolbar = make_left_toolbar [add#widget; rm#widget; edit#widget] in
     (* right toolbar *)
+    let title         = new Typography.Text.t ~text:"Слои" ~font:Headline () in
     let layers        = make_layers () in
-    let right_toolbar = make_right_toolbar [layers#widget] in
+    let right_toolbar = make_right_toolbar [title#widget;layers#widget] in
+    let ()            = title#add_class "wm-right-toolbar__title" in
 
     (* main *)
     let lc = new Layout_grid.Cell.t ~widgets:[left_toolbar] () in
