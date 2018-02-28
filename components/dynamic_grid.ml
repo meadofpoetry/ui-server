@@ -652,15 +652,6 @@ module Item = struct
                         (fun _ e -> if draggable then self#start_dragging (Touch e); false)
       |> ignore;
 
-      (* Dom_events.listen select_target#root Dom_events.Typ.click
-       *                   (fun _ _ -> Option.iter (fun tmr -> Dom_html.clearTimeout tmr) drag_timer;
-       *                               if selectable
-       *                               then (if grid.multi_select
-       *                                     then self#set_selected @@ not self#get_selected
-       *                                     else self#set_selected true);
-       *                               true)
-       * |> ignore; *)
-
       (* add item start resize listener if needed *)
       Dom_events.listen resize_button#root Dom_events.Typ.mousedown
                         (fun _ e -> if e##.button = 0 && resizable
@@ -679,6 +670,69 @@ end
 type add_error = Collides  of Position.t list
                | Cancelled
                | In_progress
+
+class overlay_grid ~parent ~s_col_w ~s_row_h ~s_item_margin () =
+  let elt = Markup.Dynamic_grid.Overlay_grid.create () |> Tyxml_js.To_dom.of_element in
+  object(self)
+
+    inherit Widget.widget elt ()
+
+    val mutable grid_color     = CSS.Color.RGBA (0,0,0,0.25)
+    val mutable divider_color  = CSS.Color.RGBA (0,0,0,0.5)
+    val mutable show_dividers  = false
+    val mutable divider_period = 10,10
+
+    method show = Dom.appendChild parent self#root;
+                  parent##.classList##add (Js.string Markup.Dynamic_grid.with_overlay_grid_class);
+                  self#layout
+    method hide = (try Dom.removeChild parent self#root with _ -> ());
+                  parent##.classList##remove (Js.string Markup.Dynamic_grid.with_overlay_grid_class)
+
+    method set_grid_color x     = grid_color <- x; self#layout
+    method get_grid_color       = grid_color
+
+    method set_divider_color x  = divider_color <- x; self#layout
+    method get_divider_color    = divider_color
+
+    method set_divider_period x = divider_period <- x; self#layout
+    method get_divider_period   = divider_period
+
+    method show_dividers = show_dividers <- true; self#layout
+    method hide_dividers = show_dividers <- false; self#layout
+
+    method layout =
+      let gc     = CSS.Color.string_of_t self#get_grid_color in
+      let dc     = CSS.Color.string_of_t self#get_divider_color in
+      let margin = React.S.value s_item_margin in
+      let cw     = React.S.value s_col_w in
+      let rh     = React.S.value s_row_h in
+      let dividers =
+        if not show_dividers then []
+        else [ self#line_background_image (-90) dc (cw * (fst self#get_divider_period)) (fst margin)
+             ; self#line_background_image 0     dc (rh * (snd self#get_divider_period)) (snd margin)
+             ]
+      in
+      let lines =
+        [ self#line_background_image (-90) gc cw (fst margin)
+        ; self#line_background_image 0     gc rh (snd margin)
+        ]
+      in
+      let bg    = lines @ dividers in
+      let bg_image = String.concat "," bg in
+      let sz_w, sz_h = if show_dividers then cw * fst self#get_divider_period,
+                                             rh * snd self#get_divider_period
+                       else cw, rh in
+      let bg_size  = Printf.sprintf "%dpx %dpx" sz_w sz_h in
+      self#style##.backgroundImage := Js.string bg_image;
+      (Js.Unsafe.coerce self#style)##.backgroundSize := Js.string bg_size
+
+    method private line_background_image degrees color size border =
+      let line_start = size - border in
+      let line_end   = size in
+      Printf.sprintf "repeating-linear-gradient(%ddeg,transparent,transparent %dpx,%s %dpx,%s %dpx)"
+                     degrees line_start color line_start color line_end
+
+  end
 
 class ['a] t ~grid ~(items:'a item list) () =
   let e_modify,e_modify_push     = React.E.create () in
@@ -716,12 +770,13 @@ class ['a] t ~grid ~(items:'a item list) () =
        let merge = (fun acc (x:Position.t) -> if (x.h + x.y) > acc then (x.h + x.y) else acc) in
        React.S.map (fun (l:Position.t list) -> List.fold_left merge 1 l) s_changing
   in
-  let elt = Markup.Dynamic_grid.create ~items:[] () |> Tyxml_js.To_dom.of_element in
+  let elt          = Markup.Dynamic_grid.create ~items:[] () |> Tyxml_js.To_dom.of_element in
 
   object(self)
 
     inherit Widget.widget elt ()
 
+    val overlay_grid      = new overlay_grid ~parent:elt ~s_col_w ~s_row_h ~s_item_margin ()
     val mutable in_action = false
     val mutable in_dom    = false
     val mutable residue   = 0
@@ -731,6 +786,8 @@ class ['a] t ~grid ~(items:'a item list) () =
     method s_changing = s_changing
     method s_change   = s_change
     method s_items    = s_items
+    method s_col_w    = s_col_w
+    method s_row_h    = s_row_h
 
     method s_selected : 'a Item.t list React.signal = s_selected
 
@@ -739,6 +796,8 @@ class ['a] t ~grid ~(items:'a item list) () =
 
     method get_item_margin = React.S.value s_item_margin
     method set_item_margin margin = s_item_margin_push margin
+
+    method overlay_grid = overlay_grid
 
     method add (x:'a item) =
       let items = List.map (fun x -> x#pos) (React.S.value s_items) in
@@ -859,7 +918,8 @@ class ['a] t ~grid ~(items:'a item list) () =
       let res = w mod grid.cols in
       s_col_w_push col;
       residue <- res;
-      self#style##.width := Js.string @@ Printf.sprintf "calc(100%% - %dpx)" res
+      self#style##.width := Js.string @@ Printf.sprintf "calc(100%% - %dpx)" res;
+      overlay_grid#layout
 
     (** Private methods **)
 

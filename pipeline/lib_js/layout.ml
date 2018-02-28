@@ -3,8 +3,6 @@ open Components
 open React
 open Tyxml_js
 
-let js = Js.string
-
 (* returns true if el matches any part of the list*)
 let refers_to_any (el: string * Wm.widget) (list: (string * Wm.widget) list) =
   List.fold_while (fun acc x ->
@@ -28,7 +26,6 @@ let resolution_to_aspect resolution =
   new_res
 
 let calc_rows_cols grid_asp cont_asp list =
-  Printf.printf "I am starting to calc cols rows\n";
   let num = List.length list in
   let squares =
     List.mapi (fun rows _ ->
@@ -46,8 +43,7 @@ let calc_rows_cols grid_asp cont_asp list =
         let _,_,sq = x in
         let _,_,gr = acc in
         if Float.(gr > sq) then acc else x)
-      (0,0,0.) squares in
-  Printf.printf "I've ended calc and cols and rows are %d %d\n" cols rows;
+                   (0,0,0.) squares in
   cols, rows
 
 let initialize (wm: Wm.t) =
@@ -74,7 +70,6 @@ let initialize (wm: Wm.t) =
           if (refers_to_any x list)
           then checkbox#set_checked true
           else  checkbox#set_checked false;
-          (*new Radio.t ~name:"str" ~value:x () in*)
           let form_field =
             new Form_field.t ~label ~input:checkbox () in
           List.append acc [form_field]
@@ -129,25 +124,17 @@ let initialize (wm: Wm.t) =
 
   let grid = new Dynamic_grid.t ~grid:props ~items () in
 
-  let f_rm = React.E.map (fun e -> let open Lwt.Infix in
-                                   Dom_html.stopPropagation e;
-                                   grid#remove_free
-                                   >>= (function
-                                        | Ok _    -> print_endline "ok"   ; Lwt.return_unit
-                                        | Error _ -> print_endline "error"; Lwt.return_unit)
-                                   |> ignore)
-  in
   let f_add = React.E.map (fun e ->
                   (try Dom.removeChild Dom_html.document##.body (Dom_html.getElementById "dialogue")
                    with _ -> ());
                   let current_wd_list = List.map (fun x -> x#get_value) (React.S.value grid#s_items) in
                   let widgets  = wd_list current_wd_list in
                   let dialogue = new Dialog.t
-                                   ~title:"What widget u'd like to add?"
-                                   ~content:(`Widgets widgets)
-                                   ~actions:[ new Dialog.Action.t ~typ:`Decline ~label:"Decline" ()
-                                            ; new Dialog.Action.t ~typ:`Accept  ~label:"Accept"  ()
-                                   ] ()
+                                     ~title:"What widget u'd like to add?"
+                                     ~content:(`Widgets widgets)
+                                     ~actions:[ new Dialog.Action.t ~typ:`Decline ~label:"Decline" ()
+                                              ; new Dialog.Action.t ~typ:`Accept  ~label:"Accept"  ()
+                                              ] ()
                   in
                   dialogue#root##.id := Js.string "dialogue";
                   Dom.appendChild Dom_html.document##.body dialogue#root;
@@ -183,16 +170,9 @@ let initialize (wm: Wm.t) =
                                    let x = (i - opt_cols * row_num) * w in
                                    let y = row_num * h in
                                    grid#add (Dynamic_grid.Item.to_item ~pos:{x;y;w;h} ~selectable:true ~value:el ())
-                                   |> (function
-                                       | Ok _    -> print_endline "grid - add okay!";
-                                                    Lwt.return_unit
-                                       | Error _ -> print_endline "grid - add error!";
-                                                    Lwt.return_unit)
                                    |> ignore) chosen_widgets;
                                Lwt.return ()
-                            | `Cancel ->
-                               print_endline "Dialog cancelled";
-                               Lwt.return ()))
+                            | `Cancel -> Lwt.return ()))
   in
   let s = React.S.map (fun _ ->
               let layout =
@@ -238,4 +218,4 @@ let initialize (wm: Wm.t) =
                   ) (React.S.value grid#s_items) in
               (layout)) grid#s_change
   in
-  grid,s,f_add,f_rm
+  grid,s,f_add

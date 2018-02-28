@@ -1,10 +1,14 @@
 @import '../../components/theme/_mixins';
 @import '../../components/theme/_variables';
+@import '../../components/theme/_functions';
 @import '../../components/ripple/_mixins';
 @import '../../components/elevation/_mixins';
+@import '../../components/fab/_mixins';
+@import '../../components/typography/_mixins';
+@import '../../components/layout-grid/_variables';
 
 $wm-grid-background-color: background;
-$wm-placeholder-color: text-icon-on-background;
+$wm-placeholder-color: text-secondary-on-background;
 
 .main-with-sidebar {
     background-color: #e0e0e0;
@@ -12,6 +16,10 @@ $wm-placeholder-color: text-icon-on-background;
 
 .wm, .mdc-layout-grid, .mdc-layout-grid__inner, .wm-grid-container {
     height: 100%;
+}
+
+.wm-editor-config-dialog .mdc-dialog__surface {
+    width: auto;
 }
 
 .wm-grid-wrapper {
@@ -26,8 +34,13 @@ $wm-placeholder-color: text-icon-on-background;
     $wm-grid-border: 2px dashed rgba(0,0,0,.12);
 
     margin: 0 auto;
+
     border-left: $wm-grid-border;
     border-right: $wm-grid-border;
+
+    &.mdc-dynamic-grid--with-overlay-grid {
+        border: none;
+    }
 
     .mdc-dynamic-grid__item {
         @include mdc-theme-prop(background-color, primary-light);
@@ -43,31 +56,53 @@ $wm-placeholder-color: text-icon-on-background;
         @include mdc-theme-prop(background-color, secondary);
     }
 
-    &__placeholder {
+    &__placeholder__container {
+        z-index: 2;
         width: 100%;
         height: 100%;
         position: absolute;
         display: flex;
         justify-content: center;
+        align-items: center;
 
         .mdc-typography {
             @include mdc-theme-prop(color, $wm-placeholder-color);
+            @include mdc-typography(subheading2);
             margin-top: 12px;
             order: 1;
+            text-align: center;
         }
         .mdc-icon {
             @include mdc-theme-prop(color, $wm-placeholder-color);
             font-size: 48px;
             order: 0;
         }
+
+        @media (max-width: 600px) {
+            .mdc-typography {
+                @include mdc-typography(caption);
+            }
+            .mdc-icon {
+                font-size: 32px;
+            }
+        }
+    }
+
+    &__placeholder {
+        @include mdc-theme-prop(background-color, background);
+        padding: 20px;
+        border-radius: 4px;
+    }
+
+    &__placeholder--bordered {
+        border: 2px solid rgba(0,0,0,.12);
     }
 }
 
 .wm-left-toolbar {
+    $phone: map-get($mdc-layout-grid-breakpoints, phone);
     &__action {
-        @include mdc-theme-prop(background-color,background);
-        @include mdc-theme-prop(color,text-icon-on-background);
-        @include mdc-states-base-color(mdc-theme-prop-value(text-secondary-on-background));
+        @include mdc-fab-accessible(mdc-theme-prop-value(background));
 
         margin-bottom: 20px;
         &:last-child {
@@ -83,26 +118,34 @@ $wm-placeholder-color: text-icon-on-background;
     > *:last-child { margin-bottom: 0; }
 
     &__title {
-        padding: 0 15px;
-    }
-}
-
-.wm-layers-card {
-    flex-grow: 1;
-    justify-content: space-between;
-}
-
-.wm-layers {
-    overflow-y: auto;
-    overflow-x: hidden;
-    flex: 1 1 200px; // FIXME try to understand this magic
-
-    .mdc-dynamic-grid__item {
-        display: flex;
-        align-items: stretch;
+        @include mdc-theme-prop(color, text-disabled-on-background);
+        margin-left: 15px;
+        cursor: pointer;
     }
 
-    .wm-layer {
+    &__title--active {
+        cursor: default;
+        @include mdc-theme-prop(color, text-primary-on-background);
+    }
+
+    &__layers {
+        flex-grow: 1;
+        justify-content: space-between;
+    }
+
+    &__layers__container {
+
+        overflow-y: auto;
+        overflow-x: hidden;
+        flex: 1 1 200px; // FIXME try to understand this magic
+
+        .mdc-dynamic-grid__item {
+            display: flex;
+            align-items: stretch;
+        }
+    }
+
+    &__layers__layer {
         @include mdc-theme-prop(background-color,background);
 
         flex-grow: 1;
@@ -112,4 +155,8 @@ $wm-placeholder-color: text-icon-on-background;
         align-content: stretch;
         border-bottom: 1px solid rgba(0,0,0,.12);
     }
+}
+
+.wm-add-card {
+    flex-grow: 2;
 }

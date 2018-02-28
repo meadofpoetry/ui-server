@@ -464,7 +464,18 @@ module Make
   end
 
   module Dynamic_grid = struct
-    let base_class = "mdc-dynamic-grid"
+    let base_class              = "mdc-dynamic-grid"
+    let with_overlay_grid_class = CSS.add_modifier base_class "with-overlay-grid"
+
+    module Overlay_grid = struct
+
+      let _class = CSS.add_element base_class "overlay-grid"
+
+      let create ?id ?style ?(classes=[]) ?attrs () =
+        div ~a:([ a_class (_class :: classes) ]
+                |> add_common_attrs ?id ?style ?attrs)
+            []
+    end
 
     module Item = struct
 

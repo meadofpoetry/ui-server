@@ -18,9 +18,9 @@ let load () =
 
   let open Tabs in
   let tab_pages =
-    [ "Мозаика",           (fun () -> (Mosaic.page ())#widget)
-    ; "Выбор программ",    (fun () -> (Structure_settings.page ())#widget)
-    ; "Настройки мозаики", (fun () -> (Mosaic_settings.page ())#widget)
+    [ "Видео",          (fun () -> (Mosaic.page ())#widget)
+    ; "Редактор",       (fun () -> (Mosaic_settings.page ())#widget)
+    ; "Выбор программ", (fun () -> (Structure_settings.page ())#widget)
     ; "Настройки анализа", (fun () -> (Analysis_settings.page ())#widget)
     ; "Графики",           (fun () -> (Charts.page ())#widget)
     ]
@@ -40,7 +40,7 @@ let load () =
   let toolbar = Dom_html.getElementById "main-toolbar" in
   let content = Dom_html.getElementById "main-content" in
   (* bar#style##.marginLeft := Js.string "72px"; *)
-  bar#tab_bar#set_active_tab_index 2 |> ignore;
+  bar#tab_bar#set_active_tab_index 1 |> ignore;
   content##.style##.marginTop := Js.string "128px";
   bar#tab_bar#set_indicator_accent;
   (Js.Unsafe.coerce row#style)##.alignItems := Js.string "flex-end";

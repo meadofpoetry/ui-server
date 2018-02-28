@@ -1,11 +1,5 @@
 @import '../theme/_mixins';
-
-@mixin mdc-no-selection {
-    -moz-user-select: none;
-    -ms-user-select: none;
-    -webkit-user-select: none;
-    user-select: none;
-}
+@import './_mixins';
 
 .mdc-dynamic-grid {
 
@@ -63,5 +57,14 @@
         cursor: grabbing;
         cursor: -webkit-grabbing;
         cursor: -moz-grabbing;
+    }
+
+    &__overlay-grid {
+        height: 100%;
+        width: 100%;
+        position: absolute;
+        left: 0;
+        top: 0;
+        opacity: 0.5;
     }
 }
