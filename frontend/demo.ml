@@ -685,6 +685,7 @@ let dynamic_grid_demo () =
     ; vertical_compact = true
     ; items_margin     = Some (10,10)
     ; multi_select     = false
+    ; restrict_move    = false
     }
   in
   (* let move () = new Icon_toggle.t

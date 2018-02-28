@@ -12,10 +12,13 @@ html {
 body {
     margin: 0;
 }
+#arbitrary-content {
+    height: 100%;
+}
 .content {
     width: 100%;
     display: flex;
-    min-height: 100vh;
+    min-height: calc(100vh - 128px);
     align-items: stretch;
 }
 .main-with-sidebar     {

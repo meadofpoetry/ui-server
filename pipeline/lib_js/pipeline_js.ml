@@ -16,8 +16,6 @@ let load () =
 
   let container = Dom_html.getElementById "arbitrary-content" in
 
-  let box = new Box.t ~widgets:[] () in
-
   let open Tabs in
   let tab_pages =
     [ "Мозаика",           (fun () -> (Mosaic.page ())#widget)
@@ -49,5 +47,5 @@ let load () =
   (Js.Unsafe.coerce section#style)##.alignItems := Js.string "flex-end";
 
   Dom.appendChild toolbar   row#root;
-  (Js.Unsafe.coerce bar#style)##.flexGrow := 1; bar#layout;
-  Dom.appendChild container box#root
+  (Js.Unsafe.coerce bar#style)##.flexGrow := 1;
+  bar#layout

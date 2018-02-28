@@ -10,13 +10,24 @@ $wm-placeholder-color: text-icon-on-background;
     background-color: #e0e0e0;
 }
 
-.wm {
+.wm, .mdc-layout-grid, .mdc-layout-grid__inner, .wm-grid-container {
+    height: 100%;
+}
+
+.wm-grid-wrapper {
+    @include mdc-theme-prop(background-color,$wm-grid-background-color);
+    @include mdc-elevation(2);
+
+    width: 100%;
+    height: auto;
 }
 
 .wm-grid {
-    @include mdc-theme-prop(background-color,$wm-grid-background-color);
-    @include mdc-elevation(2);
+    $wm-grid-border: 2px dashed rgba(0,0,0,.12);
+
     margin: 0 auto;
+    border-left: $wm-grid-border;
+    border-right: $wm-grid-border;
 
     .mdc-dynamic-grid__item {
         @include mdc-theme-prop(background-color, primary-light);
@@ -75,23 +86,28 @@ $wm-placeholder-color: text-icon-on-background;
     > *:last-child { margin-bottom: 0; }
 }
 
-.wm-layers-grid .mdc-dynamic-grid__item {
-    display: flex;
-    align-items: stretch;
+.wm-layers-card {
+    justify-content: space-between;
 }
 
 .wm-layers {
     overflow-y: auto;
     overflow-x: hidden;
-}
+    flex: 1 1 200px; // FIXME try to understand this magic
 
-.wm-layer {
-    @include mdc-theme-prop(background-color,background);
+    .mdc-dynamic-grid__item {
+        display: flex;
+        align-items: stretch;
+    }
 
-    flex-grow: 1;
-    padding: 10px;
-    display: flex;
-    align-items: center;
-    align-content: stretch;
-    border-bottom: 1px solid rgba(0,0,0,.12);
+    .wm-layer {
+        @include mdc-theme-prop(background-color,background);
+
+        flex-grow: 1;
+        padding: 10px;
+        display: flex;
+        align-items: center;
+        align-content: stretch;
+        border-bottom: 1px solid rgba(0,0,0,.12);
+    }
 }

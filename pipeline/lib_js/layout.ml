@@ -93,6 +93,7 @@ let initialize (wm: Wm.t) =
     ; vertical_compact = false
     ; items_margin     = Some (2,2)
     ; multi_select     = false
+    ; restrict_move    = false
     } in
   let (items:'a Dynamic_grid.item list) =
     List.map
