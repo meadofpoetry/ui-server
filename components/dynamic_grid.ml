@@ -269,7 +269,7 @@ module Item = struct
       on_resize; on_resizing; on_drag; on_dragging;
       move_widget; widget; value}
 
-  let rec find_touch id num source =
+  let rec find_touch id num source =  (* given a touchList Js.t, finds a touch with needed identifier among *)
     if num < 0 then None
     else
       if Js.Optdef.test (source##item num)
@@ -308,14 +308,10 @@ module Item = struct
       method private px_pos = px_pos
 
       method private set_x x =
-        let with_margin = x + (fst @@ React.S.value s_item_margin) in
-        let x           = if with_margin < 0 then 0 else with_margin in
         px_pos <- { px_pos with x = x + (fst @@ React.S.value s_item_margin) };
         self#root##.style##.transform := Js.string @@ Utils.translate px_pos.x px_pos.y
       method private set_y y =
-        let with_margin = y + (snd @@ React.S.value s_item_margin) in
-        let y           = if with_margin < 0 then 0 else with_margin in
-        px_pos <- { px_pos with y };
+        px_pos <- { px_pos with y = y + (snd @@ React.S.value s_item_margin) };
         self#root##.style##.transform := Js.string @@ Utils.translate px_pos.x px_pos.y
       method private set_w w =
         let with_margin = w - (fst @@ React.S.value s_item_margin) in
@@ -684,45 +680,47 @@ module Item = struct
 
       Dom_events.listen self#get_drag_target#root Dom_events.Typ.touchstart
         (fun _ e -> Dom_html.stopPropagation e;
-                    let timer   = 400. in                 (**  TIMER is here **)
-                    let touch   = Js.Optdef.get (e##.touches##item 0)
-                                    (fun () -> failwith "No touch with such id") in
-                    let id      = touch##.identifier in
-                    let wrapped = Js.wrap_callback
-                          (fun _ -> if draggable
-                                    then self#start_dragging (Touch e))
-                    in
-                    let timeout = Dom_html.window##setTimeout wrapped timer in
-                    let stop_timeout e =
-                      let touch = Js.Optdef.get (e##.touches##item 0)
-                                    (fun () -> failwith "No touch with such id") in
-                      if touch##.identifier = id
-                      then
-                        ( Dom_html.window##clearTimeout timeout;
-                          Option.iter (fun l -> Dom_events.stop_listen l) mov_listener;
-                          Option.iter (fun l -> Dom_events.stop_listen l) end_listener;
-                          Option.iter (fun l -> Dom_events.stop_listen l) cancel_listener)
-                    in
-                    Dom_events.listen Dom_html.window Dom_events.Typ.touchmove
-                      (fun _ ev ->
-                        (match find_touch id (ev##.changedTouches##.length-1) ev##.changedTouches with
-                         | Some touch1 ->
-                            let dx = abs @@ touch1##.clientX - touch##.clientX in
-                            let dy = abs @@ touch1##.clientY - touch##.clientY in
-                            if dx > 8 || dy > 8
-                            then ( Dom_html.window##clearTimeout timeout;
-                                   Option.iter (fun l -> Dom_events.stop_listen l) mov_listener);
-                         | None       -> ());
-                        false)
-                    |> (fun x -> mov_listener <- Some x);
-                     Dom_events.listen Dom_html.window Dom_events.Typ.touchcancel
-                       (fun _ e -> stop_timeout e;
-                                   false)
-                     |> (fun x -> cancel_listener <- Some x);
-                     Dom_events.listen Dom_html.window Dom_events.Typ.touchend
-                       (fun _ e -> stop_timeout e;
-                                   false)
-                     |> (fun x -> end_listener <- Some x);
+                    if e##.touches##.length <= 1
+                    then
+                      ( let timer   = 400. in                 (**  TIMER is here **)
+                        let touch   = Js.Optdef.get (e##.touches##item 0)
+                                        (fun () -> failwith "No touch with such id") in
+                        let id      = touch##.identifier in
+                        let wrapped = Js.wrap_callback
+                                        (fun _ -> if draggable
+                                                  then self#start_dragging (Touch e))
+                        in
+                        let timeout = Dom_html.window##setTimeout wrapped timer in
+                        let stop_timeout e =
+                          let touch = Js.Optdef.get (e##.touches##item 0)
+                                        (fun () -> failwith "No touch with such id") in
+                          if touch##.identifier = id
+                          then
+                            ( Dom_html.window##clearTimeout timeout;
+                              Option.iter (fun l -> Dom_events.stop_listen l) mov_listener;
+                              Option.iter (fun l -> Dom_events.stop_listen l) end_listener;
+                              Option.iter (fun l -> Dom_events.stop_listen l) cancel_listener)
+                        in
+                        Dom_events.listen Dom_html.window Dom_events.Typ.touchmove
+                          (fun _ ev ->
+                            (match find_touch id (ev##.changedTouches##.length-1) ev##.changedTouches with
+                             | Some touch1 ->
+                                let dx = abs @@ touch1##.clientX - touch##.clientX in
+                                let dy = abs @@ touch1##.clientY - touch##.clientY in
+                                if dx > 8 || dy > 8
+                                then ( Dom_html.window##clearTimeout timeout;
+                                       Option.iter (fun l -> Dom_events.stop_listen l) mov_listener);
+                             | None       -> ());
+                            false)
+                        |>(fun x -> mov_listener <- Some x);
+                        Dom_events.listen Dom_html.window Dom_events.Typ.touchcancel
+                          (fun _ e -> stop_timeout e;
+                                      false)
+                        |>(fun x -> cancel_listener <- Some x);
+                        Dom_events.listen Dom_html.window Dom_events.Typ.touchend
+                          (fun _ e -> stop_timeout e;
+                                      false)
+                        |>(fun x -> end_listener <- Some x));
                     false)
       |> ignore;
 
@@ -736,11 +734,13 @@ module Item = struct
       |> ignore;
 
       Dom_events.listen select_target#root Dom_events.Typ.touchstart
-        (fun _ e -> Dom_html.stopPropagation e;
-                    if selectable
-                    then if grid.multi_select
-                         then self#set_selected @@ not self#get_selected
-                         else self#set_selected true;
+        (fun _ e -> if e##.touches##.length <= 1
+                    then
+                      ( Dom_html.stopPropagation e;
+                        if selectable
+                        then if grid.multi_select
+                             then self#set_selected @@ not self#get_selected
+                             else self#set_selected true);
                     false)
       |> ignore;
 
@@ -754,8 +754,10 @@ module Item = struct
 
       Dom_events.listen resize_button#root Dom_events.Typ.touchstart
         (fun _ e -> Dom_html.stopPropagation e;
-                    if resizable
-                    then self#start_resizing (Touch e);
+                    if e##.touches##.length <= 1
+                    then
+                      ( if resizable
+                        then self#start_resizing (Touch e));
                     false)
       |> ignore;
 
