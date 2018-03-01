@@ -3,7 +3,100 @@ open Components
 open Requests
 open Lwt_result.Infix
 
-module Wm = struct
+type 'a action =
+  { icon   : string
+  ; name   : string
+  ; action : 'a -> unit
+  }
+
+type add_candidate =
+  { icon : string
+  ; name : string
+  }
+
+module type Item = sig
+
+  type item
+
+  type item_action = (string * item) Dynamic_grid.Item.t option React.signal action
+  type grid_action = (string * item) Dynamic_grid.t action
+
+  val create_item    : add_candidate -> item
+
+  (* Left toolbar properties *)
+  val item_actions   : (int * item_action) list
+  val grid_actions   : (int * grid_action) list
+
+  (* Right toolbar properties *)
+  (* Layers properties *)
+  val max_layers     : int
+  (* Add properties *)
+  val add_candidates : add_candidate list
+
+  (* Grid properties *)
+  val grid_title     : string
+
+end
+
+module Container_item : Item = struct
+
+  type item = Wm.container
+  type item_action = (string * item) Dynamic_grid.Item.t option React.signal action
+  type grid_action = (string * item) Dynamic_grid.t action
+
+  let create_item _ : item = { position = { left=0;top=0;right=0;bottom=0 }
+                             ; widgets  = []
+                             }
+
+  let item_actions   = [ 2, { icon   = "delete"
+                            ; name   = "Удалить"
+                            ; action = (fun x -> Option.iter (fun x -> x#remove) @@ React.S.value x |> ignore)
+                            }
+                       ; 3, { icon   = "edit"
+                            ; name   = "Редактировать"
+                            ; action = (fun _ -> print_endline "edit!") }
+                       ]
+  let grid_actions   = [ 5, { icon   = "save"
+                            ; name   = "Сохранить"
+                            ; action = (fun _ -> print_endline "save!") } ]
+
+  let max_layers     = 1
+
+  let add_candidates = [ { icon = "crop_16_9"; name = "Контейнер" } ]
+
+  let grid_title     = "Раскладка окон"
+
+end
+
+(* module Widget_item : Item = struct
+ * 
+ *   type item = Wm.widget
+ *   type item_action = (string * item) Dynamic_grid.Item.t option action
+ *   type grid_action = (string * item) Dynamic_grid.t action
+ * 
+ *   let item_actions = [ 3, { icon   = "delete"
+ *                           ; name   = "Удалить"
+ *                           ; action = (fun x -> Option.iter (fun x -> x#remove) x |> ignore)
+ *                           }
+ *                      ]
+ *   let grid_actions = [ 5, { icon   = "save"
+ *                           ; name   = "Сохранить"
+ *                           ; action = (fun _ -> print_endline "save!") }
+ *                      ; 2, { icon   = "arrow_back"
+ *                           ; name   = "Назад"
+ *                           ; action = (fun _ -> print_endline "back!") }
+ *                      ]
+ * 
+ *   let max_layers   = 10
+ * 
+ *   let add_candidates = [ { icon = "tv"; name = "Видео" }
+ *                        ; { icon = "audiotrack"; name = "Аудио" }
+ *                        ; { icon = "font_download"; name = "Текст" }
+ *                        ]
+ * 
+ * end *)
+
+module Wm(I : Item) = struct
 
   type editor_config =
     { show_grid_lines : bool
@@ -33,19 +126,29 @@ module Wm = struct
       ph
 
     let make (wm: Wm.t) =
-      let ((grid,_,_) as res) = Layout.initialize wm in
+      let ((grid,x1,x2) as res) = Layout.initialize wm in
+      let (grid : (string * I.item) Dynamic_grid.t) = new Dynamic_grid.t
+                                                          ~grid:(Dynamic_grid.to_grid ~cols:24 ~rows:16 ~items_margin:(2,2) ())
+                                                          ~items:[] () in
       let () = grid#add_class base_class in
-      res
+      (grid,x1,x2)
 
   end
 
   module Left_toolbar = struct
 
-    let base_class = "wm-left-toolbar"
+    let base_class   = "wm-left-toolbar"
+    let action_class = Markup.CSS.add_element base_class "action"
+
+    let make_action (action : 'a action) (target : 'a)=
+      let w  = new Fab.t ~mini:true ~icon:action.icon () in
+      let () = w#add_class action_class in
+      let () = w#set_attribute "title" action.name in
+      let _  = React.E.map (fun _ -> action.action target) w#e_click in
+      w
 
     let make widgets =
       let box = new Box.t ~widgets () in
-      let ()  = List.iter (fun x -> x#add_class @@ Markup.CSS.add_element base_class "action") widgets in
       let ()  = box#add_class base_class in
       box
 
@@ -55,27 +158,92 @@ module Wm = struct
 
     let base_class = "wm-right-toolbar"
 
-    let make_title titles =
-      let _class       = Markup.CSS.add_element  base_class  "title-bar" in
-      let title_class  = Markup.CSS.add_element  base_class  "title"     in
-      let active_class = Markup.CSS.add_modifier title_class "active"    in
 
-      let ws = List.map (fun x -> let w = new Typography.Text.t ~adjust_margin:false ~text:x ~font:Subheading_2 () in
-                                  let () = w#add_class title_class in
-                                  w)
-                        titles
-      in
-      let box    = new Box.t ~vertical:false ~widgets:ws () in
-      let s,push = React.S.create (match ws with [] -> None | hd::_ -> Some hd) in
+    class active_title ~title ~widget () =
+      let title_class  = Markup.CSS.add_element  base_class  "title"  in
+      let active_class = Markup.CSS.add_modifier title_class "active" in
+      object(self)
 
-      let () = box#add_class _class in
-      let () = List.iter (fun w -> Dom_events.listen w#root Dom_events.Typ.click
-                                                     (fun _ _ -> push @@ Some w; false) |> ignore) ws
+        inherit Typography.Text.t ~adjust_margin:false ~text:title ~font:Subheading_2 ()
+
+        method set_active x =
+          self#add_or_remove_class x active_class;
+          widget#style##.display := Js.string (if x then "" else "none")
+
+        method get_title = title
+
+        initializer
+          self#add_class title_class
+
+      end
+
+    class active_title_bar titles () =
+      let _class  = Markup.CSS.add_element base_class "title-bar" in
+      let (titles : active_title list) =
+        List.map (fun (title,widget) -> new active_title ~title ~widget ()) titles in
+      object(self)
+
+        inherit Box.t ~vertical:false ~widgets:titles ()
+
+        method titles : active_title list = titles
+        method select (w:active_title) =
+          List.iter (fun x -> if not @@ Equal.physical x#root w#root then x#set_active false) titles;
+          w#set_active true
+        method select_by_name n =
+          match List.find_opt (fun x -> String.equal x#get_title n) self#titles with
+          | None   -> ()
+          | Some x -> self#select x
+
+        initializer
+          self#add_class _class;
+          let open Dom_events in
+          let _ = List.map (fun w -> listen w#root Typ.click (fun _ _ -> self#select w; false)) self#titles in
+          match self#titles with
+          | []           -> failwith "Titles must not be empty"
+          | [x] | x :: _ -> self#select x
+
+      end
+
+    let make_title_bar titles = new active_title_bar titles ()
+
+    let make_add_item (item : add_candidate) =
+      let _class = Markup.CSS.add_element base_class "add-candidate" in
+
+      let icon = new Icon.Font.t ~icon:item.icon () in
+      let text = new Typography.Text.t ~adjust_margin:false ~text:item.name () in
+      let box  = new Box.t ~vertical:false ~widgets:[icon#widget;text#widget] () in
+      let ()   = box#add_class _class in
+      box
+
+    let make_add (grid : (string * I.item) Dynamic_grid.t) =
+      let _class = Markup.CSS.add_element base_class "add" in
+      let items  = List.map (fun x -> x,make_add_item x) I.add_candidates in
+      let box    = new Box.t ~widgets:(List.map snd items) () in
+      let ()     = List.iter (fun (ac,w) ->
+                       Dom_events.listen w#root Dom_events.Typ.click
+                                         (fun _ _ -> grid#add_free ~value:("",I.create_item ac) ()
+                                                     |> ignore;
+                                                     false)
+                       |> ignore) items
       in
-      let _  = React.S.map (fun active -> List.iter (fun x -> x#remove_class active_class) ws;
-                                          Option.iter (fun x -> x#add_class active_class) active) s
-      in
-      box,s
+      let ()     = box#add_class _class in
+      box
+
+    let make_properties (s : (string * I.item) Dynamic_grid.Item.t option React.signal) =
+      let _class = Markup.CSS.add_element base_class "properties" in
+      let box    = new Box.t ~widgets:[] () in
+      let ()     = box#add_class _class in
+      box
+
+    let make_item_card grid selected =
+      let _class  = Markup.CSS.add_element base_class "item-card" in
+      let add     = make_add grid in
+      let props   = make_properties selected in
+      let title   = make_title_bar [ "Добавить", add
+                                   ; "Свойства", props ] in
+      let card    = new Card.t ~widgets:[add#widget; props#widget] () in
+      let ()      = card#add_class _class in
+      title,card
 
     let make_layer_item items =
       let _class            = Markup.CSS.add_element base_class "layer"       in
@@ -97,6 +265,20 @@ module Wm = struct
       let ()    = box#set_justify_content `Space_between in
       let ()    = box#add_class _class in
       item
+
+    let move_layer_up layers layer =
+      let open Dynamic_grid.Position in
+      let pos = layer#pos in
+      if pos.y <> 0
+      then (let upper = List.find_opt (fun x -> x#pos.y = pos.y - 1) layers in
+            Option.iter (fun x -> let new_pos = x#pos in x#set_pos pos; layer#set_pos new_pos) upper)
+
+    let move_layer_down layers layer =
+      let open Dynamic_grid.Position in
+      let pos = layer#pos in
+      if pos.y <> List.length layers - 1
+      then (let lower = List.find_opt (fun x -> x#pos.y = pos.y + 1) layers in
+            Option.iter (fun x -> let new_pos = x#pos in x#set_pos pos; layer#set_pos new_pos) lower)
 
     let make_layers () =
       let _class          = Markup.CSS.add_element base_class "layers"    in
@@ -139,9 +321,22 @@ module Wm = struct
       let ()      = Dom.appendChild layers#root grid#root in
       let ()      = grid#set_on_load @@ Some (fun () -> grid#layout) in
       let ()      = card#add_class _class in
-      let _       = React.E.map (fun _ -> grid#add @@ make_layer_item grid#items) add#e_click in
-      let _       = React.E.map (fun _ -> Option.iter (fun w -> w#remove) @@ React.S.value sel) rm#e_click in
-      card
+      (* Actions with layers *)
+      let a_map (a,f) = React.E.map (fun _ -> Option.iter f @@ React.S.value sel) a#e_click in
+      let _           = React.S.map (fun l -> let len = List.length l in
+                                              add#set_disabled (len >= I.max_layers);
+                                              up#set_disabled (len <= 1);
+                                              down#set_disabled (len <= 1);
+                                              rm#set_disabled (len <= 1)) grid#s_items in
+      let _           = React.E.map (fun _ -> grid#add @@ make_layer_item grid#items) add#e_click in
+      let l = [ rm,   (fun w -> w#remove)
+              ; up,   (fun w -> move_layer_up grid#items w)
+              ; down, (fun w -> move_layer_down grid#items w)
+              ]
+      in
+      let _ = List.map a_map l in
+      let title = make_title_bar ["Слои",card] in
+      title,card
 
     let make widgets =
       let box = new Box.t ~widgets () in
@@ -168,12 +363,6 @@ module Wm = struct
                          | `Cancel -> ()) d#e_action in
     d,s
 
-  let make_add _ =
-    let card = new Card.t ~widgets:[] () in
-    let ()   = card#style##.minHeight := Js.string "100px" in
-    let ()   = card#add_class "wm-add-card" in
-    card
-
   let create ~(wm:       Wm.t)
              ~(post:     Wm.t -> unit)
              ~(s_conf:   editor_config React.signal)
@@ -182,15 +371,16 @@ module Wm = struct
     (* grid *)
     let grid,layout,f_add = Grid.make wm in
     let grid_wp  = Dom_html.createDiv Dom_html.document |> Widget.create in
-    let grid_title = new Typography.Text.t ~font:Subheading_2 ~text:"Раскладка окон" () in
+    let grid_title = new Typography.Text.t ~font:Subheading_2 ~text:I.grid_title () in
     let ()       = Dom.appendChild grid_wp#root grid#root in
     let grid_box = new Box.t ~vertical:true ~widgets:[grid_title#widget;grid_wp#widget] () in
     let ph = Grid.make_placeholder ~text:"Добавьте элементы в раскладку"
                                    ~icon:"add_box"
-                                   ~action:f_add
+                                   (* ~action:f_add *)
                                    ~s_conf
                                    ()
     in
+    let sel = React.S.map (function [x] -> Some x | _ -> None) grid#s_selected in
     let () = grid_wp#add_class "wm-grid-wrapper" in
     let () = grid_box#add_class "wm-grid-container" in
     let () = grid_box#set_justify_content `Center in
@@ -200,43 +390,31 @@ module Wm = struct
                           | _  -> try Dom.removeChild grid#root ph#root with _ -> ())
                          grid#s_items
     in
-    (* left toolbar *)
-    let add   = new Fab.t ~mini:true ~icon:"add" () in
-    let rm    = new Fab.t ~mini:true ~icon:"delete" () in
-    let edit  = new Fab.t ~mini:true ~icon:"edit" () in
-    let conf  = new Fab.t ~mini:true ~icon:"settings" () in
-    let apply = new Button.t ~label:"применить" () in
-    let sel   = React.S.map (function
-                             | [x] -> rm#set_disabled false;
-                                      edit#set_disabled false;
-                                      Some x
-                             | _   -> rm#set_disabled true;
-                                      edit#set_disabled true;
-                                      None)
-                            grid#s_selected
+    let conf  = Left_toolbar.make_action { icon   = "settings"
+                                         ; name   = "Настройки"
+                                         ; action = (fun _ -> conf_dlg#show)
+                                         } grid in
+    let grid_actions = List.map (fun (i,x) -> i,Left_toolbar.make_action x grid) I.grid_actions in
+    let item_actions = List.map (fun (i,x) -> i,Left_toolbar.make_action x sel)  I.item_actions in
+    let actions      = [10,conf] @ grid_actions @ item_actions
+                       |> List.sort (fun (i1,_) (i2,_) -> compare i1 i2)
+                       |> List.map (fun (_,x) -> x)
     in
-    let ()    = add#set_attribute  "title" "Добавить" in
-    let ()    = rm#set_attribute   "title" "Удалить" in
-    let ()    = edit#set_attribute "title" "Редактировать" in
-    let _     = React.E.map (fun _ -> Option.iter (fun w -> w#remove) @@ React.S.value sel) rm#e_click in
-    let _     = React.E.map (fun _ -> post { wm with layout = React.S.value layout }) apply#e_click in
-    let _     = React.E.map (fun _ -> conf_dlg#show) conf#e_click in
-    let _     = f_add add#e_click in
-    let _     = React.E.map (fun _ -> Option.iter (fun x -> x#remove) @@ React.S.value sel) rm#e_click in
-    let left_toolbar   = Left_toolbar.make [add#widget; rm#widget; edit#widget; conf#widget] in
+    let left_toolbar = Left_toolbar.make actions in
+    let _ = List.map (fun (_,a) -> React.S.map (fun x -> a#set_disabled @@ Option.is_none x) sel)
+                     item_actions
+    in
     (* right toolbar *)
-    let layers_title,_ = Right_toolbar.make_title ["Слои"] in
-    let layers         = Right_toolbar.make_layers () in
-    let add_title,_    = Right_toolbar.make_title ["Добавить";"Свойства"] in
-    let add_card       = make_add grid in
-    let right_toolbar  = Right_toolbar.make [ add_title#widget
-                                            ; add_card#widget
-                                            ; layers_title#widget
-                                            ; layers#widget
-                                            ]
+    let layers_title,layers = Right_toolbar.make_layers () in
+    let add_title,add_card  = Right_toolbar.make_item_card grid sel in
+    let right_toolbar       = Right_toolbar.make [ add_title#widget
+                                                 ; add_card#widget
+                                                 ; layers_title#widget
+                                                 ; layers#widget
+                                                 ]
     in
 
-    (* connect to conf signal *)
+    (* connect to signals *)
     let _ = React.S.map (fun x -> if x.show_grid_lines
                                   then grid#overlay_grid#show
                                   else grid#overlay_grid#hide)
@@ -263,6 +441,8 @@ module Wm = struct
 
 end
 
+module Wm_containers = Wm(Container_item)
+
 class t () =
 
   let elt = Dom_html.createDiv Dom_html.document in
@@ -276,8 +456,8 @@ class t () =
     method private on_load =
       Requests.get_wm ()
       >>= (fun wm ->
-        let config : Wm.editor_config = { show_grid_lines = true } in
-        let conf_dlg,s_conf = Wm.make_settings_dialog config in
+        let config : Wm_containers.editor_config = { show_grid_lines = true } in
+        let conf_dlg,s_conf = Wm_containers.make_settings_dialog config in
         let e_wm,wm_sock = Requests.get_wm_socket () in
         let s_wm = React.S.hold wm e_wm in
         let open Lwt.Infix in
@@ -291,7 +471,7 @@ class t () =
         Dom.appendChild self#root conf_dlg#root;
         let _     = React.S.map (fun s -> (try Dom.removeChild self#root (Dom_html.getElementById id)
                                            with _ -> print_endline "No el");
-                                          let wm_el = Wm.create ~wm:s ~post ~s_conf ~conf_dlg in
+                                          let wm_el = Wm_containers.create ~wm:s ~post ~s_conf ~conf_dlg in
                                           let ()    = wm_el#set_id id in
                                           Dom.appendChild self#root wm_el#root)
                                 s_wm

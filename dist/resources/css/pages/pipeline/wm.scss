@@ -7,6 +7,7 @@
 @import '../../components/typography/_mixins';
 @import '../../components/layout-grid/_variables';
 @import '../../components/animation/_variables';
+@import '../../components/animation/_functions';
 
 $wm-grid-background-color: background;
 $wm-placeholder-color: text-secondary-on-background;
@@ -58,7 +59,7 @@ $wm-placeholder-color: text-secondary-on-background;
     }
 
     &__placeholder__container {
-        z-index: 2;
+        z-index: 1;
         width: 100%;
         height: 100%;
         position: absolute;
@@ -109,6 +110,13 @@ $wm-placeholder-color: text-secondary-on-background;
         &:last-child {
             margin-bottom: 0;
         }
+    }
+    &--exited {
+        transform: scale(0);
+        transition:
+        opacity 15ms linear 150ms,
+        mdc-animation-exit-permanent(transform, 180ms);
+        opacity: 0;
     }
 }
 
@@ -182,8 +190,31 @@ $wm-placeholder-color: text-secondary-on-background;
             }
         }
     }
-}
 
-.wm-add-card {
-    flex-grow: 2;
+    &__item-card {
+        flex-grow: 2;
+    }
+    &__add {
+        flex: 1 1 200px;
+    }
+
+    &__add-candidate {
+        @include mdc-theme-prop(background-color,background);
+
+        display: flex;
+        align-items: center;
+        align-content: stretch;
+        border-bottom: 1px solid rgba(0,0,0,.12);
+        cursor: pointer;
+
+        .mdc-icon {
+            @include mdc-theme-prop(color,text-secondary-on-background);
+            padding: 12px;
+        }
+    }
+
+
+    &__properties {
+        flex: 1 1 200px;
+    }
 }

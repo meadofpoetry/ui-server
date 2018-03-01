@@ -742,7 +742,7 @@ let dynamic_grid_demo () =
                              | Error _ -> print_endline "error"; Lwt.return_unit)
                         |> ignore) remove#e_click
   |> ignore;
-  React.E.map (fun _ -> grid#remove_all()) rem_all#e_click
+  React.E.map (fun _ -> grid#remove_all) rem_all#e_click
   |> ignore;
   React.E.map (fun _ -> match React.S.value x#s_input,React.S.value y#s_input,
                               React.S.value w#s_input,React.S.value h#s_input with

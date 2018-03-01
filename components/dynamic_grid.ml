@@ -283,13 +283,13 @@ module Item = struct
              ~s_col_w
              ~s_row_h
              ~s_item_margin
-             ~(item: 'a item)
+             ~(pos: Position.t)
              () =
     let elt = match typ with
       | `Item  -> Markup.Dynamic_grid.Item.create ()       |> Tyxml_js.To_dom.of_element
       | `Ghost -> Markup.Dynamic_grid.Item.create_ghost () |> Tyxml_js.To_dom.of_element
     in
-    let s_pos, s_pos_push = React.S.create item.pos in
+    let s_pos, s_pos_push = React.S.create pos in
 
     object(self)
 
@@ -355,10 +355,10 @@ module Item = struct
              () =
   object(self)
 
-    inherit ['a] cell ~typ:`Item ~s_col_w ~s_row_h ~s_item_margin ~item () as super
+    inherit ['a] cell ~typ:`Item ~s_col_w ~s_row_h ~s_item_margin ~pos:item.pos () as super
 
     val s_change      = React.S.create item.pos
-    val ghost         = new cell ~typ:`Ghost ~s_col_w ~s_row_h ~s_item_margin ~item ()
+    val ghost         = new cell ~typ:`Ghost ~s_col_w ~s_row_h ~s_item_margin ~pos:item.pos ()
     val resize_button = Markup.Dynamic_grid.Item.create_resize_button ()
                         |> Tyxml_js.To_dom.of_element |> Widget.create
 
@@ -1046,8 +1046,7 @@ class ['a] t ~grid ~(items:'a item list) () =
       | false ->
          in_action <- true;
          let t,wakener = Lwt.wait () in
-         let item      = Item.to_item ~pos:Position.empty ~min_w:1 ~min_h:1 ~max_w:1 ~max_h:1 ~value:() () in
-         let ghost     = new Item.cell ~typ:`Ghost ~s_col_w ~s_row_h ~s_item_margin ~item () in
+         let ghost     = new Item.cell ~typ:`Ghost ~s_col_w ~s_row_h ~s_item_margin ~pos:Position.empty () in
          on_init ghost;
          Dom.appendChild self#root ghost#root;
          let open Dom_events in
