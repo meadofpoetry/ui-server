@@ -320,16 +320,24 @@ module Item = struct
       method private px_pos = px_pos
 
       method private set_x x =
+        let with_margin = x + (fst @@ React.S.value s_item_margin) in
+        let x           = if with_margin < 0 then 0 else with_margin in
         px_pos <- { px_pos with x = x + (fst @@ React.S.value s_item_margin) };
         self#root##.style##.transform := Js.string @@ Utils.translate px_pos.x px_pos.y
       method private set_y y =
-        px_pos <- { px_pos with y = y + (snd @@ React.S.value s_item_margin) };
+        let with_margin = y + (snd @@ React.S.value s_item_margin) in
+        let y           = if with_margin < 0 then 0 else with_margin in
+        px_pos <- { px_pos with y };
         self#root##.style##.transform := Js.string @@ Utils.translate px_pos.x px_pos.y
       method private set_w w =
-        px_pos <- { px_pos with w = w - (fst @@ React.S.value s_item_margin) };
+        let with_margin = w - (fst @@ React.S.value s_item_margin) in
+        let w           = if with_margin < 0 then 0 else with_margin in
+        px_pos <- { px_pos with w };
         self#root##.style##.width := Js.string @@ Utils.px px_pos.w
       method private set_h h =
-        px_pos <- { px_pos with h = h - (snd @@ React.S.value s_item_margin) };
+        let with_margin = h - (snd @@ React.S.value s_item_margin) in
+        let h           = if with_margin < 0 then 0 else with_margin in
+        px_pos <- { px_pos with h };
         self#root##.style##.height := Js.string @@ Utils.px px_pos.h
 
       initializer
@@ -696,27 +704,16 @@ module Item = struct
 
       Dom_events.listen self#get_drag_target#root Dom_events.Typ.mousedown
         (fun _ e -> Dom_html.stopPropagation e;
-                    if e##.button = 0
-                    then ( let timer   = 150. in                 (**  TIMER is here **)
-                           let wrapped = Js.wrap_callback
-                                           (fun _ -> if draggable
-                                                     then self#start_dragging (Mouse e))
-                           in
-                           let timeout = Dom_html.window##setTimeout wrapped timer in
-                           let stop_timeout () = Dom_html.window##clearTimeout timeout;
-                                                 Option.iter (fun l -> Dom_events.stop_listen l) mov_listener;
-                                                 Option.iter (fun l -> Dom_events.stop_listen l) end_listener
-                           in
-                           Dom_events.listen self#get_drag_target#root Dom_events.Typ.mouseout
-                             (fun _ _ ->  Dom_html.window##clearTimeout timeout;
-                                           Option.iter (fun l -> Dom_events.stop_listen l) mov_listener;
-                                           false)
-                           |> (fun x -> mov_listener <- Some x);
-                           Dom_events.listen Dom_html.window Dom_events.Typ.mouseup
-                             (fun _ e -> if e##.button = 0
-                                         then stop_timeout ();
-                                         false)
-                           |> (fun x -> end_listener <- Some x));
+                    let l = Dom_events.listen Dom_html.window Dom_events.Typ.mousemove
+                      (fun _ _ -> if e##.button = 0 && draggable
+                                  then self#start_dragging (Mouse e);
+                                  false)
+                    in
+                    mov_listener <- Some l;
+                    Dom_events.listen Dom_html.window Dom_events.Typ.mouseup
+                      (fun _ _ -> Dom_events.stop_listen l;
+                                  false)
+                    |> (fun x -> end_listener <- Some x);
                     true)
       |> ignore;
 
