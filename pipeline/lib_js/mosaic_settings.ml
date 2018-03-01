@@ -77,30 +77,31 @@ module Wm = struct
       in
       box,s
 
-    let make_layers () =
-      let _class            = Markup.CSS.add_element base_class  "layers"      in
-      let container_class   = Markup.CSS.add_element _class      "container"   in
-      let layer_class       = Markup.CSS.add_element base_class  "layer"       in
-      let drag_handle_class = Markup.CSS.add_element layer_class "drag-handle" in
+    let make_layer_item items =
+      let _class            = Markup.CSS.add_element base_class "layer"       in
+      let drag_handle_class = Markup.CSS.add_element _class     "drag-handle" in
 
-      let make_layer items =
-        let open Dynamic_grid.Position in
-        let y = match List.rev items with
-          | []    -> 0
-          | hd::_ -> hd#pos.y + 1
-        in
-        let drag  = new Icon.Font.t ~icon:"drag_handle" () in
-        let text  = new Typography.Text.t ~text:(Printf.sprintf "Слой %d" (y + 1)) () in
-        let box   = new Box.t ~vertical:false ~widgets:[text#widget; drag#widget] () in
-        let pos   = { x = 0; y; w = 1; h = 1 } in
-        let item  = Dynamic_grid.Item.to_item ~pos ~move_widget:drag#widget ~widget:box#widget
-                                              ~resizable:false ~selectable:true ~value:() ()
-        in
-        let ()    = drag#add_class drag_handle_class in
-        let ()    = box#set_justify_content `Space_between in
-        let ()    = box#add_class layer_class in
-        item
+      let open Dynamic_grid.Position in
+      let y = match List.rev items with
+        | []    -> 0
+        | hd::_ -> hd#pos.y + 1
       in
+      let drag  = new Icon.Font.t ~icon:"drag_handle" () in
+      let text  = new Typography.Text.t ~text:(Printf.sprintf "Слой %d" (y + 1)) () in
+      let box   = new Box.t ~vertical:false ~widgets:[text#widget; drag#widget] () in
+      let pos   = { x = 0; y; w = 1; h = 1 } in
+      let item  = Dynamic_grid.Item.to_item ~pos ~move_widget:drag#widget ~widget:box#widget
+                                            ~resizable:false ~selectable:true ~value:() ()
+      in
+      let ()    = drag#add_class drag_handle_class in
+      let ()    = box#set_justify_content `Space_between in
+      let ()    = box#add_class _class in
+      item
+
+    let make_layers () =
+      let _class          = Markup.CSS.add_element base_class "layers"    in
+      let actions_class   = Markup.CSS.add_element _class     "actions"   in
+      let container_class = Markup.CSS.add_element _class     "container" in
 
       let (grid:Dynamic_grid.grid) = { rows             = None
                                      ; cols             = 1
@@ -113,7 +114,7 @@ module Wm = struct
                                      ; restrict_move    = true
                                      }
       in
-      let grid    = new Dynamic_grid.t ~grid ~items:[make_layer []] () in
+      let grid    = new Dynamic_grid.t ~grid ~items:[make_layer_item []] () in
       let layers  = Dom_html.createDiv Dom_html.document |> Widget.create in
       let add     = new Icon.Button.Font.t ~icon:"add_box" () in
       let rm      = new Icon.Button.Font.t ~icon:"delete" () in
@@ -122,13 +123,24 @@ module Wm = struct
       let icons   = new Card.Actions.Icons.t ~widgets:[down#widget;up#widget;add#widget;rm#widget] () in
       let actions = new Card.Actions.t ~widgets:[icons#widget] () in
       let card    = new Card.t ~widgets:[layers#widget;actions#widget] () in
+      let sel     = React.S.map (fun l -> let sel,state = match l with
+                                            | [x] -> Some x, false
+                                            | _   -> None, true in
+                                          up#set_disabled state;
+                                          down#set_disabled state;
+                                          rm#set_disabled state;
+                                          sel)
+                                grid#s_selected
+      in
 
+      let ()      = actions#add_class actions_class in
       let ()      = Option.iter (fun x -> x#set_selected true) @@ List.head_opt grid#items in
       let ()      = layers#add_class container_class in
       let ()      = Dom.appendChild layers#root grid#root in
       let ()      = grid#set_on_load @@ Some (fun () -> grid#layout) in
       let ()      = card#add_class _class in
-      let _       = React.E.map (fun _ -> make_layer grid#items) add#e_click in
+      let _       = React.E.map (fun _ -> grid#add @@ make_layer_item grid#items) add#e_click in
+      let _       = React.E.map (fun _ -> Option.iter (fun w -> w#remove) @@ React.S.value sel) rm#e_click in
       card
 
     let make widgets =

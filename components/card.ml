@@ -48,8 +48,6 @@ module Actions = struct
       inherit widget elt () as super
       method get_widgets = widgets
 
-      initializer
-        List.iter (fun x -> x#add_class Markup.Card.Actions.action_class) widgets
     end
 
 end

@@ -6,6 +6,7 @@
 @import '../../components/fab/_mixins';
 @import '../../components/typography/_mixins';
 @import '../../components/layout-grid/_variables';
+@import '../../components/animation/_variables';
 
 $wm-grid-background-color: background;
 $wm-placeholder-color: text-secondary-on-background;
@@ -142,6 +143,17 @@ $wm-placeholder-color: text-secondary-on-background;
         .mdc-dynamic-grid__item {
             display: flex;
             align-items: stretch;
+        }
+    }
+
+    &__layers__actions {
+        i.mdc-icon {
+            @include mdc-theme-prop(color,text-secondary-on-light);
+            transition: color 150ms $mdc-animation-standard-curve-timing-function;
+        }
+        i.mdc-icon--disabled {
+            cursor: default;
+            @include mdc-theme-prop(color,text-disabled-on-light);
         }
     }
 

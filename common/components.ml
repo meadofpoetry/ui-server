@@ -114,8 +114,9 @@ module Make
 
   module Icon = struct
 
-    let base_class   = "mdc-icon"
-    let button_class = CSS.add_modifier base_class "button"
+    let base_class     = "mdc-icon"
+    let button_class   = CSS.add_modifier base_class "button"
+    let disabled_class = CSS.add_modifier base_class "disabled"
 
     module Font = struct
 

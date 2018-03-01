@@ -955,8 +955,6 @@ class ['a] t ~grid ~(items:'a item list) () =
       | [] -> let item = new_item x in
               e_modify_push (`Add item);
               Dom.appendChild self#root item#root;
-              (* FIXME make vertical compact variable *)
-              if grid.vertical_compact then self#compact;
               Ok ()
       | l  -> Error (Collides l)
 
@@ -1028,12 +1026,9 @@ class ['a] t ~grid ~(items:'a item list) () =
       in
       self#action_wrapper ~on_init ~on_move ~on_click
 
-    method remove (x:'a Item.t) vc =
-      x#remove;
-      (* FIXME make vertical compact variable *)
-      if grid.vertical_compact && vc then self#compact
+    method remove (x:'a Item.t) = x#remove
 
-    method remove_all () = List.iter (fun x -> self#remove x false) self#items
+    method remove_all () = List.iter (fun x -> self#remove x) self#items
 
     method remove_free =
       let items         = List.map (fun x -> x#pos) @@ React.S.value s_items in
@@ -1057,7 +1052,7 @@ class ['a] t ~grid ~(items:'a item list) () =
                                                else (acc, `Continue)) None (React.S.value self#s_items)
         in
         match el with
-        | Some x -> self#remove x true; Ok ()
+        | Some x -> self#remove x; Ok ()
         | None   -> Error (Collides [])
       in
       self#action_wrapper ~on_init ~on_move ~on_click
@@ -1126,16 +1121,16 @@ class ['a] t ~grid ~(items:'a item list) () =
                          Dom_events.stop_listen click_listener;
                          Dom_events.stop_listen esc_listener;
                          Dom.removeChild self#root ghost#root;
-                         (* FIXME make vertical compact variable *)
-                         if grid.vertical_compact then self#compact;
                          Lwt.return_unit) |> ignore;
          t
 
     initializer
       (* add item add/remove listener *)
-      React.E.map (function
-          | `Add (x:'a Item.t) -> Dom.appendChild self#root x#root
-          | `Remove x          -> Dom.removeChild self#root x#root) e_modify
+      React.E.map (fun action -> (match action with
+                                  | `Add (x:'a Item.t) -> Dom.appendChild self#root x#root
+                                  | `Remove x          -> Dom.removeChild self#root x#root);
+                                 (* FIXME make vertical compact variable *)
+                                 if grid.vertical_compact then self#compact) e_modify
       |> ignore;
       (* add initial items *)
       List.iter (fun x -> e_modify_push (`Add x)) items;
