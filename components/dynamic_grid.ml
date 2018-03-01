@@ -2,18 +2,10 @@ open Containers
 
 module Utils = struct
 
-  (** rounds a number the right way **)
-  let round x =
-    if Float.(x < (floor x +. 0.5))
-    then int_of_float @@ floor x
-    else int_of_float @@ ceil x
-
-  let px = Printf.sprintf "%dpx"
-
+  let round x   = (if Float.(x < (floor x +. 0.5)) then floor x else ceil x) |> int_of_float
+  let px        = Printf.sprintf "%dpx"
   let translate = Printf.sprintf "translate(%dpx, %dpx)"
-
-  let (//) x y =
-    round @@ (float_of_int x) /. (float_of_int y)
+  let (//) x y  = round @@ (float_of_int x) /. (float_of_int y)
 
 end
 
@@ -42,9 +34,7 @@ module Position = struct
 
   (** get first element that collides with position **)
   let get_first_collision ~(f:'a -> t) pos (l:'a list) =
-    List.fold_while (fun acc (x:'a) -> if collides pos (f x)
-                                       then (Some x,`Stop)
-                                       else (acc,`Continue)) None l
+    List.fold_while (fun acc (x:'a) -> if collides pos (f x) then (Some x,`Stop) else (acc,`Continue)) None l
 
   (** get all elements that collides with position **)
   let get_all_collisions ~(f:'a -> t) pos (l:'a list) =
@@ -64,8 +54,7 @@ module Position = struct
     up pos
 
   (** Sorts positions by top **)
-  let sort_by_y ~(f:'a -> t) (l:'a list) =
-    List.sort (fun p1 p2 -> compare (f p1).y (f p2).y) l
+  let sort_by_y ~(f:'a -> t) (l:'a list) = List.sort (fun p1 p2 -> compare (f p1).y (f p2).y) l
 
   (** Given a list of collisions and overall items in grid, resolve these collisions by moving down **)
   let rec move_down ?rows ~f ~(eq:'a -> 'a -> bool) ~(collisions:'a list) (pos : t) (l:'a list) =
@@ -231,8 +220,7 @@ module Position = struct
     { p with h }
 
   let correct_wh ?max_w ?min_w ?max_h ?min_h p par_w par_h =
-    correct_w ?max_w ?min_w p par_w
-    |> (fun p -> correct_h ?max_h ?min_h p par_h)
+    correct_w ?max_w ?min_w p par_w |> (fun p -> correct_h ?max_h ?min_h p par_h)
 
 end
 
@@ -311,9 +299,9 @@ module Item = struct
 
       (** API **)
 
-      method pos        : Position.t              = React.S.value s_pos
-      method s_pos      : Position.t React.signal = s_pos
-      method set_pos    : Position.t -> unit      = s_pos_push ?step:None
+      method pos     : Position.t              = React.S.value s_pos
+      method s_pos   : Position.t React.signal = s_pos
+      method set_pos : Position.t -> unit      = s_pos_push ?step:None
 
       (** Private methods **)
 
@@ -362,6 +350,7 @@ module Item = struct
     inherit ['a] cell ~typ:`Item ~s_col_w ~s_row_h ~s_item_margin ~item () as super
 
     val s_change      = React.S.create item.pos
+    val ghost         = new cell ~typ:`Ghost ~s_col_w ~s_row_h ~s_item_margin ~item ()
     val resize_button = Markup.Dynamic_grid.Item.create_resize_button ()
                         |> Tyxml_js.To_dom.of_element |> Widget.create
 
@@ -375,8 +364,6 @@ module Item = struct
     val mutable selected        = false
     val mutable drag_timer      = None
 
-    val ghost = new cell ~typ:`Ghost ~s_col_w ~s_row_h ~s_item_margin ~item ()
-
     (** API **)
 
     method get_widget = item.widget
@@ -389,45 +376,34 @@ module Item = struct
     method set_value (x:'a) = value <- x
     method get_value : 'a   = value
 
-    method set_draggable (x : bool) = draggable <- x
-    method get_draggable : bool     = draggable
+    method set_draggable x  = draggable <- x
+    method get_draggable    = draggable
 
-    method set_resizable (x : bool) =
-      if x
-      then Dom.appendChild self#root resize_button#root
+    method set_resizable x  =
+      if x then Dom.appendChild self#root resize_button#root
       else (try Dom.removeChild self#root resize_button#root; with _ -> ());
       resizable <- x
-    method get_resizable : bool = resizable
+    method get_resizable    = resizable
 
-    method set_selectable x = if not x then self#set_selected false;
-                              selectable <- x
+    method set_selectable x = if not x then self#set_selected false; selectable <- x
     method get_selectable   = selectable
 
-    method remove : unit =
-      self#set_selected false;
-      e_modify_push (`Remove self)
-
-    method selected (x : bool)   = selected <- x
+    method remove : unit    = self#set_selected false; e_modify_push (`Remove self)
 
     method set_selected x : unit =
       let o = React.S.value s_selected in
       match x with
-      | true  -> let i = (self :> 'a t) in
-                 self#add_class Markup.Dynamic_grid.Item.selected_class;
-                 if grid.multi_select
-                 then (if not self#get_selected then s_selected_push (i :: o))
-                 else (List.iter (fun x -> if not @@ eq x self
-                                           then (x#selected false;
-                                                 x#remove_class Markup.Dynamic_grid.Item.selected_class)) o;
+      | true  -> if grid.multi_select
+                 then (if not self#get_selected then s_selected_push ((self :> 'a t) :: o))
+                 else (List.iter (fun x -> if not (eq x self) then x#set_selected false) o;
                        s_selected_push [(self :> 'a t)]);
+                 self#add_class Markup.Dynamic_grid.Item.selected_class;
                  selected <- true
-      | false -> self#remove_class Markup.Dynamic_grid.Item.selected_class;
-                 if grid.multi_select
-                 then (if self#get_selected
-                       then (let n = List.filter (fun x -> not @@ eq x self) o in
-                             s_selected_push n))
-                 else s_selected_push [];
-                 selected <- false
+      | false -> if self#get_selected
+                 then (let n = List.filter (fun x -> not @@ eq x self) o in
+                       self#remove_class Markup.Dynamic_grid.Item.selected_class;
+                       s_selected_push n;
+                       selected <- false)
     method get_selected   = selected
 
     (** Private methods **)
@@ -439,21 +415,10 @@ module Item = struct
     method private items = React.S.value s_items
 
     method private has_collision (pos : Position.t) =
-      Position.has_collision ~f:(fun x -> React.S.value x#s_pos)
-                             pos
-                             (List.filter (fun x -> x#root != self#root) (React.S.value s_items))
+      Position.has_collision ~f:(fun x -> x#pos) pos (List.filter Fun.(eq self %> not) self#items)
 
     method private get_parent : Dom_html.element Js.t =
-      let par_opt = Js.Opt.to_option self#root##.parentNode |> Option.map Js.Unsafe.coerce in
-      Option.get_exn par_opt
-
-    method private get_parent_pos : Position.t =
-      let par = self#get_parent in
-      { x = par##.offsetLeft
-      ; y = par##.offsetTop
-      ; w = par##.offsetWidth
-      ; h = par##.offsetHeight
-      }
+      Js.Opt.to_option self#root##.parentNode |> Option.map Js.Unsafe.coerce |> Option.get_exn
 
     method private mouse_action meth ev =
       let init_pos = px_pos in
@@ -862,17 +827,15 @@ class overlay_grid ~parent ~s_col_w ~s_row_h ~s_item_margin () =
              ; self#line_background_image 0     dc (rh * (snd self#get_divider_period)) (snd margin)
              ]
       in
-      let lines =
-        [ self#line_background_image (-90) gc cw (fst margin)
-        ; self#line_background_image 0     gc rh (snd margin)
-        ]
+      let lines = [ self#line_background_image (-90) gc cw (fst margin)
+                  ; self#line_background_image 0     gc rh (snd margin)
+                  ]
       in
-      let bg    = lines @ dividers in
-      let bg_image = String.concat "," bg in
+      let bg_image   = String.concat "," (lines @ dividers) in
       let sz_w, sz_h = if show_dividers then cw * fst self#get_divider_period,
                                              rh * snd self#get_divider_period
                        else cw, rh in
-      let bg_size  = Printf.sprintf "%dpx %dpx" sz_w sz_h in
+      let bg_size    = Printf.sprintf "%dpx %dpx" sz_w sz_h in
       self#style##.backgroundImage := Js.string bg_image;
       (Js.Unsafe.coerce self#style)##.backgroundSize := Js.string bg_size
 
@@ -884,43 +847,45 @@ class overlay_grid ~parent ~s_col_w ~s_row_h ~s_item_margin () =
 
   end
 
+let to_grid ?max_col_width ?(min_col_width=1) ?rows ?row_height ?(vertical_compact=false)
+            ?items_margin ?(multi_select=false) ?(restrict_move=false) ~cols () =
+  { min_col_width; max_col_width; cols; rows;
+    row_height; vertical_compact; items_margin;
+    multi_select; restrict_move
+  }
+
 class ['a] t ~grid ~(items:'a item list) () =
   let e_modify,e_modify_push     = React.E.create () in
   let s_selected,s_selected_push = React.S.create [] in
   let s_col_w,s_col_w_push       = React.S.create grid.min_col_width in
-  let s_row_h                    = match grid.row_height with
+  let s_row_h = match grid.row_height with
     | Some rh -> React.S.const rh
     | None    -> s_col_w
   in
   let s_item_margin,s_item_margin_push = React.S.create (Option.get_or ~default:(0,0) grid.items_margin) in
-  let s_items  = React.S.fold
-                   (fun acc x ->
-                     match x with
-                     | `Add x    -> x :: acc
-                     | `Remove x -> List.filter (fun i -> i#root != x#root) acc)
-                   [] e_modify in
+  let s_items  = React.S.fold (fun acc -> function
+                                | `Add x    -> x :: acc
+                                | `Remove x -> List.filter Fun.(Item.eq x %> not) acc)
+                              [] e_modify
+  in
   let new_item item = new Item.t ~grid ~s_items ~e_modify_push ~s_selected ~s_selected_push
                           ~s_col_w ~s_row_h ~s_item_margin ~item ()
   in
-  let items    = List.map (fun item -> new_item item) items in
-  let s_change =
-    let m a x = x :: a in
-    React.S.map (fun l -> React.S.merge m [] (List.map (fun x -> x#s_change) l)) s_items
-    |> React.S.switch
+  let items      = List.map (fun item -> new_item item) items in
+  let s_change   = let m a x = x :: a in
+                   React.S.map (fun l -> React.S.merge m [] (List.map (fun x -> x#s_change) l)) s_items
+                   |> React.S.switch
   in
-  (* FIXME *)
-  let s_changing =
-    let m a x = x :: a in
-    React.S.map (fun l -> React.S.merge m [] (List.map (fun x -> x#s_changing) l)) s_items
-    |> React.S.switch
+  let s_changing = let m a x = x :: a in
+                   React.S.map (fun l -> React.S.merge m [] (List.map (fun x -> x#s_changing) l)) s_items
+                   |> React.S.switch
   in
-  let s_rows = match grid.rows with
+  let s_rows     = match grid.rows with
     | Some h -> React.S.const h
-    | None   ->
-       let merge = (fun acc (x:Position.t) -> if (x.h + x.y) > acc then (x.h + x.y) else acc) in
-       React.S.map (fun (l:Position.t list) -> List.fold_left merge 1 l) s_changing
+    | None   -> let merge = (fun acc (x:Position.t) -> if (x.h + x.y) > acc then (x.h + x.y) else acc) in
+                React.S.map (fun (l:Position.t list) -> List.fold_left merge 1 l) s_changing
   in
-  let elt          = Markup.Dynamic_grid.create ~items:[] () |> Tyxml_js.To_dom.of_element in
+  let elt = Markup.Dynamic_grid.create ~items:[] () |> Tyxml_js.To_dom.of_element in
 
   object(self)
 
@@ -928,7 +893,6 @@ class ['a] t ~grid ~(items:'a item list) () =
 
     val overlay_grid      = new overlay_grid ~parent:elt ~s_col_w ~s_row_h ~s_item_margin ()
     val mutable in_action = false
-    val mutable in_dom    = false
     val mutable residue   = 0
 
     (** API **)
@@ -1028,7 +992,7 @@ class ['a] t ~grid ~(items:'a item list) () =
 
     method remove (x:'a Item.t) = x#remove
 
-    method remove_all () = List.iter (fun x -> self#remove x) self#items
+    method remove_all = List.iter (fun x -> self#remove x) self#items
 
     method remove_free =
       let items         = List.map (fun x -> x#pos) @@ React.S.value s_items in
@@ -1069,59 +1033,48 @@ class ['a] t ~grid ~(items:'a item list) () =
     (** Private methods **)
 
     method private compact =
-      let sorted = Position.sort_by_y ~f:(fun x -> x#pos) self#items in
-      let other (i:'a Item.t) = List.filter (fun x -> not @@ Equal.physical x#root i#root) self#items in
-      List.iter (fun (x:'a Item.t) -> let new_pos = Position.compact ~f:(fun x -> x#pos) x#pos (other x) in
-                                      x#set_pos new_pos)
-                sorted
+      let other i = List.filter (fun x -> not @@ Equal.physical x#root i#root) self#items in
+      List.iter (fun x -> x#set_pos @@ Position.compact ~f:(fun x -> x#pos) x#pos (other x)) self#items
 
     method private get_event_pos e : Position.t option =
       let rect = self#get_client_rect in
-      let left = int_of_float rect.left in
-      let top  = int_of_float rect.top in
-      let x = e##.clientX - left in
-      let y = e##.clientY - top  in
-      let (pos:Position.t) = { x; y; w = 1; h = 1 } in
+      let x,y  = e##.clientX - (int_of_float rect.left),
+                 e##.clientY - (int_of_float rect.top) in
       if x <= self#get_offset_width && x >= 0 && y <= self#get_offset_height && y >= 0
-      then Some pos else None
+      then Some { x; y; w = 1; h = 1 } else None
 
     method private action_wrapper ~on_init ~on_move ~on_click =
       match in_action with
       | true  -> Lwt.return_error In_progress
       | false ->
          in_action <- true;
-         let open Lwt.Infix in
          let t,wakener = Lwt.wait () in
          let item      = Item.to_item ~pos:Position.empty ~min_w:1 ~min_h:1 ~max_w:1 ~max_h:1 ~value:() () in
          let ghost     = new Item.cell ~typ:`Ghost ~s_col_w ~s_row_h ~s_item_margin ~item () in
          on_init ghost;
          Dom.appendChild self#root ghost#root;
+         let open Dom_events in
          let move_listener  =
-           Dom_events.listen Dom_html.document##.body
-                             Dom_events.Typ.mousemove
-                             (fun _ e -> let epos = self#get_event_pos e in on_move ghost epos; true)
+           listen Dom_html.document##.body Typ.mousemove
+                  (fun _ e -> let epos = self#get_event_pos e in on_move ghost epos; true)
          in
          let click_listener =
-           Dom_events.listen self#root
-                             Dom_events.Typ.click
-                             (fun _ _ -> Lwt.wakeup wakener @@ on_click ghost; false)
+           listen self#root Typ.click (fun _ _ -> Lwt.wakeup wakener @@ on_click ghost; false)
          in
          let esc_listener   =
-           Dom_events.listen Dom_html.window
-                             Dom_events.Typ.keydown
-                             (fun _ e -> let key = Option.map Js.to_string @@ Js.Optdef.to_option e##.key in
-                                         (match key,e##.keyCode with
-                                          | Some "Esc",_ | Some "Escape",_ | _,27 ->
-                                             Lwt.wakeup wakener @@ Error Cancelled
-                                          | _      -> ());
-                                         true)
+           listen Dom_html.window Typ.keydown
+                  (fun _ e -> let key = Option.map Js.to_string @@ Js.Optdef.to_option e##.key in
+                              (match key,e##.keyCode with
+                               | Some "Esc",_ | Some "Escape",_ | _,27 -> Lwt.wakeup wakener @@ Error Cancelled
+                               | _      -> ());
+                              true)
          in
-         t >>= (fun _ -> in_action <- false;
-                         Dom_events.stop_listen move_listener;
-                         Dom_events.stop_listen click_listener;
-                         Dom_events.stop_listen esc_listener;
-                         Dom.removeChild self#root ghost#root;
-                         Lwt.return_unit) |> ignore;
+         Lwt.Infix.(t >>= (fun _ -> in_action <- false;
+                                    stop_listen move_listener;
+                                    stop_listen click_listener;
+                                    stop_listen esc_listener;
+                                    Dom.removeChild self#root ghost#root;
+                                    Lwt.return_unit) |> ignore);
          t
 
     initializer
@@ -1146,7 +1099,6 @@ class ['a] t ~grid ~(items:'a item list) () =
       React.S.l3 (fun h row_h margin -> self#style##.height := Js.string @@ Utils.px (h * row_h + (snd margin)))
                  s_rows s_row_h s_item_margin
       |> ignore;
-      Dom_events.listen Dom_html.window Dom_events.Typ.resize (fun _ _ -> self#layout; true)
-      |> ignore;
+      Dom_events.listen Dom_html.window Dom_events.Typ.resize (fun _ _ -> self#layout; true) |> ignore;
 
   end
