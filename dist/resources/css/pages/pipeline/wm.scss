@@ -24,82 +24,153 @@ $wm-placeholder-color: text-secondary-on-background;
     width: auto;
 }
 
-.wm-grid-wrapper {
-    @include mdc-theme-prop(background-color,$wm-grid-background-color);
-    @include mdc-elevation(2);
+// ---- PLACEHOLDER ----
 
+.wm-placeholder {
+    z-index: 1;
     width: 100%;
-    height: auto;
-}
+    height: 100%;
+    position: absolute;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 
-.wm-grid {
-    $wm-grid-border: 2px dashed rgba(0,0,0,.12);
-
-    margin: 0 auto;
-
-    border-left: $wm-grid-border;
-    border-right: $wm-grid-border;
-
-    &.mdc-dynamic-grid--with-overlay-grid {
-        border: none;
-    }
-
-    .mdc-dynamic-grid__item {
-        @include mdc-theme-prop(background-color, primary-light);
-        @include mdc-theme-prop(color, text-primary-on-primary-light);
-        border: 2px solid rgba(0,0,0,.12);
-
-        &--selected {
-            @include mdc-theme-prop(background-color, primary-dark);
-        }
-
-    }
-    .mdc-dynamic-grid__item__ghost {
-        @include mdc-theme-prop(background-color, secondary);
-    }
-
-    &__placeholder__container {
-        z-index: 1;
-        width: 100%;
-        height: 100%;
-        position: absolute;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-
-        .mdc-typography {
-            @include mdc-theme-prop(color, $wm-placeholder-color);
-            @include mdc-typography(subheading2);
-            margin-top: 12px;
-            order: 1;
-            text-align: center;
-        }
-        .mdc-icon {
-            @include mdc-theme-prop(color, $wm-placeholder-color);
-            font-size: 48px;
-            order: 0;
-        }
-
-        @media (max-width: 600px) {
-            .mdc-typography {
-                @include mdc-typography(caption);
-            }
-            .mdc-icon {
-                font-size: 32px;
-            }
-        }
-    }
-
-    &__placeholder {
+    &__content {
         @include mdc-theme-prop(background-color, background);
         padding: 20px;
         border-radius: 4px;
     }
 
-    &__placeholder--bordered {
-        border: 2px solid rgba(0,0,0,.12);
+    &__content--bordered { border: 2px solid rgba(0,0,0,.12); }
+
+    .mdc-typography {
+        @include mdc-theme-prop(color, $wm-placeholder-color);
+        @include mdc-typography(subheading2);
+        margin-top: 12px;
+        order: 1;
+        text-align: center;
+    }
+    .mdc-icon {
+        @include mdc-theme-prop(color, $wm-placeholder-color);
+        font-size: 48px;
+        order: 0;
+    }
+
+    @media (max-width: 600px) {
+        .mdc-typography { @include mdc-typography(caption); }
+        .mdc-icon       { font-size: 32px; }
     }
 }
+
+// ---- SELECTABLE TITLE ----
+
+.wm-selectable-title {
+
+    margin-bottom: 15px;
+
+    &__title {
+        @include mdc-theme-prop(color, text-disabled-on-background);
+        margin-left: 15px;
+        cursor: pointer;
+    }
+
+    &__title--active {
+        cursor: default;
+        @include mdc-theme-prop(color, text-primary-on-background);
+    }
+
+}
+
+// ---- ITEMS ----
+
+.wm-items {
+
+    flex-grow: 2;
+
+    &__add {
+        flex: 1 1 200px;
+    }
+
+    &__add__item {
+        @include mdc-theme-prop(background-color,background);
+
+        display: flex;
+        align-items: center;
+        align-content: stretch;
+        border-bottom: 1px solid rgba(0,0,0,.12);
+        cursor: pointer;
+
+        .mdc-icon {
+            @include mdc-theme-prop(color,text-secondary-on-background);
+            padding: 12px;
+        }
+    }
+
+    &__properties {
+        position: relative;
+        flex: 1 1 200px;
+    }
+}
+
+#wm-item-properties {
+    padding: 20px;
+}
+
+// ---- LAYERS ----
+
+.wm-layer-item {
+    @include mdc-theme-prop(background-color,background);
+
+    flex-grow: 1;
+    padding: 10px 0 10px 20px;
+    display: flex;
+    align-items: center;
+    align-content: stretch;
+    border-bottom: 1px solid rgba(0,0,0,.12);
+
+    &__drag-handle {
+        padding: 12px;
+    }
+}
+
+.wm-layers-grid-wrapper {
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex: 1 1 200px; // FIXME try to understand this magic
+
+    .mdc-dynamic-grid__item {
+        display: flex;
+        align-items: stretch;
+    }
+
+    .mdc-dynamic-grid__item--selected {
+        .wm-layer-item {
+            @include mdc-theme-prop(color,text-primary-on-primary);
+            @include mdc-theme-prop(background-color,primary);
+            &__drag-handle {
+                @include mdc-theme-prop(color,text-primary-on-primary);
+            }
+        }
+    }
+}
+
+.wm-layers-actions {
+    i.mdc-icon {
+        @include mdc-theme-prop(color,text-secondary-on-light);
+        transition: color 150ms $mdc-animation-standard-curve-timing-function;
+    }
+    i.mdc-icon--disabled {
+        cursor: default;
+        @include mdc-theme-prop(color,text-disabled-on-light);
+    }
+}
+
+.wm-layers-card {
+    flex-grow: 1;
+    justify-content: space-between;
+}
+
+// ---- LEFT TOOLBAR ----
 
 .wm-left-toolbar {
     $phone: map-get($mdc-layout-grid-breakpoints, phone);
@@ -120,101 +191,54 @@ $wm-placeholder-color: text-secondary-on-background;
     }
 }
 
+// ---- GRID ----
+
+.wm-grid {
+
+    &__wrapper {
+        @include mdc-theme-prop(background-color,$wm-grid-background-color);
+        @include mdc-elevation(2);
+
+        width: 100%;
+        height: auto;
+    }
+
+    &__grid {
+        $wm-grid-border: 2px dashed rgba(0,0,0,.12);
+
+        margin: 0 auto;
+
+        border-left: $wm-grid-border;
+        border-right: $wm-grid-border;
+
+        &.mdc-dynamic-grid--with-overlay-grid {
+            border: none;
+        }
+
+        .mdc-dynamic-grid__item {
+            @include mdc-theme-prop(background-color, primary-light);
+            @include mdc-theme-prop(color, text-primary-on-primary-light);
+            border: 2px solid rgba(0,0,0,.12);
+
+            &--selected {
+                @include mdc-theme-prop(background-color, primary-dark);
+            }
+
+        }
+        .mdc-dynamic-grid__item__ghost {
+            @include mdc-theme-prop(background-color, secondary);
+        }
+    }
+}
+
+// ---- RIGHT TOOLBAR ----
+
 .wm-right-toolbar {
     height: 100%;
     display: flex;
-    > * { margin-bottom: 15px; }
-    > *:last-child { margin-bottom: 0; }
-
-    &__title {
-        @include mdc-theme-prop(color, text-disabled-on-background);
-        margin-left: 15px;
-        cursor: pointer;
-    }
-
-    &__title--active {
-        cursor: default;
-        @include mdc-theme-prop(color, text-primary-on-background);
-    }
-
-    &__layers {
-        flex-grow: 1;
-        justify-content: space-between;
-    }
-
-    &__layers__container {
-
-        overflow-y: auto;
-        overflow-x: hidden;
-        flex: 1 1 200px; // FIXME try to understand this magic
-
-        .mdc-dynamic-grid__item {
-            display: flex;
-            align-items: stretch;
-        }
-    }
-
-    &__layers__actions {
-        i.mdc-icon {
-            @include mdc-theme-prop(color,text-secondary-on-light);
-            transition: color 150ms $mdc-animation-standard-curve-timing-function;
-        }
-        i.mdc-icon--disabled {
-            cursor: default;
-            @include mdc-theme-prop(color,text-disabled-on-light);
-        }
-    }
-
-    &__layer {
-        @include mdc-theme-prop(background-color,background);
-
-        flex-grow: 1;
-        padding: 10px 0 10px 20px;
-        display: flex;
-        align-items: center;
-        align-content: stretch;
-        border-bottom: 1px solid rgba(0,0,0,.12);
-
-        &__drag-handle {
-            padding: 12px;
-        }
-    }
-
-    .mdc-dynamic-grid__item--selected {
-        .wm-right-toolbar__layer {
-            @include mdc-theme-prop(color,text-primary-on-primary);
-            @include mdc-theme-prop(background-color,primary);
-
-            &__drag-handle {
-                @include mdc-theme-prop(color,text-primary-on-primary);
-            }
-        }
-    }
-
-    &__item-card {
+    > * {
+        margin-bottom: 20px;
         flex-grow: 2;
     }
-    &__add {
-        flex: 1 1 200px;
-    }
-
-    &__add-candidate {
-        @include mdc-theme-prop(background-color,background);
-
-        display: flex;
-        align-items: center;
-        align-content: stretch;
-        border-bottom: 1px solid rgba(0,0,0,.12);
-        cursor: pointer;
-
-        .mdc-icon {
-            @include mdc-theme-prop(color,text-secondary-on-background);
-            padding: 12px;
-        }
-    }
-
-
-    &__properties {
-        flex: 1 1 200px;
-    }
+    > *:last-child { margin-bottom: 0; }
 }
