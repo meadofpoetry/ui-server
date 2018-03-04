@@ -26,6 +26,7 @@ module type Item = sig
 
   val create_item     : add_candidate -> item
   val pos_of_item     : item -> Wm.position
+  val update_pos      : item -> Wm.position -> item
 
   (* Right toolbar properties *)
   (* Layers properties *)
@@ -52,6 +53,7 @@ module Container_item : Item with type item = Wm.container = struct
                              ; widgets  = []
                              }
   let pos_of_item (item : item) = item.position
+  let update_pos  (item : item) (pos : Wm.position) = { item with position = pos }
   let make_item_props (item: (string * item) Dynamic_grid.Item.t) =
     let (name,cont) = item#get_value in
     let name        = Printf.sprintf "Имя: %s" name in
@@ -93,6 +95,7 @@ module Widget_item : Item with type item = Wm.widget = struct
                               ; description = ""
                               }
   let pos_of_item (item : item) = item.position
+  let update_pos  (item : item) (pos : Wm.position) = { item with position = pos }
   let make_item_props _ =
     let box         = new Box.t ~vertical:true ~widgets:[] () in
     box#widget
@@ -476,10 +479,23 @@ module Items_grid(I : Item) = struct
                                       |> Yojson.Safe.from_string
                            in
                            (match add_candidate_of_yojson json with
-                            | Ok ac -> self#add @@ Dynamic_grid.Item.to_item ~pos:ghost#pos
-                                                                             ~value:("",I.create_item ac)
-                                                                             ()
-                                       |> ignore;
+                            | Ok ac -> let item = Dynamic_grid.Item.to_item ~pos:ghost#pos
+                                                                            ~value:("",I.create_item ac)
+                                                                            ()
+                                       in
+                                       let convert_pos (pos:Dynamic_grid.Position.t) : Wm.position =
+                                         let left   = pos.x * 100 in
+                                         let right  = (pos.w + pos.x) * 100 in
+                                         let top    = pos.y * 100 in
+                                         let bottom = (pos.h + pos.y) * 100 in
+                                         { left; bottom; right; top }
+                                       in
+                                       let f i p = let (s,(v:I.item)) = i#get_value in
+                                                   let (nv : I.item)  = I.update_pos v @@ convert_pos p in
+                                                   i#set_value (s,nv)
+                                       in
+                                       Result.iter (fun i -> React.S.map (fun p -> f i p) i#s_change
+                                                             |> ignore) @@ self#add item;
                             | _     -> ());
                            ghost#set_pos Dynamic_grid.Position.empty;
                            true)
@@ -642,7 +658,12 @@ let create ~(init:     Wm.t)
                                 ~s_conf
                                 ~actions:[back]
                                 () in
-              let _ = React.E.map (fun _ -> s_state_push @@ `Container (Some w)) back#e_click in
+              let _ = React.E.map (fun _ ->
+                          let (s,v) = sel#get_value in
+                          let nv    = { v with widgets = List.map (fun x -> x#get_value) w.ig#grid#items } in
+                          sel#set_value (s,nv);
+                          (* TODO Update min/max container w and h here *)
+                          s_state_push @@ `Container (Some w)) back#e_click in
               s_state_push (`Widget w)) edit#e_click
   in
   let _ = React.S.l2 (fun state sel ->
