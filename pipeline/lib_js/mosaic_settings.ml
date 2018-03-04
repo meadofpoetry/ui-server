@@ -16,13 +16,16 @@ type add_candidate =
   { icon : string
   ; typ  : string
   ; name : string
-  }
+  } [@@deriving yojson]
+
+let drag_data_type = "add_candidate"
 
 module type Item = sig
 
   type item
 
   val create_item     : add_candidate -> item
+  val pos_of_item     : item -> Wm.position
 
   (* Right toolbar properties *)
   (* Layers properties *)
@@ -43,11 +46,12 @@ module Container_item : Item with type item = Wm.container = struct
 
   let max_layers     = 1
   let add_candidates = [ { icon = "crop_16_9"; name = "Контейнер"; typ = "container" } ]
-  let grid_title     = "Раскладка окон"
+  let grid_title     = "Контейнеры"
 
-  let create_item _ : item = { position = { left=0;top=0;right=0;bottom=0 }
+  let create_item _ : item = { position = { left=0;top=0;right=100;bottom=100 }
                              ; widgets  = []
                              }
+  let pos_of_item (item : item) = item.position
   let make_item_props (item: (string * item) Dynamic_grid.Item.t) =
     let (name,cont) = item#get_value in
     let name        = Printf.sprintf "Имя: %s" name in
@@ -88,6 +92,7 @@ module Widget_item : Item with type item = Wm.widget = struct
                               ; aspect      = (1,1)
                               ; description = ""
                               }
+  let pos_of_item (item : item) = item.position
   let make_item_props _ =
     let box         = new Box.t ~vertical:true ~widgets:[] () in
     box#widget
@@ -267,26 +272,43 @@ module Items(I : Item) = struct
   module Add = struct
 
     let base_class = Markup.CSS.add_element base_class "add"
+    let item_class = Markup.CSS.add_element base_class "item"
 
-    let make_item (item : add_candidate) =
-      let _class = Markup.CSS.add_element base_class "item" in
+    class item ~props ~widgets () = object(self)
 
-      let icon = new Icon.Font.t ~icon:item.icon () in
-      let text = new Typography.Text.t ~adjust_margin:false ~text:item.name () in
-      let box  = new Box.t ~vertical:false ~widgets:[icon#widget;text#widget] () in
-      let ()   = box#add_class _class in
+      inherit Box.t ~vertical:false ~widgets ()
+
+      initializer
+        Dom_events.listen self#root Dom_events.Typ.dragstart
+                          (fun _ e -> let s = add_candidate_to_yojson props
+                                              |> Yojson.Safe.to_string
+                                              |> Js.string
+                                      in
+                                      e##.dataTransfer##setData (Js.string drag_data_type) s;
+                                      self#style##.opacity := Js.def @@ Js.string "0.5";
+                                      self#style##.zIndex := Js.string "5";
+                                      true)
+        |> ignore;
+        Dom_events.listen self#root Dom_events.Typ.dragend
+                          (fun _ _ -> self#style##.opacity := Js.def @@ Js.string "";
+                                      self#style##.zIndex := Js.string "";
+                                      false)
+        |> ignore;
+        self#add_class item_class;
+        self#set_attribute "draggable" "true"
+
+    end
+
+    let make_item (props : add_candidate) =
+
+      let icon = new Icon.Font.t ~icon:props.icon () in
+      let text = new Typography.Text.t ~adjust_margin:false ~text:props.name () in
+      let box  = new item ~props ~widgets:[icon#widget;text#widget] () in
       box
 
     let make () =
       let items  = List.map (fun x -> x,make_item x) I.add_candidates in
       let box    = new Box.t ~widgets:(List.map snd items) () in
-      (* let ()     = List.iter (fun (ac,w) ->
-       *                  Dom_events.listen w#root Dom_events.Typ.click
-       *                                    (fun _ _ -> grid#add_free ~value:("",I.create_item ac) ()
-       *                                                |> ignore;
-       *                                                false)
-       *                  |> ignore) items
-       * in *)
       let ()     = box#add_class base_class in
       box
 
@@ -349,25 +371,135 @@ module Items_grid(I : Item) = struct
 
   let base_class = "wm-grid"
 
-  let make_grid ~(init: (string * I.item) list) (* Initial layout *)
-                ~(cols: int)
-                ~(rows: int)
+  let to_item ~resolution ~cols ~rows (i:string * I.item) : (string * I.item) Dynamic_grid.item =
+    let (position:Wm.position) = I.pos_of_item @@ snd i in
+    let left, right, top, bottom =
+      float_of_int position.left, float_of_int position.right,
+      float_of_int position.top, float_of_int position.bottom in
+    let res_w, res_h = resolution in
+    let res_w, res_h = float_of_int res_w, float_of_int res_h in
+    let x            = int_of_float @@ ceil @@ float_of_int cols *. (left /. res_w) in
+    let w            = int_of_float @@ ceil @@ float_of_int cols *. ((right -. left) /. res_w) in
+    let y            = int_of_float @@ ceil @@ float_of_int rows *. (top /. res_h) in
+    let h            = int_of_float @@ ceil @@ float_of_int rows *. ((bottom -. top) /. res_h) in
+    Dynamic_grid.Item.to_item ~pos:{ x; y; w; h } ~value:i ()
+
+  class drop_grid ~grid ~items () =
+  object(self)
+
+    inherit [string * I.item] Dynamic_grid.t ~grid ~items ()
+
+    val mutable enter_target = Js.null
+
+    method private move_ghost ghost = function
+      | None      -> ghost#set_pos Dynamic_grid.Position.empty
+      | Some epos -> let open Dynamic_grid in
+                     let items = List.map (fun x -> x#pos) @@ React.S.value self#s_items in
+                     let width = Some 1 in
+                     let height = Some 1 in
+                     let epos =
+                       Position.({ epos with x = epos.x / React.S.value self#s_col_w;
+                                             y = epos.y / React.S.value self#s_row_h })
+                     in
+                     let open Position in
+                     let cmp =
+                       match width, height with
+                       | Some w, Some h ->
+                          Some (fun n o -> if n.w < w || n.h < h || (n.w * n.h) < (o.w * o.h)
+                                           then 0 else 1)
+                       | Some w, _      -> Some (fun n o -> if n.w < w || n.h < o.h then 0 else 1)
+                       | _, Some h      -> Some (fun n o -> if n.h < h || n.w < o.w then 0 else 1)
+                       | _              -> None
+                     in
+                     let pos = get_free_rect ?cmp ~f:(fun x -> x) epos items grid.cols
+                                             (React.S.value self#s_rows) () in
+                     let pos = Option.map (fun pos ->
+                                   let corr_x = fun w -> if epos.x + w > pos.x + pos.w
+                                                         then (pos.x + pos.w) - w
+                                                         else epos.x
+                                   in
+                                   let corr_y = fun h -> if epos.y + h > pos.y + pos.h
+                                                         then (pos.y + pos.h) - h
+                                                         else epos.y
+                                   in
+                                   match width, height with
+                                   | Some w, Some h ->
+                                      let w = if w < 1 then 1 else w in
+                                      let h = if h < 1 then 1 else h in
+                                      { x = corr_x w; y = corr_y h; w; h}
+                                   | Some w, _  -> let w = if w < 1 then 1 else w in
+                                                   {pos with x = corr_x w; w}
+                                   | _, Some h  -> let h = if h < 1 then 1 else h in
+                                                   {pos with y = corr_y h; h}
+                                   | _          -> pos) pos
+                     in
+                     (match pos with
+                      | Some x -> ghost#set_pos x
+                      | None   -> ghost#set_pos Position.empty)
+
+    initializer
+      (let ghost = new Dynamic_grid.Item.cell
+                       ~typ:`Ghost
+                       ~s_col_w:self#s_col_w
+                       ~s_row_h:self#s_row_h
+                       ~s_item_margin:self#s_item_margin
+                       ~pos:Dynamic_grid.Position.empty
+                       ()
+       in
+       ghost#style##.zIndex := Js.string "10000";
+       Dom.appendChild self#root ghost#root;
+       Dom_events.listen self#root Dom_events.Typ.dragenter
+                         (fun _ e -> Dom_html.stopPropagation e;
+                                     enter_target <- e##.target;
+                                     Dom.preventDefault e;
+                                     true) |> ignore;
+       Dom_events.listen self#root Dom_events.Typ.dragleave
+                         (fun _ e -> Dom_html.stopPropagation e;
+                                     Dom.preventDefault e;
+                                     if Equal.physical enter_target e##.target (* NOTE maybe check for some? *)
+                                     then ghost#set_pos Dynamic_grid.Position.empty;
+                                     true) |> ignore;
+       Dom_events.listen self#root Dom_events.Typ.dragover
+                         (fun _ e ->
+                           let p = self#get_event_pos (e :> Dom_html.mouseEvent Js.t) in
+                           self#move_ghost ghost p;
+                           let b = (Js.Unsafe.coerce e##.dataTransfer##.types)##includes (Js.string drag_data_type) in
+                           if Js.to_bool b
+                           then Dom.preventDefault e;
+                           true)
+       |> ignore;
+       Dom_events.listen self#root Dom_events.Typ.drop
+                         (fun _ e ->
+                           Dom.preventDefault e;
+                           let json = e##.dataTransfer##getData (Js.string drag_data_type)
+                                      |> Js.to_string
+                                      |> Yojson.Safe.from_string
+                           in
+                           (match add_candidate_of_yojson json with
+                            | Ok ac -> self#add @@ Dynamic_grid.Item.to_item ~pos:ghost#pos
+                                                                             ~value:("",I.create_item ac)
+                                                                             ()
+                                       |> ignore;
+                            | _     -> ());
+                           ghost#set_pos Dynamic_grid.Position.empty;
+                           true)
+       |> ignore)
+
+  end
+
+  let make_grid ~(init:        (string * I.item) list) (* Initial layout *)
+                ~(resolution:  int * int)
+                ~(cols:        int)
+                ~(rows:        int)
                 () =
     let _class = Markup.CSS.add_element base_class "grid" in
-    let (grid : (string * I.item) Dynamic_grid.t) =
-      new Dynamic_grid.t
-          ~grid:(Dynamic_grid.to_grid ~cols ~rows ~items_margin:(2,2) ())
-          ~items:[Dynamic_grid.Item.to_item ~pos:{x=0;y=0;w=2;h=2}
-                                            ~value:("Первопроходец",(I.create_item { icon = ""
-                                                                                   ; typ  = ""
-                                                                                   ; name = ""
-                                                   }))
-                                            ()] () in
-    let () = grid#add_class _class in
+    let items  = List.map (to_item ~resolution ~cols ~rows) init in
+    let grid   = new drop_grid ~grid:(Dynamic_grid.to_grid ~cols ~rows ~items_margin:(2,2) ()) ~items () in
+    let ()     = grid#add_class _class in
     grid
 
   class t ~cols ~rows ~(init: (string * I.item) list) () =
-    let grid    = make_grid ~init ~cols ~rows () in
+    let grid    = make_grid ~init ~cols ~rows ~resolution:(1920,1080) () in
     let wrapper = Dom_html.createDiv Dom_html.document |> Widget.create in
     let title   = new Typography.Text.t ~font:Subheading_2 ~text:I.grid_title () in
     let ph      = make_placeholder ~text:"Добавьте элементы в раскладку" ~icon:"add_box" () in
@@ -447,24 +579,18 @@ module Make(I : Item) = struct
            ~(rows:     int)
            ~(s_conf:   editor_config React.signal)
            () =
-    (* grid *)
+    let rm = Left_toolbar.make_action { icon = "delete"; name = "Удалить" } in
+
     let ig = IG.make ~cols ~rows ~init () in
-    (* left toolbar *)
-    let rm = Left_toolbar.make_action { icon   = "delete"
-                                      ; name   = "Удалить"
-                                      } in
-    let _  = React.E.map (fun _ -> Option.iter (fun x -> x#remove) @@ React.S.value ig#s_selected) rm#e_click in
-    let _  = React.S.map (fun x -> rm#set_disabled @@ Option.is_none x) ig#s_selected in
-    let lt = Left_toolbar.make (rm :: actions) in
-    (* right toolbar *)
+    let lt = Left_toolbar.make @@ List.rev (rm :: actions) in
     let rt = RT.make ig#s_selected in
 
-    (* config *)
+
+    let _ = React.E.map (fun _ -> Option.iter (fun x -> x#remove) @@ React.S.value ig#s_selected) rm#e_click in
+    let _ = React.S.map (fun x -> rm#set_disabled @@ Option.is_none x) ig#s_selected in
     let _ = React.S.map (fun x -> if x.show_grid_lines then ig#grid#overlay_grid#show
                                   else ig#grid#overlay_grid#hide)
                         s_conf in
-
-    (* main *)
     { ig; lt; rt}
 
 end
@@ -472,46 +598,57 @@ end
 module Cont = Make(Container_item)
 module Widg = Make(Widget_item)
 
+let resolution_to_aspect (w,h) =
+  let rec gcd a b =
+    if a != 0 && b != 0
+    then let a, b = if a > b then a mod b, b else a, b mod a in gcd a b
+    else a + b
+  in
+  let d = gcd w h in
+  w / d, h / d
+
+let get_preferred_grid asp =
+  let open Dynamic_grid.Utils in
+  if fst asp <= 40
+  then let weight = round (60. /. (float_of_int @@ fst asp)) in
+       weight * (fst asp), weight * (snd asp)
+  else let weight = round (float_of_int (fst asp) /. 60.) in  (* not proper but okay i guess *)
+       (fst asp) / weight, (snd asp) / weight
+
 let create ~(init:     Wm.t)
            ~(post:     Wm.t -> unit)
            ~(widgets:  (string * Wm.widget) list React.signal)
-           ~(rows:     int)
-           ~(cols:     int)
            ~(s_conf:   editor_config React.signal)
            ~(conf_dlg: Dialog.t)
            () =
-  let s_state,s_state_push = React.S.create `Container in
-  let conf = Left_toolbar.make_action { icon   = "settings"
-                                      ; name   = "Настройки"
-                                      } in
-  let edit = Left_toolbar.make_action { icon   = "edit"
-                                      ; name   = "Редактировать"
-                                      } in
-  let back = Left_toolbar.make_action { icon   = "arrow_back"
-                                      ; name   = "Назад"
-                                      } in
-  let save = Left_toolbar.make_action { icon   = "save"
-                                      ; name   = "Сохранить"
-                                      } in
-  let cont = Cont.make ~init:init.layout ~cols ~rows ~widgets ~s_conf ~actions:[edit;save;conf] () in
+  let s_state,s_state_push = React.S.create @@ `Container None in
+  let cols,rows = get_preferred_grid @@ resolution_to_aspect init.resolution in
+  let conf = Left_toolbar.make_action { icon = "settings";   name = "Настройки" } in
+  let edit = Left_toolbar.make_action { icon = "edit";       name = "Редактировать" } in
+  let back = Left_toolbar.make_action { icon = "arrow_back"; name = "Назад" } in
+  let save = Left_toolbar.make_action { icon = "save";       name = "Сохранить" } in
+  let cont = Cont.make ~init:init.layout ~cols ~rows ~widgets ~s_conf ~actions:[edit] () in
   let s = React.S.map (fun l -> List.map (fun x -> x#get_value) l) cont.ig#grid#s_items in
   let _ = React.E.map (fun _ -> conf_dlg#show) conf#e_click in
   let _ = React.E.map (fun _ ->
               let sel = React.S.value cont.ig#s_selected |> Option.get_exn in
+              let pos = Container_item.pos_of_item (snd sel#get_value) in
+              let res = pos.right - pos.left, pos.bottom - pos.top in
+              let cols,rows = get_preferred_grid @@ resolution_to_aspect res in
               let w = Widg.make ~init:(snd sel#get_value).widgets
-                                ~cols:24
-                                ~rows:16
+                                ~cols
+                                ~rows
                                 ~widgets
                                 ~s_conf
-                                ~actions:[back;save;conf]
+                                ~actions:[back]
                                 () in
-              let _ = React.E.map (fun _ -> s_state_push `Container) back#e_click in
+              let _ = React.E.map (fun _ -> s_state_push @@ `Container (Some w)) back#e_click in
               s_state_push (`Widget w)) edit#e_click
   in
   let _ = React.S.l2 (fun state sel ->
               match state,sel with
-              | `Container, None -> edit#set_disabled true
-              | _                -> edit#set_disabled false)
+              | `Container _, None -> edit#set_disabled true
+              | _                  -> edit#set_disabled false)
                      s_state cont.ig#s_selected in
   let _ = React.E.map (fun _ -> post @@ { init with layout = React.S.value s }) save#e_click in
 
@@ -520,32 +657,29 @@ let create ~(init:     Wm.t)
   let rc = new Layout_grid.Cell.t ~widgets:[] () in
   let w  = new Layout_grid.t ~cells:[lc; mc; rc] () in
 
-  let rm_children c = Dom.list_of_nodeList @@ c##.childNodes
-                      |> List.iter (fun x -> Dom.removeChild c x)
+  let add_to_view lt ig rt =
+    Dom.appendChild lc#root lt#root;
+    Dom.appendChild mc#root ig#root;
+    Dom.appendChild rc#root rt#root;
+    Dom.appendChild lt#root save#root;
+    Dom.appendChild lt#root conf#root
+  in
+  let rm_from_view lt ig rt =
+    (try
+       Dom.removeChild lc#root lt#root;
+       Dom.removeChild mc#root ig#root;
+       Dom.removeChild rc#root rt#root;
+     with _ -> ())
+  in
+  let switch_view o_lt o_ig o_rt n_lt n_ig n_rt =
+    rm_from_view o_lt o_ig o_rt;
+    add_to_view n_lt n_ig n_rt
   in
   let _ = React.S.map (function
-                       | `Widget (w:Widg.t) ->
-                          print_endline "switching to widget editing";
-                          (try
-                             rm_children lc#root;
-                             rm_children mc#root;
-                             rm_children rc#root;
-                             Dom.appendChild lc#root w.lt#root;
-                             Dom.appendChild mc#root w.ig#root;
-                             Dom.appendChild rc#root w.rt#root;
-                           with _ -> ())
-                       | `Container ->
-                          print_endline "switching to container editing";
-                          (try
-                             rm_children lc#root;
-                             rm_children mc#root;
-                             rm_children rc#root;
-                             Dom.appendChild cont.lt#root save#root;
-                             Dom.appendChild cont.lt#root conf#root;
-                             Dom.appendChild lc#root cont.lt#root;
-                             Dom.appendChild mc#root cont.ig#root;
-                             Dom.appendChild rc#root cont.rt#root;
-                           with _ -> ())) s_state
+                       | `Widget (w:Widg.t)           -> switch_view cont.lt cont.ig cont.rt w.lt w.ig w.rt
+                       | `Container (Some (w:Widg.t)) -> switch_view w.lt w.ig w.rt cont.lt cont.ig cont.rt
+                       | `Container None              -> add_to_view cont.lt cont.ig cont.rt)
+                      s_state
   in
 
   let () = lc#set_span_desktop 1 in
@@ -598,8 +732,6 @@ class t () =
                         let wm_el = create ~init:s
                                            ~post
                                            ~widgets:s_widgets
-                                           ~rows:16
-                                           ~cols:24
                                            ~s_conf
                                            ~conf_dlg
                                            ()

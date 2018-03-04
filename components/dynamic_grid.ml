@@ -899,8 +899,6 @@ class ['a] t ~grid ~(items:'a item list) () =
     method s_changing = s_changing
     method s_change   = s_change
     method s_items    = s_items
-    method s_col_w    = s_col_w
-    method s_row_h    = s_row_h
 
     method s_selected : 'a Item.t list React.signal = s_selected
 
@@ -918,7 +916,7 @@ class ['a] t ~grid ~(items:'a item list) () =
       | [] -> let item = new_item x in
               e_modify_push (`Add item);
               Dom.appendChild self#root item#root;
-              Ok ()
+              Ok item
       | l  -> Error (Collides l)
 
     method add_free ?min_w ?min_h ?max_w ?max_h
@@ -1015,7 +1013,7 @@ class ['a] t ~grid ~(items:'a item list) () =
                                                else (acc, `Continue)) None (React.S.value self#s_items)
         in
         match el with
-        | Some x -> self#remove x; Ok ()
+        | Some x -> self#remove x; Ok x
         | None   -> Error (Collides [])
       in
       self#action_wrapper ~on_init ~on_move ~on_click
@@ -1030,6 +1028,11 @@ class ['a] t ~grid ~(items:'a item list) () =
       overlay_grid#layout
 
     (** Private methods **)
+
+    method private s_item_margin = s_item_margin
+    method private s_col_w       = s_col_w
+    method private s_row_h       = s_row_h
+    method private s_rows        = s_rows
 
     method private compact =
       let other i = List.filter (fun x -> not @@ Equal.physical x#root i#root) self#items in
