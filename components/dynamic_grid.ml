@@ -761,22 +761,6 @@ module Item = struct
                     false)
       |> ignore;
 
-      (* Dom_events.listen Dom_html.window Dom_events.Typ.mousedown
-       *   ( fun _ _ -> List.iter (fun x -> x#selected false;
-       *                                    x#remove_class Markup.Dynamic_grid.Item.selected_class)
-       *                @@ React.S.value s_selected;
-       *                s_selected_push [];
-       *                false)
-       * |> ignore;
-       * 
-       * Dom_events.listen Dom_html.window Dom_events.Typ.touchstart
-       *   ( fun _ _ -> List.iter (fun x -> x#selected false;
-       *                                    x#remove_class Markup.Dynamic_grid.Item.selected_class)
-       *                @@ React.S.value s_selected;
-       *                s_selected_push [];
-       *                false)
-       * |> ignore *)
-
   end
 
 end
@@ -936,50 +920,8 @@ class ['a] t ~grid ~(items:'a item list) () =
                           ; on_resize; on_resizing; on_drag; on_dragging
                           ; move_widget; widget; value }
       in
-      let items         = List.map (fun x -> x#pos) @@ React.S.value s_items in
       let on_init _     = () in
-      let on_move ghost = function
-        | None      -> ghost#set_pos Position.empty
-        | Some epos -> let epos =
-                         Position.({ epos with x = epos.x / React.S.value s_col_w;
-                                               y = epos.y / React.S.value s_row_h })
-                       in
-                       let open Position in
-                       let cmp =
-                         match width, height with
-                         | Some w, Some h ->
-                            Some (fun n o -> if n.w < w || n.h < h || (n.w * n.h) < (o.w * o.h)
-                                             then 0 else 1)
-                         | Some w, _      -> Some (fun n o -> if n.w < w || n.h < o.h then 0 else 1)
-                         | _, Some h      -> Some (fun n o -> if n.h < h || n.w < o.w then 0 else 1)
-                         | _              -> None
-                       in
-                       let pos = get_free_rect ?cmp ~f:(fun x -> x) epos items grid.cols
-                                               (React.S.value s_rows) () in
-                       let pos = Option.map (fun pos ->
-                                     let corr_x = fun w -> if epos.x + w > pos.x + pos.w
-                                                           then (pos.x + pos.w) - w
-                                                           else epos.x
-                                     in
-                                     let corr_y = fun h -> if epos.y + h > pos.y + pos.h
-                                                           then (pos.y + pos.h) - h
-                                                           else epos.y
-                                     in
-                                     match width, height with
-                                     | Some w, Some h ->
-                                        let w = if w < 1 then 1 else w in
-                                        let h = if h < 1 then 1 else h in
-                                        { x = corr_x w; y = corr_y h; w; h}
-                                     | Some w, _  -> let w = if w < 1 then 1 else w in
-                                                     {pos with x = corr_x w; w}
-                                     | _, Some h  -> let h = if h < 1 then 1 else h in
-                                                     {pos with y = corr_y h; h}
-                                     | _          -> pos) pos
-                       in
-                       (match pos with
-                        | Some x -> ghost#set_pos x
-                        | None   -> ghost#set_pos Position.empty)
-      in
+      let on_move       = self#move_ghost ?width ?height in
       let open Position in
       let on_click ghost = match ghost#pos with
         | x when x.w = 0 || x.h = 0 -> Error (Collides [])
@@ -1044,6 +986,49 @@ class ['a] t ~grid ~(items:'a item list) () =
                  e##.clientY - (int_of_float rect.top) in
       if x <= self#get_offset_width && x >= 0 && y <= self#get_offset_height && y >= 0
       then Some { x; y; w = 1; h = 1 } else None
+
+    method private move_ghost ?width ?height ghost = function
+      | None      -> ghost#set_pos Position.empty
+      | Some epos -> let epos =
+                       Position.({ epos with x = epos.x / React.S.value s_col_w;
+                                             y = epos.y / React.S.value s_row_h })
+                     in
+                     let items = List.map (fun x -> x#pos) self#items in
+                     let open Position in
+                     let cmp =
+                       match width, height with
+                       | Some w, Some h ->
+                          Some (fun n o -> if n.w < w || n.h < h || (n.w * n.h) < (o.w * o.h)
+                                           then 0 else 1)
+                       | Some w, _      -> Some (fun n o -> if n.w < w || n.h < o.h then 0 else 1)
+                       | _, Some h      -> Some (fun n o -> if n.h < h || n.w < o.w then 0 else 1)
+                       | _              -> None
+                     in
+                     let pos = get_free_rect ?cmp ~f:(fun x -> x) epos items grid.cols
+                                             (React.S.value s_rows) () in
+                     let pos = Option.map (fun pos ->
+                                   let corr_x = fun w -> if epos.x + w > pos.x + pos.w
+                                                         then (pos.x + pos.w) - w
+                                                         else epos.x
+                                   in
+                                   let corr_y = fun h -> if epos.y + h > pos.y + pos.h
+                                                         then (pos.y + pos.h) - h
+                                                         else epos.y
+                                   in
+                                   match width, height with
+                                   | Some w, Some h ->
+                                      let w = if w < 1 then 1 else w in
+                                      let h = if h < 1 then 1 else h in
+                                      { x = corr_x w; y = corr_y h; w; h}
+                                   | Some w, _  -> let w = if w < 1 then 1 else w in
+                                                   {pos with x = corr_x w; w}
+                                   | _, Some h  -> let h = if h < 1 then 1 else h in
+                                                   {pos with y = corr_y h; h}
+                                   | _          -> pos) pos
+                     in
+                     (match pos with
+                      | Some x -> ghost#set_pos x
+                      | None   -> ghost#set_pos Position.empty)
 
     method private action_wrapper ~on_init ~on_move ~on_click =
       match in_action with

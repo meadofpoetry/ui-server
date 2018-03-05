@@ -24,6 +24,11 @@ $wm-placeholder-color: text-secondary-on-background;
     width: auto;
 }
 
+.wm-confirmation-dialog .mdc-dialog__surface {
+    max-width: 400px;
+    min-width: 400px;
+}
+
 // ---- PLACEHOLDER ----
 
 .wm-placeholder {
@@ -129,6 +134,7 @@ $wm-placeholder-color: text-secondary-on-background;
     border-bottom: 1px solid rgba(0,0,0,.12);
 
     &__drag-handle {
+        @include mdc-theme-prop(color, text-icon-on-background);
         padding: 12px;
     }
 }
@@ -241,6 +247,7 @@ $wm-placeholder-color: text-secondary-on-background;
     > * {
         margin-bottom: 20px;
         flex-grow: 2;
+        max-height: 40vh;
     }
     > *:last-child { margin-bottom: 0; }
 }
