@@ -386,7 +386,6 @@ module Items_grid(I : Item) = struct
     }
 
   let grid_pos_of_layout_pos ~resolution ~cols ~rows (pos:Wm.position) : Dynamic_grid.Position.t =
-    Printf.printf "left: %d, right: %d, top: %d, bottom: %d\n" pos.left pos.right pos.top pos.bottom;
     let w,h   = resolution in
     let cw,rh = w / cols, h / rows in
     { x = pos.left / cw
@@ -609,19 +608,33 @@ let get_possible_grid ~(resolution:int * int) ~(positions:Wm.position list) =
   c,r
 
 let get_preferred_grid ~resolution =
-  let (w,_)   = resolution in
+  let (w,h)   = resolution in
   let (x,y)   = resolution_to_aspect resolution in
   let desired = 30 in
-  if desired >= w
-  then resolution
-  else if x >= desired
-  then (x,y)
-  else let weight = Dynamic_grid.Utils.round @@ (float_of_int desired) /. (float_of_int x) in
-       weight * x, weight * y
+  if desired >= w      then resolution
+  else if x >= desired then (x,y)
+  else (let get_factors i =
+          let rec aux acc cnt =
+            if cnt = 0 then acc
+            else (if i mod cnt = 0 then aux (cnt :: acc) (pred cnt) else aux acc (pred cnt))
+          in
+          aux [] i
+        in
+        let cols = List.map (fun x -> w / x) @@ get_factors (gcd w h) in
+        let c    = List.fold_left (fun acc x -> if (x - desired) < (acc - desired) && x - desired > 0
+                                                then x else acc) w cols
+        in
+        c, c * y / x)
 
 let get_grid ~resolution ~positions =
   let possible  = get_possible_grid ~resolution ~positions in
   let preffered = get_preferred_grid ~resolution in
+  List.iter (fun (x:Wm.position) -> Printf.printf "left: %d, right: %d, top: %d, bottom: %d\n"
+                                                  x.left x.right x.top x.bottom) positions;
+  Printf.printf "resolution: %dx%d, possible: %dx%d, preffered: %dx%d\n"
+                (fst resolution) (snd resolution)
+                (fst possible) (snd possible)
+                (fst preffered) (snd preffered);
   match Pair.compare compare compare preffered possible with
   | 1 | 0 -> preffered
   | _     -> possible
