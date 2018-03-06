@@ -375,7 +375,7 @@ module Item = struct
     method set_pos pos = super#set_pos pos; ghost#set_pos pos
 
     method s_changing = ghost#s_pos
-    method s_change   = fst s_change
+    method s_change   = self#s_pos
 
     method set_value (x:'a) = value <- x
     method get_value : 'a   = value
@@ -404,10 +404,9 @@ module Item = struct
                  self#add_class Markup.Dynamic_grid.Item.selected_class;
                  selected <- true
       | false -> if self#get_selected
-                 then (let n = List.filter (fun x -> not @@ eq x self) o in
-                       self#remove_class Markup.Dynamic_grid.Item.selected_class;
-                       s_selected_push n;
-                       selected <- false)
+                 then (self#remove_class Markup.Dynamic_grid.Item.selected_class;
+                       selected <- false;
+                       s_selected_push @@ List.filter (fun x -> not @@ eq x self) o;)
     method get_selected   = selected
 
     (** Private methods **)

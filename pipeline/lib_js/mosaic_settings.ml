@@ -26,7 +26,9 @@ module type Item = sig
 
   val create_item     : add_candidate -> item
   val pos_of_item     : item -> Wm.position
+  val layer_of_item   : item -> int
   val update_pos      : item -> Wm.position -> item
+  val update_layer    : item -> int -> item
 
   val max_layers      : int
   val add_candidates  : add_candidate list
@@ -46,7 +48,9 @@ module Container_item : Item with type item = Wm.container = struct
                              ; widgets  = []
                              }
   let pos_of_item (item : item) = item.position
+  let layer_of_item _           = 0
   let update_pos  (item : item) (pos : Wm.position) = { item with position = pos }
+  let update_layer (item : item) _ = item
   let make_item_name (ac : add_candidate) (index : int) =
     Printf.sprintf "%s #%d" ac.name index
   let make_item_props (item: (string * item) Dynamic_grid.Item.t) =
@@ -88,7 +92,9 @@ module Widget_item : Item with type item = Wm.widget = struct
                               ; aspect      = (1,1)
                               ; description = ""
                               }
+  let layer_of_item (item : item) = item.layer
   let pos_of_item (item : item) = item.position
+  let update_layer (item : item) (layer : int) = { item with layer }
   let update_pos  (item : item) (pos : Wm.position) = { item with position = pos }
   let make_item_name (ac : add_candidate) (index : int) =
     Printf.sprintf "%s #%d" ac.name index
@@ -120,6 +126,10 @@ let make_placeholder ?action ~text ~icon () =
   let ()  = ph#add_class _class in
   let ()  = Dom.appendChild ph#root box#root in
   ph
+
+let rm_children container =
+  Dom.list_of_nodeList @@ container##.childNodes
+  |> List.iter (fun x -> Dom.removeChild container x)
 
 module Selectable_title = struct
 
@@ -175,21 +185,21 @@ end
 
 module Layers = struct
 
-  let make_layer_item items =
+  let make_layer_item positions =
     let _class            = "wm-layer-item" in
     let drag_handle_class = Markup.CSS.add_element _class "drag-handle" in
 
     let open Dynamic_grid.Position in
-    let y = match List.rev items with
+    let y = match List.rev positions with
       | []    -> 0
-      | hd::_ -> hd#pos.y + 1
+      | hd::_ -> hd.y + 1
     in
     let drag  = new Icon.Font.t ~icon:"drag_handle" () in
     let text  = new Typography.Text.t ~text:(Printf.sprintf "Слой %d" (y + 1)) () in
     let box   = new Box.t ~vertical:false ~widgets:[text#widget; drag#widget] () in
     let pos   = { x = 0; y; w = 1; h = 1 } in
     let item  = Dynamic_grid.Item.to_item ~pos ~move_widget:drag#widget ~widget:box#widget
-                                          ~resizable:false ~selectable:true ~value:() ()
+                                          ~resizable:false ~selectable:true ~value:y ()
     in
     let ()    = drag#add_class drag_handle_class in
     let ()    = box#set_justify_content `Space_between in
@@ -210,13 +220,16 @@ module Layers = struct
     then (let lower = List.find_opt (fun x -> x#pos.y = pos.y + 1) layers in
           Option.iter (fun x -> let new_pos = x#pos in x#set_pos pos; layer#set_pos new_pos) lower)
 
-  let make_layers_grid () =
+  let make_layers_grid ~init =
     let _class = "wm-layers-grid" in
-    let props = Dynamic_grid.to_grid ~cols:1 ~min_col_width:20 ~row_height:50 ~vertical_compact:true
+    let props  = Dynamic_grid.to_grid ~cols:1 ~min_col_width:20 ~row_height:50 ~vertical_compact:true
                                      ~restrict_move:true ()
     in
-    let grid = new Dynamic_grid.t ~grid:props ~items:[make_layer_item []] () in
-    let ()   = grid#set_on_load @@ Some (fun () -> grid#layout) in
+    let map    = Fun.(List.map (fun (x:'a Dynamic_grid.item) -> x.pos) %> List.rev) in
+    let items  = List.fold_left (fun acc _ -> (make_layer_item @@ map acc) :: acc) [] @@ List.range' 0 init
+                 |> List.rev in
+    let grid   = new Dynamic_grid.t ~grid:props ~items () in
+    let ()     = grid#set_on_load @@ Some (fun () -> grid#layout) in
     grid
 
   let make_layers_actions max layers_grid =
@@ -232,26 +245,39 @@ module Layers = struct
     let a_map (a,f) = React.E.map (fun _ -> Option.iter f @@ React.S.value s_sel) a#e_click in
     let _           = React.S.l2 (fun s l -> let len = List.length l in
                                              let sel = Option.is_some s in
-                                             add#set_disabled (len >= max);
-                                             up#set_disabled ((len <= 1) || not sel);
+                                             add#set_disabled  (len >= max);
+                                             up#set_disabled   ((len <= 1) || not sel);
                                              down#set_disabled ((len <= 1) || not sel);
-                                             rm#set_disabled ((len <= 1) || not sel))
+                                             rm#set_disabled   ((len <= 1) || not sel))
                                  s_sel layers_grid#s_items in
-    let _           = React.E.map (fun _ -> layers_grid#add @@ make_layer_item layers_grid#items) add#e_click in
-    let l           = [ rm,   (fun w -> w#remove)
-                      ; up,   (fun w -> move_layer_up layers_grid#items w)
+    let _           = React.E.map (fun _ -> layers_grid#add @@ make_layer_item
+                                            @@ List.map (fun x -> x#pos) layers_grid#items) add#e_click in
+    let l           = [ rm,   (fun w ->
+                          let open Dynamic_grid.Position in
+                          let y     = w#pos.y in
+                          w#remove;
+                          let items = layers_grid#items in
+                          match List.find_pred (fun w -> w#pos.y = y) items with
+                          | Some w -> w#set_selected true
+                          | None   -> (match List.find_pred (fun w -> w#pos.y = y - 1) items with
+                                       | Some w -> w#set_selected true
+                                       | None   -> (match items with
+                                                    | hd::_ -> hd#set_selected true
+                                                    | _     -> ())))
+                      ; up,   (fun w -> move_layer_up   layers_grid#items w)
                       ; down, (fun w -> move_layer_down layers_grid#items w)
                       ]
     in
     let _           = List.map a_map l in
     icons
 
-  let make max =
+  let make ~init ~max ~s_layer_push =
     let _class        = "wm-layers-card"  in
     let wrapper_class = "wm-layers-grid-wrapper" in
 
+    let open Dynamic_grid.Position in
     let layers  = Dom_html.createDiv Dom_html.document |> Widget.create in
-    let grid    = make_layers_grid () in
+    let grid    = make_layers_grid ~init in
     let actions = new Card.Actions.t ~widgets:[(make_layers_actions max grid)#widget] () in
     let card    = new Card.t ~widgets:[layers#widget;actions#widget] () in
     let ()      = Option.iter (fun x -> x#set_selected true) @@ List.head_opt grid#items in
@@ -260,6 +286,26 @@ module Layers = struct
     let ()      = card#add_class _class in
     let title   = Selectable_title.make ["Слои",card] in
     let box     = new Box.t ~widgets:[title#widget; card#widget] () in
+    let e       = React.S.map
+                    ~eq:Equal.physical
+                    (fun x ->
+                      let es = List.map (fun i -> React.S.diff (fun n o -> `Change (o.y, n.y)) i#s_change) x in
+                      let e  = React.E.merge (fun acc x -> x :: acc) [] es in
+                      let s  = React.S.hold [] e in
+                      s)
+                    grid#s_items
+                  |> React.S.switch
+                  |> React.S.changes
+    in
+    let _       =
+      React.E.map (fun l ->
+          List.iter (function
+                     | `Change (from,to_) -> Printf.printf "pos changed from %d to %d\n" from to_) l) e
+    in
+    let _       = React.S.map (function
+                               | [x] -> s_layer_push x#pos.y
+                               | _   -> ()) grid#s_selected
+    in
     box
 
 end
@@ -376,17 +422,24 @@ module Items_grid(I : Item) = struct
     ; h = (pos.bottom - pos.top) / rh
     }
 
-  class drop_grid ~resolution ~cols ~rows ~init () =
-    let _class = Markup.CSS.add_element base_class "grid" in
-    let grid   = Dynamic_grid.to_grid ~cols ~rows ~items_margin:(2,2) () in
-    let items  = List.map (fun x -> let pos = I.pos_of_item (snd x) in
-                                    let pos = grid_pos_of_layout_pos ~resolution ~cols ~rows pos in
-                                    Dynamic_grid.Item.to_item ~pos ~value:x ()) init in
+  let item_to_grid_item ~resolution ~cols ~rows x =
+    let pos = I.pos_of_item (snd x) in
+    let pos = grid_pos_of_layout_pos ~resolution ~cols ~rows pos in
+    Dynamic_grid.Item.to_item ~pos ~value:x ()
+
+  class drop_grid ~layer ~resolution ~cols ~rows ~init () =
+    let _class  = Markup.CSS.add_element base_class "grid" in
+    let ph      = make_placeholder ~text:"Добавьте элементы в раскладку" ~icon:"add_box" () in
+    let grid    = Dynamic_grid.to_grid ~cols ~rows ~items_margin:(2,2) () in
+    let items   = List.map (item_to_grid_item ~resolution ~cols ~rows) init in
     object(self)
 
       inherit [string * I.item] Dynamic_grid.t ~grid ~items ()
 
-      val mutable enter_target    = Js.null
+      val mutable layer        = layer
+      val mutable enter_target = Js.null
+
+      method layer : int = layer
 
       method private update_item_value item position =
         let pos            = layout_pos_of_grid_pos ~resolution ~cols ~rows position in
@@ -402,6 +455,11 @@ module Items_grid(I : Item) = struct
                          (self#add item)
 
       initializer
+        React.S.map (function
+                     | [] -> Dom.appendChild self#root ph#root
+                     | _  -> try Dom.removeChild self#root ph#root with _ -> ())
+                    self#s_items |> ignore;
+        self#set_on_load @@ Some (fun () -> self#layout);
         self#add_class _class;
         List.iter (fun i -> React.S.map (fun p -> self#update_item_value i p) i#s_change |> ignore) self#items;
         (let ghost = new Dynamic_grid.Item.cell
@@ -447,31 +505,47 @@ module Items_grid(I : Item) = struct
 
     end
 
-  class t ~title ~resolution ~cols ~rows ~(init: (string * I.item) list) () =
-    let grid    = new drop_grid ~init ~cols ~rows ~resolution () in
+  class t ~title ~resolution ~cols ~rows ~s_layers ~s_layer ~(init: (string * I.item) list) () =
+    let grouped =
+      List.fold_left (fun acc (n,x) ->
+          let layer = I.layer_of_item x in
+          List.Assoc.update ~eq:(=) ~f:(function Some l -> Some ((n,x) :: l) | None -> Some [(n,x)]) layer acc)
+                     [] init
+    in
+    let grids   = List.map (fun x -> let init = Option.get_or ~default:[] @@ List.Assoc.get ~eq:(=) x grouped in
+                                     x,new drop_grid ~layer:x ~init ~cols ~rows ~resolution ())
+                  @@ React.S.value s_layers in
+    let s_active_grid,s_active_grid_push = React.S.create @@ snd @@ List.hd grids in
     let wrapper = Dom_html.createDiv Dom_html.document |> Widget.create in
     let title   = new Typography.Text.t ~font:Subheading_2 ~text:title () in
-    let ph      = make_placeholder ~text:"Добавьте элементы в раскладку" ~icon:"add_box" () in
-    let ()      = Dom.appendChild wrapper#root grid#root in
     object(self)
 
       inherit Box.t ~vertical:true ~widgets:[title#widget;wrapper#widget] ()
 
-      val s_sel = React.S.map ~eq:(fun _ _ -> false) (function [x] -> Some x | _ -> None)
-                  @@ React.S.hold ~eq:(fun _ _ -> false) [] grid#e_selected
+      val s_sel =
+        let eq = fun _ _ -> false in
+        React.S.map ~eq:Equal.physical
+                    (fun x -> let s = React.S.hold ~eq [] x#e_selected in
+                              React.S.map ~eq (function [x] -> Some x | _ -> None) s)
+                    s_active_grid
+        |> React.S.switch ~eq
 
-      method grid       = grid
+      method grid       = React.S.value s_active_grid
       method s_selected = s_sel
+      method items      = List.fold_left (fun acc (_,x) -> x#items @ acc) [] grids
 
       initializer
+        React.S.map (fun x -> let grid = List.Assoc.get ~eq:(=) x grids in
+                              print_endline "s layer";
+                              match grid with
+                              | Some grid -> s_active_grid_push grid
+                              | None      -> ()) s_layer |> ignore;
+        React.S.map ~eq:Equal.physical (fun grid -> print_endline "s active grid";
+                                 rm_children wrapper#root;
+                                 Dom.appendChild wrapper#root grid#root) s_active_grid |> ignore;
         self#add_class base_class;
-        self#set_on_load @@ Some (fun () -> grid#layout);
         self#set_justify_content `Center;
-        wrapper#add_class @@ Markup.CSS.add_element base_class "wrapper";
-        React.S.map (function
-                     | [] -> Dom.appendChild grid#root ph#root
-                     | _  -> try Dom.removeChild grid#root ph#root with _ -> ())
-                    grid#s_items |> ignore
+        wrapper#add_class @@ Markup.CSS.add_element base_class "wrapper"
 
     end
 
@@ -480,8 +554,9 @@ module Items_grid(I : Item) = struct
            ~cols
            ~rows
            ~(init: (string * I.item) list)
+           ~s_layer
            () =
-    new t ~title ~resolution ~cols ~rows ~init ()
+    new t ~title ~resolution ~cols ~rows ~init ~s_layer ()
 
 end
 
@@ -507,9 +582,9 @@ module Right_toolbar(I : Item) = struct
 
   module It = Items(I)
 
-  class t ~selected () =
+  class t ~s_layer_push ~layers ~selected () =
     let items,sel = It.make selected in
-    let layers    = Layers.make I.max_layers in
+    let layers    = Layers.make ~init:layers ~max:I.max_layers ~s_layer_push in
     let _class    = "wm-right-toolbar" in
     object(self)
       inherit Box.t ~vertical:true ~widgets:[items#widget;layers#widget] ()
@@ -518,7 +593,7 @@ module Right_toolbar(I : Item) = struct
         self#add_class _class
     end
 
-  let make ~selected = new t ~selected ()
+  let make ~s_layer_push ~layers ~selected = new t ~layers ~selected ~s_layer_push ()
 
 end
 
@@ -548,7 +623,7 @@ module Make(I : Item) = struct
   type t =
     { ig : IG.t
     ; lt : Box.t
-    ; rt : Box.t
+    ; rt : RT.t
     }
 
   let make ~(title:       string)
@@ -562,8 +637,23 @@ module Make(I : Item) = struct
            () =
     let rm = Left_toolbar.make_action { icon = "delete"; name = "Удалить" } in
 
-    let ig = IG.make ~title ~resolution ~cols ~rows ~init () in
-    let rt = RT.make ~selected:ig#s_selected in
+    let layers = List.fold_left (fun acc (_,x) -> if List.mem ~eq:(=) (I.layer_of_item x) acc
+                                                  then acc else I.layer_of_item x :: acc) [] init
+                 |> List.sort compare
+                 |> (fun l -> if List.is_empty l then [0] else l)
+    in
+    (* fix layers indexes to be from 0 to n *)
+    let init   = List.foldi (fun acc i x ->
+                     List.map (fun (n,item) -> if I.layer_of_item item = x
+                                               then n,I.update_layer item i
+                                               else n,item) acc) init layers
+    in
+
+    let s_layer,s_layer_push = React.S.create (List.hd layers) in
+    let s_layers             = React.S.const layers in
+
+    let ig = IG.make ~title ~resolution ~cols ~rows ~init ~s_layer ~s_layers () in
+    let rt = RT.make ~s_layer_push ~selected:ig#s_selected ~layers:(List.length layers) in
     let lt = Left_toolbar.make (actions @ [rm]) in
 
     let _ = React.E.map (fun _ -> Option.iter (fun x -> x#remove) @@ React.S.value ig#s_selected) rm#e_click in
@@ -607,9 +697,9 @@ let get_preferred_grid ~resolution =
           in
           aux [] i
         in
-        let cols = List.map (fun x -> w / x) @@ get_factors (gcd w h) in
-        let c    = List.fold_left (fun acc x -> if (x - desired) < (acc - desired) && x - desired > 0
-                                                then x else acc) w cols
+        let grids = List.map (fun factor -> let c = w / factor in c, c * y / x) @@ get_factors (gcd w h) in
+        let c     = List.fold_left (fun acc (x,_) -> if (x - desired) < (acc - desired) && x - desired > 0
+                                                     then x else acc) w grids
         in
         c, c * y / x)
 
@@ -652,15 +742,15 @@ let create_widgets_grid ~(container: string * Wm.container)
   let ()         = dlg#add_class "wm-confirmation-dialog" in
   let title      = Printf.sprintf "%s. Виджеты" cont_name in
   let w          = Widg.make ~title ~init ~resolution ~cols ~rows ~widgets ~s_conf ~actions:[back;close] () in
-  let _          = React.E.map (fun _ -> on_apply @@ List.map (fun x -> x#get_value) w.ig#grid#items)
+  let _          = React.E.map (fun _ -> on_apply @@ List.map (fun x -> x#get_value) w.ig#items)
                                back#e_click
   in
-  let _          = React.E.map (fun _ -> Lwt.Infix.(dlg#show_await
-                                                    >>= (fun res -> (match res with
-                                                                     | `Cancel -> on_cancel ()
-                                                                     | `Accept -> ());
-                                                                    Lwt.return_unit)
-                                                    |> ignore)) close#e_click
+  let _          = React.E.map (fun _ ->
+                       Lwt.Infix.(dlg#show_await >>= (fun res -> (match res with
+                                                                  | `Cancel -> on_cancel ()
+                                                                  | `Accept -> ());
+                                                                 Lwt.return_unit)
+                                  |> ignore)) close#e_click
   in
   Dom.appendChild w.ig#root dlg#root;
   w
@@ -673,16 +763,15 @@ let create ~(init:     Wm.t)
            () =
   let resolution           = init.resolution in
   let s_state,s_state_push = React.S.create `Container in
-  let cols,rows = get_grid ~resolution
-                           ~positions:(List.map (fun (_,x) -> Container_item.pos_of_item x) init.layout)
-  in
+  let positions            = List.map (fun (_,x) -> Container_item.pos_of_item x) init.layout in
+  let cols,rows            = get_grid ~resolution ~positions in
+  let title                = "Контейнеры" in
 
-  let conf = Left_toolbar.make_action { icon = "settings";   name = "Настройки" } in
-  let edit = Left_toolbar.make_action { icon = "edit";       name = "Редактировать" } in
-  let save = Left_toolbar.make_action { icon = "save";       name = "Сохранить" } in
+  let conf = Left_toolbar.make_action { icon = "settings"; name = "Настройки" } in
+  let edit = Left_toolbar.make_action { icon = "edit";     name = "Редактировать" } in
+  let save = Left_toolbar.make_action { icon = "save";     name = "Сохранить" } in
 
-  let cont = Cont.make ~title:"Контейнеры" ~init:init.layout ~resolution
-                       ~cols ~rows ~widgets ~s_conf ~actions:[edit] () in
+  let cont = Cont.make ~title ~init:init.layout ~resolution ~cols ~rows ~widgets ~s_conf ~actions:[edit] () in
   let _ = React.E.map (fun _ -> conf_dlg#show) conf#e_click in
   let _ = React.E.map (fun _ ->
               let selected   = React.S.value cont.ig#s_selected |> Option.get_exn in
@@ -702,7 +791,7 @@ let create ~(init:     Wm.t)
                        | Some _ -> edit#set_disabled false)
                       cont.ig#s_selected
   in
-  let _ = React.E.map (fun _ -> let layout = List.map (fun x -> x#get_value) cont.ig#grid#items in
+  let _ = React.E.map (fun _ -> let layout = List.map (fun x -> x#get_value) cont.ig#items in
                                 post @@ { init with layout };
                                 let j = Wm.to_yojson { init with layout } in
                                 Printf.printf "%s\n" @@ Yojson.Safe.pretty_to_string j) save#e_click in
@@ -712,36 +801,21 @@ let create ~(init:     Wm.t)
   let rc = new Layout_grid.Cell.t ~widgets:[] () in
   let w  = new Layout_grid.t ~cells:[lc; mc; rc] () in
 
-  let rm_children container =
-    Dom.list_of_nodeList @@ container##.childNodes
-    |> List.iter (fun x -> Dom.removeChild container x)
-  in
   let add_to_view lt ig rt =
-    rm_children lc#root;
-    rm_children mc#root;
-    rm_children rc#root;
-    Dom.appendChild lc#root lt#root;
-    Dom.appendChild mc#root ig#root;
-    Dom.appendChild rc#root rt#root;
+    rm_children lc#root; Dom.appendChild lc#root lt#root;
+    rm_children mc#root; Dom.appendChild mc#root ig#root;
+    rm_children rc#root; Dom.appendChild rc#root rt#root;
     Dom.appendChild lt#root save#root;
     Dom.appendChild lt#root conf#root;
-    ig#grid#layout;
   in
   let _ = React.S.map (function
                        | `Widget (w:Widg.t) -> add_to_view w.lt w.ig w.rt
                        | `Container         -> add_to_view cont.lt cont.ig cont.rt)
                       s_state
   in
-
-  let () = lc#set_span_desktop 1 in
-  let () = mc#set_span_desktop 8 in
-  let () = rc#set_span_desktop 3 in
-  let () = lc#set_span_tablet 1 in
-  let () = mc#set_span_tablet 7 in
-  let () = rc#set_span_tablet 8 in
-  let () = lc#set_span_phone 4 in
-  let () = mc#set_span_phone 4 in
-  let () = rc#set_span_phone 4 in
+  lc#set_span_desktop 1; lc#set_span_tablet 1; lc#set_span_phone 4;
+  mc#set_span_desktop 8; mc#set_span_tablet 7; mc#set_span_phone 4;
+  rc#set_span_desktop 3; rc#set_span_tablet 8; rc#set_span_phone 4;
   w
 
 class t () =
