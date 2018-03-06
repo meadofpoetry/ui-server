@@ -746,10 +746,11 @@ module Item = struct
 
       (* add item start resize listener if needed *)
       Dom_events.listen resize_button#root Dom_events.Typ.mousedown
-        (fun _ e -> Dom_html.stopPropagation e;
-                    if e##.button = 0 && resizable
-                    then self#start_resizing (Mouse e);
-                    false)
+                        (fun _ e -> Dom_html.stopPropagation e;
+                                    Dom.preventDefault e;
+                                    if e##.button = 0 && resizable
+                                    then self#start_resizing (Mouse e);
+                                    false)
       |> ignore;
 
       Dom_events.listen resize_button#root Dom_events.Typ.touchstart
@@ -839,7 +840,7 @@ let to_grid ?max_col_width ?(min_col_width=1) ?rows ?row_height ?(vertical_compa
 
 class ['a] t ~grid ~(items:'a item list) () =
   let e_modify,e_modify_push     = React.E.create () in
-  let s_selected,s_selected_push = React.S.create [] in
+  let s_selected,s_selected_push = React.S.create ~eq:(fun _ _ -> false) [] in
   let s_col_w,s_col_w_push       = React.S.create grid.min_col_width in
   let s_row_h = match grid.row_height with
     | Some rh -> React.S.const rh
@@ -875,6 +876,8 @@ class ['a] t ~grid ~(items:'a item list) () =
     inherit Widget.widget elt ()
 
     val overlay_grid      = new overlay_grid ~parent:elt ~s_col_w ~s_row_h ~s_item_margin ()
+    val _s_selected       = React.S.map (fun x -> x) s_selected
+    val _e_selected       = React.S.changes s_selected
     val mutable in_action = false
     val mutable residue   = 0
 
@@ -884,7 +887,8 @@ class ['a] t ~grid ~(items:'a item list) () =
     method s_change   = s_change
     method s_items    = s_items
 
-    method s_selected : 'a Item.t list React.signal = s_selected
+    method s_selected : 'a Item.t list React.signal = _s_selected
+    method e_selected : 'a Item.t list React.event  = _e_selected
 
     method items      = Position.sort_by_y ~f:(fun x -> x#pos) @@ React.S.value s_items
     method positions  = React.S.value s_change

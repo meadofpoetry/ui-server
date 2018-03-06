@@ -354,24 +354,6 @@ module Items(I : Item) = struct
 
 end
 
-module Left_toolbar = struct
-
-  let base_class   = "wm-left-toolbar"
-  let action_class = Markup.CSS.add_element base_class "action"
-
-  let make_action (action : action) =
-    let w  = new Fab.t ~mini:true ~icon:action.icon () in
-    let () = w#add_class action_class in
-    let () = w#set_attribute "title" action.name in
-    w
-
-  let make widgets =
-    let box = new Box.t ~widgets () in
-    let ()  = box#add_class base_class in
-    box
-
-end
-
 module Items_grid(I : Item) = struct
 
   let base_class = "wm-grid"
@@ -400,19 +382,11 @@ module Items_grid(I : Item) = struct
     let items  = List.map (fun x -> let pos = I.pos_of_item (snd x) in
                                     let pos = grid_pos_of_layout_pos ~resolution ~cols ~rows pos in
                                     Dynamic_grid.Item.to_item ~pos ~value:x ()) init in
-    let e_clicked,e_clicked_push = React.E.create () in
     object(self)
 
       inherit [string * I.item] Dynamic_grid.t ~grid ~items ()
 
-      val mutable click_listeners = []
       val mutable enter_target    = Js.null
-
-      method e_item_clicked = e_clicked
-
-      method private add_click_listener item =
-        Dom_events.listen item#root Dom_events.Typ.click
-                          (fun _ _ -> e_clicked_push item; true) |> ignore
 
       method private update_item_value item position =
         let pos            = layout_pos_of_grid_pos ~resolution ~cols ~rows position in
@@ -429,13 +403,7 @@ module Items_grid(I : Item) = struct
 
       initializer
         self#add_class _class;
-        List.iter (fun i -> self#add_click_listener i;
-                            React.S.map (fun p -> self#update_item_value i p) i#s_change |> ignore) self#items;
-        let _ = React.S.diff (fun n o -> let eq   = (fun x y -> Equal.physical x#root y#root) in
-                                         let diff = List.filter (fun x -> not (List.mem ~eq x o)) n in
-                                         List.iter (fun i -> self#add_click_listener i |> ignore) diff)
-                             self#s_items
-        in
+        List.iter (fun i -> React.S.map (fun p -> self#update_item_value i p) i#s_change |> ignore) self#items;
         (let ghost = new Dynamic_grid.Item.cell
                          ~typ:`Ghost
                          ~s_col_w:self#s_col_w
@@ -488,7 +456,9 @@ module Items_grid(I : Item) = struct
     object(self)
 
       inherit Box.t ~vertical:true ~widgets:[title#widget;wrapper#widget] ()
-      val s_sel = React.S.map (function [x] -> Some x | _ -> None) grid#s_selected
+
+      val s_sel = React.S.map ~eq:(fun _ _ -> false) (function [x] -> Some x | _ -> None)
+                  @@ React.S.hold ~eq:(fun _ _ -> false) [] grid#e_selected
 
       method grid       = grid
       method s_selected = s_sel
@@ -515,23 +485,40 @@ module Items_grid(I : Item) = struct
 
 end
 
+module Left_toolbar = struct
+
+  let base_class   = "wm-left-toolbar"
+  let action_class = Markup.CSS.add_element base_class "action"
+
+  let make_action (action : action) =
+    let w  = new Fab.t ~mini:true ~icon:action.icon () in
+    let () = w#add_class action_class in
+    let () = w#set_attribute "title" action.name in
+    w
+
+  let make widgets =
+    let box = new Box.t ~widgets () in
+    let ()  = box#add_class base_class in
+    box
+
+end
+
 module Right_toolbar(I : Item) = struct
 
   module It = Items(I)
 
-  class t ~selected ~clicked () =
+  class t ~selected () =
     let items,sel = It.make selected in
     let layers    = Layers.make I.max_layers in
     let _class    = "wm-right-toolbar" in
     object(self)
       inherit Box.t ~vertical:true ~widgets:[items#widget;layers#widget] ()
       initializer
-        React.E.map (fun _ -> sel `Props) clicked |> ignore;
+        React.S.map (fun i -> if Option.is_some i then sel `Props) selected |> ignore;
         self#add_class _class
     end
 
-  let make ~selected ~clicked =
-    new t ~selected ~clicked ()
+  let make ~selected = new t ~selected ()
 
 end
 
@@ -576,7 +563,7 @@ module Make(I : Item) = struct
     let rm = Left_toolbar.make_action { icon = "delete"; name = "Удалить" } in
 
     let ig = IG.make ~title ~resolution ~cols ~rows ~init () in
-    let rt = RT.make ~selected:ig#s_selected ~clicked:ig#grid#e_item_clicked in
+    let rt = RT.make ~selected:ig#s_selected in
     let lt = Left_toolbar.make (actions @ [rm]) in
 
     let _ = React.E.map (fun _ -> Option.iter (fun x -> x#remove) @@ React.S.value ig#s_selected) rm#e_click in
@@ -639,6 +626,45 @@ let get_grid ~resolution ~positions =
   | 1 | 0 -> preffered
   | _     -> possible
 
+let create_widgets_grid ~(container: string * Wm.container)
+                        ~widgets
+                        ~s_conf
+                        ~on_apply
+                        ~on_cancel
+                        () =
+  let cont_name  = fst container in
+  let cont_item  = snd container in
+  let init       = cont_item.widgets in
+  let pos        = Container_item.pos_of_item cont_item in
+  let resolution = pos.right - pos.left, pos.bottom - pos.top in
+  let back       = Left_toolbar.make_action { icon = "arrow_back"; name = "Применить и выйти" } in
+  let close      = Left_toolbar.make_action { icon = "close"; name = "Отменить и выйти" } in
+  let positions  = List.map (fun (_,x) -> Widget_item.pos_of_item x) init in
+  let cols,rows  = get_grid ~resolution ~positions in
+  let dlg        = new Dialog.t
+                       ~actions:[ new Dialog.Action.t ~typ:`Accept ~label:"Отмена" ()
+                                ; new Dialog.Action.t ~typ:`Decline ~label:"Ok" ()
+                                ]
+                       ~title:"Отменить изменения?"
+                       ~content:(`Widgets [])
+                       ()
+  in
+  let ()         = dlg#add_class "wm-confirmation-dialog" in
+  let title      = Printf.sprintf "%s. Виджеты" cont_name in
+  let w          = Widg.make ~title ~init ~resolution ~cols ~rows ~widgets ~s_conf ~actions:[back;close] () in
+  let _          = React.E.map (fun _ -> on_apply @@ List.map (fun x -> x#get_value) w.ig#grid#items)
+                               back#e_click
+  in
+  let _          = React.E.map (fun _ -> Lwt.Infix.(dlg#show_await
+                                                    >>= (fun res -> (match res with
+                                                                     | `Cancel -> on_cancel ()
+                                                                     | `Accept -> ());
+                                                                    Lwt.return_unit)
+                                                    |> ignore)) close#e_click
+  in
+  Dom.appendChild w.ig#root dlg#root;
+  w
+
 let create ~(init:     Wm.t)
            ~(post:     Wm.t -> unit)
            ~(widgets:  (string * Wm.widget) list React.signal)
@@ -659,49 +685,16 @@ let create ~(init:     Wm.t)
                        ~cols ~rows ~widgets ~s_conf ~actions:[edit] () in
   let _ = React.E.map (fun _ -> conf_dlg#show) conf#e_click in
   let _ = React.E.map (fun _ ->
-              let sel   = React.S.value cont.ig#s_selected |> Option.get_exn in
-              let pos   = Container_item.pos_of_item (snd sel#get_value) in
-              let res   = pos.right - pos.left, pos.bottom - pos.top in
-              let back  = Left_toolbar.make_action { icon = "arrow_back"; name = "Применить и выйти" } in
-              let close = Left_toolbar.make_action { icon = "close"; name = "Отменить и выйти" } in
-              let cols,rows = get_grid ~resolution:res
-                                       ~positions:(List.map (fun (_,x) -> Widget_item.pos_of_item x)
-                                                            (snd sel#get_value).widgets)
+              let selected   = React.S.value cont.ig#s_selected |> Option.get_exn in
+              let container  = selected#get_value in
+              let on_apply w = let (s,v)   = container in
+                               let nv      = { v with widgets = w } in
+                               selected#set_value (s,nv);
+                               (* TODO Update min/max container w and h here *)
+                               s_state_push `Container
               in
-              let dlg   = new Dialog.t
-                              ~actions:[ new Dialog.Action.t ~typ:`Accept ~label:"Отмена" ()
-                                       ; new Dialog.Action.t ~typ:`Decline ~label:"Ok" ()
-                                       ]
-                              ~title:"Отменить изменения?"
-                              ~content:(`Widgets [])
-                              ()
-              in
-              let ()    = dlg#add_class "wm-confirmation-dialog" in
-              let title = Printf.sprintf "%s. Виджеты" (fst sel#get_value) in
-              let w = Widg.make ~title
-                                ~init:(snd sel#get_value).widgets
-                                ~resolution:res
-                                ~cols
-                                ~rows
-                                ~widgets
-                                ~s_conf
-                                ~actions:[back; close]
-                                ()
-              in
-              Dom.appendChild w.ig#root dlg#root;
-              let _ = React.E.map (fun _ -> let open Lwt.Infix in
-                                            dlg#show_await
-                                            >>= (function
-                                                 | `Cancel -> s_state_push `Container; Lwt.return_unit
-                                                 | `Accept -> Lwt.return_unit)
-                                            |> ignore) close#e_click in
-              let _ = React.E.map (fun _ -> let (s,v)   = sel#get_value in
-                                            let widgets = List.map (fun x -> x#get_value) w.ig#grid#items in
-                                            let nv      = { v with widgets } in
-                                            sel#set_value (s,nv);
-                                            (* TODO Update min/max container w and h here *)
-                                            s_state_push `Container) back#e_click
-              in
+              let on_cancel  = fun () -> s_state_push `Container in
+              let w = create_widgets_grid ~container ~widgets ~s_conf ~on_apply ~on_cancel () in
               s_state_push (`Widget w)) edit#e_click
   in
   let _ = React.S.map (function
