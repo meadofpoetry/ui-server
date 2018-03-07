@@ -375,7 +375,7 @@ module Item = struct
     method set_pos pos = super#set_pos pos; ghost#set_pos pos
 
     method s_changing = ghost#s_pos
-    method s_change   = self#s_pos
+    method s_change   = fst s_change
 
     method set_value (x:'a) = value <- x
     method get_value : 'a   = value

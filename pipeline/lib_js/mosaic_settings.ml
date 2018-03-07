@@ -229,6 +229,29 @@ module Layers = struct
     let items  = List.fold_left (fun acc _ -> (make_layer_item @@ map acc) :: acc) [] @@ List.range' 0 init
                  |> List.rev in
     let grid   = new Dynamic_grid.t ~grid:props ~items () in
+
+    let eq       = (fun x1 x2 -> Dynamic_grid.Position.equal x1#pos x2#pos) in
+    let s_change = let m a x = x :: a in
+                   let map x = React.S.map ~eq:(fun _ _ -> false)
+                                           (fun _ -> print_endline "pos changed!"; x) x#s_change in
+                   React.S.map ~eq:(fun _ _ -> false)
+                               (fun l -> React.S.merge ~eq:(fun _ _ -> false) m [] (List.map map l))
+                               grid#s_items
+                   |> React.S.switch ~eq:(fun _ _ -> false)
+    in
+    let e      = React.S.diff (fun n o ->
+                     let open Dynamic_grid.Position in
+                     let np = List.fold_left (fun acc x ->
+                                  let op,np = x#get_value,x#pos.y in
+                                  Printf.printf "op:%d, np:%d\n" op np;
+                                  if op <> np
+                                  then (x#set_value np; (`Change (op,np)) :: acc)
+                                  else acc) [] n in
+                     np)
+                              s_change in
+    let _  = React.E.map (fun x -> List.iter (function
+                                              | `Change (o,n) -> Printf.printf "old: %d, new: %d\n" o n) x) e
+    in
     let ()     = grid#set_on_load @@ Some (fun () -> grid#layout) in
     grid
 
@@ -286,22 +309,6 @@ module Layers = struct
     let ()      = card#add_class _class in
     let title   = Selectable_title.make ["Слои",card] in
     let box     = new Box.t ~widgets:[title#widget; card#widget] () in
-    let e       = React.S.map
-                    ~eq:Equal.physical
-                    (fun x ->
-                      let es = List.map (fun i -> React.S.diff (fun n o -> `Change (o.y, n.y)) i#s_change) x in
-                      let e  = React.E.merge (fun acc x -> x :: acc) [] es in
-                      let s  = React.S.hold [] e in
-                      s)
-                    grid#s_items
-                  |> React.S.switch
-                  |> React.S.changes
-    in
-    let _       =
-      React.E.map (fun l ->
-          List.iter (function
-                     | `Change (from,to_) -> Printf.printf "pos changed from %d to %d\n" from to_) l) e
-    in
     let _       = React.S.map (function
                                | [x] -> s_layer_push x#pos.y
                                | _   -> ()) grid#s_selected
