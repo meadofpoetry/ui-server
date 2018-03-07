@@ -1038,6 +1038,13 @@ class ['a] t ~grid ~(items:'a item list) () =
       let other i = List.filter (fun x -> not @@ Equal.physical x#root i#root) self#items in
       List.iter (fun x -> x#set_pos @@ Position.compact ~f:(fun x -> x#pos) x#pos (other x)) self#items
 
+    method private get_coords_pos ~(x : int) ~(y : int) =
+      let rect = self#get_client_rect in
+      let x,y  = x - (int_of_float rect.left),
+                 y - (int_of_float rect.top) in
+      if x <= self#get_offset_width && x >= 0 && y <= self#get_offset_height && y >= 0
+      then Some Position.{ x; y; w = 1; h = 1 } else None
+
     method private get_event_pos e : Position.t option =
       let rect = self#get_client_rect in
       let x,y  = e##.clientX - (int_of_float rect.left),

@@ -46,7 +46,9 @@ module Container_item : Item with type item = Wm.container = struct
   type item = Wm.container
 
   let max_layers     = 1
-  let add_candidates = [ { icon = "crop_16_9"; name = "Контейнер"; typ = "container" } ]
+  let add_candidates = [ { icon = "crop_16_9"
+                         ; name = "Контейнер"
+                         ; typ = "container" } ]
   let grid_title     = "Контейнеры"
 
   let create_item _ : item = { position = { left=0;top=0;right=100;bottom=100 }
@@ -274,6 +276,32 @@ module Items(I : Item) = struct
 
   module Add = struct
 
+    let touch e = Js.Optdef.get (e##.changedTouches##item 0)
+                    (fun () -> failwith "touch fail")
+
+    let dispatch t typ target =
+      let evt      = Js.Unsafe.pure_js_expr "document.createEvent('Event')" in
+      let optional =
+        match typ with
+        | "dragend"  -> Js._false
+        | _          -> Js._true
+      in
+      let ()  = (Js.Unsafe.coerce evt)##initEvent (Js.string typ) Js._true optional in
+      (Js.Unsafe.coerce evt)##.button    := Js.string "0";
+      (Js.Unsafe.coerce evt)##.which     := Js.string "1";
+      (Js.Unsafe.coerce evt)##.buttons   := Js.string "1";
+      (Js.Unsafe.coerce evt)##.pageX     := (Js.Unsafe.coerce t)##.pageX;
+      (Js.Unsafe.coerce evt)##.pageY     := (Js.Unsafe.coerce t)##.pageY;
+      (Js.Unsafe.coerce evt)##.clientX   := (Js.Unsafe.coerce t)##.clientX;
+      (Js.Unsafe.coerce evt)##.clientY   := (Js.Unsafe.coerce t)##.clientY;
+      (Js.Unsafe.coerce evt)##.screenX   := (Js.Unsafe.coerce t)##.screenX;
+      (Js.Unsafe.coerce evt)##.screenY   := (Js.Unsafe.coerce t)##.screenY;
+      print_endline @@
+        Printf.sprintf "dispatch %s " typ ^
+          if (Js.Unsafe.coerce target)##dispatchEvent evt
+          then "okay"
+          else "error"
+
     let base_class = Markup.CSS.add_element base_class "add"
     let item_class = Markup.CSS.add_element base_class "item"
 
@@ -281,22 +309,64 @@ module Items(I : Item) = struct
 
       inherit Box.t ~vertical:false ~widgets ()
 
+      val mutable id        = None
+      val mutable drag      = false
+
       initializer
         Dom_events.listen self#root Dom_events.Typ.dragstart
-                          (fun _ e -> let s = add_candidate_to_yojson props
-                                              |> Yojson.Safe.to_string
-                                              |> Js.string
-                                      in
-                                      e##.dataTransfer##setData (Js.string drag_data_type) s;
-                                      self#style##.opacity := Js.def @@ Js.string "0.5";
-                                      self#style##.zIndex := Js.string "5";
-                                      true)
-        |> ignore;
+          (fun _ e -> print_endline "dragstart";
+                      self#style##.opacity := Js.def @@ Js.string "0.5";
+                      self#style##.zIndex := Js.string "5";
+                      let s = add_candidate_to_yojson props
+                              |> Yojson.Safe.to_string
+                              |> Js.string
+                      in
+                      e##.dataTransfer##setData (Js.string drag_data_type) s;
+                      (*Js.Unsafe.set e "dataTransfer" ((Js.string drag_data_type), s);*)
+                      true) |> ignore;
+
         Dom_events.listen self#root Dom_events.Typ.dragend
-                          (fun _ _ -> self#style##.opacity := Js.def @@ Js.string "";
-                                      self#style##.zIndex := Js.string "";
-                                      false)
-        |> ignore;
+          (fun _ _ -> self#style##.opacity := Js.def @@ Js.string "";
+                      self#style##.zIndex := Js.string "";
+                      print_endline "dragend";
+                      false) |> ignore;
+
+        Dom_events.listen self#root Dom_events.Typ.touchstart
+          (fun _ e -> let touch = touch e in
+                      id <- Some touch##.identifier;
+                      false) |> ignore;
+
+        Dom_events.listen Dom_html.window Dom_events.Typ.touchmove
+          (fun _ e -> let touch = touch e in
+                      (match drag with
+                       | false -> drag <- true;
+                                  dispatch touch "dragstart" self#root
+                       | true  -> ());
+                      (match id with
+                       | Some id -> if touch##.identifier = id
+                                    then let elt =
+                                           (Js.Unsafe.coerce Dom_html.document)##elementFromPoint
+                                             touch##.clientX touch##.clientY in
+                                         print_endline @@ if Js.Opt.test elt
+                                                          then "element above"
+                                                          else "no el above";
+                                         Js.Opt.iter elt
+                                           (fun x -> dispatch touch "dragover" x);
+                                         dispatch touch "drag" self#root;
+                       | None -> ());
+                      false) |> ignore;
+
+        Dom_events.listen self#root Dom_events.Typ.touchend
+          (fun _ e -> id   <- None;
+                      drag <- false;
+                      let touch = touch e in
+                      let elt =
+                        (Js.Unsafe.coerce Dom_html.document)##elementFromPoint
+                          touch##.clientX touch##.clientY in
+                      Js.Opt.iter elt
+                        (fun x -> dispatch touch "drop" x);
+                      dispatch touch "dragend" self#root;
+                      false) |> ignore;
         self#add_class item_class;
         self#set_attribute "draggable" "true"
 
@@ -457,48 +527,54 @@ module Items_grid(I : Item) = struct
                                      Dom.preventDefault e;
                                      true) |> ignore;
        Dom_events.listen self#root Dom_events.Typ.dragleave
-                         (fun _ e -> Dom_html.stopPropagation e;
-                                     Dom.preventDefault e;
-                                     if Equal.physical enter_target e##.target (* NOTE maybe check for some? *)
-                                     then ghost#set_pos Dynamic_grid.Position.empty;
-                                     true) |> ignore;
+         (fun _ e -> print_endline "dragleave";
+                     Dom_html.stopPropagation e;
+                     Dom.preventDefault e;
+                     if Equal.physical enter_target e##.target
+                                       (* NOTE maybe check for some? *)
+                     then ghost#set_pos Dynamic_grid.Position.empty;
+                     true) |> ignore;
        Dom_events.listen self#root Dom_events.Typ.dragover
-                         (fun _ e ->
-                           let p = self#get_event_pos (e :> Dom_html.mouseEvent Js.t) in
-                           self#move_ghost ghost p;
-                           let b = (Js.Unsafe.coerce e##.dataTransfer##.types)##includes (Js.string drag_data_type) in
-                           if Js.to_bool b
-                           then Dom.preventDefault e;
-                           true)
+         (fun _ e -> print_endline "dragover";
+                     let p = self#get_event_pos (e :> Dom_html.mouseEvent Js.t) in
+                     self#move_ghost ghost p;
+                     let b = (Js.Unsafe.coerce e##.dataTransfer##.types)##includes
+                               (Js.string drag_data_type) in
+                     if Js.to_bool b
+                     then Dom.preventDefault e;
+                     true)
        |> ignore;
        Dom_events.listen self#root Dom_events.Typ.drop
-                         (fun _ e ->
-                           Dom.preventDefault e;
-                           let json = e##.dataTransfer##getData (Js.string drag_data_type)
-                                      |> Js.to_string
-                                      |> Yojson.Safe.from_string
-                           in
-                           (match add_candidate_of_yojson json with
-                            | Ok ac -> let item = Dynamic_grid.Item.to_item ~pos:ghost#pos
-                                                                            ~value:("",I.create_item ac)
-                                                                            ()
-                                       in
-                                       let convert_pos (pos:Dynamic_grid.Position.t) : Wm.position =
-                                         let left   = pos.x * 100 in
-                                         let right  = (pos.w + pos.x) * 100 in
-                                         let top    = pos.y * 100 in
-                                         let bottom = (pos.h + pos.y) * 100 in
-                                         { left; bottom; right; top }
-                                       in
-                                       let f i p = let (s,(v:I.item)) = i#get_value in
-                                                   let (nv : I.item)  = I.update_pos v @@ convert_pos p in
-                                                   i#set_value (s,nv)
-                                       in
-                                       Result.iter (fun i -> React.S.map (fun p -> f i p) i#s_change
-                                                             |> ignore) @@ self#add item;
-                            | _     -> ());
-                           ghost#set_pos Dynamic_grid.Position.empty;
-                           true)
+         (fun _ e ->
+           print_endline "drop";
+           Dom.preventDefault e;
+           let json = e##.dataTransfer##getData (Js.string drag_data_type)
+                      (* Js.Unsafe.get e "dataTransfer"*)
+                      |> Js.to_string
+                      |> Yojson.Safe.from_string
+           in
+           (match add_candidate_of_yojson json with
+            | Ok ac -> let item = Dynamic_grid.Item.to_item
+                                    ~pos:ghost#pos
+                                    ~value:("",I.create_item ac)
+                                    ()
+                       in
+                       let convert_pos (pos:Dynamic_grid.Position.t) : Wm.position =
+                         let left   =  pos.x * 100 in
+                         let right  = (pos.w + pos.x) * 100 in
+                         let top    =  pos.y * 100 in
+                         let bottom = (pos.h + pos.y) * 100 in
+                         { left; bottom; right; top }
+                       in
+                       let f i p = let (s,(v:I.item)) = i#get_value in
+                                   let (nv : I.item)  = I.update_pos v @@ convert_pos p in
+                                   i#set_value (s,nv)
+                       in
+                       Result.iter (fun i -> React.S.map (fun p -> f i p) i#s_change
+                                             |> ignore) @@ self#add item;
+            | _     -> ());
+           ghost#set_pos Dynamic_grid.Position.empty;
+           true)
        |> ignore)
 
   end
