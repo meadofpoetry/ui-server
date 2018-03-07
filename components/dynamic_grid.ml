@@ -353,7 +353,8 @@ module Item = struct
 
     inherit ['a] cell ~typ:`Item ~s_col_w ~s_row_h ~s_item_margin ~pos:item.pos () as super
 
-    val s_change      = React.S.create item.pos
+    (* FIXME make normal signal *)
+    val s_change      = React.S.create ~eq:(fun _ _ -> false) item.pos
     val ghost         = new cell ~typ:`Ghost ~s_col_w ~s_row_h ~s_item_margin ~pos:item.pos ()
     val resize_button = Markup.Dynamic_grid.Item.create_resize_button ()
                         |> Tyxml_js.To_dom.of_element |> Widget.create
@@ -375,7 +376,8 @@ module Item = struct
     method set_pos pos = super#set_pos pos; ghost#set_pos pos
 
     method s_changing = ghost#s_pos
-    method s_change   = fst s_change
+    (* FIXME this is ok, but will raise change event even before dragging is not over *)
+    method s_change   = (* fst s_change *) self#s_pos
 
     method set_value (x:'a) = value <- x
     method get_value : 'a   = value
@@ -585,6 +587,9 @@ module Item = struct
                                      let pos = Position.compact ~f:(fun x -> x#pos) x#pos lst in
                                      x#set_pos pos)
                            (Position.sort_by_y ~f:(fun x -> x#pos) self#items);
+            (* Printf.printf "settings s_change. Old: %s, New: %s\n"
+             *               (Position.to_string @@ React.S.value (fst s_change))
+             *               (Position.to_string self#pos); *)
             (snd s_change) self#pos;
             Option.iter (fun f -> f self#pos ghost#pos col_px row_px) item.on_drag
          | _ -> ()
@@ -644,6 +649,9 @@ module Item = struct
                                   let pos = Position.compact ~f:(fun x -> x#pos) x#pos lst in
                                   x#set_pos pos)
                         (Position.sort_by_y ~f:(fun x -> x#pos) self#items);
+         (* Printf.printf "settings s_change. Old: %s, New: %s\n"
+          *               (Position.to_string @@ React.S.value (fst s_change))
+          *               (Position.to_string self#pos); *)
          (snd s_change) self#pos;
          Option.iter (fun f -> f self#pos ghost#pos col_px row_px) item.on_resize
       | _ -> ()
