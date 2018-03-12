@@ -369,15 +369,25 @@ module Item = struct
     val mutable selected        = false
     val mutable drag_timer      = None
 
+    val mutable min_w = item.min_w
+    val mutable min_h = item.min_h
+    val mutable max_w = item.max_w
+    val mutable max_h = item.max_h
+
     (** API **)
 
     method get_widget = item.widget
 
     method set_pos pos = super#set_pos pos; ghost#set_pos pos
 
+    method set_min_w (x:int option) = min_w <- x
+    method set_min_h (x:int option) = min_h <- x
+    method set_max_w (x:int option) = max_w <- x
+    method set_max_h (x:int option) = max_h <- x
+
     method s_changing = ghost#s_pos
     (* FIXME this is ok, but will raise change event even before dragging is not over *)
-    method s_change   = (* fst s_change *) self#s_pos
+    method s_change   = self#s_pos
 
     method set_value (x:'a) = value <- x
     method get_value : 'a   = value
@@ -609,10 +619,7 @@ module Item = struct
       | `Move ->
          let open Utils in
          let w, h = init_pos.w + x - init_x, init_pos.h + y - init_y in
-         let pos  = Position.correct_wh ?max_w:item.max_w
-                                        ?min_w:item.min_w
-                                        ?max_h:item.max_h
-                                        ?min_h:item.min_h
+         let pos  = Position.correct_wh ?max_w ?min_w ?max_h ?min_h
                                         { self#pos with w = w // col_px
                                                       ; h = h // row_px }
                                         grid.cols

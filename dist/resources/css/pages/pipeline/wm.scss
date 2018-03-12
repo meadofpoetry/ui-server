@@ -29,6 +29,24 @@ $wm-placeholder-color: text-secondary-on-background;
     min-width: 400px;
 }
 
+// ---- PROPERTY ROW ----
+
+.wm-property-row {
+    padding-bottom: 10px;
+    align-items: center;
+    &:last-child { padding-bottom: 0; }
+    &__value {
+        @include mdc-typography(body2);
+        text-align: end;
+        width: 50%;
+    }
+    &__label {
+        @include mdc-typography(subheading1);
+        text-align: left;
+        width: 50%;
+    }
+}
+
 // ---- PLACEHOLDER ----
 
 .wm-placeholder {
