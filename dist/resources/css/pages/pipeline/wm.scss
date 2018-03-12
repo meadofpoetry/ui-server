@@ -114,11 +114,16 @@ $wm-placeholder-color: text-secondary-on-background;
     &__properties {
         position: relative;
         flex: 1 1 200px;
-    }
-}
 
-#wm-item-properties {
-    padding: 20px;
+        #wm-item-properties {
+            padding: 15px;
+            overflow-y: auto;
+        }
+
+        .mdc-card__actions {
+            margin-top: auto;
+        }
+    }
 }
 
 // ---- LAYERS ----

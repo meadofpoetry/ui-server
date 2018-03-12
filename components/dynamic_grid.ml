@@ -430,8 +430,6 @@ module Item = struct
       let init_x, init_y = ev##.clientX, ev##.clientY in
       Dom_events.listen Dom_html.window Dom_events.Typ.mousemove
         (fun _ ev ->
-(*          if self#get_selected && self#get_selectable
-          then self#set_selected false;*)
           let x, y = ev##.clientX, ev##.clientY in
           meth ~x ~y ~init_x ~init_y ~init_pos `Move;
           false)
@@ -587,9 +585,6 @@ module Item = struct
                                      let pos = Position.compact ~f:(fun x -> x#pos) x#pos lst in
                                      x#set_pos pos)
                            (Position.sort_by_y ~f:(fun x -> x#pos) self#items);
-            (* Printf.printf "settings s_change. Old: %s, New: %s\n"
-             *               (Position.to_string @@ React.S.value (fst s_change))
-             *               (Position.to_string self#pos); *)
             (snd s_change) self#pos;
             Option.iter (fun f -> f self#pos ghost#pos col_px row_px) item.on_drag
          | _ -> ()
