@@ -269,7 +269,8 @@ module Item = struct
       on_resize; on_resizing; on_drag; on_dragging;
       move_widget; widget; value}
 
-  let rec find_touch id num source =  (* given a touchList Js.t, finds a touch with needed identifier among *)
+  let rec find_touch (id : int) (num : int) source =  (* num is a number of last item *)
+    (* given a touchList Js.t, finds a touch with needed identifier among *)
     if num < 0 then None
     else
       if Js.Optdef.test (source##item num)

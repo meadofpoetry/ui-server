@@ -83,8 +83,8 @@ module Widget_item : Item with type item = Wm.widget = struct
 
   type item = Wm.widget
   let max_layers     = 10
-  let add_candidates = [ { icon = "tv"; name = "Видео"; typ = "video" }
-                       ; { icon = "audiotrack"; name = "Аудио"; typ = "audio" }
+  let add_candidates = [ { icon = "tv";            name = "Видео"; typ = "video" }
+                       ; { icon = "audiotrack";    name = "Аудио"; typ = "audio" }
                        ; { icon = "font_download"; name = "Текст"; typ = "text" }
                        ]
   let grid_title     = "Раскладка виджетов"
@@ -238,10 +238,10 @@ module Layers = struct
     let a_map (a,f) = React.E.map (fun _ -> Option.iter f @@ React.S.value s_sel) a#e_click in
     let _           = React.S.l2 (fun s l -> let len = List.length l in
                                              let sel = Option.is_some s in
-                                             add#set_disabled (len >= max);
-                                             up#set_disabled ((len <= 1) || sel);
+                                             add#set_disabled   (len >= max);
+                                             up#set_disabled   ((len <= 1) || sel);
                                              down#set_disabled ((len <= 1) || sel);
-                                             rm#set_disabled ((len <= 1) || not sel))
+                                             rm#set_disabled   ((len <= 1) || not sel))
                                  s_sel layers_grid#s_items in
     let _           = React.E.map (fun _ -> layers_grid#add @@ make_layer_item layers_grid#items) add#e_click in
     let l           = [ rm,   (fun w -> w#remove)
@@ -275,105 +275,132 @@ module Items(I : Item) = struct
   let base_class = "wm-items"
 
   module Add = struct
-
     let touch e = Js.Optdef.get (e##.changedTouches##item 0)
                     (fun () -> failwith "touch fail")
 
-    let dispatch t typ target =
+    (* imitates an event of a given type, using touch and event target parameters. sets dataTransfer on demand *)
+    let dispatch ?data touch typ target =
       let evt      = Js.Unsafe.pure_js_expr "document.createEvent('Event')" in
-      let optional =
-        match typ with
-        | "dragend"  -> Js._false
-        | _          -> Js._true
-      in
-      let ()  = (Js.Unsafe.coerce evt)##initEvent (Js.string typ) Js._true optional in
-      (Js.Unsafe.coerce evt)##.button    := Js.string "0";
-      (Js.Unsafe.coerce evt)##.which     := Js.string "1";
-      (Js.Unsafe.coerce evt)##.buttons   := Js.string "1";
-      (Js.Unsafe.coerce evt)##.pageX     := (Js.Unsafe.coerce t)##.pageX;
-      (Js.Unsafe.coerce evt)##.pageY     := (Js.Unsafe.coerce t)##.pageY;
-      (Js.Unsafe.coerce evt)##.clientX   := (Js.Unsafe.coerce t)##.clientX;
-      (Js.Unsafe.coerce evt)##.clientY   := (Js.Unsafe.coerce t)##.clientY;
-      (Js.Unsafe.coerce evt)##.screenX   := (Js.Unsafe.coerce t)##.screenX;
-      (Js.Unsafe.coerce evt)##.screenY   := (Js.Unsafe.coerce t)##.screenY;
-      print_endline @@
-        Printf.sprintf "dispatch %s " typ ^
-          if (Js.Unsafe.coerce target)##dispatchEvent evt
-          then "okay"
-          else "error"
+      let coerced  = Js.Unsafe.coerce evt in
+      let optional = match typ with | "dragend" -> Js._false | _ -> Js._true in
+      let () = coerced##initEvent (Js.string typ) Js._true optional in
+      let () = Js.Unsafe.set evt "dataTransfer" (Js.Unsafe.pure_js_expr "new DataTransfer()") in
+      coerced##.button  := Js.string "0";
+      coerced##.which   := Js.string "1";
+      coerced##.buttons := Js.string "1";
+      coerced##.pageX   := touch##.pageX;
+      coerced##.pageY   := touch##.pageY;
+      coerced##.clientX := touch##.clientX;
+      coerced##.clientY := touch##.clientY;
+      coerced##.screenX := touch##.screenX;
+      coerced##.screenY := touch##.screenY;
+      (match data with
+       | Some data -> coerced##.dataTransfer##setData
+                        (Js.string drag_data_type) data
+       | None      -> ());
+      let () = (Js.Unsafe.coerce target)##dispatchEvent evt in
+      ()
+
+    (* finds element above the touched point, actually returns Dom_html.element Js.opt *)
+    let elt_from_point x y = (Js.Unsafe.coerce Dom_html.document)##elementFromPoint x y
 
     let base_class = Markup.CSS.add_element base_class "add"
     let item_class = Markup.CSS.add_element base_class "item"
 
-    class item ~props ~widgets () = object(self)
+    class draggable ~data elt () = object
 
-      inherit Box.t ~vertical:false ~widgets ()
-
-      val mutable id        = None
-      val mutable drag      = false
+      val mutable id    = None
+      val mutable drag  = false
+      val mutable clone = None
+      val mutable delta = 0,0
 
       initializer
-        Dom_events.listen self#root Dom_events.Typ.dragstart
-          (fun _ e -> print_endline "dragstart";
-                      self#style##.opacity := Js.def @@ Js.string "0.5";
-                      self#style##.zIndex := Js.string "5";
-                      let s = add_candidate_to_yojson props
-                              |> Yojson.Safe.to_string
-                              |> Js.string
-                      in
-                      e##.dataTransfer##setData (Js.string drag_data_type) s;
-                      (*Js.Unsafe.set e "dataTransfer" ((Js.string drag_data_type), s);*)
-                      true) |> ignore;
+      let ending e = id   <- None;
+                     drag <- false;
+                     let touch = touch e in
+                     Js.Opt.iter (elt_from_point touch##.clientX touch##.clientY)
+                       (fun x -> dispatch touch "drop" x ?data:(Some data));
+                     Option.iter (fun cln ->
+                         (try Dom.removeChild Dom_html.document##.body cln with _ -> ());
+                         clone <- None) clone;
+                     dispatch touch "dragend" elt
+          in
+          Dom_events.listen elt Dom_events.Typ.touchstart
+            (fun _ e -> let touch = touch e in
+                        delta <- touch##.pageX - elt##.offsetLeft,
+                                 touch##.pageY - elt##.offsetTop;
+                        id    <- Some touch##.identifier;
+                        false) |> ignore;
 
-        Dom_events.listen self#root Dom_events.Typ.dragend
-          (fun _ _ -> self#style##.opacity := Js.def @@ Js.string "";
-                      self#style##.zIndex := Js.string "";
-                      print_endline "dragend";
-                      false) |> ignore;
+          Dom_events.listen Dom_html.window Dom_events.Typ.touchmove
+            (fun _ e -> let touch = touch e in
+                        (match drag with
+                         | false ->
+                            Js.Opt.iter (elt_from_point touch##.clientX touch##.clientY)
+                              (fun elt -> if Equal.physical elt elt
+                                          then dispatch touch "dragstart" elt;
+                                          drag  <- true;
+                                          let cln = (Js.Unsafe.coerce elt)##cloneNode true in
+                                          cln##.style##.width    :=
+                                            Js.string @@ Dynamic_grid.Utils.px elt##.offsetWidth;
+                                          cln##.style##.position := Js.string "absolute";
+                                          cln##.style##.pointerEvents := Js.string "none";
+                                          cln##.style##.opacity  := Js.def @@ Js.string "0.5";
+                                          cln##.style##.zIndex   := Js.string "9999";
+                                          clone <- Some cln;
+                                          Dom.appendChild Dom_html.document##.body cln)
+                         | true  -> ());
+                        (match id with
+                         | Some id ->
+                            if touch##.identifier = id
+                            then Js.Opt.iter (elt_from_point touch##.clientX touch##.clientY)
+                                   (fun x -> dispatch touch "dragover" x);
+                            Option.iter (fun cln ->
+                                let dx, dy = delta in
+                                cln##.style##.left :=
+                                  Js.string @@ Dynamic_grid.Utils.px (touch##.pageX - dx);
+                                cln##.style##.top  :=
+                                  Js.string @@ Dynamic_grid.Utils.px (touch##.pageY - dy)) clone
+                         | None -> ());
+                        false) |> ignore;
 
-        Dom_events.listen self#root Dom_events.Typ.touchstart
-          (fun _ e -> let touch = touch e in
-                      id <- Some touch##.identifier;
-                      false) |> ignore;
+          Dom_events.listen elt Dom_events.Typ.touchend
+            (fun _ e -> ending e;
+                        false) |> ignore;
 
-        Dom_events.listen Dom_html.window Dom_events.Typ.touchmove
-          (fun _ e -> let touch = touch e in
-                      (match drag with
-                       | false -> drag <- true;
-                                  dispatch touch "dragstart" self#root
-                       | true  -> ());
-                      (match id with
-                       | Some id -> if touch##.identifier = id
-                                    then let elt =
-                                           (Js.Unsafe.coerce Dom_html.document)##elementFromPoint
-                                             touch##.clientX touch##.clientY in
-                                         print_endline @@ if Js.Opt.test elt
-                                                          then "element above"
-                                                          else "no el above";
-                                         Js.Opt.iter elt
-                                           (fun x -> dispatch touch "dragover" x);
-                                         dispatch touch "drag" self#root;
-                       | None -> ());
-                      false) |> ignore;
-
-        Dom_events.listen self#root Dom_events.Typ.touchend
-          (fun _ e -> id   <- None;
-                      drag <- false;
-                      let touch = touch e in
-                      let elt =
-                        (Js.Unsafe.coerce Dom_html.document)##elementFromPoint
-                          touch##.clientX touch##.clientY in
-                      Js.Opt.iter elt
-                        (fun x -> dispatch touch "drop" x);
-                      dispatch touch "dragend" self#root;
-                      false) |> ignore;
-        self#add_class item_class;
-        self#set_attribute "draggable" "true"
-
+          Dom_events.listen elt Dom_events.Typ.touchcancel
+            (fun _ e -> ending e; false) |> ignore;
     end
 
-    let make_item (props : add_candidate) =
+    class item ~props ~widgets () =
+      let box  = new Box.t ~vertical:false ~widgets () in
+      let s = add_candidate_to_yojson props
+              |> Yojson.Safe.to_string
+              |> Js.string
+      in
+      object(self)
+        inherit Widget.widget box#root ()
+        inherit draggable ~data:s box#root ()
 
+        method private opacity s = self#style##.opacity := Js.def @@ Js.string s
+        method private z_index s = self#style##.zIndex  := Js.string s
+
+        initializer
+          Dom_events.listen self#root Dom_events.Typ.dragstart
+            (fun _ e -> self#opacity "0.5"; self#z_index "5";
+                        e##.dataTransfer##setData (Js.string drag_data_type) s;
+                        true) |> ignore;
+
+          Dom_events.listen self#root Dom_events.Typ.dragend
+            (fun _ _ -> self#opacity ""; self#z_index ""; false) |> ignore;
+
+          self#add_class item_class;
+          self#set_attribute "draggable" "true"
+      end
+
+
+
+    let make_item (props : add_candidate) =
       let icon = new Icon.Font.t ~icon:props.icon () in
       let text = new Typography.Text.t ~adjust_margin:false ~text:props.name () in
       let box  = new item ~props ~widgets:[icon#widget;text#widget] () in
@@ -404,7 +431,7 @@ module Items(I : Item) = struct
                                     w#set_id id;
                                     Dom.appendChild box#root w#root
                         | None   -> Dom.appendChild box#root ph#root))
-                               s
+                     s
       in
       box
 
@@ -527,16 +554,14 @@ module Items_grid(I : Item) = struct
                                      Dom.preventDefault e;
                                      true) |> ignore;
        Dom_events.listen self#root Dom_events.Typ.dragleave
-         (fun _ e -> print_endline "dragleave";
-                     Dom_html.stopPropagation e;
+         (fun _ e -> Dom_html.stopPropagation e;
                      Dom.preventDefault e;
                      if Equal.physical enter_target e##.target
                                        (* NOTE maybe check for some? *)
                      then ghost#set_pos Dynamic_grid.Position.empty;
                      true) |> ignore;
        Dom_events.listen self#root Dom_events.Typ.dragover
-         (fun _ e -> print_endline "dragover";
-                     let p = self#get_event_pos (e :> Dom_html.mouseEvent Js.t) in
+         (fun _ e -> let p = self#get_event_pos (e :> Dom_html.mouseEvent Js.t) in
                      self#move_ghost ghost p;
                      let b = (Js.Unsafe.coerce e##.dataTransfer##.types)##includes
                                (Js.string drag_data_type) in
@@ -546,10 +571,8 @@ module Items_grid(I : Item) = struct
        |> ignore;
        Dom_events.listen self#root Dom_events.Typ.drop
          (fun _ e ->
-           print_endline "drop";
            Dom.preventDefault e;
            let json = e##.dataTransfer##getData (Js.string drag_data_type)
-                      (* Js.Unsafe.get e "dataTransfer"*)
                       |> Js.to_string
                       |> Yojson.Safe.from_string
            in
