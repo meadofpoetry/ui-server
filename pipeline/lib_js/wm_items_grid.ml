@@ -25,8 +25,8 @@ module Layer(I : Item) = struct
     ; h = (pos.bottom - pos.top) / rh
     }
 
-  let item_to_grid_item ~resolution ~cols ~rows x =
-    let pos = I.pos_of_item (snd x) in
+  let item_to_grid_item ~resolution ~cols ~rows (x:I.t) =
+    let pos = I.position_of_t x in
     let pos = grid_pos_of_layout_pos ~resolution ~cols ~rows pos in
     Dynamic_grid.Item.to_item ~pos ~value:x ()
 
@@ -37,26 +37,30 @@ module Layer(I : Item) = struct
     let items   = List.map (item_to_grid_item ~resolution ~cols ~rows) init in
     object(self)
 
-      inherit [string * I.item] Dynamic_grid.t ~grid ~items ()
+      inherit [I.t] Dynamic_grid.t ~grid ~items ()
 
+      val mutable typ          = ""
       val mutable layer        = layer
       val mutable enter_target = Js.null
 
       method layer : int = layer
-      method set_layer x =
-        layer <- x;
-        List.iter (fun x -> let s,v = x#get_value in x#set_value (s,(I.update_layer v layer))) self#items
+      method set_layer x = layer <- x;
+                           List.iter (fun x -> x#set_value (I.update_layer x#get_value layer)) self#items
 
       method private update_item_value item position =
-        let pos            = layout_pos_of_grid_pos ~resolution ~cols ~rows position in
-        let (s,(v:I.item)) = item#get_value in
-        let (nv : I.item)  = I.update_pos v pos in
-        item#set_value (s,nv)
+        let pos = layout_pos_of_grid_pos ~resolution ~cols ~rows position in
+        item#set_value (I.update_position item#get_value pos)
 
-      method private add_from_candidate index pos ac =
+      method private add_from_candidate pos ac =
         let open Dynamic_grid in
         if not @@ Position.equal pos Position.empty
-        then let item = Dynamic_grid.Item.to_item ~pos ~value:(I.make_item_name ac index,I.create_item ac) () in
+        then
+          let other    = List.map (fun x -> x#get_value) self#items in
+          let (ac:I.t) = if not (ac:I.t).unique
+                         then { ac with name = I.make_item_name ac other }
+                         else ac
+          in
+          let item  = Dynamic_grid.Item.to_item ~pos ~value:ac () in
              Result.iter (fun i -> React.S.map (fun p -> self#update_item_value i p) i#s_change |> ignore)
                          (self#add item)
 
@@ -76,7 +80,6 @@ module Layer(I : Item) = struct
                          ~pos:Dynamic_grid.Position.empty
                          ()
          in
-         let typ = Js.string Wm_items.drag_data_type in
          ghost#style##.zIndex := Js.string "10000";
          Dom.appendChild self#root ghost#root;
          Dom_events.listen self#root Dom_events.Typ.dragenter
@@ -90,21 +93,34 @@ module Layer(I : Item) = struct
                                        true) |> ignore;
          Dom_events.listen self#root Dom_events.Typ.dragover
                            (fun _ e ->
-                             if Js.to_bool @@ (Js.Unsafe.coerce e##.dataTransfer##.types)##includes typ
-                             then (Dom.preventDefault e;
-                                   let p = self#get_event_pos (e :> Dom_html.mouseEvent Js.t) in
-                                   self#move_ghost ghost p);
+                             let a = Js.Unsafe.coerce e##.dataTransfer##.types in
+                             let l = Js.to_array a |> Array.to_list |> List.map Js.to_string in
+                             let t = List.find_map (fun x ->
+                                         match String.chop_prefix ~pre:Wm_items.drag_type_prefix x with
+                                         | Some wh -> typ <- x; Some wh
+                                         | None    -> None) l in
+                             Option.iter (fun wh ->
+                                 let width,height = match String.split_on_char ':' wh with
+                                   | w :: h :: [] -> Int.of_string w, Int.of_string h
+                                   | _            -> None,None
+                                 in
+                                 let p = self#get_event_pos (e :> Dom_html.mouseEvent Js.t) in
+                                 match p with
+                                 | Some _ -> self#move_ghost ?width ?height ghost p;
+                                             let gp = ghost#pos in
+                                             if not @@ Dynamic_grid.Position.(equal gp empty)
+                                             then Dom.preventDefault e;
+                                 | None -> ()) t;
                              true)
          |> ignore;
          Dom_events.listen self#root Dom_events.Typ.drop
                            (fun _ e -> Dom.preventDefault e;
-                                       let json = e##.dataTransfer##getData typ
+                                       let json = e##.dataTransfer##getData (Js.string typ)
                                                   |> Js.to_string
                                                   |> Yojson.Safe.from_string
                                        in
-                                       let index = succ @@ List.length self#items in
-                                       Result.iter (self#add_from_candidate index ghost#pos)
-                                                   (add_candidate_of_yojson json);
+                                       Result.iter (self#add_from_candidate ghost#pos)
+                                                   (I.of_yojson json);
                                        ghost#set_pos Dynamic_grid.Position.empty;
                                        true)
          |> ignore)
@@ -117,11 +133,11 @@ module Make(I : Item) = struct
 
   module G = Layer(I)
 
-  class t ~title ~resolution ~cols ~rows ~(init: (string * I.item) list) ~e_layers ~s_conf () =
+  class t ~title ~resolution ~cols ~rows ~(init: I.t list) ~e_layers ~s_conf () =
     let grouped =
-      List.fold_left (fun acc (n,x) ->
-          let layer = I.layer_of_item x in
-          List.Assoc.update ~eq:(=) ~f:(function Some l -> Some ((n,x) :: l) | None -> Some [(n,x)]) layer acc)
+      List.fold_left (fun acc (x:I.t) ->
+          let layer = I.layer_of_t x in
+          List.Assoc.update ~eq:(=) ~f:(function Some l -> Some (x :: l) | None -> Some [x]) layer acc)
                      [] init
     in
     let layers  = I.layers_of_t_list init in
@@ -146,9 +162,10 @@ module Make(I : Item) = struct
                     s_active_grid
         |> React.S.switch ~eq
 
-      method grid       = React.S.value s_active_grid
-      method s_selected = s_sel
-      method items      = List.fold_left (fun acc x -> x#items @ acc) [] @@ React.S.value s_grids
+      method s_selected   = s_sel
+      method layout_items = List.map I.t_to_layout_item self#items
+      method items        = List.fold_left (fun acc x -> x#items @ acc) [] @@ React.S.value s_grids
+                            |> List.map (fun x -> x#get_value)
 
       initializer
         React.S.l2 (fun conf grid -> if conf.show_grid_lines then grid#overlay_grid#show
@@ -179,13 +196,13 @@ module Make(I : Item) = struct
 
   let make ~title
            ~resolution
-           ~cols
-           ~rows
-           ~(init: (string * I.item) list)
+           ~(init: I.t list)
            ~selected_push
            ~e_layers
            ~s_conf
            () =
+    let positions = List.map I.position_of_t init in
+    let cols,rows = Utils.get_grid ~resolution ~positions () in
     let ig = new t ~title ~resolution ~cols ~rows ~init ~e_layers ~s_conf () in
     let _  = React.S.map (fun x -> selected_push x) ig#s_selected in
     ig

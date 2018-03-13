@@ -26,7 +26,7 @@ type position =
   ; top    : int
   ; right  : int
   ; bottom : int
-  } [@@deriving yojson]
+  } [@@deriving yojson,eq]
 
 type widget =
   { type_       : string [@key "type"]
@@ -35,12 +35,12 @@ type widget =
   ; layer       : int
   ; aspect      : (int * int)
   ; description : string
-  } [@@deriving yojson]
+  } [@@deriving yojson,eq]
 
 type container =
   { position : position
   ; widgets  : (string * widget) list
-  } [@@deriving yojson]
+  } [@@deriving yojson,eq]
 
 type t =
   { resolution : int * int

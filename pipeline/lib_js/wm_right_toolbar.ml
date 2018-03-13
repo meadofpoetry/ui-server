@@ -6,8 +6,8 @@ module Make(I : Item) = struct
 
   module It = Wm_items.Make(I)
 
-  class t ~layers ~selected () =
-    let items,sel = It.make selected in
+  class t ~layers ~selected ~candidates ~set_candidates () =
+    let items,sel = It.make ~selected ~candidates ~set_candidates () in
     let layers,e  = Wm_layers.make ~init:layers ~max:I.max_layers in
     let _class    = "wm-right-toolbar" in
     object(self)

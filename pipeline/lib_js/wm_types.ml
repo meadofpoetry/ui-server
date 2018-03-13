@@ -1,19 +1,20 @@
 open Containers
 open Components
 
-type add_candidate =
-  { icon : string
-  ; typ  : string
-  ; name : string
-  } [@@deriving yojson]
+type 'a wm_item =
+  { icon   : string
+  ; name   : string
+  ; unique : bool
+  ; item   : 'a
+  } [@@deriving yojson,eq]
 
-type 'a item_props =
-  { widget  : Widget.widget
-  ; actions : 'a item_props_action list
-  }
-and 'a item_props_action =
+type item_properties_action =
   { label    : string
-  ; on_click : (string * 'a) Dynamic_grid.Item.t -> unit
+  ; on_click : unit -> unit
+  }
+type item_properties =
+  { widget  : Widget.widget
+  ; actions : item_properties_action list
   }
 
 type editor_config =
@@ -27,19 +28,21 @@ type action =
 
 module type Item = sig
 
-  type item
-  type t = string * item
+  type item [@@deriving yojson,eq]
+  type layout_item = string * item
+  type t = item wm_item [@@deriving yojson,eq]
 
-  val create_item      : add_candidate -> item
-  val pos_of_item      : item -> Wm.position
-  val layer_of_item    : item -> int
-  val layers_of_t_list : t list -> int list
-  val update_pos       : item -> Wm.position -> item
-  val update_layer     : item -> int -> item
+  val max_layers           : int
 
-  val max_layers       : int
-  val add_candidates   : add_candidate list
-  val make_item_name   : add_candidate -> int -> string
-  val make_item_props  : (string * item) Dynamic_grid.Item.t -> item item_props
+  val t_to_layout_item     : t -> layout_item
+  val t_of_layout_item     : layout_item -> t
+  val position_of_t        : t -> Wm.position
+  val layer_of_t           : t -> int
+  val size_of_t            : t -> int option * int option
+  val layers_of_t_list     : t list -> int list
+  val update_position      : t -> Wm.position -> t
+  val update_layer         : t -> int -> t
+  val make_item_name       : t -> t list -> string
+  val make_item_properties : t -> t list -> (t -> unit) -> item_properties
 
 end
