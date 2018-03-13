@@ -19,11 +19,11 @@ let get_widgets_bounding_rect (container:Wm.container) =
 
 module Container_item : Item with type item = Wm.container = struct
 
-  type item        = Wm.container [@@deriving yojson,eq]
+  type item        = Wm.container  [@@deriving yojson,eq]
   type layout_item = string * item
-  type t           = item wm_item [@@deriving yojson,eq]
+  type t           = item wm_item  [@@deriving yojson,eq]
 
-  let max_layers     = 1
+  let max_layers = 1
 
   let t_to_layout_item (t:t) = t.name,t.item
   let t_of_layout_item (k,(v:item)) =
@@ -51,11 +51,11 @@ end
 
 module Widget_item : Item with type item = Wm.widget = struct
 
-  type item        = Wm.widget [@@deriving yojson,eq]
+  type item        = Wm.widget     [@@deriving yojson,eq]
   type layout_item = string * item
-  type t           = item wm_item [@@deriving yojson,eq]
+  type t           = item wm_item  [@@deriving yojson,eq]
 
-  let max_layers     = 10
+  let max_layers = 10
 
   let t_to_layout_item (t:t) = t.name,t.item
   let t_of_layout_item (k,(v:item)) =
@@ -130,21 +130,48 @@ let create_widgets_grid ~(container:      Wm.container wm_item)
   Dom.appendChild w.ig#root dlg#root;
   w
 
+let switch ~(cont:Cont.t) ~s_state_push ~candidates ~set_candidates ~s_conf () =
+  let selected   = React.S.value cont.ig#s_selected |> Option.get_exn in
+  let t          = selected#get_value in
+  let on_apply w = selected#set_value { t with item = { t.item with widgets = w }}; s_state_push `Container in
+  let on_cancel  = fun () -> s_state_push `Container in
+  let w = create_widgets_grid ~container:t ~candidates ~set_candidates ~s_conf ~on_apply ~on_cancel () in
+  s_state_push (`Widget w)
+
+let serialize ~(cont:Cont.t) ~s_state () : (string * Wm.container) list =
+  (match React.S.value s_state with
+   | `Container         -> ()
+   | `Widget (w:Widg.t) -> Option.iter (fun selected -> let (t:Wm.container wm_item) = selected#get_value in
+                                                        let widgets = w.ig#layout_items in
+                                                        let t = { t with item = { t.item with widgets }} in
+                                                        selected#set_value t)
+                                       (React.S.value cont.ig#s_selected));
+  List.map (fun (n,(v:Wm.container)) ->
+      let widgets = List.map (fun (s,(w:Wm.widget)) ->
+                        let position = pos_relative_to_absolute w.position v.position in
+                        let nw  = { w with position } in
+                        s,nw) v.widgets in
+      n,{ v with widgets })
+           cont.ig#layout_items
+
 let create ~(init:     Wm.t)
            ~(post:     Wm.t -> unit)
            ~(s_conf:   editor_config React.signal)
            ~(conf_dlg: Dialog.t)
            () =
   (* Convert widgets positions to relative *)
-  let conv p = List.map (fun (n,(v:Wm.widget)) -> let pos = v.position in
-                                                  n,{ v with position = pos_absolute_to_relative pos p })
-  in
-  let layout = List.map (fun (n,v) -> let open Wm in
-                                      let widgets = conv v.position v.widgets in
-                                      n, { v with widgets })
+  let conv p = List.map (fun (n,(v:Wm.widget)) -> n,{ v with position = pos_absolute_to_relative v.position p }) in
+  let layout = List.map (fun (n,(v:Wm.container)) -> let widgets = conv v.position v.widgets in
+                                                     n, { v with widgets })
                         init.layout
   in
-  let wc = List.map Widget_item.t_of_layout_item init.widgets in
+  let used_widgets = List.fold_left (fun acc (_,(x:Wm.container)) -> x.widgets @ acc) [] init.layout in
+  let free_widgets = List.filter (fun (k,(v:Wm.widget)) ->
+                         let eq (k1,v1) (k2,v2) = Wm.equal_widget v1 v2 && String.equal k1 k2 in
+                         not @@ List.mem ~eq (k,v) used_widgets)
+                                 init.widgets
+  in
+  let wc = List.map Widget_item.t_of_layout_item free_widgets in
   let s_wc,s_wc_push = React.S.create wc in
   let s_cc,s_cc_push = React.S.create [({ icon   = "crop_16_9"
                                         ; name   = "Контейнер"
@@ -159,11 +186,9 @@ let create ~(init:     Wm.t)
   let init                 = List.map Container_item.t_of_layout_item layout in
   let s_state,s_state_push = React.S.create `Container in
   let title                = "Контейнеры" in
-
   let conf = Wm_left_toolbar.make_action { icon = "settings"; name = "Настройки" } in
   let edit = Wm_left_toolbar.make_action { icon = "edit";     name = "Редактировать" } in
   let save = Wm_left_toolbar.make_action { icon = "save";     name = "Сохранить" } in
-
   let on_remove = fun (t:Wm.container wm_item) ->
     let ws = List.map Widget_item.t_of_layout_item t.item.widgets in
     List.iter (fun x -> Wm_editor.remove ~eq:Widget_item.equal (React.S.value s_wc) s_wc_push x) ws
@@ -172,52 +197,22 @@ let create ~(init:     Wm.t)
                        ~resolution ~s_conf ~on_remove ~actions:[edit] ()
   in
   let _ = React.E.map (fun _ -> conf_dlg#show) conf#e_click in
-  let _ = React.E.map (fun _ ->
-              let selected = React.S.value cont.ig#s_selected |> Option.get_exn in
-              let t        = selected#get_value in
-              let on_apply w = let t = { t with item = { t.item with widgets = w }} in
-                               selected#set_value t;
-                               s_state_push `Container
-              in
-              let on_cancel  = fun () -> s_state_push `Container in
-              let w = create_widgets_grid ~container:t ~candidates:s_wc ~set_candidates:s_wc_push
-                                          ~s_conf ~on_apply ~on_cancel () in
-              s_state_push (`Widget w)) edit#e_click
+  let _ = React.S.map (fun x -> edit#set_disabled @@ Option.is_none x) cont.ig#s_selected in
+  let _ = React.E.map (fun _ -> switch ~s_state_push ~candidates:s_wc ~set_candidates:s_wc_push ~s_conf ~cont ())
+                      edit#e_click
   in
-  let _ = React.S.map (function
-                       | None   -> edit#set_disabled true
-                       | Some _ -> edit#set_disabled false)
-                      cont.ig#s_selected
+  let _ = React.E.map (fun _ -> let layout = serialize ~cont ~s_state () in
+                                post { resolution; widgets=[]; layout };
+                                let j = Wm.to_yojson {resolution;layout;widgets=[]} in
+                                Printf.printf "%s\n" @@ Yojson.Safe.pretty_to_string j)
+                      save#e_click
   in
-  let _ = React.E.map (fun _ ->
-              (match React.S.value s_state with
-               | `Container -> ()
-               | `Widget w  ->
-                  Option.iter (fun selected ->
-                      let (t:Wm.container wm_item) = selected#get_value in
-                      let widgets = w.ig#layout_items in
-                      let t       = { t with item = { t.item with widgets }} in
-                      selected#set_value t)
-                              (React.S.value cont.ig#s_selected));
-              (* Convert widgets positions to absolute *)
-              let conv p = List.map (fun (n,(v:Wm.widget)) ->
-                               let pos = v.position in
-                               n,{ v with position = pos_relative_to_absolute pos p })
-              in
-              let layout = List.map (fun (n,v) -> let open Wm in
-                                                  let widgets = conv v.position v.widgets in
-                                                  n,{ v with widgets })
-                                    cont.ig#layout_items in
-              post @@ { resolution; widgets=[]; layout };
-              let j = Wm.to_yojson {resolution;layout;widgets=[]} in
-              Printf.printf "%s\n" @@ Yojson.Safe.pretty_to_string j)
-                      save#e_click in
-
   let lc = new Layout_grid.Cell.t ~widgets:[] () in
   let mc = new Layout_grid.Cell.t ~widgets:[] () in
   let rc = new Layout_grid.Cell.t ~widgets:[] () in
-  let w  = new Layout_grid.t ~cells:[lc; mc; rc] () in
-
+  lc#set_span_desktop 1; lc#set_span_tablet 1; lc#set_span_phone 4;
+  mc#set_span_desktop 8; mc#set_span_tablet 7; mc#set_span_phone 4;
+  rc#set_span_desktop 3; rc#set_span_tablet 8; rc#set_span_phone 4;
   let add_to_view lt ig rt =
     Utils.rm_children lc#root; Dom.appendChild lc#root lt#root;
     Utils.rm_children mc#root; Dom.appendChild mc#root ig#root;
@@ -225,64 +220,44 @@ let create ~(init:     Wm.t)
     Dom.appendChild lt#root save#root;
     Dom.appendChild lt#root conf#root;
   in
-  let _ = React.S.map (function
-                       | `Widget (w:Widg.t) -> add_to_view w.lt w.ig w.rt
-                       | `Container         -> add_to_view cont.lt cont.ig cont.rt)
+  let _ = React.S.map (function `Widget (w:Widg.t) -> add_to_view w.lt w.ig w.rt
+                              | `Container         -> add_to_view cont.lt cont.ig cont.rt)
                       s_state
   in
-  lc#set_span_desktop 1; lc#set_span_tablet 1; lc#set_span_phone 4;
-  mc#set_span_desktop 8; mc#set_span_tablet 7; mc#set_span_phone 4;
-  rc#set_span_desktop 3; rc#set_span_tablet 8; rc#set_span_phone 4;
-  w
+  new Layout_grid.t ~cells:[lc;mc;rc] ()
 
-class t () =
+class t () = object(self)
+  val mutable sock : WebSockets.webSocket Js.t option = None
+  inherit Widget.widget (Dom_html.createDiv Dom_html.document) () as super
+  method private on_load =
+    Requests.get_wm ()
+    >>= (fun wm ->
+      let id              = "wm-editor" in
+      let config          = { show_grid_lines = true } in
+      let conf_dlg,s_conf = Settings_dialog.make config in
+      let e_wm,wm_sock    = Requests.get_wm_socket () in
+      let post            = (fun w -> Lwt.Infix.(Requests.post_wm w
+                                                 >|= (function
+                                                      | Ok () -> ()
+                                                      | Error e -> print_endline @@ "error post wm" ^ e)
+                                                 |> Lwt.ignore_result))
+      in
+      let _  = React.S.map (fun (s:Wm.t) ->
+                   (try Dom.removeChild self#root (Dom_html.getElementById id) with _ -> ());
+                   let wm_el = create ~init:s ~post ~s_conf ~conf_dlg () in
+                   let ()    = wm_el#set_id id in
+                   Dom.appendChild self#root wm_el#root)
+                           (React.S.hold wm e_wm)
+      in
+      let () = Dom.appendChild self#root conf_dlg#root in
+      sock <- Some wm_sock;
+      Lwt_result.return ())
+    |> ignore
 
-  let elt = Dom_html.createDiv Dom_html.document in
-
-  object(self)
-
-    val mutable sock : WebSockets.webSocket Js.t option = None
-
-    inherit Widget.widget elt () as super
-
-    method private on_load =
-      Requests.get_wm ()
-      >>= (fun wm ->
-        let config : editor_config = { show_grid_lines = true } in
-        let conf_dlg,s_conf = Settings_dialog.make config in
-        let e_wm,wm_sock = Requests.get_wm_socket () in
-        let s_wm = React.S.hold wm e_wm in
-        let open Lwt.Infix in
-        let post  = (fun w -> Requests.post_wm w
-                              >|= (function
-                                   | Ok () -> ()
-                                   | Error e -> print_endline @@ "error post wm" ^ e)
-                              |> Lwt.ignore_result)
-        in
-        let id    = "wm-editor" in
-        Dom.appendChild self#root conf_dlg#root;
-        let _     = React.S.map (fun (s:Wm.t) ->
-                        (try Dom.removeChild self#root (Dom_html.getElementById id)
-                         with _ -> print_endline "No el");
-                        let wm_el = create ~init:s
-                                           ~post
-                                           ~s_conf
-                                           ~conf_dlg
-                                           ()
-                        in
-                        let ()    = wm_el#set_id id in
-                        Dom.appendChild self#root wm_el#root)
-                                s_wm
-        in
-        sock <- Some wm_sock;
-        Lwt_result.return ())
-      |> ignore
-
-    initializer
-      self#add_class "wm";
-      super#set_on_unload @@ Some (fun () -> Option.iter (fun x -> x##close; sock <- None) sock);
-      super#set_on_load   @@ Some (fun () -> self#on_load);
-
-  end
+  initializer
+    self#add_class "wm";
+    super#set_on_unload (Some (fun () -> Option.iter (fun x -> x##close; sock <- None) sock));
+    super#set_on_load   (Some (fun () -> self#on_load));
+end
 
 let page () = new t ()
