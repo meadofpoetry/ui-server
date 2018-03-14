@@ -73,3 +73,25 @@ let create config dbs (hardware_streams : Common.Stream.source list React.signal
 
 let finalize pipe =
   Pipeline_protocol.finalize pipe.state
+
+let get_streams pipe =
+  let open Structure in
+  let get_stream = function
+    | Unknown  -> None
+    | Stream s ->
+       match s.id with
+       | `Ts _ -> Some s
+       | `Ip _ ->
+          match s.source with
+          | Input _  -> Some s
+          | Parent p -> Some p 
+  in
+  React.S.map (List.filter_map (fun x -> get_stream x.source)) pipe.api.streams
+
+let get_channels pipe =
+  let open Structure in
+  let get_channels str =
+    let id = str.id in
+    List.map (fun c -> (id, c)) str.channels
+  in
+  React.S.map (List.fold_left (fun acc x -> (get_channels x.structure) @ acc) []) pipe.api.streams

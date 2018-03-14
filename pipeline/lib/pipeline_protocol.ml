@@ -118,13 +118,16 @@ let create sock_in sock_out hardware_streams =
       vdata, adata,
       strms_push, wm_push = notif_events ()
   in
-  let streams = S.l2 Structure_conv.match_streams hardware_streams streams' in
+  let streams = S.l2
+                  (Structure_conv.match_streams Common.Topology.(Some { input = TSOIP; id = 42 }))
+                  hardware_streams streams'
+  in
   let send_js = fun x ->
     Socket.send msg_sock (Yojson.Safe.to_string x) >>= fun () ->
     Socket.recv msg_sock >|= fun js ->
     Yojson.Safe.from_string js
   in
-  let merge = fun s -> Structure_conv.match_streams (S.value hardware_streams) s in
+  let merge = fun s -> (Structure_conv.match_streams Common.Topology.(Some { input = TSOIP; id = 42 })) (S.value hardware_streams) s in
   let requests = create_channels `Json send_js merge strms_push wm_push in
   (*let set = set msg_sock converter in
   let get = fun x -> get msg_sock converter structure wm settings x in *)
