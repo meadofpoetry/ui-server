@@ -27,10 +27,11 @@ let init o =
        description TEXT
        )|eos}
   in
-  let (module Db) = Storage.Database.connection o in
-  Db.exec create () >>= function
-  | Ok v    -> Lwt.return v
-  | Error e -> Lwt.fail_with (Caqti_error.show e)
+  let init' (module Db : Caqti_lwt.CONNECTION) =
+    Db.exec create () >>= function
+    | Ok v    -> Lwt.return v
+    | Error e -> Lwt.fail_with (Caqti_error.show e)
+  in Storage.Database.with_connection o init'
 
 let store_streams dbs streams =
   let open Common.Stream in
@@ -66,14 +67,15 @@ let store_streams dbs streams =
     Caqti_request.exec Caqti_type.unit
       {|DELETE FROM streams|}
   in
-  let (module Db) = Storage.Database.connection dbs in
-  List.fold_left (fun acc s -> acc >>= function
-                               | Ok () -> Db.exec insert (form_req s)
-                               | e -> Lwt.return e)
-    (Db.exec delete ()) streams
-  >>= function
-  | Ok v    -> Lwt.return v
-  | Error _ -> Lwt.fail_with "store_streams"
+  let store_streams' (module Db : Caqti_lwt.CONNECTION) =
+    List.fold_left (fun acc s -> acc >>= function
+                                 | Ok () -> Db.exec insert (form_req s)
+                                 | e -> Lwt.return e)
+      (Db.exec delete ()) streams
+    >>= function
+    | Ok v    -> Lwt.return v
+    | Error _ -> Lwt.fail_with "store_streams"
+  in Storage.Database.with_connection dbs store_streams'
 
 type _ req =
   | Store_streams : Common.Stream.t list -> unit Lwt.t req
