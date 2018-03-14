@@ -50,7 +50,7 @@ class ['a] t ~grid ~(items:'a item list) () =
 
     inherit Widget.widget elt ()
 
-    val overlay_grid      = new overlay_grid ~parent:elt ~s_col_w ~s_row_h ~s_item_margin ()
+    val overlay_grid      = new overlay_grid ~parent:elt ()
     val _s_selected       = React.S.map (fun x -> x) s_selected
     val _e_selected       = React.S.changes s_selected
     val mutable residue   = 0
@@ -91,7 +91,7 @@ class ['a] t ~grid ~(items:'a item list) () =
       s_col_w_push col;
       residue <- res;
       self#style##.width := Js.string @@ Printf.sprintf "calc(100%% - %dpx)" res;
-      overlay_grid#layout
+      overlay_grid#layout col (React.S.value s_row_h) (React.S.value s_item_margin)
 
     (** Private methods **)
 

@@ -120,7 +120,46 @@ let correct_aspect (p:t) (aspect:int*int) =
   in
   { p with w; h }
 
-let get_free_rect ?(cmp:(t -> t -> int) option) ?aspect ~(f:'a -> t) (pos:t) (items:'a list) w h () =
+
+let correct_xy (p:t) par_w par_h =
+  let x = if p.x < 0 then 0 else if p.x + p.w > par_w then par_w - p.w else p.x in
+  let y = match par_h with
+    | Some ph -> if p.y < 0 then 0 else if p.y + p.h > ph then ph - p.h else p.y
+    | None    -> if p.y < 0 then 0 else p.y
+  in
+  { p with x;y }
+
+let correct_w ?max_w ?(min_w=1) (p:t) par_w =
+  let w = match max_w with
+    | Some max -> if p.w > max then max else if p.w < min_w then min_w else p.w
+    | None     -> if p.w < min_w then min_w else p.w
+  in
+  let w = if p.x + w > par_w then par_w - p.x else w in
+  { p with w }
+
+let correct_h ?max_h ?(min_h=1) (p:t) par_h =
+  let h = match max_h with
+    | Some max -> if p.h > max then max else if p.h < min_h then min_h else p.h
+    | None     -> if p.h < min_h then min_h else p.h
+  in
+  let h = match par_h with
+    | Some ph -> if p.y + h > ph then ph - p.y else h
+    | None    -> h
+  in
+  { p with h }
+
+let correct_wh ?max_w ?min_w ?max_h ?min_h p par_w par_h =
+  correct_w ?max_w ?min_w p par_w |> (fun p -> correct_h ?max_h ?min_h p par_h)
+
+let get_free_rect ?(cmp:    (t -> t -> int) option)
+                  ?(aspect: (int * int) option)
+                  ?min_w ?min_h ?max_w ?max_h
+                  ~(f:      'a -> t)
+                  (pos:     t)
+                  (items:   'a list)
+                  (w:       int)
+                  (h:       int)
+                  () =
   if has_collision ~f:(fun x -> x) pos items
   then None
   else
@@ -191,56 +230,19 @@ let get_free_rect ?(cmp:(t -> t -> int) option) ?aspect ~(f:'a -> t) (pos:t) (it
                              * it must not overlap with other rects,
                              * it must be under the mouse cursor
                              *)
-                            (* let new_pos = match aspect with
-                             *   | Some aspect -> let p = correct_aspect new_pos aspect in
-                             *                    let wdiff = new_pos.w - p.w in
-                             *                    let hdiff = new_pos.h - p.h in
-                             *                    let px = pos.x - new_pos.x in
-                             *                    let wd = let d = new_pos.w - px in
-                             *                             let d = if d = 0 then d else 1 in
-                             *                             d / px
-                             *                    in
-                             *                    Printf.printf "cursor x: %d, wd:%d\n"
-                             *                                  px wd;
-                             *                    { p with x = new_pos.x + (wdiff / wd)
-                             *                           ; y = new_pos.y + (hdiff / 2) }
-                             *   | None -> new_pos
-                             * in *)
+                            let p = correct_wh ?max_w ?max_h ?min_h ?min_w new_pos w (Some h) in
+                            let p = match aspect with
+                              | Some asp -> correct_aspect p asp
+                              | None     -> p
+                            in
                             match (cmp new_pos acc),
                                   get_first_collision ~f:(fun x -> x) new_pos items,
                                   collides new_pos pos with
-                            | 1, None, true -> new_pos
+                            | 1, None, true -> let cp = correct_xy pos new_pos.w (Some new_pos.h) in
+                                               correct_xy { p with x = cp.x - (p.w / 2)
+                                                                 ; y = cp.y - (p.h / 2) }
+                                                          new_pos.w (Some new_pos.h)
                             | _             -> acc) acc ys) acc ys) acc xs)
                            empty xs
     in
     if equal a empty then None else Some a
-
-let correct_xy (p:t) par_w par_h =
-  let x = if p.x < 0 then 0 else if p.x + p.w > par_w then par_w - p.w else p.x in
-  let y = match par_h with
-    | Some ph -> if p.y < 0 then 0 else if p.y + p.h > ph then ph - p.h else p.y
-    | None    -> if p.y < 0 then 0 else p.y
-  in
-  { p with x;y }
-
-let correct_w ?max_w ?(min_w=1) (p:t) par_w =
-  let w = match max_w with
-    | Some max -> if p.w > max then max else if p.w < min_w then min_w else p.w
-    | None     -> if p.w < min_w then min_w else p.w
-  in
-  let w = if p.x + w > par_w then par_w - p.x else w in
-  { p with w }
-
-let correct_h ?max_h ?(min_h=1) (p:t) par_h =
-  let h = match max_h with
-    | Some max -> if p.h > max then max else if p.h < min_h then min_h else p.h
-    | None     -> if p.h < min_h then min_h else p.h
-  in
-  let h = match par_h with
-    | Some ph -> if p.y + h > ph then ph - p.y else h
-    | None    -> h
-  in
-  { p with h }
-
-let correct_wh ?max_w ?min_w ?max_h ?min_h p par_w par_h =
-  correct_w ?max_w ?min_w p par_w |> (fun p -> correct_h ?max_h ?min_h p par_h)
