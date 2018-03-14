@@ -1076,7 +1076,7 @@ module Make
 
   module Menu = struct
 
-    let base_class   = "mdc-simple-menu"
+    let base_class   = "mdc-menu"
     let items_class  = CSS.add_element base_class "items"
     let anchor_class = "mdc-menu-anchor"
 

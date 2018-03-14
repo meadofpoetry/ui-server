@@ -3,17 +3,12 @@ open Components
 
 module Utils = struct
 
+  let gcd                  = Components.Utils.gcd
+  let resolution_to_aspect = Components.Utils.resolution_to_aspect
+
   let rm_children container =
     Dom.list_of_nodeList @@ container##.childNodes
     |> List.iter (fun x -> Dom.removeChild container x)
-
-  let rec gcd a b =
-    if a != 0 && b != 0
-    then let a, b = if a > b then a mod b, b else a, b mod a in gcd a b
-    else a + b
-
-  let resolution_to_aspect (w,h) =
-    let d = gcd w h in w / d, h / d
 
   let get_possible_grid ~(resolution:int * int) ~(positions:Wm.position list) () =
     let w,h = resolution in
@@ -30,29 +25,26 @@ module Utils = struct
     in
     aux [] i
 
-  let get_preferred_grid ?(cols=30) ~resolution () =
-    let (w,h)   = resolution in
-    let (x,y)   = resolution_to_aspect resolution in
-    if cols >= w      then resolution,[]
-    else if x >= cols then (x,y),[]
-    else (let grids = List.map (fun factor -> let c = w / factor in c, c * y / x) @@ get_factors (gcd w h) in
-          let best  = List.fold_left (fun acc (c,r) -> if (c - cols) < (fst acc - cols) && c - cols > 0
-                                                       then (c,r) else acc) resolution grids
-          in
-          best,(List.filter (fun (c,r) -> c <> (fst best) || r <> (snd best)) grids))
+  let get_grids ~resolution ~positions () =
+    let possible = get_possible_grid ~resolution ~positions () in
+    let cmp      = Pair.compare compare compare in
+    let (w,h)    = resolution in
+    let (x,y)    = resolution_to_aspect resolution in
+    List.map (fun factor -> let c = w / factor in c, c * y / x) @@ get_factors (gcd w h)
+    |> List.filter (fun x -> match cmp x possible with
+                             | 1 | 0 -> true
+                             | _     -> false)
+    |> List.sort cmp
 
-  let get_grid ~resolution ~positions () =
-    let possible   = get_possible_grid ~resolution ~positions () in
-    let best,other = get_preferred_grid ~resolution () in
-    List.iter (fun (x:Wm.position) -> Printf.printf "left: %d, right: %d, top: %d, bottom: %d\n"
-                                                    x.left x.right x.top x.bottom) positions;
-    Printf.printf "resolution: %dx%d, possible: %dx%d, preffered: %dx%d\n"
-                  (fst resolution) (snd resolution)
-                  (fst possible) (snd possible)
-                  (fst best) (snd best);
-    match Pair.compare compare compare best possible with
-    | 1 | 0 -> best
-    | _     -> possible
+  let get_best_grid ?(cols=90) ~resolution grids =
+    let cmp   = Pair.compare compare compare in
+    let grids = List.sort cmp grids in
+    let w,h   = resolution in
+    let x,y   = resolution_to_aspect (w,h) in
+    if cols >= w      then resolution
+    else if x >= cols then (x,y)
+    else (List.fold_left (fun acc (c,r) -> if (c - cols) < (fst acc - cols) && c - cols > 0
+                                           then (c,r) else acc) resolution grids)
 
 end
 

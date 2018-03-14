@@ -232,6 +232,34 @@ $wm-placeholder-color: text-secondary-on-background;
 
         width: 100%;
         height: auto;
+        overflow-x: auto;
+    }
+
+    &__header {
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+
+    &__title {
+        @include mdc-typography(subheading2);
+    }
+
+    &__menu {
+        @include mdc-theme-prop(color, text-secondary-on-background);
+        display: flex;
+        position: relative;
+        align-items: center;
+        justify-content: center;
+        box-sizing: border-box;
+        width: 48px;
+        height: 48px;
+        padding: 12px;
+        outline: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        user-select: none;
+        will-change: initial;
     }
 
     &__grid {

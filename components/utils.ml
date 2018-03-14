@@ -1,5 +1,16 @@
 open Containers
 
+let round x   = (if Float.(x < (floor x +. 0.5)) then floor x else ceil x) |> int_of_float
+let px        = Printf.sprintf "%dpx"
+let translate = Printf.sprintf "translate(%dpx, %dpx)"
+let (//) x y  = round @@ (float_of_int x) /. (float_of_int y)
+let rec gcd a b =
+  if a != 0 && b != 0
+  then let a, b = if a > b then a mod b, b else a, b mod a in gcd a b
+  else a + b
+let resolution_to_aspect (w,h) =
+  let d = gcd w h in w / d, h / d
+
 module Animation = struct
 
   module Timing = struct

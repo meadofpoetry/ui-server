@@ -36,6 +36,7 @@ module type Item = sig
 
   val t_to_layout_item     : t -> layout_item
   val t_of_layout_item     : layout_item -> t
+  val to_grid_item         : t -> Dynamic_grid.Position.t -> t Dynamic_grid.item
   val position_of_t        : t -> Wm.position
   val layer_of_t           : t -> int
   val size_of_t            : t -> int option * int option

@@ -23,7 +23,6 @@ module Make(I : Item) = struct
            ~(candidates:     I.t list React.signal)
            ~(set_candidates: I.t list -> unit)
            ~(actions:        Fab.t list)
-           ~(s_conf:         editor_config React.signal)
            () =
     let rm = Wm_left_toolbar.make_action { icon = "delete"; name = "Удалить" } in
 
@@ -34,14 +33,21 @@ module Make(I : Item) = struct
                                         then I.update_layer x i
                                         else x) acc) init layers
     in
-
     let selected,selected_push = React.S.create None in
     (* FIXME bad desing, think how to remove this 'selected' signal *)
     let rt   = RT.make ~selected ~layers ~candidates ~set_candidates in
-    let ig   = IG.make ~title ~resolution ~init ~selected_push
-                       ~s_conf ~e_layers:rt#e_layers_action () in
-    let lt   = Wm_left_toolbar.make (actions @ [rm]) in
+    let ig   = IG.make ~title ~resolution ~init ~selected_push ~e_layers:rt#e_layers_action () in
+    let lt   = Wm_left_toolbar.make (rm :: actions) in
 
+    let _ = React.S.diff (fun n o ->
+                let eq = fun x1 x2 -> Equal.physical x1#root x2#root in
+                let rm = List.filter_map (fun x ->
+                             if not @@ List.mem ~eq x n
+                             then Some (List.map (fun x -> x#get_value) x#items)
+                             else None) o
+                         |> List.flatten in
+                List.iter (fun x -> remove ~eq:I.equal (React.S.value candidates) set_candidates x) rm)
+                         ig#s_layers in
     let _ = React.E.map (fun _ -> Option.iter (fun x ->
                                       Option.iter (fun f -> f x#get_value) on_remove;
                                       remove ~eq:I.equal (React.S.value candidates) set_candidates x#get_value;
