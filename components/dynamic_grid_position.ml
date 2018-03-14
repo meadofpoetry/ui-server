@@ -101,7 +101,26 @@ let swap ~cols ~f ~(eq:'a -> 'a -> bool) ~(collisions:'a list) ~(ghost_pos:t) (p
         then [coll_pos, x]
         else []) [] collisions
 
-let get_free_rect ?(cmp:(t -> t -> int) option) ~(f:'a -> t) (pos:t) (items:'a list) w h () =
+(** Changes width and height to correspond provided aspect **)
+let correct_aspect (p:t) (aspect:int*int) =
+  let w = if p.w mod (fst aspect) <> 0
+          then let w = (p.w / (fst aspect)) * (fst aspect) in
+               if w = 0 then (fst aspect) else w
+          else p.w
+  in
+  let h = if p.h mod (snd aspect) <> 0
+          then let h = (p.h / (snd aspect)) * (snd aspect) in
+               if h = 0 then (snd aspect) else h
+          else p.h
+  in
+  let sw  = w / (fst aspect) in
+  let sh  = h / (snd aspect) in
+  let w,h = if sw > sh then (fst aspect) * sh,h
+            else w, (snd aspect) * sw
+  in
+  { p with w; h }
+
+let get_free_rect ?(cmp:(t -> t -> int) option) ?aspect ~(f:'a -> t) (pos:t) (items:'a list) w h () =
   if has_collision ~f:(fun x -> x) pos items
   then None
   else
@@ -172,32 +191,29 @@ let get_free_rect ?(cmp:(t -> t -> int) option) ~(f:'a -> t) (pos:t) (items:'a l
                              * it must not overlap with other rects,
                              * it must be under the mouse cursor
                              *)
+                            (* let new_pos = match aspect with
+                             *   | Some aspect -> let p = correct_aspect new_pos aspect in
+                             *                    let wdiff = new_pos.w - p.w in
+                             *                    let hdiff = new_pos.h - p.h in
+                             *                    let px = pos.x - new_pos.x in
+                             *                    let wd = let d = new_pos.w - px in
+                             *                             let d = if d = 0 then d else 1 in
+                             *                             d / px
+                             *                    in
+                             *                    Printf.printf "cursor x: %d, wd:%d\n"
+                             *                                  px wd;
+                             *                    { p with x = new_pos.x + (wdiff / wd)
+                             *                           ; y = new_pos.y + (hdiff / 2) }
+                             *   | None -> new_pos
+                             * in *)
                             match (cmp new_pos acc),
                                   get_first_collision ~f:(fun x -> x) new_pos items,
-                                  collides pos new_pos with
+                                  collides new_pos pos with
                             | 1, None, true -> new_pos
                             | _             -> acc) acc ys) acc ys) acc xs)
                            empty xs
     in
     if equal a empty then None else Some a
-
-let correct_aspect (p:t) (aspect:int*int) =
-  let w = if p.w mod (fst aspect) <> 0
-          then let w = (p.w / (fst aspect)) * (fst aspect) in
-               if w = 0 then (fst aspect) else w
-          else p.w
-  in
-  let h = if p.h mod (snd aspect) <> 0
-          then let h = (p.h / (snd aspect)) * (snd aspect) in
-               if h = 0 then (snd aspect) else h
-          else p.h
-  in
-  let sw  = w / (fst aspect) in
-  let sh  = h / (snd aspect) in
-  let w,h = if sw > sh then (fst aspect) * sh,h
-            else w, (snd aspect) * sw
-  in
-  { p with w; h }
 
 let correct_xy (p:t) par_w par_h =
   let x = if p.x < 0 then 0 else if p.x + p.w > par_w then par_w - p.w else p.x in
