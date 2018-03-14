@@ -81,7 +81,7 @@ let get_settings api () =
  *)
 let get_settings_sock sock_data body api () =
   let open Pipeline_protocol in
-  get_sock sock_data body Settings.to_yojson (React.E.Option.value @@ React.S.changes api.settings)
+  get_sock sock_data body Settings.to_yojson (React.S.changes api.settings)
 
 let set_wm api body () =
   set body Wm.of_yojson
@@ -98,7 +98,7 @@ let get_wm api () =
 
 let get_wm_sock sock_data body api () =
   let open Pipeline_protocol in
-  get_sock sock_data body Wm.to_yojson (React.E.Option.value @@ React.S.changes api.wm)
+  get_sock sock_data body Wm.to_yojson (React.S.changes api.wm)
 
 let get_vdata_sock sock_data body api () =
   let open Pipeline_protocol in

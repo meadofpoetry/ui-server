@@ -50,7 +50,35 @@ type t =
 
 let update _ b = b
 
-let default = { resolution = 1920, 1080
+let default = { resolution = 1280, 720
               ; widgets   = []
               ; layout    = []
               }
+
+let dump w = Yojson.Safe.to_string (to_yojson w)
+           
+let restore s = of_yojson (Yojson.Safe.from_string s)
+
+let combine ~set wm =
+  let changed = ref false in
+  let rec filter_container = function
+    | []        -> []
+    | (n,w)::tl ->
+       match List.find_opt (fun (name,_) -> name = n) wm.widgets with
+       | None          -> filter_container tl
+       | Some (_,widg) ->
+          if not (widg.aspect = w.aspect)
+          then filter_container tl
+          else begin
+              if not (widg.position = w.position && widg.layer = w.layer) then changed := true;
+              (n, { widg with position = w.position; layer = w.layer }) :: (filter_container tl)
+            end
+  in
+  let rec filter_layout : (string * container) list -> (string * container) list = function
+    | []        -> []
+    | (n,c)::tl ->
+       (n, { c with widgets = filter_container c.widgets } ) :: (filter_layout tl)
+  in
+  if !changed
+  then `Changed { wm with resolution = set.resolution; layout = filter_layout set.layout }
+  else `Kept wm

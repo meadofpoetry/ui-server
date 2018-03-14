@@ -57,7 +57,7 @@ let create config dbs (hardware_streams : Common.Stream.source list React.signal
      let exec_path = (Filename.concat cfg.bin_path cfg.bin_name) in
      let exec_opts =
        Array.of_list (cfg.bin_name :: "-m" :: (PSettings.format_to_string cfg.msg_fmt) :: cfg.sources) in
-     let api, state, recv = Pipeline_protocol.create cfg.sock_in cfg.sock_out hardware_streams in
+     let api, state, recv = Pipeline_protocol.create config cfg.sock_in cfg.sock_out hardware_streams in
      let db_events = connect_db (S.changes api.streams) dbs in
      let obj = { api; state; db_events } in
      (* polling loop *)
