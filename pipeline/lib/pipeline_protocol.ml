@@ -29,7 +29,7 @@ type api = { streams   : Structure.t list signal
            }
 
 module Wm_notif = Notif.Make(Wm)
-module Streams_notif = Notif.Make(Streams)
+module Structures_notif = Notif.Make(Structure.Structures)
 module Settings_notif = Notif.Make(Settings)
 module Graph_notif = Notif.Make(Graph)
 module Video_data_notif = Notif.Make(Video_data)
@@ -52,7 +52,7 @@ let notif_events typ =
   let table = Hashtbl.create 10 in
   List.iter (fun (n,f) -> Hashtbl.add table n f)
     [ Wm_notif.create `Json ((<$>) (fun x -> wm_push (Some x)))
-    ; Streams_notif.create `Json ((<$>) strm_push)
+    ; Structures_notif.create `Json ((<$>) strm_push)
     ; Settings_notif.create `Json ((<$>) (fun x -> sets_push (Some x)))
     ; Graph_notif.create `Json ((<$>) grap_push)
     ; Video_data_notif.create `Json ((<$>) vdata_push)
@@ -66,12 +66,7 @@ let notif_events typ =
   strm_push, wm_push
 
 module Wm_msg = Message.Make(Wm)
-module Structure_msg = Message.Make(struct
-                           type t = Structure.structure_list
-                           let name = "streams"
-                           let to_yojson = Structure.structure_list_to_yojson
-                           let of_yojson = Structure.structure_list_of_yojson
-                         end)
+module Structure_msg = Message.Make(Structure.Structures)
 
 let create_channels
       typ
@@ -92,7 +87,7 @@ let create_channels
     | Ok v  -> s_push v; Ok(trans v)
   in
   let s_set_upd s =
-    Structure.unwrap s
+    Structure.Streams.unwrap s
     |> s_set
   in
   { wm = { get = wm_get_upd; set = wm_set }

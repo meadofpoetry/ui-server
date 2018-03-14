@@ -1,5 +1,3 @@
-let name = "structure"
-
 type video_pid =
   { codec        : string
   ; resolution   : (int * int)
@@ -55,19 +53,25 @@ type structure =
   ; channels : channel list
   } [@@deriving yojson]
 
-type structure_list = structure list [@@deriving yojson]
-
 type source = Unknown
             | Stream  of Common.Stream.t
             [@@deriving yojson]
 
-type t = { source    : source
-         ; structure : structure
-         } [@@deriving yojson]
+type packed = { source    : source
+              ; structure : structure
+              } [@@deriving yojson]
+type t = packed
 
-type t_list = t list [@@deriving yojson]
+module Structures = struct
+  type t   = structure list [@@deriving yojson]
+  let name = "structures"
+end
+       
+module Streams = struct
+  type t   = packed list [@@deriving yojson]
+  let name = "streams"
+  let default : t = []
 
-let default : t list = []
-
-let unwrap : t list -> structure list =
-  List.map (fun { source; structure } -> structure )
+  let unwrap : t -> structure list =
+    List.map (fun { source; structure } -> structure )
+end
