@@ -48,6 +48,7 @@ module Audio_data_notif = Notif.Make(Audio_data)
 
 module Wm_msg = Message.Make(Wm)
 module Structure_msg = Message.Make(Structure.Structures)
+module Settings_msg = Message.Make(Settings)
 
 (* TODO test this *)
 let combine_and_set combine opt set push data =
@@ -59,20 +60,24 @@ let combine_and_set combine opt set push data =
                    | Ok ()   -> Lwt.return @@ push v
                    | Error e -> Lwt_io.printf "combine and set: failed to set data %s\n" e)
 
-let combine_and_get combine opt set push data =
-  let nv = combine ~set:(opt#get) data in
-  match nv with
-  | `Kept v    -> push v; v
-  | `Changed v -> 
-     Lwt_main.run (set v >>= function
-                   | Ok ()   -> Lwt.return @@ push v
-                   | Error e -> Lwt_io.printf "combine and get: failed to set data %s\n" e);
-     v
-                     
-let notif_events typ send options =
-  let _ = Lwt_io.printf "split_events\n" |> ignore in
-  let _, wm_set = Wm_msg.create send `Json in
+let combiner combine opt set signal =
+  let s, push = React.S.create opt#get in
+  let events  = Lwt_react.E.limit (fun () -> Lwt_unix.sleep 0.5) @@ React.S.changes signal in
+  Lwt_react.E.keep @@
+    Lwt_react.E.map (combine_and_set combine opt set push) events;
+  s
+
+let create_combiners send options structs wm settings =
   let _, s_set = Structure_msg.create send `Json in
+  let _, wm_set = Wm_msg.create send `Json in
+  let _, se_set = Settings_msg.create send `Json in
+  let structures = combiner Structure.Structures.combine options.structures s_set structs in
+  let wm         = combiner Wm.combine options.wm wm_set wm in
+  let settings   = combiner Settings.combine options.settings se_set settings in
+  structures, wm, settings
+  
+let notif_events typ options =
+  let _ = Lwt_io.printf "split_events\n" |> ignore in
   let events, epush     = E.create () in
   let strm, strm_push   = S.create options.structures#get in
   let sets, sets_push   = S.create options.settings#get in
@@ -87,9 +92,8 @@ let notif_events typ send options =
 
   let table = Hashtbl.create 10 in
   List.iter (fun (n,f) -> Hashtbl.add table n f)
-    [ Wm_notif.create `Json ((<$>) (combine_and_set Wm.combine options.wm wm_set wm_push))
-    ; Structures_notif.create `Json ((<$>) (combine_and_set Structure.Structures.combine options.structures
-                                              s_set strm_push))
+    [ Wm_notif.create `Json ((<$>) wm_push)
+    ; Structures_notif.create `Json ((<$>) strm_push)
     ; Settings_notif.create `Json ((<$>) (fun x -> sets_push x))
     ; Graph_notif.create `Json ((<$>) grap_push)
     ; Video_data_notif.create `Json ((<$>) vdata_push)
@@ -114,12 +118,12 @@ let create_channels
   let wm_get_upd () =
     wm_get () >|= function 
     | Error _ as r -> r
-    | Ok v         -> Ok(combine_and_get Wm.combine options.wm wm_set wm_push v)
+    | Ok v    as r -> r
   in
   let s_get_upd () =
     s_get () >|= function
     | Error _ as r -> r
-    | Ok v  -> Ok(trans @@ combine_and_get Structure.Structures.combine options.structures s_set s_push v)
+    | Ok v  -> Ok(trans v)
   in
   let wm_set_upd wm =
     options.wm#store wm;
@@ -133,7 +137,6 @@ let create_channels
   { wm = { get = wm_get_upd; set = wm_set_upd }
   ; streams = { get = s_get_upd; set = s_set_upd }
   }
-  
   
 let create config sock_in sock_out hardware_streams =
   let stor    = Storage.Options.Conf.get config in
@@ -160,14 +163,15 @@ let create config sock_in sock_out hardware_streams =
   in
   
   let sock_events, epush,
-      streams', settings,
+      structures, settings,
       graph, wm,
       vdata, adata,
-      strms_push, wm_push = notif_events () send_js options
+      strms_push, wm_push = notif_events () options
   in
+  let structures, wm, settings = create_combiners send_js options structures wm settings in
   let streams = S.l2
                   (Structure_conv.match_streams Common.Topology.(Some { input = TSOIP; id = 42 }))
-                  hardware_streams streams'
+                  hardware_streams structures
   in
   let merge = fun s -> (Structure_conv.match_streams Common.Topology.(Some { input = TSOIP; id = 42 })) (S.value hardware_streams) s in
   let requests = create_channels `Json send_js options merge strms_push wm_push in
