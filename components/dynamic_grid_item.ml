@@ -37,23 +37,22 @@ let eq x y = Equal.physical x#root y#root
 let filter ~(exclude:#Widget.widget list) (l:#Widget.widget list) =
   List.filter (fun x -> not (List.mem ~eq x exclude)) l
 
-class ['a] t ~grid          (* grid props *)
+class ['a] t ~s_grid        (* grid props *)
            ~(item: 'a item) (* item props *)
            ~e_modify_push   (* add/delete item event *)
            ~s_selected      (* selected items *)
            ~s_selected_push (* selected items signal modifier *)
            ~s_col_w         (* column width signal -- px *)
            ~s_row_h         (* row height signal   -- px *)
-           ~s_item_margin   (* item margin         -- px *)
            ~(s_items : 'a t list React.signal) (* items signal *)
            () =
 object(self)
 
-  inherit ['a] cell ~typ:`Item ~s_col_w ~s_row_h ~s_item_margin ~pos:item.pos () as super
+  inherit ['a] cell ~typ:`Item ~s_col_w ~s_row_h ~s_grid ~pos:item.pos () as super
 
   (* FIXME make normal signal *)
   val s_change      = React.S.create ~eq:(fun _ _ -> false) item.pos
-  val ghost         = new cell ~typ:`Ghost ~s_col_w ~s_row_h ~s_item_margin ~pos:item.pos ()
+  val ghost         = new cell ~typ:`Ghost ~s_col_w ~s_row_h ~s_grid ~pos:item.pos ()
   val resize_button = Markup.Dynamic_grid.Item.create_resize_button ()
                       |> Tyxml_js.To_dom.of_element |> Widget.create
 
@@ -108,7 +107,7 @@ object(self)
   method set_selected x : unit =
     let o = React.S.value s_selected in
     match x with
-    | true  -> if grid.multi_select
+    | true  -> if self#grid.multi_select
                then (if not self#get_selected then s_selected_push ((self :> 'a t) :: o))
                else (List.iter (fun x -> if not (eq x self) then x#set_selected false) o;
                      s_selected_push [(self :> 'a t)]);
@@ -121,6 +120,8 @@ object(self)
   method get_selected   = selected
 
   (** Private methods **)
+
+  method private grid = React.S.value s_grid
 
   method private get_drag_target = match item.move_widget with
     | Some w -> w
@@ -173,10 +174,10 @@ object(self)
   method private resolve_pos_conflicts ~action (pos : Position.t) =
     let other     = filter ~exclude:[(self :> 'a t)] self#items in
     let f         = (fun x -> x#pos) in
-    let cols,rows = grid.cols, grid.rows in
+    let cols,rows = self#grid.cols, self#grid.rows in
     let new_pos = match List.filter (fun x -> Position.collides pos x#pos) other with
       | [] -> pos
-      | l  -> if not grid.vertical_compact
+      | l  -> if not self#grid.vertical_compact
               then ghost#pos
               else
                 let bind f    = function [] -> f () | l -> l in
@@ -192,11 +193,11 @@ object(self)
                 | l  -> List.iter (fun (pos,item) -> item#set_pos pos) l; pos
     in
     (match action with
-     | `Drag -> if grid.vertical_compact
+     | `Drag -> if self#grid.vertical_compact
                 then ghost#set_pos @@ Position.compact ~f new_pos other
                 else ghost#set_pos new_pos;
      | `Size -> ghost#set_pos new_pos);
-    if grid.vertical_compact;
+    if self#grid.vertical_compact;
     then List.iter (fun x -> let lst = filter ~exclude:[(x:>'a t)] other |> List.map f |> List.cons ghost#pos in
                              let pos = Position.compact ~f:(fun x -> x) x#pos lst in
                              x#set_pos pos)
@@ -225,15 +226,16 @@ object(self)
        match typ with
        | `Move->
           let open Utils in
-          let x, y  = init_pos.x + x - init_x, init_pos.y + y - init_y in
-          let pos   = Position.correct_xy { self#pos with x = x // col_px
-                                                        ; y = y // row_px }
-                                          grid.cols grid.rows in
+          let cols,rows = self#grid.cols,self#grid.rows in
+          let x,y = init_pos.x + x - init_x, init_pos.y + y - init_y in
+          let pos = Position.correct_xy { self#pos with x = x // col_px
+                                                      ; y = y // row_px }
+                                        cols rows in
           self#resolve_pos_conflicts ~action:`Drag pos;
-          let x,y = if grid.restrict_move
+          let x,y = if self#grid.restrict_move
                     then (let pos = Position.correct_xy { self#px_pos with x;y }
-                                                        (grid.cols * col_px)
-                                                        (Option.map (fun x -> x * row_px) grid.rows)
+                                                        (cols * col_px)
+                                                        (Option.map (fun x -> x * row_px) rows)
                           in
                           pos.x, pos.y)
                     else x,y
@@ -251,7 +253,7 @@ object(self)
           self#set_y @@ React.S.value s_row_h * ghost#pos.y;
           self#set_pos ghost#pos;
           Dom.removeChild self#get_parent ghost#root;
-          if grid.vertical_compact
+          if self#grid.vertical_compact
           then List.iter (fun x -> let lst = filter ~exclude:[(x:>'a t)] self#items in
                                    let pos = Position.compact ~f:(fun x -> x#pos) x#pos lst in
                                    x#set_pos pos)
@@ -275,12 +277,12 @@ object(self)
     match typ with
     | `Move ->
        let open Utils in
-       let w, h = init_pos.w + x - init_x, init_pos.h + y - init_y in
-       let pos  = Position.correct_wh ?max_w ?min_w ?max_h ?min_h
-                                      { self#pos with w = w // col_px
-                                                    ; h = h // row_px }
-                                      grid.cols
-                                      grid.rows
+       let cols,rows = self#grid.cols, self#grid.rows in
+       let w,h = init_pos.w + x - init_x, init_pos.h + y - init_y in
+       let pos = Position.correct_wh ?max_w ?min_w ?max_h ?min_h
+                                     { self#pos with w = w // col_px
+                                                   ; h = h // row_px }
+                                     cols rows
        in
        let pos  = if not keep_ar then pos
                   else let resolution = self#pos.w,self#pos.h in
@@ -288,10 +290,10 @@ object(self)
                        Position.correct_aspect pos aspect
        in
        self#resolve_pos_conflicts ~action:`Size pos;
-       let w,h = if grid.restrict_move
+       let w,h = if self#grid.restrict_move
                  then (let pos = Position.correct_wh { self#px_pos with w;h }
-                                                     (grid.cols * col_px)
-                                                     (Option.map (fun x -> x * row_px) grid.rows)
+                                                     (cols * col_px)
+                                                     (Option.map (fun x -> x * row_px) rows)
                        in
                        pos.w, pos.h)
                  else w,h
@@ -308,7 +310,7 @@ object(self)
        self#set_h @@ React.S.value s_row_h * ghost#pos.h;
        self#set_pos ghost#pos;
        Dom.removeChild self#get_parent ghost#root;
-       if grid.vertical_compact
+       if self#grid.vertical_compact
        then List.iter (fun x -> let lst = filter ~exclude:[(x:>'a t)] self#items in
                                 let pos = Position.compact ~f:(fun x -> x#pos) x#pos lst in
                                 x#set_pos pos)
@@ -383,7 +385,7 @@ object(self)
     listen select_target#root Typ.mousedown (fun _ e ->
              Dom_html.stopPropagation e;
              if selectable
-             then if grid.multi_select
+             then if self#grid.multi_select
                   then self#set_selected @@ not self#get_selected
                   else self#set_selected true;
              false);
@@ -392,7 +394,7 @@ object(self)
              if e##.touches##.length <= 1
              then (Dom_html.stopPropagation e;
                    if selectable
-                   then if grid.multi_select
+                   then if self#grid.multi_select
                         then self#set_selected @@ not self#get_selected
                         else self#set_selected true);
              false);

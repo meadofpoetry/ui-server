@@ -89,7 +89,7 @@ let initialize (wm: Wm.t) =
     ; rows             = Some rows
     ; row_height       = None
     ; vertical_compact = false
-    ; items_margin     = Some (2,2)
+    ; items_margin     = (2,2)
     ; multi_select     = false
     ; restrict_move    = false
     } in

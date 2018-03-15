@@ -28,7 +28,7 @@ type grid =
   ; rows             : int option
   ; row_height       : int option
   ; vertical_compact : bool
-  ; items_margin     : (int * int) option
+  ; items_margin     : int * int
   ; multi_select     : bool
   ; restrict_move    : bool
   }

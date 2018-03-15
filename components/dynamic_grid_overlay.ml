@@ -25,8 +25,8 @@ class overlay_grid ~parent () =
     method set_divider_period x = divider_period <- x; self#layout
     method get_divider_period   = divider_period
 
-    method show_dividers = show_dividers <- true; self#layout
-    method hide_dividers = show_dividers <- false; self#layout
+    method show_dividers = show_dividers <- true
+    method hide_dividers = show_dividers <- false
 
     method layout cw rh im =
       let gc     = CSS.Color.string_of_t self#get_grid_color in
@@ -47,12 +47,16 @@ class overlay_grid ~parent () =
                        else cw, rh in
       let bg_size    = Printf.sprintf "%dpx %dpx" sz_w sz_h in
       self#style##.backgroundImage := Js.string bg_image;
-      (Js.Unsafe.coerce self#style)##.backgroundSize := Js.string bg_size
+      ((Js.Unsafe.coerce self#style)##.backgroundSize := Js.string bg_size)
+      |> ignore
 
     method private line_background_image degrees color size border =
-      let line_start = size - border in
-      let line_end   = size in
-      Printf.sprintf "repeating-linear-gradient(%ddeg,transparent,transparent %dpx,%s %dpx,%s %dpx)"
-                     degrees line_start color line_start color line_end
+      if size <= border
+      then Printf.sprintf "linear-gradient(%s, %s)" color color
+      else
+        let line_start = size - border in
+        let line_end   = size in
+        Printf.sprintf "repeating-linear-gradient(%ddeg,transparent,transparent %dpx,%s %dpx,%s %dpx)"
+                       degrees line_start color line_start color line_end
 
   end

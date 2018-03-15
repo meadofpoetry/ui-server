@@ -226,6 +226,30 @@ $wm-placeholder-color: text-secondary-on-background;
 
     height: 100%;
 
+    &__right-menu {
+        align-items: center;
+    }
+
+    &__grid-select {
+        @include mdc-theme-prop(color, text-secondary-on-background);
+        font-size: 12px;
+        font-weight: 400;
+        letter-spacing: 0.04em;
+        text-transform: inherit;
+        outline: none;
+        text-decoration: none;
+        user-select: none;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        padding-left: 12px;
+
+        .mdc-menu-anchor {
+            cursor: pointer;
+            padding-left: 8px;
+        }
+    }
+
     &__wrapper {
         @include mdc-theme-prop(background-color,$wm-grid-background-color);
         @include mdc-elevation(2);
@@ -247,19 +271,6 @@ $wm-placeholder-color: text-secondary-on-background;
 
     &__menu {
         @include mdc-theme-prop(color, text-secondary-on-background);
-        display: flex;
-        position: relative;
-        align-items: center;
-        justify-content: center;
-        box-sizing: border-box;
-        width: 48px;
-        height: 48px;
-        padding: 12px;
-        outline: none;
-        font-size: 1.5rem;
-        cursor: pointer;
-        user-select: none;
-        will-change: initial;
     }
 
     &__grid {
@@ -267,11 +278,11 @@ $wm-placeholder-color: text-secondary-on-background;
 
         margin: 0 auto;
 
-        border-left: $wm-grid-border;
-        border-right: $wm-grid-border;
+        box-sizing: border-box;
+        outline: $wm-grid-border;
 
         &.mdc-dynamic-grid--with-overlay-grid {
-            border: none;
+            outline: none;
         }
 
         .mdc-dynamic-grid__item {

@@ -9,11 +9,12 @@ module Make(I : Item) = struct
 
   module G = Wm_items_layer.Make(I)
 
+  let grid_to_string (x,y) = Printf.sprintf "%dx%d" x y
+
   class t ~title ~resolution ~(init: I.t list) ~e_layers () =
     let positions         = List.map I.position_of_t init in
     let s_grids,set_grids = React.S.create @@ Utils.get_grids ~resolution ~positions () in
     let s_grid,set_grid   = React.S.create @@ Utils.get_best_grid ~cols:90 ~resolution (React.S.value s_grids) in
-    let (cols,rows)       = React.S.value s_grid in
     let grouped =
       List.fold_left (fun acc (x:I.t) ->
           let layer = I.layer_of_t x in
@@ -24,21 +25,25 @@ module Make(I : Item) = struct
     let s_layers,set_layers =
       List.map (fun x -> let items = List.Assoc.get ~eq:(=) x grouped in
                          let init  = Option.get_or ~default:[] items in
-                         new G.t ~layer:x ~init ~cols ~rows ~resolution ()) layers
+                         new G.t ~layer:x ~init ~s_grid ~resolution ()) layers
       |> React.S.create
     in
     let s_active,set_active = React.S.create @@ List.hd @@ React.S.value s_layers in
     let wrapper    = Dom_html.createDiv Dom_html.document |> Widget.create in
     let title      = new Typography.Text.t ~adjust_margin:false ~text:title () in
-    let menu_icon  = new Icon.Button.Font.t ~icon:"more_horiz" () in
     let on_data    = ({ icon = "grid_off"; label = None; css_class = None }:Markup.Icon_toggle.data) in
     let off_data   = ({ icon = "grid_on"; label = None; css_class = None }:Markup.Icon_toggle.data) in
     let grid_icon  = new Icon_toggle.t ~on_data ~off_data () in
     let menu_items = List.map (fun (w,h) -> `Item (new Menu.Item.t ~text:(Printf.sprintf "%dx%d" w h) ()))
                      @@ React.S.value s_grids in
     let menu       = new Menu.t ~items:menu_items () in
-    let menu_wrap  = new Menu.Wrapper.t ~anchor:menu_icon ~menu () in
-    let icons      = new Box.t ~vertical:false ~widgets:[ grid_icon#widget; menu_wrap#widget ] () in
+    let menu_text  = new Typography.Text.t ~text:"Сетка:" () in
+    let menu_sel   = new Typography.Text.t ~text:(grid_to_string @@ React.S.value s_grid) () in
+    let menu_ico   = new Icon.Font.t ~icon:"arrow_drop_down" () in
+    let anchor     = new Box.t ~vertical:false ~widgets:[ menu_sel#widget; menu_ico#widget ] () in
+    let menu_wrap  = new Menu.Wrapper.t ~anchor ~menu () in
+    let menu_block = new Box.t ~vertical:false ~widgets:[ menu_text#widget; menu_wrap#widget ] () in
+    let icons      = new Box.t ~vertical:false ~widgets:[ grid_icon#widget; menu_block#widget ] () in
     let header     = new Box.t ~vertical:false ~widgets:[ title#widget;icons#widget ] () in
     object(self)
 
@@ -78,28 +83,22 @@ module Make(I : Item) = struct
                                                  | Some w,Some h -> set_grid (w,h)
                                                  | _             -> ())
                                   | _ -> ()) menu#e_selected |> ignore;
-        (* set new grid *)
-        React.S.map (fun (w,h) ->
-            let grids = React.S.value s_layers in
-            let grids = List.map (fun g -> let init = List.map (fun x -> x#get_value) g#items in
-                                           new G.t ~layer:g#layer ~init ~cols:w ~rows:h ~resolution ())
-                                 grids
-            in
-            let ag = React.S.value s_active in
-            let ag = List.find (fun x -> x#layer = ag#layer) grids in
-            set_layers grids;
-            set_active ag;
-            grids) s_grid |> ignore;
-        React.E.map (fun _ -> let item text = new Menu.Item.t ~text () in
-                              let items = List.map (fun (w,h) -> let text = Printf.sprintf "%dx%d" w h in
-                                                                 item text) @@ React.S.value s_grids in
-                              Utils.rm_children menu#get_list#root;
-                              List.iter (fun x -> Dom.appendChild menu#get_list#root x#root) items;
-                              menu#show) menu_icon#e_click |> ignore;
-        title#add_class     @@ Markup.CSS.add_element base_class "title";
-        menu_icon#add_class @@ Markup.CSS.add_element base_class "menu";
-        grid_icon#add_class @@ Markup.CSS.add_element base_class "menu";
-        header#add_class    @@ Markup.CSS.add_element base_class "header";
+        React.S.map (fun x -> menu_sel#set_text_content @@ grid_to_string x) s_grid |> ignore;
+        (* show grid menu *)
+        Dom_events.listen anchor#root Dom_events.Typ.click (fun _ _ ->
+                            let item text = new Menu.Item.t ~text () in
+                            let items = List.map (fun (w,h) -> let text = Printf.sprintf "%dx%d" w h in
+                                                               item text) @@ React.S.value s_grids in
+                            Utils.rm_children menu#get_list#root;
+                            List.iter (fun x -> Dom.appendChild menu#get_list#root x#root) items;
+                            menu#show;
+                            true) |> ignore;
+        anchor#set_align_items `Center;
+        title#add_class      @@ Markup.CSS.add_element base_class "title";
+        menu_block#add_class @@ Markup.CSS.add_element base_class "grid-select";
+        icons#add_class      @@ Markup.CSS.add_element base_class "right-menu";
+        grid_icon#add_class  @@ Markup.CSS.add_element base_class "menu";
+        header#add_class     @@ Markup.CSS.add_element base_class "header";
         React.S.l2 (fun conf grid -> if conf then grid#overlay_grid#show else grid#overlay_grid#hide)
                    grid_icon#s_state s_active |> ignore;
         React.S.map (fun grid -> Utils.rm_children wrapper#root;
@@ -110,7 +109,7 @@ module Make(I : Item) = struct
                                  let grid = List.find_pred (fun g -> g#layer = x) grids in
                                  Option.iter (fun g -> set_active g) grid
                               | `Added x       ->
-                                 let grid = new G.t ~layer:x ~init:[] ~cols ~rows ~resolution () in
+                                 let grid = new G.t ~layer:x ~init:[] ~s_grid ~resolution () in
                                  set_layers (grid :: grids)
                               | `Removed x     ->
                                  set_layers @@ List.filter (fun g -> g#layer <> x) grids

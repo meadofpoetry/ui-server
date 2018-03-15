@@ -10,14 +10,6 @@ module Utils = struct
     Dom.list_of_nodeList @@ container##.childNodes
     |> List.iter (fun x -> Dom.removeChild container x)
 
-  let get_possible_grid ~(resolution:int * int) ~(positions:Wm.position list) () =
-    let w,h = resolution in
-    let c,r = List.fold_left (fun (c,r) (x:Wm.position) -> gcd c (x.right - x.left),
-                                                           gcd r (x.bottom - x.top)) resolution positions
-              |> fun (c,r) -> let d = gcd c r in  w / d, h / d
-    in
-    c,r
-
   let get_factors i =
     let rec aux acc cnt =
       if cnt = 0 then acc
@@ -26,15 +18,18 @@ module Utils = struct
     aux [] i
 
   let get_grids ~resolution ~positions () =
-    let possible = get_possible_grid ~resolution ~positions () in
     let cmp      = Pair.compare compare compare in
     let (w,h)    = resolution in
-    let (x,y)    = resolution_to_aspect resolution in
-    List.map (fun factor -> let c = w / factor in c, c * y / x) @@ get_factors (gcd w h)
-    |> List.filter (fun x -> match cmp x possible with
-                             | 1 | 0 -> true
-                             | _     -> false)
-    |> List.sort cmp
+    let (ax,ay)  = resolution_to_aspect resolution in
+    let grids    = List.map (fun factor -> let c = w / factor in c, c * ay / ax) @@ get_factors (gcd w h)
+                   |> List.filter (fun (c,r) ->
+                          let cw,rh = w / c, h / r in
+                          List.fold_while (fun _ (x:Wm.position) ->
+                              if x.left mod cw = 0 && x.right mod cw = 0 && x.top mod rh = 0 && x.bottom mod rh = 0
+                              then true,`Continue
+                              else false,`Stop) true positions)
+    in
+    List.sort cmp grids
 
   let get_best_grid ?(cols=90) ~resolution grids =
     let cmp   = Pair.compare compare compare in

@@ -3,7 +3,7 @@ open Components
 open Wm_types
 
 let remove ~eq cs set (t:'a wm_item) =
-  if t.unique then set @@ t :: (List.filter (fun x -> not @@ eq t x) cs)
+  if t.unique then set @@ t :: (List.filter (fun x -> not @@ eq t x) @@ React.S.value cs)
 
 module Make(I : Item) = struct
 
@@ -37,7 +37,7 @@ module Make(I : Item) = struct
     (* FIXME bad desing, think how to remove this 'selected' signal *)
     let rt   = RT.make ~selected ~layers ~candidates ~set_candidates in
     let ig   = IG.make ~title ~resolution ~init ~selected_push ~e_layers:rt#e_layers_action () in
-    let lt   = Wm_left_toolbar.make (rm :: actions) in
+    let lt   = Wm_left_toolbar.make (actions @ [rm]) in
 
     let _ = React.S.diff (fun n o ->
                 let eq = fun x1 x2 -> Equal.physical x1#root x2#root in
@@ -45,11 +45,11 @@ module Make(I : Item) = struct
                                                    then Some (List.map (fun x -> x#get_value) x#items)
                                                    else None) o
                          |> List.flatten in
-                List.iter (fun x -> remove ~eq:I.equal (React.S.value candidates) set_candidates x) rm)
+                List.iter (fun x -> remove ~eq:I.equal candidates set_candidates x) rm)
                          ig#s_layers in
     let _ = React.E.map (fun _ -> Option.iter (fun x ->
                                       Option.iter (fun f -> f x#get_value) on_remove;
-                                      remove ~eq:I.equal (React.S.value candidates) set_candidates x#get_value;
+                                      remove ~eq:I.equal candidates set_candidates x#get_value;
                                       x#remove)
                                   @@ React.S.value selected)
                         rm#e_click in

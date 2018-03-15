@@ -32,11 +32,12 @@ module Make(I : Item) = struct
     let pos = grid_pos_of_layout_pos ~resolution ~cols ~rows pos in
     I.to_grid_item x pos
 
-  class t ~layer ~resolution ~cols ~rows ~init () =
+  class t ~layer ~resolution ~s_grid ~init () =
+    let (c,r)   = React.S.value s_grid in
     let _class  = Markup.CSS.add_element base_class "grid" in
     let ph      = Placeholder.make ~text:"Добавьте элементы в раскладку" ~icon:"add_box" () in
-    let grid    = Dynamic_grid.to_grid ~cols ~rows ~restrict_move:true ~items_margin:(2,2) () in
-    let items   = List.map (item_to_grid_item ~resolution ~cols ~rows) init in
+    let grid    = Dynamic_grid.to_grid ~cols:c ~rows:r ~restrict_move:true ~items_margin:(2,2) () in
+    let items   = List.map (item_to_grid_item ~resolution ~cols:c ~rows:r) init in
     object(self)
 
       inherit [I.t] Dynamic_grid.t ~grid ~items ()
@@ -56,50 +57,21 @@ module Make(I : Item) = struct
         if x <= self#get_offset_width && x >= 0 && y <= self#get_offset_height && y >= 0
         then Some { x; y; w = 1; h = 1 } else None
 
-      method private move_ghost ?aspect ?width ?height ghost = function
+      method private move_ghost ?aspect ghost = function
         | None      -> ghost#set_pos Position.empty
         | Some epos -> let open Position in
                        let epos = { epos with x = epos.x / React.S.value self#s_col_w;
                                               y = epos.y / React.S.value self#s_row_h }
                        in
                        let items = List.map (fun x -> x#pos) self#items in
-                       let cmp =
-                         match width, height with
-                         | Some w, Some h ->
-                            Some (fun n o -> if n.w < w || n.h < h || (n.w * n.h) < (o.w * o.h)
-                                             then 0 else 1)
-                         | Some w, _      -> Some (fun n o -> if n.w < w || n.h < o.h then 0 else 1)
-                         | _, Some h      -> Some (fun n o -> if n.h < h || n.w < o.w then 0 else 1)
-                         | _              -> None
-                       in
-                       let pos = get_free_rect ?cmp ?aspect ~f:(fun x -> x) epos items grid.cols
+                       let pos = get_free_rect ?aspect ~f:(fun x -> x) epos items self#grid.cols
                                                (React.S.value self#s_rows) () in
-                       let pos = Option.map (fun pos ->
-                                     let corr_x = fun w -> if epos.x + w > pos.x + pos.w
-                                                           then (pos.x + pos.w) - w
-                                                           else epos.x
-                                     in
-                                     let corr_y = fun h -> if epos.y + h > pos.y + pos.h
-                                                           then (pos.y + pos.h) - h
-                                                           else epos.y
-                                     in
-                                     let pos = match width, height with
-                                       | Some w, Some h ->
-                                          let w = if w < 1 then 1 else w in
-                                          let h = if h < 1 then 1 else h in
-                                          { x = corr_x w; y = corr_y h; w; h}
-                                       | Some w, _  -> let w = if w < 1 then 1 else w in
-                                                       {pos with x = corr_x w; w}
-                                       | _, Some h  -> let h = if h < 1 then 1 else h in
-                                                       {pos with y = corr_y h; h}
-                                       | _          -> pos
-                                     in pos) pos
-                       in
                        (match pos with
                         | Some x -> ghost#set_pos x
                         | None   -> ghost#set_pos empty)
 
       method private update_item_value item position =
+        let cols,rows = React.S.value s_grid in
         let pos = layout_pos_of_grid_pos ~resolution ~cols ~rows position in
         item#set_value (I.update_position item#get_value pos)
 
@@ -107,18 +79,26 @@ module Make(I : Item) = struct
         let open Dynamic_grid in
         if not @@ Position.equal pos Position.empty
         then
-          let other    = List.map (fun x -> x#get_value) self#items in
-          let (ac:I.t) = I.update_layer ac self#layer in
-          let (ac:I.t) = I.update_position ac @@ layout_pos_of_grid_pos ~resolution ~cols ~rows pos in
-          let (ac:I.t) = if not (ac:I.t).unique
-                         then { ac with name = I.make_item_name ac other }
-                         else ac
+          let cols,rows = React.S.value s_grid in
+          let other     = List.map (fun x -> x#get_value) self#items in
+          let (ac:I.t)  = I.update_layer ac self#layer in
+          let (ac:I.t)  = I.update_position ac @@ layout_pos_of_grid_pos ~resolution ~cols ~rows pos in
+          let (ac:I.t)  = if not (ac:I.t).unique
+                          then { ac with name = I.make_item_name ac other }
+                          else ac
           in
           let item = I.to_grid_item ac pos in
           Result.iter (fun i -> React.S.map (fun p -> self#update_item_value i p) i#s_change |> ignore)
                       (self#add item)
 
+      method private set_grid ((c,r):int*int) =
+        List.iter (fun i -> let pos = I.position_of_t i#get_value in
+                            let pos = grid_pos_of_layout_pos ~resolution ~cols:c ~rows:r pos in
+                            i#set_pos pos) self#items;
+        self#s_grid_push { self#grid with cols = c; rows = Some r };
+
       initializer
+        React.S.map self#set_grid s_grid |> ignore;
         React.S.map (function
                      | [] -> Dom.appendChild self#root ph#root
                      | _  -> try Dom.removeChild self#root ph#root with _ -> ())
@@ -128,9 +108,9 @@ module Make(I : Item) = struct
         List.iter (fun i -> React.S.map (fun p -> self#update_item_value i p) i#s_change |> ignore) self#items;
         (let ghost = new Dynamic_grid.Item.cell
                          ~typ:`Ghost
+                         ~s_grid:self#s_grid
                          ~s_col_w:self#s_col_w
                          ~s_row_h:self#s_row_h
-                         ~s_item_margin:self#s_item_margin
                          ~pos:Dynamic_grid.Position.empty
                          ()
          in

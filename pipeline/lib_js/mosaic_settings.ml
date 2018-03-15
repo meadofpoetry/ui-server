@@ -110,7 +110,7 @@ let create_widgets_grid ~(container:      Wm.container wm_item)
   let cont_pos   = Container_item.position_of_t container in
   let resolution = cont_pos.right - cont_pos.left, cont_pos.bottom - cont_pos.top in
   let init       = List.map Widget_item.t_of_layout_item container.item.widgets in
-  let back       = Wm_left_toolbar.make_action { icon = "arrow_back"; name = "Применить и выйти" } in
+  let back       = Wm_left_toolbar.make_action { icon = "check"; name = "Применить и выйти" } in
   let close      = Wm_left_toolbar.make_action { icon = "close"; name = "Отменить и выйти" } in
   let dlg        = new Dialog.t
                        ~actions:[ new Dialog.Action.t ~typ:`Accept ~label:"Отмена" ()
@@ -125,16 +125,24 @@ let create_widgets_grid ~(container:      Wm.container wm_item)
   let w = Widg.make ~title ~init ~candidates ~set_candidates ~resolution ~actions:[back;close] () in
   let _ = React.E.map (fun _ -> on_apply w.ig#layout_items) back#e_click in
   let _ = React.E.map (fun _ ->
+              print_endline "init\n";
+              List.iter (fun x -> Widget_item.to_yojson x
+                                  |> Yojson.Safe.pretty_to_string
+                                  |> print_endline) init;
+              print_endline "changed\n";
+              List.iter (fun x -> Widget_item.to_yojson x
+                                  |> Yojson.Safe.pretty_to_string
+                                  |> print_endline) w.ig#items;
               let added   = List.filter (fun x -> not @@ List.mem ~eq:Widget_item.equal x init) w.ig#items in
               let removed = List.filter (fun x -> not @@ List.mem ~eq:Widget_item.equal x w.ig#items) init in
+              Printf.printf "added: %d, removed: %d\n" (List.length added) (List.length removed);
               match added,removed with
               | [],[] -> on_cancel ()
               | _ -> let open Lwt.Infix in
                      dlg#show_await
                      >>= (fun res -> (match res with
-                                      | `Cancel -> let cs = React.S.value candidates in
-                                                   let eq = Widget_item.equal in
-                                                   List.iter (Wm_editor.remove ~eq cs set_candidates) added;
+                                      | `Cancel -> let eq = Widget_item.equal in
+                                                   List.iter (Wm_editor.remove ~eq candidates set_candidates) added;
                                                    on_cancel ()
                                       | `Accept -> ());
                                      Lwt.return_unit)
@@ -201,10 +209,10 @@ let create ~(init:     Wm.t)
   let save = Wm_left_toolbar.make_action { icon = "save"; name = "Сохранить" } in
   let on_remove = fun (t:Wm.container wm_item) ->
     let ws = List.map Widget_item.t_of_layout_item t.item.widgets in
-    List.iter (fun x -> Wm_editor.remove ~eq:Widget_item.equal (React.S.value s_wc) s_wc_push x) ws
+    List.iter (fun x -> Wm_editor.remove ~eq:Widget_item.equal s_wc s_wc_push x) ws
   in
   let cont = Cont.make ~title ~init ~candidates:s_cc ~set_candidates:s_cc_push
-                       ~resolution ~on_remove ~actions:[edit;save] ()
+                       ~resolution ~on_remove ~actions:[save;edit] ()
   in
   let _ = React.S.map (fun x -> edit#set_disabled @@ Option.is_none x) cont.ig#s_selected in
   let _ = React.E.map (fun _ -> switch ~s_state_push ~candidates:s_wc ~set_candidates:s_wc_push ~cont ())
