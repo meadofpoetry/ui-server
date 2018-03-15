@@ -228,7 +228,8 @@ let create ~(init:     Wm.t)
                               | `Container         -> add_to_view cont.lt cont.ig cont.rt)
                       s_state
   in
-  new Layout_grid.t ~cells:[lc;mc;rc] ()
+  let g = new Layout_grid.t ~cells:[lc;mc;rc] () in
+  g
 
 class t () = object(self)
   val mutable sock : WebSockets.webSocket Js.t option = None

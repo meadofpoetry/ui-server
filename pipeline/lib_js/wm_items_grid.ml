@@ -52,6 +52,7 @@ module Make(I : Item) = struct
                     s_active
         |> React.S.switch ~eq
 
+      method s_active     = s_active
       method s_layers     = s_layers
       method s_selected   = s_sel
       method layout_items = List.map I.t_to_layout_item self#items

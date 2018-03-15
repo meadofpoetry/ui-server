@@ -53,7 +53,6 @@ class ['a] t ~grid ~(items:'a item list) () =
     val overlay_grid      = new overlay_grid ~parent:elt ()
     val _s_selected       = React.S.map (fun x -> x) s_selected
     val _e_selected       = React.S.changes s_selected
-    val mutable residue   = 0
 
     (** API **)
 
@@ -85,13 +84,17 @@ class ['a] t ~grid ~(items:'a item list) () =
     method remove_all = List.iter (fun x -> self#remove x) self#items
 
     method layout =
-      let w   = self#get_offset_width + residue - (fst self#get_item_margin) in
-      let col = w / grid.cols in
-      let res = w mod grid.cols in
-      s_col_w_push col;
-      residue <- res;
-      self#style##.width := Js.string @@ Printf.sprintf "calc(100%% - %dpx)" res;
-      overlay_grid#layout col (React.S.value s_row_h) (React.S.value s_item_margin)
+      let par = Js.Opt.to_option @@ self#root##.parentNode in
+      (match par with
+       | Some p -> let w  = (Js.Unsafe.coerce p)##.offsetWidth in
+                   Printf.printf "offset widht: %d\n" w;
+                   let mx,_ = React.S.value s_item_margin in
+                   let w    = if w < grid.cols then grid.cols else w in
+                   let col  = w / grid.cols in
+                   s_col_w_push col;
+                   self#style##.width := Js.string @@ Printf.sprintf "%dpx" (col * grid.cols + mx);
+                   overlay_grid#layout col (React.S.value s_row_h) (React.S.value s_item_margin)
+       | None   -> ())
 
     (** Private methods **)
 

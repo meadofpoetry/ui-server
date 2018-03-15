@@ -41,10 +41,9 @@ module Make(I : Item) = struct
 
     let _ = React.S.diff (fun n o ->
                 let eq = fun x1 x2 -> Equal.physical x1#root x2#root in
-                let rm = List.filter_map (fun x ->
-                             if not @@ List.mem ~eq x n
-                             then Some (List.map (fun x -> x#get_value) x#items)
-                             else None) o
+                let rm = List.filter_map (fun x -> if not @@ List.mem ~eq x n
+                                                   then Some (List.map (fun x -> x#get_value) x#items)
+                                                   else None) o
                          |> List.flatten in
                 List.iter (fun x -> remove ~eq:I.equal (React.S.value candidates) set_candidates x) rm)
                          ig#s_layers in

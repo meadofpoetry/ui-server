@@ -168,9 +168,15 @@ let get_free_rect ?(cmp:    (t -> t -> int) option)
       | Some f -> f
       | None   ->
          (fun new_pos old_pos ->
-           let new_area = area new_pos in
-           let old_area = area old_pos in
-           compare new_area old_area)
+           match aspect with
+           | Some a -> let nasp = correct_aspect new_pos a in
+                       let oasp = correct_aspect old_pos a in
+                       let narea = area nasp in
+                       let oarea = area oasp in
+                       compare narea oarea
+           | None   -> let new_area = area new_pos in
+                       let old_area = area old_pos in
+                       compare new_area old_area)
     in
     let items      = List.map f items in
     (* FIXME obviously not optimized algorithm *)
@@ -230,19 +236,29 @@ let get_free_rect ?(cmp:    (t -> t -> int) option)
                              * it must not overlap with other rects,
                              * it must be under the mouse cursor
                              *)
-                            let p = correct_wh ?max_w ?max_h ?min_h ?min_w new_pos w (Some h) in
-                            let p = match aspect with
-                              | Some asp -> correct_aspect p asp
-                              | None     -> p
-                            in
-                            match (cmp new_pos acc),
-                                  get_first_collision ~f:(fun x -> x) new_pos items,
-                                  collides new_pos pos with
-                            | 1, None, true -> let cp = correct_xy pos new_pos.w (Some new_pos.h) in
-                                               correct_xy { p with x = cp.x - (p.w / 2)
-                                                                 ; y = cp.y - (p.h / 2) }
-                                                          new_pos.w (Some new_pos.h)
-                            | _             -> acc) acc ys) acc ys) acc xs)
+                            if Option.is_none @@ get_first_collision ~f:(fun x -> x) new_pos items
+                               && collides new_pos pos
+                            then
+                              let p = correct_wh ?max_w ?max_h ?min_h ?min_w new_pos w (Some h) in
+                              let p = match aspect with
+                                | Some asp -> correct_aspect p asp
+                                | None     -> new_pos
+                              in
+                              let cx = pos.x - new_pos.x in
+                              let cy = pos.y - new_pos.y in
+                              let cp = correct_xy { pos with x = cx; y = cy } new_pos.w (Some new_pos.h) in
+                              let p  = correct_xy { p with x = cp.x - (p.w / 2)
+                                                         ; y = cp.y - (p.h / 2) }
+                                                  new_pos.w (Some new_pos.h)
+                              in
+                              let p = { p with x = p.x + new_pos.x
+                                             ; y = p.y + new_pos.y } in
+                              match (cmp p acc),p.x + p.w > w, p.y + p.h > h, p.w > new_pos.w, p.h > new_pos.h with
+                              | 1,false,false,false,false -> p
+                              | _ -> acc
+                            else acc) acc ys) acc ys) acc xs)
                            empty xs
     in
-    if equal a empty then None else Some a
+    if equal a empty
+    then None
+    else Some a
