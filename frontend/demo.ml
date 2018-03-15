@@ -635,17 +635,8 @@ let time_chart_demo () =
   demo_section "Chart (timeline)" [w]
 
 let dynamic_grid_demo () =
-  let (props:Dynamic_grid.grid) =
-    { rows             = Some 20
-    ; cols             = 30
-    ; min_col_width    = 1
-    ; max_col_width    = None
-    ; row_height       = None
-    ; vertical_compact = true
-    ; items_margin     = Some (10,10)
-    ; multi_select     = false
-    ; restrict_move    = false
-    }
+  let (props:Dynamic_grid.grid) = Dynamic_grid.to_grid ~rows:20 ~cols:30 ~min_col_width:1
+                                                       ~vertical_compact:true ~items_margin:(10,10) ()
   in
   let items    = [ Dynamic_grid.Item.to_item
                      ~pos:{ x = 0

@@ -22,14 +22,18 @@ module Make(I : Item) = struct
                      [] init
     in
     let layers  = I.layers_of_t_list init in
+    let wrapper = Dom_html.createDiv Dom_html.document |> Widget.create in
     let s_layers,set_layers =
       List.map (fun x -> let items = List.Assoc.get ~eq:(=) x grouped in
                          let init  = Option.get_or ~default:[] items in
-                         new G.t ~layer:x ~init ~s_grid ~resolution ()) layers
+                         let grid  = new G.t ~layer:x ~init ~s_grid ~resolution () in
+                         Dom.appendChild wrapper#root grid#root;
+                         grid) layers
       |> React.S.create
     in
-    let s_active,set_active = React.S.create @@ List.hd @@ React.S.value s_layers in
-    let wrapper    = Dom_html.createDiv Dom_html.document |> Widget.create in
+    let active     = List.hd @@ React.S.value s_layers in
+    let ()         = active#set_active true in
+    let s_active,set_active = React.S.create active in
     let title      = new Typography.Text.t ~adjust_margin:false ~text:title () in
     let on_data    = ({ icon = "grid_off"; label = None; css_class = None }:Markup.Icon_toggle.data) in
     let off_data   = ({ icon = "grid_on"; label = None; css_class = None }:Markup.Icon_toggle.data) in
@@ -101,19 +105,24 @@ module Make(I : Item) = struct
         header#add_class     @@ Markup.CSS.add_element base_class "header";
         React.S.l2 (fun conf grid -> if conf then grid#overlay_grid#show else grid#overlay_grid#hide)
                    grid_icon#s_state s_active |> ignore;
-        React.S.map (fun grid -> Utils.rm_children wrapper#root;
-                                 Dom.appendChild wrapper#root grid#root) s_active |> ignore;
+        React.S.diff (fun n o -> n#set_active true;
+                                 o#set_active false;
+                                 List.iter (fun x -> x#set_selected false) o#items) s_active |> ignore;
         React.E.map (fun e -> let grids = React.S.value s_layers in
                               match e with
-                              | `Selected x    ->
+                              | `Selected x ->
                                  let grid = List.find_pred (fun g -> g#layer = x) grids in
                                  Option.iter (fun g -> set_active g) grid
-                              | `Added x       ->
+                              | `Added x    ->
                                  let grid = new G.t ~layer:x ~init:[] ~s_grid ~resolution () in
+                                 Dom.appendChild wrapper#root grid#root;
                                  set_layers (grid :: grids)
-                              | `Removed x     ->
+                              | `Removed x  ->
+                                 let grid = List.find_pred (fun g -> g#layer = x) grids in
+                                 Option.iter (fun x -> (try Dom.removeChild wrapper#root x#root with _ -> ()))
+                                             grid;
                                  set_layers @@ List.filter (fun g -> g#layer <> x) grids
-                              | `Changed l ->
+                              | `Changed l  ->
                                  List.iter (fun g -> match List.Assoc.get ~eq:(=) g#layer l with
                                                      | Some n -> g#set_layer n
                                                      | None   -> ()) grids)

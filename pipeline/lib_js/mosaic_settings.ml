@@ -23,7 +23,7 @@ module Container_item : Item with type item = Wm.container = struct
   type layout_item = string * item
   type t           = item wm_item  [@@deriving yojson,eq]
 
-  let max_layers = 1
+  let max_layers = 10
 
   let t_to_layout_item (t:t) = t.name,t.item
   let t_of_layout_item (k,(v:item)) =

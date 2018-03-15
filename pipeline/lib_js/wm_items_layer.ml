@@ -46,9 +46,11 @@ module Make(I : Item) = struct
       val mutable layer        = layer
       val mutable enter_target = Js.null
 
-      method layer : int = layer
-      method set_layer x = layer <- x;
-                           List.iter (fun x -> x#set_value (I.update_layer x#get_value layer)) self#items
+      method set_active x = self#add_or_remove_class (not x) @@ Markup.CSS.add_modifier _class "background"
+      method layer : int  = layer
+      method set_layer x  = layer <- x;
+                            self#set_attribute "data-layer" @@ string_of_int layer;
+                            List.iter (fun x -> x#set_value (I.update_layer x#get_value layer)) self#items
 
       method private get_event_pos e : Position.t option =
         let rect = self#get_client_rect in
@@ -98,13 +100,14 @@ module Make(I : Item) = struct
         self#s_grid_push { self#grid with cols = c; rows = Some r };
 
       initializer
-        React.S.map self#set_grid s_grid |> ignore;
-        React.S.map (function
-                     | [] -> Dom.appendChild self#root ph#root
-                     | _  -> try Dom.removeChild self#root ph#root with _ -> ())
-                    self#s_items |> ignore;
-        self#set_on_load @@ Some (fun () -> self#layout);
         self#add_class _class;
+        self#set_active false;
+        self#set_layer layer;
+        self#set_on_load @@ Some (fun () -> self#layout);
+        React.S.map self#set_grid s_grid |> ignore;
+        React.S.map (function [] -> Dom.appendChild self#root ph#root
+                            | _  -> try Dom.removeChild self#root ph#root with _ -> ())
+                    self#s_items |> ignore;
         List.iter (fun i -> React.S.map (fun p -> self#update_item_value i p) i#s_change |> ignore) self#items;
         (let ghost = new Dynamic_grid.Item.cell
                          ~typ:`Ghost
