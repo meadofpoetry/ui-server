@@ -12,23 +12,17 @@ let limit f e =
   let iter =
     React.E.fmap
       (fun x ->
-        Lwt.ignore_result @@ Lwt_io.printf "\tLIMIT\n";
         if Lwt.is_sleeping !limiter then begin
             match !delayed with
             | Some cell ->
-               Lwt.ignore_result @@ Lwt_io.printf "\tLIMIT: UPDATE\n";
                cell := x;
                None
             | None ->
-               Lwt.ignore_result @@ Lwt_io.printf "\tLIMIT: INIT\n";
                let cell = ref x in
                delayed := Some cell;
-               Lwt.on_success !limiter (fun () -> let x = !cell in delayed := None; limiter := f (); push x);
                None
           end else begin
             limiter := f ();
-            Lwt.ignore_result @@ Lwt.(!limiter >>= fun _ -> Lwt_io.printf "\tLIMIT: thread done\n");
-            Lwt.ignore_result @@ Lwt_io.printf "\tLIMIT: FIRST\n";
             push x;
             None
           end)
