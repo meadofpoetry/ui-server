@@ -329,6 +329,11 @@ $wm-placeholder-color: text-secondary-on-background;
         }
     }
 
+    &__grid--invisible {
+        .mdc-dynamic-grid__item {
+            display: none;
+        }
+    }
     &__grid--background {
         top: 0;
         position: absolute;

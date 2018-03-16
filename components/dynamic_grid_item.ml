@@ -382,21 +382,12 @@ object(self)
                                   (fun _ e -> stop_timeout e; false));
                        false);
 
-    listen select_target#root Typ.mousedown (fun _ e ->
+    listen select_target#root Typ.click (fun _ e ->
              Dom_html.stopPropagation e;
              if selectable
              then if self#grid.multi_select
                   then self#set_selected @@ not self#get_selected
                   else self#set_selected true;
-             false);
-
-    listen select_target#root Typ.touchstart (fun _ e ->
-             if e##.touches##.length <= 1
-             then (Dom_html.stopPropagation e;
-                   if selectable
-                   then if self#grid.multi_select
-                        then self#set_selected @@ not self#get_selected
-                        else self#set_selected true);
              false);
 
     (* add item start resize listener if needed *)

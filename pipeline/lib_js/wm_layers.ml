@@ -1,7 +1,12 @@
 open Containers
 open Components
 
-type action = [ `Added of int | `Removed of int | `Changed of (int * int) list | `Selected of int ]
+type action = [ `Added of int
+              | `Removed of int
+              | `Changed of (int * int) list
+              | `Visibility of (int * bool)
+              | `Selected of int
+              ]
 
 let set_data_layer_attr w l =
   w#set_attribute "data-layer" @@ string_of_int l
@@ -20,7 +25,9 @@ let emit_new_pos (s_layers:int Dynamic_grid.Item.t list React.signal) push =
 let make_show_toggle () =
   let on_data  = Markup.Icon_toggle.({ icon = "visibility";     label = None; css_class = None }) in
   let off_data = Markup.Icon_toggle.({ icon = "visibility_off"; label = None; css_class = None }) in
-  new Icon_toggle.t ~on_data ~off_data ()
+  let toggle   = new Icon_toggle.t ~propagate:false ~on_data ~off_data () in
+  let ()       = toggle#set_on true in
+  toggle
 
 let make_layer_item s_layers push =
   let _class            = "wm-layer-item" in
@@ -51,7 +58,16 @@ let make_layer_item s_layers push =
   let ()    = drag#add_class drag_handle_class in
   let ()    = box#set_justify_content `Space_between in
   let ()    = box#add_class _class in
-  item
+  item,vis#s_state
+
+let on_add grid push =
+  let open Dynamic_grid.Position in
+  let i,s = make_layer_item grid#s_items push in
+  match grid#add i with
+  | Ok item -> let _ = React.S.map (fun x -> push @@ `Visibility (item#pos.y,x)) s in
+               set_data_layer_attr item item#pos.y;
+               push (`Added item#pos.y)
+  | Error _ -> ()
 
 let remove_layer s_layers push layer =
   let open Dynamic_grid.Position in
@@ -106,7 +122,7 @@ let make_layers_grid ~init =
                                        | _   -> `Selected init)) grid#s_selected
   in
   let e      = React.E.select [e;e_sel] in
-  let ()     = List.iter (fun _ -> grid#add @@ make_layer_item grid#s_items push |> ignore) @@ List.range' 0 init
+  let ()     = List.iter (fun _ -> on_add grid push) @@ List.range' 0 init
   in
   let ()     = grid#set_on_load @@ Some (fun () -> grid#layout) in
   let ()     = List.iter (fun i -> set_data_layer_attr i (i#pos:Dynamic_grid.Position.t).y) grid#items in
@@ -131,11 +147,7 @@ let make_layers_actions max layers_grid push =
                                            down#set_disabled ((len <= 1) || not sel);
                                            rm#set_disabled   ((len <= 1) || not sel))
                                s_sel layers_grid#s_items in
-  let _           = React.E.map (fun _ -> layers_grid#add @@ make_layer_item layers_grid#s_items push
-                                          |> (function
-                                              | Ok i    -> set_data_layer_attr i i#pos.y;
-                                                           push (`Added i#pos.y)
-                                              | Error _ -> print_endline "error adding";())) add#e_click in
+  let _           = React.E.map (fun _ -> on_add layers_grid push) add#e_click in
   let l           = [ rm,   (fun w -> remove_layer    layers_grid#s_items push w)
                     ; up,   (fun w -> move_layer_up   layers_grid#s_items push w)
                     ; down, (fun w -> move_layer_down layers_grid#s_items push w)

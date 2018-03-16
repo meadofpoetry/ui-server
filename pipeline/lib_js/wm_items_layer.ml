@@ -46,11 +46,12 @@ module Make(I : Item) = struct
       val mutable layer        = layer
       val mutable enter_target = Js.null
 
-      method set_active x = self#add_or_remove_class (not x) @@ Markup.CSS.add_modifier _class "background"
-      method layer : int  = layer
-      method set_layer x  = layer <- x;
-                            self#set_attribute "data-layer" @@ string_of_int layer;
-                            List.iter (fun x -> x#set_value (I.update_layer x#get_value layer)) self#items
+      method set_active x  = self#add_or_remove_class (not x) @@ Markup.CSS.add_modifier _class "background"
+      method set_visible x = self#add_or_remove_class (not x) @@ Markup.CSS.add_modifier _class "invisible"
+      method layer : int   = layer
+      method set_layer x   = layer <- x;
+                             self#set_attribute "data-layer" @@ string_of_int layer;
+                             List.iter (fun x -> x#set_value (I.update_layer x#get_value layer)) self#items
 
       method private get_event_pos e : Position.t option =
         let rect = self#get_client_rect in

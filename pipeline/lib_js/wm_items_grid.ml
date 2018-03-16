@@ -122,6 +122,9 @@ module Make(I : Item) = struct
                                  Option.iter (fun x -> (try Dom.removeChild wrapper#root x#root with _ -> ()))
                                              grid;
                                  set_layers @@ List.filter (fun g -> g#layer <> x) grids
+                              | `Visibility (x,b)   ->
+                                 let grid = List.find_pred (fun g -> g#layer = x) grids in
+                                 Option.iter (fun x -> x#set_visible b) grid
                               | `Changed l  ->
                                  List.iter (fun g -> match List.Assoc.get ~eq:(=) g#layer l with
                                                      | Some n -> g#set_layer n
