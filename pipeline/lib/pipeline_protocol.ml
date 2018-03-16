@@ -5,6 +5,37 @@ open Lwt.Infix
 open Message
 open Notif
 
+let limit f e =
+  let limiter = ref Lwt.return_unit in
+  let delayed = ref None in
+  let event, push = React.E.create () in
+  let iter =
+    React.E.fmap
+      (fun x ->
+        Lwt.ignore_result @@ Lwt_io.printf "\tLIMIT\n";
+        if Lwt.is_sleeping !limiter then begin
+            match !delayed with
+            | Some cell ->
+               Lwt.ignore_result @@ Lwt_io.printf "\tLIMIT: UPDATE\n";
+               cell := x;
+               None
+            | None ->
+               Lwt.ignore_result @@ Lwt_io.printf "\tLIMIT: INIT\n";
+               let cell = ref x in
+               delayed := Some cell;
+               Lwt.on_success !limiter (fun () -> let x = !cell in delayed := None; limiter := f (); push x);
+               None
+          end else begin
+            limiter := f ();
+            Lwt.ignore_result @@ Lwt.(!limiter >>= fun _ -> Lwt_io.printf "\tLIMIT: thread done\n");
+            Lwt.ignore_result @@ Lwt_io.printf "\tLIMIT: FIRST\n";
+            push x;
+            None
+          end)
+      e
+  in
+  React.E.select [iter; event]
+   
 let (%) = Fun.(%)
 (* TODO make 'active type label *)
 
@@ -60,9 +91,9 @@ let combine_and_set combine opt set push data =
                    | Ok ()   -> Lwt.return @@ push v
                    | Error e -> Lwt_io.printf "combine and set: failed to set data %s\n" e)
 
-let combiner combine opt set signal =
+let combiner combine opt set events =
   let s, push = React.S.create opt#get in
-  let events  = Lwt_react.E.limit (fun () -> Lwt_unix.sleep 0.5) @@ React.S.changes signal in
+  let events  = limit (fun () -> Lwt_unix.sleep 0.5) events in
   Lwt_react.E.keep @@
     Lwt_react.E.map (combine_and_set combine opt set push) events;
   s
@@ -74,15 +105,18 @@ let create_combiners send options structs wm settings =
   let structures = combiner Structure.Structures.combine options.structures s_set structs in
   let wm         = combiner Wm.combine options.wm wm_set wm in
   let settings   = combiner Settings.combine options.settings se_set settings in
+  Lwt_react.S.keep @@
+    Lwt_react.S.map (fun wm -> Lwt.ignore_result @@ Lwt_io.printf "Wm: %s\n" @@ Yojson.Safe.pretty_to_string @@
+                                 Wm.to_yojson wm) wm;
   structures, wm, settings
   
-let notif_events typ options =
+let notif_events typ =
   let _ = Lwt_io.printf "split_events\n" |> ignore in
   let events, epush     = E.create () in
-  let strm, strm_push   = S.create options.structures#get in
-  let sets, sets_push   = S.create options.settings#get in
+  let strm, strm_push   = E.create () in
+  let sets, sets_push   = E.create () in
   let grap, grap_push   = E.create () in
-  let wm  , wm_push     = S.create options.wm#get in
+  let wm  , wm_push     = E.create () in
   let vdata, vdata_push = E.create () in
   let adata, adata_push = E.create () in  
   let (<$>) f result =
@@ -94,7 +128,7 @@ let notif_events typ options =
   List.iter (fun (n,f) -> Hashtbl.add table n f)
     [ Wm_notif.create `Json ((<$>) wm_push)
     ; Structures_notif.create `Json ((<$>) strm_push)
-    ; Settings_notif.create `Json ((<$>) (fun x -> sets_push x))
+    ; Settings_notif.create `Json ((<$>) sets_push)
     ; Graph_notif.create `Json ((<$>) grap_push)
     ; Video_data_notif.create `Json ((<$>) vdata_push)
     ; Audio_data_notif.create `Json ((<$>) adata_push)
@@ -166,7 +200,7 @@ let create config sock_in sock_out hardware_streams =
       structures, settings,
       graph, wm,
       vdata, adata,
-      strms_push, wm_push = notif_events () options
+      strms_push, wm_push = notif_events ()
   in
   let structures, wm, settings = create_combiners send_js options structures wm settings in
   let streams = S.l2

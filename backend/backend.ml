@@ -77,5 +77,6 @@ let main config =
   in mainloop ()
 
 let () =
+  Lwt_engine.set ~transfer:true ~destroy:true (new Lwt_engine.libev ~backend:Lwt_engine.Ev_backend.epoll ());
   let config = Storage.Config.create "./config.json" in
   main config
