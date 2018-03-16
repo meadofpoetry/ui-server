@@ -9,6 +9,7 @@
 @import '../../components/layout-grid/_variables';
 @import '../../components/animation/_variables';
 @import '../../components/animation/_functions';
+@import './_mixins';
 
 $wm-grid-background-color: background;
 $wm-placeholder-color: text-secondary-on-background;
@@ -33,71 +34,9 @@ $wm-placeholder-color: text-secondary-on-background;
 * [data-layer] {
     .mdc-dynamic-grid__item { background-color: $material-color-purple-300; }
 }
-* [data-layer='0'] {
-    .mdc-dynamic-grid__item {
-        background-color: $material-color-purple-300;
-        z-index: 1;
-    }
-}
-* [data-layer='1'] {
-    .mdc-dynamic-grid__item {
-        background-color: $material-color-red-300;
-        z-index: 2;
-    }
-}
-* [data-layer='2'] {
-    .mdc-dynamic-grid__item {
-        background-color: $material-color-indigo-300;
-        z-index: 3;
-    }
-}
-* [data-layer='3'] {
-    .mdc-dynamic-grid__item {
-        background-color: $material-color-blue-300;
-        z-index: 4;
-    }
-}
-* [data-layer='4'] {
-    .mdc-dynamic-grid__item {
-        background-color: $material-color-yellow-300;
-        z-index: 5;
-    }
-}
-* [data-layer='5'] {
-    .mdc-dynamic-grid__item {
-        background-color: $material-color-green-300;
-        z-index: 6;
-    }
-}
-* [data-layer='6'] {
-    .mdc-dynamic-grid__item {
-        background-color: $material-color-lime-300;
-        z-index: 7;
-    }
-}
-* [data-layer='7'] {
-    .mdc-dynamic-grid__item {
-        background-color: $material-color-cyan-400;
-        z-index: 8;
-    }
-}
-* [data-layer='8'] {
-    .mdc-dynamic-grid__item {
-        background-color: $material-color-deep-orange-300;
-        z-index: 9;
-    }
-}
-* [data-layer='9'] {
-    .mdc-dynamic-grid__item {
-        background-color: $material-color-brown-300;
-        z-index: 10;
-    }
-}
-* [data-layer='10'] {
-    .mdc-dynamic-grid__item {
-        background-color: $material-color-blue-grey-300;
-        z-index: 11;
-    }
+
+@for $i from 0 through 10 {
+    @include wm-layer-prop($i)
 }
 
 // ---- PROPERTY ROW ----
@@ -221,7 +160,7 @@ $wm-placeholder-color: text-secondary-on-background;
     @include mdc-theme-prop(background-color,background);
 
     flex-grow: 1;
-    padding: 10px 0 10px 20px;
+    padding: 10px 0 10px 5px;
     display: flex;
     align-items: center;
     align-content: stretch;
@@ -230,6 +169,17 @@ $wm-placeholder-color: text-secondary-on-background;
     &__drag-handle {
         @include mdc-theme-prop(color, text-icon-on-background);
         padding: 12px;
+    }
+    &__visibility {
+        @include mdc-theme-prop(color, text-icon-on-background);
+        margin-right: 5px;
+    }
+    &__color-indicator {
+        border-radius: 50%;
+        width: 10px;
+        height: 10px;
+        margin-right: 10px;
+        border: 1px solid rgba(0,0,0,.12);
     }
 }
 
@@ -248,6 +198,9 @@ $wm-placeholder-color: text-secondary-on-background;
             @include mdc-theme-prop(color,text-primary-on-primary);
             @include mdc-theme-prop(background-color,primary);
             &__drag-handle {
+                @include mdc-theme-prop(color,text-primary-on-primary);
+            }
+            &__visibility {
                 @include mdc-theme-prop(color,text-primary-on-primary);
             }
         }
@@ -299,6 +252,9 @@ $wm-placeholder-color: text-secondary-on-background;
 
     &__right-menu {
         align-items: center;
+        .mdc-menu {
+            z-index: 100;
+        }
     }
 
     &__grid-select {
@@ -386,6 +342,9 @@ $wm-placeholder-color: text-secondary-on-background;
         .mdc-dynamic-grid__item {
             opacity: 0.4;
             z-index: 1;
+        }
+        .mdc-dynamic-grid__item__resize {
+            display: none;
         }
 
         .wm-placeholder {

@@ -3,20 +3,30 @@ open Components
 
 type action = [ `Added of int | `Removed of int | `Changed of (int * int) list | `Selected of int ]
 
+let set_data_layer_attr w l =
+  w#set_attribute "data-layer" @@ string_of_int l
+
 let emit_new_pos (s_layers:int Dynamic_grid.Item.t list React.signal) push =
   let open Dynamic_grid.Position in
   let changed = List.fold_left (fun acc x ->
                     let op,np = x#get_value,x#pos.y in
                     if op <> np
-                    then (x#set_value np; (op,np) :: acc)
+                    then (x#set_value np; set_data_layer_attr x np; (op,np) :: acc)
                     else acc) [] @@ React.S.value s_layers in
   match changed with
   | [] -> ()
   | l  -> push (`Changed l)
 
+let make_show_toggle () =
+  let on_data  = Markup.Icon_toggle.({ icon = "visibility";     label = None; css_class = None }) in
+  let off_data = Markup.Icon_toggle.({ icon = "visibility_off"; label = None; css_class = None }) in
+  new Icon_toggle.t ~on_data ~off_data ()
+
 let make_layer_item s_layers push =
   let _class            = "wm-layer-item" in
   let drag_handle_class = Markup.CSS.add_element _class "drag-handle" in
+  let show_icon_class   = Markup.CSS.add_element _class "visibility" in
+  let color_class       = Markup.CSS.add_element _class "color-indicator" in
 
   let open Dynamic_grid.Position in
   let positions = List.map (fun x -> x#pos) @@ React.S.value s_layers
@@ -27,12 +37,17 @@ let make_layer_item s_layers push =
   in
   let drag  = new Icon.Font.t ~icon:"drag_handle" () in
   let text  = new Typography.Text.t ~text:(Printf.sprintf "Слой %d" (y + 1)) () in
-  let box   = new Box.t ~vertical:false ~widgets:[text#widget; drag#widget] () in
+  let vis   = make_show_toggle () in
+  let color = Tyxml_js.Html.(span ~a:[a_class [color_class]] []) |> Tyxml_js.To_dom.of_element |> Widget.create in
+  let left  = new Box.t ~vertical:false ~widgets:[vis#widget; color#widget; text#widget ] () in
+  let box   = new Box.t ~vertical:false ~widgets:[left#widget; drag#widget] () in
   let pos   = { x = 0; y; w = 1; h = 1 } in
   let item  = Dynamic_grid.Item.to_item ~pos ~move_widget:drag#widget ~widget:box#widget
                                         ~on_drag:(fun _ _ _ _ -> emit_new_pos s_layers push)
                                         ~resizable:false ~selectable:true ~value:y ()
   in
+  let ()    = vis#add_class show_icon_class in
+  let ()    = left#set_align_items `Center in
   let ()    = drag#add_class drag_handle_class in
   let ()    = box#set_justify_content `Space_between in
   let ()    = box#add_class _class in
@@ -94,6 +109,7 @@ let make_layers_grid ~init =
   let ()     = List.iter (fun _ -> grid#add @@ make_layer_item grid#s_items push |> ignore) @@ List.range' 0 init
   in
   let ()     = grid#set_on_load @@ Some (fun () -> grid#layout) in
+  let ()     = List.iter (fun i -> set_data_layer_attr i (i#pos:Dynamic_grid.Position.t).y) grid#items in
   grid,e,push
 
 let make_layers_actions max layers_grid push =
@@ -117,7 +133,8 @@ let make_layers_actions max layers_grid push =
                                s_sel layers_grid#s_items in
   let _           = React.E.map (fun _ -> layers_grid#add @@ make_layer_item layers_grid#s_items push
                                           |> (function
-                                              | Ok i    -> push (`Added i#pos.y)
+                                              | Ok i    -> set_data_layer_attr i i#pos.y;
+                                                           push (`Added i#pos.y)
                                               | Error _ -> print_endline "error adding";())) add#e_click in
   let l           = [ rm,   (fun w -> remove_layer    layers_grid#s_items push w)
                     ; up,   (fun w -> move_layer_up   layers_grid#s_items push w)
