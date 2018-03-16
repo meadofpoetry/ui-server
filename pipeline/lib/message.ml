@@ -35,10 +35,10 @@ let get_js (name : string) (send : Yojson.Safe.json -> Yojson.Safe.json Lwt.t) o
 let set_js (name : string) (send : Yojson.Safe.json -> Yojson.Safe.json Lwt.t) to_ v =
   let msg = msg_to_yojson (cont_body_to_yojson to_) { name; data = { _method = "Set"; body = v }} in
   send msg >>= fun rep ->
-  let rep = msg_of_yojson cont_met_of_yojson rep in
   match rep with
-  | Error e -> Lwt.return_error e
-  | Ok (_)  -> Lwt.return_ok ()
+  | `Assoc [("Fine",_)] -> Lwt.return_ok ()
+  | `Assoc [("Error", `String e)] -> Lwt.return_error e
+  | s -> Lwt.return_error ("bad response: " ^ (Yojson.Safe.pretty_to_string s))
 
 module Make(V: VALUE) = struct
   type t = V.t

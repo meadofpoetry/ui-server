@@ -30,10 +30,11 @@ let init o =
        )
        |eos}
   in
-  let (module Db) = Storage.Database.connection o in
-  Db.exec create () >>= function
-  | Ok v    -> Lwt.return v
-  | Error _ -> Lwt.fail_with "init"
+  let init' (module Db : Caqti_lwt.CONNECTION) =
+    Db.exec create () >>= function
+    | Ok v    -> Lwt.return v
+    | Error _ -> Lwt.fail_with "init"
+  in Storage.Database.with_connection o init'
 
 let store_measures o (id,m) =
   let insert =
@@ -41,10 +42,11 @@ let store_measures o (id,m) =
       {|INSERT INTO dvb_meas(tun,lock,power,mer,ber,freq,bitrate,date)
        VALUES (?,?,?,?,?,?,?,?)|}
   in
-  let (module Db) = Storage.Database.connection o in
-  Db.exec insert (id,m) >>= function
-  | Ok v    -> Lwt.return v
-  | Error _ -> Lwt.fail_with "store_measure"
+  let store_measures' (module Db : Caqti_lwt.CONNECTION) =
+    Db.exec insert (id,m) >>= function
+    | Ok v    -> Lwt.return v
+    | Error _ -> Lwt.fail_with "store_measure"
+  in Storage.Database.with_connection o store_measures'
 
 let request (type a) o (req : a req) : a =
   match req with

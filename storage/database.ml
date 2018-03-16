@@ -32,6 +32,7 @@ end
 module Conf = Config.Make(Settings)
             
 type t        = { db      : (module Caqti_lwt.CONNECTION)
+                ; mutex   : Lwt_mutex.t
                 ; workers : (t -> unit Lwt.t) list ref
                 }
 
@@ -49,7 +50,7 @@ let create config period =
     | Error e -> failwith "Db connect failed with an error: %s\n" @@ Caqti_error.show e
   in
   let workers = ref [] in
-  let obj = { db; workers } in
+  let obj = { db; mutex = Lwt_mutex.create (); workers } in
   let rec loop () =
     let rec traverse = function
       | [] -> Lwt.return_unit
@@ -60,7 +61,8 @@ let create config period =
   in
   obj, loop ()
 
-let connection o : (module Caqti_lwt.CONNECTION) = o.db
+let with_connection (type a) o (f : (module Caqti_lwt.CONNECTION) -> a Lwt.t) : a Lwt.t =
+  Lwt_mutex.with_lock o.mutex (fun () -> f o.db)
 
 let add_maintainer o f =
   o.workers := f :: !(o.workers)

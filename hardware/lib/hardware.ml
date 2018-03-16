@@ -111,3 +111,18 @@ let create config db =
 
 let finalize hw =
   Usb_device.finalize hw.usb
+
+(** Retreive qos streams *)
+let get_streams hw =
+  let open Option.Infix in
+  let rec traverse = function
+    | Input _ -> []
+    | Board b ->
+       let sub = List.map (fun p -> p.child) b.ports in
+       let acc = if b.typ = TS then [b.control] else [] in
+       List.fold_left (fun acc b -> (traverse b) @ acc) acc sub
+  in
+  let topo    = React.S.value hw.topo in
+  let qos_b   = List.fold_left (fun acc b -> (traverse b) @ acc) [] topo in
+  let streams = List.filter_map (fun control -> (Map.get control hw.boards) >|= (fun b -> b.streams_signal)) qos_b
+  in React.S.merge ~eq:Equal.physical (@) [] streams

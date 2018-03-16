@@ -53,7 +53,7 @@ let get_sock sock_data body conv event =
 
 let set_structure api body () =
   Lwt_io.printf "set structure\n" |> ignore;
-  set body Structure.t_list_of_yojson
+  set body Structure.Streams.of_yojson
     Pipeline_protocol.(fun x -> api.requests.streams.set x)
 
 let get_structure api () =
@@ -62,12 +62,12 @@ let get_structure api () =
   >>= (function
        | Error e -> Lwt.fail_with e
        | Ok v -> Lwt.return v)
-  >|= Structure.t_list_to_yojson
+  >|= Structure.Streams.to_yojson
   >>= fun js -> respond_js js ()
 
 let get_structure_sock sock_data body api () =
   let open Pipeline_protocol in
-  get_sock sock_data body Structure.t_list_to_yojson (React.S.changes api.streams)
+  get_sock sock_data body Structure.Streams.to_yojson (React.S.changes api.streams)
 (*
 let set_settings api body () =
   set body Settings.of_yojson
@@ -81,7 +81,7 @@ let get_settings api () =
  *)
 let get_settings_sock sock_data body api () =
   let open Pipeline_protocol in
-  get_sock sock_data body Settings.to_yojson (React.E.Option.value @@ React.S.changes api.settings)
+  get_sock sock_data body Settings.to_yojson (React.S.changes api.settings)
 
 let set_wm api body () =
   set body Wm.of_yojson
@@ -98,7 +98,7 @@ let get_wm api () =
 
 let get_wm_sock sock_data body api () =
   let open Pipeline_protocol in
-  get_sock sock_data body Wm.to_yojson (React.E.Option.value @@ React.S.changes api.wm)
+  get_sock sock_data body Wm.to_yojson (React.S.changes api.wm)
 
 let get_vdata_sock sock_data body api () =
   let open Pipeline_protocol in

@@ -128,3 +128,8 @@ let default = { video = { loss = 2.0
                         ; adv = adv_default
                         }
               }
+
+let dump s = Yojson.Safe.to_string (to_yojson s)
+let restore s = of_yojson (Yojson.Safe.from_string s)
+
+let combine ~set x = `Kept x

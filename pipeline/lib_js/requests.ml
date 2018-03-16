@@ -4,14 +4,14 @@ open Lwt.Infix
    
 let get_structure () =
   get_js "api/pipeline/structure"
-  >|= Result.(flat_map Structure.t_list_of_yojson)
+  >|= Result.(flat_map Structure.Streams.of_yojson)
 
 let post_structure s =
-  Structure.t_list_to_yojson s
+  Structure.Streams.to_yojson s
   |> post_js_ok "api/pipeline/structure"
 
 let get_structure_socket () =
-  get_socket "api/pipeline/structure_sock" Structure.t_list_of_yojson
+  get_socket "api/pipeline/structure_sock" Structure.Streams.of_yojson
 
 let get_settings () =
   get_js "api/pipeline/settings"

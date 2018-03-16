@@ -57,7 +57,7 @@ let create config dbs (hardware_streams : Common.Stream.source list React.signal
      let exec_path = (Filename.concat cfg.bin_path cfg.bin_name) in
      let exec_opts =
        Array.of_list (cfg.bin_name :: "-m" :: (PSettings.format_to_string cfg.msg_fmt) :: cfg.sources) in
-     let api, state, recv = Pipeline_protocol.create cfg.sock_in cfg.sock_out hardware_streams in
+     let api, state, recv = Pipeline_protocol.create config cfg.sock_in cfg.sock_out hardware_streams in
      let db_events = connect_db (S.changes api.streams) dbs in
      let obj = { api; state; db_events } in
      (* polling loop *)
@@ -73,3 +73,25 @@ let create config dbs (hardware_streams : Common.Stream.source list React.signal
 
 let finalize pipe =
   Pipeline_protocol.finalize pipe.state
+
+let get_streams pipe =
+  let open Structure in
+  let get_stream = function
+    | Unknown  -> None
+    | Stream s ->
+       match s.id with
+       | `Ts _ -> Some s
+       | `Ip _ ->
+          match s.source with
+          | Input _  -> Some s
+          | Parent p -> Some p 
+  in
+  React.S.map (List.filter_map (fun x -> get_stream x.source)) pipe.api.streams
+
+let get_channels pipe =
+  let open Structure in
+  let get_channels str =
+    let id = str.id in
+    List.map (fun c -> (id, c)) str.channels
+  in
+  React.S.map (List.fold_left (fun acc x -> (get_channels x.structure) @ acc) []) pipe.api.streams
