@@ -99,15 +99,12 @@ let combiner combine opt set events =
   s
 
 let create_combiners send options structs wm settings =
-  let _, s_set = Structure_msg.create send `Json in
+  let _, s_set  = Structure_msg.create send `Json in
   let _, wm_set = Wm_msg.create send `Json in
   let _, se_set = Settings_msg.create send `Json in
   let structures = combiner Structure.Structures.combine options.structures s_set structs in
   let wm         = combiner Wm.combine options.wm wm_set wm in
   let settings   = combiner Settings.combine options.settings se_set settings in
-  Lwt_react.S.keep @@
-    Lwt_react.S.map (fun wm -> Lwt.ignore_result @@ Lwt_io.printf "Wm: %s\n" @@ Yojson.Safe.pretty_to_string @@
-                                 Wm.to_yojson wm) wm;
   structures, wm, settings
   
 let notif_events typ =

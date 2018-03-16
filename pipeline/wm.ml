@@ -58,7 +58,7 @@ let default = { resolution = 1280, 720
 let dump w = Yojson.Safe.to_string (to_yojson w)
            
 let restore s = of_yojson (Yojson.Safe.from_string s)
-
+              
 let combine ~set wm =
   let changed = ref false in
   let rec filter_container = function
@@ -79,6 +79,7 @@ let combine ~set wm =
     | (n,c)::tl ->
        (n, { c with widgets = filter_container c.widgets } ) :: (filter_layout tl)
   in
+  let layout = filter_layout set.layout in
   if !changed
-  then `Changed { wm with resolution = set.resolution; layout = filter_layout set.layout }
+  then `Changed { wm with resolution = set.resolution; layout }
   else `Kept wm
