@@ -35,7 +35,7 @@
   </head>
   <body class="mdc-typography">
       <aside id="mdc-drawer" class="mdc-drawer mdc-drawer--custom" style="">
-          <nav id="mdc-drawer-nav" class="mdc-drawer__drawer">
+          <nav id="mdc-drawer-nav" class="mdc-drawer__drawer" onclick="event.stopPropagation()">
               <div class="mdc_drawer__content mdc-list-group">
                   <header class="mdc-drawer__header">
                   </header>
@@ -63,18 +63,19 @@
               </div>
           </nav>
       </aside>
-   <header id="main-toolbar" class="mdc-toolbar mdc-toolbar--fixed">
+   <header id="main-toolbar" class="mdc-toolbar mdc-toolbar--absolute">
         <div class="mdc-toolbar__row">
             <section class="mdc-toolbar__section mdc-toolbar__section--align-start">
-                <button id="demo-menu" class="demo-menu material-icons mdc-toolbar__menu-icon">
+                <button id="demo-menu" class="demo-menu material-icons mdc-toolbar__menu-icon"
+                style="outline: none;">
                     menu
                 </button>
                 <span id="page-title" class="mdc-toolbar__title ui__title">{{title}}</span>
             </section>
         </div>
     </header>
-    <div id="main-content" class="content mdc-toolbar--fixed">
-      <main class="main-with-sidebar">
+    <div id="main-content" class="content">
+      <main id="main-with-sidebar" class="main-with-sidebar">
         <section id="arbitrary-content">
           {{#content}}
           {{{element}}}
@@ -101,21 +102,31 @@
     <script>
      var drawerEl = document.getElementById('mdc-drawer');
      var btn      = document.getElementById('demo-menu');
+     var body     = document.body;
+     var nav      = 'mdc-drawer-nav';
      var open     = 'mdc-drawer--open';
      var anime    = 'mdc-drawer--animating';
-     var body     = document.body;
      var hide     = 'hide-sidedrawer';
 
      function toggle () {
          if (drawerEl.classList.contains(open))
              { drawerEl.classList.remove(open,anime);
-               body.classList.remove(hide);}
+               body.classList.remove(hide);
+               localStorage.setItem('toolbar','');}
          else { drawerEl.classList.add(open,anime);
-                body.classList.add(hide);};
+                body.classList.add(hide);
+                localStorage.setItem('toolbar','open');};
      }
-
      btn.addEventListener('click', toggle);
      drawerEl.addEventListener('click', toggle);
+     window.onload = function () {
+         if (localStorage.getItem('toolbar') == 'open')
+             { drawerEl.classList.add(open);
+               drawerEl.classList.remove(anime);
+               body.classList.add(hide);
+               drawerEl.style.transition = "none";
+               nav.style.transition = "none";};
+     };
     </script>
   </body>
 </html>

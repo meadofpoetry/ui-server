@@ -140,6 +140,15 @@
   z-index: 4;
 }
 
+.mdc-toolbar--absolute {
+  @include mdc-elevation(4);
+
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 4;
+}
+
 .mdc-toolbar--flexible {
   // bem linter is disabled because it cannot correctly reconcile mdc prefix for css variables.
   // stylelint-disable-next-line plugin/selector-bem-pattern
@@ -235,25 +244,3 @@
   flex: none;
 }
 
-
-@media (min-width: 1200px)
-{
-#main-toolbar {
-    left: 0px;
-    transition: left 0.225s;
-}
-body.hide-sidedrawer #main-toolbar {
-    left: 240px;
-    transition: left 0.225s;
-}
-
-#main-content {
-    left: 0px;
-    transition: left 0.225s;
-}
-body.hide-sidedrawer #main-content {
-    transition: left 0.225s;
-    left: 240px;
-    width: calc(100% - 240px);
-}
-}

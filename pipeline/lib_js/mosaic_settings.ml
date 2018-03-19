@@ -325,33 +325,41 @@ module Items(I : Item) = struct
                          clone <- None) clone;
                      dispatch touch "dragend" elt
           in
+          Dom_events.listen elt Dom_events.Typ.dragstart
+            (fun _ e -> elt##.style##.opacity := Js.def @@ Js.string "0.5";
+                        elt##.style##.zIndex  := Js.string "5";
+                        e##.dataTransfer##setData (Js.string drag_data_type) data;
+                        true) |> ignore;
+
+          Dom_events.listen elt Dom_events.Typ.dragend
+            (fun _ _ -> elt##.style##.opacity := Js.def @@ Js.string "";
+                        elt##.style##.zIndex  := Js.string "";
+                        false) |> ignore;
+
           Dom_events.listen elt Dom_events.Typ.touchstart
             (fun _ e -> let touch = touch e in
-                        delta <- touch##.pageX - elt##.offsetLeft,
-                                 touch##.pageY - elt##.offsetTop;
+                        let rect  = (Js.Unsafe.coerce elt)##getBoundingClientRect in
+                        let del_x, del_y = touch##.pageX - rect##.left, 0 in
+                        delta <- del_x, del_y;
                         id    <- Some touch##.identifier;
                         false) |> ignore;
 
           Dom_events.listen Dom_html.window Dom_events.Typ.touchmove
             (fun _ e -> let touch = touch e in
-                        (match drag with
-                         | false ->
-                            Js.Opt.iter (elt_from_point touch##.clientX touch##.clientY)
-                              (fun elt -> if Equal.physical elt elt
-                                          then dispatch touch "dragstart" elt;
-                                          drag  <- true;
-                                          let cln = (Js.Unsafe.coerce elt)##cloneNode true in
-                                          cln##.style##.width    :=
-                                            Js.string @@ Dynamic_grid.Utils.px elt##.offsetWidth;
-                                          cln##.style##.position := Js.string "absolute";
-                                          cln##.style##.pointerEvents := Js.string "none";
-                                          cln##.style##.opacity  := Js.def @@ Js.string "0.5";
-                                          cln##.style##.zIndex   := Js.string "9999";
-                                          clone <- Some cln;
-                                          Dom.appendChild Dom_html.document##.body cln)
-                         | true  -> ());
-                        (match id with
-                         | Some id ->
+                        (match drag, id with
+                         | false , Some _ ->
+                            dispatch touch "dragstart" elt;
+                            drag  <- true;
+                            let cln = (Js.Unsafe.coerce elt)##cloneNode true in
+                            cln##.style##.width    :=
+                              Js.string @@ Dynamic_grid.Utils.px elt##.offsetWidth;
+                            cln##.style##.position := Js.string "absolute";
+                            cln##.style##.pointerEvents := Js.string "none";
+                            cln##.style##.opacity  := Js.def @@ Js.string "0.5";
+                            cln##.style##.zIndex   := Js.string "9999";
+                            clone <- Some cln;
+                            Dom.appendChild Dom_html.document##.body cln
+                         | true, Some id ->
                             if touch##.identifier = id
                             then Js.Opt.iter (elt_from_point touch##.clientX touch##.clientY)
                                    (fun x -> dispatch touch "dragover" x);
@@ -361,12 +369,11 @@ module Items(I : Item) = struct
                                   Js.string @@ Dynamic_grid.Utils.px (touch##.pageX - dx);
                                 cln##.style##.top  :=
                                   Js.string @@ Dynamic_grid.Utils.px (touch##.pageY - dy)) clone
-                         | None -> ());
+                         | _, _ -> ());
                         false) |> ignore;
 
           Dom_events.listen elt Dom_events.Typ.touchend
-            (fun _ e -> ending e;
-                        false) |> ignore;
+            (fun _ e -> ending e; false) |> ignore;
 
           Dom_events.listen elt Dom_events.Typ.touchcancel
             (fun _ e -> ending e; false) |> ignore;
@@ -374,28 +381,17 @@ module Items(I : Item) = struct
 
     class item ~props ~widgets () =
       let box  = new Box.t ~vertical:false ~widgets () in
-      let s = add_candidate_to_yojson props
-              |> Yojson.Safe.to_string
-              |> Js.string
+      let s    = add_candidate_to_yojson props
+                 |> Yojson.Safe.to_string
+                 |> Js.string
       in
       object(self)
         inherit Widget.widget box#root ()
         inherit draggable ~data:s box#root ()
 
-        method private opacity s = self#style##.opacity := Js.def @@ Js.string s
-        method private z_index s = self#style##.zIndex  := Js.string s
-
         initializer
-          Dom_events.listen self#root Dom_events.Typ.dragstart
-            (fun _ e -> self#opacity "0.5"; self#z_index "5";
-                        e##.dataTransfer##setData (Js.string drag_data_type) s;
-                        true) |> ignore;
-
-          Dom_events.listen self#root Dom_events.Typ.dragend
-            (fun _ _ -> self#opacity ""; self#z_index ""; false) |> ignore;
-
+          self#set_attribute "draggable" "true";
           self#add_class item_class;
-          self#set_attribute "draggable" "true"
       end
 
 
@@ -549,10 +545,11 @@ module Items_grid(I : Item) = struct
        ghost#style##.zIndex := Js.string "10000";
        Dom.appendChild self#root ghost#root;
        Dom_events.listen self#root Dom_events.Typ.dragenter
-                         (fun _ e -> Dom_html.stopPropagation e;
-                                     enter_target <- e##.target;
-                                     Dom.preventDefault e;
-                                     true) |> ignore;
+         (fun _ e -> Dom_html.stopPropagation e;
+                     enter_target <- e##.target;
+                     Dom.preventDefault e;
+                     true) |> ignore;
+
        Dom_events.listen self#root Dom_events.Typ.dragleave
          (fun _ e -> Dom_html.stopPropagation e;
                      Dom.preventDefault e;
@@ -560,6 +557,7 @@ module Items_grid(I : Item) = struct
                                        (* NOTE maybe check for some? *)
                      then ghost#set_pos Dynamic_grid.Position.empty;
                      true) |> ignore;
+
        Dom_events.listen self#root Dom_events.Typ.dragover
          (fun _ e -> let p = self#get_event_pos (e :> Dom_html.mouseEvent Js.t) in
                      self#move_ghost ghost p;
@@ -569,6 +567,7 @@ module Items_grid(I : Item) = struct
                      then Dom.preventDefault e;
                      true)
        |> ignore;
+
        Dom_events.listen self#root Dom_events.Typ.drop
          (fun _ e ->
            Dom.preventDefault e;
@@ -687,12 +686,12 @@ module Make(I : Item) = struct
     ; rt : Box.t
     }
 
-  let make ~(init:     (string * I.item) list)
-           ~(widgets:  (string * Wm.widget) list React.signal)
-           ~(actions:  Fab.t list)
-           ~(cols:     int)
-           ~(rows:     int)
-           ~(s_conf:   editor_config React.signal)
+  let make ~(init:    (string * I.item) list)
+           ~(widgets: (string * Wm.widget) list React.signal)
+           ~(actions: Fab.t list)
+           ~(cols:    int)
+           ~(rows:    int)
+           ~(s_conf:  editor_config React.signal)
            () =
     let rm = Left_toolbar.make_action { icon = "delete"; name = "Удалить" } in
 

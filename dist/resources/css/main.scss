@@ -16,10 +16,53 @@ body {
     height: 100%;
 }
 .content {
+    position: absolute;
     width: 100%;
     display: flex;
     min-height: calc(100vh - 128px);
     align-items: stretch;
+}
+
+@media (min-width: 1200px)
+{
+#main-toolbar {
+    left: 0px;
+    transition: left 0.225s;
+}
+
+body.hide-sidedrawer #main-toolbar {
+    left: 240px;
+    transition: left 0.225s;
+}
+
+#main-content {
+    left: 0px;
+    transition: left 0.225s;
+}
+body.hide-sidedrawer #main-content {
+    transition: left 0.225s;
+    left: 240px;
+    width: calc(100% - 240px);
+}
+
+#main-with-sidebar {
+    left: 0px;
+    transition: left 0.225s;
+}
+body.hide-sidedrawer #main-with-sidebar {
+    transition: left 0.225s;
+    left: 240px;
+}
+
+#arbitrary-content {
+    left: 0px;
+    transition: left 0.225s;
+}
+body.hide-sidedrawer #arbitrary-content {
+    transition: left 0.225s;
+    left: 240px;
+}
+
 }
 .main-with-sidebar     {
     // padding-left: 16px;
