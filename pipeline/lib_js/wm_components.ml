@@ -68,6 +68,41 @@ module Text_row = struct
 
 end
 
+module Item_info = struct
+
+  let _class = "wm-grid-item__info"
+
+  let make_info icon info =
+    let icon = new Icon.Font.t ~icon () in
+    let info = List.map (fun (label,text) -> new Text_row.t ~label ~text () |> Widget.coerce) info in
+    let box  = new Box.t ~vertical:true ~widgets:([icon#widget] @ info) () in
+    let ()   = box#add_class _class in
+    box#widget
+
+  let make_container_info (item:Wm.container Wm_types.wm_item) =
+    let icon   = new Icon.Font.t ~icon:item.icon () in
+    let text   = new Typography.Text.t ~text:item.name () in
+    let line_1 = new Box.t ~vertical:false ~widgets:[icon#widget;text#widget] () in
+    let box    = new Box.t ~vertical:true ~widgets:[line_1#widget] () in
+    let ()     = line_1#set_align_items `Center in
+    let ()     = box#add_class _class in
+    box#widget
+
+  let make_widget_info (item:Wm.widget Wm_types.wm_item) =
+    let icon = new Icon.Font.t ~icon:item.icon () in
+    let text = new Typography.Text.t ~text:item.name () in
+    let line_1 = new Box.t ~vertical:false ~widgets:[icon#widget;text#widget] () in
+    let line_2 = new Typography.Text.t ~text:item.item.domain () in
+    let line_3 = new Typography.Text.t ~text:item.item.description () in
+    let lines  = [line_1#widget;line_2#widget;line_3#widget] in
+    let box    = new Box.t ~vertical:true ~widgets:lines () in
+    let ()     = line_1#set_align_items `Center in
+    let ()     = box#add_class _class in
+    box#widget
+
+
+end
+
 module Item_properties = struct
 
   type t_cont = Wm.container Wm_types.wm_item

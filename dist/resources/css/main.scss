@@ -32,6 +32,10 @@ body {
     font-size: 24px;
 }
 
+video {
+    height: calc(100vh - 200px);
+}
+
 .material-icons { user-select: none; }
 
 .mdc-expand {

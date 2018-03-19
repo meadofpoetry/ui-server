@@ -252,6 +252,19 @@ $wm-placeholder-color: text-secondary-on-background;
 
 // ---- GRID ----
 
+.wm-grid-item__info {
+    padding: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 14px;
+
+    & > * {
+        line-height: 1.5;
+    }
+    i { margin-right: 10px; }
+}
+
 .wm-grid {
 
     height: 100%;

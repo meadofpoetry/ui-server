@@ -30,7 +30,8 @@ module Container_item : Item with type item = Wm.container = struct
     let icon = "crop_16_9" in
     { icon; name = k; unique = false; item = v }
   let to_grid_item (t:t) (pos:Dynamic_grid.Position.t) =
-    Dynamic_grid.Item.to_item ~value:t ~pos ()
+    let widget = Item_info.make_container_info t in
+    Dynamic_grid.Item.to_item ~value:t ~widget ~pos ()
   let position_of_t (t:t) = t.item.position
   let layer_of_t _        = 0
   let size_of_t (_ : t)   = None,None
@@ -68,7 +69,8 @@ module Widget_item : Item with type item = Wm.widget = struct
     in
     { icon; name = k; unique = true; item = v }
   let to_grid_item (t:t) (pos:Dynamic_grid.Position.t) =
-    Dynamic_grid.Item.to_item ~keep_ar:true ~value:t ~pos ()
+    let widget = Item_info.make_widget_info t in
+    Dynamic_grid.Item.to_item ~keep_ar:true ~widget ~value:t ~pos ()
   let layer_of_t (t:t)   = t.item.layer
   let size_of_t (t:t)    = Option.(Pair.map return return t.item.aspect)
   let layers_of_t_list l = List.fold_left (fun acc x -> if List.mem ~eq:(=) (layer_of_t x) acc
