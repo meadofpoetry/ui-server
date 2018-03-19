@@ -1,0 +1,40 @@
+@import '../../components/theme/_color-palette';
+
+@function wm-layer-color($layer) {
+    @if $layer == 0 {
+        @return $material-color-purple-500;
+    }
+    @else if $layer == 1 {
+        @return $material-color-red-500;
+    }
+    @else if $layer == 2 {
+        @return $material-color-indigo-500;
+    }
+    @else if $layer == 3 {
+        @return $material-color-blue-500;
+    }
+    @else if $layer == 4 {
+        @return $material-color-yellow-500;
+    }
+    @else if $layer == 5 {
+        @return $material-color-green-500;
+    }
+    @else if $layer == 6 {
+        @return $material-color-lime-500;
+    }
+    @else if $layer == 7 {
+        @return $material-color-cyan-500;
+    }
+    @else if $layer == 8 {
+        @return $material-color-deep-orange-500;
+    }
+    @else if $layer == 9 {
+        @return $material-color-brown-500;
+    }
+    @else if $layer == 10 {
+        @return $material-color-blue-grey-500;
+    }
+    @else {
+        @return $material-color-purple-500;
+    }
+}

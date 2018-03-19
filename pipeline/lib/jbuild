@@ -12,7 +12,7 @@
   (libraries (containers yojson sqlexpr angstrom
               lwt lwt-zmq lwt_react websocket-lwt.cohttp
               api storage common))
-  (preprocess (pps (ppx_deriving_yojson ppx_sqlexpr)))))
+  (preprocess (pps (ppx_deriving_yojson ppx_sqlexpr ppx_deriving.eq)))))
 
 (rule
  ((targets (audio_data.ml))

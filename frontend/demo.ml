@@ -635,68 +635,9 @@ let time_chart_demo () =
   demo_section "Chart (timeline)" [w]
 
 let dynamic_grid_demo () =
-  let widget () = Dom_html.createDiv Dom_html.document |> Widget.create in
-  (* let widget () = (
-   *     let range = 20 in
-   *     Random.init (Unix.time () |> int_of_float);
-   *     let open Chartjs.Line in
-   *     let data = [ { data = []; label = "Dataset 1" }
-   *                ; { data = []; label = "Dataset 2" }
-   *                ] in
-   *     let config = new Config.t
-   *                      ~x_axis:(Time ("my-x-axis",Bottom,Unix,Some 20000L))
-   *                      ~y_axis:(Linear ("my-y-axis",Left,Int,None))
-   *                      ~data
-   *                      () in
-   *     config#options#set_maintain_aspect_ratio false;
-   *     config#options#hover#set_mode Index;
-   *     config#options#hover#set_intersect true;
-   *     config#options#tooltip#set_mode Index;
-   *     config#options#tooltip#set_intersect false;
-   *     config#options#x_axis#scale_label#set_label_string "x axis";
-   *     config#options#x_axis#scale_label#set_display true;
-   *     config#options#x_axis#time#set_min_unit Second;
-   *     config#options#elements#line#set_border_width 3;
-   *     List.iter (fun x -> if String.equal x#get_label "Dataset 1"
-   *                         then x#set_background_color @@ Color.rgb_of_name (Color.Indigo C500)
-   *                         else x#set_background_color @@ Color.rgb_of_name (Color.Amber C500);
-   *                         if String.equal x#get_label "Dataset 1"
-   *                         then x#set_border_color @@ Color.rgb_of_name (Color.Indigo C500)
-   *                         else x#set_border_color @@ Color.rgb_of_name (Color.Amber C500);
-   *                         x#set_cubic_interpolation_mode Monotone;
-   *                         x#set_fill Disabled) config#datasets;
-   *     let chart = new Chartjs.Line.t ~config () in
-   *     let e_update,e_update_push = React.E.create () in
-   *     React.E.map (fun () -> List.iter (fun ds -> ds#push { x = Unix.time () *. 1000. |> Int64.of_float_exn
-   *                                                         ; y = Random.run (Random.int range) })
-   *                                      chart#config#datasets;
-   *                            chart#update None)
-   *                 e_update |> ignore;
-   *     Dom_html.window##setInterval (Js.wrap_callback (fun () -> e_update_push () |> ignore)) 1000. |> ignore;
-   *     let _ = chart#style##.backgroundColor := Js.string "white" in
-   *     chart)
-   * in *)
-  let (props:Dynamic_grid.grid) =
-    { rows             = Some 20
-    ; cols             = 30
-    ; min_col_width    = 1
-    ; max_col_width    = None
-    ; row_height       = None
-    ; vertical_compact = true
-    ; items_margin     = Some (10,10)
-    ; multi_select     = false
-    ; restrict_move    = false
-    }
+  let (props:Dynamic_grid.grid) = Dynamic_grid.to_grid ~rows:20 ~cols:30 ~min_col_width:1
+                                                       ~vertical_compact:true ~items_margin:(10,10) ()
   in
-  (* let move () = new Icon_toggle.t
-   *                 ~on_data:{ icon = "open_with"
-   *                          ; label = None
-   *                          ; css_class = None }
-   *                 ~off_data:{ icon = "open_with"
-   *                           ; label = None
-   *                           ; css_class = None }
-   *                 ()
-   * in *)
   let items    = [ Dynamic_grid.Item.to_item
                      ~pos:{ x = 0
                           ; y = 0
@@ -718,30 +659,8 @@ let dynamic_grid_demo () =
   let w        = new Textfield.t ~label:"width"      ~input_type:(Widget.Integer None) () in
   let h        = new Textfield.t ~label:"height"     ~input_type:(Widget.Integer None) () in
   let add      = new Button.t ~label:"add" () in
-  let add_free = new Button.t ~label:"add free" () in
-  let remove   = new Button.t ~label:"remove" () in
   let rem_all  = new Button.t ~label:"remove all" () in
   let grid     = new Dynamic_grid.t ~grid:props ~items () in
-  React.E.map (fun e -> let open Lwt.Infix in
-                        Dom_html.stopPropagation e;
-                        grid#add_free ?width:(React.S.value w#s_input)
-                          ?height:(React.S.value h#s_input)
-                          ~widget:(widget ())#widget
-                          ~value:()
-                          ()
-                        >>= (function
-                             | Ok _    -> print_endline "ok"   ; Lwt.return_unit
-                             | Error _ -> print_endline "error"; Lwt.return_unit)
-                        |> ignore) add_free#e_click
-  |> ignore;
-  React.E.map (fun e -> let open Lwt.Infix in
-                        Dom_html.stopPropagation e;
-                        grid#remove_free
-                        >>= (function
-                             | Ok _    -> print_endline "ok"   ; Lwt.return_unit
-                             | Error _ -> print_endline "error"; Lwt.return_unit)
-                        |> ignore) remove#e_click
-  |> ignore;
   React.E.map (fun _ -> grid#remove_all) rem_all#e_click
   |> ignore;
   React.E.map (fun _ -> match React.S.value x#s_input,React.S.value y#s_input,
@@ -762,8 +681,6 @@ let dynamic_grid_demo () =
                                          ; w#widget
                                          ; h#widget
                                          ; add#widget
-                                         ; add_free#widget
-                                         ; remove#widget
                                          ; rem_all#widget
                                          ]
   in

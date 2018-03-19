@@ -48,15 +48,15 @@ let calc_rows_cols grid_asp cont_asp list =
 
 let initialize (wm: Wm.t) =
   let asp  = resolution_to_aspect wm.resolution in
-  let cols, rows =
-    let open Dynamic_grid.Utils in
-    if fst asp <= 40
-    then
-      let weight = round (30. /. (float_of_int @@ fst asp)) in
-      weight * (fst asp), weight * (snd asp)
-    else
-      let weight = round (float_of_int (fst asp) /. 30.) in  (* not proper but okay i guess *)
-      (fst asp) / weight, (snd asp) / weight
+  let cols, rows = 30,40
+    (* let open Dynamic_grid.Utils in
+     * if fst asp <= 40
+     * then
+     *   let weight = round (30. /. (float_of_int @@ fst asp)) in
+     *   weight * (fst asp), weight * (snd asp)
+     * else
+     *   let weight = round (float_of_int (fst asp) /. 30.) in  (\* not proper but okay i guess *\)
+     *   (fst asp) / weight, (snd asp) / weight *)
   in
   let wd_list list =
     let wds =
@@ -89,7 +89,7 @@ let initialize (wm: Wm.t) =
     ; rows             = Some rows
     ; row_height       = None
     ; vertical_compact = false
-    ; items_margin     = Some (2,2)
+    ; items_margin     = (2,2)
     ; multi_select     = false
     ; restrict_move    = false
     } in

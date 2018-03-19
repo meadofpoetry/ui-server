@@ -1,6 +1,7 @@
 @import '../../components/theme/_mixins';
 @import '../../components/theme/_variables';
 @import '../../components/theme/_functions';
+@import '../../components/theme/_color-palette';
 @import '../../components/ripple/_mixins';
 @import '../../components/elevation/_mixins';
 @import '../../components/fab/_mixins';
@@ -8,6 +9,7 @@
 @import '../../components/layout-grid/_variables';
 @import '../../components/animation/_variables';
 @import '../../components/animation/_functions';
+@import './_mixins';
 
 $wm-grid-background-color: background;
 $wm-placeholder-color: text-secondary-on-background;
@@ -24,10 +26,41 @@ $wm-placeholder-color: text-secondary-on-background;
     width: auto;
 }
 
+.wm-confirmation-dialog .mdc-dialog__surface {
+    max-width: 400px;
+    min-width: 400px;
+}
+
+* [data-layer] {
+    .mdc-dynamic-grid__item { background-color: $material-color-purple-300; }
+}
+
+@for $i from 0 through 10 {
+    @include wm-layer-prop($i)
+}
+
+// ---- PROPERTY ROW ----
+
+.wm-property-row {
+    padding-bottom: 10px;
+    align-items: center;
+    &:last-child { padding-bottom: 0; }
+    &__value {
+        @include mdc-typography(body2);
+        text-align: end;
+        width: 50%;
+    }
+    &__label {
+        @include mdc-typography(subheading1);
+        text-align: left;
+        width: 50%;
+    }
+}
+
 // ---- PLACEHOLDER ----
 
 .wm-placeholder {
-    z-index: 1;
+    z-index: 12;
     width: 100%;
     height: 100%;
     position: absolute;
@@ -109,11 +142,16 @@ $wm-placeholder-color: text-secondary-on-background;
     &__properties {
         position: relative;
         flex: 1 1 200px;
-    }
-}
 
-#wm-item-properties {
-    padding: 20px;
+        #wm-item-properties {
+            padding: 15px;
+            overflow-y: auto;
+        }
+
+        .mdc-card__actions {
+            margin-top: auto;
+        }
+    }
 }
 
 // ---- LAYERS ----
@@ -122,14 +160,26 @@ $wm-placeholder-color: text-secondary-on-background;
     @include mdc-theme-prop(background-color,background);
 
     flex-grow: 1;
-    padding: 10px 0 10px 20px;
+    padding: 10px 0 10px 5px;
     display: flex;
     align-items: center;
     align-content: stretch;
     border-bottom: 1px solid rgba(0,0,0,.12);
 
     &__drag-handle {
+        @include mdc-theme-prop(color, text-icon-on-background);
         padding: 12px;
+    }
+    &__visibility {
+        @include mdc-theme-prop(color, text-icon-on-background);
+        margin-right: 5px;
+    }
+    &__color-indicator {
+        border-radius: 50%;
+        width: 10px;
+        height: 10px;
+        margin-right: 10px;
+        border: 1px solid rgba(0,0,0,.12);
     }
 }
 
@@ -148,6 +198,9 @@ $wm-placeholder-color: text-secondary-on-background;
             @include mdc-theme-prop(color,text-primary-on-primary);
             @include mdc-theme-prop(background-color,primary);
             &__drag-handle {
+                @include mdc-theme-prop(color,text-primary-on-primary);
+            }
+            &__visibility {
                 @include mdc-theme-prop(color,text-primary-on-primary);
             }
         }
@@ -197,12 +250,55 @@ $wm-placeholder-color: text-secondary-on-background;
 
     height: 100%;
 
+    &__right-menu {
+        align-items: center;
+        .mdc-menu {
+            z-index: 100;
+        }
+    }
+
+    &__grid-select {
+        @include mdc-theme-prop(color, text-secondary-on-background);
+        font-size: 12px;
+        font-weight: 400;
+        letter-spacing: 0.04em;
+        text-transform: inherit;
+        outline: none;
+        text-decoration: none;
+        user-select: none;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        padding-left: 12px;
+
+        .mdc-menu-anchor {
+            cursor: pointer;
+            padding-left: 8px;
+        }
+    }
+
     &__wrapper {
         @include mdc-theme-prop(background-color,$wm-grid-background-color);
         @include mdc-elevation(2);
 
         width: 100%;
         height: auto;
+        overflow-x: auto;
+        position: relative;
+    }
+
+    &__header {
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+
+    &__title {
+        @include mdc-typography(subheading2);
+    }
+
+    &__menu {
+        @include mdc-theme-prop(color, text-secondary-on-background);
     }
 
     &__grid {
@@ -210,25 +306,57 @@ $wm-placeholder-color: text-secondary-on-background;
 
         margin: 0 auto;
 
-        border-left: $wm-grid-border;
-        border-right: $wm-grid-border;
+        box-sizing: border-box;
+        outline: $wm-grid-border;
 
         &.mdc-dynamic-grid--with-overlay-grid {
-            border: none;
+            outline: none;
         }
 
         .mdc-dynamic-grid__item {
-            @include mdc-theme-prop(background-color, primary-light);
-            @include mdc-theme-prop(color, text-primary-on-primary-light);
+            /* @include mdc-theme-prop(background-color, primary-light); */
+            /* @include mdc-theme-prop(color, text-primary-on-primary-light); */
             border: 2px solid rgba(0,0,0,.12);
+            z-index: 100;
 
-            &--selected {
-                @include mdc-theme-prop(background-color, primary-dark);
-            }
+            /* &--selected { */
+            /*     @include mdc-theme-prop(background-color, primary-dark); */
+            /* } */
 
         }
         .mdc-dynamic-grid__item__ghost {
             @include mdc-theme-prop(background-color, secondary);
+        }
+    }
+
+    &__grid--invisible {
+        .mdc-dynamic-grid__item {
+            display: none;
+        }
+    }
+    &__grid--background {
+        top: 0;
+        position: absolute;
+        left: 0;
+        right: 0;
+        margin-left: auto;
+        margin-right: auto;
+        outline: none;
+        pointer-events: none;
+
+        .mdc-dynamic-grid__item {
+            opacity: 0.4;
+            z-index: 1;
+        }
+        .mdc-dynamic-grid__item__resize {
+            display: none;
+        }
+
+        .wm-placeholder {
+            display: none;
+        }
+        .mdc-dynamic-grid__overlay-grid {
+            display: none;
         }
     }
 }
@@ -241,6 +369,7 @@ $wm-placeholder-color: text-secondary-on-background;
     > * {
         margin-bottom: 20px;
         flex-grow: 2;
+        max-height: 40vh;
     }
     > *:last-child { margin-bottom: 0; }
 }

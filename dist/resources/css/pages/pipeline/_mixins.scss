@@ -1,0 +1,22 @@
+@import '../../components/theme/_functions';
+@import './_functions';
+
+@mixin wm-layer-prop($layer) {
+    $color     :     wm-layer-color($layer);
+    $base-color:     mdc-theme-light-variant($color,2);
+    $selected-color: mdc-theme-light-variant($color,1);
+
+    * [data-layer='#{$layer}'] {
+        .mdc-dynamic-grid__item {
+            background-color: $base-color;
+            z-index: $layer + 1;
+
+            &--selected {
+                background-color: $selected-color;
+            }
+        }
+        .wm-layer-item__color-indicator {
+            background-color: $base-color;
+        }
+    }
+}

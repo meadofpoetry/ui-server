@@ -617,8 +617,9 @@ module Make
       ; css_class : string option [@key "cssClass"]
       } [@@deriving to_yojson]
 
-    let base_class  = "mdc-icon-toggle"
-    let icons_class = "material-icons"
+    let base_class     = "mdc-icon-toggle"
+    let icons_class    = "material-icons"
+    let disabled_class = CSS.add_modifier base_class "disabled"
 
     let create ?id ?style ?(classes=[]) ?attrs ?(disabled=false) ?color_scheme ~on_data ~off_data () =
       let data_toggle_on  = on_data |> data_to_yojson |> Yojson.Safe.to_string in
@@ -1076,7 +1077,7 @@ module Make
 
   module Menu = struct
 
-    let base_class   = "mdc-simple-menu"
+    let base_class   = "mdc-menu"
     let items_class  = CSS.add_element base_class "items"
     let anchor_class = "mdc-menu-anchor"
 
