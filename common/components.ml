@@ -374,7 +374,7 @@ module Make
                                |> cons_if scrollable scrollable_class 
                                |> List.cons _class) ]
                     |> add_common_attrs ?id ?style ?attrs)
-          content
+                content
 
     end
 

@@ -12,37 +12,18 @@ module Make(I : Item) = struct
   let grid_to_string (x,y) = Printf.sprintf "%dx%d" x y
 
   class t ~title ~resolution ~(init: I.t list) ~e_layers () =
-    let positions         = List.map I.position_of_t init in
-    let s_grids,set_grids = React.S.create @@ Utils.get_grids ~resolution ~positions () in
-    let s_grid,set_grid   = React.S.create @@ Utils.get_best_grid ~cols:90 ~resolution (React.S.value s_grids) in
-    let grouped =
-      List.fold_left (fun acc (x:I.t) ->
-          let layer = I.layer_of_t x in
-          List.Assoc.update ~eq:(=) ~f:(function Some l -> Some (x :: l) | None -> Some [x]) layer acc)
-                     [] init
-    in
-    let layers  = I.layers_of_t_list init in
-    let wrapper = Dom_html.createDiv Dom_html.document |> Widget.create in
-    let s_layers,set_layers =
-      List.map (fun x -> let items = List.Assoc.get ~eq:(=) x grouped in
-                         let init  = Option.get_or ~default:[] items in
-                         let grid  = new G.t ~layer:x ~init ~s_grid ~resolution () in
-                         Dom.appendChild wrapper#root grid#root;
-                         grid) layers
-      |> React.S.create
-    in
-    let active     = List.hd @@ React.S.value s_layers in
-    let ()         = active#set_active true in
-    let s_active,set_active = React.S.create active in
+    let s_grids,set_grids   = React.S.create @@ Utils.get_grids ~resolution ~positions:[] () in
+    let s_grid,set_grid     = React.S.create @@ Utils.get_best_grid ~cols:90 ~resolution @@ React.S.value s_grids in
+    let s_layers,set_layers = React.S.create [new G.t ~layer:0 ~init:[] ~s_grid ~resolution ()] in
+    let s_active,set_active = React.S.create @@ List.hd @@ React.S.value s_layers in
+    let wrapper    = Dom_html.createDiv Dom_html.document |> Widget.create in
     let title      = new Typography.Text.t ~adjust_margin:false ~text:title () in
     let on_data    = ({ icon = "grid_off"; label = None; css_class = None }:Markup.Icon_toggle.data) in
     let off_data   = ({ icon = "grid_on"; label = None; css_class = None }:Markup.Icon_toggle.data) in
     let grid_icon  = new Icon_toggle.t ~on_data ~off_data () in
-    let menu_items = List.map (fun (w,h) -> `Item (new Menu.Item.t ~text:(Printf.sprintf "%dx%d" w h) ()))
-                     @@ React.S.value s_grids in
-    let menu       = new Menu.t ~items:menu_items () in
+    let menu       = new Menu.t ~items:[] () in
     let menu_text  = new Typography.Text.t ~text:"Сетка:" () in
-    let menu_sel   = new Typography.Text.t ~text:(grid_to_string @@ React.S.value s_grid) () in
+    let menu_sel   = new Typography.Text.t ~text:"" () in
     let menu_ico   = new Icon.Font.t ~icon:"arrow_drop_down" () in
     let anchor     = new Box.t ~vertical:false ~widgets:[ menu_sel#widget; menu_ico#widget ] () in
     let menu_wrap  = new Menu.Wrapper.t ~anchor ~menu () in
@@ -65,11 +46,36 @@ module Make(I : Item) = struct
       method s_layers     = s_layers
       method s_selected   = s_sel
       method layout_items = List.map I.t_to_layout_item self#items
-      method items        = List.fold_left (fun acc x -> x#items @ acc) [] @@ React.S.value s_layers
-                            |> List.map (fun x -> x#get_value)
+      method items        = List.map (fun x -> x#get_value) self#widgets
+      method widgets      = List.fold_left (fun acc x -> x#items @ acc) [] @@ React.S.value s_layers
+
+      method clear = List.iter (fun x -> x#remove) self#widgets
+      method initialize resolution items =
+        self#clear;
+        let positions = List.map I.position_of_t items in
+        let grids     = Utils.get_grids ~resolution ~positions () in
+        set_grids grids;
+        let grid      = Utils.get_best_grid ~cols:90 ~resolution grids in
+        set_grid grid;
+        let grouped   = List.fold_left (fun acc (x:I.t) ->
+                            List.Assoc.update ~eq:(=) ~f:(function
+                                                          | Some l -> Some (x :: l)
+                                                          | None -> Some [x]) (I.layer_of_t x) acc)
+                                       [] items
+        in
+        let layers = List.map (fun x -> let items = List.Assoc.get ~eq:(=) x grouped in
+                                        let init  = Option.get_or ~default:[] items in
+                                        let grid  = new G.t ~layer:x ~init ~s_grid ~resolution () in
+                                        Dom.appendChild wrapper#root grid#root;
+                                        grid) (I.layers_of_t_list items)
+        in
+        let layer  = List.hd layers in
+        set_layers layers;
+        set_active layer
 
       initializer
         grid_icon#set_on true;
+        self#initialize resolution init;
         (* update available grids *)
         let eq = (fun _ _ -> false) in
         let s = React.S.switch ~eq (React.S.map ~eq (fun x -> x#s_change) s_active) in
@@ -105,8 +111,8 @@ module Make(I : Item) = struct
         header#add_class     @@ Markup.CSS.add_element base_class "header";
         React.S.l2 (fun conf grid -> if conf then grid#overlay_grid#show else grid#overlay_grid#hide)
                    grid_icon#s_state s_active |> ignore;
-        React.S.diff (fun n o -> n#set_active true;
-                                 o#set_active false;
+        React.S.map  (fun x   -> x#set_active true) s_active |> ignore;
+        React.S.diff (fun _ o -> o#set_active false;
                                  List.iter (fun x -> x#set_selected false) o#items) s_active |> ignore;
         React.E.map (fun e -> let grids = React.S.value s_layers in
                               match e with

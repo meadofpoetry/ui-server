@@ -23,7 +23,7 @@ module Container_item : Item with type item = Wm.container = struct
   type layout_item = string * item
   type t           = item wm_item  [@@deriving yojson,eq]
 
-  let max_layers = 10
+  let max_layers = 1
 
   let t_to_layout_item (t:t) = t.name,t.item
   let t_of_layout_item (k,(v:item)) =
@@ -125,17 +125,8 @@ let create_widgets_grid ~(container:      Wm.container wm_item)
   let w = Widg.make ~title ~init ~candidates ~set_candidates ~resolution ~actions:[back;close] () in
   let _ = React.E.map (fun _ -> on_apply w.ig#layout_items) back#e_click in
   let _ = React.E.map (fun _ ->
-              print_endline "init\n";
-              List.iter (fun x -> Widget_item.to_yojson x
-                                  |> Yojson.Safe.pretty_to_string
-                                  |> print_endline) init;
-              print_endline "changed\n";
-              List.iter (fun x -> Widget_item.to_yojson x
-                                  |> Yojson.Safe.pretty_to_string
-                                  |> print_endline) w.ig#items;
               let added   = List.filter (fun x -> not @@ List.mem ~eq:Widget_item.equal x init) w.ig#items in
               let removed = List.filter (fun x -> not @@ List.mem ~eq:Widget_item.equal x w.ig#items) init in
-              Printf.printf "added: %d, removed: %d\n" (List.length added) (List.length removed);
               match added,removed with
               | [],[] -> on_cancel ()
               | _ -> let open Lwt.Infix in
@@ -159,14 +150,7 @@ let switch ~(cont:Cont.t) ~s_state_push ~candidates ~set_candidates () =
   let w = create_widgets_grid ~container:t ~candidates ~set_candidates ~on_apply ~on_cancel () in
   s_state_push (`Widget w)
 
-let serialize ~(cont:Cont.t) ~s_state () : (string * Wm.container) list =
-  (match React.S.value s_state with
-   | `Container         -> ()
-   | `Widget (w:Widg.t) -> Option.iter (fun selected -> let (t:Wm.container wm_item) = selected#get_value in
-                                                        let widgets = w.ig#layout_items in
-                                                        let t = { t with item = { t.item with widgets }} in
-                                                        selected#set_value t)
-                                       (React.S.value cont.ig#s_selected));
+let serialize ~(cont:Cont.t) () : (string * Wm.container) list =
   List.map (fun (n,(v:Wm.container)) ->
       let widgets = List.map (fun (s,(w:Wm.widget)) ->
                         let position = pos_relative_to_absolute w.position v.position in
@@ -174,6 +158,13 @@ let serialize ~(cont:Cont.t) ~s_state () : (string * Wm.container) list =
                         s,nw) v.widgets in
       n,{ v with widgets })
            cont.ig#layout_items
+
+let get_free_widgets containers widgets =
+  let used = List.fold_left (fun acc (_,(x:Wm.container)) -> x.widgets @ acc) [] containers in
+  List.filter (fun (k,(v:Wm.widget)) ->
+      let eq (k1,_) (k2,_) = String.equal k1 k2 in
+      not @@ List.mem ~eq (k,v) used)
+              widgets
 
 let create ~(init:     Wm.t)
            ~(post:     Wm.t -> unit)
@@ -184,13 +175,7 @@ let create ~(init:     Wm.t)
                                                      n, { v with widgets })
                         init.layout
   in
-  let used_widgets = List.fold_left (fun acc (_,(x:Wm.container)) -> x.widgets @ acc) [] init.layout in
-  let free_widgets = List.filter (fun (k,(v:Wm.widget)) ->
-                         let eq (k1,v1) (k2,v2) = Wm.equal_widget v1 v2 && String.equal k1 k2 in
-                         not @@ List.mem ~eq (k,v) used_widgets)
-                                 init.widgets
-  in
-  let wc = List.map Widget_item.t_of_layout_item free_widgets in
+  let wc = List.map Widget_item.t_of_layout_item @@ get_free_widgets init.layout init.widgets in
   let s_wc,s_wc_push = React.S.create wc in
   let s_cc,s_cc_push = React.S.create [({ icon   = "crop_16_9"
                                         ; name   = "Контейнер"
@@ -201,25 +186,36 @@ let create ~(init:     Wm.t)
                                         } : Container_item.t)
                                       ]
   in
+  let wz_dlg,wz_e,wz_show  = Wm_wizard.to_dialog init in
   let resolution           = init.resolution in
-  let init                 = List.map Container_item.t_of_layout_item layout in
   let s_state,s_state_push = React.S.create `Container in
   let title                = "Контейнеры" in
-  let edit = Wm_left_toolbar.make_action { icon = "edit"; name = "Редактировать" } in
-  let save = Wm_left_toolbar.make_action { icon = "save"; name = "Сохранить" } in
+  let edit   = Wm_left_toolbar.make_action { icon = "edit"; name = "Редактировать" } in
+  let save   = Wm_left_toolbar.make_action { icon = "save"; name = "Сохранить" } in
+  let wizard = Wm_left_toolbar.make_action { icon = "brightness_auto"; name = "Авто" } in
   let on_remove = fun (t:Wm.container wm_item) ->
     let ws = List.map Widget_item.t_of_layout_item t.item.widgets in
     List.iter (fun x -> Wm_editor.remove ~eq:Widget_item.equal s_wc s_wc_push x) ws
   in
-  let cont = Cont.make ~title ~init ~candidates:s_cc ~set_candidates:s_cc_push
-                       ~resolution ~on_remove ~actions:[save;edit] ()
+  let cont = Cont.make ~title ~init:(List.map Container_item.t_of_layout_item layout)
+                       ~candidates:s_cc ~set_candidates:s_cc_push
+                       ~resolution ~on_remove ~actions:[save;wizard;edit] ()
   in
+  let _ = React.E.map (fun _ -> wz_show ()) wizard#e_click in
   let _ = React.S.map (fun x -> edit#set_disabled @@ Option.is_none x) cont.ig#s_selected in
   let _ = React.E.map (fun _ -> switch ~s_state_push ~candidates:s_wc ~set_candidates:s_wc_push ~cont ())
                       edit#e_click
   in
-  let _ = React.E.map (fun _ -> post { resolution; widgets=[]; layout = serialize ~cont ~s_state () })
-                      save#e_click
+  let _ = React.E.map (fun _ -> post { resolution; widgets=[]; layout = serialize ~cont () }) save#e_click in
+  let _ = React.E.map (fun l ->
+              let layout = List.map (fun (n,(v:Wm.container)) ->
+                               let widgets = conv v.position v.widgets in
+                               n, { v with widgets }) l
+              in
+              let layers = Container_item.layers_of_t_list @@ List.map Container_item.t_of_layout_item layout in
+              cont.rt#initialize_layers layers;
+              s_wc_push @@ List.map Widget_item.t_of_layout_item @@ get_free_widgets layout init.widgets;
+              cont.ig#initialize init.resolution @@ List.map Container_item.t_of_layout_item layout) wz_e
   in
   let lc = new Layout_grid.Cell.t ~widgets:[] () in
   let mc = new Layout_grid.Cell.t ~widgets:[] () in
@@ -236,6 +232,7 @@ let create ~(init:     Wm.t)
                               | `Container         -> add_to_view cont.lt cont.ig cont.rt)
                       s_state
   in
+  Dom.appendChild cont.ig#root wz_dlg#root;
   let g = new Layout_grid.t ~cells:[lc;mc;rc] () in
   g
 

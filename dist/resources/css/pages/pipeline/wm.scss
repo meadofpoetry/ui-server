@@ -39,6 +39,12 @@ $wm-placeholder-color: text-secondary-on-background;
     @include wm-layer-prop($i)
 }
 
+.wm {
+    .mdc-dialog {
+        z-index: 101;
+    }
+}
+
 // ---- PROPERTY ROW ----
 
 .wm-property-row {
@@ -314,15 +320,7 @@ $wm-placeholder-color: text-secondary-on-background;
         }
 
         .mdc-dynamic-grid__item {
-            /* @include mdc-theme-prop(background-color, primary-light); */
-            /* @include mdc-theme-prop(color, text-primary-on-primary-light); */
             border: 2px solid rgba(0,0,0,.12);
-            z-index: 100;
-
-            /* &--selected { */
-            /*     @include mdc-theme-prop(background-color, primary-dark); */
-            /* } */
-
         }
         .mdc-dynamic-grid__item__ghost {
             @include mdc-theme-prop(background-color, secondary);

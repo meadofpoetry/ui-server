@@ -105,28 +105,44 @@ let move_layer_down s_layers push layer =
                               layer#set_pos new_pos;
                               emit_new_pos s_layers push) lower)
 
-let make_layers_grid ~init =
-  let e,push = React.E.create () in
-  let init   = List.length init in
+class t ~init () =
   let _class = "wm-layers-grid" in
-  let props  = Dynamic_grid.to_grid ~cols:1 ~min_col_width:20 ~row_height:50 ~vertical_compact:true
+  let grid   = Dynamic_grid.to_grid ~cols:1 ~min_col_width:20 ~row_height:50 ~vertical_compact:true
                                     ~restrict_move:true ()
   in
-  let grid   = new Dynamic_grid.t ~grid:props ~items:[] () in
-  let e_sel : action React.event =
-    React.S.diff (fun n o -> let open Dynamic_grid.Position in
-                             match n with
-                             | [x] -> `Selected x#pos.y
-                             | _   -> (match o with
-                                       | [x] -> `Selected x#pos.y
-                                       | _   -> `Selected init)) grid#s_selected
-  in
-  let e      = React.E.select [e;e_sel] in
-  let ()     = List.iter (fun _ -> on_add grid push) @@ List.range' 0 init
-  in
-  let ()     = grid#set_on_load @@ Some (fun () -> grid#layout) in
-  let ()     = List.iter (fun i -> set_data_layer_attr i (i#pos:Dynamic_grid.Position.t).y) grid#items in
-  grid,e,push
+  let e_layer,push = React.E.create () in
+
+  object(self)
+
+    inherit [int] Dynamic_grid.t ~grid ~items:[] ()
+
+    method e_layer      : action React.event = e_layer
+    method e_layer_push : ?step:React.step -> action -> unit = push
+    method clear = self#remove_all
+    method initialize (init:int list) =
+      let init = List.length init in
+      self#clear;
+      List.iter (fun _ -> on_add self push) @@ List.range' init 0;
+      Option.iter (fun x -> x#set_selected true) @@ List.head_opt self#items
+
+    initializer
+      self#initialize init;
+      self#add_class _class;
+      self#set_on_load @@ Some (fun _ -> self#layout);
+      let _ =
+        React.S.diff (fun n o -> let open Dynamic_grid.Position in
+                                 match n with
+                                 | [x] -> push @@ `Selected x#pos.y
+                                 | _   -> (match o with
+                                           | [x] -> push @@ `Selected x#pos.y
+                                           | _   -> ())) self#s_selected
+      in
+      List.iter (fun i -> set_data_layer_attr i (i#pos:Dynamic_grid.Position.t).y) self#items
+
+  end
+
+let make_layers_grid ~init =
+  new t ~init ()
 
 let make_layers_actions max layers_grid push =
   let open Dynamic_grid.Position in
@@ -162,13 +178,12 @@ let make ~init ~max =
 
   let open Dynamic_grid.Position in
   let layers      = Dom_html.createDiv Dom_html.document |> Widget.create in
-  let grid,e,push = make_layers_grid ~init in
-  let actions     = new Card.Actions.t ~widgets:[(make_layers_actions max grid push)#widget] () in
+  let grid        = make_layers_grid ~init in
+  let actions     = new Card.Actions.t ~widgets:[(make_layers_actions max grid grid#e_layer_push)#widget] () in
   let card        = new Card.t ~widgets:[layers#widget;actions#widget] () in
-  let ()          = Option.iter (fun x -> x#set_selected true) @@ List.head_opt grid#items in
   let ()          = layers#add_class wrapper_class in
   let ()          = Dom.appendChild layers#root grid#root in
   let ()          = card#add_class _class in
   let title       = Wm_selectable_title.make ["Слои",card] in
   let box         = new Box.t ~widgets:[title#widget; card#widget] () in
-  box,e
+  box,grid
