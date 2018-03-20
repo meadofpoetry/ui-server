@@ -2,30 +2,31 @@ open Containers
 open Components
 open Wm_types
 open Wm_components
+open Dynamic_grid
 
 let base_class = "wm-grid"
+
+let layout_pos_of_grid_pos ~resolution ~cols ~rows (pos:Position.t) : Wm.position =
+  let w,h    = resolution in
+  let cw,rh  = w / cols, h / rows in
+  { left   = pos.x * cw
+  ; right  = (pos.w + pos.x) * cw
+  ; top    = pos.y * rh
+  ; bottom = (pos.h + pos.y) * rh
+  }
+
+let grid_pos_of_layout_pos ~resolution ~cols ~rows (pos:Wm.position) : Position.t =
+  let w,h   = resolution in
+  let cw,rh = w / cols, h / rows in
+  { x = pos.left / cw
+  ; y = pos.top / rh
+  ; w = (pos.right - pos.left) / cw
+  ; h = (pos.bottom - pos.top) / rh
+  }
 
 module Make(I : Item) = struct
 
   module Position = Dynamic_grid.Position
-
-  let layout_pos_of_grid_pos ~resolution ~cols ~rows (pos:Position.t) : Wm.position =
-    let w,h    = resolution in
-    let cw,rh  = w / cols, h / rows in
-    { left   = pos.x * cw
-    ; right  = (pos.w + pos.x) * cw
-    ; top    = pos.y * rh
-    ; bottom = (pos.h + pos.y) * rh
-    }
-
-  let grid_pos_of_layout_pos ~resolution ~cols ~rows (pos:Wm.position) : Position.t =
-    let w,h   = resolution in
-    let cw,rh = w / cols, h / rows in
-    { x = pos.left / cw
-    ; y = pos.top / rh
-    ; w = (pos.right - pos.left) / cw
-    ; h = (pos.bottom - pos.top) / rh
-    }
 
   let item_to_grid_item ~resolution ~cols ~rows (x:I.t) =
     let pos = I.position_of_t x in

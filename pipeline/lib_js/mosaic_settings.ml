@@ -5,6 +5,20 @@ open Lwt_result.Infix
 open Wm_types
 open Wm_components
 
+let pos_absolute_to_relative (pos:Wm.position) (cont_pos:Wm.position) : Wm.position =
+  { left   = pos.left - cont_pos.left
+  ; right  = pos.right - cont_pos.left
+  ; top    = pos.top - cont_pos.top
+  ; bottom = pos.bottom - cont_pos.top
+  }
+
+let pos_relative_to_absolute (pos:Wm.position) (cont_pos:Wm.position) : Wm.position =
+  { left   = pos.left + cont_pos.left
+  ; right  = pos.right + cont_pos.left
+  ; top    = pos.top + cont_pos.top
+  ; bottom = pos.bottom + cont_pos.top
+  }
+
 let get_widgets_bounding_rect (container:Wm.container) =
   let open Wm in
   match container.widgets with
@@ -40,11 +54,51 @@ module Container_item : Item with type item = Wm.container = struct
     let op    = t.item.position in
     let nw,nh = p.right - p.left, p.bottom - p.top in
     let ow,oh = op.right - op.left, op.bottom - op.top in
-    let item  = if ow <> nw || oh <> nh
-                then { t.item with position = p }  (* Size changed *)
-                else { t.item with position = p }  (* Size not changed*)
-    in
-    { t with item }
+    let item  = match ow <> nw || oh <> nh with
+      | true  ->
+         (* size changed *)
+         let rect  = Utils.to_grid_position @@ get_widgets_bounding_rect t.item in
+         let np   = Utils.resolution_to_aspect (rect.w,rect.h)
+                    |> Dynamic_grid.Position.correct_aspect (Utils.to_grid_position p)
+         in
+         Printf.printf "np: %s\n" (Wm.position_to_yojson p
+                                   |> Yojson.Safe.pretty_to_string);
+         Printf.printf "rp: %s\n" (Utils.of_grid_position rect
+                                   |> Wm.position_to_yojson |> Yojson.Safe.pretty_to_string);
+         Printf.printf "cp: %s\n" (Utils.of_grid_position np
+                                   |> Wm.position_to_yojson
+                                   |> Yojson.Safe.pretty_to_string);
+         let centered = Utils.center ~parent:p ~pos:(Utils.of_grid_position np) () in
+         let dx       = centered.left - p.left in
+         let dy       = centered.top  - p.top in
+         let f (w:Wm.widget) : Wm.widget =
+           let pos    = w.position in
+           print_endline "";
+           Printf.printf "widget pos: %s\n" (Wm.position_to_yojson pos |> Yojson.Safe.pretty_to_string);
+           let ax,ay  = Utils.resolution_to_aspect (pos.right - pos.left,pos.bottom - pos.top) in
+           let width  = ((pos.right - pos.left) * np.w) / rect.w in
+           let height = (width * ay) / ax in
+           let width,height = Dynamic_grid.Position.correct_aspect {x=0;y=0;w=width;h=height} (ax,ay)
+                              |> (fun (x:Dynamic_grid.Position.t) -> x.w,x.h) in
+           let left   = (((pos.left - rect.x) * np.w) / rect.w) + dx in
+           let top    = (((pos.top - rect.y) * np.h) / rect.h) + dy in
+           Printf.printf "mod left: %d, mod top: %d\n"
+                         (((pos.left - rect.x) * np.w) mod rect.w)
+                         (((pos.top - rect.y) * np.h) mod rect.h);
+           let (pos:Wm.position) = { left
+                                   ; right  = left + width
+                                   ; top
+                                   ; bottom = top + height
+                                   }
+           in
+           { w with position = pos }
+         in
+         let w    = List.map (fun (s,w) -> s,f w) t.item.widgets in
+         print_endline "";
+      { t.item with position = p; widgets = w }
+    | false -> { t.item with position = p }
+      in
+      { t with item }
   let update_layer (t : t) _ = t
   let make_item_name (t : t) (other : t list) =
     Printf.sprintf "%s #%d" t.name (succ @@ List.length other)
@@ -88,26 +142,13 @@ end
 module Cont = Wm_editor.Make(Container_item)
 module Widg = Wm_editor.Make(Widget_item)
 
-let pos_absolute_to_relative (pos:Wm.position) (cont_pos:Wm.position) : Wm.position =
-  { left   = pos.left - cont_pos.left
-  ; right  = pos.right - cont_pos.left
-  ; top    = pos.top - cont_pos.top
-  ; bottom = pos.bottom - cont_pos.top
-  }
-
-let pos_relative_to_absolute (pos:Wm.position) (cont_pos:Wm.position) : Wm.position =
-  { left   = pos.left + cont_pos.left
-  ; right  = pos.right + cont_pos.left
-  ; top    = pos.top + cont_pos.top
-  ; bottom = pos.bottom + cont_pos.top
-  }
-
 let create_widgets_grid ~(container:      Wm.container wm_item)
                         ~(candidates:     Widget_item.t list React.signal)
                         ~(set_candidates: Widget_item.t list -> unit)
                         ~(on_apply:       (string * Wm.widget) list -> unit)
                         ~(on_cancel:      unit -> unit)
                         () =
+  let init_cand  = React.S.value candidates in
   let cont_name  = container.name in
   let cont_pos   = Container_item.position_of_t container in
   let resolution = cont_pos.right - cont_pos.left, cont_pos.bottom - cont_pos.top in
@@ -127,6 +168,14 @@ let create_widgets_grid ~(container:      Wm.container wm_item)
   let w = Widg.make ~title ~init ~candidates ~set_candidates ~resolution ~actions:[back;close] () in
   let _ = React.E.map (fun _ -> on_apply w.ig#layout_items) back#e_click in
   let _ = React.E.map (fun _ ->
+              print_endline "init\n";
+              List.iter (fun x -> Widget_item.to_yojson x
+                                  |> Yojson.Safe.pretty_to_string
+                                  |> print_endline) init;
+              print_endline "changed\n";
+              List.iter (fun x -> Widget_item.to_yojson x
+                                  |> Yojson.Safe.pretty_to_string
+                                  |> print_endline) w.ig#items;
               let added   = List.filter (fun x -> not @@ List.mem ~eq:Widget_item.equal x init) w.ig#items in
               let removed = List.filter (fun x -> not @@ List.mem ~eq:Widget_item.equal x w.ig#items) init in
               match added,removed with
@@ -134,9 +183,7 @@ let create_widgets_grid ~(container:      Wm.container wm_item)
               | _ -> let open Lwt.Infix in
                      dlg#show_await
                      >>= (fun res -> (match res with
-                                      | `Cancel -> let eq = Widget_item.equal in
-                                                   List.iter (Wm_editor.remove ~eq candidates set_candidates) added;
-                                                   on_cancel ()
+                                      | `Cancel -> set_candidates init_cand; on_cancel ()
                                       | `Accept -> ());
                                      Lwt.return_unit)
                      |> ignore) close#e_click
@@ -147,7 +194,13 @@ let create_widgets_grid ~(container:      Wm.container wm_item)
 let switch ~(cont:Cont.t) ~s_state_push ~candidates ~set_candidates () =
   let selected   = React.S.value cont.ig#s_selected |> Option.get_exn in
   let t          = selected#get_value in
-  let on_apply w = selected#set_value { t with item = { t.item with widgets = w }}; s_state_push `Container in
+  let on_apply w =
+    selected#set_value { t with item = { t.item with widgets = w }};
+    s_state_push `Container;
+    (match w with
+     | [] -> selected#set_keep_ar false
+     | _  -> selected#set_keep_ar true)
+  in
   let on_cancel  = fun () -> s_state_push `Container in
   let w = create_widgets_grid ~container:t ~candidates ~set_candidates ~on_apply ~on_cancel () in
   s_state_push (`Widget w)

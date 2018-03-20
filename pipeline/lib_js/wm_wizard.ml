@@ -1,5 +1,6 @@
 open Containers
 open Components
+open Wm_components
 
 let get_items_in_row ~(resolution:int*int) ~(item_ar:int*int) items =
   let num           = List.length items in
@@ -26,21 +27,16 @@ let get_items_in_row ~(resolution:int*int) ~(item_ar:int*int) items =
                    (0,0,0.) squares in
   cols
 
-let to_grid_position (pos:Wm.position) : Dynamic_grid.Position.t =
-  {x = pos.left; y = pos.top; w = pos.right - pos.left; h = pos.bottom - pos.top }
-let of_grid_position (pos:Dynamic_grid.Position.t) : Wm.position =
-  { left = pos.x; right = pos.w + pos.x; top = pos.y; bottom = pos.y + pos.h }
-
 let position_widget ~(pos:Wm.position) (widget:string * Wm.widget) : string * Wm.widget =
   let s,v    = widget in
-  let cpos   = to_grid_position pos in
+  let cpos   = Utils.to_grid_position pos in
   let wpos   = Dynamic_grid.Position.correct_aspect cpos v.aspect in
   let x      = cpos.x   + ((cpos.w - wpos.w) / 2) in
   let y      = cpos.y   + ((cpos.h - wpos.h) / 2) in
   Printf.printf "cpos: %s, wpos: %s\n"
                 (Dynamic_grid.Position.to_string cpos)
                 (Dynamic_grid.Position.to_string { wpos with x;y});
-  let pos    = {wpos with x;y} |> of_grid_position in
+  let pos    = {wpos with x;y} |> Utils.of_grid_position in
   s,{ v with position = pos }
 
 let to_checkboxes (widgets:(string * Wm.widget) list) =

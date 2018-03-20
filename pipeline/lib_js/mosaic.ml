@@ -54,7 +54,6 @@ let make_video () =
    * video##.controls    := Js._true; *)
   video##.id          := Js.string "remotevideo";
   video##.style##.backgroundColor := Js.string "rgba(0,0,0,1)";
-  video##setAttribute (Js.string "width") (Js.string "100%");
   video
 
 let page () =

@@ -34,10 +34,10 @@ let has_collision ~(f:'a -> t) x (l:'a list) =
   Option.is_some @@ get_first_collision ~f x l
 
 (** compacts the position vertically **)
-let compact ~(f:'a -> t) (pos:t) (l:'a list) : t =
+let compact ?(to_top=true) ~(f:'a -> t) (pos:t) (l:'a list) : t =
   let rec up (pos:t) =
     let y = pos.y - 1 in
-    if y >= 0 && (not @@ has_collision ~f { pos with y } l)
+    if y >= 0 && to_top && (not @@ has_collision ~f { pos with y } l)
     then up { pos with y }
     else pos in
   up pos

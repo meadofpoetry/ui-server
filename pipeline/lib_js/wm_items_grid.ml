@@ -12,8 +12,8 @@ module Make(I : Item) = struct
   let grid_to_string (x,y) = Printf.sprintf "%dx%d" x y
 
   class t ~title ~resolution ~(init: I.t list) ~e_layers () =
-    let s_grids,set_grids   = React.S.create @@ Utils.get_grids ~resolution ~positions:[] () in
-    let s_grid,set_grid     = React.S.create @@ Utils.get_best_grid ~cols:90 ~resolution @@ React.S.value s_grids in
+    let s_grids,set_grids   = React.S.create [(1,1)] in
+    let s_grid,set_grid     = React.S.create (1,1) in
     let s_layers,set_layers = React.S.create [new G.t ~layer:0 ~init:[] ~s_grid ~resolution ()] in
     let s_active,set_active = React.S.create @@ List.hd @@ React.S.value s_layers in
     let wrapper    = Dom_html.createDiv Dom_html.document |> Widget.create in
@@ -79,9 +79,9 @@ module Make(I : Item) = struct
         (* update available grids *)
         let eq = (fun _ _ -> false) in
         let s = React.S.switch ~eq (React.S.map ~eq (fun x -> x#s_change) s_active) in
-        React.S.map ~eq (fun _ -> let positions = List.map (fun x -> I.position_of_t x) self#items in
-                                  let grids = Utils.get_grids ~resolution ~positions () in
-                                  set_grids grids) s |> ignore;
+        React.E.map (fun _ -> let positions = List.map (fun x -> I.position_of_t x) self#items in
+                              let grids = Utils.get_grids ~resolution ~positions () in
+                              set_grids grids) @@ React.S.changes s |> ignore;
         (* update selected grid *)
         React.E.map (fun (_,i) -> let s = i##.textContent
                                           |> Js.Opt.to_option
@@ -97,7 +97,7 @@ module Make(I : Item) = struct
         (* show grid menu *)
         Dom_events.listen anchor#root Dom_events.Typ.click (fun _ _ ->
                             let item text = new Menu.Item.t ~text () in
-                            let items = List.map (fun (w,h) -> let text = Printf.sprintf "%dx%d" w h in
+                            let items = List.map (fun (w,h) -> let text = grid_to_string (w,h) in
                                                                item text) @@ React.S.value s_grids in
                             Utils.rm_children menu#get_list#root;
                             List.iter (fun x -> Dom.appendChild menu#get_list#root x#root) items;

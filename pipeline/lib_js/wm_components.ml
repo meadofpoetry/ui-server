@@ -34,12 +34,21 @@ module Utils = struct
   let get_best_grid ?(cols=90) ~resolution grids =
     let cmp   = Pair.compare compare compare in
     let grids = List.sort cmp grids in
-    let w,h   = resolution in
-    let x,y   = resolution_to_aspect (w,h) in
-    if cols >= w      then resolution
-    else if x >= cols then (x,y)
-    else (List.fold_left (fun acc (c,r) -> if (c - cols) < (fst acc - cols) && c - cols > 0
-                                           then (c,r) else acc) resolution grids)
+    List.fold_left (fun acc (c,r) -> if (c - cols) < (fst acc - cols) && c - cols > 0
+                                     then (c,r) else acc) resolution grids
+
+  let to_grid_position (pos:Wm.position) : Dynamic_grid.Position.t =
+    {x = pos.left; y = pos.top; w = pos.right - pos.left; h = pos.bottom - pos.top }
+  let of_grid_position (pos:Dynamic_grid.Position.t) : Wm.position =
+    { left = pos.x; right = pos.w + pos.x; top = pos.y; bottom = pos.y + pos.h }
+
+  let center ~(parent:Wm.position) ~(pos:Wm.position) () : Wm.position =
+    let parent = to_grid_position parent in
+    let child  = to_grid_position pos in
+    let x      = parent.x   + ((parent.w - child.w) / 2) in
+    let y      = parent.y   + ((parent.h - child.h) / 2) in
+    let pos    = {child with x;y} |> of_grid_position in
+    pos
 
 end
 

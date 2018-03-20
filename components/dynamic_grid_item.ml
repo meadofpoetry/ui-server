@@ -178,17 +178,20 @@ class ['a] t ~s_grid        (* grid props *)
       let cols,rows = self#grid.cols, self#grid.rows in
       let new_pos = match List.filter (fun x -> Position.collides pos x#pos) other with
         | [] -> pos
-        | l  -> let bind f    = function [] -> f () | l -> l in
-                let (>>=) x f = bind f x in
-                let check_top () = match action with
-                  | `Size -> []
-                  | `Drag -> Position.move_top ~f ~eq ~collisions:l pos other in
-                let check_bot ()  = Position.move_down ?rows ~f ~eq ~collisions:l pos other in
-                let check_swap () = Position.swap ~cols ~f ~eq ~collisions:l ~ghost_pos:ghost#pos pos other in
-                let res = check_top () >>= check_bot >>= check_swap >>= (fun () -> []) in
-                match res with
-                | [] -> ghost#pos
-                | l  -> List.iter (fun (pos,item) -> item#set_pos pos) l; pos
+        | l  -> (match self#grid.vertical_compact with
+                 | false -> ghost#pos
+                 | true  ->
+                    let bind f    = function [] -> f () | l -> l in
+                    let (>>=) x f = bind f x in
+                    let check_top () = match action with
+                      | `Size -> []
+                      | `Drag -> Position.move_top ~f ~eq ~collisions:l pos other in
+                    let check_bot ()  = Position.move_down ?rows ~f ~eq ~collisions:l pos other in
+                    let check_swap () = Position.swap ~cols ~f ~eq ~collisions:l ~ghost_pos:ghost#pos pos other in
+                    let res = check_top () >>= check_bot >>= check_swap >>= (fun () -> []) in
+                    match res with
+                    | [] -> ghost#pos
+                    | l  -> List.iter (fun (pos,item) -> item#set_pos pos) l; pos)
       in
       (match action with
        | `Drag -> if self#grid.vertical_compact
