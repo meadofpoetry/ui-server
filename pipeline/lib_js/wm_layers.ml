@@ -158,11 +158,15 @@ let make_layers_actions max layers_grid push =
   let a_map (a,f) = React.E.map (fun _ -> Option.iter f @@ React.S.value s_sel) a#e_click in
   let _           = React.S.l2 (fun s l -> let len = List.length l in
                                            let sel = Option.is_some s in
+                                           let is_first = Option.map (fun x -> x#pos.y = 0) s
+                                                          |> Option.get_or ~default:false in
+                                           let is_last  = Option.map (fun x -> x#pos.y = pred len) s
+                                                          |> Option.get_or ~default:false in
                                            add#set_disabled  (len >= max);
-                                           up#set_disabled   ((len <= 1) || not sel);
-                                           down#set_disabled ((len <= 1) || not sel);
+                                           up#set_disabled   ((len <= 1) || not sel || is_first);
+                                           down#set_disabled ((len <= 1) || not sel || is_last);
                                            rm#set_disabled   ((len <= 1) || not sel))
-                               s_sel layers_grid#s_items in
+                               s_sel layers_grid#s_change in
   let _           = React.E.map (fun _ -> on_add layers_grid push) add#e_click in
   let l           = [ rm,   (fun w -> remove_layer    layers_grid#s_items push w)
                     ; up,   (fun w -> move_layer_up   layers_grid#s_items push w)

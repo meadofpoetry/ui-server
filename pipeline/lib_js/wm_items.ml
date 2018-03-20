@@ -89,7 +89,7 @@ module Make(I : Item) = struct
                    with _ -> ());
                   (match selected with
                    | Some x -> (try Dom.removeChild card#root ph#root with _ -> ());
-                               let w = I.make_item_properties x#get_value widgets x#set_value in
+                               let w = I.make_item_properties x#s_value x#set_value widgets in
                                let l = List.map (fun {label;on_click} ->
                                            let b = new Button.t ~label () in
                                            let _ = React.E.map (fun _ -> on_click ()) b#e_click in

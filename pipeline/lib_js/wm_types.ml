@@ -44,6 +44,6 @@ module type Item = sig
   val update_position      : t -> Wm.position -> t
   val update_layer         : t -> int -> t
   val make_item_name       : t -> t list -> string
-  val make_item_properties : t -> t list -> (t -> unit) -> item_properties
+  val make_item_properties : t React.signal -> (t -> unit) -> t list -> item_properties
 
 end

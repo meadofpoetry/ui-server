@@ -45,7 +45,7 @@ end
 
 module Text_row = struct
 
-  class t ?icon ?text ?e ~label () =
+  class t ?icon ?text ?s ~label () =
     let _class = "wm-property-row" in
     let nw = new Typography.Text.t ~text:label () in
     let vw = match icon with
@@ -62,7 +62,7 @@ module Text_row = struct
         self#add_class _class;
         vw#add_class @@ Markup.CSS.add_element _class "value";
         nw#add_class @@ Markup.CSS.add_element _class "label";
-        Option.iter (fun e -> React.E.map (fun s -> vw#set_text_content s) e |> ignore) e;
+        Option.iter (fun s -> React.S.map (fun x -> vw#set_text_content x) s |> ignore) s;
         super#set_justify_content `Space_between
     end
 
@@ -70,7 +70,8 @@ end
 
 module Item_info = struct
 
-  let _class = "wm-grid-item__info"
+  let _class     = "wm-grid-item__info"
+  let line_class = Markup.CSS.add_element _class "line"
 
   let make_info icon info =
     let icon = new Icon.Font.t ~icon () in
@@ -83,8 +84,11 @@ module Item_info = struct
     let icon   = new Icon.Font.t ~icon:item.icon () in
     let text   = new Typography.Text.t ~text:item.name () in
     let line_1 = new Box.t ~vertical:false ~widgets:[icon#widget;text#widget] () in
-    let box    = new Box.t ~vertical:true ~widgets:[line_1#widget] () in
+    let lines  = [line_1#widget] in
+    let box    = new Box.t ~vertical:true ~widgets:lines () in
+    let ()     = line_1#add_class @@ Markup.CSS.add_modifier line_class "with-icon" in
     let ()     = line_1#set_align_items `Center in
+    let ()     = List.iter (fun x -> x#add_class line_class) lines in
     let ()     = box#add_class _class in
     box#widget
 
@@ -96,7 +100,9 @@ module Item_info = struct
     let line_3 = new Typography.Text.t ~text:item.item.description () in
     let lines  = [line_1#widget;line_2#widget;line_3#widget] in
     let box    = new Box.t ~vertical:true ~widgets:lines () in
+    let ()     = line_1#add_class @@ Markup.CSS.add_modifier line_class "with-icon" in
     let ()     = line_1#set_align_items `Center in
+    let ()     = List.iter (fun x -> x#add_class line_class) lines in
     let ()     = box#add_class _class in
     box#widget
 
@@ -108,39 +114,38 @@ module Item_properties = struct
   type t_cont = Wm.container Wm_types.wm_item
   type t_widg = Wm.widget Wm_types.wm_item
 
-  let make_container_props (t:Wm.container Wm_types.wm_item) =
-    let name = new Text_row.t ~label:"Имя" ~text:t.name () in
-    let num  = new Text_row.t
-                   ~label:"Количество виджетов"
-                   ~text:(string_of_int @@ List.length t.item.widgets)
-                   ()
-    in
+  let make_container_props (t:t_cont React.signal) =
+    let s_name = React.S.map (fun (x:t_cont) -> x.name) t in
+    let name   = new Text_row.t ~label:"Имя" ~s:s_name () in
+    let s_num  = React.S.map (fun (x:t_cont) -> string_of_int @@ List.length x.item.widgets) t in
+    let num  = new Text_row.t ~label:"Количество виджетов" ~s:s_num () in
     let box  = new Box.t ~vertical:true ~widgets:[ name#widget; num#widget ] () in
     Wm_types.({ widget = box#widget; actions = [ ] })
 
-  let make_video_props (t:t_widg) _ =
+  let make_video_props (t:t_widg React.signal) =
+    let v      = React.S.value t in
     let typ    = new Text_row.t ~label:"Тип" ~text:"Видео" () in
     let aspect = new Text_row.t ~label:"Аспект" ~text:(Printf.sprintf "%dx%d"
-                                                                      (fst t.item.aspect)
-                                                                      (snd t.item.aspect)) () in
-    let descr  = new Text_row.t ~label:"Описание" ~text:t.item.description () in
+                                                                      (fst v.item.aspect)
+                                                                      (snd v.item.aspect)) () in
+    let descr  = new Text_row.t ~label:"Описание" ~text:v.item.description () in
     let box    = new Box.t ~widgets:[typ;aspect;descr] () in
     Wm_types.({ widget = box#widget; actions = [] })
 
-  let make_audio_props (t:t_widg) _ =
+  let make_audio_props (t:t_widg React.signal) =
+    let v      = React.S.value t in
     let typ    = new Text_row.t ~label:"Тип" ~text:"Аудио" () in
     let aspect = new Text_row.t ~label:"Аспект" ~text:(Printf.sprintf "%dx%d"
-                                                                      (fst t.item.aspect)
-                                                                      (snd t.item.aspect)) () in
-    let descr  = new Text_row.t ~label:"Описание" ~text:t.item.description () in
+                                                                      (fst v.item.aspect)
+                                                                      (snd v.item.aspect)) () in
+    let descr  = new Text_row.t ~label:"Описание" ~text:v.item.description () in
     let box    = new Box.t ~widgets:[typ;aspect;descr] () in
     Wm_types.({ widget = box#widget; actions = [] })
 
-  let make_widget_props (t:t_widg) (other:t_widg list) =
-    let other = List.filter (fun (x:t_widg) -> String.equal x.item.type_ t.item.type_) other in
-    match t.item.type_ with
-    | "video" -> make_video_props t other
-    | "audio" -> make_audio_props t other
+  let make_widget_props (t:t_widg React.signal) =
+    match (React.S.value t).item.type_ with
+    | "video" -> make_video_props t
+    | "audio" -> make_audio_props t
     | _       -> let widget = new Typography.Text.t ~text:"Unknown" () in
                  Wm_types.({ widget = widget#widget; actions = [] })
 

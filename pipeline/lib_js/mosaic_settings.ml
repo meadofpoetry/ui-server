@@ -48,7 +48,7 @@ module Container_item : Item with type item = Wm.container = struct
   let update_layer (t : t) _ = t
   let make_item_name (t : t) (other : t list) =
     Printf.sprintf "%s #%d" t.name (succ @@ List.length other)
-  let make_item_properties x _ _ = Item_properties.make_container_props x
+  let make_item_properties t _ _ = Item_properties.make_container_props t
 
 end
 
@@ -81,7 +81,7 @@ module Widget_item : Item with type item = Wm.widget = struct
   let update_layer (t:t) (layer:int)              = { t with item = { t.item with layer } }
   let update_position (t:t) (p:Wm.position)       = { t with item = { t.item with position = p }}
   let make_item_name (t:t) _                      = t.name
-  let make_item_properties (t:t) (other:t list) _ = Item_properties.make_widget_props t other
+  let make_item_properties (t:t React.signal) _ _ = Item_properties.make_widget_props t
 
 end
 

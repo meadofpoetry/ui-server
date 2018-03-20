@@ -89,22 +89,21 @@ let to_dialog (wm:Wm.t) =
                        ~title:"Выберите виджеты"
                        ~scrollable:true
                        ~content:(`Widgets [box])
-                       ~actions:[ new Dialog.Action.t ~typ:`Decline ~label:"Decline" ()
-                                ; new Dialog.Action.t ~typ:`Accept  ~label:"Accept"  ()
+                       ~actions:[ new Dialog.Action.t ~typ:`Decline ~label:"Отмена" ()
+                                ; new Dialog.Action.t ~typ:`Accept  ~label:"Применить"  ()
                                 ]
                        ()
   in
   let show = fun () ->
     Lwt.bind dialog#show_await
              (function
-              | `Accept ->
-                 let widgets = List.filter_map (fun x ->
-                                   if x#get_input_widget#get_checked
-                                   then
-                                     let id = x#get_input_widget#get_id in
-                                     List.find_pred (fun (s,_) -> String.equal id s) wm.widgets
-                                   else None) checkboxes
-                 in Lwt.return @@ push @@ to_layout ~resolution:wm.resolution widgets
+              | `Accept -> let widgets =
+                             List.filter_map (fun x -> if not @@ x#get_input_widget#get_checked then None
+                                                       else let id = x#get_input_widget#get_id in
+                                                            List.find_pred (fun (s,_) -> String.equal id s)
+                                                                           wm.widgets)
+                                             checkboxes
+                           in Lwt.return @@ push @@ to_layout ~resolution:wm.resolution widgets
               | `Cancel -> Lwt.return ())
   in
   dialog,e,show
