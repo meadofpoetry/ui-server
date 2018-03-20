@@ -50,17 +50,8 @@ module Plots = struct
                              
                end)
            
-  let chart ~typ ~metas ~(extract : Video_data.params -> float) ~y_max ~y_min ~e () =
+  let chart ~typ ~metas ~(extract : Video_data.errors -> float) ~y_max ~y_min ~e () =
     let open Chartjs.Line in
-    let filter_data ds =
-      let sz, sum  = List.fold_left (fun (sz, sum) d -> succ sz, sum +. d.y) (0, 0.) ds in
-      let szf      = float_of_int sz in
-      let mean     = sum /. szf in
-      (* let dev      = List.fold_left (fun acc d -> acc +. abs_float (d.y -. mean)) 0. ds in
-      let mean_dev = dev /. szf in*)
-      let mean_v   = List.get_at_idx_exn (sz / 2) ds in
-      [ { mean_v with y = mean } ](* :: (List.filter (fun d -> abs_float (d.y -. mean) > mean_dev *. 4.) ds)*)
-    in
     let pairs = List.mapi (fun idx pm -> ((pm.stream, pm.channel, pm.pid), idx),
                                          { data = []; label = pm.desc } )
                   metas in
@@ -89,9 +80,8 @@ module Plots = struct
                 let open Option in
                 (M.get id table >|= fun id ->
                  List.get_at_idx id chart#config#datasets >|= fun ds ->
-                 let data = List.map (fun (p : params) -> { x = Int64.(p.time / 1000L); y = extract p } ) data in
-                 let data = filter_data data in
-                 ds#append data;
+                 let data = { x = Int64.(data.black.timestamp / 1000L); y = extract data } in
+                 ds#push data;
                  chart#update (Some { duration = Some 0
                                     ; is_lazy  = None
                                     ; easing   = None
@@ -114,26 +104,26 @@ module Plots = struct
     let make (str : Structure.t list) =
       let open Video_data in
       let metas = to_plot_meta str in
-      let e = React.E.map (fun d -> ((d.stream, d.channel,d.pid), d.parameters)) data in
+      let e = React.E.map (fun d -> ((d.stream, d.channel,d.pid), d.errors)) data in
       let froz_chart = chart_card
                          ~title:"Заморозка" ~typ:Float
-                         ~metas  ~extract:(fun x -> x.frozen_pix)
+                         ~metas  ~extract:(fun x -> x.freeze.params.avg)
                          ~y_max:100. ~y_min:0. ~e () in
       let blac_chart = chart_card
                          ~title:"Черный кадр" ~typ:Float
-                         ~metas ~extract:(fun x -> x.black_pix)
+                         ~metas ~extract:(fun x -> x.black.params.avg)
                          ~y_max:100. ~y_min:0. ~e () in
       let bloc_chart = chart_card
                          ~title:"Блочность" ~typ:Float
-                         ~metas ~extract:(fun x -> x.blocks)
+                         ~metas ~extract:(fun x -> x.blocky.params.avg)
                          ~y_max:100. ~y_min:0. ~e () in
       let brig_chart = chart_card
                          ~title:"Средняя яркость" ~typ:Float
-                         ~metas ~extract:(fun x -> x.avg_bright)
+                         ~metas ~extract:(fun x -> x.luma.params.avg)
                          ~y_max:250. ~y_min:0. ~e () in
       let diff_chart = chart_card
                          ~title:"Средняя разность" ~typ:Float
-                         ~metas ~extract:(fun x -> x.avg_diff)
+                         ~metas ~extract:(fun x -> x.diff.params.avg)
                          ~y_max:250. ~y_min:0. ~e () in
       let cells     = List.map (fun x -> let cell = new Layout_grid.Cell.t ~widgets:[x] () in
                                          cell#set_span 6;
