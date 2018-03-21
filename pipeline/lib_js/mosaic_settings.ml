@@ -54,7 +54,7 @@ module Container_item : Item with type item = Wm.container = struct
     let op    = t.item.position in
     let nw,nh = p.right - p.left, p.bottom - p.top in
     let ow,oh = op.right - op.left, op.bottom - op.top in
-    let item  = match ow <> nw || oh <> nh && not (List.is_empty t.item.widgets) with
+    let item  = match (ow <> nw || oh <> nh) && not (List.is_empty t.item.widgets) with
       | true  ->
          (* size changed *)
          let rect  = Utils.to_grid_position @@ get_widgets_bounding_rect t.item in
