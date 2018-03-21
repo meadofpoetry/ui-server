@@ -56,52 +56,59 @@ module Container_item : Item with type item = Wm.container = struct
     let ow,oh = op.right - op.left, op.bottom - op.top in
     let item  = match ow <> nw || oh <> nh with
       | true  ->
-         (* size changed *)
-         let rect  = Utils.to_grid_position @@ get_widgets_bounding_rect t.item in
-         let np   = Utils.resolution_to_aspect (rect.w,rect.h)
-                    |> Dynamic_grid.Position.correct_aspect (Utils.to_grid_position p)
-         in
-         Printf.printf "np: %s\n" (Wm.position_to_yojson p
-                                   |> Yojson.Safe.pretty_to_string);
-         Printf.printf "rp: %s\n" (Utils.of_grid_position rect
-                                   |> Wm.position_to_yojson |> Yojson.Safe.pretty_to_string);
-         Printf.printf "cp: %s\n" (Utils.of_grid_position np
-                                   |> Wm.position_to_yojson
-                                   |> Yojson.Safe.pretty_to_string);
-         let centered = Utils.center ~parent:p ~pos:(Utils.of_grid_position np) () in
-         let dx       = centered.left - p.left in
-         let dy       = centered.top  - p.top in
-         let f (w:Wm.widget) : Wm.widget =
-           let pos    = w.position in
-           print_endline "";
-           Printf.printf "widget pos: %s\n" (Wm.position_to_yojson pos |> Yojson.Safe.pretty_to_string);
-           let ax,ay  = Utils.resolution_to_aspect (pos.right - pos.left,pos.bottom - pos.top) in
-           let width  = ((pos.right - pos.left) * np.w) / rect.w in
-           let height = (width * ay) / ax in
-           let width,height = Dynamic_grid.Position.correct_aspect {x=0;y=0;w=width;h=height} (ax,ay)
-                              |> (fun (x:Dynamic_grid.Position.t) -> x.w,x.h) in
-           let left   = (((pos.left - rect.x) * np.w) / rect.w) + dx in
-           let top    = (((pos.top - rect.y) * np.h) / rect.h) + dy in
-           Printf.printf "mod left: %d, mod top: %d\n"
-                         (((pos.left - rect.x) * np.w) mod rect.w)
-                         (((pos.top - rect.y) * np.h) mod rect.h);
-           let (pos:Wm.position) = { left
-                                   ; right  = left + width
-                                   ; top
-                                   ; bottom = top + height
-                                   }
-           in
-           { w with position = pos }
-         in
-         let w    = List.map (fun (s,w) -> s,f w) t.item.widgets in
-         print_endline "";
-      { t.item with position = p; widgets = w }
-    | false -> { t.item with position = p }
-      in
-      { t with item }
+         (* (\* size changed *\)
+          * let rect  = Utils.to_grid_position @@ get_widgets_bounding_rect t.item in
+          * let np   = Utils.resolution_to_aspect (rect.w,rect.h)
+          *            |> Dynamic_grid.Position.correct_aspect (Utils.to_grid_position p)
+          * in
+          * Printf.printf "np: %s\n" (Wm.position_to_yojson p
+          *                           |> Yojson.Safe.pretty_to_string);
+          * Printf.printf "rp: %s\n" (Utils.of_grid_position rect
+          *                           |> Wm.position_to_yojson |> Yojson.Safe.pretty_to_string);
+          * Printf.printf "cp: %s\n" (Utils.of_grid_position np
+          *                           |> Wm.position_to_yojson
+          *                           |> Yojson.Safe.pretty_to_string);
+          * let centered = Utils.center ~parent:p ~pos:(Utils.of_grid_position np) () in
+          * let dx       = centered.left - p.left in
+          * let dy       = centered.top  - p.top in
+          * let f (w:Wm.widget) : Wm.widget =
+          *   let pos    = w.position in
+          *   print_endline "";
+          *   Printf.printf "widget pos: %s\n" (Wm.position_to_yojson pos |> Yojson.Safe.pretty_to_string);
+          *   let ax,ay  = Utils.resolution_to_aspect (pos.right - pos.left,pos.bottom - pos.top) in
+          *   let width  = ((pos.right - pos.left) * np.w) / rect.w in
+          *   let height = (width * ay) / ax in
+          *   let width,height = Dynamic_grid.Position.correct_aspect {x=0;y=0;w=width;h=height} (ax,ay)
+          *                      |> (fun (x:Dynamic_grid.Position.t) -> x.w,x.h) in
+          *   let left   = (((pos.left - rect.x) * np.w) / rect.w) + dx in
+          *   let top    = (((pos.top - rect.y) * np.h) / rect.h) + dy in
+          *   Printf.printf "mod left: %d, mod top: %d\n"
+          *                 (((pos.left - rect.x) * np.w) mod rect.w)
+          *                 (((pos.top - rect.y) * np.h) mod rect.h);
+          *   let (pos:Wm.position) = { left
+          *                           ; right  = left + width
+          *                           ; top
+          *                           ; bottom = top + height
+          *                           }
+          *   in
+          *   { w with position = pos }
+          * in
+          * let w    = List.map (fun (s,w) -> s,f w) t.item.widgets in
+          * print_endline ""; *)
+         (* { t.item with position = p; widgets = w } *)
+         { t.item with position = p }
+      | false -> { t.item with position = p }
+    in
+    { t with item }
   let update_layer (t : t) _ = t
   let make_item_name (t : t) (other : t list) =
-    Printf.sprintf "%s #%d" t.name (succ @@ List.length other)
+    let rec aux idx other =
+      let name = Printf.sprintf "%s #%d" t.name idx in
+      match List.partition (fun (x:t) -> String.equal x.name name) other with
+      | [],_    -> name
+      | _,other -> aux (succ idx) other
+    in
+    aux 1 other
   let make_item_properties t _ _ = Item_properties.make_container_props t
 
 end
@@ -153,29 +160,29 @@ let create_widgets_grid ~(container:      Wm.container wm_item)
   let cont_pos   = Container_item.position_of_t container in
   let resolution = cont_pos.right - cont_pos.left, cont_pos.bottom - cont_pos.top in
   let init       = List.map Widget_item.t_of_layout_item container.item.widgets in
-  let back       = Wm_left_toolbar.make_action { icon = "check"; name = "Применить и выйти" } in
-  let close      = Wm_left_toolbar.make_action { icon = "close"; name = "Отменить и выйти" } in
+  let apply      = Wm_left_toolbar.make_action { icon = "check"; name = "Применить" } in
+  let back       = Wm_left_toolbar.make_action { icon = "arrow_back"; name = "Назад" } in
   let dlg        = new Dialog.t
-                       ~actions:[ new Dialog.Action.t ~typ:`Accept ~label:"Отмена" ()
-                                ; new Dialog.Action.t ~typ:`Decline ~label:"Ok" ()
+                       ~actions:[ new Dialog.Action.t ~typ:`Decline ~label:"Отмена" ()
+                                ; new Dialog.Action.t ~typ:`Accept ~label:"Ok" ()
                                 ]
-                       ~title:"Отменить изменения?"
+                       ~title:"Сохранить изменения?"
                        ~content:(`Widgets [])
                        ()
   in
   let ()         = dlg#add_class "wm-confirmation-dialog" in
   let title      = Printf.sprintf "%s. Виджеты" cont_name in
-  let w = Widg.make ~title ~init ~candidates ~set_candidates ~resolution ~actions:[back;close] () in
-  let _ = React.E.map (fun _ -> on_apply w.ig#layout_items) back#e_click in
+  let w = Widg.make ~title ~init ~candidates ~set_candidates ~resolution ~actions:[back;apply] () in
+  let _ = React.E.map (fun _ -> on_apply w.ig#layout_items) apply#e_click in
   let _ = React.E.map (fun _ ->
-              print_endline "init\n";
-              List.iter (fun x -> Widget_item.to_yojson x
-                                  |> Yojson.Safe.pretty_to_string
-                                  |> print_endline) init;
-              print_endline "changed\n";
-              List.iter (fun x -> Widget_item.to_yojson x
-                                  |> Yojson.Safe.pretty_to_string
-                                  |> print_endline) w.ig#items;
+              (* print_endline "init\n";
+               * List.iter (fun x -> Widget_item.to_yojson x
+               *                     |> Yojson.Safe.pretty_to_string
+               *                     |> print_endline) init;
+               * print_endline "changed\n";
+               * List.iter (fun x -> Widget_item.to_yojson x
+               *                     |> Yojson.Safe.pretty_to_string
+               *                     |> print_endline) w.ig#items; *)
               let added   = List.filter (fun x -> not @@ List.mem ~eq:Widget_item.equal x init) w.ig#items in
               let removed = List.filter (fun x -> not @@ List.mem ~eq:Widget_item.equal x w.ig#items) init in
               match added,removed with
@@ -183,16 +190,15 @@ let create_widgets_grid ~(container:      Wm.container wm_item)
               | _ -> let open Lwt.Infix in
                      dlg#show_await
                      >>= (fun res -> (match res with
-                                      | `Cancel -> set_candidates init_cand; on_cancel ()
-                                      | `Accept -> ());
+                                      | `Accept -> on_apply w.ig#layout_items
+                                      | `Cancel -> set_candidates init_cand; on_cancel ());
                                      Lwt.return_unit)
-                     |> ignore) close#e_click
+                     |> ignore) back#e_click
   in
   Dom.appendChild w.ig#root dlg#root;
   w
 
-let switch ~(cont:Cont.t) ~s_state_push ~candidates ~set_candidates () =
-  let selected   = React.S.value cont.ig#s_selected |> Option.get_exn in
+let switch ~(selected:Container_item.t Dynamic_grid.Item.t) ~s_state_push ~candidates ~set_candidates () =
   let t          = selected#get_value in
   let on_apply w =
     selected#set_value { t with item = { t.item with widgets = w }};
@@ -258,8 +264,15 @@ let create ~(init:     Wm.t)
   in
   let _ = React.E.map (fun _ -> wz_show ()) wizard#e_click in
   let _ = React.S.map (fun x -> edit#set_disabled @@ Option.is_none x) cont.ig#s_selected in
-  let _ = React.E.map (fun _ -> switch ~s_state_push ~candidates:s_wc ~set_candidates:s_wc_push ~cont ())
-                      edit#e_click
+  let _ = React.E.map (fun selected -> switch ~s_state_push
+                                              ~candidates:s_wc
+                                              ~set_candidates:s_wc_push
+                                              ~selected
+                                              ())
+          @@ React.E.select [ cont.ig#e_item_dblclick
+                            ; React.E.map (fun _ -> React.S.value cont.ig#s_selected |> Option.get_exn)
+                                          edit#e_click
+                            ]
   in
   let _ = React.E.map (fun _ -> post { resolution; widgets=[]; layout = serialize ~cont () }) save#e_click in
   let _ = React.E.map (fun l ->

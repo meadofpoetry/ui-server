@@ -16,6 +16,9 @@
         @include mdc-no-selection;
         /* transition: transform 150ms ease-out; */
     }
+    &__item:focus {
+        outline:none;
+    }
 
     &__item__drag-handle {
         cursor: pointer;

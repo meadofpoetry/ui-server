@@ -82,13 +82,7 @@ module Tab = struct
                             self#set_active true;
                             not prevent_default_on_click)
         |> ignore;
-        Dom_events.listen self#root Dom_events.Typ.keydown (fun _ (ev:Dom_html.keyboardEvent Js.t) ->
-                            let key  = Option.map Js.to_string @@ Js.Optdef.to_option ev##.key in
-                            (match key,ev##.keyCode with
-                             | Some "Enter", _ | _, 13 -> self#set_active true
-                             | _ -> ());
-                            true)
-        |> ignore
+        Utils.Keyboard_event.listen ~f:(function `Enter _ -> self#set_active true | _ -> ()) self#root |> ignore;
 
     end
 

@@ -34,20 +34,25 @@ module Make(I : Item) = struct
 
       inherit Box.t ~vertical:true ~widgets:[header#widget;wrapper#widget] ()
 
-      val s_sel =
-        let eq = fun _ _ -> false in
-        React.S.map ~eq:Equal.physical
-                    (fun x -> let s = React.S.hold ~eq [] x#e_selected in
-                              React.S.map ~eq (function [x] -> Some x | _ -> None) s)
-                    s_active
-        |> React.S.switch ~eq
+      val s_sel = let eq = fun _ _ -> false in
+                  React.S.map ~eq:Equal.physical
+                              (fun x -> let s = React.S.hold ~eq [] x#e_selected in
+                                        React.S.map ~eq (function [x] -> Some x | _ -> None) s)
+                              s_active
+                  |> React.S.switch ~eq
+      val e_dblclick = React.E.map (fun x -> x#e_item_dblclick) @@ React.S.changes s_active
+                       |> React.E.switch (React.S.value s_active)#e_item_dblclick
+      val e_delete   = React.E.map (fun x -> x#e_item_delete) @@ React.S.changes s_active
+                       |> React.E.switch (React.S.value s_active)#e_item_delete
 
-      method s_active     = s_active
-      method s_layers     = s_layers
-      method s_selected   = s_sel
-      method layout_items = List.map I.t_to_layout_item self#items
-      method items        = List.map (fun x -> x#get_value) self#widgets
-      method widgets      = List.fold_left (fun acc x -> x#items @ acc) [] @@ React.S.value s_layers
+      method e_item_dblclick = e_dblclick
+      method e_item_delete   = e_delete
+      method s_active        = s_active
+      method s_layers        = s_layers
+      method s_selected      = s_sel
+      method layout_items    = List.map I.t_to_layout_item self#items
+      method items           = List.map (fun x -> x#get_value) self#widgets
+      method widgets         = List.fold_left (fun acc x -> x#items @ acc) [] @@ React.S.value s_layers
 
       method clear = List.iter (fun x -> x#remove) self#widgets
       method initialize resolution items =

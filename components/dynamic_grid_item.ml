@@ -100,8 +100,14 @@ class ['a] t ~s_grid        (* grid props *)
       resizable <- x
     method get_resizable    = resizable
 
-    method set_selectable x = if not x then self#set_selected false; selectable <- x
-    method get_selectable   = selectable
+    method set_selectable x =
+      (match x with
+       | true  -> self#set_attribute "tabindex" "0"
+       | false -> self#set_attribute "tabindex" "-1";
+                  self#set_selected false);
+      self#add_or_remove_class x Markup.Dynamic_grid.Item.select_handle_class;
+      selectable <- x
+    method selectable = selectable
 
     method remove : unit    = self#set_selected false; e_modify_push (`Remove self)
 
@@ -321,18 +327,15 @@ class ['a] t ~s_grid        (* grid props *)
       | _ -> ()
 
     initializer
+      self#set_selectable selectable;
       (* append resize button to element if necessary *)
       if item.resizable
       then Dom.appendChild self#root resize_button#root;
       (* append widget to cell if provided *)
       Option.iter (fun x -> Dom.appendChild self#root x#root) item.widget;
       (* add item move listener *)
-      let select_target = (self :> Widget.widget) in
       if draggable
       then self#get_drag_target#add_class Markup.Dynamic_grid.Item.drag_handle_class;
-
-      if selectable
-      then select_target#add_class Markup.Dynamic_grid.Item.select_handle_class;
 
       listen self#get_drag_target#root Typ.mousedown
              (fun _ e -> Dom_html.stopPropagation e;
@@ -383,13 +386,8 @@ class ['a] t ~s_grid        (* grid props *)
                                     (fun _ e -> stop_timeout e; false));
                          false);
 
-      listen select_target#root Typ.click (fun _ e ->
-               Dom_html.stopPropagation e;
-               if selectable
-               then if self#grid.multi_select
-                    then self#set_selected @@ not self#get_selected
-                    else self#set_selected true;
-               false);
+      listen self#root Typ.focus (fun _ _ ->
+               if self#selectable && not self#grid.multi_select then self#set_selected true; true);
 
       (* add item start resize listener if needed *)
       listen resize_button#root Typ.mousedown (fun _ e ->

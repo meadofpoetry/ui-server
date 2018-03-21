@@ -499,8 +499,7 @@ module Make
           []
 
       let create ?id ?style ?(classes=[]) ?attrs ?resize_button () =
-        div ~a:([ a_class (_class :: classes)
-                  (* ; a_draggable true *) ]
+        div ~a:([ a_class (_class :: classes) ]
                 |> add_common_attrs ?id ?style ?attrs)
           (cons_option resize_button [])
     end

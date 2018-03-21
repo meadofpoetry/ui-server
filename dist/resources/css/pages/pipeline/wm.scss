@@ -257,8 +257,6 @@ $wm-placeholder-color: text-secondary-on-background;
     $icon-size  : 24px;
 
     padding: 12px;
-    overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
     font-size: 14px;
 
@@ -344,6 +342,8 @@ $wm-placeholder-color: text-secondary-on-background;
         }
 
         .mdc-dynamic-grid__item {
+            overflow: hidden;
+            text-overflow: ellipsis;
             border: 2px solid rgba(0,0,0,.12);
         }
         .mdc-dynamic-grid__item__ghost {

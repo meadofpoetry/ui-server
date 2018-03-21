@@ -52,7 +52,10 @@ module Make(I : Item) = struct
                                       remove ~eq:I.equal candidates set_candidates x#get_value;
                                       x#remove)
                                   @@ React.S.value selected)
-                        rm#e_click in
+            @@ React.E.select [ ig#e_item_delete
+                              ; React.E.map (fun _ -> React.S.value selected |> Option.get_exn) rm#e_click
+                              ]
+    in
     let _ = React.S.map (fun x -> rm#set_disabled @@ Option.is_none x) selected in
     { ig; lt; rt }
 
