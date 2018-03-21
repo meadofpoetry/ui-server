@@ -68,17 +68,20 @@ let get_structure api () =
 let get_structure_sock sock_data body api () =
   let open Pipeline_protocol in
   get_sock sock_data body Structure.Streams.to_yojson (React.S.changes api.streams)
-(*
+
 let set_settings api body () =
   set body Settings.of_yojson
-    Pipeline_protocol.(fun x -> api.set (Set_settings x))
+    Pipeline_protocol.(fun x -> api.requests.settings.set x)
 
 let get_settings api () =
   let open Pipeline_protocol in
-  api.get Get_settings
+  api.requests.settings.get ()
+  >>= (function
+       | Error e -> Lwt.fail_with e
+       | Ok v    -> Lwt.return v)
   >|= Settings.to_yojson
   >>= fun js -> respond_js js ()
- *)
+
 let get_settings_sock sock_data body api () =
   let open Pipeline_protocol in
   get_sock sock_data body Settings.to_yojson (React.S.changes api.settings)
@@ -146,8 +149,8 @@ let pipeline_handle api id meth args sock_data _ body =
   | `POST, ["structure"]        -> redirect_if is_guest @@ set_structure api body
   | `GET,  ["structure"]        -> get_structure api ()
   | `GET,  ["structure_sock"]   -> get_structure_sock sock_data body api ()
- (* | `POST, ["settings"]         -> redirect_if is_guest @@ set_settings api body
-  | `GET,  ["settings"]         -> get_settings api () *)
+  | `POST, ["settings"]         -> redirect_if is_guest @@ set_settings api body
+  | `GET,  ["settings"]         -> get_settings api ()
   | `GET,  ["settings_sock"]    -> get_settings_sock sock_data body api ()
   | `POST, ["wm"]               -> redirect_if is_guest @@ set_wm api body
   | `GET,  ["wm"]               -> get_wm api ()

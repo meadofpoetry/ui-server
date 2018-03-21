@@ -49,6 +49,7 @@ type state = { ctx         : ZMQ.Context.t
 type channels =
   { wm        : Wm.t channel
   ; streams   : Structure.t list channel
+  ; settings  : Settings.t channel
   }
   
 type api = { streams   : Structure.t list signal
@@ -138,29 +139,24 @@ let create_channels
       (trans : Structure.structure list -> Structure.t list)
       (s_push : Structure.structure list -> unit)
       (wm_push : Wm.t -> unit) =
-  let wm_get, wm_set = Wm_msg.create send `Json in
-  let s_get, s_set = Structure_msg.create send `Json in
-  let wm_get_upd () =
-    wm_get () >|= function 
-    | Error _ as r -> r
-    | Ok v    as r -> r
-  in
+  let wm_get, wm_set   = Wm_msg.create send `Json in
+  let s_get, s_set     = Structure_msg.create send `Json in
+  let set_get, set_set = Settings_msg.create send `Json in
   let s_get_upd () =
     s_get () >|= function
     | Error _ as r -> r
     | Ok v  -> Ok(trans v)
   in
-  let wm_set_upd wm =
-    options.wm#store wm;
-    wm_set wm
-  in
+  let wm_set_upd wm = options.wm#store wm; wm_set wm in
   let s_set_upd s =
     let s = Structure.Streams.unwrap s in
     options.structures#store s;
     s_set s
   in
-  { wm = { get = wm_get_upd; set = wm_set_upd }
-  ; streams = { get = s_get_upd; set = s_set_upd }
+  let set_set_upd s = options.settings#store s; set_set s in
+  { wm       = { get = wm_get; set = wm_set_upd }
+  ; streams  = { get = s_get_upd; set = s_set_upd }
+  ; settings = { get = set_get; set = set_set_upd }
   }
   
 let create config sock_in sock_out hardware_streams =
@@ -206,7 +202,11 @@ let create config sock_in sock_out hardware_streams =
             ; settings; graph; wm; vdata; adata
             ; requests
             } in
-  (*set (Set_settings Settings.default) |> ignore;*)
+  (* TODO proper init *)
+  let _, set_set = Settings_msg.create send_js `Json in
+  Lwt.ignore_result @@ (set_set options.settings#get
+                        >>= function  Ok () -> Lwt_io.printf "Settings resp: fine\n"
+                                    | Error r -> Lwt_io.printf "Settings resp: %s\n" r);
   (*let _e  = Lwt_react.E.map_p (fun x ->
                 Yojson.Safe.pretty_to_string x
                 |> Lwt_io.printf "Video_data: %s\n") msgs in*)
