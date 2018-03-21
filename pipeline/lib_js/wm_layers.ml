@@ -1,6 +1,11 @@
 open Containers
 open Components
 
+type value  =
+  { original : int
+  ; actual   : int
+  }
+
 type action = [ `Added of int
               | `Removed of int
               | `Changed of (int * int) list
@@ -11,13 +16,14 @@ type action = [ `Added of int
 let set_data_layer_attr w l =
   w#set_attribute "data-layer" @@ string_of_int l
 
-let emit_new_pos (s_layers:int Dynamic_grid.Item.t list React.signal) push =
+let emit_new_pos (s_layers:value Dynamic_grid.Item.t list React.signal) push =
   let open Dynamic_grid.Position in
+  let layers  = React.S.value s_layers in
   let changed = List.fold_left (fun acc x ->
-                    let op,np = x#get_value,x#pos.y in
+                    let op,np = x#get_value.actual,(List.length layers - 1) - x#pos.y in
                     if op <> np
-                    then (x#set_value np; set_data_layer_attr x np; (op,np) :: acc)
-                    else acc) [] @@ React.S.value s_layers in
+                    then (x#set_value { x#get_value with actual = np }; set_data_layer_attr x np; (op,np) :: acc)
+                    else acc) [] layers in
   match changed with
   | [] -> ()
   | l  -> push (`Changed l)
@@ -29,55 +35,66 @@ let make_show_toggle () =
   let ()       = toggle#set_on true in
   toggle
 
-let make_layer_item s_layers push =
+let make_layer_item s_layers push layer =
+  let open Dynamic_grid.Position in
   let _class            = "wm-layer-item" in
   let drag_handle_class = Markup.CSS.add_element _class "drag-handle" in
   let show_icon_class   = Markup.CSS.add_element _class "visibility" in
   let color_class       = Markup.CSS.add_element _class "color-indicator" in
-
-  let open Dynamic_grid.Position in
-  let positions = List.map (fun x -> x#pos) @@ React.S.value s_layers
-                  |> List.sort (fun p1 p2 -> compare p1.y p2.y) in
-  let y = match List.rev positions with
-    | []    -> 0
-    | hd::_ -> hd.y + 1
+  let layers   = React.S.value s_layers in
+  let drag     = new Icon.Font.t ~icon:"drag_handle" () in
+  let original = List.fold_left (fun acc x -> max (succ x#get_value.original) acc) 0 layers in
+  let text     = new Typography.Text.t ~text:(Printf.sprintf "Слой %d" (original + 1)) () in
+  let vis      = make_show_toggle () in
+  let color    = Tyxml_js.Html.(span ~a:[a_class [color_class]] [])
+                 |> Tyxml_js.To_dom.of_element |> Widget.create in
+  let left     = new Box.t ~vertical:false ~widgets:[vis#widget; color#widget; text#widget ] () in
+  let box      = new Box.t ~vertical:false ~widgets:[left#widget; drag#widget] () in
+  let y        = List.length layers - layer in
+  let pos      = { x = 0; y; w = 1; h = 1 } in
+  let value    = { original; actual = layer } in
+  let item     = Dynamic_grid.Item.to_item ~pos ~move_widget:drag#widget ~widget:box#widget
+                                           ~on_drag:(fun _ _ _ _ -> emit_new_pos s_layers push)
+                                           ~resizable:false ~selectable:true ~value ()
   in
-  let drag  = new Icon.Font.t ~icon:"drag_handle" () in
-  let text  = new Typography.Text.t ~text:(Printf.sprintf "Слой %d" (y + 1)) () in
-  let vis   = make_show_toggle () in
-  let color = Tyxml_js.Html.(span ~a:[a_class [color_class]] []) |> Tyxml_js.To_dom.of_element |> Widget.create in
-  let left  = new Box.t ~vertical:false ~widgets:[vis#widget; color#widget; text#widget ] () in
-  let box   = new Box.t ~vertical:false ~widgets:[left#widget; drag#widget] () in
-  let pos   = { x = 0; y; w = 1; h = 1 } in
-  let item  = Dynamic_grid.Item.to_item ~pos ~move_widget:drag#widget ~widget:box#widget
-                                        ~on_drag:(fun _ _ _ _ -> emit_new_pos s_layers push)
-                                        ~resizable:false ~selectable:true ~value:y ()
-  in
-  let ()    = vis#add_class show_icon_class in
-  let ()    = left#set_align_items `Center in
-  let ()    = drag#add_class drag_handle_class in
-  let ()    = box#set_justify_content `Space_between in
-  let ()    = box#add_class _class in
+  Printf.printf "y is %d\n" y;
+  let ()       = List.iter (fun i -> if i#pos.y >= y then i#set_pos { i#pos with y = i#pos.y + 1 }) layers in
+  let ()       = vis#add_class show_icon_class in
+  let ()       = left#set_align_items `Center in
+  let ()       = drag#add_class drag_handle_class in
+  let ()       = box#set_justify_content `Space_between in
+  let ()       = box#add_class _class in
   item,vis#s_state
 
 let on_add grid push =
   let open Dynamic_grid.Position in
-  let i,s = make_layer_item grid#s_items push in
-  match grid#add i with
-  | Ok item -> let _ = React.S.map (fun x -> push @@ `Visibility (item#pos.y,x)) s in
-               set_data_layer_attr item item#pos.y;
-               push (`Added item#pos.y)
-  | Error _ -> ()
+  let f layer =
+    let i,s = make_layer_item grid#s_items push layer in
+    (match grid#add i with
+     | Ok item -> let _ = React.S.map  (fun x -> push @@ `Visibility (item#get_value.actual,x)) s in
+                  set_data_layer_attr item item#get_value.actual;
+                  emit_new_pos grid#s_items push;
+                  item#set_selected true;
+                  push (`Added item#get_value.actual);
+                  push (`Selected item#get_value.actual);
+     | Error _ -> ())
+  in
+  let selected = React.S.value grid#s_selected in
+  match selected with
+  | []    -> f 0
+  | [sel] -> f (sel#get_value.actual + 1)
+  | _     -> ()
+
 
 let remove_layer s_layers push layer =
   let open Dynamic_grid.Position in
   let layers = List.filter (fun x -> not @@ Equal.physical x#root layer#root) @@ React.S.value s_layers in
   let y      = layer#pos.y in
-  push (`Removed y);
+  push (`Removed layer#get_value.actual);
   layer#remove;
   emit_new_pos s_layers push;
   match List.find_pred (fun w -> w#pos.y = y) layers with
-  | Some w -> w#set_selected true
+  | Some w -> w#set_selected true;
   | None   -> (match List.find_pred (fun w -> w#pos.y = y - 1) layers with
                | Some w -> w#set_selected true
                | None   -> (match layers with
@@ -114,7 +131,7 @@ class t ~init () =
 
   object(self)
 
-    inherit [int] Dynamic_grid.t ~grid ~items:[] ()
+    inherit [value] Dynamic_grid.t ~grid ~items:[] ()
 
     method e_layer      : action React.event = e_layer
     method e_layer_push : ?step:React.step -> action -> unit = push
@@ -132,7 +149,7 @@ class t ~init () =
       let _ =
         React.S.diff (fun n o -> let open Dynamic_grid.Position in
                                  match n with
-                                 | [x] -> push @@ `Selected x#pos.y
+                                 | [x] -> push @@ `Selected x#get_value.actual
                                  | _   -> (match o with
                                            | [x] -> push @@ `Selected x#pos.y
                                            | _   -> ())) self#s_selected
