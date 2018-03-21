@@ -47,6 +47,9 @@ module Make(I : Item) = struct
 
       method e_item_dblclick = e_dblclick
       method e_item_delete   = e_delete
+      method resolution      = resolution
+      method s_grid          = s_grid
+      method s_grids         = s_grids
       method s_active        = s_active
       method s_layers        = s_layers
       method s_selected      = s_sel
