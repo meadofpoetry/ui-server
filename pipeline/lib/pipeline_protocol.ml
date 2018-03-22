@@ -2,6 +2,7 @@ open Containers
 open Lwt_zmq
 open Lwt_react
 open Lwt.Infix
+open Msg_conv
 open Message
 open Notif
 
@@ -41,8 +42,6 @@ type options = { wm         : Wm.t Storage.Options.storage
 type state = { ctx         : ZMQ.Context.t
              ; msg         : [ `Req] ZMQ.Socket.t
              ; ev          : [ `Sub] ZMQ.Socket.t
-             ; sock_events : unit event
-                                  (*; _e : unit event*)
              ; options     : options
              }
 
@@ -76,6 +75,12 @@ module Wm_msg = Message.Make(Wm)
 module Structure_msg = Message.Make(Structure.Structures)
 module Settings_msg = Message.Make(Settings)
 
+let settings_init typ send (options : options) =
+  let set_chan = Settings_msg.create typ send in
+  Lwt.ignore_result @@ (set_chan.set options.settings#get
+                        >>= function  Ok ()   -> Lwt_io.printf "Settings resp: fine\n"
+                                    | Error r -> Lwt_io.printf "Settings resp: %s\n" r)
+  
 (* TODO test this *)
 let combine_and_set combine opt set push data =
   let nv = combine ~set:(opt#get) data in
@@ -86,24 +91,23 @@ let combine_and_set combine opt set push data =
                    | Ok ()   -> Lwt.return @@ push v
                    | Error e -> Lwt_io.printf "combine and set: failed to set data %s\n" e)
 
-let combiner combine opt set events =
+let storage combine opt set events =
   let s, push = React.S.create opt#get in
   let events  = limit (fun () -> Lwt_unix.sleep 0.5) events in
   Lwt_react.E.keep @@
     Lwt_react.E.map (combine_and_set combine opt set push) events;
   s
 
-let create_combiners send options structs wm settings =
-  let _, s_set  = Structure_msg.create send `Json in
-  let _, wm_set = Wm_msg.create send `Json in
-  let _, se_set = Settings_msg.create send `Json in
-  let structures = combiner Structure.Structures.combine options.structures s_set structs in
-  let wm         = combiner Wm.combine options.wm wm_set wm in
-  let settings   = combiner Settings.combine options.settings se_set settings in
+let add_storages typ send options structs wm settings =
+  let str_chan   = Structure_msg.create typ send in
+  let wm_chan    = Wm_msg.create typ send in
+  let set_chan   = Settings_msg.create typ send in
+  let structures = storage Structure.Structures.combine options.structures str_chan.set structs in
+  let wm         = storage Wm.combine options.wm wm_chan.set wm in
+  let settings   = storage Settings.combine options.settings set_chan.set settings in
   structures, wm, settings
   
 let notif_events typ =
-  let _ = Lwt_io.printf "split_events\n" |> ignore in
   let events, epush     = E.create () in
   let strm, strm_push   = E.create () in
   let sets, sets_push   = E.create () in
@@ -118,19 +122,18 @@ let notif_events typ =
 
   let table = Hashtbl.create 10 in
   List.iter (fun (n,f) -> Hashtbl.add table n f)
-    [ Wm_notif.create `Json ((<$>) wm_push)
-    ; Structures_notif.create `Json ((<$>) strm_push)
-    ; Settings_notif.create `Json ((<$>) sets_push)
-    ; Graph_notif.create `Json ((<$>) grap_push)
-    ; Video_data_notif.create `Json ((<$>) vdata_push)
-    ; Audio_data_notif.create `Json ((<$>) adata_push)
+    [ Wm_notif.create typ ((<$>) wm_push)
+    ; Structures_notif.create typ ((<$>) strm_push)
+    ; Settings_notif.create typ ((<$>) sets_push)
+    ; Graph_notif.create typ ((<$>) grap_push)
+    ; Video_data_notif.create typ ((<$>) vdata_push)
+    ; Audio_data_notif.create typ ((<$>) adata_push)
     ];
 
-  let dispatch = dispatch_js table in
-  let events = E.map dispatch events in
-  events, epush,
-  strm, sets, grap, wm, vdata, adata,
-  strm_push, wm_push
+  let dispatch = dispatch typ table in
+  Lwt_react.E.keep @@ E.map dispatch events;
+  epush, strm, sets, grap, wm, vdata, adata,
+  strm_push, wm_push, sets_push
   
 let create_channels
       typ
@@ -139,27 +142,33 @@ let create_channels
       (trans : Structure.structure list -> Structure.t list)
       (s_push : Structure.structure list -> unit)
       (wm_push : Wm.t -> unit) =
-  let wm_get, wm_set   = Wm_msg.create send `Json in
-  let s_get, s_set     = Structure_msg.create send `Json in
-  let set_get, set_set = Settings_msg.create send `Json in
+  let wm_chan    = Wm_msg.create typ send in
+  let str_chan   = Structure_msg.create typ send in
+  let set_chan   = Settings_msg.create typ send in
   let s_get_upd () =
-    s_get () >|= function
+    str_chan.get () >|= function
     | Error _ as r -> r
     | Ok v  -> Ok(trans v)
   in
-  let wm_set_upd wm = options.wm#store wm; wm_set wm in
+  let wm_set_upd wm = options.wm#store wm; wm_chan.set wm in
   let s_set_upd s =
     let s = Structure.Streams.unwrap s in
     options.structures#store s;
-    s_set s
+    str_chan.set s
   in
-  let set_set_upd s = options.settings#store s; set_set s in
-  { wm       = { get = wm_get; set = wm_set_upd }
+  let set_set_upd s = options.settings#store s; set_chan.set s in
+  { wm       = { wm_chan with set = wm_set_upd }
   ; streams  = { get = s_get_upd; set = s_set_upd }
-  ; settings = { get = set_get; set = set_set_upd }
+  ; settings = { set_chan with set = set_set_upd }
   }
+
+let create_send (type a) (typ : a typ) (conv : a converter) msg_sock : (a -> a Lwt.t) =
+  fun x ->
+  Socket.send msg_sock (conv.to_string x) >>= fun () ->
+  Socket.recv msg_sock >|= fun resp ->
+  conv.of_string resp
   
-let create config sock_in sock_out hardware_streams =
+let create (type a) (typ : a typ) config sock_in sock_out hardware_streams =
   let stor    = Storage.Options.Conf.get config in
   let options = { wm         = Wm_options.create stor.config_dir ["pipeline";"wm"]
                 ; structures = Structures_options.create stor.config_dir ["pipeline";"structures"]
@@ -177,44 +186,40 @@ let create config sock_in sock_out hardware_streams =
   let msg_sock = Socket.of_socket msg in
   let ev_sock  = Socket.of_socket ev in
 
-  let send_js = fun x ->
-    Socket.send msg_sock (Yojson.Safe.to_string x) >>= fun () ->
-    Socket.recv msg_sock >|= fun js ->
-    Yojson.Safe.from_string js
-  in
+  let converter = (Msg_conv.get_converter typ) in
+  let send = create_send typ converter msg_sock in
+  settings_init typ send options;
   
-  let sock_events, epush,
+  let epush,
       structures, settings,
       graph, wm,
       vdata, adata,
-      strms_push, wm_push = notif_events ()
+      strms_push, wm_push, sets_push = notif_events typ
   in
-  let structures, wm, settings = create_combiners send_js options structures wm settings in
+  let structures, wm, settings = add_storages typ send options structures wm settings in
+  
   let streams = S.l2
                   (Structure_conv.match_streams Common.Topology.(Some { input = TSOIP; id = 42 }))
                   hardware_streams structures
   in
-  let merge = fun s -> (Structure_conv.match_streams Common.Topology.(Some { input = TSOIP; id = 42 })) (S.value hardware_streams) s in
-  let requests = create_channels `Json send_js options merge strms_push wm_push in
-  (*let set = set msg_sock converter in
-  let get = fun x -> get msg_sock converter structure wm settings x in *)
+  let requests =
+    let merge s =
+      (Structure_conv.match_streams Common.Topology.(Some { input = TSOIP; id = 42 }))
+        (S.value hardware_streams) s
+    in
+    create_channels typ send options merge strms_push wm_push
+  in
+  
   let api = { streams
             ; settings; graph; wm; vdata; adata
             ; requests
             } in
-  (* TODO proper init *)
-  let _, set_set = Settings_msg.create send_js `Json in
-  Lwt.ignore_result @@ (set_set options.settings#get
-                        >>= function  Ok () -> Lwt_io.printf "Settings resp: fine\n"
-                                    | Error r -> Lwt_io.printf "Settings resp: %s\n" r);
-  (*let _e  = Lwt_react.E.map_p (fun x ->
-                Yojson.Safe.pretty_to_string x
-                |> Lwt_io.printf "Video_data: %s\n") msgs in*)
-  let state = { ctx; msg; ev; sock_events; options } in
+  
+  let state = { ctx; msg; ev; options } in
   let recv () =
     Socket.recv ev_sock
     >>= fun msg ->
-    Lwt.return @@ epush (Yojson.Safe.from_string msg)
+    Lwt.return @@ epush (converter.of_string msg)
   in
   api, state, recv
 

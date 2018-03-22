@@ -2,14 +2,13 @@ open Containers
 open Lwt_react
 open Lwt.Infix
 open Containers
+open Msg_conv
 open Pipeline_protocol
    
 let (%) = Fun.(%)
 
 type pipe = { api       : Pipeline_protocol.api 
             ; state     : Pipeline_protocol.state
-            ; db_events : unit event
-                               (* ; _e        : unit event*)
             }
           
 module PSettings = struct
@@ -53,13 +52,19 @@ let create config dbs (hardware_streams : Common.Stream.source list React.signal
   match Conf.get_opt config with
   | None     -> None, None
   | Some cfg ->
-     let converter = Msg_conv.get_converter cfg.msg_fmt in
      let exec_path = (Filename.concat cfg.bin_path cfg.bin_name) in
-     let exec_opts =
-       Array.of_list (cfg.bin_name :: "-m" :: (PSettings.format_to_string cfg.msg_fmt) :: cfg.sources) in
-     let api, state, recv = Pipeline_protocol.create config cfg.sock_in cfg.sock_out hardware_streams in
-     let db_events = connect_db (S.changes api.streams) dbs in
-     let obj = { api; state; db_events } in
+     let exec_opts = Array.of_list (cfg.bin_name
+                                    :: "-m"
+                                    :: (PSettings.format_to_string cfg.msg_fmt)
+                                    :: cfg.sources)
+     in
+     let api, state, recv =
+       match cfg.msg_fmt with
+       | `Json    -> Pipeline_protocol.create Json config cfg.sock_in cfg.sock_out hardware_streams
+       | `Msgpack -> Pipeline_protocol.create Msgpack config cfg.sock_in cfg.sock_out hardware_streams
+     in
+     Lwt_react.E.keep @@ connect_db (S.changes api.streams) dbs;
+     let obj = { api; state } in
      (* polling loop *)
      let rec loop () =
        recv () >>= loop

@@ -47,14 +47,17 @@ let to_string js = Yojson.Safe.to_string js
                             
 let of_msg_string msg =
   let (_,m) = Msgpck.String.read msg
-  in m |> msg_to_yojson
+  in m
 
-let to_msg_string j = Bytes.to_string @@ Msgpck.String.to_string @@ msg_of_yojson j
+let to_msg_string j = Bytes.to_string @@ Msgpck.String.to_string j
 
-type converter = { of_string : string -> Yojson.Safe.json
-                 ; to_string : Yojson.Safe.json -> string
-                 }
+type 'a typ = Json    : Yojson.Safe.json typ
+            | Msgpack : Msgpck.t typ
+                    
+type 'a converter = { of_string : string -> 'a
+                    ; to_string : 'a -> string
+                    }
 
-let get_converter : [> `Json | `Msgpack ] -> converter = function
-  | `Json    -> { of_string = of_string; to_string = to_string }
-  | `Msgpack -> { of_string = of_msg_string; to_string = to_msg_string }
+let get_converter : type a. a typ -> a converter = function
+  | Json    -> { of_string = of_string; to_string = to_string }
+  | Msgpack -> { of_string = of_msg_string; to_string = to_msg_string }
