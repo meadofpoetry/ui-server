@@ -1,0 +1,28 @@
+@import './_keyframes';
+@import './_mixins';
+
+@include mdc-circular-progress-color(primary);
+
+.mdc-circular-progress {
+
+    display: inline-block;
+
+    &:not(.mdc-circular-progress--indeterminate) svg {
+        transform: rotate(-90deg);
+    }
+
+    &__circle {
+        stroke: currentColor;
+        stroke-linecap: round;
+    }
+
+    &--indeterminate {
+        svg { animation: mdc-circular-progress-rotate 1.4s linear infinite; }
+
+        .mdc-circular-progress__circle {
+            animation: mdc-circular-progress-dash 1.4s ease-in-out infinite;
+            stroke-dasharray: 80px, 200px;
+            stroke-dashoffset: 0px;
+        }
+    }
+}

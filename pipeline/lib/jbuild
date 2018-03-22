@@ -12,7 +12,7 @@
   (libraries (containers yojson caqti-lwt angstrom
               lwt lwt-zmq lwt_react websocket-lwt.cohttp
               api storage common process))
-  (preprocess (pps (ppx_deriving_yojson)))))
+  (preprocess (pps (ppx_deriving_yojson ppx_deriving.eq)))))
 
 (rule
  ((targets (audio_data.ml))

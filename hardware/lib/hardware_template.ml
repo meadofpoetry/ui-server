@@ -47,10 +47,18 @@ let create (hw : Hardware.t) : upper ordered_item list user_table =
               ; stylesheets  = []
               ; content      = []
               } in
-  let templates = List.map (input topo) (Common.Topology.topo_inputs topo) |> List.rev in
+  let demo_props = { title        = Some "Демо"
+                   ; pre_scripts  = [ Src "/js/moment.min.js"
+                                    ; Src "/js/Chart.min.js" ]
+                   ; post_scripts = [ Src "/js/demo.js" ]
+                   ; stylesheets  = [ ]
+                   ; content      = [ ]
+                   }
+  in
+  let templates = CCList.map (input topo) (Common.Topology.topo_inputs topo) |> CCList.rev in
   let rval = [ `Index 2, Subtree { title = "Входы"; href = Path.of_string "input"; templates }
              ; `Index 3, Simple  { title = "Конфигурация"; href = Path.of_string "hardware"; template = props }
-             ; `Index 4, Ref     { title = "Wiki"; absolute = true; href = Path.of_string "wikipedia.org"}
+             ; `Index 4, Simple  { title = "Демо"; href = Path.of_string "demo"; template = demo_props }
              ]
   in { root = rval
      ; operator = rval

@@ -43,10 +43,10 @@ let chart ~typ ~e () =
 
 let chart_card ~typ ~(f_extract:measure -> 'a option) ~title ~e_measures () =
   let e     = React.E.map (fun (id,m) -> id, m.timestamp, f_extract m) e_measures in
-  let title = new Card.Title.t ~title () in
-  let prim  = new Card.Primary.t ~widgets:[title] () in
+  (* let title = new Card.Title.t ~title () in
+   * let prim  = new Card.Primary.t ~widgets:[title] () in *)
   let media = new Card.Media.t ~widgets:[chart ~typ ~e ()] () in
-  new Card.t ~sections:[ `Primary prim; `Media media ] ()
+  new Card.t ~widgets:[ media ] ()
 
 let chart_grid ~e_measures () =
   let pow_chart = chart_card ~title:"Мощность" ~typ:Float ~f_extract:(fun m -> m.power)   ~e_measures () in

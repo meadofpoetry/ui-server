@@ -1,0 +1,74 @@
+@import '../theme/_mixins';
+@import './_mixins';
+
+.mdc-dynamic-grid {
+
+    background-color: transparent;
+    position: relative;
+    box-sizing: border-box;
+    width: 100%;
+
+    &__item {
+        position: absolute;
+        background-position: center center;
+        box-sizing: border-box;
+        z-index: 2;
+        @include mdc-no-selection;
+        /* transition: transform 150ms ease-out; */
+    }
+    &__item:focus {
+        outline:none;
+    }
+
+    &__item__drag-handle {
+        cursor: pointer;
+    }
+
+    &__item__select-handle {
+        cursor: pointer;
+    }
+
+    &__item__ghost {
+        z-index: 2;
+        position: absolute;
+        opacity: 0.5;
+        @include mdc-theme-prop(background-color, secondary);
+    }
+
+    &__item__resize {
+        position: absolute;
+        bottom: 0px;
+        right: 0px;
+        width: 20px;
+        height: 20px;
+        z-index: 3;
+        cursor: se-resize;
+        @include mdc-no-selection;
+    }
+
+    &__item__resize::after {
+        content: "";
+        position: absolute;
+        right: 3px;
+        bottom: 3px;
+        width: 5px;
+        height: 5px;
+        border-right: 2px solid rgba(0, 0, 0, 0.4);
+        border-bottom: 2px solid rgba(0, 0, 0, 0.4);
+    }
+
+    &__item--dragging {
+        cursor: grabbing;
+        cursor: -webkit-grabbing;
+        cursor: -moz-grabbing;
+    }
+
+    &__overlay-grid {
+        height: 100%;
+        width: 100%;
+        position: absolute;
+        left: 0;
+        top: 0;
+        opacity: 0.5;
+    }
+}

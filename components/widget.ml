@@ -15,6 +15,11 @@ type rect =
 
 class widget (elt:#Dom_html.element Js.t) () = object(self)
 
+  val mutable _on_load   = None
+  val mutable _on_unload = None
+  val mutable _in_dom    = false
+  val mutable _observer  = None
+
   method root   : Dom_html.element Js.t = (elt :> Dom_html.element Js.t)
   method widget : widget = (self :> widget)
 
@@ -48,7 +53,7 @@ class widget (elt:#Dom_html.element Js.t) () = object(self)
   method toggle_class _class = self#root##.classList##toggle (Js.string _class) |> Js.to_bool
   method has_class    _class = Js.to_bool (self#root##.classList##contains (Js.string _class))
   method get_classes         = String.split_on_char ' ' self#get_class_string
-  method private add_or_remove_class x _class = if x then self#add_class _class else self#remove_class _class
+  method add_or_remove_class x _class = if x then self#add_class _class else self#remove_class _class
 
   method get_client_left   = self#root##.clientLeft
   method get_client_top    = self#root##.clientTop
@@ -73,7 +78,44 @@ class widget (elt:#Dom_html.element Js.t) () = object(self)
                                           ; width  = Js.Optdef.to_option x##.width
                                           ; height = Js.Optdef.to_option x##.height })
 
+  method set_on_load (f : (unit -> unit) option) =
+    _on_load <- f; self#_observe_if_needed
+  method set_on_unload (f : (unit -> unit) option) =
+    _on_unload <- f; self#_observe_if_needed
+
+  method private _observe_if_needed =
+    let init () = MutationObserver.observe
+                    ~node:Dom_html.document
+                    ~f:(fun _ _ ->
+                      let in_dom_new = (Js.Unsafe.coerce Dom_html.document)##contains self#root in
+                      if _in_dom && (not in_dom_new)
+                      then CCOpt.iter (fun f -> f ()) _on_unload
+                      else if (not _in_dom) && in_dom_new
+                      then CCOpt.iter (fun f -> f ()) _on_load;
+                      _in_dom <- in_dom_new)
+                    ~child_list:true
+                    ~subtree:true
+                    ()
+    in
+    match _on_load, _on_unload, _observer with
+    | None, None, Some o -> o##disconnect; _observer <- None
+    | _, _, None         -> _observer <- Some (init ())
+    | _                  -> ()
+
 end
+
+class button_widget elt () =
+  let e_click,e_click_push = React.E.create () in
+  object(self)
+
+    inherit widget elt ()
+
+    method e_click = e_click
+
+    initializer
+      Dom_events.listen self#root Dom_events.Typ.click (fun _ e -> e_click_push e; false) |> ignore
+
+  end
 
 class input_widget ~(input_elt:Dom_html.inputElement Js.t) elt () =
   let s_disabled,s_disabled_push = React.S.create false in
@@ -195,14 +237,12 @@ let input_type_of_validation :
 let parse_valid (type a) (v : a validation) (on_fail : string -> unit) (s : string) : a option =
   match v with
   | Email        -> Some s
-  | Integer None -> Some (int_of_string s)
-  | Integer Some (min,max) -> let i = int_of_string s in
-                              if i <= max && i >= min then Some i
-                              else None
-  | Float None   -> Some (float_of_string s)
-  | Float Some (min,max) -> let i = float_of_string s in
-                            if i <= max && i >= min then Some i
-                            else None
+  | Integer None -> CCInt.of_string s
+  | Integer Some (min,max) -> CCOpt.flat_map (fun i -> if i <= max && i >= min then Some i else None)
+                                             (CCInt.of_string s)
+  | Float None   -> (try Some (float_of_string s) with _ -> None)
+  | Float Some (min,max)   -> CCOpt.flat_map (fun i -> if i <= max && i >= min then Some i else None)
+                                             (try Some (float_of_string s) with _ -> None)
   | Text         -> Some s
   | IPV4         -> Ipaddr.V4.of_string s
   | MulticastV4  -> Option.(Ipaddr.V4.of_string s >>= (fun x -> if Ipaddr.V4.is_multicast x then Some x else None))

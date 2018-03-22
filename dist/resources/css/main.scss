@@ -1,0 +1,204 @@
+@import './pages/pages';
+@import './sidebar_drawer';
+
+:root { --mdc-box-margin: 0px; }
+
+.hide { display: none }
+
+html {
+    box-sizing: border-box;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+body {
+    margin: 0;
+}
+#arbitrary-content {
+    height: 100%;
+}
+.content {
+    position: absolute;
+    width: 100%;
+    display: flex;
+    min-height: calc(100vh - 128px);
+    align-items: stretch;
+}
+
+@media (min-width: 1200px)
+{
+#main-toolbar {
+    left: 0px;
+    transition: all 0.225s;
+}
+
+body.hide-sidedrawer #main-toolbar {
+    left: 240px;
+    width: calc(100% - 240px);
+    transition: all 0.225s;
+}
+
+#main-content {
+    left: 0px;
+    transition: all 0.225s;
+}
+body.hide-sidedrawer #main-content {
+    transition: all 0.225s;
+    left: 240px;
+    width: calc(100% - 240px);
+}
+
+#main-with-sidebar {
+    left: 0px;
+    transition: all 0.225s;
+}
+body.hide-sidedrawer #main-with-sidebar {
+    transition: all 0.225s;
+    left: 240px;
+}
+
+#arbitrary-content {
+    left: 0px;
+    transition: all 0.225s;
+}
+body.hide-sidedrawer #arbitrary-content {
+    transition: all 0.225s;
+    left: 240px;
+}
+
+}
+.main-with-sidebar     {
+    // padding-left: 16px;
+    // max-width: calc(100% - 256px);
+    flex: 1 1 100%;
+}
+
+.mdc-toolbar__title {
+    font-weight: 300;
+    font-size: 24px;
+}
+
+video {
+    width: 100%;
+    height: calc(100vh - 200px);
+    margin-left: auto;
+    margin-right: auto;
+    display: block;
+}
+
+.material-icons { user-select: none; }
+
+.mdc-expand {
+    cursor: default;
+    transform: rotate(0deg);
+    transition: transform 150ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;
+}
+.mdc-expand--rotated {
+    transform: rotate(180deg);
+}
+
+/* MDC Form-field */
+.mdc-form-field { margin-bottom: 16px; }
+.mdc-form-field.mdc-form-field--align-end label { flex-grow: 1; }
+
+/* MDC Divider */
+.mdc-divider {
+    background-color: rgba(0, 0, 0, .12);
+    height: 1px;
+    margin: 0;
+    border: none;
+    flex-shrink: 0;
+    box-sizing: inherit;
+}
+.mdc-divider--inset { margin-left: 72px; }
+
+/* MDC Snackbar */
+
+.mdc-snackbar {
+    z-index: 1000;
+}
+
+/* MDC Textfield */
+
+.mdc-text-field-wrapper {
+    display: flex;
+    flex-direction: column;
+}
+.mdc-text-field-wrapper.mdc-text-field { flex-grow: 1 }
+.mdc-text-field-helper-text { height: 0.75rem; }
+
+/* MDC List */
+
+.mdc-list--bordered {
+    /* remove the side padding. we'll be placing it around the item instead. */
+    padding-right: 0;
+    padding-left: 0;
+}
+.mdc-list--bordered .mdc-list-item {
+    /* Add the list side padding padding to the list item. */
+    padding: 0 16px;
+    /* Add a border around each element. */
+    border: 1px solid rgba(0, 0, 0, .12);
+}
+/* Ensure adjacent borders don't collide with one another. */
+.mdc-list--bordered .mdc-list-item:not(:first-child) {
+    border-top: none;
+}
+
+.mdc-checkbox.mdc-list-item__start-detail, .mdc-checkbox.mdc-list-item__end-detail {
+    width: 18px;
+    height: 18px;
+}
+
+/* MDC Avatar */
+
+.mdc-avatar {
+    border-radius: 50%;
+    font-size: 20px;
+    height: 40px;
+    width: 40px;
+    display: inline-flex;
+    align-items:center;
+    justify-content:center;
+}
+
+.mdc-avatar.mdc-avatar--dense {
+    width: 30px;
+    height : 30px;
+    font-size: 15px;
+}
+
+/* MDC Tab bar */
+
+.mdc-tab[disabled=true] {
+    color: var(--mdc-theme-text-disabled-on-background);
+    pointer-events: none;
+    cursor: default;
+}
+
+/* MDC Tree */
+
+.mdc-tree .mdc-tree__item {
+    cursor: pointer;
+}
+
+.mdc-tree .mdc-tree__item .mdc-tree__item__nested-list {
+    padding-right: 0;
+
+    overflow: hidden;
+    // max-height: 1800px;
+    -webkit-transition: max-height 0.2s; 
+    -moz-transition: max-height 0.2s; 
+    -ms-transition: max-height 0.2s; 
+    -o-transition: max-height 0.2s; 
+    transition: max-height 0.2s;
+}
+
+.mdc-tree .mdc-tree__item .mdc-tree__item__nested-list--hidden {
+    /* display:none; */
+
+    max-height: 0;
+}
+
+.mdc-permanent-drawer .mdc-list .mdc-tree__item__nested-list .mdc-list-item {
+    padding-left: 30px;
+}

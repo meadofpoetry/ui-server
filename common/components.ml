@@ -114,14 +114,16 @@ module Make
 
   module Icon = struct
 
-    let base_class = "mdc-icon"
+    let base_class     = "mdc-icon"
+    let button_class   = CSS.add_modifier base_class "button"
+    let disabled_class = CSS.add_modifier base_class "disabled"
 
     module Font = struct
 
       let create ?id ?style ?(classes=[]) ?attrs ~icon () =
         Html.i ~a:([a_class ("material-icons" :: base_class :: classes)]
                    |> add_common_attrs ?id ?style ?attrs)
-          [pcdata icon]
+               [pcdata icon]
 
     end
 
@@ -223,21 +225,16 @@ module Make
 
   module Card = struct
 
-    let base_class             = "mdc-card"
-    let horizontal_block_class = CSS.add_element base_class "horizontal-block"
-
-    module Media_item = struct
-
-      let _class              = CSS.add_element base_class "media-item"
-      let height_1dot5x_class = CSS.add_modifier _class "1dot5x"
-      let height_2x_class     = CSS.add_modifier _class "2x"
-      let height_3x_class     = CSS.add_modifier _class "3x"
-
-    end
+    let base_class           = "mdc-card"
+    let stroked_class        = CSS.add_modifier "stroked"
+    let primary_action_class = CSS.add_element "primary-action"
 
     module Media = struct
 
-      let _class = CSS.add_element base_class "media"
+      let _class           = CSS.add_element base_class "media"
+      let content_class    = CSS.add_element base_class "media-content"
+      let square_class     = CSS.add_modifier _class "square"
+      let widescreen_class = CSS.add_modifier _class "16-9"
 
       let create ?(classes=[]) ?id ?style ?attrs ~children () =
         section ~a:([a_class (_class :: classes)]
@@ -248,16 +245,38 @@ module Make
 
     module Actions = struct
 
-      let _class         = CSS.add_element base_class "actions"
-      let action_class   = CSS.add_element base_class "action"
-      let vertical_class = CSS.add_modifier _class "vertical"
+      let _class              = CSS.add_element base_class "actions"
+      let full_bleed_class    = CSS.add_modifier _class "full-bleed"
+      let action_class        = CSS.add_element base_class "action"
+      let action_button_class = CSS.add_modifier action_class "button"
+      let action_icon_class   = CSS.add_modifier action_class "icon"
 
-      let create ?(classes=[]) ?id ?style ?attrs ?(vertical=false) ~children () =
-        section ~a:([ a_class (classes
-                               |> cons_if vertical vertical_class
-                               |> List.cons _class) ]
+      module Buttons = struct
+
+        let _class = CSS.add_element base_class "action-buttons"
+
+        let create ?id ?style ?(classes=[]) ?attrs ~children () =
+          div ~a:([ a_class (_class :: classes) ]
+                  |> add_common_attrs ?id ?style ?attrs)
+              children
+
+      end
+
+      module Icons = struct
+
+        let _class = CSS.add_element base_class "action-icons"
+
+        let create ?id ?style ?(classes=[]) ?attrs ~children () =
+          div ~a:([ a_class (_class :: classes) ]
+                  |> add_common_attrs ?id ?style ?attrs)
+              children
+
+      end
+
+      let create ?id ?style ?(classes=[]) ?attrs ~children () =
+        section ~a:([ a_class (classes |> List.cons _class) ]
                     |> add_common_attrs ?id ?style ?attrs)
-          children
+                children
 
     end
 
@@ -287,17 +306,6 @@ module Make
 
     end
 
-    module Supporting_text = struct
-
-      let _class = CSS.add_element base_class "supporting-text"
-
-      let create ?(classes=[]) ?id ?style ?attrs ~children () =
-        section ~a:([a_class (_class :: classes)]
-                    |> add_common_attrs ?id ?style ?attrs)
-          children
-
-    end
-
     let create ?id ?style ?(classes=[]) ?attrs ?tag ~sections () =
       let tag = Option.get_or ~default:div tag in
       tag ~a:([a_class (base_class :: classes)]
@@ -312,7 +320,7 @@ module Make
     let native_control_class = CSS.add_element base_class "native-control"
     let background_class     = CSS.add_element base_class "background"
     let checkmark_class      = CSS.add_element base_class "checkmark"
-    let checkmark_path_class = CSS.add_element checkmark_class "path"
+    let checkmark_path_class = CSS.add_element base_class "checkmark-path"
     let mixedmark_class      = CSS.add_element base_class "mixedmark"
 
     let create ?(classes=[]) ?style ?id ?input_id ?(disabled=false) ?(auto_init=false) ?(checked=false) ?attrs () =
@@ -366,7 +374,7 @@ module Make
                                |> cons_if scrollable scrollable_class 
                                |> List.cons _class) ]
                     |> add_common_attrs ?id ?style ?attrs)
-          content
+                content
 
     end
 
@@ -457,14 +465,28 @@ module Make
   end
 
   module Dynamic_grid = struct
-    let base_class = "mdc-dynamic-grid"
+    let base_class              = "mdc-dynamic-grid"
+    let with_overlay_grid_class = CSS.add_modifier base_class "with-overlay-grid"
+
+    module Overlay_grid = struct
+
+      let _class = CSS.add_element base_class "overlay-grid"
+
+      let create ?id ?style ?(classes=[]) ?attrs () =
+        div ~a:([ a_class (_class :: classes) ]
+                |> add_common_attrs ?id ?style ?attrs)
+            []
+    end
 
     module Item = struct
 
-      let _class         = CSS.add_element base_class "item"
-      let ghost_class    = CSS.add_element _class "ghost"
-      let resize_class   = CSS.add_element _class "resize"
-      let dragging_class = CSS.add_modifier _class "dragging"
+      let _class              = CSS.add_element base_class "item"
+      let ghost_class         = CSS.add_element _class "ghost"
+      let resize_class        = CSS.add_element _class "resize"
+      let selected_class      = CSS.add_modifier _class "selected"
+      let dragging_class      = CSS.add_modifier _class "dragging"
+      let drag_handle_class   = CSS.add_element _class "drag-handle"
+      let select_handle_class = CSS.add_element _class "select-handle"
 
       let create_ghost ?id ?style ?(classes=[]) ?attrs () =
         div ~a:([ a_class (ghost_class :: classes)]
@@ -477,8 +499,7 @@ module Make
           []
 
       let create ?id ?style ?(classes=[]) ?attrs ?resize_button () =
-        div ~a:([ a_class (_class :: classes)
-                  (* ; a_draggable true *) ]
+        div ~a:([ a_class (_class :: classes) ]
                 |> add_common_attrs ?id ?style ?attrs)
           (cons_option resize_button [])
     end
@@ -595,8 +616,9 @@ module Make
       ; css_class : string option [@key "cssClass"]
       } [@@deriving to_yojson]
 
-    let base_class  = "mdc-icon-toggle"
-    let icons_class = "material-icons"
+    let base_class     = "mdc-icon-toggle"
+    let icons_class    = "material-icons"
+    let disabled_class = CSS.add_modifier base_class "disabled"
 
     let create ?id ?style ?(classes=[]) ?attrs ?(disabled=false) ?color_scheme ~on_data ~off_data () =
       let data_toggle_on  = on_data |> data_to_yojson |> Yojson.Safe.to_string in
@@ -987,9 +1009,74 @@ module Make
 
   end
 
+  module Expansion_panel = struct
+
+    let base_class          = "mdc-expansion-panel"
+    let expanded_class      = CSS.add_modifier base_class "expanded"
+    let panel_wrapper_class = CSS.add_element base_class "panel-wrapper"
+
+    module Primary = struct
+
+      let _class        = CSS.add_element base_class "primary"
+      let summary_class = CSS.add_element base_class "summary"
+      let details_class = CSS.add_element base_class "details"
+      let heading_class = CSS.add_element base_class "heading"
+      let icon_class    = CSS.add_element base_class "icon"
+
+      let create ?id ?style ?(classes=[]) ?attrs ?(heading_details=[]) ?(details=[]) ~title () =
+        div ~a:([ a_class (classes |> CCList.cons _class)
+                ; a_tabindex 0 ]
+                |> add_common_attrs ?id ?style ?attrs)
+            [ div ~a:([ a_class [summary_class] ])
+                  [ div ~a:([ a_class [heading_class]])
+                        [ pcdata title
+                        ; div ~a:[ a_class [details_class]] heading_details
+                        ]
+                  ; div ~a:([ a_class [details_class]]) details
+                  ]
+            ; div ~a:([ a_class [icon_class]; a_tabindex (-1) ])
+                  [Icon.Font.create ~icon:"expand_more" ()]
+            ]
+
+    end
+
+    module Actions = struct
+
+      let _class       = CSS.add_element base_class "actions"
+      let action_class = CSS.add_element base_class "action"
+
+      let create ?id ?style ?(classes=[]) ?attrs ~actions () =
+        div ~a:([ a_class (classes |> CCList.cons _class) ]
+                |> add_common_attrs ?id ?style ?attrs)
+            actions
+
+    end
+
+    module Panel = struct
+
+      let _class = CSS.add_element base_class "panel"
+
+      let create ?id ?style ?(classes=[]) ?attrs ~content () =
+        div ~a:([ a_class (classes |> CCList.cons _class) ]
+                |> add_common_attrs ?id ?style ?attrs)
+            content
+
+    end
+
+    let create ?id ?style ?(classes=[]) ?attrs ?actions ~primary ~panel () =
+      div ~a:([ a_class (classes |> CCList.cons base_class)]
+              |> add_common_attrs ?id ?style ?attrs)
+          [ primary
+          ; div ~a:[a_class [panel_wrapper_class]]
+                (match actions with
+                 | Some x -> panel :: Divider.create () :: x :: []
+                 | None   -> [panel])]
+
+  end
+
   module Menu = struct
 
-    let base_class   = "mdc-simple-menu"
+    let base_class   = "mdc-menu"
     let items_class  = CSS.add_element base_class "items"
     let anchor_class = "mdc-menu-anchor"
 
@@ -1219,7 +1306,8 @@ module Make
     let pin_value_marker_class       = CSS.add_element base_class "pin-value-marker"
 
     let create ?id ?style ?(classes=[]) ?attrs ?(discrete=false) ?(markers=false) ?(disabled=false)
-          ?label ?step ?(min=0.) ?(max=100.) ?(value=0.) () =
+               ?label ?step ?(min=0.) ?(max=100.) ?(value=0.) () =
+      let discrete = if markers then true else discrete in
       div ~a:([ a_class (classes
                          |> cons_if discrete @@ CSS.add_modifier base_class "discrete"
                          |> cons_if (discrete && markers) @@ CSS.add_modifier base_class "display-markers"
@@ -1360,36 +1448,41 @@ module Make
     module Scroller = struct
 
       let _class                  = "mdc-tab-bar-scroller"
-      let indicator_class         = CSS.add_element _class "indicator"
-      let indicator_back_class    = CSS.add_modifier indicator_class "back"
-      let indicator_forward_class = CSS.add_modifier indicator_class "forward"
-      let indicator_inner_class   = CSS.add_element indicator_class "inner"
       let scroll_frame_class      = CSS.add_element _class "scroll-frame"
       let scroll_frame_tabs_class = CSS.add_element scroll_frame_class "tabs"
+
+      let indicator_class         = CSS.add_element _class "indicator"
+      let indicator_enabled_class = CSS.add_modifier indicator_class "enabled"
+      let indicator_inner_class   = CSS.add_element indicator_class "inner"
+      let indicator_back_class    = CSS.add_modifier indicator_class "back"
+      let indicator_forward_class = CSS.add_modifier indicator_class "forward"
 
       let create_indicator ~direction () =
         div ~a:[a_class [ indicator_class;
                           (match direction with
                            | `Back    -> indicator_back_class
                            | `Forward -> indicator_forward_class)]]
-          [ a ~a:([ a_class [ indicator_inner_class; "material-icons" ]
-                  ; a_href @@ uri_of_string "#"
-                  ; a_aria "label" ["scroll"
-                                  ; (match direction with
-                                     | `Back -> "back"
-                                     | `Forward -> "forward")
-                                  ; "button"]])
-              [pcdata (match direction with
-                       | `Back    -> "navigate_before"
-                       | `Forward -> "navigate_next")] ]
+            [ a ~a:([ a_class [ indicator_inner_class; "material-icons" ]
+                    (* ; a_href @@ uri_of_string "#" *)
+                    ; a_aria "label" ["scroll"
+                                     ; (match direction with
+                                        | `Back -> "back"
+                                        | `Forward -> "forward")
+                                     ; "button"]])
+                [pcdata (match direction with
+                         | `Back    -> "navigate_before"
+                         | `Forward -> "navigate_next")] ]
 
       let create ?id ?style ?(classes=[]) ?attrs ~tabs () =
         div ~a:([ a_class (_class :: classes) ]
                 |> add_common_attrs ?id ?style ?attrs)
-          [ create_indicator ~direction:`Back ()
-          ; div ~a:[ a_class [scroll_frame_class] ] [ tabs ]
-          ; create_indicator ~direction:`Forward ()
-          ]
+            [ div ~a:[ a_class [scroll_frame_class]]
+                  [ create_indicator ~direction:`Back ()
+                  ; div ~a:[ a_class [scroll_frame_tabs_class]
+                           ; a_role ["tablist"]] [ tabs ]
+                  ; create_indicator ~direction:`Forward ()
+                  ]
+            ]
 
     end
 
@@ -1433,7 +1526,7 @@ module Make
 
     module Icon = struct
 
-      let _class = CSS.add_element base_class "icon"
+      let _class       = CSS.add_element base_class "icon"
 
       let create ?id ?style ?(classes=[]) ?attrs ?(clickable=true) ~icon () =
         Html.i ~a:([ a_class ("material-icons" :: _class :: classes) ]

@@ -29,8 +29,8 @@ let t2mi_mode ~(init  : config)
 let card control
          ~(init  : config)
          ~(event : config React.event) =
-  let title       = new Card.Title.t ~title:"Настройки" () in
-  let primary     = new Card.Primary.t ~widgets:[title] () in
+  (* let title       = new Card.Title.t ~title:"Настройки" () in
+   * let primary     = new Card.Primary.t ~widgets:[title] () in *)
   let items       = [ new Select.Base.Item.t ~text:"ASI" ~value:ASI ()
                     ; new Select.Base.Item.t ~text:"SPI" ~value:SPI ()
                     ]
@@ -42,17 +42,12 @@ let card control
   let t2mi_sect   = new Card.Media.t ~widgets:[t2mi#widget] () in
   let apply       = new Button.t ~label:"Применить" () in
   let actions     = new Card.Actions.t ~widgets:[ apply ] () in
-  title#add_class "color--primary-on-primary";
-  primary#add_class "background--primary";
-  let card    = new Card.t ~sections:[ `Primary primary
-                                     ; `Primary (let title = new Card.Title.t ~title:"Общие настройки" () in
-                                                 new Card.Primary.t ~widgets:[title] ())
-                                     ; `Media   common_sect
-                                     ; `Primary (let title = new Card.Title.t ~title:"Настройки T2-MI" () in
-                                                 new Card.Primary.t ~widgets:[title] ())
-                                     ; `Media   t2mi_sect
-                                     ; `Actions actions
-                                     ] ()
+  (* title#add_class "color--primary-on-primary";
+   * primary#add_class "background--primary"; *)
+  let card    = new Card.t ~widgets:[ common_sect#widget
+                                    ; t2mi_sect#widget
+                                    ; actions#widget
+                                    ] ()
   in
   let s = React.S.l2 (fun inp t2mi ->
               match inp,t2mi with

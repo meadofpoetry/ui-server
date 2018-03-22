@@ -1,0 +1,83 @@
+//
+// Copyright 2017 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+@import "../../animation/functions";
+@import "../../theme/mixins";
+@import "../../rtl/mixins";
+
+$mdc-tab-bar-scroller-indicator-width: 48px;
+
+// postcss-bem-linter: define tab-bar-scroller
+.mdc-tab-bar-scroller {
+    overflow: hidden;
+    min-height: 48px;
+    -webkit-overflow-scrolling: touch;
+
+    &__scroll-frame {
+        display: flex;
+
+        &__tabs {
+            overflow-x: scroll;
+            flex: 1 1 auto;
+            display: inline-block;
+            position: relative;
+            white-space: nowrap;
+        }
+    }
+
+  &__indicator {
+      flex: 0 0 $mdc-tab-bar-scroller-indicator-width;
+      visibility: hidden;
+
+      @include mdc-theme-prop(color, text-secondary-on-background);
+
+    &:hover {
+      @include mdc-theme-prop(color, text-primary-on-background);
+    }
+
+    &__inner {
+      color: inherit;
+      text-decoration: inherit;
+      cursor: inherit;
+
+      &:focus {
+        outline-color: inherit;
+      }
+
+      @include mdc-rtl(".mdc-tab-bar-scroller") {
+        transform: rotate(180deg);
+      }
+    }
+
+    &__inner:hover {
+      color: inherit;
+    }
+  }
+
+  &__indicator--enabled {
+    visibility: visible;
+  }
+
+
+  // TODO: replace with breakpoint variable
+  @media (max-width: 600px) {
+      &__indicator {
+          display: none;
+      }
+  }
+}
+
+// postcss-bem-linter: end

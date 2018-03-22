@@ -8,7 +8,7 @@ dist/db
 tmp
 .sass-cache/*
 dist/resources/css/table.css
-dist/resources/css/table.css.map
+dist/resources/css/*.map
 dist/resources/js/home.js
 dist/resources/js/demo.js
 dist/resources/js/configuration.js

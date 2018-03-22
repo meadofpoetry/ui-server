@@ -1,0 +1,224 @@
+@import "./components/rtl/_mixins";
+@import "./components/drawer/_mixins";
+@import "./components/drawer/_variables";
+@import "./components/drawer/slidable/_mixins";
+@import "./components/drawer/slidable/_variables";
+@import "./components/animation/_functions";
+@import "./components/elevation/_mixins";
+
+$mdc-persistent-drawer-width: 240px;
+
+.mdc-drawer--custom {
+  @include mdc-drawer-base_;
+  @include mdc-drawer-ink-color($mdc-persistent-drawer-ink-color);
+  @include mdc-drawer-fill-color($mdc-persistent-drawer-fill-color);
+
+  width: 0;
+  position: fixed;
+
+  .icon-dropdown {
+      position: absolute;
+      right: -4px;
+      margin-right: 10px;
+      margin-top: 12px;
+  }
+
+  .mdc-account-icon {
+      width: 54px;
+      heigh: 54px;
+  }
+
+  .mdc-drawer__header {
+      height: 128px;
+  }
+
+  .mdc-drawer__header-content {
+      padding: 0;
+      width: 100%;
+  }
+
+  .mdc-drawer__panel {
+      @include mdc-typography(body1);
+
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      height: 48px;
+      line-height: 48px;
+      margin-left: 16px;
+      margin-right: 16px;
+      overflow: hidden;
+      width: 100%;
+      cursor: pointer;
+  }
+
+  .mdc-drawer__drawer {
+    @include mdc-rtl-reflexive-box(border, right, 0px solid #e4e4e4);
+    @include mdc-rtl-reflexive-position(left, 0);
+    @include mdc-slideable-drawer;
+
+    transition: left 0.225s;
+    display: inline-flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    width: $mdc-persistent-drawer-width;
+    overflow: hidden;
+    touch-action: none;
+
+    .mdc-drawer__wrapper {
+
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        height: 48px;
+        transition: all 0.225s;
+        overflow: hidden;
+
+        &--hidden {
+
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            height: 0px;
+            transition: all 0.225s;
+            overflow: hidden;
+        }
+    }
+  }
+
+  &.mdc-drawer--animating {
+      .mdc-drawer__drawer {
+        transition: $mdc-slidable-drawer-transition-close;
+    }
+      &.mdc-drawer--open
+      .mdc-drawer__drawer {
+        transition: $mdc-slidable-drawer-transition-open;
+     }
+  }
+
+  &.mdc-drawer--open {
+    width: $mdc-persistent-drawer-width;
+    pointer-events: auto;
+
+    .mdc-drawer__drawer {
+      @include mdc-slideable-drawer-open;
+    }
+
+    // Specificity fix to ensure that mdc-drawer is not translated off-screen within an RTL context
+    @include mdc-rtl {
+      .mdc-drawer__drawer {
+        @include mdc-slideable-drawer-open;
+      }
+    }
+  }
+}
+
+@media only screen and (max-width: 1200px) {
+.mdc-drawer--custom {
+  @include mdc-drawer-base_;
+  @include mdc-drawer-ink-color($mdc-temporary-drawer-ink-color);
+  @include mdc-drawer-fill-color($mdc-temporary-drawer-fill-color);
+  @include mdc-drawer-scrim-color($mdc-temporary-drawer-scrim-color, $mdc-temporary-drawer-scrim-opacity);
+  position: fixed;
+  top: 0;
+  left: 0;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
+  contain: strict;
+  z-index: 9999;
+
+  /* Shaded background */
+  &::before {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    opacity: var(--mdc-temporary-drawer-opacity, 0);
+    content: "";
+    will-change: opacity;
+  }
+
+ .mdc-drawer__header-content {
+     padding: 0;
+
+ }
+
+  .mdc-drawer__drawer {
+    @include mdc-elevation(16);
+    @include mdc-rtl-reflexive-position(left, 0);
+    @include mdc-slideable-drawer;
+
+    display: flex;
+    position: absolute;
+    flex-direction: column;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 240px;
+    overflow: hidden;
+    touch-action: none;
+  }
+
+  .mdc-drawer__content {
+      flex-grow: 1;
+      box-sizing: border-box;
+      margin: 0;
+      overflow-x: hidden;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-y;
+  }
+
+  .mdc-drawer__footer {
+    @include mdc-elevation(2);
+
+    flex-shrink: 0;
+  }
+
+  &.mdc-drawer--animating {
+    &::before {
+      transition: mdc-animation-enter(opacity, .3s);
+    }
+
+    &.mdc-drawer--open .mdc-drawer__drawer {
+      transition: $mdc-slidable-drawer-transition-open;
+    }
+
+    .mdc-drawer__drawer {
+      transition: $mdc-slidable-drawer-transition-close;
+    }
+  }
+
+  &.mdc-drawer--open {
+    pointer-events: auto;
+    width: 100%;
+
+    &::before {
+      opacity: 1;
+      opacity: var(--mdc-temporary-drawer-opacity, 1);
+    }
+
+    .mdc-drawer__drawer {
+      @include mdc-slideable-drawer-open;
+    }
+
+    // Specificity fix to ensure that mdc-drawer is not translated off-screen within an RTL context
+    @include mdc-rtl {
+      .mdc-drawer__drawer {
+        @include mdc-slideable-drawer-open;
+      }
+    }
+  }
+}
+
+.mdc-drawer-scroll-lock {
+  overflow: hidden;
+}
+
+}

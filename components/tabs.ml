@@ -21,8 +21,6 @@ module Tab = struct
       val mutable tab    = props
       val mutable active = false
       val mutable prevent_default_on_click = false
-      val mutable left  = 0
-      val mutable width = 0
       val mutable value : 'a = props.value
 
       method anchor_element = elt
@@ -69,11 +67,8 @@ module Tab = struct
                                   push (Some self))
                             else self#remove_class Markup.Tabs.Tab.active_class
 
-      method get_width = width
-      method get_left  = left
-
-      method measure_self = width <- self#get_offset_width;
-                            left  <- self#get_offset_left
+      method get_width = self#get_offset_width
+      method get_left  = self#get_offset_left
 
       method get_prevent_default_on_click   = prevent_default_on_click
       method set_prevent_default_on_click x = prevent_default_on_click <- x
@@ -87,13 +82,7 @@ module Tab = struct
                             self#set_active true;
                             not prevent_default_on_click)
         |> ignore;
-        Dom_events.listen self#root Dom_events.Typ.keydown (fun _ (ev:Dom_html.keyboardEvent Js.t) ->
-                            let key  = Option.map Js.to_string @@ Js.Optdef.to_option ev##.key in
-                            (match key,ev##.keyCode with
-                             | Some "Enter", _ | _, 13 -> self#set_active true
-                             | _ -> ());
-                            true)
-        |> ignore
+        Utils.Keyboard_event.listen ~f:(function `Enter _ -> self#set_active true | _ -> ()) self#root |> ignore;
 
     end
 
@@ -195,10 +184,14 @@ module Tab_bar = struct
                       Ok ()
         | None     -> Error (Printf.sprintf "remove_tab_at_index: tab with index %d not found" i)
 
+      method layout =
+        Option.iter (fun x -> Dom_html.window##cancelAnimationFrame x) layout_frame;
+        let f = fun _ -> self#layout_internal; layout_frame <- None in
+        layout_frame <- Some (Dom_html.window##requestAnimationFrame (Js.wrap_callback f))
+
       method private layout_internal = match self#get_active_tab with
         | Some tab ->
            let f () =
-             List.iter (fun x -> x#measure_self) self#tabs;
              width <- self#get_offset_width;
              let l = tab#get_left in
              let w = match width with
@@ -228,11 +221,6 @@ module Tab_bar = struct
                   indicator#style##.visibility := Js.string "hidden";
                   init <- false
 
-      method private layout =
-        Option.iter (fun x -> Dom_html.window##cancelAnimationFrame x) layout_frame;
-        let f = fun _ -> self#layout_internal; layout_frame <- None in
-        layout_frame <- Some (Dom_html.window##requestAnimationFrame (Js.wrap_callback f))
-
       initializer
         self#add_class (Markup.Tabs.Tab_bar._class ^ "-upgraded");
         Dom_events.listen Dom_html.window Dom_events.Typ.resize (fun _ _ -> self#layout; false) |> ignore;
@@ -247,22 +235,79 @@ end
 
 module Scroller = struct
 
-  class type mdc =
-    object
-      method tabBar : unit Js.t Js.readonly_prop
-    end
-
   class ['a] t ~(tabs:'a tab list) () =
 
     let tab_bar = new Tab_bar.t ~tabs () in
-    let elt = tab_bar#add_class Markup.Tabs.Scroller.scroll_frame_tabs_class;
-              Markup.Tabs.Scroller.create ~tabs:(Widget.widget_to_markup tab_bar) ()
-              |> Tyxml_js.To_dom.of_div in
+    let elt     = Markup.Tabs.Scroller.create ~tabs:(Widget.widget_to_markup tab_bar) ()
+                  |> Tyxml_js.To_dom.of_div in
+    let wrapper = elt##querySelector (Js.string ("." ^ Markup.Tabs.Scroller.scroll_frame_tabs_class))
+                  |> Js.Opt.to_option |> Option.get_exn |> Widget.create
+    in
+    let back    = elt##querySelector (Js.string ("." ^ Markup.Tabs.Scroller.indicator_back_class))
+                  |> Js.Opt.to_option |> Option.get_exn |> Widget.create
+    in
+    let forward = elt##querySelector (Js.string ("." ^ Markup.Tabs.Scroller.indicator_forward_class))
+                  |> Js.Opt.to_option |> Option.get_exn |> Widget.create
+    in
+    let on_scroll_change = (fun _ h -> wrapper#style##.marginBottom := Js.string (Printf.sprintf "-%dpx" h)) in
+    let scroll_listener  = new Utils.Scroll_size_listener.t ~on_change:on_scroll_change () in
 
-    object
+    object(self)
+
       inherit Widget.widget elt ()
-      val mdc : mdc Js.t = Js.Unsafe.global##.mdc##.tabs##.MDCTabBarScroller##attachTo elt
-      method get_tab_bar = tab_bar
+
+      (* User methods *)
+
+      method tab_bar        = tab_bar
+      method scroll_back    = self#move_tabs_scroll (- wrapper#get_client_width)
+      method scroll_forward = self#move_tabs_scroll wrapper#get_client_width
+      method layout         = self#update_scroll_buttons;
+                              self#tab_bar#layout;
+                              scroll_listener#measure
+
+      (* Private methods *)
+
+      method private scroll next =
+        let old = wrapper#root##.scrollLeft in
+        Utils.Animation.animate ~timing:Utils.Animation.Timing.in_out_sine
+                                ~draw:(fun x -> let n = float_of_int next in
+                                                let o = float_of_int old in
+                                                let v = int_of_float @@ (x *. (n -. o)) +. o in
+                                                wrapper#root##.scrollLeft := v)
+                                ~duration:0.35
+
+      method private move_tabs_scroll (delta:int) =
+        let multiplier = 1 in
+        let old        = wrapper#root##.scrollLeft in
+        let next       = old + delta * multiplier in
+        self#scroll next
+
+      method private scroll_tab_into_view tab =
+        let left  = wrapper#root##.scrollLeft in
+        let right = left + wrapper#get_client_width in
+        if tab#get_left < left
+        then self#scroll tab#get_left
+        else if tab#get_left + tab#get_width > right
+        then self#scroll @@ left + (tab#get_width + tab#get_left - right)
+
+      method private update_scroll_buttons =
+        let scroll_width = wrapper#root##.scrollWidth in
+        let scroll_left  = wrapper#root##.scrollLeft in
+        let client_width = wrapper#root##.clientWidth in
+        let show_left    = scroll_left > 0 in
+        let show_rigth   = scroll_width > client_width + scroll_left in
+        let f x w        = w#add_or_remove_class x Markup.Tabs.Scroller.indicator_enabled_class in
+        f show_left back;
+        f show_rigth forward
+
+      initializer
+        self#layout;
+        Dom.appendChild self#root scroll_listener#root;
+        Dom_events.listen back#root    Dom_events.Typ.click  (fun _ _ -> self#scroll_back;    true)        |> ignore;
+        Dom_events.listen forward#root Dom_events.Typ.click  (fun _ _ -> self#scroll_forward; true)        |> ignore;
+        Dom_events.listen wrapper#root Dom_events.Typ.scroll (fun _ _ -> self#update_scroll_buttons; true) |> ignore;
+        React.S.map (fun x -> Option.iter self#scroll_tab_into_view x) self#tab_bar#s_active                |> ignore;
+
     end
 
 end

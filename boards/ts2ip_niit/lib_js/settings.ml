@@ -55,17 +55,16 @@ let streams ~(init   : init)
 let card control
       ~(init   : init)
       ~(events : events) =
-  let title   = new Card.Title.t ~title:"Настройки" () in
-  let primary = new Card.Primary.t ~widgets:[title] () in
+  (* let title   = new Card.Title.t ~title:"Настройки" () in
+   * let primary = new Card.Primary.t ~widgets:[title] () in *)
   let sms_lst,selected = streams ~init ~events in
   let apply   = new Button.t ~label:"Применить" () in
   let actions = new Card.Actions.t ~widgets:[apply] () in
-  title#add_class "color--primary-on-primary";
-  primary#add_class "background--primary";
-  let card = new Card.t ~sections:[ `Primary primary
-                                  ; `Media (new Card.Media.t ~widgets:[sms_lst] ())
-                                  ; `Actions actions
-               ] ()
+  (* title#add_class "color--primary-on-primary";
+   * primary#add_class "background--primary"; *)
+  let card = new Card.t ~widgets:[ (new Card.Media.t ~widgets:[sms_lst] ())#widget
+                                 ; actions#widget
+                                 ] ()
   in
   React.E.map (fun _ -> Requests.post_streams_simple control (React.S.value selected)) apply#e_click |> ignore;
   card

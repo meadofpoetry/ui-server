@@ -44,8 +44,8 @@ type events =
   }
 
 let events =
-  { selected = Dom_events.Typ.make "MDCSimpleMenu:selected"
-  ; cancel   = Dom_events.Typ.make "MDCSimpleMenu:cancel"
+  { selected = Dom_events.Typ.make "MDCMenu:selected"
+  ; cancel   = Dom_events.Typ.make "MDCMenu:cancel"
   }
 
 class t ?open_from ~(items:[ `Item of Item.t | `Divider of Divider.t ] list) () =
@@ -66,7 +66,7 @@ class t ?open_from ~(items:[ `Item of Item.t | `Divider of Divider.t ] list) () 
 
     inherit Widget.widget elt () as super
 
-    val mdc : mdc Js.t = Js.Unsafe.global##.mdc##.menu##.MDCSimpleMenu##attachTo elt
+    val mdc : mdc Js.t = Js.Unsafe.global##.mdc##.menu##.MDCMenu##attachTo elt
 
     method get_items   = items
     method get_list    = list
@@ -82,7 +82,9 @@ class t ?open_from ~(items:[ `Item of Item.t | `Divider of Divider.t ] list) () 
 
     initializer
       Dom_events.listen super#root events.selected
-                        (fun _ (e:event Js.t) -> e_selected_push e##.detail##.index; false)  |> ignore;
+                        (fun _ (e:event Js.t) -> let idx  = e##.detail##.index in
+                                                 let item = e##.detail##.item in
+                                                 e_selected_push (idx,item); false)  |> ignore;
       Dom_events.listen super#root events.cancel
                         (fun _ _ -> e_cancel_push (); false) |> ignore
   end

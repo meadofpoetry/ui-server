@@ -1,0 +1,34 @@
+@import '../../components/theme/_functions';
+@import '../../components/theme/_mixins';
+@import './_functions';
+
+@mixin wm-layer-color($color) {
+    $fill-tone: mdc-theme-tone($color);
+
+    background-color: $color;
+    @if ($fill-tone == "dark") {
+        @include mdc-theme-prop(color,text-primary-on-dark);
+    } @else {
+        @include mdc-theme-prop(color,text-primary-on-light);
+    }
+}
+
+@mixin wm-layer-prop($layer) {
+    $color     :     wm-layer-color($layer);
+    $base-color:     mdc-theme-light-variant($color,2);
+    $selected-color: mdc-theme-light-variant($color,1);
+
+    * [data-layer='#{$layer}'] {
+        .mdc-dynamic-grid__item {
+            @include wm-layer-color($base-color);
+            z-index: $layer + 1;
+
+            &--selected {
+                @include wm-layer-color($selected-color);
+            }
+        }
+        .wm-layer-item__color-indicator {
+            background-color: $base-color;
+        }
+    }
+}

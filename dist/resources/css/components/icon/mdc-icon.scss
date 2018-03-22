@@ -1,0 +1,16 @@
+@import '../theme/_mixins';
+@import './_mixins';
+
+.mdc-icon {
+
+    &--button {
+        cursor: pointer;
+    }
+
+    &--disabled {
+        @include mdc-theme-prop(color, text-disabled-on-light);
+        cursor: default;
+        pointer-events: none;
+
+    }
+}

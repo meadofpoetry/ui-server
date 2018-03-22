@@ -1,0 +1,11 @@
+@import '../../components/tabs/tab/_mixins.scss';
+@import '../../components/tabs/tab-bar/_mixins.scss';
+@import './wm.scss';
+
+.mdc-toolbar {
+    .mdc-tab {
+        @include mdc-tab-ink-color(text-primary-on-primary);
+    }
+
+    @include mdc-tab-bar-indicator-ink-color(text-primary-on-primary);
+}
