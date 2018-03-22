@@ -386,6 +386,9 @@
   flex-grow: 2; }
   .wm-items__add {
     flex: 1 1 200px; }
+  .wm-items__add__wrapper {
+    overflow-y: auto;
+    overflow-x: hidden; }
   .wm-items__add__item {
     /* @alternate */
     background-color: #fff;

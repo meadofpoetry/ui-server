@@ -57,7 +57,6 @@ let make_layer_item s_layers push layer =
                                            ~on_drag:(fun _ _ _ _ -> emit_new_pos s_layers push)
                                            ~resizable:false ~selectable:true ~value ()
   in
-  Printf.printf "y is %d\n" y;
   let ()       = List.iter (fun i -> if i#pos.y >= y then i#set_pos { i#pos with y = i#pos.y + 1 }) layers in
   let ()       = vis#add_class show_icon_class in
   let ()       = left#set_align_items `Center in
@@ -146,15 +145,13 @@ class t ~init () =
       self#initialize init;
       self#add_class _class;
       self#set_on_load @@ Some (fun _ -> self#layout);
-      let _ =
-        React.S.diff (fun n o -> let open Dynamic_grid.Position in
-                                 match n with
-                                 | [x] -> push @@ `Selected x#get_value.actual
-                                 | _   -> (match o with
-                                           | [x] -> push @@ `Selected x#pos.y
-                                           | _   -> ())) self#s_selected
-      in
-      List.iter (fun i -> set_data_layer_attr i (i#pos:Dynamic_grid.Position.t).y) self#items
+      React.S.diff (fun n o -> let open Dynamic_grid.Position in
+                               match n with
+                               | [x] -> push @@ `Selected x#get_value.actual
+                               | _   -> (match o with
+                                         | [x] -> push @@ `Selected x#pos.y
+                                         | _   -> ())) self#s_selected
+      |> ignore
 
   end
 
