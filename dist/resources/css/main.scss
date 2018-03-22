@@ -78,11 +78,11 @@ body.hide-sidedrawer #arbitrary-content {
 }
 
 video {
+    width: 100%;
     height: calc(100vh - 200px);
     margin-left: auto;
     margin-right: auto;
     display: block;
-    object-fit: cover;
 }
 
 .material-icons { user-select: none; }

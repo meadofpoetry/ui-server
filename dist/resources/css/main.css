@@ -1256,11 +1256,11 @@ body {
   font-size: 24px; }
 
 video {
+  width: 100%;
   height: calc(100vh - 200px);
   margin-left: auto;
   margin-right: auto;
-  display: block;
-  object-fit: cover; }
+  display: block; }
 
 .material-icons {
   user-select: none; }
