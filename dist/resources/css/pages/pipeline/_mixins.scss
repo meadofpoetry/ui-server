@@ -1,5 +1,6 @@
 @import '../../components/theme/_functions';
 @import '../../components/theme/_mixins';
+@import './_variables';
 @import './_functions';
 
 @mixin wm-layer-color($color) {
@@ -18,17 +19,25 @@
     $base-color:     mdc-theme-light-variant($color,2);
     $selected-color: mdc-theme-light-variant($color,1);
 
-    * [data-layer='#{$layer}'] {
+    .wm-layers-grid {
+        .mdc-dynamic-grid__item[data-layer='#{$layer}'] {
+            .wm-layer-item__color-indicator {
+                background-color: $base-color;
+            }
+        }
+    }
+    .wm-grid__grid[data-layer='#{$layer}'] {
         .mdc-dynamic-grid__item {
             @include wm-layer-color($base-color);
-            z-index: $layer + 1;
-
+            z-index: $max-layers + 1;
             &--selected {
                 @include wm-layer-color($selected-color);
             }
         }
-        .wm-layer-item__color-indicator {
-            background-color: $base-color;
+    }
+    .wm-grid__grid--background[data-layer='#{$layer}'] {
+        .mdc-dynamic-grid__item {
+            z-index: $layer + 1;
         }
     }
 }

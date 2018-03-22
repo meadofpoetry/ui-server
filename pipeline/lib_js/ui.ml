@@ -398,7 +398,8 @@ module Settings = struct
       let dis, s = make_layout set in
       let but    = new Components.Button.t ~label:"Применить" () in
       let place  = new Components.Card.t
-                       ~widgets:[ (new Card.Actions.t ~widgets:[but] ())#widget ]
+                       ~widgets:[ dis#widget
+                                ; (new Card.Actions.t ~widgets:[but] ())#widget ]
                        () in
       place#set_id id;
       but#button_element##.onclick := Dom.handler (fun _ -> post @@ React.S.value s; Js._false);
