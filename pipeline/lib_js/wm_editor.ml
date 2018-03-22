@@ -26,7 +26,7 @@ module Make(I : Item) = struct
            () =
     let rm = Wm_left_toolbar.make_action { icon = "delete"; name = "Удалить" } in
 
-    let layers = I.layers_of_t_list init in
+    let layers = I.layers_of_t_list init |> List.sort compare in
     (* fix layers indexes to be from 0 to n *)
     let init   = List.foldi (fun acc i layer ->
                      List.map (fun x -> if I.layer_of_t x = layer
@@ -34,11 +34,11 @@ module Make(I : Item) = struct
                                         else x) acc) init layers
     in
     let selected,selected_push = React.S.create None in
-    (* FIXME bad desing, think how to remove this 'selected' signal *)
     let rt   = RT.make ~selected ~layers ~candidates ~set_candidates in
-    let ig   = IG.make ~title ~resolution ~init ~selected_push ~e_layers:rt#e_layers_action () in
+    let ig   = IG.make ~title ~resolution ~init ~e_layers:rt#e_layers_action () in
     let lt   = Wm_left_toolbar.make (actions @ [rm]) in
 
+    let _ = React.S.map (fun x -> selected_push x) ig#s_selected in
     let _ = React.S.diff (fun n o ->
                 let eq = fun x1 x2 -> Equal.physical x1#root x2#root in
                 let rm = List.filter_map (fun x -> if not @@ List.mem ~eq x n

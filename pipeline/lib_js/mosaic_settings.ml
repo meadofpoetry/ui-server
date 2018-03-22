@@ -189,14 +189,6 @@ let create_widgets_grid ~(container:      Wm.container wm_item)
   let w = Widg.make ~title ~init ~candidates ~set_candidates ~resolution ~actions:[back;apply] () in
   let _ = React.E.map (fun _ -> on_apply w.ig#layout_items) apply#e_click in
   let _ = React.E.map (fun _ ->
-              (* print_endline "init\n";
-               * List.iter (fun x -> Widget_item.to_yojson x
-               *                     |> Yojson.Safe.pretty_to_string
-               *                     |> print_endline) init;
-               * print_endline "changed\n";
-               * List.iter (fun x -> Widget_item.to_yojson x
-               *                     |> Yojson.Safe.pretty_to_string
-               *                     |> print_endline) w.ig#items; *)
               let added   = List.filter (fun x -> not @@ List.mem ~eq:Widget_item.equal x init) w.ig#items in
               let removed = List.filter (fun x -> not @@ List.mem ~eq:Widget_item.equal x w.ig#items) init in
               match added,removed with

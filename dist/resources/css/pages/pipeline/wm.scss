@@ -131,6 +131,11 @@ $wm-placeholder-color: text-secondary-on-background;
         flex: 1 1 200px;
     }
 
+    &__add__wrapper {
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
     &__add__item {
         @include mdc-theme-prop(background-color,background);
 
