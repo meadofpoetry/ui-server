@@ -1,4 +1,5 @@
-@import './pages/pages.scss';
+@import './pages/pages';
+@import './sidebar_drawer';
 
 :root { --mdc-box-margin: 0px; }
 
@@ -27,39 +28,40 @@ body {
 {
 #main-toolbar {
     left: 0px;
-    transition: left 0.225s;
+    transition: all 0.225s;
 }
 
 body.hide-sidedrawer #main-toolbar {
     left: 240px;
-    transition: left 0.225s;
+    width: calc(100% - 240px);
+    transition: all 0.225s;
 }
 
 #main-content {
     left: 0px;
-    transition: left 0.225s;
+    transition: all 0.225s;
 }
 body.hide-sidedrawer #main-content {
-    transition: left 0.225s;
+    transition: all 0.225s;
     left: 240px;
     width: calc(100% - 240px);
 }
 
 #main-with-sidebar {
     left: 0px;
-    transition: left 0.225s;
+    transition: all 0.225s;
 }
 body.hide-sidedrawer #main-with-sidebar {
-    transition: left 0.225s;
+    transition: all 0.225s;
     left: 240px;
 }
 
 #arbitrary-content {
     left: 0px;
-    transition: left 0.225s;
+    transition: all 0.225s;
 }
 body.hide-sidedrawer #arbitrary-content {
-    transition: left 0.225s;
+    transition: all 0.225s;
     left: 240px;
 }
 
