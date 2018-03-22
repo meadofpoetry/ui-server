@@ -1,4 +1,5 @@
 open Containers
+open Msg_conv
    
 module type NOTIF = sig
   type t
@@ -8,8 +9,9 @@ end
 
 module Make(N: NOTIF) = struct
   type t = N.t
-  let create = function
-    | `Json -> fun pus -> N.name, (fun v -> pus @@ N.of_yojson v)
+  let create : type a. a typ -> ((t, string) result -> unit) -> (string * (a -> unit)) = function
+    | Json    -> fun pus -> N.name, (fun v -> pus @@ N.of_yojson v)
+    | Msgpack -> failwith "not implemented"
 end
 
 let dispatch_js
@@ -20,3 +22,7 @@ let dispatch_js
       | Some f -> f data
     end
   | _ -> ()
+
+let dispatch : type a. a typ -> (string, (a -> unit)) Hashtbl.t -> a -> unit = function
+  | Json    -> dispatch_js
+  | Msgpack -> failwith "not implemented"

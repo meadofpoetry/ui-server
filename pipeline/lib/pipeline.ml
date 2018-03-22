@@ -2,14 +2,13 @@ open Containers
 open Lwt_react
 open Lwt.Infix
 open Containers
+open Msg_conv
 open Pipeline_protocol
    
 let (%) = Fun.(%)
 
 type pipe = { api       : Pipeline_protocol.api 
             ; state     : Pipeline_protocol.state
-            ; db_events : unit event
-                               (* ; _e        : unit event*)
             }
           
 module PSettings = struct
@@ -53,34 +52,51 @@ let create config dbs (hardware_streams : Common.Stream.source list React.signal
   match Conf.get_opt config with
   | None     -> None, None
   | Some cfg ->
-     let converter = Msg_conv.get_converter cfg.msg_fmt in
      let exec_path = (Filename.concat cfg.bin_path cfg.bin_name) in
-     let exec_opts = Array.of_list (cfg.bin_name :: "-m" :: (PSettings.format_to_string cfg.msg_fmt) :: cfg.sources) in   
-     match Unix.fork () with
-     | -1   -> failwith "Ooops, fork failed"
-     | 0    -> (try Unix.execv exec_path exec_opts with _ -> Unix.sleep 2; print_endline "fork failed"; exit (-1))
-     | pid  ->
-        let api, state, recv = Pipeline_protocol.create cfg.sock_in cfg.sock_out hardware_streams in
-        let db_events = connect_db (S.changes api.streams) dbs in
-        (* let _e = E.map (function
-                     | None -> ()
-                     | Some e ->
-                     Wm.to_yojson e
-                     |> Yojson.Safe.pretty_to_string
-                     |> Lwt_io.printlf "Got stream from pipeline:\n %s\n"
-                     |> ignore)
-                   (S.changes api.wm) in*)
-        let obj = { api; state; db_events } in
-        (* polling loop *)
-        let rec loop () =
-          recv () >>= loop
-        in
-        (* finalizer *)
-        let fin () =
-          Lwt_unix.waitpid [] pid >>= fun _ ->
-          Lwt.fail_with "Child'd died for some reason"
-        in
-        Some obj, Some (Lwt.pick [loop (); fin ()])
+     let exec_opts = Array.of_list (cfg.bin_name
+                                    :: "-m"
+                                    :: (PSettings.format_to_string cfg.msg_fmt)
+                                    :: cfg.sources)
+     in
+     let api, state, recv =
+       match cfg.msg_fmt with
+       | `Json    -> Pipeline_protocol.create Json config cfg.sock_in cfg.sock_out hardware_streams
+       | `Msgpack -> Pipeline_protocol.create Msgpack config cfg.sock_in cfg.sock_out hardware_streams
+     in
+     Lwt_react.E.keep @@ connect_db (S.changes api.streams) dbs;
+     let obj = { api; state } in
+     (* polling loop *)
+     let rec loop () =
+       recv () >>= loop
+     in
+     (* finalizer *)
+     let fin () =
+       Lwt_process.exec (exec_path, exec_opts) >>= fun _ ->
+       Lwt.fail_with "Child'd died for some reason"
+     in
+     Some obj, Some (Lwt.pick [loop (); fin ()])
 
 let finalize pipe =
   Pipeline_protocol.finalize pipe.state
+
+let get_streams pipe =
+  let open Structure in
+  let get_stream = function
+    | Unknown  -> None
+    | Stream s ->
+       match s.id with
+       | `Ts _ -> Some s
+       | `Ip _ ->
+          match s.source with
+          | Input _  -> Some s
+          | Parent p -> Some p 
+  in
+  React.S.map (List.filter_map (fun x -> get_stream x.source)) pipe.api.streams
+
+let get_channels pipe =
+  let open Structure in
+  let get_channels str =
+    let id = str.id in
+    List.map (fun c -> (id, c)) str.channels
+  in
+  React.S.map (List.fold_left (fun acc x -> (get_channels x.structure) @ acc) []) pipe.api.streams

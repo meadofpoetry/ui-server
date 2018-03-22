@@ -1,26 +1,30 @@
 let name = "audio_data"
 
 type params =
-  { shortt     : float
-  ; moment     : float
-  ; time       : int64
+  { min : float
+  ; max : float
+  ; avg : float
   } [@@deriving yojson]
 
-type error_flags =
-  { cont : bool
-  ; peak : bool
-  ; time : int64
+type error =
+  { counter   : int
+  ; size      : int
+  ; params    : params
+  ; timestamp : int64
+  ; peak_flag : bool
+  ; cont_flag : bool
   } [@@deriving yojson]
 
 type errors =
-  { silence  : error_flags list
-  ; loudness : error_flags list
+  { silence_shortt  : error
+  ; silence_moment  : error
+  ; loudness_shortt : error
+  ; loudness_moment : error
   } [@@deriving yojson]
 
 type t =
   { stream     : int
   ; channel    : int
   ; pid        : int
-  ; parameters : params list
   ; errors     : errors
   } [@@deriving yojson]

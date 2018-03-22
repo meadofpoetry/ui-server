@@ -36,6 +36,7 @@ let parse_uri =
   in parse_string parser
 
 let match_streams
+      input
       (sources : Common.Stream.source list)
       (s : Structure.structure list) : Structure.t list =
   let open Structure in
@@ -67,7 +68,6 @@ let match_streams
   let inputs, parents = List.partition_map
                           Common.Stream.(function Input i -> `Left i | Parent p -> `Right p)
                           sources in
-  let input = List.head_opt inputs in
   merge input parents [] s
 
 let dump_streams (entries : Structure.t list) =

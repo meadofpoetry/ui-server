@@ -1,6 +1,6 @@
 opam-version: "1.2"
 maintainer: "freyr"
-authors: ["et al."]
+authors: ["et al"]
 tags: []
 license: ""
 homepage: "https://github.com/Freyr666/ui-server"
@@ -13,19 +13,5 @@ build: [
 build-test: [["jbuilder" "runtest" "-p" name "-j" jobs]]
 depends: [
   "jbuilder" {build}
-  "containers"
-  "yojson"
-  "ppx_deriving_yojson"
-  "caqti-lwt"
-  "ctypes"
-  "ctypes.foreign"
   "lwt"
-  "websocket-lwt"
-  "api"
-  "storage"
-  "common"
-  "meta_board"
-  "board-dvb-niit"
-  "board-ip-dektec"
-  "board-qos-niit"
 ]

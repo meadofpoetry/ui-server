@@ -36,6 +36,19 @@ let main config =
     
     let server = Serv.create config auth_filter routes templates in
 
+    let spipe   = (match pipe with
+                              | Some p -> Pipeline.get_streams p
+                              | None   -> React.S.const [])
+    in
+    let shw     = Hardware.get_streams hw in
+    let piev = Lwt_react.S.map_s (fun l -> Lwt_io.printf "Pis: %d\n" @@ List.length l) spipe in
+    let hwev = Lwt_react.S.map_s (fun l -> Lwt_io.printf "Hws: %d\n" @@ List.length l) shw in
+    let streams = Db.merge [ spipe
+                           ; shw ] in
+
+    Lwt_main.run @@ Db.init db;
+    Lwt.ignore_result @@ Lwt_react.S.map_s (fun s -> Db.(request db (Store_streams s))) streams;
+
     let loops = match pipeloop with
       | None          -> [dbloop; server; hwloop]
       | Some pipeloop -> [dbloop; server; hwloop; pipeloop]
@@ -64,5 +77,6 @@ let main config =
   in mainloop ()
 
 let () =
+  Lwt_engine.set ~transfer:true ~destroy:true (new Lwt_engine.libev ~backend:Lwt_engine.Ev_backend.epoll ());
   let config = Storage.Config.create "./config.json" in
   main config
