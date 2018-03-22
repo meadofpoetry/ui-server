@@ -16,11 +16,9 @@ let init o =
        date   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
        )|eos}
   in
-  let init' (module Db : Caqti_lwt.CONNECTION) =
-    Db.exec create () >>= function
-    | Ok v    -> Lwt.return v
-    | Error _ -> Lwt.fail_with "init"
-  in Storage.Database.with_connection o init'
+  Storage.Database.exec o create () >>= function
+  | Ok v    -> Lwt.return v
+  | Error _ -> Lwt.fail_with "init"
 
 let store_status o (s : board_status) =
   let insert =
@@ -28,11 +26,9 @@ let store_status o (s : board_status) =
       {|INSERT INTO ip_status(bitrate,fec_delay,pcr_present)
        VALUES (?,?,?)|}
   in
-  let store_status' (module Db : Caqti_lwt.CONNECTION) =
-    Db.exec insert (s.bitrate, s.fec_delay, s.pcr_present) >>= function
-    | Ok v    -> Lwt.return v
-    | Error _ -> Lwt.fail_with "store_status"
-  in Storage.Database.with_connection o store_status'
+  Storage.Database.exec o insert (s.bitrate, s.fec_delay, s.pcr_present) >>= function
+  | Ok v    -> Lwt.return v
+  | Error _ -> Lwt.fail_with "store_status"
 
 let request (type a) o (req : a req) : a =
   match req with

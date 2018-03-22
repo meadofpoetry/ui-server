@@ -15,7 +15,7 @@ let measure = Caqti_type.custom
                   Ok(id, { lock; power; mer; ber; freq; bitrate; timestamp = (Int32.to_float timestamp)}))
   
 let init o =
-  let create =
+  let create_video =
     Caqti_request.exec Caqti_type.unit
       {eos|
        CREATE TABLE IF NOT EXISTS dvb_meas(
@@ -30,11 +30,9 @@ let init o =
        )
        |eos}
   in
-  let init' (module Db : Caqti_lwt.CONNECTION) =
-    Db.exec create () >>= function
-    | Ok v    -> Lwt.return v
-    | Error _ -> Lwt.fail_with "init"
-  in Storage.Database.with_connection o init'
+  Storage.Database.exec o create_video () >>= function
+  | Ok v    -> Lwt.return v
+  | Error _ -> Lwt.fail_with "init"
 
 let store_measures o (id,m) =
   let insert =
@@ -42,11 +40,9 @@ let store_measures o (id,m) =
       {|INSERT INTO dvb_meas(tun,lock,power,mer,ber,freq,bitrate,date)
        VALUES (?,?,?,?,?,?,?,?)|}
   in
-  let store_measures' (module Db : Caqti_lwt.CONNECTION) =
-    Db.exec insert (id,m) >>= function
-    | Ok v    -> Lwt.return v
-    | Error _ -> Lwt.fail_with "store_measure"
-  in Storage.Database.with_connection o store_measures'
+  Storage.Database.exec o insert (id,m) >>= function
+  | Ok v    -> Lwt.return v
+  | Error _ -> Lwt.fail_with "store_measure"
 
 let request (type a) o (req : a req) : a =
   match req with

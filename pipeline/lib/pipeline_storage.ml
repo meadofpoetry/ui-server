@@ -6,23 +6,6 @@ type _ req =
   | Store_structures : Structure.t list -> unit Lwt.t req
 
 let init o =
-  (*let create_streams =
-    Caqti_request.exec Caqti_type.unit
-      {eos|CREATE TABLE IF NOT EXISTS streams(
-       input  TEXT NON NULL,
-       value  TEXT,
-       date   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-       )|eos}
-  in
-  let create_channels =
-    Caqti_request.exec Caqti_type.unit
-      {eos|CREATE TABLE IF NOT EXISTS channels(
-       input  TEXT NON NULL,
-       value  TEXT,
-       date   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-       )|eos}
-  in
-   *)
   let create_video =
     Caqti_request.exec Caqti_type.unit
       {eos|CREATE TABLE IF NOT EXISTS qoe_video_errors(
@@ -36,11 +19,9 @@ let init o =
        date   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
        )|eos}
   in
-  let create_video' (module Db : Caqti_lwt.CONNECTION) =
-    Db.exec create_video () >>= function
-    | Ok v    -> Lwt.return v
-    | Error _ -> Lwt.fail_with "init"
-  in Storage.Database.with_connection o create_video'
+  Storage.Database.exec o create_video () >>= function
+  | Ok v    -> Lwt.return v
+  | Error _ -> Lwt.fail_with "init"
              
 let store_structures dbs streams =
   let insert =

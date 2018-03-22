@@ -61,8 +61,32 @@ let create config period =
   in
   obj, loop ()
 
+
 let with_connection (type a) o (f : (module Caqti_lwt.CONNECTION) -> a Lwt.t) : a Lwt.t =
   Lwt_mutex.with_lock o.mutex (fun () -> f o.db)
+  
+let exec o r v =
+  Lwt_mutex.with_lock o.mutex (fun () ->
+      let (module Db) = o.db in
+      Db.exec r v)
+
+let find o r v =
+  let (module Db) = o.db in
+  Db.find r v
+
+let find_opt o r v =
+  let (module Db) = o.db in
+  Db.find_opt r v
+  
+(* TODO add fold fold_s iter_s *)
+
+let collect_list o r v =
+  let (module Db) = o.db in
+  Db.collect_list r v
+
+let rev_collect_list o r v =
+  let (module Db) = o.db in
+  Db.rev_collect_list r v
 
 let add_maintainer o f =
   o.workers := f :: !(o.workers)
