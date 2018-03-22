@@ -96,7 +96,11 @@ module Make(I : Item) = struct
         let layer  = List.hd layers in
         set_layers layers;
         set_active layer;
-        List.iter (fun g -> List.iter (fun i -> self#update_item_min_size i) g#items) layers
+        self#update_items_min_size
+
+      method private update_items_min_size =
+        List.iter (fun g -> List.iter (fun i -> self#update_item_min_size i) g#items)
+                  (React.S.value s_layers)
 
       initializer
         grid_icon#set_on true;
@@ -118,7 +122,9 @@ module Make(I : Item) = struct
                                                  | Some w,Some h -> set_grid (w,h)
                                                  | _             -> ())
                                   | _ -> ()) menu#e_selected |> ignore;
-        React.S.map (fun x -> menu_sel#set_text_content @@ grid_to_string x) s_grid |> ignore;
+        React.S.map (fun x -> menu_sel#set_text_content @@ grid_to_string x;
+                              self#update_items_min_size) s_grid
+        |> ignore;
         (* show grid menu *)
         Dom_events.listen anchor#root Dom_events.Typ.click (fun _ _ ->
                             let item text = new Menu.Item.t ~text () in

@@ -5,6 +5,11 @@ open Lwt_result.Infix
 open Wm_types
 open Wm_components
 
+type container_grids =
+  { rect  : Wm.position
+  ; grids : (int * int) list
+  }
+
 let pos_absolute_to_relative (pos:Wm.position) (cont_pos:Wm.position) : Wm.position =
   { left   = pos.left - cont_pos.left
   ; right  = pos.right - cont_pos.left
@@ -43,7 +48,7 @@ let get_container_grids (item:Wm.container) =
                                                      let top    = pos.top - rect.top in
                                                      let bottom = top + h in
                                                      { left;top;right;bottom}) item.widgets in
-  Utils.get_grids ~resolution ~positions ()
+  { rect; grids = Utils.get_grids ~resolution ~positions () }
 
 module Container_item : Item with type item = Wm.container = struct
 
@@ -56,7 +61,7 @@ module Container_item : Item with type item = Wm.container = struct
   let update_min_size (t : t) =
     let min_size = match t.item.widgets with
       | [] -> None
-      | _  -> let w,h = List.hd @@ get_container_grids t.item in
+      | _  -> let w,h = List.hd (get_container_grids t.item).grids in
               Some (w,h)
     in
     { t with min_size }
@@ -78,33 +83,32 @@ module Container_item : Item with type item = Wm.container = struct
     let ow,oh = op.right - op.left, op.bottom - op.top in
     let item  = match (ow <> nw || oh <> nh) && not (List.is_empty t.item.widgets) with
       | true  ->
-         (* size changed *)
-         let rect  = Utils.to_grid_position @@ get_widgets_bounding_rect t.item in
+         let grids = get_container_grids t.item in
+         let rect  = grids.rect |> Utils.to_grid_position in
          let np    = Utils.resolution_to_aspect (rect.w,rect.h)
-                    |> Dynamic_grid.Position.correct_aspect (Utils.to_grid_position p)
+                     |> Dynamic_grid.Position.correct_aspect (Utils.to_grid_position p)
          in
-         let centered = Utils.center ~parent:p ~pos:(Utils.of_grid_position np) () in
-         let dx       = centered.left - p.left in
-         let dy       = centered.top  - p.top in
-         let f (w:Wm.widget) : Wm.widget =
-           let pos    = w.position in
-           let ax,ay  = Utils.resolution_to_aspect (pos.right - pos.left,pos.bottom - pos.top) in
-           let width  = ((pos.right - pos.left) * np.w) / rect.w in
-           let height = (width * ay) / ax in
-           let width,height = Dynamic_grid.Position.correct_aspect {x=0;y=0;w=width;h=height} (ax,ay)
-                              |> (fun (x:Dynamic_grid.Position.t) -> x.w,x.h) in
-           let left   = (((pos.left - rect.x) * np.w) / rect.w) + dx in
-           let top    = (((pos.top - rect.y) * np.h) / rect.h) + dy in
-           let (pos:Wm.position) = { left
-                                   ; right  = left + width
-                                   ; top
-                                   ; bottom = top + height
-                                   }
-           in
-           { w with position = pos }
+         let w,h = if np.w > rect.w
+                   then List.hd grids.grids
+                   else List.fold_left (fun acc (w,h) -> if w > (fst acc) && w <= np.w
+                                                         then (w,h) else acc) (0,0) grids.grids
          in
-         let w    = List.map (fun (s,w) -> s,f w) t.item.widgets in
-         { t.item with position = p; widgets = w }
+         let cw,rh = np.w / w, np.h / h in
+         let dx       = ((nw / cw) - w) / 2 in
+         let dy       = ((nh / rh) - h) / 2 in
+         let f (widget:Wm.widget) : Wm.widget =
+           Utils.of_grid_position rect
+           |> pos_absolute_to_relative widget.position
+           |> Wm_items_layer.grid_pos_of_layout_pos ~resolution:(rect.w,rect.h) ~cols:w ~rows:h
+           |> (fun pos -> Dynamic_grid.Position.({ x = (pos.x + dx) * cw
+                                                 ; y = (pos.y + dy) * rh
+                                                 ; w = pos.w * cw
+                                                 ; h = pos.h * rh }))
+           |> Utils.of_grid_position
+           |> (fun position -> { widget with position })
+         in
+         let widgets  = List.map (fun (s,w) -> s,f w) t.item.widgets in
+         { t.item with position = p; widgets }
       | false -> { t.item with position = p }
     in
     { t with item }
