@@ -5,7 +5,7 @@ open Gg
 open Vg
 open Common.Topology
 open Containers
-   
+
 (*All positioning constants in GG and VG mean: *)
 (*X from left to right and Y from bottom to top*)
 (*    0.0,1.0 __________________  1.0,1.0      *)
@@ -13,6 +13,7 @@ open Containers
 (*           |                  |              *)
 (*           |                  |              *)
 (*    0.0,0.0|__________________| 1.0,0.0      *)
+
 let font = Font.{ name = "Roboto"; slant = `Normal; weight = `W400; size = 0.01}
 
 let text ~text pos f = I.cut_glyphs f ~text [] (I.const Color.black)
@@ -77,24 +78,18 @@ let rec setting t x y y1 height l =
     | Board el ->
       let l = List.Assoc.set ~eq:(Pair.equal Float.equal Float.equal) (x , y) (Board el) l in
       let l = List.Assoc.set ~eq:(Pair.equal Float.equal Float.equal) (x +. 0.5, y) (Board el) l in
-      let l =
-        if Float.((y +. 0.5) < y1 +. height)
-        then setting t x (y +. 0.5) y1 height l
-        else l
-      in
-      l
+      if Float.((y +. 0.5) < y1 +. height)
+      then setting t x (y +. 0.5) y1 height l
+      else l
     | Input el ->
       let l = List.Assoc.set ~eq:(Pair.equal Float.equal Float.equal) (x,y) (Input el) l in
-      let l =
-        if Float.((y +. 0.5) < y1 +. height)
-        then setting t x (y +. 0.5) y1 height l
-        else l
-      in
-      l
+      if Float.((y +. 0.5) < y1 +. height)
+      then setting t x (y +. 0.5) y1 height l
+      else l
 
-let green = I.const @@ Color.v 0.30 0.69 0.21 1.0   (*a green image, slightly transparent*)
-let red   = I.const @@ Color.v 0.96 0.26 0.21 1.0   (*a red image*)
-let gray  = I.const @@ Color.v 0.62 0.62 0.62 1.0   (*a gray image*)
+let green = I.const @@ Color.v 0.30 0.69 0.21 1.0   (* a green image *)
+let red   = I.const @@ Color.v 0.96 0.26 0.21 1.0   (* a red image *)
+let gray  = I.const @@ Color.v 0.62 0.62 0.62 1.0   (* a gray image *)
 
 (*px to mm*)
 let size x y = Size2.v (float_of_int x *. 0.26458333) (float_of_int y *. 0.26458333)
@@ -112,9 +107,10 @@ let prompt quest def=
   Js.Opt.get (Dom_html.window##prompt (Js.string quest) (Js.string def))
     (fun () -> Js.string def)
   |> Js.to_string
+
 (*returns the size considering x and y, rows and cols (size for vg in 1./.x etc.)*)
-let true_size x_draw y_draw x y cols raws =
-  P2.v ((x_draw +. x) /. cols) ((y_draw +. y) /.raws)
+let true_size x_draw y_draw x y cols rows =
+  P2.v ((x_draw +. x) /. cols) ((y_draw +. y) /.rows)
 
 module Port = struct
   (*a function for drawing qoe box. isn't used yet, but might be*)
@@ -133,9 +129,9 @@ module Port = struct
     let img = I.const @@ Color.v 0.1 0.1 0.1 1.0 >> I.cut p in         (*cut an image of color gray with path p*)
     (I.blend img acc)                                                  (*blend image with acc *)
 
-  let draw_input t (acc, acc_top) x y cols rows size =                      (*drawing an input element*)
+  let draw_input t (acc, acc_top) ~x ~y ~cols ~rows ~size =            (*drawing an input element*)
     let acc_top = setting (Input t) x y y 1. acc_top in                (*setting a name of input to the list*)
-    let area = `O { P.o with P.width = 0.2 /. size } in       (*a void area with given width of border*)
+    let area = `O { P.o with P.width = 0.2 /. size } in                (*a void area with given width of border*)
     let sz x_draw y_draw = true_size x_draw y_draw x y cols rows in    (*a size and a position of an element*)
     let p = P.empty                                                    (*a box*)
             >> P.sub    (sz 0.01 0.50)                                 (*center left*)
@@ -230,17 +226,17 @@ module Port = struct
     >> P.line   (sz x_delta 0.0)                                       (*a straight line to right bottom*)
 
   (* draws a line between elements of given x and y. usually x1,y1 is a child and x2,y2 is a parent *)
-  let draw_line acc colour x1 y_1 x2 y2 cols rows sz =                 (*draws a connecting line between elements*)
-    let x1      = (if Float.equal x1 1. then 0.5 else x1) in                    (*for proper drowing of line to input*)
-    let y1      = y_1 +. 0.5 in                                        (*a line should be a half higher*)
-    let area    = `O { P.o with P.width = 0.3 /. sz } in
-    (if Float.equal y1 y2                                                        (*if the level is equal*)
+  let draw_line acc colour ~x1 ~y1 ~x2 ~y2 ~cols ~rows ~size =         (*draws a connecting line between elements*)
+    let x1      = (if Float.equal x1 1. then 0.5 else x1) in           (*for proper drowing of line to input*)
+    let y1      = y1 +. 0.5 in                                         (*a line should be a half higher*)
+    let area    = `O { P.o with P.width = 0.3 /. size } in
+    (if Float.equal y1 y2                                              (*if the level is equal*)
      then draw_straight x1 y1 x2 y2 cols rows                          (*draw straight line*)
-     else if Float.((x2 -. x1) >= 2.0)                                      (*if the line is long*)
-     then (if Float.(y2 > y1)                                                  (*if parent is higher*)
+     else if Float.((x2 -. x1) >= 2.0)                                 (*if the line is long*)
+     then (if Float.(y2 > y1)                                          (*if parent is higher*)
            then draw_long_if_parent_higher x1 y1 x2 y2 cols rows
            else draw_long_if_child_higher x1 y1 x2 y2 cols rows)       (*if child is higher*)
-     else if Float.(y2 > y1)                                                  (*if the line is short*)
+     else if Float.(y2 > y1)                                           (*if the line is short*)
      then draw_short_if_parent_higher x1 y1 x2 y2 cols rows            (*if parent is higher*)
      else draw_short_if_child_higher x1 y1 x2 y2 cols rows)            (*if child is higher*)
     |> (fun p -> let img = colour >> I.cut ~area p in                  (*cut the image of line with path p*)
@@ -250,7 +246,7 @@ end
 
 module Board = struct
 
-  let rec draw t (acc, acc_top) x y cols rows sz =
+  let rec draw t (acc, acc_top) ~x ~y ~cols ~rows ~size =
     let num        = List.length t.ports in
     (* the more children converter has the bigger it is *)
     let height     = if Equal.poly t.typ TS2IP then (float_of_int num *. 2.) else 1. in
@@ -258,49 +254,52 @@ module Board = struct
     let y          = if Equal.poly t.typ TS2IP then y -. 0.5 else y in
     (*set the name of a board to list*)
     let acc_top    = setting (Board t) x y y height acc_top in
-    let area       = `O {P.o with P.width = 0.2 /. sz} in
-    let board_form =                                                     (*a path to draw a board itself *)
-      let sz x_draw y_draw = true_size x_draw y_draw x y cols rows in
-      P.empty                                                            (*an element - a part of it*)
-      >> P.sub    (sz 0.00  0.15)                                        (*left bottom corner  - top left*)
-      >> P.line   (sz 0.00 (height -. 0.15))                             (*left top corner     - top left*)
-      >> P.ccurve (sz 0.00 (height -. 0.15))                             (*left top corner     - a curve itself*)
-                  (sz 0.00 (height -. 0.10))
-                  (sz 0.05 (height -. 0.10))
-      >> P.line   (sz 0.95 (height -. 0.10))                             (*right top corner    - top left*)
-      >> P.ccurve (sz 0.95 (height -. 0.10))                             (*right top corner    - a curve itself*)
-                  (sz 1.00 (height -. 0.10))
-                  (sz 1.00 (height -. 0.15))
-      >> P.line   (sz 1.00 0.15)                                         (*right bottom corner - top right*)
-      >> P.ccurve (sz 1.00 0.15)                                         (*right bottom corner - a curve itself*)
-                  (sz 1.00 0.10)
-                  (sz 0.95 0.10)
-      >> P.line   (sz 0.05 0.10)                                         (*left bottom corner  - right bottom*)
-      >> P.ccurve (sz 0.05 0.10)                                         (*left bottom corner  - a curve itself*)
-                  (sz 0.00 0.10)
-                  (sz 0.00 0.15)
+    let area       = `O {P.o with P.width = 0.2 /. size} in
+    let board_form =                                           (*a path to draw a board itself *)
+      let calc_size x_draw y_draw = true_size x_draw y_draw x y cols rows in
+      P.empty                                                  (*an element - a part of it*)
+      >> P.sub    (calc_size 0.00  0.15)                       (*left bottom corner  - top left*)
+      >> P.line   (calc_size 0.00 (height -. 0.15))            (*left top corner     - top left*)
+      >> P.ccurve (calc_size 0.00 (height -. 0.15))            (*left top corner     - a curve itself*)
+           (calc_size 0.00 (height -. 0.10))
+           (calc_size 0.05 (height -. 0.10))
+      >> P.line   (calc_size 0.95 (height -. 0.10))            (*right top corner    - top left*)
+      >> P.ccurve (calc_size 0.95 (height -. 0.10))            (*right top corner    - a curve itself*)
+           (calc_size 1.00 (height -. 0.10))
+           (calc_size 1.00 (height -. 0.15))
+      >> P.line   (calc_size 1.00 0.15)                        (*right bottom corner - top right*)
+      >> P.ccurve (calc_size 1.00 0.15)                        (*right bottom corner - a curve itself*)
+           (calc_size 1.00 0.10)
+           (calc_size 0.95 0.10)
+      >> P.line   (calc_size 0.05 0.10)                        (*left bottom corner  - right bottom*)
+      >> P.ccurve (calc_size 0.05 0.10)                        (*left bottom corner  - a curve itself*)
+           (calc_size 0.00 0.10)
+           (calc_size 0.00 0.15)
     in
     (* a color of a board depends on its state, a color of border is the same but brighter *)
     let colour, border_col =                                             (*a color of board and border*)
       match t.connection with                                            (*according to its state*)
-      | `Fine        -> Color.v 0.44 0.73 0.46 1.0, Color.v 0.30 0.69 0.21 1.0 (*light green and green*)
-      | `No_response -> Color.v 0.94 0.46 0.46 1.0, Color.v 0.96 0.26 0.21 1.0 (*light red and red*)
-      | `Init        -> Color.v 0.74 0.74 0.74 1.0, Color.v 0.62 0.62 0.62 1.0 (*light gray and gray*)
+      | `Fine        -> Color.v 0.44 0.73 0.46 1.0,(* light green *)
+                        Color.v 0.30 0.69 0.21 1.0 (* green *)
+      | `No_response -> Color.v 0.94 0.46 0.46 1.0,(* light red *)
+                        Color.v 0.96 0.26 0.21 1.0 (* red *)
+      | `Init        -> Color.v 0.74 0.74 0.74 1.0,(* light gray *)
+                        Color.v 0.62 0.62 0.62 1.0 (* gray *)
     in
     let border      = I.const border_col >> I.cut ~area board_form in    (*draw border*)
     let board       = I.const colour  >> I.cut board_form in             (*draw board*)
     let with_border = I.blend border board in                            (*and image of board and border*)
     let with_label  = I.blend (text ~text:(board_to_string t.typ)        (*an image with label*)
                                  (true_size 0.1 0.05 x (y +. height -. 1. +. 0.42) cols rows)
-                                 { font with size = 3.5 /. sz; weight = `W400 })
-                              with_border in
+                                 { font with size = 3.5 /. size; weight = `W400 })
+                        with_border in
     let with_model  = I.blend (text ~text:t.model                        (*an image with model*)
                                  (true_size 0.1 0.05 x (y +. height -. 1. +. 0.27) cols rows)
-                                 { font with size = 3. /. sz; weight = `W300 })
-                              with_label in
+                                 { font with size = 3. /. size; weight = `W300 })
+                        with_label in
     let with_manuf  = I.blend (text ~text:t.manufacturer                 (*an image with manufacturer*)
                                  (true_size 0.1 0.05 x (y +. height -.1. +. 0.15) cols rows)
-                                 { font with size = 3. /. sz; weight = `W300 })
+                                 { font with size = 3. /. size; weight = `W300 })
                               with_model in
     let img1        = I.blend with_manuf acc in                          (*blended with acc*)
     match t.ports with
@@ -312,11 +311,18 @@ module Board = struct
            | TS2IP ->
               let y_child = y +. float_of_int ((num-i-1)*2) +. 0.5 in    (*converter, then child height is <-*)
               let draw_line x1 =
-                (Port.draw_line acc colour1 x1 y_child x (y_child +. 0.5) cols rows sz),
-                                 acc_top in                              (*we blend the image of line with acc_top*)
+                (Port.draw_line acc colour1
+                   ~x1 ~y1:y_child
+                   ~x2:x ~y2:(y_child +. 0.5)
+                   ~cols ~rows ~size),
+                acc_top in                                               (*we blend the image of line with acc_top*)
               (match z.child with                                        (*then we decide what to draw - input or board*)
-               | Input el -> Port.draw_input el (draw_line 1.0) 0.0 y_child cols rows sz
-               | Board el -> draw el (draw_line @@ x -. 1.0) (x -. 2.0) y_child cols rows sz)
+               | Input el -> Port.draw_input el (draw_line 1.0)
+                               ~x:0.0 ~y:y_child
+                               ~cols ~rows ~size
+               | Board el -> draw el (draw_line @@ x -. 1.0)
+                               ~x:(x -. 2.0) ~y:y_child
+                               ~cols ~rows ~size)
            | _ ->
               let y_child =                                              (*if it's not a converter,*)
                 match num with                                           (*this part is used for calculating*)
@@ -331,25 +337,35 @@ module Board = struct
               let y2 = y +. 1.0 -. (float_of_int (i + 1)) /. ((float_of_int num) +. 1.0) in
               (match z.child with
                | Input el ->
-                  let line = (Port.draw_line acc colour1 1.0 y_child x y2 cols rows sz),
+                  let line = (Port.draw_line acc colour1
+                                ~x1:1.0 ~y1:y_child
+                                ~x2:x ~y2
+                                ~cols ~rows ~size),
                              acc_top in
-                  Port.draw_input el line 0.0 y_child cols rows sz
+                  Port.draw_input el line ~x:0.0 ~y:y_child ~cols ~rows ~size
                | Board el ->
-                  let line = (Port.draw_line acc colour1 (x -. 1.0) y_child x y2 cols rows sz),
+                  let line = (Port.draw_line acc colour1
+                                ~x1:(x -. 1.0) ~y1:y_child
+                                ~x2:x ~y2
+                                ~cols ~rows ~size),
                              acc_top in
-                  draw el line (x -. 2.0) y_child cols rows sz))
+                  draw el line ~x:(x -. 2.0) ~y:y_child ~cols ~rows ~size))
                     (img1,acc_top) l
 end
 
 module Entry = struct
 
-  let draw t (acc, acc_top, num) cols rows sz h =
-    let cols_f = float_of_int cols in
-    let rows_f = float_of_int rows in
+  let draw t (acc, acc_top, num) cols rows size h =
+    let cols = float_of_int cols in
+    let rows = float_of_int rows in
     let (acc1,acc_top1) =
       match t with
-      | Input x -> Port.draw_input x (acc, acc_top) 0.0 (num +. h) cols_f rows_f sz
-      | Board x -> Board.draw x (acc, acc_top) (cols_f -. 1.0) (num +. h /. 2.) cols_f rows_f sz
+      | Input x -> Port.draw_input x (acc, acc_top)
+                     ~x:0.0 ~y:(num +. h)
+                     ~cols ~rows ~size
+      | Board x -> Board.draw x (acc, acc_top)
+                     ~x:(cols -. 1.0) ~y:(num +. h /. 2.)
+                     ~cols ~rows ~size
     in
     (acc1, acc_top1, num +. h)
 
@@ -408,11 +424,11 @@ let render ?on_click ~topology ~(width : int) ~canvas () =
   |> ignore;
   match on_click with
   | Some f -> Dom_events.listen canvas
-                                Dom_events.Typ.click
-                                (fun _ e -> (match get_node e with
-                                             | Some node -> f node;
-                                             | None      -> ());
-                                            false)
+                Dom_events.Typ.click
+                (fun _ e -> (match get_node e with
+                             | Some node -> f node;
+                             | None      -> ());
+                            false)
               |> ignore
   | None -> ();
 
