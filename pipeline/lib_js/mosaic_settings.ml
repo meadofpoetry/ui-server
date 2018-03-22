@@ -31,6 +31,20 @@ let get_widgets_bounding_rect (container:Wm.container) =
                                                            { left;top;right;bottom})
                              (snd hd).position tl
 
+let get_container_grids (item:Wm.container) =
+  let rect       = get_widgets_bounding_rect item in
+  let resolution = rect.right - rect.left, rect.bottom - rect.top in
+  let positions  = List.map (fun (_,(x:Wm.widget)) : Wm.position ->
+                                                     let pos    = x.position in
+                                                     let w      = pos.right - pos.left in
+                                                     let h      = pos.bottom - pos.top in
+                                                     let left   = pos.left - rect.left in
+                                                     let right  = left + w in
+                                                     let top    = pos.top - rect.top in
+                                                     let bottom = top + h in
+                                                     { left;top;right;bottom}) item.widgets in
+  Utils.get_grids ~resolution ~positions ()
+
 module Container_item : Item with type item = Wm.container = struct
 
   type item        = Wm.container  [@@deriving yojson,eq]
@@ -39,10 +53,18 @@ module Container_item : Item with type item = Wm.container = struct
 
   let max_layers = 1
 
+  let update_min_size (t : t) =
+    let min_size = match t.item.widgets with
+      | [] -> None
+      | _  -> let w,h = List.hd @@ get_container_grids t.item in
+              Some (w,h)
+    in
+    { t with min_size }
   let t_to_layout_item (t:t) = t.name,t.item
   let t_of_layout_item (k,(v:item)) =
     let icon = "crop_16_9" in
-    { icon; name = k; unique = false; item = v }
+    let t    = { icon; name = k; unique = false; min_size = None; item = v } in
+    update_min_size t
   let to_grid_item (t:t) (pos:Dynamic_grid.Position.t) =
     let widget = Item_info.make_container_info t in
     Dynamic_grid.Item.to_item ~value:t ~widget ~pos ()
@@ -61,20 +83,11 @@ module Container_item : Item with type item = Wm.container = struct
          let np    = Utils.resolution_to_aspect (rect.w,rect.h)
                     |> Dynamic_grid.Position.correct_aspect (Utils.to_grid_position p)
          in
-         Printf.printf "np: %s\n" (Wm.position_to_yojson p
-                                   |> Yojson.Safe.pretty_to_string);
-         Printf.printf "rp: %s\n" (Utils.of_grid_position rect
-                                   |> Wm.position_to_yojson |> Yojson.Safe.pretty_to_string);
-         Printf.printf "cp: %s\n" (Utils.of_grid_position np
-                                   |> Wm.position_to_yojson
-                                   |> Yojson.Safe.pretty_to_string);
          let centered = Utils.center ~parent:p ~pos:(Utils.of_grid_position np) () in
          let dx       = centered.left - p.left in
          let dy       = centered.top  - p.top in
          let f (w:Wm.widget) : Wm.widget =
            let pos    = w.position in
-           print_endline "";
-           Printf.printf "widget pos: %s\n" (Wm.position_to_yojson pos |> Yojson.Safe.pretty_to_string);
            let ax,ay  = Utils.resolution_to_aspect (pos.right - pos.left,pos.bottom - pos.top) in
            let width  = ((pos.right - pos.left) * np.w) / rect.w in
            let height = (width * ay) / ax in
@@ -82,9 +95,6 @@ module Container_item : Item with type item = Wm.container = struct
                               |> (fun (x:Dynamic_grid.Position.t) -> x.w,x.h) in
            let left   = (((pos.left - rect.x) * np.w) / rect.w) + dx in
            let top    = (((pos.top - rect.y) * np.h) / rect.h) + dy in
-           Printf.printf "mod left: %d, mod top: %d\n"
-                         (((pos.left - rect.x) * np.w) mod rect.w)
-                         (((pos.top - rect.y) * np.h) mod rect.h);
            let (pos:Wm.position) = { left
                                    ; right  = left + width
                                    ; top
@@ -94,7 +104,6 @@ module Container_item : Item with type item = Wm.container = struct
            { w with position = pos }
          in
          let w    = List.map (fun (s,w) -> s,f w) t.item.widgets in
-         print_endline "";
          { t.item with position = p; widgets = w }
       | false -> { t.item with position = p }
     in
@@ -120,6 +129,7 @@ module Widget_item : Item with type item = Wm.widget = struct
 
   let max_layers = 10
 
+  let update_min_size (t:t) = t
   let t_to_layout_item (t:t) = t.name,t.item
   let t_of_layout_item (k,(v:item)) =
     let icon = match v.type_ with
@@ -127,7 +137,8 @@ module Widget_item : Item with type item = Wm.widget = struct
       | "audio" -> "audiotrack"
       | _       -> "help"
     in
-    { icon; name = k; unique = true; item = v }
+    let t = { icon; name = k; unique = true; min_size = None; item = v } in
+    update_min_size t
   let to_grid_item (t:t) (pos:Dynamic_grid.Position.t) =
     let widget = Item_info.make_widget_info t in
     Dynamic_grid.Item.to_item ~keep_ar:true ~widget ~value:t ~pos ()
@@ -198,40 +209,15 @@ let create_widgets_grid ~(container:      Wm.container wm_item)
   w
 
 let switch ~grid ~(selected:Container_item.t Dynamic_grid.Item.t) ~s_state_push ~candidates ~set_candidates () =
-  let t          = selected#get_value in
   let on_apply widgets =
-    selected#set_value { t with item = { t.item with widgets }};
-    (* determine min width and height of the container *)
-    let rect       = get_widgets_bounding_rect selected#get_value.item in
-    let resolution = rect.right - rect.left, rect.bottom - rect.top in
-    let positions  = List.map (fun (_,(x:Wm.widget)) : Wm.position ->
-                                                       let pos    = x.position in
-                                                       let w      = pos.right - pos.left in
-                                                       let h      = pos.bottom - pos.top in
-                                                       let left   = pos.left - rect.left in
-                                                       let right  = left + w in
-                                                       let top    = pos.top - rect.top in
-                                                       let bottom = top + h in
-                                                       { left;top;right;bottom}) widgets in
-    (* this is min size of container now *)
-    let w,h = Utils.get_grids ~resolution ~positions () |> List.hd in
-    let cols,rows = React.S.value grid#s_grid in
-    let cw,rh     = fst grid#resolution / cols, snd grid#resolution / rows in
-    let div       = fun x y -> let res = x mod y in
-                               let div = x / y in
-                               if res > 0 then div + 1 else if res < 0 then div - 1 else div
-    in
-    (match widgets with
-     | [] -> selected#set_min_w None;
-             selected#set_min_h None
-     | _  -> let min_w = div w cw in
-             let min_h = div h rh in
-             selected#set_min_w @@ Some min_w;
-             selected#set_min_h @@ Some min_h);
+    let t = selected#get_value in
+    let t = Container_item.update_min_size { t with item = { t.item with widgets }} in
+    selected#set_value t;
+    grid#update_item_min_size selected;
     s_state_push `Container
   in
   let on_cancel  = fun () -> s_state_push `Container in
-  let w = create_widgets_grid ~container:t ~candidates ~set_candidates ~on_apply ~on_cancel () in
+  let w = create_widgets_grid ~container:selected#get_value ~candidates ~set_candidates ~on_apply ~on_cancel () in
   s_state_push (`Widget w)
 
 let serialize ~(cont:Cont.t) () : (string * Wm.container) list =
@@ -261,12 +247,13 @@ let create ~(init:     Wm.t)
   in
   let wc = List.map Widget_item.t_of_layout_item @@ get_free_widgets init.layout init.widgets in
   let s_wc,s_wc_push = React.S.create wc in
-  let s_cc,s_cc_push = React.S.create [({ icon   = "crop_16_9"
-                                        ; name   = "Контейнер"
-                                        ; unique = false
-                                        ; item   = { position = {left=0;right=0;top=0;bottom=0}
-                                                   ; widgets  = []
-                                                   }
+  let s_cc,s_cc_push = React.S.create [({ icon     = "crop_16_9"
+                                        ; name     = "Контейнер"
+                                        ; unique   = false
+                                        ; min_size = None
+                                        ; item     = { position = {left=0;right=0;top=0;bottom=0}
+                                                     ; widgets  = []
+                                                     }
                                         } : Container_item.t)
                                       ]
   in

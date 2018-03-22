@@ -57,6 +57,22 @@ module Make(I : Item) = struct
       method items           = List.map (fun x -> x#get_value) self#widgets
       method widgets         = List.fold_left (fun acc x -> x#items @ acc) [] @@ React.S.value s_layers
 
+      method update_item_min_size (item:I.t Dynamic_grid.Item.t) =
+        let t = item#get_value in
+        (match t.min_size with
+         | None    -> item#set_min_w None;
+                      item#set_min_h None;
+         | Some sz ->
+            let cols,rows = React.S.value s_grid in
+            let cw,rh = fst self#resolution / cols, snd self#resolution / rows in
+            let div   = fun x y -> let res = x mod y in
+                                   let div = x / y in
+                                   if res > 0 then div + 1 else if res < 0 then div - 1 else div
+            in
+            item#set_min_w @@ Some (div (fst sz) cw);
+            item#set_min_h @@ Some (div (snd sz) rh));
+        item#set_value t
+
       method clear = List.iter (fun x -> x#remove) self#widgets
       method initialize resolution items =
         self#clear;
@@ -79,7 +95,8 @@ module Make(I : Item) = struct
         in
         let layer  = List.hd layers in
         set_layers layers;
-        set_active layer
+        set_active layer;
+        List.iter (fun g -> List.iter (fun i -> self#update_item_min_size i) g#items) layers
 
       initializer
         grid_icon#set_on true;
