@@ -141,22 +141,27 @@ let create_channels
       (options : options)
       (trans : Structure.structure list -> Structure.t list)
       (s_push : Structure.structure list -> unit)
-      (wm_push : Wm.t -> unit) =
+      (wm_push : Wm.t -> unit)
+      (set_push : Settings.t -> unit) =
   let wm_chan    = Wm_msg.create typ send in
   let str_chan   = Structure_msg.create typ send in
   let set_chan   = Settings_msg.create typ send in
+  let set_with_push store push set = fun v ->
+    set v >>= function
+    | Error e -> Lwt.return_error e
+    | Ok ()   -> store v; push v; Lwt.return_ok ()
+  in
   let s_get_upd () =
     str_chan.get () >|= function
     | Error _ as r -> r
     | Ok v  -> Ok(trans v)
   in
-  let wm_set_upd wm = options.wm#store wm; wm_chan.set wm in
-  let s_set_upd s =
-    let s = Structure.Streams.unwrap s in
-    options.structures#store s;
-    str_chan.set s
+  let wm_set_upd  = set_with_push options.wm#store wm_push wm_chan.set in
+  let s_set_upd   =
+    let set = set_with_push options.structures#store s_push str_chan.set in
+    fun s -> set @@ Structure.Streams.unwrap s
   in
-  let set_set_upd s = options.settings#store s; set_chan.set s in
+  let set_set_upd = set_with_push options.settings#store set_push set_chan.set in
   { wm       = { wm_chan with set = wm_set_upd }
   ; streams  = { get = s_get_upd; set = s_set_upd }
   ; settings = { set_chan with set = set_set_upd }
@@ -207,7 +212,7 @@ let create (type a) (typ : a typ) config sock_in sock_out hardware_streams =
       (Structure_conv.match_streams Common.Topology.(Some { input = TSOIP; id = 42 }))
         (S.value hardware_streams) s
     in
-    create_channels typ send options merge strms_push wm_push
+    create_channels typ send options merge strms_push wm_push sets_push
   in
   
   let api = { streams
