@@ -9,6 +9,7 @@
 @import '../../components/layout-grid/_variables';
 @import '../../components/animation/_variables';
 @import '../../components/animation/_functions';
+@import './_variables';
 @import './_mixins';
 
 $wm-grid-background-color: background;
@@ -35,7 +36,7 @@ $wm-placeholder-color: text-secondary-on-background;
     .mdc-dynamic-grid__item { background-color: $material-color-purple-300; }
 }
 
-@for $i from 0 through 10 {
+@for $i from 0 through $max-layers {
     @include wm-layer-prop($i)
 }
 
@@ -368,7 +369,6 @@ $wm-placeholder-color: text-secondary-on-background;
 
         .mdc-dynamic-grid__item {
             opacity: 0.4;
-            z-index: 1;
         }
         .mdc-dynamic-grid__item__resize {
             display: none;

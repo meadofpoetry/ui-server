@@ -289,7 +289,9 @@ let create ~(init:     Wm.t)
                                           edit#e_click
                             ]
   in
-  let _ = React.E.map (fun _ -> post { resolution; widgets=[]; layout = serialize ~cont () }) save#e_click in
+  let _ = React.E.map (fun _ -> post { resolution
+                                     ; widgets=init.widgets
+                                     ; layout = serialize ~cont () }) save#e_click in
   let _ = React.E.map (fun l ->
               let layout = List.map (fun (n,(v:Wm.container)) ->
                                let widgets = conv v.position v.widgets in
