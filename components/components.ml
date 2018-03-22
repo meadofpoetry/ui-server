@@ -34,6 +34,7 @@ module Textfield         = Textfield
 module Textarea          = Textarea
 module Toolbar           = Toolbar
 module Tree              = Tree
+module Touch_draggable   = Touch_draggable
 module Typography        = Typography
 module Utils             = Utils
 module Widget            = Widget

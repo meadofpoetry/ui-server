@@ -91,9 +91,9 @@ module Make(I : Item) = struct
                                         let init  = Option.get_or ~default:[] items in
                                         let grid  = new G.t ~layer:x ~init ~s_grid ~resolution () in
                                         Dom.appendChild wrapper#root grid#root;
-                                        grid) (I.layers_of_t_list items)
+                                        grid) @@ List.sort compare (I.layers_of_t_list items)
         in
-        let layer  = List.hd layers in
+        let layer  = List.hd @@ List.rev layers in
         set_layers layers;
         set_active layer;
         self#update_items_min_size
@@ -173,9 +173,8 @@ module Make(I : Item) = struct
 
     end
 
-  let make ~title ~resolution ~(init: I.t list) ~selected_push ~e_layers () =
+  let make ~title ~resolution ~(init: I.t list) ~e_layers () =
     let ig = new t ~title ~resolution ~init ~e_layers () in
-    let _  = React.S.map (fun x -> selected_push x) ig#s_selected in
     ig
 
 end
