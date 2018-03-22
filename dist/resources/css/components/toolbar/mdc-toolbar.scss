@@ -140,6 +140,15 @@
   z-index: 4;
 }
 
+.mdc-toolbar--absolute {
+  @include mdc-elevation(4);
+
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 4;
+}
+
 .mdc-toolbar--flexible {
   // bem linter is disabled because it cannot correctly reconcile mdc prefix for css variables.
   // stylelint-disable-next-line plugin/selector-bem-pattern
@@ -234,3 +243,4 @@
 .mdc-toolbar__section--shrink-to-fit {
   flex: none;
 }
+

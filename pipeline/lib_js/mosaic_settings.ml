@@ -119,6 +119,7 @@ module Container_item : Item with type item = Wm.container = struct
       match List.partition (fun (x:t) -> String.equal x.name name) other with
       | [],_    -> name
       | _,other -> aux (succ idx) other
+
     in
     aux 1 other
   let make_item_properties t _ _ = Item_properties.make_container_props t
@@ -126,7 +127,6 @@ module Container_item : Item with type item = Wm.container = struct
 end
 
 module Widget_item : Item with type item = Wm.widget = struct
-
   type item        = Wm.widget     [@@deriving yojson,eq]
   type layout_item = string * item
   type t           = item wm_item  [@@deriving yojson,eq]

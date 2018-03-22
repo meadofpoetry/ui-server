@@ -27,90 +27,549 @@
  * }
  * ```
  */
+/**
+ * The css property used for elevation. In most cases this should not be changed. It is exposed
+ * as a variable for abstraction / easy use when needing to reference the property directly, for
+ * example in a `will-change` rule.
+ */
+/**
+ * The default duration value for elevation transitions.
+ */
+/**
+ * The default easing value for elevation transitions.
+ */
+/**
+ * Applies the correct CSS rules to an element to give it the elevation specified by $z-value.
+ * The $z-value must be between 0 and 24.
+ * If $color has an alpha channel, it will be ignored and overridden. To increase the opacity of the shadow, use
+ * $opacity-boost.
+ */
+/**
+ * Returns a string that can be used as the value for a `transition` property for elevation.
+ * Calling this function directly is useful in situations where a component needs to transition
+ * more than one property.
+ *
+ * ```scss
+ * .foo {
+ *   transition: mdc-elevation-transition-value(), opacity 100ms ease;
+ *   will-change: $mdc-elevation-property, opacity;
+ * }
+ * ```
+ */
+/**
+ * The css property used for elevation. In most cases this should not be changed. It is exposed
+ * as a variable for abstraction / easy use when needing to reference the property directly, for
+ * example in a `will-change` rule.
+ */
+/**
+ * The default duration value for elevation transitions.
+ */
+/**
+ * The default easing value for elevation transitions.
+ */
+/* TODO(sgomes): Figure out what to do about desktop font sizes. */
+/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
 .main-with-sidebar {
   background-color: #e0e0e0; }
 
-.wm-grid {
+.wm, .mdc-layout-grid, .mdc-layout-grid__inner, .wm-grid-container {
+  height: 100%; }
+
+.wm-editor-config-dialog .mdc-dialog__surface {
+  width: auto; }
+
+.wm-confirmation-dialog .mdc-dialog__surface {
+  max-width: 400px;
+  min-width: 400px; }
+
+* [data-layer] .mdc-dynamic-grid__item {
+  background-color: #ba68c8; }
+
+* [data-layer='0'] .mdc-dynamic-grid__item {
+  background-color: #d582e3;
   /* @alternate */
-  background-color: #fff;
-  background-color: var(--mdc-theme-background, #fff);
-  box-shadow: 0px 3px 1px -2px rgba(0, 0, 0, 0.2), 0px 2px 2px 0px rgba(0, 0, 0, 0.14), 0px 1px 5px 0px rgba(0, 0, 0, 0.12);
-  margin: 0 auto; }
-  .wm-grid .mdc-dynamic-grid__item {
+  color: rgba(0, 0, 0, 0.87);
+  color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87));
+  z-index: 1; }
+  * [data-layer='0'] .mdc-dynamic-grid__item--selected {
+    background-color: #b62dcd;
     /* @alternate */
-    background-color: #b37eff;
-    background-color: var(--mdc-theme-primary-light, #b37eff);
+    color: white;
+    color: var(--mdc-theme-text-primary-on-dark, white); }
+* [data-layer='0'] .wm-layer-item__color-indicator {
+  background-color: #d582e3; }
+
+* [data-layer='1'] .mdc-dynamic-grid__item {
+  background-color: #f8827a;
+  /* @alternate */
+  color: rgba(0, 0, 0, 0.87);
+  color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87));
+  z-index: 2; }
+  * [data-layer='1'] .mdc-dynamic-grid__item--selected {
+    background-color: #f66358;
     /* @alternate */
     color: rgba(0, 0, 0, 0.87);
-    color: var(--mdc-theme-text-primary-on-primary-light, rgba(0, 0, 0, 0.87));
-    border: 2px solid rgba(0, 0, 0, 0.12); }
-    .wm-grid .mdc-dynamic-grid__item--selected {
-      /* @alternate */
-      background-color: #8936ff;
-      background-color: var(--mdc-theme-primary-dark, #8936ff); }
-  .wm-grid .mdc-dynamic-grid__item__ghost {
-    /* @alternate */
-    background-color: #018786;
-    background-color: var(--mdc-theme-secondary, #018786); }
-  .wm-grid__placeholder {
-    width: 100%;
-    height: 100%;
-    position: absolute;
-    display: flex;
-    justify-content: center; }
-    .wm-grid__placeholder .mdc-typography {
-      /* @alternate */
-      color: rgba(0, 0, 0, 0.38);
-      color: var(--mdc-theme-text-icon-on-background, rgba(0, 0, 0, 0.38));
-      margin-top: 12px;
-      order: 1; }
-    .wm-grid__placeholder .mdc-icon {
-      /* @alternate */
-      color: rgba(0, 0, 0, 0.38);
-      color: var(--mdc-theme-text-icon-on-background, rgba(0, 0, 0, 0.38));
-      font-size: 48px;
-      order: 0; }
+    color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87)); }
+* [data-layer='1'] .wm-layer-item__color-indicator {
+  background-color: #f8827a; }
 
-.wm-left-toolbar__action {
+* [data-layer='2'] .mdc-dynamic-grid__item {
+  background-color: #a4addf;
+  /* @alternate */
+  color: rgba(0, 0, 0, 0.87);
+  color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87));
+  z-index: 3; }
+  * [data-layer='2'] .mdc-dynamic-grid__item--selected {
+    background-color: #5465c4;
+    /* @alternate */
+    color: white;
+    color: var(--mdc-theme-text-primary-on-dark, white); }
+* [data-layer='2'] .wm-layer-item__color-indicator {
+  background-color: #a4addf; }
+
+* [data-layer='3'] .mdc-dynamic-grid__item {
+  background-color: #65b6f7;
+  /* @alternate */
+  color: rgba(0, 0, 0, 0.87);
+  color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87));
+  z-index: 4; }
+  * [data-layer='3'] .mdc-dynamic-grid__item--selected {
+    background-color: #43a6f5;
+    /* @alternate */
+    color: rgba(0, 0, 0, 0.87);
+    color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87)); }
+* [data-layer='3'] .wm-layer-item__color-indicator {
+  background-color: #65b6f7; }
+
+* [data-layer='4'] .mdc-dynamic-grid__item {
+  background-color: #fff282;
+  /* @alternate */
+  color: rgba(0, 0, 0, 0.87);
+  color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87));
+  z-index: 5; }
+  * [data-layer='4'] .mdc-dynamic-grid__item--selected {
+    background-color: #ffef5f;
+    /* @alternate */
+    color: rgba(0, 0, 0, 0.87);
+    color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87)); }
+* [data-layer='4'] .wm-layer-item__color-indicator {
+  background-color: #fff282; }
+
+* [data-layer='5'] .mdc-dynamic-grid__item {
+  background-color: #7cc67f;
+  /* @alternate */
+  color: rgba(0, 0, 0, 0.87);
+  color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87));
+  z-index: 6; }
+  * [data-layer='5'] .mdc-dynamic-grid__item--selected {
+    background-color: #63bb67;
+    /* @alternate */
+    color: rgba(0, 0, 0, 0.87);
+    color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87)); }
+* [data-layer='5'] .wm-layer-item__color-indicator {
+  background-color: #7cc67f; }
+
+* [data-layer='6'] .mdc-dynamic-grid__item {
+  background-color: #dce776;
+  /* @alternate */
+  color: rgba(0, 0, 0, 0.87);
+  color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87));
+  z-index: 7; }
+  * [data-layer='6'] .mdc-dynamic-grid__item--selected {
+    background-color: #d5e157;
+    /* @alternate */
+    color: rgba(0, 0, 0, 0.87);
+    color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87)); }
+* [data-layer='6'] .wm-layer-item__color-indicator {
+  background-color: #dce776; }
+
+* [data-layer='7'] .mdc-dynamic-grid__item {
+  background-color: #1ce5ff;
+  /* @alternate */
+  color: rgba(0, 0, 0, 0.87);
+  color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87));
+  z-index: 8; }
+  * [data-layer='7'] .mdc-dynamic-grid__item--selected {
+    background-color: #00dcf8;
+    /* @alternate */
+    color: rgba(0, 0, 0, 0.87);
+    color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87)); }
+* [data-layer='7'] .wm-layer-item__color-indicator {
+  background-color: #1ce5ff; }
+
+* [data-layer='8'] .mdc-dynamic-grid__item {
+  background-color: #ff8d69;
+  /* @alternate */
+  color: rgba(0, 0, 0, 0.87);
+  color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87));
+  z-index: 9; }
+  * [data-layer='8'] .mdc-dynamic-grid__item--selected {
+    background-color: #ff7246;
+    /* @alternate */
+    color: rgba(0, 0, 0, 0.87);
+    color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87)); }
+* [data-layer='8'] .wm-layer-item__color-indicator {
+  background-color: #ff8d69; }
+
+* [data-layer='9'] .mdc-dynamic-grid__item {
+  background-color: #be9e92;
+  /* @alternate */
+  color: rgba(0, 0, 0, 0.87);
+  color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87));
+  z-index: 10; }
+  * [data-layer='9'] .mdc-dynamic-grid__item--selected {
+    background-color: #8f6555;
+    /* @alternate */
+    color: white;
+    color: var(--mdc-theme-text-primary-on-dark, white); }
+* [data-layer='9'] .wm-layer-item__color-indicator {
+  background-color: #be9e92; }
+
+* [data-layer='10'] .mdc-dynamic-grid__item {
+  background-color: #87a0ac;
+  /* @alternate */
+  color: rgba(0, 0, 0, 0.87);
+  color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87));
+  z-index: 11; }
+  * [data-layer='10'] .mdc-dynamic-grid__item--selected {
+    background-color: #718f9d;
+    /* @alternate */
+    color: white;
+    color: var(--mdc-theme-text-primary-on-dark, white); }
+* [data-layer='10'] .wm-layer-item__color-indicator {
+  background-color: #87a0ac; }
+
+.wm .mdc-dialog {
+  z-index: 101; }
+
+.wm-property-row {
+  padding-bottom: 10px;
+  align-items: center; }
+  .wm-property-row:last-child {
+    padding-bottom: 0; }
+  .wm-property-row__value {
+    font-family: Roboto, sans-serif;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-font-smoothing: antialiased;
+    font-size: 0.875rem;
+    line-height: 1.5rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-decoration: inherit;
+    text-transform: inherit;
+    text-align: end;
+    width: 50%; }
+  .wm-property-row__label {
+    font-family: Roboto, sans-serif;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-font-smoothing: antialiased;
+    font-size: 0.938rem;
+    line-height: 1.5rem;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    text-decoration: inherit;
+    text-transform: inherit;
+    text-align: left;
+    width: 50%; }
+
+.wm-placeholder {
+  z-index: 12;
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  display: flex;
+  justify-content: center;
+  align-items: center; }
+  .wm-placeholder__content {
+    /* @alternate */
+    background-color: #fff;
+    background-color: var(--mdc-theme-background, #fff);
+    padding: 20px;
+    border-radius: 4px; }
+  .wm-placeholder__content--bordered {
+    border: 2px solid rgba(0, 0, 0, 0.12); }
+  .wm-placeholder .mdc-typography {
+    /* @alternate */
+    color: rgba(0, 0, 0, 0.54);
+    color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54));
+    font-family: Roboto, sans-serif;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-font-smoothing: antialiased;
+    font-size: 1rem;
+    line-height: 1.75rem;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    text-decoration: inherit;
+    text-transform: inherit;
+    margin-top: 12px;
+    order: 1;
+    text-align: center; }
+  .wm-placeholder .mdc-icon {
+    /* @alternate */
+    color: rgba(0, 0, 0, 0.54);
+    color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54));
+    font-size: 48px;
+    order: 0; }
+  @media (max-width: 600px) {
+    .wm-placeholder .mdc-typography {
+      font-family: Roboto, sans-serif;
+      -moz-osx-font-smoothing: grayscale;
+      -webkit-font-smoothing: antialiased;
+      font-size: 0.75rem;
+      line-height: 1.25rem;
+      font-weight: 400;
+      letter-spacing: 0.08em;
+      text-decoration: inherit;
+      text-transform: inherit; }
+    .wm-placeholder .mdc-icon {
+      font-size: 32px; } }
+
+.wm-selectable-title {
+  margin-bottom: 15px; }
+  .wm-selectable-title__title {
+    /* @alternate */
+    color: rgba(0, 0, 0, 0.38);
+    color: var(--mdc-theme-text-disabled-on-background, rgba(0, 0, 0, 0.38));
+    margin-left: 15px;
+    cursor: pointer; }
+  .wm-selectable-title__title--active {
+    cursor: default;
+    /* @alternate */
+    color: rgba(0, 0, 0, 0.87);
+    color: var(--mdc-theme-text-primary-on-background, rgba(0, 0, 0, 0.87)); }
+
+.wm-items {
+  flex-grow: 2; }
+  .wm-items__add {
+    flex: 1 1 200px; }
+  .wm-items__add__item {
+    /* @alternate */
+    background-color: #fff;
+    background-color: var(--mdc-theme-background, #fff);
+    display: flex;
+    align-items: center;
+    align-content: stretch;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+    cursor: pointer; }
+    .wm-items__add__item .mdc-icon {
+      /* @alternate */
+      color: rgba(0, 0, 0, 0.54);
+      color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54));
+      padding: 12px; }
+  .wm-items__properties {
+    position: relative;
+    flex: 1 1 200px; }
+    .wm-items__properties #wm-item-properties {
+      padding: 15px;
+      overflow-y: auto; }
+    .wm-items__properties .mdc-card__actions {
+      margin-top: auto; }
+
+.wm-layer-item {
   /* @alternate */
   background-color: #fff;
   background-color: var(--mdc-theme-background, #fff);
+  flex-grow: 1;
+  padding: 10px 0 10px 5px;
+  display: flex;
+  align-items: center;
+  align-content: stretch;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12); }
+  .wm-layer-item__drag-handle {
+    /* @alternate */
+    color: rgba(0, 0, 0, 0.38);
+    color: var(--mdc-theme-text-icon-on-background, rgba(0, 0, 0, 0.38));
+    padding: 12px; }
+  .wm-layer-item__visibility {
+    /* @alternate */
+    color: rgba(0, 0, 0, 0.38);
+    color: var(--mdc-theme-text-icon-on-background, rgba(0, 0, 0, 0.38));
+    margin-right: 5px; }
+  .wm-layer-item__color-indicator {
+    border-radius: 50%;
+    width: 10px;
+    height: 10px;
+    margin-right: 10px;
+    border: 1px solid rgba(0, 0, 0, 0.12); }
+
+.wm-layers-grid-wrapper {
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1 1 200px; }
+  .wm-layers-grid-wrapper .mdc-dynamic-grid__item {
+    display: flex;
+    align-items: stretch; }
+  .wm-layers-grid-wrapper .mdc-dynamic-grid__item--selected .wm-layer-item {
+    /* @alternate */
+    color: white;
+    color: var(--mdc-theme-text-primary-on-primary, white);
+    /* @alternate */
+    background-color: #6200ee;
+    background-color: var(--mdc-theme-primary, #6200ee); }
+    .wm-layers-grid-wrapper .mdc-dynamic-grid__item--selected .wm-layer-item__drag-handle {
+      /* @alternate */
+      color: white;
+      color: var(--mdc-theme-text-primary-on-primary, white); }
+    .wm-layers-grid-wrapper .mdc-dynamic-grid__item--selected .wm-layer-item__visibility {
+      /* @alternate */
+      color: white;
+      color: var(--mdc-theme-text-primary-on-primary, white); }
+
+.wm-layers-actions i.mdc-icon {
+  /* @alternate */
+  color: rgba(0, 0, 0, 0.54);
+  color: var(--mdc-theme-text-secondary-on-light, rgba(0, 0, 0, 0.54));
+  transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1); }
+.wm-layers-actions i.mdc-icon--disabled {
+  cursor: default;
   /* @alternate */
   color: rgba(0, 0, 0, 0.38);
-  color: var(--mdc-theme-text-icon-on-background, rgba(0, 0, 0, 0.38));
+  color: var(--mdc-theme-text-disabled-on-light, rgba(0, 0, 0, 0.38)); }
+
+.wm-layers-card {
+  flex-grow: 1;
+  justify-content: space-between; }
+
+.wm-left-toolbar__action {
+  background-color: #fff;
+  /* @alternate */
+  color: rgba(0, 0, 0, 0.87);
+  color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87));
   margin-bottom: 20px; }
   .wm-left-toolbar__action::before, .wm-left-toolbar__action::after {
-    background-color: rgba(0, 0, 0, 0.54); }
+    /* @alternate */
+    background-color: rgba(0, 0, 0, 0.87); }
+    @supports not (-ms-ime-align: auto) {
+      .wm-left-toolbar__action::before, .wm-left-toolbar__action::after {
+        background-color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87)); } }
+  .wm-left-toolbar__action:hover::before {
+    opacity: 0.04; }
+  .wm-left-toolbar__action:not(.mdc-ripple-upgraded):focus::before, .wm-left-toolbar__action.mdc-ripple-upgraded--background-focused::before {
+    transition-duration: 75ms;
+    opacity: 0.12; }
+  .wm-left-toolbar__action:not(.mdc-ripple-upgraded)::after {
+    transition: opacity 150ms linear; }
+  .wm-left-toolbar__action:not(.mdc-ripple-upgraded):active::after {
+    transition-duration: 75ms;
+    opacity: 0.16; }
+  .wm-left-toolbar__action.mdc-ripple-upgraded {
+    --mdc-ripple-fg-opacity: 0.16; }
   .wm-left-toolbar__action:last-child {
     margin-bottom: 0; }
+.wm-left-toolbar--exited {
+  transform: scale(0);
+  transition: opacity 15ms linear 150ms, transform 180ms 0ms cubic-bezier(0.4, 0, 1, 1);
+  opacity: 0; }
+
+.wm-grid-item__info {
+  padding: 12px;
+  white-space: nowrap;
+  font-size: 14px; }
+  .wm-grid-item__info__line {
+    margin-left: 34px;
+    line-height: 1.5; }
+  .wm-grid-item__info__line--with-icon {
+    margin-left: 0; }
+    .wm-grid-item__info__line--with-icon i {
+      margin-right: 10px;
+      width: 24px;
+      height: 24px; }
+
+.wm-grid {
+  height: 100%; }
+  .wm-grid__right-menu {
+    align-items: center; }
+    .wm-grid__right-menu .mdc-menu {
+      z-index: 100; }
+  .wm-grid__grid-select {
+    /* @alternate */
+    color: rgba(0, 0, 0, 0.54);
+    color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54));
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    text-transform: inherit;
+    outline: none;
+    text-decoration: none;
+    user-select: none;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding-left: 12px; }
+    .wm-grid__grid-select .mdc-menu-anchor {
+      cursor: pointer;
+      padding-left: 8px; }
+  .wm-grid__wrapper {
+    /* @alternate */
+    background-color: #fff;
+    background-color: var(--mdc-theme-background, #fff);
+    box-shadow: 0px 3px 1px -2px rgba(0, 0, 0, 0.2), 0px 2px 2px 0px rgba(0, 0, 0, 0.14), 0px 1px 5px 0px rgba(0, 0, 0, 0.12);
+    width: 100%;
+    height: auto;
+    overflow-x: auto;
+    position: relative; }
+  .wm-grid__header {
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px; }
+  .wm-grid__title {
+    font-family: Roboto, sans-serif;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-font-smoothing: antialiased;
+    font-size: 1rem;
+    line-height: 1.75rem;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    text-decoration: inherit;
+    text-transform: inherit; }
+  .wm-grid__menu {
+    /* @alternate */
+    color: rgba(0, 0, 0, 0.54);
+    color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54)); }
+  .wm-grid__grid {
+    margin: 0 auto;
+    box-sizing: border-box;
+    outline: 2px dashed rgba(0, 0, 0, 0.12); }
+    .wm-grid__grid.mdc-dynamic-grid--with-overlay-grid {
+      outline: none; }
+    .wm-grid__grid .mdc-dynamic-grid__item {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      border: 2px solid rgba(0, 0, 0, 0.12); }
+    .wm-grid__grid .mdc-dynamic-grid__item__ghost {
+      /* @alternate */
+      background-color: #018786;
+      background-color: var(--mdc-theme-secondary, #018786); }
+  .wm-grid__grid--invisible .mdc-dynamic-grid__item {
+    display: none; }
+  .wm-grid__grid--background {
+    top: 0;
+    position: absolute;
+    left: 0;
+    right: 0;
+    margin-left: auto;
+    margin-right: auto;
+    outline: none;
+    pointer-events: none; }
+    .wm-grid__grid--background .mdc-dynamic-grid__item {
+      opacity: 0.4;
+      z-index: 1; }
+    .wm-grid__grid--background .mdc-dynamic-grid__item__resize {
+      display: none; }
+    .wm-grid__grid--background .wm-placeholder {
+      display: none; }
+    .wm-grid__grid--background .mdc-dynamic-grid__overlay-grid {
+      display: none; }
 
 .wm-right-toolbar {
   height: 100%;
   display: flex; }
   .wm-right-toolbar > * {
     margin-bottom: 20px;
-    flex-grow: 1; }
+    flex-grow: 2;
+    max-height: 40vh; }
   .wm-right-toolbar > *:last-child {
     margin-bottom: 0; }
-
-.wm-layers-grid .mdc-dynamic-grid__item {
-  display: flex;
-  align-items: stretch; }
-
-.wm-layers {
-  overflow-y: auto;
-  overflow-x: hidden; }
-
-.wm-layer {
-  /* @alternate */
-  background-color: #fff;
-  background-color: var(--mdc-theme-background, #fff);
-  flex-grow: 1;
-  padding: 10px;
-  display: flex;
-  align-items: center;
-  align-content: stretch;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.12); }
 
 .mdc-toolbar .mdc-tab {
   /* @alternate */
@@ -126,6 +585,611 @@
   background-color: white;
   background-color: var(--mdc-theme-text-primary-on-primary, white); }
 
+/**
+ * Creates a rule that will be applied when an MDC Web component is within the context of an RTL layout.
+ *
+ * Usage Example:
+ * ```scss
+ * .mdc-foo {
+ *   position: absolute;
+ *   left: 0;
+ *
+ *   @include mdc-rtl {
+ *     left: auto;
+ *     right: 0;
+ *   }
+ *
+ *   &__bar {
+ *     margin-left: 4px;
+ *     @include mdc-rtl(".mdc-foo") {
+ *       margin-left: auto;
+ *       margin-right: 4px;
+ *     }
+ *   }
+ * }
+ *
+ * .mdc-foo--mod {
+ *   padding-left: 4px;
+ *
+ *   @include mdc-rtl {
+ *     padding-left: auto;
+ *     padding-right: 4px;
+ *   }
+ * }
+ * ```
+ *
+ * Note that this works by checking for [dir="rtl"] on an ancestor element. While this will work
+ * in most cases, it will in some cases lead to false negatives, e.g.
+ *
+ * ```html
+ * <html dir="rtl">
+ *   <!-- ... -->
+ *   <div dir="ltr">
+ *     <div class="mdc-foo">Styled incorrectly as RTL!</div>
+ *   </div>
+ * </html>
+ * ```
+ *
+ * In the future, selectors such as :dir (http://mdn.io/:dir) will help us mitigate this.
+ */
+/**
+ * Takes a base box-model property - e.g. margin / border / padding - along with a default
+ * direction and value, and emits rules which apply the value to the
+ * "<base-property>-<default-direction>" property by default, but flips the direction
+ * when within an RTL context.
+ *
+ * For example:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   @include mdc-rtl-reflexive-box(margin, left, 8px);
+ * }
+ * ```
+ * is equivalent to:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   margin-left: 8px;
+ *
+ *   @include mdc-rtl {
+ *     margin-right: 8px;
+ *     margin-left: 0;
+ *   }
+ * }
+ * ```
+ * whereas:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   @include mdc-rtl-reflexive-box(margin, right, 8px);
+ * }
+ * ```
+ * is equivalent to:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   margin-right: 8px;
+ *
+ *   @include mdc-rtl {
+ *     margin-right: 0;
+ *     margin-left: 8px;
+ *   }
+ * }
+ * ```
+ *
+ * You can also pass a 4th optional $root-selector argument which will be forwarded to `mdc-rtl`,
+ * e.g. `@include mdc-rtl-reflexive-box(margin, left, 8px, ".mdc-component")`.
+ *
+ * Note that this function will always zero out the original value in an RTL context. If you're
+ * trying to flip the values, use mdc-rtl-reflexive-property().
+ */
+/**
+ * Takes a base property and emits rules that assign <base-property>-left to <left-value> and
+ * <base-property>-right to <right-value> in a LTR context, and vice versa in a RTL context.
+ * For example:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   @include mdc-rtl-reflexive-property(margin, auto, 12px);
+ * }
+ * ```
+ * is equivalent to:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   margin-left: auto;
+ *   margin-right: 12px;
+ *
+ *   @include mdc-rtl {
+ *     margin-left: 12px;
+ *     margin-right: auto;
+ *   }
+ * }
+ * ```
+ *
+ * A 4th optional $root-selector argument can be given, which will be passed to `mdc-rtl`.
+ */
+/**
+ * Takes an argument specifying a horizontal position property (either "left" or "right") as well
+ * as a value, and applies that value to the specified position in a LTR context, and flips it in a
+ * RTL context. For example:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   @include mdc-rtl-reflexive-position(left, 0);
+ *   position: absolute;
+ * }
+ * ```
+ * is equivalent to:
+ *
+ * ```scss
+ *  .mdc-foo {
+ *    position: absolute;
+ *    left: 0;
+ *    right: initial;
+ *
+ *    @include mdc-rtl {
+ *      right: 0;
+ *      left: initial;
+ *    }
+ *  }
+ * ```
+ * An optional third $root-selector argument may also be given, which is passed to `mdc-rtl`.
+ */
+/* TODO(sgomes): Figure out what to do about desktop font sizes. */
+/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
+/**
+ * Creates a rule that will be applied when an MDC Web component is within the context of an RTL layout.
+ *
+ * Usage Example:
+ * ```scss
+ * .mdc-foo {
+ *   position: absolute;
+ *   left: 0;
+ *
+ *   @include mdc-rtl {
+ *     left: auto;
+ *     right: 0;
+ *   }
+ *
+ *   &__bar {
+ *     margin-left: 4px;
+ *     @include mdc-rtl(".mdc-foo") {
+ *       margin-left: auto;
+ *       margin-right: 4px;
+ *     }
+ *   }
+ * }
+ *
+ * .mdc-foo--mod {
+ *   padding-left: 4px;
+ *
+ *   @include mdc-rtl {
+ *     padding-left: auto;
+ *     padding-right: 4px;
+ *   }
+ * }
+ * ```
+ *
+ * Note that this works by checking for [dir="rtl"] on an ancestor element. While this will work
+ * in most cases, it will in some cases lead to false negatives, e.g.
+ *
+ * ```html
+ * <html dir="rtl">
+ *   <!-- ... -->
+ *   <div dir="ltr">
+ *     <div class="mdc-foo">Styled incorrectly as RTL!</div>
+ *   </div>
+ * </html>
+ * ```
+ *
+ * In the future, selectors such as :dir (http://mdn.io/:dir) will help us mitigate this.
+ */
+/**
+ * Takes a base box-model property - e.g. margin / border / padding - along with a default
+ * direction and value, and emits rules which apply the value to the
+ * "<base-property>-<default-direction>" property by default, but flips the direction
+ * when within an RTL context.
+ *
+ * For example:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   @include mdc-rtl-reflexive-box(margin, left, 8px);
+ * }
+ * ```
+ * is equivalent to:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   margin-left: 8px;
+ *
+ *   @include mdc-rtl {
+ *     margin-right: 8px;
+ *     margin-left: 0;
+ *   }
+ * }
+ * ```
+ * whereas:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   @include mdc-rtl-reflexive-box(margin, right, 8px);
+ * }
+ * ```
+ * is equivalent to:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   margin-right: 8px;
+ *
+ *   @include mdc-rtl {
+ *     margin-right: 0;
+ *     margin-left: 8px;
+ *   }
+ * }
+ * ```
+ *
+ * You can also pass a 4th optional $root-selector argument which will be forwarded to `mdc-rtl`,
+ * e.g. `@include mdc-rtl-reflexive-box(margin, left, 8px, ".mdc-component")`.
+ *
+ * Note that this function will always zero out the original value in an RTL context. If you're
+ * trying to flip the values, use mdc-rtl-reflexive-property().
+ */
+/**
+ * Takes a base property and emits rules that assign <base-property>-left to <left-value> and
+ * <base-property>-right to <right-value> in a LTR context, and vice versa in a RTL context.
+ * For example:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   @include mdc-rtl-reflexive-property(margin, auto, 12px);
+ * }
+ * ```
+ * is equivalent to:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   margin-left: auto;
+ *   margin-right: 12px;
+ *
+ *   @include mdc-rtl {
+ *     margin-left: 12px;
+ *     margin-right: auto;
+ *   }
+ * }
+ * ```
+ *
+ * A 4th optional $root-selector argument can be given, which will be passed to `mdc-rtl`.
+ */
+/**
+ * Takes an argument specifying a horizontal position property (either "left" or "right") as well
+ * as a value, and applies that value to the specified position in a LTR context, and flips it in a
+ * RTL context. For example:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   @include mdc-rtl-reflexive-position(left, 0);
+ *   position: absolute;
+ * }
+ * ```
+ * is equivalent to:
+ *
+ * ```scss
+ *  .mdc-foo {
+ *    position: absolute;
+ *    left: 0;
+ *    right: initial;
+ *
+ *    @include mdc-rtl {
+ *      right: 0;
+ *      left: initial;
+ *    }
+ *  }
+ * ```
+ * An optional third $root-selector argument may also be given, which is passed to `mdc-rtl`.
+ */
+/**
+ * The css property used for elevation. In most cases this should not be changed. It is exposed
+ * as a variable for abstraction / easy use when needing to reference the property directly, for
+ * example in a `will-change` rule.
+ */
+/**
+ * The default duration value for elevation transitions.
+ */
+/**
+ * The default easing value for elevation transitions.
+ */
+/**
+ * Applies the correct CSS rules to an element to give it the elevation specified by $z-value.
+ * The $z-value must be between 0 and 24.
+ * If $color has an alpha channel, it will be ignored and overridden. To increase the opacity of the shadow, use
+ * $opacity-boost.
+ */
+/**
+ * Returns a string that can be used as the value for a `transition` property for elevation.
+ * Calling this function directly is useful in situations where a component needs to transition
+ * more than one property.
+ *
+ * ```scss
+ * .foo {
+ *   transition: mdc-elevation-transition-value(), opacity 100ms ease;
+ *   will-change: $mdc-elevation-property, opacity;
+ * }
+ * ```
+ */
+.mdc-drawer--custom {
+  /* Use aspect ratio trick to maintain 16:9 aspect ratio on the header */
+  color: rgba(0, 0, 0, 0.87);
+  width: 0;
+  position: fixed; }
+  .mdc-drawer--custom .mdc-drawer__toolbar-spacer {
+    display: flex;
+    position: relative;
+    flex-direction: row;
+    flex-shrink: 0;
+    align-items: center;
+    box-sizing: border-box;
+    height: 56px;
+    padding: 16px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+    /* TODO(sgomes): replace with global breakpoints when we have them */ }
+    @media (min-width: 600px) {
+      .mdc-drawer--custom .mdc-drawer__toolbar-spacer {
+        height: 64px; } }
+  .mdc-drawer--custom .mdc-drawer__header {
+    position: relative; }
+  .mdc-drawer--custom .mdc-drawer__header::before {
+    display: block;
+    padding-top: 56.25%;
+    content: ""; }
+  .mdc-drawer--custom .mdc-drawer__header-content {
+    display: flex;
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    align-items: flex-end;
+    box-sizing: border-box;
+    padding: 16px; }
+  .mdc-drawer--custom .mdc-list-item {
+    font-family: Roboto, sans-serif;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-font-smoothing: antialiased;
+    font-size: 0.875rem;
+    line-height: 1.5rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-decoration: inherit;
+    text-transform: inherit;
+    position: relative;
+    outline: none;
+    color: inherit;
+    text-decoration: none; }
+  .mdc-drawer--custom .mdc-list-item__graphic {
+    color: rgba(0, 0, 0, 0.54); }
+  .mdc-drawer--custom.mdc-drawer--permanent,
+  .mdc-drawer--custom .mdc-drawer__drawer {
+    background-color: #fff; }
+  .mdc-drawer--custom .icon-dropdown {
+    position: absolute;
+    right: -4px;
+    margin-right: 10px;
+    margin-top: 12px; }
+  .mdc-drawer--custom .mdc-account-icon {
+    width: 54px;
+    heigh: 54px; }
+  .mdc-drawer--custom .mdc-drawer__header {
+    height: 128px; }
+  .mdc-drawer--custom .mdc-drawer__header-content {
+    padding: 0;
+    width: 100%; }
+  .mdc-drawer--custom .mdc-drawer__panel {
+    font-family: Roboto, sans-serif;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-font-smoothing: antialiased;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    text-decoration: inherit;
+    text-transform: inherit;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    height: 48px;
+    line-height: 48px;
+    margin-left: 16px;
+    margin-right: 16px;
+    overflow: hidden;
+    width: 100%;
+    cursor: pointer; }
+  .mdc-drawer--custom .mdc-drawer__drawer {
+    border-left: 0;
+    border-right: 0px solid #e4e4e4;
+    left: 0;
+    right: initial;
+    height: 100%;
+    transform: translateX(-107%);
+    transform: translateX(calc(-100% - 20px));
+    will-change: transform;
+    transition: left 0.225s;
+    display: inline-flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    width: 240px;
+    overflow: hidden;
+    touch-action: none; }
+    [dir="rtl"] .mdc-drawer--custom .mdc-drawer__drawer, .mdc-drawer--custom .mdc-drawer__drawer[dir="rtl"] {
+      border-left: 0px solid #e4e4e4;
+      border-right: 0; }
+    [dir="rtl"] .mdc-drawer--custom .mdc-drawer__drawer, .mdc-drawer--custom .mdc-drawer__drawer[dir="rtl"] {
+      left: initial;
+      right: 0; }
+    [dir="rtl"] .mdc-drawer--custom .mdc-drawer__drawer, .mdc-drawer--custom .mdc-drawer__drawer[dir="rtl"] {
+      transform: translateX(107%);
+      transform: translateX(calc(100% + 20px)); }
+    .mdc-drawer--custom .mdc-drawer__drawer .mdc-drawer__wrapper {
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      height: 48px;
+      transition: all 0.225s;
+      overflow: hidden; }
+      .mdc-drawer--custom .mdc-drawer__drawer .mdc-drawer__wrapper--hidden {
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        height: 0px;
+        transition: all 0.225s;
+        overflow: hidden; }
+  .mdc-drawer--custom.mdc-drawer--animating .mdc-drawer__drawer {
+    transition: transform 0.195s 0ms cubic-bezier(0.4, 0, 0.6, 1); }
+  .mdc-drawer--custom.mdc-drawer--animating.mdc-drawer--open
+  .mdc-drawer__drawer {
+    transition: transform 0.225s 0ms cubic-bezier(0, 0, 0.2, 1); }
+  .mdc-drawer--custom.mdc-drawer--open {
+    width: 240px;
+    pointer-events: auto; }
+    .mdc-drawer--custom.mdc-drawer--open .mdc-drawer__drawer {
+      transform: none; }
+    [dir="rtl"] .mdc-drawer--custom.mdc-drawer--open .mdc-drawer__drawer, .mdc-drawer--custom.mdc-drawer--open[dir="rtl"] .mdc-drawer__drawer {
+      transform: none; }
+
+@media only screen and (max-width: 1200px) {
+  .mdc-drawer--custom {
+    /* Use aspect ratio trick to maintain 16:9 aspect ratio on the header */
+    color: rgba(0, 0, 0, 0.87);
+    position: fixed;
+    top: 0;
+    left: 0;
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: hidden;
+    contain: strict;
+    z-index: 9999;
+    /* Shaded background */ }
+    .mdc-drawer--custom .mdc-drawer__toolbar-spacer {
+      display: flex;
+      position: relative;
+      flex-direction: row;
+      flex-shrink: 0;
+      align-items: center;
+      box-sizing: border-box;
+      height: 56px;
+      padding: 16px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+      /* TODO(sgomes): replace with global breakpoints when we have them */ } }
+    @media only screen and (max-width: 1200px) and (min-width: 600px) {
+      .mdc-drawer--custom .mdc-drawer__toolbar-spacer {
+        height: 64px; } }
+@media only screen and (max-width: 1200px) {
+    .mdc-drawer--custom .mdc-drawer__header {
+      position: relative; }
+    .mdc-drawer--custom .mdc-drawer__header::before {
+      display: block;
+      padding-top: 56.25%;
+      content: ""; }
+    .mdc-drawer--custom .mdc-drawer__header-content {
+      display: flex;
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      align-items: flex-end;
+      box-sizing: border-box;
+      padding: 16px; }
+    .mdc-drawer--custom .mdc-list-item {
+      font-family: Roboto, sans-serif;
+      -moz-osx-font-smoothing: grayscale;
+      -webkit-font-smoothing: antialiased;
+      font-size: 0.875rem;
+      line-height: 1.5rem;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-decoration: inherit;
+      text-transform: inherit;
+      position: relative;
+      outline: none;
+      color: inherit;
+      text-decoration: none; }
+    .mdc-drawer--custom .mdc-list-item__graphic {
+      color: rgba(0, 0, 0, 0.54); }
+    .mdc-drawer--custom.mdc-drawer--permanent,
+    .mdc-drawer--custom .mdc-drawer__drawer {
+      background-color: #fff; }
+    .mdc-drawer--custom::before {
+      background-color: rgba(0, 0, 0, 0.6); }
+    .mdc-drawer--custom::before {
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+      box-sizing: border-box;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      opacity: var(--mdc-temporary-drawer-opacity, 0);
+      content: "";
+      will-change: opacity; }
+    .mdc-drawer--custom .mdc-drawer__header-content {
+      padding: 0; }
+    .mdc-drawer--custom .mdc-drawer__drawer {
+      box-shadow: 0px 8px 10px -5px rgba(0, 0, 0, 0.2), 0px 16px 24px 2px rgba(0, 0, 0, 0.14), 0px 6px 30px 5px rgba(0, 0, 0, 0.12);
+      left: 0;
+      right: initial;
+      height: 100%;
+      transform: translateX(-107%);
+      transform: translateX(calc(-100% - 20px));
+      will-change: transform;
+      display: flex;
+      position: absolute;
+      flex-direction: column;
+      box-sizing: border-box;
+      width: 100%;
+      max-width: 240px;
+      overflow: hidden;
+      touch-action: none; }
+      [dir="rtl"] .mdc-drawer--custom .mdc-drawer__drawer, .mdc-drawer--custom .mdc-drawer__drawer[dir="rtl"] {
+        left: initial;
+        right: 0; }
+      [dir="rtl"] .mdc-drawer--custom .mdc-drawer__drawer, .mdc-drawer--custom .mdc-drawer__drawer[dir="rtl"] {
+        transform: translateX(107%);
+        transform: translateX(calc(100% + 20px)); }
+    .mdc-drawer--custom .mdc-drawer__content {
+      flex-grow: 1;
+      box-sizing: border-box;
+      margin: 0;
+      overflow-x: hidden;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-y; }
+    .mdc-drawer--custom .mdc-drawer__footer {
+      box-shadow: 0px 3px 1px -2px rgba(0, 0, 0, 0.2), 0px 2px 2px 0px rgba(0, 0, 0, 0.14), 0px 1px 5px 0px rgba(0, 0, 0, 0.12);
+      flex-shrink: 0; }
+    .mdc-drawer--custom.mdc-drawer--animating::before {
+      transition: opacity 0.3s 0ms cubic-bezier(0, 0, 0.2, 1); }
+    .mdc-drawer--custom.mdc-drawer--animating.mdc-drawer--open .mdc-drawer__drawer {
+      transition: transform 0.225s 0ms cubic-bezier(0, 0, 0.2, 1); }
+    .mdc-drawer--custom.mdc-drawer--animating .mdc-drawer__drawer {
+      transition: transform 0.195s 0ms cubic-bezier(0.4, 0, 0.6, 1); }
+    .mdc-drawer--custom.mdc-drawer--open {
+      pointer-events: auto;
+      width: 100%; }
+      .mdc-drawer--custom.mdc-drawer--open::before {
+        opacity: 1;
+        opacity: var(--mdc-temporary-drawer-opacity, 1); }
+      .mdc-drawer--custom.mdc-drawer--open .mdc-drawer__drawer {
+        transform: none; }
+      [dir="rtl"] .mdc-drawer--custom.mdc-drawer--open .mdc-drawer__drawer, .mdc-drawer--custom.mdc-drawer--open[dir="rtl"] .mdc-drawer__drawer {
+        transform: none; }
+
+  .mdc-drawer-scroll-lock {
+    overflow: hidden; } }
 :root {
   --mdc-box-margin: 0px; }
 
@@ -140,18 +1204,63 @@ html {
 body {
   margin: 0; }
 
+#arbitrary-content {
+  height: 100%; }
+
 .content {
+  position: absolute;
   width: 100%;
   display: flex;
-  min-height: 100vh;
+  min-height: calc(100vh - 128px);
   align-items: stretch; }
 
+@media (min-width: 1200px) {
+  #main-toolbar {
+    left: 0px;
+    transition: all 0.225s; }
+
+  body.hide-sidedrawer #main-toolbar {
+    left: 240px;
+    width: calc(100% - 240px);
+    transition: all 0.225s; }
+
+  #main-content {
+    left: 0px;
+    transition: all 0.225s; }
+
+  body.hide-sidedrawer #main-content {
+    transition: all 0.225s;
+    left: 240px;
+    width: calc(100% - 240px); }
+
+  #main-with-sidebar {
+    left: 0px;
+    transition: all 0.225s; }
+
+  body.hide-sidedrawer #main-with-sidebar {
+    transition: all 0.225s;
+    left: 240px; }
+
+  #arbitrary-content {
+    left: 0px;
+    transition: all 0.225s; }
+
+  body.hide-sidedrawer #arbitrary-content {
+    transition: all 0.225s;
+    left: 240px; } }
 .main-with-sidebar {
   flex: 1 1 100%; }
 
 .mdc-toolbar__title {
   font-weight: 300;
   font-size: 24px; }
+
+video {
+  height: calc(100vh - 200px);
+  margin-left: auto;
+  margin-right: auto;
+  display: block;
+  object-fit: cover; }
 
 .material-icons {
   user-select: none; }
