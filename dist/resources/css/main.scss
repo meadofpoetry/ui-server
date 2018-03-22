@@ -1,4 +1,4 @@
-@import './pages/pages.scss';
+@import './pages/pages';
 
 :root { --mdc-box-margin: 0px; }
 
@@ -30,6 +30,14 @@ body {
 .mdc-toolbar__title {
     font-weight: 300;
     font-size: 24px;
+}
+
+video {
+    height: calc(100vh - 200px);
+    margin-left: auto;
+    margin-right: auto;
+    display: block;
+    object-fit: cover;
 }
 
 .material-icons { user-select: none; }

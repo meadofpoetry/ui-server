@@ -11,6 +11,25 @@ let rec gcd a b =
 let resolution_to_aspect (w,h) =
   let d = gcd w h in w / d, h / d
 
+module Keyboard_event = struct
+
+  let event_to_key (e:Dom_html.keyboardEvent Js.t) =
+    let key  = Option.map Js.to_string @@ Js.Optdef.to_option e##.key in
+    (match key,e##.keyCode with
+     | Some "Delete", _ | _, 46 -> `Delete e
+     | Some "Enter", _  | _, 13 -> `Enter e
+     | _                        -> `Unknown e)
+
+  let listen ?(typ=`Keydown) ?(prevent_default=false) ~f elt =
+    let typ = match typ with
+      | `Keydown  -> Dom_events.Typ.keydown
+      | `Keypress -> Dom_events.Typ.keypress
+      | `Keyup    -> Dom_events.Typ.keyup
+    in
+    Dom_events.listen elt typ (fun _ e -> f @@ event_to_key e; not prevent_default)
+
+end
+
 module Animation = struct
 
   module Timing = struct

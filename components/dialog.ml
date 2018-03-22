@@ -45,11 +45,11 @@ end
 
 module Body = struct
 
-  class t ~(content:[ `String of string | `Widgets of #Widget.widget list ]) () =
+  class t ?scrollable ~(content:[ `String of string | `Widgets of #Widget.widget list ]) () =
     let content = (match content with
                    | `String  s -> [Tyxml_js.Html.pcdata s]
                    | `Widgets w -> Widget.widgets_to_markup w) in
-    let elt = Markup.Dialog.Body.create ~content () |> Tyxml_js.To_dom.of_element in
+    let elt = Markup.Dialog.Body.create ?scrollable ~content () |> Tyxml_js.To_dom.of_element in
     object
       inherit Widget.widget elt () as super
       method set_scrollable x = Markup.Dialog.Body.scrollable_class
@@ -71,10 +71,10 @@ module Footer = struct
 
 end
 
-class t ?title ?(actions:Action.t list option) ~content () =
+class t ?scrollable ?title ?(actions:Action.t list option) ~content () =
 
   let header_widget = Option.map (fun x -> new Header.t ~title:x ()) title in
-  let body_widget   = new Body.t ~content () in
+  let body_widget   = new Body.t ?scrollable ~content () in
   let footer_widget = Option.map (fun x -> new Footer.t ~actions:x ()) actions in
 
   let elt = Markup.Dialog.create

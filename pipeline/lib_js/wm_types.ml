@@ -2,10 +2,11 @@ open Containers
 open Components
 
 type 'a wm_item =
-  { icon   : string
-  ; name   : string
-  ; unique : bool
-  ; item   : 'a
+  { icon     : string
+  ; name     : string
+  ; unique   : bool
+  ; min_size : (int * int) option
+  ; item     : 'a
   } [@@deriving yojson,eq]
 
 type item_properties_action =
@@ -43,7 +44,8 @@ module type Item = sig
   val layers_of_t_list     : t list -> int list
   val update_position      : t -> Wm.position -> t
   val update_layer         : t -> int -> t
+  val update_min_size      : t -> t
   val make_item_name       : t -> t list -> string
-  val make_item_properties : t -> t list -> (t -> unit) -> item_properties
+  val make_item_properties : t React.signal -> (t -> unit) -> t list -> item_properties
 
 end
