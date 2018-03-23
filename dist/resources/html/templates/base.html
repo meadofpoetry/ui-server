@@ -67,35 +67,36 @@
           </div>
           <hr class="mdc-list-divider">
           <nav class="mdc_drawer__content mdc-list-group">
-              <div id="icon-with-text-demo" class="mdc-list mdc-tree">
-                  {{#navigation}}
-                  {{#simple}}
-                  <div class="mdc-tree__item">
-                      <a href="{{href}}" class="mdc-list-item demo-drawer-list-item">{{title}}</a>
-                  </div>
-                  {{/simple}}
-                  {{^simple}}
-                  <div class="mdc-tree__item">
-                      <div class="mdc-list-item">
-                          {{title}}
-                          <i class="material-icons mdc-icon" style="align-items: flex-end;">
-                             arrow_drop_down
-                         </i>
-                      </div>
-                      <div class="mdc-list mdc-tree mdc-tree__item__nested-list mdc-tree__item__nested-list-hidden">
-                          {{#subtree}}
-                          <div class="mdc-tree__item">
-                              <a href="{{href}}" class="mdc-list-item">
-                                  {{title}}
-                              </a>
-                          </div>
-                          {{/subtree}}
-                      </div>
-                  </div>
+            <div id="navigation" class="mdc-list mdc-tree">
+              {{#navigation}}
+              {{#simple}}
+              <div class="mdc-list">
+                  <a href="{{href}}" class="mdc-list-item">
+                      {{title}}
+                  </a>
               </div>
               {{/simple}}
-              {{/navigation}}
+              {{^simple}}
+              <div class="mdc-list mdc-tree__item">
+                <div class="mdc-tree">
+                   <div class="mdc-list-item">
+                       {{title}}
+                       <i class="material-icons mdc-icon">
+                           arrow_drop_down
+                       </i>
+                   </div>
+                   {{#subtree}}
+                   <div class="mdc-tree__subitem">
+                       <a href="{{href}}" class="mdc-list-item">
+                              {{title}}
+                       </a>
+                   </div>
+                   {{/subtree}}
+                </div>
               </div>
+           {{/simple}}
+           {{/navigation}}
+           </div>
           </nav>
       </nav>
    </aside>
@@ -192,6 +193,21 @@
      panel.addEventListener('click', function () {
          dropdown.classList.toggle(rotated);
      });
+    </script>
+    <script>
+     var open        = 'mdc-tree__item--open';
+     function toggle (item) {
+         item.classList.toggle(open);
+     }
+     var drawer      = document.getElementById('navigation');
+     var elementList = drawer.querySelectorAll('.mdc-tree__item');
+     for(var i = 0; i <= elementList.length - 1; i++)
+         { var item = elementList.item(i);
+           console.log(item.textContent);
+           if (item.querySelector('.mdc-tree__subitem'))
+               { item.onclick = function () {toggle(this)};
+               };
+         };
     </script>
   </body>
 </html>
