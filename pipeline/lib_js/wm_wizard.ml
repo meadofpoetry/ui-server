@@ -60,7 +60,7 @@ let to_checkboxes (widgets:(string * Wm.widget) list) =
   all :: wds
 
 let to_layout ~resolution (widgets:(string * Wm.widget) list) =
-  let ar_x,ar_y    = 4,3 in
+  let ar_x,ar_y    = 16,9 in
   let items_in_row = get_items_in_row ~resolution ~item_ar:(ar_x,ar_y) widgets in
   List.mapi (fun i (n,v) -> let w   = (fst resolution) / items_in_row in
                             let s   = Printf.sprintf "Контейнер #%d" (succ i) in
