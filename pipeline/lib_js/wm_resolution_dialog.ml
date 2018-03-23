@@ -5,6 +5,7 @@ let make_resolution_input ?range ~label () =
   new Textfield.t ~label ~input_type:(Integer range) ()
 
 class t () =
+  let _class = "wm-resolution-dialog" in
   let width  = make_resolution_input ~label:"Ширина" () in
   let height = make_resolution_input ~label:"Высота" () in
   let accept = new Dialog.Action.t ~typ:`Accept  ~label:"Ok" () in
@@ -30,6 +31,7 @@ class t () =
 
 
     initializer
+      self#add_class _class;
       React.S.l2 (fun w h ->
           match w,h with
           | Some _, Some _ -> accept#set_disabled false

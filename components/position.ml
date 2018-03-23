@@ -1,0 +1,301 @@
+open Containers
+
+module type Positionable = sig
+  type t
+  val empty : t
+  val w : t -> int
+  val h : t -> int
+  val x : t -> int
+  val y : t -> int
+
+  val set_x : int -> t -> t
+  val set_y : int -> t -> t
+  val set_w : int -> t -> t
+  val set_h : int -> t -> t
+
+end
+
+module Rect : Positionable = struct
+  type t =
+    { x : int
+    ; y : int
+    ; w : int
+    ; h : int
+    }
+
+  let empty = { x=0;y=0;w=0;h=0}
+  let w t = t.w
+  let h t = t.h
+  let x t = t.x
+  let y t = t.y
+
+  let set_x x t = { t with x }
+  let set_y y t = { t with y }
+  let set_w w t = { t with w }
+  let set_h h t = { t with h }
+
+end
+
+module Make(P : Positionable) = struct
+
+  type t = P.t
+
+  let empty = P.empty
+
+  let equal (a:t) (b:t) = P.x a = P.x b && P.y a = P.y b && P.w a = P.w b && P.h a = P.h b
+  let to_string (t:t) = Printf.sprintf "x=%d, y=%d, w=%d, h=%d" (P.x t) (P.y t) (P.w t) (P.h t)
+
+  (* checks if two elements collide, returns true if do and false otherwise *)
+  let collides (t1:t) (t2:t) =
+    if (P.x t1) + (P.w t1) <= (P.x t2)      then false
+    else if (P.x t1) >= (P.x t2) + (P.w t2) then false
+    else if (P.y t1) + (P.h t1) <= (P.y t2) then false
+    else if (P.y t1) >= (P.y t2) + (P.h t2) then false
+    else true
+
+  (** get first element that collides with position **)
+  let get_first_collision ~(f:'a -> t) pos (l:'a list) =
+    List.fold_while (fun acc (x:'a) -> if collides pos (f x) then (Some x,`Stop) else (acc,`Continue)) None l
+
+  (** get all elements that collides with position **)
+  let get_all_collisions ~(f:'a -> t) pos (l:'a list) =
+    List.fold_left (fun acc (x:'a) -> if collides pos (f x) then x::acc else acc) [] l
+
+  (** check if element collides with other elements **)
+  let has_collision ~(f:'a -> t) x (l:'a list) =
+    Option.is_some @@ get_first_collision ~f x l
+
+  (** compacts the position vertically **)
+  let compact ?(to_top=true) ~(f:'a -> t) (t:t) (l:'a list) : t =
+    let rec up (t:t) =
+      let y = P.y t - 1 in
+      if y >= 0 && to_top && (not @@ has_collision ~f (P.set_y t y) l)
+      then up @@ P.set_y t y
+      else t in
+    up t
+
+  (** Sorts positions by top **)
+  let sort_by_y ~(f:'a -> t) (l:'a list) =
+    List.sort (fun p1 p2 -> compare (P.y (f p1)) (P.y (f p2))) l
+
+  (** Given a list of collisions and overall items in grid, resolve these collisions by moving down **)
+  let rec move_down ?rows ~f ~(eq:'a -> 'a -> bool) ~(collisions:'a list) (t : t) (l:'a list) =
+    let y            = P.y t + P.h t in
+    let move x acc   =
+      let new_pos    = P.set_y y (f x) in
+      let new_list   = (new_pos, x)::acc in
+      let filtered   = List.filter (fun i -> not @@ eq x i) l in
+      let collisions = List.filter (fun x -> collides new_pos (f x)) filtered in
+      let further    = move_down ?rows ~f ~eq ~collisions new_pos filtered in
+      let result     = List.append new_list further in
+      match collisions, further with
+      | _::_, [] -> false, []
+      | _,_      -> true, result
+    in
+    match rows with
+    | None      -> List.fold_left (fun acc x -> snd @@ move x acc) [] collisions
+    | Some rows -> List.fold_while (fun acc x ->
+                       if y + (P.h (f x)) <= rows
+                       then let result = move x acc in
+                            if fst result
+                            then snd result,`Continue
+                            else [], `Stop
+                       else [], `Stop) [] collisions
+
+  (** Given a list of collisions and overall items in grid, resolve these collisions by moving up **)
+  let move_top ~f ~(eq:'a -> 'a -> bool) ~(collisions:'a list) (t:t) (l:'a list) =
+    List.fold_while (fun acc x ->
+        let lst   = List.filter (fun i -> not @@ eq x i) l in
+        let new_t = compact ~f (f x) lst in
+        if P.y new_t + P.h new_t <= P.y t
+        then ((new_t, x) :: acc), `Continue
+        else [], `Stop) [] collisions
+
+  (** Given a list of collisions, overall items in grid and ghost current position,**)
+  (** resolves these collisions by swapping elements if its possible **)
+  let swap ~cols ~f ~(eq:'a -> 'a -> bool) ~(collisions:'a list) ~(ghost_pos:t) (pos:t) (l:'a list) =
+    List.fold_left (fun acc x ->
+        let lst               = List.filter (fun i -> not @@ eq x i) l in
+        let x_pos             = f x in
+        let coll_pos, new_pos =
+          if P.x ghost_pos < P.x x_pos
+          then P.set_x (P.x ghost_pos) x_pos,
+               P.set_x ((P.x x_pos) + (P.w x_pos) - (P.w ghost_pos)) ghost_pos
+          else P.set_x ((P.x ghost_pos) + (P.w ghost_pos) - (P.w x_pos)) x_pos,
+               P.set_x (P.x x_pos) ghost_pos
+        in
+        List.append acc @@
+          if P.y ghost_pos = P.y x_pos
+             && (P.x ghost_pos = P.x x_pos + P.w x_pos || P.x ghost_pos + P.w ghost_pos = P.x x_pos)
+             && not @@ has_collision ~f coll_pos lst
+             && not @@ has_collision ~f new_pos lst
+             && not @@ has_collision ~f pos lst
+             && not @@ collides coll_pos pos
+             && P.x coll_pos + P.w coll_pos <= cols
+             && P.x coll_pos >= 0
+          then [coll_pos, x]
+          else []) [] collisions
+
+  (** Changes width and height to correspond provided aspect **)
+  let correct_aspect (t:t) (aspect:int*int) : t =
+    let w = if P.w t mod (fst aspect) <> 0
+            then let w = (P.w t / (fst aspect)) * (fst aspect) in
+                 if w = 0 then (fst aspect) else w
+            else P.w t
+    in
+    let h = if P.h t mod (snd aspect) <> 0
+            then let h = (P.h t / (snd aspect)) * (snd aspect) in
+                 if h = 0 then (snd aspect) else h
+            else P.h t
+    in
+    let sw  = w / (fst aspect) in
+    let sh  = h / (snd aspect) in
+    let w,h = if sw > sh then (fst aspect) * sh,h
+              else w, (snd aspect) * sw
+    in
+    let t = P.set_w w t |> P.set_h h in
+    t
+
+  let correct_xy (t:t) par_w par_h =
+    let x = if P.x t < 0 then 0 else if P.x t + P.w t > par_w then par_w - P.w t else P.x t in
+    let y = match par_h with
+      | Some ph -> if P.y t < 0 then 0 else if P.y t + P.h t > ph then ph - P.h t else P.y t
+      | None    -> if P.y t < 0 then 0 else P.y t
+    in
+    let t = P.set_x x t |> P.set_y y in
+    t
+
+  let correct_w ?max_w ?(min_w=1) (p:t) par_w =
+    let w = match max_w with
+      | Some max -> if p.w > max then max else if p.w < min_w then min_w else p.w
+      | None     -> if p.w < min_w then min_w else p.w
+    in
+    let w = if p.x + w > par_w then par_w - p.x else w in
+    { p with w }
+
+  let correct_h ?max_h ?(min_h=1) (p:t) par_h =
+    let h = match max_h with
+      | Some max -> if p.h > max then max else if p.h < min_h then min_h else p.h
+      | None     -> if p.h < min_h then min_h else p.h
+    in
+    let h = match par_h with
+      | Some ph -> if p.y + h > ph then ph - p.y else h
+      | None    -> h
+    in
+    { p with h }
+
+  let correct_wh ?max_w ?min_w ?max_h ?min_h p par_w par_h =
+    correct_w ?max_w ?min_w p par_w |> (fun p -> correct_h ?max_h ?min_h p par_h)
+
+  let get_free_rect ?(cmp:    (t -> t -> int) option)
+                    ?(aspect: (int * int) option)
+                    ?min_w ?min_h ?max_w ?max_h
+                    ~(f:      'a -> t)
+                    (pos:     t)
+                    (items:   'a list)
+                    (w:       int)
+                    (h:       int)
+                    () =
+    if has_collision ~f:(fun x -> x) pos items
+    then None
+    else
+      let area pos = pos.w * pos.h in
+      let cmp = match cmp with
+        | Some f -> f
+        | None   ->
+           (fun new_pos old_pos ->
+             match aspect with
+             | Some a -> let nasp = correct_aspect new_pos a in
+                         let oasp = correct_aspect old_pos a in
+                         let narea = area nasp in
+                         let oarea = area oasp in
+                         compare narea oarea
+             | None   -> let new_area = area new_pos in
+                         let old_area = area old_pos in
+                         compare new_area old_area)
+      in
+      let items      = List.map f items in
+      (* FIXME obviously not optimized algorithm *)
+      (* get only elements that are on the way to cursor proection to the left/right side *)
+      let x_filtered = List.filter (fun i -> pos.y > i.y && pos.y < i.y + i.h) items in
+      (* get cursor proection to the left side *)
+      let l = List.filter (fun i -> i.x < pos.x) x_filtered
+              |> List.fold_left (fun acc i -> if i.x + i.w > acc.x + acc.w then i else acc) empty
+              |> (fun x -> x.x + x.w) in
+      (* get cursor proection to the right side *)
+      let r =
+        List.filter (fun i -> i.x > pos.x) x_filtered
+        |> List.fold_left (fun acc i -> if i.x < acc.x then i else acc)
+                          { x=w; y=0; w=0; h=0 }
+        |> (fun x -> x.x) in
+      (* get only elements that are on the way to cursor proection to the top/bottom side *)
+      let y_filtered = List.filter
+                         (fun i -> pos.x > i.x && pos.x < i.x + i.w && i.x + i.w > l && i.x < r)
+                         items in
+      (* get cursor proection to the top side *)
+      let t = List.filter (fun i -> i.y < pos.y) y_filtered
+              |> List.fold_left (fun acc i -> if i.y + i.h > acc.y + acc.h then i else acc) empty
+              |> (fun x -> x.y + x.h) in
+      (* get cursor proection to the bottom side *)
+      let b =
+        List.filter (fun i -> i.y > pos.y) y_filtered
+        |> List.fold_left (fun acc i -> if i.y < acc.y then i else acc)
+                          { x=0; y=h; w=0; h=0}
+        |> (fun x -> x.y) in
+      (* get available x points, FIXME obviously we don't need to iterate over all items *)
+      let xs = List.fold_left (fun acc i ->
+                   let join = fun x lst -> if x >= l && x <= r then x :: lst else lst in
+                   let acc  = join i.x acc |> join (i.x + i.w) in
+                   acc) [] items
+               |> (fun x -> l :: x @ [r])
+               |> List.sort_uniq ~cmp:(Pervasives.compare)
+      in
+      (* get available y points, FIXME obviously we don't need to iterate over all items *)
+      let ys = List.fold_left (fun acc i ->
+                   let join = fun y lst -> if y >= t && y <= b then y :: lst else lst in
+                   let acc  = join i.y acc |> join (i.y + i.h) in
+                   acc) [] items
+               |> (fun x -> t :: x @ [b])
+               |> List.sort_uniq ~cmp:(Pervasives.compare)
+      in
+      (* get biggest non-overlapping rectangle under the cursor *)
+      (* FIXME obviously not optimized at all *)
+      let a = List.fold_left (fun acc x0 ->
+                  let xs = List.filter (fun i -> i > x0) xs in
+                  List.fold_left (fun acc x1 ->
+                      List.fold_left (fun acc y0 ->
+                          let ys = List.filter (fun i -> i > y0) ys in
+                          List.fold_left (fun acc y1 ->
+                              let (new_pos:t) = { x = x0; y = y0; w = x1 - x0; h = y1 - y0 } in
+                              (*
+                               * new rect must be the biggest one available,
+                               * it must not overlap with other rects,
+                               * it must be under the mouse cursor
+                               *)
+                              if Option.is_none @@ get_first_collision ~f:(fun x -> x) new_pos items
+                                 && collides new_pos pos
+                              then
+                                let p = correct_wh ?max_w ?max_h ?min_h ?min_w new_pos w (Some h) in
+                                let p = match aspect with
+                                  | Some asp -> correct_aspect p asp
+                                  | None     -> new_pos
+                                in
+                                let cx = pos.x - new_pos.x in
+                                let cy = pos.y - new_pos.y in
+                                let cp = correct_xy { pos with x = cx; y = cy } new_pos.w (Some new_pos.h) in
+                                let p  = correct_xy { p with x = cp.x - (p.w / 2)
+                                                           ; y = cp.y - (p.h / 2) }
+                                                    new_pos.w (Some new_pos.h)
+                                in
+                                let p = { p with x = p.x + new_pos.x
+                                               ; y = p.y + new_pos.y } in
+                                match (cmp p acc),p.x + p.w > w, p.y + p.h > h, p.w > new_pos.w, p.h > new_pos.h with
+                                | 1,false,false,false,false -> p
+                                | _ -> acc
+                              else acc) acc ys) acc ys) acc xs)
+                             empty xs
+      in
+      if equal a empty
+      then None
+      else Some a
+end
