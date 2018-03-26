@@ -56,9 +56,9 @@ let default = { resolution = 1280, 720
               }
 
 let dump w = Yojson.Safe.to_string (to_yojson w)
-           
+
 let restore s = of_yojson (Yojson.Safe.from_string s)
-              
+
 let combine ~set wm =
   let changed = ref false in
   let rec filter_container = function

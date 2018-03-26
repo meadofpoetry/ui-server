@@ -14,6 +14,7 @@ module Make(I : Item) = struct
   class t ~title ~resolution ~(init: I.t list) ~e_layers () =
     let s_grids,set_grids   = React.S.create [(1,1)] in
     let s_grid,set_grid     = React.S.create (1,1) in
+    let s_resolution,set_resolution = React.S.create resolution in
     let s_layers,set_layers = React.S.create [new G.t ~layer:0 ~init:[] ~s_grid ~resolution ()] in
     let s_active,set_active = React.S.create @@ List.hd @@ React.S.value s_layers in
     let wrapper    = Dom_html.createDiv Dom_html.document |> Widget.create in
@@ -47,7 +48,7 @@ module Make(I : Item) = struct
 
       method e_item_dblclick = e_dblclick
       method e_item_delete   = e_delete
-      method resolution      = resolution
+      method resolution      = React.S.value s_resolution
       method s_grid          = s_grid
       method s_grids         = s_grids
       method s_active        = s_active
@@ -76,6 +77,7 @@ module Make(I : Item) = struct
       method clear = List.iter (fun x -> x#remove) self#widgets
       method initialize resolution items =
         self#clear;
+        set_resolution resolution;
         let positions = List.map I.position_of_t items in
         let grids     = Utils.get_grids ~resolution ~positions () in
         set_grids grids;
@@ -109,7 +111,7 @@ module Make(I : Item) = struct
         let eq = (fun _ _ -> false) in
         let s = React.S.switch ~eq (React.S.map ~eq (fun x -> x#s_change) s_active) in
         React.E.map (fun _ -> let positions = List.map (fun x -> I.position_of_t x) self#items in
-                              let grids = Utils.get_grids ~resolution ~positions () in
+                              let grids = Utils.get_grids ~resolution:self#resolution ~positions () in
                               set_grids grids) @@ React.S.changes s |> ignore;
         (* update selected grid *)
         React.E.map (fun (_,i) -> let s = i##.textContent
@@ -151,7 +153,7 @@ module Make(I : Item) = struct
                                  let grid = List.find_pred (fun g -> g#layer = x) grids in
                                  Option.iter (fun g -> set_active g) grid
                               | `Added x    ->
-                                 let grid = new G.t ~layer:x ~init:[] ~s_grid ~resolution () in
+                                 let grid = new G.t ~layer:x ~init:[] ~s_grid ~resolution:self#resolution () in
                                  Dom.appendChild wrapper#root grid#root;
                                  set_layers (grid :: grids)
                               | `Removed x  ->

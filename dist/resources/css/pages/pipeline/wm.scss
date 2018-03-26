@@ -23,17 +23,13 @@ $wm-placeholder-color: text-secondary-on-background;
     height: 100%;
 }
 
-.wm-editor-config-dialog .mdc-dialog__surface {
-    width: auto;
-}
-
 .wm-confirmation-dialog .mdc-dialog__surface {
     max-width: 400px;
     min-width: 400px;
 }
-
-* [data-layer] {
-    .mdc-dynamic-grid__item { background-color: $material-color-purple-300; }
+.wm-resolution-dialog .mdc-dialog__surface {
+    max-width: 400px;
+    min-width: 400px;
 }
 
 @for $i from 0 through $max-layers {

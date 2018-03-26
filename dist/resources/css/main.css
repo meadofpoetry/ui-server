@@ -75,15 +75,13 @@
 .wm, .mdc-layout-grid, .mdc-layout-grid__inner, .wm-grid-container {
   height: 100%; }
 
-.wm-editor-config-dialog .mdc-dialog__surface {
-  width: auto; }
-
 .wm-confirmation-dialog .mdc-dialog__surface {
   max-width: 400px;
   min-width: 400px; }
 
-* [data-layer] .mdc-dynamic-grid__item {
-  background-color: #ba68c8; }
+.wm-resolution-dialog .mdc-dialog__surface {
+  max-width: 400px;
+  min-width: 400px; }
 
 .wm-layers-grid .mdc-dynamic-grid__item[data-layer='0'] .wm-layer-item__color-indicator {
   background-color: #d582e3; }
