@@ -801,8 +801,8 @@ module Make
       let _class               = "mdc-list-item"
       let text_class           = CSS.add_element _class "text"
       let secondary_text_class = CSS.add_element _class "secondary-text"
-      let start_detail_class   = CSS.add_element _class "start-detail"
-      let end_detail_class     = CSS.add_element _class "end-detail"
+      let graphic_class        = CSS.add_element _class "graphic"
+      let meta_class           = CSS.add_element _class "meta"
       let divider_class        = "mdc-list-divider"
 
       let create_divider ?id ?style ?(classes=[]) ?attrs ?(tag=div) ?(inset=false) () =
@@ -877,13 +877,13 @@ module Make
 
     module Item = struct
 
-      let _class                   = CSS.add_element base_class "item"
-      let nested_list_class        = CSS.add_element _class "nested-list"
-      let nested_list_hidden_class = CSS.add_modifier nested_list_class "hidden"
+      let _class            = CSS.add_element base_class "item"
+      let list_class        = CSS.add_element base_class "list"
+      let item_open_class   = CSS.add_modifier _class "open"
 
       let create_item = List_.Item.create
 
-      let create_nested_list = List_.create ~classes:[nested_list_class]
+      let create_list = List_.create ~classes:[list_class]
 
       let create_divider = List_.Item.create_divider
 
@@ -909,7 +909,7 @@ module Make
       let selected_class = CSS.add_modifier M.base_class "selected"
 
       let create_icon ?id ?style ?(classes=[]) ?attrs ~icon () =
-        Html.i ~a:([ a_class ("material-icons" :: List_.Item.start_detail_class :: classes) ]
+        Html.i ~a:([ a_class ("material-icons" :: List_.Item.graphic_class :: classes) ]
                    |> add_common_attrs ?id ?style ?attrs)
           [pcdata icon]
 
@@ -1492,8 +1492,8 @@ module Make
 
     let base_class        = "mdc-text-field"
     let input_class       = CSS.add_element base_class "input"
-    let label_class       = CSS.add_element base_class "label"
-    let bottom_line_class = CSS.add_element base_class "bottom-line"
+    let label_class       = "mdc-floating-label"
+    let ripple_line_class = "mdc-line-ripple"
 
     module Wrapper = struct
 
@@ -1505,6 +1505,40 @@ module Make
                     |> add_common_attrs ?id ?style ?attrs)
           [ textfield; helptext ]
 
+    end
+
+    module Notched_outline = struct
+
+      let _class        = "mdc-notched-outline"
+      let notched_class = CSS.add_modifier _class "notched"
+      let path_class    = CSS.add_element _class "path"
+      let idle_class    = CSS.add_element _class "idle"
+
+      let create_main ?id ?style ?(classes=[]) ?attrs () =
+        div ~a:([ a_class (classes
+                           |> List.cons _class) ]
+                |> add_common_attrs ?id ?style ?attrs)
+          [ svg ~a:([])
+              [Svg.path ~a:([ Svg.a_class [path_class]]) [] ]
+          ]
+
+      let create_idle ?id ?style ?attrs () =
+        div ~a:([a_class [idle_class]]
+                |> add_common_attrs ?id ?style ?attrs) []
+    end
+
+    module Floating_label = struct
+
+      let _class            = "mdc-floating-label"
+      let float_above_class = CSS.add_modifier _class "float-above"
+      let shake_class       = CSS.add_modifier _class "shake"
+
+      let create ?id ?style ?(classes=[]) ?attrs ~data ~fore () =
+        label ~a:([ a_class (classes
+                             |> List.cons _class) ]
+                  |> List.cons (a_label_for fore)
+                  |> add_common_attrs ?id ?style ?attrs)
+          [pcdata data]
     end
 
     module Help_text = struct
@@ -1526,7 +1560,7 @@ module Make
 
     module Icon = struct
 
-      let _class       = CSS.add_element base_class "icon"
+      let _class = CSS.add_element base_class "icon"
 
       let create ?id ?style ?(classes=[]) ?attrs ?(clickable=true) ~icon () =
         Html.i ~a:([ a_class ("material-icons" :: _class :: classes) ]
@@ -1541,42 +1575,50 @@ module Make
     let fullwidth_class         = CSS.add_modifier base_class "fullwidth"
     let disabled_class          = CSS.add_modifier base_class "disabled"
     let box_class               = CSS.add_modifier base_class "box"
-    let upgraded_class          = CSS.add_modifier base_class "upgraded"
+    let upgraded_class          = CSS.add_modifier base_class "upgraded"  (* pre-filled *)
+    let outlined_class          = CSS.add_modifier base_class "outlined"
+    let leading_icon_class      = CSS.add_modifier base_class "with-leading-icon"
+    let trailing_icon_class     = CSS.add_modifier base_class "with-trailing-icon"
+    let focused_class           = CSS.add_modifier base_class "focused"
     let label_float_above_class = CSS.add_modifier label_class "float-above"
 
     let create ?id ?style ?(classes=[]) ?attrs ?placeholder
-          ?label_id ?label_style ?(label_classes=[]) ?label_attrs
-          ?value ?(input_type=`Text) ?(disabled=false) ?label ?input_id ?help_text_id
+          ?label_id ?label_style ?label_classes ?label_attrs
+          ?value ?(input_type=`Text) ?(disabled=false) ?label ?help_text_id
           ?leading_icon ?trailing_icon ?(box=false) ?(required=false) ?(full_width=false) ?(dense=false)
-          ?(textarea=false) ?rows ?cols () =
+          ?(textarea=false) ?outline ?(focused=false) ?rows ?cols ~input_id () =
       div ~a:([ a_class (classes
                          |> cons_if textarea   textarea_class
                          |> cons_if full_width fullwidth_class
                          |> cons_if dense      dense_class
                          |> cons_if disabled   disabled_class
                          |> cons_if box        box_class
-                         |> cons_if (Option.is_some leading_icon) (CSS.add_modifier base_class "with-leading-icon")
-                         |> cons_if (Option.is_some trailing_icon) (CSS.add_modifier base_class "with-trailing-icon")
+                         |> cons_if (Option.is_some outline) outlined_class
+                         |> cons_if focused    focused_class
+                         |> cons_if (Option.is_some leading_icon) leading_icon_class
+                         |> cons_if (Option.is_some trailing_icon) trailing_icon_class
                          |> cons_if (Option.is_some value) upgraded_class
                          |> List.cons base_class) ]
               |> add_common_attrs ?id ?style ?attrs)
-        ((if textarea then [] else [ div ~a:([ a_class [bottom_line_class]]) [] ])
+        ((if textarea || (Option.is_some outline)
+          then []
+          else [ div ~a:([ a_class [ripple_line_class]]) [] ])
+         |> cons_if (Option.is_some outline) (Notched_outline.create_idle ())
+         |> cons_if (Option.is_some outline) (Notched_outline.create_main ())
          |> cons_option trailing_icon
-         |> map_cons_option ~f:(fun x ->
-                (Html.label ~a:([ a_class (label_classes
-                                           |> cons_if (Option.is_some value) label_float_above_class
-                                           |> List.cons label_class) ]
-                                |> map_cons_option ~f:a_label_for input_id
-                                |> add_common_attrs ?id:label_id
-                                     ?style:label_style
-                                     ?attrs:label_attrs)
-                   [pcdata x]))
-              label
+         |> map_cons_option ~f:(fun x -> Floating_label.create
+                                           ?id:label_id
+                                           ?style:label_style
+                                           ?classes:label_classes
+                                           ?attrs:label_attrs
+                                           ~data:x
+                                           ~fore:input_id
+                                           ()) label
          |> List.cons (let common_attrs = ([ a_class [input_class] ]
                                            |> cons_if required @@ a_required ()
                                            |> cons_if disabled @@ a_disabled ()
                                            |> map_cons_option ~f:a_placeholder placeholder
-                                           |> map_cons_option ~f:a_id input_id) in
+                                           |> List.cons (a_id input_id)) in
                        (if not textarea
                         then (input ~a:(common_attrs @ [ a_input_type input_type ]
                                         |> map_cons_option ~f:a_value value

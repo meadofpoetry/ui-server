@@ -36,12 +36,12 @@
     <script>
      var cl = ((localStorage.getItem('toolbar')=='open') && (window.innerWidth >= 1200))
               ?'hide-sidedrawer':'';
-       document.write('<body class="mdc-typography '+ cl +' ">');
+       document.writeln('<body class="mdc-typography '+ cl +' ">');
      </script>
       <script>
        var cl = ((localStorage.getItem('toolbar')=='open') && (window.innerWidth >= 1200))
                 ?'mdc-drawer--open':'';
-       document.write('<aside id="mdc-drawer" class="mdc-drawer mdc-drawer--custom mdc-drawer--animating ' + cl +' ">');
+       document.writeln('<aside id="mdc-drawer" class="mdc-drawer mdc-drawer--custom mdc-drawer--animating ' + cl +' ">');
       </script>
       <nav id="mdc-drawer-nav" class="mdc-drawer__drawer" onclick="event.stopPropagation()">
           <header class="mdc-drawer__header mdc-theme--primary-bg mdc-elevation--z4">
@@ -51,7 +51,7 @@
                        var str = ("{{user}}"=="root")?'Администратор':'{{user}}(Пользователь)';
                        document.write(str);
                       </script>
-                     <i id="dropdown" class="material-icons mdc-icon icon-dropdown">
+                     <i id="dropdown" class="material-icons mdc-icon icon-dropdown dropdown">
                         arrow_drop_down
                      </i>
                   </div>
@@ -81,17 +81,17 @@
                 <div class="mdc-tree">
                    <div class="mdc-list-item">
                        {{title}}
-                       <i class="material-icons mdc-icon">
+                       <i class="material-icons mdc-icon mdc-list-item__meta dropdown">
                            arrow_drop_down
                        </i>
                    </div>
+                   <div class="mdc-tree__list">
                    {{#subtree}}
-                   <div class="mdc-tree__subitem">
                        <a href="{{href}}" class="mdc-list-item">
                               {{title}}
                        </a>
-                   </div>
                    {{/subtree}}
+                   </div>
                 </div>
               </div>
            {{/simple}}
@@ -136,78 +136,6 @@
       document.addEventListener('DOMContentLoaded', rdy, false);
     </script>
     <script src="/js/sidebar_nav.js" type="text/javascript"></script>
-    <script>
-     var drawerEl  = document.getElementById('mdc-drawer');
-     var btn       = document.getElementById('demo-menu');
-     var body      = document.body;
-     var nav       = 'mdc-drawer-nav';
-     var open      = 'mdc-drawer--open';
-     var animate   = 'mdc-drawer--animating';
-     var hide      = 'hide-sidedrawer';
-
-     function toggle () {
-         if (drawerEl.classList.contains(open))
-             { drawerEl.classList.remove(open);
-               body.classList.remove(hide);
-               localStorage.setItem('toolbar','');}
-         else { drawerEl.classList.add(open);
-                body.classList.add(hide);
-                localStorage.setItem('toolbar','open');};
-     }
-     function resize () {
-         window.setTimeout(function () {window.dispatchEvent(new Event('resize'))}, 225);
-     }
-     btn.addEventListener('click', function () {
-         toggle ();
-         resize ();
-     });
-     drawerEl.addEventListener('click', resize);
-     drawerEl.addEventListener('click', toggle);
-    </script>
-    <script>
-     var activatedClass = 'mdc-list-item--selected';
-     document.querySelector('.mdc-drawer__drawer').addEventListener('click', function(event) {
-        var el = event.target;
-        while (el && !el.classList.contains('mdc-list-item')) {
-          el = el.parentElement;
-        }
-        if (el) {
-          var activatedItem = document.querySelector('.' + activatedClass);
-          if (activatedItem) {
-            activatedItem.classList.remove(activatedClass);
-          }
-          event.target.classList.add(activatedClass);
-        }
-      });
-    </script>
-    <script>
-     var hidden  = 'mdc-drawer__wrapper--hidden';
-     var not_hid = 'mdc-drawer__wrapper';
-     var wrapper = document.getElementById('drawer-wrapper');
-     var panel   = document.getElementById('drawer-panel');
-     panel.addEventListener('click', function () {
-         wrapper.classList.toggle(hidden);
-        });
-     var dropdown = document.getElementById('dropdown');
-     var rotated  = 'mdc-expand--rotated';
-     panel.addEventListener('click', function () {
-         dropdown.classList.toggle(rotated);
-     });
-    </script>
-    <script>
-     var open        = 'mdc-tree__item--open';
-     function toggle (item) {
-         item.classList.toggle(open);
-     }
-     var drawer      = document.getElementById('navigation');
-     var elementList = drawer.querySelectorAll('.mdc-tree__item');
-     for(var i = 0; i <= elementList.length - 1; i++)
-         { var item = elementList.item(i);
-           console.log(item.textContent);
-           if (item.querySelector('.mdc-tree__subitem'))
-               { item.onclick = function () {toggle(this)};
-               };
-         };
-    </script>
+    <script src="/js/drawer.js" type="text/javascript"></script>
   </body>
 </html>

@@ -974,7 +974,7 @@
     background-color: #fff; }
   .mdc-drawer--custom .icon-dropdown {
     position: absolute;
-    right: -4px;
+    right: 4px;
     margin-right: 10px;
     margin-top: 12px; }
   .mdc-drawer--custom .mdc-account-icon {
@@ -1005,6 +1005,8 @@
     overflow: hidden;
     width: 100%;
     cursor: pointer; }
+    .mdc-drawer--custom .mdc-drawer__panel--open .dropdown {
+      transform: rotate(180deg); }
   .mdc-drawer--custom .mdc-drawer__drawer {
     border-left: 0;
     border-right: 0px solid #e4e4e4;
