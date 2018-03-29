@@ -1168,7 +1168,7 @@ module Make
 
   module Select = struct
 
-    let base_class          = "mdc-select"
+    let base_class        = "mdc-select"
     let surface_class     = CSS.add_element base_class "surface"
     let bottom_line_class = CSS.add_element base_class "bottom-line"
 
@@ -1209,11 +1209,10 @@ module Make
                            |> cons_if disabled disabled_class
                            |> List.cons base_class)
                 ; a_role ["listbox"]]
-                |> cons_if (not disabled) @@ a_tabindex 0
-                |> cons_if disabled       @@ a_tabindex (-1)
-                |> cons_if disabled       @@ a_aria "disabled" ["true"]
+                |> cons_if disabled @@ a_aria "disabled" ["true"]
                 |> add_common_attrs ?id ?style ?attrs)
-          [ div ~a:[ a_class [surface_class]]
+          [ div ~a:([ a_class [surface_class]]
+                     |> List.cons @@ a_tabindex 0)
               [ div ~a:[ a_class [label_class]] [pcdata label]
               ; div ~a:[ a_class [selected_text_class]] []
               ; div ~a:[ a_class [bottom_line_class]] [] ]

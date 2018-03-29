@@ -762,7 +762,7 @@ let onload _ =
                           ; switch_demo ()
                           ; toggle_demo ()
                           ; elevation_demo ()
-                          (* ; select_demo ()*)
+                          ; select_demo ()
                           ; textfield_demo ()
                           ; card_demo ()
                           ; slider_demo ()

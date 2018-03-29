@@ -102,7 +102,17 @@ module Base = struct
       method get_disabled   = Js.to_bool mdc##.disabled
       method set_disabled x = mdc##.disabled := Js.bool x
 
+      method layout = let width =
+                        List.fold_left (fun acc x -> Printf.printf "item width is %d\n"
+                                                       x#get_offset_width;
+                                                     if x#get_offset_width > acc
+                                                     then x#get_offset_width
+                                                     else acc) 0 self#get_items
+                      in
+                      self#root##.style##.width := Js.string @@ (string_of_int width)^"px"
+
       initializer
+        self#set_on_load @@ Some (fun () -> self#layout);
         (* FIXME add open listener, - opens not only by click *)
         Dom_events.listen self#root
           Dom_events.Typ.click
