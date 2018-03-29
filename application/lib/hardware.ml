@@ -8,14 +8,14 @@ type url = string
 
 type marker = [ `Input of input * int | `Board of int ]
 
-type in_push = (url * Common.Stream.source) list -> unit
+type in_push = (url * Common.Stream.t) list -> unit
 type input_control  = [ `Input of input * int * in_push | `Board of int * Meta_board.stream_handler ]
                     
 type t = { boards   : Meta_board.board Map.t
          ; usb      : Usb_device.t
          ; topo     : Common.Topology.t React.signal
          ; sources  : input_control list
-         ; streams  : (marker * (url option * Common.Stream.source) list) list React.signal
+         ; streams  : (marker * (url option * Common.Stream.t) list) list React.signal
          }
 
 let create_board db usb (b:topo_board) boards path step_duration =

@@ -36,23 +36,15 @@ let parse_uri =
   in parse_string parser
 
 let match_streams
-      (sources : (string * Common.Stream.source) list ref)
+      (sources : (string * Common.Stream.t) list ref)
       (sl : Structure.structure list) : Structure.t list =
   let open Structure in
-  let stream_from_input input uri description =
-    (Common.Stream.{ source = input
-                   ; id     = `Ip (Result.get_exn @@ parse_uri uri)
-                   ; description })
-  in
-  let rec merge (sources : (string * Common.Stream.source) list) structure =
+  let rec merge (sources : (string * Common.Stream.t) list) structure =
     match sources with
     | [] -> { source = Unknown; structure }
     | (uri, s)::ss ->
        if String.equal uri structure.uri
-       then begin match s with
-            | Input  _ as i -> { source = Stream (stream_from_input i uri None); structure }
-            | Parent s      -> { source = Stream s; structure }
-            end
+       then { source = Stream s; structure }
        else merge ss structure
   in
   List.map (merge !sources) sl
