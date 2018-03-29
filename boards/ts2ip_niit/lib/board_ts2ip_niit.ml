@@ -53,13 +53,35 @@ let create (b:topo_board) (streams:Common.Stream.t list React.signal) _ send db 
     React.E.map (fun status ->
         List.fold_left (fun acc ({stream;dst_ip;dst_port;_},status) ->
             match status.bitrate,status.enabled, status.has_data with
-            | Some _, true, true -> let (stream : Common.Stream.t) = { source = stream.source
+            | Some _, true, true -> let (stream : Common.Stream.t) = { source = Parent stream
                                                                      ; id = `Ip { ip = dst_ip; port = dst_port }
                                                                      ; description = stream.description }
                                     in stream :: acc
             | _ -> acc) [] status.packers_status)
                 events.status
     |> React.S.hold []
+  in
+  let available =
+    React.S.l2 (fun incoming outgoing ->
+        List.map (fun x -> let open Common.Stream in
+                           match List.find_opt (fun o -> match o.source with
+                                                         | Parent s -> Common.Stream.equal x s
+                                                         | _        -> false) outgoing with
+                           | Some o -> (match o.id with
+                                        | `Ip {ip;port} -> let uri = Printf.sprintf "udp://%s:%d"
+                                                                                    (Ipaddr.V4.to_string ip)
+                                                                                    port in
+                                                           Some uri, x
+                                        | _ -> None, x)
+                           | None   -> None,x) incoming) streams s_sms
+  in
+  let set = (fun streams ->
+      let settings = List.map (fun ((url:string),stream) -> let dst_ip = Ipaddr.V4.broadcast in
+                                                            let dst_port = 0 in
+                                                            { stream;dst_ip;dst_port;enabled=true})
+                              streams
+      in
+      api.set_streams_full settings)
   in
   let state        = (object end) in
   { handlers       = handlers
@@ -72,8 +94,8 @@ let create (b:topo_board) (streams:Common.Stream.t list React.signal) _ send db 
   ; settings_page  = ("TS2IP", React.S.const (Tyxml.Html.div []))
   ; widgets_page   = [("TS2IP", React.S.const (Tyxml.Html.div []))]
   ; stream_handler = Some (object
-                           method streams = React.S.const []
-                           method set _   = ()
-                         end)
+                             method streams = available
+                             method set x   = set x
+                           end)
   ; state          = (state :> < >)
   }

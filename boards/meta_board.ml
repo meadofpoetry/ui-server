@@ -17,7 +17,7 @@ exception Invalid_port of string
 type url = string
                         
 type stream_handler = < streams : (url option * Common.Stream.t) list React.signal
-                      ; set     : (url * Common.Stream.t) list -> unit
+                      ; set     : (url * Common.Stream.t) list -> (unit,string) Lwt_result.t
                       >
                         
 type board = { handlers        : (module Api_handler.HANDLER) list
