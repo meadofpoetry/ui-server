@@ -228,7 +228,7 @@ let tree_demo () =
   demo_section "Tree" [ tree ]
 
 let menu_demo () =
-  let items    = List.map (fun x -> if x != 2
+  let items    = List.map (fun x -> if x <> 2
                                     then `Item (new Menu.Item.t ~text:("Menu item " ^ (string_of_int x)) ())
                                     else `Divider (new Menu.Divider.t ()))
                    (List.range 0 5) in

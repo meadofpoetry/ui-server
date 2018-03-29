@@ -13,7 +13,7 @@ let refers_to_any (el: string * Wm.widget) (list: (string * Wm.widget) list) =
 let resolution_to_aspect resolution =
   let w, h = resolution in
   let rec greatest_common_divisor a b =
-    if a != 0 && b != 0 then
+    if a <> 0 && b <> 0 then
       let a, b =
         if a > b
         then a mod b, b
