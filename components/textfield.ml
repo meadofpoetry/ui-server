@@ -31,26 +31,7 @@ type icon =
   }
 
 let icon_event : Dom_html.event Js.t Dom_events.Typ.typ = Dom_events.Typ.make "MDCTextfield:icon"
-(*
-module Floating_label = struct
 
-  type floating_label =
-    { float_above : bool
-    ; shake       : bool
-    }
-
-  class t {float_above;shake} () =
-    let elt = Markup.Textfield.Floating_label.create ~float_above ~shake ()
-              |> Tyxml_js.To_dom.of_label in
-    object
-      inherit Widget.widget elt () as super
-      method set_float_above x = super#add_or_remove_class x Markup.Textfield.Floating_label.float_above_class
-      method set_shake x       = super#add_or_remove_class x Markup.Textfield.Floating_label.shake_class
-      method float_above       = super#has_class Markup.Textfield.Floating_label.float_above_class
-      method shake             = super#has_class Markup.Textfield.Floating_label.shake_class
-    end
-end
-                        *)
 module Help_text = struct
 
   type helptext =

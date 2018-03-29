@@ -473,9 +473,9 @@ module Make
       let _class = CSS.add_element base_class "overlay-grid"
 
       let create ?id ?style ?(classes=[]) ?attrs () =
-        div ~a:([ a_class (_class :: classes) ]
-                |> add_common_attrs ?id ?style ?attrs)
-            []
+        canvas ~a:([ a_class (_class :: classes) ]
+                   |> add_common_attrs ?id ?style ?attrs)
+          []
     end
 
     module Item = struct
