@@ -2,7 +2,8 @@ open Containers
    
 module Api_handler = Api.Handler.Make(Common.User)
                    
-let main config =
+let main config = ()
+                    (*
   Nocrypto_entropy_lwt.initialize () |> ignore;
   let rec mainloop () =
     print_endline "Started.";
@@ -75,6 +76,7 @@ let main config =
     | e -> print_endline (Printf.sprintf "failed with exn: %s" (Printexc.to_string e))
 
   in mainloop ()
+                     *)
 
 let () =
   Lwt_engine.set ~transfer:true ~destroy:true (new Lwt_engine.libev ~backend:Lwt_engine.Ev_backend.epoll ());

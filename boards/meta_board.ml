@@ -14,6 +14,12 @@ module Ports = Map.Make(Int)
 
 exception Invalid_port of string
 
+type url = string
+                        
+type stream_handler = < streams : (url option * Common.Stream.source) list React.signal
+                      ; set     : (url * Common.Stream.source) list -> unit
+                      >
+                        
 type board = { handlers        : (module Api_handler.HANDLER) list
              ; control         : int
              ; streams_signal  : Common.Stream.t list React.signal
@@ -22,6 +28,7 @@ type board = { handlers        : (module Api_handler.HANDLER) list
              ; ports_active    : bool React.signal Ports.t
              ; settings_page   : (string * [`Div] Tyxml.Html.elt React.signal)
              ; widgets_page    : (string * [`Div] Tyxml.Html.elt React.signal) list
+             ; stream_handler  : stream_handler option
              ; state           : < >
              }
 

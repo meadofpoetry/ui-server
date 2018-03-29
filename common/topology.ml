@@ -36,13 +36,29 @@ type boards = (int * board_type) list [@@deriving yojson, eq]
 type version = int [@@deriving yojson, show, eq]
 
 type id = int [@@deriving yojson, show, eq]
-   
-type t = ([`active], [`high_level | `low_level]) topo_entry list (*[@@deriving yojson, show, eq]*)
 
-and (_,_) topo_entry =
-  | Input  : topo_input -> ([> `passive], [> `low_level]) topo_entry
-  | Board  : topo_board -> ([> `active],  [> `low_level]) topo_entry
-  | CPU    : topo_cpu   -> ([> `active],  [> `high_level]) topo_entry
+module Env = Map.Make(String)
+type env = string Env.t
+let env_to_yojson e : Yojson.Safe.json =
+  `Assoc (Env.fold (fun k v a -> (k, `String v)::a) e [])
+let env_of_yojson : Yojson.Safe.json -> (env, string) result = function
+  | `Assoc ls -> begin
+      try ls
+          |> List.map (function (k, `String v) -> (k, v)
+                              | _ -> raise_notrace (Failure "env_of_yojson :value should be string"))
+          |> Env.add_list Env.empty
+          |> Result.return
+      with Failure e -> Error e
+    end
+  | _ -> Error "env_of_yojson"
+let pp_env = Env.pp String.pp String.pp
+let equal_env = Env.equal String.equal
+        
+type t = [`CPU of topo_cpu | `Boards of topo_board list] [@@deriving yojson, show, eq]
+
+and topo_entry =
+  | Input  : topo_input -> topo_entry
+  | Board  : topo_board -> topo_entry
 
 and topo_input = { input        : input
                  ; id           : int
@@ -54,117 +70,65 @@ and topo_board = { typ          : board_type
                  ; version      : version
                  ; control      : int
                  ; connection   : state
+                 ; env          : env
                  ; ports        : topo_port list
                  }
 
 and topo_port = { port      : int
                 ; listening : bool
-                ; child     : ([`active | `passive], [`low_level]) topo_entry
+                ; child     : topo_entry
                 }
 
-and topo_cpu  = { processes : process_type list
-                ; ifaces    : topo_interface list
+and topo_cpu  = { process : process_type
+                ; ifaces  : topo_interface list
                 }
 
 and topo_interface = { iface : string
-                     ; conn  : ([`active | `passive], [`low_level]) topo_entry
+                     ; conn  : topo_entry
                      }
-                   
-let rec topology_to_yojson (t : t) : Yojson.Safe.json = `List (List.map topo_entry_to_yojson t)
-and topo_entry_to_yojson : type a b. (a, b) topo_entry -> Yojson.Safe.json = function
-  | Input i -> `Tuple [`String "Input"; topo_input_to_yojson i]
-  | Board b -> `Tuple [`String "Board"; topo_board_to_yojson b]
-  | CPU c   -> `Tuple [`String "CPU"; topo_cpu_to_yojson c]
-and topo_input_to_yojson i = `Assoc [ "input", input_to_yojson i.input; "id", `Int i.id]
-and topo_board_to_yojson b = `Assoc [ "typ", board_type_to_yojson b.typ
-                                    ; "model", `String b.model
-                                    ; "manufacturer", `String b.manufacturer
-                                    ; "version", version_to_yojson b.version
-                                    ; "control", `Int b.control
-                                    ; "connection", state_to_yojson b.connection
-                                    ; "ports", `List (List.map topo_port_to_yojson b.ports)
-                               ]
-and topo_cpu_to_yojson c = `Assoc [ "processes", `List (List.map process_type_to_yojson c.processes)
-                                  ; "ifaces", `List (List.map topo_interface_to_yojson c.ifaces)
-                             ]
-and topo_port_to_yojson p = `Assoc [ "port", `Int p.port
-                                   ; "listening", `Bool p.listening
-                                   ; "child", topo_entry_to_yojson p.child
-                              ]
-and topo_interface_to_yojson i = `Assoc [ "iface", `String i.iface
-                                        ; "conn", topo_entry_to_yojson i.conn
-                                   ]
 
-let llist_of_yojson f l = try
-    Ok (List.map (fun js -> match f js with
-                            | Ok v    -> v
-                            | Error e -> raise_notrace (Failure e))
-          l)
-  with Failure e -> Error e
-                               
-let rec topology_of_yojson : Yojson.Safe.json -> (t, string) result = function
-  | `List l -> llist_of_yojson topo_entry_active_of_yojson l
-  | _       -> Error "topology_of_yojson: list expected"
-and topo_entry_active_of_yojson : Yojson.Safe.json -> ((_,_) topo_entry, string) result = function
-  | `Tuple [`String "Board"; b] -> Result.map (fun v -> Board v) (topo_board_of_yojson b)
-  | `Tuple [`String "CPU";   c] -> Result.map (fun v -> CPU v) (topo_cpu_of_yojson c)
-  | _ -> Error "topo_entry_active_of_yojson: list expected"               
-and topo_entry_low_level_of_yojson : Yojson.Safe.json -> ((_,_) topo_entry, string) result = function
-  | `Tuple [`String "Input"; i] -> Result.map (fun v -> Input v) (topo_input_of_yojson i)
-  | `Tuple [`String "Board"; b] -> Result.map (fun v -> Board v) (topo_board_of_yojson b)
-  | _ -> Error "topo_entry_of_yojson"
-and topo_input_of_yojson : Yojson.Safe.json -> (topo_input, string) result = function
-  | `Assoc [ "input", input; "id", `Int id] -> Result.map (fun input -> {input; id}) (input_of_yojson input)
-  | _ -> Error "topo_input_of_yojson"
-and topo_board_of_yojson : Yojson.Safe.json -> (topo_board, string) result = function
-  | `Assoc [ "typ", typ
-           ; "model", `String model
-           ; "manufacturer", `String manufacturer
-           ; "version", version
-           ; "control", `Int control
-           ; "connection", connection
-           ; "ports", `List p
-    ] -> let open Result in
-         board_type_of_yojson typ >>= fun typ ->
-         version_of_yojson version >>= fun version ->
-         state_of_yojson connection >>= fun connection ->
-         llist_of_yojson topo_port_of_yojson p >>= fun ports ->
-         Ok { typ; model; manufacturer; version; control; connection; ports }
-  | _ -> Error "topo_board_of_yojson"
-and topo_cpu_of_yojson : Yojson.Safe.json -> (topo_cpu, string) result = function
-  | `Assoc [ "processes", `List processes
-           ; "ifaces", `List ifaces
-    ] -> let open Result in
-         llist_of_yojson process_type_of_yojson processes >>= fun processes ->
-         llist_of_yojson topo_interface_of_yojson ifaces >>= fun ifaces ->
-         Ok { processes; ifaces }
-  | _ -> Error "topo_cpu_of_yojson"
-and topo_port_of_yojson : Yojson.Safe.json -> (topo_port, string) result = function
-  | `Assoc [ "port", `Int port
-           ; "listening", `Bool listening
-           ; "child", child
-    ] -> let open Result in
-         topo_entry_low_level_of_yojson child >>= fun child ->
-         Ok { port; listening; child }
-  | _ -> Error "topo_port_of_yojson"
-and topo_interface_of_yojson : Yojson.Safe.json -> (topo_interface, string) result = function
-  | `Assoc [ "iface", `String iface;
-             "conn", conn
-    ] -> let open Result in
-         topo_entry_low_level_of_yojson conn >>= fun conn ->
-         Ok { iface; conn }
-  | _ -> Error "topo_interface_of_yojson"
-                   
+let cpu_subbranches = function
+  | `Boards _ -> `No_cpu
+  | `CPU    c -> `Branches (List.map (fun i -> i.conn) c.ifaces)
+
+let get_entries = function
+  | `Boards l -> List.fold_left (fun acc b -> (List.map (fun p -> p.child) b.ports) @ acc) [] l
+  | `CPU c    -> List.map (fun i -> i.conn) c.ifaces
+               
 let get_api_path = string_of_int
+
+let inputs t =
+  let rec get acc = function
+    | Input x -> x :: acc
+    | Board x -> List.concat @@ (List.map (fun x -> get acc x.child) x.ports)
+  in
+  let topo_inputs_cpu   c = List.fold_left (fun acc i -> get acc i.conn) [] c.ifaces in
+  let topo_inputs_board b = List.fold_left (fun acc p -> get acc p.child) [] b.ports in
+  match t with
+  | `CPU c     -> topo_inputs_cpu c
+  | `Boards bs ->
+     List.fold_left (fun acc b -> (topo_inputs_board b) @ acc) [] bs
+
+let paths t =
+  let topo_paths acc =
+    let rec add_node acc paths = function
+      | Input i -> (i,acc) :: paths
+      | Board b -> (let ports = List.map (fun x -> x.child) b.ports in
+                    match ports with
+                    | [] -> paths
+                    | l  -> List.fold_left (fun a x -> add_node (b :: acc) a x) paths l)
+    in
+    List.fold_left (fun a x -> add_node acc a x) []
+  in
+  let add_cpu cpu (i,bl) = (i,bl,cpu) in
+  match t with
+  | `Boards bs ->
+     List.map (fun b -> List.map (add_cpu None) @@ topo_paths [b] @@ List.map (fun p -> p.child) b.ports) bs
+     |> List.concat
+  | `CPU c     ->
+     List.map (add_cpu (Some c)) @@ topo_paths [] @@ List.map (fun p -> p.conn) c.ifaces
+     
 (*
-let cpu_subbranches : t -> [`No_cpu | `Branches of ([`active | `passive], [`low_level]) topo_entry list] = fun topo ->
-  let rec
- *)               
-let topo_inputs =
-  let rec f acc = (function
-                   | Input x -> x :: acc
-                   | Board x -> List.concat @@ (List.map (fun x -> f acc x.child) x.ports)) in
-  List.fold_left f []
 
 let topo_boards =
   let rec f acc = (function
@@ -206,3 +170,4 @@ let rec sub topo id =
      | Some b -> Some [b]
      | None   -> sub tl id
        
+ *)

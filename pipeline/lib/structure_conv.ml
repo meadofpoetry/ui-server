@@ -36,39 +36,26 @@ let parse_uri =
   in parse_string parser
 
 let match_streams
-      input
-      (sources : Common.Stream.source list)
-      (s : Structure.structure list) : Structure.t list =
+      (sources : (string * Common.Stream.source) list ref)
+      (sl : Structure.structure list) : Structure.t list =
   let open Structure in
-  let create structure uri (s : Common.Stream.t) =
-    match s.id with
-    | `Ip u when (Common.Stream.equal_addr u uri)
-      -> Some { source = (Stream s); structure }
-    | _ -> None
+  let stream_from_input input uri description =
+    (Common.Stream.{ source = input
+                   ; id     = `Ip (Result.get_exn @@ parse_uri uri)
+                   ; description })
   in
-  let from_input input uri structure =
-    match input with
-    | None -> { structure; source = Unknown }
-    | Some input ->
-       { structure
-       ; source = Stream (Common.Stream.{ source = Input input
-                                        ; id     = `Ip uri
-                                        ; description = None }) }
+  let rec merge (sources : (string * Common.Stream.source) list) structure =
+    match sources with
+    | [] -> { source = Unknown; structure }
+    | (uri, s)::ss ->
+       if String.equal uri structure.uri
+       then begin match s with
+            | Input  _ as i -> { source = Stream (stream_from_input i uri None); structure }
+            | Parent s      -> { source = Stream s; structure }
+            end
+       else merge ss structure
   in
-  let rec merge input parents acc = function
-    | []    -> acc
-    | x::tl ->
-       match parse_uri x.uri with
-       | Error _ -> merge input parents acc tl
-       | Ok uri  ->
-          match List.find_map (create x uri) parents with
-          | None   -> merge input parents ((from_input input uri x)::acc) tl
-          | Some s -> merge input parents (s::acc) tl
-  in
-  let inputs, parents = List.partition_map
-                          Common.Stream.(function Input i -> `Left i | Parent p -> `Right p)
-                          sources in
-  merge input parents [] s
+  List.map (merge !sources) sl
 
 let dump_streams (entries : Structure.t list) =
   let open Structure in

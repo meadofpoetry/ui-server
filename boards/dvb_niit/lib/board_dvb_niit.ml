@@ -77,5 +77,6 @@ let create (b:topo_board) _ convert_streams send db base step =
                         Ports.empty b.ports)
   ; settings_page  = ("DVB", React.S.const (Tyxml.Html.div []))
   ; widgets_page   = [("DVB", React.S.const (Tyxml.Html.div []))]
+  ; stream_handler = None
   ; state          = (state :> < >)
   }

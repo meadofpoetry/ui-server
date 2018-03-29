@@ -1,7 +1,6 @@
 open Containers
 open Api.Interaction
 open Api.Redirect
-open Pipeline
 open Websocket_cohttp_lwt
 open Frame
    
@@ -161,10 +160,10 @@ let pipeline_handle api id meth args sock_data _ body =
   | `GET,  ["vdata_sock";s;c;p] -> get_vdata_sock_pid sock_data body api s c p ()
   | _                           -> not_found ()
                                  
-let handlers pipe =
+let handlers api =
   [ (module struct
        let domain = "pipeline"
-       let handle = pipeline_handle pipe.api
+       let handle = pipeline_handle api
      end : Api_handler.HANDLER) ]
 
 let handlers_not_implemented () =

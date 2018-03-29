@@ -39,10 +39,12 @@ type options = { wm         : Wm.t Storage.Options.storage
                ; settings   : Settings.t Storage.Options.storage
                }
         
-type state = { ctx         : ZMQ.Context.t
-             ; msg         : [ `Req] ZMQ.Socket.t
-             ; ev          : [ `Sub] ZMQ.Socket.t
-             ; options     : options
+type state = { ctx          : ZMQ.Context.t
+             ; msg          : [ `Req] ZMQ.Socket.t
+             ; ev           : [ `Sub] ZMQ.Socket.t
+             ; options      : options
+             ; srcs         : (string * Common.Stream.source) list ref
+             ; mutable proc : Lwt_process.process_none option
              }
 
 type channels =
@@ -173,7 +175,7 @@ let create_send (type a) (typ : a typ) (conv : a converter) msg_sock : (a -> a L
   Socket.recv msg_sock >|= fun resp ->
   conv.of_string resp
   
-let create (type a) (typ : a typ) config sock_in sock_out hardware_streams =
+let create (type a) (typ : a typ) config sock_in sock_out =
   let stor    = Storage.Options.Conf.get config in
   let options = { wm         = Wm_options.create stor.config_dir ["pipeline";"wm"]
                 ; structures = Structures_options.create stor.config_dir ["pipeline";"structures"]
@@ -194,7 +196,8 @@ let create (type a) (typ : a typ) config sock_in sock_out hardware_streams =
   let converter = (Msg_conv.get_converter typ) in
   let send = create_send typ converter msg_sock in
   settings_init typ send options;
-  
+
+  let srcs = ref [] in
   let epush,
       structures, settings,
       graph, wm,
@@ -203,15 +206,9 @@ let create (type a) (typ : a typ) config sock_in sock_out hardware_streams =
   in
   let structures, wm, settings = add_storages typ send options structures wm settings in
   
-  let streams = S.l2
-                  (Structure_conv.match_streams Common.Topology.(Some { input = TSOIP; id = 42 }))
-                  hardware_streams structures
-  in
+  let streams = S.map (Structure_conv.match_streams srcs) structures in
   let requests =
-    let merge s =
-      (Structure_conv.match_streams Common.Topology.(Some { input = TSOIP; id = 42 }))
-        (S.value hardware_streams) s
-    in
+    let merge v = Structure_conv.match_streams srcs v in
     create_channels typ send options merge strms_push wm_push sets_push
   in
   
@@ -220,7 +217,7 @@ let create (type a) (typ : a typ) config sock_in sock_out hardware_streams =
             ; requests
             } in
   
-  let state = { ctx; msg; ev; options } in
+  let state = { ctx; msg; ev; options; srcs; proc = None } in
   let recv () =
     Socket.recv ev_sock
     >>= fun msg ->
@@ -228,9 +225,17 @@ let create (type a) (typ : a typ) config sock_in sock_out hardware_streams =
   in
   api, state, recv
 
+let reset bin_path bin_name msg_fmt state (sources : (string * Common.Stream.source) list) =
+  let exec_path = (Filename.concat bin_path bin_name) in
+  let msg_fmt   = Pipeline_settings.format_to_string msg_fmt in
+  let exec_opts = Array.of_list (bin_name :: "-m" :: msg_fmt :: (List.map fst sources)) in
+  Option.iter (fun proc -> proc#terminate) state.proc;
+  state.proc <- Some (Lwt_process.open_process_none (exec_path, exec_opts))
   
 let finalize state =
   ZMQ.Socket.unsubscribe state.ev "";
   ZMQ.Socket.close       state.ev;
   ZMQ.Socket.close       state.msg;
-  ZMQ.Context.terminate  state.ctx
+  ZMQ.Context.terminate  state.ctx;
+  Option.iter (fun proc -> proc#terminate) state.proc;
+  state.proc <- None

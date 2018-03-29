@@ -71,5 +71,9 @@ let create (b:topo_board) (streams:Common.Stream.t list React.signal) _ send db 
                                     Ports.empty b.ports
   ; settings_page  = ("TS2IP", React.S.const (Tyxml.Html.div []))
   ; widgets_page   = [("TS2IP", React.S.const (Tyxml.Html.div []))]
+  ; stream_handler = Some (object
+                           method streams = React.S.const []
+                           method set _   = ()
+                         end)
   ; state          = (state :> < >)
   }
