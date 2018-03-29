@@ -1,6 +1,6 @@
 open Containers
 open Lwt.Infix
-open Hardware_js
+open Application_js
 open Common.Topology
 open Components
 
@@ -39,12 +39,13 @@ let () =
     match resp with
     | Ok t    ->
        let f b = match b.typ with
-         | DVB   -> (new Board_dvb_niit_js.Settings.settings b.control ())#widget
-         | TS2IP -> (new Board_ts2ip_niit_js.Settings.settings b.control ())#widget
-         | IP2TS -> Widget.create @@ fst @@ Board_ip_dektec_js.Ip_dektec.page b.control
-         | TS    -> Widget.create @@ fst @@ Board_qos_niit_js.Settings.page b.control
+         | "DVB"   -> (new Board_dvb_niit_js.Settings.settings b.control ())#widget
+         | "TS2IP" -> (new Board_ts2ip_niit_js.Settings.settings b.control ())#widget
+         | "IP2TS" -> Widget.create @@ fst @@ Board_ip_dektec_js.Ip_dektec.page b.control
+         | "TS"    -> Widget.create @@ fst @@ Board_qos_niit_js.Settings.page b.control
+         | s       -> failwith ("Requests.get_topology: unknown board " ^ s)
        in
-       Topology.render ~topology:t
+       Topology.render ~topology:(get_entries t)
                        ~canvas
                        ~width:(width ())
                        ~on_click:(function
@@ -54,6 +55,6 @@ let () =
        |> Lwt.return
     | Error e -> Lwt.return @@ print_endline e)
   |> ignore;
-  React.E.map (fun x -> Topology.render ~topology:x ~canvas ~width:(width ()) ())
+  React.E.map (fun x -> Topology.render ~topology:(get_entries x) ~canvas ~width:(width ()) ())
               (fst (Requests.get_topology_socket ()))
   |> ignore

@@ -14,8 +14,8 @@ pipeline:
 	cp _build/default/frontend/pipeline.bc.js dist/resources/js/pipeline.js
 
 hardware:
-	$(BUILD) build frontend/hardware.bc.js
-	cp _build/default/frontend/hardware.bc.js dist/resources/js/hardware.js
+	$(BUILD) build frontend/topology.bc.js
+	cp _build/default/frontend/topology.bc.js dist/resources/js/topology.js
 
 user:
 	$(BUILD) build frontend/user.bc.js

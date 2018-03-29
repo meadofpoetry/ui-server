@@ -55,17 +55,14 @@ let handle app _ meth args sock_data _ body =
 
 let handlers app =
   let hls = Hardware.Map.fold (fun _ x acc -> x.handlers @ acc) app.hw.boards [] in
-  match app.proc with
-  | None ->
-     [ Api_handler.add_layer "board" hls ;
-       (module struct
-          let domain = "application"
-          let handle = handle app
-        end : Api_handler.HANDLER) ]
-  | Some proc ->
-     [ Api_handler.add_layer "board" hls ;
-       (module struct
-          let domain = "application"
-          let handle = handle app
-        end : Api_handler.HANDLER) ]
-     @ proc#handlers ()
+  let proc_api = match app.proc with
+    | None      -> []
+    | Some proc -> proc#handlers ()
+  in
+  [ Api_handler.add_layer "board" hls ;
+    (module struct
+       let domain = "topology"
+       let handle = handle app
+     end : Api_handler.HANDLER) ]
+  @ proc_api
+  @ (User_api.handlers app.users)

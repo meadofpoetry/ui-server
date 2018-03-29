@@ -43,7 +43,7 @@ let create (app : Application.t) : upper ordered_item list user_table =
   let topo  = React.S.value app.topo in
   let props = { title        = Some "Конфигурация"
               ; pre_scripts  = []
-              ; post_scripts = [ Src "js/hardware.js" ]
+              ; post_scripts = [ Src "js/topology.js" ]
               ; stylesheets  = []
               ; content      = []
               } in
@@ -61,15 +61,12 @@ let create (app : Application.t) : upper ordered_item list user_table =
              ; `Index 4, Simple  { title = "Демо"; href = Path.of_string "demo"; template = demo_props }
              ]
   in
-  match app.proc with
-  | None   ->
-     { root = rval
-     ; operator = rval
-     ; guest = rval
-     }
-  | Some p ->
-     let proct = p#template () in
-     { root = proct.root @ rval
-     ; operator = proct.operator @ rval
-     ; guest = proct.guest @ rval
-  }
+  let proc = match app.proc with
+    | None -> Common.User.empty_table
+    | Some p -> p#template ()
+  in
+  Common.User.concat_table [ Responses.home_template ()
+                           ; User_template.create ()
+                           ; proc
+                           ; { root = rval; operator = rval; guest = rval }
+    ]

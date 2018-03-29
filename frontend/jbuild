@@ -1,10 +1,10 @@
 (jbuild_version 1)
 
 (executables
- ((names       (home pipeline hardware user demo input))
+ ((names       (home pipeline topology user demo input))
   (libraries   (js_of_ocaml
                 gg vg vg.htmlc js_of_ocaml-tyxml lwt_react
-                common components pipeline-js hardware-js
+                common components pipeline-js application-js
                 board-ip-dektec-js board-dvb-niit-js board-ts2ip-niit-js chartjs))
   (flags (:standard -short-paths -strict-sequence -bin-annot
           -thread -w "+1..49+60" -w "+a-4-7-23-33-39-40-41-42-44-45-48"))
