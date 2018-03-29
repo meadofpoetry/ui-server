@@ -30,6 +30,7 @@ module Make(I : Item) = struct
     let menu_block = new Box.t ~vertical:false ~widgets:[ menu_text#widget; menu_wrap#widget ] () in
     let icons      = new Box.t ~vertical:false ~widgets:[ grid_icon#widget; menu_block#widget ] () in
     let header     = new Box.t ~vertical:false ~widgets:[ title#widget;icons#widget ] () in
+    let storage    = Dom_html.window##.localStorage  in
     object(self)
 
       inherit Box.t ~vertical:true ~widgets:[header#widget;wrapper#widget] ()
@@ -99,7 +100,14 @@ module Make(I : Item) = struct
         List.iter (fun g -> List.iter (fun i -> self#update_item_min_size i) g#items) layers
 
       initializer
-        grid_icon#set_on true;
+        let active =
+          match Js.Optdef.to_option storage with
+          | Some x -> (Js.Opt.get (x##getItem (Js.string "grid_icon"))
+                         (fun () -> Js.string "true"))
+                      |> Js.to_string |> bool_of_string
+          | None   -> true
+        in
+        grid_icon#set_on active;
         self#initialize resolution init;
         (* update available grids *)
         let eq = (fun _ _ -> false) in
@@ -134,8 +142,16 @@ module Make(I : Item) = struct
         icons#add_class      @@ Markup.CSS.add_element base_class "right-menu";
         grid_icon#add_class  @@ Markup.CSS.add_element base_class "menu";
         header#add_class     @@ Markup.CSS.add_element base_class "header";
-        React.S.l2 (fun conf grid -> if conf then grid#overlay_grid#show else grid#overlay_grid#hide)
-                   grid_icon#s_state s_active |> ignore;
+        React.S.l2 (fun conf grid -> let value = if conf
+                                                 then ( grid#overlay_grid#show;
+                                                        Js.string "true")
+                                                 else ( grid#overlay_grid#hide;
+                                                        Js.string "false")
+                                     in
+                                     match Js.Optdef.to_option storage with
+                                     | Some x -> x##setItem (Js.string "grid_icon") value
+                                     | None   -> ())
+          grid_icon#s_state s_active |> ignore;
         React.S.map  (fun x   -> x#set_active true) s_active |> ignore;
         React.S.diff (fun _ o -> o#set_active false;
                                  List.iter (fun x -> x#set_selected false) o#items) s_active |> ignore;
