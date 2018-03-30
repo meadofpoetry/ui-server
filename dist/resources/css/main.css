@@ -332,7 +332,11 @@
  * ```
  */
 .mdc-drawer--custom {
+  height: 100%;
   /* Use aspect ratio trick to maintain 16:9 aspect ratio on the header */
+  /* @alternate */
+  background-color: #fff;
+  background-color: var(--mdc-theme-background, #fff);
   color: rgba(0, 0, 0, 0.87);
   width: 0;
   position: fixed; }
@@ -615,7 +619,8 @@ html {
   -moz-osx-font-smoothing: grayscale; }
 
 body {
-  margin: 0; }
+  margin: 0;
+  background-color: #e0e0e0; }
 
 #arbitrary-content {
   height: 100%; }
@@ -674,6 +679,20 @@ video {
   margin-left: auto;
   margin-right: auto;
   display: block; }
+
+.mdc-toolbar .mdc-tab {
+  /* @alternate */
+  color: white;
+  color: var(--mdc-theme-text-primary-on-primary, white); }
+  .mdc-toolbar .mdc-tab .mdc-tab__icon {
+    /* @alternate */
+    color: white;
+    color: var(--mdc-theme-text-primary-on-primary, white); }
+.mdc-toolbar .mdc-tab-bar__indicator,
+.mdc-toolbar .mdc-tab__indicator {
+  /* @alternate */
+  background-color: white;
+  background-color: var(--mdc-theme-text-primary-on-primary, white); }
 
 .material-icons {
   user-select: none; }

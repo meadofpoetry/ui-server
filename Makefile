@@ -25,11 +25,16 @@ demo:
 	$(BUILD) build frontend/demo.bc.js
 	cp _build/default/frontend/demo.bc.js dist/resources/js/demo.js
 
-css:
+css-components:
 	$(CSS) dist/resources/css/components/components.scss dist/resources/css/components.css
+
+css-pages:
 	$(CSS) dist/resources/css/main.scss dist/resources/css/main.css
 	$(CSS) dist/resources/css/pages/topology/topology.scss dist/resources/css/topology.css
 	$(CSS) dist/resources/css/pages/pipeline/pipeline.scss dist/resources/css/pipeline.css
+
+css:
+	css-components css-pages
 
 frontend: home pipeline hardware user demo input
 

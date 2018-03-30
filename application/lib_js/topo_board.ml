@@ -9,15 +9,12 @@ module Header = struct
     let _class     = Markup.CSS.add_element base_class "header" in
     let title      = Printf.sprintf "%s" board.typ in
     let subtitle   = Printf.sprintf "%s" board.model in
-    let title_w    = new Card.Primary.title title () in
-    let subtitle_w = new Card.Primary.subtitle subtitle () in
-    let box        = new Box.t ~vertical:true ~widgets:[title_w#widget;subtitle_w#widget] () in
     let settings   = new Icon.Button.Font.t ~icon:"settings" () in
     object(self)
-      inherit Card.Primary.t ~widgets:[box#widget;settings#widget] ()
+      inherit Topo_node.Header.t ~action:settings#widget ~title ~subtitle ()
       initializer
         self#add_class _class;
-        method settings_icon = settings
+      method settings_icon = settings
     end
 
   let create (board:Common.Topology.topo_board) =
@@ -28,10 +25,8 @@ end
 module Body = struct
 
   class t (board:Common.Topology.topo_board) () =
-  object(self)
-    inherit Card.Media.t ~widgets:[] ()
-    initializer
-      self#style##.height := Js.string @@ Utils.px ((List.length board.ports) * port_section_height)
+  object
+    inherit Topo_node.Body.t (List.length board.ports) ()
   end
 
   let create (board:Common.Topology.topo_board) =
@@ -44,7 +39,7 @@ class t (board:Common.Topology.topo_board) () =
   let body       = Body.create board in
   let e_settings = React.E.map (fun _ -> board) header#settings_icon#e_click in
   object(self)
-    inherit Card.t ~widgets:[header#widget;body#widget] ()
+    inherit Topo_node.t ~header ~body ()
     method e_settings = e_settings
     initializer
       self#add_class base_class;

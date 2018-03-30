@@ -1,3 +1,5 @@
+@import './components/tabs/tab/_mixins';
+@import './components/tabs/tab-bar/_mixins';
 @import './sidebar_drawer';
 
 :root { --mdc-box-margin: 0px; }
@@ -11,6 +13,7 @@ html {
 }
 body {
     margin: 0;
+    background-color: #e0e0e0;
 }
 #arbitrary-content {
     height: 100%;
@@ -82,6 +85,14 @@ video {
     margin-left: auto;
     margin-right: auto;
     display: block;
+}
+
+.mdc-toolbar {
+    .mdc-tab {
+        @include mdc-tab-ink-color(text-primary-on-primary);
+    }
+
+    @include mdc-tab-bar-indicator-ink-color(text-primary-on-primary);
 }
 
 .material-icons { user-select: none; }

@@ -9,7 +9,9 @@
 $mdc-persistent-drawer-width: 240px;
 
 .mdc-drawer--custom {
+  height: 100%;
   @include mdc-drawer-base_;
+  @include mdc-theme-prop(background-color, background);
   @include mdc-drawer-ink-color($mdc-persistent-drawer-ink-color);
   @include mdc-drawer-fill-color($mdc-persistent-drawer-fill-color);
 

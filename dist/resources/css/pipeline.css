@@ -69,9 +69,6 @@
  */
 /* TODO(sgomes): Figure out what to do about desktop font sizes. */
 /* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
-.main-with-sidebar {
-  background-color: #e0e0e0; }
-
 .wm, .mdc-layout-grid, .mdc-layout-grid__inner, .wm-grid-container {
   height: 100%; }
 
@@ -614,19 +611,5 @@
     max-height: 40vh; }
   .wm-right-toolbar > *:last-child {
     margin-bottom: 0; }
-
-.mdc-toolbar .mdc-tab {
-  /* @alternate */
-  color: white;
-  color: var(--mdc-theme-text-primary-on-primary, white); }
-  .mdc-toolbar .mdc-tab .mdc-tab__icon {
-    /* @alternate */
-    color: white;
-    color: var(--mdc-theme-text-primary-on-primary, white); }
-.mdc-toolbar .mdc-tab-bar__indicator,
-.mdc-toolbar .mdc-tab__indicator {
-  /* @alternate */
-  background-color: white;
-  background-color: var(--mdc-theme-text-primary-on-primary, white); }
 
 /*# sourceMappingURL=pipeline.css.map */

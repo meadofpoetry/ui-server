@@ -384,7 +384,7 @@ let topo_boards =
   List.fold_left f []
 
 let render ?on_click ~topology ~(width : int) ~canvas () =
-  canvas##.style##.marginTop := Js.string "100px";
+  canvas##.style##.paddingTop := Js.string "100px";
   let boards = topo_boards @@ Common.Topology.get_entries topology in
   rm_children canvas;
   List.iter (fun x -> let b = Topo_board.create x in
