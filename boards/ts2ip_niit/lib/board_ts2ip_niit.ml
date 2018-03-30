@@ -86,16 +86,18 @@ let create (b:topo_board) (streams:Common.Stream.t list React.signal) _ send db 
                     }
   in
   let set streams =
-    (try
-       List.map (fun ((url:Meta_board.url),stream) ->
-           if List.fold_left (fun acc x -> if not @@ Common.Uri.in_range x url
-                                           then false else acc) true constraints.range
-           then { stream;dst_ip=url.ip;dst_port=url.port;enabled=true }
-           else failwith "not in range") streams
-       |> api.set_streams_full
-       |> Lwt_result.map_err (function `Limit_exceeded x -> `Limit_exceeded x
-                                     | `Undefined_limit  -> `Forbidden)
-     with _ -> Lwt_result.fail `Not_in_range)
+    match React.S.value s_state with
+    | `Fine -> (try
+                  List.map (fun ((url:Meta_board.url),stream) ->
+                      if List.fold_left (fun acc x -> if not @@ Common.Uri.in_range x url
+                                                      then false else acc) true constraints.range
+                      then { stream;dst_ip=url.ip;dst_port=url.port;enabled=true }
+                      else failwith "not in range") streams
+                  |> api.set_streams_full
+                  |> Lwt_result.map_err (function `Limit_exceeded x -> `Limit_exceeded x
+                                                | `Undefined_limit  -> `Forbidden)
+                with _ -> Lwt_result.fail `Not_in_range)
+    | _ -> Lwt_result.fail `Forbidden
   in
   let state        = (object end) in
   { handlers       = handlers
