@@ -2,10 +2,10 @@ open Containers
 
 module Pure = struct
 
-  class ['a] t ?(input_type = Widget.Text) ?input_id ?placeholder ?box () =
+  class ['a] t ?(input_type = Widget.Text) ~input_id ?placeholder ?box () =
     let elt = (Markup.Textfield.create
                  ~input_type:(Widget.input_type_of_validation input_type)
-                 ?input_id
+                 ~input_id
                  ?placeholder
                  ?box ()
                |> Tyxml_js.To_dom.of_div) in
@@ -54,7 +54,7 @@ module Help_text = struct
 
 end
 
-class ['a] t ~input_type ?input_id ?label ?placeholder ?icon ?help_text ?box () =
+class ['a] t ~input_type ~input_id ?label ?placeholder ?icon ?help_text ?box ?outline () =
 
   let icon_widget =
     Option.map (fun { clickable; icon; _ } ->
@@ -68,12 +68,15 @@ class ['a] t ~input_type ?input_id ?label ?placeholder ?icon ?help_text ?box () 
                         | (Some x,Some w) when Equal.poly x.pos pos -> Some (Widget.widget_to_markup w)
                         | _ -> None) in
     Markup.Textfield.create ~input_type:(Widget.input_type_of_validation input_type)
-                            ?input_id
+                            ~input_id
                             ?label
                             ?placeholder
                             ?leading_icon:(get_icon `Leading)
                             ?trailing_icon:(get_icon `Trailing)
-                            ?box:(if Option.is_some icon then Some true else box)
+                            ?box:(if (Option.is_some icon) && not (Option.is_some outline)
+                                  then Some true
+                                  else box)
+                            ?outline
                             ()
     |> Tyxml_js.To_dom.of_element
     |> (fun x -> new Widget.widget x ()) in
@@ -115,7 +118,8 @@ class ['a] t ~input_type ?input_id ?label ?placeholder ?icon ?help_text ?box () 
 
     method set_valid x = mdc##.valid := Js.bool x
 
-    method get_label   = Option.map (fun x -> x#get_text_content |> Option.get_or ~default:"") self#get_label_widget
+    method get_label   = Option.map (fun x -> x#get_text_content
+                                              |> Option.get_or ~default:"") self#get_label_widget
     method set_label s = Option.map (fun x -> x#set_text_content s) self#get_label_widget
 
     method! get_disabled   = Js.to_bool mdc##.disabled

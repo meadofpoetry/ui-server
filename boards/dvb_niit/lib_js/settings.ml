@@ -130,7 +130,11 @@ let mode_box ~(typ     : mode)
   let init = React.S.value s_mode in
   let freq = freq ~typ ~init:init.freq in
   let bw   = bw ~init:init.bw in
-  let plp  = new Textfield.t ~input_type:(Integer (Some (0,255))) ~box:true ~label:"PLP ID" () in
+  let plp  = new Textfield.t
+               ~input_id:"plp_field"
+               ~input_type:(Integer ((Some 0),(Some 255)))
+               ~box:true
+               ~label:"PLP ID" () in
   let _    = plp#fill_in init.plp in
   let box  = new Box.t
                ~gap:20

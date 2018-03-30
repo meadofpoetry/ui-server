@@ -4,7 +4,10 @@ open Components
 let t2mi_mode ~(init  : config)
               ~(event : config React.event) =
   let enabled = new Switch.t () in
-  let pid     = new Textfield.t  ~input_type:(Integer (Some (0,8192))) ~label:"T2-MI PID" () in
+  let pid     = new Textfield.t
+                  ~input_id:"pid_field"
+                  ~input_type:(Integer ((Some 0),(Some 8192)))
+                  ~label:"T2-MI PID" () in
   let en_form = new Form_field.t ~input:enabled ~label:"Включить анализ" ~align_end:true () in
   pid#set_required true;
   (match init.mode.t2mi with

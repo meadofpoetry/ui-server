@@ -391,7 +391,7 @@
     background-color: #fff; }
   .mdc-drawer--custom .icon-dropdown {
     position: absolute;
-    right: -4px;
+    right: 4px;
     margin-right: 10px;
     margin-top: 12px; }
   .mdc-drawer--custom .mdc-account-icon {
@@ -422,6 +422,8 @@
     overflow: hidden;
     width: 100%;
     cursor: pointer; }
+    .mdc-drawer--custom .mdc-drawer__panel--open .dropdown {
+      transform: rotate(180deg); }
   .mdc-drawer--custom .mdc-drawer__drawer {
     border-left: 0;
     border-right: 0px solid #e4e4e4;
@@ -461,6 +463,8 @@
         height: 0px;
         transition: all 0.225s;
         overflow: hidden; }
+      .mdc-drawer--custom .mdc-drawer__drawer .mdc-drawer__wrapper .mdc-icon {
+        width: 72px; }
   .mdc-drawer--custom.mdc-drawer--animating .mdc-drawer__drawer {
     transition: transform 0.195s 0ms cubic-bezier(0.4, 0, 0.6, 1); }
   .mdc-drawer--custom.mdc-drawer--animating.mdc-drawer--open

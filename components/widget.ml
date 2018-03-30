@@ -214,13 +214,13 @@ type custom_v_msgs =
 
 type 'a validation =
   | Email       : string validation
-  | Integer     : (int * int) option -> int validation
-  | Float       : (float * float) option -> float validation
+  | Integer     : (int option * int option) -> int validation
+  | Float       : (float option * float option) -> float validation
   | Text        : string validation
   | IPV4        : Ipaddr.V4.t validation
   | MulticastV4 : Ipaddr.V4.t validation
   | Password    : (string -> (unit, string) result) -> string validation
-  | Custom      : ((string    -> ('a, string) result) * ('a -> string)) -> 'a validation
+  | Custom      : ((string -> ('a, string) result) * ('a -> string)) -> 'a validation
 
 let input_type_of_validation :
       type a. a validation -> [> `Email | `Number | `Text ]
@@ -237,15 +237,27 @@ let input_type_of_validation :
 let parse_valid (type a) (v : a validation) (on_fail : string -> unit) (s : string) : a option =
   match v with
   | Email        -> Some s
-  | Integer None -> CCInt.of_string s
-  | Integer Some (min,max) -> CCOpt.flat_map (fun i -> if i <= max && i >= min then Some i else None)
-                                             (CCInt.of_string s)
-  | Float None   -> (try Some (float_of_string s) with _ -> None)
-  | Float Some (min,max)   -> CCOpt.flat_map (fun i -> if i <= max && i >= min then Some i else None)
-                                             (try Some (float_of_string s) with _ -> None)
+  | Integer integer -> (match integer with
+                        | None, None -> CCInt.of_string s
+                        | Some min, Some max ->
+                           CCOpt.flat_map (fun i -> if i <= max && i >= min then Some i else None)
+                             (CCInt.of_string s)
+                        | Some min, None ->
+                           CCOpt.flat_map (fun i -> if i >= min then Some i else None)
+                             (CCInt.of_string s)
+                        | None, Some max ->
+                           CCOpt.flat_map (fun i -> if i <= max then Some i else None)
+                             (CCInt.of_string s))
+  | Float float -> (let num = float_of_string s in
+                    match float with
+                    | None, None -> Some num
+                    | Some min, Some max -> if num <= max && num >= min then Some num else None
+                    | Some min, None -> if num >= min then Some num else None
+                    | None, Some max -> if num <= max then Some num else None)
   | Text         -> Some s
   | IPV4         -> Ipaddr.V4.of_string s
-  | MulticastV4  -> Option.(Ipaddr.V4.of_string s >>= (fun x -> if Ipaddr.V4.is_multicast x then Some x else None))
+  | MulticastV4  -> Option.(Ipaddr.V4.of_string s >>= (fun x ->
+                              if Ipaddr.V4.is_multicast x then Some x else None))
   | Password vf  ->
      (match vf s with
       | Ok () -> Some s
@@ -311,10 +323,16 @@ class ['a] text_input_widget ?v_msg ~input_elt (v : 'a validation) elt () =
     method private remove_custom_validity = self#set_custom_validity ""
 
     initializer
-      let apply_border (type a) (v : a validation) (bord : a -> a -> unit) : unit =
+      let apply_border (type a) (v : a validation) (bord : a option -> a option -> unit) : unit =
         (match v with
-        | Float (Some (min, max))  -> bord min max
-        | Integer (Some (min,max)) -> bord min max
+         | Float float   -> (match float with
+                            | None, None -> ()
+                            | _ -> let min, max = float in
+                                   bord min max)
+         | Integer integer -> (match integer with
+                               | None, None -> ()
+                               | _ -> let min, max = integer in
+                                      bord min max)
         | _ -> ())
       in
       let apply_pattern (type a) (v : a validation) : unit =
