@@ -16,6 +16,7 @@
 
 @import "../elevation/mixins";
 @import "../theme/mixins";
+@import "../typography/_mixins";
 @import "../ripple/mixins";
 @import "../rtl/mixins";
 @import "./mixins";
@@ -35,6 +36,35 @@
 
   @include mdc-elevation(0);
   @include mdc-card-stroke($stroke-color);
+}
+
+//
+// Primary
+//
+
+.mdc-card__primary {
+    padding: 1rem;
+}
+
+.mdc-card__title {
+    margin: 0;
+    @include mdc-typography(body2);
+    @include mdc-theme-prop(color, text-primary-on-background);
+
+    margin: -.063rem 0;
+
+    &--large {
+        @include mdc-typography(headline);
+
+        margin: 0;
+    }
+}
+
+.mdc-card__subtitle {
+    @include mdc-typography(body1);
+    @include mdc-theme-prop(color, text-secondary-on-background);
+
+    margin: -.063rem 0;
 }
 
 //

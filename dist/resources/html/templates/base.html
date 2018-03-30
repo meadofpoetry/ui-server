@@ -14,11 +14,15 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans">
     <link rel="stylesheet" href="/css/main.css" type="text/css">
     <style>
-         @font-face {
+     @font-face {
          font-family: "Open Sans";
          src: url("https://fonts.googleapis.com/css?family=Open+Sans");
-         }
+     }
     </style>
+    <!-- Additional stylesheets -->
+    {{#stylesheets}}
+    <link rel="stylesheet" href={{stylesheet}} type="text/css">
+    {{/stylesheets}}
     <!-- Additional scripts -->
     <script type="text/javascript">var username="{{user}}"</script>
     {{#pre_scripts}}
@@ -28,10 +32,6 @@
      {{/src}}
     </script>
     {{/pre_scripts}}
-    <!-- Additional stylesheets -->
-    {{#stylesheets}}
-    <link rel="stylesheet" href={{stylesheet}} type="text/css">
-    {{/stylesheets}}
     </head>
     <script>
      var cl = ((localStorage.getItem('toolbar')=='open') && (window.innerWidth >= 1200))

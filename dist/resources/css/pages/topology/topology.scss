@@ -1,0 +1,22 @@
+@import './_mixins';
+
+$boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
+
+@for $i from 1 through length($boards) {
+    @include topology-board-type(nth($boards,$i));
+}
+
+.topology {
+
+}
+
+.topology__board {
+    margin: 20px;
+    max-width: 250px;
+}
+
+.topology__board__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}

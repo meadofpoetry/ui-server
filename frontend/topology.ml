@@ -25,7 +25,7 @@ let () =
   let s,push = React.S.create ~eq:Equal.physical None in
   let divider = new Divider.t () in
   divider#style##.margin := Js.string "15px 0";
-  let canvas = Dom_html.createCanvas doc in
+  let canvas = Dom_html.createDiv doc in
   let width () = canvas##.parentNode
                  |> Js.Opt.to_option |> Option.get_exn
                  |> Js.Unsafe.coerce
@@ -45,7 +45,7 @@ let () =
          | "TS"    -> Widget.create @@ fst @@ Board_qos_niit_js.Settings.page b.control
          | s       -> failwith ("Requests.get_topology: unknown board " ^ s)
        in
-       Topology.render ~topology:(get_entries t)
+       Topology.render ~topology:t
                        ~canvas
                        ~width:(width ())
                        ~on_click:(function
@@ -55,6 +55,6 @@ let () =
        |> Lwt.return
     | Error e -> Lwt.return @@ print_endline e)
   |> ignore;
-  React.E.map (fun x -> Topology.render ~topology:(get_entries x) ~canvas ~width:(width ()) ())
+  React.E.map (fun x -> Topology.render ~topology:x ~canvas ~width:(width ()) ())
               (fst (Requests.get_topology_socket ()))
   |> ignore

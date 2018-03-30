@@ -28,6 +28,8 @@ demo:
 css:
 	$(CSS) dist/resources/css/components/components.scss dist/resources/css/components.css
 	$(CSS) dist/resources/css/main.scss dist/resources/css/main.css
+	$(CSS) dist/resources/css/pages/topology/topology.scss dist/resources/css/topology.css
+	$(CSS) dist/resources/css/pages/pipeline/pipeline.scss dist/resources/css/pipeline.css
 
 frontend: home pipeline hardware user demo input
 

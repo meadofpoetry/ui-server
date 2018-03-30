@@ -5,6 +5,7 @@ open Gg
 open Vg
 open Common.Topology
 open Containers
+open Components
 
 (*All positioning constants in GG and VG mean: *)
 (*X from left to right and Y from bottom to top*)
@@ -16,7 +17,7 @@ open Containers
 
 let font = Font.{ name = "Roboto"; slant = `Normal; weight = `W400; size = 0.01}
 
-let text ~text pos f = I.cut_glyphs f ~text [] (I.const Color.black)
+let text ~text pos f = I.cut_glyphs f ~text [] (I.const Gg.Color.black)
                        >> I.scale (V2.v 1. 0.8)
                        >> I.move pos
 
@@ -88,9 +89,9 @@ let rec setting t x y y1 height l =
       then setting t x (y +. 0.5) y1 height l
       else l
 
-let green = I.const @@ Color.v 0.30 0.69 0.21 1.0   (* a green image *)
-let red   = I.const @@ Color.v 0.96 0.26 0.21 1.0   (* a red image *)
-let gray  = I.const @@ Color.v 0.62 0.62 0.62 1.0   (* a gray image *)
+let green = I.const @@ Gg.Color.v 0.30 0.69 0.21 1.0   (* a green image *)
+let red   = I.const @@ Gg.Color.v 0.96 0.26 0.21 1.0   (* a red image *)
+let gray  = I.const @@ Gg.Color.v 0.62 0.62 0.62 1.0   (* a gray image *)
 
 (*px to mm*)
 let size x y = Size2.v (float_of_int x *. 0.26458333) (float_of_int y *. 0.26458333)
@@ -127,7 +128,7 @@ module Port = struct
             >> P.ccurve (sz 1.0 0.2) (sz 1.0 0.0) (sz 0.8 0.0)         (*right bottom corner - a curve itself*)
             >> P.line   (sz 0.2 0.0)                                   (*left bottom corner  - bottom right*)
             >> P.ccurve (sz 0.2 0.0) (sz 0.0 0.0) (sz 0.0 0.2) in      (*left bottom corner  - a curve itself*)
-    let img = I.const @@ Color.v 0.1 0.1 0.1 1.0 >> I.cut p in         (*cut an image of color gray with path p*)
+    let img = I.const @@ Gg.Color.v 0.1 0.1 0.1 1.0 >> I.cut p in         (*cut an image of color gray with path p*)
     (I.blend img acc)                                                  (*blend image with acc *)
 
   let draw_input t (acc, acc_top) ~x ~y ~cols ~rows ~size =            (*drawing an input element*)
@@ -145,7 +146,7 @@ module Port = struct
             >> P.line   (sz 0.10 0.30)                                 (*left bottom corner  - right bottom*)
             >> P.ccurve (sz 0.08 0.30) (sz 0.01 0.30) (sz 0.01 0.40)   (*left bottom corner  - a curve itself*)
             >> P.line   (sz 0.01 0.50) in                              (*center left*)
-    let input = I.const Color.black >> I.cut ~area p in                (*cut input void black image with path p*)
+    let input = I.const Gg.Color.black >> I.cut ~area p in                (*cut input void black image with path p*)
     let with_label = I.blend (text ~text:(input_to_string t)           (*blend it with input's label*)
                                 (true_size 0.05 0.0 x (y +. 0.46) cols rows)
                                   {font with size = 3. /. size})
@@ -280,12 +281,12 @@ module Board = struct
     (* a color of a board depends on its state, a color of border is the same but brighter *)
     let colour, border_col =                                             (*a color of board and border*)
       match t.connection with                                            (*according to its state*)
-      | `Fine        -> Color.v 0.44 0.73 0.46 1.0,(* light green *)
-                        Color.v 0.30 0.69 0.21 1.0 (* green *)
-      | `No_response -> Color.v 0.94 0.46 0.46 1.0,(* light red *)
-                        Color.v 0.96 0.26 0.21 1.0 (* red *)
-      | `Init        -> Color.v 0.74 0.74 0.74 1.0,(* light gray *)
-                        Color.v 0.62 0.62 0.62 1.0 (* gray *)
+      | `Fine        -> Gg.Color.v 0.44 0.73 0.46 1.0,(* light green *)
+                        Gg.Color.v 0.30 0.69 0.21 1.0 (* green *)
+      | `No_response -> Gg.Color.v 0.94 0.46 0.46 1.0,(* light red *)
+                        Gg.Color.v 0.96 0.26 0.21 1.0 (* red *)
+      | `Init        -> Gg.Color.v 0.74 0.74 0.74 1.0,(* light gray *)
+                        Gg.Color.v 0.62 0.62 0.62 1.0 (* gray *)
     in
     let border      = I.const border_col >> I.cut ~area board_form in    (*draw border*)
     let board       = I.const colour  >> I.cut board_form in             (*draw board*)
@@ -372,76 +373,79 @@ module Entry = struct
 
 end
 
-let render ?on_click ~topology ~(width : int) ~canvas () =
-  let t      = topology in
-  let cols   = (get_list_depth t * 2 - 1) in
-  let rows   = (get_list_height t) in
-  let ar     = 1. in
-  let cw     = let calc = width / cols in
-               if calc > 150 then 150 else calc in
-  let rh     = int_of_float @@ (float_of_int cw) /. ar in
-  let sz     = float_of_int rh in (*sqrt (float_of_int @@ rows * rh * cols * cw) in*)
-  let start  = I.const @@ Color.v 1. 1. 1. 0.
-               >> I.cut (P.empty
-                         >> P.sub  (P2.v 0. 0.)
-                         >> P.line (P2.v 0. 1.)
-                         >> P.line (P2.v 1. 1.)
-                         >> P.line (P2.v 1. 0.)
-                         >> P.line (P2.v 0. 0.)) in
-  let draw_entry = (fun (acc_img,acc_top,number) x ->
-      Entry.draw x (acc_img, acc_top, number) cols rows sz (float_of_int @@ get_node_height 0 x)) in
-  let (acc_img, acc_top, _) = List.fold_left draw_entry (start,[],-1.5) t in
-  render canvas (size (cw * cols) (rh * rows)) acc_img;
-  let get_node e =
-    let x, y  = int_of_float @@ Js.float_of_number @@ (Js.Unsafe.get e "offsetX"),
-                int_of_float @@ Js.float_of_number @@ (Js.Unsafe.get e "offsetY") in
-    let x1,y1 = floor_to_five @@ (float_of_int x /. float_of_int cw),
-                (float_of_int rows) -. (ceil_to_five @@ (float_of_int y /. float_of_int rh)) in
-    (match List.Assoc.get ~eq:(Pervasives.(=)) (x1,y1) acc_top with
-     | None       -> None
-     | Some entry ->
-        match entry with
-        | Input _ ->
-           let real_y = float_of_int rows -. float_of_int y /. float_of_int rh in
-           if ((Equal.poly
-                  (List.Assoc.get ~eq:(Pair.equal Float.equal Float.equal) (x1, y1 +. 0.5) acc_top)
-                  (Some entry))
-               && Float.(real_y < y1 +. 0.25)
-               || ( Equal.poly
-                      (List.Assoc.get ~eq:(Pair.equal Float.equal Float.equal) (x1, y1 -. 0.5) acc_top)
-                      (Some entry))
-                  && Float.(real_y > y1 +. 0.25))
-           then None
-           else Some entry;
-        | Board _ -> Some entry) in
-  Dom_events.listen canvas
-    Dom_events.Typ.mousemove
-    (fun _ e ->
-      (match get_node e with
-       | Some _ -> "pointer"
-       | None   -> "default")
-      |> (fun x -> (Js.Unsafe.coerce canvas##.style)##.cursor := Js.string x);
-      false)
-  |> ignore;
-  match on_click with
-  | Some f -> Dom_events.listen canvas
-                Dom_events.Typ.click
-                (fun _ e -> (match get_node e with
-                             | Some node -> f node;
-                             | None      -> ());
-                            false)
-              |> ignore
-  | None -> ();
+let rm_children container =
+  Dom.list_of_nodeList @@ container##.childNodes
+  |> List.iter (fun x -> Dom.removeChild container x)
 
-  (* Dom_events.listen Dom_html.window
-   *                   Dom_events.Typ.resize
-   *                   (fun _ _ ->
-   *                     let width =
-   *                       |> Js.Opt.to_option |> Option.get_exn
-   *                                 |> Js.Unsafe.coerce
-   *                                 |> (fun x -> x##.offsetWidth) in
-   *                     let depth = get_list_depth t * 2 - 1 in
-   *                     let real_width = if width/depth > 150 then depth*150 else width in
-   *                     render canvas (size real_width (rh * rows)) acc_img;
-   *                     true)
-   * |> ignore *)
+let topo_boards =
+  let rec f acc = (function
+                   | Board b -> List.fold_left (fun a x -> f a x.child) (b :: acc) b.ports
+                   | Input _ -> acc) in
+  List.fold_left f []
+
+let render ?on_click ~topology ~(width : int) ~canvas () =
+  canvas##.style##.marginTop := Js.string "100px";
+  let boards = topo_boards @@ Common.Topology.get_entries topology in
+  rm_children canvas;
+  List.iter (fun x -> let b = Topo_board.create x in
+                      Dom.appendChild canvas b#root) boards
+
+  (* let t      = Common.Topology.get_entries topology in
+   * let cols   = (get_list_depth t * 2 - 1) in
+   * let rows   = (get_list_height t) in
+   * let ar     = 1. in
+   * let cw     = let calc = width / cols in
+   *              if calc > 150 then 150 else calc in
+   * let rh     = int_of_float @@ (float_of_int cw) /. ar in
+   * let sz     = float_of_int rh in (\*sqrt (float_of_int @@ rows * rh * cols * cw) in*\)
+   * let start  = I.const @@ Color.v 1. 1. 1. 0.
+   *              >> I.cut (P.empty
+   *                        >> P.sub  (P2.v 0. 0.)
+   *                        >> P.line (P2.v 0. 1.)
+   *                        >> P.line (P2.v 1. 1.)
+   *                        >> P.line (P2.v 1. 0.)
+   *                        >> P.line (P2.v 0. 0.)) in
+   * let draw_entry = (fun (acc_img,acc_top,number) x ->
+   *     Entry.draw x (acc_img, acc_top, number) cols rows sz (float_of_int @@ get_node_height 0 x)) in
+   * let (acc_img, acc_top, _) = List.fold_left draw_entry (start,[],-1.5) t in
+   * render canvas (size (cw * cols) (rh * rows)) acc_img;
+   * let get_node e =
+   *   let x, y  = int_of_float @@ Js.float_of_number @@ (Js.Unsafe.get e "offsetX"),
+   *               int_of_float @@ Js.float_of_number @@ (Js.Unsafe.get e "offsetY") in
+   *   let x1,y1 = floor_to_five @@ (float_of_int x /. float_of_int cw),
+   *               (float_of_int rows) -. (ceil_to_five @@ (float_of_int y /. float_of_int rh)) in
+   *   (match List.Assoc.get ~eq:(Pervasives.(=)) (x1,y1) acc_top with
+   *    | None       -> None
+   *    | Some entry ->
+   *       match entry with
+   *       | Input _ ->
+   *          let real_y = float_of_int rows -. float_of_int y /. float_of_int rh in
+   *          if ((Equal.poly
+   *                 (List.Assoc.get ~eq:(Pair.equal Float.equal Float.equal) (x1, y1 +. 0.5) acc_top)
+   *                 (Some entry))
+   *              && Float.(real_y < y1 +. 0.25)
+   *              || ( Equal.poly
+   *                     (List.Assoc.get ~eq:(Pair.equal Float.equal Float.equal) (x1, y1 -. 0.5) acc_top)
+   *                     (Some entry))
+   *                 && Float.(real_y > y1 +. 0.25))
+   *          then None
+   *          else Some entry;
+   *       | Board _ -> Some entry) in
+   * Dom_events.listen canvas
+   *   Dom_events.Typ.mousemove
+   *   (fun _ e ->
+   *     (match get_node e with
+   *      | Some _ -> "pointer"
+   *      | None   -> "default")
+   *     |> (fun x -> (Js.Unsafe.coerce canvas##.style)##.cursor := Js.string x);
+   *     false)
+   * |> ignore;
+   * match on_click with
+   * | Some f -> Dom_events.listen canvas
+   *               Dom_events.Typ.click
+   *               (fun _ e -> (match get_node e with
+   *                            | Some node -> f node;
+   *                            | None      -> ());
+   *                           false)
+   *             |> ignore
+   * | None -> (); *)
