@@ -14,15 +14,24 @@ module Ports = Map.Make(Int)
 
 exception Invalid_port of string
 
-type url = string
-type constraints = Unavailable
-                 | Limited   of int
-                 | Unlimited
+type url = Common.Uri.t
+type set_state = [ `Forbidden
+                 | `Limited   of int
+                 | `Unlimited
+                 ]
+type set_error = [ `Not_in_range
+                 | `Limit_exceeded of (int * int)
+                 | `Forbidden
+                 | `Internal_error of string
+                 ]
+type constraints =
+  { range : (url * url) list
+  ; state : set_state React.signal
+  }
 
 type stream_handler = < streams     : (url option * Common.Stream.t) list React.signal
-                      ; set         : (url * Common.Stream.t) list -> (unit,string) Lwt_result.t
-                      ; constraints : constraints React.signal
-                      ; range       : (url * url) list
+                      ; set         : (url * Common.Stream.t) list -> (unit,set_error) Lwt_result.t
+                      ; constraints : constraints
                       >
 
 type board = { handlers        : (module Api_handler.HANDLER) list

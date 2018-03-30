@@ -26,14 +26,14 @@ let init o =
 let store_structures dbs streams =
   let insert =
     Caqti_request.exec Caqti_type.(tup2 string string)
-      "INSERT INTO streams(input, value) VALUES (?,?)"
+                       "INSERT INTO streams(input, value) VALUES (?,?)"
   in
   let s = Structure_conv.dump_streams streams in
   let store_structures' (module Db : Caqti_lwt.CONNECTION) =
     List.fold_left
       (fun thread (i,v) ->
         thread >>= function
-        | Ok ()  -> Db.exec insert (i, v)
+        | Ok ()  -> Db.exec insert (Common.Uri.to_string i, v)
         | _ as e -> Lwt.return e)
       (Lwt.return_ok ()) s
     >>= function

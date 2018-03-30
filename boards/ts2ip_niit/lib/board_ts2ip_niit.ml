@@ -68,20 +68,34 @@ let create (b:topo_board) (streams:Common.Stream.t list React.signal) _ send db 
                                                          | Parent s -> Common.Stream.equal x s
                                                          | _        -> false) outgoing with
                            | Some o -> (match o.id with
-                                        | `Ip {ip;port} -> let uri = Printf.sprintf "udp://%s:%d"
-                                                                                    (Ipaddr.V4.to_string ip)
-                                                                                    port in
-                                                           Some uri, x
-                                        | _ -> None, x)
+                                        | `Ip uri -> Some uri, x
+                                        | _       -> None, x)
                            | None   -> None,x) incoming) streams s_sms
   in
-  let set = (fun streams ->
-      let settings = List.map (fun ((url:string),stream) -> let dst_ip = Ipaddr.V4.broadcast in
-                                                            let dst_port = 0 in
-                                                            { stream;dst_ip;dst_port;enabled=true})
-                              streams
-      in
-      api.set_streams_full settings)
+  let set_state = React.S.l2 (fun s d -> match s,d with
+                                         | `Fine,Some devi -> (match devi.packers_num with
+                                                               | Some x when x > 0 -> `Limited x
+                                                               | _                 -> `Forbidden)
+                                         | _               -> `Forbidden)
+                             s_state devinfo
+  in
+  let constraints = { state = set_state
+                    ; range = [ ({ip=Ipaddr.V4.make 224 0 1 0; port = 0},
+                                 {ip=Ipaddr.V4.make 239 255 255 255; port = 65535})
+                              ]
+                    }
+  in
+  let set streams =
+    (try
+       List.map (fun ((url:Meta_board.url),stream) ->
+           if List.fold_left (fun acc x -> if not @@ Common.Uri.in_range x url
+                                           then false else acc) true constraints.range
+           then { stream;dst_ip=url.ip;dst_port=url.port;enabled=true }
+           else failwith "not in range") streams
+       |> api.set_streams_full
+       |> Lwt_result.map_err (function `Limit_exceeded x -> `Limit_exceeded x
+                                     | `Undefined_limit  -> `Forbidden)
+     with _ -> Lwt_result.fail `Not_in_range)
   in
   let state        = (object end) in
   { handlers       = handlers
@@ -96,14 +110,7 @@ let create (b:topo_board) (streams:Common.Stream.t list React.signal) _ send db 
   ; stream_handler = Some (object
                              method streams     = available
                              method set x       = set x
-                             method constraints = React.S.l2 (fun state devinfo ->
-                                                      match state,devinfo with
-                                                      | `Fine,Some devi -> (match devi.packers_num with
-                                                                            | Some x when x > 0 -> Limited x
-                                                                            | _                 -> Unavailable)
-                                                      | _               -> Unavailable)
-                                                             s_state devinfo
-                             method range       = [ "udp://224.0.1.0", "udp://239.255.255.255" ]
+                             method constraints = constraints
                            end)
   ; state          = (state :> < >)
   }

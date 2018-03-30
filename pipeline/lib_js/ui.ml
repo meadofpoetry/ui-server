@@ -175,7 +175,7 @@ module Structure = struct
       let h = match s.source with
         | Unknown    -> Printf.sprintf "Unknown source"
         | Stream src -> Printf.sprintf "Поток: %s" (CCOpt.get_or ~default:"-" src.description)
-      in h, (Printf.sprintf "ip: %s" s.structure.uri)
+      in h, (Printf.sprintf "ip: %s" @@ Common.Uri.to_string s.structure.uri)
     in
     let wl, cl = List.split @@ List.map make_channel s.structure.channels in
     let st_s   = React.S.map (fun chl -> {s with structure = {s.structure with channels = chl}}) @@
