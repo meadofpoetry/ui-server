@@ -14,6 +14,11 @@ type board_type = string [@@deriving yojson, show, eq]
 
 type process_type = string [@@deriving yojson, show, eq]
 
+let input_compare l r = match l, r with
+  | RF, RF | TSOIP, TSOIP | ASI, ASI -> 0
+  | RF, _  | _, ASI -> -1
+  | ASI, _ | _, RF  -> 1
+                         
 let input_to_string = function
   | RF    -> "RF"
   | TSOIP -> "TSOIP"

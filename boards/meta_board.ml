@@ -23,7 +23,7 @@ type set_error = [ `Not_in_range
                  | `Limit_exceeded of (int * int)
                  | `Forbidden
                  | `Internal_error of string
-                 ]
+                 ] [@@deriving yojson]
 type constraints =
   { range : (url * url) list
   ; state : set_state React.signal

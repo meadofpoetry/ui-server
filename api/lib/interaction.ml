@@ -18,6 +18,9 @@ let respond ?(status = `OK) body = Cohttp_lwt_unix.Server.respond ~status ~body
 let respond_js ?(status = `OK) js =
   Cohttp_lwt_unix.Server.respond ~status ~body:(yojson_to_body js)
 
+let respond_error_js js =
+  Cohttp_lwt_unix.Server.respond ~status:`Bad_request ~body:(yojson_to_body js)
+
 let respond_html_elt ?(status = `OK) body =
   Cohttp_lwt_unix.Server.respond ~status
     ~body:(Cohttp_lwt.Body.of_string @@ Format.asprintf "%a" (Tyxml.Html.pp_elt ()) body)

@@ -15,3 +15,8 @@
               meta_board board-dvb-niit board-ip-dektec
               board-qos-niit board-ts2ip-niit))
   (preprocess (pps (ppx_deriving_yojson)))))
+
+(rule
+ ((targets (application_types.ml))
+  (deps (../application_types.ml))
+  (action (copy ${<} ${@}))))
