@@ -43,7 +43,7 @@ type state = { ctx          : ZMQ.Context.t
              ; msg          : [ `Req] ZMQ.Socket.t
              ; ev           : [ `Sub] ZMQ.Socket.t
              ; options      : options
-             ; srcs         : (string * Common.Stream.t) list ref
+             ; srcs         : (Common.Uri.t * Common.Stream.t) list ref
              ; mutable proc : Lwt_process.process_none option
              }
 
@@ -225,10 +225,11 @@ let create (type a) (typ : a typ) config sock_in sock_out =
   in
   api, state, recv
 
-let reset bin_path bin_name msg_fmt state (sources : (string * Common.Stream.t) list) =
+let reset bin_path bin_name msg_fmt state (sources : (Common.Uri.t * Common.Stream.t) list) =
   let exec_path = (Filename.concat bin_path bin_name) in
   let msg_fmt   = Pipeline_settings.format_to_string msg_fmt in
-  let exec_opts = Array.of_list (bin_name :: "-m" :: msg_fmt :: (List.map fst sources)) in
+  let uris      = List.map Fun.(fst %> Common.Uri.to_string) sources in
+  let exec_opts = Array.of_list (bin_name :: "-m" :: msg_fmt :: uris) in
   state.srcs := sources;
   Option.iter (fun proc -> proc#terminate) state.proc;
   state.proc <- Some (Lwt_process.open_process_none (exec_path, exec_opts))

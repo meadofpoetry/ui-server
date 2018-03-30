@@ -7,17 +7,25 @@ type _ request         = Get_board_info   : devinfo request
 type _ instant_request = Set_board_mode   : nw_settings * packer_setting list -> unit instant_request
                        | Set_factory_mode : factory_settings                  -> unit instant_request
 
+type set_streams_error = [ `Limit_exceeded of (int * int)
+                         | `Undefined_limit
+                         ]
+
 type api    = { devinfo            : unit                   -> devinfo_response Lwt.t
               ; set_mode           : nw_settings            -> unit Lwt.t
               ; set_factory_mode   : factory_settings       -> unit Lwt.t
-              ; set_streams_simple : Common.Stream.t list   -> (unit,string) Lwt_result.t
-              ; set_streams_full   : streams_full_request   -> (unit,string) Lwt_result.t
+              ; set_streams_simple : Common.Stream.t list   -> (unit,set_streams_error) Lwt_result.t
+              ; set_streams_full   : streams_full_request   -> (unit,set_streams_error) Lwt_result.t
               ; config             : unit                   -> config_response Lwt.t
               }
 
 type events = { status : status React.event
               ; config : config_response React.event
               }
+
+let set_streams_error_to_string = function
+  | `Undefined_limit          -> "Undefined limit of streams. Probably the board is not responding"
+  | `Limit_exceeded (exp,got) -> Printf.sprintf "Limit exceeded. Got %d, but only %d is available" got exp
 
 let prefix = 0x55AA
 

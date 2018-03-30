@@ -49,7 +49,7 @@ type channel =
 
 type structure =
   { id       : int32 
-  ; uri      : string
+  ; uri      : Common.Uri.t
   ; channels : channel list
   } [@@deriving yojson]
 
