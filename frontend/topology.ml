@@ -25,12 +25,12 @@ let () =
   let s,push = React.S.create ~eq:Equal.physical None in
   let divider = new Divider.t () in
   divider#style##.margin := Js.string "15px 0";
-  let canvas = Dom_html.createCanvas doc in
-  let width () = canvas##.parentNode
+  let topo_el = Dom_html.createDiv doc in
+  let width () = topo_el##.parentNode
                  |> Js.Opt.to_option |> Option.get_exn
                  |> Js.Unsafe.coerce
                  |> (fun x -> x##.offsetWidth) in
-  Dom.appendChild ac canvas;
+  Dom.appendChild ac topo_el;
   Dom.appendChild ac divider#root;
   Dom.appendChild ac (settings_section s)#root;
 
@@ -45,8 +45,8 @@ let () =
          | "TS"    -> Widget.create @@ fst @@ Board_qos_niit_js.Settings.page b.control
          | s       -> failwith ("Requests.get_topology: unknown board " ^ s)
        in
-       Topology.render ~topology:(get_entries t)
-                       ~canvas
+       Topology.render ~topology:t
+                       ~topo_el
                        ~width:(width ())
                        ~on_click:(function
                                   | Input _ -> ()
@@ -55,6 +55,6 @@ let () =
        |> Lwt.return
     | Error e -> Lwt.return @@ print_endline e)
   |> ignore;
-  React.E.map (fun x -> Topology.render ~topology:(get_entries x) ~canvas ~width:(width ()) ())
+  React.E.map (fun x -> Topology.render ~topology:x ~topo_el ~width:(width ()) ())
               (fst (Requests.get_topology_socket ()))
   |> ignore

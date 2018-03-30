@@ -53,7 +53,7 @@ let env_of_yojson : Yojson.Safe.json -> (env, string) result = function
   | _ -> Error "env_of_yojson"
 let pp_env = Env.pp String.pp String.pp
 let equal_env = Env.equal String.equal
-        
+
 type t = [`CPU of topo_cpu | `Boards of topo_board list] [@@deriving yojson, show, eq]
 
 and topo_entry =
@@ -63,7 +63,7 @@ and topo_entry =
 and topo_input = { input        : input
                  ; id           : int
                  }
-               
+
 and topo_board = { typ          : board_type
                  ; model        : string
                  ; manufacturer : string
@@ -93,8 +93,8 @@ let cpu_subbranches = function
 
 let get_entries = function
   | `Boards l -> List.fold_left (fun acc b -> (List.map (fun p -> p.child) b.ports) @ acc) [] l
-  | `CPU c    -> List.map (fun i -> i.conn) c.ifaces
-               
+  | `CPU    c -> List.map (fun i -> i.conn) c.ifaces
+
 let get_api_path = string_of_int
 
 let inputs t =
