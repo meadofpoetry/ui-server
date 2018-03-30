@@ -151,6 +151,7 @@ module SM = struct
     in
     events,
     api,
+    s_devinfo,
     (step msgs imsgs sender storage step_duration push_state push_events s_devinfo_push)
 
 end

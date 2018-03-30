@@ -47,7 +47,7 @@ let create (b:topo_board) (streams:Common.Stream.t list React.signal) _ send db 
   let storage          = Config_storage.create base ["board"; (string_of_int b.control)] in
   let s_state, spush   = React.S.create `No_response in
   let convert          = stream_to_packer b in
-  let events,api,step  = create_sm send storage spush step convert in
+  let events,api,devinfo,step = create_sm send storage spush step convert in
   let handlers         = Board_api.handlers b.control api events s_state streams in
   let s_sms            =
     React.E.map (fun status ->
@@ -94,8 +94,16 @@ let create (b:topo_board) (streams:Common.Stream.t list React.signal) _ send db 
   ; settings_page  = ("TS2IP", React.S.const (Tyxml.Html.div []))
   ; widgets_page   = [("TS2IP", React.S.const (Tyxml.Html.div []))]
   ; stream_handler = Some (object
-                             method streams = available
-                             method set x   = set x
+                             method streams     = available
+                             method set x       = set x
+                             method constraints = React.S.l2 (fun state devinfo ->
+                                                      match state,devinfo with
+                                                      | `Fine,Some devi -> (match devi.packers_num with
+                                                                            | Some x when x > 0 -> Limited x
+                                                                            | _                 -> Unavailable)
+                                                      | _               -> Unavailable)
+                                                             s_state devinfo
+                             method range       = [ "udp://224.0.1.0", "udp://239.255.255.255" ]
                            end)
   ; state          = (state :> < >)
   }

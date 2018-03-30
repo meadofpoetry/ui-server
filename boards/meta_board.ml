@@ -15,11 +15,16 @@ module Ports = Map.Make(Int)
 exception Invalid_port of string
 
 type url = string
-                        
-type stream_handler = < streams : (url option * Common.Stream.t) list React.signal
-                      ; set     : (url * Common.Stream.t) list -> (unit,string) Lwt_result.t
+type constraints = Unavailable
+                 | Limited   of int
+                 | Unlimited
+
+type stream_handler = < streams     : (url option * Common.Stream.t) list React.signal
+                      ; set         : (url * Common.Stream.t) list -> (unit,string) Lwt_result.t
+                      ; constraints : constraints React.signal
+                      ; range       : (url * url) list
                       >
-                        
+
 type board = { handlers        : (module Api_handler.HANDLER) list
              ; control         : int
              ; streams_signal  : Common.Stream.t list React.signal
