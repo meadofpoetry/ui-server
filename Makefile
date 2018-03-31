@@ -33,8 +33,7 @@ css-pages:
 	$(CSS) dist/resources/css/pages/topology/topology.scss dist/resources/css/topology.css
 	$(CSS) dist/resources/css/pages/pipeline/pipeline.scss dist/resources/css/pipeline.css
 
-css:
-	css-components css-pages
+css: css-components css-pages
 
 frontend: home pipeline hardware user demo input
 

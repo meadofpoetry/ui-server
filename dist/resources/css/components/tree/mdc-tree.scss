@@ -1,0 +1,188 @@
+@import "../ripple/common";
+@import "../ripple/mixins";
+@import "../rtl/mixins";
+@import "../theme/functions";
+@import "../typography/mixins";
+@import "../typography/variables";
+@import "../list/mixins";
+@import "../list/variables";
+
+.mdc-tree {
+    @include mdc-typography(subheading2);
+    @include mdc-list-item-primary-text-ink-color(text-primary-on-background);
+
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    width: 100%;
+    margin: 0;
+    line-height: map-get(map-get($mdc-typography-styles, subheading1), line-height);
+    list-style-type: none;
+
+    .mdc-tree__item {
+
+        width: 100%;
+        display: flex;
+        position: relative;
+        align-items: center;
+        justify-content: flex-start;
+        min-height: 48px;
+        overflow: hidden;
+
+        &:focus {
+            outline: none;
+        }
+
+        .mdc-tree__list {
+            width: calc(100% - 16px);
+            display: none;
+            padding-left: 16px;
+        }
+
+        &--open {
+            .mdc-tree__list {
+                display:block;
+            }
+            .dropdown {
+                transform: rotate(180deg);
+            }
+        }
+    }
+}
+
+@at-root {
+    @include mdc-list-item-secondary-text-ink-color(text-secondary-on-background);
+    @include mdc-list-item-graphic-fill-color(transparent);
+    @include mdc-list-item-graphic-ink-color(text-icon-on-background);
+    @include mdc-list-item-meta-ink-color(text-hint-on-background);
+}
+
+.mdc-tree--dense {
+    padding-top: 4px;
+    padding-bottom: 4px;
+    font-size: .812rem;
+}
+
+.mdc-tree-item--selected,
+.mdc-tree-item-activated {
+    @include mdc-list-item-primary-text-ink-color(primary);
+    @include mdc-list-item-graphic-ink-color(primary);
+}
+
+.mdc-tree-item__graphic {
+  @include mdc-list-graphic-size_(24px);
+
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.mdc-tree-item__meta {
+  @include mdc-rtl-reflexive-property(margin, auto, 0, ".mdc-tree-item");
+}
+
+.mdc-tree-item__text,
+.mdc-tree-item__secondary-text {
+  @include mdc-typography-overflow-ellipsis;
+
+  display: block;
+}
+
+.mdc-tree-item__secondary-text {
+  @include mdc-typography(body1);
+}
+
+.mdc-tree--dense .mdc-tree-item__secondary-text {
+  font-size: inherit;
+}
+
+.mdc-tree--dense .mdc-tree-item {
+  height: 40px;
+}
+
+.mdc-tree--avatar-tree .mdc-tree-item {
+  height: 56px;
+}
+
+.mdc-tree--avatar-tree .mdc-tree-item__graphic {
+  @include mdc-list-graphic-size_(40px);
+
+  border-radius: 50%;
+}
+
+:not(.mdc-tree--non-interactive) > .mdc-list-item {
+  @include mdc-ripple-surface;
+  @include mdc-ripple-radius-bounded;
+  @include mdc-states;
+  @include mdc-states-activated(primary);
+  @include mdc-states-selected(primary);
+}
+
+.mdc-tree--two-line .mdc-tree-item {
+  height: 72px;
+}
+
+.mdc-tree--two-line .mdc-tree--dense .mdc-tree-item {
+  height: 60px;
+}
+
+.mdc-tree--avatar-tree .mdc-tree--dense .mdc-tree-item {
+  height: 48px;
+}
+
+.mdc-tree--avatar-tree .mdc-tree--dense .mdc-tree-item__graphic {
+  @include mdc-list-graphic-size_(36px);
+}
+
+a.mdc-tree-item {
+  color: inherit;
+  text-decoration: none;
+}
+
+@at-root {
+  $divider-color: if(
+    mdc-theme-tone($mdc-theme-background) == "dark",
+    $mdc-list-divider-color-on-dark-bg,
+    $mdc-list-divider-color-on-light-bg
+  );
+
+  @include mdc-list-divider-color($divider-color);
+}
+
+.mdc-tree-divider--padded {
+  // Leave gaps on each side to match the padding on list items
+  margin: 0 $mdc-list-side-padding;
+}
+
+.mdc-tree-divider--inset {
+  @include mdc-rtl-reflexive-box(margin, left, $mdc-list-text-offset, ".mdc-list-group");
+
+  width: calc(100% - #{$mdc-list-text-offset});
+}
+
+.mdc-tree-divider--inset.mdc-tree-divider--padded {
+  width: calc(100% - #{$mdc-list-text-offset} - #{$mdc-list-side-padding});
+}
+
+// postcss-bem-linter: end
+
+// postcss-bem-linter: define list-group
+
+.mdc-tree-group {
+  // Cancel top/bottom padding on individual lists within group
+  .mdc-tree {
+    padding: 0;
+  }
+}
+
+.mdc-tree-group__subheader {
+  $mdc-list-subheader-virtual-height: 3rem;
+  $mdc-list-subheader-leading: map-get(map-get($mdc-typography-styles, body2), line-height);
+  $mdc-list-subheader-margin:
+    ($mdc-list-subheader-virtual-height - $mdc-list-subheader-leading) / 2;
+
+  @include mdc-typography(body2);
+
+  margin: $mdc-list-subheader-margin $mdc-list-side-padding;
+}
