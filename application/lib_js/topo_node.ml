@@ -1,46 +1,34 @@
 open Containers
 open Components
+open Common.Topology
 
-let port_section_height = 50
-let base_class          = "topology__node"
+type point =
+  { x : int
+  ; y : int
+  }
 
-module Header = struct
+let get_output_point widget =
+  let rect : Widget.rect = widget#get_bounding_client_rect in
+  let y = (int_of_float rect.top) + (widget#get_offset_height / 2) in
+  { x = int_of_float rect.left; y }
 
-  class t ?action ?subtitle ~title () =
-    let _class     = Markup.CSS.add_element base_class "header" in
-    let title_w    = new Card.Primary.title title () in
-    let subtitle_w = Option.map (fun x -> (new Card.Primary.subtitle x ())#widget) subtitle in
-    let box        = new Box.t
-                         ~vertical:true
-                         ~widgets:([]
-                                   |> List.cons_maybe subtitle_w
-                                   |> List.cons title_w#widget)
-                         () in
-    object(self)
-      inherit Card.Primary.t ~widgets:([]
-                                       |> List.cons_maybe action
-                                       |> List.cons box#widget)
-                             ()
-      initializer
-        self#add_class _class
-    end
+class node_with_output ~(entry:topo_entry) (connectable:#Widget.widget) =
+  let s_op,s_op_push = React.S.create (get_output_point connectable) in
+  object
 
-end
+    method output_point = s_op
+    method entry        = entry
 
-module Body = struct
-
-  class t n () =
-  object(self)
-    inherit Card.Media.t ~widgets:[] ()
     initializer
-      self#style##.height := Js.string @@ Utils.px (n * port_section_height)
+      Dom_events.listen Dom_html.window Dom_events.Typ.resize (fun _ _ ->
+                          s_op_push (get_output_point connectable); true)
+      |> ignore
+
   end
 
-end
+class t ~(connections:#node_with_output list)
+        (widget:#Widget.widget)
+        () =
+object
 
-class t ~(header:#Header.t) ~(body:#Body.t) () =
-object(self)
-  inherit Card.t ~widgets:[header#widget;body#widget] ()
-  initializer
-    self#add_class base_class
 end

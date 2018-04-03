@@ -97,6 +97,13 @@ let get_entries = function
                
 let get_api_path = string_of_int
 
+let get_input_name (i:topo_input) =
+  let to_string s = Printf.sprintf "%s %d" s i.id in
+  match i.input with
+  | RF    -> to_string "RF"
+  | TSOIP -> to_string "TSoIP"
+  | ASI   -> to_string "ASI"
+
 let inputs t =
   let rec get acc = function
     | Input x -> x :: acc

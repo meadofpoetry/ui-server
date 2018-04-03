@@ -4,16 +4,6 @@ open Common.User
 open Api.Template
 open Api
 
-let get_input_name x topo =
-  let single = List.find_pred (fun input -> input.input = x.input && input.id <> x.id)
-                                (Common.Topology.inputs topo)
-               |> Option.is_none in
-  let to_string s = if single then Printf.sprintf "%s" s else Printf.sprintf "%s %d" s x.id in
-  match x.input with
-  | RF    -> to_string "RF"
-  | TSOIP -> to_string "TSoIP"
-  | ASI   -> to_string "ASI"
-
 let get_input_href x =
   let name = input_to_string x.input in
   let id   = string_of_int x.id in
@@ -24,7 +14,7 @@ let input topo (topo_input:topo_input) =
                              (Common.Topology.paths topo) in
   match path with
   | None      -> failwith "input not found"
-  | Some path -> let title  = get_input_name topo_input topo in
+  | Some path -> let title  = Common.Topology.get_input_name topo_input in
                  let boards = List.map (fun x -> x.control,x.typ ) path
                               |> boards_to_yojson
                               |> Yojson.Safe.to_string

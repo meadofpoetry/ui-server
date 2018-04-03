@@ -386,9 +386,24 @@ let topo_boards =
 let render ?on_click ~topology ~(width : int) ~canvas () =
   canvas##.style##.paddingTop := Js.string "100px";
   let boards = topo_boards @@ Common.Topology.get_entries topology in
+  let inputs : Common.Topology.topo_input list =
+    [ { input = ASI; id = 1 }
+    ; { input = TSOIP; id = 1 }
+    ; { input = ASI; id = 2 }
+    ; { input = RF; id = 1 }
+    ]
+  in
   rm_children canvas;
-  List.iter (fun x -> let b = Topo_board.create x in
-                      Dom.appendChild canvas b#root) boards
+  List.iter (fun x -> let b = Topo_input.create x in
+                      Dom.appendChild canvas b#root) inputs;
+  Dom.appendChild canvas (Topo_cpu.create { process = "pipeline"
+                                          ; ifaces = [ {iface="eht0"; conn=Input {input=ASI;id=1}}
+                                                     ; {iface="eht1"; conn=Input {input=ASI;id=2}}
+                                                     ]
+                                          }
+                         )#root;
+  List.iter (fun x -> let b = Topo_board.create ~s_state:(React.S.const `No_response) x in
+                      Dom.appendChild canvas b#root) boards;
 
   (* let t      = Common.Topology.get_entries topology in
    * let cols   = (get_list_depth t * 2 - 1) in
