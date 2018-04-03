@@ -58,3 +58,81 @@ let in_range (min,max) t =
   match compare min t, compare t max with
   | 1, _ | _, 1 -> false
   | _           -> true
+
+let zero : t = { ip = Ipaddr.V4.of_int32 0l; port = 0 }
+
+let succ : t -> t = fun { ip; port } ->
+  if port = 65535
+  then { ip   = Ipaddr.V4.of_int32 @@ Int32.succ @@ Ipaddr.V4.to_int32 ip
+       ; port = 0
+       }
+  else { ip; port = succ port }
+
+type gen = (unit -> t option)
+  
+let of_range : (t * t) list -> gen = fun rngs ->
+  if List.is_empty rngs
+  then (fun () -> None)
+  else
+    let rngs = ref rngs in
+    (fun () ->
+      match !rngs with
+      | [] -> None
+      | (min,max)::tl ->
+         if compare min max > 0
+         then failwith "of_range: bad range, min is greater than max"
+         else let rval = min in
+              let new_min = succ min in
+              if compare min max > 0
+              then rngs := tl
+              else rngs := (new_min,max)::tl;
+              Some rval)
+    
+let random : unit -> t = fun () ->
+  { ip   = Ipaddr.V4.of_int32 @@ Random.int32 Int32.max_int
+  ; port = Random.run ~st:(Random.get_state ()) @@ Random.int 65535
+  }
+
+exception Gen_failure
+    
+let gen_in_ranges : ('a * (t * t) list) list -> (('a * t) list, unit) result = fun vs ->
+  let ranged, free = List.partition (fun (_,r) -> not @@ List.is_empty r) vs in
+  let rec is_in a = function
+    | []    -> false
+    | x::tl -> if equal x a then true else is_in a tl
+  in
+  let rec generate used_adds = function
+    | [] -> used_adds, []
+    | (id, range)::tl ->
+       let gen = of_range range in
+       let rec loop () =
+         match gen () with
+         | None   -> raise_notrace Gen_failure
+         | Some a ->
+            if is_in a used_adds
+            then loop ()
+            else try
+                let used, vals = generate (a::used_adds) tl in
+                used, (id, a)::vals
+              with Gen_failure -> loop ()
+       in loop ()
+  in
+  let rec generate_free used_adds acc free =
+    let limit = List.length used_adds in
+    match free with
+    | [] -> acc
+    | (id,_)::tl ->
+       let rec loop lim =
+         let a = random () in
+         if not @@ is_in a used_adds
+         then generate_free used_adds ((id,a)::acc) tl
+         else if lim > limit
+         then raise_notrace Gen_failure
+         else loop (lim + 1)
+       in loop 0
+  in
+  try
+    let used, vals = generate [] ranged in
+    let frees = generate_free used [] free in
+    Ok(frees @ vals)
+  with Gen_failure -> Error ()

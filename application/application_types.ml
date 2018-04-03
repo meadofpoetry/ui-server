@@ -13,6 +13,6 @@ type marker = [ `Input of Common.Topology.input * int
               | `Board of int
               ] [@@deriving yojson]
 
-type stream_setting = (marker * (Common.Uri.t * Common.Stream.t) list) list [@@deriving yojson]
+type stream_setting = (marker * Common.Stream.t list) list [@@deriving yojson]
                     
 type stream_table   = (marker * source_state * (Common.Uri.t option * Common.Stream.t) list) list [@@deriving yojson]

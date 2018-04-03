@@ -134,9 +134,46 @@ let create config db (topo : Common.Topology.t) =
   { boards; usb; topo; sources; streams }, loop ()
 
 exception Constraints of Meta_board.set_error
-  
+
 let set_stream hw (ss : stream_setting) =
   let open Lwt_result.Infix in
+  let gen_uris (ss : stream_setting) : (marker * (Common.Uri.t * Common.Stream.t) list) list =
+     let split = function
+      | (`Input _, _) as i -> `Right i
+      | (`Board id, sl)    ->
+         try let p = Map.find id hw.sources.boards in
+             let { range; state = _ } = p#constraints in
+             `Left (List.map (fun s -> ((`Board id, s),range)) sl)
+         with Not_found ->
+           raise_notrace (Constraints (`Internal_error "set_stream: no control found"))
+     in
+     let rec rebuild acc = function
+       | [] -> acc
+       | ((`Board id, s), uri)::tl ->
+          let same, rest = List.partition_map (function ((`Board bid,bs),buri) as v ->
+                               if id = bid
+                               then `Left  (buri,bs)
+                               else `Right v
+                             ) tl
+          in
+          rebuild ((`Board id, (uri,s)::same)::acc) rest
+     in
+     let rec input_add_uri (`Input i, sl) =
+       let open Common.Stream in
+       let s_to_uri s = match s.id with
+         | `Ts _ -> raise_notrace (Constraints (`Internal_error "set_stream: expected ip stream from an input"))
+         | `Ip u -> (u, s)
+       in (`Input i, List.map s_to_uri sl)
+     in
+     let boards, inputs = List.partition_map split ss in
+     let boards = match Common.Uri.gen_in_ranges @@ List.concat boards with
+       | Ok boards -> rebuild [] boards
+       | Error ()  -> raise_notrace (Constraints (`Internal_error "set_stream: uri generation failure"))
+     in
+     let inputs = List.map input_add_uri inputs in
+     inputs @ boards
+  in
+  (* TODO simplify this part *)
   let check_constraints range state streams =
     begin match state with
     | `Forbidden -> raise_notrace (Constraints `Forbidden)
@@ -169,7 +206,7 @@ let set_stream hw (ss : stream_setting) =
                           >>= loop tl
            | Constraints e -> Lwt.return_error e >>= loop tl
       end
-  in loop ss ()
+  in loop (gen_uris ss) ()
       
 let finalize hw =
   Usb_device.finalize hw.usb;
