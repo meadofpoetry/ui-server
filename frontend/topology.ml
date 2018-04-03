@@ -30,10 +30,31 @@ let () =
                  |> Js.Opt.to_option |> Option.get_exn
                  |> Js.Unsafe.coerce
                  |> (fun x -> x##.offsetWidth) in
+
+  
   Dom.appendChild ac canvas;
-  Dom.appendChild ac divider#root;
+  Dom.appendChild ac divider#root;  
   Dom.appendChild ac (settings_section s)#root;
 
+  Requests.get_stream_table ()
+  >>= (function
+       | Ok init ->
+          let stream_selector = Streams_selector.Streams_table.create
+                                  ~init ~events:(fst @@ Requests.get_stream_table_socket ())
+                                  ~post:(fun ss ->
+                                    (Requests.post_stream_settings ss
+                                     >>= function
+                                     | Ok ()   -> Lwt.return_unit
+                                     | Error e -> (Printf.printf "post stream settings, error: %s\n"
+                                                     (Yojson.Safe.pretty_to_string @@
+                                                        Application_types.set_error_to_yojson e));
+                                                  Lwt.return_unit)
+                                    |> Lwt.ignore_result)
+          in Dom.appendChild ac stream_selector;
+             Lwt.return_unit
+       | Error e -> Lwt.return @@ Printf.printf "stream_table get, error: %s\n" e)
+  |> Lwt.ignore_result;
+  
   Requests.get_topology ()
   >>= (fun resp ->
     match resp with

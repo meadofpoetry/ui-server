@@ -206,7 +206,11 @@ let set_stream hw (ss : stream_setting) =
                           >>= loop tl
            | Constraints e -> Lwt.return_error e >>= loop tl
       end
-  in loop (gen_uris ss) ()
+  in
+  try
+    let ss = gen_uris ss in
+    loop ss ()
+  with Constraints e -> Lwt.return_error e
       
 let finalize hw =
   Usb_device.finalize hw.usb;

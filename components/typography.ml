@@ -62,6 +62,9 @@ module Text = struct
         | false -> self#remove_class Typography.adjust_margin_class
       method get_adjust_margin = self#has_class Typography.adjust_margin_class
 
+      method get_text   = self#get_text_content |> Option.get_or ~default:""
+      method set_text s = self#set_text_content s
+                               
       initializer
         self#add_class Typography.base_class;
         self#set_adjust_margin adjust_margin;

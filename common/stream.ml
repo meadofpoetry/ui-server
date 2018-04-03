@@ -63,3 +63,12 @@ let t_to_topo_port (b:topo_board) (t:t) =
                               | Some _ -> Some h
                               | None   -> get_port tl))
   in get_port b.ports
+
+let header : t -> string = fun s ->
+  let h = match s.id with
+    | `Ip _  -> "IP stream"
+    | `Ts id -> Printf.sprintf "TS stream %s" @@ show_id id
+  in
+  match s.description with
+  | None -> h
+  | Some d -> h ^ " (" ^ d ^ ")" 

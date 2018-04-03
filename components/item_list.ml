@@ -61,18 +61,10 @@ class t ?avatar ~(items:[ `Item of Item.t | `Divider of Divider.t ] list) () =
 module List_group = struct
 
   type group =
-    { subheader : string option
+    { subheader : Typography.Text.t option
     ; list      : t
     }
-
-  module Subheader = struct
-    class t ~text () = object(self)
-      inherit Widget.widget (Markup.List_.List_group.create_subheader ~text () |> Tyxml_js.To_dom.of_element) ()
-      method get_text   = self#get_text_content |> Option.get_or ~default:""
-      method set_text s = self#set_text_content s
-    end
-  end
-
+    
   let rec add_dividers acc l =
     match l with
     | []       -> acc
@@ -81,13 +73,10 @@ module List_group = struct
 
   class t ?(dividers=true) ~(content:group list) () =
 
-    let content = List.map (fun gp -> (Option.map (fun x -> new Subheader.t ~text:x ()) gp.subheader, gp.list))
-                    content in
-
     let elt = Markup.List_.List_group.create
-                ~content:(List.map (fun (h,l) -> let h = Option.map Widget.widget_to_markup h in
-                                                 [Widget.widget_to_markup l]
-                                                 |> List.cons_maybe h)
+                ~content:(List.map (fun x -> let h = Option.map Widget.widget_to_markup x.subheader in
+                                             [Widget.widget_to_markup x.list]
+                                             |> List.cons_maybe h)
                             content
                           |> (fun x -> if dividers then add_dividers [] x else x)
                           |> List.flatten)
@@ -97,8 +86,7 @@ module List_group = struct
     object
       inherit Widget.widget elt ()
 
-      method get_lists      = List.map (fun (_,l) -> l) content
-      method get_subheaders = List.map (fun (h,_) -> h) content
+      method content = content
     end
 
 end
