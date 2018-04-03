@@ -179,7 +179,7 @@ let set_stream hw (ss : stream_setting) =
     | `Forbidden -> raise_notrace (Constraints `Forbidden)
     | `Limited l ->
        let len = List.length streams in
-       if l <= len then ()
+       if l >= len then ()
        else raise_notrace (Constraints (`Limit_exceeded (l,len)))
     | _ -> ()
     end;
