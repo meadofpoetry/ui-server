@@ -91,12 +91,12 @@ module SM = struct
 
   let stream_settings_to_packer_settings s_info convert (streams:stream_setting list) =
     match Option.(React.S.value s_info >>= (fun x -> x.packers_num)) with
-    | None   -> Error "Undetermined number of available packers"
+    | None   -> Error `Undefined_limit
     | Some n ->
        let streams = List.filter (fun (s:'a) -> match s.stream.id with `Ts _ -> true | _ -> false) streams in
        let len = List.length streams in
        if len > n
-       then Error (Printf.sprintf "Can't set so many packers. Available: %d, got: %d" n len)
+       then Error (`Limit_exceeded (n,len))
        else
          let rec pack acc = function
            | []    -> acc
@@ -151,6 +151,7 @@ module SM = struct
     in
     events,
     api,
+    s_devinfo,
     (step msgs imsgs sender storage step_duration push_state push_events s_devinfo_push)
 
 end

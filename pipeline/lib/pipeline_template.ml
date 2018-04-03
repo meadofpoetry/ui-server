@@ -7,7 +7,7 @@ let create () : upper ordered_item list user_table =
               ; pre_scripts  = [ Src "/js/janus.nojquery.js"; Src "/js/adapter.min.js";
                                  Src "/js/moment.min.js"; Src "/js/Chart.min.js"]
               ; post_scripts = [ Src "/js/pipeline.js" ]
-              ; stylesheets  = []
+              ; stylesheets  = [ "/css/pipeline.css" ]
               ; content      = []
               }
   in

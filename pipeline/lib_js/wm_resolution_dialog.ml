@@ -1,13 +1,17 @@
 open Containers
 open Components
 
-let make_resolution_input ?range ~label () =
-  new Textfield.t ~label ~input_type:(Integer range) ()
+let make_resolution_input ?range ~id ~label () =
+  let range = match range with
+    | Some (x,y) -> Some x, Some y
+    | None       -> None, None
+  in
+  new Textfield.t ~label ~input_id:id ~input_type:(Integer range) ()
 
 class t () =
   let _class = "wm-resolution-dialog" in
-  let width  = make_resolution_input ~label:"Ширина" () in
-  let height = make_resolution_input ~label:"Высота" () in
+  let width  = make_resolution_input ~id:"wm-width"  ~label:"Ширина" () in
+  let height = make_resolution_input ~id:"wm-height" ~label:"Высота" () in
   let accept = new Dialog.Action.t ~typ:`Accept  ~label:"Ok" () in
   let cancel = new Dialog.Action.t ~typ:`Decline ~label:"Отмена" () in
   let widget = new Box.t ~vertical:true ~widgets:[width;height] () in

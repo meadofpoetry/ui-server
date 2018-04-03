@@ -9,7 +9,9 @@
 $mdc-persistent-drawer-width: 240px;
 
 .mdc-drawer--custom {
+  height: 100%;
   @include mdc-drawer-base_;
+  @include mdc-theme-prop(background-color, background);
   @include mdc-drawer-ink-color($mdc-persistent-drawer-ink-color);
   @include mdc-drawer-fill-color($mdc-persistent-drawer-fill-color);
 
@@ -18,7 +20,7 @@ $mdc-persistent-drawer-width: 240px;
 
   .icon-dropdown {
       position: absolute;
-      right: -4px;
+      right: 4px;
       margin-right: 10px;
       margin-top: 12px;
   }
@@ -50,6 +52,12 @@ $mdc-persistent-drawer-width: 240px;
       overflow: hidden;
       width: 100%;
       cursor: pointer;
+
+      &--open {
+            .dropdown {
+                transform: rotate(180deg);
+            }
+      }
   }
 
   .mdc-drawer__drawer {
@@ -82,6 +90,10 @@ $mdc-persistent-drawer-width: 240px;
             height: 0px;
             transition: all 0.225s;
             overflow: hidden;
+        }
+
+        .mdc-icon {
+            width: 72px;
         }
     }
   }

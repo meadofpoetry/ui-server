@@ -298,7 +298,7 @@ let linear_progress_demo () =
 
 let tabs_demo () =
   let open Components.Tabs in
-  let idx       = new Textfield.t ~input_type:(Integer None) ~label:"index" () in
+  let idx       = new Textfield.t ~input_id:"idx" ~input_type:(Integer (None,None)) ~label:"index" () in
   let add       = new Button.t ~label:"add" () in
   let remove    = new Button.t ~label:"remove" () in
   let icon_bar  = [ { content = `Icon ("pets", None)     ; href = Some "#1"; disabled = false; value = () }
@@ -381,6 +381,7 @@ let textfield_demo () =
   let css_form = new Form_field.t ~label:"css textfield label: " ~input:css ~align_end:true () in
   (* Full-featured js textbox *)
   let js       = new Textfield.t
+                   ~input_id:"js"
                    ~input_type:Widget.Text 
                    ~label:"js textfield label"
                    ~help_text:{ validation = true
@@ -391,6 +392,7 @@ let textfield_demo () =
   js#set_required true;
   (* Dense js textbox with *)
   let dense    = new Textfield.t
+                   ~input_id:"dense"
                    ~label:"dense textfield label"
                    ~input_type:Widget.Email
                    ~help_text:{ validation = true
@@ -401,6 +403,7 @@ let textfield_demo () =
   dense#set_dense true;
   (* Textboxes with icons *)
   let lead_icon  = new Textfield.t
+                     ~input_id:"lead_icon"
                      ~input_type:Widget.Text
                      ~label:"textfield label"
                      ~icon:{ icon      = "event"
@@ -409,6 +412,7 @@ let textfield_demo () =
                      }
                      () in
   let trail_icon = new Textfield.t
+                     ~input_id:"trail_icon"
                      ~input_type:Widget.Text
                      ~label:"textfield label"
                      ~icon:{ icon      = "delete"
@@ -416,14 +420,31 @@ let textfield_demo () =
                            ; pos       = `Trailing
                      }
                      () in
+  let outlined = new Textfield.t
+                   ~input_id:"outlined"
+                   ~input_type:Widget.Text
+                   ~label:"textfield label"
+                   ~icon:{ icon   = "settings"
+                         ; clickable = false
+                         ; pos   = `Trailing
+                   }
+                   ~outline:true
+                   () in
   (* Textareas *)
-  let css_textarea      = new Textarea.Pure.t ~placeholder:"Enter something" ~rows:8 ~cols:40 () in
-  let textarea          = new Textarea.t ~label:"textarea label" ~rows:8 ~cols:40 () in
+  let css_textarea      = new Textarea.Pure.t
+                            ~input_id:"css_textarea"
+                            ~placeholder:"Enter something"
+                            ~rows:8 ~cols:40 () in
+  let textarea          = new Textarea.t
+                            ~input_id:"textarea"
+                            ~label:"textarea label"
+                            ~rows:8 ~cols:40 () in
   demo_section "Textfield" [ subsection "CSS only textfield" css_form
                            ; subsection "JS textfield" js
                            ; subsection "Dense textfield (with email validation)" dense
                            ; subsection "With leading icon" lead_icon
                            ; subsection "With trailing icon" trail_icon
+                           ; subsection "Outlined" outlined
                            ; subsection "Textarea (css only)" css_textarea
                            ; subsection "Textarea" textarea ]
 
@@ -654,10 +675,10 @@ let dynamic_grid_demo () =
                      ()
                  ]
   in
-  let x        = new Textfield.t ~label:"x position" ~input_type:(Widget.Integer None) () in
-  let y        = new Textfield.t ~label:"y position" ~input_type:(Widget.Integer None) () in
-  let w        = new Textfield.t ~label:"width"      ~input_type:(Widget.Integer None) () in
-  let h        = new Textfield.t ~label:"height"     ~input_type:(Widget.Integer None) () in
+  let x        = new Textfield.t ~input_id:"x_field" ~label:"x position" ~input_type:(Widget.Integer (None, None)) () in
+  let y        = new Textfield.t ~input_id:"y_field" ~label:"y position" ~input_type:(Widget.Integer (None, None)) () in
+  let w        = new Textfield.t ~input_id:"w_field" ~label:"width"      ~input_type:(Widget.Integer (None, None)) () in
+  let h        = new Textfield.t ~input_id:"h_field" ~label:"height"     ~input_type:(Widget.Integer (None, None)) () in
   let add      = new Button.t ~label:"add" () in
   let rem_all  = new Button.t ~label:"remove all" () in
   let grid     = new Dynamic_grid.t ~grid:props ~items () in
@@ -742,7 +763,7 @@ let onload _ =
                           ; toggle_demo ()
                           ; elevation_demo ()
                           ; select_demo ()
-                          (* ; textfield_demo () *)
+                          ; textfield_demo ()
                           ; card_demo ()
                           ; slider_demo ()
                           ; grid_list_demo ()

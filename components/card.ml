@@ -52,6 +52,31 @@ module Actions = struct
 
 end
 
+module Primary = struct
+
+  class title ?large text () =
+    let elt = Markup.Card.Primary.create_title ?large ~title:text ()
+              |> Tyxml_js.To_dom.of_element in
+    object
+      inherit Widget.widget elt ()
+    end
+
+  class subtitle text () =
+    let elt = Markup.Card.Primary.create_subtitle ~subtitle:text ()
+              |> Tyxml_js.To_dom.of_element in
+    object
+      inherit Widget.widget elt ()
+    end
+
+  class t ~(widgets:#Widget.widget list) () =
+    let elt = Markup.Card.Primary.create ~children:(List.map Widget.widget_to_markup widgets) ()
+              |> Tyxml_js.To_dom.of_element in
+    object
+      inherit Widget.widget elt ()
+    end
+
+end
+
 module Media = struct
 
   class t ~(widgets:#widget list) () =

@@ -92,13 +92,21 @@ class ['a] t ~grid ~(items:'a item list) () =
     method layout =
       let par = Js.Opt.to_option @@ self#root##.parentNode in
       (match par with
-       | Some p -> let w  = (Js.Unsafe.coerce p)##.offsetWidth in
-                   let mx,_ =  self#get_item_margin in
+       | Some p -> let w    = (Js.Unsafe.coerce p)##.offsetWidth in
                    let w    = if w < self#grid.cols then self#grid.cols else w in
-                   let col  = w / self#grid.cols in
+                   let mx   = fst self#get_item_margin in
+                   let col  = (w - mx) / self#grid.cols in
+                   let col  = if col < mx + 1 then mx + 1 else col in
+                   let rn   = match self#grid.rows with
+                     | Some rows -> rows
+                     | None      -> (React.S.value s_rows)
+                   in
                    s_col_w_push col;
-                   self#style##.width := Js.string @@ Printf.sprintf "%dpx" (col * self#grid.cols + mx);
-                   overlay_grid#layout col (React.S.value s_row_h) self#get_item_margin
+                   self#style##.width :=
+                     Js.string @@ Printf.sprintf "%dpx" (col * self#grid.cols + mx);
+                   overlay_grid#show_dividers;
+                   overlay_grid#layout ~cw:col ~cn:self#grid.cols ~rh:(React.S.value s_row_h) ~rn
+                   ~im:self#get_item_margin
        | None   -> ())
 
     (** Private methods **)

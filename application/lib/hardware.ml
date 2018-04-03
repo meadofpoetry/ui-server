@@ -4,7 +4,7 @@ open Meta_board
 
 module Map  = CCMap.Make(Int)
 
-type url = string
+type url = Common.Uri.t
 
 type marker = [ `Input of input * int | `Board of int ]
 

@@ -2,8 +2,8 @@ open Containers
 
 module Pure = struct
 
-  class t ?input_id ?placeholder ?rows ?cols () =
-    let elt = Markup.Textfield.create ?input_id ?placeholder ?rows ?cols ~textarea:true ()
+  class t ~input_id ?placeholder ?rows ?cols () =
+    let elt = Markup.Textfield.create ~input_id ?placeholder ?rows ?cols ~textarea:true ()
               |> Tyxml_js.To_dom.of_div in
     let input_elt = elt##querySelector (Js.string ("." ^ Markup.Textfield.input_class))
                     |> Js.Opt.to_option |> Option.get_exn |> Js.Unsafe.coerce in
@@ -19,9 +19,9 @@ class type mdc =
     method valid    : bool Js.t Js.writeonly_prop
   end
 
-class t ?input_id ?label ?placeholder ?rows ?cols () =
+class t ~input_id ?label ?placeholder ?rows ?cols () =
 
-  let elt = (Markup.Textfield.create ?input_id ?label ?placeholder ?rows ?cols ~textarea:true ()
+  let elt = (Markup.Textfield.create ~input_id ?label ?placeholder ?rows ?cols ~textarea:true ()
              |> Tyxml_js.To_dom.of_div) in
   let input_elt = elt##querySelector (Js.string ("." ^ Markup.Textfield.input_class))
                   |> Js.Opt.to_option |> Option.get_exn |> Js.Unsafe.coerce in

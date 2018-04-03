@@ -29,23 +29,9 @@ let id_to_int32 : id -> int32 = function
                         |> Int32.logor (Int32.of_int plp)
   | Unknown x        -> x
 
-type ip = Ipaddr.V4.t
-let pp_ip = Ipaddr.V4.pp_hum
-let ip_to_yojson ip =
-  Ipaddr.V4.to_string ip
-  |> fun s -> `String s
-let ip_of_yojson = function
-  | `String s -> Ipaddr.V4.of_string s
-                 |> (function Some ip -> Ok ip | None -> Error ("ip_of_yojson: bad ip: " ^ s))
-  | _ -> Error "ip_of_yojson: bad js"
-let equal_ip a1 a2 = Int32.equal (Ipaddr.V4.to_int32 a1) (Ipaddr.V4.to_int32 a2)
-type addr = { ip   : ip
-            ; port : int
-            } [@@deriving yojson, show, eq]
-
 type stream =
   { source      : src
-  ; id          : [`Ip of addr | `Ts of id]
+  ; id          : [`Ip of Uri.t | `Ts of id]
   ; description : string option
   }
 and src = Port   of int
@@ -54,7 +40,7 @@ and src = Port   of int
 
 type t =
   { source      : source
-  ; id          : [`Ip of addr | `Ts of id]
+  ; id          : [`Ip of Uri.t | `Ts of id]
   ; description : string option
   }
 and source = Input  of Topology.topo_input

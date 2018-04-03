@@ -1,0 +1,71 @@
+.topology__board[data-board='TS'] .topology__board__header {
+  background-color: #e91e63; }
+  .topology__board[data-board='TS'] .topology__board__header .mdc-icon {
+    /* @alternate */
+    color: white;
+    color: var(--mdc-theme-text-primary-on-dark, white); }
+  .topology__board[data-board='TS'] .topology__board__header .mdc-card__title {
+    /* @alternate */
+    color: white;
+    color: var(--mdc-theme-text-primary-on-dark, white); }
+  .topology__board[data-board='TS'] .topology__board__header .mdc-card__subtitle {
+    /* @alternate */
+    color: rgba(255, 255, 255, 0.7);
+    color: var(--mdc-theme-text-secondary-on-dark, rgba(255, 255, 255, 0.7)); }
+
+.topology__board[data-board='TS2IP'] .topology__board__header {
+  background-color: #795548; }
+  .topology__board[data-board='TS2IP'] .topology__board__header .mdc-icon {
+    /* @alternate */
+    color: white;
+    color: var(--mdc-theme-text-primary-on-dark, white); }
+  .topology__board[data-board='TS2IP'] .topology__board__header .mdc-card__title {
+    /* @alternate */
+    color: white;
+    color: var(--mdc-theme-text-primary-on-dark, white); }
+  .topology__board[data-board='TS2IP'] .topology__board__header .mdc-card__subtitle {
+    /* @alternate */
+    color: rgba(255, 255, 255, 0.7);
+    color: var(--mdc-theme-text-secondary-on-dark, rgba(255, 255, 255, 0.7)); }
+
+.topology__board[data-board='IP2TS'] .topology__board__header {
+  background-color: #2196f3; }
+  .topology__board[data-board='IP2TS'] .topology__board__header .mdc-icon {
+    /* @alternate */
+    color: white;
+    color: var(--mdc-theme-text-primary-on-dark, white); }
+  .topology__board[data-board='IP2TS'] .topology__board__header .mdc-card__title {
+    /* @alternate */
+    color: white;
+    color: var(--mdc-theme-text-primary-on-dark, white); }
+  .topology__board[data-board='IP2TS'] .topology__board__header .mdc-card__subtitle {
+    /* @alternate */
+    color: rgba(255, 255, 255, 0.7);
+    color: var(--mdc-theme-text-secondary-on-dark, rgba(255, 255, 255, 0.7)); }
+
+.topology__board[data-board='DVB'] .topology__board__header {
+  background-color: #512da8; }
+  .topology__board[data-board='DVB'] .topology__board__header .mdc-icon {
+    /* @alternate */
+    color: white;
+    color: var(--mdc-theme-text-primary-on-dark, white); }
+  .topology__board[data-board='DVB'] .topology__board__header .mdc-card__title {
+    /* @alternate */
+    color: white;
+    color: var(--mdc-theme-text-primary-on-dark, white); }
+  .topology__board[data-board='DVB'] .topology__board__header .mdc-card__subtitle {
+    /* @alternate */
+    color: rgba(255, 255, 255, 0.7);
+    color: var(--mdc-theme-text-secondary-on-dark, rgba(255, 255, 255, 0.7)); }
+
+.topology__node {
+  margin: 20px;
+  max-width: 250px; }
+
+.topology__node__header {
+  height: 41px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center; }
+
+/*# sourceMappingURL=topology.css.map */
