@@ -6,13 +6,7 @@ open Containers
 open Tyxml_js
 open Components
 
-(*All positioning constants in GG and VG mean: *)
-(*X from left to right and Y from bottom to top*)
-(*    0.0,1.0 __________________  1.0,1.0      *)
-(*           |                  |              *)
-(*           |                  |              *)
-(*           |                  |              *)
-(*    0.0,0.0|__________________| 1.0,0.0      *)
+let px x = Js.string @@ (string_of_int x)^"px"
 
 let input_to_string ({ input; id }:topo_input) =
   let id = string_of_int id in
@@ -105,12 +99,12 @@ let color_to_string = function
   | Red   -> "RGB(246,47,54)"
   | Grey  -> "RGB(159,159,159)"
 
-let draw_line ~(color : color) ~(width : int) ~(height : int) ~(typ : line) =
+let draw_line ~(color : color) ~(width : int) ~(height : int) ~(typ : line) ~left ~top =
   let left_half  = width / 6 in
   let center     = width / 2 in
   let right_half = width * 5 / 6 in
   let bottom     = height * 2 / 3 in
-  let line =
+  let path       =
     match typ with
     | Up    -> Printf.sprintf "M 0 %d L %d %d Q %d %d, %d %d L %d %d Q %d 1, %d 1 L %d 1"
                  (height - 1)
@@ -136,13 +130,18 @@ let draw_line ~(color : color) ~(width : int) ~(height : int) ~(typ : line) =
                  (height/2)
                  width (height/2)
   in
-  Html.svg ~a:([Svg.a_height @@ (float_of_int height, Some `Px)
-               ; Svg.a_width  @@ (float_of_int width, Some `Px)])
-    [ Svg.path ~a:([ Svg.a_fill `None
-                   ; Svg.a_stroke_width (2., None)
-                   ; Svg.a_stroke (`Color ((color_to_string color),None))
-                   ; Svg.a_d line]) []]
-  |> Tyxml_js.To_dom.of_element
+  let line = Html.svg ~a:([Svg.a_height @@ (float_of_int height, Some `Px)
+                          ; Svg.a_width  @@ (float_of_int width, Some `Px)])
+               [ Svg.path ~a:([ Svg.a_fill `None
+                              ; Svg.a_stroke_width (2., None)
+                              ; Svg.a_stroke (`Color ((color_to_string color),None))
+                              ; Svg.a_d path]) []]
+             |> Tyxml_js.To_dom.of_element
+  in
+  line##.style##.left := px left;
+  line##.style##.top  := px top;
+  line##.style##.position := Js.string "absolute";
+  line
 
 let rm_children container =
   Dom.list_of_nodeList @@ container##.childNodes
@@ -173,44 +172,83 @@ let grid_template_areas t =
   in
   match t with
   | `CPU x    -> concat (List.map (fun x -> get_entry_areas "CPU" 1 x.conn) x.ifaces)
-  | `Boards x -> concat
-                   (List.map (fun board ->
-                        concat (List.map (fun x ->
-                                    get_entry_areas (board_to_area board) 1 x.child)
-                                  board.ports)
-                      ) x)
+  | `Boards x -> concat (List.map (fun board ->
+                             concat (List.map (fun x ->
+                                         get_entry_areas (board_to_area board) 1 x.child)
+                                       board.ports)) x)
+
+let connect_elements ~parent ~start_el ~end_el ~color ~x_level =
+  let start_el, end_el = if start_el##.offsetLeft < end_el##.offsetLeft
+                         then start_el, end_el
+                         else end_el, start_el
+  in
+  let start_x = start_el##.offsetLeft + start_el##.offsetWidth in
+  let start_y = start_el##.offsetTop + start_el##.offsetHeight / 2 in
+  let end_x   = end_el##.offsetLeft in
+  let end_y   = end_el##.offsetTop + end_el##.offsetHeight / 2 in
+  let width   = end_x - start_x in
+  if width / x_level <= 1
+  then
+    let top, height, typ = if end_y = start_y
+                           then start_y, 2, Str
+                           else
+                             if  end_y <= start_y
+                             then start_y, start_y - end_y, Up
+                             else end_y, end_y - start_y, Down
+    in
+    Dom.appendChild parent @@
+      draw_line ~color ~width ~height ~typ ~left:start_x ~top
+  else
+    if end_y = start_y
+    then
+      Dom.appendChild parent @@
+        draw_line ~color ~width ~height:2 ~typ:Str ~left:start_x ~top:start_y
+    else
+      if  end_y <= start_y
+      then
+        (Dom.appendChild parent @@
+           draw_line ~color ~width:(width-x_level) ~height:2 ~typ:Str ~left:start_x ~top:start_y;
+         Dom.appendChild parent @@
+           draw_line ~color ~width:x_level ~height:(start_y - end_y)
+             ~typ:Up ~left:(end_x-x_level) ~top:start_y)
+      else (Dom.appendChild parent @@
+              draw_line ~color ~width:(width-x_level) ~height:2 ~typ:Str ~left:start_x ~top:start_y;
+            Dom.appendChild parent @@
+              draw_line ~color ~width:x_level ~height:(end_y-start_y)
+                ~typ:Down ~left:(end_x-x_level) ~top:end_y)
+
+
+let draw_topology ~topo_el ~topology =
+  let create_board board =
+    let brd = Topo_board.create board in
+    let div = Dom_html.createDiv Dom_html.document in
+    div##.style##.cssText :=
+      Js.string @@ "grid-area: "^(board_to_area board)^";";
+    div##.style##.margin := Js.string "auto 0";
+    Dom.appendChild div brd#root;
+    Dom.appendChild topo_el div;
+    brd
+  in
+  let rec get_boards acc = function
+    | Input _ -> ()
+    | Board x -> (let ports = List.map (fun x -> x.child) x.ports in
+                  let b = create_board x in
+                  match ports with
+                  | [] -> ()
+                  | l  -> List.iter (get_boards (b::acc)) l)
+  in
+  match topology with
+  | `CPU x    -> List.iter (fun x -> get_boards [] x.conn) x.ifaces
+  | `Boards x -> List.iter (fun board -> let b = create_board board in
+                                         List.iter (fun x -> get_boards [b] x.child) board.ports
+                   ) x
 
 let render ?on_click ~topology ~(width : int) ~topo_el () =
-  let gta = "grid-template-areas: "^(grid_template_areas topology)^";" in
+  let gta = "grid-auto-rows: 1fr; grid-auto-columns: 1fr; grid-template-areas: "^(grid_template_areas topology)^";" in
 (*  let gta = "grid-template-areas: \"a b c d e\" \". f c d e\" \"g h i d e\" \". k i d e\";" in*)
   print_endline gta;
-  let depth, height = get_node_depth topology, get_node_height topology in
-  let boards = topo_boards @@ Common.Topology.get_entries topology in
-  rm_children topo_el;
-  let _ = List.iter (fun x ->
-              let b = Topo_board.create x in
-              b#style##.minWidth := Js.string @@ (string_of_int (width/2/depth))^"px";
-              Dom.appendChild topo_el b#root;
-              let css_text area = b#style##.cssText := Js.string area in
-              css_text ("grid-area: "^(board_to_area x)^";");)boards
-  in
-  topo_el##.style##.cssText := Js.string gta;
-  let cell_width  = width / (depth + 1) in
-  let conn_width  = cell_width * 3 / 10 in
-  let item_width  = cell_width - conn_width in
-  let item_height = item_width / 4 * 3 in
-  let div_height  = item_height * height + 1 in
+  topo_el##.style##.cssText   := Js.string gta;
   topo_el##.style##.display   := Js.string "grid";
   topo_el##.style##.marginTop := Js.string "64px";
-(*  topo_el##.style##.width     := Js.string @@ (string_of_int width)^"px";
-  topo_el##.style##.height    := Js.string @@ (string_of_int div_height)^"px";*)
-  let s1 = draw_line ~color:Green ~width:0 ~height:0 ~typ:Str in
-  s1##.classList##add (Js.string "line");
-  let list   = topo_el##querySelectorAll (Js.string "line") in
-  let length = list##.length in
-  for i=0 to length-1
-  do
-    (try Js.Opt.iter (list##item i) (fun x -> Dom.removeChild topo_el x) with _ -> ())
-  done;
-  Printf.printf "Depth is %d and height is %d\n" depth height;
-  Printf.printf "Item w h %d %d\n" item_width item_height
+  rm_children topo_el;
+  draw_topology ~topo_el ~topology
