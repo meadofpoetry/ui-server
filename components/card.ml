@@ -84,7 +84,7 @@ module Media = struct
               |> To_dom.of_section in
     object
       val mutable widgets : widget list = List.map (fun x -> (x :> Widget.widget)) widgets
-      inherit widget elt ()
+      inherit Widget.widget elt ()
       method get_widgets = widgets
     end
 

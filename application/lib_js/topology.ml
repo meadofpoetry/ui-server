@@ -394,16 +394,22 @@ let render ?on_click ~topology ~(width : int) ~canvas () =
     ]
   in
   rm_children canvas;
-  List.iter (fun x -> let b = Topo_input.create x in
-                      Dom.appendChild canvas b#root) inputs;
-  Dom.appendChild canvas (Topo_cpu.create { process = "pipeline"
-                                          ; ifaces = [ {iface="eht0"; conn=Input {input=ASI;id=1}}
-                                                     ; {iface="eht1"; conn=Input {input=ASI;id=2}}
-                                                     ]
-                                          }
-                         )#root;
-  List.iter (fun x -> let b = Topo_board.create ~s_state:(React.S.const `No_response) x in
-                      Dom.appendChild canvas b#root) boards;
+  let inputs = List.map Topo_input.create inputs in
+  let input_box = new Box.t ~vertical:true ~widgets:inputs () in
+  input_box#style##.width := Js.string "120px";
+  input_box#style##.marginRight := Js.string "100px";
+  let cpu = Topo_cpu.create ~connections:inputs
+                            { process = "pipeline"
+                            ; ifaces = [ {iface="eht0"; conn=Input {input=ASI;id=1}}
+                                       ; {iface="eht1"; conn=Input {input=ASI;id=2}}
+                                       ]
+                            }
+  in
+  let box = new Box.t ~vertical:false ~widgets:[input_box#widget;cpu#widget] () in
+  List.iter (fun x -> Dom.appendChild canvas x#root) cpu#paths;
+  Dom.appendChild canvas box#root;
+  (* List.iter (fun x -> let b = Topo_board.create ~connections:[] ~s_state:(React.S.const `No_response) x in
+   *                     Dom.appendChild canvas b#root) boards; *)
 
   (* let t      = Common.Topology.get_entries topology in
    * let cols   = (get_list_depth t * 2 - 1) in

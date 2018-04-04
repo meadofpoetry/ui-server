@@ -44,12 +44,15 @@ module Body = struct
 
 end
 
-class t ~(s_state:Common.Topology.state React.signal) (board:Common.Topology.topo_board) () =
+class t ~(s_state:Common.Topology.state React.signal)
+        ~(connections:#Topo_node.t list)
+        (board:Common.Topology.topo_board) () =
   let header     = Header.create board in
   let body       = Body.create board in
   let e_settings = React.E.map (fun _ -> s_state,board) header#settings_icon#e_click in
   object(self)
-    inherit Topo_block.t ~s_state ~header ~body ()
+    val mutable board = board
+    inherit Topo_block.t ~s_state ~connections ~header ~body ()
     method board      = board
     method e_settings = e_settings
     initializer
@@ -57,5 +60,5 @@ class t ~(s_state:Common.Topology.state React.signal) (board:Common.Topology.top
       self#set_attribute "data-board" board.typ
   end
 
-let create (board:Common.Topology.topo_board) =
-  new t board ()
+let create ~connections (board:Common.Topology.topo_board) =
+  new t ~connections board ()

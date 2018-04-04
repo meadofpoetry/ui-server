@@ -34,19 +34,29 @@ module Body = struct
 
   class t n () =
     let _class = Markup.CSS.add_element base_class "body" in
+    let elt    = Dom_html.createDiv Dom_html.document in
     object(self)
-      inherit Card.Media.t ~widgets:[] ()
-      initializer
-        self#add_class _class;
+      inherit Topo_node.t elt ()
+      method set_n n =
         self#style##.height := Js.string @@ Utils.px (n * port_section_height)
+
+      initializer
+        self#set_n n;
+        self#add_class _class;
     end
 
 end
 
-class t ?(s_state:Common.Topology.state React.signal option) ~(header:#Header.t) ~(body:#Body.t) () =
+class t ?(s_state:Common.Topology.state React.signal option)
+        ~(connections:#Topo_node.t list)
+        ~(header:#Header.t)
+        ~(body:#Body.t)
+        () =
 object(self)
   inherit Card.t ~widgets:[header#widget;body#widget] ()
+  inherit Topo_node.parent ~connections body ()
   initializer
+    body#set_n @@ List.length connections;
     (match s_state with
      | Some s -> React.S.map (function
                               | `Fine        -> self#add_class    fine_class;

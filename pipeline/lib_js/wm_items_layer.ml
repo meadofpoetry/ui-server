@@ -53,7 +53,7 @@ module Make(I : Item) = struct
       method e_item_delete   = e_delete
 
       method private get_event_pos e : Position.t option =
-        let rect = self#get_client_rect in
+        let rect = self#get_bounding_client_rect in
         let x,y  = e##.clientX - (int_of_float rect.left),
                    e##.clientY - (int_of_float rect.top) in
         if x <= self#get_offset_width && x >= 0 && y <= self#get_offset_height && y >= 0

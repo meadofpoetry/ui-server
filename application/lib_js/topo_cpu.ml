@@ -35,16 +35,18 @@ module Body = struct
 
 end
 
-class t (cpu:Common.Topology.topo_cpu) () =
+class t ~(connections:#Topo_node.t list)
+        (cpu:Common.Topology.topo_cpu)
+        () =
   let header = Header.create cpu in
   let body   = Body.create cpu in
   object(self)
-    inherit Topo_block.t ~header ~body ()
+    inherit Topo_block.t ~connections ~header ~body ()
     method cpu = cpu
     initializer
       self#add_class base_class;
       self#set_attribute "data-cpu" cpu.process;
   end
 
-let create (cpu:Common.Topology.topo_cpu) =
-  new t cpu ()
+let create ~connections (cpu:Common.Topology.topo_cpu) =
+  new t ~connections cpu ()

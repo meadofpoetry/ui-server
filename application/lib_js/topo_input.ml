@@ -16,7 +16,7 @@ let label_markup text =
   span ~a:[a_class ["topology__input__label"]]
        [pcdata text]
 
-let markup_ (input:Common.Topology.topo_input) =
+let markup (input:Common.Topology.topo_input) =
   let name = Common.Topology.get_input_name input in
   let open Tyxml_js.Html in
   div ~a:[a_class ["mdc-chip"; "topology__input"]]
@@ -25,10 +25,10 @@ let markup_ (input:Common.Topology.topo_input) =
 
 
 class t ~input () =
-  let elt = markup_ input |> Tyxml_js.To_dom.of_element in
+  let elt = markup input |> Tyxml_js.To_dom.of_element in
   object
     method input = input
-    inherit Widget.widget elt ()
+    inherit Topo_node.t elt ()
   end
 
 let create input =
