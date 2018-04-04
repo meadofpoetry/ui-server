@@ -161,23 +161,23 @@ let grid_template_areas t =
   let rec get_entry_areas acc count = function
     | Input x -> if (count+1) < depth
                  then let inp  = "\""^(input_to_area x) in
-                      let list = CCList.range 1 (depth-count-1) in
+                      let list = CCList.range 1 @@ (depth-count-1)*2 in
                       (List.fold_left (fun acc _ -> acc^" . ") inp list)^acc^"\""
                  else "\""^(input_to_area x)^" "^acc^"\""
     | Board x -> (let ports = List.map (fun x -> x.child) x.ports in
-                  let str   = (board_to_area x)^" " in
+                  let str   = ". "^(board_to_area x)^" " in
                   match ports with
                   | [] -> str^" "^acc
                   | l  -> concat (List.map (get_entry_areas (str^acc) (count+1)) l))
   in
   match t with
-  | `CPU x    -> concat (List.map (fun x -> get_entry_areas "CPU" 1 x.conn) x.ifaces)
+  | `CPU x    -> concat (List.map (fun x -> get_entry_areas ". CPU" 1 x.conn) x.ifaces)
   | `Boards x -> concat (List.map (fun board ->
                              concat (List.map (fun x ->
-                                         get_entry_areas (board_to_area board) 1 x.child)
+                                         get_entry_areas (". "^(board_to_area board)) 1 x.child)
                                        board.ports)) x)
 
-let connect_elements ~parent ~start_el ~end_el ~color ~x_level =
+let connect_elements ~parent ~start_el ~end_el ~color ~levels =
   let start_el, end_el = if start_el##.offsetLeft < end_el##.offsetLeft
                          then start_el, end_el
                          else end_el, start_el
@@ -187,36 +187,66 @@ let connect_elements ~parent ~start_el ~end_el ~color ~x_level =
   let end_x   = end_el##.offsetLeft in
   let end_y   = end_el##.offsetTop + end_el##.offsetHeight / 2 in
   let width   = end_x - start_x in
-  if width / x_level <= 1
-  then
-    let top, height, typ = if end_y = start_y
-                           then start_y, 2, Str
-                           else
-                             if  end_y <= start_y
-                             then start_y, start_y - end_y, Up
-                             else end_y, end_y - start_y, Down
-    in
-    Dom.appendChild parent @@
-      draw_line ~color ~width ~height ~typ ~left:start_x ~top
-  else
-    if end_y = start_y
-    then
-      Dom.appendChild parent @@
-        draw_line ~color ~width ~height:2 ~typ:Str ~left:start_x ~top:start_y
-    else
-      if  end_y <= start_y
-      then
-        (Dom.appendChild parent @@
-           draw_line ~color ~width:(width-x_level) ~height:2 ~typ:Str ~left:start_x ~top:start_y;
-         Dom.appendChild parent @@
-           draw_line ~color ~width:x_level ~height:(start_y - end_y)
-             ~typ:Up ~left:(end_x-x_level) ~top:start_y)
-      else (Dom.appendChild parent @@
-              draw_line ~color ~width:(width-x_level) ~height:2 ~typ:Str ~left:start_x ~top:start_y;
-            Dom.appendChild parent @@
-              draw_line ~color ~width:x_level ~height:(end_y-start_y)
-                ~typ:Down ~left:(end_x-x_level) ~top:end_y)
+  match levels with
+  | None -> if end_y = start_y
+            then
+              Dom.appendChild parent @@
+                draw_line ~color ~width ~height:2 ~typ:Str ~left:start_x ~top:start_y
+            else
+              if end_y < start_y
+              then
+                Dom.appendChild parent @@
+                  draw_line ~color ~width:width ~height:(start_y - end_y)
+                    ~typ:Up ~left:start_x ~top:end_y
+              else Dom.appendChild parent @@
+                     draw_line ~color ~width ~height:(end_y-start_y)
+                       ~typ:Down ~left:start_x ~top:start_y
+  | Some x -> let lvl    = int_of_float (float_of_int width /. ((float_of_int x) +. 0.5)) in
+              let width1 = lvl * x in
+              let width2 = width - width1 in
+              if end_y = start_y
+              then
+                Dom.appendChild parent @@
+                  draw_line ~color ~width ~height:2 ~typ:Str ~left:start_x ~top:start_y
+              else
+                if end_y < start_y
+                then
+                  (Dom.appendChild parent @@
+                     draw_line ~color ~width:width1 ~height:2
+                       ~typ:Str ~left:start_x ~top:(start_y-2);
+                  Dom.appendChild parent @@
+                     draw_line ~color ~width:width2 ~height:(start_y - end_y)
+                       ~typ:Up ~left:(end_x-width2) ~top:end_y)
+                else (Dom.appendChild parent @@
+                        draw_line ~color ~width:width1 ~height:2
+                          ~typ:Str ~left:start_x ~top:(end_y-2);
+                      Dom.appendChild parent @@
+                        draw_line ~color ~width:width2 ~height:(end_y-start_y)
+                          ~typ:Down ~left:(end_x-width2) ~top:start_y)
 
+type coord = { x : int
+             ; y : int }
+
+class path ~parent ~(point1 :coord) ~(point2 : coord) ~color =
+
+  let height, top, typ =
+    if point1.y > point2.y
+    then point1.y - point2.y, point1.y, Up
+    else point2.y - point1.y, point2.y, Down
+  in
+  let elt = draw_line ~color
+              ~width:(point1.x - point2.x)
+              ~height
+              ~typ
+              ~left:point1.x
+              ~top
+  in
+  object
+    inherit Widget.widget elt ()
+    method redraw = ()
+    initializer
+      ()
+  end
 
 let draw_topology ~topo_el ~topology =
   let create_board board =
@@ -229,26 +259,37 @@ let draw_topology ~topo_el ~topology =
     Dom.appendChild topo_el div;
     brd
   in
-  let rec get_boards acc = function
-    | Input _ -> ()
+  let rec get_boards acc result = function
+    | Input _ -> result
     | Board x -> (let ports = List.map (fun x -> x.child) x.ports in
-                  let b = create_board x in
+                  let b     = create_board x in
+                  let result = match acc with
+                    | Some acc -> (acc,b,None)::result
+                    | None     -> result
+                  in
                   match ports with
-                  | [] -> ()
-                  | l  -> List.iter (get_boards (b::acc)) l)
+                  | [] -> result
+                  | l  -> List.concat @@ List.map (get_boards (Some b) result) l)
   in
   match topology with
-  | `CPU x    -> List.iter (fun x -> get_boards [] x.conn) x.ifaces
-  | `Boards x -> List.iter (fun board -> let b = create_board board in
-                                         List.iter (fun x -> get_boards [b] x.child) board.ports
+  | `CPU x    -> List.map (fun x -> get_boards None [] x.conn) x.ifaces
+  | `Boards x -> List.map (fun board -> let b = create_board board in
+                                        List.concat @@
+                                          List.map (fun x -> get_boards (Some b) [] x.child) board.ports
                    ) x
 
 let render ?on_click ~topology ~(width : int) ~topo_el () =
-  let gta = "grid-auto-rows: 1fr; grid-auto-columns: 1fr; grid-template-areas: "^(grid_template_areas topology)^";" in
+  let gta = "grid-template-areas: "^(grid_template_areas topology)^";" in
 (*  let gta = "grid-template-areas: \"a b c d e\" \". f c d e\" \"g h i d e\" \". k i d e\";" in*)
   print_endline gta;
   topo_el##.style##.cssText   := Js.string gta;
   topo_el##.style##.display   := Js.string "grid";
   topo_el##.style##.marginTop := Js.string "64px";
   rm_children topo_el;
-  draw_topology ~topo_el ~topology
+  let list = draw_topology ~topo_el ~topology in
+  List.iter (fun list ->
+      List.iter (fun x ->
+          let b1,b2,opt = x in
+          connect_elements ~parent:topo_el ~start_el:b1#root
+            ~end_el:b2#root ~color:Green ~levels:opt) list
+    )list
