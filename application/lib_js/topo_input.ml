@@ -25,10 +25,10 @@ let markup (input:Common.Topology.topo_input) =
 
 
 class t ~input () =
-  let elt = markup input |> Tyxml_js.To_dom.of_element in
+  let elt = markup input |> Tyxml_js.To_dom.of_element |> Widget.create in
   object
     method input = input
-    inherit Topo_node.t elt ()
+    inherit Topo_node.t ~body:elt elt#root ()
   end
 
 let create input =

@@ -24,14 +24,13 @@ let get_input_point ~num i widget =
   let y     = (int_of_float rect.top) + (i * h) + (h / 2) in
   { x; y }
 
-class t (body:#Dom_html.element Js.t) () =
-object(self)
-  inherit Widget.widget body ()
-  method output_point = get_output_point self
+class t ~(body:#Widget.widget) elt () =
+object
+  inherit Widget.widget elt ()
+  method output_point = get_output_point body
 end
 
-class path (left_node:#t) (r,r_push) () =
-  let s_left,s_left_push = React.S.create left_node#output_point in
+class path ~(f_lp:unit->point) ~(f_rp:unit -> point) () =
   let ln = Tyxml_js.Svg.line [] in
   let ln_elt = Tyxml_js.Svg.toelt ln |> Js.Unsafe.coerce |> Widget.create in
   let elt = Tyxml_js.Svg.(svg ~a:[ a_width (500.,None)
@@ -43,51 +42,43 @@ class path (left_node:#t) (r,r_push) () =
 
     inherit Widget.widget elt ()
 
-    method push_left  : point -> unit = s_left_push ?step:None
-    method push_right : point -> unit = r_push ?step:None
-
-    method s_left  : point React.signal = s_left
-    method s_right : point React.signal = r
-
     method set_state : connection_state -> unit = function
       | `Listening     -> ()
       | `Not_listening -> ()
       | `Sync          -> ()
 
+    method layout =
+      let left  = f_lp () in
+      let right = f_rp () in
+      ln_elt#set_attribute "x1" (string_of_int left.x);
+      ln_elt#set_attribute "y1" (string_of_int left.y);
+      ln_elt#set_attribute "x2" (string_of_int right.x);
+      ln_elt#set_attribute "y2" (string_of_int right.y);
+      ln_elt#set_attribute "stroke" "black";
+
     initializer
       self#style##.position := Js.string "fixed";
       self#style##.left     := Js.string "0px";
       self#style##.top      := Js.string "0px";
-      React.S.l2 (fun l r -> Printf.printf "left: %s, right: %s\n" (point_to_string l) (point_to_string r);
-                             ln_elt#set_attribute "x1" (string_of_int l.x);
-                             ln_elt#set_attribute "y1" (string_of_int l.y);
-                             ln_elt#set_attribute "x2" (string_of_int r.x);
-                             ln_elt#set_attribute "y2" (string_of_int r.y);
-                             ln_elt#set_attribute "stroke" "black";
-                             )
-                 self#s_left self#s_right |> ignore;
-      Dom_events.(listen Dom_html.window Typ.resize (fun _ _ ->
-                           self#push_left left_node#output_point;
-                           true))
+      self#set_on_load (Some (fun () -> self#layout));
+      Dom_events.(listen Dom_html.window Typ.resize (fun _ _ -> self#layout; true))
       |> ignore
 
   end
 
 class parent ~(connections:#t list)
-             (widget:#Widget.widget)
+             ~(body:#Widget.widget)
+             elt
              () =
   let num = List.length connections in
-  let cw  = List.mapi (fun i x -> let sr = React.S.create @@ get_input_point ~num i widget in
-                                  new path x sr ()) connections
+  let cw  = List.mapi (fun i x -> let f_lp = fun () -> x#output_point in
+                                  let f_rp = fun () -> get_input_point ~num i body in
+                                  new path ~f_lp ~f_rp ()) connections
   in
   object
+    inherit t ~body elt ()
     method update_path_state n (state:connection_state) = match List.get_at_idx n cw with
       | Some path -> Ok (path#set_state state)
       | None      -> Error "path not found"
     method paths = cw
-    initializer
-      Dom_events.(listen Dom_html.window Typ.resize (fun _ _ ->
-                           List.iteri (fun i c -> c#push_right (get_input_point ~num i widget)) cw;
-                           true))
-      |> ignore
   end
