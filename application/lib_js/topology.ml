@@ -265,13 +265,7 @@ let draw_topology ~topo_el ~topology =
   in
   match topology with
   | `CPU cpu  -> let connections = List.map (fun x -> get_boards x.conn) cpu.ifaces in
-                 let cpu_el = Topo_cpu.create cpu ~connections in
-                 let div = Dom_html.createDiv Dom_html.document in
-                 div##.style##.cssText :=
-                   Js.string @@ "grid-area: CPU;";
-                 div##.style##.margin := Js.string "auto 0";
-                 Dom.appendChild div cpu_el#root;
-                 Dom.appendChild topo_el div;
+                 let cpu_el = create_element ~element:(CPU cpu) ~connections in
                  (cpu_el :> Topo_node.t)::connections
   | `Boards x -> List.map (fun board ->
                      let connections = List.map (fun x -> get_boards x.child) board.ports in
