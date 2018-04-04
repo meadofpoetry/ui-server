@@ -13,6 +13,10 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
 
 }
 
+.topology__path {
+    stroke: black;
+}
+
 .topology__input {
     user-select: none;
     cursor: initial;
