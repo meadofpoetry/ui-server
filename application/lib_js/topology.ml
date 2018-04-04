@@ -7,6 +7,8 @@ open Tyxml_js
 open Components
 open React
 
+let _class = "topology"
+
 let px x = Js.string @@ (string_of_int x)^"px"
 
 let input_to_string ({ input; id }:topo_input) =
@@ -271,11 +273,8 @@ let draw_topology ~topo_el ~topology =
 
 let render ?on_click ~topology ~topo_el () =
   let gta = "grid-template-areas: "^(grid_template_areas topology)^";" in
-  print_endline gta;
+  topo_el##.classList##add (Js.string _class);
   topo_el##.style##.cssText   := Js.string gta;
-  topo_el##.style##.display   := Js.string "grid";
-  topo_el##.style##.marginTop := Js.string "64px";
-  topo_el##.style##.height    := Js.string "100%";
   rm_children topo_el;
   let _ = draw_topology ~topo_el ~topology in
   ()

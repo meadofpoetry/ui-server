@@ -60,6 +60,11 @@
     color: rgba(255, 255, 255, 0.7);
     color: var(--mdc-theme-text-secondary-on-dark, rgba(255, 255, 255, 0.7)); }
 
+.topology {
+  display: grid;
+  height: 100%;
+  margin: 64px 20px; }
+
 .topology__path {
   stroke: black;
   stroke-width: 2; }

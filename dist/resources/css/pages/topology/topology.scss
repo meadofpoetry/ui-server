@@ -10,7 +10,9 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
 }
 
 .topology {
-
+    display: grid;
+    height: 100%;
+    margin: 64px 20px;
 }
 
 .topology__path {
