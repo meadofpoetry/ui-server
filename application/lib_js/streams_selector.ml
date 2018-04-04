@@ -58,13 +58,20 @@ module Streams_table = struct
 
   let make_board_unlimited bid stream_list =
     let open Item_list.List_group in
-    let settings  = React.S.const (bid, []) in
     let id = match bid with
       | `Board id -> id
       | _ -> failwith "impossible"
     in
+    let items, stream_signals = List.split @@ List.map (fun (uri, stream) ->
+                                                    make_stream_entry ~uri stream
+                                                  ) stream_list
+    in
     let subheader = Some (new Typography.Text.t ~text:(Printf.sprintf "Board: %d" id) ()) in
-    let list = new Item_list.t ~items:[] () in
+    let list = new Item_list.t ~items:(List.map (fun i -> `Item i) items) () in
+    let settings =
+      React.S.merge ~eq:Equal.physical (fun acc v -> v::acc) [] stream_signals
+      |> React.S.map (fun l -> (bid, List.filter_map Fun.id l))
+    in
     { subheader; list }, settings
 
   let make_board_forbidden bid stream_list = 
