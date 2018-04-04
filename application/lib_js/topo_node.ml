@@ -31,17 +31,17 @@ object
 end
 
 class path ~(f_lp:unit->point) ~(f_rp:unit -> point) () =
-  let _class = "topology__path" in
+  let _class       = "topology__path" in
   let active_class = Markup.CSS.add_modifier _class "active" in
   let muted_class  = Markup.CSS.add_modifier _class "muted" in
   let sync_class   = Markup.CSS.add_modifier _class "sync" in
-  let ln = Tyxml_js.Svg.line [] in
-  let ln_elt = Tyxml_js.Svg.toelt ln |> Js.Unsafe.coerce |> Widget.create in
-  let elt = Tyxml_js.Svg.(svg ~a:[ a_width (500.,None)
-                                 ; a_height (500.,None) ]
-                              [ln])
-            |> Tyxml_js.Svg.toelt
-            |> Js.Unsafe.coerce in
+  let ln           = Tyxml_js.Svg.line [] in
+  let ln_elt       = Tyxml_js.Svg.toelt ln |> Js.Unsafe.coerce |> Widget.create in
+  let elt          = Tyxml_js.Svg.(svg ~a:[ a_width (100.,Some `Percent)
+                                          ; a_height (100.,Some `Percent) ]
+                                     [ln])
+                     |> Tyxml_js.Svg.toelt
+                     |> Js.Unsafe.coerce in
   object(self)
 
     inherit Widget.widget elt ()
@@ -85,6 +85,7 @@ class parent ~(connections:#t list)
              ~(body:#Dom_html.element Js.t)
              elt
              () =
+  let connections = List.rev connections in
   let num = List.length connections in
   let cw  = List.mapi (fun i x -> let f_lp = fun () -> x#output_point in
                                   let f_rp = fun () -> get_input_point ~num i body in

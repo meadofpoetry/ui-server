@@ -26,13 +26,7 @@ let () =
   let divider = new Divider.t () in
   divider#style##.margin := Js.string "15px 0";
   let topo_el = Dom_html.createDiv doc in
-  let width () = topo_el##.parentNode
-                 |> Js.Opt.to_option |> Option.get_exn
-                 |> Js.Unsafe.coerce
-                 |> (fun x -> x##.offsetWidth) in
   Dom.appendChild ac topo_el;
-  Dom.appendChild ac divider#root;
-  Dom.appendChild ac (settings_section s)#root;
 
   Requests.get_topology ()
   >>= (fun resp ->
@@ -47,7 +41,6 @@ let () =
        in
        Topology.render ~topology:t
                        ~topo_el
-                       ~width:(width ())
                        ~on_click:(function
                                   | Input _ -> ()
                                   | Board b -> push (Some (f b)))
@@ -55,6 +48,6 @@ let () =
        |> Lwt.return
     | Error e -> Lwt.return @@ print_endline e)
   |> ignore;
-  React.E.map (fun x -> Topology.render ~topology:x ~topo_el ~width:(width ()) ())
+  React.E.map (fun x -> Topology.render ~topology:x ~topo_el ())
               (fst (Requests.get_topology_socket ()))
   |> ignore

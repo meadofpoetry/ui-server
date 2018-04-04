@@ -139,8 +139,8 @@ let draw_line ~(color : color) ~(width : int) ~(height : int) ~(typ : line) ~lef
                               ; Svg.a_d path]) []]
              |> Tyxml_js.To_dom.of_element
   in
-  line##.style##.left := px left;
-  line##.style##.top  := px top;
+  line##.style##.left     := px left;
+  line##.style##.top      := px top;
   line##.style##.position := Js.string "absolute";
   line
 
@@ -178,149 +178,112 @@ let grid_template_areas t =
                                          get_entry_areas (". "^(board_to_area board)) 1 x.child)
                                        board.ports)) x)
 
-let connect_elements ~parent ~start_el ~end_el ~color ~levels =
-  let start_el, end_el = if start_el##.offsetLeft < end_el##.offsetLeft
-                         then start_el, end_el
-                         else end_el, start_el
-  in
-  let start_x = start_el##.offsetLeft + start_el##.offsetWidth in
-  let start_y = start_el##.offsetTop + start_el##.offsetHeight / 2 in
-  let end_x   = end_el##.offsetLeft in
-  let end_y   = end_el##.offsetTop + end_el##.offsetHeight / 2 in
-  let width   = end_x - start_x in
-  match levels with
-  | None -> if end_y = start_y
-            then
-              Dom.appendChild parent @@
-                draw_line ~color ~width ~height:2 ~typ:Str ~left:start_x ~top:start_y
-            else
-              if end_y < start_y
-              then
-                Dom.appendChild parent @@
-                  draw_line ~color ~width:width ~height:(start_y - end_y)
-                    ~typ:Up ~left:start_x ~top:end_y
-              else Dom.appendChild parent @@
-                     draw_line ~color ~width ~height:(end_y-start_y)
-                       ~typ:Down ~left:start_x ~top:start_y
-  | Some x -> let lvl    = int_of_float (float_of_int width /. ((float_of_int x) +. 0.5)) in
-              let width1 = lvl * x in
-              let width2 = width - width1 in
-              if end_y = start_y
-              then
-                Dom.appendChild parent @@
-                  draw_line ~color ~width ~height:2 ~typ:Str ~left:start_x ~top:start_y
-              else
-                if end_y < start_y
-                then
-                  (Dom.appendChild parent @@
-                     draw_line ~color ~width:width1 ~height:2
-                       ~typ:Str ~left:start_x ~top:(start_y-2);
-                  Dom.appendChild parent @@
-                     draw_line ~color ~width:width2 ~height:(start_y - end_y)
-                       ~typ:Up ~left:(end_x-width2) ~top:end_y)
-                else (Dom.appendChild parent @@
-                        draw_line ~color ~width:width1 ~height:2
-                          ~typ:Str ~left:start_x ~top:(end_y-2);
-                      Dom.appendChild parent @@
-                        draw_line ~color ~width:width2 ~height:(end_y-start_y)
-                          ~typ:Down ~left:(end_x-width2) ~top:start_y)
+(* let connect_elements ~parent ~start_el ~end_el ~color ~levels =
+ *   let start_el, end_el = if start_el##.offsetLeft < end_el##.offsetLeft
+ *                          then start_el, end_el
+ *                          else end_el, start_el
+ *   in
+ *   let start_x = start_el##.offsetLeft + start_el##.offsetWidth in
+ *   let start_y = start_el##.offsetTop + start_el##.offsetHeight / 2 in
+ *   let end_x   = end_el##.offsetLeft in
+ *   let end_y   = end_el##.offsetTop + end_el##.offsetHeight / 2 in
+ *   let width   = end_x - start_x in
+ *   match levels with
+ *   | None -> if end_y = start_y
+ *             then
+ *               Dom.appendChild parent @@
+ *                 draw_line ~color ~width ~height:2 ~typ:Str ~left:start_x ~top:start_y
+ *             else
+ *               if end_y < start_y
+ *               then
+ *                 Dom.appendChild parent @@
+ *                   draw_line ~color ~width:width ~height:(start_y - end_y)
+ *                     ~typ:Up ~left:start_x ~top:end_y
+ *               else Dom.appendChild parent @@
+ *                      draw_line ~color ~width ~height:(end_y-start_y)
+ *                        ~typ:Down ~left:start_x ~top:start_y
+ *   | Some x -> let lvl    = int_of_float (float_of_int width /. ((float_of_int x) +. 0.5)) in
+ *               let width1 = lvl * x in
+ *               let width2 = width - width1 in
+ *               if end_y = start_y
+ *               then
+ *                 Dom.appendChild parent @@
+ *                   draw_line ~color ~width ~height:2 ~typ:Str ~left:start_x ~top:start_y
+ *               else
+ *                 if end_y < start_y
+ *                 then
+ *                   (Dom.appendChild parent @@
+ *                      draw_line ~color ~width:width1 ~height:2
+ *                        ~typ:Str ~left:start_x ~top:(start_y-2);
+ *                   Dom.appendChild parent @@
+ *                      draw_line ~color ~width:width2 ~height:(start_y - end_y)
+ *                        ~typ:Up ~left:(end_x-width2) ~top:end_y)
+ *                 else (Dom.appendChild parent @@
+ *                         draw_line ~color ~width:width1 ~height:2
+ *                           ~typ:Str ~left:start_x ~top:(end_y-2);
+ *                       Dom.appendChild parent @@
+ *                         draw_line ~color ~width:width2 ~height:(end_y-start_y)
+ *                           ~typ:Down ~left:(end_x-width2) ~top:start_y) *)
 
-type coord = { x : int
-             ; y : int }
-
-class path ~parent ~(point1 :coord) ~(point2 : coord) ~color =
-
-  let height, top, typ =
-    if point1.y > point2.y
-    then point1.y - point2.y, point1.y, Up
-    else point2.y - point1.y, point2.y, Down
-  in
-  let elt = draw_line ~color
-              ~width:(point1.x - point2.x)
-              ~height
-              ~typ
-              ~left:point1.x
-              ~top
-  in
-  object
-    inherit Widget.widget elt ()
-    method redraw = ()
-    initializer
-      ()
-  end
+type  element_typ = Brd of topo_board | Inp of topo_input | CPU of topo_cpu
 
 let draw_topology ~topo_el ~topology =
-  let create_board ~board ~connections =
+  let create_element ~(element: element_typ) ~connections =
     let s_state = S.const `Fine in
-    let brd = Topo_board.create ~s_state ~connections board in
+    let result, area =
+      match element with
+      | Brd board -> let res = Topo_board.create ~s_state ~connections board in
+                     List.iter (fun x -> Dom.appendChild topo_el x#root) res#paths;
+                     (res:> Topo_node.t),
+                     (board_to_area board)
+      | Inp input -> (Topo_input.create input :> Topo_node.t),
+                     (input_to_area input)
+      | CPU cpu   -> let res = Topo_cpu.create cpu ~connections in
+                     List.iter (fun x -> Dom.appendChild topo_el x#root) res#paths;
+                     (res :> Topo_node.t),
+                     "CPU"
+    in
     let div = Dom_html.createDiv Dom_html.document in
     div##.style##.cssText :=
-      Js.string @@ "grid-area: "^(board_to_area board)^";";
+      Js.string @@ "grid-area: "^area^";";
     div##.style##.margin := Js.string "auto 0";
-    Dom.appendChild div brd#root;
+    Dom.appendChild div result#root;
     Dom.appendChild topo_el div;
-    brd
+    result
   in
   let rec get_boards = function
-    | Input x -> let inp = Topo_input.create x in
-                 [(inp :> Topo_node.t)]
+    | Input x -> let inp = create_element ~element:(Inp x) ~connections:[] in
+                 (inp :> Topo_node.t)
     | Board x -> let ports  = List.map (fun x -> x.child) x.ports in
-                  let connections =
-                    match ports with
-                    | [] -> []
-                    | l  -> List.concat @@ List.map (fun x -> get_boards x) l
-                  in
-                  let b = create_board ~board:x ~connections in
-                  (b :> Topo_node.t)::connections
+                 let connections =
+                   match ports with
+                   | [] -> []
+                   | l  -> List.map (fun x -> get_boards x) l
+                 in
+                 let b = create_element ~element:(Brd x) ~connections in
+                 (b :> Topo_node.t)
   in
   match topology with
-  | `CPU cpu  -> let connections = List.concat @@ List.map (fun x -> get_boards x.conn) cpu.ifaces in
+  | `CPU cpu  -> let connections = List.map (fun x -> get_boards x.conn) cpu.ifaces in
                  let cpu_el = Topo_cpu.create cpu ~connections in
+                 let div = Dom_html.createDiv Dom_html.document in
+                 div##.style##.cssText :=
+                   Js.string @@ "grid-area: CPU;";
+                 div##.style##.margin := Js.string "auto 0";
+                 Dom.appendChild div cpu_el#root;
+                 Dom.appendChild topo_el div;
                  (cpu_el :> Topo_node.t)::connections
   | `Boards x -> List.map (fun board ->
-                     let connections =
-                       List.concat @@ List.map (fun x -> get_boards x.child) board.ports in
-                     let b = create_board ~connections ~board in
-                     (b :> Topo_node.t)::connections) x
+                     let connections = List.map (fun x -> get_boards x.child) board.ports in
+                     let b = create_element ~element:(Brd board) ~connections in
+                     (b :> Topo_node.t)) x
 
-let render ?on_click ~topology ~(width : int) ~topo_el () =
+let render ?on_click ~topology ~topo_el () =
   let gta = "grid-template-areas: "^(grid_template_areas topology)^";" in
-(*  let gta = "grid-template-areas: \"a b c d e\" \". f c d e\" \"g h i d e\" \". k i d e\";" in*)
   print_endline gta;
   topo_el##.style##.cssText   := Js.string gta;
   topo_el##.style##.display   := Js.string "grid";
   topo_el##.style##.marginTop := Js.string "64px";
-  rm_children topo_el
-  let list = draw_topology ~topo_el ~topology in
-  List.iter (fun list ->
-      List.iter (fun x ->
-          let b1,b2,opt = x in
-          connect_elements ~parent:topo_el ~start_el:b1#root
-            ~end_el:b2#root ~color:Green ~levels:opt) list
-    ) list
-
-(* let render ?on_click ~topology ~(width : int) ~canvas () =
-  *  canvas##.style##.paddingTop := Js.string "100px";
-  *  let boards = topo_boards @@ Common.Topology.get_entries topology in
-  *  let inputs : Common.Topology.topo_input list =
-  *    [ { input = ASI; id = 1 }
-  *    ; { input = TSOIP; id = 1 }
-  *    ; { input = ASI; id = 2 }
-  *    ; { input = RF; id = 1 }
-  *    ]
-  *  in
-  *  rm_children canvas;
-  *  let inputs = List.map Topo_input.create inputs in
-  *  let input_box = new Box.t ~vertical:true ~widgets:inputs () in
-  *  input_box#style##.width := Js.string "120px";
-  *  input_box#style##.marginRight := Js.string "100px";
-  *  let cpu = Topo_cpu.create ~connections:inputs
-  *                            { process = "pipeline"
-  *                            ; ifaces = [ {iface="eht0"; conn=Input {input=ASI;id=1}}
-  *                                       ; {iface="eht1"; conn=Input {input=ASI;id=2}}
-  *                                       ]
-  *                            }
-  *  in
-  *  let box = new Box.t ~vertical:false ~widgets:[input_box#widget;cpu#widget] () in
-  *  List.iter (fun x -> Dom.appendChild canvas x#root) cpu#paths;
-  *  Dom.appendChild canvas box#root; *)
+  rm_children topo_el;
+  let _ = draw_topology ~topo_el ~topology in
+  ()
