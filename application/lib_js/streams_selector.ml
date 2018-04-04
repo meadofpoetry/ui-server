@@ -1,5 +1,6 @@
 open Containers
 open Components
+open Lwt.Infix
 
 open Application_types
 
@@ -9,7 +10,12 @@ module Streams_table = struct
                ; enable  : unit -> unit
                ; disable : unit -> unit
                }
-  
+
+  type stream_dialog = { dialog : Dialog.t
+                       ; push   : (Common.Topology.input * int) -> unit
+                       ; result : (Common.Stream.t, string) result React.signal
+                       }
+                     
   let make_board_stream_entry ?(check = None)
         ?(uri = None)
         stream =
@@ -124,17 +130,46 @@ module Streams_table = struct
       push (stream::slst)
     in
     signal, list, add
+    
+  let make_stream_create_dialog () =
+    let open Common.Stream in
+    let input, push_input = React.S.create (Input { input = RF; id = 0} ) in
+    let push (input, id) = push_input (Input { input; id}) in
+
+    let header = new Typography.Text.t ~text:"Create stream" () in
+    let uri_box = new Textfield.t
+                    ~input_type:(Widget.Custom (Common.Uri.of_string, Common.Uri.to_string))
+                    ~label:"Uri"
+                    ()
+    in
+    let desc_box = new Textfield.t ~label:"description" ~input_type:Widget.Text () in
+    let box     = new Box.t ~vertical:true ~widgets:[uri_box#widget; desc_box#widget] () in
+    
+    let accept  = new Dialog.Action.t ~label:"accept" ~typ:`Accept () in
+    let decline = new Dialog.Action.t ~label:"decline" ~typ:`Decline () in
+    let dialog  = new Dialog.t ~actions:[accept; decline] ~content:(`Widgets [header#widget; box#widget]) () in
+
+    let merge uri description source =
+      match uri with
+      | None -> Error ("no uri provided")
+      | Some uri -> Ok { id = `Ip uri; description; source }
+    in
+    let result = React.S.l3 merge uri_box#s_input desc_box#s_input input in
+    Dom.appendChild Dom_html.document##.body dialog#root;
+    { dialog; push; result }
+
+  let show_stream_create_dialog dialog i =
+    let open Common.Topology in
+    dialog.push i;
+    dialog.dialog#show_await >>= function
+    | `Cancel -> Lwt.return_error "dialog was canceled"
+    | `Accept -> Lwt.return @@ React.S.value dialog.result
                     
   let make_input_entry (iid, _, stream_list) =
     let open Item_list.List_group in
-    let uri = ref (Result.get_exn @@ Common.Uri.of_string "udp://224.1.2.2:1234") in
      let input, id = match iid with
       | `Input (inp,id) -> inp,id
       | _ -> failwith "impossible"
-    in
-    let make_stream () : Common.Stream.t =
-      uri := Common.Uri.succ !uri;
-      { id = `Ip !uri; description = None; source = Input { input; id } }
     in
     let init_list = List.filter_map (function (Some _, s) -> Some s | (None, _) -> None) stream_list in
     let subheader = new Typography.Text.t
@@ -142,7 +177,12 @@ module Streams_table = struct
     let streams, list, add = make_input_stream_list init_list in
     let settings = React.S.map (fun slst -> iid, slst) streams in
     let add_button  = new Button.t ~label:"add stream" () in
-    Lwt_react.E.keep @@ React.E.map (fun _ -> add (make_stream ())) add_button#e_click;
+    let dialog = make_stream_create_dialog () in
+    Lwt_react.E.keep @@ Lwt_react.E.map_p (fun _ ->
+                            show_stream_create_dialog dialog (input,id) >>= function
+                            | Error e -> Lwt.return @@ print_endline e
+                            | Ok s    -> Lwt.return @@ add s)
+                          add_button#e_click;
     let box = new Box.t ~vertical:true ~widgets:[subheader#widget; list#widget; add_button#widget] () in
     box#widget, settings
                     
