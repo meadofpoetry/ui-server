@@ -63,7 +63,7 @@ and topo_entry =
 and topo_input = { input        : input
                  ; id           : int
                  }
-               
+
 and topo_board = { typ          : board_type
                  ; model        : string
                  ; manufacturer : string

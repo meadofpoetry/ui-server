@@ -82,23 +82,23 @@
     color: rgba(0, 0, 0, 0.38);
     color: var(--mdc-theme-text-icon-on-background, rgba(0, 0, 0, 0.38)); }
 
-.topology__node {
+.topology__block {
   margin: 20px;
   max-width: 250px; }
-  .topology__node--fail .topology__node__body {
+  .topology__block--fail .topology__block__body {
     background-color: #ef9a9a;
     /* @alternate */
     color: rgba(0, 0, 0, 0.54);
     color: var(--mdc-theme-text-secondary-on-light, rgba(0, 0, 0, 0.54)); }
-  .topology__node--init .topology__node__body {
+  .topology__block--init .topology__block__body {
     background-color: #eeeeee;
     /* @alternate */
     color: rgba(0, 0, 0, 0.54);
     color: var(--mdc-theme-text-secondary-on-light, rgba(0, 0, 0, 0.54)); }
-  .topology__node--fine .topology__node__body {
+  .topology__block--fine .topology__block__body {
     background-color: transparent; }
 
-.topology__node__header {
+.topology__block__header {
   height: 41px;
   display: flex;
   justify-content: space-between;
