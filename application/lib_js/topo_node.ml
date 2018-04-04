@@ -11,6 +11,22 @@ type point =
 
 type node_entry = [ `CPU of topo_cpu | `Entry of topo_entry ]
 
+let input_to_area ({ input; id }:topo_input) =
+  let str = string_of_int id in
+  (match input with
+   | RF    -> "RF"
+   | TSOIP -> "TSOIP"
+   | ASI   -> "ASI")^str
+
+let board_to_area (board : topo_board) =
+  let str = string_of_int board.control in
+  board.typ ^ str
+
+let node_entry_to_area = function
+  | `CPU _           -> "CPU"
+  | `Entry (Board b) -> board_to_area b
+  | `Entry (Input i) -> input_to_area i
+
 let get_output_point (elt:#Dom_html.element Js.t) =
   let rect = elt##getBoundingClientRect |> Widget.to_rect in
   let y = (int_of_float rect.top) + (elt##.offsetHeight / 2) in
@@ -25,7 +41,9 @@ let get_input_point ~num i (elt:#Dom_html.element Js.t) =
 
 class t ~node ~body elt () =
 object
+  val area = node_entry_to_area node
   inherit Widget.widget elt ()
+  method area : string     = area
   method node : node_entry = node
   method output_point      = get_output_point body
 end
@@ -87,7 +105,6 @@ class parent ~(connections:#t list)
              ~(body:#Dom_html.element Js.t)
              elt
              () =
-  let connections = List.rev connections in
   let num = List.length connections in
   let cw  = List.mapi (fun i x -> let f_lp = fun () -> x#output_point in
                                   let f_rp = fun () -> get_input_point ~num i body in

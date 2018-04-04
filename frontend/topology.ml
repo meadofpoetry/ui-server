@@ -11,13 +11,6 @@ let insert s (container:#Dom.node Js.t) =
                            Dom.appendChild container p#root
                | None   -> ()) s
 
-let settings_section s =
-  let title  = new Typography.Text.t ~font:Headline ~text:"Настройки" () in
-  let cont   = Widget.create @@ Dom_html.createDiv Dom_html.document in
-  let box    = new Box.t ~widgets:[title#widget; cont#widget] () in
-  let _      = insert s cont#root in
-  box
-
 let () =
   let doc = Dom_html.document in
   let ac  = Dom_html.getElementById "arbitrary-content" in

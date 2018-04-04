@@ -65,6 +65,9 @@
   height: 100%;
   margin: 64px 20px; }
 
+.topology__node-wrapper {
+  margin: auto 0; }
+
 .topology__path {
   stroke: black;
   stroke-width: 2; }

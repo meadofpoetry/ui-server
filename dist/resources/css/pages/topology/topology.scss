@@ -15,6 +15,10 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
     margin: 64px 20px;
 }
 
+.topology__node-wrapper {
+    margin: auto 0;
+}
+
 .topology__path {
     stroke: black;
     stroke-width: 2;

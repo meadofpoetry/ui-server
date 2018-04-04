@@ -26,17 +26,6 @@ let board_to_string (tp:board_type) =
   | "TS2IP" -> "QoE"
   | s       -> failwith ("unknown board " ^ s)
 
-let input_to_area ({ input; id }:topo_input) =
-  let str = string_of_int id in
-  (match input with
-   | RF    -> "RF"
-   | TSOIP -> "TSOIP"
-   | ASI   -> "ASI")^str
-
-let board_to_area (board : topo_board) =
-  let str = string_of_int board.control in
-  board.typ ^ str
-
 let floor_to_five x =
   let fx = floor x +. 0.5 in
   if Float.(x > fx) then fx else floor x
@@ -110,35 +99,35 @@ let draw_line ~(color : color) ~(width : int) ~(height : int) ~(typ : line) ~lef
   let path       =
     match typ with
     | Up    -> Printf.sprintf "M 0 %d L %d %d Q %d %d, %d %d L %d %d Q %d 1, %d 1 L %d 1"
-                 (height - 1)
-                 left_half (height - 1)
-                 center (height - 1)
-                 center bottom
-                 center (height / 3)
-                 center
-                 right_half
-                 width
+                              (height - 1)
+                              left_half (height - 1)
+                              center (height - 1)
+                              center bottom
+                              center (height / 3)
+                              center
+                              right_half
+                              width
 
     | Down  -> Printf.sprintf "M 0 1 L %d 1 Q %d 1, %d %d L %d %d Q %d %d, %d %d L %d %d"
-                 left_half
-                 center
-                 center (height / 3)
-                 center bottom
-                 center (height - 1)
-                 right_half (height - 1)
-                 width (height - 1)
+                              left_half
+                              center
+                              center (height / 3)
+                              center bottom
+                              center (height - 1)
+                              right_half (height - 1)
+                              width (height - 1)
 
     | Str   -> Printf.sprintf "M 0 %d
                                L %d %d"
-                 (height/2)
-                 width (height/2)
+                              (height/2)
+                              width (height/2)
   in
   let line = Html.svg ~a:([Svg.a_height @@ (float_of_int height, Some `Px)
                           ; Svg.a_width  @@ (float_of_int width, Some `Px)])
-               [ Svg.path ~a:([ Svg.a_fill `None
-                              ; Svg.a_stroke_width (2., None)
-                              ; Svg.a_stroke (`Color ((color_to_string color),None))
-                              ; Svg.a_d path]) []]
+                      [ Svg.path ~a:([ Svg.a_fill `None
+                                     ; Svg.a_stroke_width (2., None)
+                                     ; Svg.a_stroke (`Color ((color_to_string color),None))
+                                     ; Svg.a_d path]) []]
              |> Tyxml_js.To_dom.of_element
   in
   line##.style##.left     := px left;
@@ -163,12 +152,12 @@ let grid_template_areas t =
   let depth = get_node_depth t in
   let rec get_entry_areas acc count = function
     | Input x -> if (count+1) < depth
-                 then let inp  = "\""^(input_to_area x) in
+                 then let inp  = "\""^(Topo_node.input_to_area x) in
                       let list = CCList.range 1 @@ (depth-count-1)*2 in
                       (List.fold_left (fun acc _ -> acc^" . ") inp list)^acc^"\""
-                 else "\""^(input_to_area x)^" "^acc^"\""
+                 else "\""^(Topo_node.input_to_area x)^" "^acc^"\""
     | Board x -> (let ports = List.map (fun x -> x.child) x.ports in
-                  let str   = ". "^(board_to_area x)^" " in
+                  let str   = ". "^(Topo_node.board_to_area x)^" " in
                   match ports with
                   | [] -> str^" "^acc
                   | l  -> concat (List.map (get_entry_areas (str^acc) (count+1)) l))
@@ -177,7 +166,7 @@ let grid_template_areas t =
   | `CPU x    -> concat (List.map (fun x -> get_entry_areas ". CPU" 1 x.conn) x.ifaces)
   | `Boards x -> concat (List.map (fun board ->
                              concat (List.map (fun x ->
-                                         get_entry_areas (". "^(board_to_area board)) 1 x.child)
+                                         get_entry_areas (". "^(Topo_node.board_to_area board)) 1 x.child)
                                               board.ports)) x)
 
 (* let connect_elements ~parent ~start_el ~end_el ~color ~levels =
@@ -227,54 +216,64 @@ let grid_template_areas t =
  *                         draw_line ~color ~width:width2 ~height:(end_y-start_y)
  *                           ~typ:Down ~left:(end_x-width2) ~top:start_y) *)
 
-let draw_topology ~topo_el ~topology =
-  let create_element ~element ~connections =
-    let result, area =
-      match element with
-      | `Brd board -> let res = Topo_board.create ~connections board in
-                      List.iter (fun x -> Dom.appendChild topo_el x#root) res#paths;
-                      (res:> Topo_node.t),
-                      (board_to_area board)
-      | `Inp input -> (Topo_input.create input :> Topo_node.t),
-                      (input_to_area input)
-      | `CPU cpu   -> let res = Topo_cpu.create cpu ~connections in
-                      List.iter (fun x -> Dom.appendChild topo_el x#root) res#paths;
-                      (res :> Topo_node.t),
-                      "CPU"
-    in
-    let div = Dom_html.createDiv Dom_html.document in
-    div##.style##.cssText :=
-      Js.string @@ "grid-area: "^area^";";
-    div##.style##.margin := Js.string "auto 0";
-    Dom.appendChild div result#root;
-    Dom.appendChild topo_el div;
-    result
+let wrap area elt =
+  let div = Dom_html.createDiv Dom_html.document |> Widget.create in
+  div#add_class @@ Markup.CSS.add_element _class "node-wrapper";
+  div#style##.cssText := Js.string @@ "grid-area: "^area^";";
+  Dom.appendChild div#root elt#root;
+  div
+
+let to_topo_node = function
+  | `Board x -> (x :> Topo_node.t)
+  | `Input x -> (x :> Topo_node.t)
+  | `CPU x   -> (x :> Topo_node.t)
+
+let draw_topology ~topology =
+  let create_element ~(element:Topo_node.node_entry) ~connections =
+    let connections = List.map to_topo_node connections in
+    match element with
+    | `Entry (Board board) -> `Board (Topo_board.create ~connections board)
+    | `Entry (Input input) -> `Input (Topo_input.create input)
+    | `CPU cpu             -> `CPU   (Topo_cpu.create cpu ~connections)
   in
-  let rec get_boards = function
-    | Input x -> let inp = create_element ~element:(`Inp x) ~connections:[] in
-                 (inp :> Topo_node.t)
-    | Board x -> let ports  = List.map (fun x -> x.child) x.ports in
-                 let connections =
-                   match ports with
-                   | [] -> []
-                   | l  -> List.map (fun x -> get_boards x) l
-                 in
-                 let b = create_element ~element:(`Brd x) ~connections in
-                 (b :> Topo_node.t)
+  let rec get_boards acc = function
+    | Input _ as i -> let i = create_element ~element:(`Entry i) ~connections:[] in
+                      i,i::acc
+    | Board x as b -> let ports = List.map (fun x -> x.child) x.ports in
+                      let connections,acc = match ports with
+                        | [] -> [],acc
+                        | l  -> List.fold_left (fun (conn,total) x ->
+                                    let e,acc = get_boards acc x in
+                                    e::conn,acc@total) ([],[]) l
+                      in
+                      let b = create_element ~element:(`Entry b) ~connections in
+                      b,b::acc
   in
   match topology with
-  | `CPU cpu  -> let connections = List.map (fun x -> get_boards x.conn) cpu.ifaces in
+  | `CPU cpu  -> let connections,acc = List.fold_left (fun (conn,total) x ->
+                                           let e,acc = get_boards [] x.conn in
+                                           e::conn,acc@total) ([],[]) cpu.ifaces in
                  let cpu_el = create_element ~element:(`CPU cpu) ~connections in
-                 (cpu_el :> Topo_node.t)::connections
+                 cpu_el::acc
   | `Boards x -> List.map (fun board ->
-                     let connections = List.map (fun x -> get_boards x.child) board.ports in
-                     let b = create_element ~element:(`Brd board) ~connections in
-                     (b :> Topo_node.t)) x
+                     let connections,acc = List.fold_left (fun (conn,total) x ->
+                                               let e,acc = get_boards [] x.child in
+                                               e::conn,acc@total) ([],[]) board.ports in
+                     let b = create_element ~element:(`Entry (Board board)) ~connections in
+                     b :: acc) x
+                 |> List.flatten
 
 let render ?on_click ~topology ~topo_el () =
   let gta = "grid-template-areas: "^(grid_template_areas topology)^";" in
   topo_el##.classList##add (Js.string _class);
   topo_el##.style##.cssText   := Js.string gta;
   rm_children topo_el;
-  let _ = draw_topology ~topo_el ~topology in
+  let l = draw_topology ~topology in
+  List.iter (fun x -> (match x with
+                       | `Board b -> List.iter (fun p -> Dom.appendChild topo_el p#root) b#paths
+                       | `CPU c   -> List.iter (fun p -> Dom.appendChild topo_el p#root) c#paths
+                       | _        -> ());
+                      let node = to_topo_node x in
+                      let w    = wrap node#area node in
+                      Dom.appendChild topo_el w#root) l;
   ()
