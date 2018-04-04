@@ -33,7 +33,7 @@ let limit f e =
    
 let (%) = Fun.(%)
 (* TODO make 'active type label *)
-
+        
 type options = { wm         : Wm.t Storage.Options.storage
                ; structures : Structure.Structures.t Storage.Options.storage
                ; settings   : Settings.t Storage.Options.storage
@@ -44,7 +44,7 @@ type state = { ctx          : ZMQ.Context.t
              ; ev           : [ `Sub] ZMQ.Socket.t
              ; options      : options
              ; srcs         : (Common.Uri.t * Common.Stream.t) list ref
-             ; mutable proc : Lwt_process.process_none option
+             ; proc         : Lwt_process.process_none option ref
              }
 
 type channels =
@@ -193,9 +193,14 @@ let create (type a) (typ : a typ) config sock_in sock_out =
   let msg_sock = Socket.of_socket msg in
   let ev_sock  = Socket.of_socket ev in
 
+  let proc      = ref None in
   let converter = (Msg_conv.get_converter typ) in
-  let send = create_send typ converter msg_sock in
-  settings_init typ send options;
+  let send =
+    let send = create_send typ converter msg_sock in
+    fun msg -> if Option.is_none !proc
+               then Lwt.fail_with "backend is not ready"
+               else send msg
+  in
 
   let srcs = ref [] in
   let epush,
@@ -217,27 +222,31 @@ let create (type a) (typ : a typ) config sock_in sock_out =
             ; requests
             } in
   
-  let state = { ctx; msg; ev; options; srcs; proc = None } in
+  let state = { ctx; msg; ev; options; srcs; proc } in
   let recv () =
     Socket.recv ev_sock
     >>= fun msg ->
     Lwt.return @@ epush (converter.of_string msg)
   in
-  api, state, recv
+  api, state, recv, send
 
-let reset bin_path bin_name msg_fmt state (sources : (Common.Uri.t * Common.Stream.t) list) =
+let reset typ send bin_path bin_name msg_fmt state (sources : (Common.Uri.t * Common.Stream.t) list) =
   let exec_path = (Filename.concat bin_path bin_name) in
   let msg_fmt   = Pipeline_settings.format_to_string msg_fmt in
   let uris      = List.map Fun.(fst %> Common.Uri.to_string) sources in
   let exec_opts = Array.of_list (bin_name :: "-m" :: msg_fmt :: uris) in
   state.srcs := sources;
-  Option.iter (fun proc -> proc#terminate) state.proc;
-  state.proc <- Some (Lwt_process.open_process_none (exec_path, exec_opts))
+  Option.iter (fun proc -> proc#terminate) !(state.proc);
+  (* TODO add init msg instead of this dirty hack *)
+  (Lwt_unix.sleep 0.2 >|= fun () ->
+   state.proc := Some (Lwt_process.open_process_none (exec_path, exec_opts));
+   settings_init typ send state.options)
+  |> Lwt.ignore_result
   
 let finalize state =
   ZMQ.Socket.unsubscribe state.ev "";
   ZMQ.Socket.close       state.ev;
   ZMQ.Socket.close       state.msg;
   ZMQ.Context.terminate  state.ctx;
-  Option.iter (fun proc -> proc#terminate) state.proc;
-  state.proc <- None
+  Option.iter (fun proc -> proc#terminate) !(state.proc);
+  state.proc := None

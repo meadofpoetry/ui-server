@@ -19,7 +19,7 @@ let get_js (name : string) (send : Yojson.Safe.json -> Yojson.Safe.json Lwt.t) o
   | `Assoc [("Fine",rep)] -> begin
       let rep' = cont_body_of_yojson of_ rep in
       match rep' with
-      | Error e -> Lwt_io.printf "Received error: %s" (Yojson.Safe.pretty_to_string rep) >>= fun () ->
+      | Error e -> Lwt_io.printf "Received error: %s in\n %s" e (Yojson.Safe.pretty_to_string rep) >>= fun () ->
                    Lwt.return_error e
       | Ok v    -> Lwt.return_ok v.body
     end

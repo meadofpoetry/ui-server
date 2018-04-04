@@ -24,10 +24,16 @@ let typ = "pipeline"
   
 let create config dbs =
   let cfg = Conf.get config in
-  let api, state, recv =
+  let api, state, recv, reset =
     match cfg.msg_fmt with
-    | `Json    -> Pipeline_protocol.create Json config cfg.sock_in cfg.sock_out
-    | `Msgpack -> Pipeline_protocol.create Msgpack config cfg.sock_in cfg.sock_out
+    | `Json    ->
+       let api, state, recv, send = Pipeline_protocol.create Json config cfg.sock_in cfg.sock_out in
+       let reset = Pipeline_protocol.reset Json send cfg.bin_path cfg.bin_name cfg.msg_fmt in
+       api, state, recv, reset
+    | `Msgpack ->
+       let api, state, recv, send = Pipeline_protocol.create Msgpack config cfg.sock_in cfg.sock_out in
+       let reset = Pipeline_protocol.reset Msgpack send cfg.bin_path cfg.bin_name cfg.msg_fmt in
+       api, state, recv, reset
   in
   Lwt_react.E.keep @@ connect_db (S.changes api.streams) dbs;
     (* polling loop *)
@@ -38,7 +44,7 @@ let create config dbs =
     val loop  = loop ()
     val api   = api
     val state = state
-    method reset ss    = Pipeline_protocol.reset cfg.bin_path cfg.bin_name cfg.msg_fmt state ss
+    method reset ss    = reset state ss
     method handlers () = Pipeline_api.handlers api
     method template () = Pipeline_template.create ()
     method finalize () = Pipeline_protocol.finalize state

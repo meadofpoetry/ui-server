@@ -13,7 +13,7 @@ let equal_ip a1 a2 = Int32.equal (Ipaddr.V4.to_int32 a1) (Ipaddr.V4.to_int32 a2)
 
 type t = { ip   : ip
          ; port : int
-         } [@@deriving yojson, show, eq]
+         } [@@deriving show, eq]
 
 let compare (t1:t) (t2:t) =
   let c = Ipaddr.V4.compare t1.ip t2.ip in
@@ -54,6 +54,11 @@ let of_string s =
     >>| fun port -> { ip; port }
   in parse_string parser s
 
+let to_yojson u = `String (to_string u)
+let of_yojson = function
+  | `String s -> of_string s
+  | _         -> Error "of_yojson: bad uri"
+   
 let in_range (min,max) t =
   match compare min t, compare t max with
   | 1, _ | _, 1 -> false
