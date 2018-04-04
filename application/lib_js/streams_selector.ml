@@ -20,7 +20,7 @@ module Streams_table = struct
     | None -> ()
     | Some check ->
        Lwt_react.S.keep @@ React.S.map (fun v -> checkbox#set_disabled (not v)) check.avail;
-       Lwt_react.S.keep @@ React.S.map (fun s -> if s then check.enable () else check.disable ()) checkbox#s_state;
+       Lwt_react.E.keep @@ React.S.diff (fun s _ -> if s then check.enable () else check.disable ()) checkbox#s_state;
     end;
     let item = match uri with
       | None   -> new Item_list.Item.t ~text ~end_detail:checkbox ()
