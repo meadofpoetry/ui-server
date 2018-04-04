@@ -100,7 +100,7 @@ let random : unit -> t = fun () ->
 
 exception Gen_failure
     
-let gen_in_ranges : ('a * (t * t) list) list -> (('a * t) list, unit) result = fun vs ->
+let gen_in_ranges ?(forbidden : t list = []) (vs : ('a * (t * t) list) list) : (('a * t) list, unit) result =
   let ranged, free = List.partition (fun (_,r) -> not @@ List.is_empty r) vs in
   let rec is_in a = function
     | []    -> false
@@ -137,7 +137,7 @@ let gen_in_ranges : ('a * (t * t) list) list -> (('a * t) list, unit) result = f
        in loop 0
   in
   try
-    let used, vals = generate [] ranged in
+    let used, vals = generate forbidden ranged in
     let frees = generate_free used [] free in
     Ok(frees @ vals)
   with Gen_failure -> Error ()

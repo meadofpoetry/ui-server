@@ -41,7 +41,7 @@ end
 module Conf_topology = Storage.Config.Make(Settings_topology)
 
 let proc_table = Proc.create_dispatcher [ (module Pipeline) ]
-
+          
 let create config db =
   let topology   = match Conf_topology.get_opt config with
     | None   -> failwith "bad topology config"
@@ -59,7 +59,7 @@ let create config db =
                                             | (Some uri, src) -> Some (uri, src))
       in
       Lwt_react.S.map (fun l ->
-          List.fold_left (fun acc (_,_,ss) -> filter ss) [] l
+          List.fold_left (fun acc (_,_,ss) -> (filter ss) @ acc) [] l
           |> proc#reset)
       @@ limit (fun () -> Lwt_unix.sleep 2.) hw.streams
       |> Lwt_react.S.keep) proc;

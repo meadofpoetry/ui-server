@@ -165,12 +165,19 @@ let set_stream hw (ss : stream_setting) =
          | `Ip u -> (u, s)
        in (`Input i, List.map s_to_uri sl)
      in
+     let rec grep_input_uris acc = function
+       | [] -> acc
+       | (_, sl)::tl ->
+          let uris = List.map fst sl in
+          grep_input_uris (uris @ acc) tl
+     in
      let boards, inputs = List.partition_map split ss in
-     let boards = match Common.Uri.gen_in_ranges @@ List.concat boards with
+     let inputs = List.map input_add_uri inputs in
+     let forbidden = grep_input_uris [] inputs in
+     let boards = match Common.Uri.gen_in_ranges ~forbidden (List.concat boards) with
        | Ok boards -> rebuild [] boards
        | Error ()  -> raise_notrace (Constraints (`Internal_error "set_stream: uri generation failure"))
      in
-     let inputs = List.map input_add_uri inputs in
      inputs @ boards
   in
   (* TODO simplify this part *)

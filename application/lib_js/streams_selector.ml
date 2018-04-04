@@ -10,7 +10,7 @@ module Streams_table = struct
                ; disable : unit -> unit
                }
   
-  let make_stream_entry ?(check = None)
+  let make_board_stream_entry ?(check = None)
         ?(uri = None)
         stream =
     let text           = Common.Stream.header stream in
@@ -42,7 +42,7 @@ module Streams_table = struct
       | _ -> failwith "impossible"
     in
     let items, stream_signals = List.split @@ List.map (fun (uri, stream) ->
-                                                    make_stream_entry ~check:(Some check) ~uri stream
+                                                    make_board_stream_entry ~check:(Some check) ~uri stream
                                                   ) stream_list
     in
     let subheader = new Typography.Text.t ~text:"" () in
@@ -54,7 +54,8 @@ module Streams_table = struct
     Lwt_react.S.keep @@
       React.S.map (fun counter -> let str = Printf.sprintf "Board: %d, streams left: %d" id (lim - counter) in
                                   subheader#set_text str) counter;
-    { subheader = Some subheader; list }, settings
+    let box  = new Box.t ~vertical:true ~widgets:[subheader#widget; list#widget] () in
+    box#widget, settings
 
   let make_board_unlimited bid stream_list =
     let open Item_list.List_group in
@@ -63,16 +64,17 @@ module Streams_table = struct
       | _ -> failwith "impossible"
     in
     let items, stream_signals = List.split @@ List.map (fun (uri, stream) ->
-                                                    make_stream_entry ~uri stream
+                                                    make_board_stream_entry ~uri stream
                                                   ) stream_list
     in
-    let subheader = Some (new Typography.Text.t ~text:(Printf.sprintf "Board: %d" id) ()) in
+    let subheader = new Typography.Text.t ~text:(Printf.sprintf "Board: %d" id) () in
     let list = new Item_list.t ~items:(List.map (fun i -> `Item i) items) () in
     let settings =
       React.S.merge ~eq:Equal.physical (fun acc v -> v::acc) [] stream_signals
       |> React.S.map (fun l -> (bid, List.filter_map Fun.id l))
     in
-    { subheader; list }, settings
+    let box  = new Box.t ~vertical:true ~widgets:[subheader#widget; list#widget] () in
+    box#widget, settings
 
   let make_board_forbidden bid stream_list = 
     let open Item_list.List_group in
@@ -82,9 +84,10 @@ module Streams_table = struct
       | `Board id -> id
       | _ -> failwith "impossible"
     in
-    let subheader = Some (new Typography.Text.t ~text:(Printf.sprintf "Board: %d" id) ()) in
+    let subheader = new Typography.Text.t ~text:(Printf.sprintf "Board: %d" id) () in
     let list = new Item_list.t ~items:[] () in
-    { subheader; list }, settings
+    let box  = new Box.t ~vertical:true ~widgets:[subheader#widget; list#widget] () in
+    box#widget, settings
   
   let make_board_entry (bid, state, stream_list) =
     match state with
@@ -92,25 +95,64 @@ module Streams_table = struct
     | `Limited lim -> make_board_limited lim bid stream_list
     | `Unlimited   -> make_board_unlimited bid stream_list
 
-  let make_input_entry (iid, _, _) =
+  let make_input_stream_list stream_list =
+    let make_board_stream_entry del_item del_stream stream =
+      let text           = Common.Stream.header stream in
+      let del_button     = new Button.t ~label:"delete" () in
+      let uri            = match stream.id with `Ip u -> u in
+      let item           =
+        new Item_list.Item.t ~text ~secondary_text:(Common.Uri.to_string uri) ~end_detail:del_button () in
+      (* TODO remove event *)
+      Lwt_react.E.map (fun _ -> del_item item; del_stream stream) del_button#e_click |> ignore;
+      item
+    in
+    let signal, push = React.S.create stream_list in
+    let list  = new Item_list.t ~items:[] () in
+    let del_item   i = list#remove_item i in
+    let del_stream s =
+      let slst = React.S.value signal in
+      push @@ List.filter (Common.Stream.equal s) slst
+    in
+    let items = List.map (make_board_stream_entry del_item del_stream) stream_list in
+    List.iter (fun i -> list#add_item i) items;
+    let add stream =
+      let slst = React.S.value signal in
+      if List.exists (Common.Stream.equal stream) slst
+      then failwith "stream exists"; (* TODO fix *)
+      let item = make_board_stream_entry del_item del_stream stream in
+      list#add_item item;
+      push (stream::slst)
+    in
+    signal, list, add
+                    
+  let make_input_entry (iid, _, stream_list) =
     let open Item_list.List_group in
-    let settings = React.S.const (iid, []) in
-    let inp, id = match iid with
+    let uri = ref (Result.get_exn @@ Common.Uri.of_string "udp://224.1.2.2:1234") in
+     let input, id = match iid with
       | `Input (inp,id) -> inp,id
       | _ -> failwith "impossible"
     in
-    let subheader = Some (new Typography.Text.t
-                            ~text:(Printf.sprintf "Input: %s (%d)" (Common.Topology.input_to_string inp) id) ()) in
-    let list = new Item_list.t ~items:[] () in
-    { subheader; list }, settings
+    let make_stream () : Common.Stream.t =
+      uri := Common.Uri.succ !uri;
+      { id = `Ip !uri; description = None; source = Input { input; id } }
+    in
+    let init_list = List.filter_map (function (Some _, s) -> Some s | (None, _) -> None) stream_list in
+    let subheader = new Typography.Text.t
+                      ~text:(Printf.sprintf "Input: %s (%d)" (Common.Topology.input_to_string input) id) () in
+    let streams, list, add = make_input_stream_list init_list in
+    let settings = React.S.map (fun slst -> iid, slst) streams in
+    let add_button  = new Button.t ~label:"add stream" () in
+    Lwt_react.E.keep @@ React.E.map (fun _ -> add (make_stream ())) add_button#e_click;
+    let box = new Box.t ~vertical:true ~widgets:[subheader#widget; list#widget; add_button#widget] () in
+    box#widget, settings
                     
-  let make_entry : 'a -> Item_list.List_group.group * (marker * Common.Stream.t list) React.signal = function
+  let make_entry : 'a -> Widget.widget * (marker * Common.Stream.t list) React.signal = function
     | `Input _, _, _ as x -> make_input_entry x
     | `Board _, _, _ as x -> make_board_entry x
   
   let make_table table =
-    let content, signals = List.split @@ List.map make_entry table in
-    let list  = new Item_list.List_group.t ~content () in
+    let widgets, signals = List.split @@ List.map make_entry table in
+    let list  = new Box.t ~vertical:true ~widgets () in
     list, (React.S.merge ~eq:Equal.physical (fun acc v -> v::acc) [] signals)
   
   let create ~(init:stream_table)
