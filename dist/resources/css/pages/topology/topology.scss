@@ -15,6 +15,17 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
 
 .topology__path {
     stroke: black;
+    stroke-width: 2;
+
+    &--active {
+        stroke: $material-color-light-green-500;
+    }
+    &--muted {
+        stroke: $material-color-grey-500;
+    }
+    &--sync {
+        stroke: $material-color-green-500;
+    }
 }
 
 .topology__input {

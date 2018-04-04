@@ -408,8 +408,8 @@ let render ?on_click ~topology ~(width : int) ~canvas () =
   let box = new Box.t ~vertical:false ~widgets:[input_box#widget;cpu#widget] () in
   List.iter (fun x -> Dom.appendChild canvas x#root) cpu#paths;
   Dom.appendChild canvas box#root;
-  (* List.iter (fun x -> let b = Topo_board.create ~connections:[] ~s_state:(React.S.const `No_response) x in
-   *                     Dom.appendChild canvas b#root) boards; *)
+  List.iter (fun x -> let b = Topo_board.create ~connections:inputs x in
+                      Dom.appendChild canvas b#root) boards;
 
   (* let t      = Common.Topology.get_entries topology in
    * let cols   = (get_list_depth t * 2 - 1) in

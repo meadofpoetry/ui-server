@@ -44,21 +44,23 @@ module Body = struct
 
 end
 
-class t ~(s_state:Common.Topology.state React.signal)
-        ~(connections:#Topo_node.t list)
+class t ~(connections:#Topo_node.t list)
         (board:Common.Topology.topo_board) () =
   let header     = Header.create board in
   let body       = Body.create board in
-  let e_settings = React.E.map (fun _ -> s_state,board) header#settings_icon#e_click in
+  let e_settings = React.E.map (fun _ -> board) header#settings_icon#e_click in
   object(self)
     val mutable board = board
-    inherit Topo_block.t ~s_state ~connections ~header ~body ()
-    method board      = board
-    method e_settings = e_settings
+    inherit Topo_block.t ~connections ~header ~body () as super
+    method board        = board
+    method !set_state x = super#set_state x; board <- { board with connection = x }
+    method set_ports l  = board < { board with ports = l };
+    method e_settings   = e_settings
     initializer
+      self#set_state board.connection;
       self#add_class base_class;
       self#set_attribute "data-board" board.typ
   end
 
-let create ~connections ~s_state (board:Common.Topology.topo_board) =
-  new t ~connections ~s_state board ()
+let create ~connections (board:Common.Topology.topo_board) =
+  new t ~connections board ()

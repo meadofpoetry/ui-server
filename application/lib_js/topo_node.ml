@@ -9,9 +9,6 @@ type point =
   ; y : int
   }
 
-let point_to_string x =
-  Printf.sprintf "{ x = %d; y = %d }" x.x x.y
-
 let get_output_point (elt:#Dom_html.element Js.t) =
   let rect = elt##getBoundingClientRect |> Widget.to_rect in
   let y = (int_of_float rect.top) + (elt##.offsetHeight / 2) in

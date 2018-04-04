@@ -47,28 +47,24 @@ module Body = struct
 
 end
 
-class t ?(s_state:Common.Topology.state React.signal option)
-        ~(connections:#Topo_node.t list)
+class t ~(connections:#Topo_node.t list)
         ~(header:#Header.t)
         ~(body:#Body.t)
         () =
   let card = new Card.t ~widgets:[header#widget;body#widget] () in
   object(self)
     inherit Topo_node.parent ~connections ~body:body#root card#root ()
+    method set_state : Common.Topology.state -> unit = function
+      | `Fine        -> self#add_class    fine_class;
+                        self#remove_class init_class;
+                        self#remove_class fail_class
+      | `Init        -> self#add_class    init_class;
+                        self#remove_class fine_class;
+                        self#remove_class fail_class
+      | `No_response -> self#add_class    fail_class;
+                        self#remove_class init_class;
+                        self#remove_class fine_class
     initializer
       body#set_n @@ List.length connections;
-      (match s_state with
-       | Some s -> React.S.map (function
-                                | `Fine        -> self#add_class    fine_class;
-                                                  self#remove_class init_class;
-                                                  self#remove_class fail_class
-                                | `Init        -> self#add_class    init_class;
-                                                  self#remove_class fine_class;
-                                                  self#remove_class fail_class
-                                | `No_response -> self#add_class    fail_class;
-                                                  self#remove_class init_class;
-                                                  self#remove_class fine_class)
-                               s |> ignore
-       | None -> ());
       self#add_class base_class
   end
