@@ -70,13 +70,13 @@ class widget (elt:#Dom_html.element Js.t) () = object(self)
   method get_scroll_width  = self#root##.scrollWidth
   method get_scroll_height = self#root##.scrollHeight
 
-  method get_client_rect   = (self#root##getBoundingClientRect)
-                             |> (fun x -> { top    = x##.top
-                                          ; right  = x##.right
-                                          ; bottom = x##.bottom
-                                          ; left   = x##.left
-                                          ; width  = Js.Optdef.to_option x##.width
-                                          ; height = Js.Optdef.to_option x##.height })
+  method get_bounding_client_rect = (self#root##getBoundingClientRect)
+                                    |> (fun x -> { top    = x##.top
+                                                 ; right  = x##.right
+                                                 ; bottom = x##.bottom
+                                                 ; left   = x##.left
+                                                 ; width  = Js.Optdef.to_option x##.width
+                                                 ; height = Js.Optdef.to_option x##.height })
 
   method set_on_load (f : (unit -> unit) option) =
     _on_load <- f; self#_observe_if_needed

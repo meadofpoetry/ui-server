@@ -1,3 +1,5 @@
+/* TODO(sgomes): Figure out what to do about desktop font sizes. */
+/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
 .topology__board[data-board='TS'] .topology__board__header {
   background-color: #e91e63; }
   .topology__board[data-board='TS'] .topology__board__header .mdc-icon {
@@ -58,14 +60,55 @@
     color: rgba(255, 255, 255, 0.7);
     color: var(--mdc-theme-text-secondary-on-dark, rgba(255, 255, 255, 0.7)); }
 
-.topology__node {
+.topology__input {
+  user-select: none;
+  cursor: initial;
+  align-items: center;
+  /* @alternate */
+  background-color: #fff;
+  background-color: var(--mdc-theme-background, #fff);
+  /* @alternate */
+  color: rgba(0, 0, 0, 0.87);
+  color: var(--mdc-theme-text-primary-on-background, rgba(0, 0, 0, 0.87)); }
+  .topology__input::before {
+    opacity: 0 !important; }
+  .topology__input::after {
+    opacity: 0 !important; }
+  .topology__input .mdc-chip__text {
+    flex-grow: 2;
+    font-size: 0.95rem; }
+  .topology__input .mdc-chip__icon {
+    /* @alternate */
+    color: rgba(0, 0, 0, 0.38);
+    color: var(--mdc-theme-text-icon-on-background, rgba(0, 0, 0, 0.38)); }
+
+.topology__block {
   margin: 20px;
   max-width: 250px; }
+  .topology__block--fail .topology__block__body {
+    background-color: #ef9a9a;
+    /* @alternate */
+    color: rgba(0, 0, 0, 0.54);
+    color: var(--mdc-theme-text-secondary-on-light, rgba(0, 0, 0, 0.54)); }
+  .topology__block--init .topology__block__body {
+    background-color: #eeeeee;
+    /* @alternate */
+    color: rgba(0, 0, 0, 0.54);
+    color: var(--mdc-theme-text-secondary-on-light, rgba(0, 0, 0, 0.54)); }
+  .topology__block--fine .topology__block__body {
+    background-color: transparent; }
 
-.topology__node__header {
+.topology__block__header {
   height: 41px;
   display: flex;
   justify-content: space-between;
   align-items: center; }
+
+.topology__cpu__header {
+  background-color: #607d8b; }
+  .topology__cpu__header .mdc-card__title {
+    /* @alternate */
+    color: white;
+    color: var(--mdc-theme-text-primary-on-dark, white); }
 
 /*# sourceMappingURL=topology.css.map */

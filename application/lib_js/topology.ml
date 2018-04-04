@@ -5,6 +5,7 @@ open Common.Topology
 open Containers
 open Tyxml_js
 open Components
+open React
 
 let px x = Js.string @@ (string_of_int x)^"px"
 
@@ -249,8 +250,9 @@ class path ~parent ~(point1 :coord) ~(point2 : coord) ~color =
   end
 
 let draw_topology ~topo_el ~topology =
-  let create_board board =
-    let brd = Topo_board.create board in
+  let create_board ~board ~connections =
+    let s_state = S.const `Fine in
+    let brd = Topo_board.create ~s_state ~connections board in
     let div = Dom_html.createDiv Dom_html.document in
     div##.style##.cssText :=
       Js.string @@ "grid-area: "^(board_to_area board)^";";
@@ -259,24 +261,27 @@ let draw_topology ~topo_el ~topology =
     Dom.appendChild topo_el div;
     brd
   in
-  let rec get_boards acc result = function
-    | Input _ -> result
-    | Board x -> (let ports = List.map (fun x -> x.child) x.ports in
-                  let b     = create_board x in
-                  let result = match acc with
-                    | Some acc -> (acc,b,None)::result
-                    | None     -> result
+  let rec get_boards = function
+    | Input x -> let inp = Topo_input.create x in
+                 [(inp :> Topo_node.t)]
+    | Board x -> let ports  = List.map (fun x -> x.child) x.ports in
+                  let connections =
+                    match ports with
+                    | [] -> []
+                    | l  -> List.concat @@ List.map (fun x -> get_boards x) l
                   in
-                  match ports with
-                  | [] -> result
-                  | l  -> List.concat @@ List.map (get_boards (Some b) result) l)
+                  let b = create_board ~board:x ~connections in
+                  (b :> Topo_node.t)::connections
   in
   match topology with
-  | `CPU x    -> List.map (fun x -> get_boards None [] x.conn) x.ifaces
-  | `Boards x -> List.map (fun board -> let b = create_board board in
-                                        List.concat @@
-                                          List.map (fun x -> get_boards (Some b) [] x.child) board.ports
-                   ) x
+  | `CPU cpu  -> let connections = List.concat @@ List.map (fun x -> get_boards x.conn) cpu.ifaces in
+                 let cpu_el = Topo_cpu.create cpu ~connections in
+                 (cpu_el :> Topo_node.t)::connections
+  | `Boards x -> List.map (fun board ->
+                     let connections =
+                       List.concat @@ List.map (fun x -> get_boards x.child) board.ports in
+                     let b = create_board ~connections ~board in
+                     (b :> Topo_node.t)::connections) x
 
 let render ?on_click ~topology ~(width : int) ~topo_el () =
   let gta = "grid-template-areas: "^(grid_template_areas topology)^";" in
@@ -285,11 +290,37 @@ let render ?on_click ~topology ~(width : int) ~topo_el () =
   topo_el##.style##.cssText   := Js.string gta;
   topo_el##.style##.display   := Js.string "grid";
   topo_el##.style##.marginTop := Js.string "64px";
-  rm_children topo_el;
+  rm_children topo_el
   let list = draw_topology ~topo_el ~topology in
   List.iter (fun list ->
       List.iter (fun x ->
           let b1,b2,opt = x in
           connect_elements ~parent:topo_el ~start_el:b1#root
             ~end_el:b2#root ~color:Green ~levels:opt) list
-    )list
+    ) list
+
+(* let render ?on_click ~topology ~(width : int) ~canvas () =
+  *  canvas##.style##.paddingTop := Js.string "100px";
+  *  let boards = topo_boards @@ Common.Topology.get_entries topology in
+  *  let inputs : Common.Topology.topo_input list =
+  *    [ { input = ASI; id = 1 }
+  *    ; { input = TSOIP; id = 1 }
+  *    ; { input = ASI; id = 2 }
+  *    ; { input = RF; id = 1 }
+  *    ]
+  *  in
+  *  rm_children canvas;
+  *  let inputs = List.map Topo_input.create inputs in
+  *  let input_box = new Box.t ~vertical:true ~widgets:inputs () in
+  *  input_box#style##.width := Js.string "120px";
+  *  input_box#style##.marginRight := Js.string "100px";
+  *  let cpu = Topo_cpu.create ~connections:inputs
+  *                            { process = "pipeline"
+  *                            ; ifaces = [ {iface="eht0"; conn=Input {input=ASI;id=1}}
+  *                                       ; {iface="eht1"; conn=Input {input=ASI;id=2}}
+  *                                       ]
+  *                            }
+  *  in
+  *  let box = new Box.t ~vertical:false ~widgets:[input_box#widget;cpu#widget] () in
+  *  List.iter (fun x -> Dom.appendChild canvas x#root) cpu#paths;
+  *  Dom.appendChild canvas box#root; *)
