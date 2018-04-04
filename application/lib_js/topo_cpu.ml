@@ -41,9 +41,10 @@ class t ~(connections:#Topo_node.t list)
   let header = Header.create cpu in
   let body   = Body.create cpu in
   object(self)
-    inherit Topo_block.t ~connections ~header ~body ()
+    inherit Topo_block.t ~node:(`CPU cpu) ~connections ~header ~body ()
     method cpu = cpu
     initializer
+      List.iter (fun p -> p#set_state `Active) self#paths;
       self#add_class base_class;
       self#set_attribute "data-cpu" cpu.process;
   end

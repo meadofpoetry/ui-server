@@ -1,3 +1,4 @@
+open Containers
 open Components
 
 let port_section_height = 50
@@ -44,22 +45,62 @@ module Body = struct
 
 end
 
+let rec eq_port p1 p2 =
+  let open Common.Topology in
+  (p1.port = p2.port)
+  && (match p1.child,p2.child with
+      | Input i1, Input i2 -> equal_topo_input i1 i2
+      | Board b1, Board b2 -> eq_board b1 b2
+      | _                  -> false)
+and eq_board b1 b2 =
+  let open Common.Topology in
+  equal_board_type b1.typ b2.typ
+  && String.equal b1.model b2.model
+  && String.equal b1.manufacturer b2.manufacturer
+  && equal_version b1.version b2.version
+  && (b1.control = b2.control)
+  && equal_env b1.env b2.env
+  && (Equal.list eq_port) b1.ports b2.ports
+
+let eq_node_entry (e1:Topo_node.node_entry) (e2:Topo_node.node_entry) =
+  let open Common.Topology in
+  match e1,e2 with
+  | `CPU c1, `CPU c2     -> equal_topo_cpu c1 c2
+  | `Entry e1, `Entry e2 -> (match e1,e2 with
+                             | Board b1, Board b2 -> eq_board b1 b2
+                             | Input i1, Input i2 -> equal_topo_input i1 i2
+                             | _                  -> false)
+  | _                    -> false
+
 class t ~(connections:#Topo_node.t list)
-        (board:Common.Topology.topo_board) () =
+        (board:Common.Topology.topo_board)
+        () =
   let header     = Header.create board in
   let body       = Body.create board in
   let e_settings = React.E.map (fun _ -> board) header#settings_icon#e_click in
   object(self)
-    val mutable board = board
-    inherit Topo_block.t ~connections ~header ~body () as super
-    method board        = board
-    method !set_state x = super#set_state x; board <- { board with connection = x }
-    method set_ports l  = board < { board with ports = l };
+    val mutable _board = board
+
+    inherit Topo_block.t ~node:(`Entry (Board board)) ~connections ~header ~body () as super
+
     method e_settings   = e_settings
+    method board        = _board
+    method set_board x  = _board <- x;
+                          super#set_state x.connection;
+                          match x.connection with
+                          | `Fine -> self#set_ports x.ports;
+                          | _     -> List.iter (fun p -> p#set_state `Muted) self#paths
+
+    method private set_ports l  =
+      List.iter (fun (x:Common.Topology.topo_port) ->
+          match List.find_opt (fun p -> eq_node_entry p#left_node (`Entry x.child)) self#paths with
+          | Some path -> path#set_state (if x.listening then `Active else `Muted)
+          | None      -> ()) l
+
     initializer
-      self#set_state board.connection;
+      self#set_board _board;
       self#add_class base_class;
-      self#set_attribute "data-board" board.typ
+      self#set_attribute "data-board" _board.typ
   end
 
 let create ~connections (board:Common.Topology.topo_board) =

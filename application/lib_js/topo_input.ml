@@ -28,7 +28,7 @@ class t ~input () =
   let elt = markup input |> Tyxml_js.To_dom.of_element in
   object
     method input = input
-    inherit Topo_node.t ~body:elt elt ()
+    inherit Topo_node.t ~node:(`Entry (Input input)) ~body:elt elt ()
   end
 
 let create input =

@@ -48,13 +48,14 @@ module Body = struct
 end
 
 class t ~(connections:#Topo_node.t list)
+        ~(node:Topo_node.node_entry)
         ~(header:#Header.t)
         ~(body:#Body.t)
         () =
   let card = new Card.t ~widgets:[header#widget;body#widget] () in
   object(self)
-    inherit Topo_node.parent ~connections ~body:body#root card#root ()
-    method set_state : Common.Topology.state -> unit = function
+    inherit Topo_node.parent ~node ~connections ~body:body#root card#root ()
+    method private set_state : Common.Topology.state -> unit = function
       | `Fine        -> self#add_class    fine_class;
                         self#remove_class init_class;
                         self#remove_class fail_class

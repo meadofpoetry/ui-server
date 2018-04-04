@@ -9,7 +9,7 @@ type point =
   ; y : int
   }
 
-type node_entry = [ `CPU of topo_cpu | `Input of topo_input | `Board of topo_board ]
+type node_entry = [ `CPU of topo_cpu | `Entry of topo_entry ]
 
 let get_output_point (elt:#Dom_html.element Js.t) =
   let rect = elt##getBoundingClientRect |> Widget.to_rect in
@@ -23,22 +23,23 @@ let get_input_point ~num i (elt:#Dom_html.element Js.t) =
   let y     = (int_of_float rect.top) + (i * h) + (h / 2) in
   { x; y }
 
-class t ~body elt () =
+class t ~node ~body elt () =
 object
   inherit Widget.widget elt ()
-  method output_point = get_output_point body
+  method node : node_entry = node
+  method output_point      = get_output_point body
 end
 
-class path ~(f_lp:unit->point) ~(f_rp:unit -> point) () =
+class path ~(left_node:node_entry) ~(f_lp:unit->point) ~(f_rp:unit -> point) () =
   let _class       = "topology__path" in
   let active_class = Markup.CSS.add_modifier _class "active" in
-  let muted_class  = Markup.CSS.add_modifier _class "muted" in
-  let sync_class   = Markup.CSS.add_modifier _class "sync" in
+  let muted_class  = Markup.CSS.add_modifier _class "muted"  in
+  let sync_class   = Markup.CSS.add_modifier _class "sync"   in
   let ln           = Tyxml_js.Svg.line [] in
   let ln_elt       = Tyxml_js.Svg.toelt ln |> Js.Unsafe.coerce |> Widget.create in
   let elt          = Tyxml_js.Svg.(svg ~a:[ a_width (100.,Some `Percent)
                                           ; a_height (100.,Some `Percent) ]
-                                     [ln])
+                                       [ln])
                      |> Tyxml_js.Svg.toelt
                      |> Js.Unsafe.coerce in
   object(self)
@@ -47,6 +48,7 @@ class path ~(f_lp:unit->point) ~(f_rp:unit -> point) () =
 
     val mutable state = `Muted
 
+    method left_node = left_node
     method set_state (x:connection_state) =
       state <- x;
       match state with
@@ -81,6 +83,7 @@ class path ~(f_lp:unit->point) ~(f_rp:unit -> point) () =
   end
 
 class parent ~(connections:#t list)
+             ~(node:node_entry)
              ~(body:#Dom_html.element Js.t)
              elt
              () =
@@ -88,10 +91,10 @@ class parent ~(connections:#t list)
   let num = List.length connections in
   let cw  = List.mapi (fun i x -> let f_lp = fun () -> x#output_point in
                                   let f_rp = fun () -> get_input_point ~num i body in
-                                  new path ~f_lp ~f_rp ()) connections
+                                  new path ~left_node:x#node ~f_lp ~f_rp ()) connections
   in
   object
-    inherit t ~body elt ()
+    inherit t ~node ~body elt ()
     method update_path_state n (state:connection_state) = match List.get_at_idx n cw with
       | Some path -> Ok (path#set_state state)
       | None      -> Error "path not found"

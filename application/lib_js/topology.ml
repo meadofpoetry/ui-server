@@ -176,7 +176,7 @@ let grid_template_areas t =
   | `Boards x -> concat (List.map (fun board ->
                              concat (List.map (fun x ->
                                          get_entry_areas (". "^(board_to_area board)) 1 x.child)
-                                       board.ports)) x)
+                                              board.ports)) x)
 
 (* let connect_elements ~parent ~start_el ~end_el ~color ~levels =
  *   let start_el, end_el = if start_el##.offsetLeft < end_el##.offsetLeft
@@ -225,22 +225,20 @@ let grid_template_areas t =
  *                         draw_line ~color ~width:width2 ~height:(end_y-start_y)
  *                           ~typ:Down ~left:(end_x-width2) ~top:start_y) *)
 
-type  element_typ = Brd of topo_board | Inp of topo_input | CPU of topo_cpu
-
 let draw_topology ~topo_el ~topology =
-  let create_element ~(element: element_typ) ~connections =
+  let create_element ~element ~connections =
     let result, area =
       match element with
-      | Brd board -> let res = Topo_board.create ~connections board in
-                     List.iter (fun x -> Dom.appendChild topo_el x#root) res#paths;
-                     (res:> Topo_node.t),
-                     (board_to_area board)
-      | Inp input -> (Topo_input.create input :> Topo_node.t),
-                     (input_to_area input)
-      | CPU cpu   -> let res = Topo_cpu.create cpu ~connections in
-                     List.iter (fun x -> Dom.appendChild topo_el x#root) res#paths;
-                     (res :> Topo_node.t),
-                     "CPU"
+      | `Brd board -> let res = Topo_board.create ~connections board in
+                      List.iter (fun x -> Dom.appendChild topo_el x#root) res#paths;
+                      (res:> Topo_node.t),
+                      (board_to_area board)
+      | `Inp input -> (Topo_input.create input :> Topo_node.t),
+                      (input_to_area input)
+      | `CPU cpu   -> let res = Topo_cpu.create cpu ~connections in
+                      List.iter (fun x -> Dom.appendChild topo_el x#root) res#paths;
+                      (res :> Topo_node.t),
+                      "CPU"
     in
     let div = Dom_html.createDiv Dom_html.document in
     div##.style##.cssText :=
@@ -251,7 +249,7 @@ let draw_topology ~topo_el ~topology =
     result
   in
   let rec get_boards = function
-    | Input x -> let inp = create_element ~element:(Inp x) ~connections:[] in
+    | Input x -> let inp = create_element ~element:(`Inp x) ~connections:[] in
                  (inp :> Topo_node.t)
     | Board x -> let ports  = List.map (fun x -> x.child) x.ports in
                  let connections =
@@ -259,16 +257,16 @@ let draw_topology ~topo_el ~topology =
                    | [] -> []
                    | l  -> List.map (fun x -> get_boards x) l
                  in
-                 let b = create_element ~element:(Brd x) ~connections in
+                 let b = create_element ~element:(`Brd x) ~connections in
                  (b :> Topo_node.t)
   in
   match topology with
   | `CPU cpu  -> let connections = List.map (fun x -> get_boards x.conn) cpu.ifaces in
-                 let cpu_el = create_element ~element:(CPU cpu) ~connections in
+                 let cpu_el = create_element ~element:(`CPU cpu) ~connections in
                  (cpu_el :> Topo_node.t)::connections
   | `Boards x -> List.map (fun board ->
                      let connections = List.map (fun x -> get_boards x.child) board.ports in
-                     let b = create_element ~element:(Brd board) ~connections in
+                     let b = create_element ~element:(`Brd board) ~connections in
                      (b :> Topo_node.t)) x
 
 let render ?on_click ~topology ~topo_el () =
