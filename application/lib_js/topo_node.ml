@@ -2,7 +2,7 @@ open Containers
 open Components
 open Common.Topology
 
-type connection_state = [ `Listening | `Not_listening | `Sync ]
+type connection_state = [ `Active | `Muted | `Sync ]
 
 type point =
   { x : int
@@ -12,25 +12,29 @@ type point =
 let point_to_string x =
   Printf.sprintf "{ x = %d; y = %d }" x.x x.y
 
-let get_output_point widget =
-  let rect : Widget.rect = widget#get_bounding_client_rect in
-  let y = (int_of_float rect.top) + (widget#get_offset_height / 2) in
+let get_output_point (elt:#Dom_html.element Js.t) =
+  let rect = elt##getBoundingClientRect |> Widget.to_rect in
+  let y = (int_of_float rect.top) + (elt##.offsetHeight / 2) in
   { x = int_of_float rect.right; y }
 
-let get_input_point ~num i widget =
-  let rect : Widget.rect = widget#get_bounding_client_rect in
-  let h     = widget#get_offset_height / num in
+let get_input_point ~num i (elt:#Dom_html.element Js.t) =
+  let rect = elt##getBoundingClientRect |> Widget.to_rect in
+  let h     = elt##.offsetHeight / num in
   let x     = int_of_float rect.left in
   let y     = (int_of_float rect.top) + (i * h) + (h / 2) in
   { x; y }
 
-class t ~(body:#Widget.widget) elt () =
+class t ~body elt () =
 object
   inherit Widget.widget elt ()
   method output_point = get_output_point body
 end
 
 class path ~(f_lp:unit->point) ~(f_rp:unit -> point) () =
+  let _class = "topology__path" in
+  let active_class = Markup.CSS.add_modifier _class "active" in
+  let muted_class  = Markup.CSS.add_modifier _class "muted" in
+  let sync_class   = Markup.CSS.add_modifier _class "sync" in
   let ln = Tyxml_js.Svg.line [] in
   let ln_elt = Tyxml_js.Svg.toelt ln |> Js.Unsafe.coerce |> Widget.create in
   let elt = Tyxml_js.Svg.(svg ~a:[ a_width (500.,None)
@@ -42,10 +46,20 @@ class path ~(f_lp:unit->point) ~(f_rp:unit -> point) () =
 
     inherit Widget.widget elt ()
 
-    method set_state : connection_state -> unit = function
-      | `Listening     -> ()
-      | `Not_listening -> ()
-      | `Sync          -> ()
+    val mutable state = `Muted
+
+    method set_state (x:connection_state) =
+      state <- x;
+      match state with
+      | `Active -> self#add_class active_class;
+                   self#remove_class muted_class;
+                   self#remove_class sync_class;
+      | `Muted  -> self#add_class muted_class;
+                   self#remove_class active_class;
+                   self#remove_class sync_class
+      | `Sync   -> self#add_class sync_class;
+                   self#remove_class active_class;
+                   self#remove_class muted_class
 
     method layout =
       let left  = f_lp () in
@@ -54,9 +68,10 @@ class path ~(f_lp:unit->point) ~(f_rp:unit -> point) () =
       ln_elt#set_attribute "y1" (string_of_int left.y);
       ln_elt#set_attribute "x2" (string_of_int right.x);
       ln_elt#set_attribute "y2" (string_of_int right.y);
-      ln_elt#set_attribute "stroke" "black";
 
     initializer
+      self#add_class _class;
+      self#set_state state;
       self#style##.position := Js.string "fixed";
       self#style##.left     := Js.string "0px";
       self#style##.top      := Js.string "0px";
@@ -67,7 +82,7 @@ class path ~(f_lp:unit->point) ~(f_rp:unit -> point) () =
   end
 
 class parent ~(connections:#t list)
-             ~(body:#Widget.widget)
+             ~(body:#Dom_html.element Js.t)
              elt
              () =
   let num = List.length connections in

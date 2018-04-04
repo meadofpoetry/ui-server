@@ -54,7 +54,7 @@ class t ?(s_state:Common.Topology.state React.signal option)
         () =
   let card = new Card.t ~widgets:[header#widget;body#widget] () in
   object(self)
-    inherit Topo_node.parent ~connections ~body card#root ()
+    inherit Topo_node.parent ~connections ~body:body#root card#root ()
     initializer
       body#set_n @@ List.length connections;
       (match s_state with

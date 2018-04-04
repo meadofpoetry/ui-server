@@ -60,5 +60,5 @@ class t ~(s_state:Common.Topology.state React.signal)
       self#set_attribute "data-board" board.typ
   end
 
-let create ~connections (board:Common.Topology.topo_board) =
-  new t ~connections board ()
+let create ~connections ~s_state (board:Common.Topology.topo_board) =
+  new t ~connections ~s_state board ()

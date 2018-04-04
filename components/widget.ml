@@ -13,6 +13,14 @@ type rect =
   ; height : float option
   }
 
+let to_rect (x:Dom_html.clientRect Js.t) =
+  { top    = x##.top
+  ; right  = x##.right
+  ; bottom = x##.bottom
+  ; left   = x##.left
+  ; width  = Js.Optdef.to_option x##.width
+  ; height = Js.Optdef.to_option x##.height }
+
 class widget (elt:#Dom_html.element Js.t) () = object(self)
 
   val mutable _on_load   = None
