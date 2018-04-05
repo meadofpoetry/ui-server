@@ -58,22 +58,49 @@
     @include mdc-elevation(16);
     @include mdc-rtl-reflexive-position(left, 0);
 
-    @include mdc-slideable-drawer;
-
     display: flex;
-    position: absolute;
+    position: fixed;
     flex-direction: column;
     box-sizing: border-box;
-    width: calc(100% - 56px);
-    max-width: 280px;
-    overflow: hidden;
     touch-action: none;
+    top: 0;
+    overflow-y: auto;
+    height: 100vh;
+
+    &--anchor-left {
+        left: 0;
+        right: auto;
+        @include mdc-slideable-drawer;
+    }
+    &--anchor-right {
+        left: auto;
+        right: 0;
+        @include mdc-slideable-drawer('right');
+    }
+    &--anchor-top {
+        top: 0;
+        left: 0;
+        bottom: auto;
+        right: 0;
+        height: auto;
+        max-height: 100vh;
+        @include mdc-slideable-drawer('top');
+    }
+    &--anchor-bottom {
+        top: auto;
+        left: 0;
+        bottom: 0;
+        right: 0;
+        height: auto;
+        max-height: 100vh;
+        @include mdc-slideable-drawer('bottom');
+    }
 
     /* TODO(sgomes): replace with global breakpoints when we have them */
-    @media (min-width: 600px) {
-      width: calc(100% - 64px);
-      max-width: 320px;
-    }
+    // @media (min-width: 600px) {
+    //   width: calc(100% - 64px);
+    //   max-width: 320px;
+    // }
   }
 
   .mdc-drawer__content {

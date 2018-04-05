@@ -429,10 +429,9 @@
     border-right: 0px solid #e4e4e4;
     left: 0;
     right: initial;
-    height: 100%;
+    will-change: transform;
     transform: translateX(-107%);
     transform: translateX(calc(-100% - 20px));
-    will-change: transform;
     transition: left 0.225s;
     display: inline-flex;
     flex-direction: column;
@@ -446,9 +445,6 @@
     [dir="rtl"] .mdc-drawer--custom .mdc-drawer__drawer, .mdc-drawer--custom .mdc-drawer__drawer[dir="rtl"] {
       left: initial;
       right: 0; }
-    [dir="rtl"] .mdc-drawer--custom .mdc-drawer__drawer, .mdc-drawer--custom .mdc-drawer__drawer[dir="rtl"] {
-      transform: translateX(107%);
-      transform: translateX(calc(100% + 20px)); }
     .mdc-drawer--custom .mdc-drawer__drawer .mdc-drawer__wrapper {
       -webkit-user-select: none;
       -moz-user-select: none;
@@ -563,10 +559,9 @@
       box-shadow: 0px 8px 10px -5px rgba(0, 0, 0, 0.2), 0px 16px 24px 2px rgba(0, 0, 0, 0.14), 0px 6px 30px 5px rgba(0, 0, 0, 0.12);
       left: 0;
       right: initial;
-      height: 100%;
+      will-change: transform;
       transform: translateX(-107%);
       transform: translateX(calc(-100% - 20px));
-      will-change: transform;
       display: flex;
       position: absolute;
       flex-direction: column;
@@ -578,9 +573,6 @@
       [dir="rtl"] .mdc-drawer--custom .mdc-drawer__drawer, .mdc-drawer--custom .mdc-drawer__drawer[dir="rtl"] {
         left: initial;
         right: 0; }
-      [dir="rtl"] .mdc-drawer--custom .mdc-drawer__drawer, .mdc-drawer--custom .mdc-drawer__drawer[dir="rtl"] {
-        transform: translateX(107%);
-        transform: translateX(calc(100% + 20px)); }
     .mdc-drawer--custom .mdc-drawer__content {
       flex-grow: 1;
       box-sizing: border-box;

@@ -15,10 +15,10 @@ class overlay_grid ~parent () =
     val mutable show_dividers  = false
     val mutable divider_period = 10,10
 
-    method show = Dom.appendChild parent self#root;
-                  parent##.classList##add (Js.string Markup.Dynamic_grid.with_overlay_grid_class)
-    method hide = (try Dom.removeChild parent self#root with _ -> ());
-                  parent##.classList##remove (Js.string Markup.Dynamic_grid.with_overlay_grid_class)
+    method show : unit = Dom.appendChild parent self#root;
+                         parent##.classList##add (Js.string Markup.Dynamic_grid.with_overlay_grid_class)
+    method hide : unit = (try Dom.removeChild parent self#root with _ -> ());
+                         parent##.classList##remove (Js.string Markup.Dynamic_grid.with_overlay_grid_class)
 
     method set_grid_color r g b a = grid_color <- Color.v r g b a;
                                     self#layout

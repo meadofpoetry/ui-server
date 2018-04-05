@@ -901,111 +901,50 @@ module Make
 
   module Drawer = struct
 
-    module type Base = sig val base_class : string end
+    let base_class        = "mdc-drawer"
+    let temporary_class   = CSS.add_modifier base_class "temporary"
+    let drawer_class      = CSS.add_element base_class "drawer"
+    let content_class     = CSS.add_element base_class "content"
+    let open_class        = CSS.add_modifier base_class "open"
+    let animating_class   = CSS.add_modifier base_class "animating"
+    let scroll_lock_class = base_class ^ "-scroll-lock"
 
-    module Make_item (M : Base) = struct
+    module Toolbar_spacer = struct
 
-      let _class         = List_.Item._class
-      let selected_class = CSS.add_modifier M.base_class "selected"
-
-      let create_icon ?id ?style ?(classes=[]) ?attrs ~icon () =
-        Html.i ~a:([ a_class ("material-icons" :: List_.Item.graphic_class :: classes) ]
-                   |> add_common_attrs ?id ?style ?attrs)
-          [pcdata icon]
-
-      let create ?id ?style ?(classes=[]) ?attrs ?(selected=false) ?start_detail ?href ~text () =
-        Html.a ~a:([ a_class (classes
-                              |> cons_if selected selected_class
-                              |> List.cons _class)
-                   ; a_aria "hidden" ["true"] ]
-                   |> map_cons_option ~f:(fun x -> a_href @@ uri_of_string x) href
-                   |> add_common_attrs ?id ?style ?attrs)
-          (cons_option start_detail [ pcdata text ])
-
-    end
-
-    module Make_toolbar_spacer (M : Base) = struct
-
-      let _class = CSS.add_element M.base_class "toolbar-spacer"
+      let _class = CSS.add_element base_class "toolbar-spacer"
 
       let create ?id ?style ?(classes=[]) ?attrs ~content () =
         div ~a:([ a_class (_class :: classes) ]
                 |> add_common_attrs ?id ?style ?attrs)
-          content
+            content
 
     end
 
-    module Make_header (M : Base) = struct
+    module Header = struct
 
-      let _class               = CSS.add_element M.base_class "header"
-      let header_content_class = CSS.add_element M.base_class "header-content"
+      let _class               = CSS.add_element base_class "header"
+      let header_content_class = CSS.add_element base_class "header-content"
 
       let create ?id ?style ?(classes=[]) ?attrs ~content () =
         header ~a:([ a_class (_class :: classes) ]
                    |> add_common_attrs ?id ?style ?attrs)
-          [ div ~a:([ a_class [header_content_class] ])
-              content]
+               [ div ~a:([ a_class [header_content_class] ])
+                     content]
 
     end
 
-    module Permanent = struct
-
-      let base_class    = "mdc-permanent-drawer"
-
-      module Header         = Make_header(struct let base_class = base_class end)
-      module Toolbar_spacer = Make_toolbar_spacer(struct let base_class = base_class end)
-      module Item           = Make_item(struct let base_class = base_class end)
-
-      let create ?id ?style ?(classes=[]) ?attrs ~content () =
-        nav ~a:([ a_class (classes
-                           |> List.cons Typography.base_class
-                           |> List.cons base_class) ]
-                |> add_common_attrs ?id ?style ?attrs)
+    let create_drawer ?id ?style ?(classes=[]) ?attrs ~content () =
+      nav ~a:([ a_class (drawer_class :: classes) ]
+              |> add_common_attrs ?id ?style ?attrs)
           content
 
-    end
-
-    module Persistent = struct
-
-      let base_class    = "mdc-persistent-drawer"
-      let drawer_class  = CSS.add_element base_class "drawer"
-      let content_class = CSS.add_element base_class "content"
-
-      module Header         = Make_header(struct let base_class = base_class end)
-      module Toolbar_spacer = Make_toolbar_spacer(struct let base_class = base_class end)
-      module Item           = Make_item(struct let base_class = base_class end)
-
-      let create ?id ?style ?(classes=[]) ?attrs ~content () =
-        aside ~a:([ a_class (classes
-                             |> List.cons Typography.base_class
-                             |> List.cons base_class) ]
-                  |> add_common_attrs ?id ?style ?attrs)
-          [ nav ~a:([ a_class [drawer_class] ])
-              content
-          ]
-
-    end
-
-    module Temporary = struct
-
-      let base_class    = "mdc-temporary-drawer"
-      let drawer_class  = CSS.add_element base_class "drawer"
-      let content_class = CSS.add_element base_class "content"
-
-      module Header         = Make_header(struct let base_class = base_class end)
-      module Toolbar_spacer = Make_toolbar_spacer(struct let base_class = base_class end)
-      module Item           = Make_item(struct let base_class = base_class end)
-
-      let create ?id ?style ?(classes=[]) ?attrs ~content () =
-        aside ~a:([ a_class (classes
-                             |> List.cons Typography.base_class
-                             |> List.cons base_class) ]
-                  |> add_common_attrs ?id ?style ?attrs)
-          [ nav ~a:([ a_class [drawer_class] ])
-              content
-          ]
-
-    end
+    let create ?id ?style ?(classes=[]) ?attrs ~drawer () =
+      aside ~a:([ a_class (classes
+                           |> List.cons Typography.base_class
+                           |> List.cons temporary_class
+                           |> List.cons base_class) ]
+                |> add_common_attrs ?id ?style ?attrs)
+            [drawer]
 
   end
 

@@ -236,9 +236,6 @@ let card control ~(signals : signals) =
 
 let layout control ~(signals : signals) =
   let card = card control ~signals in
-  (* let cell = new Layout_grid.Cell.t ~widgets:[card] () in
-   * let grid = new Layout_grid.t ~cells:[cell] () in
-   * grid *)
   card#style##.margin   := Js.string "24px";
   card#style##.maxWidth := Js.string "640px";
   card

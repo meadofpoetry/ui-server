@@ -128,29 +128,32 @@ let make_board_dialog () =
   in
   new Dialog.t ~scrollable:true ~actions ~content:(`Widgets []) ~title:"" ()
 
+let make_drawer () =
+  new Drawer.t ~anchor:`Bottom ~content:[] ()
+
 let create ~(parent: #Widget.widget)
            ~(init:   Common.Topology.t)
            ~(event:  Common.Topology.t React.event)
            () =
   let svg    = Tyxml_js.Svg.(svg ~a:[a_class [Markup.CSS.add_element _class "paths"]] [] |> toelt) in
   let nodes  = make_nodes init in
-  let dialog = make_board_dialog () in
+  let drawer = make_drawer () in
   let e_bs   = React.E.select @@ List.filter_map (function `Board b -> Some b#e_settings | _ -> None) nodes in
-  let _      = React.E.map (fun (state,board) ->
-                   (Option.get_exn dialog#header)#set_title @@ Topo_board.get_board_name board;
-                   rm_children dialog#body#root;
+  let _      = React.E.map (fun board ->
+                   (* (Option.get_exn dialog#header)#set_title @@ Topo_board.get_board_name board; *)
+                   rm_children drawer#drawer#root;
                    (match board.typ with
                     | "TS" -> Widget.create @@ fst @@ Board_qos_niit_js.Settings.page board.control
                     | "DVB"   -> (new Board_dvb_niit_js.Settings.settings board.control ())#widget
                     | "TS2IP" -> (new Board_ts2ip_niit_js.Settings.settings board.control ())#widget
                     | "IP2TS" -> Widget.create @@ fst @@ Board_ip_dektec_js.Ip_dektec.page board.control
                     | _    -> Dom_html.createDiv Dom_html.document |> Widget.create)
-                   |> (fun w -> Dom.appendChild dialog#body#root w#root);
-                   dialog#show) e_bs
+                   |> (fun w -> Dom.appendChild drawer#drawer#root w#root);
+                   drawer#show) e_bs
   in
   iter_paths (fun x -> Dom.appendChild svg x#root) nodes;
+  Dom.appendChild Dom_html.document##.body drawer#root;
   Dom.appendChild parent#root svg;
-  Dom.appendChild parent#root dialog#root;
   List.iter (fun x -> let node = to_topo_node x in
                       let w    = wrap node#area node in
                       Dom.appendChild parent#root w#root) nodes;

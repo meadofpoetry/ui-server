@@ -79,7 +79,7 @@ class t ~(connections:#Topo_node.t list)
   let s,push     = React.S.create board.connection in
   let header     = Header.create board in
   let body       = Body.create board in
-  let e_settings = React.E.map (fun _ -> s,board) header#settings_icon#e_click in
+  let e_settings = React.E.map (fun _ -> board) header#settings_icon#e_click in
   object(self)
     val mutable _board = board
 
@@ -87,6 +87,7 @@ class t ~(connections:#Topo_node.t list)
 
     method layout       = header#layout
     method e_settings   = e_settings
+    method s_state      = s
     method board        = _board
     method set_board x  = _board <- x;
                           push x.connection;
