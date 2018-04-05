@@ -117,7 +117,7 @@ module Streams_table = struct
     let del_item   i = list#remove_item i in
     let del_stream s =
       let slst = React.S.value signal in
-      push @@ List.filter (Common.Stream.equal s) slst
+      push @@ List.filter (fun x -> not @@ Common.Stream.equal s x) slst
     in
     let items = List.map (make_board_stream_entry del_item del_stream) stream_list in
     List.iter (fun i -> list#add_item i) items;
@@ -158,12 +158,16 @@ module Streams_table = struct
     Dom.appendChild Dom_html.document##.body dialog#root;
     { dialog; push; result }
 
-  let show_stream_create_dialog dialog i =
+  let show_stream_create_dialog dialog streams i =
     let open Common.Topology in
     dialog.push i;
     dialog.dialog#show_await >>= function
     | `Cancel -> Lwt.return_error "dialog was canceled"
-    | `Accept -> Lwt.return @@ React.S.value dialog.result
+    | `Accept ->
+       React.S.value dialog.result
+       |> Result.flat_map (fun s -> if List.exists (Common.Stream.equal s) (React.S.value streams)
+                                    then Error "streams exists" else Ok s)
+       |> Lwt.return
                     
   let make_input_entry (iid, _, stream_list) =
     let open Item_list.List_group in
@@ -179,7 +183,7 @@ module Streams_table = struct
     let add_button  = new Button.t ~label:"add stream" () in
     let dialog = make_stream_create_dialog () in
     Lwt_react.E.keep @@ Lwt_react.E.map_p (fun _ ->
-                            show_stream_create_dialog dialog (input,id) >>= function
+                            show_stream_create_dialog dialog streams (input,id) >>= function
                             | Error e -> Lwt.return @@ print_endline e
                             | Ok s    -> Lwt.return @@ add s)
                           add_button#e_click;

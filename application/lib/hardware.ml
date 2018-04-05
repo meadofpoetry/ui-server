@@ -171,7 +171,18 @@ let set_stream hw (ss : stream_setting) =
           let uris = List.map fst sl in
           grep_input_uris (uris @ acc) tl
      in
+     (* TODO replace by a more generic check *)
+     let check_inputs l =
+       let rec check = function
+         | [] -> ()
+         | x::tl ->
+            if List.exists (Common.Stream.equal x) tl
+            then raise_notrace (Constraints (`Internal_error "set_stream: input streams duplication"));
+            check tl
+       in List.iter (fun (_,l) -> check l) l
+     in
      let boards, inputs = List.partition_map split ss in
+     check_inputs inputs;
      let inputs = List.map input_add_uri inputs in
      let forbidden = grep_input_uris [] inputs in
      let boards = match Common.Uri.gen_in_ranges ~forbidden (List.concat boards) with
