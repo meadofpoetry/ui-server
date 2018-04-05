@@ -21,14 +21,15 @@ let () =
                |> boards_of_yojson
                |> Result.get_exn in
   let board_to_tabs control = function
-    | IP2TS -> [ "IP", (fun () -> Board_ip_dektec_js.Ip_dektec.page control) ]
-    | DVB   -> [ "RF", (fun () -> print_endline "new rf page!";
+    | "IP2TS" -> [ "IP", (fun () -> Board_ip_dektec_js.Ip_dektec.page control) ]
+    | "DVB"   -> [ "RF", (fun () -> print_endline "new rf page!";
                                   (new Board_dvb_niit_js.Measures.measures control ())#root, (fun () -> ())) ]
-    | TS    -> [ (* "QoS",       (fun () -> Board_qos_niit_js.Settings.page control) 
+    | "TS"    -> [ (* "QoS",       (fun () -> Board_qos_niit_js.Settings.page control) 
                ; *) "Структура", (fun () -> Board_qos_niit_js.Structure.page control)
                ]
-    | TS2IP -> [ (* "TS2IP", (fun () -> (new Board_ts2ip_niit_js.Settings.settings control ())#root, (fun () -> ())) *)
+    | "TS2IP" -> [ (* "TS2IP", (fun () -> (new Board_ts2ip_niit_js.Settings.settings control ())#root, (fun () -> ())) *)
       ]
+    | s -> failwith ("input.js: unknown board " ^ s)
   in
   let tabs = List.fold_left (fun acc (c,typ) -> (List.rev @@ board_to_tabs c typ) @ acc) [] boards
              |> List.rev in

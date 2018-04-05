@@ -26,12 +26,13 @@ let input_to_string ({ input; id }:topo_input) =
    | TSOIP -> "TSoIP "
    | ASI   -> "ASI ") ^ (string_of_int id)
 
-let board_to_string (tp:typ) =
+let board_to_string (tp:board_type) = 
   match tp with
-  | DVB   -> "DVB-T/T2/C"
-  | TS    -> "QoS"
-  | IP2TS -> "TSoIP"
-  | TS2IP -> "QoE"
+  | "DVB"   -> "DVB-T/T2/C"
+  | "TS"    -> "QoS"
+  | "IP2TS" -> "TSoIP"
+  | "TS2IP" -> "QoE"
+  | s       -> failwith ("unknown board " ^ s)
 
 let floor_to_five x =
   let fx = floor x +. 0.5 in
@@ -249,9 +250,9 @@ module Board = struct
   let rec draw t (acc, acc_top) ~x ~y ~cols ~rows ~size =
     let num        = List.length t.ports in
     (* the more children converter has the bigger it is *)
-    let height     = if Equal.poly t.typ TS2IP then (float_of_int num *. 2.) else 1. in
+    let height     = if String.equal t.typ "TS2IP" then (float_of_int num *. 2.) else 1. in
     (*then we must place converter in a right place due to its height*)
-    let y          = if Equal.poly t.typ TS2IP then y -. 0.5 else y in
+    let y          = if String.equal t.typ "TS2IP" then y -. 0.5 else y in
     (*set the name of a board to list*)
     let acc_top    = setting (Board t) x y y height acc_top in
     let area       = `O {P.o with P.width = 0.2 /. size} in
@@ -308,7 +309,7 @@ module Board = struct
        List.foldi (fun (acc,acc_top) i z ->
            let colour1 = if z.listening then green else gray in          (*a color of line due to state "listening"*)
            match t.typ with                                              (*so if board type is*)
-           | TS2IP ->
+           | "TS2IP" ->
               let y_child = y +. float_of_int ((num-i-1)*2) +. 0.5 in    (*converter, then child height is <-*)
               let draw_line x1 =
                 (Port.draw_line acc colour1

@@ -1,7 +1,7 @@
 open Api.Interaction   
 open Lwt.Infix
 
-let set_password users body () =
+let set_password (users : User.entries) body () =
   let open User in
   yojson_of_body body >>= fun js ->
   match pass_change_of_yojson js with

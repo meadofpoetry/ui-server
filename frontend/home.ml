@@ -1,7 +1,7 @@
 open Containers
 open Lwt_react
 open Board_ip_dektec_js.Requests
-open Hardware_js.Requests
+open Application_js.Requests
 open Components
 
 let return = Lwt.return

@@ -1,0 +1,22 @@
+(jbuild_version 1)
+
+(library
+ ((name        application)
+  (public_name application)
+  (wrapped false)
+  (modes (native))
+  (synopsis "app")
+  (ocamlopt_flags (:standard -short-paths -strict-sequence -bin-annot
+                   -thread -w "+1..49+60" -w "+a-4-7-23-33-39-40-41-42-44-45-48"
+                   -O3 -unbox-closures))
+  (libraries (containers yojson caqti-lwt
+              lwt lwt-zmq lwt_react websocket-lwt.cohttp
+              api storage common pipeline usb_device
+              meta_board board-dvb-niit board-ip-dektec
+              board-qos-niit board-ts2ip-niit))
+  (preprocess (pps (ppx_deriving_yojson)))))
+
+(rule
+ ((targets (application_types.ml))
+  (deps (../application_types.ml))
+  (action (copy ${<} ${@}))))

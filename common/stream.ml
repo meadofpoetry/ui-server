@@ -29,23 +29,9 @@ let id_to_int32 : id -> int32 = function
                         |> Int32.logor (Int32.of_int plp)
   | Unknown x        -> x
 
-type ip = Ipaddr.V4.t
-let pp_ip = Ipaddr.V4.pp_hum
-let ip_to_yojson ip =
-  Ipaddr.V4.to_string ip
-  |> fun s -> `String s
-let ip_of_yojson = function
-  | `String s -> Ipaddr.V4.of_string s
-                 |> (function Some ip -> Ok ip | None -> Error ("ip_of_yojson: bad ip: " ^ s))
-  | _ -> Error "ip_of_yojson: bad js"
-let equal_ip a1 a2 = Int32.equal (Ipaddr.V4.to_int32 a1) (Ipaddr.V4.to_int32 a2)
-type addr = { ip   : ip
-            ; port : int
-            } [@@deriving yojson, show, eq]
-
 type stream =
   { source      : src
-  ; id          : [`Ip of addr | `Ts of id]
+  ; id          : [`Ip of Uri.t | `Ts of id]
   ; description : string option
   }
 and src = Port   of int
@@ -54,12 +40,28 @@ and src = Port   of int
 
 type t =
   { source      : source
-  ; id          : [`Ip of addr | `Ts of id]
+  ; id          : [`Ip of Uri.t | `Ts of id]
   ; description : string option
   }
 and source = Input  of Topology.topo_input
            | Parent of t
-           [@@deriving yojson, show, eq]
+           [@@deriving yojson, show]
+
+let rec equal l r =
+  match l.id, r.id with
+  | `Ip ul, `Ip ur ->
+     if Uri.equal ul ur
+     then equal_source l.source r.source
+     else false
+  | `Ts il, `Ts ir ->
+     if equal_id il ir
+     then equal_source l.source r.source
+     else false
+  | _ -> false
+and equal_source l r = match l, r with
+  | Input l, Input r -> Topology.equal_topo_input l r
+  | Parent l, Parent r -> equal l r
+  | _ -> false
 
 type t_list = t list [@@deriving yojson]
 
@@ -77,3 +79,12 @@ let t_to_topo_port (b:topo_board) (t:t) =
                               | Some _ -> Some h
                               | None   -> get_port tl))
   in get_port b.ports
+
+let header : t -> string = fun s ->
+  let h = match s.id with
+    | `Ip _  -> "IP stream"
+    | `Ts id -> Printf.sprintf "TS stream %s" @@ show_id id
+  in
+  match s.description with
+  | None -> h
+  | Some d -> h ^ " (" ^ d ^ ")" 

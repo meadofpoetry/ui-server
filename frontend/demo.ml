@@ -205,8 +205,8 @@ let list_demo () =
                 ]
                 () in
   let group = new Item_list.List_group.t
-                ~content:[ { subheader = Some "Group 1"; list = list1 }
-                         ; { subheader = Some "Group 2"; list = list2 }
+                ~content:[ { subheader = Some (new Typography.Text.t ~text:"Group 1" ()); list = list1 }
+                         ; { subheader = Some (new Typography.Text.t ~text:"Group 2" ()); list = list2 }
                 ]
                 () in
   group#style##.maxWidth := Js.string "400px";
@@ -228,7 +228,7 @@ let tree_demo () =
   demo_section "Tree" [ tree ]
 
 let menu_demo () =
-  let items    = List.map (fun x -> if x != 2
+  let items    = List.map (fun x -> if x <> 2
                                     then `Item (new Menu.Item.t ~text:("Menu item " ^ (string_of_int x)) ())
                                     else `Divider (new Menu.Divider.t ()))
                    (List.range 0 5) in

@@ -33,16 +33,20 @@ let limit f e =
    
 let (%) = Fun.(%)
 (* TODO make 'active type label *)
-
+        
 type options = { wm         : Wm.t Storage.Options.storage
                ; structures : Structure.Structures.t Storage.Options.storage
                ; settings   : Settings.t Storage.Options.storage
                }
         
-type state = { ctx         : ZMQ.Context.t
-             ; msg         : [ `Req] ZMQ.Socket.t
-             ; ev          : [ `Sub] ZMQ.Socket.t
-             ; options     : options
+type state = { ctx          : ZMQ.Context.t
+             ; msg          : [ `Req] ZMQ.Socket.t
+             ; ev           : [ `Sub] ZMQ.Socket.t
+             ; options      : options
+             ; srcs         : (Common.Uri.t * Common.Stream.t) list ref
+             ; mutable proc : Lwt_process.process_none option
+             ; ready        : bool ref
+             ; ready_e      : unit event
              }
 
 type channels =
@@ -109,6 +113,7 @@ let add_storages typ send options structs wm settings =
   
 let notif_events typ =
   let events, epush     = E.create () in
+  let ready, ready_push = E.create () in
   let strm, strm_push   = E.create () in
   let sets, sets_push   = E.create () in
   let grap, grap_push   = E.create () in
@@ -122,7 +127,8 @@ let notif_events typ =
 
   let table = Hashtbl.create 10 in
   List.iter (fun (n,f) -> Hashtbl.add table n f)
-    [ Wm_notif.create typ ((<$>) wm_push)
+    [ Notif.Ready.create typ ((<$>) ready_push)
+    ; Wm_notif.create typ ((<$>) wm_push)
     ; Structures_notif.create typ ((<$>) strm_push)
     ; Settings_notif.create typ ((<$>) sets_push)
     ; Graph_notif.create typ ((<$>) grap_push)
@@ -132,7 +138,7 @@ let notif_events typ =
 
   let dispatch = dispatch typ table in
   Lwt_react.E.keep @@ E.map dispatch events;
-  epush, strm, sets, grap, wm, vdata, adata,
+  epush, ready, strm, sets, grap, wm, vdata, adata,
   strm_push, wm_push, sets_push
   
 let create_channels
@@ -173,7 +179,7 @@ let create_send (type a) (typ : a typ) (conv : a converter) msg_sock : (a -> a L
   Socket.recv msg_sock >|= fun resp ->
   conv.of_string resp
   
-let create (type a) (typ : a typ) config sock_in sock_out hardware_streams =
+let create (type a) (typ : a typ) config sock_in sock_out =
   let stor    = Storage.Options.Conf.get config in
   let options = { wm         = Wm_options.create stor.config_dir ["pipeline";"wm"]
                 ; structures = Structures_options.create stor.config_dir ["pipeline";"structures"]
@@ -191,11 +197,18 @@ let create (type a) (typ : a typ) config sock_in sock_out hardware_streams =
   let msg_sock = Socket.of_socket msg in
   let ev_sock  = Socket.of_socket ev in
 
+  let srcs      = ref [] in
+  let ready     = ref false in
+  let proc      = None in
   let converter = (Msg_conv.get_converter typ) in
-  let send = create_send typ converter msg_sock in
-  settings_init typ send options;
-  
-  let epush,
+  let send =
+    let send = create_send typ converter msg_sock in
+    fun msg -> if !ready
+               then Lwt.fail_with "backend is not ready"
+               else send msg
+  in
+
+  let epush, ready_e,
       structures, settings,
       graph, wm,
       vdata, adata,
@@ -203,15 +216,9 @@ let create (type a) (typ : a typ) config sock_in sock_out hardware_streams =
   in
   let structures, wm, settings = add_storages typ send options structures wm settings in
   
-  let streams = S.l2
-                  (Structure_conv.match_streams Common.Topology.(Some { input = TSOIP; id = 42 }))
-                  hardware_streams structures
-  in
+  let streams = S.map (Structure_conv.match_streams srcs) structures in
   let requests =
-    let merge s =
-      (Structure_conv.match_streams Common.Topology.(Some { input = TSOIP; id = 42 }))
-        (S.value hardware_streams) s
-    in
+    let merge v = Structure_conv.match_streams srcs v in
     create_channels typ send options merge strms_push wm_push sets_push
   in
   
@@ -220,17 +227,33 @@ let create (type a) (typ : a typ) config sock_in sock_out hardware_streams =
             ; requests
             } in
   
-  let state = { ctx; msg; ev; options } in
+  let state = { ctx; msg; ev; options; srcs; proc; ready; ready_e } in
   let recv () =
     Socket.recv ev_sock
     >>= fun msg ->
     Lwt.return @@ epush (converter.of_string msg)
   in
-  api, state, recv
+  api, state, recv, send
 
+let reset typ send bin_path bin_name msg_fmt state (sources : (Common.Uri.t * Common.Stream.t) list) =
+  let exec_path = (Filename.concat bin_path bin_name) in
+  let msg_fmt   = Pipeline_settings.format_to_string msg_fmt in
+  let uris      = List.map Fun.(fst %> Common.Uri.to_string) sources in
+  let exec_opts = Array.of_list (bin_name :: "-m" :: msg_fmt :: uris) in
+  state.srcs  := sources;
+  state.ready := false;
+  Option.iter (fun proc -> proc#terminate) state.proc;
+  let is_ready = Notif.is_ready state.ready_e in
+  state.proc <- Some (Lwt_process.open_process_none (exec_path, exec_opts));
+  (is_ready >|= fun () ->
+   settings_init typ send state.options;
+   state.ready := true)
+  |> Lwt.ignore_result
   
 let finalize state =
   ZMQ.Socket.unsubscribe state.ev "";
   ZMQ.Socket.close       state.ev;
   ZMQ.Socket.close       state.msg;
-  ZMQ.Context.terminate  state.ctx
+  ZMQ.Context.terminate  state.ctx;
+  Option.iter (fun proc -> proc#terminate) state.proc;
+  state.proc <- None

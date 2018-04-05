@@ -6,7 +6,7 @@ open Api
 
 let get_input_name x topo =
   let single = List.find_pred (fun input -> input.input = x.input && input.id <> x.id)
-                                (topo_inputs topo)
+                                (Common.Topology.inputs topo)
                |> Option.is_none in
   let to_string s = if single then Printf.sprintf "%s" s else Printf.sprintf "%s %d" s x.id in
   match x.input with
@@ -20,8 +20,8 @@ let get_input_href x =
   Filename.concat name id
 
 let input topo (topo_input:topo_input) =
-  let path = List.find_map (fun (i,p) -> if i = topo_input then Some p else None)
-                             (topo_paths topo) in
+  let path = List.find_map (fun (i,p,_) -> if i = topo_input then Some p else None)
+                             (Common.Topology.paths topo) in
   match path with
   | None      -> failwith "input not found"
   | Some path -> let title  = get_input_name topo_input topo in
@@ -39,11 +39,11 @@ let input topo (topo_input:topo_input) =
                                 } in
                  `Index topo_input.id, Simple { title; href = Path.of_string @@ get_input_href topo_input; template }
 
-let create (hw : Hardware.t) : upper ordered_item list user_table =
-  let topo  = React.S.value hw.topo in
+let create (app : Application.t) : upper ordered_item list user_table =
+  let topo  = React.S.value app.topo in
   let props = { title        = Some "Конфигурация"
               ; pre_scripts  = []
-              ; post_scripts = [ Src "js/hardware.js" ]
+              ; post_scripts = [ Src "js/topology.js" ]
               ; stylesheets  = []
               ; content      = []
               } in
@@ -55,12 +55,18 @@ let create (hw : Hardware.t) : upper ordered_item list user_table =
                    ; content      = [ ]
                    }
   in
-  let templates = CCList.map (input topo) (Common.Topology.topo_inputs topo) |> CCList.rev in
+  let templates = CCList.map (input topo) (Common.Topology.inputs topo) |> CCList.rev in
   let rval = [ `Index 2, Subtree { title = "Входы"; href = Path.of_string "input"; templates }
-             ; `Index 3, Simple  { title = "Конфигурация"; href = Path.of_string "hardware"; template = props }
+             ; `Index 3, Simple  { title = "Конфигурация"; href = Path.of_string "application"; template = props }
              ; `Index 4, Simple  { title = "Демо"; href = Path.of_string "demo"; template = demo_props }
              ]
-  in { root = rval
-     ; operator = rval
-     ; guest = rval
-     }
+  in
+  let proc = match app.proc with
+    | None -> Common.User.empty_table
+    | Some p -> p#template ()
+  in
+  Common.User.concat_table [ Responses.home_template ()
+                           ; User_template.create ()
+                           ; proc
+                           ; { root = rval; operator = rval; guest = rval }
+    ]

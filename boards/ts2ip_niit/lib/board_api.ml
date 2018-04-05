@@ -48,7 +48,7 @@ let set_streams_simple (api:api) body () =
   | Error e -> respond_error e ()
   | Ok sms  -> api.set_streams_simple sms
                >>= function
-               | Error e -> respond_error e ()
+               | Error e -> respond_error (Board_protocol.set_streams_error_to_string e) ()
                | Ok ()   -> respond_ok ()
 
 let set_streams_full (api:api) body () =
@@ -57,7 +57,7 @@ let set_streams_full (api:api) body () =
   | Error e -> respond_error e ()
   | Ok sms  -> api.set_streams_full sms
                >>= function
-               | Error e -> respond_error e ()
+               | Error e -> respond_error (Board_protocol.set_streams_error_to_string e) ()
                | Ok ()   -> respond_ok ()
 
 let sock_handler sock_data (event:'a React.event) (to_yojson:'a -> Yojson.Safe.json) body =

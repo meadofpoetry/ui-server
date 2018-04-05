@@ -1,6 +1,6 @@
 open Containers
 open Lwt.Infix
-open Hardware_js
+open Application_js
 open Common.Topology
 open Components
 
@@ -30,21 +30,43 @@ let () =
                  |> Js.Opt.to_option |> Option.get_exn
                  |> Js.Unsafe.coerce
                  |> (fun x -> x##.offsetWidth) in
+
+  
   Dom.appendChild ac canvas;
-  Dom.appendChild ac divider#root;
+  Dom.appendChild ac divider#root;  
   Dom.appendChild ac (settings_section s)#root;
 
+  Requests.get_stream_table ()
+  >>= (function
+       | Ok init ->
+          let stream_selector = Streams_selector.Streams_table.create
+                                  ~init ~events:(fst @@ Requests.get_stream_table_socket ())
+                                  ~post:(fun ss ->
+                                    (Requests.post_stream_settings ss
+                                     >>= function
+                                     | Ok ()   -> Lwt.return_unit
+                                     | Error e -> (Printf.printf "post stream settings, error: %s\n"
+                                                     (Yojson.Safe.pretty_to_string @@
+                                                        Application_types.set_error_to_yojson e));
+                                                  Lwt.return_unit)
+                                    |> Lwt.ignore_result)
+          in Dom.appendChild ac stream_selector;
+             Lwt.return_unit
+       | Error e -> Lwt.return @@ Printf.printf "stream_table get, error: %s\n" e)
+  |> Lwt.ignore_result;
+  
   Requests.get_topology ()
   >>= (fun resp ->
     match resp with
     | Ok t    ->
        let f b = match b.typ with
-         | DVB   -> (new Board_dvb_niit_js.Settings.settings b.control ())#widget
-         | TS2IP -> (new Board_ts2ip_niit_js.Settings.settings b.control ())#widget
-         | IP2TS -> Widget.create @@ fst @@ Board_ip_dektec_js.Ip_dektec.page b.control
-         | TS    -> Widget.create @@ fst @@ Board_qos_niit_js.Settings.page b.control
+         | "DVB"   -> (new Board_dvb_niit_js.Settings.settings b.control ())#widget
+         | "TS2IP" -> (new Board_ts2ip_niit_js.Settings.settings b.control ())#widget
+         | "IP2TS" -> Widget.create @@ fst @@ Board_ip_dektec_js.Ip_dektec.page b.control
+         | "TS"    -> Widget.create @@ fst @@ Board_qos_niit_js.Settings.page b.control
+         | s       -> failwith ("Requests.get_topology: unknown board " ^ s)
        in
-       Topology.render ~topology:t
+       Topology.render ~topology:(get_entries t)
                        ~canvas
                        ~width:(width ())
                        ~on_click:(function
@@ -54,6 +76,6 @@ let () =
        |> Lwt.return
     | Error e -> Lwt.return @@ print_endline e)
   |> ignore;
-  React.E.map (fun x -> Topology.render ~topology:x ~canvas ~width:(width ()) ())
+  React.E.map (fun x -> Topology.render ~topology:(get_entries x) ~canvas ~width:(width ()) ())
               (fst (Requests.get_topology_socket ()))
   |> ignore
