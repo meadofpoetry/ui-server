@@ -264,14 +264,16 @@ let draw_topology ~topology =
                  |> List.flatten
 
 let render ?on_click ~topology ~topo_el () =
+  let svg = Tyxml_js.Svg.(svg ~a:[a_class [Markup.CSS.add_element _class "paths"]] [] |> toelt) in
   let gta = "grid-template-areas: "^(grid_template_areas topology)^";" in
   topo_el##.classList##add (Js.string _class);
   topo_el##.style##.cssText   := Js.string gta;
   rm_children topo_el;
+  Dom.appendChild topo_el svg;
   let l = draw_topology ~topology in
   List.iter (fun x -> (match x with
-                       | `Board b -> List.iter (fun p -> Dom.appendChild topo_el p#root) b#paths
-                       | `CPU c   -> List.iter (fun p -> Dom.appendChild topo_el p#root) c#paths
+                       | `Board b -> List.iter (fun p -> Dom.appendChild svg p#root) b#paths
+                       | `CPU c   -> List.iter (fun p -> Dom.appendChild svg p#root) c#paths
                        | _        -> ());
                       let node = to_topo_node x in
                       let w    = wrap node#area node in

@@ -13,10 +13,17 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
     display: grid;
     height: 100%;
     margin: 64px 20px;
+    position: relative;
 }
 
 .topology__node-wrapper {
     margin: auto 0;
+}
+
+.topology__paths {
+    position: absolute;
+    width: 100%;
+    height: 100%;
 }
 
 .topology__path {
