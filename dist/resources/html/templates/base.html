@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ru">
     <head>
@@ -14,15 +15,11 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans">
     <link rel="stylesheet" href="/css/main.css" type="text/css">
     <style>
-     @font-face {
+         @font-face {
          font-family: "Open Sans";
          src: url("https://fonts.googleapis.com/css?family=Open+Sans");
-     }
+         }
     </style>
-    <!-- Additional stylesheets -->
-    {{#stylesheets}}
-    <link rel="stylesheet" href={{stylesheet}} type="text/css">
-    {{/stylesheets}}
     <!-- Additional scripts -->
     <script type="text/javascript">var username="{{user}}"</script>
     {{#pre_scripts}}
@@ -32,6 +29,10 @@
      {{/src}}
     </script>
     {{/pre_scripts}}
+    <!-- Additional stylesheets -->
+    {{#stylesheets}}
+    <link rel="stylesheet" href={{stylesheet}} type="text/css">
+    {{/stylesheets}}
     </head>
     <script>
      var cl = ((localStorage.getItem('toolbar')=='open') && (window.innerWidth >= 1200))
@@ -121,7 +122,7 @@
       </main>
     </div>
         <!-- https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js -->
-    <script src="https://unpkg.com/material-components-web@0.33.0/dist/material-components-web.min.js">
+    <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js">
     </script>
     <!-- Additional scripts -->
     {{#post_scripts}}
@@ -135,6 +136,7 @@
       function rdy () { window.mdc.autoInit(); };
       document.addEventListener('DOMContentLoaded', rdy, false);
     </script>
+    <script src="/js/sidebar_nav.js" type="text/javascript"></script>
     <script src="/js/drawer.js" type="text/javascript"></script>
   </body>
 </html>

@@ -332,12 +332,9 @@
  * ```
  */
 .mdc-drawer--custom {
-  height: 100%;
   /* Use aspect ratio trick to maintain 16:9 aspect ratio on the header */
-  /* @alternate */
-  background-color: #fff;
-  background-color: var(--mdc-theme-background, #fff);
   color: rgba(0, 0, 0, 0.87);
+  height: 100%;
   width: 0;
   position: fixed; }
   .mdc-drawer--custom .mdc-drawer__toolbar-spacer {
