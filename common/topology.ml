@@ -107,14 +107,13 @@ let get_input_name (i:topo_input) =
 let inputs t =
   let rec get acc = function
     | Input x -> x :: acc
-    | Board x -> List.concat @@ (List.map (fun x -> get acc x.child) x.ports)
+    | Board x -> List.fold_left (fun acc x -> get acc x.child) acc x.ports
   in
   let topo_inputs_cpu   c = List.fold_left (fun acc i -> get acc i.conn) [] c.ifaces in
   let topo_inputs_board b = List.fold_left (fun acc p -> get acc p.child) [] b.ports in
   match t with
   | `CPU c     -> topo_inputs_cpu c
-  | `Boards bs ->
-     List.fold_left (fun acc b -> (topo_inputs_board b) @ acc) [] bs
+  | `Boards bs -> List.fold_left (fun acc b -> (topo_inputs_board b) @ acc) [] bs
 
 let paths t =
   let topo_paths acc =

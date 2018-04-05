@@ -143,7 +143,7 @@ exception Path_not_uniq of string
 let rec uniq_paths = function
   | [] -> ()
   | (path, _)::tl ->
-     match List.find_opt (fun (p,_) -> path = p) tl with
+     match List.find_opt (fun (p,_) -> Path.equal path p) tl with
      | Some _ -> raise (Path_not_uniq (Path.to_string path))
      | None   -> uniq_paths tl
                

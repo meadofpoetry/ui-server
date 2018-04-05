@@ -10,8 +10,8 @@ let get_input_href x =
   Filename.concat name id
 
 let input topo (topo_input:topo_input) =
-  let path = List.find_map (fun (i,p,_) -> if i = topo_input then Some p else None)
-                             (Common.Topology.paths topo) in
+  let path = List.find_map (fun (i,p,_) -> if Common.Topology.equal_topo_input i topo_input then Some p else None)
+                           (Common.Topology.paths topo) in
   match path with
   | None      -> failwith "input not found"
   | Some path -> let title  = Common.Topology.get_input_name topo_input in
@@ -45,7 +45,8 @@ let create (app : Application.t) : upper ordered_item list user_table =
                    ; content      = [ ]
                    }
   in
-  let templates = CCList.map (input topo) (Common.Topology.inputs topo) |> CCList.rev in
+  let inputs    = Common.Topology.inputs topo in
+  let templates = List.rev_map (input topo) inputs in
   let rval = [ `Index 2, Subtree { title = "Входы"; href = Path.of_string "input"; templates }
              ; `Index 3, Simple  { title = "Конфигурация"; href = Path.of_string "application"; template = props }
              ; `Index 4, Simple  { title = "Демо"; href = Path.of_string "demo"; template = demo_props }
