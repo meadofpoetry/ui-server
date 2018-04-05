@@ -44,7 +44,9 @@ type state = { ctx          : ZMQ.Context.t
              ; ev           : [ `Sub] ZMQ.Socket.t
              ; options      : options
              ; srcs         : (Common.Uri.t * Common.Stream.t) list ref
-             ; proc         : Lwt_process.process_none option ref
+             ; mutable proc : Lwt_process.process_none option
+             ; ready        : bool ref
+             ; ready_e      : unit event
              }
 
 type channels =
@@ -111,6 +113,7 @@ let add_storages typ send options structs wm settings =
   
 let notif_events typ =
   let events, epush     = E.create () in
+  let ready, ready_push = E.create () in
   let strm, strm_push   = E.create () in
   let sets, sets_push   = E.create () in
   let grap, grap_push   = E.create () in
@@ -124,7 +127,8 @@ let notif_events typ =
 
   let table = Hashtbl.create 10 in
   List.iter (fun (n,f) -> Hashtbl.add table n f)
-    [ Wm_notif.create typ ((<$>) wm_push)
+    [ Notif.Ready.create typ ((<$>) ready_push)
+    ; Wm_notif.create typ ((<$>) wm_push)
     ; Structures_notif.create typ ((<$>) strm_push)
     ; Settings_notif.create typ ((<$>) sets_push)
     ; Graph_notif.create typ ((<$>) grap_push)
@@ -134,7 +138,7 @@ let notif_events typ =
 
   let dispatch = dispatch typ table in
   Lwt_react.E.keep @@ E.map dispatch events;
-  epush, strm, sets, grap, wm, vdata, adata,
+  epush, ready, strm, sets, grap, wm, vdata, adata,
   strm_push, wm_push, sets_push
   
 let create_channels
@@ -193,17 +197,18 @@ let create (type a) (typ : a typ) config sock_in sock_out =
   let msg_sock = Socket.of_socket msg in
   let ev_sock  = Socket.of_socket ev in
 
-  let proc      = ref None in
+  let srcs      = ref [] in
+  let ready     = ref false in
+  let proc      = None in
   let converter = (Msg_conv.get_converter typ) in
   let send =
     let send = create_send typ converter msg_sock in
-    fun msg -> if Option.is_none !proc
+    fun msg -> if !ready
                then Lwt.fail_with "backend is not ready"
                else send msg
   in
 
-  let srcs = ref [] in
-  let epush,
+  let epush, ready_e,
       structures, settings,
       graph, wm,
       vdata, adata,
@@ -222,7 +227,7 @@ let create (type a) (typ : a typ) config sock_in sock_out =
             ; requests
             } in
   
-  let state = { ctx; msg; ev; options; srcs; proc } in
+  let state = { ctx; msg; ev; options; srcs; proc; ready; ready_e } in
   let recv () =
     Socket.recv ev_sock
     >>= fun msg ->
@@ -235,12 +240,14 @@ let reset typ send bin_path bin_name msg_fmt state (sources : (Common.Uri.t * Co
   let msg_fmt   = Pipeline_settings.format_to_string msg_fmt in
   let uris      = List.map Fun.(fst %> Common.Uri.to_string) sources in
   let exec_opts = Array.of_list (bin_name :: "-m" :: msg_fmt :: uris) in
-  state.srcs := sources;
-  Option.iter (fun proc -> proc#terminate) !(state.proc);
-  (* TODO add init msg instead of this dirty hack *)
-  (Lwt_unix.sleep 0.2 >|= fun () ->
-   state.proc := Some (Lwt_process.open_process_none (exec_path, exec_opts));
-   settings_init typ send state.options)
+  state.srcs  := sources;
+  state.ready := false;
+  Option.iter (fun proc -> proc#terminate) state.proc;
+  let is_ready = Notif.is_ready state.ready_e in
+  state.proc <- Some (Lwt_process.open_process_none (exec_path, exec_opts));
+  (is_ready >|= fun () ->
+   settings_init typ send state.options;
+   state.ready := true)
   |> Lwt.ignore_result
   
 let finalize state =
@@ -248,5 +255,5 @@ let finalize state =
   ZMQ.Socket.close       state.ev;
   ZMQ.Socket.close       state.msg;
   ZMQ.Context.terminate  state.ctx;
-  Option.iter (fun proc -> proc#terminate) !(state.proc);
-  state.proc := None
+  Option.iter (fun proc -> proc#terminate) state.proc;
+  state.proc <- None

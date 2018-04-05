@@ -21,8 +21,18 @@ let dispatch_js
       | None   -> ()
       | Some f -> f data
     end
-  | _ -> ()
+  | m -> Lwt.ignore_result @@ Lwt_io.printf "UNKNOWN MSG %s\n" @@ Yojson.Safe.pretty_to_string m; ()
 
 let dispatch : type a. a typ -> (string, (a -> unit)) Hashtbl.t -> a -> unit = function
   | Json    -> dispatch_js
   | Msgpack -> failwith "not implemented"
+
+module Ready = Make(struct
+                   type t = unit
+                   let name = "backend"
+                   let of_yojson = function
+                     | `String "Ready" -> Ok ()
+                     | _               -> Error "notification Ready: bad value"
+                 end)
+
+let is_ready ev = Lwt_react.E.next ev
