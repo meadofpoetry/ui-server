@@ -37,7 +37,7 @@ module Header = struct
       val h2_widget = elt##querySelector (Js.string @@ "." ^ Markup.Dialog.Header.title_class)
                       |> Js.Opt.to_option |> Option.get_exn |> Widget.create
       inherit Widget.widget elt ()
-      method get_title   = h2_widget#get_text_content |> Option.get_or ~default:""
+      method title       = h2_widget#get_text_content |> Option.get_or ~default:""
       method set_title s = h2_widget#set_text_content s
     end
 
@@ -66,7 +66,7 @@ module Footer = struct
     object
       val mutable actions = actions
       inherit Widget.widget elt ()
-      method get_actions = actions
+      method actions = actions
     end
 
 end
@@ -92,9 +92,9 @@ class t ?scrollable ?title ?(actions:Action.t list option) ~content () =
 
     val mdc : mdc Js.t = Js.Unsafe.global##.mdc##.dialog##.MDCDialog##attachTo elt
 
-    method get_header_widget = header_widget
-    method get_body_widget   = body_widget
-    method get_footer_widget = footer_widget
+    method header = header_widget
+    method body   = body_widget
+    method footer = footer_widget
 
     method show       = mdc##show ()
     method show_await =

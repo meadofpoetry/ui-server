@@ -49,9 +49,6 @@ class t ~(left_node:node_entry) ~(f_lp:unit->point) ~(f_rp:unit -> point) () =
 
     initializer
       self#add_class _class;
-      self#set_state state;
-      self#set_on_load (Some (fun () -> self#layout));
-      Dom_events.(listen Dom_html.window Typ.resize (fun _ _ -> self#layout; true))
-      |> ignore
+      self#set_state state
 
   end

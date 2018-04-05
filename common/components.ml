@@ -371,7 +371,7 @@ module Make
 
       let create ?(scrollable=false) ?id ?style ?(classes=[]) ?attrs ~content () =
         section ~a:([ a_class (classes
-                               |> cons_if scrollable scrollable_class 
+                               |> cons_if scrollable scrollable_class
                                |> List.cons _class) ]
                     |> add_common_attrs ?id ?style ?attrs)
                 content

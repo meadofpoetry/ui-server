@@ -23,6 +23,7 @@ module Header = struct
       initializer
         self#add_class _class
       method settings_icon = settings
+      method layout = self#settings_icon#layout
     end
 
   let create (board:Common.Topology.topo_board) =
@@ -75,17 +76,20 @@ let eq_node_entry (e1:Topo_node.node_entry) (e2:Topo_node.node_entry) =
 class t ~(connections:#Topo_node.t list)
         (board:Common.Topology.topo_board)
         () =
+  let s,push     = React.S.create board.connection in
   let header     = Header.create board in
   let body       = Body.create board in
-  let e_settings = React.E.map (fun _ -> board) header#settings_icon#e_click in
+  let e_settings = React.E.map (fun _ -> s,board) header#settings_icon#e_click in
   object(self)
     val mutable _board = board
 
     inherit Topo_block.t ~node:(`Entry (Board board)) ~connections ~header ~body () as super
 
+    method layout       = header#layout
     method e_settings   = e_settings
     method board        = _board
     method set_board x  = _board <- x;
+                          push x.connection;
                           super#set_state x.connection;
                           match x.connection with
                           | `Fine -> self#set_ports x.ports;

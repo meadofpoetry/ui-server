@@ -115,6 +115,17 @@ let inputs t =
   | `CPU c     -> topo_inputs_cpu c
   | `Boards bs -> List.fold_left (fun acc b -> (topo_inputs_board b) @ acc) [] bs
 
+let boards t =
+  let rec get acc = function
+    | Input _ -> acc
+    | Board x -> List.fold_left (fun acc x -> get acc x.child) (x :: acc) x.ports
+  in
+  let topo_boards_cpu   c = List.fold_left (fun acc i -> get acc i.conn) [] c.ifaces in
+  let topo_boards_board b = List.fold_left (fun acc p -> get acc p.child) [b] b.ports in
+  match t with
+  | `CPU c     -> topo_boards_cpu c
+  | `Boards bs -> List.fold_left (fun acc b -> (topo_boards_board b) @ acc) [] bs
+
 let paths t =
   let topo_paths acc =
     let rec add_node acc paths = function
