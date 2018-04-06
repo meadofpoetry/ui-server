@@ -205,8 +205,8 @@ let list_demo () =
                 ]
                 () in
   let group = new Item_list.List_group.t
-                ~content:[ { subheader = Some "Group 1"; list = list1 }
-                         ; { subheader = Some "Group 2"; list = list2 }
+                ~content:[ { subheader = Some (new Typography.Text.t ~text:"Group 1" ()); list = list1 }
+                         ; { subheader = Some (new Typography.Text.t ~text:"Group 2" ()); list = list2 }
                 ]
                 () in
   group#style##.maxWidth := Js.string "400px";

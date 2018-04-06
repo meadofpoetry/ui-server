@@ -27,6 +27,7 @@ object
   inherit Widget.widget elt ()
   method area : string     = area
   method node : node_entry = node
+  method layout : unit     = ()
   method output_point      = Topo_path.get_output_point body
 end
 
@@ -40,8 +41,9 @@ class parent ~(connections:#t list)
                                   let f_rp = fun () -> Topo_path.get_input_point ~num i body in
                                   new Topo_path.t ~left_node:x#node ~f_lp ~f_rp ()) connections
   in
-  object
-    inherit t ~node ~body elt ()
+  object(self)
+    inherit t ~node ~body elt () as super
+    method layout = super#layout; List.iter (fun p -> p#layout) self#paths
     method update_path_state n (state:connection_state) = match List.get_at_idx n cw with
       | Some path -> Ok (path#set_state state)
       | None      -> Error "path not found"

@@ -136,7 +136,7 @@
 
 .topology__cpu__header {
   background-color: #607d8b; }
-  .topology__cpu__header .mdc-card__title {
+  .topology__cpu__header .mdc-card__title, .topology__cpu__header .mdc-icon {
     /* @alternate */
     color: white;
     color: var(--mdc-theme-text-primary-on-dark, white); }

@@ -66,6 +66,23 @@ let post_js_ok addr js =
   then Ok ()
   else Error (Printf.sprintf "Code %d" frame.code)
 
+let post_js_error addr conv js =
+  let js = Yojson.Safe.to_string js in
+  Lwt_xmlHttpRequest.perform_raw
+    ~content_type:"application/json; charset=UTF-8"
+    ~headers:["Accept", "application/json, text/javascript, */*; q=0.01";
+              "X-Requested-With", "XMLHttpRequest"]
+    ~override_method:`POST
+    ~contents:(`String js)
+    ~response_type:XmlHttpRequest.Text
+    addr
+  >>= fun frame ->
+  if frame.code = 200
+  then Lwt.return_ok ()
+  else match conv @@ Yojson.Safe.from_string @@ Js.to_string frame.content with
+       | Ok v    -> Lwt.return_error v
+       | Error _ -> Lwt.fail_with (Printf.sprintf "Code %d" frame.code)
+
 let get_socket addr conv =
   let addr = Js.string @@ Printf.sprintf
                             "ws://%s:8080/%s"

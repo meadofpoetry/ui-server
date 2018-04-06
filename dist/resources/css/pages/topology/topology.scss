@@ -101,7 +101,7 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
     &__header {
         $bg-color: $material-color-blue-grey-500;
         $tone: mdc-theme-tone($bg-color);
-        .mdc-card__title {
+        .mdc-card__title, .mdc-icon {
             @if ($tone == 'light') {
                 @include mdc-theme-prop(color, text-primary-on-light)
             }

@@ -80,7 +80,7 @@ let create (b:topo_board) (streams:Common.Stream.t list React.signal) _ send db 
                              s_state devinfo
   in
   let constraints = { state = set_state
-                    ; range = [ ({ip=Ipaddr.V4.make 224 0 1 0; port = 0},
+                    ; range = [ ({ip=Ipaddr.V4.make 224 1 2 2; port = 1234},
                                  {ip=Ipaddr.V4.make 239 255 255 255; port = 65535})
                               ]
                     }

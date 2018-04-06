@@ -45,7 +45,23 @@ type t =
   }
 and source = Input  of Topology.topo_input
            | Parent of t
-           [@@deriving yojson, show, eq]
+           [@@deriving yojson, show]
+
+let rec equal l r =
+  match l.id, r.id with
+  | `Ip ul, `Ip ur ->
+     if Uri.equal ul ur
+     then equal_source l.source r.source
+     else false
+  | `Ts il, `Ts ir ->
+     if equal_id il ir
+     then equal_source l.source r.source
+     else false
+  | _ -> false
+and equal_source l r = match l, r with
+  | Input l, Input r -> Topology.equal_topo_input l r
+  | Parent l, Parent r -> equal l r
+  | _ -> false
 
 type t_list = t list [@@deriving yojson]
 
@@ -63,3 +79,12 @@ let t_to_topo_port (b:topo_board) (t:t) =
                               | Some _ -> Some h
                               | None   -> get_port tl))
   in get_port b.ports
+
+let header : t -> string = fun s ->
+  let h = match s.id with
+    | `Ip _  -> "IP stream"
+    | `Ts id -> Printf.sprintf "TS stream %s" @@ show_id id
+  in
+  match s.description with
+  | None -> h
+  | Some d -> h ^ " (" ^ d ^ ")" 

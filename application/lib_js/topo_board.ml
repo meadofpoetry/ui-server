@@ -85,7 +85,7 @@ class t ~(connections:#Topo_node.t list)
 
     inherit Topo_block.t ~node:(`Entry (Board board)) ~connections ~header ~body () as super
 
-    method layout       = header#layout
+    method layout       = super#layout; header#layout
     method e_settings   = e_settings
     method s_state      = s
     method board        = _board

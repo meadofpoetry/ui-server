@@ -1,6 +1,31 @@
 open Containers
 open Common.Topology
 
+let limit ?eq f s =
+  let limiter = ref Lwt.return_unit in
+  let delayed = ref None in
+  let event, push = React.E.create () in
+  let iter =
+    React.E.fmap
+      (fun x ->
+        if Lwt.is_sleeping !limiter then begin
+            match !delayed with
+            | Some cell ->
+               cell := x;
+               None
+            | None ->
+               let cell = ref x in
+               delayed := Some cell;
+               None
+          end else begin
+            limiter := f ();
+            push x;
+            None
+          end)
+      (React.S.changes s)
+  in
+  React.S.hold ?eq (React.S.value s) (React.E.select [iter; event])
+
 type t = { proc   : Proc.t option
          ; users  : User.entries
          ; hw     : Hardware.t
@@ -16,7 +41,7 @@ end
 module Conf_topology = Storage.Config.Make(Settings_topology)
 
 let proc_table = Proc.create_dispatcher [ (module Pipeline) ]
-
+          
 let create config db =
   let topology   = match Conf_topology.get_opt config with
     | None   -> failwith "bad topology config"
@@ -34,8 +59,9 @@ let create config db =
                                             | (Some uri, src) -> Some (uri, src))
       in
       Lwt_react.S.map (fun l ->
-          List.fold_left (fun acc (_,ss) -> filter ss) [] l
-          |> proc#reset) hw.streams
+          List.fold_left (fun acc (_,_,ss) -> (filter ss) @ acc) [] l
+          |> proc#reset)
+      @@ limit (fun () -> Lwt_unix.sleep 2.) hw.streams
       |> Lwt_react.S.keep) proc;
   { users; proc; hw; topo = hw.topo }, loop
 

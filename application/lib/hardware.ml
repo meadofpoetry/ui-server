@@ -1,21 +1,28 @@
 open Containers
 open Common.Topology
 open Meta_board
-
+open Application_types
+   
 module Map  = CCMap.Make(Int)
 
-type url = Common.Uri.t
-
-type marker = [ `Input of input * int | `Board of int ]
-
+module Input_map = CCMap.Make(struct
+                       type t = input * int
+                        let compare (li, lid) (ri, rid) =
+                          let ci = input_compare li ri in
+                          if ci <> 0 then ci
+                          else compare lid rid
+                     end)
+         
 type in_push = (url * Common.Stream.t) list -> unit
-type input_control  = [ `Input of input * int * in_push | `Board of int * Meta_board.stream_handler ]
+type input_control  = { inputs : in_push Input_map.t
+                      ; boards : Meta_board.stream_handler Map.t
+                      }
                     
 type t = { boards   : Meta_board.board Map.t
          ; usb      : Usb_device.t
          ; topo     : Common.Topology.t React.signal
-         ; sources  : input_control list
-         ; streams  : (marker * (url option * Common.Stream.t) list) list React.signal
+         ; sources  : input_control
+         ; streams  : stream_table React.signal
          }
 
 let create_board db usb (b:topo_board) boards path step_duration =
@@ -87,8 +94,9 @@ let get_sources topo boards =
     | (Input i)::tl ->
        let s, push  = React.S.create [] in
        let push' xs = push @@ List.map (fun (url,x) -> (Some url, x)) xs in
-       let controls = (`Input (i.input,i.id,push'))::controls in
-       let signals  = (React.S.map (fun s -> (`Input (i.input,i.id)), s) s)::signals in
+       let controls = { controls with inputs = Input_map.add (i.input,i.id) push' controls.inputs } in
+       let signals  = (React.S.map (fun s -> (`Input (i.input,i.id)), `Unlimited, s) s)
+                      :: signals in
        get_sources' controls signals tl
     | (Board b)::tl ->
        let stream_handler = Option.(Map.get b.control boards
@@ -97,11 +105,12 @@ let get_sources topo boards =
        match stream_handler with
        | None   -> get_sources' controls signals tl
        | Some h ->
-          let controls = (`Board (b.control, h))::controls in
-          let signals  = (React.S.map (fun s -> (`Board b.control), s) h#streams)::signals in
+          let controls = { controls with boards = Map.add b.control h controls.boards } in
+          let signals  = (React.S.l2 (fun s st -> (`Board b.control), st, s) h#streams h#constraints.state)
+                         :: signals in
           get_sources' controls signals tl
   in
-  let controls, signals = get_sources' [] [] topo in
+  let controls, signals = get_sources' { inputs = Input_map.empty; boards = Map.empty } [] topo in
   let signals' = React.S.merge ~eq:Equal.physical (fun acc s -> s::acc) [] signals in
   controls, signals'
 
@@ -124,5 +133,102 @@ let create config db (topo : Common.Topology.t) =
   let topo    = topo_to_signal topo boards in
   { boards; usb; topo; sources; streams }, loop ()
 
+exception Constraints of Meta_board.set_error
+
+let set_stream hw (ss : stream_setting) =
+  let open Lwt_result.Infix in
+  let gen_uris (ss : stream_setting) : (marker * (Common.Uri.t * Common.Stream.t) list) list =
+     let split = function
+      | (`Input _, _) as i -> `Right i
+      | (`Board id, sl)    ->
+         try let p = Map.find id hw.sources.boards in
+             let { range; state = _ } = p#constraints in
+             `Left (List.map (fun s -> ((`Board id, s),range)) sl)
+         with Not_found ->
+           raise_notrace (Constraints (`Internal_error "set_stream: no control found"))
+     in
+     let rec rebuild acc = function
+       | [] -> acc
+       | ((`Board id, s), uri)::tl ->
+          let same, rest = List.partition_map (function ((`Board bid,bs),buri) as v ->
+                               if id = bid
+                               then `Left  (buri,bs)
+                               else `Right v
+                             ) tl
+          in
+          rebuild ((`Board id, (uri,s)::same)::acc) rest
+     in
+     let rec input_add_uri (`Input i, sl) =
+       let open Common.Stream in
+       let s_to_uri s = match s.id with
+         | `Ts _ -> raise_notrace (Constraints (`Internal_error "set_stream: expected ip stream from an input"))
+         | `Ip u -> (u, s)
+       in (`Input i, List.map s_to_uri sl)
+     in
+     let rec grep_input_uris acc = function
+       | [] -> acc
+       | (_, sl)::tl ->
+          let uris = List.map fst sl in
+          grep_input_uris (uris @ acc) tl
+     in
+     (* TODO replace by a more generic check *)
+     let check_inputs l =
+       let rec check = function
+         | [] -> ()
+         | x::tl ->
+            if List.exists (Common.Stream.equal x) tl
+            then raise_notrace (Constraints (`Internal_error "set_stream: input streams duplication"));
+            check tl
+       in List.iter (fun (_,l) -> check l) l
+     in
+     let boards, inputs = List.partition_map split ss in
+     check_inputs inputs;
+     let inputs = List.map input_add_uri inputs in
+     let forbidden = grep_input_uris [] inputs in
+     let boards = match Common.Uri.gen_in_ranges ~forbidden (List.concat boards) with
+       | Ok boards -> rebuild [] boards
+       | Error ()  -> raise_notrace (Constraints (`Internal_error "set_stream: uri generation failure"))
+     in
+     inputs @ boards
+  in
+  (* TODO simplify this part *)
+  let check_constraints range state streams =
+    begin match state with
+    | `Forbidden -> raise_notrace (Constraints `Forbidden)
+    | `Limited l ->
+       let len = List.length streams in
+       if l >= len then ()
+       else raise_notrace (Constraints (`Limit_exceeded (l,len)))
+    | _ -> ()
+    end;
+    if List.is_empty range then ()
+    else List.iter (fun (url,_) -> if not @@ List.exists (fun r -> Common.Uri.in_range r url) range
+                                   then raise_notrace (Constraints `Not_in_range)) streams
+  in
+  let rec loop l res = match l with
+    | [] -> Lwt.return_ok ()
+    | (`Input k, streams)::tl -> begin
+        try let p = Input_map.find k hw.sources.inputs in
+            p streams;
+            (Lwt.return_ok ()) >>= loop tl
+        with Not_found -> Lwt.return_error (`Internal_error "set_stream: no control found")
+                          >>= loop tl
+      end
+    | (`Board k, streams)::tl -> begin
+        try let p = Map.find k hw.sources.boards in
+            let { range; state } = p#constraints in
+            let state = React.S.value state in
+            check_constraints range state streams;
+            p#set streams >>= loop tl
+        with Not_found -> Lwt.return_error (`Internal_error "set_stream: no control found")
+                          >>= loop tl
+           | Constraints e -> Lwt.return_error e >>= loop tl
+      end
+  in
+  try
+    let ss = gen_uris ss in
+    loop ss ()
+  with Constraints e -> Lwt.return_error e
+      
 let finalize hw =
   Usb_device.finalize hw.usb;

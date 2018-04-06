@@ -12,9 +12,9 @@ class t elt () = object(self)
   (* FIXME hack, need to handle resize of total element *)
   method layout =
     Dom_html.setTimeout (fun () -> List.iter (function
-                                              | `Board b -> b#layout; List.iter (fun p -> p#layout) b#paths
-                                              | `Input _ -> ()
-                                              | `CPU c   -> List.iter (fun p -> p#layout) c#paths) _nodes)
+                                              | `Board b -> b#layout
+                                              | `Input i -> i#layout
+                                              | `CPU c   -> c#layout) _nodes)
                         10. |> ignore
 
   method private on_load =

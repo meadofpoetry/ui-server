@@ -12,8 +12,11 @@ module Header = struct
   class t (cpu:Common.Topology.topo_cpu) () =
     let _class   = Markup.CSS.add_element base_class "header" in
     let title    = get_cpu_name cpu in
+    let settings = new Icon.Button.Font.t ~icon:"settings" () in
     object(self)
-      inherit Topo_block.Header.t ~title ()
+      inherit Topo_block.Header.t ~action:settings#widget ~title ()
+      method settings_icon = settings
+      method layout        = self#settings_icon#layout
       initializer
         self#add_class _class;
     end
@@ -38,11 +41,14 @@ end
 class t ~(connections:#Topo_node.t list)
         (cpu:Common.Topology.topo_cpu)
         () =
-  let header = Header.create cpu in
-  let body   = Body.create cpu in
+  let header     = Header.create cpu in
+  let body       = Body.create cpu in
+  let e_settings = React.E.map (fun _ -> cpu) header#settings_icon#e_click in
   object(self)
-    inherit Topo_block.t ~node:(`CPU cpu) ~connections ~header ~body ()
-    method cpu = cpu
+    inherit Topo_block.t ~node:(`CPU cpu) ~connections ~header ~body () as super
+    method cpu        = cpu
+    method layout     = super#layout; header#layout
+    method e_settings = e_settings
     initializer
       List.iter (fun p -> p#set_state `Active) self#paths;
       self#add_class base_class;

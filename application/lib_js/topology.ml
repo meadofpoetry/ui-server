@@ -121,13 +121,6 @@ let update_nodes nodes (t:Common.Topology.t) =
                             | None    -> ())
              | _        -> ()) nodes
 
-let make_board_dialog () =
-  let actions = [ new Dialog.Action.t ~typ:`Decline ~label:"Отмена" ()
-                ; new Dialog.Action.t ~typ:`Accept  ~label:"Применить" ()
-                ]
-  in
-  new Dialog.t ~scrollable:true ~actions ~content:(`Widgets []) ~title:"" ()
-
 let make_drawer () =
   new Drawer.t ~anchor:`Bottom ~content:[] ()
 
@@ -139,6 +132,12 @@ let create ~(parent: #Widget.widget)
   let nodes  = make_nodes init in
   let drawer = make_drawer () in
   let e_bs   = React.E.select @@ List.filter_map (function `Board b -> Some b#e_settings | _ -> None) nodes in
+  let e_cs   = React.E.select @@ List.filter_map (function `CPU c -> Some c#e_settings | _ -> None) nodes in
+  let _      = React.E.map (fun _ ->
+                   rm_children drawer#drawer#root;
+                   Dom.appendChild drawer#drawer#root (Streams_selector.create ())#root;
+                   drawer#show) e_cs
+  in
   let _      = React.E.map (fun board ->
                    (* (Option.get_exn dialog#header)#set_title @@ Topo_board.get_board_name board; *)
                    rm_children drawer#drawer#root;
