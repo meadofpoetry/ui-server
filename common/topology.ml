@@ -58,7 +58,7 @@ let env_of_yojson : Yojson.Safe.json -> (env, string) result = function
   | _ -> Error "env_of_yojson"
 let pp_env = Env.pp String.pp String.pp
 let equal_env = Env.equal String.equal
-        
+
 type t = [`CPU of topo_cpu | `Boards of topo_board list] [@@deriving yojson, show, eq]
 
 and topo_entry =
@@ -68,7 +68,7 @@ and topo_entry =
 and topo_input = { input        : input
                  ; id           : int
                  }
-               
+
 and topo_board = { typ          : board_type
                  ; model        : string
                  ; manufacturer : string
@@ -98,21 +98,38 @@ let cpu_subbranches = function
 
 let get_entries = function
   | `Boards l -> List.fold_left (fun acc b -> (List.map (fun p -> p.child) b.ports) @ acc) [] l
-  | `CPU c    -> List.map (fun i -> i.conn) c.ifaces
-               
+  | `CPU    c -> List.map (fun i -> i.conn) c.ifaces
+
 let get_api_path = string_of_int
+
+let get_input_name (i:topo_input) =
+  let to_string s = Printf.sprintf "%s %d" s i.id in
+  match i.input with
+  | RF    -> to_string "RF"
+  | TSOIP -> to_string "TSoIP"
+  | ASI   -> to_string "ASI"
 
 let inputs t =
   let rec get acc = function
     | Input x -> x :: acc
-    | Board x -> List.concat @@ (List.map (fun x -> get acc x.child) x.ports)
+    | Board x -> List.fold_left (fun acc x -> get acc x.child) acc x.ports
   in
   let topo_inputs_cpu   c = List.fold_left (fun acc i -> get acc i.conn) [] c.ifaces in
   let topo_inputs_board b = List.fold_left (fun acc p -> get acc p.child) [] b.ports in
   match t with
   | `CPU c     -> topo_inputs_cpu c
-  | `Boards bs ->
-     List.fold_left (fun acc b -> (topo_inputs_board b) @ acc) [] bs
+  | `Boards bs -> List.fold_left (fun acc b -> (topo_inputs_board b) @ acc) [] bs
+
+let boards t =
+  let rec get acc = function
+    | Input _ -> acc
+    | Board x -> List.fold_left (fun acc x -> get acc x.child) (x :: acc) x.ports
+  in
+  let topo_boards_cpu   c = List.fold_left (fun acc i -> get acc i.conn) [] c.ifaces in
+  let topo_boards_board b = List.fold_left (fun acc p -> get acc p.child) [b] b.ports in
+  match t with
+  | `CPU c     -> topo_boards_cpu c
+  | `Boards bs -> List.fold_left (fun acc b -> (topo_boards_board b) @ acc) [] bs
 
 let paths t =
   let topo_paths acc =

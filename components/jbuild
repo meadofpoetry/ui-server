@@ -8,7 +8,7 @@
   ;               drawer elevation fab form_field grid_list icon icon_toggle circular_progress
   ;               item_list layout_grid linear_progress menu radio ripple select slider utils
   ;               snackbar switch tabs table textfield textarea toolbar tree typography color dynamic_grid))
-  (libraries (common react js_of_ocaml js_of_ocaml-tyxml js_of_ocaml-lwt))
+  (libraries (common react js_of_ocaml js_of_ocaml-tyxml js_of_ocaml-lwt gg vg))
   (flags (:standard -short-paths -strict-sequence -bin-annot
           -thread -w "+1..49+60" -w "+a-4-7-23-33-39-40-41-42-44-45-48"))
   (js_of_ocaml ((flags (:standard +weak.js --opt 3))))

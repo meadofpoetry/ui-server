@@ -26,14 +26,17 @@ let make_card user =
   (* title#add_class "color--primary-on-primary";
    * primary#add_class "background--primary"; *)
   let old_form  = new Textfield.t
-                    ~label:"Пароль пользователя"
-                    ~input_type:(Widget.Password (fun pass -> Ok ())) () in
+                      ~input_id:"user-ol-pass"
+                      ~label:"Пароль пользователя"
+                      ~input_type:(Widget.Password (fun pass -> Ok ())) () in
   let new_form  = new Textfield.t
-                    ~label:"Новый пароль"
-                    ~input_type:(Widget.Password (fun pass -> verify_pass pass)) () in
+                      ~input_id:"user-new-pass"
+                      ~label:"Новый пароль"
+                      ~input_type:(Widget.Password (fun pass -> verify_pass pass)) () in
   let acc_form  = new Textfield.t
-                    ~label:"Повторите пароль"
-                    ~input_type:(Widget.Password (fun pass -> eq_pass (React.S.value new_form#s_input) pass)) () in
+                      ~input_id:"user-repeat-pass"
+                      ~label:"Повторите пароль"
+                      ~input_type:(Widget.Password (fun pass -> eq_pass (React.S.value new_form#s_input) pass)) () in
   let settings  = new Box.t
                       ~vertical:true
                       ~widgets:[ old_form#widget

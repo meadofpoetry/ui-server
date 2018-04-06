@@ -1,0 +1,34 @@
+@import '../../components/theme/_mixins';
+@import '../../components/theme/_functions';
+@import './_functions';
+
+@mixin topology-board-header-color($board-color, $type) {
+    $tone: mdc-theme-tone($board-color);
+
+    @if ($tone == 'light') {
+        @include mdc-theme-prop(color, text- + $type + -on-light)
+    }
+    @else {
+        @include mdc-theme-prop(color, text- + $type + -on-dark)
+    }
+}
+
+@mixin topology-board-type($board) {
+    $color: topology-board-color($board);
+    $tone:  mdc-theme-tone($color);
+
+    .topology__board[data-board='#{$board}'] {
+        .topology__board__header {
+            background-color: $color;
+            .mdc-icon {
+                @include topology-board-header-color($color,primary);
+            }
+            .mdc-card__title {
+                @include topology-board-header-color($color,primary);
+            }
+            .mdc-card__subtitle {
+                @include topology-board-header-color($color,secondary);
+            }
+        }
+    }
+}

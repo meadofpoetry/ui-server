@@ -16,16 +16,36 @@
 
 @import "../../rtl/mixins";
 
-@mixin mdc-slideable-drawer {
-  height: 100%;
-  transform: translateX(-107%);
-  transform: translateX(calc(-100% - 20px));
-  will-change: transform;
+// @mixin mdc-slideable-drawer {
+//   height: 100%;
+//   transform: translateX(-107%);
+//   transform: translateX(calc(-100% - 20px));
+//   will-change: transform;
 
-  @include mdc-rtl {
-    transform: translateX(107%);
-    transform: translateX(calc(100% + 20px));
-  }
+//   @include mdc-rtl {
+//     transform: translateX(107%);
+//     transform: translateX(calc(100% + 20px));
+//   }
+// }
+
+@mixin mdc-slideable-drawer($anchor:'left') {
+    will-change: transform;
+    @if $anchor == 'left' {
+        transform: translateX(-107%);
+        transform: translateX(calc(-100% - 20px));
+    }
+    @else if $anchor == 'right' {
+        transform: translateX(107%);
+        transform: translateX(calc(100% + 20px));
+    }
+    @else if $anchor == 'top' {
+        transform: translateY(-107%);
+        transform: translateY(calc(-100% - 20px));
+    }
+    @else {
+        transform: translateY(107%);
+        transform: translateY(calc(100% + 20px));
+    }
 }
 
 @mixin mdc-slideable-drawer-open {

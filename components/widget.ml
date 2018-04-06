@@ -13,6 +13,14 @@ type rect =
   ; height : float option
   }
 
+let to_rect (x:Dom_html.clientRect Js.t) =
+  { top    = x##.top
+  ; right  = x##.right
+  ; bottom = x##.bottom
+  ; left   = x##.left
+  ; width  = Js.Optdef.to_option x##.width
+  ; height = Js.Optdef.to_option x##.height }
+
 class widget (elt:#Dom_html.element Js.t) () = object(self)
 
   val mutable _on_load   = None
@@ -22,9 +30,6 @@ class widget (elt:#Dom_html.element Js.t) () = object(self)
 
   method root   : Dom_html.element Js.t = (elt :> Dom_html.element Js.t)
   method widget : widget = (self :> widget)
-
-  method hide = self#style##.display := Js.string "none"
-  method show = self#style##.display := Js.string ""
 
   method get_child_element_by_class x = Js.Opt.to_option @@ self#root##querySelector (Js.string ("." ^ x))
   method get_child_element_by_id    x = Js.Opt.to_option @@ self#root##querySelector (Js.string ("#" ^ x))
@@ -70,13 +75,13 @@ class widget (elt:#Dom_html.element Js.t) () = object(self)
   method get_scroll_width  = self#root##.scrollWidth
   method get_scroll_height = self#root##.scrollHeight
 
-  method get_client_rect   = (self#root##getBoundingClientRect)
-                             |> (fun x -> { top    = x##.top
-                                          ; right  = x##.right
-                                          ; bottom = x##.bottom
-                                          ; left   = x##.left
-                                          ; width  = Js.Optdef.to_option x##.width
-                                          ; height = Js.Optdef.to_option x##.height })
+  method get_bounding_client_rect = (self#root##getBoundingClientRect)
+                                    |> (fun x -> { top    = x##.top
+                                                 ; right  = x##.right
+                                                 ; bottom = x##.bottom
+                                                 ; left   = x##.left
+                                                 ; width  = Js.Optdef.to_option x##.width
+                                                 ; height = Js.Optdef.to_option x##.height })
 
   method set_on_load (f : (unit -> unit) option) =
     _on_load <- f; self#_observe_if_needed
@@ -214,13 +219,13 @@ type custom_v_msgs =
 
 type 'a validation =
   | Email       : string validation
-  | Integer     : (int * int) option -> int validation
-  | Float       : (float * float) option -> float validation
+  | Integer     : (int option * int option) -> int validation
+  | Float       : (float option * float option) -> float validation
   | Text        : string validation
   | IPV4        : Ipaddr.V4.t validation
   | MulticastV4 : Ipaddr.V4.t validation
   | Password    : (string -> (unit, string) result) -> string validation
-  | Custom      : ((string    -> ('a, string) result) * ('a -> string)) -> 'a validation
+  | Custom      : ((string -> ('a, string) result) * ('a -> string)) -> 'a validation
 
 let input_type_of_validation :
       type a. a validation -> [> `Email | `Number | `Text ]
@@ -237,15 +242,27 @@ let input_type_of_validation :
 let parse_valid (type a) (v : a validation) (on_fail : string -> unit) (s : string) : a option =
   match v with
   | Email        -> Some s
-  | Integer None -> CCInt.of_string s
-  | Integer Some (min,max) -> CCOpt.flat_map (fun i -> if i <= max && i >= min then Some i else None)
-                                             (CCInt.of_string s)
-  | Float None   -> (try Some (float_of_string s) with _ -> None)
-  | Float Some (min,max)   -> CCOpt.flat_map (fun i -> if i <= max && i >= min then Some i else None)
-                                             (try Some (float_of_string s) with _ -> None)
+  | Integer integer -> (match integer with
+                        | None, None -> CCInt.of_string s
+                        | Some min, Some max ->
+                           CCOpt.flat_map (fun i -> if i <= max && i >= min then Some i else None)
+                             (CCInt.of_string s)
+                        | Some min, None ->
+                           CCOpt.flat_map (fun i -> if i >= min then Some i else None)
+                             (CCInt.of_string s)
+                        | None, Some max ->
+                           CCOpt.flat_map (fun i -> if i <= max then Some i else None)
+                             (CCInt.of_string s))
+  | Float float -> (let num = float_of_string s in
+                    match float with
+                    | None, None -> Some num
+                    | Some min, Some max -> if num <= max && num >= min then Some num else None
+                    | Some min, None -> if num >= min then Some num else None
+                    | None, Some max -> if num <= max then Some num else None)
   | Text         -> Some s
   | IPV4         -> Ipaddr.V4.of_string s
-  | MulticastV4  -> Option.(Ipaddr.V4.of_string s >>= (fun x -> if Ipaddr.V4.is_multicast x then Some x else None))
+  | MulticastV4  -> Option.(Ipaddr.V4.of_string s >>= (fun x ->
+                              if Ipaddr.V4.is_multicast x then Some x else None))
   | Password vf  ->
      (match vf s with
       | Ok () -> Some s
@@ -311,10 +328,16 @@ class ['a] text_input_widget ?v_msg ~input_elt (v : 'a validation) elt () =
     method private remove_custom_validity = self#set_custom_validity ""
 
     initializer
-      let apply_border (type a) (v : a validation) (bord : a -> a -> unit) : unit =
+      let apply_border (type a) (v : a validation) (bord : a option -> a option -> unit) : unit =
         (match v with
-        | Float (Some (min, max))  -> bord min max
-        | Integer (Some (min,max)) -> bord min max
+         | Float float   -> (match float with
+                            | None, None -> ()
+                            | _ -> let min, max = float in
+                                   bord min max)
+         | Integer integer -> (match integer with
+                               | None, None -> ()
+                               | _ -> let min, max = integer in
+                                      bord min max)
         | _ -> ())
       in
       let apply_pattern (type a) (v : a validation) : unit =

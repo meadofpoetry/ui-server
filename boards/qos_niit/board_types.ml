@@ -19,7 +19,7 @@ and t2mi_mode =
   ; pid       : int
   ; stream_id : Common.Stream.id
   }
-and input = SPI | ASI [@@deriving yojson]
+and input = SPI | ASI [@@deriving yojson,eq]
 
 type jitter_mode =
   { stream_id : Common.Stream.id

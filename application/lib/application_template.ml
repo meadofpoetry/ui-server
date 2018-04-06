@@ -4,27 +4,17 @@ open Common.User
 open Api.Template
 open Api
 
-let get_input_name x topo =
-  let single = List.find_pred (fun input -> input.input = x.input && input.id <> x.id)
-                                (Common.Topology.inputs topo)
-               |> Option.is_none in
-  let to_string s = if single then Printf.sprintf "%s" s else Printf.sprintf "%s %d" s x.id in
-  match x.input with
-  | RF    -> to_string "RF"
-  | TSOIP -> to_string "TSoIP"
-  | ASI   -> to_string "ASI"
-
 let get_input_href x =
   let name = input_to_string x.input in
   let id   = string_of_int x.id in
   Filename.concat name id
 
 let input topo (topo_input:topo_input) =
-  let path = List.find_map (fun (i,p,_) -> if i = topo_input then Some p else None)
-                             (Common.Topology.paths topo) in
+  let path = List.find_map (fun (i,p,_) -> if Common.Topology.equal_topo_input i topo_input then Some p else None)
+                           (Common.Topology.paths topo) in
   match path with
   | None      -> failwith "input not found"
-  | Some path -> let title  = get_input_name topo_input topo in
+  | Some path -> let title  = Common.Topology.get_input_name topo_input in
                  let boards = List.map (fun x -> x.control,x.typ ) path
                               |> boards_to_yojson
                               |> Yojson.Safe.to_string
@@ -44,7 +34,7 @@ let create (app : Application.t) : upper ordered_item list user_table =
   let props = { title        = Some "Конфигурация"
               ; pre_scripts  = []
               ; post_scripts = [ Src "js/topology.js" ]
-              ; stylesheets  = []
+              ; stylesheets  = [ "/css/topology.css" ]
               ; content      = []
               } in
   let demo_props = { title        = Some "Демо"
@@ -55,7 +45,8 @@ let create (app : Application.t) : upper ordered_item list user_table =
                    ; content      = [ ]
                    }
   in
-  let templates = CCList.map (input topo) (Common.Topology.inputs topo) |> CCList.rev in
+  let inputs    = Common.Topology.inputs topo in
+  let templates = List.rev_map (input topo) inputs in
   let rval = [ `Index 2, Subtree { title = "Входы"; href = Path.of_string "input"; templates }
              ; `Index 3, Simple  { title = "Конфигурация"; href = Path.of_string "application"; template = props }
              ; `Index 4, Simple  { title = "Демо"; href = Path.of_string "demo"; template = demo_props }

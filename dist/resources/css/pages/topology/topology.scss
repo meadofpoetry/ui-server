@@ -1,0 +1,114 @@
+@import '../../components/theme/_mixins';
+@import '../../components/theme/_color-palette';
+@import '../../components/typography/_mixins';
+@import './_mixins';
+
+$boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
+
+@for $i from 1 through length($boards) {
+    @include topology-board-type(nth($boards,$i));
+}
+
+#arbitrary-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.topology {
+    flex-grow: 1;
+    display: grid;
+    height: 100%;
+    position: relative;
+}
+
+.topology__node-wrapper {
+    margin: auto 0;
+}
+
+.topology__paths {
+    z-index: 0;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+}
+
+.topology__path {
+    stroke: black;
+    stroke-width: 2;
+
+    &--active {
+        stroke: $material-color-light-green-500;
+    }
+    &--muted {
+        stroke: $material-color-grey-500;
+    }
+    &--sync {
+        stroke: $material-color-green-500;
+    }
+}
+
+.topology__input {
+    user-select: none;
+    cursor: initial;
+    align-items: center;
+    @include mdc-theme-prop(background-color, background);
+    @include mdc-theme-prop(color, text-primary-on-background);
+    &::before { opacity: 0 !important };
+    &::after { opacity: 0 !important };
+    .mdc-chip__text {
+        flex-grow: 2;
+        font-size: 0.95rem;
+    }
+    .mdc-chip__icon {
+        @include mdc-theme-prop(color, text-icon-on-background);
+    }
+}
+
+.topology__block {
+    margin: 20px;
+    max-width: 250px;
+
+    &--fail {
+        .topology__block__body {
+            background-color: $material-color-red-200;
+            @include mdc-theme-prop(color, text-secondary-on-light);
+        }
+    }
+
+    &--init {
+        .topology__block__body {
+            background-color: $material-color-grey-200;
+            @include mdc-theme-prop(color, text-secondary-on-light);
+        }
+    }
+
+    &--fine {
+        .topology__block__body {
+            background-color: transparent;
+        }
+    }
+}
+
+.topology__block__header {
+    height: 41px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.topology__cpu {
+    &__header {
+        $bg-color: $material-color-blue-grey-500;
+        $tone: mdc-theme-tone($bg-color);
+        .mdc-card__title, .mdc-icon {
+            @if ($tone == 'light') {
+                @include mdc-theme-prop(color, text-primary-on-light)
+            }
+            @else {
+                @include mdc-theme-prop(color, text-primary-on-dark)
+            }
+        }
+        background-color: $bg-color;
+    }
+}

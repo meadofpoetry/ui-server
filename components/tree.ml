@@ -37,14 +37,13 @@ module Item = struct
       method get_nested_tree : 'a option = nested
 
       initializer
-        Option.iter (fun x -> x#add_class Markup.Tree.Item.nested_list_class;
-                              x#add_class Markup.Tree.Item.nested_list_hidden_class;
+        Option.iter (fun x -> x#add_class Markup.Tree.Item.list_class;
                               item#style##.cursor := Js.string "pointer") nested;
         Dom_events.listen super#root
           Dom_events.Typ.click
-          (fun _ e -> let hidden_class = Markup.Tree.Item.nested_list_hidden_class in
+          (fun _ e -> let open_class = Markup.Tree.Item.item_open_class in
                       Dom_html.stopPropagation e;
-                      Option.iter (fun x -> x#toggle_class hidden_class |> not |> s_push) nested;
+                      super#toggle_class open_class |> s_push;
                       true)
         |> ignore;
     end

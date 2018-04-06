@@ -1,81 +1,43 @@
 open Containers
-open Lwt.Infix
+open Lwt_result.Infix
 open Application_js
 open Common.Topology
 open Components
 
-let insert s (container:#Dom.node Js.t) =
-  React.S.map (function
-               | Some p -> Dom.list_of_nodeList @@ container##.childNodes
-                           |> List.iter (fun x -> Dom.removeChild container x);
-                           Dom.appendChild container p#root
-               | None   -> ()) s
+class t elt () = object(self)
+  val mutable _sock  : WebSockets.webSocket Js.t option = None
+  val mutable _nodes : [ `CPU of Topo_cpu.t | `Board of Topo_board.t | `Input of Topo_input.t ] list = []
+  inherit Widget.widget elt () as super
 
-let settings_section s =
-  let title  = new Typography.Text.t ~font:Headline ~text:"Настройки" () in
-  let cont   = Widget.create @@ Dom_html.createDiv Dom_html.document in
-  let box    = new Box.t ~widgets:[title#widget; cont#widget] () in
-  let _      = insert s cont#root in
-  box
+  (* FIXME hack, need to handle resize of total element *)
+  method layout =
+    Dom_html.setTimeout (fun () -> List.iter (function
+                                              | `Board b -> b#layout
+                                              | `Input i -> i#layout
+                                              | `CPU c   -> c#layout) _nodes)
+                        10. |> ignore
+
+  method private on_load =
+    let open Lwt_result.Infix in
+    Requests.get_topology ()
+    >>= (fun init ->
+      let event,sock = Requests.get_topology_socket () in
+      let nodes      = Topology.create ~parent:self ~init ~event () in
+      _nodes <- nodes;
+      _sock <- Some sock;
+      self#layout;
+      Lwt_result.return ())
+    |> ignore
+
+  initializer
+    self#add_class Topology._class;
+    Dom_events.listen Dom_html.window Dom_events.Typ.resize (fun _ _ -> self#layout; true) |> ignore;
+    super#set_on_unload @@ Some (fun () -> Option.iter (fun x -> x##close; _sock <- None) _sock);
+    super#set_on_load   @@ Some (fun () -> self#on_load);
+end
 
 let () =
-  let doc = Dom_html.document in
   let ac  = Dom_html.getElementById "arbitrary-content" in
-
-  let s,push = React.S.create ~eq:Equal.physical None in
-  let divider = new Divider.t () in
-  divider#style##.margin := Js.string "15px 0";
-  let canvas = Dom_html.createCanvas doc in
-  let width () = canvas##.parentNode
-                 |> Js.Opt.to_option |> Option.get_exn
-                 |> Js.Unsafe.coerce
-                 |> (fun x -> x##.offsetWidth) in
-
-  
-  Dom.appendChild ac canvas;
-  Dom.appendChild ac divider#root;  
-  Dom.appendChild ac (settings_section s)#root;
-
-  Requests.get_stream_table ()
-  >>= (function
-       | Ok init ->
-          let stream_selector = Streams_selector.Streams_table.create
-                                  ~init ~events:(fst @@ Requests.get_stream_table_socket ())
-                                  ~post:(fun ss ->
-                                    (Requests.post_stream_settings ss
-                                     >>= function
-                                     | Ok ()   -> Lwt.return_unit
-                                     | Error e -> (Printf.printf "post stream settings, error: %s\n"
-                                                     (Yojson.Safe.pretty_to_string @@
-                                                        Application_types.set_error_to_yojson e));
-                                                  Lwt.return_unit)
-                                    |> Lwt.ignore_result)
-          in Dom.appendChild ac stream_selector;
-             Lwt.return_unit
-       | Error e -> Lwt.return @@ Printf.printf "stream_table get, error: %s\n" e)
-  |> Lwt.ignore_result;
-  
-  Requests.get_topology ()
-  >>= (fun resp ->
-    match resp with
-    | Ok t    ->
-       let f b = match b.typ with
-         | "DVB"   -> (new Board_dvb_niit_js.Settings.settings b.control ())#widget
-         | "TS2IP" -> (new Board_ts2ip_niit_js.Settings.settings b.control ())#widget
-         | "IP2TS" -> Widget.create @@ fst @@ Board_ip_dektec_js.Ip_dektec.page b.control
-         | "TS"    -> Widget.create @@ fst @@ Board_qos_niit_js.Settings.page b.control
-         | s       -> failwith ("Requests.get_topology: unknown board " ^ s)
-       in
-       Topology.render ~topology:(get_entries t)
-                       ~canvas
-                       ~width:(width ())
-                       ~on_click:(function
-                                  | Input _ -> ()
-                                  | Board b -> push (Some (f b)))
-                       ()
-       |> Lwt.return
-    | Error e -> Lwt.return @@ print_endline e)
-  |> ignore;
-  React.E.map (fun x -> Topology.render ~topology:(get_entries x) ~canvas ~width:(width ()) ())
-              (fst (Requests.get_topology_socket ()))
-  |> ignore
+  let div = Dom_html.createDiv Dom_html.document in
+  let elt = new t div () in
+  Dom.appendChild ac elt#root

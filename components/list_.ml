@@ -26,8 +26,8 @@ module Item = struct
       method get_secondary_text = secondary_text
 
       initializer
-        Option.iter (fun x -> x#add_class Markup.List_.Item.start_detail_class) start_detail;
-        Option.iter (fun x -> x#add_class Markup.List_.Item.end_detail_class) end_detail
+        Option.iter (fun x -> x#add_class Markup.List_.Item.graphic_class) start_detail;
+        Option.iter (fun x -> x#add_class Markup.List_.Item.meta_class) end_detail
     end
 
 end

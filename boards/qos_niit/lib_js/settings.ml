@@ -4,7 +4,10 @@ open Components
 let t2mi_mode ~(init  : config)
               ~(event : config React.event) =
   let enabled = new Switch.t () in
-  let pid     = new Textfield.t  ~input_type:(Integer (Some (0,8192))) ~label:"T2-MI PID" () in
+  let pid     = new Textfield.t
+                  ~input_id:"pid_field"
+                  ~input_type:(Integer ((Some 0),(Some 8192)))
+                  ~label:"T2-MI PID" () in
   let en_form = new Form_field.t ~input:enabled ~label:"Включить анализ" ~align_end:true () in
   pid#set_required true;
   (match init.mode.t2mi with
@@ -31,12 +34,12 @@ let card control
          ~(event : config React.event) =
   (* let title       = new Card.Title.t ~title:"Настройки" () in
    * let primary     = new Card.Primary.t ~widgets:[title] () in *)
-  let items       = [ new Select.Base.Item.t ~text:"ASI" ~value:ASI ()
-                    ; new Select.Base.Item.t ~text:"SPI" ~value:SPI ()
+  let items       = [ `Item (new Select.Item.t ~text:"ASI" ~value:ASI ())
+                    ; `Item (new Select.Item.t ~text:"SPI" ~value:SPI ())
                     ]
   in
-  let inp         = new Select.Base.t ~label:"Вход" ~items () in
-  let _           = inp#select_value init.mode.input in
+  let inp         = new Select.t ~label:"Вход" ~items () in
+  let _           = inp#set_selected_value ~eq:equal_input init.mode.input in
   let t2mi,s_t2mi = t2mi_mode ~init ~event in
   let common_sect = new Card.Media.t ~widgets:[inp#widget] () in
   let t2mi_sect   = new Card.Media.t ~widgets:[t2mi#widget] () in
@@ -53,9 +56,9 @@ let card control
               match inp,t2mi with
               | Some input, Ok t2mi -> Ok { input; t2mi = Some t2mi }
               | _, Error e          -> Error (Printf.sprintf "t2mi settings error: %s" e)
-              | _                   -> Error "input not provided") inp#s_selected s_t2mi
+              | _                   -> Error "input not provided") inp#s_selected_value s_t2mi
   in
-  let _ = React.E.map (fun config -> inp#select_value config.mode.input) event in
+  let _ = React.E.map (fun config -> inp#set_selected_value ~eq:equal_input config.mode.input) event in
   let _ = React.E.map (fun _ -> match React.S.value s with
                                 | Ok mode -> Requests.post_mode control mode
                                 | Error e -> Lwt_result.fail e) apply#e_click

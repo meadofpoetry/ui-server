@@ -62,9 +62,9 @@ let fec_status_card s_state e_status =
 
 let nw_settings_block control s_state (cfg:Board_types.config) =
   let help_text : Textfield.Help_text.helptext = { validation=true;persistent=false;text=None } in
-  let ip        = new Textfield.t ~input_type:IPV4 ~help_text ~label:"IP адрес" () in
-  let mask      = new Textfield.t ~input_type:IPV4 ~help_text ~label:"Маска подсети" () in
-  let gw        = new Textfield.t ~input_type:IPV4 ~help_text ~label:"Шлюз" () in
+  let ip        = new Textfield.t ~input_id:"ip"~input_type:IPV4 ~help_text ~label:"IP адрес" () in
+  let mask      = new Textfield.t ~input_id:"mask" ~input_type:IPV4 ~help_text ~label:"Маска подсети" () in
+  let gw        = new Textfield.t ~input_id:"gw" ~input_type:IPV4 ~help_text ~label:"Шлюз" () in
   let dhcp      = new Switch.t ~input_id:"dhcp" () in
   let settings  = new Box.t
                       ~vertical:true
@@ -108,8 +108,8 @@ let ip_settings_block control s_state (cfg:Board_types.config) =
   let en        = new Switch.t ~input_id:"enable" () in
   let fec       = new Switch.t ~input_id:"fec" () in
   let mcast_en  = new Switch.t ~input_id:"mcast_en" () in
-  let port      = new Textfield.t ~help_text ~label:"UDP порт" ~input_type:(Integer (Some (0,65535))) () in
-  let multicast = new Textfield.t ~help_text ~label:"Multicast адрес" ~input_type:MulticastV4 () in
+  let port      = new Textfield.t ~input_id:"port" ~help_text ~label:"UDP порт" ~input_type:(Integer ((Some 0),(Some 65535))) () in
+  let multicast = new Textfield.t ~help_text ~input_id:"multicast" ~label:"Multicast адрес" ~input_type:MulticastV4 () in
   let widgets   = [ Widget.coerce @@ new Form_field.t ~label:"Включить приём TSoIP" ~align_end:true ~input:en ()
                   ; Widget.coerce @@ new Form_field.t ~label:"Включить FEC" ~align_end:true ~input:fec ()
                   ; Widget.coerce @@ new Form_field.t ~label:"Включить Multicast" ~align_end:true ~input:mcast_en ()
