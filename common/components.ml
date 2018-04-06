@@ -1107,127 +1107,48 @@ module Make
 
   module Select = struct
 
-    let base_class        = "mdc-select"
-    let surface_class     = CSS.add_element base_class "surface"
-    let bottom_line_class = CSS.add_element base_class "bottom-line"
+    let base_class           = "mdc-select"
+    let native_control_class = CSS.add_element base_class "native-control"
+    let label_class          = CSS.add_element base_class "label"
+    let bottom_line_class    = CSS.add_element base_class "bottom-line"
 
-    module Base = struct
+    module Item = struct
 
-      let menu_class              = CSS.add_element base_class "menu"
-      let label_class             = CSS.add_element base_class "label"
-      let label_float_above_class = CSS.add_modifier label_class "float-above"
-      let selected_text_class     = CSS.add_element base_class "selected-text"
-      let disabled_class          = CSS.add_modifier base_class "disabled"
-
-      module Item = struct
-
-        include List_.Item
-
-        let create ?id ?style ?classes ?attrs ?(disabled=false) ?(selected=false)
-              ~text ?text_id ?text_style ?text_classes ?text_attrs
-              ?start_detail ?end_detail () =
-          create ?id ?style ?classes
-            ~attrs:([ a_role ["option"]]
-                    |> cons_if selected @@ a_aria "selected" []
-                    |> cons_if disabled @@ a_aria "disabled" ["true"]
-                    |> cons_if disabled @@ a_tabindex (-1)
-                    |> cons_if (not disabled) @@ a_tabindex 0
-                    |> (fun x -> x @ (Option.get_or ~default:[] attrs)))
-            ~text ?text_id ?text_style ?text_classes ?text_attrs ?start_detail ?end_detail ()
-
-      end
-
-      let create_list ?id ?style ?attrs ?(classes=[]) ~items () =
-        List_.create ?id ?style ?attrs ~classes:(Menu.items_class :: classes) ~items ()
-
-      let create_menu ?id ?style ?(classes=[]) ?attrs ~list () =
-        Menu.create ?id ?style ?attrs ~classes:(menu_class :: classes) ~list ()
-
-      let create ?id ?style ?(classes=[]) ?attrs ?(disabled=false) ~label ~menu () =
-        div ~a:([ a_class (classes
-                           |> cons_if disabled disabled_class
-                           |> List.cons base_class)
-                ; a_role ["listbox"]]
-                |> cons_if disabled @@ a_aria "disabled" ["true"]
-                |> add_common_attrs ?id ?style ?attrs)
-          [ div ~a:([ a_class [surface_class]]
-                     |> List.cons @@ a_tabindex 0)
-              [ div ~a:[ a_class [label_class]] [pcdata label]
-              ; div ~a:[ a_class [selected_text_class]] []
-              ; div ~a:[ a_class [bottom_line_class]] [] ]
-          ; menu
-          ]
-
-    end
-
-    module Pure = struct
-
-      module Item = struct
-
-        let create ?id ?style ?(classes=[]) ?attrs ?(disabled=false) ?(selected=false) ?value ~text () =
-          option ~a:([ a_class classes ]
-                     |> map_cons_option ~f:a_value value
-                     |> cons_if disabled @@ a_disabled ()
-                     |> cons_if selected @@ a_selected ()
-                     |> add_common_attrs ?id ?style ?attrs)
-            (pcdata text)
-
-        let create_group ?id ?style ?(classes=[]) ?attrs ~label ~items () =
-          optgroup ~a:([ a_class classes ]
-                       |> add_common_attrs ?id ?style ?attrs)
-            ~label
-            items
-
-      end
-
-      let create ?id ?style ?(classes=[]) ?attrs ?(disabled=false) ~items () =
-        div ~a:([ a_class (base_class :: classes)]
-                |> add_common_attrs ?id ?style ?attrs)
-          [ select ~a:([ a_class [surface_class] ]
-                       |> cons_if disabled @@ a_disabled ())
-              items
-          ; div ~a:([ a_class [bottom_line_class]]) [] ]
-
-    end
-
-    module Multi = struct
-
-      let _class = "mdc-multi-select"
-
-      module Item = struct
-
-        let create ?id ?style ?(classes=[]) ?attrs ?(disabled=false) ?(selected=false) ?value ~text () =
-          option ~a:([ a_class (List_.Item._class :: classes) ]
-                     |> map_cons_option ~f:a_value value
-                     |> cons_if disabled @@ a_disabled ()
-                     |> cons_if selected @@ a_selected ()
-                     |> add_common_attrs ?id ?style ?attrs)
-            (pcdata text)
-
-        let create_divider ?id ?style ?(classes=[]) ?attrs () =
-          option ~a:([ a_class (List_.Item.divider_class :: classes)
-                     ; a_role ["presentation"]
-                     ; a_disabled () ]
-                     |> add_common_attrs ?id ?style ?attrs)
-            (pcdata "")
-
-        let create_group ?id ?style ?(classes=[]) ?attrs ~label ~items () =
-          optgroup ~a:([ a_class (List_.List_group._class :: classes) ]
-                       |> add_common_attrs ?id ?style ?attrs)
-            ~label
-            items
-
-      end
-
-      let create ?id ?style ?(classes=[]) ?attrs ?(disabled=false) ?size ~items () =
-        select ~a:([ a_class (_class :: List_.base_class :: classes)
-                   ; a_multiple () ]
-                   |> map_cons_option ~f:a_size size
+      let create ?id ?style ?(classes=[]) ?attrs ?(disabled=false) ?(selected=false) ~text () =
+        option ~a:([ a_class classes ]
                    |> cons_if disabled @@ a_disabled ()
+                   |> cons_if selected @@ a_selected ()
                    |> add_common_attrs ?id ?style ?attrs)
+          (pcdata text)
+
+      let create_group ?id ?style ?(classes=[]) ?attrs ~label ~items () =
+        optgroup ~a:([ a_class classes ]
+                     |> add_common_attrs ?id ?style ?attrs)
+          ~label
           items
 
     end
+
+    let create_select ?id ?style ?(classes=[]) ?attrs ?(disabled=false) ~items () =
+      select ~a:([ a_class (native_control_class::classes) ]
+                 |> cons_if disabled @@ a_disabled ()
+                 |> add_common_attrs ?id ?style ?attrs)
+        items
+
+    let create_label ?id ?style ?(classes=[]) ?attrs ~label () =
+      div ~a:([ a_class (label_class :: classes) ]
+              |> add_common_attrs ?id ?style ?attrs)
+        [ pcdata label ]
+
+    let create_bottom_line ?id ?style ?(classes=[]) ?attrs () =
+      div ~a:([ a_class (bottom_line_class :: classes ) ]
+              |> add_common_attrs ?id ?style ?attrs)
+        []
+
+    let create ?id ?style ?(classes=[]) ?attrs ~select ~label ~bottom_line () =
+      div ~a:([ a_class (base_class :: classes)]
+              |> add_common_attrs ?id ?style ?attrs)
+        [ select; label; bottom_line ]
 
   end
 

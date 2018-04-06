@@ -91,37 +91,35 @@ class page ~s ~widgets () = object
 end
 
 let mode ~(init : mode) =
-  let mode_items = [ new Select.Base.Item.t ~text:"DVB-T2" ~value:T2 ()
-                   ; new Select.Base.Item.t ~text:"DVB-T"  ~value:T  ()
-                   ; new Select.Base.Item.t ~text:"DVB-C"  ~value:C  ()
+  let mode_items = [ `Item (new Select.Item.t ~text:"DVB-T2" ~value:T2 ())
+                   ; `Item (new Select.Item.t ~text:"DVB-T"  ~value:T  ())
+                   ; `Item (new Select.Item.t ~text:"DVB-C"  ~value:C  ())
                    ]
   in
-  let mode       = new Select.Base.t ~label:"Стандарт" ~items:mode_items () in
-  let _ = mode#select_value init in
-  let _ = mode#get_menu#set_dense true in
+  let mode = new Select.t ~label:"Стандарт" ~items:mode_items () in
+  let _    = mode#set_selected_value init in
   mode
 
 let bw ~(init : bw) =
-  let bw_items   = [ new Select.Base.Item.t ~text:"8 МГц" ~value:Bw8 ()
-                   ; new Select.Base.Item.t ~text:"7 МГц" ~value:Bw7 ()
-                   ; new Select.Base.Item.t ~text:"6 МГц" ~value:Bw6 ()
+  let bw_items   = [ `Item (new Select.Item.t ~text:"8 МГц" ~value:Bw8 ())
+                   ; `Item (new Select.Item.t ~text:"7 МГц" ~value:Bw7 ())
+                   ; `Item (new Select.Item.t ~text:"6 МГц" ~value:Bw6 ())
                    ]
   in
-  let bw         = new Select.Base.t ~label:"Полоса пропускания" ~items:bw_items () in
-  let _ = bw#select_value init in
-  let _ = bw#get_menu#set_dense true in
+  let bw         = new Select.t ~label:"Полоса пропускания" ~items:bw_items () in
+  let _ = bw#set_selected_value init in
   bw
 
 let freq ~(typ  : mode)
       ~(init : int32) =
-  let freq_items = List.map (fun (c:Channel.t) -> new Select.Base.Item.t ~text:c.name ~value:c.freq ())
+  let freq_items = List.map (fun (c:Channel.t) ->
+                       `Item (new Select.Item.t ~text:c.name ~value:c.freq ()))
                      (match typ with
                       | T2 | T -> Channel.Terrestrial.lst
                       | C      -> Channel.Cable.lst)
   in
-  let freq  = new Select.Base.t ~label:"ТВ канал" ~items:freq_items () in
-  let _ = freq#select_value (Int32.to_int init) in
-  let _ = freq#get_menu#set_dense true in
+  let freq  = new Select.t ~label:"ТВ канал" ~items:freq_items () in
+  let _ = freq#set_selected_value (Int32.to_int init) in
   freq
 
 let mode_box ~(typ     : mode)
@@ -146,11 +144,12 @@ let mode_box ~(typ     : mode)
                  match freq,bw,plp with
                  | Some freq,Some bw,Some plp -> Ok { freq = Int32.of_int freq; bw; plp }
                  | _                  -> Error "mode box: some values missing")
-               freq#s_selected bw#s_selected plp#s_input
+               freq#s_selected_value bw#s_selected_value plp#s_input
   in
-  let _    = React.S.map (fun (s:channel_settings) -> freq#select_value (Int32.to_int s.freq) |> ignore;
-                                                      bw#select_value s.bw                    |> ignore;
-                                                      plp#fill_in s.plp) s_mode
+  let _    = React.S.map (fun (s:channel_settings) ->
+                 freq#set_selected_value ~eq:Int.equal (Int32.to_int s.freq) |> ignore;
+                 bw#set_selected_value ~eq:equal_bw s.bw                    |> ignore;
+                 plp#fill_in s.plp) s_mode
   in
   let _    = React.S.map (fun x -> let d = (match x with
                                             | `No_response | `Init -> true
@@ -177,7 +176,7 @@ let module_settings ~(id      : int)
                                             | Some T,_,Ok t,_   -> Ok (id,{ mode = T ; channel = t })
                                             | Some C,_,_,Ok c   -> Ok (id,{ mode = C ; channel = c })
                                             | _                 -> Error "all: some values missing")
-               mode#s_selected s_t2 s_t s_c
+               mode#s_selected_value s_t2 s_t s_c
   in
   let box = new page ~s ~widgets:[ mode#widget; t2_box#widget; t_box#widget; c_box#widget ] () in
   let update_visibility = function
@@ -195,8 +194,8 @@ let module_settings ~(id      : int)
                  (try Dom.removeChild box#root c_box#root with _ -> ())
   in
   let _ = React.S.map (fun x -> update_visibility (Some x.mode)) s_mode in
-  let _ = React.S.map update_visibility mode#s_selected in
-  let _ = React.S.map (fun s -> mode#select_value s.mode) s_mode in
+  let _ = React.S.map update_visibility mode#s_selected_value in
+  let _ = React.S.map (fun s -> mode#set_selected_value ~eq:equal_mode s.mode) s_mode in
   let _ = React.S.map (function
               | `No_response | `Init -> mode#set_disabled true
               | `Fine                -> mode#set_disabled false) s_state

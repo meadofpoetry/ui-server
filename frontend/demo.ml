@@ -449,82 +449,21 @@ let textfield_demo () =
                            ; subsection "Textarea" textarea ]
 
 let select_demo () =
-  let js      = new Select.Base.t
-                  ~label:"Pick smth"
-                  ~items:(List.map (fun x -> new Select.Base.Item.t
-                                               ~id:("index " ^ (string_of_int x))
-                                               ~text:("Select item " ^ (string_of_int x))
-                                               ~value:()
-                                               ())
-                            (List.range 0 5))
-                  () in
-  js#set_dense true;
-  let pure    = new Select.Pure.t
-                  ~items:[ `Group (new Select.Pure.Group.t
-                                     ~label:"Group 1"
-                                     ~items:[ new Select.Pure.Item.t ~text:"Item 1" ()
-                                            ; new Select.Pure.Item.t ~text:"Item 2" ()
-                                            ; new Select.Pure.Item.t ~text:"Item 3" ()]
-                                     ())
-                         ; `Item (new Select.Pure.Item.t ~text:"Item 1" ())
-                         ; `Item (new Select.Pure.Item.t ~text:"Item 2" ())
-                         ; `Item (new Select.Pure.Item.t ~text:"Item 3" ())
-                  ]
-                  () in
-  let multi = [ `Group (new Select.Multi.Group.t
-                          ~label:"Group 1"
-                          ~items:(List.map (fun x -> let text = "Group item " ^ (string_of_int x) in
-                                                     new Select.Multi.Item.t ~text ())
-                                    (List.range 0 2))
-                          ())
-              ; `Divider (new Select.Multi.Divider.t ())
-              ; `Group (new Select.Multi.Group.t
-                          ~label:"Group 2"
-                          ~items:(List.map (fun x -> let text = "Group item " ^ (string_of_int x) in
-                                                     new Select.Multi.Item.t ~text ())
-                                    (List.range 0 2))
-                          ())
-              ; `Divider (new Select.Multi.Divider.t ())
-              ; `Item (new Select.Multi.Item.t ~text:"Item 1" ())
-              ; `Item (new Select.Multi.Item.t ~text:"Item 2" ()) ]
-              |> (fun items -> new Select.Multi.t ~items ~size:12 ()) in
-  demo_section "Select" [ subsection "Full-fidelity select" js
-                        ; subsection "Pure (css-only) select" pure
-                        ; subsection "CSS-only multi select" multi ]
-
-let toolbar_demo (drawer : Drawer.Persistent.t Js.t) () =
-  let icon = Html.i ~a:[Html.a_class [ "material-icons"; Markup.Toolbar.Row.Section.icon_class]
-                      ; Html.a_onclick (fun _ -> if drawer##.open_ |> Js.to_bool
-                                                 then drawer##.open_ := Js._false
-                                                 else drawer##.open_ := Js._true
-                                               ; true)]
-               [Html.pcdata "menu"]
-             |> To_dom.of_i
-             |> Widget.create in
-  let title = new Toolbar.Row.Section.Title.t ~title:"Widgets demo page" () in
-  let section_start = new Toolbar.Row.Section.t ~widgets:[ icon#widget; title#widget ] () in
-  section_start#set_align `Start;
-  let icon_menu = new Menu.t
-                    ~open_from:`Top_right
-                    ~items:[ `Item (new Menu.Item.t ~text:"Item 1" ())
-                           ; `Item (new Menu.Item.t ~text:"Item 2" ())
-                           ; `Item (new Menu.Item.t ~text:"Item 3" ()) ]
-                    () in
-  let end_icon = Html.i ~a:[Html.a_class [ "material-icons"; Markup.Toolbar.Row.Section.icon_class]]
-                   [Html.pcdata "favorite"]
-                 |> To_dom.of_i
-                 |> Widget.create in
-  Menu.inject ~anchor:end_icon ~menu:icon_menu;
-  Dom_html.addEventListener end_icon#root
-    Dom_events.Typ.click
-    (Dom_html.handler (fun _ -> icon_menu#show; Js._false))
-    Js._false
-  |> ignore;
-  let section_end = new Toolbar.Row.Section.t ~widgets:[end_icon] () in
-  section_end#set_align `End;
-  let row = new Toolbar.Row.t ~sections:[ section_start; section_end ] () in
-  let toolbar = new Toolbar.t ~rows:[ row ] () in
-  toolbar#root
+  let select = new Select.t
+                 ~label:"Demo select"
+                 ~items:[ `Group (new Select.Group.t
+                                    ~label:"Group 1"
+                                    ~items:[ new Select.Item.t ~value:() ~text:"Item 1" ()
+                                           ; new Select.Item.t ~value:() ~text:"Item 2" ()
+                                           ; new Select.Item.t ~value:() ~text:"Item 3" () ]
+                                    ())
+                        ; `Item (new Select.Item.t ~value:() ~text:"Item 1" ())
+                        ; `Item (new Select.Item.t ~value:() ~text:"Item 2" ())
+                        ; `Item (new Select.Item.t ~value:() ~text:"Item 3" ())
+                 ]
+                 ()
+  in
+  demo_section "Select" [ select ]
 
 let elevation_demo () =
   let d       = Widget.create (Html.div ~a:[Html.a_style "height: 200px; width: 200px; margin: 20px"] []
@@ -534,11 +473,6 @@ let elevation_demo () =
   let section = demo_section "Elevation" [ d#widget; slider#widget ] in
   let _       = React.S.map (fun x -> if x then slider#layout) section#s_expanded in
   section
-
-let drawer_demo () =
-  Drawer.Temporary.create ~content:[Drawer.Temporary.Toolbar_spacer.create ~content:[Html.pcdata "Demo"]
-                                      ()] ()
-  |> Drawer.Temporary.attach
 
 let table_demo () =
   let header = new Table.Header.t ~content:[ Text "col 1"; Text "col 2"; Text "col 3"] () in
