@@ -37,7 +37,7 @@
   pointer-events: none;
   overflow: hidden;
   contain: strict;
-  z-index: 5;
+  z-index: 30;
 
   /* Shaded background */
   &::before {

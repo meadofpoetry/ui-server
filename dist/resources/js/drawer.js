@@ -1,6 +1,6 @@
 var open     = 'mdc-drawer--open';
 var hide     = 'hide-sidedrawer';
-var drawerEl = document.getElementById('mdc-drawer');
+var drawerEl = document.getElementById('main-drawer');
 var btn      = document.getElementById('demo-menu');
 var body     = document.body;
 var hidden         = 'mdc-drawer__wrapper--hidden';
