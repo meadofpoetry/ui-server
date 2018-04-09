@@ -44,7 +44,8 @@ $mdc-form-field-item-spacing: 4px;
 }
 
 .mdc-form-field--align-end {
-  > label {
+    > label {
+    flex-grow: 1;
     order: -1;
     margin-left: auto;
     padding-right: $mdc-form-field-item-spacing;

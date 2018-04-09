@@ -1,9 +1,5 @@
 open Containers
-open Lwt_react
-open Requests
 open Components
-
-open Lwt.Infix
 
 let insert s (container:#Dom.node Js.t) =
   React.S.map (function
@@ -12,40 +8,25 @@ let insert s (container:#Dom.node Js.t) =
                            Dom.appendChild container p#root
                | None   -> ()) s
 
-let load () =
+class type t =
+  object inherit Widget.widget
+    method on_load   : unit
+    method on_unload : unit
+  end
 
-  let container = Dom_html.getElementById "arbitrary-content" in
-
+let pages =
   let open Tabs in
+  let tab f () = ((f ()) :> t) in
   let tab_pages =
-    [ "Видео",          (fun () -> (Mosaic.page ())#widget)
-    ; "Редактор",       (fun () -> (Mosaic_settings.page ())#widget)
-    ; "Выбор программ", (fun () -> (Structure_settings.page ())#widget)
-    ; "Настройки анализа", (fun () -> (Analysis_settings.page ())#widget)
-    ; "Графики",           (fun () -> (Charts.page ())#widget)
+    [ "Видео",             tab Mosaic.page
+    ; "Редактор",          tab Mosaic_settings.page
+    ; "Выбор программ",    tab Structure_settings.page
+    ; "Настройки анализа", tab Analysis_settings.page
+    ; "Графики",           tab Charts.page
     ]
   in
   let tabs = List.map (fun x -> { content  = `Text (fst x)
                                 ; disabled = false
                                 ; href     = None
                                 ; value    = (snd x) }) tab_pages in
-  let bar  = new Tabs.Scroller.t ~tabs () in
-  let s    = React.S.map (function
-                          | Some x -> Some (x#get_value ())
-                          | None   -> None) bar#tab_bar#s_active in
-  let _    = insert s container in
-
-  let section = new Toolbar.Row.Section.t ~align:`Start ~widgets:[bar] () in
-  let row     = new Toolbar.Row.t ~sections:[section] () in
-  let toolbar = Dom_html.getElementById "main-toolbar" in
-  let content = Dom_html.getElementById "main-content" in
-  (* bar#style##.marginLeft := Js.string "72px"; *)
-  bar#tab_bar#set_active_tab_index 1 |> ignore;
-  content##.style##.marginTop := Js.string "128px";
-  bar#tab_bar#set_indicator_accent;
-  (Js.Unsafe.coerce row#style)##.alignItems := Js.string "flex-end";
-  (Js.Unsafe.coerce section#style)##.alignItems := Js.string "flex-end";
-
-  Dom.appendChild toolbar   row#root;
-  (Js.Unsafe.coerce bar#style)##.flexGrow := 1;
-  bar#layout
+  tabs

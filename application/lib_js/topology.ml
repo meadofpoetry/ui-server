@@ -145,7 +145,11 @@ let create ~(parent: #Widget.widget)
                     | "TS" -> Widget.create @@ fst @@ Board_qos_niit_js.Settings.page board.control
                     | "DVB"   -> (new Board_dvb_niit_js.Settings.settings board.control ())#widget
                     | "TS2IP" -> (new Board_ts2ip_niit_js.Settings.settings board.control ())#widget
-                    | "IP2TS" -> Widget.create @@ fst @@ Board_ip_dektec_js.Ip_dektec.page board.control
+                    | "IP2TS" ->
+                       let w = Board_ip_dektec_js.Ip_dektec.page board.control () in
+                       w#set_on_load @@ Some (fun () -> w#on_load);
+                       w#set_on_unload @@ Some (fun () -> w#on_unload);
+                       w#widget
                     | _    -> Dom_html.createDiv Dom_html.document |> Widget.create)
                    |> (fun w -> Dom.appendChild drawer#drawer#root w#root);
                    drawer#show) e_bs

@@ -7,7 +7,7 @@ class t () = object(self)
   val mutable sock : WebSockets.webSocket Js.t option = None
   inherit Widget.widget (Dom_html.createDiv Dom_html.document) () as super
 
-  method private on_load =
+  method on_load =
     Requests.get_settings ()
     >>= (fun settings ->
       let e_settings,settings_sock = Requests.get_settings_socket () in
@@ -25,9 +25,9 @@ class t () = object(self)
       Lwt_result.return ())
     |> ignore
 
-  initializer
-    self#set_on_unload (Some (fun () -> Option.iter (fun x -> x##close; sock <- None) sock));
-    self#set_on_load   (Some (fun () -> self#on_load))
+  method on_unload =
+    Option.iter (fun x -> x##close; sock <- None) sock
+
 end
 
 let page () = new t ()

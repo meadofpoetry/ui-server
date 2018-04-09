@@ -9,14 +9,16 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
     @include topology-board-type(nth($boards,$i));
 }
 
-#arbitrary-content {
+#main-content {
     display: flex;
-    align-items: center;
+    align-items: stretch;
     justify-content: center;
+    > * {
+        flex-grow: 1;
+    }
 }
 
 .topology {
-    flex-grow: 1;
     display: grid;
     height: 100%;
     position: relative;

@@ -1,3 +1,16 @@
+.mdc-avatar {
+  border-radius: 50%;
+  font-size: 20px;
+  height: 40px;
+  width: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center; }
+  .mdc-avatar--dense {
+    width: 30px;
+    height: 30px;
+    font-size: 15px; }
+
 .mdc-box {
   display: flex; }
   .mdc-box--vertical {
@@ -1667,6 +1680,16 @@
 
 .mdc-dialog-scroll-lock {
   overflow: hidden; }
+
+.mdc-divider {
+  background-color: rgba(0, 0, 0, 0.12);
+  height: 1px;
+  margin: 0;
+  border: none;
+  flex-shrink: 0;
+  box-sizing: inherit; }
+  .mdc-divider--inset {
+    margin-left: 72px; }
 
 .mdc-dynamic-grid {
   background-color: transparent;
@@ -3406,6 +3429,7 @@
     padding-right: 4px; }
 
 .mdc-form-field--align-end > label {
+  flex-grow: 1;
   order: -1;
   margin-left: auto;
   padding-right: 4px; }
@@ -6514,7 +6538,8 @@ a.mdc-list-item {
   transition: transform 0.25s 0ms cubic-bezier(0.4, 0, 1, 1);
   background-color: #323232;
   pointer-events: none;
-  will-change: transform; }
+  will-change: transform;
+  z-index: 1000; }
   @media (max-width: 599px) {
     .mdc-snackbar {
       left: 0;
@@ -6959,6 +6984,13 @@ a.mdc-list-item {
   .mdc-tab__icon + .mdc-tab__icon-text {
     padding-top: 6px; }
 
+.mdc-tab[disabled=true] {
+  /* @alternate */
+  color: rgba(0, 0, 0, 0.38);
+  color: var(--mdc-theme-text-disabled-on-background, rgba(0, 0, 0, 0.38));
+  pointer-events: none;
+  cursor: default; }
+
 .mdc-tab--active {
   /* @alternate */
   color: rgba(0, 0, 0, 0.87);
@@ -7336,6 +7368,9 @@ a.mdc-list-item {
       white-space: nowrap; }
   .mdc-tab-bar-scroller__indicator {
     flex: 0 0 48px;
+    align-items: center;
+    justify-content: center;
+    display: flex;
     visibility: hidden;
     /* @alternate */
     color: rgba(0, 0, 0, 0.54);
@@ -7355,6 +7390,7 @@ a.mdc-list-item {
     .mdc-tab-bar-scroller__indicator__inner:hover {
       color: inherit; }
   .mdc-tab-bar-scroller__indicator--enabled {
+    cursor: pointer;
     visibility: visible; }
   @media (max-width: 600px) {
     .mdc-tab-bar-scroller__indicator {

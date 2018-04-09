@@ -678,43 +678,35 @@ let add_demos demos =
   |> To_dom.of_element
 
 let onload _ =
-  let ac = Dom_html.getElementById "arbitrary-content" in
-  ac##.style##.margin := Js.string "20px";
-  (* let doc     = Dom_html.document in
-   * let body    = doc##.body in
-   * let drawer  = drawer_demo () in
-   * let toolbar = toolbar_demo drawer () in *)
-  let demos   = add_demos [ expansion_panel_demo ()
-                          ; dynamic_grid_demo ()
-                          ; table_demo ()
-                          ; button_demo ()
-                          ; chart_demo ()
-                          ; time_chart_demo ()
-                          ; fab_demo ()
-                          ; radio_demo ()
-                          ; checkbox_demo ()
-                          ; switch_demo ()
-                          ; toggle_demo ()
-                          ; elevation_demo ()
-                          ; select_demo ()
-                          ; textfield_demo ()
-                          ; card_demo ()
-                          ; slider_demo ()
-                          ; grid_list_demo ()
-                          ; ripple_demo ()
-                          ; layout_grid_demo ()
-                          ; dialog_demo ()
-                          ; list_demo ()
-                          ; tree_demo ()
-                          (* ; menu_demo () *)
-                          ; snackbar_demo ()
-                          ; linear_progress_demo ()
-                          ; circular_progress_demo ()
-                          ; tabs_demo ()
-                          ] in
-  (* Dom.appendChild body toolbar;
-   * Dom.appendChild body drawer##.root__; *)
-  Dom.appendChild ac demos;
+  let demos = add_demos [ expansion_panel_demo ()
+                        ; dynamic_grid_demo ()
+                        ; table_demo ()
+                        ; button_demo ()
+                        ; chart_demo ()
+                        ; time_chart_demo ()
+                        ; fab_demo ()
+                        ; radio_demo ()
+                        ; checkbox_demo ()
+                        ; switch_demo ()
+                        ; toggle_demo ()
+                        ; elevation_demo ()
+                        ; select_demo ()
+                        ; textfield_demo ()
+                        ; card_demo ()
+                        ; slider_demo ()
+                        ; grid_list_demo ()
+                        ; ripple_demo ()
+                        ; layout_grid_demo ()
+                        ; dialog_demo ()
+                        ; list_demo ()
+                        ; tree_demo ()
+                        (* ; menu_demo () *)
+                        ; snackbar_demo ()
+                        ; linear_progress_demo ()
+                        ; circular_progress_demo ()
+                        ; tabs_demo ()
+                        ] in
+  let _ = new Page.t (`Static [Widget.create demos]) () in
   Js._false
 
 let () = Dom_html.addEventListener Dom_html.document

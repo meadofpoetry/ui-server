@@ -1,5 +1,6 @@
 open Containers
 open Components
+open Lwt_result.Infix
 open Ui
 
 (* TODO remove *)
@@ -146,14 +147,13 @@ let ip_settings_block control s_state (cfg:Board_types.config) =
       ~sections:[ media#widget ]
       ()
 
-let free state =
-  let open Lwt_result.Infix in
-  state >>= (fun x -> x.state_ws##close; x.status_ws##close; Lwt_result.return ())
+class t control () = object(self)
 
-let page control =
-  let open Lwt_result.Infix in
-  let container = Dom_html.createDiv Dom_html.document in
-  let t =
+  val mutable _state : (page_state,string) Lwt_result.t option = None
+
+  inherit Widget.widget (Dom_html.createDiv Dom_html.document) ()
+
+  method on_load =
     Requests.get_config control
     >>= (fun cfg ->
       Requests.get_state control
@@ -173,8 +173,16 @@ let page control =
            let settings_grid = new Layout_grid.t ~cells:[ new Layout_grid.Cell.t ~widgets:[ nw_card ] ()
                                                         ; new Layout_grid.Cell.t ~widgets:[ ip_card ] ()
                                                         ] () in
-           Dom.appendChild container settings_grid#root;
-           Dom.appendChild container status_grid#root;
+           Dom.appendChild self#root settings_grid#root;
+           Dom.appendChild self#root status_grid#root;
            Lwt_result.return { state_ws;status_ws }))
-  in
-  container, (fun () -> free t |> ignore)
+    |> fun s -> _state <- Some s
+
+  method on_unload : unit =
+    match _state with
+    | Some s -> s >>= (fun x -> x.state_ws##close; x.status_ws##close; Lwt_result.return ()) |> ignore
+    | None   -> ()
+
+end
+
+let page control () = new t control ()

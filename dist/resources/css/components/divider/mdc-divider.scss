@@ -1,0 +1,12 @@
+.mdc-divider {
+    background-color: rgba(0, 0, 0, .12);
+    height: 1px;
+    margin: 0;
+    border: none;
+    flex-shrink: 0;
+    box-sizing: inherit;
+
+    &--inset {
+        margin-left: 72px;
+    }
+}

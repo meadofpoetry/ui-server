@@ -112,11 +112,11 @@
             </section>
         </div>
     </header>
-    <main id="main-content" class="content">
+    <main id="main-content">
         <section id="arbitrary-content">
-          {{#content}}
-          {{{element}}}
-          {{/content}}
+            {{#content}}
+            {{{element}}}
+            {{/content}}
         </section>
     </main>
     <script src="https://unpkg.com/material-components-web@0.34.1/dist/material-components-web.min.js"></script>
@@ -132,7 +132,6 @@
       function rdy () { window.mdc.autoInit(); };
       document.addEventListener('DOMContentLoaded', rdy, false);
     </script>
-    <script src="/js/sidebar_nav.js" type="text/javascript"></script>
     <script src="/js/drawer.js" type="text/javascript"></script>
   </body>
 </html>

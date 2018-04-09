@@ -90,6 +90,12 @@ $mdc-tab-with-icon-and-text-height: 72px;
   }
 }
 
+.mdc-tab[disabled=true] {
+    @include mdc-theme-prop(color, text-disabled-on-background);
+    pointer-events: none;
+    cursor: default;
+}
+
 .mdc-tab--active {
   @include mdc-tab-ink-color(text-primary-on-background);
 

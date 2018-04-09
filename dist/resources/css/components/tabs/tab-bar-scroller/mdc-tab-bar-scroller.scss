@@ -40,6 +40,9 @@ $mdc-tab-bar-scroller-indicator-width: 48px;
 
   &__indicator {
       flex: 0 0 $mdc-tab-bar-scroller-indicator-width;
+      align-items: center;
+      justify-content: center;
+      display: flex;
       visibility: hidden;
 
       @include mdc-theme-prop(color, text-secondary-on-background);
@@ -68,6 +71,7 @@ $mdc-tab-bar-scroller-indicator-width: 48px;
   }
 
   &__indicator--enabled {
+    cursor: pointer;
     visibility: visible;
   }
 

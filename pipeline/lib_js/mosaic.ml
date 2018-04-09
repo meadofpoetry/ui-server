@@ -56,13 +56,20 @@ let make_video () =
   video##.style##.backgroundColor := Js.string "rgba(0,0,0,1)";
   video
 
-let page () =
+class t () =
   let video = make_video () in
   let cell  = new Layout_grid.Cell.t ~widgets:[Widget.create video] () in
-  let () = (Lwt.catch
-              (fun () -> (janus_pipe (`All false)))
-              (function
-               | e -> Lwt.return @@ Printf.printf "Exception in janus pipe: %s\n" (Printexc.to_string e)))
-           |> ignore in
-  cell#set_span 12;
-  new Layout_grid.t ~cells:[cell] ()
+  object
+    inherit Layout_grid.t ~cells:[cell] ()
+    method on_load   = ()
+    method on_unload = ()
+    initializer
+      cell#set_span 12;
+      (Lwt.catch
+         (fun () -> (janus_pipe (`All false)))
+         (function
+          | e -> Lwt.return @@ Printf.printf "Exception in janus pipe: %s\n" (Printexc.to_string e)))
+      |> ignore
+  end
+
+let page () = new t ()
