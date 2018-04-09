@@ -131,28 +131,29 @@ let create ~(parent: #Widget.widget)
   let svg    = Tyxml_js.Svg.(svg ~a:[a_class [Markup.CSS.add_element _class "paths"]] [] |> toelt) in
   let nodes  = make_nodes init in
   let drawer = make_drawer () in
-  let e_bs   = React.E.select @@ List.filter_map (function `Board b -> Some b#e_settings | _ -> None) nodes in
-  let e_cs   = React.E.select @@ List.filter_map (function `CPU c -> Some c#e_settings | _ -> None) nodes in
-  let _      = React.E.map (fun _ ->
-                   rm_children drawer#drawer#root;
-                   Dom.appendChild drawer#drawer#root (Streams_selector.create ())#root;
-                   drawer#show) e_cs
+  let e_s    = List.filter_map (function `Board b -> Some (React.E.map (fun x -> `Board x) b#e_settings)
+                                       | `CPU c   -> Some (React.E.map (fun x -> `CPU x) c#e_settings)
+                                       | _        -> None) nodes
+               |> React.E.select
   in
-  let _      = React.E.map (fun board ->
-                   (* (Option.get_exn dialog#header)#set_title @@ Topo_board.get_board_name board; *)
+  let _      = React.E.map (fun node ->
                    rm_children drawer#drawer#root;
-                   (match board.typ with
-                    | "TS" -> Widget.create @@ fst @@ Board_qos_niit_js.Settings.page board.control
-                    | "DVB"   -> (new Board_dvb_niit_js.Settings.settings board.control ())#widget
-                    | "TS2IP" -> (new Board_ts2ip_niit_js.Settings.settings board.control ())#widget
-                    | "IP2TS" ->
-                       let w = Board_ip_dektec_js.Ip_dektec.page board.control () in
-                       w#set_on_load @@ Some (fun () -> w#on_load);
-                       w#set_on_unload @@ Some (fun () -> w#on_unload);
-                       w#widget
-                    | _    -> Dom_html.createDiv Dom_html.document |> Widget.create)
-                   |> (fun w -> Dom.appendChild drawer#drawer#root w#root);
-                   drawer#show) e_bs
+                   let w = match node with
+                     | `Board board ->
+                        (match board.typ with
+                         | "TS" -> Widget.create @@ fst @@ Board_qos_niit_js.Settings.page board.control
+                         | "DVB"   -> (new Board_dvb_niit_js.Settings.settings board.control ())#widget
+                         | "TS2IP" -> (new Board_ts2ip_niit_js.Settings.settings board.control ())#widget
+                         | "IP2TS" ->
+                            let w = Board_ip_dektec_js.Ip_dektec.page board.control () in
+                            w#set_on_load @@ Some (fun () -> w#on_load);
+                            w#set_on_unload @@ Some (fun () -> w#on_unload);
+                            w#widget
+                         | _    -> Dom_html.createDiv Dom_html.document |> Widget.create)
+                     | `CPU _ -> (Streams_selector.create ())#widget
+                   in
+                   Dom.appendChild drawer#drawer#root w#root;
+                   drawer#show) e_s
   in
   iter_paths (fun x -> Dom.appendChild svg x#root) nodes;
   Dom.appendChild Dom_html.document##.body drawer#root;
