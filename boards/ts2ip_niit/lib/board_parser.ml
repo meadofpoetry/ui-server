@@ -87,7 +87,10 @@ end
 
 module Set_board_mode : (Instant_request with type req := (nw_settings * (packer_setting list))) = struct
 
-  let msg_code  = 0x0088
+  let msg_code         = 0x0088
+  let main_packers_num = 4
+  let rest_packers_num = 6
+  let rest_msgs_num    = 3
 
   let reverse_ip x   = Ipaddr.V4.to_bytes x |> String.rev |> Ipaddr.V4.of_bytes_exn
   let reverse_port x = let msb = (x land 0xFF00) lsr 8 in
@@ -117,7 +120,7 @@ module Set_board_mode : (Instant_request with type req := (nw_settings * (packer
     let ()   = Ipaddr.V4.to_int32 (reverse_ip mask) |> set_req_settings_main_mask buf in
     let ()   = Ipaddr.V4.to_int32 (reverse_ip gw)   |> set_req_settings_main_gateway buf in
     let pkrs = List.map packer_settings_to_cbuffer pkrs in
-    let len  = sizeof_req_settings_main + (4 * sizeof_packer_settings) in
+    let len  = sizeof_req_settings_main + (main_packers_num * sizeof_packer_settings) in
     Cbuffer.concat @@ buf :: pkrs
     |> (fun b -> Cbuffer.append b @@ Cbuffer.create (len - Cbuffer.len b))
     |> (fun body -> to_msg ~msg_code ~body ())
@@ -126,30 +129,22 @@ module Set_board_mode : (Instant_request with type req := (nw_settings * (packer
     let buf  = Cbuffer.create sizeof_req_settings_packers in
     let ()   = set_req_settings_packers_cmd buf i in
     let pkrs = List.map packer_settings_to_cbuffer pkrs in
-    let len  = sizeof_req_settings_packers + (6 * sizeof_packer_settings) in
+    let len  = sizeof_req_settings_packers + (rest_packers_num * sizeof_packer_settings) in
     Cbuffer.concat @@ buf :: pkrs
     |> (fun b -> Cbuffer.append b @@ Cbuffer.create (len - Cbuffer.len b))
     |> (fun body -> to_msg ~msg_code ~body ())
 
-  let to_cbuffer (nw,packers) =
-    (* let default = { base = { enabled = false
-     *                        ; dst_ip  = Ipaddr.V4.make 0 0 0 0
-     *                        ; dst_port = 0
-     *                        ; stream = { id = `Ts Single; description = None; source = Input { id = 0; input = RF }}}
-     *               ; port = 0
-     *               ; stream_id = 0l
-     *               ; self_port = 0
-     *               }
-     * in
-     * let packers = if List.length packers < 22
-     *               then packers @ List.repeat (22 - List.length packers) [default]
-     *               else packers
-     * in *)
+  let to_cbuffer (nw,(packers:packer_setting list)) =
     let fst_pkrs,rest_pkrs =
-      let hd,tl = List.take_drop 4 packers in
-      hd,List.take 3 @@ List.sublists_of_len ~last:Option.return 6 tl in
-    let main = main_to_cbuffer nw.ip nw.mask nw.gateway fst_pkrs in
-    let rest = List.mapi (fun i x -> rest_to_cbuffer (succ i) x) rest_pkrs in
+      let hd,tl = List.take_drop main_packers_num packers in
+      hd,List.take rest_msgs_num @@ List.sublists_of_len ~last:Option.return rest_packers_num tl in
+    let rec add_dummy acc =
+      if List.length acc >= rest_msgs_num
+      then acc else []::acc
+    in
+    let rest_pkrs = add_dummy (List.rev rest_pkrs) |> List.rev in
+    let main      = main_to_cbuffer nw.ip nw.mask nw.gateway fst_pkrs in
+    let rest      = List.mapi (fun i x -> rest_to_cbuffer (succ i) x) rest_pkrs in
     Cbuffer.concat (main :: rest)
 
 end
