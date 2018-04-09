@@ -1109,8 +1109,8 @@ module Make
 
     let base_class           = "mdc-select"
     let native_control_class = CSS.add_element base_class "native-control"
-    let label_class          = CSS.add_element base_class "label"
-    let bottom_line_class    = CSS.add_element base_class "bottom-line"
+    let is_changing_class    = CSS.add_modifier base_class "is-changing"
+    let disabled_class       = CSS.add_modifier base_class "disabled"
 
     module Item = struct
 
@@ -1133,17 +1133,31 @@ module Make
       select ~a:([ a_class (native_control_class::classes) ]
                  |> cons_if disabled @@ a_disabled ()
                  |> add_common_attrs ?id ?style ?attrs)
-        items
+             items
 
-    let create_label ?id ?style ?(classes=[]) ?attrs ~label () =
-      div ~a:([ a_class (label_class :: classes) ]
-              |> add_common_attrs ?id ?style ?attrs)
-        [ pcdata label ]
+    module Label = struct
 
-    let create_bottom_line ?id ?style ?(classes=[]) ?attrs () =
-      div ~a:([ a_class (bottom_line_class :: classes ) ]
-              |> add_common_attrs ?id ?style ?attrs)
-        []
+      let _class            = CSS.add_element base_class "label"
+      let float_above_class = CSS.add_modifier _class "float-above"
+
+      let create ?id ?style ?(classes=[]) ?attrs ~label () =
+        div ~a:([ a_class (_class :: classes) ]
+                |> add_common_attrs ?id ?style ?attrs)
+            [ pcdata label ]
+
+    end
+
+    module Bottom_line = struct
+
+      let _class       = CSS.add_element base_class "bottom-line"
+      let active_class = CSS.add_modifier _class "active"
+
+      let create ?id ?style ?(classes=[]) ?attrs () =
+        div ~a:([ a_class (_class :: classes ) ]
+                |> add_common_attrs ?id ?style ?attrs)
+            []
+
+    end
 
     let create ?id ?style ?(classes=[]) ?attrs ~select ~label ~bottom_line () =
       div ~a:([ a_class (base_class :: classes)]

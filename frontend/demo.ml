@@ -436,9 +436,9 @@ let textfield_demo () =
                             ~placeholder:"Enter something"
                             ~rows:8 ~cols:40 () in
   let textarea          = new Textarea.t
-                            ~input_id:"textarea"
-                            ~label:"textarea label"
-                            ~rows:8 ~cols:40 () in
+                              ~input_id:"textarea"
+                              ~label:"textarea label"
+                              ~rows:8 ~cols:40 () in
   demo_section "Textfield" [ subsection "CSS only textfield" css_form
                            ; subsection "JS textfield" js
                            ; subsection "Dense textfield (with email validation)" dense
@@ -450,20 +450,27 @@ let textfield_demo () =
 
 let select_demo () =
   let select = new Select.t
-                 ~label:"Demo select"
-                 ~items:[ `Group (new Select.Group.t
-                                    ~label:"Group 1"
-                                    ~items:[ new Select.Item.t ~value:() ~text:"Item 1" ()
-                                           ; new Select.Item.t ~value:() ~text:"Item 2" ()
-                                           ; new Select.Item.t ~value:() ~text:"Item 3" () ]
-                                    ())
-                        ; `Item (new Select.Item.t ~value:() ~text:"Item 1" ())
-                        ; `Item (new Select.Item.t ~value:() ~text:"Item 2" ())
-                        ; `Item (new Select.Item.t ~value:() ~text:"Item 3" ())
-                 ]
-                 ()
+                   ~label:"Demo select"
+                   ~items:[ `Group (new Select.Group.t
+                                        ~label:"Group 1"
+                                        ~items:[ new Select.Item.t ~value:() ~text:"Item 1" ()
+                                               ; new Select.Item.t ~value:() ~text:"Item 2" ()
+                                               ; new Select.Item.t ~value:() ~text:"Item 3" () ]
+                                        ())
+                          ; `Item (new Select.Item.t ~value:() ~text:"Item 1" ())
+                          ; `Item (new Select.Item.t ~value:() ~text:"Item 2" ())
+                          ; `Item (new Select.Item.t ~value:() ~text:"Item 3" ())
+                          ]
+                   ()
   in
-  demo_section "Select" [ select ]
+  let disabled = new Select.t ~label:"Disabled"
+                     ~disabled:true
+                     ~items:[ `Item (new Select.Item.t ~value:() ~text:"Item 1" ()) ]
+                     ()
+  in
+  let () = select#style##.width := Js.string "200px" in
+  let () = disabled#style##.width := Js.string "200px" in
+  demo_section "Select" [ subsection "Select" select; subsection "Disabled" disabled ]
 
 let elevation_demo () =
   let d       = Widget.create (Html.div ~a:[Html.a_style "height: 200px; width: 200px; margin: 20px"] []

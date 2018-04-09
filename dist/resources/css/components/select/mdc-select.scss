@@ -38,6 +38,11 @@
   @include mdc-select-focused-bottom-line-color(primary);
   @include mdc-select-focused-label-color(primary);
 
+  font-family: Roboto, sans-serif;
+  font-size: 1rem;
+  font-weight: 400;
+  letter-spacing: .04em;
+
   display: inline-flex;
   position: relative;
   box-sizing: border-box;
