@@ -30,7 +30,21 @@ module Settings = struct
 end
 
 module Conf = Config.Make(Settings)
-              
+            
+module Wrap_connection(C : Caqti_lwt.CONNECTION) : Caqti_lwt.CONNECTION = struct
+  let mutex : Lwt_mutex.t = Lwt_mutex.create ()
+
+  include C
+                          
+  let with_connection (type a) (f : (module Caqti_lwt.CONNECTION) -> a Lwt.t) : a Lwt.t =
+    Lwt_mutex.with_lock mutex (fun () -> f (module C))
+    
+  let exec r v =
+    Lwt_mutex.with_lock mutex (fun () ->
+        C.exec r v)
+
+end
+            
 module type MODEL = sig
   type _ req
   val name     : string
@@ -71,7 +85,8 @@ module Make (M : MODEL) : (CONN with type 'a req := 'a M.req) = struct
     in
     Lwt_main.run (M.init db);
     Lwt.async loop;
-    Ok db
+    let (module Db) = db in
+    Ok (module Wrap_connection(Db) : Caqti_lwt.CONNECTION)
 
   let request (type a) db (req : a M.req) : a Lwt.t =
     M.request db req
