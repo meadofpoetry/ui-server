@@ -246,8 +246,8 @@ let reset typ send bin_path bin_name msg_fmt state (sources : (Common.Uri.t * Co
   let is_ready = Notif.is_ready state.ready_e in
   state.proc <- Some (Lwt_process.open_process_none (exec_path, exec_opts));
   (is_ready >|= fun () ->
-   settings_init typ send state.options;
-   state.ready := true)
+   state.ready := true;
+   settings_init typ send state.options)
   |> Lwt.ignore_result
   
 let finalize state =
