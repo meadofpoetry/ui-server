@@ -54,6 +54,7 @@ let create (b:topo_board) _ convert_streams send db base step =
                            method e_status   = e_status;
                            method s_streams = s_streams;
                            method _e = _e;
+                           method finalize () = ()
                          end) in
   { handlers       = handlers
   ; control        = b.control
@@ -70,5 +71,5 @@ let create (b:topo_board) _ convert_streams send db base step =
   ; settings_page  = ("QOS", React.S.const (Tyxml.Html.div []))
   ; widgets_page   = [("QOS", React.S.const (Tyxml.Html.div []))]
   ; stream_handler = None
-  ; state          = (state :> < >)
+  ; state          = (state :> < finalize : unit -> unit >)
   }

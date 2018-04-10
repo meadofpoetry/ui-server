@@ -233,3 +233,4 @@ let set_stream hw (ss : stream_setting) =
       
 let finalize hw =
   Usb_device.finalize hw.usb;
+  Map.iter (fun _ b -> b.state#finalize ()) hw.boards

@@ -99,7 +99,7 @@ let create (b:topo_board) (streams:Common.Stream.t list React.signal) _ send db 
                 with _ -> Lwt_result.fail `Not_in_range)
     | _ -> Lwt_result.fail `Forbidden
   in
-  let state        = (object end) in
+  let state        = (object method finalize () = () end) in
   { handlers       = handlers
   ; control        = b.control
   ; streams_signal = s_sms
@@ -114,5 +114,5 @@ let create (b:topo_board) (streams:Common.Stream.t list React.signal) _ send db 
                              method set x       = set x
                              method constraints = constraints
                            end)
-  ; state          = (state :> < >)
+  ; state          = (state :> < finalize : unit -> unit >)
   }
