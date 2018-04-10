@@ -1,5 +1,6 @@
 open Containers
 open Components
+open Lwt_result.Infix
 
 let port_section_height = 50
 let base_class          = "topology__board"
@@ -72,6 +73,17 @@ let eq_node_entry (e1:Topo_node.node_entry) (e2:Topo_node.node_entry) =
                              | Input i1, Input i2 -> equal_topo_input i1 i2
                              | _                  -> false)
   | _                    -> false
+
+let make_board_page (board:Common.Topology.topo_board) =
+  match board.typ with
+  | "TS"    -> let w,f = Board_qos_niit_js.Settings.page board.control in
+               Widget.create w,f
+  | "DVB"   -> Board_dvb_niit_js.Topo_page.make ~make_tabs:Topo_drawer.make_tabs board
+  | "TS2IP" -> let w = new Board_ts2ip_niit_js.Settings.settings board.control () in
+               w#widget, (fun () -> ())
+  | "IP2TS" -> Board_ip_dektec_js.Topo_page.make ~make_tabs:Topo_drawer.make_tabs board
+  | _       -> let w = Dom_html.createDiv Dom_html.document |> Widget.create in
+               w,(fun () -> ())
 
 class t ~(connections:#Topo_node.t list)
         (board:Common.Topology.topo_board)

@@ -121,39 +121,33 @@ let update_nodes nodes (t:Common.Topology.t) =
                             | None    -> ())
              | _        -> ()) nodes
 
-let make_drawer () =
-  new Drawer.t ~anchor:`Bottom ~content:[] ()
-
 let create ~(parent: #Widget.widget)
            ~(init:   Common.Topology.t)
            ~(event:  Common.Topology.t React.event)
            () =
   let svg    = Tyxml_js.Svg.(svg ~a:[a_class [Markup.CSS.add_element _class "paths"]] [] |> toelt) in
   let nodes  = make_nodes init in
-  let drawer = make_drawer () in
   let e_s    = List.filter_map (function `Board b -> Some (React.E.map (fun x -> `Board x) b#e_settings)
                                        | `CPU c   -> Some (React.E.map (fun x -> `CPU x) c#e_settings)
                                        | _        -> None) nodes
                |> React.E.select
   in
+  let drawer,drawer_box,set_drawer_title = Topo_drawer.make ~title:"" () in
   let _      = React.E.map (fun node ->
-                   rm_children drawer#drawer#root;
-                   let w = match node with
+                   rm_children drawer_box#root;
+                   let w,f = match node with
                      | `Board board ->
-                        (match board.typ with
-                         | "TS" -> Widget.create @@ fst @@ Board_qos_niit_js.Settings.page board.control
-                         | "DVB"   -> (new Board_dvb_niit_js.Settings.settings board.control ())#widget
-                         | "TS2IP" -> (new Board_ts2ip_niit_js.Settings.settings board.control ())#widget
-                         | "IP2TS" ->
-                            let w = Board_ip_dektec_js.Ip_dektec.page board.control () in
-                            w#set_on_load @@ Some (fun () -> w#on_load);
-                            w#set_on_unload @@ Some (fun () -> w#on_unload);
-                            w#widget
-                         | _    -> Dom_html.createDiv Dom_html.document |> Widget.create)
-                     | `CPU _ -> (Streams_selector.create ())#widget
+                        set_drawer_title @@ Topo_board.get_board_name board;
+                        let w,f = Topo_board.make_board_page board in
+                        w,f
+                     | `CPU cpu ->
+                        set_drawer_title @@ Topo_cpu.get_cpu_name cpu;
+                        (Streams_selector.create ())#widget,(fun () -> ())
                    in
-                   Dom.appendChild drawer#drawer#root w#root;
-                   drawer#show) e_s
+                   Dom.appendChild drawer_box#root w#root;
+                   Lwt.Infix.(drawer#show_await
+                              >>= (fun () -> f (); Lwt.return ()))
+                   |> ignore) e_s
   in
   iter_paths (fun x -> Dom.appendChild svg x#root) nodes;
   Dom.appendChild Dom_html.document##.body drawer#root;

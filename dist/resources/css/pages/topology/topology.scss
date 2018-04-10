@@ -2,6 +2,7 @@
 @import '../../components/theme/_color-palette';
 @import '../../components/typography/_mixins';
 @import './_mixins';
+@import '../boards/dvb_niit';
 
 $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
 
@@ -22,6 +23,29 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
     display: grid;
     height: 100%;
     position: relative;
+}
+
+.topology__drawer {
+    &__header {
+        padding: 20px;
+        justify-content: space-between;
+        align-items: center;
+    }
+    &__close {
+        margin-left: 20px;
+    }
+    &__dynamic-content {
+        &__tabs {
+        }
+        &__body {
+            margin: 20px;
+        }
+    }
+    &__body {
+        overflow-y: auto;
+        overflow-x: hidden;
+        min-width: 280px;
+    }
 }
 
 .topology__node-wrapper {
@@ -61,6 +85,7 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
     .mdc-chip__text {
         flex-grow: 2;
         font-size: 0.95rem;
+        white-space: nowrap;
     }
     .mdc-chip__icon {
         @include mdc-theme-prop(color, text-icon-on-background);

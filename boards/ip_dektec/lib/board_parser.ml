@@ -123,7 +123,9 @@ type _ asi =
   | Set_packet_size : asi_packet_sz -> asi_packet_sz asi
   | Get_bitrate     : event asi
 
-type events = { status : board_status React.event }
+type events = { status : board_status React.event
+              ; config : config React.event
+              }
 
 type api = { addr      : addr -> addr Lwt.t
            ; mask      : mask -> mask Lwt.t

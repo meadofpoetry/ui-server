@@ -968,9 +968,11 @@ module Make
                 |> add_common_attrs ?id ?style ?attrs)
             [ div ~a:([ a_class [summary_class] ])
                   [ div ~a:([ a_class [heading_class]])
-                        [ pcdata title
-                        ; div ~a:[ a_class [details_class]] heading_details
-                        ]
+                        ((match heading_details with
+                          | [] -> None
+                          | l  -> Some (div ~a:[ a_class [details_class]] l))
+                         |> (fun x -> List.cons_maybe x [])
+                         |> List.cons (pcdata title))
                   ; div ~a:([ a_class [details_class]]) details
                   ]
             ; div ~a:([ a_class [icon_class]; a_tabindex (-1) ])

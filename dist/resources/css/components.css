@@ -1822,7 +1822,6 @@
       text-transform: inherit;
       flex-direction: column;
       display: flex;
-      flex-basis: 33.33%;
       flex-shrink: 0; }
       .mdc-expansion-panel__primary .mdc-expansion-panel__summary .mdc-expansion-panel__heading .mdc-expansion-panel__details {
         padding-left: 0;
@@ -3419,7 +3418,8 @@
   color: var(--mdc-theme-text-primary-on-background, rgba(0, 0, 0, 0.87));
   display: inline-flex;
   align-items: center;
-  vertical-align: middle; }
+  vertical-align: middle;
+  margin-bottom: 12px; }
   .mdc-form-field > label {
     order: 0;
     margin-right: auto;

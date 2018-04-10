@@ -9,6 +9,7 @@ let (>=) = Pervasives.(>=)
 type page_state =
   { state_ws  : WebSockets.webSocket Js.t
   ; status_ws : WebSockets.webSocket Js.t
+  ; config_ws : WebSockets.webSocket Js.t
   }
 
 type strings =
@@ -147,6 +148,41 @@ let ip_settings_block control s_state (cfg:Board_types.config) =
       ~sections:[ media#widget ]
       ()
 
+type events =
+  { config : Board_types.config React.event
+  ; status : Board_types.board_status React.event
+  }
+
+type listener =
+  { config  : Board_types.config
+  ; events  : events
+  ; state   : Common.Topology.state React.signal
+  ; sockets : page_state
+  }
+
+let listen control : (listener,string) Lwt_result.t =
+  Requests.get_config control
+  >>= (fun cfg ->
+    Requests.get_state control
+    >>= (fun state ->
+         let e_state,state_ws   = Requests.get_state_ws  control in
+         let e_status,status_ws = Requests.get_status_ws control in
+         let e_config,config_ws = Requests.get_config_ws control in
+         let s_state  = React.S.hold state e_state in
+         let events   = { config  = e_config; status = e_status } in
+         let listener = { config  = cfg
+                        ; events
+                        ; state   = s_state
+                        ; sockets = { state_ws; status_ws; config_ws }
+                        }
+         in
+         Lwt_result.return listener))
+
+let unlisten (x:(listener,string) Lwt_result.t) =
+  x >>= (fun l -> let x = l.sockets in
+                  x.state_ws##close; x.status_ws##close; x.config_ws##close;
+                  Lwt_result.return ())
+
 class t control () = object(self)
 
   val mutable _state : (page_state,string) Lwt_result.t option = None
@@ -154,33 +190,30 @@ class t control () = object(self)
   inherit Widget.widget (Dom_html.createDiv Dom_html.document) ()
 
   method on_load =
-    Requests.get_config control
-    >>= (fun cfg ->
-      Requests.get_state control
-      >>= (fun state ->
-           let e_state,state_ws   = Requests.get_state_ws  control in
-           let e_status,status_ws = Requests.get_status_ws control in
-           let s_state = React.S.map (function
-                                      | `No_response | `Init -> false
-                                      | `Fine -> true) @@ React.S.hold state e_state in
-           let status_card = main_status_card s_state e_status in
-           let fec_card    = fec_status_card s_state e_status in
-           let nw_card     = nw_settings_block control s_state cfg in
-           let ip_card     = ip_settings_block control s_state cfg in
-           let status_grid   = new Layout_grid.t ~cells:[ new Layout_grid.Cell.t ~widgets:[ status_card ] ()
-                                                        ; new Layout_grid.Cell.t ~widgets:[ fec_card ] ()
-                                                        ] () in
-           let settings_grid = new Layout_grid.t ~cells:[ new Layout_grid.Cell.t ~widgets:[ nw_card ] ()
-                                                        ; new Layout_grid.Cell.t ~widgets:[ ip_card ] ()
-                                                        ] () in
-           Dom.appendChild self#root settings_grid#root;
-           Dom.appendChild self#root status_grid#root;
-           Lwt_result.return { state_ws;status_ws }))
+    listen control
+    >>= (fun l ->
+      let s_state = React.S.map (function
+                                 | `No_response | `Init -> false
+                                 | `Fine -> true) l.state in
+      let status_card = main_status_card s_state l.events.status in
+      let fec_card    = fec_status_card s_state l.events.status in
+      let nw_card     = nw_settings_block control s_state l.config in
+      let ip_card     = ip_settings_block control s_state l.config in
+      let status_grid   = new Layout_grid.t ~cells:[ new Layout_grid.Cell.t ~widgets:[ status_card ] ()
+                                                   ; new Layout_grid.Cell.t ~widgets:[ fec_card ] ()
+                                                   ] () in
+      let settings_grid = new Layout_grid.t ~cells:[ new Layout_grid.Cell.t ~widgets:[ nw_card ] ()
+                                                   ; new Layout_grid.Cell.t ~widgets:[ ip_card ] ()
+                                                   ] () in
+      Dom.appendChild self#root settings_grid#root;
+      Dom.appendChild self#root status_grid#root;
+      Lwt_result.return l.sockets)
     |> fun s -> _state <- Some s
 
   method on_unload : unit =
     match _state with
-    | Some s -> s >>= (fun x -> x.state_ws##close; x.status_ws##close; Lwt_result.return ()) |> ignore
+    | Some s -> s >>= (fun x -> x.state_ws##close; x.status_ws##close; x.config_ws##close;
+                                Lwt_result.return ()) |> ignore
     | None   -> ()
 
 end
