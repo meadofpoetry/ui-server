@@ -9591,23 +9591,22 @@ a.mdc-list-item {
   width: 100%;
   margin: 0;
   line-height: 1.5rem;
-  list-style-type: none; }
+  list-style-type: none;
+  cursor: pointer; }
   .mdc-tree .mdc-tree__item {
     width: 100%;
-    display: flex;
     position: relative;
     align-items: center;
     justify-content: flex-start;
     min-height: 48px;
-    overflow: hidden; }
+    overflow: hidden;
+    cursor: pointer; }
     .mdc-tree .mdc-tree__item:focus {
       outline: none; }
     .mdc-tree .mdc-tree__item .mdc-tree__list {
-      width: calc(100% - 16px);
-      display: none;
-      padding-left: 16px; }
-    .mdc-tree .mdc-tree__item--open .mdc-tree__list {
-      display: block; }
+      display: none; }
+      .mdc-tree .mdc-tree__item .mdc-tree__list--open {
+        display: block; }
     .mdc-tree .mdc-tree__item--open .dropdown {
       transform: rotate(180deg); }
 

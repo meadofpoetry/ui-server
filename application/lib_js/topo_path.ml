@@ -50,8 +50,8 @@ class t ~(left_node:node_entry) ~(f_lp:unit->point) ~(f_rp:unit -> point) () =
                        else right.y, right.y - left.y
       in
       let width = right.x - left.x in
-      let path  = if left.y = right.y
-                  then Printf.sprintf "M %d %d L %d %d" left.x left.y right.x right.y
+      let path  = if abs (left.y - right.y) < 4
+                  then Printf.sprintf "M %d %d L %d %d" left.x left.y right.x left.y
                   else
                     if right.x - left.x < 80
                     then Printf.sprintf "M %d %d C %d %d %d %d %d %d C %d %d %d %d %d %d"
