@@ -175,7 +175,7 @@
     color: rgba(0, 0, 0, 0.54);
     color: var(--mdc-theme-text-secondary-on-light, rgba(0, 0, 0, 0.54)); }
   .topology__block--init .topology__block__body {
-    background-color: #eeeeee;
+    background-color: #bdbdbd;
     /* @alternate */
     color: rgba(0, 0, 0, 0.54);
     color: var(--mdc-theme-text-secondary-on-light, rgba(0, 0, 0, 0.54)); }

@@ -142,7 +142,7 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
 
     &--init {
         .topology__block__body {
-            background-color: $material-color-grey-200;
+            background-color: $material-color-grey-400;
             @include mdc-theme-prop(color, text-secondary-on-light);
         }
     }

@@ -73,10 +73,7 @@ let layout control
       ~(init   : init)
       ~(events : events) =
   let card = card control ~init ~events in
-  let cell = new Layout_grid.Cell.t ~widgets:[card] () in
-  cell#set_span 6;
-  let grid = new Layout_grid.t ~cells:[cell] () in
-  grid
+  card
 
 class settings control () = object(self)
 
