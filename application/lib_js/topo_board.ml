@@ -36,9 +36,14 @@ module Body = struct
 
   class t (board:Common.Topology.topo_board) () =
     let _class = Markup.CSS.add_element base_class "body" in
+    (* let switches = match board.ports with
+     *   | [] | [_] -> []
+     *   | _        -> List.map (fun _ -> new Switch.t ()) board.ports
+     * in *)
     object(self)
       inherit Topo_block.Body.t (List.length board.ports) ()
       initializer
+        (* List.iter (fun switch -> Dom.appendChild self#root switch#root) switches; *)
         self#add_class _class
     end
 
