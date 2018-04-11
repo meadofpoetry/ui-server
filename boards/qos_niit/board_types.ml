@@ -15,15 +15,16 @@ type mode =
   ; t2mi  : t2mi_mode option
   }
 and t2mi_mode =
-  { enabled   : bool
-  ; pid       : int
-  ; stream_id : Common.Stream.id
+  { enabled        : bool
+  ; pid            : int
+  ; t2mi_stream_id : int
+  ; stream         : Common.Stream.id
   }
 and input = SPI | ASI [@@deriving yojson,eq]
 
 type jitter_mode =
-  { stream_id : Common.Stream.id
-  ; pid       : int
+  { stream  : Common.Stream.id
+  ; pid     : int
   } [@@deriving yojson]
 
 (* Status *)
@@ -32,7 +33,7 @@ type user_status =
   { load            : float
   ; reset           : bool
   ; mode            : mode
-  ; jitter_mode     : jitter_mode
+  ; jitter_mode     : jitter_mode option
   ; ts_num          : int
   ; services_num    : int
   ; bitrate         : int
@@ -527,7 +528,7 @@ type streams = Common.Stream.id list [@@deriving yojson]
 
 
 type config = { mode        : mode
-              ; jitter_mode : jitter_mode
+              ; jitter_mode : jitter_mode option
               } [@@deriving yojson]
 
 let config_to_string c = Yojson.Safe.to_string @@ config_to_yojson c
@@ -535,14 +536,8 @@ let config_to_string c = Yojson.Safe.to_string @@ config_to_yojson c
 let config_of_string s = config_of_yojson @@ Yojson.Safe.from_string s
 
 let config_default =
-  { mode        = { input = ASI
-                  ; t2mi  = Some { enabled   = true
-                                 ; pid       = 4096
-                                 ; stream_id = Single }
-                  }
-  ; jitter_mode = { stream_id = Single
-                  ; pid       = 65535
-                  }
+  { mode        = { input = ASI; t2mi  = None }
+  ; jitter_mode = None
   }
 
 (* L1 deserialization *)
@@ -748,7 +743,8 @@ let aux_stream_type_to_int = function
 
 type devinfo_response    = devinfo option [@@deriving yojson]
 type mode_request        = mode [@@deriving yojson]
-type jitter_mode_request = jitter_mode [@@deriving yojson]
+type t2mi_mode_request   = t2mi_mode option [@@deriving yojson]
+type jitter_mode_request = jitter_mode option [@@deriving yojson]
 type t2mi_seq_response   = t2mi_packet list [@@deriving yojson]
 
 let table_common_of_table = function

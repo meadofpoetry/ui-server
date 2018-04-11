@@ -3,6 +3,8 @@ open Board_types
 open Api_js.Requests
 open Lwt.Infix
 
+include Boards_js.Requests
+
 let post_reset control () =
   post_ok (Printf.sprintf "/api/board/%d/reset" control)
 
@@ -10,8 +12,16 @@ let post_mode control mode =
   mode_to_yojson mode
   |> post_js_ok (Printf.sprintf "/api/board/%d/mode" control)
 
+let post_input control inp =
+  input_to_yojson inp
+  |> post_js_ok (Printf.sprintf "/api/board/%d/input" control)
+
+let post_t2mi_mode control mode =
+  t2mi_mode_request_to_yojson mode
+  |> post_js_ok (Printf.sprintf "/api/board/%d/t2mi_mode" control)
+
 let post_jitter_mode control mode =
-  jitter_mode_to_yojson mode
+  jitter_mode_request_to_yojson mode
   |> post_js_ok (Printf.sprintf "/api/board/%d/jitter_mode" control)
 
 let get_config control =
@@ -33,9 +43,6 @@ let get_structs control =
 let get_bitrates control =
   get_js (Printf.sprintf "/api/board/%d/bitrates" control)
   >|= Result.(flat_map ts_structs_of_yojson)
-
-let get_state_ws control =
-  get_socket (Printf.sprintf "api/board/%d/state_ws" control) Common.Topology.state_of_yojson
 
 let get_config_ws control =
   get_socket (Printf.sprintf "api/board/%d/config_ws" control) config_of_yojson

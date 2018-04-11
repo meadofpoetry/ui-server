@@ -133,21 +133,31 @@ let create ~(parent: #Widget.widget)
                |> React.E.select
   in
   let drawer,drawer_box,set_drawer_title = Topo_drawer.make ~title:"" () in
-  let _      = React.E.map (fun node ->
-                   rm_children drawer_box#root;
-                   let w,f = match node with
-                     | `Board board ->
-                        set_drawer_title @@ Topo_board.get_board_name board;
-                        let w,f = Topo_board.make_board_page board in
-                        w,f
-                     | `CPU cpu ->
-                        set_drawer_title @@ Topo_cpu.get_cpu_name cpu;
-                        (Streams_selector.create ())#widget,(fun () -> ())
-                   in
-                   Dom.appendChild drawer_box#root w#root;
-                   Lwt.Infix.(drawer#show_await
-                              >>= (fun () -> f (); Lwt.return ()))
-                   |> ignore) e_s
+  let _      =
+    React.E.map (fun node ->
+        rm_children drawer_box#root;
+        let res = match node with
+          | `Board board ->
+             set_drawer_title @@ Topo_board.get_board_name board;
+             Topo_board.make_board_page board
+          | `CPU cpu ->
+             set_drawer_title @@ Topo_cpu.get_cpu_name cpu;
+             Lwt_result.return ((Streams_selector.create ())#widget,fun () -> ())
+        in
+        let prgrs = Topo_drawer.make_progress () in
+        Dom.appendChild drawer_box#root prgrs#root;
+        let open Lwt.Infix in
+        let t = res >>= (fun r ->
+            Dom.removeChild drawer_box#root prgrs#root;
+            match r with
+            | Ok (w,close) -> Dom.appendChild drawer_box#root w#root; Lwt_result.return close
+            | Error e      -> let s = Printf.sprintf "Ошибка при загрузке страницы:\n %s" e in
+                              let error = Topo_drawer.make_error s in
+                              Dom.appendChild drawer_box#root error#root;
+                              Lwt_result.fail e)
+        in
+        drawer#show_await >>= (fun () -> Lwt_result.bind t (fun f -> Lwt_result.return @@ f ()))
+        |> ignore) e_s
   in
   iter_paths (fun x -> Dom.appendChild svg x#root) nodes;
   Dom.appendChild Dom_html.document##.body drawer#root;

@@ -3,27 +3,11 @@ open Components
 open Lwt_result.Infix
 open Ui
 
-(* TODO remove *)
-let (>=) = Pervasives.(>=)
-   
-type page_state =
-  { state_ws  : WebSockets.webSocket Js.t
-  ; status_ws : WebSockets.webSocket Js.t
-  ; config_ws : WebSockets.webSocket Js.t
-  }
-
-type strings =
-  { apply : string
-  }
-
-let strings =
-  { apply = "применить"
-  }
-
 let format_bitrate x =
   let gbit = 1_000_000_000. in
   let mbit = 1_000_000. in
   let kbit = 1_000. in
+  let (>=) = Float.(>=) in
   let v,s = (match (float_of_int x) with
              | x when x >= gbit -> x /. gbit, "Гбит/с"
              | x when x >= mbit -> x /. mbit, "Мбит/с"
@@ -62,92 +46,6 @@ let fec_status_card s_state e_status =
   let media  = new Card.Media.t ~widgets:[params] () in
   new Stateful_card.t ~title:"Статус FEC" ~sections:[ media ] ~s_state ()
 
-let nw_settings_block control s_state (cfg:Board_types.config) =
-  let help_text : Textfield.Help_text.helptext = { validation=true;persistent=false;text=None } in
-  let ip        = new Textfield.t ~input_id:"ip"~input_type:IPV4 ~help_text ~label:"IP адрес" () in
-  let mask      = new Textfield.t ~input_id:"mask" ~input_type:IPV4 ~help_text ~label:"Маска подсети" () in
-  let gw        = new Textfield.t ~input_id:"gw" ~input_type:IPV4 ~help_text ~label:"Шлюз" () in
-  let dhcp      = new Switch.t ~input_id:"dhcp" () in
-  let settings  = new Box.t
-                      ~vertical:true
-                      ~widgets:[ (new Form_field.t ~input:dhcp ~label:"DHCP" ~align_end:true ())#widget
-                               ; ip#widget
-                               ; mask#widget
-                               ; gw#widget ]
-                      () in
-  let media     = new Card.Media.t ~widgets:[settings] () in
-  ip#set_required true; mask#set_required true; gw#set_required true;
-  ip#fill_in cfg.nw.ip;
-  mask#fill_in cfg.nw.mask;
-  gw#fill_in cfg.nw.gateway;
-  dhcp#set_checked cfg.nw.dhcp;
-  React.S.map (fun x -> ip#set_disabled x; mask#set_disabled x; gw#set_disabled x) dhcp#s_state |> ignore;
-  React.S.map (fun x -> dhcp#set_disabled @@ not x;
-                        ip#set_disabled @@ not x;
-                        mask#set_disabled @@ not x;
-                        gw#set_disabled @@ not x) s_state |> ignore;
-  new Settings_card.t
-      ~s_state
-      ~f_submit:(fun () ->
-        let open Lwt_result.Infix in
-        Requests.post_dhcp control dhcp#get_checked
-        >>= (fun _ -> match React.S.value ip#s_input with
-                      | Some x -> Requests.post_address control x
-                      | None   -> Lwt_result.fail "Incorrect or empty ip address")
-        >>= (fun _ -> match React.S.value mask#s_input with
-                      | Some x -> Requests.post_mask control x
-                      | None   -> Lwt_result.fail "Incorrect or empty ip mask")
-        >>= (fun _ -> match React.S.value gw#s_input with
-                      | Some x -> Requests.post_gateway control x
-                      | None   -> Lwt_result.fail "Incorrect or empty ip gateway")
-        >>= (fun _ -> Requests.post_reset control))
-      ~title:"Сетевые настройки"
-      ~sections:[ media#widget ]
-      ()
-
-let ip_settings_block control s_state (cfg:Board_types.config) =
-  let help_text : Textfield.Help_text.helptext = { validation=true;persistent=false;text=None } in
-  let en        = new Switch.t ~input_id:"enable" () in
-  let fec       = new Switch.t ~input_id:"fec" () in
-  let mcast_en  = new Switch.t ~input_id:"mcast_en" () in
-  let port      = new Textfield.t ~input_id:"port" ~help_text ~label:"UDP порт" ~input_type:(Integer ((Some 0),(Some 65535))) () in
-  let multicast = new Textfield.t ~help_text ~input_id:"multicast" ~label:"Multicast адрес" ~input_type:MulticastV4 () in
-  let widgets   = [ Widget.coerce @@ new Form_field.t ~label:"Включить приём TSoIP" ~align_end:true ~input:en ()
-                  ; Widget.coerce @@ new Form_field.t ~label:"Включить FEC" ~align_end:true ~input:fec ()
-                  ; Widget.coerce @@ new Form_field.t ~label:"Включить Multicast" ~align_end:true ~input:mcast_en ()
-                  ; Widget.coerce multicast
-                  ; Widget.coerce port] in
-  let media     = new Card.Media.t ~widgets:[ new Box.t ~vertical:true ~widgets () ] () in
-  mcast_en#set_checked @@ Option.is_some cfg.ip.multicast;
-  multicast#set_required true;
-  port#set_required true;
-  en#set_checked  cfg.ip.enable;
-  fec#set_checked cfg.ip.fec;
-  port#fill_in cfg.ip.port;
-  Option.iter (fun x -> multicast#fill_in x) cfg.ip.multicast;
-  React.S.map (fun x -> multicast#set_disabled @@ not x) mcast_en#s_state |> ignore;
-  React.S.map (fun x -> en#set_disabled @@ not x;
-                        fec#set_disabled @@ not x;
-                        mcast_en#set_disabled @@ not x;
-                        port#set_disabled @@ not x;
-                        multicast#set_disabled @@ not x) s_state |> ignore;
-  new Settings_card.t
-      ~s_state
-      ~f_submit:(fun () ->
-        let open Lwt_result.Infix in
-        Requests.post_ip_enable 4 en#get_checked
-        >>= (fun _ -> Requests.post_fec control fec#get_checked)
-        >>= (fun _ -> match React.S.value port#s_input with
-                      | Some x -> Requests.post_port control x
-                      | None   -> Lwt_result.fail "Incorrect or empty ip port")
-        >>= (fun _ -> Requests.post_meth control @@ if mcast_en#get_checked then Multicast else Unicast)
-        >>= (fun _ -> match React.S.value multicast#s_input with
-                      | Some x -> Requests.post_multicast control x
-                      | None   -> Lwt_result.fail "Incorrect or empty multicast address"))
-      ~title:"Настройки приёма TSoIP"
-      ~sections:[ media#widget ]
-      ()
-
 type events =
   { config : Board_types.config React.event
   ; status : Board_types.board_status React.event
@@ -157,10 +55,12 @@ type listener =
   { config  : Board_types.config
   ; events  : events
   ; state   : Common.Topology.state React.signal
-  ; sockets : page_state
+  ; sockets : WebSockets.webSocket Js.t list
   }
 
-let listen control : (listener,string) Lwt_result.t =
+type state = (listener,string) Lwt_result.t
+
+let listen control : state =
   Requests.get_config control
   >>= (fun cfg ->
     Requests.get_state control
@@ -173,19 +73,17 @@ let listen control : (listener,string) Lwt_result.t =
          let listener = { config  = cfg
                         ; events
                         ; state   = s_state
-                        ; sockets = { state_ws; status_ws; config_ws }
+                        ; sockets = [ state_ws; status_ws; config_ws ]
                         }
          in
          Lwt_result.return listener))
 
-let unlisten (x:(listener,string) Lwt_result.t) =
-  x >>= (fun l -> let x = l.sockets in
-                  x.state_ws##close; x.status_ws##close; x.config_ws##close;
-                  Lwt_result.return ())
+let unlisten (x:state) =
+  x >>= (fun l -> List.iter (fun x -> x##close) l.sockets; Lwt_result.return ())
 
 class t control () = object(self)
 
-  val mutable _state : (page_state,string) Lwt_result.t option = None
+  val mutable _state : state option = None
 
   inherit Widget.widget (Dom_html.createDiv Dom_html.document) ()
 
@@ -197,23 +95,16 @@ class t control () = object(self)
                                  | `Fine -> true) l.state in
       let status_card = main_status_card s_state l.events.status in
       let fec_card    = fec_status_card s_state l.events.status in
-      let nw_card     = nw_settings_block control s_state l.config in
-      let ip_card     = ip_settings_block control s_state l.config in
       let status_grid   = new Layout_grid.t ~cells:[ new Layout_grid.Cell.t ~widgets:[ status_card ] ()
                                                    ; new Layout_grid.Cell.t ~widgets:[ fec_card ] ()
                                                    ] () in
-      let settings_grid = new Layout_grid.t ~cells:[ new Layout_grid.Cell.t ~widgets:[ nw_card ] ()
-                                                   ; new Layout_grid.Cell.t ~widgets:[ ip_card ] ()
-                                                   ] () in
-      Dom.appendChild self#root settings_grid#root;
       Dom.appendChild self#root status_grid#root;
-      Lwt_result.return l.sockets)
+      Lwt_result.return l)
     |> fun s -> _state <- Some s
 
   method on_unload : unit =
     match _state with
-    | Some s -> s >>= (fun x -> x.state_ws##close; x.status_ws##close; x.config_ws##close;
-                                Lwt_result.return ()) |> ignore
+    | Some s -> unlisten s |> ignore
     | None   -> ()
 
 end

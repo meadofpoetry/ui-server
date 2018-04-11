@@ -1,12 +1,13 @@
 open Containers
 open Components
 open Board_types
+open Boards_js.Types
 
 let make_nw_settings ~(init:  nw)
                      ~(event: nw React.event)
                      ~(state: Common.Topology.state React.signal)
                      control
-                     () =
+                     () : (nw,unit) settings_block =
   let ht : Textfield.Help_text.helptext = { validation=true;persistent=false;text=None} in
   let ip   = new Textfield.t ~input_id:"ip"   ~input_type:IPV4 ~help_text:ht ~label:"IP адрес" () in
   let mask = new Textfield.t ~input_id:"mask" ~input_type:IPV4 ~help_text:ht ~label:"Маска подсети" () in
@@ -50,13 +51,13 @@ let make_nw_settings ~(init:  nw)
                                >>= (fun _ -> Requests.post_gateway control cfg.gateway)
                                >>= (fun _ -> Requests.post_reset control)
   in
-  box,s,submit
+  box#widget,s,submit
 
 let make_ip_settings ~(init:  ip)
                      ~(event: ip React.event)
                      ~(state: Common.Topology.state React.signal)
                      control
-                     () =
+                     () : (ip,unit) settings_block =
   let ht : Textfield.Help_text.helptext = { validation=true;persistent=false;text=None } in
   let en       = new Switch.t ~input_id:"enable" () in
   let fec      = new Switch.t ~input_id:"fec" () in
@@ -127,4 +128,4 @@ let make_ip_settings ~(init:  ip)
                   | Some m -> Requests.post_multicast control m >>= (fun _ -> Lwt_result.return ())
                   | None   -> Lwt_result.return ())
   in
-  box,s,submit
+  box#widget,s,submit

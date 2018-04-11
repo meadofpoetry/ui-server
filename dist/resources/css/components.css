@@ -7815,6 +7815,9 @@ a.mdc-list-item {
   cursor: default;
   pointer-events: none; }
 
+.mdc-text-field-wrapper .mdc-text-field {
+  width: 100%; }
+
 .mdc-text-field {
   display: inline-block;
   position: relative;

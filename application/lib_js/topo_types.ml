@@ -8,3 +8,5 @@ type point =
   }
 
 type node_entry = [ `CPU of topo_cpu | `Entry of topo_entry ]
+
+type topo_settings = Components.Widget.widget * (unit -> unit)

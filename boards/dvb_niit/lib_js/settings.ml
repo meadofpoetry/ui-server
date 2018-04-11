@@ -1,6 +1,7 @@
 open Containers
 open Board_types
 open Components
+open Boards_js.Types
 
 let (%>) = Fun.(%>)
 
@@ -42,12 +43,15 @@ let make_freq (mode: mode)
   freq,set
 
 let make_plp (init: int) =
+  let ht : Textfield.Help_text.helptext = {persistent=false;validation=true;text=None} in
   let plp = new Textfield.t
                 ~input_id:"plp_field"
                 ~input_type:(Integer ((Some 0),(Some 255)))
+                ~help_text:ht
                 ~label:"PLP ID"
                 ()
   in
+  let ()  = plp#set_required true in
   let set = plp#fill_in in
   set init;
   plp,set
@@ -86,7 +90,7 @@ let make_module_settings ~(id:    int)
                          ~(event: config_item React.event)
                          ~(state: Common.Topology.state React.signal)
                          control
-                         () =
+                         () : (settings_request,settings_response) settings_block =
   let mode,set_mode = make_mode init.mode in
   let t2_box,s_t2 = make_mode_box ~mode:T2 ~state ~init:init.t2 ~event:(React.E.map (fun x -> x.t2) event) () in
   let t_box,s_t   = make_mode_box ~mode:T  ~state ~init:init.t  ~event:(React.E.map (fun x -> x.t)  event) () in
@@ -123,4 +127,4 @@ let make_module_settings ~(id:    int)
   in
   let () = box#add_class base_class in
   let submit = fun (cfg:settings_request) -> Requests.post_settings control cfg in
-  box,s,submit
+  box#widget,s,submit
