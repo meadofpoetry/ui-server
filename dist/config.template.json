@@ -25,7 +25,7 @@
                 "connection":["No_response"],
                 "version":1,
                 "env":{},
-                "ports": [ {"port":0,
+                "ports": [ {"port":1,
                             "listening":true,
                             "switchable":false,
                             "child":
@@ -43,7 +43,7 @@
                                            "child":
                                            [ "Board",
                                              { "typ":"IP2TS",
-                                               "control": 4,
+                                               "control": 5,
                                                "model": "dtm-3200",
                                                "manufacturer": "dektec",
                                                "connection":["No_response"],
@@ -63,13 +63,13 @@
                                           }]
                               }]
                            },
-                           {"port":1,
+                           {"port":0,
                             "listening":true,
                             "switchable": false,
                             "child":
                             [ "Board",
                               {"typ":"TS",
-                               "control": 3,
+                               "control": 1,
                                "model": "qos",
                                "manufacturer": "niitv",
                                "connection":["No_response"],
@@ -81,7 +81,7 @@
                                           "child":
                                           ["Board",
                                            {"typ":"DVB",
-                                            "control": 5,
+                                            "control": 4,
                                             "model": "rf",
                                             "manufacturer": "niitv",
                                             "connection":["No_response"],
