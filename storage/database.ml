@@ -28,22 +28,13 @@ module Settings = struct
   let default   = { db_path = "./db"; cleanup = 48 }
   let domain = "db"
 end
-
+                
 module Conf = Config.Make(Settings)
-            
-module Wrap_connection(C : Caqti_lwt.CONNECTION) : Caqti_lwt.CONNECTION = struct
-  let mutex : Lwt_mutex.t = Lwt_mutex.create ()
 
-  include C
-                          
-  let with_connection (type a) (f : (module Caqti_lwt.CONNECTION) -> a Lwt.t) : a Lwt.t =
-    Lwt_mutex.with_lock mutex (fun () -> f (module C))
-    
-  let exec r v =
-    Lwt_mutex.with_lock mutex (fun () ->
-        C.exec r v)
-
-end
+let pool_use p f =
+  Caqti_lwt.Pool.use (fun c -> f c >>= Lwt.return_ok) p >>= function
+  | Error e -> Lwt.fail_with (Caqti_error.show e)
+  | Ok    v -> Lwt.return v
             
 module type MODEL = sig
   type _ req
@@ -68,11 +59,11 @@ module type CONN = sig
 end
 
 module Make (M : MODEL) : (CONN with type 'a req := 'a M.req) = struct
-  type t = (module Caqti_lwt.CONNECTION)
+  type t = ((module Caqti_lwt.CONNECTION), Caqti_error.connect) Caqti_lwt.Pool.t
 
   let create (conf : conf) =
     let path = Printf.sprintf "sqlite3:%s_%s?create=true&write=true" (realpath conf.settings.db_path) M.name in
-    let db   = match Lwt_main.run @@ Caqti_lwt.connect (Uri.of_string path) with
+    let db   = match Caqti_lwt.connect_pool ~max_size:1 (Uri.of_string path) with
       | Ok db   -> db
       | Error e -> failwith "Db connect failed with an error: %s\n" @@ Caqti_error.show e
     in
@@ -80,19 +71,18 @@ module Make (M : MODEL) : (CONN with type 'a req := 'a M.req) = struct
       Lwt_unix.sleep conf.period >>= (fun () ->
       match M.worker with
       | None   -> Lwt.return_unit
-      | Some w -> w db) >>= fun () ->
-      M.cleanup db >>= loop
+      | Some w -> pool_use db w) >>= fun () ->
+      pool_use db M.cleanup >>= loop
     in
-    Lwt_main.run (M.init db);
+    Lwt_main.run (pool_use db M.init);
     Lwt.async loop;
-    let (module Db) = db in
-    Ok (module Wrap_connection(Db) : Caqti_lwt.CONNECTION)
+    Ok db
 
   let request (type a) db (req : a M.req) : a Lwt.t =
-    M.request db req
+    pool_use db (fun c -> M.request c req)
 
-  let finalize (module Db : Caqti_lwt.CONNECTION) =
-    Lwt.async Db.disconnect
+  let finalize db =
+    Lwt.async @@ (fun () -> Caqti_lwt.Pool.drain db)
 end
 
 type t = conf
