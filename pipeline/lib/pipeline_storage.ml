@@ -50,7 +50,7 @@ let request (type a) dbs (r : a req) : a Lwt.t =
 let cleanup (module Db : Caqti_lwt.CONNECTION) =
   let cleanup' =
     Caqti_request.exec Caqti_type.unit
-      "DELETE FROM qoe_video_errors WHERE date <= date('now','-2 day')"
+      "DELETE FROM qoe_video_errors WHERE date <= strftime(\"%s\", date('now','-2 day'))"
   in
   Db.exec cleanup' () >>= function
   | Ok ()   -> Lwt.return ()

@@ -39,7 +39,7 @@ let request (type a) o (req : a req) : a Lwt.t =
 let cleanup (module Db : Caqti_lwt.CONNECTION) =
   let cleanup' =
     Caqti_request.exec Caqti_type.unit
-      "DELETE FROM ip_status WHERE date <= date('now','-2 day')"
+      "DELETE FROM ip_status WHERE date <= strftime(\"%s\", date('now','-2 day'))"
   in
   Db.exec cleanup' () >>= function
   | Ok ()   -> Lwt.return ()
