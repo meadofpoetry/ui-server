@@ -73,7 +73,7 @@ let to_topo_node = function
 
 let make_nodes topology =
   let create_element ~(element:Topo_node.node_entry) ~connections =
-    let connections = List.map to_topo_node connections in
+    let connections = List.map (fun (x,p) -> to_topo_node x, p) connections in
     match element with
     | `Entry (Board board) -> `Board (Topo_board.create ~connections board)
     | `Entry (Input input) -> `Input (Topo_input.create input)
@@ -82,12 +82,11 @@ let make_nodes topology =
   let rec get_boards acc = function
     | Input _ as i -> let i = create_element ~element:(`Entry i) ~connections:[] in
                       i,i::acc
-    | Board x as b -> let ports = List.map (fun x -> x.child) x.ports in
-                      let connections,acc = match ports with
+    | Board x as b -> let connections,acc = match x.ports with
                         | [] -> [],acc
                         | l  -> List.fold_left (fun (conn,total) x ->
-                                    let e,acc = get_boards acc x in
-                                    e::conn,acc@total) ([],[]) l
+                                    let e,acc = get_boards acc x.child in
+                                    (e, `Port x)::conn,acc@total) ([],[]) l
                       in
                       let b = create_element ~element:(`Entry b) ~connections in
                       b,b::acc
@@ -95,21 +94,21 @@ let make_nodes topology =
   match topology with
   | `CPU cpu  -> let connections,acc = List.fold_left (fun (conn,total) x ->
                                            let e,acc = get_boards [] x.conn in
-                                           e::conn,acc@total) ([],[]) cpu.ifaces in
+                                           (e, `Iface x)::conn,acc@total) ([],[]) cpu.ifaces in
                  let cpu_el = create_element ~element:(`CPU cpu) ~connections in
                  cpu_el::acc
   | `Boards x -> List.map (fun board ->
                      let connections,acc = List.fold_left (fun (conn,total) x ->
                                                let e,acc = get_boards [] x.child in
-                                               e::conn,acc@total) ([],[]) board.ports in
+                                               (e, `Port x)::conn,acc@total) ([],[]) board.ports in
                      let b = create_element ~element:(`Entry (Board board)) ~connections in
                      b :: acc) x
                  |> List.flatten
 
 let iter_paths f nodes =
   List.iter (function
-             | `Board b -> List.iter f b#paths
-             | `CPU c   -> List.iter f c#paths
+             | `Board b -> List.iter (fun p -> f (b :> Topo_node.t) p) b#paths
+             | `CPU c   -> List.iter (fun p -> f (c :> Topo_node.t) p) c#paths
              | _        -> ()) nodes
 
 let update_nodes nodes (t:Common.Topology.t) =
@@ -159,7 +158,8 @@ let create ~(parent: #Widget.widget)
         drawer#show_await >>= (fun () -> Lwt_result.bind t (fun f -> Lwt_result.return @@ f ()))
         |> ignore) e_s
   in
-  iter_paths (fun x -> Dom.appendChild svg x#root) nodes;
+  iter_paths (fun _ x -> Option.iter (fun sw -> Dom.appendChild parent#root sw#root) x#switch;
+                         Dom.appendChild svg x#root) nodes;
   Dom.appendChild Dom_html.document##.body drawer#root;
   Dom.appendChild parent#root svg;
   List.iter (fun x -> let node = to_topo_node x in

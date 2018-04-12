@@ -1,5 +1,6 @@
 open Containers
 open Components
+open Topo_types
 open Lwt_result.Infix
 
 let port_section_height = 50
@@ -91,7 +92,7 @@ let make_board_page (board:Common.Topology.topo_board) =
     | _       -> let w = Dom_html.createDiv Dom_html.document |> Widget.create in
                  Lwt_result.return (w,fun () -> ())
 
-class t ~(connections:#Topo_node.t list)
+class t ~(connections:(#Topo_node.t * connection_point) list)
         (board:Common.Topology.topo_board)
         () =
   let s,push     = React.S.create board.connection in
@@ -112,7 +113,7 @@ class t ~(connections:#Topo_node.t list)
                           super#set_state x.connection;
                           match x.connection with
                           | `Fine -> self#set_ports x.ports;
-                          | _     -> List.iter (fun p -> p#set_state `Muted) self#paths
+                          | _     -> List.iter (fun p -> p#set_state `Unavailable) self#paths
 
     method private set_ports l  =
       List.iter (fun (x:Common.Topology.topo_port) ->

@@ -25,6 +25,10 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
     position: relative;
 }
 
+.topology__switch {
+    position: absolute;
+}
+
 .topology__drawer {
     .mdc-drawer__drawer {
         min-height: 100vh;

@@ -1,5 +1,6 @@
 open Containers
 open Components
+open Topo_types
 
 let port_section_height = 50
 let base_class          = "topology__block"
@@ -47,7 +48,7 @@ module Body = struct
 
 end
 
-class t ~(connections:#Topo_node.t list)
+class t ~(connections:(#Topo_node.t * connection_point) list)
         ~(node:Topo_node.node_entry)
         ~(header:#Header.t)
         ~(body:#Body.t)

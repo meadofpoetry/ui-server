@@ -77,6 +77,9 @@
   height: 100%;
   position: relative; }
 
+.topology__switch {
+  position: absolute; }
+
 .topology__drawer .mdc-drawer__drawer {
   min-height: 100vh;
   width: 500px; }

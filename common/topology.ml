@@ -79,9 +79,10 @@ and topo_board = { typ          : board_type
                  ; ports        : topo_port list
                  }
 
-and topo_port = { port      : int
-                ; listening : bool
-                ; child     : topo_entry
+and topo_port = { port       : int
+                ; listening  : bool
+                ; switchable : bool
+                ; child      : topo_entry
                 }
 
 and topo_cpu  = { process : process_type
