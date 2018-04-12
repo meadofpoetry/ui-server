@@ -1,5 +1,10 @@
 /* TODO(sgomes): Figure out what to do about desktop font sizes. */
 /* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
+.dvb-niit-module-settings__mode {
+  margin-top: 0 !important; }
+.dvb-niit-module-settings .mdc-select {
+  margin-top: 16px; }
+
 .topology__board[data-board='TS'] .topology__board__header {
   background-color: #e91e63; }
   .topology__board[data-board='TS'] .topology__board__header .mdc-icon {
@@ -60,16 +65,90 @@
     color: rgba(255, 255, 255, 0.7);
     color: var(--mdc-theme-text-secondary-on-dark, rgba(255, 255, 255, 0.7)); }
 
-#arbitrary-content {
+#main-content {
   display: flex;
-  align-items: center;
-  justify-content: center; }
+  align-items: stretch;
+  overflow-x: auto; }
+  #main-content > * {
+    flex-grow: 1; }
 
 .topology {
-  flex-grow: 1;
   display: grid;
   height: 100%;
   position: relative; }
+
+.topology__switch {
+  position: absolute; }
+
+.topology__drawer .mdc-drawer__drawer {
+  min-height: 100vh;
+  width: 500px; }
+  @media screen and (max-width: 500px) {
+    .topology__drawer .mdc-drawer__drawer {
+      width: 100vw; } }
+.topology__drawer__error {
+  padding: 20px;
+  justify-content: center;
+  align-items: center; }
+  .topology__drawer__error .mdc-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 40px;
+    color: #e57373; }
+  .topology__drawer__error .mdc-typography {
+    margin-top: 10px;
+    text-align: center;
+    /* @alternate */
+    color: rgba(0, 0, 0, 0.54);
+    color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54)); }
+.topology__drawer__progress {
+  padding: 20px;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center; }
+  .topology__drawer__progress > p {
+    margin-top: 10px;
+    text-align: center;
+    /* @alternate */
+    color: rgba(0, 0, 0, 0.54);
+    color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54)); }
+@keyframes blink {
+  0% {
+    opacity: .2; }
+  20% {
+    opacity: 1; }
+  100% {
+    opacity: .2; } }
+    .topology__drawer__progress > p span {
+      animation-name: blink;
+      animation-duration: 1.4s;
+      animation-iteration-count: infinite;
+      animation-fill-mode: both; }
+    .topology__drawer__progress > p span:nth-child(2) {
+      animation-delay: .2s; }
+    .topology__drawer__progress > p span:nth-child(3) {
+      animation-delay: .4s; }
+.topology__drawer__header {
+  padding: 0 20px;
+  min-height: 64px;
+  justify-content: space-between;
+  align-items: center; }
+  @media screen and (max-width: 599px) {
+    .topology__drawer__header {
+      min-height: 56px; } }
+.topology__drawer__close {
+  margin-left: 20px; }
+.topology__drawer__dynamic-content__tabs .mdc-tab-bar-scroller__indicator {
+  display: none; }
+.topology__drawer__dynamic-content__tabs .mdc-tab {
+  min-width: 70px;
+  flex-grow: 1;
+  flex-basis: 0; }
+.topology__drawer__dynamic-content__body {
+  margin: 20px; }
+.topology__drawer__body {
+  overflow-y: auto;
+  overflow-x: hidden; }
 
 .topology__node-wrapper {
   margin: auto 0; }
@@ -106,7 +185,8 @@
     opacity: 0 !important; }
   .topology__input .mdc-chip__text {
     flex-grow: 2;
-    font-size: 0.95rem; }
+    font-size: 0.95rem;
+    white-space: nowrap; }
   .topology__input .mdc-chip__icon {
     /* @alternate */
     color: rgba(0, 0, 0, 0.38);
@@ -121,18 +201,23 @@
     color: rgba(0, 0, 0, 0.54);
     color: var(--mdc-theme-text-secondary-on-light, rgba(0, 0, 0, 0.54)); }
   .topology__block--init .topology__block__body {
-    background-color: #eeeeee;
+    background-color: #bdbdbd;
     /* @alternate */
     color: rgba(0, 0, 0, 0.54);
     color: var(--mdc-theme-text-secondary-on-light, rgba(0, 0, 0, 0.54)); }
   .topology__block--fine .topology__block__body {
     background-color: transparent; }
-
-.topology__block__header {
-  height: 41px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center; }
+  .topology__block__header {
+    height: 41px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center; }
+  .topology__block__body {
+    padding: 0 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: space-around;
+    justify-content: space-around; }
 
 .topology__cpu__header {
   background-color: #607d8b; }

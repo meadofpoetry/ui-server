@@ -9,6 +9,9 @@
     "db": {
         "db_path": "./db"
     },
+    "config_storage": {
+        "config_dir": "/tmp/"
+    },
     "topology":
     [ "CPU",
       { "process":"pipeline",
@@ -22,7 +25,10 @@
                 "connection":["No_response"],
                 "version":1,
                 "env":{},
-                "ports": [ {"port":0, "listening":true, "child":
+                "ports": [ {"port":1,
+                            "listening":true,
+                            "switchable":false,
+                            "child":
                             [ "Board",
                               { "typ":"TS",
                                 "control": 2,
@@ -31,10 +37,13 @@
                                 "connection":["No_response"],
                                 "version": 1,
                                 "env":{},
-                                "ports": [{"port": 0, "listening": true, "child":
+                                "ports": [{"port": 0,
+                                           "listening": true,
+                                           "switchable": true,
+                                           "child":
                                            [ "Board",
                                              { "typ":"IP2TS",
-                                               "control": 4,
+                                               "control": 5,
                                                "model": "dtm-3200",
                                                "manufacturer": "dektec",
                                                "connection":["No_response"],
@@ -42,30 +51,37 @@
                                                "env":{},
                                                "ports": [{"port": 0,
                                                           "listening": true,
+                                                          "switchable": false,
                                                           "child": [ "Input", { "input":"TSOIP", "id": 1} ]
                                                          }]
                                              }]
                                           },
                                           {"port": 1,
                                            "listening": false,
+                                           "switchable": true,
                                            "child": [ "Input", { "input": "ASI", "id": 1}]
                                           }]
                               }]
                            },
-                           {"port":1,"listening":true,"child":
+                           {"port":0,
+                            "listening":true,
+                            "switchable": false,
+                            "child":
                             [ "Board",
                               {"typ":"TS",
-                               "control": 3,
+                               "control": 1,
                                "model": "qos",
                                "manufacturer": "niitv",
                                "connection":["No_response"],
                                "version": 1,
                                "env":{},
                                "ports": [{"port": 0,
-                                          "listening": true, "child":
+                                          "listening": true,
+                                          "switchable": true,
+                                          "child":
                                           ["Board",
                                            {"typ":"DVB",
-                                            "control": 5,
+                                            "control": 4,
                                             "model": "rf",
                                             "manufacturer": "niitv",
                                             "connection":["No_response"],
@@ -73,12 +89,14 @@
                                             "env":{},
                                             "ports": [{"port": 0,
                                                        "listening": true,
+                                                       "switchable": false,
                                                        "child": [ "Input", { "input":"RF", "id": 1} ]
                                                       }]
                                            }]
                                          },
                                          {"port": 1,
                                           "listening": false,
+                                          "switchable": true,
                                           "child": [ "Input", { "input": "ASI", "id": 2}]
                                          }]
                               }]

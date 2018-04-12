@@ -42,7 +42,10 @@ module Item = struct
         Dom_events.listen super#root
           Dom_events.Typ.click
           (fun _ e -> let open_class = Markup.Tree.Item.item_open_class in
+                      let open_list  = Markup.Tree.Item.list_open_class in
                       Dom_html.stopPropagation e;
+                      let list = (Js.Unsafe.coerce super#root)##querySelector (Js.string ".mdc-tree__list") in
+                      let _ = list##.classList##toggle open_list in
                       super#toggle_class open_class |> s_push;
                       true)
         |> ignore;
@@ -53,8 +56,8 @@ end
 class t ~(items:t Item.t list) () =
 
   let two_line = Option.is_some @@ List.find_pred (fun x -> Option.is_some x#get_secondary_text) items in
-  let elt = Markup.Tree.create ~two_line ~items:(Widget.widgets_to_markup items) ()
-            |> Tyxml_js.To_dom.of_element in
+  let elt      = Markup.Tree.create ~two_line ~items:(Widget.widgets_to_markup items) ()
+                 |> Tyxml_js.To_dom.of_element in
 
   object(self)
 
@@ -71,10 +74,24 @@ class t ~(items:t Item.t list) () =
                                self#iter (fun (i:t Item.t) -> Option.iter (fun (t:t) -> t#set_dense x)
                                                                 i#get_nested_tree))
 
-    method private iter f = let rec iter l = List.iter (fun (x : t Item.t) -> f x;
-                                                                              match x#get_nested_tree with
-                                                                              | Some n -> iter n#get_items
-                                                                              | None   -> ()) l in
-                            iter self#get_items
+    method private iter f =
+      let rec iter l = List.iter (fun (x : t Item.t) ->
+                           f x;
+                           match x#get_nested_tree with
+                           | Some n -> iter n#get_items
+                           | None   -> ()) l in
+      iter self#get_items
+
+    method private padding () =
+      let rec iter l n = List.iter (fun x ->
+                             let item = (Js.Unsafe.coerce x#root)##querySelector (Js.string ".mdc-list-item") in
+                             item##.style##.paddingLeft := Js.string @@ (string_of_int (n*16))^"px";
+                             match x#get_nested_tree with
+                             | Some el -> iter el#get_items (n+1)
+                             | None   -> ()) l in
+      iter self#get_items 1
+
+    initializer
+      self#padding ();
 
   end

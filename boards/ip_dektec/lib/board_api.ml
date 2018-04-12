@@ -86,6 +86,9 @@ let state_ws sock_data s_state body =
 let status_ws sock_data (events : events) body =
   sock_handler sock_data events.status board_status_to_yojson body
 
+let config_ws sock_data (events : events) body =
+  sock_handler sock_data events.config config_to_yojson body
+
 let handle api events id s_state _ m args sock_data _ body =
   let open Api.Redirect in
   (* let redirect_if_guest = redirect_if (User.eq id `Guest) in *)
@@ -107,6 +110,7 @@ let handle api events id s_state _ m args sock_data _ body =
   | `GET,  ["devinfo"]    -> devinfo api ()
   | `GET,  ["status_ws"]  -> status_ws sock_data events body
   | `GET,  ["state_ws"]   -> state_ws sock_data s_state body
+  | `GET,  ["config_ws"]  -> config_ws sock_data events body
   | _ -> not_found ()
 
 let handlers id api events s_state =

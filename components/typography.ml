@@ -28,10 +28,9 @@ let font_to_class = function
   | Caption      -> Typography.caption_class
   | Button       -> Typography.button_class
 
-
 let remove (elt:#Widget.widget) =
   List.iter (fun x -> if String.prefix ~pre:Typography.base_class x then elt#remove_class x)
-    elt#get_classes
+            elt#get_classes
 
 let set ?(adjust_margin=true) ~font (elt:#Widget.widget) =
   remove elt;
@@ -41,9 +40,13 @@ let set ?(adjust_margin=true) ~font (elt:#Widget.widget) =
 
 module Text = struct
 
-  class t ?(adjust_margin=true) ?font ~text () =
+  class t ?(split=false) ?(adjust_margin=true) ?font ~text () =
 
-    let elt = Tyxml_js.Html.(span [pcdata text]) |> Tyxml_js.To_dom.of_element in
+    let elt =
+      let text = if split
+                 then List.flatten @@ List.map (fun s -> Tyxml_js.Html.([pcdata s; br ()])) @@ String.lines text
+                 else Tyxml_js.Html.([ pcdata text ])in
+      Tyxml_js.Html.(span text) |> Tyxml_js.To_dom.of_element in
 
     object(self)
 
@@ -64,7 +67,7 @@ module Text = struct
 
       method get_text   = self#get_text_content |> Option.get_or ~default:""
       method set_text s = self#set_text_content s
-                               
+
       initializer
         self#add_class Typography.base_class;
         self#set_adjust_margin adjust_margin;

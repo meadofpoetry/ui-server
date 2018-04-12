@@ -31,21 +31,29 @@ object
   method output_point      = Topo_path.get_output_point body
 end
 
-class parent ~(connections:#t list)
+class parent ~(connections:(#t * connection_point) list)
              ~(node:node_entry)
              ~(body:#Dom_html.element Js.t)
              elt
              () =
   let num = List.length connections in
-  let cw  = List.mapi (fun i x -> let f_lp = fun () -> x#output_point in
-                                  let f_rp = fun () -> Topo_path.get_input_point ~num i body in
-                                  new Topo_path.t ~left_node:x#node ~f_lp ~f_rp ()) connections
+  let cw  = List.mapi (fun i (x,p) -> let f_lp = fun () -> x#output_point in
+                                      let f_rp = fun () -> Topo_path.get_input_point ~num i body in
+                                      new Topo_path.t
+                                          ~left_node:x#node
+                                          ~right_node:node
+                                          ~right_point:p
+                                          ~f_lp ~f_rp ()) connections
   in
   object(self)
     inherit t ~node ~body elt () as super
     method layout = super#layout; List.iter (fun p -> p#layout) self#paths
-    method update_path_state n (state:connection_state) = match List.get_at_idx n cw with
-      | Some path -> Ok (path#set_state state)
-      | None      -> Error "path not found"
     method paths : Topo_path.t list = cw
+
+    method private switches : Topo_path.switch list = List.filter_map (fun x -> x#switch) self#paths
+    method private s_switch_changing =
+      List.map (fun x -> x#s_changing) self#switches
+      |> React.S.merge ~eq:Bool.equal (fun _ x -> x) false
+    initializer
+      React.S.map (fun x -> List.iter (fun s -> s#set_changing x) self#switches) self#s_switch_changing |> ignore;
   end

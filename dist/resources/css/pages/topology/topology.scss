@@ -2,6 +2,7 @@
 @import '../../components/theme/_color-palette';
 @import '../../components/typography/_mixins';
 @import './_mixins';
+@import '../boards/dvb_niit';
 
 $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
 
@@ -9,17 +10,114 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
     @include topology-board-type(nth($boards,$i));
 }
 
-#arbitrary-content {
+#main-content {
     display: flex;
-    align-items: center;
-    justify-content: center;
+    align-items: stretch;
+    overflow-x: auto;
+    > * {
+        flex-grow: 1;
+    }
 }
 
 .topology {
-    flex-grow: 1;
     display: grid;
     height: 100%;
     position: relative;
+}
+
+.topology__switch {
+    position: absolute;
+}
+
+.topology__drawer {
+    .mdc-drawer__drawer {
+        min-height: 100vh;
+        width: 500px;
+        @media screen and (max-width: 500px) {
+            width: 100vw;
+        }
+    }
+    &__error {
+        padding: 20px;
+        justify-content: center;
+        align-items: center;
+        .mdc-icon {
+            width: 40px;
+            height: 40px;
+            font-size: 40px;
+            color: $material-color-red-300;
+        }
+        .mdc-typography {
+            margin-top: 10px;
+            text-align: center;
+            @include mdc-theme-prop(color,text-secondary-on-background);
+        }
+    }
+    &__progress {
+        padding: 20px;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        > p {
+            margin-top: 10px;
+            text-align: center;
+            @include mdc-theme-prop(color,text-secondary-on-background);
+            @keyframes blink {
+                0% {
+                    opacity: .2;
+                }
+                20% {
+                    opacity: 1;
+                }
+                100% {
+                    opacity: .2;
+                }
+            }
+            span {
+                animation-name: blink;
+                animation-duration: 1.4s;
+                animation-iteration-count: infinite;
+                animation-fill-mode: both;
+            }
+            span:nth-child(2) {
+                animation-delay: .2s;
+            }
+            span:nth-child(3) {
+                animation-delay: .4s;
+            }
+        }
+    }
+    &__header {
+        padding: 0 20px;
+        min-height: 64px;
+        justify-content: space-between;
+        align-items: center;
+        @media screen and (max-width: 599px) {
+            min-height: 56px;
+        }
+    }
+    &__close {
+        margin-left: 20px;
+    }
+    &__dynamic-content {
+        &__tabs {
+            .mdc-tab-bar-scroller__indicator {
+                display: none;
+            }
+            .mdc-tab {
+                min-width: 70px;
+                flex-grow: 1;
+                flex-basis: 0;
+            }
+        }
+        &__body {
+            margin: 20px;
+        }
+    }
+    &__body {
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
 }
 
 .topology__node-wrapper {
@@ -59,6 +157,7 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
     .mdc-chip__text {
         flex-grow: 2;
         font-size: 0.95rem;
+        white-space: nowrap;
     }
     .mdc-chip__icon {
         @include mdc-theme-prop(color, text-icon-on-background);
@@ -78,7 +177,7 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
 
     &--init {
         .topology__block__body {
-            background-color: $material-color-grey-200;
+            background-color: $material-color-grey-400;
             @include mdc-theme-prop(color, text-secondary-on-light);
         }
     }
@@ -88,13 +187,20 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
             background-color: transparent;
         }
     }
-}
 
-.topology__block__header {
-    height: 41px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    &__header {
+        height: 41px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    &__body {
+        padding: 0 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: space-around;
+        justify-content: space-around;
+    }
 }
 
 .topology__cpu {

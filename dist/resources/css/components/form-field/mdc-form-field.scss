@@ -28,6 +28,7 @@ $mdc-form-field-item-spacing: 4px;
   display: inline-flex;
   align-items: center;
   vertical-align: middle;
+  margin-bottom: 12px;
 
   > label {
     order: 0;
@@ -44,7 +45,8 @@ $mdc-form-field-item-spacing: 4px;
 }
 
 .mdc-form-field--align-end {
-  > label {
+    > label {
+    flex-grow: 1;
     order: -1;
     margin-left: auto;
     padding-right: $mdc-form-field-item-spacing;

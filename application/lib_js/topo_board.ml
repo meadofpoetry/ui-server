@@ -1,5 +1,7 @@
 open Containers
 open Components
+open Topo_types
+open Lwt_result.Infix
 
 let port_section_height = 50
 let base_class          = "topology__board"
@@ -35,9 +37,14 @@ module Body = struct
 
   class t (board:Common.Topology.topo_board) () =
     let _class = Markup.CSS.add_element base_class "body" in
+    (* let switches = match board.ports with
+     *   | [] | [_] -> []
+     *   | _        -> List.map (fun _ -> new Switch.t ()) board.ports
+     * in *)
     object(self)
       inherit Topo_block.Body.t (List.length board.ports) ()
       initializer
+        (* List.iter (fun switch -> Dom.appendChild self#root switch#root) switches; *)
         self#add_class _class
     end
 
@@ -73,7 +80,19 @@ let eq_node_entry (e1:Topo_node.node_entry) (e2:Topo_node.node_entry) =
                              | _                  -> false)
   | _                    -> false
 
-class t ~(connections:#Topo_node.t list)
+let make_board_page (board:Common.Topology.topo_board) =
+  let open Boards_js.Types in
+  let open Lwt_result.Infix in
+  match board.typ with
+    | "TS"    -> Board_qos_niit_js.Topo_page.make board
+    | "DVB"   -> Board_dvb_niit_js.Topo_page.make board
+    | "TS2IP" -> let w = new Board_ts2ip_niit_js.Settings.settings board.control () in
+                 Lwt_result.return (w,fun () -> ())
+    | "IP2TS" -> Board_ip_dektec_js.Topo_page.make board
+    | _       -> let w = Dom_html.createDiv Dom_html.document |> Widget.create in
+                 Lwt_result.return (w,fun () -> ())
+
+class t ~(connections:(#Topo_node.t * connection_point) list)
         (board:Common.Topology.topo_board)
         () =
   let s,push     = React.S.create board.connection in
@@ -94,7 +113,7 @@ class t ~(connections:#Topo_node.t list)
                           super#set_state x.connection;
                           match x.connection with
                           | `Fine -> self#set_ports x.ports;
-                          | _     -> List.iter (fun p -> p#set_state `Muted) self#paths
+                          | _     -> List.iter (fun p -> p#set_state `Unavailable) self#paths
 
     method private set_ports l  =
       List.iter (fun (x:Common.Topology.topo_port) ->

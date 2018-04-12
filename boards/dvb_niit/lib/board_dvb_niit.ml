@@ -57,12 +57,6 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
                       | true,Some x when Int32.(x > 0l) -> List.add_nodup ~eq:(Common.Stream.equal_stream) stream streams
                       | _                       -> List.remove ~eq:(Common.Stream.equal_stream) ~x:stream streams)
                     [] events.measure in
-  (*  let sms = convert_streams s_streams b in
-  let _e = React.E.map (fun s ->
-               `List (List.map Common.Stream.to_yojson s)
-               |> Yojson.Safe.pretty_to_string
-               |> Lwt_io.printf "QOS sms: %s\n"
-               |> ignore;) @@ React.S.changes sms in *)
   let state = (object
                  method _s = _s;
                  method db = db;
@@ -78,7 +72,7 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
                            | 0 -> React.S.const true
                            | x -> raise (Invalid_port ("Board_dvb_niit: invalid port " ^ (string_of_int x))))
                           |> fun x -> Ports.add p.port x acc)
-                        Ports.empty b.ports)
+                                     Ports.empty b.ports)
   ; settings_page  = ("DVB", React.S.const (Tyxml.Html.div []))
   ; widgets_page   = [("DVB", React.S.const (Tyxml.Html.div []))]
   ; stream_handler = None

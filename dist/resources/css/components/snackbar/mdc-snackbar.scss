@@ -36,6 +36,7 @@
   background-color: $mdc-snackbar-background-color;
   pointer-events: none;
   will-change: transform;
+  z-index: 1000;
 
   @media (max-width: ($mdc-snackbar-tablet-breakpoint - 1)) {
     left: 0;

@@ -348,46 +348,49 @@ class ['a] t ~s_grid        (* grid props *)
                          true);
 
       listen self#get_drag_target#root Typ.touchstart
-             (fun _ e -> Dom_html.stopPropagation e;
-                         if e##.touches##.length <= 1
-                         then
-                           ( let timer   = 400. in                 (**  TIMER is here **)
-                             let touch   = Js.Optdef.get (e##.touches##item 0)
-                                                         (fun () -> failwith "No touch with such id") in
-                             let id      = touch##.identifier in
-                             let wrapped = Js.wrap_callback
-                                             (fun _ -> if draggable
-                                                       then self#start_dragging (Touch e))
-                             in
-                             let timeout = Dom_html.window##setTimeout wrapped timer in
-                             let stop_timeout e =
-                               let touch = Js.Optdef.get (e##.touches##item 0)
-                                                         (fun () -> failwith "No touch with such id") in
-                               if touch##.identifier = id
-                               then (Dom_html.window##clearTimeout timeout;
-                                     stop_listen mov_listener;
-                                     stop_listen end_listener;
-                                     stop_listen cancel_listener)
-                             in
-                             listen ~save:(fun x -> mov_listener <- x) Dom_html.window Typ.touchmove
-                                    (fun _ ev ->
-                                      (match find_touch id (ev##.changedTouches##.length-1) ev##.changedTouches with
-                                       | Some touch1 ->
-                                          let dx = abs @@ touch1##.clientX - touch##.clientX in
-                                          let dy = abs @@ touch1##.clientY - touch##.clientY in
-                                          if dx > 8 || dy > 8
-                                          then (Dom_html.window##clearTimeout timeout;
-                                                stop_listen mov_listener);
-                                       | None       -> ());
-                                      false);
-                             listen ~save:(fun x -> cancel_listener <- x) Dom_html.window Typ.touchcancel
-                                    (fun _ e -> stop_timeout e; false);
-                             listen ~save:(fun x -> end_listener <- x) Dom_html.window Typ.touchend
-                                    (fun _ e -> stop_timeout e; false));
-                         false);
+        (fun _ e -> Dom_html.stopPropagation e;
+                    if self#selectable && not self#grid.multi_select then self#set_selected true;
+                    if e##.touches##.length <= 1
+                    then
+                      ( let timer   = 400. in                 (**  TIMER is here **)
+                        let touch   = Js.Optdef.get (e##.touches##item 0)
+                                        (fun () -> failwith "No touch with such id") in
+                        let id      = touch##.identifier in
+                        let wrapped = Js.wrap_callback
+                                        (fun _ -> if draggable
+                                                  then self#start_dragging (Touch e))
+                        in
+                        let timeout = Dom_html.window##setTimeout wrapped timer in
+                        let stop_timeout e =
+                          let touch = Js.Optdef.get (e##.changedTouches##item 0)
+                                        (fun () -> failwith "No touch with such id") in
+                          if touch##.identifier = id
+                          then (Dom_html.window##clearTimeout timeout;
+                                stop_listen mov_listener;
+                                stop_listen end_listener;
+                                stop_listen cancel_listener)
+                        in
+                        listen ~save:(fun x -> mov_listener <- x) Dom_html.window Typ.touchmove
+                         (fun _ ev ->
+                          (match find_touch id (ev##.changedTouches##.length-1) ev##.changedTouches with
+                             | Some touch1 ->
+                                let dx = abs @@ touch1##.clientX - touch##.clientX in
+                                let dy = abs @@ touch1##.clientY - touch##.clientY in
+                                if dx > 8 || dy > 8
+                                then (Dom_html.window##clearTimeout timeout;
+                                      stop_listen mov_listener;
+                                      stop_listen end_listener;
+                                      stop_listen cancel_listener);
+                             | None       -> ());
+                            false);
+                        listen ~save:(fun x -> cancel_listener <- x) Dom_html.window Typ.touchcancel
+                          (fun _ e -> stop_timeout e; false);
+                        listen ~save:(fun x -> end_listener <- x) Dom_html.window Typ.touchend
+                          (fun _ e -> stop_timeout e; false));
+                    false);
 
       listen self#root Typ.focus (fun _ _ ->
-               if self#selectable && not self#grid.multi_select then self#set_selected true; true);
+          if self#selectable && not self#grid.multi_select then self#set_selected true; true);
 
       (* add item start resize listener if needed *)
       listen resize_button#root Typ.mousedown (fun _ e ->

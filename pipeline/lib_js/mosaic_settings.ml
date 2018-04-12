@@ -333,17 +333,16 @@ let create ~(init: Wm.t)
                       s_state
   in
   Dom.appendChild cont.ig#root wz_dlg#root;
-  let g = new Layout_grid.t ~cells:[lc;mc;rc] () in
-  Dom.appendChild g#root size_dlg#root;
-  g
+  Dom.appendChild cont.ig#root size_dlg#root;
+  [lc;mc;rc]
 
 class t () = object(self)
   val mutable sock : WebSockets.webSocket Js.t option = None
-  inherit Widget.widget (Dom_html.createDiv Dom_html.document) () as super
-  method private on_load =
+  inherit Layout_grid.t ~cells:[] () as super
+
+  method on_load =
     Requests.get_wm ()
     >>= (fun wm ->
-      let id           = "wm-editor" in
       let e_wm,wm_sock = Requests.get_wm_socket () in
       let post         = (fun w -> Lwt.Infix.(Requests.post_wm w
                                               >|= (function
@@ -351,21 +350,20 @@ class t () = object(self)
                                                    | Error e -> print_endline @@ "error post wm" ^ e)
                                               |> Lwt.ignore_result))
       in
-      let _ = React.S.map (fun (s:Wm.t) ->
-                  (try Dom.removeChild self#root (Dom_html.getElementById id) with _ -> ());
-                  let wm_el = create ~init:s ~post () in
-                  let ()    = wm_el#set_id id in
-                  Dom.appendChild self#root wm_el#root)
+      let _ = React.S.map (fun (s:Wm.t) -> Dom.list_of_nodeList @@ self#inner#root##.childNodes
+                                           |> List.iter (fun x -> Dom.removeChild self#inner#root x);
+                                           let cells = create ~init:s ~post () in
+                                           List.iter (fun x -> Dom.appendChild self#inner#root x#root) cells)
                           (React.S.hold wm e_wm)
       in
       sock <- Some wm_sock;
       Lwt_result.return ())
     |> ignore
+  method on_unload =
+    Option.iter (fun x -> x##close; sock <- None) sock
 
   initializer
     self#add_class "wm";
-    super#set_on_unload (Some (fun () -> Option.iter (fun x -> x##close; sock <- None) sock));
-    super#set_on_load   (Some (fun () -> self#on_load));
 end
 
 let page () = new t ()

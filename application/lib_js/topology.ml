@@ -73,7 +73,7 @@ let to_topo_node = function
 
 let make_nodes topology =
   let create_element ~(element:Topo_node.node_entry) ~connections =
-    let connections = List.map to_topo_node connections in
+    let connections = List.map (fun (x,p) -> to_topo_node x, p) connections in
     match element with
     | `Entry (Board board) -> `Board (Topo_board.create ~connections board)
     | `Entry (Input input) -> `Input (Topo_input.create input)
@@ -82,12 +82,11 @@ let make_nodes topology =
   let rec get_boards acc = function
     | Input _ as i -> let i = create_element ~element:(`Entry i) ~connections:[] in
                       i,i::acc
-    | Board x as b -> let ports = List.map (fun x -> x.child) x.ports in
-                      let connections,acc = match ports with
+    | Board x as b -> let connections,acc = match x.ports with
                         | [] -> [],acc
                         | l  -> List.fold_left (fun (conn,total) x ->
-                                    let e,acc = get_boards acc x in
-                                    e::conn,acc@total) ([],[]) l
+                                    let e,acc = get_boards acc x.child in
+                                    (e, `Port x)::conn,acc@total) ([],[]) l
                       in
                       let b = create_element ~element:(`Entry b) ~connections in
                       b,b::acc
@@ -95,21 +94,21 @@ let make_nodes topology =
   match topology with
   | `CPU cpu  -> let connections,acc = List.fold_left (fun (conn,total) x ->
                                            let e,acc = get_boards [] x.conn in
-                                           e::conn,acc@total) ([],[]) cpu.ifaces in
+                                           (e, `Iface x)::conn,acc@total) ([],[]) cpu.ifaces in
                  let cpu_el = create_element ~element:(`CPU cpu) ~connections in
                  cpu_el::acc
   | `Boards x -> List.map (fun board ->
                      let connections,acc = List.fold_left (fun (conn,total) x ->
                                                let e,acc = get_boards [] x.child in
-                                               e::conn,acc@total) ([],[]) board.ports in
+                                               (e, `Port x)::conn,acc@total) ([],[]) board.ports in
                      let b = create_element ~element:(`Entry (Board board)) ~connections in
                      b :: acc) x
                  |> List.flatten
 
 let iter_paths f nodes =
   List.iter (function
-             | `Board b -> List.iter f b#paths
-             | `CPU c   -> List.iter f c#paths
+             | `Board b -> List.iter (fun p -> f (b :> Topo_node.t) p) b#paths
+             | `CPU c   -> List.iter (fun p -> f (c :> Topo_node.t) p) c#paths
              | _        -> ()) nodes
 
 let update_nodes nodes (t:Common.Topology.t) =
@@ -121,36 +120,46 @@ let update_nodes nodes (t:Common.Topology.t) =
                             | None    -> ())
              | _        -> ()) nodes
 
-let make_drawer () =
-  new Drawer.t ~anchor:`Bottom ~content:[] ()
-
 let create ~(parent: #Widget.widget)
            ~(init:   Common.Topology.t)
            ~(event:  Common.Topology.t React.event)
            () =
   let svg    = Tyxml_js.Svg.(svg ~a:[a_class [Markup.CSS.add_element _class "paths"]] [] |> toelt) in
   let nodes  = make_nodes init in
-  let drawer = make_drawer () in
-  let e_bs   = React.E.select @@ List.filter_map (function `Board b -> Some b#e_settings | _ -> None) nodes in
-  let e_cs   = React.E.select @@ List.filter_map (function `CPU c -> Some c#e_settings | _ -> None) nodes in
-  let _      = React.E.map (fun _ ->
-                   rm_children drawer#drawer#root;
-                   Dom.appendChild drawer#drawer#root (Streams_selector.create ())#root;
-                   drawer#show) e_cs
+  let e_s    = List.filter_map (function `Board b -> Some (React.E.map (fun x -> `Board x) b#e_settings)
+                                       | `CPU c   -> Some (React.E.map (fun x -> `CPU x) c#e_settings)
+                                       | _        -> None) nodes
+               |> React.E.select
   in
-  let _      = React.E.map (fun board ->
-                   (* (Option.get_exn dialog#header)#set_title @@ Topo_board.get_board_name board; *)
-                   rm_children drawer#drawer#root;
-                   (match board.typ with
-                    | "TS" -> Widget.create @@ fst @@ Board_qos_niit_js.Settings.page board.control
-                    | "DVB"   -> (new Board_dvb_niit_js.Settings.settings board.control ())#widget
-                    | "TS2IP" -> (new Board_ts2ip_niit_js.Settings.settings board.control ())#widget
-                    | "IP2TS" -> Widget.create @@ fst @@ Board_ip_dektec_js.Ip_dektec.page board.control
-                    | _    -> Dom_html.createDiv Dom_html.document |> Widget.create)
-                   |> (fun w -> Dom.appendChild drawer#drawer#root w#root);
-                   drawer#show) e_bs
+  let drawer,drawer_box,set_drawer_title = Topo_drawer.make ~title:"" () in
+  let _      =
+    React.E.map (fun node ->
+        rm_children drawer_box#root;
+        let res = match node with
+          | `Board board ->
+             set_drawer_title @@ Topo_board.get_board_name board;
+             Topo_board.make_board_page board
+          | `CPU cpu ->
+             set_drawer_title @@ Topo_cpu.get_cpu_name cpu;
+             Lwt_result.return ((Streams_selector.create ())#widget,fun () -> ())
+        in
+        let prgrs = Topo_drawer.make_progress () in
+        Dom.appendChild drawer_box#root prgrs#root;
+        let open Lwt.Infix in
+        let t = res >>= (fun r ->
+            Dom.removeChild drawer_box#root prgrs#root;
+            match r with
+            | Ok (w,close) -> Dom.appendChild drawer_box#root w#root; Lwt_result.return close
+            | Error e      -> let s = Printf.sprintf "Ошибка при загрузке страницы:\n %s" e in
+                              let error = Topo_drawer.make_error s in
+                              Dom.appendChild drawer_box#root error#root;
+                              Lwt_result.fail e)
+        in
+        drawer#show_await >>= (fun () -> Lwt_result.bind t (fun f -> Lwt_result.return @@ f ()))
+        |> ignore) e_s
   in
-  iter_paths (fun x -> Dom.appendChild svg x#root) nodes;
+  iter_paths (fun _ x -> Option.iter (fun sw -> Dom.appendChild parent#root sw#root) x#switch;
+                         Dom.appendChild svg x#root) nodes;
   Dom.appendChild Dom_html.document##.body drawer#root;
   Dom.appendChild parent#root svg;
   List.iter (fun x -> let node = to_topo_node x in

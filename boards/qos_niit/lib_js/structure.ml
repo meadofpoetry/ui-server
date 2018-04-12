@@ -1,6 +1,7 @@
 open Containers
 open Components
 open Board_types
+open Lwt_result.Infix
 
 let (^::) = List.cons_maybe
 
@@ -143,14 +144,23 @@ let create
   in
   Dom.appendChild div (make init)#root
 
-let page control =
-  let open Lwt_result.Infix in
-  let div = Dom_html.createDiv Dom_html.document in
-  let t =
+class t control () = object(self)
+  val mutable _state : (WebSockets.webSocket Js.t,string) Lwt_result.t option = None
+  inherit Widget.widget (Dom_html.createDiv Dom_html.document) ()
+
+  method on_load =
     Requests.get_structs control
     >>= (fun init ->
       let e_structs,sock = Requests.get_structs_ws control in
-      create ~div ~init ~event:e_structs;
+      create ~div:self#root ~init ~event:e_structs;
       Lwt_result.return sock)
-  in
-  div,(fun () -> t >>= (fun x -> Lwt_result.return x##close) |> ignore)
+    |> fun s -> _state <- Some s
+
+  method on_unload =
+    match _state with
+    | Some s -> s >>= (fun x -> x##close; Lwt_result.return ()) |> ignore
+    | None   -> ()
+
+end
+
+let page control () = new t control ()

@@ -43,8 +43,8 @@ type stream_setting =
 
 type packer_setting =
   { base      : stream_setting
-  ; stream_id : int32
-  ; port      : int
+  ; stream_id : int32 (* stream id to listen to *)
+  ; port      : int   (* physical port on a board where this stream should be found *)
   ; self_port : int
   } [@@deriving yojson]
 

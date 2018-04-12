@@ -218,26 +218,31 @@ module SM = struct
 
   let send_instant (type a) sender (msg : a instant_request) : unit Lwt.t =
     (match msg with
-     | Set_board_mode x  -> let t2mi = Option.get_or ~default:{ enabled = false
-                                                              ; pid = 0
-                                                              ; stream_id = Single
-                                         }
-                                         x.t2mi in
-                            let body = Cbuffer.create sizeof_board_mode in
-                            let () = input_to_int x.input
-                                     |> (lor) (if t2mi.enabled then 4 else 0)
-                                     |> (lor) 8 (* disable board storage by default *)
-                                     |> set_board_mode_mode body in
-                            let () = set_board_mode_t2mi_pid body t2mi.pid in
-                            let () = set_board_mode_t2mi_stream_id body
-                                       (Common.Stream.id_to_int32 t2mi.stream_id) in
-                            to_simple_req ~msg_code:0x0082 ~body ()
      | Reset             -> to_complex_req ~msg_code:0x0111 ~body:(Cbuffer.create 0) ()
-     | Set_jitter_mode x -> let body = Cbuffer.create sizeof_req_set_jitter_mode in
-                            let () = set_req_set_jitter_mode_stream_id body
-                                       (Common.Stream.id_to_int32 x.stream_id) in
-                            let () = set_req_set_jitter_mode_pid body x.pid in
-                            to_complex_req ~msg_code:0x0112 ~body ())
+     | Set_board_mode x  ->
+        let t2mi = Option.get_or ~default:{ enabled        = false
+                                          ; pid            = 0
+                                          ; t2mi_stream_id = 0
+                                          ; stream         = Single
+                                          }
+                                 x.t2mi in
+        let body = Cbuffer.create sizeof_board_mode in
+        let () = input_to_int x.input
+                 |> (lor) (if t2mi.enabled then 4 else 0)
+                 |> (lor) 8 (* disable board storage by default *)
+                 |> set_board_mode_mode body in
+        let () = set_board_mode_t2mi_pid body t2mi.pid in
+        let () = set_board_mode_t2mi_stream_id body (Common.Stream.id_to_int32 t2mi.stream) in
+        to_simple_req ~msg_code:0x0082 ~body ()
+     | Set_jitter_mode x ->
+        let req  = match x with
+          | Some x -> x
+          | None   -> { pid = 0x1fff; stream = Single }
+        in
+        let body = Cbuffer.create sizeof_req_set_jitter_mode in
+        let () = set_req_set_jitter_mode_stream_id body (Common.Stream.id_to_int32 req.stream) in
+        let () = set_req_set_jitter_mode_pid body req.pid in
+        to_complex_req ~msg_code:0x0112 ~body ())
     |> sender
 
   let enqueue (type a) msgs sender (msg : a request) timeout exn : a Lwt.t =
@@ -420,6 +425,10 @@ module SM = struct
     let api =
       { set_mode        = (fun m  -> enqueue_instant imsgs sender storage (Set_board_mode m)
                                      >>= (fun () -> push_config storage#get; Lwt.return_unit))
+      ; set_input       = (fun i  -> let mode = { storage#get.mode with input = i } in
+                                     enqueue_instant imsgs sender storage (Set_board_mode mode))
+      ; set_t2mi_mode   = (fun m  -> let mode = { storage#get.mode with t2mi  = m } in
+                                     enqueue_instant imsgs sender storage (Set_board_mode mode))
       ; set_jitter_mode = (fun m  -> enqueue_instant imsgs sender storage (Set_jitter_mode m)
                                      >>= (fun () -> push_config storage#get; Lwt.return_unit))
       ; get_devinfo     = (fun () -> Lwt.return @@ React.S.value devinfo)
@@ -427,10 +436,10 @@ module SM = struct
       ; get_structs     = (fun () -> Lwt.return @@ React.S.value structs)
       ; get_bitrates    = (fun () -> Lwt.return @@ React.S.value bitrates)
       ; get_t2mi_seq    = (fun s  -> enqueue msgs sender
-                                       (Get_t2mi_frame_seq { request_id = get_id ()
-                                                           ; seconds    = s })
-                                       (to_period (s + 10) step_duration)
-                                       None)
+                                             (Get_t2mi_frame_seq { request_id = get_id ()
+                                                                 ; seconds    = s })
+                                             (to_period (s + 10) step_duration)
+                                             None)
       ; config          = (fun () -> Lwt.return storage#get)
       } in
     events,

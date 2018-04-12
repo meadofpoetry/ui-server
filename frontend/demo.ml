@@ -216,7 +216,12 @@ let tree_demo () =
   let item x = new Tree.Item.t
                  ~text:("Item " ^ string_of_int x)
                  ~nested:(new Tree.t
-                            ~items:[ new Tree.Item.t ~text:"Item 0" ()
+                            ~items:[ new Tree.Item.t ~text:"Item 0"
+                                       ~nested:(new Tree.t
+                                                  ~items:[ new Tree.Item.t ~text:"Item 0" ()
+                                                         ; new Tree.Item.t ~text:"Item 1" ()
+                                                         ; new Tree.Item.t ~text:"Item 2" () ]
+                                                  ()) ()
                                    ; new Tree.Item.t ~text:"Item 1" ()
                                    ; new Tree.Item.t ~text:"Item 2" () ]
                             ())
@@ -436,9 +441,9 @@ let textfield_demo () =
                             ~placeholder:"Enter something"
                             ~rows:8 ~cols:40 () in
   let textarea          = new Textarea.t
-                            ~input_id:"textarea"
-                            ~label:"textarea label"
-                            ~rows:8 ~cols:40 () in
+                              ~input_id:"textarea"
+                              ~label:"textarea label"
+                              ~rows:8 ~cols:40 () in
   demo_section "Textfield" [ subsection "CSS only textfield" css_form
                            ; subsection "JS textfield" js
                            ; subsection "Dense textfield (with email validation)" dense
@@ -450,20 +455,27 @@ let textfield_demo () =
 
 let select_demo () =
   let select = new Select.t
-                 ~label:"Demo select"
-                 ~items:[ `Group (new Select.Group.t
-                                    ~label:"Group 1"
-                                    ~items:[ new Select.Item.t ~value:() ~text:"Item 1" ()
-                                           ; new Select.Item.t ~value:() ~text:"Item 2" ()
-                                           ; new Select.Item.t ~value:() ~text:"Item 3" () ]
-                                    ())
-                        ; `Item (new Select.Item.t ~value:() ~text:"Item 1" ())
-                        ; `Item (new Select.Item.t ~value:() ~text:"Item 2" ())
-                        ; `Item (new Select.Item.t ~value:() ~text:"Item 3" ())
-                 ]
-                 ()
+                   ~label:"Demo select"
+                   ~items:[ `Group (new Select.Group.t
+                                        ~label:"Group 1"
+                                        ~items:[ new Select.Item.t ~value:() ~text:"Item 1" ()
+                                               ; new Select.Item.t ~value:() ~text:"Item 2" ()
+                                               ; new Select.Item.t ~value:() ~text:"Item 3" () ]
+                                        ())
+                          ; `Item (new Select.Item.t ~value:() ~text:"Item 1" ())
+                          ; `Item (new Select.Item.t ~value:() ~text:"Item 2" ())
+                          ; `Item (new Select.Item.t ~value:() ~text:"Item 3" ())
+                          ]
+                   ()
   in
-  demo_section "Select" [ select ]
+  let disabled = new Select.t ~label:"Disabled"
+                     ~disabled:true
+                     ~items:[ `Item (new Select.Item.t ~value:() ~text:"Item 1" ()) ]
+                     ()
+  in
+  let () = select#style##.width := Js.string "200px" in
+  let () = disabled#style##.width := Js.string "200px" in
+  demo_section "Select" [ subsection "Select" select; subsection "Disabled" disabled ]
 
 let elevation_demo () =
   let d       = Widget.create (Html.div ~a:[Html.a_style "height: 200px; width: 200px; margin: 20px"] []
@@ -678,43 +690,35 @@ let add_demos demos =
   |> To_dom.of_element
 
 let onload _ =
-  let ac = Dom_html.getElementById "arbitrary-content" in
-  ac##.style##.margin := Js.string "20px";
-  (* let doc     = Dom_html.document in
-   * let body    = doc##.body in
-   * let drawer  = drawer_demo () in
-   * let toolbar = toolbar_demo drawer () in *)
-  let demos   = add_demos [ expansion_panel_demo ()
-                          ; dynamic_grid_demo ()
-                          ; table_demo ()
-                          ; button_demo ()
-                          ; chart_demo ()
-                          ; time_chart_demo ()
-                          ; fab_demo ()
-                          ; radio_demo ()
-                          ; checkbox_demo ()
-                          ; switch_demo ()
-                          ; toggle_demo ()
-                          ; elevation_demo ()
-                          ; select_demo ()
-                          ; textfield_demo ()
-                          ; card_demo ()
-                          ; slider_demo ()
-                          ; grid_list_demo ()
-                          ; ripple_demo ()
-                          ; layout_grid_demo ()
-                          ; dialog_demo ()
-                          ; list_demo ()
-                          ; tree_demo ()
-                          (* ; menu_demo () *)
-                          ; snackbar_demo ()
-                          ; linear_progress_demo ()
-                          ; circular_progress_demo ()
-                          ; tabs_demo ()
-                          ] in
-  (* Dom.appendChild body toolbar;
-   * Dom.appendChild body drawer##.root__; *)
-  Dom.appendChild ac demos;
+  let demos = add_demos [ expansion_panel_demo ()
+                        ; dynamic_grid_demo ()
+                        ; table_demo ()
+                        ; button_demo ()
+                        ; chart_demo ()
+                        ; time_chart_demo ()
+                        ; fab_demo ()
+                        ; radio_demo ()
+                        ; checkbox_demo ()
+                        ; switch_demo ()
+                        ; toggle_demo ()
+                        ; elevation_demo ()
+                        ; select_demo ()
+                        ; textfield_demo ()
+                        ; card_demo ()
+                        ; slider_demo ()
+                        ; grid_list_demo ()
+                        ; ripple_demo ()
+                        ; layout_grid_demo ()
+                        ; dialog_demo ()
+                        ; list_demo ()
+                        ; tree_demo ()
+                        (* ; menu_demo () *)
+                        ; snackbar_demo ()
+                        ; linear_progress_demo ()
+                        ; circular_progress_demo ()
+                        ; tabs_demo ()
+                        ] in
+  let _ = new Page.t (`Static [Widget.create demos]) () in
   Js._false
 
 let () = Dom_html.addEventListener Dom_html.document

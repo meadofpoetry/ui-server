@@ -35,18 +35,20 @@ type events = { config       : config React.event
               ; jitter       : jitter React.event
               }
 
-type api = { get_devinfo     : unit -> devinfo_response Lwt.t
-           ; set_mode        : mode_request -> unit Lwt.t
+type api = { get_devinfo     : unit                -> devinfo_response Lwt.t
+           ; set_mode        : mode_request        -> unit Lwt.t
+           ; set_input       : input               -> unit Lwt.t
+           ; set_t2mi_mode   : t2mi_mode_request   -> unit Lwt.t
            ; set_jitter_mode : jitter_mode_request -> unit Lwt.t
-           ; get_t2mi_seq    : int  -> t2mi_seq_response Lwt.t
-           ; get_structs     : unit -> ts_structs Lwt.t
-           ; get_bitrates    : unit -> ts_structs Lwt.t
-           ; reset           : unit -> unit Lwt.t
-           ; config          : unit -> config Lwt.t
+           ; get_t2mi_seq    : int                 -> t2mi_seq_response Lwt.t
+           ; get_structs     : unit                -> ts_structs Lwt.t
+           ; get_bitrates    : unit                -> ts_structs Lwt.t
+           ; reset           : unit                -> unit Lwt.t
+           ; config          : unit                -> config Lwt.t
            }
 
-type _ instant_request = Set_board_mode  : mode -> unit instant_request
-                       | Set_jitter_mode : jitter_mode -> unit instant_request
+type _ instant_request = Set_board_mode  : mode                -> unit instant_request
+                       | Set_jitter_mode : jitter_mode_request -> unit instant_request
                        | Reset           : unit instant_request
 
 type jitter_req =
@@ -112,12 +114,13 @@ let to_complex_req ?client_id ?request_id ~msg_code ~body () =
   let hdr = to_complex_req_header ?client_id ?request_id ~msg_code ~length () in
   Cbuffer.append hdr body
 
-let to_mode_exn mode t2mi_pid t2mi_stream_id =
+let to_mode_exn mode t2mi_pid stream_id =
   { input = Option.get_exn @@ input_of_int (mode land 1)
-  ; t2mi = Some { enabled   = if (mode land 4) > 0 then true else false
-                ; pid       = t2mi_pid
-                ; stream_id = Common.Stream.id_of_int32 t2mi_stream_id
-             }
+  ; t2mi = Some { enabled        = if (mode land 4) > 0 then true else false
+                ; pid            = t2mi_pid land 0x1fff
+                ; t2mi_stream_id = (t2mi_pid lsr 13) land 0x7
+                ; stream         = Common.Stream.id_of_int32 stream_id
+                }
   }
 
 (* -------------------- Requests/responses/events ------------------*)
@@ -159,10 +162,10 @@ module Get_board_mode : (Request with type req := unit with type rsp := mode) = 
 
   let req_code = 0x0081
   let rsp_code = 0x02
-  let to_cbuffer _ = to_common_header ~msg_code:req_code ()
+  let to_cbuffer _   = to_common_header ~msg_code:req_code ()
   let of_cbuffer msg = to_mode_exn (get_board_mode_mode msg)
-                         (get_board_mode_t2mi_pid msg)
-                         (get_board_mode_t2mi_stream_id msg)
+                                   (get_board_mode_t2mi_pid msg)
+                                   (get_board_mode_t2mi_stream_id msg)
 
 end
 
@@ -711,14 +714,17 @@ module Status : (Event with type msg := status) = struct
     let has_sync = not (flags land 0x04 > 0) in
     let ts_num   = get_status_ts_num msg in
     let flags2   = get_status_flags_2 msg in
+    let jpid     = get_status_jitter_pid msg in
     { status    = { load         = (float_of_int ((get_status_load msg) * 100)) /. 255.
                   ; reset        = flags2 land 0x02 <> 0
                   ; mode         = to_mode_exn (get_status_mode msg)
-                                     (get_status_t2mi_pid msg)
-                                     (get_status_t2mi_stream_id msg)
-                  ; jitter_mode  = { stream_id = Common.Stream.id_of_int32 (get_status_jitter_stream_id msg)
-                                   ; pid       = get_status_jitter_pid msg
-                                   }
+                                               (get_status_t2mi_pid msg)
+                                               (get_status_t2mi_stream_id msg)
+                  ; jitter_mode  = if not @@ Int.equal jpid 0x1fff
+                                   then Some { stream  = Common.Stream.id_of_int32 (get_status_jitter_stream_id msg)
+                                             ; pid     = jpid
+                                             }
+                                   else None
                   ; ts_num       = if has_sync then ts_num else 0
                   ; services_num = if has_sync then get_status_services_num msg else 0
                   ; bitrate      = Int32.to_int @@ get_status_bitrate msg

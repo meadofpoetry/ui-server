@@ -30,7 +30,8 @@ let chart ~typ ~e () =
                        | "Модуль 3" -> x#set_background_color @@ Color.rgb_of_name (Color.Green C500);
                                        x#set_border_color @@ Color.rgb_of_name (Color.Green C500)
                        | "Модуль 4" -> x#set_background_color @@ Color.rgb_of_name (Color.Cyan C500);
-                                       x#set_border_color @@ Color.rgb_of_name (Color.Cyan C500));
+                                       x#set_border_color @@ Color.rgb_of_name (Color.Cyan C500)
+                       | _          -> ());
                       x#set_cubic_interpolation_mode Monotone;
                       x#set_fill Disabled) config#datasets;
   let _ = React.E.map (fun (id,time,y) ->
@@ -43,10 +44,10 @@ let chart ~typ ~e () =
 
 let chart_card ~typ ~(f_extract:measure -> 'a option) ~title ~e_measures () =
   let e     = React.E.map (fun (id,m) -> id, m.timestamp, f_extract m) e_measures in
-  (* let title = new Card.Title.t ~title () in
-   * let prim  = new Card.Primary.t ~widgets:[title] () in *)
+  let title = new Card.Primary.title title () in
+  let prim  = new Card.Primary.t ~widgets:[title] () in
   let media = new Card.Media.t ~widgets:[chart ~typ ~e ()] () in
-  new Card.t ~widgets:[ media ] ()
+  new Card.t ~widgets:[ prim#widget; media#widget ] ()
 
 let chart_grid ~e_measures () =
   let pow_chart = chart_card ~title:"Мощность" ~typ:Float ~f_extract:(fun m -> m.power)   ~e_measures () in
@@ -64,33 +65,20 @@ let chart_grid ~e_measures () =
   in
   new Layout_grid.t ~cells ()
 
-class measures control () = object(self)
+class t control () = object(self)
 
   inherit Widget.widget (Dom_html.createDiv Dom_html.document) ()
 
-  val mutable in_dom   = false
-  val mutable observer = None
-  val mutable page_state : page_state option = None
+  val mutable _state : page_state option = None
 
-  method private observe =
-    MutationObserver.observe
-      ~node:Dom_html.document
-      ~f:(fun _ _ ->
-        let in_dom_new = (Js.Unsafe.coerce Dom_html.document)##contains self#root in
-        if in_dom && (not in_dom_new)
-        then Option.iter (fun (x:page_state) -> x.measures##close; page_state <- None) page_state
-        else if (not in_dom) && in_dom_new
-        then (let e_measures,meas_sock = Requests.get_measures_ws control in
-              let grid = chart_grid ~e_measures () in
-              page_state <- Some { measures = meas_sock };
-              Dom.appendChild self#root grid#root);
-        in_dom <- in_dom_new)
-      ~child_list:true
-      ~subtree:true
-      ()
-    |> (fun o -> observer <- Some o)
-
-  initializer
-    self#observe
+  method on_unload =
+    Option.iter (fun (x:page_state) -> x.measures##close; _state <- None) _state
+  method on_load =
+    let e_measures,meas_sock = Requests.get_measures_ws control in
+    let grid = chart_grid ~e_measures () in
+    _state <- Some { measures = meas_sock };
+    Dom.appendChild self#root grid#root
 
 end
+
+let page control () = new t control ()

@@ -3,6 +3,8 @@ open Board_types
 open Api_js.Requests
 open Lwt.Infix
 
+include Boards_js.Requests
+
 let post_address control addr =
   addr_to_yojson addr
   |> post_js (Printf.sprintf "/api/board/%d/address" control)
@@ -65,10 +67,6 @@ let get_config control =
   get_js (Printf.sprintf "/api/board/%d/config" control)
   >|= Result.(flat_map config_of_yojson)
 
-let get_state control =
-  get_js (Printf.sprintf "/api/board/%d/state" control)
-  >|= Result.(flat_map Common.Topology.state_of_yojson)
-
 let get_devinfo control =
   get_js (Printf.sprintf "/api/board/%d/devinfo" control)
   >|= Result.(flat_map devinfo_of_yojson)
@@ -76,5 +74,5 @@ let get_devinfo control =
 let get_status_ws control =
   get_socket (Printf.sprintf "api/board/%d/status_ws" control) board_status_of_yojson
 
-let get_state_ws control =
-  get_socket (Printf.sprintf "api/board/%d/state_ws" control) Common.Topology.state_of_yojson
+let get_config_ws control =
+  get_socket (Printf.sprintf "api/board/%d/config_ws" control) config_of_yojson

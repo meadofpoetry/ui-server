@@ -65,18 +65,16 @@ let make_card user =
 
 let () =
   let user      = Js.to_string @@ Js.Unsafe.variable "username" in
-  let doc       = Dom_html.document in
-  let container = Dom_html.getElementById "arbitrary-content" in
-  let text      = Dom_html.createP doc in
 
   let root_card     = make_card `Root in
   let operator_card = make_card `Operator in
   let guest_card    = make_card `Guest in
 
   let box = new Layout_grid.t
-              ~cells:[ new Layout_grid.Cell.t ~widgets:[root_card] ()
-                     ; new Layout_grid.Cell.t ~widgets:[operator_card] ()
-                     ; new Layout_grid.Cell.t ~widgets:[guest_card] () ]
-              ()
+                ~cells:[ new Layout_grid.Cell.t ~widgets:[root_card] ()
+                       ; new Layout_grid.Cell.t ~widgets:[operator_card] ()
+                       ; new Layout_grid.Cell.t ~widgets:[guest_card] () ]
+                ()
   in
-  Dom.appendChild container box#root;
+  let _ = new Page.t (`Static [box#widget]) () in
+  ()

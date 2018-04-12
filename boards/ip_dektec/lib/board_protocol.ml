@@ -82,24 +82,35 @@ module SM = struct
                      | Set_packet_size x -> to_req_set_int8 msg (asi_packet_sz_to_int x)))
     |> sender
 
-  let send (type a) msgs sender (storage : config storage) timeout (msg : a request) : a Lwt.t =
+  let send (type a) msgs sender (storage : config storage) timeout push_config (msg : a request) : a Lwt.t =
     let t, w = Lwt.wait () in
     let pred = function
       | `Timeout -> Lwt.wakeup_exn w (Failure "msg timeout"); None
       | l -> let open Option in
              is_response msg l >|= fun r ->
              let conf = storage#get in
+             let f x  = push_config x; storage#store x in
              (match msg with
-              | Nw (Set_ip x)            -> storage#store {conf with nw = {conf.nw with ip = x} }
-              | Nw (Set_mask x)          -> storage#store {conf with nw = {conf.nw with mask = x} }
-              | Nw (Set_gateway x)       -> storage#store {conf with nw = {conf.nw with gateway = x} }
-              | Nw (Set_dhcp x)          -> storage#store {conf with nw = {conf.nw with dhcp = x} }
-              | Ip (Set_enable x)        -> storage#store {conf with ip = {conf.ip with enable = x} }
-              | Ip (Set_fec_enable x)    -> storage#store {conf with ip = {conf.ip with fec = x} }
-              | Ip (Set_udp_port x)      -> storage#store {conf with ip = {conf.ip with port = x} }
-              | Ip (Set_mcast_addr x)    -> storage#store {conf with ip = {conf.ip with multicast = Some x} }
-              | Ip (Set_delay x)         -> storage#store {conf with ip = {conf.ip with delay = Some x} }
-              | Ip (Set_rate_est_mode x) -> storage#store {conf with ip = {conf.ip with rate_mode = Some x} }
+              | Nw (Set_ip x)            ->
+                 let conf = {conf with nw = {conf.nw with ip = x} } in f conf
+              | Nw (Set_mask x)          ->
+                 let conf = {conf with nw = {conf.nw with mask = x} } in f conf
+              | Nw (Set_gateway x)       ->
+                 let conf = {conf with nw = {conf.nw with gateway = x} } in f conf
+              | Nw (Set_dhcp x)          ->
+                 let conf = {conf with nw = {conf.nw with dhcp = x} } in f conf
+              | Ip (Set_enable x)        ->
+                 let conf = {conf with ip = {conf.ip with enable = x} } in f conf
+              | Ip (Set_fec_enable x)    ->
+                 let conf = {conf with ip = {conf.ip with fec = x} } in f conf
+              | Ip (Set_udp_port x)      ->
+                 let conf = {conf with ip = {conf.ip with port = x} } in f conf
+              | Ip (Set_mcast_addr x)    ->
+                 let conf = {conf with ip = {conf.ip with multicast = Some x} } in f conf
+              | Ip (Set_delay x)         ->
+                 let conf = {conf with ip = {conf.ip with delay = Some x} } in f conf
+              | Ip (Set_rate_est_mode x) ->
+                 let conf = {conf with ip = {conf.ip with rate_mode = Some x} } in f conf
               | _ -> ());
              Lwt.wakeup w r in
     let send = fun () -> send_msg sender msg in
@@ -431,11 +442,12 @@ module SM = struct
   let create sender storage push_state step_duration =
     let period = request_period step_duration in
     let status,status_push = React.E.create () in
+    let config,push_config = React.E.create () in
     let info,push_info     = React.S.create None in
-    let (events : events)  = { status } in
+    let (events : events)  = { status; config } in
     let push_events = { status = status_push } in
     let msgs = ref (Queue.create []) in
-    let send x = send msgs sender storage period x in
+    let send x = send msgs sender storage period push_config x in
     let api  = { addr      = (fun x  -> send (Nw (Set_ip x)))
                ; mask      = (fun x  -> send (Nw (Set_mask x)))
                ; gateway   = (fun x  -> send (Nw (Set_gateway x)))

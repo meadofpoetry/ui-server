@@ -1,5 +1,6 @@
 open Containers
 open Components
+open Topo_types
 
 let base_class = "topology__cpu"
 
@@ -38,7 +39,7 @@ module Body = struct
 
 end
 
-class t ~(connections:#Topo_node.t list)
+class t ~(connections:(#Topo_node.t * connection_point) list)
         (cpu:Common.Topology.topo_cpu)
         () =
   let header     = Header.create cpu in

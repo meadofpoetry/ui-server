@@ -152,12 +152,12 @@ class radio_or_cb_widget ~input_elt elt () =
     inherit input_widget ~input_elt elt ()
 
     method set_checked x = input_elt##.checked := Js.bool x; s_state_push x
-    method get_checked   = Js.to_bool input_elt##.checked
+    method checked       = Js.to_bool input_elt##.checked
 
     method s_state = s_state
 
     initializer
-      Dom_events.listen input_elt Dom_events.Typ.change (fun _ _ -> s_state_push self#get_checked; false)
+      Dom_events.listen input_elt Dom_events.Typ.change (fun _ _ -> s_state_push self#checked; false)
       |> ignore;
 
   end
@@ -328,17 +328,13 @@ class ['a] text_input_widget ?v_msg ~input_elt (v : 'a validation) elt () =
     method private remove_custom_validity = self#set_custom_validity ""
 
     initializer
-      let apply_border (type a) (v : a validation) (bord : a option -> a option -> unit) : unit =
+      let apply_border (type a) (v : a validation) : unit =
         (match v with
-         | Float float   -> (match float with
-                            | None, None -> ()
-                            | _ -> let min, max = float in
-                                   bord min max)
-         | Integer integer -> (match integer with
-                               | None, None -> ()
-                               | _ -> let min, max = integer in
-                                      bord min max)
-        | _ -> ())
+         | Float (min,max)   -> Option.iter (fun min -> self#set_min min) min;
+                                Option.iter (fun max -> self#set_max max) max
+         | Integer (min,max) -> Option.iter (fun min -> self#set_min @@ float_of_int min) min;
+                                Option.iter (fun max -> self#set_max @@ float_of_int max) max
+         | _ -> ())
       in
       let apply_pattern (type a) (v : a validation) : unit =
         let set p = (Js.Unsafe.coerce input_elt)##.pattern := Js.string p in
@@ -350,9 +346,7 @@ class ['a] text_input_widget ?v_msg ~input_elt (v : 'a validation) elt () =
                           set p
          | _ -> ())
       in
-      apply_border v (fun min max ->
-          (Js.Unsafe.coerce input_elt)##.max := max;
-          (Js.Unsafe.coerce input_elt)##.min := min);
+      apply_border v;
       apply_pattern v;
       Dom_events.listen input_elt Dom_events.Typ.input (fun _ _ ->
           (match parse_valid v self#set_custom_validity self#_get_value with

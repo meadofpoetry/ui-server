@@ -95,13 +95,13 @@ class t ~(cells:Cell.t list) () =
 
     val mutable align : [ `Left | `Right ] option = None
 
-    method get_inner_widget = inner
-    method get_cells        = cells
+    method inner = inner
+    method cells = cells
 
     method remove_align =
       Option.iter (fun x -> super#remove_class @@ Markup.Layout_grid.get_grid_align x) align;
       align <- None
-    method get_align = align
+    method align       = align
     method set_align x =
       self#remove_align;
       super#add_class @@ Markup.Layout_grid.get_grid_align x;

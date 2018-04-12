@@ -11,7 +11,7 @@ type protocol  = Udp | Rtp [@@deriving yojson]
 type meth      = Unicast | Multicast [@@deriving yojson]
 type output    = Asi | Spi
 type packet_sz = Ts188 | Ts204 [@@deriving yojson]
-type rate_mode = On | Fixed | Without_pcr | Off [@@deriving yojson]
+type rate_mode = On | Fixed | Without_pcr | Off [@@deriving yojson,eq]
 
 (* Asi types *)
 type asi_packet_sz = Sz of packet_sz | As_is
@@ -48,24 +48,28 @@ let ipv4_of_yojson = function
 type addr = Ipaddr.V4.t
 let addr_to_yojson : addr -> Yojson.Safe.json = ipv4_to_yojson
 let addr_of_yojson : Yojson.Safe.json -> (addr, string) result = ipv4_of_yojson
+let equal_addr (x1:addr) (x2:addr) : bool = Int32.equal (Ipaddr.V4.to_int32 x1) (Ipaddr.V4.to_int32 x2)
 
 type mask = Ipaddr.V4.t
 let mask_to_yojson : mask -> Yojson.Safe.json = ipv4_to_yojson
-let mask_of_yojson : Yojson.Safe.json -> (mask, string) result = ipv4_of_yojson          
+let mask_of_yojson : Yojson.Safe.json -> (mask, string) result = ipv4_of_yojson
+let equal_mask = equal_addr
 
 type gateway = Ipaddr.V4.t
 let gateway_to_yojson : gateway -> Yojson.Safe.json = ipv4_to_yojson
-let gateway_of_yojson : Yojson.Safe.json -> (gateway, string) result = ipv4_of_yojson             
+let gateway_of_yojson : Yojson.Safe.json -> (gateway, string) result = ipv4_of_yojson
+let equal_gateway = equal_addr
 
-type port = int [@@deriving yojson]
+type port = int [@@deriving yojson,eq]
 
 type multicast = Ipaddr.V4.t
 let multicast_to_yojson : multicast -> Yojson.Safe.json = ipv4_to_yojson
 let multicast_of_yojson : Yojson.Safe.json -> (multicast, string) result = ipv4_of_yojson
+let equal_multicast = equal_addr
 
-type delay = int [@@deriving yojson]
+type delay = int [@@deriving yojson,eq]
 
-type flag = bool [@@deriving yojson]
+type flag = bool [@@deriving yojson,eq]
 
 type board_status =
   { fec_delay       : int
@@ -104,7 +108,7 @@ type nw = { ip      : addr
           ; mask    : mask
           ; gateway : gateway
           ; dhcp    : flag
-          } [@@deriving yojson]
+          } [@@deriving yojson,eq]
 
 type ip = { enable    : flag
           ; fec       : flag
@@ -112,11 +116,11 @@ type ip = { enable    : flag
           ; multicast : multicast option
           ; delay     : delay option
           ; rate_mode : rate_mode option
-          } [@@deriving yojson]
+          } [@@deriving yojson,eq]
 
 type config = { nw : nw
               ; ip : ip
-              } [@@deriving yojson]
+              } [@@deriving yojson,eq]
 
 let config_to_string c = Yojson.Safe.to_string @@ config_to_yojson c
 

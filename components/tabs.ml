@@ -303,10 +303,10 @@ module Scroller = struct
       initializer
         self#layout;
         Dom.appendChild self#root scroll_listener#root;
-        Dom_events.listen back#root    Dom_events.Typ.click  (fun _ _ -> self#scroll_back;    true)        |> ignore;
-        Dom_events.listen forward#root Dom_events.Typ.click  (fun _ _ -> self#scroll_forward; true)        |> ignore;
-        Dom_events.listen wrapper#root Dom_events.Typ.scroll (fun _ _ -> self#update_scroll_buttons; true) |> ignore;
-        React.S.map (fun x -> Option.iter self#scroll_tab_into_view x) self#tab_bar#s_active                |> ignore;
+        Dom_events.(listen back#root    Typ.click  (fun _ _ -> self#scroll_back;    true))        |> ignore;
+        Dom_events.(listen forward#root Typ.click  (fun _ _ -> self#scroll_forward; true))        |> ignore;
+        Dom_events.(listen wrapper#root Typ.scroll (fun _ _ -> self#update_scroll_buttons; true)) |> ignore;
+        React.S.map (fun x -> Option.iter self#scroll_tab_into_view x) self#tab_bar#s_active      |> ignore;
 
     end
 

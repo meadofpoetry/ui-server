@@ -1,86 +1,127 @@
 open Board_types
+open Containers
 open Components
+open Boards_js.Types
 
-let t2mi_mode ~(init  : config)
-              ~(event : config React.event) =
+let make_t2mi_enabled (init: t2mi_mode option) =
   let enabled = new Switch.t () in
-  let pid     = new Textfield.t
-                  ~input_id:"pid_field"
-                  ~input_type:(Integer ((Some 0),(Some 8192)))
-                  ~label:"T2-MI PID" () in
-  let en_form = new Form_field.t ~input:enabled ~label:"Включить анализ" ~align_end:true () in
+  let form    = new Form_field.t ~input:enabled ~label:"Включить" ~align_end:true () in
+  let set x   = enabled#set_checked (Option.get_or ~default:false (Option.map (fun x -> x.enabled) x)) in
+  set init;
+  form#widget,set,enabled#s_state,enabled#set_disabled
+
+let make_t2mi_pid (init: t2mi_mode option) =
+  let pid = new Textfield.t
+                ~input_id:"t2mi_pid_field"
+                ~help_text:{validation=true;persistent=false;text=None}
+                ~input_type:(Integer ((Some 0),(Some 8192)))
+                ~label:"T2-MI PID"
+                ()
+  in
+  let set x = match x with
+    | Some (x:t2mi_mode) -> pid#fill_in x.pid
+    | None               -> pid#clear
+  in
   pid#set_required true;
-  (match init.mode.t2mi with
-   | Some mode -> enabled#set_checked mode.enabled;
-                  pid#fill_in mode.pid;
-   | None      -> enabled#set_checked false);
-  let s = React.S.l2 (fun en pid -> match pid with
-                                    | Some pid -> Ok { enabled = en
-                                                     ; pid
-                                                     ; stream_id = Common.Stream.Single }
-                                    | None     -> Error "pid value not provided")
-                     enabled#s_state pid#s_input in
-  let _ = React.E.map (fun config ->
-              match config.mode.t2mi with
-              | Some t2mi -> enabled#set_checked t2mi.enabled;
-                             pid#fill_in t2mi.pid
-              | None      -> enabled#set_checked false;
-                             pid#clear) event
-  in
-  new Box.t ~widgets:[ en_form#widget; pid#widget ] (), s
+  set init;
+  pid#widget,set,pid#s_input,pid#set_disabled
 
-let card control
-         ~(init  : config)
-         ~(event : config React.event) =
-  (* let title       = new Card.Title.t ~title:"Настройки" () in
-   * let primary     = new Card.Primary.t ~widgets:[title] () in *)
-  let items       = [ `Item (new Select.Item.t ~text:"ASI" ~value:ASI ())
-                    ; `Item (new Select.Item.t ~text:"SPI" ~value:SPI ())
-                    ]
+let make_t2mi_sid (init: t2mi_mode option) =
+  let sid = new Textfield.t
+                ~input_id:"sid_field"
+                ~help_text:{validation=true;persistent=false;text=None}
+                ~input_type:(Integer (Some 0, Some 7))
+                ~label:"T2-MI Stream ID"
+                ()
   in
-  let inp         = new Select.t ~label:"Вход" ~items () in
-  let _           = inp#set_selected_value ~eq:equal_input init.mode.input in
-  let t2mi,s_t2mi = t2mi_mode ~init ~event in
-  let common_sect = new Card.Media.t ~widgets:[inp#widget] () in
-  let t2mi_sect   = new Card.Media.t ~widgets:[t2mi#widget] () in
-  let apply       = new Button.t ~label:"Применить" () in
-  let actions     = new Card.Actions.t ~widgets:[ apply ] () in
-  (* title#add_class "color--primary-on-primary";
-   * primary#add_class "background--primary"; *)
-  let card    = new Card.t ~widgets:[ common_sect#widget
-                                    ; t2mi_sect#widget
-                                    ; actions#widget
-                                    ] ()
+  let set x = match x with
+    | Some (x:t2mi_mode) -> sid#fill_in x.t2mi_stream_id
+    | None               -> sid#clear
   in
-  let s = React.S.l2 (fun inp t2mi ->
-              match inp,t2mi with
-              | Some input, Ok t2mi -> Ok { input; t2mi = Some t2mi }
-              | _, Error e          -> Error (Printf.sprintf "t2mi settings error: %s" e)
-              | _                   -> Error "input not provided") inp#s_selected_value s_t2mi
-  in
-  let _ = React.E.map (fun config -> inp#set_selected_value ~eq:equal_input config.mode.input) event in
-  let _ = React.E.map (fun _ -> match React.S.value s with
-                                | Ok mode -> Requests.post_mode control mode
-                                | Error e -> Lwt_result.fail e) apply#e_click
-  in
-  card
+  sid#set_required true;
+  set init;
+  sid#widget,set,sid#s_input,sid#set_disabled
 
-let layout control
-           ~(init  : config)
-           ~(event : config React.event) =
-  let card = card control ~init ~event in
-  let cell = new Layout_grid.Cell.t ~widgets:[card] () in
-  let grid = new Layout_grid.t ~cells:[cell] () in
-  grid
-
-let page control =
-  let open Lwt_result.Infix in
-  let div = Dom_html.createDiv Dom_html.document in
-  let t   =
-    Requests.get_config control
-    >>= (fun init ->
-      let event,sock = Requests.get_config_ws control in
-      Dom.appendChild div (layout control ~init ~event)#root;
-      Lwt_result.return sock)
+let make_t2mi_mode ~(init:  t2mi_mode option)
+                   ~(event: t2mi_mode option React.event)
+                   ~(state: Common.Topology.state React.signal)
+                   control
+                   () : (t2mi_mode_request,unit) settings_block =
+  let en,set_en,s_en,dis_en     = make_t2mi_enabled init in
+  let pid,set_pid,s_pid,dis_pid = make_t2mi_pid init in
+  let sid,set_sid,s_sid,dis_sid = make_t2mi_sid init in
+  let s : t2mi_mode_request option React.signal =
+    React.S.l3 (fun en pid sid ->
+        match en,pid,sid with
+        | true,Some pid,Some sid -> Some (Some { enabled = en
+                                               ; pid
+                                               ; t2mi_stream_id = sid
+                                               ; stream = Common.Stream.Single })
+        | false,_,_              -> Some None
+        | _                      -> None)
+               s_en s_pid s_sid
   in
-  div,(fun () -> t >>= (fun x -> x##close; Lwt_result.return ()) |> ignore)
+  let _   = React.S.l2 (fun state en -> let is_disabled = match state with
+                                          | `Fine -> false
+                                          | _     -> true
+                                        in
+                                        dis_en is_disabled;
+                                        List.iter (fun f -> f (if is_disabled then true else not en))
+                                                  [dis_pid; dis_sid])
+                       state s_en
+  in
+  let _      = React.E.map (fun config -> List.iter (fun f -> f config) [set_en; set_pid; set_sid]) event in
+  let submit = Requests.post_t2mi_mode control in
+  let box    = new Box.t ~vertical:true ~widgets:[en;pid;sid] () in
+  box#widget,s,submit
+
+let make_jitter_enabled (init:jitter_mode option) =
+  let enabled = new Switch.t () in
+  let form    = new Form_field.t ~input:enabled ~label:"Включить" ~align_end:true () in
+  let set x   = enabled#set_checked @@ Option.is_some x in
+  set init;
+  form#widget,set,enabled#s_state,enabled#set_disabled
+
+let make_jitter_pid (init:jitter_mode option) =
+  let pid = new Textfield.t
+                ~input_id:"jitter_pid_field"
+                ~help_text:{validation=true;persistent=false;text=None}
+                ~input_type:(Integer ((Some 0),(Some 8192)))
+                ~label:"PID"
+                ()
+  in
+  let set x = match x with
+    | Some (x:jitter_mode) -> pid#fill_in x.pid
+    | None                 -> pid#clear
+  in
+  pid#set_required true;
+  set init;
+  pid#widget,set,pid#s_input,pid#set_disabled
+
+let make_jitter_mode ~(init:  jitter_mode option)
+                     ~(event: jitter_mode option React.event)
+                     ~(state: Common.Topology.state React.signal)
+                     control
+                     () : (jitter_mode_request,unit) settings_block =
+  let en,set_en,s_en,dis_en     = make_jitter_enabled init in
+  let pid,set_pid,s_pid,dis_pid = make_jitter_pid init in
+  let _ = React.S.l2 (fun state en -> let is_disabled = match state with
+                                        | `Fine -> false
+                                        | _     -> true
+                                      in
+                                      dis_en is_disabled;
+                                      List.iter (fun f -> f (if is_disabled then true else not en)) [dis_pid])
+                     state s_en
+  in
+  let _ = React.E.map (fun config -> List.iter (fun f -> f config) [set_en; set_pid]) event in
+  let s : jitter_mode_request option React.signal =
+    React.S.l3 (fun en pid state ->
+        match en,pid,state with
+        | true,Some pid,`Fine -> Some (Some { pid; stream = Common.Stream.Single })
+        | false,_,`Fine       -> Some None
+        | _                   -> None)
+               s_en s_pid state
+  in
+  let box = new Box.t ~vertical:true ~widgets:[en;pid] () in
+  let submit = Requests.post_jitter_mode control in
+  box#widget,s,submit

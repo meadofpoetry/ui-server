@@ -4,18 +4,17 @@ open Application_js
 open Common.Topology
 open Components
 
-class t elt () = object(self)
+class t () = object(self)
   val mutable _sock  : WebSockets.webSocket Js.t option = None
   val mutable _nodes : [ `CPU of Topo_cpu.t | `Board of Topo_board.t | `Input of Topo_input.t ] list = []
-  inherit Widget.widget elt () as super
+  inherit Widget.widget (Dom_html.createDiv Dom_html.document) () as super
 
   (* FIXME hack, need to handle resize of total element *)
   method layout =
-    Dom_html.setTimeout (fun () -> List.iter (function
-                                              | `Board b -> b#layout
-                                              | `Input i -> i#layout
-                                              | `CPU c   -> c#layout) _nodes)
-                        10. |> ignore
+   List.iter (function
+       | `Board b -> b#layout
+       | `Input i -> i#layout
+       | `CPU c   -> c#layout) _nodes
 
   method private on_load =
     let open Lwt_result.Infix in
@@ -37,7 +36,6 @@ class t elt () = object(self)
 end
 
 let () =
-  let ac  = Dom_html.getElementById "arbitrary-content" in
-  let div = Dom_html.createDiv Dom_html.document in
-  let elt = new t div () in
-  Dom.appendChild ac elt#root
+  let elt = new t () in
+  let _ = new Page.t (`Static [elt#widget]) () in
+  ()

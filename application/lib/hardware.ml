@@ -46,9 +46,8 @@ let topo_to_signal topo boards : Common.Topology.t React.signal =
     React.S.l2 (fun a p -> Board { b with connection = a; ports = p }) connection ports
   in
   let merge_ports lst =
-    List.map (fun (port, list, child) ->
-        React.S.l2 (fun l c -> { port = port; listening = l; child = c }) list child)
-             lst
+    List.map (fun (port, sw, list, child) ->
+        React.S.l2 (fun l c -> { port; listening = l; child = c; switchable = sw }) list child) lst
     |> React.S.merge (fun acc h -> h::acc) []
   in
   let rec entry_to_signal = function
@@ -64,6 +63,7 @@ let topo_to_signal topo boards : Common.Topology.t React.signal =
        in
        let ports = merge_ports @@
                      List.map (fun p -> p.port,
+                                        p.switchable,
                                         port_list p.port,
                                         entry_to_signal p.child)
                               b.ports

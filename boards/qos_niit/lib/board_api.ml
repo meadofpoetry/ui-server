@@ -27,6 +27,18 @@ let set_mode (api : api) body () =
   | Error e -> respond_error e ()
   | Ok mode -> api.set_mode mode >>= respond_ok
 
+let set_input (api : api) body () =
+  yojson_of_body body >>= fun inp ->
+  match input_of_yojson inp with
+  | Error e -> respond_error e ()
+  | Ok inp  -> api.set_input inp >>= respond_ok
+
+let set_t2mi_mode (api : api) body () =
+  yojson_of_body body >>= fun mode ->
+  match t2mi_mode_request_of_yojson mode with
+  | Error e -> respond_error e ()
+  | Ok mode -> api.set_t2mi_mode mode >>= respond_ok
+
 let set_jitter_mode api body () =
   yojson_of_body body >>= fun mode ->
   match jitter_mode_request_of_yojson mode with
@@ -54,6 +66,9 @@ let get_structs api () =
 let get_bitrates api () =
   api.get_bitrates () >>= fun bitrates ->
   respond_js (ts_structs_to_yojson bitrates) ()
+
+let get_state s_state () =
+  respond_js (Common.Topology.state_to_yojson @@ React.S.value s_state) ()
 
 let sock_handler sock_data (event:'a React.event) (to_yojson:'a -> Yojson.Safe.json) body =
   let id = rand_int () in
@@ -104,33 +119,41 @@ let t2mi_info_ws sock_data (events : events) body =
 let jitter_ws sock_data (events : events) body =
   sock_handler sock_data events.jitter jitter_to_yojson body
 
-let handle api events s_state _ meth args sock_data _ body =
+let handle api events s_state s_input _ meth args sock_data _ body =
   let open Api.Redirect in
   match meth, args with
-  | `POST, ["reset"]          -> reset api ()
-  | `POST, ["mode"]           -> set_mode api body ()
-  | `POST, ["jitter_mode"]    -> set_jitter_mode api body ()
+  | `POST, ["reset"]           -> reset api ()
+  | `POST, ["mode"]            -> set_mode api body ()
+  | `POST, ["input"]           -> set_input api body ()
+  | `POST, ["port";id;set]     -> (match (Option.flat_map Board_parser.input_of_int @@ Int.of_string id), set with
+                                   | Some i, "set"     -> api.set_input i >>= respond_ok
+                                   | Some ASI, "unset" -> api.set_input SPI >>= respond_ok
+                                   | Some SPI, "unset" -> api.set_input ASI >>= respond_ok
+                                   | _                 -> not_found ())
+  | `POST, ["t2mi_mode"]       -> set_t2mi_mode api body ()
+  | `POST, ["jitter_mode"]     -> set_jitter_mode api body ()
 
-  | `GET, ["config"]          -> config api ()
-  | `GET, ["devinfo"]         -> devinfo api ()
-  | `GET, "t2mi_seq"::[sec]   -> get_t2mi_seq api sec ()
-  | `GET, ["structs"]         -> get_structs api ()
-  | `GET, ["bitrates"]        -> get_bitrates api ()
+  | `GET, ["config"]           -> config api ()
+  | `GET, ["devinfo"]          -> devinfo api ()
+  | `GET, "t2mi_seq"::[sec]    -> get_t2mi_seq api sec ()
+  | `GET, ["structs"]          -> get_structs api ()
+  | `GET, ["bitrates"]         -> get_bitrates api ()
+  | `GET, ["state"]            -> get_state s_state ()
 
-  | `GET, ["state_ws"]        -> state_ws sock_data s_state body
-  | `GET, ["config_ws"]       -> config_ws sock_data events body
-  | `GET, ["status_ws"]       -> status_ws sock_data events body
-  | `GET, ["ts_errors_ws"]    -> ts_errors_ws sock_data events body
-  | `GET, ["t2mi_errors_ws"]  -> t2mi_errors_ws sock_data events body
-  | `GET, ["board_errors_ws"] -> board_errors_ws sock_data events body
-  | `GET, ["bitrate_ws"]      -> bitrate_ws sock_data events body
-  | `GET, ["structs_ws"]      -> structs_ws sock_data events body
-  | `GET, ["t2mi_info_ws"]    -> t2mi_info_ws sock_data events body
-  | `GET, ["jitter_ws"]       -> jitter_ws sock_data events body
+  | `GET, ["state_ws"]         -> state_ws sock_data s_state body
+  | `GET, ["config_ws"]        -> config_ws sock_data events body
+  | `GET, ["status_ws"]        -> status_ws sock_data events body
+  | `GET, ["ts_errors_ws"]     -> ts_errors_ws sock_data events body
+  | `GET, ["t2mi_errors_ws"]   -> t2mi_errors_ws sock_data events body
+  | `GET, ["board_errors_ws"]  -> board_errors_ws sock_data events body
+  | `GET, ["bitrate_ws"]       -> bitrate_ws sock_data events body
+  | `GET, ["structs_ws"]       -> structs_ws sock_data events body
+  | `GET, ["t2mi_info_ws"]     -> t2mi_info_ws sock_data events body
+  | `GET, ["jitter_ws"]        -> jitter_ws sock_data events body
   | _ -> not_found ()
 
-let handlers id api events s_state =
+let handlers id api events s_state s_input =
   [ (module struct
        let domain = Common.Topology.get_api_path id
-       let handle = handle api events s_state
+       let handle = handle api events s_state s_input
      end : Api_handler.HANDLER) ]
