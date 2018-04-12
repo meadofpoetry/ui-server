@@ -142,11 +142,11 @@ let create ~(parent: #Widget.widget)
                    (* (Option.get_exn dialog#header)#set_title @@ Topo_board.get_board_name board; *)
                    rm_children drawer#drawer#root;
                    (match board.typ with
-                    | "TS" -> Widget.create @@ fst @@ Board_qos_niit_js.Settings.page board.control
+                    | "TS"    -> Widget.create @@ fst @@ Board_qos_niit_js.Settings.page board.control
                     | "DVB"   -> (new Board_dvb_niit_js.Settings.settings board.control ())#widget
                     | "TS2IP" -> (new Board_ts2ip_niit_js.Settings.settings board.control ())#widget
                     | "IP2TS" -> Widget.create @@ fst @@ Board_ip_dektec_js.Ip_dektec.page board.control
-                    | _    -> Dom_html.createDiv Dom_html.document |> Widget.create)
+                    | _       -> Dom_html.createDiv Dom_html.document |> Widget.create)
                    |> (fun w -> Dom.appendChild drawer#drawer#root w#root);
                    drawer#show) e_bs
   in

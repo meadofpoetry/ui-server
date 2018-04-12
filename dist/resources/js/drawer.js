@@ -19,7 +19,9 @@ function toggle () {
     body.classList.toggle(hide);
 }
 function resize () {
-    window.setTimeout(function () {window.dispatchEvent(new Event('resize'));}, 225);
+    var interval = setInterval(function () {
+        window.dispatchEvent(new Event('resize'));},50);
+    setTimeout(function () {clearInterval(interval);},250);
 }
 btn.addEventListener('click', function () {
     toggle ();
@@ -75,3 +77,8 @@ for(var k=0; k <= lst.length-1; k++)
 {
     tree (lst.item(k), 1);
 };
+
+window.onresize = function () {
+    setTimeout(function () {window.dispatchEvent(new Event('resize'));},250);
+};
+

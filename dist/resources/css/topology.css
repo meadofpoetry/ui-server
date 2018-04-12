@@ -61,9 +61,7 @@
     color: var(--mdc-theme-text-secondary-on-dark, rgba(255, 255, 255, 0.7)); }
 
 #arbitrary-content {
-  display: flex;
-  align-items: center;
-  justify-content: center; }
+  display: flex; }
 
 .topology {
   flex-grow: 1;
