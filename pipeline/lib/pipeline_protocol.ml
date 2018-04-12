@@ -33,13 +33,23 @@ let limit f e =
    
 let (%) = Fun.(%)
 (* TODO make 'active type label *)
+
+module Pipeline_model : sig
+  type _ req =
+    | Store_structures : Structure.t list -> unit req
+    
+  include (Storage.Database.MODEL with type 'a req := 'a req)
+end = Pipeline_storage
+
+module Database = Storage.Database.Make(Pipeline_model)
         
 type options = { wm         : Wm.t Storage.Options.storage
                ; structures : Structure.Structures.t Storage.Options.storage
                ; settings   : Settings.t Storage.Options.storage
                }
         
-type state = { ctx          : ZMQ.Context.t
+type state = { db           : Database.t
+             ; ctx          : ZMQ.Context.t
              ; msg          : [ `Req] ZMQ.Socket.t
              ; ev           : [ `Sub] ZMQ.Socket.t
              ; options      : options
@@ -179,13 +189,14 @@ let create_send (type a) (typ : a typ) (conv : a converter) msg_sock : (a -> a L
   Socket.recv msg_sock >|= fun resp ->
   conv.of_string resp
   
-let create (type a) (typ : a typ) config sock_in sock_out =
+let create (type a) (typ : a typ) db_conf config sock_in sock_out =
   let stor    = Storage.Options.Conf.get config in
   let options = { wm         = Wm_options.create stor.config_dir ["pipeline";"wm"]
                 ; structures = Structures_options.create stor.config_dir ["pipeline";"structures"]
                 ; settings   = Settings_options.create stor.config_dir ["pipeline";"settings"]
                 }
   in
+  let db  = Result.get_exn @@ Database.create db_conf in
   let ctx = ZMQ.Context.create () in
   let msg = ZMQ.Socket.create ctx ZMQ.Socket.req in
   let ev  = ZMQ.Socket.create ctx ZMQ.Socket.sub in
@@ -227,7 +238,7 @@ let create (type a) (typ : a typ) config sock_in sock_out =
             ; requests
             } in
   
-  let state = { ctx; msg; ev; options; srcs; proc; ready; ready_e } in
+  let state = { db; ctx; msg; ev; options; srcs; proc; ready; ready_e } in
   let recv () =
     Socket.recv ev_sock
     >>= fun msg ->
@@ -246,8 +257,8 @@ let reset typ send bin_path bin_name msg_fmt state (sources : (Common.Uri.t * Co
   let is_ready = Notif.is_ready state.ready_e in
   state.proc <- Some (Lwt_process.open_process_none (exec_path, exec_opts));
   (is_ready >|= fun () ->
-   settings_init typ send state.options;
-   state.ready := true)
+   state.ready := true;
+   settings_init typ send state.options)
   |> Lwt.ignore_result
   
 let finalize state =
@@ -255,5 +266,6 @@ let finalize state =
   ZMQ.Socket.close       state.ev;
   ZMQ.Socket.close       state.msg;
   ZMQ.Context.terminate  state.ctx;
+  Database.finalize state.db;
   Option.iter (fun proc -> proc#terminate) state.proc;
   state.proc <- None

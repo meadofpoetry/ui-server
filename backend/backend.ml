@@ -7,7 +7,7 @@ let main config =
   let rec mainloop () =
     print_endline "Started.";
     (* State *)
-    let db, dbloop     = Storage.Database.create config 10.0 in
+    let db             = Storage.Database.create config 60.0 in (* 60 seconds is for debug purpose only, need a bigger interval *)
     let app, app_loop  = Application.create config db in
     let routes         = Api_handler.create @@ Application_api.handlers app in
     let templates      = Application_template.create app in
@@ -29,7 +29,6 @@ let main config =
                                | Lwt.Return _ -> Printf.printf "Thread %d is done\n" i) loops;
         
         Application.finalize app;
-        Storage.Database.finalize db;
         (* mainloop () *)
       end
 

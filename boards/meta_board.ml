@@ -43,7 +43,7 @@ type board = { handlers        : (module Api_handler.HANDLER) list
              ; settings_page   : (string * [`Div] Tyxml.Html.elt React.signal)
              ; widgets_page    : (string * [`Div] Tyxml.Html.elt React.signal) list
              ; stream_handler  : stream_handler option
-             ; state           : < >
+             ; state           : < finalize : unit -> unit >
              }
 
 module type BOARD = sig
