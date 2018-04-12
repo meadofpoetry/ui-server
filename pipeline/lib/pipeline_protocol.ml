@@ -5,6 +5,7 @@ open Lwt.Infix
 open Msg_conv
 open Message
 open Notif
+open Qoe_errors
 
 let limit f e =
   let limiter = ref Lwt.return_unit in
@@ -37,11 +38,18 @@ let (%) = Fun.(%)
 module Pipeline_model : sig
   type _ req =
     | Store_structures : Structure.t list -> unit req
-    
   include (Storage.Database.MODEL with type 'a req := 'a req)
 end = Pipeline_storage
 
+module Qoe_model : sig
+  type _ req =
+  | Store_video : Video_data.t -> unit req
+  | Store_audio : Audio_data.t -> unit req
+  include (Storage.Database.MODEL with type 'a req := 'a req)
+end = Qoe_storage
+        
 module Database = Storage.Database.Make(Pipeline_model)
+module Database_qoe = Storage.Database.Make(Qoe_model)
         
 type options = { wm         : Wm.t Storage.Options.storage
                ; structures : Structure.Structures.t Storage.Options.storage
@@ -49,6 +57,7 @@ type options = { wm         : Wm.t Storage.Options.storage
                }
         
 type state = { db           : Database.t
+             ; db_qoe       : Database_qoe.t
              ; ctx          : ZMQ.Context.t
              ; msg          : [ `Req] ZMQ.Socket.t
              ; ev           : [ `Sub] ZMQ.Socket.t
@@ -197,6 +206,7 @@ let create (type a) (typ : a typ) db_conf config sock_in sock_out =
                 }
   in
   let db  = Result.get_exn @@ Database.create db_conf in
+  let db_qoe = Result.get_exn @@ Database_qoe.create db_conf in
   let ctx = ZMQ.Context.create () in
   let msg = ZMQ.Socket.create ctx ZMQ.Socket.req in
   let ev  = ZMQ.Socket.create ctx ZMQ.Socket.sub in
@@ -237,8 +247,11 @@ let create (type a) (typ : a typ) db_conf config sock_in sock_out =
             ; settings; graph; wm; vdata; adata
             ; requests
             } in
+
+  Lwt_react.E.keep @@ Lwt_react.E.map_p (fun x -> Database_qoe.(request db_qoe (Store_video x))) vdata;
+  Lwt_react.E.keep @@ Lwt_react.E.map_p (fun x -> Database_qoe.(request db_qoe (Store_audio x))) adata;
   
-  let state = { db; ctx; msg; ev; options; srcs; proc; ready; ready_e } in
+  let state = { db; db_qoe; ctx; msg; ev; options; srcs; proc; ready; ready_e } in
   let recv () =
     Socket.recv ev_sock
     >>= fun msg ->

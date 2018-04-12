@@ -1,6 +1,7 @@
 open Containers
 open Api_js.Requests
 open Lwt.Infix
+open Qoe_errors
    
 let get_structure () =
   get_js "api/pipeline/structure"

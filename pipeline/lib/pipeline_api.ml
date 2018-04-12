@@ -3,6 +3,7 @@ open Api.Interaction
 open Api.Redirect
 open Websocket_cohttp_lwt
 open Frame
+open Qoe_errors
    
 open Lwt.Infix
 

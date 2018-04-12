@@ -1,6 +1,7 @@
 open Containers
 open Components
-
+open Qoe_errors
+   
 module Plots = struct
 
   let colors = Array.init 100 (fun _ -> Random.run (Random.int 255),

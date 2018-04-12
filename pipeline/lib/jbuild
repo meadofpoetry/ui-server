@@ -15,13 +15,8 @@
   (preprocess (pps (ppx_deriving_yojson ppx_deriving.eq)))))
 
 (rule
- ((targets (audio_data.ml))
-  (deps (../audio_data.ml))
-  (action (copy ${<} ${@}))))
-
-(rule
- ((targets (video_data.ml))
-  (deps (../video_data.ml))
+ ((targets (qoe_errors.ml))
+  (deps (../qoe_errors.ml))
   (action (copy ${<} ${@}))))
 
 (rule
