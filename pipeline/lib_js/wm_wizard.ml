@@ -94,7 +94,7 @@ let to_dialog (wm:Wm.t) =
     Lwt.bind dialog#show_await
              (function
               | `Accept -> let widgets =
-                             List.filter_map (fun x -> if not @@ x#get_input_widget#get_checked then None
+                             List.filter_map (fun x -> if not @@ x#get_input_widget#checked then None
                                                        else let id = x#get_input_widget#get_id in
                                                             List.find_pred (fun (s,_) -> String.equal id s)
                                                                            wm.widgets)

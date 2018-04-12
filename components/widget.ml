@@ -152,12 +152,12 @@ class radio_or_cb_widget ~input_elt elt () =
     inherit input_widget ~input_elt elt ()
 
     method set_checked x = input_elt##.checked := Js.bool x; s_state_push x
-    method get_checked   = Js.to_bool input_elt##.checked
+    method checked       = Js.to_bool input_elt##.checked
 
     method s_state = s_state
 
     initializer
-      Dom_events.listen input_elt Dom_events.Typ.change (fun _ _ -> s_state_push self#get_checked; false)
+      Dom_events.listen input_elt Dom_events.Typ.change (fun _ _ -> s_state_push self#checked; false)
       |> ignore;
 
   end

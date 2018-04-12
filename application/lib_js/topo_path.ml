@@ -14,37 +14,63 @@ let get_input_point ~num i (elt:#Dom_html.element Js.t) =
   let y = elt##.offsetTop + (i * h) + (h / 2) in
   { x; y }
 
-class switch (port:Common.Topology.topo_port) () =
+class switch (node:node_entry) (port:Common.Topology.topo_port) () =
   let _class = "topology__switch" in
+  let s,push = React.S.create false in
   object(self)
 
-    val mutable _port = port
-    method port = _port
+    val mutable _state = `Unavailable
+    val mutable _port  = port
+    method port        = _port
+    method s_changing  = s
 
-    method set_state : Topo_types.connection_state -> unit = function
-      | `Active | `Sync -> self#set_disabled false;
-                           self#set_checked true
-      | `Muted          -> self#set_disabled false;
-                           self#set_checked false;
+    method set_state (x : Topo_types.connection_state) =
+      _state <- x;
+      match x with
+      | `Active | `Sync -> self#set_disabled false; self#set_checked true
+      | `Muted          -> self#set_disabled false; self#set_checked false
       | `Unavailable    -> self#set_disabled true
+
+    method set_changing x =
+      if x then self#set_disabled true
+      else (match _state with `Unavailable -> () | _ -> self#set_disabled false)
 
     inherit Switch.t ()
     initializer
-      self#set_checked self#port.listening;
+      (match node with
+       | `Entry (Board b) ->
+          Dom_events.(listen self#input_element Typ.change (fun _ _ ->
+                               match _state with
+                               | `Unavailable -> true
+                               | _            ->
+                                  let open Lwt.Infix in
+                                  push true;
+                                  Boards_js.Requests.post_port b.control port.port self#checked
+                                  >>= (function
+                                       | Ok _    -> push false; Lwt.return_unit
+                                       | Error _ -> push false; self#set_checked (not self#checked);
+                                                    Lwt.return_unit)
+                                  |> ignore;
+                                  true))
+          |> ignore
+       | _ -> ());
+      self#set_disabled true;
       self#add_class _class
   end
 
 class t ~(left_node:node_entry)
+        ~(right_node:node_entry)
         ~(right_point:connection_point)
         ~(f_lp:unit->point)
-        ~(f_rp:unit -> point) () =
+        ~(f_rp:unit -> point)
+        () =
   let _class       = "topology__path" in
   let active_class = Markup.CSS.add_modifier _class "active" in
   let muted_class  = Markup.CSS.add_modifier _class "muted"  in
   let sync_class   = Markup.CSS.add_modifier _class "sync"   in
   let switch       = match right_point with
     | `Iface _ -> None
-    | `Port p  -> if p.switchable then Some (new switch p ()) else None
+    | `Port p  -> if p.switchable then Some (new switch right_node p ()) else None
   in
   let elt    = Tyxml_js.Svg.(path ~a:([ a_fill `None
                                       ; a_stroke (`Color ("white",None))
