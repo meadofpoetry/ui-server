@@ -654,7 +654,7 @@ body {
 
 #main-toolbar, #main-content {
   left: 0px;
-  transition: all 0.225s; }
+  transition: width 0.225s, left 0.225s; }
 
 @media (min-width: 1200px) {
   body.hide-sidedrawer #main-toolbar, body.hide-sidedrawer #main-content {

@@ -19,7 +19,9 @@ function toggle () {
     body.classList.toggle(hide);
 }
 function resize () {
-    window.setTimeout(function () {window.dispatchEvent(new Event('resize'));}, 225);
+    var interval = setInterval(function () {
+        window.dispatchEvent(new Event('resize'));},50);
+    setTimeout(function () {clearInterval(interval);},250);
 }
 btn.addEventListener('click', function () {
     toggle ();
@@ -46,9 +48,37 @@ panel.addEventListener('click', function () {
     wrapper.classList.toggle(hidden);
     panel.classList.toggle(panel_open);
 });
+var list_open = 'mdc-tree__list--open';
 for(var i = 0; i <= elementList.length - 1; i++)
 { var item = elementList.item(i);
-  if (item.querySelector('.mdc-tree__list'))
-  { item.onclick = function () {this.classList.toggle(item_open);};
-  };
+  item.onclick = function () {this.classList.toggle(item_open);
+                              var list = this.querySelector('.mdc-tree__list');
+                              list.classList.toggle(list_open);};
 };
+
+function tree (el,n) {
+    var items = el.querySelectorAll('.mdc-list-item');
+    for(var j=0; j <= items.length-1; j++)
+    {
+        var item = items.item(j);
+        if (item.classList.contains('mdc-tree__item'))
+        {
+            tree (item, (n+2));
+        }
+        else
+        {
+            item.style.paddingLeft = ((n+1)*16)+"px";
+        };
+    }
+};
+
+var lst = drawerEl.querySelectorAll('.mdc-tree__list');
+for(var k=0; k <= lst.length-1; k++)
+{
+    tree (lst.item(k), 1);
+};
+
+window.onresize = function () {
+    setTimeout(function () {window.dispatchEvent(new Event('resize'));},250);
+};
+

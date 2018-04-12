@@ -216,7 +216,12 @@ let tree_demo () =
   let item x = new Tree.Item.t
                  ~text:("Item " ^ string_of_int x)
                  ~nested:(new Tree.t
-                            ~items:[ new Tree.Item.t ~text:"Item 0" ()
+                            ~items:[ new Tree.Item.t ~text:"Item 0"
+                                       ~nested:(new Tree.t
+                                                  ~items:[ new Tree.Item.t ~text:"Item 0" ()
+                                                         ; new Tree.Item.t ~text:"Item 1" ()
+                                                         ; new Tree.Item.t ~text:"Item 2" () ]
+                                                  ()) ()
                                    ; new Tree.Item.t ~text:"Item 1" ()
                                    ; new Tree.Item.t ~text:"Item 2" () ]
                             ())

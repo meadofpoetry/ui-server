@@ -18,31 +18,31 @@
     margin: 0;
     line-height: map-get(map-get($mdc-typography-styles, subheading1), line-height);
     list-style-type: none;
+    cursor: pointer;
 
     .mdc-tree__item {
 
         width: 100%;
-        display: flex;
         position: relative;
         align-items: center;
         justify-content: flex-start;
         min-height: 48px;
         overflow: hidden;
+        cursor: pointer;
 
         &:focus {
             outline: none;
         }
 
         .mdc-tree__list {
-            width: calc(100% - 16px);
             display: none;
-            padding-left: 16px;
+
+            &--open {
+                display:block;
+            }
         }
 
         &--open {
-            .mdc-tree__list {
-                display:block;
-            }
             .dropdown {
                 transform: rotate(180deg);
             }

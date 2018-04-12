@@ -880,6 +880,7 @@ module Make
       let _class            = CSS.add_element base_class "item"
       let list_class        = CSS.add_element base_class "list"
       let item_open_class   = CSS.add_modifier _class "open"
+      let list_open_class   = CSS.add_modifier list_class "open"
 
       let create_item = List_.Item.create
 

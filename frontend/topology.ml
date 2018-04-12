@@ -11,11 +11,10 @@ class t () = object(self)
 
   (* FIXME hack, need to handle resize of total element *)
   method layout =
-    Dom_html.setTimeout (fun () -> List.iter (function
-                                              | `Board b -> b#layout
-                                              | `Input i -> i#layout
-                                              | `CPU c   -> c#layout) _nodes)
-                        10. |> ignore
+   List.iter (function
+       | `Board b -> b#layout
+       | `Input i -> i#layout
+       | `CPU c   -> c#layout) _nodes
 
   method private on_load =
     let open Lwt_result.Infix in
