@@ -86,7 +86,7 @@ class ['a] t ?(disabled=false)
            ~label
            ~(items : [ `Item of 'a Item.t | `Group of 'a Group.t ] list)
            () =
-  let make_empty () = Markup.Select.Item.create ~disabled ~selected:true ~text:"" () in
+  let make_empty () = Markup.Select.Item.create ~disabled:true ~selected:true ~text:"" () in
   let s,push        = React.S.create None in
   let s_value       = React.S.map (fun i -> Option.map (fun x -> x#value) i) s in
   let item_elts     = List.map (function `Group g -> Widget.widget_to_markup g

@@ -33,6 +33,9 @@ let make (board:Common.Topology.topo_board) : topo_settings_result =
                             board.control
                             ()
          in
+         let m_apply    = make_apply ms mset in
+         let m_actions  = new Card.Actions.t ~widgets:[m_apply#widget] () in
+         let mw         = (new Box.t ~vertical:true ~widgets:[mw;m_actions#widget] ())#widget in
          let jw,js,jset = Settings.make_jitter_mode
                             ~init:l.config.jitter_mode
                             ~event:(React.E.map (fun (x:config) -> x.jitter_mode) l.events.config)
@@ -40,5 +43,8 @@ let make (board:Common.Topology.topo_board) : topo_settings_result =
                             board.control
                             ()
          in
+         let j_apply    = make_apply js jset in
+         let j_actions  = new Card.Actions.t ~widgets:[j_apply#widget] () in
+         let jw         = (new Box.t ~vertical:true ~widgets:[jw;j_actions#widget] ())#widget in
          let tabs = make_tabs ["T2-MI", mw; "Джиттер", jw ] in
          Lwt_result.return (tabs#widget,fun () -> sock##close; Listener.unlisten state)))

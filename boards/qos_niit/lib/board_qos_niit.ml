@@ -27,6 +27,7 @@ let create (b:topo_board) incoming_streams convert_streams send db base step =
   let s_state, spush   = React.S.create `No_response in
   let s_inp,s_inp_push = React.S.create storage#get.mode.input in
   let events,api,step  = create_sm send storage spush step in
+  (* FIXME incoming streams should be modified to include streams that are detected by the board itself *)
   let handlers         = Board_api.handlers b.control api events s_state s_inp incoming_streams in
   let e_status         = React.E.map (fun (x : user_status) -> s_inp_push x.mode.input) events.status in
   let s_streams        =
