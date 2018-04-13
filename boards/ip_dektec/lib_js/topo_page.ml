@@ -1,6 +1,8 @@
 open Containers
 open Components
 open Settings
+open Board_types
+open Lwt_result.Infix
 
 module Listener = Boards_js.Topo_listener.Make(struct
                                                 type config = Board_types.config
@@ -13,43 +15,34 @@ module Listener = Boards_js.Topo_listener.Make(struct
                                                 let listen_status = Requests.get_status_ws
                                                 let unlisten_config c = c##close
                                                 let unlisten_status s = s##close
-                                              end)
+                    end)
+
+let make_nw (board:Common.Topology.topo_board) ({config;state;events}:Listener.board_info) =
+  let init    = config.nw in
+  let event   = React.E.map (fun cfg -> cfg.nw) events.config in
+  let w,s,set = make_nw_settings ~init ~event ~state board.control () in
+  let a       = Ui_templates.Buttons.create_apply s set in
+  let abox    = (new Card.Actions.Buttons.t ~widgets:[a] ())#widget in
+  let box     = (new Box.t ~vertical:true ~widgets:[w;abox] ())#widget in
+  box
+
+let make_ip (board:Common.Topology.topo_board) ({config;state;events}:Listener.board_info) =
+  let init    = config.ip in
+  let event   = React.E.map (fun cfg -> cfg.ip) events.config in
+  let w,s,set = make_ip_settings ~init ~event ~state board.control () in
+  let a       = Ui_templates.Buttons.create_apply s set in
+  let abox    = (new Card.Actions.Buttons.t ~widgets:[a] ())#widget in
+  let box     = (new Box.t ~vertical:true ~widgets:[w;abox] ())#widget in
+  box
+
 
 let make (board:Common.Topology.topo_board) : Ui_templates.Types.settings_section_lwt =
-  let open Lwt_result.Infix in
   Listener.listen board.control
-  >>= (fun (l,state) ->
-    let nw_box,s_nw,submit_nw =
-      make_nw_settings ~init:l.config.nw
-                       ~event:(React.E.map (fun (cfg:Board_types.config) -> cfg.nw) l.events.config)
-                       ~state:l.state
-                       board.control
-                       ()
+  >>= (fun (t,state) ->
+    let nw     = make_nw board t in
+    let ip     = make_ip board t in
+    let tabs   = Ui_templates.Tabs.create_simple_tabs [ `Text "Сеть", nw
+                                                      ; `Text "Приём TSoIP", ip
+                                                      ]
     in
-    let nw_apply = Ui_templates.Buttons.create_apply s_nw submit_nw in
-    let nw_w = new Box.t
-                   ~vertical:true
-                   ~widgets:[ nw_box#widget
-                            ; (new Card.Actions.Buttons.t ~widgets:[nw_apply] ())#widget
-                            ]
-                   ()
-    in
-    let ip_box,s_ip,submit_ip =
-      make_ip_settings ~init:l.config.ip
-                       ~event:(React.E.map (fun (cfg:Board_types.config) -> cfg.ip) l.events.config)
-                       ~state:l.state
-                       board.control
-                       ()
-    in
-    let ip_apply = Ui_templates.Buttons.create_apply s_ip submit_ip in
-    let ip_w = new Box.t
-                   ~vertical:true
-                   ~widgets:[ ip_box#widget
-                            ; (new Card.Actions.Buttons.t ~widgets:[ip_apply] ())#widget
-                            ]
-                   ()
-    in
-    let tabs = Ui_templates.Tabs.create_simple_tabs [ `Text "Сеть", nw_w#widget
-                                                    ; `Text "Приём IP", ip_w#widget ]
-    in
-    Lwt_result.return (tabs#widget,fun () -> Listener.unlisten state))
+    Lwt_result.return (tabs,fun () -> Listener.unlisten state))

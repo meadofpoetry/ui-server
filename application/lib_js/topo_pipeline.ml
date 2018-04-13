@@ -26,10 +26,8 @@ let make_settings () : Ui_templates.Types.settings_section_lwt =
     let a          = Ui_templates.Buttons.create_apply s set in
     Lwt_result.return (w, (fun () -> sock##close)))
 
-let make_section () : Ui_templates.Types.settings_section_lwt =
-  let pgs  = Ui_templates.Progress.create_progress_block_lwt ~error_prefix:"Ошибка при загрузке страницы"
-                                                             ~get:(fun (w,_) -> w)
-  in
+let make ?error_prefix () : Ui_templates.Types.settings_section_lwt =
+  let pgs  = Ui_templates.Progress.create_progress_block_lwt ?error_prefix ~get:(fun (w,_) -> w) in
   let sms  = make_streams () in
   let str  = make_structure () in
   let set  = make_settings () in
@@ -38,6 +36,7 @@ let make_section () : Ui_templates.Types.settings_section_lwt =
                                                   ; `Text "Настройки анализа", pgs set
                                                   ]
   in
-  Lwt_result.return (tabs,(fun () -> sms >>= (fun (_,c) -> c (); Lwt_result.return ()) |> Lwt.ignore_result;
-                                     str >>= (fun (_,c) -> c (); Lwt_result.return ()) |> Lwt.ignore_result;
-                                     set >>= (fun (_,c) -> c (); Lwt_result.return ()) |> Lwt.ignore_result))
+  Lwt_result.return (tabs,(fun () ->
+                       sms >>= (fun (_,c) -> c (); Lwt_result.return ()) |> Lwt.ignore_result;
+                       str >>= (fun (_,c) -> c (); Lwt_result.return ()) |> Lwt.ignore_result;
+                       set >>= (fun (_,c) -> c (); Lwt_result.return ()) |> Lwt.ignore_result))

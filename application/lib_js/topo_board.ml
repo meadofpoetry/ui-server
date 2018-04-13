@@ -37,14 +37,9 @@ module Body = struct
 
   class t (board:Common.Topology.topo_board) () =
     let _class = Markup.CSS.add_element base_class "body" in
-    (* let switches = match board.ports with
-     *   | [] | [_] -> []
-     *   | _        -> List.map (fun _ -> new Switch.t ()) board.ports
-     * in *)
     object(self)
       inherit Topo_block.Body.t (List.length board.ports) ()
       initializer
-        (* List.iter (fun switch -> Dom.appendChild self#root switch#root) switches; *)
         self#add_class _class
     end
 
@@ -80,16 +75,20 @@ let eq_node_entry (e1:Topo_node.node_entry) (e2:Topo_node.node_entry) =
                              | _                  -> false)
   | _                    -> false
 
-let make_board_page (board:Common.Topology.topo_board) =
-  let open Lwt_result.Infix in
-  match board.typ with
-    | "TS"    -> Board_qos_niit_js.Topo_page.make board
-    | "DVB"   -> Board_dvb_niit_js.Topo_page.make board
-    | "TS2IP" -> let w = new Board_ts2ip_niit_js.Settings.settings board.control () in
-                 Lwt_result.return (w,fun () -> ())
-    | "IP2TS" -> Board_ip_dektec_js.Topo_page.make board
-    | _       -> let w = Dom_html.createDiv Dom_html.document |> Widget.create in
-                 Lwt_result.return (w,fun () -> ())
+let make_board_page ?error_prefix (board:Common.Topology.topo_board) =
+  match board.typ,board.model,board.manufacturer,board.version with
+  | "TS","qos","niitv",1 ->
+     Board_qos_niit_js.Topo_page.make ?error_prefix board
+  | "DVB","rf","niitv",1 ->
+     Board_dvb_niit_js.Topo_page.make ?error_prefix board
+  | "TS2IP","ts2ip","niitv",1 ->
+     let w = new Board_ts2ip_niit_js.Settings.settings board.control () in
+     Lwt_result.return (w,fun () -> ())
+  | "IP2TS","dtm-3200","dektec",1 ->
+     Board_ip_dektec_js.Topo_page.make board
+  | typ,model,manuf,_ ->
+     let s = Printf.sprintf "Неизвестная плата: %s\nМодель: %s\nПроизводитель: %s" typ model manuf in
+     Lwt_result.fail s
 
 class t ~(connections:(#Topo_node.t * connection_point) list)
         (board:Common.Topology.topo_board)

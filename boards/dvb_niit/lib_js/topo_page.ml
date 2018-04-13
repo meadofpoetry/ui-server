@@ -14,20 +14,18 @@ module Listener = Boards_js.Topo_listener.Make(struct
                                                 let unlisten_status s = s##close
                                               end)
 
-let make (board:Common.Topology.topo_board) : Ui_templates.Types.settings_section_lwt =
+let make ?error_prefix (board:Common.Topology.topo_board) : Ui_templates.Types.settings_section_lwt =
   let open Lwt_result.Infix in
   let listener = Listener.listen board.control in
   listener
   >>= (fun (l,state) ->
-    let pages =
-      List.map (fun (id,init) ->
-          let event = React.E.map (fun x -> List.Assoc.get_exn ~eq:(=) id x) l.events.config in
-          let b,s,submit = Settings.make_module_settings ~id ~init ~event ~state:l.state board.control () in
-          let apply   = Ui_templates.Buttons.create_apply s submit in
-          let actions = new Card.Actions.t ~widgets:[apply#widget] () in
-          let w = new Box.t ~vertical:true ~widgets:[b#widget;actions#widget] () in
-          `Text (Printf.sprintf "Модуль %d" (succ id)), w#widget)
-               (List.sort (fun (id1,_) (id2,_) -> compare id1 id2) l.config)
-    in
-    let tabs = Ui_templates.Tabs.create_simple_tabs pages in
-    Lwt_result.return (tabs#widget,fun () -> Listener.unlisten state))
+    List.map (fun (id,init) ->
+        let event   = React.E.map (fun x -> List.Assoc.get_exn ~eq:(=) id x) l.events.config in
+        let w,s,set = Settings.make_module_settings ~id ~init ~event ~state:l.state board.control () in
+        let a       = Ui_templates.Buttons.create_apply s set in
+        let abox    = new Card.Actions.t ~widgets:[a#widget] () in
+        let b       = new Box.t ~vertical:true ~widgets:[w;abox#widget] () in
+        `Text (Printf.sprintf "Модуль %d" (succ id)), b#widget)
+             (List.sort (fun (id1,_) (id2,_) -> compare id1 id2) l.config)
+    |> Ui_templates.Tabs.create_simple_tabs
+    |> fun bar -> Lwt_result.return (bar,fun () -> Listener.unlisten state))
