@@ -34,31 +34,13 @@ let limit f e =
    
 let (%) = Fun.(%)
 (* TODO make 'active type label *)
-
-module Pipeline_model : sig
-  type _ req =
-    | Store_structures : Structure.t list -> unit req
-  include (Storage.Database.MODEL with type 'a req := 'a req)
-end = Pipeline_storage
-
-module Qoe_model : sig
-  type _ req =
-  | Store_video : Video_data.t -> unit req
-  | Store_audio : Audio_data.t -> unit req
-  include (Storage.Database.MODEL with type 'a req := 'a req)
-end = Qoe_storage
-        
-module Database = Storage.Database.Make(Pipeline_model)
-module Database_qoe = Storage.Database.Make(Qoe_model)
         
 type options = { wm         : Wm.t Storage.Options.storage
                ; structures : Structure.Structures.t Storage.Options.storage
                ; settings   : Settings.t Storage.Options.storage
                }
         
-type state = { db           : Database.t
-             ; db_qoe       : Database_qoe.t
-             ; ctx          : ZMQ.Context.t
+type state = { ctx          : ZMQ.Context.t
              ; msg          : [ `Req] ZMQ.Socket.t
              ; ev           : [ `Sub] ZMQ.Socket.t
              ; options      : options
@@ -81,6 +63,7 @@ type api = { streams   : Structure.t list signal
            ; vdata     : Video_data.t event (* TODO to be split by purpose later *)
            ; adata     : Audio_data.t event
            ; requests  : channels
+           ; model     : Model.t
            }
 
 module Wm_options = Storage.Options.Make(Wm)
@@ -205,8 +188,6 @@ let create (type a) (typ : a typ) db_conf config sock_in sock_out =
                 ; settings   = Settings_options.create stor.config_dir ["pipeline";"settings"]
                 }
   in
-  let db  = Result.get_exn @@ Database.create db_conf in
-  let db_qoe = Result.get_exn @@ Database_qoe.create db_conf in
   let ctx = ZMQ.Context.create () in
   let msg = ZMQ.Socket.create ctx ZMQ.Socket.req in
   let ev  = ZMQ.Socket.create ctx ZMQ.Socket.sub in
@@ -242,17 +223,16 @@ let create (type a) (typ : a typ) db_conf config sock_in sock_out =
     let merge v = Structure_conv.match_streams srcs v in
     create_channels typ send options merge strms_push wm_push sets_push
   in
+
+  let model = Model.create db_conf streams vdata adata in
   
   let api = { streams
             ; settings; graph; wm; vdata; adata
             ; requests
+            ; model
             } in
-
-  Lwt_react.E.keep @@ Lwt_react.E.map_p (fun x -> Lwt.catch (fun () -> Database_qoe.(request db_qoe (Store_video x)))
-                        (function Failure e -> Lwt_io.printf "vdata error: %s\n" e)) vdata;
-  Lwt_react.E.keep @@ Lwt_react.E.map_p (fun x -> Database_qoe.(request db_qoe (Store_audio x))) adata;
   
-  let state = { db; db_qoe; ctx; msg; ev; options; srcs; proc; ready; ready_e } in
+  let state = { ctx; msg; ev; options; srcs; proc; ready; ready_e } in
   let recv () =
     Socket.recv ev_sock
     >>= fun msg ->

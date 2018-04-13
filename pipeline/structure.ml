@@ -53,11 +53,7 @@ type structure =
   ; channels : channel list
   } [@@deriving yojson]
 
-type source = Unknown
-            | Stream  of Common.Stream.t
-            [@@deriving yojson]
-
-type packed = { source    : source
+type packed = { source    : Common.Stream.t
               ; structure : structure
               } [@@deriving yojson]
 type t = packed

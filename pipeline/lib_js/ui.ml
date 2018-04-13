@@ -173,9 +173,7 @@ module Structure = struct
 
   let make_structure (s : Structure.t) =
     let text, stext =
-      let h = match s.source with
-        | Unknown    -> Printf.sprintf "Unknown source"
-        | Stream src -> Printf.sprintf "Поток: %s" (CCOpt.get_or ~default:"-" src.description)
+      let h = Printf.sprintf "Поток: %s" (CCOpt.get_or ~default:"-" s.source.description)
       in h, (Printf.sprintf "ip: %s" @@ Common.Uri.to_string s.structure.uri)
     in
     let wl, cl = List.split @@ List.map make_channel s.structure.channels in

@@ -88,3 +88,8 @@ let header : t -> string = fun s ->
   match s.description with
   | None -> h
   | Some d -> h ^ " (" ^ d ^ ")" 
+
+let rec get_input s =
+  match s.source with
+  | Parent s -> get_input s
+  | Input  i -> i

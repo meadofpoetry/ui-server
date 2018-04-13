@@ -141,6 +141,19 @@ let get_vdata_sock_pid sock_data body api stream channel pid () =
     let open Pipeline_protocol in
     get_sock sock_data body Video_data.to_yojson (React.E.filter pred api.vdata)
   with _ -> respond_error ~status:`Bad_request "bad request" ()
+
+let get_structures api input id () =
+  let open Pipeline_protocol in
+  Lwt_io.printf "req %s (%s)\n" input id |> ignore;
+  let input, id = (Result.get_exn @@ Common.Topology.input_of_string input), int_of_string id in
+  let input = Common.Topology.{ input; id } in
+  Lwt_io.printf "req fine\n" |> ignore;
+  Lwt.catch (fun () ->
+      api.model.struct_api.get_input input >>= fun (str, date) ->
+      Lwt_io.printf "here\n" |> ignore;
+      let s = Structure.Streams.to_yojson str in
+      respond_js (`Tuple [s; `String date]) ())
+    (function Failure e -> respond_error e ())
           
 let pipeline_handle api id meth args sock_data _ body =
   let is_guest = Common.User.eq id `Guest in
@@ -159,6 +172,7 @@ let pipeline_handle api id meth args sock_data _ body =
   | `GET,  ["vdata_sock";s]     -> get_vdata_sock_stream sock_data body api s ()
   | `GET,  ["vdata_sock";s;c]   -> get_vdata_sock_channel sock_data body api s c ()
   | `GET,  ["vdata_sock";s;c;p] -> get_vdata_sock_pid sock_data body api s c p ()
+  | `GET,  ["structures";i;num] -> get_structures api i num ()
   | _                           -> not_found ()
                                  
 let handlers api =
@@ -166,29 +180,3 @@ let handlers api =
        let domain = "pipeline"
        let handle = pipeline_handle api
      end : Api_handler.HANDLER) ]
-
-let handlers_not_implemented () =
-  []
-    
-    (*
-let test _ _ body =
-  Cohttp_lwt.Body.to_string body >>= fun body ->
-  let jss = String.split_on_char '=' body |> fun l -> List.nth l 1 in
-  let js  = Uri.pct_decode jss |> Yojson.Safe.from_string in
-  Lwt_io.printf "Got: %s\n" (Yojson.Safe.to_string js) >>= fun _ ->
-  let s =
-    Common.State.of_yojson js
-    |> function
-      | Error _ -> "Sorry, something is wrong with your json"
-      | Ok root -> Lwt_io.printf "Msgpck: %s\n" (Msg_conv.to_msg_string @@ Common.State.to_yojson root) |> ignore;
-                   let prefix = "Thank you, master! " in
-                   begin match (Option.get_exn root.graph).state with
-                   | Some Null  -> prefix ^ "You want me to stop the graph?"
-                   | Some Stop  -> prefix ^ "Halting graph"
-                   | Some Play  -> prefix ^ "Starting"
-                   | Some Pause -> prefix ^ "Graph is going to be paused"
-                   | None       -> prefix ^ "I don't understand"
-                   end
-  in
-  Cohttp_lwt_unix.Server.respond_string ~status:`OK ~body:s ()
-     *)
