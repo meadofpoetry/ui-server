@@ -9636,22 +9636,23 @@ a.mdc-list-item {
   line-height: 1.5rem;
   list-style-type: none;
   cursor: pointer; }
-  .mdc-tree .mdc-tree__item {
-    width: 100%;
-    position: relative;
-    align-items: center;
-    justify-content: flex-start;
-    min-height: 48px;
-    overflow: hidden;
-    cursor: pointer; }
-    .mdc-tree .mdc-tree__item:focus {
-      outline: none; }
-    .mdc-tree .mdc-tree__item .mdc-tree__list {
-      display: none; }
-      .mdc-tree .mdc-tree__item .mdc-tree__list--open {
-        display: block; }
-    .mdc-tree .mdc-tree__item--open .dropdown {
-      transform: rotate(180deg); }
+
+.mdc-tree__item {
+  width: 100%;
+  position: relative;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 48px;
+  overflow: hidden;
+  cursor: pointer; }
+  .mdc-tree__item:focus {
+    outline: none; }
+  .mdc-tree__item .mdc-tree__list {
+    display: none; }
+    .mdc-tree__item .mdc-tree__list--open {
+      display: block; }
+  .mdc-tree__item--open .dropdown {
+    transform: rotate(180deg); }
 
 .mdc-list-item__secondary-text {
   /* @alternate */
