@@ -22,7 +22,7 @@ let data_t =
       let (&) a b = (a, b) in
       Ok(stream & channel & pid & error & data.counter & data.size
          & data.params.min & data.params.max & data.params.avg 
-         & data.peak_flag & data.cont_flag & data.timestamp))
+         & data.peak_flag & data.cont_flag & Int64.(data.timestamp / 1000000L)))
     ~decode:(fun (stream,(channel,(pid,(error,(counter,(size,(min,(max,(avg,(peak_flag,(cont_flag,timestamp))))))))))) ->
       Ok(stream,channel,pid,error, { counter; size; params = { min; max; avg }; peak_flag; cont_flag; timestamp }))
                                                                                
@@ -44,7 +44,7 @@ let store (module Db : Caqti_lwt.CONNECTION) data =
   let insert =
     Caqti_request.exec data_t
       {eos|INSERT INTO qoe_errors(stream,channel,pid,error,counter,size,min,max,avg,peak_flag,cont_flag,date)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)|eos}
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,'epoch'::TIMESTAMP + ? * '1 second'::INTERVAL)|eos}
   in
   let store' (module Db : Caqti_lwt.CONNECTION) =
     Db.start () >>= fail_if >>= fun () ->

@@ -248,7 +248,8 @@ let create (type a) (typ : a typ) db_conf config sock_in sock_out =
             ; requests
             } in
 
-  Lwt_react.E.keep @@ Lwt_react.E.map_p (fun x -> Database_qoe.(request db_qoe (Store_video x))) vdata;
+  Lwt_react.E.keep @@ Lwt_react.E.map_p (fun x -> Lwt.catch (fun () -> Database_qoe.(request db_qoe (Store_video x)))
+                        (function Failure e -> Lwt_io.printf "vdata error: %s\n" e)) vdata;
   Lwt_react.E.keep @@ Lwt_react.E.map_p (fun x -> Database_qoe.(request db_qoe (Store_audio x))) adata;
   
   let state = { db; db_qoe; ctx; msg; ev; options; srcs; proc; ready; ready_e } in
@@ -279,6 +280,5 @@ let finalize state =
   ZMQ.Socket.close       state.ev;
   ZMQ.Socket.close       state.msg;
   ZMQ.Context.terminate  state.ctx;
-  Database.finalize state.db;
   Option.iter (fun proc -> proc#terminate) state.proc;
   state.proc <- None

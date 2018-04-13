@@ -13,10 +13,10 @@ let init (module Db : Caqti_lwt.CONNECTION) =
       {eos|CREATE TABLE IF NOT EXISTS qoe_video_errors(
        black  BOOLEAN,
        luma   BOOLEAN,
-       freeze BOOLEAN,
+       fre    BOOLEAN,
        diff   BOOLEAN,
        blocky BOOLEAN,
-       input  TEXT NON NULL,
+       input  TEXT NOT NULL,
        value  TEXT,
        date   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
        )|eos}

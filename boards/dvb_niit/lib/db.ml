@@ -41,7 +41,7 @@ let store_measures (module Db : Caqti_lwt.CONNECTION) (id,m) =
   let insert =
     Caqti_request.exec measure
       {|INSERT INTO dvb_meas(tun,lock,power,mer,ber,freq,bitrate,date)
-       VALUES (?,?,?,?,?,?,?,?)|}
+       VALUES (?,?,?,?,?,?,?,'epoch'::TIMESTAMP + ? * '1 second'::INTERVAL)|}
   in
   Db.exec insert (id,m) >>= function
   | Ok v    -> Lwt.return v
