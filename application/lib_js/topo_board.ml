@@ -83,7 +83,7 @@ let make_board_page ?error_prefix (board:Common.Topology.topo_board) =
      Board_dvb_niit_js.Topo_page.make ?error_prefix board
   | "TS2IP","ts2ip","niitv",1 ->
      let w = new Board_ts2ip_niit_js.Settings.settings board.control () in
-     Lwt_result.return (w,fun () -> ())
+     Lwt_result.return w
   | "IP2TS","dtm-3200","dektec",1 ->
      Board_ip_dektec_js.Topo_page.make board
   | typ,model,manuf,_ ->

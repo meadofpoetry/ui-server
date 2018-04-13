@@ -41,7 +41,7 @@ let make_jitter (board:topo_board) ({streams;base = { config;events;state}}:boar
   let box     = (new Box.t ~vertical:true ~widgets:[w;abox] ())#widget in
   box
 
-let make ?error_prefix (board:topo_board) : Ui_templates.Types.settings_section_lwt =
+let make ?error_prefix (board:topo_board) : (#Widget.widget,string) Lwt_result.t =
   Listener.listen board.control
   >>= (fun (base,state) ->
     let res =
@@ -64,4 +64,6 @@ let make ?error_prefix (board:topo_board) : Ui_templates.Types.settings_section_
     let fin () = Listener.unlisten state;
                  res >>= (fun (_,fin) -> fin (); Lwt_result.return ())
                  |> Lwt.ignore_result
-    in Lwt_result.return (tabs,fin))
+    in
+    tabs#set_on_destroy (Some fin);
+    Lwt_result.return tabs)

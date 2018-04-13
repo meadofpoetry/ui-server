@@ -23,13 +23,21 @@ let to_rect (x:Dom_html.clientRect Js.t) =
 
 class widget (elt:#Dom_html.element Js.t) () = object(self)
 
-  val mutable _on_load   = None
-  val mutable _on_unload = None
-  val mutable _in_dom    = false
-  val mutable _observer  = None
+  val mutable _on_destroy = None
+  val mutable _on_load    = None
+  val mutable _on_unload  = None
+  val mutable _in_dom     = false
+  val mutable _observer   = None
 
   method root   : Dom_html.element Js.t = (elt :> Dom_html.element Js.t)
   method widget : widget = (self :> widget)
+
+  method set_on_destroy f = _on_destroy <- f
+
+  method destroy : unit =
+    self#set_on_load None;
+    self#set_on_unload None;
+    Option.iter (fun f -> f ()) _on_destroy
 
   method get_child_element_by_class x = Js.Opt.to_option @@ self#root##querySelector (Js.string ("." ^ x))
   method get_child_element_by_id    x = Js.Opt.to_option @@ self#root##querySelector (Js.string ("#" ^ x))

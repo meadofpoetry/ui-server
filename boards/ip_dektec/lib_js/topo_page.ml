@@ -36,7 +36,7 @@ let make_ip (board:Common.Topology.topo_board) ({config;state;events}:Listener.b
   box
 
 
-let make (board:Common.Topology.topo_board) : Ui_templates.Types.settings_section_lwt =
+let make (board:Common.Topology.topo_board) : (#Widget.widget,string) Lwt_result.t =
   Listener.listen board.control
   >>= (fun (t,state) ->
     let nw     = make_nw board t in
@@ -45,4 +45,5 @@ let make (board:Common.Topology.topo_board) : Ui_templates.Types.settings_sectio
                                                       ; `Text "Приём TSoIP", ip
                                                       ]
     in
-    Lwt_result.return (tabs,fun () -> Listener.unlisten state))
+    tabs#set_on_destroy @@ Some (fun () -> Listener.unlisten state);
+    Lwt_result.return tabs)
