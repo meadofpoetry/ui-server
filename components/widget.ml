@@ -75,6 +75,10 @@ class widget (elt:#Dom_html.element Js.t) () = object(self)
   method get_scroll_width  = self#root##.scrollWidth
   method get_scroll_height = self#root##.scrollHeight
 
+  method set_empty =
+    Dom.list_of_nodeList @@ self#root##.childNodes
+    |> List.iter (fun x -> Dom.removeChild self#root x)
+
   method get_bounding_client_rect = (self#root##getBoundingClientRect)
                                     |> (fun x -> { top    = x##.top
                                                  ; right  = x##.right

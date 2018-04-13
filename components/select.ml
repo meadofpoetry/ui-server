@@ -86,15 +86,12 @@ class ['a] t ?(disabled=false)
            ~label
            ~(items : [ `Item of 'a Item.t | `Group of 'a Group.t ] list)
            () =
-  let s,push    = React.S.create None in
-  let s_value   = React.S.map (fun i -> Option.map (fun x -> x#value) i) s in
-  let item_elts = List.map (function `Group g -> Widget.widget_to_markup g
-                                   | `Item i  -> Widget.widget_to_markup i) items
-                  |> (fun l -> if not default_selected then (Markup.Select.Item.create ~disabled:true
-                                                                                       ~selected:true
-                                                                                       ~text:""
-                                                                                       ()) :: l
-                               else l)
+  let make_empty () = Markup.Select.Item.create ~disabled ~selected:true ~text:"" () in
+  let s,push        = React.S.create None in
+  let s_value       = React.S.map (fun i -> Option.map (fun x -> x#value) i) s in
+  let item_elts     = List.map (function `Group g -> Widget.widget_to_markup g
+                                       | `Item i  -> Widget.widget_to_markup i) items
+                      |> (fun l -> if not default_selected then make_empty () :: l else l)
   in
   let bottom_line = new Bottom_line.t () in
   let label       = new Label.t ~label ~s_selected:s_value () in
@@ -111,6 +108,8 @@ class ['a] t ?(disabled=false)
 
   object(self)
 
+    val mutable _items = items
+
     inherit Widget.widget elt ()
 
     method select      = select
@@ -122,12 +121,23 @@ class ['a] t ?(disabled=false)
     method items : 'a Item.t list =
       List.fold_left (fun acc x -> match x with
                                    | `Group g -> g#items @ acc
-                                   | `Item i  -> i::acc) [] items
+                                   | `Item i  -> i::acc) [] _items
 
     method length : int   =
       self#_native_select##.length
     method item n : 'a Item.t option =
       List.get_at_idx n self#items
+
+    method! set_empty =
+      self#select#set_empty; push None;
+      if not default_selected then Dom.appendChild self#select#root @@ Tyxml_js.To_dom.of_option @@ make_empty ()
+
+    method append_item (i:'a Item.t) =
+      _items <- `Item i :: _items;
+      Dom.appendChild self#select#root i#root
+    method append_group (g:'a Group.t) =
+      _items <- `Group g :: _items;
+      Dom.appendChild self#select#root g#root
 
     method selected_index : int option =
       self#_native_select##.selectedIndex |> (fun x -> if x = -1 then None else Some x)

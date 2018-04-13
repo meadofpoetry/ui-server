@@ -46,6 +46,20 @@ type t =
 and source = Input  of Topology.topo_input
            | Parent of t [@@deriving yojson, show]
 
+let to_short_name (t:t) =
+  let src = match t.source with
+    | Input i  -> Topology.get_input_name i
+    | Parent _ -> "Поток"
+  in
+  let id  = match t.id with
+    | `Ip uri -> Some (Uri.to_string uri)
+    | _       -> None
+  in
+  let s = Printf.sprintf "Источник: %s" src in
+  match id with
+  | Some id -> s ^ ", " ^ id
+  | None    -> s
+
 (* type constraints =
  *   { source : source
  *   ; range  : [ `Ip of (Uri.t * Uri.t) list | `Ts of (id * id) list ]

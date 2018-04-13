@@ -44,6 +44,10 @@ let get_bitrates control =
   get_js (Printf.sprintf "/api/board/%d/bitrates" control)
   >|= Result.(flat_map ts_structs_of_yojson)
 
+let get_incoming_streams control =
+  get_js (Printf.sprintf "/api/board/%d/incoming_streams" control)
+  >|= Result.(flat_map Common.Stream.t_list_of_yojson)
+
 let get_config_ws control =
   get_socket (Printf.sprintf "api/board/%d/config_ws" control) config_of_yojson
 
@@ -70,3 +74,6 @@ let get_t2mi_info_ws control =
 
 let get_jitter_ws control =
   get_socket (Printf.sprintf "api/board/%d/jitter_ws" control) jitter_of_yojson
+
+let get_incoming_streams_ws control =
+  get_socket (Printf.sprintf "api/board/%d/incoming_streams" control) Common.Stream.t_list_of_yojson

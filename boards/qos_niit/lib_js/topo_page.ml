@@ -19,21 +19,26 @@ module Listener = Boards_js.Topo_listener.Make(struct
 
 let make (board:Common.Topology.topo_board) : topo_settings_result =
   let open Lwt_result.Infix in
-  Listener.listen board.control
-  >>= (fun (l,state) ->
-    let mw,ms,mset = Settings.make_t2mi_mode
-                       ~init:l.config.mode.t2mi
-                       ~event:(React.E.map (fun (x:config) -> x.mode.t2mi) l.events.config)
-                       ~state:l.state
-                       board.control
-                       ()
-    in
-    let jw,js,jset = Settings.make_jitter_mode
-                       ~init:l.config.jitter_mode
-                       ~event:(React.E.map (fun (x:config) -> x.jitter_mode) l.events.config)
-                       ~state:l.state
-                       board.control
-                       ()
-    in
-    let tabs = make_tabs ["T2-MI", mw; "Джиттер", jw ] in
-    Lwt_result.return (tabs#widget,fun () -> Listener.unlisten state))
+  Requests.get_incoming_streams board.control
+  >>= (fun streams ->
+    Listener.listen board.control
+    >>= (fun (l,state) ->
+         let e_streams,sock = Requests.get_incoming_streams_ws board.control in
+         let s_streams  = React.S.hold streams e_streams in
+         let mw,ms,mset = Settings.make_t2mi_mode
+                            ~init:l.config.mode.t2mi
+                            ~event:(React.E.map (fun (x:config) -> x.mode.t2mi) l.events.config)
+                            ~streams:s_streams
+                            ~state:l.state
+                            board.control
+                            ()
+         in
+         let jw,js,jset = Settings.make_jitter_mode
+                            ~init:l.config.jitter_mode
+                            ~event:(React.E.map (fun (x:config) -> x.jitter_mode) l.events.config)
+                            ~state:l.state
+                            board.control
+                            ()
+         in
+         let tabs = make_tabs ["T2-MI", mw; "Джиттер", jw ] in
+         Lwt_result.return (tabs#widget,fun () -> sock##close; Listener.unlisten state)))
