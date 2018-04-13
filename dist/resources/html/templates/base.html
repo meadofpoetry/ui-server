@@ -69,17 +69,17 @@
           </div>
           <hr class="mdc-list-divider">
           <nav class="mdc_drawer__content mdc-list-group">
-            <div id="navigation" class="mdc-list mdc-tree">
+            <div id="navigation" class="mdc-list">
               {{#navigation}}
               {{#simple}}
-              <div class="mdc-list">
+              <div class="mdc-tree">
                   <a href="{{href}}" class="mdc-list-item">
                       {{title}}
                   </a>
               </div>
               {{/simple}}
               {{^simple}}
-              <div class="mdc-list mdc-tree__item">
+              <div class="mdc-tree mdc-tree__item">
                    <div class="mdc-list-item">
                        {{title}}
                        <i class="material-icons mdc-icon mdc-list-item__meta dropdown">
