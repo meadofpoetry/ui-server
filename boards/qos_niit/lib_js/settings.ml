@@ -1,7 +1,6 @@
 open Board_types
 open Containers
 open Components
-open Boards_js.Types
 
 let make_t2mi_enabled (init: t2mi_mode option) =
   let enabled = new Switch.t () in
@@ -58,7 +57,7 @@ let make_t2mi_mode ~(init:    t2mi_mode option)
                    ~(streams: Common.Stream.t list React.signal)
                    ~(state:   Common.Topology.state React.signal)
                    control
-                   () : (t2mi_mode_request,unit) settings_block =
+                   () : (t2mi_mode_request,unit) Ui_templates.Types.settings_block =
   let en,set_en,s_en,dis_en     = make_t2mi_enabled init in
   let pid,set_pid,s_pid,dis_pid = make_t2mi_pid init in
   let sid,set_sid,s_sid,dis_sid = make_t2mi_sid init in
@@ -115,7 +114,7 @@ let make_jitter_mode ~(init:  jitter_mode option)
                      ~(event: jitter_mode option React.event)
                      ~(state: Common.Topology.state React.signal)
                      control
-                     () : (jitter_mode_request,unit) settings_block =
+                     () : (jitter_mode_request,unit) Ui_templates.Types.settings_block =
   let en,set_en,s_en,dis_en     = make_jitter_enabled init in
   let pid,set_pid,s_pid,dis_pid = make_jitter_pid init in
   let _ = React.S.l2 (fun state en -> let is_disabled = match state with

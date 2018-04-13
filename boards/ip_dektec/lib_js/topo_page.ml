@@ -1,8 +1,6 @@
 open Containers
 open Components
 open Settings
-open Boards_js.Topo_components
-open Boards_js.Types
 
 module Listener = Boards_js.Topo_listener.Make(struct
                                                 type config = Board_types.config
@@ -17,7 +15,7 @@ module Listener = Boards_js.Topo_listener.Make(struct
                                                 let unlisten_status s = s##close
                                               end)
 
-let make (board:Common.Topology.topo_board) : topo_settings_result =
+let make (board:Common.Topology.topo_board) : Ui_templates.Types.settings_section_lwt =
   let open Lwt_result.Infix in
   Listener.listen board.control
   >>= (fun (l,state) ->
@@ -28,7 +26,7 @@ let make (board:Common.Topology.topo_board) : topo_settings_result =
                        board.control
                        ()
     in
-    let nw_apply = make_apply s_nw submit_nw in
+    let nw_apply = Ui_templates.Buttons.create_apply s_nw submit_nw in
     let nw_w = new Box.t
                    ~vertical:true
                    ~widgets:[ nw_box#widget
@@ -43,7 +41,7 @@ let make (board:Common.Topology.topo_board) : topo_settings_result =
                        board.control
                        ()
     in
-    let ip_apply = make_apply s_ip submit_ip in
+    let ip_apply = Ui_templates.Buttons.create_apply s_ip submit_ip in
     let ip_w = new Box.t
                    ~vertical:true
                    ~widgets:[ ip_box#widget
@@ -51,5 +49,7 @@ let make (board:Common.Topology.topo_board) : topo_settings_result =
                             ]
                    ()
     in
-    let tabs = make_tabs [ "Сеть", nw_w#widget; "Приём IP", ip_w#widget ] in
+    let tabs = Ui_templates.Tabs.create_simple_tabs [ `Text "Сеть", nw_w#widget
+                                                    ; `Text "Приём IP", ip_w#widget ]
+    in
     Lwt_result.return (tabs#widget,fun () -> Listener.unlisten state))

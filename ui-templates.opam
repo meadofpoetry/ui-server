@@ -15,7 +15,6 @@ depends: [
   "jbuilder" {build}
   "lwt"
   "react"
-  "yojson"
   "containers"
   "components"
   "common"

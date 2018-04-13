@@ -1,7 +1,7 @@
 open Containers
 open Api_js.Requests
 open Lwt.Infix
-   
+
 let get_structure () =
   get_js "api/pipeline/structure"
   >|= Result.(flat_map Structure.Streams.of_yojson)

@@ -1,6 +1,9 @@
 open Containers
 open Components
 
+module Requests = Requests
+module Ui       = Ui
+
 let insert s (container:#Dom.node Js.t) =
   React.S.map (function
                | Some p -> Dom.list_of_nodeList @@ container##.childNodes
@@ -20,9 +23,8 @@ let pages =
   let tab_pages =
     [ "Видео",             tab Mosaic.page
     ; "Редактор",          tab Mosaic_settings.page
-    ; "Выбор программ",    tab Structure_settings.page
-    ; "Настройки анализа", tab Analysis_settings.page
-    ; "Графики",           tab Charts.page
+    (* ; "Настройки анализа", tab Analysis_settings.page
+     * ; "Графики",           tab Charts.page *)
     ]
   in
   let tabs = List.map (fun x -> { content  = `Text (fst x)

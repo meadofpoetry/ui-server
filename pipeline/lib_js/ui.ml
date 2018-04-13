@@ -157,7 +157,8 @@ module Structure = struct
     let s, push        = React.S.create pid.to_be_analyzed in
     let pid_s          = React.S.map (fun b -> {pid with to_be_analyzed = b}) s in
     React.S.map push checkbox#s_state |> ignore;
-    new Tree.Item.t ~text ~secondary_text:stext ~start_detail:checkbox (), pid_s
+    let item = new Tree.Item.t ~text ~secondary_text:stext ~start_detail:checkbox () in
+    item, pid_s
 
   let make_channel (ch : Structure.channel) =
     let text, stext =
@@ -167,7 +168,7 @@ module Structure = struct
     let wl, sl = List.split @@ List.map make_pid ch.pids in
     let ch_s   = React.S.map (fun pl -> {ch with pids = pl}) @@ React.S.merge ~eq:Equal.physical (fun a p -> p::a) [] sl in
     let nested = new Tree.t ~items:wl () in
-    let e = new Tree.Item.t ~text ~secondary_text:stext ~nested ()
+    let e      = new Tree.Item.t ~text ~secondary_text:stext ~nested ()
     in e, ch_s
 
   let make_structure (s : Structure.t) =
@@ -188,38 +189,30 @@ module Structure = struct
     let wl, sl = List.split @@ List.map make_structure sl in
     let sl_s   = React.S.merge ~eq:Equal.physical (fun a p -> p::a) [] sl in
     let lst    = new Tree.t ~items:wl () in
-    lst#set_dense true;
-    lst#style##.maxWidth := Js.string "400px";
-    lst, sl_s
+    lst, React.S.map Option.return sl_s
 
-  let create
-        ~(init:   Structure.t list)
-        ~(events: Structure.t list React.event)
-        ~(post:   Structure.t list -> unit) =
-    let id  = "structure-place" in
-    let div = Dom_html.createDiv Dom_html.document in
+  let make ~(init:  Structure.t list)
+           ~(event: Structure.t list React.event)
+           () : (Structure.t list,unit) Ui_templates.Types.settings_block =
+    let id     = "structure-place" in
+    let div    = Dom_html.createDiv Dom_html.document |> Widget.create in
     let make (str : Structure.t list) =
       let dis, s = make_structure_list str in
-      (* let title  = new Card.Title.t ~title:"Потоки" () in
-       * let prim   = new Card.Primary.t ~widgets:[title] () in *)
-      let but    = new Components.Button.t ~label:"Применить" () in
-      let place  = new Components.Card.t
-                       ~widgets:[ (new Card.Media.t ~widgets:[dis] ())#widget
-                                ; (new Card.Actions.t ~widgets:[but] ())#widget
-                                ]
-                       () in
+      let place  = dis in
       place#set_id id;
-      but#button_element##.onclick := Dom.handler (fun _ -> post @@ React.S.value s; Js._false);
-      place
+      place,s
     in
-    let _ = React.E.map (fun s ->
-                (try Dom.removeChild div (Dom_html.getElementById id)
-                 with _ -> print_endline "No el");
-                Dom.appendChild div (make s)#root)
-              events
+    let s_in  = React.S.hold ~eq:(Equal.list Structure.equal) init event in
+    let s_div = React.S.map ~eq:(Equal.physical) (fun s -> make s) s_in in
+    let s     = React.S.switch ~eq:(Equal.option @@ Equal.list Structure.equal)
+                               (React.S.map ~eq:(Equal.physical) (fun n ->
+                                              div#set_empty;
+                                              let tree,n_s = n in
+                                              Dom.appendChild div#root tree#root;
+                                              n_s) s_div)
     in
-    Dom.appendChild div (make init)#root;
-    div
+    let post = Requests.post_structure in
+    div,s,post
 
 end
 
@@ -414,7 +407,7 @@ module Settings = struct
     let s      = React.S.l2 (fun v a -> Settings.{ video = v; audio = a; }) v_s a_s in
     let box    = new Box.t ~widgets:[(Widget.create header); v#widget; a#widget] () in
     box, s
-    
+
   let create
         ~(init:   Settings.t)
         ~(events: Settings.t React.event)

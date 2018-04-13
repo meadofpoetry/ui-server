@@ -4,18 +4,18 @@ type video_pid =
   ; aspect_ratio : (int * int)
   ; interlaced   : string
   ; frame_rate   : float
-  } [@@deriving yojson]
+  } [@@deriving yojson,eq]
 
 type audio_pid =
   { codec       : string
   ; bitrate     : string
   ; channels    : int
   ; sample_rate : int
-  } [@@deriving yojson]
+  } [@@deriving yojson,eq]
 
 type pid_content = Video of video_pid
                  | Audio of audio_pid
-                 | Empty
+                 | Empty [@@deriving eq]
 let pid_content_to_yojson = function
   | Empty   -> `String "Empty"
   | Video v -> `Assoc [("Video", (video_pid_to_yojson v))]
@@ -38,29 +38,29 @@ type pid =
   ; content          : pid_content
   ; stream_type      : int
   ; stream_type_name : string
-  } [@@deriving yojson]
+  } [@@deriving yojson,eq]
 
 type channel =
   { number        : int
   ; service_name  : string
   ; provider_name : string
   ; pids          : pid list
-  } [@@deriving yojson]
+  } [@@deriving yojson,eq]
 
 type structure =
   { id       : int32 
   ; uri      : Common.Uri.t
   ; channels : channel list
-  } [@@deriving yojson]
+  } [@@deriving yojson,eq]
 
 type source = Unknown
             | Stream  of Common.Stream.t
-            [@@deriving yojson]
+            [@@deriving yojson,eq]
 
 type packed = { source    : source
               ; structure : structure
-              } [@@deriving yojson]
-type t = packed
+              } [@@deriving yojson,eq]
+type t = packed [@@deriving eq]
 
 let combine_pid ~changed ~set x =
   if not (x.to_be_analyzed = set.to_be_analyzed) then changed := true;

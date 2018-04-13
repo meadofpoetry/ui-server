@@ -602,6 +602,48 @@
 
   .mdc-drawer-scroll-lock {
     overflow: hidden; } }
+.ats-error-block {
+  justify-content: center;
+  align-items: center; }
+  .ats-error-block .mdc-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 40px;
+    color: #e57373; }
+  .ats-error-block .mdc-typography {
+    margin-top: 10px;
+    text-align: center;
+    /* @alternate */
+    color: rgba(0, 0, 0, 0.54);
+    color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54)); }
+
+.ats-progress-block {
+  flex-direction: column;
+  justify-content: center;
+  align-items: center; }
+  .ats-progress-block > p {
+    margin-top: 10px;
+    text-align: center;
+    /* @alternate */
+    color: rgba(0, 0, 0, 0.54);
+    color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54)); }
+@keyframes blink {
+  0% {
+    opacity: .2; }
+  20% {
+    opacity: 1; }
+  100% {
+    opacity: .2; } }
+    .ats-progress-block > p span {
+      animation-name: blink;
+      animation-duration: 1.4s;
+      animation-iteration-count: infinite;
+      animation-fill-mode: both; }
+    .ats-progress-block > p span:nth-child(2) {
+      animation-delay: .2s; }
+    .ats-progress-block > p span:nth-child(3) {
+      animation-delay: .4s; }
+
 :root {
   --mdc-box-margin: 0px; }
 

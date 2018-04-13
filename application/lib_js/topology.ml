@@ -141,21 +141,18 @@ let create ~(parent: #Widget.widget)
              Topo_board.make_board_page board
           | `CPU cpu ->
              set_drawer_title @@ Topo_cpu.get_cpu_name cpu;
-             Lwt_result.return ((Streams_selector.create ())#widget,fun () -> ())
+             Topo_cpu.make_cpu_page cpu
         in
-        let prgrs = Topo_drawer.make_progress () in
-        Dom.appendChild drawer_box#root prgrs#root;
-        let open Lwt.Infix in
-        let t = res >>= (fun r ->
-            Dom.removeChild drawer_box#root prgrs#root;
-            match r with
-            | Ok (w,close) -> Dom.appendChild drawer_box#root w#root; Lwt_result.return close
-            | Error e      -> let s = Printf.sprintf "Ошибка при загрузке страницы:\n %s" e in
-                              let error = Topo_drawer.make_error s in
-                              Dom.appendChild drawer_box#root error#root;
-                              Lwt_result.fail e)
+        let pgs = Ui_templates.Progress.create_progress_block_lwt ~error_prefix:"Ошибка при загрузке страницы"
+                                                                  res
         in
-        drawer#show_await >>= (fun () -> Lwt_result.bind t (fun f -> Lwt_result.return @@ f ()))
+        Dom.appendChild drawer_box#root pgs#root;
+        let open Lwt_result.Infix in
+        let t = res >>= (fun (w,c) -> Dom.removeChild drawer_box#root pgs#root;
+                                      Dom.appendChild drawer_box#root w#root;
+                                      Lwt_result.return c)
+        in
+        Lwt.Infix.(drawer#show_await >>= (fun () -> Lwt_result.bind t (fun f -> Lwt_result.return @@ f ())))
         |> ignore) e_s
   in
   iter_paths (fun _ x -> Option.iter (fun sw -> Dom.appendChild parent#root sw#root) x#switch;

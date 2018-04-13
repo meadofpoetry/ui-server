@@ -1,8 +1,6 @@
 open Containers
 open Components
 open Board_types
-open Boards_js.Topo_components
-open Boards_js.Types
 
 module Listener = Boards_js.Topo_listener.Make(struct
                                                 type config = Board_types.config
@@ -17,7 +15,7 @@ module Listener = Boards_js.Topo_listener.Make(struct
                                                 let unlisten_status s = s##close
                                               end)
 
-let make (board:Common.Topology.topo_board) : topo_settings_result =
+let make (board:Common.Topology.topo_board) : Ui_templates.Types.settings_section_lwt =
   let open Lwt_result.Infix in
   Requests.get_incoming_streams board.control
   >>= (fun streams ->
@@ -33,7 +31,7 @@ let make (board:Common.Topology.topo_board) : topo_settings_result =
                             board.control
                             ()
          in
-         let m_apply    = make_apply ms mset in
+         let m_apply    = Ui_templates.Buttons.create_apply ms mset in
          let m_actions  = new Card.Actions.t ~widgets:[m_apply#widget] () in
          let mw         = (new Box.t ~vertical:true ~widgets:[mw;m_actions#widget] ())#widget in
          let jw,js,jset = Settings.make_jitter_mode
@@ -43,8 +41,8 @@ let make (board:Common.Topology.topo_board) : topo_settings_result =
                             board.control
                             ()
          in
-         let j_apply    = make_apply js jset in
+         let j_apply    = Ui_templates.Buttons.create_apply js jset in
          let j_actions  = new Card.Actions.t ~widgets:[j_apply#widget] () in
          let jw         = (new Box.t ~vertical:true ~widgets:[jw;j_actions#widget] ())#widget in
-         let tabs = make_tabs ["T2-MI", mw; "Джиттер", jw ] in
+         let tabs       = Ui_templates.Tabs.create_simple_tabs [`Text "T2-MI", mw; `Text "Джиттер", jw ] in
          Lwt_result.return (tabs#widget,fun () -> sock##close; Listener.unlisten state)))

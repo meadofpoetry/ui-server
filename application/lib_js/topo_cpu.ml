@@ -39,6 +39,11 @@ module Body = struct
 
 end
 
+let make_cpu_page (cpu:Common.Topology.topo_cpu) =
+  match cpu.process with
+  | "pipeline" -> Topo_pipeline.make_section ()
+  | s          -> Lwt_result.fail (Printf.sprintf "Неизвестный процесс: %s" s)
+
 class t ~(connections:(#Topo_node.t * connection_point) list)
         (cpu:Common.Topology.topo_cpu)
         () =

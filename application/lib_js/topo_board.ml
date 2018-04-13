@@ -81,7 +81,6 @@ let eq_node_entry (e1:Topo_node.node_entry) (e2:Topo_node.node_entry) =
   | _                    -> false
 
 let make_board_page (board:Common.Topology.topo_board) =
-  let open Boards_js.Types in
   let open Lwt_result.Infix in
   match board.typ with
     | "TS"    -> Board_qos_niit_js.Topo_page.make board
