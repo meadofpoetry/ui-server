@@ -194,12 +194,10 @@ module Structure = struct
   let make ~(init:  Structure.t list)
            ~(event: Structure.t list React.event)
            () : (Structure.t list,unit) Ui_templates.Types.settings_block =
-    let id     = "structure-place" in
     let div    = Dom_html.createDiv Dom_html.document |> Widget.create in
     let make (str : Structure.t list) =
       let dis, s = make_structure_list str in
       let place  = dis in
-      place#set_id id;
       place,s
     in
     let s_in  = React.S.hold ~eq:(Equal.list Structure.equal) init event in
@@ -404,33 +402,28 @@ module Settings = struct
     header##.textContent   := Js.some @@ Js.string "Настройки";
     let v, v_s = make_video s.video in
     let a, a_s = make_audio s.audio in
-    let s      = React.S.l2 (fun v a -> Settings.{ video = v; audio = a; }) v_s a_s in
+    let s      = React.S.l2 (fun v a -> Some Settings.{ video = v; audio = a; }) v_s a_s in
     let box    = new Box.t ~widgets:[(Widget.create header); v#widget; a#widget] () in
     box, s
 
-  let create
-        ~(init:   Settings.t)
-        ~(events: Settings.t React.event)
-        ~(post:   Settings.t -> unit) =
-    let id  = "settings-place" in
-    let div = Dom_html.createDiv Dom_html.document in
+  let make ~(init:  Settings.t)
+           ~(event: Settings.t React.event)
+           () : (Settings.t,unit) Ui_templates.Types.settings_block =
+    let div    = Dom_html.createDiv Dom_html.document |> Widget.create in
     let make (set : Settings.t) =
       let dis, s = make_layout set in
-      let but    = new Components.Button.t ~label:"Применить" () in
-      let place  = new Components.Card.t
-                       ~widgets:[ dis#widget
-                                ; (new Card.Actions.t ~widgets:[but] ())#widget ]
-                       () in
-      place#set_id id;
-      but#button_element##.onclick := Dom.handler (fun _ -> post @@ React.S.value s; Js._false);
-      place
+      let place  = dis in
+      place,s
     in
-    let _ = React.E.map (fun s ->
-                (try Dom.removeChild div (Dom_html.getElementById id)
-                 with _ -> print_endline "No el");
-                Dom.appendChild div (make s)#root)
-              events
+    let s_in  = React.S.hold ~eq:Settings.equal init event in
+    let s_div = React.S.map ~eq:(Equal.physical) (fun s -> make s) s_in in
+    let s     = React.S.switch ~eq:(Equal.option Settings.equal)
+                               (React.S.map ~eq:(Equal.physical) (fun n ->
+                                              div#set_empty;
+                                              let w,n_s = n in
+                                              Dom.appendChild div#root w#root;
+                                              n_s) s_div)
     in
-    Dom.appendChild div (make init)#root;
-    div
+    let post = Requests.post_settings in
+    div,s,post
 end

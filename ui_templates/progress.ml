@@ -15,7 +15,11 @@ let create_progress_block ?(text="Загрузка") () =
   let () = b#add_class _class in
   b#widget
 
-let create_progress_block_lwt ?text ?error_icon ?error_prefix (t:('a,string) Lwt_result.t) =
+let create_progress_block_lwt ?(get:('a -> #Widget.widget) option)
+                              ?text
+                              ?error_icon
+                              ?error_prefix
+                              (t:('a,string) Lwt_result.t) =
   let open Lwt.Infix in
   let pgs = create_progress_block ?text () in
   let box = Dom_html.createDiv Dom_html.document |> Widget.create in
@@ -23,7 +27,8 @@ let create_progress_block_lwt ?text ?error_icon ?error_prefix (t:('a,string) Lwt
   t >>= (fun r ->
     Dom.removeChild box#root pgs#root;
     match r with
-    | Ok _ -> Lwt.return_unit
+    | Ok x    -> Option.iter (fun f -> Dom.appendChild box#root (f x)#root) get;
+                 Lwt.return_unit
     | Error e -> let s = (match error_prefix with
                           | Some pfx -> Printf.sprintf "%s:\n %s" pfx e
                           | None     -> e)

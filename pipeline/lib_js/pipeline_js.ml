@@ -22,7 +22,7 @@ let pages =
   let tab f () = ((f ()) :> t) in
   let tab_pages =
     [ "Видео",             tab Mosaic.page
-    ; "Редактор",          tab Mosaic_settings.page
+    ; "Редактор",          tab Wm_page.page
     (* ; "Настройки анализа", tab Analysis_settings.page
      * ; "Графики",           tab Charts.page *)
     ]

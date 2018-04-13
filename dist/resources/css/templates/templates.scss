@@ -1,6 +1,8 @@
 @import '../components/theme/_mixins';
 @import '../components/theme/_color-palette';
+@import '../components/typography/_mixins';
 
+// ---- Error ----
 .ats-error-block {
     display: flex;
     flex-direction: column;
@@ -18,6 +20,8 @@
         @include mdc-theme-prop(color,text-secondary-on-background);
     }
 }
+
+// ---- Progress ----
 .ats-progress-block {
     display: flex;
     flex-direction: column;
@@ -44,5 +48,34 @@
         span:nth-child(3) {
             animation-delay: .4s;
         }
+    }
+}
+
+// ---- Placeholder ----
+
+$ats-placeholder-color: text-secondary-on-background;
+
+.ats-placeholder {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+
+    &__content {
+        padding: 20px;
+    }
+
+    .mdc-typography {
+        @include mdc-theme-prop(color, $ats-placeholder-color);
+        @include mdc-typography(subheading2);
+        margin-top: 12px;
+        order: 1;
+        text-align: center;
+    }
+    .mdc-icon {
+        @include mdc-theme-prop(color, $ats-placeholder-color);
+        font-size: 48px;
+        order: 0;
     }
 }

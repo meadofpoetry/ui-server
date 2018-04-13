@@ -33,8 +33,10 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
     .mdc-drawer__drawer {
         min-height: 100vh;
         min-width: 500px;
+        max-width: 100vw;
         @media screen and (max-width: 500px) {
             width: 100vw;
+            min-width: initial;
         }
     }
     .ats-error-block, .ats-progress-block {
@@ -57,7 +59,6 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
             .mdc-tab {
                 min-width: 70px;
                 flex-grow: 1;
-                flex-basis: 0;
             }
         }
         &__body {

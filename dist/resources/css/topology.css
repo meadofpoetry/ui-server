@@ -82,10 +82,12 @@
 
 .topology__drawer .mdc-drawer__drawer {
   min-height: 100vh;
-  min-width: 500px; }
+  min-width: 500px;
+  max-width: 100vw; }
   @media screen and (max-width: 500px) {
     .topology__drawer .mdc-drawer__drawer {
-      width: 100vw; } }
+      width: 100vw;
+      min-width: initial; } }
 .topology__drawer .ats-error-block, .topology__drawer .ats-progress-block {
   padding: 20px; }
 .topology__drawer__header {
@@ -100,8 +102,7 @@
   display: none; }
 .topology__drawer .ats-simple-tabs__tabs .mdc-tab {
   min-width: 70px;
-  flex-grow: 1;
-  flex-basis: 0; }
+  flex-grow: 1; }
 .topology__drawer .ats-simple-tabs__body {
   margin: 20px; }
 .topology__drawer__close {

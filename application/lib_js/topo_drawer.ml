@@ -12,28 +12,6 @@ let make_header ~title () =
   let ()    = close#add_class @@ Markup.CSS.add_element base_class "close" in
   box,close#e_click,title#set_text
 
-let make_error e =
-  let _class = Markup.CSS.add_element base_class "error" in
-  let t  = new Typography.Text.t ~adjust_margin:false ~split:true ~text:e () in
-  let i  = new Icon.Font.t ~icon:"error" () in
-  let b  = new Box.t ~vertical:true ~widgets:[i#widget;t#widget] () in
-  let () = b#add_class _class in
-  b#widget
-
-let make_progress () =
-  let make_dot () = let dot = Dom_html.createSpan Dom_html.document |> Widget.create in
-                    dot#set_text_content ".";
-                    dot
-  in
-  let _class = Markup.CSS.add_element base_class "progress" in
-  let w  = new Circular_progress.t ~indeterminate:true () in
-  let p  = Dom_html.createP Dom_html.document |> Widget.create in
-  let () = p#set_text_content "Загрузка" in
-  let () = List.iter (fun _ -> Dom.appendChild p#root (make_dot ())#root) @@ List.range' 0 3 in
-  let b  = new Box.t ~vertical:true ~widgets:[w#widget;p#widget] () in
-  let () = b#add_class _class in
-  b#widget
-
 let make ?(anchor=`Right) ~title () =
   let header,e_close,set_title = make_header ~title () in
   let divider = new Divider.t () in
