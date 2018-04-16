@@ -43,9 +43,8 @@ module Plots = struct
                    else let c2 = compare l2 r2 in
                         if not (c2 = 0) then c2
                         else compare l3 r3
-                             
                end)
-           
+
   let chart ~typ ~metas ~(extract : Video_data.errors -> float) ~y_max ~y_min ~e () =
     let open Chartjs.Line in
     let pairs = List.mapi (fun idx pm -> ((pm.stream, pm.channel, pm.pid), idx),
@@ -166,7 +165,8 @@ module Structure = struct
       Printf.sprintf "Провайдер: %s"  ch.provider_name
     in
     let wl, sl = List.split @@ List.map make_pid ch.pids in
-    let ch_s   = React.S.map (fun pl -> {ch with pids = pl}) @@ React.S.merge ~eq:Equal.physical (fun a p -> p::a) [] sl in
+    let ch_s   = React.S.map (fun pl -> {ch with pids = pl})
+                 @@ React.S.merge ~eq:Equal.physical (fun a p -> p::a) [] sl in
     let nested = new Tree.t ~items:wl () in
     let e      = new Tree.Item.t ~text ~secondary_text:stext ~nested ()
     in e, ch_s
@@ -186,10 +186,13 @@ module Structure = struct
     in e, st_s
 
   let make_structure_list (sl : Structure.t list) =
-    let wl, sl = List.split @@ List.map make_structure sl in
-    let sl_s   = React.S.merge ~eq:Equal.physical (fun a p -> p::a) [] sl in
-    let lst    = new Tree.t ~items:wl () in
-    lst, React.S.map Option.return sl_s
+    match sl with
+    | [] -> let ph = Ui_templates.Placeholder.create_icon ~text:"Потоки не обнаружены" ~icon:"info" () in
+            ph#widget, React.S.const @@ Some []
+    | sl -> let wl, sl = List.split @@ List.map make_structure sl in
+            let sl_s   = React.S.merge ~eq:Equal.physical (fun a p -> p::a) [] sl in
+            let lst    = new Tree.t ~items:wl () in
+            lst#widget, React.S.map Option.return sl_s
 
   let make ~(init:  Structure.t list)
            ~(event: Structure.t list React.event)

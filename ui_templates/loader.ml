@@ -63,3 +63,4 @@ let create_loader ?text ?error_icon ?error_prefix ?on_error ?on_success t =
 
 let create_widget_loader ?text ?error_icon ?error_prefix ?parent t =
   new widget_loader ?text ?error_icon ?error_prefix ?parent t ()
+

@@ -338,7 +338,8 @@ video {
 .wm-items {
   flex-grow: 2; }
   .wm-items__add {
-    flex: 1 1 200px; }
+    flex: 1 1 200px;
+    position: relative; }
   .wm-items__add__wrapper {
     overflow-y: auto;
     overflow-x: hidden; }
@@ -479,7 +480,7 @@ video {
   height: 100%; }
   .wm-grid .wm-placeholder {
     z-index: 12; }
-    .wm-grid .wm-placeholder .ats-placeholder__content {
+    .wm-grid .wm-placeholder .mdc-placeholder__content {
       /* @alternate */
       background-color: #fff;
       background-color: var(--mdc-theme-background, #fff);

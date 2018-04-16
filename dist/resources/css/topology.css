@@ -173,6 +173,8 @@
     display: flex;
     justify-content: space-between;
     align-items: center; }
+    .topology__block__header__action {
+      margin-left: 10px; }
   .topology__block__body {
     padding: 0 20px;
     display: flex;

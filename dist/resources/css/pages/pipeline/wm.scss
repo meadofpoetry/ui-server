@@ -89,6 +89,7 @@ $wm-placeholder-color: text-secondary-on-background;
 
     &__add {
         flex: 1 1 200px;
+        position: relative;
     }
 
     &__add__wrapper {
@@ -246,7 +247,7 @@ $wm-placeholder-color: text-secondary-on-background;
 
     .wm-placeholder {
         z-index: 12;
-        .ats-placeholder__content {
+        .mdc-placeholder__content {
             @include mdc-theme-prop(background-color, background);
             border-radius: 4px;
         }

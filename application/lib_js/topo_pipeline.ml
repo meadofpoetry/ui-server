@@ -30,7 +30,7 @@ let make_settings () : (#Widget.widget,string) Lwt_result.t =
     Lwt_result.return w)
 
 let make ?error_prefix () : (#Widget.widget,string) Lwt_result.t =
-  let pgs  = Ui_templates.Progress.create_progress_block_lwt ?error_prefix ~replace:true in
+  let pgs  = Fun.(Ui_templates.Loader.create_widget_loader ?error_prefix %> Widget.coerce) in
   let sms  = make_streams () in
   let str  = make_structure () in
   let set  = make_settings () in
@@ -44,4 +44,5 @@ let make ?error_prefix () : (#Widget.widget,string) Lwt_result.t =
                set >>= (fun w -> w#destroy; Lwt_result.return ()) |> Lwt.ignore_result
   in
   tabs#set_on_destroy @@ Some fin;
+  print_endline "created tabs";
   Lwt_result.return tabs

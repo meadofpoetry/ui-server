@@ -132,22 +132,18 @@ let create ~(parent: #Widget.widget)
                |> React.E.select
   in
   let drawer,drawer_box,set_drawer_title = Topo_drawer.make ~title:"" () in
-  let _      =
+  let _ =
     React.E.map (fun node ->
         rm_children drawer_box#root;
         let error_prefix = "Ошибка при загрузке страницы" in
         let res = match node with
-          | `Board board ->
-             set_drawer_title @@ Topo_board.get_board_name board;
-             Topo_board.make_board_page ~error_prefix board
-          | `CPU cpu ->
-             set_drawer_title @@ Topo_cpu.get_cpu_name cpu;
-             Topo_cpu.make_cpu_page ~error_prefix cpu
+          | `Board board -> set_drawer_title @@ Topo_board.get_board_name board;
+                            Topo_board.make_board_page ~error_prefix board
+          | `CPU cpu     -> set_drawer_title @@ Topo_cpu.get_cpu_name cpu;
+                            Topo_cpu.make_cpu_page ~error_prefix cpu
         in
-        let pgs = Ui_templates.Progress.create_progress_block_lwt ~error_prefix ~replace:true res in
-        Dom.appendChild drawer_box#root pgs#root;
-        Lwt.Infix.(drawer#show_await
-                   >>= (fun () -> Lwt_result.bind res (fun w -> Lwt_result.return w#destroy)))
+        let pgs = Ui_templates.Loader.create_widget_loader ~parent:drawer_box ~error_prefix res in
+        Lwt.Infix.(drawer#show_await >>= (fun () -> pgs#iter (fun w -> w#destroy); Lwt.return_unit))
         |> Lwt.ignore_result) e_s
   in
   iter_paths (fun _ x -> Option.iter (fun sw -> Dom.appendChild parent#root sw#root) x#switch;
