@@ -141,19 +141,6 @@ let get_vdata_sock_pid sock_data body api stream channel pid () =
     let open Pipeline_protocol in
     get_sock sock_data body Video_data.to_yojson (React.E.filter pred api.vdata)
   with _ -> respond_error ~status:`Bad_request "bad request" ()
-
-let get_structures api input id () =
-  let open Pipeline_protocol in
-  Lwt_io.printf "req %s (%s)\n" input id |> ignore;
-  let input, id = (Result.get_exn @@ Common.Topology.input_of_string input), int_of_string id in
-  let input = Common.Topology.{ input; id } in
-  Lwt_io.printf "req fine\n" |> ignore;
-  Lwt.catch (fun () ->
-      api.model.struct_api.get_input input >>= fun (str, date) ->
-      Lwt_io.printf "here\n" |> ignore;
-      let s = Structure.Streams.to_yojson str in
-      respond_js (`Tuple [s; `String date]) ())
-    (function Failure e -> respond_error e ())
           
 let pipeline_handle api id meth args sock_data _ body =
   let is_guest = Common.User.eq id `Guest in
@@ -172,11 +159,46 @@ let pipeline_handle api id meth args sock_data _ body =
   | `GET,  ["vdata_sock";s]     -> get_vdata_sock_stream sock_data body api s ()
   | `GET,  ["vdata_sock";s;c]   -> get_vdata_sock_channel sock_data body api s c ()
   | `GET,  ["vdata_sock";s;c;p] -> get_vdata_sock_pid sock_data body api s c p ()
-  | `GET,  ["structures";i;num] -> get_structures api i num ()
   | _                           -> not_found ()
+
+(* TODO fix dat *)
+let of_seconds s =
+  int_of_string s
+  |> (fun s -> Ptime.add_span Ptime.epoch (Ptime.Span.of_int_s s))
+  |> function Some t -> Ptime.to_rfc3339 t | None -> failwith "of_seconds: failure"
+                                 
+let get_structures api input id () =
+  let open Pipeline_protocol in
+  let input, id = (Result.get_exn @@ Common.Topology.input_of_string input), int_of_string id in
+  let input = Common.Topology.{ input; id } in
+  Lwt.catch (fun () ->
+      api.model.struct_api.get_input input >>= fun (str, date) ->
+      let s = Structure.Streams.to_yojson str in
+      respond_js (`Tuple [s; `String date]) ())
+    (function Failure e -> respond_error e ())
+
+let get_structures_between api input id from to' () =
+  let open Pipeline_protocol in
+  let input, id = (Result.get_exn @@ Common.Topology.input_of_string input), int_of_string id in
+  let input = Common.Topology.{ input; id } in
+  Lwt.catch (fun () ->
+      api.model.struct_api.get_input_between input (of_seconds from) (of_seconds to') >>= fun l ->
+      let l = List.map (fun (str, date) -> `Tuple [Structure.Streams.to_yojson str; `String date]) l in
+      respond_js (`List l) ())
+    (function Failure e -> respond_error e ())
+                                 
+let archive_handle api id meth args sock_data _ body =
+  match meth, args with
+  | `GET,  ["structures";i;num]   -> get_structures api i num ()
+  | `GET,  ["structures_between";i;num;from;to'] -> get_structures_between api i num from to' ()
+  | _                             -> not_found ()               
                                  
 let handlers api =
   [ (module struct
        let domain = "pipeline"
        let handle = pipeline_handle api
+     end : Api_handler.HANDLER)
+  ; (module struct
+       let domain = "pipeline_archive"
+       let handle = archive_handle api
      end : Api_handler.HANDLER) ]
