@@ -86,7 +86,7 @@ class t ?(animating=true) ~(anchor:anchor) ~(content:#Widget.widget list) () =
       Dom_events.listen self#root open_event  (fun _ _ -> push true;  true) |> ignore;
       Dom_events.listen self#root close_event (fun _ _ -> push false; true) |> ignore;
 
-      Dom_events.listen Dom_html.window Dom_events.Typ.touchstart
+      Dom_events.listen self#root Dom_events.Typ.touchstart
         (fun _ ev -> let touch = Js.Optdef.get (ev##.changedTouches##item 0)
                                    (fun () -> failwith "touch fail")
                      in
