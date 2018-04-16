@@ -8,8 +8,10 @@ let make_streams () : (#Widget.widget,string) Lwt_result.t =
     let event,sock = Requests.get_stream_table_socket () in
     let w,s,set    = Streams_selector.make ~init ~event () in
     let a          = Ui_templates.Buttons.create_apply s set in
-    let ()         = w#set_on_destroy @@ Some (fun () -> sock##close) in
-    Lwt_result.return w)
+    let abox       = new Card.Actions.Buttons.t ~widgets:[a] () in
+    let box        = new Box.t ~vertical:true ~widgets:[w;abox#widget] () in
+    let ()         = box#set_on_destroy @@ Some (fun () -> sock##close) in
+    Lwt_result.return box#widget)
 
 let make_structure () : (#Widget.widget,string) Lwt_result.t =
   Pipeline_js.Requests.get_structure ()
@@ -17,8 +19,10 @@ let make_structure () : (#Widget.widget,string) Lwt_result.t =
     let event,sock = Pipeline_js.Requests.get_structure_socket () in
     let w,s,set    = Pipeline_js.Ui.Structure.make ~init ~event () in
     let a          = Ui_templates.Buttons.create_apply s set in
-    let ()         = w#set_on_destroy @@ Some (fun () -> sock##close) in
-    Lwt_result.return w)
+    let abox       = new Card.Actions.Buttons.t ~widgets:[a] () in
+    let box        = new Box.t ~vertical:true ~widgets:[w;abox#widget] () in
+    let ()         = box#set_on_destroy @@ Some (fun () -> sock##close) in
+    Lwt_result.return box#widget)
 
 let make_settings () : (#Widget.widget,string) Lwt_result.t =
   Pipeline_js.Requests.get_settings ()
@@ -26,8 +30,10 @@ let make_settings () : (#Widget.widget,string) Lwt_result.t =
     let event,sock = Pipeline_js.Requests.get_settings_socket () in
     let w,s,set    = Pipeline_js.Ui.Settings.make ~init ~event () in
     let a          = Ui_templates.Buttons.create_apply s set in
-    let ()         = w#set_on_destroy @@ Some (fun () -> sock##close) in
-    Lwt_result.return w)
+    let abox       = new Card.Actions.Buttons.t ~widgets:[a] () in
+    let box        = new Box.t ~vertical:true ~widgets:[w;abox#widget] () in
+    let ()         = box#set_on_destroy @@ Some (fun () -> sock##close) in
+    Lwt_result.return box#widget)
 
 let make ?error_prefix () : (#Widget.widget,string) Lwt_result.t =
   let pgs  = Fun.(Ui_templates.Loader.create_widget_loader ?error_prefix %> Widget.coerce) in

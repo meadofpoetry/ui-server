@@ -1,10 +1,12 @@
 open Containers
 open Components
 
-let create_simple_tabs (l:(Tabs.content*Widget.widget) list) =
+type simple_tab = Tabs.content * Widget.widget
+
+let create_simple_tabs (l:simple_tab list) =
   let hide   = fun w -> w#style##.display := Js.string "none" in
   let show   = fun w -> w#style##.display := Js.string "" in
-  let _class = "ats-simple-tabs" in
+  let _class = "mdc-simple-tabs" in
   let tabs = List.map (fun (c,w) -> ({ href     = None
                                      ; content  = c
                                      ; disabled = false

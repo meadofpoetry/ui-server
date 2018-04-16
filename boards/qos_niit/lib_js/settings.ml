@@ -63,15 +63,15 @@ let make_t2mi_mode ~(init:    t2mi_mode option)
   let sid,set_sid,s_sid,dis_sid = make_t2mi_sid init in
   let ss = make_stream_select streams in
   let s : t2mi_mode_request option React.signal =
-    React.S.l3 (fun en pid sid ->
-        match en,pid,sid with
-        | true,Some pid,Some sid -> Some (Some { enabled = en
-                                               ; pid
-                                               ; t2mi_stream_id = sid
-                                               ; stream = Common.Stream.Single })
-        | false,_,_              -> Some None
-        | _                      -> None)
-               s_en s_pid s_sid
+    React.S.l4 (fun en pid sid state->
+        match en,pid,sid,state with
+        | true,Some pid,Some sid,`Fine -> Some (Some { enabled = en
+                                                     ; pid
+                                                     ; t2mi_stream_id = sid
+                                                     ; stream = Common.Stream.Single })
+        | false,_,_,`Fine              -> Some None
+        | _                            -> None)
+               s_en s_pid s_sid state
   in
   let _   = React.S.l2 (fun state en -> let is_disabled = match state with
                                           | `Fine -> false

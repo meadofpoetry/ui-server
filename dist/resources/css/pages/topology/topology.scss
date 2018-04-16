@@ -39,9 +39,6 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
             min-width: initial;
         }
     }
-    .ats-error-block, .ats-progress-block {
-        padding: 20px;
-    }
     &__header {
         padding: 0 20px;
         min-height: 64px;
@@ -51,7 +48,7 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
             min-height: 56px;
         }
     }
-    .ats-simple-tabs {
+    .mdc-simple-tabs {
         &__tabs {
             .mdc-tab-bar-scroller__indicator {
                 display: none;

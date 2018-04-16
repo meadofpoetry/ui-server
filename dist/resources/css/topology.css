@@ -88,8 +88,6 @@
     .topology__drawer .mdc-drawer__drawer {
       width: 100vw;
       min-width: initial; } }
-.topology__drawer .ats-error-block, .topology__drawer .ats-progress-block {
-  padding: 20px; }
 .topology__drawer__header {
   padding: 0 20px;
   min-height: 64px;
@@ -98,12 +96,12 @@
   @media screen and (max-width: 599px) {
     .topology__drawer__header {
       min-height: 56px; } }
-.topology__drawer .ats-simple-tabs__tabs .mdc-tab-bar-scroller__indicator {
+.topology__drawer .mdc-simple-tabs__tabs .mdc-tab-bar-scroller__indicator {
   display: none; }
-.topology__drawer .ats-simple-tabs__tabs .mdc-tab {
+.topology__drawer .mdc-simple-tabs__tabs .mdc-tab {
   min-width: 70px;
   flex-grow: 1; }
-.topology__drawer .ats-simple-tabs__body {
+.topology__drawer .mdc-simple-tabs__body {
   margin: 20px; }
 .topology__drawer__close {
   margin-left: 20px; }

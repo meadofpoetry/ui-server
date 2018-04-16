@@ -188,7 +188,7 @@ module Structure = struct
   let make_structure_list (sl : Structure.t list) =
     match sl with
     | [] -> let ph = Ui_templates.Placeholder.create_icon ~text:"Потоки не обнаружены" ~icon:"info" () in
-            ph#widget, React.S.const @@ Some []
+            ph#widget, React.S.const None
     | sl -> let wl, sl = List.split @@ List.map make_structure sl in
             let sl_s   = React.S.merge ~eq:Equal.physical (fun a p -> p::a) [] sl in
             let lst    = new Tree.t ~items:wl () in
