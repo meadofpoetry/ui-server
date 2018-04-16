@@ -147,16 +147,17 @@ let set_stream hw (ss : stream_setting) =
          with Not_found ->
            raise_notrace (Constraints (`Internal_error "set_stream: no control found"))
      in
-     let rec rebuild acc = function
+     let rec rebuild_boards acc streams = function
        | [] -> acc
-       | ((`Board id, s), uri)::tl ->
+       | (`Input _, _)::tl -> rebuild_boards acc streams tl
+       | (`Board id, _)::tl ->
           let same, rest = List.partition_map (function ((`Board bid,bs),buri) as v ->
-                               if id = bid
-                               then `Left  (buri,bs)
-                               else `Right v
-                             ) tl
+                                                 if id = bid
+                                                 then `Left  (buri,bs)
+                                                 else `Right v
+                             ) streams
           in
-          rebuild ((`Board id, (uri,s)::same)::acc) rest
+          rebuild_boards ((`Board id, same)::acc) rest tl
      in
      let rec input_add_uri (`Input i, sl) =
        let open Common.Stream in
@@ -186,7 +187,7 @@ let set_stream hw (ss : stream_setting) =
      let inputs = List.map input_add_uri inputs in
      let forbidden = grep_input_uris [] inputs in
      let boards = match Common.Uri.gen_in_ranges ~forbidden (List.concat boards) with
-       | Ok boards -> rebuild [] boards
+       | Ok boards -> rebuild_boards [] boards ss
        | Error ()  -> raise_notrace (Constraints (`Internal_error "set_stream: uri generation failure"))
      in
      inputs @ boards
@@ -232,3 +233,4 @@ let set_stream hw (ss : stream_setting) =
       
 let finalize hw =
   Usb_device.finalize hw.usb;
+  Map.iter (fun _ b -> b.state#finalize ()) hw.boards

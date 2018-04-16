@@ -1,7 +1,6 @@
 open Containers
 open Board_types
 open Components
-open Boards_js.Types
 
 let (%>) = Fun.(%>)
 
@@ -90,7 +89,7 @@ let make_module_settings ~(id:    int)
                          ~(event: config_item React.event)
                          ~(state: Common.Topology.state React.signal)
                          control
-                         () : (settings_request,settings_response) settings_block =
+                         () : (settings_request,settings_response) Ui_templates.Types.settings_block =
   let mode,set_mode = make_mode init.mode in
   let t2_box,s_t2 = make_mode_box ~mode:T2 ~state ~init:init.t2 ~event:(React.E.map (fun x -> x.t2) event) () in
   let t_box,s_t   = make_mode_box ~mode:T  ~state ~init:init.t  ~event:(React.E.map (fun x -> x.t)  event) () in

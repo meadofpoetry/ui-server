@@ -22,38 +22,29 @@ type 'a request = 'a Board_protocol.request
 
 let create_sm = Board_protocol.SM.create
 
-let create (b:topo_board) _ convert_streams send db base step =
+let create (b:topo_board) incoming_streams convert_streams send db base step =
   let storage          = Config_storage.create base ["board"; (string_of_int b.control)] in
   let s_state, spush   = React.S.create `No_response in
+  let s_inp,s_inp_push = React.S.create storage#get.mode.input in
   let events,api,step  = create_sm send storage spush step in
-  let handlers         = Board_api.handlers b.control api events s_state in
-  let s_asi,s_asi_push = React.S.create false in
-  let s_spi,s_spi_push = React.S.create false in
-  let e_status         = React.E.map (fun (x : user_status) -> match x.mode.input with
-                                                               | SPI -> s_spi_push true; s_asi_push false
-                                                               | ASI -> s_asi_push true; s_spi_push false)
-                                     events.status in
-  let s_streams        = React.S.map (fun x ->
-                             let open Common.Stream in
-                             List.map (fun x : stream ->
-                                               { source      = (match x with
-                                                                | T2mi_plp _ -> Stream Single
-                                                                | _          -> Port (if React.S.value s_spi
-                                                                                      then 0
-                                                                                      else 1))
-                                               ; id          = `Ts x
-                                               ; description = Some "" }) x)
-                                     events.streams in
+  (* FIXME incoming streams should be modified to include streams that are detected by the board itself *)
+  let handlers         = Board_api.handlers b.control api events s_state s_inp incoming_streams in
+  let e_status         = React.E.map (fun (x : user_status) -> s_inp_push x.mode.input) events.status in
+  let s_streams        =
+    React.S.l2 (fun x inp ->
+        let open Common.Stream in
+        List.map (fun x : stream ->
+                          { source = (match x with
+                                      | T2mi_plp _ -> Stream Single
+                                      | _          -> Port (match inp with SPI -> 0 | ASI -> 1))
+                          ; id          = `Ts x
+                          ; description = Some "" }) x) events.streams s_inp
+  in
   let sms = convert_streams s_streams b in
-  let _e = React.E.map (fun s ->
-               `List (List.map Common.Stream.to_yojson s)
-               |> Yojson.Safe.pretty_to_string
-               (* |> Lwt_io.printf "QOS sms: %s\n" *)
-               |> ignore;) @@ React.S.changes sms in
   let state           = (object
                            method e_status   = e_status;
                            method s_streams = s_streams;
-                           method _e = _e;
+                           method finalize () = ()
                          end) in
   { handlers       = handlers
   ; control        = b.control
@@ -62,13 +53,13 @@ let create (b:topo_board) _ convert_streams send db base step =
   ; connection     = s_state
   ; ports_active   = (List.fold_left (fun acc p ->
                           (match p.port with
-                           | 0 -> s_spi
-                           | 1 -> s_asi
+                           | 0 -> React.S.map (function SPI -> true | _ -> false) s_inp
+                           | 1 -> React.S.map (function ASI -> true | _ -> false) s_inp
                            | x -> raise (Invalid_port ("Board_qos_niit: invalid port " ^ (string_of_int x))))
                           |> fun x -> Ports.add p.port x acc)
-                        Ports.empty b.ports)
+                                     Ports.empty b.ports)
   ; settings_page  = ("QOS", React.S.const (Tyxml.Html.div []))
   ; widgets_page   = [("QOS", React.S.const (Tyxml.Html.div []))]
   ; stream_handler = None
-  ; state          = (state :> < >)
+  ; state          = (state :> < finalize : unit -> unit >)
   }

@@ -19,23 +19,25 @@ end
 
 module Config_storage = Storage.Options.Make (Data)
 
-module Storage : sig
+module Board_model : sig
   type _ req =
-    | Store_measures : Board_types.measure_response -> unit Lwt.t req
-  include (Storage.Database.STORAGE with type 'a req := 'a req)
+    | Store_measures : Board_types.measure_response -> unit req
+  include (Storage.Database.MODEL with type 'a req := 'a req)
 end = Db
+
+module Database = Storage.Database.Make(Board_model)
     
 type 'a request = 'a Board_protocol.request
 
 let create_sm = Board_protocol.SM.create
 
-let create (b:topo_board) _ convert_streams send db base step =
+let create (b:topo_board) _ convert_streams send db_conf base step =
   let storage      = Config_storage.create base ["board"; (string_of_int b.control)] in
   let s_state, spush = React.S.create `No_response in
   let events, api, step = create_sm send storage spush step in
   let handlers = Board_api.handlers b.control api events s_state in (* XXX temporary *)
-  Lwt_main.run @@ Storage.init db;
-  let _s = Lwt_react.E.map_p (fun m -> Storage.request db (Storage.Store_measures m))
+  let db = Result.get_exn @@ Database.create db_conf in
+  let _s = Lwt_react.E.map_p (fun m -> Database.request db (Board_model.Store_measures m))
            @@ React.E.changes events.measure in
   let s_streams = React.S.fold
                     (fun (streams : Common.Stream.stream list)
@@ -57,6 +59,8 @@ let create (b:topo_board) _ convert_streams send db base step =
                     [] events.measure in
   let state = (object
                  method _s = _s;
+                 method db = db;
+                 method finalize () = Database.finalize db
                end) in
   { handlers       = handlers
   ; control        = b.control
@@ -72,5 +76,5 @@ let create (b:topo_board) _ convert_streams send db base step =
   ; settings_page  = ("DVB", React.S.const (Tyxml.Html.div []))
   ; widgets_page   = [("DVB", React.S.const (Tyxml.Html.div []))]
   ; stream_handler = None
-  ; state          = (state :> < >)
+  ; state          = (state :> < finalize : unit -> unit >)
   }

@@ -1,11 +1,13 @@
 open Containers
 open Storage.Database
 open Lwt.Infix
-      
+   
 type _ req =
-  | Store_structures : Structure.t list -> unit Lwt.t req
+  | Store_structures : Structure.t list -> unit req
 
-let init o =
+let name = "pipeline"
+  
+let init (module Db : Caqti_lwt.CONNECTION) =
   let create_video =
     Caqti_request.exec Caqti_type.unit
       {eos|CREATE TABLE IF NOT EXISTS qoe_video_errors(
@@ -19,11 +21,11 @@ let init o =
        date   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
        )|eos}
   in
-  Storage.Database.exec o create_video () >>= function
+  Db.exec create_video () >>= function
   | Ok v    -> Lwt.return v
-  | Error _ -> Lwt.fail_with "init"
-             
-let store_structures dbs streams =
+  | Error _ -> Lwt.fail_with "pipeline: init"
+
+let store_structures (module Db : Caqti_lwt.CONNECTION) streams =
   let insert =
     Caqti_request.exec Caqti_type.(tup2 string string)
                        "INSERT INTO streams(input, value) VALUES (?,?)"
@@ -38,9 +40,29 @@ let store_structures dbs streams =
       (Lwt.return_ok ()) s
     >>= function
     | Ok v    -> Lwt.return v
-    | Error _ -> Lwt.fail_with "store_structures"
-  in Storage.Database.with_connection dbs store_structures'
+    | Error _ -> Lwt.fail_with "pipeline: store_structures"
+  in store_structures' (module Db)
 
-let request (type a) dbs (r : a req) : a =
+let request (type a) dbs (r : a req) : a Lwt.t =
   match r with
   | Store_structures s -> store_structures dbs s
+
+let cleanup (module Db : Caqti_lwt.CONNECTION) =
+  let cleanup' =
+    Caqti_request.exec Caqti_type.unit
+      "DELETE FROM qoe_video_errors WHERE date <= date('now','-2 day')"
+  in
+  Db.exec cleanup' () >>= function
+  | Ok ()   -> Lwt.return ()
+  | Error _ -> Lwt.fail_with "pipeline: cleanup"
+
+let delete (module Db : Caqti_lwt.CONNECTION) =
+  let delete' =
+    Caqti_request.exec Caqti_type.unit
+      "DELETE FROM qoe_video_errors"
+  in
+  Db.exec delete' () >>= function
+  | Ok ()   -> Lwt.return ()
+  | Error _ -> Lwt.fail_with "pipeline: delete"
+
+let worker = None

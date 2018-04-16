@@ -67,6 +67,9 @@ let get_bitrates api () =
   api.get_bitrates () >>= fun bitrates ->
   respond_js (ts_structs_to_yojson bitrates) ()
 
+let get_incoming_streams streams () =
+  respond_js (Common.Stream.t_list_to_yojson @@ React.S.value streams) ()
+
 let get_state s_state () =
   respond_js (Common.Topology.state_to_yojson @@ React.S.value s_state) ()
 
@@ -119,36 +122,46 @@ let t2mi_info_ws sock_data (events : events) body =
 let jitter_ws sock_data (events : events) body =
   sock_handler sock_data events.jitter jitter_to_yojson body
 
-let handle api events s_state _ meth args sock_data _ body =
+let incoming_streams_ws sock_data streams body =
+  sock_handler sock_data (Lwt_react.S.changes streams) Common.Stream.t_list_to_yojson body
+
+let handle api events s_state s_input streams _ meth args sock_data _ body =
   let open Api.Redirect in
   match meth, args with
-  | `POST, ["reset"]          -> reset api ()
-  | `POST, ["mode"]           -> set_mode api body ()
-  | `POST, ["input"]          -> set_input api body ()
-  | `POST, ["t2mi_mode"]      -> set_t2mi_mode api body ()
-  | `POST, ["jitter_mode"]    -> set_jitter_mode api body ()
+  | `POST, ["reset"]              -> reset api ()
+  | `POST, ["mode"]               -> set_mode api body ()
+  | `POST, ["input"]              -> set_input api body ()
+  | `POST, ["port";id;set]        -> (match (Option.flat_map Board_parser.input_of_int @@ Int.of_string id), set with
+                                      | Some i, "set"     -> api.set_input i >>= respond_ok
+                                      | Some ASI, "unset" -> api.set_input SPI >>= respond_ok
+                                      | Some SPI, "unset" -> api.set_input ASI >>= respond_ok
+                                      | _                 -> not_found ())
+  | `POST, ["t2mi_mode"]          -> set_t2mi_mode api body ()
+  | `POST, ["jitter_mode"]        -> set_jitter_mode api body ()
 
-  | `GET, ["config"]          -> config api ()
-  | `GET, ["devinfo"]         -> devinfo api ()
-  | `GET, "t2mi_seq"::[sec]   -> get_t2mi_seq api sec ()
-  | `GET, ["structs"]         -> get_structs api ()
-  | `GET, ["bitrates"]        -> get_bitrates api ()
-  | `GET, ["state"]           -> get_state s_state ()
+  | `GET, ["config"]              -> config api ()
+  | `GET, ["devinfo"]             -> devinfo api ()
+  | `GET, "t2mi_seq"::[sec]       -> get_t2mi_seq api sec ()
+  | `GET, ["structs"]             -> get_structs api ()
+  | `GET, ["bitrates"]            -> get_bitrates api ()
+  | `GET, ["state"]               -> get_state s_state ()
+  | `GET, ["incoming_streams"]    -> get_incoming_streams streams ()
 
-  | `GET, ["state_ws"]        -> state_ws sock_data s_state body
-  | `GET, ["config_ws"]       -> config_ws sock_data events body
-  | `GET, ["status_ws"]       -> status_ws sock_data events body
-  | `GET, ["ts_errors_ws"]    -> ts_errors_ws sock_data events body
-  | `GET, ["t2mi_errors_ws"]  -> t2mi_errors_ws sock_data events body
-  | `GET, ["board_errors_ws"] -> board_errors_ws sock_data events body
-  | `GET, ["bitrate_ws"]      -> bitrate_ws sock_data events body
-  | `GET, ["structs_ws"]      -> structs_ws sock_data events body
-  | `GET, ["t2mi_info_ws"]    -> t2mi_info_ws sock_data events body
-  | `GET, ["jitter_ws"]       -> jitter_ws sock_data events body
+  | `GET, ["state_ws"]            -> state_ws sock_data s_state body
+  | `GET, ["config_ws"]           -> config_ws sock_data events body
+  | `GET, ["status_ws"]           -> status_ws sock_data events body
+  | `GET, ["ts_errors_ws"]        -> ts_errors_ws sock_data events body
+  | `GET, ["t2mi_errors_ws"]      -> t2mi_errors_ws sock_data events body
+  | `GET, ["board_errors_ws"]     -> board_errors_ws sock_data events body
+  | `GET, ["bitrate_ws"]          -> bitrate_ws sock_data events body
+  | `GET, ["structs_ws"]          -> structs_ws sock_data events body
+  | `GET, ["t2mi_info_ws"]        -> t2mi_info_ws sock_data events body
+  | `GET, ["jitter_ws"]           -> jitter_ws sock_data events body
+  | `GET, ["incoming_streams_ws"] -> incoming_streams_ws sock_data streams body
   | _ -> not_found ()
 
-let handlers id api events s_state =
+let handlers id api events s_state s_input streams =
   [ (module struct
        let domain = Common.Topology.get_api_path id
-       let handle = handle api events s_state
+       let handle = handle api events s_state s_input streams
      end : Api_handler.HANDLER) ]

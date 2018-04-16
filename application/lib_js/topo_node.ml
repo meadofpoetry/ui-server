@@ -41,6 +41,7 @@ class parent ~(connections:(#t * connection_point) list)
                                       let f_rp = fun () -> Topo_path.get_input_point ~num i body in
                                       new Topo_path.t
                                           ~left_node:x#node
+                                          ~right_node:node
                                           ~right_point:p
                                           ~f_lp ~f_rp ()) connections
   in
@@ -48,4 +49,11 @@ class parent ~(connections:(#t * connection_point) list)
     inherit t ~node ~body elt () as super
     method layout = super#layout; List.iter (fun p -> p#layout) self#paths
     method paths : Topo_path.t list = cw
+
+    method private switches : Topo_path.switch list = List.filter_map (fun x -> x#switch) self#paths
+    method private s_switch_changing =
+      List.map (fun x -> x#s_changing) self#switches
+      |> React.S.merge ~eq:Bool.equal (fun _ x -> x) false
+    initializer
+      React.S.map (fun x -> List.iter (fun s -> s#set_changing x) self#switches) self#s_switch_changing |> ignore;
   end

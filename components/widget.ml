@@ -23,13 +23,21 @@ let to_rect (x:Dom_html.clientRect Js.t) =
 
 class widget (elt:#Dom_html.element Js.t) () = object(self)
 
-  val mutable _on_load   = None
-  val mutable _on_unload = None
-  val mutable _in_dom    = false
-  val mutable _observer  = None
+  val mutable _on_destroy = None
+  val mutable _on_load    = None
+  val mutable _on_unload  = None
+  val mutable _in_dom     = false
+  val mutable _observer   = None
 
   method root   : Dom_html.element Js.t = (elt :> Dom_html.element Js.t)
   method widget : widget = (self :> widget)
+
+  method set_on_destroy f = _on_destroy <- f
+
+  method destroy : unit =
+    self#set_on_load None;
+    self#set_on_unload None;
+    Option.iter (fun f -> f ()) _on_destroy
 
   method get_child_element_by_class x = Js.Opt.to_option @@ self#root##querySelector (Js.string ("." ^ x))
   method get_child_element_by_id    x = Js.Opt.to_option @@ self#root##querySelector (Js.string ("#" ^ x))
@@ -74,6 +82,10 @@ class widget (elt:#Dom_html.element Js.t) () = object(self)
   method get_scroll_top    = self#root##.scrollTop
   method get_scroll_width  = self#root##.scrollWidth
   method get_scroll_height = self#root##.scrollHeight
+
+  method set_empty =
+    Dom.list_of_nodeList @@ self#root##.childNodes
+    |> List.iter (fun x -> Dom.removeChild self#root x)
 
   method get_bounding_client_rect = (self#root##getBoundingClientRect)
                                     |> (fun x -> { top    = x##.top
@@ -152,12 +164,12 @@ class radio_or_cb_widget ~input_elt elt () =
     inherit input_widget ~input_elt elt ()
 
     method set_checked x = input_elt##.checked := Js.bool x; s_state_push x
-    method get_checked   = Js.to_bool input_elt##.checked
+    method checked       = Js.to_bool input_elt##.checked
 
     method s_state = s_state
 
     initializer
-      Dom_events.listen input_elt Dom_events.Typ.change (fun _ _ -> s_state_push self#get_checked; false)
+      Dom_events.listen input_elt Dom_events.Typ.change (fun _ _ -> s_state_push self#checked; false)
       |> ignore;
 
   end

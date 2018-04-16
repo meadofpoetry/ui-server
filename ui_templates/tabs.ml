@@ -1,23 +1,12 @@
 open Containers
 open Components
 
-let base_class = "topology__drawer"
-
-let make_apply : type a b. (a option React.signal) -> (a -> (b,string) Lwt_result.t) -> Widget.widget =
-  fun s f ->
-  let b = new Button.t ~label:"Применить" () in
-  let _ = React.S.map (function Some _ -> b#set_disabled false
-                              | None   -> b#set_disabled true) s
-  in
-  let _ = React.E.map (fun _ -> Option.iter (fun s -> f s |> ignore) @@ React.S.value s) b#e_click in
-  b#widget
-
-let make_tabs (l:(string*Widget.widget) list) =
+let create_simple_tabs (l:(Tabs.content*Widget.widget) list) =
   let hide   = fun w -> w#style##.display := Js.string "none" in
   let show   = fun w -> w#style##.display := Js.string "" in
-  let _class = Markup.CSS.add_element base_class "dynamic-content" in
-  let tabs = List.map (fun (n,w) -> ({ href     = None
-                                     ; content  = `Text n
+  let _class = "ats-simple-tabs" in
+  let tabs = List.map (fun (c,w) -> ({ href     = None
+                                     ; content  = c
                                      ; disabled = false
                                      ; value    = w } : Widget.widget Tabs.tab))
                       l
