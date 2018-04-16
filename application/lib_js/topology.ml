@@ -144,7 +144,7 @@ let create ~(parent: #Widget.widget)
              set_drawer_title @@ Topo_cpu.get_cpu_name cpu;
              Topo_cpu.make_cpu_page ~error_prefix cpu
         in
-        let pgs = Ui_templates.Progress.create_progress_block_lwt ~error_prefix ~get:(fun x -> x) res in
+        let pgs = Ui_templates.Progress.create_progress_block_lwt ~error_prefix ~replace:true res in
         Dom.appendChild drawer_box#root pgs#root;
         Lwt.Infix.(drawer#show_await
                    >>= (fun () -> Lwt_result.bind res (fun w -> Lwt_result.return w#destroy)))
