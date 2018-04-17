@@ -3,7 +3,7 @@
 (library
  ((name        board_dvb_niit_js)
   (public_name board-dvb-niit-js)
-  (modules     (requests board_types settings measures ui channel topo_page))
+  (modules     (requests board_types settings measures ui channel topo_page input_page))
   (synopsis "js interface of the dvb_niit board")
   (libraries (containers common api-js components chartjs boards-js ui-templates))
   (flags (:standard -short-paths -strict-sequence -bin-annot

@@ -52,35 +52,36 @@ class ['a,'b] t ~(options:'a) ~typ ~data () =
              ; "data", data ]
              |> Array.of_list
              |> Js.Unsafe.obj in
-  object
+  object(self)
 
     constraint 'b = #Options.t_js
     constraint 'a = 'b #Options.t
 
-    val chart = new%js constr elt conf
+    val _canvas = Components.Widget.create elt
+    val _chart  = new%js constr elt conf
     inherit Components.Widget.widget elt () as super
 
-    method get_canvas_element = elt
-    method set_width x        = super#set_attribute "width"  @@ string_of_int x
-    method set_height x       = super#set_attribute "height" @@ string_of_int x
+    method canvas        = _canvas
+    method set_width x   = self#canvas#set_attribute "width"  @@ string_of_int x
+    method set_height x  = self#canvas#set_attribute "height" @@ string_of_int x
 
-    method destroy = chart##destroy
+    method destroy = _chart##destroy
     method update  = function
-      | Some c -> chart##update_conf (config_to_obj c)
-      | None   -> chart##update
-    method reset   = chart##reset
+      | Some c -> _chart##update_conf (config_to_obj c)
+      | None   -> _chart##update
+    method reset   = _chart##reset
     method render  = function
-      | Some c -> chart##render_conf (config_to_obj c)
-      | None   -> chart##render
-    method stop    = chart##stop   |> ignore
-    method resize  = chart##resize |> ignore
-    method clear   = chart##clear  |> ignore
+      | Some c -> _chart##render_conf (config_to_obj c)
+      | None   -> _chart##render
+    method stop    = _chart##stop   |> ignore
+    method layout  = _chart##resize |> ignore
+    method clear   = _chart##clear  |> ignore
 
-    method to_png_image    = chart##toBase64Image  |> Js.to_string
-    method generate_legend = chart##generateLegend |> Js.to_string
+    method to_png_image    = _chart##toBase64Image  |> Js.to_string
+    method generate_legend = _chart##generateLegend |> Js.to_string
 
     method options = options
 
     initializer
-      options#replace (Js.Unsafe.coerce chart)##.options
+      options#replace (Js.Unsafe.coerce _chart)##.options
   end

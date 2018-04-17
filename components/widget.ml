@@ -39,6 +39,8 @@ class widget (elt:#Dom_html.element Js.t) () = object(self)
     self#set_on_unload None;
     Option.iter (fun f -> f ()) _on_destroy
 
+  method layout = ()
+
   method get_child_element_by_class x = Js.Opt.to_option @@ self#root##querySelector (Js.string ("." ^ x))
   method get_child_element_by_id    x = Js.Opt.to_option @@ self#root##querySelector (Js.string ("#" ^ x))
 

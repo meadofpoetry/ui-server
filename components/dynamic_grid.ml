@@ -56,7 +56,14 @@ class ['a] t ~grid ~(items:'a item list) () =
 
     inherit Widget.widget elt ()
 
-    val overlay_grid      = new overlay_grid ~parent:elt ()
+    val _overlay_grid     = new overlay_grid
+                                ~parent:elt
+                                ~s_col_w
+                                ~s_row_h
+                                ~s_cols:(React.S.map (fun g -> g.cols) s_grid)
+                                ~s_rows
+                                ~s_im:(React.S.map (fun g -> g.items_margin) s_grid)
+                                ()
     val _s_selected       = React.S.map (fun x -> x) s_selected
     val _e_selected       = React.S.changes s_selected
 
@@ -75,7 +82,7 @@ class ['a] t ~grid ~(items:'a item list) () =
     method get_item_margin   = self#grid.items_margin
     method set_item_margin x = s_grid_push { self#grid with items_margin = x }
 
-    method overlay_grid = overlay_grid
+    method overlay_grid = _overlay_grid
 
     method add (x:'a item) =
       let items = List.map (fun x -> x#pos) (React.S.value s_items) in
@@ -97,16 +104,11 @@ class ['a] t ~grid ~(items:'a item list) () =
                    let mx   = fst self#get_item_margin in
                    let col  = (w - mx) / self#grid.cols in
                    let col  = if col < mx + 1 then mx + 1 else col in
-                   let rn   = match self#grid.rows with
-                     | Some rows -> rows
-                     | None      -> (React.S.value s_rows)
-                   in
                    s_col_w_push col;
                    self#style##.width :=
                      Js.string @@ Printf.sprintf "%dpx" (col * self#grid.cols + mx);
-                   overlay_grid#show_dividers;
-                   overlay_grid#layout ~cw:col ~cn:self#grid.cols ~rh:(React.S.value s_row_h) ~rn
-                   ~im:self#get_item_margin
+                   _overlay_grid#show_dividers;
+                   _overlay_grid#layout
        | None   -> ())
 
     (** Private methods **)

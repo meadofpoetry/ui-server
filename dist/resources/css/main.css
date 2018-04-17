@@ -655,6 +655,15 @@
 .mdc-placeholder--progress .mdc-placeholder__text span:nth-child(3) {
   animation-delay: .4s; }
 
+.mdc-absolute-fab, .mdc-fixed-fab {
+  position: absolute; }
+  .mdc-absolute-fab--right-bottom, .mdc-fixed-fab--right-bottom {
+    bottom: 1rem;
+    right: 1rem; }
+
+.mdc-fixed-fab {
+  position: fixed; }
+
 :root {
   --mdc-box-margin: 0px; }
 

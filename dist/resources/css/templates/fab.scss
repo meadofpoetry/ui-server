@@ -1,0 +1,10 @@
+.mdc-absolute-fab, .mdc-fixed-fab {
+    position: absolute;
+    &--right-bottom {
+        bottom: 1rem;
+        right: 1rem;
+    }
+}
+.mdc-fixed-fab {
+    position: fixed;
+}
