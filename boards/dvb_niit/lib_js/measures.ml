@@ -20,7 +20,18 @@ type 'a config =
   ; duration : Int64.t
   }
 
-type 'a chart = (int64,int64 Chartjs.Axes.Cartesian.Time.t,'a,'a Chartjs.Axes.Cartesian.Linear.t) Chartjs.Line.t
+type 'a range =
+  { min : 'a option
+  ; max : 'a option
+  }
+
+type 'a chart_range =
+  { suggested : 'a range
+  ; strict    : 'a range
+  }
+
+type 'a y_axis = 'a Chartjs.Axes.Cartesian.Linear.t
+type 'a chart  = (int64,int64 Chartjs.Axes.Cartesian.Time.t,'a,'a Chartjs.Axes.Cartesian.Linear.t) Chartjs.Line.t
 
 let chart_name_of_typ : type a. a typ -> string= function
   | Power   -> "Мощность"
@@ -29,9 +40,23 @@ let chart_name_of_typ : type a. a typ -> string= function
   | Freq    -> "Частота"
   | Bitrate -> "Битрейт"
 
+let range_of_typ : type a. a typ -> a chart_range = function
+  | Power   -> { strict = { min = None; max = Some 0. }; suggested = { min = Some (-100.); max = None }}
+  | Mer     -> { strict = { min = Some 0.; max = None }; suggested = { min = None; max = Some 50. }}
+  | Ber     -> { strict = { min = Some 0.; max = None }; suggested = { min = None; max = None }}
+  | Freq    -> { strict = { min = Some 0l; max = None }; suggested = { min = None; max = Some 100000l }}
+  | Bitrate -> { strict = { min = Some 0l; max = None }; suggested = { min = None; max = Some 50000000l }}
+
 let get_label id = Printf.sprintf "Модуль %d" id
 
 let colors = Color.([ Indigo C500; Amber C500; Green C500; Cyan C500 ])
+
+let set_range : type a.  a y_axis -> a typ -> unit = fun axis typ ->
+  let range = range_of_typ typ in
+  Option.iter axis#ticks#set_min range.strict.min;
+  Option.iter axis#ticks#set_max range.strict.max;
+  Option.iter axis#ticks#set_suggested_min range.suggested.min;
+  Option.iter axis#ticks#set_suggested_max range.suggested.max
 
 let make_chart_base ~(typ:    'a Axes.numeric)
                     ~(config: 'a config)
@@ -43,21 +68,22 @@ let make_chart_base ~(typ:    'a Axes.numeric)
                                 | Some i -> x,List.map conv i
                                 | None   -> x,[]) config.modules in
   let data = List.map (fun (id,data) -> Chartjs.Line.({ data = data; label = get_label id })) init in
-  let config = Chartjs.Line.(new Config.t
-                                 ~x_axis:(Time ("my-x-axis",Bottom,Unix,Some config.duration))
-                                 ~y_axis:(Linear ("my-y-axis",Left,typ,None))
-                                 ~data
-                                 ())
+  let conf = Chartjs.Line.(new Config.t
+                               ~x_axis:(Time ("my-x-axis",Bottom,Unix,Some config.duration))
+                               ~y_axis:(Linear ("my-y-axis",Left,typ,None))
+                               ~data
+                               ())
   in
   List.iteri (fun i x -> let clr = Option.get_or ~default:(Color.Red C500) @@ List.get_at_idx i colors in
                          x#set_background_color @@ Color.rgb_of_name clr;
                          x#set_border_color     @@ Color.rgb_of_name clr;
                          x#set_cubic_interpolation_mode Chartjs.Line.Monotone;
                          x#set_fill Chartjs.Line.Disabled)
-             config#datasets;
-  config#options#x_axis#ticks#set_auto_skip_padding 2;
-  config#options#set_maintain_aspect_ratio false;
-  let chart = new Chartjs.Line.t ~config () in
+             conf#datasets;
+  conf#options#x_axis#ticks#set_auto_skip_padding 2;
+  conf#options#set_maintain_aspect_ratio false;
+  set_range conf#options#y_axis config.typ;
+  let chart = new Chartjs.Line.t ~config:conf () in
   let set   = fun ds data -> List.iter (fun point -> ds#push point) @@ List.map conv data;
                              chart#update None
   in
