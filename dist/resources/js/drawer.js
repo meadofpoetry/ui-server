@@ -37,9 +37,12 @@ btn.addEventListener('click', function () {
     resize ();
 });
 
-drawerEl.addEventListener('click', function () {
-    toggle ();
-    resize();
+drawerEl.addEventListener('click', function (evt) {
+    if (not(evt.target.classList.contains('.mdc-drawer__drawer')))
+    {
+        toggle ();
+        resize();
+    };
 });
 
 var drawer = drawerEl.querySelector('.mdc-drawer__drawer');
@@ -72,7 +75,7 @@ window.addEventListener('touchstart', function (evt) {
 });
 
 window.addEventListener('keyup', function(e) {
-    if (e.key && (e.key == 'Escape' || e.keyCode == 27)) {
+    if (e.key && (window.innerWidth < 1200) && (e.key == 'Escape' || e.keyCode == 27)) {
         if (drawerEl.classList.contains(open)) {
             localStorage.setItem('toolbar','');
             drawerEl.classList.remove(open);

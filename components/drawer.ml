@@ -86,12 +86,20 @@ class t ?(animating=true) ~(anchor:anchor) ~(content:#Widget.widget list) () =
       Dom_events.listen self#root open_event  (fun _ _ -> push true;  true) |> ignore;
       Dom_events.listen self#root close_event (fun _ _ -> push false; true) |> ignore;
 
-      Dom_events.listen Dom_html.window Dom_events.Typ.touchstart
+      Dom_events.listen self#root Dom_events.Typ.touchstart
         (fun _ ev -> let touch = Js.Optdef.get (ev##.changedTouches##item 0)
                                    (fun () -> failwith "touch fail")
                      in
+                     let target = Js.Opt.get (ev##.target)
+                                    (fun () -> failwith "touch fail")
+                     in
+                     let is_anchor x = CCEqual.physical self#anchor x in
                      if Js.to_bool @@
                           self#root##.classList##contains (Js.string Markup.Drawer.open_class)
+                        && not ((is_anchor `Top ||is_anchor `Bottom) &&
+                                  target##.scrollHeight > target##.offsetHeight)
+                        && not ((is_anchor `Right || is_anchor `Left) &&
+                                  target##.scrollWidth > target##.offsetWidth)
                      then
                        ( let start_x, start_y = touch##.clientX, touch##.clientY in
                          let move_l  =
@@ -114,7 +122,7 @@ class t ?(animating=true) ~(anchor:anchor) ~(content:#Widget.widget list) () =
                                in
                                if delta > 0
                                then self#drawer#style##.transform := Js.string transform;
-                               false)
+                               true)
                          in
                          let end_ev e = Dom_events.stop_listen move_l;
                                         Option.iter (fun x -> Dom_events.stop_listen x) end_l;
