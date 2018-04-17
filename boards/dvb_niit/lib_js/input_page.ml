@@ -29,7 +29,12 @@ let make (control:int) =
           >>= (fun (l,state) ->
       let modules = List.map fst l.config |> List.sort compare in
       let conf t = { typ = t; modules; duration = 120000L } in
-      let mer_p = make_param @@ Widgets.Mer_param.make ~init:None ~event:(React.E.map (fun (_,(x:Board_types.measure)) -> x.mer) l.events.status) () in
+      let mer_p = make_param @@ Widgets.Mer_param.make
+                                  ~init:None
+                                  ~event:(React.E.map (fun (_,(x:Board_types.measure)) -> x.mer)
+                                                      @@ React.E.filter (fun (id,_) -> id = 3) l.events.status)
+                                  3
+      in
       let pow  = make_chart ~init:[] ~event:(to_power_event l.events.status) (conf Power) in
       let mer  = make_chart ~init:[] ~event:(to_mer_event l.events.status) (conf Mer) in
       let ber  = make_chart ~init:[] ~event:(to_ber_event l.events.status) (conf Ber) in
