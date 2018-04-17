@@ -14,7 +14,7 @@ let ( % ) = Fun.(%)
 
 let timeout_period step_duration = 2 * int_of_float (1. /. step_duration) (* 2 secs *)
                                  
-let request_period step_duration = 5 * int_of_float (1. /. step_duration) (* 5 secs *)
+let request_period step_duration = 2 * int_of_float (1. /. step_duration) (* 5 secs *)
 
 let detect = Get_devinfo
 

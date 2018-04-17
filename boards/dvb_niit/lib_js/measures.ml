@@ -41,13 +41,13 @@ let chart_name_of_typ : type a. a typ -> string= function
   | Bitrate -> "Битрейт"
 
 let range_of_typ : type a. a typ -> a chart_range = function
-  | Power   -> { strict = { min = None; max = Some 0. }; suggested = { min = Some (-100.); max = None }}
+  | Power   -> { strict = { min = None; max = Some 0. }; suggested = { min = Some (-50.); max = None }}
   | Mer     -> { strict = { min = Some 0.; max = None }; suggested = { min = None; max = Some 50. }}
   | Ber     -> { strict = { min = Some 0.; max = None }; suggested = { min = None; max = None }}
   | Freq    -> { strict = { min = Some 0l; max = None }; suggested = { min = None; max = Some 100000l }}
   | Bitrate -> { strict = { min = Some 0l; max = None }; suggested = { min = None; max = Some 50000000l }}
 
-let get_label id = Printf.sprintf "Модуль %d" id
+let get_label id = Printf.sprintf "Модуль %d" @@ succ id
 
 let colors = Color.([ Indigo C500; Amber C500; Green C500; Cyan C500 ])
 
