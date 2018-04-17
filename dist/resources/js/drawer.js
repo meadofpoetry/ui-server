@@ -38,7 +38,7 @@ btn.addEventListener('click', function () {
 });
 
 drawerEl.addEventListener('click', function (evt) {
-    if (not(evt.target.classList.contains('.mdc-drawer__drawer')))
+    if (!(evt.target.classList.contains('.mdc-drawer__drawer')))
     {
         toggle ();
         resize();

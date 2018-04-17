@@ -76,6 +76,8 @@ class ['a] t ~grid ~(items:'a item list) () =
     method s_selected : 'a Item.t list React.signal = _s_selected
     method e_selected : 'a Item.t list React.event  = _e_selected
 
+
+    method grid       = React.S.value s_grid
     method items      = Position.sort_by_y ~f:(fun x -> x#pos) @@ React.S.value s_items
     method positions  = React.S.value s_change
 
@@ -114,7 +116,6 @@ class ['a] t ~grid ~(items:'a item list) () =
     (** Private methods **)
 
     method private s_grid        = s_grid
-    method private grid          = React.S.value s_grid
     method private s_col_w       = s_col_w
     method private s_row_h       = s_row_h
     method private s_rows        = s_rows

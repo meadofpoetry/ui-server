@@ -33,12 +33,19 @@ type 'a chart_range =
 type 'a y_axis = 'a Chartjs.Axes.Cartesian.Linear.t
 type 'a chart  = (int64,int64 Chartjs.Axes.Cartesian.Time.t,'a,'a Chartjs.Axes.Cartesian.Linear.t) Chartjs.Line.t
 
-let chart_name_of_typ : type a. a typ -> string= function
+let chart_name_of_typ : type a. a typ -> string = function
   | Power   -> "Мощность"
   | Mer     -> "MER"
   | Ber     -> "BER"
   | Freq    -> "Частота"
   | Bitrate -> "Битрейт"
+
+let y_axis_label_of_typ : type a. a typ -> string = function
+  | Power   -> "дБ"
+  | Mer     -> "дБ"
+  | Ber     -> ""
+  | Freq    -> "Гц"
+  | Bitrate -> "Бит/c"
 
 let range_of_typ : type a. a typ -> a chart_range = function
   | Power   -> { strict = { min = None; max = Some 0. }; suggested = { min = Some (-100.); max = None }}
@@ -81,6 +88,10 @@ let make_chart_base ~(typ:    'a Axes.numeric)
                          x#set_fill Chartjs.Line.Disabled)
              conf#datasets;
   conf#options#x_axis#ticks#set_auto_skip_padding 2;
+  conf#options#x_axis#scale_label#set_display true;
+  conf#options#x_axis#scale_label#set_label_string "Время";
+  conf#options#y_axis#scale_label#set_display true;
+  conf#options#y_axis#scale_label#set_label_string @@ y_axis_label_of_typ config.typ;
   conf#options#set_maintain_aspect_ratio false;
   set_range conf#options#y_axis config.typ;
   let chart = new Chartjs.Line.t ~config:conf () in

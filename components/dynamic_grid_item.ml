@@ -10,7 +10,7 @@ type action = Mouse of Dom_html.mouseEvent Js.t
 let to_item ?min_w ?min_h ?max_w ?max_h ?(keep_ar=false)
             ?(resizable=true) ?(draggable=true) ?(selectable=true)
             ?on_resize ?on_resizing ?on_drag ?on_dragging
-            ?move_widget ?widget ~pos ~value() =
+            ?move_widget ?widget ~pos ~value () =
   { pos; min_w; min_h; max_w; max_h; keep_ar; resizable; draggable; selectable;
     on_resize; on_resizing; on_drag; on_dragging;
     move_widget; widget; value}
