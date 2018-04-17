@@ -24,7 +24,7 @@ let init (module Db : Caqti_lwt.CONNECTION) =
   in
   Db.exec create_video () >>= function
   | Ok v    -> Lwt.return v
-  | Error _ -> Lwt.fail_with "pipeline: init"
+  | Error e -> Lwt.fail_with (error "pipeline: init %s" e)
 
 let store_structures (module Db : Caqti_lwt.CONNECTION) streams =
   let insert =
@@ -42,7 +42,7 @@ let store_structures (module Db : Caqti_lwt.CONNECTION) streams =
       (Lwt.return_ok ()) entries
     >>= fail_if >>= Db.commit >>= function
     | Ok v    -> Lwt.return v
-    | Error _ -> Lwt.fail_with "pipeline: store_structures"
+    | Error e -> Lwt.fail_with (error "pipeline: store_structures %s" e)
   in store' (module Db)
 
 let get_input (module Db : Caqti_lwt.CONNECTION) i =
@@ -79,14 +79,14 @@ let request (type a) dbs (r : a req) : a Lwt.t =
   | Get_input i -> get_input dbs i
   | Get_input_between (i,from,to') -> get_input_between dbs i from to'
 
-let cleanup (module Db : Caqti_lwt.CONNECTION) =
+let cleanup period (module Db : Caqti_lwt.CONNECTION) =
   let cleanup' =
-    Caqti_request.exec Caqti_type.unit
-      "DELETE FROM qoe_structures WHERE date <= strftime(\"%s\", date('now','-2 day'))"
+    Caqti_request.exec Caqti_type.ptime_span
+      "DELETE FROM qoe_structures WHERE date <= (now() - ?)"
   in
-  Db.exec cleanup' () >>= function
+  Db.exec cleanup' period >>= function
   | Ok ()   -> Lwt.return ()
-  | Error _ -> Lwt.fail_with "pipeline: cleanup"
+  | Error e -> Lwt.fail_with (error "pipeline: cleanup %s" e)
 
 let delete (module Db : Caqti_lwt.CONNECTION) =
   let delete' =
@@ -95,6 +95,6 @@ let delete (module Db : Caqti_lwt.CONNECTION) =
   in
   Db.exec delete' () >>= function
   | Ok ()   -> Lwt.return ()
-  | Error _ -> Lwt.fail_with "pipeline: delete"
+  | Error e -> Lwt.fail_with (error "pipeline: delete %s" e)
 
 let worker = None

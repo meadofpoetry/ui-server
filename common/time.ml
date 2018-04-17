@@ -105,3 +105,30 @@ module Hours = struct
   let to_yojson v = `Int (to_hours v)
 
 end
+
+module Period = struct
+
+  module Hours = struct
+    type t = Ptime.span
+           
+    let of_hours s = Ptime.Span.of_int_s (3600 * s)
+
+    let to_hours v = (Option.get_exn @@ Ptime.Span.to_int_s v) / 3600
+
+    let to_string v =
+      to_hours v |> string_of_int
+
+    let of_string_opt s =
+      Option.(int_of_string_opt s >|= of_hours)
+
+    let of_string s = Option.get_exn @@ of_string_opt s
+                    
+    let of_yojson = function
+      | `Int x -> Ok (of_hours x)
+      | _ -> Error "Hours.of_yojson: bad input"
+
+    let to_yojson v = `Int (to_hours v)
+
+  end
+  
+end

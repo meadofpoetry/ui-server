@@ -38,7 +38,7 @@ let init (module Db : Caqti_lwt.CONNECTION) =
   in
   Db.exec create () >>= function
   | Ok v    -> Lwt.return v
-  | Error _ -> Lwt.fail_with "qoe_storage: init"
+  | Error e -> Lwt.fail_with (error "qoe_storage: init %s" e)
 
 let store (module Db : Caqti_lwt.CONNECTION) data =
   let insert =
@@ -56,7 +56,7 @@ let store (module Db : Caqti_lwt.CONNECTION) data =
       (Lwt.return_ok ()) data
     >>= fail_if >>= Db.commit >>= function
     | Ok v    -> Lwt.return v
-    | Error _ -> Lwt.fail_with "qoe_storage: store_data"
+    | Error e -> Lwt.fail_with (error "qoe_storage: store_data %s" e)
   in store' (module Db)
 
 let request (type a) dbs (r : a req) : a Lwt.t =
@@ -64,14 +64,14 @@ let request (type a) dbs (r : a req) : a Lwt.t =
   | Store_video s -> store dbs (video_data_to_list s)
   | Store_audio s -> store dbs (audio_data_to_list s)
 
-let cleanup (module Db : Caqti_lwt.CONNECTION) =
+let cleanup period (module Db : Caqti_lwt.CONNECTION) =
   let cleanup' =
-    Caqti_request.exec Caqti_type.unit
-      "DELETE FROM qoe_errors WHERE date <= strftime(\"%s\", date('now','-2 day'))"
+    Caqti_request.exec Caqti_type.ptime_span
+      "DELETE FROM qoe_errors WHERE date <= (now() - ?)"
   in
-  Db.exec cleanup' () >>= function
+  Db.exec cleanup' period >>= function
   | Ok ()   -> Lwt.return ()
-  | Error _ -> Lwt.fail_with "qoe_storage: cleanup"
+  | Error e -> Lwt.fail_with (error "qoe_storage: cleanup %s" e)
 
 let delete (module Db : Caqti_lwt.CONNECTION) =
   let delete' =
@@ -80,6 +80,6 @@ let delete (module Db : Caqti_lwt.CONNECTION) =
   in
   Db.exec delete' () >>= function
   | Ok ()   -> Lwt.return ()
-  | Error _ -> Lwt.fail_with "qoe_storage: delete"
+  | Error e -> Lwt.fail_with (error "qoe_storage: delete %s" e)
 
 let worker = None

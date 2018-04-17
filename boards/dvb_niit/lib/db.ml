@@ -35,7 +35,7 @@ let init (module Db : Caqti_lwt.CONNECTION) =
   in
   Db.exec create_video () >>= function
   | Ok v    -> Lwt.return v
-  | Error _ -> Lwt.fail_with "dvb_niit: init"
+  | Error e -> Lwt.fail_with (error "dvb_niit: init %s" e)
 
 let store_measures (module Db : Caqti_lwt.CONNECTION) (id,m) =
   let insert =
@@ -45,20 +45,20 @@ let store_measures (module Db : Caqti_lwt.CONNECTION) (id,m) =
   in
   Db.exec insert (id,m) >>= function
   | Ok v    -> Lwt.return v
-  | Error _ -> Lwt.fail_with "dvb_niit: store_measure"
+  | Error e -> Lwt.fail_with (error "dvb_niit: store_measure %s" e)
 
 let request (type a) o (req : a req) : a Lwt.t =
   match req with
   | Store_measures m -> store_measures o m
 
-let cleanup (module Db : Caqti_lwt.CONNECTION) =
+let cleanup period (module Db : Caqti_lwt.CONNECTION) =
   let cleanup' =
-    Caqti_request.exec Caqti_type.unit
-      "DELETE FROM dvb_meas WHERE date <= strftime(\"%s\", date('now','-2 day'))"
+    Caqti_request.exec Caqti_type.ptime_span
+      "DELETE FROM dvb_meas WHERE date <= (now() - ?)"
   in
-  Db.exec cleanup' () >>= function
+  Db.exec cleanup' period >>= function
   | Ok ()   -> Lwt.return ()
-  | Error _ -> Lwt.fail_with "dvb_niit: cleanup"
+  | Error e -> Lwt.fail_with (error "dvb_niit: cleanup %s" e)
 
 let delete (module Db : Caqti_lwt.CONNECTION) =
   let delete' =
@@ -67,6 +67,6 @@ let delete (module Db : Caqti_lwt.CONNECTION) =
   in
   Db.exec delete' () >>= function
   | Ok ()   -> Lwt.return ()
-  | Error _ -> Lwt.fail_with "dvb_niit: delete"
+  | Error e -> Lwt.fail_with (error "dvb_niit: delete %s" e)
 
 let worker = None               

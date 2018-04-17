@@ -36,12 +36,12 @@ let request (type a) o (req : a req) : a Lwt.t =
   match req with
   | Store_status s -> store_status o s
 
-let cleanup (module Db : Caqti_lwt.CONNECTION) =
+let cleanup period (module Db : Caqti_lwt.CONNECTION) =
   let cleanup' =
-    Caqti_request.exec Caqti_type.unit
-      "DELETE FROM ip_status WHERE date <= strftime(\"%s\", date('now','-2 day'))"
+    Caqti_request.exec Caqti_type.ptime_span
+      "DELETE FROM ip_status WHERE date <= (now() - ?)"
   in
-  Db.exec cleanup' () >>= function
+  Db.exec cleanup' period >>= function
   | Ok ()   -> Lwt.return ()
   | Error _ -> Lwt.fail_with "ip_dektec: cleanup"
 
@@ -52,6 +52,6 @@ let delete (module Db : Caqti_lwt.CONNECTION) =
   in
   Db.exec delete' () >>= function
   | Ok ()   -> Lwt.return ()
-  | Error _ -> Lwt.fail_with "ip_dektec: delete"
+  | Error e -> Lwt.fail_with (error "ip_dektec: delete %s" e)
 
 let worker = None

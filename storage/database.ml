@@ -3,8 +3,8 @@ open Lwt.Infix
 open Common
    
 module Settings = struct
-  type t = { socket_path : string; cleanup : Time.Hours.t; password : string } [@@deriving yojson]
-  let default   = { socket_path = "/tmp"; cleanup = Option.get_exn (Time.Hours.of_hours 48); password = "ats3" }
+  type t = { socket_path : string; cleanup : Time.Period.Hours.t; password : string } [@@deriving yojson]
+  let default   = { socket_path = "/tmp"; cleanup = Time.Period.Hours.of_hours 1; password = "ats3" }
   let domain = "db"
 end
                 
@@ -14,20 +14,29 @@ let pool_use p f =
   Caqti_lwt.Pool.use (fun c -> f c >>= Lwt.return_ok) p >>= function
   | Error e -> Lwt.fail_with (Caqti_error.show e)
   | Ok    v -> Lwt.return v
-             
+
+type state = { period  : float
+             ; cleanup : Time.Period.Hours.t
+             ; db      : ((module Caqti_lwt.CONNECTION), Caqti_error.connect) Caqti_lwt.Pool.t
+             }
+
+           (*
+module type MODEL = sig
+  type _ req
+  val name     : string
+  val table    : string
+  val request  : (module Caqti_lwt.CONNECTION) -> 'a req -> 'a Lwt.t
+                                                            *)
+           
 module type MODEL = sig
   type _ req
   val name     : string
   val init     : (module Caqti_lwt.CONNECTION) -> unit Lwt.t
   val request  : (module Caqti_lwt.CONNECTION) -> 'a req -> 'a Lwt.t
-  val cleanup  : (module Caqti_lwt.CONNECTION) -> unit Lwt.t
+  val cleanup  : Time.Period.Hours.t -> (module Caqti_lwt.CONNECTION) -> unit Lwt.t
   val delete   : (module Caqti_lwt.CONNECTION) -> unit Lwt.t
   val worker   : ((module Caqti_lwt.CONNECTION) -> unit Lwt.t) option
 end
-
-type state = { period : float
-             ; db     : ((module Caqti_lwt.CONNECTION), Caqti_error.connect) Caqti_lwt.Pool.t
-             }
            
 module type CONN = sig
   type t
@@ -45,7 +54,7 @@ module Make (M : MODEL) : (CONN with type 'a req := 'a M.req) = struct
         match M.worker with
         | None   -> Lwt.return_unit
         | Some w -> pool_use state.db w) >>= fun () ->
-      pool_use state.db M.cleanup >>= loop
+      pool_use state.db (M.cleanup state.cleanup) >>= loop
     in
     Lwt_main.run (pool_use state.db M.init);
     Lwt.async loop;
@@ -66,7 +75,7 @@ let create config period =
     | Ok db   -> db
     | Error e -> failwith (Printf.sprintf "Db connect failed with an error: %s\n" @@ Caqti_error.show e)
   in
-  { db; period }
+  { db; period; cleanup = settings.cleanup }
   
 let finalize v =
   Lwt_main.run @@ Caqti_lwt.Pool.drain v.db
