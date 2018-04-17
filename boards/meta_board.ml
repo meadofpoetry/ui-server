@@ -14,7 +14,7 @@ module Ports = Map.Make(Int)
 
 exception Invalid_port of string
 
-type url = Common.Uri.t
+type url = Common.Url.t
 type set_state = [ `Forbidden
                  | `Limited   of int
                  | `Unlimited

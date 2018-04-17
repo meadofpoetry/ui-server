@@ -4,6 +4,7 @@ open Api.Redirect
 open Websocket_cohttp_lwt
 open Frame
 open Qoe_errors
+open Common
    
 open Lwt.Infix
 
@@ -174,7 +175,7 @@ let get_structures api input id () =
   Lwt.catch (fun () ->
       api.model.struct_api.get_input input >>= fun (str, date) ->
       let s = Structure.Streams.to_yojson str in
-      respond_js (`Tuple [s; `String date]) ())
+      respond_js (`Tuple [s; Time.Seconds.to_yojson date]) ())
     (function Failure e -> respond_error e ())
 
 let get_structures_between api input id from to' () =
@@ -182,8 +183,9 @@ let get_structures_between api input id from to' () =
   let input, id = (Result.get_exn @@ Common.Topology.input_of_string input), int_of_string id in
   let input = Common.Topology.{ input; id } in
   Lwt.catch (fun () ->
-      api.model.struct_api.get_input_between input (of_seconds from) (of_seconds to') >>= fun l ->
-      let l = List.map (fun (str, date) -> `Tuple [Structure.Streams.to_yojson str; `String date]) l in
+      api.model.struct_api.get_input_between input (Time.Seconds.of_string from) (Time.Seconds.of_string to')
+      >>= fun l ->
+      let l = List.map (fun (str, date) -> `Tuple [Structure.Streams.to_yojson str; Time.Seconds.to_yojson date]) l in
       respond_js (`List l) ())
     (function Failure e -> respond_error e ())
                                  

@@ -44,7 +44,7 @@ type state = { ctx          : ZMQ.Context.t
              ; msg          : [ `Req] ZMQ.Socket.t
              ; ev           : [ `Sub] ZMQ.Socket.t
              ; options      : options
-             ; srcs         : (Common.Uri.t * Common.Stream.t) list ref
+             ; srcs         : (Common.Url.t * Common.Stream.t) list ref
              ; mutable proc : Lwt_process.process_none option
              ; ready        : bool ref
              ; ready_e      : unit event
@@ -240,10 +240,10 @@ let create (type a) (typ : a typ) db_conf config sock_in sock_out =
   in
   api, state, recv, send
 
-let reset typ send bin_path bin_name msg_fmt state (sources : (Common.Uri.t * Common.Stream.t) list) =
+let reset typ send bin_path bin_name msg_fmt state (sources : (Common.Url.t * Common.Stream.t) list) =
   let exec_path = (Filename.concat bin_path bin_name) in
   let msg_fmt   = Pipeline_settings.format_to_string msg_fmt in
-  let uris      = List.map Fun.(fst %> Common.Uri.to_string) sources in
+  let uris      = List.map Fun.(fst %> Common.Url.to_string) sources in
   let exec_opts = Array.of_list (bin_name :: "-m" :: msg_fmt :: uris) in
   state.srcs  := sources;
   state.ready := false;

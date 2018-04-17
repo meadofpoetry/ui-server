@@ -1,18 +1,18 @@
 open Containers
-
+ 
 let match_streams
-      (sources : (Common.Uri.t * Common.Stream.t) list ref)
+      (sources : (Common.Url.t * Common.Stream.t) list ref)
       (sl : Structure.structure list) : Structure.t list =
   let open Structure in
-  let rec merge (sources : (Common.Uri.t * Common.Stream.t) list) structure =
+  let rec merge (sources : (Common.Url.t * Common.Stream.t) list) structure =
     match sources with
-    | [] -> raise Not_found
+    | [] -> None (* TODO fix merging with unsaved streams *)
     | (uri, s)::ss ->
-       if Common.Uri.equal uri structure.uri
-       then { source = s; structure }
+       if Common.Url.equal uri structure.uri
+       then Some { source = s; structure }
        else merge ss structure
   in
-  List.map (merge !sources) sl
+  List.filter_map (merge !sources) sl
 
 module Map_input = Map.Make(struct
                        open Common.Topology

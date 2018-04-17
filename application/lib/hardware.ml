@@ -137,7 +137,7 @@ exception Constraints of Meta_board.set_error
 
 let set_stream hw (ss : stream_setting) =
   let open Lwt_result.Infix in
-  let gen_uris (ss : stream_setting) : (marker * (Common.Uri.t * Common.Stream.t) list) list =
+  let gen_uris (ss : stream_setting) : (marker * (Common.Url.t * Common.Stream.t) list) list =
      let split = function
       | (`Input _, _) as i -> `Right i
       | (`Board id, sl)    ->
@@ -186,7 +186,7 @@ let set_stream hw (ss : stream_setting) =
      check_inputs inputs;
      let inputs = List.map input_add_uri inputs in
      let forbidden = grep_input_uris [] inputs in
-     let boards = match Common.Uri.gen_in_ranges ~forbidden (List.concat boards) with
+     let boards = match Common.Url.gen_in_ranges ~forbidden (List.concat boards) with
        | Ok boards -> rebuild_boards [] boards ss
        | Error ()  -> raise_notrace (Constraints (`Internal_error "set_stream: uri generation failure"))
      in
@@ -203,7 +203,7 @@ let set_stream hw (ss : stream_setting) =
     | _ -> ()
     end;
     if List.is_empty range then ()
-    else List.iter (fun (url,_) -> if not @@ List.exists (fun r -> Common.Uri.in_range r url) range
+    else List.iter (fun (url,_) -> if not @@ List.exists (fun r -> Common.Url.in_range r url) range
                                    then raise_notrace (Constraints `Not_in_range)) streams
   in
   let rec loop l res = match l with

@@ -1,11 +1,13 @@
 open Containers
 open Storage.Database
+open Common
+
 open Lwt.Infix
    
 type _ req =
   | Store : Structure.t list -> unit req
-  | Get_input : Common.Topology.topo_input -> (Structure.t list * string) req
-  | Get_input_between : (Common.Topology.topo_input * string * string) -> (Structure.t list * string) list req
+  | Get_input : Common.Topology.topo_input -> (Structure.t list * Time.t) req
+  | Get_input_between : (Common.Topology.topo_input * Time.t * Time.t) -> (Structure.t list * Time.t) list req
 
 let name = "pipeline"
 
@@ -50,7 +52,7 @@ let get_input (module Db : Caqti_lwt.CONNECTION) i =
     , d
   in
   let get' =
-    Caqti_request.find Caqti_type.string Caqti_type.(tup2 string string)
+    Caqti_request.find Caqti_type.string Caqti_type.(tup2 string ptime)
       "SELECT structs, date FROM qoe_structures WHERE input = ?::JSONB ORDER BY date DESC LIMIT 1"
   in
   Db.find get' i >>= function
@@ -64,7 +66,7 @@ let get_input_between (module Db : Caqti_lwt.CONNECTION) i from to' =
     , d
   in
   let get' =
-    Caqti_request.find Caqti_type.(tup3 string string string) Caqti_type.(tup2 string string)
+    Caqti_request.find Caqti_type.(tup3 string ptime ptime) Caqti_type.(tup2 string ptime)
       "SELECT structs, date FROM qoe_structures WHERE input = ?::JSONB AND date > ? AND date <= ? ORDER BY date DESC LIMIT 100"
   in
   Db.collect_list get' (i,from,to') >>= function

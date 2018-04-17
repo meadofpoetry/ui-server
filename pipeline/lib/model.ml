@@ -1,12 +1,14 @@
 open Containers
-open Lwt.Infix
 open Qoe_errors
+open Common
+
+open Lwt.Infix
 
 module Structure_model : sig
   type _ req =
     | Store : Structure.t list -> unit req
-    | Get_input : Common.Topology.topo_input -> (Structure.t list * string) req
-    | Get_input_between : (Common.Topology.topo_input * string * string) -> (Structure.t list * string) list req
+    | Get_input : Common.Topology.topo_input -> (Structure.t list * Time.t) req
+    | Get_input_between : (Common.Topology.topo_input * Time.t * Time.t) -> (Structure.t list * Time.t) list req
   include (Storage.Database.MODEL with type 'a req := 'a req)
 end = Structure_storage
 
@@ -20,8 +22,8 @@ end = Qoe_storage
 module Database_str = Storage.Database.Make(Structure_model)
 module Database_qoe = Storage.Database.Make(Qoe_model)
 
-type struct_api = { get_input : Common.Topology.topo_input -> (Structure.t list * string) Lwt.t
-                  ; get_input_between : Common.Topology.topo_input -> string -> string -> (Structure.t list * string) list Lwt.t
+type struct_api = { get_input : Common.Topology.topo_input -> (Structure.t list * Time.t) Lwt.t
+                  ; get_input_between : Common.Topology.topo_input -> Time.t -> Time.t -> (Structure.t list * Time.t) list Lwt.t
                   }
 
 type qoe_api = ()

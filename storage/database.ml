@@ -1,10 +1,10 @@
 open Containers
 open Lwt.Infix
-
+open Common
    
 module Settings = struct
-  type t = { socket_path : string; cleanup : int; password : string } [@@deriving yojson]
-  let default   = { socket_path = "/tmp"; cleanup = 48; password = "ats3" }
+  type t = { socket_path : string; cleanup : Time.Hours.t; password : string } [@@deriving yojson]
+  let default   = { socket_path = "/tmp"; cleanup = Option.get_exn (Time.Hours.of_hours 48); password = "ats3" }
   let domain = "db"
 end
                 

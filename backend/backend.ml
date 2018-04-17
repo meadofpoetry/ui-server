@@ -34,8 +34,9 @@ let main config =
       end
 
     | e -> print_endline (Printf.sprintf "failed with exn: %s" (Printexc.to_string e))
-
-  in mainloop ()
+  in
+  try mainloop ()
+  with e -> Printf.printf "Error: %s\n%s\n" (Printexc.get_backtrace ()) (Printexc.to_string e)
 
 let () =
   Lwt_engine.set ~transfer:true ~destroy:true (new Lwt_engine.libev ~backend:Lwt_engine.Ev_backend.epoll ());
