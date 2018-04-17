@@ -9,6 +9,8 @@ type _ req =
 
 let name = "qoe"
 
+let table = "qoe_errors"
+
 let fail_if = function Ok v -> Lwt.return v | Error e -> Lwt.fail_with (Caqti_error.show e)
 
 let data_t =
@@ -63,23 +65,5 @@ let request (type a) dbs (r : a req) : a Lwt.t =
   match r with
   | Store_video s -> store dbs (video_data_to_list s)
   | Store_audio s -> store dbs (audio_data_to_list s)
-
-let cleanup period (module Db : Caqti_lwt.CONNECTION) =
-  let cleanup' =
-    Caqti_request.exec Caqti_type.ptime_span
-      "DELETE FROM qoe_errors WHERE date <= (now() - ?)"
-  in
-  Db.exec cleanup' period >>= function
-  | Ok ()   -> Lwt.return ()
-  | Error e -> Lwt.fail_with (error "qoe_storage: cleanup %s" e)
-
-let delete (module Db : Caqti_lwt.CONNECTION) =
-  let delete' =
-    Caqti_request.exec Caqti_type.unit
-      "DELETE FROM qoe_errors"
-  in
-  Db.exec delete' () >>= function
-  | Ok ()   -> Lwt.return ()
-  | Error e -> Lwt.fail_with (error "qoe_storage: delete %s" e)
 
 let worker = None

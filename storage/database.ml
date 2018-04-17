@@ -10,6 +10,9 @@ end
                 
 module Conf = Config.Make(Settings)
 
+let error s e =
+  Printf.sprintf s (Caqti_error.show e)
+            
 let pool_use p f =
   Caqti_lwt.Pool.use (fun c -> f c >>= Lwt.return_ok) p >>= function
   | Error e -> Lwt.fail_with (Caqti_error.show e)
@@ -19,22 +22,13 @@ type state = { period  : float
              ; cleanup : Time.Period.Hours.t
              ; db      : ((module Caqti_lwt.CONNECTION), Caqti_error.connect) Caqti_lwt.Pool.t
              }
-
-           (*
+    
 module type MODEL = sig
   type _ req
   val name     : string
   val table    : string
-  val request  : (module Caqti_lwt.CONNECTION) -> 'a req -> 'a Lwt.t
-                                                            *)
-           
-module type MODEL = sig
-  type _ req
-  val name     : string
   val init     : (module Caqti_lwt.CONNECTION) -> unit Lwt.t
   val request  : (module Caqti_lwt.CONNECTION) -> 'a req -> 'a Lwt.t
-  val cleanup  : Time.Period.Hours.t -> (module Caqti_lwt.CONNECTION) -> unit Lwt.t
-  val delete   : (module Caqti_lwt.CONNECTION) -> unit Lwt.t
   val worker   : ((module Caqti_lwt.CONNECTION) -> unit Lwt.t) option
 end
            
@@ -43,22 +37,41 @@ module type CONN = sig
   type _ req
   val create   : state -> (t, string) result
   val request  : t -> 'a req -> 'a Lwt.t
+  val delete   : t -> unit Lwt.t
 end
 
 module Make (M : MODEL) : (CONN with type 'a req := 'a M.req) = struct
   type t = state
 
+  let cleanup period (module Db : Caqti_lwt.CONNECTION) =
+    let cleanup' =
+      Caqti_request.exec Caqti_type.ptime_span
+        (Printf.sprintf "DELETE FROM %s WHERE date <= (now()::TIMESTAMP - ?::INTERVAL)" M.table)
+    in
+    Db.exec cleanup' period >>= function
+    | Ok ()   -> Lwt.return ()
+    | Error e -> Lwt.fail_with (error "cleanup %s" e)
+               
   let create (state : state) =
     let rec loop () =
       Lwt_unix.sleep state.period >>= (fun () ->
         match M.worker with
         | None   -> Lwt.return_unit
         | Some w -> pool_use state.db w) >>= fun () ->
-      pool_use state.db (M.cleanup state.cleanup) >>= loop
+      pool_use state.db (cleanup state.cleanup) >>= loop
     in
     Lwt_main.run (pool_use state.db M.init);
     Lwt.async loop;
     Ok state
+
+  let delete state =
+    let delete' =
+      Caqti_request.exec Caqti_type.unit
+        (Printf.sprintf "DELETE FROM %s" M.table)
+    in
+    pool_use state.db (fun (module Db : Caqti_lwt.CONNECTION) -> Db.exec delete' ()) >>= function
+    | Ok ()   -> Lwt.return ()
+    | Error e -> Lwt.fail_with (error "delete %s" e) 
 
   let request (type a) state (req : a M.req) : a Lwt.t =
     pool_use state.db (fun c -> M.request c req)
@@ -79,6 +92,3 @@ let create config period =
   
 let finalize v =
   Lwt_main.run @@ Caqti_lwt.Pool.drain v.db
-
-let error s e =
-  Printf.sprintf s (Caqti_error.show e)

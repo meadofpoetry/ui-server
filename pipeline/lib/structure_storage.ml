@@ -11,6 +11,8 @@ type _ req =
 
 let name = "pipeline"
 
+let table = "qoe_structures"
+
 let fail_if = function Ok v -> Lwt.return v | Error e -> Lwt.fail_with (Caqti_error.show e)
   
 let init (module Db : Caqti_lwt.CONNECTION) =
@@ -65,8 +67,8 @@ let get_input_between (module Db : Caqti_lwt.CONNECTION) i from to' =
     (Result.get_exn @@ Structure.Streams.of_yojson @@ Yojson.Safe.from_string s)
     , d
   in
-  let get' =
-    Caqti_request.find Caqti_type.(tup3 string ptime ptime) Caqti_type.(tup2 string ptime)
+  let get' = 
+    Caqti_request.collect Caqti_type.(tup3 string ptime ptime) Caqti_type.(tup2 string ptime)
       "SELECT structs, date FROM qoe_structures WHERE input = ?::JSONB AND date > ? AND date <= ? ORDER BY date DESC LIMIT 100"
   in
   Db.collect_list get' (i,from,to') >>= function
@@ -78,23 +80,5 @@ let request (type a) dbs (r : a req) : a Lwt.t =
   | Store s -> store_structures dbs s
   | Get_input i -> get_input dbs i
   | Get_input_between (i,from,to') -> get_input_between dbs i from to'
-
-let cleanup period (module Db : Caqti_lwt.CONNECTION) =
-  let cleanup' =
-    Caqti_request.exec Caqti_type.ptime_span
-      "DELETE FROM qoe_structures WHERE date <= (now() - ?)"
-  in
-  Db.exec cleanup' period >>= function
-  | Ok ()   -> Lwt.return ()
-  | Error e -> Lwt.fail_with (error "pipeline: cleanup %s" e)
-
-let delete (module Db : Caqti_lwt.CONNECTION) =
-  let delete' =
-    Caqti_request.exec Caqti_type.unit
-      "DELETE FROM qoe_structures"
-  in
-  Db.exec delete' () >>= function
-  | Ok ()   -> Lwt.return ()
-  | Error e -> Lwt.fail_with (error "pipeline: delete %s" e)
 
 let worker = None

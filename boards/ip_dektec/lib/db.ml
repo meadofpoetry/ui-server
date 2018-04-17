@@ -4,6 +4,8 @@ open Board_types
 open Lwt.Infix
 
 let name = "ip_dektec"
+
+let table = "ip_status"
    
 type _ req =
   | Store_status : Board_types.board_status -> unit req
@@ -35,23 +37,5 @@ let store_status (module Db : Caqti_lwt.CONNECTION) (s : board_status) =
 let request (type a) o (req : a req) : a Lwt.t =
   match req with
   | Store_status s -> store_status o s
-
-let cleanup period (module Db : Caqti_lwt.CONNECTION) =
-  let cleanup' =
-    Caqti_request.exec Caqti_type.ptime_span
-      "DELETE FROM ip_status WHERE date <= (now() - ?)"
-  in
-  Db.exec cleanup' period >>= function
-  | Ok ()   -> Lwt.return ()
-  | Error _ -> Lwt.fail_with "ip_dektec: cleanup"
-
-let delete (module Db : Caqti_lwt.CONNECTION) =
-  let delete' =
-    Caqti_request.exec Caqti_type.unit
-      "DELETE FROM ip_status"
-  in
-  Db.exec delete' () >>= function
-  | Ok ()   -> Lwt.return ()
-  | Error e -> Lwt.fail_with (error "ip_dektec: delete %s" e)
 
 let worker = None

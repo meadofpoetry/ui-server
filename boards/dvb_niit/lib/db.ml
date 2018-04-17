@@ -7,6 +7,8 @@ type _ req =
   | Store_measures : Board_types.measure_response -> unit req
 
 let name = "dvb_niit"
+
+let table = "dvb_meas"
   
 let measure = Caqti_type.custom
                 Caqti_type.(let (&) = tup2 in
@@ -50,23 +52,5 @@ let store_measures (module Db : Caqti_lwt.CONNECTION) (id,m) =
 let request (type a) o (req : a req) : a Lwt.t =
   match req with
   | Store_measures m -> store_measures o m
-
-let cleanup period (module Db : Caqti_lwt.CONNECTION) =
-  let cleanup' =
-    Caqti_request.exec Caqti_type.ptime_span
-      "DELETE FROM dvb_meas WHERE date <= (now() - ?)"
-  in
-  Db.exec cleanup' period >>= function
-  | Ok ()   -> Lwt.return ()
-  | Error e -> Lwt.fail_with (error "dvb_niit: cleanup %s" e)
-
-let delete (module Db : Caqti_lwt.CONNECTION) =
-  let delete' =
-    Caqti_request.exec Caqti_type.unit
-      "DELETE FROM dvb_meas"
-  in
-  Db.exec delete' () >>= function
-  | Ok ()   -> Lwt.return ()
-  | Error e -> Lwt.fail_with (error "dvb_niit: delete %s" e)
 
 let worker = None               
