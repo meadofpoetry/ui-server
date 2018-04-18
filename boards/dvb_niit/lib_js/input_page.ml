@@ -18,23 +18,13 @@ let fab_class = "mdc-fixed-fab"
 let make_param w =
   new Card.t ~widgets:[w] ()
 
-(* let add (grid:'a Dynamic_grid.t) widget =
- *   let open Dynamic_grid.Position in
- *   let w = grid#grid.cols in
- *   let y = List.fold_left (fun acc x -> if x#pos.y + x#pos.h > acc then x#pos.y + x#pos.h else acc) 0 grid#items in
- *   grid#add @@ Dynamic_grid.Item.to_item ~pos:{x=0;y;w;h=4} ~value:() ~widget () *)
-
 let make (control:int) =
   let t = Listener.listen control
           >>= (fun (l,state) ->
       let modules = List.map fst l.config |> List.sort compare in
+      let factory = new Widgets.Factory.t control () in
+      let mer_p   = factory#create (Parameter { id = 0; typ = `Power }) in
       let conf t = { typ = t; modules; duration = 120000L } in
-      let mer_p = make_param @@ Widgets.Mer_param.make
-                                  ~init:None
-                                  ~event:(React.E.map (fun (_,(x:Board_types.measure)) -> x.mer)
-                                                      @@ React.E.filter (fun (id,_) -> id = 3) l.events.status)
-                                  3
-      in
       let pow  = make_chart ~init:[] ~event:(to_power_event l.events.status) (conf Power) in
       let mer  = make_chart ~init:[] ~event:(to_mer_event l.events.status) (conf Mer) in
       let ber  = make_chart ~init:[] ~event:(to_ber_event l.events.status) (conf Ber) in
