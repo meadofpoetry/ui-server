@@ -77,7 +77,7 @@ module Plots = struct
                 let open Option in
                 (M.get id table >|= fun id ->
                  List.get_at_idx id chart#config#datasets >|= fun ds ->
-                 let data = { x = Int64.(data.black.timestamp / 1000L); y = extract data } in
+                 let data = { x = Int64.(Common.Time.Useconds.to_useconds data.black.timestamp / 1000L); y = extract data } in
                  ds#push data;
                  chart#update (Some { duration = Some 0
                                     ; is_lazy  = None
@@ -173,10 +173,8 @@ module Structure = struct
 
   let make_structure (s : Structure.t) =
     let text, stext =
-      let h = match s.source with
-        | Unknown    -> Printf.sprintf "Unknown source"
-        | Stream src -> Printf.sprintf "Поток: %s" (CCOpt.get_or ~default:"-" src.description)
-      in h, (Printf.sprintf "ip: %s" @@ Common.Uri.to_string s.structure.uri)
+      let h = Printf.sprintf "Поток: %s" (CCOpt.get_or ~default:"-" s.source.description)
+      in h, (Printf.sprintf "ip: %s" @@ Common.Url.to_string s.structure.uri)
     in
     let wl, cl = List.split @@ List.map make_channel s.structure.channels in
     let st_s   = React.S.map (fun chl -> {s with structure = {s.structure with channels = chl}}) @@

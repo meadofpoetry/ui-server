@@ -31,7 +31,7 @@ let id_to_int32 : id -> int32 = function
 
 type stream =
   { source      : src
-  ; id          : [`Ip of Uri.t | `Ts of id]
+  ; id          : [`Ip of Url.t | `Ts of id]
   ; description : string option
   }
 and src = Port   of int
@@ -40,7 +40,7 @@ and src = Port   of int
 
 type t =
   { source      : source
-  ; id          : [`Ip of Uri.t | `Ts of id]
+  ; id          : [`Ip of Url.t | `Ts of id]
   ; description : string option
   }
 and source = Input  of Topology.topo_input
@@ -50,7 +50,7 @@ and source = Input  of Topology.topo_input
 let rec equal l r =
   match l.id, r.id with
   | `Ip ul, `Ip ur ->
-     if Uri.equal ul ur
+     if Url.equal ul ur
      then equal_source l.source r.source
      else false
   | `Ts il, `Ts ir ->
@@ -88,3 +88,8 @@ let header : t -> string = fun s ->
   match s.description with
   | None -> h
   | Some d -> h ^ " (" ^ d ^ ")" 
+
+let rec get_input s =
+  match s.source with
+  | Parent s -> get_input s
+  | Input  i -> i

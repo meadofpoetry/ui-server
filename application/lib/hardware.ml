@@ -5,6 +5,8 @@ open Application_types
    
 module Map  = CCMap.Make(Int)
 
+module Uri_storage = Storage.Options.Make(External_uri_storage)
+
 module Input_map = CCMap.Make(struct
                        type t = input * int
                         let compare (li, lid) (ri, rid) =
@@ -18,11 +20,12 @@ type input_control  = { inputs : in_push Input_map.t
                       ; boards : Meta_board.stream_handler Map.t
                       }
                     
-type t = { boards   : Meta_board.board Map.t
-         ; usb      : Usb_device.t
-         ; topo     : Common.Topology.t React.signal
-         ; sources  : input_control
-         ; streams  : stream_table React.signal
+type t = { boards      : Meta_board.board Map.t
+         ; usb         : Usb_device.t
+         ; topo        : Common.Topology.t React.signal
+         ; sources     : input_control
+         ; streams     : stream_table React.signal
+         ; uri_storage : Uri_storage.data Storage.Options.storage
          }
 
 let create_board db usb (b:topo_board) boards path step_duration =
@@ -88,14 +91,21 @@ let topo_to_signal topo boards : Common.Topology.t React.signal =
                                          x))
      
 
-let get_sources topo boards =
+let get_sources topo uri_table boards =
   let rec get_sources' controls signals = function
     | []            -> controls, signals
     | (Input i)::tl ->
-       let s, push  = React.S.create [] in
+       let input = `Input (i.input,i.id) in
+       let s, push  =
+         (* consider previous uri preferences *)
+         React.S.create Option.(get_or
+                                  ~default:[]
+                                  (External_uri_storage.Map.find_opt input uri_table
+                                   >|= List.map (fun (u,s) -> (Some u),s)))
+       in
        let push' xs = push @@ List.map (fun (url,x) -> (Some url, x)) xs in
        let controls = { controls with inputs = Input_map.add (i.input,i.id) push' controls.inputs } in
-       let signals  = (React.S.map (fun s -> (`Input (i.input,i.id)), `Unlimited, s) s)
+       let signals  = (React.S.map (fun s -> input, `Unlimited, s) s)
                       :: signals in
        get_sources' controls signals tl
     | (Board b)::tl ->
@@ -105,8 +115,12 @@ let get_sources topo boards =
        match stream_handler with
        | None   -> get_sources' controls signals tl
        | Some h ->
+          let board = `Board b.control in
+          (* set previous uri preferences *)
+          Option.iter (fun lst -> h#set lst |> ignore) @@
+            External_uri_storage.Map.find_opt board uri_table;
           let controls = { controls with boards = Map.add b.control h controls.boards } in
-          let signals  = (React.S.l2 (fun s st -> (`Board b.control), st, s) h#streams h#constraints.state)
+          let signals  = (React.S.l2 (fun s st -> board, st, s) h#streams h#constraints.state)
                          :: signals in
           get_sources' controls signals tl
   in
@@ -114,8 +128,17 @@ let get_sources topo boards =
   let signals' = React.S.merge ~eq:Equal.physical (fun acc s -> s::acc) [] signals in
   controls, signals'
 
+let store_external_uris storage streams =
+  let filter_streams = List.filter_map (function (Some u, s) -> Some (u,s) | _ -> None) in
+  let streams = List.map (function (`Board _ as b,_,l) -> b, filter_streams l
+                                 | (`Input _ as i,_,l) -> i, filter_streams l)
+                  streams
+  in
+  storage#store @@ External_uri_storage.Map.of_list streams
+  
 let create config db (topo : Common.Topology.t) =
   let stor          = Storage.Options.Conf.get config in
+  let uri_storage   = Uri_storage.create stor.config_dir ["application";"uri_storage"] in
   let step_duration = 0.01 in
   let usb, loop     = Usb_device.create ~sleep:step_duration () in
   let rec traverse acc = (function
@@ -129,15 +152,18 @@ let create config db (topo : Common.Topology.t) =
                                              Map.add b.control board m)
                     Map.empty
   in
-  let sources, streams = get_sources topo_entries boards in
+  let sources, streams = get_sources topo_entries uri_storage#get boards in
+  Lwt_react.S.limit (fun () -> Lwt_unix.sleep 0.5) streams
+  |> Lwt_react.S.map (store_external_uris uri_storage)
+  |> Lwt_react.S.keep;
   let topo    = topo_to_signal topo boards in
-  { boards; usb; topo; sources; streams }, loop ()
+  { boards; usb; topo; sources; streams; uri_storage }, loop ()
 
 exception Constraints of Meta_board.set_error
 
 let set_stream hw (ss : stream_setting) =
   let open Lwt_result.Infix in
-  let gen_uris (ss : stream_setting) : (marker * (Common.Uri.t * Common.Stream.t) list) list =
+  let gen_uris (ss : stream_setting) : (marker * (Common.Url.t * Common.Stream.t) list) list =
      let split = function
       | (`Input _, _) as i -> `Right i
       | (`Board id, sl)    ->
@@ -186,7 +212,7 @@ let set_stream hw (ss : stream_setting) =
      check_inputs inputs;
      let inputs = List.map input_add_uri inputs in
      let forbidden = grep_input_uris [] inputs in
-     let boards = match Common.Uri.gen_in_ranges ~forbidden (List.concat boards) with
+     let boards = match Common.Url.gen_in_ranges ~forbidden (List.concat boards) with
        | Ok boards -> rebuild_boards [] boards ss
        | Error ()  -> raise_notrace (Constraints (`Internal_error "set_stream: uri generation failure"))
      in
@@ -203,7 +229,7 @@ let set_stream hw (ss : stream_setting) =
     | _ -> ()
     end;
     if List.is_empty range then ()
-    else List.iter (fun (url,_) -> if not @@ List.exists (fun r -> Common.Uri.in_range r url) range
+    else List.iter (fun (url,_) -> if not @@ List.exists (fun r -> Common.Url.in_range r url) range
                                    then raise_notrace (Constraints `Not_in_range)) streams
   in
   let rec loop l res = match l with

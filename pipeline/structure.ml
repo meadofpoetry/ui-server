@@ -49,15 +49,11 @@ type channel =
 
 type structure =
   { id       : int32 
-  ; uri      : Common.Uri.t
+  ; uri      : Common.Url.t
   ; channels : channel list
   } [@@deriving yojson]
 
-type source = Unknown
-            | Stream  of Common.Stream.t
-            [@@deriving yojson]
-
-type packed = { source    : source
+type packed = { source    : Common.Stream.t
               ; structure : structure
               } [@@deriving yojson]
 type t = packed

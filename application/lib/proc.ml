@@ -1,7 +1,7 @@
 open Containers
 open Api.Interaction
 
-type url = Common.Uri.t
+type url = Common.Url.t
 
 module Api_handler = Api.Handler.Make(Common.User)
 

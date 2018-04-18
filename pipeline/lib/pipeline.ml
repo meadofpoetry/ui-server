@@ -8,15 +8,7 @@ open Pipeline_protocol
 let (%) = Fun.(%)
 
 module Conf = Storage.Config.Make(Pipeline_settings)
-        
-module Pipeline_model : sig
-  type _ req =
-    | Store_structures : Structure.t list -> unit req
-    
-  include (Storage.Database.MODEL with type 'a req := 'a req)
-end = Pipeline_storage
 
-module Database = Storage.Database.Make(Pipeline_model)
 (*
 let connect_db streams_events dbs =
   Lwt_main.run @@ Storage.init dbs;
