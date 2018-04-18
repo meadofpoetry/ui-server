@@ -2,36 +2,31 @@ open Containers
 open Api_js.Requests
 open Lwt.Infix
 open Qoe_errors
-   
+
+(* TODO fix types *)
 let get_structure () =
-  get_js "api/pipeline/structure"
-  >|= Result.(flat_map Structure.Streams.of_yojson)
+  get_result Structure.Streams.of_yojson (fun _ -> Ok ("unknown error")) "api/pipeline/structure"
 
 let post_structure s =
-  Structure.Streams.to_yojson s
-  |> post_js_ok "api/pipeline/structure"
+  post_result_unit (fun _ -> Ok ("unknown error")) "api/pipeline/structure" ~contents:(Structure.Streams.to_yojson s)
 
 let get_structure_socket () =
   get_socket "api/pipeline/structure_sock" Structure.Streams.of_yojson
 
 let get_settings () =
-  get_js "api/pipeline/settings"
-  >|= Result.(flat_map Settings.of_yojson)
+  get_result Settings.of_yojson (fun _ -> Ok ("unknown error")) "api/pipeline/settings"
 
 let post_settings s =
-  Settings.to_yojson s
-  |> post_js_ok "api/pipeline/settings"
+  post_result_unit (fun _ -> Ok ("unknown error")) "api/pipeline/settings" ~contents:(Settings.to_yojson s)
 
 let get_settings_socket () =
   get_socket "api/pipeline/settings_sock" Settings.of_yojson
 
 let get_wm () =
-  get_js "api/pipeline/wm"
-  >|= Result.(flat_map Wm.of_yojson)
+  get_result Wm.of_yojson (fun _ -> Ok ("unknown error")) "api/pipeline/wm"
 
 let post_wm wm =
-  Wm.to_yojson wm
-  |> post_js_ok "api/pipeline/wm"
+  post_result_unit (fun _ -> Ok ("unknown error")) "api/pipeline/wm" ~contents:(Wm.to_yojson wm)
 
 let get_wm_socket () =
   get_socket "api/pipeline/wm_sock" Wm.of_yojson

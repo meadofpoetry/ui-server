@@ -18,7 +18,7 @@ class t () =
                                        Requests.post_structure s
                                        >|= (function
                                             | Ok () -> ()
-                                            | Error e -> print_endline @@ "error post settings" ^ e)
+                                            | Error _ -> print_endline @@ "error post settings")
                                        |> Lwt.ignore_result)
         in
         sock <- Some structure_sock;

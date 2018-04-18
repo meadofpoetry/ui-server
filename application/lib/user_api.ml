@@ -8,7 +8,7 @@ let set_password (users : User.entries) body () =
   | Error e -> respond_error e ()
   | Ok pass -> (try if (get_pass users pass.user).pass = pass.old_pass
                     then (set_pass users { user = pass.user; password = pass.new_pass };
-                          respond_ok ())
+                          respond_result_unit (Ok ()))
                     else respond_error "bad pass" ()
                 with _ -> respond_error "pass db err" ())
   

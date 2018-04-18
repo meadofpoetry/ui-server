@@ -48,7 +48,7 @@ let delay (api : api) = set api.delay delay_of_yojson delay_to_yojson
 let rate_mode (api : api) = set api.rate_mode rate_mode_of_yojson rate_mode_to_yojson
 
 let reset api () =
-  api.reset () >>= respond_ok
+  api.reset () >>= fun v -> respond_result_unit (Ok v)
 
 let config api () =
   api.config () >>= fun conf ->

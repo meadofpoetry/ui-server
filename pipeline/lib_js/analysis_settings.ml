@@ -17,7 +17,7 @@ class t () = object(self)
                                     Requests.post_settings s
                                     >|= (function
                                          | Ok () -> ()
-                                         | Error e -> print_endline @@ "error post settings" ^ e)
+                                         | Error _ -> print_endline @@ "error post settings")
                                     |> Lwt.ignore_result)
       in
       sock <- Some settings_sock;

@@ -54,8 +54,8 @@ let set_stream_settings body app () =
   | Error e -> respond_error e ()
   | Ok s    ->
      Hardware.set_stream app.hw s >>= function
-     | Ok ()     -> respond_ok ()
-     | Error ejs -> respond_error_js (set_error_to_yojson ejs) ()
+     | Ok () as r -> respond_result_unit r
+     | Error ejs  -> respond_result_unit (Error (set_error_to_yojson ejs))
 
 let get_topology app () =
   respond_js (to_yojson (React.S.value app.topo)) ()

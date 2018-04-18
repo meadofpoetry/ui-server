@@ -31,7 +31,7 @@ let set body conv apply =
   match conv js with
   | Error e -> respond_error e ()
   | Ok x    -> apply x
-               >>= function Ok () -> respond_ok ()
+               >>= function Ok () -> respond_result_unit (Ok ())
 
 let get_sock sock_data body conv event =
   let id = rand_int () in
