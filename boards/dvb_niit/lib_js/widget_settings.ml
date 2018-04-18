@@ -18,7 +18,9 @@ let make ~(state:(Common.Topology.state React.signal,string) Lwt_result.t)
   in
   let o = object
       val mutable _name = "Настройки"
-      inherit Ui_templates.Loader.widget_loader t ()
+      inherit Ui_templates.Loader.widget_loader t () as super
+      method! layout = super#layout; t >>= (fun w -> w#layout; Lwt_result.return ())
+                                     |> Lwt.ignore_result
       method name = _name
       method set_name x = _name <- x
       method settings : unit Widget_grid.Item.settings option = None

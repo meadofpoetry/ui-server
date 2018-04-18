@@ -23,10 +23,13 @@ let create_simple_tabs (l:simple_tab list) =
   in
   let ()   = Option.iter (fun t -> show t#get_value) @@ React.S.value bar#s_active in
   let ()   = List.iter (fun t -> Dom.appendChild body#root t#get_value#root) bar#tabs in
-  let box  = Dom_html.createDiv Dom_html.document |> Widget.create in
-  let ()   = box#add_class _class in
   let ()   = body#add_class @@ Markup.CSS.add_element _class "body" in
   let ()   = scrl#add_class @@ Markup.CSS.add_element _class "tabs" in
-  Dom.appendChild box#root scrl#root;
-  Dom.appendChild box#root body#root;
-  box
+  object(self)
+    inherit Widget.widget (Dom_html.createDiv Dom_html.document) () as super
+    method! layout = super#layout; scrl#layout; body#layout
+    initializer
+      Dom.appendChild self#root scrl#root;
+      Dom.appendChild self#root body#root;
+      self#add_class _class
+  end

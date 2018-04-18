@@ -148,11 +148,15 @@ let make ~(state:  (Common.Topology.state React.signal,string) Lwt_result.t)
       in
       let a   = Ui_templates.Buttons.create_apply s set in
       let box = new Box.t ~vertical:true ~widgets:[w;a#widget] () in
+      let ()  = box#add_class "mdc-settings-widget" in
       Lwt_result.return box#widget)
   in
   let o = object
       val mutable _name = Printf.sprintf "Модуль %d. Настройки" (succ conf.id)
-      inherit Ui_templates.Loader.widget_loader t ()
+      inherit Ui_templates.Loader.widget_loader t () as super
+      method! layout = super#layout; print_endline "layout!";
+                       t >>= (fun w -> w#layout; Lwt_result.return ())
+                       |> Lwt.ignore_result
       method name = _name
       method set_name x = _name <- x
       method settings : unit Widget_grid.Item.settings option = None

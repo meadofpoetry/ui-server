@@ -23,16 +23,13 @@ object(self)
   method set_on_error   x = _on_error   <- x
 
   initializer
-    print_endline "init super";
     Dom.appendChild self#root pgs#root;
     t >>= (fun r ->
       Dom.removeChild self#root pgs#root;
       match r with
-      | Ok x    -> print_endline "success";
-                   Option.iter (fun f -> f (self :> 'a loader) x) _on_success;
+      | Ok x    -> Option.iter (fun f -> f (self :> 'a loader) x) _on_success;
                    Lwt.return_unit
-      | Error e -> print_endline "failure";
-                   Option.iter (fun f -> f (self :> 'a loader) e) _on_error;
+      | Error e -> Option.iter (fun f -> f (self :> 'a loader) e) _on_error;
                    let s = (match error_prefix with
                             | Some pfx -> Printf.sprintf "%s:\n %s" pfx e
                             | None     -> e)

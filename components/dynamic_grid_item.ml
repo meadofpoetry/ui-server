@@ -10,10 +10,10 @@ type action = Mouse of Dom_html.mouseEvent Js.t
 let to_item ?min_w ?min_h ?max_w ?max_h ?(keep_ar=false)
             ?(resizable=true) ?(draggable=true) ?(selectable=true)
             ?on_resize ?on_resizing ?on_drag ?on_dragging
-            ?move_widget ?widget ~pos ~value () =
+            ?close_widget ?move_widget ?widget ~pos ~value () =
   { pos; min_w; min_h; max_w; max_h; keep_ar; resizable; draggable; selectable;
     on_resize; on_resizing; on_drag; on_dragging;
-    move_widget; widget; value}
+    close_widget; move_widget; widget; value}
 
 
 let listen ?save target typ f =
@@ -74,7 +74,7 @@ class ['a] t ~s_grid        (* grid props *)
 
     (** API **)
 
-    method get_widget = item.widget
+    method inner_widget = item.widget
 
     method set_pos (p:Position.t)   = super#set_pos p; ghost#set_pos p
     method set_min_w (x:int option) = min_w <- x
@@ -125,6 +125,11 @@ class ['a] t ~s_grid        (* grid props *)
                        selected <- false;
                        s_selected_push @@ List.filter (fun x -> not @@ eq x self) o;)
     method get_selected   = selected
+
+    method layout =
+      Option.iter (fun x -> x#layout) self#inner_widget;
+      Option.iter (fun x -> x#layout) item.move_widget;
+      Option.iter (fun x -> x#layout) item.close_widget
 
     (** Private methods **)
 
@@ -248,6 +253,7 @@ class ['a] t ~s_grid        (* grid props *)
                       else x,y
             in
             self#set_x x; self#set_y y;
+            self#layout;
             Option.iter (fun f -> f self#pos ghost#pos col_px row_px) item.on_dragging
          | `End->
             self#get_drag_target#remove_class Markup.Dynamic_grid.Item.dragging_class;
@@ -266,6 +272,7 @@ class ['a] t ~s_grid        (* grid props *)
                                      x#set_pos pos)
                            (Position.sort_by_y ~f:(fun x -> x#pos) self#items);
             (snd s_change) self#pos;
+            self#layout;
             Option.iter (fun f -> f self#pos ghost#pos col_px row_px) item.on_drag
          | _ -> ()
 
@@ -306,6 +313,7 @@ class ['a] t ~s_grid        (* grid props *)
                    else w,h
          in
          self#set_w w; self#set_h h;
+         self#layout;
          Option.iter (fun f -> f self#pos ghost#pos col_px row_px) item.on_resizing
       | `End ->
          stop_listen mov_listener;
@@ -323,6 +331,7 @@ class ['a] t ~s_grid        (* grid props *)
                                   x#set_pos pos)
                         (Position.sort_by_y ~f:(fun x -> x#pos) self#items);
          (snd s_change) self#pos;
+         self#layout;
          Option.iter (fun f -> f self#pos ghost#pos col_px row_px) item.on_resize
       | _ -> ()
 
@@ -332,6 +341,8 @@ class ['a] t ~s_grid        (* grid props *)
       if item.resizable
       then Dom.appendChild self#root resize_button#root;
       (* append widget to cell if provided *)
+      Option.iter (fun x -> Dom_events.listen x#root Dom_events.Typ.click (fun _ _ ->
+                                                self#remove; true) |> ignore) item.close_widget;
       Option.iter (fun x -> Dom.appendChild self#root x#root) item.widget;
       (* add item move listener *)
       if draggable

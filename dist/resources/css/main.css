@@ -705,7 +705,10 @@
   height: 100%;
   position: relative; }
   .mdc-widget-grid__widget__heading {
-    height: 18px; }
+    height: 18px;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between; }
     .mdc-widget-grid__widget__heading .mdc-card__title {
       font-family: Roboto, sans-serif;
       -moz-osx-font-smoothing: grayscale;
@@ -715,7 +718,22 @@
       font-weight: 400;
       letter-spacing: 0.08em;
       text-decoration: inherit;
-      text-transform: inherit; }
+      text-transform: inherit;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      overflow: hidden; }
+  .mdc-widget-grid__widget__close {
+    /* @alternate */
+    color: rgba(0, 0, 0, 0.38);
+    color: var(--mdc-theme-text-icon-on-background, rgba(0, 0, 0, 0.38));
+    font-size: 16px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 10px; }
   .mdc-widget-grid__widget__content {
     margin: 15px;
     height: calc(100% - 80px); }
@@ -730,8 +748,20 @@
     display: flex;
     flex-direction: column; }
 
+.mdc-settings-widget {
+  display: flex;
+  flex-direction: column; }
+  .mdc-settings-widget .mdc-apply-button {
+    margin-top: 10px;
+    align-self: flex-start; }
+
 .mdc-simple-tabs__body {
   margin-top: 15px; }
+
+.dvb-niit-module-settings__mode {
+  margin-top: 0 !important; }
+.dvb-niit-module-settings .mdc-select {
+  margin-top: 16px; }
 
 :root {
   --mdc-box-margin: 0px; }

@@ -6,6 +6,7 @@ let base_class    = "mdc-widget-grid"
 let widget_class  = Markup.CSS.add_element base_class "widget"
 let content_class = Markup.CSS.add_element widget_class "content"
 let heading_class = Markup.CSS.add_element widget_class "heading"
+let close_class   = Markup.CSS.add_element widget_class "close"
 
 module Item = struct
 
@@ -21,21 +22,25 @@ module Item = struct
 
   class ['a] wrapper (widget:'a t) () =
     let title = new Card.Primary.title widget#name () in
-    let prim  = new Card.Primary.t ~widgets:[title] () in
+    let close = new Icon.Button.Font.t ~icon:"close" () in
+    let prim  = new Card.Primary.t ~widgets:[title#widget;close#widget] () in
     let media = new Card.Media.t ~widgets:[widget] () in
     object(self)
-      inherit Widget.widget (Dom_html.createDiv Dom_html.document) ()
+      inherit Widget.widget (Dom_html.createDiv Dom_html.document) () as super
+      method! layout = super#layout; widget#layout
+      method close   = close
       initializer
         self#add_class widget_class;
         media#add_class content_class;
         prim#add_class heading_class;
+        close#add_class close_class;
         Dom.appendChild self#root prim#root;
         Dom.appendChild self#root media#root
     end
 
   let to_item (widget:'a t) =
     let wrapper = new wrapper widget () in
-    Item.to_item ~widget:wrapper ~value:() ()
+    Item.to_item ~close_widget:wrapper#close#widget ~widget:wrapper#widget ~value:() ()
 
 end
 

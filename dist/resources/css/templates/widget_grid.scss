@@ -19,7 +19,24 @@
             height: 18px;
             .mdc-card__title {
                 @include mdc-typography(caption);
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                overflow: hidden;
             }
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+        }
+        &__close {
+            @include mdc-theme-prop(color,text-icon-on-background);
+            font-size: 16px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: 10px;
         }
         &__content {
             margin: 15px;
@@ -38,5 +55,14 @@
     &__inner {
         display: flex;
         flex-direction: column;
+    }
+}
+
+.mdc-settings-widget {
+    display: flex;
+    flex-direction: column;
+    .mdc-apply-button {
+        margin-top: 10px;
+        align-self: flex-start;
     }
 }
