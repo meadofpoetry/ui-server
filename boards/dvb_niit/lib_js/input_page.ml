@@ -3,41 +3,38 @@ open Containers
 open Components
 open Measures
 
-module Listener = Topo_page.Listener
-
-let make_chart : type a. init:a data -> event:a data React.event -> a config -> Widget.widget =
-  fun ~init ~event config ->
-  let chart = make_chart ~init ~event config in
-  let exp   = new Expansion_panel.t ~title:(chart_name_of_typ config.typ) ~content:[chart] () in
-  exp#panel#style##.height := Js.string "250px";
-  exp#set_expanded true;
-  exp#widget
-
 let fab_class = "mdc-fixed-fab"
 
 let make_param w =
   new Card.t ~widgets:[w] ()
 
 let make (control:int) =
-  let t = Listener.listen control
-          >>= (fun (l,state) ->
-      let modules = List.map fst l.config |> List.sort compare in
-      let factory = new Widgets.Factory.t control () in
-      let mer_p   = factory#create (Parameter { id = 0; typ = `Power }) in
-      let conf t = { typ = t; modules; duration = 120000L } in
-      let pow  = make_chart ~init:[] ~event:(to_power_event l.events.status) (conf Power) in
-      let mer  = make_chart ~init:[] ~event:(to_mer_event l.events.status) (conf Mer) in
-      let ber  = make_chart ~init:[] ~event:(to_ber_event l.events.status) (conf Ber) in
-      let frq  = make_chart ~init:[] ~event:(to_freq_event l.events.status) (conf Freq) in
-      let br   = make_chart ~init:[] ~event:(to_bitrate_event l.events.status) (conf Bitrate) in
-      let box  = new Box.t  ~widgets:[mer_p;pow;mer;ber;frq;br] () |> Widget.coerce in
-      box#set_on_destroy @@ Some (fun () -> Listener.unlisten state);
-      Lwt_result.return box)
+  let factory = new Widgets.Factory.t control () in
+  let mer_p   = factory#create (Parameter { id = 0; typ = `Mer }) in
+  let ber_p   = factory#create (Parameter { id = 0; typ = `Ber }) in
+  let frq_p   = factory#create (Parameter { id = 0; typ = `Freq }) in
+  let pow_p   = factory#create (Parameter { id = 0; typ = `Power }) in
+  let conf t = ({ typ = t; ids=[0;1]; duration = 120000L }:Widget_chart.config) in
+  let pow  = factory#create (Chart (conf `Power)) in
+  let mer  = factory#create (Chart (conf `Mer)) in
+  let ber  = factory#create (Chart (conf `Ber)) in
+  let frq  = factory#create (Chart (conf `Freq)) in
+  let br   = factory#create (Chart (conf `Bitrate)) in
+  let grid = Dynamic_grid.to_grid ~vertical_compact:true ~row_height:100 ~items_margin:(10,10) ~cols:4 () in
+  let items = [ Dynamic_grid.Item.to_item ~widget:mer_p ~pos:{x=0;y=0;w=1;h=1} ~value:() ()
+              ; Dynamic_grid.Item.to_item ~widget:ber_p ~pos:{x=1;y=0;w=1;h=1} ~value:() ()
+              ; Dynamic_grid.Item.to_item ~widget:frq_p ~pos:{x=2;y=0;w=1;h=1} ~value:() ()
+              ; Dynamic_grid.Item.to_item ~widget:pow_p ~pos:{x=3;y=0;w=1;h=1} ~value:() ()
+              ; Dynamic_grid.Item.to_item ~widget:pow ~pos:{x=0;y=1;w=4;h=2} ~value:() ()
+              ; Dynamic_grid.Item.to_item ~widget:mer ~pos:{x=0;y=3;w=4;h=2} ~value:() ()
+              ; Dynamic_grid.Item.to_item ~widget:ber ~pos:{x=0;y=5;w=4;h=2} ~value:() ()
+              ; Dynamic_grid.Item.to_item ~widget:frq ~pos:{x=0;y=7;w=4;h=2} ~value:() ()
+              ; Dynamic_grid.Item.to_item ~widget:br  ~pos:{x=0;y=9;w=4;h=2} ~value:() ()
+              ]
   in
-  object(self)
-    inherit Widget.widget (Dom_html.createDiv Dom_html.document) ()
-    method on_load = ()
-    method on_unload = t >>= (fun w -> w#destroy; Lwt_result.return ()) |> Lwt.ignore_result
-    initializer
-      t >>= (fun w -> Dom.appendChild self#root w#root; Lwt_result.return ()) |> Lwt.ignore_result
+  let dg   = new Dynamic_grid.t ~grid ~items () in
+  object
+    inherit Widget.widget dg#root ()
+    method on_load = dg#layout
+    method on_unload = factory#destroy
   end

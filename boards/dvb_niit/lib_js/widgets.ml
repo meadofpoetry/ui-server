@@ -3,93 +3,11 @@ open Components
 open Board_types
 open Lwt_result.Infix
 
-module type Measure_params = sig
-  type t
-  val name : string
-  val unit : string
-  val data_to_string : t -> string
-end
-
-module Meas = struct
-  module Power   : Measure_params with type t = float = struct
-    type t = float
-    let name = "Мощность"
-    let unit = "дБм"
-    let data_to_string = Printf.sprintf "%.2f"
-  end
-  module Mer     : Measure_params with type t = float = struct
-    type t   = float
-    let name = "MER"
-    let unit = "дБ"
-    let data_to_string = Printf.sprintf "%.2f"
-  end
-  module Ber     : Measure_params with type t = float = struct
-    type t   = float
-    let name = "BER"
-    let unit = ""
-    let data_to_string = Printf.sprintf "%.2f"
-  end
-  module Freq    : Measure_params with type t = int32 = struct
-    type t   = int32
-    let name = "Отклонение частоты"
-    let unit = "Гц"
-    let data_to_string = Int32.to_string
-  end
-  module Bitrate : Measure_params with type t = int32 = struct
-    type t   = int32
-    let name = "Битрейт"
-    let unit = "Бит/с"
-    let data_to_string = Int32.to_string
-  end
-end
-
-type typ = [ `Power | `Mer | `Ber | `Freq | `Bitrate ]
-
-module Make_param(M:Measure_params) = struct
-  type event = M.t option React.event
-  let name   = M.name
-  let val_to_string = function
-    | Some v -> Printf.sprintf "%s %s" (M.data_to_string v) M.unit
-    | None   -> "-"
-  let get_name id = Printf.sprintf "Модуль %d. %s" (succ id) name
-
-  class t ?(on_destroy:(unit -> unit) option) (event:event) (config:int) () =
-    let name  = new Typography.Text.t
-                    ~adjust_margin:false
-                    ~font:Caption
-                    ~text:(get_name config)
-                    ()
-    in
-    let value = new Typography.Text.t
-                    ~adjust_margin:false
-                    ~font:Headline
-                    ~text:(val_to_string None)
-                    ()
-    in
-    let _  = React.E.map (fun v -> value#set_text @@ val_to_string v) event in
-    object
-      inherit Box.t ~vertical:false ~widgets:[name;value] () as super
-      method! destroy = Option.iter (fun f -> f ()) on_destroy; super#destroy
-    end
-
-  let make ?on_destroy (event:event) (config:int) =
-    new t ?on_destroy event config () |> Widget.coerce
-
-end
-
-module Power_param   = Make_param(Meas.Power)
-module Mer_param     = Make_param(Meas.Mer)
-module Ber_param     = Make_param(Meas.Ber)
-module Freq_param    = Make_param(Meas.Freq)
-module Bitrate_param = Make_param(Meas.Bitrate)
-
 module Factory = struct
 
-  type parameter_config = { id : int; typ : typ }
-
   (* Widget type *)
-  type widget = Parameter of parameter_config
-              | Chart
+  type widget = Parameter of Widget_param.config
+              | Chart of Widget_chart.config
 
   let return = Lwt_result.return
 
@@ -107,15 +25,27 @@ module Factory = struct
     (** Create widget of type **)
     method create = function
       | Parameter conf ->
+         let open Widget_param in
          let e = React.E.filter (fun (id,_) -> id = conf.id) self#get_measures in
          let on_destroy = fun () -> self#destroy_measures in
          (match conf.typ with
-          | `Power   -> Power_param.make   ~on_destroy (React.E.map (fun (_,m) -> m.power) e)   conf.id
-          | `Mer     -> Mer_param.make     ~on_destroy (React.E.map (fun (_,m) -> m.mer) e)     conf.id
-          | `Ber     -> Ber_param.make     ~on_destroy (React.E.map (fun (_,m) -> m.ber) e)     conf.id
-          | `Freq    -> Freq_param.make    ~on_destroy (React.E.map (fun (_,m) -> m.freq) e)    conf.id
-          | `Bitrate -> Bitrate_param.make ~on_destroy (React.E.map (fun (_,m) -> m.bitrate) e) conf.id)
-      | _ -> Widget.create @@ Dom_html.createDiv Dom_html.document
+          | `Power   -> Power.make   ~on_destroy (React.E.map (fun (_,m) -> m.power) e)   conf
+          | `Mer     -> Mer.make     ~on_destroy (React.E.map (fun (_,m) -> m.mer) e)     conf
+          | `Ber     -> Ber.make     ~on_destroy (React.E.map (fun (_,m) -> m.ber) e)     conf
+          | `Freq    -> Freq.make    ~on_destroy (React.E.map (fun (_,m) -> m.freq) e)    conf
+          | `Bitrate -> Bitrate.make ~on_destroy (React.E.map (fun (_,m) -> m.bitrate) e) conf)
+      | Chart conf ->
+         let open Widget_chart in
+         let event = self#get_measures in
+         (match conf.typ with
+          | `Power   -> Power.make ~init:[] ~event conf
+          | `Mer     -> Mer.make   ~init:[] ~event conf
+          | `Ber     -> Ber.make   ~init:[] ~event conf
+          | `Freq    -> Freq.make  ~init:[] ~event conf
+          | `Bitrate -> Freq.make  ~init:[] ~event conf)
+
+    method destroy = _state_ref <- 0; _config_ref <- 0; _measures_ref <- 0;
+                     self#destroy_state; self#destroy_config; self#destroy_measures
 
     method private destroy_state =
       _state_ref <- _state_ref - 1;

@@ -723,7 +723,7 @@ body {
     left: 240px;
     width: calc(100% - 240px); } }
 #arbitrary-content {
-  padding: 20px; }
+  margin: 20px; }
   #arbitrary-content > .mdc-layout-grid {
     --mdc-layout-grid-margin-desktop: 0px;
     --mdc-layout-grid-margin-tablet: 0px;
