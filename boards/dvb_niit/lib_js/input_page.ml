@@ -16,17 +16,18 @@ let make (control:int) =
   let frq     = factory#create (Chart (conf `Freq)) in
   let br      = factory#create (Chart (conf `Bitrate)) in
   let ms      = factory#create Settings in
-  let items   = [ Widget_grid.Item.to_item ~pos:{x=0;y=0;w=2;h=4} ms
-                ; Widget_grid.Item.to_item ~pos:{x=2;y=0;w=1;h=1} mer_p
-                ; Widget_grid.Item.to_item ~pos:{x=3;y=0;w=1;h=1} ber_p
-                ; Widget_grid.Item.to_item ~pos:{x=2;y=1;w=1;h=1} frq_p
-                ; Widget_grid.Item.to_item ~pos:{x=3;y=1;w=1;h=1} pow_p
-                ; Widget_grid.Item.to_item ~pos:{x=2;y=2;w=1;h=1} br_p
-                ; Widget_grid.Item.to_item ~pos:{x=0;y=4;w=4;h=2} pow
-                ; Widget_grid.Item.to_item ~pos:{x=0;y=6;w=4;h=2} mer
-                ; Widget_grid.Item.to_item ~pos:{x=0;y=8;w=4;h=2} ber
-                ; Widget_grid.Item.to_item ~pos:{x=0;y=10;w=4;h=2} frq
-                ; Widget_grid.Item.to_item ~pos:{x=0;y=12;w=4;h=2} br
+  let wrap x  = x in
+  let items   = [ Widget_grid.Item.to_item ~pos:{x=0;y=0;w=2;h=3} @@ wrap ms
+                ; Widget_grid.Item.to_item ~pos:{x=2;y=0;w=1;h=1} @@ wrap mer_p
+                ; Widget_grid.Item.to_item ~pos:{x=3;y=0;w=1;h=1} @@ wrap ber_p
+                ; Widget_grid.Item.to_item ~pos:{x=2;y=1;w=1;h=1} @@ wrap frq_p
+                ; Widget_grid.Item.to_item ~pos:{x=3;y=1;w=1;h=1} @@ wrap pow_p
+                ; Widget_grid.Item.to_item ~pos:{x=2;y=2;w=1;h=1} @@ wrap br_p
+                ; Widget_grid.Item.to_item ~pos:{x=0;y=4;w=4;h=2} @@ wrap pow
+                ; Widget_grid.Item.to_item ~pos:{x=0;y=6;w=4;h=2} @@ wrap mer
+                ; Widget_grid.Item.to_item ~pos:{x=0;y=8;w=4;h=2} @@ wrap ber
+                ; Widget_grid.Item.to_item ~pos:{x=0;y=10;w=4;h=2} @@ wrap frq
+                ; Widget_grid.Item.to_item ~pos:{x=0;y=12;w=4;h=2} @@ wrap br
                 ]
   in
   let dg      = new Widget_grid.t ~items () in

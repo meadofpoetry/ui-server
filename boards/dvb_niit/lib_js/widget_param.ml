@@ -26,12 +26,6 @@ module Make(M:M) = struct
     Printf.sprintf "Модуль %d. %s" (succ config.id) n
 
   class t ?(on_destroy:(unit -> unit) option) (event:event) (config:config) () =
-    let name  = new Typography.Text.t
-                    ~adjust_margin:false
-                    ~font:Caption
-                    ~text:(get_name config)
-                    ()
-    in
     let value = new Typography.Text.t
                     ~adjust_margin:false
                     ~font:Headline
@@ -42,18 +36,21 @@ module Make(M:M) = struct
     let box   = Dom_html.createDiv Dom_html.document in
     let inner = Dom_html.createDiv Dom_html.document |> Widget.create in
     let ()    = inner#add_class inner_class in
-    let ()    = Dom.appendChild inner#root name#root in
     let ()    = Dom.appendChild inner#root value#root in
     let ()    = Dom.appendChild box inner#root in
     object(self)
+      val mutable _name = get_name config
       inherit Widget.widget box () as super
       method! destroy = Option.iter (fun f -> f ()) on_destroy; super#destroy
+      method name       = _name
+      method set_name x = _name <- x
+      method settings : unit Widget_grid.Item.settings option = None
       initializer
         self#add_class _class
     end
 
   let make ?on_destroy (event:event) (config:config) =
-    new t ?on_destroy event config () |> Widget.coerce
+    new t ?on_destroy event config ()
 
 end
 module Float = struct

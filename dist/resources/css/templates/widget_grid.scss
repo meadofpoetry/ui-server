@@ -1,0 +1,42 @@
+@import '../components/theme/_mixins';
+@import '../components/elevation/_mixins';
+@import '../components/typography/_mixins';
+
+.mdc-widget-grid {
+
+    .mdc-dynamic-grid__item {
+        @include mdc-elevation(2);
+        @include mdc-theme-prop(background-color, background);
+        overflow: hidden;
+    }
+
+    &__widget {
+        height: 100%;
+        // overflow-y: auto;
+        position: relative;
+
+        &__heading {
+            height: 18px;
+            .mdc-card__title {
+                @include mdc-typography(caption);
+            }
+        }
+        &__content {
+            margin: 15px;
+            height: calc(100% - 80px);
+            > * {
+                height: 100%;
+            }
+        }
+    }
+}
+
+.mdc-parameter-widget {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    &__inner {
+        display: flex;
+        flex-direction: column;
+    }
+}

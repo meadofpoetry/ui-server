@@ -150,5 +150,11 @@ let make ~(state:  (Common.Topology.state React.signal,string) Lwt_result.t)
       let box = new Box.t ~vertical:true ~widgets:[w;a#widget] () in
       Lwt_result.return box#widget)
   in
-  let loader = Ui_templates.Loader.create_widget_loader t in
-  loader#widget
+  let o = object
+      val mutable _name = Printf.sprintf "Модуль %d. Настройки" (succ conf.id)
+      inherit Ui_templates.Loader.widget_loader t ()
+      method name = _name
+      method set_name x = _name <- x
+      method settings : unit Widget_grid.Item.settings option = None
+    end
+  in (o :> unit Widget_grid.Item.t)

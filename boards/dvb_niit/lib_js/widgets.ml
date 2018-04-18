@@ -6,8 +6,8 @@ open Lwt_result.Infix
 module Factory = struct
 
   (* Widget type *)
-  type widget = Parameter of Widget_param.config
-              | Chart of Widget_chart.config
+  type widget = Parameter       of Widget_param.config
+              | Chart           of Widget_chart.config
               | Module_settings of Widget_module_settings.config
               | Settings
 
@@ -25,7 +25,7 @@ module Factory = struct
     val mutable _measures_ref = 0
 
     (** Create widget of type **)
-    method create = function
+    method create : widget -> unit Widget_grid.Item.t = function
       | Parameter conf       -> Widget_param.make ~measures:self#get_measures conf
       | Chart conf           -> Widget_chart.make ~measures:self#get_measures conf
       | Module_settings conf -> Widget_module_settings.make ~state:self#get_state
@@ -34,7 +34,6 @@ module Factory = struct
       | Settings             -> Widget_settings.make ~state:self#get_state
                                                      ~config:self#get_config
                                                      control
-
 
     method destroy = _state_ref <- 0; _config_ref <- 0; _measures_ref <- 0;
                      self#destroy_state; self#destroy_config; self#destroy_measures
