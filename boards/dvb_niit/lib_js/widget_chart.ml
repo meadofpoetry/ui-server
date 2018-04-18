@@ -17,8 +17,7 @@ type config =
 
 let colors = Color.([ Indigo C500; Amber C500; Green C500; Cyan C500 ])
 
-let make_chart_base (* ~(typ:    'a Chartjs.Axes.numeric) *)
-                    ~(config: config)
+let make_chart_base ~(config: config)
                     ~(init:   float data)
                     ~(event:  float data React.event)
                     () : Widget.widget =
@@ -56,11 +55,7 @@ let make_chart_base (* ~(typ:    'a Chartjs.Axes.numeric) *)
                                                                    @@ List.get_at_idx id chart#config#datasets)
                                                  datasets)
                       event in
-  let title = new Card.Primary.title (measure_type_to_string config.typ) () in
-  let prim  = new Card.Primary.t ~widgets:[title#widget] () in
-  let media = new Card.Media.t ~widgets:[chart#widget] () in
-  let card  = new Card.t ~widgets:[prim#widget;media#widget] () in
-  card#widget
+  chart#widget
 
 type event = measure_response React.event
 let to_event (get: Board_types.measure -> 'a option)
@@ -72,7 +67,8 @@ let to_power_event   (event:event) = to_event (fun m -> m.power)   event
 let to_mer_event     (event:event) = to_event (fun m -> m.mer)     event
 let to_ber_event     (event:event) = to_event (fun m -> m.ber)     event
 let to_freq_event    (event:event) = to_event (fun m -> Option.map Int32.to_float m.freq)    event
-let to_bitrate_event (event:event) = to_event (fun m -> Option.map Int32.to_float m.bitrate) event
+let to_bitrate_event (event:event) = to_event (fun m -> Option.map (fun b ->
+                                                          Int32.to_float b /. 1_000_000.) m.bitrate) event
 
 module type M = sig
   type t
@@ -96,11 +92,11 @@ module Make(M:M) = struct
 end
 
 module Float = struct
-  type t = float
+  type t         = float
   let to_float t = t
 end
 module Int32 = struct
-  type t = int32
+  type t       = int32
   let to_float = Int32.to_float
 end
 
@@ -108,4 +104,13 @@ module Power   = Make(Float)
 module Mer     = Make(Float)
 module Ber     = Make(Float)
 module Freq    = Make(Int32)
-module Bitrate = Make(Int32)
+module Bitrate = Make(Float)
+
+let make ~(measures:Board_types.measure_response React.event) (config:config) =
+  let event = measures in
+  (match config.typ with
+   | `Power   -> Power.make ~init:[] ~event config
+   | `Mer     -> Mer.make   ~init:[] ~event config
+   | `Ber     -> Ber.make   ~init:[] ~event config
+   | `Freq    -> Freq.make  ~init:[] ~event config
+   | `Bitrate -> Freq.make  ~init:[] ~event config)

@@ -1,6 +1,10 @@
 open Containers
-open Board_types
 open Components
+open Board_types
+open Lwt_result.Infix
+
+type config =
+  { id : int }
 
 let (%>) = Fun.(%>)
 
@@ -127,3 +131,24 @@ let make_module_settings ~(id:    int)
   let () = box#add_class base_class in
   let submit = fun (cfg:settings_request) -> Requests.post_settings control cfg in
   box#widget,s,submit
+
+let make ~(state:  (Common.Topology.state React.signal,string) Lwt_result.t)
+         ~(config: (Board_types.config React.signal,string) Lwt_result.t)
+         (conf: config)
+         control =
+  let t = state >>= (fun s -> config >>= (fun c -> Lwt_result.return (s,c))) in
+  let t = t >>= (fun (state,config) ->
+      let get = List.Assoc.get_exn ~eq:(=) conf.id in
+      let w,s,set = make_module_settings ~id:conf.id
+                                         ~init:(get @@ React.S.value config)
+                                         ~event:(React.S.changes @@ React.S.map get config)
+                                         ~state
+                                         control
+                                         ()
+      in
+      let a   = Ui_templates.Buttons.create_apply s set in
+      let box = new Box.t ~vertical:true ~widgets:[w;a#widget] () in
+      Lwt_result.return box#widget)
+  in
+  let loader = Ui_templates.Loader.create_widget_loader t in
+  loader#widget

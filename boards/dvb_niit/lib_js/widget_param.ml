@@ -15,6 +15,9 @@ type config =
 module Make(M:M) = struct
   type event  = M.t option React.event
 
+  let _class      = "mdc-parameter-widget"
+  let inner_class = Markup.CSS.add_element _class "inner"
+
   let value_to_string (config:config) = function
     | Some v -> Printf.sprintf "%s %s" (M.to_string v) (measure_type_to_unit config.typ)
     | None   -> "-"
@@ -35,11 +38,18 @@ module Make(M:M) = struct
                     ~text:(value_to_string config None)
                     ()
     in
-    let _  = React.E.map (fun v -> value#set_text @@ value_to_string config v) event in
-    let card = new Card.t ~widgets:[name;value] () in
-    object
-      inherit Widget.widget card#root () as super
+    let _     = React.E.map (fun v -> value#set_text @@ value_to_string config v) event in
+    let box   = Dom_html.createDiv Dom_html.document in
+    let inner = Dom_html.createDiv Dom_html.document |> Widget.create in
+    let ()    = inner#add_class inner_class in
+    let ()    = Dom.appendChild inner#root name#root in
+    let ()    = Dom.appendChild inner#root value#root in
+    let ()    = Dom.appendChild box inner#root in
+    object(self)
+      inherit Widget.widget box () as super
       method! destroy = Option.iter (fun f -> f ()) on_destroy; super#destroy
+      initializer
+        self#add_class _class
     end
 
   let make ?on_destroy (event:event) (config:config) =
@@ -48,10 +58,22 @@ module Make(M:M) = struct
 end
 module Float = struct
   type t = float
-  let to_string t = string_of_float t |> (fun x -> if String.suffix ~suf:"." x then x ^ "0" else x)
+  let to_string t = Printf.sprintf "%.3g" t
 end
 module Power    = Make(Float)
 module Mer      = Make(Float)
 module Ber      = Make(Float)
 module Freq     = Make(Int32)
-module Bitrate  = Make(Int32)
+module Bitrate  = Make(Float)
+
+let make ~(measures:Board_types.measure_response React.event)
+         (config:config) =
+  let open Board_types in
+  let e = React.E.filter (fun (id,_) -> id = config.id) measures in
+  (match config.typ with
+   | `Power   -> Power.make   (React.E.map (fun (_,m) -> m.power) e)   config
+   | `Mer     -> Mer.make     (React.E.map (fun (_,m) -> m.mer) e)     config
+   | `Ber     -> Ber.make     (React.E.map (fun (_,m) -> m.ber) e)     config
+   | `Freq    -> Freq.make    (React.E.map (fun (_,m) -> m.freq) e)    config
+   | `Bitrate -> Bitrate.make (React.E.map (fun (_,m) ->
+                                   Option.map (fun b -> Int32.to_float b /. 1_000_000.) m.bitrate) e) config)

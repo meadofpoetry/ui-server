@@ -8,6 +8,8 @@ module Factory = struct
   (* Widget type *)
   type widget = Parameter of Widget_param.config
               | Chart of Widget_chart.config
+              | Module_settings of Widget_module_settings.config
+              | Settings
 
   let return = Lwt_result.return
 
@@ -24,25 +26,15 @@ module Factory = struct
 
     (** Create widget of type **)
     method create = function
-      | Parameter conf ->
-         let open Widget_param in
-         let e = React.E.filter (fun (id,_) -> id = conf.id) self#get_measures in
-         let on_destroy = fun () -> self#destroy_measures in
-         (match conf.typ with
-          | `Power   -> Power.make   ~on_destroy (React.E.map (fun (_,m) -> m.power) e)   conf
-          | `Mer     -> Mer.make     ~on_destroy (React.E.map (fun (_,m) -> m.mer) e)     conf
-          | `Ber     -> Ber.make     ~on_destroy (React.E.map (fun (_,m) -> m.ber) e)     conf
-          | `Freq    -> Freq.make    ~on_destroy (React.E.map (fun (_,m) -> m.freq) e)    conf
-          | `Bitrate -> Bitrate.make ~on_destroy (React.E.map (fun (_,m) -> m.bitrate) e) conf)
-      | Chart conf ->
-         let open Widget_chart in
-         let event = self#get_measures in
-         (match conf.typ with
-          | `Power   -> Power.make ~init:[] ~event conf
-          | `Mer     -> Mer.make   ~init:[] ~event conf
-          | `Ber     -> Ber.make   ~init:[] ~event conf
-          | `Freq    -> Freq.make  ~init:[] ~event conf
-          | `Bitrate -> Freq.make  ~init:[] ~event conf)
+      | Parameter conf       -> Widget_param.make ~measures:self#get_measures conf
+      | Chart conf           -> Widget_chart.make ~measures:self#get_measures conf
+      | Module_settings conf -> Widget_module_settings.make ~state:self#get_state
+                                                            ~config:self#get_config
+                                                            conf control
+      | Settings             -> Widget_settings.make ~state:self#get_state
+                                                     ~config:self#get_config
+                                                     control
+
 
     method destroy = _state_ref <- 0; _config_ref <- 0; _measures_ref <- 0;
                      self#destroy_state; self#destroy_config; self#destroy_measures
