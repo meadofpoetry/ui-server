@@ -173,9 +173,11 @@ let get_structures api input id () =
   let input, id = (Result.get_exn @@ Common.Topology.input_of_string input), int_of_string id in
   let input = Common.Topology.{ input; id } in
   Lwt.catch (fun () ->
-      api.model.struct_api.get_input input >>= fun (str, date) ->
-      let s = Structure.Streams.to_yojson str in
-      respond_js (`Tuple [s; Time.Seconds.to_yojson date]) ())
+      api.model.struct_api.get_input input
+      >>= function None -> respond_error "No data" () (* TODO fix *)
+                  | Some (str, date) ->
+                     let s = Structure.Streams.to_yojson str in
+                     respond_js (`Tuple [s; Time.Seconds.to_yojson date]) ())
     (function Failure e -> respond_error e ())
 
 let get_structures_between api input id from to' () =

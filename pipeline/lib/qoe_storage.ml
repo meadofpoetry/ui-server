@@ -28,7 +28,7 @@ let data_t =
     ~decode:(fun (stream,(channel,(pid,(error,(counter,(size,(min,(max,(avg,(peak_flag,(cont_flag,timestamp))))))))))) ->
       Ok(stream,channel,pid,error, { counter; size; params = { min; max; avg }; peak_flag; cont_flag; timestamp }))
                                                                                
-let init (module Db : Caqti_lwt.CONNECTION) =
+let init db =
   let create =
     Caqti_request.exec Caqti_type.unit
       {eos|CREATE TABLE IF NOT EXISTS qoe_errors(
@@ -37,33 +37,18 @@ let init (module Db : Caqti_lwt.CONNECTION) =
        min     REAL,     max     REAL,     avg     REAL,
        peak_flag BOOLEAN, cont_flag BOOLEAN, date   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
        )|eos}
-  in
-  Db.exec create () >>= function
-  | Ok v    -> Lwt.return v
-  | Error e -> Lwt.fail_with (error "qoe_storage: init %s" e)
+  in db.exec (Exec create) ()
 
-let store (module Db : Caqti_lwt.CONNECTION) data =
+let store db data =
   let insert =
     Caqti_request.exec data_t
       {eos|INSERT INTO qoe_errors(stream,channel,pid,error,counter,size,min,max,avg,peak_flag,cont_flag,date)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)|eos}
-  in
-  let store' (module Db : Caqti_lwt.CONNECTION) =
-    Db.start () >>= fail_if >>= fun () ->
-    List.fold_left
-      (fun thread v ->
-        thread >>= function
-        | Ok ()  -> Db.exec insert v
-        | _ as e -> Lwt.return e)
-      (Lwt.return_ok ()) data
-    >>= fail_if >>= Db.commit >>= function
-    | Ok v    -> Lwt.return v
-    | Error e -> Lwt.fail_with (error "qoe_storage: store_data %s" e)
-  in store' (module Db)
+  in db.exec (Trans ((Exec insert),(),(fun x _ -> x))) data
 
-let request (type a) dbs (r : a req) : a Lwt.t =
+let request (type a) db (r : a req) : a Lwt.t =
   match r with
-  | Store_video s -> store dbs (video_data_to_list s)
-  | Store_audio s -> store dbs (audio_data_to_list s)
+  | Store_video s -> store db (video_data_to_list s)
+  | Store_audio s -> store db (audio_data_to_list s)
 
 let worker = None
