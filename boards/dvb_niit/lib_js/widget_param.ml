@@ -57,9 +57,13 @@ module Float = struct
   type t = float
   let to_string t = Printf.sprintf "%.3g" t
 end
+module Scientific = struct
+  type t = float
+  let to_string t = Printf.sprintf "%.3e" t
+end
 module Power    = Make(Float)
 module Mer      = Make(Float)
-module Ber      = Make(Float)
+module Ber      = Make(Scientific)
 module Freq     = Make(Int32)
 module Bitrate  = Make(Float)
 

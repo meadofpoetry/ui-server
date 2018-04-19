@@ -7,6 +7,7 @@ module Factory = struct
 
   (* Widget type *)
   type widget = Parameter       of Widget_param.config
+              | Parameters      of Widget_params.config
               | Chart           of Widget_chart.config
               | Module_settings of Widget_module_settings.config
               | Settings
@@ -27,6 +28,7 @@ module Factory = struct
     (** Create widget of type **)
     method create : widget -> unit Widget_grid.Item.t = function
       | Parameter conf       -> Widget_param.make ~measures:self#get_measures conf
+      | Parameters conf      -> Widget_params.make ~measures:self#get_measures conf
       | Chart conf           -> Widget_chart.make ~measures:self#get_measures conf
       | Module_settings conf -> Widget_module_settings.make ~state:self#get_state
                                                             ~config:self#get_config

@@ -748,6 +748,38 @@
     display: flex;
     flex-direction: column; }
 
+.mdc-parameters-widget {
+  display: flex;
+  flex-direction: column; }
+  .mdc-parameters-widget__row {
+    margin-top: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center; }
+    .mdc-parameters-widget__row__name, .mdc-parameters-widget__row__value {
+      flex-basis: 50%; }
+    .mdc-parameters-widget__row__name {
+      font-family: Roboto, sans-serif;
+      -moz-osx-font-smoothing: grayscale;
+      -webkit-font-smoothing: antialiased;
+      font-size: 0.938rem;
+      line-height: 1.5rem;
+      font-weight: 400;
+      letter-spacing: 0.04em;
+      text-decoration: inherit;
+      text-transform: inherit; }
+    .mdc-parameters-widget__row__value {
+      font-family: Roboto, sans-serif;
+      -moz-osx-font-smoothing: grayscale;
+      -webkit-font-smoothing: antialiased;
+      font-size: 1rem;
+      line-height: 1.75rem;
+      font-weight: 400;
+      letter-spacing: 0.04em;
+      text-decoration: inherit;
+      text-transform: inherit;
+      text-align: right; }
+
 .mdc-settings-widget {
   display: flex;
   flex-direction: column; }

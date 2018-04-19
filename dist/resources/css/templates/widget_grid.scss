@@ -58,6 +58,27 @@
     }
 }
 
+.mdc-parameters-widget {
+    display: flex;
+    flex-direction: column;
+    &__row {
+        margin-top: 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        &__name, &__value {
+            flex-basis: 50%;
+        }
+        &__name {
+            @include mdc-typography(subheading1);
+        }
+        &__value {
+            @include mdc-typography(subheading2);
+            text-align: right;
+        }
+    }
+}
+
 .mdc-settings-widget {
     display: flex;
     flex-direction: column;
