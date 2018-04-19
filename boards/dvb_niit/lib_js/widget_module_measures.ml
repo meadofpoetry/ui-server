@@ -43,8 +43,8 @@ module Row = struct
 
   end
 
-  module Float      = Widget_param.Float
-  module Scientific = Widget_param.Scientific
+  module Float      = Widget_module_measure.Float
+  module Scientific = Widget_module_measure.Scientific
   module Power      = Make(struct include Float let typ = `Power end)
   module Mer        = Make(struct include Float let typ = `Mer end)
   module Ber        = Make(struct include Scientific let typ = `Ber end)

@@ -6,11 +6,13 @@ open Lwt_result.Infix
 module Factory = struct
 
   (* Widget type *)
-  type widget = Parameter       of Widget_param.config
-              | Parameters      of Widget_params.config
+  type widget = Module_measure  of Widget_module_measure.config
+              | Module_measures of Widget_module_measures.config
+              | Measures        of Widget_measures.config
+              | Measure         of Widget_measure.config
               | Chart           of Widget_chart.config
               | Module_settings of Widget_module_settings.config
-              | Settings
+              | Settings        of Widget_settings.config
 
   let return = Lwt_result.return
 
@@ -27,15 +29,21 @@ module Factory = struct
 
     (** Create widget of type **)
     method create : widget -> unit Widget_grid.Item.t = function
-      | Parameter conf       -> Widget_param.make ~measures:self#get_measures conf
-      | Parameters conf      -> Widget_params.make ~measures:self#get_measures conf
+      | Module_measure conf  -> Widget_module_measure.make ~measures:self#get_measures conf
+      | Module_measures conf -> Widget_module_measures.make ~measures:self#get_measures conf
+      | Measures conf        -> Widget_measures.make ~measures:self#get_measures
+                                                     ~config:self#get_config
+                                                     conf
+      | Measure conf         -> Widget_measure.make ~measures:self#get_measures
+                                                    ~config:self#get_config
+                                                    conf
       | Chart conf           -> Widget_chart.make ~measures:self#get_measures conf
       | Module_settings conf -> Widget_module_settings.make ~state:self#get_state
                                                             ~config:self#get_config
                                                             conf control
-      | Settings             -> Widget_settings.make ~state:self#get_state
+      | Settings conf        -> Widget_settings.make ~state:self#get_state
                                                      ~config:self#get_config
-                                                     control
+                                                     conf control
 
     method destroy = _state_ref <- 0; _config_ref <- 0; _measures_ref <- 0;
                      self#destroy_state; self#destroy_config; self#destroy_measures
