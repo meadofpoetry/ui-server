@@ -76,6 +76,8 @@ module Factory = struct
                                                 React.S.stop ~strong:true s
                                    in
                                    return (s,fin))
+                 |> Lwt.map (function Ok x    -> Ok x
+                                    | Error e -> Error (Api_js.Requests.err_to_string e))
          in
          _state <- Some t;
          Lwt_result.map fst t
@@ -92,6 +94,8 @@ module Factory = struct
                                                  React.S.stop ~strong:true s
                                     in
                                     return (s,fin))
+                 |> Lwt.map (function Ok x    -> Ok x
+                                    | Error e -> Error (Api_js.Requests.err_to_string e))
          in
          _config <- Some t;
          Lwt_result.map fst t

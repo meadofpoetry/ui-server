@@ -129,7 +129,7 @@ let make_module_settings ~(id:    int)
                        | `Fine                -> mode#set_disabled false) state
   in
   let () = box#add_class base_class in
-  let submit = fun (cfg:settings_request) -> Requests.post_settings control cfg in
+  let submit = fun (cfg:settings_request) -> Requests.post_settings control cfg >|= (fun _ -> ()) in
   box#widget,s,submit
 
 let make ~(state:  (Common.Topology.state React.signal,string) Lwt_result.t)

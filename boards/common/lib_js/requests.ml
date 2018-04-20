@@ -1,13 +1,13 @@
 open Containers
-open Api_js.Requests
+open Api_js.Requests.Json_request
 open Lwt.Infix
 
 let post_port control port listening =
-  post_ok (Printf.sprintf "/api/board/%d/port/%d/%s" control port (if listening then "set" else "unset"))
+  let path = Printf.sprintf "/api/board/%d/port/%d/%s" control port (if listening then "set" else "unset") in
+  post_result (fun _ -> Ok ()) path
 
 let get_state control =
-  get_js (Printf.sprintf "/api/board/%d/state" control)
-  >|= Result.(flat_map Common.Topology.state_of_yojson)
+  get_result Common.Topology.state_of_yojson (Printf.sprintf "/api/board/%d/state" control)
 
 let get_state_ws control =
-  get_socket (Printf.sprintf "api/board/%d/state_ws" control) Common.Topology.state_of_yojson
+  WS.get (Printf.sprintf "api/board/%d/state_ws" control) Common.Topology.state_of_yojson

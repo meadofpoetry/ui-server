@@ -2,7 +2,7 @@ open Containers
 open Components
 open Lwt_result.Infix
 
-let make_streams () : (#Widget.widget,string) Lwt_result.t =
+let make_streams () =
   Requests.get_stream_table ()
   >>= (fun init ->
     let event,sock = Requests.get_stream_table_socket () in
@@ -13,7 +13,7 @@ let make_streams () : (#Widget.widget,string) Lwt_result.t =
     let ()         = box#set_on_destroy @@ Some (fun () -> sock##close) in
     Lwt_result.return box#widget)
 
-let make_structure () : (#Widget.widget,string) Lwt_result.t =
+let make_structure () =
   Pipeline_js.Requests.get_structure ()
   >>= (fun init ->
     let event,sock = Pipeline_js.Requests.get_structure_socket () in
@@ -24,7 +24,7 @@ let make_structure () : (#Widget.widget,string) Lwt_result.t =
     let ()         = box#set_on_destroy @@ Some (fun () -> sock##close) in
     Lwt_result.return box#widget)
 
-let make_settings () : (#Widget.widget,string) Lwt_result.t =
+let make_settings () =
   Pipeline_js.Requests.get_settings ()
   >>= (fun init ->
     let event,sock = Pipeline_js.Requests.get_settings_socket () in
@@ -37,9 +37,9 @@ let make_settings () : (#Widget.widget,string) Lwt_result.t =
 
 let make ?error_prefix () : (#Widget.widget,string) Lwt_result.t =
   let pgs  = Fun.(Ui_templates.Loader.create_widget_loader ?error_prefix %> Widget.coerce) in
-  let sms  = make_streams () in
-  let str  = make_structure () in
-  let set  = make_settings () in
+  let sms  = make_streams () |> Lwt_result.map_err @@ Api_js.Requests.err_to_string in
+  let str  = make_structure () |> Lwt_result.map_err @@ Api_js.Requests.err_to_string in
+  let set  = make_settings () |> Lwt_result.map_err @@ Api_js.Requests.err_to_string in
   let tabs = Ui_templates.Tabs.create_simple_tabs [ `Text "Выбор потоков", pgs sms
                                                   ; `Text "Выбор PID", pgs str
                                                   ; `Text "Настройки анализа", pgs set

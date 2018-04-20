@@ -7,7 +7,7 @@ module type Listened = sig
   type config_listener
   type status_listener
 
-  val get_config    : int -> (config,string) Lwt_result.t
+  val get_config    : int -> (config,'a Api_js.Requests.err) Lwt_result.t
   val listen_config : int -> config React.event * config_listener
   val listen_status : int -> status React.event * status_listener
   val unlisten_config : config_listener -> unit
@@ -52,6 +52,7 @@ module Make(M:Listened) : (Listener with type config := M.config and type status
   type listener = (board_info * state,string) Lwt_result.t
 
   let listen control : listener =
+    let (>|=) = Lwt.Infix.(>|=) in
     M.get_config control
     >>= (fun cfg ->
       Requests.get_state control
@@ -67,6 +68,9 @@ module Make(M:Listened) : (Listener with type config := M.config and type status
            in
            let state : state = state_ws,config_ws,status_ws in
            Lwt_result.return (info,state)))
+    >|= (function
+         | Ok x    -> Ok x
+         | Error e -> Error (Api_js.Requests.err_to_string e))
 
   let unlisten (x:state) =
     let (state,config,status) = x in

@@ -32,7 +32,7 @@ let id_to_int32 : id -> int32 = function
 
 type stream =
   { source      : src
-  ; id          : [`Ip of Uri.t | `Ts of id]
+  ; id          : [`Ip of Url.t | `Ts of id]
   ; description : string option
   }
 and src = Port   of int
@@ -40,7 +40,7 @@ and src = Port   of int
 
 type t =
   { source      : source
-  ; id          : [`Ip of Uri.t | `Ts of id]
+  ; id          : [`Ip of Url.t | `Ts of id]
   ; description : string option
   }
 and source = Input  of Topology.topo_input
@@ -52,7 +52,7 @@ let to_short_name (t:t) =
     | Parent _ -> "Поток"
   in
   let id  = match t.id with
-    | `Ip uri -> Some (Uri.to_string uri)
+    | `Ip uri -> Some (Url.to_string uri)
     | _       -> None
   in
   let s = Printf.sprintf "Источник: %s" src in
@@ -97,7 +97,7 @@ let to_short_name (t:t) =
 let rec equal l r =
   match l.id, r.id with
   | `Ip ul, `Ip ur ->
-     if Uri.equal ul ur
+     if Url.equal ul ur
      then equal_source l.source r.source
      else false
   | `Ts il, `Ts ir ->
@@ -135,3 +135,8 @@ let header : t -> string = fun s ->
   match s.description with
   | None -> h
   | Some d -> h ^ " (" ^ d ^ ")" 
+
+let rec get_input s =
+  match s.source with
+  | Parent s -> get_input s
+  | Input  i -> i

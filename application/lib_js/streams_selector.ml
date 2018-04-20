@@ -28,7 +28,7 @@ let make_board_stream_entry ?(check = None)
   end;
   let item = match uri with
     | None   -> new Item_list.Item.t ~text ~end_detail:checkbox ()
-    | Some u -> new Item_list.Item.t ~text ~secondary_text:(Common.Uri.to_string u) ~end_detail:checkbox ()
+    | Some u -> new Item_list.Item.t ~text ~secondary_text:(Common.Url.to_string u) ~end_detail:checkbox ()
   in
   item, React.S.map (fun s -> if s then Some stream else None) checkbox#s_state
   
@@ -105,7 +105,7 @@ let make_input_stream_list stream_list =
     let del_button     = new Button.t ~label:"delete" () in
     let uri            = match stream.id with `Ip u -> u in
     let item           =
-      new Item_list.Item.t ~text ~secondary_text:(Common.Uri.to_string uri) ~end_detail:del_button () in
+      new Item_list.Item.t ~text ~secondary_text:(Common.Url.to_string uri) ~end_detail:del_button () in
     (* TODO remove event *)
     Lwt_react.E.map (fun _ -> del_item item; del_stream stream) del_button#e_click |> ignore;
     item
@@ -137,7 +137,7 @@ let make_stream_create_dialog () =
   let header = new Typography.Text.t ~text:"Create stream" () in
   let uri_box = new Textfield.t
                     ~input_id:"uri"
-                    ~input_type:(Widget.Custom (Common.Uri.of_string, Common.Uri.to_string))
+                    ~input_type:(Widget.Custom (Common.Url.of_string, Common.Url.to_string))
                     ~label:"Uri"
                     ()
   in
@@ -200,7 +200,7 @@ let make_table table =
 
 let make ~(init:  stream_table)
          ~(event: stream_table React.event)
-         () : (stream_setting,unit) Ui_templates.Types.settings_block =
+         () : (stream_setting,set_error) Ui_templates.Types.settings_block =
   let id  = "settings-place" in
   let div = Dom_html.createDiv Dom_html.document |> Widget.create in
   let make (table : stream_table) =
@@ -218,5 +218,5 @@ let make ~(init:  stream_table)
                                             Dom.appendChild div#root w#root;
                                             n_s) s_div)
   in
-  let post = fun x -> Lwt_result.map_err (fun x -> set_error_to_string x) @@ Requests.post_stream_settings x in
+  let post = fun x -> Requests.post_stream_settings x in
   div,s,post

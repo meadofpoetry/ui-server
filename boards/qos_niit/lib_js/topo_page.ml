@@ -55,8 +55,10 @@ let make ?error_prefix (board:topo_board) : (#Widget.widget,string) Lwt_result.t
         Lwt_result.return ((t2mi,jitter), (fun () -> sock##close)))
     in
     let pgs    = Ui_templates.Loader.create_widget_loader ?error_prefix in
-    let t2mi   = pgs @@ Lwt_result.map (fun x -> fst @@ fst x) res in
-    let jitter = pgs @@ Lwt_result.map (fun x -> snd @@ fst x) res in
+    let t2mi   = pgs @@ Lwt.map (function Ok x    -> Ok (fst @@ fst x)
+                                        | Error e -> Error (Api_js.Requests.err_to_string e)) res in
+    let jitter = pgs @@ Lwt.map (function Ok x    -> Ok (snd @@ fst x)
+                                        | Error e -> Error (Api_js.Requests.err_to_string e)) res in
     let tabs   = Ui_templates.Tabs.create_simple_tabs [ `Text "T2-MI", t2mi#widget
                                                       ; `Text "Джиттер", jitter#widget
                                                       ]

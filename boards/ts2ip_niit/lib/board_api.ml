@@ -34,13 +34,13 @@ let set_factory_mode (api:api) body () =
   yojson_of_body body >>= fun mode ->
   match factory_settings_of_yojson mode with
   | Error e -> respond_error e ()
-  | Ok mode -> api.set_factory_mode mode >>= respond_ok
+  | Ok mode -> api.set_factory_mode mode >>= fun v -> respond_result_unit (Ok v)
 
 let set_nw_mode (api:api) body () =
   yojson_of_body body >>= fun mode ->
   match nw_settings_of_yojson mode with
   | Error e -> respond_error e ()
-  | Ok mode -> api.set_mode mode >>= respond_ok
+  | Ok mode -> api.set_mode mode >>= fun v -> respond_result_unit (Ok v)
 
 let set_streams_simple (api:api) body () =
   yojson_of_body body >>= fun sms ->
@@ -49,7 +49,7 @@ let set_streams_simple (api:api) body () =
   | Ok sms  -> api.set_streams_simple sms
                >>= function
                | Error e -> respond_error (Board_protocol.set_streams_error_to_string e) ()
-               | Ok ()   -> respond_ok ()
+               | Ok ()   -> respond_result_unit (Ok ())
 
 let set_streams_full (api:api) body () =
   yojson_of_body body >>= fun sms ->
@@ -58,7 +58,7 @@ let set_streams_full (api:api) body () =
   | Ok sms  -> api.set_streams_full sms
                >>= function
                | Error e -> respond_error (Board_protocol.set_streams_error_to_string e) ()
-               | Ok ()   -> respond_ok ()
+               | Ok ()   -> respond_result_unit (Ok ())
 
 let sock_handler sock_data (event:'a React.event) (to_yojson:'a -> Yojson.Safe.json) body =
   let id = rand_int () in

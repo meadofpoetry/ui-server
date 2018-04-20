@@ -16,10 +16,10 @@ let socket_table = Hashtbl.create 1000
 
 let devinfo api =
   api.devinfo () >>= fun devi ->
-  respond_js (devinfo_response_to_yojson devi) ()
+  respond_result (Ok (devinfo_response_to_yojson devi))
 
 let reset api =
-  api.reset () >>= respond_ok
+  api.reset () >>= fun () -> respond_result_unit (Ok ())
 
 let settings (api : api) body =
   yojson_of_body body >>= fun set ->

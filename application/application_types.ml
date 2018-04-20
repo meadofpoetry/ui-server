@@ -14,10 +14,11 @@ type marker = [ `Input of Common.Topology.input * int
               ] [@@deriving yojson,eq]
 
 type stream_setting = (marker * Common.Stream.t list) list [@@deriving yojson,eq]
-                    
-type stream_table   = (marker * source_state * (Common.Uri.t option * Common.Stream.t) list) list [@@deriving yojson,eq]
 
-let set_error_to_string = function
+type stream_table   =
+  (marker * source_state * (Common.Url.t option * Common.Stream.t) list) list [@@deriving yojson,eq]
+
+let set_error_to_string : set_error -> string  = function
   | `Not_in_range             -> "Not in range"
   | `Limit_exceeded (exp,got) -> Printf.sprintf "Limit exceeded: got %d streams, but only %d is available" got exp
   | `Forbidden                -> "Forbidden"

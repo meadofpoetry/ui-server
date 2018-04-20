@@ -1,6 +1,6 @@
 open Components
 open Common.User
-open Api_js.Requests
+open Api_js.Requests.Json_request
 
 let make_card user =
   let username =
@@ -50,14 +50,17 @@ let make_card user =
   let actions     = new Card.Actions.t ~widgets:[ apply ] () in
   let card        = new Card.t ~widgets:[media#widget; actions#widget] () in
   let _ = React.E.map (fun _ ->
-              let open Lwt_result.Infix in
+              let open Lwt.Infix in
               match (React.S.value old_form#s_input, React.S.value acc_form#s_input) with
               | Some old_pass, Some new_pass ->
                  let pass = { user; old_pass; new_pass } in
-                 post_js_ok "/api/user/password" (Common.User.pass_change_to_yojson pass)
-                 >|= fun () ->
-                 if user = `Root
-                 then Dom_html.window##.location##.href := Js.string "/";
+                 post_result ~contents:(Common.User.pass_change_to_yojson pass) (fun _ -> Ok ())
+                             "/api/user/password"
+                 >|= (function
+                      | Ok _ -> if user = `Root
+                                then Dom_html.window##.location##.href := Js.string "/";
+                                Ok ()
+                      | Error e -> Error (Api_js.Requests.err_to_string e))
               | _, _ -> Lwt_result.fail "Incorrect or empty ip address")
             apply#e_click
   in

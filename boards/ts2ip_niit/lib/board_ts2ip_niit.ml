@@ -89,7 +89,7 @@ let create (b:topo_board) (streams:Common.Stream.t list React.signal) _ send db 
     match React.S.value s_state with
     | `Fine -> (try
                   List.map (fun ((url:Meta_board.url),stream) ->
-                      if List.fold_left (fun acc x -> if not @@ Common.Uri.in_range x url
+                      if List.fold_left (fun acc x -> if not @@ Common.Url.in_range x url
                                                       then false else acc) true constraints.range
                       then { stream;dst_ip=url.ip;dst_port=url.port;enabled=true }
                       else failwith "not in range") streams

@@ -3,6 +3,8 @@ open Api.Interaction
 open Api.Redirect
 open Websocket_cohttp_lwt
 open Frame
+open Qoe_errors
+open Common
    
 open Lwt.Infix
 
@@ -29,7 +31,7 @@ let set body conv apply =
   match conv js with
   | Error e -> respond_error e ()
   | Ok x    -> apply x
-               >>= function Ok () -> respond_ok ()
+               >>= function Ok () -> respond_result_unit (Ok ())
 
 let get_sock sock_data body conv event =
   let id = rand_int () in
@@ -159,35 +161,48 @@ let pipeline_handle api id meth args sock_data _ body =
   | `GET,  ["vdata_sock";s;c]   -> get_vdata_sock_channel sock_data body api s c ()
   | `GET,  ["vdata_sock";s;c;p] -> get_vdata_sock_pid sock_data body api s c p ()
   | _                           -> not_found ()
+
+(* TODO fix dat *)
+let of_seconds s =
+  int_of_string s
+  |> (fun s -> Ptime.add_span Ptime.epoch (Ptime.Span.of_int_s s))
+  |> function Some t -> Ptime.to_rfc3339 t | None -> failwith "of_seconds: failure"
+                                 
+let get_structures api input id () =
+  let open Pipeline_protocol in
+  let input, id = (Result.get_exn @@ Common.Topology.input_of_string input), int_of_string id in
+  let input = Common.Topology.{ input; id } in
+  Lwt.catch (fun () ->
+      api.model.struct_api.get_input input
+      >>= function None -> respond_error "No data" () (* TODO fix *)
+                  | Some (str, date) ->
+                     let s = Structure.Streams.to_yojson str in
+                     respond_js (`Tuple [s; Time.Seconds.to_yojson date]) ())
+    (function Failure e -> respond_error e ())
+
+let get_structures_between api input id from to' () =
+  let open Pipeline_protocol in
+  let input, id = (Result.get_exn @@ Common.Topology.input_of_string input), int_of_string id in
+  let input = Common.Topology.{ input; id } in
+  Lwt.catch (fun () ->
+      api.model.struct_api.get_input_between input (Time.Seconds.of_string from) (Time.Seconds.of_string to')
+      >>= fun l ->
+      let l = List.map (fun (str, date) -> `Tuple [Structure.Streams.to_yojson str; Time.Seconds.to_yojson date]) l in
+      respond_js (`List l) ())
+    (function Failure e -> respond_error e ())
+                                 
+let archive_handle api id meth args sock_data _ body =
+  match meth, args with
+  | `GET,  ["structures";i;num]   -> get_structures api i num ()
+  | `GET,  ["structures_between";i;num;from;to'] -> get_structures_between api i num from to' ()
+  | _                             -> not_found ()               
                                  
 let handlers api =
   [ (module struct
        let domain = "pipeline"
        let handle = pipeline_handle api
+     end : Api_handler.HANDLER)
+  ; (module struct
+       let domain = "pipeline_archive"
+       let handle = archive_handle api
      end : Api_handler.HANDLER) ]
-
-let handlers_not_implemented () =
-  []
-    
-    (*
-let test _ _ body =
-  Cohttp_lwt.Body.to_string body >>= fun body ->
-  let jss = String.split_on_char '=' body |> fun l -> List.nth l 1 in
-  let js  = Uri.pct_decode jss |> Yojson.Safe.from_string in
-  Lwt_io.printf "Got: %s\n" (Yojson.Safe.to_string js) >>= fun _ ->
-  let s =
-    Common.State.of_yojson js
-    |> function
-      | Error _ -> "Sorry, something is wrong with your json"
-      | Ok root -> Lwt_io.printf "Msgpck: %s\n" (Msg_conv.to_msg_string @@ Common.State.to_yojson root) |> ignore;
-                   let prefix = "Thank you, master! " in
-                   begin match (Option.get_exn root.graph).state with
-                   | Some Null  -> prefix ^ "You want me to stop the graph?"
-                   | Some Stop  -> prefix ^ "Halting graph"
-                   | Some Play  -> prefix ^ "Starting"
-                   | Some Pause -> prefix ^ "Graph is going to be paused"
-                   | None       -> prefix ^ "I don't understand"
-                   end
-  in
-  Cohttp_lwt_unix.Server.respond_string ~status:`OK ~body:s ()
-     *)

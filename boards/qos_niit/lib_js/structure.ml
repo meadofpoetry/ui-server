@@ -154,6 +154,7 @@ class t control () = object(self)
       let e_structs,sock = Requests.get_structs_ws control in
       create ~div:self#root ~init ~event:e_structs;
       Lwt_result.return sock)
+    |> Lwt.map (function Ok x -> Ok x | Error e -> Error (Api_js.Requests.err_to_string e))
     |> fun s -> _state <- Some s
 
   method on_unload =

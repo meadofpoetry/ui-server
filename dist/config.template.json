@@ -7,7 +7,7 @@
         "sock_out": "ipc:///tmp/ats_qoe_out"
     },
     "db": {
-        "db_path": "./db"
+        "socket_path": "/tmp", "cleanup":48, "password":"ats"
     },
     "config_storage": {
         "config_dir": "/tmp/"

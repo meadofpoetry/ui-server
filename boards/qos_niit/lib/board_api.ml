@@ -19,31 +19,31 @@ let rand_int = fun () -> Random.run (Random.int 10000000)
 let socket_table = Hashtbl.create 1000
 
 let reset (api : api) () =
-  api.reset () >>= respond_ok
+  api.reset () >>= fun v -> respond_result_unit (Ok v)
 
 let set_mode (api : api) body () =
   yojson_of_body body >>= fun mode ->
   match mode_request_of_yojson mode with
   | Error e -> respond_error e ()
-  | Ok mode -> api.set_mode mode >>= respond_ok
+  | Ok mode -> api.set_mode mode >>= fun v -> respond_result_unit (Ok v)
 
 let set_input (api : api) body () =
   yojson_of_body body >>= fun inp ->
   match input_of_yojson inp with
   | Error e -> respond_error e ()
-  | Ok inp  -> api.set_input inp >>= respond_ok
+  | Ok inp  -> api.set_input inp >>= fun v -> respond_result_unit (Ok v)
 
 let set_t2mi_mode (api : api) body () =
   yojson_of_body body >>= fun mode ->
   match t2mi_mode_request_of_yojson mode with
   | Error e -> respond_error e ()
-  | Ok mode -> api.set_t2mi_mode mode >>= respond_ok
+  | Ok mode -> api.set_t2mi_mode mode >>= fun v -> respond_result_unit (Ok v)
 
 let set_jitter_mode api body () =
   yojson_of_body body >>= fun mode ->
   match jitter_mode_request_of_yojson mode with
   | Error e -> respond_error e ()
-  | Ok mode -> api.set_jitter_mode mode >>= respond_ok
+  | Ok mode -> api.set_jitter_mode mode >>= fun v -> respond_result_unit (Ok v)
 
 let devinfo api () =
   api.get_devinfo () >>= fun info ->
@@ -128,36 +128,34 @@ let incoming_streams_ws sock_data streams body =
 let handle api events s_state s_input streams _ meth args sock_data _ body =
   let open Api.Redirect in
   match meth, args with
-  | `POST, ["reset"]              -> reset api ()
-  | `POST, ["mode"]               -> set_mode api body ()
-  | `POST, ["input"]              -> set_input api body ()
-  | `POST, ["port";id;set]        -> (match (Option.flat_map Board_parser.input_of_int @@ Int.of_string id), set with
-                                      | Some i, "set"     -> api.set_input i >>= respond_ok
-                                      | Some ASI, "unset" -> api.set_input SPI >>= respond_ok
-                                      | Some SPI, "unset" -> api.set_input ASI >>= respond_ok
-                                      | _                 -> not_found ())
-  | `POST, ["t2mi_mode"]          -> set_t2mi_mode api body ()
-  | `POST, ["jitter_mode"]        -> set_jitter_mode api body ()
+  | `POST, ["reset"]           -> reset api ()
+  | `POST, ["mode"]            -> set_mode api body ()
+  | `POST, ["input"]           -> set_input api body ()
+  | `POST, ["port";id;set]     -> (match (Option.flat_map Board_parser.input_of_int @@ Int.of_string id), set with
+                                   | Some i, "set"     -> api.set_input i >>= fun v -> respond_result_unit (Ok v)
+                                   | Some ASI, "unset" -> api.set_input SPI >>= fun v -> respond_result_unit (Ok v)
+                                   | Some SPI, "unset" -> api.set_input ASI >>= fun v -> respond_result_unit (Ok v)
+                                   | _                 -> not_found ())
+  | `POST, ["t2mi_mode"]       -> set_t2mi_mode api body ()
+  | `POST, ["jitter_mode"]     -> set_jitter_mode api body ()
 
-  | `GET, ["config"]              -> config api ()
-  | `GET, ["devinfo"]             -> devinfo api ()
-  | `GET, "t2mi_seq"::[sec]       -> get_t2mi_seq api sec ()
-  | `GET, ["structs"]             -> get_structs api ()
-  | `GET, ["bitrates"]            -> get_bitrates api ()
-  | `GET, ["state"]               -> get_state s_state ()
-  | `GET, ["incoming_streams"]    -> get_incoming_streams streams ()
+  | `GET, ["config"]           -> config api ()
+  | `GET, ["devinfo"]          -> devinfo api ()
+  | `GET, "t2mi_seq"::[sec]    -> get_t2mi_seq api sec ()
+  | `GET, ["structs"]          -> get_structs api ()
+  | `GET, ["bitrates"]         -> get_bitrates api ()
+  | `GET, ["state"]            -> get_state s_state ()
 
-  | `GET, ["state_ws"]            -> state_ws sock_data s_state body
-  | `GET, ["config_ws"]           -> config_ws sock_data events body
-  | `GET, ["status_ws"]           -> status_ws sock_data events body
-  | `GET, ["ts_errors_ws"]        -> ts_errors_ws sock_data events body
-  | `GET, ["t2mi_errors_ws"]      -> t2mi_errors_ws sock_data events body
-  | `GET, ["board_errors_ws"]     -> board_errors_ws sock_data events body
-  | `GET, ["bitrate_ws"]          -> bitrate_ws sock_data events body
-  | `GET, ["structs_ws"]          -> structs_ws sock_data events body
-  | `GET, ["t2mi_info_ws"]        -> t2mi_info_ws sock_data events body
-  | `GET, ["jitter_ws"]           -> jitter_ws sock_data events body
-  | `GET, ["incoming_streams_ws"] -> incoming_streams_ws sock_data streams body
+  | `GET, ["state_ws"]         -> state_ws sock_data s_state body
+  | `GET, ["config_ws"]        -> config_ws sock_data events body
+  | `GET, ["status_ws"]        -> status_ws sock_data events body
+  | `GET, ["ts_errors_ws"]     -> ts_errors_ws sock_data events body
+  | `GET, ["t2mi_errors_ws"]   -> t2mi_errors_ws sock_data events body
+  | `GET, ["board_errors_ws"]  -> board_errors_ws sock_data events body
+  | `GET, ["bitrate_ws"]       -> bitrate_ws sock_data events body
+  | `GET, ["structs_ws"]       -> structs_ws sock_data events body
+  | `GET, ["t2mi_info_ws"]     -> t2mi_info_ws sock_data events body
+  | `GET, ["jitter_ws"]        -> jitter_ws sock_data events body
   | _ -> not_found ()
 
 let handlers id api events s_state s_input streams =

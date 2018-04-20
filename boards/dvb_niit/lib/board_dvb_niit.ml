@@ -60,7 +60,7 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
   let state = (object
                  method _s = _s;
                  method db = db;
-                 method finalize () = Database.finalize db
+                 method finalize () = ()
                end) in
   { handlers       = handlers
   ; control        = b.control
