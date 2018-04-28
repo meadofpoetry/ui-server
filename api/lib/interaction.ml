@@ -1,15 +1,7 @@
 open Lwt.Infix
+open Containers
 
-let yojson_of_body body =
-  Cohttp_lwt.Body.to_string body
-  >|= fun body ->
-  Uri.pct_decode body
-  |> Yojson.Safe.from_string
-
-let yojson_to_body js =
-  Yojson.Safe.to_string js
-  |> Uri.pct_encode
-  |> Cohttp_lwt.Body.of_string
+type response = (Cohttp.Response.t * Cohttp_lwt.Body.t) Lwt.t
 
 let respond_not_found = Cohttp_lwt_unix.Server.respond_not_found
 
@@ -33,25 +25,54 @@ let respond_error ?(status = `Forbidden) error = Cohttp_lwt_unix.Server.respond_
 module type Req = sig
 
   type t
-
-  val to_body : t -> Cohttp_lwt.Body.t
+  val to_body         : t -> Cohttp_lwt.Body.t
+  val of_body         : Cohttp_lwt.Body.t -> t Lwt.t
+  val of_error_string : string -> t
+  val of_exn          : exn -> t
 
 end
 
-module Make(M:Req) = struct
+module Json_req : Req with type t = Yojson.Safe.json = struct
 
-  let respond x = Cohttp_lwt_unix.Server.respond ~status:`OK ~body:(M.to_body x)
+  type t     = Yojson.Safe.json
+
+  let to_body (t:t) = Yojson.Safe.to_string t |> Uri.pct_encode |> Cohttp_lwt.Body.of_string
+  let of_body (b:Cohttp_lwt.Body.t) = Cohttp_lwt.Body.to_string b >|= fun body ->
+                                      Uri.pct_decode body |> Yojson.Safe.from_string
+  let of_error_string (s:string) = `String s
+  let of_exn (e:exn) = Printexc.to_string e |> fun x -> `String x
+
+end
+
+module type Handler = sig
+  include Req
+  val respond             : t -> ?headers:Cohttp.Header.t -> ?flush:bool -> unit -> response
+  val respond_result      : (t, t) result -> response
+  val respond_result_unit : (unit,t) result -> response
+  val respond_option      : t option -> response
+  val (>>=)               : 'a Lwt.t -> ('a -> response) -> response
+end
+
+module Make(M:Req) : (Handler with type t := M.t) = struct
+
+  include M
+
+  let respond x = Cohttp_lwt_unix.Server.respond ~status:`OK ~body:(to_body x)
 
   let respond_result = function
-    | Ok x    -> Cohttp_lwt_unix.Server.respond ~status:`OK ~body:(M.to_body x) ()
-    | Error x -> Cohttp_lwt_unix.Server.respond ~status:`Bad_request ~body:(M.to_body x) ()
+    | Ok x    -> Cohttp_lwt_unix.Server.respond ~status:`OK ~body:(to_body x) ()
+    | Error x -> Cohttp_lwt_unix.Server.respond ~status:`Bad_request ~body:(to_body x) ()
 
   let respond_result_unit = function
     | Ok ()   -> Cohttp_lwt_unix.Server.respond ~status:`OK ~body:Cohttp_lwt.Body.empty ()
-    | Error x -> Cohttp_lwt_unix.Server.respond ~status:`Bad_request ~body:(M.to_body x) ()
+    | Error x -> Cohttp_lwt_unix.Server.respond ~status:`Bad_request ~body:(to_body x) ()
 
   let respond_option = function
-    | Some x  -> Cohttp_lwt_unix.Server.respond ~status:`OK ~body:(M.to_body x) ()
+    | Some x  -> Cohttp_lwt_unix.Server.respond ~status:`OK ~body:(to_body x) ()
     | None    -> Cohttp_lwt_unix.Server.respond_not_found ()
 
+  let (>>=) t f = Lwt.try_bind (fun () -> t) f (fun exn -> M.of_exn exn |> Result.fail |> respond_result)
+
 end
+
+module Json : Handler with type t := Yojson.Safe.json = Make(Json_req)

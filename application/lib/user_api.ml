@@ -1,14 +1,16 @@
 open Api.Interaction   
 open Lwt.Infix
 
+let ( >>= ) = Json.( >>= )
+
 let set_password (users : User.entries) body () =
   let open User in
-  yojson_of_body body >>= fun js ->
+  Json.of_body body >>= fun js ->
   match pass_change_of_yojson js with
   | Error e -> respond_error e ()
   | Ok pass -> (try if (get_pass users pass.user).pass = pass.old_pass
                     then (set_pass users { user = pass.user; password = pass.new_pass };
-                          respond_result_unit (Ok ()))
+                          Json.respond_result_unit (Ok ()))
                     else respond_error "bad pass" ()
                 with _ -> respond_error "pass db err" ())
   
