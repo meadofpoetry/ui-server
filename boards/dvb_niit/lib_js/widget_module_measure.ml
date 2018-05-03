@@ -39,20 +39,20 @@ module Make(M:M) = struct
     let ()    = Dom.appendChild inner#root value#root in
     let ()    = Dom.appendChild box inner#root in
     object(self)
-      val mutable _name = get_name config
       inherit Widget.widget box () as super
       method! destroy = Option.iter (fun f -> f ()) on_destroy; super#destroy
-      method name       = _name
-      method set_name x = _name <- x
-      method settings : unit Widget_grid.Item.settings option = None
       initializer
         self#add_class _class
     end
 
-  let make ?on_destroy (event:event) (config:config) =
-    new t ?on_destroy event config ()
+  let make ?on_destroy (event:event) (config:config) : 'a Dashboard.Item.item =
+    { name = get_name config
+    ; settings = None
+    ; widget   = (new t ?on_destroy event config ())#widget
+    }
 
 end
+
 module Float = struct
   type t = float
   let to_string t = Printf.sprintf "%.3g" t

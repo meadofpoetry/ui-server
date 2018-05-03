@@ -53,7 +53,7 @@ module Row = struct
 
 end
 
-let make ~(measures:Board_types.measure_response React.event) (config:config) =
+let make ~(measures:Board_types.measure_response React.event) (config:config) : 'a Dashboard.Item.item =
   let open Row in
   let measures = React.E.filter (fun (id,_) -> id = config.id) measures
                  |> React.E.map snd
@@ -66,13 +66,9 @@ let make ~(measures:Board_types.measure_response React.event) (config:config) =
                 |> React.S.hold None
                 |> Bitrate.make
   in
-  let o = object(self)
-            val mutable _name = Printf.sprintf "Модуль %d. Измерения" (succ config.id)
-            inherit Box.t ~vertical:true ~widgets:[power;mer;ber;freq;bitrate] () as super
-            method name = _name
-            method set_name x = _name <- x
-            method settings : unit Widget_grid.Item.settings option = None
-            initializer
-              self#add_class base_class
-          end
-  in (o :> unit Widget_grid.Item.t)
+  let widget  = new Box.t ~vertical:true ~widgets:[power;mer;ber;freq;bitrate] () in
+  let ()      = widget#add_class base_class in
+  { name     = Printf.sprintf "Модуль %d. Измерения" (succ config.id)
+  ; settings = None
+  ; widget   = widget#widget
+  }

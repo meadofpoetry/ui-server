@@ -7,6 +7,7 @@ module Card              = Card
 module Circular_progress = Circular_progress
 module Checkbox          = Checkbox
 module Color             = Color
+module Dashboard         = Dashboard
 module Dialog            = Dialog
 module Divider           = Divider
 module Drawer            = Drawer

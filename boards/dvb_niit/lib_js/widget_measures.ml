@@ -7,7 +7,7 @@ type config = { ids : int list option }
 
 let make ~(measures:measure_response React.event)
          ~(config:(Board_types.config React.signal,string) Lwt_result.t)
-         (conf:config) =
+         (conf:config) : 'a Dashboard.Item.item =
   let open Widget_module_measures in
   let t = match conf.ids with
     | Some x -> Lwt_result.return x
@@ -17,17 +17,17 @@ let make ~(measures:measure_response React.event)
                                let config = { id = x } in
                                let name   = Printf.sprintf "Модуль %d" @@ succ x in
                                let w      = make ~measures config in
-                               `Text name, w#widget) @@ List.sort compare ids
+                               `Text name, w.widget) @@ List.sort compare ids
                            |> Ui_templates.Tabs.create_simple_tabs
                            |> Widget.coerce
                            |> Lwt_result.return
   in
-  let o = object
-      val mutable _name = "Измерения"
+  let widget = object
       inherit Ui_templates.Loader.widget_loader t ()
       method! layout    = t >>= (fun w -> Lwt_result.return w#layout) |> Lwt.ignore_result
-      method name       = _name
-      method set_name x = _name <- x
-      method settings : unit Widget_grid.Item.settings option = None
     end
-  in (o :> unit Widget_grid.Item.t)
+  in
+  { name     = "Измерения"
+  ; settings = None
+  ; widget   = widget#widget
+  }

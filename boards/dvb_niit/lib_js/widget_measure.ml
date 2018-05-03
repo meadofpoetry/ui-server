@@ -61,7 +61,7 @@ module Make(M:M) = struct
 
   let make (event:measure_response React.event)
            (config:(Board_types.config React.signal,string) Lwt_result.t)
-           (conf:config) =
+           (conf:config) : 'a Dashboard.Item.item =
     let (module R)   = (module struct include M let typ = conf.typ end : Row.M with type t = M.t) in
     let (module ROW) = (module struct include Row.Make(R) end : R with type t = M.t) in
     let t = match conf.ids with
@@ -75,16 +75,16 @@ module Make(M:M) = struct
             |> Widget.coerce
             |> Lwt_result.return
     in
-    let o = object(self)
-              val mutable _name = Printf.sprintf "Измерения. %s" @@ measure_type_to_string conf.typ
-              inherit Ui_templates.Loader.widget_loader t ()
-              method name = _name
-              method set_name x = _name <- x
-              method settings : unit Widget_grid.Item.settings option = None
-              initializer
-                self#add_class base_class
-            end
-    in (o :> unit Widget_grid.Item.t)
+    let widget = object(self)
+                   inherit Ui_templates.Loader.widget_loader t ()
+                   initializer
+                     self#add_class base_class
+                 end
+    in
+    { name     = Printf.sprintf "Измерения. %s" @@ measure_type_to_string conf.typ
+    ; settings = None
+    ; widget   = widget#widget
+    }
 
 end
 

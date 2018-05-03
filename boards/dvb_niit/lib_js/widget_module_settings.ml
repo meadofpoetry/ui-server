@@ -135,7 +135,7 @@ let make_module_settings ~(id:    int)
 let make ~(state:  (Common.Topology.state React.signal,string) Lwt_result.t)
          ~(config: (Board_types.config React.signal,string) Lwt_result.t)
          (conf: config)
-         control =
+         control : 'a Dashboard.Item.item =
   let t = state >>= (fun s -> config >>= (fun c -> Lwt_result.return (s,c))) in
   let t = t >>= (fun (state,config) ->
       let get = List.Assoc.get_exn ~eq:(=) conf.id in
@@ -151,14 +151,12 @@ let make ~(state:  (Common.Topology.state React.signal,string) Lwt_result.t)
       let ()  = box#add_class "mdc-settings-widget" in
       Lwt_result.return box#widget)
   in
-  let o = object
-      val mutable _name = Printf.sprintf "Модуль %d. Настройки" (succ conf.id)
-      inherit Ui_templates.Loader.widget_loader t () as super
-      method! layout = super#layout; print_endline "layout!";
-                       t >>= (fun w -> w#layout; Lwt_result.return ())
-                       |> Lwt.ignore_result
-      method name = _name
-      method set_name x = _name <- x
-      method settings : unit Widget_grid.Item.settings option = None
-    end
-  in (o :> unit Widget_grid.Item.t)
+  { name     = Printf.sprintf "Модуль %d. Настройки" (succ conf.id)
+  ; settings = None
+  ; widget   = (object
+                  inherit Ui_templates.Loader.widget_loader t () as super
+                  method! layout = super#layout; print_endline "layout!";
+                                   t >>= (fun w -> w#layout; Lwt_result.return ())
+                                   |> Lwt.ignore_result
+                end)#widget
+  }

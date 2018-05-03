@@ -20,7 +20,7 @@ let colors = Color.([ Indigo C500; Amber C500; Green C500; Cyan C500 ])
 let make_chart_base ~(config: config)
                     ~(init:   float data)
                     ~(event:  float data React.event)
-                    () =
+                    () : 'a Dashboard.Item.item =
   let conv = fun p -> Chartjs.Line.({ p with x = Int64.of_float (p.x *. 1000.) }) in
   let init = List.map (fun x -> match List.Assoc.get ~eq:Int.equal x init with
                                 | Some i -> x,List.map conv i
@@ -55,13 +55,10 @@ let make_chart_base ~(config: config)
                                                                    @@ List.get_at_idx id chart#config#datasets)
                                                  datasets)
                       event in
-  object
-    val mutable _name = measure_type_to_string config.typ
-    inherit Widget.widget chart#root ()
-    method name       = _name
-    method set_name x = _name <- x
-    method settings : unit Widget_grid.Item.settings option = None
-  end
+  { name     = measure_type_to_string config.typ
+  ; settings = None
+  ; widget   = chart#widget
+  }
 
 type event = measure_response React.event
 let to_event (get: Board_types.measure -> 'a option)
