@@ -1,5 +1,5 @@
 open Containers
-open Lwt_zmq
+open Zmq_lwt
 open Lwt_react
 open Lwt.Infix
 open Msg_conv
@@ -40,9 +40,9 @@ type options = { wm         : Wm.t Storage.Options.storage
                ; settings   : Settings.t Storage.Options.storage
                }
         
-type state = { ctx          : ZMQ.Context.t
-             ; msg          : [ `Req] ZMQ.Socket.t
-             ; ev           : [ `Sub] ZMQ.Socket.t
+type state = { ctx          : Zmq.Context.t
+             ; msg          : [ `Req] Zmq.Socket.t
+             ; ev           : [ `Sub] Zmq.Socket.t
              ; options      : options
              ; srcs         : (Common.Url.t * Common.Stream.t) list ref
              ; mutable proc : Lwt_process.process_none option
@@ -188,13 +188,13 @@ let create (type a) (typ : a typ) db_conf config sock_in sock_out =
                 ; settings   = Settings_options.create stor.config_dir ["pipeline";"settings"]
                 }
   in
-  let ctx = ZMQ.Context.create () in
-  let msg = ZMQ.Socket.create ctx ZMQ.Socket.req in
-  let ev  = ZMQ.Socket.create ctx ZMQ.Socket.sub in
+  let ctx = Zmq.Context.create () in
+  let msg = Zmq.Socket.create ctx Zmq.Socket.req in
+  let ev  = Zmq.Socket.create ctx Zmq.Socket.sub in
 
-  ZMQ.Socket.connect msg sock_in;
-  ZMQ.Socket.connect ev sock_out;
-  ZMQ.Socket.subscribe ev "";
+  Zmq.Socket.connect msg sock_in;
+  Zmq.Socket.connect ev sock_out;
+  Zmq.Socket.subscribe ev "";
 
   let msg_sock = Socket.of_socket msg in
   let ev_sock  = Socket.of_socket ev in
@@ -256,9 +256,9 @@ let reset typ send bin_path bin_name msg_fmt state (sources : (Common.Url.t * Co
   |> Lwt.ignore_result
   
 let finalize state =
-  ZMQ.Socket.unsubscribe state.ev "";
-  ZMQ.Socket.close       state.ev;
-  ZMQ.Socket.close       state.msg;
-  ZMQ.Context.terminate  state.ctx;
+  Zmq.Socket.unsubscribe state.ev "";
+  Zmq.Socket.close       state.ev;
+  Zmq.Socket.close       state.msg;
+  Zmq.Context.terminate  state.ctx;
   Option.iter (fun proc -> proc#terminate) state.proc;
   state.proc <- None
