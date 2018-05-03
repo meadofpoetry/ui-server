@@ -11,7 +11,7 @@
                    -O3 -unbox-closures))
   (libraries (containers yojson caqti-lwt
               lwt lwt-zmq lwt_react websocket-lwt.cohttp
-              api storage common pipeline usb_device
+              api storage common pipeline pc_control usb_device
               meta_board board-dvb-niit board-ip-dektec
               board-qos-niit board-ts2ip-niit))
   (preprocess (pps (ppx_deriving_yojson)))))
