@@ -26,6 +26,7 @@ module Header = struct
                                        |> List.cons box#widget)
                              ()
       initializer
+        Option.iter (fun a -> a#add_class @@ Markup.CSS.add_element _class "action") action;
         self#add_class _class
     end
 

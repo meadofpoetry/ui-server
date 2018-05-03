@@ -44,9 +44,8 @@ module Plots = struct
                    else let c2 = compare l2 r2 in
                         if not (c2 = 0) then c2
                         else compare l3 r3
-                             
                end)
-           
+
   let chart ~typ ~metas ~(extract : Video_data.errors -> float) ~y_max ~y_min ~e () =
     let open Chartjs.Line in
     let pairs = List.mapi (fun idx pm -> ((pm.stream, pm.channel, pm.pid), idx),
@@ -158,7 +157,8 @@ module Structure = struct
     let s, push        = React.S.create pid.to_be_analyzed in
     let pid_s          = React.S.map (fun b -> {pid with to_be_analyzed = b}) s in
     React.S.map push checkbox#s_state |> ignore;
-    new Tree.Item.t ~text ~secondary_text:stext ~start_detail:checkbox (), pid_s
+    let item = new Tree.Item.t ~text ~secondary_text:stext ~start_detail:checkbox () in
+    item, pid_s
 
   let make_channel (ch : Structure.channel) =
     let text, stext =
@@ -166,9 +166,10 @@ module Structure = struct
       Printf.sprintf "Провайдер: %s"  ch.provider_name
     in
     let wl, sl = List.split @@ List.map make_pid ch.pids in
-    let ch_s   = React.S.map (fun pl -> {ch with pids = pl}) @@ React.S.merge ~eq:Equal.physical (fun a p -> p::a) [] sl in
+    let ch_s   = React.S.map (fun pl -> {ch with pids = pl})
+                 @@ React.S.merge ~eq:Equal.physical (fun a p -> p::a) [] sl in
     let nested = new Tree.t ~items:wl () in
-    let e = new Tree.Item.t ~text ~secondary_text:stext ~nested ()
+    let e      = new Tree.Item.t ~text ~secondary_text:stext ~nested ()
     in e, ch_s
 
   let make_structure (s : Structure.t) =
@@ -184,41 +185,34 @@ module Structure = struct
     in e, st_s
 
   let make_structure_list (sl : Structure.t list) =
-    let wl, sl = List.split @@ List.map make_structure sl in
-    let sl_s   = React.S.merge ~eq:Equal.physical (fun a p -> p::a) [] sl in
-    let lst    = new Tree.t ~items:wl () in
-    lst#set_dense true;
-    lst#style##.maxWidth := Js.string "400px";
-    lst, sl_s
+    match sl with
+    | [] -> let ph = Ui_templates.Placeholder.create_icon ~text:"Потоки не обнаружены" ~icon:"info" () in
+            ph#widget, React.S.const None
+    | sl -> let wl, sl = List.split @@ List.map make_structure sl in
+            let sl_s   = React.S.merge ~eq:Equal.physical (fun a p -> p::a) [] sl in
+            let lst    = new Tree.t ~items:wl () in
+            lst#widget, React.S.map Option.return sl_s
 
-  let create
-        ~(init:   Structure.t list)
-        ~(events: Structure.t list React.event)
-        ~(post:   Structure.t list -> unit) =
-    let id  = "structure-place" in
-    let div = Dom_html.createDiv Dom_html.document in
+  let make ~(init:  Structure.t list)
+           ~(event: Structure.t list React.event)
+           () : (Structure.t list,unit) Ui_templates.Types.settings_block =
+    let div    = Dom_html.createDiv Dom_html.document |> Widget.create in
     let make (str : Structure.t list) =
       let dis, s = make_structure_list str in
-      (* let title  = new Card.Title.t ~title:"Потоки" () in
-       * let prim   = new Card.Primary.t ~widgets:[title] () in *)
-      let but    = new Components.Button.t ~label:"Применить" () in
-      let place  = new Components.Card.t
-                       ~widgets:[ (new Card.Media.t ~widgets:[dis] ())#widget
-                                ; (new Card.Actions.t ~widgets:[but] ())#widget
-                                ]
-                       () in
-      place#set_id id;
-      but#button_element##.onclick := Dom.handler (fun _ -> post @@ React.S.value s; Js._false);
-      place
+      let place  = dis in
+      place,s
     in
-    let _ = React.E.map (fun s ->
-                (try Dom.removeChild div (Dom_html.getElementById id)
-                 with _ -> print_endline "No el");
-                Dom.appendChild div (make s)#root)
-              events
+    let s_in  = React.S.hold ~eq:(Equal.list Structure.equal) init event in
+    let s_div = React.S.map ~eq:(Equal.physical) (fun s -> make s) s_in in
+    let s     = React.S.switch ~eq:(Equal.option @@ Equal.list Structure.equal)
+                               (React.S.map ~eq:(Equal.physical) (fun n ->
+                                              div#set_empty;
+                                              let tree,n_s = n in
+                                              Dom.appendChild div#root tree#root;
+                                              n_s) s_div)
     in
-    Dom.appendChild div (make init)#root;
-    div
+    let post = Requests.post_structure in
+    div,s,post
 
 end
 
@@ -410,33 +404,28 @@ module Settings = struct
     header##.textContent   := Js.some @@ Js.string "Настройки";
     let v, v_s = make_video s.video in
     let a, a_s = make_audio s.audio in
-    let s      = React.S.l2 (fun v a -> Settings.{ video = v; audio = a; }) v_s a_s in
+    let s      = React.S.l2 (fun v a -> Some Settings.{ video = v; audio = a; }) v_s a_s in
     let box    = new Box.t ~widgets:[(Widget.create header); v#widget; a#widget] () in
     box, s
-    
-  let create
-        ~(init:   Settings.t)
-        ~(events: Settings.t React.event)
-        ~(post:   Settings.t -> unit) =
-    let id  = "settings-place" in
-    let div = Dom_html.createDiv Dom_html.document in
+
+  let make ~(init:  Settings.t)
+           ~(event: Settings.t React.event)
+           () : (Settings.t,unit) Ui_templates.Types.settings_block =
+    let div    = Dom_html.createDiv Dom_html.document |> Widget.create in
     let make (set : Settings.t) =
       let dis, s = make_layout set in
-      let but    = new Components.Button.t ~label:"Применить" () in
-      let place  = new Components.Card.t
-                       ~widgets:[ dis#widget
-                                ; (new Card.Actions.t ~widgets:[but] ())#widget ]
-                       () in
-      place#set_id id;
-      but#button_element##.onclick := Dom.handler (fun _ -> post @@ React.S.value s; Js._false);
-      place
+      let place  = dis in
+      place,s
     in
-    let _ = React.E.map (fun s ->
-                (try Dom.removeChild div (Dom_html.getElementById id)
-                 with _ -> print_endline "No el");
-                Dom.appendChild div (make s)#root)
-              events
+    let s_in  = React.S.hold ~eq:Settings.equal init event in
+    let s_div = React.S.map ~eq:(Equal.physical) (fun s -> make s) s_in in
+    let s     = React.S.switch ~eq:(Equal.option Settings.equal)
+                               (React.S.map ~eq:(Equal.physical) (fun n ->
+                                              div#set_empty;
+                                              let w,n_s = n in
+                                              Dom.appendChild div#root w#root;
+                                              n_s) s_div)
     in
-    Dom.appendChild div (make init)#root;
-    div
+    let post = Requests.post_settings in
+    div,s,post
 end

@@ -59,39 +59,7 @@ $wm-placeholder-color: text-secondary-on-background;
 // ---- PLACEHOLDER ----
 
 .wm-placeholder {
-    z-index: 12;
-    width: 100%;
-    height: 100%;
     position: absolute;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-
-    &__content {
-        @include mdc-theme-prop(background-color, background);
-        padding: 20px;
-        border-radius: 4px;
-    }
-
-    &__content--bordered { border: 2px solid rgba(0,0,0,.12); }
-
-    .mdc-typography {
-        @include mdc-theme-prop(color, $wm-placeholder-color);
-        @include mdc-typography(subheading2);
-        margin-top: 12px;
-        order: 1;
-        text-align: center;
-    }
-    .mdc-icon {
-        @include mdc-theme-prop(color, $wm-placeholder-color);
-        font-size: 48px;
-        order: 0;
-    }
-
-    @media (max-width: 600px) {
-        .mdc-typography { @include mdc-typography(caption); }
-        .mdc-icon       { font-size: 32px; }
-    }
 }
 
 // ---- SELECTABLE TITLE ----
@@ -121,6 +89,7 @@ $wm-placeholder-color: text-secondary-on-background;
 
     &__add {
         flex: 1 1 200px;
+        position: relative;
     }
 
     &__add__wrapper {
@@ -276,6 +245,13 @@ $wm-placeholder-color: text-secondary-on-background;
 
     height: 100%;
 
+    .wm-placeholder {
+        z-index: 12;
+        .mdc-placeholder__content {
+            @include mdc-theme-prop(background-color, background);
+            border-radius: 4px;
+        }
+    }
     &__right-menu {
         align-items: center;
         .mdc-menu {

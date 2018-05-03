@@ -13,7 +13,10 @@ build: [
 build-test: [["jbuilder" "runtest" "-p" name "-j" jobs]]
 depends: [
   "jbuilder" {build}
+  "lwt"
+  "react"
   "yojson"
   "containers"
+  "components"
   "common"
 ]

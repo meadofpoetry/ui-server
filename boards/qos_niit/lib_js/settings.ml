@@ -1,7 +1,6 @@
 open Board_types
 open Containers
 open Components
-open Boards_js.Types
 
 let make_t2mi_enabled (init: t2mi_mode option) =
   let enabled = new Switch.t () in
@@ -42,24 +41,37 @@ let make_t2mi_sid (init: t2mi_mode option) =
   set init;
   sid#widget,set,sid#s_input,sid#set_disabled
 
-let make_t2mi_mode ~(init:  t2mi_mode option)
-                   ~(event: t2mi_mode option React.event)
-                   ~(state: Common.Topology.state React.signal)
+let make_stream_select (streams:  Common.Stream.t list React.signal) =
+  let make_items sms =
+    List.map (fun s -> new Select.Item.t ~value:s ~text:(Common.Stream.to_short_name s) ()) sms
+  in
+  let select = new Select.t ~default_selected:false ~label:"Потоки" ~items:[] () in
+  let _      = React.S.map (fun sms -> let items = make_items sms in
+                                       select#set_empty;
+                                       List.iter (fun i -> select#append_item i) items) streams
+  in
+  select#widget
+
+let make_t2mi_mode ~(init:    t2mi_mode option)
+                   ~(event:   t2mi_mode option React.event)
+                   ~(streams: Common.Stream.t list React.signal)
+                   ~(state:   Common.Topology.state React.signal)
                    control
-                   () : (t2mi_mode_request,unit) settings_block =
+                   () : (t2mi_mode_request,unit) Ui_templates.Types.settings_block =
   let en,set_en,s_en,dis_en     = make_t2mi_enabled init in
   let pid,set_pid,s_pid,dis_pid = make_t2mi_pid init in
   let sid,set_sid,s_sid,dis_sid = make_t2mi_sid init in
+  let ss = make_stream_select streams in
   let s : t2mi_mode_request option React.signal =
-    React.S.l3 (fun en pid sid ->
-        match en,pid,sid with
-        | true,Some pid,Some sid -> Some (Some { enabled = en
-                                               ; pid
-                                               ; t2mi_stream_id = sid
-                                               ; stream = Common.Stream.Single })
-        | false,_,_              -> Some None
-        | _                      -> None)
-               s_en s_pid s_sid
+    React.S.l4 (fun en pid sid state->
+        match en,pid,sid,state with
+        | true,Some pid,Some sid,`Fine -> Some (Some { enabled = en
+                                                     ; pid
+                                                     ; t2mi_stream_id = sid
+                                                     ; stream = Common.Stream.Single })
+        | false,_,_,`Fine              -> Some None
+        | _                            -> None)
+               s_en s_pid s_sid state
   in
   let _   = React.S.l2 (fun state en -> let is_disabled = match state with
                                           | `Fine -> false
@@ -72,7 +84,7 @@ let make_t2mi_mode ~(init:  t2mi_mode option)
   in
   let _      = React.E.map (fun config -> List.iter (fun f -> f config) [set_en; set_pid; set_sid]) event in
   let submit = Requests.post_t2mi_mode control in
-  let box    = new Box.t ~vertical:true ~widgets:[en;pid;sid] () in
+  let box    = new Box.t ~vertical:true ~widgets:[en;ss;pid;sid] () in
   box#widget,s,submit
 
 let make_jitter_enabled (init:jitter_mode option) =
@@ -102,7 +114,7 @@ let make_jitter_mode ~(init:  jitter_mode option)
                      ~(event: jitter_mode option React.event)
                      ~(state: Common.Topology.state React.signal)
                      control
-                     () : (jitter_mode_request,unit) settings_block =
+                     () : (jitter_mode_request,unit) Ui_templates.Types.settings_block =
   let en,set_en,s_en,dis_en     = make_jitter_enabled init in
   let pid,set_pid,s_pid,dis_pid = make_jitter_pid init in
   let _ = React.S.l2 (fun state en -> let is_disabled = match state with

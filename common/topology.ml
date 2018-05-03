@@ -93,6 +93,8 @@ and topo_interface = { iface : string
                      ; conn  : topo_entry
                      }
 
+type cpu_opt = process_type option [@@deriving yojson,eq]
+
 let cpu_subbranches = function
   | `Boards _ -> `No_cpu
   | `CPU    c -> `Branches (List.map (fun i -> i.conn) c.ifaces)

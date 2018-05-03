@@ -1,52 +1,47 @@
 open Containers
-open Api_js.Requests
+open Api_js.Requests.Json_request
 open Lwt.Infix
+
 open Qoe_errors
-   
+
 let get_structure () =
-  get_js "api/pipeline/structure"
-  >|= Result.(flat_map Structure.Streams.of_yojson)
+  get_result Structure.Streams.of_yojson "api/pipeline/structure"
 
 let post_structure s =
-  Structure.Streams.to_yojson s
-  |> post_js_ok "api/pipeline/structure"
+  post_result ~contents:(Structure.Streams.to_yojson s) (fun _ -> Ok ()) "api/pipeline/structure"
 
 let get_structure_socket () =
-  get_socket "api/pipeline/structure_sock" Structure.Streams.of_yojson
+  WS.get "api/pipeline/structure_sock" Structure.Streams.of_yojson
 
 let get_settings () =
-  get_js "api/pipeline/settings"
-  >|= Result.(flat_map Settings.of_yojson)
+  get_result Settings.of_yojson "api/pipeline/settings"
 
 let post_settings s =
-  Settings.to_yojson s
-  |> post_js_ok "api/pipeline/settings"
+  post_result ~contents:(Settings.to_yojson s) (fun _ -> Ok ()) "api/pipeline/settings"
 
 let get_settings_socket () =
-  get_socket "api/pipeline/settings_sock" Settings.of_yojson
+  WS.get "api/pipeline/settings_sock" Settings.of_yojson
 
 let get_wm () =
-  get_js "api/pipeline/wm"
-  >|= Result.(flat_map Wm.of_yojson)
+  get_result Wm.of_yojson "api/pipeline/wm"
 
 let post_wm wm =
-  Wm.to_yojson wm
-  |> post_js_ok "api/pipeline/wm"
+  post_result ~contents:(Wm.to_yojson wm) (fun _ -> Ok ()) "api/pipeline/wm"
 
 let get_wm_socket () =
-  get_socket "api/pipeline/wm_sock" Wm.of_yojson
+  WS.get "api/pipeline/wm_sock" Wm.of_yojson
 
 let get_vdata_socket () =
-  get_socket "api/pipeline/vdata_sock" Video_data.of_yojson
+  WS.get "api/pipeline/vdata_sock" Video_data.of_yojson
 
 let get_vdata_socket_stream stream =
   let path = Printf.sprintf "api/pipeline/vdata_sock/%d" stream in
-  get_socket path Video_data.of_yojson
+  WS.get path Video_data.of_yojson
 
 let get_vdata_socket_channel stream channel =
   let path = Printf.sprintf "api/pipeline/vdata_sock/%d/%d" stream channel in
-  get_socket path Video_data.of_yojson
+  WS.get path Video_data.of_yojson
 
 let get_vdata_socket_pid stream channel pid =
   let path = Printf.sprintf "api/pipeline/vdata_sock/%d/%d/%d" stream channel pid in
-  get_socket path Video_data.of_yojson
+  WS.get path Video_data.of_yojson

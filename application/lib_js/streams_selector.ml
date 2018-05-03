@@ -188,73 +188,35 @@ let make_input_entry (iid, _, stream_list) =
                                         add_button#e_click;
   let box = new Box.t ~vertical:true ~widgets:[subheader#widget; list#widget; add_button#widget] () in
   box#widget, settings
-  
+
 let make_entry : 'a -> Widget.widget * (marker * Common.Stream.t list) React.signal = function
   | `Input _, _, _ as x -> make_input_entry x
   | `Board _, _, _ as x -> make_board_entry x
-                         
+
 let make_table table =
   let widgets, signals = List.split @@ List.map make_entry table in
   let list  = new Box.t ~vertical:true ~widgets () in
-  list, (React.S.merge ~eq:Equal.physical (fun acc v -> v::acc) [] signals)
-  
-let make ~(init:stream_table)
-         ~(events:stream_table React.event)
-         ~(post:stream_setting -> unit) =
+  list, React.S.map Option.return (React.S.merge ~eq:Equal.physical (fun acc v -> v::acc) [] signals)
+
+let make ~(init:  stream_table)
+         ~(event: stream_table React.event)
+         () : (stream_setting,set_error) Ui_templates.Types.settings_block =
   let id  = "settings-place" in
-  let div = Dom_html.createDiv Dom_html.document in
+  let div = Dom_html.createDiv Dom_html.document |> Widget.create in
   let make (table : stream_table) =
     let dis, s = make_table table in
-    let but    = new Components.Button.t ~label:"Применить" () in
-    let place  = new Components.Card.t
-                     ~widgets:[ dis#widget
-                              ; (new Card.Actions.t ~widgets:[but] ())#widget ]
-                     () in
+    let place  = dis in
     place#set_id id;
-    but#button_element##.onclick := Dom.handler (fun _ -> post @@ React.S.value s; Js._false);
-    place
+    place,s
   in
-  Lwt_react.E.keep @@ React.E.map (fun st ->
-                          (try Dom.removeChild div (Dom_html.getElementById id)
-                           with _ -> print_endline "No el");
-                          Dom.appendChild div (make st)#root)
-                                  events;
-  Dom.appendChild div (make init)#root;
-  div
-
-class t () = object(self)
-
-  val mutable _sock = None
-  inherit Widget.widget (Dom_html.createDiv Dom_html.document) ()
-
-  method init =
-    Requests.get_stream_table ()
-    >>= (function
-         | Ok init ->
-            let events,sock = Requests.get_stream_table_socket () in
-            let stream_selector =
-              make ~init ~events
-                   ~post:(fun ss ->
-                     (Requests.post_stream_settings ss
-                      >>= function
-                      | Ok ()   -> Lwt.return_unit
-                      | Error e -> (Printf.printf "post stream settings, error: %s\n"
-                                                  (Yojson.Safe.pretty_to_string @@
-                                                     Application_types.set_error_to_yojson e));
-                                   Lwt.return_unit)
-                     |> Lwt.ignore_result)
-            in
-            _sock <- Some sock;
-            Dom.appendChild self#root stream_selector;
-            Lwt.return_unit
-         | Error e -> Lwt.return @@ Printf.printf "stream_table get, error: %s\n" e)
-    |> Lwt.ignore_result
-
-  method destroy = Option.iter (fun x -> x##close) _sock
-
-  initializer
-    self#init
-
-end
-
-let create () = new t ()
+  let s_in  = React.S.hold ~eq:equal_stream_table init event in
+  let s_div = React.S.map ~eq:Equal.physical (fun s -> make s) s_in in
+  let s     = React.S.switch ~eq:(Equal.option equal_stream_setting)
+                             (React.S.map ~eq:(Equal.physical) (fun n ->
+                                            div#set_empty;
+                                            let w,n_s = n in
+                                            Dom.appendChild div#root w#root;
+                                            n_s) s_div)
+  in
+  let post = fun x -> Requests.post_stream_settings x in
+  div,s,post
