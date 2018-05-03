@@ -1,5 +1,4 @@
 open Containers
-open Lwt.Infix
 open Api.Interaction
 open Board_protocol
 open Board_types
@@ -9,8 +8,11 @@ open Frame
 
 module Api_handler = Api.Handler.Make(Common.User)
 
-let ( % ) = Fun.(%)
-   
+let ( >>= ) = Json.( >>= )
+let ( >|= ) = Lwt.Infix.( >|= )
+let ( %> )  = Fun.( %> )
+let ( % )   = Fun.( % )
+
 (* TODO reason about random key *)
 let () = Random.init (int_of_float @@ Unix.time ())
 let rand_int = fun () -> Random.run (Random.int 10000000)
@@ -18,44 +20,50 @@ let rand_int = fun () -> Random.run (Random.int 10000000)
 let socket_table = Hashtbl.create 1000
 
 let set setter _of _to body =
-  yojson_of_body body >>= fun x ->
-  match _of x with
-  | Error e -> respond_error e ()
-  | Ok a    ->
-     setter a >>= fun a ->
-     respond_js (_to a) () 
+  Json.of_body body >>= fun x ->
+  (match _of x with
+   | Error e -> Lwt_result.fail @@ Json.of_error_string e
+   | Ok a    -> setter a  >|= (_to %> Result.return))
+  >>= Json.respond_result
 
-let address api = set api.addr addr_of_yojson addr_to_yojson
+let address api           = set api.addr addr_of_yojson addr_to_yojson
 
-let mask (api : api) = set api.mask mask_of_yojson mask_to_yojson
+let mask (api : api)      = set api.mask mask_of_yojson mask_to_yojson
 
-let gateway (api : api) = set api.gateway gateway_of_yojson gateway_to_yojson
+let gateway (api : api)   = set api.gateway gateway_of_yojson gateway_to_yojson
 
-let dhcp (api : api) = set api.dhcp flag_of_yojson flag_to_yojson
+let dhcp (api : api)      = set api.dhcp flag_of_yojson flag_to_yojson
 
-let enable (api : api) = set api.enable flag_of_yojson flag_to_yojson
+let enable (api : api)    = set api.enable flag_of_yojson flag_to_yojson
 
-let fec (api : api) = set api.fec flag_of_yojson flag_to_yojson
+let fec (api : api)       = set api.fec flag_of_yojson flag_to_yojson
 
-let port (api : api) = set api.port port_of_yojson port_to_yojson
+let port (api : api)      = set api.port port_of_yojson port_to_yojson
 
-let meth (api : api) = set api.meth meth_of_yojson meth_to_yojson
+let meth (api : api)      = set api.meth meth_of_yojson meth_to_yojson
 
 let multicast (api : api) = set api.multicast multicast_of_yojson multicast_to_yojson
 
-let delay (api : api) = set api.delay delay_of_yojson delay_to_yojson
+let delay (api : api)     = set api.delay delay_of_yojson delay_to_yojson
 
 let rate_mode (api : api) = set api.rate_mode rate_mode_of_yojson rate_mode_to_yojson
 
 let reset api () =
-  api.reset () >>= respond_ok
+  api.reset () >|= Result.return
+  >>= Json.respond_result_unit
 
 let config api () =
-  api.config () >>= fun conf ->
-  respond_js (config_to_yojson conf) ()
+  api.config () >|= (config_to_yojson %> Result.return)
+  >>= Json.respond_result
+
+let devinfo api () =
+  api.devinfo () >|= (devinfo_to_yojson %> Result.return)
+  >>= Json.respond_result
 
 let state s_state () =
-  respond_js (Common.Topology.state_to_yojson @@ Lwt_react.S.value s_state) ()
+  Lwt_react.S.value s_state
+  |> (Common.Topology.state_to_yojson %> Result.return)
+  |> Json.respond_result
 
 let sock_handler sock_data (event:'a React.event) (to_yojson:'a -> Yojson.Safe.json) body =
   let id = rand_int () in
@@ -75,10 +83,6 @@ let sock_handler sock_data (event:'a React.event) (to_yojson:'a -> Yojson.Safe.j
   let sock_events = Lwt_react.E.map (send % to_yojson) event in
   Hashtbl.add socket_table id sock_events;
   Lwt.return (resp, (body :> Cohttp_lwt.Body.t))
-
-let devinfo api () =
-  api.devinfo () >>= fun info ->
-  respond_js (devinfo_to_yojson info) ()
 
 let state_ws sock_data s_state body =
   sock_handler sock_data (Lwt_react.S.changes s_state) Common.Topology.state_to_yojson body

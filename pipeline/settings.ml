@@ -7,56 +7,56 @@ type setting =
   ; cont_en  : bool
   ; cont     : float
   ; duration : float
-  } [@@deriving yojson]
+  } [@@deriving yojson,eq]
 
 type black =
   { black       : setting
   ; luma        : setting
   ; black_pixel : int
-  } [@@deriving yojson]
+  } [@@deriving yojson,eq]
 
 type freeze =
   { freeze     : setting
   ; diff       : setting
   ; pixel_diff : int
-  } [@@deriving yojson]
+  } [@@deriving yojson,eq]
 
 type blocky =
   { blocky      : setting
   ; mark_blocks : bool
-  } [@@deriving yojson]
+  } [@@deriving yojson,eq]
 
 type silence =
   { silence : setting
-  } [@@deriving yojson]
+  } [@@deriving yojson,eq]
 
 type loudness =
   { loudness : setting
-  } [@@deriving yojson]
+  } [@@deriving yojson,eq]
 
 type adv =
   { adv_diff : float
   ; adv_buf  : int
-  } [@@deriving yojson]
+  } [@@deriving yojson,eq]
 
 type video =
   { loss     : float
   ; black    : black
   ; freeze   : freeze
   ; blocky   : blocky
-  } [@@deriving yojson]
+  } [@@deriving yojson,eq]
   
 type audio =
   { loss     : float
   ; silence  : silence
   ; loudness : loudness
   ; adv      : adv
-  } [@@deriving yojson]
+  } [@@deriving yojson,eq]
   
 type t =
   { video  : video
   ; audio  : audio
-  } [@@deriving yojson]
+  } [@@deriving yojson,eq]
 
 let black_default = { black = { peak_en = true
                               ; peak    = 100.0

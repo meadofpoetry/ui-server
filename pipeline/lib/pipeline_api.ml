@@ -5,17 +5,18 @@ open Websocket_cohttp_lwt
 open Frame
 open Qoe_errors
 open Common
-   
+
 open Lwt.Infix
 
 module Api_handler = Api.Handler.Make(Common.User)
-                   
-let ( % ) = Fun.(%)
+
+let ( %> ) = Fun.( %> )
+
 
 (* TODO reason about random key *)
 let () = Random.init (int_of_float @@ Unix.time ())
 let rand_int = fun () -> Random.run (Random.int 10000000)
-                       
+
 let socket_table = Hashtbl.create 1000
 
 let get_page () =
@@ -27,11 +28,10 @@ let get_page () =
     ()
 
 let set body conv apply =
-  yojson_of_body body >>= fun js ->
+  Json.of_body body >>= fun js ->
   match conv js with
   | Error e -> respond_error e ()
-  | Ok x    -> apply x
-               >>= function Ok () -> respond_ok ()
+  | Ok x    -> apply x >>= function Ok () -> Json.respond_result_unit (Ok ())
 
 let get_sock sock_data body conv event =
   let id = rand_int () in
@@ -63,8 +63,8 @@ let get_structure api () =
   >>= (function
        | Error e -> Lwt.fail_with e
        | Ok v -> Lwt.return v)
-  >|= Structure.Streams.to_yojson
-  >>= fun js -> respond_js js ()
+  >|= (Structure.Streams.to_yojson %> Result.return)
+  >>= Json.respond_result
 
 let get_structure_sock sock_data body api () =
   let open Pipeline_protocol in
@@ -72,7 +72,7 @@ let get_structure_sock sock_data body api () =
 
 let set_settings api body () =
   set body Settings.of_yojson
-    Pipeline_protocol.(fun x -> api.requests.settings.set x)
+      Pipeline_protocol.(fun x -> api.requests.settings.set x)
 
 let get_settings api () =
   let open Pipeline_protocol in
@@ -80,8 +80,8 @@ let get_settings api () =
   >>= (function
        | Error e -> Lwt.fail_with e
        | Ok v    -> Lwt.return v)
-  >|= Settings.to_yojson
-  >>= fun js -> respond_js js ()
+  >|= (Settings.to_yojson %> Result.return)
+  >>= Json.respond_result
 
 let get_settings_sock sock_data body api () =
   let open Pipeline_protocol in
@@ -97,8 +97,8 @@ let get_wm api () =
   >>= (function
        | Error e -> Lwt.fail_with e
        | Ok v -> Lwt.return v)
-  >|= Wm.to_yojson
-  >>= fun js -> respond_js js ()
+  >|= (Wm.to_yojson %> Result.return)
+  >>= Json.respond_result
 
 let get_wm_sock sock_data body api () =
   let open Pipeline_protocol in
@@ -107,7 +107,7 @@ let get_wm_sock sock_data body api () =
 let get_vdata_sock sock_data body api () =
   let open Pipeline_protocol in
   get_sock sock_data body Video_data.to_yojson api.vdata
-  
+
 let get_vdata_sock_stream sock_data body api stream () =
   try
     let stream = int_of_string stream in
@@ -177,7 +177,9 @@ let get_structures api input id () =
       >>= function None -> respond_error "No data" () (* TODO fix *)
                   | Some (str, date) ->
                      let s = Structure.Streams.to_yojson str in
-                     respond_js (`Tuple [s; Time.Seconds.to_yojson date]) ())
+                     (`Tuple [s; Time.Seconds.to_yojson date])
+                     |> Result.return
+                     |> Json.respond_result)
     (function Failure e -> respond_error e ())
 
 let get_structures_between api input id from to' () =
@@ -188,7 +190,7 @@ let get_structures_between api input id from to' () =
       api.model.struct_api.get_input_between input (Time.Seconds.of_string from) (Time.Seconds.of_string to')
       >>= fun l ->
       let l = List.map (fun (str, date) -> `Tuple [Structure.Streams.to_yojson str; Time.Seconds.to_yojson date]) l in
-      respond_js (`List l) ())
+      Json.respond_result @@ Result.return (`List l))
     (function Failure e -> respond_error e ())
                                  
 let archive_handle api id meth args sock_data _ body =

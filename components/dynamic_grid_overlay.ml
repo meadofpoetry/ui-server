@@ -4,7 +4,7 @@ open Gg
 
 type line = | Column | Row
 
-class overlay_grid ~parent () =
+class overlay_grid ~parent ~s_col_w ~s_row_h ~s_cols ~s_rows ~s_im () =
   let elt = Markup.Dynamic_grid.Overlay_grid.create () |> Tyxml_js.To_dom.of_canvas in
   object(self)
 
@@ -34,7 +34,12 @@ class overlay_grid ~parent () =
     method show_dividers = show_dividers <- true
     method hide_dividers = show_dividers <- false
 
-    method layout ~cw ~cn ~rh ~rn ~(im: int * int) =
+    method layout =
+      let cn = React.S.value s_cols in
+      let rn = React.S.value s_rows in
+      let cw = React.S.value s_col_w in
+      let rh = React.S.value s_row_h in
+      let im = React.S.value s_im in
       let empty = I.const @@ Color.v 1. 1. 1. 0.
                   >> I.cut (P.empty
                             >> P.sub (P2.v 0. 0.)

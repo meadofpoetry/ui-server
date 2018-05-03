@@ -11,7 +11,7 @@ let create () : upper ordered_item list user_table =
               ; content      = []
               }
   in
-  let rval = [`Index 1, Simple { title = "Анализ QoE"; href = Path.of_string "pipeline"; template = props }] in 
+  let rval = [`Index 1, Simple { title = "Мозаика"; href = Path.of_string "pipeline"; template = props }] in 
   { root = rval
   ; operator = rval
   ; guest = rval

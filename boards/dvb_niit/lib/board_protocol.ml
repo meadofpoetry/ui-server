@@ -14,7 +14,7 @@ let ( % ) = Fun.(%)
 
 let timeout_period step_duration = 2 * int_of_float (1. /. step_duration) (* 2 secs *)
                                  
-let request_period step_duration = 5 * int_of_float (1. /. step_duration) (* 5 secs *)
+let request_period step_duration = 2 * int_of_float (1. /. step_duration) (* 5 secs *)
 
 let detect = Get_devinfo
 
@@ -214,12 +214,21 @@ module SM = struct
 
   let create sender (storage : config storage) push_state step_duration =
     let period = timeout_period step_duration in
-    let e_config, e_config_push   = React.E.create () in
+    let s_config, s_config_push   = React.S.create storage#get in
     let s_devinfo, s_devinfo_push = React.S.create None in
     let e_measure, e_measure_push = React.E.create () in
-    let (events : events)   = { measure = e_measure
-                              ; config  = React.E.changes ~eq:equal_config e_config
-                              }
+    let (events : events)   =
+      { measure = React.E.map (fun (id,m) ->
+                      match m.freq, List.Assoc.get ~eq:(=) id (React.S.value s_config) with
+                      | Some x,Some c -> let freq = match c.mode with
+                                           | C  -> c.c.freq
+                                           | T  -> c.t.freq
+                                           | T2 -> c.t2.freq
+                                         in
+                                         id,{ m with freq = Some (Int32.sub x freq) }
+                      | _             -> id,{ m with freq = None }) e_measure
+      ; config  = React.S.changes s_config
+      }
     in
     let (push_events : push_events) = { measure = e_measure_push
                                       ; devinfo = s_devinfo_push
@@ -230,7 +239,7 @@ module SM = struct
     let api = { devinfo     = (fun ()    -> Lwt.return @@ React.S.value s_devinfo)
               ; reset       = (fun ()    -> send Reset)
               ; settings    = (fun s     -> send (Set_settings s)
-                                            >>= (fun x -> e_config_push storage#get; Lwt.return x))
+                                            >>= (fun x -> s_config_push storage#get; Lwt.return x))
               ; plp_setting = (fun (n,s) -> send (Set_plp (n,s)))
               ; plps        = (fun n     -> send (Get_plps n))
               ; config      = (fun ()    -> Lwt.return storage#get)

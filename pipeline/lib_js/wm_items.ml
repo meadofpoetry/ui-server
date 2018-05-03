@@ -61,17 +61,21 @@ module Make(I : Item) = struct
       box
 
     let make ~candidates ~set_candidates () =
+      let ph      = Placeholder.make ~text:"Нет доступных виджетов" ~icon:"info" () in
       let wrapper = Tyxml_js.Html.(div ~a:[a_class [wrapper_class]] [])
                     |> Tyxml_js.To_dom.of_element
                     |> Widget.create
       in
       let card    = new Card.t ~widgets:[wrapper] () in
       let ()      = card#add_class base_class in
-      let _       = React.S.map (fun l -> Utils.rm_children wrapper#root;
-                                          let items  = List.map (fun x -> make_item candidates set_candidates x) l
-                                          in
-                                          List.iter (fun x -> Dom.appendChild wrapper#root x#root) items)
-                                candidates
+      let _       =
+        React.S.map (function
+                     | [] -> wrapper#set_empty;
+                             Dom.appendChild wrapper#root ph#root
+                     | l  -> wrapper#set_empty;
+                             List.iter (fun x -> Dom.appendChild wrapper#root x#root)
+                             @@ List.map (make_item candidates set_candidates) l)
+                    candidates
       in
       card
 

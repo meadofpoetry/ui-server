@@ -1,0 +1,89 @@
+@import '../theme/_mixins';
+@import '../elevation/_mixins';
+@import '../typography/_mixins';
+
+.mdc-dashboard {
+
+    .mdc-dynamic-grid__item {
+        @include mdc-elevation(2);
+        @include mdc-theme-prop(background-color, background);
+        overflow: hidden;
+    }
+
+    &__item {
+        height: 100%;
+        // overflow-y: auto;
+        position: relative;
+
+        &__heading {
+            height: 18px;
+            .mdc-card__title {
+                @include mdc-typography(caption);
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                overflow: hidden;
+            }
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+        }
+        &__remove-button {
+            @include mdc-theme-prop(color,text-icon-on-background);
+            font-size: 16px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: 10px;
+        }
+        &__content {
+            margin: 15px;
+            height: calc(100% - 80px);
+            > * {
+                height: 100%;
+            }
+        }
+    }
+}
+
+.mdc-parameter-widget {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    &__inner {
+        display: flex;
+        flex-direction: column;
+    }
+}
+
+.mdc-parameters-widget {
+    display: flex;
+    flex-direction: column;
+    &__row {
+        margin-top: 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        &__name, &__value {
+            flex-basis: 50%;
+        }
+        &__name {
+            @include mdc-typography(subheading1);
+        }
+        &__value {
+            @include mdc-typography(subheading2);
+            text-align: right;
+        }
+    }
+}
+
+.mdc-settings-widget {
+    display: flex;
+    flex-direction: column;
+    .mdc-apply-button {
+        margin-top: 10px;
+        align-self: flex-start;
+    }
+}

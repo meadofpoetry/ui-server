@@ -684,7 +684,7 @@ let expansion_panel_demo () =
   demo_section "Expansion panel" [ box ]
 
 let add_demos demos =
-  let demos = CCList.sort (fun x y -> CCString.compare x#get_title y#get_title) demos in
+  let demos = CCList.sort (fun x y -> CCString.compare x#title y#title) demos in
   Html.div ~a:[ Html.a_id "demo-div" ]
   @@ CCList.map (fun x -> Of_dom.of_element x#root) demos
   |> To_dom.of_element

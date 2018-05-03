@@ -347,7 +347,7 @@ class t () = object(self)
       let post         = (fun w -> Lwt.Infix.(Requests.post_wm w
                                               >|= (function
                                                    | Ok () -> ()
-                                                   | Error e -> print_endline @@ "error post wm" ^ e)
+                                                   | Error _ -> print_endline @@ "error post wm")
                                               |> Lwt.ignore_result))
       in
       let _ = React.S.map (fun (s:Wm.t) -> Dom.list_of_nodeList @@ self#inner#root##.childNodes

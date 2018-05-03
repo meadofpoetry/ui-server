@@ -319,56 +319,7 @@ video {
     width: 50%; }
 
 .wm-placeholder {
-  z-index: 12;
-  width: 100%;
-  height: 100%;
-  position: absolute;
-  display: flex;
-  justify-content: center;
-  align-items: center; }
-  .wm-placeholder__content {
-    /* @alternate */
-    background-color: #fff;
-    background-color: var(--mdc-theme-background, #fff);
-    padding: 20px;
-    border-radius: 4px; }
-  .wm-placeholder__content--bordered {
-    border: 2px solid rgba(0, 0, 0, 0.12); }
-  .wm-placeholder .mdc-typography {
-    /* @alternate */
-    color: rgba(0, 0, 0, 0.54);
-    color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54));
-    font-family: Roboto, sans-serif;
-    -moz-osx-font-smoothing: grayscale;
-    -webkit-font-smoothing: antialiased;
-    font-size: 1rem;
-    line-height: 1.75rem;
-    font-weight: 400;
-    letter-spacing: 0.04em;
-    text-decoration: inherit;
-    text-transform: inherit;
-    margin-top: 12px;
-    order: 1;
-    text-align: center; }
-  .wm-placeholder .mdc-icon {
-    /* @alternate */
-    color: rgba(0, 0, 0, 0.54);
-    color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54));
-    font-size: 48px;
-    order: 0; }
-  @media (max-width: 600px) {
-    .wm-placeholder .mdc-typography {
-      font-family: Roboto, sans-serif;
-      -moz-osx-font-smoothing: grayscale;
-      -webkit-font-smoothing: antialiased;
-      font-size: 0.75rem;
-      line-height: 1.25rem;
-      font-weight: 400;
-      letter-spacing: 0.08em;
-      text-decoration: inherit;
-      text-transform: inherit; }
-    .wm-placeholder .mdc-icon {
-      font-size: 32px; } }
+  position: absolute; }
 
 .wm-selectable-title {
   margin-bottom: 15px; }
@@ -387,7 +338,8 @@ video {
 .wm-items {
   flex-grow: 2; }
   .wm-items__add {
-    flex: 1 1 200px; }
+    flex: 1 1 200px;
+    position: relative; }
   .wm-items__add__wrapper {
     overflow-y: auto;
     overflow-x: hidden; }
@@ -526,6 +478,13 @@ video {
 
 .wm-grid {
   height: 100%; }
+  .wm-grid .wm-placeholder {
+    z-index: 12; }
+    .wm-grid .wm-placeholder .mdc-placeholder__content {
+      /* @alternate */
+      background-color: #fff;
+      background-color: var(--mdc-theme-background, #fff);
+      border-radius: 4px; }
   .wm-grid__right-menu {
     align-items: center; }
     .wm-grid__right-menu .mdc-menu {

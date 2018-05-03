@@ -27,7 +27,7 @@ let get_page () =
     ()
 
 let get_stream_table app () =
-  respond_js (stream_table_to_yojson (React.S.value app.hw.streams)) ()
+  Json.respond_result @@ Ok (stream_table_to_yojson (React.S.value app.hw.streams))
 
 let get_stream_table_socket sock_data body app () =
   let id = rand_int () in
@@ -49,16 +49,16 @@ let get_stream_table_socket sock_data body app () =
   Lwt.return (resp, (body :> Cohttp_lwt.Body.t))
 
 let set_stream_settings body app () =
-  yojson_of_body body >>= fun js ->
+  Json.of_body body >>= fun js ->
   match stream_setting_of_yojson js with
   | Error e -> respond_error e ()
   | Ok s    ->
      Hardware.set_stream app.hw s >>= function
-     | Ok ()     -> respond_ok ()
-     | Error ejs -> respond_error_js (set_error_to_yojson ejs) ()
+     | Ok () as r -> Json.respond_result_unit r
+     | Error ejs  -> Json.respond_result_unit (Error (set_error_to_yojson ejs))
 
 let get_topology app () =
-  respond_js (to_yojson (React.S.value app.topo)) ()
+  Json.respond_result @@ Ok (to_yojson (React.S.value app.topo))
   
 let get_topology_socket sock_data body app () =
   let id = rand_int () in

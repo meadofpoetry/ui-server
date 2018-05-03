@@ -84,20 +84,26 @@ class t ?(expanded=false)
                             then wrapper#style##.display := Js.string "none"
                             else wrapper#style##.display := Js.string "";
                             s_expanded_push x
-    method get_expanded   = React.S.value s_expanded
+    method expanded   = React.S.value s_expanded
 
+
+    method elevation       = elevation
     method set_elevation x = Elevation.remove_elevation self;
                              self#add_class @@ Elevation.get_elevation_class x
-    method get_elevation   = elevation
 
-    method get_title = title
+    method title           = title
+    method details         = List.map Widget.coerce details
+    method heading_details = List.map Widget.coerce heading_details
+    method primary         = primary
+    method panel           = panel
+    method actions         = actions
 
     initializer
       self#set_elevation elevation;
       self#set_expanded expanded;
       Dom_events.listen primary#root
                         Dom_events.Typ.click
-                        (fun _ _ -> self#set_expanded (not self#get_expanded); true)
+                        (fun _ _ -> self#set_expanded (not self#expanded); true)
       |> ignore;
       Dom_events.listen primary#root
                         Dom_events.Typ.keydown
@@ -106,7 +112,7 @@ class t ?(expanded=false)
                           (match key,ev##.keyCode with
                            | Some "Enter", _ | _, 13 | Some "Space", _ | _, 32 ->
                               Dom.preventDefault ev;
-                              self#set_expanded (not self#get_expanded)
+                              self#set_expanded (not self#expanded)
                            | _ -> ());
                           true)
       |> ignore

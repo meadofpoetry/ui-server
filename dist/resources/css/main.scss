@@ -1,6 +1,8 @@
 @import './components/tabs/tab/_mixins';
 @import './components/tabs/tab-bar/_mixins';
 @import './sidebar_drawer';
+@import './templates/templates';
+@import './pages/boards/dvb_niit';
 
 :root { --mdc-box-margin: 0px; }
 html {
@@ -54,7 +56,7 @@ body {
     }
 }
 #arbitrary-content {
-    padding: 20px;
+    margin: 20px;
     > .mdc-layout-grid {
         --mdc-layout-grid-margin-desktop: 0px;
         --mdc-layout-grid-margin-tablet: 0px;

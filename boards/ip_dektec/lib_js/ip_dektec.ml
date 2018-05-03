@@ -77,6 +77,7 @@ let listen control : state =
                         }
          in
          Lwt_result.return listener))
+  |> Lwt.map @@ Result.map_err Api_js.Requests.err_to_string
 
 let unlisten (x:state) =
   x >>= (fun l -> List.iter (fun x -> x##close) l.sockets; Lwt_result.return ())

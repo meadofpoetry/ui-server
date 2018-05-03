@@ -254,14 +254,15 @@ module Scroller = struct
 
     object(self)
 
-      inherit Widget.widget elt ()
+      inherit Widget.widget elt () as super
 
       (* User methods *)
 
       method tab_bar        = tab_bar
       method scroll_back    = self#move_tabs_scroll (- wrapper#get_client_width)
       method scroll_forward = self#move_tabs_scroll wrapper#get_client_width
-      method layout         = self#update_scroll_buttons;
+      method layout         = super#layout;
+                              self#update_scroll_buttons;
                               self#tab_bar#layout;
                               scroll_listener#measure
 
@@ -294,6 +295,9 @@ module Scroller = struct
         let scroll_width = wrapper#root##.scrollWidth in
         let scroll_left  = wrapper#root##.scrollLeft in
         let client_width = wrapper#root##.clientWidth in
+        if scroll_width <= client_width
+        then (back#style##.display := Js.string "none"; forward#style##.display := Js.string "none")
+        else (back#style##.display := Js.string ""; forward#style##.display := Js.string "");
         let show_left    = scroll_left > 0 in
         let show_rigth   = scroll_width > client_width + scroll_left in
         let f x w        = w#add_or_remove_class x Markup.Tabs.Scroller.indicator_enabled_class in

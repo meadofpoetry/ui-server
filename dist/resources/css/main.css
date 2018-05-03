@@ -602,6 +602,76 @@
 
   .mdc-drawer-scroll-lock {
     overflow: hidden; } }
+/* TODO(sgomes): Figure out what to do about desktop font sizes. */
+/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
+.mdc-placeholder {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%; }
+  .mdc-placeholder__content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 20px; }
+  .mdc-placeholder__widget {
+    width: 40px;
+    height: 40px;
+    font-size: 40px; }
+  .mdc-placeholder__text {
+    margin-top: 10px;
+    text-align: center;
+    /* @alternate */
+    color: rgba(0, 0, 0, 0.54);
+    color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54)); }
+
+.mdc-placeholder--icon .mdc-placeholder__widget {
+  /* @alternate */
+  color: rgba(0, 0, 0, 0.54);
+  color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54)); }
+
+.mdc-placeholder--error .mdc-placeholder__widget {
+  color: #e57373; }
+
+.mdc-placeholder--progress .mdc-placeholder__widget {
+  color: initial; }
+@keyframes blink {
+  0% {
+    opacity: .2; }
+  20% {
+    opacity: 1; }
+  100% {
+    opacity: .2; } }
+.mdc-placeholder--progress .mdc-placeholder__text span {
+  animation-name: blink;
+  animation-duration: 1.4s;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both; }
+.mdc-placeholder--progress .mdc-placeholder__text span:nth-child(2) {
+  animation-delay: .2s; }
+.mdc-placeholder--progress .mdc-placeholder__text span:nth-child(3) {
+  animation-delay: .4s; }
+
+.mdc-absolute-fab, .mdc-fixed-fab {
+  position: absolute; }
+  .mdc-absolute-fab--right-bottom, .mdc-fixed-fab--right-bottom {
+    bottom: 1rem;
+    right: 1rem; }
+
+.mdc-fixed-fab {
+  position: fixed; }
+
+.mdc-simple-tabs__body {
+  margin-top: 15px; }
+
+.dvb-niit-module-settings__mode {
+  margin-top: 0 !important; }
+.dvb-niit-module-settings .mdc-select {
+  margin-top: 16px; }
+
 :root {
   --mdc-box-margin: 0px; }
 
@@ -661,7 +731,7 @@ body {
     left: 240px;
     width: calc(100% - 240px); } }
 #arbitrary-content {
-  padding: 20px; }
+  margin: 20px; }
   #arbitrary-content > .mdc-layout-grid {
     --mdc-layout-grid-margin-desktop: 0px;
     --mdc-layout-grid-margin-tablet: 0px;

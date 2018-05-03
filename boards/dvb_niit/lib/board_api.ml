@@ -1,10 +1,13 @@
-open Lwt.Infix
 open Api.Interaction
 open Board_protocol
 open Board_types
 open Containers
 open Websocket_cohttp_lwt
 open Frame
+
+let ( >>= ) = Json.( >>= )
+let ( >|= ) = Lwt.Infix.( >|= )
+let ( %> )  = Fun.( %> )
 
 module Api_handler = Api.Handler.Make(Common.User)
 
@@ -15,41 +18,41 @@ let rand_int = fun () -> Random.run (Random.int 10000000)
 let socket_table = Hashtbl.create 1000
 
 let devinfo api =
-  api.devinfo () >>= fun devi ->
-  respond_js (devinfo_response_to_yojson devi) ()
-
-let reset api =
-  api.reset () >>= respond_ok
-
-let settings (api : api) body =
-  yojson_of_body body >>= fun set ->
-  match settings_request_of_yojson set with
-  | Error e -> respond_error e ()
-  | Ok set  ->
-     api.settings set >>= fun set_rsp ->
-     respond_js (settings_response_to_yojson set_rsp) ()
-
-let plp_setting api body =
-  yojson_of_body body >>= fun plp ->
-  match plp_setting_request_of_yojson plp with
-  | Error e    -> respond_error e ()
-  | Ok plp_set ->
-     api.plp_setting plp_set >>= fun plp_set_rsp ->
-     respond_js (plp_setting_response_to_yojson plp_set_rsp) ()
-
-let plps (api : api) num =
-  try
-    let i = int_of_string num in
-    api.plps i >>= fun plp_rsp ->
-    respond_js (plp_list_response_to_yojson plp_rsp) ()
-  with _ -> respond_error (Printf.sprintf "plps: bad argument %s" num) ()
+  api.devinfo () >|= (devinfo_response_to_yojson %> Result.return)
+  >>= Json.respond_result
 
 let config api =
-  api.config () >>= fun conf ->
-  respond_js (config_to_yojson conf) ()
+  api.config () >|= (config_to_yojson %> Result.return)
+  >>= Json.respond_result
+
+let reset api =
+  api.reset () >|= Result.return
+  >>= Json.respond_result_unit
 
 let state s_state =
-  respond_js (Common.Topology.state_to_yojson @@ Lwt_react.S.value s_state) ()
+  Lwt_react.S.value s_state
+  |> (Common.Topology.state_to_yojson %> Result.return)
+  |> Json.respond_result
+
+let settings (api : api) body =
+  Json.of_body body >>= fun set ->
+  (match settings_request_of_yojson set with
+   | Error e -> Lwt_result.fail @@ Json.of_error_string e
+   | Ok set  -> api.settings set >|= (settings_response_to_yojson %> Result.return))
+  >>= Json.respond_result
+
+let plp_setting api body =
+  Json.of_body body >>= fun plp ->
+  (match plp_setting_request_of_yojson plp with
+   | Error e -> Lwt_result.fail @@ Json.of_error_string e
+   | Ok set  -> api.plp_setting set >|= (plp_setting_response_to_yojson %> Result.return))
+  >>= Json.respond_result
+
+let plps (api : api) num =
+  (match Int.of_string num with
+   | Some i -> api.plps i >|= (plp_list_response_to_yojson %> Result.return)
+   | None   -> Lwt_result.fail @@ Json.of_error_string (Printf.sprintf "bad argument: %s" num))
+  >>= Json.respond_result
 
 let sock_handler sock_data (event:'a React.event) (to_yojson:'a -> Yojson.Safe.json) body =
   let id = rand_int () in

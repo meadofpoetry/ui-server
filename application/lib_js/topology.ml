@@ -132,31 +132,19 @@ let create ~(parent: #Widget.widget)
                |> React.E.select
   in
   let drawer,drawer_box,set_drawer_title = Topo_drawer.make ~title:"" () in
-  let _      =
+  let _ =
     React.E.map (fun node ->
         rm_children drawer_box#root;
+        let error_prefix = "Ошибка при загрузке страницы" in
         let res = match node with
-          | `Board board ->
-             set_drawer_title @@ Topo_board.get_board_name board;
-             Topo_board.make_board_page board
-          | `CPU cpu ->
-             set_drawer_title @@ Topo_cpu.get_cpu_name cpu;
-             Lwt_result.return ((Streams_selector.create ())#widget,fun () -> ())
+          | `Board board -> set_drawer_title @@ Topo_board.get_board_name board;
+                            Topo_board.make_board_page ~error_prefix board
+          | `CPU cpu     -> set_drawer_title @@ Topo_cpu.get_cpu_name cpu;
+                            Topo_cpu.make_cpu_page ~error_prefix cpu
         in
-        let prgrs = Topo_drawer.make_progress () in
-        Dom.appendChild drawer_box#root prgrs#root;
-        let open Lwt.Infix in
-        let t = res >>= (fun r ->
-            Dom.removeChild drawer_box#root prgrs#root;
-            match r with
-            | Ok (w,close) -> Dom.appendChild drawer_box#root w#root; Lwt_result.return close
-            | Error e      -> let s = Printf.sprintf "Ошибка при загрузке страницы:\n %s" e in
-                              let error = Topo_drawer.make_error s in
-                              Dom.appendChild drawer_box#root error#root;
-                              Lwt_result.fail e)
-        in
-        drawer#show_await >>= (fun () -> Lwt_result.bind t (fun f -> Lwt_result.return @@ f ()))
-        |> ignore) e_s
+        let pgs = Ui_templates.Loader.create_widget_loader ~parent:drawer_box ~error_prefix res in
+        Lwt.Infix.(drawer#show_await >>= (fun () -> pgs#iter (fun w -> w#destroy); Lwt.return_unit))
+        |> Lwt.ignore_result) e_s
   in
   iter_paths (fun _ x -> Option.iter (fun sw -> Dom.appendChild parent#root sw#root) x#switch;
                          Dom.appendChild svg x#root) nodes;

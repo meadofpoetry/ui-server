@@ -1,4 +1,5 @@
 open Topology
+open Containers
 
 type id = Single
         | T2mi_plp of int
@@ -7,7 +8,7 @@ type id = Single
 
 let id_of_int32 : int32 -> id = function
   | 0l -> Single
-  | x when (Int32.logand x (Int32.of_int 0xFFFF0000)) = Int32.zero
+  | x when Int32.equal (Int32.logand x (Int32.of_int 0xFFFF0000)) Int32.zero
     -> let x'     = Int32.to_int x in
        let stream = (x' land 0x0000FF00) lsr 8 in
        let plp    = (x' land 0xFF) in
@@ -35,8 +36,7 @@ type stream =
   ; description : string option
   }
 and src = Port   of int
-        | Stream of id
-        [@@deriving yojson, show, eq]
+        | Stream of id [@@deriving yojson, show, eq]
 
 type t =
   { source      : source
@@ -44,8 +44,55 @@ type t =
   ; description : string option
   }
 and source = Input  of Topology.topo_input
-           | Parent of t
-           [@@deriving yojson, show]
+           | Parent of t [@@deriving yojson, show]
+
+let to_short_name (t:t) =
+  let src = match t.source with
+    | Input i  -> Topology.get_input_name i
+    | Parent _ -> "Поток"
+  in
+  let id  = match t.id with
+    | `Ip uri -> Some (Url.to_string uri)
+    | _       -> None
+  in
+  let s = Printf.sprintf "Источник: %s" src in
+  match id with
+  | Some id -> s ^ ", " ^ id
+  | None    -> s
+
+(* type constraints =
+ *   { source : source
+ *   ; range  : [ `Ip of (Uri.t * Uri.t) list | `Ts of (id * id) list ]
+ *   } *)
+
+(* let get_possible_ts_streams (board:topo_board) =
+ *   let rec aux acc (board:topo_board) =
+ *     List.fold_left (fun acc p ->
+ *         match p.child with
+ *         | Board b -> let sms = aux [] b in
+ *                      Printf.printf "board %s | %s | %s with control %d, got %d streams\n"
+ *                                    b.typ b.model b.manufacturer b.control (List.length sms);
+ *                      let l   = match b.typ, b.model, b.manufacturer, b.version with
+ *                        | "TS", "qos", "niitv", 1 ->
+ *                           List.fold_left (fun acc x ->
+ *                               let plps = List.map (fun id -> { source      = Parent x
+ *                                                              ; id          = `Ts (T2mi_plp id)
+ *                                                              ; description = None })
+ *                                          @@ List.range 0 255
+ *                               in acc @ plps) [] sms
+ *                        | _ -> []
+ *                      in
+ *                      sms @ l @ acc
+ *         | Input i -> match board.typ, board.model, board.manufacturer, board.version with
+ *                      | "DVB", "rf", "niitv", 1 -> acc
+ *                      | _ -> let t = { source      = Input i
+ *                                     ; id          = `Ts Single
+ *                                     ; description = None
+ *                                     }
+ *                             in t :: acc
+ *       ) acc board.ports
+ *   in
+ *   aux [] board *)
 
 let rec equal l r =
   match l.id, r.id with
@@ -74,7 +121,7 @@ let t_to_topo_port (b:topo_board) (t:t) =
   let rec get_port = function
     | []    -> None
     | h::tl -> (match h.child with
-                | Input x -> if x = input then Some h else get_port tl
+                | Input x -> if equal_topo_input x input then Some h else get_port tl
                 | Board x -> (match get_port x.ports with
                               | Some _ -> Some h
                               | None   -> get_port tl))

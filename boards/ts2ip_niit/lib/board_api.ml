@@ -1,5 +1,4 @@
 open Containers
-open Lwt.Infix
 open Api.Interaction
 open Board_protocol
 open Board_types
@@ -8,7 +7,10 @@ open Frame
 
 module Api_handler = Api.Handler.Make(Common.User)
 
-let ( % ) = Fun.(%)
+let ( >|= ) = Lwt.Infix.( >|= )
+let ( >>= ) = Json.( >>= )
+let ( %> )  = Fun.( %> )
+let ( % )   = Fun.( % )
 
 (* TODO reason about random key *)
 let () = Random.init (int_of_float @@ Unix.time ())
@@ -17,48 +19,56 @@ let rand_int = fun () -> Random.run (Random.int 10000000)
 let socket_table = Hashtbl.create 1000
 
 let devinfo (api:api) () =
-  api.devinfo () >>= fun devi ->
-  respond_js (devinfo_response_to_yojson devi) ()
+  api.devinfo () >|= (devinfo_response_to_yojson %> Result.return)
+  >>= Json.respond_result
 
 let state s_state =
-  respond_js (Common.Topology.state_to_yojson @@ React.S.value s_state) ()
+  React.S.value s_state
+  |> Common.Topology.state_to_yojson
+  |> Result.return
+  |> Json.respond_result
 
 let config (api:api) ()=
-  api.config () >>= fun cfg ->
-  respond_js (config_response_to_yojson cfg) ()
+  api.config () >|= (config_response_to_yojson %> Result.return)
+  >>= Json.respond_result
 
 let streams s_streams =
-  respond_js (Common.Stream.t_list_to_yojson @@ React.S.value s_streams) ()
+  React.S.value s_streams
+  |> Common.Stream.t_list_to_yojson
+  |> Result.return
+  |> Json.respond_result
 
 let set_factory_mode (api:api) body () =
-  yojson_of_body body >>= fun mode ->
-  match factory_settings_of_yojson mode with
-  | Error e -> respond_error e ()
-  | Ok mode -> api.set_factory_mode mode >>= respond_ok
+  Json.of_body body >>= fun mode ->
+  (match factory_settings_of_yojson mode with
+   | Error e -> Lwt_result.fail @@ Json.of_error_string e
+   | Ok mode -> api.set_factory_mode mode >|= Result.return)
+  >>= Json.respond_result_unit
 
 let set_nw_mode (api:api) body () =
-  yojson_of_body body >>= fun mode ->
-  match nw_settings_of_yojson mode with
-  | Error e -> respond_error e ()
-  | Ok mode -> api.set_mode mode >>= respond_ok
+  Json.of_body body >>= fun mode ->
+  (match nw_settings_of_yojson mode with
+   | Error e -> Lwt_result.fail @@ Json.of_error_string e
+   | Ok mode -> api.set_mode mode >|= Result.return)
+  >>= Json.respond_result_unit
 
 let set_streams_simple (api:api) body () =
-  yojson_of_body body >>= fun sms ->
-  match Common.Stream.t_list_of_yojson sms with
-  | Error e -> respond_error e ()
-  | Ok sms  -> api.set_streams_simple sms
-               >>= function
-               | Error e -> respond_error (Board_protocol.set_streams_error_to_string e) ()
-               | Ok ()   -> respond_ok ()
+  Json.of_body body >>= fun sms ->
+  (match Common.Stream.t_list_of_yojson sms with
+   | Error e -> Lwt_result.fail @@ Json.of_error_string e
+   | Ok sms  -> api.set_streams_simple sms
+                |> Lwt_result.map_err (fun e ->
+                       Json.of_error_string (Board_protocol.set_streams_error_to_string e)))
+  >>= Json.respond_result_unit
 
 let set_streams_full (api:api) body () =
-  yojson_of_body body >>= fun sms ->
-  match streams_full_request_of_yojson sms with
-  | Error e -> respond_error e ()
-  | Ok sms  -> api.set_streams_full sms
-               >>= function
-               | Error e -> respond_error (Board_protocol.set_streams_error_to_string e) ()
-               | Ok ()   -> respond_ok ()
+  Json.of_body body >>= fun sms ->
+  (match streams_full_request_of_yojson sms with
+   | Error e -> Lwt_result.fail @@ Json.of_error_string e
+   | Ok sms  -> api.set_streams_full sms
+                |> Lwt_result.map_err (fun e ->
+                       Json.of_error_string (Board_protocol.set_streams_error_to_string e)))
+  >>= Json.respond_result_unit
 
 let sock_handler sock_data (event:'a React.event) (to_yojson:'a -> Yojson.Safe.json) body =
   let id = rand_int () in

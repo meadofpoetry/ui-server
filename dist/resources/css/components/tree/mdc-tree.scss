@@ -19,7 +19,7 @@
     line-height: map-get(map-get($mdc-typography-styles, subheading1), line-height);
     list-style-type: none;
     cursor: pointer;
-
+}
     .mdc-tree__item {
 
         width: 100%;
@@ -48,7 +48,7 @@
             }
         }
     }
-}
+
 
 @at-root {
     @include mdc-list-item-secondary-text-ink-color(text-secondary-on-background);

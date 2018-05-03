@@ -1,7 +1,10 @@
 open Containers
-open Board_types
 open Components
-open Boards_js.Types
+open Board_types
+open Lwt_result.Infix
+
+type config =
+  { id : int }
 
 let (%>) = Fun.(%>)
 
@@ -90,7 +93,7 @@ let make_module_settings ~(id:    int)
                          ~(event: config_item React.event)
                          ~(state: Common.Topology.state React.signal)
                          control
-                         () : (settings_request,settings_response) settings_block =
+                         () : (settings_request,settings_response) Ui_templates.Types.settings_block =
   let mode,set_mode = make_mode init.mode in
   let t2_box,s_t2 = make_mode_box ~mode:T2 ~state ~init:init.t2 ~event:(React.E.map (fun x -> x.t2) event) () in
   let t_box,s_t   = make_mode_box ~mode:T  ~state ~init:init.t  ~event:(React.E.map (fun x -> x.t)  event) () in
@@ -126,5 +129,34 @@ let make_module_settings ~(id:    int)
                        | `Fine                -> mode#set_disabled false) state
   in
   let () = box#add_class base_class in
-  let submit = fun (cfg:settings_request) -> Requests.post_settings control cfg in
+  let submit = fun (cfg:settings_request) -> Requests.post_settings control cfg >|= (fun _ -> ()) in
   box#widget,s,submit
+
+let make ~(state:  (Common.Topology.state React.signal,string) Lwt_result.t)
+         ~(config: (Board_types.config React.signal,string) Lwt_result.t)
+         (conf: config)
+         control : 'a Dashboard.Item.item =
+  let t = state >>= (fun s -> config >>= (fun c -> Lwt_result.return (s,c))) in
+  let t = t >>= (fun (state,config) ->
+      let get = List.Assoc.get_exn ~eq:(=) conf.id in
+      let w,s,set = make_module_settings ~id:conf.id
+                                         ~init:(get @@ React.S.value config)
+                                         ~event:(React.S.changes @@ React.S.map get config)
+                                         ~state
+                                         control
+                                         ()
+      in
+      let a   = Ui_templates.Buttons.create_apply s set in
+      let box = new Box.t ~vertical:true ~widgets:[w;a#widget] () in
+      let ()  = box#add_class "mdc-settings-widget" in
+      Lwt_result.return box#widget)
+  in
+  { name     = Printf.sprintf "Модуль %d. Настройки" (succ conf.id)
+  ; settings = None
+  ; widget   = (object
+                  inherit Ui_templates.Loader.widget_loader t () as super
+                  method! layout = super#layout; print_endline "layout!";
+                                   t >>= (fun w -> w#layout; Lwt_result.return ())
+                                   |> Lwt.ignore_result
+                end)#widget
+  }

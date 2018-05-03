@@ -116,11 +116,11 @@ let to_complex_req ?client_id ?request_id ~msg_code ~body () =
 
 let to_mode_exn mode t2mi_pid stream_id =
   { input = Option.get_exn @@ input_of_int (mode land 1)
-  ; t2mi = Some { enabled        = if (mode land 4) > 0 then true else false
-                ; pid            = t2mi_pid land 0x1fff
-                ; t2mi_stream_id = (t2mi_pid lsr 13) land 0x7
-                ; stream         = Common.Stream.id_of_int32 stream_id
-                }
+  ; t2mi  = Some { enabled        = if (mode land 4) > 0 then true else false
+                 ; pid            = t2mi_pid land 0x1fff
+                 ; t2mi_stream_id = (t2mi_pid lsr 13) land 0x7
+                 ; stream         = Common.Stream.id_of_int32 stream_id
+                 }
   }
 
 (* -------------------- Requests/responses/events ------------------*)
