@@ -10,8 +10,8 @@
                    -thread -w "+1..49+60" -w "+a-4-7-23-33-39-40-41-42-44-45-48"
                    -O3 -unbox-closures))
   (libraries (containers yojson caqti-lwt
-              lwt lwt-zmq lwt_react websocket-lwt.cohttp
-              api storage common pipeline pc_control usb_device
+              lwt lwt_react websocket-lwt.cohttp
+              api storage common pipeline usb_device
               meta_board board-dvb-niit board-ip-dektec
               board-qos-niit board-ts2ip-niit))
   (preprocess (pps (ppx_deriving_yojson)))))
