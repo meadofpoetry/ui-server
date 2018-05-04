@@ -341,15 +341,16 @@ module Get_ts_structs : (Request with type req := int with type rsp = ts_struct 
     let string_len = get_general_struct_block_string_len bdy in
     let nw_pid'    = get_general_struct_block_network_pid bdy in
     let strings,_  = Cbuffer.split rest (string_len * 2) in
-    let nw_name,_  = Cbuffer.split strings string_len in
+    let nw_name,bq_name  = Cbuffer.split strings string_len in
     { services_num = get_general_struct_block_services_num bdy
     ; nw_pid       = nw_pid' land 0x1FFF
     ; complete     = nw_pid' land 0x4000 <> 0
     ; ts_id        = get_general_struct_block_ts_id bdy
     ; nw_id        = get_general_struct_block_nw_id bdy
     ; orig_nw_id   = get_general_struct_block_orig_nw_id bdy
-    ; nw_name      = Cbuffer.to_string nw_name
-    }
+    ; nw_name      = Text_decoder.get_encoding_and_convert nw_name
+    ; bouquet_name = Text_decoder.get_encoding_and_convert bq_name
+    }, string_len
 
   let of_pids_struct_block msg =
     let iter = Cbuffer.iter (fun _ -> Some 2) (fun buf -> Cbuffer.LE.get_uint16 buf 0) msg in
@@ -364,21 +365,24 @@ module Get_ts_structs : (Request with type req := int with type rsp = ts_struct 
     let flags      = get_services_struct_block_flags bdy in
     let strings,_  = Cbuffer.split rest (string_len * 2) in
     let sn,pn      = Cbuffer.split strings string_len in
-    { id            = get_services_struct_block_id bdy
-    ; bitrate       = None
-    ; name          = Cbuffer.to_string sn
-    ; provider_name = Cbuffer.to_string pn
-    ; pmt_pid       = get_services_struct_block_pmt_pid bdy
-    ; pcr_pid       = get_services_struct_block_pcr_pid bdy
-    ; has_pmt       = flags land 0x8000 <> 0
-    ; has_sdt       = flags land 0x4000 <> 0
-    ; dscr          = flags land 0x2000 <> 0
-    ; list_dscr     = flags land 0x1000 <> 0
-    ; eit_schedule  = flags land 0x0080 <> 0
-    ; eit_pf        = flags land 0x0040 <> 0
-    ; free_ca_mode  = flags land 0x0020 <> 0
-    ; es            = []
-    ; ecm           = []
+    { id             = get_services_struct_block_id bdy
+    ; bitrate        = None
+    ; name           = Text_decoder.get_encoding_and_convert sn
+    ; provider_name  = Text_decoder.get_encoding_and_convert pn
+    ; pmt_pid        = get_services_struct_block_pmt_pid bdy
+    ; pcr_pid        = get_services_struct_block_pcr_pid bdy
+    ; has_pmt        = flags land 0x8000 <> 0
+    ; has_sdt        = flags land 0x4000 <> 0
+    ; dscr           = flags land 0x2000 <> 0
+    ; list_dscr      = flags land 0x1000 <> 0
+    ; eit_schedule   = flags land 0x0080 <> 0
+    ; eit_pf         = flags land 0x0040 <> 0
+    ; free_ca_mode   = flags land 0x0020 <> 0
+    ; running_status = flags land 0x0007
+    ; service_type_1 = get_services_struct_block_service_type_1 bdy
+    ; service_type_2 = get_services_struct_block_service_type_2 bdy
+    ; es             = []
+    ; ecm            = []
     }
 
   let of_es_struct_block msg =
@@ -409,14 +413,14 @@ module Get_ts_structs : (Request with type req := int with type rsp = ts_struct 
     let pid'     = get_table_struct_block_pid msg in
     let id       = get_table_struct_block_id msg in
     let id_ext   = get_table_struct_block_id_ext bdy in
-    let common   =  { version        = get_table_struct_block_version bdy
-                    ; bitrate        = None
-                    ; id             = get_table_struct_block_id bdy
-                    ; pid            = pid' land 0x1FFF
-                    ; lsn            = get_table_struct_block_lsn bdy
-                    ; section_syntax = pid' land 0x8000 > 0
-                    ; sections
-                    } in
+    let common   = { version        = get_table_struct_block_version bdy
+                   ; bitrate        = None
+                   ; id             = get_table_struct_block_id bdy
+                   ; pid            = pid' land 0x1FFF
+                   ; lsn            = get_table_struct_block_lsn bdy
+                   ; section_syntax = pid' land 0x8000 > 0
+                   ; sections
+                   } in
     let eit_info = { ts_id         = get_table_struct_block_adv_info_1 bdy
                    ; orig_nw_id    = get_table_struct_block_adv_info_2 bdy
                    ; segment_lsn   = get_table_struct_block_adv_info_3 bdy
@@ -444,45 +448,50 @@ module Get_ts_structs : (Request with type req := int with type rsp = ts_struct 
      | 0x7F -> SIT common
      | _    -> Unknown common)
 
-  let rec of_ts_struct_blocks msg acc =
-    match Cbuffer.len msg with
-    | 0 -> acc
-    | _ -> let hdr,data   = Cbuffer.split msg sizeof_struct_block_header in
-           let typ        = get_struct_block_header_code hdr in
-           let len        = get_struct_block_header_length hdr in
-           let block,rest = Cbuffer.split data len in
-           (match typ with
-            | 0x2000 -> `General (of_general_struct_block block)
-            | 0x2100 -> `Pids (of_pids_struct_block block)
-            | 0x2200 -> `Services (of_services_struct_block 32 block) (* FIXME string length *)
-            | 0x2201 -> `Es (of_es_struct_block block)
-            | 0x2202 -> `Ecm (of_ecm_struct_block block)
-            | 0x2300 -> `Emm (of_ecm_struct_block block)
-            | 0x2400 -> `Tables (of_table_struct_block block)
-            | _      -> `Unknown)
-           |> (function
-               | `Es es -> (match acc with
-                            | [] -> failwith "of_ts_struct_blocks: no blocks before es block"
-                            | hd::tl ->
-                               (match hd with
-                                | `Services s -> `Services ({ s with es = es }) :: tl
-                                                 |> of_ts_struct_blocks rest
-                                | _ -> failwith "of_ts_struct_blocks: no services block before es block"))
-               | `Ecm ecm -> (match acc with
-                              | [] -> failwith "of_ts_struct_blocks: no blocks before ecm block"
+  let of_ts_struct_blocks msg =
+    let str_len = ref 0 in
+    let rec aux msg acc =
+      match Cbuffer.len msg with
+      | 0 -> acc
+      | _ -> let hdr,data   = Cbuffer.split msg sizeof_struct_block_header in
+             let typ        = get_struct_block_header_code hdr in
+             let len        = get_struct_block_header_length hdr in
+             let block,rest = Cbuffer.split data len in
+             (match typ with
+              | 0x2000 -> let gen,len = of_general_struct_block block in
+                          str_len := len; `General gen
+              | 0x2100 -> `Pids (of_pids_struct_block block)
+              | 0x2200 -> `Services (of_services_struct_block !str_len block)
+              | 0x2201 -> `Es (of_es_struct_block block)
+              | 0x2202 -> `Ecm (of_ecm_struct_block block)
+              | 0x2300 -> `Emm (of_ecm_struct_block block)
+              | 0x2400 -> `Tables (of_table_struct_block block)
+              | _      -> `Unknown)
+             |> (function
+                 | `Es es -> (match acc with
+                              | [] -> failwith "of_ts_struct_blocks: no blocks before es block"
                               | hd::tl ->
                                  (match hd with
-                                  | `Services s -> `Services ({ s with ecm = ecm }) :: tl
-                                                   |> of_ts_struct_blocks rest
-                                  | _ -> failwith "of_ts_struct_blocks: no services block before ecm block"))
-               | x -> of_ts_struct_blocks rest (x :: acc))
+                                  | `Services s -> `Services ({ s with es = es }) :: tl
+                                                   |> aux rest
+                                  | _ -> failwith "of_ts_struct_blocks: no services block before es block"))
+                 | `Ecm ecm -> (match acc with
+                                | [] -> failwith "of_ts_struct_blocks: no blocks before ecm block"
+                                | hd::tl ->
+                                   (match hd with
+                                    | `Services s -> `Services ({ s with ecm = ecm }) :: tl
+                                                     |> aux rest
+                                    | _ -> failwith "of_ts_struct_blocks: no services block before ecm block"))
+                 | x -> aux rest (x :: acc))
+    in
+    aux msg []
 
   let of_ts_struct msg =
     let open Option in
     let hdr,rest = Cbuffer.split msg sizeof_ts_struct in
     let len      = (Int32.to_int @@ get_ts_struct_length hdr) in
     let bdy,rest = Cbuffer.split rest len in
-    let blocks   = of_ts_struct_blocks bdy [] in
+    let blocks   = of_ts_struct_blocks bdy in
     { stream_id = Common.Stream.id_of_int32 @@ get_ts_struct_stream_id hdr
     ; bitrate   = None
     ; general   = get_exn @@ List.find_map (function `General x -> Some x | _ -> None) blocks

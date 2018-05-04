@@ -46,7 +46,7 @@ module Make(M:M) = struct
     end
 
   let make ?on_destroy (event:event) (config:config) : 'a Dashboard.Item.item =
-    { name = get_name config
+    { name     = get_name config
     ; settings = None
     ; widget   = (new t ?on_destroy event config ())#widget
     }

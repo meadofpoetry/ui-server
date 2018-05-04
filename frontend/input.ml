@@ -18,7 +18,7 @@ let dummy_tab = fun () -> let div = Dom_html.createDiv Dom_html.document in
                           end
 
 let board_to_tabs (control:int) : string -> (string * (unit -> t)) list = function
-  | "IP2TS" -> [ "IP",        Board_ip_dektec_js.Ip_dektec.page control ]
+  | "IP2TS" -> [ "IP",        (fun () -> Board_ip_dektec_js.Input_page.make control) ]
   | "DVB"   -> [ "RF",        (fun () -> Board_dvb_niit_js.Input_page.make control) ]
   | "TS"    -> [ "Структура", Board_qos_niit_js.Structure.page control
                ; "Скорости",  dummy_tab

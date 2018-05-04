@@ -1,4 +1,3 @@
-open Lwt_result.Infix
 open Containers
 open Components
 
@@ -22,7 +21,7 @@ let make (control:int) =
     ; { item = br;     position = {x=0;y=11;w=4;h=2} }
     ]
   in
-  let dg      = new Dashboard.t ~items () in
+  let dg = new Dashboard.t ~items () in
   object
     inherit Widget.widget dg#root ()
     method on_load   = dg#layout
