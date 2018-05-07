@@ -9,7 +9,7 @@ type _ item =
   | Module_measures : Widget_module_measures.config -> Widget.widget item
   | Measures        : Widget_measures.config        -> Widget.widget item
   | Measure         : Widget_measure.config         -> Widget.widget item
-  | Chart           : Widget_chart.config           -> Widget.widget item
+  | Chart           : Widget_chart.config           -> unit item
   | Module_settings : Widget_module_settings.config -> Widget.widget item
   | Settings        : Widget_settings.config        -> Widget.widget item
 

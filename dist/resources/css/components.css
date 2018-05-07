@@ -1414,7 +1414,10 @@
       text-overflow: ellipsis;
       white-space: nowrap;
       overflow: hidden; }
-  .mdc-dashboard__item__remove-button {
+  .mdc-dashboard__item__heading-buttons {
+    display: flex;
+    justify-content: flex-end; }
+  .mdc-dashboard__item__heading-button {
     /* @alternate */
     color: rgba(0, 0, 0, 0.38);
     color: var(--mdc-theme-text-icon-on-background, rgba(0, 0, 0, 0.38));

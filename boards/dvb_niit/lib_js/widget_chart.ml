@@ -56,7 +56,10 @@ let make_chart_base ~(config: config)
                                                  datasets)
                       event in
   { name     = measure_type_to_string config.typ
-  ; settings = None
+  ; settings = Some { widget = new Typography.Text.t ~text:"text" () |> Widget.coerce
+                    ; signal = React.S.const @@ Some ()
+                    ; set    = fun () -> Lwt_result.return ()
+                    }
   ; widget   = chart#widget
   }
 

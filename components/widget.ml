@@ -123,6 +123,18 @@ class widget (elt:#Dom_html.element Js.t) () = object(self)
 
 end
 
+class container_widget elt () =
+object(self)
+  inherit widget elt ()
+  val mutable _widgets     = []
+  method add (w:widget)    = Dom.appendChild self#root w#root; _widgets <- w :: _widgets
+  method remove (w:widget) = try
+      Dom.removeChild self#root w#root;
+      _widgets <- (List.remove ~eq:(fun w1 w2 -> Equal.physical w1#root w2#root) ~x:w _widgets)
+    with _ -> ()
+  method remove_all ()     = List.iter self#remove _widgets
+end
+
 class button_widget elt () =
   let e_click,e_click_push = React.E.create () in
   object(self)

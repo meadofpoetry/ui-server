@@ -11,14 +11,15 @@ let make (control:int) =
   let ber     = factory#create (Chart (conf `Ber)) in
   let frq     = factory#create (Chart (conf `Freq)) in
   let br      = factory#create (Chart (conf `Bitrate)) in
-  let (items : 'a Dashboard.Item.positioned_item list) =
-    [ { item = s;      position = {x=0;y=0;w=2;h=3} }
-    ; { item = ms;     position = {x=2;y=0;w=2;h=3} }
-    ; { item = pow;    position = {x=0;y=3;w=4;h=2} }
-    ; { item = mer;    position = {x=0;y=5;w=4;h=2} }
-    ; { item = ber;    position = {x=0;y=7;w=4;h=2} }
-    ; { item = frq;    position = {x=0;y=9;w=4;h=2} }
-    ; { item = br;     position = {x=0;y=11;w=4;h=2} }
+  let (items : Dashboard.Item.positioned_item list) =
+    let open Dashboard.Item in
+    [ { item = make s;      position = {x=0;y=0;w=2;h=3} }
+    ; { item = make ms;     position = {x=2;y=0;w=2;h=3} }
+    ; { item = make pow;    position = {x=0;y=3;w=4;h=2} }
+    ; { item = make mer;    position = {x=0;y=5;w=4;h=2} }
+    ; { item = make ber;    position = {x=0;y=7;w=4;h=2} }
+    ; { item = make frq;    position = {x=0;y=9;w=4;h=2} }
+    ; { item = make br;     position = {x=0;y=11;w=4;h=2} }
     ]
   in
   let dg = new Dashboard.t ~items () in

@@ -9,13 +9,14 @@ let make (control:int) =
   let status  = factory#create (Parameter { typ = `Status }) in
   let pr      = factory#create (Parameter { typ = `Protocol }) in
   let psz     = factory#create (Parameter { typ = `Packet_size }) in
-  let (items : 'a Dashboard.Item.positioned_item list) =
-    [ { item = in_br;   position = { x=0;y=0;w=1;h=1} }
-    ; { item = jt   ;   position = { x=1;y=0;w=1;h=1} }
-    ; { item = tpperip; position = { x=2;y=0;w=1;h=1} }
-    ; { item = status;  position = { x=3;y=0;w=1;h=1} }
-    ; { item = pr;      position = { x=0;y=1;w=1;h=1} }
-    ; { item = psz;     position = { x=1;y=1;w=1;h=1} }
+  let (items : Dashboard.Item.positioned_item list) =
+    let open Dashboard.Item in
+    [ { item = make in_br;   position = { x=0;y=0;w=1;h=1} }
+    ; { item = make jt   ;   position = { x=1;y=0;w=1;h=1} }
+    ; { item = make tpperip; position = { x=2;y=0;w=1;h=1} }
+    ; { item = make status;  position = { x=3;y=0;w=1;h=1} }
+    ; { item = make pr;      position = { x=0;y=1;w=1;h=1} }
+    ; { item = make psz;     position = { x=1;y=1;w=1;h=1} }
     ]
   in
   let dg = new Dashboard.t ~items () in
