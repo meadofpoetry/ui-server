@@ -5,13 +5,13 @@ open Lwt_result.Infix
 
 (* Widget type *)
 type _ item =
-  | Module_measure  : Widget_module_measure.config  -> Widget.widget item
-  | Module_measures : Widget_module_measures.config -> Widget.widget item
-  | Measures        : Widget_measures.config        -> Widget.widget item
-  | Measure         : Widget_measure.config         -> Widget.widget item
-  | Chart           : Widget_chart.config           -> unit item
-  | Module_settings : Widget_module_settings.config -> Widget.widget item
-  | Settings        : Widget_settings.config        -> Widget.widget item
+  | Module_measure  : Widget_module_measure.config  -> unit item
+  | Module_measures : Widget_module_measures.config -> unit item
+  | Measures        : Widget_measures.config        -> unit item
+  | Measure         : Widget_measure.config         -> unit item
+  | Chart           : Widget_chart.config           -> Widget_chart.settings item
+  | Module_settings : Widget_module_settings.config -> unit item
+  | Settings        : Widget_settings.config        -> unit item
 
 let return = Lwt_result.return
 
@@ -44,8 +44,8 @@ object(self)
                                                    ~config:self#get_config
                                                    conf control
 
-  method destroy = _state_ref <- 0; _config_ref <- 0; _measures_ref <- 0;
-                   self#destroy_state; self#destroy_config; self#destroy_measures
+  method destroy () = _state_ref <- 0; _config_ref <- 0; _measures_ref <- 0;
+                      self#destroy_state; self#destroy_config; self#destroy_measures
 
   method private destroy_state =
     _state_ref <- _state_ref - 1;

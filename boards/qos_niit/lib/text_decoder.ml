@@ -28,6 +28,8 @@ open Containers
 [@@uint16_t]
 ]
 
+let equal_encoding x1 x2 = encoding_to_int x1 = encoding_to_int x2
+
 let encoding_to_table_name = function
   | Unknown       -> ""
   | ISO8859_1     -> "iso-8859-1"
@@ -76,30 +78,31 @@ module Iconv = struct
                                            @-> (ptr (ptr char)) @-> ptr size_t
                                            @-> returning size_t)
 
-  let convert ~(src:string) ~(dst:string)
-              (text:Cbuffer.t) =
-    let coef = 6 in
-    let rec aux n size =
-      let buf   = Cbuffer.create size in
-      let ()    = Cbuffer.memset buf 0 in
-      let handl = iconv_open dst src in
-      let in_bytes_left  = allocate size_t @@ Unsigned.Size_t.of_int (Cbuffer.len text) in
-      let out_bytes_left = allocate size_t @@ Unsigned.Size_t.of_int (Cbuffer.len buf) in
-      let sz             = iconv handl
-                                 (allocate char_ptr (Cbuffer.get_ptr text))
-                                 in_bytes_left
-                                 (allocate char_ptr (Cbuffer.get_ptr buf))
-                                 out_bytes_left
+  let convert ~(src:string) ~(dst:string) (text:Cbuffer.t) =
+    try
+      let coef = 6 in
+      let rec aux n size =
+        let buf   = Cbuffer.create size in
+        let ()    = Cbuffer.memset buf 0 in
+        let handl = iconv_open dst src in
+        let in_bytes_left  = allocate size_t @@ Unsigned.Size_t.of_int (Cbuffer.len text) in
+        let out_bytes_left = allocate size_t @@ Unsigned.Size_t.of_int (Cbuffer.len buf) in
+        let sz             = iconv handl
+                                   (allocate char_ptr (Cbuffer.get_ptr text))
+                                   in_bytes_left
+                                   (allocate char_ptr (Cbuffer.get_ptr buf))
+                                   out_bytes_left
+        in
+        let _        = iconv_close handl in
+        let str_size = Cbuffer.len buf - Unsigned.Size_t.to_int !@out_bytes_left in
+        match Unsigned.Size_t.to_int sz with
+        | -1 -> (match !@(foreign_value "errno" int) with
+                 | 7 -> if n > 2 then Error `E2BIG else aux (succ n) (size * coef)
+                 | x -> Error (`Other x))
+        | _  -> Ok (Cbuffer.to_string @@ fst @@ Cbuffer.split buf str_size)
       in
-      let _        = iconv_close handl in
-      let str_size = Cbuffer.len buf - Unsigned.Size_t.to_int !@out_bytes_left in
-      match Unsigned.Size_t.to_int sz with
-      | -1 -> (match !@(foreign_value "errno" int) with
-               | 7 -> if n > 2 then Error 7 else aux (succ n) (size * coef)
-               | x -> Error x)
-      | _  -> Ok (Cbuffer.to_string @@ fst @@ Cbuffer.split buf str_size)
-    in
-    aux 0 (Cbuffer.len text * coef)
+      aux 0 (Cbuffer.len text * coef)
+    with _ -> Error `Unexpected_exn
 
 end
 
@@ -157,36 +160,27 @@ let fold_singlebyte (text:Cbuffer.t) =
 (* Converts text to utf-8. Text may include pango markup (<b> and </b>) *)
 let convert_to_utf8 (text:Cbuffer.t) (encoding:encoding_params) =
   let text = Cbuffer.shift text encoding.start_text
-             |> (fun x -> if encoding.multibyte
-                          then fold_multibyte x
-                          else fold_singlebyte x)
+             |> (fun x -> if encoding.multibyte then fold_multibyte x else fold_singlebyte x)
   in
   Iconv.convert ~src:(encoding_to_table_name encoding.encoding)
                 ~dst:(encoding_to_table_name UTF8)
                 text
 
 let get_encoding_and_convert (text:Cbuffer.t) =
-  let to_default = fun () -> Cbuffer.to_string text |> String.filter (Char.equal '\000') in
-  let enc = get_encoding text in
-  match enc.encoding with
-  | Unknown -> to_default ()
-  | _       -> (match convert_to_utf8 text enc with
-                | Ok s    -> s
-                | Error _ ->
-                   (match encoding_to_int enc.encoding with
-                    | x when x >= (encoding_to_int ISO8859_2) && x <= (encoding_to_int ISO8859_15) ->
-                       (* Sometimes using the standard 8859-1 set fixes issues *)
-                       (match convert_to_utf8 text { enc with encoding = ISO8859_1 } with
-                        | Ok s -> s
-                        | Error _ -> to_default ())
-                    | x when x = encoding_to_int ISO6937 ->
-                       (* The first part of ISO 6937 is identical to ISO 8859-9, but
-                        * they differ in the second part. Some channels don't
-                        * provide the first byte that indicates ISO 8859-9 encoding.
-                        * If decoding from ISO 6937 failed, we try ISO 8859-9 here.
-                        *)
-                       (match convert_to_utf8 text { enc with encoding = ISO8859_9 } with
-                        | Ok s -> s
-                        | Error _ -> to_default ())
-                    | _ -> to_default ()))
-
+  let (>>=) x f = match x with Ok x -> Ok x | Error e -> f e in
+  (match get_encoding text with
+   | x when equal_encoding x.encoding Unknown -> Error `Unknown_encoding
+   | enc -> convert_to_utf8 text enc
+            >>= (fun e -> match encoding_to_int enc.encoding with
+                          | x when x >= (encoding_to_int ISO8859_2) && x <= (encoding_to_int ISO8859_15) ->
+                             (* Sometimes using the standard 8859-1 set fixes issues *)
+                             convert_to_utf8 text { enc with encoding = ISO8859_1 }
+                          | x when x = encoding_to_int ISO6937 ->
+                             (* The first part of ISO 6937 is identical to ISO 8859-9, but
+                              * they differ in the second part. Some channels don't
+                              * provide the first byte that indicates ISO 8859-9 encoding.
+                              * If decoding from ISO 6937 failed, we try ISO 8859-9 here.
+                              *)
+                             convert_to_utf8 text { enc with encoding = ISO8859_9 }
+                          | _ -> Error e))
+  |> (function Ok s -> s | Error _ -> Cbuffer.to_string text)

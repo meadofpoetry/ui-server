@@ -26,5 +26,5 @@ let make (control:int) =
   object
     inherit Widget.widget dg#root ()
     method on_load   = dg#layout
-    method on_unload = factory#destroy
+    method on_unload = factory#destroy ()
   end

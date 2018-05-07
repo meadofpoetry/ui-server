@@ -88,7 +88,9 @@ module Plots = struct
   let chart_card ~typ ~title ~extract ~metas  ~y_max ~y_min ~e () =
     (* let title = new Card.Title.t ~title () in
      * let prim  = new Card.Primary.t ~widgets:[title] () in *)
-    let media = new Card.Media.t ~widgets:[chart ~typ ~metas ~extract  ~y_max ~y_min ~e ()] () in
+    let media = new Card.Media.t ~widgets:[chart ~typ ~metas ~extract
+                                                 ~y_max:(Some y_max) ~y_min:(Some y_min) ~e ()] ()
+    in
     new Card.t ~widgets:[ media ] ()
 
   let create

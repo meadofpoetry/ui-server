@@ -134,10 +134,10 @@ class t ~init () =
 
     method e_layer      : action React.event = e_layer
     method e_layer_push : ?step:React.step -> action -> unit = push
-    method clear = self#remove_all
+    method clear () = self#remove_all ()
     method initialize (init:int list) =
       let init = List.length init in
-      self#clear;
+      self#clear ();
       List.iter (fun _ -> on_add self push) @@ List.range' init 0;
       Option.iter (fun x -> x#set_selected true) @@ List.head_opt self#items
 

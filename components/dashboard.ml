@@ -13,19 +13,26 @@ module Position = Dynamic_grid.Position
 module Item = struct
 
   type 'a settings =
-    { widget : Widget.widget
-    ; signal : 'a option React.signal
-    ; set    : 'a -> (unit,string) Lwt_result.t
+    { widget    : Widget.widget
+    ; signal    : 'a option React.signal
+    ; set       : 'a -> (unit,string) Lwt_result.t
     }
 
   type 'a item =
-    { name     : string
-    ; settings : 'a settings option
-    ; widget   : Widget.widget
+    { name        : string
+    ; settings    : 'a settings option
+    ; widget      : Widget.widget
     }
 
   let to_item ?settings ~name (widget:#Widget.widget) =
     { name; settings; widget = widget#widget }
+
+  let connect_apply (b:#Button.t) (settings:'a settings) =
+    let s = React.S.map (function Some _ -> b#set_disabled false | None -> b#set_disabled true) settings.signal in
+    let e = React.E.map (fun _ -> match React.S.value settings.signal with
+                                  | Some x -> settings.set x
+                                  | None   -> Lwt_result.fail "no settings available") b#e_click
+    in s,e
 
   class t ~(item:'a item) () =
     let title    = new Card.Primary.title item.name () in
@@ -33,14 +40,15 @@ module Item = struct
     let sd       =
       Option.map (fun (s:'a settings) ->
           let settings = new Icon.Button.Font.t ~icon:"settings" () in
+          let cancel   = new Dialog.Action.t ~typ:`Decline ~label:"Отмена" () in
+          let apply    = new Dialog.Action.t ~typ:`Accept  ~label:"ОК" () in
           let dialog   = new Dialog.t
                              ~title:(Printf.sprintf "Настройки. %s" item.name)
                              ~content:(`Widgets [s.widget])
-                             ~actions:[ new Dialog.Action.t ~typ:`Decline ~label:"Отмена" ()
-                                      ; new Dialog.Action.t ~typ:`Accept  ~label:"ОК" ()
-                                      ]
+                             ~actions:[ cancel; apply ]
                              ()
           in
+          let _ = connect_apply apply s in
           settings,dialog)
                  item.settings
     in
@@ -59,7 +67,8 @@ module Item = struct
       method content = content
       method heading = heading
       initializer
-        Option.iter (fun (s,d) -> React.E.map (fun _ -> d#show) s#e_click |> ignore;
+        Option.iter (fun (s,d) -> let open Lwt.Infix in
+                                  React.E.map (fun _ -> d#show) s#e_click |> ignore;
                                   Dom.appendChild Dom_html.document##.body d#root) sd;
         self#add_class item_class;
         content#add_class content_class;
@@ -78,23 +87,37 @@ module Item = struct
 
 end
 
+module type Factory = sig
+  type 'a item
+  type init
+
+  class type t =
+    object
+      method create  : 'a. 'a item -> 'a Item.item
+      method destroy : unit -> unit
+    end
+
+  val make : init -> t
+end
+
 class t ~(items:Item.positioned_item list) () =
+  let get   = fun (i:Item.positioned_item) ->
+    Dynamic_grid.Item.to_item ~close_widget:i.item#remove#widget
+                              ~widget:i.item#widget
+                              ~value:()
+                              ~pos:i.position
+                              ()
+  in
   let grid  = to_grid ~vertical_compact:true ~row_height:150 ~items_margin:(10,10) ~cols:4 () in
   object(self)
-    inherit [unit] Dynamic_grid.t ~items:[] ~grid () as super
-    method add_item (x:Item.positioned_item) =
-      let db_item = x.item in
-      let dg_item = Dynamic_grid.Item.to_item ~close_widget:db_item#remove#widget
-                                              ~widget:db_item#widget
-                                              ~value:()
-                                              ~pos:x.position
-                                              ()
-      in
-      super#add dg_item
-      |> Result.map (fun _ -> db_item)
+    inherit [unit,
+             unit Dynamic_grid.Item.t,
+             Item.positioned_item] Dynamic_grid_abstract.t ~items:[] ~get ~grid () as super
+
+    method serialize () : Yojson.Safe.json = Yojson.Safe.from_string "\"\""
 
     initializer
       self#set_on_load @@ Some (fun () -> self#layout);
       self#add_class base_class;
-      List.map self#add_item items |> ignore
+      List.map self#add items |> ignore
   end
