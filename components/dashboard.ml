@@ -12,33 +12,33 @@ module Position = Dynamic_grid.Position
 
 module Item = struct
 
-  type 'a settings =
-    { widget    : Widget.widget
-    ; signal    : 'a option React.signal
-    ; set       : 'a -> (unit,string) Lwt_result.t
+  type settings =
+    { widget : Widget.widget
+    ; ready  : bool React.signal
+    ; set    : unit -> (unit,string) Lwt_result.t
     }
 
-  type 'a item =
+  type item =
     { name        : string
-    ; settings    : 'a settings option
+    ; settings    : settings option
     ; widget      : Widget.widget
     }
 
   let to_item ?settings ~name (widget:#Widget.widget) =
     { name; settings; widget = widget#widget }
 
-  let connect_apply (b:#Button.t) (settings:'a settings) =
-    let s = React.S.map (function Some _ -> b#set_disabled false | None -> b#set_disabled true) settings.signal in
-    let e = React.E.map (fun _ -> match React.S.value settings.signal with
-                                  | Some x -> settings.set x
-                                  | None   -> Lwt_result.fail "no settings available") b#e_click
+  let connect_apply (b:#Button.t) (settings:settings) =
+    let s = React.S.map (fun x -> b#set_disabled @@ not x) settings.ready in
+    let e = React.E.map (fun _ -> match React.S.value settings.ready with
+                                  | true  -> settings.set ()
+                                  | false -> Lwt_result.fail "no settings available") b#e_click
     in s,e
 
-  class t ~(item:'a item) () =
+  class t ~(item:item) () =
     let title    = new Card.Primary.title item.name () in
     let remove   = new Icon.Button.Font.t ~icon:"close" () in
     let sd       =
-      Option.map (fun (s:'a settings) ->
+      Option.map (fun (s:settings) ->
           let settings = new Icon.Button.Font.t ~icon:"settings" () in
           let cancel   = new Dialog.Action.t ~typ:`Decline ~label:"Отмена" () in
           let apply    = new Dialog.Action.t ~typ:`Accept  ~label:"ОК" () in
@@ -80,41 +80,48 @@ module Item = struct
 
   let make item = new t ~item ()
 
-  type positioned_item =
-    { item     : t
+  type 'a positioned_item =
+    { item     : 'a
     ; position : Position.t
-    }
+    } [@@deriving yojson]
 
 end
 
-module type Factory = sig
-  type 'a item
-  type init
+type 'a lst = 'a list [@@deriving yojson]
 
-  class type t =
-    object
-      method create  : 'a. 'a item -> 'a Item.item
-      method destroy : unit -> unit
-    end
+class type ['a] factory =
+  object
+    method create      : 'a -> Item.item
+    method destroy     : unit -> unit
+    method serialize   : 'a -> Yojson.Safe.json
+    method deserialize : Yojson.Safe.json -> ('a,string) result
+  end
 
-  val make : init -> t
-end
-
-class t ~(items:Item.positioned_item list) () =
-  let get   = fun (i:Item.positioned_item) ->
-    Dynamic_grid.Item.to_item ~close_widget:i.item#remove#widget
-                              ~widget:i.item#widget
-                              ~value:()
-                              ~pos:i.position
-                              ()
+class ['a] t ~(items:'a Item.positioned_item list) (factory:'a #factory) () =
+  let get = fun (i:'a Item.positioned_item) ->
+    factory#create i.item
+    |> fun x -> Item.make x
+    |> fun x -> Dynamic_grid.Item.to_item ~close_widget:x#remove#widget
+                                          ~widget:x#widget
+                                          ~value:i.item
+                                          ~pos:i.position
+                                          ()
   in
   let grid  = to_grid ~vertical_compact:true ~row_height:150 ~items_margin:(10,10) ~cols:4 () in
   object(self)
-    inherit [unit,
-             unit Dynamic_grid.Item.t,
-             Item.positioned_item] Dynamic_grid_abstract.t ~items:[] ~get ~grid () as super
+    inherit ['a,
+             'a Dynamic_grid.Item.t,
+             'a Item.positioned_item] Dynamic_grid_abstract.t ~items:[] ~get ~grid () as super
 
-    method serialize () : Yojson.Safe.json = Yojson.Safe.from_string "\"\""
+    method serialize () : Yojson.Safe.json =
+      List.map (fun x -> let (i:'a Item.positioned_item) = { position = x#pos; item = x#value} in
+                         Item.positioned_item_to_yojson factory#serialize i) self#items
+      |> fun l -> `List l
+
+    method deserialize (json:Yojson.Safe.json) : ('a Item.positioned_item list,string) result =
+      lst_of_yojson (fun x -> Item.positioned_item_of_yojson factory#deserialize x) json
+    method restore (json:Yojson.Safe.json) : (unit,string) result =
+      self#deserialize json |> Result.map (List.iter (fun x -> self#add x |> ignore))
 
     initializer
       self#set_on_load @@ Some (fun () -> self#layout);

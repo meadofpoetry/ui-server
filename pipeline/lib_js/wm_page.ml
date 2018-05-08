@@ -234,14 +234,14 @@ let create_widgets_grid ~(container:      Wm.container wm_item)
 
 let switch ~grid ~(selected:Container_item.t Dynamic_grid.Item.t) ~s_state_push ~candidates ~set_candidates () =
   let on_apply widgets =
-    let t = selected#get_value in
+    let t = selected#value in
     let t = Container_item.update_min_size { t with item = { t.item with widgets }} in
     selected#set_value t;
     grid#update_item_min_size selected;
     s_state_push `Container
   in
   let on_cancel  = fun () -> s_state_push `Container in
-  let w = create_widgets_grid ~container:selected#get_value ~candidates ~set_candidates ~on_apply ~on_cancel () in
+  let w = create_widgets_grid ~container:selected#value ~candidates ~set_candidates ~on_apply ~on_cancel () in
   s_state_push (`Widget w)
 
 let create ~(init: Wm.t)

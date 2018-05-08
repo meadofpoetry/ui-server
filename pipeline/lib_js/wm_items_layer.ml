@@ -48,7 +48,7 @@ module Make(I : Item) = struct
       method layer : int   = layer
       method set_layer x   = layer <- x;
                              self#set_attribute "data-layer" @@ string_of_int layer;
-                             List.iter (fun x -> x#set_value (I.update_layer x#get_value layer)) self#items
+                             List.iter (fun x -> x#set_value (I.update_layer x#value layer)) self#items
       method e_item_dblclick = e_dblclick
       method e_item_delete   = e_delete
 
@@ -75,7 +75,7 @@ module Make(I : Item) = struct
       method private update_item_value item position =
         let cols,rows = React.S.value s_grid in
         let pos = layout_pos_of_grid_pos ~resolution ~cols ~rows position in
-        item#set_value (I.update_position item#get_value pos)
+        item#set_value (I.update_position item#value pos)
 
       method private add_from_candidate t =
         let pos       = I.position_of_t t in
@@ -94,7 +94,7 @@ module Make(I : Item) = struct
                     (self#add item)
 
       method private set_grid ((c,r):int*int) =
-        List.iter (fun i -> let pos = I.position_of_t i#get_value in
+        List.iter (fun i -> let pos = I.position_of_t i#value in
                             let pos = grid_pos_of_layout_pos ~resolution ~cols:c ~rows:r pos in
                             i#set_pos pos) self#items;
         self#s_grid_push { self#grid with cols = c; rows = Some r };
@@ -165,7 +165,7 @@ module Make(I : Item) = struct
                                  if not @@ equal pos empty
                                  then let cols,rows = React.S.value s_grid in
                                       let pos       = layout_pos_of_grid_pos ~resolution ~cols ~rows pos in
-                                      let other     = List.map (fun x -> x#get_value) self#items in
+                                      let other     = List.map (fun x -> x#value) self#items in
                                       let (t:I.t)   = if not (t:I.t).unique
                                                       then { t with name = I.make_item_name t other }
                                                       else t

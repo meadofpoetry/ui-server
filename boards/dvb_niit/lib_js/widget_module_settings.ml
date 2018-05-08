@@ -4,7 +4,8 @@ open Board_types
 open Lwt_result.Infix
 
 type config =
-  { id : int }
+  { id : int
+  } [@@deriving yojson]
 
 let (%>) = Fun.(%>)
 
@@ -135,7 +136,7 @@ let make_module_settings ~(id:    int)
 let make ~(state:  (Common.Topology.state React.signal,string) Lwt_result.t)
          ~(config: (Board_types.config React.signal,string) Lwt_result.t)
          (conf: config)
-         control : 'a Dashboard.Item.item =
+         control : Dashboard.Item.item =
   let t = state >>= (fun s -> config >>= (fun c -> Lwt_result.return (s,c))) in
   let t = t >>= (fun (state,config) ->
       let get = List.Assoc.get_exn ~eq:(=) conf.id in

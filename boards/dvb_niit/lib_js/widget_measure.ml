@@ -9,7 +9,7 @@ let base_class = "mdc-parameters-widget"
 type config =
   { ids : int list option
   ; typ : measure_type
-  }
+  } [@@deriving yojson]
 
 module type R = sig
   type t
@@ -61,7 +61,7 @@ module Make(M:M) = struct
 
   let make (event:measure_response React.event)
            (config:(Board_types.config React.signal,string) Lwt_result.t)
-           (conf:config) : 'a Dashboard.Item.item =
+           (conf:config) : Dashboard.Item.item =
     let (module R)   = (module struct include M let typ = conf.typ end : Row.M with type t = M.t) in
     let (module ROW) = (module struct include Row.Make(R) end : R with type t = M.t) in
     let t = match conf.ids with

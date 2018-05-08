@@ -23,7 +23,7 @@ type parameter_type = [ `FEC_delay
                       | `Jitter_error_counter
                       | `Lock_error_counter
                       | `Delay_factor
-                      ]
+                      ] [@@deriving yojson]
 
 let parameter_type_to_string = function
   | `FEC_delay            -> "Задержка FEC"
@@ -65,7 +65,7 @@ let parameter_type_to_unit = function
 
 type config =
   { typ : parameter_type
-  }
+  } [@@deriving yojson]
 
 module Make(M:M) = struct
 
@@ -102,7 +102,7 @@ module Make(M:M) = struct
         self#add_class _class
     end
 
-  let make (event:event) (config:config) : 'a Dashboard.Item.item =
+  let make (event:event) (config:config) : Dashboard.Item.item =
     { name     = get_name config
     ; settings = None
     ; widget   = (new t event config ())#widget

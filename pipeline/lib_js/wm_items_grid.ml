@@ -56,11 +56,11 @@ module Make(I : Item) = struct
       method s_layers        = s_layers
       method s_selected      = s_sel
       method layout_items    = List.map I.t_to_layout_item self#items
-      method items           = List.map (fun x -> x#get_value) self#widgets
+      method items           = List.map (fun x -> x#value) self#widgets
       method widgets         = List.fold_left (fun acc x -> x#items @ acc) [] @@ React.S.value s_layers
 
       method update_item_min_size (item:I.t Dynamic_grid.Item.t) =
-        let t = item#get_value in
+        let t = item#value in
         (match t.min_size with
          | None    -> item#set_min_w None;
                       item#set_min_h None;

@@ -10,7 +10,7 @@ end
 type config =
   { id  : int
   ; typ : Widget_types.measure_type
-  }
+  } [@@deriving yojson]
 
 module Make(M:M) = struct
   type event  = M.t option React.event
@@ -45,7 +45,7 @@ module Make(M:M) = struct
         self#add_class _class
     end
 
-  let make ?on_destroy (event:event) (config:config) : 'a Dashboard.Item.item =
+  let make ?on_destroy (event:event) (config:config) : Dashboard.Item.item =
     { name     = get_name config
     ; settings = None
     ; widget   = (new t ?on_destroy event config ())#widget

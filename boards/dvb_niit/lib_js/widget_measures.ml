@@ -3,11 +3,13 @@ open Components
 open Board_types
 open Lwt_result.Infix
 
-type config = { ids : int list option }
+type config =
+  { ids : int list option
+  } [@@deriving yojson]
 
 let make ~(measures:measure_response React.event)
          ~(config:(Board_types.config React.signal,string) Lwt_result.t)
-         (conf:config) : 'a Dashboard.Item.item =
+         (conf:config) : Dashboard.Item.item =
   let open Widget_module_measures in
   let t = match conf.ids with
     | Some x -> Lwt_result.return x

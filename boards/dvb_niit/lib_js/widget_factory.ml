@@ -4,19 +4,19 @@ open Board_types
 open Lwt_result.Infix
 
 (* Widget type *)
-type _ item =
-  | Module_measure  : Widget_module_measure.config  -> unit item
-  | Module_measures : Widget_module_measures.config -> unit item
-  | Measures        : Widget_measures.config        -> unit item
-  | Measure         : Widget_measure.config         -> unit item
-  | Chart           : Widget_chart.config           -> Widget_chart.settings item
-  | Module_settings : Widget_module_settings.config -> unit item
-  | Settings        : Widget_settings.config        -> unit item
+type item =
+  | Module_measure  of Widget_module_measure.config
+  | Module_measures of Widget_module_measures.config
+  | Measures        of Widget_measures.config
+  | Measure         of Widget_measure.config
+  | Chart           of Widget_chart.config
+  | Module_settings of Widget_module_settings.config
+  | Settings        of Widget_settings.config [@@deriving yojson]
 
 let return = Lwt_result.return
 
 (* Widget factory *)
-class t (control:int) () =
+class t (control:int) ()  =
 object(self)
   val mutable _state    = None
   val mutable _config   = None
@@ -27,7 +27,7 @@ object(self)
   val mutable _measures_ref = 0
 
   (** Create widget of type **)
-  method create : type a. a item -> a Dashboard.Item.item = function
+  method create : item -> Dashboard.Item.item = function
     | Module_measure conf  -> Widget_module_measure.make ~measures:self#get_measures conf
     | Module_measures conf -> Widget_module_measures.make ~measures:self#get_measures conf
     | Measures conf        -> Widget_measures.make ~measures:self#get_measures
@@ -43,6 +43,9 @@ object(self)
     | Settings conf        -> Widget_settings.make ~state:self#get_state
                                                    ~config:self#get_config
                                                    conf control
+
+  method serialize (x : item) : Yojson.Safe.json = item_to_yojson x
+  method deserialize (json : Yojson.Safe.json) : (item,string) result = item_of_yojson json
 
   method destroy () = _state_ref <- 0; _config_ref <- 0; _measures_ref <- 0;
                       self#destroy_state; self#destroy_config; self#destroy_measures

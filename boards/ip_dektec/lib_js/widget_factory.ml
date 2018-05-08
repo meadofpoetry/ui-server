@@ -3,8 +3,8 @@ open Components
 open Board_types
 open Lwt_result
 
-type _ item =
-  | Parameter : Widget_parameter.config -> Widget.widget item
+type item =
+  | Parameter of Widget_parameter.config [@@deriving yojson]
 
 (* Widget factory *)
 class t (control:int) () =
@@ -18,9 +18,11 @@ object(self)
   val mutable _status_ref = 0
 
   (** Create widget of type **)
-  method create : type a. a item -> a Dashboard.Item.item = function
+  method create : item -> Dashboard.Item.item = function
     | Parameter conf -> Widget_parameter.make self#get_status conf
-  method destroy = self#destroy_status; _status_ref <- 0
+  method destroy () = self#destroy_status; _status_ref <- 0
+  method serialize (x:item) : Yojson.Safe.json = item_to_yojson x
+  method deserialize (json:Yojson.Safe.json) : (item,string) result = item_of_yojson json
 
   method private destroy_status =
     self#decr_status_ref;

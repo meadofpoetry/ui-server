@@ -89,16 +89,16 @@ class ['a] t ~s_grid        (* grid props *)
     method s_value    = s_value
 
     method set_value (x:'a) = s_value_push x
-    method get_value : 'a   = React.S.value self#s_value
+    method value : 'a = React.S.value self#s_value
 
     method set_draggable x  = draggable <- x
-    method get_draggable    = draggable
+    method draggable    = draggable
 
     method set_resizable x  =
       if x then Dom.appendChild self#root resize_button#root
       else (try Dom.removeChild self#root resize_button#root; with _ -> ());
       resizable <- x
-    method get_resizable    = resizable
+    method resizable    = resizable
 
     method set_selectable x =
       (match x with
@@ -115,16 +115,16 @@ class ['a] t ~s_grid        (* grid props *)
       let o = React.S.value s_selected in
       match x with
       | true  -> if self#grid.multi_select
-                 then (if not self#get_selected then s_selected_push ((self :> 'a t) :: o))
+                 then (if not self#selected then s_selected_push ((self :> 'a t) :: o))
                  else (List.iter (fun x -> if not (eq x self) then x#set_selected false) o;
                        s_selected_push [(self :> 'a t)]);
                  self#add_class Markup.Dynamic_grid.Item.selected_class;
                  selected <- true
-      | false -> if self#get_selected
+      | false -> if self#selected
                  then (self#remove_class Markup.Dynamic_grid.Item.selected_class;
                        selected <- false;
                        s_selected_push @@ List.filter (fun x -> not @@ eq x self) o;)
-    method get_selected   = selected
+    method selected   = selected
 
     method layout =
       Option.iter (fun x -> x#layout) self#inner_widget;
@@ -219,7 +219,7 @@ class ['a] t ~s_grid        (* grid props *)
       stop_listen mov_listener;
       stop_listen end_listener;
       stop_listen cancel_listener;
-      if self#get_draggable
+      if self#draggable
       then
         (self#get_drag_target#add_class Markup.Dynamic_grid.Item.dragging_class;
          ghost#style##.zIndex := Js.string "1";
@@ -277,7 +277,7 @@ class ['a] t ~s_grid        (* grid props *)
          | _ -> ()
 
     method private start_resizing (ev: action) =
-      if self#get_resizable
+      if self#resizable
       then (ghost#style##.zIndex := Js.string "4";
             self#style##.zIndex  := Js.string "3";
             Dom.appendChild self#get_parent ghost#root;

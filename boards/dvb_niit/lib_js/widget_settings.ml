@@ -2,12 +2,14 @@ open Containers
 open Components
 open Lwt_result.Infix
 
-type config = { ids : int list option }
+type config =
+  { ids : int list option
+  } [@@deriving yojson]
 
 let make ~(state:(Common.Topology.state React.signal,string) Lwt_result.t)
          ~(config:(Board_types.config React.signal,string) Lwt_result.t)
          (conf:config)
-         control : 'a Dashboard.Item.item =
+         control : Dashboard.Item.item =
   let t = match conf.ids with
     | Some l -> Lwt_result.return l
     | None   -> config >>= (fun c -> Lwt_result.return @@ List.map fst @@ React.S.value c)
