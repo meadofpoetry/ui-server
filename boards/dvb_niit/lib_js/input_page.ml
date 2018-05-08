@@ -4,7 +4,7 @@ open Components
 let make (control:int) =
   let factory = new Widget_factory.t control () in
   let conf t  = ({ typ = t; ids=[0;1;2;3]; duration = 120000L; settings = None }:Widget_chart.config) in
-  let (items : Widget_factory.item Dashboard.Item.positioned_item list) =
+  let default : Widget_factory.item Dashboard.Item.positioned_item list =
     [ { item = Settings { ids = None }; position = {x=0;y=0;w=2;h=3} }
     ; { item = Measures { ids = None }; position = {x=2;y=0;w=2;h=3} }
     ; { item = Chart (conf `Power);     position = {x=0;y=3;w=4;h=2} }
@@ -14,4 +14,5 @@ let make (control:int) =
     ; { item = Chart (conf `Bitrate);   position = {x=0;y=11;w=4;h=2} }
     ]
   in
-  new Dashboard.t ~items factory ()
+  let dashboard = new Dashboard.t ~items:default factory () in
+  dashboard

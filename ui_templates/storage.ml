@@ -17,22 +17,40 @@ type key  = string [@@deriving yojson,eq]
 
 type data = (key * Yojson.Safe.json) list [@@deriving yojson]
 
-type root =
-  { root     : data
-  ; operator : data
-  ; guest    : data
-  } [@@deriving yojson]
-
 module type Store = sig
   val put    : key -> Yojson.Safe.json -> unit
   val get    : key -> Yojson.Safe.json option
   val remove : key -> unit
 end
 
-module Make(M:Store) = struct
+module Make_bs(M:sig val get_storage : unit -> Dom_html.storage Js.t option end) = struct
+  let put key json = match M.get_storage () with
+    | Some s -> s##setItem (Js.string key) (Js.string @@ Yojson.Safe.to_string json)
+    | None   -> ()
+  let get key = match M.get_storage () with
+    | Some s -> (match s##getItem (Js.string key) |> Js.Opt.to_option with
+                 | Some s -> (try Option.return @@ Yojson.Safe.from_string (Js.to_string s) with _ -> None)
+                 | None   -> None)
+    | None   -> None
+  let remove key = match M.get_storage () with
+    | Some s -> s##removeItem (Js.string key)
+    | None   -> ()
+end
+
+module Local   = Make_bs(struct let get_storage () = Js.Optdef.to_option Dom_html.window##.localStorage end)
+module Session = Make_bs(struct let get_storage () = Js.Optdef.to_option Dom_html.window##.sessionStorage end)
+
+module type Storage = sig
+  val put    : key -> Yojson.Safe.json -> unit
+  val get    : key -> Yojson.Safe.json option
+  val remove : key -> unit
+  val clear  : unit -> unit
+end
+
+module Make(M:Store) : Storage = struct
 
   let get_user () =
-    let s = Js.Unsafe.variable "username" in
+    let s = Js.to_string @@ Js.Unsafe.variable "username" in
     match user_of_string s with
     | Some u -> u
     | None   -> failwith @@ Printf.sprintf "Unknown user type: %s" s
@@ -64,3 +82,6 @@ module Make(M:Store) = struct
     M.remove @@ user_to_string user
 
 end
+
+module Local_storage   = Make(Local)
+module Session_storage = Make(Session)

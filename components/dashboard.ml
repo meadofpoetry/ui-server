@@ -68,7 +68,7 @@ module Item = struct
       method heading = heading
       initializer
         Option.iter (fun (s,d) -> let open Lwt.Infix in
-                                  React.E.map (fun _ -> d#show) s#e_click |> ignore;
+                                  React.E.map (fun _ -> d#show ()) s#e_click |> ignore;
                                   Dom.appendChild Dom_html.document##.body d#root) sd;
         self#add_class item_class;
         content#add_class content_class;
