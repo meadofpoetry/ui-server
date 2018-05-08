@@ -101,11 +101,11 @@ class ['a] t ~(items:'a Item.positioned_item list) (factory:'a #factory) () =
   let get = fun (i:'a Item.positioned_item) ->
     factory#create i.item
     |> fun x -> Item.make x
-    |> fun x -> Dynamic_grid.Item.to_item ~close_widget:x#remove#widget
-                                          ~widget:x#widget
-                                          ~value:i.item
-                                          ~pos:i.position
-                                          ()
+                |> fun x -> Dynamic_grid.Item.to_item ~close_widget:x#remove#widget
+                                                      ~widget:x#widget
+                                                      ~value:i.item
+                                                      ~pos:i.position
+                                                      ()
   in
   let grid  = to_grid ~vertical_compact:true ~row_height:150 ~items_margin:(10,10) ~cols:4 () in
   object(self)
@@ -121,7 +121,9 @@ class ['a] t ~(items:'a Item.positioned_item list) (factory:'a #factory) () =
     method deserialize (json:Yojson.Safe.json) : ('a Item.positioned_item list,string) result =
       lst_of_yojson (fun x -> Item.positioned_item_of_yojson factory#deserialize x) json
     method restore (json:Yojson.Safe.json) : (unit,string) result =
-      self#deserialize json |> Result.map (List.iter (fun x -> self#add x |> ignore))
+      self#deserialize json
+      |> Result.map (fun l -> List.iter (fun x -> x#remove ()) self#items; (* remove previous items *)
+                              List.iter (fun x -> self#add x |> ignore) l)
 
     method destroy () = factory#destroy ()
 
