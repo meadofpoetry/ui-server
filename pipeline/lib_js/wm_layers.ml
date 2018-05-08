@@ -90,7 +90,7 @@ let remove_layer s_layers push layer =
   let layers = List.filter (fun x -> not @@ Equal.physical x#root layer#root) @@ React.S.value s_layers in
   let y      = layer#pos.y in
   push (`Removed layer#value.actual);
-  layer#remove;
+  layer#remove ();
   emit_new_pos s_layers push;
   match List.find_pred (fun w -> w#pos.y = y) layers with
   | Some w -> w#set_selected true;
@@ -144,7 +144,7 @@ class t ~init () =
     initializer
       self#initialize init;
       self#add_class _class;
-      self#set_on_load @@ Some (fun _ -> self#layout);
+      self#set_on_load @@ Some self#layout;
       React.S.diff (fun n o -> let open Dynamic_grid.Position in
                                match n with
                                | [x] -> push @@ `Selected x#value.actual

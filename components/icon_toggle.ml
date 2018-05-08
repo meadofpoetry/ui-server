@@ -32,7 +32,7 @@ class t ?(propagate=true) ~on_data ~off_data () =
       | false -> (Js.Unsafe.coerce self#root)##.tabIndex := tab_index;
                  self#remove_attribute "aria-disabled"
 
-    method toggle : unit =
+    method toggle () : unit =
       on <- not on;
       self#set_attribute "aria-pressed" @@ string_of_bool on;
       Option.iter (fun x -> self#remove_class x) (if on then off_data else on_data).css_class;
@@ -43,7 +43,7 @@ class t ?(propagate=true) ~on_data ~off_data () =
       s_state_push on
 
     method on       = on
-    method set_on x = if not @@ Bool.equal on x then self#toggle
+    method set_on x = if not @@ Bool.equal on x then self#toggle ()
 
     method s_state = s_state
 
@@ -59,11 +59,11 @@ class t ?(propagate=true) ~on_data ~off_data () =
                           else true) |> ignore;
       Dom_events.listen self#root Dom_events.Typ.keyup (fun _ e ->
                           if is_space e
-                          then (is_key_down <- false; self#toggle);
+                          then (is_key_down <- false; self#toggle ());
                           true) |> ignore;
       Dom_events.listen self#root Dom_events.Typ.click (fun _ e ->
                           if not propagate then Dom_html.stopPropagation e;
-                          self#toggle;
+                          self#toggle ();
                           true) |> ignore;
 
   end

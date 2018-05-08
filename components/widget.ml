@@ -34,12 +34,12 @@ class widget (elt:#Dom_html.element Js.t) () = object(self)
 
   method set_on_destroy f = _on_destroy <- f
 
-  method destroy : unit =
+  method destroy () : unit =
     self#set_on_load None;
     self#set_on_unload None;
     Option.iter (fun f -> f ()) _on_destroy
 
-  method layout = ()
+  method layout () = ()
 
   method get_child_element_by_class x = Js.Opt.to_option @@ self#root##querySelector (Js.string ("." ^ x))
   method get_child_element_by_id    x = Js.Opt.to_option @@ self#root##querySelector (Js.string ("#" ^ x))
@@ -49,53 +49,53 @@ class widget (elt:#Dom_html.element Js.t) () = object(self)
   method remove_attribute a = self#root##removeAttribute (Js.string a)
   method has_attribute a    = self#root##hasAttribute (Js.string a)
 
-  method get_inner_html   = Js.to_string self#root##.innerHTML
+  method inner_html       = Js.to_string self#root##.innerHTML
   method set_inner_html s = self#root##.innerHTML := Js.string s
 
-  method get_text_content   = self#root##.textContent |> Js.Opt.to_option |> Option.map Js.to_string
+  method text_content       = self#root##.textContent |> Js.Opt.to_option |> Option.map Js.to_string
   method set_text_content s = self#root##.textContent := Js.some @@ Js.string s
 
-  method get_id    = Js.to_string self#root##.id
+  method id        = Js.to_string self#root##.id
   method set_id id = self#root##.id := Js.string id
 
   method style = self#root##.style
 
-  method get_class_string = Js.to_string @@ self#root##.className
+  method class_string         = Js.to_string @@ self#root##.className
   method set_class_string _classes = self#root##.className := (Js.string _classes)
-  method cons_class   _class = self#set_class_string @@ _class ^ " " ^ self#get_class_string
+  method cons_class   _class = self#set_class_string @@ _class ^ " " ^ self#class_string
   method add_class    _class = self#root##.classList##add (Js.string _class)
   method remove_class _class = self#root##.classList##remove (Js.string _class)
   method toggle_class _class = self#root##.classList##toggle (Js.string _class) |> Js.to_bool
   method has_class    _class = Js.to_bool (self#root##.classList##contains (Js.string _class))
-  method get_classes         = String.split_on_char ' ' self#get_class_string
+  method classes             = String.split_on_char ' ' @@ self#class_string
   method add_or_remove_class x _class = if x then self#add_class _class else self#remove_class _class
 
-  method get_client_left   = self#root##.clientLeft
-  method get_client_top    = self#root##.clientTop
-  method get_client_width  = self#root##.clientWidth
-  method get_client_height = self#root##.clientHeight
+  method client_left   = self#root##.clientLeft
+  method client_top    = self#root##.clientTop
+  method client_width  = self#root##.clientWidth
+  method client_height = self#root##.clientHeight
 
-  method get_offset_left   = self#root##.offsetLeft
-  method get_offset_top    = self#root##.offsetTop
-  method get_offset_width  = self#root##.offsetWidth
-  method get_offset_height = self#root##.offsetHeight
+  method offset_left   = self#root##.offsetLeft
+  method offset_top    = self#root##.offsetTop
+  method offset_width  = self#root##.offsetWidth
+  method offset_height = self#root##.offsetHeight
 
-  method get_scroll_left   = self#root##.scrollLeft
-  method get_scroll_top    = self#root##.scrollTop
-  method get_scroll_width  = self#root##.scrollWidth
-  method get_scroll_height = self#root##.scrollHeight
+  method scroll_left   = self#root##.scrollLeft
+  method scroll_top    = self#root##.scrollTop
+  method scroll_width  = self#root##.scrollWidth
+  method scroll_height = self#root##.scrollHeight
 
-  method set_empty =
+  method set_empty () =
     Dom.list_of_nodeList @@ self#root##.childNodes
     |> List.iter (fun x -> Dom.removeChild self#root x)
 
-  method get_bounding_client_rect = (self#root##getBoundingClientRect)
-                                    |> (fun x -> { top    = x##.top
-                                                 ; right  = x##.right
-                                                 ; bottom = x##.bottom
-                                                 ; left   = x##.left
-                                                 ; width  = Js.Optdef.to_option x##.width
-                                                 ; height = Js.Optdef.to_option x##.height })
+  method bounding_client_rect = (self#root##getBoundingClientRect)
+                                |> (fun x -> { top    = x##.top
+                                             ; right  = x##.right
+                                             ; bottom = x##.bottom
+                                             ; left   = x##.left
+                                             ; width  = Js.Optdef.to_option x##.width
+                                             ; height = Js.Optdef.to_option x##.height })
 
   method set_on_load (f : (unit -> unit) option) =
     _on_load <- f; self#_observe_if_needed
@@ -123,18 +123,6 @@ class widget (elt:#Dom_html.element Js.t) () = object(self)
 
 end
 
-class container_widget elt () =
-object(self)
-  inherit widget elt ()
-  val mutable _widgets     = []
-  method add (w:widget)    = Dom.appendChild self#root w#root; _widgets <- w :: _widgets
-  method remove (w:widget) = try
-      Dom.removeChild self#root w#root;
-      _widgets <- (List.remove ~eq:(fun w1 w2 -> Equal.physical w1#root w2#root) ~x:w _widgets)
-    with _ -> ()
-  method remove_all ()     = List.iter self#remove _widgets
-end
-
 class button_widget elt () =
   let e_click,e_click_push = React.E.create () in
   object(self)
@@ -154,16 +142,14 @@ class input_widget ~(input_elt:Dom_html.inputElement Js.t) elt () =
 
     inherit widget elt ()
 
+    method disabled       = Js.to_bool input_elt##.disabled
     method set_disabled x = input_elt##.disabled := Js.bool x; s_disabled_push x
-    method get_disabled   = Js.to_bool input_elt##.disabled
 
+    method input_id       = match Js.to_string input_elt##.id with "" -> None | s  -> Some s
     method set_input_id x = input_elt##.id := Js.string x
-    method get_input_id   = match Js.to_string input_elt##.id with
-      | "" -> None
-      | s  -> Some s
 
     method private _set_value x = input_elt##.value := Js.string x
-    method private _get_value   = Js.to_string input_elt##.value
+    method private _value       = Js.to_string input_elt##.value
 
     method s_disabled     = s_disabled
 
@@ -318,31 +304,31 @@ class ['a] text_input_widget ?v_msg ~input_elt (v : 'a validation) elt () =
     val mutable v_msg = v_msg
     val mutable req   = false
 
-    method get_v_msg : string option = v_msg
+    method v_msg : string option = v_msg
     method set_v_msg x = v_msg <- x
 
+    method required       = req
     method set_required x = req <- x; input_elt##.required := Js.bool x
-    method get_required   = req
 
-    method get_validation_message = Js.to_string (Js.Unsafe.coerce input_elt)##.validationMessage
-    method get_validity           = let (v:validity_state Js.t) = (Js.Unsafe.coerce input_elt)##.validity in
-                                    { bad_input        = Js.to_bool v##.badInput
-                                    ; custom_error     = Js.to_bool v##.customError
-                                    ; pattern_mismatch = Js.to_bool v##.patternMismatch
-                                    ; range_overflow   = Js.to_bool v##.rangeOverflow
-                                    ; range_underflow  = Js.to_bool v##.rangeUnderflow
-                                    ; step_mismatch    = Js.to_bool v##.stepMismatch
-                                    ; too_long         = Js.to_bool v##.tooLong
-                                    ; too_short        = Js.to_bool v##.tooShort
-                                    ; type_mismatch    = Js.to_bool v##.typeMismatch
-                                    ; valid            = Js.to_bool v##.valid
-                                    ; value_missing    = Js.to_bool v##.valueMissing
-                                    }
+    method validation_message = Js.to_string (Js.Unsafe.coerce input_elt)##.validationMessage
+    method validity           = let (v:validity_state Js.t) = (Js.Unsafe.coerce input_elt)##.validity in
+                                { bad_input        = Js.to_bool v##.badInput
+                                ; custom_error     = Js.to_bool v##.customError
+                                ; pattern_mismatch = Js.to_bool v##.patternMismatch
+                                ; range_overflow   = Js.to_bool v##.rangeOverflow
+                                ; range_underflow  = Js.to_bool v##.rangeUnderflow
+                                ; step_mismatch    = Js.to_bool v##.stepMismatch
+                                ; too_long         = Js.to_bool v##.tooLong
+                                ; too_short        = Js.to_bool v##.tooShort
+                                ; type_mismatch    = Js.to_bool v##.typeMismatch
+                                ; valid            = Js.to_bool v##.valid
+                                ; value_missing    = Js.to_bool v##.valueMissing
+                                }
 
     method s_input   = s_input
 
     method fill_in (x : 'a) = s_input_push (Some x); self#_set_value (valid_to_string v x)
-    method clear            = s_input_push None; self#_set_value ""
+    method clear ()         = s_input_push None; self#_set_value ""
 
     method private set_max (x : float) = (Js.Unsafe.coerce input_elt)##.max := x
     method private set_min (x : float) = (Js.Unsafe.coerce input_elt)##.min := x
@@ -354,51 +340,51 @@ class ['a] text_input_widget ?v_msg ~input_elt (v : 'a validation) elt () =
     method private remove_custom_validity = self#set_custom_validity ""
 
     initializer
-      let apply_border (type a) (v : a validation) : unit =
-        (match v with
-         | Float (min,max)   -> Option.iter (fun min -> self#set_min min) min;
-                                Option.iter (fun max -> self#set_max max) max
-         | Integer (min,max) -> Option.iter (fun min -> self#set_min @@ float_of_int min) min;
-                                Option.iter (fun max -> self#set_max @@ float_of_int max) max
-         | _ -> ())
-      in
-      let apply_pattern (type a) (v : a validation) : unit =
-        let set p = (Js.Unsafe.coerce input_elt)##.pattern := Js.string p in
-        (match v with
-         | IPV4        -> let p = "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.)\
-                                   {3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$" in
-                          set p
-         | MulticastV4 -> let p = "2(?:2[4-9]|3\\d)(?:\\.(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]\\d?|0)){3}" in
-                          set p
-         | _ -> ())
-      in
-      apply_border v;
-      apply_pattern v;
-      Dom_events.listen input_elt Dom_events.Typ.input (fun _ _ ->
-          (match parse_valid v self#set_custom_validity self#_get_value with
-           | Some v -> s_input_push (Some v); self#remove_custom_validity
-           | None   -> s_input_push (None));
-          false)
-      |> ignore;
-      Dom_events.listen
-        input_elt
-        (Dom_events.Typ.make "invalid")
-        (fun _ _ -> (* let v = self#get_validity in
-                     * let set_maybe s = Option.iter self#set_custom_validity s in *)
-                    s_input_push None;
-                    (* if v.bad_input             then set_maybe bad_input_msg
-                     * else if v.custom_error     then set_maybe custom_error_msg
-                     * else if v.pattern_mismatch then set_maybe pattern_mismatch_msg
-                     * else if v.range_overflow   then set_maybe range_overflow_msg
-                     * else if v.range_underflow  then set_maybe range_underflow_msg
-                     * else if v.step_mismatch    then set_maybe step_mismatch_msg
-                     * else if v.too_long         then set_maybe too_long_msg
-                     * else if v.too_short        then set_maybe too_short_msg
-                     * else if v.type_mismatch    then set_maybe type_mismatch_msg
-                     * else if v.valid            then set_maybe invalid_msg
-                     * else if v.value_missing    then set_maybe value_missing_msg; *)
-                    false)
-      |> ignore
+    let apply_border (type a) (v : a validation) : unit =
+      (match v with
+       | Float (min,max)   -> Option.iter (fun min -> self#set_min min) min;
+                              Option.iter (fun max -> self#set_max max) max
+       | Integer (min,max) -> Option.iter (fun min -> self#set_min @@ float_of_int min) min;
+                              Option.iter (fun max -> self#set_max @@ float_of_int max) max
+       | _ -> ())
+        in
+        let apply_pattern (type a) (v : a validation) : unit =
+          let set p = (Js.Unsafe.coerce input_elt)##.pattern := Js.string p in
+          (match v with
+           | IPV4        -> let p = "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.)\
+                                     {3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$" in
+                            set p
+           | MulticastV4 -> let p = "2(?:2[4-9]|3\\d)(?:\\.(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]\\d?|0)){3}" in
+                            set p
+           | _ -> ())
+        in
+        apply_border v;
+        apply_pattern v;
+        Dom_events.listen input_elt Dom_events.Typ.input (fun _ _ ->
+                            (match parse_valid v self#set_custom_validity self#_value with
+                             | Some v -> s_input_push (Some v); self#remove_custom_validity
+                             | None   -> s_input_push (None));
+                            false)
+        |> ignore;
+        Dom_events.listen
+          input_elt
+          (Dom_events.Typ.make "invalid")
+          (fun _ _ -> (* let v = self#get_validity in
+                       * let set_maybe s = Option.iter self#set_custom_validity s in *)
+            s_input_push None;
+            (* if v.bad_input             then set_maybe bad_input_msg
+             * else if v.custom_error     then set_maybe custom_error_msg
+             * else if v.pattern_mismatch then set_maybe pattern_mismatch_msg
+             * else if v.range_overflow   then set_maybe range_overflow_msg
+             * else if v.range_underflow  then set_maybe range_underflow_msg
+             * else if v.step_mismatch    then set_maybe step_mismatch_msg
+             * else if v.too_long         then set_maybe too_long_msg
+             * else if v.too_short        then set_maybe too_short_msg
+             * else if v.type_mismatch    then set_maybe type_mismatch_msg
+             * else if v.valid            then set_maybe invalid_msg
+             * else if v.value_missing    then set_maybe value_missing_msg; *)
+            false)
+        |> ignore
 
   end
 

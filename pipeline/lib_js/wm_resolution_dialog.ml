@@ -26,7 +26,7 @@ class t () =
     method show_await_resolution init =
       let open Lwt.Infix in
       width#fill_in (fst init); height#fill_in (snd init);
-      self#show_await
+      self#show_await ()
       >>= (function
            | `Accept -> let w = Option.get_exn @@ React.S.value width#s_input in
                         let h = Option.get_exn @@ React.S.value height#s_input in

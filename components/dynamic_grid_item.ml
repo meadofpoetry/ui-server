@@ -89,10 +89,10 @@ class ['a] t ~s_grid        (* grid props *)
     method s_value    = s_value
 
     method set_value (x:'a) = s_value_push x
-    method value : 'a = React.S.value self#s_value
+    method value : 'a       = React.S.value self#s_value
 
     method set_draggable x  = draggable <- x
-    method draggable    = draggable
+    method draggable        = draggable
 
     method set_resizable x  =
       if x then Dom.appendChild self#root resize_button#root
@@ -109,7 +109,7 @@ class ['a] t ~s_grid        (* grid props *)
       selectable <- x
     method selectable = selectable
 
-    method remove : unit    = self#set_selected false; e_modify_push (`Remove self)
+    method remove () : unit = self#set_selected false; e_modify_push (`Remove self)
 
     method set_selected x : unit =
       let o = React.S.value s_selected in
@@ -126,10 +126,10 @@ class ['a] t ~s_grid        (* grid props *)
                        s_selected_push @@ List.filter (fun x -> not @@ eq x self) o;)
     method selected   = selected
 
-    method layout =
-      Option.iter (fun x -> x#layout) self#inner_widget;
-      Option.iter (fun x -> x#layout) item.move_widget;
-      Option.iter (fun x -> x#layout) item.close_widget
+    method layout () =
+      Option.iter (fun x -> x#layout ()) self#inner_widget;
+      Option.iter (fun x -> x#layout ()) item.move_widget;
+      Option.iter (fun x -> x#layout ()) item.close_widget
 
     (** Private methods **)
 
@@ -253,7 +253,7 @@ class ['a] t ~s_grid        (* grid props *)
                       else x,y
             in
             self#set_x x; self#set_y y;
-            self#layout;
+            self#layout ();
             Option.iter (fun f -> f self#pos ghost#pos col_px row_px) item.on_dragging
          | `End->
             self#get_drag_target#remove_class Markup.Dynamic_grid.Item.dragging_class;
@@ -272,7 +272,7 @@ class ['a] t ~s_grid        (* grid props *)
                                      x#set_pos pos)
                            (Position.sort_by_y ~f:(fun x -> x#pos) self#items);
             (snd s_change) self#pos;
-            self#layout;
+            self#layout ();
             Option.iter (fun f -> f self#pos ghost#pos col_px row_px) item.on_drag
          | _ -> ()
 
@@ -313,7 +313,7 @@ class ['a] t ~s_grid        (* grid props *)
                    else w,h
          in
          self#set_w w; self#set_h h;
-         self#layout;
+         self#layout ();
          Option.iter (fun f -> f self#pos ghost#pos col_px row_px) item.on_resizing
       | `End ->
          stop_listen mov_listener;
@@ -331,7 +331,7 @@ class ['a] t ~s_grid        (* grid props *)
                                   x#set_pos pos)
                         (Position.sort_by_y ~f:(fun x -> x#pos) self#items);
          (snd s_change) self#pos;
-         self#layout;
+         self#layout ();
          Option.iter (fun f -> f self#pos ghost#pos col_px row_px) item.on_resize
       | _ -> ()
 
@@ -342,7 +342,7 @@ class ['a] t ~s_grid        (* grid props *)
       then Dom.appendChild self#root resize_button#root;
       (* append widget to cell if provided *)
       Option.iter (fun x -> Dom_events.listen x#root Dom_events.Typ.click (fun _ _ ->
-                                                self#remove; true) |> ignore) item.close_widget;
+                                                self#remove (); true) |> ignore) item.close_widget;
       Option.iter (fun x -> Dom.appendChild self#root x#root) item.widget;
       (* add item move listener *)
       if draggable

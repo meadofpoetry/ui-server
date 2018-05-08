@@ -12,9 +12,4 @@ let make (control:int) =
     ; { item = Parameter { typ = `Packet_size };      position = { x=1;y=1;w=1;h=1} }
     ]
   in
-  let dg = new Dashboard.t ~items factory () in
-  object
-    inherit Widget.widget dg#root ()
-    method on_load   = dg#layout
-    method on_unload = factory#destroy ()
-  end
+  new Dashboard.t ~items factory ()

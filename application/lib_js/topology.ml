@@ -143,7 +143,7 @@ let create ~(parent: #Widget.widget)
                             Topo_cpu.make_cpu_page ~error_prefix cpu
         in
         let pgs = Ui_templates.Loader.create_widget_loader ~parent:drawer_box ~error_prefix res in
-        Lwt.Infix.(drawer#show_await >>= (fun () -> pgs#iter (fun w -> w#destroy); Lwt.return_unit))
+        Lwt.Infix.(drawer#show_await () >>= (fun () -> pgs#iter (fun w -> w#destroy ()); Lwt.return_unit))
         |> Lwt.ignore_result) e_s
   in
   iter_paths (fun _ x -> Option.iter (fun sw -> Dom.appendChild parent#root sw#root) x#switch;

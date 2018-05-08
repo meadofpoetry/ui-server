@@ -32,15 +32,12 @@ class t ~input_id ?label ?placeholder ?rows ?cols () =
 
     val mdc : mdc Js.t = elt |> (fun x -> Js.Unsafe.global##.mdc##.textField##.MDCTextField##attachTo x)
 
-    method dense          = self#add_class Markup.Textfield.dense_class
-    method full_width     = self#add_class Markup.Textfield.fullwidth_class
-    method not_dense      = self#remove_class Markup.Textfield.dense_class
-    method not_full_width = self#remove_class Markup.Textfield.fullwidth_class
+    method set_dense x      = self#add_or_remove_class x Markup.Textfield.dense_class
+    method set_full_width x = self#add_or_remove_class x Markup.Textfield.fullwidth_class
 
-    method get_disabled   = Js.to_bool mdc##.disabled
+    method disabled       = Js.to_bool mdc##.disabled
     method set_disabled x = mdc##.disabled := Js.bool x
 
-    method valid   = mdc##.valid := Js._true
-    method invalid = mdc##.valid := Js._false
+    method set_valid x = mdc##.valid := (Js.bool x)
 
   end

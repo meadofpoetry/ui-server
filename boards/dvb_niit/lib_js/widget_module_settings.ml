@@ -156,8 +156,8 @@ let make ~(state:  (Common.Topology.state React.signal,string) Lwt_result.t)
   ; settings = None
   ; widget   = (object
                   inherit Ui_templates.Loader.widget_loader t () as super
-                  method! layout = super#layout; print_endline "layout!";
-                                   t >>= (fun w -> w#layout; Lwt_result.return ())
-                                   |> Lwt.ignore_result
+                  method! layout () = super#layout ();
+                                      t >>= (fun w -> w#layout (); Lwt_result.return ())
+                                      |> Lwt.ignore_result
                 end)#widget
   }

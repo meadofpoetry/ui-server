@@ -26,7 +26,7 @@ let make ~(measures:measure_response React.event)
   in
   let widget = object
       inherit Ui_templates.Loader.widget_loader t ()
-      method! layout    = t >>= (fun w -> Lwt_result.return w#layout) |> Lwt.ignore_result
+      method! layout () = t >>= (fun w -> Lwt_result.return @@ w#layout ()) |> Lwt.ignore_result
     end
   in
   { name     = "Измерения"

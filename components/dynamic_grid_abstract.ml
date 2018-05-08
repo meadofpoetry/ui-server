@@ -96,10 +96,10 @@ class ['a,'b,'c] t ~grid ~(get:'c -> 'a item) ~(items:'a item list) () =
               Ok item
       | l  -> Error (Collides l)
 
-    method remove (x:'b) = x#remove
+    method remove (x:'b) = x#remove ()
     method remove_all () = List.iter (fun x -> self#remove x) self#items
 
-    method layout =
+    method layout () =
       let par = Js.Opt.to_option @@ self#root##.parentNode in
       (match par with
        | Some p -> let w    = (Js.Unsafe.coerce p)##.offsetWidth in
@@ -111,7 +111,7 @@ class ['a,'b,'c] t ~grid ~(get:'c -> 'a item) ~(items:'a item list) () =
                    self#style##.width :=
                      Js.string @@ Printf.sprintf "%dpx" (col * self#grid.cols + mx);
                    _overlay_grid#show_dividers;
-                   _overlay_grid#layout
+                   _overlay_grid#layout ()
        | None   -> ())
 
     (** Private methods **)
@@ -127,7 +127,7 @@ class ['a,'b,'c] t ~grid ~(get:'c -> 'a item) ~(items:'a item list) () =
       List.iter (fun x -> x#set_pos @@ Position.compact ~f:(fun x -> x#pos) x#pos (other x)) self#items
 
     initializer
-      React.S.map (fun _ -> self#layout) s_grid |> ignore;
+      React.S.map (fun _ -> self#layout ()) s_grid |> ignore;
       (* add item add/remove listener *)
       React.E.map (fun action -> (match action with
                                   | `Add (x:'b) -> Dom.appendChild self#root x#root
@@ -150,6 +150,6 @@ class ['a,'b,'c] t ~grid ~(get:'c -> 'a item) ~(items:'a item list) () =
                                       self#style##.height := Js.string @@ Utils.px (h * row_h + my))
                  s_rows s_row_h s_grid
       |> ignore;
-      Dom_events.listen Dom_html.window Dom_events.Typ.resize (fun _ _ -> self#layout; true) |> ignore;
+      Dom_events.listen Dom_html.window Dom_events.Typ.resize (fun _ _ -> self#layout (); true) |> ignore;
 
   end

@@ -25,7 +25,7 @@ module Header = struct
       initializer
         self#add_class _class
       method settings_icon = settings
-      method layout = self#settings_icon#layout
+      method layout () = self#settings_icon#layout ()
     end
 
   let create (board:Common.Topology.topo_board) =
@@ -102,7 +102,7 @@ class t ~(connections:(#Topo_node.t * connection_point) list)
 
     inherit Topo_block.t ~node:(`Entry (Board board)) ~connections ~header ~body () as super
 
-    method layout       = super#layout; header#layout
+    method layout ()    = super#layout (); header#layout ()
     method e_settings   = e_settings
     method s_state      = s
     method board        = _board

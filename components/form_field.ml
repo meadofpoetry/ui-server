@@ -5,7 +5,7 @@ let get_id = fun () -> incr x; Printf.sprintf "form-input-%d" !x
 
 class ['a] t ?align_end ~(input: 'a) ~label () =
 
-  let for_id = match (input : 'a :> #Widget.input_widget)#get_input_id with
+  let for_id = match (input : 'a :> #Widget.input_widget)#input_id with
     | None -> let id = get_id () in
               input#set_input_id id;
               id
@@ -20,13 +20,14 @@ class ['a] t ?align_end ~(input: 'a) ~label () =
 
   object(self)
     inherit Widget.widget elt ()
-    method get_label_widget = label
-    method get_input_widget : 'a = input
-    method get_label    = self#get_label_widget#get_text_content |> Option.get_or ~default:""
-    method set_label s  = self#get_label_widget#set_text_content s
+    method label_widget      = label
+    method input_widget : 'a = input
+
+    method label       = self#label_widget#text_content |> Option.get_or ~default:""
+    method set_label s = self#label_widget#set_text_content s
 
     initializer
       React.S.map (fun x -> "color--disabled-on-light"
-                            |> (fun c -> if x then self#get_label_widget#add_class c
-                                         else self#get_label_widget#remove_class c)) input#s_disabled |> ignore
+                            |> (fun c -> if x then self#label_widget#add_class c
+                                         else self#label_widget#remove_class c)) input#s_disabled |> ignore
   end

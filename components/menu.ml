@@ -68,14 +68,14 @@ class t ?open_from ~(items:[ `Item of Item.t | `Divider of Divider.t ] list) () 
 
     val mdc : mdc Js.t = Js.Unsafe.global##.mdc##.menu##.MDCMenu##attachTo elt
 
-    method get_items   = items
-    method get_list    = list
+    method items   = items
+    method list    = list
     method set_dense x = list#set_dense x
 
-    method show              = mdc##show ()
+    method show ()           = mdc##show ()
     method show_with_focus x = mdc##show_focused (focus_index_to_js_obj x)
-    method hide              = mdc##hide ()
-    method is_opened         = Js.to_bool mdc##.open_
+    method hide ()           = mdc##hide ()
+    method opened            = Js.to_bool mdc##.open_
 
     method e_selected = e_selected
     method e_cancel   = e_cancel
@@ -99,8 +99,8 @@ module Wrapper = struct
                                              [ Widget.widget_to_markup anchor
                                              ; Widget.widget_to_markup menu ]
                            |> Tyxml_js.To_dom.of_div) ()
-    method get_anchor = anchor
-    method get_menu   = menu
+    method anchor = anchor
+    method menu   = menu
   end
 
 end

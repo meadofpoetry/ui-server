@@ -82,12 +82,12 @@ module Scroll_size_listener = struct
 
       inherit Widget.widget elt () as super
 
-      method get_on_change   = on_change
+      method on_change       = on_change
       method set_on_change x = on_change <- x
 
-      method get_height = height
-      method get_width  = width
-      method measure =
+      method height = height
+      method width  = width
+      method measure () =
         let prev_h = height in
         let prev_w = width in
         height <- node##.offsetHeight - node##.clientHeight;
@@ -96,11 +96,11 @@ module Scroll_size_listener = struct
         then Option.iter (fun f -> f width height) on_change;
 
       method private listen =
-        Dom_events.listen Dom_html.window Dom_events.Typ.resize (fun _ _ -> self#measure; true)
+        Dom_events.listen Dom_html.window Dom_events.Typ.resize (fun _ _ -> self#measure (); true)
 
       initializer
         (* TODO maybe remove these listeners? *)
-        super#set_on_load   @@ Some (fun () -> self#measure;
+        super#set_on_load   @@ Some (fun () -> self#measure ();
                                                Option.iter (fun f -> f width height) on_change;
                                                listener <- Some self#listen);
         super#set_on_unload @@ Some (fun () -> Option.iter (fun l -> Dom_events.stop_listen l) listener;

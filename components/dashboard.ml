@@ -123,8 +123,10 @@ class ['a] t ~(items:'a Item.positioned_item list) (factory:'a #factory) () =
     method restore (json:Yojson.Safe.json) : (unit,string) result =
       self#deserialize json |> Result.map (List.iter (fun x -> self#add x |> ignore))
 
+    method destroy () = factory#destroy ()
+
     initializer
-      self#set_on_load @@ Some (fun () -> self#layout);
+      self#set_on_load @@ Some (fun () -> self#layout ());
       self#add_class base_class;
       List.map self#add items |> ignore
   end

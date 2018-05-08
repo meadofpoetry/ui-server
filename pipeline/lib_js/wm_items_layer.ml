@@ -53,10 +53,10 @@ module Make(I : Item) = struct
       method e_item_delete   = e_delete
 
       method private get_event_pos e : Position.t option =
-        let rect = self#get_bounding_client_rect in
+        let rect = self#bounding_client_rect in
         let x,y  = e##.clientX - (int_of_float rect.left),
                    e##.clientY - (int_of_float rect.top) in
-        if x <= self#get_offset_width && x >= 0 && y <= self#get_offset_height && y >= 0
+        if x <= self#offset_width && x >= 0 && y <= self#offset_height && y >= 0
         then Some { x; y; w = 1; h = 1 } else None
 
       method private move_ghost ?aspect ghost = function
@@ -103,7 +103,7 @@ module Make(I : Item) = struct
         self#add_class _class;
         self#set_active false;
         self#set_layer layer;
-        self#set_on_load @@ Some (fun () -> self#layout);
+        self#set_on_load @@ Some (fun () -> self#layout ());
         React.S.map self#set_grid s_grid |> ignore;
         React.S.map (function [] -> Dom.appendChild self#root ph#root
                             | _  -> try Dom.removeChild self#root ph#root with _ -> ())

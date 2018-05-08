@@ -4,15 +4,8 @@ open Components
 let main_class    = "main-content"
 let toolbar_class = "main-toolbar"
 
-class type stateful_widget =
-  object
-    inherit Widget.widget
-    method on_load   : unit
-    method on_unload : unit
-  end
-
 type ('a,'b) page_content = [ `Static  of (#Widget.widget as 'a) list
-                            | `Dynamic of (unit -> (#stateful_widget as 'b)) Tabs.tab list
+                            | `Dynamic of (unit -> (#Widget.widget as 'b)) Tabs.tab list
                             ]
 
 let remove_children container =
@@ -21,16 +14,16 @@ let remove_children container =
 
 let switch_tab (container:#Dom.node Js.t) (s:#Widget.widget option React.signal) =
   let init   = React.S.value s in
-  let load   = Option.iter (fun n -> n#on_load; Dom.appendChild container n#root) in
-  let unload = Option.iter (fun o -> o#on_unload; (try Dom.removeChild container o#root with _ -> ())) in
+  let load   = Option.iter (fun n -> n#layout (); Dom.appendChild container n#root) in
+  let unload = Option.iter (fun o -> o#destroy (); (try Dom.removeChild container o#root with _ -> ())) in
   load init;
   React.S.diff (fun n o -> unload o; load n) s
 
-let create_toolbar_tabs_row (tabs:(unit -> #stateful_widget) Tabs.tab list) =
+let create_toolbar_tabs_row (tabs:(unit -> #Widget.widget) Tabs.tab list) =
   let open Tabs in
   let bar  = new Tabs.Scroller.t ~tabs () in
   let s    = React.S.map (function
-                          | Some x -> Some (x#get_value ())
+                          | Some x -> Some (x#value ())
                           | None   -> None) bar#tab_bar#s_active in
   let section = new Toolbar.Row.Section.t ~align:`Start ~widgets:[bar] () in
   let row     = new Toolbar.Row.t ~sections:[section] () in
@@ -38,7 +31,7 @@ let create_toolbar_tabs_row (tabs:(unit -> #stateful_widget) Tabs.tab list) =
   let ()      = (Js.Unsafe.coerce row#style)##.alignItems := Js.string "flex-end" in
   let ()      = (Js.Unsafe.coerce section#style)##.alignItems := Js.string "flex-end" in
   let ()      = (Js.Unsafe.coerce bar#style)##.flexGrow := 1 in
-  let ()      = bar#set_on_load @@ Some (fun () -> bar#layout) in
+  let ()      = bar#set_on_load @@ Some bar#layout in
   row,s
 
 class t (content:('a,'b) page_content) () =

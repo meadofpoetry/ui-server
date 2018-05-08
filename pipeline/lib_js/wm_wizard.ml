@@ -54,8 +54,8 @@ let to_checkboxes (widgets:(string * Wm.widget) list) =
   let all = new Form_field.t ~label:"Выбрать все" ~input:checkbox () in
   React.E.map (fun checked ->
       if not checked
-      then List.iter (fun x -> x#get_input_widget#set_checked false) wds
-      else List.iter (fun x -> x#get_input_widget#set_checked true) wds)
+      then List.iter (fun x -> x#input_widget#set_checked false) wds
+      else List.iter (fun x -> x#input_widget#set_checked true) wds)
   @@ React.S.changes checkbox#s_state |> ignore;
   all :: wds
 
@@ -91,11 +91,11 @@ let to_dialog (wm:Wm.t) =
                        ()
   in
   let show = fun () ->
-    Lwt.bind dialog#show_await
+    Lwt.bind (dialog#show_await ())
              (function
               | `Accept -> let widgets =
-                             List.filter_map (fun x -> if not @@ x#get_input_widget#checked then None
-                                                       else let id = x#get_input_widget#get_id in
+                             List.filter_map (fun x -> if not @@ x#input_widget#checked then None
+                                                       else let id = x#input_widget#id in
                                                             List.find_pred (fun (s,_) -> String.equal id s)
                                                                            wm.widgets)
                                              checkboxes

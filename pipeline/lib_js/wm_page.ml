@@ -222,7 +222,7 @@ let create_widgets_grid ~(container:      Wm.container wm_item)
               match added,removed with
               | [],[] -> on_cancel ()
               | _ -> let open Lwt.Infix in
-                     dlg#show_await
+                     dlg#show_await ()
                      >>= (fun res -> (match res with
                                       | `Accept -> on_apply w.ig#layout_items
                                       | `Cancel -> set_candidates init_cand; on_cancel ());
@@ -320,9 +320,9 @@ let create ~(init: Wm.t)
   let lc = new Layout_grid.Cell.t ~widgets:[] () in
   let mc = new Layout_grid.Cell.t ~widgets:[] () in
   let rc = new Layout_grid.Cell.t ~widgets:[] () in
-  lc#set_span_desktop 1; lc#set_span_tablet 1; lc#set_span_phone 4;
-  mc#set_span_desktop 8; mc#set_span_tablet 7; mc#set_span_phone 4;
-  rc#set_span_desktop 3; rc#set_span_tablet 8; rc#set_span_phone 4;
+  lc#set_span_desktop @@ Some 1; lc#set_span_tablet @@ Some 1; lc#set_span_phone @@ Some 4;
+  mc#set_span_desktop @@ Some 8; mc#set_span_tablet @@ Some 7; mc#set_span_phone @@ Some 4;
+  rc#set_span_desktop @@ Some 3; rc#set_span_tablet @@ Some 8; rc#set_span_phone @@ Some 4;
   let add_to_view lt ig rt =
     Utils.rm_children lc#root; Dom.appendChild lc#root lt#root;
     Utils.rm_children mc#root; Dom.appendChild mc#root ig#root;
@@ -340,7 +340,7 @@ class t () = object(self)
   val mutable sock : WebSockets.webSocket Js.t option = None
   inherit Layout_grid.t ~cells:[] () as super
 
-  method on_load =
+  method private on_load () =
     Requests.get_wm ()
     >>= (fun wm ->
       let e_wm,wm_sock = Requests.get_wm_socket () in
@@ -359,10 +359,12 @@ class t () = object(self)
       sock <- Some wm_sock;
       Lwt_result.return ())
     |> ignore
-  method on_unload =
+  method private on_unload () =
     Option.iter (fun x -> x##close; sock <- None) sock
 
   initializer
+    self#set_on_load @@ Some self#on_load;
+    self#set_on_unload @@ Some self#on_unload;
     self#add_class "wm";
 end
 

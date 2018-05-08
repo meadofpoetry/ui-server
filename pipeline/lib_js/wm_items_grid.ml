@@ -56,8 +56,8 @@ module Make(I : Item) = struct
       method s_layers        = s_layers
       method s_selected      = s_sel
       method layout_items    = List.map I.t_to_layout_item self#items
-      method items           = List.map (fun x -> x#value) self#widgets
-      method widgets         = List.fold_left (fun acc x -> x#items @ acc) [] @@ React.S.value s_layers
+      method items           = List.map (fun x -> x#value) self#wdgs
+      method wdgs            = List.fold_left (fun acc x -> x#items @ acc) [] @@ React.S.value s_layers
 
       method update_item_min_size (item:I.t Dynamic_grid.Item.t) =
         let t = item#value in
@@ -75,9 +75,9 @@ module Make(I : Item) = struct
             item#set_min_h @@ Some (div (snd sz) rh));
         item#set_value t
 
-      method clear = List.iter (fun x -> x#remove) self#widgets
+      method clear () = List.iter (fun x -> x#remove ()) self#wdgs
       method initialize resolution items =
-        self#clear;
+        self#clear ();
         set_resolution resolution;
         let positions = List.map I.position_of_t items in
         let grids     = Utils.get_grids ~resolution ~positions () in
@@ -140,9 +140,9 @@ module Make(I : Item) = struct
                             let item text = new Menu.Item.t ~text () in
                             let items = List.map (fun (w,h) -> let text = grid_to_string (w,h) in
                                                                item text) @@ React.S.value s_grids in
-                            Utils.rm_children menu#get_list#root;
-                            List.iter (fun x -> Dom.appendChild menu#get_list#root x#root) items;
-                            menu#show;
+                            Utils.rm_children menu#list#root;
+                            List.iter (fun x -> Dom.appendChild menu#list#root x#root) items;
+                            menu#show ();
                             true) |> ignore;
         anchor#set_align_items `Center;
         title#add_class      @@ Markup.CSS.add_element base_class "title";
@@ -151,15 +151,15 @@ module Make(I : Item) = struct
         grid_icon#add_class  @@ Markup.CSS.add_element base_class "menu";
         header#add_class     @@ Markup.CSS.add_element base_class "header";
         React.S.l2 (fun conf grid -> let value = if conf
-                                                 then ( grid#overlay_grid#show;
+                                                 then ( grid#overlay_grid#show ();
                                                         Js.string "true")
-                                                 else ( grid#overlay_grid#hide;
+                                                 else ( grid#overlay_grid#hide ();
                                                         Js.string "false")
                                      in
                                      match Js.Optdef.to_option storage with
                                      | Some x -> x##setItem (Js.string "grid_icon") value
                                      | None   -> ())
-          grid_icon#s_state s_active |> ignore;
+                   grid_icon#s_state s_active |> ignore;
         React.S.map  (fun x   -> x#set_active true) s_active |> ignore;
         React.S.diff (fun _ o -> o#set_active false;
                                  List.iter (fun x -> x#set_selected false) o#items) s_active |> ignore;

@@ -11,15 +11,9 @@ let insert s (container:#Dom.node Js.t) =
                            Dom.appendChild container p#root
                | None   -> ()) s
 
-class type t =
-  object inherit Widget.widget
-    method on_load   : unit
-    method on_unload : unit
-  end
-
 let pages =
   let open Tabs in
-  let tab f () = ((f ()) :> t) in
+  let tab f () = ((f ()) :> Widget.widget) in
   let tab_pages =
     [ "Видео",             tab Mosaic.page
     ; "Редактор",          tab Wm_page.page

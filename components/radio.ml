@@ -10,7 +10,7 @@ class ['a] t ?(ripple=true) ?input_id ~name ~(value:'a) () =
     val mutable value : 'a = value
 
     method set_value (x:'a) = value <- x
-    method get_value : 'a   = value
+    method value : 'a       = value
 
     initializer
       if ripple then Js.Unsafe.global##.mdc##.radio##.MDCRadio##attachTo elt

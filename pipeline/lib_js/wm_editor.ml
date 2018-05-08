@@ -50,7 +50,7 @@ module Make(I : Item) = struct
     let _ = React.E.map (fun _ -> Option.iter (fun x ->
                                       Option.iter (fun f -> f x#value) on_remove;
                                       remove ~eq:I.equal candidates set_candidates x#value;
-                                      x#remove)
+                                      x#remove ())
                                   @@ React.S.value selected)
             @@ React.E.select [ ig#e_item_delete
                               ; React.E.map (fun _ -> React.S.value selected |> Option.get_exn) rm#e_click

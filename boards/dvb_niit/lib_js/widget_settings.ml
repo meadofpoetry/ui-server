@@ -24,7 +24,7 @@ let make ~(state:(Common.Topology.state React.signal,string) Lwt_result.t)
   in
   let widget = object
       inherit Ui_templates.Loader.widget_loader t ()
-      method! layout    = t >>= (fun w -> Lwt_result.return w#layout) |> Lwt.ignore_result
+      method! layout () = t >>= (fun w -> Lwt_result.return @@ w#layout ()) |> Lwt.ignore_result
     end
   in
   { name     = "Настройки"

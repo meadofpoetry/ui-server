@@ -45,9 +45,9 @@ let make ?error_prefix () : (#Widget.widget,string) Lwt_result.t =
                                                   ; `Text "Настройки анализа", pgs set
                                                   ]
   in
-  let fin () = sms >>= (fun w -> w#destroy; Lwt_result.return ()) |> Lwt.ignore_result;
-               str >>= (fun w -> w#destroy; Lwt_result.return ()) |> Lwt.ignore_result;
-               set >>= (fun w -> w#destroy; Lwt_result.return ()) |> Lwt.ignore_result
+  let fin () = sms >>= (fun w -> w#destroy (); Lwt_result.return ()) |> Lwt.ignore_result;
+               str >>= (fun w -> w#destroy (); Lwt_result.return ()) |> Lwt.ignore_result;
+               set >>= (fun w -> w#destroy (); Lwt_result.return ()) |> Lwt.ignore_result
   in
   tabs#set_on_destroy @@ Some fin;
   print_endline "created tabs";

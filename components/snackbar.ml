@@ -59,36 +59,37 @@ class t ?start_aligned ?action ~message () =
 
     val mdc : mdc Js.t = Js.Unsafe.global##.mdc##.snackbar##.MDCSnackbar##attachTo elt
 
-    method show = mdc##show data_obj
+    method show () = mdc##show data_obj
 
     method set_start_aligned x = Markup.Snackbar.align_start_class
                                  |> (fun c -> if x then super#add_class c else super#remove_class c)
 
-    method get_dismiss_on_action   = Js.to_bool mdc##.dismissesOnAction
+    method dismiss_on_action       = Js.to_bool mdc##.dismissesOnAction
     method set_dismiss_on_action x = mdc##.dismissesOnAction := Js.bool x
 
-    method get_data   = data
+    method data       = data
     method set_data x = data <- x; data_obj <- data_to_js_obj x
 
-    method get_message   = data.message
+    method message       = data.message
     method set_message x = let new_data = { data with message = x } in
                            data <- new_data; data_obj <- data_to_js_obj new_data
 
-    method get_timeout   = data.timeout
+    method timeout       = data.timeout
     method set_timeout x = let new_data = { data with timeout = Some x } in
                            data <- new_data; data_obj <- data_to_js_obj new_data
 
-    method get_action   = data.action
-    method set_action x = let new_data = { data with action = Some x } in
-                          data <- new_data; data_obj <- data_to_js_obj new_data
-    method remove_action = let new_data = { data with action = None } in
-                           data <- new_data; data_obj <- data_to_js_obj new_data
+    method action       = data.action
+    method set_action : action option -> unit = function
+      | Some x -> let new_data = { data with action = Some x } in
+                  data <- new_data; data_obj <- data_to_js_obj new_data
+      | None   -> let new_data = { data with action = None } in
+                  data <- new_data; data_obj <- data_to_js_obj new_data
 
-    method get_multiline   = data.multiline
+    method multiline       = data.multiline
     method set_multiline x = let new_data = { data with multiline = x } in
                              data <- new_data; data_obj <- data_to_js_obj new_data
 
-    method get_action_on_bottom   = data.action_on_bottom
+    method action_on_bottom       = data.action_on_bottom
     method set_action_on_bottom x = let new_data = { data with action_on_bottom = x } in
                                     data <- new_data; data_obj <- data_to_js_obj new_data
 

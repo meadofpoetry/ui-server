@@ -65,20 +65,20 @@ class ['a,'b] t ~(options:'a) ~typ ~data () =
     method set_width x   = self#canvas#set_attribute "width"  @@ string_of_int x
     method set_height x  = self#canvas#set_attribute "height" @@ string_of_int x
 
-    method destroy = _chart##destroy
+    method destroy () = _chart##destroy
     method update  = function
       | Some c -> _chart##update_conf (config_to_obj c)
       | None   -> _chart##update
-    method reset   = _chart##reset
-    method render  = function
+    method reset () = _chart##reset
+    method render = function
       | Some c -> _chart##render_conf (config_to_obj c)
       | None   -> _chart##render
-    method stop    = _chart##stop   |> ignore
-    method layout  = _chart##resize |> ignore
-    method clear   = _chart##clear  |> ignore
+    method stop   () = _chart##stop   |> ignore
+    method layout () = _chart##resize |> ignore
+    method clear  () = _chart##clear  |> ignore
 
-    method to_png_image    = _chart##toBase64Image  |> Js.to_string
-    method generate_legend = _chart##generateLegend |> Js.to_string
+    method to_png_image ()    = _chart##toBase64Image  |> Js.to_string
+    method generate_legend () = _chart##generateLegend |> Js.to_string
 
     method options = options
 
