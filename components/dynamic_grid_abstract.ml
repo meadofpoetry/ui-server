@@ -8,10 +8,11 @@ module Item = Dynamic_grid_item
 type add_error = Collides of Position.t list
 
 let to_grid ?max_col_width ?(min_col_width=1) ?rows ?row_height ?(vertical_compact=false)
-            ?(items_margin=0,0) ?(multi_select=false) ?(restrict_move=false) ~cols () =
+            ?(items_margin=0,0) ?(multi_select=false) ?(restrict_move=false)
+            ?draggable ?resizable ?selectable ~cols () =
   { min_col_width; max_col_width; cols; rows;
     row_height; vertical_compact; items_margin;
-    multi_select; restrict_move
+    multi_select; restrict_move; draggable; resizable; selectable
   }
 
 class ['a,'b,'c] t ~grid ~(get:'c -> 'a item) ~(items:'a item list) () =
@@ -22,7 +23,7 @@ class ['a,'b,'c] t ~grid ~(get:'c -> 'a item) ~(items:'a item list) () =
     | Some rh -> React.S.const rh
     | None    -> s_col_w
   in
-  let s_grid,s_grid_push = React.S.create grid in
+  let s_grid,s_grid_push = React.S.create ~eq:equal_grid grid in
   let s_items  = React.S.fold (fun acc -> function
                                 | `Add x    -> x :: acc
                                 | `Remove x -> List.filter Fun.(Item.eq x %> not) acc)
@@ -96,6 +97,16 @@ class ['a,'b,'c] t ~grid ~(get:'c -> 'a item) ~(items:'a item list) () =
               Ok item
       | l  -> Error (Collides l)
 
+    method draggable : bool option       = self#grid.draggable
+    method set_draggable (x:bool option) = s_grid_push { self#grid with draggable = x };
+                                           print_endline "success draggable"
+
+    method resizable : bool option       = self#grid.resizable
+    method set_resizable (x:bool option) = s_grid_push { self#grid with resizable = x }
+
+    method selectable : bool option       = self#grid.selectable
+    method set_selectable (x:bool option) = s_grid_push { self#grid with selectable = x }
+
     method remove (x:'b) = x#remove ()
     method remove_all () = List.iter (fun x -> self#remove x) self#items
 
@@ -121,6 +132,13 @@ class ['a,'b,'c] t ~grid ~(get:'c -> 'a item) ~(items:'a item list) () =
     method private s_row_h       = s_row_h
     method private s_rows        = s_rows
     method private s_grid_push   = s_grid_push
+
+    method private get_event_pos e : Position.t option =
+      let rect = self#bounding_client_rect in
+      let x,y  = e##.clientX - (int_of_float rect.left),
+                 e##.clientY - (int_of_float rect.top) in
+      if x <= self#offset_width && x >= 0 && y <= self#offset_height && y >= 0
+      then Some { x; y; w = 1; h = 1 } else None
 
     method private compact =
       let other i = List.filter (fun x -> not @@ Equal.physical x#root i#root) self#items in

@@ -81,10 +81,8 @@ module Make(M:M) = struct
                      self#add_class base_class
                  end
     in
-    { name     = Printf.sprintf "Измерения. %s" @@ measure_type_to_string conf.typ
-    ; settings = None
-    ; widget   = widget#widget
-    }
+    Dashboard.Item.to_item ~name:(Printf.sprintf "Измерения. %s" @@ measure_type_to_string conf.typ)
+                           widget#widget
 
 end
 
@@ -118,9 +116,12 @@ module Bitrate    = Make(struct
                                                                      m.bitrate)
                         end)
 
+let default_config = { ids = None; typ = `Power }
+
 let make ~(measures:Board_types.measure_response React.event)
          ~(config:(Board_types.config React.signal,string) Lwt_result.t)
-         (conf:config) =
+         (conf:config option) =
+  let conf = Option.get_or ~default:default_config conf in (* FIXME *)
   match conf.typ with
   | `Power   -> Power.make   measures config conf
   | `Mer     -> Mer.make     measures config conf

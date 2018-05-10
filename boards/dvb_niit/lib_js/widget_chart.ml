@@ -81,24 +81,23 @@ let make_chart_base ~(config: config)
                                                  datasets)
                       event in
   let settings,s_settings = make_settings { range = None } in
-  { name      = measure_type_to_string config.typ
-  ; settings  =
-      Some { widget = settings#widget
-           ; ready  = React.S.map Option.is_some s_settings
-           ; set    = fun () ->
-                      match React.S.value s_settings with
-                      | Some s -> (match s.range with
-                                   | Some (min,max) -> conf#options#y_axis#ticks#set_min (Some min);
-                                                       conf#options#y_axis#ticks#set_max (Some max)
-                                   | None           -> conf#options#y_axis#ticks#set_min None;
-                                                       conf#options#y_axis#ticks#set_max None);
+  Dashboard.Item.to_item
+    ~name:(measure_type_to_string config.typ)
+    ~settings:{ widget = settings#widget
+              ; ready  = React.S.map Option.is_some s_settings
+              ; set    = fun () ->
+                         match React.S.value s_settings with
+                         | Some s -> (match s.range with
+                                      | Some (min,max) -> conf#options#y_axis#ticks#set_min (Some min);
+                                                          conf#options#y_axis#ticks#set_max (Some max)
+                                      | None           -> conf#options#y_axis#ticks#set_min None;
+                                                          conf#options#y_axis#ticks#set_max None);
 
-                                  chart#update None;
-                                  Lwt_result.return ()
-                      | None   -> Lwt_result.fail "no settings available"
-           }
-  ; widget      = chart#widget
-  }
+                                     chart#update None;
+                                     Lwt_result.return ()
+                         | None   -> Lwt_result.fail "no settings available"
+              }
+    chart#widget
 
 type event = measure_response React.event
 let to_event (get: Board_types.measure -> 'a option)
@@ -149,7 +148,8 @@ module Ber     = Make(Float)
 module Freq    = Make(Int32)
 module Bitrate = Make(Float)
 
-let make ~(measures:Board_types.measure_response React.event) (config:config) =
+let make ~(measures:Board_types.measure_response React.event) (config:config option) =
+  let config = Option.get_exn config in (* FIXME *)
   let event = measures in
   (match config.typ with
    | `Power   -> Power.make ~init:[] ~event config

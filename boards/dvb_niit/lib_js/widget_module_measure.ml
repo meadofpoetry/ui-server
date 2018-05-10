@@ -46,10 +46,8 @@ module Make(M:M) = struct
     end
 
   let make ?on_destroy (event:event) (config:config) : Dashboard.Item.item =
-    { name     = get_name config
-    ; settings = None
-    ; widget   = (new t ?on_destroy event config ())#widget
-    }
+    Dashboard.Item.to_item ~name:(get_name config)
+                           (new t ?on_destroy event config ())#widget
 
 end
 
@@ -67,9 +65,12 @@ module Ber      = Make(Scientific)
 module Freq     = Make(Int32)
 module Bitrate  = Make(Float)
 
+let default_config = { id = 0; typ = `Power }
+
 let make ~(measures:Board_types.measure_response React.event)
-         (config:config) =
+         (config:config option) =
   let open Board_types in
+  let config = Option.get_or ~default:default_config config in
   let e = React.E.filter (fun (id,_) -> id = config.id) measures in
   (match config.typ with
    | `Power   -> Power.make   (React.E.map (fun (_,m) -> m.power) e)   config

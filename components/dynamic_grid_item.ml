@@ -57,12 +57,28 @@ class ['a] t ~s_grid        (* grid props *)
     val resize_button = Markup.Dynamic_grid.Item.create_resize_button ()
                         |> Tyxml_js.To_dom.of_element |> Widget.create
 
+    val _s_draggable_global  = React.S.map ~eq:(Equal.physical) (fun x -> x.draggable) s_grid
+    val _s_resizable_global  = React.S.map ~eq:(Equal.physical) (fun x -> x.resizable) s_grid
+    val _s_selectable_global = React.S.map ~eq:(Equal.physical) (fun x -> x.selectable) s_grid
+
+    val mutable _main_move_mouse_listener   = None
+    val mutable _main_move_touch_listener   = None
+    val mutable _main_resize_mouse_listener = None
+    val mutable _main_resize_touch_listener = None
+    val mutable _main_select_listener       = None
+
     val mutable mov_listener    = None
     val mutable end_listener    = None
     val mutable cancel_listener = None
+
     val mutable draggable       = item.draggable
     val mutable resizable       = item.resizable
     val mutable selectable      = item.selectable
+
+    val mutable _draggable_global  = None
+    val mutable _resizable_global  = None
+    val mutable _selectable_global = None
+
     val mutable selected        = false
     val mutable drag_timer      = None
 
@@ -88,29 +104,44 @@ class ['a] t ~s_grid        (* grid props *)
     method s_change   = self#s_pos
     method s_value    = s_value
 
-    method set_value (x:'a) = s_value_push x
     method value : 'a       = React.S.value self#s_value
+    method set_value (x:'a) = s_value_push x
 
-    method set_draggable x  = draggable <- x
     method draggable        = draggable
+    method set_draggable x  =
+      (match x,draggable with
+       | true, false -> self#add_move_listener ()
+       | false, true -> self#stop_move_listener ()
+       | _           -> ());
+      self#get_drag_target#add_or_remove_class x Markup.Dynamic_grid.Item.drag_handle_class;
+      draggable <- x
 
+    method resizable        = resizable
     method set_resizable x  =
+      (match x,resizable with
+       | true, false -> self#add_resize_listener ()
+       | false, true -> self#stop_resize_listener ()
+       | _           -> ());
       if x then Dom.appendChild self#root resize_button#root
       else (try Dom.removeChild self#root resize_button#root; with _ -> ());
       resizable <- x
-    method resizable    = resizable
 
+    method selectable       = selectable
     method set_selectable x =
+      (match x,draggable with
+       | true, false -> self#add_select_listener ()
+       | false, true -> self#stop_select_listener ()
+       | _           -> ());
       (match x with
        | true  -> self#set_attribute "tabindex" "0"
        | false -> self#set_attribute "tabindex" "-1";
                   self#set_selected false);
       self#add_or_remove_class x Markup.Dynamic_grid.Item.select_handle_class;
       selectable <- x
-    method selectable = selectable
 
     method remove () : unit = self#set_selected false; e_modify_push (`Remove self)
 
+    method selected              = selected
     method set_selected x : unit =
       let o = React.S.value s_selected in
       match x with
@@ -123,8 +154,7 @@ class ['a] t ~s_grid        (* grid props *)
       | false -> if self#selected
                  then (self#remove_class Markup.Dynamic_grid.Item.selected_class;
                        selected <- false;
-                       s_selected_push @@ List.filter (fun x -> not @@ eq x self) o;)
-    method selected   = selected
+                       s_selected_push @@ List.filter (fun x -> not @@ eq x self) o)
 
     method layout () =
       Option.iter (fun x -> x#layout ()) self#inner_widget;
@@ -335,20 +365,13 @@ class ['a] t ~s_grid        (* grid props *)
          Option.iter (fun f -> f self#pos ghost#pos col_px row_px) item.on_resize
       | _ -> ()
 
-    initializer
-      self#set_selectable selectable;
-      (* append resize button to element if necessary *)
-      if item.resizable
-      then Dom.appendChild self#root resize_button#root;
-      (* append widget to cell if provided *)
-      Option.iter (fun x -> Dom_events.listen x#root Dom_events.Typ.click (fun _ _ ->
-                                                self#remove (); true) |> ignore) item.close_widget;
-      Option.iter (fun x -> Dom.appendChild self#root x#root) item.widget;
-      (* add item move listener *)
-      if draggable
-      then self#get_drag_target#add_class Markup.Dynamic_grid.Item.drag_handle_class;
-
-      listen self#get_drag_target#root Typ.mousedown
+    method private stop_move_listener () = stop_listen _main_move_mouse_listener;
+                                           stop_listen _main_move_touch_listener;
+                                           _main_move_mouse_listener <- None;
+                                           _main_move_touch_listener <- None
+    method private add_move_listener () =
+      listen ~save:(fun l -> _main_move_mouse_listener <- l)
+             self#get_drag_target#root Typ.mousedown
              (fun _ e -> Dom_html.stopPropagation e;
                          listen ~save:(fun x -> mov_listener <- x) Dom_html.window Typ.mousemove
                                 (fun _ _ -> if e##.button = 0 && draggable
@@ -357,64 +380,92 @@ class ['a] t ~s_grid        (* grid props *)
                          listen ~save:(fun x -> end_listener <- x) Dom_html.window Typ.mouseup
                                 (fun _ _ -> stop_listen mov_listener; false);
                          true);
+      listen ~save:(fun l -> _main_move_touch_listener <- l)
+             self#get_drag_target#root Typ.touchstart
+             (fun _ e -> Dom_html.stopPropagation e;
+                         if self#selectable && not self#grid.multi_select then self#set_selected true;
+                         if e##.touches##.length <= 1
+                         then
+                           ( let timer   = 400. in                 (**  TIMER is here **)
+                             let touch   = Js.Optdef.get (e##.touches##item 0)
+                                                         (fun () -> failwith "No touch with such id") in
+                             let id      = touch##.identifier in
+                             let wrapped = Js.wrap_callback
+                                             (fun _ -> if draggable
+                                                       then self#start_dragging (Touch e))
+                             in
+                             let timeout = Dom_html.window##setTimeout wrapped timer in
+                             let stop_timeout e =
+                               let touch = Js.Optdef.get (e##.changedTouches##item 0)
+                                                         (fun () -> failwith "No touch with such id") in
+                               if touch##.identifier = id
+                               then (Dom_html.window##clearTimeout timeout;
+                                     stop_listen mov_listener;
+                                     stop_listen end_listener;
+                                     stop_listen cancel_listener)
+                             in
+                             listen ~save:(fun x -> mov_listener <- x) Dom_html.window Typ.touchmove
+                                    (fun _ ev ->
+                                      (match find_touch id (ev##.changedTouches##.length-1) ev##.changedTouches with
+                                       | Some touch1 ->
+                                          let dx = abs @@ touch1##.clientX - touch##.clientX in
+                                          let dy = abs @@ touch1##.clientY - touch##.clientY in
+                                          if dx > 8 || dy > 8
+                                          then (Dom_html.window##clearTimeout timeout;
+                                                stop_listen mov_listener;
+                                                stop_listen end_listener;
+                                                stop_listen cancel_listener);
+                                       | None       -> ());
+                                      false);
+                             listen ~save:(fun x -> cancel_listener <- x) Dom_html.window Typ.touchcancel
+                                    (fun _ e -> stop_timeout e; false);
+                             listen ~save:(fun x -> end_listener <- x) Dom_html.window Typ.touchend
+                                    (fun _ e -> stop_timeout e; false));
+                         false);
 
-      listen self#get_drag_target#root Typ.touchstart
-        (fun _ e -> Dom_html.stopPropagation e;
-                    if self#selectable && not self#grid.multi_select then self#set_selected true;
-                    if e##.touches##.length <= 1
-                    then
-                      ( let timer   = 400. in                 (**  TIMER is here **)
-                        let touch   = Js.Optdef.get (e##.touches##item 0)
-                                        (fun () -> failwith "No touch with such id") in
-                        let id      = touch##.identifier in
-                        let wrapped = Js.wrap_callback
-                                        (fun _ -> if draggable
-                                                  then self#start_dragging (Touch e))
-                        in
-                        let timeout = Dom_html.window##setTimeout wrapped timer in
-                        let stop_timeout e =
-                          let touch = Js.Optdef.get (e##.changedTouches##item 0)
-                                        (fun () -> failwith "No touch with such id") in
-                          if touch##.identifier = id
-                          then (Dom_html.window##clearTimeout timeout;
-                                stop_listen mov_listener;
-                                stop_listen end_listener;
-                                stop_listen cancel_listener)
-                        in
-                        listen ~save:(fun x -> mov_listener <- x) Dom_html.window Typ.touchmove
-                         (fun _ ev ->
-                          (match find_touch id (ev##.changedTouches##.length-1) ev##.changedTouches with
-                             | Some touch1 ->
-                                let dx = abs @@ touch1##.clientX - touch##.clientX in
-                                let dy = abs @@ touch1##.clientY - touch##.clientY in
-                                if dx > 8 || dy > 8
-                                then (Dom_html.window##clearTimeout timeout;
-                                      stop_listen mov_listener;
-                                      stop_listen end_listener;
-                                      stop_listen cancel_listener);
-                             | None       -> ());
-                            false);
-                        listen ~save:(fun x -> cancel_listener <- x) Dom_html.window Typ.touchcancel
-                          (fun _ e -> stop_timeout e; false);
-                        listen ~save:(fun x -> end_listener <- x) Dom_html.window Typ.touchend
-                          (fun _ e -> stop_timeout e; false));
-                    false);
-
-      listen self#root Typ.focus (fun _ _ ->
-          if self#selectable && not self#grid.multi_select then self#set_selected true; true);
-
-      (* add item start resize listener if needed *)
-      listen resize_button#root Typ.mousedown (fun _ e ->
+    method private stop_resize_listener () = stop_listen _main_resize_mouse_listener;
+                                             stop_listen _main_resize_touch_listener;
+                                             _main_resize_mouse_listener <- None;
+                                             _main_resize_touch_listener <- None
+    method private add_resize_listener () =
+      listen ~save:(fun l -> _main_resize_mouse_listener <- l)
+             resize_button#root Typ.mousedown (fun _ e ->
                Dom_html.stopPropagation e;
                Dom.preventDefault e;
                if e##.button = 0 && resizable
                then self#start_resizing (Mouse e);
                false);
-
-      listen resize_button#root Typ.touchstart (fun _ e ->
+      listen ~save:(fun l -> _main_resize_touch_listener <- l)
+             resize_button#root Typ.touchstart (fun _ e ->
                Dom_html.stopPropagation e;
                if e##.touches##.length <= 1
                then (if resizable then self#start_resizing (Touch e));
-               false);
+               false)
+
+    method private stop_select_listener () = stop_listen _main_select_listener;
+                                             _main_select_listener <- None
+    method private add_select_listener () =
+      listen ~save:(fun l -> _main_select_listener <- l)
+             self#root Typ.focus (fun _ _ ->
+               if self#selectable && not self#grid.multi_select then self#set_selected true; true);
+
+    initializer
+      (React.S.map (function
+                    | Some x -> self#set_draggable x
+                    | None   -> self#set_draggable self#draggable) _s_draggable_global |> ignore);
+      (React.S.map (function
+                    | Some x -> self#set_resizable x
+                    | None   -> self#set_resizable self#resizable) _s_resizable_global |> ignore);
+      (React.S.map (function
+                    | Some x -> self#set_selectable x
+                    | None   -> self#set_selectable self#selectable) _s_selectable_global |> ignore);
+      self#set_selectable selectable;
+      self#set_draggable  draggable;
+      self#set_resizable  resizable;
+      (* add close listener to close widget if provided *)
+      Option.iter (fun x -> Dom_events.listen x#root Dom_events.Typ.click (fun _ _ ->
+                                                self#remove (); true) |> ignore) item.close_widget;
+      (* append widget to cell if provided *)
+      Option.iter (fun x -> Dom.appendChild self#root x#root) item.widget;
 
   end

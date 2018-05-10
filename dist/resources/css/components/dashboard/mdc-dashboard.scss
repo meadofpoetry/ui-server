@@ -5,6 +5,84 @@
 
 .mdc-dashboard {
 
+    &__edit-button {
+        position: fixed !important;
+        right: 1rem;
+        bottom: 1rem;
+        z-index: 3;
+        @media screen and (min-width: 1024px) {
+            right: 1.5rem;
+            bottom: 1.5rem;
+        }
+    }
+
+    &__panel {
+
+        &__title {
+            @include mdc-typography(headline);
+            padding: 15px 18px;
+        }
+
+        .mdc-drawer__drawer {
+            min-height: 100vh;
+            width: 500px;
+            @media screen and (max-width: 500px) {
+                width: 100vw;
+                min-width: initial;
+            }
+        }
+    }
+
+    &__add-item {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        cursor: pointer;
+        align-items: center;
+        padding: 10px 18px;
+        min-height: 100px;
+        max-height: 100px;
+        border-bottom: 1px solid rgba(0,0,0,0.12);
+        &__thumbnail {
+            height: 72px;
+            width: 72px;
+            margin-right: 20px;
+            &--icon {
+                @include mdc-theme-prop(color,text-icon-on-background);
+                font-size: 72px !important;
+            }
+            &--image {
+                
+            }
+        }
+        &__text-box {
+            align-self: flex-start;
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+        }
+        &__title {
+            @include mdc-typography(subheading2);
+            margin-bottom: 12px;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+        &__description {
+            @include mdc-typography(body1);
+            text-overflow: ellipsis;
+            overflow: hidden;
+        }
+        &:last-child {
+            border-bottom: none;
+        }
+
+        &--dragging {
+            opacity: 0.5;
+            z-index: 5;
+        }
+    }
+
     .mdc-dynamic-grid__item {
         @include mdc-elevation(2);
         @include mdc-theme-prop(background-color, background);

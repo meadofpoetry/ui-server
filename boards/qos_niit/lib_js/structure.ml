@@ -148,7 +148,7 @@ class t control () = object(self)
   val mutable _state : (WebSockets.webSocket Js.t,string) Lwt_result.t option = None
   inherit Widget.widget (Dom_html.createDiv Dom_html.document) ()
 
-  method on_load =
+  method private on_load () =
     Requests.get_structs control
     >>= (fun init ->
       let e_structs,sock = Requests.get_structs_ws control in
@@ -157,10 +157,14 @@ class t control () = object(self)
     |> Lwt.map (function Ok x -> Ok x | Error e -> Error (Api_js.Requests.err_to_string e))
     |> fun s -> _state <- Some s
 
-  method on_unload =
+  method private on_unload () =
     match _state with
     | Some s -> s >>= (fun x -> x##close; Lwt_result.return ()) |> ignore
     | None   -> ()
+
+  initializer
+    self#set_on_load @@ Some self#on_load;
+    self#set_on_unload @@ Some self#on_unload;
 
 end
 

@@ -21,6 +21,7 @@ object(self)
   method create : item -> Dashboard.Item.item = function
     | Parameter conf -> Widget_parameter.make self#get_status conf
   method destroy () = self#destroy_status; _status_ref <- 0
+  method available : Dashboard.available = `List [ ]
   method serialize (x:item) : Yojson.Safe.json = item_to_yojson x
   method deserialize (json:Yojson.Safe.json) : (item,string) result = item_of_yojson json
 

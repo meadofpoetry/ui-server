@@ -44,6 +44,7 @@ class t ?(animating=true) ~(anchor:anchor) ~(content:#Widget.widget list) () =
     method drawer     = _drawer
     method show ()    = self#root##.classList##add (Js.string Markup.Drawer.animating_class);
                         self#root##.classList##add (Js.string Markup.Drawer.open_class);
+                        self#_disable_scroll ();
                         let _ = timeout
                                   ~f:(fun _ -> self#root##.classList##remove
                                                  (Js.string Markup.Drawer.animating_class))
@@ -60,11 +61,11 @@ class t ?(animating=true) ~(anchor:anchor) ~(content:#Widget.widget list) () =
                                      Option.iter (fun x -> Dom_events.stop_listen x) !l;
                                      true));
       t
-    method hide () = self#root##.classList##add (Js.string Markup.Drawer.animating_class);
-                     self#root##.classList##remove (Js.string Markup.Drawer.open_class);
+    method hide () = self#add_class Markup.Drawer.animating_class;
+                     self#remove_class Markup.Drawer.open_class;
+                     self#_enable_scroll ();
                      let _ = timeout
-                               ~f:(fun _ -> self#root##.classList##remove
-                                              (Js.string Markup.Drawer.animating_class))
+                               ~f:(fun () -> self#remove_class Markup.Drawer.animating_class)
                                ~timer:200.
                      in
                      ()

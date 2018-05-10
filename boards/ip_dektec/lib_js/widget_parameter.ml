@@ -103,10 +103,7 @@ module Make(M:M) = struct
     end
 
   let make (event:event) (config:config) : Dashboard.Item.item =
-    { name     = get_name config
-    ; settings = None
-    ; widget   = (new t event config ())#widget
-    }
+    Dashboard.Item.to_item ~name:(get_name config) (new t event config ())#widget
 
 end
 

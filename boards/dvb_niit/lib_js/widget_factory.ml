@@ -5,13 +5,58 @@ open Lwt_result.Infix
 
 (* Widget type *)
 type item =
-  | Module_measure  of Widget_module_measure.config
-  | Module_measures of Widget_module_measures.config
-  | Measures        of Widget_measures.config
-  | Measure         of Widget_measure.config
-  | Chart           of Widget_chart.config
-  | Module_settings of Widget_module_settings.config
-  | Settings        of Widget_settings.config [@@deriving yojson]
+  | Module_measure  of Widget_module_measure.config option
+  | Module_measures of Widget_module_measures.config option
+  | Measures        of Widget_measures.config option
+  | Measure         of Widget_measure.config option
+  | Chart           of Widget_chart.config option
+  | Module_settings of Widget_module_settings.config option
+  | Settings        of Widget_settings.config option [@@deriving yojson]
+
+let item_to_info : item -> Dashboard.Item.info = fun item ->
+  let serialized = item_to_yojson item in
+  match item with
+  | Module_measure _  ->
+     Dashboard.Item.to_info ~title:"Параметр (для модуля)"
+                            ~thumbnail:(`Icon "show_chart")
+                            ~description:"Отображает выбранный измеряемый параметр для выбранного модуля"
+                            ~serialized
+                            ()
+  | Module_measures _ ->
+     Dashboard.Item.to_info ~title:"Параметры (для модуля)"
+                            ~thumbnail:(`Icon "show_chart")
+                            ~description:"Отображает все измеряемые параметры для выбранного модуля"
+                            ~serialized
+                            ()
+  | Measures _        ->
+     Dashboard.Item.to_info ~title:"Параметры"
+                            ~thumbnail:(`Icon "show_chart")
+                            ~description:"Отображает все измеряемые параметры"
+                            ~serialized
+                            ()
+  | Measure _         ->
+     Dashboard.Item.to_info ~title:"Параметр"
+                            ~thumbnail:(`Icon "show_chart")
+                            ~description:"Отображает выбранный измеряемый параметр"
+                            ~serialized
+                            ()
+  | Chart _           ->
+     Dashboard.Item.to_info ~title:"График"
+                            ~thumbnail:(`Icon "multiline_chart")
+                            ~description:"Отображает изменение выбранного измеряемого параметра во времени"
+                            ~serialized
+                            ()
+  | Module_settings _ ->
+     Dashboard.Item.to_info ~title:"Настройки (для модуля)"
+                            ~thumbnail:(`Icon "settings")
+                            ~description:"Позволяет осуществлять настройку выбранного модуля" ()
+                            ~serialized
+  | Settings _        ->
+     Dashboard.Item.to_info ~title:"Настройки"
+                            ~thumbnail:(`Icon "settings")
+                            ~description:"Позволяет осуществлять настройку"
+                            ~serialized
+                            ()
 
 let return = Lwt_result.return
 
@@ -44,11 +89,23 @@ object(self)
                                                    ~config:self#get_config
                                                    conf control
 
+  method destroy () = _state_ref <- 0; _config_ref <- 0; _measures_ref <- 0;
+                      self#destroy_state; self#destroy_config; self#destroy_measures
+
+  method available : Dashboard.available =
+    `List [ item_to_info (Measures None)
+          ; item_to_info (Measure None)
+          ; item_to_info (Chart None)
+          ; item_to_info (Settings None)
+          ; item_to_info (Module_measure None)
+          ; item_to_info (Module_measures None)
+          ; item_to_info (Module_settings None)
+          ]
+
   method serialize (x : item) : Yojson.Safe.json = item_to_yojson x
   method deserialize (json : Yojson.Safe.json) : (item,string) result = item_of_yojson json
 
-  method destroy () = _state_ref <- 0; _config_ref <- 0; _measures_ref <- 0;
-                      self#destroy_state; self#destroy_config; self#destroy_measures
+  (** Private methods **)
 
   method private destroy_state =
     _state_ref <- _state_ref - 1;

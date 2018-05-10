@@ -55,8 +55,11 @@ module Row = struct
 
 end
 
-let make ~(measures:Board_types.measure_response React.event) (config:config) : Dashboard.Item.item =
+let default_config = { id = 0 }
+
+let make ~(measures:Board_types.measure_response React.event) (config:config option) : Dashboard.Item.item =
   let open Row in
+  let config = Option.get_or ~default:default_config config in
   let measures = React.E.filter (fun (id,_) -> id = config.id) measures
                  |> React.E.map snd
   in
@@ -70,7 +73,5 @@ let make ~(measures:Board_types.measure_response React.event) (config:config) : 
   in
   let widget  = new Box.t ~vertical:true ~widgets:[power;mer;ber;freq;bitrate] () in
   let ()      = widget#add_class base_class in
-  { name     = Printf.sprintf "Модуль %d. Измерения" (succ config.id)
-  ; settings = None
-  ; widget   = widget#widget
-  }
+  Dashboard.Item.to_item ~name:(Printf.sprintf "Модуль %d. Измерения" (succ config.id))
+                         widget#widget
