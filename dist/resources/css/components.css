@@ -9963,7 +9963,7 @@ a.mdc-tree-item {
   padding: 10px 18px;
   min-height: 100px;
   max-height: 100px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.12); }
+  border-top: 1px solid rgba(0, 0, 0, 0.12); }
   .mdc-dashboard__add-item__thumbnail {
     height: 72px;
     width: 72px;
@@ -10004,8 +10004,6 @@ a.mdc-tree-item {
     text-transform: inherit;
     text-overflow: ellipsis;
     overflow: hidden; }
-  .mdc-dashboard__add-item:last-child {
-    border-bottom: none; }
   .mdc-dashboard__add-item--dragging {
     opacity: 0.5;
     z-index: 5; }
@@ -10056,6 +10054,8 @@ a.mdc-tree-item {
     height: calc(100% - 80px); }
     .mdc-dashboard__item__content > * {
       height: 100%; }
+  .mdc-dashboard__item--editing {
+    pointer-events: none; }
 
 .mdc-parameter-widget {
   display: flex;

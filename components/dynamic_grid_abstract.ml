@@ -34,21 +34,26 @@ class ['a,'b,'c] t ~grid ~(get:'c -> 'a item) ~(items:'a item list) () =
   in
   let items      = List.map (fun item -> new_item item) items in
   let s_change   = let m a x = x :: a in
-                   React.S.map (fun l -> React.S.merge m [] (List.map (fun x -> x#s_change) l)) s_items
+                   React.S.map ~eq:Equal.physical
+                               (fun l -> React.S.merge m [] (List.map (fun x -> x#s_change) l)) s_items
                    |> React.S.switch
   in
   let s_changing = let m a x = x :: a in
-                   React.S.map (fun l -> React.S.merge m [] (List.map (fun x -> x#s_changing) l)) s_items
+                   React.S.map ~eq:Equal.physical
+                               (fun l -> React.S.merge m [] (List.map (fun x -> x#s_changing) l)) s_items
                    |> React.S.switch
   in
-  let s_rows = React.S.map (fun grid ->
-                   match grid.rows with
-                   | Some h -> React.S.const h
-                   | None   -> let merge = (fun acc (x:Position.t) -> if (x.h + x.y) > acc
-                                                                      then (x.h + x.y) else acc) in
-                               React.S.map (fun (l:Position.t list) -> List.fold_left merge 1 l) s_changing)
-                           s_grid
-               |> React.S.switch
+  let s_rows =
+    React.S.map ~eq:Equal.physical
+                (fun grid ->
+                  match grid.rows with
+                  | Some h -> React.S.const h
+                  | None   -> let merge = (fun acc (x:Position.t) ->
+                                  if (x.h + x.y) > acc then (x.h + x.y) else acc) in
+                              React.S.map (fun (l:Position.t list) -> List.fold_left merge 1 l)
+                                          s_changing)
+                s_grid
+    |> React.S.switch
   in
   let elt = Markup.Dynamic_grid.create ~items:[] () |> Tyxml_js.To_dom.of_element in
 
@@ -98,8 +103,7 @@ class ['a,'b,'c] t ~grid ~(get:'c -> 'a item) ~(items:'a item list) () =
       | l  -> Error (Collides l)
 
     method draggable : bool option       = self#grid.draggable
-    method set_draggable (x:bool option) = s_grid_push { self#grid with draggable = x };
-                                           print_endline "success draggable"
+    method set_draggable (x:bool option) = s_grid_push { self#grid with draggable = x }
 
     method resizable : bool option       = self#grid.resizable
     method set_resizable (x:bool option) = s_grid_push { self#grid with resizable = x }
@@ -111,16 +115,14 @@ class ['a,'b,'c] t ~grid ~(get:'c -> 'a item) ~(items:'a item list) () =
     method remove_all () = List.iter (fun x -> self#remove x) self#items
 
     method layout () =
-      let par = Js.Opt.to_option @@ self#root##.parentNode in
-      (match par with
+      (match Js.Opt.to_option @@ self#root##.parentNode with
        | Some p -> let w    = (Js.Unsafe.coerce p)##.offsetWidth in
                    let w    = if w < self#grid.cols then self#grid.cols else w in
                    let mx   = fst self#item_margin in
                    let col  = (w - mx) / self#grid.cols in
                    let col  = if col < mx + 1 then mx + 1 else col in
                    s_col_w_push col;
-                   self#style##.width :=
-                     Js.string @@ Printf.sprintf "%dpx" (col * self#grid.cols + mx);
+                   self#style##.width := Js.string @@ Printf.sprintf "%dpx" (col * self#grid.cols + mx);
                    _overlay_grid#show_dividers;
                    _overlay_grid#layout ()
        | None   -> ())
@@ -133,7 +135,8 @@ class ['a,'b,'c] t ~grid ~(get:'c -> 'a item) ~(items:'a item list) () =
     method private s_rows        = s_rows
     method private s_grid_push   = s_grid_push
 
-    method private get_event_pos e : Position.t option =
+    method private get_event_pos : Dom_html.mouseEvent Js.t -> Position.t option =
+      fun e ->
       let rect = self#bounding_client_rect in
       let x,y  = e##.clientX - (int_of_float rect.left),
                  e##.clientY - (int_of_float rect.top) in

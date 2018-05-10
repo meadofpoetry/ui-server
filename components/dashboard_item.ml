@@ -7,6 +7,7 @@ let content_class = Markup.CSS.add_element item_class "content"
 let heading_class = Markup.CSS.add_element item_class "heading"
 let buttons_class = Markup.CSS.add_element item_class "heading-buttons"
 let button_class  = Markup.CSS.add_element item_class "heading-button"
+let editing_class = Markup.CSS.add_modifier item_class "editing"
 
 type settings =
   { widget : Widget.widget
@@ -27,7 +28,8 @@ type item =
   ; widget      : Widget.widget
   }
 
-let to_info ?(description="") ?(thumbnail=`Icon "help") ~(serialized:Yojson.Safe.json) ~(title:string) () =
+let to_info ?(description="") ?(thumbnail=`Icon "help")
+            ~(serialized:Yojson.Safe.json) ~(title:string) () =
   { title; thumbnail; description; serialized }
 
 let to_item ?settings ~(name:string) (widget:#Widget.widget) =
@@ -77,8 +79,10 @@ class t ~(item:item) () =
     method editable       = _editable
     method set_editable x =
       _editable <- x;
-      if x then (if not self#editable then Dom.appendChild self#heading#root buttons#root)
+      if x then (if self#editable then Dom.appendChild self#heading#root buttons#root)
       else (try Dom.removeChild self#heading#root buttons#root with _ -> ());
+      item.widget#add_or_remove_class x editing_class;
+      List.iter (fun x -> x#layout ()) buttons#widgets
 
     initializer
       Option.iter (fun (s,d) -> let open Lwt.Infix in

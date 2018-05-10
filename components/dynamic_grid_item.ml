@@ -57,9 +57,9 @@ class ['a] t ~s_grid        (* grid props *)
     val resize_button = Markup.Dynamic_grid.Item.create_resize_button ()
                         |> Tyxml_js.To_dom.of_element |> Widget.create
 
-    val _s_draggable_global  = React.S.map ~eq:(Equal.physical) (fun x -> x.draggable) s_grid
-    val _s_resizable_global  = React.S.map ~eq:(Equal.physical) (fun x -> x.resizable) s_grid
-    val _s_selectable_global = React.S.map ~eq:(Equal.physical) (fun x -> x.selectable) s_grid
+    val _s_draggable_global  = React.S.map ~eq:(Equal.option Equal.bool) (fun x -> x.draggable) s_grid
+    val _s_resizable_global  = React.S.map ~eq:(Equal.option Equal.bool) (fun x -> x.resizable) s_grid
+    val _s_selectable_global = React.S.map ~eq:(Equal.option Equal.bool) (fun x -> x.selectable) s_grid
 
     val mutable _main_move_mouse_listener   = None
     val mutable _main_move_touch_listener   = None
@@ -108,36 +108,13 @@ class ['a] t ~s_grid        (* grid props *)
     method set_value (x:'a) = s_value_push x
 
     method draggable        = draggable
-    method set_draggable x  =
-      (match x,draggable with
-       | true, false -> self#add_move_listener ()
-       | false, true -> self#stop_move_listener ()
-       | _           -> ());
-      self#get_drag_target#add_or_remove_class x Markup.Dynamic_grid.Item.drag_handle_class;
-      draggable <- x
+    method set_draggable x  = self#_set_draggable x; draggable <- x
 
     method resizable        = resizable
-    method set_resizable x  =
-      (match x,resizable with
-       | true, false -> self#add_resize_listener ()
-       | false, true -> self#stop_resize_listener ()
-       | _           -> ());
-      if x then Dom.appendChild self#root resize_button#root
-      else (try Dom.removeChild self#root resize_button#root; with _ -> ());
-      resizable <- x
+    method set_resizable x  = self#_set_resizable x; resizable <- x
 
     method selectable       = selectable
-    method set_selectable x =
-      (match x,draggable with
-       | true, false -> self#add_select_listener ()
-       | false, true -> self#stop_select_listener ()
-       | _           -> ());
-      (match x with
-       | true  -> self#set_attribute "tabindex" "0"
-       | false -> self#set_attribute "tabindex" "-1";
-                  self#set_selected false);
-      self#add_or_remove_class x Markup.Dynamic_grid.Item.select_handle_class;
-      selectable <- x
+    method set_selectable x = self#_set_selectable x; selectable <- x
 
     method remove () : unit = self#set_selected false; e_modify_push (`Remove self)
 
@@ -162,6 +139,27 @@ class ['a] t ~s_grid        (* grid props *)
       Option.iter (fun x -> x#layout ()) item.close_widget
 
     (** Private methods **)
+
+    method private _set_draggable x =
+      (match x with
+       | true  -> self#add_move_listener ()
+       | false -> self#stop_move_listener ());
+      self#get_drag_target#add_or_remove_class x Markup.Dynamic_grid.Item.drag_handle_class
+
+    method private _set_resizable x =
+      (match x with
+       | true  -> self#add_resize_listener ()
+       | false -> self#stop_resize_listener ());
+      if x then Dom.appendChild self#root resize_button#root
+      else (try Dom.removeChild self#root resize_button#root; with _ -> ())
+
+    method private _set_selectable x =
+      (match x with
+       | true  -> self#add_select_listener (); self#set_attribute "tabindex" "0"
+       | false -> self#stop_select_listener ();
+                  self#set_attribute "tabindex" "-1";
+                  self#set_selected false);
+      self#add_or_remove_class x Markup.Dynamic_grid.Item.select_handle_class
 
     method private grid = React.S.value s_grid
 
@@ -370,6 +368,7 @@ class ['a] t ~s_grid        (* grid props *)
                                            _main_move_mouse_listener <- None;
                                            _main_move_touch_listener <- None
     method private add_move_listener () =
+      self#stop_move_listener ();
       listen ~save:(fun l -> _main_move_mouse_listener <- l)
              self#get_drag_target#root Typ.mousedown
              (fun _ e -> Dom_html.stopPropagation e;
@@ -428,6 +427,7 @@ class ['a] t ~s_grid        (* grid props *)
                                              _main_resize_mouse_listener <- None;
                                              _main_resize_touch_listener <- None
     method private add_resize_listener () =
+      self#stop_resize_listener ();
       listen ~save:(fun l -> _main_resize_mouse_listener <- l)
              resize_button#root Typ.mousedown (fun _ e ->
                Dom_html.stopPropagation e;
@@ -445,23 +445,21 @@ class ['a] t ~s_grid        (* grid props *)
     method private stop_select_listener () = stop_listen _main_select_listener;
                                              _main_select_listener <- None
     method private add_select_listener () =
+      self#stop_select_listener ();
       listen ~save:(fun l -> _main_select_listener <- l)
              self#root Typ.focus (fun _ _ ->
                if self#selectable && not self#grid.multi_select then self#set_selected true; true);
 
     initializer
       (React.S.map (function
-                    | Some x -> self#set_draggable x
-                    | None   -> self#set_draggable self#draggable) _s_draggable_global |> ignore);
+                    | Some x -> self#_set_draggable x
+                    | None   -> self#_set_draggable self#draggable) _s_draggable_global |> ignore);
       (React.S.map (function
-                    | Some x -> self#set_resizable x
-                    | None   -> self#set_resizable self#resizable) _s_resizable_global |> ignore);
+                    | Some x -> self#_set_resizable x
+                    | None   -> self#_set_resizable self#resizable) _s_resizable_global |> ignore);
       (React.S.map (function
-                    | Some x -> self#set_selectable x
-                    | None   -> self#set_selectable self#selectable) _s_selectable_global |> ignore);
-      self#set_selectable selectable;
-      self#set_draggable  draggable;
-      self#set_resizable  resizable;
+                    | Some x -> self#_set_selectable x
+                    | None   -> self#_set_selectable self#selectable) _s_selectable_global |> ignore);
       (* add close listener to close widget if provided *)
       Option.iter (fun x -> Dom_events.listen x#root Dom_events.Typ.click (fun _ _ ->
                                                 self#remove (); true) |> ignore) item.close_widget;

@@ -15,13 +15,17 @@ class type ['a] factory =
     method deserialize : Yojson.Safe.json -> ('a,string) result
   end
 
+type 'a typ = 'a * t
+
 class ['a] grid (factory:'a #factory) () =
   let get = fun (i:'a positioned_item) ->
     factory#create i.item
     |> fun x -> Dashboard_item.make x
                 |> fun x -> Dynamic_grid.Item.to_item ~close_widget:x#remove#widget
+                                                      ~draggable:true
+                                                      ~resizable:true
                                                       ~widget:x#widget
-                                                      ~value:i.item
+                                                      ~value:(i.item,x)
                                                       ~pos:i.position
                                                       ()
   in
@@ -36,8 +40,8 @@ class ['a] grid (factory:'a #factory) () =
   object(self)
     val mutable _enter_target = Js.null
     val mutable _typ          = ""
-    inherit ['a,
-             'a Dynamic_grid.Item.t,
+    inherit ['a typ,
+             'a typ Dynamic_grid.Item.t,
              'a positioned_item] Dynamic_grid_abstract.t ~items:[] ~get ~grid () as super
 
     (** API **)
@@ -46,8 +50,8 @@ class ['a] grid (factory:'a #factory) () =
       | Some false, Some false -> false
       | _                      -> true
     method set_editable x =
-      Printf.printf "in set editable: %s\n" @@ string_of_bool x;
-      super#set_draggable @@ Some x; print_endline "set draggable";
+      List.iter (fun i -> (snd i#value)#set_editable x) super#items; 
+      super#set_draggable @@ Some x;
       super#set_resizable @@ Some x
 
 
@@ -114,7 +118,8 @@ class ['a] grid (factory:'a #factory) () =
                                let pos       = ghost#pos in
                                if not @@ equal pos empty
                                then match factory#deserialize info.serialized with
-                                    | Ok x    -> self#add { item = x; position = pos } |> ignore
+                                    | Ok x    -> self#add { item = x; position = pos }
+                                                 |> Result.iter (fun x -> (snd x#value)#set_editable self#editable)
                                     | Error _ -> ()) (info_of_yojson json);
                            ghost#set_pos Dynamic_grid.Position.empty;
                            true) |> ignore;)

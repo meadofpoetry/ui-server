@@ -42,7 +42,7 @@
         padding: 10px 18px;
         min-height: 100px;
         max-height: 100px;
-        border-bottom: 1px solid rgba(0,0,0,0.12);
+        border-top: 1px solid rgba(0,0,0,0.12);
         &__thumbnail {
             height: 72px;
             width: 72px;
@@ -72,9 +72,6 @@
             @include mdc-typography(body1);
             text-overflow: ellipsis;
             overflow: hidden;
-        }
-        &:last-child {
-            border-bottom: none;
         }
 
         &--dragging {
@@ -127,6 +124,9 @@
             > * {
                 height: 100%;
             }
+        }
+        &--editing {
+            pointer-events: none;
         }
     }
 }

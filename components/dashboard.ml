@@ -19,9 +19,7 @@ class ['a] t ~(items:'a Item.positioned_item list) (factory:'a #factory) () =
                                                               | `Groups _ -> [])) ()
   in
   let fab = new Fab.t ~icon:"edit" () in
-  let _   = React.E.map (fun _ -> print_endline "setting editable";
-                                  grid#set_editable @@ not grid#editable;
-                                  print_endline "set editable";
+  let _   = React.E.map (fun _ -> grid#set_editable @@ not grid#editable;
                                   add_panel#show ()) fab#e_click in
   object(self)
 
@@ -30,7 +28,7 @@ class ['a] t ~(items:'a Item.positioned_item list) (factory:'a #factory) () =
     method grid = grid
 
     method serialize () : Yojson.Safe.json =
-      List.map (fun x -> let (i:'a Item.positioned_item) = { position = x#pos; item = x#value} in
+      List.map (fun x -> let (i:'a Item.positioned_item) = { position = x#pos; item = fst x#value} in
                          Item.positioned_item_to_yojson factory#serialize i) self#grid#items
       |> fun l -> `List l
 
