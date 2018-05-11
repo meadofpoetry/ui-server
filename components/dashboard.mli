@@ -75,6 +75,8 @@ class ['a] t :
         object
           inherit Box.t
 
+          method e_edited        : Yojson.Safe.json React.event
+
           method grid            : 'a grid
           method serialize       : unit -> Yojson.Safe.json
           method deserialize     : Yojson.Safe.json -> ('a Item.positioned_item list,string) result

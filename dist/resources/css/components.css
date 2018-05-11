@@ -3249,6 +3249,55 @@
     transform: scale(0);
     transition: transform 135ms 0ms cubic-bezier(0.4, 0, 1, 1); }
 
+.mdc-fab-speed-dial {
+  display: flex;
+  margin: -6px -8px; }
+  .mdc-fab-speed-dial__main {
+    margin: 6px 8px; }
+  .mdc-fab-speed-dial__actions {
+    display: flex;
+    height: auto; }
+    .mdc-fab-speed-dial__actions .mdc-fab {
+      margin: 6px 8px;
+      transition: all 0.3s cubic-bezier(0.55, 0, 0.55, 0.2);
+      transition-duration: .14286s; }
+  .mdc-fab-speed-dial--animation-scale .mdc-fab-speed-dial__actions .mdc-fab {
+    opacity: 0; }
+  .mdc-fab-speed-dial--animation-scale.mdc-fab-speed-dial--opened .mdc-fab-speed-dial__actions .mdc-fab {
+    opacity: 1; }
+  .mdc-fab-speed-dial--direction-up {
+    flex-direction: column;
+    align-items: center; }
+    .mdc-fab-speed-dial--direction-up .mdc-fab-speed-dial__main {
+      order: 2; }
+    .mdc-fab-speed-dial--direction-up .mdc-fab-speed-dial__actions {
+      flex-direction: column-reverse;
+      order: 1; }
+  .mdc-fab-speed-dial--direction-down {
+    align-items: center;
+    flex-direction: column; }
+    .mdc-fab-speed-dial--direction-down .mdc-fab-speed-dial__main {
+      order: 1; }
+    .mdc-fab-speed-dial--direction-down .mdc-fab-speed-dial__actions {
+      flex-direction: column;
+      order: 2; }
+  .mdc-fab-speed-dial--direction-left {
+    align-items: center;
+    flex-direction: row; }
+    .mdc-fab-speed-dial--direction-left .mdc-fab-speed-dial__main {
+      order: 2; }
+    .mdc-fab-speed-dial--direction-left .mdc-fab-speed-dial__actions {
+      flex-direction: row-reverse;
+      order: 1; }
+  .mdc-fab-speed-dial--direction-right {
+    align-items: center;
+    flex-direction: row; }
+    .mdc-fab-speed-dial--direction-right .mdc-fab-speed-dial__main {
+      order: 1; }
+    .mdc-fab-speed-dial--direction-right .mdc-fab-speed-dial__actions {
+      flex-direction: row;
+      order: 2; }
+
 /**
  * Creates a rule that will be applied when an MDC Web component is within the context of an RTL layout.
  *
@@ -9963,7 +10012,10 @@ a.mdc-tree-item {
   padding: 10px 18px;
   min-height: 100px;
   max-height: 100px;
-  border-top: 1px solid rgba(0, 0, 0, 0.12); }
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
+  /* @alternate */
+  background-color: #fff;
+  background-color: var(--mdc-theme-background, #fff); }
   .mdc-dashboard__add-item__thumbnail {
     height: 72px;
     width: 72px;
@@ -10005,8 +10057,7 @@ a.mdc-tree-item {
     text-overflow: ellipsis;
     overflow: hidden; }
   .mdc-dashboard__add-item--dragging {
-    opacity: 0.5;
-    z-index: 5; }
+    z-index: 1000; }
 .mdc-dashboard .mdc-dynamic-grid__item {
   box-shadow: 0px 3px 1px -2px rgba(0, 0, 0, 0.2), 0px 2px 2px 0px rgba(0, 0, 0, 0.14), 0px 1px 5px 0px rgba(0, 0, 0, 0.12);
   /* @alternate */

@@ -16,9 +16,10 @@ module Keyboard_event = struct
   let event_to_key (e:Dom_html.keyboardEvent Js.t) =
     let key  = Option.map Js.to_string @@ Js.Optdef.to_option e##.key in
     (match key,e##.keyCode with
-     | Some "Delete", _ | _, 46 -> `Delete e
-     | Some "Enter", _  | _, 13 -> `Enter e
-     | _                        -> `Unknown e)
+     | Some "Delete", _ | _, 46                -> `Delete e
+     | Some "Enter", _  | _, 13                -> `Enter e
+     | Some "Escape",_  | Some "Esc",_ | _, 27 -> `Escape e
+     | _                                       -> `Unknown e)
 
   let listen ?(typ=`Keydown) ?(prevent_default=false) ~f elt =
     let typ = match typ with
