@@ -3251,52 +3251,56 @@
 
 .mdc-fab-speed-dial {
   display: flex;
-  margin: -6px -8px; }
-  .mdc-fab-speed-dial__main {
-    margin: 6px 8px; }
-  .mdc-fab-speed-dial__actions {
-    display: flex;
-    height: auto; }
-    .mdc-fab-speed-dial__actions .mdc-fab {
-      margin: 6px 8px;
-      transition: all 0.3s cubic-bezier(0.55, 0, 0.55, 0.2);
-      transition-duration: .14286s; }
-  .mdc-fab-speed-dial--animation-scale .mdc-fab-speed-dial__actions .mdc-fab {
-    opacity: 0; }
-  .mdc-fab-speed-dial--animation-scale.mdc-fab-speed-dial--opened .mdc-fab-speed-dial__actions .mdc-fab {
-    opacity: 1; }
+  margin: -14px; }
   .mdc-fab-speed-dial--direction-up {
     flex-direction: column;
     align-items: center; }
     .mdc-fab-speed-dial--direction-up .mdc-fab-speed-dial__main {
       order: 2; }
     .mdc-fab-speed-dial--direction-up .mdc-fab-speed-dial__actions {
-      flex-direction: column-reverse;
-      order: 1; }
+      order: 1;
+      flex-direction: column-reverse; }
   .mdc-fab-speed-dial--direction-down {
-    align-items: center;
-    flex-direction: column; }
+    flex-direction: column;
+    align-items: center; }
     .mdc-fab-speed-dial--direction-down .mdc-fab-speed-dial__main {
       order: 1; }
     .mdc-fab-speed-dial--direction-down .mdc-fab-speed-dial__actions {
-      flex-direction: column;
-      order: 2; }
+      order: 2;
+      flex-direction: column; }
   .mdc-fab-speed-dial--direction-left {
-    align-items: center;
-    flex-direction: row; }
+    flex-direction: row;
+    align-items: center; }
     .mdc-fab-speed-dial--direction-left .mdc-fab-speed-dial__main {
       order: 2; }
     .mdc-fab-speed-dial--direction-left .mdc-fab-speed-dial__actions {
-      flex-direction: row-reverse;
-      order: 1; }
+      order: 1;
+      flex-direction: row-reverse; }
   .mdc-fab-speed-dial--direction-right {
-    align-items: center;
-    flex-direction: row; }
+    flex-direction: row;
+    align-items: center; }
     .mdc-fab-speed-dial--direction-right .mdc-fab-speed-dial__main {
       order: 1; }
     .mdc-fab-speed-dial--direction-right .mdc-fab-speed-dial__actions {
-      flex-direction: row;
-      order: 2; }
+      order: 2;
+      flex-direction: row; }
+
+.mdc-fab-speed-dial__main .mdc-fab {
+  margin: 6px 8px; }
+
+.mdc-fab-speed-dial__actions {
+  display: flex;
+  height: auto; }
+  .mdc-fab-speed-dial__actions .mdc-fab-speed-dial__action {
+    transition: all 0.25s cubic-bezier(0.55, 0, 0.55, 0.2); }
+    .mdc-fab-speed-dial__actions .mdc-fab-speed-dial__action .mdc-fab {
+      margin: 6px 8px; }
+
+.mdc-fab-speed-dial--animation-scale .mdc-fab-speed-dial__actions .mdc-fab-speed-dial__action {
+  transition-duration: .14286s;
+  opacity: 0; }
+.mdc-fab-speed-dial--animation-scale.mdc-fab-speed-dial--opened .mdc-fab-speed-dial__actions .mdc-fab-speed-dial__action {
+  opacity: 1; }
 
 /**
  * Creates a rule that will be applied when an MDC Web component is within the context of an RTL layout.

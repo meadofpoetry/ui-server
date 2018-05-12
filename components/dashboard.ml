@@ -19,7 +19,7 @@ class ['a] t ~(items:'a Item.positioned_item list) (factory:'a #factory) () =
                                                               | `Groups _ -> [])) ()
   in
   let add    = new Fab.t ~icon:"add" () in
-  let fab    = new Fab_speed_dial.t ~icon:"edit" ~items:[add] () in
+  let fab    = new Fab_speed_dial.t ~direction:`Up ~animation:`Scale ~icon:"edit" ~items:[add] () in
   let e,push = React.E.create () in
   object(self)
 
@@ -50,9 +50,10 @@ class ['a] t ~(items:'a Item.positioned_item list) (factory:'a #factory) () =
                                        fab#hide ()) fab#main#e_click |> ignore;
       React.E.map (fun _ -> add_panel#show ()) add#e_click |> ignore;
       React.S.map (function true  -> grid#set_editable true;  fab#main#set_icon "check"
-                          | false -> grid#set_editable false; fab#main#set_icon "edit") fab#s_state |> ignore;
+                          | false -> grid#set_editable false; fab#main#set_icon "edit")
+                  fab#s_state |> ignore;
       Dom.appendChild Dom_html.document##.body add_panel#root;
-      self#set_on_load @@ Some (fun () -> self#grid#layout ());
+      self#set_on_load @@ Some (fun () -> self#grid#layout (); fab#hide ());
       fab#add_class edit_button_class;
       self#add_class base_class;
       List.map self#grid#add items |> ignore;

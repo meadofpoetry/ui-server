@@ -158,7 +158,7 @@ class input_widget ~(input_elt:Dom_html.inputElement Js.t) elt () =
   end
 
 class radio_or_cb_widget ~input_elt elt () =
-  let s_state,s_state_push = React.S.create false in
+  let s_state,s_state_push = React.S.create ~eq:Equal.bool false in
   object(self)
 
     inherit input_widget ~input_elt elt ()
