@@ -57,7 +57,11 @@ end
 
 let default_config = { id = 0 }
 
-let make ~(measures:Board_types.measure_response React.event) (config:config option) : Dashboard.Item.item =
+let name conf = let conf = Option.get_or ~default:default_config conf in
+                Printf.sprintf "Модуль %d. Измерения" (succ conf.id)
+let settings  = None
+
+let make ~(measures:Board_types.measure_response React.event) (config:config option) =
   let open Row in
   let config = Option.get_or ~default:default_config config in
   let measures = React.E.filter (fun (id,_) -> id = config.id) measures
@@ -73,5 +77,4 @@ let make ~(measures:Board_types.measure_response React.event) (config:config opt
   in
   let widget  = new Box.t ~vertical:true ~widgets:[power;mer;ber;freq;bitrate] () in
   let ()      = widget#add_class base_class in
-  Dashboard.Item.to_item ~name:(Printf.sprintf "Модуль %d. Измерения" (succ config.id))
-                         widget#widget
+  widget#widget

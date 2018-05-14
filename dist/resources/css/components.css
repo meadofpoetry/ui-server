@@ -10062,14 +10062,14 @@ a.mdc-tree-item {
     overflow: hidden; }
   .mdc-dashboard__add-item--dragging {
     z-index: 1000; }
-.mdc-dashboard .mdc-dynamic-grid__item {
+
+.mdc-dashboard__item {
   box-shadow: 0px 3px 1px -2px rgba(0, 0, 0, 0.2), 0px 2px 2px 0px rgba(0, 0, 0, 0.14), 0px 1px 5px 0px rgba(0, 0, 0, 0.12);
   /* @alternate */
   background-color: #fff;
   background-color: var(--mdc-theme-background, #fff);
-  overflow: hidden; }
-.mdc-dashboard__item {
   height: 100%;
+  overflow: hidden;
   position: relative; }
   .mdc-dashboard__item__heading {
     height: 18px;

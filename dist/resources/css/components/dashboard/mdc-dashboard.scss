@@ -1,4 +1,3 @@
-
 @import '../theme/_mixins';
 @import '../elevation/_mixins';
 @import '../typography/_mixins';
@@ -82,53 +81,51 @@
     }
 
     .mdc-dynamic-grid__item {
-        @include mdc-elevation(2);
-        @include mdc-theme-prop(background-color, background);
-        overflow: hidden;
     }
+}
 
-    &__item {
-        height: 100%;
-        // overflow-y: auto;
-        position: relative;
-
-        &__heading {
-            height: 18px;
-            .mdc-card__title {
-                @include mdc-typography(caption);
-                text-overflow: ellipsis;
-                white-space: nowrap;
-                overflow: hidden;
-            }
-            display: flex;
-            flex-direction: row;
-            justify-content: space-between;
+.mdc-dashboard__item {
+    @include mdc-elevation(2);
+    @include mdc-theme-prop(background-color, background);
+    height: 100%;
+    overflow: hidden;
+    position: relative;
+    &__heading {
+        height: 18px;
+        .mdc-card__title {
+            @include mdc-typography(caption);
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            overflow: hidden;
         }
-        &__heading-buttons {
-            display: flex;
-            justify-content: flex-end;
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+    }
+    &__heading-buttons {
+        display: flex;
+        justify-content: flex-end;
+    }
+    &__heading-button {
+        @include mdc-theme-prop(color,text-icon-on-background);
+        font-size: 16px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: 10px;
+    }
+    &__content {
+        margin: 15px;
+        height: calc(100% - 80px);
+        > * {
+            height: 100%;
         }
-        &__heading-button {
-            @include mdc-theme-prop(color,text-icon-on-background);
-            font-size: 16px;
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-left: 10px;
-        }
-        &__content {
-            margin: 15px;
-            height: calc(100% - 80px);
-            > * {
-                height: 100%;
-            }
-        }
-        &--editing {
-            pointer-events: none;
-        }
+    }
+    &--editing {
+        pointer-events: none;
     }
 }
 

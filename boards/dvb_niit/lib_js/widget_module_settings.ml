@@ -135,30 +135,23 @@ let make_module_settings ~(id:    int)
 
 let default_config = { id = 0 }
 
-let make ~(state:  (Common.Topology.state React.signal,string) Lwt_result.t)
-         ~(config: (Board_types.config React.signal,string) Lwt_result.t)
-         (conf: config option)
-         control : Dashboard.Item.item =
+let name conf = Printf.sprintf "Модуль %d. Настройки" (succ (Option.get_or ~default:default_config conf).id)
+let settings  = None
+
+let make ~(state:  Common.Topology.state React.signal)
+         ~(config: Board_types.config React.signal)
+         (conf:    config option)
+         control =
   let conf = Option.get_or ~default:default_config conf in
-  let t = state >>= (fun s -> config >>= (fun c -> Lwt_result.return (s,c))) in
-  let t = t >>= (fun (state,config) ->
-      let get = List.Assoc.get_exn ~eq:(=) conf.id in
-      let w,s,set = make_module_settings ~id:conf.id
-                                         ~init:(get @@ React.S.value config)
-                                         ~event:(React.S.changes @@ React.S.map get config)
-                                         ~state
-                                         control
-                                         ()
-      in
-      let a   = Ui_templates.Buttons.create_apply s set in
-      let box = new Box.t ~vertical:true ~widgets:[w;a#widget] () in
-      let ()  = box#add_class "mdc-settings-widget" in
-      Lwt_result.return box#widget)
+  let get = List.Assoc.get_exn ~eq:(=) conf.id in
+  let w,s,set = make_module_settings ~id:conf.id
+                                     ~init:(get @@ React.S.value config)
+                                     ~event:(React.S.changes @@ React.S.map get config)
+                                     ~state
+                                     control
+                                     ()
   in
-  Dashboard.Item.to_item ~name:(Printf.sprintf "Модуль %d. Настройки" (succ conf.id))
-                         (object
-                            inherit Ui_templates.Loader.widget_loader t () as super
-                            method! layout () = super#layout ();
-                                                t >>= (fun w -> w#layout (); Lwt_result.return ())
-                                                |> Lwt.ignore_result
-                          end)#widget
+  let a   = Ui_templates.Buttons.create_apply s set in
+  let box = new Box.t ~vertical:true ~widgets:[w;a#widget] () in
+  let ()  = box#add_class "mdc-settings-widget" in
+  box#widget

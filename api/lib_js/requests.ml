@@ -8,7 +8,8 @@ type 'a contents = [ `Blob of (#File.blob Js.t as 'a)
                    | `String of string
                    ]
 
-let err_to_string ?(to_string:('a -> string) option) = function
+let err_to_string : 'a. ?to_string:('a -> string) -> 'a err -> string = fun ?to_string err ->
+  match err with
   | `Data (i,a) -> (match to_string with
                     | Some f -> Printf.sprintf "Код %d. %s" i @@ f a
                     | None   -> Printf.sprintf "Код %d" i)
