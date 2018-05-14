@@ -50,6 +50,51 @@ let fab_demo () =
   in
   demo_section "FAB" [box]
 
+let fab_speed_dial_demo () =
+  let items = List.map (fun icon -> new Fab.t ~icon ()) ["face"; "add"; "close"] in
+  let fab   = new Fab_speed_dial.t ~icon:"edit" ~items () in
+  let up    = new Radio.t ~name:"dir" ~value:`Up () in
+  let down  = new Radio.t ~name:"dir" ~value:`Down () in
+  let left  = new Radio.t ~name:"dir" ~value:`Left () in
+  let right = new Radio.t ~name:"dir" ~value:`Right () in
+  let f x   = React.S.map ~eq:(fun _ _ -> false)
+                          (function true -> print_endline "changed";
+                                            fab#set_direction x#value | false -> ()) x#s_state in
+  let _     = f up in
+  let _     = f down in
+  let _     = f left in
+  let _     = f right in
+  let dbox = new Box.t
+                 ~widgets:[ new Form_field.t ~label:"Up" ~input:up ()
+                          ; new Form_field.t ~label:"Down" ~input:down ()
+                          ; new Form_field.t ~label:"Left" ~input:left ()
+                          ; new Form_field.t ~label:"Right" ~input:right ()
+                          ]
+                 ~vertical:false
+                 ()
+  in
+  let fling = new Radio.t ~name:"anim" ~value:`Fling () in
+  let scale = new Radio.t ~name:"anim" ~value:`Scale () in
+  let f x   = React.S.map ~eq:(fun _ _ -> false)
+                          (function true -> print_endline "changed";
+                                            fab#set_animation x#value | false -> ()) x#s_state in
+  let _ = f fling in
+  let _ = f scale in
+  let abox = new Box.t
+                 ~widgets:[ new Form_field.t ~label:"Fling" ~input:fling ()
+                          ; new Form_field.t ~label:"Scale" ~input:scale ()
+                          ]
+                 ~vertical:false
+                 ()
+  in
+  let _ = fling#set_checked true in
+  let _ = up#set_checked true in
+  let _ = React.E.map (fun _ -> match React.S.value fab#s_state with
+                                | false -> fab#show ()
+                                | true  -> fab#hide ()) fab#main#e_click
+  in
+  demo_section "FAB speed dial" [ dbox#widget; abox#widget; fab#widget ]
+
 let radio_demo () =
   let radio1 = new Radio.t ~name:"radio" ~value:() () in
   let radio2 = new Radio.t ~name:"radio" ~value:() () in
@@ -698,6 +743,7 @@ let onload _ =
                         ; chart_demo ()
                         ; time_chart_demo ()
                         ; fab_demo ()
+                        ; fab_speed_dial_demo ()
                         ; radio_demo ()
                         ; checkbox_demo ()
                         ; switch_demo ()
