@@ -5,6 +5,8 @@ open Lwt.Infix
 
 include Boards_js.Requests
 
+type ('a,'b) rsp = ('a,'b Api_js.Requests.err) Lwt_result.t
+
 let to_unit = fun _ -> Ok ()
 
 let post_reset control () =
@@ -71,3 +73,54 @@ let get_jitter_ws control =
 
 let get_incoming_streams_ws control =
   WS.get (Printf.sprintf "api/board/%d/incoming_streams" control) Common.Stream.t_list_of_yojson
+
+module Errors = struct
+
+  open Common.Time
+
+  type percentage =
+    { errors  : float
+    ; no_sync : float
+    ; no_data : float
+    } [@@deriving yojson]
+
+  type priority = [ `Ts   of [`P1 | `P2 | `P3 ]
+                  | `T2mi of [`Container | `T2MI]
+                  ] [@@deriving yojson]
+
+  type time_segment = Seconds.t * Seconds.t [@@deriving yojson]
+
+  type period = [ `Segment of time_segment (* period from N1 to N2 *)
+                | `Latest  of Seconds.t    (* latest N seconds *)
+                ] [@@deriving yojson]
+
+  type body =
+    { priority : priority option
+    ; errors   : int list option
+    ; period   : period
+    ; stream   : Common.Stream.t
+    } [@@deriving yojson]
+
+  type ts_errors_response =
+    { errors  : ts_errors list
+    ; no_data : time_segment list
+    ; no_sync : time_segment list
+    }
+
+  let get_ts_errors ?priority ?errors ~period stream control : (ts_error list,'a) rsp =
+    let contents = { priority; errors; period; stream } |> body_to_yojson in
+    post_result ~contents ts_error_list_of_yojson (Printf.sprintf "/api/board/%d/ts_errors" control)
+
+  let get_ts_errors_percentage ?priority ?errors ~period stream control : (percentage,'a) rsp =
+    let contents = { priority; errors; period; stream } |> body_to_yojson in
+    post_result ~contents percentage_of_yojson (Printf.sprintf "/api/board/%d/ts_errors_percentage" control)
+
+  let has_ts_errors ?priority ?errors ~period stream control : (bool,'a) rsp =
+    let bool_of_yojson = function
+      | `Bool x -> Ok x
+      | x       -> Error (Printf.sprintf "bool_of_yojson: bad boolean value: %s" (Yojson.Safe.to_string x))
+    in
+    let contents = { priority; errors; period; stream } |> body_to_yojson in
+    post_result ~contents bool_of_yojson (Printf.sprintf "/api/board/%d/has_ts_errors" control)
+
+end

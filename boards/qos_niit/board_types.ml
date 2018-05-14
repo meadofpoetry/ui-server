@@ -72,8 +72,10 @@ type ts_error =
   ; param_2   : int32
   } [@@deriving yojson]
 
+type ts_error_list = ts_error list [@@deriving yojson]
+
 type ts_errors =
-  { stream_id : Common.Stream.id
+  { sream_id : Common.Stream.id
   ; errors    : ts_error list
   } [@@deriving yojson]
 
