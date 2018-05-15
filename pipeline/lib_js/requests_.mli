@@ -73,7 +73,7 @@ end
 
 module Errors_api : sig
 
-  open Qoe_errors
+  open Qoe_errors_types
 
   module Real_time : sig
 

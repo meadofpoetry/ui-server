@@ -12,8 +12,8 @@
   (preprocess (pps (js_of_ocaml-ppx ppx_deriving_yojson ppx_deriving.eq)))))
 
 (rule
- ((targets (qoe_errors.ml))
-  (deps (../qoe_errors.ml))
+ ((targets (qoe_errors_types.ml))
+  (deps (../qoe_errors_types.ml))
   (action (copy ${<} ${@}))))
 
 (rule

@@ -109,6 +109,7 @@ end
 module Period = struct
 
   module Hours = struct
+
     type t = Ptime.span
 
     let of_hours s = Ptime.Span.of_int_s (3600 * s)
@@ -130,5 +131,41 @@ module Period = struct
     let to_yojson v = `Int (to_hours v)
 
   end
+
+end
+
+module type Time_unit = sig
+
+  type t = Ptime.t
+  val to_yojson : t -> Yojson.Safe.json
+  val of_yojson : Yojson.Safe.json -> (t,string) result
+
+end
+
+module type Interval_item = sig
+
+  type t
+  type unit
+  val from      : t -> unit
+  val till      : t -> unit
+  val to_yojson : t -> Yojson.Safe.json
+  val of_yojson : Yojson.Safe.json -> (t,string) result
+
+end
+
+module Make_interval(M:Time_unit) = struct
+
+  type t = M.t * M.t [@@deriving yojson]
+
+  let from (t:t) = fst t
+  let till (t:t) = snd t
+
+end
+
+module Interval = struct
+
+  module Useconds = Make_interval(Useconds)
+  module Seconds  = Make_interval(Seconds)
+  module Hours    = Make_interval(Hours)
 
 end

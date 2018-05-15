@@ -1,148 +1,150 @@
 open Containers
 open Components
-open Qoe_errors
-   
-module Plots = struct
+open Qoe_errors_types
 
-  let colors = Array.init 100 (fun _ -> Random.run (Random.int 255),
-                                        Random.run (Random.int 255),
-                                        Random.run (Random.int 255))
-             
-  type plot_meta = { stream  : int
-                   ; channel : int
-                   ; pid     : int
-                   ; desc    : string
-                   }
 
-  let to_plot_meta (sl : Structure.t list) =
-    let of_stream (s : Structure.t) =
-      let str = s.structure in
-      let stream = Int32.to_int str.id in
-      (* let stream_desc = "Поток " ^ str.uri in *)
-      let of_channel (c : Structure.channel) =
-        let channel_desc = c.service_name in
-        let of_pid (p : Structure.pid) =
-          if not p.to_be_analyzed
-          then None
-          else Some { stream
-                    ; channel = c.number
-                    ; pid = p.pid
-                    ; desc = Printf.sprintf "%s, PID: %d" channel_desc p.pid
-                 }
-        in
-        List.filter_map of_pid c.pids
-      in
-      List.concat @@ List.map of_channel str.channels
-    in
-    List.concat @@ List.map of_stream sl
+(* module Plots = struct
+ * 
+ *   let colors = Array.init 100 (fun _ -> Random.run (Random.int 255),
+ *                                         Random.run (Random.int 255),
+ *                                         Random.run (Random.int 255))
+ *              
+ *   type plot_meta = { stream  : int
+ *                    ; channel : int
+ *                    ; pid     : int
+ *                    ; desc    : string
+ *                    }
+ * 
+ *   let to_plot_meta (sl : Structure.t list) =
+ *     let of_stream (s : Structure.t) =
+ *       let str = s.structure in
+ *       let stream = Int32.to_int str.id in
+ *       (\* let stream_desc = "Поток " ^ str.uri in *\)
+ *       let of_channel (c : Structure.channel) =
+ *         let channel_desc = c.service_name in
+ *         let of_pid (p : Structure.pid) =
+ *           if not p.to_be_analyzed
+ *           then None
+ *           else Some { stream
+ *                     ; channel = c.number
+ *                     ; pid = p.pid
+ *                     ; desc = Printf.sprintf "%s, PID: %d" channel_desc p.pid
+ *                  }
+ *         in
+ *         List.filter_map of_pid c.pids
+ *       in
+ *       List.concat @@ List.map of_channel str.channels
+ *     in
+ *     List.concat @@ List.map of_stream sl
+ * 
+ *   module M = CCMap.Make(struct
+ *                  type t = int * int * int
+ *                  let compare ((l1, l2, l3) : t) ((r1, r2, r3) : t) =
+ *                    let c1 = compare l1 r1 in
+ *                    if not (c1 = 0) then c1
+ *                    else let c2 = compare l2 r2 in
+ *                         if not (c2 = 0) then c2
+ *                         else compare l3 r3
+ *                end)
+ * 
+ *   let chart ~typ ~metas ~(extract : Video_data.errors -> float) ~y_max ~y_min ~e () =
+ *     let open Chartjs.Line in
+ *     let pairs = List.mapi (fun idx pm -> ((pm.stream, pm.channel, pm.pid), idx),
+ *                                          { data = []; label = pm.desc } )
+ *                   metas in
+ *     let t, data = List.split pairs in
+ *     let table  = M.of_list t in
+ *     let config = new Config.t
+ *                    ~x_axis:(Time ("my-x-axis",Bottom,Unix,Some 40000L))
+ *                    ~y_axis:(Linear ("my-y-axis",Left,typ,None))
+ *                    ~data
+ *                    ()
+ *     in
+ *     let chart = new t ~config () in
+ *     config#options#y_axis#ticks#set_max y_max;
+ *     config#options#y_axis#ticks#set_min y_min;
+ *     config#options#elements#point#set_radius 0;
+ *     config#options#x_axis#ticks#set_auto_skip_padding 2;
+ *     List.iteri (fun id x ->
+ *         let r, g, b = colors.( id mod Array.length colors ) in
+ *         x#set_background_color @@ Color.rgb r g b;
+ *         x#set_border_color @@ Color.rgb r g b;
+ *         x#set_line_tension 0.;
+ *         x#set_cubic_interpolation_mode Monotone;
+ *         x#set_fill Disabled) config#datasets;
+ *     let _ = React.E.map (fun (id,data) ->
+ *                 let open Video_data in
+ *                 let open Option in
+ *                 (M.get id table >|= fun id ->
+ *                  List.get_at_idx id chart#config#datasets >|= fun ds ->
+ *                  let data = { x = Int64.(Common.Time.Useconds.to_useconds data.black.timestamp / 1000L); y = extract data } in
+ *                  ds#push data;
+ *                  chart#update (Some { duration = Some 0
+ *                                     ; is_lazy  = None
+ *                                     ; easing   = None
+ *                 }))
+ *                 |> ignore) e in
+ *     chart
+ * 
+ *   let chart_card ~typ ~title ~extract ~metas  ~y_max ~y_min ~e () =
+ *     (\* let title = new Card.Title.t ~title () in
+ *      * let prim  = new Card.Primary.t ~widgets:[title] () in *\)
+ *     let media = new Card.Media.t ~widgets:[chart ~typ ~metas ~extract
+ *                                                  ~y_max:(Some y_max) ~y_min:(Some y_min) ~e ()] ()
+ *     in
+ *     new Card.t ~widgets:[ media ] ()
+ * 
+ *   let create
+ *         ~(init:   Structure.t list)
+ *         ~(events: Structure.t list React.event)
+ *         ~(data:   Video_data.t React.event) =
+ *     let id  = "plot-place" in
+ *     let div = Dom_html.createDiv Dom_html.document in
+ *     let make (str : Structure.t list) =
+ *       let open Video_data in
+ *       let metas = to_plot_meta str in
+ *       let e = React.E.map (fun d -> ((d.stream, d.channel,d.pid), d.errors)) data in
+ *       let froz_chart = chart_card
+ *                          ~title:"Заморозка" ~typ:Float
+ *                          ~metas  ~extract:(fun x -> x.freeze.params.avg)
+ *                          ~y_max:100. ~y_min:0. ~e () in
+ *       let blac_chart = chart_card
+ *                          ~title:"Черный кадр" ~typ:Float
+ *                          ~metas ~extract:(fun x -> x.black.params.avg)
+ *                          ~y_max:100. ~y_min:0. ~e () in
+ *       let bloc_chart = chart_card
+ *                          ~title:"Блочность" ~typ:Float
+ *                          ~metas ~extract:(fun x -> x.blocky.params.avg)
+ *                          ~y_max:100. ~y_min:0. ~e () in
+ *       let brig_chart = chart_card
+ *                          ~title:"Средняя яркость" ~typ:Float
+ *                          ~metas ~extract:(fun x -> x.luma.params.avg)
+ *                          ~y_max:250. ~y_min:0. ~e () in
+ *       let diff_chart = chart_card
+ *                          ~title:"Средняя разность" ~typ:Float
+ *                          ~metas ~extract:(fun x -> x.diff.params.avg)
+ *                          ~y_max:250. ~y_min:0. ~e () in
+ *       let cells     = List.map (fun x -> let cell = new Layout_grid.Cell.t ~widgets:[x] () in
+ *                                          cell#set_span 6;
+ *                                          cell#set_span_phone @@ Some 12;
+ *                                          cell#set_span_tablet @@ Some 12;
+ *                                          cell)
+ *                         [ froz_chart#widget; blac_chart#widget; bloc_chart#widget;
+ *                           brig_chart#widget; diff_chart#widget ]
+ *       in
+ *       new Layout_grid.t ~cells ()
+ *     in
+ *     let _ = React.E.map (fun s ->
+ *                 (try Dom.removeChild div (Dom_html.getElementById id)
+ *                  with _ -> print_endline "No el");
+ *                 Dom.appendChild div (make s)#root)
+ *               events
+ *     in
+ *     Dom.appendChild div (make init)#root;
+ *     div
+ *     
+ * end *)
 
-  module M = CCMap.Make(struct
-                 type t = int * int * int
-                 let compare ((l1, l2, l3) : t) ((r1, r2, r3) : t) =
-                   let c1 = compare l1 r1 in
-                   if not (c1 = 0) then c1
-                   else let c2 = compare l2 r2 in
-                        if not (c2 = 0) then c2
-                        else compare l3 r3
-               end)
-
-  let chart ~typ ~metas ~(extract : Video_data.errors -> float) ~y_max ~y_min ~e () =
-    let open Chartjs.Line in
-    let pairs = List.mapi (fun idx pm -> ((pm.stream, pm.channel, pm.pid), idx),
-                                         { data = []; label = pm.desc } )
-                  metas in
-    let t, data = List.split pairs in
-    let table  = M.of_list t in
-    let config = new Config.t
-                   ~x_axis:(Time ("my-x-axis",Bottom,Unix,Some 40000L))
-                   ~y_axis:(Linear ("my-y-axis",Left,typ,None))
-                   ~data
-                   ()
-    in
-    let chart = new t ~config () in
-    config#options#y_axis#ticks#set_max y_max;
-    config#options#y_axis#ticks#set_min y_min;
-    config#options#elements#point#set_radius 0;
-    config#options#x_axis#ticks#set_auto_skip_padding 2;
-    List.iteri (fun id x ->
-        let r, g, b = colors.( id mod Array.length colors ) in
-        x#set_background_color @@ Color.rgb r g b;
-        x#set_border_color @@ Color.rgb r g b;
-        x#set_line_tension 0.;
-        x#set_cubic_interpolation_mode Monotone;
-        x#set_fill Disabled) config#datasets;
-    let _ = React.E.map (fun (id,data) ->
-                let open Video_data in
-                let open Option in
-                (M.get id table >|= fun id ->
-                 List.get_at_idx id chart#config#datasets >|= fun ds ->
-                 let data = { x = Int64.(Common.Time.Useconds.to_useconds data.black.timestamp / 1000L); y = extract data } in
-                 ds#push data;
-                 chart#update (Some { duration = Some 0
-                                    ; is_lazy  = None
-                                    ; easing   = None
-                }))
-                |> ignore) e in
-    chart
-
-  let chart_card ~typ ~title ~extract ~metas  ~y_max ~y_min ~e () =
-    (* let title = new Card.Title.t ~title () in
-     * let prim  = new Card.Primary.t ~widgets:[title] () in *)
-    let media = new Card.Media.t ~widgets:[chart ~typ ~metas ~extract
-                                                 ~y_max:(Some y_max) ~y_min:(Some y_min) ~e ()] ()
-    in
-    new Card.t ~widgets:[ media ] ()
-
-  let create
-        ~(init:   Structure.t list)
-        ~(events: Structure.t list React.event)
-        ~(data:   Video_data.t React.event) =
-    let id  = "plot-place" in
-    let div = Dom_html.createDiv Dom_html.document in
-    let make (str : Structure.t list) =
-      let open Video_data in
-      let metas = to_plot_meta str in
-      let e = React.E.map (fun d -> ((d.stream, d.channel,d.pid), d.errors)) data in
-      let froz_chart = chart_card
-                         ~title:"Заморозка" ~typ:Float
-                         ~metas  ~extract:(fun x -> x.freeze.params.avg)
-                         ~y_max:100. ~y_min:0. ~e () in
-      let blac_chart = chart_card
-                         ~title:"Черный кадр" ~typ:Float
-                         ~metas ~extract:(fun x -> x.black.params.avg)
-                         ~y_max:100. ~y_min:0. ~e () in
-      let bloc_chart = chart_card
-                         ~title:"Блочность" ~typ:Float
-                         ~metas ~extract:(fun x -> x.blocky.params.avg)
-                         ~y_max:100. ~y_min:0. ~e () in
-      let brig_chart = chart_card
-                         ~title:"Средняя яркость" ~typ:Float
-                         ~metas ~extract:(fun x -> x.luma.params.avg)
-                         ~y_max:250. ~y_min:0. ~e () in
-      let diff_chart = chart_card
-                         ~title:"Средняя разность" ~typ:Float
-                         ~metas ~extract:(fun x -> x.diff.params.avg)
-                         ~y_max:250. ~y_min:0. ~e () in
-      let cells     = List.map (fun x -> let cell = new Layout_grid.Cell.t ~widgets:[x] () in
-                                         cell#set_span 6;
-                                         cell#set_span_phone @@ Some 12;
-                                         cell#set_span_tablet @@ Some 12;
-                                         cell)
-                        [ froz_chart#widget; blac_chart#widget; bloc_chart#widget;
-                          brig_chart#widget; diff_chart#widget ]
-      in
-      new Layout_grid.t ~cells ()
-    in
-    let _ = React.E.map (fun s ->
-                (try Dom.removeChild div (Dom_html.getElementById id)
-                 with _ -> print_endline "No el");
-                Dom.appendChild div (make s)#root)
-              events
-    in
-    Dom.appendChild div (make init)#root;
-    div
-    
-end
 
 module Structure = struct
 
