@@ -30,9 +30,11 @@ let id_to_int32 : id -> int32 = function
                         |> Int32.logor (Int32.of_int plp)
   | Unknown x        -> x
 
+type stream_id = [`Ip of Url.t | `Ts of id] [@@deriving yojson, show, eq]
+
 type stream =
   { source      : src
-  ; id          : [`Ip of Url.t | `Ts of id]
+  ; id          : stream_id
   ; description : string option
   }
 and src = Port   of int
@@ -40,7 +42,7 @@ and src = Port   of int
 
 type t =
   { source      : source
-  ; id          : [`Ip of Url.t | `Ts of id]
+  ; id          : stream_id
   ; description : string option
   }
 and source = Input  of Topology.topo_input

@@ -74,6 +74,23 @@ let get_jitter_ws control =
 let get_incoming_streams_ws control =
   WS.get (Printf.sprintf "api/board/%d/incoming_streams" control) Common.Stream.t_list_of_yojson
 
+module Streams = struct
+
+  type ts_structs_response =
+    { structs  : ts_structs
+    ; has_more : bool
+    }
+
+  let get_streams () : (Common.Stream.t list,'a) rsp =
+
+    Lwt_result.fail (`Code 404)
+
+  let get_ts_struct () = ()
+
+  let get_ts_structs () = ()
+
+end
+
 module Errors = struct
 
   open Common.Time

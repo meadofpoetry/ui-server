@@ -499,6 +499,7 @@ module Get_ts_structs : (Request with type req := int with type rsp = ts_struct 
     ; services  = List.filter_map (function `Services x -> Some x | _ -> None) blocks
     ; emm       = get_exn @@ List.find_map (function `Emm x -> Some x | _ -> None) blocks
     ; tables    = List.filter_map (function `Tables x -> Some x | _ -> None) blocks
+    ; timestamp = Option.get_exn @@ Common.Time.of_float_s @@ Unix.gettimeofday ()
     }, if Cbuffer.len rest > 0 then Some rest else None
 
   let of_cbuffer msg =
@@ -529,7 +530,7 @@ module Get_bitrates : (Request with type req := int with type rsp = bitrate list
                         let packets = get_pid_bitrate_packets el in
                         { pid     = get_pid_bitrate_pid el land 0x1FFF
                         ; bitrate = int_of_float @@ br_per_pkt *. (Int32.to_float packets) } :: acc)
-                      iter []) in
+                                 iter []) in
     List.rev pids, rest
 
   let of_tbls_bitrate total_tbls br_per_pkt buf =
@@ -545,7 +546,7 @@ module Get_bitrates : (Request with type req := int with type rsp = bitrate list
                                 ; section_syntax = flags land 1 > 0
                                 ; eit_info       = Some (adv_info_1, adv_info_2)
                                 ; bitrate        = int_of_float @@ br_per_pkt *. (Int32.to_float packets) } :: acc)
-      iter []
+                 iter []
     |> List.rev
 
   let of_stream_bitrate buf =
@@ -563,6 +564,7 @@ module Get_bitrates : (Request with type req := int with type rsp = bitrate list
     ; ts_bitrate
     ; pids
     ; tables
+    ; timestamp  = Option.get_exn @@ Common.Time.of_float_s @@ Unix.gettimeofday ()
     }, if Cbuffer.len rest > 0 then Some rest else None
 
   let of_cbuffer msg =
@@ -781,7 +783,7 @@ module Ts_errors : (Event with type msg := ts_errors) = struct
 
   let msg_code = 0x04
 
-  let of_cbuffer msg =
+  let of_cbuffer msg : ts_errors =
     let common,rest = Cbuffer.split msg sizeof_ts_errors in
     let number      = get_ts_errors_count common in
     let errors,_    = Cbuffer.split rest (number * sizeof_ts_error) in
@@ -798,8 +800,11 @@ module Ts_errors : (Event with type msg := ts_errors) = struct
                                                   ; param_1   = get_ts_error_param_1 el
                                                   ; param_2   = get_ts_error_param_2 el
                                                   } :: acc)
-                        iter [] in
-    { stream_id = Common.Stream.id_of_int32 (get_ts_errors_stream_id common); errors }
+                                   iter [] in
+    { stream_id = Common.Stream.id_of_int32 (get_ts_errors_stream_id common)
+    ; timestamp = Option.get_exn @@ Common.Time.of_float_s @@ Unix.gettimeofday ()
+    ; errors
+    }
 
 end
 

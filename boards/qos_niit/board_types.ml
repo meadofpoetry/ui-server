@@ -75,7 +75,8 @@ type ts_error =
 type ts_error_list = ts_error list [@@deriving yojson]
 
 type ts_errors =
-  { sream_id : Common.Stream.id
+  { stream_id : Common.Stream.id
+  ; timestamp : Common.Time.Seconds.t
   ; errors    : ts_error list
   } [@@deriving yojson]
 
@@ -334,20 +335,20 @@ type eit =
   ; eit_info   : eit_info
   } [@@deriving yojson]
 
-type table = PAT    of pat
-           | CAT    of table_common
-           | PMT    of pmt
-           | TSDT   of table_common
-           | NIT    of nit
-           | SDT    of sdt
-           | BAT    of bat
-           | EIT    of eit
-           | TDT    of table_common
-           | RST    of table_common
-           | ST     of table_common
-           | TOT    of table_common
-           | DIT    of table_common
-           | SIT    of table_common
+type table = PAT     of pat
+           | CAT     of table_common
+           | PMT     of pmt
+           | TSDT    of table_common
+           | NIT     of nit
+           | SDT     of sdt
+           | BAT     of bat
+           | EIT     of eit
+           | TDT     of table_common
+           | RST     of table_common
+           | ST      of table_common
+           | TOT     of table_common
+           | DIT     of table_common
+           | SIT     of table_common
            | Unknown of table_common [@@deriving yojson]
 
 type general_struct_block =
@@ -362,7 +363,8 @@ type general_struct_block =
   } [@@deriving yojson]
 
 type ts_struct =
-  { stream_id    : Common.Stream.id
+  { timestamp    : Common.Time.Seconds.t
+  ; stream_id    : Common.Stream.id
   ; bitrate      : int option
   ; general      : general_struct_block
   ; pids         : pid list
@@ -413,6 +415,7 @@ type bitrate =
   ; ts_bitrate : int
   ; pids       : pid_bitrate list
   ; tables     : table_bitrate list
+  ; timestamp  : Common.Time.Seconds.t
   }
 
 type bitrates = bitrate list

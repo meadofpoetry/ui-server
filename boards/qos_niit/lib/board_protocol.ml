@@ -66,39 +66,42 @@ module SM = struct
       ; events       : event list
       }
 
-    let group_ts_errs l   = List.filter_map (function
-                                | `Ts_errors x -> try_parse Ts_errors.of_cbuffer x
-                                | _            -> None) l
-                            |> List.group_succ ~eq:(fun (x:ts_errors) y -> Common.Stream.equal_id x.stream_id y.stream_id)
-                            |> List.map (fun l -> List.fold_left (fun (acc : ts_errors) (x : ts_errors) ->
-                                                      { acc with errors = (acc.errors @ x.errors) })
-                                                    (List.hd l) l)
+    let group_ts_errs l   =
+      List.filter_map (function
+                       | `Ts_errors x -> try_parse Ts_errors.of_cbuffer x
+                       | _            -> None) l
+      |> List.group_succ ~eq:(fun (x:ts_errors) y -> Common.Stream.equal_id x.stream_id y.stream_id)
+      |> List.map (fun l -> List.fold_left (fun (acc : ts_errors) (x : ts_errors) ->
+                                { acc with errors = (acc.errors @ x.errors) })
+                                           (List.hd l) l)
 
-    let sort_ts_errs l    = List.map (fun (x : ts_errors) ->
-                                { x with errors = List.sort (fun (x : ts_error) (y : ts_error) ->
-                                                      Int32.compare x.packet y.packet) x.errors }) l
+    let sort_ts_errs l    =
+      List.map (fun (x : ts_errors) ->
+          { x with errors = List.sort (fun (x : ts_error) (y : ts_error) ->
+                                Int32.compare x.packet y.packet) x.errors }) l
 
-    let group_t2mi_errs l = List.filter_map (function
-                                | `T2mi_errors x -> try_parse T2mi_errors.of_cbuffer x
-                                | _ -> None) l
-                            |> List.group_succ ~eq:(fun (x : t2mi_errors) y -> Common.Stream.equal_id x.stream_id y.stream_id)
-                            |> List.map (fun l -> List.fold_left (fun (acc : t2mi_errors) (x : t2mi_errors) ->
-                                                      { acc with errors = (acc.errors @ x.errors) })
-                                                    (List.hd l) l)
+    let group_t2mi_errs l =
+      List.filter_map (function
+                       | `T2mi_errors x -> try_parse T2mi_errors.of_cbuffer x
+                       | _ -> None) l
+      |> List.group_succ ~eq:(fun (x : t2mi_errors) y -> Common.Stream.equal_id x.stream_id y.stream_id)
+      |> List.map (fun l -> List.fold_left (fun (acc : t2mi_errors) (x : t2mi_errors) ->
+                                { acc with errors = (acc.errors @ x.errors) })
+                                           (List.hd l) l)
 
     let insert_versions t old_t = { t with status = { t.status with versions = old_t.status.versions }}
 
     let split_by l sep =
       let res,acc = List.fold_left (fun (res,acc) x ->
                         if Equal.poly x sep then (((List.rev acc) :: res),[]) else (res,x::acc))
-                      ([],[]) l in
+                                   ([],[]) l in
       (List.rev res),(List.rev acc)
 
     let partition events prev_group =
       let groups,rest = split_by events `End_of_errors in
       let groups = List.filter (function
-                       | `Status _ :: `Streams_event _ :: _ -> true
-                       | _                                  -> false) groups
+                                | `Status _ :: `Streams_event _ :: _ -> true
+                                | _                                  -> false) groups
                    |> List.fold_left (fun acc x ->
                           let prev_status = (match acc with
                                              | [] -> Option.(prev_group >|= (fun x -> x.status))
@@ -121,29 +124,34 @@ module SM = struct
          | Some old -> (if old.status.versions.ts_ver_com <> status.versions.ts_ver_com
                         then [ Get_ts_structs (get_id ()) ] else [])
                        @ (List.map (fun id -> Get_t2mi_info { request_id = get_id (); stream_id = id })
-                            (List.foldi (fun acc i x ->
-                                 if (x <> (List.nth old.status.versions.t2mi_ver_lst i))
-                                    && List.mem ~eq:(=) i status.t2mi_sync
-                                 then i :: acc
-                                 else acc) [] status.versions.t2mi_ver_lst))
+                                   (List.foldi (fun acc i x ->
+                                        if (x <> (List.nth old.status.versions.t2mi_ver_lst i))
+                                           && List.mem ~eq:(=) i status.t2mi_sync
+                                        then i :: acc
+                                        else acc) [] status.versions.t2mi_ver_lst))
          | None -> [ Get_ts_structs (get_id ()) ]
                    @ (if List.is_empty status.t2mi_sync then []
                       else (List.map (fun id -> Get_t2mi_info { request_id = get_id (); stream_id = id })
-                              status.t2mi_sync)))
+                                     status.t2mi_sync)))
 
     let push t (pe : push_events) =
-      let ts_found   = (match t.prev_status with
-                        | Some o -> List.filter (fun x -> not @@ List.mem ~eq:(Pervasives.(=)) x o.streams) t.status.streams
-                        | None   -> t.status.streams) in
-      let ts_lost    = (match t.prev_status with
-                        | Some o -> List.filter (fun x -> not @@ List.mem ~eq:(Pervasives.(=)) x t.status.streams) o.streams
-                        | None   -> []) in
-      let t2mi_found = (match t.prev_status with
-                        | Some o -> List.filter (fun x -> not @@ List.mem ~eq:(=) x o.t2mi_sync) t.status.t2mi_sync
-                        | None   -> t.status.t2mi_sync) in
-      let t2mi_lost  = (match t.prev_status with
-                        | Some o -> List.filter (fun x -> not @@ List.mem ~eq:(Pervasives.(=)) x t.status.t2mi_sync) o.t2mi_sync
-                        | None   -> []) in
+      let open Common.Stream in
+      let ts_found   = match t.prev_status with
+        | Some o -> List.filter (fun x -> not @@ List.mem ~eq:equal_id x o.streams) t.status.streams
+        | None   -> t.status.streams
+      in
+      let ts_lost    = match t.prev_status with
+        | Some o -> List.filter (fun x -> not @@ List.mem ~eq:equal_id x t.status.streams) o.streams
+        | None   -> []
+      in
+      let t2mi_found = match t.prev_status with
+        | Some o -> List.filter (fun x -> not @@ List.mem ~eq:Int.equal x o.t2mi_sync) t.status.t2mi_sync
+        | None   -> t.status.t2mi_sync
+      in
+      let t2mi_lost  = match t.prev_status with
+        | Some o -> List.filter (fun x -> not @@ List.mem ~eq:Int.equal x t.status.t2mi_sync) o.t2mi_sync
+        | None   -> []
+      in
       pe.status t.status.status;
       pe.streams t.status.streams;
       List.iter pe.ts_found ts_found;
@@ -193,11 +201,10 @@ module SM = struct
     { s with bitrate = Some b.ts_bitrate; pids; services; emm; tables }
 
   let merge_structs_and_bitrates (s:Board_types.ts_structs) (b:Board_types.bitrates) =
-    List.map (fun (s:ts_struct) -> let br = List.find_pred (fun (x:bitrate) -> Common.Stream.equal_id x.stream_id s.stream_id) b in
-                                   match br with
-                                   | Some x -> merge_struct_and_bitrates s x
-                                   | None   -> s)
-      s
+    List.map (fun (s:ts_struct) ->
+        match List.find_pred (fun (x:bitrate) -> Common.Stream.equal_id x.stream_id s.stream_id) b with
+        | Some x -> merge_struct_and_bitrates s x
+        | None   -> s) s
 
   let send_msg (type a) sender (msg : a request) : unit Lwt.t =
     (match msg with
