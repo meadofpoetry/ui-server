@@ -8,7 +8,7 @@ type labels = [ `Black
               | `Loudness_shortt
               | `Loudness_moment
               ] [@@deriving yojson]
-            
+
 let labels_of_int = function
   | 0 -> `Black
   | 1 -> `Luma
