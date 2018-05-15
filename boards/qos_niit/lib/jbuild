@@ -15,3 +15,14 @@
  ((targets (board_types.ml))
   (deps (../board_types.ml))
   (action (copy ${<} ${@}))))
+
+(rule
+ ((targets (l1.ml))
+  (deps (../l1.ml))
+  (action (copy ${<} ${@}))))
+
+(rule
+ ((targets (structure_types.ml))
+  (deps (../structure_types.ml))
+  (action (copy ${<} ${@}))))
+

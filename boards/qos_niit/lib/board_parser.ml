@@ -14,13 +14,13 @@ type part =
   }
 
 type event_response = Board_errors of board_errors
-                    | Bitrate      of bitrate list
+                    | Bitrate      of Types.bitrate list
                     | Struct       of ts_struct list
                     | T2mi_info    of t2mi_info
                     | Jitter       of jitter
 
 type events = { config       : config React.event
-              ; status       : user_status React.event
+              ; status       : status React.event
               ; streams      : Common.Stream.id list React.signal
               ; ts_found     : Common.Stream.id React.event
               ; ts_lost      : Common.Stream.id React.event
@@ -36,18 +36,17 @@ type events = { config       : config React.event
               }
 
 type api = { get_devinfo     : unit                -> devinfo_response Lwt.t
-           ; set_mode        : mode_request        -> unit Lwt.t
            ; set_input       : input               -> unit Lwt.t
            ; set_t2mi_mode   : t2mi_mode_request   -> unit Lwt.t
            ; set_jitter_mode : jitter_mode_request -> unit Lwt.t
-           ; get_t2mi_seq    : int                 -> t2mi_seq_response Lwt.t
+           ; get_t2mi_seq    : int                 -> t2mi_seq Lwt.t
            ; get_structs     : unit                -> ts_structs Lwt.t
            ; get_bitrates    : unit                -> ts_structs Lwt.t
            ; reset           : unit                -> unit Lwt.t
            ; config          : unit                -> config Lwt.t
            }
 
-type _ instant_request = Set_board_mode  : mode                -> unit instant_request
+type _ instant_request = Set_board_mode  : Types.mode          -> unit instant_request
                        | Set_jitter_mode : jitter_mode_request -> unit instant_request
                        | Reset           : unit instant_request
 
@@ -73,7 +72,7 @@ type t2mi_frame_seq_req =
   }
 
 type _ request = Get_board_info     : devinfo request
-               | Get_board_mode     : mode request
+               | Get_board_mode     : Types.mode request
                | Get_t2mi_frame_seq : t2mi_frame_seq_req    -> t2mi_seq request
                | Get_section        : int * section_request -> section request
 
@@ -114,7 +113,7 @@ let to_complex_req ?client_id ?request_id ~msg_code ~body () =
   let hdr = to_complex_req_header ?client_id ?request_id ~msg_code ~length () in
   Cbuffer.append hdr body
 
-let to_mode_exn mode t2mi_pid stream_id =
+let to_mode_exn mode t2mi_pid stream_id : Types.mode =
   { input = Option.get_exn @@ input_of_int (mode land 1)
   ; t2mi  = Some { enabled        = if (mode land 4) > 0 then true else false
                  ; pid            = t2mi_pid land 0x1fff
@@ -158,7 +157,7 @@ module Get_board_info : (Request with type req := unit with type rsp := devinfo)
 
 end
 
-module Get_board_mode : (Request with type req := unit with type rsp := mode) = struct
+module Get_board_mode : (Request with type req := unit with type rsp := Types.mode) = struct
 
   let req_code = 0x0081
   let rsp_code = 0x02
@@ -514,7 +513,9 @@ module Get_ts_structs : (Request with type req := int with type rsp = ts_struct 
 
 end
 
-module Get_bitrates : (Request with type req := int with type rsp = bitrate list) = struct
+module Get_bitrates : (Request with type req := int with type rsp = Types.bitrate list) = struct
+
+  open Types
 
   type rsp = bitrate list
 
@@ -579,6 +580,8 @@ module Get_bitrates : (Request with type req := int with type rsp = bitrate list
 end
 
 module Get_t2mi_info : (Request with type req := t2mi_info_req with type rsp := t2mi_info) = struct
+
+  open L1
 
   let req_code = 0x030B
   let rsp_code = req_code
@@ -715,22 +718,25 @@ end
 
 (* ---------------------- Events --------------------- *)
 
-module Status : (Event with type msg := status) = struct
+module Status : (Event with type msg := Types.status) = struct
 
   let msg_code = 0x03
 
-  let of_cbuffer msg =
+  let of_cbuffer msg : Types.status =
     let iter     = fun x -> Cbuffer.iter (fun _ -> Some 1) (fun buf -> Cbuffer.get_uint8 buf 0) x in
     let flags    = get_status_flags msg in
     let has_sync = not (flags land 0x04 > 0) in
     let ts_num   = get_status_ts_num msg in
     let flags2   = get_status_flags_2 msg in
     let jpid     = get_status_jitter_pid msg in
+    let mode     = to_mode_exn (get_status_mode msg)
+                               (get_status_t2mi_pid msg)
+                               (get_status_t2mi_stream_id msg)
+    in
     { status    = { load         = (float_of_int ((get_status_load msg) * 100)) /. 255.
                   ; reset        = flags2 land 0x02 <> 0
-                  ; mode         = to_mode_exn (get_status_mode msg)
-                                               (get_status_t2mi_pid msg)
-                                               (get_status_t2mi_stream_id msg)
+                  ; input        = mode.input
+                  ; t2mi_mode    = mode.t2mi
                   ; jitter_mode  = if not @@ Int.equal jpid 0x1fff
                                    then Some { stream  = Common.Stream.id_of_int32 (get_status_jitter_stream_id msg)
                                              ; pid     = jpid

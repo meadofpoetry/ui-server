@@ -24,13 +24,6 @@ let reset (api : api) () =
   api.reset () >|= Result.return
   >>= Json.respond_result_unit
 
-let set_mode (api : api) body () =
-  Json.of_body body >>= fun mode ->
-  (match mode_request_of_yojson mode with
-   | Error e -> Lwt_result.fail @@ Json.of_error_string e
-   | Ok mode -> api.set_mode mode >|= Result.return)
-  >>= Json.respond_result_unit
-
 let set_input (api : api) body () =
   Json.of_body body >>= fun inp ->
   (match input_of_yojson inp with
@@ -63,7 +56,7 @@ let config api () =
 let get_t2mi_seq api seconds () =
   (match Int.of_string seconds with
    | None   -> Lwt_result.fail @@ Json.of_error_string @@ Printf.sprintf "bad argument: %s" seconds
-   | Some x -> api.get_t2mi_seq x >|= (t2mi_seq_response_to_yojson %> Result.return))
+   | Some x -> api.get_t2mi_seq x >|= (t2mi_seq_to_yojson %> Result.return))
   >>= Json.respond_result
 
 let get_structs api () =
@@ -112,10 +105,10 @@ let config_ws sock_data (events : events) body =
   sock_handler sock_data events.config config_to_yojson body
 
 let status_ws sock_data (events : events) body =
-  sock_handler sock_data events.status user_status_to_yojson body
+  sock_handler sock_data events.status status_to_yojson body
 
-let ts_errors_ws sock_data (events : events) body =
-  sock_handler sock_data events.ts_errors ts_errors_to_yojson body
+(* let ts_errors_ws sock_data (events : events) body =
+ *   sock_handler sock_data events.ts_errors ts_errors_to_yojson body *)
 
 let t2mi_errors_ws sock_data (events : events) body =
   sock_handler sock_data events.t2mi_errors t2mi_errors_to_yojson body
@@ -142,7 +135,6 @@ let handle api events s_state s_input streams _ meth args sock_data _ body =
   let open Api.Redirect in
   match meth, args with
   | `POST, ["reset"]              -> reset api ()
-  | `POST, ["mode"]               -> set_mode api body ()
   | `POST, ["input"]              -> set_input api body ()
   | `POST, ["port";id;set]        ->
      (match (Option.flat_map Board_parser.input_of_int @@ Int.of_string id), set with
@@ -164,7 +156,7 @@ let handle api events s_state s_input streams _ meth args sock_data _ body =
   | `GET, ["state_ws"]            -> state_ws sock_data s_state body
   | `GET, ["config_ws"]           -> config_ws sock_data events body
   | `GET, ["status_ws"]           -> status_ws sock_data events body
-  | `GET, ["ts_errors_ws"]        -> ts_errors_ws sock_data events body
+  (* | `GET, ["ts_errors_ws"]        -> ts_errors_ws sock_data events body *)
   | `GET, ["t2mi_errors_ws"]      -> t2mi_errors_ws sock_data events body
   | `GET, ["board_errors_ws"]     -> board_errors_ws sock_data events body
   | `GET, ["bitrate_ws"]          -> bitrate_ws sock_data events body

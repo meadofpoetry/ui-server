@@ -5,14 +5,13 @@ open Lwt_result.Infix
 
 type config = unit [@@deriving yojson]
 
-let make_enabled (init: t2mi_mode option) =
+let make_enabled () =
   let enabled = new Switch.t () in
   let form    = new Form_field.t ~input:enabled ~label:"Включить" ~align_end:true () in
   let set x   = enabled#set_checked (Option.get_or ~default:false (Option.map (fun x -> x.enabled) x)) in
-  set init;
   form#widget,set,enabled#s_state,enabled#set_disabled
 
-let make_pid (init: t2mi_mode option) =
+let make_pid () =
   let pid = new Textfield.t
                 ~input_id:"t2mi_pid_field"
                 ~help_text:{validation=true;persistent=false;text=None}
@@ -25,10 +24,9 @@ let make_pid (init: t2mi_mode option) =
     | None               -> pid#clear ()
   in
   pid#set_required true;
-  set init;
   pid#widget,set,pid#s_input,pid#set_disabled
 
-let make_sid (init: t2mi_mode option) =
+let make_sid () =
   let sid = new Textfield.t
                 ~input_id:"sid_field"
                 ~help_text:{validation=true;persistent=false;text=None}
@@ -41,7 +39,6 @@ let make_sid (init: t2mi_mode option) =
     | None               -> sid#clear ()
   in
   sid#set_required true;
-  set init;
   sid#widget,set,sid#s_input,sid#set_disabled
 
 let make_stream_select (streams : Common.Stream.t list React.signal) =
@@ -63,10 +60,9 @@ let make ~(state:   Common.Topology.state React.signal)
          ~(streams: Common.Stream.t_list React.signal)
          (conf:     config option)
          control =
-  let init = React.S.value config in
-  let en,set_en,s_en,dis_en     = make_enabled init.mode.t2mi in
-  let pid,set_pid,s_pid,dis_pid = make_pid init.mode.t2mi in
-  let sid,set_sid,s_sid,dis_sid = make_sid init.mode.t2mi in
+  let en,set_en,s_en,dis_en     = make_enabled () in
+  let pid,set_pid,s_pid,dis_pid = make_pid () in
+  let sid,set_sid,s_sid,dis_sid = make_sid () in
   let ss = make_stream_select streams in
   let s : t2mi_mode_request option React.signal =
     React.S.l4 (fun en pid sid state->
@@ -88,7 +84,7 @@ let make ~(state:   Common.Topology.state React.signal)
                                                   [dis_pid; dis_sid])
                        state s_en
   in
-  let _      = React.S.map (fun config -> List.iter (fun f -> f config.mode.t2mi) [set_en; set_pid; set_sid])
+  let _      = React.S.map (fun config -> List.iter (fun f -> f config.t2mi_mode) [set_en; set_pid; set_sid])
                            config
   in
   let submit = Requests.post_t2mi_mode control in

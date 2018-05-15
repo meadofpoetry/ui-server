@@ -12,9 +12,6 @@ let to_unit = fun _ -> Ok ()
 let post_reset control () =
   post_result to_unit (Printf.sprintf "/api/board/%d/reset" control)
 
-let post_mode control mode =
-  post_result ~contents:(mode_to_yojson mode) to_unit (Printf.sprintf "/api/board/%d/mode" control)
-
 let post_input control inp =
   post_result ~contents:(input_to_yojson inp) to_unit (Printf.sprintf "/api/board/%d/input" control)
 
@@ -48,10 +45,7 @@ let get_config_ws control =
   WS.get (Printf.sprintf "api/board/%d/config_ws" control) config_of_yojson
 
 let get_status_ws control =
-  WS.get (Printf.sprintf "api/board/%d/status_ws" control) user_status_of_yojson
-
-let get_ts_errors_ws control =
-  WS.get (Printf.sprintf "api/board/%d/ts_errors_ws" control) ts_errors_of_yojson
+  WS.get (Printf.sprintf "api/board/%d/status_ws" control) status_of_yojson
 
 let get_t2mi_errors_ws control =
   WS.get (Printf.sprintf "api/board/%d/t2mi_errors_ws" control) t2mi_errors_of_yojson
@@ -91,53 +85,41 @@ module Streams = struct
 
 end
 
-module Errors = struct
-
-  open Common.Time
-
-  type percentage =
-    { errors  : float
-    ; no_sync : float
-    ; no_data : float
-    } [@@deriving yojson]
-
-  type priority = [ `Ts   of [`P1 | `P2 | `P3 ]
-                  | `T2mi of [`Container | `T2MI]
-                  ] [@@deriving yojson]
-
-  type time_segment = Seconds.t * Seconds.t [@@deriving yojson]
-
-  type period = [ `Segment of time_segment (* period from N1 to N2 *)
-                | `Latest  of Seconds.t    (* latest N seconds *)
-                ] [@@deriving yojson]
-
-  type body =
-    { priority : priority option
-    ; errors   : int list option
-    ; period   : period
-    ; stream   : Common.Stream.t
-    } [@@deriving yojson]
-
-  type ts_errors_response =
-    { errors  : ts_errors list
-    ; no_data : time_segment list
-    ; no_sync : time_segment list
-    }
-
-  let get_ts_errors ?priority ?errors ~period stream control : (ts_error list,'a) rsp =
-    let contents = { priority; errors; period; stream } |> body_to_yojson in
-    post_result ~contents ts_error_list_of_yojson (Printf.sprintf "/api/board/%d/ts_errors" control)
-
-  let get_ts_errors_percentage ?priority ?errors ~period stream control : (percentage,'a) rsp =
-    let contents = { priority; errors; period; stream } |> body_to_yojson in
-    post_result ~contents percentage_of_yojson (Printf.sprintf "/api/board/%d/ts_errors_percentage" control)
-
-  let has_ts_errors ?priority ?errors ~period stream control : (bool,'a) rsp =
-    let bool_of_yojson = function
-      | `Bool x -> Ok x
-      | x       -> Error (Printf.sprintf "bool_of_yojson: bad boolean value: %s" (Yojson.Safe.to_string x))
-    in
-    let contents = { priority; errors; period; stream } |> body_to_yojson in
-    post_result ~contents bool_of_yojson (Printf.sprintf "/api/board/%d/has_ts_errors" control)
-
-end
+(* module Errors = struct
+ * 
+ *   module Real_time = struct
+ * 
+ *     let get_ts_errors_ws control =
+ *       WS.get (Printf.sprintf "api/board/%d/ts_errors_ws" control) ts_errors_of_yojson
+ * 
+ *   end
+ * 
+ *   module Archive = struct
+ * 
+ *     open Common.Time
+ *     open Board_types.Errors_api
+ * 
+ *     type body =
+ *       { priority : priority option
+ *       ; errors   : error_id list option
+ *       ; period   : Interval.Seconds.t
+ *       ; stream   : Common.Stream.t
+ *       } [@@deriving yojson]
+ * 
+ *     type has_errors = bool [@@deriving of_yojson]
+ * 
+ *     let get_ts_errors ?priority ?errors period stream control : (ts_error list,'a) rsp =
+ *       let contents = { priority; errors; period; stream } |> body_to_yojson in
+ *       post_result ~contents ts_error_list_of_yojson (Printf.sprintf "/api/board/%d/ts_errors" control)
+ * 
+ *     let get_ts_errors_percentage ?priority ?errors period stream control : (percentage,'a) rsp =
+ *       let contents = { priority; errors; period; stream } |> body_to_yojson in
+ *       post_result ~contents percentage_of_yojson (Printf.sprintf "/api/board/%d/ts_errors_percentage" control)
+ * 
+ *     let has_ts_errors ?priority ?errors period stream control : (has_errors,'a) rsp =
+ *       let contents = { priority; errors; period; stream } |> body_to_yojson in
+ *       post_result ~contents has_errors_of_yojson (Printf.sprintf "/api/board/%d/has_ts_errors" control)
+ * 
+ *   end
+ * 
+ * end *)
