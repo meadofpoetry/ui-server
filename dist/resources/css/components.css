@@ -1385,129 +1385,6 @@
  * }
  * ```
  */
-/* TODO(sgomes): Figure out what to do about desktop font sizes. */
-/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
-.mdc-dashboard .mdc-dynamic-grid__item {
-  box-shadow: 0px 3px 1px -2px rgba(0, 0, 0, 0.2), 0px 2px 2px 0px rgba(0, 0, 0, 0.14), 0px 1px 5px 0px rgba(0, 0, 0, 0.12);
-  /* @alternate */
-  background-color: #fff;
-  background-color: var(--mdc-theme-background, #fff);
-  overflow: hidden; }
-.mdc-dashboard__item {
-  height: 100%;
-  position: relative; }
-  .mdc-dashboard__item__heading {
-    height: 18px;
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between; }
-    .mdc-dashboard__item__heading .mdc-card__title {
-      font-family: Roboto, sans-serif;
-      -moz-osx-font-smoothing: grayscale;
-      -webkit-font-smoothing: antialiased;
-      font-size: 0.75rem;
-      line-height: 1.25rem;
-      font-weight: 400;
-      letter-spacing: 0.08em;
-      text-decoration: inherit;
-      text-transform: inherit;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      overflow: hidden; }
-  .mdc-dashboard__item__remove-button {
-    /* @alternate */
-    color: rgba(0, 0, 0, 0.38);
-    color: var(--mdc-theme-text-icon-on-background, rgba(0, 0, 0, 0.38));
-    font-size: 16px;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-left: 10px; }
-  .mdc-dashboard__item__content {
-    margin: 15px;
-    height: calc(100% - 80px); }
-    .mdc-dashboard__item__content > * {
-      height: 100%; }
-
-.mdc-parameter-widget {
-  display: flex;
-  align-items: center;
-  justify-content: center; }
-  .mdc-parameter-widget__inner {
-    display: flex;
-    flex-direction: column; }
-
-.mdc-parameters-widget {
-  display: flex;
-  flex-direction: column; }
-  .mdc-parameters-widget__row {
-    margin-top: 15px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center; }
-    .mdc-parameters-widget__row__name, .mdc-parameters-widget__row__value {
-      flex-basis: 50%; }
-    .mdc-parameters-widget__row__name {
-      font-family: Roboto, sans-serif;
-      -moz-osx-font-smoothing: grayscale;
-      -webkit-font-smoothing: antialiased;
-      font-size: 0.938rem;
-      line-height: 1.5rem;
-      font-weight: 400;
-      letter-spacing: 0.04em;
-      text-decoration: inherit;
-      text-transform: inherit; }
-    .mdc-parameters-widget__row__value {
-      font-family: Roboto, sans-serif;
-      -moz-osx-font-smoothing: grayscale;
-      -webkit-font-smoothing: antialiased;
-      font-size: 1rem;
-      line-height: 1.75rem;
-      font-weight: 400;
-      letter-spacing: 0.04em;
-      text-decoration: inherit;
-      text-transform: inherit;
-      text-align: right; }
-
-.mdc-settings-widget {
-  display: flex;
-  flex-direction: column; }
-  .mdc-settings-widget .mdc-apply-button {
-    margin-top: 10px;
-    align-self: flex-start; }
-
-/**
- * The css property used for elevation. In most cases this should not be changed. It is exposed
- * as a variable for abstraction / easy use when needing to reference the property directly, for
- * example in a `will-change` rule.
- */
-/**
- * The default duration value for elevation transitions.
- */
-/**
- * The default easing value for elevation transitions.
- */
-/**
- * Applies the correct CSS rules to an element to give it the elevation specified by $z-value.
- * The $z-value must be between 0 and 24.
- * If $color has an alpha channel, it will be ignored and overridden. To increase the opacity of the shadow, use
- * $opacity-boost.
- */
-/**
- * Returns a string that can be used as the value for a `transition` property for elevation.
- * Calling this function directly is useful in situations where a component needs to transition
- * more than one property.
- *
- * ```scss
- * .foo {
- *   transition: mdc-elevation-transition-value(), opacity 100ms ease;
- *   will-change: $mdc-elevation-property, opacity;
- * }
- * ```
- */
 /**
  * Creates a rule that will be applied when an MDC Web component is within the context of an RTL layout.
  *
@@ -3371,6 +3248,59 @@
   .mdc-fab--exited .mdc-fab__icon {
     transform: scale(0);
     transition: transform 135ms 0ms cubic-bezier(0.4, 0, 1, 1); }
+
+.mdc-fab-speed-dial {
+  display: flex;
+  margin: -14px; }
+  .mdc-fab-speed-dial--direction-up {
+    flex-direction: column;
+    align-items: center; }
+    .mdc-fab-speed-dial--direction-up .mdc-fab-speed-dial__main {
+      order: 2; }
+    .mdc-fab-speed-dial--direction-up .mdc-fab-speed-dial__actions {
+      order: 1;
+      flex-direction: column-reverse; }
+  .mdc-fab-speed-dial--direction-down {
+    flex-direction: column;
+    align-items: center; }
+    .mdc-fab-speed-dial--direction-down .mdc-fab-speed-dial__main {
+      order: 1; }
+    .mdc-fab-speed-dial--direction-down .mdc-fab-speed-dial__actions {
+      order: 2;
+      flex-direction: column; }
+  .mdc-fab-speed-dial--direction-left {
+    flex-direction: row;
+    align-items: center; }
+    .mdc-fab-speed-dial--direction-left .mdc-fab-speed-dial__main {
+      order: 2; }
+    .mdc-fab-speed-dial--direction-left .mdc-fab-speed-dial__actions {
+      order: 1;
+      flex-direction: row-reverse; }
+  .mdc-fab-speed-dial--direction-right {
+    flex-direction: row;
+    align-items: center; }
+    .mdc-fab-speed-dial--direction-right .mdc-fab-speed-dial__main {
+      order: 1; }
+    .mdc-fab-speed-dial--direction-right .mdc-fab-speed-dial__actions {
+      order: 2;
+      flex-direction: row; }
+
+.mdc-fab-speed-dial__main .mdc-fab {
+  margin: 6px 8px; }
+
+.mdc-fab-speed-dial__actions {
+  display: flex;
+  height: auto; }
+  .mdc-fab-speed-dial__actions .mdc-fab-speed-dial__action {
+    transition: all 0.25s cubic-bezier(0.55, 0, 0.55, 0.2); }
+    .mdc-fab-speed-dial__actions .mdc-fab-speed-dial__action .mdc-fab {
+      margin: 6px 8px; }
+
+.mdc-fab-speed-dial--animation-scale .mdc-fab-speed-dial__actions .mdc-fab-speed-dial__action {
+  transition-duration: .14286s;
+  opacity: 0; }
+.mdc-fab-speed-dial--animation-scale.mdc-fab-speed-dial--opened .mdc-fab-speed-dial__actions .mdc-fab-speed-dial__action {
+  opacity: 1; }
 
 /**
  * Creates a rule that will be applied when an MDC Web component is within the context of an RTL layout.
@@ -10018,5 +9948,215 @@ a.mdc-tree-item {
   text-decoration: inherit;
   text-transform: inherit;
   margin: 0.75rem 16px; }
+
+/**
+ * The css property used for elevation. In most cases this should not be changed. It is exposed
+ * as a variable for abstraction / easy use when needing to reference the property directly, for
+ * example in a `will-change` rule.
+ */
+/**
+ * The default duration value for elevation transitions.
+ */
+/**
+ * The default easing value for elevation transitions.
+ */
+/**
+ * Applies the correct CSS rules to an element to give it the elevation specified by $z-value.
+ * The $z-value must be between 0 and 24.
+ * If $color has an alpha channel, it will be ignored and overridden. To increase the opacity of the shadow, use
+ * $opacity-boost.
+ */
+/**
+ * Returns a string that can be used as the value for a `transition` property for elevation.
+ * Calling this function directly is useful in situations where a component needs to transition
+ * more than one property.
+ *
+ * ```scss
+ * .foo {
+ *   transition: mdc-elevation-transition-value(), opacity 100ms ease;
+ *   will-change: $mdc-elevation-property, opacity;
+ * }
+ * ```
+ */
+/* TODO(sgomes): Figure out what to do about desktop font sizes. */
+/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
+.mdc-dashboard__edit-button {
+  position: fixed !important;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 3; }
+  @media screen and (min-width: 1024px) {
+    .mdc-dashboard__edit-button {
+      right: 1.5rem;
+      bottom: 1.5rem; } }
+.mdc-dashboard__panel__title {
+  font-family: Roboto, sans-serif;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased;
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-decoration: inherit;
+  text-transform: inherit;
+  padding: 15px 18px; }
+.mdc-dashboard__panel .mdc-drawer__drawer {
+  min-height: 100vh;
+  width: 500px; }
+  @media screen and (max-width: 500px) {
+    .mdc-dashboard__panel .mdc-drawer__drawer {
+      width: 100vw;
+      min-width: initial; } }
+.mdc-dashboard__add-item {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  cursor: pointer;
+  align-items: center;
+  padding: 10px 18px;
+  min-height: 100px;
+  max-height: 100px;
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
+  /* @alternate */
+  background-color: #fff;
+  background-color: var(--mdc-theme-background, #fff); }
+  .mdc-dashboard__add-item__thumbnail {
+    height: 72px;
+    width: 72px;
+    margin-right: 20px; }
+    .mdc-dashboard__add-item__thumbnail--icon {
+      /* @alternate */
+      color: rgba(0, 0, 0, 0.38);
+      color: var(--mdc-theme-text-icon-on-background, rgba(0, 0, 0, 0.38));
+      font-size: 72px !important; }
+  .mdc-dashboard__add-item__text-box {
+    align-self: flex-start;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1; }
+  .mdc-dashboard__add-item__title {
+    font-family: Roboto, sans-serif;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-font-smoothing: antialiased;
+    font-size: 1rem;
+    line-height: 1.75rem;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    text-decoration: inherit;
+    text-transform: inherit;
+    margin-bottom: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden; }
+  .mdc-dashboard__add-item__description {
+    font-family: Roboto, sans-serif;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-font-smoothing: antialiased;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    text-decoration: inherit;
+    text-transform: inherit;
+    text-overflow: ellipsis;
+    overflow: hidden; }
+  .mdc-dashboard__add-item--dragging {
+    z-index: 1000; }
+
+.mdc-dashboard__item {
+  box-shadow: 0px 3px 1px -2px rgba(0, 0, 0, 0.2), 0px 2px 2px 0px rgba(0, 0, 0, 0.14), 0px 1px 5px 0px rgba(0, 0, 0, 0.12);
+  /* @alternate */
+  background-color: #fff;
+  background-color: var(--mdc-theme-background, #fff);
+  height: 100%;
+  overflow: hidden;
+  position: relative; }
+  .mdc-dashboard__item__heading {
+    height: 18px;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between; }
+    .mdc-dashboard__item__heading .mdc-card__title {
+      font-family: Roboto, sans-serif;
+      -moz-osx-font-smoothing: grayscale;
+      -webkit-font-smoothing: antialiased;
+      font-size: 0.75rem;
+      line-height: 1.25rem;
+      font-weight: 400;
+      letter-spacing: 0.08em;
+      text-decoration: inherit;
+      text-transform: inherit;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      overflow: hidden; }
+  .mdc-dashboard__item__heading-buttons {
+    display: flex;
+    justify-content: flex-end; }
+  .mdc-dashboard__item__heading-button {
+    /* @alternate */
+    color: rgba(0, 0, 0, 0.38);
+    color: var(--mdc-theme-text-icon-on-background, rgba(0, 0, 0, 0.38));
+    font-size: 16px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 10px; }
+  .mdc-dashboard__item__content {
+    margin: 15px;
+    height: calc(100% - 80px); }
+    .mdc-dashboard__item__content > * {
+      height: 100%; }
+  .mdc-dashboard__item--editing {
+    pointer-events: none; }
+
+.mdc-parameter-widget {
+  display: flex;
+  align-items: center;
+  justify-content: center; }
+  .mdc-parameter-widget__inner {
+    display: flex;
+    flex-direction: column; }
+
+.mdc-parameters-widget {
+  display: flex;
+  flex-direction: column; }
+  .mdc-parameters-widget__row {
+    margin-top: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center; }
+    .mdc-parameters-widget__row__name, .mdc-parameters-widget__row__value {
+      flex-basis: 50%; }
+    .mdc-parameters-widget__row__name {
+      font-family: Roboto, sans-serif;
+      -moz-osx-font-smoothing: grayscale;
+      -webkit-font-smoothing: antialiased;
+      font-size: 0.938rem;
+      line-height: 1.5rem;
+      font-weight: 400;
+      letter-spacing: 0.04em;
+      text-decoration: inherit;
+      text-transform: inherit; }
+    .mdc-parameters-widget__row__value {
+      font-family: Roboto, sans-serif;
+      -moz-osx-font-smoothing: grayscale;
+      -webkit-font-smoothing: antialiased;
+      font-size: 1rem;
+      line-height: 1.75rem;
+      font-weight: 400;
+      letter-spacing: 0.04em;
+      text-decoration: inherit;
+      text-transform: inherit;
+      text-align: right; }
+
+.mdc-settings-widget {
+  display: flex;
+  flex-direction: column; }
+  .mdc-settings-widget .mdc-apply-button {
+    margin-top: 10px;
+    align-self: flex-start; }
 
 /*# sourceMappingURL=components.css.map */

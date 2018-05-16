@@ -383,10 +383,10 @@ module Cartesian = struct
         method get_labels   = Option.map (fun x -> List.map Js.to_string @@ Array.to_list @@ Js.to_array x)
                                         (Js.Opt.to_option obj##.labels)
 
-        method set_min x = obj##.min := Js.some @@ Js.string x
+        method set_min x = obj##.min := (match x with Some x -> Js.some @@ Js.string x | None -> Js.null)
         method get_min   = Option.map Js.to_string @@ Js.Opt.to_option obj##.min
 
-        method set_max x = obj##.max := Js.some @@ Js.string x
+        method set_max x = obj##.max := (match x with Some x -> Js.some @@ Js.string x | None -> Js.null)
         method get_max   = Option.map Js.to_string @@ Js.Opt.to_option obj##.max
 
         initializer
@@ -438,10 +438,12 @@ module Cartesian = struct
         method set_begin_at_zero x = obj##.beginAtZero := Js.bool x
         method get_begin_at_zero   = Js.to_bool obj##.beginAtZero
 
-        method set_min (x:'a) = obj##.min := Js.some x
+        method set_min (x:'a option) = obj##.min := match x with Some x -> Js.some x
+                                                               | None   -> Js.null
         method get_min : 'a option = Js.Opt.to_option obj##.min
 
-        method set_max (x:'a) = obj##.max := Js.some x
+        method set_max (x:'a option) = obj##.max := match x with Some x -> Js.some x
+                                                               | None   -> Js.null
         method get_max : 'a option = Js.Opt.to_option obj##.max
 
         method set_max_ticks_limit x = obj##.maxTicksLimit := x
@@ -497,10 +499,10 @@ module Cartesian = struct
         inherit ['a t_js] base_option ()
         inherit cartesian_tick ()
 
-        method set_max (x:'a) = obj##.max := Js.some x
+        method set_max (x:'a option) = obj##.max := match x with Some x -> Js.some x | None -> Js.null
         method get_max : 'a option = Js.Opt.to_option obj##.max
 
-        method set_min (x:'a) = obj##.min := Js.some x
+        method set_min (x:'a option) = obj##.min := match x with Some x -> Js.some x | None -> Js.null
         method get_min : 'a option = Js.Opt.to_option obj##.min
       end
 
@@ -659,10 +661,12 @@ module Cartesian = struct
         method set_iso_weekday x = obj##.isoWeekday := Js.bool x
         method get_iso_weekday   = Js.to_bool obj##.isoWeekday
 
-        method set_max (x:'a) = obj##.max := Js.some (value_to_js_number x)
+        method set_max (x:'a option) = obj##.max := match x with Some x -> Js.some (value_to_js_number x)
+                                                               | None   -> Js.null
         method get_max : 'a option = Option.map value_of_js_number @@ Js.Opt.to_option obj##.max
 
-        method set_min (x:'a) = obj##.min := Js.some (value_to_js_number x)
+        method set_min (x:'a option) = obj##.min := match x with Some x -> Js.some (value_to_js_number x)
+                                                               | None   -> Js.null
         method get_min : 'a option = Option.map value_of_js_number @@ Js.Opt.to_option obj##.min
 
         method set_round : bool_or_time -> unit = function
@@ -794,7 +798,7 @@ module Cartesian = struct
     | Time (_,_,Unix,_)         -> Int64.(max - delta)
     | Category _                -> ""
 
-  let set_axis_min_max (type a b) (t:(a,b) axis) (axis:b) (min:a) (max:a): unit =
+  let set_axis_min_max (type a b) (t:(a,b) axis) (axis:b) (min:a option) (max:a option): unit =
     match t with
     | Linear _          -> axis#ticks#set_max max; axis#ticks#set_min min
     | Logarithmic _     -> axis#ticks#set_max max; axis#ticks#set_min min

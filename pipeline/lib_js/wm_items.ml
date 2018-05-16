@@ -70,9 +70,9 @@ module Make(I : Item) = struct
       let ()      = card#add_class base_class in
       let _       =
         React.S.map (function
-                     | [] -> wrapper#set_empty;
+                     | [] -> wrapper#set_empty ();
                              Dom.appendChild wrapper#root ph#root
-                     | l  -> wrapper#set_empty;
+                     | l  -> wrapper#set_empty ();
                              List.iter (fun x -> Dom.appendChild wrapper#root x#root)
                              @@ List.map (make_item candidates set_candidates) l)
                     candidates

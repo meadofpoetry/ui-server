@@ -25,20 +25,20 @@ module Tab = struct
 
       method anchor_element = elt
 
+      method value : 'a       = value
       method set_value (x:'a) = value <- x
-      method get_value : 'a   = value
 
-      method get_disabled   = tab.disabled
+      method disabled       = tab.disabled
       method set_disabled x = tab <- { tab with disabled = x };
                               let a = "disabled" in
                               if x then self#set_attribute a "true" else self#remove_attribute a
 
-      method get_href   = Js.to_string self#anchor_element##.href
+      method href       = Js.to_string self#anchor_element##.href
       method set_href s = self#anchor_element##.href := Js.string s
 
-      method get_content : content = tab.content
+      method content : content         = tab.content
       method set_content (x : content) =
-        match self#get_content,x with
+        match self#content,x with
         | `Text _, `Text x ->
            super#set_text_content x;
            Result.return ()
@@ -60,17 +60,17 @@ module Tab = struct
             | _, None -> Result.fail "text element not found")
         | _  -> Result.fail "tab content type mismatch"
 
-      method get_active   = active
+      method active       = active
       method set_active x = active <- x;
                             if x
                             then (self#add_class Markup.Tabs.Tab.active_class;
                                   push (Some self))
                             else self#remove_class Markup.Tabs.Tab.active_class
 
-      method get_width = self#get_offset_width
-      method get_left  = self#get_offset_left
+      method width = self#offset_width
+      method left  = self#offset_left
 
-      method get_prevent_default_on_click   = prevent_default_on_click
+      method prevent_default_on_click       = prevent_default_on_click
       method set_prevent_default_on_click x = prevent_default_on_click <- x
 
       initializer
@@ -100,7 +100,7 @@ module Tab_bar = struct
       | `Icon _          -> `Icon
       | `Text_and_icon _ -> `Text_and_icon
     in
-    let typ = List.map (fun x -> typ_of_tab_content x#get_content) tabs
+    let typ = List.map (fun x -> typ_of_tab_content x#content) tabs
               |> List.sort_uniq ~cmp:Pervasives.compare
               |> (function
                   | [x] -> x
@@ -135,12 +135,12 @@ module Tab_bar = struct
 
       (* Active getters *)
 
-      method get_active_tab_index = match React.S.value s_active with
+      method active_tab_index = match React.S.value s_active with
         | Some tab -> List.find_idx (fun x -> Equal.physical x tab) self#tabs
                       |> (function Some (idx,_) -> Some idx | None -> None)
         | None     -> None
-      method get_active_tab = React.S.value s_active
-      method get_active_value = Option.map (fun x -> x#get_value) self#get_active_tab
+      method active_tab = React.S.value s_active
+      method active_value = Option.map (fun x -> x#value) self#active_tab
 
       (* Active setters *)
 
@@ -158,7 +158,7 @@ module Tab_bar = struct
         then (let t = new Tab.t s_active_push tab () in
               tabs <- tabs @ [t];
               Dom.appendChild self#root t#root;
-              self#layout;
+              self#layout ();
               Ok ())
         else (Error "append_tab: tab content mismatch")
 
@@ -172,36 +172,36 @@ module Tab_bar = struct
                 | Some _ -> self#root##insertBefore (t#root :> Dom.node Js.t) item
                 | None   -> self#root##appendChild  (t#root :> Dom.node Js.t)
               in
-              self#layout;
+              self#layout ();
               Ok ())
         else (Error "insert_tab_at_index: tab content mismatch")
 
       method remove_tab_at_index i = match self#get_tab_at_index i with
         | Some tab -> tabs <- List.remove_at_idx i tabs;
                       Dom.removeChild self#root tab#root;
-                      if tab#get_active then s_active_push None;
-                      self#layout;
+                      if tab#active then s_active_push None;
+                      self#layout ();
                       Ok ()
         | None     -> Error (Printf.sprintf "remove_tab_at_index: tab with index %d not found" i)
 
-      method layout =
+      method layout () =
         Option.iter (fun x -> Dom_html.window##cancelAnimationFrame x) layout_frame;
-        let f = fun _ -> self#layout_internal; layout_frame <- None in
+        let f = fun _ -> self#layout_internal (); layout_frame <- None in
         layout_frame <- Some (Dom_html.window##requestAnimationFrame (Js.wrap_callback f))
 
-      method private layout_internal = match self#get_active_tab with
+      method private layout_internal () = match self#active_tab with
         | Some tab ->
            let f () =
-             width <- self#get_offset_width;
-             let l = tab#get_left in
+             width <- self#offset_width;
+             let l = tab#left in
              let w = match width with
                | 0 -> 0.
-               | x -> (float_of_int tab#get_width) /. (float_of_int x)
+               | x -> (float_of_int tab#width) /. (float_of_int x)
              in
              let t = Printf.sprintf "translateX(%dpx) scale(%f,1)" l w in
              if not init then (Js.Unsafe.coerce indicator#style)##.transition := Js.string "none";
              indicator#style##.transform := Js.string t;
-             if not init then (indicator#get_offset_width |> ignore;
+             if not init then (indicator#offset_width |> ignore;
                                (Js.Unsafe.coerce indicator#style)##.transition := Js.string "";
                                indicator#style##.visibility := Js.string "visible";
                                init <- true)
@@ -223,8 +223,8 @@ module Tab_bar = struct
 
       initializer
         self#add_class (Markup.Tabs.Tab_bar._class ^ "-upgraded");
-        Dom_events.listen Dom_html.window Dom_events.Typ.resize (fun _ _ -> self#layout; false) |> ignore;
-        React.S.map (fun _   -> self#layout) s_active |> ignore;
+        Dom_events.listen Dom_html.window Dom_events.Typ.resize (fun _ _ -> self#layout (); false) |> ignore;
+        React.S.map (fun _   -> self#layout ()) s_active |> ignore;
         React.E.map (fun tab -> Option.iter (fun x -> x#set_active false) tab) (React.S.diff (fun _ x -> x) s_active)
         |> ignore
 
@@ -258,13 +258,13 @@ module Scroller = struct
 
       (* User methods *)
 
-      method tab_bar        = tab_bar
-      method scroll_back    = self#move_tabs_scroll (- wrapper#get_client_width)
-      method scroll_forward = self#move_tabs_scroll wrapper#get_client_width
-      method layout         = super#layout;
-                              self#update_scroll_buttons;
-                              self#tab_bar#layout;
-                              scroll_listener#measure
+      method tab_bar           = tab_bar
+      method scroll_back ()    = self#move_tabs_scroll (- wrapper#client_width)
+      method scroll_forward () = self#move_tabs_scroll wrapper#client_width
+      method layout ()         = super#layout ();
+                                 self#update_scroll_buttons ();
+                                 self#tab_bar#layout ();
+                                 scroll_listener#measure ()
 
       (* Private methods *)
 
@@ -283,15 +283,15 @@ module Scroller = struct
         let next       = old + delta * multiplier in
         self#scroll next
 
-      method private scroll_tab_into_view tab =
+      method private scroll_tab_into_view (tab:'a Tab.t) =
         let left  = wrapper#root##.scrollLeft in
-        let right = left + wrapper#get_client_width in
-        if tab#get_left < left
-        then self#scroll tab#get_left
-        else if tab#get_left + tab#get_width > right
-        then self#scroll @@ left + (tab#get_width + tab#get_left - right)
+        let right = left + wrapper#client_width in
+        if tab#left < left
+        then self#scroll tab#left
+        else if tab#left + tab#width > right
+        then self#scroll @@ left + (tab#width + tab#left - right)
 
-      method private update_scroll_buttons =
+      method private update_scroll_buttons () =
         let scroll_width = wrapper#root##.scrollWidth in
         let scroll_left  = wrapper#root##.scrollLeft in
         let client_width = wrapper#root##.clientWidth in
@@ -305,11 +305,11 @@ module Scroller = struct
         f show_rigth forward
 
       initializer
-        self#layout;
+        self#layout ();
         Dom.appendChild self#root scroll_listener#root;
-        Dom_events.(listen back#root    Typ.click  (fun _ _ -> self#scroll_back;    true))        |> ignore;
-        Dom_events.(listen forward#root Typ.click  (fun _ _ -> self#scroll_forward; true))        |> ignore;
-        Dom_events.(listen wrapper#root Typ.scroll (fun _ _ -> self#update_scroll_buttons; true)) |> ignore;
+        Dom_events.(listen back#root    Typ.click  (fun _ _ -> self#scroll_back ();    true))        |> ignore;
+        Dom_events.(listen forward#root Typ.click  (fun _ _ -> self#scroll_forward (); true))        |> ignore;
+        Dom_events.(listen wrapper#root Typ.scroll (fun _ _ -> self#update_scroll_buttons (); true)) |> ignore;
         React.S.map (fun x -> Option.iter self#scroll_tab_into_view x) self#tab_bar#s_active      |> ignore;
 
     end

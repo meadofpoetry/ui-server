@@ -20,9 +20,9 @@ let emit_new_pos (s_layers:value Dynamic_grid.Item.t list React.signal) push =
   let open Dynamic_grid.Position in
   let layers  = React.S.value s_layers in
   let changed = List.fold_left (fun acc x ->
-                    let op,np = x#get_value.actual,(List.length layers - 1) - x#pos.y in
+                    let op,np = x#value.actual,(List.length layers - 1) - x#pos.y in
                     if op <> np
-                    then (x#set_value { x#get_value with actual = np }; set_data_layer_attr x np; (op,np) :: acc)
+                    then (x#set_value { x#value with actual = np }; set_data_layer_attr x np; (op,np) :: acc)
                     else acc) [] layers in
   match changed with
   | [] -> ()
@@ -43,7 +43,7 @@ let make_layer_item s_layers push layer =
   let color_class       = Markup.CSS.add_element _class "color-indicator" in
   let layers   = React.S.value s_layers in
   let drag     = new Icon.Font.t ~icon:"drag_handle" () in
-  let original = List.fold_left (fun acc x -> max (succ x#get_value.original) acc) 0 layers in
+  let original = List.fold_left (fun acc x -> max (succ x#value.original) acc) 0 layers in
   let text     = new Typography.Text.t ~text:(Printf.sprintf "Слой %d" (original + 1)) () in
   let vis      = make_show_toggle () in
   let color    = Tyxml_js.Html.(span ~a:[a_class [color_class]] [])
@@ -70,18 +70,18 @@ let on_add grid push =
   let f layer =
     let i,s = make_layer_item grid#s_items push layer in
     (match grid#add i with
-     | Ok item -> let _ = React.S.map  (fun x -> push @@ `Visibility (item#get_value.actual,x)) s in
-                  set_data_layer_attr item item#get_value.actual;
+     | Ok item -> let _ = React.S.map  (fun x -> push @@ `Visibility (item#value.actual,x)) s in
+                  set_data_layer_attr item item#value.actual;
                   emit_new_pos grid#s_items push;
                   item#set_selected true;
-                  push (`Added item#get_value.actual);
-                  push (`Selected item#get_value.actual);
+                  push (`Added item#value.actual);
+                  push (`Selected item#value.actual);
      | Error _ -> ())
   in
   let selected = React.S.value grid#s_selected in
   match selected with
   | []    -> f 0
-  | [sel] -> f (sel#get_value.actual + 1)
+  | [sel] -> f (sel#value.actual + 1)
   | _     -> ()
 
 
@@ -89,8 +89,8 @@ let remove_layer s_layers push layer =
   let open Dynamic_grid.Position in
   let layers = List.filter (fun x -> not @@ Equal.physical x#root layer#root) @@ React.S.value s_layers in
   let y      = layer#pos.y in
-  push (`Removed layer#get_value.actual);
-  layer#remove;
+  push (`Removed layer#value.actual);
+  layer#remove ();
   emit_new_pos s_layers push;
   match List.find_pred (fun w -> w#pos.y = y) layers with
   | Some w -> w#set_selected true;
@@ -134,20 +134,20 @@ class t ~init () =
 
     method e_layer      : action React.event = e_layer
     method e_layer_push : ?step:React.step -> action -> unit = push
-    method clear = self#remove_all
+    method clear () = self#remove_all ()
     method initialize (init:int list) =
       let init = List.length init in
-      self#clear;
+      self#clear ();
       List.iter (fun _ -> on_add self push) @@ List.range' init 0;
       Option.iter (fun x -> x#set_selected true) @@ List.head_opt self#items
 
     initializer
       self#initialize init;
       self#add_class _class;
-      self#set_on_load @@ Some (fun _ -> self#layout);
+      self#set_on_load @@ Some self#layout;
       React.S.diff (fun n o -> let open Dynamic_grid.Position in
                                match n with
-                               | [x] -> push @@ `Selected x#get_value.actual
+                               | [x] -> push @@ `Selected x#value.actual
                                | _   -> (match o with
                                          | [x] -> push @@ `Selected x#pos.y
                                          | _   -> ())) self#s_selected

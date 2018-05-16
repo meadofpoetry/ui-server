@@ -57,7 +57,7 @@ let get_t2mi_errors_ws control =
 let get_board_errors_ws control =
   WS.get (Printf.sprintf "api/board/%d/board_errors_ws" control) board_error_of_yojson
 
-let get_bitrate_ws control =
+let get_bitrates_ws control =
   WS.get (Printf.sprintf "api/board/%d/bitrate_ws" control) ts_structs_of_yojson
 
 let get_structs_ws control =

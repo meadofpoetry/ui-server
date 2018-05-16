@@ -61,7 +61,7 @@ class ['a] t ~input_type ~input_id ?label ?placeholder ?icon ?help_text ?box ?ou
         new Widget.widget
             (Markup.Textfield.Icon.create ~clickable ~icon () |> Tyxml_js.To_dom.of_i)
             ())
-              icon in
+               icon in
   let help_text_widget  = Option.map (fun x -> new Help_text.t x ()) help_text in
   let text_field_widget =
     let get_icon pos = (match icon,icon_widget with
@@ -83,8 +83,8 @@ class ['a] t ~input_type ~input_id ?label ?placeholder ?icon ?help_text ?box ?ou
   let elt =
     let tf = Widget.widget_to_markup text_field_widget in
     Option.map_or ~default:tf
-                 (fun x -> Markup.Textfield.Wrapper.create ~textfield:tf ~helptext:(Widget.widget_to_markup x) ())
-                 help_text_widget
+                  (fun x -> Markup.Textfield.Wrapper.create ~textfield:tf ~helptext:(Widget.widget_to_markup x) ())
+                  help_text_widget
     |> Tyxml_js.To_dom.of_element in
   let input_elt = elt##querySelector (Js.string ("." ^ Markup.Textfield.input_class))
                   |> Js.Opt.to_option |> Option.get_exn |> Js.Unsafe.coerce in
@@ -102,43 +102,39 @@ class ['a] t ~input_type ~input_id ?label ?placeholder ?icon ?help_text ?box ?ou
                        |> Js.Opt.to_option
                        |> Option.map (fun x -> new Widget.widget x ())
 
-    method get_text_field_widget = text_field_widget
-    method get_icon_widget       = icon_widget
-    method get_help_text_widget  = help_text_widget
-    method get_label_widget      = label_widget
+    method text_field_widget = text_field_widget
+    method icon_widget       = icon_widget
+    method help_text_widget  = help_text_widget
+    method label_widget      = label_widget
 
-    method set_help_text s   = Option.iter (fun x -> x#set_text_content s) help_text_widget
-    method get_help_text     = Option.map  (fun x -> x#get_text_content |> Option.get_or ~default:"")
-                                          self#get_help_text_widget
+    method help_text       = Option.(map (fun x -> x#text_content |> get_or ~default:"") self#help_text_widget)
+    method set_help_text s = Option.iter (fun x -> x#set_text_content s) self#help_text_widget
 
-    method private add_or_rm_class x c = if x then self#get_text_field_widget#add_class c
-                                         else self#get_text_field_widget#remove_class c
-    method set_dense x       = self#add_or_rm_class x Markup.Textfield.dense_class
-    method set_full_width x  = self#add_or_rm_class x Markup.Textfield.fullwidth_class
+    method set_dense x       = self#add_or_remove_class x Markup.Textfield.dense_class
+    method set_full_width x  = self#add_or_remove_class x Markup.Textfield.fullwidth_class
 
     method set_valid x = mdc##.valid := Js.bool x
 
-    method get_label   = Option.map (fun x -> x#get_text_content
-                                              |> Option.get_or ~default:"") self#get_label_widget
-    method set_label s = Option.map (fun x -> x#set_text_content s) self#get_label_widget
+    method label       = Option.(map (fun x -> x#text_content |> get_or ~default:"") self#label_widget)
+    method set_label s = Option.map (fun x -> x#set_text_content s) self#label_widget
 
-    method! get_disabled   = Js.to_bool mdc##.disabled
+    method! disabled       = Js.to_bool mdc##.disabled
     method! set_disabled x = mdc##.disabled := Js.bool x
 
     method! fill_in (x : 'a) = super#fill_in x;
-                               self#get_text_field_widget#add_class Markup.Textfield.upgraded_class;
+                               self#text_field_widget#add_class Markup.Textfield.upgraded_class;
                                Option.iter (fun x -> x#add_class Markup.Textfield.label_float_above_class)
-                                          self#get_label_widget
-    method! clear = super#clear;
-                    self#get_text_field_widget#remove_class Markup.Textfield.upgraded_class;
-                    Option.iter (fun x -> x#remove_class Markup.Textfield.label_float_above_class)
-                               self#get_label_widget
+                                           self#label_widget
+    method! clear () = super#clear ();
+                       self#text_field_widget#remove_class Markup.Textfield.upgraded_class;
+                       Option.iter (fun x -> x#remove_class Markup.Textfield.label_float_above_class)
+                                   self#label_widget
 
     initializer
       Option.iter (fun x -> if x#is_validation && Option.is_none x#text
-                           then React.S.map (function Some _ -> ()
-                                                    | None   -> x#set_text_content super#get_validation_message)
-                                  super#s_input |> ignore)
-        self#get_help_text_widget
+                            then React.S.map (function Some _ -> ()
+                                                     | None   -> x#set_text_content super#validation_message)
+                                             super#s_input |> ignore)
+                  self#help_text_widget
 
   end

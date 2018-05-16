@@ -8,33 +8,32 @@ class overlay_grid ~parent ~s_col_w ~s_row_h ~s_cols ~s_rows ~s_im () =
   let elt = Markup.Dynamic_grid.Overlay_grid.create () |> Tyxml_js.To_dom.of_canvas in
   object(self)
 
-    inherit Widget.widget elt ()
+    inherit Widget.widget elt () as super
 
     val mutable grid_color     = Color.v 0. 0. 0. 0.25
     val mutable divider_color  = Color.v 0. 0. 0. 0.5
     val mutable show_dividers  = false
     val mutable divider_period = 10,10
 
-    method show : unit = Dom.appendChild parent self#root;
-                         parent##.classList##add (Js.string Markup.Dynamic_grid.with_overlay_grid_class)
-    method hide : unit = (try Dom.removeChild parent self#root with _ -> ());
-                         parent##.classList##remove (Js.string Markup.Dynamic_grid.with_overlay_grid_class)
+    method show () : unit = Dom.appendChild parent self#root;
+                            parent##.classList##add (Js.string Markup.Dynamic_grid.with_overlay_grid_class)
+    method hide () : unit = (try Dom.removeChild parent self#root with _ -> ());
+                            parent##.classList##remove (Js.string Markup.Dynamic_grid.with_overlay_grid_class)
 
-    method set_grid_color r g b a = grid_color <- Color.v r g b a;
-                                    self#layout
-    method get_grid_color         = grid_color
+    method set_grid_color r g b a = grid_color <- Color.v r g b a; self#layout ()
+    method grid_color             = grid_color
 
-    method set_divider_color r g b a  = divider_color <- Color.v r g b a;
-                                        self#layout
-    method get_divider_color          = divider_color
+    method set_divider_color r g b a  = divider_color <- Color.v r g b a; self#layout ()
+    method divider_color              = divider_color
 
     method set_divider_period x = divider_period <- x; self#layout
-    method get_divider_period   = divider_period
+    method divider_period       = divider_period
 
     method show_dividers = show_dividers <- true
     method hide_dividers = show_dividers <- false
 
-    method layout =
+    method layout () =
+      super#layout ();
       let cn = React.S.value s_cols in
       let rn = React.S.value s_rows in
       let cw = React.S.value s_col_w in
@@ -48,7 +47,7 @@ class overlay_grid ~parent ~s_col_w ~s_row_h ~s_cols ~s_rows ~s_im () =
                             >> P.line (P2.v 1. 0.)
                             >> P.line (P2.v 0. 0.))
       in
-      let filler = I.const @@ self#get_grid_color
+      let filler = I.const @@ self#grid_color
                    >> I.cut (P.empty
                             >> P.sub  (P2.v 0. 0.)
                             >> P.line (P2.v 0. 1.)
@@ -63,15 +62,15 @@ class overlay_grid ~parent ~s_col_w ~s_row_h ~s_cols ~s_rows ~s_im () =
       let dividers : image =
         if not show_dividers || (rn < 30 && cn < 30)
         then empty
-        else let line_dividers_count = CCList.range 0 (cn / (fst self#get_divider_period)) in
-             let pos = one_col_pos *. float_of_int (fst self#get_divider_period) in
+        else let line_dividers_count = CCList.range 0 (cn / (fst self#divider_period)) in
+             let pos = one_col_pos *. float_of_int (fst self#divider_period) in
              let line_dividers =
                CCList.fold_left (fun acc num ->
                  let img = self#draw_line ~pos ~num ~typ:Row ~w:col_border in
                  I.blend img acc) empty line_dividers_count
              in
-             let row_dividers_count = CCList.range 0 (rn / (snd self#get_divider_period)) in
-             let pos = one_row_pos *. float_of_int (snd self#get_divider_period) in
+             let row_dividers_count = CCList.range 0 (rn / (snd self#divider_period)) in
+             let pos = one_row_pos *. float_of_int (snd self#divider_period) in
              CCList.fold_left (fun acc num ->
                  let img = self#draw_line ~pos ~num ~typ:Column ~w:row_border in
                  I.blend img acc) line_dividers row_dividers_count
@@ -120,6 +119,6 @@ class overlay_grid ~parent ~s_col_w ~s_row_h ~s_cols ~s_rows ~s_im () =
                  >> P.sub starting
                  >> P.line ending
       in
-      I.const self#get_grid_color >> I.cut ~area path
+      I.const self#grid_color >> I.cut ~area path
 
   end

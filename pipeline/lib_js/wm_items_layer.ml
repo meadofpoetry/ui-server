@@ -48,16 +48,9 @@ module Make(I : Item) = struct
       method layer : int   = layer
       method set_layer x   = layer <- x;
                              self#set_attribute "data-layer" @@ string_of_int layer;
-                             List.iter (fun x -> x#set_value (I.update_layer x#get_value layer)) self#items
+                             List.iter (fun x -> x#set_value (I.update_layer x#value layer)) self#items
       method e_item_dblclick = e_dblclick
       method e_item_delete   = e_delete
-
-      method private get_event_pos e : Position.t option =
-        let rect = self#get_bounding_client_rect in
-        let x,y  = e##.clientX - (int_of_float rect.left),
-                   e##.clientY - (int_of_float rect.top) in
-        if x <= self#get_offset_width && x >= 0 && y <= self#get_offset_height && y >= 0
-        then Some { x; y; w = 1; h = 1 } else None
 
       method private move_ghost ?aspect ghost = function
         | None      -> ghost#set_pos Position.empty
@@ -75,7 +68,7 @@ module Make(I : Item) = struct
       method private update_item_value item position =
         let cols,rows = React.S.value s_grid in
         let pos = layout_pos_of_grid_pos ~resolution ~cols ~rows position in
-        item#set_value (I.update_position item#get_value pos)
+        item#set_value (I.update_position item#value pos)
 
       method private add_from_candidate t =
         let pos       = I.position_of_t t in
@@ -94,7 +87,7 @@ module Make(I : Item) = struct
                     (self#add item)
 
       method private set_grid ((c,r):int*int) =
-        List.iter (fun i -> let pos = I.position_of_t i#get_value in
+        List.iter (fun i -> let pos = I.position_of_t i#value in
                             let pos = grid_pos_of_layout_pos ~resolution ~cols:c ~rows:r pos in
                             i#set_pos pos) self#items;
         self#s_grid_push { self#grid with cols = c; rows = Some r };
@@ -103,7 +96,7 @@ module Make(I : Item) = struct
         self#add_class _class;
         self#set_active false;
         self#set_layer layer;
-        self#set_on_load @@ Some (fun () -> self#layout);
+        self#set_on_load @@ Some (fun () -> self#layout ());
         React.S.map self#set_grid s_grid |> ignore;
         React.S.map (function [] -> Dom.appendChild self#root ph#root
                             | _  -> try Dom.removeChild self#root ph#root with _ -> ())
@@ -165,7 +158,7 @@ module Make(I : Item) = struct
                                  if not @@ equal pos empty
                                  then let cols,rows = React.S.value s_grid in
                                       let pos       = layout_pos_of_grid_pos ~resolution ~cols ~rows pos in
-                                      let other     = List.map (fun x -> x#get_value) self#items in
+                                      let other     = List.map (fun x -> x#value) self#items in
                                       let (t:I.t)   = if not (t:I.t).unique
                                                       then { t with name = I.make_item_name t other }
                                                       else t

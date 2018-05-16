@@ -42,31 +42,31 @@ class t ?discrete ?markers ?step ?(min=0.0) ?(max=100.0) ?value  () =
     inherit Widget.widget elt ()
 
     method set_value x = mdc##.value := x
-    method get_value   = mdc##.value
+    method value       = mdc##.value
 
-    method set_min x   = mdc##.min := x
-    method get_min     = mdc##.min
+    method set_min x = mdc##.min := x
+    method min       = mdc##.min
 
-    method set_max x   = mdc##.max := x
-    method get_max     = mdc##.max
+    method set_max x = mdc##.max := x
+    method max       = mdc##.max
 
-    method set_step x  = mdc##.step := x
-    method get_step    = mdc##.step
+    method set_step x = mdc##.step := x
+    method step       = mdc##.step
 
     method get_disabled   = Js.to_bool mdc##.disabled
     method set_disabled x = mdc##.disabled := Js.bool x
 
-    method layout         = mdc##layout ()
-    method step_down      = mdc##stepDown ()
+    method layout ()      = mdc##layout ()
+    method step_down ()   = mdc##stepDown ()
     method step_down_by x = mdc##stepDown_value x
-    method step_up        = mdc##stepUp ()
+    method step_up ()     = mdc##stepUp ()
     method step_up_by x   = mdc##stepUp_value x
 
     method s_input = s_input
     method s_value = s_value
 
     initializer
-      Dom_events.listen self#root events.input  (fun _ _ -> s_input_push self#get_value; false) |> ignore;
-      Dom_events.listen self#root events.change (fun _ _ -> s_value_push self#get_value; false) |> ignore;
+      Dom_events.listen self#root events.input  (fun _ _ -> s_input_push self#value; false) |> ignore;
+      Dom_events.listen self#root events.change (fun _ _ -> s_value_push self#value; false) |> ignore;
 
   end

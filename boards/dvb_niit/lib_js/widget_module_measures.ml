@@ -5,7 +5,9 @@ open Board_types
 
 let base_class = "mdc-parameters-widget"
 
-type config = { id: int }
+type config =
+  { id: int
+  } [@@deriving yojson]
 
 module type M = sig
   type t
@@ -53,8 +55,15 @@ module Row = struct
 
 end
 
-let make ~(measures:Board_types.measure_response React.event) (config:config) : 'a Dashboard.Item.item =
+let default_config = { id = 0 }
+
+let name conf = let conf = Option.get_or ~default:default_config conf in
+                Printf.sprintf "Модуль %d. Измерения" (succ conf.id)
+let settings  = None
+
+let make ~(measures:Board_types.measure_response React.event) (config:config option) =
   let open Row in
+  let config = Option.get_or ~default:default_config config in
   let measures = React.E.filter (fun (id,_) -> id = config.id) measures
                  |> React.E.map snd
   in
@@ -68,7 +77,4 @@ let make ~(measures:Board_types.measure_response React.event) (config:config) : 
   in
   let widget  = new Box.t ~vertical:true ~widgets:[power;mer;ber;freq;bitrate] () in
   let ()      = widget#add_class base_class in
-  { name     = Printf.sprintf "Модуль %d. Измерения" (succ config.id)
-  ; settings = None
-  ; widget   = widget#widget
-  }
+  widget#widget

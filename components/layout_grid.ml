@@ -26,58 +26,56 @@ module Cell = struct
       method remove_span =
         Option.iter self#rm_span span;
         span <- None
-      method get_span = span
+      method span       = span
       method set_span x =
         self#remove_span;
         super#add_class @@ Markup.Layout_grid.Cell.get_cell_span x;
         span <- Some x
 
-      method remove_span_phone =
-        Option.iter (self#rm_span ~dt:`Phone) span_phone;
-        span_phone <- None
-      method get_span_phone = span_phone
-      method set_span_phone x =
-        self#remove_span_phone;
-        super#add_class @@ Markup.Layout_grid.Cell.get_cell_span ~device_type:`Phone x;
-        span_phone <- Some x
+      method span_phone       = span_phone
+      method set_span_phone : int option -> unit = function
+        | Some x -> Option.iter (self#rm_span ~dt:`Phone) span_phone;
+                    super#add_class @@ Markup.Layout_grid.Cell.get_cell_span ~device_type:`Phone x;
+                    span_phone <- Some x
+        | None   -> Option.iter (self#rm_span ~dt:`Phone) span_phone;
+                    span_phone <- None
 
-      method remove_span_tablet =
-        Option.iter (self#rm_span ~dt:`Tablet) span_tablet;
-        span_tablet <- None
-      method get_span_tablet = span_tablet
-      method set_span_tablet x =
-        self#remove_span_tablet;
-        super#add_class @@ Markup.Layout_grid.Cell.get_cell_span ~device_type:`Tablet x;
-        span_tablet <- Some x
+      method span_tablet = span_tablet
+      method set_span_tablet : int option -> unit = function
+        | Some x -> Option.iter (self#rm_span ~dt:`Tablet) span_tablet;
+                    super#add_class @@ Markup.Layout_grid.Cell.get_cell_span ~device_type:`Tablet x;
+                    span_tablet <- Some x
+        | None   -> Option.iter (self#rm_span ~dt:`Tablet) span_tablet;
+                    span_tablet <- None
 
       method remove_span_desktop =
         Option.iter (self#rm_span ~dt:`Desktop) span_desktop;
         span_desktop <- None
-      method get_span_desktop = span_desktop
-      method set_span_desktop x =
-        self#remove_span_tablet;
-        super#add_class @@ Markup.Layout_grid.Cell.get_cell_span ~device_type:`Desktop x;
-        span_tablet <- Some x
+      method span_desktop = span_desktop
+      method set_span_desktop : int option -> unit = function
+        | Some x -> Option.iter (self#rm_span ~dt:`Desktop) span_desktop;
+                    super#add_class @@ Markup.Layout_grid.Cell.get_cell_span ~device_type:`Desktop x;
+                    span_tablet <- Some x
+        | None   -> Option.iter (self#rm_span ~dt:`Desktop) span_desktop;
+                    span_desktop <- None
 
-      method remove_order =
-        Option.iter (fun x -> super#remove_class @@ Markup.Layout_grid.Cell.get_cell_order x) order;
-        order <- None
-      method get_order = order
-      method set_order x =
-        self#remove_order;
-        super#add_class @@ Markup.Layout_grid.Cell.get_cell_order x;
-        order <- Some x
+      method order = order
+      method set_order : int option -> unit = function
+        | Some x -> Option.iter (fun x -> super#remove_class @@ Markup.Layout_grid.Cell.get_cell_order x) order;
+                    super#add_class @@ Markup.Layout_grid.Cell.get_cell_order x;
+                    order <- Some x
+        | None   -> Option.iter (fun x -> super#remove_class @@ Markup.Layout_grid.Cell.get_cell_order x) order;
+                    order <- None
 
-      method remove_align =
-        Option.iter (fun x -> super#remove_class @@ Markup.Layout_grid.Cell.get_cell_align x) align;
-        align <- None
-      method get_align = align
-      method set_align x =
-        self#remove_align;
-        super#add_class @@ Markup.Layout_grid.Cell.get_cell_align x;
-        align <- Some x
+      method align = align
+      method set_align : [`Top | `Middle | `Bottom ] option -> unit = function
+        | Some x -> Option.iter (fun x -> super#remove_class @@ Markup.Layout_grid.Cell.get_cell_align x) align;
+                    super#add_class @@ Markup.Layout_grid.Cell.get_cell_align x;
+                    align <- Some x
+        | None   -> Option.iter (fun x -> super#remove_class @@ Markup.Layout_grid.Cell.get_cell_align x) align;
+                    align <- None
 
-      method get_widgets = widgets
+      method widgets = widgets
 
     end
 
@@ -98,14 +96,13 @@ class t ~(cells:Cell.t list) () =
     method inner = inner
     method cells = cells
 
-    method remove_align =
-      Option.iter (fun x -> super#remove_class @@ Markup.Layout_grid.get_grid_align x) align;
-      align <- None
     method align       = align
-    method set_align x =
-      self#remove_align;
-      super#add_class @@ Markup.Layout_grid.get_grid_align x;
-      align <- Some x
+    method set_align : [ `Left | `Right ] option -> unit = function
+      | Some x -> Option.iter (fun x -> super#remove_class @@ Markup.Layout_grid.get_grid_align x) align;
+                  super#add_class @@ Markup.Layout_grid.get_grid_align x;
+                  align <- Some x
+      | None   -> Option.iter (fun x -> super#remove_class @@ Markup.Layout_grid.get_grid_align x) align;
+                  align <- None
 
     method set_fixed_column_width x = Markup.Layout_grid.fixed_column_width_class
                                       |> (fun c -> if x then super#add_class c else super#remove_class c)

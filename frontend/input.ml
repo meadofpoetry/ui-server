@@ -4,23 +4,13 @@ open Api_js.Requests
 open Lwt.Infix
 open Common.Topology
 
-class type t =
-  object inherit Widget.widget
-    method on_load   : unit
-    method on_unload : unit
-  end
-
 let dummy_tab = fun () -> let div = Dom_html.createDiv Dom_html.document in
-                          object
-                            inherit Widget.widget div ()
-                            method on_load = ()
-                            method on_unload = ()
-                          end
+                          Widget.create div
 
-let board_to_tabs (control:int) : string -> (string * (unit -> t)) list = function
-  | "IP2TS" -> [ "IP",        Board_ip_dektec_js.Ip_dektec.page control ]
-  | "DVB"   -> [ "RF",        (fun () -> Board_dvb_niit_js.Input_page.make control) ]
-  | "TS"    -> [ "Структура", Board_qos_niit_js.Structure.page control
+let board_to_tabs (control:int) : string -> (string * (unit -> Widget.widget)) list = function
+  | "IP2TS" -> [ "IP",        (fun () -> Board_ip_dektec_js.Input_page.make control |> Widget.coerce) ]
+  | "DVB"   -> [ "RF",        (fun () -> Board_dvb_niit_js.Input_page.make control |> Widget.coerce) ]
+  | "TS"    -> [ "Структура", (fun () -> Board_qos_niit_js.Structure.page control () |> Widget.coerce)
                ; "Скорости",  dummy_tab
                ; "Джиттер",   dummy_tab
                ; "QoS",       dummy_tab
@@ -28,7 +18,7 @@ let board_to_tabs (control:int) : string -> (string * (unit -> t)) list = functi
   | "TS2IP" -> [ ]
   | s       -> failwith ("input.js: unknown board " ^ s)
 
-let cpu_to_tabs : string -> (string * (unit -> t)) list = function
+let cpu_to_tabs : string -> (string * (unit -> Widget.widget)) list = function
   | "pipeline" -> ["QoE", dummy_tab ]
   | _          -> []
 

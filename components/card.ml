@@ -46,7 +46,7 @@ module Actions = struct
     object
       val mutable widgets : widget list = List.map (fun x -> (x :> Widget.widget)) widgets
       inherit widget elt () as super
-      method get_widgets = widgets
+      method widgets = widgets
 
     end
 
@@ -85,7 +85,7 @@ module Media = struct
     object
       val mutable widgets : widget list = List.map (fun x -> (x :> Widget.widget)) widgets
       inherit Widget.widget elt ()
-      method get_widgets = widgets
+      method widgets = widgets
     end
 
 end

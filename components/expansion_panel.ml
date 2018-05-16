@@ -79,13 +79,12 @@ class t ?(expanded=false)
 
     method s_expanded     = s_expanded
 
+    method expanded       = React.S.value s_expanded
     method set_expanded x = self#add_or_remove_class x Markup.Expansion_panel.expanded_class;
                             if not x
                             then wrapper#style##.display := Js.string "none"
                             else wrapper#style##.display := Js.string "";
                             s_expanded_push x
-    method expanded   = React.S.value s_expanded
-
 
     method elevation       = elevation
     method set_elevation x = Elevation.remove_elevation self;

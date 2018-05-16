@@ -31,10 +31,10 @@ module Item = struct
 
       inherit Widget.widget elt () as super
 
-      method get_item           = item
-      method get_text           = item#get_text
-      method get_secondary_text = item#get_secondary_text
-      method get_nested_tree : 'a option = nested
+      method item           = item
+      method text           = item#text
+      method secondary_text = item#secondary_text
+      method nested_tree : 'a option = nested
 
       initializer
         Option.iter (fun x -> x#add_class Markup.Tree.Item.list_class;
@@ -55,7 +55,7 @@ end
 
 class t ~(items:t Item.t list) () =
 
-  let two_line = Option.is_some @@ List.find_pred (fun x -> Option.is_some x#get_secondary_text) items in
+  let two_line = Option.is_some @@ List.find_pred (fun x -> Option.is_some x#secondary_text) items in
   let elt      = Markup.Tree.create ~two_line ~items:(Widget.widgets_to_markup items) ()
                  |> Tyxml_js.To_dom.of_element in
 
@@ -65,31 +65,32 @@ class t ~(items:t Item.t list) () =
 
     inherit Widget.widget elt () as super
 
-    method get_items   = items
+    method items = items
+
     method set_dense x = if x
                          then (super#add_class Markup.List_.dense_class;
                                self#iter (fun (i:t Item.t) -> Option.iter (fun (t:t) -> t#set_dense x)
-                                                                i#get_nested_tree))
+                                                                i#nested_tree))
                          else (super#remove_class Markup.List_.dense_class;
                                self#iter (fun (i:t Item.t) -> Option.iter (fun (t:t) -> t#set_dense x)
-                                                                i#get_nested_tree))
+                                                                i#nested_tree))
 
     method private iter f =
       let rec iter l = List.iter (fun (x : t Item.t) ->
                            f x;
-                           match x#get_nested_tree with
-                           | Some n -> iter n#get_items
+                           match x#nested_tree with
+                           | Some n -> iter n#items
                            | None   -> ()) l in
-      iter self#get_items
+      iter self#items
 
     method private padding () =
       let rec iter l n = List.iter (fun x ->
                              let item = (Js.Unsafe.coerce x#root)##querySelector (Js.string ".mdc-list-item") in
                              item##.style##.paddingLeft := Js.string @@ (string_of_int (n*16))^"px";
-                             match x#get_nested_tree with
-                             | Some el -> iter el#get_items (n+1)
+                             match x#nested_tree with
+                             | Some el -> iter el#items (n+1)
                              | None   -> ()) l in
-      iter self#get_items 1
+      iter self#items 1
 
     initializer
       self#padding ();

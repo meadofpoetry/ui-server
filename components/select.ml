@@ -128,8 +128,8 @@ class ['a] t ?(disabled=false)
     method item n : 'a Item.t option =
       List.get_at_idx n self#items
 
-    method! set_empty =
-      self#select#set_empty; push None;
+    method! set_empty () =
+      self#select#set_empty (); push None;
       if not default_selected then Dom.appendChild self#select#root @@ Tyxml_js.To_dom.of_option @@ make_empty ()
 
     method append_item (i:'a Item.t) =

@@ -15,19 +15,19 @@ let create_simple_tabs (l:simple_tab list) =
   in
   let scrl = new Tabs.Scroller.t ~tabs () in
   let bar  = scrl#tab_bar in
-  let ()   = List.iter (fun t -> hide t#get_value) bar#tabs in
+  let ()   = List.iter (fun t -> hide t#value) bar#tabs in
   let body = Dom_html.createDiv Dom_html.document |> Widget.create in
-  let _    = React.S.diff (fun n o -> Option.iter (fun o -> hide o#get_value) o;
-                                      Option.iter (fun n -> show n#get_value) n)
+  let _    = React.S.diff (fun n o -> Option.iter (fun o -> hide o#value) o;
+                                      Option.iter (fun n -> show n#value) n)
                           bar#s_active
   in
-  let ()   = Option.iter (fun t -> show t#get_value) @@ React.S.value bar#s_active in
-  let ()   = List.iter (fun t -> Dom.appendChild body#root t#get_value#root) bar#tabs in
+  let ()   = Option.iter (fun t -> show t#value) @@ React.S.value bar#s_active in
+  let ()   = List.iter (fun t -> Dom.appendChild body#root t#value#root) bar#tabs in
   let ()   = body#add_class @@ Markup.CSS.add_element _class "body" in
   let ()   = scrl#add_class @@ Markup.CSS.add_element _class "tabs" in
   object(self)
     inherit Widget.widget (Dom_html.createDiv Dom_html.document) () as super
-    method! layout = super#layout; scrl#layout; body#layout
+    method! layout () = super#layout (); scrl#layout (); body#layout ()
     initializer
       Dom.appendChild self#root scrl#root;
       Dom.appendChild self#root body#root;

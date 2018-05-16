@@ -248,21 +248,24 @@ type ecm =
   } [@@deriving yojson]
 
 type service =
-  { id            : int
-  ; bitrate       : int option
-  ; name          : string
-  ; provider_name : string
-  ; pmt_pid       : int
-  ; pcr_pid       : int
-  ; has_pmt       : bool
-  ; has_sdt       : bool
-  ; dscr          : bool
-  ; list_dscr     : bool
-  ; eit_schedule  : bool
-  ; eit_pf        : bool
-  ; free_ca_mode  : bool
-  ; es            : es list
-  ; ecm           : ecm list
+  { id             : int
+  ; bitrate        : int option
+  ; name           : string
+  ; provider_name  : string
+  ; pmt_pid        : int
+  ; pcr_pid        : int
+  ; has_pmt        : bool
+  ; has_sdt        : bool
+  ; dscr           : bool
+  ; list_dscr      : bool
+  ; eit_schedule   : bool
+  ; eit_pf         : bool
+  ; free_ca_mode   : bool
+  ; running_status : int
+  ; service_type_1 : int
+  ; service_type_2 : int
+  ; es             : es list
+  ; ecm            : ecm list
   } [@@deriving yojson]
 
 type emm = ecm [@@deriving yojson]
@@ -353,6 +356,7 @@ type general_struct_block =
   ; nw_id        : int
   ; orig_nw_id   : int
   ; nw_name      : string
+  ; bouquet_name : string
   } [@@deriving yojson]
 
 type ts_struct =

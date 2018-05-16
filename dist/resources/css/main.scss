@@ -4,6 +4,15 @@
 @import './templates/templates';
 @import './pages/boards/dvb_niit';
 
+$xsmall: 480px;
+$small: 600px;
+$small-840: 840px;
+$medium: 960px;
+$large: 1240px;
+$large-1440: 1440px;
+$large-1600: 1580px;
+$xlarge: 1900px;
+
 :root { --mdc-box-margin: 0px; }
 html {
     box-sizing: border-box;
@@ -57,6 +66,7 @@ body {
 }
 #arbitrary-content {
     margin: 20px;
+    
     > .mdc-layout-grid {
         --mdc-layout-grid-margin-desktop: 0px;
         --mdc-layout-grid-margin-tablet: 0px;

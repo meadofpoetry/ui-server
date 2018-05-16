@@ -37,7 +37,7 @@ module Header = struct
       val h2_widget = elt##querySelector (Js.string @@ "." ^ Markup.Dialog.Header.title_class)
                       |> Js.Opt.to_option |> Option.get_exn |> Widget.create
       inherit Widget.widget elt ()
-      method title       = h2_widget#get_text_content |> Option.get_or ~default:""
+      method title       = h2_widget#text_content |> Option.get_or ~default:""
       method set_title s = h2_widget#set_text_content s
     end
 
@@ -96,14 +96,14 @@ class t ?scrollable ?title ?(actions:Action.t list option) ~content () =
     method body   = body_widget
     method footer = footer_widget
 
-    method show       = mdc##show ()
-    method show_await =
+    method show ()       = mdc##show ()
+    method show_await () =
       let t,w = Lwt.wait () in
       mdc##show ();
       React.E.map (fun x -> Lwt.wakeup w x) @@ React.E.once e_action  |> ignore;
       t
-    method hide      = mdc##close ()
-    method is_opened = Js.to_bool mdc##.open_
+    method hide () = mdc##close ()
+    method opened  = Js.to_bool mdc##.open_
 
     method e_action : [ `Accept | `Cancel ] React.event = e_action
 

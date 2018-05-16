@@ -160,7 +160,7 @@ let make_stream_create_dialog () =
 let show_stream_create_dialog dialog streams i =
   let open Common.Topology in
   dialog.push i;
-  dialog.dialog#show_await >>= function
+  dialog.dialog#show_await () >>= function
   | `Cancel -> Lwt.return_error "dialog was canceled"
   | `Accept ->
      React.S.value dialog.result
@@ -213,7 +213,7 @@ let make ~(init:  stream_table)
   let s_div = React.S.map ~eq:Equal.physical (fun s -> make s) s_in in
   let s     = React.S.switch ~eq:(Equal.option equal_stream_setting)
                              (React.S.map ~eq:(Equal.physical) (fun n ->
-                                            div#set_empty;
+                                            div#set_empty ();
                                             let w,n_s = n in
                                             Dom.appendChild div#root w#root;
                                             n_s) s_div)

@@ -17,7 +17,7 @@ module Header = struct
     object(self)
       inherit Topo_block.Header.t ~action:settings#widget ~title ()
       method settings_icon = settings
-      method layout        = self#settings_icon#layout
+      method layout ()     = self#settings_icon#layout ()
       initializer
         self#add_class _class;
     end
@@ -53,7 +53,7 @@ class t ~(connections:(#Topo_node.t * connection_point) list)
   object(self)
     inherit Topo_block.t ~node:(`CPU cpu) ~connections ~header ~body () as super
     method cpu        = cpu
-    method layout     = super#layout; header#layout
+    method layout ()  = super#layout (); header#layout ()
     method e_settings = e_settings
     initializer
       List.iter (fun p -> p#set_state `Active) self#paths;

@@ -9,7 +9,7 @@ let base_class = "mdc-parameters-widget"
 type config =
   { ids : int list option
   ; typ : measure_type
-  }
+  } [@@deriving yojson]
 
 module type R = sig
   type t
@@ -60,31 +60,16 @@ end
 module Make(M:M) = struct
 
   let make (event:measure_response React.event)
-           (config:(Board_types.config React.signal,string) Lwt_result.t)
-           (conf:config) : 'a Dashboard.Item.item =
+           (config:Board_types.config React.signal)
+           (conf:config) =
     let (module R)   = (module struct include M let typ = conf.typ end : Row.M with type t = M.t) in
     let (module ROW) = (module struct include Row.Make(R) end : R with type t = M.t) in
-    let t = match conf.ids with
-      | Some l -> Lwt_result.return l
-      | None   -> config >>= (fun c -> Lwt_result.return @@ List.map fst @@ React.S.value c)
-    in
-    let t = t >>= fun ids ->
-            let rows = List.map (fun id -> ROW.make id @@ React.S.hold None @@ M.get id event)
-                       @@ List.sort compare ids in
-            (new Box.t ~vertical:true ~widgets:rows ())
-            |> Widget.coerce
-            |> Lwt_result.return
-    in
-    let widget = object(self)
-                   inherit Ui_templates.Loader.widget_loader t ()
-                   initializer
-                     self#add_class base_class
-                 end
-    in
-    { name     = Printf.sprintf "Измерения. %s" @@ measure_type_to_string conf.typ
-    ; settings = None
-    ; widget   = widget#widget
-    }
+    let ids = match conf.ids with Some x -> x | None -> List.map fst @@ React.S.value config in
+    let rows = List.map (fun id -> ROW.make id @@ React.S.hold None @@ M.get id event)
+               @@ List.sort compare ids in
+    let box = new Box.t ~vertical:true ~widgets:rows () in
+    let ()  = box#add_class base_class in
+    box#widget
 
 end
 
@@ -118,9 +103,16 @@ module Bitrate    = Make(struct
                                                                      m.bitrate)
                         end)
 
+let default_config = { ids = None; typ = `Power }
+
+let name conf = Printf.sprintf "Измерения. %s" @@ measure_type_to_string
+                @@ (Option.get_or ~default:default_config conf).typ
+let settings  = None
+
 let make ~(measures:Board_types.measure_response React.event)
-         ~(config:(Board_types.config React.signal,string) Lwt_result.t)
-         (conf:config) =
+         ~(config:Board_types.config React.signal)
+         (conf:config option) =
+  let conf = Option.get_or ~default:default_config conf in (* FIXME *)
   match conf.typ with
   | `Power   -> Power.make   measures config conf
   | `Mer     -> Mer.make     measures config conf
