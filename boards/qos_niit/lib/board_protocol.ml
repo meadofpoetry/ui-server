@@ -31,10 +31,10 @@ module SM = struct
                      ; streams      : Common.Stream.id list -> unit
                      ; ts_found     : Common.Stream.id      -> unit
                      ; ts_lost      : Common.Stream.id      -> unit
-                     ; ts_errors    : ts_errors             -> unit
+                     ; ts_errors    : ts_error list         -> unit
                      ; t2mi_found   : int                   -> unit
                      ; t2mi_lost    : int                   -> unit
-                     ; t2mi_errors  : t2mi_errors           -> unit
+                     ; t2mi_errors  : t2mi_error list       -> unit
                      ; board_errors : board_errors          -> unit
                      ; structs      : ts_structs            -> unit
                      ; bitrates     : ts_structs            -> unit
@@ -45,8 +45,8 @@ module SM = struct
   module Events_handler : sig
     type event = [ `Status        of Types.status
                  | `Streams_event of Types.streams
-                 | `T2mi_errors   of Cbuffer.t
-                 | `Ts_errors     of Cbuffer.t
+                 | `T2mi_errors   of t2mi_error list
+                 | `Ts_errors     of ts_error list
                  | `End_of_errors
                  ]
     type t
@@ -57,8 +57,8 @@ module SM = struct
   end = struct
     type event = [ `Status        of Types.status
                  | `Streams_event of Types.streams
-                 | `T2mi_errors   of Cbuffer.t
-                 | `Ts_errors     of Cbuffer.t
+                 | `T2mi_errors   of t2mi_error list
+                 | `Ts_errors     of ts_error list
                  | `End_of_errors
                  ]
 
@@ -68,28 +68,12 @@ module SM = struct
       ; events       : event list
       }
 
-    let group_ts_errs l   =
-      List.filter_map (function
-                       | `Ts_errors x -> try_parse Ts_errors.of_cbuffer x
-                       | _            -> None) l
-      |> List.group_succ ~eq:(fun (x:ts_errors) y -> Common.Stream.equal_id x.stream_id y.stream_id)
-      |> List.map (fun l -> List.fold_left (fun (acc : ts_errors) (x : ts_errors) ->
-                                { acc with errors = (acc.errors @ x.errors) })
-                                           (List.hd l) l)
+    let merge_ts_errors l =
+      List.filter_map (function `Ts_errors x -> Some x | _ -> None) l |> List.concat
+      |> List.sort (fun (x:ts_error) y -> Int32.compare x.packet y.packet)
 
-    let sort_ts_errs l    =
-      List.map (fun (x : ts_errors) ->
-          { x with errors = List.sort (fun (x : ts_error) (y : ts_error) ->
-                                Int32.compare x.packet y.packet) x.errors }) l
-
-    let group_t2mi_errs l =
-      List.filter_map (function
-                       | `T2mi_errors x -> try_parse T2mi_errors.of_cbuffer x
-                       | _ -> None) l
-      |> List.group_succ ~eq:(fun (x : t2mi_errors) y -> Common.Stream.equal_id x.stream_id y.stream_id)
-      |> List.map (fun l -> List.fold_left (fun (acc : t2mi_errors) (x : t2mi_errors) ->
-                                { acc with errors = (acc.errors @ x.errors) })
-                                           (List.hd l) l)
+    let merge_t2mi_errors l =
+      List.filter_map (function `T2mi_errors x -> Some x | _ -> None) l |> List.concat
 
     let insert_versions t old_t =
       { t with status = { t.status with versions = old_t.status.versions }}
@@ -158,9 +142,9 @@ module SM = struct
       pe.status t.status.status;
       pe.streams t.status.streams;
       List.iter pe.ts_found ts_found;
-      List.iter pe.ts_errors @@ sort_ts_errs @@ group_ts_errs t.events;
+      pe.ts_errors @@ merge_ts_errors t.events;
       List.iter pe.t2mi_found t2mi_found;
-      List.iter pe.t2mi_errors @@ group_t2mi_errs t.events;
+      pe.t2mi_errors @@ merge_t2mi_errors t.events;
       List.iter pe.t2mi_lost t2mi_lost;
       List.iter pe.ts_lost ts_lost
 

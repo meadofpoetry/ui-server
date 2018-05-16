@@ -1,5 +1,6 @@
 open Common.Dvb_t2_types
 open Common.Topology
+open Containers
 
 include Structure_types
 
@@ -28,6 +29,23 @@ type jitter_mode =
 
 (** Status **)
 
+type packet_sz = Ts188 | Ts192 | Ts204
+let packet_sz_to_string : packet_sz -> string = function
+  | Ts188 -> "Ts188"
+  | Ts192 -> "Ts192"
+  | Ts204 -> "Ts204"
+let packet_sz_of_string_option : string -> packet_sz option = function
+  | "Ts188" -> Some Ts188
+  | "Ts192" -> Some Ts192
+  | "Ts204" -> Some Ts204
+  | _       -> None
+let packet_sz_to_yojson x : Yojson.Safe.json = `String (packet_sz_to_string x)
+let packet_sz_of_yojson = function
+  | `String s -> (match packet_sz_of_string_option s with
+                  | Some x -> Ok x
+                  | None   -> Error (Printf.sprintf "packet_sz_of_yojson: bad string (%s)" s))
+  | x         -> Error (Printf.sprintf "packet_sz_of_yojson: not string value (%s)" @@ Yojson.Safe.to_string x)
+
 type status =
   { load            : float
   ; reset           : bool
@@ -39,15 +57,14 @@ type status =
   ; bitrate         : int
   ; packet_sz       : packet_sz
   ; has_stream      : bool
-  }
-and packet_sz = Ts188
-              | Ts192
-              | Ts204 [@@deriving yojson]
+  } [@@deriving yojson]
 
 (** MPEG-TS errors **)
 
 type ts_error =
-  { count     : int
+  { stream_id : Common.Stream.id
+  ; timestamp : Common.Time.Seconds.t
+  ; count     : int
   ; err_code  : int
   ; err_ext   : int
   ; multi_pid : bool
@@ -57,64 +74,22 @@ type ts_error =
   ; param_2   : int32
   } [@@deriving yojson]
 
-type ts_error_list = ts_error list [@@deriving yojson]
-
-type ts_errors =
-  { stream_id : Common.Stream.id
-  ; timestamp : Common.Time.Seconds.t
-  ; errors    : ts_error list
-  } [@@deriving yojson]
+type ts_errors = ts_error list [@@deriving yojson]
 
 (* T2-MI errors *)
 
-(* type t2mi_parser_error = Format_p2_type *)
-(*                        | Bad_fft_for_lite *)
-(*                        | Bad_gi *)
-(*                        | Bad_fft_gi_combination *)
-(*                        | Bad_frames_number *)
-(*                        | L1_conf_too_large *)
-(*                        | L1_dyn_too_large *)
-(*                        | L1_cur_too_small *)
-(*                        | No_dyn_in_l1_cur *)
-(*                        | Bad_l1_dyn_length *)
-(*                        | L1_fut_too_small *)
-(*                        | L1_fut_found_but_not_needed *)
-(*                        | Bad_timestamp_length *)
-(*                        | L1_cur_absent [@@deriving yojson] *)
-
-(* type t2mi_stream_error = *)
-(*   { err_code : int *)
-(*   ; count    : int *)
-(*   ; param    : int option *)
-(*   } [@@deriving yojson] *)
-
-(* type t2mi_err = Stream of t2mi_stream_error *)
-(*               | Parser of t2mi_parser_error [@@deriving yojson] *)
-
-(* type t2mi_error = *)
-(*   { t2mi_stream_id : int *)
-(*   ; error          : t2mi_err *)
-(*   } [@@deriving yojson] *)
-
-type ts_parser_error = Af_too_long_for_new_packet
-                     | Af_too_long
-                     | Pf_out_of_bounds
-                     | Packet_intersection [@@deriving yojson]
-
 type t2mi_error =
-  { t2mi_stream_id : int
+  { stream_id      : Common.Stream.id
+  ; timestamp      : Common.Time.Seconds.t
+  ; t2mi_stream_id : int
+  ; pid            : int
   ; err_code       : int
-  ; count          : int option
-  ; param          : int option
+  ; sync           : bool
+  ; count          : int
+  ; param          : int
   } [@@deriving yojson]
 
-type t2mi_errors =
-  { stream_id        : Common.Stream.id
-  ; t2mi_pid         : int
-  ; sync             : int list
-  ; ts_parser_errors : ts_parser_error list
-  ; errors           : t2mi_error list
-  } [@@deriving yojson]
+type t2mi_errors = t2mi_error list [@@deriving yojson]
 
 (** Board errors **)
 

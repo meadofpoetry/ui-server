@@ -27,6 +27,20 @@ type status =
 (** TS errors **)
 
 
+(** T2-MI errors **)
+
+type t2mi_error_raw =
+  { code      : int
+  ; stream_id : int
+  ; count     : int
+  }
+
+type t2mi_error_adv_raw =
+  { code      : int
+  ; stream_id : int
+  ; param     : int
+  }
+
 (** Bitrate **)
 
 type pid_bitrate =

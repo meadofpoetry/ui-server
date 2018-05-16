@@ -793,24 +793,24 @@ module Ts_errors : (Event with type msg := ts_errors) = struct
     let common,rest = Cbuffer.split msg sizeof_ts_errors in
     let number      = get_ts_errors_count common in
     let errors,_    = Cbuffer.split rest (number * sizeof_ts_error) in
+    let stream_id   = Common.Stream.id_of_int32 (get_ts_errors_stream_id common) in
+    let timestamp   = Option.get_exn @@ Common.Time.of_float_s @@ Unix.gettimeofday () in
     let iter        = Cbuffer.iter (fun _ -> Some sizeof_ts_error) (fun buf -> buf) errors in
-    let errors      = Cbuffer.fold (fun acc el -> let pid'      = get_ts_error_pid el in
-                                                  let pid       = pid' land 0x1FFF in
-                                                  let multi_pid = if (pid' land 0x8000) > 0 then true else false in
-                                                  { count     = get_ts_error_count el
-                                                  ; err_code  = get_ts_error_err_code el
-                                                  ; err_ext   = get_ts_error_err_ext el
-                                                  ; multi_pid
-                                                  ; pid
-                                                  ; packet    = get_ts_error_packet el
-                                                  ; param_1   = get_ts_error_param_1 el
-                                                  ; param_2   = get_ts_error_param_2 el
-                                                  } :: acc)
-                                   iter [] in
-    { stream_id = Common.Stream.id_of_int32 (get_ts_errors_stream_id common)
-    ; timestamp = Option.get_exn @@ Common.Time.of_float_s @@ Unix.gettimeofday ()
-    ; errors
-    }
+    Cbuffer.fold (fun acc el -> let pid'      = get_ts_error_pid el in
+                                let pid       = pid' land 0x1FFF in
+                                let multi_pid = if (pid' land 0x8000) > 0 then true else false in
+                                { stream_id
+                                ; timestamp
+                                ; count     = get_ts_error_count el
+                                ; err_code  = get_ts_error_err_code el
+                                ; err_ext   = get_ts_error_err_ext el
+                                ; multi_pid
+                                ; pid
+                                ; packet    = get_ts_error_packet el
+                                ; param_1   = get_ts_error_param_1 el
+                                ; param_2   = get_ts_error_param_2 el
+                                } :: acc)
+                 iter []
 
 end
 
@@ -818,34 +818,93 @@ module T2mi_errors : (Event with type msg := t2mi_errors) = struct
 
   let msg_code = 0x05
 
+  let ts_parser_error_code   = 0xF0
+  let t2mi_parser_error_code = 0xF1
+
+  let get_relevant_adv_code = function
+    | 0  -> Some 2
+    | 1  -> Some 3
+    | 4  -> Some 4
+    | 5  -> Some 5
+    | 6  -> Some 6
+    | 9  -> Some 7
+    | 20 -> Some 8
+    | _  -> None
+
+  let merge_errors stream_id pid sync timestamp
+                   (cnt:Types.t2mi_error_raw list)
+                   (adv:Types.t2mi_error_adv_raw list) =
+    let open Types in
+    let default = -1 in
+    List.map (fun (x:t2mi_error_raw) ->
+        let param = get_relevant_adv_code x.code
+                    |> Option.flat_map (fun c ->
+                           List.find_opt (fun a -> a.code = c && a.stream_id = x.stream_id) adv
+                           |> Option.map (fun x -> x.param))
+                    |> Option.get_or ~default
+        in
+        { stream_id
+        ; timestamp
+        ; pid
+        ; sync           = List.mem ~eq:(Int.equal) x.stream_id sync
+        ; t2mi_stream_id = x.stream_id
+        ; err_code       = x.code
+        ; count          = x.count
+        ; param }) cnt
+
+  let conv_other stream_id pid sync timestamp (oth:Types.t2mi_error_adv_raw list) =
+    let open Types in
+    List.map (fun (x:t2mi_error_adv_raw) ->
+        { stream_id
+        ; timestamp
+        ; pid
+        ; sync           = List.mem ~eq:(Int.equal) x.stream_id sync
+        ; t2mi_stream_id = x.stream_id
+        ; err_code       = t2mi_parser_error_code
+        ; count          = 1
+        ; param          = x.param }) oth
+
   let of_cbuffer msg =
+    let timestamp   = Option.get_exn @@ Common.Time.of_float_s @@ Unix.gettimeofday () in
     let common,rest = Cbuffer.split msg sizeof_t2mi_errors in
     let number      = get_t2mi_errors_count common in
     let errors,_    = Cbuffer.split rest (number * sizeof_t2mi_error) in
+    let stream_id   = Common.Stream.id_of_int32 (get_t2mi_errors_stream_id common) in
+    let pid         = get_t2mi_errors_pid common in
+    let sync        = int_to_t2mi_sync_list (get_t2mi_errors_sync common) in
     let iter        = Cbuffer.iter (fun _ -> Some sizeof_t2mi_error) (fun buf -> buf) errors in
+    let cnt,adv,oth =
+      Cbuffer.fold (fun (cnt,adv,oth) el ->
+          let index = get_t2mi_error_index el in
+          let data  = get_t2mi_error_data el in
+          let code  = index lsr 4 in
+          let sid   = index land 7 in
+          match index land 8 with
+          | 0 -> if data > 0 (* filter zero errors *)
+                 then let (x:Types.t2mi_error_raw) = { code; stream_id = sid; count = data } in
+                      (x::cnt),adv,oth
+                 else cnt,adv,oth
+          | _ -> let (x:Types.t2mi_error_adv_raw) = { code; stream_id = sid; param = data } in
+                 if code = 0 (* t2mi parser error *)
+                 then cnt,adv,(x::oth)
+                 else cnt,(x::adv),oth)
+                   iter ([],[],[])
+    in
     let parser_errs = get_t2mi_errors_err_flags common in
-    let errors      = Cbuffer.fold (fun acc el -> let _index   = get_t2mi_error_index el in
-                                                  let _data    = get_t2mi_error_data el in
-                                                  let cnt_flag = _index land 8 = 0 in
-                                                  let index    = _index lsr 4 in
-                                                  if (not cnt_flag) && index = 0 then acc
-                                                  else { count          = if cnt_flag then Some _data else None
-                                                       ; err_code       = _index lsr 4
-                                                       ; t2mi_stream_id = _index land 7
-                                                       ; param          = if cnt_flag then None else Some _data
-                                                       } :: acc)
-                        iter [] in
-    { stream_id        = Common.Stream.id_of_int32 (get_t2mi_errors_stream_id common)
-    ; t2mi_pid         = get_t2mi_errors_pid common
-    ; sync             = int_to_t2mi_sync_list (get_t2mi_errors_sync common)
-    ; ts_parser_errors = List.filter_map (fun x -> if Option.is_some x then x else None)
-                           [ if parser_errs land 1 <> 0 then Some Af_too_long_for_new_packet else None
-                           ; if parser_errs land 2 <> 0 then Some Af_too_long else None
-                           ; if parser_errs land 4 <> 0 then Some Pf_out_of_bounds else None
-                           ; if parser_errs land 8 <> 0 then Some Packet_intersection else None
-                           ]
-    ; errors
-    }
+    let ts_errors   = List.filter_map (fun x -> if parser_errs land (Int.pow 2 x) <> 0 then Some x else None)
+                                      (List.range 0 3)
+                      |> List.map (fun x -> { stream_id
+                                            ; timestamp
+                                            ; t2mi_stream_id = 0
+                                            ; pid
+                                            ; err_code       = ts_parser_error_code
+                                            ; sync           = true
+                                            ; count          = 1
+                                            ; param          = x })
+    in
+    ts_errors                                                          (* ts parser errors *)
+    |> List.append (conv_other stream_id pid sync timestamp oth)       (* t2mi parser errors *)
+    |> List.append (merge_errors stream_id pid sync timestamp cnt adv) (* t2mi etr290 errors *)
 
 end
 
@@ -928,9 +987,9 @@ let parse_simple_msg = fun (code,body,parts) ->
     (match code lsr 8 with
      | x when x = Get_board_info.rsp_code -> `R (`Board_info body)
      | x when x = Get_board_mode.rsp_code -> `R (`Board_mode body)
-     | x when x = Status.msg_code         -> `E (`Status (Status.of_cbuffer body))
-     | x when x = Ts_errors.msg_code      -> `E (`Ts_errors body)
-     | x when x = T2mi_errors.msg_code    -> `E (`T2mi_errors body)
+     | x when x = Status.msg_code         -> `E (`Status        (Status.of_cbuffer body))
+     | x when x = Ts_errors.msg_code      -> `E (`Ts_errors     (Ts_errors.of_cbuffer body))
+     | x when x = T2mi_errors.msg_code    -> `E (`T2mi_errors   (T2mi_errors.of_cbuffer body))
      | x when x = Streams.msg_code        -> `E (`Streams_event (Streams.of_cbuffer body))
      | 0xFD -> `E `End_of_errors;
      | 0x09 -> let code_ext = get_complex_rsp_header_code_ext body in
