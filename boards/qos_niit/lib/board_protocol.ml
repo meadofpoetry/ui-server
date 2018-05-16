@@ -1,5 +1,6 @@
 open Containers
 open Board_types
+open Structure_types
 open Lwt.Infix
 open Storage.Options
 open Api.Handler
@@ -152,7 +153,7 @@ module SM = struct
 
   module Pids = CCMap.Make(Int)
 
-  let merge_service_and_bitrates (m:int Pids.t) (s:Board_types.service) =
+  let merge_service_and_bitrates (m:int Pids.t) (s:service) =
     let ecm     = List.map (fun (ecm:ecm) -> { ecm with bitrate = Pids.get ecm.pid m }) s.ecm in
     let es      = List.map (fun (es:es) -> { es with bitrate = Pids.get es.pid m }) s.es in
     let bitrate = List.fold_left (fun acc (x:es) -> match acc,x.bitrate with
@@ -162,7 +163,7 @@ module SM = struct
                                                     | None, None      -> None) None es in
     { s with bitrate; ecm; es }
 
-  let merge_struct_and_bitrates (s:Board_types.ts_struct) (b:Types.bitrate) =
+  let merge_struct_and_bitrates (s:ts_struct) (b:Types.bitrate) =
     let open Types in
     let pids_m = List.fold_left (fun m {pid;bitrate} -> Pids.add pid bitrate m) Pids.empty b.pids in
     let pids   = List.map (fun (pid:pid) -> { pid with bitrate = Pids.get pid.pid pids_m }) s.pids in
@@ -170,25 +171,25 @@ module SM = struct
     let services = List.map (merge_service_and_bitrates pids_m) s.services in
     let update_table_common (c:table_common) = { c with bitrate = Pids.get c.pid pids_m } in
     let tables = List.map (function
-                     | PAT x     -> PAT { x with common = update_table_common x.common }
-                     | CAT x     -> CAT (update_table_common x)
-                     | PMT x     -> PMT { x with common = update_table_common x.common }
-                     | TSDT x    -> TSDT (update_table_common x)
-                     | NIT x     -> NIT { x with common = update_table_common x.common }
-                     | SDT x     -> SDT { x with common = update_table_common x.common }
-                     | BAT x     -> BAT { x with common = update_table_common x.common }
-                     | EIT x     -> EIT { x with common = update_table_common x.common }
-                     | TDT x     -> TDT (update_table_common x)
-                     | RST x     -> RST (update_table_common x)
-                     | ST  x     -> ST (update_table_common x)
-                     | TOT x     -> TOT (update_table_common x)
-                     | DIT x     -> DIT (update_table_common x)
-                     | SIT x     -> SIT (update_table_common x)
-                     | Unknown x -> Unknown (update_table_common x)) s.tables
+                           | PAT x     -> PAT { x with common = update_table_common x.common }
+                           | CAT x     -> CAT (update_table_common x)
+                           | PMT x     -> PMT { x with common = update_table_common x.common }
+                           | TSDT x    -> TSDT (update_table_common x)
+                           | NIT x     -> NIT { x with common = update_table_common x.common }
+                           | SDT x     -> SDT { x with common = update_table_common x.common }
+                           | BAT x     -> BAT { x with common = update_table_common x.common }
+                           | EIT x     -> EIT { x with common = update_table_common x.common }
+                           | TDT x     -> TDT (update_table_common x)
+                           | RST x     -> RST (update_table_common x)
+                           | ST  x     -> ST (update_table_common x)
+                           | TOT x     -> TOT (update_table_common x)
+                           | DIT x     -> DIT (update_table_common x)
+                           | SIT x     -> SIT (update_table_common x)
+                           | Unknown x -> Unknown (update_table_common x)) s.tables
     in
     { s with bitrate = Some b.ts_bitrate; pids; services; emm; tables }
 
-  let merge_structs_and_bitrates (s:Board_types.ts_structs) (b:Types.bitrates) =
+  let merge_structs_and_bitrates (s:ts_structs) (b:Types.bitrates) =
     let open Types in
     List.map (fun (s:ts_struct) ->
         match List.find_pred (fun (x:bitrate) -> Common.Stream.equal_id x.stream_id s.stream_id) b with
@@ -200,7 +201,7 @@ module SM = struct
      | Get_board_info       -> Get_board_info.to_cbuffer ()
      | Get_board_mode       -> Get_board_mode.to_cbuffer ()
      | Get_t2mi_frame_seq x -> Get_t2mi_frame_seq.to_cbuffer x
-     | Get_section (id,x)   -> Get_section.to_cbuffer (id,x))
+     | Get_section x        -> Get_section.to_cbuffer x)
     |> sender
 
   let send_event (type a) sender (msg : a event_request) : unit Lwt.t =
@@ -430,6 +431,11 @@ module SM = struct
       ; reset           = (fun ()    -> enqueue_instant imsgs sender storage Reset)
       ; get_structs     = (fun ()    -> Lwt.return @@ React.S.value structs)
       ; get_bitrates    = (fun ()    -> Lwt.return @@ React.S.value bitrates)
+      ; get_section     = (fun r     -> enqueue msgs sender
+                                                (Get_section { request_id = get_id ()
+                                                             ; params     = r })
+                                                (to_period 125 step_duration)
+                                                None)
       ; get_t2mi_seq    = (fun s     -> enqueue msgs sender
                                                 (Get_t2mi_frame_seq { request_id = get_id ()
                                                                     ; seconds    = s })

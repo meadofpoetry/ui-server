@@ -1,5 +1,6 @@
 open Containers
 open Board_types
+open Structure_types
 open Api_js.Requests.Json_request
 open Lwt.Infix
 
@@ -37,6 +38,12 @@ let get_structs control =
 
 let get_bitrates control =
   get_result ts_structs_of_yojson (Printf.sprintf "/api/board/%d/bitrates" control)
+
+let get_section (req:section_request) control =
+  post_result ~contents:(section_request_to_yojson req)
+              ~from_err:section_error_of_yojson
+              section_of_yojson
+              (Printf.sprintf "/api/board/%d/get_section" control)
 
 let get_incoming_streams control =
   get_result Common.Stream.t_list_of_yojson (Printf.sprintf "/api/board/%d/incoming_streams" control)

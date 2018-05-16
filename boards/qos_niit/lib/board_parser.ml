@@ -5,6 +5,7 @@ let prefix = 0x55AA
 include Board_msg_formats
 
 open Board_types
+open Structure_types
 open Common.Dvb_t2_types
 
 type part =
@@ -42,6 +43,7 @@ type api = { get_devinfo     : unit                -> devinfo_response Lwt.t
            ; get_t2mi_seq    : int                 -> t2mi_seq Lwt.t
            ; get_structs     : unit                -> ts_structs Lwt.t
            ; get_bitrates    : unit                -> ts_structs Lwt.t
+           ; get_section     : section_request     -> section Lwt.t
            ; reset           : unit                -> unit Lwt.t
            ; config          : unit                -> config Lwt.t
            }
@@ -71,10 +73,15 @@ type t2mi_frame_seq_req =
   ; seconds    : int
   }
 
+type section_req =
+  { request_id : int
+  ; params     : section_request
+  }
+
 type _ request = Get_board_info     : devinfo request
                | Get_board_mode     : Types.mode request
-               | Get_t2mi_frame_seq : t2mi_frame_seq_req    -> t2mi_seq request
-               | Get_section        : int * section_request -> section request
+               | Get_t2mi_frame_seq : t2mi_frame_seq_req -> t2mi_seq request
+               | Get_section        : section_req        -> section request
 
 (* ------------------- Misc ------------------- *)
 
@@ -192,47 +199,32 @@ module Get_board_errors : (Request with type req := int with type rsp := board_e
 end
 
 module Get_section : (Request
-                      with type req = (int * section_request)
+                      with type req = section_req
                       with type rsp = (section,section_error) result) = struct
 
-  type req = int * section_request
+  type req = section_req
   type rsp = (section,section_error) result
 
   let req_code = 0x0302
   let rsp_code = req_code
 
-  let to_cbuffer (id,(req : section_request)) =
+  let to_cbuffer { request_id; params } =
     let body = Cbuffer.create sizeof_req_get_section in
-    let ()   = set_req_get_section_stream_id body @@ Common.Stream.id_to_int32 req.stream_id in
-    let ()   = set_req_get_section_section body req.section in
-    (match req.table with
-     | PAT x -> set_req_get_section_table_id body x.common.id;
-                set_req_get_section_table_id_ext body x.ts_id
-     | PMT x -> set_req_get_section_table_id body x.common.id;
-                set_req_get_section_table_id_ext body x.program_number
-     | NIT x -> set_req_get_section_table_id body x.common.id;
-                set_req_get_section_table_id_ext body x.nw_id
-     | SDT x -> set_req_get_section_table_id body x.common.id;
-                set_req_get_section_table_id_ext body x.ts_id
-     | BAT x -> set_req_get_section_table_id body x.common.id;
-                set_req_get_section_table_id_ext body x.bouquet_id
-     | EIT x -> set_req_get_section_table_id body x.common.id;
-                set_req_get_section_table_id_ext body x.service_id;
-                set_req_get_section_adv_info_1 body x.eit_info.ts_id;
-                set_req_get_section_adv_info_2 body x.eit_info.orig_nw_id
-     | ( CAT x   | TSDT x | TDT x | RST x | ST x
-         | TOT x | DIT x  | SIT x | Unknown x ) -> set_req_get_section_table_id body x.id);
-    to_complex_req ~request_id:id ~msg_code:req_code ~body ()
+    let ()   = set_req_get_section_stream_id body @@ Common.Stream.id_to_int32 params.stream_id in
+    let ()   = Option.iter (set_req_get_section_section body) params.section in
+    let ()   = Option.iter (set_req_get_section_table_id_ext body) params.table_id_ext in
+    let ()   = Option.iter (set_req_get_section_adv_info_1 body) params.eit_ts_id in
+    let ()   = Option.iter (set_req_get_section_adv_info_2 body) params.eit_orig_nw_id in
+    to_complex_req ~request_id ~msg_code:req_code ~body ()
 
   let of_cbuffer msg =
-    let hdr,bdy = Cbuffer.split msg sizeof_section in
-    let length  = get_section_length hdr in
-    let result  = get_section_result hdr in
+    let hdr,bdy   = Cbuffer.split msg sizeof_section in
+    let length    = get_section_length hdr in
+    let result    = get_section_result hdr in
     if length > 0 && result = 0
     then let sid,data = Cbuffer.split bdy 4 in
-         Ok { stream_id = Common.Stream.id_of_int32 @@ Cbuffer.LE.get_uint32 sid 0
-            ; data      = Cbuffer.to_string data
-           }
+         let _        = Common.Stream.id_of_int32 @@ Cbuffer.LE.get_uint32 sid 0 in
+         Ok (Cbuffer.to_string data)
     else (Error (match result with
                  | 0 | 3 -> Zero_length
                  | 1     -> Table_not_found

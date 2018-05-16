@@ -3,6 +3,7 @@ open Api.Interaction
 open Board_protocol
 open Lwt.Infix
 open Board_types
+open Structure_types
 open Containers
 open Websocket_cohttp_lwt
 open Frame
@@ -65,6 +66,13 @@ let get_structs api () =
 
 let get_bitrates api () =
   api.get_bitrates () >|= (ts_structs_to_yojson %> Result.return)
+  >>= Json.respond_result
+
+let get_section api body () =
+  Json.of_body body >>= fun j ->
+  (match section_request_of_yojson j with
+   | Error e -> Lwt_result.fail @@ Json.of_error_string e
+   | Ok req  -> api.get_section req >|= (section_to_yojson %> Result.return))
   >>= Json.respond_result
 
 let get_incoming_streams streams () =
@@ -144,6 +152,7 @@ let handle api events s_state s_input streams _ meth args sock_data _ body =
       | _                 -> not_found ())
   | `POST, ["t2mi_mode"]          -> set_t2mi_mode api body ()
   | `POST, ["jitter_mode"]        -> set_jitter_mode api body ()
+  | `POST, ["get_section"]        -> get_section api body ()
 
   | `GET, ["config"]              -> config api ()
   | `GET, ["devinfo"]             -> devinfo api ()

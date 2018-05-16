@@ -2,8 +2,6 @@ open Common.Dvb_t2_types
 open Common.Topology
 open Containers
 
-include Structure_types
-
 (** Board info **)
 
 type devinfo =
@@ -76,7 +74,7 @@ type ts_error =
 
 type ts_errors = ts_error list [@@deriving yojson]
 
-(* T2-MI errors *)
+(** T2-MI errors **)
 
 type t2mi_error =
   { stream_id      : Common.Stream.id
@@ -189,10 +187,13 @@ and jitter_item =
 (** SI/PSI section **)
 
 type section_request =
-  { stream_id : Common.Stream.id
-  ; table     : table
-  ; section   : int
-  }
+  { stream_id      : Common.Stream.id
+  ; table_id       : int
+  ; section        : int option
+  ; table_id_ext   : int option
+  ; eit_ts_id      : int option
+  ; eit_orig_nw_id : int option
+  } [@@deriving yojson]
 
 type section_error = Zero_length
                    | Table_not_found
@@ -200,10 +201,7 @@ type section_error = Zero_length
                    | Stream_not_found
                    | Unknown [@@deriving yojson]
 
-type section =
-  { stream_id : Common.Stream.id
-  ; data      : string (* FIXME*)
-  } [@@deriving yojson]
+type section = string [@@deriving yojson]
 
 (** T2-MI info **)
 

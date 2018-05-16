@@ -1,6 +1,6 @@
 open Containers
 open Components
-open Board_types
+open Structure_types
 open Lwt_result.Infix
 
 type composition =
