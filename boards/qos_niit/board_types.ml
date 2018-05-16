@@ -44,7 +44,109 @@ and packet_sz = Ts188
               | Ts192
               | Ts204 [@@deriving yojson]
 
-(* MPEG-TS errors *)
+(** MPEG-TS errors **)
+
+type crc_err_param =
+  { computed : int32
+  ; actual   : int32
+  }
+
+type table_info_param =
+  { section      : int
+  ; table_id     : int
+  ; table_id_ext : int
+  }
+
+type period_err_param = Ptime.t
+
+type pat_err = Scrambled
+             | Table_id       of int
+             | Long_interval  of period_err_param * table_info_param
+             | CRC            of crc_err_param
+
+type cc_err = Repetition
+            | Loss
+            | Order
+            | Payload
+            | Not_identical
+
+type pmt_err = pat_err
+
+type pcr_err = Long_interval of period_err_param
+             | Discontinuity of period_err_param
+             | Loss          of int
+
+type cat_err = Scrambled
+             | Table_id  of int
+             | CRC       of crc_err_param
+             | Missing
+
+type nit_err = Table_id      of int
+             | Long_interval of period_err_param * table_info_param
+             | Scrambled
+
+type si_rep_err = Short_interval of period_err_param * table_info_param
+                | Long_interval  of period_err_param * table_info_param
+
+type sdt_err = nit_err
+
+type eit_err = Table_id      of int
+             | Long_interval of period_err_param * table_info_param
+
+type rst_err = Table_id  of int
+             | Scrambled
+
+type tdt_err = nit_err
+
+type ts_err = TS_sync_loss
+            | Sync_byte_error
+            | PAT_error           of pat_err
+            | CC_error            of cc_err
+            | PMT_error           of pmt_err
+            | PID_error
+            | Transport_error
+            | CRC_error           of crc_err_param
+            | PCR_error           of pcr_err
+            | PCR_accuracy_error  of period_err_param
+            | PTS_error           of period_err_param
+            | CAT_error           of cat_err
+            | NIT_error           of nit_err
+            | SI_repetition_error of si_rep_err
+            | Unreferenced_pid
+            | SDT_error           of sdt_err
+            | EIT_error           of eit_err
+            | RST_error           of rst_err
+            | TDT_error           of tdt_err
+
+let ts_error_name = function
+  | TS_sync_loss          -> "TS sync loss"
+  | Sync_byte_error       -> "Sync byte error"
+  | PAT_error _           -> "PAT error"
+  | CC_error _            -> "Continuity count error"
+  | PMT_error _           -> "PMT error"
+  | PID_error             -> "PID error"
+  | Transport_error       -> "Transport error"
+  | CRC_error _           -> "CRC error"
+  | PCR_error _           -> "PCR error"
+  | PCR_accuracy_error _  -> "PCR accuracy error"
+  | PTS_error _           -> "PTS error"
+  | CAT_error _           -> "CAT error"
+  | NIT_error _           -> "NIT error"
+  | SI_repetition_error _ -> "SI repetition error"
+  | Unreferenced_pid      -> "Unreferenced pid"
+  | SDT_error _           -> "SDT error"
+  | EIT_error _           -> "EIT error"
+  | RST_error _           -> "RST error"
+  | TDT_error _           -> "TDT error"
+
+let ts_error_priority = function
+  | (TS_sync_loss | Sync_byte_error | PAT_error _
+     | CC_error _ | PMT_error _     | PID_error)         -> `P1
+  | (Transport_error        | CRC_error _ | PCR_error _
+     | PCR_accuracy_error _ | PTS_error _ | CAT_error _) -> `P2
+  | (NIT_error _   | SI_repetition_error _ | Unreferenced_pid
+     | SDT_error _ | EIT_error _           | RST_error _
+     | TDT_error _)                                      -> `P3
 
 type ts_error =
   { count     : int
@@ -55,7 +157,7 @@ type ts_error =
   ; packet    : int32
   ; param_1   : int32
   ; param_2   : int32
-  } [@@deriving yojson]
+  } [@@Deriving yojson]
 
 type ts_error_list = ts_error list [@@deriving yojson]
 
@@ -368,14 +470,13 @@ module Errors_api = struct
 
 end
 
-
-type config = { input       : input
-              ; t2mi_mode   : t2mi_mode option
-              ; jitter_mode : jitter_mode option
-              } [@@deriving yojson]
+type config =
+  { input       : input
+  ; t2mi_mode   : t2mi_mode option
+  ; jitter_mode : jitter_mode option
+  } [@@deriving yojson]
 
 let config_to_string c = Yojson.Safe.to_string @@ config_to_yojson c
-
 let config_of_string s = config_of_yojson @@ Yojson.Safe.from_string s
 
 let config_default =
