@@ -145,12 +145,60 @@ type ts_struct =
 
 type ts_structs = ts_struct list [@@deriving yojson]
 
-let table_common_of_table = function
-  | PAT x     -> x.common | CAT x     -> x        | PMT x     -> x.common
-  | TSDT x    -> x        | NIT x     -> x.common | SDT x     -> x.common
-  | BAT x     -> x.common | EIT x     -> x.common | TDT x     -> x
-  | RST x     -> x        | ST  x     -> x        | TOT x     -> x
-  | DIT x     -> x        | SIT x     -> x        | Unknown x -> x
+type table_label = [`PAT   | `CAT   | `PMT   | `TSDT  |
+                    `NIT   | `NITa  | `NITo  |
+                    `SDT   | `SDTa  | `SDTo  | `BAT   |
+                    `EIT   | `EITap | `EITop | `EITas | `EITos |
+                    `TDT   | `RST   | `ST    | `TOT   | `DIT   | `SIT   |
+                    `Unknown of int
+                   ]
+
+let table_label_of_int : int -> table_label = function
+  | 0x00 -> `PAT
+  | 0x01 -> `CAT
+  | 0x02 -> `PMT
+  | 0x03 -> `TSDT
+  | 0x40 -> `NITa
+  | 0x41 -> `NITo
+  | 0x42 -> `SDTa
+  | 0x46 -> `SDTo
+  | 0x4A -> `BAT
+  | 0x4E -> `EITap
+  | 0x4F -> `EITop
+  | x when x >= 0x50 && x <= 0x5F -> `EITas
+  | x when x >= 0x60 && x <= 0x6F -> `EITos
+  | 0x70 -> `TDT
+  | 0x71 -> `RST
+  | 0x72 -> `ST
+  | 0x73 -> `TOT
+  | 0x7E -> `DIT
+  | 0x7F -> `SIT
+  | x    -> `Unknown x
+
+let table_label_to_string : table_label -> string = function
+  | `PAT   -> "PAT"
+  | `CAT   -> "CAT"
+  | `PMT   -> "PMT"
+  | `TSDT  -> "TSDT"
+  | `NIT   -> "NIT"
+  | `NITa  -> "NIT actual"
+  | `NITo  -> "NIT other"
+  | `SDT   -> "SDT"
+  | `SDTa  -> "SDT actual"
+  | `SDTo  -> "SDT other"
+  | `BAT   -> "BAT"
+  | `EIT   -> "EIT"
+  | `EITap -> "EIT actual present"
+  | `EITop -> "EIT other present"
+  | `EITas -> "EIT actual schedule"
+  | `EITos -> "EIT other schedule"
+  | `TDT   -> "TDT"
+  | `RST   -> "RST"
+  | `ST    -> "ST"
+  | `TOT   -> "TOT"
+  | `DIT   -> "DIT"
+  | `SIT   -> "SIT"
+  | `Unknown _ -> "Unknown"
 
 let table_to_string = function
   | PAT _     -> "PAT"
@@ -176,3 +224,10 @@ let table_to_string = function
   | DIT _     -> "DIT"
   | SIT _     -> "SIT"
   | Unknown _ -> "Unknown"
+
+let table_common_of_table = function
+  | PAT x     -> x.common | CAT x     -> x        | PMT x     -> x.common
+  | TSDT x    -> x        | NIT x     -> x.common | SDT x     -> x.common
+  | BAT x     -> x.common | EIT x     -> x.common | TDT x     -> x
+  | RST x     -> x        | ST  x     -> x        | TOT x     -> x
+  | DIT x     -> x        | SIT x     -> x        | Unknown x -> x

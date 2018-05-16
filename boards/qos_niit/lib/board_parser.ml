@@ -425,27 +425,27 @@ module Get_ts_structs : (Request with type req := int with type rsp = ts_struct 
                    ; segment_lsn   = get_table_struct_block_adv_info_3 bdy
                    ; last_table_id = get_table_struct_block_adv_info_4 bdy
                    }  in
-    (match id with
-     | 0x00 -> PAT    { common; ts_id = id_ext }
-     | 0x01 -> CAT    common
-     | 0x02 -> PMT    { common; program_number = id_ext }
-     | 0x03 -> TSDT   common
-     | 0x40 -> NIT    { common; nw_id = id_ext; ts = Actual }
-     | 0x41 -> NIT    { common; nw_id = id_ext; ts = Other }
-     | 0x42 -> SDT    { common; ts_id = id_ext; ts = Actual }
-     | 0x46 -> SDT    { common; ts_id = id_ext; ts = Other }
-     | 0x4A -> BAT    { common; bouquet_id = id_ext }
-     | 0x4E -> EIT    { common; service_id = id_ext; eit_info; ts = Actual; typ = Present }
-     | 0x4F -> EIT    { common; service_id = id_ext; eit_info; ts = Other ; typ = Present }
-     | x when x >= 0x50 && x <= 0x5F -> EIT { common; service_id = id_ext; eit_info; ts = Actual; typ = Schedule }
-     | x when x >= 0x60 && x <= 0x6F -> EIT { common; service_id = id_ext; eit_info; ts = Other ; typ = Schedule }
-     | 0x70 -> TDT common
-     | 0x71 -> RST common
-     | 0x72 -> ST  common
-     | 0x73 -> TOT common
-     | 0x7E -> DIT common
-     | 0x7F -> SIT common
-     | _    -> Unknown common)
+    (match table_label_of_int id with
+     | `PAT   -> PAT  { common; ts_id = id_ext }
+     | `CAT   -> CAT  common
+     | `PMT   -> PMT  { common; program_number = id_ext }
+     | `TSDT  -> TSDT common
+     | `NITa  -> NIT  { common; nw_id = id_ext; ts = Actual }
+     | `NITo  -> NIT  { common; nw_id = id_ext; ts = Other }
+     | `SDTa  -> SDT  { common; ts_id = id_ext; ts = Actual }
+     | `SDTo  -> SDT  { common; ts_id = id_ext; ts = Other }
+     | `BAT   -> BAT  { common; bouquet_id = id_ext }
+     | `EITap -> EIT  { common; service_id = id_ext; eit_info; ts = Actual; typ = Present }
+     | `EITop -> EIT  { common; service_id = id_ext; eit_info; ts = Other ; typ = Present }
+     | `EITas -> EIT  { common; service_id = id_ext; eit_info; ts = Actual; typ = Schedule }
+     | `EITos -> EIT  { common; service_id = id_ext; eit_info; ts = Other ; typ = Schedule }
+     | `TDT   -> TDT  common
+     | `RST   -> RST  common
+     | `ST    -> ST   common
+     | `TOT   -> TOT  common
+     | `DIT   -> DIT  common
+     | `SIT   -> SIT  common
+     | _      -> Unknown common)
 
   let of_ts_struct_blocks msg =
     let str_len = ref 0 in
