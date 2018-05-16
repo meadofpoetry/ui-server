@@ -30,7 +30,7 @@ let font_to_class = function
 
 let remove (elt:#Widget.widget) =
   List.iter (fun x -> if String.prefix ~pre:Typography.base_class x then elt#remove_class x)
-            elt#get_classes
+            elt#classes
 
 let set ?(adjust_margin=true) ~font (elt:#Widget.widget) =
   remove elt;
@@ -54,18 +54,18 @@ module Text = struct
 
       val mutable font : font option = font
 
+      method font       = font
       method set_font x =
         Option.iter (fun x -> self#remove_class @@ font_to_class x) font;
         self#add_class @@ font_to_class x;
         font <- Some x
-      method get_font   = font
 
+      method adjust_margin     = self#has_class Typography.adjust_margin_class
       method set_adjust_margin = function
         | true  -> self#add_class Typography.adjust_margin_class
         | false -> self#remove_class Typography.adjust_margin_class
-      method get_adjust_margin = self#has_class Typography.adjust_margin_class
 
-      method get_text   = self#get_text_content |> Option.get_or ~default:""
+      method text       = self#text_content |> Option.get_or ~default:""
       method set_text s = self#set_text_content s
 
       initializer

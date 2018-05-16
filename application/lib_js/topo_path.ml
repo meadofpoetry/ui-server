@@ -98,7 +98,7 @@ class t ~(left_node:node_entry)
                                  self#remove_class active_class;
                                  self#remove_class muted_class;
 
-    method layout =
+    method layout () =
       let left   = f_lp () in
       let right  = f_rp () in
       let top,height = if left.y > right.y
@@ -106,7 +106,7 @@ class t ~(left_node:node_entry)
                        else right.y, right.y - left.y
       in
       let () = Option.iter (fun sw ->
-                   let sw_pos = { right with y = right.y - (sw#get_offset_height / 2)
+                   let sw_pos = { right with y = right.y - (sw#offset_height / 2)
                                            ; x = right.x + 15 } in
                    sw#style##.top := Js.string (Printf.sprintf "%dpx" sw_pos.y);
                    sw#style##.left := Js.string (Printf.sprintf "%dpx" sw_pos.x)) self#switch

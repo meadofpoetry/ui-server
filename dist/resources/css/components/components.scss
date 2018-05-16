@@ -5,7 +5,6 @@
 @import './circular-progress/mdc-circular-progress';
 @import "./checkbox/mdc-checkbox";
 @import "./chips/mdc-chips";
-@import "./dashboard/mdc-dashboard";
 @import "./dialog/mdc-dialog";
 @import "./divider/mdc-divider";
 @import './dynamic-grid/mdc-dynamic-grid';
@@ -13,6 +12,7 @@
 @import "./drawer/mdc-drawer";
 @import "./elevation/mdc-elevation";
 @import "./fab/mdc-fab";
+@import "./fab-speed-dial/mdc-fab-speed-dial";
 @import "./form-field/mdc-form-field";
 @import "./grid-list/mdc-grid-list";
 @import './icon/mdc-icon.scss';
@@ -35,3 +35,5 @@
 @import "./toolbar/mdc-toolbar";
 @import "./typography/mdc-typography";
 @import "./tree/mdc-tree";
+
+@import "./dashboard/mdc-dashboard";

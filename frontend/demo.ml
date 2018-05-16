@@ -35,7 +35,7 @@ let circular_progress_demo () =
   let section = demo_section "Circular progress" [ subsection "Indeterminate" indeterminate
                                                  ; subsection "Determinate" box ]
   in
-  let _             = React.S.map (fun x -> if x then slider#layout) section#s_expanded in
+  let _             = React.S.map (fun x -> if x then slider#layout ()) section#s_expanded in
   section
 
 let fab_demo () =
@@ -50,6 +50,51 @@ let fab_demo () =
   in
   demo_section "FAB" [box]
 
+let fab_speed_dial_demo () =
+  let items = List.map (fun icon -> new Fab.t ~icon ()) ["face"; "add"; "close"] in
+  let fab   = new Fab_speed_dial.t ~icon:"edit" ~items () in
+  let up    = new Radio.t ~name:"dir" ~value:`Up () in
+  let down  = new Radio.t ~name:"dir" ~value:`Down () in
+  let left  = new Radio.t ~name:"dir" ~value:`Left () in
+  let right = new Radio.t ~name:"dir" ~value:`Right () in
+  let f x   = React.S.map ~eq:(fun _ _ -> false)
+                          (function true -> print_endline "changed";
+                                            fab#set_direction x#value | false -> ()) x#s_state in
+  let _     = f up in
+  let _     = f down in
+  let _     = f left in
+  let _     = f right in
+  let dbox = new Box.t
+                 ~widgets:[ new Form_field.t ~label:"Up" ~input:up ()
+                          ; new Form_field.t ~label:"Down" ~input:down ()
+                          ; new Form_field.t ~label:"Left" ~input:left ()
+                          ; new Form_field.t ~label:"Right" ~input:right ()
+                          ]
+                 ~vertical:false
+                 ()
+  in
+  let fling = new Radio.t ~name:"anim" ~value:`Fling () in
+  let scale = new Radio.t ~name:"anim" ~value:`Scale () in
+  let f x   = React.S.map ~eq:(fun _ _ -> false)
+                          (function true -> print_endline "changed";
+                                            fab#set_animation x#value | false -> ()) x#s_state in
+  let _ = f fling in
+  let _ = f scale in
+  let abox = new Box.t
+                 ~widgets:[ new Form_field.t ~label:"Fling" ~input:fling ()
+                          ; new Form_field.t ~label:"Scale" ~input:scale ()
+                          ]
+                 ~vertical:false
+                 ()
+  in
+  let _ = fling#set_checked true in
+  let _ = up#set_checked true in
+  let _ = React.E.map (fun _ -> match React.S.value fab#s_state with
+                                | false -> fab#show ()
+                                | true  -> fab#hide ()) fab#main#e_click
+  in
+  demo_section "FAB speed dial" [ dbox#widget; abox#widget; fab#widget ]
+
 let radio_demo () =
   let radio1 = new Radio.t ~name:"radio" ~value:() () in
   let radio2 = new Radio.t ~name:"radio" ~value:() () in
@@ -61,8 +106,8 @@ let checkbox_demo () =
   let css_checkbox = new Checkbox.t ~ripple:false () in
   let btn          = new Button.t ~label:"toggle indeterminate" () in
   let form_field   = new Form_field.t ~label:"checkbox label" ~input:checkbox () in
-  React.E.map (fun _ -> checkbox#set_indeterminate @@ not checkbox#get_indeterminate;
-                        css_checkbox#set_indeterminate @@ not css_checkbox#get_indeterminate)
+  React.E.map (fun _ -> checkbox#set_indeterminate @@ not checkbox#indeterminate;
+                        css_checkbox#set_indeterminate @@ not css_checkbox#indeterminate)
     btn#e_click |> ignore;
   demo_section "Checkbox" [ (subsection "Checkbox (css only)" css_checkbox)#widget
                           ; (subsection "Checkbox with label" form_field)#widget
@@ -116,7 +161,7 @@ let slider_demo () =
                                       ; subsection "Discrete slider with markers" with_markers
                                       ; subsection "Disabled slider" disabled ]
   in
-  let _ = React.S.map (fun x -> if x then (continuous#layout; discrete#layout; with_markers#layout))
+  let _ = React.S.map (fun x -> if x then (continuous#layout (); discrete#layout (); with_markers#layout ()))
                       section#s_expanded
   in
   section
@@ -173,7 +218,7 @@ let dialog_demo () =
                  ]
                  () in
   let button = new Button.t ~label:"show dialog" () in
-  React.E.map (fun _ -> Lwt.bind dialog#show_await
+  React.E.map (fun _ -> Lwt.bind (dialog#show_await ())
                           (function
                            | `Accept -> print_endline "Dialog accepted"; Lwt.return ()
                            | `Cancel -> print_endline "Dialog cancelled"; Lwt.return ()))
@@ -252,7 +297,7 @@ let menu_demo () =
   React.E.map (fun _ -> menu#show) anchor#e_click      |> ignore;
   Dom_html.addEventListener icon_anchor#root
     Dom_events.Typ.click
-    (Dom_html.handler (fun _ -> icon_menu#show; Js._false))
+    (Dom_html.handler (fun _ -> icon_menu#show (); Js._false))
     Js._false
   |> ignore;
   Dom_html.addEventListener menu#root
@@ -298,7 +343,7 @@ let linear_progress_demo () =
   linear_progress#style##.marginTop := Js.string "50px";
   sld_box#style##.marginTop := Js.string "50px";
   let sect = demo_section "Linear progress" [ btn_box#widget; sld_box#widget; linear_progress#widget ] in
-  let _ = React.S.map (fun _ -> pgrs#layout; buffer#layout) sect#s_expanded in
+  let _ = React.S.map (fun _ -> pgrs#layout (); buffer#layout ()) sect#s_expanded in
   sect
 
 let tabs_demo () =
@@ -355,7 +400,8 @@ let tabs_demo () =
                                     ; (subsection "With scroller" scrl_bar)#widget
                                     ]
   in
-  let _ = React.S.map (fun x -> if x then (icon_bar#layout; text_bar#layout; both_bar#layout; scrl_bar#layout))
+  let _ = React.S.map (fun x -> if x then (icon_bar#layout (); text_bar#layout ();
+                                           both_bar#layout (); scrl_bar#layout ()))
                       section#s_expanded
   in
   section
@@ -483,7 +529,7 @@ let elevation_demo () =
   let slider  = new Slider.t ~markers:true ~max:24.0 () in
   let _       = React.S.map (fun v -> Elevation.set_elevation d @@ int_of_float v) slider#s_input in
   let section = demo_section "Elevation" [ d#widget; slider#widget ] in
-  let _       = React.S.map (fun x -> if x then slider#layout) section#s_expanded in
+  let _       = React.S.map (fun x -> if x then slider#layout ()) section#s_expanded in
   section
 
 let table_demo () =
@@ -651,7 +697,7 @@ let dynamic_grid_demo () =
                                          ; rem_all#widget
                                          ]
   in
-  let _ = React.S.map (fun x -> if x then grid#layout) sect#s_expanded in
+  let _ = React.S.map (fun x -> if x then grid#layout ()) sect#s_expanded in
   sect
 
 let expansion_panel_demo () =
@@ -697,6 +743,7 @@ let onload _ =
                         ; chart_demo ()
                         ; time_chart_demo ()
                         ; fab_demo ()
+                        ; fab_speed_dial_demo ()
                         ; radio_demo ()
                         ; checkbox_demo ()
                         ; switch_demo ()

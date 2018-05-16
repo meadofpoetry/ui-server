@@ -42,8 +42,9 @@ class t ?(animating=true) ~(anchor:anchor) ~(content:#Widget.widget list) () =
                    List.iter _drawer#remove_class [anchor_left_class; anchor_top_class; anchor_right_class]
 
     method drawer     = _drawer
-    method show       = self#root##.classList##add (Js.string Markup.Drawer.animating_class);
+    method show ()    = self#root##.classList##add (Js.string Markup.Drawer.animating_class);
                         self#root##.classList##add (Js.string Markup.Drawer.open_class);
+                        self#_disable_scroll ();
                         let _ = timeout
                                   ~f:(fun _ -> self#root##.classList##remove
                                                  (Js.string Markup.Drawer.animating_class))
@@ -51,29 +52,29 @@ class t ?(animating=true) ~(anchor:anchor) ~(content:#Widget.widget list) () =
                         in
                         ()
 
-    method show_await =
+    method show_await () =
       let t,w = Lwt.wait () in
-      self#show;
+      self#show ();
       let l = ref None in
       l := Some (Dom_events.listen self#root close_event (fun _ _ ->
                                      Lwt.wakeup w ();
                                      Option.iter (fun x -> Dom_events.stop_listen x) !l;
                                      true));
       t
-    method hide       = self#root##.classList##add (Js.string Markup.Drawer.animating_class);
-                        self#root##.classList##remove (Js.string Markup.Drawer.open_class);
-                        let _ = timeout
-                                  ~f:(fun _ -> self#root##.classList##remove
-                                                 (Js.string Markup.Drawer.animating_class))
-                                  ~timer:200.
-                        in
-                        ()
+    method hide () = self#add_class Markup.Drawer.animating_class;
+                     self#remove_class Markup.Drawer.open_class;
+                     self#_enable_scroll ();
+                     let _ = timeout
+                               ~f:(fun () -> self#remove_class Markup.Drawer.animating_class)
+                               ~timer:200.
+                     in
+                     ()
 
     method s_state : bool React.signal = _s
 
-    method private _disable_scroll =
+    method private _disable_scroll () =
       Dom_html.document##.body##.classList##add (Js.string Markup.Drawer.scroll_lock_class)
-    method private _enable_scroll=
+    method private _enable_scroll () =
       Dom_html.document##.body##.classList##remove (Js.string Markup.Drawer.scroll_lock_class)
 
     method private get_delta ~x ~y ~touch = match self#anchor with
@@ -132,8 +133,8 @@ class t ?(animating=true) ~(anchor:anchor) ~(content:#Widget.widget list) () =
                                         in
                                         let delta = self#get_delta ~x:start_x ~y:start_y ~touch
                                         in
-                                        if delta > self#drawer#get_offset_width/2
-                                        then ( self#hide;
+                                        if delta > self#drawer#offset_width / 2
+                                        then ( self#hide ();
                                                push false;
                                                self#drawer#style##.transform := Js.string "")
                                         else self#drawer#style##.transform := Js.string ""
@@ -155,7 +156,7 @@ class t ?(animating=true) ~(anchor:anchor) ~(content:#Widget.widget list) () =
            | Some "Esc",_ | Some "Escape", _ | _, 27 ->
               if Js.to_bool @@
                    self#root##.classList##contains (Js.string Markup.Drawer.open_class)
-              then (self#hide;
+              then (self#hide ();
                     push false);
            | _ -> ());
           true) |>ignore;
@@ -170,7 +171,7 @@ class t ?(animating=true) ~(anchor:anchor) ~(content:#Widget.widget list) () =
              && Js.to_bool @@
                   target##.classList##contains (Js.string Markup.Drawer.base_class)
           then
-            (self#hide;
+            (self#hide ();
              push false);
           true) |> ignore;
 

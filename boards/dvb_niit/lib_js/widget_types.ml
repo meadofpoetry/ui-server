@@ -1,4 +1,4 @@
-type measure_type = [ `Power | `Mer | `Ber | `Freq | `Bitrate ]
+type measure_type = [ `Power | `Mer | `Ber | `Freq | `Bitrate ] [@@deriving yojson]
 
 let measure_type_to_string = function
   | `Power   -> "Мощность"

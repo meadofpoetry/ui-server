@@ -10,11 +10,11 @@ class t () = object(self)
   inherit Widget.widget (Dom_html.createDiv Dom_html.document) () as super
 
   (* FIXME hack, need to handle resize of total element *)
-  method layout =
+  method layout () =
    List.iter (function
-       | `Board b -> b#layout
-       | `Input i -> i#layout
-       | `CPU c   -> c#layout) _nodes
+       | `Board b -> b#layout ()
+       | `Input i -> i#layout ()
+       | `CPU c   -> c#layout ()) _nodes
 
   method private on_load =
     let open Lwt_result.Infix in
@@ -24,13 +24,13 @@ class t () = object(self)
       let nodes      = Topology.create ~parent:self ~init ~event () in
       _nodes <- nodes;
       _sock <- Some sock;
-      self#layout;
+      self#layout ();
       Lwt_result.return ())
     |> ignore
 
   initializer
     self#add_class Topology._class;
-    Dom_events.listen Dom_html.window Dom_events.Typ.resize (fun _ _ -> self#layout; true) |> ignore;
+    Dom_events.listen Dom_html.window Dom_events.Typ.resize (fun _ _ -> self#layout (); true) |> ignore;
     super#set_on_unload @@ Some (fun () -> Option.iter (fun x -> x##close; _sock <- None) _sock);
     super#set_on_load   @@ Some (fun () -> self#on_load);
 end

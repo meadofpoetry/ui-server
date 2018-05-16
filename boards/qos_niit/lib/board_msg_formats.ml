@@ -239,11 +239,13 @@
 
 [%%cstruct
  type services_struct_block =
-   { id      : uint16_t
-   ; pmt_pid : uint16_t
-   ; pcr_pid : uint16_t
-   ; flags   : uint16_t
-   ; bitrate : uint32_t
+   { id             : uint16_t
+   ; pmt_pid        : uint16_t
+   ; pcr_pid        : uint16_t
+   ; flags          : uint16_t
+   ; service_type_2 : uint8_t
+   ; service_type_1 : uint8_t
+   ; bitrate        : uint32_t
    } [@@little_endian]]
 
 [%%cstruct

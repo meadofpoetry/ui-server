@@ -534,7 +534,7 @@ module Config = struct
       initializer
         React.S.map (fun max_x -> match max_x,delta with
                                   | Some max, Some d -> let min = get_min max d in
-                                                        set_min_max options#x_axis min max
+                                                        set_min_max options#x_axis (Some min) (Some max)
                                   | _ -> ())
                     s_max_x |> ignore
     end

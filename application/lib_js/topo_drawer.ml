@@ -24,7 +24,7 @@ let make ?(anchor=`Right) ~title () =
   in
   let content = [header#widget;divider#widget;box#widget] in
   let drawer  = new Drawer.t ~anchor ~content () in
-  let _       = React.E.map (fun _ -> drawer#hide) e_close in
+  let _       = React.E.map (fun _ -> drawer#hide ()) e_close in
   let ()      = drawer#add_class base_class in
   let ()      = box#add_class @@ Markup.CSS.add_element base_class "body" in
   drawer,box,set_title

@@ -9,18 +9,42 @@ type x_axis    = int64 Chartjs.Axes.Cartesian.Time.t
 type 'a y_axis = 'a Chartjs.Axes.Cartesian.Linear.t
 type 'a chart  = (int64,x_axis,'a,'a y_axis) Chartjs.Line.t
 
+type settings =
+  { range : (float * float) option
+  } [@@deriving yojson]
+
 type config =
   { ids      : int list
   ; typ      : measure_type
   ; duration : int64
-  }
+  ; settings : settings option
+  } [@@deriving yojson]
 
 let colors = Color.([ Indigo C500; Amber C500; Green C500; Cyan C500 ])
+
+let get_suggested_range = function
+  | `Power   -> (-70.0,0.0)
+  | `Mer     -> (0.0,45.0)
+  | `Ber     -> (0.0,0.00001)
+  | `Freq    -> (-10.0,10.0)
+  | `Bitrate -> (0.0,1.0)
+
+let make_settings (settings:settings) =
+  let range_min = new Textfield.t ~label:"Min" ~input_id:"range_min" ~input_type:(Float (None,None)) () in
+  let range_max = new Textfield.t ~label:"Max" ~input_id:"range_max" ~input_type:(Float (None,None)) () in
+  let box       = new Box.t ~vertical:false ~widgets:[range_min;range_max] () in
+  let s         = React.S.l2 (fun min max ->
+                      match min,max with
+                      | Some min, Some max -> Some { range = Some (min,max) }
+                      | _                  -> None) range_min#s_input range_max#s_input
+  in
+  box,s
 
 let make_chart_base ~(config: config)
                     ~(init:   float data)
                     ~(event:  float data React.event)
-                    () : 'a Dashboard.Item.item =
+                    () : Dashboard.Item.item =
+  let range = get_suggested_range config.typ in
   let conv = fun p -> Chartjs.Line.({ p with x = Int64.of_float (p.x *. 1000.) }) in
   let init = List.map (fun x -> match List.Assoc.get ~eq:Int.equal x init with
                                 | Some i -> x,List.map conv i
@@ -46,7 +70,8 @@ let make_chart_base ~(config: config)
   conf#options#y_axis#scale_label#set_display true;
   conf#options#y_axis#scale_label#set_label_string @@ measure_type_to_unit config.typ;
   conf#options#set_maintain_aspect_ratio false;
-  (* set_range conf#options#y_axis config.typ; *)
+  conf#options#y_axis#ticks#set_suggested_min (fst range);
+  conf#options#y_axis#ticks#set_suggested_max (snd range);
   let chart = new Chartjs.Line.t ~config:conf () in
   let set   = fun ds data -> List.iter (fun point -> ds#push point) @@ List.map conv data;
                              chart#update None
@@ -55,10 +80,24 @@ let make_chart_base ~(config: config)
                                                                    @@ List.get_at_idx id chart#config#datasets)
                                                  datasets)
                       event in
-  { name     = measure_type_to_string config.typ
-  ; settings = None
-  ; widget   = chart#widget
-  }
+  let settings,s_settings = make_settings { range = None } in
+  Dashboard.Item.to_item
+    ~name:(measure_type_to_string config.typ)
+    ~settings:{ widget = settings#widget
+              ; ready  = React.S.map Option.is_some s_settings
+              ; set    = fun () ->
+                         match React.S.value s_settings with
+                         | Some s -> (match s.range with
+                                      | Some (min,max) -> conf#options#y_axis#ticks#set_min (Some min);
+                                                          conf#options#y_axis#ticks#set_max (Some max)
+                                      | None           -> conf#options#y_axis#ticks#set_min None;
+                                                          conf#options#y_axis#ticks#set_max None);
+
+                                     chart#update None;
+                                     Lwt_result.return ()
+                         | None   -> Lwt_result.fail "no settings available"
+              }
+    chart#widget
 
 type event = measure_response React.event
 let to_event (get: Board_types.measure -> 'a option)
@@ -71,7 +110,7 @@ let to_mer_event     (event:event) = to_event (fun m -> m.mer)     event
 let to_ber_event     (event:event) = to_event (fun m -> m.ber)     event
 let to_freq_event    (event:event) = to_event (fun m -> Option.map Int32.to_float m.freq)    event
 let to_bitrate_event (event:event) = to_event (fun m -> Option.map (fun b ->
-                                                          Int32.to_float b /. 1_000_000.) m.bitrate) event
+                                                            Int32.to_float b /. 1_000_000.) m.bitrate) event
 
 module type M = sig
   type t
@@ -109,7 +148,8 @@ module Ber     = Make(Float)
 module Freq    = Make(Int32)
 module Bitrate = Make(Float)
 
-let make ~(measures:Board_types.measure_response React.event) (config:config) =
+let make ~(measures:Board_types.measure_response React.event) (config:config option) =
+  let config = Option.get_exn config in (* FIXME *)
   let event = measures in
   (match config.typ with
    | `Power   -> Power.make ~init:[] ~event config

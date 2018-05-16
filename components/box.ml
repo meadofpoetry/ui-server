@@ -17,7 +17,7 @@ class t ?(vertical=true) ?tag ?(gap=0) ~(widgets:#Widget.widget list) () =
 
     inherit Widget.widget elt () as super
 
-    method get_widgets    = widgets
+    method widgets        = widgets
     method set_vertical   = super#remove_class Markup.Box.horizontal_class;
                             super#add_class Markup.Box.vertical_class
     method set_horizontal = super#remove_class Markup.Box.vertical_class;
@@ -28,9 +28,9 @@ class t ?(vertical=true) ?tag ?(gap=0) ~(widgets:#Widget.widget list) () =
       (Js.Unsafe.coerce self#root##.style)##setProperty
                                           (Js.string "--mdc-box-margin")
                                           (Js.string @@ Printf.sprintf "%dpx" x)
-    method get_gap = gap
+    method gap = gap
 
-    method get_justify_content = justify_content
+    method justify_content = justify_content
     method remove_justify_content =
       Option.iter (fun x -> super#remove_class @@ Markup.Box.get_justify_content_class x) justify_content;
       justify_content <- None
@@ -39,7 +39,7 @@ class t ?(vertical=true) ?tag ?(gap=0) ~(widgets:#Widget.widget list) () =
       super#add_class @@ Markup.Box.get_justify_content_class x;
       justify_content <- Some x
 
-    method get_align_items = align_items
+    method align_items = align_items
     method remove_align_items =
       Option.iter (fun x -> super#remove_class @@ Markup.Box.get_align_items_class x) align_items;
       align_items <- None
@@ -48,7 +48,7 @@ class t ?(vertical=true) ?tag ?(gap=0) ~(widgets:#Widget.widget list) () =
       super#add_class @@ Markup.Box.get_align_items_class x;
       align_items <- Some x
 
-    method get_align_content = align_content
+    method align_content = align_content
     method remove_align_content =
       Option.iter (fun x -> super#remove_class @@ Markup.Box.get_align_content_class x) align_content;
       align_content <- None

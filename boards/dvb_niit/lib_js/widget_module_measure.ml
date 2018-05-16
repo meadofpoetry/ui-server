@@ -10,7 +10,7 @@ end
 type config =
   { id  : int
   ; typ : Widget_types.measure_type
-  }
+  } [@@deriving yojson]
 
 module Make(M:M) = struct
   type event  = M.t option React.event
@@ -21,11 +21,8 @@ module Make(M:M) = struct
   let value_to_string (config:config) = function
     | Some v -> Printf.sprintf "%s %s" (M.to_string v) (measure_type_to_unit config.typ)
     | None   -> "-"
-  let get_name (config:config) =
-    let n = measure_type_to_string config.typ in
-    Printf.sprintf "Модуль %d. %s" (succ config.id) n
 
-  class t ?(on_destroy:(unit -> unit) option) (event:event) (config:config) () =
+  class t (event:event) (config:config) () =
     let value = new Typography.Text.t
                     ~adjust_margin:false
                     ~font:Headline
@@ -40,16 +37,12 @@ module Make(M:M) = struct
     let ()    = Dom.appendChild box inner#root in
     object(self)
       inherit Widget.widget box () as super
-      method! destroy = Option.iter (fun f -> f ()) on_destroy; super#destroy
       initializer
         self#add_class _class
     end
 
-  let make ?on_destroy (event:event) (config:config) : 'a Dashboard.Item.item =
-    { name = get_name config
-    ; settings = None
-    ; widget   = (new t ?on_destroy event config ())#widget
-    }
+  let make (event:event) (config:config) =
+    new t event config () |> Widget.coerce
 
 end
 
@@ -67,9 +60,17 @@ module Ber      = Make(Scientific)
 module Freq     = Make(Int32)
 module Bitrate  = Make(Float)
 
+let default_config = { id = 0; typ = `Power }
+
+let name conf = let conf = Option.get_or ~default:default_config conf in
+                let n = measure_type_to_string conf.typ in
+                Printf.sprintf "Модуль %d. %s" (succ conf.id) n
+let settings  = None
+
 let make ~(measures:Board_types.measure_response React.event)
-         (config:config) =
+         (config:config option) =
   let open Board_types in
+  let config = Option.get_or ~default:default_config config in
   let e = React.E.filter (fun (id,_) -> id = config.id) measures in
   (match config.typ with
    | `Power   -> Power.make   (React.E.map (fun (_,m) -> m.power) e)   config

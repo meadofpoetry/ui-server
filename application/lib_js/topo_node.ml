@@ -27,7 +27,7 @@ object
   inherit Widget.widget elt ()
   method area : string     = area
   method node : node_entry = node
-  method layout : unit     = ()
+  method layout () : unit     = ()
   method output_point      = Topo_path.get_output_point body
 end
 
@@ -47,7 +47,7 @@ class parent ~(connections:(#t * connection_point) list)
   in
   object(self)
     inherit t ~node ~body elt () as super
-    method layout = super#layout; List.iter (fun p -> p#layout) self#paths
+    method layout () = super#layout (); List.iter (fun p -> p#layout ()) self#paths
     method paths : Topo_path.t list = cw
 
     method private switches : Topo_path.switch list = List.filter_map (fun x -> x#switch) self#paths

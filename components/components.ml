@@ -15,6 +15,7 @@ module Dynamic_grid      = Dynamic_grid
 module Elevation         = Elevation
 module Expansion_panel   = Expansion_panel
 module Fab               = Fab
+module Fab_speed_dial    = Fab_speed_dial
 module Form_field        = Form_field
 module Grid_list         = Grid_list
 module Icon              = Icon

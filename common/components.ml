@@ -426,8 +426,13 @@ module Make
     let exited_class = CSS.add_modifier base_class "exited"
     let mini_class   = CSS.add_modifier base_class "mini"
 
+    let create_span ?id ?style ?(classes=[]) ?attrs ~icon () =
+      span ~a:([a_class (icon_class :: classes)]
+               |> add_common_attrs ?id ?style ?attrs)
+           [pcdata icon]
+
     let create ?id ?style ?(classes=[]) ?attrs ?onclick
-          ?(mini=false) ?(ripple=false) ?label ~icon () =
+               ?(mini=false) ?(ripple=false) ?label ~span () =
       button ~a:([ a_class (classes
                             |> cons_if mini @@ mini_class
                             |> List.cons base_class
@@ -436,7 +441,7 @@ module Make
                  |> cons_if ripple @@ a_user_data "mdc-auto-init" "MDCRipple"
                  |> map_cons_option ~f:(fun x -> a_aria "label" [x]) label
                  |> map_cons_option ~f:a_onclick onclick)
-        [ span ~a:[a_class [icon_class]] [pcdata icon] ]
+             [ span ]
 
   end
 

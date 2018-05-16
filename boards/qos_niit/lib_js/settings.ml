@@ -19,7 +19,7 @@ let make_t2mi_pid (init: t2mi_mode option) =
   in
   let set x = match x with
     | Some (x:t2mi_mode) -> pid#fill_in x.pid
-    | None               -> pid#clear
+    | None               -> pid#clear ()
   in
   pid#set_required true;
   set init;
@@ -35,7 +35,7 @@ let make_t2mi_sid (init: t2mi_mode option) =
   in
   let set x = match x with
     | Some (x:t2mi_mode) -> sid#fill_in x.t2mi_stream_id
-    | None               -> sid#clear
+    | None               -> sid#clear ()
   in
   sid#set_required true;
   set init;
@@ -47,7 +47,7 @@ let make_stream_select (streams:  Common.Stream.t list React.signal) =
   in
   let select = new Select.t ~default_selected:false ~label:"Потоки" ~items:[] () in
   let _      = React.S.map (fun sms -> let items = make_items sms in
-                                       select#set_empty;
+                                       select#set_empty ();
                                        List.iter (fun i -> select#append_item i) items) streams
   in
   select#widget
@@ -104,7 +104,7 @@ let make_jitter_pid (init:jitter_mode option) =
   in
   let set x = match x with
     | Some (x:jitter_mode) -> pid#fill_in x.pid
-    | None                 -> pid#clear
+    | None                 -> pid#clear ()
   in
   pid#set_required true;
   set init;

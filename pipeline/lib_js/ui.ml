@@ -88,7 +88,9 @@ module Plots = struct
   let chart_card ~typ ~title ~extract ~metas  ~y_max ~y_min ~e () =
     (* let title = new Card.Title.t ~title () in
      * let prim  = new Card.Primary.t ~widgets:[title] () in *)
-    let media = new Card.Media.t ~widgets:[chart ~typ ~metas ~extract  ~y_max ~y_min ~e ()] () in
+    let media = new Card.Media.t ~widgets:[chart ~typ ~metas ~extract
+                                                 ~y_max:(Some y_max) ~y_min:(Some y_min) ~e ()] ()
+    in
     new Card.t ~widgets:[ media ] ()
 
   let create
@@ -123,8 +125,8 @@ module Plots = struct
                          ~y_max:250. ~y_min:0. ~e () in
       let cells     = List.map (fun x -> let cell = new Layout_grid.Cell.t ~widgets:[x] () in
                                          cell#set_span 6;
-                                         cell#set_span_phone 12;
-                                         cell#set_span_tablet 12;
+                                         cell#set_span_phone @@ Some 12;
+                                         cell#set_span_tablet @@ Some 12;
                                          cell)
                         [ froz_chart#widget; blac_chart#widget; bloc_chart#widget;
                           brig_chart#widget; diff_chart#widget ]
@@ -206,7 +208,7 @@ module Structure = struct
     let s_div = React.S.map ~eq:(Equal.physical) (fun s -> make s) s_in in
     let s     = React.S.switch ~eq:(Equal.option @@ Equal.list Structure.equal)
                                (React.S.map ~eq:(Equal.physical) (fun n ->
-                                              div#set_empty;
+                                              div#set_empty ();
                                               let tree,n_s = n in
                                               Dom.appendChild div#root tree#root;
                                               n_s) s_div)
@@ -421,7 +423,7 @@ module Settings = struct
     let s_div = React.S.map ~eq:(Equal.physical) (fun s -> make s) s_in in
     let s     = React.S.switch ~eq:(Equal.option Settings.equal)
                                (React.S.map ~eq:(Equal.physical) (fun n ->
-                                              div#set_empty;
+                                              div#set_empty ();
                                               let w,n_s = n in
                                               Dom.appendChild div#root w#root;
                                               n_s) s_div)

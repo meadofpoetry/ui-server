@@ -21,8 +21,8 @@ module Item = struct
       inherit Widget.widget elt ()
 
       (* TODO add setters, real getters *)
-      method get_text           = text
-      method get_secondary_text = secondary_text
+      method text           = text
+      method secondary_text = secondary_text
 
       initializer
         if ripple then Ripple.attach self |> ignore;
@@ -36,7 +36,7 @@ class t ?avatar ~(items:[ `Item of Item.t | `Divider of Divider.t ] list) () =
 
   let two_line = Option.is_some @@ List.find_pred (function
                                        | `Divider _ -> false
-                                       | `Item x    -> Option.is_some x#get_secondary_text)
+                                       | `Item x    -> Option.is_some x#secondary_text)
                                      items in
 
   let elt = Markup.List_.create ?avatar ~two_line ~items:(List.map (function
@@ -49,16 +49,12 @@ class t ?avatar ~(items:[ `Item of Item.t | `Divider of Divider.t ] list) () =
 
     inherit Widget.widget elt () as super
 
-    method private add_or_rm_class x c = if x then super#add_class c else super#remove_class c
-    method set_dense x    = self#add_or_rm_class x Markup.List_.dense_class
-    method set_bordered x = self#add_or_rm_class x Markup.List_.bordered_class
+    method set_dense x    = self#add_or_remove_class x Markup.List_.dense_class
+    method set_bordered x = self#add_or_remove_class x Markup.List_.bordered_class
 
     method add_item (x : Item.t) = Dom.appendChild self#root x#root
     method remove_item (x : Item.t) = try Dom.removeChild self#root x#root with _ -> ()
-(*
-    method get_items : Item.t list =
-      List.filter_map (function `Item x -> Some x | `Divider _ -> None) items 
- *)
+
   end
 
 module List_group = struct

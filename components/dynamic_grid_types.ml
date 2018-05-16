@@ -32,4 +32,7 @@ type grid =
   ; items_margin     : int * int
   ; multi_select     : bool
   ; restrict_move    : bool
-  }
+  ; draggable        : bool option
+  ; resizable        : bool option
+  ; selectable       : bool option
+  } [@@deriving eq]

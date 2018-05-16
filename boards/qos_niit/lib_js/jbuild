@@ -3,7 +3,7 @@
 (library
  ((name        board_qos_niit_js)
   (public_name board-qos-niit-js)
-  (modules     (requests board_types structure settings topo_page))
+  ; (modules     (requests board_types structure settings topo_page))
   (synopsis "js interface of the qos_niit board")
   (libraries (containers ipaddr common api-js components chartjs boards-js ui-templates))
   (flags (:standard -short-paths -strict-sequence -bin-annot

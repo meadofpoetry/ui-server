@@ -9,7 +9,7 @@ module Row = struct
         inherit Widget.widget (Markup.Toolbar.Row.Section.create_title ~title ()
                                |> Tyxml_js.To_dom.of_element) () as super
 
-        method get_title   = super#get_text_content |> Option.get_or ~default:""
+        method title       = super#text_content |> Option.get_or ~default:""
         method set_title s = super#set_text_content s
       end
     end
@@ -29,13 +29,9 @@ module Row = struct
 
         method widgets = widgets
 
-        method get_align    = align
-        method remove_align = (match align with
-                               | `Start  -> super#remove_class Markup.Toolbar.Row.Section.align_start_class
-                               | `End    -> super#remove_class Markup.Toolbar.Row.Section.align_end_class
-                               | `Center -> ());
-                              align <- `Center;
-        method set_align x  = (match x with
+        method align        = align
+        method set_align x  = self#remove_align;
+                              (match x with
                                | `Start  -> super#add_class Markup.Toolbar.Row.Section.align_start_class
                                | `End    -> super#add_class Markup.Toolbar.Row.Section.align_end_class
                                | `Center -> ());
@@ -43,6 +39,12 @@ module Row = struct
 
         method set_shrink_to_fit x = Markup.Toolbar.Row.Section.shrink_to_fit_class
                                      |> (fun c -> if x then super#add_class c else super#remove_class c)
+
+        method private remove_align = (match align with
+                                       | `Start  -> super#remove_class Markup.Toolbar.Row.Section.align_start_class
+                                       | `End    -> super#remove_class Markup.Toolbar.Row.Section.align_end_class
+                                       | `Center -> ());
+                                      align <- `Center;
 
         initializer
           self#set_align align
@@ -55,7 +57,7 @@ module Row = struct
               |> Tyxml_js.To_dom.of_div in
     object
       inherit Widget.widget elt ()
-      method get_sections = sections
+      method sections = sections
     end
 
 end

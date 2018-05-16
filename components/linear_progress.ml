@@ -20,6 +20,6 @@ class t () =
     method set_buffer   x      = mdc##.buffer      := x
     method set_reversed x      = mdc##.reverse     := Js.bool x
 
-    method show = mdc##open_ ()
-    method hide = mdc##close ()
+    method show () = mdc##open_ ()
+    method hide () = mdc##close ()
   end
