@@ -187,7 +187,7 @@ module SM = struct
                            | SIT x     -> SIT (update_table_common x)
                            | Unknown x -> Unknown (update_table_common x)) s.tables
     in
-    { s with bitrate = Some b.ts_bitrate; pids; services; emm; tables }
+    { s with bitrate = Some b.ts_bitrate; pids; services; emm; tables; timestamp = b.timestamp }
 
   let merge_structs_and_bitrates (s:ts_structs) (b:Types.bitrates) =
     let open Types in

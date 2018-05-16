@@ -57,7 +57,7 @@ let config api () =
 let get_t2mi_seq api seconds () =
   (match Int.of_string seconds with
    | None   -> Lwt_result.fail @@ Json.of_error_string @@ Printf.sprintf "bad argument: %s" seconds
-   | Some x -> api.get_t2mi_seq x >|= (t2mi_seq_to_yojson %> Result.return))
+   | Some x -> api.get_t2mi_seq x >|= (t2mi_packets_to_yojson %> Result.return))
   >>= Json.respond_result
 
 let get_structs api () =

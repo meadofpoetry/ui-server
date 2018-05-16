@@ -40,7 +40,7 @@ type api = { get_devinfo     : unit                -> devinfo_response Lwt.t
            ; set_input       : input               -> unit Lwt.t
            ; set_t2mi_mode   : t2mi_mode_request   -> unit Lwt.t
            ; set_jitter_mode : jitter_mode_request -> unit Lwt.t
-           ; get_t2mi_seq    : int                 -> t2mi_seq Lwt.t
+           ; get_t2mi_seq    : int                 -> t2mi_packets Lwt.t
            ; get_structs     : unit                -> ts_structs Lwt.t
            ; get_bitrates    : unit                -> ts_structs Lwt.t
            ; get_section     : section_request     -> section Lwt.t
@@ -80,7 +80,7 @@ type section_req =
 
 type _ request = Get_board_info     : devinfo request
                | Get_board_mode     : Types.mode request
-               | Get_t2mi_frame_seq : t2mi_frame_seq_req -> t2mi_seq request
+               | Get_t2mi_frame_seq : t2mi_frame_seq_req -> t2mi_packets request
                | Get_section        : section_req        -> section request
 
 (* ------------------- Misc ------------------- *)
@@ -181,20 +181,15 @@ module Get_board_errors : (Request with type req := int with type rsp := board_e
   let rsp_code = req_code
   let to_cbuffer request_id = to_complex_req ~request_id ~msg_code:req_code ~body:(Cbuffer.create 0) ()
   let of_cbuffer msg =
-    let iter = Cbuffer.iter (fun _ -> Some sizeof_t2mi_frame_seq_item)
-                 (fun buf -> Cbuffer.LE.get_uint32 buf 0)
-                 (get_board_errors_errors msg) in
+    let timestamp = Option.get_exn @@ Common.Time.of_float_s @@ Unix.gettimeofday () in
+    let iter      = Cbuffer.iter (fun _ -> Some sizeof_t2mi_frame_seq_item)
+                                 (fun buf -> Cbuffer.LE.get_uint32 buf 0)
+                                 (get_board_errors_errors msg) in
     List.rev @@ Cbuffer.fold (fun acc el -> el :: acc) iter []
     |> List.foldi (fun acc i x ->
-           if Int32.equal x 0l then acc
-           else (match i with
-                 | 0  -> Unknown_request x         | 1  -> Too_many_args x          | 2  -> Msg_queue_overflow x
-                 | 3  -> Not_enough_memory x       | 4  -> Total_packets_overflow x | 5  -> Tables_overflow x
-                 | 6  -> Sections_overflow x       | 7  -> Table_list_overflow x    | 8  -> Services_overflow x
-                 | 9  -> Es_overflow x             | 10 -> Ecm_overflow x           | 11 -> Emm_overflow x
-                 | 12 -> Section_array_not_found x | 13 -> Dma_error x              | 14 -> Pcr_freq_error x
-                 | 15 -> Packets_overflow x        | 16 -> Streams_overflow x       | _  -> assert false) :: acc) []
-    |> fun errors -> { count = get_board_errors_count msg; errors}
+           let count = Int32.to_int x in
+           if count <> 0 && i >= 0 && i <= 16 then acc
+           else { timestamp; err_code = i; count } :: acc) []
 
 end
 
@@ -236,7 +231,7 @@ end
 
 module Get_t2mi_frame_seq : (Request
                              with type req := t2mi_frame_seq_req
-                             with type rsp = t2mi_seq) = struct
+                             with type rsp = t2mi_packets) = struct
 
   type rsp = t2mi_packet list
 
@@ -250,30 +245,16 @@ module Get_t2mi_frame_seq : (Request
 
   let of_cbuffer msg =
     let iter = Cbuffer.iter (fun _ -> Some sizeof_t2mi_frame_seq_item) (fun buf -> buf) msg in
-    Cbuffer.fold (fun (acc : t2mi_seq) el ->
-        let typ    = get_t2mi_frame_seq_item_typ el in
-        let frame  = get_t2mi_frame_seq_item_frame el in
-        let common = { id          = typ
-                     ; super_frame = get_t2mi_frame_seq_item_sframe el
-                     ; count       = Int32.to_int @@ get_t2mi_frame_seq_item_count el
-                     } in
-        (match typ with
-         | 0x00 -> BB { common; frame; plp = get_t2mi_frame_seq_item_plp el }
-         | 0x01 -> Aux_stream_iq_data common
-         | 0x02 -> Arbitrary_cell_insertion { common; frame }
-         | 0x10 -> L1_current { common; frame; dyn_cur_frame = get_t2mi_frame_seq_item_dyn1_frame el }
-         | 0x11 -> L1_future { common; frame
-                               ; dyn_next_frame  = get_t2mi_frame_seq_item_dyn1_frame el
-                               ; dyn_next2_frame = get_t2mi_frame_seq_item_dyn2_frame el
-                     }
-         | 0x12 -> P2_bias_balancing_cells { common; frame }
-         | 0x20 -> Timestamp common
-         | 0x21 -> Individual_addressing common
-         | 0x30 -> FEF_null common
-         | 0x31 -> FEF_iq common
-         | 0x32 -> FEF_composite common
-         | 0x33 -> FEF_sub_part common
-         | _    -> Unknown common) :: acc)
+    Cbuffer.fold (fun (acc : t2mi_packet list) el ->
+        { typ         = get_t2mi_frame_seq_item_typ el
+        ; super_frame = get_t2mi_frame_seq_item_sframe el
+        ; frame       = get_t2mi_frame_seq_item_frame el
+        ; count       = Int32.to_int @@ get_t2mi_frame_seq_item_count el
+        ; plp         = get_t2mi_frame_seq_item_plp el
+        ; l1_param_1  = get_t2mi_frame_seq_item_dyn1_frame el
+        ; l1_param_2  = get_t2mi_frame_seq_item_dyn2_frame el
+        ; ts_packet   = Int32.to_int @@ get_t2mi_frame_seq_item_time el
+        } :: acc)
       iter []
     |> List.rev
 

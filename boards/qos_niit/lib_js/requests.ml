@@ -31,7 +31,7 @@ let get_devinfo control =
   get_result devinfo_response_of_yojson (Printf.sprintf "/api/board/%d/devinfo" control)
 
 let get_t2mi_seq control seconds =
-  get_result t2mi_seq_of_yojson (Printf.sprintf "/api/board/%d/t2mi_seq/%d" control seconds)
+  get_result t2mi_packets_of_yojson (Printf.sprintf "/api/board/%d/t2mi_seq/%d" control seconds)
 
 let get_structs control =
   get_result ts_structs_of_yojson (Printf.sprintf "/api/board/%d/structs" control)

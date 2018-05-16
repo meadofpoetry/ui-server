@@ -9,6 +9,8 @@ type devinfo =
   ; ver : int
   } [@@deriving yojson]
 
+type devinfo_response = devinfo option [@@deriving yojson]
+
 (** Modes **)
 
 type input = SPI | ASI [@@deriving yojson,eq]
@@ -24,6 +26,9 @@ type jitter_mode =
   { stream  : Common.Stream.id (* NOTE maybe t? *)
   ; pid     : int
   } [@@deriving yojson]
+
+type t2mi_mode_request   = t2mi_mode option   [@@deriving yojson]
+type jitter_mode_request = jitter_mode option [@@deriving yojson]
 
 (** Status **)
 
@@ -91,75 +96,28 @@ type t2mi_errors = t2mi_error list [@@deriving yojson]
 
 (** Board errors **)
 
-type board_errors =
-  { count  : int32
-  ; errors : board_error list
-  }
-and board_error = Unknown_request         of int32
-                | Too_many_args           of int32
-                | Msg_queue_overflow      of int32
-                | Not_enough_memory       of int32
-                | Total_packets_overflow  of int32
-                | Tables_overflow         of int32
-                | Sections_overflow       of int32
-                | Table_list_overflow     of int32
-                | Services_overflow       of int32
-                | Es_overflow             of int32
-                | Ecm_overflow            of int32
-                | Emm_overflow            of int32
-                | Section_array_not_found of int32
-                | Dma_error               of int32
-                | Pcr_freq_error          of int32
-                | Packets_overflow        of int32
-                | Streams_overflow        of int32 [@@deriving yojson]
+type board_error =
+  { timestamp : Common.Time.Seconds.t
+  ; err_code  : int
+  ; count     : int
+  } [@@deriving yojson]
+
+type board_errors = board_error list [@@deriving yojson]
 
 (** T2-MI frames sequence **)
 
-type t2mi_packet_common =
-  { id          : int
+type t2mi_packet =
+  { typ         : int
   ; super_frame : int
+  ; frame       : int
   ; count       : int
+  ; plp         : int
+  ; l1_param_1  : int
+  ; l1_param_2  : int
+  ; ts_packet   : int
   } [@@deriving yojson]
 
-type t2mi_packet_common_with_frame =
-  { common : t2mi_packet_common
-  ; frame  : int
-  } [@@deriving yojson]
-
-type bb =
-  { common : t2mi_packet_common
-  ; frame  : int
-  ; plp    : int
-  } [@@deriving yojson]
-
-type l1_current =
-  { common        : t2mi_packet_common
-  ; frame         : int
-  ; dyn_cur_frame : int
-  } [@@deriving yojson]
-
-type l1_future =
-  { common          : t2mi_packet_common
-  ; frame           : int
-  ; dyn_next_frame  : int
-  ; dyn_next2_frame : int
-  } [@@deriving yojson]
-
-type t2mi_packet = BB                       of bb
-                 | Aux_stream_iq_data       of t2mi_packet_common
-                 | Arbitrary_cell_insertion of t2mi_packet_common_with_frame
-                 | L1_current               of l1_current
-                 | L1_future                of l1_future
-                 | P2_bias_balancing_cells  of t2mi_packet_common_with_frame
-                 | Timestamp                of t2mi_packet_common
-                 | Individual_addressing    of t2mi_packet_common
-                 | FEF_null                 of t2mi_packet_common
-                 | FEF_iq                   of t2mi_packet_common
-                 | FEF_composite            of t2mi_packet_common
-                 | FEF_sub_part             of t2mi_packet_common
-                 | Unknown                  of t2mi_packet_common [@@deriving yojson]
-
-type t2mi_seq = t2mi_packet list [@@deriving yojson]
+type t2mi_packets = t2mi_packet list [@@deriving yojson]
 
 (** Jitter **)
 
@@ -355,7 +313,3 @@ let config_default =
   ; t2mi_mode   = None
   ; jitter_mode = None
   }
-
-type devinfo_response    = devinfo option     [@@deriving yojson]
-type t2mi_mode_request   = t2mi_mode option   [@@deriving yojson]
-type jitter_mode_request = jitter_mode option [@@deriving yojson]
