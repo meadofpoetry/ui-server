@@ -67,6 +67,16 @@ type bitrate =
 
 type bitrates = bitrate list
 
+(** Jitter **)
+
+type jitter_raw =
+  { measures  : Board_types.jitter_measures
+  ; next_ptr  : int32
+  ; time      : int
+  ; timestamp : Common.Time.Seconds.t
+  ; pid       : int
+  ; t_pcr     : float
+  }
 
 (** Streams **)
 

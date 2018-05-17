@@ -70,7 +70,7 @@ let get_t2mi_info_ws control =
   WS.get (Printf.sprintf "api/board/%d/t2mi_info_ws" control) t2mi_info_of_yojson
 
 let get_jitter_ws control =
-  WS.get (Printf.sprintf "api/board/%d/jitter_ws" control) jitter_of_yojson
+  WS.get (Printf.sprintf "api/board/%d/jitter_ws" control) jitter_measures_of_yojson
 
 let get_incoming_streams_ws control =
   WS.get (Printf.sprintf "api/board/%d/incoming_streams" control) Common.Stream.t_list_of_yojson

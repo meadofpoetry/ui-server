@@ -25,7 +25,7 @@ type t2mi_mode =
 type jitter_mode =
   { stream  : Common.Stream.id (* NOTE maybe t? *)
   ; pid     : int
-  } [@@deriving yojson]
+  } [@@deriving yojson,eq]
 
 type t2mi_mode_request   = t2mi_mode option   [@@deriving yojson]
 type jitter_mode_request = jitter_mode option [@@deriving yojson]
@@ -70,6 +70,7 @@ type ts_error =
   ; count     : int
   ; err_code  : int
   ; err_ext   : int
+  ; priority  : int
   ; multi_pid : bool
   ; pid       : int
   ; packet    : int32
@@ -106,14 +107,34 @@ type board_errors = board_error list [@@deriving yojson]
 
 (** T2-MI frames sequence **)
 
+(* T2-MI packet types:
+ * 0x00  - BB frame
+ * 0x01  - Auxiliary stream I/Q data
+ * 0x02  - Arbitrary cell insertion
+ * 0x10  - L1 current
+ * 0x11  - L1 future
+ * 0x12  - P2 bias balancing cells
+ * 0x20  - DVB-T2 timestamp
+ * 0x21  - Individual addressing
+ * 0x30  - FEF part : Null
+ * 0x31  - FEF part : I/Q data
+ * 0x32  - FEF part : composite
+ * 0x33  - FEF sub-part
+ * other - Reserved for future use
+ *)
+
+(* NOTE suggest using fields like plp, frame, l1_param_1 and l1_param_2 as abstract parameters,
+ * which have its own meaning for each packet type
+ *)
+
 type t2mi_packet =
-  { typ         : int
+  { typ         : int (* T2-MI packet type according to TS 102 773 *)
   ; super_frame : int
-  ; frame       : int
+  ; frame       : int (* for packet types 0x00 .. 0x02, 0x10 .. 0x12 *)
   ; count       : int
-  ; plp         : int
-  ; l1_param_1  : int
-  ; l1_param_2  : int
+  ; plp         : int (* only for BB frames *)
+  ; l1_param_1  : int (* L1DYN_CURR.FRAME_IDX  for L1 current, L1DYN_NEXT.FRAME_IDX for L1 future *)
+  ; l1_param_2  : int (* L1DYN_NEXT2.FRAME_IDX for L1 future *)
   ; ts_packet   : int
   } [@@deriving yojson]
 
@@ -121,36 +142,35 @@ type t2mi_packets = t2mi_packet list [@@deriving yojson]
 
 (** Jitter **)
 
-type jitter =
-  { pid         : int
-  ; time        : int32
-  ; next_ptr    : int32
-  ; bitrate     : int32
-  ; t_pcr       : int32
-  ; packet_time : int32
-  ; k_drift     : int32
-  ; k_fo        : int32
-  ; k_jitter    : int32
-  ; values      : jitter_item list
-  }
-and jitter_item =
-  { status   : int
-  ; d_packet : int
-  ; d_pcr    : int32
-  ; drift    : int32
-  ; fo       : int32
-  ; jitter   : int
-  }[@@deriving yojson]
+type jitter_session =
+  { timestamp : Common.Time.Seconds.t
+  ; t_pcr     : float
+  ; mode      : jitter_mode
+  } [@@deriving yojson,eq]
+
+type jitter_measure =
+  { discont_err : bool
+  ; discont_ok  : bool
+  ; t_pcr       : float
+  (* for charts *)
+  ; accuracy    : float
+  ; jitter      : int
+  ; drift       : float
+  ; fo          : float
+  ; period      : float
+  } [@@deriving yojson]
+
+type jitter_measures = jitter_measure list [@@deriving yojson]
 
 (** SI/PSI section **)
 
 type section_request =
   { stream_id      : Common.Stream.id
   ; table_id       : int
-  ; section        : int option
-  ; table_id_ext   : int option
-  ; eit_ts_id      : int option
-  ; eit_orig_nw_id : int option
+  ; section        : int option (* needed for tables containing multiple sections *)
+  ; table_id_ext   : int option (* needed for tables with extra parameter, like ts id for PAT *)
+  ; eit_ts_id      : int option (* ts id for EIT *)
+  ; eit_orig_nw_id : int option (* original network ID for EIT *)
   } [@@deriving yojson]
 
 type section_error = Zero_length
@@ -163,141 +183,15 @@ type section = string [@@deriving yojson]
 
 (** T2-MI info **)
 
-type t2mi_packet_type = BB
-                      | Aux_stream_iq_data
-                      | Arbitrary_cell_insertion
-                      | L1_current
-                      | L1_future
-                      | P2_bias_balancing_cells
-                      | Timestamp
-                      | Individual_addressing
-                      | FEF_null
-                      | FEF_iq
-                      | FEF_composite
-                      | FEF_sub_part
-                      | Unknown [@@deriving yojson]
-
-type l1_preamble = T2      of t2_profile
-                 | Non_t2
-                 | Unknown of int [@@deriving yojson]
-
-type l1_pre =
-  { typ                : t2_streams_type
-  ; preamble           : l1_preamble
-  ; fft                : t2_fft option
-  ; mixed_flag         : bool
-  ; bwt_ext            : bool
-  ; s1                 : int
-  ; s2                 : int
-  ; l1_repetition_flag : bool
-  ; guard_interval     : t2_gi
-  ; papr               : t2_papr
-  ; l1_mod             : t2_l1_mod
-  ; l1_cod             : t2_l1_cod
-  ; l1_fec_type        : t2_l1_fec
-  ; l1_post_size       : int
-  ; l1_post_info_size  : int
-  ; pilot_pattern      : t2_pp
-  ; tx_id_availability : int
-  ; cell_id            : int
-  ; network_id         : int
-  ; t2_system_id       : int
-  ; num_t2_frames      : int
-  ; num_data_symbols   : int
-  ; regen_flag         : int
-  ; l1_post_extension  : bool
-  ; num_rf             : int
-  ; current_rf_idx     : int
-  ; t2_version         : t2_version
-  ; l1_post_scrambled  : bool
-  ; t2_base_lite       : bool
-  ; reserved           : int
-  } [@@deriving yojson]
-
-type t2_l1_post_conf_rf =
-  { rf_idx    : int
-  ; frequency : int
-  } [@@deriving yojson]
-
-type t2_l1_post_conf_fef =
-  { fef_type     : int
-  ; fef_length   : int
-  ; fef_interval : int
-  } [@@deriving yojson]
-
-type t2_l1_post_conf_plp =
-  { plp_id              : int
-  ; plp_type            : t2_plp_type
-  ; plp_payload_type    : t2_plp_payload_type
-  ; ff_flag             : bool
-  ; first_rf_idx        : int
-  ; first_frame_idx     : int
-  ; plp_group_id        : int
-  ; plp_cod             : t2_plp_cod
-  ; plp_mod             : t2_plp_mod
-  ; plp_rotation        : bool
-  ; plp_fec_type        : t2_plp_fec
-  ; plp_num_blocks_max  : int
-  ; frame_interval      : int
-  ; time_il_length      : int
-  ; time_il_type        : bool
-  ; in_band_a_flag      : bool
-  ; in_band_b_flag      : bool
-  ; reserved_1          : int
-  ; plp_mode            : t2_plp_mode
-  ; static_flag         : bool
-  ; static_padding_flag : bool
-  } [@@deriving yojson]
-
-type t2_l1_post_conf_aux =
-  { aux_stream_type  : t2_aux_stream_type
-  ; aux_private_conf : int
-  } [@@deriving yojson]
-
-type l1_post_conf =
-  { sub_slices_per_frame  : int
-  ; aux_config_rfu        : int
-  ; rf                    : t2_l1_post_conf_rf list
-  ; fef                   : t2_l1_post_conf_fef option
-  ; plp                   : t2_l1_post_conf_plp list
-  ; fef_length_msb        : int
-  ; reserved_2            : int
-  ; aux                   : t2_l1_post_conf_aux list
-  } [@@deriving yojson]
-
 type t2mi_info =
-  { packets        : t2mi_packet_type list
+  { packets        : int list
   ; t2mi_stream_id : int
-  ; l1_pre         : l1_pre option
-  ; l1_post_conf   : l1_post_conf option
+  ; t2mi_pid       : int option
+  ; l1_pre         : string option
+  ; l1_post_conf   : string option
   } [@@deriving yojson]
 
-module Errors_api = struct
-
-  open Common.Time
-
-  type percentage =
-    { errors  : float
-    ; no_sync : float
-    ; no_data : float
-    } [@@deriving yojson]
-
-  type priority = [ `Ts   of [`P1 | `P2 | `P3 ]
-                  | `T2mi of [`Container | `T2MI]
-                  ] [@@deriving yojson]
-
-  type error_id =
-    { err_code : int
-    ; err_ext  : int
-    } [@@deriving yojson]
-
-  type ts_errors_response_archive =
-    { errors  : ts_errors list
-    ; no_data : Interval.Seconds.t list
-    ; no_sync : Interval.Seconds.t list
-    } [@@deriving yojson]
-
-end
+(** Config **)
 
 type config =
   { input       : input
@@ -313,3 +207,23 @@ let config_default =
   ; t2mi_mode   = None
   ; jitter_mode = None
   }
+
+(** Measurements requests **)
+
+module TS_errors_api = struct
+
+  open Common.Time
+
+  type percentage =
+    { errors  : float
+    ; no_sync : float
+    ; no_data : float
+    } [@@deriving yojson]
+
+  type ts_errors_response_archive =
+    { errors  : ts_errors list
+    ; no_data : Interval.Seconds.t list
+    ; no_sync : Interval.Seconds.t list
+    } [@@deriving yojson]
+
+end

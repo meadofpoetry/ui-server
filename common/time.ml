@@ -1,5 +1,5 @@
 open Containers
-   
+
 include Ptime
 
 module RFC3339 = struct
@@ -18,7 +18,7 @@ module RFC3339 = struct
     | _ -> Error (Printf.sprintf "RFC3339.of_yojson: bad input, expected a string")
 
   let to_yojson v = `String (to_string v)
-                
+
 end
 
 module Useconds = struct
@@ -50,6 +50,8 @@ end
                
 module Seconds = struct
   type t = Ptime.t
+
+  let equal = Ptime.equal
          
   let of_seconds s =
     Ptime.add_span Ptime.epoch (Ptime.Span.of_int_s s)

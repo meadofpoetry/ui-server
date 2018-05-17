@@ -65,29 +65,29 @@ type table_common =
 
 type pat =
   { common : table_common
-  ; ts_id  : int
+  ; ts_id  : int (* table id ext *)
   } [@@deriving yojson]
 
 type pmt =
   { common         : table_common
-  ; program_number : int
+  ; program_number : int (* table id ext *)
   } [@@deriving yojson]
 
 type nit =
   { common : table_common
   ; ts     : actual_other
-  ; nw_id  : int
+  ; nw_id  : int (* table id ext *)
   } [@@deriving yojson]
 
 type sdt =
   { common : table_common
-  ; ts_id  : int
+  ; ts_id  : int (* table id ext *)
   ; ts     : actual_other
   } [@@deriving yojson]
 
 type bat =
   { common     : table_common
-  ; bouquet_id : int
+  ; bouquet_id : int (* table id ext *)
   } [@@deriving yojson]
 
 type eit_info =
@@ -99,7 +99,7 @@ type eit_info =
 
 type eit =
   { common     : table_common
-  ; service_id : int
+  ; service_id : int (* table id ext *)
   ; ts         : actual_other
   ; typ        : eit_type
   ; eit_info   : eit_info

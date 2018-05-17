@@ -6,18 +6,6 @@ type table_info =
   ; id      : int
   ; id_ext  : int
   }
-
-type ts_error_hr =
-  { name        : string
-  ; priority    : [ `P1 | `P2 | `P3 ]
-  ; description : string
-  ; count       : int
-  ; multi_pid   : bool
-  ; pid         : int
-  ; service     : string option
-  ; packet      : int32
-  }
-
 let table_info_of_ts_error (e:ts_error) =
   { section = Int32.to_int @@ Int32.((e.param_2 land 0xFF00_0000l) lsr 24)
   ; id      = Int32.to_int @@ Int32.((e.param_2 land 0x00FF_0000l) lsr 16)
@@ -222,24 +210,4 @@ let ts_error_to_error_name (e:ts_error) = match e.err_code with
   | 0x38 -> "TDT error"
   | _    -> assert false
 
-let ts_error_to_priority (e:ts_error) = match e.err_code with
-  | x when x >= 0x11 && x <= 0x16 -> `P1
-  | x when x >= 0x21 && x <= 0x26 -> `P2
-  | x when x >= 0x31 && x <= 0x38 -> `P3
-  | _ -> assert false
-
-let priority_name = function
-  | `P1 -> "1 приоритет"
-  | `P2 -> "2 приоритет"
-  | `P3 -> "3 приоритет"
-
-let convert_ts_error ?hex ?short (e:ts_error) : ts_error_hr =
-  { name        = ts_error_to_error_name e
-  ; priority    = ts_error_to_priority e
-  ; description = Description.of_ts_error ?hex ?short e
-  ; count       = e.count
-  ; multi_pid   = e.multi_pid
-  ; pid         = e.pid
-  ; service     = None
-  ; packet      = e.packet
-  }
+let priority_name (x:int) = Printf.sprintf "%u приоритет" x

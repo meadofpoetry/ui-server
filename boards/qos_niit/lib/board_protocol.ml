@@ -27,20 +27,21 @@ module SM = struct
 
   let wakeup_timeout (_,t) = t.pred `Timeout |> ignore
 
-  type push_events = { devinfo      : devinfo_response      -> unit
-                     ; status       : status                -> unit
-                     ; streams      : Common.Stream.id list -> unit
-                     ; ts_found     : Common.Stream.id      -> unit
-                     ; ts_lost      : Common.Stream.id      -> unit
-                     ; ts_errors    : ts_error list         -> unit
-                     ; t2mi_found   : int                   -> unit
-                     ; t2mi_lost    : int                   -> unit
-                     ; t2mi_errors  : t2mi_error list       -> unit
-                     ; board_errors : board_errors          -> unit
-                     ; structs      : ts_structs            -> unit
-                     ; bitrates     : ts_structs            -> unit
-                     ; t2mi_info    : t2mi_info             -> unit
-                     ; jitter       : jitter                -> unit
+  type push_events = { devinfo        : devinfo_response      -> unit
+                     ; status         : status                -> unit
+                     ; streams        : Common.Stream.id list -> unit
+                     ; ts_found       : Common.Stream.id      -> unit
+                     ; ts_lost        : Common.Stream.id      -> unit
+                     ; ts_errors      : ts_error list         -> unit
+                     ; t2mi_found     : int                   -> unit
+                     ; t2mi_lost      : int                   -> unit
+                     ; t2mi_errors    : t2mi_error list       -> unit
+                     ; board_errors   : board_errors          -> unit
+                     ; structs        : ts_structs            -> unit
+                     ; bitrates       : ts_structs            -> unit
+                     ; t2mi_info      : t2mi_info             -> unit
+                     ; jitter         : jitter_measures       -> unit
+                     ; jitter_session : jitter_session      -> unit
                      }
 
   module Events_handler : sig
@@ -270,7 +271,7 @@ module SM = struct
     | Bitrate _      -> ()
     | Struct  x      -> pe.structs x
     | T2mi_info x    -> pe.t2mi_info x
-    | Jitter x       -> jitter_ptr := x.next_ptr; pe.jitter x
+    | Jitter x       -> jitter_ptr := x.next_ptr; pe.jitter x.measures
 
   let step msgs imsgs sender (storage : config storage) step_duration push_state push_events =
     let period         = to_period 5 step_duration in
@@ -391,6 +392,7 @@ module SM = struct
     let bitrates,bitrates_push         = React.S.create [] in
     let t2mi_info,t2mi_info_push       = React.E.create () in
     let jitter,jitter_push             = React.E.create () in
+    let jitter_s,jitter_s_push         = React.E.create () in
     let (events : events) = { config   = React.E.changes config
                             ; status
                             ; streams
@@ -404,21 +406,25 @@ module SM = struct
                             ; structs  = React.S.changes structs
                             ; bitrates = React.S.changes bitrates
                             ; t2mi_info
-                            ; jitter } in
-    let push_events       = { devinfo      = devinfo_push
-                            ; status       = status_push
-                            ; streams      = streams_push
-                            ; ts_found     = ts_found_push
-                            ; ts_lost      = ts_lost_push
-                            ; ts_errors    = ts_errors_push
-                            ; t2mi_found   = t2mi_found_push
-                            ; t2mi_lost    = t2mi_lost_push
-                            ; t2mi_errors  = t2mi_errors_push
-                            ; board_errors = board_errors_push
-                            ; structs      = structs_push
-                            ; bitrates     = bitrates_push
-                            ; t2mi_info    = t2mi_info_push
-                            ; jitter       = jitter_push
+                            ; jitter
+                            ; jitter_session = React.E.changes ~eq:equal_jitter_session jitter_s
+                            }
+    in
+    let push_events       = { devinfo        = devinfo_push
+                            ; status         = status_push
+                            ; streams        = streams_push
+                            ; ts_found       = ts_found_push
+                            ; ts_lost        = ts_lost_push
+                            ; ts_errors      = ts_errors_push
+                            ; t2mi_found     = t2mi_found_push
+                            ; t2mi_lost      = t2mi_lost_push
+                            ; t2mi_errors    = t2mi_errors_push
+                            ; board_errors   = board_errors_push
+                            ; structs        = structs_push
+                            ; bitrates       = bitrates_push
+                            ; t2mi_info      = t2mi_info_push
+                            ; jitter         = jitter_push
+                            ; jitter_session = jitter_s_push
                             } in
     let api =
       { set_input       = (fun input -> let mode : Types.mode = { t2mi = storage#get.t2mi_mode; input } in

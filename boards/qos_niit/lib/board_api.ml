@@ -134,7 +134,7 @@ let t2mi_info_ws sock_data (events : events) body =
   sock_handler sock_data events.t2mi_info t2mi_info_to_yojson body
 
 let jitter_ws sock_data (events : events) body =
-  sock_handler sock_data events.jitter jitter_to_yojson body
+  sock_handler sock_data events.jitter jitter_measures_to_yojson body
 
 let incoming_streams_ws sock_data streams body =
   sock_handler sock_data (React.S.changes streams) Common.Stream.t_list_to_yojson body
