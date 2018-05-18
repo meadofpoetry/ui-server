@@ -314,8 +314,17 @@ class t (internal_conf : Network_settings.t) (external_opts : Network_config.t o
         | None -> Lwt.fail_with "internal config parsing failure"
         | Some conf ->
            match Network_settings.apply conf internal_conf with
-           | None -> Lwt.return_unit
-           | Some new_conf -> Nm.Settings.update interior.settings (Nm.Config.to_dbus new_conf)
+           | None -> begin
+               match conf.connection.autoconnect with
+               | True x when x < -100 -> Lwt.return_unit
+               | _ -> let conf = { conf with
+                                   connection = { conf.connection with autoconnect = True (-999) } }
+                      in Nm.Settings.update interior.settings (Nm.Config.to_dbus conf)
+             end
+           | Some new_conf ->
+              let new_conf = { new_conf with
+                               connection = { new_conf.connection with autoconnect = True (-999) } }
+              in Nm.Settings.update interior.settings (Nm.Config.to_dbus new_conf)
       end
   in
   (* external iface settings *)

@@ -6,6 +6,12 @@
         "sock_in": "ipc:///tmp/ats_qoe_in",
         "sock_out": "ipc:///tmp/ats_qoe_out"
     },
+    "network": {
+        "interface": "eno1",
+        "address": "192.168.111.205",
+        "gateway": "192.168.111.1",
+        "mask": 24
+    },
     "db": {
         "socket_path": "/tmp", "cleanup":48, "password":"ats"
     },
