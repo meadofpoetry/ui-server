@@ -25,7 +25,7 @@ let monitor proxy interface switch =
                   Lwt.return (OBus_property.update_map context updates map))
                 (OBus_property.map_of_list context dict)
                 event)
-   
+  
 module Nm = struct
 
   module Config = struct
@@ -35,7 +35,7 @@ module Nm = struct
       let mask = 0xFFl in
       let (a,b,c,d) = Int32.(((x lsr 24) land mask), ((x lsr 16) land mask), ((x lsr 8) land mask), (x land mask)) in
       Int32.((d lsl 24) + (c lsl 16) + (b lsl 8) + a)
-                      
+      
     let of_dbus d =
       let open Option.Infix in
       let open OBus_value in
@@ -121,7 +121,7 @@ module Nm = struct
       |> function
         | (Some ethernet, Some connection, Some ipv4) -> Some { ethernet; connection; ipv4; ipv6 = (); proxy = () }
         | _ -> None
-                      
+             
     let to_dbus c =
       let open OBus_value in
       let eth  = [ "mac-address", V.byte_array @@ Bytes.to_string c.ethernet.mac_address] in
@@ -153,18 +153,18 @@ module Nm = struct
       [ "802-3-ethernet", eth; "connection", conn; "ipv4", ipv4]
       
   end
-      
+                
   module Device = struct
     include OBus_proxy.Private
     open Nm_device_interfaces.Org_freedesktop_NetworkManager_Device
-    
+       
     let make bus path =
       OBus_proxy.make
-      ~peer:(OBus_peer.make bus "org.freedesktop.NetworkManager")
-      ~path
+        ~peer:(OBus_peer.make bus "org.freedesktop.NetworkManager")
+        ~path
       
     let type_ethernet = 1l
-      
+                      
     let type_prop proxy =
       OBus_property.make ~monitor p_DeviceType proxy
 
@@ -185,25 +185,25 @@ module Nm = struct
   module Connection = struct
     include OBus_proxy.Private
     open Nm_connection_interfaces.Org_freedesktop_NetworkManager_Connection_Active
-          
+       
     let make bus path =
       OBus_proxy.make
-      ~peer:(OBus_peer.make bus "org.freedesktop.NetworkManager")
-      ~path
+        ~peer:(OBus_peer.make bus "org.freedesktop.NetworkManager")
+        ~path
 
     let settings_prop proxy =
       OBus_property.make ~monitor p_Connection proxy
       
   end
-    
+                    
   module Settings = struct
     include OBus_proxy.Private
     open Nm_settings_interfaces.Org_freedesktop_NetworkManager_Settings_Connection
 
     let make bus path =
       OBus_proxy.make
-      ~peer:(OBus_peer.make bus "org.freedesktop.NetworkManager")
-      ~path
+        ~peer:(OBus_peer.make bus "org.freedesktop.NetworkManager")
+        ~path
 
     let get_settings proxy =
       OBus_method.call m_GetSettings proxy
@@ -220,7 +220,7 @@ module Nm = struct
     OBus_proxy.make
       ~peer:(OBus_peer.make bus "org.freedesktop.NetworkManager")
       ~path:[ "org"; "freedesktop"; "NetworkManager" ]
-     
+    
   let devices_prop proxy =
     OBus_property.make ~monitor p_AllDevices proxy
 
@@ -229,7 +229,7 @@ module Nm = struct
 
   let add_and_activate proxy =
     OBus_method.call m_AddAndActivateConnection proxy
-                  
+    
 end
           
 let (|->) v f = f (Lwt_main.run v)
@@ -239,32 +239,31 @@ type eth_object = { name     : string
                   ; proxy    : Nm.Device.t
                   ; settings : Nm.Settings.t
                   }
-               
+                
 let initialize_eth_object ?defaults bus name proxy =
   let conn_path  = Lwt_main.run @@ OBus_property.get @@ Nm.Device.connection_prop proxy in
   let connection =
     let conn_path =
       if OBus_path.compare OBus_path.empty conn_path <> 0
-      then conn_path
-      else match defaults with
-           | None   -> failwith ("no defaults for " ^ name)
-           | Some s -> Lwt_main.run begin
-                           Nm.Device.reapply proxy s 1L
-                           >>= fun () -> OBus_property.get @@ Nm.Device.connection_prop proxy
-                         end
-    in
-    try Nm.Connection.make bus conn_path
-    with _ -> failwith "no active connection avail"
+      then Ok conn_path
+      else Result.map (fun defaults ->
+               Lwt_main.run begin
+                   Nm.Device.reapply proxy defaults 1L
+                   >>= fun () -> OBus_property.get @@ Nm.Device.connection_prop proxy
+                 end)
+             (Option.map_or ~default:(Error ("no defaults for " ^ name))
+                (fun x -> Ok x) defaults) (* TODO consider Result*)
+    in Result.(conn_path >>= fun path -> try Ok (Nm.Connection.make bus path)
+                                         with _ -> Error ("could not establish a new connection for " ^ name)) 
   in
   let settings =
-    OBus_property.get @@ Nm.Connection.settings_prop connection
-    >|= (fun set_path ->
-      try Nm.Settings.make bus set_path
-      with _ -> failwith "no settings avail")
+    Result.(connection >>= fun connection ->
+            Lwt_main.run @@ OBus_property.get @@ Nm.Connection.settings_prop connection
+            |> fun set_path ->
+               try Ok (Nm.Settings.make bus set_path)
+               with _ -> Error "")
   in
-  { name; proxy;
-    settings = Lwt_main.run settings
-  }
+  Result.map (fun settings -> { name; proxy; settings }) settings
 
 let debug_print_settings conf =
   Lwt_io.printf "Value: %s\n" (List.fold_left (fun acc (n, v) ->
@@ -274,7 +273,7 @@ let debug_print_settings conf =
 
 module Conf = Storage.Config.Make(Network_settings)
 module Opts = Storage.Options.Make(Network_config.Options)
-              
+            
 class t (internal_conf : Network_settings.t) (external_opts : Network_config.t option Storage.Options.storage) =
   let bus      = Lwt_main.run @@ OBus_bus.system () in
   let nm_proxy = Nm.make bus in
@@ -286,7 +285,7 @@ class t (internal_conf : Network_settings.t) (external_opts : Network_config.t o
                                (OBus_property.get @@ Nm.Device.type_prop proxy) >>= fun typ ->
                                (OBus_property.get @@ Nm.Device.interface_prop proxy) >>= fun iface ->
                                Lwt.return (typ, iface, proxy)) x
-              with _ -> [])
+                       with _ -> [])
           |> Lwt_list.map_p (fun x -> x)))
   in
   let interior = Option.(List.find_opt (fun (typ, name, proxy) ->
@@ -295,7 +294,7 @@ class t (internal_conf : Network_settings.t) (external_opts : Network_config.t o
                            devices
                          >>= fun (_,name,proxy) ->
                          Some (initialize_eth_object bus name proxy))
-                 |> function Some obj -> obj | None -> failwith "no internal interface was found"
+                 |> function Some obj -> obj | None -> Error "no internal interface was found"
   in
   let exterior = Option.(List.find_opt (fun (typ, name, proxy) ->
                              Int32.equal Nm.Device.type_ethernet typ
@@ -303,7 +302,12 @@ class t (internal_conf : Network_settings.t) (external_opts : Network_config.t o
                            devices
                          >>= fun (_,name,proxy) ->
                          Some (initialize_eth_object ?defaults:(Option.map Nm.Config.to_dbus external_opts#get) bus name proxy))
-                 |> function Some obj -> obj | None -> failwith "no external interface was found"
+                 |> function Some obj -> obj | None -> Error "no external interface was found"
+  in
+  let interior = Result.get_exn interior in (* Failure *)
+  let exterior = match exterior with
+    | Error _ -> (* TODO log *) None
+    | Ok v    -> Some v
   in
   (* push settings *)
   let () =
@@ -329,39 +333,46 @@ class t (internal_conf : Network_settings.t) (external_opts : Network_config.t o
   in
   (* external iface settings *)
   let () =
-    Lwt_main.run begin
-        Nm.Settings.get_settings exterior.settings ()
-        >>= fun conf ->
-        match Nm.Config.of_dbus conf with
-        | None -> Lwt.fail_with "external config parsing failure"
-        | Some conf as c ->
-           match external_opts#get with
-           | None -> external_opts#store c; Lwt.return_unit
-           | Some old_conf ->
-              if Network_config.equal conf old_conf
-              then Lwt.return_unit
-              else Nm.Settings.update exterior.settings (Nm.Config.to_dbus old_conf)
-      end
+    exterior
+    |> Option.iter (fun exterior ->
+           Lwt_main.run begin
+               Nm.Settings.get_settings exterior.settings ()
+               >>= fun conf ->
+               match Nm.Config.of_dbus conf with
+               | None -> Lwt.fail_with "external config parsing failure"
+               | Some conf as c ->
+                  match external_opts#get with
+                  | None -> external_opts#store c; Lwt.return_unit
+                  | Some old_conf ->
+                     if Network_config.equal conf old_conf
+                     then Lwt.return_unit
+                     else Nm.Settings.update exterior.settings (Nm.Config.to_dbus old_conf)
+             end)
   in
   object
     val interior = interior
     val exterior = exterior
-    method get_settings () =
-      match external_opts#get with (* consider direct dbus call *)
-      | Some _ as conf -> Lwt.return conf
-      | None ->
-         Nm.Settings.get_settings interior.settings ()
-         >|= fun conf ->
-         match Nm.Config.of_dbus conf with
-         | None           -> None
-         | Some _ as conf -> external_opts#store conf; conf
+                 
+    method get_settings () = match exterior with
+      | None -> Lwt.return_none
+      | Some exterior ->
+         match external_opts#get with (* consider direct dbus call *)
+         | Some _ as conf -> Lwt.return conf
+         | None ->
+            Nm.Settings.get_settings exterior.settings ()
+            >|= fun conf ->
+            match Nm.Config.of_dbus conf with
+            | None           -> None
+            | Some _ as conf -> external_opts#store conf; conf
 
-    method update_settings s =
-      let conf = Nm.Config.to_dbus s in
-      Nm.Settings.update exterior.settings conf
-      >>= fun () ->
-      external_opts#store (Some s);
-      Lwt.return_unit
+    method update_settings s = match exterior with
+      | None -> Lwt.return_unit
+      | Some exterior ->
+         let conf = Nm.Config.to_dbus s in
+         Nm.Settings.update exterior.settings conf
+         >>= fun () ->
+         external_opts#store (Some s);
+         Lwt.return_unit
   end
 
 let create config =
@@ -372,15 +383,15 @@ let create config =
   with e -> Error (Printexc.to_string e)
 
 let finalize _ = ()
-              
-  (*
+                   
+                   (*
   >>= fun conns ->
   Lwt_io.printf "%s\n" (List.fold_left (fun acc (s,v) -> Printf.sprintf "%s\n, %s: { %s }"
                                                            acc s
                                                            (List.fold_left (fun acc (s,v) -> Printf.sprintf "%s; %s : %s" acc s (OBus_value.V.string_of_single v)) "" v))
                           "" conns)
-   *)
-  (*
+                    *)
+                   (*
   |-> Nm_settings1.list_connections
   |-> List.map (fun c -> Nm_settings.Connection.get_settings c |-> List.map fst)
-   *)
+                    *)
