@@ -21,6 +21,10 @@ user:
 	$(BUILD) build frontend/user.bc.js
 	cp _build/default/frontend/user.bc.js dist/resources/js/user.js
 
+network:
+	$(BUILD) build frontend/network.bc.js
+	cp _build/default/frontend/network.bc.js dist/resources/js/network.js
+
 demo:
 	$(BUILD) build frontend/demo.bc.js
 	cp _build/default/frontend/demo.bc.js dist/resources/js/demo.js
@@ -35,7 +39,7 @@ css-pages:
 
 css: css-components css-pages
 
-frontend: home pipeline hardware user demo input
+frontend: home pipeline hardware user network demo input
 
 backend:
 	$(BUILD) build backend/backend.exe

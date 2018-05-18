@@ -58,6 +58,7 @@ let create (app : Application.t) : upper ordered_item list user_table =
   in
   Common.User.concat_table [ Responses.home_template ()
                            ; User_template.create ()
+                           ; Pc_control.Network_template.create ()
                            ; proc
                            ; { root = rval; operator = rval; guest = rval }
     ]

@@ -27,7 +27,7 @@ let limit ?eq f s =
   React.S.hold ?eq (React.S.value s) (React.E.select [iter; event])
 
 type t = { proc       : Proc.t option
-         ; pc_control : Pc_control.t
+         ; network    : Pc_control.Network.t
          ; users      : User.entries
          ; hw         : Hardware.t
          ; topo       : Common.Topology.t React.signal
@@ -50,9 +50,9 @@ let create config db =
   in
   let users      = User.create config in
   let options    = Storage.Options.Conf.get config in
-  let pc_control = match Pc_control.create config with
-    | Ok pc -> pc
-    | Error e -> failwith ("bad pc config: " ^ e)
+  let network    = match Pc_control.Network.create config with
+    | Ok net  -> net
+    | Error e -> failwith ("bad network config: " ^ e)
   in
   let proc       = match topology with
     | `Boards bs -> None
@@ -68,7 +68,7 @@ let create config db =
           |> proc#reset)
       @@ limit (fun () -> Lwt_unix.sleep 2.) hw.streams
       |> Lwt_react.S.keep) proc;
-  { users; proc; pc_control; hw; topo = hw.topo }, loop
+  { users; proc; network; hw; topo = hw.topo }, loop
 
 let redirect_filter app =
   Api.Redirect.redirect_auth (User.validate app.users)

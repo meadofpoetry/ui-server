@@ -3,7 +3,7 @@
 (library
  ((name        pc_control)
   (public_name pc_control)
-  (wrapped false)
+  (wrapped true)
   (modes (native))
   (synopsis "network interface controls implementation")
   (ocamlopt_flags (:standard -short-paths -strict-sequence -bin-annot

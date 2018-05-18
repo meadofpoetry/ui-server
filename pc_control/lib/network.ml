@@ -320,7 +320,7 @@ class t (internal_conf : Network_settings.t) (external_opts : Network_config.t o
            match Network_settings.apply conf internal_conf with
            | None -> begin
                match conf.connection.autoconnect with
-               | True x when x < -100 -> Lwt.return_unit
+               | True _ -> Lwt.return_unit
                | _ -> let conf = { conf with
                                    connection = { conf.connection with autoconnect = True (-999) } }
                       in Nm.Settings.update interior.settings (Nm.Config.to_dbus conf)
