@@ -1,6 +1,20 @@
 open Containers
 
+module Clock = Ptime_clock
+
 include Ptime
+
+let to_yojson (v:t) : Yojson.Safe.json =
+  let d,ps = Ptime.to_span v |> Ptime.Span.to_d_ps in
+  `List [ `Int d;`Intlit (Int64.to_string ps) ]
+
+let of_yojson (j:Yojson.Safe.json) : (t,string) result =
+  let to_err j = Printf.sprintf "of_yojson: bad json value (%s)" @@ Yojson.Safe.to_string j in
+  match j with
+  | `List [ `Int d; `Intlit ps] -> (match Int64.of_string_opt ps with
+                                    | Some ps -> Ok (v (d,ps))
+                                    | None    -> Error (to_err j))
+  | _ -> Error (to_err j)
 
 module RFC3339 = struct
   type t = Ptime.t

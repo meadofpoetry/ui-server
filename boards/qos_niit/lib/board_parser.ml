@@ -184,7 +184,7 @@ module Get_board_errors : (Request with type req := int with type rsp := board_e
   let rsp_code = req_code
   let to_cbuffer request_id = to_complex_req ~request_id ~msg_code:req_code ~body:(Cbuffer.create 0) ()
   let of_cbuffer msg =
-    let timestamp = Option.get_exn @@ Common.Time.of_float_s @@ Unix.gettimeofday () in
+    let timestamp = Common.Time.Clock.now () in
     let iter      = Cbuffer.iter (fun _ -> Some sizeof_t2mi_frame_seq_item)
                                  (fun buf -> Cbuffer.LE.get_uint32 buf 0)
                                  (get_board_errors_errors msg) in
@@ -303,7 +303,7 @@ module Get_jitter : (Request with type req := jitter_req with type rsp := Types.
     let next_ptr    = get_jitter_req_next hdr in
     let packet_time = get_jitter_packet_time hdr in
     let iter        = Cbuffer.iter (fun _ -> Some sizeof_jitter_item) (fun buf -> buf) bdy in
-    let timestamp   = Option.get_exn @@ Common.Time.of_float_s @@ Unix.gettimeofday () in
+    let timestamp   = Common.Time.Clock.now () in
     let measures    = List.rev @@ Cbuffer.fold (fun acc el -> (of_cbuffer_item el packet_time) :: acc)
                                                iter [] in
     { measures; next_ptr; time; timestamp; pid; t_pcr }
@@ -485,7 +485,7 @@ module Get_ts_structs : (Request with type req := int with type rsp = ts_struct 
     ; services  = List.filter_map (function `Services x -> Some x | _ -> None) blocks
     ; emm       = get_exn @@ List.find_map (function `Emm x -> Some x | _ -> None) blocks
     ; tables    = List.filter_map (function `Tables x -> Some x | _ -> None) blocks
-    ; timestamp = Option.get_exn @@ Common.Time.of_float_s @@ Unix.gettimeofday ()
+    ; timestamp = Common.Time.Clock.now ()
     }, if Cbuffer.len rest > 0 then Some rest else None
 
   let of_cbuffer msg =
@@ -558,7 +558,7 @@ module Get_bitrates : (Request with type req := int with type rsp = Types.bitrat
   let of_cbuffer msg =
     let hdr,bdy   = Cbuffer.split msg sizeof_bitrates in
     let count     = get_bitrates_count hdr in
-    let timestamp = Option.get_exn @@ Common.Time.of_float_s @@ Unix.gettimeofday () in
+    let timestamp = Common.Time.Clock.now () in
     let rec parse = (fun acc buf -> let x,rest = of_stream_bitrate timestamp buf in
                                     match rest with
                                     | Some b -> parse (x :: acc) b
@@ -691,7 +691,7 @@ module Ts_errors : (Event with type msg := ts_errors) = struct
     let number      = get_ts_errors_count common in
     let errors,_    = Cbuffer.split rest (number * sizeof_ts_error) in
     let stream_id   = Common.Stream.id_of_int32 (get_ts_errors_stream_id common) in
-    let timestamp   = Option.get_exn @@ Common.Time.of_float_s @@ Unix.gettimeofday () in
+    let timestamp   = Common.Time.Clock.now () in
     let iter        = Cbuffer.iter (fun _ -> Some sizeof_ts_error) (fun buf -> buf) errors in
     Cbuffer.fold (fun acc el ->
         let err_code  = get_ts_error_err_code el in
@@ -767,7 +767,7 @@ module T2mi_errors : (Event with type msg := t2mi_errors) = struct
         ; param          = x.param }) oth
 
   let of_cbuffer msg =
-    let timestamp   = Option.get_exn @@ Common.Time.of_float_s @@ Unix.gettimeofday () in
+    let timestamp   = Common.Time.Clock.now () in
     let common,rest = Cbuffer.split msg sizeof_t2mi_errors in
     let number      = get_t2mi_errors_count common in
     let errors,_    = Cbuffer.split rest (number * sizeof_t2mi_error) in

@@ -66,7 +66,7 @@ type status =
 
 type ts_error =
   { stream_id : Common.Stream.id
-  ; timestamp : Common.Time.Seconds.t
+  ; timestamp : Common.Time.t
   ; count     : int
   ; err_code  : int
   ; err_ext   : int
@@ -84,7 +84,7 @@ type ts_errors = ts_error list [@@deriving yojson]
 
 type t2mi_error =
   { stream_id      : Common.Stream.id
-  ; timestamp      : Common.Time.Seconds.t
+  ; timestamp      : Common.Time.t
   ; t2mi_stream_id : int
   ; pid            : int
   ; err_code       : int
@@ -98,7 +98,7 @@ type t2mi_errors = t2mi_error list [@@deriving yojson]
 (** Board errors **)
 
 type board_error =
-  { timestamp : Common.Time.Seconds.t
+  { timestamp : Common.Time.t
   ; err_code  : int
   ; count     : int
   } [@@deriving yojson]
@@ -143,7 +143,7 @@ type t2mi_packets = t2mi_packet list [@@deriving yojson]
 (** Jitter **)
 
 type jitter_session =
-  { timestamp : Common.Time.Seconds.t
+  { timestamp : Common.Time.t
   ; t_pcr     : float
   ; mode      : jitter_mode
   } [@@deriving yojson,eq]

@@ -62,7 +62,7 @@ type bitrate =
   ; ts_bitrate : int
   ; pids       : pid_bitrate list
   ; tables     : table_bitrate list
-  ; timestamp  : Common.Time.Seconds.t
+  ; timestamp  : Common.Time.t
   }
 
 type bitrates = bitrate list
@@ -73,7 +73,7 @@ type jitter_raw =
   { measures  : Board_types.jitter_measures
   ; next_ptr  : int32
   ; time      : int
-  ; timestamp : Common.Time.Seconds.t
+  ; timestamp : Common.Time.t
   ; pid       : int
   ; t_pcr     : float
   }
