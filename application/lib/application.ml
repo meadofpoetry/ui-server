@@ -50,7 +50,10 @@ let create config db =
   in
   let users      = User.create config in
   let options    = Storage.Options.Conf.get config in
-  let pc_control = Pc_control.create () in
+  let pc_control = match Pc_control.create config with
+    | Ok pc -> pc
+    | Error e -> failwith ("bad pc config: " ^ e)
+  in
   let proc       = match topology with
     | `Boards bs -> None
     | `CPU c     -> Proc.create proc_table c.process config db

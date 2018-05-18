@@ -13,3 +13,8 @@
               obus yojson
               api storage))
   (preprocess (pps (ppx_deriving_yojson ppx_deriving.eq)))))
+
+(rule
+ ((targets (network_config.ml))
+  (deps (../network_config.ml))
+  (action (copy ${<} ${@}))))

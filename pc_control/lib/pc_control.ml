@@ -1,7 +1,12 @@
 open Containers
-
-module Network = Network
+open Lwt.Infix
    
-type t = ()
+type t = { network : Network.t }
+               
+let create config =
+  let open Result in
+  Network.create config >>= fun network ->
+  Ok { network }
 
-let create () = ()
+let finalize o =
+  Network.finalize o.network
