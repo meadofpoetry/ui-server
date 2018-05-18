@@ -174,8 +174,9 @@ module Nm = struct
     let connection_prop proxy =
       OBus_property.make ~monitor p_ActiveConnection proxy
 
-    let get_applied_connection proxy =
+    let get_applied_connection proxy () =
       OBus_method.call m_GetAppliedConnection proxy 0l
+      >>= fun (set,_) -> Lwt.return set
 
     let reapply proxy s v =
       OBus_method.call m_Reapply proxy (s, v, 0l)
@@ -208,8 +209,9 @@ module Nm = struct
     let get_settings proxy =
       OBus_method.call m_GetSettings proxy
 
-    let update proxy =
-      OBus_method.call m_Update proxy
+    let update proxy s =
+      OBus_method.call m_Update proxy s
+      >>= OBus_method.call m_Save proxy
       
   end
 
@@ -227,6 +229,10 @@ module Nm = struct
   let connections_prop proxy =
     OBus_property.make ~monitor p_ActiveConnections proxy
 
+  let activate_connection proxy (dev : Device.t) (settings : Settings.t) =
+    OBus_method.call m_ActivateConnection proxy (OBus_proxy.path settings, OBus_proxy.path dev, OBus_path.empty)
+    >>= fun _ -> Lwt.return_unit
+    
   let add_and_activate proxy =
     OBus_method.call m_AddAndActivateConnection proxy
     
@@ -265,6 +271,9 @@ let initialize_eth_object ?defaults bus name proxy =
   in
   Result.map (fun settings -> { name; proxy; settings }) settings
 
+let apply_eth_object (nm : Nm.t) obj =
+  Nm.activate_connection nm obj.proxy obj.settings
+  
 let debug_print_settings conf =
   Lwt_io.printf "Value: %s\n" (List.fold_left (fun acc (n, v) ->
                                    Printf.sprintf "%s\n%s: { %s }" acc n (List.fold_left (fun acc (n, v) ->
@@ -312,7 +321,7 @@ class t (internal_conf : Network_settings.t) (external_opts : Network_config.t o
   (* push settings *)
   let () =
     Lwt_main.run begin
-        Nm.Settings.get_settings interior.settings ()
+        Nm.Device.get_applied_connection interior.proxy ()
         >>= fun conf ->
         match Nm.Config.of_dbus conf with
         | None -> Lwt.fail_with "internal config parsing failure"
@@ -323,12 +332,19 @@ class t (internal_conf : Network_settings.t) (external_opts : Network_config.t o
                | True _ -> Lwt.return_unit
                | _ -> let conf = { conf with
                                    connection = { conf.connection with autoconnect = True (-999) } }
-                      in Nm.Settings.update interior.settings (Nm.Config.to_dbus conf)
+                      in
+                      Lwt_io.printf "New conf 1\n" |> ignore;
+                      Nm.Settings.update interior.settings (Nm.Config.to_dbus conf) >>= fun () ->
+                      apply_eth_object nm_proxy interior
              end
            | Some new_conf ->
               let new_conf = { new_conf with
                                connection = { new_conf.connection with autoconnect = True (-999) } }
-              in Nm.Settings.update interior.settings (Nm.Config.to_dbus new_conf)
+              in
+              Lwt_io.printf "New conf 2\n" |> ignore;
+              Nm.Settings.update interior.settings (Nm.Config.to_dbus new_conf) >>= fun () ->
+              Lwt_io.printf "New conf 3\n" |> ignore;
+              apply_eth_object nm_proxy interior
       end
   in
   (* external iface settings *)
@@ -336,7 +352,7 @@ class t (internal_conf : Network_settings.t) (external_opts : Network_config.t o
     exterior
     |> Option.iter (fun exterior ->
            Lwt_main.run begin
-               Nm.Settings.get_settings exterior.settings ()
+               Nm.Device.get_applied_connection exterior.proxy ()
                >>= fun conf ->
                match Nm.Config.of_dbus conf with
                | None -> Lwt.fail_with "external config parsing failure"
@@ -346,7 +362,8 @@ class t (internal_conf : Network_settings.t) (external_opts : Network_config.t o
                   | Some old_conf ->
                      if Network_config.equal conf old_conf
                      then Lwt.return_unit
-                     else Nm.Settings.update exterior.settings (Nm.Config.to_dbus old_conf)
+                     else Nm.Settings.update exterior.settings (Nm.Config.to_dbus old_conf) >>= fun () ->
+                          apply_eth_object nm_proxy exterior
              end)
   in
   object
@@ -359,7 +376,7 @@ class t (internal_conf : Network_settings.t) (external_opts : Network_config.t o
          match external_opts#get with (* consider direct dbus call *)
          | Some _ as conf -> Lwt.return conf
          | None ->
-            Nm.Settings.get_settings exterior.settings ()
+            Nm.Device.get_applied_connection exterior.proxy ()
             >|= fun conf ->
             match Nm.Config.of_dbus conf with
             | None           -> None
@@ -370,6 +387,8 @@ class t (internal_conf : Network_settings.t) (external_opts : Network_config.t o
       | Some exterior ->
          let conf = Nm.Config.to_dbus s in
          Nm.Settings.update exterior.settings conf
+         >>= fun () ->
+         apply_eth_object nm_proxy exterior
          >>= fun () ->
          external_opts#store (Some s);
          Lwt.return_unit
