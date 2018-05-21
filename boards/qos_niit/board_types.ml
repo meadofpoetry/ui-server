@@ -64,6 +64,12 @@ type status =
 
 (** MPEG-TS errors **)
 
+type ts_sync =
+  { stream_id : Common.Stream.id
+  ; timestamp : Common.Time.t
+  ; sync      : bool
+  }
+
 type ts_error =
   { stream_id : Common.Stream.id
   ; timestamp : Common.Time.t
@@ -81,6 +87,13 @@ type ts_error =
 type ts_errors = ts_error list [@@deriving yojson]
 
 (** T2-MI errors **)
+
+type t2mi_sync =
+  { stream_id      : Common.Stream.id
+  ; timestamp      : Common.Time.t
+  ; t2mi_stream_id : int
+  ; sync           : bool
+  }
 
 type t2mi_error =
   { stream_id      : Common.Stream.id

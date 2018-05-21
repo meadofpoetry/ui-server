@@ -554,18 +554,16 @@ let chart_demo () =
                ; label = "Dataset 2"
                }
              ] in
-  let config = new Config.t
-                 ~x_axis:(Linear ("my-x-axis",Bottom,Int,Some !x))
-                 ~y_axis:(Linear ("my-y-axis",Left,Int,None))
-                 ~data
-                 () in
+  let x_axis = new Chartjs.Axes.Cartesian.Linear.t ~id:"x" ~position:`Bottom ~typ:Int ~delta:!x () in
+  let y_axis = new Chartjs.Axes.Cartesian.Linear.t ~id:"y" ~position:`Top ~typ:Int () in
+  let config = new Config.t ~x_axis ~y_axis ~data () in
   config#options#hover#set_mode Index;
   config#options#hover#set_intersect true;
   config#options#tooltip#set_mode Index;
   config#options#tooltip#set_intersect false;
-  config#options#y_axis#ticks#set_suggested_max range;
-  config#options#x_axis#scale_label#set_label_string "x axis";
-  config#options#x_axis#scale_label#set_display true;
+  y_axis#ticks#set_suggested_max range;
+  x_axis#scale_label#set_label_string "x axis";
+  x_axis#scale_label#set_display true;
   config#options#elements#line#set_border_width 3;
   List.iter (fun x -> if String.equal x#get_label "Dataset 1"
                       then x#set_border_color @@ Color.rgb_of_name (Color.Lime C500)
@@ -613,18 +611,18 @@ let time_chart_demo () =
   let data = [ { data = []; label = "Dataset 1" }
              ; { data = []; label = "Dataset 2" }
              ] in
-  let config = new Config.t
-                 ~x_axis:(Time ("my-x-axis",Bottom,Unix,Some 20000L))
-                 ~y_axis:(Linear ("my-y-axis",Left,Int,None))
-                 ~data
-                 () in
+  let delta  = Common.Time.of_float_s 40. in
+  let x_axis = new Chartjs.Axes.Cartesian.Time.t ~id:"x" ~position:`Bottom ~typ:Ptime ?delta () in
+  let y_axis = new Chartjs.Axes.Cartesian.Linear.t ~id:"y" ~position:`Left ~typ:Int () in
+  let config = new Config.t ~x_axis ~y_axis ~data () in
   config#options#hover#set_mode Index;
   config#options#hover#set_intersect true;
   config#options#tooltip#set_mode Index;
   config#options#tooltip#set_intersect false;
-  config#options#x_axis#scale_label#set_label_string "x axis";
-  config#options#x_axis#scale_label#set_display true;
-  config#options#x_axis#time#set_min_unit Second;
+  x_axis#scale_label#set_label_string "x axis";
+  x_axis#scale_label#set_display true;
+  x_axis#time#set_min_unit Second;
+  x_axis#time#set_tooltip_format "ll HH:mm:ss";
   config#options#elements#line#set_border_width 3;
   List.iter (fun x -> if String.equal x#get_label "Dataset 1"
                       then x#set_background_color @@ Color.rgb_of_name (Color.Indigo C500)
@@ -636,7 +634,8 @@ let time_chart_demo () =
                       x#set_fill Disabled) config#datasets;
   let chart = new Chartjs.Line.t ~config () in
   let e_update,e_update_push = React.E.create () in
-  React.E.map (fun () -> List.iter (fun ds -> ds#push { x = Unix.time () *. 1000. |> Int64.of_float_exn
+  React.E.map (fun () -> List.iter (fun ds -> ds#push { x = Common.Time.of_float_s
+                                                            @@ Unix.gettimeofday () |> Option.get_exn
                                                       ; y = Random.run (Random.int range) }) chart#config#datasets;
                          chart#update None)
     e_update |> ignore;

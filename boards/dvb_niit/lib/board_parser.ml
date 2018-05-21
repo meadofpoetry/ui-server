@@ -291,7 +291,7 @@ let to_req_measure id =
 
 let of_rsp_measure_exn msg =
   try
-    { timestamp = Unix.gettimeofday ()
+    { timestamp = Common.Time.Clock.now ()
     ; lock      = int_to_bool8 (get_rsp_measure_lock msg) |> Option.get_exn |> bool_of_bool8
     ; power     = get_rsp_measure_power msg
                   |> (fun x -> if x = max_uint16 then None else Some (-.((float_of_int x) /. 10.)))
