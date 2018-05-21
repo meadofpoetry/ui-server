@@ -7,10 +7,14 @@
         "sock_out": "ipc:///tmp/ats_qoe_out"
     },
     "network": {
-        "interface": "eno1",
-        "address": "192.168.111.205",
-        "gateway": "192.168.111.1",
-        "mask": 24
+        "extern" : null,
+        "intern" : {
+            "interface": "eno1",
+            "address": "192.168.111.205",
+            "gateway": "192.168.111.1",
+            "mask": 24,
+            "mac_address": null
+        }
     },
     "db": {
         "socket_path": "/tmp", "cleanup":48, "password":"ats"

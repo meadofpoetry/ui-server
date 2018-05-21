@@ -239,9 +239,6 @@ module Nm = struct
     OBus_method.call m_AddAndActivateConnection proxy
     
 end
-          
-let (|->) v f = f (Lwt_main.run v)
-let (%) f g x = f (g x)
 
 class eth_connection ?defaults bus nm name device =
   let conn_path  = Lwt_main.run @@ OBus_property.get @@ Nm.Device.connection_prop device in
@@ -296,14 +293,13 @@ let debug_print_settings conf =
                                  "" conf) |> ignore;
 
 module Conf = Storage.Config.Make(Network_settings)
-module Opts = Storage.Options.Make(Network_config.Options)
+(* module Opts = Storage.Options.Make(Network_config.Options) *)
 
 type t = { intern : eth_connection
-         ; extern : eth_connection option
-         ; extern_opts : Network_config.t option Storage.Options.storage
+         ; extern : (eth_connection * Network_config.t Storage.Options.storage) option
          }
             
-let init (internal_conf : Network_settings.t) (external_opts : Network_config.t option Storage.Options.storage) : t =
+let init base_dir (config : Network_settings.t) : t =
   let bus      = Lwt_main.run @@ OBus_bus.system () in
   let nm_proxy = Nm.make bus in
   let devices  =
@@ -319,33 +315,50 @@ let init (internal_conf : Network_settings.t) (external_opts : Network_config.t 
   in
   let interior = Option.(List.find_opt (fun (typ, name, proxy) ->
                              Int32.equal Nm.Device.type_ethernet typ
-                             && String.equal internal_conf.interface name)
+                             && String.equal config.intern.interface name)
                            devices
                          >>= fun (_,name,proxy) ->
                          Some (try Ok (new eth_connection bus nm_proxy name proxy)
                                with Failure e -> Error e))
                  |> function Some obj -> obj | None -> Error "no internal interface was found"
   in
-  let exterior = Option.(List.find_opt (fun (typ, name, proxy) ->
+  let exterior = Option.(config.extern
+                         >>= fun conf ->
+                         List.find_opt (fun (typ, name, proxy) ->
                              Int32.equal Nm.Device.type_ethernet typ
-                             && not (String.equal internal_conf.interface name))
+                             && not (String.equal conf.interface name))
                            devices
                          >>= fun (_,name,proxy) ->
-                         Some (try Ok (new eth_connection ?defaults:external_opts#get bus nm_proxy name proxy)
+                         Some (try Ok (new eth_connection bus nm_proxy name proxy)
                                with Failure e -> Error e))
                  |> function Some obj -> obj | None -> Error "no external interface was found"
   in
   let interior = Result.get_exn interior in (* Failure *)
   let exterior = match exterior with
     | Error _ -> (* TODO log *) None
-    | Ok v    -> Some v
+    | Ok v    ->
+       let default = Result.get_exn
+                     @@ Lwt_main.run
+                     @@ v#get_config ()
+       in
+       let default = match config.extern with
+         | None   -> default
+         | Some c -> Option.get_or (Network_settings.apply default c) ~default
+       in
+       let module Opts =
+         Storage.Options.Make(struct
+             include Network_config
+             let default = default
+           end)
+       in
+       Some (v, Opts.create base_dir ["network";"external"])
   in
   (* push settings *)
   let () =
     Lwt_main.run begin
         Lwt_result.bind (interior#get_config ())
           (fun conf ->
-            match Network_settings.apply conf internal_conf with
+            match Network_settings.apply conf config.intern with
             | None -> begin
                 match conf.connection.autoconnect with
                 | True _ -> Lwt.return_ok ()
@@ -364,48 +377,39 @@ let init (internal_conf : Network_settings.t) (external_opts : Network_config.t 
   (* external iface settings *)
   let () =
     exterior
-    |> Option.iter (fun exterior ->
+    |> Option.iter (fun (exterior, external_opts) ->
            Lwt_main.run begin
                Lwt_result.bind (exterior#get_config ())
                  (fun conf ->
-                   match external_opts#get with
-                   | None -> external_opts#store (Some conf); Lwt.return_ok ()
-                   | Some old_conf ->
-                      if Network_config.equal conf old_conf
-                      then Lwt.return_ok ()
-                      else exterior#apply old_conf)
+                   let old_conf = external_opts#get in
+                   if Network_config.equal conf old_conf
+                   then Lwt.return_ok ()
+                   else exterior#apply old_conf)
                >>= (function Ok v -> Lwt.return v | Error e -> Lwt.fail_with e)
              end)
   in
   { intern = interior
   ; extern = exterior
-  ; extern_opts = external_opts
   }
 
 let create config : (t, string) result =
   try let cfg  = Conf.get config in
       let stor = Storage.Options.Conf.get config in
-      let opts = Opts.create stor.config_dir ["network";"external"] in
-      Ok (init cfg opts)
+      Ok (init stor.config_dir cfg)
   with e -> Error (Printexc.to_string e)
 
 let get_ext_settings net =
   match net.extern with
   | None -> Lwt.return_error "No external iface available"
-  | Some ext ->
-     match net.extern_opts#get with
-     | None      -> ext#get_config ()
-     | Some opts -> Lwt.return_ok opts
+  | Some (ext, ext_opts) -> Lwt.return_ok ext_opts#get (* ext#get_config () *)
 
 let apply_ext_settings (net : t) sets =
   match net.extern with
   | None -> Lwt.return_error "No external iface available"
-  | Some ext ->
-     match net.extern_opts#get with
-     | None      -> (net.extern_opts#store (Some sets); ext#apply sets)
-     | Some opts ->
-        if Network_config.equal sets opts
-        then Lwt.return_ok ()
-        else (net.extern_opts#store (Some sets); ext#apply sets)
+  | Some (ext, ext_opts) ->
+     let opts = ext_opts#get in
+     if Network_config.equal sets opts
+     then Lwt.return_ok ()
+     else (ext_opts#store sets; ext#apply sets)
           
 let finalize _ = ()

@@ -47,20 +47,11 @@ and ipv4_conf     = { address : v4
                     }
 and ipv6_conf     = unit
 and proxy_conf    = unit
+        
+let dump x =
+  to_yojson x
+  |> Yojson.Safe.to_string
 
-type _conf = t [@@deriving yojson, eq]
-
-module Options = struct
-  type t = _conf option [@@deriving yojson, eq]
-         
-  let dump x =
-    to_yojson x
-    |> Yojson.Safe.to_string
-
-  let restore x =
-    Yojson.Safe.from_string x
-    |> of_yojson
-
-  let default = None
-
-end
+let restore x =
+  Yojson.Safe.from_string x
+  |> of_yojson
