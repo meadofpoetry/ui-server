@@ -52,17 +52,17 @@ class t ~id ~position ~labels () =
   let axis = Category labels in
   object(self)
     inherit [t_js,string] Axes_cartesian_common.t ~axis ~id ~position () as super
-    val ticks = new Tick.t ~labels ()
+    val _ticks = new Tick.t ~labels ()
 
     method min       = self#ticks#min
     method set_min x = self#ticks#set_min x
     method max       = self#ticks#max
     method set_max x = self#ticks#set_max x
 
-    method ticks = ticks
-    method! replace x = super#replace x; ticks#replace obj##.ticks
+    method ticks = _ticks
+    method! replace x = super#replace x; self#ticks#replace obj##.ticks
 
     initializer
-      obj##.ticks := ticks#get_obj
+      obj##.ticks := self#ticks#get_obj
 
   end

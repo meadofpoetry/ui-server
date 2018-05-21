@@ -42,24 +42,25 @@ let make_chart_base ~(config: config)
                     ~(init:   float data)
                     ~(event:  float data React.event)
                     () : Dashboard.Item.item =
-  let open Chartjs.Axes in
   let range = get_suggested_range config.typ in
   let init = List.map (fun x -> match List.Assoc.get ~eq:Int.equal x init with
                                 | Some i -> x,i
                                 | None   -> x,[]) config.ids in
-  let data = List.map (fun (id,data) -> Chartjs.Line.({ data; label = Printf.sprintf "Модуль %d" @@ succ id }))
-                      init
+  let delta    = config.duration in
+  let x_axis   = new Chartjs.Line.Axes.Time.t ~delta ~id:"x-axis" ~position:`Bottom ~typ:Ptime () in
+  let y_axis   = new Chartjs.Line.Axes.Linear.t ~id:"y-axis" ~position:`Left ~typ:Float () in
+  let options  = new Chartjs.Line.Options.t ~x_axis ~y_axis () in
+  let datasets = List.map (fun (id,data) ->
+                     let label = Printf.sprintf "Модуль %d" @@ succ id in
+                     new Chartjs.Line.Dataset.t ~label ~data ~x_axis ~y_axis ())
+                          init
   in
-  let delta  = config.duration in
-  let x_axis = new Cartesian.Time.t ~delta ~id:"x-axis" ~position:`Bottom ~typ:Ptime () in
-  let y_axis = new Cartesian.Linear.t ~id:"y-axis" ~position:`Left ~typ:Float () in
-  let conf = Chartjs.Line.(new Config.t ~x_axis ~y_axis ~data ()) in
   List.iteri (fun i x -> let clr = Option.get_or ~default:(Color.Red C500) @@ List.get_at_idx i colors in
                          x#set_bg_color @@ Color.rgb_of_name clr;
-                         x#set_border_color     @@ Color.rgb_of_name clr;
-                         x#set_cubic_interpolation_mode Chartjs.Line.Monotone;
-                         x#set_fill Chartjs.Line.Disabled)
-             conf#datasets;
+                         x#set_border_color @@ Color.rgb_of_name clr;
+                         x#set_cubic_interpolation_mode `Monotone;
+                         x#set_fill `Disabled)
+             datasets;
   x_axis#ticks#set_auto_skip_padding 2;
   x_axis#scale_label#set_display true;
   x_axis#scale_label#set_label_string "Время";
@@ -68,13 +69,13 @@ let make_chart_base ~(config: config)
   y_axis#scale_label#set_label_string @@ measure_type_to_unit config.typ;
   y_axis#ticks#set_suggested_min (fst range);
   y_axis#ticks#set_suggested_max (snd range);
-  conf#options#set_maintain_aspect_ratio false;
-  let chart = new Chartjs.Line.t ~config:conf () in
+  options#set_maintain_aspect_ratio false;
+  let chart = new Chartjs.Line.t ~options ~datasets () in
   let set   = fun ds data -> List.iter (fun point -> ds#push point) data;
                              chart#update None
   in
   let _ = React.E.map (fun datasets -> List.iter (fun (id,data) -> Option.iter (fun ds -> set ds data)
-                                                                   @@ List.get_at_idx id chart#config#datasets)
+                                                                   @@ List.get_at_idx id chart#datasets)
                                                  datasets)
                       event in
   let settings,s_settings = make_settings { range = None } in

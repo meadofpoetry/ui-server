@@ -1,17 +1,34 @@
 open Containers
 open Base
-open Line_types
 open CSS
+open Line_types
+
+type bool_or_string
+type 'a or_array
+type ('a,'b,'c) point_setting =
+  [ `Val of 'c
+  | `Lst of ' c list
+  | `Fun of (int -> ('a,'b) point -> 'c) ]
+
+type cubic_interpolation_mode = [`Default  | `Monotone]
+type stepped_line             = [`Disabled | `Before | `After]
+type fill                     = [`Disabled
+                                | `Start
+                                | `End
+                                | `Origin
+                                | `Absolute_index of int
+                                | `Relative_index of int
+                                ]
 
 let cubic_interpolation_mode_to_string = function
-  | Default -> "default" | Monotone -> "monotone"
+  | `Default -> "default" | `Monotone -> "monotone"
 let cubic_interpolation_mode_of_string_exn = function
-  | "default" -> Default | "monotone" -> Monotone | _ -> failwith "Bad cubic interpolation mode string"
+  | "default" -> `Default | "monotone" -> `Monotone | _ -> failwith "Bad cubic interpolation mode string"
 
 class type point_js =
   object
-    method x : axis_value_js Js.t Js.prop
-    method y : axis_value_js Js.t Js.prop
+    method x : Line_types.axis_value_js Js.t Js.prop
+    method y : Line_types.axis_value_js Js.t Js.prop
   end
 
 class type t_js =
@@ -86,24 +103,14 @@ let get_point_setting (type a b)
                                                  | None   -> failwith "Bad point setting value")))
               @@ Js.Optdef.to_option v
 
-class ['a,'b] t
-              ~(data:('a,'b) dataset)
+class ['a,'b] t ~(label:string)
+              ~(data:('a,'b) point list)
               ~(x_axis:(_,'a) #Axes_cartesian_common.t)
               ~(y_axis:(_,'b) #Axes_cartesian_common.t)
-              ~(s_max_x:'a option React.signal)
-              ~(s_max_x_push:'a option -> unit)
               () =
 object(self)
 
   inherit [t_js] base_option ()
-
-  val x_to_js = x_axis#value_to_js
-  val y_to_js = y_axis#value_to_js
-  val x_of_js = x_axis#value_of_js
-  val y_of_js = y_axis#value_of_js
-  val delta   = x_axis#delta
-  val cmp     = x_axis#cmp_value
-  val get_min = x_axis#calc_new_min
 
   val mutable f_point_props =
     { bg_clr             = None
@@ -117,6 +124,8 @@ object(self)
     ; hover_border_width = None
     ; hover_radius       = None
     }
+
+  (* Private methods *)
 
   method private has_functional_point_props =
     Option.is_some f_point_props.bg_clr
@@ -132,12 +141,12 @@ object(self)
 
   method private point_to_js (p:('a,'b) point) : point_js Js.t =
     object%js
-      val mutable x = x_to_js p.x
-      val mutable y = y_to_js p.y
+      val mutable x = x_axis#value_to_js p.x
+      val mutable y = y_axis#value_to_js p.y
     end
-  method private point_of_js (o:point_js Js.t) =
-    { x = x_of_js o##.x
-    ; y = y_of_js o##.y }
+  method private point_of_js (o:point_js Js.t) : ('a,'b) point =
+    { x = x_axis#value_of_js o##.x
+    ; y = y_axis#value_of_js o##.y }
 
   method private ps_action action =
     let apply v to_js = function
@@ -180,34 +189,33 @@ object(self)
   method private ps_replace data = self#ps_action (`Replace data)
   method private ps_remove n m   = self#ps_action (`Remove (n,m))
 
-  (* Private methods *)
-
   method private tl = Js.array_get obj##.data (self#length - 1)
                       |> (fun x -> Js.Optdef.map x (fun x -> self#point_of_js x))
                       |> Js.Optdef.to_option
-  method private update_max = match self#tl,React.S.value s_max_x with
-    | Some tl,Some max -> if cmp max tl.x < 0 then s_max_x_push @@ Some tl.x else self#shift (Some max)
-    | Some tl,None     -> s_max_x_push @@ Some tl.x
+  method private update_max () = match self#tl,React.S.value x_axis#s_max with
+    | Some tl,Some max -> if x_axis#cmp_value max tl.x < 0
+                          then x_axis#update_max @@ Some tl.x
+                          else self#shift ()
+    | Some tl,None     -> x_axis#update_max @@ Some tl.x
     | _ -> ()
   method private set_data_no_sort (data:('a,'b) point list) =
     obj##.data := Js.array @@ Array.of_list @@ List.map (fun x -> self#point_to_js x) data;
     self#ps_replace data;
-    self#update_max
-  method private shift max_x =
-    let open Pervasives in (* FIXME *)
-    Option.map2 (fun d max ->
+    self#update_max ()
+  method private shift () =
+    Option.iter (fun _ ->
         let rec iter = (fun () ->
-            (match Js.Optdef.to_option @@ Js.array_get obj##.data 0 with
-             | Some js_p -> let p = self#point_of_js js_p in
-                            if p.x < (get_min ~max ~delta:d)
-                            then (self#ps_remove 1 `Head; obj##.data##shift |> ignore; iter ())
-                            else ()
-             | None -> ()))
+            (match Js.Optdef.to_option @@ Js.array_get obj##.data 0, x_axis#min with
+             | Some js_p,Some min -> let p = self#point_of_js js_p in
+                                     if x_axis#cmp_value p.x min < 0
+                                     then (self#ps_remove 1 `Head;
+                                           obj##.data##shift |> ignore;
+                                           iter ())
+             | _ -> ()))
         in
-        iter ()) delta max_x
-    |> ignore
+        iter ()) x_axis#delta
   method private sorted_insert_uniq data x =
-    let cmp = (fun p1 p2 -> cmp p1.x p2.x) in
+    let cmp = (fun (p1:('a,'b) point) (p2:('a,'b) point) -> x_axis#cmp_value p1.x p2.x) in
     let rec aux x left l = match l with
       | [] -> List.rev_append left [x]
       | y :: tail ->
@@ -226,26 +234,28 @@ object(self)
   method data : ('a,'b) point list =
     List.map (fun x -> self#point_of_js x) (Array.to_list @@ Js.to_array obj##.data)
   method set_data (data:('a,'b) point list) =
-    let data = List.sort_uniq ~cmp:(fun p1 p2 -> cmp p1.x p2.x) data in
+    let data = List.sort_uniq ~cmp:(fun (p1:('a,'b) point) p2 -> x_axis#cmp_value p1.x p2.x) data in
     obj##.data := Js.array @@ Array.of_list @@ List.map (fun x -> self#point_to_js x) data;
     self#ps_replace data;
-    self#update_max
+    self#update_max ()
 
   (** Push one point to the chart **)
-  method push (x:('a,'b) point) = match self#tl with
+  method push (x:('a,'b) point) =
+    let cmp = x_axis#cmp_value in
+    match self#tl with
     | Some tl when cmp tl.x x.x > 0 -> let data = self#sorted_insert_uniq self#data x in
-                                       self#set_data_no_sort data
+                                                    self#set_data_no_sort data
     | Some tl when cmp tl.x x.x = 0 -> obj##.data##pop |> ignore;
                                        self#ps_remove 1 `Tail;
                                        self#push x
     | _                             -> obj##.data##push (self#point_to_js x) |> ignore;
                                        self#ps_push [x] `Tail;
-                                       self#update_max
+                                       self#update_max ()
   (** Append set of point to the chart **)
   method append (x:('a,'b) point list) = match x with
     | []  -> ()
     | [x] -> self#push x
-    | l   -> let cmp_x = (fun p1 p2 -> cmp p1.x p2.x) in
+    | l   -> let cmp_x = (fun (p1:('a,'b) point) (p2:('a,'b) point) -> x_axis#cmp_value p1.x p2.x) in
              let l     = List.sort cmp_x l in
              let data  = List.sorted_merge_uniq ~cmp:cmp_x l self#data in
              self#set_data_no_sort data
@@ -272,7 +282,8 @@ object(self)
   method border_cap_style : Canvas.line_cap option =
     Option.map (Js.to_string %> Canvas.line_cap_of_string_exn)
     @@ Js.Optdef.to_option obj##.borderCapStyle
-  method set_border_cap_style x = obj##.borderCapStyle := Js.string @@ Canvas.line_cap_to_string x
+  method set_border_cap_style (x:Canvas.line_cap) =
+    obj##.borderCapStyle := Js.string @@ Canvas.line_cap_to_string x
 
   (** Length and spacing of dashes. **)
   method border_dash : int list option =
@@ -287,38 +298,38 @@ object(self)
   method border_join_style : Canvas.line_join option =
     Option.map (Js.to_string %> Canvas.line_join_of_string_exn)
     @@ Js.Optdef.to_option obj##.borderJoinStyle
-  method set_border_join_style x =
+  method set_border_join_style (x:Canvas.line_join) =
     obj##.borderJoinStyle := Js.string @@ Canvas.line_join_to_string x
 
   (** Algorithm used to interpolate a smooth curve from the discrete data points. **)
-  method cubic_interpolation_mode =
+  method cubic_interpolation_mode : cubic_interpolation_mode option =
     Option.map (Js.to_string %> cubic_interpolation_mode_of_string_exn)
     @@ Js.Optdef.to_option obj##.cubicInterpolationMode
-  method set_cubic_interpolation_mode x =
+  method set_cubic_interpolation_mode (x : cubic_interpolation_mode) =
     Js.string @@ cubic_interpolation_mode_to_string x
     |> (fun x -> obj##.cubicInterpolationMode := x)
 
   (** How to fill the area under the line. **)
   method fill : fill option =
     Option.map (fun fill -> match Cast.to_bool fill with
-                            | Some true  -> Origin
-                            | Some false -> Disabled
+                            | Some true  -> `Origin
+                            | Some false -> `Disabled
                             | None   -> (match Cast.to_int fill with
-                                         | Some i -> Absolute_index i
+                                         | Some i -> `Absolute_index i
                                          | None   -> (match Cast.to_string fill with
-                                                      | Some "start"  -> Start
-                                                      | Some "end"    -> End
-                                                      | Some "origin" -> Origin
-                                                      | Some s -> Relative_index (int_of_string s)
+                                                      | Some "start"  -> `Start
+                                                      | Some "end"    -> `End
+                                                      | Some "origin" -> `Origin
+                                                      | Some s -> `Relative_index (int_of_string s)
                                                       | None -> failwith "Bad fill value")))
                (Js.Optdef.to_option obj##.fill)
   method set_fill : fill -> unit = function
-    | Disabled         -> obj##.fill := Js.Unsafe.coerce Js._false
-    | Start            -> obj##.fill := Js.Unsafe.coerce @@ Js.string "start"
-    | End              -> obj##.fill := Js.Unsafe.coerce @@ Js.string "end"
-    | Origin           -> obj##.fill := Js.Unsafe.coerce @@ Js.string "origin"
-    | Absolute_index x -> obj##.fill := Js.Unsafe.coerce @@ Js.number_of_float @@ float_of_int x
-    | Relative_index x -> obj##.fill := Js.Unsafe.coerce @@ Js.string @@ Printf.sprintf "%+d" x
+    | `Disabled         -> obj##.fill := Js.Unsafe.coerce Js._false
+    | `Start            -> obj##.fill := Js.Unsafe.coerce @@ Js.string "start"
+    | `End              -> obj##.fill := Js.Unsafe.coerce @@ Js.string "end"
+    | `Origin           -> obj##.fill := Js.Unsafe.coerce @@ Js.string "origin"
+    | `Absolute_index x -> obj##.fill := Js.Unsafe.coerce @@ Js.number_of_float @@ float_of_int x
+    | `Relative_index x -> obj##.fill := Js.Unsafe.coerce @@ Js.string @@ Printf.sprintf "%+d" x
 
   (** Bezier curve tension of the line. Set to 0 to draw straightlines.
    ** This option is ignored if monotone cubic interpolation is used.
@@ -428,22 +439,22 @@ object(self)
   (** If the line is shown as a stepped line. **)
   method stepped_line : stepped_line option =
     Option.map (fun x -> match Cast.to_string x with
-                         | Some "before" -> Before
-                         | Some "after"  -> After
+                         | Some "before" -> `Before
+                         | Some "after"  -> `After
                          | Some _        -> failwith "Bad stepped line string"
                          | None -> (match Cast.to_bool x with
-                                    | Some true  -> Before
-                                    | Some false -> Disabled
+                                    | Some true  -> `Before
+                                    | Some false -> `Disabled
                                     | None       -> failwith "Bad stepped line value"))
                (Js.Optdef.to_option obj##.steppedLine)
   method set_stepped_line : stepped_line -> unit = function
-    | Disabled -> obj##.steppedLine := Js.Unsafe.coerce Js._false
-    | Before   -> obj##.steppedLine := Js.Unsafe.coerce @@ Js.string "before"
-    | After    -> obj##.steppedLine := Js.Unsafe.coerce @@ Js.string "after"
+    | `Disabled -> obj##.steppedLine := Js.Unsafe.coerce Js._false
+    | `Before   -> obj##.steppedLine := Js.Unsafe.coerce @@ Js.string "before"
+    | `After    -> obj##.steppedLine := Js.Unsafe.coerce @@ Js.string "after"
 
   initializer
-    self#set_label data.label;
-    self#set_data data.data;
-    React.S.map (fun x -> self#shift x) s_max_x |> ignore
+    self#set_label label;
+    self#set_data data;
+    React.S.map (fun _ -> self#shift ()) x_axis#s_max |> ignore
 
 end

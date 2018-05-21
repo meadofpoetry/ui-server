@@ -547,51 +547,49 @@ let chart_demo () =
   let x = ref 40 in
   Random.init (Unix.time () |> int_of_float);
   let open Chartjs.Line in
-  let data = [ { data = (List.map (fun x -> { x ; y = Random.run (Random.int range) }) (List.range_by ~step:2 0 !x))
-               ; label = "Dataset 1"
-               }
-             ; { data = (List.map (fun x -> { x ; y = Random.run (Random.int range) }) (List.range_by ~step:2 0 !x))
-               ; label = "Dataset 2"
-               }
-             ] in
-  let x_axis = new Chartjs.Axes.Cartesian.Linear.t ~id:"x" ~position:`Bottom ~typ:Int ~delta:!x () in
-  let y_axis = new Chartjs.Axes.Cartesian.Linear.t ~id:"y" ~position:`Top ~typ:Int () in
-  let config = new Config.t ~x_axis ~y_axis ~data () in
-  config#options#hover#set_mode Index;
-  config#options#hover#set_intersect true;
-  config#options#tooltip#set_mode Index;
-  config#options#tooltip#set_intersect false;
+  let to_data () = List.map (fun x -> { x ; y = Random.run (Random.int range) }) (List.range_by ~step:2 0 !x) in
+  let x_axis   = new Chartjs.Line.Axes.Linear.t ~id:"x" ~position:`Bottom ~typ:Int ~delta:!x () in
+  let y_axis   = new Chartjs.Line.Axes.Linear.t ~id:"y" ~position:`Top ~typ:Int () in
+  let options  = new Chartjs.Line.Options.t ~x_axis ~y_axis () in
+  let datasets = List.map (fun x -> new Chartjs.Line.Dataset.t ~x_axis ~y_axis ~label:x ~data:(to_data ()) ())
+                          ["Dataset 1"; "Dataset 2"]
+  in
+  options#hover#set_mode `Index;
+  options#hover#set_axis `X;
+  options#hover#set_intersect true;
+  options#tooltip#set_mode `Index;
+  options#tooltip#set_intersect false;
+  options#elements#line#set_border_width 3;
   y_axis#ticks#set_suggested_max range;
   x_axis#scale_label#set_label_string "x axis";
   x_axis#scale_label#set_display true;
-  config#options#elements#line#set_border_width 3;
-  List.iter (fun x -> if String.equal x#get_label "Dataset 1"
+  List.iter (fun x -> if String.equal x#label "Dataset 1"
                       then x#set_border_color @@ Color.rgb_of_name (Color.Lime C500)
                       else x#set_border_color @@ Color.rgb_of_name (Color.Pink C500);
-                      x#set_cubic_interpolation_mode Monotone;
-                      x#set_fill Disabled) config#datasets;
+                      x#set_cubic_interpolation_mode `Monotone;
+                      x#set_fill `Disabled) datasets;
   let update = new Button.t ~label:"update" () in
   let push   = new Button.t ~label:"push" () in
   let push_less = new Button.t ~label:"push less" () in
   let append    = new Button.t ~label:"append" () in
-  let chart  = new Chartjs.Line.t ~config () in
+  let chart  = new Chartjs.Line.t ~options ~datasets () in
   React.E.map (fun _ -> List.iter (fun x -> x#set_point_radius (`Fun (fun _ x -> if x.x mod 2 > 0 then 10 else 5))
-                          ) chart#config#datasets;
+                                  ) chart#datasets;
                         chart#update None)
-    update#e_click |> ignore;
+              update#e_click |> ignore;
   React.E.map (fun _ -> x := !x + 2;
-                        List.iter (fun ds -> ds#push { x = !x; y = Random.run (Random.int range) }) chart#config#datasets;
+                        List.iter (fun ds -> ds#push { x = !x; y = Random.run (Random.int range) }) chart#datasets;
                         chart#update None)
-    push#e_click |> ignore;
-  React.E.map (fun _ -> List.iter (fun ds -> ds#push { x = !x - 1; y = Random.run (Random.int range) }) chart#config#datasets;
+              push#e_click |> ignore;
+  React.E.map (fun _ -> List.iter (fun ds -> ds#push { x = !x - 1; y = Random.run (Random.int range) }) chart#datasets;
                         chart#update None)
-    push_less#e_click |> ignore;
+              push_less#e_click |> ignore;
   React.E.map (fun _ -> x := !x + 6;
                         List.iter (fun ds -> ds#append [ { x = !x - 6; y = Random.run (Random.int range) }
                                                        ; { x = !x - 4; y = Random.run (Random.int range) }
                                                        ; { x = !x - 2; y = Random.run (Random.int range) }
                                                        ; { x = !x    ; y = Random.run (Random.int range) } ])
-                          chart#config#datasets;
+                                  chart#datasets;
                         chart#update None)
               append#e_click |> ignore;
   let w = Html.div ~a:[ Html.a_style "max-width:700px"] [ Widget.widget_to_markup chart
@@ -608,37 +606,38 @@ let time_chart_demo () =
   let range = 20 in
   Random.init (Unix.time () |> int_of_float);
   let open Chartjs.Line in
-  let data = [ { data = []; label = "Dataset 1" }
-             ; { data = []; label = "Dataset 2" }
-             ] in
-  let delta  = Common.Time.of_float_s 40. in
-  let x_axis = new Chartjs.Axes.Cartesian.Time.t ~id:"x" ~position:`Bottom ~typ:Ptime ?delta () in
-  let y_axis = new Chartjs.Axes.Cartesian.Linear.t ~id:"y" ~position:`Left ~typ:Int () in
-  let config = new Config.t ~x_axis ~y_axis ~data () in
-  config#options#hover#set_mode Index;
-  config#options#hover#set_intersect true;
-  config#options#tooltip#set_mode Index;
-  config#options#tooltip#set_intersect false;
+  let delta    = Common.Time.of_float_s 40. in
+  let x_axis   = new Chartjs.Line.Axes.Time.t ~id:"x" ~position:`Bottom ~typ:Ptime ?delta () in
+  let y_axis   = new Chartjs.Line.Axes.Linear.t ~id:"y" ~position:`Left ~typ:Int () in
+  let options  = new Chartjs.Line.Options.t ~x_axis ~y_axis () in
+  let datasets = List.map (fun x -> new Chartjs.Line.Dataset.t ~x_axis ~y_axis ~label:x ~data:[] ())
+                          ["Dataset 1"; "Dataset 2"]
+  in
+  options#hover#set_mode `Index;
+  options#hover#set_axis `X;
+  options#hover#set_intersect true;
+  options#tooltip#set_mode `Index;
+  options#tooltip#set_intersect false;
+  options#elements#line#set_border_width 3;
   x_axis#scale_label#set_label_string "x axis";
   x_axis#scale_label#set_display true;
-  x_axis#time#set_min_unit Second;
+  x_axis#time#set_min_unit `Second;
   x_axis#time#set_tooltip_format "ll HH:mm:ss";
-  config#options#elements#line#set_border_width 3;
-  List.iter (fun x -> if String.equal x#get_label "Dataset 1"
-                      then x#set_background_color @@ Color.rgb_of_name (Color.Indigo C500)
-                      else x#set_background_color @@ Color.rgb_of_name (Color.Amber C500);
-                      if String.equal x#get_label "Dataset 1"
+  List.iter (fun x -> if String.equal x#label "Dataset 1"
+                      then x#set_bg_color @@ Color.rgb_of_name (Color.Indigo C500)
+                      else x#set_bg_color @@ Color.rgb_of_name (Color.Amber C500);
+                      if String.equal x#label "Dataset 1"
                       then x#set_border_color @@ Color.rgb_of_name (Color.Indigo C500)
                       else x#set_border_color @@ Color.rgb_of_name (Color.Amber C500);
-                      x#set_cubic_interpolation_mode Monotone;
-                      x#set_fill Disabled) config#datasets;
-  let chart = new Chartjs.Line.t ~config () in
+                      x#set_cubic_interpolation_mode `Monotone;
+                      x#set_fill `Disabled) datasets;
+  let chart = new Chartjs.Line.t ~options ~datasets () in
   let e_update,e_update_push = React.E.create () in
   React.E.map (fun () -> List.iter (fun ds -> ds#push { x = Common.Time.of_float_s
                                                             @@ Unix.gettimeofday () |> Option.get_exn
-                                                      ; y = Random.run (Random.int range) }) chart#config#datasets;
+                                                      ; y = Random.run (Random.int range) }) chart#datasets;
                          chart#update None)
-    e_update |> ignore;
+              e_update |> ignore;
   Dom_html.window##setInterval (Js.wrap_callback (fun () -> e_update_push () |> ignore)) 1000. |> ignore;
   let w = Html.div ~a:[ Html.a_style "max-width:700px"] [ Widget.widget_to_markup chart ]
           |> To_dom.of_element

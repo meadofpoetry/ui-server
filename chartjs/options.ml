@@ -1,18 +1,19 @@
 open Base
 
-type event = Mousemove
-           | Mouseout
-           | Click
-           | Touchstart
-           | Touchmove
-           | Touchend
+type event = [ `Mousemove
+             | `Mouseout
+             | `Click
+             | `Touchstart
+             | `Touchmove
+             | `Touchend
+             ]
 
 let event_to_string = function
-  | Mousemove  -> "mousemove"  | Mouseout  -> "mouseout"  | Click    -> "click"
-  | Touchstart -> "touchstart" | Touchmove -> "touchmove" | Touchend -> "touchend"
+  | `Mousemove  -> "mousemove"  | `Mouseout  -> "mouseout"  | `Click    -> "click"
+  | `Touchstart -> "touchstart" | `Touchmove -> "touchmove" | `Touchend -> "touchend"
 let event_of_string_exn = function
-  | "mousemove"  -> Mousemove  | "mouseout"  -> Mouseout  | "click"    -> Click
-  | "touchstart" -> Touchstart | "touchmove" -> Touchmove | "touchend" -> Touchend
+  | "mousemove"  -> `Mousemove  | "mouseout"  -> `Mouseout  | "click"    -> `Click
+  | "touchstart" -> `Touchstart | "touchmove" -> `Touchmove | "touchend" -> `Touchend
   | _ -> failwith "Bad event string"
 
 class type t_js =
@@ -38,53 +39,61 @@ class ['a] t () = object(self)
 
   inherit ['a] base_option () as super
 
-  val hover     = new Hover.t ()
-  val animation = new Animation.t ()
-  val layout    = new Layout.t ()
-  val legend    = new Legend.t ()
-  val title     = new Title.t ()
-  val tooltip   = new Tooltip.t ()
-  val elements  = new Elements.t ()
+  val _hover     = new Hover.t ()
+  val _animation = new Animation.t ()
+  val _layout    = new Layout.t ()
+  val _legend    = new Legend.t ()
+  val _title     = new Title.t ()
+  val _tooltip   = new Tooltip.t ()
+  val _elements  = new Elements.t ()
 
+  (** Resizes the chart canvas when its container does **)
+  method responsive : bool = Js.to_bool obj##.responsive
   method set_responsive x = obj##.responsive := Js.bool x
-  method get_responsive   = Js.to_bool obj##.responsive
 
+  (** Duration in milliseconds it takes to animate to new size after a resize event. **)
+  method responsive_animation_duration : int = obj##.responsiveAnimationDuration
   method set_responsive_animation_duration x = obj##.responsiveAnimationDuration := x
-  method get_responsive_animation_duration   = obj##.responsiveAnimationDuration
 
+  (** Maintain the original canvas aspect ratio (width / height) when resizing. **)
+  method maintain_aspect_ratio : bool = Js.to_bool obj##.maintainAspectRatio
   method set_maintain_aspect_ratio x = obj##.maintainAspectRatio := Js.bool x
-  method get_maintain_aspect_ratio   = Js.to_bool obj##.maintainAspectRatio
 
-  method set_events x = obj##.events := Js.array @@ Array.of_list @@ List.map (event_to_string %> Js.string) x
-  method get_events   = List.map (Js.to_string %> event_of_string_exn) @@ Array.to_list @@ Js.to_array obj##.events
+  (** The events option defines the browser events that the chart
+   ** should listen to for tooltips and hovering.
+   **)
+  method events : event list =
+    List.map (Js.to_string %> event_of_string_exn) @@ Array.to_list @@ Js.to_array obj##.events
+  method set_events (x:event list) =
+    obj##.events := Js.array @@ Array.of_list @@ List.map (event_to_string %> Js.string) x
 
-  method hover     = hover
-  method animation = animation
-  method layout    = layout
-  method legend    = legend
-  method title     = title
-  method tooltip   = tooltip
-  method elements  = elements
+  method hover     = _hover
+  method animation = _animation
+  method layout    = _layout
+  method legend    = _legend
+  method title     = _title
+  method tooltip   = _tooltip
+  method elements  = _elements
 
   method! replace x = super#replace x;
-                      hover#replace     obj##.hover;
-                      animation#replace obj##.animation;
-                      layout#replace    obj##.layout;
-                      legend#replace    obj##.legend;
-                      title#replace     obj##.title;
-                      tooltip#replace   obj##.tooltips;
-                      elements#replace  obj##.elements
+                      self#hover#replace     obj##.hover;
+                      self#animation#replace obj##.animation;
+                      self#layout#replace    obj##.layout;
+                      self#legend#replace    obj##.legend;
+                      self#title#replace     obj##.title;
+                      self#tooltip#replace   obj##.tooltips;
+                      self#elements#replace  obj##.elements
 
   initializer
     self#set_responsive true;
     self#set_responsive_animation_duration 0;
     self#set_maintain_aspect_ratio true;
-    self#set_events [Mousemove; Mouseout; Click; Touchstart; Touchmove; Touchend];
-    obj##.hover     := hover#get_obj;
-    obj##.animation := animation#get_obj;
-    obj##.layout    := layout#get_obj;
-    obj##.legend    := legend#get_obj;
-    obj##.title     := title#get_obj;
-    obj##.tooltips  := tooltip#get_obj;
-    obj##.elements  := elements#get_obj;
+    self#set_events [`Mousemove; `Mouseout; `Click; `Touchstart; `Touchmove; `Touchend];
+    obj##.hover     := self#hover#get_obj;
+    obj##.animation := self#animation#get_obj;
+    obj##.layout    := self#layout#get_obj;
+    obj##.legend    := self#legend#get_obj;
+    obj##.title     := self#title#get_obj;
+    obj##.tooltips  := self#tooltip#get_obj;
+    obj##.elements  := self#elements#get_obj;
 end

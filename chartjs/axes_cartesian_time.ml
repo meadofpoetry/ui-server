@@ -212,11 +212,11 @@ class ['a] t ?(delta:'a option) ~id ~position ~(typ:'a time) () =
 
     inherit ['a t_js,'a] Axes_cartesian_common.t ~axis ~id ~position () as super
 
-    val ticks = new Tick.t ()
-    val time  = new Time.t ~value_to_js_number ~value_of_js_number ()
+    val _ticks = new Tick.t ()
+    val _time  = new Time.t ~value_to_js_number ~value_of_js_number ()
 
-    method ticks : Tick.t    = ticks
-    method time  : 'a Time.t = time
+    method ticks : Tick.t    = _ticks
+    method time  : 'a Time.t = _time
 
     method min       = self#time#min
     method set_min x = self#time#set_min x
@@ -249,9 +249,9 @@ class ['a] t ?(delta:'a option) ~id ~position ~(typ:'a time) () =
         | `Data -> "data" | `Ticks -> "ticks"
       in obj##.bounds := Js.string v
 
-    method! replace x = super#replace x; ticks#replace obj##.ticks; time#replace obj##.time
+    method! replace x = super#replace x; self#ticks#replace obj##.ticks; self#time#replace obj##.time
 
     initializer
-      obj##.time  := time#get_obj;
-      obj##.ticks := ticks#get_obj
+      obj##.time  := self#time#get_obj;
+      obj##.ticks := self#ticks#get_obj
   end
