@@ -55,7 +55,7 @@ let make_chart_base ~(config: config)
   let y_axis = new Cartesian.Linear.t ~id:"y-axis" ~position:`Left ~typ:Float () in
   let conf = Chartjs.Line.(new Config.t ~x_axis ~y_axis ~data ()) in
   List.iteri (fun i x -> let clr = Option.get_or ~default:(Color.Red C500) @@ List.get_at_idx i colors in
-                         x#set_background_color @@ Color.rgb_of_name clr;
+                         x#set_bg_color @@ Color.rgb_of_name clr;
                          x#set_border_color     @@ Color.rgb_of_name clr;
                          x#set_cubic_interpolation_mode Chartjs.Line.Monotone;
                          x#set_fill Chartjs.Line.Disabled)
