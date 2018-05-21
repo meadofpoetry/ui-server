@@ -5,6 +5,7 @@
   (public_name pc_control-js)
   (synopsis "pc_control js api")
   (libraries (yojson ppx_deriving_yojson.runtime
+              lwt lwt_react
               api-js common components))
   (flags (:standard -short-paths -strict-sequence -bin-annot
           -thread -w "+1..49+60" -w "+a-4-7-23-33-39-40-41-42-44-45-48"))
