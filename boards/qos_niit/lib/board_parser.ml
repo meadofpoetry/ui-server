@@ -5,6 +5,7 @@ let prefix = 0x55AA
 include Board_msg_formats
 
 open Board_types
+open Types
 open Structure_types
 open Common.Dvb_t2_types
 
@@ -21,14 +22,13 @@ type event_response = Board_errors of board_errors
                     | Jitter       of Types.jitter_raw
 
 type events = { config         : config React.event
+              ; input          : input React.event
+              ; status         : Board.status   React.event
+              ; reset          : Board.reset_ts React.event
               ; streams        : Common.Stream.id list React.signal
-              ; ts_found       : Common.Stream.id React.event
-              ; ts_lost        : Common.Stream.id React.event
-              ; t2mi_found     : int React.event
-              ; t2mi_lost      : int React.event
-
-              ; status         : status React.event
+              ; ts_states      : ts_state list React.event
               ; ts_errors      : ts_errors React.event
+              ; t2mi_states    : t2mi_state list React.event
               ; t2mi_errors    : t2mi_errors React.event
               ; board_errors   : board_errors React.event
               ; structs        : ts_structs React.event
@@ -46,7 +46,7 @@ type api = { get_devinfo     : unit                -> devinfo_response Lwt.t
            ; get_t2mi_seq    : int                 -> t2mi_packets Lwt.t
            ; get_structs     : unit                -> ts_structs Lwt.t
            ; get_bitrates    : unit                -> ts_structs Lwt.t
-           ; get_section     : section_request     -> section Lwt.t
+           ; get_section     : section_request     -> (section,section_error) Lwt_result.t
            ; reset           : unit                -> unit Lwt.t
            ; config          : unit                -> config Lwt.t
            }
@@ -84,7 +84,7 @@ type section_req =
 type _ request = Get_board_info     : devinfo request
                | Get_board_mode     : Types.mode request
                | Get_t2mi_frame_seq : t2mi_frame_seq_req -> t2mi_packets request
-               | Get_section        : section_req        -> section request
+               | Get_section        : section_req        -> (section,section_error) result request
 
 (* ------------------- Misc ------------------- *)
 
@@ -220,9 +220,12 @@ module Get_section : (Request
     let length    = get_section_length hdr in
     let result    = get_section_result hdr in
     if length > 0 && result = 0
-    then let sid,data = Cbuffer.split bdy 4 in
-         let _        = Common.Stream.id_of_int32 @@ Cbuffer.LE.get_uint32 sid 0 in
-         Ok (Cbuffer.to_string data)
+    then let sid,data  = Cbuffer.split bdy 4 in
+         let stream_id = Common.Stream.id_of_int32 @@ Cbuffer.LE.get_uint32 sid 0 in
+         Ok { section = Cbuffer.to_string data
+            ; stream_id
+            ; table_id = 0
+            }
     else (Error (match result with
                  | 0 | 3 -> Zero_length
                  | 1     -> Table_not_found
@@ -609,54 +612,57 @@ end
 
 (* ---------------------- Events --------------------- *)
 
-module Status : (Event with type msg := Types.status) = struct
+module Status : (Event with type msg := status_raw) = struct
 
   let msg_code = 0x03
 
-  let of_cbuffer msg : Types.status =
-    let iter     = fun x -> Cbuffer.iter (fun _ -> Some 1) (fun buf -> Cbuffer.get_uint8 buf 0) x in
-    let flags    = get_status_flags msg in
-    let has_sync = not (flags land 0x04 > 0) in
-    let ts_num   = get_status_ts_num msg in
-    let flags2   = get_status_flags_2 msg in
-    let jpid     = get_status_jitter_pid msg in
-    let mode     = to_mode_exn (get_status_mode msg)
-                               (get_status_t2mi_pid msg)
-                               (get_status_t2mi_stream_id msg)
+  let of_cbuffer msg : status_raw =
+    let timestamp = Common.Time.Clock.now () in
+    let iter      = fun x -> Cbuffer.iter (fun _ -> Some 1) (fun buf -> Cbuffer.get_uint8 buf 0) x in
+    let flags     = get_status_flags msg in
+    let has_sync  = not (flags land 0x04 > 0) in
+    let ts_num    = get_status_ts_num msg in
+    let flags2    = get_status_flags_2 msg in
+    let jpid      = get_status_jitter_pid msg in
+    let mode      = to_mode_exn (get_status_mode msg)
+                                (get_status_t2mi_pid msg)
+                                (get_status_t2mi_stream_id msg)
     in
-    { status    = { load         = (float_of_int ((get_status_load msg) * 100)) /. 255.
-                  ; reset        = flags2 land 0x02 <> 0
-                  ; input        = mode.input
-                  ; t2mi_mode    = mode.t2mi
-                  ; jitter_mode  = if not @@ Int.equal jpid 0x1fff
-                                   then Some { stream  = Common.Stream.id_of_int32 (get_status_jitter_stream_id msg)
-                                             ; pid     = jpid
-                                             }
-                                   else None
+    { status    = { timestamp
+                  ; load         = (float_of_int ((get_status_load msg) * 100)) /. 255.
                   ; ts_num       = if has_sync then ts_num else 0
                   ; services_num = if has_sync then get_status_services_num msg else 0
                   ; bitrate      = Int32.to_int @@ get_status_bitrate msg
                   ; packet_sz    = if      (flags land 0x08) <> 0 then Ts192
                                    else if (flags land 0x10) <> 0 then Ts204
                                    else Ts188
+                  ; has_sync
                   ; has_stream   = flags land 0x80 = 0
                   }
-    ; errors    = flags  land 0x20 <> 0
-    ; t2mi_sync = int_to_bool_list (get_status_t2mi_sync msg)
-                  |> (fun l -> List.foldi (fun acc i x -> if x then i :: acc else acc) [] l)
-    ; versions  = { streams_ver      = get_status_streams_ver msg
-                  ; ts_ver_com       = get_status_ts_ver_com msg
-                  ; ts_ver_lst       = Cbuffer.fold (fun acc el -> el :: acc)
-                                         (iter @@ get_status_ts_ver_lst msg) []
-                                       |> List.rev
-                                       |> List.take ts_num
-                  ; t2mi_ver_lst     = get_status_t2mi_ver_lst msg
-                                       |> (fun v -> List.map (fun x -> Int32.shift_right v (4 * x)
-                                                                       |> Int32.logand 0xfl
-                                                                       |> Int32.to_int)
-                                                      (List.range 0 7))
-                  }
-    ; streams   = []
+    ; reset       = flags2 land 0x02 <> 0
+    ; input       = mode.input
+    ; t2mi_mode   = mode.t2mi
+    ; jitter_mode = if not @@ Int.equal jpid 0x1fff
+                    then Some { stream  = Common.Stream.id_of_int32 (get_status_jitter_stream_id msg)
+                              ; pid     = jpid
+                              }
+                    else None
+    ; errors      = flags land 0x20 <> 0
+    ; t2mi_sync   = int_to_bool_list (get_status_t2mi_sync msg)
+                    |> (fun l -> List.foldi (fun acc i x -> if x then i :: acc else acc) [] l)
+    ; versions    = { streams_ver      = get_status_streams_ver msg
+                    ; ts_ver_com       = get_status_ts_ver_com msg
+                    ; ts_ver_lst       = Cbuffer.fold (fun acc el -> el :: acc)
+                                                      (iter @@ get_status_ts_ver_lst msg) []
+                                         |> List.rev
+                                         |> List.take ts_num
+                    ; t2mi_ver_lst     = get_status_t2mi_ver_lst msg
+                                         |> (fun v -> List.map (fun x -> Int32.shift_right v (4 * x)
+                                                                         |> Int32.logand 0xfl
+                                                                         |> Int32.to_int)
+                                                               (List.range 0 7))
+                    }
+    ; streams     = []
     }
 
 end
@@ -995,9 +1001,11 @@ let parse_get_board_errors req_id = function
                                       | None   -> None)
   | _ -> None
 
-let parse_get_section (id,_) = function
-  | `Section (r_id,buf) -> if id <> r_id then None
-                           else try_parse Get_section.of_cbuffer buf
+let parse_get_section (req : section_req) = function
+  | `Section (r_id,buf) ->
+     if req.request_id <> r_id then None
+     else Option.map (Result.map (fun x -> { x with table_id = req.params.table_id }))
+                     (try_parse Get_section.of_cbuffer buf)
   | _ -> None
 
 let parse_get_t2mi_frame_seq (req : t2mi_frame_seq_req) = function
@@ -1041,7 +1049,7 @@ let is_response (type a) (req : a request) msg : a option =
   | Get_board_info       -> parse_get_board_info msg
   | Get_board_mode       -> parse_get_board_mode msg
   | Get_t2mi_frame_seq x -> parse_get_t2mi_frame_seq x msg
-  | Get_section _        -> None
+  | Get_section x        -> parse_get_section x msg
 
 let is_event (type a) (req : a event_request) msg : a option =
   match req with

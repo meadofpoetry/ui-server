@@ -23,14 +23,13 @@ type 'a request = 'a Board_protocol.request
 let create_sm = Board_protocol.SM.create
 
 let create (b:topo_board) incoming_streams convert_streams send db base step =
-  let storage          = Config_storage.create base ["board"; (string_of_int b.control)] in
-  let s_state, spush   = React.S.create `No_response in
-  let s_inp,s_inp_push = React.S.create storage#get.input in
-  let events,api,step  = create_sm send storage spush step in
+  let storage         = Config_storage.create base ["board"; (string_of_int b.control)] in
+  let s_state, spush  = React.S.create `No_response in
+  let events,api,step = create_sm send storage spush step in
+  let s_inp           = React.S.hold ~eq:equal_input storage#get.input events.input in
   (* FIXME incoming streams should be modified to include streams that are detected by the board itself *)
-  let handlers         = Board_api.handlers b.control api events s_state s_inp incoming_streams in
-  let e_status         = React.E.map (fun (x : status) -> s_inp_push x.input) events.status in
-  let s_streams        =
+  let handlers        = Board_api.handlers b.control api events s_state s_inp incoming_streams in
+  let s_streams       =
     React.S.l2 (fun x inp ->
         let open Common.Stream in
         List.map (fun x : stream ->
@@ -42,7 +41,6 @@ let create (b:topo_board) incoming_streams convert_streams send db base step =
   in
   let sms = convert_streams s_streams b in
   let state           = (object
-                           method e_status   = e_status;
                            method s_streams = s_streams;
                            method finalize () = ()
                          end) in

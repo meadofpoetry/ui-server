@@ -150,38 +150,13 @@ module Period = struct
 
 end
 
-module type Time_unit = sig
+module Interval = struct
 
-  type t = Ptime.t
-  val to_yojson : t -> Yojson.Safe.json
-  val of_yojson : Yojson.Safe.json -> (t,string) result
+  type timestamp = t [@@deriving yojson]
 
-end
-
-module type Interval_item = sig
-
-  type t
-  type unit
-  val from      : t -> unit
-  val till      : t -> unit
-  val to_yojson : t -> Yojson.Safe.json
-  val of_yojson : Yojson.Safe.json -> (t,string) result
-
-end
-
-module Make_interval(M:Time_unit) = struct
-
-  type t = M.t * M.t [@@deriving yojson]
+  type t = timestamp * timestamp [@@deriving yojson]
 
   let from (t:t) = fst t
   let till (t:t) = snd t
-
-end
-
-module Interval = struct
-
-  module Useconds = Make_interval(Useconds)
-  module Seconds  = Make_interval(Seconds)
-  module Hours    = Make_interval(Hours)
 
 end

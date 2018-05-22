@@ -20,7 +20,7 @@ type t2mi_mode =
   ; pid            : int
   ; t2mi_stream_id : int
   ; stream         : Common.Stream.id (* NOTE maybe t? *)
-  } [@@deriving yojson]
+  } [@@deriving yojson,eq]
 
 type jitter_mode =
   { stream  : Common.Stream.id (* NOTE maybe t? *)
@@ -30,45 +30,15 @@ type jitter_mode =
 type t2mi_mode_request   = t2mi_mode option   [@@deriving yojson]
 type jitter_mode_request = jitter_mode option [@@deriving yojson]
 
-(** Status **)
-
-type packet_sz = Ts188 | Ts192 | Ts204
-let packet_sz_to_string : packet_sz -> string = function
-  | Ts188 -> "Ts188"
-  | Ts192 -> "Ts192"
-  | Ts204 -> "Ts204"
-let packet_sz_of_string_option : string -> packet_sz option = function
-  | "Ts188" -> Some Ts188
-  | "Ts192" -> Some Ts192
-  | "Ts204" -> Some Ts204
-  | _       -> None
-let packet_sz_to_yojson x : Yojson.Safe.json = `String (packet_sz_to_string x)
-let packet_sz_of_yojson = function
-  | `String s -> (match packet_sz_of_string_option s with
-                  | Some x -> Ok x
-                  | None   -> Error (Printf.sprintf "packet_sz_of_yojson: bad string (%s)" s))
-  | x         -> Error (Printf.sprintf "packet_sz_of_yojson: not string value (%s)" @@ Yojson.Safe.to_string x)
-
-type status =
-  { load            : float
-  ; reset           : bool
-  ; input           : input
-  ; t2mi_mode       : t2mi_mode option
-  ; jitter_mode     : jitter_mode option
-  ; ts_num          : int
-  ; services_num    : int
-  ; bitrate         : int
-  ; packet_sz       : packet_sz
-  ; has_stream      : bool
-  } [@@deriving yojson]
-
 (** MPEG-TS errors **)
 
-type ts_sync =
+type ts_state =
   { stream_id : Common.Stream.id
   ; timestamp : Common.Time.t
-  ; sync      : bool
-  }
+  ; present   : bool
+  } [@@deriving yojson]
+
+type ts_states = ts_state list [@@deriving yojson]
 
 type ts_error =
   { stream_id : Common.Stream.id
@@ -88,12 +58,14 @@ type ts_errors = ts_error list [@@deriving yojson]
 
 (** T2-MI errors **)
 
-type t2mi_sync =
+type t2mi_state =
   { stream_id      : Common.Stream.id
   ; timestamp      : Common.Time.t
   ; t2mi_stream_id : int
-  ; sync           : bool
-  }
+  ; present        : bool
+  } [@@deriving yojson]
+
+type t2mi_states = t2mi_state list [@@deriving yojson]
 
 type t2mi_error =
   { stream_id      : Common.Stream.id
@@ -192,7 +164,10 @@ type section_error = Zero_length
                    | Stream_not_found
                    | Unknown [@@deriving yojson]
 
-type section = string [@@deriving yojson]
+type section =
+  { stream_id : Common.Stream.id
+  ; table_id  : int
+  ; section   : string } [@@deriving yojson]
 
 (** T2-MI info **)
 
@@ -204,13 +179,15 @@ type t2mi_info =
   ; l1_post_conf   : string option
   } [@@deriving yojson]
 
+type t2mi_info_response = t2mi_info option [@@deriving yojson]
+
 (** Config **)
 
 type config =
   { input       : input
   ; t2mi_mode   : t2mi_mode option
   ; jitter_mode : jitter_mode option
-  } [@@deriving yojson]
+  } [@@deriving yojson,eq]
 
 let config_to_string c = Yojson.Safe.to_string @@ config_to_yojson c
 let config_of_string s = config_of_yojson @@ Yojson.Safe.from_string s
@@ -221,22 +198,86 @@ let config_default =
   ; jitter_mode = None
   }
 
-(** Measurements requests **)
+module Board = struct
 
-module TS_errors_api = struct
+  type packet_sz = Ts188 | Ts192 | Ts204 [@@deriving eq]
+  let packet_sz_to_string : packet_sz -> string = function
+    | Ts188 -> "Ts188"
+    | Ts192 -> "Ts192"
+    | Ts204 -> "Ts204"
+  let packet_sz_of_string_option : string -> packet_sz option = function
+    | "Ts188" -> Some Ts188
+    | "Ts192" -> Some Ts192
+    | "Ts204" -> Some Ts204
+    | _       -> None
+  let packet_sz_to_yojson x : Yojson.Safe.json = `String (packet_sz_to_string x)
+  let packet_sz_of_yojson = function
+    | `String s -> (match packet_sz_of_string_option s with
+                    | Some x -> Ok x
+                    | None   -> Error (Printf.sprintf "packet_sz_of_yojson: bad string (%s)" s))
+    | x         -> Error (Printf.sprintf "packet_sz_of_yojson: not string value (%s)" @@ Yojson.Safe.to_string x)
+
+  type status =
+    { timestamp    : Common.Time.t
+    ; load         : float
+    ; ts_num       : int
+    ; services_num : int
+    ; bitrate      : int
+    ; packet_sz    : packet_sz
+    ; has_sync     : bool
+    ; has_stream   : bool
+    } [@@deriving yojson,eq]
+
+  type reset_ts =
+    { timestamp : Common.Time.t
+    }
+
+  type statuses = status list [@@deriving yojson]
+
+end
+
+module Errors = struct
 
   open Common.Time
 
-  type percentage =
-    { errors  : float
-    ; no_sync : float
-    ; no_data : float
+  module Api = struct
+
+    type segmentation =
+      { errors     : float
+      ; no_stream  : float
+      ; no_measure : float
+      } [@@deriving yojson]
+
+    type ts_errors_req_archive =
+      { priority : int option
+      ; errors   : int list option
+      ; period   : Interval.t
+      ; stream   : Common.Stream.id option
+      } [@@deriving yojson]
+
+    type t2mi_errors_req_archive =
+      { errors : int list option
+      ; period : Interval.t
+      ; stream : Common.Stream.id option
+      } [@@deriving yojson]
+
+    type ts_errors_rsp_archive =
+      { errors     : ts_error list
+      ; no_stream  : Interval.t list
+      ; no_measure : Interval.t list
+      } [@@deriving yojson]
+
+  end
+
+end
+
+module Jitter = struct
+
+  type jitter_archive_item =
+    { session  : jitter_session
+    ; measures : jitter_measure list
     } [@@deriving yojson]
 
-  type ts_errors_response_archive =
-    { errors  : ts_errors list
-    ; no_data : Interval.Seconds.t list
-    ; no_sync : Interval.Seconds.t list
-    } [@@deriving yojson]
+  type jitter_archive = jitter_archive_item list [@@deriving yojson]
 
 end

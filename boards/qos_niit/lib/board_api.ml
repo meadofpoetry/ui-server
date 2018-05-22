@@ -72,7 +72,9 @@ let get_section api body () =
   Json.of_body body >>= fun j ->
   (match section_request_of_yojson j with
    | Error e -> Lwt_result.fail @@ Json.of_error_string e
-   | Ok req  -> api.get_section req >|= (section_to_yojson %> Result.return))
+   | Ok req  -> api.get_section req >|= (function
+                                         | Ok x    -> Ok (section_to_yojson x)
+                                         | Error e -> Error (section_error_to_yojson e)))
   >>= Json.respond_result
 
 let get_incoming_streams streams () =
@@ -113,7 +115,7 @@ let config_ws sock_data (events : events) body =
   sock_handler sock_data events.config config_to_yojson body
 
 let status_ws sock_data (events : events) body =
-  sock_handler sock_data events.status status_to_yojson body
+  sock_handler sock_data events.status Board.status_to_yojson body
 
 (* let ts_errors_ws sock_data (events : events) body =
  *   sock_handler sock_data events.ts_errors ts_errors_to_yojson body *)

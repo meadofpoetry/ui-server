@@ -5,7 +5,7 @@ open Common.Topology
 type mode =
   { input : Board_types.input
   ; t2mi  : Board_types.t2mi_mode option
-  }
+  } [@@deriving eq]
 
 (** Status **)
 
@@ -14,15 +14,19 @@ type status_versions =
   ; ts_ver_com   : int
   ; ts_ver_lst   : int list
   ; t2mi_ver_lst : int list
-  }
+  } [@@deriving eq]
 
-type status =
-  { status    : Board_types.status
-  ; errors    : bool
-  ; t2mi_sync : int list
-  ; versions  : status_versions
-  ; streams   : Common.Stream.id list
-  }
+type status_raw =
+  { status       : Board_types.Board.status
+  ; reset        : bool
+  ; input        : Board_types.input
+  ; t2mi_mode    : Board_types.t2mi_mode option
+  ; jitter_mode  : Board_types.jitter_mode option
+  ; errors       : bool
+  ; t2mi_sync    : int list
+  ; versions     : status_versions
+  ; streams      : Common.Stream.id list
+  } [@@deriving eq]
 
 (** TS errors **)
 
@@ -81,3 +85,18 @@ type jitter_raw =
 (** Streams **)
 
 type streams = Common.Stream.id list [@@deriving yojson]
+
+(** Event group **)
+
+type event = [ `Status        of status_raw
+             | `Streams_event of streams
+             | `T2mi_errors   of Board_types.t2mi_error list
+             | `Ts_errors     of Board_types.ts_error list
+             | `End_of_errors
+             ]
+
+type group =
+  { status      : status_raw
+  ; prev_status : status_raw option
+  ; events      : event list
+  }
