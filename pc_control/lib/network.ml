@@ -2,7 +2,7 @@ module String_map = Map.Make(String)
 
 open Containers
 open Lwt.Infix
-
+   
 let properties_changed interface =
   let open OBus_value in
   OBus_member.Signal.make
@@ -31,86 +31,94 @@ module Nm = struct
   module Config = struct
     include Network_config
 
+    let (.%{}) table key  = List.assoc_opt ~eq:String.equal key table
+    let (-->) v converter = v >>= converter
+
     let reverse_int32 x =
       let mask = 0xFFl in
       let (a,b,c,d) = Int32.(((x lsr 24) land mask), ((x lsr 16) land mask), ((x lsr 8) land mask), (x land mask)) in
       Int32.((d lsl 24) + (c lsl 16) + (b lsl 8) + a)
+
+    let unwrap_string = function OBus_value.V.Basic OBus_value.V.String s -> Some s | _ -> None
+
+    let unwrap_int = function OBus_value.V.Basic OBus_value.V.Int32 i -> Some (Int32.to_int i) | _ -> None
+
+    let unwrap_bool = function OBus_value.V.Basic OBus_value.V.Boolean b -> Some b | _ -> None
+
+    let unwrap_address_list v =
+      let unwrap' = function
+        |  OBus_value.V.Array ((OBus_value.T.Basic OBus_value.T.Uint32), ilst) -> begin
+            match ilst with
+            | (OBus_value.V.Basic OBus_value.V.Uint32 adds)::(OBus_value.V.Basic OBus_value.V.Uint32 mask)::_ ->
+               Some (Ipaddr.V4.of_int32 @@ reverse_int32 adds, mask)
+            | _ -> None
+          end
+        | _ -> None
+      in
+      match v with
+      | OBus_value.V.Array (OBus_value.T.Array (OBus_value.T.Basic OBus_value.T.Uint32), ars) -> 
+         Some (List.filter_map unwrap' ars)
+      | _ -> None
+                                                                                        
+    let unwrap_ip_list = function
+      | OBus_value.V.Array (OBus_value.T.Basic OBus_value.T.Uint32, lst) ->
+         Some (List.filter_map
+                 (function OBus_value.V.Basic OBus_value.V.Uint32 i -> Some (Ipaddr.V4.of_int32 @@ reverse_int32 i)
+                         | _ -> None)
+                 lst)
+      | _ -> None
+
+    let unwrap_bytes = function
+      | OBus_value.V.Array (OBus_value.T.Basic OBus_value.T.Byte, lst) ->
+         let s = String.of_list (List.filter_map (function OBus_value.V.Basic OBus_value.V.Byte c -> Some c
+                                                         | _ -> None) lst)
+         in
+         Some (Bytes.of_string s)
+      | OBus_value.V.Byte_array s -> Some (Bytes.of_string s)
+      | x -> None
+
+    let unwrap_autoconnect (flag, prior) = match (flag --> unwrap_bool), (prior --> unwrap_int) with
+      | (_, Some p)     -> Some (True p)
+      | (Some false, _) -> Some False
+      | _ -> None
       
     let of_dbus d =
       let open Option.Infix in
       let open OBus_value in
-      let (.%{}) table key  = List.assoc_opt ~eq:String.equal key table in
-      let (-->) v converter = v >>= converter in
       
       let of_eth opts =
-        opts.%{"mac-address"}
-        --> (function
-             | V.Array (T.Basic T.Byte, lst) ->
-                let s = String.of_list (List.filter_map (function V.Basic V.Byte c -> Some c
-                                                                | _ -> None) lst)
-                in
-                Some (Bytes.of_string s)
-             | V.Byte_array s -> Some (Bytes.of_string s)
-             | x -> None)
+        opts.%{"mac-address"} --> unwrap_bytes
         >>= fun mac_address -> Some { mac_address }
       in
+      
       let of_conn opts =
-        opts.%{"id"}
-        --> (function V.Basic V.String s -> Some s | _ -> None)
+        opts.%{"id"} --> unwrap_string
         >>= fun id ->
-        opts.%{"uuid"}
-        --> (function V.Basic V.String s -> Some s | _ -> None)
-        >>= fun uuid -> 
-        opts.%{"autoconnect-priority"}
-        --> (function
-             | V.Basic V.Int32 i -> Some (Int32.to_int i)
-             | x -> None)
-        |> (function
-            | Some p -> Some (True p)
-            | None   -> begin
-                opts.%{"autoconnect"}
-                --> (function
-                     | V.Basic V.Boolean v -> Some v
-                     | _ -> None)
-                |> (function Some false -> Some False | _ -> None)
-              end)
+        opts.%{"uuid"} --> unwrap_string
+        >>= fun uuid ->
+        (opts.%{"autoconnect"}, opts.%{"autoconnect-priority"}) |> unwrap_autoconnect
         >>= fun autoconnect ->
         Some { autoconnect; id; uuid }
       in
+      
       let of_ipv4 opts =
-        opts.%{"addresses"}
-        --> (function
-             | V.Array (T.Array (T.Basic T.Uint32), ars) -> begin
-                 match ars with
-                 | V.Array ((T.Basic T.Uint32), ilst)::_ -> begin
-                     match ilst with
-                     | (V.Basic V.Uint32 adds)::(V.Basic V.Uint32 mask)::_ ->
-                        Some (Ipaddr.V4.of_int32 @@ reverse_int32 adds, mask)
-                     | _ -> None
-                   end
-                 | _ -> None
-               end 
-             | _ -> None)                            
-        >>= fun (address, mask) ->
-        opts.%{"gateway"}
-        --> (function V.Basic V.String s -> Some s | _ -> None)
-        >>= Ipaddr.V4.of_string
-        >>= fun gateway ->
-        opts.%{"dns"}
-        --> (function
-             | V.Array (T.Basic T.Uint32, lst) -> Some (List.filter_map
-                                                          (function V.Basic V.Uint32 i -> Some (Ipaddr.V4.of_int32 @@ reverse_int32 i)
-                                                                  | _ -> None)
-                                                          lst)
-             | _ -> None)
+        let gateway =
+          opts.%{"gateway"} --> unwrap_string
+          >>= Ipaddr.V4.of_string
+        in
+        let static =
+          opts.%{"routes"} --> unwrap_address_list |> function Some l -> l | None -> []
+        in
+        let routes = { gateway; static } in
+        opts.%{"addresses"} --> unwrap_address_list >>= List.head_opt
+        >>= fun address ->
+        opts.%{"dns"} --> unwrap_ip_list
         >>= fun dns ->
-        opts.%{"method"}
-        --> (function
-             | V.Basic V.String m -> meth_of_string m
-             | _ -> None)
+        opts.%{"method"} --> unwrap_string >>= meth_of_string
         >>= fun meth ->
-        Some { address; mask; gateway; dns; meth }
+        Some { address; routes; dns; meth }
       in
+      
       List.fold_left (fun (eth, conn, ipv4) (name, opts) ->
           match name with
           | "802-3-ethernet" -> (of_eth opts, conn, ipv4)
@@ -121,34 +129,67 @@ module Nm = struct
       |> function
         | (Some ethernet, Some connection, Some ipv4) -> Some { ethernet; connection; ipv4; ipv6 = (); proxy = () }
         | _ -> None
+
+    let wrap_bytes x = OBus_value.V.byte_array @@ Bytes.to_string x
+
+    let wrap_string x = OBus_value.V.basic_string x
+
+    let wrap_bool x = OBus_value.V.basic_boolean x
+
+    let wrap_int32 x = OBus_value.V.basic_int32 @@ Int32.of_int x
+
+    let wrap_ip_string x = OBus_value.V.basic_string @@ Ipaddr.V4.to_string x
+                     
+    let wrap_address_list ?gateway x =
+      let gateway = match gateway with
+        | None   -> OBus_value.V.basic_uint32 0l
+        | Some v -> OBus_value.V.basic_uint32 @@ reverse_int32 @@ Ipaddr.V4.to_int32 v
+      in
+      List.map (fun (addr, mask) ->
+          (OBus_value.V.array (OBus_value.T.Basic OBus_value.T.Uint32)
+             [ OBus_value.V.basic_uint32 @@ reverse_int32 @@ Ipaddr.V4.to_int32 addr
+             ; OBus_value.V.basic_uint32 mask
+             ; gateway ]))
+        x
+      |> fun a -> (OBus_value.V.array (OBus_value.T.Array (OBus_value.T.Basic OBus_value.T.Uint32)) a)
+
+    let wrap_dns_list x =
+      List.map (fun dns -> OBus_value.V.basic_uint32 @@ reverse_int32 @@ Ipaddr.V4.to_int32 dns) x
+      |> fun a -> (OBus_value.V.array (OBus_value.T.Basic OBus_value.T.Uint32) a)
+
+    let wrap_route_list x =
+      List.map (fun (addr, mask) ->
+          (OBus_value.V.array (OBus_value.T.Basic OBus_value.T.Uint32)
+             [ OBus_value.V.basic_uint32 @@ reverse_int32 @@ Ipaddr.V4.to_int32 addr
+             ; OBus_value.V.basic_uint32 mask
+             ; OBus_value.V.basic_uint32 0l  (* TODO fix that *)
+             ; OBus_value.V.basic_uint32 0l ]))
+        x
+      |> fun a -> (OBus_value.V.array (OBus_value.T.Array (OBus_value.T.Basic OBus_value.T.Uint32)) a)
              
     let to_dbus c =
       let open OBus_value in
-      let eth  = [ "mac-address", V.byte_array @@ Bytes.to_string c.ethernet.mac_address] in
-      let conn = [ "id", V.basic_string c.connection.id
-                 ; "uuid", V.basic_string c.connection.uuid ]
+      let eth  = [ "mac-address", wrap_bytes c.ethernet.mac_address] in
+      let conn = [ "id",   wrap_string c.connection.id
+                 ; "uuid", wrap_string c.connection.uuid ]
                  @ match c.connection.autoconnect with
-                   | False  -> [ "autoconnect", V.basic_boolean false ]
-                   | True p -> [ "autoconnect-priority", V.basic_int32 @@ Int32.of_int p ]
+                   | False  -> [ "autoconnect",          wrap_bool false ]
+                   | True p -> [ "autoconnect-priority", wrap_int32 p ]
       in
       let ipv4 =
-        let addresses = [ V.basic_uint32 @@ reverse_int32 @@ Ipaddr.V4.to_int32 c.ipv4.address
-                        ; V.basic_uint32 c.ipv4.mask
-                        ; V.basic_uint32 @@ reverse_int32 @@ Ipaddr.V4.to_int32 c.ipv4.gateway
-                        ]
+        let addresses = wrap_address_list ?gateway:c.ipv4.routes.gateway [c.ipv4.address] in
+        let routes    = match c.ipv4.routes.gateway with
+          | None   -> `Static  (wrap_route_list c.ipv4.routes.static)
+          | Some x -> `Gateway (wrap_ip_string x)
         in
-        let address_data = [ V.string "address", V.variant @@ V.basic_string @@ Ipaddr.V4.to_string c.ipv4.gateway
-                           ; V.string "prefix", V.variant @@ V.basic_uint32 c.ipv4.mask
-                           ]
-        in
-        let dns = List.map (fun dns -> V.basic_uint32 @@ reverse_int32 @@ Ipaddr.V4.to_int32 dns) c.ipv4.dns
-        in
-        [ "addresses", V.array (T.Array (T.Basic T.Uint32)) [(V.array (T.Basic T.Uint32) addresses)]
-        ; "address-data", V.array (T.Dict (T.String, T.Variant)) [V.dict T.String T.Variant address_data]
-        ; "gateway", V.basic_string @@ Ipaddr.V4.to_string c.ipv4.gateway
-        ; "dns", V.array (T.Basic T.Uint32) dns
-        ; "method", V.basic_string @@ meth_to_string c.ipv4.meth
-        ]
+        let dns  = wrap_dns_list c.ipv4.dns in
+        let meth = wrap_string @@ meth_to_string c.ipv4.meth in
+        [ "addresses", addresses
+        ; "dns", dns
+        ; "method", meth ]
+        @ match routes with
+          | `Static  r -> [ "routes",  r ]
+          | `Gateway g -> [ "gateway", g ]
       in
       [ "802-3-ethernet", eth; "connection", conn; "ipv4", ipv4]
       

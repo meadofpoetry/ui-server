@@ -26,17 +26,17 @@ let make_ipv4 (config : Network_config.ipv4_conf React.signal) =
                      ] ()
   in
   Lwt_react.S.keep @@
-    Lwt_react.S.map (fun (x : Network_config.ipv4_conf) -> address#fill_in x.address) config;
+    Lwt_react.S.map (fun (x : Network_config.ipv4_conf) -> address#fill_in @@ fst x.address) config;
   Lwt_react.S.keep @@
-    Lwt_react.S.map (fun (x : Network_config.ipv4_conf) -> mask#fill_in (Int32.to_int x.mask)) config;
+    Lwt_react.S.map (fun (x : Network_config.ipv4_conf) -> mask#fill_in (Int32.to_int @@ snd x.address)) config;
   Lwt_react.S.keep @@
-    Lwt_react.S.map (fun (x : Network_config.ipv4_conf) -> gateway#fill_in x.gateway) config;
+    Lwt_react.S.map (fun (x : Network_config.ipv4_conf) -> gateway#fill_in @@ CCOpt.get_exn x.routes.gateway) config;
 
   let signal = Lwt_react.S.l4 (fun (config : Network_config.ipv4_conf) address mask gateway ->
                    { config with
-                     address = CCOpt.get_or address ~default:config.address
-                   ; mask    = CCOpt.get_or mask ~default:config.mask
-                   ; gateway = CCOpt.get_or gateway ~default:config.gateway})
+                     address =
+                       (CCOpt.get_or address ~default:(fst config.address), CCOpt.get_or mask ~default:(snd config.address))
+                   ; routes = { gateway = None; static = [] } }) (* TODO fix *)
                  config address#s_input (Lwt_react.S.map (CCOpt.map Int32.of_int) mask#s_input) gateway#s_input
   in
   signal, ipv4_sets

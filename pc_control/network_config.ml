@@ -1,3 +1,7 @@
+let (>>=) v f =
+  match v with
+  | None -> None
+  | Some x -> f x
 
 type v4 = Ipaddr.V4.t
 
@@ -27,6 +31,25 @@ let meth_of_string = function
 
 type autoconnect  = False | True of priority
 and priority      = int [@@deriving yojson, eq]
+
+type address = v4 * int32 [@@deriving yojson, eq]
+
+let address_to_string (a,m) =
+  let a, m = (Ipaddr.V4.to_string a), (Int32.to_string m) in
+  a ^ "/" ^ m
+
+let address_of_string s =
+  match String.split_on_char '/' s with
+  | [a;m] -> Ipaddr.V4.of_string a
+             >>= fun a ->
+             Int32.of_string_opt m
+             >>= fun m ->
+             Some (a,m)
+  | _ -> None
+                  
+type routes = { static  : address list
+              ; gateway : v4 option
+              } [@@deriving yojson, eq]
                   
 type t            = { ethernet   : ethernet_conf
                     ; connection : conn_conf
@@ -39,9 +62,8 @@ and conn_conf     = { autoconnect  : autoconnect
                     ; id           : string
                     ; uuid         : string
                     }
-and ipv4_conf     = { address : v4
-                    ; mask    : int32
-                    ; gateway : v4
+and ipv4_conf     = { address : address
+                    ; routes  : routes
                     ; dns     : v4 list
                     ; meth    : meth
                     }
