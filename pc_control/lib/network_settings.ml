@@ -6,7 +6,7 @@ type t    = { intern : iface
             ; extern : iface option
             }
 and iface = { interface   : string
-            ; mac_address : bytes option
+            ; mac_address : Network_config.Macaddr.t option
             ; address     : Network_config.address
             ; routes      : Network_config.routes
             } [@@deriving yojson]
@@ -22,7 +22,7 @@ let default = { intern = { interface   = "eno1"
               }
 
 let apply (c : Network_config.t) (s : iface) : Network_config.t option =
-  if not (Option.map_or ~default:true (fun x -> Bytes.equal x c.ethernet.mac_address) s.mac_address)
+  if not (Option.map_or ~default:true (fun x -> Network_config.Macaddr.equal x c.ethernet.mac_address) s.mac_address)
      || not (Network_config.equal_address c.ipv4.address s.address)
      || not (Network_config.equal_routes c.ipv4.routes s.routes)
   then 

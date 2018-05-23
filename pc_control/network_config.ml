@@ -46,7 +46,18 @@ let address_of_string s =
              >>= fun m ->
              Some (a,m)
   | _ -> None
-                  
+                         
+module Macaddr = struct
+  include Macaddr
+  let equal l r = Macaddr.compare l r = 0
+  let to_yojson x = `String (Macaddr.to_string x)
+  let of_yojson = function
+    | `String s -> (match Macaddr.of_string s with
+                    | Some m -> Ok m
+                    | None   -> Error ("bad mac: " ^ s))
+    | x         -> Error ("not a mac addr: " ^ (Yojson.Safe.to_string x))
+end
+       
 type routes = { static  : address list
               ; gateway : v4 option
               } [@@deriving yojson, eq]
@@ -57,7 +68,7 @@ type t            = { ethernet   : ethernet_conf
                     ; ipv6       : ipv6_conf
                     ; proxy      : proxy_conf
                     } [@@deriving yojson, eq]
-and ethernet_conf = { mac_address  : bytes }
+and ethernet_conf = { mac_address  : Macaddr.t }
 and conn_conf     = { autoconnect  : autoconnect
                     ; id           : string
                     ; uuid         : string

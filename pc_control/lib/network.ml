@@ -87,7 +87,7 @@ module Nm = struct
       let open OBus_value in
       
       let of_eth opts =
-        opts.%{"mac-address"} --> unwrap_bytes
+        opts.%{"mac-address"} --> unwrap_bytes >>= fun x -> Macaddr.of_bytes @@ Bytes.to_string x
         >>= fun mac_address -> Some { mac_address }
       in
       
@@ -187,7 +187,7 @@ module Nm = struct
                 
     let to_dbus c =
       let open OBus_value in
-      let eth  = [ "mac-address", wrap_bytes c.ethernet.mac_address] in
+      let eth  = [ "mac-address", wrap_bytes @@ Bytes.of_string @@ Macaddr.to_bytes c.ethernet.mac_address] in
       let conn = [ "id",   wrap_string c.connection.id
                  ; "uuid", wrap_string c.connection.uuid ]
                  @ match c.connection.autoconnect with
@@ -210,7 +210,7 @@ module Nm = struct
         ; "method", meth ]
         @ match routes with
           | `Static (r, rd) -> [ "routes",  r
-                               ; "routes-data", rd ]
+                               ; "route-data", rd ]
           | `Gateway g -> [ "gateway", g ]
       in
       [ "802-3-ethernet", eth; "connection", conn; "ipv4", ipv4]
