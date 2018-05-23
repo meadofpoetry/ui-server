@@ -1,10 +1,12 @@
 open Common.Topology
+open Common
+open Board_types
 
 (** Mode **)
 
 type mode =
-  { input : Board_types.input
-  ; t2mi  : Board_types.t2mi_mode option
+  { input : input
+  ; t2mi  : t2mi_mode option
   } [@@deriving eq]
 
 (** Status **)
@@ -17,35 +19,16 @@ type status_versions =
   } [@@deriving eq]
 
 type status_raw =
-  { status       : Board_types.Board.status
+  { status       : status
   ; reset        : bool
-  ; input        : Board_types.input
-  ; t2mi_mode    : Board_types.t2mi_mode option
-  ; jitter_mode  : Board_types.jitter_mode option
+  ; input        : input
+  ; t2mi_mode    : t2mi_mode option
+  ; jitter_mode  : jitter_mode option
   ; errors       : bool
   ; t2mi_sync    : int list
   ; versions     : status_versions
-  ; streams      : Common.Stream.id list
+  ; streams      : Stream.id list
   } [@@deriving eq]
-
-(** TS errors **)
-
-type ts_error_raw =
-  { count     : int
-  ; err_code  : int
-  ; err_ext   : int
-  ; multi_pid : bool
-  ; pid       : int
-  ; packet    : int32
-  ; param_1   : int32
-  ; param_2   : int32
-  }
-
-type ts_errors_raw =
-  { timestamp : Common.Time.t
-  ; stream_id : Common.Stream.id
-  ; errors    : ts_error_raw list
-  }
 
 (** T2-MI errors **)
 
@@ -78,11 +61,11 @@ type table_bitrate =
   }
 
 type bitrate =
-  { stream_id  : Common.Stream.id
+  { stream     : Stream.id
   ; ts_bitrate : int
   ; pids       : pid_bitrate list
   ; tables     : table_bitrate list
-  ; timestamp  : Common.Time.t
+  ; timestamp  : Time.t
   }
 
 type bitrates = bitrate list
@@ -90,10 +73,10 @@ type bitrates = bitrate list
 (** Jitter **)
 
 type jitter_raw =
-  { measures  : Board_types.jitter_measures
+  { measures  : Jitter.measures
   ; next_ptr  : int32
   ; time      : int
-  ; timestamp : Common.Time.t
+  ; timestamp : Time.t
   ; pid       : int
   ; t_pcr     : float
   }
@@ -106,8 +89,8 @@ type streams = Common.Stream.id list [@@deriving yojson]
 
 type event = [ `Status        of status_raw
              | `Streams_event of streams
-             | `T2mi_errors   of Board_types.t2mi_error list
-             | `Ts_errors     of ts_errors_raw
+             | `T2mi_errors   of Errors.T2MI.t list
+             | `Ts_errors     of Errors.TS.t list
              | `End_of_errors
              ]
 
