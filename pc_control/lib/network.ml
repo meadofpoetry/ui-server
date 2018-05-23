@@ -171,8 +171,8 @@ module Nm = struct
       let open OBus_value in
       List.map (fun (addr, mask) ->
           (V.dict T.String T.Variant
-             [ V.string "address", V.basic_string @@ Ipaddr.V4.to_string addr
-             ; V.string "prefix", V.basic_uint32 mask ]))
+             [ V.string "address", V.variant @@ V.basic_string @@ Ipaddr.V4.to_string addr
+             ; V.string "prefix", V.variant @@ V.basic_uint32 mask ]))
         x
       |> V.array (T.Dict (T.String, T.Variant))
 
@@ -180,8 +180,8 @@ module Nm = struct
       let open OBus_value in
       List.map (fun (addr, mask) ->
           (V.dict T.String T.Variant
-             [ V.string "route", V.basic_string @@ Ipaddr.V4.to_string addr
-             ; V.string "prefix", V.basic_uint32 mask ]))
+             [ V.string "route", V.variant @@ V.basic_string @@ Ipaddr.V4.to_string addr
+             ; V.string "prefix", V.variant @@ V.basic_uint32 mask ]))
         x
       |> V.array (T.Dict (T.String, T.Variant))
                 
