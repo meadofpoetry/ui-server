@@ -15,7 +15,7 @@ type part =
   ; data  : Cbuffer.t
   }
 
-type event_response = Board_errors of board_errors
+type probe_response = Board_errors of board_errors
                     | Bitrate      of Types.bitrate list
                     | Struct       of ts_struct list
                     | T2mi_info    of t2mi_info
@@ -25,7 +25,7 @@ type events = { config         : config React.event
               ; input          : input React.event
               ; status         : Board.status   React.event
               ; reset          : Board.reset_ts React.event
-              ; streams        : Common.Stream.id list React.signal
+              ; streams        : Common.Stream.t list React.signal
               ; ts_states      : ts_state list React.event
               ; ts_errors      : ts_errors React.event
               ; t2mi_states    : t2mi_state list React.event
@@ -65,11 +65,11 @@ type t2mi_info_req =
   ; stream_id  : int
   }
 
-type _ event_request = Get_board_errors : int           -> event_response event_request
-                     | Get_jitter       : jitter_req    -> event_response event_request
-                     | Get_ts_structs   : int           -> event_response event_request
-                     | Get_bitrates     : int           -> event_response event_request
-                     | Get_t2mi_info    : t2mi_info_req -> event_response event_request
+type _ probe_request = Get_board_errors : int           -> probe_response probe_request
+                     | Get_jitter       : jitter_req    -> probe_response probe_request
+                     | Get_ts_structs   : int           -> probe_response probe_request
+                     | Get_bitrates     : int           -> probe_response probe_request
+                     | Get_t2mi_info    : t2mi_info_req -> probe_response probe_request
 
 type t2mi_frame_seq_req =
   { request_id : int
@@ -682,43 +682,31 @@ module Streams : (Event with type msg = Common.Stream.id list) = struct
 
 end
 
-module Ts_errors : (Event with type msg := ts_errors) = struct
+module Ts_errors : (Event with type msg := ts_errors_raw) = struct
 
   let msg_code = 0x04
 
-  let prioriry_of_err_code = function
-    | x when x >= 0x11 && x <= 0x16 -> Some 1
-    | x when x >= 0x21 && x <= 0x26 -> Some 2
-    | x when x >= 0x31 && x <= 0x38 -> Some 3
-    | _                             -> None
-
-  let of_cbuffer msg : ts_errors =
+  let of_cbuffer msg : ts_errors_raw =
     let common,rest = Cbuffer.split msg sizeof_ts_errors in
     let number      = get_ts_errors_count common in
     let errors,_    = Cbuffer.split rest (number * sizeof_ts_error) in
     let stream_id   = Common.Stream.id_of_int32 (get_ts_errors_stream_id common) in
     let timestamp   = Common.Time.Clock.now () in
     let iter        = Cbuffer.iter (fun _ -> Some sizeof_ts_error) (fun buf -> buf) errors in
-    Cbuffer.fold (fun acc el ->
-        let err_code  = get_ts_error_err_code el in
-        match prioriry_of_err_code err_code with
-        | Some priority -> let pid'      = get_ts_error_pid el in
-                           let pid       = pid' land 0x1FFF in
-                           let multi_pid = if (pid' land 0x8000) > 0 then true else false in
-                           { stream_id
-                           ; timestamp
-                           ; priority
-                           ; count     = get_ts_error_count el
-                           ; err_code
-                           ; err_ext   = get_ts_error_err_ext el
-                           ; multi_pid
-                           ; pid
-                           ; packet    = get_ts_error_packet el
-                           ; param_1   = get_ts_error_param_1 el
-                           ; param_2   = get_ts_error_param_2 el
-                           } :: acc
-        | None -> acc)
-                 iter []
+    let errors      = Cbuffer.fold (fun acc el ->
+                          let pid'      = get_ts_error_pid el in
+                          let pid       = pid' land 0x1FFF in
+                          let multi_pid = if (pid' land 0x8000) > 0 then true else false in
+                          { count     = get_ts_error_count el
+                          ; err_code  = get_ts_error_err_code el
+                          ; err_ext   = get_ts_error_err_ext el
+                          ; multi_pid
+                          ; pid
+                          ; packet    = get_ts_error_packet el
+                          ; param_1   = get_ts_error_param_1 el
+                          ; param_2   = get_ts_error_param_2 el
+                          } :: acc) iter []
+    in { stream_id; timestamp; errors}
 
 end
 
@@ -1051,7 +1039,7 @@ let is_response (type a) (req : a request) msg : a option =
   | Get_t2mi_frame_seq x -> parse_get_t2mi_frame_seq x msg
   | Get_section x        -> parse_get_section x msg
 
-let is_event (type a) (req : a event_request) msg : a option =
+let is_probe_response (type a) (req : a probe_request) msg : a option =
   match req with
   | Get_board_errors id -> parse_get_board_errors id msg
   | Get_jitter x        -> parse_get_jitter x msg

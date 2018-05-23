@@ -25,28 +25,16 @@ let create_sm = Board_protocol.SM.create
 let create (b:topo_board) incoming_streams convert_streams send db base step =
   let storage         = Config_storage.create base ["board"; (string_of_int b.control)] in
   let s_state, spush  = React.S.create `No_response in
-  let events,api,step = create_sm send storage spush step in
+  let events,api,step = create_sm send storage spush step (fun x -> convert_streams x b) in
   let s_inp           = React.S.hold ~eq:equal_input storage#get.input events.input in
   (* FIXME incoming streams should be modified to include streams that are detected by the board itself *)
   let handlers        = Board_api.handlers b.control api events s_state s_inp incoming_streams in
-  let s_streams       =
-    React.S.l2 (fun x inp ->
-        let open Common.Stream in
-        List.map (fun x : stream ->
-                          { source = (match x with
-                                      | T2mi_plp _ -> Stream Single
-                                      | _          -> Port (match inp with SPI -> 0 | ASI -> 1))
-                          ; id          = `Ts x
-                          ; description = Some "" }) x) events.streams s_inp
-  in
-  let sms = convert_streams s_streams b in
   let state           = (object
-                           method s_streams = s_streams;
                            method finalize () = ()
                          end) in
   { handlers       = handlers
   ; control        = b.control
-  ; streams_signal = sms
+  ; streams_signal = events.streams
   ; step           = step
   ; connection     = s_state
   ; ports_active   = (List.fold_left (fun acc p ->

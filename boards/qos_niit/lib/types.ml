@@ -30,6 +30,22 @@ type status_raw =
 
 (** TS errors **)
 
+type ts_error_raw =
+  { count     : int
+  ; err_code  : int
+  ; err_ext   : int
+  ; multi_pid : bool
+  ; pid       : int
+  ; packet    : int32
+  ; param_1   : int32
+  ; param_2   : int32
+  }
+
+type ts_errors_raw =
+  { timestamp : Common.Time.t
+  ; stream_id : Common.Stream.id
+  ; errors    : ts_error_raw list
+  }
 
 (** T2-MI errors **)
 
@@ -91,7 +107,7 @@ type streams = Common.Stream.id list [@@deriving yojson]
 type event = [ `Status        of status_raw
              | `Streams_event of streams
              | `T2mi_errors   of Board_types.t2mi_error list
-             | `Ts_errors     of Board_types.ts_error list
+             | `Ts_errors     of ts_errors_raw
              | `End_of_errors
              ]
 

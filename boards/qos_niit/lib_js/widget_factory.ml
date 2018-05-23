@@ -98,24 +98,28 @@ object(self)
   (** Private methods **)
 
   method private _state =
-    Factory_state_lwt.get_value_as_signal ~get:(fun () -> Requests.get_state control |> map_err)
-                                          ~get_socket:(fun () -> Requests.get_state_ws control)
-                                          _state
+    Factory_state_lwt.get_value_as_signal
+      ~get:(fun () -> Requests.get_state control |> map_err)
+      ~get_socket:(fun () -> Requests.get_state_ws control)
+      _state
 
   method private _structs =
-    Factory_state_lwt.get_value_as_signal ~get:(fun () -> Requests.get_structs control |> map_err)
-                                          ~get_socket:(fun () -> Requests.get_structs_ws control)
-                                          _structs
+    Factory_state_lwt.get_value_as_signal
+      ~get:(fun () -> Requests.Streams.Real_time.get_ts_structs control |> map_err)
+      ~get_socket:(fun () -> Requests.Streams.Real_time.get_ts_structs_ws control)
+      _structs
 
   method private _config =
-    Factory_state_lwt.get_value_as_signal ~get:(fun () -> Requests.get_config control |> map_err)
-                                          ~get_socket:(fun () -> Requests.get_config_ws control)
-                                          _config
+    Factory_state_lwt.get_value_as_signal
+      ~get:(fun () -> Requests.Board.Real_time.get_config control |> map_err)
+      ~get_socket:(fun () -> Requests.Board.Real_time.get_config_ws control)
+      _config
 
   method private _bitrates =
-    Factory_state_lwt.get_value_as_signal ~get:(fun () -> Requests.get_bitrates control |> map_err)
-                                          ~get_socket:(fun () -> Requests.get_bitrates_ws control)
-                                          _bitrates
+    Factory_state_lwt.get_value_as_signal
+      ~get:(fun () -> Requests.Streams.Real_time.get_ts_bitrates control |> map_err)
+      ~get_socket:(fun () -> Requests.Streams.Real_time.get_ts_bitrates_ws control)
+      _bitrates
 
   method private _streams = React.S.const []
 

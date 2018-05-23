@@ -41,7 +41,7 @@ type ts_state =
 type ts_states = ts_state list [@@deriving yojson]
 
 type ts_error =
-  { stream_id : Common.Stream.id
+  { stream    : Common.Stream.t
   ; timestamp : Common.Time.t
   ; count     : int
   ; err_code  : int
@@ -178,6 +178,8 @@ type t2mi_info =
   ; l1_pre         : string option
   ; l1_post_conf   : string option
   } [@@deriving yojson]
+
+type t2mi_info_list = t2mi_info list [@@deriving yojson]
 
 type t2mi_info_response = t2mi_info option [@@deriving yojson]
 

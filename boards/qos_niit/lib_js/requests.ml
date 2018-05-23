@@ -130,7 +130,7 @@ module Streams = struct
       WS.get (Printf.sprintf "api/board/%d/ts_struct_ws/%ld" control id) ts_struct_of_yojson
 
     (** Event is raised when structures of all available TSs change **)
-    let get_ts_struct_ws control =
+    let get_ts_structs_ws control =
       WS.get (Printf.sprintf "api/board/%d/ts_struct_ws" control) ts_structs_of_yojson
 
     (** Returns current structure of requested TS **)
@@ -152,21 +152,21 @@ module Streams = struct
     (* Bitrates *)
 
     (** Returns current bitrates of requested stream **)
-    let get_ts_bitrate_for_stream (sid:Common.Stream.id) control =
+    let get_ts_bitrate (sid:Common.Stream.id) control =
       let id = Common.Stream.id_to_int32 sid in
       get_result ts_structs_of_yojson (Printf.sprintf "/api/board/%d/ts_bitrate/%ld" control id)
 
     (** Returns current bitrates of all available ts streams **)
-    let get_ts_bitrate control =
+    let get_ts_bitrates control =
       get_result ts_structs_of_yojson (Printf.sprintf "/api/board/%d/ts_bitrate" control)
 
     (** Events is raised when bitrates of corresponding streams changes **)
-    let get_ts_bitrate_for_stream_ws (sid:Common.Stream.id) control =
+    let get_ts_bitrate_ws (sid:Common.Stream.id) control =
       let id = Common.Stream.id_to_int32 sid in
       get_result ts_structs_of_yojson (Printf.sprintf "/api/board/%d/ts_bitrate_ws/%ld" control id)
 
     (** Event is raised when bitrates of all available ts streams change **)
-    let get_ts_bitrate_ws control =
+    let get_ts_bitrates_ws control =
       WS.get (Printf.sprintf "api/board/%d/ts_bitrate_ws" control) ts_structs_of_yojson
 
   end

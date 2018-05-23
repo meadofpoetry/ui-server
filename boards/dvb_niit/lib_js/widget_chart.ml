@@ -55,7 +55,8 @@ let make_chart_base ~(config: config)
                      new Chartjs.Line.Dataset.t ~label ~data ~x_axis ~y_axis ())
                           init
   in
-  List.iteri (fun i x -> let clr = Option.get_or ~default:(Color.Red C500) @@ List.get_at_idx i colors in
+  List.iteri (fun i x -> let clr = Option.get_or ~default:(Color.Red C500)
+                                   @@ List.get_at_idx i colors in
                          x#set_bg_color @@ Color.rgb_of_name clr;
                          x#set_border_color @@ Color.rgb_of_name clr;
                          x#set_cubic_interpolation_mode `Monotone;
