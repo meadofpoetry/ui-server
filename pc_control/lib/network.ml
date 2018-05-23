@@ -165,8 +165,26 @@ module Nm = struct
              ; OBus_value.V.basic_uint32 0l  (* TODO fix that *)
              ; OBus_value.V.basic_uint32 0l ]))
         x
-      |> fun a -> (OBus_value.V.array (OBus_value.T.Array (OBus_value.T.Basic OBus_value.T.Uint32)) a)
-             
+      |> OBus_value.V.array (OBus_value.T.Array (OBus_value.T.Basic OBus_value.T.Uint32))
+
+    let wrap_address_data_list x =
+      let open OBus_value in
+      List.map (fun (addr, mask) ->
+          (V.dict T.String T.Variant
+             [ V.string "address", V.basic_string @@ Ipaddr.V4.to_string addr
+             ; V.string "prefix", V.basic_uint32 mask ]))
+        x
+      |> V.array (T.Dict (T.String, T.Variant))
+
+    let wrap_route_data_list x =
+      let open OBus_value in
+      List.map (fun (addr, mask) ->
+          (V.dict T.String T.Variant
+             [ V.string "route", V.basic_string @@ Ipaddr.V4.to_string addr
+             ; V.string "prefix", V.basic_uint32 mask ]))
+        x
+      |> V.array (T.Dict (T.String, T.Variant))
+                
     let to_dbus c =
       let open OBus_value in
       let eth  = [ "mac-address", wrap_bytes c.ethernet.mac_address] in
@@ -178,17 +196,21 @@ module Nm = struct
       in
       let ipv4 =
         let addresses = wrap_address_list ?gateway:c.ipv4.routes.gateway [c.ipv4.address] in
+        let address_data = wrap_address_data_list [c.ipv4.address] in
         let routes    = match c.ipv4.routes.gateway with
-          | None   -> `Static  (wrap_route_list c.ipv4.routes.static)
+          | None   -> `Static  ( wrap_route_list c.ipv4.routes.static
+                               , wrap_route_data_list c.ipv4.routes.static)
           | Some x -> `Gateway (wrap_ip_string x)
         in
         let dns  = wrap_dns_list c.ipv4.dns in
         let meth = wrap_string @@ meth_to_string c.ipv4.meth in
         [ "addresses", addresses
+        ; "address-data", address_data
         ; "dns", dns
         ; "method", meth ]
         @ match routes with
-          | `Static  r -> [ "routes",  r ]
+          | `Static (r, rd) -> [ "routes",  r
+                               ; "routes-data", rd ]
           | `Gateway g -> [ "gateway", g ]
       in
       [ "802-3-ethernet", eth; "connection", conn; "ipv4", ipv4]
