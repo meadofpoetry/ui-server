@@ -139,33 +139,10 @@ module Nm = struct
     let wrap_int32 x = OBus_value.V.basic_int32 @@ Int32.of_int x
 
     let wrap_ip_string x = OBus_value.V.basic_string @@ Ipaddr.V4.to_string x
-                     
-    let wrap_address_list ?gateway x =
-      let gateway = match gateway with
-        | None   -> OBus_value.V.basic_uint32 0l
-        | Some v -> OBus_value.V.basic_uint32 @@ reverse_int32 @@ Ipaddr.V4.to_int32 v
-      in
-      List.map (fun (addr, mask) ->
-          (OBus_value.V.array (OBus_value.T.Basic OBus_value.T.Uint32)
-             [ OBus_value.V.basic_uint32 @@ reverse_int32 @@ Ipaddr.V4.to_int32 addr
-             ; OBus_value.V.basic_uint32 mask
-             ; gateway ]))
-        x
-      |> fun a -> (OBus_value.V.array (OBus_value.T.Array (OBus_value.T.Basic OBus_value.T.Uint32)) a)
 
     let wrap_dns_list x =
       List.map (fun dns -> OBus_value.V.basic_uint32 @@ reverse_int32 @@ Ipaddr.V4.to_int32 dns) x
       |> fun a -> (OBus_value.V.array (OBus_value.T.Basic OBus_value.T.Uint32) a)
-
-    let wrap_route_list x =
-      List.map (fun (addr, mask) ->
-          (OBus_value.V.array (OBus_value.T.Basic OBus_value.T.Uint32)
-             [ OBus_value.V.basic_uint32 @@ reverse_int32 @@ Ipaddr.V4.to_int32 addr
-             ; OBus_value.V.basic_uint32 mask
-             ; OBus_value.V.basic_uint32 0l  (* TODO fix that *)
-             ; OBus_value.V.basic_uint32 0l ]))
-        x
-      |> OBus_value.V.array (OBus_value.T.Array (OBus_value.T.Basic OBus_value.T.Uint32))
 
     let wrap_address_data_list x =
       let open OBus_value in
@@ -180,7 +157,7 @@ module Nm = struct
       let open OBus_value in
       List.map (fun (addr, mask) ->
           (V.dict T.String T.Variant
-             [ V.string "route", V.variant @@ V.basic_string @@ Ipaddr.V4.to_string addr
+             [ V.string "dest", V.variant @@ V.basic_string @@ Ipaddr.V4.to_string addr
              ; V.string "prefix", V.variant @@ V.basic_uint32 mask ]))
         x
       |> V.array (T.Dict (T.String, T.Variant))
@@ -195,22 +172,18 @@ module Nm = struct
                    | True p -> [ "autoconnect-priority", wrap_int32 p ]
       in
       let ipv4 =
-        let addresses = wrap_address_list ?gateway:c.ipv4.routes.gateway [c.ipv4.address] in
         let address_data = wrap_address_data_list [c.ipv4.address] in
         let routes    = match c.ipv4.routes.gateway with
-          | None   -> `Static  ( wrap_route_list c.ipv4.routes.static
-                               , wrap_route_data_list c.ipv4.routes.static)
+          | None   -> `Static  (wrap_route_data_list c.ipv4.routes.static)
           | Some x -> `Gateway (wrap_ip_string x)
         in
         let dns  = wrap_dns_list c.ipv4.dns in
         let meth = wrap_string @@ meth_to_string c.ipv4.meth in
-        [ "addresses", addresses
-        ; "address-data", address_data
+        [ "address-data", address_data
         ; "dns", dns
         ; "method", meth ]
         @ match routes with
-          | `Static (r, rd) -> [ "routes",  r
-                               ; "route-data", rd ]
+          | `Static rd -> [ "route-data", rd ]
           | `Gateway g -> [ "gateway", g ]
       in
       [ "802-3-ethernet", eth; "connection", conn; "ipv4", ipv4]
@@ -303,6 +276,12 @@ module Nm = struct
     
 end
 
+let debug_print_settings conf =
+  Lwt_io.printf "Value: %s\n" (List.fold_left (fun acc (n, v) ->
+                                   Printf.sprintf "%s\n%s: { %s }" acc n (List.fold_left (fun acc (n, v) ->
+                                                                              Printf.sprintf "%s\n\t%s: %s" acc n (OBus_value.V.string_of_single v)) "" v))
+                                 "" conf) |> ignore; 
+
 class eth_connection ?defaults bus nm name device =
   let conn_path  = Lwt_main.run @@ OBus_property.get @@ Nm.Device.connection_prop device in
   let connection =
@@ -348,15 +327,8 @@ class eth_connection ?defaults bus nm name device =
         (fun e -> Lwt.return_error ("apply failed with " ^ (Printexc.to_string e)))
       
   end
-  
-let debug_print_settings conf =
-  Lwt_io.printf "Value: %s\n" (List.fold_left (fun acc (n, v) ->
-                                   Printf.sprintf "%s\n%s: { %s }" acc n (List.fold_left (fun acc (n, v) ->
-                                                                              Printf.sprintf "%s\n\t%s: %s" acc n (OBus_value.V.string_of_single v)) "" v))
-                                 "" conf) |> ignore;
 
 module Conf = Storage.Config.Make(Network_settings)
-(* module Opts = Storage.Options.Make(Network_config.Options) *)
 
 type t = { intern : eth_connection
          ; extern : (eth_connection * Network_config.t Storage.Options.storage) option
@@ -389,7 +361,7 @@ let init base_dir (config : Network_settings.t) : t =
                          >>= fun conf ->
                          List.find_opt (fun (typ, name, proxy) ->
                              Int32.equal Nm.Device.type_ethernet typ
-                             && not (String.equal conf.interface name))
+                             && String.equal conf.interface name)
                            devices
                          >>= fun (_,name,proxy) ->
                          Some (try Ok (new eth_connection bus nm_proxy name proxy)
@@ -400,13 +372,13 @@ let init base_dir (config : Network_settings.t) : t =
   let exterior = match exterior with
     | Error _ -> (* TODO log *) None
     | Ok v    ->
-       let default = Result.get_exn
+       let applied = Result.get_exn
                      @@ Lwt_main.run
                      @@ v#get_config ()
        in
        let default = match config.extern with
-         | None   -> default
-         | Some c -> Option.get_or (Network_settings.apply default c) ~default
+         | None   -> applied
+         | Some c -> Option.get_or (Network_settings.apply applied c) ~default:applied
        in
        let module Opts =
          Storage.Options.Make(struct
