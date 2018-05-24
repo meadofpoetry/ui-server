@@ -15,6 +15,92 @@ module Requests = struct
     
 end
 
+let make_eth (eth : Network_config.ethernet_conf) =
+  let eth_head  = new Card.Primary.t ~widgets:[new Card.Primary.title "Настройки устройства" ()] () in
+
+  let of_string x = match Macaddr.of_string x with
+    | Some v -> Ok v
+    | None   -> Error "Неверный мак адрес"
+  in
+  let to_string x = Macaddr.to_string x in
+  let address    = new Textfield.t
+                     ~input_id:"mac-addr"
+                     ~label:"MAC адрес"
+                     ~input_type:(Widget.Custom (of_string, to_string))
+                     ()
+  in
+
+  let signal, push = React.S.create eth in
+  
+  let set (eth : Network_config.ethernet_conf) = address#fill_in eth.mac_address in
+
+  let media      = new Card.Media.t ~widgets:[new Box.t ~vertical:true ~widgets:[ address#widget ] ()] () in
+  media#style##.margin := Js.string "15px";
+  let eth_sets  = new Card.t ~widgets:[ eth_head#widget; media#widget ] () in
+  
+  let signal = Lwt_react.S.l2
+                 (fun (config : Network_config.ethernet_conf) mac_address ->
+                   match mac_address with
+                   | None -> config
+                   | Some mac_address -> { config with mac_address })
+                 signal address#s_input
+  in
+  
+  eth_sets, signal, set
+                
+let make_dns (dns : Network_config.v4 list) =
+  let make_dns_entry del_dns addr =
+    let text        = Ipaddr.V4.to_string addr in
+    let del_button  = new Button.t ~label:"delete" () in
+    let item        = new Item_list.Item.t ~text ~end_detail:del_button () in
+    Lwt_react.E.map (fun _ -> del_dns item addr) del_button#e_click |> ignore;
+    item
+  in
+
+  let header = new Typography.Text.t ~font:Typography.Subheading_1 ~text:"Список DNS" () in
+  let list   = new Item_list.t ~items:[] () in
+
+  let address  = new Textfield.t ~input_id:"address-dns" ~label:"Адрес" ~input_type:Widget.IPV4 () in
+  let add_but  = new Button.t ~label:"Добавить" () in
+  let add_box  = new Box.t ~vertical:false ~widgets:[address#widget; add_but#widget] () in
+
+  let full_box = new Box.t ~widgets:[header#widget; list#widget; add_box#widget] () in
+
+  let signal, push = React.S.create [] in
+
+  let del_dns item addr =
+    list#remove_item item;
+    push
+    @@ List.filter (fun dns -> not (Network_config.equal_v4 addr dns))
+    @@ React.S.value signal
+  in
+  let add_dns addr =
+    let rlst = React.S.value signal in
+    if List.exists (Network_config.equal_v4 addr) rlst
+    then failwith "dns exists"; (* TODO fix *)
+    let entry = make_dns_entry del_dns addr in
+    list#add_item entry;
+    push (addr::rlst)
+  in
+  let set dns =
+    list#set_empty ();
+    push [];
+    List.iter add_dns dns
+  in
+  let set_disabled flag =
+    address#set_disabled flag;
+    add_but#set_disabled flag;
+  in
+
+  Lwt_react.E.keep @@
+    Lwt_react.E.map (fun _ ->
+        match React.S.value address#s_input with
+        | Some addr -> add_dns addr
+        | _ -> ())
+      add_but#e_click;
+  
+  full_box, signal, set, set_disabled
+                  
 let make_routes (routes : Network_config.address list) =
   let make_route_entry del_route route =
     let (addr,mask) = route in
@@ -46,7 +132,7 @@ let make_routes (routes : Network_config.address list) =
   let add_route (addr, mask) =
     let rlst = React.S.value signal in
     if List.exists (Network_config.equal_address (addr,mask)) rlst
-    then failwith "stream exists"; (* TODO fix *)
+    then failwith "route exists"; (* TODO fix *)
     let entry = make_route_entry del_route (addr, mask) in
     list#add_item entry;
     push ((addr, mask)::rlst)
@@ -59,7 +145,7 @@ let make_routes (routes : Network_config.address list) =
   let set_disabled flag =
     address#set_disabled flag;
     mask#set_disabled flag;
-    add_but#set_disabled flag
+    add_but#set_disabled flag;
   in
 
   Lwt_react.E.keep @@
@@ -82,6 +168,7 @@ let make_ipv4 (ipv4 : Network_config.ipv4_conf) =
   let address    = new Textfield.t ~input_id:"address-ipv4" ~label:"Адрес" ~input_type:Widget.IPV4 () in
   let mask       = new Textfield.t ~input_id:"mask-ipv4"  ~label:"Маска подсети" ~input_type:(Widget.Integer (Some 0, Some 32)) () in
   let gateway    = new Textfield.t ~input_id:"gateway" ~label:"Шлюз" ~input_type:Widget.IPV4 () in
+  let dns, dns_s, dns_set, dns_disable = make_dns ipv4.dns in
   let routes, routes_s, routes_set, routes_disable = make_routes ipv4.routes.static in
 
   let signal, push = React.S.create ipv4 in
@@ -91,6 +178,7 @@ let make_ipv4 (ipv4 : Network_config.ipv4_conf) =
     address#fill_in @@ fst ipv4.address;
     mask#fill_in (Int32.to_int @@ snd ipv4.address);
     CCOpt.iter gateway#fill_in ipv4.routes.gateway;
+    dns_set ipv4.dns;
     routes_set ipv4.routes.static;
     push ipv4
   in
@@ -100,6 +188,7 @@ let make_ipv4 (ipv4 : Network_config.ipv4_conf) =
     Lwt_react.S.map (fun disabled -> address#set_disabled disabled;
                                      mask#set_disabled disabled;
                                      gateway#set_disabled disabled;
+                                     dns_disable disabled;
                                      routes_disable disabled) meth#input_widget#s_state;
 
   (* disable routes on gateway config *)
@@ -110,6 +199,7 @@ let make_ipv4 (ipv4 : Network_config.ipv4_conf) =
                                                                                   address#widget;
                                                                                   mask#widget;
                                                                                   gateway#widget;
+                                                                                  dns#widget;
                                                                                   routes#widget ] ()
                      ] ()
   in
@@ -133,11 +223,18 @@ let make_ipv4 (ipv4 : Network_config.ipv4_conf) =
                  gateway#s_input
                  routes_s
   in
+  let signal = Lwt_react.S.l2 (fun (config : Network_config.ipv4_conf) dns -> { config with dns } ) signal dns_s in
+  
   ipv4_sets, signal, set
                 
 let make_card is_root post (config : Network_config.t) =
-  (*let mac_field  = 
-  let hard_sets  = *)
+  let warning    = new Dialog.t
+                     ~title:"Внимание!"
+                     ~content:(`String "Применение настроек может привести к разрыву соединения. Вы уверены, что хотите применить данные настройки?") ()
+  in
+  Dom.appendChild Dom_html.document warning#root;
+  
+  let eth_sets, eth_s, eth_set = make_eth config.ethernet in
   let ipv4_sets, ipv4_s, ipv4_set  = make_ipv4 config.ipv4 in
 
   let apply      = new Button.t ~label:"Применить" () in
@@ -146,18 +243,26 @@ let make_card is_root post (config : Network_config.t) =
   let signal, push = React.S.create config in
 
   let set (config : Network_config.t) =
+    eth_set config.ethernet;
     ipv4_set config.ipv4;
     push config
   in
 
   (* init *)
   set config;
-  let signal = Lwt_react.S.l2 (fun (config : Network_config.t) ipv4 -> { config with ipv4 }) signal ipv4_s in
+  let signal = Lwt_react.S.l3
+                 (fun (config : Network_config.t) ipv4 ethernet -> { config with ipv4; ethernet })
+                 signal ipv4_s eth_s
+  in
   
   Lwt_react.E.keep @@
-    Lwt_react.E.map (fun _ -> post @@ Lwt_react.S.value signal) apply#e_click;
+    Lwt_react.E.map (fun _ -> warning#show_await ()
+                              >>= function
+                              | `Accept -> post @@ Lwt_react.S.value signal
+                              | `Cancel -> Lwt.return_unit)
+      apply#e_click;
 
-  new Box.t ~vertical:true ~widgets:[ipv4_sets#widget; apply#widget] (), set
+  new Box.t ~vertical:true ~widgets:[eth_sets#widget; ipv4_sets#widget; apply#widget] (), set
 
 let page user =
   let is_root = user = `Root in

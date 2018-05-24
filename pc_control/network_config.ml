@@ -68,7 +68,7 @@ type t            = { ethernet   : ethernet_conf
                     ; ipv6       : ipv6_conf
                     ; proxy      : proxy_conf
                     } [@@deriving yojson, eq]
-and ethernet_conf = { mac_address  : Macaddr.t }
+and ethernet_conf = { mac_address  : Macaddr.t } (* TODO make optional *)
 and conn_conf     = { autoconnect  : autoconnect
                     ; id           : string
                     ; uuid         : string
