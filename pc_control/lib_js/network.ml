@@ -82,7 +82,7 @@ let make_ipv4 (ipv4 : Network_config.ipv4_conf) =
     meth#set_checked (ipv4.meth = Auto);
     address#fill_in @@ fst ipv4.address;
     mask#fill_in (Int32.to_int @@ snd ipv4.address);
-    gateway#fill_in @@ CCOpt.get_exn ipv4.routes.gateway;
+    CCOpt.iter gateway#fill_in ipv4.routes.gateway;
     routes_set ipv4.routes.static;
     push ipv4
   in
