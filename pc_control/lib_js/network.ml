@@ -232,7 +232,7 @@ let make_card is_root post (config : Network_config.t) =
                      ~title:"Внимание!"
                      ~content:(`String "Применение настроек может привести к разрыву соединения. Вы уверены, что хотите применить данные настройки?") ()
   in
-  Dom.appendChild Dom_html.document warning#root;
+  Dom.appendChild Dom_html.document##.body warning#root;
   
   let eth_sets, eth_s, eth_set = make_eth config.ethernet in
   let ipv4_sets, ipv4_s, ipv4_set  = make_ipv4 config.ipv4 in
