@@ -55,7 +55,7 @@ let make_routes (routes : Network_config.address list) =
     push [];
     List.iter add_route routes
   in
-  set routes; (* init *)
+  (*  set routes; init *)
 
   Lwt_react.E.keep @@
     Lwt_react.E.map (fun _ ->
@@ -103,7 +103,6 @@ let make_ipv4 (ipv4 : Network_config.ipv4_conf) =
                      ] ()
   in
   
-
   let signal = Lwt_react.S.l5 (fun (config : Network_config.ipv4_conf) address mask gateway routes ->
                    { config with
                      address =
@@ -126,13 +125,15 @@ let make_card is_root post (config : Network_config.t) =
   apply#set_disabled (not is_root);
 
   let signal, push = React.S.create config in
-  
-  let signal = Lwt_react.S.l2 (fun (config : Network_config.t) ipv4 -> { config with ipv4 }) signal ipv4_s in
 
   let set (config : Network_config.t) =
     ipv4_set config.ipv4;
     push config
   in
+
+  (* init *)
+  set config;
+  let signal = Lwt_react.S.l2 (fun (config : Network_config.t) ipv4 -> { config with ipv4 }) signal ipv4_s in
   
   Lwt_react.E.keep @@
     Lwt_react.E.map (fun _ -> post @@ Lwt_react.S.value signal) apply#e_click;
