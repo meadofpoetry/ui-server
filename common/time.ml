@@ -160,3 +160,120 @@ module Interval = struct
   let till (t:t) = snd t
 
 end
+
+module Relative : sig
+
+  (** Possible format:
+   ** now{+|-}{value}{unit} or plain 'now'
+   ** Possible time units are:
+   ** 's'   - second
+   ** 'min' - minute
+   ** 'h'   - hour
+   ** 'd'   - day
+   ** 'wk'  - week
+   **)
+
+  type t = [ `Now         (** no offset **)
+           | `Sec  of int
+           | `Min  of int
+           | `Hour of int
+           | `Day  of int
+           | `Week of int
+           ]
+
+  val to_absolute : t -> Ptime.t
+  val to_span     : t -> Ptime.span
+  val of_span     : Ptime.span -> t
+  val to_string   : t -> string
+  val of_string   : string -> t option
+
+end = struct
+
+  let s_in_minute = 60
+  let s_in_hour   = s_in_minute * 60
+  let s_in_day    = s_in_hour * 24
+  let s_in_week   = s_in_day * 7
+
+  type t = [ `Now | `Sec of int | `Min of int | `Hour of int | `Day of int | `Week of int ]
+
+  let to_value : t -> int = function
+    | `Now -> 0 | (`Sec x | `Min x | `Hour x | `Day x | `Week x) -> x
+
+  let to_seconds : t -> int = function
+    | `Now    -> 0
+    | `Sec d  -> d
+    | `Min d  -> d * s_in_minute
+    | `Hour d -> d * s_in_hour
+    | `Day d  -> d * s_in_day
+    | `Week d -> d * s_in_week
+
+  let divisors = [
+      (max_int, `Wk);  (* many wk = many wk *)
+      (7,  `D);        (* 7 d = 1 wk *)
+      (24, `Hr);       (* 24 hr = 1 d *)
+      (60, `Min);      (* 60 min = 1 hr *)
+      (60, `Sec)       (* 60 sec = 1 min *)
+    ]
+
+  let compute_duration secs =
+    let rec aux remain res = function
+      | [] -> res
+      | (n, s) :: ds -> aux (remain / n) ((remain mod n, s) :: res) ds
+    in
+    aux secs [] (List.rev divisors)
+
+  let to_max_unit (secs:int) : t =
+    compute_duration secs
+    |> List.filter_map (fun (d,s) -> if d <> 0 then Some s else None)
+    |> List.rev
+    |> function
+      | [ ]  -> `Sec 0
+      | x::_ -> (match x with
+                 | `Wk   -> `Week (secs / s_in_week)
+                 | `D    -> `Day (secs / s_in_day)
+                 | `Hr   -> `Hour (secs / s_in_hour)
+                 | `Min  -> `Min (secs / s_in_minute)
+                 | `Sec  -> `Sec secs)
+
+  let to_unit_string : t -> string = function
+    | `Now    -> ""  | `Sec _ -> "s" | `Min _  -> "min"
+    | `Hour _ -> "h" | `Day _ -> "d" | `Week _ -> "wk"
+  let of_unit_string (d:int) : string -> t option = function
+    | "s"   -> Some (`Sec d)
+    | "min" -> Some (`Min d)
+    | "h"   -> Some (`Hour d)
+    | "d"   -> Some (`Day d)
+    | "wk"  -> Some (`Week d)
+    | _     -> None
+
+  let of_span (s:Ptime.span) : t =
+    to_max_unit @@ int_of_float @@ Ptime.Span.to_float_s s
+  let to_span (t:t) =
+    Ptime.Span.of_int_s @@ to_seconds t
+
+  let to_absolute (t:t) : Ptime.t =
+    let span = to_span t in
+    let now = Option.get_exn @@ Ptime.of_float_s @@ Unix.gettimeofday () in
+    Option.get_exn @@ add_span now span
+
+  let to_string (t:t) = Printf.sprintf "now%+d%s" (to_value t) (to_unit_string t)
+  let of_string (s:string) : t option =
+    let open Angstrom in
+    let sub,add = char '-',char '+' in
+    let str     = take_while1 (function 'a'..'z' -> true | _ -> false) in
+    let number  = take_while1 (function '0'..'9' -> true | _ -> false) in
+    let prefix = string "now" in
+    let empty  = end_of_input >>= fun () -> return `Now in
+    let value  =
+      (sub <|> add)
+      >>= fun sign -> number
+      >>= fun num  -> return (int_of_string @@ String.of_char sign ^ num)
+      >>= fun v    -> str
+      >>= fun s    -> (match of_unit_string v s with
+                       | Some u -> return u
+                       | None   -> fail "bad unit value")
+    in
+    let parser = prefix *> (value <|> empty) in
+    parse_string parser s |> Result.to_opt
+
+end

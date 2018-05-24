@@ -59,71 +59,15 @@ open Common
 
 let (^::) = List.cons_maybe
 
-module Rel_time = struct
-
-  type unit = [ `Seconds
-              | `Minutes
-              | `Hours
-              | `Days
-              | `Weeks
-              | `Months
-              | `Years
-              ]
-  type t = int * unit
-
-  let unit_to_string = function
-    | `Seconds -> "s" | `Minutes -> "min" | `Hours  -> "h"
-    | `Days    -> "d" | `Weeks   -> "wk"  | `Months -> "mo"
-    | `Years   -> "y"
-  let unit_of_string = function
-    | "s" -> Some `Seconds | "min" -> Some `Minutes | "h"  -> Some `Hours
-    | "d" -> Some `Days    | "wk"  -> Some `Weeks   | "mo" -> Some `Months
-    | "y" -> Some `Years   | _     -> None
-
-  let time_to_string ((d,u):t) = Printf.sprintf "%+d%s" d (unit_to_string u)
-  let time_of_string (s:string) : (t,string) result =
-    let open Angstrom in
-    let sub,add = char '-',char '+' in
-    let string  = take_while1 (function 'a'..'z' -> true | _ -> false) in
-    let number  = take_while1 (function '0'..'9' -> true | _ -> false) in
-    let pre =
-      (sub <|> add)
-      >>= fun sign -> number
-      >>= fun num  -> return (int_of_string @@ String.of_char sign ^ num)
-      >>= fun v    -> string
-      >>= fun s    -> (match unit_of_string s with
-                       | Some u -> return (v,u)
-                       | None   -> fail "bad unit value")
-      >>| fun r    -> r
-    in parse_string pre s
-
-  let to_seconds ((d,u):t) : int = match u with
-    | `Seconds -> 0
-    | `Minutes -> 0
-    | `Hours   -> 0
-    | `Days    -> 0
-    | `Weeks   -> 0
-    | `Months  -> 0
-    | `Years   -> 0
-
-  let to_string (t:t) = Printf.sprintf "now%s" @@ time_to_string t
-  let of_string s : Ptime.t option =
-    let now () = Option.get_exn @@ Ptime.of_float_s @@ Unix.gettimeofday () in
-    match String.chop_prefix ~pre:"now" s with
-    | Some "" -> Some (now ())
-    | Some s  -> (match time_of_string s with
-                  | Ok t -> Some (now ())
-                  | _    -> None)
-    | None    -> None
-
-end
-
 type scheme = [`WS | `REST]
 type meth   = Cohttp.Code.meth
 type path   = string list
+type time   = [ `Time of Common.Time.t
+              | `Now
+              ]
 type query  =
-  { from     : Common.Time.t option
-  ; till     : Common.Time.t option
+  { from     : time option
+  ; till     : time option
   ; errors   : int list option
   ; level    : int list option
   ; max      : int option
