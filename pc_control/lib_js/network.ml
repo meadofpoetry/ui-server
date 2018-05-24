@@ -262,7 +262,9 @@ let make_card is_root post (config : Network_config.t) =
                               | `Cancel -> Lwt.return_unit)
       apply#e_click;
 
-  new Box.t ~vertical:true ~widgets:[eth_sets#widget; ipv4_sets#widget; apply#widget] (), set
+  let box = new Box.t ~vertical:true ~widgets:[eth_sets#widget; ipv4_sets#widget; apply#widget] () in
+  List.iter (fun card -> card#style##.marginBottom := Js.string "15px") box#widgets;
+  box, set
 
 let page user =
   let is_root = user = `Root in
