@@ -79,9 +79,7 @@ let get_topology_socket sock_data body app () =
   Hashtbl.add socket_table id sock_events;
   Lwt.return (resp, (body :> Cohttp_lwt.Body.t))
 
-  
-  
-let handle app id meth args sock_data _ body =
+let handle app id meth args _ sock_data _ body =
   let is_guest = Common.User.eq id `Guest in
   match meth, args with
   | `GET, []                    -> get_page ()

@@ -15,3 +15,10 @@
  ((targets (board_types.ml))
   (deps (../board_types.ml))
   (action (copy ${<} ${@}))))
+
+(rule
+ ((targets (api_utils.ml))
+  (deps (../api_utils.ml))
+  (action (copy ${<} ${@}))))
+
+

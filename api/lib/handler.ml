@@ -5,12 +5,12 @@ module Make ( User : sig type t end ) = struct
   
   type socket_data = Cohttp_lwt_unix.Request.t * Conduit_lwt_unix.flow
 
-  let wrap api_call meth args sock_data headers body =
-    fun id -> api_call id meth args sock_data headers body
+  let wrap api_call meth args uri sock_data headers body =
+    fun id -> api_call id meth args uri sock_data headers body
 
   module type HANDLER = sig
     val domain : string
-    val handle : User.t -> Cohttp.Code.meth -> string list -> socket_data ->
+    val handle : User.t -> Cohttp.Code.meth -> string list -> Uri.t -> socket_data ->
                  Cohttp.Header.t -> Cohttp_lwt.Body.t -> (Cohttp.Response.t * Cohttp_lwt.Body.t) Lwt.t
   end
   
@@ -25,20 +25,20 @@ module Make ( User : sig type t end ) = struct
       hndls;
     tbl
     
-  let handle tbl redir meth path sock_data headers body =
+  let handle tbl redir meth path uri sock_data headers body =
     match path with
     | key::tl -> let (module H : HANDLER) = Handlers.find tbl key in
-                 redir @@ wrap H.handle meth tl sock_data headers body
+                 redir @@ wrap H.handle meth tl uri sock_data headers body
     | _ -> not_found ()
 
   let add_layer (domain : string) (l : (module HANDLER) list) : (module HANDLER) =
     let tbl = create l in
     (module struct
        let domain = domain
-       let handle id meth path sock_data headers body =
+       let handle id meth path uri sock_data headers body =
          match path with
          | key::tl -> let (module H : HANDLER) = Handlers.find tbl key in
-                      H.handle id meth tl sock_data headers body
+                      H.handle id meth tl uri sock_data headers body
          | _ -> not_found ()
      end : HANDLER)
 

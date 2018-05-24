@@ -31,42 +31,6 @@ type jitter_mode =
 type t2mi_mode_request   = t2mi_mode option   [@@deriving yojson]
 type jitter_mode_request = jitter_mode option [@@deriving yojson]
 
-(** T2-MI frames sequence **)
-
-(* T2-MI packet types:
- * 0x00  - BB frame
- * 0x01  - Auxiliary stream I/Q data
- * 0x02  - Arbitrary cell insertion
- * 0x10  - L1 current
- * 0x11  - L1 future
- * 0x12  - P2 bias balancing cells
- * 0x20  - DVB-T2 timestamp
- * 0x21  - Individual addressing
- * 0x30  - FEF part : Null
- * 0x31  - FEF part : I/Q data
- * 0x32  - FEF part : composite
- * 0x33  - FEF sub-part
- * other - Reserved for future use
- *)
-
-(* NOTE suggest using fields like plp, frame, l1_param_1 and l1_param_2 as abstract parameters,
- * which have its own meaning for each packet type
- *)
-
-type t2mi_packet =
-  { typ         : int (* T2-MI packet type according to TS 102 773 *)
-  ; super_frame : int
-  ; stream_id   : int
-  ; frame       : int (* for packet types 0x00 .. 0x02, 0x10 .. 0x12 *)
-  ; count       : int
-  ; plp         : int (* only for BB frames *)
-  ; l1_param_1  : int (* L1DYN_CURR.FRAME_IDX  for L1 current, L1DYN_NEXT.FRAME_IDX for L1 future *)
-  ; l1_param_2  : int (* L1DYN_NEXT2.FRAME_IDX for L1 future *)
-  ; ts_packet   : int
-  } [@@deriving yojson]
-
-type t2mi_packets = t2mi_packet list [@@deriving yojson]
-
 (** SI/PSI section **)
 
 type section_request =
@@ -451,6 +415,42 @@ module Streams = struct
     type structures         = structure list [@@deriving yojson]
     type structure_response = structure option [@@deriving yojson]
 
+    (** T2-MI packet sequence **)
+
+    (* T2-MI packet types:
+     * 0x00  - BB frame
+     * 0x01  - Auxiliary stream I/Q data
+     * 0x02  - Arbitrary cell insertion
+     * 0x10  - L1 current
+     * 0x11  - L1 future
+     * 0x12  - P2 bias balancing cells
+     * 0x20  - DVB-T2 timestamp
+     * 0x21  - Individual addressing
+     * 0x30  - FEF part : Null
+     * 0x31  - FEF part : I/Q data
+     * 0x32  - FEF part : composite
+     * 0x33  - FEF sub-part
+     * other - Reserved for future use
+     *)
+
+    (* NOTE suggest using fields like plp, frame, l1_param_1 and l1_param_2 as abstract parameters,
+     * which have its own meaning for each packet type
+     *)
+
+    type sequence_item =
+      { typ         : int (* T2-MI packet type according to TS 102 773 *)
+      ; super_frame : int
+      ; stream_id   : int
+      ; frame       : int (* for packet types 0x00 .. 0x02, 0x10 .. 0x12 *)
+      ; count       : int
+      ; plp         : int (* only for BB frames *)
+      ; l1_param_1  : int (* L1DYN_CURR.FRAME_IDX  for L1 current, L1DYN_NEXT.FRAME_IDX for L1 future *)
+      ; l1_param_2  : int (* L1DYN_NEXT2.FRAME_IDX for L1 future *)
+      ; ts_packet   : int
+      } [@@deriving yojson]
+
+    type sequence = sequence_item list [@@deriving yojson]
+
   end
 
 end
@@ -524,97 +524,3 @@ module Errors = struct
   end
 
 end
-
-module Path = struct
-
-  type item    = string
-  type t       = item list
-  type req_typ = [ `WS  | `REST    ]
-  type archive = [ `Now | `Archive ]
-
-  module Infix = struct
-
-    let (^::) = List.cons_maybe
-    let (@)   = List.(@)
-
-  end
-
-  open Infix
-
-  let to_string (t:t) = List.fold_left Filename.concat "" t
-
-  let make ?(archive)
-           ?(api)
-           ?(subdomains=[])
-           ?(parameters=[])
-           (domain:item) =
-    let ws   = Option.map (function `REST -> "rest" | `WS -> "ws") api in
-    let arch = Option.map (function `Archive -> "archive" | `Now -> "now") archive in
-    (List.rev parameters) @ (arch ^:: ws ^:: (List.rev subdomains @ [domain]))
-    |> List.rev
-
-  let full control t =
-    let prefix = ["api"; "board"; string_of_int control ] in
-    (prefix @ t)
-
-end
-
-module Request = struct
-
-  open Path
-
-  let ws = "ws"
-
-  type board_mode =
-    | T2MI
-    | Jitter
-  type board_set =
-    | Reset
-    | Mode of board_mode
-  type board_get_rt =
-    | Devinfo
-    | Errors  of req_typ
-    | Config  of req_typ
-    | Status
-  type board_get_ar =
-    | Errors
-    | Status
-  type board =
-    | Set    of board_set
-    | Get_rt of board_get_rt
-    | Get_ar of board_get_ar
-
-  let board_mode_to_string = function T2MI -> "t2mi" | Jitter -> "jitter"
-  let board_mode_of_string = function "t2mi" -> Some T2MI | "jitter" -> Some Jitter | _ -> None
-
-  let board_to_path : board -> Path.t = function
-    | Set x    -> (match x with
-                   | Reset  -> make "reset"
-                   | Mode x -> let subdomains = List.return @@ board_mode_to_string x in
-                               make ~subdomains "mode")
-    | Get_rt x -> (match x with
-                   | Devinfo  -> make "devinfo"
-                   | Config x -> make "config"
-                   | Errors x -> make ~api:x   ~archive:`Now "errors"
-                   | Status   -> make ~api:`WS ~archive:`Now "status")
-    | Get_ar x -> (match x with
-                   | Errors   -> make ~api:`REST ~archive:`Archive "errors"
-                   | Status   -> make ~api:`REST ~archive:`Archive "status")
-
-  let board_of_path : Path.t -> board option = function
-    | ["reset"]  -> Some (Set Reset)
-    | ["mode";s] -> Option.map (fun m -> Set (Mode m)) @@ board_mode_of_string s
-    | [""]
-      | _          -> None
-
-  type t =
-    | Board of board
-
-  let to_path : t -> Path.t = function
-    | Board x -> board_to_path x
-
-  let of_path : Path.t -> t option = function
-    | _ -> None
-
-end
-

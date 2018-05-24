@@ -101,7 +101,7 @@ let config_ws sock_data (events : events) body =
 let streams_ws sock_data s_streams body =
   sock_handler sock_data (Lwt_react.S.changes s_streams) Common.Stream.t_list_to_yojson body
 
-let handle api events s_state s_streams _ meth args sock_data _ body =
+let handle api events s_state s_streams _ meth args _ sock_data _ body =
   let open Api.Redirect in
   match meth, args with
   | `POST, ["factory_mode"]   -> set_factory_mode api body ()

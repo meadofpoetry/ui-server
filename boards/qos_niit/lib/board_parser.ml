@@ -43,7 +43,7 @@ type api = { get_devinfo     : unit                -> devinfo_response Lwt.t
            ; set_input       : input               -> unit Lwt.t
            ; set_t2mi_mode   : t2mi_mode_request   -> unit Lwt.t
            ; set_jitter_mode : jitter_mode_request -> unit Lwt.t
-           ; get_t2mi_seq    : int                 -> t2mi_packets Lwt.t
+           ; get_t2mi_seq    : int                 -> Streams.T2MI.sequence Lwt.t
            ; get_t2mi_info   : unit                -> Streams.T2MI.structures Lwt.t
            ; get_section     : section_request     -> (section,section_error) Lwt_result.t
            ; reset           : unit                -> unit Lwt.t
@@ -82,7 +82,7 @@ type section_req =
 
 type _ request = Get_board_info     : devinfo request
                | Get_board_mode     : Types.mode request
-               | Get_t2mi_frame_seq : t2mi_frame_seq_req -> t2mi_packets request
+               | Get_t2mi_frame_seq : t2mi_frame_seq_req -> Streams.T2MI.sequence request
                | Get_section        : section_req        -> (section,section_error) result request
 
 (* ------------------- Misc ------------------- *)
@@ -236,9 +236,10 @@ end
 
 module Get_t2mi_frame_seq : (Request
                              with type req := t2mi_frame_seq_req
-                             with type rsp = t2mi_packets) = struct
+                             with type rsp = Streams.T2MI.sequence) = struct
+  open Streams.T2MI
 
-  type rsp = t2mi_packet list
+  type rsp = sequence
 
   let req_code = 0x0306
   let rsp_code = req_code
@@ -250,7 +251,7 @@ module Get_t2mi_frame_seq : (Request
 
   let of_cbuffer msg =
     let iter = Cbuffer.iter (fun _ -> Some sizeof_t2mi_frame_seq_item) (fun buf -> buf) msg in
-    Cbuffer.fold (fun (acc : t2mi_packet list) el ->
+    Cbuffer.fold (fun (acc : sequence) el ->
         let sframe_stream = get_t2mi_frame_seq_item_sframe_stream el in
         { typ         = get_t2mi_frame_seq_item_typ el
         ; super_frame = (sframe_stream land 0xF0) lsr 4
@@ -262,7 +263,7 @@ module Get_t2mi_frame_seq : (Request
         ; l1_param_2  = get_t2mi_frame_seq_item_dyn2_frame el
         ; ts_packet   = Int32.to_int @@ get_t2mi_frame_seq_item_time el
         } :: acc)
-      iter []
+                 iter []
     |> List.rev
 
 end
