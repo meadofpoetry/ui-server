@@ -230,6 +230,8 @@ let make_ipv4 (ipv4 : Network_config.ipv4_conf) =
 let make_card is_root post (config : Network_config.t) =
   let warning    = new Dialog.t
                      ~title:"Внимание!"
+                     ~actions:[ new Dialog.Action.t ~typ:`Decline ~label:"Отмена" ()
+                              ; new Dialog.Action.t ~typ:`Accept ~label:"Применить" () ]
                      ~content:(`String "Применение настроек может привести к разрыву соединения. Вы уверены, что хотите применить данные настройки?") ()
   in
   Dom.appendChild Dom_html.document##.body warning#root;
