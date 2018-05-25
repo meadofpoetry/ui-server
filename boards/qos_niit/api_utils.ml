@@ -1,3 +1,5 @@
+open Api.Api_types
+
 (** API
  **
  ** WS | REST | BOTH
@@ -59,15 +61,10 @@ open Common
 
 let (^::) = List.cons_maybe
 
-type scheme = [`WS | `REST]
-type meth   = Cohttp.Code.meth
 type path   = string list
-type time   = [ `Time of Common.Time.t
-              | `Now
-              ]
+
 type query  =
-  { from     : time option
-  ; till     : time option
+  { time     : Api.Api_types.Time.Range.t_abs
   ; errors   : int list option
   ; level    : int list option
   ; max      : int option

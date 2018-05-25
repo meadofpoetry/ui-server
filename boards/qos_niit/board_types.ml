@@ -459,12 +459,6 @@ module Errors = struct
 
   open Common.Time
 
-  type 'a _archive_response =
-    { errors     : 'a list
-    ; no_sync    : Interval.t list
-    ; no_measure : Interval.t list
-    } [@@deriving yojson]
-
   type segmentation =
     { errors     : float
     ; no_stream  : float
@@ -489,14 +483,6 @@ module Errors = struct
 
     type t_list = t list [@@deriving yojson]
 
-    type archive_request =
-      { priority : int option
-      ; errors   : int list option
-      ; period   : Interval.t
-      ; stream   : Stream.id option
-      } [@@deriving yojson]
-    type archive_response = t _archive_response [@@deriving yojson]
-
   end
 
   module T2MI = struct
@@ -513,13 +499,6 @@ module Errors = struct
       } [@@deriving yojson]
 
     type t_list = t list [@@deriving yojson]
-
-    type archive_request =
-      { errors : int list option
-      ; period : Interval.t
-      ; stream : Stream.id option
-      } [@@deriving yojson]
-    type archive_response = t _archive_response [@@deriving yojson]
 
   end
 

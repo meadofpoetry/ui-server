@@ -150,17 +150,6 @@ module Period = struct
 
 end
 
-module Interval = struct
-
-  type timestamp = t [@@deriving yojson]
-
-  type t = timestamp * timestamp [@@deriving yojson]
-
-  let from (t:t) = fst t
-  let till (t:t) = snd t
-
-end
-
 module Relative : sig
 
   (** Relative timestamp string format:
@@ -185,6 +174,7 @@ module Relative : sig
            | `Week of int
            ]
 
+  val equal : t -> t -> bool
   (** [round t] rounds relative timestamp [t] to largest possible
    **  time unit without precision loss, if possible
    **)
@@ -253,6 +243,7 @@ end = struct
     | "wk"  -> Some (`Week d)
     | _     -> None
 
+
   let to_seconds : t -> int = function
     | `Now    -> 0
     | `Sec d  -> d
@@ -261,19 +252,23 @@ end = struct
     | `Day d  -> d * s_in_day
     | `Week d -> d * s_in_week
 
+  let equal (t1:t) (t2:t) : bool = to_seconds t1 = to_seconds t2
+
   let round (t:t) : t =
-    let secs = to_seconds t in
-    compute_duration secs
-    |> List.filter_map (fun (d,s) -> if d <> 0 then Some s else None)
-    |> List.rev
-    |> function
-      | [ ]  -> `Sec 0
-      | x::_ -> (match x with
-                 | `Wk   -> `Week (secs / s_in_week)
-                 | `D    -> `Day (secs / s_in_day)
-                 | `Hr   -> `Hour (secs / s_in_hour)
-                 | `Min  -> `Min (secs / s_in_minute)
-                 | `Sec  -> `Sec secs)
+    match t with
+    | `Now -> `Now
+    | t    -> let secs = to_seconds t in
+              compute_duration secs
+              |> List.filter_map (fun (d,s) -> if d <> 0 then Some s else None)
+              |> List.rev
+              |> function
+                | [ ]  -> `Now
+                | x::_ -> (match x with
+                           | `Wk   -> `Week (secs / s_in_week)
+                           | `D    -> `Day (secs / s_in_day)
+                           | `Hr   -> `Hour (secs / s_in_hour)
+                           | `Min  -> `Min (secs / s_in_minute)
+                           | `Sec  -> `Sec secs)
 
   let of_seconds (x:int) : t = round (`Sec x)
 
@@ -287,9 +282,10 @@ end = struct
       | None   -> Option.get_exn @@ Ptime.of_float_s @@ Unix.gettimeofday ()
     in Option.get_exn @@ add_span time span
 
-  let to_string (t:t) =
-    let t = round t in
-    Printf.sprintf "now%+d%s" (to_value t) (to_unit_string t)
+  let to_string : t -> string = function
+    | `Now -> "now"
+    | t    -> let t = round t in
+              Printf.sprintf "now%+d%s" (to_value t) (to_unit_string t)
   let of_string (s:string) : t option =
     let open Angstrom in
     let sub,add = char '-',char '+' in
