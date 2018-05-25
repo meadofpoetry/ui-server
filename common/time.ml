@@ -163,14 +163,18 @@ end
 
 module Relative : sig
 
-  (** Possible format:
+  (** Relative timestamp string format:
    ** now{+|-}{value}{unit} or plain 'now'
+   **
    ** Possible time units are:
    ** 's'   - second
    ** 'min' - minute
    ** 'h'   - hour
    ** 'd'   - day
    ** 'wk'  - week
+   **
+   ** TODO consider adding months and years.
+   ** The problem is that months and years have indeterminate number of seconds
    **)
 
   type t = [ `Now         (** no offset **)
@@ -181,11 +185,35 @@ module Relative : sig
            | `Week of int
            ]
 
-  val to_absolute : t -> Ptime.t
-  val to_span     : t -> Ptime.span
-  val of_span     : Ptime.span -> t
-  val to_string   : t -> string
-  val of_string   : string -> t option
+  (** [round t] rounds relative timestamp [t] to largest possible
+   **  time unit without precision loss, if possible
+   **)
+  val round : t -> t
+  (** [to_absolute ?time t] converts relative timestamp [t] to absolute of type Ptime.t
+   ** by adding [t]'s value to [time] if provided or to current system time
+   **)
+  val to_absolute : ?time:Ptime.t -> t -> Ptime.t
+  (** [of_seconds s] returns rounded (if possible) relative timestamp from [s] seconds
+   **)
+  val of_seconds : int -> t
+  (** [to_seconds t] returns number of seconds in relative timestamp
+   **)
+  val to_seconds : t -> int
+  (** [to_span t] converts relative timestamp [t] to time span of type Ptime.span
+   **)
+  val to_span : t -> Ptime.span
+  (** [of_span s] converts time span [s] of type Ptime.span to relative timestamp
+   **)
+  val of_span : Ptime.span -> t
+  (** [to_string t] converts relative timestamp [t] to formatted string.
+   ** If possible, [t]'s value is rounded without precision loss
+   ** to make resulting string shorter.
+   **)
+  val to_string : t -> string
+  (** [of_string s] converts formatted string [s] to relative timestamp.
+   ** If possible, time value from [s] is rounded without precision loss.
+   **)
+  val of_string : string -> t option
 
 end = struct
 
@@ -198,14 +226,6 @@ end = struct
 
   let to_value : t -> int = function
     | `Now -> 0 | (`Sec x | `Min x | `Hour x | `Day x | `Week x) -> x
-
-  let to_seconds : t -> int = function
-    | `Now    -> 0
-    | `Sec d  -> d
-    | `Min d  -> d * s_in_minute
-    | `Hour d -> d * s_in_hour
-    | `Day d  -> d * s_in_day
-    | `Week d -> d * s_in_week
 
   let divisors = [
       (max_int, `Wk);  (* many wk = many wk *)
@@ -222,7 +242,27 @@ end = struct
     in
     aux secs [] (List.rev divisors)
 
-  let to_max_unit (secs:int) : t =
+  let to_unit_string : t -> string = function
+    | `Now    -> ""  | `Sec _ -> "s" | `Min _  -> "min"
+    | `Hour _ -> "h" | `Day _ -> "d" | `Week _ -> "wk"
+  let of_unit_string (d:int) : string -> t option = function
+    | "s"   -> Some (`Sec d)
+    | "min" -> Some (`Min d)
+    | "h"   -> Some (`Hour d)
+    | "d"   -> Some (`Day d)
+    | "wk"  -> Some (`Week d)
+    | _     -> None
+
+  let to_seconds : t -> int = function
+    | `Now    -> 0
+    | `Sec d  -> d
+    | `Min d  -> d * s_in_minute
+    | `Hour d -> d * s_in_hour
+    | `Day d  -> d * s_in_day
+    | `Week d -> d * s_in_week
+
+  let round (t:t) : t =
+    let secs = to_seconds t in
     compute_duration secs
     |> List.filter_map (fun (d,s) -> if d <> 0 then Some s else None)
     |> List.rev
@@ -235,28 +275,21 @@ end = struct
                  | `Min  -> `Min (secs / s_in_minute)
                  | `Sec  -> `Sec secs)
 
-  let to_unit_string : t -> string = function
-    | `Now    -> ""  | `Sec _ -> "s" | `Min _  -> "min"
-    | `Hour _ -> "h" | `Day _ -> "d" | `Week _ -> "wk"
-  let of_unit_string (d:int) : string -> t option = function
-    | "s"   -> Some (`Sec d)
-    | "min" -> Some (`Min d)
-    | "h"   -> Some (`Hour d)
-    | "d"   -> Some (`Day d)
-    | "wk"  -> Some (`Week d)
-    | _     -> None
+  let of_seconds (x:int) : t = round (`Sec x)
 
-  let of_span (s:Ptime.span) : t =
-    to_max_unit @@ int_of_float @@ Ptime.Span.to_float_s s
-  let to_span (t:t) =
-    Ptime.Span.of_int_s @@ to_seconds t
+  let of_span (s:Ptime.span) : t = of_seconds @@ int_of_float @@ Ptime.Span.to_float_s s
+  let to_span (t:t) = Ptime.Span.of_int_s @@ to_seconds t
 
-  let to_absolute (t:t) : Ptime.t =
+  let to_absolute ?time (t:t) : Ptime.t =
     let span = to_span t in
-    let now = Option.get_exn @@ Ptime.of_float_s @@ Unix.gettimeofday () in
-    Option.get_exn @@ add_span now span
+    let time = match time with
+      | Some t -> t
+      | None   -> Option.get_exn @@ Ptime.of_float_s @@ Unix.gettimeofday ()
+    in Option.get_exn @@ add_span time span
 
-  let to_string (t:t) = Printf.sprintf "now%+d%s" (to_value t) (to_unit_string t)
+  let to_string (t:t) =
+    let t = round t in
+    Printf.sprintf "now%+d%s" (to_value t) (to_unit_string t)
   let of_string (s:string) : t option =
     let open Angstrom in
     let sub,add = char '-',char '+' in
@@ -274,6 +307,6 @@ end = struct
                        | None   -> fail "bad unit value")
     in
     let parser = prefix *> (value <|> empty) in
-    parse_string parser s |> Result.to_opt
+    s |> parse_string parser |> Result.to_opt |> Option.map round
 
 end
