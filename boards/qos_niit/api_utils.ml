@@ -43,17 +43,17 @@ open Api.Api_types
  ** [from] - timestamp (can be 'now', 'now' - timespan)
  ** [to]   - timestamp (can be 'now')
  ** if both [from] and [to] equals to 'now' - current value is returned, if available for the request
- ** if [from] is absent, data returned from the beginning to [to] value
- ** if [to] is absent, data returend from [from] value to the end
- ** if both [from] and [to] are absent, all data returned
+ ** if [from] is absent, data is returned from origin to [to] value
+ ** if [to] is absent, data is returend from [from] value to the last value
+ ** if both [from] and [to] are absent, all available data is returned (but no more than [limit] items)
  **
- ** FILTERING
- ** [errors] - list of error codes to be filtered
- ** [level]  - level of errors. Priority for TS; TS parser, T2-MI parser or T2-MI errors for T2-MI
- ** [max]    - limit of items in a response
- **
- ** OTHER
- ** [compress] - whether to integrate errors (e.g. for charts)
+ ** [filter[errors]] - list of error codes to be filtered
+ ** [filter[level]]  - level of errors to be filtered.
+ ** Priority for TS; TS parser, T2-MI parser or T2-MI errors for T2-MI
+ ** [limit]    - maximum number of items in a response (default FIXME)
+ ** [total]    - include [total] value into response to know how many collection items are available
+ ** [decimate] - if true, decimate the number of items in a collection  (e.g. for charts).
+ ** Possible values: 'off',FIXME mention available decimation algorithms here
  **)
 
 open Containers
@@ -64,11 +64,11 @@ let (^::) = List.cons_maybe
 type path   = string list
 
 type query  =
-  { time     : Api.Api_types.Time.Range.t_abs
+  { time     : Api.Query.Time.Range.t_abs
   ; errors   : int list option
   ; level    : int list option
   ; max      : int option
-  ; compress : bool option
+  ; decimate : bool option
   }
 
 module Domain = struct
