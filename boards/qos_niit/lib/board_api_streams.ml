@@ -6,6 +6,31 @@ open Api.Interaction
 open Api.Redirect
 open Common
 
+(**
+ ** API
+ **
+ ** BOTH GET  /streams/{?stream}
+ ** BOTH GET  /streams/input/{?stream}
+ ** BOTH GET  /streams/states/[ts|t2mi]/{?stream}
+ ** BOTH GET  /streams/structures/[ts|t2mi]/{?stream}
+ ** BOTH GET  /streams/bitrates/ts/{?stream}
+ ** REST GET  /streams/sequence/t2mi
+ ** REST GET  /streams/section/ts/{stream}/{table-id}/?[section; table-id-ext; eit-ts-id; eit-orig-nw-id]
+ **
+ ** QUERY PARAMETERS
+ **
+ ** [from]      - timestamp (can be 'now', 'now' - timespan)
+ ** [to]        - timestamp (can be 'now')
+ ** [f[errors]] - list of error codes to be filtered
+ ** [f[level]]  - level of errors to be filtered.
+ **               Priority for TS; TS parser, T2-MI parser or T2-MI errors for T2-MI
+ ** [limit]     - maximum number of items in a response (default FIXME)
+ ** [total]     - include [total] value into response to know how many collection items are available
+ ** [decimate]  - if true, decimate the number of items in a collection  (e.g. for charts).
+ **               Possible values: 'off',FIXME mention available decimation algorithms here
+ **
+ **)
+
 include Api_utils.Streams
 
 module WS = struct

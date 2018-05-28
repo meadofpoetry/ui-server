@@ -19,6 +19,9 @@ type scheme = [`WS | `REST]
 (** Method of a request **)
 type meth   = Cohttp.Code.meth
 
+(** Path of a request **)
+type path   = string list
+
 let meth_of_uri (u:Uri.t) = match Uri.scheme u with
   | Some "ws" | Some "wss" -> `WS
   | _                      -> `REST

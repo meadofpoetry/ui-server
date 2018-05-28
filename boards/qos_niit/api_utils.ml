@@ -1,80 +1,40 @@
 open Api.Api_types
-
-(** API
- **
- ** WS | REST | BOTH
- **
- ** DEVICE
- **
- ** REST POST /device/mode/[t2mi|jitter]
- ** REST POST /device/port/{port}/{boolean}
- ** REST POST /device/reset
- ** REST GET  /device/info
- ** BOTH GET  /device/state
- ** BOTH GET  /device/status
- ** BOTH GET  /device/mode/[t2mi|jitter]
- ** BOTH GET  /device/errors
- **
- ** ERRORS
- **
- ** BOTH GET  /errors/[ts|t2mi]/{?stream}
- ** REST GET  /errors/segmentation/[ts|t2mi]/{?stream}
- ** REST GET  /errors/has-errors/[ts|t2mi]/{?stream}
- **
- ** STREAMS
- **
- ** BOTH GET  /streams/{?stream}
- ** BOTH GET  /streams/input/{?stream}
- ** BOTH GET  /streams/states/[ts|t2mi]/{?stream}
- ** BOTH GET  /streams/structures/[ts|t2mi]/{?stream}
- ** BOTH GET  /streams/bitrates/ts/{?stream}
- ** REST GET  /streams/sequence/t2mi
- ** REST GET  /streams/section/ts/{stream}/{table-id}/?[section; table-id-ext; eit-ts-id; eit-orig-nw-id]
- **
- ** JITTER
- **
- ** TODO
- **
- **)
-
-(** QUERY PARAMETERS
- **
- ** TIMESTAMPS
- ** [from] - timestamp (can be 'now', 'now' - timespan)
- ** [to]   - timestamp (can be 'now')
- ** if both [from] and [to] equals to 'now' - current value is returned, if available for the request
- ** if [from] is absent, data is returned from origin to [to] value
- ** if [to] is absent, data is returend from [from] value to the last value
- ** if both [from] and [to] are absent, all available data is returned (but no more than [limit] items)
- **
- ** [filter[errors]] - list of error codes to be filtered
- ** [filter[level]]  - level of errors to be filtered.
- ** Priority for TS; TS parser, T2-MI parser or T2-MI errors for T2-MI
- ** [limit]    - maximum number of items in a response (default FIXME)
- ** [total]    - include [total] value into response to know how many collection items are available
- ** [decimate] - if true, decimate the number of items in a collection  (e.g. for charts).
- ** Possible values: 'off',FIXME mention available decimation algorithms here
- **)
-
 open Containers
 open Common
+open Api.Query
 
 let (^::) = List.cons_maybe
 
-type path   = string list
+type stream = [ `TS   of Stream.id option
+              | `T2MI of int option
+              ]
 
-type query  =
-  { time     : Api.Query.Time.Range.t_abs
-  ; errors   : int list option
-  ; level    : int list option
-  ; max      : int option
-  ; decimate : bool option
-  }
+let eq = String.equal
+
+let ts,t2mi = "ts","t2mi"
+
+let stream_to_path : stream -> path = function
+  | `TS x   ->
+     let sid = Option.map Fun.(Stream.id_to_int32 %> Int32.to_string) x in
+     ts :: (sid ^:: [])
+  | `T2MI x ->
+     let sid = Option.map Int.to_string x in
+     ts :: (sid ^:: [])
+let stream_of_path : path -> stream option = function
+  | [x] when eq x ts   -> Some (`TS None)
+  | [x] when eq x t2mi -> Some (`T2MI None)
+  | [x;y] when eq x ts ->
+     Option.map (fun i -> `TS (Some (Stream.id_of_int32 i))) @@ Int32.of_string y
+  | [x;y] when eq x t2mi ->
+     Option.map (fun i -> `T2MI (Some i)) @@ Int.of_string y
+  | _ -> None
 
 module Domain = struct
   let equal = String.equal
   type path = string list
 end
+
+
 module Device = struct
   include Domain
 
@@ -120,37 +80,19 @@ module Device = struct
        Option.map2 (fun p b -> `Port (p,b)) (int_of_string_opt y) (bool_of_string_opt z)
     | _-> None
 end
+
+
 module Errors = struct
   include Domain
   let domain  = "errors"
-  let ts,t2mi = "ts","t2mi"
   let segmentation,has_errors = "segmentation","has-errors"
 
-  type stream = [ `TS   of Stream.id option
-                | `T2MI of int option
-                ]
-  type req    = [ `Errors of stream
-                | `Segmentation of stream
-                | `Has_errors of stream
-                ]
+  type req = [ `Errors       of stream
+             | `Segmentation of stream
+             | `Has_errors   of stream
+             ]
 
   let eq = Domain.equal
-
-  let stream_to_path : stream -> path = function
-    | `TS x   ->
-       let sid = Option.map Fun.(Stream.id_to_int32 %> Int32.to_string) x in
-       ts :: (sid ^:: [])
-    | `T2MI x ->
-       let sid = Option.map Int.to_string x in
-       ts :: (sid ^:: [])
-  let stream_of_path : path -> stream option = function
-    | [x] when eq x ts   -> Some (`TS None)
-    | [x] when eq x t2mi -> Some (`T2MI None)
-    | [x;y] when eq x ts ->
-       Option.map (fun i -> `TS (Some (Stream.id_of_int32 i))) @@ Int32.of_string y
-    | [x;y] when eq x t2mi ->
-       Option.map (fun i -> `T2MI (Some i)) @@ Int.of_string y
-    | _ -> None
 
   let req_to_path : req -> string list = function
     | `Errors x       -> stream_to_path x
@@ -166,6 +108,8 @@ module Errors = struct
     | _ -> None
 
 end
+
+
 module Streams = struct
   include Domain
   let domain = "streams"
@@ -173,7 +117,6 @@ module Streams = struct
   let input,states,structures,
       bitrates,sequence,section = "input","states","structures",
                                   "bitrates","sequence","section"
-  type stream = Errors.stream
   type streams_req_type = [ `All | `Input ]
   type req = [ `Streams    of streams_req_type * Stream.id option
              | `States     of stream
@@ -184,9 +127,6 @@ module Streams = struct
              ]
 
   let eq = Domain.equal
-
-  let stream_to_path = Errors.stream_to_path
-  let stream_of_path = Errors.stream_of_path
 
   let req_to_path : req -> path = function
     | `Streams (t,id) ->
@@ -223,8 +163,6 @@ module Streams = struct
                    (Int32.of_string c) (Int.of_string d)
     | _ -> None
 end
-
-let eq = Domain.equal
 
 type req = [ `Device  of Device.req
            | `Errors  of Errors.req
