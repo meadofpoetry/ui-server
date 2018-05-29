@@ -10,19 +10,18 @@ open Common
  ** API
  **
  ** GET  /errors/[ts|t2mi]/{?stream}
- ** GET  /errors/segmentation/[ts|t2mi]/{?stream}
- ** GET  /errors/has-errors/[ts|t2mi]/{?stream}
+ ** GET  /errors/percent/[ts|t2mi]/{?stream}
+ ** GET  /errors/has-any/[ts|t2mi]/{?stream}
  **
  ** QUERY PARAMETERS
  **
  ** [from]      - timestamp (can be 'now', 'now' - timespan)
  ** [to]        - timestamp (can be 'now')
  ** [f[errors]] - list of error codes to be filtered
- ** [f[level]]  - level of errors to be filtered.
- **               Priority for TS; TS parser, T2-MI parser or T2-MI errors for T2-MI
- ** [limit] - maximum number of items in a response (default FIXME)
- ** [total] - include [total] value into response to know how many collection items are available
- ** [thin]  - if true, decimate the number of items in a collection  (e.g. for charts)
+ ** [f[level]]  - level of errors to be filtered. Priority for TS, ts-parser/t2mi-parser/errors for T2-MI
+ ** [limit]     - maximum number of items in a response (default FIXME)
+ ** [total]     - include [total] value into response to know how many collection items are available
+ ** [thin]      - if true, decimate the number of items in a collection  (e.g. for charts)
  **
  **)
 
@@ -33,23 +32,31 @@ let not_implemented = respond_error ~status:`Not_implemented
 
 module WS = struct
 
-  let ts_errors ?stream sock_data (events:events) body () =
-    let open Errors.TS in
-    let e = match stream with
-      | Some id -> let map = List.filter (fun (x:t) -> Stream.equal_id id x.stream) in
-                   React.E.map map events.ts_errors
-                   |> React.E.filter Fun.(not % List.is_empty)
-      | None    -> events.ts_errors
-    in sock_handler sock_data e t_list_to_yojson body
+  module TS = struct
 
-  let t2mi_errors ?stream sock_data (events:events) body () =
-    let open Errors.T2MI in
-    let e = match stream with
-      | Some id -> let map = List.filter (fun (x:t) -> Int.equal id x.stream_id) in
-                   React.E.map map events.t2mi_errors
-                   |> React.E.filter Fun.(not % List.is_empty)
-      | None    -> events.t2mi_errors
-    in sock_handler sock_data e t_list_to_yojson body
+    let errors ?stream sock_data (events:events) body () =
+      let open Errors.TS in
+      let e = match stream with
+        | Some id -> let map = List.filter (fun (x:t) -> Stream.equal_id id x.stream) in
+                     React.E.map map events.ts_errors
+                     |> React.E.filter Fun.(not % List.is_empty)
+        | None    -> events.ts_errors
+      in sock_handler sock_data e t_list_to_yojson body
+
+  end
+
+  module T2MI = struct
+
+    let errors ?stream sock_data (events:events) body () =
+      let open Errors.T2MI in
+      let e = match stream with
+        | Some id -> let map = List.filter (fun (x:t) -> Int.equal id x.stream_id) in
+                     React.E.map map events.t2mi_errors
+                     |> React.E.filter Fun.(not % List.is_empty)
+        | None    -> events.t2mi_errors
+      in sock_handler sock_data e t_list_to_yojson body
+
+  end
 
 end
 
@@ -60,79 +67,107 @@ module REST = struct
 
     module TS = struct
 
-      (** FIXME implement **)
-      let errors ?stream time () =
-        not_implemented "ts errors archive" ()
+      let errors ?stream time (q:Api.Query.Raw.t list) () =
+        let r,_ = Api.Query.Validation.(
+            get_errors_query q
+            >>= fun (err,q) -> get_level_query q
+            >>= fun (lev,q) -> get_limit_query q
+            >>= fun (lim,q) -> get_thin_query q
+            >>= fun (thn,q) -> get_total_query q
+            >|= fun tot     -> err,lev,lim,thn,tot)
+        in (fun _ ->
+            (* TODO IMPLEMENT *)
+            let e = Api_utils.(Other "FIXME ts errors not implemented" |> err_to_yojson) in
+            Json.respond_result ~err_status:`Not_implemented @@ Error e)
+           |> query_wrapper r
 
-      let errors_compressed ?stream time () =
-        not_implemented "ts errors archive compressed" ()
+      let percent ?stream time (q:Api.Query.Raw.t list) () =
+        let r,_ = Api.Query.Validation.(
+            get_errors_query q
+            >>= fun (err,q) -> get_level_query q
+            >|= Pair.make err)
+        in (fun _ ->
+            (* TODO IMPLEMENT *)
+            let e = Api_utils.(Other "FIXME ts percent not implemented" |> err_to_yojson) in
+            Json.respond_result ~err_status:`Not_implemented @@ Error e)
+           |> query_wrapper r
 
-      (** FIXME implement **)
-      let segmentation ?stream  time () =
-        not_implemented "ts segmentation archive" ()
-
-      (** FIXME implement **)
-      let has_errors ?stream  time () =
-        not_implemented "ts has errors arhcive" ()
+      let has_any ?stream time (q:Api.Query.Raw.t list) () =
+        let r,_ = Api.Query.Validation.(
+            get_errors_query q
+            >>= fun (err,q) -> get_level_query q
+            >|= Pair.make err)
+        in (fun _ ->
+            (* TODO IMPLEMENT *)
+            let e = Api_utils.(Other "FIXME ts has-any not implemented" |> err_to_yojson) in
+            Json.respond_result ~err_status:`Not_implemented @@ Error e)
+           |> query_wrapper r
 
     end
 
     module T2MI = struct
 
-      (** FIXME implement **)
-      let errors ?stream time () =
-        not_implemented "t2mi errors archive" ()
+      let errors ?stream time (q:Api.Query.Raw.t list) () =
+        let r,_ = Api.Query.Validation.(
+            get_errors_query q
+            >>= fun (err,q) -> get_level_query q
+            >>= fun (lev,q) -> get_limit_query q
+            >>= fun (lim,q) -> get_thin_query q
+            >>= fun (thn,q) -> get_total_query q
+            >|= fun tot     -> err,lev,lim,thn,tot)
+        in (fun _ ->
+            (* TODO IMPLEMENT *)
+            let e = Api_utils.(Other "FIXME t2mi errors not implemented" |> err_to_yojson) in
+            Json.respond_result ~err_status:`Not_implemented @@ Error e)
+           |> query_wrapper r
 
-      let errors_compressed ?stream time () =
-        not_implemented "t2mi errors archive compressed" ()
+      let percent ?stream time (q:Api.Query.Raw.t list) () =
+        let r,_ = Api.Query.Validation.(
+            get_errors_query q
+            >>= fun (err,q) -> get_level_query q
+            >|= Pair.make err)
+        in (fun _ ->
+            (* TODO IMPLEMENT *)
+            let e = Api_utils.(Other "FIXME t2mi percent not implemented" |> err_to_yojson) in
+            Json.respond_result ~err_status:`Not_implemented @@ Error e)
+           |> query_wrapper r
 
-      (** FIXME implement **)
-      let segmentation ?stream time () =
-        not_implemented "t2mi segmentation archive" ()
-
-      (** FIXME implement **)
-      let has_errors ?stream time () =
-        not_implemented "t2mi has errors arhcive" ()
+      let has_any ?stream time (q:Api.Query.Raw.t list) () =
+        let r,_ = Api.Query.Validation.(
+            get_errors_query q
+            >>= fun (err,q) -> get_level_query q
+            >|= Pair.make err)
+        in (fun _ ->
+            (* TODO IMPLEMENT *)
+            let e = Api_utils.(Other "FIXME t2mi has-any not implemented" |> err_to_yojson) in
+            Json.respond_result ~err_status:`Not_implemented @@ Error e)
+           |> query_wrapper r
 
     end
-
   end
-
 end
 
-let ws_past_ni  = "WS archive REQ is not implemented"
-let rest_now_ni = "REST real-time REQ is not implemented"
+let ws_past_ni  = "This WS archive REQ is not implemented"
+let rest_now_ni = "This REST real-time REQ is not implemented"
+
+let handle_ok api events scheme meth req (q:Api.Query.Raw.t list) sock_data body time () =
+  match scheme,meth,req,time with
+  (* WS *)
+  | `WS,  `GET,`Errors (`TS id),   `Now    -> WS.TS.errors   ?stream:id sock_data events body ()
+  | `WS,  `GET,`Errors (`T2MI id), `Now    -> WS.T2MI.errors ?stream:id sock_data events body ()
+  | `WS,  `GET,_,                  `Past _ -> not_implemented ws_past_ni ()
+  (* REST *)
+  | `REST,`GET,_,                  `Now    -> not_implemented rest_now_ni ()
+  | `REST,`GET,`Errors  (`TS id),  `Past t -> REST.AR.TS.errors    ?stream:id t q ()
+  | `REST,`GET,`Percent (`TS id),  `Past t -> REST.AR.TS.percent   ?stream:id t q ()
+  | `REST,`GET,`Has_any (`TS id),  `Past t -> REST.AR.TS.has_any   ?stream:id t q ()
+  | `REST,`GET,`Errors  (`T2MI id),`Past t -> REST.AR.T2MI.errors  ?stream:id t q ()
+  | `REST,`GET,`Percent (`T2MI id),`Past t -> REST.AR.T2MI.percent ?stream:id t q ()
+  | `REST,`GET,`Has_any (`T2MI id),`Past t -> REST.AR.T2MI.has_any ?stream:id t q ()
+  | _ -> not_found ()
 
 let handle api events scheme meth req uri sock_data body () =
   let open Api.Query in
-  let q        = Uri.query uri in
-  let from,q   = Validation.get (One ("from", Time)) q in
-  let till,q   = Validation.get (One ("to", Time)) q   in
-  let thin,q   = Validation.get (One ("thin", Bool)) q in
-  let total,q  = Validation.get (One ("total", Bool)) q in
-  let limit,q  = Validation.get (One ("limit", Int)) q in
-  let level,q  = Validation.get (Filter ("level", Int)) q in
-  let errors,q = Validation.get (Filter ("errors", Int)) q in
-  let time     = Time.Range.of_time ~from ~till in
-  match scheme,meth,req,time with
-  (* Websockets real-time *)
-  | `WS,`GET,`Errors (`TS id),  `Now -> WS.ts_errors   ?stream:id sock_data events body ()
-  | `WS,`GET,`Errors (`T2MI id),`Now -> WS.t2mi_errors ?stream:id sock_data events body ()
-  (* Websockets archive *)
-  | `WS,  `GET,_,`Past _ -> not_implemented ws_past_ni ()
-  (* RESTful GET real-time *)
-  | `REST,`GET,_,`Now    -> not_implemented rest_now_ni ()
-  (* RESTful GET archive*)
-  | `REST,`GET,`Errors       (`TS id),  `Past t ->
-     (match thin with
-      | Some true -> REST.AR.TS.errors_compressed ?stream:id t ()
-      | _         -> REST.AR.TS.errors ?stream:id t ())
-  | `REST,`GET,`Segmentation (`TS id),  `Past t -> REST.AR.TS.segmentation ?stream:id t ()
-  | `REST,`GET,`Has_errors   (`TS id),  `Past t -> REST.AR.TS.has_errors ?stream:id t ()
-  | `REST,`GET,`Errors       (`T2MI id),`Past t ->
-     (match thin with
-      | Some true -> REST.AR.T2MI.errors_compressed ?stream:id t ()
-      | _         -> REST.AR.T2MI.errors ?stream:id t ())
-  | `REST,`GET,`Segmentation (`T2MI id),`Past t -> REST.AR.T2MI.segmentation ?stream:id t ()
-  | `REST,`GET,`Has_errors   (`T2MI id),`Past t -> REST.AR.T2MI.has_errors ?stream:id t ()
-  | _ -> not_found ()
+  match Validation.get_or ~default:`Now (Time ("from","to")) @@ Uri.query uri with
+  | Error e,_ -> Json.respond_result (Error (Api_utils.err_to_yojson @@ Bad_query e))
+  | Ok t,q    -> handle_ok api events scheme meth req q sock_data body t ()

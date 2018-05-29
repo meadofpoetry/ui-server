@@ -174,7 +174,8 @@ module Relative : sig
            | `Week of int
            ]
 
-  val equal : t -> t -> bool
+  val equal   : t -> t -> bool
+  val compare : t -> t -> int
   (** [round t] rounds relative timestamp [t] to largest possible
    **  time unit without precision loss, if possible
    **)
@@ -252,7 +253,8 @@ end = struct
     | `Day d  -> d * s_in_day
     | `Week d -> d * s_in_week
 
-  let equal (t1:t) (t2:t) : bool = to_seconds t1 = to_seconds t2
+  let equal   (t1:t) (t2:t) : bool = to_seconds t1 = to_seconds t2
+  let compare (t1:t) (t2:t) : int  = Int.compare (to_seconds t1) (to_seconds t2)
 
   let round (t:t) : t =
     match t with

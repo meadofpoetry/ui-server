@@ -22,11 +22,10 @@ open Api.Redirect
  ** [from]      - timestamp (can be 'now', 'now' - timespan)
  ** [to]        - timestamp (can be 'now')
  ** [f[errors]] - list of error codes to be filtered (for 'errors' request only)
- ** [f[fine,init,no-response]] - list of states to be filtered (for 'state' request only)
+ ** [f[state]]  - list of states to be filtered (possible values: 'fine','init','no-response')
  ** [limit]     - maximum number of items in a response (default FIXME)
  ** [total]     - include [total] value into response to know how many collection items are available
- ** [decimate]  - if true, decimate the number of items in a collection  (e.g. for charts).
- **               Possible values: 'off',FIXME mention available decimation algorithms here
+ ** [thin]      - if true, decimate the number of items in a collection  (e.g. for charts).
  **
  **)
 
@@ -114,43 +113,54 @@ module REST = struct
   module AR = struct
 
     (* FIXME implement *)
-    let state () =
-      not_implemented "state archive" ()
+    let state time (q:Api.Query.Raw.t list) () =
+      let r,_ = Api.Query.Validation.(get_state_query q >|= fun x -> x) in
+      (fun _ -> respond_error "not implemented" ())
+      |> query_wrapper r
 
     (* FIXME implement *)
-    let status () =
+    let status time (q:Api.Query.Raw.t list) () =
       not_implemented "status archive" ()
 
     (* FIXME implement *)
-    let errors () =
+    let errors time (q:Api.Query.Raw.t list) () =
       not_implemented "status archive" ()
 
   end
 
 end
 
-let handle api events scheme meth req uri sock_data body () =
+let ws_ar_ni   = "This WS archive REQ is not implemented"
+let rest_ar_ni = "This REST archive REQ is not implemented"
+let rest_rt_ni = "This REST real-time REQ is not implemented"
+
+let handle_ok api events scheme meth req (q:Api.Query.Raw.t list) sock_data body time () =
   let open Result.Infix in
-  match scheme,meth,req,`Now with
+  match scheme,meth,req,time with
   (* POST *)
-  | _,`POST,`Mode m,_     -> REST.post_mode m api body ()
-  | _,`POST,`Port (p,b),_ -> REST.post_port p b api ()
-  | _,`POST,`Reset,_      -> REST.post_reset api ()
-  (* Websockets real-time *)
-  | `WS,`GET,`Errors,`Now -> WS.errors sock_data events body ()
-  | `WS,`GET,`Mode m,`Now -> WS.mode m sock_data events body ()
-  | `WS,`GET,`State, `Now -> WS.state  sock_data events body ()
-  | `WS,`GET,`Status,`Now -> WS.status sock_data events body ()
-  (* Websosckets archive *)
-  | `WS,`GET,_,`Past _    -> not_implemented "WS archive REQ is not implemented" ()
-  (* RESTful GET real-time *)
-  | `REST,`GET,`Mode m,`Now -> REST.RT.mode m api ()
-  | `REST,`GET,`Info,  `Now -> REST.RT.devinfo api ()
-  | `REST,`GET,`State, `Now -> REST.RT.state events ()
-  | `REST,`GET,`Errors,`Now -> not_implemented "REST real-time REQ is not implemented" ()
-  | `REST,`GET,`Status,`Now -> not_implemented "REST real-time REQ is not implemented" ()
-  (* RESTful GET archive *)
-  | `REST,`GET,`Errors,`Past t -> REST.AR.errors ()
-  | `REST,`GET,`Status,`Past t -> REST.AR.status ()
-  | `REST,`GET,`State, `Past t -> REST.AR.state ()
+  | _,`POST,`Mode m,    `Now -> REST.post_mode m api body ()
+  | _,`POST,`Port (p,b),`Now -> REST.post_port p b api ()
+  | _,`POST,`Reset,     `Now -> REST.post_reset api ()
+  (* WS *)
+  | `WS,  `GET,`Errors,`Now    -> WS.errors sock_data events body ()
+  | `WS,  `GET,`Mode m,`Now    -> WS.mode m sock_data events body ()
+  | `WS,  `GET,`State, `Now    -> WS.state  sock_data events body ()
+  | `WS,  `GET,`Status,`Now    -> WS.status sock_data events body ()
+  | `WS,  `GET,_,      `Past _ -> not_implemented ws_ar_ni ()
+  (* REST *)
+  | `REST,`GET,`Mode m,`Now    -> REST.RT.mode m api ()
+  | `REST,`GET,`Info,  `Now    -> REST.RT.devinfo api ()
+  | `REST,`GET,`State, `Now    -> REST.RT.state events ()
+  | `REST,`GET,`Errors,`Now    -> not_implemented rest_rt_ni ()
+  | `REST,`GET,`Status,`Now    -> not_implemented rest_rt_ni ()
+  | `REST,`GET,`Mode _,`Past _ -> not_implemented rest_ar_ni ()
+  | `REST,`GET,`Errors,`Past t -> REST.AR.errors time q ()
+  | `REST,`GET,`Status,`Past t -> REST.AR.status time q ()
+  | `REST,`GET,`State, `Past t -> REST.AR.state  time q ()
   | _ -> not_found ()
+
+let handle api events scheme meth req uri sock_data body () =
+  let open Api.Query in
+  match Validation.get_or ~default:`Now (Time ("from","to")) @@ Uri.query uri with
+  | Error e,_ -> Json.respond_result (Error (Api_utils.err_to_yojson @@ Bad_query e))
+  | Ok t,q    -> handle_ok api events scheme meth req q sock_data body t ()

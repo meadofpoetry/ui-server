@@ -9,6 +9,9 @@ type stream = [ `TS   of Stream.id option
               | `T2MI of int option
               ]
 
+type err = Bad_query of Validation.err
+         | Other     of string [@@deriving yojson]
+
 let eq = String.equal
 
 let ts,t2mi = "ts","t2mi"
@@ -32,8 +35,11 @@ let stream_of_path : path -> stream option = function
 module Domain = struct
   let equal = String.equal
   type path = string list
-end
 
+  let get_thin_query q  = Api.Query.Validation.get_or ~default:false (One ("thin", Bool)) q
+  let get_total_query q = Api.Query.Validation.get_or ~default:false (One ("total", Bool)) q
+  let get_limit_query q = Api.Query.Validation.get (One ("limit", Int)) q
+end
 
 module Device = struct
   include Domain
@@ -43,6 +49,12 @@ module Device = struct
       port,state,status,
       reset = "errors","mode","info","port",
               "state","status","reset"
+
+  let state_keys = Common.Topology.([ state_to_string `Fine
+                                    ; state_to_string `No_response
+                                    ; state_to_string `Init ])
+  let get_state_query  = Api.Query.Validation.get (Filter ("state",Keys state_keys))
+  let get_errors_query = Api.Query.Validation.get (Filter ("errors",Int))
 
   type mode = [ `T2MI | `JITTER ]
   type req  = [ `Errors
@@ -85,26 +97,29 @@ end
 module Errors = struct
   include Domain
   let domain  = "errors"
-  let segmentation,has_errors = "segmentation","has-errors"
+  let percent,has_any = "percent","has-any"
 
-  type req = [ `Errors       of stream
-             | `Segmentation of stream
-             | `Has_errors   of stream
+  let get_level_query  q = Api.Query.Validation.get (Filter ("level", Int)) q
+  let get_errors_query q = Api.Query.Validation.get (Filter ("errors", Int)) q
+
+  type req = [ `Errors  of stream
+             | `Percent of stream
+             | `Has_any of stream
              ]
 
   let eq = Domain.equal
 
   let req_to_path : req -> string list = function
-    | `Errors x       -> stream_to_path x
-    | `Segmentation x -> segmentation :: stream_to_path x
-    | `Has_errors x   -> has_errors :: stream_to_path x
+    | `Errors x  -> stream_to_path x
+    | `Percent x -> percent :: stream_to_path x
+    | `Has_any x -> has_any :: stream_to_path x
   let req_of_path : string list -> req option = function
     | hd::tl when eq hd ts || eq hd t2mi ->
        Option.map (fun x -> `Errors x) @@ stream_of_path (hd::tl)
-    | hd::tl when eq hd segmentation ->
-       Option.map (fun x -> `Segmentation x) @@ stream_of_path tl
-    | hd::tl when eq hd has_errors ->
-       Option.map (fun x -> `Has_errors x) @@ stream_of_path tl
+    | hd::tl when eq hd percent ->
+       Option.map (fun x -> `Percent x) @@ stream_of_path tl
+    | hd::tl when eq hd has_any ->
+       Option.map (fun x -> `Has_any x) @@ stream_of_path tl
     | _ -> None
 
 end

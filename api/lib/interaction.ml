@@ -46,9 +46,10 @@ end
 
 module type Handler = sig
   include Req
-  val respond             : t -> ?headers:Cohttp.Header.t -> ?flush:bool -> unit -> response
-  val respond_result      : (t, t) result -> response
-  val respond_result_unit : (unit,t) result -> response
+  val respond             : ?status:Cohttp.Code.status_code -> ?headers:Cohttp.Header.t -> ?flush:bool ->
+                            t -> unit -> response
+  val respond_result      : ?err_status:Cohttp.Code.status_code -> (t, t) result -> response
+  val respond_result_unit : ?err_status:Cohttp.Code.status_code -> (unit,t) result -> response
   val respond_option      : t option -> response
   val (>>=)               : 'a Lwt.t -> ('a -> response) -> response
 end
@@ -57,15 +58,16 @@ module Make(M:Req) : (Handler with type t := M.t) = struct
 
   include M
 
-  let respond x = Cohttp_lwt_unix.Server.respond ~status:`OK ~body:(to_body x)
+  let respond ?(status=`OK) ?headers ?flush x =
+    Cohttp_lwt_unix.Server.respond ~status ?headers ?flush ~body:(to_body x)
 
-  let respond_result = function
+  let respond_result ?(err_status=`Bad_request) = function
     | Ok x    -> Cohttp_lwt_unix.Server.respond ~status:`OK ~body:(to_body x) ()
-    | Error x -> Cohttp_lwt_unix.Server.respond ~status:`Bad_request ~body:(to_body x) ()
+    | Error x -> Cohttp_lwt_unix.Server.respond ~status:err_status ~body:(to_body x) ()
 
-  let respond_result_unit = function
+  let respond_result_unit ?(err_status=`Bad_request) = function
     | Ok ()   -> Cohttp_lwt_unix.Server.respond ~status:`OK ~body:Cohttp_lwt.Body.empty ()
-    | Error x -> Cohttp_lwt_unix.Server.respond ~status:`Bad_request ~body:(to_body x) ()
+    | Error x -> Cohttp_lwt_unix.Server.respond ~status:err_status ~body:(to_body x) ()
 
   let respond_option = function
     | Some x  -> Cohttp_lwt_unix.Server.respond ~status:`OK ~body:(to_body x) ()
