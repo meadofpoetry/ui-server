@@ -4,6 +4,7 @@ open Board_protocol
 open Board_api_common
 open Api.Interaction
 open Api.Redirect
+open Api.Query
 
 (**
  ** API
@@ -17,7 +18,7 @@ open Api.Redirect
  ** GET  /device/status
  ** GET  /device/errors
  **
- ** QUERY PARAMETERS (for 'errors','status','state' requests)
+ ** QUERY PARAMETERS
  **
  ** [from]      - timestamp (can be 'now', 'now' - timespan)
  ** [to]        - timestamp (can be 'now')
@@ -112,19 +113,35 @@ module REST = struct
   (** Archive GET requests **)
   module AR = struct
 
-    (* FIXME implement *)
-    let state time (q:Api.Query.Raw.t list) () =
-      let r,_ = Api.Query.Validation.(get_state_query q >|= fun x -> x) in
-      (fun _ -> respond_error "not implemented" ())
-      |> query_wrapper r
+    let state time (q:Raw.t list) () =
+      let r,_ = Validation.(
+          get_state_query q
+          >>= fun (fil,q) -> get_limit_query q
+          >>= fun (lim,q) -> get_total_query q
+          >>| fun tot     -> fil,lim,tot)
+      in (fun (filter,limit,total) -> (* TODO IMPLEMENT *)
+          respond_error ~status:`Not_implemented "not impelemented" ())
+         |> query_wrapper r
 
-    (* FIXME implement *)
-    let status time (q:Api.Query.Raw.t list) () =
-      not_implemented "status archive" ()
+    let status time (q:Raw.t list) () =
+      let r,_ = Validation.(
+          get_limit_query q
+          >>= fun (lim,q) -> get_total_query q
+          >>| fun tot     -> lim,tot)
+      in (fun (limit,total) -> (* TODO IMPLEMENT *)
+          respond_error ~status:`Not_implemented "not impelemented" ())
+         |> query_wrapper r
 
-    (* FIXME implement *)
-    let errors time (q:Api.Query.Raw.t list) () =
-      not_implemented "status archive" ()
+    let errors time (q:Raw.t list) () =
+      let r,_ = Validation.(
+          get_errors_query q
+          >>= fun (err,q) -> get_limit_query q
+          >>= fun (lim,q) -> get_thin_query q
+          >>= fun (thn,q) -> get_total_query q
+          >>| fun tot     -> err,lim,thn,tot)
+      in (fun (errors,limit,thin,total) -> (* TODO IMPLEMENT *)
+          respond_error ~status:`Not_implemented "not impelemented" ())
+         |> query_wrapper r
 
   end
 

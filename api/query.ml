@@ -215,29 +215,29 @@ end
 
 module Validation = struct
 
-  type _ simple =
-    | Bool   : bool simple
-    | Int    : int simple
-    | Int32  : int32 simple
-    | Int64  : int64 simple
-    | Key    : string list -> string simple
-    | Empty  : unit simple
-    | Time   : Time.t simple
-    | Custom : (string option -> 'a option) -> 'a simple
+  type _ v_simple =
+    | Bool   : bool v_simple
+    | Int    : int v_simple
+    | Int32  : int32 v_simple
+    | Int64  : int64 v_simple
+    | Key    : string list -> string v_simple
+    | Empty  : unit v_simple
+    | Time   : Time.t v_simple
+    | Custom : (string option -> 'a option) -> 'a v_simple
 
-  type _ t =
-    | List   : string * 'a simple -> 'a list t              (* key and item validation *)
-    | Filter : string * 'a simple -> 'a list t              (* name and item validation *)
-    | Time   : string * string -> Time.Range.t t
-    | One    : string * 'a simple -> 'a t                   (* key and item validation *)
-    | Keys   : string * string list -> string list t        (* key and possible values *)
-    | Custom : string * (Raw.t -> 'a option) -> 'a t
+  type _ v =
+    | List   : string * 'a v_simple -> 'a list v              (* key and item validation *)
+    | Filter : string * 'a v_simple -> 'a list v              (* name and item validation *)
+    | Time   : string * string -> Time.Range.t v
+    | One    : string * 'a v_simple -> 'a v                   (* key and item validation *)
+    | Keys   : string * string list -> string list v          (* key and possible values *)
+    | Custom : string * (Raw.t -> 'a option) -> 'a v
 
   type err = [ `Bad_value of Raw.t list
              | `Unknown   of Raw.t list
              ] [@@deriving yojson]
 
-  let validate_simple : type a. a simple -> Raw.Value.t -> (a,Raw.Value.t) result = fun validation query ->
+  let validate_simple : type a. a v_simple -> Raw.Value.t -> (a,Raw.Value.t) result = fun validation query ->
     let to_res = function Some x -> Ok x | None -> Error query in
     match validation,query with
     | Bool,[v]     -> bool_of_string_opt v |> to_res
@@ -255,7 +255,7 @@ module Validation = struct
 
   type err_ext = [ `Not_found of Raw.Key.t | err ]
 
-  let rec validate : type a. Raw.t list -> a t -> ((Raw.Key.t list * a),err_ext) result = fun q validation ->
+  let rec validate : type a. Raw.t list -> a v -> ((Raw.Key.t list * a),err_ext) result = fun q validation ->
     let open Result.Infix in
     let find k q    = List.Assoc.get ~eq:Raw.Key.equal k q in
     let ( >>* ) k f = match find k q with Some q -> f q | None -> Error (`Not_found k) in
@@ -280,19 +280,30 @@ module Validation = struct
     | Custom (k,f) -> k >>* (fun v -> (f (k,v)) |> function Some x -> Ok x | None -> Error (`Bad_value [k,v]))
                       >|= Pair.make [k]
 
-  let get : type a. a t -> Raw.t list -> (a option,err) result * Raw.t list =
+  type 'a t = ('a,err) result
+
+  let get : type a. a v -> Raw.t list -> a option t * Raw.t list =
     fun validation query ->
     match validate query validation with
     | Ok (ks,q)            -> Ok (Some q),List.filter (fun (k,v) -> not @@ List.mem ~eq:Raw.Key.equal k ks) query
     | Error (`Not_found _) -> Ok None,query
     | Error (`Unknown _ | `Bad_value _) as e -> e,query
 
-  let get_or : type a. default:a -> a t -> Raw.t list -> (a,err) result * Raw.t list =
+  let get_or : type a. default:a -> a v -> Raw.t list -> a t * Raw.t list =
     fun ~default v q -> get v q |> fun (r,q)-> (Result.map (Option.get_or ~default) r),q
 
-  let ( >>= ) x f = match x with (Ok v),q  -> f (v,q)  | (Error e),q -> Error e,q
-  let ( >|= ) x f = match x with (Ok v),[]   -> Ok (f v),[]
-                               | (Ok _),l    -> Error (`Unknown l),l
-                               | (Error e),q -> Error e,q
+  let last_or_err : 'a t * Raw.t list -> 'a t = function
+    | (Ok v),[]   -> Ok v
+    | (Ok _),l    -> Error (`Unknown l)
+    | (Error e),q -> Error e
+
+  let next (f:'a * Raw.t list -> 'b t * Raw.t list) : 'a t * Raw.t list -> 'b t * Raw.t list = function
+    | (Ok v),q    -> f (v,q)
+    | (Error e),q -> Error e,q
+  let map_last_or_err (f:'a -> 'b) (x:'a t * Raw.t list) : 'b t * Raw.t list =
+    (Result.map f @@ last_or_err x),snd x
+
+  let ( >>= ) x f = next f x
+  let ( >>| ) x f = map_last_or_err f x
 
 end

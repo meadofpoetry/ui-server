@@ -4,7 +4,7 @@ open Board_protocol
 open Board_api_common
 open Api.Interaction
 open Api.Redirect
-open Common
+open Api.Query
 
 (**
  ** API
@@ -37,7 +37,7 @@ module WS = struct
     let errors ?stream sock_data (events:events) body () =
       let open Errors.TS in
       let e = match stream with
-        | Some id -> let map = List.filter (fun (x:t) -> Stream.equal_id id x.stream) in
+        | Some id -> let map = List.filter (fun (x:t) -> Common.Stream.equal_id id x.stream) in
                      React.E.map map events.ts_errors
                      |> React.E.filter Fun.(not % List.is_empty)
         | None    -> events.ts_errors
@@ -67,40 +67,34 @@ module REST = struct
 
     module TS = struct
 
-      let errors ?stream time (q:Api.Query.Raw.t list) () =
-        let r,_ = Api.Query.Validation.(
+      let errors ?stream time (q:Raw.t list) () =
+        let r,_ = Validation.(
             get_errors_query q
             >>= fun (err,q) -> get_level_query q
             >>= fun (lev,q) -> get_limit_query q
             >>= fun (lim,q) -> get_thin_query q
             >>= fun (thn,q) -> get_total_query q
-            >|= fun tot     -> err,lev,lim,thn,tot)
-        in (fun _ ->
-            (* TODO IMPLEMENT *)
-            let e = Api_utils.(Other "FIXME ts errors not implemented" |> err_to_yojson) in
-            Json.respond_result ~err_status:`Not_implemented @@ Error e)
+            >>| fun tot     -> err,lev,lim,thn,tot)
+        in (fun _ -> (* TODO IMPLEMENT *)
+            respond_error ~status:`Not_implemented "not impelemented" ())
            |> query_wrapper r
 
       let percent ?stream time (q:Api.Query.Raw.t list) () =
         let r,_ = Api.Query.Validation.(
             get_errors_query q
             >>= fun (err,q) -> get_level_query q
-            >|= Pair.make err)
-        in (fun _ ->
-            (* TODO IMPLEMENT *)
-            let e = Api_utils.(Other "FIXME ts percent not implemented" |> err_to_yojson) in
-            Json.respond_result ~err_status:`Not_implemented @@ Error e)
+            >>| Pair.make err)
+        in (fun _ -> (* TODO IMPLEMENT *)
+            respond_error ~status:`Not_implemented "not impelemented" ())
            |> query_wrapper r
 
       let has_any ?stream time (q:Api.Query.Raw.t list) () =
         let r,_ = Api.Query.Validation.(
             get_errors_query q
             >>= fun (err,q) -> get_level_query q
-            >|= Pair.make err)
-        in (fun _ ->
-            (* TODO IMPLEMENT *)
-            let e = Api_utils.(Other "FIXME ts has-any not implemented" |> err_to_yojson) in
-            Json.respond_result ~err_status:`Not_implemented @@ Error e)
+            >>| Pair.make err)
+        in (fun _ -> (* TODO IMPLEMENT *)
+            respond_error ~status:`Not_implemented "not impelemented" ())
            |> query_wrapper r
 
     end
@@ -114,33 +108,27 @@ module REST = struct
             >>= fun (lev,q) -> get_limit_query q
             >>= fun (lim,q) -> get_thin_query q
             >>= fun (thn,q) -> get_total_query q
-            >|= fun tot     -> err,lev,lim,thn,tot)
-        in (fun _ ->
-            (* TODO IMPLEMENT *)
-            let e = Api_utils.(Other "FIXME t2mi errors not implemented" |> err_to_yojson) in
-            Json.respond_result ~err_status:`Not_implemented @@ Error e)
+            >>| fun tot     -> err,lev,lim,thn,tot)
+        in (fun _ -> (* TODO IMPLEMENT *)
+            respond_error ~status:`Not_implemented "not impelemented" ())
            |> query_wrapper r
 
       let percent ?stream time (q:Api.Query.Raw.t list) () =
         let r,_ = Api.Query.Validation.(
             get_errors_query q
             >>= fun (err,q) -> get_level_query q
-            >|= Pair.make err)
-        in (fun _ ->
-            (* TODO IMPLEMENT *)
-            let e = Api_utils.(Other "FIXME t2mi percent not implemented" |> err_to_yojson) in
-            Json.respond_result ~err_status:`Not_implemented @@ Error e)
+            >>| Pair.make err)
+        in (fun _ -> (* TODO IMPLEMENT *)
+            respond_error ~status:`Not_implemented "not impelemented" ())
            |> query_wrapper r
 
       let has_any ?stream time (q:Api.Query.Raw.t list) () =
         let r,_ = Api.Query.Validation.(
             get_errors_query q
             >>= fun (err,q) -> get_level_query q
-            >|= Pair.make err)
-        in (fun _ ->
-            (* TODO IMPLEMENT *)
-            let e = Api_utils.(Other "FIXME t2mi has-any not implemented" |> err_to_yojson) in
-            Json.respond_result ~err_status:`Not_implemented @@ Error e)
+            >>| Pair.make err)
+        in (fun _ -> (* TODO IMPLEMENT *)
+            respond_error ~status:`Not_implemented "not impelemented" ())
            |> query_wrapper r
 
     end

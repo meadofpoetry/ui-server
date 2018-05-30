@@ -53,7 +53,10 @@ module Device = struct
   let state_keys = Common.Topology.([ state_to_string `Fine
                                     ; state_to_string `No_response
                                     ; state_to_string `Init ])
-  let get_state_query  = Api.Query.Validation.get (Filter ("state",Keys state_keys))
+  let get_state_query q =
+    let f = Option.flat_map Common.Topology.state_of_string in
+    let r,q = Api.Query.Validation.get (Filter ("state",Custom f)) q in
+    Result.map (Option.map (List.sort_uniq ~cmp:Common.Topology.compare_state)) r,q
   let get_errors_query = Api.Query.Validation.get (Filter ("errors",Int))
 
   type mode = [ `T2MI | `JITTER ]

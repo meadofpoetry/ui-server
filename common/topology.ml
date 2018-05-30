@@ -3,7 +3,7 @@ open Containers
 type state = [ `Fine
              | `No_response
              | `Init
-             ] [@@deriving yojson, show, eq]
+             ] [@@deriving yojson, show, eq, ord]
 
 let state_to_string = function
   | `Fine        -> "fine"
