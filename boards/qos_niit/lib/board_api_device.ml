@@ -18,15 +18,6 @@ open Api.Query
  ** GET  /device/status
  ** GET  /device/errors
  **
- ** QUERY PARAMETERS
- **
- ** [from][to]  - timestamps
- ** [f[errors]] - list of error codes to be filtered (for 'errors' request only)
- ** [f[state]]  - list of states to be filtered (possible values: 'fine','init','no-response')
- ** [limit]     - maximum number of items in a response (default FIXME)
- ** [total]     - include [total] value into response to know how many collection items are available
- ** [thin]      - if true, decimate the number of items in a collection  (e.g. for charts).
- **
  **)
 
 include Api_utils.Device

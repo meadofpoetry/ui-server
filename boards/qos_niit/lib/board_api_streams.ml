@@ -13,17 +13,8 @@ open Api.Query
  ** GET  /streams/state/[ts|t2mi]/{?stream}
  ** GET  /streams/structure/[ts|t2mi]/{?stream}
  ** GET  /streams/bitrate/ts/{?stream}
- ** GET  /streams/sequence/t2mi/?seconds={int}
- ** GET  /streams/section/ts/{stream}/{table-id}/?[section; table-id-ext; eit-ts-id; eit-orig-nw-id]
- **
- ** QUERY PARAMETERS
- **
- ** [from][to] - timestamps
- ** [f[state]] - has one boolean value, filters corresponding states
- ** [incoming] - filters only incoming streams
- ** [limit]    - maximum number of items in a response (default FIXME)
- ** [total]    - include [total] value into response to know how many collection items are available
- ** [thin]     - if true, decimate the number of items in a collection  (e.g. for charts).
+ ** GET  /streams/sequence/t2mi/
+ ** GET  /streams/section/ts/{stream}/{table-id}
  **
  **)
 

@@ -164,7 +164,8 @@ module Validation = struct
              | `Unknown   of Raw.t list
              ] [@@deriving yojson]
 
-  let validate_simple : type a. a v_simple -> Raw.Value.t -> (a,Raw.Value.t) result = fun validation query ->
+  let validate_simple : type a. a v_simple -> Raw.Value.t -> (a,Raw.Value.t) result =
+    fun validation query ->
     let to_res = function Some x -> Ok x | None -> Error query in
     match validation,query with
     | Bool,[v]         -> bool_of_string_opt v |> to_res
@@ -181,8 +182,6 @@ module Validation = struct
     | Time         -> List.pure @@ Time.to_string v
     | Custom (_,f) -> match f v with Some v -> List.pure v | None -> [ ]
 
-  let remove key query = List.Assoc.remove ~eq:Raw.Key.equal key query
-
   type err_ext = [ `Not_found of Raw.Key.t | err ]
 
   let key_of_validation : type a. a v -> string = function
@@ -190,6 +189,13 @@ module Validation = struct
     | Filter (n,_)     -> Filter.name_to_key n
     | Filter_one (n,_) -> Filter.name_to_key n
     | One (k,_)        -> k
+
+  let to_raw_value : type a. a -> a v -> Raw.Value.t = fun v validation ->
+    match validation with
+    | List (_,s)       -> List.map (fun x -> simple_to_value x s) v |> List.concat
+    | Filter (_,s)     -> List.map (fun x -> simple_to_value x s) v |> List.concat
+    | Filter_one (_,s) -> simple_to_value v s
+    | One (_,s)        -> simple_to_value v s
 
   let validate : type a. Raw.t list -> a v -> ((Raw.Key.t * a),err_ext) result = fun q validation ->
     let open Result.Infix in
@@ -215,6 +221,11 @@ module Validation = struct
     | One (_,x)        ->
        k >>* (fun v -> validate_simple x v |> Result.map_err (fun e -> `Bad_value (k,e)))
        >|= Pair.make k
+
+  let insert (type a) (q:a v) (v:a) (uri:Uri.t) : Uri.t =
+    let k = key_of_validation q in
+    let v = to_raw_value v q in
+    Uri.add_query_param uri (k,v)
 
   type 'a t = ('a,err) result
 

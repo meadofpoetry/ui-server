@@ -33,19 +33,32 @@ let stream_of_path : path -> stream option = function
   | _ -> None
 
 module Domain = struct
+
   let equal = String.equal
   type path = string list
 
+  open Validation
+
+  let from_query   = One ("from",Time)
+  let till_query   = One ("to",Time)
+  let limit_query  = One ("limit",Int)
+  let total_query  = One ("total",Bool)
+  let thin_query   = One ("thin",Bool)
+
   let get_time_query q =
-    let r,q = Validation.(get (One ("from", Time)) q
-                          >>= fun (from,q) -> get (One ("to", Time)) q
-                          >>| fun till     -> from,till)
+    let r,q = get from_query q
+              >>= fun (from,q) -> get till_query q
+              >>| fun till     -> from,till
     in Result.map (fun (from,till) -> Time.Range.of_time ~from ~till) r,q
+  let get_thin_query  q = get_or ~default:false thin_query q
+  let get_total_query q = get_or ~default:false total_query q
+  let get_limit_query q = get limit_query q
 
-
-  let get_thin_query q  = Validation.get_or ~default:false (One ("thin", Bool)) q
-  let get_total_query q = Validation.get_or ~default:false (One ("total", Bool)) q
-  let get_limit_query q = Validation.get (One ("limit", Int)) q
+  let set_time_query ~from ~till uri =
+    uri |> insert from_query from |> insert till_query till
+  let set_thin_query  v uri = insert thin_query v uri
+  let set_total_query v uri = insert total_query v uri
+  let set_limit_query v uri = insert limit_query v uri
 end
 
 module Device = struct
@@ -56,22 +69,6 @@ module Device = struct
       port,state,status,
       reset = "errors","mode","info","port",
               "state","status","reset"
-
-  let state_keys = Common.Topology.([ state_to_string `Fine
-                                    ; state_to_string `No_response
-                                    ; state_to_string `Init ])
-  let get_state_query q =
-    let f_of = Option.flat_map Common.Topology.state_of_string in
-    let f_to = Fun.(Option.return % Common.Topology.state_to_string) in
-    let r,q  = Api.Query.Validation.get (Filter ("state",Custom (f_of,f_to))) q in
-    Result.map (Option.map (List.sort_uniq ~cmp:Common.Topology.compare_state)) r,q
-  let get_errors_query = Api.Query.Validation.get (Filter ("errors",Int))
-
-  type 'a query = 'a Validation.v
-
-  let query_to_uri (type a) (uri:Uri.t) (q:a query) (v:a) : Raw.t =
-    let k = Validation.key_of_validation q in
-    k,[]
 
   type mode = [ `T2MI | `JITTER ]
   type req  = [ `Errors
@@ -108,6 +105,23 @@ module Device = struct
     | [x;y;z] when eq x port ->
        Option.map2 (fun p b -> `Port (p,b)) (int_of_string_opt y) (bool_of_string_opt z)
     | _-> None
+
+  open Validation
+
+  let state_query =
+    let f_of = Option.flat_map Common.Topology.state_of_string in
+    let f_to = Fun.(Option.return % Common.Topology.state_to_string) in
+    Filter ("state",Custom (f_of,f_to))
+  let errors_query = Filter ("errors",Int)
+
+  let get_state_query q =
+    let r,q  = get state_query q in
+    Result.map (Option.map (List.sort_uniq ~cmp:Common.Topology.compare_state)) r,q
+  let get_errors_query q = get errors_query q
+
+  let set_state_query v uri  = insert state_query v uri
+  let set_errors_query v uri = insert errors_query v uri
+
 end
 
 
@@ -115,9 +129,6 @@ module Errors = struct
   include Domain
   let domain  = "errors"
   let percent,has_any = "percent","has-any"
-
-  let get_level_query  q = Api.Query.Validation.get (Filter ("level", Int)) q
-  let get_errors_query q = Api.Query.Validation.get (Filter ("errors", Int)) q
 
   type req = [ `Errors  of stream
              | `Percent of stream
@@ -139,6 +150,17 @@ module Errors = struct
        Option.map (fun x -> `Has_any x) @@ stream_of_path tl
     | _ -> None
 
+  open Validation
+
+  let errors_query = Filter ("errors",Int)
+  let level_query  = Filter ("level",Int)
+
+  let get_level_query  q = get level_query q
+  let get_errors_query q = get errors_query q
+
+  let set_level_query v uri  = insert level_query v uri
+  let set_errors_query v uri = insert errors_query v uri
+
 end
 
 
@@ -149,6 +171,7 @@ module Streams = struct
   let state,structure,bitrate,
       sequence,section = "state","structure","bitrate",
                          "sequence","section"
+
   type req = [ `Streams   of Stream.id option
              | `State     of stream
              | `Structure of stream
@@ -156,8 +179,6 @@ module Streams = struct
              | `Sequence  of int option
              | `Section   of Stream.id * int
              ]
-
-  let get_state_query q = Validation.get (Filter_one ("state",Bool)) q
 
   let eq = Domain.equal
 
@@ -190,6 +211,14 @@ module Streams = struct
        Option.map2 (fun sid id -> `Section ((Stream.id_of_int32 sid),id))
                    (Int32.of_string c) (Int.of_string d)
     | _ -> None
+
+  open Validation
+
+  let state_query = Filter_one ("state",Bool)
+
+  let get_state_query q     = get state_query q
+  let set_state_query v uri = insert state_query v uri
+
 end
 
 
