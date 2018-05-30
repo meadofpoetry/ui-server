@@ -20,8 +20,7 @@ open Api.Query
  **
  ** QUERY PARAMETERS
  **
- ** [from]      - timestamp (can be 'now', 'now' - timespan)
- ** [to]        - timestamp (can be 'now')
+ ** [from][to]  - timestamps
  ** [f[errors]] - list of error codes to be filtered (for 'errors' request only)
  ** [f[state]]  - list of states to be filtered (possible values: 'fine','init','no-response')
  ** [limit]     - maximum number of items in a response (default FIXME)

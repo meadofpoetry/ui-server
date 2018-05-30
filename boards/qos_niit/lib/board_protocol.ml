@@ -246,28 +246,34 @@ module SM = struct
         to_complex_req ~msg_code:0x0112 ~body ())
     |> sender
 
-  let enqueue (type a) msgs sender (msg : a request) timeout exn : a Lwt.t =
+  let enqueue (type a) state msgs sender (msg : a request) timeout exn : a Lwt.t =
     (* no instant msgs *)
-    let t,w = Lwt.wait () in
-    let pred = function
-      | `Timeout -> Lwt.wakeup_exn w (Failure "msg timeout"); None
-      | l        -> Option.( is_response msg l >|= Lwt.wakeup w ) in
-    let send = fun () -> send_msg sender msg in
-    msgs := Await_queue.append !msgs { send; pred; timeout; exn };
-    t
+    match React.S.value state with
+    | `Fine ->
+       let t,w = Lwt.wait () in
+       let pred = function
+         | `Timeout -> Lwt.wakeup_exn w (Failure "msg timeout"); None
+         | l        -> Option.( is_response msg l >|= Lwt.wakeup w ) in
+       let send = fun () -> send_msg sender msg in
+       msgs := Await_queue.append !msgs { send; pred; timeout; exn };
+       t
+    | _ -> Lwt.fail (Failure "board is not responding")
 
-  let enqueue_instant (type a) msgs sender (storage:config storage) (msg : a instant_request) : unit Lwt.t =
-    let t,w = Lwt.wait () in
-    let send = fun () -> (send_instant sender msg) >>= (fun x -> Lwt.return @@ Lwt.wakeup w x) in
-    let pred = fun _  -> None in
-    let conf = storage#get in
-    let _    = match msg with
-      | Set_board_mode  mode -> storage#store { conf with t2mi_mode = mode.t2mi; input = mode.input }
-      | Set_jitter_mode x    -> storage#store { conf with jitter_mode = x }
-      | Reset                -> ()
-    in
-    msgs := Queue.append !msgs { send; pred; timeout = 0; exn = None };
-    t
+  let enqueue_instant (type a) state msgs sender (storage:config storage) (msg : a instant_request) : unit Lwt.t =
+    match React.S.value state with
+    | `Fine ->
+       let t,w = Lwt.wait () in
+       let send = fun () -> (send_instant sender msg) >>= (fun x -> Lwt.return @@ Lwt.wakeup w x) in
+       let pred = fun _  -> None in
+       let conf = storage#get in
+       let _    = match msg with
+         | Set_board_mode  mode -> storage#store { conf with t2mi_mode = mode.t2mi; input = mode.input }
+         | Set_jitter_mode x    -> storage#store { conf with jitter_mode = x }
+         | Reset                -> ()
+       in
+       msgs := Queue.append !msgs { send; pred; timeout = 0; exn = None };
+       t
+    | _ -> Lwt.fail (Failure "board is not responding")
 
   let handle_probes_acc (pe:push_events) (acc:probe_response list) =
     let s  = List.find_map (function Struct s  -> Some s | _ -> None) acc in
@@ -439,7 +445,6 @@ module SM = struct
       ; input         = React.S.hold ~eq:equal_input storage#get.input @@ to_input_e e_group
       ; reset         = to_reset_e e_group
       ; streams       = streams_conv s_raw_streams
-      ; input_streams = streams_conv @@ to_raw_input_streams_s s_raw_streams
       ; ts_states     = to_ts_states_e e_group
       ; ts_errors     = to_ts_errors_e e_group
       ; t2mi_states   = to_t2mi_states_e e_group
@@ -447,7 +452,7 @@ module SM = struct
       ; board_errors  = e_be
       ; structs       = s_ts
       ; bitrates      = s_br
-      ; t2mi_info     = React.S.changes s_t2mi
+      ; t2mi_info     = s_t2mi
       ; jitter        = e_pcr
       ; jitter_session = React.E.changes ~eq:Jitter.equal_session e_pcr_s
       }
@@ -466,22 +471,22 @@ module SM = struct
     in
     let api =
       { set_input       = (fun i  -> let m = { t2mi = storage#get.t2mi_mode; input = i } in
-                                     enqueue_instant imsgs sender storage (Set_board_mode m)
+                                     enqueue_instant s_state imsgs sender storage (Set_board_mode m)
                                      >>= (fun () -> cfg_push storage#get; Lwt.return_unit))
       ; set_t2mi_mode   = (fun x  -> let m = { input = storage#get.input; t2mi = x } in
-                                     enqueue_instant imsgs sender storage (Set_board_mode m)
+                                     enqueue_instant s_state imsgs sender storage (Set_board_mode m)
                                      >>= (fun () -> cfg_push storage#get; Lwt.return_unit))
-      ; set_jitter_mode = (fun m  -> enqueue_instant imsgs sender storage (Set_jitter_mode m)
+      ; set_jitter_mode = (fun m  -> enqueue_instant s_state imsgs sender storage (Set_jitter_mode m)
                                      >>= (fun () -> cfg_push storage#get; Lwt.return_unit))
       ; get_devinfo     = (fun () -> Lwt.return @@ React.S.value s_devi)
-      ; reset           = (fun () -> enqueue_instant imsgs sender storage Reset)
+      ; reset           = (fun () -> enqueue_instant s_state imsgs sender storage Reset)
       ; get_t2mi_info   = (fun () -> Lwt.return @@ React.S.value s_t2mi)
-      ; get_section     = (fun r  -> enqueue msgs sender
+      ; get_section     = (fun r  -> enqueue s_state msgs sender
                                              (Get_section { request_id = get_id ()
                                                           ; params     = r })
                                              (to_period 125 step)
                                              None)
-      ; get_t2mi_seq    = (fun s  -> enqueue msgs sender
+      ; get_t2mi_seq    = (fun s  -> enqueue s_state msgs sender
                                              (Get_t2mi_frame_seq { request_id = get_id ()
                                                                  ; seconds    = s })
                                              (to_period (s + 10) step)

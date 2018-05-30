@@ -112,6 +112,8 @@ and equal_source l r = match l, r with
   | Parent l, Parent r -> equal l r
   | _ -> false
 
+type t_opt  = t option [@@deriving yojson]
+
 type t_list = t list [@@deriving yojson]
 
 let t_to_topo_port (b:topo_board) (t:t) =

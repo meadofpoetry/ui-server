@@ -15,8 +15,7 @@ open Api.Query
  **
  ** QUERY PARAMETERS
  **
- ** [from]      - timestamp (can be 'now', 'now' - timespan)
- ** [to]        - timestamp (can be 'now')
+ ** [from][to]  - timestamps
  ** [f[errors]] - list of error codes to be filtered
  ** [f[level]]  - level of errors to be filtered. Priority for TS, ts-parser/t2mi-parser/errors for T2-MI
  ** [limit]     - maximum number of items in a response (default FIXME)
@@ -80,7 +79,7 @@ module REST = struct
            |> query_wrapper r
 
       let percent ?stream time (q:Api.Query.Raw.t list) () =
-        let r,_ = Api.Query.Validation.(
+        let r,_ = Validation.(
             get_errors_query q
             >>= fun (err,q) -> get_level_query q
             >>| Pair.make err)
@@ -89,7 +88,7 @@ module REST = struct
            |> query_wrapper r
 
       let has_any ?stream time (q:Api.Query.Raw.t list) () =
-        let r,_ = Api.Query.Validation.(
+        let r,_ = Validation.(
             get_errors_query q
             >>= fun (err,q) -> get_level_query q
             >>| Pair.make err)
@@ -102,7 +101,7 @@ module REST = struct
     module T2MI = struct
 
       let errors ?stream time (q:Api.Query.Raw.t list) () =
-        let r,_ = Api.Query.Validation.(
+        let r,_ = Validation.(
             get_errors_query q
             >>= fun (err,q) -> get_level_query q
             >>= fun (lev,q) -> get_limit_query q
@@ -114,7 +113,7 @@ module REST = struct
            |> query_wrapper r
 
       let percent ?stream time (q:Api.Query.Raw.t list) () =
-        let r,_ = Api.Query.Validation.(
+        let r,_ = Validation.(
             get_errors_query q
             >>= fun (err,q) -> get_level_query q
             >>| Pair.make err)
@@ -123,7 +122,7 @@ module REST = struct
            |> query_wrapper r
 
       let has_any ?stream time (q:Api.Query.Raw.t list) () =
-        let r,_ = Api.Query.Validation.(
+        let r,_ = Validation.(
             get_errors_query q
             >>= fun (err,q) -> get_level_query q
             >>| Pair.make err)
@@ -138,7 +137,7 @@ end
 let ws_past_ni  = "This WS archive REQ is not implemented"
 let rest_now_ni = "This REST real-time REQ is not implemented"
 
-let handle_ok api events scheme meth req (q:Api.Query.Raw.t list) sock_data body time () =
+let handle_ok api events scheme meth req (q:Raw.t list) sock_data body time () =
   match scheme,meth,req,time with
   (* WS *)
   | `WS,  `GET,`Errors (`TS id),   `Now    -> WS.TS.errors   ?stream:id sock_data events body ()
@@ -155,7 +154,6 @@ let handle_ok api events scheme meth req (q:Api.Query.Raw.t list) sock_data body
   | _ -> not_found ()
 
 let handle api events scheme meth req uri sock_data body () =
-  let open Api.Query in
   match Validation.get_or ~default:`Now (Time ("from","to")) @@ Uri.query uri with
   | Error e,_ -> Json.respond_result (Error (Api_utils.err_to_yojson @@ Bad_query e))
   | Ok t,q    -> handle_ok api events scheme meth req q sock_data body t ()

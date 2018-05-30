@@ -226,12 +226,13 @@ module Validation = struct
     | Custom : (string option -> 'a option) -> 'a v_simple
 
   type _ v =
-    | List   : string * 'a v_simple -> 'a list v              (* key and item validation *)
-    | Filter : string * 'a v_simple -> 'a list v              (* name and item validation *)
-    | Time   : string * string -> Time.Range.t v
-    | One    : string * 'a v_simple -> 'a v                   (* key and item validation *)
-    | Keys   : string * string list -> string list v          (* key and possible values *)
-    | Custom : string * (Raw.t -> 'a option) -> 'a v
+    | List     : string * 'a v_simple -> 'a list v              (* key and item validation *)
+    | Filter   : string * 'a v_simple -> 'a list v              (* name and item validation *)
+    | Filter_s : string * 'a v_simple -> 'a v
+    | Time     : string * string -> Time.Range.t v
+    | One      : string * 'a v_simple -> 'a v                   (* key and item validation *)
+    | Keys     : string * string list -> string list v          (* key and possible values *)
+    | Custom   : string * (Raw.t -> 'a option) -> 'a v
 
   type err = [ `Bad_value of Raw.t list
              | `Unknown   of Raw.t list
@@ -266,19 +267,23 @@ module Validation = struct
                       %> (function [],acc -> Ok acc | err,_ -> Error (`Bad_value [k,List.concat err]))
     in
     match validation with
-    | Time (f,t)   -> Time.Range.of_queries ~from_key:f ~till_key:t q
-                      |> Result.map2 (Pair.make [f;t]) (fun e -> `Bad_value e)
-    | List (k,x)   -> k >>* ((List.map (fun q -> validate_simple x [q])) %> of_rlist k) >|= Pair.make [k]
-    | Filter (n,x) -> Filter.name_to_key n
-                      >>* (List.map (fun q -> validate_simple x [q]) %> of_rlist (Filter.name_to_key n))
-                      >|= Pair.make [Filter.name_to_key n]
-    | One (k,x)    -> k >>* (fun v -> validate_simple x v |> Result.map_err (fun e -> `Bad_value [k,e]))
-                      >|= Pair.make [k]
-    | Keys (k,ks)  -> k >>* (List.partition (fun x -> List.mem ~eq:String.equal x ks)
-                             %> (function ks,[] -> Ok ks | _,b -> Error (`Bad_value [k,b])))
-                      >|= Pair.make [k]
-    | Custom (k,f) -> k >>* (fun v -> (f (k,v)) |> function Some x -> Ok x | None -> Error (`Bad_value [k,v]))
-                      >|= Pair.make [k]
+    | Time (f,t)     -> Time.Range.of_queries ~from_key:f ~till_key:t q
+                        |> Result.map2 (Pair.make [f;t]) (fun e -> `Bad_value e)
+    | List (k,x)     -> k >>* ((List.map (fun q -> validate_simple x [q])) %> of_rlist k) >|= Pair.make [k]
+    | Filter (n,x)   -> Filter.name_to_key n
+                        >>* (List.map (fun q -> validate_simple x [q]) %> of_rlist (Filter.name_to_key n))
+                        >|= Pair.make [Filter.name_to_key n]
+    | Filter_s (n,x) -> Filter.name_to_key n
+                        >>* (fun v -> validate_simple x v
+                                      |> Result.map_err (fun e -> `Bad_value [Filter.name_to_key n,e]))
+                        >|= Pair.make [Filter.name_to_key n]
+    | One (k,x)      -> k >>* (fun v -> validate_simple x v |> Result.map_err (fun e -> `Bad_value [k,e]))
+                        >|= Pair.make [k]
+    | Keys (k,ks)    -> k >>* (List.partition (fun x -> List.mem ~eq:String.equal x ks)
+                               %> (function ks,[] -> Ok ks | _,b -> Error (`Bad_value [k,b])))
+                        >|= Pair.make [k]
+    | Custom (k,f)   -> k >>* (fun v -> (f (k,v)) |> function Some x -> Ok x | None -> Error (`Bad_value [k,v]))
+                        >|= Pair.make [k]
 
   type 'a t = ('a,err) result
 

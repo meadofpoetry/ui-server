@@ -132,45 +132,41 @@ module Streams = struct
   include Domain
   let domain = "streams"
   let ts,t2mi = "ts","t2mi"
-  let input,states,structures,
-      bitrates,sequence,section = "input","states","structures",
-                                  "bitrates","sequence","section"
-  type streams_req_type = [ `All | `Input ]
-  type req = [ `Streams    of streams_req_type * Stream.id option
-             | `States     of stream
-             | `Structures of stream
-             | `Bitrates   of Stream.id option
-             | `Sequence   of int option
-             | `Section    of Stream.id * int
+  let state,structure,bitrate,
+      sequence,section = "state","structure","bitrate",
+                         "sequence","section"
+  type req = [ `Streams   of Stream.id option
+             | `State     of stream
+             | `Structure of stream
+             | `Bitrate   of Stream.id option
+             | `Sequence  of int option
+             | `Section   of Stream.id * int
              ]
+
+  let get_state_query q = Validation.get (Filter_s ("state",Bool)) q
 
   let eq = Domain.equal
 
   let req_to_path : req -> path = function
-    | `Streams (t,id) ->
-       let sid = Option.map Fun.(Stream.id_to_int32 %> Int32.to_string) id in
-       let inp = match t with `All -> None | `Input -> Some input in
-       inp ^:: sid ^:: []
-    | `States x         -> states :: stream_to_path x
-    | `Structures x     -> structures :: stream_to_path x
-    | `Bitrates x       -> bitrates :: stream_to_path (`TS x)
+    | `Streams id ->
+       let sid = Option.map Fun.(Stream.id_to_int32 %> Int32.to_string) id in sid ^:: []
+    | `State x          -> state :: stream_to_path x
+    | `Structure x      -> structure :: stream_to_path x
+    | `Bitrate x        -> bitrate :: stream_to_path (`TS x)
     | `Sequence x       -> section :: stream_to_path (`T2MI x)
     | `Section (sid,id) ->
        let ts = stream_to_path (`TS (Some sid)) in
        let id = Int.to_string id in
        (section :: ts) @ (id :: [])
   let req_of_path : path -> req option = function
-    | [ ] -> Some (`Streams (`All, None))
-    | [x] when eq x input -> Some (`Streams (`Input, None))
-    | [x] -> Option.map (fun x -> `Streams (`All, Some (Stream.id_of_int32 x))) @@ Int32.of_string x
-    | [x;y] when eq x input ->
-       Option.map (fun x -> `Streams (`Input, Some (Stream.id_of_int32 x))) @@ Int32.of_string y
-    | hd::tl when eq hd states ->
-       Option.map (fun x -> `States x) @@ stream_of_path tl
-    | hd::tl when eq hd structures ->
-       Option.map (fun x -> `Structures x) @@ stream_of_path tl
-    | hd::tl when eq hd bitrates ->
-       Option.flat_map (function `TS id -> Some (`Bitrates id) | _ -> None)
+    | [ ] -> Some (`Streams None)
+    | [x] -> Option.map (fun x -> `Streams (Some (Stream.id_of_int32 x))) @@ Int32.of_string x
+    | hd::tl when eq hd state ->
+       Option.map (fun x -> `State x) @@ stream_of_path tl
+    | hd::tl when eq hd structure ->
+       Option.map (fun x -> `Structure x) @@ stream_of_path tl
+    | hd::tl when eq hd bitrate ->
+       Option.flat_map (function `TS id -> Some (`Bitrate id) | _ -> None)
        @@ stream_of_path tl
     | [x;y]   when eq x sequence && eq y t2mi ->
        Some (`Sequence None)

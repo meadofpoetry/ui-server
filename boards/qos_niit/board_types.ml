@@ -31,28 +31,6 @@ type jitter_mode =
 type t2mi_mode_request   = t2mi_mode option   [@@deriving yojson]
 type jitter_mode_request = jitter_mode option [@@deriving yojson]
 
-(** SI/PSI section **)
-
-type section_request =
-  { stream_id      : Stream.id
-  ; table_id       : int
-  ; section        : int option (* needed for tables containing multiple sections *)
-  ; table_id_ext   : int option (* needed for tables with extra parameter, like ts id for PAT *)
-  ; eit_ts_id      : int option (* ts id for EIT *)
-  ; eit_orig_nw_id : int option (* original network ID for EIT *)
-  } [@@deriving yojson]
-
-type section_error = Zero_length
-                   | Table_not_found
-                   | Section_not_found
-                   | Stream_not_found
-                   | Unknown [@@deriving yojson]
-
-type section =
-  { stream_id : Stream.id
-  ; table_id  : int
-  ; section   : string } [@@deriving yojson]
-
 (** Config **)
 
 type config =
@@ -149,6 +127,8 @@ module Streams = struct
 
   module TS = struct
 
+    (** TS state **)
+
     type state =
       { stream    : Stream.id
       ; timestamp : Time.t
@@ -156,6 +136,8 @@ module Streams = struct
       } [@@deriving yojson]
 
     type states = state list [@@deriving yojson]
+
+    (** TS structure **)
 
     type pid_info =
       { pid       : int
@@ -391,9 +373,34 @@ module Streams = struct
       | RST x     -> x        | ST  x     -> x        | TOT x     -> x
       | DIT x     -> x        | SIT x     -> x        | Unknown x -> x
 
+
+    (** SI/PSI section **)
+
+    type section_request =
+      { stream_id      : Stream.id
+      ; table_id       : int
+      ; section        : int option (* needed for tables containing multiple sections *)
+      ; table_id_ext   : int option (* needed for tables with extra parameter, like ts id for PAT *)
+      ; eit_ts_id      : int option (* ts id for EIT *)
+      ; eit_orig_nw_id : int option (* original network ID for EIT *)
+      } [@@deriving yojson]
+
+    type section_error = Zero_length
+                       | Table_not_found
+                       | Section_not_found
+                       | Stream_not_found
+                       | Unknown [@@deriving yojson]
+
+    type section =
+      { stream_id : Stream.id
+      ; table_id  : int
+      ; section   : string } [@@deriving yojson]
+
   end
 
   module T2MI = struct
+
+    (** T2MI state **)
 
     type state =
       { stream    : Stream.id
@@ -404,9 +411,12 @@ module Streams = struct
 
     type states = state list [@@deriving yojson]
 
+    (** T2MI structure **)
+
     type structure =
       { packets      : int list
       ; stream_id    : int
+      ; timestamp    : Time.t
       ; t2mi_pid     : int option
       ; l1_pre       : string option
       ; l1_post_conf : string option

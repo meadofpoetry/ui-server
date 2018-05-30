@@ -14,45 +14,48 @@ type part =
   ; data  : Cbuffer.t
   }
 
-type probe_response = Board_errors of board_errors
-                    | Bitrate      of Types.bitrate list
-                    | Struct       of Streams.TS.structures
-                    | T2mi_info    of Streams.T2MI.structure
-                    | Jitter       of Types.jitter_raw
+type probe_response =
+  | Board_errors of board_errors
+  | Bitrate      of Types.bitrate list
+  | Struct       of Streams.TS.structures
+  | T2mi_info    of Streams.T2MI.structure
+  | Jitter       of Types.jitter_raw
 
-type events = { config         : config React.event
-              ; state          : Common.Topology.state React.signal
-              ; input          : input React.signal
-              ; status         : status React.event
-              ; reset          : reset_ts React.event
-              ; board_errors   : board_errors React.event
-              ; streams        : Common.Stream.t list React.signal
-              ; input_streams  : Common.Stream.t list React.signal
-              ; ts_errors      : Errors.TS.t list React.event
-              ; ts_states      : Streams.TS.state list React.event
-              ; structs        : Streams.TS.structures React.signal
-              ; bitrates       : Streams.TS.structures React.signal
-              ; t2mi_errors    : Errors.T2MI.t list React.event
-              ; t2mi_states    : Streams.T2MI.state list React.event
-              ; t2mi_info      : Streams.T2MI.structures React.event
-              ; jitter_session : Jitter.session React.event
-              ; jitter         : Jitter.measures React.event
-              }
+type events =
+  { config         : config React.event
+  ; state          : Common.Topology.state React.signal
+  ; input          : input React.signal
+  ; status         : status React.event
+  ; reset          : reset_ts React.event
+  ; board_errors   : board_errors React.event
+  ; streams        : Common.Stream.t list React.signal
+  ; ts_errors      : Errors.TS.t list React.event
+  ; ts_states      : Streams.TS.state list React.event
+  ; structs        : Streams.TS.structures React.signal
+  ; bitrates       : Streams.TS.structures React.signal
+  ; t2mi_errors    : Errors.T2MI.t list React.event
+  ; t2mi_states    : Streams.T2MI.state list React.event
+  ; t2mi_info      : Streams.T2MI.structures React.signal
+  ; jitter_session : Jitter.session React.event
+  ; jitter         : Jitter.measures React.event
+  }
 
-type api = { get_devinfo     : unit                -> devinfo_response Lwt.t
-           ; set_input       : input               -> unit Lwt.t
-           ; set_t2mi_mode   : t2mi_mode_request   -> unit Lwt.t
-           ; set_jitter_mode : jitter_mode_request -> unit Lwt.t
-           ; get_t2mi_seq    : int                 -> Streams.T2MI.sequence Lwt.t
-           ; get_t2mi_info   : unit                -> Streams.T2MI.structures Lwt.t
-           ; get_section     : section_request     -> (section,section_error) Lwt_result.t
-           ; reset           : unit                -> unit Lwt.t
-           ; config          : unit                -> config Lwt.t
-           }
+type api =
+  { get_devinfo     : unit                       -> devinfo_response Lwt.t
+  ; set_input       : input                      -> unit Lwt.t
+  ; set_t2mi_mode   : t2mi_mode_request          -> unit Lwt.t
+  ; set_jitter_mode : jitter_mode_request        -> unit Lwt.t
+  ; get_t2mi_seq    : int                        -> Streams.T2MI.sequence Lwt.t
+  ; get_t2mi_info   : unit                       -> Streams.T2MI.structures Lwt.t
+  ; get_section     : Streams.TS.section_request -> (Streams.TS.section,Streams.TS.section_error) Lwt_result.t
+  ; reset           : unit                       -> unit Lwt.t
+  ; config          : unit                       -> config Lwt.t
+  }
 
-type _ instant_request = Set_board_mode  : Types.mode          -> unit instant_request
-                       | Set_jitter_mode : jitter_mode_request -> unit instant_request
-                       | Reset           : unit instant_request
+type _ instant_request =
+  | Set_board_mode  : Types.mode          -> unit instant_request
+  | Set_jitter_mode : jitter_mode_request -> unit instant_request
+  | Reset           : unit instant_request
 
 type jitter_req =
   { request_id : int
@@ -64,11 +67,12 @@ type t2mi_info_req =
   ; stream_id  : int
   }
 
-type _ probe_request = Get_board_errors : int           -> probe_response probe_request
-                     | Get_jitter       : jitter_req    -> probe_response probe_request
-                     | Get_ts_structs   : int           -> probe_response probe_request
-                     | Get_bitrates     : int           -> probe_response probe_request
-                     | Get_t2mi_info    : t2mi_info_req -> probe_response probe_request
+type _ probe_request =
+  | Get_board_errors : int           -> probe_response probe_request
+  | Get_jitter       : jitter_req    -> probe_response probe_request
+  | Get_ts_structs   : int           -> probe_response probe_request
+  | Get_bitrates     : int           -> probe_response probe_request
+  | Get_t2mi_info    : t2mi_info_req -> probe_response probe_request
 
 type t2mi_frame_seq_req =
   { request_id : int
@@ -77,13 +81,14 @@ type t2mi_frame_seq_req =
 
 type section_req =
   { request_id : int
-  ; params     : section_request
+  ; params     : Streams.TS.section_request
   }
 
-type _ request = Get_board_info     : devinfo request
-               | Get_board_mode     : Types.mode request
-               | Get_t2mi_frame_seq : t2mi_frame_seq_req -> Streams.T2MI.sequence request
-               | Get_section        : section_req        -> (section,section_error) result request
+type _ request =
+  | Get_board_info     : devinfo request
+  | Get_board_mode     : Types.mode request
+  | Get_t2mi_frame_seq : t2mi_frame_seq_req -> Streams.T2MI.sequence request
+  | Get_section        : section_req -> (Streams.TS.section,Streams.TS.section_error) result request
 
 (* ------------------- Misc ------------------- *)
 
@@ -197,7 +202,9 @@ end
 
 module Get_section : (Request
                       with type req = section_req
-                      with type rsp = (section,section_error) result) = struct
+                      with type rsp = (Streams.TS.section,Streams.TS.section_error) result) = struct
+
+  open Streams.TS
 
   type req = section_req
   type rsp = (section,section_error) result
@@ -594,10 +601,11 @@ module Get_t2mi_info : (Request with type req := t2mi_info_req
                     |> List.rev
                     |> List.foldi (fun acc i x -> if x then i :: acc else acc) []
     in
-    let sid      = get_t2mi_info_stream_id hdr in
-    let length   = get_t2mi_info_length hdr in
+    let sid       = get_t2mi_info_stream_id hdr in
+    let length    = get_t2mi_info_length hdr in
+    let timestamp = Common.Time.Clock.now () in
     match length with
-    | 0 -> { packets; stream_id = sid; t2mi_pid = None; l1_pre = None; l1_post_conf = None }
+    | 0 -> { packets; timestamp; stream_id = sid; t2mi_pid = None; l1_pre = None; l1_post_conf = None }
     | l -> let body,_   = Cbuffer.split rest l in
            let conf_len = get_t2mi_info_ext_conf_len body
                           |> fun x -> let r,d = x mod 8, x / 8 in d + (if r > 0 then 1 else 0)
@@ -607,6 +615,7 @@ module Get_t2mi_info : (Request with type req := t2mi_info_req
            let l1_pre   = Cbuffer.to_string @@ get_t2mi_info_ext_l1_pre body in
            let l1_post  = Cbuffer.to_string conf in
            { packets
+           ; timestamp
            ; t2mi_pid     = Some (get_t2mi_info_ext_t2mi_pid body)
            ; stream_id    = sid
            ; l1_pre       = Some l1_pre
@@ -1007,6 +1016,7 @@ let parse_get_board_errors req_id = function
 
 let parse_get_section (req : section_req) = function
   | `Section (r_id,buf) ->
+     let open Streams.TS in
      if req.request_id <> r_id then None
      else Option.map (Result.map (fun x -> { x with table_id = req.params.table_id }))
                      (try_parse Get_section.of_cbuffer buf)
