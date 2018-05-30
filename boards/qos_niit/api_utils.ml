@@ -36,9 +36,16 @@ module Domain = struct
   let equal = String.equal
   type path = string list
 
-  let get_thin_query q  = Api.Query.Validation.get_or ~default:false (One ("thin", Bool)) q
-  let get_total_query q = Api.Query.Validation.get_or ~default:false (One ("total", Bool)) q
-  let get_limit_query q = Api.Query.Validation.get (One ("limit", Int)) q
+  let get_time_query q =
+    let r,q = Validation.(get (One ("from", Time)) q
+                          >>= fun (from,q) -> get (One ("to", Time)) q
+                          >>| fun till     -> from,till)
+    in Result.map (fun (from,till) -> Time.Range.of_time ~from ~till) r,q
+
+
+  let get_thin_query q  = Validation.get_or ~default:false (One ("thin", Bool)) q
+  let get_total_query q = Validation.get_or ~default:false (One ("total", Bool)) q
+  let get_limit_query q = Validation.get (One ("limit", Int)) q
 end
 
 module Device = struct
@@ -54,10 +61,17 @@ module Device = struct
                                     ; state_to_string `No_response
                                     ; state_to_string `Init ])
   let get_state_query q =
-    let f = Option.flat_map Common.Topology.state_of_string in
-    let r,q = Api.Query.Validation.get (Filter ("state",Custom f)) q in
+    let f_of = Option.flat_map Common.Topology.state_of_string in
+    let f_to = Fun.(Option.return % Common.Topology.state_to_string) in
+    let r,q  = Api.Query.Validation.get (Filter ("state",Custom (f_of,f_to))) q in
     Result.map (Option.map (List.sort_uniq ~cmp:Common.Topology.compare_state)) r,q
   let get_errors_query = Api.Query.Validation.get (Filter ("errors",Int))
+
+  type 'a query = 'a Validation.v
+
+  let query_to_uri (type a) (uri:Uri.t) (q:a query) (v:a) : Raw.t =
+    let k = Validation.key_of_validation q in
+    k,[]
 
   type mode = [ `T2MI | `JITTER ]
   type req  = [ `Errors
@@ -143,7 +157,7 @@ module Streams = struct
              | `Section   of Stream.id * int
              ]
 
-  let get_state_query q = Validation.get (Filter_s ("state",Bool)) q
+  let get_state_query q = Validation.get (Filter_one ("state",Bool)) q
 
   let eq = Domain.equal
 
@@ -182,6 +196,8 @@ end
 module Jitter = struct
 
   (* TODO IMPLEMENT *)
+
+  include Domain
 
   let domain = "jitter"
 

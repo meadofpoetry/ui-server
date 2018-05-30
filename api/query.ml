@@ -72,24 +72,6 @@ module Time = struct
     let (>>=) x f = match x with Some x -> Some x | None -> f () in
     of_rfc3339 s >>= (fun () -> of_int_s s) >>= (fun () -> of_relative s)
 
-  let of_queries ~(key:string) (q:Raw.t list) : (t option,Raw.t) result =
-    match List.find_map (fun (k,v) -> if String.equal k key then Some v else None) q with
-    | Some [v] -> Option.to_result (key,[v]) @@ of_string v |> Result.map Option.return
-    | Some x   -> Error (key,x)
-    | None     -> Ok None
-
-  (** [of_uri ~key u] extracts value under [key] from the provided URI [u] and parses it.
-   ** Possible time value formats are:
-   ** - RFC3339
-   ** - POSIX seconds
-   ** - relative timestamp (now{+|-}{value}{unit} or plain 'now')
-   **)
-  let of_uri ~(key:string) (uri:Uri.t) : (t option,string) result =
-    match Uri.get_query_param uri key with
-    | None   -> Ok None
-    | Some s -> Option.to_result "Unable to parse timestamp" @@ of_string s
-                |> Result.map Option.return
-
   module Range = struct
 
     type time = t
@@ -132,19 +114,6 @@ module Time = struct
       | None  , Some x -> `Past (`Till x)
       | Some f, Some t -> `Past (`Range (f,t))
 
-    let of_queries ?(from_key=from) ?(till_key=till) (q:Raw.t list) : (t,Raw.t list) result =
-      match (of_queries ~key:from_key q), (of_queries ~key:till_key q) with
-      | Ok f, Ok t       -> Result.return @@ of_time ~from:f ~till:t
-      | Error e, Ok _    -> Result.fail [e]
-      | Ok _, Error e    -> Result.fail [e]
-      | Error f, Error t -> Result.fail [f;t]
-
-    (** [of_uri ?fk ?tk u] extracts time range from URI [u].
-     ** Search of time values is performed under provided [fk] and [tk] keys.
-     **)
-    let of_uri ?(from_key=from) ?(till_key=till) uri : (t,Raw.t list) result =
-      of_queries ~from_key ~till_key @@ Uri.query uri
-
     (** [to_abs t] converts time range [t] to time range with absolute timestamps
      **)
     let to_abs : t -> t_abs = function
@@ -175,42 +144,6 @@ module Filter = struct
 
   let name_to_key ?(base_key=key) name = Printf.sprintf "%s[%s]" base_key name
 
-  let of_query ?(key=key) ?name (q:Raw.t) : t option =
-    match name, name_of_key (fst q) with
-    | Some n, Ok k when String.equal k n -> Some (n,snd q)
-    | None, Ok k -> Some (k,snd q)
-    | _          -> None
-
-  let of_queries ?(key=key) ?name (q:Raw.t list) : t option =
-    List.find_map (of_query ~key ?name) q
-
-  let of_uri ?(key=key) ~name (u:Uri.t) : t option =
-    List.find_map (of_query ~key ?name) @@ Uri.query u
-
-  let of_uri_all ?(key=key) (u:Uri.t) : t list =
-    List.filter_map (of_query ~key) @@ Uri.query u
-
-end
-
-module Make_simple(M:sig type t val of_string : string -> t option end) = struct
-
-  let of_query ~key (q:Raw.t) : 'a option =
-    match Raw.Key.equal key (fst q), (snd q) with
-    | true,[v] -> M.of_string v
-    | _        -> None
-
-  let of_uri ~key (u:Uri.t) : 'a option =
-    Option.flat_map M.of_string @@ Uri.get_query_param u key
-
-end
-
-module Simple = struct
-
-  module Bool  = Make_simple(struct type t = bool let of_string = bool_of_string_opt end)
-  module Int   = Make_simple(Int)
-  module Int32 = Make_simple(Int32)
-  module Int64 = Make_simple(Int64)
-
 end
 
 module Validation = struct
@@ -218,79 +151,77 @@ module Validation = struct
   type _ v_simple =
     | Bool   : bool v_simple
     | Int    : int v_simple
-    | Int32  : int32 v_simple
-    | Int64  : int64 v_simple
-    | Key    : string list -> string v_simple
-    | Empty  : unit v_simple
     | Time   : Time.t v_simple
-    | Custom : (string option -> 'a option) -> 'a v_simple
+    | Custom : (string option -> 'a option) * ('a -> string option) -> 'a v_simple
 
   type _ v =
-    | List     : string * 'a v_simple -> 'a list v              (* key and item validation *)
-    | Filter   : string * 'a v_simple -> 'a list v              (* name and item validation *)
-    | Filter_s : string * 'a v_simple -> 'a v
-    | Time     : string * string -> Time.Range.t v
-    | One      : string * 'a v_simple -> 'a v                   (* key and item validation *)
-    | Keys     : string * string list -> string list v          (* key and possible values *)
-    | Custom   : string * (Raw.t -> 'a option) -> 'a v
+    | List       : string * 'a v_simple -> 'a list v              (* key and item validation *)
+    | Filter     : string * 'a v_simple -> 'a list v              (* name and item validation *)
+    | Filter_one : string * 'a v_simple -> 'a v
+    | One        : string * 'a v_simple -> 'a v                   (* key and item validation *)
 
-  type err = [ `Bad_value of Raw.t list
+  type err = [ `Bad_value of Raw.t
              | `Unknown   of Raw.t list
              ] [@@deriving yojson]
 
   let validate_simple : type a. a v_simple -> Raw.Value.t -> (a,Raw.Value.t) result = fun validation query ->
     let to_res = function Some x -> Ok x | None -> Error query in
     match validation,query with
-    | Bool,[v]     -> bool_of_string_opt v |> to_res
-    | Int,[v]      -> int_of_string_opt v |> to_res
-    | Int32,[v]    -> Int32.of_string_opt v |> to_res
-    | Int64,[v]    -> Int64.of_string_opt v |> to_res
-    | Key ks,[v]   -> (if List.mem ~eq:String.equal v ks then Some v else None) |> to_res
-    | Empty,[ ]    -> Ok ()
-    | Time,[v]     -> Time.of_string v |> to_res
-    | Custom f,[ ] -> f None |> to_res
-    | Custom f,[v] -> f (Some v) |> to_res
-    | _            -> Error query
+    | Bool,[v]         -> bool_of_string_opt v |> to_res
+    | Int,[v]          -> int_of_string_opt v  |> to_res
+    | Time,[v]         -> Time.of_string v     |> to_res
+    | Custom (f,_),[ ] -> f None               |> to_res
+    | Custom (f,_),[v] -> f (Some v)           |> to_res
+    | _                -> Error query
+
+  let simple_to_value : type a. a -> a v_simple -> Raw.Value.t = fun v validation ->
+    match validation with
+    | Bool         -> List.pure @@ string_of_bool v
+    | Int          -> List.pure @@ string_of_int v
+    | Time         -> List.pure @@ Time.to_string v
+    | Custom (_,f) -> match f v with Some v -> List.pure v | None -> [ ]
 
   let remove key query = List.Assoc.remove ~eq:Raw.Key.equal key query
 
   type err_ext = [ `Not_found of Raw.Key.t | err ]
 
-  let rec validate : type a. Raw.t list -> a v -> ((Raw.Key.t list * a),err_ext) result = fun q validation ->
+  let key_of_validation : type a. a v -> string = function
+    | List (k,_)       -> k
+    | Filter (n,_)     -> Filter.name_to_key n
+    | Filter_one (n,_) -> Filter.name_to_key n
+    | One (k,_)        -> k
+
+  let validate : type a. Raw.t list -> a v -> ((Raw.Key.t * a),err_ext) result = fun q validation ->
     let open Result.Infix in
     let find k q    = List.Assoc.get ~eq:Raw.Key.equal k q in
     let ( >>* ) k f = match find k q with Some q -> f q | None -> Error (`Not_found k) in
     let ( %> )      = Fun.( %> ) in
     let of_rlist k  = List.fold_left (fun (err,acc) x -> match x with Error e -> e :: err,acc
-                                                                    | Ok x -> err,x ::acc)
+                                                                    | Ok x    -> err,x ::acc)
                                      ([],[])
-                      %> (function [],acc -> Ok acc | err,_ -> Error (`Bad_value [k,List.concat err]))
+                      %> (function [],acc -> Ok acc | err,_ -> Error (`Bad_value (k,List.concat err)))
     in
+    let k = key_of_validation validation in
     match validation with
-    | Time (f,t)     -> Time.Range.of_queries ~from_key:f ~till_key:t q
-                        |> Result.map2 (Pair.make [f;t]) (fun e -> `Bad_value e)
-    | List (k,x)     -> k >>* ((List.map (fun q -> validate_simple x [q])) %> of_rlist k) >|= Pair.make [k]
-    | Filter (n,x)   -> Filter.name_to_key n
-                        >>* (List.map (fun q -> validate_simple x [q]) %> of_rlist (Filter.name_to_key n))
-                        >|= Pair.make [Filter.name_to_key n]
-    | Filter_s (n,x) -> Filter.name_to_key n
-                        >>* (fun v -> validate_simple x v
-                                      |> Result.map_err (fun e -> `Bad_value [Filter.name_to_key n,e]))
-                        >|= Pair.make [Filter.name_to_key n]
-    | One (k,x)      -> k >>* (fun v -> validate_simple x v |> Result.map_err (fun e -> `Bad_value [k,e]))
-                        >|= Pair.make [k]
-    | Keys (k,ks)    -> k >>* (List.partition (fun x -> List.mem ~eq:String.equal x ks)
-                               %> (function ks,[] -> Ok ks | _,b -> Error (`Bad_value [k,b])))
-                        >|= Pair.make [k]
-    | Custom (k,f)   -> k >>* (fun v -> (f (k,v)) |> function Some x -> Ok x | None -> Error (`Bad_value [k,v]))
-                        >|= Pair.make [k]
+    | List (_,x)       ->
+       k >>* ((List.map (fun q -> validate_simple x [q])) %> of_rlist k) >|= Pair.make k
+    | Filter (_,x)     ->
+       k >>* (List.map (fun q -> validate_simple x [q]) %> of_rlist k)
+       >|= Pair.make k
+    | Filter_one (_,x) ->
+       k >>* (fun v -> validate_simple x v
+                       |> Result.map_err (fun e -> `Bad_value (k,e)))
+       >|= Pair.make k
+    | One (_,x)        ->
+       k >>* (fun v -> validate_simple x v |> Result.map_err (fun e -> `Bad_value (k,e)))
+       >|= Pair.make k
 
   type 'a t = ('a,err) result
 
   let get : type a. a v -> Raw.t list -> a option t * Raw.t list =
     fun validation query ->
     match validate query validation with
-    | Ok (ks,q)            -> Ok (Some q),List.filter (fun (k,v) -> not @@ List.mem ~eq:Raw.Key.equal k ks) query
+    | Ok (k,q)             -> Ok (Some q),List.Assoc.remove ~eq:Raw.Key.equal k query
     | Error (`Not_found _) -> Ok None,query
     | Error (`Unknown _ | `Bad_value _) as e -> e,query
 
