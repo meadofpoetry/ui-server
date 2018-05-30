@@ -150,8 +150,7 @@ let ws_ar_ni   = "This WS archive REQ is not implemented"
 let rest_ar_ni = "This REST archive REQ is not implemented"
 let rest_rt_ni = "This REST real-time REQ is not implemented"
 
-let handle_ok api events scheme meth req (q:Api.Query.Raw.t list) sock_data body time () =
-  let open Result.Infix in
+let handle_ok api events scheme meth req (q:Raw.t list) sock_data body time () =
   match scheme,meth,req,time with
   (* POST *)
   | _,`POST,`Mode m,    `Now -> REST.post_mode m api body ()
@@ -176,7 +175,6 @@ let handle_ok api events scheme meth req (q:Api.Query.Raw.t list) sock_data body
   | _ -> not_found ()
 
 let handle api events scheme meth req uri sock_data body () =
-  let open Api.Query in
   match Validation.get_or ~default:`Now (Time ("from","to")) @@ Uri.query uri with
   | Error e,_ -> Json.respond_result (Error (Api_utils.err_to_yojson @@ Bad_query e))
   | Ok t,q    -> handle_ok api events scheme meth req q sock_data body t ()

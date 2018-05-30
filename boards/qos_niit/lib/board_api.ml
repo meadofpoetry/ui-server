@@ -12,6 +12,7 @@ let handle api events _ meth path uri sock_data _ body =
   | Some (`Device x)  -> Board_api_device.handle  api events scheme meth x uri sock_data body ()
   | Some (`Errors x)  -> Board_api_errors.handle  api events scheme meth x uri sock_data body ()
   | Some (`Streams x) -> Board_api_streams.handle api events scheme meth x uri sock_data body ()
+  | Some (`Jitter x)  -> Board_api_jitter.handle  api events scheme meth x uri sock_data body ()
   | _ -> not_found ()
 
 let handlers id api events =

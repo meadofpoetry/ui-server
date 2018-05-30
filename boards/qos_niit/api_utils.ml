@@ -178,14 +178,32 @@ module Streams = struct
     | _ -> None
 end
 
+
+module Jitter = struct
+
+  (* TODO IMPLEMENT *)
+
+  let domain = "jitter"
+
+  type req
+
+  let req_to_path : req -> path = function
+    | _ -> []
+  let req_of_path : path -> req option = function
+    | _ -> None
+
+end
+
 type req = [ `Device  of Device.req
            | `Errors  of Errors.req
            | `Streams of Streams.req
+           | `Jitter  of Jitter.req
            ]
 let req_to_path : req -> Domain.path = function
   | `Device x  -> Device.domain :: Device.req_to_path x
   | `Errors x  -> Errors.domain :: Errors.req_to_path x
   | `Streams x -> Streams.domain :: Streams.req_to_path x
+  | `Jitter x  -> Jitter.domain :: Jitter.req_to_path x
 let req_of_path : string list -> req option = function
   | hd::tl when eq hd Device.domain  ->
      Option.map (fun x -> `Device x) @@ Device.req_of_path tl
@@ -193,4 +211,6 @@ let req_of_path : string list -> req option = function
      Option.map (fun x -> `Errors x) @@ Errors.req_of_path tl
   | hd::tl when eq hd Streams.domain ->
      Option.map (fun x -> `Streams x) @@ Streams.req_of_path tl
+  | hd::tl when eq hd Jitter.domain ->
+     Option.map (fun x -> `Jitter x) @@ Jitter.req_of_path tl
   | _ -> None
