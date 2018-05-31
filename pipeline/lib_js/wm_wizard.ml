@@ -30,7 +30,7 @@ let get_items_in_row ~(resolution:int*int) ~(item_ar:int*int) items =
 let position_widget ~(pos:Wm.position) (widget:string * Wm.widget) : string * Wm.widget =
   let s,v    = widget in
   let cpos   = Utils.to_grid_position pos in
-  let wpos   = Dynamic_grid.Position.correct_aspect cpos v.aspect in
+  let wpos   = Option.map_or ~default:cpos (Dynamic_grid.Position.correct_aspect cpos) v.aspect in
   let x      = cpos.x   + ((cpos.w - wpos.w) / 2) in
   let y      = cpos.y   + ((cpos.h - wpos.h) / 2) in
   Printf.printf "cpos: %s, wpos: %s\n"

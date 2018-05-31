@@ -33,7 +33,7 @@ type widget =
   ; domain      : string
   ; position    : position
   ; layer       : int
-  ; aspect      : (int * int)
+  ; aspect      : ((int * int) option [@default None])
   ; description : string
   } [@@deriving yojson,eq]
 
@@ -55,6 +55,10 @@ let default = { resolution = 1280, 720
               ; layout    = []
               }
 
+let aspect_to_string = function
+  | None -> "none"
+  | Some (x,y) -> Printf.sprintf "%dx%d" x y
+            
 let dump w = Yojson.Safe.to_string (to_yojson w)
 
 let restore s = of_yojson (Yojson.Safe.from_string s)
