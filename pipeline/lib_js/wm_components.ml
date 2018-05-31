@@ -134,9 +134,7 @@ module Item_properties = struct
   let make_video_props (t:t_widg React.signal) =
     let v      = React.S.value t in
     let typ    = new Text_row.t ~label:"Тип" ~text:"Видео" () in
-    let aspect = new Text_row.t ~label:"Аспект" ~text:(Printf.sprintf "%dx%d"
-                                                                      (fst v.item.aspect)
-                                                                      (snd v.item.aspect)) () in
+    let aspect = new Text_row.t ~label:"Аспект" ~text:(Wm.aspect_to_string v.item.aspect) () in
     let descr  = new Text_row.t ~label:"Описание" ~text:v.item.description () in
     let box    = new Box.t ~widgets:[typ;aspect;descr] () in
     Wm_types.({ widget = box#widget; actions = [] })
@@ -144,9 +142,7 @@ module Item_properties = struct
   let make_audio_props (t:t_widg React.signal) =
     let v      = React.S.value t in
     let typ    = new Text_row.t ~label:"Тип" ~text:"Аудио" () in
-    let aspect = new Text_row.t ~label:"Аспект" ~text:(Printf.sprintf "%dx%d"
-                                                                      (fst v.item.aspect)
-                                                                      (snd v.item.aspect)) () in
+    let aspect = new Text_row.t ~label:"Аспект" ~text:(Wm.aspect_to_string v.item.aspect) () in
     let descr  = new Text_row.t ~label:"Описание" ~text:v.item.description () in
     let box    = new Box.t ~widgets:[typ;aspect;descr] () in
     Wm_types.({ widget = box#widget; actions = [] })

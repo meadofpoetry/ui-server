@@ -102,4 +102,5 @@ let handlers app =
        let handle = handle app
      end : Api_handler.HANDLER) ]
   @ proc_api
+  @ (Pc_control.Network_api.handlers app.network)
   @ (User_api.handlers app.users)

@@ -159,7 +159,7 @@ module Widget_item : Item with type item = Wm.widget = struct
     let widget = Item_info.make_widget_info t in
     Dynamic_grid.Item.to_item ~keep_ar:true ~widget ~value:t ~pos ()
   let layer_of_t (t:t)   = t.item.layer
-  let size_of_t (t:t)    = Option.(Pair.map return return t.item.aspect)
+  let size_of_t (t:t)    = match t.item.aspect with Some (x,y) -> Some x, Some y | None -> None,None
   let layers_of_t_list l = List.fold_left (fun acc x -> if List.mem ~eq:(=) (layer_of_t x) acc
                                                         then acc else layer_of_t x :: acc) [] l
                            |> List.sort compare
