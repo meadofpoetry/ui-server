@@ -10,7 +10,7 @@ type devinfo =
   ; ver : int
   } [@@deriving yojson]
 
-type devinfo_response = devinfo option [@@deriving yojson]
+type devinfo_opt = devinfo option [@@deriving yojson]
 
 (** Modes **)
 
@@ -28,8 +28,8 @@ type jitter_mode =
   ; pid     : int
   } [@@deriving yojson,eq]
 
-type t2mi_mode_request   = t2mi_mode option   [@@deriving yojson]
-type jitter_mode_request = jitter_mode option [@@deriving yojson]
+type t2mi_mode_opt   = t2mi_mode option   [@@deriving yojson]
+type jitter_mode_opt = jitter_mode option [@@deriving yojson]
 
 (** Config **)
 
@@ -283,8 +283,8 @@ module Streams = struct
       ; tables    : table list
       } [@@deriving yojson]
 
-    type structures         = structure list [@@deriving yojson]
-    type structure_response = structure option [@@deriving yojson]
+    type structures    = structure list [@@deriving yojson]
+    type structure_opt = structure option [@@deriving yojson]
 
     type table_label = [ `PAT   | `CAT   | `PMT   | `TSDT  |
                          `NIT   | `NITa  | `NITo  |
@@ -376,15 +376,6 @@ module Streams = struct
 
     (** SI/PSI section **)
 
-    type section_request =
-      { stream_id      : Stream.id
-      ; table_id       : int
-      ; section        : int option (* needed for tables containing multiple sections *)
-      ; table_id_ext   : int option (* needed for tables with extra parameter, like ts id for PAT *)
-      ; eit_ts_id      : int option (* ts id for EIT *)
-      ; eit_orig_nw_id : int option (* original network ID for EIT *)
-      } [@@deriving yojson]
-
     type section_error = Zero_length
                        | Table_not_found
                        | Section_not_found
@@ -422,8 +413,8 @@ module Streams = struct
       ; l1_post_conf : string option
       } [@@deriving yojson]
 
-    type structures         = structure list [@@deriving yojson]
-    type structure_response = structure option [@@deriving yojson]
+    type structures    = structure list [@@deriving yojson]
+    type structure_opt = structure option [@@deriving yojson]
 
     (** T2-MI packet sequence **)
 

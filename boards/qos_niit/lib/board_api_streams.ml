@@ -17,6 +17,8 @@ open Api.Redirect
  **
  **)
 
+type events = streams_events
+
 include Api_utils.Streams
 
 module WS = struct
@@ -50,7 +52,7 @@ module WS = struct
 
     let bitrate ?stream sock_data (ev:events) body () =
       let f e j = sock_handler sock_data e j body in
-      let e     = React.S.changes ev.bitrates in
+      let e     = React.S.changes ev.ts_bitrates in
       match stream with
       | Some id -> let e = fmap (fun x -> x.stream) (fun x -> x.timestamp) id e in
                    f e structure_to_yojson
@@ -58,7 +60,7 @@ module WS = struct
 
     let structure ?stream sock_data (ev:events) body () =
       let f e j = sock_handler sock_data e j body in
-      let e     = React.S.changes ev.structs in
+      let e     = React.S.changes ev.ts_structures in
       match stream with
       | Some id -> let e = fmap (fun x -> x.stream) (fun x -> x.timestamp) id e in
                    f e structure_to_yojson
@@ -83,7 +85,7 @@ module WS = struct
 
     let structure ?stream sock_data (ev:events) body () =
       let f e j = sock_handler sock_data e j body in
-      let e     = React.S.changes ev.t2mi_info in
+      let e     = React.S.changes ev.t2mi_structures in
       match stream with
       | Some id -> let e = fmap (fun (x:structure) -> x.stream_id) (fun x -> x.timestamp) id e in
                    f e structure_to_yojson
@@ -118,16 +120,16 @@ module REST = struct
       let to_json ?stream s =
         (match stream with
          | Some id -> List.find_opt (fun (x:structure) -> Common.Stream.equal_id id x.stream) s
-                      |> structure_response_to_yojson
+                      |> structure_opt_to_yojson
          | None    -> structures_to_yojson s)
         |> Result.return
         |> Json.respond_result
 
       let structure ?stream (ev:events) () =
-        let v = React.S.value ev.structs in to_json ?stream v
+        let v = React.S.value ev.ts_structures in to_json ?stream v
 
       let bitrate ?stream (ev:events) () =
-        let v = React.S.value ev.bitrates in to_json ?stream v
+        let v = React.S.value ev.ts_bitrates in to_json ?stream v
 
       let si_psi_section stream_id table_id (api:api) (q:Query.Raw.t list) () =
         let r,_ = Query.(
@@ -151,10 +153,10 @@ module REST = struct
       open Board_types.Streams.T2MI
 
       let structure ?stream (e:events) () =
-        let v = React.S.value e.t2mi_info in
+        let v = React.S.value e.t2mi_structures in
         (match stream with
          | Some id -> List.find_opt (fun (x:structure) -> Int.equal id x.stream_id) v
-                      |> structure_response_to_yojson
+                      |> structure_opt_to_yojson
          | None    -> structures_to_yojson v)
         |> Result.return
         |> Json.respond_result
@@ -252,21 +254,21 @@ module REST = struct
 
 end
 
-let handle_ok api events scheme meth req (q:Query.Raw.t list) sock_data body time () =
+let handle_ok api ev scheme meth req (q:Query.Raw.t list) sock_data body time () =
   match scheme,meth,req,time with
   (* Websockets *)
-  | `WS,`GET,`Streams id,            `Now    -> WS.streams sock_data events body ()
-  | `WS,`GET,`State (`TS id),        `Now    -> WS.TS.state ?stream:id sock_data events body ()
-  | `WS,`GET,`Bitrate id,            `Now    -> WS.TS.bitrate ?stream:id sock_data events body ()
-  | `WS,`GET,`Structure (`TS id),    `Now    -> WS.TS.structure ?stream:id sock_data events body ()
-  | `WS,`GET,`State (`T2MI id),      `Now    -> WS.T2MI.state ?stream:id sock_data events body ()
-  | `WS,`GET,`Structure (`T2MI id),  `Now    -> WS.T2MI.structure ?stream:id sock_data events body ()
+  | `WS,`GET,`Streams id,            `Now    -> WS.streams sock_data ev body ()
+  | `WS,`GET,`State (`TS id),        `Now    -> WS.TS.state ?stream:id sock_data ev body ()
+  | `WS,`GET,`Bitrate id,            `Now    -> WS.TS.bitrate ?stream:id sock_data ev body ()
+  | `WS,`GET,`Structure (`TS id),    `Now    -> WS.TS.structure ?stream:id sock_data ev body ()
+  | `WS,`GET,`State (`T2MI id),      `Now    -> WS.T2MI.state ?stream:id sock_data ev body ()
+  | `WS,`GET,`Structure (`T2MI id),  `Now    -> WS.T2MI.structure ?stream:id sock_data ev body ()
   (* REST *)
-  | `REST,`GET,`Streams id,          `Now    -> REST.RT.streams ?stream:id events ()
-  | `REST,`GET,`Structure (`TS id),  `Now    -> REST.RT.TS.structure ?stream:id events ()
-  | `REST,`GET,`Bitrate id,          `Now    -> REST.RT.TS.bitrate ?stream:id events ()
+  | `REST,`GET,`Streams id,          `Now    -> REST.RT.streams ?stream:id ev ()
+  | `REST,`GET,`Structure (`TS id),  `Now    -> REST.RT.TS.structure ?stream:id ev ()
+  | `REST,`GET,`Bitrate id,          `Now    -> REST.RT.TS.bitrate ?stream:id ev ()
   | `REST,`GET,`Section (sid,id),    `Now    -> REST.RT.TS.si_psi_section sid id api q ()
-  | `REST,`GET,`Structure (`T2MI id),`Now    -> REST.RT.T2MI.structure ?stream:id events ()
+  | `REST,`GET,`Structure (`T2MI id),`Now    -> REST.RT.T2MI.structure ?stream:id ev ()
   | `REST,`GET,`Sequence id,         `Now    -> REST.RT.T2MI.sequence ?stream:id api q ()
   | `REST,`GET,`Streams id,          `Past t -> REST.AR.streams ?stream:id q t ()
   | `REST,`GET,`State (`TS id),      `Past t -> REST.AR.TS.state ?stream:id q t ()

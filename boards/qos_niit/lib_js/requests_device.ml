@@ -22,11 +22,11 @@ module WS = struct
 
   let get_t2mi_mode control =
     let uri = req_to_uri control (`Mode `T2MI) in
-    WS.get (Uri.to_string uri) t2mi_mode_request_of_yojson
+    WS.get (Uri.to_string uri) t2mi_mode_opt_of_yojson
 
   let get_jitter_mode control =
     let uri = req_to_uri control (`Mode `JITTER) in
-    WS.get (Uri.to_string uri) jitter_mode_request_of_yojson
+    WS.get (Uri.to_string uri) jitter_mode_opt_of_yojson
 
 end
 
@@ -45,13 +45,13 @@ module REST = struct
   (** Sets T2-MI analysis settings **)
   let post_t2mi_mode control mode =
     let uri      = req_to_uri control (`Mode `T2MI) in
-    let contents = t2mi_mode_request_to_yojson mode in
+    let contents = t2mi_mode_opt_to_yojson mode in
     post_result_unit ~contents (Uri.to_string uri)
 
   (** Sets jitter measurements settings **)
   let post_jitter_mode control mode =
     let uri      = req_to_uri control (`Mode `JITTER) in
-    let contents = jitter_mode_request_to_yojson mode in
+    let contents = jitter_mode_opt_to_yojson mode in
     post_result_unit ~contents (Uri.to_string uri)
 
   module RT = struct
@@ -64,11 +64,11 @@ module REST = struct
 
     let get_t2mi_mode control =
       let uri = req_to_uri control (`Mode `T2MI) in
-      get_result t2mi_mode_request_of_yojson (Uri.to_string uri)
+      get_result t2mi_mode_opt_of_yojson (Uri.to_string uri)
 
     let get_jitter_mode control =
       let uri = req_to_uri control (`Mode `JITTER) in
-      get_result jitter_mode_request_of_yojson (Uri.to_string uri)
+      get_result jitter_mode_opt_of_yojson (Uri.to_string uri)
 
   end
 

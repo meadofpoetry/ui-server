@@ -14,6 +14,8 @@ open Api.Redirect
  **
  **)
 
+type events = errors_events
+
 include Api_utils.Errors
 
 let not_implemented = respond_error ~status:`Not_implemented

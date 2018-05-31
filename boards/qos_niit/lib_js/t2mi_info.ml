@@ -2,7 +2,6 @@ open Board_types
 
 include Common.Dvb_t2_types
 
-
 (** L1 types **)
 
 type l1_pre =

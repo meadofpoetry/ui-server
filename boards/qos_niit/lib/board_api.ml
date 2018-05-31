@@ -1,19 +1,15 @@
-open Containers
-open Api.Redirect
+open Board_protocol
 
 module Api_handler = Api.Handler.Make(Common.User)
 
-(* let jitter_ws sock_data (events:events) body =
- *   sock_handler sock_data events.jitter Jitter.measures_to_yojson body *)
-
-let handle api events _ meth path uri sock_data _ body =
+let handle api (ev:events) _ meth path uri sock_data _ body =
   let scheme = Api_common.meth_of_uri uri in
   match Api_utils.req_of_path path with
-  | Some (`Device x)  -> Board_api_device.handle  api events scheme meth x uri sock_data body ()
-  | Some (`Errors x)  -> Board_api_errors.handle  api events scheme meth x uri sock_data body ()
-  | Some (`Streams x) -> Board_api_streams.handle api events scheme meth x uri sock_data body ()
-  | Some (`Jitter x)  -> Board_api_jitter.handle  api events scheme meth x uri sock_data body ()
-  | _ -> not_found ()
+  | Some (`Device x)  -> Board_api_device.handle  api ev.device  scheme meth x uri sock_data body ()
+  | Some (`Errors x)  -> Board_api_errors.handle  api ev.errors  scheme meth x uri sock_data body ()
+  | Some (`Streams x) -> Board_api_streams.handle api ev.streams scheme meth x uri sock_data body ()
+  | Some (`Jitter x)  -> Board_api_jitter.handle  api ev.jitter  scheme meth x uri sock_data body ()
+  | None              -> Api.Redirect.not_found ()
 
 let handlers id api events =
   [ (module struct

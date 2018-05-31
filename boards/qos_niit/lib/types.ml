@@ -1,4 +1,3 @@
-open Common.Topology
 open Common
 open Board_types
 

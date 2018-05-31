@@ -19,6 +19,8 @@ open Api.Redirect
  **
  **)
 
+type events = device_events
+
 include Api_utils.Device
 
 let bad_request     = respond_error ~status:`Bad_request
@@ -33,17 +35,17 @@ module WS = struct
     sock_handler sock_data events.status status_to_yojson body
 
   let errors sock_data (events:events) body () =
-    sock_handler sock_data events.board_errors board_errors_to_yojson body
+    sock_handler sock_data events.errors board_errors_to_yojson body
 
   let mode mode sock_data (events:events) body () =
     let f = fun e conv -> sock_handler sock_data e conv body in
     match mode with
     | `T2MI   -> let e = React.E.map (fun x -> x.t2mi_mode) events.config
                          |> React.E.changes ~eq:(Equal.option equal_t2mi_mode)
-                 in f e t2mi_mode_request_to_yojson
+                 in f e t2mi_mode_opt_to_yojson
     | `JITTER -> let e = React.E.map (fun x -> x.jitter_mode) events.config
                          |> React.E.changes ~eq:(Equal.option equal_jitter_mode)
-                 in f e jitter_mode_request_to_yojson
+                 in f e jitter_mode_opt_to_yojson
 
 end
 
@@ -55,14 +57,14 @@ module REST = struct
 
   let post_t2mi_mode (api:api) body () =
     Json.of_body body >>= fun mode ->
-    (match t2mi_mode_request_of_yojson mode with
+    (match t2mi_mode_opt_of_yojson mode with
      | Error e -> Lwt_result.fail @@ Json.of_error_string e
      | Ok mode -> api.set_t2mi_mode mode >|= Result.return)
     >>= Json.respond_result_unit
 
   let post_jitter_mode (api:api) body () =
     Json.of_body body >>= fun mode ->
-    (match jitter_mode_request_of_yojson mode with
+    (match jitter_mode_opt_of_yojson mode with
      | Error e -> Lwt_result.fail @@ Json.of_error_string e
      | Ok mode -> api.set_jitter_mode mode >|= Result.return)
     >>= Json.respond_result_unit
@@ -88,13 +90,13 @@ module REST = struct
       |> Json.respond_result
 
     let devinfo api () =
-      api.get_devinfo () >|= (devinfo_response_to_yojson %> Result.return)
+      api.get_devinfo () >|= (devinfo_opt_to_yojson %> Result.return)
       >>= Json.respond_result
 
     let mode mode (api:api) () =
       (match mode with
-       | `T2MI   -> api.config () >|= (fun x -> Ok (t2mi_mode_request_to_yojson x.t2mi_mode))
-       | `JITTER -> api.config () >|= (fun x -> Ok (jitter_mode_request_to_yojson x.jitter_mode)))
+       | `T2MI   -> api.config () >|= (fun x -> Ok (t2mi_mode_opt_to_yojson x.t2mi_mode))
+       | `JITTER -> api.config () >|= (fun x -> Ok (jitter_mode_opt_to_yojson x.jitter_mode)))
       >>= Json.respond_result
 
   end

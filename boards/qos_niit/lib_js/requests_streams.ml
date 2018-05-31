@@ -90,7 +90,7 @@ module REST = struct
 
       let get_bitrate_for_stream id control =
         let uri = req_to_uri control (`Bitrate (Some id)) in
-        get_result structure_response_of_yojson (Uri.to_string uri)
+        get_result structure_opt_of_yojson (Uri.to_string uri)
 
       let get_structure control =
         let uri = req_to_uri control (`Structure (`TS None)) in
@@ -98,16 +98,17 @@ module REST = struct
 
       let get_structure_for_stream id control =
         let uri = req_to_uri control (`Structure (`TS (Some id))) in
-        get_result structure_response_of_yojson (Uri.to_string uri)
+        get_result structure_opt_of_yojson (Uri.to_string uri)
 
-      let get_si_psi_section (req:section_request) control =
+      let get_si_psi_section ?section ?table_id_ext ?eit_ts_id ?eit_orig_nw_id
+                             stream table_id control =
         let uri = Query.(
-            (Uri.empty,req.section)
-            >>* (fun (u,sec) -> set section_query sec u, req.table_id_ext)
-            >>* (fun (u,ext) -> set table_id_ext_query ext u, req.eit_ts_id)
-            >>* (fun (u,sid) -> set eit_ts_id_query sid u, req.eit_orig_nw_id)
+            (Uri.empty,section)
+            >>* (fun (u,sec) -> set section_query sec u, table_id_ext)
+            >>* (fun (u,ext) -> set table_id_ext_query ext u, eit_ts_id)
+            >>* (fun (u,sid) -> set eit_ts_id_query sid u, eit_orig_nw_id)
             >>* (fun (u,nid) -> set eit_orig_nw_id_query nid u, None)
-            |>  (fun (uri,_) -> let req = `Section (req.stream_id, req.table_id) in
+            |>  (fun (uri,_) -> let req = `Section (stream, table_id) in
                                 req_to_uri ~uri control req))
         in get_result section_of_yojson ~from_err:section_error_of_yojson (Uri.to_string uri)
 
@@ -123,7 +124,7 @@ module REST = struct
 
       let get_structure_for_stream id control =
         let uri = req_to_uri control (`Structure (`T2MI (Some id))) in
-        get_result structure_response_of_yojson (Uri.to_string uri)
+        get_result structure_opt_of_yojson (Uri.to_string uri)
 
       let get_sequence ?seconds ?stream control =
         let uri = Query.(

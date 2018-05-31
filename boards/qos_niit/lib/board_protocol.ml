@@ -10,9 +10,53 @@ open Common
 
 include Board_parser
 
-let io x = Lwt_io.printf "%s\n" x |> ignore
-
 let to_period x step_duration  = x * int_of_float (1. /. step_duration)
+
+type device_events =
+  { config : config React.event
+  ; state  : Common.Topology.state React.signal
+  ; input  : input React.signal
+  ; status : status React.event
+  ; reset  : reset_ts React.event
+  ; errors : board_errors React.event
+  }
+
+type errors_events =
+  { ts_errors   : Errors.TS.t list React.event
+  ; t2mi_errors : Errors.T2MI.t list React.event
+  }
+
+type streams_events =
+  { streams         : Common.Stream.t list React.signal
+  ; ts_states       : Streams.TS.state list React.event
+  ; ts_structures   : Streams.TS.structures React.signal
+  ; ts_bitrates     : Streams.TS.structures React.signal
+  ; t2mi_states     : Streams.T2MI.state list React.event
+  ; t2mi_structures : Streams.T2MI.structures React.signal
+  }
+
+type jitter_events =
+  { session : Jitter.session React.event
+  ; jitter  : Jitter.measures React.event
+  }
+
+type events =
+  { device  : device_events
+  ; errors  : errors_events
+  ; streams : streams_events
+  ; jitter  : jitter_events
+  }
+
+type api =
+  { get_devinfo     : unit            -> devinfo_opt Lwt.t
+  ; set_input       : input           -> unit Lwt.t
+  ; set_t2mi_mode   : t2mi_mode_opt   -> unit Lwt.t
+  ; set_jitter_mode : jitter_mode_opt -> unit Lwt.t
+  ; get_t2mi_seq    : int             -> Streams.T2MI.sequence Lwt.t
+  ; get_section     : section_params  -> (Streams.TS.section,Streams.TS.section_error) Lwt_result.t
+  ; reset           : unit            -> unit Lwt.t
+  ; config          : unit            -> config Lwt.t
+  }
 
 module SM = struct
 
@@ -23,20 +67,17 @@ module SM = struct
 
   let wakeup_timeout (_,t) = t.pred `Timeout |> ignore
 
-  type push_events = { devinfo        : devinfo_response       -> unit
-                     ; state          : Topology.state         -> unit
-                     ; group          : group                  -> unit
-                     ; board_errors   : board_errors           -> unit
-                     ; structs        : Streams.TS.structures  -> unit
-                     ; bitrates       : Streams.TS.structures  -> unit
-                     ; t2mi_info      : Streams.T2MI.structure -> unit
-                     ; jitter         : Jitter.measures  -> unit
-                     ; jitter_session : Jitter.session   -> unit
-                     }
-
-  let find_stream (streams:Stream.t list) (x:Stream.id) =
-    let eq = Stream.equal_id in
-    List.find_opt (fun (s:Stream.t) -> match s.id with `Ts id when eq id x -> true | _ -> false) streams
+  type push_events =
+    { devinfo        : devinfo_opt            -> unit
+    ; state          : Topology.state         -> unit
+    ; group          : group                  -> unit
+    ; board_errors   : board_errors           -> unit
+    ; structs        : Streams.TS.structures  -> unit
+    ; bitrates       : Streams.TS.structures  -> unit
+    ; t2mi_info      : Streams.T2MI.structure -> unit
+    ; jitter         : Jitter.measures        -> unit
+    ; jitter_session : Jitter.session         -> unit
+    }
 
   module Events_handler : sig
     val handle          : event list -> group option -> group list * event list
@@ -175,7 +216,7 @@ module SM = struct
     let emm  = List.map (fun (emm:emm_info) -> { emm with bitrate = Pids.get emm.pid pids_m }) s.emm in
     let services = List.map (merge_service_and_bitrates pids_m) s.services in
     let update_table_common (c:table_info) = { c with bitrate = Pids.get c.pid pids_m } in
-    let tables=
+    let tables =
       List.map (function
                 | PAT x     -> PAT { x with common = update_table_common x.common }
                 | CAT x     -> CAT (update_table_common x)
@@ -350,7 +391,7 @@ module SM = struct
               |> Pool.create
             in
             step_ok_probes_send [] pool hd hd events parts acc)
-      else (io "Got board info in step normal idle"; first_step ())
+      else first_step ()
 
     and step_ok_probes_send probes_acc pool prev_idle_gp gp events parts acc =
       if Pool.empty pool
@@ -378,7 +419,7 @@ module SM = struct
                        `Continue (step_ok_idle period gp ev parts acc)
             | false -> step_ok_probes_send probes_acc (Pool.next pool) idle_gp gp ev parts acc)
       with
-      | Timeout -> (io "Got timeout in step normal probes wait"; first_step ())
+      | Timeout -> first_step ()
 
     in first_step ()
 
@@ -439,22 +480,26 @@ module SM = struct
     let s_t2mi             = to_t2mi_info_s e_t2mi in
     let s_raw_streams      = to_raw_streams_s e_group in
     let (events : events) =
-      { config        = React.E.changes ~eq:equal_config e_cfg
-      ; state         = s_state
-      ; status        = to_status_e e_group
-      ; input         = React.S.hold ~eq:equal_input storage#get.input @@ to_input_e e_group
-      ; reset         = to_reset_e e_group
-      ; streams       = streams_conv s_raw_streams
-      ; ts_states     = to_ts_states_e e_group
-      ; ts_errors     = to_ts_errors_e e_group
-      ; t2mi_states   = to_t2mi_states_e e_group
-      ; t2mi_errors   = to_t2mi_errors_e e_group
-      ; board_errors  = e_be
-      ; structs       = s_ts
-      ; bitrates      = s_br
-      ; t2mi_info     = s_t2mi
-      ; jitter        = e_pcr
-      ; jitter_session = React.E.changes ~eq:Jitter.equal_session e_pcr_s
+      { device  = { config = React.E.changes ~eq:equal_config e_cfg
+                  ; state  = s_state
+                  ; status = to_status_e e_group
+                  ; input  = React.S.hold ~eq:equal_input storage#get.input @@ to_input_e e_group
+                  ; reset  = to_reset_e e_group
+                  ; errors = e_be
+                  }
+      ; errors  = { ts_errors   = to_ts_errors_e e_group
+                  ; t2mi_errors = to_t2mi_errors_e e_group
+                  }
+      ; streams = { streams         = streams_conv s_raw_streams
+                  ; ts_states       = to_ts_states_e e_group
+                  ; ts_structures   = s_ts
+                  ; ts_bitrates     = s_br
+                  ; t2mi_states     = to_t2mi_states_e e_group
+                  ; t2mi_structures = s_t2mi
+                  }
+      ; jitter  = { session = React.E.changes ~eq:Jitter.equal_session e_pcr_s
+                  ; jitter  = e_pcr
+                  }
       }
     in
     let push_events =
@@ -470,27 +515,23 @@ module SM = struct
       }
     in
     let api =
-      { set_input       = (fun i  -> let m = { t2mi = storage#get.t2mi_mode; input = i } in
-                                     enqueue_instant s_state imsgs sender storage (Set_board_mode m)
-                                     >>= (fun () -> cfg_push storage#get; Lwt.return_unit))
-      ; set_t2mi_mode   = (fun x  -> let m = { input = storage#get.input; t2mi = x } in
-                                     enqueue_instant s_state imsgs sender storage (Set_board_mode m)
-                                     >>= (fun () -> cfg_push storage#get; Lwt.return_unit))
-      ; set_jitter_mode = (fun m  -> enqueue_instant s_state imsgs sender storage (Set_jitter_mode m)
-                                     >>= (fun () -> cfg_push storage#get; Lwt.return_unit))
+      { set_input       = (fun i -> let m = { t2mi = storage#get.t2mi_mode; input = i } in
+                                    enqueue_instant s_state imsgs sender storage (Set_board_mode m)
+                                    >>= (fun () -> cfg_push storage#get; Lwt.return_unit))
+      ; set_t2mi_mode   = (fun x -> let m = { input = storage#get.input; t2mi = x } in
+                                    enqueue_instant s_state imsgs sender storage (Set_board_mode m)
+                                    >>= (fun () -> cfg_push storage#get; Lwt.return_unit))
+      ; set_jitter_mode = (fun m -> enqueue_instant s_state imsgs sender storage (Set_jitter_mode m)
+                                    >>= (fun () -> cfg_push storage#get; Lwt.return_unit))
       ; get_devinfo     = (fun () -> Lwt.return @@ React.S.value s_devi)
       ; reset           = (fun () -> enqueue_instant s_state imsgs sender storage Reset)
-      ; get_t2mi_info   = (fun () -> Lwt.return @@ React.S.value s_t2mi)
-      ; get_section     = (fun r  -> enqueue s_state msgs sender
-                                             (Get_section { request_id = get_id ()
-                                                          ; params     = r })
-                                             (to_period 125 step)
-                                             None)
-      ; get_t2mi_seq    = (fun s  -> enqueue s_state msgs sender
-                                             (Get_t2mi_frame_seq { request_id = get_id ()
-                                                                 ; seconds    = s })
-                                             (to_period (s + 10) step)
-                                             None)
+      ; get_section     = (fun r -> enqueue s_state msgs sender
+                                            (Get_section { request_id = get_id (); params = r })
+                                            (to_period 125 step) None)
+      ; get_t2mi_seq    = (fun s -> enqueue s_state msgs sender
+                                            (Get_t2mi_frame_seq { request_id = get_id (); seconds = s })
+                                            (to_period (s + 10) step)
+                                            None)
       ; config          = (fun () -> Lwt.return storage#get)
       }
     in events,api,(sm_step msgs imsgs sender storage step push_events)

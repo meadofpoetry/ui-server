@@ -14,49 +14,6 @@ type part =
   ; data  : Cbuffer.t
   }
 
-type probe_response =
-  | Board_errors of board_errors
-  | Bitrate      of Types.bitrate list
-  | Struct       of Streams.TS.structures
-  | T2mi_info    of Streams.T2MI.structure
-  | Jitter       of Types.jitter_raw
-
-type events =
-  { config         : config React.event
-  ; state          : Common.Topology.state React.signal
-  ; input          : input React.signal
-  ; status         : status React.event
-  ; reset          : reset_ts React.event
-  ; board_errors   : board_errors React.event
-  ; streams        : Common.Stream.t list React.signal
-  ; ts_errors      : Errors.TS.t list React.event
-  ; ts_states      : Streams.TS.state list React.event
-  ; structs        : Streams.TS.structures React.signal
-  ; bitrates       : Streams.TS.structures React.signal
-  ; t2mi_errors    : Errors.T2MI.t list React.event
-  ; t2mi_states    : Streams.T2MI.state list React.event
-  ; t2mi_info      : Streams.T2MI.structures React.signal
-  ; jitter_session : Jitter.session React.event
-  ; jitter         : Jitter.measures React.event
-  }
-
-type api =
-  { get_devinfo     : unit                       -> devinfo_response Lwt.t
-  ; set_input       : input                      -> unit Lwt.t
-  ; set_t2mi_mode   : t2mi_mode_request          -> unit Lwt.t
-  ; set_jitter_mode : jitter_mode_request        -> unit Lwt.t
-  ; get_t2mi_seq    : int                        -> Streams.T2MI.sequence Lwt.t
-  ; get_t2mi_info   : unit                       -> Streams.T2MI.structures Lwt.t
-  ; get_section     : Streams.TS.section_request -> (Streams.TS.section,Streams.TS.section_error) Lwt_result.t
-  ; reset           : unit                       -> unit Lwt.t
-  ; config          : unit                       -> config Lwt.t
-  }
-
-type _ instant_request =
-  | Set_board_mode  : Types.mode          -> unit instant_request
-  | Set_jitter_mode : jitter_mode_request -> unit instant_request
-  | Reset           : unit instant_request
-
 type jitter_req =
   { request_id : int
   ; pointer    : int32
@@ -67,13 +24,6 @@ type t2mi_info_req =
   ; stream_id  : int
   }
 
-type _ probe_request =
-  | Get_board_errors : int           -> probe_response probe_request
-  | Get_jitter       : jitter_req    -> probe_response probe_request
-  | Get_ts_structs   : int           -> probe_response probe_request
-  | Get_bitrates     : int           -> probe_response probe_request
-  | Get_t2mi_info    : t2mi_info_req -> probe_response probe_request
-
 type t2mi_frame_seq_req =
   { request_id : int
   ; seconds    : int
@@ -81,8 +31,35 @@ type t2mi_frame_seq_req =
 
 type section_req =
   { request_id : int
-  ; params     : Streams.TS.section_request
+  ; params     : section_params
   }
+and section_params =
+  { stream_id      : Common.Stream.id
+  ; table_id       : int
+  ; section        : int option (* needed for tables containing multiple sections *)
+  ; table_id_ext   : int option (* needed for tables with extra parameter, like ts id for PAT *)
+  ; eit_ts_id      : int option (* ts id for EIT *)
+  ; eit_orig_nw_id : int option (* original network ID for EIT *)
+  }
+
+type probe_response =
+  | Board_errors of board_errors
+  | Bitrate      of Types.bitrate list
+  | Struct       of Streams.TS.structures
+  | T2mi_info    of Streams.T2MI.structure
+  | Jitter       of Types.jitter_raw
+
+type _ instant_request =
+  | Set_board_mode  : Types.mode         -> unit instant_request
+  | Set_jitter_mode : jitter_mode option -> unit instant_request
+  | Reset           : unit instant_request
+
+type _ probe_request =
+  | Get_board_errors : int           -> probe_response probe_request
+  | Get_jitter       : jitter_req    -> probe_response probe_request
+  | Get_ts_structs   : int           -> probe_response probe_request
+  | Get_bitrates     : int           -> probe_response probe_request
+  | Get_t2mi_info    : t2mi_info_req -> probe_response probe_request
 
 type _ request =
   | Get_board_info     : devinfo request
@@ -212,7 +189,7 @@ module Get_section : (Request
   let req_code = 0x0302
   let rsp_code = req_code
 
-  let to_cbuffer { request_id; params } =
+  let to_cbuffer { request_id;params } =
     let body = Cbuffer.create sizeof_req_get_section in
     let ()   = set_req_get_section_stream_id body @@ Common.Stream.id_to_int32 params.stream_id in
     let ()   = Option.iter (set_req_get_section_section body) params.section in
@@ -587,7 +564,7 @@ module Get_t2mi_info : (Request with type req := t2mi_info_req
   let req_code = 0x030B
   let rsp_code = req_code
 
-  let to_cbuffer { request_id; stream_id } =
+  let to_cbuffer ({ request_id; stream_id } : t2mi_info_req) =
     let body = Cbuffer.create sizeof_req_get_t2mi_info in
     let ()   = set_req_get_t2mi_info_stream_id body stream_id in
     to_complex_req ~request_id ~msg_code:req_code ~body ()

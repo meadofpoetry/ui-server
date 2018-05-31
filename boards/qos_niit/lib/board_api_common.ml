@@ -34,9 +34,6 @@ let sock_handler sock_data (event:'a React.event) (to_yojson:'a -> Yojson.Safe.j
   Hashtbl.add socket_table id sock_events;
   Lwt.return (resp, (body :> Cohttp_lwt.Body.t))
 
-let jitter_ws sock_data (events : events) body =
-  sock_handler sock_data events.jitter Jitter.measures_to_yojson body
-
 let query_wrapper q f = match q with
   | Ok x    -> f x
   | Error e -> Api.Interaction.Json.respond_result
