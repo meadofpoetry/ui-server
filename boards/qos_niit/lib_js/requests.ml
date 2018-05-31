@@ -1,101 +1,29 @@
 open Containers
 open Board_types
-open Api_js.Requests.Json_request
+open Api_js.Requests.Json
 open Api_utils
 open Lwt.Infix
 open Common
 
 include Boards_js.Requests
 
-let ws = "ws"
-
 type ('a,'b) rsp = ('a,'b Api_js.Requests.err) Lwt_result.t
 
 let to_unit = fun _ -> Ok ()
 
-(** Returns T2-MI packet sequence for requested time span **)
-let get_t2mi_seq control seconds =
-  get_result t2mi_packets_of_yojson (Printf.sprintf "/api/board/%d/t2mi_seq/%d" control seconds)
+(* (\** Returns T2-MI packet sequence for requested time span **\)
+ * let get_t2mi_seq control seconds =
+ *   get_result t2mi_packets_of_yojson (Printf.sprintf "/api/board/%d/t2mi_seq/%d" control seconds)
+ * 
+ * (\** Returns SI/PSI section if found in the requested stream **\)
+ * let get_si_psi_section (req:section_request) control =
+ *   post_result ~contents:(section_request_to_yojson req)
+ *               ~from_err:section_error_of_yojson
+ *               section_of_yojson
+ *               (Printf.sprintf "/api/board/%d/get_section" control) *)
 
-(** Returns SI/PSI section if found in the requested stream **)
-let get_si_psi_section (req:section_request) control =
-  post_result ~contents:(section_request_to_yojson req)
-              ~from_err:section_error_of_yojson
-              section_of_yojson
-              (Printf.sprintf "/api/board/%d/get_section" control)
+module Device = Requests_device
 
-module Board = struct
-
-  (** Resets the board **)
-  let post_reset control () =
-    let path = Path.(make "reset" |> full control |> to_string) in
-    post_result to_unit path
-
-  (** Sets board input to listen **)
-  let post_input control inp =
-    let path = Path.(make "input" |> full control |> to_string) in
-    post_result ~contents:(input_to_yojson inp) to_unit path
-
-  (** Sets T2-MI analysis settings **)
-  let post_t2mi_mode control mode =
-    let path = Path.(make "t2mi_mode" |> full control |> to_string) in
-    post_result ~contents:(t2mi_mode_request_to_yojson mode) to_unit path
-
-  (** Sets jitter measurements settings **)
-  let post_jitter_mode control mode =
-    let path = Path.(make_full "jitter_mode" control |> to_string) in
-    post_result ~contents:(jitter_mode_request_to_yojson mode) to_unit path
-
-  module RT = struct
-
-    (** Returns board description if already available **)
-    let get_devinfo control =
-      let path = Path.(make_full "devinfo" control |> to_string) in
-      get_result devinfo_response_of_yojson path
-
-    (** Event is raised when board errors occur **)
-    let get_board_errors_ws control =
-      let path = Path.(make_full "board_errors" control |> to_string) in
-      WS.get path board_error_of_yojson
-
-    (** Returns current overall board configuration **)
-    let get_config control =
-      let path = Path.(make_full "config" control |> to_string) in
-      get_result config_of_yojson path
-
-    (** Event is raised when overall board configuration changes **)
-    let get_config_ws control =
-      let path = Path.(make_full "config" ~subdomains:[ws] control |> to_string) in
-      WS.get path config_of_yojson
-
-    (** Event is raised when board status changes **)
-    let get_status_ws control =
-      let path = Path.(make_full "status" ~subdomains:[ws] control |> to_string) in
-      WS.get path status_of_yojson
-
-  end
-
-  module AR = struct
-
-    open Common.Time
-
-    (** Returns a list of board errors for the requested period **)
-    let get_board_errors (period:Interval.t) control =
-      let f = string_of_int @@ int_of_float @@ to_float_s @@ Interval.from period in
-      let t = string_of_int @@ int_of_float @@ to_float_s @@ Interval.till period in
-      let path = Path.(make_full ~archive:true ~parameters:[f;t] "board_errors"control |> to_string) in
-      get_result board_errors_of_yojson path
-
-    (** Returns a list of statuses for the requested period **)
-    let get_statuses (period:Interval.t) control =
-      let f = string_of_int @@ int_of_float @@ to_float_s @@ Interval.from period in
-      let t = string_of_int @@ int_of_float @@ to_float_s @@ Interval.till period in
-      let path = Path.(make_full ~archive:true ~parameters:[f;t] "statuses" control |> to_string) in
-      get_result statuses_of_yojson path
-
-  end
-
-end
 
 module Streams = struct
 
@@ -211,23 +139,6 @@ module Streams = struct
     let get_bitrates_ws control =
       let path = Printf.sprintf "api/board/%d/bitrate_ws" control in
       WS.get path TS.structures_of_yojson
-
-  end
-
-  module AR = struct
-
-  end
-
-end
-
-module Jitter = struct
-
-  open Board_types.Jitter
-
-  module RT = struct
-
-    let get_jitter_ws control =
-      WS.get (Printf.sprintf "api/board/%d/jitter_ws" control) measures_of_yojson
 
   end
 

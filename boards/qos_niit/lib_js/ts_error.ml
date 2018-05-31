@@ -6,7 +6,7 @@ type table_info =
   ; id      : int
   ; id_ext  : int
   }
-let table_info_of_ts_error (e:ts_error) =
+let table_info_of_ts_error (e:Errors.TS.t) =
   { section = Int32.to_int @@ Int32.((e.param_2 land 0xFF00_0000l) lsr 24)
   ; id      = Int32.to_int @@ Int32.((e.param_2 land 0x00FF_0000l) lsr 16)
   ; id_ext  = Int32.to_int @@ Int32.(e.param_2 land 0x0000_FFFFl)
@@ -19,7 +19,7 @@ module Description = struct
                        ]
   type possible_pids = [`One of int | `List of int list | `Range of int * int | `Unknown ]
 
-  let possible_si_pids : Structure_types.table_label -> possible_pids = function
+  let possible_si_pids : Streams.TS.table_label -> possible_pids = function
     | `PAT -> `One 0x00
     | `CAT -> `One 0x01
     | `PMT -> `One 0x02
@@ -38,7 +38,7 @@ module Description = struct
     | 0x73                             -> `Seconds 30.0
     | _                                -> `Seconds_unk
 
-  let table_name = Structure_types.table_label_to_string
+  let table_name = Streams.TS.table_label_to_string
 
   let period_to_unit_name : interval -> string = function
     | `Seconds _      | `Seconds_unk      -> "с"
@@ -48,7 +48,7 @@ module Description = struct
   let period_to_float = function
     | `Seconds x | `Milliseconds x | `Nanoseconds x -> x | _ -> 0.0
 
-  let crc_err ?(hex=false) ?(short=false) ?table (e:ts_error) =
+  let crc_err ?(hex=false) ?(short=false) ?table (e:Errors.TS.t) =
     let base = "Ошибка CRC" in
     let prefix = match table with
       | Some t -> Printf.sprintf "%s в %s" base @@ table_name t
@@ -60,7 +60,7 @@ module Description = struct
          let actual   = to_s e.param_2 in
          Printf.sprintf "%s, CRC = %s, должно быть %s" prefix computed actual
 
-  let interval_err ?(short=false) ~prefix ~cmp_word ~period (e:ts_error) =
+  let interval_err ?(short=false) ~prefix ~cmp_word ~period (e:Errors.TS.t) =
     let unit = period_to_unit_name period in
     let got  = Int32.to_float e.param_1 *. 0.1 in
     match period with
@@ -72,11 +72,11 @@ module Description = struct
        if short then Printf.sprintf "%s %s" prefix ext
        else Printf.sprintf "%s %g %s (%s)" prefix got unit ext
 
-  let table_short_interval ?(short=false) ~period (e:ts_error) table =
+  let table_short_interval ?(short=false) ~period (e:Errors.TS.t) table =
     let prefix = Printf.sprintf "Период следования таблицы %s -" @@ table_name table in
     interval_err ~short ~prefix ~cmp_word:"менее" ~period e
 
-  let table_long_interval ?(short=false) ~period (e:ts_error) table =
+  let table_long_interval ?(short=false) ~period (e:Errors.TS.t) table =
     let prefix = Printf.sprintf "Таблица %s отсутствует в потоке" @@ table_name table in
     interval_err ~short ~prefix ~cmp_word:"более" ~period e
 
@@ -85,7 +85,7 @@ module Description = struct
 
   let table_crc ?short ?hex e table = crc_err ?short ?hex ~table e
 
-  let table_id ?(short=false) ?(hex=false) (e:ts_error) table =
+  let table_id ?(short=false) ?(hex=false) (e:Errors.TS.t) table =
     let to_s     = if hex then Printf.sprintf "0x%02X" else Printf.sprintf "%u" in
     let got      = to_s @@ Int32.to_int e.param_1 in
     let ppids    = possible_si_pids table in
@@ -102,7 +102,7 @@ module Description = struct
 
   let table_ext_unknown _ = ""
 
-  let of_ts_error ?(hex=true) ?(short=false) (e:ts_error) = match e.err_code with
+  let of_ts_error ?(hex=true) ?(short=false) (e:Errors.TS.t) = match e.err_code with
     (* First priority *)
     | 0x11 -> "Пропадание синхронизации"
     | 0x12 -> let s = Printf.sprintf (if hex then "0x%02X" else "%u") 0x47 in
@@ -159,7 +159,7 @@ module Description = struct
                | 0x31 -> table_short_interval ~short ~period:(`Milliseconds 25.) e
                | 0x32 -> table_long_interval ~short ~period:(table_id_to_interval table_info.id) e
                | _    -> table_ext_unknown
-              in f @@ Structure_types.table_label_of_int table_info.id
+              in f @@ Streams.TS.table_label_of_int table_info.id
     | 0x34 -> "Пакет с неизвестным PID"
     | 0x35 -> let f = match e.err_ext with
                 | 0x31 -> table_id ~short ~hex e
@@ -188,7 +188,7 @@ module Description = struct
 
 end
 
-let ts_error_to_error_name (e:ts_error) = match e.err_code with
+let ts_error_to_error_name (e:Errors.TS.t) = match e.err_code with
   | 0x11 -> "TS sync loss"
   | 0x12 -> "Sync byte error"
   | 0x13 -> "PAT error"

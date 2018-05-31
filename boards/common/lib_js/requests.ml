@@ -1,5 +1,5 @@
 open Containers
-open Api_js.Requests.Json_request
+open Api_js.Requests.Json
 open Lwt.Infix
 
 let post_port control port listening =

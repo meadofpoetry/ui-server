@@ -1,11 +1,9 @@
-open Api.Api_types
 open Containers
-open Common
-open Api.Query
+open Common.Uri.Query
 
 let (^::) = List.cons_maybe
 
-type stream = [ `TS   of Stream.id option
+type stream = [ `TS   of Common.Stream.id option
               | `T2MI of int option
               ]
 
@@ -16,18 +14,18 @@ let eq = String.equal
 
 let ts,t2mi = "ts","t2mi"
 
-let stream_to_path : stream -> path = function
+let stream_to_path : stream -> string list = function
   | `TS x   ->
-     let sid = Option.map Fun.(Stream.id_to_int32 %> Int32.to_string) x in
+     let sid = Option.map Fun.(Common.Stream.id_to_int32 %> Int32.to_string) x in
      ts :: (sid ^:: [])
   | `T2MI x ->
      let sid = Option.map Int.to_string x in
      ts :: (sid ^:: [])
-let stream_of_path : path -> stream option = function
+let stream_of_path : string list -> stream option = function
   | [x] when eq x ts   -> Some (`TS None)
   | [x] when eq x t2mi -> Some (`T2MI None)
   | [x;y] when eq x ts ->
-     Option.map (fun i -> `TS (Some (Stream.id_of_int32 i))) @@ Int32.of_string y
+     Option.map (fun i -> `TS (Some (Common.Stream.id_of_int32 i))) @@ Int32.of_string y
   | [x;y] when eq x t2mi ->
      Option.map (fun i -> `T2MI (Some i)) @@ Int.of_string y
   | _ -> None
@@ -54,8 +52,10 @@ module Domain = struct
   let get_total_query q = get_or ~default:false total_query q
   let get_limit_query q = get limit_query q
 
-  let set_time_query ~from ~till uri =
-    uri |> insert from_query from |> insert till_query till
+  let set_time_query (range:'a Time.Range.past) uri =
+    let from_key = key_of_validation from_query in
+    let till_key = key_of_validation till_query in
+    Time.Range.add_to_uri ~from_key ~till_key (`Past range) uri
   let set_thin_query  v uri = insert thin_query v uri
   let set_total_query v uri = insert total_query v uri
   let set_limit_query v uri = insert limit_query v uri
@@ -172,19 +172,19 @@ module Streams = struct
       sequence,section = "state","structure","bitrate",
                          "sequence","section"
 
-  type req = [ `Streams   of Stream.id option
+  type req = [ `Streams   of Common.Stream.id option
              | `State     of stream
              | `Structure of stream
-             | `Bitrate   of Stream.id option
+             | `Bitrate   of Common.Stream.id option
              | `Sequence  of int option
-             | `Section   of Stream.id * int
+             | `Section   of Common.Stream.id * int
              ]
 
   let eq = Domain.equal
 
   let req_to_path : req -> path = function
     | `Streams id ->
-       let sid = Option.map Fun.(Stream.id_to_int32 %> Int32.to_string) id in sid ^:: []
+       let sid = Option.map Fun.(Common.Stream.id_to_int32 %> Int32.to_string) id in sid ^:: []
     | `State x          -> state :: stream_to_path x
     | `Structure x      -> structure :: stream_to_path x
     | `Bitrate x        -> bitrate :: stream_to_path (`TS x)
@@ -195,7 +195,7 @@ module Streams = struct
        (section :: ts) @ (id :: [])
   let req_of_path : path -> req option = function
     | [ ] -> Some (`Streams None)
-    | [x] -> Option.map (fun x -> `Streams (Some (Stream.id_of_int32 x))) @@ Int32.of_string x
+    | [x] -> Option.map (fun x -> `Streams (Some (Common.Stream.id_of_int32 x))) @@ Int32.of_string x
     | hd::tl when eq hd state ->
        Option.map (fun x -> `State x) @@ stream_of_path tl
     | hd::tl when eq hd structure ->
@@ -208,7 +208,7 @@ module Streams = struct
     | [x;y;z] when eq x sequence && eq y t2mi ->
        Option.map (fun x -> `Sequence (Some x)) @@ Int.of_string z
     | [a;b;c;d] when eq a section && eq b ts ->
-       Option.map2 (fun sid id -> `Section ((Stream.id_of_int32 sid),id))
+       Option.map2 (fun sid id -> `Section ((Common.Stream.id_of_int32 sid),id))
                    (Int32.of_string c) (Int.of_string d)
     | _ -> None
 

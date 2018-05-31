@@ -4,7 +4,7 @@ open Board_protocol
 open Board_api_common
 open Api.Interaction
 open Api.Redirect
-open Api.Query
+open Common.Uri.Query
 
 (**
  ** API

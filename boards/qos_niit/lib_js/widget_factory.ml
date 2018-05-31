@@ -1,7 +1,6 @@
 open Containers
 open Components
 open Board_types
-open Structure_types
 open Lwt_result.Infix
 open Ui_templates.Factory
 open Common.Topology
@@ -45,13 +44,16 @@ let return = Lwt_result.return
 let map_err : 'a 'b. ('b,'a Api_js.Requests.err) Lwt_result.t -> ('b,string) Lwt_result.t =
   fun x -> Lwt_result.map_err (fun e -> Api_js.Requests.err_to_string ?to_string:None e) x
 
+open Factory_state
+
 (* Widget factory *)
 class t (control:int) () =
 object(self)
-  val _state    : state React.signal Factory_state.t_lwt      = Factory_state.empty ()
-  val _config   : config React.signal Factory_state.t_lwt     = Factory_state.empty ()
-  val _structs  : ts_structs React.signal Factory_state.t_lwt = Factory_state.empty ()
-  val _bitrates : ts_structs React.signal Factory_state.t_lwt = Factory_state.empty ()
+
+  val _state    : state React.signal t_lwt                 = empty ()
+  val _config   : config React.signal t_lwt                = empty ()
+  val _structs  : Streams.TS.structures React.signal t_lwt = empty ()
+  val _bitrates : Streams.TS.structures React.signal t_lwt = empty ()
 
   (** Create widget of type **)
   method create : item -> Dashboard.Item.item = function

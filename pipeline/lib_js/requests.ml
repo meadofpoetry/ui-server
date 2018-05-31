@@ -1,5 +1,5 @@
 open Containers
-open Api_js.Requests.Json_request
+open Api_js.Requests.Json
 open Lwt.Infix
 
 open Qoe_errors_types

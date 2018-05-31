@@ -1,6 +1,6 @@
 open Containers
 open Board_types
-open Api_js.Requests.Json_request
+open Api_js.Requests.Json
 open Lwt.Infix
 
 include Boards_js.Requests

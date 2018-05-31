@@ -15,8 +15,3 @@
  ((targets (api_types.ml))
   (deps (../api_types.ml))
   (action (copy ${<} ${@}))))
-
-(rule
- ((targets (query.ml))
-  (deps (../query.ml))
-  (action (copy ${<} ${@}))))

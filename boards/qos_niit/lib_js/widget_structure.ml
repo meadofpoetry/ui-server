@@ -1,6 +1,6 @@
 open Containers
 open Components
-open Structure_types
+open Board_types.Streams.TS
 open Lwt_result.Infix
 
 type composition =
@@ -18,14 +18,14 @@ type config =
 
 let (^::) = List.cons_maybe
 
-let make_pid (pid : pid) =
+let make_pid (pid : pid_info) =
   let text, stext = Printf.sprintf "PID: %d" pid.pid,
                     let pts = if pid.has_pts then "Есть PTS" else "" in
                     let scr = if pid.scrambled then "Скремблирован" else "" in
                     String.concat ", " (List.filter (fun x -> not (String.equal x "")) [ pts; scr ]) in
   new Tree.Item.t ~text ~secondary_text:stext ()
 
-let make_es (es : es) =
+let make_es (es : es_info) =
   let text, stext = Printf.sprintf "ES PID: %d" es.pid,
                     let typ = Printf.sprintf "Тип: %d" es.es_type in
                     let sid = Printf.sprintf "Stream ID: %d" es.es_stream_id in
@@ -33,31 +33,31 @@ let make_es (es : es) =
                     String.concat ", " (List.filter (fun x -> not (String.equal x "")) [ typ; sid; pts]) in
   new Tree.Item.t ~text ~secondary_text:stext ()
 
-let make_ecm (ecm : ecm ) =
+let make_ecm (ecm : ecm_info) =
   let text, stext = Printf.sprintf "ECM PID: %d" ecm.pid,
                     Printf.sprintf "CA System ID: %d" ecm.ca_sys_id in
   new Tree.Item.t ~text ~secondary_text:stext ()
 
-let make_emm (emm : emm ) =
+let make_emm (emm : emm_info) =
   let text, stext = Printf.sprintf "EMM PID: %d" emm.pid,
                     Printf.sprintf "CA System ID: %d" emm.ca_sys_id in
   new Tree.Item.t ~text ~secondary_text:stext ()
 
-let make_service (service : service) =
+let make_service (service : service_info) =
   let text, stext = Printf.sprintf "Имя: %s" service.name,
                     Printf.sprintf "Провайдер: %s" service.provider_name in
   let id      = new Tree.Item.t ~text:(Printf.sprintf "ID: %d" service.id) () in
   let pmt_pid = new Tree.Item.t ~text:(Printf.sprintf "PMT PID: %d" service.pmt_pid) () in
   let pcr_pid = new Tree.Item.t ~text:(Printf.sprintf "PCR PID: %d" service.pcr_pid) () in
   let es      = if not (List.is_empty service.es)
-                then Some (let es = List.sort (fun (x:es) y -> compare x.pid y.pid) service.es in
+                then Some (let es = List.sort (fun (x:es_info) y -> compare x.pid y.pid) service.es in
                            new Tree.Item.t
                                ~text:"Элементарные потоки"
                                ~nested:(new Tree.t ~items:(List.map make_es es) ())
                                ())
                 else None in
   let ecm     = if not (List.is_empty service.ecm)
-                then Some (let ecm = List.sort (fun (x:ecm) y -> compare x.pid y.pid) service.ecm in
+                then Some (let ecm = List.sort (fun (x:ecm_info) y -> compare x.pid y.pid) service.ecm in
                            new Tree.Item.t
                                ~text:"ECM"
                                ~nested:(new Tree.t ~items:(List.map make_ecm ecm) ())
@@ -67,7 +67,7 @@ let make_service (service : service) =
   let nested  = new Tree.t ~items:([ id; pmt_pid; pcr_pid ] @ opt) () in
   new Tree.Item.t ~text ~secondary_text:stext ~nested ()
 
-let make_section (s : table_section) =
+let make_section (s : section_info) =
   let text, stext = Printf.sprintf "ID: %d" s.id,
                     Printf.sprintf "Длина: %d" s.length in
   new Tree.Item.t ~text ~secondary_text:stext ()
@@ -83,10 +83,10 @@ let make_table (table : table) =
     | SDT x -> [ new Tree.Item.t ~text:(Printf.sprintf "TS ID: %d" x.ts_id) () ]
     | BAT x -> [ new Tree.Item.t ~text:(Printf.sprintf "Bouquet ID: %d" x.bouquet_id) () ]
     | EIT x -> [ new Tree.Item.t ~text:(Printf.sprintf "Service ID: %d" x.service_id) ()
-               ; new Tree.Item.t ~text:(Printf.sprintf "TS ID: %d" x.eit_info.ts_id) ()
-               ; new Tree.Item.t ~text:(Printf.sprintf "Oririnal network ID: %d" x.eit_info.orig_nw_id) ()
-               ; new Tree.Item.t ~text:(Printf.sprintf "Segment LSN: %d" x.eit_info.segment_lsn) ()
-               ; new Tree.Item.t ~text:(Printf.sprintf "Last table ID: %d" x.eit_info.last_table_id) () ]
+               ; new Tree.Item.t ~text:(Printf.sprintf "TS ID: %d" x.params.ts_id) ()
+               ; new Tree.Item.t ~text:(Printf.sprintf "Oririnal network ID: %d" x.params.orig_nw_id) ()
+               ; new Tree.Item.t ~text:(Printf.sprintf "Segment LSN: %d" x.params.segment_lsn) ()
+               ; new Tree.Item.t ~text:(Printf.sprintf "Last table ID: %d" x.params.last_table_id) () ]
     | _     -> []
   in
   let sections = new Tree.Item.t
@@ -96,7 +96,7 @@ let make_table (table : table) =
   let nested = new Tree.t ~items:(specific @ [sections]) () in
   new Tree.Item.t ~text ~secondary_text:stext ~nested ()
 
-let make_general (ts : general_struct_block) =
+let make_general (ts : general_info) =
   let items = [ new Tree.Item.t ~text:(Printf.sprintf "Network PID: %d" ts.nw_pid) ()
               ; new Tree.Item.t ~text:(Printf.sprintf "TS ID: %d" ts.ts_id) ()
               ; new Tree.Item.t ~text:(Printf.sprintf "Network ID: %d" ts.nw_id) ()
@@ -107,24 +107,24 @@ let make_general (ts : general_struct_block) =
   let nested = new Tree.t ~items () in
   new Tree.Item.t ~text:"Сведения о потоке" ~nested ()
 
-let make_stream (ts : ts_struct) =
+let make_stream (ts : structure) =
   let gen  = make_general ts.general in
   let pids = if not (List.is_empty ts.pids)
-             then Some (let pids = List.sort (fun (x:pid) y -> compare x.pid y.pid) ts.pids in
+             then Some (let pids = List.sort (fun (x:pid_info) y -> compare x.pid y.pid) ts.pids in
                         new Tree.Item.t
                             ~text:"PIDs"
                             ~nested:(new Tree.t ~items:(List.map make_pid pids) ())
                             ())
              else None in
   let serv = if not (List.is_empty ts.services)
-             then Some (let serv = List.sort (fun (x:service) y -> compare x.id y.id) ts.services in
+             then Some (let serv = List.sort (fun (x:service_info) y -> compare x.id y.id) ts.services in
                         new Tree.Item.t
                             ~text:"Сервисы"
                             ~nested:(new Tree.t ~items:(List.map make_service serv) ())
                             ())
              else None in
   let emm  = if not (List.is_empty ts.emm)
-             then Some (let emm = List.sort (fun (x:emm) y -> compare x.pid y.pid) ts.emm in
+             then Some (let emm = List.sort (fun (x:emm_info) y -> compare x.pid y.pid) ts.emm in
                         new Tree.Item.t
                             ~text:"EMM"
                             ~nested:(new Tree.t ~items:(List.map make_emm emm) ())
@@ -144,7 +144,7 @@ let make_stream (ts : ts_struct) =
   let nested = new Tree.t ~items:(gen :: opt) () in
   new Tree.Item.t ~text ~secondary_text:stext ~nested ()
 
-let make_streams_tree (ts : ts_struct list) =
+let make_streams_tree (ts : structures) =
   let ts   = List.map make_stream ts in
   let tree = new Tree.t ~items:ts () in
   tree#set_dense true;
@@ -155,11 +155,11 @@ let name     = "Структура"
 let settings = None
 
 let make ~(state   : Common.Topology.state React.signal)
-         ~(structs : ts_structs React.signal)
+         ~(structs : structures React.signal)
          (config   : config option) =
   let id  = "ts-structures" in
   let div = Dom_html.createDiv Dom_html.document in
-  let make (ts : ts_structs) =
+  let make (ts : structures) =
     let tree = make_streams_tree ts in
     tree#set_id id;
     tree

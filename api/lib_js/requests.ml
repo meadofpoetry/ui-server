@@ -45,19 +45,21 @@ module type Request = sig
   type t
   type response
 
-  val get_frame   : string -> response Lwt_xmlHttpRequest.generic_http_frame Lwt.t
-  val get         : string -> (t,int) Lwt_result.t
-  val get_result  : ?from_err:(t -> ('b,string) result) ->
-                    (t -> ('a,string) result) ->
-                    string ->
-                    ('a,'b err) Lwt_result.t
-  val post_frame  : ?contents:t -> string -> response Lwt_xmlHttpRequest.generic_http_frame Lwt.t
-  val post        : ?contents:t -> string -> (t,int) Lwt_result.t
-  val post_result : ?contents:t ->
-                    ?from_err:(t -> ('b,string) result) ->
-                    (t -> ('a,string) result) ->
-                    string ->
-                    ('a,'b err) Lwt_result.t
+  val get_frame        : string -> response Lwt_xmlHttpRequest.generic_http_frame Lwt.t
+  val get              : string -> (t,int) Lwt_result.t
+  val get_result       : ?from_err:(t -> ('b,string) result) ->
+                         (t -> ('a,string) result) ->
+                         string ->
+                         ('a,'b err) Lwt_result.t
+  val post_frame       : ?contents:t -> string -> response Lwt_xmlHttpRequest.generic_http_frame Lwt.t
+  val post             : ?contents:t -> string -> (t,int) Lwt_result.t
+  val post_result_unit : ?contents:t -> ?from_err:(t -> ('b,string) result) ->
+                         string -> (unit,'b err) Lwt_result.t
+  val post_result      : ?contents:t ->
+                         ?from_err:(t -> ('b,string) result) ->
+                         (t -> ('a,string) result) ->
+                         string ->
+                         ('a,'b err) Lwt_result.t
 
   module WS : WS with type t := t
 
@@ -131,6 +133,11 @@ module Make(M:Req) : (Request with type t = M.t and type response = M.response) 
                       | Error _ -> Error (`Code frame.code))
          | None   -> Error (`Code frame.code)
 
+  let post_result_unit ?contents
+                       ?(from_err:(t -> ('b,string) result) option)
+                       addr : (unit,'b err) Lwt_result.t =
+    post_result ?contents ?from_err (fun _ -> Ok ()) addr
+
   module WS = struct
 
     let create ?(port:int option) addr =
@@ -171,4 +178,4 @@ module Json_req : (Req with type t = json and type response = Js.js_string Js.t)
 
 end
 
-module Json_request : (Request with type t := json and type response := Js.js_string Js.t) = Make(Json_req)
+module Json : (Request with type t := json and type response := Js.js_string Js.t) = Make(Json_req)

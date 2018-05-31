@@ -4,7 +4,7 @@ open Board_protocol
 open Board_api_common
 open Api.Interaction
 open Api.Redirect
-open Api.Query
+open Common.Uri.Query
 
 (**
  ** API
@@ -69,7 +69,7 @@ module REST = struct
             respond_error ~status:`Not_implemented "not impelemented" ())
            |> query_wrapper r
 
-      let percent ?stream time (q:Api.Query.Raw.t list) () =
+      let percent ?stream time (q:Raw.t list) () =
         let r,_ = Validation.(
             get_errors_query q
             >>= fun (err,q) -> get_level_query q
@@ -78,7 +78,7 @@ module REST = struct
             respond_error ~status:`Not_implemented "not impelemented" ())
            |> query_wrapper r
 
-      let has_any ?stream time (q:Api.Query.Raw.t list) () =
+      let has_any ?stream time (q:Raw.t list) () =
         let r,_ = Validation.(
             get_errors_query q
             >>= fun (err,q) -> get_level_query q
@@ -91,7 +91,7 @@ module REST = struct
 
     module T2MI = struct
 
-      let errors ?stream time (q:Api.Query.Raw.t list) () =
+      let errors ?stream time (q:Raw.t list) () =
         let r,_ = Validation.(
             get_errors_query q
             >>= fun (err,q) -> get_level_query q
@@ -103,7 +103,7 @@ module REST = struct
             respond_error ~status:`Not_implemented "not impelemented" ())
            |> query_wrapper r
 
-      let percent ?stream time (q:Api.Query.Raw.t list) () =
+      let percent ?stream time (q:Raw.t list) () =
         let r,_ = Validation.(
             get_errors_query q
             >>= fun (err,q) -> get_level_query q
@@ -112,7 +112,7 @@ module REST = struct
             respond_error ~status:`Not_implemented "not impelemented" ())
            |> query_wrapper r
 
-      let has_any ?stream time (q:Api.Query.Raw.t list) () =
+      let has_any ?stream time (q:Raw.t list) () =
         let r,_ = Validation.(
             get_errors_query q
             >>= fun (err,q) -> get_level_query q
