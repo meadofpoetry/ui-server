@@ -1,6 +1,6 @@
 open Components
 open Common.User
-open Api_js.Requests.Json_request
+open Api_js.Requests.Json
 
 open Lwt.Infix
    
