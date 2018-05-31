@@ -4,7 +4,6 @@ open Board_protocol
 open Board_api_common
 open Api.Interaction
 open Api.Redirect
-open Common.Uri.Query
 
 (**
  ** API
@@ -130,12 +129,12 @@ module REST = struct
       let bitrate ?stream (ev:events) () =
         let v = React.S.value ev.bitrates in to_json ?stream v
 
-      let si_psi_section stream_id table_id (api:api) (q:Raw.t list) () =
-        let r,_ = Validation.(
-            get (One ("section",Int)) q
-            >>= fun (sct,q) -> get (One ("table-id-ext",Int)) q
-            >>= fun (ext,q) -> get (One ("eit-ts-id",Int)) q
-            >>= fun (sid,q) -> get (One ("eit-orig-nw-id",Int)) q
+      let si_psi_section stream_id table_id (api:api) (q:Query.Raw.t list) () =
+        let r,_ = Query.(
+            get section_query q
+            >>= fun (sct,q) -> get table_id_ext_query q
+            >>= fun (ext,q) -> get eit_ts_id_query q
+            >>= fun (sid,q) -> get eit_orig_nw_id_query q
             >>| fun nid     -> sct,ext,sid,nid)
         in (fun (section,table_id_ext,eit_ts_id,eit_orig_nw_id) ->
             let req = { stream_id; table_id; section; table_id_ext; eit_ts_id; eit_orig_nw_id } in
@@ -160,8 +159,8 @@ module REST = struct
         |> Result.return
         |> Json.respond_result
 
-      let sequence ?stream (api:api) (q:Raw.t list) () =
-        let r = Validation.(last_or_err @@ get_or ~default:5 (One ("seconds",Int)) q) in
+      let sequence ?stream (api:api) (q:Query.Raw.t list) () =
+        let r = Query.(last_or_err @@ get_or ~default:5 (One ("seconds",Int)) q) in
         (fun seconds ->
           api.get_t2mi_seq seconds
           >|= (fun x -> let seq = match stream with
@@ -178,10 +177,10 @@ module REST = struct
   (** Archive GET requests **)
   module AR = struct
 
-    let streams ?stream (q:Raw.t list) time () =
-      let r,_ = Validation.(
-          get_limit_query q
-          >>= fun (lim,q) -> get_total_query q
+    let streams ?stream (q:Query.Raw.t list) time () =
+      let r,_ = Query.(
+          get limit_query q
+          >>= fun (lim,q) -> get total_query q
           >>| fun tot     -> lim,tot)
       in (fun (lim,tot) -> (* TODO IMPLEMENT *)
           respond_error ~status:`Not_implemented "not impelemented" ())
@@ -191,31 +190,31 @@ module REST = struct
 
       open Board_types.Streams.TS
 
-      let state ?stream (q:Raw.t list) time () =
-        let r,_ = Validation.(
-            get_state_query q
-            >>= fun (fil,q) -> get_limit_query q
-            >>= fun (lim,q) -> get_thin_query q
-            >>= fun (thn,q) -> get_total_query q
+      let state ?stream (q:Query.Raw.t list) time () =
+        let r,_ = Query.(
+            get state_query q
+            >>= fun (fil,q) -> get limit_query q
+            >>= fun (lim,q) -> get thin_query q
+            >>= fun (thn,q) -> get total_query q
             >>| fun tot     -> fil,lim,thn,tot)
         in (fun (filter,limit,thin,total) -> (* TODO IMPLEMENT *)
             respond_error ~status:`Not_implemented "not impelemented" ())
            |> query_wrapper r
 
-      let structure ?stream (q:Raw.t list) time () =
-        let r,_ = Validation.(
-            get_limit_query q
-            >>= fun (lim,q) -> get_total_query q
+      let structure ?stream (q:Query.Raw.t list) time () =
+        let r,_ = Query.(
+            get limit_query q
+            >>= fun (lim,q) -> get total_query q
             >>| fun tot     -> lim,tot)
         in (fun (limit,total) -> (* TODO IMPLEMENT *)
             respond_error ~status:`Not_implemented "not impelemented" ())
            |> query_wrapper r
 
-      let bitrate ?stream (q:Raw.t list) time () =
-        let r,_ = Validation.(
-            get_limit_query q
-            >>= fun (lim,q) -> get_thin_query q
-            >>= fun (thn,q) -> get_total_query q
+      let bitrate ?stream (q:Query.Raw.t list) time () =
+        let r,_ = Query.(
+            get limit_query q
+            >>= fun (lim,q) -> get thin_query q
+            >>= fun (thn,q) -> get total_query q
             >>| fun tot     -> lim,thn,tot)
         in (fun (limit,thin,total) -> (* TODO IMPLEMENT *)
             respond_error ~status:`Not_implemented "not impelemented" ())
@@ -227,21 +226,21 @@ module REST = struct
 
       open Board_types.Streams.T2MI
 
-      let state ?stream (q:Raw.t list) time () =
-        let r,_ = Validation.(
-            get_state_query q
-            >>= fun (fil,q) -> get_limit_query q
-            >>= fun (lim,q) -> get_thin_query q
-            >>= fun (thn,q) -> get_total_query q
+      let state ?stream (q:Query.Raw.t list) time () =
+        let r,_ = Query.(
+            get state_query q
+            >>= fun (fil,q) -> get limit_query q
+            >>= fun (lim,q) -> get thin_query q
+            >>= fun (thn,q) -> get total_query q
             >>| fun tot     -> fil,lim,thn,tot)
         in (fun (filter,limit,thin,total) -> (* TODO IMPLEMENT *)
             respond_error ~status:`Not_implemented "not impelemented" ())
            |> query_wrapper r
 
-      let structure ?stream (q:Raw.t list) time () =
-        let r,_ = Validation.(
-            get_limit_query q
-            >>= fun (lim,q) -> get_total_query q
+      let structure ?stream (q:Query.Raw.t list) time () =
+        let r,_ = Query.(
+            get limit_query q
+            >>= fun (lim,q) -> get total_query q
             >>| fun tot     -> lim,tot)
         in (fun (limit,total) -> (* TODO IMPLEMENT *)
             respond_error ~status:`Not_implemented "not impelemented" ())
@@ -253,7 +252,7 @@ module REST = struct
 
 end
 
-let handle_ok api events scheme meth req (q:Raw.t list) sock_data body time () =
+let handle_ok api events scheme meth req (q:Query.Raw.t list) sock_data body time () =
   match scheme,meth,req,time with
   (* Websockets *)
   | `WS,`GET,`Streams id,            `Now    -> WS.streams sock_data events body ()
@@ -278,6 +277,6 @@ let handle_ok api events scheme meth req (q:Raw.t list) sock_data body time () =
   | _ -> not_found ()
 
 let handle api events scheme meth req uri sock_data body () =
-  match get_time_query @@ Uri.query uri with
+  match Query.get_time_query @@ Uri.query uri with
   | Error e,_ -> Json.respond_result (Error (Api_utils.err_to_yojson @@ Bad_query e))
   | Ok t,q    -> handle_ok api events scheme meth req q sock_data body t ()

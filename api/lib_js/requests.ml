@@ -1,4 +1,6 @@
 open Lwt.Infix
+open Containers
+open Common
 
 type 'a err      = [ `Data of int * 'a | `Code of int ]
 type json        = Yojson.Safe.json
@@ -141,14 +143,15 @@ module Make(M:Req) : (Request with type t = M.t and type response = M.response) 
   module WS = struct
 
     let create ?(port:int option) addr =
+      let host = Js.to_string Dom_html.window##.location##.hostname in
       let port = match port with Some p -> p | None -> 8080 in
-      let addr = Js.string @@ Printf.sprintf
-                                "ws://%s:%d/%s"
-                                (Js.to_string Dom_html.window##.location##.hostname)
-                                port
-                                addr
+      let uri  = Uri.with_uri ~scheme:(Some "ws")
+                              ~port:(Some port)
+                              ~host:(Some host)
+                              ~path:(Some addr)
+                              Uri.empty
       in
-      new%js WebSockets.webSocket addr
+      new%js WebSockets.webSocket (Js.string @@ Uri.to_string uri)
 
     let get ?(port:int option) addr (from:t -> ('a,string) result) =
       let sock = create ?port addr in

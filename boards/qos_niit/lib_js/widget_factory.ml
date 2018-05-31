@@ -50,10 +50,11 @@ open Factory_state
 class t (control:int) () =
 object(self)
 
-  val _state    : state React.signal t_lwt                 = empty ()
-  val _config   : config React.signal t_lwt                = empty ()
-  val _structs  : Streams.TS.structures React.signal t_lwt = empty ()
-  val _bitrates : Streams.TS.structures React.signal t_lwt = empty ()
+  val _state       : state React.signal t_lwt                 = empty ()
+  val _t2mi_mode   : t2mi_mode option   React.signal t_lwt    = empty ()
+  val _jitter_mode : jitter_mode option React.signal t_lwt    = empty ()
+  val _structs     : Streams.TS.structures React.signal t_lwt = empty ()
+  val _bitrates    : Streams.TS.structures React.signal t_lwt = empty ()
 
   (** Create widget of type **)
   method create : item -> Dashboard.Item.item = function
@@ -62,28 +63,29 @@ object(self)
                               |> Ui_templates.Loader.create_widget_loader
                               |> Dashboard.Item.to_item ~name:Widget_structure.name
                                                         ?settings:Widget_structure.settings
-    | Settings conf        -> (fun s c -> Widget_settings.make ~state:s ~config:c
-                                                               ~streams:self#_streams
-                                                               conf control)
-                              |> Factory_state_lwt.l2 self#_state self#_config
+    | Settings conf        -> (fun s t j -> Widget_settings.make ~state:s ~t2mi_mode:t ~jitter_mode:j
+                                                                 ~streams:self#_streams
+                                                                 conf control)
+                              |> Factory_state_lwt.l3 self#_state self#_t2mi_mode self#_jitter_mode
                               |> Ui_templates.Loader.create_widget_loader
                               |> Dashboard.Item.to_item ~name:Widget_settings.name
                                                         ?settings:Widget_settings.settings
-    | T2MI_settings conf   -> (fun s c -> Widget_t2mi_settings.make ~state:s ~config:c
+    | T2MI_settings conf   -> (fun s m -> Widget_t2mi_settings.make ~state:s ~mode:m
                                                                     ~streams:self#_streams
                                                                     conf control )
-                              |> Factory_state_lwt.l2 self#_state self#_config
+                              |> Factory_state_lwt.l2 self#_state self#_t2mi_mode
                               |> Ui_templates.Loader.create_widget_loader
                               |> Dashboard.Item.to_item ~name:Widget_t2mi_settings.name
                                                         ?settings:Widget_t2mi_settings.settings
-    | Jitter_settings conf -> (fun s c -> Widget_jitter_settings.make ~state:s ~config:c conf control)
-                              |> Factory_state_lwt.l2 self#_state self#_config
+    | Jitter_settings conf -> (fun s m -> Widget_jitter_settings.make ~state:s ~mode:m conf control)
+                              |> Factory_state_lwt.l2 self#_state self#_jitter_mode
                               |> Ui_templates.Loader.create_widget_loader
                               |> Dashboard.Item.to_item ~name:Widget_jitter_settings.name
                                                         ?settings:Widget_jitter_settings.settings
 
   method destroy () : unit = Factory_state.finalize _state;
-                             Factory_state.finalize _config;
+                             Factory_state.finalize _t2mi_mode;
+                             Factory_state.finalize _jitter_mode;
                              Factory_state.finalize _structs;
                              Factory_state.finalize _bitrates
 
@@ -101,26 +103,32 @@ object(self)
 
   method private _state =
     Factory_state_lwt.get_value_as_signal
-      ~get:(fun () -> Requests.get_state control |> map_err)
-      ~get_socket:(fun () -> Requests.get_state_ws control)
+      ~get:(fun ()        -> Requests.Device.REST.RT.get_state control |> map_err)
+      ~get_socket:(fun () -> Requests.Device.WS.get_state control)
       _state
 
   method private _structs =
     Factory_state_lwt.get_value_as_signal
-      ~get:(fun () -> Requests.Streams.Real_time.get_ts_structs control |> map_err)
-      ~get_socket:(fun () -> Requests.Streams.Real_time.get_ts_structs_ws control)
+      ~get:(fun ()        -> Requests.Streams.REST.RT.TS.get_structure control |> map_err)
+      ~get_socket:(fun () -> Requests.Streams.WS.TS.get_structure control)
       _structs
 
-  method private _config =
+  method private _t2mi_mode =
     Factory_state_lwt.get_value_as_signal
-      ~get:(fun () -> Requests.Board.Real_time.get_config control |> map_err)
-      ~get_socket:(fun () -> Requests.Board.Real_time.get_config_ws control)
-      _config
+      ~get:(fun ()        -> Requests.Device.REST.RT.get_t2mi_mode control |> map_err)
+      ~get_socket:(fun () -> Requests.Device.WS.get_t2mi_mode control)
+      _t2mi_mode
+
+  method private _jitter_mode =
+    Factory_state_lwt.get_value_as_signal
+      ~get:(fun () ->        Requests.Device.REST.RT.get_jitter_mode control |> map_err)
+      ~get_socket:(fun () -> Requests.Device.WS.get_jitter_mode control)
+      _jitter_mode
 
   method private _bitrates =
     Factory_state_lwt.get_value_as_signal
-      ~get:(fun () -> Requests.Streams.Real_time.get_ts_bitrates control |> map_err)
-      ~get_socket:(fun () -> Requests.Streams.Real_time.get_ts_bitrates_ws control)
+      ~get:(fun ()        -> Requests.Streams.REST.RT.TS.get_bitrate control |> map_err)
+      ~get_socket:(fun () -> Requests.Streams.WS.TS.get_bitrate control)
       _bitrates
 
   method private _streams = React.S.const []

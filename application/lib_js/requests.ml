@@ -1,6 +1,6 @@
 open Containers
 open Common.Topology
-open Api_js.Requests.Json_request
+open Api_js.Requests.Json
 open Lwt.Infix
 
 open Application_types

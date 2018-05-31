@@ -4,7 +4,6 @@ open Board_protocol
 open Board_api_common
 open Api.Interaction
 open Api.Redirect
-open Common.Uri.Query
 
 (**
  ** API
@@ -17,7 +16,6 @@ open Common.Uri.Query
 
 include Api_utils.Errors
 
-let bad_request     = respond_error ~status:`Bad_request
 let not_implemented = respond_error ~status:`Not_implemented
 
 module WS = struct
@@ -57,31 +55,31 @@ module REST = struct
 
     module TS = struct
 
-      let errors ?stream time (q:Raw.t list) () =
-        let r,_ = Validation.(
-            get_errors_query q
-            >>= fun (err,q) -> get_level_query q
-            >>= fun (lev,q) -> get_limit_query q
-            >>= fun (lim,q) -> get_thin_query q
-            >>= fun (thn,q) -> get_total_query q
+      let errors ?stream time (q:Query.Raw.t list) () =
+        let r,_ = Query.(
+            (get errors_query q)
+            >>= fun (err,q) -> get level_query q
+            >>= fun (lev,q) -> get limit_query q
+            >>= fun (lim,q) -> get_or ~default:false thin_query q
+            >>= fun (thn,q) -> get_or ~default:false total_query q
             >>| fun tot     -> err,lev,lim,thn,tot)
         in (fun _ -> (* TODO IMPLEMENT *)
             respond_error ~status:`Not_implemented "not impelemented" ())
            |> query_wrapper r
 
-      let percent ?stream time (q:Raw.t list) () =
-        let r,_ = Validation.(
-            get_errors_query q
-            >>= fun (err,q) -> get_level_query q
+      let percent ?stream time (q:Query.Raw.t list) () =
+        let r,_ = Query.(
+            get errors_query q
+            >>= fun (err,q) -> get level_query q
             >>| Pair.make err)
         in (fun _ -> (* TODO IMPLEMENT *)
             respond_error ~status:`Not_implemented "not impelemented" ())
            |> query_wrapper r
 
-      let has_any ?stream time (q:Raw.t list) () =
-        let r,_ = Validation.(
-            get_errors_query q
-            >>= fun (err,q) -> get_level_query q
+      let has_any ?stream time (q:Query.Raw.t list) () =
+        let r,_ = Query.(
+            get errors_query q
+            >>= fun (err,q) -> get level_query q
             >>| Pair.make err)
         in (fun _ -> (* TODO IMPLEMENT *)
             respond_error ~status:`Not_implemented "not impelemented" ())
@@ -91,31 +89,31 @@ module REST = struct
 
     module T2MI = struct
 
-      let errors ?stream time (q:Raw.t list) () =
-        let r,_ = Validation.(
-            get_errors_query q
-            >>= fun (err,q) -> get_level_query q
-            >>= fun (lev,q) -> get_limit_query q
-            >>= fun (lim,q) -> get_thin_query q
-            >>= fun (thn,q) -> get_total_query q
+      let errors ?stream time (q:Query.Raw.t list) () =
+        let r,_ = Query.(
+            get errors_query q
+            >>= fun (err,q) -> get level_query q
+            >>= fun (lev,q) -> get limit_query q
+            >>= fun (lim,q) -> get thin_query q
+            >>= fun (thn,q) -> get total_query q
             >>| fun tot     -> err,lev,lim,thn,tot)
         in (fun _ -> (* TODO IMPLEMENT *)
             respond_error ~status:`Not_implemented "not impelemented" ())
            |> query_wrapper r
 
-      let percent ?stream time (q:Raw.t list) () =
-        let r,_ = Validation.(
-            get_errors_query q
-            >>= fun (err,q) -> get_level_query q
+      let percent ?stream time (q:Query.Raw.t list) () =
+        let r,_ = Query.(
+            get errors_query q
+            >>= fun (err,q) -> get level_query q
             >>| Pair.make err)
         in (fun _ -> (* TODO IMPLEMENT *)
             respond_error ~status:`Not_implemented "not impelemented" ())
            |> query_wrapper r
 
-      let has_any ?stream time (q:Raw.t list) () =
-        let r,_ = Validation.(
-            get_errors_query q
-            >>= fun (err,q) -> get_level_query q
+      let has_any ?stream time (q:Query.Raw.t list) () =
+        let r,_ = Query.(
+            get errors_query q
+            >>= fun (err,q) -> get level_query q
             >>| Pair.make err)
         in (fun _ -> (* TODO IMPLEMENT *)
             respond_error ~status:`Not_implemented "not impelemented" ())
@@ -128,7 +126,7 @@ end
 let ws_past_ni  = "This WS archive REQ is not implemented"
 let rest_now_ni = "This REST real-time REQ is not implemented"
 
-let handle_ok api events scheme meth req (q:Raw.t list) sock_data body time () =
+let handle_ok api events scheme meth req (q:Query.Raw.t list) sock_data body time () =
   match scheme,meth,req,time with
   (* WS *)
   | `WS,  `GET,`Errors (`TS id),   `Now    -> WS.TS.errors   ?stream:id sock_data events body ()
@@ -145,6 +143,6 @@ let handle_ok api events scheme meth req (q:Raw.t list) sock_data body time () =
   | _ -> not_found ()
 
 let handle api events scheme meth req uri sock_data body () =
-  match get_time_query @@ Uri.query uri with
+  match Query.get_time_query @@ Uri.query uri with
   | Error e,_ -> Json.respond_result (Error (Api_utils.err_to_yojson @@ Bad_query e))
   | Ok t,q    -> handle_ok api events scheme meth req q sock_data body t ()

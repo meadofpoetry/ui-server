@@ -1,5 +1,4 @@
 open Containers
-open Common.Uri.Query
 
 let (^::) = List.cons_maybe
 
@@ -7,7 +6,7 @@ type stream = [ `TS   of Common.Stream.id option
               | `T2MI of int option
               ]
 
-type err = Bad_query of Validation.err
+type err = Bad_query of Common.Uri.Query.Validation.err
          | Other     of string [@@deriving yojson]
 
 let eq = String.equal
@@ -35,34 +34,43 @@ module Domain = struct
   let equal = String.equal
   type path = string list
 
-  open Validation
+  module Query = struct
 
-  let from_query   = One ("from",Time)
-  let till_query   = One ("to",Time)
-  let limit_query  = One ("limit",Int)
-  let total_query  = One ("total",Bool)
-  let thin_query   = One ("thin",Bool)
+    open Common.Uri.Query
+    open Validation
 
-  let get_time_query q =
-    let r,q = get from_query q
-              >>= fun (from,q) -> get till_query q
-              >>| fun till     -> from,till
-    in Result.map (fun (from,till) -> Time.Range.of_time ~from ~till) r,q
-  let get_thin_query  q = get_or ~default:false thin_query q
-  let get_total_query q = get_or ~default:false total_query q
-  let get_limit_query q = get limit_query q
+    module Raw = Raw
 
-  let set_time_query (range:'a Time.Range.past) uri =
-    let from_key = key_of_validation from_query in
-    let till_key = key_of_validation till_query in
-    Time.Range.add_to_uri ~from_key ~till_key (`Past range) uri
-  let set_thin_query  v uri = insert thin_query v uri
-  let set_total_query v uri = insert total_query v uri
-  let set_limit_query v uri = insert limit_query v uri
+    let set         = insert
+    let get         = get
+    let get_or      = get_or
+    let last_or_err = last_or_err
+
+    let ( >>= ) = Validation.( >>= )
+    let ( >>| ) = Validation.( >>| )
+
+    let from_query   = One (Common.Uri.Query.Time.from,Time)
+    let till_query   = One (Common.Uri.Query.Time.till,Time)
+    let limit_query  = One ("limit",Int)
+    let total_query  = One ("total",Bool)
+    let thin_query   = One ("thin",Bool)
+
+    let get_time_query q =
+      let r,q = get from_query q
+                >>= fun (from,q) -> get till_query q
+                >>| fun till     -> from,till
+      in Result.map (fun (from,till) -> Time.Range.of_time ~from ~till) r,q
+
+    let set_time_query (range:'a Time.Range.past) uri =
+      let from_key = key_of_validation from_query in
+      let till_key = key_of_validation till_query in
+      Time.Range.add_to_uri ~from_key ~till_key (`Past range) uri
+
+  end
 end
 
 module Device = struct
-  include Domain
+  include (Domain: module type of Domain with module Query := Domain.Query)
 
   let domain = "device"
   let errors,mode,info,
@@ -106,27 +114,23 @@ module Device = struct
        Option.map2 (fun p b -> `Port (p,b)) (int_of_string_opt y) (bool_of_string_opt z)
     | _-> None
 
-  open Validation
+  module Query = struct
+    open Common.Uri.Query.Validation
+    include Domain.Query
 
-  let state_query =
-    let f_of = Option.flat_map Common.Topology.state_of_string in
-    let f_to = Fun.(Option.return % Common.Topology.state_to_string) in
-    Filter ("state",Custom (f_of,f_to))
-  let errors_query = Filter ("errors",Int)
+    let state_query =
+      let f_of = Option.flat_map Common.Topology.state_of_string in
+      let f_to = Fun.(Option.return % Common.Topology.state_to_string) in
+      Filter ("state",Custom (f_of,f_to))
+    let errors_query = Filter ("errors",Int)
 
-  let get_state_query q =
-    let r,q  = get state_query q in
-    Result.map (Option.map (List.sort_uniq ~cmp:Common.Topology.compare_state)) r,q
-  let get_errors_query q = get errors_query q
-
-  let set_state_query v uri  = insert state_query v uri
-  let set_errors_query v uri = insert errors_query v uri
+  end
 
 end
 
 
 module Errors = struct
-  include Domain
+  include (Domain: module type of Domain with module Query := Domain.Query)
   let domain  = "errors"
   let percent,has_any = "percent","has-any"
 
@@ -150,22 +154,17 @@ module Errors = struct
        Option.map (fun x -> `Has_any x) @@ stream_of_path tl
     | _ -> None
 
-  open Validation
-
-  let errors_query = Filter ("errors",Int)
-  let level_query  = Filter ("level",Int)
-
-  let get_level_query  q = get level_query q
-  let get_errors_query q = get errors_query q
-
-  let set_level_query v uri  = insert level_query v uri
-  let set_errors_query v uri = insert errors_query v uri
+  module Query = struct
+    open Common.Uri.Query.Validation
+    include Domain.Query
+    let errors_query = Filter ("errors",Int)
+    let level_query  = Filter ("level",Int)
+  end
 
 end
 
-
 module Streams = struct
-  include Domain
+  include (Domain: module type of Domain with module Query := Domain.Query)
   let domain = "streams"
   let ts,t2mi = "ts","t2mi"
   let state,structure,bitrate,
@@ -212,21 +211,27 @@ module Streams = struct
                    (Int32.of_string c) (Int.of_string d)
     | _ -> None
 
-  open Validation
+  module Query = struct
 
-  let state_query = Filter_one ("state",Bool)
+    open Common.Uri.Query.Validation
+    include Domain.Query
 
-  let get_state_query q     = get state_query q
-  let set_state_query v uri = insert state_query v uri
+    let state_query          = Filter_one ("state",Bool)
+    let section_query        = One ("section",Int)
+    let table_id_ext_query   = One ("table-id-ext",Int)
+    let eit_ts_id_query      = One ("eit-ts-id",Int)
+    let eit_orig_nw_id_query = One ("eit-orig-nw-id",Int)
+    let seconds_query        = One ("seconds",Int)
+
+  end
 
 end
 
 
 module Jitter = struct
+  include (Domain: module type of Domain with module Query := Domain.Query)
 
   (* TODO IMPLEMENT *)
-
-  include Domain
 
   let domain = "jitter"
 
@@ -236,6 +241,12 @@ module Jitter = struct
     | _ -> []
   let req_of_path : path -> req option = function
     | _ -> None
+
+  module Query = struct
+
+    include Domain.Query
+
+  end
 
 end
 

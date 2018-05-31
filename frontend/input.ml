@@ -1,6 +1,5 @@
 open Containers
 open Components
-open Api_js.Requests
 open Lwt.Infix
 open Common.Topology
 

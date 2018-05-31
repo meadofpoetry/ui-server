@@ -4,7 +4,6 @@ open Board_protocol
 open Board_api_common
 open Api.Interaction
 open Api.Redirect
-open Common.Uri.Query
 
 (**
  ** API
@@ -103,31 +102,31 @@ module REST = struct
   (** Archive GET requests **)
   module AR = struct
 
-    let state time (q:Raw.t list) () =
-      let r,_ = Validation.(
-          get_state_query q
-          >>= fun (fil,q) -> get_limit_query q
-          >>= fun (lim,q) -> get_total_query q
+    let state time (q:Query.Raw.t list) () =
+      let r,_ = Query.(
+          get state_query q
+          >>= fun (fil,q) -> get limit_query q
+          >>= fun (lim,q) -> get total_query q
           >>| fun tot     -> fil,lim,tot)
       in (fun (filter,limit,total) -> (* TODO IMPLEMENT *)
           respond_error ~status:`Not_implemented "not impelemented" ())
          |> query_wrapper r
 
-    let status time (q:Raw.t list) () =
-      let r,_ = Validation.(
-          get_limit_query q
-          >>= fun (lim,q) -> get_total_query q
+    let status time (q:Query.Raw.t list) () =
+      let r,_ = Query.(
+          get limit_query q
+          >>= fun (lim,q) -> get total_query q
           >>| fun tot     -> lim,tot)
       in (fun (limit,total) -> (* TODO IMPLEMENT *)
           respond_error ~status:`Not_implemented "not impelemented" ())
          |> query_wrapper r
 
-    let errors time (q:Raw.t list) () =
-      let r,_ = Validation.(
-          get_errors_query q
-          >>= fun (err,q) -> get_limit_query q
-          >>= fun (lim,q) -> get_thin_query q
-          >>= fun (thn,q) -> get_total_query q
+    let errors time (q:Query.Raw.t list) () =
+      let r,_ = Query.(
+          get errors_query q
+          >>= fun (err,q) -> get limit_query q
+          >>= fun (lim,q) -> get thin_query q
+          >>= fun (thn,q) -> get total_query q
           >>| fun tot     -> err,lim,thn,tot)
       in (fun (errors,limit,thin,total) -> (* TODO IMPLEMENT *)
           respond_error ~status:`Not_implemented "not impelemented" ())
@@ -141,7 +140,7 @@ let ws_ar_ni   = "This WS archive REQ is not implemented"
 let rest_ar_ni = "This REST archive REQ is not implemented"
 let rest_rt_ni = "This REST real-time REQ is not implemented"
 
-let handle_ok api events scheme meth req (q:Raw.t list) sock_data body time () =
+let handle_ok api events scheme meth req (q:Query.Raw.t list) sock_data body time () =
   match scheme,meth,req,time with
   (* POST *)
   | _,`POST,`Mode m,    `Now -> REST.post_mode m api body ()
@@ -166,6 +165,6 @@ let handle_ok api events scheme meth req (q:Raw.t list) sock_data body time () =
   | _ -> not_found ()
 
 let handle api events scheme meth req uri sock_data body () =
-  match get_time_query @@ Uri.query uri with
+  match Query.get_time_query @@ Uri.query uri with
   | Error e,_ -> Json.respond_result (Error (Api_utils.err_to_yojson @@ Bad_query e))
   | Ok t,q    -> handle_ok api events scheme meth req q sock_data body t ()

@@ -51,6 +51,9 @@ module Factory_state_lwt = struct
   let l2 : 'a 'b. 'a value -> 'b value -> ('a -> 'b -> 'c) -> 'c value = fun t1 t2 f ->
     t1 >>= fun t1 -> t2 >>= (fun t2 -> Lwt_result.return @@ f t1 t2)
 
+  let l3 : 'a 'b 'c. 'a value -> 'b value -> 'c value -> ('a -> 'b -> 'c -> 'd) -> 'd value = fun t1 t2 t3 f ->
+    t1 >>= fun t1 -> t2 >>= fun t2 -> t3 >>= (fun t3 -> Lwt_result.return @@ f t1 t2 t3)
+
   let get_value_as_signal ~(get:(unit -> 'a value))
                           ~(get_socket:(unit -> 'a React.event * Factory_state.ws))
                           (state:('a React.signal t)) : 'a React.signal value =

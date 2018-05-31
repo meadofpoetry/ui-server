@@ -56,7 +56,7 @@ let name     = "Настройки. T2-MI"
 let settings = None
 
 let make ~(state:   Common.Topology.state React.signal)
-         ~(config:  Board_types.config React.signal)
+         ~(mode:    t2mi_mode option React.signal)
          ~(streams: Common.Stream.t_list React.signal)
          (conf:     config option)
          control =
@@ -84,10 +84,8 @@ let make ~(state:   Common.Topology.state React.signal)
                                                   [dis_pid; dis_sid])
                        state s_en
   in
-  let _      = React.S.map (fun config -> List.iter (fun f -> f config.t2mi_mode) [set_en; set_pid; set_sid])
-                           config
-  in
-  let submit = Requests.Board.post_t2mi_mode control in
+  let _      = React.S.map (fun x -> List.iter (fun f -> f x) [set_en; set_pid; set_sid]) mode in
+  let submit = Requests.Device.REST.post_t2mi_mode control in
   let apply  = Ui_templates.Buttons.create_apply s submit in
   let box    = new Box.t ~vertical:true ~widgets:[en;ss;pid;sid;apply#widget] () in
   let ()     = box#add_class "mdc-settings-widget" in
