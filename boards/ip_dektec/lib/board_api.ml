@@ -110,7 +110,7 @@ let handle api events id s_state _ m args _ sock_data _ body =
   | `POST, ["rate_mode"]  -> rate_mode api body
   | `POST, ["reset"]      -> reset api ()
   | `GET,  ["config"]     -> config api ()
-  | `GET,  ["state"]      -> state s_state ()
+  | `GET,  ["device";"state"] -> state s_state ()
   | `GET,  ["devinfo"]    -> devinfo api ()
   | `GET,  ["status_ws"]  -> status_ws sock_data events body
   | `GET,  ["state_ws"]   -> state_ws sock_data s_state body

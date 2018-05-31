@@ -10,9 +10,7 @@ let req_to_uri ?uri control req = req_to_uri ?uri control (`Device req)
 
 module WS = struct
 
-  let get_state control =
-    let uri = req_to_uri control `State in
-    WS.get (Uri.to_string uri) Common.Topology.state_of_yojson
+  include Boards_js.Requests.Device.WS
 
   let get_status control =
     let uri = req_to_uri control `Status in
@@ -34,6 +32,11 @@ end
 
 module REST = struct
 
+  include (Boards_js.Requests.Device.REST:
+           module type of Boards_js.Requests.Device.REST
+                          with module RT := Boards_js.Requests.Device.REST.RT
+                          with module AR := Boards_js.Requests.Device.REST.AR)
+
   (** Resets the board **)
   let post_reset control =
     let uri = req_to_uri control `Reset in
@@ -51,16 +54,9 @@ module REST = struct
     let contents = jitter_mode_request_to_yojson mode in
     post_result_unit ~contents (Uri.to_string uri)
 
-  (** Sets board port to listen **)
-  let post_port control port state =
-    let uri = req_to_uri control (`Port (port,state)) in
-    post_result_unit (Uri.to_string uri)
-
   module RT = struct
 
-    let get_state control =
-      let uri = req_to_uri control `State in
-      get_result Common.Topology.state_of_yojson (Uri.to_string uri)
+    include Boards_js.Requests.Device.REST.RT
 
     let get_devinfo control =
       let uri = req_to_uri control `Info in
@@ -78,15 +74,7 @@ module REST = struct
 
   module AR = struct
 
-    let get_state ?filter ?limit ?total time control =
-      let uri = Query.(
-          (Uri.empty,filter)
-          >>* (fun (u,fil) -> set state_query fil u, limit)
-          >>* (fun (u,lim) -> set limit_query lim u, total)
-          >>* (fun (u,tot) -> set total_query tot u, None)
-          |>  (fun (u,_)   -> set_time_query time u)
-          |>  (fun uri     -> req_to_uri ~uri control `State))
-      in get_result (fun _ -> Error "not implemented") (Uri.to_string uri)
+    include Boards_js.Requests.Device.REST.AR
 
     let get_status ?limit ?total time control =
       let uri = Query.(

@@ -7,7 +7,7 @@ module Api_handler = Api.Handler.Make(Common.User)
  *   sock_handler sock_data events.jitter Jitter.measures_to_yojson body *)
 
 let handle api events _ meth path uri sock_data _ body =
-  let scheme = Api.Api_types.meth_of_uri uri in
+  let scheme = Api_common.meth_of_uri uri in
   match Api_utils.req_of_path path with
   | Some (`Device x)  -> Board_api_device.handle  api events scheme meth x uri sock_data body ()
   | Some (`Errors x)  -> Board_api_errors.handle  api events scheme meth x uri sock_data body ()

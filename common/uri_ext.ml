@@ -155,116 +155,112 @@ module Query = struct
 
   end
 
-  module Validation = struct
+  type _ v_simple =
+    | Bool   : bool v_simple
+    | Int    : int v_simple
+    | Time   : Time.t v_simple
+    | Custom : (string option -> 'a option) * ('a -> string option) -> 'a v_simple
 
-    type _ v_simple =
-      | Bool   : bool v_simple
-      | Int    : int v_simple
-      | Time   : Time.t v_simple
-      | Custom : (string option -> 'a option) * ('a -> string option) -> 'a v_simple
+  type _ v =
+    | List       : string * 'a v_simple -> 'a list v
+    | Filter     : string * 'a v_simple -> 'a list v
+    | Filter_one : string * 'a v_simple -> 'a v
+    | One        : string * 'a v_simple -> 'a v
 
-    type _ v =
-      | List       : string * 'a v_simple -> 'a list v              (* key and item validation *)
-      | Filter     : string * 'a v_simple -> 'a list v              (* name and item validation *)
-      | Filter_one : string * 'a v_simple -> 'a v
-      | One        : string * 'a v_simple -> 'a v                   (* key and item validation *)
+  type err = [ `Bad_value of Raw.t
+             | `Unknown   of Raw.t list
+             ] [@@deriving yojson]
 
-    type err = [ `Bad_value of Raw.t
-               | `Unknown   of Raw.t list
-               ] [@@deriving yojson]
+  let validate_simple : type a. a v_simple -> Raw.Value.t -> (a,Raw.Value.t) result =
+    fun validation query ->
+    let to_res = function Some x -> Ok x | None -> Error query in
+    match validation,query with
+    | Bool,[v]         -> bool_of_string_opt v |> to_res
+    | Int,[v]          -> int_of_string_opt v  |> to_res
+    | Time,[v]         -> Time.of_string v     |> to_res
+    | Custom (f,_),[ ] -> f None               |> to_res
+    | Custom (f,_),[v] -> f (Some v)           |> to_res
+    | _                -> Error query
 
-    let validate_simple : type a. a v_simple -> Raw.Value.t -> (a,Raw.Value.t) result =
-      fun validation query ->
-      let to_res = function Some x -> Ok x | None -> Error query in
-      match validation,query with
-      | Bool,[v]         -> bool_of_string_opt v |> to_res
-      | Int,[v]          -> int_of_string_opt v  |> to_res
-      | Time,[v]         -> Time.of_string v     |> to_res
-      | Custom (f,_),[ ] -> f None               |> to_res
-      | Custom (f,_),[v] -> f (Some v)           |> to_res
-      | _                -> Error query
+  let simple_to_value : type a. a -> a v_simple -> Raw.Value.t = fun v validation ->
+    match validation with
+    | Bool         -> List.pure @@ string_of_bool v
+    | Int          -> List.pure @@ string_of_int v
+    | Time         -> List.pure @@ Time.to_string v
+    | Custom (_,f) -> match f v with Some v -> List.pure v | None -> [ ]
 
-    let simple_to_value : type a. a -> a v_simple -> Raw.Value.t = fun v validation ->
-      match validation with
-      | Bool         -> List.pure @@ string_of_bool v
-      | Int          -> List.pure @@ string_of_int v
-      | Time         -> List.pure @@ Time.to_string v
-      | Custom (_,f) -> match f v with Some v -> List.pure v | None -> [ ]
+  type err_ext = [ `Not_found of Raw.Key.t | err ]
 
-    type err_ext = [ `Not_found of Raw.Key.t | err ]
+  let key_of_validation : type a. a v -> string = function
+    | List (k,_)       -> k
+    | Filter (n,_)     -> Filter.name_to_key n
+    | Filter_one (n,_) -> Filter.name_to_key n
+    | One (k,_)        -> k
 
-    let key_of_validation : type a. a v -> string = function
-      | List (k,_)       -> k
-      | Filter (n,_)     -> Filter.name_to_key n
-      | Filter_one (n,_) -> Filter.name_to_key n
-      | One (k,_)        -> k
+  let to_raw_value : type a. a -> a v -> Raw.Value.t = fun v validation ->
+    match validation with
+    | List (_,s)       -> List.map (fun x -> simple_to_value x s) v |> List.concat
+    | Filter (_,s)     -> List.map (fun x -> simple_to_value x s) v |> List.concat
+    | Filter_one (_,s) -> simple_to_value v s
+    | One (_,s)        -> simple_to_value v s
 
-    let to_raw_value : type a. a -> a v -> Raw.Value.t = fun v validation ->
-      match validation with
-      | List (_,s)       -> List.map (fun x -> simple_to_value x s) v |> List.concat
-      | Filter (_,s)     -> List.map (fun x -> simple_to_value x s) v |> List.concat
-      | Filter_one (_,s) -> simple_to_value v s
-      | One (_,s)        -> simple_to_value v s
+  let validate : type a. Raw.t list -> a v -> ((Raw.Key.t * a),err_ext) result = fun q validation ->
+    let open Result.Infix in
+    let find k q    = List.Assoc.get ~eq:Raw.Key.equal k q in
+    let ( >>* ) k f = match find k q with Some q -> f q | None -> Error (`Not_found k) in
+    let ( %> )      = Fun.( %> ) in
+    let of_rlist k  = List.fold_left (fun (err,acc) x -> match x with Error e -> e :: err,acc
+                                                                    | Ok x    -> err,x ::acc)
+                                     ([],[])
+                      %> (function [],acc -> Ok acc | err,_ -> Error (`Bad_value (k,List.concat err)))
+    in
+    let k = key_of_validation validation in
+    match validation with
+    | List (_,x)       ->
+       k >>* ((List.map (fun q -> validate_simple x [q])) %> of_rlist k) >|= Pair.make k
+    | Filter (_,x)     ->
+       k >>* (List.map (fun q -> validate_simple x [q]) %> of_rlist k)
+       >|= Pair.make k
+    | Filter_one (_,x) ->
+       k >>* (fun v -> validate_simple x v
+                       |> Result.map_err (fun e -> `Bad_value (k,e)))
+       >|= Pair.make k
+    | One (_,x)        ->
+       k >>* (fun v -> validate_simple x v |> Result.map_err (fun e -> `Bad_value (k,e)))
+       >|= Pair.make k
 
-    let validate : type a. Raw.t list -> a v -> ((Raw.Key.t * a),err_ext) result = fun q validation ->
-      let open Result.Infix in
-      let find k q    = List.Assoc.get ~eq:Raw.Key.equal k q in
-      let ( >>* ) k f = match find k q with Some q -> f q | None -> Error (`Not_found k) in
-      let ( %> )      = Fun.( %> ) in
-      let of_rlist k  = List.fold_left (fun (err,acc) x -> match x with Error e -> e :: err,acc
-                                                                      | Ok x    -> err,x ::acc)
-                                       ([],[])
-                        %> (function [],acc -> Ok acc | err,_ -> Error (`Bad_value (k,List.concat err)))
-      in
-      let k = key_of_validation validation in
-      match validation with
-      | List (_,x)       ->
-         k >>* ((List.map (fun q -> validate_simple x [q])) %> of_rlist k) >|= Pair.make k
-      | Filter (_,x)     ->
-         k >>* (List.map (fun q -> validate_simple x [q]) %> of_rlist k)
-         >|= Pair.make k
-      | Filter_one (_,x) ->
-         k >>* (fun v -> validate_simple x v
-                         |> Result.map_err (fun e -> `Bad_value (k,e)))
-         >|= Pair.make k
-      | One (_,x)        ->
-         k >>* (fun v -> validate_simple x v |> Result.map_err (fun e -> `Bad_value (k,e)))
-         >|= Pair.make k
+  let make_raw (type a) (q:a v) (v:a) : Raw.t =
+    let k = key_of_validation q in
+    let v = to_raw_value v q in
+    k,v
 
-    let to_raw (type a) (q:a v) (v:a) : Raw.t =
-      let k = key_of_validation q in
-      let v = to_raw_value v q in
-      k,v
+  let set (type a) (q:a v) (v:a) (uri:Uri.t) : Uri.t =
+    Uri.add_query_param uri @@ make_raw q v
 
-    let insert (type a) (q:a v) (v:a) (uri:Uri.t) : Uri.t =
-      Uri.add_query_param uri @@ to_raw q v
+  type 'a t = ('a,err) result
 
-    type 'a t = ('a,err) result
+  let get : type a. a v -> Raw.t list -> a option t * Raw.t list =
+    fun validation query ->
+    match validate query validation with
+    | Ok (k,q)             -> Ok (Some q),List.Assoc.remove ~eq:Raw.Key.equal k query
+    | Error (`Not_found _) -> Ok None,query
+    | Error (`Unknown _ | `Bad_value _) as e -> e,query
 
-    let get : type a. a v -> Raw.t list -> a option t * Raw.t list =
-      fun validation query ->
-      match validate query validation with
-      | Ok (k,q)             -> Ok (Some q),List.Assoc.remove ~eq:Raw.Key.equal k query
-      | Error (`Not_found _) -> Ok None,query
-      | Error (`Unknown _ | `Bad_value _) as e -> e,query
+  let get_or : type a. default:a -> a v -> Raw.t list -> a t * Raw.t list =
+    fun ~default v q -> get v q |> fun (r,q)-> (Result.map (Option.get_or ~default) r),q
 
-    let get_or : type a. default:a -> a v -> Raw.t list -> a t * Raw.t list =
-      fun ~default v q -> get v q |> fun (r,q)-> (Result.map (Option.get_or ~default) r),q
+  let last_or_err : 'a t * Raw.t list -> 'a t = function
+    | (Ok v),[]   -> Ok v
+    | (Ok _),l    -> Error (`Unknown l)
+    | (Error e),_ -> Error e
 
-    let last_or_err : 'a t * Raw.t list -> 'a t = function
-      | (Ok v),[]   -> Ok v
-      | (Ok _),l    -> Error (`Unknown l)
-      | (Error e),_ -> Error e
+  let next (f:'a * Raw.t list -> 'b t * Raw.t list) : 'a t * Raw.t list -> 'b t * Raw.t list = function
+    | (Ok v),q    -> f (v,q)
+    | (Error e),q -> Error e,q
+  let map_last_or_err (f:'a -> 'b) (x:'a t * Raw.t list) : 'b t * Raw.t list =
+    (Result.map f @@ last_or_err x),snd x
 
-    let next (f:'a * Raw.t list -> 'b t * Raw.t list) : 'a t * Raw.t list -> 'b t * Raw.t list = function
-      | (Ok v),q    -> f (v,q)
-      | (Error e),q -> Error e,q
-    let map_last_or_err (f:'a -> 'b) (x:'a t * Raw.t list) : 'b t * Raw.t list =
-      (Result.map f @@ last_or_err x),snd x
-
-    let ( >>= ) x f = next f x
-    let ( >>| ) x f = map_last_or_err f x
-
-  end
+  let ( >>= ) x f = next f x
+  let ( >>| ) x f = map_last_or_err f x
 
 end

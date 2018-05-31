@@ -1,73 +1,28 @@
 open Containers
-
-let (^::) = List.cons_maybe
+open Api_common
 
 type stream = [ `TS   of Common.Stream.id option
               | `T2MI of int option
               ]
 
-type err = Bad_query of Common.Uri.Query.Validation.err
+type err = Bad_query of Common.Uri.Query.err
          | Other     of string [@@deriving yojson]
 
 let eq = String.equal
 
 let ts,t2mi = "ts","t2mi"
-
 let stream_to_path : stream -> string list = function
-  | `TS x   ->
-     let sid = Option.map Fun.(Common.Stream.id_to_int32 %> Int32.to_string) x in
-     ts :: (sid ^:: [])
-  | `T2MI x ->
-     let sid = Option.map Int.to_string x in
-     ts :: (sid ^:: [])
+  | `TS x   -> let sid = Option.map Fun.(Common.Stream.id_to_int32 %> Int32.to_string) x in
+               ts :: (sid ^:: [])
+  | `T2MI x -> let sid = Option.map Int.to_string x in
+               ts :: (sid ^:: [])
 let stream_of_path : string list -> stream option = function
-  | [x] when eq x ts   -> Some (`TS None)
-  | [x] when eq x t2mi -> Some (`T2MI None)
-  | [x;y] when eq x ts ->
-     Option.map (fun i -> `TS (Some (Common.Stream.id_of_int32 i))) @@ Int32.of_string y
-  | [x;y] when eq x t2mi ->
-     Option.map (fun i -> `T2MI (Some i)) @@ Int.of_string y
-  | _ -> None
-
-module Domain = struct
-
-  let equal = String.equal
-  type path = string list
-
-  module Query = struct
-
-    open Common.Uri.Query
-    open Validation
-
-    module Raw = Raw
-
-    let set         = insert
-    let get         = get
-    let get_or      = get_or
-    let last_or_err = last_or_err
-
-    let ( >>= ) = Validation.( >>= )
-    let ( >>| ) = Validation.( >>| )
-
-    let from_query   = One (Common.Uri.Query.Time.from,Time)
-    let till_query   = One (Common.Uri.Query.Time.till,Time)
-    let limit_query  = One ("limit",Int)
-    let total_query  = One ("total",Bool)
-    let thin_query   = One ("thin",Bool)
-
-    let get_time_query q =
-      let r,q = get from_query q
-                >>= fun (from,q) -> get till_query q
-                >>| fun till     -> from,till
-      in Result.map (fun (from,till) -> Time.Range.of_time ~from ~till) r,q
-
-    let set_time_query (range:'a Time.Range.past) uri =
-      let from_key = key_of_validation from_query in
-      let till_key = key_of_validation till_query in
-      Time.Range.add_to_uri ~from_key ~till_key (`Past range) uri
-
-  end
-end
+  | [x]   when eq x ts   -> Some (`TS None)
+  | [x]   when eq x t2mi -> Some (`T2MI None)
+  | [x;y] when eq x ts   -> Option.map (fun i -> `TS (Some (Common.Stream.id_of_int32 i)))
+                            @@ Int32.of_string y
+  | [x;y] when eq x t2mi -> Option.map (fun i -> `T2MI (Some i)) @@ Int.of_string y
+  | _                    -> None
 
 module Device = struct
   include (Domain: module type of Domain with module Query := Domain.Query)
@@ -75,20 +30,20 @@ module Device = struct
   let domain = "device"
   let errors,mode,info,
       port,state,status,
-      reset = "errors","mode","info","port",
-              "state","status","reset"
+      reset = "errors","mode","info",
+              "port","state","status",
+              "reset"
 
   type mode = [ `T2MI | `JITTER ]
-  type req  = [ `Errors
+  type req  = [ Device.req
               | `Info
+              | `Errors
               | `Mode of mode
-              | `Port of int * bool
-              | `State
               | `Status
               | `Reset
               ]
 
-  let eq = equal
+  let eq = String.equal
   let mode_to_string = function `T2MI -> "t2mi" | `JITTER -> "jitter"
   let mode_of_string = function
     | x when eq x "t2mi"   -> Some `T2MI
@@ -96,34 +51,25 @@ module Device = struct
     | _                    -> None
 
   let req_to_path : req -> path = function
-    | `Errors     -> [errors]
-    | `Info       -> [info]
-    | `Mode x     -> [mode;mode_to_string x]
-    | `Port (p,b) -> [port;string_of_int p;string_of_bool b]
-    | `State      -> [state]
-    | `Status     -> [status]
-    | `Reset      -> [reset]
-  let req_of_path : path -> req option = function
-    | [x] when eq x errors -> Some `Errors
-    | [x] when eq x info   -> Some `Info
-    | [x] when eq x state  -> Some `State
-    | [x] when eq x status -> Some `Status
-    | [x;y] when eq x mode ->
-       Option.map (fun x -> `Mode x) @@ mode_of_string y
-    | [x;y;z] when eq x port ->
-       Option.map2 (fun p b -> `Port (p,b)) (int_of_string_opt y) (bool_of_string_opt z)
-    | _-> None
+    | `Info   -> [info]
+    | `Errors -> [errors]
+    | `Mode x -> [mode;mode_to_string x]
+    | `Status -> [status]
+    | `Reset  -> [reset]
+    | (`Port _ | `State) as x -> Device.req_to_path x
+  let req_of_path path : req option =
+    match Device.req_of_path path with
+    | Some _ as x -> (x :> req option)
+    | None        -> (match path with
+                      | [x] when eq x info   -> Some `Info
+                      | [x] when eq x errors -> Some `Errors
+                      | [x] when eq x status -> Some `Status
+                      | [x;y] when eq x mode -> Option.map (fun x -> `Mode x) @@ mode_of_string y
+                      | _                    -> None)
 
   module Query = struct
-    open Common.Uri.Query.Validation
-    include Domain.Query
-
-    let state_query =
-      let f_of = Option.flat_map Common.Topology.state_of_string in
-      let f_to = Fun.(Option.return % Common.Topology.state_to_string) in
-      Filter ("state",Custom (f_of,f_to))
+    include Device.Query
     let errors_query = Filter ("errors",Int)
-
   end
 
 end
@@ -139,7 +85,7 @@ module Errors = struct
              | `Has_any of stream
              ]
 
-  let eq = Domain.equal
+  let eq = String.equal
 
   let req_to_path : req -> string list = function
     | `Errors x  -> stream_to_path x
@@ -155,7 +101,6 @@ module Errors = struct
     | _ -> None
 
   module Query = struct
-    open Common.Uri.Query.Validation
     include Domain.Query
     let errors_query = Filter ("errors",Int)
     let level_query  = Filter ("level",Int)
@@ -179,7 +124,7 @@ module Streams = struct
              | `Section   of Common.Stream.id * int
              ]
 
-  let eq = Domain.equal
+  let eq = String.equal
 
   let req_to_path : req -> path = function
     | `Streams id ->
@@ -212,10 +157,7 @@ module Streams = struct
     | _ -> None
 
   module Query = struct
-
-    open Common.Uri.Query.Validation
     include Domain.Query
-
     let state_query          = Filter_one ("state",Bool)
     let section_query        = One ("section",Int)
     let table_id_ext_query   = One ("table-id-ext",Int)
@@ -243,9 +185,7 @@ module Jitter = struct
     | _ -> None
 
   module Query = struct
-
     include Domain.Query
-
   end
 
 end

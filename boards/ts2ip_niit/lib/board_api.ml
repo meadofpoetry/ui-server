@@ -110,7 +110,7 @@ let handle api events s_state s_streams _ meth args _ sock_data _ body =
   | `POST, ["streams_full"]   -> set_streams_full api body ()
 
   | `GET,  ["devinfo"]        -> devinfo api ()
-  | `GET,  ["state"]          -> state s_state
+  | `GET,  ["device";"state"]          -> state s_state
   | `GET,  ["config"]         -> config api ()
   | `GET,  ["streams"]        -> streams s_streams
 

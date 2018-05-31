@@ -90,7 +90,7 @@ let handle api events id s_state _ meth args _ sock_data _ body =
   | `GET,  ["devinfo"]     -> devinfo api
   | `GET,  "plps"::[num]   -> plps api num
   | `GET,  ["config"]      -> config api
-  | `GET,  ["state"]       -> state s_state
+  | `GET,  ["device";"state"]       -> state s_state
 
   | `POST, ["reset"]       -> reset api
   | `POST, ["settings"]    -> settings api body

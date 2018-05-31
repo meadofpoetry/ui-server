@@ -45,7 +45,7 @@ class switch (node:node_entry) (port:Common.Topology.topo_port) () =
                                | _            ->
                                   let open Lwt.Infix in
                                   push true;
-                                  Boards_js.Requests.post_port b.control port.port self#checked
+                                  Boards_js.Requests.Device.REST.post_port b.control port.port self#checked
                                   >>= (function
                                        | Ok _    -> push false; Lwt.return_unit
                                        | Error _ -> push false; self#set_checked (not self#checked);
