@@ -34,6 +34,7 @@ let create config db_conf =
   let rec loop () =
     recv () >>= loop
   in
+  Logs_lwt.info (fun m -> m "Pipeline was created") |> ignore;
   object
     val loop  = loop ()
     val api   = api
