@@ -6,7 +6,7 @@ open Common
 
 open Api_utils.Errors
 
-let req_to_uri ?uri control req = req_to_uri ?uri control (`Errors req)
+let req_to_uri control req = req_to_uri control (`Errors req)
 
 module WS = struct
 
@@ -37,33 +37,27 @@ module REST = struct
   module AR = struct
 
     let to_errors_uri ?errors ?level ?limit ?thin ?total time stream control =
-      let uri = Query.(
-          (Uri.empty,errors)
-          >>* (fun (u,fil) -> set errors_query fil u, level)
-          >>* (fun (u,lev) -> set level_query  lev u, limit)
-          >>* (fun (u,lim) -> set limit_query  lim u, total)
-          >>* (fun (u,tot) -> set total_query  tot u, thin)
-          >>* (fun (u,thn) -> set thin_query   thn u, None)
-          |>  (fun (u,_)   -> set_time_query time u)
-          |>  (fun uri     -> req_to_uri ~uri control (`Errors stream)))
+      let uri = Query.(req_to_uri control (`Errors stream)
+                       |> set errors_query errors
+                       |> set level_query  level
+                       |> set limit_query  limit
+                       |> set total_query  total
+                       |> set thin_query   thin
+                       |> set_time_query   time)
       in Uri.to_string uri
 
     let to_percent_uri ?errors ?level time stream control =
-      let uri = Query.(
-          (Uri.empty,errors)
-          >>* (fun (u,fil) -> set errors_query fil u, level)
-          >>* (fun (u,lev) -> set level_query  lev u, None)
-          |>  (fun (u,_)   -> set_time_query time u)
-          |>  (fun uri     -> req_to_uri ~uri control (`Percent stream)))
+      let uri = Query.(req_to_uri control (`Percent stream)
+                       |> set errors_query errors
+                       |> set level_query  level
+                       |> set_time_query   time)
       in Uri.to_string uri
 
     let to_has_any_uri ?errors ?level time stream control =
-      let uri = Query.(
-          (Uri.empty,errors)
-          >>* (fun (u,fil) -> set errors_query fil u, level)
-          >>* (fun (u,lev) -> set level_query  lev u, None)
-          |>  (fun (u,_)   -> set_time_query time u)
-          |>  (fun uri     -> req_to_uri ~uri control (`Has_any stream)))
+      let uri = Query.(req_to_uri control (`Has_any stream)
+                       |> set errors_query errors
+                       |> set level_query  level
+                       |> set_time_query   time)
       in Uri.to_string uri
 
     module TS = struct

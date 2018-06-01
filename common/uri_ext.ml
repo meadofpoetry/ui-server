@@ -234,8 +234,11 @@ module Query = struct
     let v = to_raw_value v q in
     k,v
 
-  let set (type a) (q:a v) (v:a) (uri:Uri.t) : Uri.t =
+  let set' (type a) (q:a v) (v:a) (uri:Uri.t) : Uri.t =
     Uri.add_query_param uri @@ make_raw q v
+
+  let set (type a) (q:a v) (v:a option) (uri:Uri.t) : Uri.t =
+    match v with Some v -> set' q v uri | None -> uri
 
   type 'a t = ('a,err) result
 

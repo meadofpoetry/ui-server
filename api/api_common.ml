@@ -38,10 +38,6 @@ module Domain = struct
 
     include (Common.Uri.Query: module type of Common.Uri.Query)
 
-    let ( >>* ) (u,x) f = match x with
-      | Some x -> f (u,x)
-      | None   -> u,None
-
     let from_query   = One (Common.Uri.Query.Time.from,Time)
     let till_query   = One (Common.Uri.Query.Time.till,Time)
     let limit_query  = One ("limit",Int)

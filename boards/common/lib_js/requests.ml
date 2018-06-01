@@ -1,21 +1,22 @@
 open Containers
 open Api_js.Requests.Json
 open Lwt.Infix
+open Common
 
-let req_to_uri ?(uri=Uri.empty) ~conv control req : Uri.t =
+let req_to_uri ~conv control req : Uri.t =
   let path = ["/api";"board";string_of_int control] @ (conv req)
              |> String.concat "/" in
-  Uri.with_path uri path
+  Uri.with_path Uri.empty path
 
 module Device = struct
 
-  let req_to_uri ?uri control req = req_to_uri ?uri ~conv:Api_common.req_to_path control (`Device req)
+  let req_to_uri ?uri control req = req_to_uri ~conv:Api_common.req_to_path control (`Device req)
 
   module WS = struct
 
     let get_state control =
       let uri = req_to_uri control `State in
-      WS.get (Uri.to_string uri) Common.Topology.state_of_yojson
+      WS.get (Uri.to_string uri) Topology.state_of_yojson
 
   end
 
@@ -30,7 +31,7 @@ module Device = struct
 
       let get_state control =
         let uri = req_to_uri control `State in
-        get_result Common.Topology.state_of_yojson (Uri.to_string uri)
+        get_result Topology.state_of_yojson (Uri.to_string uri)
 
     end
 
@@ -38,12 +39,11 @@ module Device = struct
 
       let get_state ?filter ?limit ?total time control =
         let uri = Api_common.Device.Query.(
-            (Uri.empty,filter)
-            >>* (fun (u,fil) -> set state_query fil u, limit)
-            >>* (fun (u,lim) -> set limit_query lim u, total)
-            >>* (fun (u,tot) -> set total_query tot u, None)
-            |>  (fun (u,_)   -> set_time_query time u)
-            |>  (fun uri     -> req_to_uri ~uri control `State))
+            req_to_uri control `State
+            |> set state_query filter
+            |> set limit_query limit
+            |> set total_query total
+            |> set_time_query  time)
         in get_result (fun _ -> Error "not implemented") (Uri.to_string uri)
 
     end

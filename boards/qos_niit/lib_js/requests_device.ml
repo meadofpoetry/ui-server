@@ -6,7 +6,7 @@ open Common
 
 open Api_utils.Device
 
-let req_to_uri ?uri control req = req_to_uri ?uri control (`Device req)
+let req_to_uri control req = req_to_uri control (`Device req)
 
 module WS = struct
 
@@ -77,23 +77,19 @@ module REST = struct
     include Boards_js.Requests.Device.REST.AR
 
     let get_status ?limit ?total time control =
-      let uri = Query.(
-          (Uri.empty,limit)
-          >>* (fun (u,lim) -> set limit_query lim u, total)
-          >>* (fun (u,tot) -> set total_query tot u, None)
-          |>  (fun (u,_)   -> set_time_query time u)
-          |>  (fun uri     -> req_to_uri ~uri control `Status))
+      let uri = Query.(req_to_uri control `Status
+                       |> set limit_query limit
+                       |> set total_query total
+                       |> set_time_query  time)
       in get_result (fun _ -> Error "not implemented") (Uri.to_string uri)
 
     let get_errors ?filter ?limit ?thin ?total time control =
-      let uri = Query.(
-          (Uri.empty,filter)
-          >>* (fun (u,fil) -> set errors_query fil u, limit)
-          >>* (fun (u,lim) -> set limit_query  lim u, total)
-          >>* (fun (u,tot) -> set total_query  tot u, thin)
-          >>* (fun (u,thn) -> set thin_query   thn u, None)
-          |>  (fun (u,_)   -> set_time_query time u)
-          |>  (fun uri     -> req_to_uri ~uri control `Errors))
+      let uri = Query.(req_to_uri control `Errors
+                       |> set errors_query filter
+                       |> set limit_query  limit
+                       |> set total_query  total
+                       |> set thin_query   thin
+                       |> set_time_query   time)
       in get_result (fun _ -> Error "not implemented") (Uri.to_string uri)
 
   end

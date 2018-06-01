@@ -6,4 +6,4 @@ open Common
 
 open Api_utils.Jitter
 
-let req_to_uri ?uri control req = req_to_uri ?uri control (`Jitter req)
+let req_to_uri control req = req_to_uri control (`Jitter req)
