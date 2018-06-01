@@ -78,10 +78,10 @@ module Nm = struct
       | x -> None
 
     let unwrap_autoconnect (flag, prior) = match (flag --> unwrap_bool), (prior --> unwrap_int) with
-      | (_, Some p)     -> Some (True p)
-      | (Some false, _) -> Some False
-      | _ -> None
-      
+      | Some false, _ -> Some False
+      | _, Some p     -> Some (True p)
+      | ((Some true, None) | None, None) -> Some (True 0)
+
     let of_dbus d =
       let open Option.Infix in
       let open OBus_value in
