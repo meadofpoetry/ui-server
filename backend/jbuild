@@ -3,7 +3,7 @@
 (executable
  ((name        backend)
   (modes       (native))
-  (libraries (tyxml caqti-lwt lwt
+  (libraries (tyxml caqti-lwt lwt logs.lwt logs.fmt
               containers mustache cohttp-lwt-unix
               yojson ppx_deriving_yojson.runtime
               common storage cbuffer sender

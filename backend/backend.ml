@@ -1,9 +1,35 @@
 open Containers
    
 module Api_handler = Api.Handler.Make(Common.User)
+
+let lwt_reporter () =
+  let buf_fmt ~like =
+    let b = Buffer.create 512 in
+    Fmt.with_buffer ~like b,
+    fun () -> let m = Buffer.contents b in Buffer.reset b; m
+  in
+  let app, app_flush = buf_fmt ~like:Fmt.stdout in
+  let dst, dst_flush = buf_fmt ~like:Fmt.stderr in
+  let reporter = Logs_fmt.reporter ~app ~dst () in
+  let report src level ~over k msgf =
+    let k () =
+      let write () = match level with
+        | Logs.App -> Lwt_io.write Lwt_io.stdout (app_flush ())
+        | _ -> Lwt_io.write Lwt_io.stderr (dst_flush ())
+      in
+      let unblock () = over (); Lwt.return_unit in
+      Lwt.finalize write unblock |> Lwt.ignore_result;
+      k ()
+    in
+    reporter.Logs.report src level ~over:(fun () -> ()) k msgf;
+  in
+  { Logs.report = report }
                    
-let main config =
+let main log_level config =
   Nocrypto_entropy_lwt.initialize () |> ignore;
+  Logs.set_reporter (lwt_reporter ());
+  Logs.set_level (Some log_level);
+  
   let rec mainloop () =
     print_endline "Started.";
     (* State *)
@@ -41,4 +67,11 @@ let main config =
 let () =
   Lwt_engine.set ~transfer:true ~destroy:true (new Lwt_engine.libev ~backend:Lwt_engine.Ev_backend.epoll ());
   let config = Storage.Config.create "./config.json" in
-  main config
+  let log_level = match Sys.getenv_opt "UI_LOG_LEVEL" with
+    | Some "debug" -> Logs.Debug
+    | Some "info" -> Logs.Info
+    | Some "warning" -> Logs.Warning
+    | Some "error" -> Logs.Error
+    | _ -> Logs.Error
+  in
+  main log_level config
