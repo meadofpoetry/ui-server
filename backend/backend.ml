@@ -25,10 +25,10 @@ let lwt_reporter () =
   in
   { Logs.report = report }
                    
-let main config =
+let main log_level config =
   Nocrypto_entropy_lwt.initialize () |> ignore;
   Logs.set_reporter (lwt_reporter ());
-  Logs.set_level (Some Logs.Debug);
+  Logs.set_level (Some log_level);
   
   let rec mainloop () =
     print_endline "Started.";
@@ -67,4 +67,11 @@ let main config =
 let () =
   Lwt_engine.set ~transfer:true ~destroy:true (new Lwt_engine.libev ~backend:Lwt_engine.Ev_backend.epoll ());
   let config = Storage.Config.create "./config.json" in
-  main config
+  let log_level = match Sys.getenv_opt "UI_LOG_LEVEL" with
+    | Some "debug" -> Logs.Debug
+    | Some "info" -> Logs.Info
+    | Some "warning" -> Logs.Warning
+    | Some "error" -> Logs.Error
+    | _ -> Logs.Error
+  in
+  main log_level config
