@@ -88,29 +88,32 @@ let settings_init typ send (options : options) =
                                     | Error r -> Lwt_io.printf "Settings resp: %s\n" r)
   
 (* TODO test this *)
-let combine_and_set combine opt set push data =
+let combine_and_set name combine opt set push data =
   let nv = combine ~set:(opt#get) data in
   match nv with
-  | `Kept v    -> push v
+  | `Kept v    -> Logs.debug (fun m -> m "(Pipeline) settings for %s were not changed" name); push v
   | `Changed v -> 
      Lwt_main.run (set v >>= function
-                   | Ok ()   -> Lwt.return @@ push v
-                   | Error e -> Lwt_io.printf "combine and set: failed to set data %s\n" e)
+                   | Ok ()   ->
+                      Logs.debug (fun m -> m "(Pipeline) settings for %s were changed" name);
+                      Lwt.return @@ push v
+                   | Error e ->
+                      Logs_lwt.err (fun m -> m "(Pipeline) combine and set: failed to set data %s" e))
 
-let storage combine opt set events =
+let storage name combine opt set events =
   let s, push = React.S.create opt#get in
   let events  = limit (fun () -> Lwt_unix.sleep 0.5) events in
   Lwt_react.E.keep @@
-    Lwt_react.E.map (combine_and_set combine opt set push) events;
+    Lwt_react.E.map (combine_and_set name combine opt set push) events;
   s
 
 let add_storages typ send options structs wm settings =
   let str_chan   = Structure_msg.create typ send in
   let wm_chan    = Wm_msg.create typ send in
   let set_chan   = Settings_msg.create typ send in
-  let structures = storage Structure.Structures.combine options.structures str_chan.set structs in
-  let wm         = storage Wm.combine options.wm wm_chan.set wm in
-  let settings   = storage Settings.combine options.settings set_chan.set settings in
+  let structures = storage "Structures" Structure.Structures.combine options.structures str_chan.set structs in
+  let wm         = storage "Wm" Wm.combine options.wm wm_chan.set wm in
+  let settings   = storage "Settings" Settings.combine options.settings set_chan.set settings in
   structures, wm, settings
   
 let notif_events typ =
@@ -125,7 +128,8 @@ let notif_events typ =
   let (<$>) f result =
     match result with
     | Ok r -> (f r : unit)
-    | Error e -> Lwt_io.printf "parse error %s\n" e |> ignore in
+    | Error e -> Logs.err (fun m -> m "(Pipeline) notification parse error %s" e)
+  in
 
   let table = Hashtbl.create 10 in
   List.iter (fun (n,f) -> Hashtbl.add table n f)
@@ -178,7 +182,9 @@ let create_channels
 let create_send (type a) (typ : a typ) (conv : a converter) msg_sock : (a -> a Lwt.t) =
   fun x ->
   Socket.send msg_sock (conv.to_string x) >>= fun () ->
+  (* Logs.debug (fun m -> m "(Pipeline) <Json send> msg was sent"); *)
   Socket.recv msg_sock >|= fun resp ->
+  (* Logs.debug (fun m -> m "(Pipeline) <Json send> resp was received"); *)
   conv.of_string resp
   
 let create (type a) (typ : a typ) db_conf config sock_in sock_out =
@@ -205,7 +211,7 @@ let create (type a) (typ : a typ) db_conf config sock_in sock_out =
   let converter = (Msg_conv.get_converter typ) in
   let send =
     let send = create_send typ converter msg_sock in
-    fun msg -> if !ready
+    fun msg -> if not !ready
                then Lwt.fail_with "backend is not ready"
                else send msg
   in
@@ -217,7 +223,8 @@ let create (type a) (typ : a typ) db_conf config sock_in sock_out =
       strms_push, wm_push, sets_push = notif_events typ
   in
   let structures, wm, settings = add_storages typ send options structures wm settings in
-  
+ (* Lwt_react.E.keep @@
+    Lwt_react.E.map (fun _ -> Logs.debug (fun m -> m "(Pipeline) ready event")) ready_e; *)
   let streams = S.map (Structure_conv.match_streams srcs) structures in
   let requests =
     let merge v = Structure_conv.match_streams srcs v in
@@ -251,9 +258,11 @@ let reset typ send bin_path bin_name msg_fmt state (sources : (Common.Url.t * Co
   let is_ready = Notif.is_ready state.ready_e in
   state.proc <- Some (Lwt_process.open_process_none (exec_path, exec_opts));
   (is_ready >|= fun () ->
+   Logs.debug (fun m -> m "(Pipeline) is ready");
    state.ready := true;
    settings_init typ send state.options)
-  |> Lwt.ignore_result
+  |> Lwt.ignore_result;
+  Logs.debug (fun m -> m "(Pipeline) reset [%s]" (Array.fold_left (fun acc x -> acc ^ " " ^ x) "" exec_opts))
   
 let finalize state =
   Zmq.Socket.unsubscribe state.ev "";
@@ -261,4 +270,5 @@ let finalize state =
   Zmq.Socket.close       state.msg;
   Zmq.Context.terminate  state.ctx;
   Option.iter (fun proc -> proc#terminate) state.proc;
-  state.proc <- None
+  state.proc <- None;
+  Logs.debug (fun m -> m "(Pipeline) finalize")

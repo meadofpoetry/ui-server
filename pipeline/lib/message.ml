@@ -48,10 +48,35 @@ end
        
 module Make(V: VALUE) = struct
   type t = V.t
+
+  let mutex = Lwt_mutex.create ()
+         
   let create : type a. a typ -> (a -> a Lwt.t) -> t channel = function 
     | Json -> fun send ->
-              { get = (fun () -> get_js V.name send V.of_yojson ())
-              ; set = (fun x -> set_js V.name send V.to_yojson x)
+              { get = (fun () ->
+                  Lwt_mutex.with_lock mutex
+                    (fun () ->
+                      Lwt_unix.with_timeout 1.
+                        (fun () ->
+                          Logs.debug (fun m -> m "(Pipeline) %s <get> called" V.name);
+                          get_js V.name send V.of_yojson ()
+                          >>= function
+                          | Ok v ->
+                             Logs.debug (fun m -> m "(Pipeline) %s <get> succeded" V.name); Lwt.return_ok v
+                          | Error e ->
+                             Logs.err (fun m -> m "(Pipeline) %s <get> failed with %s" V.name e); Lwt.return_error e)))
+              ; set = (fun x ->
+                  Lwt_mutex.with_lock mutex
+                    (fun () ->
+                      Lwt_unix.with_timeout 1.
+                        (fun () ->
+                          Logs.debug (fun m -> m "(Pipeline) %s <set> called" V.name);
+                          set_js V.name send V.to_yojson x
+                          >>= function
+                          | Ok () ->
+                             Logs.debug (fun m -> m "(Pipeline) %s <set> succeded" V.name); Lwt.return_ok ()
+                          | Error e ->
+                             Logs.err (fun m -> m "(Pipeline) %s <set> failed with %s" V.name e); Lwt.return_error e)))
               }
     | Msgpack -> failwith "not implemented"
 end
