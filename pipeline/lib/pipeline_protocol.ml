@@ -179,13 +179,18 @@ let create_channels
   ; settings = { set_chan with set = set_set_upd }
   }
 
-let create_send (type a) (typ : a typ) (conv : a converter) msg_sock : (a -> a Lwt.t) =
+let create_send (type a) (typ : a typ) (conv : a converter) msg_sock : (a -> (a, exn) result Lwt.t) =
+  let mutex = Lwt_mutex.create () in
   fun x ->
-  Socket.send msg_sock (conv.to_string x) >>= fun () ->
-  (* Logs.debug (fun m -> m "(Pipeline) <Json send> msg was sent"); *)
-  Socket.recv msg_sock >|= fun resp ->
-  (* Logs.debug (fun m -> m "(Pipeline) <Json send> resp was received"); *)
-  conv.of_string resp
+  Lwt_mutex.with_lock mutex (fun () ->
+      Lwt.catch
+        (fun () -> Lwt_unix.with_timeout 0.5 (fun () ->
+                       Socket.send msg_sock (conv.to_string x) >>= fun () ->
+                       (* Logs.debug (fun m -> m "(Pipeline) <Json send> msg was sent"); *)
+                       Socket.recv msg_sock >|= fun resp ->
+                       (* Logs.debug (fun m -> m "(Pipeline) <Json send> resp was received"); *)
+                       Ok (conv.of_string resp)))
+        Lwt.return_error)
   
 let create (type a) (typ : a typ) db_conf config sock_in sock_out =
   let stor    = Storage.Options.Conf.get config in
