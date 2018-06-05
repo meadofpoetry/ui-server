@@ -80,8 +80,6 @@ class ['a,'b] t ~(options:'a) ~typ ~data () =
     method to_png_image ()    = _chart##toBase64Image  |> Js.to_string
     method generate_legend () = _chart##generateLegend |> Js.to_string
 
-    method options = options
-
     initializer
       options#replace (Js.Unsafe.coerce _chart)##.options
   end

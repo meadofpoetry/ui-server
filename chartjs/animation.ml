@@ -22,13 +22,15 @@ class type t_js =
 class t () = object(self)
   inherit [t_js] base_option ()
 
+  (** The number of milliseconds an animation takes. **)
+  method duration : int = obj##.duration
   method set_duration x = obj##.duration := x
-  method get_duration   = obj##.duration
 
-  method set_easing x = obj##.easing := Js.string @@ easing_to_string x
-  method get_easing   = easing_of_string_exn @@ Js.to_string obj##.easing
+  (** Easing function to use. **)
+  method easing : easing = easing_of_string_exn @@ Js.to_string obj##.easing
+  method set_easing (x:easing) = obj##.easing := Js.string @@ easing_to_string x
 
   initializer
     self#set_duration 1000;
-    self#set_easing (Ease_out Quart)
+    self#set_easing (`Ease_out `Quart)
 end

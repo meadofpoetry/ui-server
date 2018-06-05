@@ -34,11 +34,11 @@ end
 
 module Json_req : Req with type t = Yojson.Safe.json = struct
 
-  type t     = Yojson.Safe.json
+  type t = Yojson.Safe.json
 
-  let to_body (t:t) = Yojson.Safe.to_string t |> Uri.pct_encode |> Cohttp_lwt.Body.of_string
+  let to_body (t:t) = Yojson.Safe.to_string t (* |> Uri.pct_encode *) |> Cohttp_lwt.Body.of_string
   let of_body (b:Cohttp_lwt.Body.t) = Cohttp_lwt.Body.to_string b >|= fun body ->
-                                      Uri.pct_decode body |> Yojson.Safe.from_string
+                                      (* Uri.pct_decode *) body |> Yojson.Safe.from_string
   let of_error_string (s:string) = `String s
   let of_exn (e:exn) = Printexc.to_string e |> fun x -> `String x
 
@@ -46,9 +46,10 @@ end
 
 module type Handler = sig
   include Req
-  val respond             : t -> ?headers:Cohttp.Header.t -> ?flush:bool -> unit -> response
-  val respond_result      : (t, t) result -> response
-  val respond_result_unit : (unit,t) result -> response
+  val respond             : ?status:Cohttp.Code.status_code -> ?headers:Cohttp.Header.t -> ?flush:bool ->
+                            t -> unit -> response
+  val respond_result      : ?err_status:Cohttp.Code.status_code -> (t, t) result -> response
+  val respond_result_unit : ?err_status:Cohttp.Code.status_code -> (unit,t) result -> response
   val respond_option      : t option -> response
   val (>>=)               : 'a Lwt.t -> ('a -> response) -> response
 end
@@ -57,18 +58,23 @@ module Make(M:Req) : (Handler with type t := M.t) = struct
 
   include M
 
-  let respond x = Cohttp_lwt_unix.Server.respond ~status:`OK ~body:(to_body x)
+  let respond ?(status=`OK) ?headers ?flush x =
+    let hdr = match headers with Some h -> Cohttp.Header.to_list h | None -> [] in
+    let headers = hdr
+                  |> List.Assoc.set ~eq:String.equal "Content-Type" "application/json"
+                  |> Cohttp.Header.of_list
+    in Cohttp_lwt_unix.Server.respond ~status ~headers ?flush ~body:(to_body x)
 
-  let respond_result = function
-    | Ok x    -> Cohttp_lwt_unix.Server.respond ~status:`OK ~body:(to_body x) ()
-    | Error x -> Cohttp_lwt_unix.Server.respond ~status:`Bad_request ~body:(to_body x) ()
+  let respond_result ?(err_status=`Bad_request) = function
+    | Ok x    -> respond x ()
+    | Error x -> respond ~status:err_status x ()
 
-  let respond_result_unit = function
+  let respond_result_unit ?(err_status=`Bad_request) = function
     | Ok ()   -> Cohttp_lwt_unix.Server.respond ~status:`OK ~body:Cohttp_lwt.Body.empty ()
-    | Error x -> Cohttp_lwt_unix.Server.respond ~status:`Bad_request ~body:(to_body x) ()
+    | Error x -> respond ~status:err_status x ()
 
   let respond_option = function
-    | Some x  -> Cohttp_lwt_unix.Server.respond ~status:`OK ~body:(to_body x) ()
+    | Some x  -> respond x ()
     | None    -> Cohttp_lwt_unix.Server.respond_not_found ()
 
   let (>>=) t f = Lwt.try_bind (fun () -> t) f (fun exn -> M.of_exn exn |> Result.fail |> respond_result)

@@ -123,14 +123,16 @@ object(self)
   (** Private methods **)
 
   method private _state =
-    Factory_state_lwt.get_value_as_signal ~get:(fun () -> Requests.get_state control |> map_err)
-                                          ~get_socket:(fun () -> Requests.get_state_ws control)
-                                          _state
+    Factory_state_lwt.get_value_as_signal
+      ~get:(fun () -> Requests.Device.REST.RT.get_state control |> map_err)
+      ~get_socket:(fun () -> Requests.Device.WS.get_state control)
+      _state
 
   method private _config =
-    Factory_state_lwt.get_value_as_signal ~get:(fun () -> Requests.get_config control |> map_err)
-                                          ~get_socket:(fun () -> Requests.get_config_ws control)
-                                          _config
+    Factory_state_lwt.get_value_as_signal
+      ~get:(fun () -> Requests.get_config control |> map_err)
+      ~get_socket:(fun () -> Requests.get_config_ws control)
+      _config
 
   method private _measures = match _measures.value with
     | Some x -> Factory_state.succ_ref _measures; x

@@ -1,5 +1,7 @@
 open Common.Topology
 
+(** Device info **)
+
 type devinfo =
   { serial   : int
   ; hw_ver   : int
@@ -9,16 +11,20 @@ type devinfo =
   ; modules  : int list
   } [@@deriving yojson]
 
+type devinfo_response = devinfo option [@@deriving yojson]
+
+(** Settings **)
+
 type mode =
   | T2
   | T
   | C [@@deriving yojson, eq]
-  
+
 type bw =
   | Bw8
   | Bw7
   | Bw6 [@@deriving yojson, eq]
-  
+
 type settings =
   { mode     : mode
   ; channel  : channel_settings
@@ -29,24 +35,40 @@ and channel_settings =
   ; plp  : int
   }[@@deriving yojson, eq]
 
+type settings_request = (int * settings) [@@deriving yojson]
+
 type rsp_settings =
   { settings   : settings
   ; hw_present : bool
   ; lock       : bool
   } [@@deriving yojson]
 
+type settings_response = (int * rsp_settings) [@@deriving yojson]
+
+(** List of available PLPs for T2 mode **)
+
 type plp_list =
   { lock    : bool
   ; plps    : int list
   } [@@deriving yojson]
+
+type plp_list_response = (int * plp_list) [@@deriving yojson]
+
+(** PLP setting **)
 
 type rsp_plp_set =
   { lock    : bool
   ; plp     : int
   } [@@deriving yojson]
 
+type plp_setting_request = (int * int) [@@deriving yojson]
+
+type plp_setting_response = (int * rsp_plp_set) [@@deriving yojson]
+
+(** Measures **)
+
 type measure =
-  { timestamp : float
+  { timestamp : Common.Time.t
   ; lock      : bool
   ; power     : float option
   ; mer       : float option
@@ -55,19 +77,10 @@ type measure =
   ; bitrate   : int32 option
   } [@@deriving yojson]
 
-type devinfo_response = devinfo option [@@deriving yojson]
-
-type settings_request = (int * settings) [@@deriving yojson]
-
-type settings_response = (int * rsp_settings) [@@deriving yojson]
-
-type plp_setting_request = (int * int) [@@deriving yojson]
-
-type plp_setting_response = (int * rsp_plp_set) [@@deriving yojson]
-
-type plp_list_response = (int * plp_list) [@@deriving yojson]
 
 type measure_response = (int * measure) [@@deriving yojson]
+
+(** Configuration **)
 
 type config = (int * config_item) list
 and config_item =
@@ -94,7 +107,7 @@ let config_default = [ (0, { mode = T2
                      ; (1, { mode = T2
                            ; t2   = { bw   = Bw8
                                     ; freq = 586000000l
-                                    ; plp  = 0 }
+                                    ; plp  = 1 }
                            ; t    = { bw   = Bw8
                                     ; freq = 586000000l
                                     ; plp  = 0 }
@@ -104,7 +117,7 @@ let config_default = [ (0, { mode = T2
                      ; (2, { mode = T2
                            ; t2   = { bw   = Bw8
                                     ; freq = 586000000l
-                                    ; plp  = 0 }
+                                    ; plp  = 2 }
                            ; t    = { bw   = Bw8
                                     ; freq = 586000000l
                                     ; plp  = 0 }
@@ -113,7 +126,7 @@ let config_default = [ (0, { mode = T2
                                     ; plp  = 0 }})
                      ; (3, { mode = T2
                            ; t2   = { bw   = Bw8
-                                    ; freq = 586000000l
+                                    ; freq = 666000000l
                                     ; plp  = 0 }
                            ; t    = { bw   = Bw8
                                     ; freq = 586000000l

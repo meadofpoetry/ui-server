@@ -48,7 +48,7 @@ type channel =
   } [@@deriving yojson,eq]
 
 type structure =
-  { id       : int32 
+  { id       : int32
   ; uri      : Common.Url.t
   ; channels : channel list
   } [@@deriving yojson,eq]

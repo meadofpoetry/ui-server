@@ -82,7 +82,7 @@ let config_ws sock_data (events : events) body =
 let measures_ws sock_data (events : events) body =
   sock_handler sock_data events.measure measure_response_to_yojson body
 
-let handle api events id s_state _ meth args sock_data _ body =
+let handle api events id s_state _ meth args _ sock_data _ body =
   let open Lwt.Infix in
   let open Api.Redirect in
   (* let redirect_if_guest = redirect_if (User.eq id `Guest) in *)
@@ -90,7 +90,7 @@ let handle api events id s_state _ meth args sock_data _ body =
   | `GET,  ["devinfo"]     -> devinfo api
   | `GET,  "plps"::[num]   -> plps api num
   | `GET,  ["config"]      -> config api
-  | `GET,  ["state"]       -> state s_state
+  | `GET,  ["device";"state"]       -> state s_state
 
   | `POST, ["reset"]       -> reset api
   | `POST, ["settings"]    -> settings api body

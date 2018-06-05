@@ -9,18 +9,18 @@ type _ req =
 let name = "dvb_niit"
 
 let table = "dvb_meas"
-  
+
 let measure = Caqti_type.custom
                 Caqti_type.(let (&) = tup2 in
                             int & bool & (option float) & (option float) & (option float)
-                            & (option int32) & (option int32) & int32)
+                            & (option int32) & (option int32) & ptime)
                 ~encode:(fun (id, m) ->
-                  Ok(id,(m.lock,(m.power,(m.mer,(m.ber,(m.freq,(m.bitrate,(Int32.of_float m.timestamp)))))))))
+                  Ok(id,(m.lock,(m.power,(m.mer,(m.ber,(m.freq,(m.bitrate, m.timestamp))))))))
                 ~decode:(fun (id,(lock,(power,(mer,(ber,(freq,(bitrate,(timestamp)))))))) ->
-                  Ok(id, { lock; power; mer; ber; freq; bitrate; timestamp = (Int32.to_float timestamp)}))
-  
+                  Ok(id, { lock; power; mer; ber; freq; bitrate; timestamp}))
+
 let init db =
-  let create_video =
+  let create_measure =
     Caqti_request.exec Caqti_type.unit
       {eos|
        CREATE TABLE IF NOT EXISTS dvb_meas(
@@ -34,7 +34,7 @@ let init db =
        date    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
        )
        |eos}
-  in db.exec (Exec create_video) ()
+  in db.exec (Exec create_measure) ()
 
 let store_measures db (id,m) =
   let insert =

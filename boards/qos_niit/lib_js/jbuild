@@ -3,15 +3,21 @@
 (library
  ((name        board_qos_niit_js)
   (public_name board-qos-niit-js)
-  ; (modules     (requests board_types structure settings topo_page))
   (synopsis "js interface of the qos_niit board")
-  (libraries (containers ipaddr common api-js components chartjs boards-js ui-templates))
+  (libraries (containers ipaddr common api-js api-common components chartjs
+              boards-js ui-templates bitstring))
   (flags (:standard -short-paths -strict-sequence -bin-annot
           -thread -w "+1..49+60" -w "+a-4-7-23-33-39-40-41-42-44-45-48"))
   (js_of_ocaml ((flags (:standard +weak.js --pretty --no-inline --debug-info --disable staticeval --disable share))))
-  (preprocess (pps (ppx_deriving_yojson ppx_deriving.eq js_of_ocaml-ppx)))))
+  (preprocess (pps (ppx_deriving_yojson ppx_deriving.eq js_of_ocaml-ppx bitstring.ppx)))))
 
 (rule
  ((targets (board_types.ml))
   (deps (../board_types.ml))
   (action (copy ${<} ${@}))))
+
+(rule
+ ((targets (api_utils.ml))
+  (deps (../api_utils.ml))
+  (action (copy ${<} ${@}))))
+

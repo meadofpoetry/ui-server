@@ -28,9 +28,9 @@ let make_pid () =
 let name     = "Настройки. Джиттер"
 let settings = None
 
-let make ~(state:  Common.Topology.state React.signal)
-         ~(config: Board_types.config React.signal)
-         (conf:    config option)
+let make ~(state: Common.Topology.state React.signal)
+         ~(mode:  jitter_mode option React.signal)
+         (conf:   config option)
          control : Widget.widget =
   let en,set_en,s_en,dis_en     = make_enabled () in
   let pid,set_pid,s_pid,dis_pid = make_pid () in
@@ -42,8 +42,8 @@ let make ~(state:  Common.Topology.state React.signal)
                                       List.iter (fun f -> f (if is_disabled then true else not en)) [dis_pid])
                      state s_en
   in
-  let _ = React.S.map (fun config -> List.iter (fun f -> f config.jitter_mode) [set_en; set_pid]) config in
-  let s : jitter_mode_request option React.signal =
+  let _ = React.S.map (fun x -> List.iter (fun f -> f x) [set_en; set_pid]) mode in
+  let s : jitter_mode_opt option React.signal =
     React.S.l3 (fun en pid state ->
         match en,pid,state with
         | true,Some pid,`Fine -> Some (Some { pid; stream = Common.Stream.Single })
@@ -51,7 +51,7 @@ let make ~(state:  Common.Topology.state React.signal)
         | _                   -> None)
                s_en s_pid state
   in
-  let submit = Requests.post_jitter_mode control in
+  let submit = Requests.Device.REST.post_jitter_mode control in
   let apply  = Ui_templates.Buttons.create_apply s submit in
   let box    = new Box.t ~vertical:true ~widgets:[en;pid;apply#widget] () in
   let ()     = box#add_class "mdc-settings-widget" in

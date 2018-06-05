@@ -142,7 +142,7 @@ let get_vdata_sock_pid sock_data body api stream channel pid () =
     get_sock sock_data body Video_data.to_yojson (React.E.filter pred api.vdata)
   with _ -> respond_error ~status:`Bad_request "bad request" ()
           
-let pipeline_handle api id meth args sock_data _ body =
+let pipeline_handle api id meth args _ sock_data _ body =
   let is_guest = Common.User.eq id `Guest in
   match meth, args with
   | `GET,  []                   -> get_page ()
@@ -192,7 +192,7 @@ let get_structures_between api input id from to' () =
       Json.respond_result @@ Result.return (`List l))
     (function Failure e -> respond_error e ())
                                  
-let archive_handle api id meth args sock_data _ body =
+let archive_handle api id meth args _ sock_data _ body =
   match meth, args with
   | `GET,  ["structures";i;num]   -> get_structures api i num ()
   | `GET,  ["structures_between";i;num;from;to'] -> get_structures_between api i num from to' ()

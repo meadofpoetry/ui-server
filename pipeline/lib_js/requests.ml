@@ -1,8 +1,8 @@
 open Containers
-open Api_js.Requests.Json_request
+open Api_js.Requests.Json
 open Lwt.Infix
 
-open Qoe_errors
+open Qoe_errors_types
 
 let get_structure () =
   get_result Structure.Streams.of_yojson "api/pipeline/structure"
@@ -31,6 +31,7 @@ let post_wm wm =
 let get_wm_socket () =
   WS.get "api/pipeline/wm_sock" Wm.of_yojson
 
+  (*
 let get_vdata_socket () =
   WS.get "api/pipeline/vdata_sock" Video_data.of_yojson
 
@@ -45,3 +46,4 @@ let get_vdata_socket_channel stream channel =
 let get_vdata_socket_pid stream channel pid =
   let path = Printf.sprintf "api/pipeline/vdata_sock/%d/%d/%d" stream channel pid in
   WS.get path Video_data.of_yojson
+   *)

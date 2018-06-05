@@ -169,14 +169,14 @@
 
 [%%cstruct
  type t2mi_frame_seq_item =
-   { typ        : uint8_t
-   ; sframe     : uint8_t
-   ; frame      : uint8_t
-   ; plp        : uint8_t
-   ; dyn1_frame : uint8_t
-   ; dyn2_frame : uint8_t
-   ; count      : uint32_t
-   ; time       : uint32_t
+   { typ           : uint8_t
+   ; sframe_stream : uint8_t
+   ; frame         : uint8_t
+   ; plp           : uint8_t
+   ; dyn1_frame    : uint8_t
+   ; dyn2_frame    : uint8_t
+   ; count         : uint32_t
+   ; time          : uint32_t
    } [@@little_endian]]
 
 (* Jitter*)
