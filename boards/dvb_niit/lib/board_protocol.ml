@@ -51,7 +51,7 @@ let measure_probes (send_ev : 'a event_request -> unit Lwt.t) timeout config =
 
 module SM = struct
 
-  type event = [ `Measure of (int * Cbuffer.t) ]
+  type event = [ `Measure of (int * Cstruct.t) ]
 
   let wakeup_timeout t = t.pred `Timeout |> ignore
 

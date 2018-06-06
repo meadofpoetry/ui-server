@@ -243,8 +243,8 @@ type parsed =
   { category : int
   ; setting  : int
   ; rw       : rw
-  ; body     : Cbuffer.t
-  ; rest     : Cbuffer.t
+  ; body     : Cstruct.t
+  ; rest     : Cstruct.t
   }
 
 let rw_to_int = function
@@ -273,10 +273,10 @@ let to_cbuffer x =
            | `I16 _ -> set_setting16_data
            | `I32 _ -> set_setting32_data) in
   let hs = to_hex_string x in
-  Cbuffer.create (String.length hs) |> fun b -> f hs 0 b; b
+  Cstruct.create (String.length hs) |> fun b -> f hs 0 b; b
 
 let try_parse f x             = try Some (f x) with _ -> None
-let hex_string_of_ascii_buf x = "0x" ^ (Cbuffer.to_string x)
+let hex_string_of_ascii_buf x = "0x" ^ (Cstruct.to_string x)
 let parse_int_exn x           = hex_string_of_ascii_buf x |> int_of_string
 let parse_int32_exn x         = hex_string_of_ascii_buf x |> Int32.of_string_exn
 let parse_int64_exn x         = hex_string_of_ascii_buf x |> Int64.of_string_exn
@@ -294,38 +294,38 @@ let parse_bool                = try_parse parse_bool_exn
 (* -------------------- Message constructors ------------------*)
 
 let calc_crc msg =
-  let _,body = Cbuffer.split msg 1 in
-  let iter = Cbuffer.iter (fun _ -> Some 1)
-                          (fun buf -> Cbuffer.get_uint8 buf 0)
+  let _,body = Cstruct.split msg 1 in
+  let iter = Cstruct.iter (fun _ -> Some 1)
+                          (fun buf -> Cstruct.get_uint8 buf 0)
                           body in
-  Cbuffer.fold (fun acc el -> el + acc) iter 0
+  Cstruct.fold (fun acc el -> el + acc) iter 0
   |> fun x -> ((lnot x) + 1) land 0xFF
 
 let to_prefix ~request ~rw () =
   let c,s = request_to_cat_set request in
-  let pfx = Cbuffer.create sizeof_prefix in
+  let pfx = Cstruct.create sizeof_prefix in
   let ()  = set_prefix_stx pfx stx in
   let ()  = set_prefix_address  (to_hex_string (`I8 address)) 0 pfx in
   let ()  = set_prefix_category (to_hex_string (`I8 c)) 0 pfx in
   let ()  = set_prefix_setting  (to_hex_string (`I8 s)) 0 pfx in
   let ()  = set_prefix_rw pfx @@ rw_to_int rw in
   if (c >= 1 && c <= 3) then pfx
-  else Cbuffer.append pfx (to_cbuffer (`I16 0))
+  else Cstruct.append pfx (to_cbuffer (`I16 0))
 
 let to_suffix ~crc =
-  let sfx = Cbuffer.create sizeof_suffix in
+  let sfx = Cstruct.create sizeof_suffix in
   let ()  = set_suffix_crc (to_hex_string (`I8 crc)) 0 sfx in
   let ()  = set_suffix_etx sfx etx in
   sfx
 
 let to_msg ~request ~rw ~body () =
   let pfx = to_prefix ~request ~rw () in
-  let msg = Cbuffer.append pfx body in
+  let msg = Cstruct.append pfx body in
   let sfx = to_suffix ~crc:(calc_crc msg) in
-  Cbuffer.append msg sfx
+  Cstruct.append msg sfx
 
 let to_empty_msg ~request ~rw =
-  to_msg ~request ~rw ~body:(Cbuffer.create 0)
+  to_msg ~request ~rw ~body:(Cstruct.create 0)
 
 let to_req_get request =
   to_empty_msg ~request ~rw:Read ()
@@ -355,7 +355,7 @@ type err = Bad_stx              of int
          | Bad_setting          of int * int
          | Bad_rw               of int
          | Bad_crc              of int * int
-         | Insufficient_payload of Cbuffer.t
+         | Insufficient_payload of Cstruct.t
          | Unknown              of string
 
 let string_of_err = function
@@ -409,14 +409,14 @@ let check_rest (cat,set,rw,buf) =
                  then sizeof_prefix
                  else sizeof_prefix + sizeof_setting16
   in
-  if Cbuffer.len buf < (pfx_len + length + sizeof_suffix)
+  if Cstruct.len buf < (pfx_len + length + sizeof_suffix)
   then Error (Insufficient_payload buf)
-  else (let pfx,msg'  = Cbuffer.split buf pfx_len in
-        let body,rst' = Cbuffer.split msg' length in
-        let sfx,rest  = Cbuffer.split rst' sizeof_suffix in
+  else (let pfx,msg'  = Cstruct.split buf pfx_len in
+        let body,rst' = Cstruct.split msg' length in
+        let sfx,rest  = Cstruct.split rst' sizeof_suffix in
         let crc'      = get_suffix_crc sfx |> parse_int_exn in
         let etx'      = get_suffix_etx sfx in
-        let crc       = calc_crc (Cbuffer.append pfx body) in
+        let crc       = calc_crc (Cstruct.append pfx body) in
         if      crc' <> crc then Error (Bad_crc (crc, crc'))
         else if etx' <> etx then Error (Bad_etx etx')
         else Ok { category = cat; setting = set; rw; body; rest })
@@ -439,14 +439,14 @@ let deserialize buf =
     | Fail         -> `Error x
   in
   let rec f responses b =
-    if Cbuffer.len b > (sizeof_prefix + sizeof_suffix)
+    if Cstruct.len b > (sizeof_prefix + sizeof_suffix)
     then match get_msg b with
          | Ok x    -> f ((parse x) :: responses) x.rest
          | Error e -> (match e with
                        | Insufficient_payload x -> List.rev responses, x
-                       | _                      -> f responses (Cbuffer.shift b 1))
+                       | _                      -> f responses (Cstruct.shift b 1))
     else List.rev responses, b in
-  let r,res = f [] buf in (List.rev r, if Cbuffer.len res > 0 then Some res else None)
+  let r,res = f [] buf in (List.rev r, if Cstruct.len res > 0 then Some res else None)
 
 let is_response (type a) (req : a request) m : a option =
   let open Option.Infix in
@@ -480,7 +480,7 @@ let is_response (type a) (req : a request) m : a option =
                                                 match String.take_drop 2 s with
                                                 | (x,"")  -> (acc ^ x)
                                                 | (x,res) -> f (acc ^ x ^ ":") res in
-                                              Macaddr.of_string (f "" (Cbuffer.to_string b))
+                                              Macaddr.of_string (f "" (Cstruct.to_string b))
                            | Set_ip _      -> parse_ipaddr b
                            | Set_mask _    -> parse_ipaddr b
                            | Set_gateway _ -> parse_ipaddr b

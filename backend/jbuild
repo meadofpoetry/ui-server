@@ -6,7 +6,7 @@
   (libraries (tyxml caqti-lwt lwt logs.lwt logs.fmt
               containers mustache cohttp-lwt-unix
               yojson ppx_deriving_yojson.runtime
-              common storage cbuffer sender
+              common storage sender
               application nocrypto nocrypto.lwt))
   (flags (:standard -cclib -lcyusb))
   (ocamlopt_flags (:standard -short-paths -bin-annot

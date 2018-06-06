@@ -45,8 +45,8 @@ module SM = struct
   module Events_handler : sig
     type event = [ `Status      of Board_types.status
                  | `Streams_event of streams
-                 | `T2mi_errors of Cbuffer.t
-                 | `Ts_errors   of Cbuffer.t
+                 | `T2mi_errors of Cstruct.t
+                 | `Ts_errors   of Cstruct.t
                  | `End_of_errors ]
     type t
     val partition        : event list -> t option -> t list * event list
@@ -56,8 +56,8 @@ module SM = struct
   end = struct
     type event = [ `Status of Board_types.status
                  | `Streams_event of streams
-                 | `T2mi_errors of Cbuffer.t
-                 | `Ts_errors of Cbuffer.t
+                 | `T2mi_errors of Cstruct.t
+                 | `Ts_errors of Cstruct.t
                  | `End_of_errors ]
 
     type t =
@@ -218,7 +218,7 @@ module SM = struct
 
   let send_instant (type a) sender (msg : a instant_request) : unit Lwt.t =
     (match msg with
-     | Reset             -> to_complex_req ~msg_code:0x0111 ~body:(Cbuffer.create 0) ()
+     | Reset             -> to_complex_req ~msg_code:0x0111 ~body:(Cstruct.create 0) ()
      | Set_board_mode x  ->
         let t2mi = Option.get_or ~default:{ enabled        = false
                                           ; pid            = 0
@@ -226,7 +226,7 @@ module SM = struct
                                           ; stream         = Single
                                           }
                                  x.t2mi in
-        let body = Cbuffer.create sizeof_board_mode in
+        let body = Cstruct.create sizeof_board_mode in
         let () = input_to_int x.input
                  |> (lor) (if t2mi.enabled then 4 else 0)
                  |> (lor) 8 (* disable board storage by default *)
@@ -239,7 +239,7 @@ module SM = struct
           | Some x -> x
           | None   -> { pid = 0x1fff; stream = Single }
         in
-        let body = Cbuffer.create sizeof_req_set_jitter_mode in
+        let body = Cstruct.create sizeof_req_set_jitter_mode in
         let () = set_req_set_jitter_mode_stream_id body (Common.Stream.id_to_int32 req.stream) in
         let () = set_req_set_jitter_mode_pid body req.pid in
         to_complex_req ~msg_code:0x0112 ~body ())

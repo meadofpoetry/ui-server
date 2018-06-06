@@ -32,14 +32,14 @@ let prefix = 0x55AA
 (* Message constructors *)
 
 let to_header ~msg_code () =
-  let hdr = Cbuffer.create sizeof_header in
+  let hdr = Cstruct.create sizeof_header in
   let ()  = set_header_prefix hdr prefix in
   let ()  = set_header_msg_code hdr msg_code in
   hdr
 
 let to_msg ~msg_code ~body () =
   let hdr = to_header ~msg_code () in
-  Cbuffer.append hdr body
+  Cstruct.append hdr body
 
 (* Requests *)
 
@@ -48,15 +48,15 @@ module type Request = sig
   type rsp
   val req_code : int
   val rsp_code : int
-  val to_cbuffer : req -> Cbuffer.t
-  val of_cbuffer : Cbuffer.t -> rsp
+  val to_cbuffer : req -> Cstruct.t
+  val of_cbuffer : Cstruct.t -> rsp
 end
 
 module Get_board_info : (Request with type req := unit with type rsp := devinfo) = struct
 
   let req_code = 0x0080
   let rsp_code = 0x0140
-  let to_cbuffer () = to_msg ~msg_code:req_code ~body:(Cbuffer.create 0) ()
+  let to_cbuffer () = to_msg ~msg_code:req_code ~body:(Cstruct.create 0) ()
   let of_cbuffer msg =
     { typ         = get_board_info_board_type msg
     ; ver         = get_board_info_board_version msg
@@ -72,14 +72,14 @@ end
 module type Instant_request = sig
   type req
   val msg_code : int
-  val to_cbuffer : req -> Cbuffer.t
+  val to_cbuffer : req -> Cstruct.t
 end
 
 module Set_factory_mode : (Instant_request with type req := factory_settings) = struct
 
   let msg_code = 0x0087
   let to_cbuffer mode =
-    let body = Cbuffer.create sizeof_factory_settings in
+    let body = Cstruct.create sizeof_factory_settings in
     let () = set_factory_settings_mac (Macaddr.to_bytes mode.mac) 0 body in
     to_msg ~msg_code ~body ()
 
@@ -100,7 +100,7 @@ module Set_board_mode : (Instant_request with type req := (nw_settings * (packer
                         |> Ipaddr.V4.to_int32
 
   let packer_settings_to_cbuffer (s:packer_setting) =
-    let buf  = Cbuffer.create sizeof_packer_settings in
+    let buf  = Cstruct.create sizeof_packer_settings in
     let mode = (s.port lsl 1) |> (fun x -> if s.base.enabled then x lor 1 else x) in
     (* FIXME temp reverse *)
     let ()   = Ipaddr.V4.to_int32 (reverse_ip s.base.dst_ip) |> set_packer_settings_dst_ip buf in
@@ -113,7 +113,7 @@ module Set_board_mode : (Instant_request with type req := (nw_settings * (packer
     buf
 
   let main_to_cbuffer ip mask gw (pkrs:packer_setting list) =
-    let buf  = Cbuffer.create sizeof_req_settings_main in
+    let buf  = Cstruct.create sizeof_req_settings_main in
     let ()   = set_req_settings_main_cmd buf 0 in
     (* FIXME temp reverse *)
     let ()   = Ipaddr.V4.to_int32 (reverse_ip ip)   |> set_req_settings_main_ip buf in
@@ -121,17 +121,17 @@ module Set_board_mode : (Instant_request with type req := (nw_settings * (packer
     let ()   = Ipaddr.V4.to_int32 (reverse_ip gw)   |> set_req_settings_main_gateway buf in
     let pkrs = List.map packer_settings_to_cbuffer pkrs in
     let len  = sizeof_req_settings_main + (main_packers_num * sizeof_packer_settings) in
-    Cbuffer.concat @@ buf :: pkrs
-    |> (fun b -> Cbuffer.append b @@ Cbuffer.create (len - Cbuffer.len b))
+    Cstruct.concat @@ buf :: pkrs
+    |> (fun b -> Cstruct.append b @@ Cstruct.create (len - Cstruct.len b))
     |> (fun body -> to_msg ~msg_code ~body ())
 
   let rest_to_cbuffer i (pkrs:packer_setting list) =
-    let buf  = Cbuffer.create sizeof_req_settings_packers in
+    let buf  = Cstruct.create sizeof_req_settings_packers in
     let ()   = set_req_settings_packers_cmd buf i in
     let pkrs = List.map packer_settings_to_cbuffer pkrs in
     let len  = sizeof_req_settings_packers + (rest_packers_num * sizeof_packer_settings) in
-    Cbuffer.concat @@ buf :: pkrs
-    |> (fun b -> Cbuffer.append b @@ Cbuffer.create (len - Cbuffer.len b))
+    Cstruct.concat @@ buf :: pkrs
+    |> (fun b -> Cstruct.append b @@ Cstruct.create (len - Cstruct.len b))
     |> (fun body -> to_msg ~msg_code ~body ())
 
   let to_cbuffer (nw,(packers:packer_setting list)) =
@@ -145,7 +145,7 @@ module Set_board_mode : (Instant_request with type req := (nw_settings * (packer
     let rest_pkrs = add_dummy (List.rev rest_pkrs) |> List.rev in
     let main      = main_to_cbuffer nw.ip nw.mask nw.gateway fst_pkrs in
     let rest      = List.mapi (fun i x -> rest_to_cbuffer (succ i) x) rest_pkrs in
-    Cbuffer.concat (main :: rest)
+    Cstruct.concat (main :: rest)
 
 end
 
@@ -154,7 +154,7 @@ end
 module type Event = sig
   type msg
   val msg_code   : int
-  val of_cbuffer : Cbuffer.t -> msg
+  val of_cbuffer : Cstruct.t -> msg
 end
 
 module Status : (Event with type msg := (board_status * status_data)) = struct
@@ -163,8 +163,8 @@ module Status : (Event with type msg := (board_status * status_data)) = struct
 
   let parse_packers data =
     let iter data =
-      Cbuffer.iter (fun _ -> Some 4)
-        (fun b -> let bs = Bitstring.bitstring_of_string @@ String.rev @@ Cbuffer.to_string b in
+      Cstruct.iter (fun _ -> Some 4)
+        (fun b -> let bs = Bitstring.bitstring_of_string @@ String.rev @@ Cstruct.to_string b in
                   match%bitstring bs with
                   | {| overflow : 1
                      ; enabled  : 1
@@ -174,7 +174,7 @@ module Status : (Event with type msg := (board_status * status_data)) = struct
                      |} -> { overflow; enabled; has_data; bitrate })
         data
     in
-    List.rev @@ Cbuffer.fold (fun acc el -> el :: acc) (iter data) []
+    List.rev @@ Cstruct.fold (fun acc el -> el :: acc) (iter data) []
 
   let of_cbuffer msg =
     let data = get_status_data msg in
@@ -190,7 +190,7 @@ module Status : (Event with type msg := (board_status * status_data)) = struct
     in
     let data = match cmd with
       | 0 -> General (parse_packers data)
-      | _ -> Unknown (Cbuffer.to_string data)
+      | _ -> Unknown (Cstruct.to_string data)
     in
     brd,data
 
@@ -202,7 +202,7 @@ type err = Bad_prefix           of int
          | Bad_length           of int
          | Bad_msg_code         of int
          | No_prefix_after_msg  of int
-         | Insufficient_payload of Cbuffer.t
+         | Insufficient_payload of Cstruct.t
          | Unknown_err          of string
 
 let string_of_err = function
@@ -219,7 +219,7 @@ let check_prefix buf =
   if prefix <> prefix then Error (Bad_prefix prefix') else Ok buf
 
 let check_msg_code buf =
-  let hdr,rest = Cbuffer.split buf sizeof_header in
+  let hdr,rest = Cstruct.split buf sizeof_header in
   let code     = get_header_msg_code hdr in
   let length   = (match code with
                   | x when x = Get_board_info.rsp_code -> Some sizeof_board_info
@@ -232,11 +232,11 @@ let check_msg_code buf =
 let check_length (len,code,rest') =
   if len > 512 - sizeof_header
   then Error (Bad_length len)
-  else let body,rest = Cbuffer.split rest' len in
+  else let body,rest = Cstruct.split rest' len in
        Ok (code,body,rest)
 
 let check_next_prefix ((code,_,rest) as x) =
-  if Cbuffer.len rest < sizeof_header
+  if Cstruct.len rest < sizeof_header
   then Ok x
   else (match check_prefix rest with
         | Ok _    -> Ok x
@@ -261,7 +261,7 @@ let deserialize buf =
        | _ -> `N)
     with _ -> `N in
   let rec f events responses b =
-    if Cbuffer.len b >= sizeof_header
+    if Cstruct.len b >= sizeof_header
     then (match get_msg b with
           | Ok (code,body,rest) -> (match parse_msg (code,body) with
                                     | `E x -> f (x::events) responses rest
@@ -269,10 +269,10 @@ let deserialize buf =
                                     | `N   -> f events responses rest)
           | Error e -> (match e with
                         | Insufficient_payload x -> List.rev events, List.rev responses, x
-                        | _                      -> Cbuffer.split b 1 |> fun (_,x) -> f events responses x))
+                        | _                      -> Cstruct.split b 1 |> fun (_,x) -> f events responses x))
     else (List.rev events, List.rev responses, b) in
   let events,responses,res = f [] [] buf in
-  events,responses, if Cbuffer.len res > 0 then Some res else None
+  events,responses, if Cstruct.len res > 0 then Some res else None
 
 let try_parse f x = try Some (f x) with _ -> None
 

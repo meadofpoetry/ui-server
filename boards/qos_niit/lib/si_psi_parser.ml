@@ -558,7 +558,7 @@ module PAT = struct
     } [@@deriving yojson]
 
   let of_cbuffer buf =
-    let bs = bitstring_of_string @@ Cbuffer.to_string buf in
+    let bs = bitstring_of_string @@ Cstruct.to_string buf in
     let rec f = fun acc x ->
       if bitstring_length x = 0 then List.rev acc
       else (match%bitstring x with
@@ -613,7 +613,7 @@ module PMT = struct
     } [@@deriving yojson]
 
   let of_cbuffer buf =
-    let bs = Bitstring.bitstring_of_string @@ Cbuffer.to_string buf in
+    let bs = Bitstring.bitstring_of_string @@ Cstruct.to_string buf in
     let rec parse_streams = (fun acc x ->
         if Bitstring.bitstring_length x = 0 then List.rev acc
         else (match%bitstring x with
@@ -668,7 +668,7 @@ module CAT = struct
     } [@@deriving yojson]
 
   let of_cbuffer buf =
-    let bs = bitstring_of_string @@ Cbuffer.to_string buf in
+    let bs = bitstring_of_string @@ Cstruct.to_string buf in
     let header,rest = parse_header bs in
     match%bitstring rest with
     | {| reserved               : 18
@@ -711,7 +711,7 @@ module NIT = struct
     } [@@deriving yojson]
 
   let of_cbuffer buf =
-    let bs = Bitstring.bitstring_of_string @@ Cbuffer.to_string buf in
+    let bs = Bitstring.bitstring_of_string @@ Cstruct.to_string buf in
     let header,rest = parse_header bs in
     match%bitstring rest with
     | {| network_id                   : 16
@@ -757,7 +757,7 @@ module BAT = struct
     } [@@deriving yojson]
 
   let of_cbuffer buf =
-    let bs = Bitstring.bitstring_of_string @@ Cbuffer.to_string buf in
+    let bs = Bitstring.bitstring_of_string @@ Cstruct.to_string buf in
     let header,rest = parse_header bs in
     match%bitstring rest with
     | {| bouquet_id                   : 16
@@ -827,7 +827,7 @@ module SDT = struct
                                          running_status; free_ca_mode; descriptors_loop_length;
                                          descriptors = parse_descriptors [] descriptors} :: acc)
                          rest)) in
-    let bs = Bitstring.bitstring_of_string @@ Cbuffer.to_string buf in
+    let bs = Bitstring.bitstring_of_string @@ Cstruct.to_string buf in
     let header,rest = parse_header bs in
     let len         = Bitstring.bitstring_length rest in
     match%bitstring rest with
@@ -893,7 +893,7 @@ module EIT = struct
                                        descriptors_loop_length;
                                        descriptors = parse_descriptors [] descriptors} :: acc)
                          rest)) in
-    let bs = Bitstring.bitstring_of_string @@ Cbuffer.to_string buf in
+    let bs = Bitstring.bitstring_of_string @@ Cstruct.to_string buf in
     let header,rest = parse_header bs in
     match%bitstring rest with
     | {| service_id                  : 16
@@ -924,7 +924,7 @@ module TDT = struct
     } [@@deriving yojson]
 
   let of_cbuffer buf =
-    let bs = Bitstring.bitstring_of_string @@ Cbuffer.to_string buf in
+    let bs = Bitstring.bitstring_of_string @@ Cstruct.to_string buf in
     let header,rest = parse_header bs in
     match%bitstring rest with
     | {| utc_time : 40 |} -> { header; utc_time }
@@ -945,7 +945,7 @@ module TOT = struct
     } [@@deriving yojson]
 
   let of_cbuffer buf =
-    let bs = Bitstring.bitstring_of_string @@ Cbuffer.to_string buf in
+    let bs = Bitstring.bitstring_of_string @@ Cstruct.to_string buf in
     let header,rest = parse_header bs in
     match%bitstring rest with
     | {| utc_time               : 40
@@ -977,7 +977,7 @@ module RST = struct
     } [@@deriving yojson]
 
   let of_cbuffer buf =
-    let bs = Bitstring.bitstring_of_string @@ Cbuffer.to_string buf in
+    let bs = Bitstring.bitstring_of_string @@ Cstruct.to_string buf in
     let header,rest = parse_header bs in
     let rec parse_events = fun acc x ->
       if Bitstring.bitstring_length x = 0 then List.rev acc
@@ -1006,7 +1006,7 @@ module ST = struct
     } [@@deriving yojson]
 
   let of_cbuffer buf =
-    let bs = Bitstring.bitstring_of_string @@ Cbuffer.to_string buf in
+    let bs = Bitstring.bitstring_of_string @@ Cstruct.to_string buf in
     let header,rest = parse_header bs in
     { header; bytes = Bitstring.string_of_bitstring rest }
 
@@ -1023,7 +1023,7 @@ module DIT = struct
     } [@@deriving yojson]
 
   let of_cbuffer buf =
-    let bs = Bitstring.bitstring_of_string @@ Cbuffer.to_string buf in
+    let bs = Bitstring.bitstring_of_string @@ Cstruct.to_string buf in
     let header,rest = parse_header bs in
     match%bitstring rest with
     | {| transition_flag : 1
@@ -1062,7 +1062,7 @@ module SIT = struct
     } [@@deriving yojson]
 
   let of_cbuffer buf =
-    let bs = bitstring_of_string @@ Cbuffer.to_string buf in
+    let bs = bitstring_of_string @@ Cstruct.to_string buf in
     let header,rest = parse_header bs in
     let len = bitstring_length rest in
     let rec parse_services = fun acc x ->

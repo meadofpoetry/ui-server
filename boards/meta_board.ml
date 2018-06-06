@@ -37,7 +37,7 @@ type stream_handler = < streams     : (url option * Common.Stream.t) list React.
 type board = { handlers        : (module Api_handler.HANDLER) list
              ; control         : int
              ; streams_signal  : Common.Stream.t list React.signal
-             ; step            : (Cbuffer.t list -> 'c cc as 'c) cc
+             ; step            : (Cstruct.t list -> 'c cc as 'c) cc
              ; connection      : state React.signal
              ; ports_active    : bool React.signal Ports.t
              ; settings_page   : (string * [`Div] Tyxml.Html.elt React.signal)
@@ -50,7 +50,7 @@ module type BOARD = sig
   val create       : topo_board ->
                      Common.Stream.t list React.signal ->
                      (Common.Stream.stream list React.signal -> topo_board -> Common.Stream.t list React.signal) ->
-                     (Cbuffer.t -> unit Lwt.t) ->
+                     (Cstruct.t -> unit Lwt.t) ->
                      Storage.Database.t ->
                      path ->
                      float -> board
@@ -175,8 +175,8 @@ module Msg = struct
 end
 
 let concat_acc acc recvd = match acc with
-  | Some acc -> Cbuffer.append acc (Cbuffer.concat (List.rev recvd))
-  | None     -> Cbuffer.concat (List.rev recvd)
+  | Some acc -> Cstruct.append acc (Cstruct.concat (List.rev recvd))
+  | None     -> Cstruct.concat (List.rev recvd)
 
 let apply = function `Continue step -> step
 

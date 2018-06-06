@@ -14,8 +14,8 @@ open Lwt.Infix
 
 type 'a cc = 'a Meta_board.cc
            
-type t = { dispatch : (int * (Cbuffer.t list -> 'c cc as 'c) cc) list ref
-         ; send     : int -> Cbuffer.t -> unit Lwt.t
+type t = { dispatch : (int * (Cstruct.t list -> 'c cc as 'c) cc) list ref
+         ; send     : int -> Cstruct.t -> unit Lwt.t
          ; usb      : Cyusb.t
          }
 
@@ -26,24 +26,24 @@ type header = { len    : int
 let prefix = 0x44BB
 
 let to_header port parity length =
-  let hdr = Cbuffer.create sizeof_header in
+  let hdr = Cstruct.create sizeof_header in
   let ()  = set_header_prefix hdr prefix in
   let ()  = set_header_port hdr ((if parity then 0x10 else 0) lor (port land 0xF)) in
   let ()  = set_header_length hdr length in
   hdr
 
 let serialize port buf =
-  let buf_len = Cbuffer.len buf in
+  let buf_len = Cstruct.len buf in
   let parity  = (buf_len mod 2) <> 0 in
   let len     = (buf_len / 2) + (if parity then 1 else 0) in
-  let buf'    = if parity then Cbuffer.append buf (Cbuffer.create 1) else buf in
-  Cbuffer.append (to_header port parity len) buf'
+  let buf'    = if parity then Cstruct.append buf (Cstruct.create 1) else buf in
+  Cstruct.append (to_header port parity len) buf'
 
 let io x = Lwt_io.printf "%s\n" x |> ignore 
 
 type err = Bad_prefix           of int
          | Bad_length           of int
-         | Insufficient_payload of Cbuffer.t
+         | Insufficient_payload of Cstruct.t
          | No_prefix_after_msg
          | Unknown_err          of string
 
@@ -59,7 +59,7 @@ let check_prefix buf =
   if prefix <> prefix' then Error (Bad_prefix prefix') else Ok buf
 
 let check_length buf =
-  let hdr,buf'  = Cbuffer.split buf sizeof_header in
+  let hdr,buf'  = Cstruct.split buf sizeof_header in
   let length    = get_header_length hdr in
   if (length <= 0) || (length > 256)
   then Error (Bad_length length)
@@ -68,13 +68,13 @@ let check_length buf =
        let port      = port' land 0xF in
        let len       = (length * 2) - (if parity then 1 else 0) in
        try
-         let msg',rest = Cbuffer.split buf' (length * 2) in
-         let msg,_     = Cbuffer.split msg' len in
+         let msg',rest = Cstruct.split buf' (length * 2) in
+         let msg,_     = Cstruct.split msg' len in
          Ok ((port,msg),rest)
        with _ -> Error (Insufficient_payload buf)
 
 let check_next_prefix ((_,rest) as x) =
-  if Cbuffer.len rest < sizeof_header then Ok x
+  if Cstruct.len rest < sizeof_header then Ok x
   else (match check_prefix rest with
         | Ok _    -> Ok x
         | Error _ -> Error (No_prefix_after_msg))
@@ -88,19 +88,19 @@ let get_msg buf =
 
 let deserialize acc buf =
   let buf = (match acc with
-             | Some x -> Cbuffer.append x buf
+             | Some x -> Cstruct.append x buf
              | None   -> buf) in
   let rec f acc b =
-    if Cbuffer.len b >= sizeof_header
+    if Cstruct.len b >= sizeof_header
     then (match get_msg b with
           | Ok (msg,rest) -> f (msg :: acc) rest
           | Error e       -> (match e with
                               | Insufficient_payload b -> acc, b
                               | e                      -> io ("\n !!! Usb_device: " ^ string_of_err e);
-                                                          f acc (Cbuffer.shift b 1)))
+                                                          f acc (Cstruct.shift b 1)))
     else acc,b in
   let msgs,new_acc = f [] buf in
-  (if Cbuffer.len new_acc > 0 then Some new_acc else None), msgs
+  (if Cstruct.len new_acc > 0 then Some new_acc else None), msgs
 
 let recv usb =
   Lwt_preemptive.detach (fun () -> Cyusb.recv usb)
@@ -145,5 +145,5 @@ let get_send obj id = obj.send id
 (* TODO add proper finalize *)
                     
 let finalize obj =
-  Cyusb.send obj.usb (Cbuffer.create 10);
+  Cyusb.send obj.usb (Cstruct.create 10);
   Cyusb.finalize ()
