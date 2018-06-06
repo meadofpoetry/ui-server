@@ -39,7 +39,6 @@ let serialize port buf =
   let buf'    = if parity then Cstruct.append buf (Cstruct.create 1) else buf in
   Cstruct.append (to_header port parity len) buf'
 
-let io x = Lwt_io.printf "%s\n" x |> ignore 
 
 type err = Bad_prefix           of int
          | Bad_length           of int
@@ -96,7 +95,7 @@ let deserialize acc buf =
           | Ok (msg,rest) -> f (msg :: acc) rest
           | Error e       -> (match e with
                               | Insufficient_payload b -> acc, b
-                              | e                      -> io ("\n !!! Usb_device: " ^ string_of_err e);
+                              | e                      -> Logs.err (fun m -> m "(Usb_device) %s" (string_of_err e));
                                                           f acc (Cstruct.shift b 1)))
     else acc,b in
   let msgs,new_acc = f [] buf in
