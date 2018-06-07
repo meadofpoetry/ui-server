@@ -9,5 +9,5 @@
   (ocamlopt_flags (:standard -short-paths -strict-sequence -bin-annot
                    -thread -w "+1..49+60" -w "+a-4-7-23-33-39-40-41-42-44-45-48"
                    -O3 -unbox-closures))
-  (libraries (ctypes ctypes.foreign lwt lwt.preemptive  meta_board))
+  (libraries (ctypes ctypes.foreign lwt lwt.preemptive angstrom-lwt-unix faraday-lwt-unix meta_board))
   (preprocess (pps (ppx_deriving_yojson ppx_cstruct)))))
