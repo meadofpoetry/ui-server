@@ -4,6 +4,10 @@ type t2_transmittion_format = SISO
 type t2_profile = Base of t2_transmittion_format
                 | Lite of t2_transmittion_format [@@deriving yojson]
 
+type l1_preamble = T2      of t2_profile
+                 | Non_t2
+                 | Unknown of int [@@deriving yojson]
+
 type t2_fft = FFT_1K
             | FFT_2K
             | FFT_4K
