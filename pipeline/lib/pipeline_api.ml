@@ -12,7 +12,6 @@ module Api_handler = Api.Handler.Make(Common.User)
 
 let ( %> ) = Fun.( %> )
 
-
 (* TODO reason about random key *)
 let () = Random.init (int_of_float @@ Unix.time ())
 let rand_int = fun () -> Random.run (Random.int 10000000)
