@@ -3,11 +3,9 @@ open Components
 open Widget_types
 open Board_types
 
-type 'a point  = (float,'a) Chartjs.Line.point
+type 'a point  = (Common.Time.t,'a) Chartjs.Line.point
 type 'a data   = (int * ('a point list)) list
-type x_axis    = int64 Chartjs.Axes.Cartesian.Time.t
-type 'a y_axis = 'a Chartjs.Axes.Cartesian.Linear.t
-type 'a chart  = (int64,x_axis,'a,'a y_axis) Chartjs.Line.t
+type 'a chart  = (Common.Time.t,'a) Chartjs.Line.t
 
 type settings =
   { range : (float * float) option
@@ -16,7 +14,7 @@ type settings =
 type config =
   { ids      : int list
   ; typ      : measure_type
-  ; duration : int64
+  ; duration : Common.Time.span
   ; settings : settings option
   } [@@deriving yojson]
 
@@ -45,39 +43,40 @@ let make_chart_base ~(config: config)
                     ~(event:  float data React.event)
                     () : Dashboard.Item.item =
   let range = get_suggested_range config.typ in
-  let conv = fun p -> Chartjs.Line.({ p with x = Int64.of_float (p.x *. 1000.) }) in
   let init = List.map (fun x -> match List.Assoc.get ~eq:Int.equal x init with
-                                | Some i -> x,List.map conv i
+                                | Some i -> x,i
                                 | None   -> x,[]) config.ids in
-  let data = List.map (fun (id,data) -> Chartjs.Line.({ data; label = Printf.sprintf "Модуль %d" @@ succ id }))
-                      init
+  let delta    = config.duration in
+  let x_axis   = new Chartjs.Line.Axes.Time.t ~delta ~id:"x-axis" ~position:`Bottom ~typ:Ptime () in
+  let y_axis   = new Chartjs.Line.Axes.Linear.t ~id:"y-axis" ~position:`Left ~typ:Float () in
+  let options  = new Chartjs.Line.Options.t ~x_axis ~y_axis () in
+  let datasets = List.map (fun (id,data) ->
+                     let label = Printf.sprintf "Модуль %d" @@ succ id in
+                     new Chartjs.Line.Dataset.t ~label ~data ~x_axis ~y_axis ())
+                          init
   in
-  let conf = Chartjs.Line.(new Config.t
-                               ~x_axis:(Time ("my-x-axis",Bottom,Unix,Some config.duration))
-                               ~y_axis:(Linear ("my-y-axis",Left,Float,None))
-                               ~data
-                               ())
-  in
-  List.iteri (fun i x -> let clr = Option.get_or ~default:(Color.Red C500) @@ List.get_at_idx i colors in
-                         x#set_background_color @@ Color.rgb_of_name clr;
-                         x#set_border_color     @@ Color.rgb_of_name clr;
-                         x#set_cubic_interpolation_mode Chartjs.Line.Monotone;
-                         x#set_fill Chartjs.Line.Disabled)
-             conf#datasets;
-  conf#options#x_axis#ticks#set_auto_skip_padding 2;
-  conf#options#x_axis#scale_label#set_display true;
-  conf#options#x_axis#scale_label#set_label_string "Время";
-  conf#options#y_axis#scale_label#set_display true;
-  conf#options#y_axis#scale_label#set_label_string @@ measure_type_to_unit config.typ;
-  conf#options#set_maintain_aspect_ratio false;
-  conf#options#y_axis#ticks#set_suggested_min (fst range);
-  conf#options#y_axis#ticks#set_suggested_max (snd range);
-  let chart = new Chartjs.Line.t ~config:conf () in
-  let set   = fun ds data -> List.iter (fun point -> ds#push point) @@ List.map conv data;
+  List.iteri (fun i x -> let clr = Option.get_or ~default:(Color.Red C500)
+                                   @@ List.get_at_idx i colors in
+                         x#set_bg_color @@ Color.rgb_of_name clr;
+                         x#set_border_color @@ Color.rgb_of_name clr;
+                         x#set_cubic_interpolation_mode `Monotone;
+                         x#set_fill `Disabled)
+             datasets;
+  x_axis#ticks#set_auto_skip_padding 2;
+  x_axis#scale_label#set_display true;
+  x_axis#scale_label#set_label_string "Время";
+  x_axis#time#set_tooltip_format "ll HH:mm:ss";
+  y_axis#scale_label#set_display true;
+  y_axis#scale_label#set_label_string @@ measure_type_to_unit config.typ;
+  y_axis#ticks#set_suggested_min (fst range);
+  y_axis#ticks#set_suggested_max (snd range);
+  options#set_maintain_aspect_ratio false;
+  let chart = new Chartjs.Line.t ~options ~datasets () in
+  let set   = fun ds data -> List.iter (fun point -> ds#push point) data;
                              chart#update None
   in
   let _ = React.E.map (fun datasets -> List.iter (fun (id,data) -> Option.iter (fun ds -> set ds data)
-                                                                   @@ List.get_at_idx id chart#config#datasets)
+                                                                   @@ List.get_at_idx id chart#datasets)
                                                  datasets)
                       event in
   let settings,s_settings = make_settings { range = None } in
@@ -88,11 +87,10 @@ let make_chart_base ~(config: config)
               ; set    = fun () ->
                          match React.S.value s_settings with
                          | Some s -> (match s.range with
-                                      | Some (min,max) -> conf#options#y_axis#ticks#set_min (Some min);
-                                                          conf#options#y_axis#ticks#set_max (Some max)
-                                      | None           -> conf#options#y_axis#ticks#set_min None;
-                                                          conf#options#y_axis#ticks#set_max None);
-
+                                      | Some (min,max) -> y_axis#ticks#set_min (Some min);
+                                                          y_axis#ticks#set_max (Some max)
+                                      | None           -> y_axis#ticks#set_min None;
+                                                          y_axis#ticks#set_max None);
                                      chart#update None;
                                      Lwt_result.return ()
                          | None   -> Lwt_result.fail "no settings available"

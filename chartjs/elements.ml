@@ -3,27 +3,28 @@ open Base
 
 module Point = struct
 
-  type point_style = Circle
-                   | Cross
-                   | Cross_rot
-                   | Dash
-                   | Line
-                   | Rect
-                   | Rect_rounded
-                   | Rect_rot
-                   | Star
-                   | Triangle
+  type point_style = [ `Circle
+                     | `Cross
+                     | `Cross_rot
+                     | `Dash
+                     | `Line
+                     | `Rect
+                     | `Rect_rounded
+                     | `Rect_rot
+                     | `Star
+                     | `Triangle
+                     ]
 
   let point_style_to_string = function
-    | Circle       -> "circle"      | Cross    -> "cross"   | Cross_rot -> "crossRot"
-    | Dash         -> "dash"        | Line     -> "line"    | Rect      -> "rect"
-    | Rect_rounded -> "rectRounded" | Rect_rot -> "rectRot" | Star      -> "star"
-    | Triangle     -> "triangle"
+    | `Circle       -> "circle"      | `Cross    -> "cross"   | `Cross_rot -> "crossRot"
+    | `Dash         -> "dash"        | `Line     -> "line"    | `Rect      -> "rect"
+    | `Rect_rounded -> "rectRounded" | `Rect_rot -> "rectRot" | `Star      -> "star"
+    | `Triangle     -> "triangle"
   let point_style_of_string_exn = function
-    | "circle"      -> Circle       | "cross"   -> Cross    | "crossRot" -> Cross_rot
-    | "dash"        -> Dash         | "line"    -> Line     | "rect"     -> Rect
-    | "rectRounded" -> Rect_rounded | "rectRot" -> Rect_rot | "star"     -> Star
-    | "triangle"    -> Triangle     | _ -> failwith "Bad point style string"
+    | "circle"      -> `Circle       | "cross"   -> `Cross    | "crossRot" -> `Cross_rot
+    | "dash"        -> `Dash         | "line"    -> `Line     | "rect"     -> `Rect
+    | "rectRounded" -> `Rect_rounded | "rectRot" -> `Rect_rot | "star"     -> `Star
+    | "triangle"    -> `Triangle     | _ -> failwith "Bad point style string"
 
   class type t_js =
     object
@@ -37,44 +38,50 @@ module Point = struct
       method hoverBorderWidth : int Js.prop
     end
 
-  class t () = object
+  class t () = object(self)
     inherit [t_js] base_option ()
 
+    (** Point radius. *)
+    method radius : int = obj##.radius
     method set_radius x = obj##.radius := x
-    method get_radius   = obj##.radius
 
-    method set_point_style x = obj##.pointStyle := Js.string @@ point_style_to_string x
-    method get_point_style   = point_style_of_string_exn @@ Js.to_string obj##.pointStyle
+    (** Point style. *)
+    method point_style : point_style = point_style_of_string_exn @@ Js.to_string obj##.pointStyle
+    method set_point_style (x:point_style) = obj##.pointStyle := Js.string @@ point_style_to_string x
 
-    method set_background_color x = obj##.backgroundColor := CSS.Color.js x
-    method get_background_color   = CSS.Color.ml obj##.backgroundColor
+    (** Point fill color. *)
+    method bg_color : CSS.Color.t = CSS.Color.ml obj##.backgroundColor
+    method set_bg_color x = obj##.backgroundColor := CSS.Color.js x
 
+    (** Point stroke width. *)
+    method border_width : int = obj##.borderWidth
     method set_border_width x = obj##.borderWidth := x
-    method get_border_width   = obj##.borderWidth
 
+    (** Point stroke color. *)
+    method border_color : CSS.Color.t = CSS.Color.ml obj##.borderColor
     method set_border_color x = obj##.borderColor := CSS.Color.js x
-    method get_border_color   = CSS.Color.ml obj##.borderColor
 
+    (** Extra radius added to point radius for hit detection. *)
+    method hit_radius : int = obj##.hitRadius
     method set_hit_radius x = obj##.hitRadius := x
-    method get_hit_radius   = obj##.hitRadius
 
+    (** Point radius when hovered. *)
+    method hover_radius : int = obj##.hoverRadius
     method set_hover_radius x = obj##.hoverRadius := x
-    method get_hover_radius   = obj##.hoverRadius
 
+    (** Stroke width when hovered. *)
+    method hover_border_width : int = obj##.hoverBorderWidth
     method set_hover_border_width x = obj##.hoverBorderWidth := x
-    method get_hover_border_width   = obj##.hoverBorderWidth
 
     initializer
-      obj <- object%js
-               val mutable radius           = 3
-               val mutable pointStyle       = Js.string @@ point_style_to_string Circle
-               val mutable backgroundColor  = CSS.Color.js @@ CSS.Color.rgb ~a:0.1 0 0 0
-               val mutable borderWidth      = 1
-               val mutable borderColor      = CSS.Color.js @@ CSS.Color.rgb ~a:0.1 0 0 0
-               val mutable hitRadius        = 1
-               val mutable hoverRadius      = 4
-               val mutable hoverBorderWidth = 1
-             end
+      self#set_radius 3;
+      self#set_point_style `Circle;
+      self#set_bg_color @@ CSS.Color.rgb ~a:0.1 0 0 0;
+      self#set_border_width 1;
+      self#set_border_color @@ CSS.Color.rgb ~a:0.1 0 0 0;
+      self#set_hit_radius 1;
+      self#set_hover_radius 4;
+      self#set_hover_border_width 1;
   end
 
 end
@@ -82,24 +89,21 @@ end
 module Line = struct
 
   type bool_or_string
-  type fill = Disabled
-            | Zero
-            | Top
-            | Bottom
+  type fill = [ `Disabled | `Zero | `Top | `Bottom ]
 
   let fill_to_js : fill -> bool_or_string Js.t = function
-    | Disabled -> Js.Unsafe.coerce @@ Js._false
-    | Zero     -> Js.Unsafe.coerce @@ Js.string "zero"
-    | Top      -> Js.Unsafe.coerce @@ Js.string "top"
-    | Bottom   -> Js.Unsafe.coerce @@ Js.string "bottom"
+    | `Disabled -> Js.Unsafe.coerce @@ Js._false
+    | `Zero     -> Js.Unsafe.coerce @@ Js.string "zero"
+    | `Top      -> Js.Unsafe.coerce @@ Js.string "top"
+    | `Bottom   -> Js.Unsafe.coerce @@ Js.string "bottom"
 
   let fill_of_js_exn (x : bool_or_string Js.t) : fill =
     match Cast.to_bool x with
-    | Some b -> if b then Zero else Disabled
+    | Some b -> if b then `Zero else `Disabled
     | None   -> (match Option.get_exn @@ Cast.to_string x with
-                 | "zero"   -> Zero
-                 | "top"    -> Top
-                 | "bottom" -> Bottom
+                 | "zero"   -> `Zero
+                 | "top"    -> `Top
+                 | "bottom" -> `Bottom
                  | _        -> failwith "Bad fill string")
 
   class type t_js =
@@ -117,68 +121,88 @@ module Line = struct
       method stepped          : bool Js.t Js.prop
     end
 
-  class t () = object
+  class t () = object(self)
+
     inherit [t_js] base_option ()
 
+    (** Bézier curve tension (0 for no Bézier curves). *)
+    method tension : float = obj##.tension
     method set_tension x = obj##.tension := x
-    method get_tension   = obj##.tension
 
-    method set_background_color x = obj##.backgroundColor := CSS.Color.js x
-    method get_background_color   = CSS.Color.ml obj##.backgroundColor
+    (** Line fill color. *)
+    method bg_color : CSS.Color.t = CSS.Color.ml obj##.backgroundColor
+    method set_bg_color x = obj##.backgroundColor := CSS.Color.js x
 
+    (** Line stroke width. *)
+    method border_width : int = obj##.borderWidth
     method set_border_width x = obj##.borderWidth := x
-    method get_border_width   = obj##.borderWidth
 
+    (** Line stroke color. *)
+    method border_color : CSS.Color.t = CSS.Color.ml obj##.borderColor
     method set_border_color x = obj##.borderColor := CSS.Color.js x
-    method get_border_color   = CSS.Color.ml obj##.borderColor
 
-    method set_border_cap_style x = obj##.borderCapStyle := Js.string @@ Canvas.line_cap_to_string x
-    method get_border_cap_style   = Canvas.line_cap_of_string_exn @@ Js.to_string obj##.borderCapStyle
+    (** Line cap style *)
+    method border_cap_style : Canvas.line_cap = Canvas.line_cap_of_string_exn @@ Js.to_string obj##.borderCapStyle
+    method set_border_cap_style (x:Canvas.line_cap) =
+      obj##.borderCapStyle := Js.string @@ Canvas.line_cap_to_string x
 
+    (** Line dash *)
+    method border_dash : int list = Array.to_list @@ Js.to_array obj##.borderDash
     method set_border_dash x = obj##.borderDash := Js.array @@ Array.of_list x
-    method get_border_dash   = Array.to_list @@ Js.to_array obj##.borderDash
 
+    (** Line dash offset *)
+    method border_dash_offset : int = obj##.borderDashOffset
     method set_border_dash_offset x = obj##.borderDashOffset := x
-    method get_border_dash_offset   = obj##.borderDashOffset
 
-    method set_border_join_style x = obj##.borderJoinStyle := Js.string @@ Canvas.line_join_to_string x
-    method get_border_join_style   = Canvas.line_join_of_string_exn @@ Js.to_string obj##.borderJoinStyle
+    (** Line join style *)
+    method border_join_style : Canvas.line_join =
+      Canvas.line_join_of_string_exn @@ Js.to_string obj##.borderJoinStyle
+    method set_border_join_style (x:Canvas.line_join) =
+      obj##.borderJoinStyle := Js.string @@ Canvas.line_join_to_string x
 
+    (** true to keep Bézier control inside the chart, false for no restriction. *)
+    method cap_bezier_points : bool = Js.to_bool obj##.capBezierPoints
     method set_cap_bezier_points x = obj##.capBezierPoints := Js.bool x
-    method get_cap_bezier_points   = Js.to_bool obj##.capBezierPoints
 
+    (** Fill location: 'zero', 'top', 'bottom', true (eq. 'zero') or false (no fill). *)
+    method fill : fill = fill_of_js_exn obj##.fill
     method set_fill x = obj##.fill := fill_to_js x
-    method get_fill   = fill_of_js_exn obj##.fill
 
+    (** true to show the line as a stepped line (tension will be ignored). *)
+    method stepped : bool = Js.to_bool obj##.stepped
     method set_stepped x = obj##.stepped := Js.bool x
-    method get_stepped   = Js.to_bool obj##.stepped
 
     initializer
-      obj <- object%js
-               val mutable tension          = 0.4
-               val mutable backgroundColor  = CSS.Color.js @@ CSS.Color.rgb ~a:0.1 0 0 0
-               val mutable borderWidth      = 3
-               val mutable borderColor      = CSS.Color.js @@ CSS.Color.rgb ~a:0.1 0 0 0
-               val mutable borderCapStyle   = Js.string @@ Canvas.line_cap_to_string Butt
-               val mutable borderDash       = Js.array [||]
-               val mutable borderDashOffset = 0
-               val mutable borderJoinStyle  = Js.string @@ Canvas.line_join_to_string Miter
-               val mutable capBezierPoints  = Js._true
-               val mutable fill             = fill_to_js Zero
-               val mutable stepped          = Js._false
-             end
+      self#set_tension 0.4;
+      self#set_bg_color @@ CSS.Color.rgb ~a:0.1 0 0 0;
+      self#set_border_width 3;
+      self#set_border_color @@ CSS.Color.rgb ~a:0.1 0 0 0;
+      self#set_border_cap_style `Butt;
+      self#set_border_dash [];
+      self#set_border_dash_offset 0;
+      self#set_border_join_style `Miter;
+      self#set_cap_bezier_points true;
+      self#set_fill `Zero;
+      self#set_stepped false
   end
 
 end
 
 module Rectangle = struct
 
-  type skipped = Top | Left | Bottom | Right
+  type skipped = [`Top | `Left | `Bottom | `Right]
 
   let skipped_to_string = function
-    | Top -> "top" | Left -> "left" | Bottom -> "bottom" | Right -> "right"
+    | `Top    -> "top"
+    | `Left   -> "left"
+    | `Bottom -> "bottom"
+    | `Right  -> "right"
   let skipped_of_string_exn = function
-    | "top" -> Top | "left" -> Left | "bottom" -> Bottom | "right" -> Right | _ -> failwith "Bad skipped string"
+    | "top"    -> `Top
+    | "left"   -> `Left
+    | "bottom" -> `Bottom
+    | "right"  -> `Right
+    | _        -> failwith "Bad skipped string"
 
   class type t_js =
     object
@@ -188,28 +212,30 @@ module Rectangle = struct
       method borderSkipped   : Js.js_string Js.t Js.prop
     end
 
-  class t () = object
+  class t () = object(self)
     inherit [t_js] base_option ()
 
-    method set_background_color x = obj##.backgroundColor := CSS.Color.js x
-    method get_background_color   = CSS.Color.ml obj##.backgroundColor
+    (** Bar fill color. *)
+    method bg_color : CSS.Color.t = CSS.Color.ml obj##.backgroundColor
+    method set_bg_color x = obj##.backgroundColor := CSS.Color.js x
 
+    (** Bar stroke width. *)
+    method border_width : int = obj##.borderWidth
     method set_border_width x = obj##.borderWidth := x
-    method get_border_width   = obj##.borderWidth
 
+    (** Bar stroke color. *)
+    method border_color : CSS.Color.t = CSS.Color.ml obj##.borderColor
     method set_border_color x = obj##.borderColor := CSS.Color.js x
-    method get_border_color   = CSS.Color.ml obj##.borderColor
 
-    method set_border_skipped x = obj##.borderSkipped := Js.string @@ skipped_to_string x
-    method get_border_skipped   = skipped_of_string_exn @@ Js.to_string obj##.borderSkipped
+    (** Skipped (excluded) border: 'bottom', 'left', 'top' or 'right'. *)
+    method border_skipped : skipped = skipped_of_string_exn @@ Js.to_string obj##.borderSkipped
+    method set_border_skipped (x:skipped) = obj##.borderSkipped := Js.string @@ skipped_to_string x
 
     initializer
-      obj <- object%js
-               val mutable backgroundColor  = CSS.Color.js @@ CSS.Color.rgb ~a:0.1 0 0 0
-               val mutable borderWidth      = 0
-               val mutable borderColor      = CSS.Color.js @@ CSS.Color.rgb ~a:0.1 0 0 0
-               val mutable borderSkipped    = Js.string @@ skipped_to_string Bottom
-             end
+      self#set_bg_color @@ CSS.Color.rgb ~a:0.1 0 0 0;
+      self#set_border_width 0;
+      self#set_border_color @@ CSS.Color.rgb ~a:0.1 0 0 0;
+      self#set_border_skipped `Bottom
   end
 
 end
@@ -223,24 +249,25 @@ module Arc = struct
       method borderColor     : CSS.Color.js_t Js.prop
     end
 
-  class t () = object
+  class t () = object(self)
     inherit [t_js] base_option ()
 
-    method set_background_color x = obj##.backgroundColor := CSS.Color.js x
-    method get_background_color   = CSS.Color.ml obj##.backgroundColor
+    (** Arc fill color. *)
+    method bg_color : CSS.Color.t = CSS.Color.ml obj##.backgroundColor
+    method set_bg_color x = obj##.backgroundColor := CSS.Color.js x
 
+    (** Arc stroke color. *)
+    method border_width : int = obj##.borderWidth
     method set_border_width x = obj##.borderWidth := x
-    method get_border_width   = obj##.borderWidth
 
+    (** Arc stroke width. *)
+    method border_color : CSS.Color.t = CSS.Color.ml obj##.borderColor
     method set_border_color x = obj##.borderColor := CSS.Color.js x
-    method get_border_color   = CSS.Color.ml obj##.borderColor
 
     initializer
-      obj <- object%js
-               val mutable backgroundColor  = CSS.Color.js @@ CSS.Color.rgb ~a:0.1 0 0 0
-               val mutable borderWidth      = 2
-               val mutable borderColor      = CSS.Color.js @@ CSS.Color.rgb 255 255 255
-             end
+      self#set_bg_color @@ CSS.Color.rgb ~a:0.1 0 0 0;
+      self#set_border_width 2;
+      self#set_border_color @@ CSS.Color.rgb 255 255 255
   end
 
 end
@@ -253,29 +280,31 @@ class type t_js =
     method arc       : Arc.t_js Js.t Js.prop
   end
 
-class t () = object
+class t () = object(self)
   inherit [t_js] base_option () as super
-  val point = new Point.t ()
-  val line  = new Line.t ()
-  val rect  = new Rectangle.t ()
-  val arc   = new Arc.t ()
+  val _point = new Point.t ()
+  val _line  = new Line.t ()
+  val _rect  = new Rectangle.t ()
+  val _arc   = new Arc.t ()
 
-  method point     = point
-  method line      = line
-  method rectangle = rect
-  method arc       = arc
+  (** Point elements are used to represent the points in a line chart or a bubble chart. *)
+  method point     = _point
+  (** Line elements are used to represent the line in a line chart. *)
+  method line      = _line
+  (** Rectangle elements are used to represent the bars in a bar chart. *)
+  method rectangle = _rect
+  (** Arcs are used in the polar area, doughnut and pie charts. *)
+  method arc       = _arc
 
   method! replace x = super#replace x;
-                      point#replace obj##.point;
-                      line#replace obj##.line;
-                      rect#replace obj##.rectangle;
-                      arc#replace obj##.arc
+                      self#point#replace obj##.point;
+                      self#line#replace obj##.line;
+                      self#rectangle#replace obj##.rectangle;
+                      self#arc#replace obj##.arc
 
   initializer
-    obj <- object%js
-             val mutable point     = point#get_obj
-             val mutable line      = line#get_obj
-             val mutable rectangle = rect#get_obj
-             val mutable arc       = arc#get_obj
-           end
+    obj##.point     := self#point#get_obj;
+    obj##.line      := self#line#get_obj;
+    obj##.rectangle := self#rectangle#get_obj;
+    obj##.arc       := self#arc#get_obj
 end

@@ -46,7 +46,7 @@ type rsp_plp_set =
   } [@@deriving yojson]
 
 type measure =
-  { timestamp : float
+  { timestamp : Common.Time.t
   ; lock      : bool
   ; power     : float option
   ; mer       : float option

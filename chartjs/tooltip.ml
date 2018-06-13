@@ -1,11 +1,11 @@
 open Base
 
-type position = Average | Nearest
+type position = [`Average | `Nearest]
 
 let position_to_string = function
-  | Average -> "average" | Nearest -> "nearest"
+  | `Average -> "average" | `Nearest -> "nearest"
 let position_of_string_exn = function
-  | "average" -> Average | "nearest" -> Nearest | _ -> failwith "Bad position string"
+  | "average" -> `Average | "nearest" -> `Nearest | _ -> failwith "Bad position string"
 
 (* FIXME incomplete *)
 class type t_js =
@@ -45,105 +45,138 @@ class type t_js =
 
 class t () = object(self)
   inherit [t_js] base_option ()
+
+  (** Are on-canvas tooltips enabled *)
+  method enabled : bool = Js.to_bool obj##.enabled
   method set_enabled x = obj##.enabled := Js.bool x
-  method get_enabled   = Js.to_bool obj##.enabled
 
-  method set_mode x = obj##.mode := Js.string @@ interaction_mode_to_string x
-  method get_mode   = interaction_mode_of_string_exn @@ Js.to_string obj##.mode
+  (** Sets which elements appear in the tooltip. *)
+  method mode : interaction_mode = interaction_mode_of_string_exn @@ Js.to_string obj##.mode
+  method set_mode (x:interaction_mode) = obj##.mode := Js.string @@ interaction_mode_to_string x
 
+  (** if true, the tooltip mode applies only when the mouse position intersects with an element.
+      If false, the mode will be applied at all times. *)
+  method intersect : bool = Js.to_bool obj##.intersect
   method set_intersect x = obj##.intersect := Js.bool x
-  method get_intersect   = Js.to_bool obj##.intersect
 
-  method set_position x = obj##.position := Js.string @@ position_to_string x
-  method get_position   = position_of_string_exn @@ Js.to_string obj##.position
+  (** The mode for positioning the tooltip. *)
+  method position : position = position_of_string_exn @@ Js.to_string obj##.position
+  method set_position (x:position) = obj##.position := Js.string @@ position_to_string x
 
-  method set_background_color x = obj##.backgroundColor := CSS.Color.js x
-  method get_background_color   = CSS.Color.ml obj##.backgroundColor
+  (** Background color of the tooltip. *)
+  method bg_color : CSS.Color.t = CSS.Color.ml obj##.backgroundColor
+  method set_bg_color x = obj##.backgroundColor := CSS.Color.js x
 
+  (** Title font size *)
+  method title_font_size : int = obj##.titleFontSize
   method set_title_font_size x = obj##.titleFontSize := x
-  method get_title_font_size   = obj##.titleFontSize
 
+  (** Title font style *)
+  method title_font_style : Font.style = Font.style_of_string_exn @@ Js.to_string obj##.titleFontStyle
   method set_title_font_style (x:Font.style) = obj##.titleFontStyle := Js.string @@ Font.style_to_string x
-  method get_title_font_style : Font.style   = Font.style_of_string_exn @@ Js.to_string obj##.titleFontStyle
 
+  (** Title font color *)
+  method title_font_color : CSS.Color.t = CSS.Color.ml obj##.titleFontColor
   method set_title_font_color x = obj##.titleFontColor := CSS.Color.js x
-  method get_title_font_color   = CSS.Color.ml obj##.titleFontColor
 
+  (** Title font family *)
+  method title_font_family : string = Js.to_string obj##.titleFontFamily
   method set_title_font_family x = obj##.titleFontFamily := Js.string x
-  method get_title_font_family   = Js.to_string obj##.titleFontFamily
 
+  (** Spacing to add to top and bottom of each title line. *)
+  method title_spacing : int = obj##.titleSpacing
   method set_title_spacing x = obj##.titleSpacing := x
-  method get_title_spacing   = obj##.titleSpacing
 
+  (** Margin to add on bottom of title section. *)
+  method title_margin_bottom : int = obj##.titleMarginBottom
   method set_title_margin_bottom x = obj##.titleMarginBottom := x
-  method get_title_margin_bottom   = obj##.titleMarginBottom
 
+  (** Body font size *)
+  method body_font_size : int = obj##.bodyFontSize
   method set_body_font_size x = obj##.bodyFontSize := x
-  method get_body_font_size   = obj##.bodyFontSize
 
+  (** Body font style *)
+  method body_font_style : Font.style   = Font.style_of_string_exn @@ Js.to_string obj##.bodyFontStyle
   method set_body_font_style (x:Font.style) = obj##.bodyFontStyle := Js.string @@ Font.style_to_string x
-  method get_body_font_style : Font.style   = Font.style_of_string_exn @@ Js.to_string obj##.bodyFontStyle
 
+  (** Body font color *)
+  method body_font_color : CSS.Color.t = CSS.Color.ml obj##.bodyFontColor
   method set_body_font_color x = obj##.bodyFontColor := CSS.Color.js x
-  method get_body_font_color   = CSS.Color.ml obj##.bodyFontColor
 
+  (** Body font family *)
+  method body_font_family : string = Js.to_string obj##.bodyFontFamily
   method set_body_font_family x = obj##.bodyFontFamily := Js.string x
-  method get_body_font_family   = Js.to_string obj##.bodyFontFamily
 
+  (** Spacing to add to top and bottom of each tooltip item. *)
+  method body_spacing : int = obj##.bodySpacing
   method set_body_spacing x = obj##.bodySpacing := x
-  method get_body_spacing   = obj##.bodySpacing
 
+  (** Footer font size *)
+  method footer_font_size : int = obj##.footerFontSize
   method set_footer_font_size x = obj##.footerFontSize := x
-  method get_footer_font_size   = obj##.footerFontSize
 
+  (** Footer font style *)
+  method footer_font_style : Font.style   = Font.style_of_string_exn @@ Js.to_string obj##.footerFontStyle
   method set_footer_font_style (x:Font.style) = obj##.footerFontStyle := Js.string @@ Font.style_to_string x
-  method get_footer_font_style : Font.style   = Font.style_of_string_exn @@ Js.to_string obj##.footerFontStyle
 
+  (** Footer font color *)
+  method footer_font_color : CSS.Color.t = CSS.Color.ml obj##.footerFontColor
   method set_footer_font_color x = obj##.footerFontColor := CSS.Color.js x
-  method get_footer_font_color   = CSS.Color.ml obj##.footerFontColor
 
+  (** Footer font family *)
+  method footer_font_family : string = Js.to_string obj##.footerFontFamily
   method set_footer_font_family x = obj##.footerFontFamily := Js.string x
-  method get_footer_font_family   = Js.to_string obj##.footerFontFamily
 
+  (** Spacing to add to top and bottom of each footer line. *)
+  method footer_spacing : int = obj##.footerSpacing
   method set_footer_spacing x = obj##.footerSpacing := x
-  method get_footer_spacing   = obj##.footerSpacing
 
+  (** Margin to add before drawing the footer. *)
+  method footer_margin_top : int = obj##.footerMarginTop
   method set_footer_margin_top x = obj##.footerMarginTop := x
-  method get_footer_margin_top   = obj##.footerMarginTop
 
+  (** Padding to add on left and right of tooltip. *)
+  method x_padding : int = obj##.xPadding
   method set_x_padding x = obj##.xPadding := x
-  method get_x_padding   = obj##.xPadding
 
+  (** Padding to add on top and bottom of tooltip. *)
+  method y_padding : int = obj##.yPadding
   method set_y_padding x = obj##.yPadding := x
-  method get_y_padding   = obj##.yPadding
 
+  (** Extra distance to move the end of the tooltip arrow away from the tooltip point. *)
+  method caret_padding : int = obj##.caretPadding
   method set_caret_padding x = obj##.caretPadding := x
-  method get_caret_padding   = obj##.caretPadding
 
+  (** Size, in px, of the tooltip arrow. *)
+  method caret_size : int = obj##.caretSize
   method set_caret_size x = obj##.caretSize := x
-  method get_caret_size   = obj##.caretSize
 
+  (** Radius of tooltip corner curves. *)
+  method corner_radius : int = obj##.cornerRadius
   method set_corner_radius x = obj##.cornerRadius := x
-  method get_corner_radius   = obj##.cornerRadius
 
+  (** Color to draw behind the colored boxes when multiple items are in the tooltip *)
+  method multi_key_background : CSS.Color.t = CSS.Color.ml obj##.multiKeyBackground
   method set_multi_key_background x = obj##.multiKeyBackground := CSS.Color.js x
-  method get_multi_key_background   = CSS.Color.ml obj##.multiKeyBackground
 
+  (** if true, color boxes are shown in the tooltip *)
+  method display_colors : bool = Js.to_bool obj##.displayColors
   method set_display_colors x = obj##.displayColors := Js.bool x
-  method get_display_colors   = Js.to_bool obj##.displayColors
 
+  (** Color of the border *)
+  method border_color : CSS.Color.t = CSS.Color.ml obj##.borderColor
   method set_border_color x = obj##.borderColor := CSS.Color.js x
-  method get_border_color   = CSS.Color.ml obj##.borderColor
 
+  (** Size of the border *)
+  method border_width : int = obj##.borderWidth
   method set_border_width x = obj##.borderWidth := x
-  method get_border_width   = obj##.borderWidth
 
   initializer
     self#set_enabled true;
-    self#set_mode Nearest;
+    self#set_mode `Nearest;
     self#set_intersect true;
-    self#set_position Average;
-    self#set_background_color @@ CSS.Color.rgb ~a:0.8 0 0 0;
+    self#set_position `Average;
+    self#set_bg_color @@ CSS.Color.rgb ~a:0.8 0 0 0;
     self#set_title_font_family "'Helvetica Neue','Helvetica','Arial',sans-serif";
     self#set_title_font_size 12;
     self#set_title_font_style `Bold;
