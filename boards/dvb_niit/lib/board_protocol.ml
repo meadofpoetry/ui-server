@@ -4,7 +4,7 @@ open Lwt.Infix
 open Storage.Options
 open Api.Handler
 open Boards.Board
-open Boards.Messaging
+open Boards.Pools
 
 include Board_parser
 

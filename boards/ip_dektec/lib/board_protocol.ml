@@ -3,7 +3,7 @@ open Board_types
 open Lwt.Infix
 open Storage.Options
 open Boards.Board
-open Boards.Messaging
+open Boards.Pools
 
 include Board_parser
 
