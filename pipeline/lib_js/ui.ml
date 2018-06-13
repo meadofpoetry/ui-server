@@ -76,7 +76,7 @@ module Plots = struct
                 let open Option in
                 (M.get id table >|= fun id ->
                  List.get_at_idx id chart#config#datasets >|= fun ds ->
-                 let data = { x = Int64.(Common.Time.Useconds.to_useconds data.black.timestamp / 1000L); y = extract data } in
+                 let data = { x = Int64.(Common.Time.Period.Useconds.to_int64 data.black.timestamp / 1000L); y = extract data } in
                  ds#push data;
                  chart#update (Some { duration = Some 0
                                     ; is_lazy  = None

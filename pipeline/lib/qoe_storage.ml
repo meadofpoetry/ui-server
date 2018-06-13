@@ -24,9 +24,10 @@ let data_t =
       let (&) a b = (a, b) in
       Ok(stream & channel & pid & error & data.counter & data.size
          & data.params.min & data.params.max & data.params.avg 
-         & data.peak_flag & data.cont_flag & data.timestamp))
+         & data.peak_flag & data.cont_flag & (Option.get_exn @@ Common.Time.of_span data.timestamp)))
     ~decode:(fun (stream,(channel,(pid,(error,(counter,(size,(min,(max,(avg,(peak_flag,(cont_flag,timestamp))))))))))) ->
-      Ok(stream,channel,pid,error, { counter; size; params = { min; max; avg }; peak_flag; cont_flag; timestamp }))
+      Ok(stream,channel,pid,error, { counter; size; params = { min; max; avg }; peak_flag;
+                                     cont_flag; timestamp = Common.Time.to_span timestamp }))
                                                                                
 let init db =
   let create =

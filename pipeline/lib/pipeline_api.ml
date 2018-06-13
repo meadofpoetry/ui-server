@@ -142,9 +142,9 @@ let get_vdata_sock_pid sock_data body api stream channel pid () =
     get_sock sock_data body Video_data.to_yojson (React.E.filter pred api.vdata)
   with _ -> respond_error ~status:`Bad_request "bad request" ()
           
-let pipeline_handle api id meth args sock_data _ body =
+let pipeline_handle api id meth uri_sep sock_data _ body =
   let is_guest = Common.User.eq id `Guest in
-  match meth, args with
+  match meth, Common.Uri.sep_path uri_sep with
   | `GET,  []                   -> get_page ()
   | `POST, ["structure"]        -> redirect_if is_guest @@ set_structure api body
   | `GET,  ["structure"]        -> get_structure api ()
@@ -176,7 +176,7 @@ let get_structures api input id () =
       >>= function None -> respond_error "No data" () (* TODO fix *)
                   | Some (str, date) ->
                      let s = Structure.Streams.to_yojson str in
-                     (`Tuple [s; Time.Seconds.to_yojson date])
+                     (`Tuple [s; Time.Period.Seconds.to_yojson @@ Time.to_span date])
                      |> Result.return
                      |> Json.respond_result)
     (function Failure e -> respond_error e ())
@@ -186,14 +186,17 @@ let get_structures_between api input id from to' () =
   let input, id = (Result.get_exn @@ Common.Topology.input_of_string input), int_of_string id in
   let input = Common.Topology.{ input; id } in
   Lwt.catch (fun () ->
-      api.model.struct_api.get_input_between input (Time.Seconds.of_string from) (Time.Seconds.of_string to')
+      api.model.struct_api.get_input_between input
+        (Option.get_exn @@ Time.of_span @@ Time.Period.Seconds.of_string from) (* TODO consider time instead of span *)
+        (Option.get_exn @@ Time.of_span @@ Time.Period.Seconds.of_string to')
       >>= fun l ->
-      let l = List.map (fun (str, date) -> `Tuple [Structure.Streams.to_yojson str; Time.Seconds.to_yojson date]) l in
+      let l = List.map (fun (str, date) -> `Tuple [ Structure.Streams.to_yojson str
+                                                  ; Time.Period.Seconds.to_yojson @@ Time.to_span date]) l in
       Json.respond_result @@ Result.return (`List l))
     (function Failure e -> respond_error e ())
                                  
-let archive_handle api id meth args sock_data _ body =
-  match meth, args with
+let archive_handle api id meth uri_sep sock_data _ body =
+  match meth, Common.Uri.sep_path uri_sep with
   | `GET,  ["structures";i;num]   -> get_structures api i num ()
   | `GET,  ["structures_between";i;num;from;to'] -> get_structures_between api i num from to' ()
   | _                             -> not_found ()               

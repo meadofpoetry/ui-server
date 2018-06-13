@@ -81,9 +81,9 @@ let get_topology_socket sock_data body app () =
 
   
   
-let handle app id meth args sock_data _ body =
+let handle app id meth uri_sep sock_data _ body =
   let is_guest = Common.User.eq id `Guest in
-  match meth, args with
+  match meth, Common.Uri.sep_path uri_sep with
   | `GET, []                    -> get_page ()
   | `GET, ["topology_sock"]     -> get_topology_socket sock_data body app ()
   | `GET, ["topology"]          -> get_topology app ()

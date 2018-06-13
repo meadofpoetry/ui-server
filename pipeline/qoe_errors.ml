@@ -10,7 +10,7 @@ type error =
   { counter   : int
   ; size      : int
   ; params    : params
-  ; timestamp : Common.Time.Useconds.t (* TODO to seconds *)
+  ; timestamp : Common.Time.Period.Useconds.t (* TODO to seconds *)
   ; peak_flag : bool
   ; cont_flag : bool
   } [@@deriving yojson]

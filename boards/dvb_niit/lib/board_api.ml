@@ -82,11 +82,11 @@ let config_ws sock_data (events : events) body =
 let measures_ws sock_data (events : events) body =
   sock_handler sock_data events.measure measure_response_to_yojson body
 
-let handle api events id s_state _ meth args sock_data _ body =
+let handle api events id s_state _ meth uri_sep sock_data _ body =
   let open Lwt.Infix in
   let open Api.Redirect in
   (* let redirect_if_guest = redirect_if (User.eq id `Guest) in *)
-  match meth, args with
+  match meth, Common.Uri.sep_path uri_sep with
   | `GET,  ["devinfo"]     -> devinfo api
   | `GET,  "plps"::[num]   -> plps api num
   | `GET,  ["config"]      -> config api

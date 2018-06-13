@@ -10,7 +10,7 @@ module Make ( User : sig type t end ) = struct
 
   module type HANDLER = sig
     val domain : string
-    val handle : User.t -> Cohttp.Code.meth -> string list -> socket_data ->
+    val handle : User.t -> Cohttp.Code.meth -> Common.Uri.sep -> socket_data ->
                  Cohttp.Header.t -> Cohttp_lwt.Body.t -> (Cohttp.Response.t * Cohttp_lwt.Body.t) Lwt.t
   end
   
@@ -25,20 +25,20 @@ module Make ( User : sig type t end ) = struct
       hndls;
     tbl
     
-  let handle tbl redir meth path sock_data headers body =
-    match path with
+  let handle tbl redir meth uri_sep sock_data headers body =
+    match Common.Uri.sep_path uri_sep with
     | key::tl -> let (module H : HANDLER) = Handlers.find tbl key in
-                 redir @@ wrap H.handle meth tl sock_data headers body
+                 redir @@ wrap H.handle meth (Common.Uri.upgrade_path uri_sep tl) sock_data headers body
     | _ -> not_found ()
 
   let add_layer (domain : string) (l : (module HANDLER) list) : (module HANDLER) =
     let tbl = create l in
     (module struct
        let domain = domain
-       let handle id meth path sock_data headers body =
-         match path with
+       let handle id meth uri_sep sock_data headers body =
+         match Common.Uri.sep_path uri_sep with
          | key::tl -> let (module H : HANDLER) = Handlers.find tbl key in
-                      H.handle id meth tl sock_data headers body
+                      H.handle id meth (Common.Uri.upgrade_path uri_sep tl) sock_data headers body
          | _ -> not_found ()
      end : HANDLER)
 

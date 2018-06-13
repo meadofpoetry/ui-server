@@ -52,7 +52,7 @@ module Show_float = struct
 end
   
        
-module Span = struct
+module Period = struct
   include Ptime.Span
 
   let ps_in_s = 1000_000_000_000L
@@ -111,7 +111,7 @@ module Span = struct
 end
 
 module Range = struct
-  type t = Ptime.t * Span.t
+  type t = Ptime.t * Ptime.Span.t
 
   let after time span : t = (time, span)
 
