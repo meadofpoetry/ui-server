@@ -37,8 +37,8 @@ let get_handler ~settings
         (body : Cohttp_lwt.Body.t) =
     let headers  = Request.headers req in
     let uri      = Request.uri req in
+    let resource_path = Uri.path uri in
     let sep_uri  = Common.Uri.sep uri in
-    let uri_string = Uri.path uri in
     let respond_page path id =
       let tbl = match id with
         | `Root     -> pages.root
@@ -46,7 +46,7 @@ let get_handler ~settings
         | `Guest    -> pages.guest
       in (try Hashtbl.find tbl (String.concat "/" path)
               |> fun page -> respond_string page ()
-          with _ -> resource settings.path uri_string)
+          with _ -> resource settings.path resource_path)
     in
     let meth      = Request.meth req in
     let redir     = auth_filter headers in
