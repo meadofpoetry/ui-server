@@ -154,7 +154,10 @@ module Relative = struct
       let weeks, days, hours, minutes, seconds = split_units x in
       let big   = List.filter_map if_z [ weeks, "W"; days,  "D"] |> String.concat "" in
       let small = List.filter_map if_z [ hours, "H"; minutes, "M"; seconds, "S"]  |> String.concat "" in
-      "P" ^ big ^ "T" ^ small
+      let part = "P" ^ big in
+      if String.is_empty small
+      then part
+      else part ^ "T" ^ small
               
   let of_string (s:string) : t =
     let open Angstrom in
