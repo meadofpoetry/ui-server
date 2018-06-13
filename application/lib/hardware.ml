@@ -1,6 +1,6 @@
 open Containers
 open Common.Topology
-open Meta_board
+open Boards.Board
 open Application_types
    
 module Map  = CCMap.Make(Int)
@@ -14,13 +14,13 @@ module Input_map = CCMap.Make(struct
                           if ci <> 0 then ci
                           else compare lid rid
                      end)
-         
+                 
 type in_push = (url * Common.Stream.t) list -> unit
 type input_control  = { inputs : in_push Input_map.t
-                      ; boards : Meta_board.stream_handler Map.t
+                      ; boards : stream_handler Map.t
                       }
                     
-type t = { boards      : Meta_board.board Map.t
+type t = { boards      : Boards.Board.t Map.t
          ; usb         : Usb_device.t
          ; topo        : Common.Topology.t React.signal
          ; sources     : input_control
@@ -29,17 +29,17 @@ type t = { boards      : Meta_board.board Map.t
          }
 
 let create_board db usb (b:topo_board) boards path step_duration =
-  let (module B : Meta_board.BOARD) =
+  let (module B : BOARD) =
     match b.typ, b.model, b.manufacturer, b.version with
-    | "DVB",   "rf",       "niitv",  1  -> (module Board_dvb_niit   : Meta_board.BOARD)
-    | "IP2TS", "dtm-3200", "dektec", 1  -> (module Board_ip_dektec  : Meta_board.BOARD)
-    | "TS",    "qos",      "niitv",  1  -> (module Board_qos_niit   : Meta_board.BOARD)
-    | "TS2IP", "ts2ip",    "niitv",  1  -> (module Board_ts2ip_niit : Meta_board.BOARD)
+    | "DVB",   "rf",       "niitv",  1  -> (module Board_dvb_niit   : BOARD)
+    | "IP2TS", "dtm-3200", "dektec", 1  -> (module Board_ip_dektec  : BOARD)
+    | "TS",    "qos",      "niitv",  1  -> (module Board_qos_niit   : BOARD)
+    | "TS2IP", "ts2ip",    "niitv",  1  -> (module Board_ts2ip_niit : BOARD)
     | _ -> raise (Failure ("create board: unknown board "))
   in
   B.create b
-           (Meta_board.get_streams boards b)
-           (Meta_board.merge_streams boards)
+           (get_streams boards b)
+           (merge_streams boards)
            (Usb_device.get_send usb b.control)
            db path step_duration
 
@@ -159,7 +159,7 @@ let create config db (topo : Common.Topology.t) =
   let topo    = topo_to_signal topo boards in
   { boards; usb; topo; sources; streams; uri_storage }, loop ()
 
-exception Constraints of Meta_board.set_error
+exception Constraints of set_error
 
 let set_stream hw (ss : stream_setting) =
   let open Lwt_result.Infix in

@@ -12,7 +12,7 @@
   (libraries (containers yojson caqti-lwt
               lwt lwt_react websocket-lwt.cohttp
               api storage common pc_control pipeline usb_device
-              meta_board board-dvb-niit board-ip-dektec
+              boards board-dvb-niit board-ip-dektec
               board-qos-niit board-ts2ip-niit))
   (preprocess (pps (ppx_deriving_yojson ppx_deriving.eq)))))
 

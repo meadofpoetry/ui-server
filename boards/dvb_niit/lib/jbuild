@@ -7,7 +7,7 @@
   (ocamlopt_flags (:standard -short-paths -bin-annot
                    -thread -w "+1..49+60" -w "+a-4-7-23-33-39-40-41-42-44-45-48"
                    -Oclassic))
-  (libraries (containers lwt_react websocket-lwt.cohttp common storage meta_board api))
+  (libraries (containers lwt_react websocket-lwt.cohttp common storage boards api))
   (preprocess (pps (ppx_cstruct ppx_deriving_yojson ppx_deriving.eq)))))
 
 (rule

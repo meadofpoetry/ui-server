@@ -3,8 +3,8 @@ open Board_types
 open Lwt.Infix
 open Storage.Options
 open Api.Handler
-open Meta_board
-open Meta_board.Msg
+open Boards.Board
+open Boards.Messaging
 
 include Board_parser
 
@@ -63,7 +63,7 @@ module SM = struct
       `Continue (step_detect period None)
 
     and step_detect p acc recvd =
-      let _,rsps,acc = deserialize (Meta_board.concat_acc acc recvd) in
+      let _,rsps,acc = deserialize (concat_acc acc recvd) in
       match List.find_map (is_response Get_board_info) rsps with
       | Some r -> push_state `Init;
                   push_info @@ Some r;
@@ -75,7 +75,7 @@ module SM = struct
                 else `Continue (step_detect (pred p) acc)
 
     and step_normal_idle info p acc recvd =
-      let events,rsps,acc = deserialize (Meta_board.concat_acc acc recvd) in
+      let events,rsps,acc = deserialize (concat_acc acc recvd) in
       if Option.is_none @@ List.find_map (is_response Get_board_info) rsps
       then (Queue.send !imsgs () |> ignore;
             imsgs := Queue.next !imsgs;
