@@ -3,8 +3,8 @@ open Board_types
 open Lwt.Infix
 open Storage.Options
 open Api.Handler
-open Meta_board
-open Meta_board.Msg
+open Boards.Board
+open Boards.Pools
 
 include Board_parser
 
@@ -299,7 +299,7 @@ module SM = struct
       `Continue (step_detect period None)
 
     and step_detect p acc recvd =
-      let _, _, rsps, _, acc = deserialize [] (Meta_board.concat_acc acc recvd) in
+      let _, _, rsps, _, acc = deserialize [] (concat_acc acc recvd) in
       match List.find_map (is_response Get_board_info) rsps with
       | Some info -> push_state `Init;
                      push_events.devinfo (Some info);
@@ -314,7 +314,7 @@ module SM = struct
                      else `Continue (step_detect (pred p) acc)
 
     and step_normal_idle sb p prev_group prev_events parts acc recvd =
-      let events,_,rsps,parts,acc = deserialize parts (Meta_board.concat_acc acc recvd) in
+      let events,_,rsps,parts,acc = deserialize parts (concat_acc acc recvd) in
       if Option.is_none @@ List.find_map (is_response Get_board_info) rsps
       then
         let events = prev_events @ events in
@@ -345,7 +345,7 @@ module SM = struct
             `Continue (step_normal_probes_wait sb pool period prev_idle_gp gp events parts acc))
 
     and step_normal_probes_wait sb pool p prev_idle_gp gp prev_events parts acc recvd =
-      let events,ev_rsps,rsps,parts,acc = deserialize parts (Meta_board.concat_acc acc recvd) in
+      let events,ev_rsps,rsps,parts,acc = deserialize parts (concat_acc acc recvd) in
       let events = prev_events @ events in
       handle_msgs rsps;
       let gp,events = (match Events_handler.partition events (Some gp) with

@@ -1,19 +1,20 @@
 open Containers
 open Lwt.Infix
+open Boards
 
-       [@@@ocaml.warning "-32"]
+[@@@ocaml.warning "-32"]
 
-       [%%cstruct
-        type header =
-          { prefix : uint16_t
-          ; port   : uint8_t
-          ; length : uint8_t
-          } [@@big_endian]]
+[%%cstruct
+ type header =
+   { prefix : uint16_t
+   ; port   : uint8_t
+   ; length : uint8_t
+   } [@@big_endian]]
 
-       [@@@ocaml.warning "+32"]
+[@@@ocaml.warning "+32"]
 
-type 'a cc = 'a Meta_board.cc
-           
+type 'a cc = 'a Boards.Board.cc
+
 type t = { dispatch : (int * (Cbuffer.t list -> 'c cc as 'c) cc) list ref
          ; send     : int -> Cbuffer.t -> unit Lwt.t
          ; usb      : Cyusb.t
@@ -38,8 +39,6 @@ let serialize port buf =
   let len     = (buf_len / 2) + (if parity then 1 else 0) in
   let buf'    = if parity then Cbuffer.append buf (Cbuffer.create 1) else buf in
   Cbuffer.append (to_header port parity len) buf'
-
-let io x = Lwt_io.printf "%s\n" x |> ignore 
 
 type err = Bad_prefix           of int
          | Bad_length           of int
@@ -96,8 +95,7 @@ let deserialize acc buf =
           | Ok (msg,rest) -> f (msg :: acc) rest
           | Error e       -> (match e with
                               | Insufficient_payload b -> acc, b
-                              | e                      -> io ("\n !!! Usb_device: " ^ string_of_err e);
-                                                          f acc (Cbuffer.shift b 1)))
+                              | e                      -> f acc (Cbuffer.shift b 1)))
     else acc,b in
   let msgs,new_acc = f [] buf in
   (if Cbuffer.len new_acc > 0 then Some new_acc else None), msgs
@@ -118,7 +116,7 @@ let apply disp msg_list =
     let msgs = List.filter_map
                  (fun (i,msg) -> if Int.equal i id then Some msg else None)
                  msg_list in
-    (id, Meta_board.apply step msgs)
+    (id, Boards.Board.apply step msgs)
   in
   List.map apply' disp
 

@@ -2,12 +2,9 @@ open Containers
 open Board_types
 open Lwt.Infix
 open Storage.Options
-open Meta_board
-open Meta_board.Msg
+open Boards.Board
+open Boards.Pools
 
-(* TODO remove *)
-let (=) = Pervasives.(=)
-   
 include Board_parser
 
 (* Board protocol implementation *)
@@ -160,7 +157,7 @@ module SM = struct
       } in
 
     let find_resp req acc recvd ~success ~failure =
-      let responses,acc = deserialize (Meta_board.concat_acc acc recvd) in
+      let responses,acc = deserialize (concat_acc acc recvd) in
       (match List.find_map (is_response req) responses with
        | Some x -> success x acc
        | None   -> failure acc) in
@@ -256,7 +253,7 @@ module SM = struct
 
     and step_get_ip p req acc recvd =
       find_resp req acc recvd
-                ~success:(fun resp _ -> if resp = storage#get.nw.ip
+                ~success:(fun resp _ -> if equal_addr resp storage#get.nw.ip
                                         then (let r = Nw Get_mask in
                                               send r; `Continue (step_get_mask false period r None))
                                         else (let r = Nw (Set_ip storage#get.nw.ip) in
@@ -271,7 +268,7 @@ module SM = struct
 
     and step_get_mask need_reboot p req acc recvd =
       find_resp req acc recvd
-                ~success:(fun resp _ -> if resp = storage#get.nw.mask
+                ~success:(fun resp _ -> if equal_mask resp storage#get.nw.mask
                                         then (let r = Nw Get_gateway in
                                               send r; `Continue (step_get_gateway need_reboot period r None))
                                         else (let r = Nw (Set_mask storage#get.nw.mask) in
@@ -286,7 +283,7 @@ module SM = struct
 
     and step_get_gateway need_reboot p req acc recvd =
       find_resp req acc recvd
-                ~success:(fun resp _ -> if resp = storage#get.nw.gateway
+                ~success:(fun resp _ -> if equal_gateway resp storage#get.nw.gateway
                                         then (let r = Nw Get_dhcp in
                                               send r; `Continue (step_get_dhcp need_reboot period r None))
                                         else (let r = Nw (Set_gateway storage#get.nw.gateway) in
@@ -301,7 +298,7 @@ module SM = struct
 
     and step_get_dhcp need_reboot p req acc recvd =
       find_resp req acc recvd
-                ~success:(fun resp _ -> if resp = storage#get.nw.dhcp
+                ~success:(fun resp _ -> if Equal.bool resp storage#get.nw.dhcp
                                         then (step_need_reboot need_reboot)
                                         else (let r = Nw (Set_dhcp storage#get.nw.dhcp) in
                                               send r; `Continue (step_init_dhcp period r None)))
@@ -404,7 +401,7 @@ module SM = struct
             `Continue (step_normal_probes_wait pool prev_status events (succ period_timer) acc))
 
     and step_normal_probes_wait pool prev_status events period_timer acc recvd =
-      let responses,acc = deserialize (Meta_board.concat_acc acc recvd) in
+      let responses,acc = deserialize (concat_acc acc recvd) in
 
       try
         (match Pool.responsed pool responses with
@@ -428,7 +425,7 @@ module SM = struct
               `Continue (step_normal_requests_wait probes_pool status (succ period_timer) acc))
 
     and step_normal_requests_wait probes_pool status period_timer acc recvd =
-      let responses, acc = deserialize (Meta_board.concat_acc acc recvd) in
+      let responses, acc = deserialize (concat_acc acc recvd) in
       try
         match Queue.responsed !msgs responses with
         | None    -> msgs := Queue.step !msgs;

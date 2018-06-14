@@ -3,17 +3,17 @@ open Board_types
 open Lwt.Infix
 open Storage.Options
 open Api.Handler
-open Meta_board
-open Meta_board.Msg
-   
+open Boards.Board
+open Boards.Pools
+
 include Board_parser
-      
+
 let ( % ) = Fun.(%)
-          
+
 (* Board protocol implementation *)
 
 let timeout_period step_duration = 2 * int_of_float (1. /. step_duration) (* 2 secs *)
-                                 
+
 let request_period step_duration = 5 * int_of_float (1. /. step_duration) (* 5 secs *)
 
 let detect = Get_devinfo
@@ -122,7 +122,7 @@ module SM = struct
     and step_detect detect_pool acc recvd =
       try
         (*Lwt_io.printf "Detect step\n" |> ignore;*)
-        let recvd = Meta_board.concat_acc acc recvd in
+        let recvd = concat_acc acc recvd in
         let _, responses, acc = deserialize recvd in
         match Pool.responsed detect_pool responses with
         | Some detect -> push_state `Init;
@@ -145,7 +145,7 @@ module SM = struct
     and step_init init_pool probes acc recvd =
       try
         (*Lwt_io.printf "Init step\n" |> ignore;*)
-        let recvd = Meta_board.concat_acc acc recvd in
+        let recvd = concat_acc acc recvd in
         let _, responses, acc = deserialize recvd in
         match Pool.responsed init_pool responses with
         | None    -> `Continue (step_init (Pool.step init_pool) probes acc)
@@ -172,7 +172,7 @@ module SM = struct
 
     and step_normal_probes_wait probes_pool period_timer acc recvd =
       (*Lwt_io.printf "Normal step probes recv\n" |> ignore;*)
-      let recvd_buf = Meta_board.concat_acc acc recvd in
+      let recvd_buf = concat_acc acc recvd in
       let events, _, acc = deserialize recvd_buf in
 
       try
@@ -200,7 +200,7 @@ module SM = struct
 
     and step_normal_requests_wait probes_pool period_timer acc recvd =
       (*Lwt_io.printf "Normal step requests recv\n" |> ignore;*)
-      let recvd = Meta_board.concat_acc acc recvd in
+      let recvd = concat_acc acc recvd in
       let _, responses, acc = deserialize recvd in
       try
         match Queue.responsed !msgs responses with
