@@ -8,25 +8,23 @@ class type t_js =
     method scales    : Axes.Cartesian.t_js Js.t Js.prop
   end
 
-class t ~(x_axis:('a,_,_) #Axes_cartesian_common.t) ~(y_axis:('b,_,_) #Axes_cartesian_common.t)
-        () =
-object
+class t ~(x_axes:#base_option list) ~(y_axes:#base_option list) () =
+  let o : t_js Js.t = Js.Unsafe.coerce @@ Js.Unsafe.obj [||] in
+  object
+    inherit Options.t o () as super
 
-  inherit [t_js] Options.t () as super
+    val _scales = new Axes.Cartesian.t ~x_axes ~y_axes ()
 
-  val _scales = new Axes.Cartesian.t ~x_axes:[x_axis] ~y_axes:[y_axis] ()
+    (** If false, the lines between points are not drawn. *)
+    method show_lines : bool = Js.to_bool _obj##.showLines
+    method set_show_lines x = _obj##.showLines := Js.bool x
 
-  (** If false, the lines between points are not drawn. *)
-  method show_lines : bool = Js.to_bool obj##.showLines
-  method set_show_lines x = obj##.showLines := Js.bool x
+    (** If false, NaN data causes a break in the line. *)
+    method span_gaps : bool = Js.to_bool _obj##.spanGaps
+    method set_span_gaps x = _obj##.spanGaps := Js.bool x
 
-  (** If false, NaN data causes a break in the line. *)
-  method span_gaps : bool = Js.to_bool obj##.spanGaps
-  method set_span_gaps x = obj##.spanGaps := Js.bool x
+    method! replace x = super#replace x; _scales#replace _obj##.scales
 
-  method! replace x = super#replace x; _scales#replace obj##.scales
-
-  initializer
-    obj##.scales := _scales#get_obj
-
-end
+    initializer
+      _obj##.scales := Js.Unsafe.coerce _scales#get_obj
+  end

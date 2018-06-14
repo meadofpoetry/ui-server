@@ -5,7 +5,6 @@ open Board_types
 
 type 'a point  = (Common.Time.t,'a) Chartjs.Line.point
 type 'a data   = (int * ('a point list)) list
-type 'a chart  = (Common.Time.t,'a) Chartjs.Line.t
 
 type settings =
   { range : (float * float) option
@@ -49,7 +48,7 @@ let make_chart_base ~(config: config)
   let delta    = config.duration in
   let x_axis   = new Chartjs.Line.Axes.Time.t ~delta ~id:"x-axis" ~position:`Bottom ~typ:Ptime () in
   let y_axis   = new Chartjs.Line.Axes.Linear.t ~id:"y-axis" ~position:`Left ~typ:Float () in
-  let options  = new Chartjs.Line.Options.t ~x_axis ~y_axis () in
+  let options  = new Chartjs.Line.Options.t ~x_axes:[x_axis] ~y_axes:[y_axis] () in
   let datasets = List.map (fun (id,data) ->
                      let label = Printf.sprintf "Модуль %d" @@ succ id in
                      new Chartjs.Line.Dataset.t ~label ~data ~x_axis ~y_axis ())
@@ -75,9 +74,9 @@ let make_chart_base ~(config: config)
   let set   = fun ds data -> List.iter (fun point -> ds#push point) data;
                              chart#update None
   in
-  let _ = React.E.map (fun datasets -> List.iter (fun (id,data) -> Option.iter (fun ds -> set ds data)
-                                                                   @@ List.get_at_idx id chart#datasets)
-                                                 datasets)
+  let _ = React.E.map (fun d -> List.iter (fun (id,data) -> Option.iter (fun ds -> set ds data)
+                                                            @@ List.get_at_idx id datasets)
+                                          d)
                       event in
   let settings,s_settings = make_settings { range = None } in
   Dashboard.Item.to_item

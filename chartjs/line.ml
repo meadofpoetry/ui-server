@@ -14,14 +14,15 @@ class type data_js =
 
 let to_data_js datasets : data_js Js.t =
   object%js
-    val mutable datasets = List.map (fun x -> x#get_obj) datasets |> Array.of_list |> Js.array
+    val mutable datasets = List.map (fun x -> Js.Unsafe.coerce x#get_obj) datasets
+                           |> Array.of_list
+                           |> Js.array
   end
 
-class ['a,'b] t ~(options:Options.t) ~(datasets:('a,'b) Dataset.t list) () =
+class t ~(options:Options.t) ~(datasets:#Dataset.t_base list) () =
   let data = to_data_js datasets |> Js.Unsafe.inject in
   object
-    inherit [Line_options.t,Line_options.t_js] Base_chart.t ~typ:`Line ~options ~data ()
+    inherit Base_chart.t ~typ:`Line ~options ~data ()
 
-    method datasets = datasets
     method options  = options
   end

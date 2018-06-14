@@ -135,47 +135,47 @@ module Tick = struct
 
   class virtual t () = object(self)
     inherit tick_common ()
-    val mutable virtual obj : #t_js Js.t
+    val mutable virtual _obj : #t_js Js.t
 
     (** If true, automatically calculates how many labels
         that can be shown and hides labels accordingly.
         Turn it off to show all labels no matter what *)
-    method auto_skip : bool = Js.to_bool obj##.autoSkip
-    method set_auto_skip x = obj##.autoSkip := Js.bool x
+    method auto_skip : bool = Js.to_bool _obj##.autoSkip
+    method set_auto_skip x = _obj##.autoSkip := Js.bool x
 
     (** Padding between the ticks on the horizontal axis when autoSkip is enabled.
         Note: Only applicable to hypotorizontal scales. *)
-    method auto_skip_padding : int = obj##.autoSkipPadding
-    method set_auto_skip_padding x = obj##.autoSkipPadding := x
+    method auto_skip_padding : int = _obj##.autoSkipPadding
+    method set_auto_skip_padding x = _obj##.autoSkipPadding := x
 
     (** Distance in pixels to offset the label from the centre point
         of the tick (in the y direction for the x axis, and the x direction for the y axis).
         Note: this can cause labels at the edges to be cropped by the edge of the canvas *)
-    method label_offset : int = obj##.labelOffset
-    method set_label_offset x = obj##.labelOffset := x
+    method label_offset : int = _obj##.labelOffset
+    method set_label_offset x = _obj##.labelOffset := x
 
     (** Maximum rotation for tick labels when rotating to condense labels.
         Note: Rotation doesn't occur until necessary.
         Note: Only applicable to horizontal scales. *)
-    method max_rotation : int = obj##.maxRotation
-    method set_max_rotation x = obj##.maxRotation := x
+    method max_rotation : int = _obj##.maxRotation
+    method set_max_rotation x = _obj##.maxRotation := x
 
     (** Minimum rotation for tick labels.
         Note: Only applicable to horizontal scales. *)
-    method min_rotation : int = obj##.minRotation
-    method set_min_rotation x = obj##.minRotation := x
+    method min_rotation : int = _obj##.minRotation
+    method set_min_rotation x = _obj##.minRotation := x
 
     (** Flips tick labels around axis, displaying the labels
         inside the chart instead of outside.
         Note: Only applicable to vertical scales. *)
-    method mirror : bool = Js.to_bool obj##.mirror
-    method set_mirror x = obj##.mirror := Js.bool x
+    method mirror : bool = Js.to_bool _obj##.mirror
+    method set_mirror x = _obj##.mirror := Js.bool x
 
     (** Padding between the tick label and the axis.
         When set on a vertical axis, this applies in the horizontal (X) direction.
         When set on a horizontal axis, this applies in the vertical (Y) direction. *)
-    method padding : int = obj##.padding
-    method set_padding x = obj##.padding := x
+    method padding : int = _obj##.padding
+    method set_padding x = _obj##.padding := x
 
     initializer
       self#set_auto_skip true;
@@ -206,14 +206,72 @@ class type t_js =
     method stacked            : bool Js.t Js.optdef_prop
   end
 
-class virtual ['a,'b,'c] t ~id ~position ~(axis:('a,'b) axis) () =
+class t_base ~id ~position ~(axis:(_,_) axis) (o:'c Js.t) () =
+object(self)
+  constraint 'c = #t_js
+  inherit base_option o () as super
+
+  val _grid_lines  = new Axes_grid_line.t ()
+  val _scale_label = new Axes_scale_label.t ()
+
+  (** Position of the axis in the chart. Possible values are: Top, Left, Bottom, Right *)
+  method position : position = position_of_string_exn @@ Js.to_string _obj##.position
+  method set_position (x:position) = _obj##.position := Js.string @@ position_to_string x
+
+  (** If true, extra space is added to the both edges and the axis is scaled
+        to fit into the chart area. This is set to true in the bar chart by default. *)
+  method offset : bool = Js.to_bool _obj##.offset
+  method set_offset x = _obj##.offset := Js.bool x
+
+  (** The ID is used to link datasets and scale axes together. *)
+  method id : string = Js.to_string _obj##.id
+
+  (** Grid line configuration. *)
+  method grid_lines : Axes_grid_line.t = _grid_lines
+
+  (** Scale title configuration. *)
+  method scale_label : Axes_scale_label.t = _scale_label
+
+  (* FIXME specific for bar chart only !!! *)
+  method bar_percentage = _obj##.barPercentage
+  method set_bar_percentage x = _obj##.barPercentage := x
+
+  method category_percentage = _obj##.categoryPercentage
+  method set_category_percentage x = _obj##.categoryPercentage := x
+
+  method bar_thickness = Js.Optdef.to_option _obj##.barThickness
+  method set_bar_thickness x = _obj##.barThickness := x
+
+  method max_bar_thickness = Js.Optdef.to_option _obj##.maxBarThickness
+  method set_max_bar_thickness x = _obj##.maxBarThickness := x
+
+  method stacked = Option.map Js.to_bool @@ Js.Optdef.to_option _obj##.stacked
+  method set_stacked x = _obj##.stacked := Js.bool x
+
+  method coerce_base : t_base = (self :> t_base)
+
+  method! replace x = super#replace x;
+                      self#grid_lines#replace _obj##.gridLines;
+                      self#scale_label#replace _obj##.scaleLabel
+
+  initializer
+    _obj##.type_ := Js.string @@ axis_to_type_string axis;
+    self#set_position position;
+    self#set_offset false;
+    _obj##.id := Js.string id;
+    _obj##.gridLines  := Js.Unsafe.coerce self#grid_lines#get_obj;
+    _obj##.scaleLabel := Js.Unsafe.coerce self#scale_label#get_obj;
+    (* FIXME specific for bar chart only !!! *)
+    self#set_bar_percentage 0.9;
+    self#set_category_percentage 0.8
+end
+
+class virtual ['a,'b] t ~id ~position ~(axis:('a,'b) axis) (o:'c Js.t) () =
   let s_max,s_max_push = React.S.create None in
   object(self)
 
     constraint 'c = #t_js
-    inherit ['c] base_option () as super
-    val _grid_lines  = new Axes_grid_line.t ()
-    val _scale_label = new Axes_scale_label.t ()
+    inherit t_base ~id ~position ~axis o () as super
 
     method virtual max     : 'a option
     method virtual set_max : 'a option -> unit
@@ -235,56 +293,9 @@ class virtual ['a,'b,'c] t ~id ~position ~(axis:('a,'b) axis) () =
 
     method get_max_value = axis_max_value axis
 
+    method coerce_common : ('a,'b) t = (self :> ('a,'b) t)
+
     method value_to_js (x:'a) : Line_types.axis_value_js Js.t = axis_value_to_js axis x
     method value_of_js (x:Line_types.axis_value_js Js.t) : 'a = axis_value_of_js axis x
 
-    (** Position of the axis in the chart. Possible values are: Top, Left, Bottom, Right *)
-    method position : position = position_of_string_exn @@ Js.to_string obj##.position
-    method set_position (x:position) = obj##.position := Js.string @@ position_to_string x
-
-    (** If true, extra space is added to the both edges and the axis is scaled
-        to fit into the chart area. This is set to true in the bar chart by default. *)
-    method offset : bool = Js.to_bool obj##.offset
-    method set_offset x = obj##.offset := Js.bool x
-
-    (** The ID is used to link datasets and scale axes together. *)
-    method id : string = Js.to_string obj##.id
-    method set_id x = obj##.id := Js.string x
-
-    (** Grid line configuration. *)
-    method grid_lines : Axes_grid_line.t = _grid_lines
-
-    (** Scale title configuration. *)
-    method scale_label : Axes_scale_label.t = _scale_label
-
-    (* FIXME specific for bar chart only !!! *)
-    method bar_percentage = obj##.barPercentage
-    method set_bar_percentage x = obj##.barPercentage := x
-
-    method category_percentage = obj##.categoryPercentage
-    method set_category_percentage x = obj##.categoryPercentage := x
-
-    method bar_thickness = Js.Optdef.to_option obj##.barThickness
-    method set_bar_thickness x = obj##.barThickness := x
-
-    method max_bar_thickness = Js.Optdef.to_option obj##.maxBarThickness
-    method set_max_bar_thickness x = obj##.maxBarThickness := x
-
-    method stacked = Option.map Js.to_bool @@ Js.Optdef.to_option obj##.stacked
-    method set_stacked x = obj##.stacked := Js.bool x
-
-    method! replace x = super#replace x;
-                        self#grid_lines#replace obj##.gridLines;
-                        self#scale_label#replace obj##.scaleLabel
-
-    initializer
-      obj##.type_ := Js.string @@ axis_to_type_string axis;
-      self#set_position position;
-      self#set_offset false;
-      obj##.id := Js.string id;
-      obj##.gridLines  := self#grid_lines#get_obj;
-      obj##.scaleLabel := self#scale_label#get_obj;
-      (* FIXME specific for bar chart only !!! *)
-      self#set_bar_percentage 0.9;
-      self#set_category_percentage 0.8
   end

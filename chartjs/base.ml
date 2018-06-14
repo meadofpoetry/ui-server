@@ -169,9 +169,11 @@ let typ_to_string = function
   | `Pie    -> "pie"    | `Doughnut -> "doughnut" | `Polar -> "polarArea"
   | `Bubble -> "bubble" | `Scatter  -> "scatter"
 
-class ['a] base_option () = object
-  val mutable obj : 'a Js.t = Js.Unsafe.obj [||]
+type empty = < >
 
-  method get_obj   = obj
-  method replace x = obj <- x
+class base_option (obj:'a Js.t) () = object
+  val mutable _obj = obj
+  method get_obj : empty Js.t  = Js.Unsafe.coerce _obj
+  method replace : 'a. 'a Js.t -> unit =
+    fun x -> _obj <- (Js.Unsafe.coerce x)
 end

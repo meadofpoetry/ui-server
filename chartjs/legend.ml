@@ -42,62 +42,66 @@ let position_to_string = function
 let position_of_string_exn = function
   | "top" -> `Top | "left" -> `Left | "bottom" -> `Bottom | "right" -> `Right | _ -> failwith "Bad position string"
 
-class labels () = object(self)
-  inherit [labels_js] base_option ()
-  inherit [labels_js] Font.t { size   = 12
-                             ; color  = CSS.Color.rgb 102 102 102
-                             ; family = "'Helvetica Neue','Helvetica','Arial',sans-serif"
-                             ; style  = `Normal
-                             } ()
+class labels () =
+  let o : labels_js Js.t = Js.Unsafe.coerce @@ Js.Unsafe.obj [||] in
+  object(self)
+    inherit base_option o ()
+    inherit Font.t { size   = 12
+                   ; color  = CSS.Color.rgb 102 102 102
+                   ; family = "'Helvetica Neue','Helvetica','Arial',sans-serif"
+                   ; style  = `Normal
+                   } ()
 
-  (** width of coloured box *)
-  method box_width : int = obj##.boxWidth
-  method set_box_width x = obj##.boxWidth := x
+    (** width of coloured box *)
+    method box_width : int = _obj##.boxWidth
+    method set_box_width x = _obj##.boxWidth := x
 
-  (** Padding between rows of colored boxes. *)
-  method padding : int = obj##.padding
-  method set_padding x = obj##.padding := x
+    (** Padding between rows of colored boxes. *)
+    method padding : int = _obj##.padding
+    method set_padding x = _obj##.padding := x
 
-  (** Label style will match corresponding point style (size is based on fontSize,
+    (** Label style will match corresponding point style (size is based on fontSize,
       boxWidth is not used in this case). *)
-  method use_point_style : bool = Js.to_bool obj##.usePointStyle
-  method set_use_point_style x = obj##.usePointStyle := Js.bool x
+    method use_point_style : bool = Js.to_bool _obj##.usePointStyle
+    method set_use_point_style x = _obj##.usePointStyle := Js.bool x
 
-  initializer
-    self#set_box_width 40;
-    self#set_padding 10;
-    self#set_use_point_style false
-end
+    initializer
+      self#set_box_width 40;
+      self#set_padding 10;
+      self#set_use_point_style false
+  end
 
-class t () = object(self)
-  inherit [t_js] base_option () as super
-  val _labels = new labels ()
+class t () =
+  let o : t_js Js.t = Js.Unsafe.coerce @@ Js.Unsafe.obj [||] in
+  object(self)
+    inherit base_option o () as super
+    val _labels = new labels ()
 
-  (** is the legend shown *)
-  method display : bool = Js.to_bool obj##.display
-  method set_display x = obj##.display := Js.bool x
+    (** is the legend shown *)
+    method display : bool = Js.to_bool _obj##.display
+    method set_display x = _obj##.display := Js.bool x
 
-  (** Position of the legend. *)
-  method position : position = position_of_string_exn @@ Js.to_string obj##.position
-  method set_position (x:position) = obj##.position := Js.string @@ position_to_string x
+    (** Position of the legend. *)
+    method position : position = position_of_string_exn @@ Js.to_string _obj##.position
+    method set_position (x:position) = _obj##.position := Js.string @@ position_to_string x
 
-  (** Marks that this box should take the full width of the canvas (pushing down other boxes).
+    (** Marks that this box should take the full width of the canvas (pushing down other boxes).
       This is unlikely to need to be changed in day-to-day use. *)
-  method full_width : bool = Js.to_bool obj##.fullWidth
-  method set_full_width x = obj##.fullWidth := Js.bool x
+    method full_width : bool = Js.to_bool _obj##.fullWidth
+    method set_full_width x = _obj##.fullWidth := Js.bool x
 
-  (** Legend will show datasets in reverse order. *)
-  method reverse : bool = Js.to_bool obj##.reverse
-  method set_reverse x = obj##.reverse := Js.bool x
+    (** Legend will show datasets in reverse order. *)
+    method reverse : bool = Js.to_bool _obj##.reverse
+    method set_reverse x = _obj##.reverse := Js.bool x
 
-  method labels = _labels
+    method labels = _labels
 
-  method! replace x = super#replace x; self#labels#replace obj##.labels
+    method! replace x = super#replace x; self#labels#replace _obj##.labels
 
-  initializer
-    self#set_display true;
-    self#set_position `Top;
-    self#set_full_width true;
-    self#set_reverse false;
-    obj##.labels := self#labels#get_obj;
-end
+    initializer
+      self#set_display true;
+      self#set_position `Top;
+      self#set_full_width true;
+      self#set_reverse false;
+      _obj##.labels := Js.Unsafe.coerce self#labels#get_obj;
+  end

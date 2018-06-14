@@ -10,24 +10,28 @@ module Cartesian = struct
 
   class type t_js =
     object
-      method xAxes : 'a Js.t Js.js_array Js.t Js.prop
-      method yAxes : 'a Js.t Js.js_array Js.t Js.prop
+      method xAxes : 'a. 'a Js.t Js.js_array Js.t Js.prop
+      method yAxes : 'a. 'a Js.t Js.js_array Js.t Js.prop
     end
 
-  class t ~(x_axes:'a list) ~(y_axes:'b list) () = object
-    inherit [t_js] base_option () as super
-    val _x_axes = x_axes
-    val _y_axes = y_axes
+  class t ~(x_axes:#Axes_cartesian_common.t_base list)
+          ~(y_axes:#Axes_cartesian_common.t_base list)
+          () =
+    let o : t_js Js.t = Js.Unsafe.coerce @@ Js.Unsafe.obj [||] in
+    object
+      inherit base_option o () as super
+      val _x_axes : base_option list = List.map (fun x -> (x :> base_option)) x_axes
+      val _y_axes : base_option list = List.map (fun x -> (x :> base_option)) y_axes
 
-    method! replace x =
-      super#replace x;
-      List.iter2 (fun x y -> x#replace y) x_axes (Array.to_list @@ Js.to_array obj##.xAxes);
-      List.iter2 (fun x y -> x#replace y) y_axes (Array.to_list @@ Js.to_array obj##.yAxes)
+      method! replace x =
+        super#replace x;
+        List.iter2 (fun (x:base_option) y -> x#replace y) _x_axes (Array.to_list @@ Js.to_array _obj##.xAxes);
+        List.iter2 (fun (x:base_option) y -> x#replace y) _y_axes (Array.to_list @@ Js.to_array _obj##.yAxes)
 
-    initializer
-      obj##.xAxes := Js.array @@ Array.of_list @@ List.map (fun x -> x#get_obj) _x_axes;
-      obj##.yAxes := Js.array @@ Array.of_list @@ List.map (fun x -> x#get_obj) _y_axes
-  end
+      initializer
+        _obj##.xAxes := Js.array @@ Array.of_list @@ List.map (fun x -> x#get_obj) _x_axes;
+        _obj##.yAxes := Js.array @@ Array.of_list @@ List.map (fun x -> x#get_obj) _y_axes
+    end
 
 end
 

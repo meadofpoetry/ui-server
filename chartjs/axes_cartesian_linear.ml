@@ -16,47 +16,49 @@ module Tick = struct
       method suggestedMin  : 'a Js.opt Js.prop
     end
 
-  class ['a] t () = object(self)
+  class ['a] t () =
+    let o : 'a t_js Js.t = Js.Unsafe.coerce @@ Js.Unsafe.obj [||] in
+    object(self)
 
-    inherit ['a t_js] base_option ()
-    inherit Axes_cartesian_common.Tick.t ()
+      inherit base_option o ()
+      inherit Axes_cartesian_common.Tick.t ()
 
-    (** if true, scale will include 0 if it is not already included. *)
-    method begin_at_zero   = Js.to_bool obj##.beginAtZero
-    method set_begin_at_zero x = obj##.beginAtZero := Js.bool x
+      (** if true, scale will include 0 if it is not already included. *)
+      method begin_at_zero   = Js.to_bool _obj##.beginAtZero
+      method set_begin_at_zero x = _obj##.beginAtZero := Js.bool x
 
-    (** User defined minimum number for the scale, overrides minimum value from data. *)
-    method min : 'a option = Js.Opt.to_option obj##.min
-    method set_min (x:'a option) =
-      let v = match x with Some x -> Js.some x | None   -> Js.null in
-      obj##.min := v
+      (** User defined minimum number for the scale, overrides minimum value from data. *)
+      method min : 'a option = Js.Opt.to_option _obj##.min
+      method set_min (x:'a option) =
+        let v = match x with Some x -> Js.some x | None   -> Js.null in
+        _obj##.min := v
 
-    (** User defined maximum number for the scale, overrides maximum value from data. *)
-    method max : 'a option = Js.Opt.to_option obj##.max
-    method set_max (x:'a option) =
-      let v = match x with Some x -> Js.some x | None   -> Js.null in
-      obj##.max := v
+      (** User defined maximum number for the scale, overrides maximum value from data. *)
+      method max : 'a option = Js.Opt.to_option _obj##.max
+      method set_max (x:'a option) =
+        let v = match x with Some x -> Js.some x | None   -> Js.null in
+        _obj##.max := v
 
-    (** Maximum number of ticks and gridlines to show. *)
-    method max_ticks_limit : int = obj##.maxTicksLimit
-    method set_max_ticks_limit x = obj##.maxTicksLimit := x
+      (** Maximum number of ticks and gridlines to show. *)
+      method max_ticks_limit : int = _obj##.maxTicksLimit
+      method set_max_ticks_limit x = _obj##.maxTicksLimit := x
 
-    (** User defined fixed step size for the scale. *)
-    method step_size : float option = Js.Opt.to_option obj##.stepSize
-    method set_step_size x = obj##.stepSize := Js.some x
+      (** User defined fixed step size for the scale. *)
+      method step_size : float option = Js.Opt.to_option _obj##.stepSize
+      method set_step_size x = _obj##.stepSize := Js.some x
 
-    (** Adjustment used when calculating the maximum data value. *)
-    method suggested_max : 'a option = Js.Opt.to_option obj##.suggestedMax
-    method set_suggested_max (x:'a) = obj##.suggestedMax := Js.some x
+      (** Adjustment used when calculating the maximum data value. *)
+      method suggested_max : 'a option = Js.Opt.to_option _obj##.suggestedMax
+      method set_suggested_max (x:'a) = _obj##.suggestedMax := Js.some x
 
-    (** Adjustment used when calculating the minimum data value. *)
-    method suggested_min : 'a option = Js.Opt.to_option obj##.suggestedMin
-    method set_suggested_min (x:'a) = obj##.suggestedMin := Js.some x
+      (** Adjustment used when calculating the minimum data value. *)
+      method suggested_min : 'a option = Js.Opt.to_option _obj##.suggestedMin
+      method set_suggested_min (x:'a) = _obj##.suggestedMin := Js.some x
 
-    initializer
-      self#set_begin_at_zero false;
-      self#set_max_ticks_limit 11
-  end
+      initializer
+        self#set_begin_at_zero false;
+        self#set_max_ticks_limit 11
+    end
 
 end
 
@@ -68,8 +70,9 @@ class type ['a] t_js =
 
 class ['a] t ?(delta:'a option) ~id ~position ~(typ:'a numeric) () =
   let axis = Linear (typ,delta) in
+  let o : 'a t_js Js.t = Js.Unsafe.coerce @@ Js.Unsafe.obj [||] in
   object(self)
-    inherit ['a,'a,'a t_js] Axes_cartesian_common.t ~id ~position ~axis () as super
+    inherit ['a,'a] Axes_cartesian_common.t ~id ~position ~axis o () as super
     val _ticks = new Tick.t ()
 
     method ticks = _ticks
@@ -79,8 +82,8 @@ class ['a] t ?(delta:'a option) ~id ~position ~(typ:'a numeric) () =
     method max       = self#ticks#max
     method set_max x = self#ticks#set_max x
 
-    method! replace x = super#replace x; self#ticks#replace obj##.ticks
+    method! replace x = super#replace x; self#ticks#replace _obj##.ticks
 
     initializer
-      obj##.ticks := self#ticks#get_obj
+      _obj##.ticks := Js.Unsafe.coerce self#ticks#get_obj
   end

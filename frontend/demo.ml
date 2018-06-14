@@ -550,7 +550,7 @@ let chart_demo () =
   let to_data () = List.map (fun x -> { x ; y = Random.run (Random.int range) }) (List.range_by ~step:2 0 !x) in
   let x_axis   = new Chartjs.Line.Axes.Linear.t ~id:"x" ~position:`Bottom ~typ:Int ~delta:!x () in
   let y_axis   = new Chartjs.Line.Axes.Linear.t ~id:"y" ~position:`Top ~typ:Int () in
-  let options  = new Chartjs.Line.Options.t ~x_axis ~y_axis () in
+  let options  = new Chartjs.Line.Options.t ~x_axes:[x_axis] ~y_axes:[y_axis] () in
   let datasets = List.map (fun x -> new Chartjs.Line.Dataset.t ~x_axis ~y_axis ~label:x ~data:(to_data ()) ())
                           ["Dataset 1"; "Dataset 2"]
   in
@@ -574,14 +574,14 @@ let chart_demo () =
   let append    = new Button.t ~label:"append" () in
   let chart  = new Chartjs.Line.t ~options ~datasets () in
   React.E.map (fun _ -> List.iter (fun x -> x#set_point_radius (`Fun (fun _ x -> if x.x mod 2 > 0 then 10 else 5))
-                                  ) chart#datasets;
+                                  ) datasets;
                         chart#update None)
               update#e_click |> ignore;
   React.E.map (fun _ -> x := !x + 2;
-                        List.iter (fun ds -> ds#push { x = !x; y = Random.run (Random.int range) }) chart#datasets;
+                        List.iter (fun ds -> ds#push { x = !x; y = Random.run (Random.int range) }) datasets;
                         chart#update None)
               push#e_click |> ignore;
-  React.E.map (fun _ -> List.iter (fun ds -> ds#push { x = !x - 1; y = Random.run (Random.int range) }) chart#datasets;
+  React.E.map (fun _ -> List.iter (fun ds -> ds#push { x = !x - 1; y = Random.run (Random.int range) }) datasets;
                         chart#update None)
               push_less#e_click |> ignore;
   React.E.map (fun _ -> x := !x + 6;
@@ -589,7 +589,7 @@ let chart_demo () =
                                                        ; { x = !x - 4; y = Random.run (Random.int range) }
                                                        ; { x = !x - 2; y = Random.run (Random.int range) }
                                                        ; { x = !x    ; y = Random.run (Random.int range) } ])
-                                  chart#datasets;
+                                  datasets;
                         chart#update None)
               append#e_click |> ignore;
   let w = Html.div ~a:[ Html.a_style "max-width:700px"] [ Widget.widget_to_markup chart
@@ -603,16 +603,24 @@ let chart_demo () =
   demo_section "Chart" [w]
 
 let time_chart_demo () =
-  let range = 20 in
+  let range_i = 20 in
+  let range_f = 40. in
   Random.init (Unix.time () |> int_of_float);
   let open Chartjs.Line in
   let delta    = Common.Time.Span.of_int_s 40 in
   let x_axis   = new Chartjs.Line.Axes.Time.t ~id:"x" ~position:`Bottom ~typ:Ptime ~delta () in
   let y_axis   = new Chartjs.Line.Axes.Linear.t ~id:"y" ~position:`Left ~typ:Int () in
-  let options  = new Chartjs.Line.Options.t ~x_axis ~y_axis () in
-  let datasets = List.map (fun x -> new Chartjs.Line.Dataset.t ~x_axis ~y_axis ~label:x ~data:[] ())
-                          ["Dataset 1"; "Dataset 2"]
+  let y2_axis  = new Chartjs.Line.Axes.Logarithmic.t ~id:"y2" ~position:`Right ~typ:Float () in
+  let options  = new Chartjs.Line.Options.t
+                     ~x_axes:[x_axis]
+                     ~y_axes:[ y_axis#coerce_base
+                             ; y2_axis#coerce_base
+                             ]
+                     ()
   in
+  let dataset1 = new Chartjs.Line.Dataset.t ~x_axis ~y_axis ~label:"Dataset 1" ~data:[] () in
+  let dataset2 = new Chartjs.Line.Dataset.t ~x_axis ~y_axis:y2_axis ~label:"Dataset 2" ~data:[] () in
+  let datasets = [ dataset1#coerce; dataset2#coerce ] in
   options#hover#set_mode `Index;
   options#hover#set_axis `X;
   options#hover#set_intersect true;
@@ -633,9 +641,14 @@ let time_chart_demo () =
                       x#set_fill `Disabled) datasets;
   let chart = new Chartjs.Line.t ~options ~datasets () in
   let e_update,e_update_push = React.E.create () in
-  React.E.map (fun () -> List.iter (fun ds -> ds#push { x = Common.Time.of_float_s
-                                                            @@ Unix.gettimeofday () |> Option.get_exn
-                                                      ; y = Random.run (Random.int range) }) chart#datasets;
+  React.E.map (fun () -> dataset1#push { x = Common.Time.of_float_s
+                                             @@ Unix.gettimeofday () |> Option.get_exn
+                                       ; y = Random.run (Random.int range_i) };
+                         chart#update None)
+              e_update |> ignore;
+  React.E.map (fun () -> dataset2#push { x = Common.Time.of_float_s
+                                             @@ Unix.gettimeofday () |> Option.get_exn
+                                       ; y = Random.run (Random.float range_f) };
                          chart#update None)
               e_update |> ignore;
   Dom_html.window##setInterval (Js.wrap_callback (fun () -> e_update_push () |> ignore)) 1000. |> ignore;

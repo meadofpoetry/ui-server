@@ -19,18 +19,20 @@ class type t_js =
     method onComplete : (animation Js.t -> unit) Js.meth Js.opt Js.prop
   end
 
-class t () = object(self)
-  inherit [t_js] base_option ()
+class t () =
+  let o : t_js Js.t = Js.Unsafe.coerce @@ Js.Unsafe.obj [||] in
+  object(self)
+    inherit base_option o ()
 
-  (** The number of milliseconds an animation takes. *)
-  method duration : int = obj##.duration
-  method set_duration x = obj##.duration := x
+    (** The number of milliseconds an animation takes. *)
+    method duration : int = _obj##.duration
+    method set_duration x = _obj##.duration := x
 
-  (** Easing function to use. *)
-  method easing : easing = easing_of_string_exn @@ Js.to_string obj##.easing
-  method set_easing (x:easing) = obj##.easing := Js.string @@ easing_to_string x
+    (** Easing function to use. *)
+    method easing : easing = easing_of_string_exn @@ Js.to_string _obj##.easing
+    method set_easing (x:easing) = _obj##.easing := Js.string @@ easing_to_string x
 
-  initializer
-    self#set_duration 1000;
-    self#set_easing (`Ease_out `Quart)
-end
+    initializer
+      self#set_duration 1000;
+      self#set_easing (`Ease_out `Quart)
+  end
