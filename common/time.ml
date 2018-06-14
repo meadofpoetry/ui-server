@@ -10,18 +10,6 @@ module Clock = struct
 
 end
 
-let span_to_yojson (v:span) : Yojson.Safe.json =
-  let d,ps = Span.to_d_ps v in
-  `List [ `Int d;`Intlit (Int64.to_string ps) ]
-
-let span_of_yojson (j:Yojson.Safe.json) : (span,string) result =
-  let to_err j = Printf.sprintf "span_of_yojson: bad json value (%s)" @@ Yojson.Safe.to_string j in
-  match j with
-  | `List [ `Int d; `Intlit ps] -> (match Int64.of_string_opt ps with
-                                    | Some ps -> Result.of_opt (Span.of_d_ps (d,ps))
-                                    | None    -> Error (to_err j))
-  | _ -> Error (to_err j)
-
 let to_yojson (v:t) : Yojson.Safe.json =
   let d,ps = Ptime.to_span v |> Ptime.Span.to_d_ps in
   `List [ `Int d;`Intlit (Int64.to_string ps) ]
@@ -75,6 +63,18 @@ module Period = struct
   include Ptime.Span
 
   let ps_in_s = 1000_000_000_000L
+
+  let to_yojson (v:t) : Yojson.Safe.json =
+    let d,ps = Span.to_d_ps v in
+    `List [ `Int d;`Intlit (Int64.to_string ps) ]
+
+  let of_yojson (j:Yojson.Safe.json) : (t,string) result =
+    let to_err j = Printf.sprintf "span_of_yojson: bad json value (%s)" @@ Yojson.Safe.to_string j in
+    match j with
+    | `List [ `Int d; `Intlit ps] -> (match Int64.of_string_opt ps with
+                                      | Some ps -> Result.of_opt (Span.of_d_ps (d,ps))
+                                      | None    -> Error (to_err j))
+    | _ -> Error (to_err j)
         
   module Conv (M : sig
                val of_int : int -> int * int64
