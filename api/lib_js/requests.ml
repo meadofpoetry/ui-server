@@ -111,19 +111,25 @@ module Make(M:Req) : (Request with type t = M.t and type response = M.response) 
   type t        = M.t
   type response = M.response
 
-  let host ()   = Js.to_string @@ Dom_html.window##.location##.hostname
-  let path ()   = ""
-  let scheme () = Js.to_string @@ Dom_html.window##.location##.protocol
-  let port ()   = Js.to_string @@ Dom_html.window##.location##.port |> int_of_string_opt
+  module Default = struct
+    let host ()   = Js.to_string @@ Dom_html.window##.location##.hostname
+    let path ()   = ""
+    let scheme () = Js.to_string @@ Dom_html.window##.location##.protocol |> CCString.rdrop_while (Char.equal ':')
+    let port ()   = Js.to_string @@ Dom_html.window##.location##.port |> int_of_string_opt
+  end
 
-  let make_uri ?(scheme=scheme ())
-               ?(host=host ())
+  let make_uri ?(scheme=Default.scheme ())
+               ?(host=Default.host ())
                ?port
-               ?(path=path ())
+               ?(path=Default.path ())
                ?query
                () =
+    let port = match port with Some x -> Some x | None -> Default.port () in
+    print_endline scheme;
     Uri.make ?port ?query ~scheme ~host ~path ()
     |> Uri.to_string
+    |> Uri.pct_decode
+    |> fun x -> print_endline x; x
 
   let get_raw ?scheme ?host ?port ?path ?query () =
     Lwt_xmlHttpRequest.perform_raw
@@ -189,6 +195,7 @@ module Make(M:Req) : (Request with type t = M.t and type response = M.response) 
 
     let create ?(secure=false) ?host ?port ?path ?query () =
       let scheme = scheme secure in
+      let port = match port with Some x -> Some x | None -> Default.port () in
       new%js WebSockets.webSocket (Js.string @@ make_uri ?host ?port ?path ?query ~scheme ())
 
     let get ?secure ?host ?port ?path ?query from () =
