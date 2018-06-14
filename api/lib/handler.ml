@@ -26,9 +26,10 @@ module Make ( User : sig type t end ) = struct
     tbl
     
   let handle tbl redir meth uri_sep sock_data headers body =
-    match Common.Uri.sep_path uri_sep with
-    | key::tl -> let (module H : HANDLER) = Handlers.find tbl key in
-                 redir @@ wrap H.handle meth (Common.Uri.upgrade_path uri_sep tl) sock_data headers body
+    let root, path = Common.Uri.(Path.next uri_sep.path) in
+    match root with
+    | Some key -> let (module H : HANDLER) = Handlers.find tbl key in
+                  redir @@ wrap H.handle meth (Common.Uri.upgrade_path uri_sep path) sock_data headers body
     | _ -> not_found ()
 
   let add_layer (domain : string) (l : (module HANDLER) list) : (module HANDLER) =
@@ -36,9 +37,10 @@ module Make ( User : sig type t end ) = struct
     (module struct
        let domain = domain
        let handle id meth uri_sep sock_data headers body =
-         match Common.Uri.sep_path uri_sep with
-         | key::tl -> let (module H : HANDLER) = Handlers.find tbl key in
-                      H.handle id meth (Common.Uri.upgrade_path uri_sep tl) sock_data headers body
+         let root, path = Common.Uri.(Path.next uri_sep.path) in
+         match root with
+         | Some key -> let (module H : HANDLER) = Handlers.find tbl key in
+                       H.handle id meth (Common.Uri.upgrade_path uri_sep path) sock_data headers body
          | _ -> not_found ()
      end : HANDLER)
 

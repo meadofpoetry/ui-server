@@ -2,12 +2,54 @@ include Uri
 
 let (%) f g x = f (g x)
       
-module Path = struct
-  type t = string list
-
-  let split : string -> t = fun s ->
+module Path : sig
+  type t
+  val of_string : string -> t
+  val to_string : t -> string
+  val s : string -> t
+  val next : t -> string option * t
+  val append : t -> t -> t
+  val (/) : t -> t -> t
+end = struct
+  type t = Str of string
+         | Lst of string list
+                                         (*      
+  let root x =
+    let s = CCString.drop_while ((=) '/') x in
+    let ind = CCString.find ~sub:"/" s in
+    if ind < 0 then (None, x)
+    else let (root, rest) = CCString.take_drop ind s in
+         (Some root, rest)
+                                          *)
+              
+  let split s =
     String.split_on_char '/' s
     |> List.filter (not % String.equal "")
+
+  let merge = String.concat "/"
+
+  let of_string s = Str s
+
+  let to_string = function
+    | Str s -> s
+    | Lst l -> merge l
+
+  let s = of_string
+
+  let rec next = function
+    | Lst [] as l -> (None, l)
+    | Lst (h::tl) -> (Some h, Lst tl)
+    | Str s -> next (Lst (split s))
+
+  let append l r =
+    match l, r with
+    | Lst l, Lst r -> Lst (l @ r)
+    | Lst l, Str r -> Lst (l @ (split r))
+    | Str l, Lst r -> Lst ((split l) @ r)
+    | Str l, Str r -> Str (l ^ "/" ^ r)
+
+  let (/) = append
+             
 end
             
 module Query = struct
@@ -83,7 +125,7 @@ module Query = struct
     fun k ->
     function
     | [] ->
-       fun sl -> k
+       fun _ -> k
     | (q, (module C)) :: rest ->
        fun sl ->
        let (arg, args) = grep_arg q sl in
@@ -94,11 +136,21 @@ module Query = struct
     
 end
 
-type sep = string option * Path.t * Query.t
+type sep = { scheme : string option
+           ; path   : Path.t
+           ; query  : Query.t
+           }
       
 let sep u : sep =
-  (scheme u), (Path.split @@ path u), (query u)
+  { scheme = scheme u
+  ; path = Path.of_string @@ path u
+  ; query = query u }
 
-let upgrade_path (sc,_,q) path : sep = (sc,path,q)
+let upgrade_path s path : sep = { s with path }
   
-let sep_path ((_,path,_) : sep) = path
+let sep_path (s : sep) = s.path
+
+(** TO DO remove *)
+let split s =
+  String.split_on_char '/' s
+  |> List.filter (not % String.equal "")

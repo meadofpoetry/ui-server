@@ -144,7 +144,9 @@ let get_vdata_sock_pid sock_data body api stream channel pid () =
           
 let pipeline_handle api id meth uri_sep sock_data _ body =
   let is_guest = Common.User.eq id `Guest in
-  match meth, Common.Uri.sep_path uri_sep with
+  (* TODO match string + query *)
+  let path_list = Common.Uri.(split @@  Path.to_string uri_sep.path) in
+  match meth, path_list with
   | `GET,  []                   -> get_page ()
   | `POST, ["structure"]        -> redirect_if is_guest @@ set_structure api body
   | `GET,  ["structure"]        -> get_structure api ()
@@ -196,7 +198,9 @@ let get_structures_between api input id from to' () =
     (function Failure e -> respond_error e ())
                                  
 let archive_handle api id meth uri_sep sock_data _ body =
-  match meth, Common.Uri.sep_path uri_sep with
+  (* TODO match string + query *)
+  let path_list = Common.Uri.(split @@  Path.to_string uri_sep.path) in
+  match meth, path_list with
   | `GET,  ["structures";i;num]   -> get_structures api i num ()
   | `GET,  ["structures_between";i;num;from;to'] -> get_structures_between api i num from to' ()
   | _                             -> not_found ()               

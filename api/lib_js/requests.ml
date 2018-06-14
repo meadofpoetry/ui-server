@@ -15,7 +15,7 @@ let err_to_string : 'a. ?to_string:('a -> string) -> 'a err -> string = fun ?to_
                     | None   -> Printf.sprintf "Код %d" i)
   | `Code i     -> Printf.sprintf "Код %d" i
 
-let unwrap = Uri.pct_decode
+let unwrap = Common.Uri.pct_decode
 
 module type Req = sig
 

@@ -140,7 +140,9 @@ let incoming_streams_ws sock_data streams body =
 
 let handle api events s_state s_input streams _ meth uri_sep sock_data _ body =
   let open Api.Redirect in
-  match meth, Common.Uri.sep_path uri_sep with
+  (* TODO match string + query *)
+  let path_list = Common.Uri.(split @@  Path.to_string uri_sep.path) in
+  match meth, path_list with
   | `POST, ["reset"]              -> reset api ()
   | `POST, ["mode"]               -> set_mode api body ()
   | `POST, ["input"]              -> set_input api body ()

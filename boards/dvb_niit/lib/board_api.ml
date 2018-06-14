@@ -86,7 +86,9 @@ let handle api events id s_state _ meth uri_sep sock_data _ body =
   let open Lwt.Infix in
   let open Api.Redirect in
   (* let redirect_if_guest = redirect_if (User.eq id `Guest) in *)
-  match meth, Common.Uri.sep_path uri_sep with
+  (* TODO match string + query *)
+  let path_list = Common.Uri.(split @@  Path.to_string uri_sep.path) in
+  match meth, path_list with
   | `GET,  ["devinfo"]     -> devinfo api
   | `GET,  "plps"::[num]   -> plps api num
   | `GET,  ["config"]      -> config api

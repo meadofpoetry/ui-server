@@ -17,8 +17,10 @@ let set_password (users : User.entries) body () =
 let user_handle users id meth uri_sep _ headers body = (*headers body =*)
   let open Api.Redirect in
   let open User in
+  (* TODO match string + query *)
+  let path_list = Common.Uri.(split @@  Path.to_string uri_sep.path) in
   let not_root = not @@ User.eq id `Root in
-  match meth, Common.Uri.sep_path uri_sep with
+  match meth, path_list with
   | `POST,   ["password"] -> redirect_if not_root @@ set_password users body
   | `GET,    ["logout"]   -> respond_need_auth ~headers:headers ~auth:(`Basic "User Visible Realm") ()
   | _ -> not_found ()

@@ -36,24 +36,25 @@ let get_handler ~settings
         (req  : Cohttp_lwt_unix.Request.t)
         (body : Cohttp_lwt.Body.t) =
     let headers  = Request.headers req in
-    let uri      = Request.uri req in
-    let resource_path = Uri.path uri in
-    let sep_uri  = Common.Uri.sep uri in
+    let uri      = Common.Uri.sep @@ Request.uri req in
+    let resource_path = Common.Uri.(Path.to_string uri.path) in
     let respond_page path id =
       let tbl = match id with
         | `Root     -> pages.root
         | `Operator -> pages.operator
         | `Guest    -> pages.guest
-      in (try Hashtbl.find tbl (String.concat "/" path)
+      in (try Hashtbl.find tbl (Common.Uri.Path.to_string path)
               |> fun page -> respond_string page ()
           with _ -> resource settings.path resource_path)
     in
     let meth      = Request.meth req in
     let redir     = auth_filter headers in
     let sock_data = (req, (fst conn)) in
-    match meth, (Common.Uri.sep_path sep_uri) with
-    | _, "api" :: path          -> Api_handler.handle routes redir meth (Common.Uri.upgrade_path sep_uri path) sock_data headers body
-    | `GET, path                -> redir (respond_page path)
+    let root, path = Common.Uri.(Path.next uri.path) in
+    match meth, root with
+    | _, (Some "api")           -> Api_handler.handle routes redir meth
+                                     (Common.Uri.upgrade_path uri path) sock_data headers body
+    | `GET, _                   -> redir (respond_page uri.path)
     | _                         -> not_found ()
   in
   handler

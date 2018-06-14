@@ -82,8 +82,10 @@ let get_topology_socket sock_data body app () =
   
   
 let handle app id meth uri_sep sock_data _ body =
+  (* TODO match string + query *)
+  let path_list = Common.Uri.(split @@  Path.to_string uri_sep.path) in
   let is_guest = Common.User.eq id `Guest in
-  match meth, Common.Uri.sep_path uri_sep with
+  match meth, path_list with
   | `GET, []                    -> get_page ()
   | `GET, ["topology_sock"]     -> get_topology_socket sock_data body app ()
   | `GET, ["topology"]          -> get_topology app ()
