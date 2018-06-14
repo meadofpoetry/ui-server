@@ -63,7 +63,7 @@ module Query = struct
 
   let grep_arg (name : string) lst =
     let rec grep' acc = function
-      | [] -> raise (Key_not_found_exn name)
+      | [] -> [], lst
       | (title, arg)::tl ->
          if String.equal title name
          then (arg, (List.rev acc) @ tl)
@@ -102,13 +102,17 @@ module Query = struct
 
   module Single (E : Show) = struct
     type t = E.t
-    let of_query = function [v] -> E.of_string v | _ -> raise (Failure "Single")
+    let of_query = function [v] -> E.of_string v
+                          | [] -> raise_notrace Not_found
+                          | _ -> raise_notrace (Failure "Single")
     let to_query v = [ E.to_string v ]
   end
 
   module Option (E : Show) = struct
     type t = E.t option
-    let of_query = function [] -> None | [v] -> Some (E.of_string v) | _ -> raise (Failure "Option")
+    let of_query = function [] -> None
+                          | [v] -> Some (E.of_string v)
+                          | _ -> raise_notrace (Failure "Option")
     let to_query = function Some v -> [ E.to_string v ] | None -> []
   end                      
 
@@ -134,7 +138,9 @@ module Query = struct
     | (q, (module C)) :: rest ->
        fun sl ->
        let (arg, args) = grep_arg q sl in
-       parse_q (k (C.of_query arg)) rest args
+       parse_q (k (try C.of_query arg
+                   with Not_found -> raise_notrace (Key_not_found_exn q)
+                       | exn -> raise_notrace exn)) rest args
 
   let parse_query lst f queries =
     try Ok(parse_q f lst queries)
