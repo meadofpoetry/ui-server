@@ -1,11 +1,11 @@
 open Base
 
-type axis = X | Y | XY
+type axis = [`X | `Y | `XY]
 
 let axis_to_string = function
-  | X -> "x" | Y -> "y" | XY -> "xy"
+  | `X -> "x" | `Y -> "y" | `XY -> "xy"
 let axis_of_string_exn = function
-  | "x" -> X | "y" -> Y | "xy" -> XY | _ -> failwith "Bad axis string"
+  | "x" -> `X | "y" -> `Y | "xy" -> `XY | _ -> failwith "Bad axis string"
 
 class type t_js =
   object
@@ -15,29 +15,31 @@ class type t_js =
     method animationDuration : int Js.prop
   end
 
-class t () = object(self)
-  inherit [t_js] base_option ()
+class t () =
+  let o : t_js Js.t = Js.Unsafe.coerce @@ Js.Unsafe.obj [||] in
+  object(self)
+    inherit base_option o ()
 
-  method private mode_to_js x = Js.string @@ interaction_mode_to_string x
-  method private axis_to_js x = Js.string @@ axis_to_string x
+    (** Sets which elements appear in the tooltip. *)
+    method mode : interaction_mode = interaction_mode_of_string_exn @@ Js.to_string _obj##.mode
+    method set_mode (x:interaction_mode) = _obj##.mode := Js.string @@ interaction_mode_to_string x
 
-  method set_mode x = obj##.mode := self#mode_to_js x
-  method get_mode   = interaction_mode_of_string_exn @@ Js.to_string obj##.mode
+    (** if true, the hover mode only applies when the mouse position intersects an item on the chart. *)
+    method intersect : bool = Js.to_bool _obj##.intersect
+    method set_intersect x = _obj##.intersect := Js.bool x
 
-  method set_intersect x = obj##.intersect := Js.bool x
-  method get_intersect   = Js.to_bool obj##.intersect
+    (** Can be set to 'x', 'y', or 'xy' to define which directions are used in calculating distances.
+      Defaults to 'x' for index mode and 'xy' in dataset and nearest modes. *)
+    method axis : axis = axis_of_string_exn @@ Js.to_string _obj##.axis
+    method set_axis (x:axis) = _obj##.axis := Js.string @@ axis_to_string x
 
-  method set_axis x = obj##.axis := self#axis_to_js x
-  method get_axis   = axis_of_string_exn @@ Js.to_string obj##.axis
+    (** Duration in milliseconds it takes to animate hover style changes. *)
+    method animation_duration : int = _obj##.animationDuration
+    method set_animation_duration x = _obj##.animationDuration := x
 
-  method set_animation_duration x = obj##.animationDuration := x
-  method get_animation_duration   = obj##.animationDuration
-
-  initializer
-    obj <- object%js
-             val mutable mode = self#mode_to_js Nearest
-             val mutable intersect = Js._true
-             val mutable axis = self#axis_to_js X
-             val mutable animationDuration = 400
-           end
-end
+    initializer
+      self#set_mode `Nearest;
+      self#set_intersect true;
+      self#set_axis `XY;
+      self#set_animation_duration 400
+  end
