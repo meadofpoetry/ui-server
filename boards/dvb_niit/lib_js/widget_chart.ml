@@ -41,13 +41,27 @@ let make_chart_base ~(config: config)
                     ~(init:   float data)
                     ~(event:  float data React.event)
                     () : Dashboard.Item.item =
+  let settings,s_settings = make_settings { range = None } in
   let range = get_suggested_range config.typ in
   let init = List.map (fun x -> match List.Assoc.get ~eq:Int.equal x init with
                                 | Some i -> x,i
                                 | None   -> x,[]) config.ids in
   let delta    = config.duration in
   let x_axis   = new Chartjs.Line.Axes.Time.t ~delta ~id:"x-axis" ~position:`Bottom ~typ:Ptime () in
-  let y_axis   = new Chartjs.Line.Axes.Linear.t ~id:"y-axis" ~position:`Left ~typ:Float () in
+  let f axis   = function
+    | Some (min,max) -> axis#ticks#set_min (Some min); axis#ticks#set_max (Some max)
+    | None           -> axis#ticks#set_min None; axis#ticks#set_max None
+  in
+  let y_axis,f = match config.typ with
+    | `Ber ->
+       let axis = new Chartjs.Line.Axes.Logarithmic.t ~id:"y-axis" ~position:`Left ~typ:Float () in
+       axis#coerce_common,f axis
+    | _    ->
+       let axis = new Chartjs.Line.Axes.Linear.t ~id:"y-axis" ~position:`Left ~typ:Float () in
+       axis#ticks#set_suggested_min (fst range);
+       axis#ticks#set_suggested_max (snd range);
+       axis#coerce_common,f axis
+  in
   let options  = new Chartjs.Line.Options.t ~x_axes:[x_axis] ~y_axes:[y_axis] () in
   let datasets = List.map (fun (id,data) ->
                      let label = Printf.sprintf "Модуль %d" @@ succ id in
@@ -67,8 +81,6 @@ let make_chart_base ~(config: config)
   x_axis#time#set_tooltip_format "ll HH:mm:ss";
   y_axis#scale_label#set_display true;
   y_axis#scale_label#set_label_string @@ measure_type_to_unit config.typ;
-  y_axis#ticks#set_suggested_min (fst range);
-  y_axis#ticks#set_suggested_max (snd range);
   options#set_maintain_aspect_ratio false;
   let chart = new Chartjs.Line.t ~options ~datasets () in
   let set   = fun ds data -> List.iter (fun point -> ds#push point) data;
@@ -78,19 +90,13 @@ let make_chart_base ~(config: config)
                                                             @@ List.get_at_idx id datasets)
                                           d)
                       event in
-  let settings,s_settings = make_settings { range = None } in
   Dashboard.Item.to_item
     ~name:(measure_type_to_string config.typ)
     ~settings:{ widget = settings#widget
               ; ready  = React.S.map Option.is_some s_settings
               ; set    = fun () ->
                          match React.S.value s_settings with
-                         | Some s -> (match s.range with
-                                      | Some (min,max) -> y_axis#ticks#set_min (Some min);
-                                                          y_axis#ticks#set_max (Some max)
-                                      | None           -> y_axis#ticks#set_min None;
-                                                          y_axis#ticks#set_max None);
-                                     chart#update None;
+                         | Some s -> f s.range; chart#update None;
                                      Lwt_result.return ()
                          | None   -> Lwt_result.fail "no settings available"
               }
