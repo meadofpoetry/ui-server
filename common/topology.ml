@@ -5,6 +5,17 @@ type state = [ `Fine
              | `Init
              ] [@@deriving yojson, show, eq]
 
+let state_to_string = function
+  | `Fine        -> "fine"
+  | `No_response -> "no-response"
+  | `Init        -> "init"
+
+let state_of_string = function
+  | "fine"        -> Some `Fine
+  | "no-response" -> Some `No_response
+  | "init"        -> Some `Init
+  | _             -> None
+
 type input = RF
            | TSOIP
            | ASI

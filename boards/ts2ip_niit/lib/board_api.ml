@@ -101,9 +101,11 @@ let config_ws sock_data (events : events) body =
 let streams_ws sock_data s_streams body =
   sock_handler sock_data (Lwt_react.S.changes s_streams) Common.Stream.t_list_to_yojson body
 
-let handle api events s_state s_streams _ meth args sock_data _ body =
+let handle api events s_state s_streams _ meth uri_sep sock_data _ body =
   let open Api.Redirect in
-  match meth, args with
+  (* TODO match string + query *)
+  let path_list = Common.Uri.(split @@  Path.to_string uri_sep.path) in
+  match meth, path_list with
   | `POST, ["factory_mode"]   -> set_factory_mode api body ()
   | `POST, ["nw_mode"]        -> set_nw_mode api body ()
   | `POST, ["streams_simple"] -> set_streams_simple api body ()

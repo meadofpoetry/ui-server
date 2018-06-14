@@ -138,9 +138,11 @@ let jitter_ws sock_data (events : events) body =
 let incoming_streams_ws sock_data streams body =
   sock_handler sock_data (React.S.changes streams) Common.Stream.t_list_to_yojson body
 
-let handle api events s_state s_input streams _ meth args sock_data _ body =
+let handle api events s_state s_input streams _ meth uri_sep sock_data _ body =
   let open Api.Redirect in
-  match meth, args with
+  (* TODO match string + query *)
+  let path_list = Common.Uri.(split @@  Path.to_string uri_sep.path) in
+  match meth, path_list with
   | `POST, ["reset"]              -> reset api ()
   | `POST, ["mode"]               -> set_mode api body ()
   | `POST, ["input"]              -> set_input api body ()

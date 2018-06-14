@@ -93,10 +93,12 @@ let status_ws sock_data (events : events) body =
 let config_ws sock_data (events : events) body =
   sock_handler sock_data events.config config_to_yojson body
 
-let handle api events id s_state _ m args sock_data _ body =
+let handle api events id s_state _ m uri_sep sock_data _ body =
   let open Api.Redirect in
   (* let redirect_if_guest = redirect_if (User.eq id `Guest) in *)
-  match m, args with
+  (* TODO match string + query *)
+  let path_list = Common.Uri.(split @@  Path.to_string uri_sep.path) in
+  match m, path_list with
   | `POST, ["address"]    -> address api body
   | `POST, ["mask"]       -> mask api body
   | `POST, ["gateway"]    -> gateway api body

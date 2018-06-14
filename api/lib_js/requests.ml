@@ -1,4 +1,5 @@
 open Lwt.Infix
+open Common
 
 type 'a err      = [ `Data of int * 'a | `Code of int ]
 type json        = Yojson.Safe.json
@@ -35,8 +36,19 @@ module type WS = sig
 
   type t
 
-  val create : ?port:int -> string -> WebSockets.webSocket Js.t
-  val get    : ?port:int -> string -> (t -> ('a,string) result) -> ('a React.event * WebSockets.webSocket Js.t)
+  val create : ?secure:bool ->
+               ?host:string ->
+               ?port:int ->
+               ?path:string ->
+               ?query:Uri.Query.t ->
+               unit -> WebSockets.webSocket Js.t
+  val get    : ?secure:bool ->
+               ?host:string ->
+               ?port:int ->
+               ?path:string ->
+               ?query:Uri.Query.t ->
+               (t -> ('a,string) result) ->
+               unit -> 'a React.event * WebSockets.webSocket Js.t
 
 end
 
@@ -45,19 +57,50 @@ module type Request = sig
   type t
   type response
 
-  val get_frame   : string -> response Lwt_xmlHttpRequest.generic_http_frame Lwt.t
-  val get         : string -> (t,int) Lwt_result.t
-  val get_result  : ?from_err:(t -> ('b,string) result) ->
-                    (t -> ('a,string) result) ->
-                    string ->
-                    ('a,'b err) Lwt_result.t
-  val post_frame  : ?contents:t -> string -> response Lwt_xmlHttpRequest.generic_http_frame Lwt.t
-  val post        : ?contents:t -> string -> (t,int) Lwt_result.t
-  val post_result : ?contents:t ->
+  val get_raw     : ?scheme:Uri.Scheme.t ->
+                    ?host:string ->
+                    ?port:int ->
+                    ?path:string ->
+                    ?query:Uri.Query.t ->
+                    unit -> response Lwt_xmlHttpRequest.generic_http_frame Lwt.t
+  val get         : ?scheme:Uri.Scheme.t ->
+                    ?host:string ->
+                    ?port:int ->
+                    ?path:string ->
+                    ?query:Uri.Query.t ->
+                    unit -> (t,int) Lwt_result.t
+  val get_result  : ?scheme:Uri.Scheme.t ->
+                    ?host:string ->
+                    ?port:int ->
+                    ?path:string ->
+                    ?query:Uri.Query.t ->
                     ?from_err:(t -> ('b,string) result) ->
                     (t -> ('a,string) result) ->
-                    string ->
-                    ('a,'b err) Lwt_result.t
+                    unit -> ('a,'b err) Lwt_result.t
+
+  val post_raw    : ?scheme:Uri.Scheme.t ->
+                    ?host:string ->
+                    ?port:int ->
+                    ?path:string ->
+                    ?query:Uri.Query.t ->
+                    ?contents:t ->
+                    unit -> response Lwt_xmlHttpRequest.generic_http_frame Lwt.t
+  val post        : ?scheme:Uri.Scheme.t ->
+                    ?host:string ->
+                    ?port:int ->
+                    ?path:string ->
+                    ?query:Uri.Query.t ->
+                    ?contents:t ->
+                    unit -> (t,int) Lwt_result.t
+  val post_result : ?scheme:Uri.Scheme.t ->
+                    ?host:string ->
+                    ?port:int ->
+                    ?path:string ->
+                    ?query:Uri.Query.t ->
+                    ?contents:t ->
+                    ?from_err:(t -> ('b,string) result) ->
+                    (t -> ('a,string) result) ->
+                    unit -> ('a,'b err) Lwt_result.t
 
   module WS : WS with type t := t
 
@@ -68,22 +111,40 @@ module Make(M:Req) : (Request with type t = M.t and type response = M.response) 
   type t        = M.t
   type response = M.response
 
-  let get_frame addr : M.response Lwt_xmlHttpRequest.generic_http_frame Lwt.t =
+  module Default = struct
+    let host ()   = Js.to_string @@ Dom_html.window##.location##.hostname
+    let path ()   = ""
+    let scheme () = Js.to_string @@ Dom_html.window##.location##.protocol |> CCString.rdrop_while (Char.equal ':')
+    let port ()   = Js.to_string @@ Dom_html.window##.location##.port |> int_of_string_opt
+  end
+
+  let make_uri ?(scheme=Default.scheme ())
+               ?(host=Default.host ())
+               ?port
+               ?(path=Default.path ())
+               ?query
+               () =
+    let port = match port with Some x -> Some x | None -> Default.port () in
+    print_endline scheme;
+    Uri.make ?port ?query ~scheme ~host ~path ()
+    |> Uri.to_string
+    |> Uri.pct_decode
+    |> fun x -> print_endline x; x
+
+  let get_raw ?scheme ?host ?port ?path ?query () =
     Lwt_xmlHttpRequest.perform_raw
       ~response_type:M.response_type
-      addr
+      (make_uri ?scheme ?host ?port ?path ?query ())
 
-  let get addr : (t,int) Lwt_result.t =
-    get_frame addr
+  let get ?scheme ?host ?port ?path ?query () =
+    get_raw ?scheme ?host ?port ?path ?query ()
     >|= fun frame ->
     if frame.code = 200
     then Ok (M.parse frame.content)
     else Error frame.code
 
-  let get_result ?(from_err:(t -> ('b,string) result) option)
-                 (from:t -> ('a,string) result)
-                 addr : ('a,'b err) Lwt_result.t =
-    get_frame addr
+  let get_result ?scheme ?host ?port ?path ?query ?from_err from () =
+    get_raw ?scheme ?host ?port ?path ?query ()
     >|= fun frame ->
     if frame.code = 200
     then match (from @@ M.parse frame.content) with
@@ -95,7 +156,7 @@ module Make(M:Req) : (Request with type t = M.t and type response = M.response) 
                       | Error _ -> Error (`Code frame.code))
          | None   -> Error (`Code frame.code)
 
-  let post_frame ?contents addr : response Lwt_xmlHttpRequest.generic_http_frame Lwt.t =
+  let post_raw ?scheme ?host ?port ?path ?query ?contents () =
     let contents = match contents with
       | None   -> None
       | Some x -> Some (M.to_contents x)
@@ -106,20 +167,17 @@ module Make(M:Req) : (Request with type t = M.t and type response = M.response) 
       ~override_method:`POST
       ?contents
       ~response_type:M.response_type
-      addr
+      (make_uri ?scheme ?host ?port ?path ?query ())
 
-  let post ?contents addr : (t,int) Lwt_result.t =
-    post_frame ?contents addr
+  let post ?scheme ?host ?port ?path ?query ?contents () =
+    post_raw ?scheme ?host ?port ?path ?query ?contents ()
     >|= fun frame ->
     if frame.code = 200
     then Ok (M.parse frame.content)
     else Error frame.code
 
-  let post_result ?contents
-                  ?(from_err:(t -> ('b,string) result) option)
-                  (from:t -> ('a,string) result)
-                  addr : ('a,'b err) Lwt_result.t =
-    post_frame ?contents addr
+  let post_result ?scheme ?host ?port ?path ?query ?contents ?from_err from () =
+    post_raw ?scheme ?host ?port ?path ?query ?contents ()
     >|= fun frame ->
     if frame.code = 200
     then match (from @@ M.parse frame.content) with
@@ -133,18 +191,15 @@ module Make(M:Req) : (Request with type t = M.t and type response = M.response) 
 
   module WS = struct
 
-    let create ?(port:int option) addr =
-      let port = match port with Some p -> p | None -> 8080 in
-      let addr = Js.string @@ Printf.sprintf
-                                "ws://%s:%d/%s"
-                                (Js.to_string Dom_html.window##.location##.hostname)
-                                port
-                                addr
-      in
-      new%js WebSockets.webSocket addr
+    let scheme x = if x then Uri.Scheme.wss else Uri.Scheme.ws
 
-    let get ?(port:int option) addr (from:t -> ('a,string) result) =
-      let sock = create ?port addr in
+    let create ?(secure=false) ?host ?port ?path ?query () =
+      let scheme = scheme secure in
+      let port = match port with Some x -> Some x | None -> Default.port () in
+      new%js WebSockets.webSocket (Js.string @@ make_uri ?host ?port ?path ?query ~scheme ())
+
+    let get ?secure ?host ?port ?path ?query from () =
+      let sock = create ?secure ?host ?port ?path ?query () in
       let ev, push = React.E.create () in
       sock##.onmessage := Dom.handler (fun (msg : WebSockets.webSocket WebSockets.messageEvent Js.t)
                                        -> M.of_socket_msg msg

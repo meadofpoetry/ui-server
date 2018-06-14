@@ -42,7 +42,7 @@ and src = Port   of int
 
 type t =
   { source      : source
-  ; id          : stream_id
+  ; id          : stream_id 
   ; description : string option
   }
 and source = Input  of Topology.topo_input
@@ -62,40 +62,6 @@ let to_short_name (t:t) =
   | Some id -> s ^ ", " ^ id
   | None    -> s
 
-(* type constraints =
- *   { source : source
- *   ; range  : [ `Ip of (Uri.t * Uri.t) list | `Ts of (id * id) list ]
- *   } *)
-
-(* let get_possible_ts_streams (board:topo_board) =
- *   let rec aux acc (board:topo_board) =
- *     List.fold_left (fun acc p ->
- *         match p.child with
- *         | Board b -> let sms = aux [] b in
- *                      Printf.printf "board %s | %s | %s with control %d, got %d streams\n"
- *                                    b.typ b.model b.manufacturer b.control (List.length sms);
- *                      let l   = match b.typ, b.model, b.manufacturer, b.version with
- *                        | "TS", "qos", "niitv", 1 ->
- *                           List.fold_left (fun acc x ->
- *                               let plps = List.map (fun id -> { source      = Parent x
- *                                                              ; id          = `Ts (T2mi_plp id)
- *                                                              ; description = None })
- *                                          @@ List.range 0 255
- *                               in acc @ plps) [] sms
- *                        | _ -> []
- *                      in
- *                      sms @ l @ acc
- *         | Input i -> match board.typ, board.model, board.manufacturer, board.version with
- *                      | "DVB", "rf", "niitv", 1 -> acc
- *                      | _ -> let t = { source      = Input i
- *                                     ; id          = `Ts Single
- *                                     ; description = None
- *                                     }
- *                             in t :: acc
- *       ) acc board.ports
- *   in
- *   aux [] board *)
-
 let rec equal l r =
   match l.id, r.id with
   | `Ip ul, `Ip ur ->
@@ -111,6 +77,8 @@ and equal_source l r = match l, r with
   | Input l, Input r -> Topology.equal_topo_input l r
   | Parent l, Parent r -> equal l r
   | _ -> false
+
+type t_opt  = t option [@@deriving yojson]
 
 type t_list = t list [@@deriving yojson]
 

@@ -13,7 +13,7 @@ type settings =
 type config =
   { ids      : int list
   ; typ      : measure_type
-  ; duration : Common.Time.span
+  ; duration : Common.Time.Period.t
   ; settings : settings option
   } [@@deriving yojson]
 
