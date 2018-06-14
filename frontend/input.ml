@@ -26,11 +26,11 @@ let append_maybe x l = match x with None -> l | Some x -> l @ x
 
 let tabs () =
   let open Tabs in
-  let boards = Yojson.Safe.from_string @@ Js.to_string @@ Json.output @@ Js.Unsafe.variable "boards"
+  let boards = Yojson.Safe.from_string @@ Js.to_string @@ Json.output @@ Js.Unsafe.global##.boards
                |> boards_of_yojson
                |> Result.get_exn
   in
-  let cpu    = Yojson.Safe.from_string @@ Js.to_string @@ Json.output @@ Js.Unsafe.variable "cpu"
+  let cpu    = Yojson.Safe.from_string @@ Js.to_string @@ Json.output @@ Js.Unsafe.global##.cpu
                |> cpu_opt_of_yojson
                |> Result.get_exn
   in

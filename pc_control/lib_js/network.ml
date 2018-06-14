@@ -3,16 +3,17 @@ open Common.User
 open Api_js.Requests.Json_request
 
 open Lwt.Infix
-   
+
 module Requests = struct
 
   (* TODO fix relative addr *)
   let get_config () =
-    get_result Network_config.of_yojson ~from_err:(function `String s -> Ok s | _ -> Error "") "../api/network/config"
+    let from_err = function `String s -> Ok s | _ -> Error "" in
+    get_result ~path:"api/network/config" ~from_err Network_config.of_yojson ()
 
   let post_config conf =
-    post_result ~contents:(Network_config.to_yojson conf) (fun _ -> Ok ()) "../api/network/config"
-    
+    post_result ~path:"api/network/config" ~contents:(Network_config.to_yojson conf) (fun _ -> Ok ()) ()
+
 end
 
 let make_eth (eth : Network_config.ethernet_conf) =
@@ -24,10 +25,10 @@ let make_eth (eth : Network_config.ethernet_conf) =
   in
   let to_string x = Macaddr.to_string x in
   let address    = new Textfield.t
-                     ~input_id:"mac-addr"
-                     ~label:"MAC адрес"
-                     ~input_type:(Widget.Custom (of_string, to_string))
-                     ()
+                       ~input_id:"mac-addr"
+                       ~label:"MAC адрес"
+                       ~input_type:(Widget.Custom (of_string, to_string))
+                       ()
   in
 
   let signal, push = React.S.create eth in

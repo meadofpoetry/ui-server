@@ -1,7 +1,16 @@
 include Uri
 
 let (%) f g x = f (g x)
-      
+
+module Scheme = struct
+  type t = string
+
+  let ws    = "ws"
+  let wss   = "wss"
+  let http  = "http"
+  let https = "https"
+end
+
 module Path : sig
   type t
   val of_string : string -> t
@@ -9,10 +18,10 @@ module Path : sig
   val s : string -> t
   val next : t -> string option * t
   val append : t -> t -> t
-  val (/) : t -> t -> t
+  val push   : t -> string -> t
+  val (/) : t -> string -> t
 end = struct
-  type t = Str of string
-         | Lst of string list
+  type t = string list
                                          (*      
   let root x =
     let s = CCString.drop_while ((=) '/') x in
@@ -28,30 +37,24 @@ end = struct
 
   let merge = String.concat "/"
 
-  let of_string s = Str s
+  let of_string = split
 
-  let to_string = function
-    | Str s -> s
-    | Lst l -> merge l
+  let to_string = merge
 
   let s = of_string
 
   let rec next = function
-    | Lst [] as l -> (None, l)
-    | Lst (h::tl) -> (Some h, Lst tl)
-    | Str s -> next (Lst (split s))
+    | [] as l -> None, l
+    | h::tl   -> Some h, tl
 
-  let append l r =
-    match l, r with
-    | Lst l, Lst r -> Lst (l @ r)
-    | Lst l, Str r -> Lst (l @ (split r))
-    | Str l, Lst r -> Lst ((split l) @ r)
-    | Str l, Str r -> Str (l ^ "/" ^ r)
+  let append = List.append
 
-  let (/) = append
-             
+  let push t x = append t @@ split x
+
+  let (/) = push
+
 end
-            
+
 module Query = struct
 
   type err = Key_not_found of string
@@ -114,7 +117,7 @@ module Query = struct
                           | [v] -> Some (E.of_string v)
                           | _ -> raise_notrace (Failure "Option")
     let to_query = function Some v -> [ E.to_string v ] | None -> []
-  end                      
+  end
 
   type (_,_) compose =
     | (::) : (string * (module Convert with type t = 'a)) * ('b, 'c) compose -> ('a -> 'b, 'c) compose
@@ -153,7 +156,7 @@ type sep = { scheme : string option
            ; path   : Path.t
            ; query  : Query.t
            }
-      
+         
 let sep u : sep =
   { scheme = scheme u
   ; path = Path.of_string @@ path u

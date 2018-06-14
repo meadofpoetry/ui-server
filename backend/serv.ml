@@ -43,9 +43,10 @@ let get_handler ~settings
         | `Root     -> pages.root
         | `Operator -> pages.operator
         | `Guest    -> pages.guest
-      in (try Hashtbl.find tbl (Common.Uri.Path.to_string path)
-              |> fun page -> respond_string page ()
-          with _ -> resource settings.path resource_path)
+      in
+      (try Hashtbl.find tbl (Common.Uri.Path.to_string path)
+           |> fun page -> respond_string page ()
+       with _ -> resource settings.path resource_path)
     in
     let meth      = Request.meth req in
     let redir     = auth_filter headers in
