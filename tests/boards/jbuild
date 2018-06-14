@@ -2,9 +2,9 @@
 
 (executable
  ((name         test)
-  (libraries (alcotest common meta_board))))
+  (libraries (alcotest common boards))))
 
 (alias
  ((name runtest)
-  (package meta_board)
+  (package boards)
   (action  (run ${exe:test.exe}))))

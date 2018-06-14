@@ -1,7 +1,7 @@
 open Containers
 open Common.Topology
 open Api.Interaction
-open Meta_board
+open Boards.Board
 open Board_types
 
 module Api_handler = Api.Handler.Make(Common.User)

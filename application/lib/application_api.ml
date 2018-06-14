@@ -2,7 +2,7 @@ open Containers
 open Api.Interaction
 open Api.Redirect
 open Common.Topology
-open Meta_board
+open Boards.Board
 
 open Websocket_cohttp_lwt
 open Frame

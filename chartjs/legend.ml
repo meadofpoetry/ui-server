@@ -1,6 +1,6 @@
 open Base
 
-type position = Top | Left | Bottom | Right
+type position = [ `Top | `Left | `Bottom | `Right ]
 
 class type item =
   object
@@ -38,54 +38,70 @@ class type t_js =
   end
 
 let position_to_string = function
-  | Top -> "top" | Left -> "left" | Bottom -> "bottom" | Right -> "right"
+  | `Top -> "top" | `Left -> "left" | `Bottom -> "bottom" | `Right -> "right"
 let position_of_string_exn = function
-  | "top" -> Top | "left" -> Left | "bottom" -> Bottom | "right" -> Right | _ -> failwith "Bad position string"
+  | "top" -> `Top | "left" -> `Left | "bottom" -> `Bottom | "right" -> `Right | _ -> failwith "Bad position string"
 
-class labels () = object
-  inherit [labels_js] base_option ()
+class labels () =
+  let o : labels_js Js.t = Js.Unsafe.coerce @@ Js.Unsafe.obj [||] in
+  object(self)
+    inherit base_option o ()
+    inherit Font.t { size   = 12
+                   ; color  = CSS.Color.rgb 102 102 102
+                   ; family = "'Helvetica Neue','Helvetica','Arial',sans-serif"
+                   ; style  = `Normal
+                   } ()
 
-  method set_box_width x = obj##.boxWidth := x
-  method get_box_width   = obj##.boxWidth
+    (** width of coloured box *)
+    method box_width : int = _obj##.boxWidth
+    method set_box_width x = _obj##.boxWidth := x
 
-  method set_padding x = obj##.padding := x
-  method get_padding   = obj##.padding
+    (** Padding between rows of colored boxes. *)
+    method padding : int = _obj##.padding
+    method set_padding x = _obj##.padding := x
 
-  method set_use_point_style x = obj##.usePointStyle := Js.bool x
-  method get_use_point_style   = Js.to_bool obj##.usePointStyle
+    (** Label style will match corresponding point style (size is based on fontSize,
+      boxWidth is not used in this case). *)
+    method use_point_style : bool = Js.to_bool _obj##.usePointStyle
+    method set_use_point_style x = _obj##.usePointStyle := Js.bool x
 
-  initializer
-    obj##.boxWidth := 40;
-    obj##.padding := 10;
-    obj##.usePointStyle := Js._false
-end
+    initializer
+      self#set_box_width 40;
+      self#set_padding 10;
+      self#set_use_point_style false
+  end
 
-class t () = object(self)
-  inherit [t_js] base_option () as super
-  val labels = new labels ()
+class t () =
+  let o : t_js Js.t = Js.Unsafe.coerce @@ Js.Unsafe.obj [||] in
+  object(self)
+    inherit base_option o () as super
+    val _labels = new labels ()
 
-  method private position_to_js x = Js.string @@ position_to_string x
+    (** is the legend shown *)
+    method display : bool = Js.to_bool _obj##.display
+    method set_display x = _obj##.display := Js.bool x
 
-  method set_display x = obj##.display := Js.bool x
-  method get_display   = Js.to_bool obj##.display
+    (** Position of the legend. *)
+    method position : position = position_of_string_exn @@ Js.to_string _obj##.position
+    method set_position (x:position) = _obj##.position := Js.string @@ position_to_string x
 
-  method set_position x = obj##.position := self#position_to_js x
-  method get_position   = position_of_string_exn @@ Js.to_string obj##.position
+    (** Marks that this box should take the full width of the canvas (pushing down other boxes).
+      This is unlikely to need to be changed in day-to-day use. *)
+    method full_width : bool = Js.to_bool _obj##.fullWidth
+    method set_full_width x = _obj##.fullWidth := Js.bool x
 
-  method set_full_width x = obj##.fullWidth := Js.bool x
-  method get_full_width   = Js.to_bool obj##.fullWidth
+    (** Legend will show datasets in reverse order. *)
+    method reverse : bool = Js.to_bool _obj##.reverse
+    method set_reverse x = _obj##.reverse := Js.bool x
 
-  method set_reverse x = obj##.reverse := Js.bool x
-  method get_reverse   = Js.to_bool obj##.reverse
+    method labels = _labels
 
-  method labels = labels
+    method! replace x = super#replace x; self#labels#replace _obj##.labels
 
-  method! replace x = super#replace x; labels#replace obj##.labels
-
-  initializer
-    self#set_display true;
-    (* self#set_position Top; *)
-    self#set_full_width true;
-    self#set_reverse false;
-    obj##.labels := labels#get_obj;
-end
+    initializer
+      self#set_display true;
+      self#set_position `Top;
+      self#set_full_width true;
+      self#set_reverse false;
+      _obj##.labels := Js.Unsafe.coerce self#labels#get_obj;
+  end

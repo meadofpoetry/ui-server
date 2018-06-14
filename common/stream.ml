@@ -31,7 +31,7 @@ let id_to_int32 : id -> int32 = function
   | Unknown x        -> x
 
 type stream_id = [`Ip of Url.t | `Ts of id] [@@deriving yojson, show, eq]
-                      
+
 type stream =
   { source      : src
   ; id          : stream_id

@@ -45,7 +45,7 @@ class type chart =
 let constr : (Dom_html.canvasElement Js.t -> chart_config Js.t -> chart Js.t) Js.constr =
   Js.Unsafe.global##.Chart
 
-class ['a,'b] t ~(options:'a) ~typ ~data () =
+class t ~(options:#Options.t) ~typ ~data () =
   let elt = Tyxml_js.Html.canvas [] |> Tyxml_js.To_dom.of_canvas in
   let conf = [ "type", Js.Unsafe.inject @@ Js.string @@ Base.typ_to_string typ
              ; "options", Js.Unsafe.inject options#get_obj
@@ -53,9 +53,6 @@ class ['a,'b] t ~(options:'a) ~typ ~data () =
              |> Array.of_list
              |> Js.Unsafe.obj in
   object(self)
-
-    constraint 'b = #Options.t_js
-    constraint 'a = 'b #Options.t
 
     val _canvas = Components.Widget.create elt
     val _chart  = new%js constr elt conf
@@ -79,8 +76,6 @@ class ['a,'b] t ~(options:'a) ~typ ~data () =
 
     method to_png_image ()    = _chart##toBase64Image  |> Js.to_string
     method generate_legend () = _chart##generateLegend |> Js.to_string
-
-    method options = options
 
     initializer
       options#replace (Js.Unsafe.coerce _chart)##.options
