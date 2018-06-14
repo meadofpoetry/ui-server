@@ -1,7 +1,16 @@
 include Uri
 
 let (%) f g x = f (g x)
-      
+
+module Scheme = struct
+  type t = string
+
+  let ws    = "ws"
+  let wss   = "wss"
+  let http  = "http"
+  let https = "https"
+end
+
 module Path : sig
   type t
   val of_string : string -> t
@@ -49,9 +58,9 @@ end = struct
     | Str l, Str r -> Str (l ^ "/" ^ r)
 
   let (/) = append
-             
+          
 end
-            
+    
 module Query = struct
 
   type t = (string * string list) list
@@ -105,7 +114,7 @@ module Query = struct
     type t = E.t option
     let of_query = function [] -> None | [v] -> Some (E.of_string v)
     let to_query = function Some v -> [ E.to_string v ] | None -> []
-  end                      
+  end
 
   type (_,_) compose =
     | (::) : (string * (module Convert with type t = 'a)) * ('b, 'c) compose -> ('a -> 'b, 'c) compose
