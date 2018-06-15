@@ -20,12 +20,18 @@ type t = { dispatch : (int * (Cstruct.t list -> 'c cc as 'c) cc) list ref (* TOD
          }
 
 let prefix = 0x44BB
+let c_44 = Char.chr 0x44
+let c_BB = Char.chr 0xBB
 
 let msg_parser =
   let open Angstrom in
-  let prefix_parser =
-    BE.uint16 >>= fun v ->
-    if v = prefix then return () else fail "Not a prefix"
+  let prefix_parser = BE.int16 prefix in
+  let skip_until_prefix =
+    scan_state false (fun prev cur ->
+        match cur with
+        | c when Char.equal c c_44 -> Some true
+        | c when Char.equal c c_BB -> Some prev
+        | _ -> if prev then None else Some false)
   in
   let len_parser =
     any_uint8 >>= fun port' ->
@@ -35,16 +41,15 @@ let msg_parser =
     let len       = (length * 2) - (if parity then 1 else 0) in
     return (port,len)
   in
-  let header_parser =
-    prefix_parser *> len_parser
+  let header_parser = prefix_parser *> len_parser
+    (* skip_until_prefix *> len_parser*)
   in
   let msg_parser' = 
     header_parser >>= fun (port,len) ->
     take_bigstring len >>= fun msg ->
     return (port, Cstruct.of_bigarray msg)
   in
-  many @@ fix (fun p ->
-              msg_parser' <|> (any_char *> p))
+  many msg_parser'
 
 let parse_msg ?(prev : Angstrom.Buffered.unconsumed option) s =
   let open Angstrom in
@@ -201,7 +206,7 @@ let create ?(sleep = 1.) () =
                  l o op oav n np nav);
     begin match msgs with
     | Error e -> Logs.err (fun m -> m "(Usb_device) deserialize loop error: %s" e)
-    | Ok msgs -> dispatch := apply !dispatch msgs
+    | Ok msgs -> dispatch := apply !dispatch omsgs
     end;
     loop oacc new_acc sma_o sma_n ()
   in
