@@ -10,7 +10,7 @@ let get_topology () =
   get_result ~path of_yojson ()
 
 let get_topology_socket () =
-  let path = "api/topology/topology_sock" in
+  let path = "api/topology/topology" in
   WS.get ~path of_yojson ()
 
 let get_stream_table () =
@@ -18,7 +18,7 @@ let get_stream_table () =
   get_result ~path stream_table_of_yojson ()
 
 let get_stream_table_socket () =
-  let path = "api/topology/stream_table_sock" in
+  let path = "api/topology/stream_table" in
   WS.get ~path stream_table_of_yojson ()
 
 let post_stream_settings settings =

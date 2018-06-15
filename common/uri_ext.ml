@@ -9,10 +9,14 @@ module Scheme = struct
   let wss   = "wss"
   let http  = "http"
   let https = "https"
+
+  let is_ws = function
+    | Some "ws" | Some "wss" -> true
+    | _                      -> false
 end
 
 module Path : sig
-  type t
+  type t = string list
   val of_string : string -> t
   val to_string : t -> string
   val s : string -> t

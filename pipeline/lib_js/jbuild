@@ -40,3 +40,8 @@
  ((targets (wm.ml))
   (deps (../wm.ml))
   (action (copy ${<} ${@}))))
+
+(rule
+ ((targets (queries.ml))
+  (deps (../queries.ml))
+  (action (copy ${<} ${@}))))

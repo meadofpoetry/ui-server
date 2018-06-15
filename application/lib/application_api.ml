@@ -81,17 +81,16 @@ let get_topology_socket sock_data body app () =
 
   
   
-let handle app id meth uri_sep sock_data _ body =
-  (* TODO match string + query *)
-  let path_list = Common.Uri.(split @@  Path.to_string uri_sep.path) in
+let handle app id meth uri sock_data _ body =
+  let open Common.Uri in
   let is_guest = Common.User.eq id `Guest in
-  match meth, path_list with
-  | `GET, []                    -> get_page ()
-  | `GET, ["topology_sock"]     -> get_topology_socket sock_data body app ()
-  | `GET, ["topology"]          -> get_topology app ()
-  | `GET, ["stream_table_sock"] -> get_stream_table_socket sock_data body app ()
-  | `GET, ["stream_table"]      -> get_stream_table app ()
-  | `POST, ["stream_settings"]  -> redirect_if is_guest @@ set_stream_settings body app
+  match Scheme.is_ws uri.scheme, meth, uri.path with
+  | _,    `GET, []                    -> get_page ()
+  | true, `GET, ["topology"]          -> get_topology_socket sock_data body app ()
+  | _,    `GET, ["topology"]          -> get_topology app ()
+  | true, `GET, ["stream_table"]      -> get_stream_table_socket sock_data body app ()
+  | _,    `GET, ["stream_table"]      -> get_stream_table app ()
+  | _,    `POST, ["stream_settings"]  -> redirect_if is_guest @@ set_stream_settings body app
   | _        -> Api.Redirect.not_found ()
 
 let handlers app =
