@@ -19,22 +19,18 @@ module Device = struct
 
   end
 
-  module REST = struct
+  module HTTP = struct
 
     (** Sets board port to listen **)
     let post_port control port state =
       let path = make_path control ["port";string_of_int port;string_of_bool state] in
       post_result_unit ~path ()
 
-    module RT = struct
+    let get_state control =
+      let path = make_path control ["state"] in
+      get_result ~path Topology.state_of_yojson ()
 
-      let get_state control =
-        let path = make_path control ["state"] in
-        get_result ~path Topology.state_of_yojson ()
-
-    end
-
-    module AR = struct
+    module Archive = struct
 
       (* TODO add filter *)
       let get_state ?limit ?total time control =

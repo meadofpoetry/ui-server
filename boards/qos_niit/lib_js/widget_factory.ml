@@ -103,31 +103,31 @@ object(self)
 
   method private _state =
     Factory_state_lwt.get_value_as_signal
-      ~get:(fun ()        -> Requests.Device.REST.RT.get_state control |> map_err)
+      ~get:(fun ()        -> Requests.Device.HTTP.get_state control |> map_err)
       ~get_socket:(fun () -> Requests.Device.WS.get_state control)
       _state
 
-  method private _structs =
-    Factory_state_lwt.get_value_as_signal
-      ~get:(fun ()        -> Requests.Streams.REST.RT.TS.get_structure control |> map_err)
-      ~get_socket:(fun () -> Requests.Streams.WS.TS.get_structure control)
-      _structs
-
   method private _t2mi_mode =
     Factory_state_lwt.get_value_as_signal
-      ~get:(fun ()        -> Requests.Device.REST.RT.get_t2mi_mode control |> map_err)
+      ~get:(fun ()        -> Requests.Device.HTTP.get_t2mi_mode control |> map_err)
       ~get_socket:(fun () -> Requests.Device.WS.get_t2mi_mode control)
       _t2mi_mode
 
   method private _jitter_mode =
     Factory_state_lwt.get_value_as_signal
-      ~get:(fun () ->        Requests.Device.REST.RT.get_jitter_mode control |> map_err)
+      ~get:(fun () ->        Requests.Device.HTTP.get_jitter_mode control |> map_err)
       ~get_socket:(fun () -> Requests.Device.WS.get_jitter_mode control)
       _jitter_mode
 
+  method private _structs =
+    Factory_state_lwt.get_value_as_signal
+      ~get:(fun ()        -> Requests.Streams.HTTP.TS.get_structure control |> map_err)
+      ~get_socket:(fun () -> Requests.Streams.WS.TS.get_structure control)
+      _structs
+
   method private _bitrates =
     Factory_state_lwt.get_value_as_signal
-      ~get:(fun ()        -> Requests.Streams.REST.RT.TS.get_bitrate control |> map_err)
+      ~get:(fun ()        -> Requests.Streams.HTTP.TS.get_bitrate control |> map_err)
       ~get_socket:(fun () -> Requests.Streams.WS.TS.get_bitrate control)
       _bitrates
 

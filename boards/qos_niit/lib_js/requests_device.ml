@@ -27,12 +27,11 @@ module WS = struct
 
 end
 
-module REST = struct
+module HTTP = struct
 
-  include (Boards_js.Requests.Device.REST:
-           module type of Boards_js.Requests.Device.REST
-                          with module RT := Boards_js.Requests.Device.REST.RT
-                          with module AR := Boards_js.Requests.Device.REST.AR)
+  include (Boards_js.Requests.Device.HTTP:
+           module type of Boards_js.Requests.Device.HTTP
+                          with module Archive := Boards_js.Requests.Device.HTTP.Archive)
 
   (** Resets the board **)
   let post_reset control =
@@ -51,27 +50,21 @@ module REST = struct
     let contents = jitter_mode_opt_to_yojson mode in
     post_result_unit ~path ~contents ()
 
-  module RT = struct
+  let get_devinfo control =
+    let path = make_path control ["info"] in
+    get_result ~path devinfo_of_yojson ()
 
-    include Boards_js.Requests.Device.REST.RT
+  let get_t2mi_mode control =
+    let path = make_path control ["mode";"t2mi"] in
+    get_result ~path t2mi_mode_opt_of_yojson ()
 
-    let get_devinfo control =
-      let path = make_path control ["info"] in
-      get_result ~path devinfo_of_yojson ()
+  let get_jitter_mode control =
+    let path = make_path control ["mode";"jitter"] in
+    get_result ~path jitter_mode_opt_of_yojson ()
 
-    let get_t2mi_mode control =
-      let path = make_path control ["mode";"t2mi"] in
-      get_result ~path t2mi_mode_opt_of_yojson ()
+  module Archive = struct
 
-    let get_jitter_mode control =
-      let path = make_path control ["mode";"jitter"] in
-      get_result ~path jitter_mode_opt_of_yojson ()
-
-  end
-
-  module AR = struct
-
-    include Boards_js.Requests.Device.REST.AR
+    include Boards_js.Requests.Device.HTTP.Archive
 
     let get_status ?limit ?total time control =
       let query =

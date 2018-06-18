@@ -85,7 +85,7 @@ let make ~(state:   Common.Topology.state React.signal)
                        state s_en
   in
   let _      = React.S.map (fun x -> List.iter (fun f -> f x) [set_en; set_pid; set_sid]) mode in
-  let submit = Requests.Device.REST.post_t2mi_mode control in
+  let submit = Requests.Device.HTTP.post_t2mi_mode control in
   let apply  = Ui_templates.Buttons.create_apply s submit in
   let box    = new Box.t ~vertical:true ~widgets:[en;ss;pid;sid;apply#widget] () in
   let ()     = box#add_class "mdc-settings-widget" in

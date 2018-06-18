@@ -31,27 +31,27 @@ module WS = struct
 
 end
 
-module REST = struct
+module HTTP = struct
 
-  module AR = struct
+  let to_errors_query ?errors ?level ?limit ?thin ?total ?stream time =
+    let strm = Api_js.Query.Stream.make stream in
+    let coll = Api_js.Query.Collection.make ?limit ?total ?thin () in
+    let time = Api_js.Query.Time.make time in
+    List.fold_left Uri.Query.merge [] [strm;coll;time]
 
-    let to_errors_query ?errors ?level ?limit ?thin ?total ?stream time =
-      let strm = Api_js.Query.Stream.make stream in
-      let coll = Api_js.Query.Collection.make ?limit ?total ?thin () in
-      let time = Api_js.Query.Time.make time in
-      List.fold_left Uri.Query.merge [] [strm;coll;time]
+  let to_percent_uri ?errors ?level ?stream time =
+    let strm = Api_js.Query.Stream.make stream in
+    let time = Api_js.Query.Time.make time in
+    List.fold_left Uri.Query.merge [] [strm;time]
 
-    let to_percent_uri ?errors ?level ?stream time =
-      let strm = Api_js.Query.Stream.make stream in
-      let time = Api_js.Query.Time.make time in
-      List.fold_left Uri.Query.merge [] [strm;time]
+  let to_has_any_uri ?errors ?level ?stream time =
+    let strm = Api_js.Query.Stream.make stream in
+    let time = Api_js.Query.Time.make time in
+    List.fold_left Uri.Query.merge [] [strm;time]
 
-    let to_has_any_uri ?errors ?level ?stream time =
-      let strm = Api_js.Query.Stream.make stream in
-      let time = Api_js.Query.Time.make time in
-      List.fold_left Uri.Query.merge [] [strm;time]
+  module TS = struct
 
-    module TS = struct
+    module Archive = struct
 
       let get_errors ?errors ?priority ?limit ?thin ?total time control =
         let query = to_errors_query ?errors ?level:priority ?limit ?thin ?total ?stream:None time in
@@ -85,7 +85,11 @@ module REST = struct
 
     end
 
-    module T2MI = struct
+  end
+
+  module T2MI = struct
+
+    module Archive = struct
 
       let get_errors ?errors ?priority ?limit ?thin ?total time control =
         let query = to_errors_query ?errors ?level:priority ?limit ?thin ?total ?stream:None time in
