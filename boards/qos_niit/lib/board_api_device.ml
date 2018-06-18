@@ -44,7 +44,7 @@ module WS = struct
 
 end
 
-module REST = struct
+module HTTP = struct
 
   let post_reset (api:api) () =
     api.reset () >|= Result.return
@@ -75,29 +75,24 @@ module REST = struct
     | Some SPI, false -> api.set_input ASI >|= Result.return >>= Json.respond_result_unit
     | _               -> not_found ()
 
-  (** Real-time GET requests **)
-  module RT = struct
+  let devinfo api () =
+    api.get_devinfo () >|= (devinfo_opt_to_yojson %> Result.return)
+    >>= Json.respond_result
 
-    let state (events:events) () =
-      React.S.value events.state
-      |> Common.Topology.state_to_yojson
-      |> Result.return
-      |> Json.respond_result
+  let mode mode (api:api) () =
+    (match mode with
+     | `T2MI   -> api.config () >|= (fun x -> Ok (t2mi_mode_opt_to_yojson x.t2mi_mode))
+     | `JITTER -> api.config () >|= (fun x -> Ok (jitter_mode_opt_to_yojson x.jitter_mode)))
+    >>= Json.respond_result
 
-    let devinfo api () =
-      api.get_devinfo () >|= (devinfo_opt_to_yojson %> Result.return)
-      >>= Json.respond_result
-
-    let mode mode (api:api) () =
-      (match mode with
-       | `T2MI   -> api.config () >|= (fun x -> Ok (t2mi_mode_opt_to_yojson x.t2mi_mode))
-       | `JITTER -> api.config () >|= (fun x -> Ok (jitter_mode_opt_to_yojson x.jitter_mode)))
-      >>= Json.respond_result
-
-  end
+  let state_now (events:events) () =
+    React.S.value events.state
+    |> Common.Topology.state_to_yojson
+    |> Result.return
+    |> Json.respond_result
 
   (** Archive GET requests **)
-  module AR = struct
+  module Archive = struct
 
     let state time (q:Uri.Query.t) () =
       respond_error ~status:`Not_implemented "not impelemented" ()
@@ -110,96 +105,50 @@ module REST = struct
 
   end
 
+  let state events (query:Uri.Query.t) () =
+    match Api.Query.Time.get' query with
+    | Ok (None,_)       -> state_now events ()
+    | Ok (Some t,query) -> Archive.state t query ()
+    | Error e           -> respond_bad_query e
+
+  let status events (query:Uri.Query.t) () =
+    match Api.Query.Time.get' query with
+    | Ok (None,_)       -> respond_error ~status:`Not_implemented "not implemented" ()
+    | Ok (Some t,query) -> Archive.status t query ()
+    | Error e           -> respond_bad_query e
+
+  let errors events (query:Uri.Query.t) () =
+    match Api.Query.Time.get' query with
+    | Ok (None,_)       -> respond_error ~status:`Not_implemented "not implemented" ()
+    | Ok (Some t,query) -> Archive.errors t query ()
+    | Error e           -> respond_bad_query e
+
 end
 
-let mode_handler api events id meth ({path;query;_}:Uri.sep) sock_data headers body =
+let handler api events id meth ({path;query;_}:Uri.sep) sock_data headers body =
   let is_guest = Common.User.eq id `Guest in
-  let mode = match Uri.Path.to_string path with
-    | "t2mi" -> Some `T2MI | "jitter" -> Some `JITTER | _ -> None
-  in
-  match Api.Headers.is_ws headers,meth,mode with
-  | false,`POST,Some mode -> redirect_if is_guest @@ REST.post_mode mode api body
-  | true, `GET, Some mode -> WS.mode mode sock_data events body ()
-  | false,`GET, Some mode -> REST.RT.mode mode api ()
-  | _ -> not_found ()
-
-let port_handler api id meth ({path;query;_}:Uri.sep) _ headers body =
-  let is_guest   = Common.User.eq id `Guest in
-  let port,path  = Pair.map1 (Option.flat_map int_of_string_opt)  @@ Uri.Path.next path in
-  let state,path = Pair.map1 (Option.flat_map bool_of_string_opt) @@ Uri.Path.next path in
-  match Api.Headers.is_ws headers,meth,path,port,state with
-  | false,`POST,[],Some p,Some b ->
-     redirect_if is_guest @@ REST.post_port p b api
-  | _ -> not_found ()
-
-let reset_handler api id meth ({path;query;_}:Uri.sep) _ headers _ =
-  let is_guest = Common.User.eq id `Guest in
-  match Api.Headers.is_ws headers,meth,Uri.Path.to_string path with
-  | false,`POST,"" -> redirect_if is_guest @@ REST.post_reset api
-  | _              -> not_found ()
-
-let info_handler api _ meth ({path;query;_}:Uri.sep) _ headers _ =
-  match Api.Headers.is_ws headers,meth,Uri.Path.to_string path with
-  | false,`GET,"" -> REST.RT.devinfo api ()
-  | _ -> not_found ()
-
-let state_handler events _ meth ({path;query;_}:Uri.sep) sock_data headers body =
   match Api.Headers.is_ws headers,meth,path with
-  | true, `GET,[] -> WS.state sock_data events body ()
-  | false,`GET,[] ->
-     (match Api.Query.Time.get' query with
-      | Ok (None,query)        -> REST.RT.state events ()
-      | Ok ((Some time),query) -> REST.AR.state time query ()
-      | Error e                -> respond_error (Uri.Query.err_to_string e) ())
+  (* WS *)
+  | true, `GET, ["mode";"t2mi"]   -> WS.mode `T2MI sock_data events body ()
+  | true, `GET, ["mode";"jitter"] -> WS.mode `JITTER sock_data events body ()
+  | true, `GET, ["state"]         -> WS.state sock_data events body ()
+  | true, `GET, ["status"]        -> WS.status sock_data events body ()
+  | true, `GET, ["errors"]        -> WS.errors sock_data events body ()
+  (* HTTP *)
+  | false,`POST,["mode";"t2mi"]   -> HTTP.post_mode `T2MI api body ()
+  | false,`POST,["mode";"jitter"] -> HTTP.post_mode `JITTER api body ()
+  | false,`GET, ["mode";"t2mi"]   -> HTTP.mode `T2MI api ()
+  | false,`GET, ["mode";"jitter"] -> HTTP.mode `JITTER api ()
+  | false,`POST,["port";id;state] ->
+     let id'    = int_of_string_opt id in
+     let state' = bool_of_string_opt state in
+     (match id',state' with
+      | Some id,Some state -> redirect_if is_guest @@ HTTP.post_port id state api
+      | None, _            -> respond_error_other @@ Printf.sprintf "bad port id: %s" id
+      | _, None            -> respond_error_other @@ Printf.sprintf "bad state: %s" state)
+  | false,`GET, ["reset"]        -> redirect_if is_guest @@ HTTP.post_reset api
+  | false,`GET, ["info"]         -> HTTP.devinfo api ()
+  | false,`GET, ["state"]        -> HTTP.state events query ()
+  | false,`GET, ["status"]       -> HTTP.status events query ()
+  | false,`GET, ["errors"]       -> HTTP.errors events query ()
   | _ -> not_found ()
-
-let status_handler events _ meth ({path;query;_}:Uri.sep) sock_data headers body =
-  match Api.Headers.is_ws headers,meth,Uri.Path.to_string path with
-  | true, `GET,"" -> WS.status sock_data events body ()
-  | false,`GET,"" ->
-     (match Api.Query.Time.get' query with
-      | Ok (None,_)   -> not_implemented "FIXME" ()
-      | Ok (Some t,q) -> REST.AR.status t q ()
-      | Error e       -> respond_error (Uri.Query.err_to_string e) ())
-  | _ -> not_found ()
-
-let errors_handler events _ meth ({scheme;path;query}:Uri.sep) sock_data headers body =
-  match Api.Headers.is_ws headers,meth,Uri.Path.to_string path with
-  | true, `GET,"" -> WS.errors sock_data events body ()
-  | false,`GET,"" ->
-     (match Api.Query.Time.get' query with
-      | Ok (None,_)   -> not_implemented "FIXME" ()
-      | Ok (Some t,q) -> REST.AR.errors t q ()
-      | Error e       -> respond_error (Uri.Query.err_to_string e) ())
-  | _ -> not_found ()
-
-let handlers api events =
-  [ (module struct
-       let domain = "mode"
-       let handle = mode_handler api events
-     end : Api_handler.HANDLER)
-  ; (module struct
-       let domain = "port"
-       let handle = port_handler api
-     end : Api_handler.HANDLER)
-  ; (module struct
-       let domain = "reset"
-       let handle = reset_handler api
-     end : Api_handler.HANDLER)
-  ; (module struct
-       let domain = "info"
-       let handle = info_handler api
-     end : Api_handler.HANDLER)
-  ; (module struct
-       let domain = "state"
-       let handle = state_handler events
-     end : Api_handler.HANDLER)
-  ; (module struct
-       let domain = "status"
-       let handle = status_handler events
-     end : Api_handler.HANDLER)
-  ; (module struct
-       let domain = "errors"
-       let handle = errors_handler events
-     end : Api_handler.HANDLER)
-  ]

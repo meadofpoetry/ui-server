@@ -56,11 +56,11 @@ end
 
 let rest_now_ni = "This REST real-time REQ is not implemented"
 
-module REST = struct
+module HTTP = struct
 
   module TS = struct
 
-    module AR = struct
+    module Archive = struct
 
       let errors time query () =
         (* TODO IMPLEMENT *)
@@ -77,25 +77,25 @@ module REST = struct
     let errors query () =
       match Api.Query.Time.get' query with
       | Ok (None,_)   -> not_implemented rest_now_ni ()
-      | Ok (Some t,q) -> AR.errors t q ()
+      | Ok (Some t,q) -> Archive.errors t q ()
       | Error e       -> respond_error (Uri.Query.err_to_string e) ()
 
     let percent query () =
       match Api.Query.Time.get' query with
       | Ok (None,_)   -> not_implemented rest_now_ni ()
-      | Ok (Some t,q) -> AR.percent t q ()
+      | Ok (Some t,q) -> Archive.percent t q ()
       | Error e       -> respond_error (Uri.Query.err_to_string e) ()
 
     let has_any query () =
       match Api.Query.Time.get' query with
       | Ok (None,_)   -> not_implemented rest_now_ni ()
-      | Ok (Some t,q) -> AR.has_any t q ()
+      | Ok (Some t,q) -> Archive.has_any t q ()
       | Error e       -> respond_error (Uri.Query.err_to_string e) ()
   end
 
   module T2MI = struct
 
-    module AR = struct
+    module Archive = struct
 
       let errors time query () =
         (* TODO IMPLEMENT *)
@@ -112,19 +112,19 @@ module REST = struct
     let errors query () =
       match Api.Query.Time.get' query with
       | Ok (None,_)   -> not_implemented rest_now_ni ()
-      | Ok (Some t,q) -> AR.errors t q ()
+      | Ok (Some t,q) -> Archive.errors t q ()
       | Error e       -> respond_error (Uri.Query.err_to_string e) ()
 
     let percent query () =
       match Api.Query.Time.get' query with
       | Ok (None,_)   -> not_implemented rest_now_ni ()
-      | Ok (Some t,q) -> AR.percent t q ()
+      | Ok (Some t,q) -> Archive.percent t q ()
       | Error e       -> respond_error (Uri.Query.err_to_string e) ()
 
     let has_any query () =
       match Api.Query.Time.get' query with
       | Ok (None,_)   -> not_implemented rest_now_ni ()
-      | Ok (Some t,q) -> AR.has_any t q ()
+      | Ok (Some t,q) -> Archive.has_any t q ()
       | Error e       -> respond_error (Uri.Query.err_to_string e) ()
 
   end
@@ -134,20 +134,20 @@ let ts_handler events _ meth ({path;query;_}:Uri.sep) sock_data headers body =
   match Api.Headers.is_ws headers,meth,Uri.Path.to_string path with
   (* WS *)
   | true, `GET,""        -> WS.TS.errors sock_data events body query ()
-  (* REST *)
-  | false,`GET,""        -> REST.TS.errors query ()
-  | false,`GET,"percent" -> REST.TS.percent query ()
-  | false,`GET,"has-any" -> REST.TS.has_any query ()
+  (* HTTP *)
+  | false,`GET,""        -> HTTP.TS.errors query ()
+  | false,`GET,"percent" -> HTTP.TS.percent query ()
+  | false,`GET,"has-any" -> HTTP.TS.has_any query ()
   | _                    -> not_found ()
 
 let t2mi_handler events _ meth ({path;query;_}:Uri.sep) sock_data headers body =
   match Api.Headers.is_ws headers,meth,Uri.Path.to_string path with
   (* WS *)
   | true, `GET,""        -> WS.T2MI.errors sock_data events body query ()
-  (* REST *)
-  | false,`GET,""        -> REST.T2MI.errors query ()
-  | false,`GET,"percent" -> REST.T2MI.percent query ()
-  | false,`GET,"has-any" -> REST.T2MI.has_any query ()
+  (* HTTP *)
+  | false,`GET,""        -> HTTP.T2MI.errors query ()
+  | false,`GET,"percent" -> HTTP.T2MI.percent query ()
+  | false,`GET,"has-any" -> HTTP.T2MI.has_any query ()
   | _                    -> not_found ()
 
 let handlers events =
