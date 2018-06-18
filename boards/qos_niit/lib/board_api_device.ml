@@ -112,62 +112,62 @@ module REST = struct
 
 end
 
-let mode_handler api events id meth ({scheme;path;query}:Uri.sep) sock_data _ body =
+let mode_handler api events id meth ({path;query;_}:Uri.sep) sock_data headers body =
   let is_guest = Common.User.eq id `Guest in
   let mode = match Uri.Path.to_string path with
     | "t2mi" -> Some `T2MI | "jitter" -> Some `JITTER | _ -> None
   in
-  match Uri.Scheme.is_ws scheme,meth,mode with
+  match Api.Headers.is_ws headers,meth,mode with
   | false,`POST,Some mode -> redirect_if is_guest @@ REST.post_mode mode api body
   | true, `GET, Some mode -> WS.mode mode sock_data events body ()
   | false,`GET, Some mode -> REST.RT.mode mode api ()
   | _ -> not_found ()
 
-let port_handler api id meth ({scheme;path;query}:Uri.sep) _ _ body =
+let port_handler api id meth ({path;query;_}:Uri.sep) _ headers body =
   let is_guest   = Common.User.eq id `Guest in
   let port,path  = Pair.map1 (Option.flat_map int_of_string_opt)  @@ Uri.Path.next path in
   let state,path = Pair.map1 (Option.flat_map bool_of_string_opt) @@ Uri.Path.next path in
-  match Uri.Scheme.is_ws scheme,meth,path,port,state with
+  match Api.Headers.is_ws headers,meth,path,port,state with
   | false,`POST,[],Some p,Some b ->
      redirect_if is_guest @@ REST.post_port p b api
   | _ -> not_found ()
 
-let reset_handler api id meth ({scheme;path;query}:Uri.sep) _ _ _ =
+let reset_handler api id meth ({path;query;_}:Uri.sep) _ headers _ =
   let is_guest = Common.User.eq id `Guest in
-  match Uri.Scheme.is_ws scheme,meth,Uri.Path.to_string path with
+  match Api.Headers.is_ws headers,meth,Uri.Path.to_string path with
   | false,`POST,"" -> redirect_if is_guest @@ REST.post_reset api
   | _              -> not_found ()
 
-let info_handler api _ meth ({scheme;path;query}:Uri.sep) _ _ _ =
-  match Uri.Scheme.is_ws scheme,meth,Uri.Path.to_string path with
+let info_handler api _ meth ({path;query;_}:Uri.sep) _ headers _ =
+  match Api.Headers.is_ws headers,meth,Uri.Path.to_string path with
   | false,`GET,"" -> REST.RT.devinfo api ()
   | _ -> not_found ()
 
-let state_handler events _ meth ({scheme;path;query}:Uri.sep) sock_data _ body =
-  match Uri.Scheme.is_ws scheme,meth,path with
+let state_handler events _ meth ({path;query;_}:Uri.sep) sock_data headers body =
+  match Api.Headers.is_ws headers,meth,path with
   | true, `GET,[] -> WS.state sock_data events body ()
   | false,`GET,[] ->
-     (match Api.Query.Time.get query with
+     (match Api.Query.Time.get' query with
       | Ok (None,query)        -> REST.RT.state events ()
       | Ok ((Some time),query) -> REST.AR.state time query ()
       | Error e                -> respond_error (Uri.Query.err_to_string e) ())
   | _ -> not_found ()
 
-let status_handler events _ meth ({scheme;path;query}:Uri.sep) sock_data _ body =
-  match Uri.Scheme.is_ws scheme,meth,Uri.Path.to_string path with
+let status_handler events _ meth ({path;query;_}:Uri.sep) sock_data headers body =
+  match Api.Headers.is_ws headers,meth,Uri.Path.to_string path with
   | true, `GET,"" -> WS.status sock_data events body ()
   | false,`GET,"" ->
-     (match Api.Query.Time.get query with
+     (match Api.Query.Time.get' query with
       | Ok (None,_)   -> not_implemented "FIXME" ()
       | Ok (Some t,q) -> REST.AR.status t q ()
       | Error e       -> respond_error (Uri.Query.err_to_string e) ())
   | _ -> not_found ()
 
-let errors_handler events _ meth ({scheme;path;query}:Uri.sep) sock_data _ body =
-  match Uri.Scheme.is_ws scheme,meth,Uri.Path.to_string path with
+let errors_handler events _ meth ({scheme;path;query}:Uri.sep) sock_data headers body =
+  match Api.Headers.is_ws headers,meth,Uri.Path.to_string path with
   | true, `GET,"" -> WS.errors sock_data events body ()
   | false,`GET,"" ->
-     (match Api.Query.Time.get query with
+     (match Api.Query.Time.get' query with
       | Ok (None,_)   -> not_implemented "FIXME" ()
       | Ok (Some t,q) -> REST.AR.errors t q ()
       | Error e       -> respond_error (Uri.Query.err_to_string e) ())

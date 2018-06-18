@@ -58,11 +58,11 @@ module Make(M:Listened) : (Listener with type config := M.config and type status
     let (>|=) = Lwt.Infix.(>|=) in
     M.get_config control
     >>= (fun cfg ->
-      Requests.get_state control
+      Requests.Device.REST.RT.get_state control
       >>= (fun state ->
            let e_config,config_ws = M.listen_config control in
            let e_status,status_ws = M.listen_status control in
-           let e_state,state_ws   = Requests.get_state_ws control in
+           let e_state,state_ws   = Requests.Device.WS.get_state control in
            let events = { config = e_config; status = e_status } in
            let info   = { config  = cfg
                         ; events

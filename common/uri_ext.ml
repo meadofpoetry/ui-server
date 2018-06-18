@@ -68,6 +68,8 @@ module Query = struct
   
   type t = (string * string list) list [@@deriving yojson]
 
+  let empty = []
+
   let err_to_string = function
     | Key_not_found s -> s
     | Parser_error s  -> s
@@ -104,6 +106,15 @@ module Query = struct
     let of_string = int_of_string
     let to_string = string_of_int
   end
+
+  module Float = struct
+    type t = float
+    let of_string = float_of_string
+    let to_string = string_of_float
+  end
+
+  module Int32 = Int32
+  module Int64 = Int64
 
   module Bool = struct
     type t = bool
@@ -157,6 +168,8 @@ module Query = struct
 
   let make_query q = make_q (fun x -> x) q
 
+  let merge t1 t2 = CCList.sorted_merge_uniq ~cmp:(fun x y -> CCString.compare (fst x) (fst y)) t1 t2
+
   let rec parse_q : type ty v. ty -> (ty, v) compose -> t -> v * t =
     fun k ->
     function
@@ -167,7 +180,7 @@ module Query = struct
        let (arg, args) = grep_arg q sl in
        parse_q (k (try C.of_query arg
                    with Not_found -> raise_notrace (Key_not_found_exn q)
-                       | exn -> raise_notrace exn)) rest args
+                      | exn -> raise_notrace exn)) rest args
 
   let parse_query' lst f queries =
     try Ok(parse_q f lst queries)

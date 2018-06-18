@@ -123,8 +123,8 @@ object(self)
   (** Private methods **)
 
   method private _state =
-    Factory_state_lwt.get_value_as_signal ~get:(fun () -> Requests.get_state control |> map_err)
-                                          ~get_socket:(fun () -> Requests.get_state_ws control)
+    Factory_state_lwt.get_value_as_signal ~get:(fun () -> Requests.Device.REST.RT.get_state control |> map_err)
+                                          ~get_socket:(fun () -> Requests.Device.WS.get_state control)
                                           _state
 
   method private _config =

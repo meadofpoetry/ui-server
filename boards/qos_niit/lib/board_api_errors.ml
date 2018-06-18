@@ -75,19 +75,19 @@ module REST = struct
     end
 
     let errors query () =
-      match Api.Query.Time.get query with
+      match Api.Query.Time.get' query with
       | Ok (None,_)   -> not_implemented rest_now_ni ()
       | Ok (Some t,q) -> AR.errors t q ()
       | Error e       -> respond_error (Uri.Query.err_to_string e) ()
 
     let percent query () =
-      match Api.Query.Time.get query with
+      match Api.Query.Time.get' query with
       | Ok (None,_)   -> not_implemented rest_now_ni ()
       | Ok (Some t,q) -> AR.percent t q ()
       | Error e       -> respond_error (Uri.Query.err_to_string e) ()
 
     let has_any query () =
-      match Api.Query.Time.get query with
+      match Api.Query.Time.get' query with
       | Ok (None,_)   -> not_implemented rest_now_ni ()
       | Ok (Some t,q) -> AR.has_any t q ()
       | Error e       -> respond_error (Uri.Query.err_to_string e) ()
@@ -110,19 +110,19 @@ module REST = struct
     end
 
     let errors query () =
-      match Api.Query.Time.get query with
+      match Api.Query.Time.get' query with
       | Ok (None,_)   -> not_implemented rest_now_ni ()
       | Ok (Some t,q) -> AR.errors t q ()
       | Error e       -> respond_error (Uri.Query.err_to_string e) ()
 
     let percent query () =
-      match Api.Query.Time.get query with
+      match Api.Query.Time.get' query with
       | Ok (None,_)   -> not_implemented rest_now_ni ()
       | Ok (Some t,q) -> AR.percent t q ()
       | Error e       -> respond_error (Uri.Query.err_to_string e) ()
 
     let has_any query () =
-      match Api.Query.Time.get query with
+      match Api.Query.Time.get' query with
       | Ok (None,_)   -> not_implemented rest_now_ni ()
       | Ok (Some t,q) -> AR.has_any t q ()
       | Error e       -> respond_error (Uri.Query.err_to_string e) ()
@@ -130,8 +130,8 @@ module REST = struct
   end
 end
 
-let ts_handler events _ meth ({scheme;path;query}:Uri.sep) sock_data _ body =
-  match Uri.Scheme.is_ws scheme,meth,Uri.Path.to_string path with
+let ts_handler events _ meth ({path;query;_}:Uri.sep) sock_data headers body =
+  match Api.Headers.is_ws headers,meth,Uri.Path.to_string path with
   (* WS *)
   | true, `GET,""        -> WS.TS.errors sock_data events body query ()
   (* REST *)
@@ -140,8 +140,8 @@ let ts_handler events _ meth ({scheme;path;query}:Uri.sep) sock_data _ body =
   | false,`GET,"has-any" -> REST.TS.has_any query ()
   | _                    -> not_found ()
 
-let t2mi_handler events _ meth ({scheme;path;query}:Uri.sep) sock_data _ body =
-  match Uri.Scheme.is_ws scheme,meth,Uri.Path.to_string path with
+let t2mi_handler events _ meth ({path;query;_}:Uri.sep) sock_data headers body =
+  match Api.Headers.is_ws headers,meth,Uri.Path.to_string path with
   (* WS *)
   | true, `GET,""        -> WS.T2MI.errors sock_data events body query ()
   (* REST *)
