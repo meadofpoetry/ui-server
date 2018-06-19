@@ -8,10 +8,12 @@
                              -thread -w "+1..49+60" -w "+a-4-7-23-33-39-40-41-42-44-45-48"
                              -O3 -unbox-closures))
   (flags (:standard -cclib -lc))
-  (libraries (containers lwt_react websocket-lwt.cohttp common storage boards api bitstring))
+  (libraries (containers lwt_react websocket-lwt.cohttp common storage boards api bitstring logs))
   (preprocess (pps (ppx_cstruct ppx_deriving.eq bitstring.ppx ppx_deriving_yojson)))))
 
 (rule
  ((targets (board_types.ml))
   (deps (../board_types.ml))
   (action (copy ${<} ${@}))))
+
+

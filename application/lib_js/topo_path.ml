@@ -40,18 +40,18 @@ class switch (node:node_entry) (port:Common.Topology.topo_port) () =
       (match node with
        | `Entry (Board b) ->
           Dom_events.(listen self#input_element Typ.change (fun _ _ ->
-                               match _state with
-                               | `Unavailable -> true
-                               | _            ->
-                                  let open Lwt.Infix in
-                                  push true;
-                                  Boards_js.Requests.post_port b.control port.port self#checked
-                                  >>= (function
-                                       | Ok _    -> push false; Lwt.return_unit
-                                       | Error _ -> push false; self#set_checked (not self#checked);
-                                                    Lwt.return_unit)
-                                  |> ignore;
-                                  true))
+                          match _state with
+                          | `Unavailable -> true
+                          | _            ->
+                             let open Lwt.Infix in
+                             push true;
+                             Boards_js.Requests.Device.HTTP.post_port b.control port.port self#checked
+                             >>= (function
+                                  | Ok _    -> push false; Lwt.return_unit
+                                  | Error _ -> push false; self#set_checked (not self#checked);
+                                               Lwt.return_unit)
+                             |> ignore;
+                             true))
           |> ignore
        | _ -> ());
       self#set_disabled true;

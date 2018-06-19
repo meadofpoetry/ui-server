@@ -57,50 +57,58 @@ module type Request = sig
   type t
   type response
 
-  val get_raw     : ?scheme:Uri.Scheme.t ->
-                    ?host:string ->
-                    ?port:int ->
-                    ?path:string ->
-                    ?query:Uri.Query.t ->
-                    unit -> response Lwt_xmlHttpRequest.generic_http_frame Lwt.t
-  val get         : ?scheme:Uri.Scheme.t ->
-                    ?host:string ->
-                    ?port:int ->
-                    ?path:string ->
-                    ?query:Uri.Query.t ->
-                    unit -> (t,int) Lwt_result.t
-  val get_result  : ?scheme:Uri.Scheme.t ->
-                    ?host:string ->
-                    ?port:int ->
-                    ?path:string ->
-                    ?query:Uri.Query.t ->
-                    ?from_err:(t -> ('b,string) result) ->
-                    (t -> ('a,string) result) ->
-                    unit -> ('a,'b err) Lwt_result.t
+  val get_raw          : ?scheme:Uri.Scheme.t ->
+                         ?host:string ->
+                         ?port:int ->
+                         ?path:string ->
+                         ?query:Uri.Query.t ->
+                         unit -> response Lwt_xmlHttpRequest.generic_http_frame Lwt.t
+  val get              : ?scheme:Uri.Scheme.t ->
+                         ?host:string ->
+                         ?port:int ->
+                         ?path:string ->
+                         ?query:Uri.Query.t ->
+                         unit -> (t,int) Lwt_result.t
+  val get_result       : ?scheme:Uri.Scheme.t ->
+                         ?host:string ->
+                         ?port:int ->
+                         ?path:string ->
+                         ?query:Uri.Query.t ->
+                         ?from_err:(t -> ('b,string) result) ->
+                         (t -> ('a,string) result) ->
+                         unit -> ('a,'b err) Lwt_result.t
 
-  val post_raw    : ?scheme:Uri.Scheme.t ->
-                    ?host:string ->
-                    ?port:int ->
-                    ?path:string ->
-                    ?query:Uri.Query.t ->
-                    ?contents:t ->
-                    unit -> response Lwt_xmlHttpRequest.generic_http_frame Lwt.t
-  val post        : ?scheme:Uri.Scheme.t ->
-                    ?host:string ->
-                    ?port:int ->
-                    ?path:string ->
-                    ?query:Uri.Query.t ->
-                    ?contents:t ->
-                    unit -> (t,int) Lwt_result.t
-  val post_result : ?scheme:Uri.Scheme.t ->
-                    ?host:string ->
-                    ?port:int ->
-                    ?path:string ->
-                    ?query:Uri.Query.t ->
-                    ?contents:t ->
-                    ?from_err:(t -> ('b,string) result) ->
-                    (t -> ('a,string) result) ->
-                    unit -> ('a,'b err) Lwt_result.t
+  val post_raw         : ?scheme:Uri.Scheme.t ->
+                         ?host:string ->
+                         ?port:int ->
+                         ?path:string ->
+                         ?query:Uri.Query.t ->
+                         ?contents:t ->
+                         unit -> response Lwt_xmlHttpRequest.generic_http_frame Lwt.t
+  val post             : ?scheme:Uri.Scheme.t ->
+                         ?host:string ->
+                         ?port:int ->
+                         ?path:string ->
+                         ?query:Uri.Query.t ->
+                         ?contents:t ->
+                         unit -> (t,int) Lwt_result.t
+  val post_result      : ?scheme:Uri.Scheme.t ->
+                         ?host:string ->
+                         ?port:int ->
+                         ?path:string ->
+                         ?query:Uri.Query.t ->
+                         ?contents:t ->
+                         ?from_err:(t -> ('b,string) result) ->
+                         (t -> ('a,string) result) ->
+                         unit -> ('a,'b err) Lwt_result.t
+  val post_result_unit : ?scheme:Uri.Scheme.t ->
+                         ?host:string ->
+                         ?port:int ->
+                         ?path:string ->
+                         ?query:Uri.Query.t ->
+                         ?contents:t ->
+                         ?from_err:(t -> ('b,string) result) ->
+                         unit -> (unit,'b err) Lwt_result.t
 
   module WS : WS with type t := t
 
@@ -189,9 +197,12 @@ module Make(M:Req) : (Request with type t = M.t and type response = M.response) 
                       | Error _ -> Error (`Code frame.code))
          | None   -> Error (`Code frame.code)
 
+  let post_result_unit ?scheme ?host ?port ?path ?query ?contents ?from_err () =
+    post_result ?scheme ?host ?port ?path ?query ?contents ?from_err (fun _ -> Ok ()) ()
+
   module WS = struct
 
-    let scheme x = if x then Uri.Scheme.wss else Uri.Scheme.ws
+    let scheme secure = if secure then Uri.Scheme.wss else Uri.Scheme.ws
 
     let create ?(secure=false) ?host ?port ?path ?query () =
       let scheme = scheme secure in

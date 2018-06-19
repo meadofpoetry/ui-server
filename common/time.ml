@@ -29,7 +29,7 @@ module Show_RFC3339 = struct
   let of_string s =
     of_rfc3339 s |> function Ok (v,_,_) -> v | Error _ -> failwith (Printf.sprintf "RFC3339.of_string: bad input %s" s)
 
-  let to_string = to_rfc3339
+  let to_string s = to_rfc3339 s
 
   let of_yojson = function
     | `String s -> begin match of_rfc3339 s with
