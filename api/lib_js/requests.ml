@@ -202,7 +202,7 @@ module Make(M:Req) : (Request with type t = M.t and type response = M.response) 
 
   module WS = struct
 
-    let scheme x = if x then Uri.Scheme.wss else Uri.Scheme.ws
+    let scheme secure = if secure then Uri.Scheme.wss else Uri.Scheme.ws
 
     let create ?(secure=false) ?host ?port ?path ?query () =
       let scheme = scheme secure in
