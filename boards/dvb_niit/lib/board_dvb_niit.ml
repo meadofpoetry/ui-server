@@ -19,14 +19,6 @@ end
 
 module Config_storage = Storage.Options.Make (Data)
 
-module Board_model : sig
-  type _ req =
-    | Store_measures : Board_types.measure_response -> unit req
-  include (Storage.Database.MODEL with type 'a req := 'a req)
-end = Db
-
-module Database = Storage.Database.Make(Board_model)
-    
 type 'a request = 'a Board_protocol.request
 
 let create_sm = Board_protocol.SM.create
@@ -36,8 +28,8 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
   let s_state, spush = React.S.create `No_response in
   let events, api, step = create_sm send storage spush step in
   let handlers = Board_api.handlers b.control api events s_state in (* XXX temporary *)
-  let db = Result.get_exn @@ Database.create db_conf in
-  let _s = Lwt_react.E.map_p (fun m -> Database.request db (Board_model.Store_measures m))
+  let db = Result.get_exn @@ Db.Conn.create db_conf in
+  let _s = Lwt_react.E.map_p (fun m -> Db.insert_measures db m)
            @@ React.E.changes events.measure in
   let s_streams = React.S.fold
                     (fun (streams : Common.Stream.stream list)

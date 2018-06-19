@@ -34,26 +34,23 @@ type (_,_,_) query =
   | Trans : (simple,'req, 'resp) query * 'acc * ('acc -> 'resp -> 'acc) -> (trans, 'req list, 'acc) query
 
 type db = { exec : 'typ 'request 'response. ('typ, 'request, 'response) query -> 'request -> 'response Lwt.t }
-  
+        
 module type MODEL = sig
-  type _ req
   val name     : string
   val table    : string
-  val init     : db -> unit Lwt.t
-  val request  : db -> 'a req -> 'a Lwt.t
-  val worker   : (db -> unit Lwt.t) option
+  val init     : (simple,unit,unit) query
+  val worker   : (simple,unit,unit) query option
 end
            
 module type CONN = sig
   type t
-  type _ req
   val create   : state -> (t, string) result
-  val request  : t -> 'a req -> 'a Lwt.t
+  val request  : t -> ('typ, 'req, 'resp) query -> 'req -> 'resp Lwt.t
   val delete   : t -> unit Lwt.t
 end
 
-module Make (M : MODEL) : (CONN with type 'a req := 'a M.req) = struct
-  type t = state
+module Make (M : MODEL) : CONN = struct
+  type t = state 
 
   let rec request : type typ req resp. (module Caqti_lwt.CONNECTION) -> (typ, req, resp) query -> req -> resp Lwt.t =
     fun (module Db : Caqti_lwt.CONNECTION) q args ->
@@ -70,7 +67,8 @@ module Make (M : MODEL) : (CONN with type 'a req := 'a M.req) = struct
          (Lwt.return_ok acc) args
        >>= fail_if >>= (fun result -> Db.commit () >>= fail_if >>= fun () -> Lwt.return result)
 
-  let wrap_req f db = f { exec = fun x -> request db x }
+  let wrap_query : type req resp. ('a, req, resp) query -> req -> (module Caqti_lwt.CONNECTION) -> resp Lwt.t =
+    fun query args db -> request db query args
          
   let cleanup period (module Db : Caqti_lwt.CONNECTION) =
     let cleanup' =
@@ -80,16 +78,24 @@ module Make (M : MODEL) : (CONN with type 'a req := 'a M.req) = struct
     Db.exec cleanup' period >>= function
     | Ok ()   -> Lwt.return ()
     | Error e -> Lwt.fail_with (error "cleanup %s" e)
+
+  let exec_jobs : type typ. 'a -> [`S of (typ,unit,unit) query | `T of (typ,unit,unit) query ] option -> unit Lwt.t =
+    fun state ->
+    function
+    | None   -> Lwt.return_unit
+    | Some (`S w) -> pool_use state.db (wrap_query w ())
+    | Some (`T w) -> pool_use state.db (wrap_query w ())
                
   let create (state : state) =
     let rec loop () =
       Lwt_unix.sleep state.period >>= (fun () ->
         match M.worker with
         | None   -> Lwt.return_unit
-        | Some w -> pool_use state.db (wrap_req w)) >>= fun () ->
+        | Some w -> pool_use state.db (wrap_query w ()))
+      >>= fun () ->
       pool_use state.db (cleanup state.cleanup) >>= loop
     in
-    Lwt_main.run (pool_use state.db (wrap_req M.init));
+    Lwt_main.run (pool_use state.db (wrap_query M.init ()));
     Lwt.async loop;
     Ok state
 
@@ -102,8 +108,8 @@ module Make (M : MODEL) : (CONN with type 'a req := 'a M.req) = struct
     | Ok ()   -> Lwt.return ()
     | Error e -> Lwt.fail_with (error "delete %s" e) 
 
-  let request (type a) state (req : a M.req) : a Lwt.t =
-    pool_use state.db (fun c -> (wrap_req M.request c) req)
+  let request (type req resp) state (q : ('a, req, resp) query) (args : req) : resp Lwt.t =
+    pool_use state.db (wrap_query q args)
 end
 
 type t = state
