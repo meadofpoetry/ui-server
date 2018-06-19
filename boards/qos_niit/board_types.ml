@@ -136,7 +136,7 @@ module Streams = struct
 
   module TS = struct
 
-    (** TS state **)
+    (** TS state *)
 
     type state =
       { stream    : Stream.id
@@ -146,7 +146,35 @@ module Streams = struct
 
     type states = state list [@@deriving yojson]
 
-    (** TS structure **)
+    (** TS bitrate *)
+
+    type pid_bitrate =
+      { pid     : int
+      ; bitrate : int
+      } [@@deriving yojson]
+
+    type table_bitrate =
+      { id             : int
+      ; id_ext         : int
+      ; fully_analyzed : bool
+      ; section_syntax : bool
+      ; eit_info       : (int * int) option
+      ; bitrate        : int
+      } [@@deriving yojson]
+
+    type bitrate =
+      { stream     : Stream.id
+      ; timestamp  : Time.t
+      ; ts_bitrate : int
+      ; pids       : pid_bitrate list
+      ; tables     : table_bitrate list
+      } [@@deriving yojson]
+
+    type bitrate_opt = bitrate option [@@deriving yojson]
+
+    type bitrates = bitrate list [@@deriving yojson]
+
+    (** TS structure *)
 
     type pid_info =
       { pid       : int

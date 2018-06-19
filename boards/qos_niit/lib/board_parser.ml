@@ -44,7 +44,7 @@ and section_params =
 
 type probe_response =
   | Board_errors of board_errors
-  | Bitrate      of Types.bitrate list
+  | Bitrate      of Streams.TS.bitrates
   | Struct       of Streams.TS.structures
   | T2mi_info    of Streams.T2MI.structure
   | Jitter       of Types.jitter_raw
@@ -492,11 +492,11 @@ module Get_ts_structs : (Request with type req := int
 
 end
 
-module Get_bitrates : (Request with type req := int with type rsp = Types.bitrate list) = struct
+module Get_bitrates : (Request with type req := int with type rsp = Streams.TS.bitrates) = struct
 
-  open Types
+  open Streams.TS
 
-  type rsp = bitrate list
+  type rsp = bitrates
 
   let req_code = 0x030A
   let rsp_code = req_code
