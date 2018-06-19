@@ -69,7 +69,7 @@ class t (control:int) () =
 object(self)
   val mutable _state    : Common.Topology.state React.signal Factory_state.t_lwt = Factory_state.empty ()
   val mutable _config   : config React.signal Factory_state.t_lwt                = Factory_state.empty ()
-  val mutable _measures : measure_response React.event Factory_state.t           = Factory_state.empty ()
+  val mutable _measures : measures React.event Factory_state.t           = Factory_state.empty ()
 
   val mutable _measures_ref = 0
 

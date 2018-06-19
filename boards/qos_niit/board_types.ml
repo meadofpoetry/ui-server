@@ -6,9 +6,9 @@ open Containers
 (** API *)
 
 type api_err =
-  | Bad_query of Uri.Query.err
+  | Bad_query     of Uri.Query.err
   | Unknown_query of Uri.Query.t
-  | Other of string [@@deriving yojson]
+  | Other         of string [@@deriving yojson]
 
 (** Board info **)
 

@@ -18,11 +18,11 @@ let rand_int = fun () -> Random.run (Random.int 10000000)
 let socket_table = Hashtbl.create 1000
 
 let devinfo api =
-  api.devinfo () >|= (devinfo_response_to_yojson %> Result.return)
+  api.get_devinfo () >|= (devinfo_opt_to_yojson %> Result.return)
   >>= Json.respond_result
 
 let config api =
-  api.config () >|= (config_to_yojson %> Result.return)
+  api.get_config () >|= (config_to_yojson %> Result.return)
   >>= Json.respond_result
 
 let reset api =
@@ -36,22 +36,16 @@ let state s_state =
 
 let settings (api : api) body =
   Json.of_body body >>= fun set ->
-  (match settings_request_of_yojson set with
+  (match mode_req_of_yojson set with
    | Error e -> Lwt_result.fail @@ Json.of_error_string e
-   | Ok set  -> api.settings set >|= (settings_response_to_yojson %> Result.return))
+   | Ok set  -> api.set_mode set >|= (mode_rsp_to_yojson %> Result.return))
   >>= Json.respond_result
 
 let plp_setting api body =
   Json.of_body body >>= fun plp ->
-  (match plp_setting_request_of_yojson plp with
+  (match plp_set_req_of_yojson plp with
    | Error e -> Lwt_result.fail @@ Json.of_error_string e
-   | Ok set  -> api.plp_setting set >|= (plp_setting_response_to_yojson %> Result.return))
-  >>= Json.respond_result
-
-let plps (api : api) num =
-  (match Int.of_string num with
-   | Some i -> api.plps i >|= (plp_list_response_to_yojson %> Result.return)
-   | None   -> Lwt_result.fail @@ Json.of_error_string (Printf.sprintf "bad argument: %s" num))
+   | Ok set  -> api.set_plp set >|= (plp_set_rsp_to_yojson %> Result.return))
   >>= Json.respond_result
 
 let sock_handler sock_data (event:'a React.event) (to_yojson:'a -> Yojson.Safe.json) body =
@@ -77,12 +71,12 @@ let state_ws sock_data s_state body =
   sock_handler sock_data (React.S.changes s_state) Common.Topology.state_to_yojson body
 
 let config_ws sock_data (events : events) body =
-  sock_handler sock_data events.config config_to_yojson body
+  sock_handler sock_data events.device.config config_to_yojson body
 
 let measures_ws sock_data (events : events) body =
-  sock_handler sock_data events.measure measure_response_to_yojson body
+  sock_handler sock_data events.receiver.measures measures_to_yojson body
 
-let handle api events id s_state _ meth uri_sep sock_data _ body =
+let handle api events id _ meth uri_sep sock_data _ body =
   let open Lwt.Infix in
   let open Api.Redirect in
   (* let redirect_if_guest = redirect_if (User.eq id `Guest) in *)
@@ -90,21 +84,20 @@ let handle api events id s_state _ meth uri_sep sock_data _ body =
   let path_list = Common.Uri.(split @@  Path.to_string uri_sep.path) in
   match meth, path_list with
   | `GET,  ["devinfo"]     -> devinfo api
-  | `GET,  "plps"::[num]   -> plps api num
   | `GET,  ["config"]      -> config api
-  | `GET,  ["state"]       -> state s_state
+  | `GET,  ["device";"state"]       -> state events.device.state
 
   | `POST, ["reset"]       -> reset api
   | `POST, ["settings"]    -> settings api body
   | `POST, ["plp_setting"] -> plp_setting api body
 
-  | `GET,  ["state_ws"]    -> state_ws sock_data s_state body
+  | `GET,  ["state_ws"]    -> state_ws sock_data events.device.state body
   | `GET,  ["config_ws"]   -> config_ws sock_data events body
   | `GET,  ["measures_ws"] -> measures_ws sock_data events body
   | _ -> not_found ()
 
-let handlers id api events s_state =
+let handlers id api events =
   [ (module struct
        let domain = Common.Topology.get_api_path id
-       let handle = handle api events id s_state
+       let handle = handle api events id
      end : Api_handler.HANDLER) ]

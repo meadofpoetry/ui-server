@@ -11,14 +11,14 @@ let (%>) = Fun.(%>)
 
 let base_class = "dvb-niit-module-settings"
 
-let make_mode (init: mode) =
+let make_standard (init: standard) =
   let items = [ `Item (new Select.Item.t ~text:"DVB-T2" ~value:T2 ())
               ; `Item (new Select.Item.t ~text:"DVB-T"  ~value:T  ())
               ; `Item (new Select.Item.t ~text:"DVB-C"  ~value:C  ())
               ]
   in
   let mode  = new Select.t ~label:"Стандарт" ~items () in
-  let set x = mode#set_selected_value ~eq:equal_mode x |> ignore in
+  let set x = mode#set_selected_value ~eq:equal_standard x |> ignore in
   set init;
   mode#add_class @@ Markup.CSS.add_element base_class "mode";
   mode,set
@@ -34,15 +34,15 @@ let make_bw (init: bw) =
   set init;
   bw,set
 
-let make_freq (mode: mode)
-              (init: int32) =
+let make_freq (standard : standard)
+              (init     : int) =
   let items = List.map (fun (c:Channel.t) -> `Item (new Select.Item.t ~text:c.name ~value:c.freq ()))
-                       (match mode with
+                       (match standard with
                         | T2 | T -> Channel.Terrestrial.lst
                         | C      -> Channel.Cable.lst)
   in
   let freq  = new Select.t ~label:"ТВ канал" ~items () in
-  let set x = freq#set_selected_value ~eq:(=) (Int32.to_int x) |> ignore in
+  let set x = freq#set_selected_value ~eq:(=) x |> ignore in
   set init;
   freq,set
 
@@ -60,24 +60,24 @@ let make_plp (init: int) =
   set init;
   plp,set
 
-let make_mode_box ~(mode  : mode)
-                  ~(init  : channel_settings)
-                  ~(event : channel_settings React.event)
-                  ~(state : Common.Topology.state React.signal)
+let make_mode_box ~(standard : standard)
+                  ~(init     : channel)
+                  ~(event    : channel React.event)
+                  ~(state    : Common.Topology.state React.signal)
                   () =
-  let freq,set_freq = make_freq mode init.freq in
+  let freq,set_freq = make_freq standard init.freq in
   let bw,set_bw     = make_bw init.bw in
   let plp,set_plp   = make_plp init.plp in
-  let b = new Box.t ~widgets:(match mode with
+  let b = new Box.t ~widgets:(match standard with
                               | T | C -> [ freq#widget; bw#widget ]
                               | T2    -> [ freq#widget; bw#widget; plp#widget ])
               () in
   let s = React.S.l3 (fun freq bw plp -> match freq,bw,plp with
-                                         | Some freq,Some bw,Some plp -> Some { freq = Int32.of_int freq; bw; plp }
+                                         | Some freq,Some bw,Some plp -> Some { freq; bw; plp }
                                          | _                          -> None)
                      freq#s_selected_value bw#s_selected_value plp#s_input
   in
-  let _ = React.E.map (fun (s:channel_settings) -> set_freq s.freq; set_bw s.bw; set_plp s.plp) event in
+  let _ = React.E.map (fun (s:channel) -> set_freq s.freq; set_bw s.bw; set_plp s.plp) event in
   let _ = React.S.map (fun x -> let is_disabled = match x with
                                   | `Fine -> false
                                   | _     -> true
@@ -94,21 +94,24 @@ let make_module_settings ~(id:    int)
                          ~(event: config_item React.event)
                          ~(state: Common.Topology.state React.signal)
                          control
-                         () : (settings_request,settings_response) Ui_templates.Types.settings_block =
-  let mode,set_mode = make_mode init.mode in
-  let t2_box,s_t2 = make_mode_box ~mode:T2 ~state ~init:init.t2 ~event:(React.E.map (fun x -> x.t2) event) () in
-  let t_box,s_t   = make_mode_box ~mode:T  ~state ~init:init.t  ~event:(React.E.map (fun x -> x.t)  event) () in
-  let c_box,s_c   = make_mode_box ~mode:C  ~state ~init:init.c  ~event:(React.E.map (fun x -> x.c)  event) () in
-  let s : settings_request option React.signal =
-    React.S.l5 (fun mode t2 t c state ->
-        match mode,t2,t,c,state with
-        | Some T2,Some t2,_,_,`Fine -> Some (id,{ mode = T2; channel = t2})
-        | Some T,_,Some t,_,`Fine   -> Some (id,{ mode = T ; channel = t })
-        | Some C,_,_,Some c,`Fine   -> Some (id,{ mode = C ; channel = c })
+                         () : (mode_req,mode_rsp) Ui_templates.Types.settings_block =
+  let standard,set_standard = make_standard init.standard in
+  let t2_box,s_t2 =
+    make_mode_box ~standard:T2 ~state ~init:init.t2 ~event:(React.E.map (fun x -> x.t2) event) () in
+  let t_box,s_t   =
+    make_mode_box ~standard:T  ~state ~init:init.t  ~event:(React.E.map (fun x -> x.t)  event) () in
+  let c_box,s_c   =
+    make_mode_box ~standard:C  ~state ~init:init.c  ~event:(React.E.map (fun x -> x.c)  event) () in
+  let s : mode_req option React.signal =
+    React.S.l5 (fun standard t2 t c state ->
+        match standard,t2,t,c,state with
+        | Some T2,Some t2,_,_,`Fine -> Some { id; mode = { standard = T2; channel = t2 }}
+        | Some T,_,Some t,_,`Fine   -> Some { id; mode = { standard = T ; channel = t }}
+        | Some C,_,_,Some c,`Fine   -> Some { id; mode = { standard = C ; channel = c }}
         | _                         -> None)
-               mode#s_selected_value s_t2 s_t s_c state
+               standard#s_selected_value s_t2 s_t s_c state
   in
-  let box = new Box.t ~widgets:[ mode#widget; t2_box#widget; t_box#widget; c_box#widget ] () in
+  let box = new Box.t ~widgets:[ standard#widget; t2_box#widget; t_box#widget; c_box#widget ] () in
   let update_visibility = function
     | Some T2 -> (try Dom.removeChild box#root t_box#root with _ -> ());
                  (try Dom.removeChild box#root c_box#root with _ -> ());
@@ -123,14 +126,14 @@ let make_module_settings ~(id:    int)
                  (try Dom.removeChild box#root t_box#root with _ -> ());
                  (try Dom.removeChild box#root c_box#root with _ -> ())
   in
-  let _ = React.S.map update_visibility mode#s_selected_value in
-  let _ = React.E.map (fun c -> set_mode c.mode) event in
+  let _ = React.S.map update_visibility standard#s_selected_value in
+  let _ = React.E.map (fun c -> set_standard c.standard) event in
   let _ = React.S.map (function
-                       | `No_response | `Init -> mode#set_disabled true
-                       | `Fine                -> mode#set_disabled false) state
+                       | `No_response | `Init -> standard#set_disabled true
+                       | `Fine                -> standard#set_disabled false) state
   in
   let () = box#add_class base_class in
-  let submit = fun (cfg:settings_request) -> Requests.post_settings control cfg >|= (fun _ -> ()) in
+  let submit = fun (cfg:mode_req) -> Requests.post_settings control cfg >|= (fun _ -> ()) in
   box#widget,s,submit
 
 let default_config = { id = 0 }

@@ -467,6 +467,8 @@ class ['a,'b] t ~(label:string)
       self#set_data data;
       _obj##.xAxisID := Js.string x_axis#id;
       _obj##.yAxisID := Js.string y_axis#id;
+      self#set_show_line true;
+      self#set_span_gaps false;
       React.S.map (fun _ -> self#shift ()) x_axis#s_max |> ignore
 
   end
