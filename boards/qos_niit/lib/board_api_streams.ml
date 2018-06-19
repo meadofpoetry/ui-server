@@ -57,9 +57,9 @@ module WS = struct
         (fun id -> let f e j = sock_handler sock_data e j body in
                    let e     = React.S.changes ev.ts_bitrates in
                    (match id with
-                    | Some id -> let e = fmap (fun x -> x.stream) (fun x -> x.timestamp) id e in
-                                 f e structure_to_yojson
-                    | None    -> f e structures_to_yojson))
+                    | Some id -> let e = fmap (fun (x:bitrate) -> x.stream) (fun x -> x.timestamp) id e in
+                                 f e bitrate_to_yojson
+                    | None    -> f e bitrates_to_yojson))
         respond_bad_query
 
     let structure sock_data (ev:events) body query () =
@@ -130,24 +130,28 @@ module HTTP = struct
                    |> Json.respond_result)
         respond_bad_query
 
-    let to_json ?stream s =
-      (match stream with
-       | Some id -> List.find_opt (fun (x:structure) -> Common.Stream.equal_id id x.stream) s
-                    |> structure_opt_to_yojson
-       | None    -> structures_to_yojson s)
-      |> Result.return
-      |> Json.respond_result
-
     let structure_now (ev:events) query () =
       Api.Query.Stream.map
         query
-        (fun id -> let v = React.S.value ev.ts_structures in to_json ?stream:id v)
+        (fun id -> let v = React.S.value ev.ts_structures in
+                   (match id with
+                    | Some id -> List.find_opt (fun (x:structure) -> Common.Stream.equal_id id x.stream) v
+                                 |> structure_opt_to_yojson
+                    | None    -> structures_to_yojson v)
+                   |> Result.return
+                   |> Json.respond_result)
         respond_bad_query
 
     let bitrate_now (ev:events) query () =
       Api.Query.Stream.map
         query
-        (fun id -> let v = React.S.value ev.ts_bitrates in to_json ?stream:id v)
+        (fun id -> let v = React.S.value ev.ts_bitrates in
+                   (match id with
+                    | Some id -> List.find_opt (fun (x:bitrate) -> Common.Stream.equal_id id x.stream) v
+                                 |> bitrate_opt_to_yojson
+                    | None    -> bitrates_to_yojson v)
+                   |> Result.return
+                   |> Json.respond_result)
         respond_bad_query
 
     let si_psi_section_now stream_id table_id (api:api) (q:Uri.Query.t) () =
@@ -244,7 +248,7 @@ module HTTP = struct
     let bitrate events query () =
       match Api.Query.Time.get' query with
       | Ok (None,query)   -> bitrate_now events query ()
-      | Ok (Some t,query) -> Archive.structure query t ()
+      | Ok (Some t,query) -> Archive.bitrate query t ()
       | Error e           -> respond_bad_query e
 
     let section sid tid api query () =

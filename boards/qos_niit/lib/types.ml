@@ -44,32 +44,6 @@ type t2mi_error_adv_raw =
   ; param     : int
   }
 
-(** Bitrate **)
-
-type pid_bitrate =
-  { pid     : int
-  ; bitrate : int
-  }
-
-type table_bitrate =
-  { id             : int
-  ; id_ext         : int
-  ; fully_analyzed : bool
-  ; section_syntax : bool
-  ; eit_info       : (int * int) option
-  ; bitrate        : int
-  }
-
-type bitrate =
-  { stream     : Stream.id
-  ; ts_bitrate : int
-  ; pids       : pid_bitrate list
-  ; tables     : table_bitrate list
-  ; timestamp  : Time.t
-  }
-
-type bitrates = bitrate list
-
 (** Jitter **)
 
 type jitter_raw =

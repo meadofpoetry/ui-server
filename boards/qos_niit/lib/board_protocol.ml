@@ -30,7 +30,7 @@ type streams_events =
   { streams         : Common.Stream.t list React.signal
   ; ts_states       : Streams.TS.state list React.event
   ; ts_structures   : Streams.TS.structures React.signal
-  ; ts_bitrates     : Streams.TS.structures React.signal
+  ; ts_bitrates     : Streams.TS.bitrates   React.signal
   ; t2mi_states     : Streams.T2MI.state list React.event
   ; t2mi_structures : Streams.T2MI.structures React.signal
   }
@@ -73,7 +73,7 @@ module SM = struct
     ; group          : group                  -> unit
     ; board_errors   : board_errors           -> unit
     ; structs        : Streams.TS.structures  -> unit
-    ; bitrates       : Streams.TS.structures  -> unit
+    ; bitrates       : Streams.TS.bitrates    -> unit
     ; t2mi_info      : Streams.T2MI.structure -> unit
     ; jitter         : Jitter.measures        -> unit
     ; jitter_session : Jitter.session         -> unit
@@ -246,39 +246,6 @@ module SM = struct
                   | None, None      -> None) None es in
     { s with bitrate = br; ecm; es }
 
-  let merge_struct_and_bitrates (s:Streams.TS.structure) (b:Types.bitrate) =
-    let open Streams.TS in
-    let pids_m = List.fold_left (fun m ({pid;bitrate}:Types.pid_bitrate) ->
-                     Pids.add pid bitrate m) Pids.empty b.pids in
-    let pids = List.map (fun (pid:pid_info) -> { pid with bitrate = Pids.get pid.pid pids_m }) s.pids in
-    let emm  = List.map (fun (emm:emm_info) -> { emm with bitrate = Pids.get emm.pid pids_m }) s.emm in
-    let services = List.map (merge_service_and_bitrates pids_m) s.services in
-    let update_table_common (c:table_info) = { c with bitrate = Pids.get c.pid pids_m } in
-    let tables =
-      List.map (function
-                | PAT x     -> PAT { x with common = update_table_common x.common }
-                | CAT x     -> CAT (update_table_common x)
-                | PMT x     -> PMT { x with common = update_table_common x.common }
-                | TSDT x    -> TSDT (update_table_common x)
-                | NIT x     -> NIT { x with common = update_table_common x.common }
-                | SDT x     -> SDT { x with common = update_table_common x.common }
-                | BAT x     -> BAT { x with common = update_table_common x.common }
-                | EIT x     -> EIT { x with common = update_table_common x.common }
-                | TDT x     -> TDT (update_table_common x)
-                | RST x     -> RST (update_table_common x)
-                | ST  x     -> ST (update_table_common x)
-                | TOT x     -> TOT (update_table_common x)
-                | DIT x     -> DIT (update_table_common x)
-                | SIT x     -> SIT (update_table_common x)
-                | Unknown x -> Unknown (update_table_common x)) s.tables
-    in { s with bitrate = Some b.ts_bitrate; pids; services; emm; tables; timestamp = b.timestamp }
-
-  let merge_structs_and_bitrates (s:Streams.TS.structures) (b:Types.bitrates) =
-    List.map (fun (s:Streams.TS.structure) ->
-        match List.find_pred (fun (x:bitrate) -> Stream.equal_id x.stream s.stream) b with
-        | Some x -> merge_struct_and_bitrates s x
-        | None   -> s) s
-
   let send_msg (type a) sender (msg : a request) : unit Lwt.t =
     (match msg with
      | Get_board_info       -> Get_board_info.to_cbuffer ()
@@ -355,18 +322,13 @@ module SM = struct
     | _ -> Lwt.fail (Failure "board is not responding")
 
   let handle_probes_acc (pe:push_events) (acc:probe_response list) =
-    let s  = List.find_map (function Struct s  -> Some s | _ -> None) acc in
-    let b  = List.find_map (function Bitrate b -> Some b | _ -> None) acc in
-    let () = match s,b with
-      | Some s,Some b -> pe.bitrates @@ merge_structs_and_bitrates s b
-      | _             -> ()
-    in List.iter (function
-                  | Board_errors x -> pe.board_errors x
-                  | Struct x       -> pe.structs x
-                  | T2mi_info x    -> pe.t2mi_info x
-                  | Jitter x       -> jitter_ptr := x.next_ptr; pe.jitter x.measures
-                  | Bitrate _      -> ())
-                 acc
+    List.iter (function
+               | Board_errors x -> pe.board_errors x
+               | Struct x       -> pe.structs x
+               | T2mi_info x    -> pe.t2mi_info x
+               | Jitter x       -> jitter_ptr := x.next_ptr; pe.jitter x.measures
+               | Bitrate x      -> pe.bitrates x)
+              acc
 
   let sm_step msgs imsgs sender (storage : config storage) step_duration push (fmt:string -> string) =
     let period_s = 5 in
