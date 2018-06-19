@@ -17,7 +17,7 @@ open Api.Redirect
 type events = streams_events
 
 let get_t2mi_id q =
-  Uri.Query.(parse_query [Api.Query.Stream.k_id, (module Option(Int))] (fun x -> x) q)
+  Uri.Query.(parse_query ["id", (module Option(Int))] (fun x -> x) q)
 
 module WS = struct
 
