@@ -59,6 +59,40 @@ let bool_of_bool8 = function
    } [@@little_endian]]
 
 [%%cstruct
+ type rsp_params =
+   { lock            : uint8_t
+   ; fft             : uint8_t
+   ; gi              : uint8_t
+   ; bw_ext          : uint8_t
+   ; papr            : uint8_t
+   ; l1_rep          : uint8_t
+   ; l1_mod          : uint8_t
+   ; freq            : uint32_t
+   ; l1_post_sz      : uint16_t
+   ; l1_post_info_sz : uint16_t
+   ; tr_fmt          : uint8_t
+   ; sys_id          : uint16_t
+   ; net_id          : uint16_t
+   ; cell_id         : uint16_t
+   ; t2_frames       : uint8_t
+   ; ofdm_syms       : uint16_t
+   ; pp              : uint8_t
+   ; plp_num         : uint8_t
+   ; tx_id_avail     : uint8_t
+   ; num_rf          : uint8_t
+   ; cur_rf_id       : uint8_t
+   ; rfu             : uint8_t
+   ; cur_plp_id      : uint8_t
+   ; plp_type        : uint8_t
+   ; cr              : uint8_t
+   ; plp_mod         : uint8_t
+   ; rotation        : uint8_t
+   ; fec_size        : uint8_t
+   ; fec_block_num   : uint16_t
+   ; in_band_flag    : uint8_t
+   } [@@little_endian]]
+
+[%%cstruct
  type cmd_plp_set =
    { plp_id : uint8_t
    } [@@little_endian]]

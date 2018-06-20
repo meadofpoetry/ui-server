@@ -14,7 +14,7 @@ let measure = Caqti_type.custom
                 Caqti_type.(let (&) = tup2 in
                             int & bool & (option float) & (option float) & (option float)
                             & (option int) & (option int) & ptime)
-                ~encode:(fun m ->
+                ~encode:(fun (m:measures) ->
                   Ok(m.id, (m.lock,(m.power,(m.mer,(m.ber,(m.freq,(m.bitrate,m.timestamp))))))))
                 ~decode:(fun (id,(lock,(power,(mer,(ber,(freq,(bitrate,(timestamp)))))))) ->
                   Ok({ id; lock; power; mer; ber; freq; bitrate; timestamp }))

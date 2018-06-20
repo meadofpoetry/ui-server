@@ -43,9 +43,11 @@ type _ request = Get_devinfo  : devinfo request
                | Set_plp      : plp_set_req -> plp_set_rsp request
 
 type event = Measures of measures
-           | Plp_list of int list
+           | Params   of t2_params_rsp
+           | Plp_list of plp_list_rsp
 
 type _ event_request = Get_measure  : int -> event event_request
+                     | Get_params   : int -> event event_request
                      | Get_plp_list : int -> event event_request
 
 (* Helper functions *)
@@ -210,6 +212,52 @@ let parse_measures_rsp_exn id msg =
     }
   with _ -> raise Parse_error
 
+(* Params *)
+
+let to_params_req id =
+  to_empty_msg ~msg_code:(0x40 lor id)
+
+let parse_params_rsp_exn id msg : t2_params_rsp =
+  let bool_of_int x = if x = 0 then false else true in
+  try
+    let lock   = int_to_bool8 (get_rsp_params_lock msg) |> Option.get_exn |> bool_of_bool8 in
+    let params =
+      { fft             = get_rsp_params_fft msg
+      ; gi              = get_rsp_params_gi  msg
+      ; bw_ext          = get_rsp_params_bw_ext msg |> bool_of_int
+      ; papr            = get_rsp_params_papr msg
+      ; l1_rep          = get_rsp_params_l1_rep msg |> bool_of_int
+      ; l1_mod          = get_rsp_params_l1_mod msg
+      ; freq            = get_rsp_params_freq msg |> Int32.to_int
+      ; l1_post_sz      = get_rsp_params_l1_post_sz msg
+      ; l1_post_info_sz = get_rsp_params_l1_post_info_sz msg
+      ; tr_fmt          = get_rsp_params_tr_fmt msg
+      ; sys_id          = get_rsp_params_sys_id msg
+      ; net_id          = get_rsp_params_net_id msg
+      ; cell_id         = get_rsp_params_cell_id msg
+      ; t2_frames       = get_rsp_params_t2_frames msg
+      ; ofdm_syms       = get_rsp_params_ofdm_syms msg
+      ; pp              = get_rsp_params_pp msg
+      ; plp_num         = get_rsp_params_plp_num msg
+      ; tx_id_avail     = get_rsp_params_tx_id_avail msg
+      ; num_rf          = get_rsp_params_num_rf msg
+      ; cur_rf_id       = get_rsp_params_cur_rf_id msg
+      ; cur_plp_id      = get_rsp_params_cur_plp_id msg
+      ; plp_type        = get_rsp_params_plp_type msg
+      ; cr              = get_rsp_params_cr msg
+      ; plp_mod         = get_rsp_params_plp_mod msg
+      ; rotation        = get_rsp_params_rotation msg |> bool_of_int
+      ; fec_sz          = get_rsp_params_fec_size msg
+      ; fec_block_num   = get_rsp_params_fec_block_num msg
+      ; in_band_flag    = get_rsp_params_in_band_flag msg |> bool_of_int
+      }
+    in
+    { id
+    ; timestamp = Common.Time.Clock.now ()
+    ; params    = if lock then Some params else None
+    }
+  with _ -> raise Parse_error
+
 (* PLP list *)
 
 let to_plp_list_req id =
@@ -219,6 +267,7 @@ let parse_plp_list_rsp_exn id msg =
   try
     let plp_num = Cbuffer.get_uint8 msg 1 |> (fun x -> if x = 0xFF then None else Some x) in
     { id
+    ; timestamp = Common.Time.Clock.now ()
     ; lock = int_to_bool8 (Cbuffer.get_uint8 msg 0) |> Option.get_exn |> bool_of_bool8
     ; plps = begin match plp_num with
              | Some _ -> let iter = Cbuffer.iter (fun _ -> Some 1)
@@ -253,6 +302,7 @@ let deserialize buf =
     | 0,1      -> `R (`Devinfo body)
     | _,2      -> `R (`Settings (id, body))
     | _,3      -> `E (`Measure (id, body))
+    | _,4      -> `E (`Params (id,body))
     | _,5      -> `E (`Plps (id, body))
     | _,6      -> `R (`Plp_setting (id, body))
     | _        -> `N in
@@ -295,9 +345,14 @@ let parse_measures_rsp id = function
      try_parse (fun b -> Measures (parse_measures_rsp_exn id b)) buf
   | _ -> None
 
+let parse_params_rsp id = function
+  | `Params (idx, buf) when idx = id ->
+     try_parse (fun b -> Params (parse_params_rsp_exn id b)) buf
+  | _ -> None
+
 let parse_plp_list_rsp id = function
   | `Plps (idx, buf) when idx = id ->
-     try_parse (fun b -> Plp_list (parse_plp_list_rsp_exn id b).plps) buf
+     try_parse (fun b -> Plp_list (parse_plp_list_rsp_exn id b)) buf
   | _ -> None
 
 let is_response (type a) (req : a request) msg : a option =
@@ -309,5 +364,6 @@ let is_response (type a) (req : a request) msg : a option =
 
 let is_event (type a) (req : a event_request) msg : a option =
   match req with
-  | Get_measure id  -> parse_measures_rsp id msg
+  | Get_measure  id -> parse_measures_rsp id msg
+  | Get_params   id -> parse_params_rsp   id msg
   | Get_plp_list id -> parse_plp_list_rsp id msg

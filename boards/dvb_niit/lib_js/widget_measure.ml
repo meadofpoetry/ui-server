@@ -77,28 +77,28 @@ module Float      = Widget_module_measure.Float
 module Scientific = Widget_module_measure.Scientific
 module Power      = Make(struct
                           include Float
-                          let get x e = React.E.filter (fun m -> m.id = x) e
+                          let get x e = React.E.filter (fun (m:measures) -> m.id = x) e
                                         |> React.E.map (fun m -> m.power)
                         end)
 module Mer        = Make(struct
                           include Float
-                          let get x e = React.E.filter (fun m -> m.id = x) e
+                          let get x e = React.E.filter (fun (m:measures) -> m.id = x) e
                                         |> React.E.map (fun m -> m.mer)
                         end)
 module Ber        = Make(struct
                           include Float
-                          let get x e = React.E.filter (fun m -> m.id = x) e
+                          let get x e = React.E.filter (fun (m:measures) -> m.id = x) e
                                         |> React.E.map (fun m -> m.ber)
                         end)
 module Freq       = Make(struct
                           include Int
-                          let get x e = React.E.filter (fun m -> m.id = x) e
-                                        |> React.E.map (fun m -> m.freq)
+                          let get x e = React.E.filter (fun (m:measures) -> m.id = x) e
+                                        |> React.E.map (fun (m:measures) -> m.freq)
                         end)
 module Bitrate    = Make(struct
                           include Float
                           let get x (e:measures React.event) =
-                            React.E.filter (fun m -> m.id = x) e
+                            React.E.filter (fun (m:measures) -> m.id = x) e
                             |> React.E.map (fun m -> Option.map (fun x -> float_of_int x /. 1_000_000.)
                                                                 m.bitrate)
                         end)

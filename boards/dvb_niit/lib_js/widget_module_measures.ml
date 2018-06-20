@@ -68,7 +68,7 @@ let make ~(measures:Board_types.measures React.event) (config:config option) =
   let power   = Power.make (React.S.hold None @@ React.E.map (fun m -> m.power) measures) in
   let mer     = Mer.make   (React.S.hold None @@ React.E.map (fun m -> m.mer) measures) in
   let ber     = Ber.make   (React.S.hold None @@ React.E.map (fun m -> m.ber) measures) in
-  let freq    = Freq.make  (React.S.hold None @@ React.E.map (fun m -> m.freq) measures) in
+  let freq    = Freq.make  (React.S.hold None @@ React.E.map (fun (m:measures) -> m.freq) measures) in
   let bitrate = React.E.map (fun m -> Option.map (fun x -> float_of_int x /. 1_000_000.) m.bitrate) measures
                 |> React.S.hold None
                 |> Bitrate.make

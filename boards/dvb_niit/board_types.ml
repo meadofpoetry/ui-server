@@ -45,9 +45,10 @@ type mode_rsp =
 type plp_list = int list [@@deriving yojson]
 
 type plp_list_rsp =
-  { id   : int
-  ; lock : bool
-  ; plps : plp_list
+  { id        : int
+  ; timestamp : Time.t
+  ; lock      : bool
+  ; plps      : plp_list
   } [@@deriving yojson]
 
 type plp_set_req =
@@ -70,6 +71,43 @@ type measures =
   ; ber       : float option
   ; freq      : int option
   ; bitrate   : int option
+  } [@@deriving yojson]
+
+type t2_params =
+  { fft             : int
+  ; gi              : int
+  ; bw_ext          : bool
+  ; papr            : int
+  ; l1_rep          : bool
+  ; l1_mod          : int
+  ; freq            : int
+  ; l1_post_sz      : int
+  ; l1_post_info_sz : int
+  ; tr_fmt          : int
+  ; sys_id          : int
+  ; net_id          : int
+  ; cell_id         : int
+  ; t2_frames       : int
+  ; ofdm_syms       : int
+  ; pp              : int
+  ; plp_num         : int
+  ; tx_id_avail     : int
+  ; num_rf          : int
+  ; cur_rf_id       : int
+  ; cur_plp_id      : int
+  ; plp_type        : int
+  ; cr              : int
+  ; plp_mod         : int
+  ; rotation        : bool
+  ; fec_sz          : int
+  ; fec_block_num   : int
+  ; in_band_flag    : bool
+  } [@@deriving yojson,eq]
+
+type t2_params_rsp =
+  { id        : int
+  ; timestamp : Time.t
+  ; params    : t2_params option
   } [@@deriving yojson]
 
 type config = (int * config_item) list
