@@ -146,7 +146,7 @@ let handler api events id meth ({path;query;_}:Uri.sep) sock_data headers body =
       | Some id,Some state -> redirect_if is_guest @@ HTTP.post_port id state api
       | None, _            -> respond_error_other @@ Printf.sprintf "bad port id: %s" id
       | _, None            -> respond_error_other @@ Printf.sprintf "bad state: %s" state)
-  | false,`GET, ["reset"]        -> redirect_if is_guest @@ HTTP.post_reset api
+  | false,`POST, ["reset"]       -> redirect_if is_guest @@ HTTP.post_reset api
   | false,`GET, ["info"]         -> HTTP.devinfo api ()
   | false,`GET, ["state"]        -> HTTP.state events query ()
   | false,`GET, ["status"]       -> HTTP.status events query ()
