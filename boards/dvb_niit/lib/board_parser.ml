@@ -43,8 +43,8 @@ type _ request = Get_devinfo  : devinfo request
                | Set_plp      : plp_set_req -> plp_set_rsp request
 
 type event = Measures of measures
-           | Params   of t2_params_rsp
-           | Plp_list of plp_list_rsp
+           | Params   of params
+           | Plp_list of plp_list [@@deriving show]
 
 type _ event_request = Get_measure  : int -> event event_request
                      | Get_params   : int -> event event_request
@@ -217,7 +217,7 @@ let parse_measures_rsp_exn id msg =
 let to_params_req id =
   to_empty_msg ~msg_code:(0x40 lor id)
 
-let parse_params_rsp_exn id msg : t2_params_rsp =
+let parse_params_rsp_exn id msg : params =
   let bool_of_int x = if x = 0 then false else true in
   try
     let lock   = int_to_bool8 (get_rsp_params_lock msg) |> Option.get_exn |> bool_of_bool8 in
@@ -263,7 +263,7 @@ let parse_params_rsp_exn id msg : t2_params_rsp =
 let to_plp_list_req id =
   to_empty_msg ~msg_code:(0x50 lor id)
 
-let parse_plp_list_rsp_exn id msg =
+let parse_plp_list_rsp_exn id msg : plp_list =
   try
     let plp_num = Cbuffer.get_uint8 msg 1 |> (fun x -> if x = 0xFF then None else Some x) in
     { id
@@ -274,6 +274,7 @@ let parse_plp_list_rsp_exn id msg =
                                                  (fun buf -> Cbuffer.get_uint8 buf 0)
                                                  (Cbuffer.shift msg 2) in
                          Cbuffer.fold (fun acc el -> el :: acc) iter []
+                         |> List.sort compare
              | None   -> []
              end
     }

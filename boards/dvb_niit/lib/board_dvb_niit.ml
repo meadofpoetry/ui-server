@@ -36,7 +36,7 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
   let handlers = Board_api.handlers b.control api events in (* XXX temporary *)
   let db = Result.get_exn @@ Database.create db_conf in
   let _s = Lwt_react.E.map_p (fun m -> Database.request db (Board_model.Store_measures m))
-           @@ React.E.changes events.receiver.measures in
+           @@ React.E.changes events.measures in
   let s_streams = React.S.fold
                     (fun (streams : Common.Stream.stream list)
                          (m : measures) ->
@@ -54,7 +54,7 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
                       match m.lock,m.bitrate with
                       | true,Some x when x > 0 -> List.add_nodup ~eq:(Common.Stream.equal_stream) stream streams
                       | _                      -> List.remove ~eq:(Common.Stream.equal_stream) ~x:stream streams)
-                    [] events.receiver.measures in
+                    [] events.measures in
   let state = (object
                  method _s = _s;
                  method db = db;
@@ -64,7 +64,7 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
   ; control        = b.control
   ; streams_signal = convert_streams s_streams b
   ; step           = step
-  ; connection     = events.device.state
+  ; connection     = events.state
   ; ports_active   = (List.fold_left (fun acc p ->
                           (match p.port with
                            | 0 -> React.S.const true

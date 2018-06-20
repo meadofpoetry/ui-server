@@ -9,10 +9,6 @@ let get_devinfo control =
   let path = Printf.sprintf "/api/board/%d/devinfo" control in
   get_result ~path devinfo_opt_of_yojson ()
 
-let get_plps control num =
-  let path = Printf.sprintf "/api/board/%d/plps/%d" control num in
-  get_result ~path plp_list_rsp_of_yojson ()
-
 let get_config control =
   let path = Printf.sprintf "/api/board/%d/config" control in
   get_result ~path config_of_yojson ()

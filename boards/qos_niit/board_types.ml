@@ -528,11 +528,11 @@ module Errors = struct
     type t =
       { stream    : Stream.id
       ; timestamp : Time.t
+      ; count     : int
+      ; err_code  : int
       ; stream_id : int
       ; pid       : int
-      ; err_code  : int
       ; sync      : bool
-      ; count     : int
       ; param     : int option
       } [@@deriving yojson,eq]
 

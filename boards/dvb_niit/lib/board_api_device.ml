@@ -14,8 +14,6 @@ open Api.Redirect
     GET  /device/state
  *)
 
-type events = device_events
-
 module WS = struct
 
   let state sock_data (events:events) body () =

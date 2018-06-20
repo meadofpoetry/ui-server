@@ -13,22 +13,22 @@ type devinfo_opt = devinfo option [@@deriving yojson]
 
 type standard = T2
               | T
-              | C [@@deriving yojson, eq]
+              | C [@@deriving yojson, eq, show]
 
 type bw = Bw8
         | Bw7
-        | Bw6 [@@deriving yojson, eq]
+        | Bw6 [@@deriving yojson, eq, show]
 
 type channel =
   { bw   : bw
   ; freq : int
   ; plp  : int
-  } [@@deriving yojson, eq]
+  } [@@deriving yojson, eq, show]
 
 type mode =
   { standard : standard
   ; channel  : channel
-  } [@@deriving yojson, eq]
+  } [@@deriving yojson, eq, show]
 
 type mode_req =
   { id   : int
@@ -40,16 +40,14 @@ type mode_rsp =
   ; mode       : mode
   ; hw_present : bool
   ; lock       : bool
-  } [@@deriving yojson]
+  } [@@deriving yojson, show]
 
-type plp_list = int list [@@deriving yojson]
-
-type plp_list_rsp =
+type plp_list =
   { id        : int
   ; timestamp : Time.t
   ; lock      : bool
-  ; plps      : plp_list
-  } [@@deriving yojson]
+  ; plps      : int list
+  } [@@deriving yojson, show]
 
 type plp_set_req =
   { id  : int
@@ -71,7 +69,7 @@ type measures =
   ; ber       : float option
   ; freq      : int option
   ; bitrate   : int option
-  } [@@deriving yojson]
+  } [@@deriving yojson, show]
 
 type t2_params =
   { fft             : int
@@ -102,13 +100,13 @@ type t2_params =
   ; fec_sz          : int
   ; fec_block_num   : int
   ; in_band_flag    : bool
-  } [@@deriving yojson,eq]
+  } [@@deriving yojson, eq, show]
 
-type t2_params_rsp =
+type params =
   { id        : int
   ; timestamp : Time.t
   ; params    : t2_params option
-  } [@@deriving yojson]
+  } [@@deriving yojson, show]
 
 type config = (int * config_item) list
 and config_item =

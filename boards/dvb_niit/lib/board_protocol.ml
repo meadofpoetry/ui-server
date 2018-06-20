@@ -8,28 +8,20 @@ open Boards.Pools
 
 include Board_parser
 
-type device_events =
-  { config  : config React.event
-  ; devinfo : devinfo_opt React.signal
-  ; state   : Common.Topology.state React.signal
-  }
-
-type receiver_events =
-  { measures : measures      React.event
-  ; params   : t2_params_rsp React.event
-  ; plp_list : plp_list_rsp  React.event
-  }
-
 type events =
-  { device   : device_events
-  ; receiver : receiver_events
+  { config   : config React.event
+  ; devinfo  : devinfo_opt React.signal
+  ; state    : Common.Topology.state React.signal
+  ; measures : measures React.event
+  ; params   : params React.event
+  ; plp_list : plp_list React.event
   }
 
 type push_events =
   { measure  : measures -> unit
-  ; params   : t2_params_rsp -> unit
+  ; params   : params -> unit
   ; state    : Common.Topology.state -> unit
-  ; plp_list : plp_list_rsp -> unit
+  ; plp_list : plp_list -> unit
   ; devinfo  : devinfo_opt -> unit
   }
 
@@ -85,8 +77,8 @@ let init_msgs (send_req  : 'a request -> unit Lwt.t)
            (init config)
 
 type event_raw = [ `Measure of int * Cstruct.t
-                 | `Params of int * Cstruct.t
-                 | `Plps of int * Cstruct.t
+                 | `Params  of int * Cstruct.t
+                 | `Plps    of int * Cstruct.t
                  ]
 type event_msg = (event_raw,event) msg
 type pool      = (event_raw,event) Pool.t
@@ -112,8 +104,8 @@ module Make_probes(M:M) = struct
 
     type t =
       { measures : measures state
-      ; plp_list : plp_list_rsp state
-      ; params   : t2_params_rsp state
+      ; plp_list : plp_list state
+      ; params   : params   state
       }
 
     let empty : t =
@@ -179,6 +171,7 @@ module Make_probes(M:M) = struct
        (match List.find_opt (fun (id,_) -> id = rsp.id) t with
         | Some (id,tmr) ->
            let tmr = { tmr with measures = { tmr.measures with prev = Some rsp }} in
+           let tmr = Timer.reset_measures tmr in
            List.Assoc.set ~eq:(=) id tmr t
         | None   -> t)
     | Params rsp   ->
@@ -193,6 +186,7 @@ module Make_probes(M:M) = struct
             | None   -> pe.params rsp);
            (* update previous field *)
            let tmr = { tmr with params = { tmr.params with prev = Some rsp }} in
+           let tmr = Timer.reset_params tmr in
            List.Assoc.set ~eq:(=) id tmr t
         | None   -> t)
     | Plp_list rsp ->
@@ -207,30 +201,31 @@ module Make_probes(M:M) = struct
             | None   -> pe.plp_list rsp);
            (* update previous field *)
            let tmr = { tmr with plp_list = { tmr.plp_list with prev = Some rsp }} in
+           let tmr = Timer.reset_plp_list tmr in
            List.Assoc.set ~eq:(=) id tmr t
         | None   -> t)
 
-  let make_pool (config:config) (t:t) : pool * t =
+  let make_pool (config:config) (t:t) : pool =
     let open Timer in
-    List.fold_left (fun (acc,t) (id,(tmr:States.t)) ->
+    List.fold_left (fun acc (id,(tmr:States.t)) ->
         match List.Assoc.get ~eq:(=) id config with
-        | None      -> [],t
+        | None      -> []
         | Some mode ->
            let (^::) = List.cons_maybe in
            let is_t2 = equal_standard mode.standard T2 in
-           let meas,tmr =
-             if tmr.measures.timer > 0 then None,tmr
-             else Some (make_measure_probe id),reset_measures tmr
+           let meas =
+             if tmr.measures.timer > 0 then None
+             else Some (make_measure_probe id)
            in
-           let params,tmr =
-             if (tmr.params.timer > 0) || (not is_t2) then None,tmr
-             else Some (make_params_probe id),reset_params tmr
+           let params =
+             if (tmr.params.timer > 0) || (not is_t2) then None
+             else Some (make_params_probe id)
            in
-           let plps,tmr =
-             if (tmr.plp_list.timer > 0) || (not is_t2) then None,tmr
-             else Some (make_plp_list_probe id),reset_plp_list tmr
-           in (meas ^:: params ^:: plps ^:: acc, (id,tmr) :: t)) ([],[]) t
-    |> Pair.map1 Pool.create
+           let plps =
+             if (tmr.plp_list.timer > 0) || (not is_t2) then None
+             else Some (make_plp_list_probe id)
+           in (meas ^:: params ^:: plps ^:: acc)) [] t
+    |> Pool.create
 
 end
 
@@ -341,7 +336,7 @@ module SM = struct
     and step_ok_tee probes acc recvd =
       match Queue.empty !msgs with
       | true  ->
-         let pool,probes = Probes.make_pool storage#get probes in
+         let pool = Probes.make_pool storage#get probes in
          step_ok_probes_send probes pool acc recvd
       | false -> step_ok_requests_send probes acc recvd
 
@@ -367,7 +362,9 @@ module SM = struct
         | None     ->
            `Continue (step_init devinfo probes (Pool.step init_pool) acc)
         | Some rsp ->
-           Logs.debug (fun m -> m "%s" @@ fmt @@ Printf.sprintf "receiver #%d initialized!" rsp.id);
+           Logs.debug (fun m ->
+               let s = show_mode_rsp rsp in
+               m "%s" @@ fmt @@ Printf.sprintf "receiver #%d initialized! mode = %s" rsp.id s);
            (match Pool.last init_pool with
             | true ->
                Logs.info (fun m -> m "%s" @@ fmt "initialization done!");
@@ -400,6 +397,9 @@ module SM = struct
             let probes_pool = Pool.step probes_pool in
             `Continue (step_ok_probes_wait probes probes_pool acc)
          | Some ev ->
+            Logs.debug (fun m ->
+                let s = show_event ev in
+                m "%s" @@ fmt @@ Printf.sprintf "got probe response: %s" s);
             let new_probes_pool = Pool.next probes_pool in
             let probes = Probes.push push_events probes ev in
             if Pool.last probes_pool
@@ -459,18 +459,13 @@ module SM = struct
     let e_measure, e_measure_push = React.E.create () in
     let e_params, params_push     = React.E.create () in
     let s_state,state_push = React.S.create `No_response in
-    let receiver_events =
+    let (events : events)   =
       { measures = map_measures s_config e_measure
       ; params   = e_params
       ; plp_list = fst @@ React.E.create ()
-      }
-    in
-    let (events : events)   =
-      { receiver = receiver_events
-      ; device   = { devinfo = s_devinfo
-                   ; config  = React.S.changes s_config
-                   ; state   = s_state
-                   }
+      ; devinfo = s_devinfo
+      ; config  = React.S.changes s_config
+      ; state   = s_state
       }
     in
     let (push_events : push_events) =

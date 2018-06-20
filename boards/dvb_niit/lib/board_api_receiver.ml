@@ -15,5 +15,3 @@ open Api.Redirect
     GET  /receiver/parameters
     GET  /receiver/plp-list
  *)
-
-type events = receiver_events

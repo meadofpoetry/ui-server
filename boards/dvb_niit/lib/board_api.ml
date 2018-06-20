@@ -71,29 +71,29 @@ let state_ws sock_data s_state body =
   sock_handler sock_data (React.S.changes s_state) Common.Topology.state_to_yojson body
 
 let config_ws sock_data (events : events) body =
-  sock_handler sock_data events.device.config config_to_yojson body
+  sock_handler sock_data events.config config_to_yojson body
 
 let measures_ws sock_data (events : events) body =
-  sock_handler sock_data events.receiver.measures measures_to_yojson body
+  sock_handler sock_data events.measures measures_to_yojson body
 
-let handle api events id _ meth uri_sep sock_data _ body =
+let handle api (events:events) id _ meth uri_sep sock_data headers body =
   let open Lwt.Infix in
   let open Api.Redirect in
   (* let redirect_if_guest = redirect_if (User.eq id `Guest) in *)
   (* TODO match string + query *)
   let path_list = Common.Uri.(split @@  Path.to_string uri_sep.path) in
-  match meth, path_list with
-  | `GET,  ["devinfo"]     -> devinfo api
-  | `GET,  ["config"]      -> config api
-  | `GET,  ["device";"state"]       -> state events.device.state
+  match Api.Headers.is_ws headers, meth, path_list with
+  | _,`GET,  ["devinfo"]     -> devinfo api
+  | _,`GET,  ["config"]      -> config api
+  | false,`GET,  ["device";"state"]       -> state events.state
 
-  | `POST, ["reset"]       -> reset api
-  | `POST, ["settings"]    -> settings api body
-  | `POST, ["plp_setting"] -> plp_setting api body
+  | _,`POST, ["reset"]       -> reset api
+  | _,`POST, ["settings"]    -> settings api body
+  | _,`POST, ["plp_setting"] -> plp_setting api body
 
-  | `GET,  ["state_ws"]    -> state_ws sock_data events.device.state body
-  | `GET,  ["config_ws"]   -> config_ws sock_data events body
-  | `GET,  ["measures_ws"] -> measures_ws sock_data events body
+  | true,`GET,["device";"state"] -> state_ws sock_data events.state body
+  | _,`GET,  ["config_ws"]   -> config_ws sock_data events body
+  | _,`GET,  ["measures_ws"] -> measures_ws sock_data events body
   | _ -> not_found ()
 
 let handlers id api events =
