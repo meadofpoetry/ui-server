@@ -9,7 +9,7 @@ module WS = struct
 
   module TS = struct
 
-    open Errors.TS
+    open Errors
 
     let get_errors ?stream control =
       let query = Api_js.Query.Stream.make stream in
@@ -20,7 +20,7 @@ module WS = struct
 
   module T2MI = struct
 
-    open Errors.T2MI
+    open Errors
 
     let get_errors ?stream control =
       let query = Api_js.Query.Stream.make stream in

@@ -674,9 +674,9 @@ module TS_streams : (Event with type msg = Common.Stream.id list) = struct
 
 end
 
-module Ts_errors : (Event with type msg := Errors.TS.t list) = struct
+module Ts_errors : (Event with type msg := Errors.t list) = struct
 
-  open Board_types.Errors.TS
+  open Board_types.Errors
 
   let msg_code = 0x04
 
@@ -686,7 +686,7 @@ module Ts_errors : (Event with type msg := Errors.TS.t list) = struct
     | x when x >= 0x31 && x <= 0x38 -> Some 3
     | _                             -> None
 
-  let of_cbuffer msg : Errors.TS.t list =
+  let of_cbuffer msg : Errors.t list =
     let common,rest = Cbuffer.split msg sizeof_ts_errors in
     let number      = get_ts_errors_count common in
     let errors,_    = Cbuffer.split rest (number * sizeof_ts_error) in
@@ -715,9 +715,9 @@ module Ts_errors : (Event with type msg := Errors.TS.t list) = struct
 
 end
 
-module T2mi_errors : (Event with type msg := Errors.T2MI.t list) = struct
+module T2mi_errors : (Event with type msg := Errors.t list) = struct
 
-  open Board_types.Errors.T2MI
+  open Board_types.Errors
 
   let msg_code = 0x05
 
@@ -730,48 +730,60 @@ module T2mi_errors : (Event with type msg := Errors.T2MI.t list) = struct
     | 20 -> Some 8 | _  -> None
 
   (* Merge t2mi errors with counter and advanced errors. Result is common t2mi error type *)
-  let merge (stream,timestamp,pid,sync)
+  let merge (stream,timestamp,pid,_)
             (count:t2mi_error_raw list)
             (param:t2mi_error_adv_raw list) : t list =
     List.map (fun (x:t2mi_error_raw) ->
         let param = get_relevant_t2mi_adv_code x.code
                     |> Option.flat_map (fun c ->
                            List.find_opt (fun a -> a.code = c && a.stream_id = x.stream_id) param
-                           |> Option.map (fun (x:t2mi_error_adv_raw) -> x.param))
+                           |> Option.map (fun (x:t2mi_error_adv_raw) -> Int32.of_int x.param))
+                    |> Option.get_or ~default:0l
         in
         { stream
         ; timestamp
-        ; pid
-        ; sync      = List.mem ~eq:(Int.equal) x.stream_id sync
-        ; stream_id = x.stream_id
-        ; err_code  = x.code
         ; count     = x.count
-        ; param }) count
+        ; err_code  = x.code
+        ; err_ext   = 0
+        ; priority  = 0
+        ; multi_pid = false
+        ; pid
+        ; packet    = 0l
+        ; param_1   = param
+        ; param_2   = Int32.of_int x.stream_id
+      }) count
 
   (* Convert t2mi advanced errors with 'code' = 0 to common t2mi error type *)
-  let convert_other (stream,timestamp,pid,sync)
+  let convert_other (stream,timestamp,pid,_)
                     (other:t2mi_error_adv_raw list) : t list =
     List.map (fun (x:t2mi_error_adv_raw) ->
         { stream
         ; timestamp
-        ; pid
-        ; sync      = List.mem ~eq:(Int.equal) x.stream_id sync
-        ; stream_id = x.stream_id
-        ; err_code  = t2mi_parser_error_code
         ; count     = 1
-        ; param     = Some x.param }) other
+        ; err_code  = t2mi_parser_error_code
+        ; err_ext   = 0
+        ; priority  = 0
+        ; multi_pid = false
+        ; pid
+        ; packet    = 0l
+        ; param_1   = Int32.of_int x.param
+        ; param_2   = Int32.of_int x.stream_id
+      }) other
 
   (* Convert ts parser flags to common t2mi error type *)
   let convert_ts (stream,timestamp,pid,_) (ts:int list) : t list =
     List.map (fun (x:int) ->
         { stream
         ; timestamp
-        ; pid
-        ; sync      = true
-        ; stream_id = 0
-        ; err_code  = ts_parser_error_code
         ; count     = 1
-        ; param     = Some x }) ts
+        ; err_code  = ts_parser_error_code
+        ; err_ext   = 0
+        ; priority  = 0
+        ; multi_pid = false
+        ; pid
+        ; packet    = 0l
+        ; param_1   = Int32.of_int x
+        ; param_2   = 0l }) ts
 
   let of_cbuffer msg : t list =
     let timestamp   = Common.Time.Clock.now () in
