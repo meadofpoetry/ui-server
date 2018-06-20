@@ -120,8 +120,15 @@ module Make (M : MODEL) : CONN = struct
     pool_use state.db (wrap_query q args)
 end
 
-type t = state
+module Types = struct
+  include Caqti_type
 
+  let (&) = tup2
+
+end
+                               
+type t = state
+       
 let create config period =   
   let user = Sys.getenv "USER" in
   let settings = Conf.get config in
