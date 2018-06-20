@@ -14,7 +14,6 @@ let measure = Caqti_type.custom
    
 module Model = struct
   let name = "dvb_niit"
-  let table = "dvb_meas"
   let init =
     Exec (Caqti_request.exec Caqti_type.unit
             {eos|
@@ -29,7 +28,8 @@ module Model = struct
              date    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
              )
              |eos})
-  let worker = None
+
+  let tables = ["dvb_meas", init, None]
 end
 
 module Conn = Storage.Database.Make(Model)

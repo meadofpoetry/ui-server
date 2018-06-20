@@ -5,7 +5,6 @@ open Lwt.Infix
 
 module Model : Storage.Database.MODEL = struct
   let name = "ip_dektec"
-  let table = "ip_status"
   let init =
     Exec (Caqti_request.exec Caqti_type.unit
             {eos|CREATE TABLE IF NOT EXISTS ip_status(
@@ -14,7 +13,8 @@ module Model : Storage.Database.MODEL = struct
              pcr_present BOOL,
              date   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
              )|eos})
-  let worker = None
+
+  let tables = ["ip_status", init, None]
 end
 
 module Conn = Storage.Database.Make(Model)

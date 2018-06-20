@@ -25,7 +25,6 @@ let data_t =
 
 module Model = struct
   let name = "qoe"
-  let table = "qoe_errors"
   let init =
     Exec (Caqti_request.exec Caqti_type.unit
             {eos|CREATE TABLE IF NOT EXISTS qoe_errors(
@@ -34,7 +33,8 @@ module Model = struct
              min     REAL,     max     REAL,     avg     REAL,
              peak_flag BOOLEAN, cont_flag BOOLEAN, date   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
              )|eos})
-  let worker = None
+
+  let tables = ["qoe_errors", init, None]
 end
 
 module Conn = Storage.Database.Make(Model)
@@ -44,7 +44,7 @@ let insert_data db data =
     Caqti_request.exec data_t
       {eos|INSERT INTO qoe_errors(stream,channel,pid,error,counter,size,min,max,avg,peak_flag,cont_flag,date)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)|eos}
-  in Conn.request db (Trans ((Exec insert),(),(fun x _ -> x))) data
+  in Conn.request db (Reduce ((Exec insert),(),(fun x _ -> x))) data
 
 let insert_audio db data = insert_data db (audio_data_to_list data)
 
