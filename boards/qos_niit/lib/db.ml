@@ -62,5 +62,7 @@ module Errors = struct
         {|INSERT INTO qos_niit_errors(stream,count,err_code,err_ext,priority,multi_pid,pid,packet,param_1,param_2,date)
          VALUES (?,?,?,?,?,?,?,?,?,?,?)|}
     in Conn.request db (Reduce ((Exec insert),(),(fun () () -> ()))) err_list
-  
+
+  let select_errors db = ()
+     
 end
