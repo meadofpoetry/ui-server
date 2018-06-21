@@ -26,18 +26,15 @@ type channel =
   } [@@deriving yojson, eq, show]
 
 type mode =
-  { standard : standard
+  { id       : int
+  ; standard : standard
   ; channel  : channel
   } [@@deriving yojson, eq, show]
 
-type mode_req =
-  { id   : int
-  ; mode : mode
-  } [@@deriving yojson, eq]
+type modes = mode list [@@deriving yojson]
 
 type mode_rsp =
-  { id         : int
-  ; mode       : mode
+  { mode       : mode
   ; hw_present : bool
   ; lock       : bool
   } [@@deriving yojson, show]
@@ -48,6 +45,8 @@ type plp_list =
   ; lock      : bool
   ; plps      : int list
   } [@@deriving yojson, show]
+
+type plp_list_all = plp_list list [@@deriving yojson]
 
 type plp_set_req =
   { id  : int
@@ -70,6 +69,16 @@ type measures =
   ; freq      : int option
   ; bitrate   : int option
   } [@@deriving yojson, show]
+
+type measures_all = measures list [@@deriving yojson]
+
+type lock =
+  { id        : int
+  ; timestamp : Time.t
+  ; lock      : bool
+  } [@@deriving yojson]
+
+type lock_all = lock list [@@deriving yojson]
 
 type t2_params =
   { fft             : int
@@ -107,6 +116,8 @@ type params =
   ; timestamp : Time.t
   ; params    : t2_params option
   } [@@deriving yojson, show]
+
+type params_all = params list [@@deriving yojson]
 
 type config = (int * config_item) list
 and config_item =

@@ -39,7 +39,7 @@ let string_of_err = function
 
 type _ request = Get_devinfo  : devinfo request
                | Reset        : unit request
-               | Set_mode     : mode_req -> mode_rsp request
+               | Set_mode     : mode -> mode_rsp request
                | Set_plp      : plp_set_req -> plp_set_rsp request
 
 type event = Measures of measures
@@ -164,21 +164,21 @@ let parse_devinfo_rsp_exn msg =
 
 (* Mode *)
 
-let to_mode_req (req : mode_req) =
+let to_mode_req (req : mode) =
   let body = Cbuffer.create sizeof_mode in
-  let () = set_mode_standard body (standard_to_int req.mode.standard) in
-  let () = set_mode_bw body (bw_to_int req.mode.channel.bw) in
-  let () = set_mode_freq body @@ Int32.of_int req.mode.channel.freq in
-  let () = set_mode_plp body req.mode.channel.plp in
+  let () = set_mode_standard body (standard_to_int req.standard) in
+  let () = set_mode_bw body (bw_to_int req.channel.bw) in
+  let () = set_mode_freq body @@ Int32.of_int req.channel.freq in
+  let () = set_mode_plp body req.channel.plp in
   to_msg ~msg_code:(0x20 lor req.id) ~body
 
 let parse_mode_rsp_exn id msg =
   try
     let open Option in
-    { id
-    ; lock       = int_to_bool8 (get_mode_lock msg)       |> get_exn |> bool_of_bool8
+    { lock       = int_to_bool8 (get_mode_lock msg)       |> get_exn |> bool_of_bool8
     ; hw_present = int_to_bool8 (get_mode_hw_present msg) |> get_exn |> bool_of_bool8
-    ; mode       = { standard = get_exn @@ standard_of_int (get_mode_standard msg)
+    ; mode       = { id
+                   ; standard = get_exn @@ standard_of_int (get_mode_standard msg)
                    ; channel  = { bw   = get_exn @@ bw_of_int (get_mode_bw msg)
                                 ; freq = Int32.to_int @@ get_mode_freq msg
                                 ; plp  = get_mode_plp msg

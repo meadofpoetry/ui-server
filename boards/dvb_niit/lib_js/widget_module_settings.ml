@@ -94,7 +94,7 @@ let make_module_settings ~(id:    int)
                          ~(event: config_item React.event)
                          ~(state: Common.Topology.state React.signal)
                          control
-                         () : (mode_req,mode_rsp) Ui_templates.Types.settings_block =
+                         () : (mode,mode_rsp) Ui_templates.Types.settings_block =
   let standard,set_standard = make_standard init.standard in
   let t2_box,s_t2 =
     make_mode_box ~standard:T2 ~state ~init:init.t2 ~event:(React.E.map (fun x -> x.t2) event) () in
@@ -102,12 +102,12 @@ let make_module_settings ~(id:    int)
     make_mode_box ~standard:T  ~state ~init:init.t  ~event:(React.E.map (fun x -> x.t)  event) () in
   let c_box,s_c   =
     make_mode_box ~standard:C  ~state ~init:init.c  ~event:(React.E.map (fun x -> x.c)  event) () in
-  let s : mode_req option React.signal =
+  let s : mode option React.signal =
     React.S.l5 (fun standard t2 t c state ->
         match standard,t2,t,c,state with
-        | Some T2,Some t2,_,_,`Fine -> Some { id; mode = { standard = T2; channel = t2 }}
-        | Some T,_,Some t,_,`Fine   -> Some { id; mode = { standard = T ; channel = t }}
-        | Some C,_,_,Some c,`Fine   -> Some { id; mode = { standard = C ; channel = c }}
+        | Some T2,Some t2,_,_,`Fine -> Some { id; standard = T2; channel = t2 }
+        | Some T,_,Some t,_,`Fine   -> Some { id; standard = T ; channel = t  }
+        | Some C,_,_,Some c,`Fine   -> Some { id; standard = C ; channel = c  }
         | _                         -> None)
                standard#s_selected_value s_t2 s_t s_c state
   in
@@ -133,7 +133,7 @@ let make_module_settings ~(id:    int)
                        | `Fine                -> standard#set_disabled false) state
   in
   let () = box#add_class base_class in
-  let submit = fun (cfg:mode_req) -> Requests.post_settings control cfg >|= (fun _ -> ()) in
+  let submit = fun (m:mode) -> Requests.Receiver.HTTP.post_mode m control >|= (fun _ -> ()) in
   box#widget,s,submit
 
 let default_config = { id = 0 }
