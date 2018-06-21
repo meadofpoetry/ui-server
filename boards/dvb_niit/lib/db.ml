@@ -1,3 +1,5 @@
+
+(*
 open Containers
 open Storage.Database
 open Board_types
@@ -42,3 +44,4 @@ let insert_measures db (id,m) =
       {|INSERT INTO dvb_meas(tun,lock,power,mer,ber,freq,bitrate,date)
        VALUES (?,?,?,?,?,?,?,'epoch'::TIMESTAMP + ? * '1 second'::INTERVAL)|} (* TODO ??? *)
   in Conn.request db (Exec insert) (id,m)
+     *)

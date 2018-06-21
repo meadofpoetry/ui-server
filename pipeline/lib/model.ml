@@ -15,19 +15,18 @@ type t = { struct_api : struct_api
          }
                     
 let create db_conf s_struct e_video e_audio =
-  let db_str = Result.get_exn @@ Structure_storage.Conn.create db_conf in
-  let db_qoe = Result.get_exn @@ Qoe_storage.Conn.create db_conf in
+  let db = Result.get_exn @@ Db.Conn.create db_conf in
   Lwt_react.S.keep @@
-    Lwt_react.S.map (fun x -> Lwt.catch (fun () -> Structure_storage.insert_structures db_str x)
+    Lwt_react.S.map (fun x -> Lwt.catch (fun () -> Db.Structure.insert_structures db x)
                                 (function Failure e -> Lwt_io.printf "str error: %s\n" e)) s_struct;
   Lwt_react.E.keep @@
-    Lwt_react.E.map_p (fun x -> Lwt.catch (fun () -> Qoe_storage.insert_video db_qoe x)
+    Lwt_react.E.map_p (fun x -> Lwt.catch (fun () -> Db.Errors.insert_video db x)
                                   (function Failure e -> Lwt_io.printf "vdata error: %s\n" e)) e_video;
   Lwt_react.E.keep @@
-    Lwt_react.E.map_p (fun x -> Lwt.catch (fun () -> Qoe_storage.insert_audio db_qoe x)
+    Lwt_react.E.map_p (fun x -> Lwt.catch (fun () -> Db.Errors.insert_audio db x)
                                   (function Failure e -> Lwt_io.printf "adata error: %s\n" e)) e_audio;
-  let struct_api = { get_input = (fun i -> Structure_storage.select_input db_str i)
-                   ; get_input_between = (fun i f t -> Structure_storage.select_input_between db_str i f t)
+  let struct_api = { get_input = (fun i -> Db.Structure.select_input db i)
+                   ; get_input_between = (fun i f t -> Db.Structure.select_input_between db i f t)
                    }
   in
   let qoe_api = () in

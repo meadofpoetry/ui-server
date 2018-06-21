@@ -4,32 +4,33 @@ open Board_types
 open Lwt.Infix
 
 module Model = struct
+  open Key_t
   let name = "qos_niit"
 
-  let init_state = Exec (Caqti_request.exec Types.unit
-                           {eos|CREATE TABLE IF NOT EXISTS qos_niit_state(
-                            status      INTEGER,
-                            date_start  TIMESTAMP,
-                            date_end    TIMESTAMP)
-                            |eos})
+  let keys_state = { time_key = Some "date_end"
+                   ; columns  = [ "status", key "INTEGER"
+                                ; "date_start", key "TIMESTAMP"
+                                ; "date_end",   key "TIMESTAMP"
+                                ]
+                   }
 
-  let init_errors = Exec (Caqti_request.exec Types.unit
-                            {eos|CREATE TABLE IF NOT EXISTS qos_niit_errors(
-                             stream    INTEGER,
-                             count     INTEGER,
-                             err_code  INTEGER,
-                             err_ext   INTEGER,
-                             priority  INTEGER,
-                             multi_pid BOOL,
-                             pid       INTEGER,
-                             packet    INTEGER,
-                             param_1   INTEGER,
-                             param_2   INTEGER,
-                             date      TIMESTAMP)
-                             |eos})
+  let keys_errors = { time_key = Some "date"
+                    ; columns = [ "stream",    key "INTEGER"
+                                ; "count",     key "INTEGER"
+                                ; "err_code",  key "INTEGER"
+                                ; "err_ext",   key "INTEGER"
+                                ; "priority",  key "INTEGER"
+                                ; "multi_pid", key "BOOL"
+                                ; "pid",       key "INTEGER"
+                                ; "packet",    key "INTEGER"
+                                ; "param_1",   key "INTEGER"
+                                ; "param_2",   key "INTEGER"
+                                ; "date",      key "TIMESTAMP"
+                                ]
+                    }
                  
-  let tables = [ "qos_niit_state", init_state, None
-               ; "qos_niit_errors", init_errors, None
+  let tables = [ "qos_niit_state", keys_state, None
+               ; "qos_niit_errors", keys_errors, None
                ]
            
 end

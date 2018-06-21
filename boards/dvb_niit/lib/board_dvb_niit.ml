@@ -28,9 +28,9 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
   let s_state, spush = React.S.create `No_response in
   let events, api, step = create_sm send storage spush step in
   let handlers = Board_api.handlers b.control api events s_state in (* XXX temporary *)
-  let db = Result.get_exn @@ Db.Conn.create db_conf in
+ (* let db = Result.get_exn @@ Db.Conn.create db_conf in
   let _s = Lwt_react.E.map_p (fun m -> Db.insert_measures db m)
-           @@ React.E.changes events.measure in
+           @@ React.E.changes events.measure in *)
   let s_streams = React.S.fold
                     (fun (streams : Common.Stream.stream list)
                          ((id,m) : Board_types.measure_response) ->
@@ -50,8 +50,7 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
                       | _                       -> List.remove ~eq:(Common.Stream.equal_stream) ~x:stream streams)
                     [] events.measure in
   let state = (object
-                 method _s = _s;
-                 method db = db;
+                 (*  method db = db; *)
                  method finalize () = ()
                end) in
   { handlers       = handlers

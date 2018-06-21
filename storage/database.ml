@@ -36,10 +36,26 @@ type (_,_,_) query =
   | Maintain : (simple, 'req, unit) query list -> (trans, 'req, unit) query
 
 type db = { exec : 'typ 'request 'response. ('typ, 'request, 'response) query -> 'request -> 'response Lwt.t }
+
+module Key_t : sig
+  type t
+  val key : ?default:string -> string -> t
+  val to_string : t -> string
+end = struct
+  type t = string
+  let key ?default (typ : string) : t = match default with
+    | None -> typ
+    | Some def -> typ ^ " DEFAULT " ^ def (* TODO add check *)
+  let to_string (t : t) : string = t
+end
+                
+type keys = { columns  : (string * Key_t.t) list
+            ; time_key : string option
+            }
         
 module type MODEL = sig
   val name     : string
-  val tables   : (string * (simple,unit,unit) query * (simple,unit,unit) query option) list
+  val tables   : (string * keys * (simple,unit,unit) query option) list
 end
            
 module type CONN = sig
@@ -50,7 +66,34 @@ module type CONN = sig
 end
 
 module Make (M : MODEL) : CONN = struct
-  type t = state 
+  type t = state
+
+  let make_init_query name keys =
+    let cols = String.concat ", " (List.map (fun (k,t) -> k ^ " " ^ (Key_t.to_string t)) keys) in
+    let exp = Printf.sprintf "CREATE TABLE IF NOT EXISTS %s (%s)" name cols in
+    Exec (Caqti_request.exec Caqti_type.unit exp)
+
+  let init_trans = Maintain (List.map (fun (name,keys,_) -> make_init_query name keys.columns) M.tables)
+
+  let workers_trans =
+    List.filter_map (fun (_,_,w) -> w) M.tables
+    |> function [] -> None | lst -> Some (Maintain lst)           
+                 
+  let cleanup_trans =
+    Maintain (List.filter_map (fun (table,keys,_) ->
+                  match keys.time_key with
+                  | None -> None
+                  | Some time_key ->
+                     Some (Exec (Caqti_request.exec Caqti_type.ptime_span
+                                   (Printf.sprintf "DELETE FROM %s WHERE %s <= (now()::TIMESTAMP - ?::INTERVAL)"
+                                      table time_key))))
+                M.tables)
+
+  let delete_trans =
+    Maintain (List.map (fun (table,_,_) ->
+                  Exec (Caqti_request.exec Caqti_type.unit
+                          (Printf.sprintf "DELETE FROM %s" table)))
+                M.tables)
 
   let rec request : type typ req resp. (module Caqti_lwt.CONNECTION) -> (typ, req, resp) query -> req -> (resp, [< Caqti_error.t]) result Lwt.t =
     fun (module Db : Caqti_lwt.CONNECTION) q args ->
@@ -77,24 +120,6 @@ module Make (M : MODEL) : CONN = struct
 
   let wrap_query : type req resp. ('a, req, resp) query -> req -> (module Caqti_lwt.CONNECTION) -> resp Lwt.t =
     fun query args db -> request db query args >>= fail_if
-
-  let init_trans = Maintain (List.map (fun (_,init,_) -> init) M.tables)
-
-  let workers_trans =
-    List.filter_map (fun (_,_,w) -> w) M.tables
-    |> function [] -> None | lst -> Some (Maintain lst)           
-                 
-  let cleanup_trans =
-    Maintain (List.map (fun (table,_,_) ->
-                  Exec (Caqti_request.exec Caqti_type.ptime_span
-                          (Printf.sprintf "DELETE FROM %s WHERE date <= (now()::TIMESTAMP - ?::INTERVAL)" table)))
-                M.tables)
-
-  let delete_trans =
-    Maintain (List.map (fun (table,_,_) ->
-                  Exec (Caqti_request.exec Caqti_type.unit
-                          (Printf.sprintf "DELETE FROM %s" table)))
-                M.tables)
                
   let create (state : state) =
     let rec loop () =

@@ -1,3 +1,5 @@
+(*
+
 open Containers
 open Storage.Database
 open Board_types
@@ -27,3 +29,4 @@ let insert_status db (s : board_status) =
       {|INSERT INTO ip_status(bitrate,fec_delay,pcr_present)
        VALUES (?,?,?)|}
   in Conn.request db (Exec insert) (s.bitrate, s.fec_delay, s.pcr_present)
+ *)
