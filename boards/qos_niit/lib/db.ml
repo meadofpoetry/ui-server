@@ -7,14 +7,14 @@ module Model = struct
   let name = "qos_niit"
 
   let init_state = Exec (Caqti_request.exec Types.unit
-                           {|CREATE TABLE IF NOT EXISTS qos_niit_state(
-                            status INTEGER,
-                            start  TIMESTAMP,
-                            end    TIMESTAMP
-                            |})
+                           {eos|CREATE TABLE IF NOT EXISTS qos_niit_state(
+                            status      INTEGER,
+                            date_start  TIMESTAMP,
+                            date_end    TIMESTAMP)
+                            |eos})
 
   let init_errors = Exec (Caqti_request.exec Types.unit
-                            {|CREATE TABLE IF NOT EXISTS qos_niit_errors(
+                            {eos|CREATE TABLE IF NOT EXISTS qos_niit_errors(
                              stream    INTEGER,
                              count     INTEGER,
                              err_code  INTEGER,
@@ -26,7 +26,7 @@ module Model = struct
                              param_1   INTEGER,
                              param_2   INTEGER,
                              date      TIMESTAMP)
-                             |})
+                             |eos})
                  
   let tables = [ "qos_niit_state", init_state, None
                ; "qos_niit_errors", init_errors, None
