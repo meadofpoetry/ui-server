@@ -26,14 +26,16 @@ module Macaddr = struct
     | x         -> Error ("not a mac addr: " ^ (Yojson.Safe.to_string x))
 end
 
-type devinfo = devi option
-and devi = { fpga_ver : int
-           ; hw_ver   : int
-           ; fw_ver   : int
-           ; serial   : int
-           ; typ      : int
-           ; mac      : Macaddr.t
-           } [@@deriving yojson]
+type devinfo =
+  { fpga_ver : int
+  ; hw_ver   : int
+  ; fw_ver   : int
+  ; serial   : int
+  ; typ      : int
+  ; mac      : Macaddr.t
+  } [@@deriving yojson]
+
+type devinfo_opt = devinfo option [@@deriving yojson]
 
 let ipv4_to_yojson (a : Ipaddr.V4.t) : Yojson.Safe.json =
   let s = Ipaddr.V4.to_string a in

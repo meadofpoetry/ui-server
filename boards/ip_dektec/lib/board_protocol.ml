@@ -7,6 +7,34 @@ open Boards.Pools
 
 include Board_parser
 
+type events =
+  { status : board_status React.event
+  ; config : config React.event
+  }
+
+type push_events =
+  { status  : board_status -> unit
+  ; devinfo : devinfo option -> unit
+  ; config  : config  -> unit
+  }
+
+type api =
+  { post_addr      : addr -> addr Lwt.t
+  ; post_mask      : mask -> mask Lwt.t
+  ; post_gateway   : gateway -> gateway Lwt.t
+  ; post_dhcp      : flag -> flag Lwt.t
+  ; post_enable    : flag -> flag Lwt.t
+  ; post_fec       : flag -> flag Lwt.t
+  ; post_port      : port -> port Lwt.t
+  ; post_meth      : meth -> meth Lwt.t
+  ; post_multicast : multicast -> multicast Lwt.t
+  ; post_delay     : delay -> delay Lwt.t
+  ; post_rate_mode : rate_mode -> rate_mode Lwt.t
+  ; post_reset     : unit -> unit Lwt.t
+  ; get_config     : unit -> config Lwt.t
+  ; get_devinfo    : unit -> devinfo option Lwt.t
+  }
+
 (* Board protocol implementation *)
 
 let timeout_period step_duration = 2 * int_of_float (1. /. step_duration) (* 2 secs *)
@@ -14,107 +42,104 @@ let timeout_period step_duration = 2 * int_of_float (1. /. step_duration) (* 2 s
 let request_period step_duration = 2 * int_of_float (1. /. step_duration) (* 5 secs *)
 
 module SM = struct
-  
-  type push_events = { status : board_status -> unit
-                     }
 
   let wakeup_timeout t = t.pred `Timeout |> ignore
 
   let send_msg (type a) sender (msg : a request) : unit Lwt.t =
     (match msg with
      | Devinfo _ -> to_req_get msg
-     | Overall x -> (match x with
-                     | Get_mode          -> to_req_get msg
-                     | Get_application   -> to_req_get msg
-                     | Get_storage       -> to_req_get msg
-                     | Set_mode x        -> to_req_set_int8 msg (mode_to_int x)
-                     | Set_application x -> to_req_set_int8 msg (application_to_int x)
-                     | Set_storage x     -> to_req_set_int8 msg (storage_to_int x))
-     | Nw x      -> (match x with
-                     | Get_ip        -> to_req_get msg
-                     | Get_mask      -> to_req_get msg
-                     | Get_gateway   -> to_req_get msg
-                     | Get_dhcp      -> to_req_get msg
-                     | Get_mac       -> to_req_get msg
-                     | Set_ip x      -> to_req_set_ipaddr msg x
-                     | Set_mask x    -> to_req_set_ipaddr msg x
-                     | Set_gateway x -> to_req_set_ipaddr msg x
-                     | Set_dhcp x    -> to_req_set_bool msg x
-                     | Reboot        -> to_req_set_bool msg true)
-     | Ip x      -> (match x with
-                     | Get_method          -> to_req_get msg
-                     | Get_enable          -> to_req_get msg
-                     | Get_fec_delay       -> to_req_get msg
-                     | Get_fec_enable      -> to_req_get msg
-                     | Get_fec_cols        -> to_req_get msg
-                     | Get_fec_rows        -> to_req_get msg
-                     | Get_jitter_tol      -> to_req_get msg
-                     | Get_lost_after_fec  -> to_req_get msg
-                     | Get_lost_before_fec -> to_req_get msg
-                     | Get_udp_port        -> to_req_get msg
-                     | Get_delay           -> to_req_get msg
-                     | Get_mcast_addr      -> to_req_get msg
-                     | Get_tp_per_ip       -> to_req_get msg
-                     | Get_status          -> to_req_get msg
-                     | Get_protocol        -> to_req_get msg
-                     | Get_output          -> to_req_get msg
-                     | Get_packet_size     -> to_req_get msg
-                     | Get_bitrate         -> to_req_get msg
-                     | Get_pcr_present     -> to_req_get msg
-                     | Get_rate_change_cnt -> to_req_get msg
-                     | Get_rate_est_mode   -> to_req_get msg
-                     | Get_jitter_err_cnt  -> to_req_get msg
-                     | Get_lock_err_cnt    -> to_req_get msg
-                     | Get_delay_factor    -> to_req_get msg
-                     | Set_method x        -> to_req_set_int8 msg (meth_to_int x)
-                     | Set_enable x        -> to_req_set_bool msg x
-                     | Set_fec_enable x    -> to_req_set_bool msg x
-                     | Set_udp_port x      -> to_req_set_int16 msg x
-                     | Set_delay x         -> to_req_set_int16 msg x
-                     | Set_mcast_addr x    -> to_req_set_ipaddr msg x
-                     | Set_rate_est_mode x -> to_req_set_int8 msg (rate_mode_to_int x))
-     | Asi x     -> (match x with
-                     | Get_packet_size   -> to_req_get msg
-                     | Get_bitrate       -> to_req_get msg
-                     | Set_packet_size x -> to_req_set_int8 msg (asi_packet_sz_to_int x)))
+     | Overall x ->
+        begin match x with
+        | Get_mode          -> to_req_get msg
+        | Get_application   -> to_req_get msg
+        | Get_storage       -> to_req_get msg
+        | Set_mode x        -> to_req_set_int8 msg (mode_to_int x)
+        | Set_application x -> to_req_set_int8 msg (application_to_int x)
+        | Set_storage x     -> to_req_set_int8 msg (storage_to_int x)
+        end
+     | Nw x      ->
+        begin match x with
+        | Get_ip        -> to_req_get msg
+        | Get_mask      -> to_req_get msg
+        | Get_gateway   -> to_req_get msg
+        | Get_dhcp      -> to_req_get msg
+        | Get_mac       -> to_req_get msg
+        | Set_ip x      -> to_req_set_ipaddr msg x
+        | Set_mask x    -> to_req_set_ipaddr msg x
+        | Set_gateway x -> to_req_set_ipaddr msg x
+        | Set_dhcp x    -> to_req_set_bool msg x
+        | Reboot        -> to_req_set_bool msg true
+        end
+     | Ip x      ->
+        begin match x with
+        | Get_method          -> to_req_get msg
+        | Get_enable          -> to_req_get msg
+        | Get_fec_delay       -> to_req_get msg
+        | Get_fec_enable      -> to_req_get msg
+        | Get_fec_cols        -> to_req_get msg
+        | Get_fec_rows        -> to_req_get msg
+        | Get_jitter_tol      -> to_req_get msg
+        | Get_lost_after_fec  -> to_req_get msg
+        | Get_lost_before_fec -> to_req_get msg
+        | Get_udp_port        -> to_req_get msg
+        | Get_delay           -> to_req_get msg
+        | Get_mcast_addr      -> to_req_get msg
+        | Get_tp_per_ip       -> to_req_get msg
+        | Get_status          -> to_req_get msg
+        | Get_protocol        -> to_req_get msg
+        | Get_output          -> to_req_get msg
+        | Get_packet_size     -> to_req_get msg
+        | Get_bitrate         -> to_req_get msg
+        | Get_pcr_present     -> to_req_get msg
+        | Get_rate_change_cnt -> to_req_get msg
+        | Get_rate_est_mode   -> to_req_get msg
+        | Get_jitter_err_cnt  -> to_req_get msg
+        | Get_lock_err_cnt    -> to_req_get msg
+        | Get_delay_factor    -> to_req_get msg
+        | Set_method x        -> to_req_set_int8 msg (meth_to_int x)
+        | Set_enable x        -> to_req_set_bool msg x
+        | Set_fec_enable x    -> to_req_set_bool msg x
+        | Set_udp_port x      -> to_req_set_int16 msg x
+        | Set_delay x         -> to_req_set_int16 msg x
+        | Set_mcast_addr x    -> to_req_set_ipaddr msg x
+        | Set_rate_est_mode x -> to_req_set_int8 msg (rate_mode_to_int x)
+        end
+     | Asi x     ->
+        begin match x with
+        | Get_packet_size   -> to_req_get msg
+        | Get_bitrate       -> to_req_get msg
+        | Set_packet_size x -> to_req_set_int8 msg (asi_packet_sz_to_int x)
+        end)
     |> sender
 
-  let send (type a) msgs sender (storage : config storage) timeout push_config (msg : a request) : a Lwt.t =
+  let send (type a) msgs sender (storage:config storage) (pe:push_events) timeout (msg : a request) : a Lwt.t =
     let t, w = Lwt.wait () in
     let pred = function
       | `Timeout -> Lwt.wakeup_exn w (Failure "msg timeout"); None
       | l -> let open Option in
              is_response msg l >|= fun r ->
-             let conf = storage#get in
-             let f x  = push_config x; storage#store x in
-             (match msg with
-              | Nw (Set_ip x)            ->
-                 let conf = {conf with nw = {conf.nw with ip = x} } in f conf
-              | Nw (Set_mask x)          ->
-                 let conf = {conf with nw = {conf.nw with mask = x} } in f conf
-              | Nw (Set_gateway x)       ->
-                 let conf = {conf with nw = {conf.nw with gateway = x} } in f conf
-              | Nw (Set_dhcp x)          ->
-                 let conf = {conf with nw = {conf.nw with dhcp = x} } in f conf
-              | Ip (Set_enable x)        ->
-                 let conf = {conf with ip = {conf.ip with enable = x} } in f conf
-              | Ip (Set_fec_enable x)    ->
-                 let conf = {conf with ip = {conf.ip with fec = x} } in f conf
-              | Ip (Set_udp_port x)      ->
-                 let conf = {conf with ip = {conf.ip with port = x} } in f conf
-              | Ip (Set_mcast_addr x)    ->
-                 let conf = {conf with ip = {conf.ip with multicast = Some x} } in f conf
-              | Ip (Set_delay x)         ->
-                 let conf = {conf with ip = {conf.ip with delay = Some x} } in f conf
-              | Ip (Set_rate_est_mode x) ->
-                 let conf = {conf with ip = {conf.ip with rate_mode = Some x} } in f conf
-              | _ -> ());
-             Lwt.wakeup w r in
+             let c = storage#get in
+             let c = match msg with
+               | Nw (Set_ip _)            -> Some {c with nw = {c.nw with ip        = r }}
+               | Nw (Set_mask _)          -> Some {c with nw = {c.nw with mask      = r }}
+               | Nw (Set_gateway _)       -> Some {c with nw = {c.nw with gateway   = r }}
+               | Nw (Set_dhcp _)          -> Some {c with nw = {c.nw with dhcp      = r }}
+               | Ip (Set_enable _)        -> Some {c with ip = {c.ip with enable    = r }}
+               | Ip (Set_fec_enable _)    -> Some {c with ip = {c.ip with fec       = r }}
+               | Ip (Set_udp_port _)      -> Some {c with ip = {c.ip with port      = r }}
+               | Ip (Set_mcast_addr _)    -> Some {c with ip = {c.ip with multicast = Some r }}
+               | Ip (Set_delay _)         -> Some {c with ip = {c.ip with delay     = Some r }}
+               | Ip (Set_rate_est_mode _) -> Some {c with ip = {c.ip with rate_mode = Some r }}
+               | _ -> None
+             in
+             let () = Option.iter (fun c -> pe.config c; storage#store c) c in
+             Lwt.wakeup w r
+    in
     let send = fun () -> send_msg sender msg in
     msgs := Queue.append !msgs { send; pred; timeout; exn = None };
     t
 
-  let step msgs sender (storage : config storage) step_duration push_state push_info push_events =
+  let step msgs sender (storage : config storage) step_duration push_state (pe:push_events) =
 
     let period             = timeout_period step_duration in
     let request_period     = request_period step_duration in
@@ -208,7 +233,7 @@ module SM = struct
       find_resp req acc recvd
                 ~success:(fun x _ -> let fpga_ver,hw_ver,fw_ver,serial,typ = conf in
                                      let r = Overall (Set_mode Ip2asi) in
-                                     push_info (Some { fpga_ver; hw_ver; fw_ver; serial; typ; mac = x });
+                                     pe.devinfo (Some { fpga_ver; hw_ver; fw_ver; serial; typ; mac = x });
                                      push_state `Init;
                                      send r; `Continue (step_init_mode period r None))
                 ~failure:(fun acc -> bad_step p (step_detect_mac (pred p) req conf acc))
@@ -410,7 +435,7 @@ module SM = struct
          | Some e -> let new_pool = Pool.next pool in
                      if Pool.last pool
                      then (let status = events_to_status prev_status (e :: events) in
-                           if Option.is_some prev_status then push_events.status status;
+                           if Option.is_some prev_status then pe.status status;
                            `Continue (step_normal_requests_send new_pool (Some status) period_timer acc))
                      else step_normal_probes_send new_pool prev_status (e :: events) period_timer acc recvd)
       with Timeout -> first_step ()
@@ -438,31 +463,36 @@ module SM = struct
 
   let create sender storage push_state step_duration =
     let period = request_period step_duration in
-    let status,status_push = React.E.create () in
-    let config,push_config = React.E.create () in
-    let info,push_info     = React.S.create None in
+    let status,status_push   = React.E.create () in
+    let config,config_push   = React.E.create () in
+    let devinfo,devinfo_push = React.S.create None in
     let (events : events)  = { status; config } in
-    let push_events = { status = status_push } in
+    let push_events =
+      { status  = status_push
+      ; config  = config_push
+      ; devinfo = devinfo_push
+      }
+    in
     let msgs = ref (Queue.create []) in
-    let send x = send msgs sender storage period push_config x in
-    let api  = { addr      = (fun x  -> send (Nw (Set_ip x)))
-               ; mask      = (fun x  -> send (Nw (Set_mask x)))
-               ; gateway   = (fun x  -> send (Nw (Set_gateway x)))
-               ; dhcp      = (fun x  -> send (Nw (Set_dhcp x)))
-               ; enable    = (fun x  -> send (Ip (Set_enable x)))
-               ; fec       = (fun x  -> send (Ip (Set_fec_enable x)))
-               ; port      = (fun x  -> send (Ip (Set_udp_port x)))
-               ; meth      = (fun x  -> send (Ip (Set_method x)))
-               ; multicast = (fun x  -> send (Ip (Set_mcast_addr x)))
-               ; delay     = (fun x  -> send (Ip (Set_delay x)))
-               ; rate_mode = (fun x  -> send (Ip (Set_rate_est_mode x)))
-               ; reset     = (fun () -> send (Nw Reboot))
-               ; config    = (fun () -> Lwt.return storage#get)
-               ; devinfo   = (fun () -> Lwt.return @@ React.S.value info)
+    let send x = send msgs sender storage push_events period x in
+    let api  = { post_addr      = (fun x  -> send (Nw (Set_ip x)))
+               ; post_mask      = (fun x  -> send (Nw (Set_mask x)))
+               ; post_gateway   = (fun x  -> send (Nw (Set_gateway x)))
+               ; post_dhcp      = (fun x  -> send (Nw (Set_dhcp x)))
+               ; post_enable    = (fun x  -> send (Ip (Set_enable x)))
+               ; post_fec       = (fun x  -> send (Ip (Set_fec_enable x)))
+               ; post_port      = (fun x  -> send (Ip (Set_udp_port x)))
+               ; post_meth      = (fun x  -> send (Ip (Set_method x)))
+               ; post_multicast = (fun x  -> send (Ip (Set_mcast_addr x)))
+               ; post_delay     = (fun x  -> send (Ip (Set_delay x)))
+               ; post_rate_mode = (fun x  -> send (Ip (Set_rate_est_mode x)))
+               ; post_reset     = (fun () -> send (Nw Reboot))
+               ; get_config     = (fun () -> Lwt.return storage#get)
+               ; get_devinfo    = (fun () -> Lwt.return @@ React.S.value devinfo)
                }
     in
     events,
     api,
-    (step msgs sender storage step_duration push_state push_info push_events)
+    (step msgs sender storage step_duration push_state push_events)
 
 end
