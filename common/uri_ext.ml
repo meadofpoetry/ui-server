@@ -213,3 +213,16 @@ let sep_path (s : sep) = s.path
 let split s =
   String.split_on_char '/' s
   |> List.filter (not % String.equal "")
+
+let parse_uri : ('a, _, 'e, _, _, 'b) format6
+                -> ('b, 'c) Query.compose
+                -> 'a
+                -> string
+                -> Query.t -> 'c = fun fmt qfmt f s q ->
+  let sf = Scanf.sscanf s fmt f in
+  match Query.parse_query qfmt sf q with
+  | Ok r -> r
+  | Error _ -> failwith "bad query"
+
+
+let make_uri fmt q = Printf.kprintf (fun s -> Query.make_q (fun x -> s, x) q) fmt
