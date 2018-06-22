@@ -5,13 +5,35 @@ type mode        = Asi2ip | Ip2asi
 type application = Failsafe | Normal
 type storage     = Flash | Ram
 
+let mode_to_string = function
+  | Asi2ip -> "ASI to IP"
+  | Ip2asi -> "IP to ASI"
+
+let application_to_string = function
+  | Failsafe -> "failsafe"
+  | Normal   -> "normal"
+
+let storage_to_string = function
+  | Flash -> "flash"
+  | Ram   -> "RAM"
+
 (* Ip types *)
-type status    = Enabled | Disabled | Failure [@@deriving yojson]
-type protocol  = Udp | Rtp [@@deriving yojson]
-type meth      = Unicast | Multicast [@@deriving yojson]
+type status    = Enabled | Disabled | Failure [@@deriving yojson, show]
+type protocol  = Udp | Rtp [@@deriving yojson, show]
+type meth      = Unicast | Multicast [@@deriving yojson, show]
 type output    = Asi | Spi
-type packet_sz = Ts188 | Ts204 [@@deriving yojson]
+type packet_sz = Ts188 | Ts204 [@@deriving yojson, show]
 type rate_mode = On | Fixed | Without_pcr | Off [@@deriving yojson,eq]
+
+let meth_to_string = function
+  | Unicast   -> "unicast"
+  | Multicast -> "multicast"
+
+let rate_mode_to_string = function
+  | On          -> "on"
+  | Fixed       -> "fixed"
+  | Without_pcr -> "without PCR"
+  | Off         -> "off"
 
 (* Asi types *)
 type asi_packet_sz = Sz of packet_sz | As_is

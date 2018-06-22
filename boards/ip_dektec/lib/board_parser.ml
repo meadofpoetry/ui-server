@@ -21,7 +21,7 @@ type event =
   | Jitter_err_cnt of int32
   | Lock_err_cnt of int32
   | Delay_factor of int32
-  | Asi_bitrate of int
+  | Asi_bitrate of int [@@deriving show]
 
 type _ devi =
   | Get_fpga_ver : int devi

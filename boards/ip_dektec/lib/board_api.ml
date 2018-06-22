@@ -26,42 +26,42 @@ let set setter _of _to body =
    | Ok a    -> setter a  >|= (_to %> Result.return))
   >>= Json.respond_result
 
-let address api           = set api.addr addr_of_yojson addr_to_yojson
+let address api           = set api.post_ip addr_of_yojson addr_to_yojson
 
-let mask (api : api)      = set api.mask mask_of_yojson mask_to_yojson
+let mask (api : api)      = set api.post_mask mask_of_yojson mask_to_yojson
 
-let gateway (api : api)   = set api.gateway gateway_of_yojson gateway_to_yojson
+let gateway (api : api)   = set api.post_gateway gateway_of_yojson gateway_to_yojson
 
-let dhcp (api : api)      = set api.dhcp flag_of_yojson flag_to_yojson
+let dhcp (api : api)      = set api.post_dhcp flag_of_yojson flag_to_yojson
 
-let enable (api : api)    = set api.enable flag_of_yojson flag_to_yojson
+let enable (api : api)    = set api.post_enable flag_of_yojson flag_to_yojson
 
-let fec (api : api)       = set api.fec flag_of_yojson flag_to_yojson
+let fec (api : api)       = set api.post_fec flag_of_yojson flag_to_yojson
 
-let port (api : api)      = set api.port port_of_yojson port_to_yojson
+let port (api : api)      = set api.post_port port_of_yojson port_to_yojson
 
-let meth (api : api)      = set api.meth meth_of_yojson meth_to_yojson
+let meth (api : api)      = set api.post_meth meth_of_yojson meth_to_yojson
 
-let multicast (api : api) = set api.multicast multicast_of_yojson multicast_to_yojson
+let multicast (api : api) = set api.post_multicast multicast_of_yojson multicast_to_yojson
 
-let delay (api : api)     = set api.delay delay_of_yojson delay_to_yojson
+let delay (api : api)     = set api.post_delay delay_of_yojson delay_to_yojson
 
-let rate_mode (api : api) = set api.rate_mode rate_mode_of_yojson rate_mode_to_yojson
+let rate_mode (api : api) = set api.post_rate_mode rate_mode_of_yojson rate_mode_to_yojson
 
 let reset api () =
-  api.reset () >|= Result.return
+  api.post_reset () >|= Result.return
   >>= Json.respond_result_unit
 
 let config api () =
-  api.config () >|= (config_to_yojson %> Result.return)
+  api.get_config () >|= (config_to_yojson %> Result.return)
   >>= Json.respond_result
 
 let devinfo api () =
-  api.devinfo () >|= (devinfo_to_yojson %> Result.return)
+  api.get_devinfo () >|= (devinfo_opt_to_yojson %> Result.return)
   >>= Json.respond_result
 
-let state s_state () =
-  Lwt_react.S.value s_state
+let state (events:events) () =
+  Lwt_react.S.value events.state
   |> (Common.Topology.state_to_yojson %> Result.return)
   |> Json.respond_result
 
@@ -84,8 +84,8 @@ let sock_handler sock_data (event:'a React.event) (to_yojson:'a -> Yojson.Safe.j
   Hashtbl.add socket_table id sock_events;
   Lwt.return (resp, (body :> Cohttp_lwt.Body.t))
 
-let state_ws sock_data s_state body =
-  sock_handler sock_data (Lwt_react.S.changes s_state) Common.Topology.state_to_yojson body
+let state_ws sock_data (events:events) body =
+  sock_handler sock_data (Lwt_react.S.changes events.state) Common.Topology.state_to_yojson body
 
 let status_ws sock_data (events : events) body =
   sock_handler sock_data events.status board_status_to_yojson body
@@ -93,7 +93,7 @@ let status_ws sock_data (events : events) body =
 let config_ws sock_data (events : events) body =
   sock_handler sock_data events.config config_to_yojson body
 
-let handle api events id s_state _ m uri_sep sock_data _ body =
+let handle api events id _ m uri_sep sock_data _ body =
   let open Api.Redirect in
   (* let redirect_if_guest = redirect_if (User.eq id `Guest) in *)
   (* TODO match string + query *)
@@ -112,15 +112,15 @@ let handle api events id s_state _ m uri_sep sock_data _ body =
   | `POST, ["rate_mode"]  -> rate_mode api body
   | `POST, ["reset"]      -> reset api ()
   | `GET,  ["config"]     -> config api ()
-  | `GET,  ["state"]      -> state s_state ()
+  | `GET,  ["state"]      -> state events ()
   | `GET,  ["devinfo"]    -> devinfo api ()
   | `GET,  ["status_ws"]  -> status_ws sock_data events body
-  | `GET,  ["state_ws"]   -> state_ws sock_data s_state body
+  | `GET,  ["state_ws"]   -> state_ws sock_data events body
   | `GET,  ["config_ws"]  -> config_ws sock_data events body
   | _ -> not_found ()
 
-let handlers id api events s_state =
+let handlers id api events =
   [ (module struct
        let domain = Common.Topology.get_api_path id
-       let handle = handle api events id s_state
+       let handle = handle api events id
      end : Api_handler.HANDLER) ]
