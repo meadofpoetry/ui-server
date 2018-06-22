@@ -25,9 +25,9 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
   let handlers        = Board_api.handlers b.control api events in
   let db              = Result.get_exn @@ Db.Conn.create db_conf in
   Lwt_react.E.keep @@
-    Lwt_react.E.map_p (fun e -> Db.Errors.insert_errors db e) events.errors.ts_errors;
+    Lwt_react.E.map_p (fun e -> Db.Errors.TS.insert_errors db e) events.errors.ts_errors;
   Lwt_react.E.keep @@
-    Lwt_react.E.map_p (fun e -> Db.Errors.insert_errors db e) events.errors.t2mi_errors;
+    Lwt_react.E.map_p (fun e -> Db.Errors.T2MI.insert_errors db e) events.errors.t2mi_errors;
   let state           = (object val db = db method finalize () = () end) in (* TODO fix finalize *)
   { handlers       = handlers
   ; control        = b.control
