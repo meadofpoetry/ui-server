@@ -153,12 +153,11 @@ let parse_devinfo_rsp_exn msg =
     ; fpga_ver  = get_rsp_devinfo_fpga_ver msg
     ; soft_ver  = get_rsp_devinfo_soft_ver msg
     ; asi       = if (hw_cfg land 16) > 0 then true else false
-    ; receivers = List.fold_left (fun acc x -> let x' = float_of_int x in
-                                               if (hw_cfg land (int_of_float (2. ** x'))) > 0
-                                               then x :: acc
-                                               else acc)
-                                 []
-                                 (List.range 0 3)
+    ; receivers = List.fold_left (fun acc x ->
+                      let x' = float_of_int x in
+                      if (hw_cfg land (int_of_float (2. ** x'))) > 0
+                      then x :: acc
+                      else acc) [] (List.rev @@ List.range 0 3)
     }
   with _ -> raise Parse_error
 
