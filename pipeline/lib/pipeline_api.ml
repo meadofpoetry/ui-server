@@ -150,6 +150,7 @@ let handlers api =
                  ~query:Query.empty  (get_settings api)
              ]
     ; `POST, [ Api_handler.create_handler ~docstring:"Post structure"
+                 ~restrict:[ `Guest ]
                  ~path:Path.Format.("structure" @/ Int ^/ empty)
                  ~query:Query.["name", (module Single(String))]
                  (set_structure api)
