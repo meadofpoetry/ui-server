@@ -11,27 +11,27 @@ include Board_parser
 type events =
   { streams : Stream.stream list React.signal
   ; state   : Topology.state React.signal
-  ; status  : board_status React.event
+  ; status  : status React.event
   ; config  : config React.event
   }
 
 type push_events =
   { state   : Topology.state -> unit
-  ; status  : board_status -> unit
+  ; status  : status -> unit
   ; devinfo : devinfo option -> unit
   ; config  : config  -> unit
   }
 
 type api =
-  { post_ip        : addr -> addr Lwt.t
-  ; post_mask      : mask -> mask Lwt.t
-  ; post_gateway   : gateway -> gateway Lwt.t
+  { post_ip        : Ipaddr.V4.t -> Ipaddr.V4.t Lwt.t
+  ; post_mask      : Ipaddr.V4.t -> Ipaddr.V4.t Lwt.t
+  ; post_gateway   : Ipaddr.V4.t -> Ipaddr.V4.t Lwt.t
   ; post_dhcp      : flag -> flag Lwt.t
   ; post_enable    : flag -> flag Lwt.t
   ; post_fec       : flag -> flag Lwt.t
   ; post_port      : port -> port Lwt.t
   ; post_meth      : meth -> meth Lwt.t
-  ; post_multicast : multicast -> multicast Lwt.t
+  ; post_multicast : Ipaddr.V4.t -> Ipaddr.V4.t Lwt.t
   ; post_delay     : delay -> delay Lwt.t
   ; post_rate_mode : rate_mode -> rate_mode Lwt.t
   ; post_reset     : unit -> unit Lwt.t
@@ -73,12 +73,12 @@ module Make_probes(M:M) : Probes = struct
 
   type t =
     { pool   : pool
-    ; prev   : board_status option
+    ; prev   : status option
     ; timer  : int
     ; events : event list
     }
 
-  let merge ({events;prev;_}:t) : board_status =
+  let merge ({events;prev;_}:t) : status =
     let get = fun f e -> Option.get_exn @@ List.find_map f e in
     { fec_delay       = get (function Fec_delay x -> Some x | _ -> None) events
     ; fec_cols        = get (function Fec_cols x -> Some x | _ -> None) events
@@ -252,9 +252,12 @@ module SM = struct
                | Ip (Set_enable _)        -> Some {c with ip = {c.ip with enable    = r }}
                | Ip (Set_fec_enable _)    -> Some {c with ip = {c.ip with fec       = r }}
                | Ip (Set_udp_port _)      -> Some {c with ip = {c.ip with port      = r }}
+               | Ip (Set_method _)        -> (match r with
+                                              | Unicast   -> Some {c with ip = {c.ip with multicast = None }}
+                                              | Multicast -> None)
                | Ip (Set_mcast_addr _)    -> Some {c with ip = {c.ip with multicast = Some r }}
-               | Ip (Set_delay _)         -> Some {c with ip = {c.ip with delay     = Some r }}
-               | Ip (Set_rate_est_mode _) -> Some {c with ip = {c.ip with rate_mode = Some r }}
+               | Ip (Set_delay _)         -> Some {c with ip = {c.ip with delay     = r }}
+               | Ip (Set_rate_est_mode _) -> Some {c with ip = {c.ip with rate_mode = r }}
                | _ -> None
              in
              let () = Option.iter (fun c -> pe.config c; storage#store c) c in
@@ -409,7 +412,7 @@ module SM = struct
                   Logs.debug (fun m ->
                       let s = (fmt "init step - got ip: %s" @@ Ipaddr.V4.to_string resp) in
                       m "%s" s);
-                  if equal_addr resp storage#get.nw.ip
+                  if Ipaddr.V4.equal resp storage#get.nw.ip
                   then (let r = Nw Get_mask in
                         Logs.debug (fun m -> m "%s" (fmt "init step - no need to set ip, skipping..."));
                         send r; `Continue (step_get_mask false period r None))
@@ -433,7 +436,7 @@ module SM = struct
                   Logs.debug (fun m ->
                       let s = (fmt "init step - got mask: %s" @@ Ipaddr.V4.to_string resp) in
                       m "%s" s);
-                  if equal_mask resp storage#get.nw.mask
+                  if Ipaddr.V4.equal resp storage#get.nw.mask
                   then (let r = Nw Get_gateway in
                         Logs.debug (fun m -> m "%s" (fmt "init step - no need to set mask, skipping..."));
                         send r; `Continue (step_get_gateway need_reboot period r None))
@@ -457,7 +460,7 @@ module SM = struct
                   Logs.debug (fun m ->
                       let s = (fmt "init step - got gateway: %s" @@ Ipaddr.V4.to_string resp) in
                       m "%s" s);
-                  if equal_gateway resp storage#get.nw.gateway
+                  if Ipaddr.V4.equal resp storage#get.nw.gateway
                   then (let r = Nw Get_dhcp in
                         Logs.debug (fun m -> m "%s" (fmt "init step - no need to set gateway, skipping..."));
                         send r; `Continue (step_get_dhcp need_reboot period r None))
@@ -564,7 +567,7 @@ module SM = struct
                   Logs.debug (fun m ->
                       let s = (fmt "init step - ip method set: %s" @@ meth_to_string x) in
                       m "%s" s);
-                  let r = Ip (Set_delay (Option.get_or ~default:100 storage#get.ip.delay)) in
+                  let r = Ip (Set_delay storage#get.ip.delay) in
                   send r; `Continue (step_init_ip_delay period r None))
                 ~failure:(fun acc -> bad_step p (step_init_ip_method (pred p) req acc))
 
@@ -574,7 +577,7 @@ module SM = struct
                   Logs.debug (fun m ->
                       let s = (fmt "init step - ip delay set: %s" @@ string_of_int x) in
                       m "%s" s);
-                  let r = Ip (Set_rate_est_mode (Option.get_or ~default:On storage#get.ip.rate_mode)) in
+                  let r = Ip (Set_rate_est_mode storage#get.ip.rate_mode) in
                   send r; `Continue (step_init_ip_rate_mode period r None))
                 ~failure:(fun acc -> bad_step p (step_init_ip_delay (pred p) req acc))
 
@@ -643,7 +646,7 @@ module SM = struct
     in first_step ()
 
   let to_streams_s status =
-    React.E.map (fun (x:board_status) ->
+    React.E.map (fun (x:status) ->
         let (stream:Common.Stream.stream) =
           { source      = Port 0
           ; id          = `Ts Single

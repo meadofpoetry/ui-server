@@ -12,7 +12,7 @@ type event =
   | Lost_after_fec of int64
   | Lost_before_fec of int64
   | Tp_per_ip of int
-  | Status of status
+  | Status of receiver_status
   | Protocol of protocol
   | Packet_size of packet_sz
   | Bitrate of int

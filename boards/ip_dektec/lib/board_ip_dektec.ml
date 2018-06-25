@@ -14,7 +14,7 @@ module Config_storage = Storage.Options.Make (Data)
 
 module Board_model : sig
   type _ req =
-    | Store_status : Board_types.board_status -> unit req
+    | Store_status : Board_types.status -> unit req
   include (Storage.Database.MODEL with type 'a req := 'a req)
 end = Db
 

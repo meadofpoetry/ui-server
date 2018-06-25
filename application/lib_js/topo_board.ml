@@ -85,7 +85,11 @@ let make_board_page ?error_prefix (board:Common.Topology.topo_board) =
      let w = new Board_ts2ip_niit_js.Settings.settings board.control () in
      Lwt_result.return w
   | "IP2TS","dtm-3200","dektec",1 ->
-     Board_ip_dektec_js.Topo_page.make board
+     let open Board_ip_dektec_js in
+     let factory = new Widget_factory.t board.control () in
+     let ({widget;_}:Dashboard.Item.item) = factory#create @@ Settings None in
+     widget#set_on_destroy @@ Some factory#destroy;
+     Lwt_result.return widget
   | typ,model,manuf,_ ->
      let s = Printf.sprintf "Неизвестная плата: %s\nМодель: %s\nПроизводитель: %s" typ model manuf in
      Lwt_result.fail s

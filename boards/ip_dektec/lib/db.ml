@@ -8,7 +8,7 @@ let name = "ip_dektec"
 let table = "ip_status"
    
 type _ req =
-  | Store_status : Board_types.board_status -> unit req
+  | Store_status : status -> unit req
 
 let init db =
   let create =
@@ -21,7 +21,7 @@ let init db =
        )|eos}
   in db.exec (Exec create) ()
    
-let store_status db (s : board_status) =
+let store_status db (s : status) =
   let insert =
     Caqti_request.exec Caqti_type.(tup3 int int bool)
       {|INSERT INTO ip_status(bitrate,fec_delay,pcr_present)

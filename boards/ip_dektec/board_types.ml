@@ -1,4 +1,4 @@
-open Common.Topology
+open Common
 
 (* Overall types *)
 type mode        = Asi2ip | Ip2asi
@@ -18,12 +18,12 @@ let storage_to_string = function
   | Ram   -> "RAM"
 
 (* Ip types *)
-type status    = Enabled | Disabled | Failure [@@deriving yojson, show]
-type protocol  = Udp | Rtp [@@deriving yojson, show]
-type meth      = Unicast | Multicast [@@deriving yojson, show]
-type output    = Asi | Spi
-type packet_sz = Ts188 | Ts204 [@@deriving yojson, show]
-type rate_mode = On | Fixed | Without_pcr | Off [@@deriving yojson,eq]
+type receiver_status = Enabled | Disabled | Failure [@@deriving yojson, show]
+type protocol        = Udp | Rtp [@@deriving yojson, show]
+type meth            = Unicast | Multicast [@@deriving yojson, eq, show]
+type output          = Asi | Spi
+type packet_sz       = Ts188 | Ts204 [@@deriving yojson, show]
+type rate_mode       = On | Fixed | Without_pcr | Off [@@deriving yojson,eq]
 
 let meth_to_string = function
   | Unicast   -> "unicast"
@@ -38,16 +38,6 @@ let rate_mode_to_string = function
 (* Asi types *)
 type asi_packet_sz = Sz of packet_sz | As_is
 
-module Macaddr = struct
-  include Macaddr
-  let to_yojson x = `String (Macaddr.to_string x)
-  let of_yojson = function
-    | `String s -> (match Macaddr.of_string s with
-                    | Some m -> Ok m
-                    | None   -> Error ("bad mac: " ^ s))
-    | x         -> Error ("not a mac addr: " ^ (Yojson.Safe.to_string x))
-end
-
 type devinfo =
   { fpga_ver : int
   ; hw_ver   : int
@@ -59,43 +49,13 @@ type devinfo =
 
 type devinfo_opt = devinfo option [@@deriving yojson]
 
-let ipv4_to_yojson (a : Ipaddr.V4.t) : Yojson.Safe.json =
-  let s = Ipaddr.V4.to_string a in
-  `String s
-
-let ipv4_of_yojson = function
-  | `String s -> (match Ipaddr.V4.of_string s with
-                  | Some a -> Ok a
-                  | None -> Error ("bad address: " ^ s))
-  | _ -> Error "not an ip addr"
-
-type addr = Ipaddr.V4.t
-let addr_to_yojson : addr -> Yojson.Safe.json = ipv4_to_yojson
-let addr_of_yojson : Yojson.Safe.json -> (addr, string) result = ipv4_of_yojson
-let equal_addr (x1:addr) (x2:addr) : bool = Int32.equal (Ipaddr.V4.to_int32 x1) (Ipaddr.V4.to_int32 x2)
-
-type mask = Ipaddr.V4.t
-let mask_to_yojson : mask -> Yojson.Safe.json = ipv4_to_yojson
-let mask_of_yojson : Yojson.Safe.json -> (mask, string) result = ipv4_of_yojson
-let equal_mask = equal_addr
-
-type gateway = Ipaddr.V4.t
-let gateway_to_yojson : gateway -> Yojson.Safe.json = ipv4_to_yojson
-let gateway_of_yojson : Yojson.Safe.json -> (gateway, string) result = ipv4_of_yojson
-let equal_gateway = equal_addr
-
 type port = int [@@deriving yojson,eq]
-
-type multicast = Ipaddr.V4.t
-let multicast_to_yojson : multicast -> Yojson.Safe.json = ipv4_to_yojson
-let multicast_of_yojson : Yojson.Safe.json -> (multicast, string) result = ipv4_of_yojson
-let equal_multicast = equal_addr
 
 type delay = int [@@deriving yojson,eq]
 
 type flag = bool [@@deriving yojson,eq]
 
-type board_status =
+type status =
   { fec_delay       : int
   ; fec_cols        : int
   ; fec_rows        : int
@@ -103,7 +63,7 @@ type board_status =
   ; lost_after_fec  : int64
   ; lost_before_fec : int64
   ; tp_per_ip       : int
-  ; status          : status
+  ; status          : receiver_status
   ; protocol        : protocol
   ; packet_size     : packet_sz
   ; bitrate         : int
@@ -115,11 +75,6 @@ type board_status =
   ; asi_bitrate     : int
   } [@@deriving yojson]
 
-let status_to_string = function
-  | Enabled  -> "Channel is enabled; No errors detected"
-  | Disabled -> "Channel has been disabled"
-  | Failure  -> "Channel is enabled, but there is a problem when processing of the received IP stream"
-
 let protocol_to_string = function
   | Udp -> "UDP"
   | Rtp -> "RTP"
@@ -128,18 +83,20 @@ let packet_sz_to_string = function
   | Ts188 -> "188"
   | Ts204 -> "204"
 
-type nw = { ip      : addr
-          ; mask    : mask
-          ; gateway : gateway
+type ipv4_opt = Ipaddr.V4.t option [@@deriving yojson]
+
+type nw = { ip      : Ipaddr.V4.t
+          ; mask    : Ipaddr.V4.t
+          ; gateway : Ipaddr.V4.t
           ; dhcp    : flag
           } [@@deriving yojson,eq]
 
 type ip = { enable    : flag
           ; fec       : flag
           ; port      : port
-          ; multicast : multicast option
-          ; delay     : delay option
-          ; rate_mode : rate_mode option
+          ; multicast : Ipaddr.V4.t option
+          ; delay     : delay
+          ; rate_mode : rate_mode
           } [@@deriving yojson,eq]
 
 type config = { nw : nw
@@ -159,7 +116,7 @@ let config_default = { nw = { ip        = Ipaddr.V4.of_string_exn "192.168.111.6
                             ; fec       = true
                             ; port      = 1234
                             ; multicast = Some (Ipaddr.V4.of_string_exn "224.1.2.2")
-                            ; delay     = Some 100
-                            ; rate_mode = Some On
+                            ; delay     = 100
+                            ; rate_mode = On
                             }
                      }
