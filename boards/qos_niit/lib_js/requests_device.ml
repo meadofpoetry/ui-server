@@ -52,7 +52,7 @@ module HTTP = struct
 
   let get_devinfo control =
     let path = make_path control ["info"] in
-    get_result ~path devinfo_of_yojson ()
+    get_result ~path devinfo_opt_of_yojson ()
 
   let get_t2mi_mode control =
     let path = make_path control ["mode";"t2mi"] in

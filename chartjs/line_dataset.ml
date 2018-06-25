@@ -315,17 +315,21 @@ class ['a,'b] t ~(label:string)
       self#ps_replace data;
       self#update_max ()
     method private shift () =
-      Option.iter (fun _ ->
-          let rec iter = (fun () ->
-              (match Js.Optdef.to_option @@ Js.array_get _obj##.data 0, x_axis#min with
-               | Some js_p,Some min -> let p = self#point_of_js js_p in
-                                       if x_axis#cmp_value p.x min < 0
-                                       then (self#ps_remove 1 `Head;
-                                             _obj##.data##shift |> ignore;
-                                             iter ())
-               | _ -> ()))
+      Option.iter (fun (_,min) ->
+          let rec aux acc = match Js.Optdef.to_option @@ Js.array_get _obj##.data acc with
+            | Some js_p ->
+               let p = self#point_of_js js_p in
+               if x_axis#cmp_value p.x min < 0
+               then aux (succ acc)
+               else acc
+            | None -> acc
           in
-          iter ()) x_axis#delta
+          let rec rm = function
+            | x when x <= 1 -> ()
+            | acc -> self#ps_remove 1 `Head;
+                     _obj##.data##shift |> ignore;
+                     rm (pred acc)
+          in rm (aux 0)) @@ Option.map2 (fun d m -> d,m) x_axis#delta x_axis#min
     method private sorted_insert_uniq data x =
       let cmp = (fun (p1:('a,'b) point) (p2:('a,'b) point) -> x_axis#cmp_value p1.x p2.x) in
       let rec aux x left l = match l with
@@ -467,6 +471,8 @@ class ['a,'b] t ~(label:string)
       self#set_data data;
       _obj##.xAxisID := Js.string x_axis#id;
       _obj##.yAxisID := Js.string y_axis#id;
+      self#set_show_line true;
+      self#set_span_gaps false;
       React.S.map (fun _ -> self#shift ()) x_axis#s_max |> ignore
 
   end

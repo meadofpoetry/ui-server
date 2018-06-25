@@ -8,6 +8,10 @@ module Clock = struct
     | Some x -> x
     | None   -> assert false
 
+  let now_s () = match of_float_s @@ Unix.time () with
+    | Some x -> x
+    | None   -> assert false
+
 end
 
 let to_yojson (v:t) : Yojson.Safe.json =
