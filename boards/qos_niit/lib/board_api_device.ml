@@ -125,7 +125,7 @@ module HTTP = struct
 
 end
 
-let handler api events id meth ({path;query;_}:Uri.sep) sock_data headers body =
+let handler api events ({path;query;_}:Uri.uri) id meth headers body sock_data =
   let is_guest = Common.User.eq id `Guest in
   match Api.Headers.is_ws headers,meth,path with
   (* WS *)

@@ -7,6 +7,7 @@ module Stream = struct
 
   module Show = struct
     type t = Common.Stream.id
+    let typ = "int32"
     let of_string s = Int32.of_string_opt s
                       |> CCOpt.map Common.Stream.id_of_int32
                       |> CCOpt.get_exn
@@ -68,9 +69,10 @@ module Time = struct
   let k_dur   = "duration"
 
   module Show_time = Either(Show_RFC3339)(Show_float)
-
+                   
   module Show = struct
     type t = Common.Time.t
+    let typ = Show_time.typ
     let of_string s = match Show_time.of_string s with
       | `Left x -> x | `Right x -> x
     let to_string t = Show_time.to_string (`Left t)
