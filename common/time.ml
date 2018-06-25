@@ -25,7 +25,8 @@ let of_yojson (j:Yojson.Safe.json) : (t,string) result =
 
 module Show_RFC3339 = struct
   type t = Ptime.t
-
+  let typ = "time"
+    
   let of_string s =
     of_rfc3339 s |> function Ok (v,_,_) -> v | Error _ -> failwith (Printf.sprintf "RFC3339.of_string: bad input %s" s)
 
@@ -44,6 +45,7 @@ end
 
 module Show_float = struct
   type t = Ptime.t
+  let typ = "time"
 
   let of_string x = Option.get_exn @@ Ptime.of_float_s @@ Float.of_string x
   let to_string x = Float.to_string @@ Ptime.to_float_s x
@@ -81,6 +83,8 @@ module Period = struct
                val to_int : int * int64 -> int
              end) = struct
     type t = Ptime.Span.t
+    let typ = "period"
+            
     let of_int x = Option.get_exn @@ Ptime.Span.of_d_ps (M.of_int x)
     let to_int x = M.to_int @@ Ptime.Span.to_d_ps x
     let of_string s = of_int @@ int_of_string s
@@ -96,6 +100,8 @@ module Period = struct
              then failwith "Time.Span.Conv64: second precision is more than 1ps"
 
     type t = Ptime.Span.t
+    let typ = "period"
+            
     let of_int64 x =
       let d  = Int64.(to_int (x / (24L * 60L * 60L * M.second))) in
       let ps = Int64.((x mod (24L * 60L * 60L)) * (ps_in_s / M.second)) in
@@ -138,6 +144,7 @@ end
 
 module Relative = struct
   include Ptime.Span
+  let typ = "relative time"
 
   let ps_in_s = 1_000_000_000_000L
   let s_in_minute = 60L

@@ -1,13 +1,12 @@
 open Containers
 open Redirect
    
-module Make ( User : sig type t end ) = struct
+module Make ( User : sig type t val eq : t -> t -> bool end ) = struct
   
   type socket_data = Cohttp_lwt_unix.Request.t * Conduit_lwt_unix.flow
 
-  type call = (User.t -> Cohttp.Code.meth ->
-               Cohttp.Header.t -> Cohttp_lwt.Body.t -> socket_data ->
-               (Cohttp.Response.t * Cohttp_lwt.Body.t) Lwt.t) Common.Uri.Dispatcher.node
+  type handler = (User.t -> Cohttp.Header.t -> Cohttp_lwt.Body.t -> socket_data ->
+                  (Cohttp.Response.t * Cohttp_lwt.Body.t) Lwt.t) Common.Uri.Dispatcher.node
           
   let wrap api_call uri meth headers body sock_data =
     fun id -> api_call uri id meth headers body sock_data
@@ -50,13 +49,36 @@ module Make ( User : sig type t end ) = struct
                  not_found ()) (* TODO error *)
      end : HANDLER)
 
-  let create_dispatcher (domain : string) (calls : call list) : (module HANDLER) =
+  module Meth_map = Map.Make (struct
+                        type t = Cohttp.Code.meth
+                        let compare : t -> t -> int = Pervasives.compare
+                      end)
+
+  let (%) f g x = f (g x)
+                  
+  let create_handler ?docstring ?(restrict = []) ~path ~query handler : handler =
+    let not_allowed id = List.exists (User.eq id) restrict in
+    let node = Common.Uri.Dispatcher.make ?docstring ~path ~query handler in
+    { node with handler = (fun uri id headers body sock_data ->
+      redirect_if (not_allowed id) @@ node.handler uri headers body sock_data) }
+                   
+  let create_dispatcher (domain : string)
+        (ws_calls : handler list)
+        (calls : (Cohttp.Code.meth * handler list) list) : (module HANDLER) =
     let open Common.Uri in
-    let tbl = List.fold_left (fun acc node -> Dispatcher.add acc node) Dispatcher.empty calls in
+    let ws_tbl = List.fold_left (fun acc node -> Dispatcher.add acc node) Dispatcher.empty ws_calls in
+    let tbl = List.fold_left (fun acc (meth, calls) ->
+                  let disp = List.fold_left (fun acc node -> Dispatcher.add acc node) Dispatcher.empty calls in
+                  Meth_map.add meth disp acc)
+                Meth_map.empty calls
+    in
     (module struct
        let domain = domain
        let handle uri id meth headers body sock_data =
-         try Dispatcher.dispatch tbl uri id meth headers body sock_data
+         try if Headers.is_ws headers
+             then Dispatcher.dispatch ws_tbl uri id headers body sock_data
+             else let tbl = Meth_map.find meth tbl in
+                  Dispatcher.dispatch tbl uri id headers body sock_data
          with _ -> (Logs.err (fun m -> m "(Api_handler) failure in %s %s" domain Common.Uri.(to_string @@ of_uri uri));
                     not_found ()) (* TODO error *)
      end : HANDLER)

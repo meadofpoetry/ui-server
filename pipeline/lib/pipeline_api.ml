@@ -17,8 +17,8 @@ let () = Random.init (int_of_float @@ Unix.time ())
 let rand_int = fun () -> Random.run (Random.int 10000000)
 
 let socket_table = Hashtbl.create 1000
-
-let get_page () =
+             
+let get_page id headers body sock =
   respond_html_elt
     Tyxml.Html.(div
                   [ h2 [ pcdata "Pipeline page" ];
@@ -51,12 +51,12 @@ let get_sock sock_data body conv event =
   Hashtbl.add socket_table id sock_events;
   Lwt.return (resp, (body :> Cohttp_lwt.Body.t))
 
-let set_structure api body () =
+let set_structure api test test headers body sock () =
   Lwt_io.printf "set structure\n" |> ignore;
   set body Structure.Streams.of_yojson
     Pipeline_protocol.(fun x -> api.requests.streams.set x)
 
-let get_structure api () =
+let get_structure api id headers body sock =
   let open Pipeline_protocol in
   api.requests.streams.get ()
   >>= (function
@@ -65,7 +65,7 @@ let get_structure api () =
   >|= (Structure.Streams.to_yojson %> Result.return)
   >>= Json.respond_result
 
-let get_structure_sock sock_data body api () =
+let get_structure_sock sock_data body api =
   let open Pipeline_protocol in
   get_sock sock_data body Structure.Streams.to_yojson (React.S.changes api.streams)
 
@@ -73,7 +73,7 @@ let set_settings api body () =
   set body Settings.of_yojson
       Pipeline_protocol.(fun x -> api.requests.settings.set x)
 
-let get_settings api () =
+let get_settings api id headers body sock =
   let open Pipeline_protocol in
   api.requests.settings.get ()
   >>= (function
@@ -116,7 +116,7 @@ let get_vdata_sock sock_data body api ?stream ?channel ?pid () =
      let pred (x : Video_data.t) = x.stream = s in
      get_sock sock_data body Video_data.to_yojson (React.E.filter pred api.vdata)
   | _ -> get_sock sock_data body Video_data.to_yojson api.vdata
-
+(*
 let pipeline_handle api id meth uri sock_data _ body =
   let open Common.Uri in
   let open Queries in
@@ -136,7 +136,31 @@ let pipeline_handle api id meth uri sock_data _ body =
                                     (get_vdata_sock sock_data body api)
                                     (fun e -> respond_error ~status:`Bad_request "Bad request" ())
   | _                          -> not_found ()
+ *)
+let handlers api =
+  let open Common.Uri in
+  Api_handler.create_dispatcher
+    "pipeline"
+    []
+    [ `GET,  [ Api_handler.create_handler ~docstring:"Pipeline page" ~path:Path.Format.empty ~query:Query.empty
+                 get_page
+             ; Api_handler.create_handler ~docstring:"Structure" ~path:Path.Format.("structure" @/ empty)
+                 ~query:Query.empty  (get_structure api)
+             ; Api_handler.create_handler ~docstring:"Settings" ~path:Path.Format.("settings" @/ empty)
+                 ~query:Query.empty  (get_settings api)
+             ]
+    ; `POST, [ Api_handler.create_handler ~docstring:"Post structure"
+                 ~path:Path.Format.("structure" @/ Int ^/ empty)
+                 ~query:Query.["name", (module Single(String))]
+                 (set_structure api)
+    ]
 
+      (*
+  [ (module struct
+       let domain = "pipeline"
+       let handle = pipeline_handle api
+     end : Api_handler.HANDLER)
+       *)                        
 (* TODO fix dat *)
 (*
 let of_seconds s =
@@ -180,12 +204,7 @@ let archive_handle api id meth uri_sep sock_data _ body =
   | `GET,  ["structures_between";i;num;from;to'] -> get_structures_between api i num from to' ()
   | _                             -> not_found ()               
                                      *)                         
-let handlers api =
-  [ (module struct
-       let domain = "pipeline"
-       let handle = pipeline_handle api
-     end : Api_handler.HANDLER)
   (*; (module struct
        let domain = "pipeline_archive"
        let handle = archive_handle api
-     end : Api_handler.HANDLER) *)]
+     end : Api_handler.HANDLER) *)

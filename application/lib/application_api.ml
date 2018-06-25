@@ -97,13 +97,15 @@ let handlers app =
   let hls = Hardware.Map.fold (fun _ x acc -> x.handlers @ acc) app.hw.boards [] in
   let proc_api = match app.proc with
     | None      -> []
-    | Some proc -> proc#handlers ()
+    | Some proc -> proc#handlers () (* TODO ? *)
   in
-  [ Api_handler.add_layer "board" hls ;
+  [ Api_handler.add_layer "board" hls
+  ; Api_handler.create_dispatcher "topology" [] [] ]
+    (*
     (module struct
        let domain = "topology"
        let handle = handle app
-     end : Api_handler.HANDLER) ]
+     end : Api_handler.HANDLER) ]*)
   @ proc_api
   @ (Pc_control.Network_api.handlers app.network)
   @ (User_api.handlers app.users)

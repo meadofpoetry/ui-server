@@ -7,6 +7,7 @@ module Stream = struct
 
   module Show = struct
     type t = Common.Stream.id
+    let typ = "stream id"
     let of_string s = Int32.of_string_opt s
                       |> CCOpt.map Common.Stream.id_of_int32
                       |> CCOpt.get_exn
@@ -71,6 +72,7 @@ module Time = struct
 
   module Show = struct
     type t = Common.Time.t
+    let typ = "time"    (* TODO fix this abomination *)
     let of_string s = match Show_time.of_string s with
       | `Left x -> x | `Right x -> x
     let to_string t = Show_time.to_string (`Left t)
