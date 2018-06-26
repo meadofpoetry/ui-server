@@ -343,7 +343,7 @@ module HTTP = struct
 
 end
 
-let ts_handler api events _ meth ({path;query;_}:Uri.sep) sock_data headers body =
+let ts_handler api events ({path;query;_}:Uri.uri) _ meth headers body sock_data =
   match Api.Headers.is_ws headers,meth,path with
   (* WS *)
   | true, `GET,[]                  -> WS.streams sock_data events body ()
@@ -362,7 +362,7 @@ let ts_handler api events _ meth ({path;query;_}:Uri.sep) sock_data headers body
       | _, None -> respond_error_other (Printf.sprintf "bad table id value: %s" tid))
   | _ -> not_found ()
 
-let t2mi_handler api events _ meth ({scheme;path;query}:Uri.sep) sock_data _ body =
+let t2mi_handler api events ({scheme;path;query}:Uri.uri) _ meth _ body sock_data =
   match Uri.Scheme.is_ws scheme,meth,path with
   (* WS *)
   | true, `GET,["state"]     -> WS.T2MI.state sock_data events body query ()

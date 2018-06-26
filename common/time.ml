@@ -26,6 +26,8 @@ let of_yojson (j:Yojson.Safe.json) : (t,string) result =
 module Show_RFC3339 = struct
   type t = Ptime.t
 
+  let typ = "RFC3339 timestamp"
+
   let of_string s =
     of_rfc3339 s |> function Ok (v,_,_) -> v | Error _ -> failwith (Printf.sprintf "RFC3339.of_string: bad input %s" s)
 
@@ -44,6 +46,8 @@ end
 
 module Show_float = struct
   type t = Ptime.t
+
+  let typ = "UNIX timestamp (float)"
 
   let of_string x = Option.get_exn @@ Ptime.of_float_s @@ Float.of_string x
   let to_string x = Float.to_string @@ Ptime.to_float_s x
@@ -138,6 +142,8 @@ end
 
 module Relative = struct
   include Ptime.Span
+
+  let typ = "RFC3339 duration"
 
   let ps_in_s = 1_000_000_000_000L
   let s_in_minute = 60L

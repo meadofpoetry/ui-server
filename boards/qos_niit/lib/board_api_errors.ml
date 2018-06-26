@@ -20,7 +20,7 @@ module WS = struct
   module TS = struct
 
     let errors sock_data (events:events) body query () =
-      let res = Uri.Query.(parse_query ["id", (module Option(Caml.Int32))]
+      let res = Uri.Query.(parse_query ["id", (module Option(Int32))]
                                        (fun x -> CCOpt.map Stream.id_of_int32 x) query) in
       match res with
       | Ok id ->
@@ -130,7 +130,7 @@ module HTTP = struct
   end
 end
 
-let ts_handler events _ meth ({path;query;_}:Uri.sep) sock_data headers body =
+let ts_handler events ({path;query;_}:Uri.uri) _ meth headers body sock_data =
   match Api.Headers.is_ws headers,meth,Uri.Path.to_string path with
   (* WS *)
   | true, `GET,""        -> WS.TS.errors sock_data events body query ()
@@ -140,7 +140,7 @@ let ts_handler events _ meth ({path;query;_}:Uri.sep) sock_data headers body =
   | false,`GET,"has-any" -> HTTP.TS.has_any query ()
   | _                    -> not_found ()
 
-let t2mi_handler events _ meth ({path;query;_}:Uri.sep) sock_data headers body =
+let t2mi_handler events ({path;query;_}:Uri.uri) _ meth headers body sock_data =
   match Api.Headers.is_ws headers,meth,Uri.Path.to_string path with
   (* WS *)
   | true, `GET,""        -> WS.T2MI.errors sock_data events body query ()

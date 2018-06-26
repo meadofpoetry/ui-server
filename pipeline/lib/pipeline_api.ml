@@ -117,7 +117,7 @@ let get_vdata_sock sock_data body api ?stream ?channel ?pid () =
      get_sock sock_data body Video_data.to_yojson (React.E.filter pred api.vdata)
   | _ -> get_sock sock_data body Video_data.to_yojson api.vdata
 
-let pipeline_handle api id meth uri sock_data _ body =
+let pipeline_handle api uri id meth _ body sock_data =
   let open Common.Uri in
   let open Queries in
   let is_guest = Common.User.eq id `Guest in
