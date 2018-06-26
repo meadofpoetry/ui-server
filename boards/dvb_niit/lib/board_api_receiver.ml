@@ -7,179 +7,188 @@ open Api.Interaction
 open Api.Interaction.Json
 open Api.Redirect
 
-(** API
-    POST /receiver/mode
-
-    GET  /receiver/mode
-    GET  /receiver/lock
-    GET  /receiver/measures
-    GET  /receiver/parameters
-    GET  /receiver/plp-list
- *)
-
-
-let parse_id = Uri.Query.(parse_query ["id", (module Option(Int))] (fun x -> x))
-
 module WS = struct
 
-  let mode sock_data (events:events) body (query:Uri.Query.t) () =
-    match parse_id query with
-    | Ok (Some id) ->
+  let mode (events:events) id _ body sock_data () = match id with
+    | Some id ->
        let e = React.E.filter (fun (m:mode) -> m.id = id) events.mode in
        sock_handler sock_data e mode_to_yojson body
-    | Ok None -> sock_handler sock_data events.mode mode_to_yojson body
-    | Error e -> respond_error "bad query" ()
+    | None -> sock_handler sock_data events.mode mode_to_yojson body
 
-  let lock sock_data (events:events) body (query:Uri.Query.t) () =
-    match parse_id query with
-    | Ok (Some id) ->
+  let lock (events:events) id _ body sock_data () = match id with
+    | Some id ->
        let e = React.E.filter (fun (l:lock) -> l.id = id) events.lock in
        sock_handler sock_data e lock_to_yojson body
-    | Ok None -> sock_handler sock_data events.lock lock_to_yojson body
-    | Error e -> respond_error "bad query" ()
+    | None -> sock_handler sock_data events.lock lock_to_yojson body
 
-  let measures sock_data (events:events) body (query:Uri.Query.t) () =
-    match parse_id query with
-    | Ok (Some id) ->
+  let measures (events:events) id _ body sock_data () = match id with
+    | Some id ->
        let e = React.E.filter (fun (m:measures) -> m.id = id) events.measures in
        sock_handler sock_data e measures_to_yojson body
-    | Ok None -> sock_handler sock_data events.measures measures_to_yojson body
-    | Error e -> respond_error "bad query" ()
+    | None -> sock_handler sock_data events.measures measures_to_yojson body
 
-  let parameters sock_data (events:events) body (query:Uri.Query.t) () =
-    match parse_id query with
-    | Ok (Some id) ->
+  let parameters (events:events) id _ body sock_data () = match id with
+    | Some id ->
        let e = React.E.filter (fun (p:params) -> p.id = id) events.params in
        sock_handler sock_data e params_to_yojson body
-    | Ok None -> sock_handler sock_data events.params params_to_yojson body
-    | Error e -> respond_error "bad query" ()
+    | None -> sock_handler sock_data events.params params_to_yojson body
 
-  let plp_list sock_data (events:events) body (query:Uri.Query.t) () =
-    match parse_id query with
-    | Ok (Some id) ->
+  let plp_list (events:events) id _ body sock_data () = match id with
+    | Some id ->
        let e = React.E.filter (fun (x:plp_list) -> x.id = id) events.plp_list in
        sock_handler sock_data e plp_list_to_yojson body
-    | Ok None -> sock_handler sock_data events.plp_list plp_list_to_yojson body
-    | Error e -> respond_error "bad query" ()
+    | None -> sock_handler sock_data events.plp_list plp_list_to_yojson body
 
 end
 
 module HTTP = struct
 
-  let post_mode (api:api) body () =
+  let post_mode (api:api) _ body () =
     of_body body >>= fun mode ->
     (match mode_of_yojson mode with
      | Error e -> Lwt_result.fail @@ Json.of_error_string e
      | Ok mode -> api.set_mode mode >|= (mode_rsp_to_yojson %> Result.return))
     >>= Json.respond_result
 
-  let mode_last (api:api) (query:Uri.Query.t) () =
+  let mode (api:api) id _ _ () =
     let channel (x:config_item) = match x.standard with
       | T2 -> x.t2 | T -> x.t | C -> x.c
     in
     let config = api.get_config () in
-    match parse_id query with
-    | Ok (Some id) ->
-       (match List.find_opt (fun (id',_) -> id = id') config with
-        | Some (_,({standard;_} as x)) ->
-           let mode = { id; standard; channel = channel x } in
-           respond_result (Ok (mode_to_yojson mode))
-        | None -> (`String "no receiver found") |> Result.fail |> respond_result)
-    | Ok None ->
-       List.map (fun (id,({standard;_} as x)) -> { id; standard; channel = channel x }) config
-       |> modes_to_yojson
-       |> Result.return
-       |> respond_result
-    | Error e -> respond_error "bad query" ()
+    match id with
+    | Some id -> (match List.find_opt (fun (id',_) -> id = id') config with
+                  | Some (_,({standard;_} as x)) ->
+                     let mode = { id; standard; channel = channel x } in
+                     respond_result (Ok (mode_to_yojson mode))
+                  | None -> (`String "no receiver found") |> Result.fail |> respond_result)
+    | None -> List.map (fun (id,({standard;_} as x)) -> { id; standard; channel = channel x }) config
+              |> modes_to_yojson
+              |> Result.return
+              |> respond_result
 
-  let get_last (get:unit -> 'a list)
+  let get_last ?id
+               (get:unit -> 'a list)
                (get_id:'a -> int)
                (one_to_yojson:'a -> Yojson.Safe.json)
                (all_to_yojson:'a list -> Yojson.Safe.json)
-               (query:Uri.Query.t) () =
+               () =
     let coll = get () in
-    match parse_id query with
-    | Ok (Some id) ->
+    match id with
+    | Some id ->
        (match List.find_opt (fun (x:'a) -> (get_id x) = id) coll with
         | Some x -> one_to_yojson x     |> Result.return |> respond_result
         | None   -> `String "not found" |> Result.fail   |> respond_result)
-    | Ok None -> all_to_yojson coll |> Result.return |> respond_result
-    | Error e -> respond_error "bad query" ()
+    | None -> all_to_yojson coll |> Result.return |> respond_result
 
-  let lock_last (api:api) (query:Uri.Query.t) () =
-    get_last api.get_lock (fun x -> x.id) lock_to_yojson lock_all_to_yojson query ()
+  let lock (api:api) id _ _ () =
+    get_last ?id api.get_lock (fun x -> x.id) lock_to_yojson lock_all_to_yojson ()
 
-  let measures_last (api:api) (query:Uri.Query.t) () =
-    get_last api.get_measures (fun x -> x.id) measures_to_yojson measures_all_to_yojson query ()
+  let measures (api:api) id _ _ () =
+    get_last ?id api.get_measures (fun x -> x.id) measures_to_yojson measures_all_to_yojson ()
 
-  let parameters_last (api:api) (query:Uri.Query.t) () =
-    get_last api.get_params (fun x -> x.id) params_to_yojson params_all_to_yojson query ()
+  let parameters (api:api) id _ _ () =
+    get_last ?id api.get_params (fun x -> x.id) params_to_yojson params_all_to_yojson ()
 
-  let plp_list_last (api:api) (query:Uri.Query.t) () =
-    get_last api.get_plp_list (fun x -> x.id) plp_list_to_yojson plp_list_all_to_yojson query ()
+  let plp_list (api:api) id _ _ () =
+    get_last ?id api.get_plp_list (fun x -> x.id) plp_list_to_yojson plp_list_all_to_yojson ()
 
   module Archive = struct
 
-    let mode time (query:Uri.Query.t) () =
+    let mode id from till duration _ _ () =
       not_found ()
 
-    let lock time (query:Uri.Query.t) () =
+    let lock id from till duration _ _ () =
       not_found ()
 
-    let measures time (query:Uri.Query.t) () =
+    let measures id from till duration _ _ () =
       not_found ()
 
-    let parameters time (query:Uri.Query.t) () =
+    let parameters id from till duration _ _ () =
       not_found ()
 
   end
 
-  let mode (api:api) (query:Uri.Query.t) () =
-    match Api.Query.Time.get' query with
-    | Ok (Some time,query) -> Archive.mode time query ()
-    | Ok (None,query)      -> mode_last api query ()
-    | Error e              -> respond_error "bad query" ()
-
-  let lock (api:api) (query:Uri.Query.t) () =
-    match Api.Query.Time.get' query with
-    | Ok (Some time,query) -> Archive.lock time query ()
-    | Ok (None,query)      -> lock_last api query ()
-    | Error e              -> respond_error "bad query" ()
-
-  let measures (api:api) (query:Uri.Query.t) () =
-    match Api.Query.Time.get' query with
-    | Ok (Some time,query) -> Archive.measures time query ()
-    | Ok (None,query)      -> measures_last api query ()
-    | Error e              -> respond_error "bad query" ()
-
-  let parameters (api:api) (query:Uri.Query.t) () =
-    match Api.Query.Time.get' query with
-    | Ok (Some time,query) -> Archive.parameters time query ()
-    | Ok (None,query)      -> parameters_last api query ()
-    | Error e              -> respond_error "bad query" ()
-
-  let plp_list (api:api) (query:Uri.Query.t) () =
-    match Api.Query.Time.get' query with
-    | Ok (Some time,query) -> respond_error ~status:`Not_implemented "not implemented" ()
-    | Ok (None,query)      -> plp_list_last api query ()
-    | Error e              -> respond_error "bad query" ()
-
 end
 
-let handler api events id meth ({path;query;_}:Uri.sep) sock_data headers body =
-  let is_guest = Common.User.eq id `Guest in
-  match Api.Headers.is_ws headers,meth,path with
-  (* WS*)
-  | true, `GET, ["mode"]       -> WS.mode       sock_data events body query ()
-  | true, `GET, ["lock"]       -> WS.lock       sock_data events body query ()
-  | true, `GET, ["measures"]   -> WS.measures   sock_data events body query ()
-  | true, `GET, ["parameters"] -> WS.parameters sock_data events body query ()
-  | true, `GET, ["plp-list"]   -> WS.plp_list   sock_data events body query ()
-  (* HTTP *)
-  | false,`POST,["mode"]       -> redirect_if is_guest @@ HTTP.post_mode api body
-  | false,`GET, ["mode"]       -> HTTP.mode       api query ()
-  | false,`GET, ["lock"]       -> HTTP.lock       api query ()
-  | false,`GET, ["measures"]   -> HTTP.measures   api query ()
-  | false,`GET, ["parameters"] -> HTTP.parameters api query ()
-  | false,`GET, ["plp_list"]   -> HTTP.plp_list   api query ()
-  | _ -> not_found ()
+let handler api events =
+  let open Uri in
+  let open Boards.Board.Api_handler in
+  create_dispatcher
+    "receiver"
+    [ create_ws_handler ~docstring:"Returns current receiver mode"
+                        ~path:Path.Format.("mode" @/ empty)
+                        ~query:Query.["id", (module Option(Int))]
+                        (WS.mode events)
+    ; create_ws_handler ~docstring:"Returns current receiver lock state"
+                        ~path:Path.Format.("lock" @/ empty)
+                        ~query:Query.["id", (module Option(Int))]
+                        (WS.lock events)
+    ; create_ws_handler ~docstring:"Returns measures from the receiver"
+                        ~path:Path.Format.("measures" @/ empty)
+                        ~query:Query.["id", (module Option(Int))]
+                        (WS.measures events)
+    ; create_ws_handler ~docstring:"Returns parameters of received DVB-T2 signal"
+                        ~path:Path.Format.("parameters" @/ empty)
+                        ~query:Query.["id", (module Option(Int))]
+                        (WS.parameters events)
+    ; create_ws_handler ~docstring:"Returns available PLPs in received DVB-T2 signal"
+                        ~path:Path.Format.("plp-list" @/ empty)
+                        ~query:Query.["id", (module Option(Int))]
+                        (WS.plp_list events)
+    ]
+    [ `POST, [ create_handler ~docstring:"Sets receiver mode"
+                              ~path:Path.Format.("mode" @/ empty)
+                              ~query:Query.empty
+                              (HTTP.post_mode api)
+             ]
+    ; `GET,  [ create_handler ~docstring:"Returns current receiver mode"
+                              ~path:Path.Format.("mode" @/ empty)
+                              ~query:Query.["id", (module Option(Int))]
+                              (HTTP.mode api)
+             ; create_handler ~docstring:"Returns current receiver lock state"
+                              ~path:Path.Format.("lock" @/ empty)
+                              ~query:Query.["id", (module Option(Int))]
+                              (HTTP.lock api)
+             ; create_handler ~docstring:"Returns measures from the receiver"
+                              ~path:Path.Format.("measures" @/ empty)
+                              ~query:Query.["id", (module Option(Int))]
+                              (HTTP.measures api)
+             ; create_handler ~docstring:"Returns parameters of received DVB-T2 signal"
+                              ~path:Path.Format.("parameters" @/ empty)
+                              ~query:Query.["id", (module Option(Int))]
+                              (HTTP.parameters api)
+             ; create_handler ~docstring:"Returns available PLPs in received DVB-T2 signal"
+                              ~path:Path.Format.("plp-list" @/ empty)
+                              ~query:Query.["id", (module Option(Int))]
+                              (HTTP.plp_list api)
+             (* Archive *)
+             ; create_handler ~docstring:"Returns receiver mode for the requested period"
+                              ~path:Path.Format.("mode/archive" @/ empty)
+                              ~query:Query.[ "id",      (module Option(Int))
+                                           ; "from",    (module Option(Time.Show))
+                                           ; "to",      (module Option(Time.Show))
+                                           ; "duration",(module Option(Time.Relative)) ]
+                              HTTP.Archive.mode
+             ; create_handler ~docstring:"Returns current receiver lock states for the requested period"
+                              ~path:Path.Format.("lock/archive" @/ empty)
+                              ~query:Query.[ "id",      (module Option(Int))
+                                           ; "from",    (module Option(Time.Show))
+                                           ; "to",      (module Option(Time.Show))
+                                           ; "duration",(module Option(Time.Relative)) ]
+                              HTTP.Archive.lock
+             ; create_handler ~docstring:"Returns measures from the receiver for the requested period"
+                              ~path:Path.Format.("measures/archive" @/ empty)
+                              ~query:Query.[ "id",      (module Option(Int))
+                                           ; "from",    (module Option(Time.Show))
+                                           ; "to",      (module Option(Time.Show))
+                                           ; "duration",(module Option(Time.Relative)) ]
+                              HTTP.Archive.measures
+             ; create_handler ~docstring:"Returns parameters of received DVB-T2 signal for the requested period"
+                              ~path:Path.Format.("parameters/archive" @/ empty)
+                              ~query:Query.[ "id",      (module Option(Int))
+                                           ; "from",    (module Option(Time.Show))
+                                           ; "to",      (module Option(Time.Show))
+                                           ; "duration",(module Option(Time.Relative)) ]
+                              HTTP.Archive.parameters
+             ]
+    ]

@@ -79,7 +79,7 @@ let get_topology_socket sock_data body app () =
   Hashtbl.add socket_table id sock_events;
   Lwt.return (resp, (body :> Cohttp_lwt.Body.t))
 
-let handle app id meth uri sock_data headers body =
+let handle app uri id meth headers body sock_data =
   let open Common.Uri in
   let is_guest = Common.User.eq id `Guest in
   match Api.Headers.is_ws headers, meth, uri.path with

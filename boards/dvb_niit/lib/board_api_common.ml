@@ -6,8 +6,6 @@ open Board_types
 open Board_protocol
 open Api.Interaction.Json
 
-module Api_handler = Api.Handler.Make(Common.User)
-
 let ( % )   = Fun.( % )
 let ( >|= ) = Lwt.Infix.(>|=)
 let ( >>= ) = Api.Interaction.Json.( >>= )

@@ -14,7 +14,7 @@ let set_password (users : User.entries) body () =
                     else respond_error "bad pass" ()
                 with _ -> respond_error "pass db err" ())
   
-let user_handle users id meth uri _ headers body = (*headers body =*)
+let user_handle users uri id meth headers body _ = (*headers body =*)
   let open Api.Redirect in
   let open User in
   let open Common.Uri in

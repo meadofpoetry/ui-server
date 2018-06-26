@@ -30,6 +30,8 @@ let of_yojson (j:Yojson.Safe.json) : (t,string) result =
 module Show_RFC3339 = struct
   type t = Ptime.t
 
+  let typ = "RFC3339 timestamp"
+
   let of_string s =
     of_rfc3339 s |> function Ok (v,_,_) -> v | Error _ -> failwith (Printf.sprintf "RFC3339.of_string: bad input %s" s)
 
@@ -49,6 +51,8 @@ end
 module Show_float = struct
   type t = Ptime.t
 
+  let typ = "UNIX timestamp (float)"
+
   let of_string x = Option.get_exn @@ Ptime.of_float_s @@ Float.of_string x
   let to_string x = Float.to_string @@ Ptime.to_float_s x
 
@@ -59,10 +63,38 @@ module Show_float = struct
     | exception _ -> Error (Printf.sprintf "Show_float.of_yojson: bad input, expected a string")
 
   let to_yojson v = `Float (Ptime.to_float_s v)
-                  
+
 end
-  
-       
+
+module Show = struct
+  module Show_time = Uri_ext.Query.Either(Show_RFC3339)(Show_float)
+  type t = Ptime.t
+  let typ = Show_time.typ
+  let of_string s = match Show_time.of_string s with
+    | `Left x -> x | `Right x -> x
+  let to_string t = Show_time.to_string (`Left t)
+end
+
+let make_interval ?(from:t option) ?(till:t option) ?(duration:span option) () =
+  let ok v  = Result.return v in
+  let err s = Result.fail s in
+  match from,till,duration with
+  | Some _,Some _,Some _ -> err "excessive duration query"
+  | Some s,Some e,None   -> ok (`Range (s,e))
+  | Some s,None,Some d   -> (match add_span s d with
+                             | Some e -> ok (`Range (s,e))
+                             | None   -> err "time range exceeded")
+  | Some s,None,None     -> ok (`From s)
+  | None,Some e,Some d   -> (match sub_span e d with
+                             | Some s -> ok (`Range (s,e))
+                             | None   -> err "time range exceeded")
+  | None,Some e,None     -> ok (`Till e)
+  | None,None,Some d     -> let e = Clock.now () in
+                            (match sub_span e d with
+                             | Some s -> ok (`Range (s,e))
+                             | None   -> err "time range exceeded")
+  | None,None,None       -> ok `Whole
+
 module Period = struct
   include Ptime.Span
 
@@ -142,6 +174,8 @@ end
 
 module Relative = struct
   include Ptime.Span
+
+  let typ = "RFC3339 duration"
 
   let ps_in_s = 1_000_000_000_000L
   let s_in_minute = 60L

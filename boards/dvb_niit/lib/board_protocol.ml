@@ -432,7 +432,7 @@ module SM = struct
             `Continue (step_ok_probes_wait probes acc))
 
     and step_ok_probes_wait probes acc recvd =
-      let probes       = Probes.step probes in
+      let probes       = Probes.wait probes in
       let recvd_buf    = concat_acc acc recvd in
       let events,_,acc = deserialize recvd_buf in
       try
@@ -456,14 +456,14 @@ module SM = struct
         first_step ()
 
     and step_ok_requests_send probes acc _ =
-      let probes = Probes.step probes in
+      let probes = Probes.wait probes in
       if Queue.empty !msgs
       then `Continue (step_ok_tee probes acc)
       else (Queue.send !msgs () |> ignore;
             `Continue (step_ok_requests_wait probes acc))
 
     and step_ok_requests_wait probes acc recvd =
-      let probes = Probes.step probes in
+      let probes = Probes.wait probes in
       let recvd  = concat_acc acc recvd in
       let _,responses,acc = deserialize recvd in
       try

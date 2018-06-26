@@ -89,7 +89,7 @@ module HTTP = struct
     let strm = match stream with
       | Some (`TS id)   -> Api_js.Query.Stream.make (Some id)
       | Some (`T2MI id) -> make_t2mi_id (Some id)
-      | None            -> Uri.Query.empty
+      | None            -> []
     in
     let time = Api_js.Query.Time.make time in
     List.fold_left Uri.Query.merge [] [coll;strm;time]
