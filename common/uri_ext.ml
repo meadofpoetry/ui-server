@@ -242,7 +242,7 @@ module Query = struct
     | (::) : (string * (module Convert with type t = 'a)) * ('b, 'c) compose -> ('a -> 'b, 'c) compose
     | []   : ('c, 'c) compose
 
-  let empty : ('a,'b) compose = []
+  let empty : (_,_) compose = []
 
   let rec make_q : type ty v. (t -> v) -> (ty, v) compose -> ty =
     fun k ->
