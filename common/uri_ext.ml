@@ -35,6 +35,7 @@ module Path : sig
     val empty : ('a,'a) t
     val (@/) : string -> ('a,'b) t -> ('a,'b) t
     val (^/) : 'a fmt -> ('b,'c) t -> ('a -> 'b,'c) t
+    val (/)  : ('a,'b) t -> ('b,'c) t -> ('a,'c) t
     val scan_unsafe : string list -> ('a,'b) t -> 'a -> 'b
     val kprint : (string list -> 'b) -> ('a, 'b) t -> 'a
     val doc : ('a, 'b) t -> string 
@@ -95,6 +96,11 @@ end = struct
       in merge toks
 
     let (^/) f fmt = F (f,fmt)
+
+    let rec (/) : type a b c. (a,b) t -> (b,c) t -> (a,c) t = function
+      | E -> fun y -> y
+      | S (s,x) -> fun y -> S (s, x / y)
+      | F (t,x) -> fun y -> F (t, x / y)
 
     let rec scan_unsafe : type a b. string list -> (a,b) t -> a -> b = fun path fmt f ->
       match path, fmt with
@@ -309,9 +315,20 @@ let handle_uri ~path ~query = fun f uri ->
 let make_uri ?scheme ~path ~query =
   Path.Format.kprint (fun p -> Query.make_q (fun q -> {scheme; path = p; query = q}) query) path
 
-let construct ?scheme ~path ~query : t =
-  Path.Format.kprint (fun p -> Query.make_q (fun q -> let uri = {scheme; path = p; query = q} in
-                                                      of_uri uri) query) path
+let construct ?scheme ?host ?port ~path ~query =
+  Path.Format.kprint (fun p -> Query.make_q (fun (q:Query.t) ->
+                                   let (uri:uri) = { scheme; path = p; query = q } in
+                                   of_uri uri
+                                   |> (fun u -> with_port u port)
+                                   |> (fun u -> with_host u host)) query) path
+
+let kconstruct ?scheme ?host ?port ~f ~path ~query =
+  Path.Format.kprint (fun p -> Query.make_q (fun (q:Query.t) ->
+                                   let (uri:uri) = { scheme; path = p; query = q } in
+                                   of_uri uri
+                                   |> (fun u -> with_port u port)
+                                   |> (fun u -> with_host u host)
+                                   |> f) query) path
 
 module Dispatcher = struct
 

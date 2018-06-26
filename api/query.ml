@@ -22,8 +22,6 @@ module Stream = struct
   let get  (q:t) =
     get' q |> Result.map fst
 
-  let map' (q:t) f ef =
-    get' q |> function Ok x -> f x | Error e -> ef e
   let map (q:t) f ef =
     get  q |> function Ok x -> f x | Error e -> ef e
 end
@@ -40,21 +38,6 @@ module Collection = struct
                ; k_thin,  (module Option(Bool))
                ]
                limit total thin
-
-  let get' (q:t) =
-    parse_query' [ k_limit, (module Option(Int))
-                 ; k_total, (module Option(Bool))
-                 ; k_thin,  (module Option(Bool))
-                 ]
-                 (fun lim tot thn -> lim,tot,thn) q
-  let get  (q:t) =
-    get' q |> Result.map fst
-
-
-  let map' (q:t) f ef =
-    get' q |> function Ok ((limit,total,thin),rest) -> f ?limit ?total ?thin rest () | Error e -> ef e
-  let map  (q:t) f ef =
-    get  q |> function Ok (limit,total,thin) -> f ?limit ?total ?thin () | Error e -> ef e
 
 end
 

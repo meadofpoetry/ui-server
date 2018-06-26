@@ -3,169 +3,146 @@ open Board_types
 open Api_js.Requests.Json_request
 open Common
 
-let make_path control path = Boards_js.Requests.make_path control ("receiver"::path)
+let get_base_path () =
+  Uri.Path.Format.(Boards_js.Requests.get_board_path () / ("receiver" @/ empty))
 
 let set_id = Uri.Query.(make_query ["id", (module Option(Int))])
 
 module WS = struct
 
+  open Common.Uri
+
   let get_mode ?id control =
-    let query = set_id id in
-    let path  = make_path control ["mode"] in
-    WS.get ~path ~query mode_of_yojson ()
+    WS.get ~from:mode_of_yojson
+           ~path:Path.Format.(get_base_path () / ("mode" @/ empty))
+           ~query:Query.["id", (module Option(Int))] control id
 
   let get_lock ?id control =
-    let query = set_id id in
-    let path  = make_path control ["lock"] in
-    WS.get ~path ~query lock_of_yojson ()
+    WS.get ~from:lock_of_yojson
+           ~path:Path.Format.(get_base_path () / ("lock" @/ empty))
+           ~query:Query.["id", (module Option(Int))] control id
 
   let get_measures ?id control =
-    let query = set_id id in
-    let path  = make_path control ["measures"] in
-    WS.get ~path ~query measures_of_yojson ()
+    WS.get ~from:measures_of_yojson
+           ~path:Path.Format.(get_base_path () / ("measures" @/ empty))
+           ~query:Query.["id", (module Option(Int))] control id
 
   let get_parameters ?id control =
-    let query = set_id id in
-    let path  = make_path control ["parameters"] in
-    WS.get ~path ~query params_of_yojson ()
+    WS.get ~from:params_of_yojson
+           ~path:Path.Format.(get_base_path () / ("parameters" @/ empty))
+           ~query:Query.["id", (module Option(Int))] control id
 
   let get_plp_list ?id control =
-    let query = set_id id in
-    let path  = make_path control ["plp-list"] in
-    WS.get ~path ~query plp_list_of_yojson ()
+    WS.get ~from:plp_list_of_yojson
+           ~path:Path.Format.(get_base_path () / ("plp-list" @/ empty))
+           ~query:Query.["id", (module Option(Int))] control id
 
 end
 
 module HTTP = struct
 
+  open Common.Uri
+
   let post_mode mode control =
-    let path     = make_path control ["mode"] in
     let contents = mode_to_yojson mode in
-    post_result ~contents ~path mode_rsp_of_yojson ()
+    post_result ~contents
+                ~from:mode_rsp_of_yojson
+                ~path:Path.Format.(get_base_path () / ("mode" @/ empty))
+                ~query:Query.empty control
 
-  let get_mode_for_id id control =
-    let query = set_id (Some id) in
-    let path  = make_path control ["mode"] in
-    get_result ~query ~path mode_of_yojson ()
+  let get_mode ~id control =
+    get_result ~from:mode_of_yojson
+               ~path:Path.Format.(get_base_path () / ("mode" @/ Int ^/ empty))
+               ~query:Query.empty id control
 
-  let get_mode control =
-    let path = make_path control ["mode"] in
-    get_result ~path modes_of_yojson ()
+  let get_mode_for_all control =
+    get_result ~from:modes_of_yojson
+               ~path:Path.Format.(get_base_path () / ("mode" @/ empty))
+               ~query:Query.empty control
 
-  let get_lock_for_id id control =
-    let query = set_id (Some id) in
-    let path  = make_path control ["lock"] in
-    get_result ~query ~path lock_of_yojson ()
+  let get_lock ~id control =
+    get_result ~from:lock_of_yojson
+               ~path:Path.Format.(get_base_path () / ("lock" @/ Int ^/ empty))
+               ~query:Query.empty id control
 
   let get_lock_for_all control =
-    let path = make_path control ["lock"] in
-    get_result ~path lock_all_of_yojson ()
+    get_result ~from:lock_all_of_yojson
+               ~path:Path.Format.(get_base_path () / ("lock" @/ empty))
+               ~query:Query.empty control
 
-  let get_measures_for_id id control =
-    let query = set_id (Some id) in
-    let path  = make_path control ["measures"] in
-    get_result ~query ~path measures_of_yojson ()
+  let get_measures ~id control =
+    get_result ~from:measures_of_yojson
+               ~path:Path.Format.(get_base_path () / ("measures" @/ Int ^/ empty))
+               ~query:Query.empty id control
 
   let get_measures_for_all control =
-    let path = make_path control ["measures"] in
-    get_result ~path measures_all_of_yojson ()
+    get_result ~from:measures_all_of_yojson
+               ~path:Path.Format.(get_base_path () / ("measures" @/ empty))
+               ~query:Query.empty control
 
-  let get_parameters_for_id id control =
-    let query = set_id (Some id) in
-    let path  = make_path control ["parameters"] in
-    get_result ~query ~path params_of_yojson ()
+  let get_parameters ~id control =
+    get_result ~from:params_of_yojson
+               ~path:Path.Format.(get_base_path () / ("parameters" @/ Int ^/ empty))
+               ~query:Query.empty id control
 
-  let get_parameters_for_all control =
-    let path = make_path control ["parameters"] in
-    get_result ~path params_all_of_yojson ()
+  let get_measures_for_all control =
+    get_result ~from:params_all_of_yojson
+               ~path:Path.Format.(get_base_path () / ("parameters" @/ empty))
+               ~query:Query.empty control
 
-  let get_plp_list_for_id id control =
-    let query = set_id (Some id) in
-    let path  = make_path control ["plp-list"] in
-    get_result ~query ~path plp_list_of_yojson ()
+  let get_plp_list ~id control =
+    get_result ~from:plp_list_of_yojson
+               ~path:Path.Format.(get_base_path () / ("plp-list" @/ Int ^/ empty))
+               ~query:Query.empty id control
 
-  let get_plp_list_for_all id control =
-    let query = set_id (Some id) in
-    let path  = make_path control ["plp-list"] in
-    get_result ~query ~path plp_list_all_of_yojson ()
+  let get_plp_list_for_all control =
+    get_result ~from:plp_list_all_of_yojson
+               ~path:Path.Format.(get_base_path () / ("plp-list" @/ empty))
+               ~query:Query.empty control
 
   module Archive = struct
 
-    let get_mode_for_id ?limit ?total time id control =
-      let query =
-        let id   = set_id (Some id) in
-        let coll = Api_js.Query.Collection.make ?limit ?total () in
-        let time = Api_js.Query.Time.make time in
-        List.fold_left Uri.Query.merge [] [id;coll;time]
-      in
-      let path  = make_path control ["mode"] in
-      get_result ~query ~path (fun _ -> Error "not implemented") ()
+    let get_mode ?limit ?total ?from ?till ?duration control =
+      get_result ~from:(fun _ -> Error "not implemented")
+                 ~path:Path.Format.(get_base_path () / ("mode/archive" @/ empty))
+                 ~query:Uri.Query.[ "limit",    (module Option(Int))
+                                  ; "total",    (module Option(Bool))
+                                  ; "from",     (module Option(Time.Show))
+                                  ; "to",       (module Option(Time.Show))
+                                  ; "duration", (module Option(Time.Relative))]
+                 control limit total from till duration
 
-    let get_mode ?limit ?total time control =
-      let query =
-        let coll = Api_js.Query.Collection.make ?limit ?total () in
-        let time = Api_js.Query.Time.make time in
-        List.fold_left Uri.Query.merge [] [coll;time]
-      in
-      let path  = make_path control ["mode"] in
-      get_result ~query ~path (fun _ -> Error "not implemented") ()
+    let get_lock ?limit ?total ?compress ?from ?till ?duration control =
+      get_result ~from:(fun _ -> Error "not implemented")
+                 ~path:Path.Format.(get_base_path () / ("lock/archive" @/ empty))
+                 ~query:Uri.Query.[ "limit",    (module Option(Int))
+                                  ; "total",    (module Option(Bool))
+                                  ; "compress", (module Option(Bool))
+                                  ; "from",     (module Option(Time.Show))
+                                  ; "to",       (module Option(Time.Show))
+                                  ; "duration", (module Option(Time.Relative))]
+                 control limit total compress from till duration
 
-    let get_lock_for_id ?limit ?total time id control =
-      let query =
-        let id   = set_id (Some id) in
-        let coll = Api_js.Query.Collection.make ?limit ?total () in
-        let time = Api_js.Query.Time.make time in
-        List.fold_left Uri.Query.merge [] [id;coll;time]
-      in
-      let path  = make_path control ["lock"] in
-      get_result ~query ~path (fun _ -> Error "not implemented") ()
+    let get_measures ?limit ?total ?compress ?from ?till ?duration control =
+      get_result ~from:(fun _ -> Error "not implemented")
+                 ~path:Path.Format.(get_base_path () / ("measures/archive" @/ empty))
+                 ~query:Uri.Query.[ "limit",    (module Option(Int))
+                                  ; "total",    (module Option(Bool))
+                                  ; "compress", (module Option(Bool))
+                                  ; "from",     (module Option(Time.Show))
+                                  ; "to",       (module Option(Time.Show))
+                                  ; "duration", (module Option(Time.Relative))]
+                 control limit total compress from till duration
 
-    let get_lock_for_all ?limit ?total time control =
-      let query =
-        let coll = Api_js.Query.Collection.make ?limit ?total () in
-        let time = Api_js.Query.Time.make time in
-        List.fold_left Uri.Query.merge [] [coll;time]
-      in
-      let path  = make_path control ["lock"] in
-      get_result ~query ~path (fun _ -> Error "not implemented") ()
-
-    let get_measures_for_id ?limit ?total ?thin time id control =
-      let query =
-        let id   = set_id (Some id) in
-        let coll = Api_js.Query.Collection.make ?limit ?total ?thin () in
-        let time = Api_js.Query.Time.make time in
-        List.fold_left Uri.Query.merge [] [id;coll;time]
-      in
-      let path  = make_path control ["measures"] in
-      get_result ~query ~path (fun _ -> Error "not implemented") ()
-
-    let get_measures_for_all ?limit ?total ?thin time control =
-      let query =
-        let coll = Api_js.Query.Collection.make ?limit ?total ?thin () in
-        let time = Api_js.Query.Time.make time in
-        List.fold_left Uri.Query.merge [] [coll;time]
-      in
-      let path  = make_path control ["measures"] in
-      get_result ~query ~path (fun _ -> Error "not implemented") ()
-
-    let get_parameters_for_id ?limit ?total time id control =
-      let query =
-        let id   = set_id (Some id) in
-        let coll = Api_js.Query.Collection.make ?limit ?total () in
-        let time = Api_js.Query.Time.make time in
-        List.fold_left Uri.Query.merge [] [id;coll;time]
-      in
-      let path  = make_path control ["parameters"] in
-      get_result ~query ~path (fun _ -> Error "not implemented") ()
-
-    let get_parameters_for_all ?limit ?total time control =
-      let query =
-        let coll = Api_js.Query.Collection.make ?limit ?total () in
-        let time = Api_js.Query.Time.make time in
-        List.fold_left Uri.Query.merge [] [coll;time]
-      in
-      let path  = make_path control ["parameters"] in
-      get_result ~query ~path (fun _ -> Error "not implemented") ()
+    let get_parameters ?limit ?total ?from ?till ?duration control =
+      get_result ~from:(fun _ -> Error "not implemented")
+                 ~path:Path.Format.(get_base_path () / ("parameters/archive" @/ empty))
+                 ~query:Uri.Query.[ "limit",    (module Option(Int))
+                                  ; "total",    (module Option(Bool))
+                                  ; "from",     (module Option(Time.Show))
+                                  ; "to",       (module Option(Time.Show))
+                                  ; "duration", (module Option(Time.Relative))]
+                 control limit total from till duration
 
   end
 
