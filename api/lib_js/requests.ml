@@ -36,19 +36,27 @@ module type WS = sig
 
   type t
 
-  val create : ?secure:bool ->
-               ?host:string ->
-               ?port:int ->
-               ?path:string ->
-               ?query:Uri.Query.t ->
-               unit -> WebSockets.webSocket Js.t
-  val get    : ?secure:bool ->
-               ?host:string ->
-               ?port:int ->
-               ?path:string ->
-               ?query:Uri.Query.t ->
-               (t -> ('a,string) result) ->
-               unit -> 'a React.event * WebSockets.webSocket Js.t
+  val create' :
+    ?secure:bool ->
+    ?host:string ->
+    ?port:int ->
+    f:(WebSockets.webSocket Js.t -> 'a) ->
+    path:('b, 'c) Uri.Path.Format.t ->
+    query:('c, 'a) Uri.Query.compose -> 'b
+  val create :
+    ?secure:bool ->
+    ?host:string ->
+    ?port:int ->
+    path:('a, 'b) Uri.Path.Format.t ->
+    query:('b, WebSockets.webSocket Js.t) Uri.Query.compose -> 'a
+  val get :
+    ?secure:bool ->
+    ?host:string ->
+    ?port:int ->
+    from:(t -> ('c, 'd) result) ->
+    path:('a, 'b) Uri.Path.Format.t ->
+    query:('b, 'c React.event * WebSockets.webSocket Js.t)
+          Uri.Query.compose -> 'a
 
 end
 
@@ -57,58 +65,82 @@ module type Request = sig
   type t
   type response
 
-  val get_raw          : ?scheme:Uri.Scheme.t ->
-                         ?host:string ->
-                         ?port:int ->
-                         ?path:string ->
-                         ?query:Uri.Query.t ->
-                         unit -> response Lwt_xmlHttpRequest.generic_http_frame Lwt.t
-  val get              : ?scheme:Uri.Scheme.t ->
-                         ?host:string ->
-                         ?port:int ->
-                         ?path:string ->
-                         ?query:Uri.Query.t ->
-                         unit -> (t,int) Lwt_result.t
-  val get_result       : ?scheme:Uri.Scheme.t ->
-                         ?host:string ->
-                         ?port:int ->
-                         ?path:string ->
-                         ?query:Uri.Query.t ->
-                         ?from_err:(t -> ('b,string) result) ->
-                         (t -> ('a,string) result) ->
-                         unit -> ('a,'b err) Lwt_result.t
-
-  val post_raw         : ?scheme:Uri.Scheme.t ->
-                         ?host:string ->
-                         ?port:int ->
-                         ?path:string ->
-                         ?query:Uri.Query.t ->
-                         ?contents:t ->
-                         unit -> response Lwt_xmlHttpRequest.generic_http_frame Lwt.t
-  val post             : ?scheme:Uri.Scheme.t ->
-                         ?host:string ->
-                         ?port:int ->
-                         ?path:string ->
-                         ?query:Uri.Query.t ->
-                         ?contents:t ->
-                         unit -> (t,int) Lwt_result.t
-  val post_result      : ?scheme:Uri.Scheme.t ->
-                         ?host:string ->
-                         ?port:int ->
-                         ?path:string ->
-                         ?query:Uri.Query.t ->
-                         ?contents:t ->
-                         ?from_err:(t -> ('b,string) result) ->
-                         (t -> ('a,string) result) ->
-                         unit -> ('a,'b err) Lwt_result.t
-  val post_result_unit : ?scheme:Uri.Scheme.t ->
-                         ?host:string ->
-                         ?port:int ->
-                         ?path:string ->
-                         ?query:Uri.Query.t ->
-                         ?contents:t ->
-                         ?from_err:(t -> ('b,string) result) ->
-                         unit -> (unit,'b err) Lwt_result.t
+  val get_raw' :
+    ?scheme:string ->
+    ?host:string ->
+    ?port:int ->
+    f:(response Lwt_xmlHttpRequest.generic_http_frame -> 'a) ->
+    path:('b, 'c) Uri.Path.Format.t ->
+    query:('c, 'a Lwt.t) Uri.Query.compose -> 'b
+  val get_raw :
+    ?scheme:string ->
+    ?host:string ->
+    ?port:int ->
+    path:('a, 'b) Uri.Path.Format.t ->
+    query:('b, response Lwt_xmlHttpRequest.generic_http_frame Lwt.t)
+          Uri.Query.compose ->
+    'a
+  val get :
+    ?scheme:string ->
+    ?host:string ->
+    ?port:int ->
+    path:('a, 'b) Uri.Path.Format.t ->
+    query:('b, (t, int) result Lwt.t) Uri.Query.compose -> 'a
+  val get_result :
+    ?scheme:string ->
+    ?host:string ->
+    ?port:int ->
+    ?from_err:(t -> ('a, 'b) result) ->
+    from:(t -> ('c, 'd) result) ->
+    path:('e, 'f) Uri.Path.Format.t ->
+    query:('f, ('c, [> `Code of int | `Data of int * 'a ]) result Lwt.t)
+          Uri.Query.compose ->
+    'e
+  val post_raw' :
+    ?scheme:string ->
+    ?host:string ->
+    ?port:int ->
+    ?contents:t ->
+    f:(response Lwt_xmlHttpRequest.generic_http_frame -> 'a) ->
+    path:('b, 'c) Uri.Path.Format.t ->
+    query:('c, 'a Lwt.t) Uri.Query.compose -> 'b
+  val post_raw :
+    ?scheme:string ->
+    ?host:string ->
+    ?port:int ->
+    ?contents:t ->
+    path:('a, 'b) Uri.Path.Format.t ->
+    query:('b, response Lwt_xmlHttpRequest.generic_http_frame Lwt.t)
+          Uri.Query.compose ->
+    'a
+  val post :
+    ?scheme:string ->
+    ?host:string ->
+    ?port:int ->
+    ?contents:t ->
+    path:('a, 'b) Uri.Path.Format.t ->
+    query:('b, (t, int) result Lwt.t) Uri.Query.compose -> 'a
+  val post_result :
+    ?scheme:string ->
+    ?host:string ->
+    ?port:int ->
+    ?contents:t ->
+    ?from_err:(t -> ('a, 'b) result) ->
+    from:(t -> ('c, 'd) result) ->
+    path:('e, 'f) Uri.Path.Format.t ->
+    query:('f, ('c, [> `Code of int | `Data of int * 'a ]) result Lwt.t)
+          Uri.Query.compose ->
+    'e
+  val post_result_unit :
+    ?scheme:string ->
+    ?host:string ->
+    ?port:int ->
+    ?contents:t ->
+    ?from_err:(t -> ('a, 'b) result) ->
+    path:('c, 'd) Uri.Path.Format.t ->
+    query:('d, (unit, [> `Code of int | `Data of int * 'a ]) result Lwt.t)
+          Uri.Query.compose ->
+    'c
 
   module WS : WS with type t := t
 
@@ -119,6 +151,8 @@ module Make(M:Req) : (Request with type t = M.t and type response = M.response) 
   type t        = M.t
   type response = M.response
 
+  type frame    = response Lwt_xmlHttpRequest.generic_http_frame
+
   module Default = struct
     let host ()   = Js.to_string @@ Dom_html.window##.location##.hostname
     let path ()   = ""
@@ -126,98 +160,106 @@ module Make(M:Req) : (Request with type t = M.t and type response = M.response) 
     let port ()   = Js.to_string @@ Dom_html.window##.location##.port |> int_of_string_opt
   end
 
-  let make_uri ?(scheme=Default.scheme ())
-               ?(host=Default.host ())
-               ?port
-               ?(path=Default.path ())
-               ?query
-               () =
-    let port = match port with Some x -> Some x | None -> Default.port () in
-    print_endline scheme;
-    Uri.make ?port ?query ~scheme ~host ~path ()
-    |> Uri.to_string
-    |> Uri.pct_decode
-    |> fun x -> print_endline x; x
+  let make_uri ?(scheme=Default.scheme ()) ?(host=Default.host ()) ?port ~f ~path ~query =
+    let port = match port with
+      | None   -> Default.port ()
+      | Some p -> Some p
+    in
+    Uri.kconstruct ~scheme ~host ?port ~f:(fun u -> Uri.to_string u |> Uri.pct_decode |> f) ~path ~query
 
-  let get_raw ?scheme ?host ?port ?path ?query () =
-    Lwt_xmlHttpRequest.perform_raw
-      ~response_type:M.response_type
-      (make_uri ?scheme ?host ?port ?path ?query ())
+  let get_raw' ?scheme ?host ?port ~f ~path ~query =
+    let f = fun uri -> Lwt_xmlHttpRequest.perform_raw ~response_type:M.response_type uri >|= f in
+    make_uri ?scheme ?host ?port ~f ~path ~query
 
-  let get ?scheme ?host ?port ?path ?query () =
-    get_raw ?scheme ?host ?port ?path ?query ()
-    >|= fun frame ->
-    if frame.code = 200
-    then Ok (M.parse frame.content)
-    else Error frame.code
+  let get_raw ?scheme ?host ?port ~path ~query =
+    get_raw' ?scheme ?host ?port ~f:(fun x -> x) ~path ~query
 
-  let get_result ?scheme ?host ?port ?path ?query ?from_err from () =
-    get_raw ?scheme ?host ?port ?path ?query ()
-    >|= fun frame ->
-    if frame.code = 200
-    then match (from @@ M.parse frame.content) with
-         | Ok _ as v -> v
-         | Error _   -> Error (`Code frame.code)
-    else match from_err with
-         | Some f -> (match (f @@ M.parse frame.content) with
-                      | Ok err  -> Error (`Data (frame.code,err))
-                      | Error _ -> Error (`Code frame.code))
-         | None   -> Error (`Code frame.code)
+  let get ?scheme ?host ?port ~path ~query =
+    let f = fun (frame:frame) ->
+      if frame.code = 200
+      then Ok (M.parse frame.content)
+      else Error frame.code
+    in get_raw' ?scheme ?host ?port ~f ~path ~query
 
-  let post_raw ?scheme ?host ?port ?path ?query ?contents () =
+  let get_result ?scheme ?host ?port ?from_err ~from ~path ~query =
+    let f = fun (frame:frame) ->
+      if frame.code = 200
+      then match (from @@ M.parse frame.content) with
+           | Ok _ as v -> v
+           | Error _   -> Error (`Code frame.code)
+      else match from_err with
+           | Some f -> (match (f @@ M.parse frame.content) with
+                        | Ok err  -> Error (`Data (frame.code,err))
+                        | Error _ -> Error (`Code frame.code))
+           | None   -> Error (`Code frame.code)
+    in get_raw' ?scheme ?host ?port ~f ~path ~query
+
+  let post_raw' ?scheme ?host ?port ?contents ~f ~path ~query =
     let contents = match contents with
       | None   -> None
       | Some x -> Some (M.to_contents x)
     in
-    Lwt_xmlHttpRequest.perform_raw
-      ~content_type:M.content_type
-      ~headers:[ ("Accept", M.accept); ("X-Requested-With", "XMLHttpRequest") ]
-      ~override_method:`POST
-      ?contents
-      ~response_type:M.response_type
-      (make_uri ?scheme ?host ?port ?path ?query ())
+    let f = fun uri ->
+      Lwt_xmlHttpRequest.perform_raw
+        ~content_type:M.content_type
+        ~headers:[ ("Accept", M.accept); ("X-Requested-With", "XMLHttpRequest") ]
+        ~override_method:`POST
+        ?contents
+        ~response_type:M.response_type
+        uri
+      >|= f
+    in make_uri ?scheme ?host ?port ~f ~path ~query
 
-  let post ?scheme ?host ?port ?path ?query ?contents () =
-    post_raw ?scheme ?host ?port ?path ?query ?contents ()
-    >|= fun frame ->
-    if frame.code = 200
-    then Ok (M.parse frame.content)
-    else Error frame.code
+  let post_raw ?scheme ?host ?port ?contents ~path ~query =
+    post_raw' ?scheme ?host ?port ?contents ~f:(fun x -> x) ~path ~query
 
-  let post_result ?scheme ?host ?port ?path ?query ?contents ?from_err from () =
-    post_raw ?scheme ?host ?port ?path ?query ?contents ()
-    >|= fun frame ->
-    if frame.code = 200
-    then match (from @@ M.parse frame.content) with
-         | Ok _ as v -> v
-         | Error _   -> Error (`Code frame.code)
-    else match from_err with
-         | Some f -> (match (f @@ M.parse frame.content) with
-                      | Ok err  -> Error (`Data (frame.code,err))
-                      | Error _ -> Error (`Code frame.code))
-         | None   -> Error (`Code frame.code)
+  let post ?scheme ?host ?port ?contents ~path ~query =
+    let f = fun (frame:frame) ->
+      if frame.code = 200
+      then Ok (M.parse frame.content)
+      else Error frame.code
+    in post_raw' ?scheme ?host ?port ?contents ~f ~path ~query
 
-  let post_result_unit ?scheme ?host ?port ?path ?query ?contents ?from_err () =
-    post_result ?scheme ?host ?port ?path ?query ?contents ?from_err (fun _ -> Ok ()) ()
+  let post_result ?scheme ?host ?port ?contents ?from_err ~from ~path ~query =
+    let f = fun (frame:frame) ->
+      if frame.code = 200
+      then match (from @@ M.parse frame.content) with
+           | Ok _ as v -> v
+           | Error _   -> Error (`Code frame.code)
+      else match from_err with
+           | Some f -> (match (f @@ M.parse frame.content) with
+                        | Ok err  -> Error (`Data (frame.code,err))
+                        | Error _ -> Error (`Code frame.code))
+           | None   -> Error (`Code frame.code)
+    in post_raw' ?scheme ?host ?port ?contents ~f ~path ~query
+
+  let post_result_unit ?scheme ?host ?port ?contents ?from_err ~path ~query =
+    post_result ?scheme ?host ?port ?contents ?from_err ~from:(fun _ -> Ok ()) ~path ~query
 
   module WS = struct
 
     let scheme secure = if secure then Uri.Scheme.wss else Uri.Scheme.ws
 
-    let create ?(secure=false) ?host ?port ?path ?query () =
+    let create' ?(secure=false) ?host ?port ~f ~path ~query =
       let scheme = scheme secure in
-      let port = match port with Some x -> Some x | None -> Default.port () in
-      new%js WebSockets.webSocket (Js.string @@ make_uri ?host ?port ?path ?query ~scheme ())
+      let f = fun uri ->
+        new%js WebSockets.webSocket (Js.string uri)
+        |> f
+      in make_uri ~scheme ?host ?port ~f ~path ~query
 
-    let get ?secure ?host ?port ?path ?query from () =
-      let sock = create ?secure ?host ?port ?path ?query () in
-      let ev, push = React.E.create () in
-      sock##.onmessage := Dom.handler (fun (msg : WebSockets.webSocket WebSockets.messageEvent Js.t)
-                                       -> M.of_socket_msg msg
-                                          |> from
-                                          |> (function Ok msg -> push msg | Error _ -> ());
-                                          Js.bool true);
-      ev,sock
+    let create ?secure ?host ?port ~path ~query =
+      create' ?secure ?host ?port ~f:(fun x -> x) ~path ~query
+
+    let get ?secure ?host ?port ~from ~path ~query =
+      let f = fun sock ->
+        let ev, push = React.E.create () in
+        sock##.onmessage := Dom.handler (fun (msg : WebSockets.webSocket WebSockets.messageEvent Js.t)
+                                         -> M.of_socket_msg msg
+                                            |> from
+                                            |> (function Ok msg -> push msg | Error _ -> ());
+                                            Js.bool true);
+        ev,sock
+      in create' ?secure ?host ?port ~f ~path ~query
 
   end
 

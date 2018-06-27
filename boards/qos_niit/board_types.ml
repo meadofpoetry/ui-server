@@ -6,9 +6,9 @@ open Containers
 (** API *)
 
 type api_err =
-  | Bad_query of Uri.Query.err
+  | Bad_query     of Uri.Query.err
   | Unknown_query of Uri.Query.t
-  | Other of string [@@deriving yojson]
+  | Other         of string [@@deriving yojson]
 
 (** Board info **)
 
@@ -528,11 +528,11 @@ module Errors = struct
     type t =
       { stream    : Stream.id
       ; timestamp : Time.t
+      ; count     : int
+      ; err_code  : int
       ; stream_id : int
       ; pid       : int
-      ; err_code  : int
       ; sync      : bool
-      ; count     : int
       ; param     : int option
       } [@@deriving yojson,eq]
 

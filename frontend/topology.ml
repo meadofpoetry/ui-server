@@ -16,17 +16,17 @@ class t () = object(self)
        | `Input i -> i#layout ()
        | `CPU c   -> c#layout ()) _nodes
 
-  method private on_load =
-    let open Lwt_result.Infix in
-    Requests.get_topology ()
-    >>= (fun init ->
-      let event,sock = Requests.get_topology_socket () in
-      let nodes      = Topology.create ~parent:self ~init ~event () in
-      _nodes <- nodes;
-      _sock <- Some sock;
-      self#layout ();
-      Lwt_result.return ())
-    |> ignore
+  method private on_load = ()
+    (* let open Lwt_result.Infix in
+     * Requests.get_topology ()
+     * >>= (fun init ->
+     *   let event,sock = Requests.get_topology_socket () in
+     *   let nodes      = Topology.create ~parent:self ~init ~event () in
+     *   _nodes <- nodes;
+     *   _sock <- Some sock;
+     *   self#layout ();
+     *   Lwt_result.return ())
+     * |> ignore *)
 
   initializer
     self#add_class Topology._class;
