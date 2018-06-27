@@ -40,7 +40,7 @@ let create (config:Storage.Config.config) (db_conf:Storage.Database.t) =
     val api   = api
     val state = state
     method reset ss    = reset state ss
-    method handlers () = Pipeline_api.handlers api
+    method handlers () = List.return @@ Pipeline_api.handlers api
     method template () = Pipeline_template.create ()
     method finalize () = Pipeline_protocol.finalize state
   end

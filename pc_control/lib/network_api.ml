@@ -32,7 +32,12 @@ let network_handler (network : Network.t) uri id meth headers body _ =
 module Api_handler = Api.Handler.Make(Common.User)
                    
 let handlers (network : Network.t) =
+  Api_handler.create_dispatcher
+    "network"
+    [] []
+    (*
   [ (module struct
        let domain = "network"
        let handle = network_handler network
      end : Api_handler.HANDLER); ]
+     *)

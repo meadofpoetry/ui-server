@@ -42,17 +42,17 @@ and section_params =
   ; eit_orig_nw_id : int option (* original network ID for EIT *)
   } [@@deriving yojson]
 
+type _ instant_request =
+  | Set_board_mode  : Types.mode         -> unit instant_request
+  | Set_jitter_mode : jitter_mode option -> unit instant_request
+  | Reset           : unit instant_request
+
 type probe_response =
   | Board_errors of board_errors
   | Bitrate      of Streams.TS.bitrates
   | Struct       of Streams.TS.structures
   | T2mi_info    of Streams.T2MI.structure
   | Jitter       of Types.jitter_raw
-
-type _ instant_request =
-  | Set_board_mode  : Types.mode         -> unit instant_request
-  | Set_jitter_mode : jitter_mode option -> unit instant_request
-  | Reset           : unit instant_request
 
 type _ probe_request =
   | Get_board_errors : int           -> probe_response probe_request

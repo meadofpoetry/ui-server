@@ -27,7 +27,10 @@ let user_handle users uri id meth headers body _ = (*headers body =*)
 module Api_handler = Api.Handler.Make(Common.User)
   
 let handlers users =
+  Api_handler.create_dispatcher "user" [] []
+  (*
   [ (module struct
        let domain = "user"
        let handle = user_handle users
      end : Api_handler.HANDLER); ]
+   *)

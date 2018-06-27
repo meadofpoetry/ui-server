@@ -35,6 +35,7 @@ module Path : sig
     val empty : ('a,'a) t
     val (@/) : string -> ('a,'b) t -> ('a,'b) t
     val (^/) : 'a fmt -> ('b,'c) t -> ('a -> 'b,'c) t
+    val (/)  : ('a,'b) t -> ('b,'c) t -> ('a,'c) t
     val scan_unsafe : string list -> ('a,'b) t -> 'a -> 'b
     val kprint : (string list -> 'b) -> ('a, 'b) t -> 'a
     val doc : ('a, 'b) t -> string 
@@ -95,6 +96,11 @@ end = struct
       in merge toks
 
     let (^/) f fmt = F (f,fmt)
+
+    let rec (/) : type a b c. (a,b) t -> (b,c) t -> (a,c) t = function
+      | E -> fun y -> y
+      | S (s,x) -> fun y -> S (s, x / y)
+      | F (t,x) -> fun y -> F (t, x / y)
 
     let rec scan_unsafe : type a b. string list -> (a,b) t -> a -> b = fun path fmt f ->
       match path, fmt with
@@ -161,8 +167,8 @@ module Query = struct
   module type Convert = sig
     type t
     val typ : string
-    val to_query : t -> string list
-    val of_query : string list -> t 
+    val to_query : t -> string list option
+    val of_query : string list -> t
   end
 
   module String = struct
@@ -207,43 +213,45 @@ module Query = struct
       | `Right x -> R.to_string x
   end
 
-  module List (E : Show) = struct
+  module List (E : Show) : Convert with type t = E.t list = struct
     type t = E.t list
     let typ = "list of " ^ E.typ
     let of_query = List.map E.of_string
-    let to_query = List.map E.to_string
+    let to_query v = match v with
+      | [] -> None
+      | v  -> Some (List.map E.to_string v)
   end
 
-  module Single (E : Show) = struct
+  module Single (E : Show) : Convert with type t = E.t = struct
     type t = E.t
     let typ = "mandatory " ^ E.typ
     let of_query = function [v] -> E.of_string v
                           | [] -> raise_notrace Not_found
                           | _ -> raise_notrace (Failure "Single")
-    let to_query v = [ E.to_string v ]
+    let to_query v = Some [ E.to_string v ]
   end
 
-  module Option (E : Show) = struct
+  module Option (E : Show) : Convert with type t = E.t option = struct
     type t = E.t option
     let typ = "optional " ^ E.typ
     let of_query = function [] -> None
                           | [v] -> Some (E.of_string v)
                           | _ -> raise_notrace (Failure "Option")
-    let to_query = function Some v -> [ E.to_string v ] | None -> []
+    let to_query = function Some v -> Some [ E.to_string v ] | None -> None
   end
 
   type (_,_) compose =
     | (::) : (string * (module Convert with type t = 'a)) * ('b, 'c) compose -> ('a -> 'b, 'c) compose
     | []   : ('c, 'c) compose
 
-  let empty = []
+  let empty : (_,_) compose = []
 
   let rec make_q : type ty v. (t -> v) -> (ty, v) compose -> ty =
     fun k ->
     function
     | [] -> k []
     | (q, (module C)) :: rest ->
-       let f x = make_q (fun lst  -> k ((q, (C.to_query x))::lst)) rest
+       let f x = make_q (fun lst  -> k (CCList.cons_maybe (CCOpt.map (fun x -> q,x) (C.to_query x)) lst)) rest
        in f
 
   let make_query q = make_q (fun x -> x) q
@@ -309,9 +317,20 @@ let handle_uri ~path ~query = fun f uri ->
 let make_uri ?scheme ~path ~query =
   Path.Format.kprint (fun p -> Query.make_q (fun q -> {scheme; path = p; query = q}) query) path
 
-let construct ?scheme ~path ~query : t =
-  Path.Format.kprint (fun p -> Query.make_q (fun q -> let uri = {scheme; path = p; query = q} in
-                                                      of_uri uri) query) path
+let construct ?scheme ?host ?port ~path ~query =
+  Path.Format.kprint (fun p -> Query.make_q (fun (q:Query.t) ->
+                                   let (uri:uri) = { scheme; path = p; query = q } in
+                                   of_uri uri
+                                   |> (fun u -> with_port u port)
+                                   |> (fun u -> with_host u host)) query) path
+
+let kconstruct ?scheme ?host ?port ~f ~path ~query =
+  Path.Format.kprint (fun p -> Query.make_q (fun (q:Query.t) ->
+                                   let (uri:uri) = { scheme; path = p; query = q } in
+                                   of_uri uri
+                                   |> (fun u -> with_port u port)
+                                   |> (fun u -> with_host u host)
+                                   |> f) query) path
 
 module Dispatcher = struct
 
@@ -351,5 +370,5 @@ module Dispatcher = struct
       let doc = match node.docstring with None -> "Absent" | Some s -> s in
       Printf.sprintf "\t%s\nDoc: %s\n%s" node.path_typ doc (queries node.query_typ)
     in M.fold (fun _ node acc -> (gen node) :: acc) m []
-    
-end  
+
+end

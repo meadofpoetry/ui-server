@@ -43,13 +43,14 @@ let make_nw_settings ~(init:  nw)
                                                         | _ -> None)
                           dhcp#s_state ip#s_input mask#s_input gw#s_input state
   in
-  let submit = fun (cfg:nw) -> let open Lwt_result.Infix in
-                               Requests.post_dhcp control cfg.dhcp
-                               >>= (fun _ -> Requests.post_address control cfg.ip)
-                               >>= (fun _ -> Requests.post_mask    control cfg.mask)
-                               >>= (fun _ -> Requests.post_gateway control cfg.gateway)
-                               >>= (fun _ -> Requests.post_reset control)
-  in
+  let submit = (* fun (cfg:nw) -> let open Lwt_result.Infix in
+   *                              Requests.post_dhcp control cfg.dhcp
+   *                              >>= (fun _ -> Requests.post_address control cfg.ip)
+   *                              >>= (fun _ -> Requests.post_mask    control cfg.mask)
+   *                              >>= (fun _ -> Requests.post_gateway control cfg.gateway)
+   *                              >>= (fun _ -> Requests.post_reset control)
+   * in *)
+    fun _ -> Lwt_result.return () in
   box#widget,s,submit
 
 let make_ip_settings ~(init:  ip)
@@ -117,14 +118,15 @@ let make_ip_settings ~(init:  ip)
                | _ -> None)
                       en#s_state fec#s_state mcast_en#s_state port#s_input mcast#s_input state
   in
-  let submit = fun (ip:ip) ->
-    let open Lwt_result.Infix in
-    Requests.post_ip_enable control ip.enable
-    >>= (fun _ -> Requests.post_fec control ip.fec)
-    >>= (fun _ -> Requests.post_port control ip.port)
-    >>= (fun _ -> Requests.post_meth control @@ if Option.is_some ip.multicast then Multicast else Unicast)
-    >>= (fun _ -> match ip.multicast with
-                  | Some m -> Requests.post_multicast control m >>= (fun _ -> Lwt_result.return ())
-                  | None   -> Lwt_result.return ())
-  in
+  let submit = (* fun (ip:ip) ->
+   *   let open Lwt_result.Infix in
+   *   Requests.post_ip_enable control ip.enable
+   *   >>= (fun _ -> Requests.post_fec control ip.fec)
+   *   >>= (fun _ -> Requests.post_port control ip.port)
+   *   >>= (fun _ -> Requests.post_meth control @@ if Option.is_some ip.multicast then Multicast else Unicast)
+   *   >>= (fun _ -> match ip.multicast with
+   *                 | Some m -> Requests.post_multicast control m >>= (fun _ -> Lwt_result.return ())
+   *                 | None   -> Lwt_result.return ())
+   * in *)
+    fun _ -> Lwt_result.return () in
   box#widget,s,submit
