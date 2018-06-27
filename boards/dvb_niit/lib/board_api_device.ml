@@ -81,7 +81,7 @@ let handler api events =
                               ~query:Query.empty
                               (HTTP.config api)
              (* Archive *)
-             ; create_handler ~docstring:"Returns board states for the requested period"
+             ; create_handler ~docstring:"Returns board state archive"
                               ~path:Path.Format.("state/archive" @/ empty)
                               ~query:Query.[ "limit",    (module Option(Int))
                                            ; "compress", (module Option(Bool))

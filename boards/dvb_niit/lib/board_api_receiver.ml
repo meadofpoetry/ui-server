@@ -112,6 +112,7 @@ let handler api events =
                          ~path:Path.Format.("plp-list" @/ empty) ~query (WS.plp_list events)
     ])
     [ `POST, [ create_handler ~docstring:"Sets receiver mode"
+                              ~restrict:[ `Guest ]
                               ~path:Path.Format.("mode" @/ empty) ~query:Query.empty (HTTP.post_mode api)
              ]
     ; `GET,
