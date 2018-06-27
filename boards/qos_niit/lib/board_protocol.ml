@@ -22,8 +22,8 @@ type device_events =
   }
 
 type errors_events =
-  { ts_errors   : Errors.TS.t list React.event
-  ; t2mi_errors : Errors.T2MI.t list React.event
+  { ts_errors   : Errors.t list React.event
+  ; t2mi_errors : Errors.t list React.event
   }
 
 type streams_events =
@@ -85,9 +85,9 @@ module SM = struct
     val handle          : event list -> group option -> group list * event list
     val update_versions : from:group -> group -> group
     val get_req_stack   : group -> group option -> probe_response probe_request list
-    val to_ts_errors    : group -> Errors.TS.t list
+    val to_ts_errors    : group -> Errors.t list
     val to_ts_states    : group -> Streams.TS.state list
-    val to_t2mi_errors  : group -> Errors.T2MI.t list
+    val to_t2mi_errors  : group -> Errors.t list
     val to_t2mi_states  : group -> Streams.T2MI.state list
   end = struct
 
@@ -161,8 +161,8 @@ module SM = struct
          |> List.cons_maybe jitter
          |> List.cons_maybe errors
 
-    let to_ts_errors (g:group) : Errors.TS.t list =
-      let open Board_types.Errors.TS in
+    let to_ts_errors (g:group) : Errors.t list =
+      let open Board_types.Errors in
       let cmp = fun x y ->
         match Time.compare x.timestamp y.timestamp with
         | 0 -> Int32.compare x.packet y.packet
@@ -189,8 +189,8 @@ module SM = struct
         |> List.map (fun x -> { stream = x; timestamp; present = false })
       in (ts_found @ ts_lost)
 
-    let to_t2mi_errors (g:group) : Errors.T2MI.t list =
-      let open Board_types.Errors.T2MI in
+    let to_t2mi_errors (g:group) : Errors.t list =
+      let open Board_types.Errors in
       List.filter_map (function `T2mi_errors x -> Some x | _ -> None) g.events
       |> List.concat
       |> List.sort (fun (x:t) y -> Time.compare x.timestamp y.timestamp)
@@ -477,13 +477,13 @@ module SM = struct
   let to_reset_e (group:group React.event) : reset_ts React.event =
     React.E.map (fun (x:group) : reset_ts -> { timestamp = x.status.status.timestamp }) group
 
-  let to_ts_errors_e (group:group React.event) : Errors.TS.t list React.event =
+  let to_ts_errors_e (group:group React.event) : Errors.t list React.event =
     React.E.map (fun g -> Events_handler.to_ts_errors g) group
 
   let to_ts_states_e (group:group React.event) : Streams.TS.state list React.event =
     React.E.map (fun g -> Events_handler.to_ts_states g) group
 
-  let to_t2mi_errors_e (group:group React.event) : Errors.T2MI.t list React.event =
+  let to_t2mi_errors_e (group:group React.event) : Errors.t list React.event =
     React.E.map (fun g -> Events_handler.to_t2mi_errors g) group
 
   let to_t2mi_states_e (group:group React.event) : Streams.T2MI.state list React.event =

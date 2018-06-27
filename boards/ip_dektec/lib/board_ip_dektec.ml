@@ -15,14 +15,6 @@ end
 
 module Config_storage = Storage.Options.Make (Data)
 
-module Board_model : sig
-  type _ req =
-    | Store_status : Board_types.board_status -> unit req
-  include (Storage.Database.MODEL with type 'a req := 'a req)
-end = Db
-
-module Database = Storage.Database.Make(Board_model)
-
 type 'a request = 'a Board_protocol.request
 
 let create_sm = Board_protocol.SM.create
@@ -41,8 +33,8 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
                      s_strms_push @@ (if x.asi_bitrate > 0 then [stream] else []))
                  @@ React.E.changes events.status in
   let handlers = Board_api.handlers b.control api events s_state in
-  let db       = Result.get_exn @@ Database.create db_conf in
-  let _s = Lwt_react.E.map_p (fun s -> Database.request db (Board_model.Store_status s)) @@ React.E.changes events.status in
+  (*  let db       = Result.get_exn @@ Db.Conn.create db_conf in 
+  let _s = Lwt_react.E.map_p (fun s -> Db.insert_status db s) @@ React.E.changes events.status in *)
  (* let sms = convert_streams s_strms b in
   let _e = React.E.map (fun s ->
       `List (List.map Common.Stream.to_yojson s)
@@ -50,9 +42,8 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
       |> Lwt_io.printf "IP sms: %s\n"
       |> ignore;) @@ React.S.changes sms in *)
   let state = object
-      method s = _s;
       method e_status = e_status;
-      method db = db;
+      (*  method db = db; *)
       method finalize () = ()
     end in
   { handlers       = handlers

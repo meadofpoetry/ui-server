@@ -503,41 +503,20 @@ module Errors = struct
     ; no_measure : float
     } [@@deriving yojson]
 
-  module TS = struct
+  type t =
+    { stream    : Stream.id
+    ; timestamp : Time.t
+    ; count     : int
+    ; err_code  : int
+    ; err_ext   : int
+    ; priority  : int
+    ; multi_pid : bool
+    ; pid       : int
+    ; packet    : int32
+    ; param_1   : int32
+    ; param_2   : int32 (* t2mi stream id for t2mi error *)
+    } [@@deriving yojson,eq]
 
-    type t =
-      { stream    : Stream.id
-      ; timestamp : Time.t
-      ; count     : int
-      ; err_code  : int
-      ; err_ext   : int
-      ; priority  : int
-      ; multi_pid : bool
-      ; pid       : int
-      ; packet    : int32
-      ; param_1   : int32
-      ; param_2   : int32
-      } [@@deriving yojson,eq]
-
-    type t_list = t list [@@deriving yojson]
-
-  end
-
-  module T2MI = struct
-
-    type t =
-      { stream    : Stream.id
-      ; timestamp : Time.t
-      ; count     : int
-      ; err_code  : int
-      ; stream_id : int
-      ; pid       : int
-      ; sync      : bool
-      ; param     : int option
-      } [@@deriving yojson,eq]
-
-    type t_list = t list [@@deriving yojson]
-
-  end
+  type t_list = t list [@@deriving yojson]
 
 end

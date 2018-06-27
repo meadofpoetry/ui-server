@@ -4,11 +4,8 @@ open Api.Interaction
 open Boards.Board
 open Board_types
 
-(* TODO remove *)
-let (>) = Pervasives.(>)
-   
 module Api_handler = Api.Handler.Make (Common.User)
-   
+
 open Lwt.Infix
 
 module Data = struct
@@ -20,13 +17,7 @@ end
 
 module Config_storage = Storage.Options.Make (Data)
 
-(* module Board_model : sig
- *   type _ req =
- *     | Store_measures : measures -> unit req
- *   include (Storage.Database.MODEL with type 'a req := 'a req)
- * end = Db
- * 
- * module Database = Storage.Database.Make(Board_model) *)
+(* module Database = Storage.Database.Make(Board_model) *)
 
 
 let log_fmt control = Printf.sprintf "(Board DVB: %d) %s" control
