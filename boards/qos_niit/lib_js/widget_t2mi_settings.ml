@@ -64,7 +64,7 @@ let make ~(state:   Common.Topology.state React.signal)
   let pid,set_pid,s_pid,dis_pid = make_pid () in
   let sid,set_sid,s_sid,dis_sid = make_sid () in
   let ss = make_stream_select streams in
-  let s : t2mi_mode_opt option React.signal =
+  let s : t2mi_mode option option React.signal =
     React.S.l4 (fun en pid sid state->
         match en,pid,sid,state with
         | true,Some pid,Some sid,`Fine -> Some (Some { enabled = en

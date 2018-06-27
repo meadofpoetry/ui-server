@@ -29,6 +29,7 @@ module Path : sig
     type _ fmt =
       | String : string fmt
       | Int    : int fmt
+      | Int32  : int32 fmt
       | Bool   : bool fmt
     type (_,_) t
     val to_templ : (_,_) t -> templ
@@ -75,6 +76,7 @@ end = struct
     type _ fmt =
       | String : string fmt
       | Int    : int fmt
+      | Int32  : int32 fmt
       | Bool   : bool fmt
     type (_,_) t =
       | S : string * ('a,'b) t -> ('a,'b) t
@@ -98,35 +100,37 @@ end = struct
     let (^/) f fmt = F (f,fmt)
 
     let rec (/) : type a b c. (a,b) t -> (b,c) t -> (a,c) t = function
-      | E -> fun y -> y
+      | E       -> fun y -> y
       | S (s,x) -> fun y -> S (s, x / y)
       | F (t,x) -> fun y -> F (t, x / y)
 
     let rec scan_unsafe : type a b. string list -> (a,b) t -> a -> b = fun path fmt f ->
       match path, fmt with
-      | _::tl, S (_,fmt) -> scan_unsafe tl fmt f
+      | _::tl, S (_,fmt)       -> scan_unsafe tl fmt f
       | h::tl, F (String, fmt) -> scan_unsafe tl fmt (f h)
-      | h::tl, F (Int, fmt) -> scan_unsafe tl fmt (f @@ int_of_string h)
-      | h::tl, F (Bool, fmt) -> scan_unsafe tl fmt (f @@ bool_of_string h)
-      | [], E -> f
-      | _ -> failwith "bad path"
+      | h::tl, F (Int, fmt)    -> scan_unsafe tl fmt (f @@ int_of_string h)
+      | h::tl, F (Bool, fmt)   -> scan_unsafe tl fmt (f @@ bool_of_string h)
+      | [], E                  -> f
+      | _                      -> failwith "bad path"
 
     let rec kprint : type a b. (string list -> b) -> (a, b) t -> a =
       fun k ->
       function
-      | E -> k []
-      | S (s, rest) -> kprint (fun lst -> k (s :: lst)) rest
+      | E                -> k []
+      | S (s, rest)      -> kprint (fun lst -> k (s :: lst)) rest
       | F (String, rest) -> let f x = kprint (fun lst -> k (x :: lst)) rest in f
-      | F (Int, rest) -> let f x = kprint (fun lst -> k ((string_of_int x) :: lst)) rest in f
-      | F (Bool, rest) -> let f x = kprint (fun lst -> k ((string_of_bool x) :: lst)) rest in f
+      | F (Int, rest)    -> let f x = kprint (fun lst -> k ((string_of_int x) :: lst)) rest in f
+      | F (Int32, rest)  -> let f x = kprint (fun lst -> k ((Int32.to_string x) :: lst)) rest in f
+      | F (Bool, rest)   -> let f x = kprint (fun lst -> k ((string_of_bool x) :: lst)) rest in f
 
     let doc : type a b. (a, b) t -> string = fun fmt ->
       let rec loop : type a b. (a, b) t -> string list = function
-        | E -> []
-        | S (s,fmt) -> s :: (loop fmt)
+        | E               -> []
+        | S (s,fmt)       -> s :: (loop fmt)
         | F (String, fmt) -> ":string" :: (loop fmt)
-        | F (Int, fmt) -> ":int" :: (loop fmt)
-        | F (Bool, fmt) -> ":bool" :: (loop fmt)
+        | F (Int, fmt)    -> ":int" :: (loop fmt)
+        | F (Int32, fmt)  -> ":int32" :: (loop fmt)
+        | F (Bool, fmt)   -> ":bool" :: (loop fmt)
       in
       merge @@ loop fmt
       

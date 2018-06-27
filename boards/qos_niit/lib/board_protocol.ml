@@ -48,14 +48,14 @@ type events =
   }
 
 type api =
-  { get_devinfo     : unit            -> devinfo_opt Lwt.t
-  ; set_input       : input           -> unit Lwt.t
-  ; set_t2mi_mode   : t2mi_mode_opt   -> unit Lwt.t
-  ; set_jitter_mode : jitter_mode_opt -> unit Lwt.t
-  ; get_t2mi_seq    : int             -> Streams.T2MI.sequence Lwt.t
-  ; get_section     : section_params  -> (Streams.TS.section,Streams.TS.section_error) Lwt_result.t
-  ; reset           : unit            -> unit Lwt.t
-  ; config          : unit            -> config Lwt.t
+  { get_devinfo     : unit               -> devinfo option Lwt.t
+  ; set_input       : input              -> unit Lwt.t
+  ; set_t2mi_mode   : t2mi_mode option   -> unit Lwt.t
+  ; set_jitter_mode : jitter_mode option -> unit Lwt.t
+  ; get_t2mi_seq    : int                -> Streams.T2MI.sequence Lwt.t
+  ; get_section     : section_params     -> (Streams.TS.section,Streams.TS.section_error) Lwt_result.t
+  ; reset           : unit               -> unit Lwt.t
+  ; config          : unit               -> config Lwt.t
   }
 
 module SM = struct
@@ -68,7 +68,7 @@ module SM = struct
   let wakeup_timeout (_,t) = t.pred `Timeout |> ignore
 
   type push_events =
-    { devinfo        : devinfo_opt            -> unit
+    { devinfo        : devinfo option         -> unit
     ; state          : Topology.state         -> unit
     ; group          : group                  -> unit
     ; board_errors   : board_errors           -> unit
@@ -563,15 +563,17 @@ module SM = struct
             >>= (fun () -> cfg_push storage#get; Lwt.return_unit))
       ; set_t2mi_mode =
           (fun mode ->
-            Logs.info (fun m -> let md = t2mi_mode_opt_to_yojson mode |> Yojson.Safe.to_string in
-                                m "%s" @@ fmt @@ Printf.sprintf "T2-MI mode changed: %s" md);
+            Logs.info (fun m ->
+                let md = (Json.opt_to_yojson t2mi_mode_to_yojson) mode |> Yojson.Safe.to_string in
+                m "%s" @@ fmt @@ Printf.sprintf "T2-MI mode changed: %s" md);
             let m = { input = storage#get.input; t2mi = mode } in
             enqueue_instant s_state imsgs sender storage (Set_board_mode m)
             >>= (fun () -> cfg_push storage#get; Lwt.return_unit))
       ; set_jitter_mode =
           (fun mode ->
-            Logs.info (fun m -> let md = jitter_mode_opt_to_yojson mode |> Yojson.Safe.to_string in
-                                m "%s" @@ fmt @@ Printf.sprintf "Jitter mode changed: %s" md);
+            Logs.info (fun m ->
+                let md = (Json.opt_to_yojson jitter_mode_to_yojson) mode |> Yojson.Safe.to_string in
+                m "%s" @@ fmt @@ Printf.sprintf "Jitter mode changed: %s" md);
             enqueue_instant s_state imsgs sender storage (Set_jitter_mode mode)
             >>= (fun () -> cfg_push storage#get; Lwt.return_unit))
       ; get_devinfo =

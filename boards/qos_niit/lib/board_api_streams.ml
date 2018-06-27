@@ -1,78 +1,59 @@
 open Containers
-open Common
 open Board_types
 open Board_protocol
 open Board_api_common
 open Api.Interaction
+open Api.Interaction.Json
 open Api.Redirect
-
-(** API
-    GET /streams/ts
-    GET /streams/[ts|t2mi]/state
-    GET /streams/[ts|t2mi]/structure
-    GET /streams/ts/bitrate
-    GET /streams/t2mi/sequence
-    GET /streams/ts/section/{stream}/{table-id} *)
+open Common
 
 type events = streams_events
 
-let get_t2mi_id q =
-  Uri.Query.(parse_query ["id", (module Option(Int))] (fun x -> x) q)
-
 module WS = struct
-
-  open Common
-
-  let streams sock_data (events:events) body () =
-    sock_handler sock_data (React.S.changes events.streams) Stream.t_list_to_yojson body
-
-  let fmap ~(eq:'b -> 'b -> bool) f_id f_time stream (e:'a list React.event) =
-    React.E.fmap (fun x ->
-        List.filter (fun s -> eq stream (f_id s)) x
-        |> (function
-            | [] -> None
-            | l  -> List.sort (fun x y -> Time.compare (f_time x) (f_time y)) l
-                    |> List.rev |> List.head_opt)) e
 
   module TS = struct
 
     open Board_types.Streams.TS
 
-    let fmap f_id f_time stream e = fmap ~eq:Common.Stream.equal_id f_id f_time stream e
+    let streams (events:events) ids _ body sock_data () =
+      let ids = List.map Stream.id_of_int32 ids in
+      let e = match ids with
+        | [] -> React.S.changes events.streams
+        | l  -> React.E.fmap (fun streams ->
+                    List.filter (fun (s:Stream.t) -> match s.id with
+                                                     | `Ts id -> List.mem ~eq:(Stream.equal_id) id l
+                                                     | _      -> false) streams
+                    |> function [] -> None | l -> Some l) (React.S.changes events.streams)
+      in sock_handler sock_data e (Json.list_to_yojson Stream.to_yojson) body
 
-    let state sock_data (ev:events) body query () =
-      Api.Query.Stream.map
-        query
-        (fun id -> let f e j = sock_handler sock_data e j body in
-                   let e     = ev.ts_states in
-                   (match id with
-                    | Some id -> let e = fmap (fun (x:state) -> x.stream) (fun x -> x.timestamp) id e in
-                                 f e state_to_yojson
-                    | None    -> f e states_to_yojson))
-        respond_bad_query
+    let state (events:events) ids _ body sock_data () =
+      let ids = List.map Stream.id_of_int32 ids in
+      let e   = match ids with
+        | [] -> events.ts_states
+        | l  -> React.E.fmap (fun states ->
+                    List.filter (fun (s:state) -> List.mem ~eq:(Stream.equal_id) s.stream l) states
+                    |> function [] -> None | l -> Some l) events.ts_states
+      in sock_handler sock_data e (Json.list_to_yojson state_to_yojson) body
 
-    let bitrate sock_data (ev:events) body query () =
-      Api.Query.Stream.map
-        query
-        (fun id -> let f e j = sock_handler sock_data e j body in
-                   let e     = React.S.changes ev.ts_bitrates in
-                   (match id with
-                    | Some id -> let e = fmap (fun (x:bitrate) -> x.stream) (fun x -> x.timestamp) id e in
-                                 f e bitrate_to_yojson
-                    | None    -> f e bitrates_to_yojson))
-        respond_bad_query
+    let bitrate (events:events) ids _ body sock_data () =
+      let ids = List.map Stream.id_of_int32 ids in
+      let e   = match ids with
+        | [] -> React.S.changes events.ts_bitrates
+        | l  -> React.E.fmap (fun bitrates ->
+                    List.filter (fun (b:bitrate) -> List.mem ~eq:(Stream.equal_id) b.stream l) bitrates
+                    |> function [] -> None | l -> Some l)
+                @@ React.S.changes events.ts_bitrates
+      in sock_handler sock_data e (Json.list_to_yojson bitrate_to_yojson) body
 
-    let structure sock_data (ev:events) body query () =
-      Api.Query.Stream.map
-        query
-        (fun id -> let f e j = sock_handler sock_data e j body in
-                   let e     = React.S.changes ev.ts_structures in
-                   (match id with
-                    | Some id -> let e = fmap (fun x -> x.stream) (fun x -> x.timestamp) id e in
-                                 f e structure_to_yojson
-                    | None    -> f e structures_to_yojson))
-        respond_bad_query
-
+    let structure (events:events) ids _ body sock_data () =
+      let ids = List.map Stream.id_of_int32 ids in
+      let e   = match ids with
+        | [] -> React.S.changes events.ts_structures
+        | l  -> React.E.fmap (fun structures ->
+                    List.filter (fun (s:structure) -> List.mem ~eq:(Stream.equal_id) s.stream l) structures
+                    |> function [] -> None | l -> Some l)
+                @@ React.S.changes events.ts_structures
+      in sock_handler sock_data e (Json.list_to_yojson structure_to_yojson) body
 
   end
 
@@ -80,29 +61,29 @@ module WS = struct
 
     open Board_types.Streams.T2MI
 
-    let fmap f_id f_time stream e = fmap ~eq:Int.equal f_id f_time stream e
+    (* let fmap f_id f_time stream e = fmap ~eq:Int.equal f_id f_time stream e *)
 
-    let state sock_data (ev:events) body query () =
-      match get_t2mi_id query with
-      | Ok id ->
-         let f e j = sock_handler sock_data e j body in
-         let e     = ev.t2mi_states in
-         (match id with
-          | Some id -> let e = fmap (fun (x:state) -> x.stream_id) (fun x -> x.timestamp) id e in
-                       f e state_to_yojson
-          | None    -> f e states_to_yojson)
-      | Error e -> respond_bad_query e
-
-    let structure sock_data (ev:events) body query () =
-      match get_t2mi_id query with
-      | Ok id ->
-         let f e j = sock_handler sock_data e j body in
-         let e     = React.S.changes ev.t2mi_structures in
-         (match id with
-          | Some id -> let e = fmap (fun (x:structure) -> x.stream_id) (fun x -> x.timestamp) id e in
-                       f e structure_to_yojson
-          | None    -> f e structures_to_yojson)
-      | Error e -> respond_bad_query e
+    (* let state sock_data (ev:events) body query () =
+     *   match get_t2mi_id query with
+     *   | Ok id ->
+     *      let f e j = sock_handler sock_data e j body in
+     *      let e     = ev.t2mi_states in
+     *      (match id with
+     *       | Some id -> let e = fmap (fun (x:state) -> x.stream_id) (fun x -> x.timestamp) id e in
+     *                    f e state_to_yojson
+     *       | None    -> f e states_to_yojson)
+     *   | Error e -> respond_bad_query e
+     * 
+     * let structure sock_data (ev:events) body query () =
+     *   match get_t2mi_id query with
+     *   | Ok id ->
+     *      let f e j = sock_handler sock_data e j body in
+     *      let e     = React.S.changes ev.t2mi_structures in
+     *      (match id with
+     *       | Some id -> let e = fmap (fun (x:structure) -> x.stream_id) (fun x -> x.timestamp) id e in
+     *                    f e structure_to_yojson
+     *       | None    -> f e structures_to_yojson)
+     *   | Error e -> respond_bad_query e *)
 
   end
 
@@ -114,65 +95,40 @@ module HTTP = struct
 
     open Board_types.Streams.TS
 
-    let streams_now (ev:events) query () =
-      Api.Query.Stream.map
-        query
-        (fun id -> let s = React.S.value ev.streams in
-                   (match id with
-                    | Some id ->
-                       List.find_opt (fun (x:Common.Stream.t) ->
-                           match x.id with
-                           | `Ts x -> Common.Stream.equal_id id x
-                           | _     -> false) s
-                       |> Common.Stream.t_opt_to_yojson
-                    | None    -> Common.Stream.t_list_to_yojson s)
-                   |> Result.return
-                   |> Json.respond_result)
-        respond_bad_query
+    let streams (events:events) ids _ _ () =
+      let ids = List.map Stream.id_of_int32 ids in
+      let streams = match ids with
+        | [] -> React.S.value events.streams
+        | l  -> List.filter (fun (s:Stream.t) -> match s.id with
+                                                 | `Ts id -> List.mem ~eq:Stream.equal_id id l
+                                                 | _      -> false)
+                @@ React.S.value events.streams
+      in (Json.list_to_yojson Stream.to_yojson) streams |> Result.return |> respond_result
 
-    let structure_now (ev:events) query () =
-      Api.Query.Stream.map
-        query
-        (fun id -> let v = React.S.value ev.ts_structures in
-                   (match id with
-                    | Some id -> List.find_opt (fun (x:structure) -> Common.Stream.equal_id id x.stream) v
-                                 |> structure_opt_to_yojson
-                    | None    -> structures_to_yojson v)
-                   |> Result.return
-                   |> Json.respond_result)
-        respond_bad_query
+    let bitrate (events:events) ids _ _ () =
+      let ids = List.map Stream.id_of_int32 ids in
+      let bitrates = match ids with
+        | [] -> React.S.value events.ts_bitrates
+        | l  -> List.filter (fun (b:bitrate) -> List.mem ~eq:Stream.equal_id b.stream l)
+                @@ React.S.value events.ts_bitrates
+      in (Json.list_to_yojson bitrate_to_yojson) bitrates |> Result.return |> respond_result
 
-    let bitrate_now (ev:events) query () =
-      Api.Query.Stream.map
-        query
-        (fun id -> let v = React.S.value ev.ts_bitrates in
-                   (match id with
-                    | Some id -> List.find_opt (fun (x:bitrate) -> Common.Stream.equal_id id x.stream) v
-                                 |> bitrate_opt_to_yojson
-                    | None    -> bitrates_to_yojson v)
-                   |> Result.return
-                   |> Json.respond_result)
-        respond_bad_query
+    let structure (events:events) ids _ _ () =
+      let ids = List.map Stream.id_of_int32 ids in
+      let structs = match ids with
+        | [] -> React.S.value events.ts_structures
+        | l  -> List.filter (fun (s:structure) -> List.mem ~eq:Stream.equal_id s.stream l)
+                @@ React.S.value events.ts_structures
+      in (Json.list_to_yojson structure_to_yojson) structs |> Result.return |> respond_result
 
-    let si_psi_section_now stream_id table_id (api:api) (q:Uri.Query.t) () =
-      let f s t ts nw =
-        { stream_id; table_id; section=s; table_id_ext=t; eit_ts_id=ts; eit_orig_nw_id=nw }
-      in
-      let res =
-        let open Uri.Query in
-        parse_query [ "section",        (module Option(Int))
-                    ; "table_id_ext",   (module Option(Int))
-                    ; "eit_ts_id",      (module Option(Int))
-                    ; "eit_orig_nw_id", (module Option(Int))
-                    ] f q
-      in
-      match res with
-      | Ok x -> api.get_section x
-                >|= (function
-                     | Ok x    -> Ok (section_to_yojson x)
-                     | Error e -> Error (section_error_to_yojson e))
-                >>= Json.respond_result
-      | Error e  -> respond_bad_query e
+    let si_psi_section (api:api) stream table_id section table_id_ext
+                       eit_ts_id eit_orig_nw_id _ _ () =
+      let stream_id = Stream.id_of_int32 stream in
+      let req = { stream_id; table_id; section; table_id_ext; eit_ts_id; eit_orig_nw_id } in
+      api.get_section req
+      >|= (function Ok x    -> Ok    (section_to_yojson x)
+                  | Error e -> Error (section_error_to_yojson e))
+      >>= respond_result
 
     module Archive = struct
 
@@ -227,54 +183,23 @@ module HTTP = struct
 
     end
 
-    let streams events query () =
-      match Api.Query.Time.get' query with
-      | Ok (None,query)   -> streams_now events query ()
-      | Ok (Some t,query) -> Archive.streams query t ()
-      | Error e           -> respond_bad_query e
-
-    let state query () =
-      match Api.Query.Time.get' query with
-      | Ok (None,query)   -> respond_error ~status:`Not_implemented "not implemented" ()
-      | Ok (Some t,query) -> Archive.state query t ()
-      | Error e           -> respond_bad_query e
-
-    let structure events query () =
-      match Api.Query.Time.get' query with
-      | Ok (None,query)   -> structure_now events query ()
-      | Ok (Some t,query) -> Archive.structure query t ()
-      | Error e           -> respond_bad_query e
-
-    let bitrate events query () =
-      match Api.Query.Time.get' query with
-      | Ok (None,query)   -> bitrate_now events query ()
-      | Ok (Some t,query) -> Archive.bitrate query t ()
-      | Error e           -> respond_bad_query e
-
-    let section sid tid api query () =
-      match Api.Query.Time.get' query with
-      | Ok (None,query)   -> si_psi_section_now sid tid api query ()
-      | Ok (Some t,query) -> respond_error ~status:`Not_implemented "not implemented" ()
-      | Error e           -> respond_bad_query e
-
-
   end
 
   module T2MI = struct
 
     open Board_types.Streams.T2MI
 
-    let structure_now (e:events) query () =
-      match get_t2mi_id query with
-      | Ok id ->
-         let v = React.S.value e.t2mi_structures in
-         (match id with
-          | Some id -> List.find_opt (fun (x:structure) -> Int.equal id x.stream_id) v
-                       |> structure_opt_to_yojson
-          | None    -> structures_to_yojson v)
-         |> Result.return
-         |> Json.respond_result
-      | Error e -> respond_bad_query e
+    (* let structure_now (e:events) query () =
+     *   match get_t2mi_id query with
+     *   | Ok id ->
+     *      let v = React.S.value e.t2mi_structures in
+     *      (match id with
+     *       | Some id -> List.find_opt (fun (x:structure) -> Int.equal id x.stream_id) v
+     *                    |> structure_opt_to_yojson
+     *       | None    -> structures_to_yojson v)
+     *      |> Result.return
+     *      |> respond_result
+     *   | Error e -> respond_bad_query e *)
 
     let sequence_now (api:api) (query:Uri.Query.t) () =
       let res = let open Uri.Query in
@@ -288,7 +213,7 @@ module HTTP = struct
                          | Some id -> List.filter (fun (x:sequence_item) -> id = x.stream_id) x
                          | None    -> x
                        in Ok (sequence_to_yojson seq))
-         >>= Json.respond_result
+         >>= respond_result
       | Error e -> respond_bad_query e
 
     module Archive = struct
@@ -321,63 +246,67 @@ module HTTP = struct
 
     end
 
-    let state query () =
-      match Api.Query.Time.get' query with
-      | Ok (None,query)   -> respond_error ~status:`Not_implemented "not implemented" ()
-      | Ok (Some t,query) -> Archive.state query t ()
-      | Error e           -> respond_bad_query e
-
-    let structure events query () =
-      match Api.Query.Time.get' query with
-      | Ok (None,query)   -> structure_now events query ()
-      | Ok (Some t,query) -> Archive.structure query t ()
-      | Error e           -> respond_bad_query e
-
-    let sequence api query () =
-      match Api.Query.Time.get' query with
-      | Ok (None,query)   -> sequence_now api query ()
-      | Ok (Some t,query) -> respond_error ~status:`Not_implemented "not implemented" ()
-      | Error e           -> respond_bad_query e
-
   end
 
 end
 
-let ts_handler api events ({path;query;_}:Uri.uri) _ meth headers body sock_data =
-  match Api.Headers.is_ws headers,meth,path with
-  (* WS *)
-  | true, `GET,[]                  -> WS.streams sock_data events body ()
-  | true, `GET,["state"]           -> WS.TS.state sock_data events body query ()
-  | true, `GET,["bitrate"]         -> WS.TS.bitrate sock_data events body query ()
-  | true, `GET,["structure"]       -> WS.TS.structure sock_data events body query ()
-  (* REST *)
-  | false,`GET,[]                  -> HTTP.TS.streams events query ()
-  | false,`GET,["state"]           -> HTTP.TS.state query ()
-  | false,`GET,["bitrate"]         -> HTTP.TS.bitrate events query ()
-  | false,`GET,["structure"]       -> HTTP.TS.structure events query ()
-  | false,`GET,["section";sid;tid] ->
-     (match Option.map Stream.id_of_int32 @@ Int32.of_string sid, Int.of_string tid with
-      | Some sid,Some tid -> HTTP.TS.section sid tid api query ()
-      | None, _ -> respond_error_other (Printf.sprintf "bad stream id value: %s" sid)
-      | _, None -> respond_error_other (Printf.sprintf "bad table id value: %s" tid))
-  | _ -> not_found ()
+let ts_handler api events =
+  let open Uri in
+  let open Boards.Board.Api_handler in
+  create_dispatcher
+    "ts"
+    [ create_ws_handler ~docstring:"Pushes available TS to the client"
+                        ~path:Path.Format.empty
+                        ~query:Query.[ "id", (module List(Int32)) ]
+                        (WS.TS.streams events)
+    ; create_ws_handler ~docstring:"Pushes TS state change to the client"
+                        ~path:Path.Format.("state" @/ empty)
+                        ~query:Query.[ "id", (module List(Int32)) ]
+                        (WS.TS.state events)
+    ; create_ws_handler ~docstring:"Pushes TS bitrates to the client"
+                        ~path:Path.Format.("bitrate" @/ empty)
+                        ~query:Query.[ "id", (module List(Int32)) ]
+                        (WS.TS.bitrate events)
+    ; create_ws_handler ~docstring:"Pushes TS structure to the client"
+                        ~path:Path.Format.("structure" @/ empty)
+                        ~query:Query.[ "id", (module List(Int32)) ]
+                        (WS.TS.structure events)
+    ]
+    [ `GET, [ create_handler ~docstring:"Returns current TS list"
+                             ~path:Path.Format.empty
+                             ~query:Query.[ "id", (module List(Int32)) ]
+                             (HTTP.TS.streams events)
+            ; create_handler ~docstring:"Returns current TS bitrate"
+                             ~path:Path.Format.("bitrate" @/ empty)
+                             ~query:Query.[ "id", (module List(Int32)) ]
+                             (HTTP.TS.bitrate events)
+            ; create_handler ~docstring:"Returns current TS structure"
+                             ~path:Path.Format.("structure" @/ empty)
+                             ~query:Query.[ "id", (module List(Int32)) ]
+                             (HTTP.TS.structure events)
+            ; create_handler ~docstring:"Returns requested SI/PSI table content"
+                             ~path:Path.Format.("section" @/ Int32 ^/ Int ^/ empty)
+                             ~query:Query.[ "section",        (module Option(Int))
+                                          ; "table-id-ext",   (module Option(Int))
+                                          ; "eit-ts-id",      (module Option(Int))
+                                          ; "eit-orig-nw-id", (module Option(Int)) ]
+                             (HTTP.TS.si_psi_section api)
+            ]
+    ]
 
 let t2mi_handler api events ({scheme;path;query}:Uri.uri) _ meth _ body sock_data =
   match Uri.Scheme.is_ws scheme,meth,path with
   (* WS *)
-  | true, `GET,["state"]     -> WS.T2MI.state sock_data events body query ()
-  | true, `GET,["structure"] -> WS.T2MI.structure sock_data events body query ()
-  (* HTTP *)
-  | false,`GET,["state"]     -> HTTP.T2MI.state query ()
-  | false,`GET,["structure"] -> HTTP.T2MI.structure events query ()
-  | false,`GET,["sequence"]  -> HTTP.T2MI.sequence api query ()
+  (* | true, `GET,["state"]     -> WS.T2MI.state sock_data events body query ()
+   * | true, `GET,["structure"] -> WS.T2MI.structure sock_data events body query ()
+   * (\* HTTP *\)
+   * | false,`GET,["state"]     -> HTTP.T2MI.state query ()
+   * | false,`GET,["structure"] -> HTTP.T2MI.structure events query ()
+   * | false,`GET,["sequence"]  -> HTTP.T2MI.sequence api query () *)
   | _ -> not_found ()
 
 let handlers api events =
-  [ (module struct
-       let domain = "ts"
-       let handle = ts_handler api events
-     end : Api_handler.HANDLER)
+  [ ts_handler api events
   ; (module struct
        let domain = "t2mi"
        let handle = t2mi_handler api events

@@ -43,7 +43,7 @@ let make ~(state: Common.Topology.state React.signal)
                      state s_en
   in
   let _ = React.S.map (fun x -> List.iter (fun f -> f x) [set_en; set_pid]) mode in
-  let s : jitter_mode_opt option React.signal =
+  let s : jitter_mode option option React.signal =
     React.S.l3 (fun en pid state ->
         match en,pid,state with
         | true,Some pid,`Fine -> Some (Some { pid; stream = Common.Stream.Single })

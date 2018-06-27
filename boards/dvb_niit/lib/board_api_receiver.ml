@@ -55,7 +55,7 @@ module HTTP = struct
     let l = match ids with
       | []  -> get ()
       | ids -> List.filter (fun x -> List.mem ~eq:(=) (get_id x) ids) @@ get ()
-    in List.map map l |> list_to_yojson to_yojson |> Result.return |> respond_result
+    in List.map map l |> Common.Json.list_to_yojson to_yojson |> Result.return |> respond_result
 
   let identity = fun x -> x
 
@@ -119,15 +119,15 @@ let handler api events =
       ( let one =
           let query = Query.empty in
           [ create_handler ~docstring:"Returns current mode for the selected receiver"
-                           ~path:Path.Format.(Int ^/ "mode" @/ empty) ~query (HTTP.mode_one api)
+                           ~path:Path.Format.("mode" @/ Int ^/ empty) ~query (HTTP.mode_one api)
           ; create_handler ~docstring:"Returns current lock state for the selected receiver"
-                           ~path:Path.Format.(Int ^/ "lock" @/ empty) ~query (HTTP.lock_one api)
+                           ~path:Path.Format.("lock" @/ Int ^/ empty) ~query (HTTP.lock_one api)
           ; create_handler ~docstring:"Returns measures from the selected receiver"
-                           ~path:Path.Format.(Int ^/ "measures" @/ empty) ~query (HTTP.meas_one api)
+                           ~path:Path.Format.("measures" @/ Int ^/ empty) ~query (HTTP.meas_one api)
           ; create_handler ~docstring:"Returns parameters of DVB-T2 signal for the selected receiver"
-                           ~path:Path.Format.(Int ^/ "parameters" @/ empty) ~query (HTTP.params_one api)
+                           ~path:Path.Format.("parameters" @/ Int ^/ empty) ~query (HTTP.params_one api)
           ; create_handler ~docstring:"Returns available PLPs for the selected receiver"
-                           ~path:Path.Format.(Int ^/ "plp-list" @/ empty) ~query (HTTP.plp_list_one api)
+                           ~path:Path.Format.("plp-list" @/ Int ^/ empty) ~query (HTTP.plp_list_one api)
           ]
         in
         let some =
@@ -146,7 +146,7 @@ let handler api events =
         in
         let archive =
           [ create_handler ~docstring:"Returns receiver mode for the requested period"
-                           ~path:Path.Format.("mode/archive" @/ empty)
+                           ~path:Path.Format.("archive/mode" @/ empty)
                            ~query:Query.[ "id",       (module List(Int))
                                         ; "limit",    (module Option(Int))
                                         ; "from",     (module Option(Time.Show))
@@ -154,7 +154,7 @@ let handler api events =
                                         ; "duration", (module Option(Time.Relative)) ]
                            HTTP.Archive.mode
           ; create_handler ~docstring:"Returns measures from the receiver for the requested period"
-                           ~path:Path.Format.("measures/archive" @/ empty)
+                           ~path:Path.Format.("archive/measure" @/ empty)
                            ~query:Query.[ "id",       (module List(Int))
                                         ; "limit",    (module Option(Int))
                                         ; "compress", (module Option(Bool))
@@ -163,7 +163,7 @@ let handler api events =
                                         ; "duration", (module Option(Time.Relative)) ]
                            HTTP.Archive.measures
           ; create_handler ~docstring:"Returns parameters of received DVB-T2 signal for the requested period"
-                           ~path:Path.Format.("parameters/archive" @/ empty)
+                           ~path:Path.Format.("archive/parameters" @/ empty)
                            ~query:Query.[ "id",       (module List(Int))
                                         ; "limit",    (module Option(Int))
                                         ; "from",     (module Option(Time.Show))

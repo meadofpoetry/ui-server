@@ -17,8 +17,6 @@ type devinfo =
   ; ver : int
   } [@@deriving yojson]
 
-type devinfo_opt = devinfo option [@@deriving yojson]
-
 (** Modes **)
 
 type input = SPI | ASI [@@deriving yojson,eq]
@@ -36,9 +34,6 @@ type jitter_mode =
   { stream  : Stream.id (* NOTE maybe t? *)
   ; pid     : int
   } [@@deriving yojson,eq]
-
-type t2mi_mode_opt   = t2mi_mode option   [@@deriving yojson]
-type jitter_mode_opt = jitter_mode option [@@deriving yojson]
 
 (** Config **)
 
@@ -516,7 +511,5 @@ module Errors = struct
     ; param_1   : int32
     ; param_2   : int32 (* t2mi stream id for t2mi error *)
     } [@@deriving yojson,eq]
-
-  type t_list = t list [@@deriving yojson]
 
 end

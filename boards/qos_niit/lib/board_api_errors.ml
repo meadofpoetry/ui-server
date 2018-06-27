@@ -1,73 +1,55 @@
 open Containers
-open Common
 open Board_types
 open Board_protocol
 open Board_api_common
 open Api.Interaction
+open Api.Interaction.Json
 open Api.Redirect
-
-(** API
-    GET /errors/[ts|t2mi]
-    GET /errors/[ts|t2mi]/percent
-    GET /errors/[ts|t2mi]/has-any *)
+open Common
 
 type events = errors_events
 
-let not_implemented = respond_error ~status:`Not_implemented
-
 module WS = struct
+
+  open Errors
+
+  let rec filter (e:t) = function
+    | []    -> true
+    | f::tl -> if not @@ f e then false else filter e tl
 
   module TS = struct
 
-    let errors sock_data (events:events) body query () =
-      let res = Api.Query.Stream.get query in
-      match res with
-      | Ok id ->
-         let open Errors in
-         let e = match id with
-           | Some id -> let map = List.filter (fun (x:t) -> Common.Stream.equal_id id x.stream) in
-                        React.E.map map events.ts_errors
-                        |> React.E.filter Fun.(not % List.is_empty)
-           | None    -> events.ts_errors
-         in sock_handler sock_data e t_list_to_yojson body
-      | Error e -> respond_error (Uri.Query.err_to_string e) ()
+    let errors (events:events) stream errors priority pids _ body sock_data () =
+      let stream = Option.map Stream.id_of_int32 stream in
+      let f_stream   = Option.map (fun id -> fun e -> Stream.equal_id id e.stream) stream in
+      let f_errors   = match errors with [] -> None | l  -> Some (fun e -> List.mem ~eq:(=) e.err_code l) in
+      let f_priority = match priority with [] -> None | l -> Some (fun e -> List.mem ~eq:(=) e.err_code l) in
+      let f_pids     = match pids with [] -> None | l -> Some (fun e -> List.mem ~eq:(=) e.pid l) in
+      let fns        = List.filter_map (fun x -> x) [f_stream;f_errors;f_priority;f_pids] in
+      let e          = React.E.fmap (fun l -> match List.filter (fun (e:t) -> filter e fns) l with
+                                              | [] -> None
+                                              | l  -> Some l) events.ts_errors
+      in sock_handler sock_data e (Json.list_to_yojson to_yojson) body
 
   end
 
   module T2MI = struct
 
-    let errors sock_data (events:events) body query () =
-      let res = Api.Query.Stream.get' query
-                |> Result.flat_map (fun (id,query) ->
-                       Uri.Query.(parse_query ["t2mi-stream-id", (module Option(Int))]
-                                              (fun x -> id,x) query))
-      in
-      match res with
-      | Ok (stream_id,t2mi_stream_id) ->
-         let open Errors in
-         let e = match stream_id,t2mi_stream_id with
-           | Some sid,Some tid ->
-              let map = List.filter (fun (x:t) -> Stream.equal_id sid x.stream
-                                                  && Int.equal tid (Int32.to_int x.param_2)) in
-              React.E.map map events.t2mi_errors
-              |> React.E.filter Fun.(not % List.is_empty)
-           | Some sid,None ->
-              let map = List.filter (fun (x:t) -> Stream.equal_id sid x.stream) in
-              React.E.map map events.t2mi_errors
-              |> React.E.filter Fun.(not % List.is_empty)
-           | None, Some tid ->
-              let map = List.filter (fun (x:t) -> Int.equal tid (Int32.to_int x.param_2)) in
-              React.E.map map events.t2mi_errors
-              |> React.E.filter Fun.(not % List.is_empty)
-           | None,None -> events.t2mi_errors
-         in sock_handler sock_data e t_list_to_yojson body
-      | Error e -> respond_error (Uri.Query.err_to_string e) ()
+    let errors (events:events) stream t2mi_id errors pids _ body sock_data () =
+      let stream = Option.map Stream.id_of_int32 stream in
+      let f_stream  = Option.map (fun id -> fun e -> Stream.equal_id id e.stream) stream in
+      let f_t2mi_id = Option.map (fun id -> fun e -> Int.equal id (Int32.to_int e.param_2)) t2mi_id in
+      let f_errors   = match errors with [] -> None | l  -> Some (fun e -> List.mem ~eq:(=) e.err_code l) in
+      let f_pids     = match pids with [] -> None | l -> Some (fun e -> List.mem ~eq:(=) e.pid l) in
+      let fns       = List.filter_map (fun x -> x) [f_stream;f_t2mi_id;f_errors;f_pids] in
+      let e = React.E.fmap (fun l -> match List.filter (fun (e:t) -> filter e fns) l with
+                                     | [] -> None
+                                     | l  -> Some l) events.t2mi_errors
+      in sock_handler sock_data e (Json.list_to_yojson to_yojson) body
 
   end
 
 end
-
-let rest_now_ni = "This REST real-time REQ is not implemented"
 
 module HTTP = struct
 
@@ -75,101 +57,128 @@ module HTTP = struct
 
     module Archive = struct
 
-      let errors time query () =
-        (* TODO IMPLEMENT *)
-        not_found ()
-      let percent time query () =
-        (* TODO IMPLEMENT *)
-        not_found ()
-      let has_any time query () =
-        (* TODO IMPLEMENT *)
-        not_found ()
+      let errors stream errors priority pids limit compress from till duration _ _ () =
+        respond_error ~status:`Not_implemented "not implemented" ()
+      let percent stream errors priority pids from till duration _ _ () =
+        respond_error ~status:`Not_implemented "not implemented" ()
+      let has_any stream errors priority pids from till duration _ _() =
+        respond_error ~status:`Not_implemented "not implemented" ()
 
     end
-
-    let errors query () =
-      match Api.Query.Time.get' query with
-      | Ok (None,_)   -> not_implemented rest_now_ni ()
-      | Ok (Some t,q) -> Archive.errors t q ()
-      | Error e       -> respond_error (Uri.Query.err_to_string e) ()
-
-    let percent query () =
-      match Api.Query.Time.get' query with
-      | Ok (None,_)   -> not_implemented rest_now_ni ()
-      | Ok (Some t,q) -> Archive.percent t q ()
-      | Error e       -> respond_error (Uri.Query.err_to_string e) ()
-
-    let has_any query () =
-      match Api.Query.Time.get' query with
-      | Ok (None,_)   -> not_implemented rest_now_ni ()
-      | Ok (Some t,q) -> Archive.has_any t q ()
-      | Error e       -> respond_error (Uri.Query.err_to_string e) ()
   end
 
   module T2MI = struct
 
     module Archive = struct
 
-      let errors time query () =
-        (* TODO IMPLEMENT *)
-        not_found ()
-      let percent time query () =
-        (* TODO IMPLEMENT *)
-        not_found ()
-      let has_any time query () =
-        (* TODO IMPLEMENT *)
-        not_found ()
+      let errors stream t2mi_id errors pids limit compress from till duration _ _ () =
+        respond_error ~status:`Not_implemented "not implemented" ()
+      let percent stream t2mi_id errors pids from till duration _ _ () =
+        respond_error ~status:`Not_implemented "not implemented" ()
+      let has_any stream t2mi_id errors pids from till duration _ _() =
+        respond_error ~status:`Not_implemented "not implemented" ()
 
     end
-
-    let errors query () =
-      match Api.Query.Time.get' query with
-      | Ok (None,_)   -> not_implemented rest_now_ni ()
-      | Ok (Some t,q) -> Archive.errors t q ()
-      | Error e       -> respond_error (Uri.Query.err_to_string e) ()
-
-    let percent query () =
-      match Api.Query.Time.get' query with
-      | Ok (None,_)   -> not_implemented rest_now_ni ()
-      | Ok (Some t,q) -> Archive.percent t q ()
-      | Error e       -> respond_error (Uri.Query.err_to_string e) ()
-
-    let has_any query () =
-      match Api.Query.Time.get' query with
-      | Ok (None,_)   -> not_implemented rest_now_ni ()
-      | Ok (Some t,q) -> Archive.has_any t q ()
-      | Error e       -> respond_error (Uri.Query.err_to_string e) ()
 
   end
 end
 
-let ts_handler events ({path;query;_}:Uri.uri) _ meth headers body sock_data =
-  match Api.Headers.is_ws headers,meth,Uri.Path.to_string path with
-  (* WS *)
-  | true, `GET,""        -> WS.TS.errors sock_data events body query ()
-  (* HTTP *)
-  | false,`GET,""        -> HTTP.TS.errors query ()
-  | false,`GET,"percent" -> HTTP.TS.percent query ()
-  | false,`GET,"has-any" -> HTTP.TS.has_any query ()
-  | _                    -> not_found ()
+let ts_handler events =
+  let open Uri in
+  let open Boards.Board.Api_handler in
+  create_dispatcher
+    "ts"
+    [ create_ws_handler ~docstring:"Pushes TS errors to the client"
+                        ~path:Path.Format.empty
+                        ~query:Query.[ "stream",   (module Option(Int32))
+                                     ; "errors",   (module List(Int))
+                                     ; "priority", (module List(Int))
+                                     ; "pid",      (module List(Int))]
+                        (WS.TS.errors events)
+    ]
+    [ `GET, [ create_handler ~docstring:"Returns TS errors archive"
+                             ~path:Path.Format.("archive" @/ empty)
+                             ~query:Query.[ "stream",   (module Option(Int32))
+                                          ; "errors",   (module List(Int))
+                                          ; "priority", (module List(Int))
+                                          ; "pid",      (module List(Int))
+                                          ; "limit",    (module Option(Int))
+                                          ; "compress", (module Option(Bool))
+                                          ; "from",     (module Option(Time.Show))
+                                          ; "to",       (module Option(Time.Show))
+                                          ; "duration", (module Option(Time.Relative)) ]
+                             (HTTP.TS.Archive.errors)
+            ; create_handler ~docstring:"Returns TS errors presence percentage"
+                             ~path:Path.Format.("archive/percent" @/ empty)
+                             ~query:Query.[ "stream",   (module Option(Int32))
+                                          ; "errors",   (module List(Int))
+                                          ; "priority", (module List(Int))
+                                          ; "pid",      (module List(Int))
+                                          ; "from",     (module Option(Time.Show))
+                                          ; "to",       (module Option(Time.Show))
+                                          ; "duration", (module Option(Time.Relative)) ]
+                             (HTTP.TS.Archive.percent)
+            ; create_handler ~docstring:"Returns if TS errors were present for the requested period"
+                             ~path:Path.Format.("archive/has-any" @/ empty)
+                             ~query:Query.[ "stream",   (module Option(Int32))
+                                          ; "errors",   (module List(Int))
+                                          ; "priority", (module List(Int))
+                                          ; "pid",      (module List(Int))
+                                          ; "from",     (module Option(Time.Show))
+                                          ; "to",       (module Option(Time.Show))
+                                          ; "duration", (module Option(Time.Relative)) ]
+                             (HTTP.TS.Archive.has_any)
+            ]
+    ]
 
-let t2mi_handler events ({path;query;_}:Uri.uri) _ meth headers body sock_data =
-  match Api.Headers.is_ws headers,meth,Uri.Path.to_string path with
-  (* WS *)
-  | true, `GET,""        -> WS.T2MI.errors sock_data events body query ()
-  (* HTTP *)
-  | false,`GET,""        -> HTTP.T2MI.errors query ()
-  | false,`GET,"percent" -> HTTP.T2MI.percent query ()
-  | false,`GET,"has-any" -> HTTP.T2MI.has_any query ()
-  | _                    -> not_found ()
+let t2mi_handler events =
+  let open Uri in
+  let open Boards.Board.Api_handler in
+  create_dispatcher
+    "t2mi"
+    [ create_ws_handler ~docstring:"Pushes T2-MI errors to the client"
+                        ~path:Path.Format.empty
+                        ~query:Query.[ "stream",         (module Option(Int32))
+                                     ; "t2mi-stream-id", (module Option(Int))
+                                     ; "errors",         (module List(Int))
+                                     ; "pid",            (module List(Int)) ]
+                        (WS.T2MI.errors events)
+    ]
+    [ `GET, [ create_handler ~docstring:"Returns T2-MI errors archive"
+                             ~path:Path.Format.("archive" @/ empty)
+                             ~query:Query.[ "stream",         (module Option(Int32))
+                                          ; "t2mi-stream-id", (module Option(Int))
+                                          ; "errors",         (module List(Int))
+                                          ; "pid",            (module List(Int))
+                                          ; "limit",          (module Option(Int))
+                                          ; "compress",       (module Option(Bool))
+                                          ; "from",           (module Option(Time.Show))
+                                          ; "to",             (module Option(Time.Show))
+                                          ; "duration",       (module Option(Time.Relative)) ]
+                             (HTTP.T2MI.Archive.errors)
+            ; create_handler ~docstring:"Returns T2-MI errors presense percentage"
+                             ~path:Path.Format.("archive/percent" @/ empty)
+                             ~query:Query.[ "stream",         (module Option(Int32))
+                                          ; "t2mi-stream-id", (module Option(Int))
+                                          ; "errors",         (module List(Int))
+                                          ; "pid",            (module List(Int))
+                                          ; "from",           (module Option(Time.Show))
+                                          ; "to",             (module Option(Time.Show))
+                                          ; "duration",       (module Option(Time.Relative)) ]
+                             (HTTP.T2MI.Archive.percent)
+            ; create_handler ~docstring:"Returns if T2-MI errors were present for the requested period"
+                             ~path:Path.Format.("archive/has-any" @/ empty)
+                             ~query:Query.[ "stream",         (module Option(Int32))
+                                          ; "t2mi-stream-id", (module Option(Int))
+                                          ; "errors",         (module List(Int))
+                                          ; "pid",            (module List(Int))
+                                          ; "from",           (module Option(Time.Show))
+                                          ; "to",             (module Option(Time.Show))
+                                          ; "duration",       (module Option(Time.Relative)) ]
+                             (HTTP.T2MI.Archive.has_any) ]
+    ]
 
 let handlers events =
-  [ (module struct
-       let domain = "ts"
-       let handle = ts_handler events
-     end : Api_handler.HANDLER)
-  ; (module struct
-       let domain = "t2mi"
-       let handle = t2mi_handler events
-     end : Api_handler.HANDLER)
+  [ ts_handler events
+  ; t2mi_handler events
   ]

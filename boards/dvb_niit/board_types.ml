@@ -118,12 +118,6 @@ and config_item =
   ; c        : channel
   } [@@deriving yojson, eq]
 
-let list_to_yojson (f:'a -> Yojson.Safe.json) (l:'a list) : Yojson.Safe.json =
-  `List (List.map f l)
-let list_of_yojson (f:Yojson.Safe.json -> ('a,string) result) = function
-  | `List l -> List.map f l |> List.all_ok
-  | _       -> Error "not a list"
-
 let config_to_string c = Yojson.Safe.to_string @@ config_to_yojson c
 
 let config_of_string s = config_of_yojson @@ Yojson.Safe.from_string s

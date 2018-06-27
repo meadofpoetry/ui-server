@@ -32,7 +32,7 @@ module Device = struct
 
       let get_state ?limit ?compress ?from ?till ?duration control =
         get_result ~from:(fun _ -> Error "not implemented")
-                   ~path:Uri.Path.Format.(get_device_path () / ("state/archive" @/ empty))
+                   ~path:Uri.Path.Format.(get_device_path () / ("archive/state" @/ empty))
                    ~query:Uri.Query.[ "limit",    (module Option(Int))
                                     ; "compress", (module Option(Bool))
                                     ; "from",     (module Option(Time.Show))

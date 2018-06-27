@@ -3,90 +3,96 @@ open Board_types
 open Api_js.Requests.Json_request
 open Common
 
-(* let make_path = Boards_js.Requests.Device.make_path
- * 
- * module WS = struct
- * 
- *   include Boards_js.Requests.Device.WS
- * 
- *   let get_status control =
- *     let path = make_path control ["status"] in
- *     WS.get ~path status_of_yojson ()
- * 
- *   let get_errors control =
- *     let path = make_path control ["errors"] in
- *     WS.get ~path board_errors_of_yojson ()
- * 
- *   let get_t2mi_mode control =
- *     let path = make_path control ["mode";"t2mi"] in
- *     WS.get ~path t2mi_mode_opt_of_yojson ()
- * 
- *   let get_jitter_mode control =
- *     let path = make_path control ["mode";"jitter"] in
- *     WS.get ~path jitter_mode_opt_of_yojson ()
- * 
- * end
- * 
- * module HTTP = struct
- * 
- *   include (Boards_js.Requests.Device.HTTP:
- *            module type of Boards_js.Requests.Device.HTTP
- *                           with module Archive := Boards_js.Requests.Device.HTTP.Archive)
- * 
- *   (\** Resets the board **\)
- *   let post_reset control =
- *     let path = make_path control ["reset"] in
- *     post_result_unit ~path ()
- * 
- *   (\** Sets T2-MI analysis settings **\)
- *   let post_t2mi_mode control mode =
- *     let path = make_path control ["mode";"t2mi"] in
- *     let contents = t2mi_mode_opt_to_yojson mode in
- *     post_result_unit ~path ~contents ()
- * 
- *   (\** Sets jitter measurements settings **\)
- *   let post_jitter_mode control mode =
- *     let path = make_path control ["mode";"jitter"] in
- *     let contents = jitter_mode_opt_to_yojson mode in
- *     post_result_unit ~path ~contents ()
- * 
- *   let get_devinfo control =
- *     let path = make_path control ["info"] in
- *     get_result ~path devinfo_opt_of_yojson ()
- * 
- *   let get_t2mi_mode control =
- *     let path = make_path control ["mode";"t2mi"] in
- *     get_result ~path t2mi_mode_opt_of_yojson ()
- * 
- *   let get_jitter_mode control =
- *     let path = make_path control ["mode";"jitter"] in
- *     get_result ~path jitter_mode_opt_of_yojson ()
- * 
- *   module Archive = struct
- * 
- *     include Boards_js.Requests.Device.HTTP.Archive
- * 
- *     let get_status ?limit ?total time control =
- *       let query =
- *         let open Uri.Query in
- *         let coll = Api_js.Query.Collection.make ?limit ?total () in
- *         let time = Api_js.Query.Time.make time in
- *         merge coll time
- *       in
- *       let path = make_path control ["status"] in
- *       get_result ~query ~path (fun _ -> Error "not implemented") ()
- * 
- *     (\* TODO add filter *\)
- *     let get_errors ?limit ?thin ?total time control =
- *       let query =
- *         let open Uri.Query in
- *         let coll = Api_js.Query.Collection.make ?limit ?total ?thin () in
- *         let time = Api_js.Query.Time.make time in
- *         merge coll time
- *       in
- *       let path = make_path control ["errors"] in
- *       get_result ~query ~path (fun _ -> Error "not implemented") ()
- * 
- *   end
- * 
- * end *)
+let get_base_path = Boards_js.Requests.Device.get_device_path
+
+module WS = struct
+
+  open Common.Uri
+
+  include Boards_js.Requests.Device.WS
+
+  let get_status control =
+    let path = Path.Format.(get_base_path () / ("status" @/ empty)) in
+    WS.get ~from:status_of_yojson ~path ~query:Query.empty control
+
+  let get_errors ?(errors=[]) control =
+    WS.get ~from:board_errors_of_yojson
+           ~path:Path.Format.(get_base_path () / ("errors" @/ empty))
+           ~query:Query.["errors", (module List(Int))]
+           control errors
+
+  let get_t2mi_mode control =
+    WS.get ~from:(Json.opt_of_yojson t2mi_mode_of_yojson)
+           ~path:Path.Format.(get_base_path () / ("mode/t2mi" @/ empty))
+           ~query:Query.empty
+           control
+
+  let get_jitter_mode control =
+    WS.get ~from:(Json.opt_of_yojson jitter_mode_of_yojson)
+           ~path:Path.Format.(get_base_path () / ("mode/jitter" @/ empty))
+           ~query:Query.empty
+           control
+
+end
+
+module HTTP = struct
+
+  open Common.Uri
+
+  include (Boards_js.Requests.Device.HTTP:
+           module type of Boards_js.Requests.Device.HTTP
+                          with module Archive := Boards_js.Requests.Device.HTTP.Archive)
+
+  let post_reset control =
+    post_result_unit ~path:Path.Format.(get_base_path () / ("reset" @/ empty))
+                     ~query:Query.empty
+                     control
+
+  let post_t2mi_mode mode control =
+    post_result_unit ~contents:((Json.opt_to_yojson t2mi_mode_to_yojson) mode)
+                     ~path:Path.Format.(get_base_path () / ("mode/t2mi" @/ empty))
+                     ~query:Query.empty
+                     control
+
+  let post_jitter_mode mode control =
+    post_result_unit ~contents:((Json.opt_to_yojson jitter_mode_to_yojson) mode)
+                     ~path:Path.Format.(get_base_path () / ("mode/jitter" @/ empty))
+                     ~query:Query.empty
+                     control
+
+  let get_devinfo control =
+    get_result ~from:(Json.opt_of_yojson devinfo_of_yojson)
+               ~path:Path.Format.(get_base_path () / ("info" @/ empty))
+               ~query:Query.empty
+               control
+
+  let get_t2mi_mode control =
+    get_result ~from:(Json.opt_of_yojson t2mi_mode_of_yojson)
+               ~path:Path.Format.(get_base_path () / ("mode/t2mi" @/ empty))
+               ~query:Query.empty
+               control
+
+  let get_jitter_mode control =
+    get_result ~from:(Json.opt_of_yojson jitter_mode_of_yojson)
+               ~path:Path.Format.(get_base_path () / ("mode/jitter" @/ empty))
+               ~query:Query.empty
+               control
+
+  module Archive = struct
+
+    include Boards_js.Requests.Device.HTTP.Archive
+
+    let get_errors ?(errors=[]) ?limit ?compress ?from ?till ?duration control =
+      get_result ~from:(fun _ -> Error "not implemented")
+                 ~path:Path.Format.(get_base_path () / ("errors/archive" @/ empty))
+                 ~query:Query.[ "errors",   (module List(Int))
+                              ; "limit",    (module Option(Int))
+                              ; "compress", (module Option(Bool))
+                              ; "from",     (module Option(Time.Show))
+                              ; "to",       (module Option(Time.Show))
+                              ; "duration", (module Option(Time.Relative)) ]
+                 control errors limit compress from till duration
+
+  end
+
+end

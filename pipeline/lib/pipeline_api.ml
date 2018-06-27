@@ -1,5 +1,6 @@
 open Containers
 open Api.Interaction
+open Api.Interaction.Json
 open Api.Redirect
 open Websocket_cohttp_lwt
 open Frame
@@ -27,10 +28,10 @@ let get_page id headers body =
     ()
 
 let set body conv apply =
-  Json.of_body body >>= fun js ->
+  of_body body >>= fun js ->
   match conv js with
   | Error e -> respond_error e ()
-  | Ok x    -> apply x >>= function Ok () -> Json.respond_result_unit (Ok ())
+  | Ok x    -> apply x >>= function Ok () -> respond_result_unit (Ok ())
 
 let get_sock sock_data body conv event =
   let id = rand_int () in
@@ -63,7 +64,7 @@ let get_structure api id headers body =
        | Error e -> Lwt.fail_with e
        | Ok v -> Lwt.return v)
   >|= (Structure.Streams.to_yojson %> Result.return)
-  >>= Json.respond_result
+  >>= respond_result
 
 let get_structure_sock sock_data body api =
   let open Pipeline_protocol in
@@ -80,7 +81,7 @@ let get_settings api id headers body =
        | Error e -> Lwt.fail_with e
        | Ok v    -> Lwt.return v)
   >|= (Settings.to_yojson %> Result.return)
-  >>= Json.respond_result
+  >>= respond_result
 
 let get_settings_sock sock_data body api () =
   let open Pipeline_protocol in
@@ -97,7 +98,7 @@ let get_wm api () =
        | Error e -> Lwt.fail_with e
        | Ok v -> Lwt.return v)
   >|= (Wm.to_yojson %> Result.return)
-  >>= Json.respond_result
+  >>= respond_result
 
 let get_wm_sock sock_data body api () =
   let open Pipeline_protocol in
