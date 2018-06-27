@@ -40,7 +40,7 @@ module HTTP = struct
 
   module Archive = struct
 
-    let state from till duration _ _ () =
+    let state limit compress from till duration _ _ () =
       let _ = Time.make_interval ?from ?till ?duration () in
       respond_error ~status:`Not_implemented "not_implemented" ()
 
@@ -62,7 +62,13 @@ let handler api events =
                         ~query:Query.(["name", (module Option(String))])
                         (WS.config events)
     ]
-    [ `GET,  [ create_handler ~docstring:"Returns current board state"
+    [ `POST, [ create_handler ~docstring:"Resets the board"
+                              ~restrict:[ `Guest ]
+                              ~path:Path.Format.("reset" @/ empty)
+                              ~query:Query.empty
+                              (HTTP.post_reset api)
+             ]
+    ; `GET,  [ create_handler ~docstring:"Returns current board state"
                               ~path:Path.Format.("state" @/ empty)
                               ~query:Query.empty
                               (HTTP.state events)
@@ -77,15 +83,11 @@ let handler api events =
              (* Archive *)
              ; create_handler ~docstring:"Returns board states for the requested period"
                               ~path:Path.Format.("state/archive" @/ empty)
-                              ~query:Query.[ "from",    (module Option(Time.Show))
-                                           ; "to",      (module Option(Time.Show))
-                                           ; "duration",(module Option(Time.Relative)) ]
+                              ~query:Query.[ "limit",    (module Option(Int))
+                                           ; "compress", (module Option(Bool))
+                                           ; "from",     (module Option(Time.Show))
+                                           ; "to",       (module Option(Time.Show))
+                                           ; "duration", (module Option(Time.Relative)) ]
                               HTTP.Archive.state
-             ]
-    ; `POST, [ create_handler ~docstring:"Resets the board"
-                              ~restrict:[ `Guest ]
-                              ~path:Path.Format.("reset" @/ empty)
-                              ~query:Query.empty
-                              (HTTP.post_reset api)
              ]
     ]

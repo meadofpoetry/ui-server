@@ -36,7 +36,7 @@ module Json_req : Req with type t = Yojson.Safe.json = struct
 
   type t     = Yojson.Safe.json
 
-  let to_body (t:t) = Yojson.Safe.to_string t |> Uri.pct_encode |> Cohttp_lwt.Body.of_string
+  let to_body (t:t) = Yojson.Safe.to_string t |> Cohttp_lwt.Body.of_string
   let of_body (b:Cohttp_lwt.Body.t) = Cohttp_lwt.Body.to_string b >|= fun body ->
                                       Uri.pct_decode body |> Yojson.Safe.from_string
   let of_error_string (s:string) = `String s

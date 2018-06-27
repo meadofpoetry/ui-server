@@ -160,12 +160,12 @@ module Make(M:Req) : (Request with type t = M.t and type response = M.response) 
     let port ()   = Js.to_string @@ Dom_html.window##.location##.port |> int_of_string_opt
   end
 
-  let make_uri ?scheme ?host ?port ~f ~path ~query =
+  let make_uri ?(scheme=Default.scheme ()) ?(host=Default.host ()) ?port ~f ~path ~query =
     let port = match port with
       | None   -> Default.port ()
       | Some p -> Some p
     in
-    Uri.kconstruct ?scheme ?host ?port ~f:(fun u -> Uri.to_string u |> Uri.pct_decode |> f) ~path ~query
+    Uri.kconstruct ~scheme ~host ?port ~f:(fun u -> Uri.to_string u |> Uri.pct_decode |> f) ~path ~query
 
   let get_raw' ?scheme ?host ?port ~f ~path ~query =
     let f = fun uri -> Lwt_xmlHttpRequest.perform_raw ~response_type:M.response_type uri >|= f in

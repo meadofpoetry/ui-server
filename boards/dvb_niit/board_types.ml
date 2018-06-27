@@ -1,4 +1,5 @@
 open Common
+open Containers
 
 type devinfo =
   { serial    : int
@@ -31,8 +32,6 @@ type mode =
   ; channel  : channel
   } [@@deriving yojson, eq, show]
 
-type modes = mode list [@@deriving yojson]
-
 type mode_rsp =
   { mode       : mode
   ; hw_present : bool
@@ -45,8 +44,6 @@ type plp_list =
   ; lock      : bool
   ; plps      : int list
   } [@@deriving yojson, show]
-
-type plp_list_all = plp_list list [@@deriving yojson]
 
 type plp_set_req =
   { id  : int
@@ -70,15 +67,11 @@ type measures =
   ; bitrate   : int option
   } [@@deriving yojson, show]
 
-type measures_all = measures list [@@deriving yojson]
-
 type lock =
   { id        : int
   ; timestamp : Time.t
   ; lock      : bool
   } [@@deriving yojson]
-
-type lock_all = lock list [@@deriving yojson]
 
 type t2_params =
   { fft             : int
@@ -117,8 +110,6 @@ type params =
   ; params    : t2_params option
   } [@@deriving yojson, show]
 
-type params_all = params list [@@deriving yojson]
-
 type config = (int * config_item) list
 and config_item =
   { standard : standard
@@ -126,6 +117,12 @@ and config_item =
   ; t        : channel
   ; c        : channel
   } [@@deriving yojson, eq]
+
+let list_to_yojson (f:'a -> Yojson.Safe.json) (l:'a list) : Yojson.Safe.json =
+  `List (List.map f l)
+let list_of_yojson (f:Yojson.Safe.json -> ('a,string) result) = function
+  | `List l -> List.map f l |> List.all_ok
+  | _       -> Error "not a list"
 
 let config_to_string c = Yojson.Safe.to_string @@ config_to_yojson c
 
