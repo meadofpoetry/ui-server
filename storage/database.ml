@@ -148,7 +148,11 @@ end
 module Types = struct
   include Caqti_type
 
-  let (&) = tup2
+  module List = struct
+    type _ t = [] : unit t | (::) : 'a * 'b t -> ('a * 'b) t
+
+    let (&) = Caqti_type.tup2
+  end
 
 end
                                
