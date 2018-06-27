@@ -39,12 +39,12 @@ let string_of_err = function
 
 type _ request = Get_devinfo  : devinfo request
                | Reset        : unit request
-               | Set_mode     : mode -> mode_rsp request
-               | Set_plp      : plp_set_req -> plp_set_rsp request
+               | Set_mode     : (int * mode)        -> (int * mode_rsp) request
+               | Set_plp      : (int * plp_set_req) -> (int * plp_set_rsp) request
 
-type event = Measures of measures
-           | Params   of params
-           | Plp_list of plp_list [@@deriving show]
+type event = Measures of (int * measures)
+           | Params   of (int * params)
+           | Plp_list of (int * plp_list) [@@deriving show]
 
 type _ event_request = Get_measure  : int -> event event_request
                      | Get_params   : int -> event event_request
@@ -163,27 +163,26 @@ let parse_devinfo_rsp_exn msg =
 
 (* Mode *)
 
-let to_mode_req (req : mode) =
+let to_mode_req id (mode:mode) =
   let body = Cbuffer.create sizeof_mode in
-  let () = set_mode_standard body (standard_to_int req.standard) in
-  let () = set_mode_bw body (bw_to_int req.channel.bw) in
-  let () = set_mode_freq body @@ Int32.of_int req.channel.freq in
-  let () = set_mode_plp body req.channel.plp in
-  to_msg ~msg_code:(0x20 lor req.id) ~body
+  let () = set_mode_standard body (standard_to_int mode.standard) in
+  let () = set_mode_bw body (bw_to_int mode.channel.bw) in
+  let () = set_mode_freq body @@ Int32.of_int mode.channel.freq in
+  let () = set_mode_plp body mode.channel.plp in
+  to_msg ~msg_code:(0x20 lor id) ~body
 
 let parse_mode_rsp_exn id msg =
   try
     let open Option in
-    { lock       = int_to_bool8 (get_mode_lock msg)       |> get_exn |> bool_of_bool8
-    ; hw_present = int_to_bool8 (get_mode_hw_present msg) |> get_exn |> bool_of_bool8
-    ; mode       = { id
-                   ; standard = get_exn @@ standard_of_int (get_mode_standard msg)
-                   ; channel  = { bw   = get_exn @@ bw_of_int (get_mode_bw msg)
-                                ; freq = Int32.to_int @@ get_mode_freq msg
-                                ; plp  = get_mode_plp msg
-                                }
-                   }
-    }
+    id,{ lock       = int_to_bool8 (get_mode_lock msg)       |> get_exn |> bool_of_bool8
+       ; hw_present = int_to_bool8 (get_mode_hw_present msg) |> get_exn |> bool_of_bool8
+       ; mode       = { standard = get_exn @@ standard_of_int (get_mode_standard msg)
+                      ; channel  = { bw   = get_exn @@ bw_of_int (get_mode_bw msg)
+                                   ; freq = Int32.to_int @@ get_mode_freq msg
+                                   ; plp  = get_mode_plp msg
+                                   }
+                      }
+       }
   with _ -> raise Parse_error
 
 (* Measure *)
@@ -195,20 +194,19 @@ let parse_measures_rsp_exn id msg =
   let int_to_opt   x = if Int.equal   x max_uint16 then None else Some x in
   let int32_to_opt x = if Int32.equal x max_uint32 then None else Some x in
   try
-    { id
-    ; timestamp = Common.Time.Clock.now ()
-    ; lock      = int_to_bool8 (get_rsp_measure_lock msg) |> Option.get_exn |> bool_of_bool8
-    ; power     = Fun.(int_to_opt % get_rsp_measure_power) msg
-                  |> Option.map (fun x -> -.((float_of_int x) /. 10.))
-    ; mer       = Fun.(int_to_opt % get_rsp_measure_mer) msg
-                  |> Option.map (fun x -> (float_of_int x) /. 10.)
-    ; ber       = Fun.(int32_to_opt % get_rsp_measure_ber) msg
-                  |> Option.map (fun x -> (Int32.to_float x) /. (2.**24.))
-    ; freq      = Fun.(int32_to_opt % get_rsp_measure_freq) msg
-                  |> Option.map Int32.to_int
-    ; bitrate   = Fun.(int32_to_opt % get_rsp_measure_bitrate) msg
-                  |> Option.map Int32.to_int
-    }
+    id,{ timestamp = Common.Time.Clock.now ()
+       ; lock      = int_to_bool8 (get_rsp_measure_lock msg) |> Option.get_exn |> bool_of_bool8
+       ; power     = Fun.(int_to_opt % get_rsp_measure_power) msg
+                     |> Option.map (fun x -> -.((float_of_int x) /. 10.))
+       ; mer       = Fun.(int_to_opt % get_rsp_measure_mer) msg
+                     |> Option.map (fun x -> (float_of_int x) /. 10.)
+       ; ber       = Fun.(int32_to_opt % get_rsp_measure_ber) msg
+                     |> Option.map (fun x -> (Int32.to_float x) /. (2.**24.))
+       ; freq      = Fun.(int32_to_opt % get_rsp_measure_freq) msg
+                     |> Option.map Int32.to_int
+       ; bitrate   = Fun.(int32_to_opt % get_rsp_measure_bitrate) msg
+                     |> Option.map Int32.to_int
+       }
   with _ -> raise Parse_error
 
 (* Params *)
@@ -216,7 +214,7 @@ let parse_measures_rsp_exn id msg =
 let to_params_req id =
   to_empty_msg ~msg_code:(0x40 lor id)
 
-let parse_params_rsp_exn id msg : params =
+let parse_params_rsp_exn id msg : int * params =
   let bool_of_int x = if x = 0 then false else true in
   try
     let lock   = int_to_bool8 (get_rsp_params_lock msg) |> Option.get_exn |> bool_of_bool8 in
@@ -251,10 +249,9 @@ let parse_params_rsp_exn id msg : params =
       ; in_band_flag    = get_rsp_params_in_band_flag msg |> bool_of_int
       }
     in
-    { id
-    ; timestamp = Common.Time.Clock.now ()
-    ; params    = if lock then Some params else None
-    }
+    id,{ timestamp = Common.Time.Clock.now ()
+       ; params    = if lock then Some params else None
+       }
   with _ -> raise Parse_error
 
 (* PLP list *)
@@ -262,36 +259,34 @@ let parse_params_rsp_exn id msg : params =
 let to_plp_list_req id =
   to_empty_msg ~msg_code:(0x50 lor id)
 
-let parse_plp_list_rsp_exn id msg : plp_list =
+let parse_plp_list_rsp_exn id msg : int * plp_list =
   try
     let plp_num = Cbuffer.get_uint8 msg 1 |> (fun x -> if x = 0xFF then None else Some x) in
-    { id
-    ; timestamp = Common.Time.Clock.now ()
-    ; lock = int_to_bool8 (Cbuffer.get_uint8 msg 0) |> Option.get_exn |> bool_of_bool8
-    ; plps = begin match plp_num with
-             | Some _ -> let iter = Cbuffer.iter (fun _ -> Some 1)
-                                                 (fun buf -> Cbuffer.get_uint8 buf 0)
-                                                 (Cbuffer.shift msg 2) in
-                         Cbuffer.fold (fun acc el -> el :: acc) iter []
-                         |> List.sort compare
-             | None   -> []
-             end
-    }
+    id,{ timestamp = Common.Time.Clock.now ()
+       ; lock = int_to_bool8 (Cbuffer.get_uint8 msg 0) |> Option.get_exn |> bool_of_bool8
+       ; plps = begin match plp_num with
+                | Some _ -> let iter = Cbuffer.iter (fun _ -> Some 1)
+                                         (fun buf -> Cbuffer.get_uint8 buf 0)
+                                         (Cbuffer.shift msg 2) in
+                            Cbuffer.fold (fun acc el -> el :: acc) iter []
+                            |> List.sort compare
+                | None   -> []
+                end
+       }
   with _ -> raise Parse_error
 
 (* PLP set *)
 
-let to_plp_set_req (req:plp_set_req) =
+let to_plp_set_req id (plp:int) =
   let body = Cbuffer.create sizeof_cmd_plp_set in
-  let () = set_cmd_plp_set_plp_id body req.plp in
-  to_msg ~msg_code:(0x60 lor req.id) ~body
+  let () = set_cmd_plp_set_plp_id body plp in
+  to_msg ~msg_code:(0x60 lor id) ~body
 
 let parse_plp_set_rsp_exn id msg =
   try
-    { id
-    ; lock = int_to_bool8 (get_rsp_plp_set_lock msg) |> Option.get_exn |> bool_of_bool8
-    ; plp  = get_rsp_plp_set_plp msg
-    }
+    id,{ lock = int_to_bool8 (get_rsp_plp_set_lock msg) |> Option.get_exn |> bool_of_bool8
+       ; plp  = get_rsp_plp_set_plp msg
+       }
   with _ -> raise Parse_error
 
 let deserialize buf =
@@ -359,8 +354,8 @@ let is_response (type a) (req : a request) msg : a option =
   match req with
   | Reset           -> parse_reset_rsp msg
   | Get_devinfo     -> parse_devinfo_rsp msg
-  | Set_mode req    -> parse_mode_rsp req.id msg
-  | Set_plp req     -> parse_plp_set_rsp req.id msg
+  | Set_mode (id,_) -> parse_mode_rsp id msg
+  | Set_plp (id,_)  -> parse_plp_set_rsp id msg
 
 let is_event (type a) (req : a event_request) msg : a option =
   match req with

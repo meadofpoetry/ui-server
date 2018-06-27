@@ -24,7 +24,7 @@ module WS = struct
                                                      | `Ts id -> List.mem ~eq:(Stream.equal_id) id l
                                                      | _      -> false) streams
                     |> function [] -> None | l -> Some l) (React.S.changes events.streams)
-      in sock_handler sock_data e (Json.list_to_yojson Stream.to_yojson) body
+      in sock_handler sock_data e (Json.List.to_yojson Stream.to_yojson) body
 
     let state (events:events) ids _ body sock_data () =
       let ids = List.map Stream.id_of_int32 ids in
@@ -33,7 +33,7 @@ module WS = struct
         | l  -> React.E.fmap (fun states ->
                     List.filter (fun (s:state) -> List.mem ~eq:(Stream.equal_id) s.stream l) states
                     |> function [] -> None | l -> Some l) events.ts_states
-      in sock_handler sock_data e (Json.list_to_yojson state_to_yojson) body
+      in sock_handler sock_data e (Json.List.to_yojson state_to_yojson) body
 
     let bitrate (events:events) ids _ body sock_data () =
       let ids = List.map Stream.id_of_int32 ids in
@@ -43,7 +43,7 @@ module WS = struct
                     List.filter (fun (b:bitrate) -> List.mem ~eq:(Stream.equal_id) b.stream l) bitrates
                     |> function [] -> None | l -> Some l)
                 @@ React.S.changes events.ts_bitrates
-      in sock_handler sock_data e (Json.list_to_yojson bitrate_to_yojson) body
+      in sock_handler sock_data e (Json.List.to_yojson bitrate_to_yojson) body
 
     let structure (events:events) ids _ body sock_data () =
       let ids = List.map Stream.id_of_int32 ids in
@@ -53,7 +53,7 @@ module WS = struct
                     List.filter (fun (s:structure) -> List.mem ~eq:(Stream.equal_id) s.stream l) structures
                     |> function [] -> None | l -> Some l)
                 @@ React.S.changes events.ts_structures
-      in sock_handler sock_data e (Json.list_to_yojson structure_to_yojson) body
+      in sock_handler sock_data e (Json.List.to_yojson structure_to_yojson) body
 
   end
 
@@ -103,7 +103,7 @@ module HTTP = struct
                                                  | `Ts id -> List.mem ~eq:Stream.equal_id id l
                                                  | _      -> false)
                 @@ React.S.value events.streams
-      in (Json.list_to_yojson Stream.to_yojson) streams |> Result.return |> respond_result
+      in (Json.List.to_yojson Stream.to_yojson) streams |> Result.return |> respond_result
 
     let bitrate (events:events) ids _ _ () =
       let ids = List.map Stream.id_of_int32 ids in
@@ -111,7 +111,7 @@ module HTTP = struct
         | [] -> React.S.value events.ts_bitrates
         | l  -> List.filter (fun (b:bitrate) -> List.mem ~eq:Stream.equal_id b.stream l)
                 @@ React.S.value events.ts_bitrates
-      in (Json.list_to_yojson bitrate_to_yojson) bitrates |> Result.return |> respond_result
+      in (Json.List.to_yojson bitrate_to_yojson) bitrates |> Result.return |> respond_result
 
     let structure (events:events) ids _ _ () =
       let ids = List.map Stream.id_of_int32 ids in
@@ -119,7 +119,7 @@ module HTTP = struct
         | [] -> React.S.value events.ts_structures
         | l  -> List.filter (fun (s:structure) -> List.mem ~eq:Stream.equal_id s.stream l)
                 @@ React.S.value events.ts_structures
-      in (Json.list_to_yojson structure_to_yojson) structs |> Result.return |> respond_result
+      in (Json.List.to_yojson structure_to_yojson) structs |> Result.return |> respond_result
 
     let si_psi_section (api:api) stream table_id section table_id_ext
                        eit_ts_id eit_orig_nw_id _ _ () =

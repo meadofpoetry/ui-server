@@ -102,12 +102,12 @@ let make_chart_base ~(config: config)
               }
     chart#widget
 
-type event = measures React.event
+type event = (int * measures) React.event
 let to_event (get: Board_types.measures -> float option)
              (event: event) : float data React.event =
-  React.E.map (fun m ->
+  React.E.map (fun (id,m) ->
       let y = Option.get_or ~default:nan (get m) in
-      [m.id, List.return ({ x = m.timestamp; y }:'a point)]) event
+      [ id, List.return ({ x = m.timestamp; y }:'a point) ]) event
 
 let to_power_event   (event:event) = to_event (fun m -> m.power)   event
 let to_mer_event     (event:event) = to_event (fun m -> m.mer)     event
@@ -152,7 +152,7 @@ module Ber     = Make(Float)
 module Freq    = Make(Int)
 module Bitrate = Make(Float)
 
-let make ~(measures:Board_types.measures React.event) (config:config option) =
+let make ~(measures:(int * measures) React.event) (config:config option) =
   let config = Option.get_exn config in (* FIXME *)
   let event = measures in
   (match config.typ with

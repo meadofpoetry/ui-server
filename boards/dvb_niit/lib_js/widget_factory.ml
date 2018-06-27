@@ -79,7 +79,7 @@ class t (control:int) () =
 object(self)
   val mutable _state    : Topology.state React.signal t_lwt    = empty ()
   val mutable _config   : config React.signal t_lwt            = empty ()
-  val mutable _measures : measures React.event Factory_state.t = empty ()
+  val mutable _measures : (int * measures) React.event Factory_state.t = empty ()
 
   val mutable _measures_ref = 0
 
@@ -169,7 +169,7 @@ object(self)
   method private _measures = match _measures.value with
     | Some x -> Factory_state.succ_ref _measures; x
     | None   -> Factory_state.set_ref _measures 1;
-                let e,sock = Requests.Receiver.WS.get_measures control in
+                let e,sock = Requests.Receivers.WS.get_measures control in
                 _measures.value <- Some e;
                 _measures.fin   <- (fun () -> sock##close; React.E.stop ~strong:true e);
                 e

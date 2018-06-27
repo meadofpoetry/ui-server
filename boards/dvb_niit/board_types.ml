@@ -10,8 +10,6 @@ type devinfo =
   ; receivers : int list
   } [@@deriving yojson]
 
-type devinfo_opt = devinfo option [@@deriving yojson]
-
 type standard = T2
               | T
               | C [@@deriving yojson, eq, show]
@@ -27,8 +25,7 @@ type channel =
   } [@@deriving yojson, eq, show]
 
 type mode =
-  { id       : int
-  ; standard : standard
+  { standard : standard
   ; channel  : channel
   } [@@deriving yojson, eq, show]
 
@@ -39,26 +36,20 @@ type mode_rsp =
   } [@@deriving yojson, show]
 
 type plp_list =
-  { id        : int
-  ; timestamp : Time.t
+  { timestamp : Time.t
   ; lock      : bool
   ; plps      : int list
   } [@@deriving yojson, show]
 
-type plp_set_req =
-  { id  : int
-  ; plp : int
-  } [@@deriving yojson]
+type plp_set_req = int
 
 type plp_set_rsp =
-  { id   : int
-  ; lock : bool
+  { lock : bool
   ; plp  : int
   } [@@deriving yojson]
 
 type measures =
-  { id        : int
-  ; timestamp : Time.t
+  { timestamp : Time.t
   ; lock      : bool
   ; power     : float option
   ; mer       : float option
@@ -68,8 +59,7 @@ type measures =
   } [@@deriving yojson, show]
 
 type lock =
-  { id        : int
-  ; timestamp : Time.t
+  { timestamp : Time.t
   ; lock      : bool
   } [@@deriving yojson]
 
@@ -105,8 +95,7 @@ type t2_params =
   } [@@deriving yojson, eq, show]
 
 type params =
-  { id        : int
-  ; timestamp : Time.t
+  { timestamp : Time.t
   ; params    : t2_params option
   } [@@deriving yojson, show]
 

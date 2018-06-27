@@ -564,7 +564,7 @@ module SM = struct
       ; set_t2mi_mode =
           (fun mode ->
             Logs.info (fun m ->
-                let md = (Json.opt_to_yojson t2mi_mode_to_yojson) mode |> Yojson.Safe.to_string in
+                let md = (Json.Option.to_yojson t2mi_mode_to_yojson) mode |> Yojson.Safe.to_string in
                 m "%s" @@ fmt @@ Printf.sprintf "T2-MI mode changed: %s" md);
             let m = { input = storage#get.input; t2mi = mode } in
             enqueue_instant s_state imsgs sender storage (Set_board_mode m)
@@ -572,7 +572,7 @@ module SM = struct
       ; set_jitter_mode =
           (fun mode ->
             Logs.info (fun m ->
-                let md = (Json.opt_to_yojson jitter_mode_to_yojson) mode |> Yojson.Safe.to_string in
+                let md = (Json.Option.to_yojson jitter_mode_to_yojson) mode |> Yojson.Safe.to_string in
                 m "%s" @@ fmt @@ Printf.sprintf "Jitter mode changed: %s" md);
             enqueue_instant s_state imsgs sender storage (Set_jitter_mode mode)
             >>= (fun () -> cfg_push storage#get; Lwt.return_unit))

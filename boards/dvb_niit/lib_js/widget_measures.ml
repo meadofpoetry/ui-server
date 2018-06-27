@@ -12,7 +12,7 @@ let default_config = { ids = None }
 let name     = "Измерения"
 let settings = None
 
-let make ~(measures:measures React.event)
+let make ~(measures:(int * measures) React.event)
          ~(config:Board_types.config React.signal)
          (conf:config option) =
   let conf = Option.get_or ~default:default_config conf in

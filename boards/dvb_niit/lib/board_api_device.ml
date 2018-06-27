@@ -1,10 +1,11 @@
 open Containers
-open Common
 open Board_types
 open Board_protocol
 open Board_api_common
 open Api.Interaction
+open Api.Interaction.Json
 open Api.Redirect
+open Common
 
 module WS = struct
 
@@ -20,23 +21,23 @@ module HTTP = struct
 
   let post_reset (api:api) _ _ () =
     api.reset () >|= Result.return
-    >>= Json.respond_result_unit
+    >>= respond_result_unit
 
   let devinfo (api:api) _ _ () =
-    api.get_devinfo () >|= (devinfo_opt_to_yojson %> Result.return)
-    >>= Json.respond_result
+    api.get_devinfo () >|= (Json.Option.to_yojson devinfo_to_yojson %> Result.return)
+    >>= respond_result
 
   let config (api:api) _ _ () =
     api.get_config ()
     |> config_to_yojson
     |> Result.return
-    |> Json.respond_result
+    |> respond_result
 
   let state (events:events) _ _ () =
     React.S.value events.state
     |> Common.Topology.state_to_yojson
     |> Result.return
-    |> Json.respond_result
+    |> respond_result
 
   module Archive = struct
 

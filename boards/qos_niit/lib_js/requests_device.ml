@@ -22,13 +22,13 @@ module WS = struct
            control errors
 
   let get_t2mi_mode control =
-    WS.get ~from:(Json.opt_of_yojson t2mi_mode_of_yojson)
+    WS.get ~from:(Json.Option.of_yojson t2mi_mode_of_yojson)
            ~path:Path.Format.(get_base_path () / ("mode/t2mi" @/ empty))
            ~query:Query.empty
            control
 
   let get_jitter_mode control =
-    WS.get ~from:(Json.opt_of_yojson jitter_mode_of_yojson)
+    WS.get ~from:(Json.Option.of_yojson jitter_mode_of_yojson)
            ~path:Path.Format.(get_base_path () / ("mode/jitter" @/ empty))
            ~query:Query.empty
            control
@@ -49,31 +49,31 @@ module HTTP = struct
                      control
 
   let post_t2mi_mode mode control =
-    post_result_unit ~contents:((Json.opt_to_yojson t2mi_mode_to_yojson) mode)
+    post_result_unit ~contents:((Json.Option.to_yojson t2mi_mode_to_yojson) mode)
                      ~path:Path.Format.(get_base_path () / ("mode/t2mi" @/ empty))
                      ~query:Query.empty
                      control
 
   let post_jitter_mode mode control =
-    post_result_unit ~contents:((Json.opt_to_yojson jitter_mode_to_yojson) mode)
+    post_result_unit ~contents:((Json.Option.to_yojson jitter_mode_to_yojson) mode)
                      ~path:Path.Format.(get_base_path () / ("mode/jitter" @/ empty))
                      ~query:Query.empty
                      control
 
   let get_devinfo control =
-    get_result ~from:(Json.opt_of_yojson devinfo_of_yojson)
+    get_result ~from:(Json.Option.of_yojson devinfo_of_yojson)
                ~path:Path.Format.(get_base_path () / ("info" @/ empty))
                ~query:Query.empty
                control
 
   let get_t2mi_mode control =
-    get_result ~from:(Json.opt_of_yojson t2mi_mode_of_yojson)
+    get_result ~from:(Json.Option.of_yojson t2mi_mode_of_yojson)
                ~path:Path.Format.(get_base_path () / ("mode/t2mi" @/ empty))
                ~query:Query.empty
                control
 
   let get_jitter_mode control =
-    get_result ~from:(Json.opt_of_yojson jitter_mode_of_yojson)
+    get_result ~from:(Json.Option.of_yojson jitter_mode_of_yojson)
                ~path:Path.Format.(get_base_path () / ("mode/jitter" @/ empty))
                ~query:Query.empty
                control

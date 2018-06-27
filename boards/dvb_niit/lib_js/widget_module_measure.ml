@@ -1,6 +1,7 @@
 open Containers
 open Components
 open Widget_types
+open Board_types
 
 module type M = sig
   type t
@@ -67,15 +68,14 @@ let name conf = let conf = Option.get_or ~default:default_config conf in
                 Printf.sprintf "Модуль %d. %s" (succ conf.id) n
 let settings  = None
 
-let make ~(measures:Board_types.measures React.event)
+let make ~(measures:(int * measures) React.event)
          (config:config option) =
-  let open Board_types in
   let config = Option.get_or ~default:default_config config in
-  let e = React.E.filter (fun (m:measures) -> m.id = config.id) measures in
+  let e = React.E.filter (fun (id,_) -> id = config.id) measures in
   (match config.typ with
-   | `Power   -> Power.make   (React.E.map (fun m -> m.power) e)   config
-   | `Mer     -> Mer.make     (React.E.map (fun m -> m.mer) e)     config
-   | `Ber     -> Ber.make     (React.E.map (fun m -> m.ber) e)     config
-   | `Freq    -> Freq.make    (React.E.map (fun (m:measures) -> m.freq) e)    config
-   | `Bitrate -> Bitrate.make (React.E.map (fun m ->
+   | `Power   -> Power.make   (React.E.map (fun (_,m) -> m.power) e)   config
+   | `Mer     -> Mer.make     (React.E.map (fun (_,m) -> m.mer) e)     config
+   | `Ber     -> Ber.make     (React.E.map (fun (_,m) -> m.ber) e)     config
+   | `Freq    -> Freq.make    (React.E.map (fun (_,(m:measures)) -> m.freq) e)    config
+   | `Bitrate -> Bitrate.make (React.E.map (fun (_,m) ->
                                    Option.map (fun b -> float_of_int b /. 1_000_000.) m.bitrate) e) config)

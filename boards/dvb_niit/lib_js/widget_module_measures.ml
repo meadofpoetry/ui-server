@@ -61,17 +61,17 @@ let name conf = let conf = Option.get_or ~default:default_config conf in
                 Printf.sprintf "Модуль %d. Измерения" (succ conf.id)
 let settings  = None
 
-let make ~(measures:Board_types.measures React.event) (config:config option) =
+let make ~(measures:(int * measures) React.event) (config:config option) =
   let open Row in
+  let open React in
   let config = Option.get_or ~default:default_config config in
-  let measures = React.E.filter (fun (m:measures) -> m.id = config.id) measures in
-  let power   = Power.make (React.S.hold None @@ React.E.map (fun m -> m.power) measures) in
-  let mer     = Mer.make   (React.S.hold None @@ React.E.map (fun m -> m.mer) measures) in
-  let ber     = Ber.make   (React.S.hold None @@ React.E.map (fun m -> m.ber) measures) in
-  let freq    = Freq.make  (React.S.hold None @@ React.E.map (fun (m:measures) -> m.freq) measures) in
-  let bitrate = React.E.map (fun m -> Option.map (fun x -> float_of_int x /. 1_000_000.) m.bitrate) measures
-                |> React.S.hold None
-                |> Bitrate.make
+  let measures = E.filter (fun (id,_) -> id = config.id) measures in
+  let power   = Power.make (S.hold None @@ E.map (fun (_,m) -> m.power) measures) in
+  let mer     = Mer.make   (S.hold None @@ E.map (fun (_,m) -> m.mer) measures) in
+  let ber     = Ber.make   (S.hold None @@ E.map (fun (_,m) -> m.ber) measures) in
+  let freq    = Freq.make  (S.hold None @@ E.map (fun (_,(m:measures)) -> m.freq) measures) in
+  let bitrate = E.map (fun (_,m) -> Option.map (fun x -> float_of_int x /. 1_000_000.) m.bitrate) measures
+                |> S.hold None |> Bitrate.make
   in
   let widget  = new Box.t ~vertical:true ~widgets:[power;mer;ber;freq;bitrate] () in
   let ()      = widget#add_class base_class in

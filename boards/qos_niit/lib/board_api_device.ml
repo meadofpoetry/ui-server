@@ -29,10 +29,10 @@ module WS = struct
     (match mode with
      | `T2MI   -> let e = React.E.map (fun x -> x.t2mi_mode) events.config
                           |> React.E.changes ~eq:(Equal.option equal_t2mi_mode)
-                  in f e (Json.opt_to_yojson t2mi_mode_to_yojson)
+                  in f e (Json.Option.to_yojson t2mi_mode_to_yojson)
      | `JITTER -> let e = React.E.map (fun x -> x.jitter_mode) events.config
                           |> React.E.changes ~eq:(Equal.option equal_jitter_mode)
-                  in f e (Json.opt_to_yojson jitter_mode_to_yojson))
+                  in f e (Json.Option.to_yojson jitter_mode_to_yojson))
 
 end
 
@@ -44,14 +44,14 @@ module HTTP = struct
 
   let post_t2mi_mode (api:api) _ body () =
     of_body body >>= fun mode ->
-    (match (Json.opt_of_yojson t2mi_mode_of_yojson) mode with
+    (match (Json.Option.of_yojson t2mi_mode_of_yojson) mode with
      | Error e -> Lwt_result.fail @@ of_error_string e
      | Ok mode -> api.set_t2mi_mode mode >|= Result.return)
     >>= respond_result_unit
 
   let post_jitter_mode (api:api) _ body () =
     of_body body >>= fun mode ->
-    (match (Json.opt_of_yojson jitter_mode_of_yojson) mode with
+    (match (Json.Option.of_yojson jitter_mode_of_yojson) mode with
      | Error e -> Lwt_result.fail @@ of_error_string e
      | Ok mode -> api.set_jitter_mode mode >|= Result.return)
     >>= respond_result_unit
@@ -69,13 +69,14 @@ module HTTP = struct
     |> respond_result
 
   let devinfo api _ _ () =
-    api.get_devinfo () >|= (Json.opt_to_yojson devinfo_to_yojson %> Result.return)
+    api.get_devinfo () >|= (Json.Option.to_yojson devinfo_to_yojson %> Result.return)
     >>= respond_result
 
   let mode mode (api:api) _ _ () =
+    let open Json.Option in
     (match mode with
-     | `T2MI   -> api.config () >|= (fun x -> Ok ((Json.opt_to_yojson t2mi_mode_to_yojson) x.t2mi_mode))
-     | `JITTER -> api.config () >|= (fun x -> Ok ((Json.opt_to_yojson jitter_mode_to_yojson x.jitter_mode))))
+     | `T2MI   -> api.config () >|= (fun x -> Ok ((to_yojson t2mi_mode_to_yojson) x.t2mi_mode))
+     | `JITTER -> api.config () >|= (fun x -> Ok ((to_yojson jitter_mode_to_yojson x.jitter_mode))))
     >>= respond_result
 
   (** Archive GET requests **)

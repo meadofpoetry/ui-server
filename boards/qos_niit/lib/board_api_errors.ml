@@ -29,7 +29,7 @@ module WS = struct
       let e          = React.E.fmap (fun l -> match List.filter (fun (e:t) -> filter e fns) l with
                                               | [] -> None
                                               | l  -> Some l) events.ts_errors
-      in sock_handler sock_data e (Json.list_to_yojson to_yojson) body
+      in sock_handler sock_data e (Json.List.to_yojson to_yojson) body
 
   end
 
@@ -45,7 +45,7 @@ module WS = struct
       let e = React.E.fmap (fun l -> match List.filter (fun (e:t) -> filter e fns) l with
                                      | [] -> None
                                      | l  -> Some l) events.t2mi_errors
-      in sock_handler sock_data e (Json.list_to_yojson to_yojson) body
+      in sock_handler sock_data e (Json.List.to_yojson to_yojson) body
 
   end
 

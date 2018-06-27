@@ -14,7 +14,7 @@ module WS = struct
 
     let get_errors ?stream ?(errors=[]) ?(priority=[]) ?(pids=[]) control =
       let stream = Option.map Stream.id_to_int32 stream in
-      WS.get ~from:(Json.list_of_yojson of_yojson)
+      WS.get ~from:(Json.List.of_yojson of_yojson)
              ~path:Path.Format.(get_base_path () / ("ts" @/ empty))
              ~query:Query.[ "stream",   (module Option(Int32))
                           ; "errors",   (module List(Int))
@@ -28,7 +28,7 @@ module WS = struct
 
     let get_errors ?stream ?t2mi_stream_id ?(errors=[]) ?(pids=[]) control =
       let stream = Option.map Stream.id_to_int32 stream in
-      WS.get ~from:(Json.list_of_yojson of_yojson)
+      WS.get ~from:(Json.List.of_yojson of_yojson)
              ~path:Path.Format.(get_base_path () / ("t2mi" @/ empty))
              ~query:Query.[ "stream",         (module Option(Int32))
                           ; "t2mi-stream-id", (module Option(Int))

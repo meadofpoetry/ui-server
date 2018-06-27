@@ -9,36 +9,36 @@ open Boards.Pools
 include Board_parser
 
 type events =
-  { config   : config React.event
-  ; mode     : mode React.event
-  ; devinfo  : devinfo_opt React.signal
+  { devinfo  : devinfo option React.signal
   ; state    : Common.Topology.state React.signal
-  ; lock     : lock React.event
-  ; measures : measures React.event
-  ; params   : params React.event
-  ; plp_list : plp_list React.event
+  ; config   : config React.event
+  ; mode     : (int * mode) React.event
+  ; lock     : (int * lock) React.event
+  ; measures : (int * measures) React.event
+  ; params   : (int * params) React.event
+  ; plp_list : (int * plp_list) React.event
   ; streams  : Common.Stream.stream list React.signal
   }
 
 type push_events =
-  { mode     : mode                  -> unit
-  ; lock     : lock                  -> unit
-  ; measure  : measures              -> unit
-  ; params   : params                -> unit
+  { mode     : int * mode            -> unit
+  ; lock     : int * lock            -> unit
+  ; measure  : int * measures        -> unit
+  ; params   : int * params          -> unit
+  ; plp_list : int * plp_list        -> unit
   ; state    : Common.Topology.state -> unit
-  ; plp_list : plp_list              -> unit
-  ; devinfo  : devinfo_opt           -> unit
+  ; devinfo  : devinfo option        -> unit
   }
 
 type api =
-  { get_devinfo  : unit -> devinfo_opt Lwt.t
-  ; reset        : unit -> unit Lwt.t
-  ; set_mode     : mode -> mode_rsp Lwt.t
-  ; get_config   : unit -> config
-  ; get_lock     : unit -> lock list
-  ; get_measures : unit -> measures list
-  ; get_params   : unit -> params list
-  ; get_plp_list : unit -> plp_list list
+  { get_devinfo  : unit       -> (devinfo option) Lwt.t
+  ; reset        : unit       -> unit Lwt.t
+  ; set_mode     : int * mode -> (int * mode_rsp) Lwt.t
+  ; get_config   : unit       -> config
+  ; get_lock     : unit       -> (int * lock) list
+  ; get_measures : unit       -> (int * measures) list
+  ; get_params   : unit       -> (int * params) list
+  ; get_plp_list : unit       -> (int * plp_list) list
   }
 
 (* Board protocol implementation *)
@@ -56,9 +56,9 @@ let detect_msgs (send_req : 'a request -> unit Lwt.t) timeout =
 
 let init_requests =
   let get_mode id x = match x.standard with
-    | T2 -> { id; standard = T2; channel = x.t2 }
-    | T  -> { id; standard = T ; channel = x.t  }
-    | C  -> { id; standard = C ; channel = x.c  }
+    | T2 -> id,{ standard = T2; channel = x.t2 }
+    | T  -> id,{ standard = T ; channel = x.t  }
+    | C  -> id,{ standard = C ; channel = x.c  }
   in
   List.map (fun (id,x) -> Set_mode (get_mode id x))
 
@@ -192,52 +192,50 @@ module Make_probes(M:M) : Probes = struct
     in { t with states }
 
   let handle_event (pe:push_events) (e:event) (t:t) : t =
-    let lock_of_measures ({id;timestamp;lock;_}:measures) : lock =
-      { id; timestamp; lock}
-    in
+    let lock_of_measures ({timestamp;lock;_}:measures) : lock = { timestamp; lock } in
     let states = match e with
-      | Measures rsp ->
+      | Measures ((id,m) as rsp) ->
          (* push event in any case *)
          pe.measure rsp;
          (* update previous field *)
-         (match List.find_opt (fun (id,_) -> id = rsp.id) t.states with
+         (match List.find_opt (fun (x,_) -> x = id) t.states with
           | None -> None
           | Some (id,tmr) ->
              (* push lock event only if it is first event of lock state has changed *)
              (match tmr.measures.prev with
-              | Some p -> if not @@ Equal.bool p.lock rsp.lock
-                          then pe.lock @@ lock_of_measures rsp
-              | None   -> pe.lock @@ lock_of_measures rsp);
-             let tmr = { tmr with measures = { tmr.measures with prev = Some rsp }} in
+              | Some p -> if not @@ Equal.bool p.lock m.lock
+                          then pe.lock (id,lock_of_measures m)
+              | None   -> pe.lock (id,lock_of_measures m));
+             let tmr = { tmr with measures = { tmr.measures with prev = Some m }} in
              let tmr = Timer.reset_measures tmr in
              Some (List.Assoc.set ~eq:(=) id tmr t.states))
-      | Params rsp   ->
-         (match List.find_opt (fun (id,_) -> id = rsp.id) t.states with
+      | Params ((id,p) as rsp)   ->
+         (match List.find_opt (fun (x,_) -> x = id) t.states with
           | None -> None
           | Some (id,tmr) ->
              (* push event only if it is different from the previous one or it is first *)
              (match tmr.params.prev with
-              | Some p ->
+              | Some prev ->
                  let eq = Equal.option equal_t2_params in
-                 if not (eq p.params rsp.params)
+                 if not (eq prev.params p.params)
                  then pe.params rsp
               | None   -> pe.params rsp);
              (* update previous field *)
-             let tmr = { tmr with params = { tmr.params with prev = Some rsp }} in
+             let tmr = { tmr with params = { tmr.params with prev = Some p }} in
              let tmr = Timer.reset_params tmr in
              Some (List.Assoc.set ~eq:(=) id tmr t.states))
-      | Plp_list rsp ->
-         (match List.find_opt (fun (id,_) -> id = rsp.id) t.states with
+      | Plp_list ((id,l) as rsp) ->
+         (match List.find_opt (fun (x,_) -> x = id) t.states with
           | Some (id,tmr) ->
              (* push event only if it is different from the previous one or it is first *)
              (match tmr.plp_list.prev with
-              | Some p ->
+              | Some prev ->
                  let eq = Equal.list (=) in
-                 if not (eq p.plps rsp.plps)
+                 if not (eq prev.plps l.plps)
                  then pe.plp_list rsp
               | None   -> pe.plp_list rsp);
              (* update previous field *)
-             let tmr = { tmr with plp_list = { tmr.plp_list with prev = Some rsp }} in
+             let tmr = { tmr with plp_list = { tmr.plp_list with prev = Some l }} in
              let tmr = Timer.reset_plp_list tmr in
              Some (List.Assoc.set ~eq:(=) id tmr t.states)
           | None   -> None)
@@ -296,7 +294,7 @@ module SM = struct
 
   let wakeup_timeout t = t.pred `Timeout |> ignore
 
-  let update_config (mode:mode) (config:config) : config =
+  let update_config id (mode:mode) (config:config) : config =
     List.Assoc.update
       ~eq:(=)
       ~f:(function
@@ -307,14 +305,14 @@ module SM = struct
                    | T  -> { os with t  = mode.channel }
                    | C  -> { os with c  = mode.channel })
           | None   -> None)
-      mode.id config
+      id config
 
   let send_msg (type a) sender (msg : a request) : unit Lwt.t =
     (match msg with
-     | Get_devinfo     -> to_devinfo_req false
-     | Reset           -> to_devinfo_req true
-     | Set_mode req    -> to_mode_req req
-     | Set_plp req     -> to_plp_set_req req)
+     | Get_devinfo      -> to_devinfo_req false
+     | Reset            -> to_devinfo_req true
+     | Set_mode (id,m)  -> to_mode_req id m
+     | Set_plp (id,plp) -> to_plp_set_req id plp)
     |> sender
 
   let send_event (type a) sender (msg : a event_request) : unit Lwt.t =
@@ -330,11 +328,11 @@ module SM = struct
     let pred = function
       | `Timeout -> Lwt.wakeup_exn w (Failure "msg timeout"); None
       | l -> let open Option in
-             is_response msg l >|= fun rsp ->
+             is_response msg l >|= fun r ->
              (match msg with
-              | Set_mode _ -> pe.mode rsp.mode
+              | Set_mode _ -> pe.mode ((fst r),(snd r).mode)
               | _ -> ());
-             Lwt.wakeup w rsp
+             Lwt.wakeup w r
     in
     let send = fun () -> send_msg sender msg in
     msgs := Queue.append !msgs { send; pred; timeout; exn = None };
@@ -401,8 +399,8 @@ module SM = struct
            `Continue (step_init devinfo probes (Pool.step init_pool) acc)
         | Some rsp ->
            Logs.debug (fun m ->
-               let s = show_mode_rsp rsp in
-               m "%s" @@ fmt @@ Printf.sprintf "receiver #%d initialized! mode = %s" rsp.mode.id s);
+               let s = show_mode_rsp (snd rsp) in
+               m "%s" @@ fmt @@ Printf.sprintf "receiver #%d initialized! mode = %s" (fst rsp) s);
            (match Pool.last init_pool with
             | true ->
                Logs.info (fun m -> m "%s" @@ fmt "initialization done!");
@@ -485,18 +483,18 @@ module SM = struct
 
     first_step ()
 
-  let to_streams_s storage (e:measures React.event) =
+  let to_streams_s storage (e:(int * measures) React.event) =
     React.S.fold
-      (fun acc (m:measures) ->
+      (fun acc (id,(m:measures)) ->
         let open Common.Stream in
         let plp =
-          List.find_map (fun (x,c) -> if m.id = x then Some c else None) storage#get
+          List.find_map (fun (x,c) -> if id = x then Some c else None) storage#get
           |> Option.get_exn
           |> (fun x -> match x.standard with T2 -> x.t2.plp | _ -> 0)
         in
         let (stream:stream) =
           { source      = Port 0
-          ; id          = `Ts (Dvb (m.id,plp))
+          ; id          = `Ts (Dvb (id,plp))
           ; description = Some ""
           }
         in
@@ -505,16 +503,16 @@ module SM = struct
         | _                      -> List.remove ~eq:(Common.Stream.equal_stream) ~x:stream acc)
       [] e
 
-  let map_measures storage e =
-    React.E.map (fun (m:measures) ->
-        match m.freq, List.Assoc.get ~eq:(=) m.id storage#get with
+  let map_measures storage (e:(int * measures) React.event) : (int * measures) React.event =
+    React.E.map (fun (id,(m:measures)) ->
+        match m.freq, List.Assoc.get ~eq:(=) id storage#get with
         | Some x,Some c -> let freq = match c.standard with
                              | C  -> c.c.freq
                              | T  -> c.t.freq
                              | T2 -> c.t2.freq
                            in
-                           ({ m with freq = Some (x - freq) }:measures)
-        | _             -> { m with freq = None }) e
+                           id,({ m with freq = Some (x - freq) }:measures)
+        | _             -> id,{ m with freq = None }) e
 
   let create (fmt:string -> string) sender (storage : config storage) step_duration =
     let s_devinfo,devinfo_push   = React.S.create None in
@@ -524,8 +522,8 @@ module SM = struct
     let e_params,params_push     = React.E.create () in
     let e_plp_list,plp_list_push = React.E.create () in
     let s_state,state_push       = React.S.create `No_response in
-    let e_config    = React.E.map (fun (m:mode) ->
-                          let c = update_config m storage#get in
+    let e_config    = React.E.map (fun (id,mode) ->
+                          let c = update_config id mode storage#get in
                           storage#store c;
                           c) e_mode
     in
@@ -533,10 +531,10 @@ module SM = struct
                       |> React.E.map (List.map snd)
                       |> React.S.hold []
     in
-    let s_lock      = hold_e (fun (x:lock)     -> x.id) e_lock in
-    let s_measures  = hold_e (fun (m:measures) -> m.id) e_measures in
-    let s_params    = hold_e (fun (p:params)   -> p.id) e_params in
-    let s_plp_list  = hold_e (fun (p:plp_list) -> p.id) e_plp_list in
+    let s_lock      = hold_e fst e_lock in
+    let s_measures  = hold_e fst e_measures in
+    let s_params    = hold_e fst e_params in
+    let s_plp_list  = hold_e fst e_plp_list in
     let (events : events)   =
       let measures = map_measures storage e_measures in
       { mode     = e_mode

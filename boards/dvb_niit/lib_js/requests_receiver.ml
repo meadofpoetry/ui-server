@@ -6,41 +6,39 @@ open Common
 let get_base_path () =
   Uri.Path.Format.(Boards_js.Requests.get_board_path () / ("receiver" @/ empty))
 
-let set_id = Uri.Query.(make_query ["id", (module Option(Int))])
-
 module WS = struct
 
   open Common.Uri
 
-  let get_mode ?(ids=[]) control =
+  let get_mode ~id control =
     WS.get ~from:mode_of_yojson
-           ~path:Path.Format.(get_base_path () / ("mode" @/ empty))
-           ~query:Query.[ "id", (module List(Int)) ]
-           control ids
+      ~path:Path.Format.(get_base_path () / (Int ^/ "mode" @/ empty))
+      ~query:Query.empty
+      control id
 
-  let get_lock ?(ids=[]) control =
+  let get_lock ~id control =
     WS.get ~from:lock_of_yojson
-           ~path:Path.Format.(get_base_path () / ("lock" @/ empty))
-           ~query:Query.[ "id", (module List(Int)) ]
-           control ids
+      ~path:Path.Format.(get_base_path () / (Int ^/ "lock" @/ empty))
+      ~query:Query.empty
+      control id
 
-  let get_measures ?(ids=[]) control =
+  let get_measures ~id control =
     WS.get ~from:measures_of_yojson
-           ~path:Path.Format.(get_base_path () / ("measures" @/ empty))
-           ~query:Query.[ "id", (module List(Int)) ]
-           control ids
+      ~path:Path.Format.(get_base_path () / (Int ^/ "measures" @/ empty))
+      ~query:Query.empty
+      control id
 
-  let get_parameters ?(ids=[]) control =
+  let get_parameters ~id control =
     WS.get ~from:params_of_yojson
-           ~path:Path.Format.(get_base_path () / ("parameters" @/ empty))
-           ~query:Query.[ "id", (module List(Int)) ]
-           control ids
+      ~path:Path.Format.(get_base_path () / (Int ^/ "parameters" @/ empty))
+      ~query:Query.empty
+      control id
 
-  let get_plp_list ?(ids=[]) control =
+  let get_plp_list ~id control =
     WS.get ~from:plp_list_of_yojson
-           ~path:Path.Format.(get_base_path () / ("plp-list" @/ empty))
-           ~query:Query.[ "id", (module List(Int)) ]
-           control ids
+      ~path:Path.Format.(get_base_path () / (Int ^/ "plp-list" @/ empty))
+      ~query:Query.empty
+      control id
 
 end
 
@@ -48,92 +46,68 @@ module HTTP = struct
 
   open Common.Uri
 
-  let post_mode mode control =
+  let post_mode ~id mode control =
     let contents = mode_to_yojson mode in
     post_result ~contents
-                ~from:mode_rsp_of_yojson
-                ~path:Path.Format.(get_base_path () / ("mode" @/ empty))
-                ~query:Query.empty control
+      ~from:Json.(Pair.of_yojson Int.of_yojson mode_rsp_of_yojson)
+      ~path:Path.Format.(get_base_path () / (Int ^/ "mode" @/ empty))
+      ~query:Query.empty id control
 
-  let get_mode_one ~id control =
+  let get_mode ~id control =
     get_result ~from:mode_of_yojson
-               ~path:Path.Format.(get_base_path () / ("mode" @/ Int ^/ empty))
-               ~query:Query.empty id control
-  let get_lock_one ~id control =
+      ~path:Path.Format.(get_base_path () / (Int ^/ "mode" @/ empty))
+      ~query:Query.empty
+      id control
+  let get_lock ~id control =
     get_result ~from:lock_of_yojson
-               ~path:Path.Format.(get_base_path () / ("lock" @/ Int ^/ empty))
-               ~query:Query.empty id control
-  let get_measures_one ~id control =
+      ~path:Path.Format.(get_base_path () / (Int ^/ "lock" @/ empty))
+      ~query:Query.empty
+      id control
+  let get_measures ~id control =
     get_result ~from:measures_of_yojson
-               ~path:Path.Format.(get_base_path () / ("measures" @/ Int ^/ empty))
-               ~query:Query.empty id control
-  let get_parameters_one ~id control =
+      ~path:Path.Format.(get_base_path () / (Int ^/ "measures" @/ empty))
+      ~query:Query.empty
+      id control
+  let get_parameters ~id control =
     get_result ~from:params_of_yojson
-               ~path:Path.Format.(get_base_path () / ("parameters" @/ Int ^/empty))
-               ~query:Query.empty id control
-  let get_plp_list_one ~id control =
+      ~path:Path.Format.(get_base_path () / (Int ^/ "parameters" @/ empty))
+      ~query:Query.empty
+      id control
+  let get_plp_list ~id control =
     get_result ~from:plp_list_of_yojson
-               ~path:Path.Format.(get_base_path () / ("plp-list" @/ Int ^/ empty))
-               ~query:Query.empty id control
-
-  let get_mode_some ?(ids=[]) control =
-    get_result ~from:(Json.list_of_yojson mode_of_yojson)
-               ~path:Path.Format.(get_base_path () / ("mode" @/ empty))
-               ~query:Query.[ "id", (module List(Int)) ]
-               control ids
-  let get_lock_some ?(ids=[]) control =
-    get_result ~from:(Json.list_of_yojson lock_of_yojson)
-               ~path:Path.Format.(get_base_path () / ("lock" @/ empty))
-               ~query:Query.[ "id", (module List(Int)) ]
-               control ids
-  let get_measures_some ?(ids=[]) control =
-    get_result ~from:(Json.list_of_yojson measures_of_yojson)
-               ~path:Path.Format.(get_base_path () / ("measures" @/ empty))
-               ~query:Query.[ "id", (module List(Int)) ]
-               control ids
-  let get_parameters_some ?(ids=[]) control =
-    get_result ~from:(Json.list_of_yojson params_of_yojson)
-               ~path:Path.Format.(get_base_path () / ("parameters" @/ empty))
-               ~query:Query.[ "id", (module List(Int)) ]
-               control ids
-  let get_plp_list_some ?(ids=[]) control =
-    get_result ~from:(Json.list_of_yojson plp_list_of_yojson)
-               ~path:Path.Format.(get_base_path () / ("plp-list" @/ empty))
-               ~query:Query.[ "id", (module List(Int)) ]
-               control ids
+      ~path:Path.Format.(get_base_path () / (Int ^/ "plp-list" @/ empty))
+      ~query:Query.empty
+      id control
 
   module Archive = struct
 
-    let get_mode ?(ids=[]) ?limit ?from ?till ?duration control =
+    let get_mode ?limit ?from ?till ?duration ~id control =
       get_result ~from:(fun _ -> Error "not implemented")
-                 ~path:Path.Format.(get_base_path () / ("archive/mode" @/ empty))
-                 ~query:Uri.Query.[ "id",       (module List(Int))
-                                  ; "limit",    (module Option(Int))
-                                  ; "from",     (module Option(Time.Show))
-                                  ; "to",       (module Option(Time.Show))
-                                  ; "duration", (module Option(Time.Relative)) ]
-                 control ids limit from till duration
+        ~path:Path.Format.(get_base_path () / (Int ^/ "mode/archive" @/ empty))
+        ~query:Uri.Query.[ "limit",    (module Option(Int))
+                         ; "from",     (module Option(Time.Show))
+                         ; "to",       (module Option(Time.Show))
+                         ; "duration", (module Option(Time.Relative)) ]
+        control id limit from till duration
 
-    let get_measures ?(ids=[]) ?limit ?compress ?from ?till ?duration control =
+    let get_measures ?limit ?compress ?from ?till ?duration ~id control =
       get_result ~from:(fun _ -> Error "not implemented")
-                 ~path:Path.Format.(get_base_path () / ("archive/measures" @/ empty))
-                 ~query:Uri.Query.[ "id",       (module List(Int))
-                                  ; "limit",    (module Option(Int))
-                                  ; "compress", (module Option(Bool))
-                                  ; "from",     (module Option(Time.Show))
-                                  ; "to",       (module Option(Time.Show))
-                                  ; "duration", (module Option(Time.Relative)) ]
-                 control ids limit compress from till duration
+        ~path:Path.Format.(get_base_path () / (Int ^/ "measures/archive" @/ empty))
+        ~query:Uri.Query.[ "limit",    (module Option(Int))
+                         ; "compress", (module Option(Bool))
+                         ; "from",     (module Option(Time.Show))
+                         ; "to",       (module Option(Time.Show))
+                         ; "duration", (module Option(Time.Relative)) ]
+        control id limit compress from till duration
 
-    let get_parameters ?(ids=[]) ?limit ?from ?till ?duration control =
+    let get_parameters ?limit ?from ?till ?duration ~id control =
       get_result ~from:(fun _ -> Error "not implemented")
-                 ~path:Path.Format.(get_base_path () / ("archive/parameters" @/ empty))
-                 ~query:Uri.Query.[ "id",       (module List(Int))
-                                  ; "limit",    (module Option(Int))
-                                  ; "from",     (module Option(Time.Show))
-                                  ; "to",       (module Option(Time.Show))
-                                  ; "duration", (module Option(Time.Relative)) ]
-                 control ids limit from till duration
+        ~path:Path.Format.(get_base_path () / (Int ^/ "parameters/archive" @/ empty))
+        ~query:Uri.Query.[ "limit",    (module Option(Int))
+                         ; "from",     (module Option(Time.Show))
+                         ; "to",       (module Option(Time.Show))
+                         ; "duration", (module Option(Time.Relative)) ]
+        control id limit from till duration
 
   end
 
