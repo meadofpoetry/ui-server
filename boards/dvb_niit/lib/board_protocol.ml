@@ -17,6 +17,7 @@ type events =
   ; measures : measures React.event
   ; params   : params React.event
   ; plp_list : plp_list React.event
+  ; streams  : Common.Stream.stream list React.signal
   }
 
 type push_events =
@@ -484,7 +485,25 @@ module SM = struct
 
     first_step ()
 
-  let to_streams_s = ()
+  let to_streams_s storage (e:measures React.event) =
+    React.S.fold
+      (fun acc (m:measures) ->
+        let open Common.Stream in
+        let plp =
+          List.find_map (fun (x,c) -> if m.id = x then Some c else None) storage#get
+          |> Option.get_exn
+          |> (fun x -> match x.standard with T2 -> x.t2.plp | _ -> 0)
+        in
+        let (stream:stream) =
+          { source      = Port 0
+          ; id          = `Ts (Dvb (m.id,plp))
+          ; description = Some ""
+          }
+        in
+        match m.lock,m.bitrate with
+        | true,Some x when x > 0 -> List.add_nodup ~eq:(Common.Stream.equal_stream) stream acc
+        | _                      -> List.remove ~eq:(Common.Stream.equal_stream) ~x:stream acc)
+      [] e
 
   let map_measures storage e =
     React.E.map (fun (m:measures) ->
@@ -519,14 +538,16 @@ module SM = struct
     let s_params    = hold_e (fun (p:params)   -> p.id) e_params in
     let s_plp_list  = hold_e (fun (p:plp_list) -> p.id) e_plp_list in
     let (events : events)   =
+      let measures = map_measures storage e_measures in
       { mode     = e_mode
       ; lock     = e_lock
-      ; measures = map_measures storage e_measures
+      ; measures
       ; params   = e_params
       ; plp_list = e_plp_list
       ; devinfo  = s_devinfo
       ; config   = e_config
       ; state    = s_state
+      ; streams  = to_streams_s storage measures
       }
     in
     let (push_events : push_events) =
