@@ -80,7 +80,11 @@ let make_board_page ?error_prefix (board:Common.Topology.topo_board) =
   | "TS","qos","niitv",1 ->
      Board_qos_niit_js.Topo_page.make ?error_prefix board
   | "DVB","rf","niitv",1 ->
-     Board_dvb_niit_js.Topo_page.make ?error_prefix board
+     let open Board_dvb_niit_js in
+     let factory    = new Widget_factory.t board.control () in
+     let {widget;_} : Dashboard.Item.item = factory#create @@ Settings (Some { ids = None }) in
+     widget#set_on_destroy @@ Some factory#destroy;
+     Lwt_result.return widget
   | "TS2IP","ts2ip","niitv",1 ->
      let w = new Board_ts2ip_niit_js.Settings.settings board.control () in
      Lwt_result.return w

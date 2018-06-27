@@ -218,5 +218,5 @@ let make ~(init:  stream_table)
                                             Dom.appendChild div#root w#root;
                                             n_s) s_div)
   in
-  let post = fun x -> Requests.post_stream_settings x in
+  let post = (* fun x -> Requests.post_stream_settings x in *) fun _ -> Lwt_result.return () in
   div,s,post

@@ -51,7 +51,7 @@ let make ~(state: Common.Topology.state React.signal)
         | _                   -> None)
                s_en s_pid state
   in
-  let submit = Requests.Device.HTTP.post_jitter_mode control in
+  let submit = (* Requests.Device.HTTP.post_jitter_mode control in *) fun _ -> Lwt.return_ok () in
   let apply  = Ui_templates.Buttons.create_apply s submit in
   let box    = new Box.t ~vertical:true ~widgets:[en;pid;apply#widget] () in
   let ()     = box#add_class "mdc-settings-widget" in

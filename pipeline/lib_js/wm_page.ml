@@ -340,25 +340,25 @@ class t () = object(self)
   val mutable sock : WebSockets.webSocket Js.t option = None
   inherit Layout_grid.t ~cells:[] () as super
 
-  method private on_load () =
-    Requests.get_wm ()
-    >>= (fun wm ->
-      let e_wm,wm_sock = Requests.get_wm_socket () in
-      let post         = (fun w -> Lwt.Infix.(Requests.post_wm w
-                                              >|= (function
-                                                   | Ok () -> ()
-                                                   | Error _ -> print_endline @@ "error post wm")
-                                              |> Lwt.ignore_result))
-      in
-      let _ = React.S.map (fun (s:Wm.t) -> Dom.list_of_nodeList @@ self#inner#root##.childNodes
-                                           |> List.iter (fun x -> Dom.removeChild self#inner#root x);
-                                           let cells = create ~init:s ~post () in
-                                           List.iter (fun x -> Dom.appendChild self#inner#root x#root) cells)
-                          (React.S.hold wm e_wm)
-      in
-      sock <- Some wm_sock;
-      Lwt_result.return ())
-    |> ignore
+  method private on_load () = ()
+    (* Requests.get_wm ()
+     * >>= (fun wm ->
+     *   let e_wm,wm_sock = Requests.get_wm_socket () in
+     *   let post         = (fun w -> Lwt.Infix.(Requests.post_wm w
+     *                                           >|= (function
+     *                                                | Ok () -> ()
+     *                                                | Error _ -> print_endline @@ "error post wm")
+     *                                           |> Lwt.ignore_result))
+     *   in
+     *   let _ = React.S.map (fun (s:Wm.t) -> Dom.list_of_nodeList @@ self#inner#root##.childNodes
+     *                                        |> List.iter (fun x -> Dom.removeChild self#inner#root x);
+     *                                        let cells = create ~init:s ~post () in
+     *                                        List.iter (fun x -> Dom.appendChild self#inner#root x#root) cells)
+     *                       (React.S.hold wm e_wm)
+     *   in
+     *   sock <- Some wm_sock;
+     *   Lwt_result.return ())
+     * |> ignore *)
   method private on_unload () =
     Option.iter (fun x -> x##close; sock <- None) sock
 

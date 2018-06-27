@@ -6,13 +6,22 @@ open Lwt.Infix
 
 module Requests = struct
 
+  open Common.Uri
+
   (* TODO fix relative addr *)
   let get_config () =
     let from_err = function `String s -> Ok s | _ -> Error "" in
-    get_result ~path:"api/network/config" ~from_err Network_config.of_yojson ()
+    get_result ?scheme:None ?host:None ?port:None
+               ~from:Network_config.of_yojson
+               ~from_err
+               ~path:Path.Format.("api/network/config" @/ empty)
+               ~query:Query.empty
 
   let post_config conf =
-    post_result ~path:"api/network/config" ~contents:(Network_config.to_yojson conf) (fun _ -> Ok ()) ()
+    post_result_unit ?scheme:None ?host:None ?port:None ?from_err:None
+                     ~contents:(Network_config.to_yojson conf)
+                     ~path:Path.Format.("api/network/config" @/ empty)
+                     ~query:Query.empty
 
 end
 
