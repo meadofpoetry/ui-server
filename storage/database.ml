@@ -25,17 +25,38 @@ type state = { period  : float
              ; db      : ((module Caqti_lwt.CONNECTION), Caqti_error.connect) Caqti_lwt.Pool.t
              }
 
-type simple
-type trans
-type (_,_,_) query =
-  | Exec     : ('req, unit, [`Zero]) Caqti_request.t -> (simple, 'req, unit) query
-  | Find     : ('req, 'resp, [`One | `Zero]) Caqti_request.t -> (simple, 'req, 'resp option) query
-  | List     : ('req, 'resp, [`Many | `One | `Zero]) Caqti_request.t -> (simple, 'req, 'resp list) query
-  (* | Map *)
-  | Reduce   : (simple, 'req, 'resp) query * 'acc * ('acc -> 'resp -> 'acc) -> (trans, 'req list, 'acc) query
-  | Maintain : (simple, 'req, unit) query list -> (trans, 'req, unit) query
+module Request : sig
+  type ('a, 'typ) t
+  val (>>=) : ('a, 'typ) t -> ('a -> ('b, 'typ) t) -> ('b, 'typ) t
+  val return : 'a -> ('a, 'b) t
+  val exec : ('a, unit, [`Zero]) Caqti_request.t -> 'a -> (unit, [> `Simple]) t
+  val find : ('a, 'b, [`One | `Zero]) Caqti_request.t -> 'a -> ('b option, [> `Simple]) t
+  val list : ('a, 'b, [`Many | `One | `Zero]) Caqti_request.t -> 'a -> ('b list, [> `Simple]) t
+  val with_trans : ('a, [`Simple]) t -> ('a, [> `Trans]) t
+  val run : (module Caqti_lwt.CONNECTION) -> ('a, 'typ) t -> 'a Lwt.t
+end = struct
+  type ('a,_) t = (module Caqti_lwt.CONNECTION) -> 'a Lwt.t
 
-type db = { exec : 'typ 'request 'response. ('typ, 'request, 'response) query -> 'request -> 'response Lwt.t }
+  let return x = fun _ -> Lwt.return x
+
+  let (>>=) m f =
+    fun db -> let r = m db in Lwt.(r >>= fun x -> f x db)
+
+  let exec q arg = fun (module Db: Caqti_lwt.CONNECTION) -> Lwt.(Db.exec q arg >>= fail_if)
+
+  let find q arg = fun (module Db: Caqti_lwt.CONNECTION) -> Lwt.(Db.find_opt q arg >>= fail_if)
+
+  let list q arg = fun (module Db: Caqti_lwt.CONNECTION) -> Lwt.(Db.rev_collect_list q arg >>= fail_if)
+
+  let with_trans m = fun (module Db: Caqti_lwt.CONNECTION) ->
+    let open Lwt.Infix in
+    Db.start () >>= fail_if >>= fun () ->
+    m (module Db: Caqti_lwt.CONNECTION) >>= fun res ->
+    Db.commit () >>= fail_if >>= fun () -> Lwt.return res
+                                                          
+  let run db m = m db
+
+end
 
 module Key_t : sig
   type t
@@ -55,94 +76,73 @@ type keys = { columns  : (string * Key_t.t) list
         
 module type MODEL = sig
   val name     : string
-  val tables   : (string * keys * (simple,unit,unit) query option) list
+  val tables   : (string * keys * (unit, _) Request.t option) list
 end
            
 module type CONN = sig
+  module Request : module type of Request
   type t
   val create   : state -> (t, string) result
-  val request  : t -> ('typ, 'req, 'resp) query -> 'req -> 'resp Lwt.t
+  val request  : t -> ('req,_) Request.t -> 'req Lwt.t
   val delete   : t -> unit Lwt.t
 end
 
 module Make (M : MODEL) : CONN = struct
+  module Request = Request
+  
   type t = state
 
   let make_init_query name keys =
     let cols = String.concat ", " (List.map (fun (k,t) -> k ^ " " ^ (Key_t.to_string t)) keys) in
     let exp = Printf.sprintf "CREATE TABLE IF NOT EXISTS %s (%s)" name cols in
-    Exec (Caqti_request.exec Caqti_type.unit exp)
-
-  let init_trans = Maintain (List.map (fun (name,keys,_) -> make_init_query name keys.columns) M.tables)
+    Request.exec (Caqti_request.exec Caqti_type.unit exp)
+ 
+  let init_trans =
+    let open Request in
+    with_trans (List.fold_left (fun acc (name,keys,_) -> acc >>= make_init_query name keys.columns)
+                  (return ()) M.tables)
 
   let workers_trans =
+    let open Request in
     List.filter_map (fun (_,_,w) -> w) M.tables
-    |> function [] -> None | lst -> Some (Maintain lst)           
+    |> function [] -> None
+              | lst -> Some (with_trans (List.fold_left (fun acc m -> acc >>= fun () -> m) (return ()) lst))
                  
-  let cleanup_trans =
-    Maintain (List.filter_map (fun (table,keys,_) ->
-                  match keys.time_key with
-                  | None -> None
-                  | Some time_key ->
-                     Some (Exec (Caqti_request.exec Caqti_type.ptime_span
-                                   (Printf.sprintf "DELETE FROM %s WHERE %s <= (now()::TIMESTAMP - ?::INTERVAL)"
-                                      table time_key))))
-                M.tables)
+  let cleanup_trans cleanup_dur =
+    let open Request in
+    with_trans (List.fold_left (fun acc (table,keys,_) ->
+                    match keys.time_key with
+                    | None -> acc
+                    | Some time_key ->
+                       acc >>= fun () -> exec (Caqti_request.exec Caqti_type.ptime_span
+                                                 (Printf.sprintf "DELETE FROM %s WHERE %s <= (now()::TIMESTAMP - ?::INTERVAL)"
+                                                    table time_key)) cleanup_dur)
+                  (return ()) M.tables)
 
   let delete_trans =
-    Maintain (List.map (fun (table,_,_) ->
-                  Exec (Caqti_request.exec Caqti_type.unit
-                          (Printf.sprintf "DELETE FROM %s" table)))
-                M.tables)
+    let open Request in
+    with_trans (List.fold_left (fun acc (table,_,_) ->
+                    acc >>= fun () -> exec (Caqti_request.exec Caqti_type.unit
+                                              (Printf.sprintf "DELETE FROM %s" table)) ())
+                  (return ()) M.tables) 
 
-  let rec request : type typ req resp. (module Caqti_lwt.CONNECTION) -> (typ, req, resp) query -> req -> (resp, [< Caqti_error.t]) result Lwt.t =
-    fun (module Db : Caqti_lwt.CONNECTION) q args ->
-    match q with
-    | Exec q -> Db.exec q args
-    | Find q -> Db.find_opt q args
-    | List q -> Db.rev_collect_list q args
-    | Reduce (q, acc, f) ->
-       Db.start () >>= fail_if >>= fun () ->
-       List.fold_left (fun acc arg ->
-           let open Lwt_result in
-           acc
-           >>= fun v -> request (module Db : Caqti_lwt.CONNECTION) q arg
-           >>= fun r -> Lwt.return_ok (f v r))
-         (Lwt.return_ok acc) args
-       >>= (fun result -> Db.commit () >>= fail_if >>= fun () -> Lwt.return result)
-    | Maintain ql ->
-       Db.start () >>= fail_if >>= fun () ->
-       List.fold_left (fun acc q ->
-           let open Lwt_result in
-           acc >>= fun () -> request (module Db : Caqti_lwt.CONNECTION) q args)
-         (Lwt.return_ok ()) ql
-       >>= (fun result -> Db.commit () >>= fail_if >>= fun () -> Lwt.return result)
-
-  let wrap_query : type req resp. ('a, req, resp) query -> req -> (module Caqti_lwt.CONNECTION) -> resp Lwt.t =
-    fun query args db -> request db query args >>= fail_if
+  let request (state : t) req = pool_use state.db (fun db -> Request.run db req)
                
   let create (state : state) =
     let rec loop () =
       Lwt_unix.sleep state.period >>= (fun () ->
         match workers_trans with
         | None   -> Lwt.return_unit
-        | Some w -> pool_use state.db (wrap_query w ()))
+        | Some w -> request state w)
       >>= fun () ->
-      pool_use state.db (wrap_query cleanup_trans state.cleanup) >>= loop
+      request state (cleanup_trans state.cleanup) >>= loop
     in
-    Lwt_main.run (pool_use state.db (wrap_query init_trans ()));
+    Lwt_main.run (request state init_trans );
     Lwt.async loop;
     Ok state
 
-  let delete state =
-    pool_use state.db (wrap_query delete_trans ())
+  let delete state = request state delete_trans
 
-    (*>>= function
-    | Ok ()   -> Lwt.return ()
-    | Error e -> Lwt.fail_with (error "delete %s" e) *)
-
-  let request (type req resp) state (q : ('a, req, resp) query) (args : req) : resp Lwt.t =
-    pool_use state.db (wrap_query q args)
 end
 
 module Types = struct
@@ -171,3 +171,5 @@ let create config period =
   
 let finalize v =
   Lwt_main.run @@ Caqti_lwt.Pool.drain v.db
+
+                    
