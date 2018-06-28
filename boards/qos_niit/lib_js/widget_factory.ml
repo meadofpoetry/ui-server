@@ -4,6 +4,7 @@ open Board_types
 open Lwt_result.Infix
 open Ui_templates.Factory
 open Common.Topology
+open Common
 
 type item =
   | Structure       of Widget_structure.config option
@@ -50,11 +51,11 @@ open Factory_state
 class t (control:int) () =
 object(self)
 
-  val _state       : state React.signal t_lwt                 = empty ()
-  val _t2mi_mode   : t2mi_mode option   React.signal t_lwt    = empty ()
-  val _jitter_mode : jitter_mode option React.signal t_lwt    = empty ()
-  val _structs     : Streams.TS.structures React.signal t_lwt = empty ()
-  val _bitrates    : Streams.TS.structures React.signal t_lwt = empty ()
+  val _state       : state React.signal t_lwt              = empty ()
+  val _t2mi_mode   : t2mi_mode option   React.signal t_lwt = empty ()
+  val _jitter_mode : jitter_mode option React.signal t_lwt = empty ()
+  val _structs     : (Stream.id * Streams.TS.structure) list React.signal t_lwt = empty ()
+  val _bitrates    : (Stream.id * Streams.TS.structure) list React.signal t_lwt = empty ()
 
   (** Create widget of type **)
   method create : item -> Dashboard.Item.item = function

@@ -54,6 +54,7 @@ module HTTP = struct
       ~query:Query.empty id control
 
   let get_mode ~id control =
+
     get_result ~from:mode_of_yojson
       ~path:Path.Format.(get_base_path () / (Int ^/ "mode" @/ empty))
       ~query:Query.empty

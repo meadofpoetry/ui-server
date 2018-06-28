@@ -4,7 +4,7 @@ open Api_js.Requests.Json_request
 open Common
 
 let get_base_path () =
-  Uri.Path.Format.(Boards_js.Requests.get_board_path () / ("receiver" @/ empty))
+  Uri.Path.Format.(Boards_js.Requests.get_board_path () / ("receivers" @/ empty))
 
 module WS = struct
 

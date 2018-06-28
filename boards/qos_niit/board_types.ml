@@ -134,12 +134,9 @@ module Streams = struct
     (** TS state *)
 
     type state =
-      { stream    : Stream.id
-      ; timestamp : Time.t
+      { timestamp : Time.t
       ; present   : bool
       } [@@deriving yojson]
-
-    type states = state list [@@deriving yojson]
 
     (** TS bitrate *)
 
@@ -158,16 +155,11 @@ module Streams = struct
       } [@@deriving yojson]
 
     type bitrate =
-      { stream     : Stream.id
-      ; timestamp  : Time.t
+      { timestamp  : Time.t
       ; ts_bitrate : int
       ; pids       : pid_bitrate list
       ; tables     : table_bitrate list
       } [@@deriving yojson]
-
-    type bitrate_opt = bitrate option [@@deriving yojson]
-
-    type bitrates = bitrate list [@@deriving yojson]
 
     (** TS structure *)
 
@@ -306,7 +298,6 @@ module Streams = struct
 
     type structure =
       { timestamp : Time.t
-      ; stream    : Stream.id
       ; bitrate   : int option
       ; general   : general_info
       ; pids      : pid_info list
@@ -314,9 +305,6 @@ module Streams = struct
       ; emm       : emm_info list
       ; tables    : table list
       } [@@deriving yojson]
-
-    type structures    = structure list [@@deriving yojson]
-    type structure_opt = structure option [@@deriving yojson]
 
     type table_label = [ `PAT   | `CAT   | `PMT   | `TSDT  |
                          `NIT   | `NITa  | `NITo  |
@@ -426,27 +414,19 @@ module Streams = struct
     (** T2MI state **)
 
     type state =
-      { stream    : Stream.id
-      ; timestamp : Time.t
-      ; stream_id : int
+      { timestamp : Time.t
       ; present   : bool
       } [@@deriving yojson]
-
-    type states = state list [@@deriving yojson]
 
     (** T2MI structure **)
 
     type structure =
       { packets      : int list
-      ; stream_id    : int
       ; timestamp    : Time.t
       ; t2mi_pid     : int option
       ; l1_pre       : string option
       ; l1_post_conf : string option
       } [@@deriving yojson]
-
-    type structures    = structure list [@@deriving yojson]
-    type structure_opt = structure option [@@deriving yojson]
 
     (** T2-MI packet sequence **)
 
@@ -499,8 +479,7 @@ module Errors = struct
     } [@@deriving yojson]
 
   type t =
-    { stream    : Stream.id
-    ; timestamp : Time.t
+    { timestamp : Time.t
     ; count     : int
     ; err_code  : int
     ; err_ext   : int

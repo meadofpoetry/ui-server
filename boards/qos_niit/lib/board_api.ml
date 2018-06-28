@@ -5,6 +5,7 @@ open Common
 let handle api events =
   [ Board_api_device.handler api events.device
   ; Api_handler.add_layer "errors"  (Board_api_errors.handlers events.errors)
+  ; Api_handler.add_layer "stream"  (Board_api_stream.handlers api events.streams)
   ; Api_handler.add_layer "streams" (Board_api_streams.handlers api events.streams)
   ; Api_handler.add_layer "jitter"  (Board_api_jitter.handlers events.jitter)
   ]

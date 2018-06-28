@@ -21,18 +21,20 @@ type device_events =
   ; errors : board_errors React.event
   }
 
+type errors = (Stream.id,Errors.t list) List.Assoc.t
+
 type errors_events =
-  { ts_errors   : Errors.t list React.event
-  ; t2mi_errors : Errors.t list React.event
+  { ts_errors   : errors React.event
+  ; t2mi_errors : errors React.event
   }
 
 type streams_events =
   { streams         : Common.Stream.t list React.signal
-  ; ts_states       : Streams.TS.state list React.event
-  ; ts_structures   : Streams.TS.structures React.signal
-  ; ts_bitrates     : Streams.TS.bitrates   React.signal
-  ; t2mi_states     : Streams.T2MI.state list React.event
-  ; t2mi_structures : Streams.T2MI.structures React.signal
+  ; ts_states       : (Stream.id * Streams.TS.state) list React.event
+  ; ts_structures   : (Stream.id * Streams.TS.structure) list React.event
+  ; ts_bitrates     : (Stream.id * Streams.TS.bitrate) list React.event
+  ; t2mi_states     : (int * Streams.T2MI.state) list React.event
+  ; t2mi_structures : (int * Streams.T2MI.structure) list React.event
   }
 
 type jitter_events =
@@ -47,15 +49,32 @@ type events =
   ; jitter  : jitter_events
   }
 
+type push_events =
+  { devinfo        : devinfo option                          -> unit
+  ; state          : Topology.state                          -> unit
+  ; group          : group                                   -> unit
+  ; board_errors   : board_errors                            -> unit
+  ; structs        : (Stream.id * Streams.TS.structure) list -> unit
+  ; bitrates       : (Stream.id * Streams.TS.bitrate) list   -> unit
+  ; t2mi_info      : int * Streams.T2MI.structure            -> unit
+  ; jitter         : Jitter.measures                         -> unit
+  ; jitter_session : Jitter.session                          -> unit
+  }
+
 type api =
-  { get_devinfo     : unit               -> devinfo option Lwt.t
-  ; set_input       : input              -> unit Lwt.t
-  ; set_t2mi_mode   : t2mi_mode option   -> unit Lwt.t
-  ; set_jitter_mode : jitter_mode option -> unit Lwt.t
-  ; get_t2mi_seq    : int                -> Streams.T2MI.sequence Lwt.t
-  ; get_section     : section_params     -> (Streams.TS.section,Streams.TS.section_error) Lwt_result.t
-  ; reset           : unit               -> unit Lwt.t
-  ; config          : unit               -> config Lwt.t
+  { get_devinfo         : unit               -> devinfo option Lwt.t
+  ; set_input           : input              -> unit Lwt.t
+  ; set_t2mi_mode       : t2mi_mode option   -> unit Lwt.t
+  ; set_jitter_mode     : jitter_mode option -> unit Lwt.t
+  ; get_t2mi_seq        : int option         -> Streams.T2MI.sequence Lwt.t
+  ; get_section         : section_params     -> (Streams.TS.section,Streams.TS.section_error) Lwt_result.t
+  ; get_ts_states       : unit -> (Stream.id * Streams.TS.state) list
+  ; get_ts_structures   : unit -> (Stream.id * Streams.TS.structure) list
+  ; get_ts_bitrates     : unit -> (Stream.id * Streams.TS.bitrate) list
+  ; get_t2mi_states     : unit -> (int * Streams.T2MI.state) list
+  ; get_t2mi_structures : unit -> (int * Streams.T2MI.structure) list
+  ; reset               : unit               -> unit Lwt.t
+  ; config              : unit               -> config Lwt.t
   }
 
 module SM = struct
@@ -67,38 +86,30 @@ module SM = struct
 
   let wakeup_timeout (_,t) = t.pred `Timeout |> ignore
 
-  type push_events =
-    { devinfo        : devinfo option         -> unit
-    ; state          : Topology.state         -> unit
-    ; group          : group                  -> unit
-    ; board_errors   : board_errors           -> unit
-    ; structs        : Streams.TS.structures  -> unit
-    ; bitrates       : Streams.TS.bitrates    -> unit
-    ; t2mi_info      : Streams.T2MI.structure -> unit
-    ; jitter         : Jitter.measures        -> unit
-    ; jitter_session : Jitter.session         -> unit
-    }
-
   module Events_handler : sig
     val event_to_string : event -> string
     val group_to_string : group -> string
     val handle          : event list -> group option -> group list * event list
     val update_versions : from:group -> group -> group
     val get_req_stack   : group -> group option -> probe_response probe_request list
-    val to_ts_errors    : group -> Errors.t list
-    val to_ts_states    : group -> Streams.TS.state list
-    val to_t2mi_errors  : group -> Errors.t list
-    val to_t2mi_states  : group -> Streams.T2MI.state list
+    val to_ts_errors    : group -> errors
+    val to_ts_states    : group -> (Stream.id * Streams.TS.state) list
+    val to_t2mi_errors  : group -> errors
+    val to_t2mi_states  : group -> (int * Streams.T2MI.state) list
   end = struct
 
-    let event_to_string = function
-      | `Status x        -> Printf.sprintf "Status(ver=%d)" x.version
-      | `Streams_event x -> Printf.sprintf "Streams(len=%d)" (List.length x)
-      | `T2mi_errors x   -> Printf.sprintf "T2-MI errors(len=%d)" (List.length x)
-      | `Ts_errors x     -> Printf.sprintf "TS errors(len=%d)" (List.length x)
-      | `End_of_errors   -> "End of errors"
+    let event_to_string : event -> string = function
+      | `Status x           -> Printf.sprintf "Status(ver=%d)" x.version
+      | `Streams_event x    -> Printf.sprintf "Streams(len=%d)" (List.length x)
+      | `T2mi_errors (id,e) ->
+         let id = Stream.id_to_int32 id in
+         Printf.sprintf "T2-MI errors(stream=%ld,len=%d)" id (List.length e)
+      | `Ts_errors (id,e)   ->
+         let id = Stream.id_to_int32 id in
+         Printf.sprintf "TS errors(stream=%ld,len=%d)" id (List.length e)
+      | `End_of_errors      -> "End of errors"
 
-    let group_to_string (g:group) =
+    let group_to_string (g:group) : string =
       let e = String.concat "; " (List.map event_to_string g.events) in
       Printf.sprintf "status(%d), events: [%s]" g.status.version e
 
@@ -161,18 +172,11 @@ module SM = struct
          |> List.cons_maybe jitter
          |> List.cons_maybe errors
 
-    let to_ts_errors (g:group) : Errors.t list =
+    let to_ts_errors (g:group) : errors =
       let open Board_types.Errors in
-      let cmp = fun x y ->
-        match Time.compare x.timestamp y.timestamp with
-        | 0 -> Int32.compare x.packet y.packet
-        | x -> x
-      in g.events
-         |> List.filter_map (function `Ts_errors x -> Some x | _ -> None)
-         |> List.concat
-         |> List.sort cmp
+      List.filter_map (function `Ts_errors x -> Some x | _ -> None) g.events
 
-    let to_ts_states (g:group) : Streams.TS.state list =
+    let to_ts_states (g:group) : (Stream.id * Streams.TS.state) list =
       let open Board_types.Streams.TS in
       let eq = Stream.equal_id in
       let timestamp = g.status.status.timestamp in
@@ -180,36 +184,34 @@ module SM = struct
         (match g.prev_status with
          | Some o -> List.filter (fun x -> not @@ List.mem ~eq x o.streams) g.status.streams
          | None   -> g.status.streams)
-        |> List.map (fun x -> { stream = x; timestamp; present = true })
+        |> List.map (fun x -> x,{ timestamp; present = true })
       in
       let ts_lost =
         (match g.prev_status with
          | Some o -> List.filter (fun x -> not @@ List.mem ~eq x g.status.streams) o.streams
          | None   -> [])
-        |> List.map (fun x -> { stream = x; timestamp; present = false })
+        |> List.map (fun x -> x,{ timestamp; present = false })
       in (ts_found @ ts_lost)
 
-    let to_t2mi_errors (g:group) : Errors.t list =
+    let to_t2mi_errors (g:group) : errors =
       let open Board_types.Errors in
       List.filter_map (function `T2mi_errors x -> Some x | _ -> None) g.events
-      |> List.concat
-      |> List.sort (fun (x:t) y -> Time.compare x.timestamp y.timestamp)
 
     let to_t2mi_states (g:group) = match g.status.t2mi_mode with
       | Some m ->
          let eq        = Int.equal in
-         let stream    = m.stream in
+         (* let id        = m.stream in *)
          let timestamp = g.status.status.timestamp in
-         let conv = fun p s -> Streams.T2MI.({ stream; timestamp; stream_id = s; present = p }) in
+         let conv = fun p s -> Streams.T2MI.(s,{timestamp; present = p }) in
          let lost = (match g.prev_status with
                      | Some o -> List.filter (fun x -> not @@ List.mem ~eq x o.t2mi_sync)
-                                             g.status.t2mi_sync
+                                   g.status.t2mi_sync
                      | None   -> g.status.t2mi_sync)
                     |> List.map (conv true)
          in
          let found = (match g.prev_status with
                       | Some o -> List.filter (fun x -> not @@ List.mem ~eq x g.status.t2mi_sync)
-                                              o.t2mi_sync
+                                    o.t2mi_sync
                       | None   -> [])
                      |> List.map (conv false)
          in
@@ -343,7 +345,7 @@ module SM = struct
                     |> String.concat "; "
           in m "%s" @@ fmt @@ Printf.sprintf "%s: %s" pre gps) in
 
-    let log_events events =
+    let log_events (events:event list) =
       Logs.debug (fun m -> match events with
                            | [] -> ()
                            | ev ->
@@ -463,9 +465,21 @@ module SM = struct
             first_step ()
     in (Logs.warn (fun m -> m "%s" @@ fmt board_info_err_msg); first_step ())
 
-  let to_t2mi_info_s (i:Streams.T2MI.structure React.event) : Streams.T2MI.structures React.signal =
+  let to_t2mi_info_s (e:(int * Streams.T2MI.structure) React.event)
+      : (int * Streams.T2MI.structure) list React.signal =
+    React.E.fold (fun acc (id,s) -> List.Assoc.set ~eq:(=) id s acc) [] e
+    |> React.S.hold ~eq:(fun _ _ -> false) []
+
+  let to_ts_states_s (e:(Stream.id * Streams.TS.state) list React.event)
+      : (Stream.id * Streams.TS.state) list React.signal =
     React.E.fold (fun acc x ->
-        List.add_nodup ~eq:(fun (x:Streams.T2MI.structure) y -> x.stream_id = y.stream_id) x acc) [] i
+        List.fold_left (fun acc (id,s) -> List.Assoc.set ~eq:(Stream.equal_id) id s acc) acc x) [] e
+    |> React.S.hold ~eq:(fun _ _ -> false) []
+
+  let to_t2mi_states_s (e:(int * Streams.T2MI.state) list React.event)
+      : (int * Streams.T2MI.state) list React.signal =
+    React.E.fold (fun acc x ->
+        List.fold_left (fun acc (id,s) -> List.Assoc.set ~eq:(=) id s acc) acc x) [] e
     |> React.S.hold ~eq:(fun _ _ -> false) []
 
   let to_input_e (group:group React.event) : input React.event =
@@ -477,16 +491,16 @@ module SM = struct
   let to_reset_e (group:group React.event) : reset_ts React.event =
     React.E.map (fun (x:group) : reset_ts -> { timestamp = x.status.status.timestamp }) group
 
-  let to_ts_errors_e (group:group React.event) : Errors.t list React.event =
+  let to_ts_errors_e (group:group React.event) : errors React.event =
     React.E.map (fun g -> Events_handler.to_ts_errors g) group
 
-  let to_ts_states_e (group:group React.event) : Streams.TS.state list React.event =
+  let to_ts_states_e (group:group React.event) : (Stream.id * Streams.TS.state) list React.event =
     React.E.map (fun g -> Events_handler.to_ts_states g) group
 
-  let to_t2mi_errors_e (group:group React.event) : Errors.t list React.event =
+  let to_t2mi_errors_e (group:group React.event) : errors React.event =
     React.E.map (fun g -> Events_handler.to_t2mi_errors g) group
 
-  let to_t2mi_states_e (group:group React.event) : Streams.T2MI.state list React.event =
+  let to_t2mi_states_e (group:group React.event) : (int * Streams.T2MI.state) list React.event =
     React.E.map (fun g -> Events_handler.to_t2mi_states g) group
 
   let to_raw_streams_s (group:group React.event) : Stream.stream list React.signal =
@@ -519,6 +533,10 @@ module SM = struct
     let e_pcr_s,pcr_s_push = React.E.create () in
     let s_t2mi             = to_t2mi_info_s e_t2mi in
     let s_raw_streams      = to_raw_streams_s e_group in
+    let ts_states          = to_ts_states_e e_group in
+    let t2mi_states        = to_t2mi_states_e e_group in
+    let s_ts_states        = to_ts_states_s ts_states in
+    let s_t2mi_states      = to_t2mi_states_s t2mi_states in
     let (events : events) =
       { device  = { config = React.E.changes ~eq:equal_config e_cfg
                   ; state  = s_state
@@ -531,11 +549,11 @@ module SM = struct
                   ; t2mi_errors = to_t2mi_errors_e e_group
                   }
       ; streams = { streams         = streams_conv s_raw_streams
-                  ; ts_states       = to_ts_states_e e_group
-                  ; ts_structures   = s_ts
-                  ; ts_bitrates     = s_br
-                  ; t2mi_states     = to_t2mi_states_e e_group
-                  ; t2mi_structures = s_t2mi
+                  ; ts_states
+                  ; ts_structures   = React.S.changes s_ts
+                  ; ts_bitrates     = React.S.changes s_br
+                  ; t2mi_states
+                  ; t2mi_structures = React.S.changes s_t2mi
                   }
       ; jitter  = { session = React.E.changes ~eq:Jitter.equal_session e_pcr_s
                   ; jitter  = e_pcr
@@ -587,13 +605,19 @@ module SM = struct
             Logs.debug (fun m -> let s = section_params_to_yojson r |> Yojson.Safe.to_string in
                                  m "%s" @@ fmt @@ Printf.sprintf "Got SI/PSI section request: %s" s);
             enqueue s_state msgs sender (Get_section { request_id = get_id (); params = r })
-                    (to_period 125 step) None)
+              (to_period 125 step) None)
       ; get_t2mi_seq =
           (fun s ->
+            let s = Option.get_or ~default:5 s in
             Logs.debug (fun m -> let s = string_of_int s ^ " sec" in
                                  m "%s" @@ fmt @@ Printf.sprintf "Got T2-MI sequence request: %s" s);
             enqueue s_state msgs sender (Get_t2mi_frame_seq { request_id = get_id (); seconds = s })
-                    (to_period (s + 10) step) None)
+              (to_period (s + 10) step) None)
+      ; get_ts_states       = (fun () -> React.S.value s_ts_states)
+      ; get_ts_structures   = (fun () -> React.S.value s_ts)
+      ; get_ts_bitrates     = (fun () -> React.S.value s_br)
+      ; get_t2mi_states     = (fun () -> React.S.value s_t2mi_states)
+      ; get_t2mi_structures = (fun () -> React.S.value s_t2mi)
       ; config = (fun () -> Lwt.return storage#get)
       }
     in events,api,(sm_step msgs imsgs sender storage step push_events fmt)

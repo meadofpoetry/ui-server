@@ -4,7 +4,7 @@ open Containers
 type id = Single
         | T2mi_plp of int
         | Dvb of int * int
-        | Unknown of int32 [@@deriving yojson, show, eq]
+        | Unknown of int32 [@@deriving show, eq]
 
 let id_of_int32 : int32 -> id = function
   | 0l -> Single
@@ -29,6 +29,12 @@ let id_to_int32 : id -> int32 = function
                         |> Int32.of_int
                         |> Int32.logor (Int32.of_int plp)
   | Unknown x        -> x
+
+let id_to_yojson id : Yojson.Safe.json =
+  let i32 = id_to_int32 id in `Intlit (Int32.to_string i32)
+let id_of_yojson json : (id,string) result = match json with
+  | `Intlit i -> Result.of_opt (Option.map id_of_int32 @@ Int32.of_string i)
+  | _         -> Error "not an int32"
 
 type stream_id = [`Ip of Url.t | `Ts of id] [@@deriving yojson, show, eq]
 

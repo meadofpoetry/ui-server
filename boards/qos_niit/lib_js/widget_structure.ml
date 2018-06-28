@@ -2,6 +2,8 @@ open Containers
 open Components
 open Board_types.Streams.TS
 open Lwt_result.Infix
+open Common
+open Board_types
 
 type composition =
   { services : bool
@@ -144,8 +146,8 @@ let make_stream (ts : structure) =
   let nested = new Tree.t ~items:(gen :: opt) () in
   new Tree.Item.t ~text ~secondary_text:stext ~nested ()
 
-let make_streams_tree (ts : structures) =
-  let ts   = List.map make_stream ts in
+let make_streams_tree (ts : (Stream.id * Streams.TS.structure) list) =
+  let ts   = List.map Fun.(make_stream % snd) ts in
   let tree = new Tree.t ~items:ts () in
   tree#set_dense true;
   tree#style##.maxWidth := Js.string "700px";
@@ -155,11 +157,11 @@ let name     = "Структура"
 let settings = None
 
 let make ~(state   : Common.Topology.state React.signal)
-         ~(structs : structures React.signal)
+         ~(structs : (Stream.id * Streams.TS.structure) list React.signal)
          (config   : config option) =
   let id  = "ts-structures" in
   let div = Dom_html.createDiv Dom_html.document in
-  let make (ts : structures) =
+  let make (ts : (Stream.id * Streams.TS.structure) list) =
     let tree = make_streams_tree ts in
     tree#set_id id;
     tree

@@ -41,11 +41,10 @@ module HTTP = struct
      | Ok mode -> api.set_mode (id,mode) >|= (to_yojson %> Result.return))
     >>= respond_result
 
-  let get id (get:unit -> (int * 'a) list) (map:'a -> 'b) (_to:'b -> Yojson.Safe.json) () =
-    let to_yojson = Json.(Pair.to_yojson Int.to_yojson _to) in
+  let get id (get:unit -> (int * 'a) list) (map:'a -> 'b) (to_yojson:'b -> Yojson.Safe.json) () =
     match List.find_opt (fun x -> (fst x) = id) @@ get () with
-    | Some (id,x) -> to_yojson (id,(map x)) |> Result.return |> respond_result
-    | None        -> `String "not found" |> Result.fail |> respond_result
+    | Some (_,x) -> to_yojson (map x) |> Result.return |> respond_result
+    | None       -> `String "not found" |> Result.fail |> respond_result
 
   let identity = fun x -> x
 

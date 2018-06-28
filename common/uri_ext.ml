@@ -109,6 +109,7 @@ end = struct
       | _::tl, S (_,fmt)       -> scan_unsafe tl fmt f
       | h::tl, F (String, fmt) -> scan_unsafe tl fmt (f h)
       | h::tl, F (Int, fmt)    -> scan_unsafe tl fmt (f @@ int_of_string h)
+      | h::tl, F (Int32, fmt)  -> scan_unsafe tl fmt (f @@ Int32.of_string h)
       | h::tl, F (Bool, fmt)   -> scan_unsafe tl fmt (f @@ bool_of_string h)
       | [], E                  -> f
       | _                      -> failwith "bad path"

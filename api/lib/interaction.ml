@@ -25,6 +25,7 @@ let respond_error ?(status = `Forbidden) error = Cohttp_lwt_unix.Server.respond_
 module type Req = sig
 
   type t
+  val content_type    : string option
   val to_body         : t -> Cohttp_lwt.Body.t
   val of_body         : Cohttp_lwt.Body.t -> t Lwt.t
   val of_error_string : string -> t
@@ -36,6 +37,7 @@ module Json_req : Req with type t = Yojson.Safe.json = struct
 
   type t     = Yojson.Safe.json
 
+  let content_type  = Some "application/json"
   let to_body (t:t) = Yojson.Safe.to_string t |> Cohttp_lwt.Body.of_string
   let of_body (b:Cohttp_lwt.Body.t) = Cohttp_lwt.Body.to_string b >|= fun body ->
                                       Uri.pct_decode body |> Yojson.Safe.from_string
@@ -45,31 +47,44 @@ module Json_req : Req with type t = Yojson.Safe.json = struct
 end
 
 module type Handler = sig
-  include Req
-  val respond             : t -> ?headers:Cohttp.Header.t -> ?flush:bool -> unit -> response
-  val respond_result      : (t, t) result -> response
-  val respond_result_unit : (unit,t) result -> response
-  val respond_option      : t option -> response
+  type t
+  val to_body             : t -> Cohttp_lwt.Body.t
+  val of_body             : Cohttp_lwt.Body.t -> t Lwt.t
+  val of_error_string     : string -> t
+  val of_exn              : exn -> t
+  val respond             : ?headers:Cohttp.Header.t ->
+                            ?flush:bool ->
+                            ?status:Cohttp.Code.status_code ->
+                            t ->
+                            unit -> response
+  val respond_result      : ?err_status:Cohttp.Code.status_code -> (t, t) result -> response
+  val respond_result_unit : ?err_status:Cohttp.Code.status_code -> (unit,t) result -> response
   val (>>=)               : 'a Lwt.t -> ('a -> response) -> response
 end
 
 module Make(M:Req) : (Handler with type t := M.t) = struct
 
-  include M
+  let to_body = M.to_body
+  let of_body = M.of_body
+  let of_error_string = M.of_error_string
+  let of_exn  = M.of_exn
 
-  let respond x = Cohttp_lwt_unix.Server.respond ~status:`OK ~body:(to_body x)
+  let respond' ?headers ?flush ?(status=`OK) ~body () =
+    let headers = match M.content_type with
+      | Some s -> Some (Cohttp.Header.add_opt_unless_exists headers "Content-Type" s)
+      | None   -> None
+    in Cohttp_lwt_unix.Server.respond ?headers ?flush ~status ~body ()
 
-  let respond_result = function
-    | Ok x    -> Cohttp_lwt_unix.Server.respond ~status:`OK ~body:(to_body x) ()
-    | Error x -> Cohttp_lwt_unix.Server.respond ~status:`Bad_request ~body:(to_body x) ()
+  let respond ?headers ?flush ?status x () =
+    respond' ?headers ?flush ?status ~body:(to_body x) ()
 
-  let respond_result_unit = function
-    | Ok ()   -> Cohttp_lwt_unix.Server.respond ~status:`OK ~body:Cohttp_lwt.Body.empty ()
-    | Error x -> Cohttp_lwt_unix.Server.respond ~status:`Bad_request ~body:(to_body x) ()
+  let respond_result ?(err_status=`Bad_request) = function
+    | Ok x    -> respond x ()
+    | Error x -> respond ~status:err_status x ()
 
-  let respond_option = function
-    | Some x  -> Cohttp_lwt_unix.Server.respond ~status:`OK ~body:(to_body x) ()
-    | None    -> Cohttp_lwt_unix.Server.respond_not_found ()
+  let respond_result_unit ?(err_status=`Bad_request) = function
+    | Ok ()   -> respond' ~body:Cohttp_lwt.Body.empty ()
+    | Error x -> respond ~status:err_status x ()
 
   let (>>=) t f = Lwt.try_bind (fun () -> t) f (fun exn -> M.of_exn exn |> Result.fail |> respond_result)
 

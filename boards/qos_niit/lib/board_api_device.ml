@@ -143,8 +143,8 @@ let handler api events =
                               ~path:Path.Format.("mode/t2mi" @/ empty)
                               ~query:Query.empty
                               (HTTP.mode `T2MI api)
-             ; create_handler ~docstring:"Returns current T2-MI analysis mode"
-                              ~path:Path.Format.("mode/t2mi" @/ empty)
+             ; create_handler ~docstring:"Returns current jitter measure mode"
+                              ~path:Path.Format.("mode/jitter" @/ empty)
                               ~query:Query.empty
                               (HTTP.mode `T2MI api)
              ; create_handler ~docstring:"Returns current board description, if available"
@@ -156,7 +156,7 @@ let handler api events =
                               ~query:Query.empty
                               (HTTP.state events)
              (* Archive *)
-             ; create_handler ~docstring:"Returns board state archive"
+             ; create_handler ~docstring:"Returns archived board state"
                               ~path:Path.Format.("state/archive" @/ empty)
                               ~query:Query.[ "limit",    (module Option(Int))
                                            ; "compress", (module Option(Bool))
@@ -164,7 +164,7 @@ let handler api events =
                                            ; "to",       (module Option(Time.Show))
                                            ; "duration", (module Option(Time.Relative)) ]
                               HTTP.Archive.state
-             ; create_handler ~docstring:"Returns board errors archive"
+             ; create_handler ~docstring:"Returns archived board errors"
                               ~path:Path.Format.("errors/archive" @/ empty)
                               ~query:Query.[ "errors",   (module List(Int))
                                            ; "limit",    (module Option(Int))
