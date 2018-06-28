@@ -80,7 +80,6 @@ module type MODEL = sig
 end
            
 module type CONN = sig
-  module Request : module type of Request
   type t
   val create   : state -> (t, string) result
   val request  : t -> ('req,_) Request.t -> 'req Lwt.t
@@ -88,7 +87,6 @@ module type CONN = sig
 end
 
 module Make (M : MODEL) : CONN = struct
-  module Request = Request
   
   type t = state
 

@@ -57,12 +57,15 @@ end
 
 module Conn = Storage.Database.Make(Model)
 
+module R = Caqti_request
+
 module Structure = struct
   let insert_structures db streams : unit Lwt.t =
     let entries = Structure_conv.dump_structures streams in
-    let insert  = Caqti_request.exec Caqti_type.(tup2 string string)
+    let insert  = R.exec Types.(tup2 string string)
                     "INSERT INTO qoe_structures(input, structs) VALUES (?,?)"
-    in Conn.request db (Reduce ((Exec insert),(),(fun x _ -> x))) entries
+    in Conn.request db Request.(with_trans (List.fold_left (fun acc e -> acc >>= fun () -> exec insert e)
+                                              (return ()) entries))
 
   let select_input db i =
     let i = Yojson.Safe.to_string @@ Common.Topology.topo_input_to_yojson i in
@@ -71,9 +74,9 @@ module Structure = struct
       , d
     in
     let get' =
-      Caqti_request.find Caqti_type.string Caqti_type.(tup2 string ptime)
+      R.find Types.string Types.(tup2 string ptime)
         "SELECT structs, date FROM qoe_structures WHERE input = ?::JSONB ORDER BY date DESC LIMIT 1"
-    in Conn.request db (Find get') i >|= (Option.map unwrap)
+    in Conn.request db Request.(find get' i) >|= (Option.map unwrap)
 
   let select_input_between db i from to' =
     let i = Yojson.Safe.to_string @@ Common.Topology.topo_input_to_yojson i in
@@ -82,19 +85,20 @@ module Structure = struct
       , d
     in
     let get' = 
-      Caqti_request.collect Caqti_type.(tup3 string ptime ptime) Caqti_type.(tup2 string ptime)
+      R.collect Types.(tup3 string ptime ptime) Caqti_type.(tup2 string ptime)
         "SELECT structs, date FROM qoe_structures WHERE input = ?::JSONB AND date > ? AND date <= ? ORDER BY date DESC LIMIT 100"
-    in Conn.request db (List get') (i,from,to') >|= (List.map unwrap)
+    in Conn.request db Request.(list get' (i,from,to')) >|= (List.map unwrap)
 
 end
 
 module Errors = struct
   let insert_data db data =
   let insert =
-    Caqti_request.exec data_t
+    R.exec data_t
       {eos|INSERT INTO qoe_errors(stream,channel,pid,error,counter,size,min,max,avg,peak_flag,cont_flag,date)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)|eos}
-  in Conn.request db (Reduce ((Exec insert),(),(fun x _ -> x))) data
+  in Conn.request db Request.(with_trans (List.fold_left (fun acc x -> acc >>= fun () -> exec insert x)
+                                            (return ()) data))
 
   let insert_audio db data = insert_data db (audio_data_to_list data)
 
