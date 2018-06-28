@@ -98,12 +98,11 @@ let handlers app =
     | Some proc -> proc#handlers () (* TODO ? *)
   in
   [ Api_handler.add_layer "board" hls
-  ; Api_handler.create_dispatcher "topology" [] [] ]
-    (*
-    (module struct
+  ; (module struct
        let domain = "topology"
        let handle = handle app
-     end : Api_handler.HANDLER) ]*)
+     end : Api_handler.HANDLER)
+  ]
   @ proc_api
   @ [ Pc_control.Network_api.handlers app.network
     ; User_api.handlers app.users

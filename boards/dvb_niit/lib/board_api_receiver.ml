@@ -11,23 +11,23 @@ module WS = struct
 
   let mode (events:events) id _ body sock_data () =
     let e = React.E.fmap (fun (x,m) -> if id = x then Some m else None) events.mode in
-    sock_handler sock_data e mode_to_yojson body
+    Api.Socket.handler socket_table sock_data e mode_to_yojson body
 
   let lock (events:events) id _ body sock_data () =
     let e = React.E.fmap (fun (x,l) -> if id = x then Some l else None) events.lock in
-    sock_handler sock_data e lock_to_yojson body
+    Api.Socket.handler socket_table sock_data e lock_to_yojson body
 
   let measures (events:events) id _ body sock_data () =
     let e = React.E.fmap (fun (x,m) -> if id = x then Some m else None) events.measures in
-    sock_handler sock_data e measures_to_yojson body
+    Api.Socket.handler socket_table sock_data e measures_to_yojson body
 
   let parameters (events:events) id _ body sock_data () =
     let e = React.E.fmap (fun (x,p) -> if id = x then Some p else None) events.params in
-    sock_handler sock_data e params_to_yojson body
+    Api.Socket.handler socket_table sock_data e params_to_yojson body
 
   let plp_list (events:events) id _ body sock_data () =
     let e = React.E.fmap (fun (x,l) -> if id = x then Some l else None) events.plp_list in
-    sock_handler sock_data e plp_list_to_yojson body
+    Api.Socket.handler socket_table sock_data e plp_list_to_yojson body
 
 end
 

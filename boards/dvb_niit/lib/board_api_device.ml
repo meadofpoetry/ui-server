@@ -10,10 +10,10 @@ open Common
 module WS = struct
 
   let state (events:events) _ body sock_data () =
-    sock_handler sock_data (React.S.changes events.state) Topology.state_to_yojson body
+    Api.Socket.handler socket_table sock_data (React.S.changes events.state) Topology.state_to_yojson body
 
   let config (events:events) _ _ body sock_data () =
-    sock_handler sock_data events.config config_to_yojson body
+    Api.Socket.handler socket_table sock_data events.config config_to_yojson body
 
 end
 

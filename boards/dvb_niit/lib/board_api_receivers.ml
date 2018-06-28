@@ -15,31 +15,31 @@ module WS = struct
     let e = match ids with
       | []  -> events.mode
       | ids -> React.E.filter (fun (id,_) -> List.mem ~eq:(=) id ids) events.mode
-    in sock_handler sock_data e (to_yojson mode_to_yojson) body
+    in Api.Socket.handler socket_table sock_data e (to_yojson mode_to_yojson) body
 
   let lock (events:events) ids _ body sock_data () =
     let e = match ids with
       | []  -> events.lock
       | ids -> React.E.filter (fun (id,_) -> List.mem ~eq:(=) id ids) events.lock
-    in sock_handler sock_data e (to_yojson lock_to_yojson) body
+    in Api.Socket.handler socket_table sock_data e (to_yojson lock_to_yojson) body
 
   let measures (events:events) ids _ body sock_data () =
     let e = match ids with
       | []  -> events.measures
       | ids -> React.E.filter (fun (id,_) -> List.mem ~eq:(=) id ids) events.measures
-    in sock_handler sock_data e (to_yojson measures_to_yojson) body
+    in Api.Socket.handler socket_table sock_data e (to_yojson measures_to_yojson) body
 
   let parameters (events:events) ids _ body sock_data () =
     let e = match ids with
       | []  -> events.params
       | ids -> React.E.filter (fun (id,_) -> List.mem ~eq:(=) id ids) events.params
-    in sock_handler sock_data e (to_yojson params_to_yojson) body
+    in Api.Socket.handler socket_table sock_data e (to_yojson params_to_yojson) body
 
   let plp_list (events:events) ids _ body sock_data () =
     let e = match ids with
       | []  -> events.plp_list
       | ids -> React.E.filter (fun (id,_) -> List.mem ~eq:(=) id ids) events.plp_list
-    in sock_handler sock_data e (to_yojson plp_list_to_yojson) body
+    in Api.Socket.handler socket_table sock_data e (to_yojson plp_list_to_yojson) body
 
 end
 

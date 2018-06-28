@@ -26,7 +26,7 @@ module WS = struct
                                                      | `Ts id -> List.mem ~eq:(Stream.equal_id) id l
                                                      | _      -> false) streams
                     |> function [] -> None | l -> Some l) (React.S.changes events.streams)
-      in sock_handler sock_data e (Json.List.to_yojson Stream.to_yojson) body
+      in Api.Socket.handler socket_table sock_data e (Json.List.to_yojson Stream.to_yojson) body
 
     let state (events:events) ids _ body sock_data () =
       let ids = List.map Stream.id_of_int32 ids in
@@ -35,7 +35,7 @@ module WS = struct
         | l  -> React.E.fmap (fun states ->
                     List.filter (fun (id,_) -> List.mem ~eq:(Stream.equal_id) id l) states
                     |> function [] -> None | l -> Some l) events.ts_states
-      in sock_handler sock_data e (to_yojson state_to_yojson) body
+      in Api.Socket.handler socket_table sock_data e (to_yojson state_to_yojson) body
 
     let bitrate (events:events) ids _ body sock_data () =
       let ids = List.map Stream.id_of_int32 ids in
@@ -45,7 +45,7 @@ module WS = struct
                     List.filter (fun (id,_) -> List.mem ~eq:(Stream.equal_id) id l) bitrates
                     |> function [] -> None | l -> Some l)
                   events.ts_bitrates
-      in sock_handler sock_data e (to_yojson bitrate_to_yojson) body
+      in Api.Socket.handler socket_table sock_data e (to_yojson bitrate_to_yojson) body
 
     let structure (events:events) ids _ body sock_data () =
       let ids = List.map Stream.id_of_int32 ids in
@@ -55,7 +55,7 @@ module WS = struct
                     List.filter (fun (id,_) -> List.mem ~eq:(Stream.equal_id) id l) structures
                     |> function [] -> None | l -> Some l)
                   events.ts_structures
-      in sock_handler sock_data e (to_yojson structure_to_yojson) body
+      in Api.Socket.handler socket_table sock_data e (to_yojson structure_to_yojson) body
 
   end
 
@@ -71,7 +71,7 @@ module WS = struct
         | l  -> React.E.fmap (fun states ->
                     List.filter (fun (id,_) -> List.mem ~eq:(=) id l) states
                     |> function [] -> None | l -> Some l) events.t2mi_states
-      in sock_handler sock_data e (to_yojson state_to_yojson) body
+      in Api.Socket.handler socket_table sock_data e (to_yojson state_to_yojson) body
 
     let structure (events:events) ids _ body sock_data () =
       let e   = match ids with
@@ -80,7 +80,7 @@ module WS = struct
                     List.filter (fun (id,_) -> List.mem ~eq:(=) id l) structures
                     |> function [] -> None | l -> Some l)
                 events.t2mi_structures
-      in sock_handler sock_data e (to_yojson structure_to_yojson) body
+      in Api.Socket.handler socket_table sock_data e (to_yojson structure_to_yojson) body
 
   end
 
