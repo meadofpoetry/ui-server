@@ -53,7 +53,7 @@ module type WS = sig
     ?secure:bool ->
     ?host:string ->
     ?port:int ->
-    from:(t -> ('c, 'd) result) ->
+    from:(t -> ('c, string) result) ->
     path:('a, 'b) Uri.Path.Format.t ->
     query:('b, 'c React.event * WebSockets.webSocket Js.t)
           Uri.Query.compose -> 'a
@@ -90,8 +90,8 @@ module type Request = sig
     ?scheme:string ->
     ?host:string ->
     ?port:int ->
-    ?from_err:(t -> ('a, 'b) result) ->
-    from:(t -> ('c, 'd) result) ->
+    ?from_err:(t -> ('a, string) result) ->
+    from:(t -> ('c, string) result) ->
     path:('e, 'f) Uri.Path.Format.t ->
     query:('f, ('c, [> `Code of int | `Data of int * 'a ]) result Lwt.t)
           Uri.Query.compose ->
@@ -125,8 +125,8 @@ module type Request = sig
     ?host:string ->
     ?port:int ->
     ?contents:t ->
-    ?from_err:(t -> ('a, 'b) result) ->
-    from:(t -> ('c, 'd) result) ->
+    ?from_err:(t -> ('a, string) result) ->
+    from:(t -> ('c, string) result) ->
     path:('e, 'f) Uri.Path.Format.t ->
     query:('f, ('c, [> `Code of int | `Data of int * 'a ]) result Lwt.t)
           Uri.Query.compose ->
@@ -136,7 +136,7 @@ module type Request = sig
     ?host:string ->
     ?port:int ->
     ?contents:t ->
-    ?from_err:(t -> ('a, 'b) result) ->
+    ?from_err:(t -> ('a, string) result) ->
     path:('c, 'd) Uri.Path.Format.t ->
     query:('d, (unit, [> `Code of int | `Data of int * 'a ]) result Lwt.t)
           Uri.Query.compose ->

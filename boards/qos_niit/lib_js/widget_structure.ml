@@ -157,8 +157,8 @@ let name     = "Структура"
 let settings = None
 
 let make ~(state   : Common.Topology.state React.signal)
-         ~(structs : (Stream.id * Streams.TS.structure) list React.signal)
-         (config   : config option) =
+      ~(structs : (Stream.id * Streams.TS.structure) list React.signal)
+      (config   : config option) =
   let id  = "ts-structures" in
   let div = Dom_html.createDiv Dom_html.document in
   let make (ts : (Stream.id * Streams.TS.structure) list) =
@@ -168,6 +168,6 @@ let make ~(state   : Common.Topology.state React.signal)
   in
   let _ = React.S.map (fun s -> (try Dom.removeChild div (Dom_html.getElementById id) with _ -> ());
                                 Dom.appendChild div (make s)#root)
-                      structs
+            structs
   in
   Widget.create div

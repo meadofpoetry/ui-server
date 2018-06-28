@@ -44,7 +44,7 @@ module HTTP = struct
   let get id (get:unit -> (int * 'a) list) (map:'a -> 'b) (to_yojson:'b -> Yojson.Safe.json) () =
     match List.find_opt (fun x -> (fst x) = id) @@ get () with
     | Some (_,x) -> to_yojson (map x) |> Result.return |> respond_result
-    | None       -> `String "not found" |> Result.fail |> respond_result
+    | None       -> `String "receiver not found" |> Result.fail |> respond_result ~err_status:`Not_found
 
   let identity = fun x -> x
 

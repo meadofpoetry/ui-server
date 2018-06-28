@@ -12,29 +12,28 @@ module WS = struct
 
   module TS = struct
 
-    let get_errors ?stream ?(errors=[]) ?(priority=[]) ?(pids=[]) control =
-      let stream = Option.map Stream.id_to_int32 stream in
+    let get_errors ?(streams=[]) ?(errors=[]) ?(priority=[]) ?(pids=[]) control =
+      let stream = List.map Stream.id_to_int32 streams in
       WS.get ~from:(Json.List.of_yojson of_yojson)
-             ~path:Path.Format.(get_base_path () / ("ts" @/ empty))
-             ~query:Query.[ "stream",   (module Option(Int32))
-                          ; "errors",   (module List(Int))
-                          ; "priority", (module List(Int))
-                          ; "pid",      (module List(Int))]
-             control stream errors priority pids
+        ~path:Path.Format.(get_base_path () / ("ts" @/ empty))
+        ~query:Query.[ "stream-id",(module List(Int32))
+                     ; "errors",   (module List(Int))
+                     ; "priority", (module List(Int))
+                     ; "pid",      (module List(Int))]
+        control stream errors priority pids
 
   end
 
   module T2MI = struct
 
-    let get_errors ?stream ?t2mi_stream_id ?(errors=[]) ?(pids=[]) control =
-      let stream = Option.map Stream.id_to_int32 stream in
+    let get_errors ?(streams=[]) ?(t2mi_ids=[]) ?(errors=[]) ?(pids=[]) control =
       WS.get ~from:(Json.List.of_yojson of_yojson)
-             ~path:Path.Format.(get_base_path () / ("t2mi" @/ empty))
-             ~query:Query.[ "stream",         (module Option(Int32))
-                          ; "t2mi-stream-id", (module Option(Int))
-                          ; "errors",         (module List(Int))
-                          ; "pid",            (module List(Int)) ]
-             control stream t2mi_stream_id errors pids
+        ~path:Path.Format.(get_base_path () / ("t2mi" @/ empty))
+        ~query:Query.[ "stream-id",      (module List(Int32))
+                     ; "t2mi-stream-id", (module List(Int))
+                     ; "errors",         (module List(Int))
+                     ; "pid",            (module List(Int)) ]
+        control streams t2mi_ids errors pids
 
   end
 
@@ -49,46 +48,46 @@ module HTTP = struct
 
     module Archive = struct
 
-      let get_errors ?stream ?(errors=[]) ?(priority=[]) ?(pids=[])
-                     ?limit ?compress ?from ?till ?duration control =
+      let get_errors ?(streams=[]) ?(errors=[]) ?(priority=[]) ?(pids=[])
+            ?limit ?compress ?from ?till ?duration control =
         get_result ~from:(fun _ -> Error "not implemented")
-                   ~path:Path.Format.(get_base_path () / ("ts/archive" @/ empty))
-                   ~query:Query.[ "stream",   (module Option(Int32))
-                                ; "errors",   (module List(Int))
-                                ; "priority", (module List(Int))
-                                ; "pid",      (module List(Int))
-                                ; "limit",    (module Option(Int))
-                                ; "compress", (module Option(Bool))
-                                ; "from",     (module Option(Time.Show))
-                                ; "to",       (module Option(Time.Show))
-                                ; "duration", (module Option(Time.Relative)) ]
-                   control stream errors priority pids limit compress from till duration
+          ~path:Path.Format.(get_base_path () / ("ts/archive" @/ empty))
+          ~query:Query.[ "stream-id",(module List(Int32))
+                       ; "errors",   (module List(Int))
+                       ; "priority", (module List(Int))
+                       ; "pid",      (module List(Int))
+                       ; "limit",    (module Option(Int))
+                       ; "compress", (module Option(Bool))
+                       ; "from",     (module Option(Time.Show))
+                       ; "to",       (module Option(Time.Show))
+                       ; "duration", (module Option(Time.Relative)) ]
+          control streams errors priority pids limit compress from till duration
 
-      let get_percent ?stream ?(errors=[]) ?(priority=[]) ?(pids=[])
-                      ?from ?till ?duration control =
+      let get_percent ?(streams=[]) ?(errors=[]) ?(priority=[]) ?(pids=[])
+            ?from ?till ?duration control =
         get_result ~from:(fun _ -> Error "not implemented")
-                   ~path:Path.Format.(get_base_path () / ("ts/archive/percent" @/ empty))
-                   ~query:Query.[ "stream",   (module Option(Int32))
-                                ; "errors",   (module List(Int))
-                                ; "priority", (module List(Int))
-                                ; "pid",      (module List(Int))
-                                ; "from",     (module Option(Time.Show))
-                                ; "to",       (module Option(Time.Show))
-                                ; "duration", (module Option(Time.Relative)) ]
-                   control stream errors priority pids from till duration
+          ~path:Path.Format.(get_base_path () / ("ts/archive/percent" @/ empty))
+          ~query:Query.[ "stream-id",(module List(Int32))
+                       ; "errors",   (module List(Int))
+                       ; "priority", (module List(Int))
+                       ; "pid",      (module List(Int))
+                       ; "from",     (module Option(Time.Show))
+                       ; "to",       (module Option(Time.Show))
+                       ; "duration", (module Option(Time.Relative)) ]
+          control streams errors priority pids from till duration
 
-      let get_has_any ?stream ?(errors=[]) ?(priority=[]) ?(pids=[])
-                      ?from ?till ?duration control =
+      let get_has_any ?(streams=[]) ?(errors=[]) ?(priority=[]) ?(pids=[])
+            ?from ?till ?duration control =
         get_result ~from:(fun _ -> Error "not implemented")
-                   ~path:Path.Format.(get_base_path () / ("ts/archive/has-any" @/ empty))
-                   ~query:Query.[ "stream",   (module Option(Int32))
-                                ; "errors",   (module List(Int))
-                                ; "priority", (module List(Int))
-                                ; "pid",      (module List(Int))
-                                ; "from",     (module Option(Time.Show))
-                                ; "to",       (module Option(Time.Show))
-                                ; "duration", (module Option(Time.Relative)) ]
-                   control stream errors priority pids from till duration
+          ~path:Path.Format.(get_base_path () / ("ts/archive/has-any" @/ empty))
+          ~query:Query.[ "stream-id", (module List(Int32))
+                       ; "errors",   (module List(Int))
+                       ; "priority", (module List(Int))
+                       ; "pid",      (module List(Int))
+                       ; "from",     (module Option(Time.Show))
+                       ; "to",       (module Option(Time.Show))
+                       ; "duration", (module Option(Time.Relative)) ]
+          control streams errors priority pids from till duration
 
     end
 
@@ -98,50 +97,50 @@ module HTTP = struct
 
     module Archive = struct
 
-      let get_errors ?stream ?t2mi_stream_id ?(errors=[]) ?(pids=[])
-                     ?limit ?compress ?from ?till ?duration control =
+      let get_errors ?(streams=[]) ?(t2mi_ids=[]) ?(errors=[]) ?(pids=[])
+            ?limit ?compress ?from ?till ?duration control =
         get_result ~from:(fun _ -> Error "not implemented")
-                   ~path:Path.Format.(get_base_path () / ("t2mi/archive" @/ empty))
-                   ~query:Query.[ "stream",         (module Option(Int32))
-                                ; "t2mi-stream-id", (module Option(Int))
-                                ; "errors",         (module List(Int))
-                                ; "pid",            (module List(Int))
-                                ; "limit",          (module Option(Int))
-                                ; "compress",       (module Option(Bool))
-                                ; "from",           (module Option(Time.Show))
-                                ; "to",             (module Option(Time.Show))
-                                ; "duration",       (module Option(Time.Relative)) ]
-                   control stream t2mi_stream_id errors pids limit compress from till duration
+          ~path:Path.Format.(get_base_path () / ("t2mi/archive" @/ empty))
+          ~query:Query.[ "stream-id",      (module List(Int32))
+                       ; "t2mi-stream-id", (module List(Int))
+                       ; "errors",         (module List(Int))
+                       ; "pid",            (module List(Int))
+                       ; "limit",          (module Option(Int))
+                       ; "compress",       (module Option(Bool))
+                       ; "from",           (module Option(Time.Show))
+                       ; "to",             (module Option(Time.Show))
+                       ; "duration",       (module Option(Time.Relative)) ]
+          control streams t2mi_ids errors pids limit compress from till duration
 
-      let get_percent ?stream t2mi_stream_id ?(errors=[]) ?(pids=[])
-                      ?from ?till ?duration control =
+      let get_percent ?(streams=[]) ?(t2mi_ids=[]) ?(errors=[]) ?(pids=[])
+            ?from ?till ?duration control =
         get_result ~from:(fun _ -> Error "not implemented")
-                   ~path:Path.Format.(get_base_path () / ("t2mi/archive/percent" @/ empty))
-                   ~query:Query.[ "stream",         (module Option(Int32))
-                                ; "t2mi-stream-id", (module Option(Int))
-                                ; "errors",         (module List(Int))
-                                ; "pid",            (module List(Int))
-                                ; "limit",          (module Option(Int))
-                                ; "compress",       (module Option(Bool))
-                                ; "from",           (module Option(Time.Show))
-                                ; "to",             (module Option(Time.Show))
-                                ; "duration",       (module Option(Time.Relative)) ]
-                   control stream t2mi_stream_id errors pids from till duration
+          ~path:Path.Format.(get_base_path () / ("t2mi/archive/percent" @/ empty))
+          ~query:Query.[ "stream-id",      (module List(Int32))
+                       ; "t2mi-stream-id", (module List(Int))
+                       ; "errors",         (module List(Int))
+                       ; "pid",            (module List(Int))
+                       ; "limit",          (module Option(Int))
+                       ; "compress",       (module Option(Bool))
+                       ; "from",           (module Option(Time.Show))
+                       ; "to",             (module Option(Time.Show))
+                       ; "duration",       (module Option(Time.Relative)) ]
+          control streams t2mi_ids errors pids from till duration
 
-      let get_has_any ?stream t2mi_stream_id ?(errors=[]) ?(pids=[])
-                      ?from ?till ?duration control =
+      let get_has_any ?(streams=[]) ?(t2mi_ids=[])  ?(errors=[]) ?(pids=[])
+            ?from ?till ?duration control =
         get_result ~from:(fun _ -> Error "not implemented")
-                   ~path:Path.Format.(get_base_path () / ("t2mi/archive/has-any" @/ empty))
-                   ~query:Query.[ "stream",         (module Option(Int32))
-                                ; "t2mi-stream-id", (module Option(Int))
-                                ; "errors",         (module List(Int))
-                                ; "pid",            (module List(Int))
-                                ; "limit",          (module Option(Int))
-                                ; "compress",       (module Option(Bool))
-                                ; "from",           (module Option(Time.Show))
-                                ; "to",             (module Option(Time.Show))
-                                ; "duration",       (module Option(Time.Relative)) ]
-                   control stream t2mi_stream_id errors pids from till duration
+          ~path:Path.Format.(get_base_path () / ("t2mi/archive/has-any" @/ empty))
+          ~query:Query.[ "stream-id",      (module List(Int32))
+                       ; "t2mi-stream-id", (module List(Int))
+                       ; "errors",         (module List(Int))
+                       ; "pid",            (module List(Int))
+                       ; "limit",          (module Option(Int))
+                       ; "compress",       (module Option(Bool))
+                       ; "from",           (module Option(Time.Show))
+                       ; "to",             (module Option(Time.Show))
+                       ; "duration",       (module Option(Time.Relative)) ]
+          control streams t2mi_ids errors pids from till duration
 
     end
 

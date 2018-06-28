@@ -1,6 +1,6 @@
 open Containers
 open Storage.Database
-open Api.Query
+open Api.Api_types
 open Board_types
 open Lwt.Infix
 open Common

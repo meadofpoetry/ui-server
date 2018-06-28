@@ -133,7 +133,7 @@ module HTTP = struct
       let streams ids limit from till duration _ _ () =
         respond_error ~status:`Not_implemented "FIXME" ()
 
-      let state ids filter limit compress from till duration _ _ () =
+      let state ids limit compress from till duration _ _ () =
         respond_error ~status:`Not_implemented "FIXME" ()
 
       let structure ids limit from till duration _ _ () =
@@ -166,7 +166,8 @@ module HTTP = struct
                   (api.get_t2mi_structures ())
       in (to_yojson structure_to_yojson) structs |> Result.return |> respond_result
 
-    let sequence (api:api) ids seconds _ _ () =
+    let sequence (api:api) ids duration _ _ () =
+      let seconds = Option.flat_map Time.Relative.to_int_s duration in
       api.get_t2mi_seq seconds
       >|= (fun x -> let seq = match ids with
                       | [] -> x
@@ -178,10 +179,10 @@ module HTTP = struct
 
       open Board_types.Streams.T2MI
 
-      let state id filter limit compress from till duration _ _ () =
+      let state ids limit compress from till duration _ _ () =
         respond_error ~status:`Not_implemented "FIXME" ()
 
-      let structure id limit from till duration _ _ () =
+      let structure ids limit from till duration _ _ () =
         respond_error ~status:`Not_implemented "FIXME" ()
 
     end
@@ -240,7 +241,6 @@ let ts_handler (api:api) events =
             ; create_handler ~docstring:"Retunrs archived stream state"
                 ~path:Path.Format.("state/archive" @/ empty)
                 ~query:Query.[ "id",       (module List(Int32))
-                             ; "filter",   (module Option(Bool))
                              ; "limit",    (module Option(Int))
                              ; "compress", (module Option(Bool))
                              ; "from",     (module Option(Time.Show))
@@ -292,13 +292,12 @@ let t2mi_handler (api:api) events =
             ; create_handler ~docstring:"Returns T2-MI packet sequence"
                 ~path:Path.Format.("sequence" @/ empty)
                 ~query:Query.[ "id",       (module List(Int))
-                             ; "duration", (module Option(Int)) ]
+                             ; "duration", (module Option(Time.Relative)) ]
                 (HTTP.T2MI.sequence api)
             (* Archive *)
             ; create_handler ~docstring:"Returns archived stream state"
                 ~path:Path.Format.("state/archive" @/ empty)
                 ~query:Query.[ "id",       (module List(Int))
-                             ; "filter",   (module Option(Bool))
                              ; "limit",    (module Option(Int))
                              ; "compress", (module Option(Bool))
                              ; "from",     (module Option(Time.Show))

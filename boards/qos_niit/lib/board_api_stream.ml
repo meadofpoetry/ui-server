@@ -71,25 +71,25 @@ module HTTP = struct
       match List.find_opt (fun (s:Stream.t) -> match s.id with
                                                | `Ts x -> Stream.equal_id id x
                                                | _ -> false) streams with
-      | None   -> `String "not found" |> Result.fail |> respond_result
+      | None   -> `String "stream not found" |> Result.fail |> respond_result ~err_status:`Not_found
       | Some s -> Stream.to_yojson s |> Result.return |> respond_result
 
     let state (api:api) id _ _ () =
       let id = Stream.id_of_int32 id in
       match List.Assoc.get ~eq:(Stream.equal_id) id @@ api.get_ts_states () with
-      | None   -> `String "not found" |> Result.fail |> respond_result
+      | None   -> `String "stream not found" |> Result.fail |> respond_result ~err_status:`Not_found
       | Some s -> state_to_yojson s |> Result.return |> respond_result
 
     let bitrate (api:api) id _ _ () =
       let id = Stream.id_of_int32 id in
       match List.Assoc.get ~eq:(Stream.equal_id) id @@ api.get_ts_bitrates () with
-      | None   -> `String "not found" |> Result.fail |> respond_result
+      | None   -> `String "stream not found" |> Result.fail |> respond_result ~err_status:`Not_found
       | Some b -> bitrate_to_yojson b |> Result.return |> respond_result
 
     let structure (api:api) id _ _ () =
       let id = Stream.id_of_int32 id in
       match List.Assoc.get ~eq:(Stream.equal_id) id @@ api.get_ts_structures () with
-      | None   -> `String "not found" |> Result.fail |> respond_result
+      | None   -> `String "stream not found" |> Result.fail |> respond_result ~err_status:`Not_found
       | Some s -> structure_to_yojson s |> Result.return |> respond_result
 
     let si_psi_section (api:api) id table_id section table_id_ext eit_ts_id eit_orig_nw_id _ _ () =
@@ -105,7 +105,7 @@ module HTTP = struct
       let stream id limit from till duration _ _ () =
         respond_error ~status:`Not_implemented "FIXME" ()
 
-      let state id filter limit compress from till duration _ _ () =
+      let state id limit compress from till duration _ _ () =
         respond_error ~status:`Not_implemented "FIXME" ()
 
       let structure id limit from till duration _ _ () =
@@ -124,15 +124,16 @@ module HTTP = struct
 
     let state (api:api) id _ _ () =
       match List.Assoc.get ~eq:(=) id @@ api.get_t2mi_states () with
-      | None   -> `String "not found" |> Result.fail |> respond_result
+      | None   -> `String "stream not found" |> Result.fail |> respond_result ~err_status:`Not_found
       | Some s -> state_to_yojson s |> Result.return |> respond_result
 
     let structure (api:api) id _ _ () =
       match List.Assoc.get ~eq:(=) id @@ api.get_t2mi_structures () with
-      | None   -> `String "not found" |> Result.fail |> respond_result
+      | None   -> `String "stream not found" |> Result.fail |> respond_result ~err_status:`Not_found
       | Some s -> structure_to_yojson s |> Result.return |> respond_result
 
-    let sequence (api:api) id seconds _ _ () =
+    let sequence (api:api) id (duration:Time.Relative.t option) _ _ () =
+      let seconds = Option.flat_map Time.Relative.to_int_s duration in
       api.get_t2mi_seq seconds
       >|= (fun x -> List.filter (fun (x:sequence_item) -> id = x.stream_id) x
                     |> sequence_to_yojson
@@ -143,7 +144,7 @@ module HTTP = struct
 
       open Board_types.Streams.T2MI
 
-      let state id filter limit compress from till duration _ _ () =
+      let state id limit compress from till duration _ _ () =
         respond_error ~status:`Not_implemented "FIXME" ()
 
       let structure id limit from till duration _ _ () =
@@ -201,7 +202,7 @@ let ts_handler (api:api) events =
                              ; "eit-orig-nw-id", (module Option(Int)) ]
                 (HTTP.TS.si_psi_section api)
             (* Archive *)
-            ; create_handler ~docstring:"Returns archived streams"
+            ; create_handler ~docstring:"Returns archived stream"
                 ~path:Path.Format.(Int32 ^/ "archive" @/ empty)
                 ~query:Query.[ "limit",    (module Option(Int))
                              ; "from",     (module Option(Time.Show))
@@ -210,8 +211,7 @@ let ts_handler (api:api) events =
                 HTTP.TS.Archive.stream
             ; create_handler ~docstring:"Retunrs archived stream state"
                 ~path:Path.Format.(Int32 ^/ "state/archive" @/ empty)
-                ~query:Query.[ "filter",   (module Option(Bool))
-                             ; "limit",    (module Option(Int))
+                ~query:Query.[ "limit",    (module Option(Int))
                              ; "compress", (module Option(Bool))
                              ; "from",     (module Option(Time.Show))
                              ; "to",       (module Option(Time.Show))
@@ -259,13 +259,12 @@ let t2mi_handler (api:api) events =
                 (HTTP.T2MI.structure api)
             ; create_handler ~docstring:"Returns T2-MI packet sequence"
                 ~path:Path.Format.(Int ^/ "sequence" @/ empty)
-                ~query:Query.[ "duration", (module Option(Int)) ]
+                ~query:Query.[ "duration", (module Option(Time.Relative)) ]
                 (HTTP.T2MI.sequence api)
             (* Archive *)
             ; create_handler ~docstring:"Returns archived stream state"
                 ~path:Path.Format.(Int ^/ "state/archive" @/ empty)
-                ~query:Query.[ "filter",   (module Option(Bool))
-                             ; "limit",    (module Option(Int))
+                ~query:Query.[ "limit",    (module Option(Int))
                              ; "compress", (module Option(Bool))
                              ; "from",     (module Option(Time.Show))
                              ; "to",       (module Option(Time.Show))

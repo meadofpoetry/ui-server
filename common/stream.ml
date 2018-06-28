@@ -34,6 +34,7 @@ let id_to_yojson id : Yojson.Safe.json =
   let i32 = id_to_int32 id in `Intlit (Int32.to_string i32)
 let id_of_yojson json : (id,string) result = match json with
   | `Intlit i -> Result.of_opt (Option.map id_of_int32 @@ Int32.of_string i)
+  | `Int i    -> Ok (id_of_int32 @@ Int32.of_int i)
   | _         -> Error "not an int32"
 
 type stream_id = [`Ip of Url.t | `Ts of id] [@@deriving yojson, show, eq]

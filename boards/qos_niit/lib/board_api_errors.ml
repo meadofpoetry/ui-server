@@ -101,7 +101,7 @@ let ts_handler events =
     "ts"
     [ create_ws_handler ~docstring:"Pushes TS errors to the client"
         ~path:Path.Format.empty
-        ~query:Query.[ "stream",   (module List(Int32))
+        ~query:Query.[ "stream-id",(module List(Int32))
                      ; "errors",   (module List(Int))
                      ; "priority", (module List(Int))
                      ; "pid",      (module List(Int))]
@@ -109,7 +109,7 @@ let ts_handler events =
     ]
     [ `GET, [ create_handler ~docstring:"Returns archived TS errors"
                 ~path:Path.Format.("archive" @/ empty)
-                ~query:Query.[ "stream",   (module List(Int32))
+                ~query:Query.[ "stream-id",(module List(Int32))
                              ; "errors",   (module List(Int))
                              ; "priority", (module List(Int))
                              ; "pid",      (module List(Int))
@@ -121,7 +121,7 @@ let ts_handler events =
                 (HTTP.TS.Archive.errors)
             ; create_handler ~docstring:"Returns TS errors presence percentage"
                 ~path:Path.Format.("archive/percent" @/ empty)
-                ~query:Query.[ "stream",   (module List(Int32))
+                ~query:Query.[ "stream-id",(module List(Int32))
                              ; "errors",   (module List(Int))
                              ; "priority", (module List(Int))
                              ; "pid",      (module List(Int))
@@ -131,7 +131,7 @@ let ts_handler events =
                 (HTTP.TS.Archive.percent)
             ; create_handler ~docstring:"Returns if TS errors were present for the requested period"
                 ~path:Path.Format.("archive/has-any" @/ empty)
-                ~query:Query.[ "stream",   (module List(Int32))
+                ~query:Query.[ "stream-id",(module List(Int32))
                              ; "errors",   (module List(Int))
                              ; "priority", (module List(Int))
                              ; "pid",      (module List(Int))
@@ -149,7 +149,7 @@ let t2mi_handler events =
     "t2mi"
     [ create_ws_handler ~docstring:"Pushes T2-MI errors to the client"
         ~path:Path.Format.empty
-        ~query:Query.[ "stream",         (module List(Int32))
+        ~query:Query.[ "stream-id",      (module List(Int32))
                      ; "t2mi-stream-id", (module List(Int))
                      ; "errors",         (module List(Int))
                      ; "pid",            (module List(Int)) ]
@@ -157,7 +157,7 @@ let t2mi_handler events =
     ]
     [ `GET, [ create_handler ~docstring:"Returns archived T2-MI errors"
                 ~path:Path.Format.("archive" @/ empty)
-                ~query:Query.[ "stream",         (module List(Int32))
+                ~query:Query.[ "stream-id",      (module List(Int32))
                              ; "t2mi-stream-id", (module List(Int))
                              ; "errors",         (module List(Int))
                              ; "pid",            (module List(Int))
@@ -169,7 +169,7 @@ let t2mi_handler events =
                 (HTTP.T2MI.Archive.errors)
             ; create_handler ~docstring:"Returns T2-MI errors presense percentage"
                 ~path:Path.Format.("archive/percent" @/ empty)
-                ~query:Query.[ "stream",         (module List(Int32))
+                ~query:Query.[ "stream-id",      (module List(Int32))
                              ; "t2mi-stream-id", (module List(Int))
                              ; "errors",         (module List(Int))
                              ; "pid",            (module List(Int))
@@ -179,7 +179,7 @@ let t2mi_handler events =
                 (HTTP.T2MI.Archive.percent)
             ; create_handler ~docstring:"Returns if T2-MI errors were present for the requested period"
                 ~path:Path.Format.("archive/has-any" @/ empty)
-                ~query:Query.[ "stream",         (module List(Int32))
+                ~query:Query.[ "stream-id",      (module List(Int32))
                              ; "t2mi-stream-id", (module List(Int))
                              ; "errors",         (module List(Int))
                              ; "pid",            (module List(Int))
