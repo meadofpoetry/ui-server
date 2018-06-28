@@ -1,8 +1,9 @@
 open Containers
 open Storage.Database
-open Api.Query
+open Api.Api_types
 open Board_types
 open Lwt.Infix
+open Common
 
 module R = Caqti_request
 
@@ -52,13 +53,13 @@ module Errors = struct
   open Board_types.Errors
 
   let error = Types.(custom List.(int32 & int & int & int & int & bool & int & int32 & int32 & int32 & ptime)
-                       ~encode:(fun (err : Errors.t) ->
-                         let stream = Common.Stream.id_to_int32 err.stream in
+                       ~encode:(fun (id,(err : Errors.t)) ->
+                         let stream = Common.Stream.id_to_int32 id in
                          Ok (stream, (err.count, (err.err_code, (err.err_ext, (err.priority, (err.multi_pid, (err.pid, (err.packet, (err.param_1,(err.param_2, err.timestamp)))))))))))
                        ~decode:(fun (stream,(count,(err_code,(err_ext,(priority,(multi_pid,(pid,(packet,(param_1,(param_2,timestamp)))))))))) ->
                          let stream = Common.Stream.id_of_int32 stream in
-                         Ok { stream; timestamp; count; err_code
-                              ; err_ext; priority; multi_pid; pid; packet; param_1; param_2}))
+                         Ok (stream,{ timestamp; count; err_code
+                                      ; err_ext; priority; multi_pid; pid; packet; param_1; param_2})))
 
   let max_limit = 500
 
@@ -95,14 +96,15 @@ module Errors = struct
 
   module TS = struct
     
-    let insert_errors db err_list =
+    let insert_errors db errs =
+      let errs = List.map (fun (s,e) -> List.map (Pair.make s) e) errs |> List.concat in
       let insert =
         R.exec error
           {|INSERT INTO qos_niit_errors(is_ts,stream,count,err_code,err_ext,priority,
            multi_pid,pid,packet,param_1,param_2,date)
            VALUES (true,?,?,?,?,?,?,?,?,?,?,?)|}
       in Conn.request db Request.(with_trans (List.fold_left (fun acc x -> acc >>= fun () -> exec insert x)
-                                                (return ()) err_list))
+                                                (return ()) errs))
 
     let select_errors ?(limit = max_limit) ?from ?til db =
       match from, til with
@@ -138,14 +140,15 @@ module Errors = struct
 
   module T2MI = struct
 
-    let insert_errors db err_list =
+    let insert_errors db (errs:(Stream.id,Errors.t list) List.Assoc.t) =
+      let errs = List.map (fun (s,e) -> List.map (Pair.make s) e) errs |> List.concat in
       let insert =
         R.exec error
           {|INSERT INTO qos_niit_errors(is_ts,stream,count,err_code,err_ext,priority,
            multi_pid,pid,packet,param_1,param_2,date)
            VALUES (false,?,?,?,?,?,?,?,?,?,?,?)|}
       in Conn.request db Request.(with_trans (List.fold_left (fun acc x -> acc >>= fun () -> exec insert x)
-                                                (return ()) err_list))
+                                                (return ()) errs))
 
     let select_errors ?(limit = max_limit) ?from ?til db =
       match from, til with

@@ -3,45 +3,42 @@ open Api_js.Requests.Json_request
 open Lwt.Infix
 open Common
 
-let make_path control (path:Uri.Path.t) : string =
-  ["/api";"board";string_of_int control] @ path
-  |> Uri.Path.to_string
+let get_board_path () = Uri.Path.Format.("/api/board" @/ Int ^/ empty)
 
 module Device = struct
 
-  let make_path control path = make_path control ("device"::path)
+  let get_device_path () = Uri.Path.Format.(get_board_path () / ("device" @/ empty))
 
   module WS = struct
 
     let get_state control =
-      let path = make_path control ["state"] in
-      WS.get ~path Topology.state_of_yojson ()
+      let path = Uri.Path.Format.(get_device_path () / ("state" @/ empty)) in
+      WS.get ~from:Topology.state_of_yojson ~path ~query:Uri.Query.empty control
 
   end
 
   module HTTP = struct
 
     (** Sets board port to listen **)
-    let post_port control port state =
-      let path = make_path control ["port";string_of_int port;string_of_bool state] in
-      post_result_unit ~path ()
+    let post_port ~port ~state control =
+      let path = Uri.Path.Format.(get_device_path () / ("port" @/ Int ^/ Bool ^/ empty)) in
+      post_result_unit ~path ~query:Uri.Query.empty control port state
 
     let get_state control =
-      let path = make_path control ["state"] in
-      get_result ~path Topology.state_of_yojson ()
+      let path = Uri.Path.Format.(get_device_path () / ("state" @/ empty)) in
+      get_result ~from:Topology.state_of_yojson ~path ~query:Uri.Query.empty control
 
     module Archive = struct
 
-      (* TODO add filter *)
-      let get_state ?limit ?total time control =
-        let query =
-          let open Uri.Query in
-          let coll = Api_js.Query.Collection.make ?limit ?total () in
-          let time = Api_js.Query.Time.make time in
-          merge coll time
-        in
-        let path = make_path control ["state"] in
-        get_result ~query ~path (fun _ -> Error "not implemented") ()
+      let get_state ?limit ?compress ?from ?till ?duration control =
+        get_result ~from:(fun _ -> Error "not implemented")
+                   ~path:Uri.Path.Format.(get_device_path () / ("archive/state" @/ empty))
+                   ~query:Uri.Query.[ "limit",    (module Option(Int))
+                                    ; "compress", (module Option(Bool))
+                                    ; "from",     (module Option(Time.Show))
+                                    ; "to",       (module Option(Time.Show))
+                                    ; "duration", (module Option(Time.Relative))]
+                   control limit compress from till duration
 
     end
 

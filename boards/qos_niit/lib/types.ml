@@ -1,5 +1,6 @@
 open Common
 open Board_types
+open Containers
 
 (** Mode **)
 
@@ -63,8 +64,8 @@ type streams = Common.Stream.id list [@@deriving yojson,eq]
 
 type event = [ `Status        of status_raw
              | `Streams_event of streams
-             | `T2mi_errors   of Errors.t list
-             | `Ts_errors     of Errors.t list
+             | `T2mi_errors   of Stream.id * (Errors.t list)
+             | `Ts_errors     of Stream.id * (Errors.t list)
              | `End_of_errors
              ] [@@deriving eq]
 

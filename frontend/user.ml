@@ -54,9 +54,10 @@ let make_card user =
               match (React.S.value old_form#s_input, React.S.value acc_form#s_input) with
               | Some old_pass, Some new_pass ->
                  let pass = { user; old_pass; new_pass } in
-                 post_result ~path:"/api/user/password"
-                             ~contents:(Common.User.pass_change_to_yojson pass) (fun _ -> Ok ())
-                             ()
+                 Lwt_result.return ()
+                 (* post_result ~path:"/api/user/password"
+                  *             ~contents:(Common.User.pass_change_to_yojson pass) (fun _ -> Ok ())
+                  *             () *)
                  >|= (function
                       | Ok _ -> if user = `Root
                                 then Dom_html.window##.location##.href := Js.string "/";

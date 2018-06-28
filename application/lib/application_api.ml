@@ -79,12 +79,10 @@ let get_topology_socket sock_data body app () =
   Hashtbl.add socket_table id sock_events;
   Lwt.return (resp, (body :> Cohttp_lwt.Body.t))
 
-  
-  
-let handle app id meth uri sock_data _ body =
+let handle app uri id meth headers body sock_data =
   let open Common.Uri in
   let is_guest = Common.User.eq id `Guest in
-  match Scheme.is_ws uri.scheme, meth, uri.path with
+  match Api.Headers.is_ws headers, meth, uri.path with
   | _,    `GET, []                    -> get_page ()
   | true, `GET, ["topology"]          -> get_topology_socket sock_data body app ()
   | _,    `GET, ["topology"]          -> get_topology app ()
@@ -97,13 +95,16 @@ let handlers app =
   let hls = Hardware.Map.fold (fun _ x acc -> x.handlers @ acc) app.hw.boards [] in
   let proc_api = match app.proc with
     | None      -> []
-    | Some proc -> proc#handlers ()
+    | Some proc -> proc#handlers () (* TODO ? *)
   in
-  [ Api_handler.add_layer "board" hls ;
+  [ Api_handler.add_layer "board" hls
+  ; Api_handler.create_dispatcher "topology" [] [] ]
+    (*
     (module struct
        let domain = "topology"
        let handle = handle app
-     end : Api_handler.HANDLER) ]
+     end : Api_handler.HANDLER) ]*)
   @ proc_api
-  @ (Pc_control.Network_api.handlers app.network)
-  @ (User_api.handlers app.users)
+  @ [ Pc_control.Network_api.handlers app.network
+    ; User_api.handlers app.users
+    ]

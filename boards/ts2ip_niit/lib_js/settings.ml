@@ -66,7 +66,7 @@ let card control
                                  ; actions#widget
                                  ] ()
   in
-  React.E.map (fun _ -> Requests.post_streams_simple control (React.S.value selected)) apply#e_click |> ignore;
+  (* React.E.map (fun _ -> Requests.post_streams_simple control (React.S.value selected)) apply#e_click |> ignore; *)
   card
 
 let layout control
@@ -86,27 +86,28 @@ class settings control () = object(self)
   method private observe =
     MutationObserver.observe
       ~node:Dom_html.document
-      ~f:(fun _ _ ->
-        let in_dom_new = (Js.Unsafe.coerce Dom_html.document)##contains self#root in
-        if in_dom && (not in_dom_new)
-        then Option.iter (fun (x:state) -> x.streams##close; x.config##close; state <- None) state
-        else if (not in_dom) && in_dom_new
-        then (let open Lwt_result.Infix in
-              Requests.get_config control
-              >>= (fun config ->
-                Requests.get_streams control
-                >>= (fun streams ->
-                     let config_ws,config_sock   = Requests.get_config_ws control in
-                     let streams_ws,streams_sock = Requests.get_streams_ws control in
-                     Dom.appendChild self#root (layout control
-                                                  ~init:{ streams; config }
-                                                  ~events:{ streams = streams_ws
-                                                          ; config = config_ws })#root;
-                     state <- Some { streams = streams_sock
-                                   ; config  = config_sock };
-                     Lwt_result.return ()))
-              |> ignore;
-              in_dom <- in_dom_new))
+      ~f:(fun _ _ -> ())
+      (* ~f:(fun _ _ ->
+       *   let in_dom_new = (Js.Unsafe.coerce Dom_html.document)##contains self#root in
+       *   if in_dom && (not in_dom_new)
+       *   then Option.iter (fun (x:state) -> x.streams##close; x.config##close; state <- None) state
+       *   else if (not in_dom) && in_dom_new
+       *   then (let open Lwt_result.Infix in
+       *         Requests.get_config control
+       *         >>= (fun config ->
+       *           Requests.get_streams control
+       *           >>= (fun streams ->
+       *                let config_ws,config_sock   = Requests.get_config_ws control in
+       *                let streams_ws,streams_sock = Requests.get_streams_ws control in
+       *                Dom.appendChild self#root (layout control
+       *                                             ~init:{ streams; config }
+       *                                             ~events:{ streams = streams_ws
+       *                                                     ; config = config_ws })#root;
+       *                state <- Some { streams = streams_sock
+       *                              ; config  = config_sock };
+       *                Lwt_result.return ()))
+       *         |> ignore;
+       *         in_dom <- in_dom_new)) *)
       ~child_list:true
       ~subtree:true
       ()

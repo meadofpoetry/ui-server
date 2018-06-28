@@ -53,8 +53,8 @@ let get_handler ~settings
     let sock_data = (req, (fst conn)) in
     let root, path = Common.Uri.(Path.next uri.path) in
     match meth, root with
-    | _, (Some "api")           -> Api_handler.handle routes redir meth
-                                     (Common.Uri.upgrade_path uri path) sock_data headers body
+    | _, (Some "api")           -> Api_handler.handle routes redir (Common.Uri.upgrade_path uri path)
+                                     meth headers body sock_data 
     | `GET, _                   -> redir (respond_page uri.path)
     | _                         -> not_found ()
   in

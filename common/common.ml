@@ -1,4 +1,5 @@
 module Components   = Components
+module Json         = Json
 module Topology     = Topology
 module Stream       = Stream
 module Uri          = Uri_ext
