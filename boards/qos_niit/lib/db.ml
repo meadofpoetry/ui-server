@@ -5,6 +5,8 @@ open Board_types
 open Lwt.Infix
 open Common
 
+module R = Caqti_request
+
 module Model = struct
   open Key_t
   let name = "qos_niit"
@@ -50,7 +52,7 @@ end
 module Errors = struct
   open Board_types.Errors
 
-  let error = Types.(custom (int32 & int & int & int & int & bool & int & int32 & int32 & int32 & ptime)
+  let error = Types.(custom List.(int32 & int & int & int & int & bool & int & int32 & int32 & int32 & ptime)
                        ~encode:(fun (id,(err : Errors.t)) ->
                          let stream = Common.Stream.id_to_int32 id in
                          Ok (stream, (err.count, (err.err_code, (err.err_ext, (err.priority, (err.multi_pid, (err.pid, (err.packet, (err.param_1,(err.param_2, err.timestamp)))))))))))
@@ -64,32 +66,32 @@ module Errors = struct
   let select_errors ?(limit = max_limit) ?from ?til db =
     match from, til with
     | Some f, Some t ->
-       let q = List (Caqti_request.collect Types.(tup3 ptime ptime int) error
-                       {|SELECT (is_ts,4stream,count,err_code,err_ext,priority,
-                                 multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
-                        WHERE date >= ? AND date <= ? ORDER BY date DESC LIMIT ?|})
-       in Conn.request db q (f,t,limit) >|= fun data ->
+       let q = R.collect Types.(tup3 ptime ptime int) error
+                 {|SELECT (is_ts,4stream,count,err_code,err_ext,priority,
+                  multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
+                  WHERE date >= ? AND date <= ? ORDER BY date DESC LIMIT ?|}
+       in Conn.request db Request.(list q (f,t,limit)) >|= fun data ->
           Raw { data; has_more = (List.length data >= limit); order = `Desc }
     | Some f, None ->
-       let q = List (Caqti_request.collect Types.(tup2 ptime int) error
-                       {|SELECT (is_ts,stream,count,err_code,err_ext,priority,
-                                 multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
-                        WHERE date >= ? ORDER BY date ASC LIMIT ?|})
-       in Conn.request db q (f,limit) >|= fun data ->
+       let q = R.collect Types.(tup2 ptime int) error
+                 {|SELECT (is_ts,stream,count,err_code,err_ext,priority,
+                  multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
+                  WHERE date >= ? ORDER BY date ASC LIMIT ?|}
+       in Conn.request db Request.(list q (f,limit)) >|= fun data ->
           Raw { data; has_more = (List.length data >= limit); order = `Asc }
     | None, Some t ->
-       let q = List (Caqti_request.collect Types.(tup2 ptime int) error
-                       {|SELECT (is_ts,stream,count,err_code,err_ext,priority,
-                                 multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
-                        WHERE date <= ? ORDER BY date DESC LIMIT ?|})
-       in Conn.request db q (t,limit) >|= fun data ->
+       let q = R.collect Types.(tup2 ptime int) error
+                 {|SELECT (is_ts,stream,count,err_code,err_ext,priority,
+                  multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
+                  WHERE date <= ? ORDER BY date DESC LIMIT ?|}
+       in Conn.request db Request.(list q (t,limit)) >|= fun data ->
           Raw { data; has_more = (List.length data >= limit); order = `Desc }
     | None, None ->
-       let q = List (Caqti_request.collect Types.int error
-                       {|SELECT (is_ts,stream,count,err_code,err_ext,priority,
-                                 multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
-                        ORDER BY date DESC LIMIT ?|})
-       in Conn.request db q limit >|= fun data ->
+       let q = R.collect Types.int error
+                 {|SELECT (is_ts,stream,count,err_code,err_ext,priority,
+                  multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
+                  ORDER BY date DESC LIMIT ?|}
+       in Conn.request db Request.(list q limit) >|= fun data ->
           Raw { data; has_more = (List.length data >= limit); order = `Desc }
 
   module TS = struct
@@ -97,41 +99,42 @@ module Errors = struct
     let insert_errors db errs =
       let errs = List.map (fun (s,e) -> List.map (Pair.make s) e) errs |> List.concat in
       let insert =
-        Caqti_request.exec error
+        R.exec error
           {|INSERT INTO qos_niit_errors(is_ts,stream,count,err_code,err_ext,priority,
            multi_pid,pid,packet,param_1,param_2,date)
            VALUES (true,?,?,?,?,?,?,?,?,?,?,?)|}
-      in Conn.request db (Reduce ((Exec insert),(),(fun () () -> ()))) errs
+      in Conn.request db Request.(with_trans (List.fold_left (fun acc x -> acc >>= fun () -> exec insert x)
+                                                (return ()) errs))
 
     let select_errors ?(limit = max_limit) ?from ?til db =
       match from, til with
       | Some f, Some t ->
-         let q = List (Caqti_request.collect Types.(tup3 ptime ptime int) error
-                         {|SELECT (stream,count,err_code,err_ext,priority,
-                          multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
-                          WHERE is_ts = true AND date >= ? AND date <= ? ORDER BY date DESC LIMIT ?|})
-         in Conn.request db q (f,t,limit) >|= fun data ->
+         let q = R.collect Types.(tup3 ptime ptime int) error
+                   {|SELECT (stream,count,err_code,err_ext,priority,
+                    multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
+                    WHERE is_ts = true AND date >= ? AND date <= ? ORDER BY date DESC LIMIT ?|}
+         in Conn.request db Request.(list q (f,t,limit)) >|= fun data ->
             Raw { data; has_more = (List.length data >= limit); order = `Desc }
       | Some f, None ->
-         let q = List (Caqti_request.collect Types.(tup2 ptime int) error
-                         {|SELECT (stream,count,err_code,err_ext,priority,
-                          multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
-                          WHERE is_ts = true AND date >= ? ORDER BY date ASC LIMIT ?|})
-         in Conn.request db q (f,limit) >|= fun data ->
+         let q = R.collect Types.(tup2 ptime int) error
+                   {|SELECT (stream,count,err_code,err_ext,priority,
+                    multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
+                    WHERE is_ts = true AND date >= ? ORDER BY date ASC LIMIT ?|}
+         in Conn.request db Request.(list q (f,limit)) >|= fun data ->
             Raw { data; has_more = (List.length data >= limit); order = `Asc }
       | None, Some t ->
-         let q = List (Caqti_request.collect Types.(tup2 ptime int) error
-                         {|SELECT (stream,count,err_code,err_ext,priority,
-                          multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
-                          WHERE is_ts = true AND date <= ? ORDER BY date DESC LIMIT ?|})
-         in Conn.request db q (t,limit) >|= fun data ->
+         let q = R.collect Types.(tup2 ptime int) error
+                   {|SELECT (stream,count,err_code,err_ext,priority,
+                    multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
+                    WHERE is_ts = true AND date <= ? ORDER BY date DESC LIMIT ?|}
+         in Conn.request db Request.(list q (t,limit)) >|= fun data ->
             Raw { data; has_more = (List.length data >= limit); order = `Desc }
       | None, None ->
-         let q = List (Caqti_request.collect Types.int error
-                         {|SELECT (stream,count,err_code,err_ext,priority,
-                          multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
-                          WHERE is_ts = true ORDER BY date DESC LIMIT ?|})
-         in Conn.request db q limit >|= fun data ->
+         let q = R.collect Types.int error
+                   {|SELECT (stream,count,err_code,err_ext,priority,
+                    multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
+                    WHERE is_ts = true ORDER BY date DESC LIMIT ?|}
+         in Conn.request db Request.(list q limit) >|= fun data ->
             Raw { data; has_more = (List.length data >= limit); order = `Desc }
   end
 
@@ -140,41 +143,42 @@ module Errors = struct
     let insert_errors db (errs:(Stream.id,Errors.t list) List.Assoc.t) =
       let errs = List.map (fun (s,e) -> List.map (Pair.make s) e) errs |> List.concat in
       let insert =
-        Caqti_request.exec error
+        R.exec error
           {|INSERT INTO qos_niit_errors(is_ts,stream,count,err_code,err_ext,priority,
            multi_pid,pid,packet,param_1,param_2,date)
            VALUES (false,?,?,?,?,?,?,?,?,?,?,?)|}
-      in Conn.request db (Reduce ((Exec insert),(),(fun () () -> ()))) errs
+      in Conn.request db Request.(with_trans (List.fold_left (fun acc x -> acc >>= fun () -> exec insert x)
+                                                (return ()) errs))
 
     let select_errors ?(limit = max_limit) ?from ?til db =
       match from, til with
       | Some f, Some t ->
-         let q = List (Caqti_request.collect Types.(tup3 ptime ptime int) error
-                         {|SELECT (stream,count,err_code,err_ext,priority,
-                          multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
-                          WHERE is_ts = false AND date >= ? AND date <= ? ORDER BY date DESC LIMIT ?|})
-         in Conn.request db q (f,t,limit) >|= fun data ->
+         let q = R.collect Types.(tup3 ptime ptime int) error
+                   {|SELECT (stream,count,err_code,err_ext,priority,
+                    multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
+                    WHERE is_ts = false AND date >= ? AND date <= ? ORDER BY date DESC LIMIT ?|}
+         in Conn.request db Request.(list q (f,t,limit)) >|= fun data ->
             Raw { data; has_more = (List.length data >= limit); order = `Desc }
       | Some f, None ->
-         let q = List (Caqti_request.collect Types.(tup2 ptime int) error
-                         {|SELECT (stream,count,err_code,err_ext,priority,
-                          multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
-                          WHERE is_ts = false AND date >= ? ORDER BY date ASC LIMIT ?|})
-         in Conn.request db q (f,limit) >|= fun data ->
+         let q = R.collect Types.(tup2 ptime int) error
+                   {|SELECT (stream,count,err_code,err_ext,priority,
+                    multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
+                    WHERE is_ts = false AND date >= ? ORDER BY date ASC LIMIT ?|}
+         in Conn.request db Request.(list q (f,limit)) >|= fun data ->
             Raw { data; has_more = (List.length data >= limit); order = `Asc }
       | None, Some t ->
-         let q = List (Caqti_request.collect Types.(tup2 ptime int) error
-                         {|SELECT (stream,count,err_code,err_ext,priority,
-                          multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
-                          WHERE is_ts = false AND date <= ? ORDER BY date DESC LIMIT ?|})
-         in Conn.request db q (t,limit) >|= fun data ->
+         let q = R.collect Types.(tup2 ptime int) error
+                   {|SELECT (stream,count,err_code,err_ext,priority,
+                    multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
+                    WHERE is_ts = false AND date <= ? ORDER BY date DESC LIMIT ?|}
+         in Conn.request db Request.(list q (t,limit)) >|= fun data ->
             Raw { data; has_more = (List.length data >= limit); order = `Desc }
       | None, None ->
-         let q = List (Caqti_request.collect Types.int error
-                         {|SELECT (stream,count,err_code,err_ext,priority,
-                          multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
-                          WHERE is_ts = false ORDER BY date DESC LIMIT ?|})
-         in Conn.request db q limit >|= fun data ->
+         let q = R.collect Types.int error
+                   {|SELECT (stream,count,err_code,err_ext,priority,
+                    multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
+                    WHERE is_ts = false ORDER BY date DESC LIMIT ?|}
+         in Conn.request db Request.(list q limit) >|= fun data ->
             Raw { data; has_more = (List.length data >= limit); order = `Desc }
     
   end
