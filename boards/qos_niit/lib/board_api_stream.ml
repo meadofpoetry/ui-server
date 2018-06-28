@@ -24,22 +24,22 @@ module WS = struct
                                                       | _ -> false) streams)
                @@ React.S.changes events.streams
                |> React.E.changes ~eq:(Equal.option Stream.equal)
-      in sock_handler sock_data e (Json.Option.to_yojson Stream.to_yojson) body
+      in Api.Socket.handler socket_table sock_data e (Json.Option.to_yojson Stream.to_yojson) body
 
     let state (events:events) id _ body sock_data () =
       let id = Stream.id_of_int32 id in
       let e  = React.E.fmap (List.Assoc.get ~eq:Stream.equal_id id) events.ts_states in
-      sock_handler sock_data e state_to_yojson body
+      Api.Socket.handler socket_table sock_data e state_to_yojson body
 
     let bitrate (events:events) id _ body sock_data () =
       let id = Stream.id_of_int32 id in
       let e  = React.E.fmap (List.Assoc.get ~eq:Stream.equal_id id) events.ts_bitrates in
-      sock_handler sock_data e bitrate_to_yojson body
+      Api.Socket.handler socket_table sock_data e bitrate_to_yojson body
 
     let structure (events:events) id _ body sock_data () =
       let id = Stream.id_of_int32 id in
       let e  = React.E.fmap (List.Assoc.get ~eq:Stream.equal_id id) events.ts_structures in
-      sock_handler sock_data e structure_to_yojson body
+      Api.Socket.handler socket_table sock_data e structure_to_yojson body
 
   end
 
@@ -49,11 +49,11 @@ module WS = struct
 
     let state (events:events) id _ body sock_data () =
       let e = React.E.fmap (List.Assoc.get ~eq:(=) id) events.t2mi_states in
-      sock_handler sock_data e state_to_yojson body
+      Api.Socket.handler socket_table sock_data e state_to_yojson body
 
     let structure (events:events) id _ body sock_data () =
       let e = React.E.fmap (List.Assoc.get ~eq:(=) id) events.t2mi_structures in
-      sock_handler sock_data e structure_to_yojson body
+      Api.Socket.handler socket_table sock_data e structure_to_yojson body
 
   end
 

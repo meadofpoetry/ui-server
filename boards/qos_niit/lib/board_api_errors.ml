@@ -38,7 +38,7 @@ module WS = struct
                     match List.filter (fun errs -> filter errs fns) l with
                     | [] -> None
                     | l  -> Some l) events.ts_errors
-      in sock_handler sock_data e (Json.List.to_yojson to_yojson) body
+      in Api.Socket.handler socket_table sock_data e (Json.List.to_yojson to_yojson) body
 
   end
 
@@ -56,7 +56,7 @@ module WS = struct
                     match List.filter (fun errs -> filter errs fns) l with
                     | [] -> None
                     | l  -> Some l) events.ts_errors
-      in sock_handler sock_data e (Json.List.to_yojson to_yojson) body
+      in Api.Socket.handler socket_table sock_data e (Json.List.to_yojson to_yojson) body
 
   end
 

@@ -363,7 +363,9 @@ module Dispatcher = struct
     { docstring; handler; templ; path_typ; query_typ }
 
   let add (m : 'a t) (node : 'a node) =
-    M.add node.templ node m
+    try let res = M.find node.templ m in
+        failwith ("API node intersection: '" ^ node.path_typ ^ "' <-> '" ^ res.path_typ ^ "'")
+    with Not_found -> M.add node.templ node m
 
   let dispatch (m : 'a t) uri =
     let templ = Path.to_templ uri.path in
