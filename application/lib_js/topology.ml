@@ -121,9 +121,9 @@ let update_nodes nodes (t:Common.Topology.t) =
              | _        -> ()) nodes
 
 let create ~(parent: #Widget.widget)
-           ~(init:   Common.Topology.t)
-           ~(event:  Common.Topology.t React.event)
-           () =
+      ~(init:   Common.Topology.t)
+      ~(event:  Common.Topology.t React.event)
+      () =
   let svg    = Tyxml_js.Svg.(svg ~a:[a_class [Markup.CSS.add_element _class "paths"]] [] |> toelt) in
   let nodes  = make_nodes init in
   let e_s    = List.filter_map (function `Board b -> Some (React.E.map (fun x -> `Board x) b#e_settings)

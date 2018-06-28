@@ -537,11 +537,12 @@ module SM = struct
     let t2mi_states        = to_t2mi_states_e e_group in
     let s_ts_states        = to_ts_states_s ts_states in
     let s_t2mi_states      = to_t2mi_states_s t2mi_states in
+    let input              = React.S.hold ~eq:equal_input storage#get.input @@ to_input_e e_group in
     let (events : events) =
       { device  = { config = React.E.changes ~eq:equal_config e_cfg
                   ; state  = s_state
                   ; status = to_status_e e_group
-                  ; input  = React.S.hold ~eq:equal_input storage#get.input @@ to_input_e e_group
+                  ; input
                   ; reset  = to_reset_e e_group
                   ; errors = e_be
                   }
