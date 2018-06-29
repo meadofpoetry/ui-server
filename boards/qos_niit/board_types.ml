@@ -3,13 +3,6 @@ open Common.Dvb_t2_types
 open Common.Topology
 open Containers
 
-(** API *)
-
-type api_err =
-  | Bad_query     of Uri.Query.err
-  | Unknown_query of Uri.Query.t
-  | Other         of string [@@deriving yojson]
-
 (** Board info **)
 
 type devinfo =
@@ -27,13 +20,13 @@ type t2mi_mode =
   { enabled        : bool
   ; pid            : int
   ; t2mi_stream_id : int
-  ; stream         : Stream.id (* NOTE maybe t? *)
-  } [@@deriving yojson,eq]
+  ; stream         : Stream.id
+  } [@@deriving yojson,eq,show]
 
 type jitter_mode =
-  { stream  : Stream.id (* NOTE maybe t? *)
+  { stream  : Stream.id
   ; pid     : int
-  } [@@deriving yojson,eq]
+  } [@@deriving yojson,eq,show]
 
 (** Config **)
 
@@ -42,6 +35,9 @@ type config =
   ; t2mi_mode   : t2mi_mode option
   ; jitter_mode : jitter_mode option
   } [@@deriving yojson,eq]
+
+let t2mi_mode_default   = { enabled = false; pid = 0; t2mi_stream_id = 0; stream = Single }
+let jitter_mode_default = { pid = 0x1fff; stream = Single }
 
 let config_to_string c = Yojson.Safe.to_string @@ config_to_yojson c
 let config_of_string s = config_of_yojson @@ Yojson.Safe.from_string s

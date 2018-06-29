@@ -71,15 +71,16 @@ module HTTP = struct
     |> respond_result
 
   let devinfo api _ _ () =
-    api.get_devinfo () >|= (Json.Option.to_yojson devinfo_to_yojson %> Result.return)
-    >>= respond_result
+    api.get_devinfo () |> (Json.Option.to_yojson devinfo_to_yojson)
+    |> Result.return |> respond_result
 
   let mode mode (api:api) _ _ () =
     let open Json.Option in
+    let c = api.config () in
     (match mode with
-     | `T2MI   -> api.config () >|= (fun x -> Ok ((to_yojson t2mi_mode_to_yojson) x.t2mi_mode))
-     | `JITTER -> api.config () >|= (fun x -> Ok ((to_yojson jitter_mode_to_yojson x.jitter_mode))))
-    >>= respond_result
+     | `T2MI   -> (to_yojson t2mi_mode_to_yojson) c.t2mi_mode
+     | `JITTER -> (to_yojson jitter_mode_to_yojson) c.jitter_mode)
+    |> Result.return |> respond_result
 
   (** Archive GET requests **)
   module Archive = struct
