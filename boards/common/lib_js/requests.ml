@@ -20,13 +20,6 @@ module Device = struct
 
   module HTTP = struct
 
-    (** Sets board port to listen **)
-    let post_port ~port ~state control =
-      post_result_unit
-        ~path:Uri.Path.Format.(get_device_path () / ("port" @/ Int ^/ Bool ^/ empty))
-        ~query:Uri.Query.empty
-        control port state
-
     let get_state control =
       get_result ~from:Topology.state_of_yojson
         ~path:Uri.Path.Format.(get_device_path () / ("state" @/ empty))

@@ -15,7 +15,7 @@ let get_input_point ~num i (elt:#Dom_html.element Js.t) =
   let y = elt##.offsetTop + (i * h) + (h / 2) in
   { x; y }
 
-class switch (node:node_entry) (port:Common.Topology.topo_port) () =
+class switch (node:node_entry) (port:Common.Topology.topo_port) setter () =
   let _class = "topology__switch" in
   let s,push = React.S.create false in
   object(self)
@@ -38,21 +38,18 @@ class switch (node:node_entry) (port:Common.Topology.topo_port) () =
       else (match _state with `Unavailable -> () | _ -> self#set_disabled false)
 
     initializer
-      (match node with
-       | `Entry (Board b) ->
-          Dom_events.listen self#input_element Dom_events.Typ.change (fun _ _ ->
-              push true;
-              Boards_js.Requests.Device.HTTP.post_port ~port:port.port ~state:self#checked b.control
-              >>= (function
-                   | Ok _    -> push false;
-                                Lwt.return_unit
-                   | Error _ -> push false;
-                                self#set_state _state; (* return current state back *)
-                                Lwt.return_unit)
-              |> Lwt.ignore_result;
-              true)
-          |> ignore
-       | _ -> ());
+      Dom_events.listen self#input_element Dom_events.Typ.change (fun _ _ ->
+          push true;
+          setter port.port self#checked
+          >>= (function
+               | Ok _    -> push false;
+                            Lwt.return_unit
+               | Error _ -> push false;
+                            self#set_state _state; (* return current state back *)
+                            Lwt.return_unit)
+          |> Lwt.ignore_result;
+          true)
+      |> ignore;
       self#set_disabled true;
       self#add_class _class
   end
@@ -62,6 +59,7 @@ class t ~(left_node:node_entry)
         ~(right_point:connection_point)
         ~(f_lp:unit->point)
         ~(f_rp:unit -> point)
+        ~port_setter
         () =
   let _class       = "topology__path" in
   let active_class = Markup.CSS.add_modifier _class "active" in
@@ -69,7 +67,7 @@ class t ~(left_node:node_entry)
   let sync_class   = Markup.CSS.add_modifier _class "sync"   in
   let switch       = match right_point with
     | `Iface _ -> None
-    | `Port p  -> if p.switchable then Some (new switch right_node p ()) else None
+    | `Port p  -> if p.switchable then Some (new switch right_node p port_setter ()) else None
   in
   let elt    = Tyxml_js.Svg.(path ~a:([ a_fill `None
                                       ; a_stroke (`Color ("white",None))

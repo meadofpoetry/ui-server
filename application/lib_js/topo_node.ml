@@ -31,7 +31,8 @@ object
   method output_point      = Topo_path.get_output_point body
 end
 
-class parent ~(connections:(#t * connection_point) list)
+class parent ~port_setter
+        ~(connections:(#t * connection_point) list)
         ~(node:node_entry)
         ~(body:#Dom_html.element Js.t)
         elt () =
@@ -40,7 +41,7 @@ class parent ~(connections:(#t * connection_point) list)
     List.mapi (fun i (x,p) ->
         let f_lp = fun () -> x#output_point in
         let f_rp = fun () -> Topo_path.get_input_point ~num i body in
-        new Topo_path.t ~left_node:x#node ~right_node:node ~right_point:p ~f_lp ~f_rp ()) connections
+        new Topo_path.t ~left_node:x#node ~right_node:node ~right_point:p ~f_lp ~f_rp ~port_setter ()) connections
   in
   let switches = List.filter_map (fun x -> x#switch) paths in
   let s_switch_changing =
