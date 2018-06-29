@@ -28,9 +28,6 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
     Lwt_react.E.map_p (fun e -> Db.Errors.TS.insert_errors db e) events.errors.ts_errors;
   Lwt_react.E.keep @@
     Lwt_react.E.map_p (fun e -> Db.Errors.T2MI.insert_errors db e) events.errors.t2mi_errors;
-  let input = React.S.hold ~eq:equal_input storage#get.input
-              @@ React.E.map (fun x -> x.input) events.device.config
-  in
   let state = (object val db = db method finalize () = () end) in (* TODO fix finalize *)
   { handlers       = handlers
   ; control        = b.control
@@ -40,8 +37,8 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
   ; ports_active   =
       List.fold_left (fun acc p ->
           (match p.port with
-           | 0 -> React.S.map (function SPI -> true | _ -> false) input
-           | 1 -> React.S.map (function ASI -> true | _ -> false) input
+           | 0 -> React.S.map (function SPI -> true | _ -> false) events.device.input
+           | 1 -> React.S.map (function ASI -> true | _ -> false) events.device.input
            | x -> raise (Invalid_port ("Board_qos_niit: invalid port " ^ (string_of_int x))))
           |> fun x -> Ports.add p.port x acc) Ports.empty b.ports
   ; settings_page  = ("QOS", React.S.const (Tyxml.Html.div []))

@@ -44,7 +44,8 @@ type api =
 (* Board protocol implementation *)
 
 let to_period sec step_duration  = sec * int_of_float (1. /. step_duration)
-let request_period step_duration = to_period 3 step_duration
+let timeout = 3 (* seconds *)
+let request_period step_duration = to_period timeout step_duration
 
 let detect_msgs (send_req : 'a request -> unit Lwt.t) timeout =
   let req = Get_devinfo in
@@ -372,7 +373,7 @@ module SM = struct
            `Continue (step_detect (Pool.step detect_pool) acc)
       with Timeout ->
         Logs.warn (fun m ->
-            let s = Printf.sprintf "connection is not established after %d seconds, restarting..." period in
+            let s = Printf.sprintf "connection is not established after %d seconds, restarting..." timeout in
             m "%s" @@ fmt s);
         first_step ()
 

@@ -2,6 +2,7 @@ open Containers
 open Components
 open Topo_types
 open Common.Topology
+open Lwt.Infix
 
 let get_output_point (elt:#Dom_html.element Js.t) =
   { x = elt##.offsetLeft + elt##.offsetWidth
@@ -19,12 +20,13 @@ class switch (node:node_entry) (port:Common.Topology.topo_port) () =
   let s,push = React.S.create false in
   object(self)
 
+    inherit Switch.t ()
+
     val mutable _state = `Unavailable
-    val mutable _port  = port
-    method port        = _port
+    method port        = port
     method s_changing  = s
 
-    method set_state (x : Topo_types.connection_state) =
+    method set_state (x:Topo_types.connection_state) =
       _state <- x;
       match x with
       | `Active | `Sync -> self#set_disabled false; self#set_checked true
@@ -35,23 +37,20 @@ class switch (node:node_entry) (port:Common.Topology.topo_port) () =
       if x then self#set_disabled true
       else (match _state with `Unavailable -> () | _ -> self#set_disabled false)
 
-    inherit Switch.t ()
     initializer
       (match node with
        | `Entry (Board b) ->
-          Dom_events.(listen self#input_element Typ.change (fun _ _ ->
-                          match _state with
-                          | `Unavailable -> true
-                          | _            ->
-                             let open Lwt.Infix in
-                             push true;
-                             Boards_js.Requests.Device.HTTP.post_port ~port:port.port ~state:self#checked b.control
-                             >>= (function
-                                  | Ok _    -> push false; Lwt.return_unit
-                                  | Error _ -> push false; self#set_checked (not self#checked);
-                                               Lwt.return_unit)
-                             |> ignore;
-                             true))
+          Dom_events.listen self#input_element Dom_events.Typ.change (fun _ _ ->
+              push true;
+              Boards_js.Requests.Device.HTTP.post_port ~port:port.port ~state:self#checked b.control
+              >>= (function
+                   | Ok _    -> push false;
+                                Lwt.return_unit
+                   | Error _ -> push false;
+                                self#set_state _state; (* return current state back *)
+                                Lwt.return_unit)
+              |> Lwt.ignore_result;
+              true)
           |> ignore
        | _ -> ());
       self#set_disabled true;

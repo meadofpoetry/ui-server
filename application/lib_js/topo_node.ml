@@ -27,33 +27,31 @@ object
   inherit Widget.widget elt ()
   method area : string     = area
   method node : node_entry = node
-  method layout () : unit     = ()
+  method layout () : unit  = ()
   method output_point      = Topo_path.get_output_point body
 end
 
 class parent ~(connections:(#t * connection_point) list)
-             ~(node:node_entry)
-             ~(body:#Dom_html.element Js.t)
-             elt
-             () =
-  let num = List.length connections in
-  let cw  = List.mapi (fun i (x,p) -> let f_lp = fun () -> x#output_point in
-                                      let f_rp = fun () -> Topo_path.get_input_point ~num i body in
-                                      new Topo_path.t
-                                          ~left_node:x#node
-                                          ~right_node:node
-                                          ~right_point:p
-                                          ~f_lp ~f_rp ()) connections
+        ~(node:node_entry)
+        ~(body:#Dom_html.element Js.t)
+        elt () =
+  let num   = List.length connections in
+  let paths =
+    List.mapi (fun i (x,p) ->
+        let f_lp = fun () -> x#output_point in
+        let f_rp = fun () -> Topo_path.get_input_point ~num i body in
+        new Topo_path.t ~left_node:x#node ~right_node:node ~right_point:p ~f_lp ~f_rp ()) connections
   in
-  object(self)
+  let switches = List.filter_map (fun x -> x#switch) paths in
+  let s_switch_changing =
+    List.map (fun x -> x#s_changing) switches
+    |> React.S.merge ~eq:Bool.equal (fun acc x -> if x then x else acc) false
+  in
+  object
     inherit t ~node ~body elt () as super
-    method layout () = super#layout (); List.iter (fun p -> p#layout ()) self#paths
-    method paths : Topo_path.t list = cw
-
-    method private switches : Topo_path.switch list = List.filter_map (fun x -> x#switch) self#paths
-    method private s_switch_changing =
-      List.map (fun x -> x#s_changing) self#switches
-      |> React.S.merge ~eq:Bool.equal (fun _ x -> x) false
+    method paths     = paths
+    method layout () = super#layout (); List.iter (fun p -> p#layout ()) paths
     initializer
-      React.S.map (fun x -> List.iter (fun s -> s#set_changing x) self#switches) self#s_switch_changing |> ignore;
+      Lwt_react.S.map (fun x -> List.iter (fun s -> s#set_changing x) switches) s_switch_changing
+      |> Lwt_react.S.keep;
   end

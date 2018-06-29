@@ -154,6 +154,6 @@ let create ~(parent: #Widget.widget)
                       let w    = wrap node#area node in
                       Dom.appendChild parent#root w#root) nodes;
   let gta = "grid-template-areas: " ^ (grid_template_areas init) ^ ";" in
-  let _   = React.E.map (update_nodes nodes) event in
+  Lwt_react.(E.keep @@ E.map (update_nodes nodes) event);
   parent#style##.cssText := Js.string gta;
   nodes
