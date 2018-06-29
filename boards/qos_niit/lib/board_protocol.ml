@@ -1,85 +1,38 @@
 open Containers
 open Board_types
 open Types
-open Lwt.Infix
 open Storage.Options
-open Api.Handler
 open Boards.Board
 open Boards.Pools
 open Common
-
-include Board_parser
-
-let to_period x step_duration = x * int_of_float (1. /. step_duration)
-
-type device_events =
-  { config : config React.event
-  ; input  : input React.signal
-  ; state  : Common.Topology.state React.signal
-  ; status : status React.event
-  ; reset  : reset_ts React.event
-  ; errors : board_errors React.event
-  }
-
-type errors = (Stream.id,Errors.t list) List.Assoc.t
-
-type errors_events =
-  { ts_errors   : errors React.event
-  ; t2mi_errors : errors React.event
-  }
-
-type streams_events =
-  { streams         : Common.Stream.t list React.signal
-  ; ts_states       : (Stream.id * Streams.TS.state) list React.event
-  ; ts_structures   : (Stream.id * Streams.TS.structure) list React.event
-  ; ts_bitrates     : (Stream.id * Streams.TS.bitrate) list React.event
-  ; t2mi_states     : (int * Streams.T2MI.state) list React.event
-  ; t2mi_structures : (int * Streams.T2MI.structure) list React.event
-  }
-
-type jitter_events =
-  { session : Jitter.session React.event
-  ; jitter  : Jitter.measures React.event
-  }
-
-type events =
-  { device  : device_events
-  ; errors  : errors_events
-  ; streams : streams_events
-  ; jitter  : jitter_events
-  }
-
-type push_events =
-  { devinfo        : devinfo option                          -> unit
-  ; state          : Topology.state                          -> unit
-  ; group          : group                                   -> unit
-  ; board_errors   : board_errors                            -> unit
-  ; structs        : (Stream.id * Streams.TS.structure) list -> unit
-  ; bitrates       : (Stream.id * Streams.TS.bitrate) list   -> unit
-  ; t2mi_info      : int * Streams.T2MI.structure            -> unit
-  ; jitter         : Jitter.measures                         -> unit
-  ; jitter_session : Jitter.session                          -> unit
-  }
-
-type api =
-  { get_devinfo         : unit               -> devinfo option
-  ; set_input           : input              -> input Lwt.t
-  ; set_t2mi_mode       : t2mi_mode option   -> t2mi_mode option Lwt.t
-  ; set_jitter_mode     : jitter_mode option -> jitter_mode option Lwt.t
-  ; get_t2mi_seq        : int option         -> Streams.T2MI.sequence Lwt.t
-  ; get_section         : section_params     -> (Streams.TS.section,Streams.TS.section_error) Lwt_result.t
-  ; get_ts_states       : unit -> (Stream.id * Streams.TS.state) list
-  ; get_ts_structures   : unit -> (Stream.id * Streams.TS.structure) list
-  ; get_ts_bitrates     : unit -> (Stream.id * Streams.TS.bitrate) list
-  ; get_t2mi_states     : unit -> (int * Streams.T2MI.state) list
-  ; get_t2mi_structures : unit -> (int * Streams.T2MI.structure) list
-  ; reset               : unit               -> unit Lwt.t
-  ; config              : unit               -> config
-  }
+open Board_parser
 
 let status_timeout = 8 (* seconds *)
 let detect_timeout = 3 (* seconds *)
 let probes_timeout = 5 (* seconds *)
+
+module Make_timer(M:sig val step_duration : float end) = struct
+  type t = { v : int; count : int; exn : exn }
+  let to_period x =
+    x * int_of_float (1. /. M.step_duration)
+  let create ?(exn=Timeout) (s:int) =
+    { v = s; count = to_period s; exn }
+  let reset (t:t) = { t with count = to_period t.v }
+  let step (t:t) = match pred t.count with
+    | x when x < 0 -> raise_notrace t.exn
+    | count        -> { t with count }
+end
+
+module Acc = struct
+  type t =
+    { group  : Types.group option
+    ; events : Types.event list
+    ; probes : probe_response list
+    ; parts  : (int * int, part list) List.Assoc.t
+    ; bytes  : Cstruct.t option
+    }
+  let empty = { group = None; events = []; probes = []; parts = []; bytes = None }
+end
 
 module SM = struct
 
@@ -89,31 +42,11 @@ module SM = struct
   exception Status_timeout
   exception Unexpected_init
 
-  let get_id ()  = incr request_id; !request_id
+  let get_id () = incr request_id; !request_id
 
   let wakeup_timeout (_,t) = t.pred `Timeout |> ignore
 
   let has_board_info rsps = Fun.(Option.is_some % List.find_map (is_response Get_board_info)) rsps
-
-  module Make_timer(M:sig val step_duration : float end) = struct
-    type t = { v : int; count : int; exn : exn }
-    let create (s:int) exn = { v = s; count = to_period s M.step_duration; exn }
-    let reset (t:t)        = { t with count = to_period t.v M.step_duration }
-    let step (t:t)         = match pred t.count with
-      | x when x < 0 -> raise_notrace t.exn
-      | count        -> { t with count }
-  end
-
-  module Acc = struct
-    type t =
-      { group  : Types.group option
-      ; events : Types.event list
-      ; probes : probe_response list
-      ; parts  : (int * int, part list) List.Assoc.t
-      ; bytes  : Cstruct.t option
-      }
-    let empty = { group = None; events = []; probes = []; parts = []; bytes = None }
-  end
 
   module Events : sig
     val event_to_string : event -> string
@@ -276,23 +209,9 @@ module SM = struct
 
   let send_instant (type a) sender (msg : a instant_request) : unit Lwt.t =
     (match msg with
-     | Reset            -> to_complex_req ~msg_code:0x0111 ~body:(Cbuffer.create 0) ()
-     | Set_board_mode x ->
-        let t2mi = Option.get_or ~default:t2mi_mode_default x.t2mi in
-        let body = Cbuffer.create sizeof_board_mode in
-        let () = input_to_int x.input
-                 |> (lor) (if t2mi.enabled then 4 else 0)
-                 |> (lor) 8 (* disable board storage by default *)
-                 |> set_board_mode_mode body in
-        let () = set_board_mode_t2mi_pid body t2mi.pid in
-        let () = set_board_mode_t2mi_stream_id body (Stream.id_to_int32 t2mi.stream) in
-        to_simple_req ~msg_code:0x0082 ~body ()
-     | Set_jitter_mode x ->
-        let req  = Option.get_or ~default:jitter_mode_default x in
-        let body = Cbuffer.create sizeof_req_set_jitter_mode in
-        let () = set_req_set_jitter_mode_stream_id body (Stream.id_to_int32 req.stream) in
-        let () = set_req_set_jitter_mode_pid body req.pid in
-        to_complex_req ~msg_code:0x0112 ~body ())
+     | Reset             -> to_complex_req ~msg_code:0x0111 ~body:(Cbuffer.create 0) ()
+     | Set_board_mode x  -> to_set_board_mode_req x
+     | Set_jitter_mode x -> to_set_jitter_mode_req x)
     |> sender
 
   let enqueue (type a) state msgs sender (msg : a request) timeout exn : a Lwt.t =
@@ -309,6 +228,7 @@ module SM = struct
     | _ -> Lwt.fail (Failure "board is not responding")
 
   let enqueue_instant (type a) state msgs sender (msg : a instant_request) : unit Lwt.t =
+    let open Lwt.Infix in
     match React.S.value state with
     | `Fine ->
        let t,w = Lwt.wait () in
@@ -326,8 +246,8 @@ module SM = struct
                       | Bitrate x      -> pe.bitrates x) acc.probes;
     { acc with probes = [] }
 
-  let sm_step msgs imsgs sender (storage : config storage) step_duration push (fmt:string -> string) =
-    let status_period      = to_period status_timeout step_duration in
+  let sm_step msgs imsgs sender (storage : config storage)
+        step_duration (push:push_events) (fmt:string -> string) =
     let board_info_err_msg = "board info was received during normal operation, restarting..." in
     let no_status_msg      = Printf.sprintf "no status received for %d seconds, restarting..."
                                status_timeout in
@@ -370,7 +290,7 @@ module SM = struct
       imsgs := Queue.create [];
       push.state `No_response;
       send_msg sender Get_board_info |> Lwt.ignore_result;
-      `Continue (step_detect (Timer.create detect_timeout Timeout) Acc.empty)
+      `Continue (step_detect (Timer.create ~exn:Timeout detect_timeout) Acc.empty)
 
     and step_detect (timer:Timer.t) (acc:Acc.t) recvd =
       try
@@ -384,7 +304,7 @@ module SM = struct
            send_instant sender (Set_board_mode { t2mi=t2mi_mode; input }) |> Lwt.ignore_result;
            send_instant sender (Set_jitter_mode jitter_mode) |> Lwt.ignore_result;
            Logs.info (fun m -> m "%s" @@ fmt "connection established, waiting for 'status' message");
-           `Continue (step_ok_idle (Timer.create status_period Status_timeout) acc)
+           `Continue (step_ok_idle (Timer.create ~exn:Status_timeout status_timeout) acc)
       with Timeout ->
         (Logs.warn (fun m ->
              let s = Printf.sprintf "connection is not established after %d seconds, restarting..."
@@ -410,7 +330,7 @@ module SM = struct
             let stack = Events.get_req_stack group acc.group in
             let pool  = List.map (fun req -> { send    = (fun () -> send_event sender req)
                                              ; pred    = (is_probe_response req)
-                                             ; timeout = to_period probes_timeout step_duration
+                                             ; timeout = Timer.to_period probes_timeout
                                              ; exn     = None }) stack
                         |> Pool.create
             in
@@ -499,6 +419,7 @@ module SM = struct
                                ; jitter_mode = x.status.jitter_mode }) group
 
   let create (fmt:string -> string) sender (storage:config storage) step streams_conv =
+    let module Timer = Make_timer(struct let step_duration = step end) in
     let state,state_push   = S.create `No_response in
     let s_devi,devi_push   = S.create None in
     let e_group,group_push = E.create () in
@@ -554,6 +475,7 @@ module SM = struct
     let msgs   = ref (Await_queue.create []) in
     let imsgs  = ref (Queue.create []) in
     let wait = fun ~eq v getter to_req ->
+      let open Lwt.Infix in
       let s = S.map ~eq getter s_config in
       if eq (S.value s) v then Lwt.return v
       else enqueue_instant state imsgs sender (to_req v)
@@ -598,14 +520,14 @@ module SM = struct
             let s = section_params_to_yojson r |> Yojson.Safe.to_string in
             m "%s" @@ fmt @@ Printf.sprintf "Got SI/PSI section request: %s" s);
         enqueue state msgs sender (Get_section { request_id = get_id (); params = r })
-          (to_period 125 step) None)
+          (Timer.to_period 125) None)
 
       ; get_t2mi_seq = (fun s ->
         let s = Option.get_or ~default:5 s in
         Logs.debug (fun m -> let s = string_of_int s ^ " sec" in
                              m "%s" @@ fmt @@ Printf.sprintf "Got T2-MI sequence request: %s" s);
         enqueue state msgs sender (Get_t2mi_frame_seq { request_id = get_id (); seconds = s })
-          (to_period (s + 10) step) None)
+          (Timer.to_period (s + 10)) None)
 
       ; get_devinfo         = (fun () -> S.value s_devi)
       ; get_ts_states       = (fun () -> S.value s_ts_states)

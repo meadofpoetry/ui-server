@@ -15,34 +15,6 @@ type part =
   ; data  : Cbuffer.t
   }
 
-type jitter_req =
-  { request_id : int
-  ; pointer    : int32
-  }
-
-type t2mi_info_req =
-  { request_id : int
-  ; stream_id  : int
-  }
-
-type t2mi_frame_seq_req =
-  { request_id : int
-  ; seconds    : int
-  }
-
-type section_req =
-  { request_id : int
-  ; params     : section_params
-  }
-and section_params =
-  { stream_id      : Common.Stream.id
-  ; table_id       : int
-  ; section        : int option (* needed for tables containing multiple sections *)
-  ; table_id_ext   : int option (* needed for tables with extra parameter, like ts id for PAT *)
-  ; eit_ts_id      : int option (* ts id for EIT *)
-  ; eit_orig_nw_id : int option (* original network ID for EIT *)
-  } [@@deriving yojson]
-
 type _ instant_request =
   | Set_board_mode  : Types.mode         -> unit instant_request
   | Set_jitter_mode : jitter_mode option -> unit instant_request
@@ -105,16 +77,34 @@ let to_complex_req ?client_id ?request_id ~msg_code ~body () =
   let hdr = to_complex_req_header ?client_id ?request_id ~msg_code ~length () in
   Cbuffer.append hdr body
 
+let to_set_board_mode_req mode =
+  let t2mi = Option.get_or ~default:t2mi_mode_default mode.t2mi in
+  let body = Cbuffer.create sizeof_board_mode in
+  let () = input_to_int mode.input
+           |> (lor) (if t2mi.enabled then 4 else 0)
+           |> (lor) 8 (* disable board storage by default *)
+           |> set_board_mode_mode body in
+  let () = set_board_mode_t2mi_pid body t2mi.pid in
+  let () = set_board_mode_t2mi_stream_id body (Stream.id_to_int32 t2mi.stream) in
+  to_simple_req ~msg_code:0x0082 ~body ()
+
+let to_set_jitter_mode_req mode =
+  let req  = Option.get_or ~default:jitter_mode_default mode in
+  let body = Cbuffer.create sizeof_req_set_jitter_mode in
+  let () = set_req_set_jitter_mode_stream_id body (Stream.id_to_int32 req.stream) in
+  let () = set_req_set_jitter_mode_pid body req.pid in
+  to_complex_req ~msg_code:0x0112 ~body ()
+
+(* -------------------- Requests/responses/events ------------------*)
+
 let to_mode_exn mode t2mi_pid stream_id : Types.mode =
   { input = Option.get_exn @@ input_of_int (mode land 1)
   ; t2mi  = Some { enabled        = if (mode land 4) > 0 then true else false
                  ; pid            = t2mi_pid land 0x1fff
                  ; t2mi_stream_id = (t2mi_pid lsr 13) land 0x7
                  ; stream         = Common.Stream.id_of_int32 stream_id
-                 }
+              }
   }
-
-(* -------------------- Requests/responses/events ------------------*)
 
 module type Request = sig
 
@@ -622,8 +612,8 @@ module Status : (Event with type msg := status_raw) = struct
     let flags2    = get_status_flags_2 msg in
     let jpid      = get_status_jitter_pid msg in
     let mode      = to_mode_exn (get_status_mode msg)
-                                (get_status_t2mi_pid msg)
-                                (get_status_t2mi_stream_id msg)
+                      (get_status_t2mi_pid msg)
+                      (get_status_t2mi_stream_id msg)
     in
     { status    = { timestamp
                   ; load         = (float_of_int ((get_status_load msg) * 100)) /. 255.

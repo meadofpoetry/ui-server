@@ -1,8 +1,8 @@
-open Board_protocol
 open Boards.Board
 open Common
+open Types
 
-let handle api events =
+let handle (api:api) (events:events) =
   [ Board_api_device.handler api events.device
   ; Api_handler.add_layer "errors"  (Board_api_errors.handlers events.errors)
   ; Api_handler.add_layer "stream"  (Board_api_stream.handlers api events.streams)

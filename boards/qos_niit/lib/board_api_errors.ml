@@ -1,11 +1,10 @@
 open Containers
 open Board_types
-open Board_protocol
 open Board_api_common
 open Api.Interaction
 open Api.Interaction.Json
-open Api.Redirect
 open Common
+open Types
 
 type events = errors_events
 
@@ -34,7 +33,7 @@ module WS = struct
       let f_prior  = flst priority (fun l (s,e) -> s,List.filter (fun x -> List.mem ~eq:(=) x.err_code l) e) in
       let f_pids   = flst pids     (fun l (s,e) -> s,List.filter (fun x -> List.mem ~eq:(=) x.pid l) e) in
       let fns = List.filter_map (fun x -> x) [f_stream;f_errors;f_prior;f_pids] in
-      let e   = React.E.fmap (fun (l:Board_protocol.errors) ->
+      let e   = React.E.fmap (fun (l:errors) ->
                     match List.filter (fun errs -> filter errs fns) l with
                     | [] -> None
                     | l  -> Some l) events.ts_errors
@@ -52,7 +51,7 @@ module WS = struct
       let f_errors = flst errors   (fun l (s,e) -> s,List.filter (fun x -> List.mem ~eq:(=) x.err_code l) e) in
       let f_pids   = flst pids     (fun l (s,e) -> s,List.filter (fun x -> List.mem ~eq:(=) x.pid l) e) in
       let fns = List.filter_map (fun x -> x) [f_stream;f_t2mi;f_errors;f_pids] in
-      let e   = React.E.fmap (fun (l:Board_protocol.errors) ->
+      let e   = React.E.fmap (fun (l:errors) ->
                     match List.filter (fun errs -> filter errs fns) l with
                     | [] -> None
                     | l  -> Some l) events.ts_errors

@@ -1,11 +1,10 @@
 open Containers
 open Board_types
-open Board_protocol
 open Board_api_common
 open Api.Interaction
 open Api.Interaction.Json
-open Api.Redirect
 open Common
+open Types
 
 type events = device_events
 
@@ -29,10 +28,10 @@ module WS = struct
   let mode mode (events:events) _ body sock_data () =
     let f = fun e conv -> Api.Socket.handler socket_table sock_data e conv body in
     (match mode with
-     | `T2MI   -> let e = React.E.map (fun x -> x.t2mi_mode) events.config
+     | `T2MI   -> let e = React.E.map (fun (x:config) -> x.t2mi_mode) events.config
                           |> React.E.changes ~eq:(Equal.option equal_t2mi_mode)
                   in f e (Json.Option.to_yojson t2mi_mode_to_yojson)
-     | `JITTER -> let e = React.E.map (fun x -> x.jitter_mode) events.config
+     | `JITTER -> let e = React.E.map (fun (x:config) -> x.jitter_mode) events.config
                           |> React.E.changes ~eq:(Equal.option equal_jitter_mode)
                   in f e (Json.Option.to_yojson jitter_mode_to_yojson))
 

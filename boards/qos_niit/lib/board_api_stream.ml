@@ -1,11 +1,10 @@
 open Containers
 open Board_types
-open Board_protocol
 open Board_api_common
 open Api.Interaction
 open Api.Interaction.Json
-open Api.Redirect
 open Common
+open Types
 
 type events = streams_events
 
