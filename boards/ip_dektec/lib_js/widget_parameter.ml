@@ -108,7 +108,7 @@ module Make(M:M) = struct
 end
 
 module Status = struct
-  type t = Board_types.status
+  type t = Board_types.receiver_status
   let to_string : t -> string = function
     | Enabled  -> "Вкл"
     | Disabled -> "Выкл"
@@ -144,7 +144,7 @@ module Size_param     = Make(Size)
 module Bool_param     = Make(Bool)
 module Float_param    = Make(Float)
 
-let make (event:  Board_types.board_status React.event)
+let make (event:  Board_types.status React.event)
          (config: config) =
   let open Board_types in
   let fmt_br x = float_of_int x /. 1_000_000. in

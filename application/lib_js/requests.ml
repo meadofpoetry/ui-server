@@ -1,29 +1,44 @@
 open Containers
 open Common.Topology
 open Api_js.Requests.Json_request
-open Lwt.Infix
-
+open Common.Uri
 open Application_types
 
-let get_topology () =
-  let path = "api/topology/topology" in
-  get_result ~path of_yojson ()
+module WS = struct
 
-let get_topology_socket () =
-  let path = "api/topology/topology" in
-  WS.get ~path of_yojson ()
+  let get_topology () =
+    WS.get ?secure:None ?host:None ?port:None
+      ~from:Common.Topology.of_yojson
+      ~path:Path.Format.("api/topology" @/ empty)
+      ~query:Query.empty
 
-let get_stream_table () =
-  let path = "api/topology/stream_table" in
-  get_result ~path stream_table_of_yojson ()
+  let get_streams () =
+    WS.get ?secure:None ?host:None ?port:None
+      ~from:stream_table_of_yojson
+      ~path:Path.Format.("api/topology/streams" @/ empty)
+      ~query:Query.empty
 
-let get_stream_table_socket () =
-  let path = "api/topology/stream_table" in
-  WS.get ~path stream_table_of_yojson ()
+end
 
-let post_stream_settings settings =
-  let path = "api/topology/stream_settings" in
-  post_result ~path ~contents:(stream_setting_to_yojson settings)
-              ~from_err:set_error_of_yojson
-              (fun _ -> Ok ())
-              ()
+module HTTP = struct
+
+  let set_streams streams =
+    post_result_unit ?scheme:None ?host:None ?port:None
+      ~path:Path.Format.("api/topology/streams" @/ empty)
+      ~contents:(stream_table_to_yojson streams)
+      ~from_err:set_error_of_yojson
+      ~query:Query.empty
+
+  let get_topology () =
+    get_result ?scheme:None ?host:None ?port:None ?from_err:None
+      ~from:Common.Topology.of_yojson
+      ~path:Path.Format.("api/topology" @/ empty)
+      ~query:Query.empty
+
+  let get_streams () =
+    get_result ?scheme:None ?host:None ?port:None ?from_err:None
+      ~from:stream_table_of_yojson
+      ~path:Path.Format.("api/topology/streams" @/ empty)
+      ~query:Query.empty
+
+end

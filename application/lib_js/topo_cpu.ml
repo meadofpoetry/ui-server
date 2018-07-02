@@ -51,7 +51,9 @@ class t ~(connections:(#Topo_node.t * connection_point) list)
   let body       = Body.create cpu in
   let e_settings = React.E.map (fun _ -> cpu) header#settings_icon#e_click in
   object(self)
-    inherit Topo_block.t ~node:(`CPU cpu) ~connections ~header ~body () as super
+    inherit Topo_block.t
+              ~port_setter:(fun _ _ -> Lwt_result.fail "CPU ports are not switchable")
+              ~node:(`CPU cpu) ~connections ~header ~body () as super
     method cpu        = cpu
     method layout ()  = super#layout (); header#layout ()
     method e_settings = e_settings

@@ -25,6 +25,8 @@ module Pool = struct
 
   let send t        = (current t).send
 
+  let init t        = { t with point = 0; timer = 0 }
+
   let step t        =
     let tmr = succ t.timer in
     if tmr >= (current t).timeout

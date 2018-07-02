@@ -16,7 +16,7 @@ let connect_db streams_events dbs =
  *)
 let typ = "pipeline"
   
-let create config db_conf =
+let create (config:Storage.Config.config) (db_conf:Storage.Database.t) =
   let cfg = Conf.get config in
   let api, state, recv, reset =
     match cfg.msg_fmt with
@@ -30,7 +30,7 @@ let create config db_conf =
        api, state, recv, reset
   in
   (*Lwt_react.E.keep @@ connect_db (S.changes api.streams) dbs;*)
-    (* polling loop *)
+  (* polling loop *)
   let rec loop () =
     recv () >>= loop
   in
@@ -40,7 +40,7 @@ let create config db_conf =
     val api   = api
     val state = state
     method reset ss    = reset state ss
-    method handlers () = Pipeline_api.handlers api
+    method handlers () = List.return @@ Pipeline_api.handlers api
     method template () = Pipeline_template.create ()
     method finalize () = Pipeline_protocol.finalize state
   end

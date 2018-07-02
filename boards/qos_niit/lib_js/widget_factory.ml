@@ -4,6 +4,7 @@ open Board_types
 open Lwt_result.Infix
 open Ui_templates.Factory
 open Common.Topology
+open Common
 
 type item =
   | Structure       of Widget_structure.config option
@@ -50,11 +51,11 @@ open Factory_state
 class t (control:int) () =
 object(self)
 
-  val _state       : state React.signal t_lwt                 = empty ()
-  val _t2mi_mode   : t2mi_mode option   React.signal t_lwt    = empty ()
-  val _jitter_mode : jitter_mode option React.signal t_lwt    = empty ()
-  val _structs     : Streams.TS.structures React.signal t_lwt = empty ()
-  val _bitrates    : Streams.TS.structures React.signal t_lwt = empty ()
+  val _state       : state React.signal t_lwt              = empty ()
+  val _t2mi_mode   : t2mi_mode option   React.signal t_lwt = empty ()
+  val _jitter_mode : jitter_mode option React.signal t_lwt = empty ()
+  val _structs     : (Stream.id * Streams.TS.structure) list React.signal t_lwt = empty ()
+  val _bitrates    : (Stream.id * Streams.TS.bitrate) list React.signal t_lwt = empty ()
 
   (** Create widget of type **)
   method create : item -> Dashboard.Item.item = function
@@ -62,26 +63,26 @@ object(self)
                               |> Factory_state_lwt.l2 self#_state self#_structs
                               |> Ui_templates.Loader.create_widget_loader
                               |> Dashboard.Item.to_item ~name:Widget_structure.name
-                                                        ?settings:Widget_structure.settings
+                                   ?settings:Widget_structure.settings
     | Settings conf        -> (fun s t j -> Widget_settings.make ~state:s ~t2mi_mode:t ~jitter_mode:j
-                                                                 ~streams:self#_streams
-                                                                 conf control)
+                                              ~streams:self#_streams
+                                              conf control)
                               |> Factory_state_lwt.l3 self#_state self#_t2mi_mode self#_jitter_mode
                               |> Ui_templates.Loader.create_widget_loader
                               |> Dashboard.Item.to_item ~name:Widget_settings.name
-                                                        ?settings:Widget_settings.settings
+                                   ?settings:Widget_settings.settings
     | T2MI_settings conf   -> (fun s m -> Widget_t2mi_settings.make ~state:s ~mode:m
-                                                                    ~streams:self#_streams
-                                                                    conf control )
+                                            ~streams:self#_streams
+                                            conf control )
                               |> Factory_state_lwt.l2 self#_state self#_t2mi_mode
                               |> Ui_templates.Loader.create_widget_loader
                               |> Dashboard.Item.to_item ~name:Widget_t2mi_settings.name
-                                                        ?settings:Widget_t2mi_settings.settings
+                                   ?settings:Widget_t2mi_settings.settings
     | Jitter_settings conf -> (fun s m -> Widget_jitter_settings.make ~state:s ~mode:m conf control)
                               |> Factory_state_lwt.l2 self#_state self#_jitter_mode
                               |> Ui_templates.Loader.create_widget_loader
                               |> Dashboard.Item.to_item ~name:Widget_jitter_settings.name
-                                                        ?settings:Widget_jitter_settings.settings
+                                   ?settings:Widget_jitter_settings.settings
 
   method destroy () : unit = Factory_state.finalize _state;
                              Factory_state.finalize _t2mi_mode;

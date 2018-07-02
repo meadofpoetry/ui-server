@@ -10,7 +10,7 @@ class type t_js =
 
 class t ~(x_axes:#base_option list) ~(y_axes:#base_option list) () =
   let o : t_js Js.t = Js.Unsafe.coerce @@ Js.Unsafe.obj [||] in
-  object
+  object(self)
     inherit Options.t o () as super
 
     val _scales = new Axes.Cartesian.t ~x_axes ~y_axes ()
@@ -26,5 +26,7 @@ class t ~(x_axes:#base_option list) ~(y_axes:#base_option list) () =
     method! replace x = super#replace x; _scales#replace _obj##.scales
 
     initializer
-      _obj##.scales := Js.Unsafe.coerce _scales#get_obj
+      _obj##.scales := Js.Unsafe.coerce _scales#get_obj;
+      self#set_span_gaps false;
+      self#set_show_lines true;
   end

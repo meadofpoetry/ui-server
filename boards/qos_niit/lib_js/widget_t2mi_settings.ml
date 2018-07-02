@@ -64,7 +64,7 @@ let make ~(state:   Common.Topology.state React.signal)
   let pid,set_pid,s_pid,dis_pid = make_pid () in
   let sid,set_sid,s_sid,dis_sid = make_sid () in
   let ss = make_stream_select streams in
-  let s : t2mi_mode_opt option React.signal =
+  let s : t2mi_mode option option React.signal =
     React.S.l4 (fun en pid sid state->
         match en,pid,sid,state with
         | true,Some pid,Some sid,`Fine -> Some (Some { enabled = en
@@ -85,7 +85,7 @@ let make ~(state:   Common.Topology.state React.signal)
                        state s_en
   in
   let _      = React.S.map (fun x -> List.iter (fun f -> f x) [set_en; set_pid; set_sid]) mode in
-  let submit = Requests.Device.HTTP.post_t2mi_mode control in
+  let submit = fun x -> Requests.Device.HTTP.post_t2mi_mode x control in
   let apply  = Ui_templates.Buttons.create_apply s submit in
   let box    = new Box.t ~vertical:true ~widgets:[en;ss;pid;sid;apply#widget] () in
   let ()     = box#add_class "mdc-settings-widget" in

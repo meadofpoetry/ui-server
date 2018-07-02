@@ -21,7 +21,7 @@ let get_config (network : Network.t) () =
   | Error e -> Json.respond_result (Error (`String e))
   | Ok    r -> Json.respond_result (Ok (Network_config.to_yojson r))
 
-let network_handler (network : Network.t) id meth uri _ headers body =
+let network_handler (network : Network.t) uri id meth headers body _ =
   let open Common.Uri in
   let not_root = not @@ Common.User.eq id `Root in
   match meth, uri.path with
@@ -32,7 +32,12 @@ let network_handler (network : Network.t) id meth uri _ headers body =
 module Api_handler = Api.Handler.Make(Common.User)
                    
 let handlers (network : Network.t) =
+  Api_handler.create_dispatcher
+    "network"
+    [] []
+    (*
   [ (module struct
        let domain = "network"
        let handle = network_handler network
      end : Api_handler.HANDLER); ]
+     *)

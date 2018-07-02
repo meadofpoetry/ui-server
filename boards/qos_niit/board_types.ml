@@ -3,21 +3,12 @@ open Common.Dvb_t2_types
 open Common.Topology
 open Containers
 
-(** API *)
-
-type api_err =
-  | Bad_query of Uri.Query.err
-  | Unknown_query of Uri.Query.t
-  | Other of string [@@deriving yojson]
-
 (** Board info **)
 
 type devinfo =
   { typ : int
   ; ver : int
   } [@@deriving yojson]
-
-type devinfo_opt = devinfo option [@@deriving yojson]
 
 (** Modes **)
 
@@ -29,16 +20,13 @@ type t2mi_mode =
   { enabled        : bool
   ; pid            : int
   ; t2mi_stream_id : int
-  ; stream         : Stream.id (* NOTE maybe t? *)
-  } [@@deriving yojson,eq]
+  ; stream         : Stream.id
+  } [@@deriving yojson,eq,show]
 
 type jitter_mode =
-  { stream  : Stream.id (* NOTE maybe t? *)
+  { stream  : Stream.id
   ; pid     : int
-  } [@@deriving yojson,eq]
-
-type t2mi_mode_opt   = t2mi_mode option   [@@deriving yojson]
-type jitter_mode_opt = jitter_mode option [@@deriving yojson]
+  } [@@deriving yojson,eq,show]
 
 (** Config **)
 
@@ -47,6 +35,9 @@ type config =
   ; t2mi_mode   : t2mi_mode option
   ; jitter_mode : jitter_mode option
   } [@@deriving yojson,eq]
+
+let t2mi_mode_default   = { enabled = false; pid = 0; t2mi_stream_id = 0; stream = Single }
+let jitter_mode_default = { pid = 0x1fff; stream = Single }
 
 let config_to_string c = Yojson.Safe.to_string @@ config_to_yojson c
 let config_of_string s = config_of_yojson @@ Yojson.Safe.from_string s
@@ -139,12 +130,9 @@ module Streams = struct
     (** TS state *)
 
     type state =
-      { stream    : Stream.id
-      ; timestamp : Time.t
+      { timestamp : Time.t
       ; present   : bool
       } [@@deriving yojson]
-
-    type states = state list [@@deriving yojson]
 
     (** TS bitrate *)
 
@@ -163,16 +151,11 @@ module Streams = struct
       } [@@deriving yojson]
 
     type bitrate =
-      { stream     : Stream.id
-      ; timestamp  : Time.t
+      { timestamp  : Time.t
       ; ts_bitrate : int
       ; pids       : pid_bitrate list
       ; tables     : table_bitrate list
       } [@@deriving yojson]
-
-    type bitrate_opt = bitrate option [@@deriving yojson]
-
-    type bitrates = bitrate list [@@deriving yojson]
 
     (** TS structure *)
 
@@ -311,7 +294,6 @@ module Streams = struct
 
     type structure =
       { timestamp : Time.t
-      ; stream    : Stream.id
       ; bitrate   : int option
       ; general   : general_info
       ; pids      : pid_info list
@@ -319,9 +301,6 @@ module Streams = struct
       ; emm       : emm_info list
       ; tables    : table list
       } [@@deriving yojson]
-
-    type structures    = structure list [@@deriving yojson]
-    type structure_opt = structure option [@@deriving yojson]
 
     type table_label = [ `PAT   | `CAT   | `PMT   | `TSDT  |
                          `NIT   | `NITa  | `NITo  |
@@ -431,27 +410,19 @@ module Streams = struct
     (** T2MI state **)
 
     type state =
-      { stream    : Stream.id
-      ; timestamp : Time.t
-      ; stream_id : int
+      { timestamp : Time.t
       ; present   : bool
       } [@@deriving yojson]
-
-    type states = state list [@@deriving yojson]
 
     (** T2MI structure **)
 
     type structure =
       { packets      : int list
-      ; stream_id    : int
       ; timestamp    : Time.t
       ; t2mi_pid     : int option
       ; l1_pre       : string option
       ; l1_post_conf : string option
       } [@@deriving yojson]
-
-    type structures    = structure list [@@deriving yojson]
-    type structure_opt = structure option [@@deriving yojson]
 
     (** T2-MI packet sequence **)
 
@@ -503,41 +474,17 @@ module Errors = struct
     ; no_measure : float
     } [@@deriving yojson]
 
-  module TS = struct
-
-    type t =
-      { stream    : Stream.id
-      ; timestamp : Time.t
-      ; count     : int
-      ; err_code  : int
-      ; err_ext   : int
-      ; priority  : int
-      ; multi_pid : bool
-      ; pid       : int
-      ; packet    : int32
-      ; param_1   : int32
-      ; param_2   : int32
-      } [@@deriving yojson,eq]
-
-    type t_list = t list [@@deriving yojson]
-
-  end
-
-  module T2MI = struct
-
-    type t =
-      { stream    : Stream.id
-      ; timestamp : Time.t
-      ; stream_id : int
-      ; pid       : int
-      ; err_code  : int
-      ; sync      : bool
-      ; count     : int
-      ; param     : int option
-      } [@@deriving yojson,eq]
-
-    type t_list = t list [@@deriving yojson]
-
-  end
+  type t =
+    { timestamp : Time.t
+    ; count     : int
+    ; err_code  : int
+    ; err_ext   : int
+    ; priority  : int
+    ; multi_pid : bool
+    ; pid       : int
+    ; packet    : int32
+    ; param_1   : int32
+    ; param_2   : int32 (* t2mi stream id for t2mi error *)
+    } [@@deriving yojson,eq]
 
 end

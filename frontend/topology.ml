@@ -18,9 +18,9 @@ class t () = object(self)
 
   method private on_load =
     let open Lwt_result.Infix in
-    Requests.get_topology ()
+    Requests.HTTP.get_topology ()
     >>= (fun init ->
-      let event,sock = Requests.get_topology_socket () in
+      let event,sock = Requests.WS.get_topology () in
       let nodes      = Topology.create ~parent:self ~init ~event () in
       _nodes <- nodes;
       _sock <- Some sock;
