@@ -11,13 +11,18 @@ let status_timeout = 8 (* seconds *)
 let detect_timeout = 3 (* seconds *)
 let probes_timeout = 5 (* seconds *)
 
-module Make_timer(M:sig val step_duration : float end) = struct
-  type t = { v : int; count : int; exn : exn }
-  let to_period x =
-    x * int_of_float (1. /. M.step_duration)
-  let create ?(exn=Timeout) (s:int) =
-    { v = s; count = to_period s; exn }
-  let reset (t:t) = { t with count = to_period t.v }
+let to_period x step_duration = x * int_of_float (1. /. step_duration)
+
+module Timer : sig
+  type t
+  val create : ?exn:exn -> step:float -> int -> t
+  val reset  : t -> t
+  val step   : t -> t
+end = struct
+  type t = { v : int; count : int; exn : exn; step : float }
+  let create ?(exn=Timeout) ~step (s:int) =
+    { v = s; count = to_period s step; exn; step }
+  let reset (t:t) = { t with count = to_period t.v t.step }
   let step (t:t) = match pred t.count with
     | x when x < 0 -> raise_notrace t.exn
     | count        -> { t with count }
@@ -252,7 +257,6 @@ module SM = struct
     let no_status_msg      = Printf.sprintf "no status received for %d seconds, restarting..."
                                status_timeout in
 
-    let module Timer  = Make_timer(struct let step_duration = step_duration end) in
     let module Parser = Make(struct let log_fmt = fmt end) in
 
     let deserialize (acc:Acc.t) recvd =
@@ -290,7 +294,7 @@ module SM = struct
       imsgs := Queue.create [];
       push.state `No_response;
       send_msg sender Get_board_info |> Lwt.ignore_result;
-      `Continue (step_detect (Timer.create ~exn:Timeout detect_timeout) Acc.empty)
+      `Continue (step_detect (Timer.create ~exn:Timeout ~step:step_duration detect_timeout) Acc.empty)
 
     and step_detect (timer:Timer.t) (acc:Acc.t) recvd =
       try
@@ -304,7 +308,8 @@ module SM = struct
            send_instant sender (Set_board_mode { t2mi=t2mi_mode; input }) |> Lwt.ignore_result;
            send_instant sender (Set_jitter_mode jitter_mode) |> Lwt.ignore_result;
            Logs.info (fun m -> m "%s" @@ fmt "connection established, waiting for 'status' message");
-           `Continue (step_ok_idle (Timer.create ~exn:Status_timeout status_timeout) acc)
+           `Continue (step_ok_idle (Timer.create ~exn:Status_timeout
+                                      ~step:step_duration status_timeout) acc)
       with Timeout ->
         (Logs.warn (fun m ->
              let s = Printf.sprintf "connection is not established after %d seconds, restarting..."
@@ -330,7 +335,7 @@ module SM = struct
             let stack = Events.get_req_stack group acc.group in
             let pool  = List.map (fun req -> { send    = (fun () -> send_event sender req)
                                              ; pred    = (is_probe_response req)
-                                             ; timeout = Timer.to_period probes_timeout
+                                             ; timeout = to_period probes_timeout step_duration
                                              ; exn     = None }) stack
                         |> Pool.create
             in
@@ -419,7 +424,6 @@ module SM = struct
                                ; jitter_mode = x.status.jitter_mode }) group
 
   let create (fmt:string -> string) sender (storage:config storage) step streams_conv =
-    let module Timer = Make_timer(struct let step_duration = step end) in
     let state,state_push   = S.create `No_response in
     let s_devi,devi_push   = S.create None in
     let e_group,group_push = E.create () in
@@ -520,14 +524,14 @@ module SM = struct
             let s = section_params_to_yojson r |> Yojson.Safe.to_string in
             m "%s" @@ fmt @@ Printf.sprintf "Got SI/PSI section request: %s" s);
         enqueue state msgs sender (Get_section { request_id = get_id (); params = r })
-          (Timer.to_period 125) None)
+          (to_period 125 step) None)
 
       ; get_t2mi_seq = (fun s ->
         let s = Option.get_or ~default:5 s in
         Logs.debug (fun m -> let s = string_of_int s ^ " sec" in
                              m "%s" @@ fmt @@ Printf.sprintf "Got T2-MI sequence request: %s" s);
         enqueue state msgs sender (Get_t2mi_frame_seq { request_id = get_id (); seconds = s })
-          (Timer.to_period (s + 10)) None)
+          (to_period (s + 10) step) None)
 
       ; get_devinfo         = (fun () -> S.value s_devi)
       ; get_ts_states       = (fun () -> S.value s_ts_states)
