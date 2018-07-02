@@ -1,5 +1,6 @@
 module Components   = Components
 module Ipaddr       = Ipaddr_ext
+module Json         = Json
 module Topology     = Topology
 module Macaddr      = Macaddr_ext
 module Stream       = Stream

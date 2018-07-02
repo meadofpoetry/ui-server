@@ -121,9 +121,9 @@ let update_nodes nodes (t:Common.Topology.t) =
              | _        -> ()) nodes
 
 let create ~(parent: #Widget.widget)
-           ~(init:   Common.Topology.t)
-           ~(event:  Common.Topology.t React.event)
-           () =
+      ~(init:   Common.Topology.t)
+      ~(event:  Common.Topology.t React.event)
+      () =
   let svg    = Tyxml_js.Svg.(svg ~a:[a_class [Markup.CSS.add_element _class "paths"]] [] |> toelt) in
   let nodes  = make_nodes init in
   let e_s    = List.filter_map (function `Board b -> Some (React.E.map (fun x -> `Board x) b#e_settings)
@@ -154,6 +154,6 @@ let create ~(parent: #Widget.widget)
                       let w    = wrap node#area node in
                       Dom.appendChild parent#root w#root) nodes;
   let gta = "grid-template-areas: " ^ (grid_template_areas init) ^ ";" in
-  let _   = React.E.map (update_nodes nodes) event in
+  Lwt_react.(E.keep @@ E.map (update_nodes nodes) event);
   parent#style##.cssText := Js.string gta;
   nodes

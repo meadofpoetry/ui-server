@@ -200,7 +200,7 @@ let make_table table =
 
 let make ~(init:  stream_table)
          ~(event: stream_table React.event)
-         () : (stream_setting,set_error) Ui_templates.Types.settings_block =
+         () =
   let id  = "settings-place" in
   let div = Dom_html.createDiv Dom_html.document |> Widget.create in
   let make (table : stream_table) =
@@ -218,5 +218,5 @@ let make ~(init:  stream_table)
                                             Dom.appendChild div#root w#root;
                                             n_s) s_div)
   in
-  let post = fun x -> Requests.post_stream_settings x in
+  let post = Requests.HTTP.set_streams in
   div,s,post

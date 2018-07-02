@@ -6,10 +6,13 @@ module type Handler = sig
   val of_body             : Cohttp_lwt.Body.t -> t Lwt.t
   val of_error_string     : string -> t
   val of_exn              : exn -> t
-  val respond             : t -> ?headers:Cohttp.Header.t -> ?flush:bool -> unit -> response
-  val respond_result      : (t, t) result -> response
-  val respond_result_unit : (unit,t) result -> response
-  val respond_option      : t option -> response
+  val respond             : ?headers:Cohttp.Header.t ->
+                            ?flush:bool ->
+                            ?status:Cohttp.Code.status_code ->
+                            t ->
+                            unit -> response
+  val respond_result      : ?err_status:Cohttp.Code.status_code -> (t, t) result -> response
+  val respond_result_unit : ?err_status:Cohttp.Code.status_code -> (unit,t) result -> response
   val (>>=)               : 'a Lwt.t -> ('a -> response) -> response
 end
 

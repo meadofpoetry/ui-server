@@ -57,7 +57,7 @@ let make ~(state: Topology.state React.signal)
               dis_dhcp (match state with `Fine -> false | _ -> true);
             ) state s_dhcp
   in
-  let submit = Requests.Device.HTTP.post_mode control in
+  let submit = fun x -> Requests.Device.HTTP.set_mode x control in
   let apply  = Ui_templates.Buttons.create_apply s submit in
   let box    = new Box.t ~vertical:true ~widgets:[dhcp;ip;mask;gw;apply#widget] () in
   let ()     = box#add_class "mdc-settings-widget" in

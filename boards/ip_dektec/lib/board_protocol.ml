@@ -23,20 +23,20 @@ type push_events =
   }
 
 type api =
-  { post_ip        : Ipaddr.V4.t -> Ipaddr.V4.t Lwt.t
-  ; post_mask      : Ipaddr.V4.t -> Ipaddr.V4.t Lwt.t
-  ; post_gateway   : Ipaddr.V4.t -> Ipaddr.V4.t Lwt.t
-  ; post_dhcp      : flag -> flag Lwt.t
-  ; post_enable    : flag -> flag Lwt.t
-  ; post_fec       : flag -> flag Lwt.t
-  ; post_port      : port -> port Lwt.t
-  ; post_meth      : meth -> meth Lwt.t
-  ; post_multicast : Ipaddr.V4.t -> Ipaddr.V4.t Lwt.t
-  ; post_delay     : delay -> delay Lwt.t
-  ; post_rate_mode : rate_mode -> rate_mode Lwt.t
-  ; post_reset     : unit -> unit Lwt.t
-  ; get_config     : unit -> config Lwt.t
-  ; get_devinfo    : unit -> devinfo option Lwt.t
+  { set_ip        : Ipaddr.V4.t -> Ipaddr.V4.t Lwt.t
+  ; set_mask      : Ipaddr.V4.t -> Ipaddr.V4.t Lwt.t
+  ; set_gateway   : Ipaddr.V4.t -> Ipaddr.V4.t Lwt.t
+  ; set_dhcp      : bool -> bool Lwt.t
+  ; set_enable    : bool -> bool Lwt.t
+  ; set_fec       : bool -> bool Lwt.t
+  ; set_port      : int  -> int Lwt.t
+  ; set_meth      : meth -> meth Lwt.t
+  ; set_multicast : Ipaddr.V4.t -> Ipaddr.V4.t Lwt.t
+  ; set_delay     : int  -> int Lwt.t
+  ; set_rate_mode : rate_mode -> rate_mode Lwt.t
+  ; reset         : unit -> unit Lwt.t
+  ; get_config    : unit -> config
+  ; get_devinfo   : unit -> devinfo option
   }
 
 (* Board protocol implementation *)
@@ -674,20 +674,20 @@ module SM = struct
     let msgs   = ref (Queue.create []) in
     let send x = send msgs sender storage pe (to_period step_duration 2) x in
     let api =
-      { post_ip        = (fun x  -> send (Nw (Set_ip x)))
-      ; post_mask      = (fun x  -> send (Nw (Set_mask x)))
-      ; post_gateway   = (fun x  -> send (Nw (Set_gateway x)))
-      ; post_dhcp      = (fun x  -> send (Nw (Set_dhcp x)))
-      ; post_enable    = (fun x  -> send (Ip (Set_enable x)))
-      ; post_fec       = (fun x  -> send (Ip (Set_fec_enable x)))
-      ; post_port      = (fun x  -> send (Ip (Set_udp_port x)))
-      ; post_meth      = (fun x  -> send (Ip (Set_method x)))
-      ; post_multicast = (fun x  -> send (Ip (Set_mcast_addr x)))
-      ; post_delay     = (fun x  -> send (Ip (Set_delay x)))
-      ; post_rate_mode = (fun x  -> send (Ip (Set_rate_est_mode x)))
-      ; post_reset     = (fun () -> send (Nw Reboot))
-      ; get_config     = (fun () -> Lwt.return storage#get)
-      ; get_devinfo    = (fun () -> Lwt.return @@ React.S.value devinfo)
+      { set_ip        = (fun x  -> send (Nw (Set_ip x)))
+      ; set_mask      = (fun x  -> send (Nw (Set_mask x)))
+      ; set_gateway   = (fun x  -> send (Nw (Set_gateway x)))
+      ; set_dhcp      = (fun x  -> send (Nw (Set_dhcp x)))
+      ; set_enable    = (fun x  -> send (Ip (Set_enable x)))
+      ; set_fec       = (fun x  -> send (Ip (Set_fec_enable x)))
+      ; set_port      = (fun x  -> send (Ip (Set_udp_port x)))
+      ; set_meth      = (fun x  -> send (Ip (Set_method x)))
+      ; set_multicast = (fun x  -> send (Ip (Set_mcast_addr x)))
+      ; set_delay     = (fun x  -> send (Ip (Set_delay x)))
+      ; set_rate_mode = (fun x  -> send (Ip (Set_rate_est_mode x)))
+      ; reset         = (fun () -> send (Nw Reboot))
+      ; get_config    = (fun () -> storage#get)
+      ; get_devinfo   = (fun () -> React.S.value devinfo)
       }
     in
     events,

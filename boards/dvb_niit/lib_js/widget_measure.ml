@@ -54,12 +54,12 @@ end
 
 module type M = sig
   include Widget_module_measure.M
-  val get : int -> measure_response React.event -> t option React.event
+  val get : int -> (int * measures) React.event -> t option React.event
 end
 
 module Make(M:M) = struct
 
-  let make (event:measure_response React.event)
+  let make (event:(int * measures) React.event)
            (config:Board_types.config React.signal)
            (conf:config) =
     let (module R)   = (module struct include M let typ = conf.typ end : Row.M with type t = M.t) in
@@ -76,32 +76,32 @@ end
 module Float      = Widget_module_measure.Float
 module Scientific = Widget_module_measure.Scientific
 module Power      = Make(struct
-                          include Float
-                          let get x e = React.E.filter (fun (id,_) -> id = x) e
-                                        |> React.E.map (fun (_,m)  -> m.power)
-                        end)
+                        include Float
+                        let get x e = React.(E.filter (fun (id,_) -> id = x) e
+                                             |> E.map (fun (_,m)  -> m.power))
+                      end)
 module Mer        = Make(struct
-                          include Float
-                          let get x e = React.E.filter (fun (id,_) -> id = x) e
-                                        |> React.E.map (fun (_,m)  -> m.mer)
-                        end)
+                        include Float
+                        let get x e = React.(E.filter (fun (id,_) -> id = x) e
+                                             |> E.map (fun (_,m)  -> m.mer))
+                      end)
 module Ber        = Make(struct
-                          include Float
-                          let get x e = React.E.filter (fun (id,_) -> id = x) e
-                                        |> React.E.map (fun (_,m)  -> m.ber)
-                        end)
+                        include Float
+                        let get x e = React.(E.filter (fun (id,_) -> id = x) e
+                                             |> E.map (fun (_,m)  -> m.ber))
+                      end)
 module Freq       = Make(struct
-                          include Int32
-                          let get x e = React.E.filter (fun (id,_) -> id = x) e
-                                        |> React.E.map (fun (_,m)  -> m.freq)
-                        end)
+                        include Int
+                        let get x e = React.(E.filter (fun (id,_) -> id = x) e
+                                             |> E.map (fun (_,(m:measures))  -> m.freq))
+                      end)
 module Bitrate    = Make(struct
-                          include Float
-                          let get x (e:measure_response React.event) =
-                            React.E.filter (fun (id,_) -> id = x) e
-                            |> React.E.map (fun (_,m)  -> Option.map (fun x -> (Int32.to_float x) /. 1_000_000.)
-                                                                     m.bitrate)
-                        end)
+                        include Float
+                        let get x e =
+                          React.(E.filter (fun (id,_) -> id = x) e
+                                 |> E.map (fun (_,m)  -> Option.map (fun x -> float_of_int x /. 1_000_000.)
+                                                           m.bitrate))
+                      end)
 
 let default_config = { ids = None; typ = `Power }
 
@@ -109,7 +109,7 @@ let name conf = Printf.sprintf "Измерения. %s" @@ measure_type_to_strin
                 @@ (Option.get_or ~default:default_config conf).typ
 let settings  = None
 
-let make ~(measures:Board_types.measure_response React.event)
+let make ~(measures:(int * measures) React.event)
          ~(config:Board_types.config React.signal)
          (conf:config option) =
   let conf = Option.get_or ~default:default_config conf in (* FIXME *)

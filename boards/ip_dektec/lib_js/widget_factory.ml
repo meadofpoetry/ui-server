@@ -79,4 +79,5 @@ object(self)
                 _status.value <- Some e;
                 _status.fin <- (fun () -> sock##close; React.E.stop ~strong:true e);
                 e
+
 end

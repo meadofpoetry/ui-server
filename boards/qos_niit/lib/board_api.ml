@@ -1,13 +1,11 @@
-open Board_protocol
 open Boards.Board
 open Common
+open Types
 
-let handle api events =
-  [ (module struct
-       let domain = "device"
-       let handle = Board_api_device.handler api events.device
-     end : Api_handler.HANDLER)
+let handle (api:api) (events:events) =
+  [ Board_api_device.handler api events.device
   ; Api_handler.add_layer "errors"  (Board_api_errors.handlers events.errors)
+  ; Api_handler.add_layer "stream"  (Board_api_stream.handlers api events.streams)
   ; Api_handler.add_layer "streams" (Board_api_streams.handlers api events.streams)
   ; Api_handler.add_layer "jitter"  (Board_api_jitter.handlers events.jitter)
   ]

@@ -3,14 +3,8 @@ open Boards.Board
 open Common
 
 let handle api events =
-  [ (module struct
-       let domain = "device"
-       let handle = Board_api_device.handler api events
-     end : Api_handler.HANDLER)
-  ; (module struct
-       let domain = "receiver"
-       let handle = Board_api_receiver.handler api events
-     end : Api_handler.HANDLER)
+  [ Board_api_device.handler api events
+  ; Board_api_receiver.handler api events
   ]
 
 let handlers id api events =

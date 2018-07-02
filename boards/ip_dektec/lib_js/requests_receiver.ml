@@ -3,123 +3,196 @@ open Board_types
 open Api_js.Requests.Json_request
 open Common
 
-let make_path control path = Boards_js.Requests.make_path control ("receiver"::path)
+let get_base_path () = Uri.Path.Format.(Boards_js.Requests.get_board_path () / ("receiver" @/ empty))
 
 module WS = struct
 
-  let get_enable control =
-    let path = make_path control ["enable"] in
-    WS.get ~path flag_of_yojson ()
+  open Common.Uri
+
+  let get_enabled control =
+    WS.get ~from:Json.Bool.of_yojson
+      ~path:Path.Format.(get_base_path () / ("enabled" @/ empty))
+      ~query:Query.empty
+      control
 
   let get_fec control =
-    let path = make_path control ["fec"] in
-    WS.get ~path flag_of_yojson ()
+    WS.get ~from:Json.Bool.of_yojson
+      ~path:Path.Format.(get_base_path () / ("fec" @/ empty))
+      ~query:Query.empty
+      control
 
   let get_port control =
-    let path = make_path control ["port"] in
-    WS.get ~path port_of_yojson ()
+    WS.get ~from:Json.Int.of_yojson
+      ~path:Path.Format.(get_base_path () / ("port" @/ empty))
+      ~query:Query.empty
+      control
 
   let get_meth control =
-    let path = make_path control ["method"] in
-    WS.get ~path meth_of_yojson ()
+    WS.get ~from:meth_of_yojson
+      ~path:Path.Format.(get_base_path () / ("method" @/ empty))
+      ~query:Query.empty
+      control
 
   let get_multicast control =
-    let path = make_path control ["multicast"] in
-    WS.get ~path ipv4_opt_of_yojson ()
+    WS.get ~from:Ipaddr.V4.of_yojson
+      ~path:Path.Format.(get_base_path () / ("multicast" @/ empty))
+      ~query:Query.empty
+      control
 
   let get_delay control =
-    let path = make_path control ["delay"] in
-    WS.get ~path delay_of_yojson ()
+    WS.get ~from:Json.Int.of_yojson
+      ~path:Path.Format.(get_base_path () / ("delay" @/ empty))
+      ~query:Query.empty
+      control
 
   let get_rate_mode control =
-    let path = make_path control ["rate-mode"] in
-    WS.get ~path rate_mode_of_yojson ()
+    WS.get ~from:rate_mode_of_yojson
+      ~path:Path.Format.(get_base_path () / ("rate-mode" @/ empty))
+      ~query:Query.empty
+      control
 
   let get_mode control =
-    let path = make_path control ["mode"] in
-    WS.get ~path ip_of_yojson ()
+    WS.get ~from:ip_of_yojson
+      ~path:Path.Format.(get_base_path () / ("mode" @/ empty))
+      ~query:Query.empty
+      control
 
   let get_status control =
-    let path = make_path control ["status"] in
-    WS.get ~path status_of_yojson ()
+    WS.get ~from:status_of_yojson
+      ~path:Path.Format.(get_base_path () / ("status" @/ empty))
+      ~query:Query.empty
+      control
 
 end
 
 module HTTP = struct
 
-  let post_enable control enable =
-    let path     = make_path control ["enable"] in
-    let contents = flag_to_yojson enable in
-    post_result ~path ~contents flag_of_yojson ()
+  open Common.Uri
 
-  let post_fec control fec =
-    let path     = make_path control ["fec"] in
-    let contents = flag_to_yojson fec in
-    post_result ~path ~contents flag_of_yojson ()
+  let set_enabled enable control =
+    post_result ~from:Json.Bool.of_yojson
+      ~contents:(Json.Bool.to_yojson enable)
+      ~path:Path.Format.(get_base_path () / ("enabled" @/ empty))
+      ~query:Query.empty
+      control
 
-  let post_port control port =
-    let path     = make_path control ["port"] in
-    let contents = port_to_yojson port in
-    post_result ~path ~contents port_of_yojson ()
+  let set_fec fec control =
+    post_result ~from:Json.Bool.of_yojson
+      ~contents:(Json.Bool.to_yojson fec)
+      ~path:Path.Format.(get_base_path () / ("fec" @/ empty))
+      ~query:Query.empty
+      control
 
-  let post_meth control meth =
-    let path     = make_path control ["method"] in
-    let contents = meth_to_yojson meth in
-    post_result ~path ~contents meth_of_yojson ()
+  let set_port port control =
+    post_result ~from:Json.Int.of_yojson
+      ~contents:(Json.Int.to_yojson port)
+      ~path:Path.Format.(get_base_path () / ("port" @/ empty))
+      ~query:Query.empty
+      control
 
-  let post_multicast control multicast =
-    let path     = make_path control ["multicast"] in
-    let contents = Ipaddr.V4.to_yojson multicast in
-    post_result ~path ~contents Ipaddr.V4.of_yojson ()
+  let set_meth meth control =
+    post_result ~from:meth_of_yojson
+      ~contents:(meth_to_yojson meth)
+      ~path:Path.Format.(get_base_path () / ("method" @/ empty))
+      ~query:Query.empty
+      control
 
-  let post_delay control delay =
-    let path     = make_path control ["delay"] in
-    let contents = delay_to_yojson delay in
-    post_result ~path ~contents delay_of_yojson ()
+  let set_multicast multicast control =
+    post_result ~from:Ipaddr.V4.of_yojson
+      ~contents:(Ipaddr.V4.to_yojson multicast)
+      ~path:Path.Format.(get_base_path () / ("multicast" @/ empty))
+      ~query:Query.empty
+      control
 
-  let post_rate_mode control rate_mode =
-    let path     = make_path control ["rate-mode"] in
-    let contents = rate_mode_to_yojson rate_mode in
-    post_result ~path ~contents rate_mode_of_yojson ()
+  let set_delay delay control =
+    post_result ~from:Json.Int.of_yojson
+      ~contents:(Json.Int.to_yojson delay)
+      ~path:Path.Format.(get_base_path () / ("delay" @/ empty))
+      ~query:Query.empty
+      control
 
-  let post_mode control mode =
-    let path     = make_path control ["mode"] in
-    let contents = ip_to_yojson mode in
-    post_result ~path ~contents ip_of_yojson ()
+  let set_rate_mode rate_mode control =
+    post_result ~from:rate_mode_of_yojson
+      ~contents:(rate_mode_to_yojson rate_mode)
+      ~path:Path.Format.(get_base_path () / ("rate-mode" @/ empty))
+      ~query:Query.empty
+      control
 
-  let get_enable control =
-    let path = make_path control ["enable"] in
-    get_result ~path flag_of_yojson ()
+  let set_mode mode control =
+    post_result ~from:ip_of_yojson
+      ~contents:(ip_to_yojson mode)
+      ~path:Path.Format.(get_base_path () / ("mode" @/ empty))
+      ~query:Query.empty
+      control
+
+  let get_enabled control =
+    get_result ~from:Json.Bool.of_yojson
+      ~path:Path.Format.(get_base_path () / ("enabled" @/ empty))
+      ~query:Query.empty
+      control
 
   let get_fec control =
-    let path = make_path control ["fec"] in
-    get_result ~path flag_of_yojson ()
+    get_result ~from:Json.Bool.of_yojson
+      ~path:Path.Format.(get_base_path () / ("fec" @/ empty))
+      ~query:Query.empty
+      control
 
   let get_port control =
-    let path = make_path control ["port"] in
-    get_result ~path port_of_yojson ()
+    get_result ~from:Json.Int.of_yojson
+      ~path:Path.Format.(get_base_path () / ("port" @/ empty))
+      ~query:Query.empty
+      control
 
   let get_meth control =
-    let path = make_path control ["method"] in
-    get_result ~path meth_of_yojson ()
+    get_result ~from:meth_of_yojson
+      ~path:Path.Format.(get_base_path () / ("method" @/ empty))
+      ~query:Query.empty
+      control
 
   let get_multicast control =
-    let path = make_path control ["multicast"] in
-    get_result ~path flag_of_yojson ()
+    get_result ~from:Ipaddr.V4.of_yojson
+      ~path:Path.Format.(get_base_path () / ("multicast" @/ empty))
+      ~query:Query.empty
+      control
 
-  let get_delay control =
-    let path = make_path control ["delay"] in
-    get_result ~path delay_of_yojson ()
+  let set_delay control =
+    get_result ~from:Json.Int.of_yojson
+      ~path:Path.Format.(get_base_path () / ("delay" @/ empty))
+      ~query:Query.empty
+      control
 
   let get_rate_mode control =
-    let path = make_path control ["rate-mode"] in
-    get_result ~path rate_mode_of_yojson ()
+    get_result ~from:rate_mode_of_yojson
+      ~path:Path.Format.(get_base_path () / ("rate-mode" @/ empty))
+      ~query:Query.empty
+      control
 
   let get_mode control =
-    let path = make_path control ["mode"] in
-    get_result ~path ip_of_yojson ()
+    get_result ~from:ip_of_yojson
+      ~path:Path.Format.(get_base_path () / ("mode" @/ empty))
+      ~query:Query.empty
+      control
 
   module Archive = struct
+
+    let get_status ?limit ?compress ?from ?till ?duration control =
+      get_result ~from:(fun _ -> Error "not implemented")
+        ~path:Path.Format.(get_base_path () / ("status/archive" @/ empty))
+        ~query:Query.[ "limit",    (module Option(Int))
+                     ; "compress", (module Option(Bool))
+                     ; "from",     (module Option(Time.Show))
+                     ; "to",       (module Option(Time.Show))
+                     ; "duration", (module Option(Time.Relative)) ]
+        control limit compress from till duration
+
+    let get_mode ?limit ?from ?till ?duration control =
+      get_result ~from:(fun _ -> Error "not implemented")
+        ~path:Path.Format.(get_base_path () / ("mode/archive" @/ empty))
+        ~query:Query.[ "limit",    (module Option(Int))
+                     ; "from",     (module Option(Time.Show))
+                     ; "to",       (module Option(Time.Show))
+                     ; "duration", (module Option(Time.Relative)) ]
+        control limit from till duration
 
   end
 

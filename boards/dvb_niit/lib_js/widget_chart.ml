@@ -102,18 +102,19 @@ let make_chart_base ~(config: config)
               }
     chart#widget
 
-type event = measure_response React.event
-let to_event (get: Board_types.measure -> 'a option)
-             (event: event) : 'a data React.event =
-  React.E.map (fun (id,meas) -> [id, List.return ({ x = meas.timestamp; y = Option.get_exn (get meas) }:'a point)])
-  @@ React.E.filter (fun (_,m) -> Option.is_some @@ get m) event
+type event = (int * measures) React.event
+let to_event (get: Board_types.measures -> float option)
+             (event: event) : float data React.event =
+  React.E.map (fun (id,m) ->
+      let y = Option.get_or ~default:nan (get m) in
+      [ id, List.return ({ x = m.timestamp; y }:'a point) ]) event
 
 let to_power_event   (event:event) = to_event (fun m -> m.power)   event
 let to_mer_event     (event:event) = to_event (fun m -> m.mer)     event
 let to_ber_event     (event:event) = to_event (fun m -> m.ber)     event
-let to_freq_event    (event:event) = to_event (fun m -> Option.map Int32.to_float m.freq)    event
+let to_freq_event    (event:event) = to_event (fun m -> Option.map float_of_int m.freq)    event
 let to_bitrate_event (event:event) = to_event (fun m -> Option.map (fun b ->
-                                                            Int32.to_float b /. 1_000_000.) m.bitrate) event
+                                                            float_of_int b /. 1_000_000.) m.bitrate) event
 
 module type M = sig
   type t
@@ -140,18 +141,18 @@ module Float = struct
   type t         = float
   let to_float t = t
 end
-module Int32 = struct
-  type t       = int32
-  let to_float = Int32.to_float
+module Int = struct
+  type t = int
+  let to_float = float_of_int
 end
 
 module Power   = Make(Float)
 module Mer     = Make(Float)
 module Ber     = Make(Float)
-module Freq    = Make(Int32)
+module Freq    = Make(Int)
 module Bitrate = Make(Float)
 
-let make ~(measures:Board_types.measure_response React.event) (config:config option) =
+let make ~(measures:(int * measures) React.event) (config:config option) =
   let config = Option.get_exn config in (* FIXME *)
   let event = measures in
   (match config.typ with

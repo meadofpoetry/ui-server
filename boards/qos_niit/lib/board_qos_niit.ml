@@ -1,6 +1,7 @@
 open Common.Topology
 open Boards.Board
 open Board_types
+open Containers
 
 module Api_handler = Api.Handler.Make (Common.User)
 
@@ -17,12 +18,17 @@ module Config_storage = Storage.Options.Make (Data)
 
 let log_fmt control = Printf.sprintf "(Board QoS: %d) %s" control
 
-let create (b:topo_board) _ convert_streams send db base step =
+let create (b:topo_board) _ convert_streams send db_conf base step =
   let conv            = fun x -> convert_streams x b in
   let storage         = Config_storage.create base ["board"; (string_of_int b.control)] in
   let events,api,step = Board_protocol.SM.create (log_fmt b.control) send storage step conv in
   let handlers        = Board_api.handlers b.control api events in
-  let state           = (object method finalize () = () end) in
+  let db              = Result.get_exn @@ Db.Conn.create db_conf in
+  Lwt_react.E.keep @@
+    Lwt_react.E.map_p (fun e -> Db.Errors.TS.insert_errors db e) events.errors.ts_errors;
+  Lwt_react.E.keep @@
+    Lwt_react.E.map_p (fun e -> Db.Errors.T2MI.insert_errors db e) events.errors.t2mi_errors;
+  let state = (object val db = db method finalize () = () end) in (* TODO fix finalize *)
   { handlers       = handlers
   ; control        = b.control
   ; streams_signal = events.streams.streams

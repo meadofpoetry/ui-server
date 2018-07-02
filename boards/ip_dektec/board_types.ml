@@ -47,14 +47,6 @@ type devinfo =
   ; mac      : Macaddr.t
   } [@@deriving yojson]
 
-type devinfo_opt = devinfo option [@@deriving yojson]
-
-type port = int [@@deriving yojson,eq]
-
-type delay = int [@@deriving yojson,eq]
-
-type flag = bool [@@deriving yojson,eq]
-
 type status =
   { fec_delay       : int
   ; fec_cols        : int
@@ -83,19 +75,17 @@ let packet_sz_to_string = function
   | Ts188 -> "188"
   | Ts204 -> "204"
 
-type ipv4_opt = Ipaddr.V4.t option [@@deriving yojson]
-
 type nw = { ip      : Ipaddr.V4.t
           ; mask    : Ipaddr.V4.t
           ; gateway : Ipaddr.V4.t
-          ; dhcp    : flag
+          ; dhcp    : bool
           } [@@deriving yojson,eq]
 
-type ip = { enable    : flag
-          ; fec       : flag
-          ; port      : port
+type ip = { enable    : bool
+          ; fec       : bool
+          ; port      : int
           ; multicast : Ipaddr.V4.t option
-          ; delay     : delay
+          ; delay     : int
           ; rate_mode : rate_mode
           } [@@deriving yojson,eq]
 

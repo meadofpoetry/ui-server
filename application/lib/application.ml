@@ -42,7 +42,7 @@ end
 module Conf_topology = Storage.Config.Make(Settings_topology)
 
 let proc_table = Proc.create_dispatcher [ (module Pipeline) ]
-          
+               
 let create config db =
   let topology   = match Conf_topology.get_opt config with
     | None   -> failwith "bad topology config"

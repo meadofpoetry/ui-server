@@ -79,7 +79,7 @@ let make ~(state: Topology.state React.signal)
   let _ = React.S.map (fun (ip:ip) ->
               List.iter (fun f -> f ip) [set_en;set_fec;set_meth;set_port;set_mcast]) mode
   in
-  let submit = Requests.Receiver.HTTP.post_mode control in
+  let submit = fun x -> Requests.Receiver.HTTP.set_mode x control in
   let apply  = Ui_templates.Buttons.create_apply s submit in
   let box    = new Box.t ~vertical:true ~widgets:[en;fec;meth;mcast;port;apply#widget] () in
   let ()     = box#add_class "mdc-settings-widget" in
