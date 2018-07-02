@@ -10,15 +10,6 @@ type _ instant_request =
   | Set_board_mode   : nw_settings * packer_settings list -> unit instant_request
   | Set_factory_mode : factory_settings                   -> unit instant_request
 
-type set_streams_error =
-  [ `Limit_exceeded of (int * int)
-  | `Undefined_limit
-  ]
-
-let set_streams_error_to_string = function
-  | `Undefined_limit          -> "Undefined limit of streams. Probably the board is not responding"
-  | `Limit_exceeded (exp,got) -> Printf.sprintf "Limit exceeded. Got %d, but only %d is available" got exp
-
 let prefix = 0x55AA
 
 (* Message constructors *)
@@ -190,80 +181,88 @@ end
 
 (* Message deserialization *)
 
-type err = Bad_prefix           of int
-         | Bad_length           of int
-         | Bad_msg_code         of int
-         | No_prefix_after_msg  of int
-         | Insufficient_payload of Cstruct.t
-         | Unknown_err          of string
+module Make(M : sig val log_prefix : string end) = struct
 
-let string_of_err = function
-  | Bad_prefix x            -> "incorrect prefix: " ^ (string_of_int x)
-  | Bad_length x            -> "incorrect length: " ^ (string_of_int x)
-  | Bad_msg_code x          -> "incorrect code: "   ^ (string_of_int x)
-  | No_prefix_after_msg x   -> Printf.sprintf "no prefix found after message with code = %d" x
-  | Insufficient_payload _  -> "insufficient payload"
-  | Unknown_err s           -> s
+  let fmt fmt = let fmt = "%s" ^^ fmt in Printf.sprintf fmt M.log_prefix
 
-let check_prefix buf =
-  let prefix' = get_header_prefix buf in
-  if prefix <> prefix then Error (Bad_prefix prefix') else Ok buf
+  type err = Bad_prefix           of int
+           | Bad_length           of int
+           | Bad_msg_code         of int
+           | No_prefix_after_msg  of int
+           | Insufficient_payload of Cstruct.t
+           | Unknown_err          of string
 
-let check_msg_code buf =
-  let hdr,rest = Cstruct.split buf sizeof_header in
-  let code     = get_header_msg_code hdr in
-  let length   = (match code with
-                  | x when x = Get_board_info.rsp_code -> Some sizeof_board_info
-                  | x when x = Status.msg_code         -> Some sizeof_status
-                  | _      -> None) in
-  match length with
-  | Some x -> Ok (x,code,rest)
-  | None   -> Error (Bad_msg_code code)
+  let string_of_err = function
+    | Bad_prefix x            -> "incorrect prefix: " ^ (string_of_int x)
+    | Bad_length x            -> "incorrect length: " ^ (string_of_int x)
+    | Bad_msg_code x          -> "incorrect code: "   ^ (string_of_int x)
+    | No_prefix_after_msg x   -> Printf.sprintf "no prefix found after message with code = %d" x
+    | Insufficient_payload _  -> "insufficient payload"
+    | Unknown_err s           -> s
 
-let check_length (len,code,rest') =
-  if len > 512 - sizeof_header
-  then Error (Bad_length len)
-  else let body,rest = Cstruct.split rest' len in
-       Ok (code,body,rest)
+  let check_prefix buf =
+    let prefix' = get_header_prefix buf in
+    if prefix <> prefix then Error (Bad_prefix prefix') else Ok buf
 
-let check_next_prefix ((code,_,rest) as x) =
-  if Cstruct.len rest < sizeof_header
-  then Ok x
-  else (match check_prefix rest with
-        | Ok _    -> Ok x
-        | Error _ -> Error (No_prefix_after_msg code))
+  let check_msg_code buf =
+    let hdr,rest = Cstruct.split buf sizeof_header in
+    let code     = get_header_msg_code hdr in
+    let length   = (match code with
+                    | x when x = Get_board_info.rsp_code -> Some sizeof_board_info
+                    | x when x = Status.msg_code         -> Some sizeof_status
+                    | _      -> None) in
+    match length with
+    | Some x -> Ok (x,code,rest)
+    | None   -> Error (Bad_msg_code code)
 
-let get_msg buf =
-  try
-    Result.(check_prefix buf
-            >>= check_msg_code
-            >>= check_length
-            >>= check_next_prefix)
-  with
-  | Invalid_argument _ -> Error (Insufficient_payload buf)
-  | e -> Error (Unknown_err (Printexc.to_string e))
+  let check_length (len,code,rest') =
+    if len > 512 - sizeof_header
+    then Error (Bad_length len)
+    else let body,rest = Cstruct.split rest' len in
+         Ok (code,body,rest)
 
-let deserialize buf =
-  let parse_msg = fun (code,body) ->
+  let check_next_prefix ((code,_,rest) as x) =
+    if Cstruct.len rest < sizeof_header
+    then Ok x
+    else (match check_prefix rest with
+          | Ok _    -> Ok x
+          | Error _ -> Error (No_prefix_after_msg code))
+
+  let get_msg buf =
     try
-      (match code with
-       | x when x = Get_board_info.rsp_code -> `R (`Board_info body)
-       | x when x = Status.msg_code         -> `E (`Status (Status.parse body))
-       | _ -> `N)
-    with _ -> `N in
-  let rec f events responses b =
-    if Cstruct.len b >= sizeof_header
-    then (match get_msg b with
-          | Ok (code,body,rest) -> (match parse_msg (code,body) with
-                                    | `E x -> f (x::events) responses rest
-                                    | `R x -> f events (x::responses) rest
-                                    | `N   -> f events responses rest)
-          | Error e -> (match e with
-                        | Insufficient_payload x -> List.rev events, List.rev responses, x
-                        | _                      -> Cstruct.split b 1 |> fun (_,x) -> f events responses x))
-    else (List.rev events, List.rev responses, b) in
-  let events,responses,res = f [] [] buf in
-  events,responses, if Cstruct.len res > 0 then Some res else None
+      Result.(check_prefix buf
+              >>= check_msg_code
+              >>= check_length
+              >>= check_next_prefix)
+    with
+    | Invalid_argument _ -> Error (Insufficient_payload buf)
+    | e -> Error (Unknown_err (Printexc.to_string e))
+
+  let deserialize buf =
+    let parse_msg = fun (code,body) ->
+      try
+        (match code with
+         | x when x = Get_board_info.rsp_code -> `R (`Board_info body)
+         | x when x = Status.msg_code         -> `E (`Status (Status.parse body))
+         | x -> Logs.debug (fun m -> m "%s" @@ fmt "parser error: unknown message code (0x%x)" x); `N)
+      with _ -> `N in
+    let rec f events responses b =
+      if Cstruct.len b >= sizeof_header
+      then match get_msg b with
+           | Ok (code,body,rest) -> (match parse_msg (code,body) with
+                                     | `E x -> f (x::events) responses rest
+                                     | `R x -> f events (x::responses) rest
+                                     | `N   -> f events responses rest)
+           | Error e ->
+              Logs.warn (fun m -> let s = fmt "parser error: %s" @@ string_of_err e in m "%s" s);
+              (match e with
+               | Insufficient_payload x -> List.rev events, List.rev responses, x
+               | _                      -> Cstruct.split b 1 |> fun (_,x) -> f events responses x)
+      else (List.rev events, List.rev responses, b)
+    in let events,responses,res = f [] [] buf in
+       events,responses, if Cstruct.len res > 0 then Some res else None
+
+end
 
 let try_parse f x = try Some (f x) with _ -> None
 

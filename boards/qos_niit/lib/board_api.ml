@@ -11,5 +11,5 @@ let handle (api:api) (events:events) =
   ]
 
 let handlers id api events =
-  [ Api_handler.add_layer (Common.Topology.get_api_path id) (handle api events)
+  [ Api_handler.add_layer (Topology.get_api_path id) (handle api events)
   ]

@@ -6,16 +6,17 @@ open Api.Handler
 open Boards.Board
 open Boards.Pools
 open Common
-
-include Board_parser
+open Board_parser
 
 type api =
-  { set_mode           : nw_settings          -> unit Lwt.t
-  ; set_factory_mode   : factory_settings     -> unit Lwt.t
-  ; set_streams_simple : Stream.t list        -> (unit,set_streams_error) Lwt_result.t
-  ; set_streams_full   : stream_settings list -> (unit,set_streams_error) Lwt_result.t
-  ; config             : unit                 -> config
-  ; devinfo            : unit                 -> devinfo option
+  { set_nw_mode : nw_settings          -> unit Lwt.t
+  ; set_streams : Stream.t list        -> (unit,packers_error) Lwt_result.t
+  ; set_packers : stream_settings list -> (unit,packers_error) Lwt_result.t
+  ; config      : unit -> config
+  ; devinfo     : unit -> devinfo option
+  ; in_streams  : unit -> Stream.t list
+  ; out_streams : unit -> Stream.t list
+  ; status      : unit -> status option
   }
 
 type events =
@@ -62,7 +63,7 @@ module SM = struct
     let pred = fun _  -> None in
     let conf = storage#get in
     let _    = match msg with
-      | Set_board_mode (nw,streams) -> storage#store ({ conf with nw_mode = nw; streams }:config)
+      | Set_board_mode (nw,packers) -> storage#store ({ conf with nw_mode = nw; packers }:config)
       | _                           -> ()
     in
     msgs := Queue.append !msgs { send; pred; timeout = 0; exn = None };
@@ -75,12 +76,14 @@ module SM = struct
                                (Timer.period t) in
     let log_prefix = Printf.sprintf "(Board TS2IP: %d) " control in
 
+    let module Parser = Board_parser.Make(struct let log_prefix = log_prefix end) in
+
     let fmt fmt = let fmt = "%s" ^^ fmt in Printf.sprintf fmt log_prefix in
 
     let wakeup_timeout (_,t) = t.pred `Timeout |> ignore in
     let events_push _ = function
       | `Status (brd,General x) ->
-         let sms    = storage#get.streams in
+         let sms    = storage#get.packers in
          let pkrs   = List.take (List.length sms) x in
          let status = { board_status   = brd
                       ; packers_status = List.map2 Pair.make sms pkrs
@@ -101,14 +104,14 @@ module SM = struct
 
     and step_detect (timer:Timer.t) acc recvd =
       try
-        let _,rsps,acc = deserialize (concat_acc acc recvd) in
+        let _,rsps,acc = Parser.deserialize (concat_acc acc recvd) in
         match List.find_map (is_response Get_board_info) rsps with
         | Some r ->
            pe.state `Init;
            pe.devinfo (Some r);
            let config = storage#get in
            send_instant sender (Set_factory_mode config.factory_mode) |> Lwt.ignore_result;
-           send_instant sender (Set_board_mode (config.nw_mode,config.streams)) |> Lwt.ignore_result;
+           send_instant sender (Set_board_mode (config.nw_mode,config.packers)) |> Lwt.ignore_result;
            Logs.info (fun m -> m "%s" @@ fmt "connection established, waiting for 'status' message");
            `Continue (step_ok_idle true r (Timer.reset timer) None)
         | None -> `Continue (step_detect (Timer.step timer) acc)
@@ -120,7 +123,7 @@ module SM = struct
 
     and step_ok_idle is_init info (timer:Timer.t) acc recvd =
       try
-        let events,rsps,acc = deserialize (concat_acc acc recvd) in
+        let events,rsps,acc = Parser.deserialize (concat_acc acc recvd) in
         if has_board_info rsps then raise_notrace Unexpected_init;
         Queue.send !imsgs () |> Lwt.ignore_result;
         imsgs := Queue.next !imsgs;
@@ -139,10 +142,10 @@ module SM = struct
   module Streams_setup : sig
     val full   : Topology.topo_board ->
                  devinfo option ->
-                 stream_settings list -> (packer_settings list,set_streams_error) result
+                 stream_settings list -> (packer_settings list,packers_error) result
     val simple : Topology.topo_board ->
                  devinfo option ->
-                 Stream.t list -> (packer_settings list,set_streams_error) result
+                 Stream.t list -> (packer_settings list,packers_error) result
   end = struct
 
     let to_packer_settings (b:Topology.topo_board) (s:stream_settings) : packer_settings option =
@@ -217,11 +220,15 @@ module SM = struct
     let devinfo,devinfo_push = React.S.create None in
     let config,config_push   = React.S.create storage#get in
     let status,status_push   = React.E.create () in
+
+    let s_status    = React.S.hold None @@ React.E.map Option.return status in
+    let in_streams  = streams in (* FIXME add ASI streams? *)
+    let out_streams = to_out_streams_s board status streams in
     let (events:events) =
       { state
       ; devinfo
-      ; in_streams  = streams
-      ; out_streams = to_out_streams_s board status streams
+      ; in_streams
+      ; out_streams
       ; status      = React.E.changes status
       ; config      = React.S.changes config
       }
@@ -235,30 +242,30 @@ module SM = struct
     let msgs  = ref (Await_queue.create []) in
     let imsgs = ref (Queue.create []) in
     let api =
-      { set_factory_mode = (fun (x:factory_settings) ->
-          enqueue_instant imsgs sender storage (Set_factory_mode x))
-
-      ; set_mode = (fun (x:nw_settings) ->
-        let ss = storage#get.streams in
+      { set_nw_mode = (fun (x:nw_settings) ->
+        let ss = storage#get.packers in
         enqueue_instant imsgs sender storage (Set_board_mode (x,ss))
         >>= (fun _ -> config_push storage#get; Lwt.return_unit))
 
-      ; set_streams_simple = (fun (x:Stream.t list) ->
+      ; set_streams = (fun (x:Stream.t list) ->
         match Streams_setup.simple board (React.S.value devinfo) x with
         | Ok x    -> let nw = storage#get.nw_mode in
                      enqueue_instant imsgs sender storage (Set_board_mode (nw,x))
                      >>= (fun _ -> config_push storage#get; Lwt.return_ok ())
         | Error e -> Lwt.return_error e)
 
-      ; set_streams_full = (fun (x:stream_settings list) ->
+      ; set_packers = (fun (x:stream_settings list) ->
         match Streams_setup.full board (React.S.value devinfo) x with
         | Ok x    -> let nw = storage#get.nw_mode in
                      enqueue_instant imsgs sender storage (Set_board_mode (nw,x))
                      >>= (fun _ -> config_push storage#get; Lwt.return_ok ())
         | Error e -> Lwt.return_error e)
 
-      ; devinfo = (fun () -> React.S.value devinfo)
-      ; config  = (fun () -> storage#get)
+      ; devinfo     = (fun () -> React.S.value devinfo)
+      ; config      = (fun () -> storage#get)
+      ; in_streams  = (fun () -> React.S.value in_streams)
+      ; out_streams = (fun () -> React.S.value out_streams)
+      ; status      = (fun () -> React.S.value s_status)
       }
     in
     events,api,(step msgs imsgs sender storage step_duration push_events board.control)

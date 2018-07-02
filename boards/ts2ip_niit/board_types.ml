@@ -33,6 +33,17 @@ type packer_settings =
   ; socket    : int       (* physical port on a board where this stream should be found *)
   } [@@deriving yojson]
 
+type packers_error =
+  [ `Limit_exceeded of (int * int)
+  | `Undefined_limit
+  ] [@@deriving yojson]
+
+let packers_error_to_string = function
+  | `Undefined_limit ->
+     "Undefined limit of streams. Probably the board is not responding"
+  | `Limit_exceeded (exp,got) ->
+     Printf.sprintf "Limit exceeded. Got %d, but only %d is available" got exp
+
 type speed = Speed_10
            | Speed_100
            | Speed_1000
@@ -55,10 +66,15 @@ type status_data =
   | General of packer_status list
   | Unknown of string
 
+type status  =
+  { board_status   : board_status
+  ; packers_status : (packer_settings * packer_status) list
+  } [@@deriving yojson]
+
 type config =
   { nw_mode      : nw_settings
   ; factory_mode : factory_settings
-  ; streams      : packer_settings list
+  ; packers      : packer_settings list
   } [@@deriving yojson]
 
 let config_to_string c = Yojson.Safe.to_string @@ config_to_yojson c
@@ -70,10 +86,5 @@ let config_default =
                    ; gateway = Ipaddr.V4.make 192 168 111 1
                    }
   ; factory_mode = { mac = Macaddr.of_string_exn "00:50:c2:88:50:ab" }
-  ; streams      = []
+  ; packers      = []
   }
-
-type status  =
-  { board_status   : board_status
-  ; packers_status : (packer_settings * packer_status) list
-  } [@@deriving yojson]
