@@ -5,8 +5,7 @@ open Lwt.Infix
 open Storage.Options
 open Boards.Board
 open Boards.Pools
-
-include Board_parser
+open Board_parser
 
 type events =
   { streams : Stream.stream list React.signal
@@ -121,23 +120,23 @@ module Make_probes(M:M) : Probes = struct
         ; pred    = (is_response x)
         ; timeout = M.timeout
         ; exn     = None })
-             [ Ip Get_fec_delay
-             ; Ip Get_fec_cols
-             ; Ip Get_fec_rows
-             ; Ip Get_jitter_tol
-             ; Ip Get_bitrate
-             ; Ip Get_lost_after_fec
-             ; Ip Get_lost_before_fec
-             ; Ip Get_tp_per_ip
-             ; Ip Get_status
-             ; Ip Get_protocol
-             ; Ip Get_packet_size
-             ; Ip Get_pcr_present
-             ; Ip Get_rate_change_cnt
-             ; Ip Get_jitter_err_cnt
-             ; Ip Get_lock_err_cnt
-             ; Ip Get_delay_factor
-             ; Asi Get_bitrate ]
+      [ Ip Get_fec_delay
+      ; Ip Get_fec_cols
+      ; Ip Get_fec_rows
+      ; Ip Get_jitter_tol
+      ; Ip Get_bitrate
+      ; Ip Get_lost_after_fec
+      ; Ip Get_lost_before_fec
+      ; Ip Get_tp_per_ip
+      ; Ip Get_status
+      ; Ip Get_protocol
+      ; Ip Get_packet_size
+      ; Ip Get_pcr_present
+      ; Ip Get_rate_change_cnt
+      ; Ip Get_jitter_err_cnt
+      ; Ip Get_lock_err_cnt
+      ; Ip Get_delay_factor
+      ; Asi Get_bitrate ]
     |> Pool.create
 
   let responsed (t:t) rsp  = Pool.responsed t.pool rsp
@@ -172,71 +171,72 @@ module SM = struct
   let wakeup_timeout t = t.pred `Timeout |> ignore
 
   let send_msg (type a) sender (msg : a request) : unit Lwt.t =
-    (match msg with
-     | Devinfo _ -> to_req_get msg
-     | Overall x ->
-        begin match x with
-        | Get_mode          -> to_req_get msg
-        | Get_application   -> to_req_get msg
-        | Get_storage       -> to_req_get msg
-        | Set_mode x        -> to_req_set_int8 msg (mode_to_int x)
-        | Set_application x -> to_req_set_int8 msg (application_to_int x)
-        | Set_storage x     -> to_req_set_int8 msg (storage_to_int x)
-        end
-     | Nw x      ->
-        begin match x with
-        | Get_ip        -> to_req_get msg
-        | Get_mask      -> to_req_get msg
-        | Get_gateway   -> to_req_get msg
-        | Get_dhcp      -> to_req_get msg
-        | Get_mac       -> to_req_get msg
-        | Set_ip x      -> to_req_set_ipaddr msg x
-        | Set_mask x    -> to_req_set_ipaddr msg x
-        | Set_gateway x -> to_req_set_ipaddr msg x
-        | Set_dhcp x    -> to_req_set_bool msg x
-        | Reboot        -> to_req_set_bool msg true
-        end
-     | Ip x      ->
-        begin match x with
-        | Get_method          -> to_req_get msg
-        | Get_enable          -> to_req_get msg
-        | Get_fec_delay       -> to_req_get msg
-        | Get_fec_enable      -> to_req_get msg
-        | Get_fec_cols        -> to_req_get msg
-        | Get_fec_rows        -> to_req_get msg
-        | Get_jitter_tol      -> to_req_get msg
-        | Get_lost_after_fec  -> to_req_get msg
-        | Get_lost_before_fec -> to_req_get msg
-        | Get_udp_port        -> to_req_get msg
-        | Get_delay           -> to_req_get msg
-        | Get_mcast_addr      -> to_req_get msg
-        | Get_tp_per_ip       -> to_req_get msg
-        | Get_status          -> to_req_get msg
-        | Get_protocol        -> to_req_get msg
-        | Get_output          -> to_req_get msg
-        | Get_packet_size     -> to_req_get msg
-        | Get_bitrate         -> to_req_get msg
-        | Get_pcr_present     -> to_req_get msg
-        | Get_rate_change_cnt -> to_req_get msg
-        | Get_rate_est_mode   -> to_req_get msg
-        | Get_jitter_err_cnt  -> to_req_get msg
-        | Get_lock_err_cnt    -> to_req_get msg
-        | Get_delay_factor    -> to_req_get msg
-        | Set_method x        -> to_req_set_int8 msg (meth_to_int x)
-        | Set_enable x        -> to_req_set_bool msg x
-        | Set_fec_enable x    -> to_req_set_bool msg x
-        | Set_udp_port x      -> to_req_set_int16 msg x
-        | Set_delay x         -> to_req_set_int16 msg x
-        | Set_mcast_addr x    -> to_req_set_ipaddr msg x
-        | Set_rate_est_mode x -> to_req_set_int8 msg (rate_mode_to_int x)
-        end
-     | Asi x     ->
-        begin match x with
-        | Get_packet_size   -> to_req_get msg
-        | Get_bitrate       -> to_req_get msg
-        | Set_packet_size x -> to_req_set_int8 msg (asi_packet_sz_to_int x)
-        end)
-    |> sender
+    let open Request in
+    let buf = match msg with
+      | Devinfo _ -> make_get msg
+      | Overall x ->
+         begin match x with
+         | Get_mode          -> make_get msg
+         | Get_application   -> make_get msg
+         | Get_storage       -> make_get msg
+         | Set_mode x        -> Set.int8 msg (mode_to_int x)
+         | Set_application x -> Set.int8 msg (application_to_int x)
+         | Set_storage x     -> Set.int8 msg (storage_to_int x)
+         end
+      | Nw x      ->
+         begin match x with
+         | Get_ip        -> make_get msg
+         | Get_mask      -> make_get msg
+         | Get_gateway   -> make_get msg
+         | Get_dhcp      -> make_get msg
+         | Get_mac       -> make_get msg
+         | Set_ip x      -> Set.ipaddr msg x
+         | Set_mask x    -> Set.ipaddr msg x
+         | Set_gateway x -> Set.ipaddr msg x
+         | Set_dhcp x    -> Set.bool msg x
+         | Reboot        -> Set.bool msg true
+         end
+      | Ip x      ->
+         begin match x with
+         | Get_method          -> make_get msg
+         | Get_enable          -> make_get msg
+         | Get_fec_delay       -> make_get msg
+         | Get_fec_enable      -> make_get msg
+         | Get_fec_cols        -> make_get msg
+         | Get_fec_rows        -> make_get msg
+         | Get_jitter_tol      -> make_get msg
+         | Get_lost_after_fec  -> make_get msg
+         | Get_lost_before_fec -> make_get msg
+         | Get_udp_port        -> make_get msg
+         | Get_delay           -> make_get msg
+         | Get_mcast_addr      -> make_get msg
+         | Get_tp_per_ip       -> make_get msg
+         | Get_status          -> make_get msg
+         | Get_protocol        -> make_get msg
+         | Get_output          -> make_get msg
+         | Get_packet_size     -> make_get msg
+         | Get_bitrate         -> make_get msg
+         | Get_pcr_present     -> make_get msg
+         | Get_rate_change_cnt -> make_get msg
+         | Get_rate_est_mode   -> make_get msg
+         | Get_jitter_err_cnt  -> make_get msg
+         | Get_lock_err_cnt    -> make_get msg
+         | Get_delay_factor    -> make_get msg
+         | Set_method x        -> Set.int8 msg (meth_to_int x)
+         | Set_enable x        -> Set.bool msg x
+         | Set_fec_enable x    -> Set.bool msg x
+         | Set_udp_port x      -> Set.int16 msg x
+         | Set_delay x         -> Set.int16 msg x
+         | Set_mcast_addr x    -> Set.ipaddr msg x
+         | Set_rate_est_mode x -> Set.int8 msg (rate_mode_to_int x)
+         end
+      | Asi x     ->
+         begin match x with
+         | Get_packet_size   -> make_get msg
+         | Get_bitrate       -> make_get msg
+         | Set_packet_size x -> Set.int8 msg (asi_packet_sz_to_int x)
+         end
+    in sender buf
 
   let send (type a) msgs sender (storage:config storage) (pe:push_events) timeout (msg:a request) : a Lwt.t =
     let t, w = Lwt.wait () in
@@ -268,13 +268,16 @@ module SM = struct
     msgs := Queue.append !msgs { send; pred; timeout; exn = None };
     t
 
-  let step msgs sender (storage : config storage) step_duration (pe:push_events) control =
-    let period_s = 2 in
+  let step msgs sender (storage:config storage) step_duration (pe:push_events) control =
+    let period_s     = 2 in
     let period       = to_period step_duration period_s in
     let reboot_steps = 20 / (int_of_float (step_duration *. (float_of_int period))) in
 
-    let fmt fmt = let fmt = "(Board IP2TS: %d) " ^^ fmt in Printf.sprintf fmt control in
+    let log_prefix = Printf.sprintf "(Board IP2TS: %d) " control in
 
+    let fmt fmt = let fmt = "%s" ^^ fmt in Printf.sprintf fmt log_prefix in
+
+    let module Parser = Make(struct let log_prefix = log_prefix end) in
     let module Probes = Make_probes(struct
                                      let duration = step_duration
                                      let send     = send_msg sender
@@ -282,10 +285,10 @@ module SM = struct
                                    end) in
 
     let find_resp req acc recvd ~success ~failure =
-      let responses,acc = deserialize (concat_acc acc recvd) in
-      (match List.find_map (is_response req) responses with
-       | Some x -> success x acc
-       | None   -> failure acc) in
+      let responses,acc = Parser.deserialize (concat_acc acc recvd) in
+      match List.find_map (is_response req) responses with
+      | Some x -> success x acc
+      | None   -> failure acc in
 
     let send x = send_msg sender x |> ignore in
 
@@ -607,7 +610,7 @@ module SM = struct
       else `Continue (step_ok_tee probes acc)
 
     and step_ok_probes_wait probes acc recvd =
-      let responses,acc = deserialize (concat_acc acc recvd) in
+      let responses,acc = Parser.deserialize (concat_acc acc recvd) in
       try
         (match Probes.responsed probes responses with
          | None   ->
@@ -633,7 +636,7 @@ module SM = struct
 
     and step_ok_requests_wait probes acc recvd =
       let probes = Probes.wait probes in
-      let responses, acc = deserialize (concat_acc acc recvd) in
+      let responses, acc = Parser.deserialize (concat_acc acc recvd) in
       try
         match Queue.responsed !msgs responses with
         | None    -> msgs := Queue.step !msgs;
@@ -696,8 +699,6 @@ module SM = struct
       ; get_devinfo   = (fun () -> React.S.value devinfo)
       }
     in
-    events,
-    api,
-    (step msgs sender storage step_duration pe control)
+    events,api,(step msgs sender storage step_duration pe control)
 
 end

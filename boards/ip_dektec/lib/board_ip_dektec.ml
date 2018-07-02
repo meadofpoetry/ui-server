@@ -20,8 +20,6 @@ module Config_storage = Storage.Options.Make (Data)
  * 
  * module Database = Storage.Database.Make(Board_model) *)
 
-type 'a request = 'a Board_protocol.request
-
 let get_active_ports (ports:topo_port list) =
   List.fold_left (fun acc (p : topo_port) ->
       (match p.port with
