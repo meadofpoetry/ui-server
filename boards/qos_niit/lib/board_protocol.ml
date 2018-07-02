@@ -13,24 +13,7 @@ let probes_timeout = 5 (* seconds *)
 
 let to_period x step_duration = x * int_of_float (1. /. step_duration)
 
-module Timer : sig
-  type t
-  exception Timeout of t
-  val create : step:float -> int -> t
-  val reset  : t -> t
-  val period : t -> int
-  val step   : t -> t
-end = struct
-  type t = { v : int; count : int; step : float }
-  exception Timeout of t
-  let create ~step s =
-    { v = s; count = to_period s step; step }
-  let period (t:t)   = t.v
-  let reset (t:t)    = { t with count = to_period t.v t.step }
-  let step (t:t)     = match pred t.count with
-    | x when x < 0 -> raise_notrace (Timeout t)
-    | count        -> { t with count }
-end
+module Timer = Boards.Timer
 
 module Acc = struct
   type t =
@@ -290,7 +273,7 @@ module SM = struct
     let rec first_step () =
       Logs.info (fun m -> m "%s" @@ fmt "start of connection establishment...");
       Await_queue.iter !msgs wakeup_timeout;
-      msgs := Await_queue.create [];
+      msgs  := Await_queue.create [];
       imsgs := Queue.create [];
       pe.state `No_response;
       send_msg sender Get_board_info |> Lwt.ignore_result;

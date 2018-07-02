@@ -9,12 +9,12 @@ type state =
 
 type init =
   { streams : Common.Stream.t list
-  ; config  : config_response
+  ; config  : config
   }
 
 type events =
   { streams : Common.Stream.t list React.event
-  ; config  : config_response React.event
+  ; config  : config React.event
   }
 
 let clean_state (state : state) =

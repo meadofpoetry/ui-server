@@ -115,7 +115,7 @@ end
 
 module Make_probes(M:M) : Probes = struct
 
-  let meas_period     = to_period 2 M.duration
+  let meas_period     = to_period 1 M.duration
   let plp_list_period = to_period 5 M.duration
   let params_period   = to_period 5 M.duration
 
