@@ -18,11 +18,11 @@ let storage_to_string = function
   | Ram   -> "RAM"
 
 (* Ip types *)
-type receiver_status = Enabled | Disabled | Failure [@@deriving yojson, show]
-type protocol        = Udp | Rtp [@@deriving yojson, show]
+type receiver_status = Enabled | Disabled | Failure [@@deriving yojson, eq, show]
+type protocol        = Udp | Rtp [@@deriving yojson, eq, show]
 type meth            = Unicast | Multicast [@@deriving yojson, eq, show]
 type output          = Asi | Spi
-type packet_sz       = Ts188 | Ts204 [@@deriving yojson, show]
+type packet_sz       = Ts188 | Ts204 [@@deriving yojson, eq, show]
 type rate_mode       = On | Fixed | Without_pcr | Off [@@deriving yojson,eq]
 
 let meth_to_string = function
@@ -65,7 +65,7 @@ type status =
   ; lock_err_cnt    : int32
   ; delay_factor    : int32
   ; asi_bitrate     : int
-  } [@@deriving yojson]
+  } [@@deriving yojson, eq]
 
 let protocol_to_string = function
   | Udp -> "UDP"

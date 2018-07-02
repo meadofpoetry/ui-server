@@ -35,6 +35,7 @@ type api =
   ; set_delay     : int  -> int Lwt.t
   ; set_rate_mode : rate_mode -> rate_mode Lwt.t
   ; reset         : unit -> unit Lwt.t
+  ; get_status    : unit -> status option
   ; get_config    : unit -> config
   ; get_devinfo   : unit -> devinfo option
   }
@@ -662,8 +663,12 @@ module SM = struct
     let status,status_push   = React.E.create () in
     let config,config_push   = React.E.create () in
     let devinfo,devinfo_push = React.S.create None in
-    let streams              = to_streams_s status in
-    let (events:events)      = { streams; state; status; config } in
+
+    let s_status = React.S.hold ~eq:(Equal.option equal_status) None
+                   @@ React.E.map (fun x -> Some x) status
+    in
+    let streams  = to_streams_s status in
+    let events   = { streams; state; status; config } in
     let (pe:push_events) =
       { state   = state_push
       ; status  = status_push
@@ -686,6 +691,7 @@ module SM = struct
       ; set_delay     = (fun x  -> send (Ip (Set_delay x)))
       ; set_rate_mode = (fun x  -> send (Ip (Set_rate_est_mode x)))
       ; reset         = (fun () -> send (Nw Reboot))
+      ; get_status    = (fun () -> React.S.value s_status)
       ; get_config    = (fun () -> storage#get)
       ; get_devinfo   = (fun () -> React.S.value devinfo)
       }
