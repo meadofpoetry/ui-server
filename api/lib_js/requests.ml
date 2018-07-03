@@ -16,8 +16,6 @@ let err_to_string : 'a. ?to_string:('a -> string) -> 'a err -> string = fun ?to_
                     | None   -> Printf.sprintf "Код %d" i)
   | `Code i     -> Printf.sprintf "Код %d" i
 
-let unwrap = Uri.pct_decode
-
 module type Req = sig
 
   type t
@@ -273,7 +271,9 @@ module Json_req : (Req with type t = json and type response = Js.js_string Js.t)
   let content_type    = "application/json; charset=UTF-8"
   let accept          = "application/json, text/javascript, */*; q=0.01"
   let response_type   = XmlHttpRequest.Text
-  let parse x         = Yojson.Safe.from_string @@ unwrap @@ Js.to_string x
+  let parse x         = match Uri.pct_decode @@ Js.to_string x with
+    | "" -> `String ""
+    | s  -> Yojson.Safe.from_string s
   let to_contents x   = (`String (Yojson.Safe.to_string x) : 'a contents)
   let of_socket_msg m = Js.to_string m##.data |> Yojson.Safe.from_string
 

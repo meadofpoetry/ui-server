@@ -28,7 +28,7 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
     Lwt_react.E.map_p (fun e -> Db.Errors.TS.insert_errors db e) events.errors.ts_errors;
   Lwt_react.E.keep @@
     Lwt_react.E.map_p (fun e -> Db.Errors.T2MI.insert_errors db e) events.errors.t2mi_errors;
-  let state           = (object val db = db method finalize () = () end) in (* TODO fix finalize *)
+  let state = (object val db = db method finalize () = () end) in (* TODO fix finalize *)
   { handlers       = handlers
   ; control        = b.control
   ; streams_signal = events.streams.streams

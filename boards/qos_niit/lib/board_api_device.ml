@@ -1,11 +1,10 @@
 open Containers
 open Board_types
-open Board_protocol
 open Board_api_common
 open Api.Interaction
 open Api.Interaction.Json
-open Api.Redirect
 open Common
+open Types
 
 type events = device_events
 
@@ -29,10 +28,10 @@ module WS = struct
   let mode mode (events:events) _ body sock_data () =
     let f = fun e conv -> Api.Socket.handler socket_table sock_data e conv body in
     (match mode with
-     | `T2MI   -> let e = React.E.map (fun x -> x.t2mi_mode) events.config
+     | `T2MI   -> let e = React.E.map (fun (x:config) -> x.t2mi_mode) events.config
                           |> React.E.changes ~eq:(Equal.option equal_t2mi_mode)
                   in f e (Json.Option.to_yojson t2mi_mode_to_yojson)
-     | `JITTER -> let e = React.E.map (fun x -> x.jitter_mode) events.config
+     | `JITTER -> let e = React.E.map (fun (x:config) -> x.jitter_mode) events.config
                           |> React.E.changes ~eq:(Equal.option equal_jitter_mode)
                   in f e (Json.Option.to_yojson jitter_mode_to_yojson))
 
@@ -48,21 +47,28 @@ module HTTP = struct
     of_body body >>= fun mode ->
     (match (Json.Option.of_yojson t2mi_mode_of_yojson) mode with
      | Error e -> Lwt_result.fail @@ of_error_string e
-     | Ok mode -> api.set_t2mi_mode mode >|= Result.return)
-    >>= respond_result_unit
+     | Ok mode -> api.set_t2mi_mode mode
+                  >|= Fun.(Result.return % Json.(Option.to_yojson t2mi_mode_to_yojson)))
+    >>= respond_result
 
   let post_jitter_mode (api:api) _ body () =
     of_body body >>= fun mode ->
     (match (Json.Option.of_yojson jitter_mode_of_yojson) mode with
      | Error e -> Lwt_result.fail @@ of_error_string e
-     | Ok mode -> api.set_jitter_mode mode >|= Result.return)
-    >>= respond_result_unit
+     | Ok mode -> api.set_jitter_mode mode
+                  >|= Fun.(Result.return % Json.(Option.to_yojson jitter_mode_to_yojson)))
+    >>= respond_result
 
-  let post_port (api:api) port en _ _ () = match Board_parser.input_of_int port, en with
-    | Some i,   true  -> api.set_input i   >|= Result.return >>= respond_result_unit
-    | Some ASI, false -> api.set_input SPI >|= Result.return >>= respond_result_unit
-    | Some SPI, false -> api.set_input ASI >|= Result.return >>= respond_result_unit
-    | _               -> not_found ()
+  let post_port (api:api) port en _ _ () =
+    let input = match Board_parser.input_of_int port, en with
+      | Some i,   true  -> Some i
+      | Some ASI, false -> Some SPI
+      | Some SPI, false -> Some ASI
+      | _               -> None
+    in
+    match input with
+    | Some i -> api.set_input i >|= (Result.return % input_to_yojson) >>= respond_result
+    | None   -> respond_error ~status:`Not_found (Printf.sprintf "port %d not found" port) ()
 
   let state (events:events) _ _ () =
     React.S.value events.state
@@ -71,15 +77,16 @@ module HTTP = struct
     |> respond_result
 
   let devinfo api _ _ () =
-    api.get_devinfo () >|= (Json.Option.to_yojson devinfo_to_yojson %> Result.return)
-    >>= respond_result
+    api.get_devinfo () |> (Json.Option.to_yojson devinfo_to_yojson)
+    |> Result.return |> respond_result
 
   let mode mode (api:api) _ _ () =
     let open Json.Option in
+    let c = api.config () in
     (match mode with
-     | `T2MI   -> api.config () >|= (fun x -> Ok ((to_yojson t2mi_mode_to_yojson) x.t2mi_mode))
-     | `JITTER -> api.config () >|= (fun x -> Ok ((to_yojson jitter_mode_to_yojson x.jitter_mode))))
-    >>= respond_result
+     | `T2MI   -> (to_yojson t2mi_mode_to_yojson) c.t2mi_mode
+     | `JITTER -> (to_yojson jitter_mode_to_yojson) c.jitter_mode)
+    |> Result.return |> respond_result
 
   (** Archive GET requests **)
   module Archive = struct

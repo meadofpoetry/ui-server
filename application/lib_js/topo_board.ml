@@ -94,6 +94,16 @@ let make_board_page ?error_prefix (board:Common.Topology.topo_board) =
      let s = Printf.sprintf "Неизвестная плата: %s\nМодель: %s\nПроизводитель: %s" typ model manuf in
      Lwt_result.fail s
 
+let port_setter (b:Common.Topology.topo_board) port state =
+  match b.typ,b.model,b.manufacturer,b.version with
+  | "TS","qos","niitv",1 -> Board_qos_niit_js.Requests.Device.HTTP.post_port ~port ~state b.control
+                            |> Lwt_result.map (fun _ -> ())
+                            |> Lwt_result.map_err (fun _ -> "failed switching port")
+  | "DVB","rf","niitv",1          -> Lwt_result.fail "ports not switchable"
+  | "TS2IP","ts2ip","niitv",1     -> Lwt_result.fail "ports not switchable"
+  | "IP2TS","dtm-3200","dektec",1 -> Lwt_result.fail "ports not switchable"
+  | _                             -> Lwt_result.fail "Unknown board"
+
 class t ~(connections:(#Topo_node.t * connection_point) list)
         (board:Common.Topology.topo_board)
         () =
@@ -104,7 +114,9 @@ class t ~(connections:(#Topo_node.t * connection_point) list)
   object(self)
     val mutable _board = board
 
-    inherit Topo_block.t ~node:(`Entry (Board board)) ~connections ~header ~body () as super
+    inherit Topo_block.t
+              ~port_setter:(port_setter board)
+              ~node:(`Entry (Board board)) ~connections ~header ~body () as super
 
     method layout ()    = super#layout (); header#layout ()
     method e_settings   = e_settings

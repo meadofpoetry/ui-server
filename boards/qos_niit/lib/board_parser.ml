@@ -15,34 +15,6 @@ type part =
   ; data  : Cbuffer.t
   }
 
-type jitter_req =
-  { request_id : int
-  ; pointer    : int32
-  }
-
-type t2mi_info_req =
-  { request_id : int
-  ; stream_id  : int
-  }
-
-type t2mi_frame_seq_req =
-  { request_id : int
-  ; seconds    : int
-  }
-
-type section_req =
-  { request_id : int
-  ; params     : section_params
-  }
-and section_params =
-  { stream_id      : Common.Stream.id
-  ; table_id       : int
-  ; section        : int option (* needed for tables containing multiple sections *)
-  ; table_id_ext   : int option (* needed for tables with extra parameter, like ts id for PAT *)
-  ; eit_ts_id      : int option (* ts id for EIT *)
-  ; eit_orig_nw_id : int option (* original network ID for EIT *)
-  } [@@deriving yojson]
-
 type _ instant_request =
   | Set_board_mode  : Types.mode         -> unit instant_request
   | Set_jitter_mode : jitter_mode option -> unit instant_request
@@ -105,16 +77,34 @@ let to_complex_req ?client_id ?request_id ~msg_code ~body () =
   let hdr = to_complex_req_header ?client_id ?request_id ~msg_code ~length () in
   Cbuffer.append hdr body
 
+let to_set_board_mode_req mode =
+  let t2mi = Option.get_or ~default:t2mi_mode_default mode.t2mi in
+  let body = Cbuffer.create sizeof_board_mode in
+  let () = input_to_int mode.input
+           |> (lor) (if t2mi.enabled then 4 else 0)
+           |> (lor) 8 (* disable board storage by default *)
+           |> set_board_mode_mode body in
+  let () = set_board_mode_t2mi_pid body t2mi.pid in
+  let () = set_board_mode_t2mi_stream_id body (Stream.id_to_int32 t2mi.stream) in
+  to_simple_req ~msg_code:0x0082 ~body ()
+
+let to_set_jitter_mode_req mode =
+  let req  = Option.get_or ~default:jitter_mode_default mode in
+  let body = Cbuffer.create sizeof_req_set_jitter_mode in
+  let () = set_req_set_jitter_mode_stream_id body (Stream.id_to_int32 req.stream) in
+  let () = set_req_set_jitter_mode_pid body req.pid in
+  to_complex_req ~msg_code:0x0112 ~body ()
+
+(* -------------------- Requests/responses/events ------------------*)
+
 let to_mode_exn mode t2mi_pid stream_id : Types.mode =
   { input = Option.get_exn @@ input_of_int (mode land 1)
   ; t2mi  = Some { enabled        = if (mode land 4) > 0 then true else false
                  ; pid            = t2mi_pid land 0x1fff
                  ; t2mi_stream_id = (t2mi_pid lsr 13) land 0x7
                  ; stream         = Common.Stream.id_of_int32 stream_id
-                 }
+              }
   }
-
-(* -------------------- Requests/responses/events ------------------*)
 
 module type Request = sig
 
@@ -622,8 +612,8 @@ module Status : (Event with type msg := status_raw) = struct
     let flags2    = get_status_flags_2 msg in
     let jpid      = get_status_jitter_pid msg in
     let mode      = to_mode_exn (get_status_mode msg)
-                                (get_status_t2mi_pid msg)
-                                (get_status_t2mi_stream_id msg)
+                      (get_status_t2mi_pid msg)
+                      (get_status_t2mi_stream_id msg)
     in
     { status    = { timestamp
                   ; load         = (float_of_int ((get_status_load msg) * 100)) /. 255.
@@ -834,171 +824,6 @@ end
 
 (* ----------------- Message deserialization ---------------- *)
 
-type err = Bad_prefix           of int
-         | Bad_length           of int
-         | Bad_msg_code         of int
-         | Bad_crc              of int * int * int
-         | No_prefix_after_msg  of int
-         | Insufficient_payload of Cbuffer.t
-         | Unknown_err          of string
-
-let string_of_err = function
-  | Bad_prefix x           -> "incorrect prefix: " ^ (string_of_int x)
-  | Bad_length x           -> "incorrect length: " ^ (string_of_int x)
-  | Bad_msg_code x         -> "incorrect code: "   ^ (string_of_int x)
-  | Bad_crc (code,x,y)     -> (Printf.sprintf "incorrect crc in msg with code = 0x%x, expected %d, got %d"
-                                 code x y)
-  | No_prefix_after_msg x  -> (Printf.sprintf "no prefix found after message payload, code = 0x%x" x)
-  | Insufficient_payload _ -> "insufficient payload"
-  | Unknown_err s          -> s
-
-let check_prefix buf =
-  let prefix' = get_common_header_prefix buf in
-  if prefix <> prefix' then Error (Bad_prefix prefix') else Ok buf
-
-let check_msg_code buf =
-  let hdr,rest = Cbuffer.split buf sizeof_common_header in
-  let code     = get_common_header_msg_code hdr in
-  let has_crc  = (code land 2) > 0 in
-  let length   = (match code lsr 8 with
-                  | x when x = Get_board_info.rsp_code -> Some sizeof_board_info
-                  | x when x = Get_board_mode.rsp_code -> Some sizeof_board_mode
-                  | x when x = Status.msg_code         -> Some sizeof_status
-                  | x when x = Ts_errors.msg_code      -> Some ((get_ts_errors_length rest * 2) + 2)
-                  | x when x = T2mi_errors.msg_code    -> Some ((get_t2mi_errors_length rest * 2) + 2)
-                  | x when x = TS_streams.msg_code     -> Some ((get_streams_list_event_length rest * 2) + 2)
-                  | 0x09 -> Some ((get_complex_rsp_header_length rest * 2) + 2)
-                  | 0xFD -> Some 4 (* end of errors *)
-                  | 0xFF -> Some 0 (* end of transmission *)
-                  | _    -> None) in
-  match length with
-  | Some x -> Ok (x + (if has_crc then 2 else 0), has_crc, code, rest)
-  | None   -> Error (Bad_msg_code code)
-
-let check_length (len,has_crc,code,rest') =
-  if len > 512 - sizeof_common_header then Error (Bad_length len)
-  else let body,rest = Cbuffer.split rest' len in
-       Ok (has_crc,code,body,rest)
-
-let check_next_prefix ((code,_,rest) as x) =
-  if Cbuffer.len rest < sizeof_common_header then Ok x
-  else (match check_prefix rest with
-        | Ok _    -> Ok x
-        | Error _ -> Error (No_prefix_after_msg code))
-
-let check_crc (code,body,rest) =
-  let b         = Cbuffer.create 2 |> (fun b -> Cbuffer.LE.set_uint16 b 0 code; b) in
-  let body,crc' = Cbuffer.split body ((Cbuffer.len body) - 2) in
-  let iter      = Cbuffer.iter (fun _ -> Some 2) (fun buf -> Cbuffer.LE.get_uint16 buf 0) (Cbuffer.append b body) in
-  let crc       = (Cbuffer.fold (fun acc el -> el + acc) iter 0) land 0xFFFF in
-  let crc'      = Cbuffer.LE.get_uint16 crc' 0 in
-  if crc <> crc' then Error (Bad_crc (code,crc,crc')) else Ok (code,body,rest)
-
-let get_msg buf =
-  try
-    Result.(check_prefix buf
-            >>= check_msg_code
-            >>= check_length
-            >>= (fun (has_crc,code,body,rest) -> if has_crc then check_crc (code,body,rest)
-                                                 else check_next_prefix (code,body,rest)))
-  with
-  | Invalid_argument _ -> Error (Insufficient_payload buf)
-  | e                  -> Error (Unknown_err (Printexc.to_string e))
-
-let parse_simple_msg = fun (code,body,parts) ->
-  try
-    (match code lsr 8 with
-     | x when x = Get_board_info.rsp_code -> `R (`Board_info body)
-     | x when x = Get_board_mode.rsp_code -> `R (`Board_mode body)
-     | x when x = Status.msg_code         -> `E (`Status        (Status.of_cbuffer body))
-     | x when x = Ts_errors.msg_code      -> `E (`Ts_errors     (Ts_errors.of_cbuffer body))
-     | x when x = T2mi_errors.msg_code    -> `E (`T2mi_errors   (T2mi_errors.of_cbuffer body))
-     | x when x = TS_streams.msg_code     -> `E (`Streams_event (TS_streams.of_cbuffer body))
-     | 0xFD -> `E `End_of_errors;
-     | 0x09 -> let code_ext = get_complex_rsp_header_code_ext body in
-               let long     = code_ext land 0x2000 <> 0 in
-               let parity   = if code_ext land 0x1000 <> 0 then 1 else 0 in
-               let data'    = if long then Cbuffer.shift body sizeof_complex_rsp_header_ext
-                              else Cbuffer.shift body sizeof_complex_rsp_header in
-               let data,_   = Cbuffer.split data' (Cbuffer.len data' - parity) in
-               let part     = { first = code_ext land 0x8000 <> 0
-                              ; param = Int32.mul 2l (if long then get_complex_rsp_header_ext_param body
-                                                      else Int32.of_int @@ get_complex_rsp_header_param body)
-                                        |> (fun x -> Int32.sub x (Int32.of_int parity))
-                              ; data
-                              } in
-               let code     = code_ext land 0x0FFF in
-               let req_id   = get_complex_rsp_header_request_id body in
-               `P (List.Assoc.update (code,req_id)
-                     ~eq:(Pair.equal (=) (=))
-                     ~f:(function
-                       | Some x -> Some (part :: x)
-                       | None   -> Some ([part]))
-                     parts)
-     | _ -> `N)
-  with _ -> `N
-
-let parse_complex_msg = fun ((code,r_id),msg) ->
-  try
-    let data = (r_id,msg) in
-    (match code with
-     | x when x = Get_board_errors.rsp_code   -> `ER (`Board_errors data)
-     | x when x = Get_section.rsp_code        -> Get_section.of_cbuffer msg |> ignore;
-                                                 `R  (`Section data)
-     | x when x = Get_t2mi_frame_seq.rsp_code -> `R  (`T2mi_frame_seq data)
-     | x when x = Get_jitter.rsp_code         -> `ER (`Jitter (r_id,(get_jitter_req_ptr msg),msg))
-     | x when x = Get_ts_structs.rsp_code     -> `ER (`Struct (r_id,(get_ts_structs_version msg),msg))
-     | x when x = Get_bitrates.rsp_code       -> `ER (`Bitrates (r_id,(get_bitrates_version msg),msg))
-     | x when x = Get_t2mi_info.rsp_code      -> `ER (`T2mi_info (r_id,
-                                                                  (get_t2mi_info_version msg),
-                                                                  (get_t2mi_info_stream_id msg),
-                                                                  msg))
-     | _ -> `N)
-  with _ -> `N
-
-let try_compose_parts ((id,gp) as x) =
-  let gp = List.sort (fun x y -> if x.first then (-1)
-                                 else if y.first then 1
-                                 else Int32.compare x.param y.param) gp in
-  let first,rest = List.hd_tl gp in
-  try (let acc = List.fold_left (fun acc x -> if Int32.equal x.param (Int32.of_int (Cbuffer.len acc))
-                                              then Cbuffer.append acc x.data
-                                              else failwith "Incorrect part offset")
-                   first.data rest in
-       if Int32.equal first.param (Int32.of_int (Cbuffer.len acc)) then `F (id,acc) else `P x)
-  with _ -> `N
-
-let deserialize parts buf =
-  let rec f events event_rsps rsps parts b =
-    if Cbuffer.len b >= sizeof_common_header
-    then (match get_msg b with
-          | Ok (code,bdy,rest) -> (match parse_simple_msg (code,bdy,parts) with
-                                   | `E x  -> f (x::events) event_rsps rsps parts rest
-                                   | `ER x -> f events (x::event_rsps) rsps parts rest
-                                   | `R x  -> f events event_rsps (x::rsps) parts rest
-                                   | `P x  -> f events event_rsps rsps x rest
-                                   | `N    -> f events event_rsps rsps parts rest)
-          | Error e ->
-             (match e with
-              | Insufficient_payload x -> (List.rev events, List.rev event_rsps, List.rev rsps, List.rev parts, x)
-              | _                      -> f events event_rsps rsps parts (Cbuffer.shift b 1)))
-    else (List.rev events, List.rev event_rsps, List.rev rsps, List.rev parts, b) in
-  let ev,ev_rsps,rsps,parts,res = f [] [] [] parts buf in
-  let parts = List.filter (fun (_,x) -> let first_msgs = List.find_all (fun x -> x.first) x in
-                                        match first_msgs with
-                                        | [_] -> true
-                                        | _   -> false) parts in
-  let ev_rsps,rsps,parts = List.fold_left (fun acc x -> let e,r,p = acc in
-                                                        (match try_compose_parts x with
-                                                         | `F x -> (match (parse_complex_msg x) with
-                                                                    | `ER x -> x::e,r,p
-                                                                    | `R x -> e,x::r,p
-                                                                    | `N   -> acc)
-                                                         | `P x -> e,r,x::p
-                                                         | `N   -> e,r,p))
-                             (ev_rsps,rsps,[]) parts in
-  ev, ev_rsps, rsps, parts, if Cbuffer.len res > 0 then Some res else None
-
 let try_parse f x = try Some (f x) with _ -> None
 
 let parse_get_board_info = function
@@ -1009,55 +834,39 @@ let parse_get_board_mode = function
   | `Board_mode buf -> try_parse Get_board_mode.of_cbuffer buf
   | _ -> None
 
-let parse_get_board_errors req_id = function
-  | `Board_errors (r_id,buf) -> if req_id <> r_id then None
-                                else (match try_parse Get_board_errors.of_cbuffer buf with
-                                      | Some x -> Some (Board_errors x)
-                                      | None   -> None)
+let parse_get_board_errors id = function
+  | `Board_errors (r_id,buf) when r_id = id ->
+     Option.map (fun x -> Board_errors x) @@ try_parse Get_board_errors.of_cbuffer buf
   | _ -> None
 
-let parse_get_section (req : section_req) = function
-  | `Section (r_id,buf) ->
+let parse_get_section ({request_id=id;params={table_id;_}}:section_req) = function
+  | `Section (r_id,buf) when r_id = id ->
      let open Streams.TS in
-     if req.request_id <> r_id then None
-     else Option.map (Result.map (fun x -> { x with table_id = req.params.table_id }))
-                     (try_parse Get_section.of_cbuffer buf)
+     Option.map (Result.map (fun x -> { x with table_id })) @@ try_parse Get_section.of_cbuffer buf
   | _ -> None
 
-let parse_get_t2mi_frame_seq (req : t2mi_frame_seq_req) = function
-  | `T2mi_frame_seq (r_id,buf) -> if req.request_id <> r_id then None
-                                  else try_parse Get_t2mi_frame_seq.of_cbuffer buf
+let parse_get_t2mi_frame_seq ({request_id=id;_} : t2mi_frame_seq_req) = function
+  | `T2mi_frame_seq (r_id,buf) when r_id = id -> try_parse Get_t2mi_frame_seq.of_cbuffer buf
   | _ -> None
 
-let parse_get_jitter (req : jitter_req) = function
-  | `Jitter (r_id,pointer,buf) -> if req.request_id <> r_id then None
-                                  else if not (Int32.equal req.pointer pointer) then None
-                                  else (match try_parse Get_jitter.of_cbuffer buf with
-                                        | Some x -> Some (Jitter x)
-                                        | None   -> None)
+let parse_get_jitter ({request_id=id;pointer=ptr;_}:jitter_req) = function
+  | `Jitter (r_id,pointer,buf) when id = r_id && Int32.equal ptr pointer->
+     Option.map (fun x -> Jitter x) @@ try_parse Get_jitter.of_cbuffer buf
   | _ -> None
 
-let parse_get_ts_structs req_id = function
-  | `Struct (r_id,_,buf) -> if req_id <> r_id then None
-                            else (match try_parse Get_ts_structs.of_cbuffer buf with
-                                  | Some x -> Some (Struct x)
-                                  | None   -> None)
+let parse_get_ts_structs id = function
+  | `Struct (r_id,_,buf) when r_id = id ->
+     Option.map (fun x -> Struct x) @@ try_parse Get_ts_structs.of_cbuffer buf
   | _ -> None
 
-let parse_get_bitrates req_id = function
-  | `Bitrates (r_id,_,buf) -> if req_id <> r_id then None
-                              else (match try_parse Get_bitrates.of_cbuffer buf with
-                                    | Some x -> Some (Bitrate x)
-                                    | None   -> None)
+let parse_get_bitrates id = function
+  | `Bitrates (r_id,_,buf) when id = r_id ->
+     Option.map (fun x -> Bitrate x) @@ try_parse Get_bitrates.of_cbuffer buf
   | _ -> None
 
-
-let parse_get_t2mi_info (req : t2mi_info_req) = function
-  | `T2mi_info (r_id,_,stream_id,buf) -> if req.request_id <> r_id then None
-                                         else if req.stream_id <> stream_id then None
-                                         else (match try_parse Get_t2mi_info.of_cbuffer buf with
-                                               | Some x -> Some (T2mi_info x)
-                                               | None   -> None)
+let parse_get_t2mi_info ({request_id=id;stream_id=sid;_} : t2mi_info_req) = function
+  | `T2mi_info (r_id,_,stream_id,buf) when r_id = id && stream_id = sid ->
+     Option.map (fun x -> T2mi_info x) @@ try_parse Get_t2mi_info.of_cbuffer buf
   | _ -> None
 
 let is_response (type a) (req : a request) msg : a option =
@@ -1074,3 +883,191 @@ let is_probe_response (type a) (req : a probe_request) msg : a option =
   | Get_ts_structs x    -> parse_get_ts_structs x msg
   | Get_bitrates x      -> parse_get_bitrates x msg
   | Get_t2mi_info x     -> parse_get_t2mi_info x msg
+
+module Make(M : sig val log_fmt : string -> string end) = struct
+
+  type err = Bad_prefix           of int
+           | Bad_length           of int
+           | Bad_msg_code         of int
+           | Bad_crc              of int * int * int
+           | No_prefix_after_msg  of int
+           | Insufficient_payload of Cbuffer.t
+           | Unknown_err          of string
+
+  let string_of_err = function
+    | Bad_prefix x           -> "incorrect prefix: " ^ (string_of_int x)
+    | Bad_length x           -> "incorrect length: " ^ (string_of_int x)
+    | Bad_msg_code x         -> "incorrect code: "   ^ (string_of_int x)
+    | Bad_crc (code,x,y)     -> (Printf.sprintf "incorrect crc in msg with code = 0x%x, expected %d, got %d"
+                                   code x y)
+    | No_prefix_after_msg x  -> (Printf.sprintf "no prefix found after message payload, code = 0x%x" x)
+    | Insufficient_payload _ -> "insufficient payload"
+    | Unknown_err s          -> s
+
+  let check_prefix buf =
+    let prefix' = get_common_header_prefix buf in
+    if prefix <> prefix' then Error (Bad_prefix prefix') else Ok buf
+
+  let check_msg_code buf =
+    let hdr,rest = Cbuffer.split buf sizeof_common_header in
+    let code     = get_common_header_msg_code hdr in
+    let has_crc  = (code land 2) > 0 in
+    let length   = (match code lsr 8 with
+                    | x when x = Get_board_info.rsp_code -> Some sizeof_board_info
+                    | x when x = Get_board_mode.rsp_code -> Some sizeof_board_mode
+                    | x when x = Status.msg_code         -> Some sizeof_status
+                    | x when x = Ts_errors.msg_code      -> Some ((get_ts_errors_length rest * 2) + 2)
+                    | x when x = T2mi_errors.msg_code    -> Some ((get_t2mi_errors_length rest * 2) + 2)
+                    | x when x = TS_streams.msg_code     -> Some ((get_streams_list_event_length rest * 2) + 2)
+                    | 0x09 -> Some ((get_complex_rsp_header_length rest * 2) + 2)
+                    | 0xFD -> Some 4 (* end of errors *)
+                    | 0xFF -> Some 0 (* end of transmission *)
+                    | _    -> None) in
+    match length with
+    | Some x -> Ok (x + (if has_crc then 2 else 0), has_crc, code, rest)
+    | None   -> Error (Bad_msg_code code)
+
+  let check_length (len,has_crc,code,rest') =
+    if len > 512 - sizeof_common_header then Error (Bad_length len)
+    else let body,rest = Cbuffer.split rest' len in
+         Ok (has_crc,code,body,rest)
+
+  let check_next_prefix ((code,_,rest) as x) =
+    if Cbuffer.len rest < sizeof_common_header then Ok x
+    else (match check_prefix rest with
+          | Ok _    -> Ok x
+          | Error _ -> Error (No_prefix_after_msg code))
+
+  let check_crc (code,body,rest) =
+    let b         = Cbuffer.create 2 |> (fun b -> Cbuffer.LE.set_uint16 b 0 code; b) in
+    let body,crc' = Cbuffer.split body ((Cbuffer.len body) - 2) in
+    let iter      = Cbuffer.iter (fun _ -> Some 2) (fun buf -> Cbuffer.LE.get_uint16 buf 0) (Cbuffer.append b body) in
+    let crc       = (Cbuffer.fold (fun acc el -> el + acc) iter 0) land 0xFFFF in
+    let crc'      = Cbuffer.LE.get_uint16 crc' 0 in
+    if crc <> crc' then Error (Bad_crc (code,crc,crc')) else Ok (code,body,rest)
+
+  let get_msg buf =
+    try
+      Result.(check_prefix buf
+              >>= check_msg_code
+              >>= check_length
+              >>= (fun (has_crc,code,body,rest) -> if has_crc then check_crc (code,body,rest)
+                                                   else check_next_prefix (code,body,rest)))
+    with
+    | Invalid_argument _ -> Error (Insufficient_payload buf)
+    | e                  -> Error (Unknown_err (Printexc.to_string e))
+
+  let parse_simple_msg = fun (code,body,parts) ->
+    try
+      (match code lsr 8 with
+       | x when x = Get_board_info.rsp_code -> `R (`Board_info body)
+       | x when x = Get_board_mode.rsp_code -> `R (`Board_mode body)
+       | x when x = Status.msg_code         -> `E (`Status        (Status.of_cbuffer body))
+       | x when x = Ts_errors.msg_code      -> `E (`Ts_errors     (Ts_errors.of_cbuffer body))
+       | x when x = T2mi_errors.msg_code    -> `E (`T2mi_errors   (T2mi_errors.of_cbuffer body))
+       | x when x = TS_streams.msg_code     -> `E (`Streams_event (TS_streams.of_cbuffer body))
+       | 0xFD -> `E `End_of_errors
+       | 0xFF -> `N (* exit from receive loop *)
+       | 0x09 -> let code_ext = get_complex_rsp_header_code_ext body in
+                 let long     = code_ext land 0x2000 <> 0 in
+                 let parity   = if code_ext land 0x1000 <> 0 then 1 else 0 in
+                 let data'    = if long then Cbuffer.shift body sizeof_complex_rsp_header_ext
+                                else Cbuffer.shift body sizeof_complex_rsp_header in
+                 let data,_   = Cbuffer.split data' (Cbuffer.len data' - parity) in
+                 let part     = { first = code_ext land 0x8000 <> 0
+                                ; param = Int32.mul 2l (if long then get_complex_rsp_header_ext_param body
+                                                        else Int32.of_int @@ get_complex_rsp_header_param body)
+                                          |> (fun x -> Int32.sub x (Int32.of_int parity))
+                                ; data
+                                } in
+                 let code     = code_ext land 0x0FFF in
+                 let req_id   = get_complex_rsp_header_request_id body in
+                 `P (List.Assoc.update (code,req_id)
+                       ~eq:(Pair.equal (=) (=))
+                       ~f:(function
+                         | Some x -> Some (part :: x)
+                         | None   -> Some ([part]))
+                       parts)
+       | _ -> Logs.debug (fun m ->
+                  let s = M.log_fmt @@ Printf.sprintf "unknown simple message code: 0x%x" code in
+                  m "%s" s); `N)
+    with e ->
+      Logs.warn (fun m ->
+          let s = Printf.sprintf "failure while parsing simple message: %s" (Printexc.to_string e)
+                  |> M.log_fmt
+          in m "%s" s); `N
+
+  let parse_complex_msg = fun ((code,r_id),msg) ->
+    try
+      let data = (r_id,msg) in
+      (match code with
+       | x when x = Get_board_errors.rsp_code   -> `ER (`Board_errors data)
+       | x when x = Get_section.rsp_code        -> Get_section.of_cbuffer msg |> ignore;
+                                                   `R  (`Section data)
+       | x when x = Get_t2mi_frame_seq.rsp_code -> `R  (`T2mi_frame_seq data)
+       | x when x = Get_jitter.rsp_code         -> `ER (`Jitter (r_id,(get_jitter_req_ptr msg),msg))
+       | x when x = Get_ts_structs.rsp_code     -> `ER (`Struct (r_id,(get_ts_structs_version msg),msg))
+       | x when x = Get_bitrates.rsp_code       -> `ER (`Bitrates (r_id,(get_bitrates_version msg),msg))
+       | x when x = Get_t2mi_info.rsp_code      -> `ER (`T2mi_info (r_id,
+                                                                    (get_t2mi_info_version msg),
+                                                                    (get_t2mi_info_stream_id msg),
+                                                                    msg))
+       | _ -> Logs.debug (fun m ->
+                  let s = M.log_fmt @@ Printf.sprintf "unknown complex message code: 0x%x" code in
+                  m "%s" s); `N)
+    with e ->
+      Logs.warn (fun m ->
+          let s = Printf.sprintf "failure while parsing complex message: %s" (Printexc.to_string e)
+                  |> M.log_fmt
+          in m "%s" s); `N
+
+  let try_compose_parts ((id,gp) as x) =
+    let gp = List.sort (fun x y -> if x.first then (-1)
+                                   else if y.first then 1
+                                   else Int32.compare x.param y.param) gp in
+    let first,rest = List.hd_tl gp in
+    try (let acc = List.fold_left (fun acc x -> if Int32.equal x.param (Int32.of_int (Cbuffer.len acc))
+                                                then Cbuffer.append acc x.data
+                                                else failwith "Incorrect part offset")
+                     first.data rest in
+         if Int32.equal first.param (Int32.of_int (Cbuffer.len acc)) then `F (id,acc) else `P x)
+    with e ->
+      Logs.warn (fun m ->
+          let s = M.log_fmt @@ Printf.sprintf "failure while composing complex message parts: %s"
+                  @@ Printexc.to_string e
+          in m "%s" s); `N
+
+  let deserialize parts buf =
+    let rec f events event_rsps rsps parts b =
+      if Cbuffer.len b >= sizeof_common_header
+      then match get_msg b with
+           | Ok (code,bdy,rest) -> (match parse_simple_msg (code,bdy,parts) with
+                                    | `E x  -> f (x::events) event_rsps rsps parts rest
+                                    | `ER x -> f events (x::event_rsps) rsps parts rest
+                                    | `R x  -> f events event_rsps (x::rsps) parts rest
+                                    | `P x  -> f events event_rsps rsps x rest
+                                    | `N    -> f events event_rsps rsps parts rest)
+           | Error e ->
+              (match e with
+               | Insufficient_payload x -> List.(rev events, rev event_rsps, rev rsps, rev parts, x)
+               | e -> Logs.warn (fun m -> let s = Printf.sprintf "parser error: %s" @@ string_of_err e in
+                                          m "%s" @@ M.log_fmt s);
+                      f events event_rsps rsps parts (Cbuffer.shift b 1))
+      else List.(rev events, rev event_rsps, rev rsps, rev parts, b) in
+    let ev,ev_rsps,rsps,parts,res = f [] [] [] parts buf in
+    let parts = List.filter (fun (_,x) -> let first_msgs = List.find_all (fun x -> x.first) x in
+                                          match first_msgs with
+                                          | [_] -> true
+                                          | _   -> false) parts in
+    let ev_rsps,rsps,parts = List.fold_left (fun acc x -> let e,r,p = acc in
+                                                          (match try_compose_parts x with
+                                                           | `F x -> (match (parse_complex_msg x) with
+                                                                      | `ER x -> x::e,r,p
+                                                                      | `R x -> e,x::r,p
+                                                                      | `N   -> acc)
+                                                           | `P x -> e,r,x::p
+                                                           | `N   -> e,r,p))
+                               (ev_rsps,rsps,[]) parts in
+    ev, ev_rsps, rsps, parts, if Cbuffer.len res > 0 then Some res else None
+
+end

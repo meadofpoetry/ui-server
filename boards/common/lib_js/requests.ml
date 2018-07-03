@@ -12,27 +12,25 @@ module Device = struct
   module WS = struct
 
     let get_state control =
-      let path = Uri.Path.Format.(get_device_path () / ("state" @/ empty)) in
-      WS.get ~from:Topology.state_of_yojson ~path ~query:Uri.Query.empty control
+      WS.get ~from:Topology.state_of_yojson
+        ~path:Uri.Path.Format.(get_device_path () / ("state" @/ empty))
+        ~query:Uri.Query.empty control
 
   end
 
   module HTTP = struct
 
-    (** Sets board port to listen **)
-    let post_port ~port ~state control =
-      let path = Uri.Path.Format.(get_device_path () / ("port" @/ Int ^/ Bool ^/ empty)) in
-      post_result_unit ~path ~query:Uri.Query.empty control port state
-
     let get_state control =
-      let path = Uri.Path.Format.(get_device_path () / ("state" @/ empty)) in
-      get_result ~from:Topology.state_of_yojson ~path ~query:Uri.Query.empty control
+      get_result ~from:Topology.state_of_yojson
+        ~path:Uri.Path.Format.(get_device_path () / ("state" @/ empty))
+        ~query:Uri.Query.empty
+        control
 
     module Archive = struct
 
       let get_state ?limit ?compress ?from ?till ?duration control =
         get_result ~from:(fun _ -> Error "not implemented")
-                   ~path:Uri.Path.Format.(get_device_path () / ("archive/state" @/ empty))
+                   ~path:Uri.Path.Format.(get_device_path () / ("state/archive" @/ empty))
                    ~query:Uri.Query.[ "limit",    (module Option(Int))
                                     ; "compress", (module Option(Bool))
                                     ; "from",     (module Option(Time.Show))
