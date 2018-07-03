@@ -12,7 +12,7 @@ type event =
   | Lost_after_fec of int64
   | Lost_before_fec of int64
   | Tp_per_ip of int
-  | Status of status
+  | Status of receiver_status
   | Protocol of protocol
   | Packet_size of packet_sz
   | Bitrate of int
@@ -21,14 +21,14 @@ type event =
   | Jitter_err_cnt of int32
   | Lock_err_cnt of int32
   | Delay_factor of int32
-  | Asi_bitrate of int
+  | Asi_bitrate of int [@@deriving show]
 
-type _ devinfo =
-  | Get_fpga_ver : int devinfo
-  | Get_hw_ver   : int devinfo
-  | Get_fw_ver   : int devinfo
-  | Get_serial   : int devinfo
-  | Get_type     : int devinfo
+type _ devi =
+  | Get_fpga_ver : int devi
+  | Get_hw_ver   : int devi
+  | Get_fw_ver   : int devi
+  | Get_serial   : int devi
+  | Get_type     : int devi
 
 let mode_to_int = function
   | Asi2ip -> 0 | Ip2asi -> 1
@@ -123,27 +123,7 @@ type _ asi =
   | Set_packet_size : asi_packet_sz -> asi_packet_sz asi
   | Get_bitrate     : event asi
 
-type events = { status : board_status React.event
-              ; config : config React.event
-              }
-
-type api = { addr      : addr -> addr Lwt.t
-           ; mask      : mask -> mask Lwt.t
-           ; gateway   : gateway -> gateway Lwt.t
-           ; dhcp      : flag -> flag Lwt.t
-           ; enable    : flag -> flag Lwt.t
-           ; fec       : flag -> flag Lwt.t
-           ; port      : port -> port Lwt.t
-           ; meth      : meth -> meth Lwt.t
-           ; multicast : multicast -> multicast Lwt.t
-           ; delay     : delay -> delay Lwt.t
-           ; rate_mode : rate_mode -> rate_mode Lwt.t
-           ; reset     : unit -> unit Lwt.t
-           ; config    : unit -> config Lwt.t
-           ; devinfo   : unit -> Board_types.devinfo Lwt.t
-           }
-
-type _ request = Devinfo : 'a devinfo -> 'a request
+type _ request = Devinfo : 'a devi -> 'a request
                | Overall : 'a overall -> 'a request
                | Nw      : 'a nw -> 'a request
                | Ip      : 'a ip -> 'a request

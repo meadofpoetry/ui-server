@@ -12,7 +12,7 @@ open Common
 type part =
   { first : bool
   ; param : int32
-  ; data  : Cbuffer.t
+  ; data  : Cstruct.t
   }
 
 type _ instant_request =
@@ -55,31 +55,31 @@ let int_to_t2mi_sync_list x = int_to_bool_list x
 (* -------------------- Message constructors ------------------*)
 
 let to_common_header ~msg_code () =
-  let hdr = Cbuffer.create sizeof_common_header in
+  let hdr = Cstruct.create sizeof_common_header in
   let () = set_common_header_prefix hdr prefix in
   let () = set_common_header_msg_code hdr msg_code in
   hdr
 
 let to_complex_req_header ?(client_id=0) ?(request_id=0) ~msg_code ~length () =
   let hdr = to_common_header ~msg_code () in
-  let complex_hdr = Cbuffer.create sizeof_complex_req_header in
+  let complex_hdr = Cstruct.create sizeof_complex_req_header in
   let () = set_complex_req_header_client_id complex_hdr client_id in
   let () = set_complex_req_header_length complex_hdr length in
   let () = set_complex_req_header_request_id complex_hdr request_id in
-  Cbuffer.append hdr complex_hdr
+  Cstruct.append hdr complex_hdr
 
 let to_simple_req ~msg_code ~body () =
   let hdr = to_common_header ~msg_code () in
-  Cbuffer.append hdr body
+  Cstruct.append hdr body
 
 let to_complex_req ?client_id ?request_id ~msg_code ~body () =
-  let length = (Cbuffer.len body / 2) + 1 in
+  let length = (Cstruct.len body / 2) + 1 in
   let hdr = to_complex_req_header ?client_id ?request_id ~msg_code ~length () in
-  Cbuffer.append hdr body
+  Cstruct.append hdr body
 
 let to_set_board_mode_req mode =
   let t2mi = Option.get_or ~default:t2mi_mode_default mode.t2mi in
-  let body = Cbuffer.create sizeof_board_mode in
+  let body = Cstruct.create sizeof_board_mode in
   let () = input_to_int mode.input
            |> (lor) (if t2mi.enabled then 4 else 0)
            |> (lor) 8 (* disable board storage by default *)
@@ -90,7 +90,7 @@ let to_set_board_mode_req mode =
 
 let to_set_jitter_mode_req mode =
   let req  = Option.get_or ~default:jitter_mode_default mode in
-  let body = Cbuffer.create sizeof_req_set_jitter_mode in
+  let body = Cstruct.create sizeof_req_set_jitter_mode in
   let () = set_req_set_jitter_mode_stream_id body (Stream.id_to_int32 req.stream) in
   let () = set_req_set_jitter_mode_pid body req.pid in
   to_complex_req ~msg_code:0x0112 ~body ()
@@ -111,10 +111,10 @@ module type Request = sig
   type req
   type rsp
 
-  val req_code   : int
-  val rsp_code   : int
-  val to_cbuffer : req -> Cbuffer.t
-  val of_cbuffer : Cbuffer.t -> rsp
+  val req_code  : int
+  val rsp_code  : int
+  val serialize : req -> Cstruct.t
+  val parse     : Cstruct.t -> rsp
 
 end
 
@@ -123,7 +123,7 @@ module type Event = sig
   type msg
 
   val msg_code : int
-  val of_cbuffer : Cbuffer.t -> msg
+  val parse    : Cstruct.t -> msg
 
 end
 
@@ -131,8 +131,8 @@ module Get_board_info : (Request with type req := unit with type rsp := devinfo)
 
   let req_code = 0x0080
   let rsp_code = 0x01
-  let to_cbuffer _ = to_common_header ~msg_code:req_code ()
-  let of_cbuffer msg =
+  let serialize () = to_common_header ~msg_code:req_code ()
+  let parse msg =
     { typ = get_board_info_board_type msg
     ; ver = get_board_info_board_version msg
     }
@@ -143,10 +143,11 @@ module Get_board_mode : (Request with type req := unit with type rsp := Types.mo
 
   let req_code = 0x0081
   let rsp_code = 0x02
-  let to_cbuffer _   = to_common_header ~msg_code:req_code ()
-  let of_cbuffer msg = to_mode_exn (get_board_mode_mode msg)
-                                   (get_board_mode_t2mi_pid msg)
-                                   (get_board_mode_t2mi_stream_id msg)
+  let serialize () = to_common_header ~msg_code:req_code ()
+  let parse msg =
+    to_mode_exn (get_board_mode_mode msg)
+      (get_board_mode_t2mi_pid msg)
+      (get_board_mode_t2mi_stream_id msg)
 
 end
 
@@ -154,13 +155,15 @@ module Get_board_errors : (Request with type req := int with type rsp := board_e
 
   let req_code = 0x0110
   let rsp_code = req_code
-  let to_cbuffer request_id = to_complex_req ~request_id ~msg_code:req_code ~body:(Cbuffer.create 0) ()
-  let of_cbuffer msg =
+  let serialize request_id = to_complex_req ~request_id ~msg_code:req_code ~body:(Cstruct.create 0) ()
+  let parse msg =
     let timestamp = Common.Time.Clock.now () in
-    let iter      = Cbuffer.iter (fun _ -> Some sizeof_t2mi_frame_seq_item)
-                                 (fun buf -> Cbuffer.LE.get_uint32 buf 0)
-                                 (get_board_errors_errors msg) in
-    List.rev @@ Cbuffer.fold (fun acc el -> el :: acc) iter []
+    let iter      =
+      Cstruct.iter (fun _ -> Some sizeof_t2mi_frame_seq_item)
+        (fun buf -> Cstruct.LE.get_uint32 buf 0)
+        (get_board_errors_errors msg)
+    in
+    List.rev @@ Cstruct.fold (fun acc el -> el :: acc) iter []
     |> List.foldi (fun acc i x ->
            let count = Int32.to_int x in
            if count <> 0 && i >= 0 && i <= 16 then acc
@@ -180,8 +183,8 @@ module Get_section : (Request
   let req_code = 0x0302
   let rsp_code = req_code
 
-  let to_cbuffer { request_id;params } =
-    let body = Cbuffer.create sizeof_req_get_section in
+  let serialize { request_id;params } =
+    let body = Cstruct.create sizeof_req_get_section in
     let ()   = set_req_get_section_stream_id body @@ Common.Stream.id_to_int32 params.stream_id in
     let ()   = Option.iter (set_req_get_section_section body) params.section in
     let ()   = Option.iter (set_req_get_section_table_id_ext body) params.table_id_ext in
@@ -189,17 +192,14 @@ module Get_section : (Request
     let ()   = Option.iter (set_req_get_section_adv_info_2 body) params.eit_orig_nw_id in
     to_complex_req ~request_id ~msg_code:req_code ~body ()
 
-  let of_cbuffer msg =
-    let hdr,bdy   = Cbuffer.split msg sizeof_section in
-    let length    = get_section_length hdr in
-    let result    = get_section_result hdr in
+  let parse msg =
+    let hdr,bdy = Cstruct.split msg sizeof_section in
+    let length  = get_section_length hdr in
+    let result  = get_section_result hdr in
     if length > 0 && result = 0
-    then let sid,data  = Cbuffer.split bdy 4 in
-         let stream_id = Common.Stream.id_of_int32 @@ Cbuffer.LE.get_uint32 sid 0 in
-         Ok { section = Cbuffer.to_string data
-            ; stream_id
-            ; table_id = 0
-            }
+    then let sid,data  = Cstruct.split bdy 4 in
+         let stream_id = Common.Stream.id_of_int32 @@ Cstruct.LE.get_uint32 sid 0 in
+         Ok { section = Cstruct.to_string data; stream_id; table_id = 0 }
     else (Error (match result with
                  | 0 | 3 -> Zero_length
                  | 1     -> Table_not_found
@@ -219,14 +219,14 @@ module Get_t2mi_frame_seq : (Request
   let req_code = 0x0306
   let rsp_code = req_code
 
-  let to_cbuffer { seconds; request_id } =
-    let body = Cbuffer.create sizeof_req_get_t2mi_frame_seq in
+  let serialize { seconds; request_id } =
+    let body = Cstruct.create sizeof_req_get_t2mi_frame_seq in
     let ()   = set_req_get_t2mi_frame_seq_time body seconds in
     to_complex_req ~request_id:request_id ~msg_code:req_code ~body ()
 
-  let of_cbuffer msg =
-    let iter = Cbuffer.iter (fun _ -> Some sizeof_t2mi_frame_seq_item) (fun buf -> buf) msg in
-    Cbuffer.fold (fun (acc : sequence) el ->
+  let parse msg =
+    let iter = Cstruct.iter (fun _ -> Some sizeof_t2mi_frame_seq_item) (fun buf -> buf) msg in
+    Cstruct.fold (fun (acc : sequence) el ->
         let sframe_stream = get_t2mi_frame_seq_item_sframe_stream el in
         { typ         = get_t2mi_frame_seq_item_typ el
         ; super_frame = (sframe_stream land 0xF0) lsr 4
@@ -238,7 +238,7 @@ module Get_t2mi_frame_seq : (Request
         ; l1_param_2  = get_t2mi_frame_seq_item_dyn2_frame el
         ; ts_packet   = Int32.to_int @@ get_t2mi_frame_seq_item_time el
         } :: acc)
-                 iter []
+      iter []
     |> List.rev
 
 end
@@ -248,12 +248,12 @@ module Get_jitter : (Request with type req := jitter_req with type rsp := Types.
   let req_code = 0x0307
   let rsp_code = req_code
 
-  let to_cbuffer { request_id; pointer } =
-    let body = Cbuffer.create sizeof_req_get_jitter in
+  let serialize { request_id; pointer } =
+    let body = Cstruct.create sizeof_req_get_jitter in
     let ()   = set_req_get_jitter_ptr body pointer in
     to_complex_req ~request_id ~msg_code:req_code ~body ()
 
-  let of_cbuffer_item el packet_time : Jitter.measure =
+  let parse_item el packet_time : Jitter.measure =
     let status = get_jitter_item_status el in
     let d_pack = get_jitter_item_d_packet el in
     let d_pcr  = get_jitter_item_d_pcr el in
@@ -273,19 +273,19 @@ module Get_jitter : (Request with type req := jitter_req with type rsp := Types.
     ; period      = t_pcr_br /. 10e+6
     }
 
-  let of_cbuffer msg : Types.jitter_raw =
-    let hdr,bdy'    = Cbuffer.split msg sizeof_jitter in
+  let parse msg : Types.jitter_raw =
+    let hdr,bdy'    = Cstruct.split msg sizeof_jitter in
     let count       = get_jitter_count hdr in
-    let bdy,_       = Cbuffer.split bdy' @@ sizeof_jitter_item * count in
+    let bdy,_       = Cstruct.split bdy' @@ sizeof_jitter_item * count in
     let pid         = get_jitter_pid hdr in
     let t_pcr       = Int32.float_of_bits @@ get_jitter_t_pcr hdr in
     let time        = Int32.to_int @@ get_jitter_time hdr in
     let next_ptr    = get_jitter_req_next hdr in
     let packet_time = get_jitter_packet_time hdr in
-    let iter        = Cbuffer.iter (fun _ -> Some sizeof_jitter_item) (fun buf -> buf) bdy in
+    let iter        = Cstruct.iter (fun _ -> Some sizeof_jitter_item) (fun buf -> buf) bdy in
     let timestamp   = Common.Time.Clock.now () in
-    let measures    = List.rev @@ Cbuffer.fold (fun acc el -> (of_cbuffer_item el packet_time) :: acc)
-                                               iter [] in
+    let measures    = List.rev @@ Cstruct.fold (fun acc el -> (parse_item el packet_time) :: acc)
+                                    iter [] in
     { measures; next_ptr; time; timestamp; pid; t_pcr }
 
 end
@@ -298,17 +298,17 @@ module Get_ts_structs : (Request with type req := int
   let req_code = 0x0309
   let rsp_code = req_code
 
-  let to_cbuffer request_id =
-    let body = Cbuffer.create sizeof_req_get_ts_struct in
+  let serialize request_id =
+    let body = Cstruct.create sizeof_req_get_ts_struct in
     let ()   = set_req_get_ts_struct_stream_id body 0xFFFFFFFFl in
     to_complex_req ~request_id ~msg_code:req_code ~body ()
 
   let of_general_struct_block msg =
-    let bdy,rest   = Cbuffer.split msg sizeof_general_struct_block in
+    let bdy,rest   = Cstruct.split msg sizeof_general_struct_block in
     let string_len = get_general_struct_block_string_len bdy in
     let nw_pid'    = get_general_struct_block_network_pid bdy in
-    let strings,_  = Cbuffer.split rest (string_len * 2) in
-    let nw_name,bq_name  = Cbuffer.split strings string_len in
+    let strings,_  = Cstruct.split rest (string_len * 2) in
+    let nw_name,bq_name  = Cstruct.split strings string_len in
     { services_num = get_general_struct_block_services_num bdy
     ; nw_pid       = nw_pid' land 0x1FFF
     ; complete     = nw_pid' land 0x4000 <> 0
@@ -320,18 +320,18 @@ module Get_ts_structs : (Request with type req := int
     }, string_len
 
   let of_pids_struct_block msg =
-    let iter = Cbuffer.iter (fun _ -> Some 2) (fun buf -> Cbuffer.LE.get_uint16 buf 0) msg in
-    List.rev @@ Cbuffer.fold (fun acc el -> { pid       = el land 0x1FFF
+    let iter = Cstruct.iter (fun _ -> Some 2) (fun buf -> Cstruct.LE.get_uint16 buf 0) msg in
+    List.rev @@ Cstruct.fold (fun acc el -> { pid       = el land 0x1FFF
                                             ; bitrate   = None
                                             ; has_pts   = el land 0x8000 <> 0
                                             ; scrambled = el land 0x4000 <> 0
                                             ; present   = el land 0x2000 <> 0 } :: acc) iter []
 
   let of_services_struct_block string_len msg =
-    let bdy,rest   = Cbuffer.split msg sizeof_services_struct_block in
+    let bdy,rest   = Cstruct.split msg sizeof_services_struct_block in
     let flags      = get_services_struct_block_flags bdy in
-    let strings,_  = Cbuffer.split rest (string_len * 2) in
-    let sn,pn      = Cbuffer.split strings string_len in
+    let strings,_  = Cstruct.split rest (string_len * 2) in
+    let sn,pn      = Cstruct.split strings string_len in
     { id             = get_services_struct_block_id bdy
     ; bitrate        = None
     ; name           = Text_decoder.get_encoding_and_convert sn
@@ -353,28 +353,31 @@ module Get_ts_structs : (Request with type req := int
     }
 
   let of_es_struct_block msg =
-    let iter = Cbuffer.iter (fun _ -> Some 4) (fun buf -> buf) msg in
-    List.rev @@ Cbuffer.fold (fun acc x -> let pid' = get_es_struct_block_pid x in
-                                           { pid          = pid' land 0x1FFF
-                                           ; bitrate      = None
-                                           ; has_pts      = pid' land 0x8000 > 0
-                                           ; es_type      = get_es_struct_block_es_type x
-                                           ; es_stream_id = get_es_struct_block_es_stream_id x
-                                           } :: acc) iter []
+    let iter = Cstruct.iter (fun _ -> Some 4) (fun buf -> buf) msg in
+    List.rev @@ Cstruct.fold (fun acc x ->
+                    let pid' = get_es_struct_block_pid x in
+                    { pid          = pid' land 0x1FFF
+                    ; bitrate      = None
+                    ; has_pts      = pid' land 0x8000 > 0
+                    ; es_type      = get_es_struct_block_es_type x
+                    ; es_stream_id = get_es_struct_block_es_stream_id x
+                    } :: acc) iter []
 
   let of_ecm_struct_block msg =
-    let iter = Cbuffer.iter (fun _ -> Some 4) (fun buf -> buf) msg in
-    List.rev @@ Cbuffer.fold (fun acc x -> { pid       = get_ecm_struct_block_pid x land 0x1FFF
-                                           ; bitrate   = None
-                                           ; ca_sys_id = get_ecm_struct_block_ca_system_id x} :: acc) iter []
+    let iter = Cstruct.iter (fun _ -> Some 4) (fun buf -> buf) msg in
+    List.rev @@ Cstruct.fold (fun acc x ->
+                    { pid       = get_ecm_struct_block_pid x land 0x1FFF
+                    ; bitrate   = None
+                    ; ca_sys_id = get_ecm_struct_block_ca_system_id x} :: acc) iter []
 
   let of_table_struct_block msg =
-    let bdy,rest = Cbuffer.split msg sizeof_table_struct_block in
-    let iter     = Cbuffer.iter (fun _ -> Some 2)
-                     (fun buf -> Cbuffer.LE.get_uint16 buf 0) rest in
-    let sections = Cbuffer.fold (fun acc x -> { id = List.length acc
-                                              ; analyzed = x land 0x8000 > 0
-                                              ; length   = x land 0x0FFF } :: acc) iter []
+    let bdy,rest = Cstruct.split msg sizeof_table_struct_block in
+    let iter     = Cstruct.iter (fun _ -> Some 2)
+                     (fun buf -> Cstruct.LE.get_uint16 buf 0) rest in
+    let sections = Cstruct.fold (fun acc x ->
+                       { id = List.length acc
+                       ; analyzed = x land 0x8000 > 0
+                       ; length   = x land 0x0FFF } :: acc) iter []
                    |> List.filter (fun x -> x.length > 0)
                    |> List.rev in
     let pid'   = get_table_struct_block_pid msg in
@@ -420,49 +423,41 @@ module Get_ts_structs : (Request with type req := int
   let of_ts_struct_blocks msg =
     let str_len = ref 0 in
     let rec aux msg acc =
-      match Cbuffer.len msg with
+      match Cstruct.len msg with
       | 0 -> acc
-      | _ -> let hdr,data   = Cbuffer.split msg sizeof_struct_block_header in
-             let typ        = get_struct_block_header_code hdr in
-             let len        = get_struct_block_header_length hdr in
-             let block,rest = Cbuffer.split data len in
-             (match typ with
-              | 0x2000 -> let gen,len = of_general_struct_block block in
-                          str_len := len; `General gen
-              | 0x2100 -> `Pids (of_pids_struct_block block)
-              | 0x2200 -> `Services (of_services_struct_block !str_len block)
-              | 0x2201 -> `Es (of_es_struct_block block)
-              | 0x2202 -> `Ecm (of_ecm_struct_block block)
-              | 0x2300 -> `Emm (of_ecm_struct_block block)
-              | 0x2400 -> `Tables (of_table_struct_block block)
-              | _      -> `Unknown)
-             |> (function
-                 | `Es es -> (match acc with
-                              | [] -> failwith "of_ts_struct_blocks: no blocks before es block"
-                              | hd::tl ->
-                                 (match hd with
-                                  | `Services s -> `Services ({ s with es = es }) :: tl
-                                                   |> aux rest
-                                  | _ -> failwith "of_ts_struct_blocks: no services block before es block"))
-                 | `Ecm ecm -> (match acc with
-                                | [] -> failwith "of_ts_struct_blocks: no blocks before ecm block"
-                                | hd::tl ->
-                                   (match hd with
-                                    | `Services s -> `Services ({ s with ecm = ecm }) :: tl
-                                                     |> aux rest
-                                    | _ -> failwith "of_ts_struct_blocks: no services block before ecm block"))
-                 | x -> aux rest (x :: acc))
+      | _ ->
+         let hdr,data   = Cstruct.split msg sizeof_struct_block_header in
+         let len        = get_struct_block_header_length hdr in
+         let block,rest = Cstruct.split data len in
+         (match get_struct_block_header_code hdr with
+          | 0x2000 -> let gen,len = of_general_struct_block block in
+                      str_len := len; `General gen
+          | 0x2100 -> `Pids (of_pids_struct_block block)
+          | 0x2200 -> `Services (of_services_struct_block !str_len block)
+          | 0x2201 -> `Es (of_es_struct_block block)
+          | 0x2202 -> `Ecm (of_ecm_struct_block block)
+          | 0x2300 -> `Emm (of_ecm_struct_block block)
+          | 0x2400 -> `Tables (of_table_struct_block block)
+          | _      -> `Unknown)
+         |> function
+           | `Es es   -> (match acc with
+                          | (`Services s)::tl -> `Services ({ s with es }) :: tl |> aux rest
+                          | _ -> failwith "of_ts_struct_blocks: no services block before es block")
+           | `Ecm ecm -> (match acc with
+                          | (`Services s)::tl -> `Services ({ s with ecm }) :: tl |> aux rest
+                          | _ -> failwith "of_ts_struct_blocks: no services block before ecm block")
+           | x -> aux rest (x :: acc)
     in
     aux msg []
 
-  let of_ts_struct msg : (Stream.id * structure) * Cbuffer.t option =
+  let of_ts_struct msg : (Stream.id * structure) * Cstruct.t option =
     let open Option in
-    let hdr,rest = Cbuffer.split msg sizeof_ts_struct in
+    let hdr,rest = Cstruct.split msg sizeof_ts_struct in
     let len      = (Int32.to_int @@ get_ts_struct_length hdr) in
-    let bdy,rest = Cbuffer.split rest len in
+    let bdy,rest = Cstruct.split rest len in
     let blocks   = of_ts_struct_blocks bdy in
     let stream   = Common.Stream.id_of_int32 @@ get_ts_struct_stream_id hdr in
-    let rest     = if Cbuffer.len rest > 0 then Some rest else None in
+    let rest     = if Cstruct.len rest > 0 then Some rest else None in
     let rsp      =
       { bitrate   = None
       ; general   = get_exn @@ List.find_map (function `General x -> Some x | _ -> None) blocks
@@ -474,10 +469,10 @@ module Get_ts_structs : (Request with type req := int
       }
     in (stream,rsp),rest
 
-  let of_cbuffer msg : (Stream.id * structure) list =
-    let hdr,bdy'  = Cbuffer.split msg sizeof_ts_structs in
+  let parse msg : (Stream.id * structure) list =
+    let hdr,bdy'  = Cstruct.split msg sizeof_ts_structs in
     let count     = get_ts_structs_count hdr in
-    let _,bdy     = Cbuffer.split bdy' (count * 4) in
+    let _,bdy     = Cstruct.split bdy' (count * 4) in
     let rec parse = (fun acc buf -> let x,rest = of_ts_struct buf in
                                     match rest with
                                     | Some b -> parse (x :: acc) b
@@ -497,38 +492,40 @@ module Get_bitrates : (Request
   let req_code = 0x030A
   let rsp_code = req_code
 
-  let to_cbuffer request_id = to_complex_req ~request_id ~msg_code:req_code ~body:(Cbuffer.create 0) ()
+  let serialize request_id =
+    to_complex_req ~request_id ~msg_code:req_code ~body:(Cstruct.create 0) ()
 
   let of_pids_bitrate total_pids br_per_pkt buf =
-    let msg,rest = Cbuffer.split buf (sizeof_pid_bitrate * total_pids) in
-    let iter     = Cbuffer.iter (fun _ -> Some sizeof_pid_bitrate) (fun buf -> buf) msg in
-    let pids     = (Cbuffer.fold (fun acc el ->
-                        let packets = get_pid_bitrate_packets el in
-                        { pid     = get_pid_bitrate_pid el land 0x1FFF
-                        ; bitrate = int_of_float @@ br_per_pkt *. (Int32.to_float packets) } :: acc)
-                                 iter []) in
-    List.rev pids, rest
+    let msg,rest = Cstruct.split buf (sizeof_pid_bitrate * total_pids) in
+    let iter     = Cstruct.iter (fun _ -> Some sizeof_pid_bitrate) (fun buf -> buf) msg in
+    let pids     = Cstruct.fold (fun acc el ->
+                       let packets = get_pid_bitrate_packets el in
+                       { pid     = get_pid_bitrate_pid el land 0x1FFF
+                       ; bitrate = int_of_float @@ br_per_pkt *. (Int32.to_float packets) } :: acc)
+                     iter []
+    in List.rev pids, rest
 
   let of_tbls_bitrate total_tbls br_per_pkt buf =
-    let msg,_ = Cbuffer.split buf (sizeof_table_bitrate * total_tbls) in
-    let iter  = Cbuffer.iter (fun _ -> Some sizeof_table_bitrate) (fun buf -> buf) msg in
-    Cbuffer.fold (fun acc el -> let packets    = get_table_bitrate_packets el in
-                                let flags      = get_table_bitrate_flags el in
-                                let adv_info_1 = get_table_bitrate_adv_info_1 el in
-                                let adv_info_2 = get_table_bitrate_adv_info_2 el in
-                                { id             = get_table_bitrate_table_id el
-                                ; id_ext         = get_table_bitrate_table_id_ext el
-                                ; fully_analyzed = flags land 2 > 0
-                                ; section_syntax = flags land 1 > 0
-                                ; eit_info       = Some (adv_info_1, adv_info_2)
-                                ; bitrate        = int_of_float @@ br_per_pkt *. (Int32.to_float packets) } :: acc)
-                 iter []
+    let msg,_ = Cstruct.split buf (sizeof_table_bitrate * total_tbls) in
+    let iter  = Cstruct.iter (fun _ -> Some sizeof_table_bitrate) (fun x -> x) msg in
+    Cstruct.fold (fun acc el ->
+        let packets    = get_table_bitrate_packets el in
+        let flags      = get_table_bitrate_flags el in
+        let adv_info_1 = get_table_bitrate_adv_info_1 el in
+        let adv_info_2 = get_table_bitrate_adv_info_2 el in
+        { id             = get_table_bitrate_table_id el
+        ; id_ext         = get_table_bitrate_table_id_ext el
+        ; fully_analyzed = flags land 2 > 0
+        ; section_syntax = flags land 1 > 0
+        ; eit_info       = Some (adv_info_1, adv_info_2)
+        ; bitrate        = int_of_float @@ br_per_pkt *. (Int32.to_float packets) } :: acc)
+      iter []
     |> List.rev
 
   let of_stream_bitrate timestamp buf =
     let length     = (Int32.to_int @@ get_stream_bitrate_length buf) in
-    let msg,rest   = Cbuffer.split buf (length + 8) in
-    let hdr,bdy    = Cbuffer.split msg sizeof_stream_bitrate in
+    let msg,rest   = Cstruct.split buf (length + 8) in
+    let hdr,bdy    = Cstruct.split msg sizeof_stream_bitrate in
     let ts_bitrate = Int32.to_int @@ get_stream_bitrate_ts_bitrate hdr in
     let total_pkts = get_stream_bitrate_total_packets hdr in
     let br_per_pkt = (float_of_int ts_bitrate) /. (Int32.to_float total_pkts)  in
@@ -538,11 +535,11 @@ module Get_bitrates : (Request
     let tables     = of_tbls_bitrate total_tbls br_per_pkt tbls in
     let stream     = Common.Stream.id_of_int32 @@ get_stream_bitrate_stream_id hdr in
     let rsp        = stream, { ts_bitrate; pids; tables; timestamp } in
-    let rest       = if Cbuffer.len rest > 0 then Some rest else None in
+    let rest       = if Cstruct.len rest > 0 then Some rest else None in
     rsp,rest
 
-  let of_cbuffer msg =
-    let hdr,bdy   = Cbuffer.split msg sizeof_bitrates in
+  let parse msg =
+    let hdr,bdy   = Cstruct.split msg sizeof_bitrates in
     let count     = get_bitrates_count hdr in
     let timestamp = Common.Time.Clock.now () in
     let rec parse = (fun acc buf -> let x,rest = of_stream_bitrate timestamp buf in
@@ -561,17 +558,17 @@ module Get_t2mi_info : (Request with type req := t2mi_info_req
   let req_code = 0x030B
   let rsp_code = req_code
 
-  let to_cbuffer ({ request_id; stream_id } : t2mi_info_req) =
-    let body = Cbuffer.create sizeof_req_get_t2mi_info in
+  let serialize ({ request_id; stream_id } : t2mi_info_req) =
+    let body = Cstruct.create sizeof_req_get_t2mi_info in
     let ()   = set_req_get_t2mi_info_stream_id body stream_id in
     to_complex_req ~request_id ~msg_code:req_code ~body ()
 
-  let of_cbuffer msg =
-    let hdr,rest  = Cbuffer.split msg sizeof_t2mi_info in
-    let iter      = Cbuffer.iter (fun _ -> Some 1)
-                                 (fun buf -> Cbuffer.get_uint8 buf 0)
-                                 (get_t2mi_info_packets hdr) in
-    let packets   = Cbuffer.fold (fun acc el -> (List.rev @@ int_to_bool_list el) @ acc) iter []
+  let parse msg =
+    let hdr,rest  = Cstruct.split msg sizeof_t2mi_info in
+    let iter      = Cstruct.iter (fun _ -> Some 1)
+                      (fun buf -> Cstruct.get_uint8 buf 0)
+                      (get_t2mi_info_packets hdr) in
+    let packets   = Cstruct.fold (fun acc el -> (List.rev @@ int_to_bool_list el) @ acc) iter []
                     |> List.rev
                     |> List.foldi (fun acc i x -> if x then i :: acc else acc) []
     in
@@ -580,14 +577,14 @@ module Get_t2mi_info : (Request with type req := t2mi_info_req
     let timestamp = Common.Time.Clock.now () in
     match length with
     | 0 -> sid,{ packets; timestamp; t2mi_pid = None; l1_pre = None; l1_post_conf = None }
-    | l -> let body,_   = Cbuffer.split rest l in
+    | l -> let body,_   = Cstruct.split rest l in
            let conf_len = get_t2mi_info_ext_conf_len body
                           |> fun x -> let r,d = x mod 8, x / 8 in d + (if r > 0 then 1 else 0)
            in
-           let _,conf   = Cbuffer.split body sizeof_t2mi_info_ext in
-           let conf,_   = Cbuffer.split conf conf_len in
-           let l1_pre   = Cbuffer.to_string @@ get_t2mi_info_ext_l1_pre body in
-           let l1_post  = Cbuffer.to_string conf in
+           let _,conf   = Cstruct.split body sizeof_t2mi_info_ext in
+           let conf,_   = Cstruct.split conf conf_len in
+           let l1_pre   = Cstruct.to_string @@ get_t2mi_info_ext_l1_pre body in
+           let l1_post  = Cstruct.to_string conf in
            sid,{ packets
                ; timestamp
                ; t2mi_pid     = Some (get_t2mi_info_ext_t2mi_pid body)
@@ -603,9 +600,9 @@ module Status : (Event with type msg := status_raw) = struct
 
   let msg_code = 0x03
 
-  let of_cbuffer msg : status_raw =
+  let parse msg : status_raw =
     let timestamp = Common.Time.Clock.now () in
-    let iter      = fun x -> Cbuffer.iter (fun _ -> Some 1) (fun buf -> Cbuffer.get_uint8 buf 0) x in
+    let iter      = fun x -> Cstruct.iter (fun _ -> Some 1) (fun buf -> Cstruct.get_uint8 buf 0) x in
     let flags     = get_status_flags msg in
     let has_sync  = not (flags land 0x04 > 0) in
     let ts_num    = get_status_ts_num msg in
@@ -632,7 +629,7 @@ module Status : (Event with type msg := status_raw) = struct
     ; jitter_mode = if not @@ Int.equal jpid 0x1fff
                     then Some { stream  = Common.Stream.id_of_int32 (get_status_jitter_stream_id msg)
                               ; pid     = jpid
-                              }
+                           }
                     else None
     ; errors      = flags land 0x20 <> 0
     ; t2mi_sync   = int_to_bool_list (get_status_t2mi_sync msg)
@@ -640,15 +637,15 @@ module Status : (Event with type msg := status_raw) = struct
     ; version     = get_status_version msg
     ; versions    = { streams_ver      = get_status_streams_ver msg
                     ; ts_ver_com       = get_status_ts_ver_com msg
-                    ; ts_ver_lst       = Cbuffer.fold (fun acc el -> el :: acc)
-                                                      (iter @@ get_status_ts_ver_lst msg) []
+                    ; ts_ver_lst       = Cstruct.fold (fun acc el -> el :: acc)
+                                           (iter @@ get_status_ts_ver_lst msg) []
                                          |> List.rev
                                          |> List.take ts_num
                     ; t2mi_ver_lst     = get_status_t2mi_ver_lst msg
                                          |> (fun v -> List.map (fun x -> Int32.shift_right v (4 * x)
                                                                          |> Int32.logand 0xfl
                                                                          |> Int32.to_int)
-                                                               (List.range 0 7))
+                                                        (List.range 0 7))
                     }
     ; streams     = []
     }
@@ -661,12 +658,12 @@ module TS_streams : (Event with type msg = Common.Stream.id list) = struct
 
   let msg_code = 0x0B
 
-  let of_cbuffer msg =
-    let hdr,bdy' = Cbuffer.split msg sizeof_streams_list_event in
+  let parse msg =
+    let hdr,bdy' = Cstruct.split msg sizeof_streams_list_event in
     let count    = get_streams_list_event_count hdr in
-    let bdy,_    = Cbuffer.split bdy' (count * 4) in
-    let iter     = Cbuffer.iter (fun _ -> Some 4) (fun buf -> Cbuffer.LE.get_uint32 buf 0) bdy in
-    List.rev @@ Cbuffer.fold (fun acc el -> (Common.Stream.id_of_int32 el) :: acc) iter []
+    let bdy,_    = Cstruct.split bdy' (count * 4) in
+    let iter     = Cstruct.iter (fun _ -> Some 4) (fun buf -> Cstruct.LE.get_uint32 buf 0) bdy in
+    List.rev @@ Cstruct.fold (fun acc el -> (Common.Stream.id_of_int32 el) :: acc) iter []
 
 end
 
@@ -677,41 +674,38 @@ module Ts_errors : (Event with type msg := Stream.id * (Errors.t list)) = struct
   let msg_code = 0x04
 
   let prioriry_of_err_code = function
-    | x when x >= 0x11 && x <= 0x16 -> Some 1
-    | x when x >= 0x21 && x <= 0x26 -> Some 2
-    | x when x >= 0x31 && x <= 0x38 -> Some 3
-    | _                             -> None
+    | x when x >= 0x11 && x <= 0x16 -> 1
+    | x when x >= 0x21 && x <= 0x26 -> 2
+    | x when x >= 0x31 && x <= 0x38 -> 3
+    | _                             -> 0 (* Unknown *)
 
   let compare = fun x y ->
     match Time.compare x.timestamp y.timestamp with
     | 0 -> Int32.compare x.packet y.packet
     | x -> x
 
-  let of_cbuffer msg : Stream.id * (t list) =
-    let common,rest = Cbuffer.split msg sizeof_ts_errors in
+  let parse msg : Stream.id * (t list) =
+    let common,rest = Cstruct.split msg sizeof_ts_errors in
     let number      = get_ts_errors_count common in
-    let errors,_    = Cbuffer.split rest (number * sizeof_ts_error) in
+    let errors,_    = Cstruct.split rest (number * sizeof_ts_error) in
     let stream_id   = Common.Stream.id_of_int32 (get_ts_errors_stream_id common) in
     let timestamp   = Common.Time.Clock.now () in
-    let iter        = Cbuffer.iter (fun _ -> Some sizeof_ts_error) (fun buf -> buf) errors in
-    Cbuffer.fold (fun acc el ->
+    let iter        = Cstruct.iter (fun _ -> Some sizeof_ts_error) (fun x -> x) errors in
+    Cstruct.fold (fun acc el ->
         let pid'      = get_ts_error_pid el in
         let pid       = pid' land 0x1FFF in
         let err_code  = get_ts_error_err_code el in
-        match prioriry_of_err_code err_code with
-        | Some priority ->
-           { timestamp
-           ; count     = get_ts_error_count el
-           ; err_code
-           ; err_ext   = get_ts_error_err_ext el
-           ; priority
-           ; multi_pid = (pid' land 0x8000) > 0
-           ; pid
-           ; packet    = get_ts_error_packet el
-           ; param_1   = get_ts_error_param_1 el
-           ; param_2   = get_ts_error_param_2 el
-           } :: acc
-        | None -> acc) iter []
+        { timestamp
+        ; count     = get_ts_error_count el
+        ; err_code
+        ; err_ext   = get_ts_error_err_ext el
+        ; priority  = prioriry_of_err_code err_code
+        ; multi_pid = (pid' land 0x8000) > 0
+        ; pid
+        ; packet    = get_ts_error_packet el
+        ; param_1   = get_ts_error_param_1 el
+        ; param_2   = get_ts_error_param_2 el
+        } :: acc) iter []
     |> List.sort compare
     |> Pair.make stream_id
 
@@ -749,8 +743,7 @@ module T2mi_errors : (Event with type msg := Stream.id * (Errors.t list)) = stru
         ; pid
         ; packet    = 0l
         ; param_1   = param
-        ; param_2   = Int32.of_int x.stream_id
-      }) count
+        ; param_2   = Int32.of_int x.stream_id }) count
 
   (* Convert t2mi advanced errors with 'code' = 0 to common t2mi error type *)
   let convert_other timestamp pid (other:t2mi_error_adv_raw list) : t list =
@@ -764,8 +757,7 @@ module T2mi_errors : (Event with type msg := Stream.id * (Errors.t list)) = stru
         ; pid
         ; packet    = 0l
         ; param_1   = Int32.of_int x.param
-        ; param_2   = Int32.of_int x.stream_id
-      }) other
+        ; param_2   = Int32.of_int x.stream_id }) other
 
   (* Convert ts parser flags to common t2mi error type *)
   let convert_ts timestamp pid (ts:int list) : t list =
@@ -783,17 +775,17 @@ module T2mi_errors : (Event with type msg := Stream.id * (Errors.t list)) = stru
 
   let compare = fun x y -> Time.compare x.timestamp y.timestamp
 
-  let of_cbuffer msg : Stream.id * (t list) =
+  let parse msg : Stream.id * (t list) =
     let timestamp   = Common.Time.Clock.now () in
-    let common,rest = Cbuffer.split msg sizeof_t2mi_errors in
+    let common,rest = Cstruct.split msg sizeof_t2mi_errors in
     let number      = get_t2mi_errors_count common in
-    let errors,_    = Cbuffer.split rest (number * sizeof_t2mi_error) in
+    let errors,_    = Cstruct.split rest (number * sizeof_t2mi_error) in
     let stream_id   = Common.Stream.id_of_int32 (get_t2mi_errors_stream_id common) in
     let pid         = get_t2mi_errors_pid common in
     let _           = int_to_t2mi_sync_list (get_t2mi_errors_sync common) in
-    let iter        = Cbuffer.iter (fun _ -> Some sizeof_t2mi_error) (fun buf -> buf) errors in
+    let iter        = Cstruct.iter (fun _ -> Some sizeof_t2mi_error) (fun buf -> buf) errors in
     let cnt,adv,oth =
-      Cbuffer.fold (fun (cnt,adv,oth) el ->
+      Cstruct.fold (fun (cnt,adv,oth) el ->
           let index = get_t2mi_error_index el in
           let data  = get_t2mi_error_data el in
           let code  = index lsr 4 in
@@ -807,7 +799,7 @@ module T2mi_errors : (Event with type msg := Stream.id * (Errors.t list)) = stru
                  if code = 0 (* t2mi parser error *)
                  then cnt,adv,((f t2mi_parser_error_code)::oth)
                  else cnt,((f code)::adv),oth)
-                   iter ([],[],[])
+        iter ([],[],[])
     in
     let pe = get_t2mi_errors_err_flags common in
     let ts = List.filter_map (fun x -> if pe land (Int.pow 2 x) <> 0 then Some x else None)
@@ -827,46 +819,46 @@ end
 let try_parse f x = try Some (f x) with _ -> None
 
 let parse_get_board_info = function
-  | `Board_info buf -> try_parse Get_board_info.of_cbuffer buf
+  | `Board_info buf -> try_parse Get_board_info.parse buf
   |  _ -> None
 
 let parse_get_board_mode = function
-  | `Board_mode buf -> try_parse Get_board_mode.of_cbuffer buf
+  | `Board_mode buf -> try_parse Get_board_mode.parse buf
   | _ -> None
 
 let parse_get_board_errors id = function
   | `Board_errors (r_id,buf) when r_id = id ->
-     Option.map (fun x -> Board_errors x) @@ try_parse Get_board_errors.of_cbuffer buf
+     Option.map (fun x -> Board_errors x) @@ try_parse Get_board_errors.parse buf
   | _ -> None
 
 let parse_get_section ({request_id=id;params={table_id;_}}:section_req) = function
   | `Section (r_id,buf) when r_id = id ->
      let open Streams.TS in
-     Option.map (Result.map (fun x -> { x with table_id })) @@ try_parse Get_section.of_cbuffer buf
+     Option.map (Result.map (fun x -> { x with table_id })) @@ try_parse Get_section.parse buf
   | _ -> None
 
 let parse_get_t2mi_frame_seq ({request_id=id;_} : t2mi_frame_seq_req) = function
-  | `T2mi_frame_seq (r_id,buf) when r_id = id -> try_parse Get_t2mi_frame_seq.of_cbuffer buf
+  | `T2mi_frame_seq (r_id,buf) when r_id = id -> try_parse Get_t2mi_frame_seq.parse buf
   | _ -> None
 
 let parse_get_jitter ({request_id=id;pointer=ptr;_}:jitter_req) = function
   | `Jitter (r_id,pointer,buf) when id = r_id && Int32.equal ptr pointer->
-     Option.map (fun x -> Jitter x) @@ try_parse Get_jitter.of_cbuffer buf
+     Option.map (fun x -> Jitter x) @@ try_parse Get_jitter.parse buf
   | _ -> None
 
 let parse_get_ts_structs id = function
   | `Struct (r_id,_,buf) when r_id = id ->
-     Option.map (fun x -> Struct x) @@ try_parse Get_ts_structs.of_cbuffer buf
+     Option.map (fun x -> Struct x) @@ try_parse Get_ts_structs.parse buf
   | _ -> None
 
 let parse_get_bitrates id = function
   | `Bitrates (r_id,_,buf) when id = r_id ->
-     Option.map (fun x -> Bitrate x) @@ try_parse Get_bitrates.of_cbuffer buf
+     Option.map (fun x -> Bitrate x) @@ try_parse Get_bitrates.parse buf
   | _ -> None
 
 let parse_get_t2mi_info ({request_id=id;stream_id=sid;_} : t2mi_info_req) = function
   | `T2mi_info (r_id,_,stream_id,buf) when r_id = id && stream_id = sid ->
-     Option.map (fun x -> T2mi_info x) @@ try_parse Get_t2mi_info.of_cbuffer buf
+     Option.map (fun x -> T2mi_info x) @@ try_parse Get_t2mi_info.parse buf
   | _ -> None
 
 let is_response (type a) (req : a request) msg : a option =
@@ -891,7 +883,7 @@ module Make(M : sig val log_fmt : string -> string end) = struct
            | Bad_msg_code         of int
            | Bad_crc              of int * int * int
            | No_prefix_after_msg  of int
-           | Insufficient_payload of Cbuffer.t
+           | Insufficient_payload of Cstruct.t
            | Unknown_err          of string
 
   let string_of_err = function
@@ -909,7 +901,7 @@ module Make(M : sig val log_fmt : string -> string end) = struct
     if prefix <> prefix' then Error (Bad_prefix prefix') else Ok buf
 
   let check_msg_code buf =
-    let hdr,rest = Cbuffer.split buf sizeof_common_header in
+    let hdr,rest = Cstruct.split buf sizeof_common_header in
     let code     = get_common_header_msg_code hdr in
     let has_crc  = (code land 2) > 0 in
     let length   = (match code lsr 8 with
@@ -929,21 +921,21 @@ module Make(M : sig val log_fmt : string -> string end) = struct
 
   let check_length (len,has_crc,code,rest') =
     if len > 512 - sizeof_common_header then Error (Bad_length len)
-    else let body,rest = Cbuffer.split rest' len in
+    else let body,rest = Cstruct.split rest' len in
          Ok (has_crc,code,body,rest)
 
   let check_next_prefix ((code,_,rest) as x) =
-    if Cbuffer.len rest < sizeof_common_header then Ok x
+    if Cstruct.len rest < sizeof_common_header then Ok x
     else (match check_prefix rest with
           | Ok _    -> Ok x
           | Error _ -> Error (No_prefix_after_msg code))
 
   let check_crc (code,body,rest) =
-    let b         = Cbuffer.create 2 |> (fun b -> Cbuffer.LE.set_uint16 b 0 code; b) in
-    let body,crc' = Cbuffer.split body ((Cbuffer.len body) - 2) in
-    let iter      = Cbuffer.iter (fun _ -> Some 2) (fun buf -> Cbuffer.LE.get_uint16 buf 0) (Cbuffer.append b body) in
-    let crc       = (Cbuffer.fold (fun acc el -> el + acc) iter 0) land 0xFFFF in
-    let crc'      = Cbuffer.LE.get_uint16 crc' 0 in
+    let b         = Cstruct.create 2 |> (fun b -> Cstruct.LE.set_uint16 b 0 code; b) in
+    let body,crc' = Cstruct.split body ((Cstruct.len body) - 2) in
+    let iter      = Cstruct.iter (fun _ -> Some 2) (fun buf -> Cstruct.LE.get_uint16 buf 0) (Cstruct.append b body) in
+    let crc       = (Cstruct.fold (fun acc el -> el + acc) iter 0) land 0xFFFF in
+    let crc'      = Cstruct.LE.get_uint16 crc' 0 in
     if crc <> crc' then Error (Bad_crc (code,crc,crc')) else Ok (code,body,rest)
 
   let get_msg buf =
@@ -962,18 +954,18 @@ module Make(M : sig val log_fmt : string -> string end) = struct
       (match code lsr 8 with
        | x when x = Get_board_info.rsp_code -> `R (`Board_info body)
        | x when x = Get_board_mode.rsp_code -> `R (`Board_mode body)
-       | x when x = Status.msg_code         -> `E (`Status        (Status.of_cbuffer body))
-       | x when x = Ts_errors.msg_code      -> `E (`Ts_errors     (Ts_errors.of_cbuffer body))
-       | x when x = T2mi_errors.msg_code    -> `E (`T2mi_errors   (T2mi_errors.of_cbuffer body))
-       | x when x = TS_streams.msg_code     -> `E (`Streams_event (TS_streams.of_cbuffer body))
+       | x when x = Status.msg_code         -> `E (`Status        (Status.parse body))
+       | x when x = Ts_errors.msg_code      -> `E (`Ts_errors     (Ts_errors.parse body))
+       | x when x = T2mi_errors.msg_code    -> `E (`T2mi_errors   (T2mi_errors.parse body))
+       | x when x = TS_streams.msg_code     -> `E (`Streams_event (TS_streams.parse body))
        | 0xFD -> `E `End_of_errors
        | 0xFF -> `N (* exit from receive loop *)
        | 0x09 -> let code_ext = get_complex_rsp_header_code_ext body in
                  let long     = code_ext land 0x2000 <> 0 in
                  let parity   = if code_ext land 0x1000 <> 0 then 1 else 0 in
-                 let data'    = if long then Cbuffer.shift body sizeof_complex_rsp_header_ext
-                                else Cbuffer.shift body sizeof_complex_rsp_header in
-                 let data,_   = Cbuffer.split data' (Cbuffer.len data' - parity) in
+                 let data'    = if long then Cstruct.shift body sizeof_complex_rsp_header_ext
+                                else Cstruct.shift body sizeof_complex_rsp_header in
+                 let data,_   = Cstruct.split data' (Cstruct.len data' - parity) in
                  let part     = { first = code_ext land 0x8000 <> 0
                                 ; param = Int32.mul 2l (if long then get_complex_rsp_header_ext_param body
                                                         else Int32.of_int @@ get_complex_rsp_header_param body)
@@ -1002,7 +994,7 @@ module Make(M : sig val log_fmt : string -> string end) = struct
       let data = (r_id,msg) in
       (match code with
        | x when x = Get_board_errors.rsp_code   -> `ER (`Board_errors data)
-       | x when x = Get_section.rsp_code        -> Get_section.of_cbuffer msg |> ignore;
+       | x when x = Get_section.rsp_code        -> Get_section.parse msg |> ignore;
                                                    `R  (`Section data)
        | x when x = Get_t2mi_frame_seq.rsp_code -> `R  (`T2mi_frame_seq data)
        | x when x = Get_jitter.rsp_code         -> `ER (`Jitter (r_id,(get_jitter_req_ptr msg),msg))
@@ -1024,13 +1016,17 @@ module Make(M : sig val log_fmt : string -> string end) = struct
   let try_compose_parts ((id,gp) as x) =
     let gp = List.sort (fun x y -> if x.first then (-1)
                                    else if y.first then 1
-                                   else Int32.compare x.param y.param) gp in
+                                   else Int32.compare x.param y.param) gp
+    in
     let first,rest = List.hd_tl gp in
-    try (let acc = List.fold_left (fun acc x -> if Int32.equal x.param (Int32.of_int (Cbuffer.len acc))
-                                                then Cbuffer.append acc x.data
-                                                else failwith "Incorrect part offset")
-                     first.data rest in
-         if Int32.equal first.param (Int32.of_int (Cbuffer.len acc)) then `F (id,acc) else `P x)
+    try
+      let acc =
+        List.fold_left (fun acc x ->
+            if Int32.equal x.param (Int32.of_int (Cstruct.len acc))
+            then Cstruct.append acc x.data else failwith "Incorrect part offset")
+          first.data rest
+      in
+      if Int32.equal first.param (Int32.of_int (Cstruct.len acc)) then `F (id,acc) else `P x
     with e ->
       Logs.warn (fun m ->
           let s = M.log_fmt @@ Printf.sprintf "failure while composing complex message parts: %s"
@@ -1039,7 +1035,7 @@ module Make(M : sig val log_fmt : string -> string end) = struct
 
   let deserialize parts buf =
     let rec f events event_rsps rsps parts b =
-      if Cbuffer.len b >= sizeof_common_header
+      if Cstruct.len b >= sizeof_common_header
       then match get_msg b with
            | Ok (code,bdy,rest) -> (match parse_simple_msg (code,bdy,parts) with
                                     | `E x  -> f (x::events) event_rsps rsps parts rest
@@ -1052,22 +1048,25 @@ module Make(M : sig val log_fmt : string -> string end) = struct
                | Insufficient_payload x -> List.(rev events, rev event_rsps, rev rsps, rev parts, x)
                | e -> Logs.warn (fun m -> let s = Printf.sprintf "parser error: %s" @@ string_of_err e in
                                           m "%s" @@ M.log_fmt s);
-                      f events event_rsps rsps parts (Cbuffer.shift b 1))
+                      f events event_rsps rsps parts (Cstruct.shift b 1))
       else List.(rev events, rev event_rsps, rev rsps, rev parts, b) in
     let ev,ev_rsps,rsps,parts,res = f [] [] [] parts buf in
-    let parts = List.filter (fun (_,x) -> let first_msgs = List.find_all (fun x -> x.first) x in
-                                          match first_msgs with
-                                          | [_] -> true
-                                          | _   -> false) parts in
-    let ev_rsps,rsps,parts = List.fold_left (fun acc x -> let e,r,p = acc in
-                                                          (match try_compose_parts x with
-                                                           | `F x -> (match (parse_complex_msg x) with
-                                                                      | `ER x -> x::e,r,p
-                                                                      | `R x -> e,x::r,p
-                                                                      | `N   -> acc)
-                                                           | `P x -> e,r,x::p
-                                                           | `N   -> e,r,p))
-                               (ev_rsps,rsps,[]) parts in
-    ev, ev_rsps, rsps, parts, if Cbuffer.len res > 0 then Some res else None
+    let parts = List.filter (fun (_,x) ->
+                    let first_msgs = List.find_all (fun x -> x.first) x in
+                    match first_msgs with
+                    | [_] -> true
+                    | _   -> false) parts
+    in
+    let ev_rsps,rsps,parts =
+      List.fold_left (fun ((e,r,p) as acc) x ->
+          match try_compose_parts x with
+          | `F x -> (match (parse_complex_msg x) with
+                     | `ER x -> x::e,r,p
+                     | `R x  -> e,x::r,p
+                     | `N    -> acc)
+          | `P x -> e,r,x::p
+          | `N   -> e,r,p)
+        (ev_rsps,rsps,[]) parts
+    in ev, ev_rsps, rsps, parts, if Cstruct.len res > 0 then Some res else None
 
 end

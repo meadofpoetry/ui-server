@@ -19,11 +19,6 @@ module Model : Storage.Database.MODEL = struct
   let tables = ["ip_status", init, None]
 end
 
-module Conn = Storage.Database.Make(Model)
-
-type t = Conn.t
-             
-let insert_status db (s : board_status) =
   let insert =
     Caqti_request.exec Caqti_type.(tup3 int int bool)
       {|INSERT INTO ip_status(bitrate,fec_delay,pcr_present)
