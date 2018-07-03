@@ -155,7 +155,7 @@ let handler api events =
              ; create_handler ~docstring:"Returns current jitter measure mode"
                  ~path:Path.Format.("mode/jitter" @/ empty)
                  ~query:Query.empty
-                 (HTTP.mode `T2MI api)
+                 (HTTP.mode `JITTER api)
              ; create_handler ~docstring:"Returns current board description, if available"
                  ~path:Path.Format.("info" @/ empty)
                  ~query:Query.empty
