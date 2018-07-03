@@ -239,36 +239,40 @@ module SM = struct
          end
     in sender buf
 
-  let send (type a) msgs sender (storage:config storage) (pe:push_events) timeout (msg:a request) : a Lwt.t =
-    let t, w = Lwt.wait () in
-    let pred = function
-      | `Timeout -> Lwt.wakeup_exn w (Failure "msg timeout"); None
-      | l -> let open Option in
-             is_response msg l >|= fun r ->
-             (* FIXME previous value in response, investigate why *)
-             let c = storage#get in
-             let c = match msg with
-               | Nw (Set_ip x)            -> Some {c with nw = {c.nw with ip        = x }}
-               | Nw (Set_mask x)          -> Some {c with nw = {c.nw with mask      = x }}
-               | Nw (Set_gateway x)       -> Some {c with nw = {c.nw with gateway   = x }}
-               | Nw (Set_dhcp x)          -> Some {c with nw = {c.nw with dhcp      = x }}
-               | Ip (Set_enable x)        -> Some {c with ip = {c.ip with enable    = x }}
-               | Ip (Set_fec_enable x)    -> Some {c with ip = {c.ip with fec       = x }}
-               | Ip (Set_udp_port x)      -> Some {c with ip = {c.ip with port      = x }}
-               | Ip (Set_method x)        -> (match x with
-                                              | Unicast   -> Some {c with ip = {c.ip with multicast = None }}
-                                              | Multicast -> None)
-               | Ip (Set_mcast_addr x)    -> Some {c with ip = {c.ip with multicast = Some x }}
-               | Ip (Set_delay x)         -> Some {c with ip = {c.ip with delay     = x }}
-               | Ip (Set_rate_est_mode x) -> Some {c with ip = {c.ip with rate_mode = x }}
-               | _ -> None
-             in
-             let () = Option.iter (fun c -> pe.config c; storage#store c) c in
-             Lwt.wakeup w r
-    in
-    let send = fun () -> send_msg sender msg in
-    msgs := Queue.append !msgs { send; pred; timeout; exn = None };
-    t
+  let send (type a) state msgs sender (storage:config storage) (pe:push_events)
+        timeout (msg:a request) : a Lwt.t =
+    match React.S.value state with
+    | `Fine ->
+       let t, w = Lwt.wait () in
+       let pred = function
+         | `Timeout -> Lwt.wakeup_exn w (Failure "msg timeout"); None
+         | l -> let open Option in
+                is_response msg l >|= fun r ->
+                (* FIXME previous value in response, investigate why *)
+                let c = storage#get in
+                let c = match msg with
+                  | Nw (Set_ip x)            -> Some {c with nw = {c.nw with ip        = x }}
+                  | Nw (Set_mask x)          -> Some {c with nw = {c.nw with mask      = x }}
+                  | Nw (Set_gateway x)       -> Some {c with nw = {c.nw with gateway   = x }}
+                  | Nw (Set_dhcp x)          -> Some {c with nw = {c.nw with dhcp      = x }}
+                  | Ip (Set_enable x)        -> Some {c with ip = {c.ip with enable    = x }}
+                  | Ip (Set_fec_enable x)    -> Some {c with ip = {c.ip with fec       = x }}
+                  | Ip (Set_udp_port x)      -> Some {c with ip = {c.ip with port      = x }}
+                  | Ip (Set_method x)        -> (match x with
+                                                 | Unicast   -> Some {c with ip = {c.ip with multicast = None }}
+                                                 | Multicast -> None)
+                  | Ip (Set_mcast_addr x)    -> Some {c with ip = {c.ip with multicast = Some x }}
+                  | Ip (Set_delay x)         -> Some {c with ip = {c.ip with delay     = x }}
+                  | Ip (Set_rate_est_mode x) -> Some {c with ip = {c.ip with rate_mode = x }}
+                  | _ -> None
+                in
+                let () = Option.iter (fun c -> pe.config c; storage#store c) c in
+                Lwt.wakeup w r
+       in
+       let send = fun () -> send_msg sender msg in
+       msgs := Queue.append !msgs { send; pred; timeout; exn = None };
+       t
+    | _ -> Lwt.fail (Failure "board is not responding")
 
   let step msgs sender (storage:config storage) step_duration (pe:push_events) log_prefix =
     let reboot_steps = 7 in
@@ -277,10 +281,10 @@ module SM = struct
 
     let module Parser = Board_parser.Make(struct let log_prefix = log_prefix end) in
     let module Probes = Make_probes(struct
-                                     let duration = step_duration
-                                     let send     = send_msg sender
-                                     let timeout  = Timer.steps ~step_duration timeout
-                                   end) in
+                            let duration = step_duration
+                            let send     = send_msg sender
+                            let timeout  = Timer.steps ~step_duration timeout
+                          end) in
 
     let send x = send_msg sender x |> ignore in
 
@@ -707,7 +711,7 @@ module SM = struct
       }
     in
     let msgs   = ref (Queue.create []) in
-    let send x = send msgs sender storage pe (Boards.Timer.steps ~step_duration 2) x in
+    let send x = send state msgs sender storage pe (Boards.Timer.steps ~step_duration 2) x in
     let fmt fmt = let fs = "%s" ^^ fmt in Printf.sprintf fs log_prefix in
     let log n s = Logs.info (fun m -> m "%s" @@ fmt "got %s set request: %s" n s) in
     let api =

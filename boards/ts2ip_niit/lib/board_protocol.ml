@@ -57,17 +57,20 @@ module SM = struct
      | Set_board_mode (nw,p) -> Set_board_mode.serialize (nw,p))
     |> sender
 
-  let enqueue_instant (type a) msgs sender storage (msg:a instant_request) : unit Lwt.t =
-    let t,w = Lwt.wait () in
-    let send = fun () -> (send_instant sender msg) >>= (fun x -> Lwt.return @@ Lwt.wakeup w x) in
-    let pred = fun _  -> None in
-    let conf = storage#get in
-    let _    = match msg with
-      | Set_board_mode (nw,packers) -> storage#store ({ conf with nw_mode = nw; packers }:config)
-      | _                           -> ()
-    in
-    msgs := Queue.append !msgs { send; pred; timeout = 0; exn = None };
-    t
+  let enqueue_instant (type a) state msgs sender storage (msg:a instant_request) : unit Lwt.t =
+    match React.S.value state with
+    | `Fine ->
+       let t,w = Lwt.wait () in
+       let send = fun () -> (send_instant sender msg) >>= (fun x -> Lwt.return @@ Lwt.wakeup w x) in
+       let pred = fun _  -> None in
+       let conf = storage#get in
+       let _    = match msg with
+         | Set_board_mode (nw,packers) -> storage#store ({ conf with nw_mode = nw; packers }:config)
+         | _                           -> ()
+       in
+       msgs := Queue.append !msgs { send; pred; timeout = 0; exn = None };
+       t
+    | _ -> Lwt.fail (Failure "board is not responding")
 
   let step msgs imsgs sender (storage:config storage) step_duration (pe:push_events) log_prefix =
 
@@ -245,20 +248,20 @@ module SM = struct
     let api =
       { set_nw_mode = (fun (x:nw_settings) ->
           let ss = storage#get.packers in
-          enqueue_instant imsgs sender storage (Set_board_mode (x,ss))
+          enqueue_instant state imsgs sender storage (Set_board_mode (x,ss))
           >>= (fun _ -> config_push storage#get; Lwt.return_unit))
 
       ; set_streams = (fun (x:Stream.t list) ->
         match Streams_setup.simple board (React.S.value devinfo) x with
         | Ok x    -> let nw = storage#get.nw_mode in
-                     enqueue_instant imsgs sender storage (Set_board_mode (nw,x))
+                     enqueue_instant state imsgs sender storage (Set_board_mode (nw,x))
                      >>= (fun _ -> config_push storage#get; Lwt.return_ok ())
         | Error e -> Lwt.return_error e)
 
       ; set_packers = (fun (x:stream_settings list) ->
         match Streams_setup.full board (React.S.value devinfo) x with
         | Ok x    -> let nw = storage#get.nw_mode in
-                     enqueue_instant imsgs sender storage (Set_board_mode (nw,x))
+                     enqueue_instant state imsgs sender storage (Set_board_mode (nw,x))
                      >>= (fun _ -> config_push storage#get; Lwt.return_ok ())
         | Error e -> Lwt.return_error e)
 

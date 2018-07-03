@@ -53,12 +53,14 @@ module HTTP = struct
 
   let nw_setter (api:api) (nw:Board_types.nw) =
     let open Lwt.Infix in
-    api.set_ip nw.ip
-    >>= fun ip   -> api.set_mask nw.mask
-    >>= fun mask -> api.set_gateway nw.gateway
-    >>= fun gw   -> api.set_dhcp nw.dhcp
-    >>= fun dhcp -> api.reset ()
-    >>= fun _    -> Lwt.return { ip; mask; gateway = gw; dhcp }
+    match equal_nw nw (api.get_config ()).nw with
+    | true  -> Lwt.return nw
+    | false -> api.set_ip nw.ip
+               >>= fun ip   -> api.set_mask nw.mask
+               >>= fun mask -> api.set_gateway nw.gateway
+               >>= fun gw   -> api.set_dhcp nw.dhcp
+               >>= fun dhcp -> api.reset ()
+               >>= fun _    -> Lwt.return { ip; mask; gateway = gw; dhcp }
 
   let set_mode (api:api) _ body () =
     set (nw_setter api) nw_of_yojson nw_to_yojson body

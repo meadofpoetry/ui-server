@@ -308,7 +308,7 @@ module SM = struct
           | None   -> None)
       id config
 
-  let send_msg (type a) sender (msg : a request) : unit Lwt.t =
+  let send_msg (type a) sender (msg:a request) : unit Lwt.t =
     (match msg with
      | Get_devinfo      -> to_devinfo_req false
      | Reset            -> to_devinfo_req true
@@ -316,28 +316,30 @@ module SM = struct
      | Set_plp (id,plp) -> to_plp_set_req id plp)
     |> sender
 
-  let send_event (type a) sender (msg : a event_request) : unit Lwt.t =
-    (* no instant msgs *)
-    match msg with
-    | Get_measure  id -> sender @@ to_measure_req  id
-    | Get_params   id -> sender @@ to_params_req   id
-    | Get_plp_list id -> sender @@ to_plp_list_req id
+  let send_event (type a) sender (msg:a event_request) : unit Lwt.t =
+    (match msg with
+     | Get_measure  id -> to_measure_req id
+     | Get_params   id -> to_params_req id
+     | Get_plp_list id -> to_plp_list_req id)
+    |> sender
 
-  let send (type a) msgs sender (pe:push_events) timeout (msg : a request) : a Lwt.t =
-    (* no instant msgs *)
-    let t, w = Lwt.wait () in
-    let pred = function
-      | `Timeout -> Lwt.wakeup_exn w (Failure "msg timeout"); None
-      | l -> let open Option in
-             is_response msg l >|= fun r ->
-             (match msg with
-              | Set_mode _ -> pe.mode ((fst r),(snd r).mode)
-              | _ -> ());
-             Lwt.wakeup w r
-    in
-    let send = fun () -> send_msg sender msg in
-    msgs := Queue.append !msgs { send; pred; timeout; exn = None };
-    t
+  let send (type a) state msgs sender (pe:push_events) timeout (msg:a request) : a Lwt.t =
+    match React.S.value state with
+    | `Fine ->
+       let t, w = Lwt.wait () in
+       let pred = function
+         | `Timeout -> Lwt.wakeup_exn w (Failure "msg timeout"); None
+         | l -> let open Option in
+                is_response msg l >|= fun r ->
+                (match msg with
+                 | Set_mode _ -> pe.mode ((fst r),(snd r).mode)
+                 | _ -> ());
+                Lwt.wakeup w r
+       in
+       let send = fun () -> send_msg sender msg in
+       msgs := Queue.append !msgs { send; pred; timeout; exn = None };
+       t
+    | _ -> Lwt.fail (Failure "board is not responding")
 
   let initial_timeout = -1
 
@@ -511,7 +513,7 @@ module SM = struct
                            id,({ m with freq = Some (x - freq) }:measures)
         | _             -> id,{ m with freq = None }) e
 
-  let create (log_prefix:string) sender (storage : config storage) step_duration =
+  let create (log_prefix:string) sender (storage:config storage) step_duration =
     let s_devinfo,devinfo_push   = React.S.create None in
     let e_mode,mode_push         = React.E.create () in
     let e_lock,lock_push         = React.E.create () in
@@ -557,7 +559,7 @@ module SM = struct
     in
     let msgs    = ref (Queue.create []) in
     let steps   = Boards.Timer.steps ~step_duration timeout in
-    let send x  = send msgs sender push_events steps x in
+    let send x  = send s_state msgs sender push_events steps x in
     let fmt fmt = let fs = "%s" ^^ fmt in Printf.sprintf fs log_prefix in
     let api : api  =
       { get_devinfo  = (fun () -> Lwt.return @@ React.S.value s_devinfo)
