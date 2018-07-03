@@ -1,15 +1,15 @@
-let to_period x step_duration = x * int_of_float (1. /. step_duration)
-
-type t = { v : int; count : int; step : float }
+type t = { v : int; steps : int; step_duration : float }
 
 exception Timeout of t
 
-let create ~step s =
-  { v = s; count = to_period s step; step }
+let steps ~step_duration seconds = seconds * int_of_float (1. /. step_duration)
+
+let create ~step_duration seconds =
+  { v = seconds; steps = steps ~step_duration seconds; step_duration }
 let period (t:t)   = t.v
 
-let reset (t:t)    = { t with count = to_period t.v t.step }
+let reset (t:t)    = { t with steps = steps ~step_duration:t.step_duration t.v }
 
-let step (t:t)     = match pred t.count with
+let step (t:t)     = match pred t.steps with
   | x when x < 0 -> raise_notrace (Timeout t)
-  | count        -> { t with count }
+  | steps        -> { t with steps }

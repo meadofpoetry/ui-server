@@ -11,8 +11,6 @@ let status_timeout = 8 (* seconds *)
 let detect_timeout = 3 (* seconds *)
 let probes_timeout = 5 (* seconds *)
 
-let to_period x step_duration = x * int_of_float (1. /. step_duration)
-
 module Timer = Boards.Timer
 
 module Acc = struct
@@ -53,13 +51,13 @@ module SM = struct
   end = struct
 
     let event_to_string : event -> string = function
-      | `Status x           -> Printf.sprintf "Status(ver=%d)" x.version
-      | `Streams_event x    -> Printf.sprintf "Streams(len=%d)" (List.length x)
+      | `Status x           -> Printf.sprintf "status: %s" (show_status_raw x)
+      | `Streams_event x    -> Printf.sprintf "streams: %s" (show_streams x)
       | `T2mi_errors (id,e) -> let id = Stream.id_to_int32 id in
                                Printf.sprintf "T2-MI errors(stream=%ld,len=%d)" id (List.length e)
       | `Ts_errors (id,e)   -> let id = Stream.id_to_int32 id in
                                Printf.sprintf "TS errors(stream=%ld,len=%d)" id (List.length e)
-      | `End_of_errors      -> "End of errors"
+      | `End_of_errors      -> "end of errors"
 
     let group_to_string (g:group) : string =
       let e = String.concat "; " (List.map event_to_string g.events) in
@@ -235,12 +233,14 @@ module SM = struct
                       | Bitrate x      -> pe.bitrates x) acc.probes;
     { acc with probes = [] }
 
-  let sm_step msgs imsgs sender (storage:config storage) step (pe:push_events) (fmt:string -> string) =
+  let step msgs imsgs sender (storage:config storage) step_duration (pe:push_events) (log_prefix:string) =
     let board_info_err_msg = "board info was received during normal operation, restarting..." in
     let no_status_msg t    = Printf.sprintf "no status received for %d seconds, restarting..."
                                (Timer.period t) in
 
-    let module Parser = Make(struct let log_fmt = fmt end) in
+    let module Parser = Board_parser.Make(struct let log_prefix = log_prefix end) in
+
+    let fmt fmt = let fs = "%s" ^^ fmt in Printf.sprintf fs log_prefix in
 
     let deserialize (acc:Acc.t) recvd =
       let events,probes,rsps,parts,bytes = Parser.deserialize acc.parts (concat_acc acc.bytes recvd) in
@@ -251,7 +251,7 @@ module SM = struct
           let pre = "received group(s)" in
           let gps = List.map (fun x -> "[" ^ Events.group_to_string x ^ "]") groups
                     |> String.concat "; "
-          in m "%s" @@ fmt @@ Printf.sprintf "%s: %s" pre gps) in
+          in m "%s" @@ fmt "%s: %s" pre gps) in
 
     let log_events (events:event list) =
       Logs.debug (fun m ->
@@ -259,7 +259,7 @@ module SM = struct
           | [] -> ()
           | ev -> let pre = "received events" in
                   let evs = List.map Events.event_to_string ev |> String.concat "; " in
-                  m "%s" @@ fmt @@ Printf.sprintf "%s: [%s]" pre evs) in
+                  m "%s" @@ fmt "%s: [%s]" pre evs) in
 
     let handle_msgs rsps =
       if Await_queue.has_pending !msgs
@@ -277,7 +277,7 @@ module SM = struct
       imsgs := Queue.create [];
       pe.state `No_response;
       send_msg sender Get_board_info |> Lwt.ignore_result;
-      `Continue (step_detect (Timer.create ~step detect_timeout) Acc.empty)
+      `Continue (step_detect (Timer.create ~step_duration detect_timeout) Acc.empty)
 
     and step_detect (timer:Timer.t) (acc:Acc.t) recvd =
       try
@@ -291,12 +291,11 @@ module SM = struct
            send_instant sender (Set_board_mode { t2mi=t2mi_mode; input }) |> Lwt.ignore_result;
            send_instant sender (Set_jitter_mode jitter_mode) |> Lwt.ignore_result;
            Logs.info (fun m -> m "%s" @@ fmt "connection established, waiting for 'status' message");
-           `Continue (step_ok_idle (Timer.create ~step status_timeout) acc)
+           `Continue (step_ok_idle (Timer.create ~step_duration status_timeout) acc)
       with Timer.Timeout t ->
         (Logs.warn (fun m ->
-             let s = Printf.sprintf "connection is not established after %d seconds, restarting..."
-                       (Timer.period t)
-             in m "%s" @@ fmt s);
+             let s = fmt "connection is not established after %d seconds, restarting..." (Timer.period t) in
+             m "%s" s);
          first_step ())
 
     and step_ok_idle (timer:Timer.t) (acc:Acc.t) recvd =
@@ -317,17 +316,17 @@ module SM = struct
             let stack = Events.get_req_stack group acc.group in
             let pool  = List.map (fun req -> { send    = (fun () -> send_event sender req)
                                              ; pred    = (is_probe_response req)
-                                             ; timeout = to_period probes_timeout step
+                                             ; timeout = Timer.steps ~step_duration probes_timeout
                                              ; exn     = None }) stack
                         |> Pool.create
             in
             Logs.debug (fun m ->
                 let pre = "prepared stack of following probe requests" in
                 let stk = String.concat "; " @@ List.map probe_req_to_string stack in
-                m "%s" @@ fmt @@ Printf.sprintf "%s: [%s]" pre stk);
+                m "%s" @@ fmt "%s: [%s]" pre stk);
             step_ok_probes_send pool (Timer.reset timer) { acc with group = Some group })
-      with Unexpected_init -> Logs.warn (fun m -> m "%s" @@ fmt board_info_err_msg); first_step ()
-         | Timer.Timeout t -> Logs.warn (fun m -> m "%s" @@ fmt (no_status_msg t)); first_step ()
+      with Unexpected_init -> Logs.warn (fun m -> m "%s" @@ fmt "%s" board_info_err_msg); first_step ()
+         | Timer.Timeout t -> Logs.warn (fun m -> m "%s" @@ fmt "%s" (no_status_msg t)); first_step ()
 
     and step_ok_probes_send pool (timer:Timer.t) (acc:Acc.t) =
       if Pool.empty pool
@@ -355,16 +354,16 @@ module SM = struct
             Logs.debug (fun m ->
                 let pre = "received probe response of type" in
                 let rsp = probe_rsp_to_string x in
-                m "%s" @@ fmt @@ Printf.sprintf "%s: '%s'" pre rsp);
+                m "%s" @@ fmt "%s: '%s'" pre rsp);
             let acc = { acc with probes = x :: acc.probes } in
             match Pool.last pool with
             | true  -> `Continue (step_ok_idle timer (handle_probes pe acc))
             | false -> step_ok_probes_send (Pool.next pool) timer acc)
-      with Unexpected_init -> Logs.warn (fun m -> m "%s" @@ fmt board_info_err_msg); first_step ()
-         | Timer.Timeout t -> Logs.warn (fun m -> m "%s" @@ fmt (no_status_msg t)); first_step ()
+      with Unexpected_init -> Logs.warn (fun m -> m "%s" @@ fmt "%s" board_info_err_msg); first_step ()
+         | Timer.Timeout t -> Logs.warn (fun m -> m "%s" @@ fmt "%s" (no_status_msg t)); first_step ()
          | Timeout -> Logs.warn (fun m ->
-                          let s = "timeout while waiting for probe response, restarting..." in
-                          m "%s" @@ fmt s);
+                          let s = fmt "timeout while waiting for probe response, restarting..." in
+                          m "%s" s);
                       first_step ()
 
     in first_step ()
@@ -405,7 +404,7 @@ module SM = struct
                                ; t2mi_mode   = x.status.t2mi_mode
                                ; jitter_mode = x.status.jitter_mode }) group
 
-  let create (fmt:string -> string) sender (storage:config storage) step streams_conv =
+  let create (log_prefix:string) sender (storage:config storage) step_duration streams_conv =
     let state,state_push   = S.create `No_response in
     let s_devi,devi_push   = S.create None in
     let e_group,group_push = E.create () in
@@ -458,9 +457,10 @@ module SM = struct
       ; jitter_session = pcr_s_push
       }
     in
-    let msgs   = ref (Await_queue.create []) in
-    let imsgs  = ref (Queue.create []) in
-    let wait = fun ~eq v getter to_req ->
+    let ()    = Lwt_react.S.keep @@ React.S.map (fun c -> storage#store c) s_config in
+    let msgs  = ref (Await_queue.create []) in
+    let imsgs = ref (Queue.create []) in
+    let wait  = fun ~eq v getter to_req ->
       let open Lwt.Infix in
       let s = S.map ~eq getter s_config in
       if eq (S.value s) v then Lwt.return v
@@ -474,26 +474,26 @@ module SM = struct
     in
     let s_ts_states   = to_ts_states_s   events.streams.ts_states in
     let s_t2mi_states = to_t2mi_states_s events.streams.t2mi_states in
+    let fmt fmt = let fs = "%s" ^^ fmt in Printf.sprintf fs log_prefix in
     let api =
       { set_input = (fun i ->
           Logs.info (fun m ->
-              let s = Printf.sprintf "input switch request: %s" (input_to_string i) in
-              m "%s" @@ fmt s);
+              let s = fmt "input switch request: %s" (input_to_string i) in
+              m "%s" s);
           wait ~eq:equal_input i (fun (c:config) -> c.input)
             (fun i -> Set_board_mode { t2mi = storage#get.t2mi_mode; input = i }))
 
       ; set_t2mi_mode = (fun mode ->
         Logs.info (fun m ->
             let md = Option.map_or ~default:"none" show_t2mi_mode mode in
-            m "%s" @@ fmt @@ Printf.sprintf "T2-MI mode change request: %s" md);
+            m "%s" @@ fmt "T2-MI mode change request: %s" md);
         wait ~eq:(Equal.option equal_t2mi_mode) mode (fun c -> c.t2mi_mode)
           (fun m -> Set_board_mode { input = storage#get.input; t2mi = m }))
 
       ; set_jitter_mode = (fun mode ->
         Logs.info (fun m ->
-            let md = Option.
-                     map_or ~default:"none" show_jitter_mode mode in
-            m "%s" @@ fmt @@ Printf.sprintf "Jitter mode change request: %s" md);
+            let md = Option.map_or ~default:"none" show_jitter_mode mode in
+            m "%s" @@ fmt "Jitter mode change request: %s" md);
         wait ~eq:(Equal.option equal_jitter_mode) mode (fun c -> c.jitter_mode)
           (fun m -> Set_jitter_mode m))
 
@@ -503,17 +503,17 @@ module SM = struct
 
       ; get_section = (fun r ->
         Logs.debug (fun m ->
-            let s = section_params_to_yojson r |> Yojson.Safe.to_string in
-            m "%s" @@ fmt @@ Printf.sprintf "Got SI/PSI section request: %s" s);
+            let s = show_section_params r in
+            m "%s" @@ fmt "Got SI/PSI section request: %s" s);
         enqueue state msgs sender (Get_section { request_id = get_id (); params = r })
-          (to_period 125 step) None)
+          (Timer.steps ~step_duration 125) None)
 
       ; get_t2mi_seq = (fun s ->
         let s = Option.get_or ~default:5 s in
         Logs.debug (fun m -> let s = string_of_int s ^ " sec" in
-                             m "%s" @@ fmt @@ Printf.sprintf "Got T2-MI sequence request: %s" s);
+                             m "%s" @@ fmt "Got T2-MI sequence request: %s" s);
         enqueue state msgs sender (Get_t2mi_frame_seq { request_id = get_id (); seconds = s })
-          (to_period (s + 10) step) None)
+          (Timer.steps ~step_duration (s + 10)) None)
 
       ; get_devinfo         = (fun () -> S.value s_devi)
       ; get_ts_states       = (fun () -> S.value s_ts_states)
@@ -523,6 +523,6 @@ module SM = struct
       ; get_t2mi_structures = (fun () -> S.value s_t2mi)
       ; config              = (fun () -> storage#get)
       }
-    in events,api,(sm_step msgs imsgs sender storage step push_events fmt)
+    in events,api,(step msgs imsgs sender storage step_duration push_events log_prefix)
 
 end

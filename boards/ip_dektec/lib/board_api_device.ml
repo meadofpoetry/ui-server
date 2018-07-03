@@ -57,7 +57,8 @@ module HTTP = struct
     >>= fun ip   -> api.set_mask nw.mask
     >>= fun mask -> api.set_gateway nw.gateway
     >>= fun gw   -> api.set_dhcp nw.dhcp
-    >>= fun dhcp -> Lwt.return { ip; mask; gateway = gw; dhcp }
+    >>= fun dhcp -> api.reset ()
+    >>= fun _    -> Lwt.return { ip; mask; gateway = gw; dhcp }
 
   let set_mode (api:api) _ body () =
     set (nw_setter api) nw_of_yojson nw_to_yojson body

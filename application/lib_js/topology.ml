@@ -132,7 +132,7 @@ let create ~(parent: #Widget.widget)
                |> React.E.select
   in
   let drawer,drawer_box,set_drawer_title = Topo_drawer.make ~title:"" () in
-  let _ =
+  let () =
     React.E.map (fun node ->
         rm_children drawer_box#root;
         let error_prefix = "Ошибка при загрузке страницы" in
@@ -145,6 +145,7 @@ let create ~(parent: #Widget.widget)
         let pgs = Ui_templates.Loader.create_widget_loader ~parent:drawer_box ~error_prefix res in
         Lwt.Infix.(drawer#show_await () >>= (fun () -> pgs#iter (fun w -> w#destroy ()); Lwt.return_unit))
         |> Lwt.ignore_result) e_s
+    |> Lwt_react.E.keep
   in
   iter_paths (fun _ x -> Option.iter (fun sw -> Dom.appendChild parent#root sw#root) x#switch;
                          Dom.appendChild svg x#root) nodes;

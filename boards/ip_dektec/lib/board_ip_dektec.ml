@@ -26,11 +26,14 @@ let get_active_ports (ports:topo_port list) =
        | 0 -> React.S.const true
        | x -> raise (Invalid_port ("Board_ip_dektec: invalid_port " ^ (string_of_int x))))
       |> fun x -> Ports.add p.port x acc)
-                 Ports.empty ports
+    Ports.empty ports
+
+let log_prefix control = Printf.sprintf "(Board IP2TS: %d) " control
 
 let create (({control;ports;_} as b):topo_board) _ convert_streams send db_conf base step =
   let storage          = Config_storage.create base ["board"; (string_of_int control)] in
-  let events,api,step  = Board_protocol.SM.create control send storage step in
+  let log_prefix       = log_prefix control in
+  let events,api,step  = Board_protocol.SM.create send storage step log_prefix in
   let handlers = Board_api.handlers control api events in
   (* let db       = Result.get_exn @@ Database.create db_conf in
    * let _s       = Lwt_react.E.map_p (fun s -> Database.request db (Board_model.Store_status s))

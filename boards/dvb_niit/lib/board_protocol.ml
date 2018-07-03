@@ -43,16 +43,14 @@ type api =
 
 (* Board protocol implementation *)
 
-let to_period sec step_duration  = sec * int_of_float (1. /. step_duration)
 let timeout = 3 (* seconds *)
-let request_period step_duration = to_period timeout step_duration
 
-let detect_msgs (send_req : 'a request -> unit Lwt.t) timeout =
+let detect_msgs (send_req : 'a request -> unit Lwt.t) step_duration =
   let req = Get_devinfo in
-  [ { send = (fun () -> send_req req)
-    ; pred = (is_response req)
-    ; timeout
-    ; exn = None
+  [ { send    = (fun () -> send_req req)
+    ; pred    = (is_response req)
+    ; timeout = Boards.Timer.steps ~step_duration timeout
+    ; exn     = None
   } ]
 
 let init_requests =
@@ -63,10 +61,10 @@ let init_requests =
   in
   List.map (fun (id,x) -> Set_mode (get_mode id x))
 
-let init_msgs (send_req  : 'a request -> unit Lwt.t)
-              (timeout   : int)
-              (config    : config)
-              (receivers : int list) =
+let init_msgs (send_req : 'a request -> unit Lwt.t)
+      (step_duration : float)
+      (config        : config)
+      (receivers     : int list) =
   (* If config for a receiver is empty, create default one *)
   let config =
     List.map (fun id ->
@@ -76,11 +74,11 @@ let init_msgs (send_req  : 'a request -> unit Lwt.t)
                        ; t2       = default ()
                        ; t        = default ()
                        ; c        = default () }) receivers in
-  List.map (fun x -> { send = (fun () -> send_req x)
-                     ; pred = (is_response x)
-                     ; timeout
-                     ; exn = None })
-           (init_requests config)
+  List.map (fun x -> { send    = (fun () -> send_req x)
+                     ; pred    = (is_response x)
+                     ; timeout = Boards.Timer.steps ~step_duration timeout
+                     ; exn     = None })
+    (init_requests config)
 
 type event_raw = [ `Measure of int * Cstruct.t
                  | `Params  of int * Cstruct.t
@@ -115,9 +113,11 @@ end
 
 module Make_probes(M:M) : Probes = struct
 
-  let meas_period     = to_period 1 M.duration
-  let plp_list_period = to_period 5 M.duration
-  let params_period   = to_period 5 M.duration
+  open Boards
+
+  let meas_period     = Timer.steps ~step_duration:M.duration 1
+  let plp_list_period = Timer.steps ~step_duration:M.duration 5
+  let params_period   = Timer.steps ~step_duration:M.duration 5
 
   module States = struct
 
@@ -341,23 +341,24 @@ module SM = struct
 
   let initial_timeout = -1
 
-  let step msgs sender (storage : config storage) step_duration (pe:push_events) (fmt:string -> string) =
-    let period      = request_period step_duration in
-    let detect_pool = Pool.create (detect_msgs (send_msg sender) period) in
+  let step msgs sender (storage : config storage) step_duration (pe:push_events) (log_prefix:string) =
+
+    let fmt fmt = let fs = "%s" ^^ fmt in Printf.sprintf fs log_prefix in
 
     let module Probes = Make_probes(struct
-                                     let duration = step_duration
-                                     let send     = send_event sender
-                                     let timeout  = period
-                                   end) in
+                            let duration = step_duration
+                            let send     = send_event sender
+                            let timeout  = Boards.Timer.steps ~step_duration timeout
+                          end) in
 
     let rec first_step () =
       Logs.info (fun m -> m "%s" @@ fmt "start of connection establishment...");
       Queue.iter !msgs wakeup_timeout;
       msgs := Queue.create [];
       pe.state `No_response;
-      Pool.send detect_pool () |> ignore;
-      `Continue (step_detect detect_pool None)
+      let pool = Pool.create (detect_msgs (send_msg sender) step_duration) in
+      Pool.send pool () |> ignore;
+      `Continue (step_detect pool None)
 
     and step_detect detect_pool acc recvd =
       try
@@ -373,20 +374,19 @@ module SM = struct
            `Continue (step_detect (Pool.step detect_pool) acc)
       with Timeout ->
         Logs.warn (fun m ->
-            let s = Printf.sprintf "connection is not established after %d seconds, restarting..." timeout in
-            m "%s" @@ fmt s);
+            let s = fmt "connection is not established after %d seconds, restarting..." timeout in
+            m "%s" s);
         first_step ()
 
     and step_start_init devinfo =
       let probes = Probes.make storage#get devinfo.receivers in
-      match init_msgs (send_msg sender) period storage#get devinfo.receivers with
+      match init_msgs (send_msg sender) step_duration storage#get devinfo.receivers with
       | []  ->
          Logs.debug (fun m -> m "%s" @@ fmt "nothing to initialize, skipping...");
          `Continue (step_ok_tee probes None)
       | lst ->
          Logs.debug (fun m ->
-             let s = Printf.sprintf "found %d receivers to be initialized..." @@ List.length lst in
-             m "%s" @@ fmt s);
+             let s = fmt "found %d receivers to be initialized..." @@ List.length lst in m "%s" s);
          let init_pool = Pool.create lst in
          Pool.send init_pool () |> ignore;
          `Continue (step_init devinfo probes init_pool None)
@@ -401,7 +401,7 @@ module SM = struct
         | Some rsp ->
            Logs.debug (fun m ->
                let s = show_mode_rsp (snd rsp) in
-               m "%s" @@ fmt @@ Printf.sprintf "receiver #%d initialized! mode = %s" (fst rsp) s);
+               m "%s" @@ fmt "receiver #%d initialized! mode = %s" (fst rsp) s);
            (match Pool.last init_pool with
             | true ->
                Logs.info (fun m -> m "%s" @@ fmt "initialization done!");
@@ -412,9 +412,7 @@ module SM = struct
                Pool.send init_pool () |> ignore;
                `Continue (step_init devinfo probes init_pool acc))
       with Timeout ->
-        Logs.warn (fun m ->
-            let s = Printf.sprintf "timeout while initilizing receivers, restarting..." in
-            m "%s" @@ fmt s);
+        Logs.warn (fun m -> m "%s" @@ fmt "timeout while initilizing receivers, restarting...");
         first_step ()
 
     and step_ok_tee probes acc recvd =
@@ -443,16 +441,14 @@ module SM = struct
          | Some ev ->
             Logs.debug (fun m ->
                 let s = show_event ev in
-                m "%s" @@ fmt @@ Printf.sprintf "got probe response: %s" s);
+                m "%s" @@ fmt "got probe response: %s" s);
             let probes = Probes.handle_event pe ev probes in
             if Probes.last probes
             then `Continue (step_ok_tee probes acc)
             else let probes = Probes.next probes in
                  `Continue (step_ok_probes_send probes acc))
       with Timeout ->
-        Logs.warn (fun m ->
-            let s = Printf.sprintf "timeout while waiting for probe response, restarting..." in
-            m "%s" @@ fmt s);
+        Logs.warn (fun m -> m "%s" @@ fmt "timeout while waiting for probe response, restarting...");
         first_step ()
 
     and step_ok_requests_send probes acc _ =
@@ -476,8 +472,8 @@ module SM = struct
            `Continue (step_ok_requests_send probes acc)
       with Timeout ->
         Logs.warn (fun m ->
-            let s = Printf.sprintf "timeout while waiting for client request response, restarting..." in
-            m "%s" @@ fmt s);
+            let s = fmt "timeout while waiting for client request response, restarting..." in
+            m "%s" s);
         first_step ()
 
     in
@@ -515,7 +511,7 @@ module SM = struct
                            id,({ m with freq = Some (x - freq) }:measures)
         | _             -> id,{ m with freq = None }) e
 
-  let create (fmt:string -> string) sender (storage : config storage) step_duration =
+  let create (log_prefix:string) sender (storage : config storage) step_duration =
     let s_devinfo,devinfo_push   = React.S.create None in
     let e_mode,mode_push         = React.E.create () in
     let e_lock,lock_push         = React.E.create () in
@@ -559,12 +555,18 @@ module SM = struct
       ; devinfo  = devinfo_push
       }
     in
-    let msgs = ref (Queue.create []) in
-    let send x = send msgs sender push_events (request_period step_duration) x in
+    let msgs    = ref (Queue.create []) in
+    let steps   = Boards.Timer.steps ~step_duration timeout in
+    let send x  = send msgs sender push_events steps x in
+    let fmt fmt = let fs = "%s" ^^ fmt in Printf.sprintf fs log_prefix in
     let api : api  =
       { get_devinfo  = (fun () -> Lwt.return @@ React.S.value s_devinfo)
-      ; reset        = (fun () -> send Reset)
-      ; set_mode     = (fun r  -> send (Set_mode r))
+      ; reset        = (fun () -> Logs.info (fun m -> m "%s" @@ fmt "got reset request"); send Reset)
+      ; set_mode     = (fun r  ->
+        Logs.info (fun m ->
+            let s = fmt "got set mode request for receiver #%d: %s" (fst r) (show_mode (snd r)) in
+            m "%s" s);
+        send (Set_mode r))
       ; get_config   = (fun () -> storage#get)
       ; get_lock     = (fun () -> React.S.value s_lock)
       ; get_measures = (fun () -> React.S.value s_measures)
@@ -574,6 +576,6 @@ module SM = struct
     in
     events,
     api,
-    (step msgs sender storage step_duration push_events fmt)
+    (step msgs sender storage step_duration push_events log_prefix)
 
 end

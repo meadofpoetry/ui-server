@@ -69,16 +69,15 @@ module SM = struct
     msgs := Queue.append !msgs { send; pred; timeout = 0; exn = None };
     t
 
-  let step msgs imsgs sender (storage:config storage) step (pe:push_events) control =
+  let step msgs imsgs sender (storage:config storage) step_duration (pe:push_events) log_prefix =
 
     let board_info_err_msg = "board info was received during normal operation, restarting..." in
     let no_status_msg t    = Printf.sprintf "no status received for %d seconds, restarting..."
                                (Timer.period t) in
-    let log_prefix = Printf.sprintf "(Board TS2IP: %d) " control in
 
     let module Parser = Board_parser.Make(struct let log_prefix = log_prefix end) in
 
-    let fmt fmt = let fmt = "%s" ^^ fmt in Printf.sprintf fmt log_prefix in
+    let fmt fmt = let fs = "%s" ^^ fmt in Printf.sprintf fs log_prefix in
 
     let wakeup_timeout (_,t) = t.pred `Timeout |> ignore in
     let events_push _ = function
@@ -89,6 +88,7 @@ module SM = struct
                       ; packers_status = List.map2 Pair.make sms pkrs
                       }
          in
+         Logs.debug (fun m -> m "%s" @@ fmt "got status event: %s" @@ show_status status);
          pe.status status
       | _ -> ()
     in
@@ -100,7 +100,7 @@ module SM = struct
       imsgs := Queue.create [];
       pe.state `No_response;
       send_msg sender Get_board_info |> Lwt.ignore_result;
-      `Continue (step_detect (Timer.create ~step timeout) None)
+      `Continue (step_detect (Timer.create ~step_duration timeout) None)
 
     and step_detect (timer:Timer.t) acc recvd =
       try
@@ -215,7 +215,8 @@ module SM = struct
         (storage       : config storage)
         (step_duration : float)
         (streams       : Stream.t list React.signal)
-        (board         : Topology.topo_board) =
+        (board         : Topology.topo_board)
+        (log_prefix    : string) =
     let state,state_push     = React.S.create `No_response in
     let devinfo,devinfo_push = React.S.create None in
     let config,config_push   = React.S.create storage#get in
@@ -268,6 +269,6 @@ module SM = struct
       ; status      = (fun () -> React.S.value s_status)
       }
     in
-    events,api,(step msgs imsgs sender storage step_duration push_events board.control)
+    events,api,(step msgs imsgs sender storage step_duration push_events log_prefix)
 
 end

@@ -254,10 +254,10 @@ module Make(M : sig val log_prefix : string end) = struct
                                      | `R x -> f events (x::responses) rest
                                      | `N   -> f events responses rest)
            | Error e ->
-              Logs.warn (fun m -> let s = fmt "parser error: %s" @@ string_of_err e in m "%s" s);
               (match e with
                | Insufficient_payload x -> List.rev events, List.rev responses, x
-               | _                      -> Cstruct.split b 1 |> fun (_,x) -> f events responses x)
+               | e -> Logs.warn (fun m -> let s = fmt "parser error: %s" @@ string_of_err e in m "%s" s);
+                      Cstruct.split b 1 |> fun (_,x) -> f events responses x)
       else (List.rev events, List.rev responses, b)
     in let events,responses,res = f [] [] buf in
        events,responses, if Cstruct.len res > 0 then Some res else None

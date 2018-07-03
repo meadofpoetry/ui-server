@@ -16,12 +16,12 @@ end
 
 module Config_storage = Storage.Options.Make (Data)
 
-let log_fmt control = Printf.sprintf "(Board QoS: %d) %s" control
+let log_prefix control = Printf.sprintf "(Board QoS: %d) " control
 
 let create (b:topo_board) _ convert_streams send db_conf base step =
   let conv            = fun x -> convert_streams x b in
   let storage         = Config_storage.create base ["board"; (string_of_int b.control)] in
-  let events,api,step = Board_protocol.SM.create (log_fmt b.control) send storage step conv in
+  let events,api,step = Board_protocol.SM.create (log_prefix b.control) send storage step conv in
   let handlers        = Board_api.handlers b.control api events in
   let db              = Result.get_exn @@ Db.Conn.create db_conf in
   Lwt_react.E.keep @@

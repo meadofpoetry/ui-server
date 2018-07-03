@@ -31,7 +31,7 @@ type packer_settings =
   ; self_port : int
   ; enabled   : bool
   ; socket    : int       (* physical port on a board where this stream should be found *)
-  } [@@deriving yojson]
+  } [@@deriving yojson, show]
 
 type packers_error =
   [ `Limit_exceeded of (int * int)
@@ -47,20 +47,20 @@ let packers_error_to_string = function
 type speed = Speed_10
            | Speed_100
            | Speed_1000
-           | Speed_failure [@@deriving yojson]
+           | Speed_failure [@@deriving yojson, show]
 
 type board_status =
   { phy_ok  : bool
   ; link_ok : bool
   ; speed   : speed
-  } [@@deriving yojson]
+  } [@@deriving yojson, show]
 
 type packer_status =
   { bitrate  : int option
   ; enabled  : bool
   ; has_data : bool
   ; overflow : bool
-  } [@@deriving yojson]
+  } [@@deriving yojson, show]
 
 type status_data =
   | General of packer_status list
@@ -69,7 +69,7 @@ type status_data =
 type status  =
   { board_status   : board_status
   ; packers_status : (packer_settings * packer_status) list
-  } [@@deriving yojson]
+  } [@@deriving yojson, show]
 
 type config =
   { nw_mode      : nw_settings

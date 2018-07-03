@@ -19,12 +19,11 @@ module Config_storage = Storage.Options.Make (Data)
 
 (* module Database = Storage.Database.Make(Board_model) *)
 
-
-let log_fmt control = Printf.sprintf "(Board DVB: %d) %s" control
+let log_prefix control = Printf.sprintf "(Board DVB: %d) " control
 
 let create (b:topo_board) _ convert_streams send db_conf base step =
   let storage = Config_storage.create base ["board"; (string_of_int b.control)] in
-  let events,api,step = Board_protocol.SM.create (log_fmt b.control) send storage step in
+  let events,api,step = Board_protocol.SM.create (log_prefix b.control) send storage step in
   let handlers        = Board_api.handlers b.control api events in
   (* let db              = Result.get_exn @@ Database.create db_conf in
    * let _s              = Lwt_react.E.map_p (fun m -> Database.request db (Board_model.Store_measures m))

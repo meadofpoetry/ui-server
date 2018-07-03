@@ -364,7 +364,7 @@ end
 
 module Make(M : sig val log_prefix : string end) = struct
 
-  let fmt fmt = let fmt = "%s" ^^ fmt in Printf.sprintf fmt M.log_prefix
+  let fmt fmt = let fs = "%s" ^^ fmt in Printf.sprintf fs M.log_prefix
 
   type err = Bad_stx              of int
            | Bad_etx              of int

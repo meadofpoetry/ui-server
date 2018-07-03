@@ -17,9 +17,12 @@ end
 
 module Config_storage = Storage.Options.Make (Data)
 
+let log_prefix control = Printf.sprintf "(Board TS2IP: %d) " control
+
 let create (b:topo_board) (streams:Common.Stream.t list React.signal) _ send db base step =
   let storage         = Config_storage.create base ["board"; (string_of_int b.control)] in
-  let events,api,step = Board_protocol.SM.create send storage step streams b in
+  let log_prefix      = log_prefix b.control in
+  let events,api,step = Board_protocol.SM.create send storage step streams b log_prefix in
   let handlers        = Board_api.handlers b.control api events in
   let available =
     React.S.l2 (fun incoming outgoing ->
