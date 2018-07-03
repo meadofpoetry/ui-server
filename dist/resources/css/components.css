@@ -6869,64 +6869,105 @@ a.mdc-list-item {
 .mdc-switch__native-control:disabled ~ .mdc-switch__background .mdc-switch__knob {
   background-color: #bdbdbd; }
 
-/* MDC Data table */
+/* TODO(sgomes): Figure out what to do about desktop font sizes. */
+/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
+/* TODO(sgomes): Figure out what to do about desktop font sizes. */
+/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
 .mdc-data-table {
-  width: 100%;
-  margin-top: 24px;
+  display: flex;
+  flex-flow: column nowrap;
+  position: relative;
+  white-space: nowrap;
+  font-size: 13px;
   overflow-x: auto;
-  white-space: nowrap; }
-  .mdc-data-table .mdc-data-table__container {
+  background-color: #fff;
+  /* @alternate */
+  color: rgba(0, 0, 0, 0.87);
+  color: var(--mdc-theme-text-primary-on-background, rgba(0, 0, 0, 0.87)); }
+  .mdc-data-table--select-multiple tbody .mdc-data-table__row, .mdc-data-table--select tbody .mdc-data-table__row {
+    cursor: pointer; }
+  .mdc-data-table--select-multiple .mdc-data-table__cell:first-of-type, .mdc-data-table--select-multiple .mdc-data-table__column:first-of-type {
+    padding: 0 13px;
+    width: 66px; }
+  .mdc-data-table__content {
     width: 100%;
-    border-collapse: collapse;
-    border-spacing: 0;
+    border-collapse: collapse; }
+  .mdc-data-table__cell {
+    font-weight: 400; }
+  .mdc-data-table__cell, .mdc-data-table__column {
+    position: relative;
+    height: 48px;
+    text-align: left;
+    padding: 0 56px 0 0;
+    box-sizing: border-box;
+    vertical-align: middle;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     overflow: hidden; }
-    .mdc-data-table .mdc-data-table__container .mdc-data-table__row {
-      color: inherit;
-      display: table-row;
-      position: relative;
-      height: 48px;
-      vertical-align: middle; }
-      .mdc-data-table .mdc-data-table__container .mdc-data-table__row:focus {
-        outline: none; }
-      .mdc-data-table .mdc-data-table__container .mdc-data-table__row .mdc-data-table__cell {
-        text-align: left;
-        border-bottom: 1px solid rgba(0, 0, 0, 0.12);
-        padding: 4px 56px 4px 24px;
-        text-overflow: ellipsis; }
-        .mdc-data-table .mdc-data-table__container .mdc-data-table__row .mdc-data-table__cell:last-child {
-          padding-right: 24px; }
-      .mdc-data-table .mdc-data-table__container .mdc-data-table__row .mdc-data-table__cell--numeric {
-        text-align: right;
-        flex-direction: row-reverse; }
-      .mdc-data-table .mdc-data-table__container .mdc-data-table__row .mdc-data-table__cell--dense {
-        padding-right: 24px; }
-      .mdc-data-table .mdc-data-table__container .mdc-data-table__row .mdc-data-table__cell--checkbox {
-        padding: 0 12px; }
-    .mdc-data-table .mdc-data-table__container .mdc-data-table__header {
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--mdc-theme-text-secondary-on-background); }
-      .mdc-data-table .mdc-data-table__container .mdc-data-table__header .mdc-data-table__row {
-        height: 56px; }
-        .mdc-data-table .mdc-data-table__container .mdc-data-table__header .mdc-data-table__row .mdc-data-table__cell {
-          font-weight: 500;
-          position: relative; }
-    .mdc-data-table .mdc-data-table__container .mdc-data-table__body {
-      color: var(--mdc-theme-text-primary-on-background);
-      font-size: 13px; }
-      .mdc-data-table .mdc-data-table__container .mdc-data-table__body .mdc-data-table__row--hover:hover {
-        background-color: none;
-        /* FIXME */ }
-      .mdc-data-table .mdc-data-table__container .mdc-data-table__body .mdc-data-table__row--selected {
-        background-color: none;
-        /* FIXME */ }
-    .mdc-data-table .mdc-data-table__container .mdc-data-table__footer {
-      font-size: 12px;
-      color: var(--mdc-theme-text-secondary-on-background); }
-      .mdc-data-table .mdc-data-table__container .mdc-data-table__footer .mdc-data-table__row {
-        height: 56px; }
-        .mdc-data-table .mdc-data-table__container .mdc-data-table__footer .mdc-data-table__row .mdc-data-table__cell {
-          border-bottom: 0; }
+    .mdc-data-table__cell--numeric, .mdc-data-table__column--numeric {
+      text-align: right; }
+    .mdc-data-table__cell:first-of-type, .mdc-data-table__column:first-of-type {
+      padding-left: 24px;
+      border-right: 1px solid;
+      border-color: rgba(0, 0, 0, 0.12); }
+    .mdc-data-table__cell:nth-child(2), .mdc-data-table__column:nth-child(2) {
+      padding-left: 16px; }
+    .mdc-data-table__cell:last-of-type, .mdc-data-table__column:last-of-type {
+      padding-right: 24px; }
+  .mdc-data-table__column {
+    font-weight: 500;
+    line-height: 24px;
+    letter-spacing: 0;
+    font-size: 12px;
+    /* @alternate */
+    color: rgba(0, 0, 0, 0.54);
+    color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54)); }
+    .mdc-data-table__column--sortable {
+      user-select: none;
+      cursor: pointer; }
+      .mdc-data-table__column--sortable:before {
+        content: '';
+        font-family: 'Material Icons';
+        font-size: 16px;
+        font-feature-settings: 'liga';
+        vertical-align: sub;
+        display: inline-block;
+        margin-right: 5px;
+        transition: transform .2s ease; }
+      .mdc-data-table__column--sortable:hover:before {
+        /* @alternate */
+        color: rgba(0, 0, 0, 0.38);
+        color: var(--mdc-theme-text-icon-on-background, rgba(0, 0, 0, 0.38)); }
+      .mdc-data-table__column--sortable[aria-sort=descending], .mdc-data-table__column--sortable[aria-sort=ascending] {
+        /* @alternate */
+        color: rgba(0, 0, 0, 0.87);
+        color: var(--mdc-theme-text-primary-on-background, rgba(0, 0, 0, 0.87)); }
+        .mdc-data-table__column--sortable[aria-sort=descending]:before, .mdc-data-table__column--sortable[aria-sort=ascending]:before {
+          content: 'arrow_upward'; }
+      .mdc-data-table__column--sortable[aria-sort=descending]:before {
+        transform: rotate(-180deg); }
+  .mdc-data-table thead .mdc-data-table__row {
+    position: relative;
+    height: 56px;
+    border-bottom: 1px solid;
+    border-color: rgba(0, 0, 0, 0.12); }
+  .mdc-data-table tbody .mdc-data-table__row {
+    position: relative;
+    height: 48px;
+    overflow: hidden;
+    transition: background-color .15s linear;
+    border-bottom: 1px solid;
+    border-color: rgba(0, 0, 0, 0.12); }
+    .mdc-data-table tbody .mdc-data-table__row:hover {
+      background-color: rgba(0, 0, 0, 0.07); }
+    .mdc-data-table tbody .mdc-data-table__row:last-of-type {
+      border-bottom: none; }
+    .mdc-data-table tbody .mdc-data-table__row--disabled {
+      pointer-events: none; }
+    .mdc-data-table tbody .mdc-data-table__row--selected, .mdc-data-table tbody .mdc-data-table__row:active {
+      background-color: rgba(98, 0, 238, 0.07); }
+      .mdc-data-table tbody .mdc-data-table__row--selected:hover, .mdc-data-table tbody .mdc-data-table__row:active:hover {
+        background-color: rgba(98, 0, 238, 0.12); }
 
 /* TODO(sgomes): Figure out what to do about desktop font sizes. */
 /* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */

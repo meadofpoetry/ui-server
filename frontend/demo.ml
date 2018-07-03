@@ -533,13 +533,9 @@ let elevation_demo () =
   section
 
 let table_demo () =
-  let header = new Table.Header.t ~content:[ Text "col 1"; Text "col 2"; Text "col 3"] () in
-  let table = new Table.t ~header ~content:[ [ Text "cell 1 1"; Text "cell 1 2"; Text "cell 1 3" ]
-                                           ; [ Text "cell 2 1"; Text "cell 2 2"; Text "cell 2 3" ]
-                                           ; [ Text "cell 3 1"; Text "cell 3 2"; Text "cell 3 3" ]
-                                           ] () in
-  table#style##.maxWidth := Js.string "600px";
-  table#add_class @@ Elevation.get_elevation_class 2;
+  let table = new Table.t ~fmt:Table.(("Col 1", Int) :: ("Col 2", String) :: ("Col 3", Int) :: E) () in
+  let ()    = table#add_row 1 "test" 2 in
+  let ()    = table#add_row 4 "lool" 3 in
   demo_section "Table" [ table#widget ]
 
 let chart_demo () =

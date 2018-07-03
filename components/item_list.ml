@@ -63,7 +63,7 @@ module List_group = struct
     { subheader : Typography.Text.t option
     ; list      : t
     }
-    
+
   let rec add_dividers acc l =
     match l with
     | []       -> acc
