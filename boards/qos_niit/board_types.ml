@@ -12,7 +12,7 @@ type devinfo =
 
 (** Modes **)
 
-type input = SPI | ASI [@@deriving yojson,eq]
+type input = SPI | ASI [@@deriving yojson,show,eq]
 
 let input_to_string = function SPI -> "SPI" | ASI -> "ASI"
 
@@ -48,7 +48,7 @@ let config_default =
   ; jitter_mode = None
   }
 
-type packet_sz = Ts188 | Ts192 | Ts204 [@@deriving eq]
+type packet_sz = Ts188 | Ts192 | Ts204 [@@deriving show,eq]
 let packet_sz_to_string : packet_sz -> string = function
   | Ts188 -> "Ts188"
   | Ts192 -> "Ts192"
@@ -74,7 +74,7 @@ type status =
   ; packet_sz    : packet_sz
   ; has_sync     : bool
   ; has_stream   : bool
-  } [@@deriving yojson,eq]
+  } [@@deriving yojson,show,eq]
 
 type reset_ts =
   { timestamp : Time.t

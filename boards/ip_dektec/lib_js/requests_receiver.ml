@@ -173,6 +173,12 @@ module HTTP = struct
       ~query:Query.empty
       control
 
+  let get_status control =
+    get_result ~from:(Json.Option.of_yojson status_of_yojson)
+      ~path:Path.Format.(get_base_path () / ("status" @/ empty))
+      ~query:Query.empty
+      control
+
   module Archive = struct
 
     let get_status ?limit ?compress ?from ?till ?duration control =

@@ -3,10 +3,10 @@ open Common
 open Board_types
 open Lwt.Infix
 open Storage.Options
+open Boards
 open Boards.Board
 open Boards.Pools
-
-include Board_parser
+open Board_parser
 
 type events =
   { streams : Stream.stream list React.signal
@@ -35,13 +35,14 @@ type api =
   ; set_delay     : int  -> int Lwt.t
   ; set_rate_mode : rate_mode -> rate_mode Lwt.t
   ; reset         : unit -> unit Lwt.t
+  ; get_status    : unit -> status option
   ; get_config    : unit -> config
   ; get_devinfo   : unit -> devinfo option
   }
 
 (* Board protocol implementation *)
 
-let to_period step_duration x = x * int_of_float (1. /. step_duration)
+let timeout = 3 (* seconds *)
 
 module type M = sig
   val send     : event request -> unit Lwt.t
@@ -69,7 +70,7 @@ module Make_probes(M:M) : Probes = struct
   type event_raw = [ `Error of parsed | `Ok of parsed ]
   type pool = (event_raw,event) Pool.t
 
-  let period = to_period M.duration 1
+  let period = Boards.Timer.steps ~step_duration:M.duration 1
 
   type t =
     { pool   : pool
@@ -120,23 +121,23 @@ module Make_probes(M:M) : Probes = struct
         ; pred    = (is_response x)
         ; timeout = M.timeout
         ; exn     = None })
-             [ Ip Get_fec_delay
-             ; Ip Get_fec_cols
-             ; Ip Get_fec_rows
-             ; Ip Get_jitter_tol
-             ; Ip Get_bitrate
-             ; Ip Get_lost_after_fec
-             ; Ip Get_lost_before_fec
-             ; Ip Get_tp_per_ip
-             ; Ip Get_status
-             ; Ip Get_protocol
-             ; Ip Get_packet_size
-             ; Ip Get_pcr_present
-             ; Ip Get_rate_change_cnt
-             ; Ip Get_jitter_err_cnt
-             ; Ip Get_lock_err_cnt
-             ; Ip Get_delay_factor
-             ; Asi Get_bitrate ]
+      [ Ip Get_fec_delay
+      ; Ip Get_fec_cols
+      ; Ip Get_fec_rows
+      ; Ip Get_jitter_tol
+      ; Ip Get_bitrate
+      ; Ip Get_lost_after_fec
+      ; Ip Get_lost_before_fec
+      ; Ip Get_tp_per_ip
+      ; Ip Get_status
+      ; Ip Get_protocol
+      ; Ip Get_packet_size
+      ; Ip Get_pcr_present
+      ; Ip Get_rate_change_cnt
+      ; Ip Get_jitter_err_cnt
+      ; Ip Get_lock_err_cnt
+      ; Ip Get_delay_factor
+      ; Asi Get_bitrate ]
     |> Pool.create
 
   let responsed (t:t) rsp  = Pool.responsed t.pool rsp
@@ -171,71 +172,72 @@ module SM = struct
   let wakeup_timeout t = t.pred `Timeout |> ignore
 
   let send_msg (type a) sender (msg : a request) : unit Lwt.t =
-    (match msg with
-     | Devinfo _ -> to_req_get msg
-     | Overall x ->
-        begin match x with
-        | Get_mode          -> to_req_get msg
-        | Get_application   -> to_req_get msg
-        | Get_storage       -> to_req_get msg
-        | Set_mode x        -> to_req_set_int8 msg (mode_to_int x)
-        | Set_application x -> to_req_set_int8 msg (application_to_int x)
-        | Set_storage x     -> to_req_set_int8 msg (storage_to_int x)
-        end
-     | Nw x      ->
-        begin match x with
-        | Get_ip        -> to_req_get msg
-        | Get_mask      -> to_req_get msg
-        | Get_gateway   -> to_req_get msg
-        | Get_dhcp      -> to_req_get msg
-        | Get_mac       -> to_req_get msg
-        | Set_ip x      -> to_req_set_ipaddr msg x
-        | Set_mask x    -> to_req_set_ipaddr msg x
-        | Set_gateway x -> to_req_set_ipaddr msg x
-        | Set_dhcp x    -> to_req_set_bool msg x
-        | Reboot        -> to_req_set_bool msg true
-        end
-     | Ip x      ->
-        begin match x with
-        | Get_method          -> to_req_get msg
-        | Get_enable          -> to_req_get msg
-        | Get_fec_delay       -> to_req_get msg
-        | Get_fec_enable      -> to_req_get msg
-        | Get_fec_cols        -> to_req_get msg
-        | Get_fec_rows        -> to_req_get msg
-        | Get_jitter_tol      -> to_req_get msg
-        | Get_lost_after_fec  -> to_req_get msg
-        | Get_lost_before_fec -> to_req_get msg
-        | Get_udp_port        -> to_req_get msg
-        | Get_delay           -> to_req_get msg
-        | Get_mcast_addr      -> to_req_get msg
-        | Get_tp_per_ip       -> to_req_get msg
-        | Get_status          -> to_req_get msg
-        | Get_protocol        -> to_req_get msg
-        | Get_output          -> to_req_get msg
-        | Get_packet_size     -> to_req_get msg
-        | Get_bitrate         -> to_req_get msg
-        | Get_pcr_present     -> to_req_get msg
-        | Get_rate_change_cnt -> to_req_get msg
-        | Get_rate_est_mode   -> to_req_get msg
-        | Get_jitter_err_cnt  -> to_req_get msg
-        | Get_lock_err_cnt    -> to_req_get msg
-        | Get_delay_factor    -> to_req_get msg
-        | Set_method x        -> to_req_set_int8 msg (meth_to_int x)
-        | Set_enable x        -> to_req_set_bool msg x
-        | Set_fec_enable x    -> to_req_set_bool msg x
-        | Set_udp_port x      -> to_req_set_int16 msg x
-        | Set_delay x         -> to_req_set_int16 msg x
-        | Set_mcast_addr x    -> to_req_set_ipaddr msg x
-        | Set_rate_est_mode x -> to_req_set_int8 msg (rate_mode_to_int x)
-        end
-     | Asi x     ->
-        begin match x with
-        | Get_packet_size   -> to_req_get msg
-        | Get_bitrate       -> to_req_get msg
-        | Set_packet_size x -> to_req_set_int8 msg (asi_packet_sz_to_int x)
-        end)
-    |> sender
+    let open Request in
+    let buf = match msg with
+      | Devinfo _ -> make_get msg
+      | Overall x ->
+         begin match x with
+         | Get_mode          -> make_get msg
+         | Get_application   -> make_get msg
+         | Get_storage       -> make_get msg
+         | Set_mode x        -> Set.int8 msg (mode_to_int x)
+         | Set_application x -> Set.int8 msg (application_to_int x)
+         | Set_storage x     -> Set.int8 msg (storage_to_int x)
+         end
+      | Nw x      ->
+         begin match x with
+         | Get_ip        -> make_get msg
+         | Get_mask      -> make_get msg
+         | Get_gateway   -> make_get msg
+         | Get_dhcp      -> make_get msg
+         | Get_mac       -> make_get msg
+         | Set_ip x      -> Set.ipaddr msg x
+         | Set_mask x    -> Set.ipaddr msg x
+         | Set_gateway x -> Set.ipaddr msg x
+         | Set_dhcp x    -> Set.bool msg x
+         | Reboot        -> Set.bool msg true
+         end
+      | Ip x      ->
+         begin match x with
+         | Get_method          -> make_get msg
+         | Get_enable          -> make_get msg
+         | Get_fec_delay       -> make_get msg
+         | Get_fec_enable      -> make_get msg
+         | Get_fec_cols        -> make_get msg
+         | Get_fec_rows        -> make_get msg
+         | Get_jitter_tol      -> make_get msg
+         | Get_lost_after_fec  -> make_get msg
+         | Get_lost_before_fec -> make_get msg
+         | Get_udp_port        -> make_get msg
+         | Get_delay           -> make_get msg
+         | Get_mcast_addr      -> make_get msg
+         | Get_tp_per_ip       -> make_get msg
+         | Get_status          -> make_get msg
+         | Get_protocol        -> make_get msg
+         | Get_output          -> make_get msg
+         | Get_packet_size     -> make_get msg
+         | Get_bitrate         -> make_get msg
+         | Get_pcr_present     -> make_get msg
+         | Get_rate_change_cnt -> make_get msg
+         | Get_rate_est_mode   -> make_get msg
+         | Get_jitter_err_cnt  -> make_get msg
+         | Get_lock_err_cnt    -> make_get msg
+         | Get_delay_factor    -> make_get msg
+         | Set_method x        -> Set.int8 msg (meth_to_int x)
+         | Set_enable x        -> Set.bool msg x
+         | Set_fec_enable x    -> Set.bool msg x
+         | Set_udp_port x      -> Set.int16 msg x
+         | Set_delay x         -> Set.int16 msg x
+         | Set_mcast_addr x    -> Set.ipaddr msg x
+         | Set_rate_est_mode x -> Set.int8 msg (rate_mode_to_int x)
+         end
+      | Asi x     ->
+         begin match x with
+         | Get_packet_size   -> make_get msg
+         | Get_bitrate       -> make_get msg
+         | Set_packet_size x -> Set.int8 msg (asi_packet_sz_to_int x)
+         end
+    in sender buf
 
   let send (type a) msgs sender (storage:config storage) (pe:push_events) timeout (msg:a request) : a Lwt.t =
     let t, w = Lwt.wait () in
@@ -243,21 +245,22 @@ module SM = struct
       | `Timeout -> Lwt.wakeup_exn w (Failure "msg timeout"); None
       | l -> let open Option in
              is_response msg l >|= fun r ->
+             (* FIXME previous value in response, investigate why *)
              let c = storage#get in
              let c = match msg with
-               | Nw (Set_ip _)            -> Some {c with nw = {c.nw with ip        = r }}
-               | Nw (Set_mask _)          -> Some {c with nw = {c.nw with mask      = r }}
-               | Nw (Set_gateway _)       -> Some {c with nw = {c.nw with gateway   = r }}
-               | Nw (Set_dhcp _)          -> Some {c with nw = {c.nw with dhcp      = r }}
-               | Ip (Set_enable _)        -> Some {c with ip = {c.ip with enable    = r }}
-               | Ip (Set_fec_enable _)    -> Some {c with ip = {c.ip with fec       = r }}
-               | Ip (Set_udp_port _)      -> Some {c with ip = {c.ip with port      = r }}
-               | Ip (Set_method _)        -> (match r with
+               | Nw (Set_ip x)            -> Some {c with nw = {c.nw with ip        = x }}
+               | Nw (Set_mask x)          -> Some {c with nw = {c.nw with mask      = x }}
+               | Nw (Set_gateway x)       -> Some {c with nw = {c.nw with gateway   = x }}
+               | Nw (Set_dhcp x)          -> Some {c with nw = {c.nw with dhcp      = x }}
+               | Ip (Set_enable x)        -> Some {c with ip = {c.ip with enable    = x }}
+               | Ip (Set_fec_enable x)    -> Some {c with ip = {c.ip with fec       = x }}
+               | Ip (Set_udp_port x)      -> Some {c with ip = {c.ip with port      = x }}
+               | Ip (Set_method x)        -> (match x with
                                               | Unicast   -> Some {c with ip = {c.ip with multicast = None }}
                                               | Multicast -> None)
-               | Ip (Set_mcast_addr _)    -> Some {c with ip = {c.ip with multicast = Some r }}
-               | Ip (Set_delay _)         -> Some {c with ip = {c.ip with delay     = r }}
-               | Ip (Set_rate_est_mode _) -> Some {c with ip = {c.ip with rate_mode = r }}
+               | Ip (Set_mcast_addr x)    -> Some {c with ip = {c.ip with multicast = Some x }}
+               | Ip (Set_delay x)         -> Some {c with ip = {c.ip with delay     = x }}
+               | Ip (Set_rate_est_mode x) -> Some {c with ip = {c.ip with rate_mode = x }}
                | _ -> None
              in
              let () = Option.iter (fun c -> pe.config c; storage#store c) c in
@@ -267,26 +270,28 @@ module SM = struct
     msgs := Queue.append !msgs { send; pred; timeout; exn = None };
     t
 
-  let step msgs sender (storage : config storage) step_duration (pe:push_events) control =
-    let period_s = 2 in
-    let period       = to_period step_duration period_s in
-    let reboot_steps = 20 / (int_of_float (step_duration *. (float_of_int period))) in
+  let step msgs sender (storage:config storage) step_duration (pe:push_events) log_prefix =
+    let reboot_steps = 7 in
 
-    let fmt fmt = let fmt = "(Board IP2TS: %d) " ^^ fmt in Printf.sprintf fmt control in
+    let fmt fmt = let fs = "%s" ^^ fmt in Printf.sprintf fs log_prefix in
 
+    let module Parser = Board_parser.Make(struct let log_prefix = log_prefix end) in
     let module Probes = Make_probes(struct
                                      let duration = step_duration
                                      let send     = send_msg sender
-                                     let timeout  = period
+                                     let timeout  = Timer.steps ~step_duration timeout
                                    end) in
 
-    let find_resp req acc recvd ~success ~failure =
-      let responses,acc = deserialize (concat_acc acc recvd) in
-      (match List.find_map (is_response req) responses with
-       | Some x -> success x acc
-       | None   -> failure acc) in
-
     let send x = send_msg sender x |> ignore in
+
+    let find_resp (type a) (timer:Timer.t) (req:a request) acc recvd ~on_success ~on_failure ~on_timeout =
+      try
+        let timer = Timer.step timer in
+        let responses,acc = Parser.deserialize (concat_acc acc recvd) in
+        match List.find_map (is_response req) responses with
+        | Some x -> on_success x acc
+        | None   -> on_failure timer acc
+      with Timer.Timeout t -> on_timeout t acc in
 
     let rec first_step () =
       Logs.info (fun m -> m "%s" (fmt "start of connection establishment..."));
@@ -295,303 +300,329 @@ module SM = struct
       pe.state `No_response;
       let req = Devinfo Get_fpga_ver in
       send_msg sender req |> ignore;
-      `Continue (step_detect_fpga_ver period req None)
+      let timer = Timer.create ~step_duration timeout in
+      `Continue (step_detect_fpga_ver timer req None)
 
-    and bad_step p next_step =
-      if p < 0
-      then (Logs.warn (fun m ->
-                let s = fmt "timeout (%d sec) reached while detect or init step, restarting..." period_s in
-                m "%s" s);
-            first_step ())
-      else `Continue next_step
+    and on_timeout t _ =
+      Logs.warn (fun m ->
+          let s = fmt "timeout (%d sec) reached while detect or init step, restarting..." (Timer.period t) in
+          m "%s" s);
+      first_step ()
 
-    and step_detect_fpga_ver p req acc recvd =
-      find_resp req acc recvd
-                ~success:(fun x _ ->
-                  Logs.debug (fun m -> m "%s" (fmt "detect step - got fpga version: %d" x));
-                  let r = Devinfo Get_hw_ver in
-                  send r; `Continue (step_detect_hw_ver period r x None))
-                ~failure:(fun acc -> bad_step p (step_detect_fpga_ver (pred p) req acc))
+    and step_detect_fpga_ver (timer:Timer.t) req acc recvd =
+      find_resp timer req acc recvd
+        ~on_success:(fun x _ ->
+          Logs.debug (fun m -> m "%s" (fmt "detect step - got fpga version: %d" x));
+          let r = Devinfo Get_hw_ver in
+          send r; `Continue (step_detect_hw_ver (Timer.reset timer) r x None))
+        ~on_failure:(fun timer acc -> `Continue (step_detect_fpga_ver timer req acc))
+        ~on_timeout
 
-    and step_detect_hw_ver p req conf acc recvd =
-      find_resp req acc recvd
-                ~success:(fun x _ ->
-                  Logs.debug (fun m -> m "%s" (fmt "detect step - got hw version: %d" x));
-                  let r = Devinfo Get_fw_ver in
-                  send r; `Continue (step_detect_fw_ver period r (conf,x) None))
-                ~failure:(fun acc -> bad_step p (step_detect_hw_ver (pred p) req conf acc))
+    and step_detect_hw_ver (timer:Timer.t) req conf acc recvd =
+      find_resp timer req acc recvd
+        ~on_success:(fun x _ ->
+          Logs.debug (fun m -> m "%s" (fmt "detect step - got hw version: %d" x));
+          let r = Devinfo Get_fw_ver in
+          send r; `Continue (step_detect_fw_ver (Timer.reset timer) r (conf,x) None))
+        ~on_failure:(fun timer acc -> `Continue (step_detect_hw_ver timer req conf acc))
+        ~on_timeout
 
-    and step_detect_fw_ver p req ((fpga,hw) as conf) acc recvd =
-      find_resp req acc recvd
-                ~success:(fun x _ ->
-                  Logs.debug (fun m -> m "%s" (fmt "detect step - got fw version: %d" x));
-                  let r = Devinfo Get_serial in
-                  send r; `Continue (step_detect_serial period r (fpga,hw,x) None))
-                ~failure:(fun acc -> bad_step p (step_detect_fw_ver (pred p) req conf acc))
+    and step_detect_fw_ver (timer:Timer.t) req ((fpga,hw) as conf) acc recvd =
+      find_resp timer req acc recvd
+        ~on_success:(fun x _ ->
+          Logs.debug (fun m -> m "%s" (fmt "detect step - got fw version: %d" x));
+          let r = Devinfo Get_serial in
+          send r; `Continue (step_detect_serial (Timer.reset timer) r (fpga,hw,x) None))
+        ~on_failure:(fun timer acc -> `Continue (step_detect_fw_ver timer req conf acc))
+        ~on_timeout
 
-    and step_detect_serial p req ((fpga,hw,fw) as conf) acc recvd =
-      find_resp req acc recvd
-                ~success:(fun x _ ->
-                  Logs.debug (fun m -> m "%s" (fmt "detect step - got serial: %d" x));
-                  let r = Devinfo Get_type in
-                  send r; `Continue (step_detect_type period r (fpga,hw,fw,x) None))
-                ~failure:(fun acc -> bad_step p (step_detect_serial (pred p) req conf acc))
+    and step_detect_serial (timer:Timer.t) req ((fpga,hw,fw) as conf) acc recvd =
+      find_resp timer req acc recvd
+        ~on_success:(fun x _ ->
+          Logs.debug (fun m -> m "%s" (fmt "detect step - got serial: %d" x));
+          let r = Devinfo Get_type in
+          send r; `Continue (step_detect_type (Timer.reset timer) r (fpga,hw,fw,x) None))
+        ~on_failure:(fun timer acc -> `Continue (step_detect_serial timer req conf acc))
+        ~on_timeout
 
-    and step_detect_type p req ((fpga,hw,fw,ser) as conf) acc recvd =
-      find_resp req acc recvd
-                ~success:(fun x _ ->
-                  Logs.debug (fun m -> m "%s" (fmt "detect step - got type: %d" x));
-                  let r = Nw Get_mac in
-                  send r; `Continue (step_detect_mac period r (fpga,hw,fw,ser,x) None))
-                ~failure:(fun acc -> bad_step p (step_detect_type (pred p) req conf acc))
+    and step_detect_type (timer:Timer.t) req ((fpga,hw,fw,ser) as conf) acc recvd =
+      find_resp timer req acc recvd
+        ~on_success:(fun x _ ->
+          Logs.debug (fun m -> m "%s" (fmt "detect step - got type: %d" x));
+          let r = Nw Get_mac in
+          send r; `Continue (step_detect_mac (Timer.reset timer) r (fpga,hw,fw,ser,x) None))
+        ~on_failure:(fun timer acc -> `Continue (step_detect_type timer req conf acc))
+        ~on_timeout
 
-    and step_detect_mac p req conf acc recvd =
-      find_resp req acc recvd
-                ~success:(fun mac _ ->
-                  Logs.debug (fun m -> m "%s" (fmt "detect step - got mac: %s" @@ Macaddr.to_string mac));
-                  let fpga_ver,hw_ver,fw_ver,serial,typ = conf in
-                  let r = Overall (Set_mode Ip2asi) in
-                  pe.devinfo (Some { fpga_ver; hw_ver; fw_ver; serial; typ; mac });
-                  pe.state `Init;
-                  Logs.info (fun m -> m "%s" (fmt "connection established, board initialization started..."));
-                  send r; `Continue (step_init_mode period r None))
-                ~failure:(fun acc -> bad_step p (step_detect_mac (pred p) req conf acc))
+    and step_detect_mac (timer:Timer.t) req conf acc recvd =
+      find_resp timer req acc recvd
+        ~on_success:(fun mac _ ->
+          Logs.debug (fun m -> m "%s" (fmt "detect step - got mac: %s" @@ Macaddr.to_string mac));
+          let fpga_ver,hw_ver,fw_ver,serial,typ = conf in
+          let r = Overall (Set_mode Ip2asi) in
+          pe.devinfo (Some { fpga_ver; hw_ver; fw_ver; serial; typ; mac });
+          pe.state `Init;
+          Logs.info (fun m -> m "%s" (fmt "connection established, board initialization started..."));
+          send r; `Continue (step_init_mode (Timer.reset timer) r None))
+        ~on_failure:(fun timer acc -> `Continue (step_detect_mac timer req conf acc))
+        ~on_timeout
 
-    and step_detect_after_init ns p steps req acc recvd =
-      find_resp req acc recvd
-                ~success:(fun _ _ -> `Continue (step_wait_after_detect ns period))
-                ~failure:(fun acc ->
-                  if p > 0
-                  then `Continue (step_detect_after_init ns (pred p) steps req acc)
-                  else if steps > 0
-                  then (send_msg sender req |> ignore;
-                        `Continue (step_detect_after_init ns period (pred steps) req acc))
-                  else (first_step ()))
+    and step_detect_after_init ns (timer:Timer.t) steps req acc recvd =
+      find_resp timer req acc recvd
+        ~on_success:(fun _ _ -> `Continue (step_wait_after_detect ns (Timer.create ~step_duration timeout)))
+        ~on_failure:(fun timer acc -> `Continue (step_detect_after_init ns timer steps req acc))
+        ~on_timeout:(fun timer acc ->
+          if steps > 0
+          then (send_msg sender req |> Lwt.ignore_result;
+                `Continue (step_detect_after_init ns (Timer.reset timer) (pred steps) req acc))
+          else on_timeout timer acc)
 
-    and step_wait_after_detect ns p _ =
-      if p > 0 then `Continue (step_wait_after_detect ns (pred p))
-      else match ns with
-           | `Mode -> let r = Overall (Set_application Normal) in
-                      send r; `Continue (step_init_application period r None)
-           | `App  -> let r = Overall (Set_storage Ram) in
-                      send r; `Continue (step_init_storage period r None)
-           | `Nw   -> let r = Ip (Set_enable storage#get.ip.enable) in
-                      send r; `Continue (step_init_ip_enable period r None)
+    and step_wait_after_detect ns (timer:Timer.t) _ =
+      try
+        `Continue (step_wait_after_detect ns (Timer.step timer))
+      with
+      | Timer.Timeout _ ->
+         let timer = Timer.create ~step_duration timeout in
+         match ns with
+         | `Mode -> let r = Overall (Set_application Normal) in
+                    send r; `Continue (step_init_application timer r None)
+         | `App  -> let r = Overall (Set_storage Flash) in
+                    send r; `Continue (step_init_storage timer r None)
+         | `Nw   -> let r = Ip (Set_enable storage#get.ip.enable) in
+                    send r; `Continue (step_init_ip_enable timer r None)
 
-    and step_init_mode p req acc recvd =
-      find_resp req acc recvd
-                ~success:(fun x _ ->
-                  Logs.debug (fun m -> m "%s" (fmt "init step - mode set: %s" @@ mode_to_string x));
-                  let r = Devinfo Get_fpga_ver in
-                  send r; `Continue (step_detect_after_init `Mode period reboot_steps r None))
-                ~failure:(fun acc -> bad_step p (step_init_mode (pred p) req acc))
+    and step_init_mode (timer:Timer.t) req acc recvd =
+      find_resp timer req acc recvd
+        ~on_success:(fun x _ ->
+          Logs.debug (fun m -> m "%s" (fmt "init step - mode set: %s" @@ mode_to_string x));
+          let r = Devinfo Get_fpga_ver in
+          send r; `Continue (step_detect_after_init `Mode (Timer.reset timer) reboot_steps r None))
+        ~on_failure:(fun timer acc -> `Continue (step_init_mode timer req acc))
+        ~on_timeout
 
-    and step_init_application p req acc recvd =
-      find_resp req acc recvd
-                ~success:(fun x _ ->
-                  Logs.debug (fun m ->
-                      let s = (fmt "init step - application set: %s" @@ application_to_string x) in
-                      m "%s" s);
-                  let r = Devinfo Get_fpga_ver in
-                  send r; `Continue (step_detect_after_init `App period reboot_steps r None))
-                ~failure:(fun _ -> bad_step p (step_init_application (pred p) req acc))
+    and step_init_application (timer:Timer.t) req acc recvd =
+      find_resp timer req acc recvd
+        ~on_success:(fun x _ ->
+          Logs.debug (fun m ->
+              let s = (fmt "init step - application set: %s" @@ application_to_string x) in
+              m "%s" s);
+          let r = Devinfo Get_fpga_ver in
+          send r; `Continue (step_detect_after_init `App (Timer.reset timer) reboot_steps r None))
+        ~on_failure:(fun timer acc -> `Continue (step_init_application timer req acc))
+        ~on_timeout
 
-    and step_init_storage p req acc recvd =
-      find_resp req acc recvd
-                ~success:(fun x _ ->
-                  Logs.debug (fun m ->
-                      let s = (fmt "init step - storage set: %s" @@ storage_to_string x) in
-                      m "%s" s);
-                  let r = Nw Get_ip in
-                  send r; `Continue (step_get_ip period r None))
-                ~failure:(fun acc -> bad_step p (step_init_storage (pred p) req acc))
+    and step_init_storage (timer:Timer.t) req acc recvd =
+      find_resp timer req acc recvd
+        ~on_success:(fun x _ ->
+          Logs.debug (fun m ->
+              let s = (fmt "init step - storage set: %s" @@ storage_to_string x) in
+              m "%s" s);
+          let r = Nw Get_ip in
+          send r; `Continue (step_get_ip (Timer.reset timer) r None))
+        ~on_failure:(fun timer acc -> `Continue (step_init_storage timer req acc))
+        ~on_timeout
 
-    and step_get_ip p req acc recvd =
-      find_resp req acc recvd
-                ~success:(fun resp _ ->
-                  Logs.debug (fun m ->
-                      let s = (fmt "init step - got ip: %s" @@ Ipaddr.V4.to_string resp) in
-                      m "%s" s);
-                  if Ipaddr.V4.equal resp storage#get.nw.ip
-                  then (let r = Nw Get_mask in
-                        Logs.debug (fun m -> m "%s" (fmt "init step - no need to set ip, skipping..."));
-                        send r; `Continue (step_get_mask false period r None))
-                  else (let r = Nw (Set_ip storage#get.nw.ip) in
-                        send r; `Continue (step_init_ip period r None)))
-                ~failure:(fun acc -> bad_step p (step_get_ip (pred p) req acc))
+    and step_get_ip (timer:Timer.t) req acc recvd =
+      find_resp timer req acc recvd
+        ~on_success:(fun resp _ ->
+          Logs.debug (fun m ->
+              let s = (fmt "init step - got ip: %s" @@ Ipaddr.V4.to_string resp) in
+              m "%s" s);
+          if Ipaddr.V4.equal resp storage#get.nw.ip
+          then (let r = Nw Get_mask in
+                Logs.debug (fun m -> m "%s" (fmt "init step - no need to set ip, skipping..."));
+                send r; `Continue (step_get_mask false (Timer.reset timer) r None))
+          else (let r = Nw (Set_ip storage#get.nw.ip) in
+                send r; `Continue (step_init_ip (Timer.reset timer) r None)))
+        ~on_failure:(fun timer acc -> `Continue (step_get_ip timer req acc))
+        ~on_timeout
 
-    and step_init_ip p req acc recvd =
-      find_resp req acc recvd
-                ~success:(fun x _ ->
-                  Logs.debug (fun m ->
-                      let s = (fmt "init step - ip set: %s" @@ Ipaddr.V4.to_string x) in
-                      m "%s" s);
-                  let r = Nw Get_mask in
-                  send r; `Continue (step_get_mask true period r None))
-                ~failure:(fun acc -> bad_step p (step_init_ip (pred p) req acc))
+    and step_init_ip (timer:Timer.t) req acc recvd =
+      find_resp timer req acc recvd
+        ~on_success:(fun x _ ->
+          Logs.debug (fun m ->
+              let s = (fmt "init step - ip set: %s" @@ Ipaddr.V4.to_string x) in
+              m "%s" s);
+          let r = Nw Get_mask in
+          send r; `Continue (step_get_mask true (Timer.reset timer) r None))
+        ~on_failure:(fun timer acc -> `Continue (step_init_ip timer req acc))
+        ~on_timeout
 
-    and step_get_mask need_reboot p req acc recvd =
-      find_resp req acc recvd
-                ~success:(fun resp _ ->
-                  Logs.debug (fun m ->
-                      let s = (fmt "init step - got mask: %s" @@ Ipaddr.V4.to_string resp) in
-                      m "%s" s);
-                  if Ipaddr.V4.equal resp storage#get.nw.mask
-                  then (let r = Nw Get_gateway in
-                        Logs.debug (fun m -> m "%s" (fmt "init step - no need to set mask, skipping..."));
-                        send r; `Continue (step_get_gateway need_reboot period r None))
-                  else (let r = Nw (Set_mask storage#get.nw.mask) in
-                        send r; `Continue (step_init_mask period r None)))
-                ~failure:(fun acc -> bad_step p (step_get_mask need_reboot (pred p) req acc))
+    and step_get_mask need_reboot (timer:Timer.t) req acc recvd =
+      find_resp timer req acc recvd
+        ~on_success:(fun resp _ ->
+          Logs.debug (fun m ->
+              let s = (fmt "init step - got mask: %s" @@ Ipaddr.V4.to_string resp) in
+              m "%s" s);
+          if Ipaddr.V4.equal resp storage#get.nw.mask
+          then (let r = Nw Get_gateway in
+                Logs.debug (fun m -> m "%s" (fmt "init step - no need to set mask, skipping..."));
+                send r; `Continue (step_get_gateway need_reboot (Timer.reset timer) r None))
+          else (let r = Nw (Set_mask storage#get.nw.mask) in
+                send r; `Continue (step_init_mask (Timer.reset timer) r None)))
+        ~on_failure:(fun timer acc -> `Continue (step_get_mask need_reboot timer req acc))
+        ~on_timeout
 
-    and step_init_mask p req acc recvd =
-      find_resp req acc recvd
-                ~success:(fun x _ ->
-                  Logs.debug (fun m ->
-                      let s = (fmt "init step - mask set: %s" @@ Ipaddr.V4.to_string x) in
-                      m "%s" s);
-                  let r = Nw Get_gateway in
-                  send r; `Continue (step_get_gateway true period r None))
-                ~failure:(fun acc -> bad_step p (step_init_mask (pred p) req acc))
+    and step_init_mask (timer:Timer.t) req acc recvd =
+      find_resp timer req acc recvd
+        ~on_success:(fun x _ ->
+          Logs.debug (fun m ->
+              let s = (fmt "init step - mask set: %s" @@ Ipaddr.V4.to_string x) in
+              m "%s" s);
+          let r = Nw Get_gateway in
+          send r; `Continue (step_get_gateway true (Timer.reset timer) r None))
+        ~on_failure:(fun timer acc -> `Continue (step_init_mask timer req acc))
+        ~on_timeout
 
-    and step_get_gateway need_reboot p req acc recvd =
-      find_resp req acc recvd
-                ~success:(fun resp _ ->
-                  Logs.debug (fun m ->
-                      let s = (fmt "init step - got gateway: %s" @@ Ipaddr.V4.to_string resp) in
-                      m "%s" s);
-                  if Ipaddr.V4.equal resp storage#get.nw.gateway
-                  then (let r = Nw Get_dhcp in
-                        Logs.debug (fun m -> m "%s" (fmt "init step - no need to set gateway, skipping..."));
-                        send r; `Continue (step_get_dhcp need_reboot period r None))
-                  else (let r = Nw (Set_gateway storage#get.nw.gateway) in
-                        send r; `Continue (step_init_gateway period r None)))
-                ~failure:(fun acc -> bad_step p (step_get_gateway need_reboot (pred p) req acc))
+    and step_get_gateway need_reboot (timer:Timer.t) req acc recvd =
+      find_resp timer req acc recvd
+        ~on_success:(fun resp _ ->
+          Logs.debug (fun m ->
+              let s = (fmt "init step - got gateway: %s" @@ Ipaddr.V4.to_string resp) in
+              m "%s" s);
+          if Ipaddr.V4.equal resp storage#get.nw.gateway
+          then (let r = Nw Get_dhcp in
+                Logs.debug (fun m -> m "%s" (fmt "init step - no need to set gateway, skipping..."));
+                send r; `Continue (step_get_dhcp need_reboot (Timer.reset timer) r None))
+          else (let r = Nw (Set_gateway storage#get.nw.gateway) in
+                send r; `Continue (step_init_gateway (Timer.reset timer) r None)))
+        ~on_failure:(fun timer acc -> `Continue (step_get_gateway need_reboot timer req acc))
+        ~on_timeout
 
-    and step_init_gateway p req acc recvd =
-      find_resp req acc recvd
-                ~success:(fun x _ ->
-                  Logs.debug (fun m ->
-                      let s = (fmt "init step - gateway set: %s" @@ Ipaddr.V4.to_string x) in
-                      m "%s" s);
-                  let r = Nw Get_dhcp in
-                  send r; `Continue (step_get_dhcp true period r None))
-                ~failure:(fun acc -> bad_step p (step_init_gateway (pred p) req acc))
+    and step_init_gateway (timer:Timer.t) req acc recvd =
+      find_resp timer req acc recvd
+        ~on_success:(fun x _ ->
+          Logs.debug (fun m ->
+              let s = (fmt "init step - gateway set: %s" @@ Ipaddr.V4.to_string x) in
+              m "%s" s);
+          let r = Nw Get_dhcp in
+          send r; `Continue (step_get_dhcp true (Timer.reset timer) r None))
+        ~on_failure:(fun timer acc -> `Continue (step_init_gateway timer req acc))
+        ~on_timeout
 
-    and step_get_dhcp need_reboot p req acc recvd =
-      find_resp req acc recvd
-                ~success:(fun resp _ ->
-                  Logs.debug (fun m ->
-                      let s = (fmt "init step - got DHCP: %s" @@ string_of_bool resp) in
-                      m "%s" s);
-                  if Equal.bool resp storage#get.nw.dhcp
-                  then
-                    (Logs.debug (fun m -> m "%s" (fmt "init step - no need to set DHCP, skipping..."));
-                     step_need_reboot need_reboot)
-                  else (let r = Nw (Set_dhcp storage#get.nw.dhcp) in
-                        send r; `Continue (step_init_dhcp period r None)))
-                ~failure:(fun acc -> bad_step p (step_get_dhcp need_reboot (pred p) req acc))
+    and step_get_dhcp need_reboot (timer:Timer.t) req acc recvd =
+      find_resp timer req acc recvd
+        ~on_success:(fun resp _ ->
+          Logs.debug (fun m ->
+              let s = (fmt "init step - got DHCP: %s" @@ string_of_bool resp) in
+              m "%s" s);
+          let timer = Timer.reset timer in
+          if Equal.bool resp storage#get.nw.dhcp
+          then
+            (Logs.debug (fun m -> m "%s" (fmt "init step - no need to set DHCP, skipping..."));
+             step_need_reboot timer need_reboot)
+          else (let r = Nw (Set_dhcp storage#get.nw.dhcp) in
+                send r; `Continue (step_init_dhcp timer r None)))
+        ~on_failure:(fun timer acc -> `Continue (step_get_dhcp need_reboot timer req acc))
+        ~on_timeout
 
 
-    and step_init_dhcp p req acc recvd =
-      find_resp req acc recvd
-                ~success:(fun x _ ->
-                  Logs.debug (fun m ->
-                      let s = (fmt "init step - DHCP set: %s" @@ string_of_bool x) in
-                      m "%s" s);
-                  step_need_reboot true)
-                ~failure:(fun acc -> bad_step p (step_init_dhcp (pred p) req acc))
+    and step_init_dhcp (timer:Timer.t) req acc recvd =
+      find_resp timer req acc recvd
+        ~on_success:(fun x _ ->
+          Logs.debug (fun m ->
+              let s = (fmt "init step - DHCP set: %s" @@ string_of_bool x) in
+              m "%s" s);
+          step_need_reboot (Timer.reset timer) true)
+        ~on_failure:(fun timer acc -> `Continue (step_init_dhcp timer req acc))
+        ~on_timeout
 
-    and step_need_reboot need_reboot =
-      if need_reboot
-      then
-        (Logs.debug (fun m -> m "%s" (fmt "init step - rebooting..."));
-         let r = (Nw Reboot) in
-         send r; `Continue (step_finalize_nw_init period r None))
-      else (let r = Ip (Set_enable storage#get.ip.enable) in
-            send r; `Continue (step_init_ip_enable period r None))
+    and step_need_reboot (timer:Timer.t) = function
+      | true  -> Logs.debug (fun m -> m "%s" (fmt "init step - rebooting..."));
+                 let r = (Nw Reboot) in
+                 send r; `Continue (step_finalize_nw_init timer r None)
+      | false -> let r = Ip (Set_enable storage#get.ip.enable) in
+                 send r; `Continue (step_init_ip_enable timer r None)
 
-    and step_finalize_nw_init p req acc recvd =
-      find_resp req acc recvd
-                ~success:(fun _ _ ->
-                  let r = Devinfo Get_fpga_ver in
-                  send r; `Continue (step_detect_after_init `Nw period reboot_steps r None))
-                ~failure:(fun acc -> bad_step p (step_finalize_nw_init (pred p) req acc))
+    and step_finalize_nw_init (timer:Timer.t) req acc recvd =
+      find_resp timer req acc recvd
+        ~on_success:(fun _ _ ->
+          let r = Devinfo Get_fpga_ver in
+          send r; `Continue (step_detect_after_init `Nw (Timer.reset timer) reboot_steps r None))
+        ~on_failure:(fun timer acc -> `Continue (step_finalize_nw_init timer req acc))
+        ~on_timeout
 
-    and step_init_ip_enable p req acc recvd =
-      find_resp req acc recvd
-                ~success:(fun x _ ->
-                  Logs.debug (fun m ->
-                      let s = (fmt "init step - ip enable set: %s" @@ string_of_bool x) in
-                      m "%s" s);
-                  let r = Ip (Set_fec_enable storage#get.ip.fec) in
-                  send r; `Continue (step_init_ip_fec period r None))
-                ~failure:(fun acc -> bad_step p (step_init_ip_enable (pred p) req acc))
+    and step_init_ip_enable (timer:Timer.t) req acc recvd =
+      find_resp timer req acc recvd
+        ~on_success:(fun x _ ->
+          Logs.debug (fun m ->
+              let s = (fmt "init step - ip enable set: %s" @@ string_of_bool x) in
+              m "%s" s);
+          let r = Ip (Set_fec_enable storage#get.ip.fec) in
+          send r; `Continue (step_init_ip_fec (Timer.reset timer) r None))
+        ~on_failure:(fun timer acc -> `Continue (step_init_ip_enable timer req acc))
+        ~on_timeout
 
-    and step_init_ip_fec p req acc recvd =
-      find_resp req acc recvd
-                ~success:(fun x _ ->
-                  Logs.debug (fun m ->
-                      let s = (fmt "init step - fec enable set: %s" @@ string_of_bool x) in
-                      m "%s" s);
-                  let r = Ip (Set_udp_port storage#get.ip.port) in
-                  send r; `Continue (step_init_ip_udp_port period r None))
-                ~failure:(fun acc -> bad_step p (step_init_ip_fec (pred p) req acc))
+    and step_init_ip_fec (timer:Timer.t) req acc recvd =
+      find_resp timer req acc recvd
+        ~on_success:(fun x _ ->
+          Logs.debug (fun m ->
+              let s = (fmt "init step - fec enable set: %s" @@ string_of_bool x) in
+              m "%s" s);
+          let r = Ip (Set_udp_port storage#get.ip.port) in
+          send r; `Continue (step_init_ip_udp_port (Timer.reset timer) r None))
+        ~on_failure:(fun timer acc -> `Continue (step_init_ip_fec timer req acc))
+        ~on_timeout
 
-    and step_init_ip_udp_port p req acc recvd =
-      find_resp req acc recvd
-                ~success:(fun x _ ->
-                  Logs.debug (fun m ->
-                      let s = (fmt "init step - udp port set: %s" @@ string_of_int x) in
-                      m "%s" s);
-                  (match storage#get.ip.multicast with
-                   | Some x -> let r = Ip (Set_mcast_addr x) in
-                               send r; `Continue (step_init_ip_multicast period r None)
-                   | None   -> let r = Ip (Set_method Unicast) in
-                               send r; `Continue (step_init_ip_method (pred p) r None)))
-                ~failure:(fun acc -> bad_step p (step_init_ip_udp_port (pred p) req acc))
+    and step_init_ip_udp_port (timer:Timer.t) req acc recvd =
+      find_resp timer req acc recvd
+        ~on_success:(fun x _ ->
+          Logs.debug (fun m ->
+              let s = (fmt "init step - udp port set: %s" @@ string_of_int x) in
+              m "%s" s);
+          (match storage#get.ip.multicast with
+           | Some x -> let r = Ip (Set_mcast_addr x) in
+                       send r; `Continue (step_init_ip_multicast (Timer.reset timer) r None)
+           | None   -> let r = Ip (Set_method Unicast) in
+                       send r; `Continue (step_init_ip_method timer r None)))
+        ~on_failure:(fun timer acc -> `Continue (step_init_ip_udp_port timer req acc))
+        ~on_timeout
 
-    and step_init_ip_multicast p req acc recvd =
-      find_resp req acc recvd
-                ~success:(fun x _ ->
-                  Logs.debug (fun m ->
-                      let s = (fmt "init step - multicast address set: %s" @@ Ipaddr.V4.to_string x) in
-                      m "%s" s);
-                  let r = Ip (Set_method Multicast) in
-                  send r; `Continue (step_init_ip_method period r None))
-                ~failure:(fun acc -> bad_step p (step_init_ip_multicast (pred p) req acc))
+    and step_init_ip_multicast (timer:Timer.t) req acc recvd =
+      find_resp timer req acc recvd
+        ~on_success:(fun x _ ->
+          Logs.debug (fun m ->
+              let s = (fmt "init step - multicast address set: %s" @@ Ipaddr.V4.to_string x) in
+              m "%s" s);
+          let r = Ip (Set_method Multicast) in
+          send r; `Continue (step_init_ip_method (Timer.reset timer) r None))
+        ~on_failure:(fun timer acc -> `Continue (step_init_ip_multicast timer req acc))
+        ~on_timeout
 
-    and step_init_ip_method p req acc recvd =
-      find_resp req acc recvd
-                ~success:(fun x _ ->
-                  Logs.debug (fun m ->
-                      let s = (fmt "init step - ip method set: %s" @@ meth_to_string x) in
-                      m "%s" s);
-                  let r = Ip (Set_delay storage#get.ip.delay) in
-                  send r; `Continue (step_init_ip_delay period r None))
-                ~failure:(fun acc -> bad_step p (step_init_ip_method (pred p) req acc))
+    and step_init_ip_method (timer:Timer.t) req acc recvd =
+      find_resp timer req acc recvd
+        ~on_success:(fun x _ ->
+          Logs.debug (fun m ->
+              let s = (fmt "init step - ip method set: %s" @@ meth_to_string x) in
+              m "%s" s);
+          let r = Ip (Set_delay storage#get.ip.delay) in
+          send r; `Continue (step_init_ip_delay (Timer.reset timer) r None))
+        ~on_failure:(fun timer acc -> `Continue (step_init_ip_method timer req acc))
+        ~on_timeout
 
-    and step_init_ip_delay p req acc recvd =
-      find_resp req acc recvd
-                ~success:(fun x _ ->
-                  Logs.debug (fun m ->
-                      let s = (fmt "init step - ip delay set: %s" @@ string_of_int x) in
-                      m "%s" s);
-                  let r = Ip (Set_rate_est_mode storage#get.ip.rate_mode) in
-                  send r; `Continue (step_init_ip_rate_mode period r None))
-                ~failure:(fun acc -> bad_step p (step_init_ip_delay (pred p) req acc))
+    and step_init_ip_delay (timer:Timer.t) req acc recvd =
+      find_resp timer req acc recvd
+        ~on_success:(fun x _ ->
+          Logs.debug (fun m ->
+              let s = (fmt "init step - ip delay set: %s" @@ string_of_int x) in
+              m "%s" s);
+          let r = Ip (Set_rate_est_mode storage#get.ip.rate_mode) in
+          send r; `Continue (step_init_ip_rate_mode (Timer.reset timer) r None))
+        ~on_failure:(fun timer acc -> `Continue (step_init_ip_delay timer req acc))
+        ~on_timeout
 
-    and step_init_ip_rate_mode p req acc recvd =
-      find_resp req acc recvd
-                ~success:(fun x _ ->
-                  Logs.debug (fun m ->
-                      let s = (fmt "init step - ip rate mode set: %s" @@ rate_mode_to_string x) in
-                      m "%s" s);
-                  pe.state `Fine;
-                  Logs.info (fun m -> m "%s" (fmt "initialization done!"));
-                  let probes = Probes.make () in
-                  `Continue (step_ok_probes_send probes None))
-                ~failure:(fun acc -> bad_step p (step_init_ip_rate_mode (pred p) req acc))
+    and step_init_ip_rate_mode (timer:Timer.t) req acc recvd =
+      find_resp timer req acc recvd
+        ~on_success:(fun x _ ->
+          Logs.debug (fun m ->
+              let s = (fmt "init step - ip rate mode set: %s" @@ rate_mode_to_string x) in
+              m "%s" s);
+          pe.state `Fine;
+          Logs.info (fun m -> m "%s" (fmt "initialization done!"));
+          let probes = Probes.make () in
+          `Continue (step_ok_probes_send probes None))
+        ~on_failure:(fun timer acc -> `Continue (step_init_ip_rate_mode timer req acc))
+        ~on_timeout
 
     and step_ok_tee probes acc recvd =
       match Queue.empty !msgs with
@@ -606,7 +637,7 @@ module SM = struct
       else `Continue (step_ok_tee probes acc)
 
     and step_ok_probes_wait probes acc recvd =
-      let responses,acc = deserialize (concat_acc acc recvd) in
+      let responses,acc = Parser.deserialize (concat_acc acc recvd) in
       try
         (match Probes.responsed probes responses with
          | None   ->
@@ -632,7 +663,7 @@ module SM = struct
 
     and step_ok_requests_wait probes acc recvd =
       let probes = Probes.wait probes in
-      let responses, acc = deserialize (concat_acc acc recvd) in
+      let responses, acc = Parser.deserialize (concat_acc acc recvd) in
       try
         match Queue.responsed !msgs responses with
         | None    -> msgs := Queue.step !msgs;
@@ -657,13 +688,17 @@ module SM = struct
     @@ React.E.changes status
     |> React.S.hold []
 
-  let create control sender storage step_duration =
+  let create sender storage step_duration log_prefix =
     let state,state_push     = React.S.create `No_response in
     let status,status_push   = React.E.create () in
     let config,config_push   = React.E.create () in
     let devinfo,devinfo_push = React.S.create None in
-    let streams              = to_streams_s status in
-    let (events:events)      = { streams; state; status; config } in
+
+    let s_status = React.S.hold ~eq:(Equal.option equal_status) None
+                   @@ React.E.map (fun x -> Some x) status
+    in
+    let streams  = to_streams_s status in
+    let events   = { streams; state; status; config } in
     let (pe:push_events) =
       { state   = state_push
       ; status  = status_push
@@ -672,26 +707,39 @@ module SM = struct
       }
     in
     let msgs   = ref (Queue.create []) in
-    let send x = send msgs sender storage pe (to_period step_duration 2) x in
+    let send x = send msgs sender storage pe (Boards.Timer.steps ~step_duration 2) x in
+    let fmt fmt = let fs = "%s" ^^ fmt in Printf.sprintf fs log_prefix in
+    let log n s = Logs.info (fun m -> m "%s" @@ fmt "got %s set request: %s" n s) in
     let api =
-      { set_ip        = (fun x  -> send (Nw (Set_ip x)))
-      ; set_mask      = (fun x  -> send (Nw (Set_mask x)))
-      ; set_gateway   = (fun x  -> send (Nw (Set_gateway x)))
-      ; set_dhcp      = (fun x  -> send (Nw (Set_dhcp x)))
-      ; set_enable    = (fun x  -> send (Ip (Set_enable x)))
-      ; set_fec       = (fun x  -> send (Ip (Set_fec_enable x)))
-      ; set_port      = (fun x  -> send (Ip (Set_udp_port x)))
-      ; set_meth      = (fun x  -> send (Ip (Set_method x)))
-      ; set_multicast = (fun x  -> send (Ip (Set_mcast_addr x)))
-      ; set_delay     = (fun x  -> send (Ip (Set_delay x)))
-      ; set_rate_mode = (fun x  -> send (Ip (Set_rate_est_mode x)))
-      ; reset         = (fun () -> send (Nw Reboot))
+      { set_ip        = (fun x  -> log "ip address" (Ipaddr.V4.to_string x);
+                                   send (Nw (Set_ip x)))
+      ; set_mask      = (fun x  -> log "network mask" (Ipaddr.V4.to_string x);
+                                   send (Nw (Set_mask x)))
+      ; set_gateway   = (fun x  -> log "gateway" (Ipaddr.V4.to_string x);
+                                   send (Nw (Set_gateway x)))
+      ; set_dhcp      = (fun x  -> log "DHCP" (string_of_bool x);
+                                   send (Nw (Set_dhcp x)))
+      ; set_enable    = (fun x  -> log "enable" (string_of_bool x);
+                                   send (Ip (Set_enable x)))
+      ; set_fec       = (fun x  -> log "FEC enable" (string_of_bool x);
+                                   send (Ip (Set_fec_enable x)))
+      ; set_port      = (fun x  -> log "UDP port" (string_of_int x);
+                                   send (Ip (Set_udp_port x)))
+      ; set_meth      = (fun x  -> log "method" (meth_to_string x);
+                                   send (Ip (Set_method x)))
+      ; set_multicast = (fun x  -> log "multicast" (Ipaddr.V4.to_string x);
+                                   send (Ip (Set_mcast_addr x)))
+      ; set_delay     = (fun x  -> log "IP-to-output delay" (string_of_int x);
+                                   send (Ip (Set_delay x)))
+      ; set_rate_mode = (fun x  -> log "rate estimation mode" (rate_mode_to_string x);
+                                   send (Ip (Set_rate_est_mode x)))
+      ; reset         = (fun () -> Logs.info (fun m -> m "%s" @@ fmt "got reset request");
+                                   send (Nw Reboot))
+      ; get_status    = (fun () -> React.S.value s_status)
       ; get_config    = (fun () -> storage#get)
       ; get_devinfo   = (fun () -> React.S.value devinfo)
       }
     in
-    events,
-    api,
-    (step msgs sender storage step_duration pe control)
+    events,api,(step msgs sender storage step_duration pe log_prefix)
 
 end

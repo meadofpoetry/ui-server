@@ -101,6 +101,10 @@ module HTTP = struct
   let get_rate_mode (api:api) _ _ () = get api (fun x -> x.rate_mode) rate_mode_to_yojson
   let get_mode      (api:api) _ _ () = get api (fun x -> x) ip_to_yojson
 
+  let get_status (api:api) _ _ () =
+    api.get_status () |> Json.Option.to_yojson status_to_yojson
+    |> Result.return |> respond_result
+
   module Archive = struct
 
     let get_status limit from compress till duration _ _ () =
@@ -228,6 +232,10 @@ let handler api events =
                  ~path:Path.Format.("mode" @/ empty)
                  ~query:Query.empty
                  (HTTP.get_mode api)
+             ; create_handler ~docstring:"Returns last received receiver status"
+                 ~path:Path.Format.("status" @/ empty)
+                 ~query:Query.empty
+                 (HTTP.get_status api)
              (* Archive *)
              ; create_handler ~docstring:"Returns archived receiver status"
                  ~path:Path.Format.("status/archive" @/ empty)

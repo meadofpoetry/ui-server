@@ -57,7 +57,7 @@ let settings = None
 
 let make ~(state:   Common.Topology.state React.signal)
          ~(mode:    t2mi_mode option React.signal)
-         ~(streams: Common.Stream.t_list React.signal)
+         ~(streams: Common.Stream.t list React.signal)
          (conf:     config option)
          control =
   let en,set_en,s_en,dis_en     = make_enabled () in

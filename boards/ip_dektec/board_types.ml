@@ -18,12 +18,12 @@ let storage_to_string = function
   | Ram   -> "RAM"
 
 (* Ip types *)
-type receiver_status = Enabled | Disabled | Failure [@@deriving yojson, show]
-type protocol        = Udp | Rtp [@@deriving yojson, show]
-type meth            = Unicast | Multicast [@@deriving yojson, eq, show]
+type receiver_status = Enabled | Disabled | Failure   [@@deriving yojson, eq, show]
+type protocol        = Udp | Rtp                      [@@deriving yojson, eq, show]
+type meth            = Unicast | Multicast            [@@deriving yojson, eq, show]
 type output          = Asi | Spi
-type packet_sz       = Ts188 | Ts204 [@@deriving yojson, show]
-type rate_mode       = On | Fixed | Without_pcr | Off [@@deriving yojson,eq]
+type packet_sz       = Ts188 | Ts204                  [@@deriving yojson, eq, show]
+type rate_mode       = On | Fixed | Without_pcr | Off [@@deriving yojson, eq]
 
 let meth_to_string = function
   | Unicast   -> "unicast"
@@ -65,7 +65,7 @@ type status =
   ; lock_err_cnt    : int32
   ; delay_factor    : int32
   ; asi_bitrate     : int
-  } [@@deriving yojson]
+  } [@@deriving yojson, eq]
 
 let protocol_to_string = function
   | Udp -> "UDP"
@@ -94,7 +94,6 @@ type config = { nw : nw
               } [@@deriving yojson,eq]
 
 let config_to_string c = Yojson.Safe.to_string @@ config_to_yojson c
-
 let config_of_string s = config_of_yojson @@ Yojson.Safe.from_string s
 
 let config_default = { nw = { ip        = Ipaddr.V4.of_string_exn "192.168.111.68"

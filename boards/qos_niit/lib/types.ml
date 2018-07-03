@@ -16,7 +16,7 @@ type status_versions =
   ; ts_ver_com   : int
   ; ts_ver_lst   : int list
   ; t2mi_ver_lst : int list
-  } [@@deriving eq]
+  } [@@deriving show, eq]
 
 type status_raw =
   { status       : status
@@ -29,7 +29,7 @@ type status_raw =
   ; version      : int
   ; versions     : status_versions
   ; streams      : Stream.id list
-  } [@@deriving eq]
+  } [@@deriving show, eq]
 
 (** T2-MI errors **)
 
@@ -58,7 +58,7 @@ type jitter_raw =
 
 (** Streams **)
 
-type streams = Common.Stream.id list [@@deriving yojson,eq]
+type streams = Common.Stream.id list [@@deriving yojson,show,eq]
 
 (** Event group **)
 
@@ -103,7 +103,7 @@ and section_params =
   ; table_id_ext   : int option (* needed for tables with extra parameter, like ts id for PAT *)
   ; eit_ts_id      : int option (* ts id for EIT *)
   ; eit_orig_nw_id : int option (* original network ID for EIT *)
-  } [@@deriving yojson]
+  } [@@deriving yojson, show]
 
 type api =
   { get_devinfo         : unit               -> devinfo option
