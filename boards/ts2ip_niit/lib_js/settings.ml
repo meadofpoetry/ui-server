@@ -9,12 +9,12 @@ type state =
 
 type init =
   { streams : Common.Stream.t list
-  ; config  : config
+  ; config  : packer_settings list
   }
 
 type events =
   { streams : Common.Stream.t list React.event
-  ; config  : config React.event
+  ; config  : packer_settings list React.event
   }
 
 let clean_state (state : state) =
@@ -64,9 +64,10 @@ let card control
    * primary#add_class "background--primary"; *)
   let card = new Card.t ~widgets:[ (new Card.Media.t ~widgets:[sms_lst] ())#widget
                                  ; actions#widget
-                                 ] ()
+               ] ()
   in
-  (* React.E.map (fun _ -> Requests.post_streams_simple control (React.S.value selected)) apply#e_click |> ignore; *)
+  React.E.map (fun _ -> Requests.Transmitter.HTTP.set_streams (React.S.value selected)
+                          control) apply#e_click |> ignore;
   card
 
 let layout control
@@ -86,28 +87,27 @@ class settings control () = object(self)
   method private observe =
     MutationObserver.observe
       ~node:Dom_html.document
-      ~f:(fun _ _ -> ())
-      (* ~f:(fun _ _ ->
-       *   let in_dom_new = (Js.Unsafe.coerce Dom_html.document)##contains self#root in
-       *   if in_dom && (not in_dom_new)
-       *   then Option.iter (fun (x:state) -> x.streams##close; x.config##close; state <- None) state
-       *   else if (not in_dom) && in_dom_new
-       *   then (let open Lwt_result.Infix in
-       *         Requests.get_config control
-       *         >>= (fun config ->
-       *           Requests.get_streams control
-       *           >>= (fun streams ->
-       *                let config_ws,config_sock   = Requests.get_config_ws control in
-       *                let streams_ws,streams_sock = Requests.get_streams_ws control in
-       *                Dom.appendChild self#root (layout control
-       *                                             ~init:{ streams; config }
-       *                                             ~events:{ streams = streams_ws
-       *                                                     ; config = config_ws })#root;
-       *                state <- Some { streams = streams_sock
-       *                              ; config  = config_sock };
-       *                Lwt_result.return ()))
-       *         |> ignore;
-       *         in_dom <- in_dom_new)) *)
+      ~f:(fun _ _ ->
+        let in_dom_new = (Js.Unsafe.coerce Dom_html.document)##contains self#root in
+        if in_dom && (not in_dom_new)
+        then Option.iter (fun (x:state) -> x.streams##close; x.config##close; state <- None) state
+        else if (not in_dom) && in_dom_new
+        then (let open Lwt_result.Infix in
+              Requests.Transmitter.HTTP.get_mode control
+              >>= (fun config ->
+                Requests.Transmitter.HTTP.get_in_streams control
+                >>= (fun streams ->
+                     let config_ws,config_sock   = Requests.Transmitter.WS.get_mode control in
+                     let streams_ws,streams_sock = Requests.Transmitter.WS.get_in_streams control in
+                     Dom.appendChild self#root (layout control
+                                                  ~init:{ streams; config }
+                                                  ~events:{ streams = streams_ws
+                                                          ; config = config_ws })#root;
+                     state <- Some { streams = streams_sock
+                                   ; config  = config_sock };
+                     Lwt_result.return ()))
+              |> ignore;
+              in_dom <- in_dom_new))
       ~child_list:true
       ~subtree:true
       ()

@@ -243,9 +243,9 @@ module SM = struct
     let imsgs = ref (Queue.create []) in
     let api =
       { set_nw_mode = (fun (x:nw_settings) ->
-        let ss = storage#get.packers in
-        enqueue_instant imsgs sender storage (Set_board_mode (x,ss))
-        >>= (fun _ -> config_push storage#get; Lwt.return_unit))
+          let ss = storage#get.packers in
+          enqueue_instant imsgs sender storage (Set_board_mode (x,ss))
+          >>= (fun _ -> config_push storage#get; Lwt.return_unit))
 
       ; set_streams = (fun (x:Stream.t list) ->
         match Streams_setup.simple board (React.S.value devinfo) x with
