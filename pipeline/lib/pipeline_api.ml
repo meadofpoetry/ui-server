@@ -52,12 +52,12 @@ let get_sock sock_data body conv event =
   Hashtbl.add socket_table id sock_events;
   Lwt.return (resp, (body :> Cohttp_lwt.Body.t))
 
-let set_structure api test test headers body () =
+let set_structure api headers body () =
   Lwt_io.printf "set structure\n" |> ignore;
   set body Structure.Streams.of_yojson
     Pipeline_protocol.(fun x -> api.requests.streams.set x)
 
-let get_structure api id headers body =
+let get_structure api headers body () =
   let open Pipeline_protocol in
   api.requests.streams.get ()
   >>= (function
@@ -66,15 +66,15 @@ let get_structure api id headers body =
   >|= (Structure.Streams.to_yojson %> Result.return)
   >>= respond_result
 
-let get_structure_sock sock_data body api =
+let get_structure_sock api _ body sock_data () =
   let open Pipeline_protocol in
   get_sock sock_data body Structure.Streams.to_yojson (React.S.changes api.streams)
 
-let set_settings api body () =
+let set_settings api headers body () =
   set body Settings.of_yojson
       Pipeline_protocol.(fun x -> api.requests.settings.set x)
 
-let get_settings api id headers body =
+let get_settings api headers body () =
   let open Pipeline_protocol in
   api.requests.settings.get ()
   >>= (function
@@ -83,15 +83,15 @@ let get_settings api id headers body =
   >|= (Settings.to_yojson %> Result.return)
   >>= respond_result
 
-let get_settings_sock sock_data body api () =
+let get_settings_sock api _ body sock_data () =
   let open Pipeline_protocol in
   get_sock sock_data body Settings.to_yojson (React.S.changes api.settings)
 
-let set_wm api body () =
+let set_wm api _ body () =
   set body Wm.of_yojson
     Pipeline_protocol.(fun x -> api.requests.wm.set x)
 
-let get_wm api () =
+let get_wm api _ body () =
   let open Pipeline_protocol in
   api.requests.wm.get ()
   >>= (function
@@ -100,11 +100,11 @@ let get_wm api () =
   >|= (Wm.to_yojson %> Result.return)
   >>= respond_result
 
-let get_wm_sock sock_data body api () =
+let get_wm_sock api _ body sock_data () =
   let open Pipeline_protocol in
   get_sock sock_data body Wm.to_yojson (React.S.changes api.wm)
 
-let get_vdata_sock sock_data body api ?stream ?channel ?pid () =
+let get_vdata_sock api stream channel pid _ body sock_data () =
   let open Pipeline_protocol in
   match stream, channel, pid with
   | Some s, Some c, Some p ->
@@ -118,50 +118,62 @@ let get_vdata_sock sock_data body api ?stream ?channel ?pid () =
      get_sock sock_data body Video_data.to_yojson (React.E.filter pred api.vdata)
   | _ -> get_sock sock_data body Video_data.to_yojson api.vdata
 
-(*
-let pipeline_handle api uri id meth _ body sock_data =
-  let open Common.Uri in
-  let open Queries in
-  let is_guest = Common.User.eq id `Guest in
-  match Scheme.is_ws uri.scheme, meth, uri.path with
-  | _,    `GET,  []            -> get_page ()
-  | _,    `POST, ["structure"] -> redirect_if is_guest @@ set_structure api body
-  | true, `GET,  ["structure"] -> get_structure_sock sock_data body api ()
-  | _,    `GET,  ["structure"] -> get_structure api ()
-  | _,    `POST, ["settings"]  -> redirect_if is_guest @@ set_settings api body
-  | true, `GET,  ["settings"]  -> get_settings_sock sock_data body api ()
-  | _,    `GET,  ["settings"]  -> get_settings api ()
-  | _,    `POST, ["wm"]        -> redirect_if is_guest @@ set_wm api body
-  | true, `GET,  ["wm"]        -> get_wm_sock sock_data body api ()
-  | _,    `GET,  ["wm"]        -> get_wm api ()
-  | true, `GET,  ["vdata"]     -> Data_spec.with_query uri.query
-                                    (get_vdata_sock sock_data body api)
-                                    (fun e -> respond_error ~status:`Bad_request "Bad request" ())
-  | _                          -> not_found ()
- *)
 let handlers api =
   let open Common.Uri in
-  Api_handler.create_dispatcher
+  let open Api_handler in
+  create_dispatcher
     "pipeline"
-    []
-    [ `GET,  [ Api_handler.create_handler ~docstring:"Pipeline page"
-                                          ~path:Path.Format.empty
-                                          ~query:Query.empty
-                                          get_page
-             ; Api_handler.create_handler ~docstring:"Structure"
-                                          ~path:Path.Format.("structure" @/ empty)
-                                          ~query:Query.empty
-                                          (get_structure api)
-             ; Api_handler.create_handler ~docstring:"Settings"
-                                          ~path:Path.Format.("settings" @/ empty)
-                                          ~query:Query.empty
-                                          (get_settings api)
+    [ create_ws_handler ~docstring:"Structure websocket"
+        ~path:Path.Format.("structure" @/ empty)
+        ~query: Query.empty
+        (get_structure_sock api)
+    ; create_ws_handler ~docstring:"Settings socket"
+        ~path:Path.Format.("settings" @/ empty)
+        ~query:Query.empty
+        (get_settings_sock api)
+    ; create_ws_handler ~docstring:"WM socket"
+        ~path:Path.Format.("wm" @/ empty)
+        ~query:Query.empty
+        (get_wm_sock api)
+    ; create_ws_handler ~docstring:"Video data socket"
+        ~path:Path.Format.("vdata" @/ empty)
+        ~query:Query.[ "stream",  (module Option(Int))
+                     ; "channel", (module Option(Int))
+                     ; "pid",     (module Option(Int)) ]
+        (get_vdata_sock api)
+    ]
+    [ `GET,  [ create_handler ~docstring:"Pipeline page"
+                 ~path:Path.Format.empty
+                 ~query:Query.empty
+                 get_page
+             ; create_handler ~docstring:"Structure"
+                 ~path:Path.Format.("structure" @/ empty)
+                 ~query:Query.empty
+                 (get_structure api)
+             ; create_handler ~docstring:"Settings"
+                 ~path:Path.Format.("settings" @/ empty)
+                 ~query:Query.empty
+                 (get_settings api)
+             ; create_handler ~docstring:"Wm"
+                 ~path:Path.Format.("wm" @/ empty)
+                 ~query:Query.empty
+                 (get_wm api)
              ]
-    ; `POST, [ Api_handler.create_handler ~docstring:"Post structure"
-                                          ~restrict:[ `Guest ]
-                                          ~path:Path.Format.("structure" @/ Int ^/ empty)
-                                          ~query:Query.["name", (module Single(String))]
-                                          (set_structure api)
+    ; `POST, [ create_handler ~docstring:"Post structure"
+                 ~restrict:[ `Guest ]
+                 ~path:Path.Format.("structure" @/ empty)
+                 ~query:Query.empty
+                 (set_structure api)
+             ; create_handler ~docstring:"Post settings"
+                 ~restrict:[ `Guest ]
+                 ~path:Path.Format.("settings" @/ empty)
+                 ~query:Query.empty
+                 (set_settings api)
+             ; create_handler ~docstring:"Post wm"
+                 ~restrict:[ `Guest ]
+                 ~path:Path.Format.("wm" @/ empty)
+                 ~query:Query.empty
+                 (set_wm api)
              ]
     ]
 

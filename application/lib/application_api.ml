@@ -50,6 +50,7 @@ let topo_handler (app:Application.t) =
         (WS.get_streams app)
     ]
     [ `POST, [ create_handler ~docstring:"Sets streams that are received by PC process"
+                 ~restrict:[ `Guest ]
                  ~path:Path.Format.("streams" @/ empty)
                  ~query:Query.empty
                  (HTTP.set_streams app)

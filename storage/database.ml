@@ -28,7 +28,7 @@ type state = { period  : float
 module Request : sig
   type ('a, 'typ) t
   val (>>=) : ('a, 'typ) t -> ('a -> ('b, 'typ) t) -> ('b, 'typ) t
-  val return : 'a -> ('a, 'b) t
+  val return : 'a -> ('a, [> `Simple]) t
   val exec : ('a, unit, [`Zero]) Caqti_request.t -> 'a -> (unit, [> `Simple]) t
   val find : ('a, 'b, [`One | `Zero]) Caqti_request.t -> 'a -> ('b option, [> `Simple]) t
   val list : ('a, 'b, [`Many | `One | `Zero]) Caqti_request.t -> 'a -> ('b list, [> `Simple]) t
