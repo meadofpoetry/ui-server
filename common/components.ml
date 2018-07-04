@@ -1583,105 +1583,59 @@ module Make
 
   module Table = struct
 
-    let base_class      = "mdc-data-table"
-    let container_class = CSS.add_element base_class "container"
+    let base_class    = "mdc-data-table"
+    let content_class = CSS.add_element base_class "content"
 
     module Cell = struct
-
-      type 'a content = Text  of string
-                      | Float of float
-                      | Int   of int
-                      | Int32 of int32
-                      | Int64 of int64
-                      | Other of 'a elt
-
       let _class         = CSS.add_element  base_class "cell"
-      let numeric_class  = CSS.add_modifier base_class "numeric"
-      let dense_class    = CSS.add_modifier base_class "dense"
-      let checkbox_class = CSS.add_modifier base_class "checkbox"
+      let column_class   = CSS.add_element  base_class "column"
+      let numeric_class  = CSS.add_modifier _class "numeric"
+      let dense_class    = CSS.add_modifier _class "dense"
 
-      let create ?id ?style ?(classes=[]) ?attrs ?(header=false) ?(dense=false) ?(checkbox=false) ~content () =
-        let tag = if header then th else td in
+      let create ?id ?style ?(classes=[]) ?attrs
+            ?(is_numeric=false) ?(header=false) ?(dense=false) content () =
+        let tag    = if header then th else td in
+        let _class = if header then column_class else _class in
         tag ~a:([ a_class (classes
-                           |> (fun l -> match content with
-                                        | Text _ -> l
-                                        | Float _ | Int _ | Int32 _ | Int64 _ -> numeric_class :: l
-                                        | _      -> l)
+                           |> cons_if is_numeric numeric_class
                            |> cons_if dense dense_class
-                           |> cons_if checkbox checkbox_class
                            |> List.cons _class)]
-                |> add_common_attrs ?id ?style ?attrs)
-          (match content with
-           | Text s  -> [ pcdata s]
-           | Float x -> [ pcdata (string_of_float x) ]
-           | Int x   -> [ pcdata (string_of_int x) ]
-           | Int32 x -> [ pcdata (Int32.to_string x) ]
-           | Int64 x -> [ pcdata (Int64.to_string x) ]
-           | Other x -> [ x ])
-
+                |> add_common_attrs ?id ?style ?attrs) [ content ]
     end
 
     module Row = struct
-
       let _class = CSS.add_element base_class "row"
-
       let create ?id ?style ?(classes=[]) ?attrs ~cells () =
-        tr ~a:([ a_class (classes
-                          |> List.cons _class )]
-               |> add_common_attrs ?id ?style ?attrs)
-          cells
-
+        tr ~a:([ a_class (_class :: classes) ]
+               |> add_common_attrs ?id ?style ?attrs) cells
     end
 
     module Header = struct
-
-      let _class = CSS.add_element base_class "header"
-
       let create ?id ?style ?(classes=[]) ?attrs ~row () =
-        thead ~a:([ a_class (classes
-                             |> List.cons _class )]
-                  |> add_common_attrs ?id ?style ?attrs)
-          [ row ]
-
+        thead ~a:([ a_class classes ]
+                  |> add_common_attrs ?id ?style ?attrs) [ row ]
     end
 
     module Body = struct
-
-      let _class = CSS.add_element base_class "body"
-
       let create ?id ?style ?(classes=[]) ?attrs ~rows () =
-        tbody ~a:([ a_class (classes
-                             |> List.cons _class ) ]
-                  |> add_common_attrs ?id ?style ?attrs)
-          rows
-
+        tbody ~a:([ a_class classes ]
+                  |> add_common_attrs ?id ?style ?attrs) rows
     end
 
     module Footer = struct
-
-      let _class = CSS.add_element base_class "footer"
-
       let create ?id ?style ?(classes=[]) ?attrs ~row () =
-        tfoot ~a:([ a_class (classes
-                             |> List.cons _class ) ]
-                  |> add_common_attrs ?id ?style ?attrs)
-          [ row ]
-
+        tfoot ~a:([ a_class classes ]
+                  |> add_common_attrs ?id ?style ?attrs) [ row ]
     end
 
     let create_table ?id ?style ?(classes=[]) ?attrs ?header ?footer ~body () =
-      table ?thead:header
-        ?tfoot:footer
-        ~a:([ a_class (classes
-                       |> List.cons container_class)]
-            |> add_common_attrs ?id ?style ?attrs)
-        [body]
+      table ?thead:header ?tfoot:footer
+        ~a:([ a_class (content_class :: classes) ]
+            |> add_common_attrs ?id ?style ?attrs) [ body ]
 
     let create ?id ?style ?(classes=[]) ?attrs ~table () =
-      div ~a:([ a_class (classes
-                         |> List.cons base_class)]
-              |> add_common_attrs ?id ?style ?attrs)
-        [table]
+      div ~a:([ a_class (base_class :: classes) ]
+              |> add_common_attrs ?id ?style ?attrs) [table]
 
   end
 

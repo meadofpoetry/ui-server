@@ -8,7 +8,7 @@ let init = foreign "cyusb_open" (void @-> returning int)
 
 let close = foreign "cyusb_close" (void @-> returning void)
 
-let get_handle = foreign "cyusb_gethandle" (int @-> returning handl)
+let get_handle = foreign "cyusb_open" (int @-> returning handl)
 
 let get_vendor = foreign "cyusb_getvendor" (handl @-> returning ushort)
 

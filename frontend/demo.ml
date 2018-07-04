@@ -3,8 +3,8 @@ open Lwt_react
 open Components
 open Tyxml_js
 
-let demo_section title content =
-  new Expansion_panel.t ~title ~content ()
+let demo_section ?expanded title content =
+  new Expansion_panel.t ?expanded ~title ~content ()
 
 let subsection name w = Html.div [ Html.h3 ~a:[Html.a_class [Typography.font_to_class Subheading_2]]
                                      [Html.pcdata name]
@@ -533,10 +533,26 @@ let elevation_demo () =
   section
 
 let table_demo () =
-  let table = new Table.t ~fmt:Table.(("Col 1", Int) :: ("Col 2", String) :: ("Col 3", Int) :: E) () in
-  let ()    = table#add_row 1 "test" 2 in
-  let ()    = table#add_row 4 "lool" 3 in
-  demo_section "Table" [ table#widget ]
+  let tz = let d = Js.Unsafe.new_obj (Js.Unsafe.global##.Date) [||] in
+           ((Js.Unsafe.meth_call d "getTimezoneOffset" [||] : int) * (-60))
+  in
+  let show_time = Format.asprintf "%a" (Common.Time.pp_human ~tz_offset_s:tz ()) in
+  let fmt   = Table.(("Date", Custom (show_time,false))
+                     :: ("Input", String)
+                     :: ("Service", String)
+                     :: ("PID", Int)
+                     :: ("Severity", Option String)
+                     :: ("Check", String)
+                     :: ("Message", String)
+                     :: []) in
+  let table = new Table.t ~fmt () in
+  let ()    = table#add_row (Common.Time.Clock.now ())
+                "224.1.2.2" "Первый" 100 None "1.3.1. PAT error"
+                "PAT does not occur for more than 150.0ms" in
+  let ()    = table#add_row (Common.Time.Clock.now ())
+                "224.1.2.2" "НТВ" 100 (Some "Warning") "1.4. Continuity count error"
+                "Packet lost" in
+  demo_section ~expanded:true "#Table" [ table#widget ]
 
 let chart_demo () =
   let range = 10 in

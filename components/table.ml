@@ -1,136 +1,124 @@
 open Containers
-open Markup
-
-let base_class      = "mdc-data-table"
-let container_class = CSS.add_element base_class "container"
-
-(* TEST *)
 
 type _ fmt =
   | String : string fmt
   | Int    : int fmt
   | Int32  : int32 fmt
   | Int64  : int64 fmt
-
-(* END TEST *)
+  | Custom : ('a -> string) * bool -> 'a fmt
+  | Option : ('a fmt) -> 'a option fmt
 
 type (_,_) row =
   | (::) : (string * 'a fmt) * ('b,'c) row -> ('a -> 'b,'c) row
-  | E    : ('a,'a) row
+  | []    : ('a,'a) row
 
-let to_string : type a. a fmt -> a -> string = fun fmt v ->
+let rec to_string : type a. a fmt -> a -> string = fun fmt v ->
   match fmt with
-  | Int    -> string_of_int v
-  | Int32  -> Int32.to_string v
-  | Int64  -> Int64.to_string v
-  | String -> v
+  | Int          -> string_of_int v
+  | Int32        -> Int32.to_string v
+  | Int64        -> Int64.to_string v
+  | String       -> v
+  | Option (fmt) -> (match v with None -> "" | Some v -> (to_string fmt) v)
+  | Custom (f,_) -> f v
 
-let empty = E
+let rec is_numeric : type a. a fmt -> bool = function
+  | Int          -> true
+  | Int32        -> true
+  | Int64        -> true
+  | String       -> false
+  | Option (fmt) -> is_numeric fmt
+  | Custom (_,x) -> x
 
 module Cell = struct
-
-  open Tyxml_js.Html
-
-  let _class         = CSS.add_element  base_class "cell"
-  let numeric_class  = CSS.add_modifier _class "numeric"
-
-  let markup ?(classes=[]) ?(is_numeric=false) ?(header=false) content () =
-    let tag = if header then th else td in
-    tag ~a:([ a_class (classes
-                       |> (fun l -> cons_if is_numeric numeric_class l))])
-      [ pcdata content ]
-
   class t ~(value:'a) (fmt:'a fmt) (conv:'a -> string) () =
-    let is_numeric : type a. a fmt -> bool = function
-      | Int -> true
-      | Int32 -> true
-      | Int64 -> true
-      | String -> false
-    in
     let s   = conv value in
-    let elt = markup ~is_numeric:(is_numeric fmt) s () |> Tyxml_js.To_dom.of_element in
-    object(self)
+    let content = Tyxml_js.Html.(pcdata s) in
+    let elt = Markup.Table.Cell.create ~is_numeric:(is_numeric fmt) content ()
+              |> Tyxml_js.To_dom.of_element in
+    object
       inherit Widget.widget elt ()
-      initializer
-        self#add_class _class;
     end
-
 end
 
 module Column = struct
-
-  let _class = CSS.add_element base_class "column"
-
-  class t ~(value:string) () =
-    let elt = Cell.markup ~header:true value () |> Tyxml_js.To_dom.of_element in
-    object(self)
+  class t ~(value:string) (fmt:'a fmt) () =
+    let content = Tyxml_js.Html.(pcdata value) in
+    let elt = Markup.Table.Cell.create ~header:true ~is_numeric:(is_numeric fmt) content ()
+              |> Tyxml_js.To_dom.of_element in
+    object
       inherit Widget.widget elt ()
-      initializer
-        self#add_class _class
     end
-
 end
 
 module Row = struct
-
-  let _class = CSS.add_element base_class "row"
-
   class t ~cells () =
-    let elt = Table.Row.create ~cells:(List.map Widget.widget_to_markup cells) ()
+    let elt = Markup.Table.Row.create ~cells:(List.map Widget.widget_to_markup cells) ()
               |> Tyxml_js.To_dom.of_element in
-    object(self)
+    object
       inherit Widget.widget elt ()
-      initializer
-        self#add_class _class
     end
-
 end
 
 module Header = struct
-
-  let _class = CSS.add_element base_class "header"
-
-  class t ~row () =
-    let elt = Table.Header.create ~row:(Widget.widget_to_markup row) ()
+  class t ~cells () =
+    let row = new Row.t ~cells () in
+    let elt = Markup.Table.Header.create ~row:(Widget.widget_to_markup row) ()
               |> Tyxml_js.To_dom.of_element in
-    object(self)
+    object
       inherit Widget.widget elt ()
-      initializer
-        self#add_class _class
     end
-
 end
 
-let identity : 'a. 'a -> 'a = fun x -> x
+module Body = struct
+  class t ~rows () =
+    let elt = Markup.Table.Body.create ~rows:(List.map Widget.widget_to_markup rows) ()
+              |> Tyxml_js.To_dom.of_element in
+    object
+      inherit Widget.widget elt ()
+    end
+end
 
-let rec get_column_names : type a b. (a,b) row -> string list = function
-  | E                 -> [ ]
-  | (::) ((s,_),rest) -> s :: get_column_names rest
+module Table = struct
+  class t ~header ~body () =
+    let elt = Markup.Table.create_table ~header:(Widget.widget_to_markup header)
+                ~body:(Widget.widget_to_markup body) ()
+              |> Tyxml_js.To_dom.of_element in
+    object
+      inherit Widget.widget elt ()
+    end
+end
+
+let rec make_columns : type a b. (a,b) row -> Column.t list = function
+  | [] -> []
+  | (::) ((s,fmt),rest) -> (new Column.t ~value:s fmt ()) :: (make_columns rest)
 
 let rec make_cells : type ty v. (Cell.t list -> v) -> (ty,v) row -> ty =
   fun k ->
   function
-  | E -> k []
+  | [] -> k []
   | (::) ((_,fmt),rest) ->
      let f x = make_cells (fun acc -> let cell = new Cell.t ~value:x fmt (to_string fmt) () in
                                       k @@ cell :: acc) rest in f
 
+let make_header : type a b. (a,b) row -> Header.t = fun fmt ->
+  let cells = make_columns fmt in
+  new Header.t ~cells ()
+
 class ['a] t ~(fmt:('a,_) row) () =
-  let elt = Dom_html.createDiv Dom_html.document in
+  let body   = new Body.t ~rows:[] () in
+  let header = make_header fmt in
+  let table  = new Table.t ~header ~body () in
+  let elt    = Markup.Table.create ~table:(Widget.widget_to_markup table) ()
+               |> Tyxml_js.To_dom.of_element in
   object(self)
     inherit Widget.widget elt ()
     method add_row =
       make_cells (fun cells ->
           let row = new Row.t ~cells () in
-          Dom.appendChild self#root row#root) fmt
+          Dom.appendChild body#root row#root) fmt
 
     (* Private methods *)
-    method private _add_headers () =
-      let cells = List.map (fun n -> new Column.t ~value:n ()) (get_column_names fmt) in
-      let row   = new Row.t ~cells () in
-      let hdr   = new Header.t ~row () in
-      Dom.appendChild self#root hdr#root
 
     initializer
-      self#_add_headers ()
+      Dom.appendChild self#root table#root
   end
