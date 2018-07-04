@@ -2,8 +2,8 @@ module Divider = Item_list.Divider
 
 module Item = struct
 
-  class t ?secondary_text ?start_detail ?end_detail ~text () = object
-    inherit Item_list.Item.t ?secondary_text ?start_detail ?end_detail ~text () as super
+  class t ?secondary_text ?graphic ?meta ~text () = object
+    inherit Item_list.Item.t ?secondary_text ?graphic ?meta ~text () as super
 
     method get_disabled   = (match super#get_attribute "aria-disabled" with
                              | Some "true" -> true

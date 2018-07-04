@@ -159,7 +159,7 @@ module Structure = struct
     let s, push        = React.S.create pid.to_be_analyzed in
     let pid_s          = React.S.map (fun b -> {pid with to_be_analyzed = b}) s in
     React.S.map push checkbox#s_state |> ignore;
-    let item = new Tree.Item.t ~text ~secondary_text:stext ~start_detail:checkbox () in
+    let item = new Tree.Item.t ~text ~secondary_text:stext ~graphic:checkbox () in
     item, pid_s
 
   let make_channel (ch : Structure.channel) =

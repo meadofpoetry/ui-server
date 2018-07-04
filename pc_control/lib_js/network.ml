@@ -62,7 +62,7 @@ let make_dns (dns : Network_config.v4 list) =
   let make_dns_entry del_dns addr =
     let text        = Ipaddr.V4.to_string addr in
     let del_button  = new Button.t ~label:"delete" () in
-    let item        = new Item_list.Item.t ~text ~end_detail:del_button () in
+    let item        = new Item_list.Item.t ~text ~meta:del_button () in
     Lwt_react.E.map (fun _ -> del_dns item addr) del_button#e_click |> ignore;
     item
   in
@@ -116,7 +116,7 @@ let make_routes (routes : Network_config.address list) =
     let (addr,mask) = route in
     let text        = (Ipaddr.V4.to_string addr) ^ "/" ^ (Int32.to_string mask) in
     let del_button  = new Button.t ~label:"delete" () in
-    let item        = new Item_list.Item.t ~text ~end_detail:del_button () in
+    let item        = new Item_list.Item.t ~text ~meta:del_button () in
     Lwt_react.E.map (fun _ -> del_route item route) del_button#e_click |> ignore;
     item
   in

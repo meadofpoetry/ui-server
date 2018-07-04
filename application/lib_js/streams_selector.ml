@@ -27,8 +27,8 @@ let make_board_stream_entry ?(check = None)
      Lwt_react.E.keep @@ React.S.diff (fun s _ -> if s then check.enable () else check.disable ()) checkbox#s_state;
   end;
   let item = match uri with
-    | None   -> new Item_list.Item.t ~text ~end_detail:checkbox ()
-    | Some u -> new Item_list.Item.t ~text ~secondary_text:(Common.Url.to_string u) ~end_detail:checkbox ()
+    | None   -> new Item_list.Item.t ~text ~meta:checkbox ()
+    | Some u -> new Item_list.Item.t ~text ~secondary_text:(Common.Url.to_string u) ~meta:checkbox ()
   in
   item, React.S.map (fun s -> if s then Some stream else None) checkbox#s_state
   
@@ -105,7 +105,7 @@ let make_input_stream_list stream_list =
     let del_button     = new Button.t ~label:"delete" () in
     let uri            = match stream.id with `Ip u -> u in
     let item           =
-      new Item_list.Item.t ~text ~secondary_text:(Common.Url.to_string uri) ~end_detail:del_button () in
+      new Item_list.Item.t ~text ~secondary_text:(Common.Url.to_string uri) ~meta:del_button () in
     (* TODO remove event *)
     Lwt_react.E.map (fun _ -> del_item item; del_stream stream) del_button#e_click |> ignore;
     item

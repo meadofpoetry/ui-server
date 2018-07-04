@@ -9,11 +9,11 @@ end
 module Item = struct
 
   (* TODO add ripple manually, without auto-init *)
-  class t ?(ripple=false) ?secondary_text ?start_detail ?end_detail ~text () =
+  class t ?(ripple=false) ?secondary_text ?graphic ?meta ~text () =
 
     let elt = Markup.List_.Item.create ?secondary_text
-                ?start_detail:(Option.map Widget.widget_to_markup start_detail)
-                ?end_detail:(Option.map Widget.widget_to_markup end_detail)
+                ?start_detail:(Option.map Widget.widget_to_markup graphic)
+                ?end_detail:(Option.map Widget.widget_to_markup meta)
                 ~text ()
               |> Tyxml_js.To_dom.of_element in
 
@@ -26,8 +26,8 @@ module Item = struct
 
       initializer
         if ripple then Ripple.attach self |> ignore;
-        Option.iter (fun x -> x#add_class Markup.List_.Item.graphic_class) start_detail;
-        Option.iter (fun x -> x#add_class Markup.List_.Item.meta_class) end_detail
+        Option.iter (fun x -> x#add_class Markup.List_.Item.graphic_class) graphic;
+        Option.iter (fun x -> x#add_class Markup.List_.Item.meta_class) meta
     end
 
 end
@@ -50,13 +50,13 @@ class t ?avatar ~(items:[ `Item of Item.t | `Divider of Divider.t ] list) () =
     inherit Widget.widget elt () as super
 
     method set_dense x    = self#add_or_remove_class x Markup.List_.dense_class
-    method set_bordered x = self#add_or_remove_class x Markup.List_.bordered_class
 
     method add_item (x : Item.t) = Dom.appendChild self#root x#root
     method remove_item (x : Item.t) = try Dom.removeChild self#root x#root with _ -> ()
 
   end
 
+(* *)
 module List_group = struct
 
   type group =

@@ -806,9 +806,12 @@ module Make
       let _class               = "mdc-list-item"
       let text_class           = CSS.add_element _class "text"
       let secondary_text_class = CSS.add_element _class "secondary-text"
+      let divider_class        = "mdc-list-divider"
+
       let graphic_class        = CSS.add_element _class "graphic"
       let meta_class           = CSS.add_element _class "meta"
-      let divider_class        = "mdc-list-divider"
+
+      let (^::) = List.cons_maybe
 
       let create_divider ?id ?style ?(classes=[]) ?attrs ?(tag=div) ?(inset=false) () =
         tag ~a:([ a_class (classes
@@ -818,7 +821,28 @@ module Make
                 |> add_common_attrs ?id ?style ?attrs)
           []
 
-      let create ?id ?style ?(classes=[]) ?attrs ?(auto_init=false) ?(tag=div)
+      let create_secondary_text ?id ?style ?(classes=[]) ?attrs text () =
+        span ~a:([ a_class (secondary_text_class :: classes)]
+                 |> add_common_attrs ?id ?style ?attrs)
+          [ pcdata text]
+
+      let create_text ?id ?style ?(classes=[]) ?attrs ~secondary text () =
+        span ~a:([ a_class (text_class :: classes)]
+                 |> add_common_attrs ?id ?style ?attrs)
+          [ pcdata text; secondary ]
+
+      let create_multi_line ?(tag=li) ?id ?style ?(classes=[]) ?attrs ?graphic ?meta text () =
+        tag ~a:([ a_class (_class :: classes)]
+                |> add_common_attrs ?id ?style ?attrs)
+          (text :: (meta ^:: graphic ^:: []))
+
+      let create_single_line ?(tag=li) ?id ?style ?(classes=[]) ?attrs ?graphic ?meta text () =
+        tag ~a:([ a_class (_class :: classes)]
+                |> add_common_attrs ?id ?style ?attrs)
+          (pcdata text :: (meta ^:: graphic ^:: []))
+
+      (* NOTE legacy *)
+      let create ?id ?style ?(classes=[]) ?attrs ?(auto_init=false) ?(tag=li)
             ~text ?text_id ?text_style ?(text_classes=[]) ?text_attrs ?secondary_text
             ?secondary_text_id ?secondary_text_style ?(secondary_text_classes=[]) ?secondary_text_attrs
             ?start_detail ?end_detail () =
@@ -861,12 +885,10 @@ module Make
     let dense_class    = CSS.add_modifier base_class "dense"
     let two_line_class = CSS.add_modifier base_class "two-line"
     let avatar_class   = CSS.add_modifier base_class "avatar-list"
-    let bordered_class = CSS.add_modifier base_class "bordered"
 
-    let create ?id ?style ?(classes=[]) ?attrs ?(tag=div) ?(avatar=false)
-          ?(dense=false) ?(bordered=false) ?(two_line=false) ~items () =
+    let create ?(tag=li) ?id ?style ?(classes=[]) ?attrs
+          ?(avatar=false) ?(dense=false) ?(two_line=false) ~items () =
       tag ~a:([ a_class (classes
-                         |> cons_if bordered bordered_class
                          |> cons_if dense    dense_class
                          |> cons_if two_line two_line_class
                          |> cons_if avatar   avatar_class

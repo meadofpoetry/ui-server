@@ -284,7 +284,7 @@ class ['a] t ?selection ~(fmt:('a,_) row) () =
 
     method add_row = make_cells (fun cells -> body#add_row cells) fmt
 
-    method private _sort index sort =
+    method sort index sort =
       let rows = List.sort (fun row_1 row_2 ->
                      let cell_1 = row_1#cells_arr.(index) in
                      let cell_2 = row_2#cells_arr.(index) in
@@ -297,7 +297,7 @@ class ['a] t ?selection ~(fmt:('a,_) row) () =
 
     initializer
       React.S.map (function
-          | Some (index,sort) -> self#_sort index sort
+          | Some (index,sort) -> self#sort index sort
           | None -> ()) header#s_sorted
       |> self#_keep_s
 

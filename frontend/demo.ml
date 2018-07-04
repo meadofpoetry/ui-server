@@ -231,7 +231,7 @@ let list_demo () =
                                  else `Item (new Item_list.Item.t
                                                ~text:("List item " ^ (string_of_int x))
                                                ~secondary_text:"some subtext here"
-                                               ~start_detail:(new Avatar.Letter.t ~text:"A" ())
+                                               ~graphic:(new Avatar.Letter.t ~text:"A" ())
                                                ~ripple:true
                                                ()))
                 (List.range 0 5) in
@@ -275,7 +275,7 @@ let tree_demo () =
                ~items:(List.map (fun x -> item x) (List.range 0 5))
                () in
   tree#style##.maxWidth := Js.string "400px";
-  demo_section "Tree" [ tree ]
+  demo_section ~expanded:true "#Tree" [ tree ]
 
 let menu_demo () =
   let items    = List.map (fun x -> if x <> 2
@@ -559,7 +559,7 @@ let table_demo () =
       "Error description here"
   in
   List.iter (fun _ -> make_row ()) @@ List.range' 0 7;
-  demo_section ~expanded:true "#Table" [ table#widget ]
+  demo_section "Table" [ table#widget ]
 
 let chart_demo () =
   let range = 10 in

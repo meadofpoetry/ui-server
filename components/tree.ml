@@ -4,15 +4,15 @@ module Item = struct
 
   class ['a] t ?ripple
           ?secondary_text
-          ?(start_detail:#Widget.widget option)
-          ?(end_detail:#Widget.widget option)
+          ?(graphic:#Widget.widget option)
+          ?(meta:#Widget.widget option)
           ?(nested:'a option)
           ~text
           () =
 
     let s,s_push = React.S.create false in
-    let end_detail =
-      (match end_detail with
+    let meta =
+      (match meta with
        | Some x -> Some x
        | None   -> Option.map (fun _ -> let icon = new Icon.Font.t ~icon:"expand_more" () in
                                         React.S.map (fun x -> if x then icon#set_icon "expand_less"
@@ -20,7 +20,7 @@ module Item = struct
                                         icon)
                      nested) in
 
-    let item = new Item_list.Item.t ?ripple ?secondary_text ?start_detail ?end_detail ~text () in
+    let item = new Item_list.Item.t ?ripple ?secondary_text ?graphic ?meta ~text () in
 
     let elt = Markup.Tree.Item.create ~item:(Widget.widget_to_markup item)
                 ?nested_list:(Option.map (fun x -> Widget.widget_to_markup x) nested)
