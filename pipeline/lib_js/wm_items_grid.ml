@@ -19,8 +19,8 @@ module Make(I : Item) = struct
     let s_active,set_active = React.S.create @@ List.hd @@ React.S.value s_layers in
     let wrapper    = Dom_html.createDiv Dom_html.document |> Widget.create in
     let title      = new Typography.Text.t ~adjust_margin:false ~text:title () in
-    let on_data    = ({ icon = "grid_off"; label = None; css_class = None }:Markup.Icon_toggle.data) in
-    let off_data   = ({ icon = "grid_on"; label = None; css_class = None }:Markup.Icon_toggle.data) in
+    let on_data    = ({ icon = "grid_off"; label = None; css_class = None }:Icon_toggle.data) in
+    let off_data   = ({ icon = "grid_on"; label = None; css_class = None }:Icon_toggle.data) in
     let grid_icon  = new Icon_toggle.t ~on_data ~off_data () in
     let menu       = new Menu.t ~items:[] () in
     let menu_text  = new Typography.Text.t ~text:"Сетка:" () in

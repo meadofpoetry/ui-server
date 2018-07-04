@@ -1,15 +1,14 @@
 open Containers
+open Tyxml_js
+
+module Markup = Components_markup.Icon_toggle.Make(Xml)(Svg)(Html)
+
+type data = Markup.data
 
 class t ?(propagate=true) ~on_data ~off_data () =
 
-  let elt = Markup.Icon_toggle.create ~on_data ~off_data () |> Tyxml_js.To_dom.of_i in
+  let elt = Markup.create ~on_data ~off_data () |> Tyxml_js.To_dom.of_i in
   let s_state,s_state_push = React.S.create false in
-  let is_space (e:Dom_html.keyboardEvent Js.t) =
-    let key = Option.map Js.to_string @@ Js.Optdef.to_option e##.key in
-    match key,e##.keyCode with
-    | Some "Space", _ | _, 32 -> true
-    | _ -> false
-  in
 
   object(self)
     inherit Widget.widget elt ()
@@ -24,7 +23,7 @@ class t ?(propagate=true) ~on_data ~off_data () =
     method disabled       = disabled
     method set_disabled x =
       disabled <- x;
-      self#add_or_remove_class x Markup.Icon_toggle.disabled_class;
+      self#add_or_remove_class x Markup.disabled_class;
       match disabled with
       | true  -> tab_index <- (Js.Unsafe.coerce self#root)##.tabIndex;
                  (Js.Unsafe.coerce self#root)##.tabIndex := -1;
@@ -53,14 +52,12 @@ class t ?(propagate=true) ~on_data ~off_data () =
        r##.unbounded := Js.bool true;
        Ripple.set_unbounded self);
       tab_index <- (Js.Unsafe.coerce self#root)##.tabIndex;
-      Dom_events.listen self#root Dom_events.Typ.keydown (fun _ e ->
-                          if is_space e
-                          then (is_key_down <- true; false)
-                          else true) |> ignore;
-      Dom_events.listen self#root Dom_events.Typ.keyup (fun _ e ->
-                          if is_space e
-                          then (is_key_down <- false; self#toggle ());
-                          true) |> ignore;
+      Utils.Keyboard_event.listen ~typ:`Keydown self#root (function
+          | `Space _ -> is_key_down <- true; false
+          | _        -> true) |> ignore;
+      Utils.Keyboard_event.listen ~typ:`Keyup self#root (function
+          | `Space _ -> is_key_down <- false; self#toggle (); true
+          | _        -> true) |> ignore;
       Dom_events.listen self#root Dom_events.Typ.click (fun _ e ->
                           if not propagate then Dom_html.stopPropagation e;
                           self#toggle ();

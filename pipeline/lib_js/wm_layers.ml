@@ -29,8 +29,9 @@ let emit_new_pos (s_layers:value Dynamic_grid.Item.t list React.signal) push =
   | l  -> push (`Changed l)
 
 let make_show_toggle () =
-  let on_data  = Markup.Icon_toggle.({ icon = "visibility";     label = None; css_class = None }) in
-  let off_data = Markup.Icon_toggle.({ icon = "visibility_off"; label = None; css_class = None }) in
+  let open Icon_toggle in
+  let on_data  = ({ icon = "visibility";     label = None; css_class = None }:data) in
+  let off_data = ({ icon = "visibility_off"; label = None; css_class = None }:data) in
   let toggle   = new Icon_toggle.t ~propagate:false ~on_data ~off_data () in
   let ()       = toggle#set_on true in
   toggle

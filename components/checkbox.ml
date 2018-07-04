@@ -1,9 +1,12 @@
 open Containers
+open Tyxml_js
+
+module Markup = Components_markup.Checkbox.Make(Xml)(Svg)(Html)
 
 class t ?(ripple=true) ?input_id () =
 
-  let elt       = Markup.Checkbox.create ?input_id () |> Tyxml_js.To_dom.of_div in
-  let input_elt = elt##querySelector (Js.string ("." ^ Markup.Checkbox.native_control_class))
+  let elt       = Markup.create ?input_id () |> Tyxml_js.To_dom.of_div in
+  let input_elt = elt##querySelector (Js.string ("." ^ Markup.native_control_class))
                   |> Js.Opt.to_option |> Option.get_exn |> Js.Unsafe.coerce in
 
   object

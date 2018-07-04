@@ -18,16 +18,17 @@ module Keyboard_event = struct
     (match key,e##.keyCode with
      | Some "Delete", _ | _, 46                -> `Delete e
      | Some "Enter", _  | _, 13                -> `Enter e
+     | Some "Space", _  | _, 32                -> `Space e
      | Some "Escape",_  | Some "Esc",_ | _, 27 -> `Escape e
      | _                                       -> `Unknown e)
 
-  let listen ?(typ=`Keydown) ?(prevent_default=false) ~f elt =
+  let listen ?(typ=`Keydown) elt f =
     let typ = match typ with
       | `Keydown  -> Dom_events.Typ.keydown
       | `Keypress -> Dom_events.Typ.keypress
       | `Keyup    -> Dom_events.Typ.keyup
     in
-    Dom_events.listen elt typ (fun _ e -> f @@ event_to_key e; not prevent_default)
+    Dom_events.listen elt typ (fun _ e -> f @@ event_to_key e)
 
 end
 

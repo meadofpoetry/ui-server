@@ -1,4 +1,7 @@
 open Containers
+open Tyxml_js
+
+module Markup = Components_markup.Table.Make(Xml)(Svg)(Html)
 
 type sort = Asc | Dsc
 
@@ -67,12 +70,12 @@ module Cell = struct
 
   let wrap_checkbox = function
     | None    -> None
-    | Some cb -> Markup.Table.Cell.create (Widget.widget_to_markup cb) () |> Option.return
+    | Some cb -> Markup.Cell.create (Widget.widget_to_markup cb) () |> Option.return
 
   class t ~(value:'a) i (fmt:'a fmt) (conv:'a -> string) (compare:string -> string -> int) () =
     let s = conv value in
     let content = Tyxml_js.Html.(pcdata s) in
-    let elt = Markup.Table.Cell.create ~is_numeric:(is_numeric fmt) content ()
+    let elt = Markup.Cell.create ~is_numeric:(is_numeric fmt) content ()
               |> Tyxml_js.To_dom.of_element in
     object(self : 'self)
       method index : int  = i
@@ -86,11 +89,11 @@ module Column = struct
 
   let wrap_checkbox = function
     | None    -> None
-    | Some cb -> Markup.Table.Column.create (Widget.widget_to_markup cb) () |> Option.return
+    | Some cb -> Markup.Column.create (Widget.widget_to_markup cb) () |> Option.return
 
   class t i push (column:column) (fmt:'a fmt) () =
     let content = Tyxml_js.Html.(pcdata column.title) in
-    let elt = Markup.Table.Column.create ~sortable:column.sortable
+    let elt = Markup.Column.create ~sortable:column.sortable
                 ~is_numeric:(is_numeric fmt) content ()
               |> Tyxml_js.To_dom.of_element in
     object(self)
@@ -114,7 +117,7 @@ module Row = struct
       | Some `Multiple -> Some (new Checkbox.t ())
       | _ -> None
     in
-    let elt = Markup.Table.Row.create ~cells:(List.map Widget.widget_to_markup cells
+    let elt = Markup.Row.create ~cells:(List.map Widget.widget_to_markup cells
                                               |> List.cons_maybe (Cell.wrap_checkbox cb)) ()
               |> Tyxml_js.To_dom.of_element in
     let arr = Array.of_list cells in
@@ -126,7 +129,7 @@ module Row = struct
       method s_selected = s_selected
       method set_selected' x =
         Option.iter (fun cb -> cb#set_checked x) self#checkbox;
-        self#add_or_remove_class x Markup.Table.Row.selected_class
+        self#add_or_remove_class x Markup.Row.selected_class
       method set_selected x  =
         let v = (self :> t) in
         (match selection with
@@ -145,7 +148,7 @@ module Row = struct
             in s_selected_push l
          | None -> ());
         self#set_selected' x
-      method selected = self#has_class Markup.Table.Row.selected_class
+      method selected = self#has_class Markup.Row.selected_class
       initializer
         match selection with
         | Some _ -> Dom_events.listen self#root Dom_events.Typ.click (fun _ _ ->
@@ -157,7 +160,7 @@ end
 
 module Body = struct
   class t ?selection (s_selected:Row.t list React.signal) s_selected_push () =
-    let elt = Markup.Table.Body.create ~rows:[] () |> Tyxml_js.To_dom.of_element in
+    let elt = Markup.Body.create ~rows:[] () |> Tyxml_js.To_dom.of_element in
     let s_rows,s_rows_push = React.S.create List.empty in
     object(self)
       inherit Widget.widget elt ()
@@ -183,7 +186,7 @@ module Header = struct
 
   class row ?selection ~(columns:Column.t list) () =
     let cb = match selection with Some `Multiple -> Some (new Checkbox.t ()) | _ -> None in
-    let elt = Markup.Table.Row.create ~cells:(List.map Widget.widget_to_markup columns
+    let elt = Markup.Row.create ~cells:(List.map Widget.widget_to_markup columns
                                               |> List.cons_maybe (Column.wrap_checkbox cb)) ()
               |> Tyxml_js.To_dom.of_element in
     object
@@ -195,7 +198,7 @@ module Header = struct
     let s_sorted,s_sorted_push = React.S.create None in
     let columns = make_columns s_sorted_push fmt in
     let row = new row ?selection ~columns () in
-    let elt = Markup.Table.Header.create ~row:(Widget.widget_to_markup row) ()
+    let elt = Markup.Header.create ~row:(Widget.widget_to_markup row) ()
               |> Tyxml_js.To_dom.of_element in
     object(self)
       val _columns = columns
@@ -248,7 +251,7 @@ end
 
 module Table = struct
   class t ~header ~body () =
-    let elt = Markup.Table.create_table ~header:(Widget.widget_to_markup header)
+    let elt = Markup.create_table ~header:(Widget.widget_to_markup header)
                 ~body:(Widget.widget_to_markup body) ()
               |> Tyxml_js.To_dom.of_element in
     object
@@ -271,7 +274,7 @@ class ['a] t ?selection ~(fmt:('a,_) row) () =
   let body       = new Body.t ?selection s_selected s_selected_push () in
   let header     = new Header.t ?selection s_selected s_selected_push body#s_rows fmt () in
   let table      = new Table.t ~header ~body () in
-  let elt        = Markup.Table.create ?selection ~table:(Widget.widget_to_markup table) ()
+  let elt        = Markup.create ?selection ~table:(Widget.widget_to_markup table) ()
                    |> Tyxml_js.To_dom.of_element in
   object(self)
     inherit Widget.widget elt ()

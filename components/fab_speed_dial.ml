@@ -166,8 +166,8 @@ class t ?(animation=`Scale) ?(direction=`Up) ~icon ~items () =
 
     initializer
       self#_set_main_z_index ();
-      Utils.Keyboard_event.listen ~f:(function `Escape _ -> self#hide () | _ -> ()) self#main#root
-      |> ignore;
+      Utils.Keyboard_event.listen self#main#root (function
+          | `Escape _ -> self#hide (); true | _ -> true) |> ignore;
       List.iter (fun x -> x#set_mini true) self#items;
       self#hide (); (* FIXME not working for `Fling cause can't get dimensions *)
       self#set_animation animation;

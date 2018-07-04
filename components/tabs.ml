@@ -82,7 +82,9 @@ module Tab = struct
                             self#set_active true;
                             not prevent_default_on_click)
         |> ignore;
-        Utils.Keyboard_event.listen ~f:(function `Enter _ -> self#set_active true | _ -> ()) self#root |> ignore;
+        Utils.Keyboard_event.listen self#root (function
+            | `Enter _ -> self#set_active true; true
+            | _ -> true) |> ignore;
 
     end
 

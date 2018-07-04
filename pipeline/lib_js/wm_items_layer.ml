@@ -81,10 +81,10 @@ module Make(I : Item) = struct
             Dom_events.listen i#root Dom_events.Typ.dblclick (fun _ _ ->
                                 e_dblclick_push i; true)
             |> ignore;
-            Components.Utils.Keyboard_event.listen ~f:(function
-                                                       | `Delete _ -> e_delete_push i
-                                                       | _         -> ()) i#root |> ignore)
-                    (self#add item)
+            Components.Utils.Keyboard_event.listen i#root (function
+                | `Delete _ -> e_delete_push i; true
+                | _         -> true) |> ignore)
+          (self#add item)
 
       method private set_grid ((c,r):int*int) =
         List.iter (fun i -> let pos = I.position_of_t i#value in
