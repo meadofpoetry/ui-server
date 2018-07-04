@@ -5,8 +5,10 @@ type sort = Asc | Dsc
 let sort_to_string = function
   | Asc -> "ascending"
   | Dsc -> "descending"
-
-let cmp_invert i = if i = 1 then -1 else if i = -1 then 1 else i
+let sort_of_string = function
+  | "ascending"  -> Some Asc
+  | "descending" -> Some Dsc
+  | _            -> None
 
 type 'a custom =
   { to_string  : 'a -> string
@@ -62,8 +64,13 @@ let rec compare : type a. a fmt -> (string -> string -> int) = function
   | Custom x       -> x.compare
 
 module Cell = struct
+
+  let wrap_checkbox = function
+    | None    -> None
+    | Some cb -> Markup.Table.Cell.create (Widget.widget_to_markup cb) () |> Option.return
+
   class t ~(value:'a) i (fmt:'a fmt) (conv:'a -> string) (compare:string -> string -> int) () =
-    let s   = conv value in
+    let s = conv value in
     let content = Tyxml_js.Html.(pcdata s) in
     let elt = Markup.Table.Cell.create ~is_numeric:(is_numeric fmt) content ()
               |> Tyxml_js.To_dom.of_element in
@@ -77,9 +84,14 @@ end
 
 module Column = struct
 
+  let wrap_checkbox = function
+    | None    -> None
+    | Some cb -> Markup.Table.Column.create (Widget.widget_to_markup cb) () |> Option.return
+
   class t i push (column:column) (fmt:'a fmt) () =
+    let content = Tyxml_js.Html.(pcdata column.title) in
     let elt = Markup.Table.Column.create ~sortable:column.sortable
-                ~is_numeric:(is_numeric fmt) column.title ()
+                ~is_numeric:(is_numeric fmt) content ()
               |> Tyxml_js.To_dom.of_element in
     object(self)
       inherit Widget.widget elt ()
@@ -88,22 +100,73 @@ module Column = struct
         if column.sortable
         then Dom_events.listen self#root Dom_events.Typ.click (fun _ _ ->
                  let order = self#get_attribute "aria-sort" in
-                 (match order with
-                  | Some "descending" -> push (Some (self#index,Asc))
-                  | _                 -> push (Some (self#index,Dsc)));
+                 (match Option.flat_map sort_of_string order with
+                  | Some Dsc -> push (Some (self#index,Asc))
+                  | _        -> push (Some (self#index,Dsc)));
                  true) |> ignore
     end
 end
 
 module Row = struct
-  class t ~(cells:Cell.t list) () =
-    let elt = Markup.Table.Row.create ~cells:(List.map Widget.widget_to_markup cells) ()
+
+  class t ?selection (s_selected:t list React.signal) s_selected_push (cells:Cell.t list) () =
+    let cb  = match selection with
+      | Some `Multiple -> Some (new Checkbox.t ())
+      | _ -> None
+    in
+    let elt = Markup.Table.Row.create ~cells:(List.map Widget.widget_to_markup cells
+                                              |> List.cons_maybe (Cell.wrap_checkbox cb)) ()
               |> Tyxml_js.To_dom.of_element in
     let arr = Array.of_list cells in
-    object
-      method cells     = cells
-      method cells_arr = arr
+    object(self)
       inherit Widget.widget elt ()
+      method cells      = cells
+      method cells_arr  = arr
+      method checkbox   = cb
+      method s_selected = s_selected
+      method set_selected' x =
+        Option.iter (fun cb -> cb#set_checked x) self#checkbox;
+        self#add_or_remove_class x Markup.Table.Row.selected_class
+      method set_selected x  =
+        let v = (self :> t) in
+        (match selection with
+         | Some `Single ->
+            if x then (match React.S.value s_selected with
+                       | [] -> s_selected_push @@ List.pure v
+                       | l  -> List.iter (fun (t:t) -> t#set_selected' x) l;
+                               s_selected_push @@ List.pure v)
+            else (match React.S.value s_selected with
+                  | [] -> ()
+                  | l  -> List.remove ~eq:Equal.physical ~x:v l |> s_selected_push)
+         | Some `Multiple ->
+            let l = if x
+                    then List.add_nodup ~eq:Equal.physical (self :> t) (React.S.value s_selected)
+                    else List.remove ~eq:Equal.physical ~x:v (React.S.value s_selected)
+            in s_selected_push l
+         | None -> ());
+        self#set_selected' x
+      method selected = self#has_class Markup.Table.Row.selected_class
+      initializer
+        match selection with
+        | Some _ -> Dom_events.listen self#root Dom_events.Typ.click (fun _ _ ->
+                        self#set_selected (not self#selected); true)
+                    |> ignore
+        | _      -> ()
+    end
+end
+
+module Body = struct
+  class t ?selection (s_selected:Row.t list React.signal) s_selected_push () =
+    let elt = Markup.Table.Body.create ~rows:[] () |> Tyxml_js.To_dom.of_element in
+    let s_rows,s_rows_push = React.S.create List.empty in
+    object(self)
+      inherit Widget.widget elt ()
+      method add_row (cells:Cell.t list) =
+        let row = new Row.t ?selection s_selected s_selected_push cells () in
+        s_rows_push @@ (List.cons row self#rows);
+        Dom.appendChild self#root row#root
+      method s_rows     = s_rows
+      method rows       = List.rev @@ React.S.value s_rows
     end
 end
 
@@ -118,48 +181,68 @@ module Header = struct
       | (::) ((c,fmt),rest) -> (new Column.t i push c fmt ()) :: (loop (succ i) push rest)
     in loop 0 push fmt
 
-  class row ~(columns:Column.t list) () =
-    let elt = Markup.Table.Row.create ~cells:(List.map Widget.widget_to_markup columns) ()
+  class row ?selection ~(columns:Column.t list) () =
+    let cb = match selection with Some `Multiple -> Some (new Checkbox.t ()) | _ -> None in
+    let elt = Markup.Table.Row.create ~cells:(List.map Widget.widget_to_markup columns
+                                              |> List.cons_maybe (Column.wrap_checkbox cb)) ()
               |> Tyxml_js.To_dom.of_element in
     object
       inherit Widget.widget elt ()
+      method checkbox = cb
     end
 
-  class t fmt () =
+  class t ?selection s_selected s_selected_push s_rows fmt () =
     let s_sorted,s_sorted_push = React.S.create None in
     let columns = make_columns s_sorted_push fmt in
-    let row = new row ~columns () in
+    let row = new row ?selection ~columns () in
     let elt = Markup.Table.Header.create ~row:(Widget.widget_to_markup row) ()
               |> Tyxml_js.To_dom.of_element in
-    object
-      val mutable _s = None
+    object(self)
       val _columns = columns
       inherit Widget.widget elt ()
+      inherit Widget.stateful ()
 
+      method checkbox = row#checkbox
       method columns  = _columns
       method s_sorted = s_sorted
 
+      method select_all () =
+        List.iter (fun (r:Row.t) -> r#set_selected true) self#_rows
+      method unselect_all () =
+        List.iter (fun (r:Row.t) -> r#set_selected false) self#_rows
+
+      method private _rows = React.S.value s_rows
+
       initializer
+        Option.iter (fun cb ->
+            Dom_events.listen cb#root Dom_events.Typ.change (fun _ _ ->
+                if cb#checked
+                then (List.iter (fun r -> r#set_selected' true) self#_rows;
+                      s_selected_push self#_rows)
+                else (List.iter (fun r -> r#set_selected' false) self#_rows;
+                      s_selected_push List.empty);
+                false)
+            |> ignore) self#checkbox;
+        React.S.map (fun (x:Row.t list) ->
+            match List.length x with
+            | 0 ->
+               Option.iter (fun cb -> cb#set_checked false;
+                                      cb#set_indeterminate false) self#checkbox
+            | l when l = List.length self#_rows ->
+               Option.iter (fun cb -> cb#set_checked true;
+                                      cb#set_indeterminate false) self#checkbox
+            | _ ->
+               Option.iter (fun cb -> cb#set_indeterminate true;
+                                      cb#set_checked false) self#checkbox) s_selected
+        |> self#_keep_s;
         React.S.map (function
             | Some (index,sort) ->
-               List.iter (fun x -> if index = x#index
-                                   then x#set_attribute "aria-sort" (sort_to_string sort)
-                                   else x#remove_attribute "aria-sort") _columns
+               List.iter (fun (x:Column.t) ->
+                   if index = x#index
+                   then x#set_attribute "aria-sort" (sort_to_string sort)
+                   else x#remove_attribute "aria-sort") _columns
             | None -> List.iter (fun x -> x#remove_attribute "aria-sort") _columns) s_sorted
-        |> fun s -> _s <- Some s
-    end
-end
-
-module Body = struct
-  class t ~(rows:Row.t list) () =
-    let elt = Markup.Table.Body.create ~rows:(List.map Widget.widget_to_markup rows) ()
-              |> Tyxml_js.To_dom.of_element in
-    object(self)
-      inherit Widget.widget elt ()
-      val mutable _rows = List.rev rows
-
-      method add_row (row:Row.t) = _rows <- row :: _rows; Dom.appendChild self#root row#root
-      method rows = List.rev _rows
+        |> self#_keep_s
     end
 end
 
@@ -183,20 +266,23 @@ let rec make_cells : type ty v. (Cell.t list -> v) -> (ty,v) row -> ty = fun k -
                      k @@ cell :: acc) rest in f
   in loop 0 k
 
-class ['a] t ~(fmt:('a,_) row) () =
-  let body   = new Body.t ~rows:[] () in
-  let header = new Header.t fmt () in
-  let table  = new Table.t ~header ~body () in
-  let elt    = Markup.Table.create ~table:(Widget.widget_to_markup table) ()
-               |> Tyxml_js.To_dom.of_element in
+class ['a] t ?selection ~(fmt:('a,_) row) () =
+  let s_selected,s_selected_push = React.S.create List.empty in
+  let body       = new Body.t ?selection s_selected s_selected_push () in
+  let header     = new Header.t ?selection s_selected s_selected_push body#s_rows fmt () in
+  let table      = new Table.t ~header ~body () in
+  let elt        = Markup.Table.create ?selection ~table:(Widget.widget_to_markup table) ()
+                   |> Tyxml_js.To_dom.of_element in
   object(self)
     inherit Widget.widget elt ()
+    inherit Widget.stateful ()
 
-    method body = body
-    method rows = body#rows
+    method body       = body
+    method rows       = body#rows
+    method s_rows     = body#s_rows
+    method s_selected = s_selected
 
-    method add_row =
-      make_cells (fun cells -> let row = new Row.t ~cells () in body#add_row row) fmt
+    method add_row = make_cells (fun cells -> body#add_row cells) fmt
 
     method private _sort index sort =
       let rows = List.sort (fun row_1 row_2 ->
@@ -204,7 +290,7 @@ class ['a] t ~(fmt:('a,_) row) () =
                      let cell_2 = row_2#cells_arr.(index) in
                      match sort, cell_1#compare cell_2 with
                      | Asc,x -> x
-                     | Dsc,x -> cmp_invert x) self#rows
+                     | Dsc,x -> ~-x) self#rows
       in
       body#set_empty ();
       List.iter (fun x -> Dom.appendChild body#root x#root) rows
@@ -213,6 +299,6 @@ class ['a] t ~(fmt:('a,_) row) () =
       React.S.map (function
           | Some (index,sort) -> self#_sort index sort
           | None -> ()) header#s_sorted
-      |> ignore
+      |> self#_keep_s
 
   end

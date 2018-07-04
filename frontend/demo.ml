@@ -546,7 +546,7 @@ let table_demo () =
                      :: (to_column ~sortable:true "Check",    String)
                      :: (to_column "Message",                 String)
                      :: []) in
-  let table = new Table.t ~fmt () in
+  let table = new Table.t ~selection:`Multiple ~fmt () in
   let channels = [| "BBC"; "CNN"; "MTV"; "AnimalPlanet" |] in
   let err      = [| "1.3.1 PAT error"; "1.4. Continuity count error" |] in
   let make_row () =
@@ -558,7 +558,7 @@ let table_demo () =
       (Ipaddr.V4.to_string inp) ch pid (Some "Warning") err
       "Error description here"
   in
-  List.iter (fun _ -> make_row ()) @@ List.range 0 100;
+  List.iter (fun _ -> make_row ()) @@ List.range' 0 7;
   demo_section ~expanded:true "#Table" [ table#widget ]
 
 let chart_demo () =

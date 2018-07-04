@@ -1584,7 +1584,9 @@ module Make
   module Table = struct
 
     let base_class    = "mdc-data-table"
-    let content_class = CSS.add_element base_class "content"
+    let content_class         = CSS.add_element base_class "content"
+    let select_class          = CSS.add_modifier base_class "select"
+    let select_multiple_class = CSS.add_modifier base_class "select-multiple"
 
     module Cell = struct
       let _class         = CSS.add_element  base_class "cell"
@@ -1607,17 +1609,19 @@ module Make
       let dense_class    = CSS.add_modifier _class "dense"
 
       let create ?id ?style ?(classes=[]) ?attrs
-            ?(is_numeric=false) ?(sortable=false) ?(dense=false) title () =
+            ?(is_numeric=false) ?(sortable=false) ?(dense=false) content () =
         th ~a:([ a_class (classes
                           |> cons_if sortable sortable_class
                           |> cons_if is_numeric numeric_class
                           |> cons_if dense dense_class
                           |> List.cons _class)]
-               |> add_common_attrs ?id ?style ?attrs) [ pcdata title ]
+               |> add_common_attrs ?id ?style ?attrs) [ content ]
     end
 
     module Row = struct
-      let _class = CSS.add_element base_class "row"
+      let _class         = CSS.add_element base_class "row"
+      let selected_class = CSS.add_modifier _class "selected"
+      let disabled_class = CSS.add_modifier _class "disabled"
       let create ?id ?style ?(classes=[]) ?attrs ~cells () =
         tr ~a:([ a_class (_class :: classes) ]
                |> add_common_attrs ?id ?style ?attrs) cells
@@ -1646,8 +1650,15 @@ module Make
         ~a:([ a_class (content_class :: classes) ]
             |> add_common_attrs ?id ?style ?attrs) [ body ]
 
-    let create ?id ?style ?(classes=[]) ?attrs ~table () =
-      div ~a:([ a_class (base_class :: classes) ]
+    let create ?id ?style ?(classes=[]) ?attrs ?selection ~table () =
+      let selection_class = match selection with
+        | Some `Multiple -> Some select_multiple_class
+        | Some `Single   -> Some select_class
+        | None           -> None
+      in
+      div ~a:([ a_class (classes
+                         |> cons_option selection_class
+                         |> List.cons base_class) ]
               |> add_common_attrs ?id ?style ?attrs) [table]
 
   end

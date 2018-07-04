@@ -33,6 +33,15 @@
       // calculate correct width and padding for the checkbox to fit
       padding: 0 (24px - 11px);
       width: 24px * 2 + 18px;
+      border-right: none;
+    }
+    & .mdc-data-table__cell:nth-child(2), & .mdc-data-table__column:nth-child(2) {
+        border-right: 1px solid;
+        @include mdc-theme-prop-alpha(border-color, $mdc-theme-background, .12);
+        padding-left: 0;
+    }
+    & .mdc-data-table__cell:nth-child(3), & .mdc-data-table__column:nth-child(3) {
+        padding-left: 16px
     }
   }
 

@@ -3,7 +3,7 @@ open Containers
 (* TODO remove *)
 let (<=) = Pervasives.(<=)
 let (>=) = Pervasives.(>=)
-   
+
 type rect =
   { top    : float
   ; right  : float
@@ -19,7 +19,8 @@ let to_rect (x:Dom_html.clientRect Js.t) =
   ; bottom = x##.bottom
   ; left   = x##.left
   ; width  = Js.Optdef.to_option x##.width
-  ; height = Js.Optdef.to_option x##.height }
+  ; height = Js.Optdef.to_option x##.height
+  }
 
 class widget (elt:#Dom_html.element Js.t) () = object(self)
 
@@ -121,6 +122,15 @@ class widget (elt:#Dom_html.element Js.t) () = object(self)
     | _, _, None         -> _observer <- Some (init ())
     | _                  -> ()
 
+end
+
+class stateful () = object
+  val mutable _s : unit React.signal list = []
+  val mutable _e : unit React.event list  = []
+  method private _keep_s : 'a. 'a React.signal -> unit = fun s ->
+    _s <- React.S.map ignore s :: _s
+  method private _keep_e : 'a. 'a React.event -> unit  = fun e ->
+    _e <- React.E.map ignore e :: _e
 end
 
 class button_widget elt () =
