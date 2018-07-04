@@ -1588,19 +1588,32 @@ module Make
 
     module Cell = struct
       let _class         = CSS.add_element  base_class "cell"
-      let column_class   = CSS.add_element  base_class "column"
       let numeric_class  = CSS.add_modifier _class "numeric"
       let dense_class    = CSS.add_modifier _class "dense"
 
       let create ?id ?style ?(classes=[]) ?attrs
-            ?(is_numeric=false) ?(header=false) ?(dense=false) content () =
-        let tag    = if header then th else td in
-        let _class = if header then column_class else _class in
-        tag ~a:([ a_class (classes
-                           |> cons_if is_numeric numeric_class
-                           |> cons_if dense dense_class
-                           |> List.cons _class)]
-                |> add_common_attrs ?id ?style ?attrs) [ content ]
+            ?(is_numeric=false) ?(dense=false) content () =
+        td ~a:([ a_class (classes
+                          |> cons_if is_numeric numeric_class
+                          |> cons_if dense dense_class
+                          |> List.cons _class)]
+               |> add_common_attrs ?id ?style ?attrs) [ content ]
+    end
+
+    module Column = struct
+      let _class         = CSS.add_element  base_class "column"
+      let sortable_class = CSS.add_modifier _class "sortable"
+      let numeric_class  = CSS.add_modifier _class "numeric"
+      let dense_class    = CSS.add_modifier _class "dense"
+
+      let create ?id ?style ?(classes=[]) ?attrs
+            ?(is_numeric=false) ?(sortable=false) ?(dense=false) title () =
+        th ~a:([ a_class (classes
+                          |> cons_if sortable sortable_class
+                          |> cons_if is_numeric numeric_class
+                          |> cons_if dense dense_class
+                          |> List.cons _class)]
+               |> add_common_attrs ?id ?style ?attrs) [ pcdata title ]
     end
 
     module Row = struct
