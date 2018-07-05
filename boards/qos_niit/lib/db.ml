@@ -99,8 +99,8 @@ module Device = struct
     let open Printf in
     let table = (Conn.names db).state in
     let select = R.collect Types.(tup3 ptime ptime int) Types.(tup3 int ptime ptime)
-                  (sprintf {|SELECT * FROM %s WHERE date_start <= ? AND date_end >= ? 
-                            ORDER BY date_end DESC LIMIT ?|} table)
+                  (sprintf {|SELECT * FROM %s WHERE date_start <= $2 AND date_end >= $1 
+                            ORDER BY date_end DESC LIMIT $3|} table)
     in Conn.request db Request.(list select (from,till,limit) >>= fun l ->
                                 let data = List.map (fun (st,s,e) -> (state_of_int st,s,e)) l in
                                 return (Raw { data; has_more = (List.length data >= limit); order = `Desc }))
