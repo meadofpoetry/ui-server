@@ -9,7 +9,7 @@ module Row = struct
 
     module Title = struct
       class t ~title () = object
-        inherit Widget.widget (Markup.Row.Section.create_title ~title ()
+        inherit Widget.t (Markup.Row.Section.create_title ~title ()
                                |> Tyxml_js.To_dom.of_element) () as super
 
         method title       = super#text_content |> Option.get_or ~default:""
@@ -17,18 +17,18 @@ module Row = struct
       end
     end
 
-    class t ?(align=`Center) ~(widgets:#Widget.widget list) () =
+    class t ?(align=`Center) ~(widgets:#Widget.t list) () =
 
       let elt =
-        Markup.Row.Section.create ~content:(Widget.widgets_to_markup widgets) ()
+        Markup.Row.Section.create ~content:(List.map Widget.to_markup widgets) ()
         |> Tyxml_js.To_dom.of_section in
 
       object(self)
 
         val mutable align : [ `Start | `End | `Center ] = align
-        val mutable widgets : Widget.widget list = List.map (fun x -> (x :> Widget.widget)) widgets
+        val mutable widgets : Widget.t list = List.map (fun x -> (x :> Widget.t)) widgets
 
-        inherit Widget.widget elt () as super
+        inherit Widget.t elt () as super
 
         method widgets = widgets
 
@@ -58,10 +58,10 @@ module Row = struct
   end
 
   class t ~(sections:Section.t list) () =
-    let elt = Markup.Row.create ~content:(Widget.widgets_to_markup sections) ()
+    let elt = Markup.Row.create ~content:(List.map Widget.to_markup sections) ()
               |> Tyxml_js.To_dom.of_div in
     object
-      inherit Widget.widget elt ()
+      inherit Widget.t elt ()
       method sections = sections
     end
 
@@ -88,8 +88,8 @@ let events =
   }
 
 class t ~rows () =
-  let elt = Markup.create ~content:(Widget.widgets_to_markup rows) () |> Tyxml_js.To_dom.of_header in
+  let elt = Markup.create ~content:(List.map Widget.to_markup rows) () |> Tyxml_js.To_dom.of_header in
   object
-    inherit Widget.widget elt ()
+    inherit Widget.t elt ()
     val mdc : mdc Js.t = Js.Unsafe.global##.mdc##.toolbar##.MDCToolbar##attachTo elt
   end

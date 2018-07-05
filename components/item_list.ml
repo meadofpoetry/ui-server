@@ -5,7 +5,7 @@ module Markup = Components_markup.Item_list.Make(Xml)(Svg)(Html)
 
 module Divider = struct
   class t ?inset () = object
-    inherit Widget.widget (Markup.Item.create_divider ?inset () |> Tyxml_js.To_dom.of_element) ()
+    inherit Widget.t (Markup.Item.create_divider ?inset () |> Tyxml_js.To_dom.of_element) ()
   end
 end
 
@@ -19,13 +19,13 @@ module Item = struct
       | None -> Markup.Item.create_text_simple text ()
     in
     let elt = Markup.Item.create
-                ?graphic:(Option.map Widget.widget_to_markup graphic)
-                ?meta:(Option.map Widget.widget_to_markup meta)
+                ?graphic:(Option.map Widget.to_markup graphic)
+                ?meta:(Option.map Widget.to_markup meta)
                 text_elt ()
               |> Tyxml_js.To_dom.of_element in
 
     object(self)
-      inherit Widget.widget elt ()
+      inherit Widget.t elt ()
 
       (* TODO add setters, real getters *)
       method text           = text
@@ -48,12 +48,12 @@ class t ?avatar ~(items:[ `Item of Item.t | `Divider of Divider.t ] list) () =
   in
   let elt = Markup.create ?avatar ~two_line
               ~items:(List.map (function
-                          | `Divider x -> Widget.widget_to_markup x
-                          | `Item x    -> Widget.widget_to_markup x)
+                          | `Divider x -> Widget.to_markup x
+                          | `Item x    -> Widget.to_markup x)
                         items) ()
             |> Tyxml_js.To_dom.of_element in
   object(self)
-    inherit Widget.widget elt () as super
+    inherit Widget.t elt () as super
 
     method set_dense x    = self#add_or_remove_class x Markup.dense_class
 
@@ -72,13 +72,13 @@ module List_group = struct
     match l with
     | []       -> acc
     | hd :: [] -> List.rev @@ hd :: acc
-    | hd :: tl -> add_dividers ((hd @ [Widget.widget_to_markup @@ new Divider.t ()]) :: acc) tl
+    | hd :: tl -> add_dividers ((hd @ [Widget.to_markup @@ new Divider.t ()]) :: acc) tl
 
   class t ?(dividers=true) ~(content:group list) () =
 
     let elt = Markup.List_group.create
-                ~content:(List.map (fun x -> let h = Option.map Widget.widget_to_markup x.subheader in
-                                             [Widget.widget_to_markup x.list]
+                ~content:(List.map (fun x -> let h = Option.map Widget.to_markup x.subheader in
+                                             [Widget.to_markup x.list]
                                              |> List.cons_maybe h)
                             content
                           |> (fun x -> if dividers then add_dividers [] x else x)
@@ -87,7 +87,7 @@ module List_group = struct
               |> Tyxml_js.To_dom.of_div in
 
     object
-      inherit Widget.widget elt ()
+      inherit Widget.t elt ()
 
       method content = content
     end

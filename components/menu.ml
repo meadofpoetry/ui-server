@@ -63,13 +63,13 @@ class t ?open_from ~(items:[ `Item of Item.t | `Divider of Divider.t ] list) () 
            list#set_attribute "aria-hidden" "true";
            list#add_class Markup.items_class in
 
-  let elt = Markup.create ?open_from ~list:(Widget.widget_to_markup list) ()
+  let elt = Markup.create ?open_from ~list:(Widget.to_markup list) ()
             |> Tyxml_js.To_dom.of_div in
   let e_selected,e_selected_push = React.E.create () in
   let e_cancel,e_cancel_push     = React.E.create () in
   object
 
-    inherit Widget.widget elt () as super
+    inherit Widget.t elt () as super
 
     val mdc : mdc Js.t = Js.Unsafe.global##.mdc##.menu##.MDCMenu##attachTo elt
 
@@ -100,9 +100,9 @@ module Wrapper = struct
 
   class ['a] t ~(anchor:'a) ~(menu:menu) () = object
 
-    inherit Widget.widget (Tyxml_js.Html.div ~a:[Tyxml_js.Html.a_class [Markup.anchor_class]]
-                             [ Widget.widget_to_markup anchor
-                             ; Widget.widget_to_markup menu ]
+    inherit Widget.t (Tyxml_js.Html.div ~a:[Tyxml_js.Html.a_class [Markup.anchor_class]]
+                             [ Widget.to_markup anchor
+                             ; Widget.to_markup menu ]
                            |> Tyxml_js.To_dom.of_div) ()
     method anchor = anchor
     method menu   = menu

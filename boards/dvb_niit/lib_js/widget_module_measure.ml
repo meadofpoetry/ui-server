@@ -3,17 +3,12 @@ open Components
 open Widget_types
 open Board_types
 
-module type M = sig
-  type t
-  val to_string : t -> string
-end
-
 type config =
   { id  : int
   ; typ : Widget_types.measure_type
   } [@@deriving yojson]
 
-module Make(M:M) = struct
+module Make(M:sig type t val to_string : t -> string end) = struct
   type event  = M.t option React.event
 
   let _class      = "mdc-parameter-widget"
@@ -37,7 +32,7 @@ module Make(M:M) = struct
     let ()    = Dom.appendChild inner#root value#root in
     let ()    = Dom.appendChild box inner#root in
     object(self)
-      inherit Widget.widget box () as super
+      inherit Widget.t box () as super
       initializer
         self#add_class _class
     end

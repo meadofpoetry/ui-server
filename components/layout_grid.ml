@@ -5,16 +5,16 @@ module Markup = Components_markup.Layout_grid.Make(Xml)(Svg)(Html)
 
 module Cell = struct
 
-  class t ~(widgets:#Widget.widget list) () =
+  class t ~(widgets:#Widget.t list) () =
 
-    let elt = Markup.Cell.create ~content:(Widget.widgets_to_markup widgets) ()
+    let elt = Markup.Cell.create ~content:(List.map Widget.to_markup widgets) ()
               |> Tyxml_js.To_dom.of_div in
 
     object(self)
 
-      inherit Widget.widget elt () as super
+      inherit Widget.t elt () as super
 
-      val mutable widgets : Widget.widget list = List.map (fun x -> (x :> Widget.widget)) widgets
+      val mutable widgets : Widget.t list = List.map (fun x -> (x :> Widget.t)) widgets
 
       val mutable span         : int option = None
       val mutable span_phone   : int option = None
@@ -86,13 +86,13 @@ end
 
 class t ~(cells:Cell.t list) () =
 
-  let inner = new Widget.widget (Markup.create_inner ~cells:(Widget.widgets_to_markup cells) ()
+  let inner = new Widget.t (Markup.create_inner ~cells:(List.map Widget.to_markup cells) ()
                                  |> Tyxml_js.To_dom.of_div) () in
-  let elt   = Markup.create ~content:[Widget.widget_to_markup inner] ()
+  let elt   = Markup.create ~content:[Widget.to_markup inner] ()
               |> Tyxml_js.To_dom.of_div in
 
   object
-    inherit Widget.widget elt () as super
+    inherit Widget.t elt () as super
 
     val mutable align : [ `Left | `Right ] option = None
 

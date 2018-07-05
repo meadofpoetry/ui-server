@@ -13,7 +13,7 @@ type config =
 
 module type R = sig
   type t
-  val make : int -> t option React.signal -> Widget.widget
+  val make : int -> t option React.signal -> Widget.t
 end
 
 module Row = struct
@@ -53,7 +53,8 @@ module Row = struct
 end
 
 module type M = sig
-  include Widget_module_measure.M
+  type t
+  val to_string : t -> string
   val get : int -> (int * measures) React.event -> t option React.event
 end
 

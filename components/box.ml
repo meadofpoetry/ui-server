@@ -7,18 +7,18 @@ type justify_content = [ `Start | `End | `Center | `Space_between | `Space_aroun
 type align_items     = [ `Start | `End | `Center | `Stretch | `Baseline ]
 type align_content   = [ `Start | `End | `Center | `Stretch | `Space_between | `Space_around ]
 
-class t ?(vertical=true) ?tag ?(gap=0) ~(widgets:#Widget.widget list) () =
-  let elt = Markup.create ~vertical ~content:(Widget.widgets_to_markup widgets) ?tag ()
+class t ?(vertical=true) ?tag ?(gap=0) ~(widgets:#Widget.t list) () =
+  let elt = Markup.create ~vertical ~content:(List.map Widget.to_markup widgets) ?tag ()
             |> Tyxml_js.To_dom.of_element in
   object(self)
 
-    val mutable widgets : Widget.widget list = List.map (fun x -> Widget.coerce x) widgets
+    val mutable widgets : Widget.t list = List.map (fun x -> Widget.coerce x) widgets
     val mutable justify_content : justify_content option = None
     val mutable align_items     : align_items option     = None
     val mutable align_content   : align_content option   = None
     val mutable gap             : int                    = gap
 
-    inherit Widget.widget elt () as super
+    inherit Widget.t elt () as super
 
     method widgets        = widgets
     method set_vertical   = super#remove_class Markup.horizontal_class;

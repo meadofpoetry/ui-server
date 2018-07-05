@@ -75,7 +75,7 @@ class t ~(left_node:node_entry)
                |> Js.Unsafe.coerce in
   object(self)
 
-    inherit Widget.widget elt ()
+    inherit Widget.t elt ()
 
     val mutable state = `Muted
 

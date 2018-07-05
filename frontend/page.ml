@@ -4,22 +4,22 @@ open Components
 let main_class    = "main-content"
 let toolbar_class = "main-toolbar"
 
-type ('a,'b) page_content = [ `Static  of (#Widget.widget as 'a) list
-                            | `Dynamic of (unit -> (#Widget.widget as 'b)) Tabs.tab list
+type ('a,'b) page_content = [ `Static  of (#Widget.t as 'a) list
+                            | `Dynamic of (unit -> (#Widget.t as 'b)) Tabs.tab list
                             ]
 
 let remove_children container =
   Dom.list_of_nodeList @@ container##.childNodes
   |> List.iter (fun x -> Dom.removeChild container x)
 
-let switch_tab (container:#Dom.node Js.t) (s:#Widget.widget option React.signal) =
+let switch_tab (container:#Dom.node Js.t) (s:#Widget.t option React.signal) =
   let init   = React.S.value s in
   let load   = Option.iter (fun n -> n#layout (); Dom.appendChild container n#root) in
   let unload = Option.iter (fun o -> o#destroy (); (try Dom.removeChild container o#root with _ -> ())) in
   load init;
   React.S.diff (fun n o -> unload o; load n) s
 
-let create_toolbar_tabs_row (tabs:(unit -> #Widget.widget) Tabs.tab list) =
+let create_toolbar_tabs_row (tabs:(unit -> #Widget.t) Tabs.tab list) =
   let open Tabs in
   let bar  = new Tabs.Scroller.t ~tabs () in
   let s    = React.S.map (function
@@ -39,7 +39,7 @@ class t (content:('a,'b) page_content) () =
   let arbitrary = Dom_html.getElementById "arbitrary-content" |> Widget.create in
   let toolbar   = Dom_html.getElementById "main-toolbar" |> Widget.create in
   object(self)
-    inherit Widget.widget main ()
+    inherit Widget.t main ()
     initializer
       self#add_class main_class;
       toolbar#add_class toolbar_class;

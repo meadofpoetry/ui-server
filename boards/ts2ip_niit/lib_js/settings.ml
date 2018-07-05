@@ -82,7 +82,7 @@ class settings control () = object(self)
   val mutable state : state option = None
   val mutable observer             = None
 
-  inherit Widget.widget (Dom_html.createDiv Dom_html.document) ()
+  inherit Widget.t (Dom_html.createDiv Dom_html.document) ()
 
   method private observe =
     MutationObserver.observe

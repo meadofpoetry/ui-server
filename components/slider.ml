@@ -42,7 +42,7 @@ class t ?discrete ?markers ?step ?(min=0.0) ?(max=100.0) ?value  () =
 
   object(self)
 
-    inherit Widget.widget elt ()
+    inherit Widget.t elt ()
 
     method set_value x = mdc##.value := x
     method value       = mdc##.value

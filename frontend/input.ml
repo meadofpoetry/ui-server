@@ -7,7 +7,7 @@ open Common.Topology
 let dummy_tab = fun () -> let div = Dom_html.createDiv Dom_html.document in
                           Widget.create div
 
-let board_to_tabs (control:int) : string -> (string * (unit -> Widget.widget)) list = function
+let board_to_tabs (control:int) : string -> (string * (unit -> Widget.t)) list = function
   | "IP2TS" -> [ "IP",        (fun () -> Board_ip_dektec_js.Input_page.make control |> Widget.coerce) ]
   | "DVB"   -> [ "RF",        (fun () -> Board_dvb_niit_js.Input_page.make control |> Widget.coerce) ]
   | "TS"    -> [ "Структура", (fun () -> Board_qos_niit_js.Structure.page control () |> Widget.coerce)
@@ -18,7 +18,7 @@ let board_to_tabs (control:int) : string -> (string * (unit -> Widget.widget)) l
   | "TS2IP" -> [ ]
   | s       -> failwith ("input.js: unknown board " ^ s)
 
-let cpu_to_tabs : string -> (string * (unit -> Widget.widget)) list = function
+let cpu_to_tabs : string -> (string * (unit -> Widget.t)) list = function
   | "pipeline" -> ["QoE", dummy_tab ]
   | _          -> []
 

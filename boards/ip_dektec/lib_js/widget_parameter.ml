@@ -96,7 +96,7 @@ module Make(M:M) = struct
     let ()    = Dom.appendChild inner#root value#root in
     let ()    = Dom.appendChild box inner#root in
     object(self)
-      inherit Widget.widget box () as super
+      inherit Widget.t box () as super
       method! destroy = super#destroy
       initializer
         self#add_class _class

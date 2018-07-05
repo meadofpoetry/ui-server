@@ -10,7 +10,7 @@ let item_delay = 65
 
 class action ~(z_index:int) (fab:Fab.t) () =
 object(self)
-  inherit Widget.widget (Dom_html.createDiv Dom_html.document) ()
+  inherit Widget.t (Dom_html.createDiv Dom_html.document) ()
   method fab = fab
   method z_index = z_index
   initializer

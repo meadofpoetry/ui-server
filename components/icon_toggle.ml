@@ -11,7 +11,7 @@ class t ?(propagate=true) ~on_data ~off_data () =
   let s_state,s_state_push = React.S.create false in
 
   object(self)
-    inherit Widget.widget elt ()
+    inherit Widget.t elt ()
 
     val mutable on          = false
     val mutable disabled    = false

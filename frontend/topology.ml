@@ -7,7 +7,7 @@ open Components
 class t () = object(self)
   val mutable _sock  : WebSockets.webSocket Js.t option = None
   val mutable _nodes : [ `CPU of Topo_cpu.t | `Board of Topo_board.t | `Input of Topo_input.t ] list = []
-  inherit Widget.widget (Dom_html.createDiv Dom_html.document) () as super
+  inherit Widget.t (Dom_html.createDiv Dom_html.document) () as super
 
   (* FIXME hack, need to handle resize of total element *)
   method layout () =

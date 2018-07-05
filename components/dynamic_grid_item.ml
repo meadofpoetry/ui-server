@@ -34,7 +34,7 @@ let rec find_touch id num source =  (* given a touchList Js.t, finds a touch wit
 
 let eq x y = Equal.physical x#root y#root
 
-let filter ~(exclude:#Widget.widget list) (l:#Widget.widget list) =
+let filter ~(exclude:#Widget.t list) (l:#Widget.t list) =
   List.filter (fun x -> not (List.mem ~eq x exclude)) l
 
 class ['a] t ~s_grid        (* grid props *)
@@ -165,7 +165,7 @@ class ['a] t ~s_grid        (* grid props *)
 
     method private get_drag_target = match item.move_widget with
       | Some w -> w
-      | None   -> (self :> Widget.widget)
+      | None   -> (self :> Widget.t)
 
     method private items = React.S.value s_items
 

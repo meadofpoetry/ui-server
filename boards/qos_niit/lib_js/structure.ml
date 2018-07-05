@@ -7,6 +7,6 @@ let page control () =
   let factory = new Widget_factory.t control () in
   let i = new Dashboard.Item.t ~item:(factory#create (Structure None)) () in
   object
-    inherit Widget.widget i#root () as super
+    inherit Widget.t i#root () as super
     method destroy () = super#destroy (); factory#destroy ()
   end

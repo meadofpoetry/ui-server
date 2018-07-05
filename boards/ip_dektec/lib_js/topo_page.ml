@@ -113,7 +113,7 @@ end
  *   box *)
 
 
-let make (board:Common.Topology.topo_board) : (#Widget.widget,string) Lwt_result.t =
+let make (board:Common.Topology.topo_board) : (#Widget.t,string) Lwt_result.t =
   Lwt_result.fail "dummy"
   (* Listener.listen board.control
    * >>= (fun (t,state) ->

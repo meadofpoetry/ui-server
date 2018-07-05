@@ -5,7 +5,7 @@ module Markup = Components_markup.Fab.Make(Xml)(Svg)(Html)
 
 class t ?(ripple=true) ?(mini=false) ~icon () =
   let span = Markup.create_span ~icon () |> Tyxml_js.To_dom.of_element |> Widget.create in
-  let elt  = Markup.create ~span:(Widget.widget_to_markup span) () |> Tyxml_js.To_dom.of_button in
+  let elt  = Markup.create ~span:(Widget.to_markup span) () |> Tyxml_js.To_dom.of_button in
   object(self)
     val mutable _ripple = None
     inherit Widget.button_widget elt () as super

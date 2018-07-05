@@ -7,8 +7,8 @@ module Item = struct
 
   class ['a] t ?ripple
           ?secondary_text
-          ?(graphic:#Widget.widget option)
-          ?(meta:#Widget.widget option)
+          ?(graphic:#Widget.t option)
+          ?(meta:#Widget.t option)
           ?(nested:'a option)
           ~text
           () =
@@ -25,14 +25,14 @@ module Item = struct
 
     let item = new Item_list.Item.t ?ripple ?secondary_text ?graphic ?meta ~text () in
 
-    let elt = Markup.Item.create ~item:(Widget.widget_to_markup item)
-                ?nested_list:(Option.map (fun x -> Widget.widget_to_markup x) nested)
+    let elt = Markup.Item.create ~item:(Widget.to_markup item)
+                ?nested_list:(Option.map (fun x -> Widget.to_markup x) nested)
                 ()
               |> Tyxml_js.To_dom.of_element in
 
     object
 
-      inherit Widget.widget elt () as super
+      inherit Widget.t elt () as super
 
       method item           = item
       method text           = item#text
@@ -59,14 +59,14 @@ end
 class t ~(items:t Item.t list) () =
 
   let two_line = Option.is_some @@ List.find_pred (fun x -> Option.is_some x#secondary_text) items in
-  let elt      = Markup.create ~two_line ~items:(Widget.widgets_to_markup items) ()
+  let elt      = Markup.create ~two_line ~items:(List.map Widget.to_markup items) ()
                  |> Tyxml_js.To_dom.of_element in
 
   object(self)
 
     val mutable items = items
 
-    inherit Widget.widget elt () as super
+    inherit Widget.t elt () as super
 
     method items = items
 

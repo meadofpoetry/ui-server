@@ -3,7 +3,7 @@ open Dynamic_grid
 open Dashboard_common
 
 type settings =
-  { widget : Widget.widget
+  { widget : Widget.t
   ; ready  : bool React.signal
   ; set    : unit -> (unit,string) Lwt_result.t
   }
@@ -18,14 +18,14 @@ type info =
 type item =
   { name        : string
   ; settings    : settings option
-  ; widget      : Widget.widget
+  ; widget      : Widget.t
   }
 
 let to_info ?(description="") ?(thumbnail=`Icon "help")
             ~(serialized:Yojson.Safe.json) ~(title:string) () =
   { title; thumbnail; description; serialized }
 
-let to_item ?settings ~(name:string) (widget:#Widget.widget) =
+let to_item ?settings ~(name:string) (widget:#Widget.t) =
   { name; settings; widget = widget#widget }
 
 let connect_apply (b:#Button.t) (settings:settings) =
@@ -64,7 +64,7 @@ class t ~(item:item) () =
   let content  = new Card.Media.t ~widgets:[item.widget] () in
   object(self)
     val mutable _editable = false
-    inherit Widget.widget (Dom_html.createDiv Dom_html.document) () as super
+    inherit Widget.t (Dom_html.createDiv Dom_html.document) () as super
     method remove  = remove
     method content = content
     method heading = heading

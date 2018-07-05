@@ -13,7 +13,7 @@ let insert s (container:#Dom.node Js.t) =
 
 let pages =
   let open Tabs in
-  let tab f () = ((f ()) :> Widget.widget) in
+  let tab f () = ((f ()) :> Widget.t) in
   let tab_pages =
     [ "Видео",             tab Mosaic.page
     ; "Редактор",          tab Wm_page.page

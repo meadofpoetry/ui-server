@@ -6,7 +6,7 @@ open Lwt_result.Infix
 class t () =
 object(self)
   val mutable sock : (WebSockets.webSocket Js.t * WebSockets.webSocket Js.t) option = None
-  inherit Widget.widget (Dom_html.createDiv Dom_html.document) ()
+  inherit Widget.t (Dom_html.createDiv Dom_html.document) ()
 
   method on_unload =
     Option.iter (fun (x,y) -> x##close;y##close; sock <- None) sock

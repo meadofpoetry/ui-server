@@ -18,7 +18,7 @@ class t (info:info) () =
   let box    = new Box.t ~vertical:false ~widgets:[thumbnail;text_box#widget] () in
   let s,push = React.S.create false in
   object(self)
-    inherit Widget.widget box#root ()
+    inherit Widget.t box#root ()
     inherit Touch_draggable.t ~data ~typ box#root ()
 
     method s_dragging = s

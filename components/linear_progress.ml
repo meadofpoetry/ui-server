@@ -16,7 +16,7 @@ class type mdc =
 class t () =
   let elt = Markup.create () |> Tyxml_js.To_dom.of_div in
   object
-    inherit Widget.widget elt ()
+    inherit Widget.t elt ()
 
     val mdc : mdc Js.t = Js.Unsafe.global##.mdc##.linearProgress##.MDCLinearProgress##attachTo elt
 

@@ -10,7 +10,7 @@ class t ?(max=1.) ?(min=0.) ?(value=0.) ?(indeterminate=true) ?(thickness=3.6) ?
   let elt = Markup.create ~thickness ~size () |> Tyxml_js.To_dom.of_element in
   object(self)
 
-    inherit Widget.widget elt ()
+    inherit Widget.t elt ()
 
     val circle      = elt##querySelector (Js.string ("." ^ Markup.circle_class))
                       |> Js.Opt.to_option |> Option.get_exn |> Js.Unsafe.coerce

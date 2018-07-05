@@ -15,7 +15,7 @@ class ['a] cell ?(typ=`Item)
 
   object(self)
 
-    inherit Widget.widget elt ()
+    inherit Widget.t elt ()
 
     val s_margin = React.S.map (fun x -> x.items_margin) s_grid
     val mutable px_pos = Position.empty

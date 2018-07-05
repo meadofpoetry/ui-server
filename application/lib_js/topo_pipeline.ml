@@ -35,7 +35,7 @@ open Lwt_result.Infix
  *     let ()         = box#set_on_destroy @@ Some (fun () -> sock##close) in
  *     Lwt_result.return box#widget) *)
 
-(* let make ?error_prefix () : (#Widget.widget,string) Lwt_result.t =
+(* let make ?error_prefix () : (#Widget.t,string) Lwt_result.t =
  *   let pgs  = Fun.(Ui_templates.Loader.create_widget_loader ?error_prefix %> Widget.coerce) in
  *   let sms  = make_streams () |> Lwt_result.map_err @@ Api_js.Requests.err_to_string in
  *   let str  = make_structure () |> Lwt_result.map_err @@ Api_js.Requests.err_to_string in

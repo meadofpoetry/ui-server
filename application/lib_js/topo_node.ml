@@ -24,7 +24,7 @@ let node_entry_to_area = function
 class t ~node ~body elt () =
 object
   val area = node_entry_to_area node
-  inherit Widget.widget elt ()
+  inherit Widget.t elt ()
   method area : string     = area
   method node : node_entry = node
   method layout () : unit  = ()

@@ -11,15 +11,15 @@ class type mdc =
     method unbounded  : bool Js.t Js.prop
   end
 
-let attach (elt:#Widget.widget) : mdc Js.t =
+let attach (elt:#Widget.t) : mdc Js.t =
   (* elt#add_class Markup.Ripple.base_class; *)
   Js.Unsafe.global##.mdc##.ripple##.MDCRipple##attachTo elt#root
 
-let remove_accent (elt:#Widget.widget)  = elt#remove_class Markup.accent_class
-let remove_primary (elt:#Widget.widget) = elt#remove_class Markup.primary_class
+let remove_accent (elt:#Widget.t)  = elt#remove_class Markup.accent_class
+let remove_primary (elt:#Widget.t) = elt#remove_class Markup.primary_class
 
-let set_accent (elt:#Widget.widget)  = remove_primary elt; elt#add_class Markup.accent_class
-let set_primary (elt:#Widget.widget) = remove_accent elt; elt#add_class Markup.primary_class
+let set_accent (elt:#Widget.t)  = remove_primary elt; elt#add_class Markup.accent_class
+let set_primary (elt:#Widget.t) = remove_accent elt; elt#add_class Markup.primary_class
 
-let set_unbounded (elt:#Widget.widget)    = elt#set_attribute "data-mdc-ripple-is-unbounded" ""
-let remove_unbounded (elt:#Widget.widget) = elt#remove_attribute "data-mdc-ripple-is-unbounded"
+let set_unbounded (elt:#Widget.t)    = elt#set_attribute "data-mdc-ripple-is-unbounded" ""
+let remove_unbounded (elt:#Widget.t) = elt#remove_attribute "data-mdc-ripple-is-unbounded"

@@ -14,7 +14,7 @@ object(self)
   val pgs = Placeholder.create_progress ?text ()
   val mutable _on_success = on_success
   val mutable _on_error   = on_error
-  inherit Widget.widget (Dom_html.createDiv Dom_html.document) ()
+  inherit Widget.t (Dom_html.createDiv Dom_html.document) ()
 
   method progress = pgs
   method thread   = t
@@ -41,10 +41,10 @@ object(self)
 
 end
 
-class widget_loader ?text ?error_icon ?error_prefix ?(parent:#Widget.widget option)
-                    (t:(Widget.widget,string) Lwt_result.t) () =
+class widget_loader ?text ?error_icon ?error_prefix ?(parent:#Widget.t option)
+                    (t:(Widget.t,string) Lwt_result.t) () =
 object(self)
-  inherit [Widget.widget] loader ?text ?error_icon ?error_prefix t () as super
+  inherit [Widget.t] loader ?text ?error_icon ?error_prefix t () as super
   initializer
     Lwt_result.Infix.(t >>= (fun w -> (match parent with
                                        | Some p -> Dom.appendChild p#root w#root;

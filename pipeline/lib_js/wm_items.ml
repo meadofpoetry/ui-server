@@ -29,7 +29,7 @@ module Make(I : Item) = struct
       let typ = drag_type_prefix ^ wh in
       let box  = new Box.t ~vertical:false ~widgets () in
       object(self)
-        inherit Widget.widget box#root ()
+        inherit Widget.t box#root ()
         inherit Touch_draggable.t ~data ~typ box#root ()
 
         initializer

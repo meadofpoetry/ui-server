@@ -61,7 +61,7 @@ class ['a,'b,'c] t ~grid ~(get:'c -> 'a item) ~(items:'a item list) () =
 
     constraint 'b = 'a #Item.t
 
-    inherit Widget.widget elt ()
+    inherit Widget.t elt ()
 
     val _overlay_grid     = new overlay_grid
                                 ~parent:elt

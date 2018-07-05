@@ -10,7 +10,7 @@ module Item = struct
 
       val mutable _value = value
 
-      inherit Widget.widget elt ()
+      inherit Widget.t elt ()
 
       method value            = _value
       method set_value (x:'a) = _value <- x
@@ -37,7 +37,7 @@ module Group = struct
 
     object(self)
 
-      inherit Widget.widget elt ()
+      inherit Widget.t elt ()
 
       method opt_group_element = elt
 
@@ -55,7 +55,7 @@ module Label = struct
   class t ~s_selected ~label () =
     let elt = Markup.Label.create ~label () |> Tyxml_js.To_dom.of_element in
     object(self)
-      inherit Widget.widget elt ()
+      inherit Widget.t elt ()
       inherit Widget.stateful ()
       initializer
         React.S.map (fun v -> self#add_or_remove_class (Option.is_some v) Markup.Label.float_above_class)
@@ -68,7 +68,7 @@ module Bottom_line = struct
   class t () =
     let elt = Markup.Bottom_line.create () |> Tyxml_js.To_dom.of_element in
     object(self)
-      inherit Widget.widget elt ()
+      inherit Widget.t elt ()
 
       method activate (x:bool) = self#add_or_remove_class x Markup.Bottom_line.active_class
     end
@@ -82,8 +82,8 @@ class ['a] t ?(disabled=false)
   let make_empty () = Markup.Item.create ~disabled:true ~selected:true ~text:"" () in
   let s,push        = React.S.create None in
   let s_value       = React.S.map (fun i -> Option.map (fun x -> x#value) i) s in
-  let item_elts     = List.map (function `Group g -> Widget.widget_to_markup g
-                                       | `Item i  -> Widget.widget_to_markup i) items
+  let item_elts     = List.map (function `Group g -> Widget.to_markup g
+                                       | `Item i  -> Widget.to_markup i) items
                       |> (fun l -> if not default_selected then make_empty () :: l else l)
   in
   let bottom_line = new Bottom_line.t () in
@@ -92,15 +92,15 @@ class ['a] t ?(disabled=false)
                     |> Tyxml_js.To_dom.of_element
                     |> Widget.create
   in
-  let elt = Markup.create ~bottom_line:(Widget.widget_to_markup bottom_line)
-              ~label:(Widget.widget_to_markup label)
-              ~select:(Widget.widget_to_markup select)
+  let elt = Markup.create ~bottom_line:(Widget.to_markup bottom_line)
+              ~label:(Widget.to_markup label)
+              ~select:(Widget.to_markup select)
               ()
             |> Tyxml_js.To_dom.of_div
   in
   object(self)
     val mutable _items = items
-    inherit Widget.widget elt ()
+    inherit Widget.t elt ()
 
     method select      = select
     method bottom_line = bottom_line

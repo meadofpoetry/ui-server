@@ -47,7 +47,7 @@ module Help_text = struct
     let elt = Markup.Help_text.create ~persistent ~validation ?text ()
               |> Tyxml_js.To_dom.of_p in
     object
-      inherit Widget.widget elt () as super
+      inherit Widget.t elt () as super
       method is_validation    = super#has_class Markup.Help_text.validation_msg_class
       method is_persistent    = super#has_class Markup.Help_text.persistent_class
       method set_validation x = super#add_or_remove_class x Markup.Help_text.validation_msg_class
@@ -65,14 +65,14 @@ class ['a] t ~input_type ~input_id ?label ?placeholder ?icon ?help_text ?box ?ou
   in
   let icon_widget =
     Option.map (fun { clickable; icon; _ } ->
-        new Widget.widget
+        new Widget.t
             (Markup.Icon.create ~clickable ~icon () |> Tyxml_js.To_dom.of_i)
             ())
                icon in
   let help_text_widget  = Option.map (fun x -> new Help_text.t x ()) help_text in
   let text_field_widget =
     let get_icon pos = (match icon,icon_widget with
-                        | (Some x,Some w) when Equal.poly x.pos pos -> Some (Widget.widget_to_markup w)
+                        | (Some x,Some w) when Equal.poly x.pos pos -> Some (Widget.to_markup w)
                         | _ -> None) in
     Markup.create ~input_type:(Widget.input_type_of_validation input_type)
                             ~input_id
@@ -86,11 +86,11 @@ class ['a] t ~input_type ~input_id ?label ?placeholder ?icon ?help_text ?box ?ou
                             ?outline
                             ()
     |> Tyxml_js.To_dom.of_element
-    |> (fun x -> new Widget.widget x ()) in
+    |> (fun x -> new Widget.t x ()) in
   let elt =
-    let tf = Widget.widget_to_markup text_field_widget in
+    let tf = Widget.to_markup text_field_widget in
     Option.map_or ~default:tf
-                  (fun x -> Markup.Wrapper.create ~textfield:tf ~helptext:(Widget.widget_to_markup x) ())
+                  (fun x -> Markup.Wrapper.create ~textfield:tf ~helptext:(Widget.to_markup x) ())
                   help_text_widget
     |> Tyxml_js.To_dom.of_element in
   let input_elt = elt##querySelector (Js.string ("." ^ Markup.input_class))
@@ -107,7 +107,7 @@ class ['a] t ~input_type ~input_id ?label ?placeholder ?icon ?help_text ?box ?ou
 
     val label_widget = elt##querySelector (Js.string @@ "." ^ Markup.label_class)
                        |> Js.Opt.to_option
-                       |> Option.map (fun x -> new Widget.widget x ())
+                       |> Option.map (fun x -> new Widget.t x ())
 
     method text_field_widget = text_field_widget
     method icon_widget       = icon_widget

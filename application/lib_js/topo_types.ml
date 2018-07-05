@@ -11,4 +11,4 @@ type connection_point = [ `Iface of topo_interface | `Port of topo_port ]
 
 type node_entry = [ `CPU of topo_cpu | `Entry of topo_entry ]
 
-type topo_settings = Components.Widget.widget * (unit -> unit)
+type topo_settings = Components.Widget.t * (unit -> unit)

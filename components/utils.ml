@@ -82,7 +82,7 @@ module Scroll_size_listener = struct
       val mutable height    = 0
       val mutable width     = 0
 
-      inherit Widget.widget elt () as super
+      inherit Widget.t elt () as super
 
       method on_change       = on_change
       method set_on_change x = on_change <- x

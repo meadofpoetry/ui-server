@@ -31,7 +31,7 @@ let settings = None
 let make ~(state: Common.Topology.state React.signal)
          ~(mode:  jitter_mode option React.signal)
          (conf:   config option)
-         control : Widget.widget =
+         control : Widget.t =
   let en,set_en,s_en,dis_en     = make_enabled () in
   let pid,set_pid,s_pid,dis_pid = make_pid () in
   let _ = React.S.l2 (fun state en -> let is_disabled = match state with

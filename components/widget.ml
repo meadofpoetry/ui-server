@@ -22,7 +22,7 @@ let to_rect (x:Dom_html.clientRect Js.t) =
   ; height = Js.Optdef.to_option x##.height
   }
 
-class widget (elt:#Dom_html.element Js.t) () = object(self)
+class t (elt:#Dom_html.element Js.t) () = object(self)
 
   val mutable _on_destroy = None
   val mutable _on_load    = None
@@ -31,7 +31,7 @@ class widget (elt:#Dom_html.element Js.t) () = object(self)
   val mutable _observer   = None
 
   method root   : Dom_html.element Js.t = (elt :> Dom_html.element Js.t)
-  method widget : widget = (self :> widget)
+  method widget : t = (self :> t)
 
   method set_on_destroy f = _on_destroy <- f
 
@@ -137,7 +137,7 @@ class button_widget elt () =
   let e_click,e_click_push = React.E.create () in
   object(self)
 
-    inherit widget elt ()
+    inherit t elt ()
 
     method e_click = e_click
 
@@ -150,7 +150,7 @@ class input_widget ~(input_elt:Dom_html.inputElement Js.t) elt () =
   let s_disabled,s_disabled_push = React.S.create false in
   object
 
-    inherit widget elt ()
+    inherit t elt ()
 
     method disabled       = Js.to_bool input_elt##.disabled
     method set_disabled x = input_elt##.disabled := Js.bool x; s_disabled_push x
@@ -398,8 +398,7 @@ class ['a] text_input_widget ?v_msg ~input_elt (v : 'a validation) elt () =
 
   end
 
-let create x = new widget x ()
-let coerce (x : #widget) = (x :> widget)
+let create x = new t x ()
+let coerce (x : #t) = (x :> t)
 
-let widget_to_markup (x : #widget) = Tyxml_js.Of_dom.of_element x#root
-let widgets_to_markup (x : #widget list) = List.map widget_to_markup x
+let to_markup (x : #t) = Tyxml_js.Of_dom.of_element x#root

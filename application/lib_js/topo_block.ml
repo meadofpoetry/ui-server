@@ -38,7 +38,7 @@ module Body = struct
     let _class = Markup.CSS.add_element base_class "body" in
     let elt    = Dom_html.createDiv Dom_html.document in
     object(self)
-      inherit Widget.widget elt ()
+      inherit Widget.t elt ()
       method set_n n =
         self#style##.height := Js.string @@ Utils.px (n * port_section_height)
 

@@ -1,7 +1,7 @@
 open Containers
 open Components
 
-type simple_tab = Tabs.content * Widget.widget
+type simple_tab = Tabs.content * Widget.t
 
 let create_simple_tabs (l:simple_tab list) =
   let hide   = fun w -> w#style##.display := Js.string "none" in
@@ -10,7 +10,7 @@ let create_simple_tabs (l:simple_tab list) =
   let tabs = List.map (fun (c,w) -> ({ href     = None
                                      ; content  = c
                                      ; disabled = false
-                                     ; value    = w } : Widget.widget Tabs.tab))
+                                     ; value    = w } : Widget.t Tabs.tab))
                       l
   in
   let scrl = new Tabs.Scroller.t ~tabs () in
@@ -26,7 +26,7 @@ let create_simple_tabs (l:simple_tab list) =
   let ()   = body#add_class @@ Components_markup.CSS.add_element _class "body" in
   let ()   = scrl#add_class @@ Components_markup.CSS.add_element _class "tabs" in
   object(self)
-    inherit Widget.widget (Dom_html.createDiv Dom_html.document) () as super
+    inherit Widget.t (Dom_html.createDiv Dom_html.document) () as super
     method! layout () = super#layout (); scrl#layout (); body#layout ()
     initializer
       Dom.appendChild self#root scrl#root;

@@ -19,7 +19,7 @@ module Tab = struct
 
     object(self)
 
-      inherit Widget.widget elt () as super
+      inherit Widget.t elt () as super
 
       val mutable tab    = props
       val mutable active = false
@@ -99,7 +99,7 @@ module Tab_bar = struct
 
     let s_active,s_active_push = React.S.create None in
     let tabs      = List.map (fun x -> new Tab.t s_active_push x ()) tabs in
-    let indicator = new Widget.widget (Markup.Tab_bar.Indicator.create () |> Tyxml_js.To_dom.of_span) () in
+    let indicator = new Widget.t (Markup.Tab_bar.Indicator.create () |> Tyxml_js.To_dom.of_span) () in
     let typ_of_tab_content = function
       | `Text _          -> `Text
       | `Icon _          -> `Icon
@@ -111,14 +111,14 @@ module Tab_bar = struct
                   | [x] -> x
                   | _   -> failwith "All tabs must be of the same type: text, icon or text with icon") in
     let elt = Markup.Tab_bar.create ~typ
-                                         ~indicator:(Widget.widget_to_markup indicator)
-                                         ~tabs:(Widget.widgets_to_markup tabs) ()
+                                         ~indicator:(Widget.to_markup indicator)
+                                         ~tabs:(List.map Widget.to_markup tabs) ()
               |> Tyxml_js.To_dom.of_nav in
     let ()  = Option.iter (fun x -> x#set_active true) (List.head_opt tabs) in
 
     object(self)
 
-      inherit Widget.widget elt () as super
+      inherit Widget.t elt () as super
 
       val mutable init         = false
       val mutable tabs         = tabs
@@ -243,7 +243,7 @@ module Scroller = struct
   class ['a] t ~(tabs:'a tab list) () =
 
     let tab_bar = new Tab_bar.t ~tabs () in
-    let elt     = Markup.Scroller.create ~tabs:(Widget.widget_to_markup tab_bar) ()
+    let elt     = Markup.Scroller.create ~tabs:(Widget.to_markup tab_bar) ()
                   |> Tyxml_js.To_dom.of_div in
     let wrapper = elt##querySelector (Js.string ("." ^ Markup.Scroller.scroll_frame_tabs_class))
                   |> Js.Opt.to_option |> Option.get_exn |> Widget.create
@@ -259,7 +259,7 @@ module Scroller = struct
 
     object(self)
 
-      inherit Widget.widget elt () as super
+      inherit Widget.t elt () as super
 
       (* User methods *)
 

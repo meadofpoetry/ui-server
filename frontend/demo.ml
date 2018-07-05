@@ -8,7 +8,7 @@ let demo_section ?expanded title content =
 
 let subsection name w = Html.div [ Html.h3 ~a:[Html.a_class [Typography.font_to_class Subheading_2]]
                                      [Html.pcdata name]
-                                 ; Widget.widget_to_markup w ]
+                                 ; Widget.to_markup w ]
                         |> To_dom.of_element
                         |> Widget.create
 
@@ -611,11 +611,11 @@ let chart_demo () =
                                   datasets;
                         chart#update None)
               append#e_click |> ignore;
-  let w = Html.div ~a:[ Html.a_style "max-width:700px"] [ Widget.widget_to_markup chart
-                                                        ; Widget.widget_to_markup update
-                                                        ; Widget.widget_to_markup push
-                                                        ; Widget.widget_to_markup push_less
-                                                        ; Widget.widget_to_markup append ]
+  let w = Html.div ~a:[ Html.a_style "max-width:700px"] [ Widget.to_markup chart
+                                                        ; Widget.to_markup update
+                                                        ; Widget.to_markup push
+                                                        ; Widget.to_markup push_less
+                                                        ; Widget.to_markup append ]
           |> To_dom.of_element
           |> Widget.create
   in
@@ -631,11 +631,11 @@ let time_chart_demo () =
   let y_axis   = new Chartjs.Line.Axes.Linear.t ~id:"y" ~position:`Left ~typ:Int () in
   let y2_axis  = new Chartjs.Line.Axes.Logarithmic.t ~id:"y2" ~position:`Right ~typ:Float () in
   let options  = new Chartjs.Line.Options.t
-                     ~x_axes:[x_axis]
-                     ~y_axes:[ y_axis#coerce_base
-                             ; y2_axis#coerce_base
-                             ]
-                     ()
+                   ~x_axes:[x_axis]
+                   ~y_axes:[ y_axis#coerce_base
+                           ; y2_axis#coerce_base
+                   ]
+                   ()
   in
   let dataset1 = new Chartjs.Line.Dataset.t ~x_axis ~y_axis ~label:"Dataset 1" ~data:[] () in
   let dataset2 = new Chartjs.Line.Dataset.t ~x_axis ~y_axis:y2_axis ~label:"Dataset 2" ~data:[] () in
@@ -671,7 +671,7 @@ let time_chart_demo () =
                          chart#update None)
               e_update |> ignore;
   Dom_html.window##setInterval (Js.wrap_callback (fun () -> e_update_push () |> ignore)) 1000. |> ignore;
-  let w = Html.div ~a:[ Html.a_style "max-width:700px"] [ Widget.widget_to_markup chart ]
+  let w = Html.div ~a:[ Html.a_style "max-width:700px"] [ Widget.to_markup chart ]
           |> To_dom.of_element
           |> Widget.create
   in

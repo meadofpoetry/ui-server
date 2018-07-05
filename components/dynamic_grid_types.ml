@@ -15,9 +15,9 @@ type 'a item =
   ; draggable    : bool
   ; selectable   : bool
 
-  ; move_widget  : Widget.widget option
-  ; close_widget : Widget.widget option
-  ; widget       : Widget.widget option
+  ; move_widget  : Widget.t option
+  ; close_widget : Widget.t option
+  ; widget       : Widget.t option
   ; value        : 'a
 
   ; on_resize    : (Position.t -> Position.t -> int -> int -> unit) option

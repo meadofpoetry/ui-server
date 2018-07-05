@@ -55,7 +55,7 @@ class t ?start_aligned ?action ~message () =
 
   object(self)
 
-    inherit Widget.widget elt () as super
+    inherit Widget.t elt () as super
 
     val mutable data_obj : data_obj Js.t = data_to_js_obj data
     val mutable data     : data = data

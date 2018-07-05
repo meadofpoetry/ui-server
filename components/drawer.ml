@@ -14,8 +14,8 @@ let open_event : Dom_html.event Js.t Dom.Event.typ  = Dom_events.Typ.make "MDCTe
 let close_event : Dom_html.event Js.t Dom.Event.typ = Dom_events.Typ.make "MDCTemporaryDrawer:close"
 let timeout ~f ~timer = Dom_html.window##setTimeout (Js.wrap_callback f) timer
 
-class t ?(animating=true) ~(anchor:anchor) ~(content:#Widget.widget list) () =
-  let drawer = Markup.create_drawer ~content:(List.map Widget.widget_to_markup content) () in
+class t ?(animating=true) ~(anchor:anchor) ~(content:#Widget.t list) () =
+  let drawer = Markup.create_drawer ~content:(List.map Widget.to_markup content) () in
   let elt    = Markup.create ~drawer () |> Tyxml_js.To_dom.of_element in
   let e,push = React.E.create () in
   object(self)
@@ -24,7 +24,7 @@ class t ?(animating=true) ~(anchor:anchor) ~(content:#Widget.widget list) () =
     val mutable end_l    = None
     val _s = React.S.hold false e
     val _drawer = Widget.create @@ Tyxml_js.To_dom.of_element drawer
-    inherit Widget.widget elt ()
+    inherit Widget.t elt ()
 
     method anchor = _anchor
     method set_anchor (x:anchor) =

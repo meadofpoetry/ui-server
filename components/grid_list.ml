@@ -9,16 +9,16 @@ module Tile = struct
 
     class t ?src ?alt ?(is_div=false) () =
 
-      let content = new Widget.widget (Markup.Tile.Primary.create_content ?src ?alt ~is_div ()
+      let content = new Widget.t (Markup.Tile.Primary.create_content ?src ?alt ~is_div ()
                                        |> Tyxml_js.To_dom.of_element) () in
-      let elt     = Markup.Tile.Primary.create ~content:(Widget.widget_to_markup content) ()
+      let elt     = Markup.Tile.Primary.create ~content:(Widget.to_markup content) ()
                     |> Tyxml_js.To_dom.of_div in
       object
 
         val content_widget = content
         val mutable src = src
 
-        inherit Widget.widget elt ()
+        inherit Widget.t elt ()
         method content_widget = content_widget
 
         method src       = src
@@ -34,14 +34,14 @@ module Tile = struct
   module Caption = struct
 
     class title ~title () = object
-      inherit Widget.widget (Markup.Tile.Caption.create_title ~text:title ()
+      inherit Widget.t (Markup.Tile.Caption.create_title ~text:title ()
                              |> Tyxml_js.To_dom.of_element) () as super
       method text       = super#text_content |> Option.get_or ~default:""
       method set_text s = super#set_text_content s
     end
 
     class support_text ~support_text () = object
-      inherit Widget.widget (Markup.Tile.Caption.create_support_text ~text:support_text ()
+      inherit Widget.t (Markup.Tile.Caption.create_support_text ~text:support_text ()
                              |> Tyxml_js.To_dom.of_element) () as super
       method text       = super#text_content |> Option.get_or ~default:""
       method set_text s = super#set_text_content s
@@ -52,9 +52,9 @@ module Tile = struct
       let title_widget = Option.map (fun x -> new title ~title:x ()) title in
       let support_text_widget = Option.map (fun x -> new support_text ~support_text:x ()) support_text in
       let elt = Markup.Tile.Caption.create
-                  ?title:(Option.map Widget.widget_to_markup title_widget)
-                  ?support_text:(Option.map Widget.widget_to_markup support_text_widget)
-                  ?icon:(Option.map Widget.widget_to_markup icon)
+                  ?title:(Option.map Widget.to_markup title_widget)
+                  ?support_text:(Option.map Widget.to_markup support_text_widget)
+                  ?icon:(Option.map Widget.to_markup icon)
                   ()
                 |> Tyxml_js.To_dom.of_element in
 
@@ -63,7 +63,7 @@ module Tile = struct
         val title_widget        = title_widget
         val support_text_widget = support_text_widget
 
-        inherit Widget.widget elt ()
+        inherit Widget.t elt ()
 
         method title_widget        = title_widget
         method support_text_widget = support_text_widget
@@ -86,8 +86,8 @@ module Tile = struct
                           | None,None,None -> None
                           | _              -> Some (new Caption.t ?title ?support_text ?icon ())) in
     let primary_widget = new Primary.t ~is_div:true ?src () in
-    let elt = Markup.Tile.create ~primary:(Widget.widget_to_markup primary_widget)
-                ?caption:(Option.map Widget.widget_to_markup caption_widget)
+    let elt = Markup.Tile.create ~primary:(Widget.to_markup primary_widget)
+                ?caption:(Option.map Widget.to_markup caption_widget)
                 ()
               |> Tyxml_js.To_dom.of_element in
 
@@ -96,7 +96,7 @@ module Tile = struct
       val caption_widget = caption_widget
       val primary_widget = primary_widget
 
-      inherit Widget.widget elt ()
+      inherit Widget.t elt ()
 
       method caption_widget = caption_widget
       method primary_widget = primary_widget
@@ -112,14 +112,14 @@ class t ~(tiles:Tile.t list) () =
   let twoline = List.find_pred (fun x -> match x#caption_widget with
                                          | Some c -> Option.is_some c#support_text_widget
                                          | None   -> false) tiles |> Option.is_some in
-  let elt = Markup.create ~tiles:(Widget.widgets_to_markup tiles) () |> Tyxml_js.To_dom.of_div in
+  let elt = Markup.create ~tiles:(List.map Widget.to_markup tiles) () |> Tyxml_js.To_dom.of_div in
 
   object(self)
 
     val tiles = tiles
     val mutable ar : ar option = None
 
-    inherit Widget.widget elt () as super
+    inherit Widget.t elt () as super
 
     method tiles = tiles
 

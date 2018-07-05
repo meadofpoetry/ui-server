@@ -189,7 +189,7 @@ let make_input_entry (iid, _, stream_list) =
   let box = new Box.t ~vertical:true ~widgets:[subheader#widget; list#widget; add_button#widget] () in
   box#widget, settings
 
-let make_entry : 'a -> Widget.widget * (marker * Common.Stream.t list) React.signal = function
+let make_entry : 'a -> Widget.t * (marker * Common.Stream.t list) React.signal = function
   | `Input _, _, _ as x -> make_input_entry x
   | `Board _, _, _ as x -> make_board_entry x
 

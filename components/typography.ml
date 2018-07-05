@@ -30,11 +30,11 @@ let font_to_class = function
   | Caption      -> Markup.caption_class
   | Button       -> Markup.button_class
 
-let remove (elt:#Widget.widget) =
+let remove (elt:#Widget.t) =
   List.iter (fun x -> if String.prefix ~pre:Markup.base_class x then elt#remove_class x)
             elt#classes
 
-let set ?(adjust_margin=true) ~font (elt:#Widget.widget) =
+let set ?(adjust_margin=true) ~font (elt:#Widget.t) =
   remove elt;
   elt#add_class Markup.base_class;
   elt#add_class @@ font_to_class font;
@@ -52,7 +52,7 @@ module Text = struct
 
     object(self)
 
-      inherit Widget.widget elt ()
+      inherit Widget.t elt ()
 
       val mutable font : font option = font
 

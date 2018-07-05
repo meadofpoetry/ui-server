@@ -39,7 +39,7 @@ module Header = struct
     object
       val h2_widget = elt##querySelector (Js.string @@ "." ^ Markup.Header.title_class)
                       |> Js.Opt.to_option |> Option.get_exn |> Widget.create
-      inherit Widget.widget elt ()
+      inherit Widget.t elt ()
       method title       = h2_widget#text_content |> Option.get_or ~default:""
       method set_title s = h2_widget#set_text_content s
     end
@@ -48,13 +48,13 @@ end
 
 module Body = struct
 
-  class t ?scrollable ~(content:[ `String of string | `Widgets of #Widget.widget list ]) () =
+  class t ?scrollable ~(content:[ `String of string | `Widgets of #Widget.t list ]) () =
     let content = (match content with
                    | `String  s -> [Tyxml_js.Html.pcdata s]
-                   | `Widgets w -> Widget.widgets_to_markup w) in
+                   | `Widgets w -> List.map Widget.to_markup w) in
     let elt = Markup.Body.create ?scrollable ~content () |> Tyxml_js.To_dom.of_element in
     object
-      inherit Widget.widget elt () as super
+      inherit Widget.t elt () as super
       method set_scrollable x = Markup.Body.scrollable_class
                                 |> (fun c -> if x then super#add_class c else super#remove_class c)
     end
@@ -64,11 +64,11 @@ end
 module Footer = struct
 
   class t ~(actions:Action.t list) () =
-    let elt = Markup.Footer.create ~children:(Widget.widgets_to_markup actions) ()
+    let elt = Markup.Footer.create ~children:(List.map Widget.to_markup actions) ()
               |> Tyxml_js.To_dom.of_footer in
     object
       val mutable actions = actions
-      inherit Widget.widget elt ()
+      inherit Widget.t elt ()
       method actions = actions
     end
 
@@ -82,16 +82,16 @@ class t ?scrollable ?title ?(actions:Action.t list option) ~content () =
 
   let elt = Markup.create
               ~content:([]
-                        |> List.cons_maybe @@ Option.map Widget.widget_to_markup footer_widget
-                        |> List.cons @@ Widget.widget_to_markup body_widget
-                        |> List.cons_maybe @@ Option.map Widget.widget_to_markup header_widget)
+                        |> List.cons_maybe @@ Option.map Widget.to_markup footer_widget
+                        |> List.cons @@ Widget.to_markup body_widget
+                        |> List.cons_maybe @@ Option.map Widget.to_markup header_widget)
               ()
             |> Tyxml_js.To_dom.of_aside in
   let e_action,e_action_push = React.E.create () in
 
   object
 
-    inherit Widget.widget elt () as super
+    inherit Widget.t elt () as super
 
     val mdc : mdc Js.t = Js.Unsafe.global##.mdc##.dialog##.MDCDialog##attachTo elt
 

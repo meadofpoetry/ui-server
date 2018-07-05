@@ -70,7 +70,7 @@ module Cell = struct
 
   let wrap_checkbox = function
     | None    -> None
-    | Some cb -> Markup.Cell.create (Widget.widget_to_markup cb) () |> Option.return
+    | Some cb -> Markup.Cell.create (Widget.to_markup cb) () |> Option.return
 
   class t ~(value:'a) i (fmt:'a fmt) (conv:'a -> string) (compare:string -> string -> int) () =
     let s = conv value in
@@ -81,7 +81,7 @@ module Cell = struct
       method index : int  = i
       method value = s
       method compare (other:'self) = compare other#value self#value
-      inherit Widget.widget elt ()
+      inherit Widget.t elt ()
     end
 end
 
@@ -89,7 +89,7 @@ module Column = struct
 
   let wrap_checkbox = function
     | None    -> None
-    | Some cb -> Markup.Column.create (Widget.widget_to_markup cb) () |> Option.return
+    | Some cb -> Markup.Column.create (Widget.to_markup cb) () |> Option.return
 
   class t i push (column:column) (fmt:'a fmt) () =
     let content = Tyxml_js.Html.(pcdata column.title) in
@@ -97,7 +97,7 @@ module Column = struct
                 ~is_numeric:(is_numeric fmt) content ()
               |> Tyxml_js.To_dom.of_element in
     object(self)
-      inherit Widget.widget elt ()
+      inherit Widget.t elt ()
       method index : int = i
       initializer
         if column.sortable
@@ -117,12 +117,12 @@ module Row = struct
       | Some `Multiple -> Some (new Checkbox.t ())
       | _ -> None
     in
-    let elt = Markup.Row.create ~cells:(List.map Widget.widget_to_markup cells
+    let elt = Markup.Row.create ~cells:(List.map Widget.to_markup cells
                                               |> List.cons_maybe (Cell.wrap_checkbox cb)) ()
               |> Tyxml_js.To_dom.of_element in
     let arr = Array.of_list cells in
     object(self)
-      inherit Widget.widget elt ()
+      inherit Widget.t elt ()
       method cells      = cells
       method cells_arr  = arr
       method checkbox   = cb
@@ -163,7 +163,7 @@ module Body = struct
     let elt = Markup.Body.create ~rows:[] () |> Tyxml_js.To_dom.of_element in
     let s_rows,s_rows_push = React.S.create List.empty in
     object(self)
-      inherit Widget.widget elt ()
+      inherit Widget.t elt ()
       method add_row (cells:Cell.t list) =
         let row = new Row.t ?selection s_selected s_selected_push cells () in
         s_rows_push @@ (List.cons row self#rows);
@@ -186,11 +186,11 @@ module Header = struct
 
   class row ?selection ~(columns:Column.t list) () =
     let cb = match selection with Some `Multiple -> Some (new Checkbox.t ()) | _ -> None in
-    let elt = Markup.Row.create ~cells:(List.map Widget.widget_to_markup columns
+    let elt = Markup.Row.create ~cells:(List.map Widget.to_markup columns
                                               |> List.cons_maybe (Column.wrap_checkbox cb)) ()
               |> Tyxml_js.To_dom.of_element in
     object
-      inherit Widget.widget elt ()
+      inherit Widget.t elt ()
       method checkbox = cb
     end
 
@@ -198,11 +198,11 @@ module Header = struct
     let s_sorted,s_sorted_push = React.S.create None in
     let columns = make_columns s_sorted_push fmt in
     let row = new row ?selection ~columns () in
-    let elt = Markup.Header.create ~row:(Widget.widget_to_markup row) ()
+    let elt = Markup.Header.create ~row:(Widget.to_markup row) ()
               |> Tyxml_js.To_dom.of_element in
     object(self)
       val _columns = columns
-      inherit Widget.widget elt ()
+      inherit Widget.t elt ()
       inherit Widget.stateful ()
 
       method checkbox = row#checkbox
@@ -251,11 +251,11 @@ end
 
 module Table = struct
   class t ~header ~body () =
-    let elt = Markup.create_table ~header:(Widget.widget_to_markup header)
-                ~body:(Widget.widget_to_markup body) ()
+    let elt = Markup.create_table ~header:(Widget.to_markup header)
+                ~body:(Widget.to_markup body) ()
               |> Tyxml_js.To_dom.of_element in
     object
-      inherit Widget.widget elt ()
+      inherit Widget.t elt ()
     end
 end
 
@@ -274,10 +274,10 @@ class ['a] t ?selection ~(fmt:('a,_) row) () =
   let body       = new Body.t ?selection s_selected s_selected_push () in
   let header     = new Header.t ?selection s_selected s_selected_push body#s_rows fmt () in
   let table      = new Table.t ~header ~body () in
-  let elt        = Markup.create ?selection ~table:(Widget.widget_to_markup table) ()
+  let elt        = Markup.create ?selection ~table:(Widget.to_markup table) ()
                    |> Tyxml_js.To_dom.of_element in
   object(self)
-    inherit Widget.widget elt ()
+    inherit Widget.t elt ()
     inherit Widget.stateful ()
 
     method body       = body

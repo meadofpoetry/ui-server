@@ -56,7 +56,7 @@ class t ~(options:#Options.t) ~typ ~data () =
 
     val _canvas = Components.Widget.create elt
     val _chart  = new%js constr elt conf
-    inherit Components.Widget.widget elt () as super
+    inherit Components.Widget.t elt () as super
 
     method canvas        = _canvas
     method set_width x   = self#canvas#set_attribute "width"  @@ string_of_int x

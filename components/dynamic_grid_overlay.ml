@@ -9,7 +9,7 @@ class overlay_grid ~parent ~s_col_w ~s_row_h ~s_cols ~s_rows ~s_im () =
   let elt = Markup.Overlay_grid.create () |> Tyxml_js.To_dom.of_canvas in
   object(self)
 
-    inherit Widget.widget elt () as super
+    inherit Widget.t elt () as super
 
     val mutable grid_color     = Color.v 0. 0. 0. 0.25
     val mutable divider_color  = Color.v 0. 0. 0. 0.5

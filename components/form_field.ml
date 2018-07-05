@@ -12,15 +12,15 @@ class ['a] t ?align_end ~(input: 'a) ~label () =
     | None    -> let id = get_id () in input#set_input_id id; id
     | Some id -> id
   in
-  let label = new Widget.widget (Markup.Label.create ~for_id ~label ()
+  let label = new Widget.t (Markup.Label.create ~for_id ~label ()
                                  |> Tyxml_js.To_dom.of_label) () in
   let elt = Markup.create ?align_end
-              ~input:(Widget.widget_to_markup input)
-              ~label:(Widget.widget_to_markup label) ()
+              ~input:(Widget.to_markup input)
+              ~label:(Widget.to_markup label) ()
             |> Tyxml_js.To_dom.of_div in
 
   object(self)
-    inherit Widget.widget elt ()
+    inherit Widget.t elt ()
     inherit Widget.stateful ()
     method label_widget      = label
     method input_widget : 'a = input

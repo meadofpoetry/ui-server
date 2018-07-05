@@ -14,7 +14,7 @@ type item_properties_action =
   ; on_click : unit -> unit
   }
 type item_properties =
-  { widget  : Widget.widget
+  { widget  : Widget.t
   ; actions : item_properties_action list
   }
 
