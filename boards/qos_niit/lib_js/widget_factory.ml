@@ -7,6 +7,7 @@ open Common.Topology
 open Common
 
 type item =
+  | Chart           of Widget_chart.config option
   | Structure       of Widget_structure.config option
   | Settings        of Widget_settings.config option
   | T2MI_settings   of Widget_t2mi_settings.config option
@@ -15,30 +16,36 @@ type item =
 let item_to_info : item -> Dashboard.Item.info = fun item ->
   let serialized = item_to_yojson item in
   match item with
-  | Structure _ ->
+  | Chart _ ->
+     Dashboard.Item.to_info ~title:"График"
+       ~thumbnail:(`Icon "chart")
+       ~description:"График"
+       ~serialized
+       ()
+    | Structure _ ->
      Dashboard.Item.to_info ~title:"Структура потока"
-                            ~thumbnail:(`Icon "list")
-                            ~description:"Отображает структуру обнаруженных транспортных потоков"
-                            ~serialized
-                            ()
+       ~thumbnail:(`Icon "list")
+       ~description:"Отображает структуру обнаруженных транспортных потоков"
+       ~serialized
+       ()
   | Settings _ ->
      Dashboard.Item.to_info ~title:Widget_settings.name
-                            ~thumbnail:(`Icon "settings")
-                            ~description:"Позволяет осуществлять настройку"
-                            ~serialized
-                            ()
+       ~thumbnail:(`Icon "settings")
+       ~description:"Позволяет осуществлять настройку"
+       ~serialized
+       ()
   | T2MI_settings _ ->
      Dashboard.Item.to_info ~title:Widget_t2mi_settings.name
-                            ~thumbnail:(`Icon "settings")
-                            ~description:"Позволяет осуществлять настройку анализа потока T2-MI"
-                            ~serialized
-                            ()
+       ~thumbnail:(`Icon "settings")
+       ~description:"Позволяет осуществлять настройку анализа потока T2-MI"
+       ~serialized
+       ()
   | Jitter_settings _ ->
      Dashboard.Item.to_info ~title:Widget_jitter_settings.name
-                            ~thumbnail:(`Icon "settings")
-                            ~description:"Позволяет осуществлять настройку измерений джиттера"
-                            ~serialized
-                            ()
+       ~thumbnail:(`Icon "settings")
+       ~description:"Позволяет осуществлять настройку измерений джиттера"
+       ~serialized
+       ()
 
 let return = Lwt_result.return
 
@@ -59,30 +66,37 @@ object(self)
 
   (** Create widget of type **)
   method create : item -> Dashboard.Item.item = function
-    | Structure conf       -> (fun s str -> Widget_structure.make ~state:s ~structs:str conf)
-                              |> Factory_state_lwt.l2 self#_state self#_structs
-                              |> Ui_templates.Loader.create_widget_loader
-                              |> Dashboard.Item.to_item ~name:Widget_structure.name
-                                   ?settings:Widget_structure.settings
-    | Settings conf        -> (fun s t j -> Widget_settings.make ~state:s ~t2mi_mode:t ~jitter_mode:j
-                                              ~streams:self#_streams
-                                              conf control)
-                              |> Factory_state_lwt.l3 self#_state self#_t2mi_mode self#_jitter_mode
-                              |> Ui_templates.Loader.create_widget_loader
-                              |> Dashboard.Item.to_item ~name:Widget_settings.name
-                                   ?settings:Widget_settings.settings
-    | T2MI_settings conf   -> (fun s m -> Widget_t2mi_settings.make ~state:s ~mode:m
-                                            ~streams:self#_streams
-                                            conf control )
-                              |> Factory_state_lwt.l2 self#_state self#_t2mi_mode
-                              |> Ui_templates.Loader.create_widget_loader
-                              |> Dashboard.Item.to_item ~name:Widget_t2mi_settings.name
-                                   ?settings:Widget_t2mi_settings.settings
-    | Jitter_settings conf -> (fun s m -> Widget_jitter_settings.make ~state:s ~mode:m conf control)
-                              |> Factory_state_lwt.l2 self#_state self#_jitter_mode
-                              |> Ui_templates.Loader.create_widget_loader
-                              |> Dashboard.Item.to_item ~name:Widget_jitter_settings.name
-                                   ?settings:Widget_jitter_settings.settings
+    | Chart conf ->
+       Widget_chart.make conf
+       |> Dashboard.Item.to_item ~name:Widget_chart.name
+    | Structure conf ->
+       (fun s str -> Widget_structure.make ~state:s ~structs:str conf)
+       |> Factory_state_lwt.l2 self#_state self#_structs
+       |> Ui_templates.Loader.create_widget_loader
+       |> Dashboard.Item.to_item ~name:Widget_structure.name
+            ?settings:Widget_structure.settings
+    | Settings conf ->
+       (fun s t j -> Widget_settings.make ~state:s ~t2mi_mode:t ~jitter_mode:j
+                       ~streams:self#_streams
+                       conf control)
+       |> Factory_state_lwt.l3 self#_state self#_t2mi_mode self#_jitter_mode
+       |> Ui_templates.Loader.create_widget_loader
+       |> Dashboard.Item.to_item ~name:Widget_settings.name
+            ?settings:Widget_settings.settings
+    | T2MI_settings conf ->
+       (fun s m -> Widget_t2mi_settings.make ~state:s ~mode:m
+                     ~streams:self#_streams
+                     conf control )
+       |> Factory_state_lwt.l2 self#_state self#_t2mi_mode
+       |> Ui_templates.Loader.create_widget_loader
+       |> Dashboard.Item.to_item ~name:Widget_t2mi_settings.name
+            ?settings:Widget_t2mi_settings.settings
+    | Jitter_settings conf ->
+       (fun s m -> Widget_jitter_settings.make ~state:s ~mode:m conf control)
+       |> Factory_state_lwt.l2 self#_state self#_jitter_mode
+       |> Ui_templates.Loader.create_widget_loader
+       |> Dashboard.Item.to_item ~name:Widget_jitter_settings.name
+            ?settings:Widget_jitter_settings.settings
 
   method destroy () : unit = Factory_state.finalize _state;
                              Factory_state.finalize _t2mi_mode;

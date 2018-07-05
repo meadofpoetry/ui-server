@@ -159,6 +159,20 @@ let settings = None
 let make ~(state   : Common.Topology.state React.signal)
       ~(structs : (Stream.id * Streams.TS.structure) list React.signal)
       (config   : config option) =
+  (* FIXME remove *)
+  let structs,push = React.S.create [] in
+  let open Lwt.Infix in
+  let _ = Api_js.Requests.Json_request.get
+            ?scheme:None ?host:None ?port:None
+            ~path:Uri.Path.Format.("/js/structure.json" @/ empty)
+            ~query:Uri.Query.empty
+          >|= (fun r ->
+      Result.get_exn r
+      |> Json.(List.of_yojson (Pair.of_yojson Stream.id_of_yojson Streams.TS.structure_of_yojson))
+      |> Result.get_exn
+      |> push)
+  in
+  (* end of temp block *)
   let id  = "ts-structures" in
   let div = Dom_html.createDiv Dom_html.document in
   let make (ts : (Stream.id * Streams.TS.structure) list) =
