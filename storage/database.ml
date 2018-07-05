@@ -151,7 +151,7 @@ module Types = struct
 
     let (&) = Caqti_type.tup2
   end
-
+              
 end
                                
 type t = state

@@ -67,12 +67,29 @@ module HTTP = struct
 
     module Archive = struct
 
-      let errors stream errors priority pids limit compress from till duration _ _ () =
-        respond_error ~status:`Not_implemented "not implemented" ()
-      let percent stream errors priority pids from till duration _ _ () =
-        respond_error ~status:`Not_implemented "not implemented" ()
-      let has_any stream errors priority pids from till duration _ _() =
-        respond_error ~status:`Not_implemented "not implemented" ()
+      let errors db streams errors priority pids limit compress from till duration _ _ () =
+        match Time.make_interval ?from ?till ?duration () with
+        | Ok (`Range (from,till)) -> begin
+            match compress with
+            | Some true -> Db.Errors.select_errors_compressed
+                             db ~is_ts:true ~streams ~priority ~errors ~pids ~from ~till ()
+            | _ -> Db.Errors.select_errors db ~is_ts:true ~streams ~priority ~errors ~pids ?limit ~from ~till ()
+          end >>= fun v -> respond_result (Ok Db.Errors.(Api.Api_types.rows_to_yojson err_to_yojson per_to_yojson v))
+        | _ -> respond_error ~status:`Not_implemented "not implemented" ()
+             
+      let percent db streams errors priority pids from till duration _ _ () =
+        match Time.make_interval ?from ?till ?duration () with
+        | Ok (`Range (from,till)) ->
+           Db.Errors.select_percent db ~is_ts:true ~streams ~priority ~errors ~pids ~from ~till ()
+           >>= fun v -> respond_result (Ok (`Float v))
+        | _ -> respond_error ~status:`Not_implemented "not implemented" ()
+        
+      let has_any db streams errors priority pids from till duration _ _() =
+        match Time.make_interval ?from ?till ?duration () with
+        | Ok (`Range (from,till)) ->
+           Db.Errors.select_has_any db ~is_ts:true ~streams ~priority ~errors ~pids ~from ~till ()
+           >>= fun v -> respond_result (Ok (`Bool v))
+        | _ -> respond_error ~status:`Not_implemented "not implemented" ()
 
     end
   end
@@ -81,19 +98,35 @@ module HTTP = struct
 
     module Archive = struct
 
-      let errors stream t2mi_id errors pids limit compress from till duration _ _ () =
-        respond_error ~status:`Not_implemented "not implemented" ()
-      let percent stream t2mi_id errors pids from till duration _ _ () =
-        respond_error ~status:`Not_implemented "not implemented" ()
-      let has_any stream t2mi_id errors pids from till duration _ _() =
-        respond_error ~status:`Not_implemented "not implemented" ()
+      let errors db streams t2mi_id errors pids limit compress from till duration _ _ () =
+        match Time.make_interval ?from ?till ?duration () with
+        | Ok (`Range (from,till)) -> begin
+            match compress with
+            | Some true -> Db.Errors.select_errors_compressed db ~is_ts:false ~streams ~errors ~pids ~from ~till ()
+            | _ -> Db.Errors.select_errors db ~is_ts:true ~streams ~errors ~pids ?limit ~from ~till ()
+          end >>= fun v -> respond_result (Ok Db.Errors.(Api.Api_types.rows_to_yojson err_to_yojson per_to_yojson v))
+        | _ -> respond_error ~status:`Not_implemented "not implemented" ()
+        
+      let percent db streams t2mi_id errors pids from till duration _ _ () =
+        match Time.make_interval ?from ?till ?duration () with
+        | Ok (`Range (from,till)) ->
+           Db.Errors.select_percent db ~is_ts:true ~streams ~errors ~pids ~from ~till ()
+           >>= fun v -> respond_result (Ok (`Float v))
+        | _ -> respond_error ~status:`Not_implemented "not implemented" ()
+        
+      let has_any db streams t2mi_id errors pids from till duration _ _() =
+        match Time.make_interval ?from ?till ?duration () with
+        | Ok (`Range (from,till)) ->
+           Db.Errors.select_has_any db ~is_ts:true ~streams ~errors ~pids ~from ~till ()
+           >>= fun v -> respond_result (Ok (`Bool v))
+        | _ -> respond_error ~status:`Not_implemented "not implemented" ()
 
     end
 
   end
 end
 
-let ts_handler events =
+let ts_handler db events =
   let open Uri in
   let open Boards.Board.Api_handler in
   create_dispatcher
@@ -117,7 +150,7 @@ let ts_handler events =
                              ; "from",     (module Option(Time.Show))
                              ; "to",       (module Option(Time.Show))
                              ; "duration", (module Option(Time.Relative)) ]
-                (HTTP.TS.Archive.errors)
+                (HTTP.TS.Archive.errors db)
             ; create_handler ~docstring:"Returns TS errors presence percentage"
                 ~path:Path.Format.("archive/percent" @/ empty)
                 ~query:Query.[ "stream-id",(module List(Int32))
@@ -127,7 +160,7 @@ let ts_handler events =
                              ; "from",     (module Option(Time.Show))
                              ; "to",       (module Option(Time.Show))
                              ; "duration", (module Option(Time.Relative)) ]
-                (HTTP.TS.Archive.percent)
+                (HTTP.TS.Archive.percent db)
             ; create_handler ~docstring:"Returns if TS errors were present for the requested period"
                 ~path:Path.Format.("archive/has-any" @/ empty)
                 ~query:Query.[ "stream-id",(module List(Int32))
@@ -137,11 +170,11 @@ let ts_handler events =
                              ; "from",     (module Option(Time.Show))
                              ; "to",       (module Option(Time.Show))
                              ; "duration", (module Option(Time.Relative)) ]
-                (HTTP.TS.Archive.has_any)
+                (HTTP.TS.Archive.has_any db)
             ]
     ]
 
-let t2mi_handler events =
+let t2mi_handler db events =
   let open Uri in
   let open Boards.Board.Api_handler in
   create_dispatcher
@@ -165,7 +198,7 @@ let t2mi_handler events =
                              ; "from",           (module Option(Time.Show))
                              ; "to",             (module Option(Time.Show))
                              ; "duration",       (module Option(Time.Relative)) ]
-                (HTTP.T2MI.Archive.errors)
+                (HTTP.T2MI.Archive.errors db)
             ; create_handler ~docstring:"Returns T2-MI errors presense percentage"
                 ~path:Path.Format.("archive/percent" @/ empty)
                 ~query:Query.[ "stream-id",      (module List(Int32))
@@ -175,7 +208,7 @@ let t2mi_handler events =
                              ; "from",           (module Option(Time.Show))
                              ; "to",             (module Option(Time.Show))
                              ; "duration",       (module Option(Time.Relative)) ]
-                (HTTP.T2MI.Archive.percent)
+                (HTTP.T2MI.Archive.percent db)
             ; create_handler ~docstring:"Returns if T2-MI errors were present for the requested period"
                 ~path:Path.Format.("archive/has-any" @/ empty)
                 ~query:Query.[ "stream-id",      (module List(Int32))
@@ -185,10 +218,10 @@ let t2mi_handler events =
                              ; "from",           (module Option(Time.Show))
                              ; "to",             (module Option(Time.Show))
                              ; "duration",       (module Option(Time.Relative)) ]
-                (HTTP.T2MI.Archive.has_any) ]
+                (HTTP.T2MI.Archive.has_any db) ]
     ]
 
-let handlers events =
-  [ ts_handler events
-  ; t2mi_handler events
+let handlers db events =
+  [ ts_handler db events
+  ; t2mi_handler db events
   ]

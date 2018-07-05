@@ -22,12 +22,12 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
   let conv            = fun x -> convert_streams x b in
   let storage         = Config_storage.create base ["board"; (string_of_int b.control)] in
   let events,api,step = Board_protocol.SM.create (log_prefix b.control) send storage step conv in
-  let handlers        = Board_api.handlers b.control api events in
   let db              = Result.get_exn @@ Db.Conn.create db_conf in
+  let handlers        = Board_api.handlers b.control db api events in
   Lwt_react.E.keep @@
-    Lwt_react.E.map_p (fun e -> Db.Errors.TS.insert_errors db e) events.errors.ts_errors;
+    Lwt_react.E.map_p (fun e -> Db.Errors.insert_errors ~is_ts:true db e) events.errors.ts_errors;
   Lwt_react.E.keep @@
-    Lwt_react.E.map_p (fun e -> Db.Errors.T2MI.insert_errors db e) events.errors.t2mi_errors;
+    Lwt_react.E.map_p (fun e -> Db.Errors.insert_errors ~is_ts:false db e) events.errors.t2mi_errors;
   let state = (object val db = db method finalize () = () end) in (* TODO fix finalize *)
   { handlers       = handlers
   ; control        = b.control

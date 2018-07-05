@@ -61,132 +61,84 @@ module Errors = struct
                          Ok (stream,{ timestamp; count; err_code
                                       ; err_ext; priority; multi_pid; pid; packet; param_1; param_2})))
 
-  let max_limit = 500
+  let insert_errors db ~is_ts errs =
+    let errs = List.map (fun (s,e) -> List.map (Pair.make s) e) errs |> List.concat in
+    let insert =
+      R.exec Types.(tup2 bool error)
+        {|INSERT INTO qos_niit_errors(is_ts,stream,count,err_code,err_ext,priority,
+         multi_pid,pid,packet,param_1,param_2,date)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?)|}
+    in Conn.request db Request.(with_trans (List.fold_left (fun acc x -> acc >>= fun () -> exec insert (is_ts,x))
+                                              (return ()) errs))
 
-  let select_errors ?(limit = max_limit) ?from ?til db =
-    match from, til with
-    | Some f, Some t ->
-       let q = R.collect Types.(tup3 ptime ptime int) error
-                 {|SELECT (is_ts,4stream,count,err_code,err_ext,priority,
-                  multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
-                  WHERE date >= ? AND date <= ? ORDER BY date DESC LIMIT ?|}
-       in Conn.request db Request.(list q (f,t,limit)) >|= fun data ->
-          Raw { data; has_more = (List.length data >= limit); order = `Desc }
-    | Some f, None ->
-       let q = R.collect Types.(tup2 ptime int) error
-                 {|SELECT (is_ts,stream,count,err_code,err_ext,priority,
-                  multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
-                  WHERE date >= ? ORDER BY date ASC LIMIT ?|}
-       in Conn.request db Request.(list q (f,limit)) >|= fun data ->
-          Raw { data; has_more = (List.length data >= limit); order = `Asc }
-    | None, Some t ->
-       let q = R.collect Types.(tup2 ptime int) error
-                 {|SELECT (is_ts,stream,count,err_code,err_ext,priority,
-                  multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
-                  WHERE date <= ? ORDER BY date DESC LIMIT ?|}
-       in Conn.request db Request.(list q (t,limit)) >|= fun data ->
-          Raw { data; has_more = (List.length data >= limit); order = `Desc }
-    | None, None ->
-       let q = R.collect Types.int error
-                 {|SELECT (is_ts,stream,count,err_code,err_ext,priority,
-                  multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
-                  ORDER BY date DESC LIMIT ?|}
-       in Conn.request db Request.(list q limit) >|= fun data ->
-          Raw { data; has_more = (List.length data >= limit); order = `Desc }
-
-  module TS = struct
-    
-    let insert_errors db errs =
-      let errs = List.map (fun (s,e) -> List.map (Pair.make s) e) errs |> List.concat in
-      let insert =
-        R.exec error
-          {|INSERT INTO qos_niit_errors(is_ts,stream,count,err_code,err_ext,priority,
-           multi_pid,pid,packet,param_1,param_2,date)
-           VALUES (true,?,?,?,?,?,?,?,?,?,?,?)|}
-      in Conn.request db Request.(with_trans (List.fold_left (fun acc x -> acc >>= fun () -> exec insert x)
-                                                (return ()) errs))
-
-    let select_errors ?(limit = max_limit) ?from ?til db =
-      match from, til with
-      | Some f, Some t ->
-         let q = R.collect Types.(tup3 ptime ptime int) error
-                   {|SELECT (stream,count,err_code,err_ext,priority,
-                    multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
-                    WHERE is_ts = true AND date >= ? AND date <= ? ORDER BY date DESC LIMIT ?|}
-         in Conn.request db Request.(list q (f,t,limit)) >|= fun data ->
-            Raw { data; has_more = (List.length data >= limit); order = `Desc }
-      | Some f, None ->
-         let q = R.collect Types.(tup2 ptime int) error
-                   {|SELECT (stream,count,err_code,err_ext,priority,
-                    multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
-                    WHERE is_ts = true AND date >= ? ORDER BY date ASC LIMIT ?|}
-         in Conn.request db Request.(list q (f,limit)) >|= fun data ->
-            Raw { data; has_more = (List.length data >= limit); order = `Asc }
-      | None, Some t ->
-         let q = R.collect Types.(tup2 ptime int) error
-                   {|SELECT (stream,count,err_code,err_ext,priority,
-                    multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
-                    WHERE is_ts = true AND date <= ? ORDER BY date DESC LIMIT ?|}
-         in Conn.request db Request.(list q (t,limit)) >|= fun data ->
-            Raw { data; has_more = (List.length data >= limit); order = `Desc }
-      | None, None ->
-         let q = R.collect Types.int error
-                   {|SELECT (stream,count,err_code,err_ext,priority,
-                    multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
-                    WHERE is_ts = true ORDER BY date DESC LIMIT ?|}
-         in Conn.request db Request.(list q limit) >|= fun data ->
-            Raw { data; has_more = (List.length data >= limit); order = `Desc }
-  end
-
-  module T2MI = struct
-
-    let insert_errors db (errs:(Stream.id,Errors.t list) List.Assoc.t) =
-      let errs = List.map (fun (s,e) -> List.map (Pair.make s) e) errs |> List.concat in
-      let insert =
-        R.exec error
-          {|INSERT INTO qos_niit_errors(is_ts,stream,count,err_code,err_ext,priority,
-           multi_pid,pid,packet,param_1,param_2,date)
-           VALUES (false,?,?,?,?,?,?,?,?,?,?,?)|}
-      in Conn.request db Request.(with_trans (List.fold_left (fun acc x -> acc >>= fun () -> exec insert x)
-                                                (return ()) errs))
-
-    let select_errors ?(limit = max_limit) ?from ?til db =
-      match from, til with
-      | Some f, Some t ->
-         let q = R.collect Types.(tup3 ptime ptime int) error
-                   {|SELECT (stream,count,err_code,err_ext,priority,
-                    multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
-                    WHERE is_ts = false AND date >= ? AND date <= ? ORDER BY date DESC LIMIT ?|}
-         in Conn.request db Request.(list q (f,t,limit)) >|= fun data ->
-            Raw { data; has_more = (List.length data >= limit); order = `Desc }
-      | Some f, None ->
-         let q = R.collect Types.(tup2 ptime int) error
-                   {|SELECT (stream,count,err_code,err_ext,priority,
-                    multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
-                    WHERE is_ts = false AND date >= ? ORDER BY date ASC LIMIT ?|}
-         in Conn.request db Request.(list q (f,limit)) >|= fun data ->
-            Raw { data; has_more = (List.length data >= limit); order = `Asc }
-      | None, Some t ->
-         let q = R.collect Types.(tup2 ptime int) error
-                   {|SELECT (stream,count,err_code,err_ext,priority,
-                    multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
-                    WHERE is_ts = false AND date <= ? ORDER BY date DESC LIMIT ?|}
-         in Conn.request db Request.(list q (t,limit)) >|= fun data ->
-            Raw { data; has_more = (List.length data >= limit); order = `Desc }
-      | None, None ->
-         let q = R.collect Types.int error
-                   {|SELECT (stream,count,err_code,err_ext,priority,
-                    multi_pid,pid,packet,param_1,param_2,date) FROM qos_niit_errors 
-                    WHERE is_ts = false ORDER BY date DESC LIMIT ?|}
-         in Conn.request db Request.(list q limit) >|= fun data ->
-            Raw { data; has_more = (List.length data >= limit); order = `Desc }
-    
-  end
-            
-        (*
-    let select_errors_compress db ?(limit = max_limit) ?from ?til ?(typ = `Any) =
-    let query_limit =
-      Find (Caqti_request.find Types.int Types.int "SELECT ")
-    in*)
+  let is_in field to_string = function
+    | [] -> ""
+    | lst -> Printf.sprintf " %s IS IN (%s) AND " field (String.concat "," @@ List.map to_string lst)
      
+  let select_has_any db ?(streams = []) ?(priority = []) ?(pids = []) ?(errors = []) ~is_ts ~from ~till () =
+    let streams  = is_in "stream" Int32.to_string streams in
+    let priority = is_in "priority" string_of_int priority in
+    let pids     = is_in "pid" string_of_int pids in
+    let errors   = is_in "err_code"  string_of_int errors in
+    let select = R.find Types.(tup3 bool ptime ptime) Types.bool
+                   (Printf.sprintf {|SELECT TRUE FROM qos_niit_errors
+                                    WHERE %s %s %s %s is_ts = ? AND date >= ? AND date <= ? LIMIT 1|}
+                      streams priority pids errors)
+    in Conn.request db Request.(find select (is_ts,from,till) >>= function None -> return false | Some x -> return x)
+
+  let select_percent db ?(streams = []) ?(priority = []) ?(pids = []) ?(errors = []) ~is_ts ~from ~till () =
+    let streams  = is_in "stream" Int32.to_string streams in
+    let priority = is_in "priority" string_of_int priority in
+    let pids     = is_in "pid" string_of_int pids in
+    let errors   = is_in "err_code"  string_of_int errors in
+    let span = Time.(Period.to_float_s @@ diff till from) in
+    let select = R.find Types.(tup3 bool ptime ptime) Types.int
+                   (Printf.sprintf {|SELECT count(DISTINCT date_trunc('second',date)) FROM qos_niit_errors 
+                                    WHERE %s %s %s %s is_ts = ? AND date >= ? AND date <= ?|}
+                      streams priority pids errors)
+    in Conn.request db Request.(find select (is_ts,from,till) >>= function
+                                | None -> return 0.0
+                                | Some s -> return (100. *. (float_of_int s) /. span))
+
+  let max_limit = 500
+                
+  let select_errors db ?(streams = []) ?(priority = []) ?(pids = []) ?(errors = []) ?(limit = max_limit)
+        ~is_ts ~from ~till () =
+    let streams  = is_in "stream" Int32.to_string streams in
+    let priority = is_in "priority" string_of_int priority in
+    let pids     = is_in "pid" string_of_int pids in
+    let errors   = is_in "err_code"  string_of_int errors in
+    let select = R.collect Types.(tup4 bool ptime ptime int) error
+                   (Printf.sprintf {|SELECT stream,count,err_code,err_ext,priority,
+                                    multi_pid,pid,packet,param_1,param_2,date FROM qos_niit_errors 
+                                    WHERE %s %s %s %s is_ts = ? AND date >= ? AND date <= ?
+                                    ORDER BY date DESC LIMIT ?|}
+                      streams priority pids errors)
+    in Conn.request db Request.(list select (is_ts,from,till,limit) >>= fun data ->
+                                return (Raw { data; has_more = (List.length data >= limit); order = `Desc }))
+
+  type err = (Common.Stream.id * Errors.t) list [@@deriving yojson]
+     
+  type per = (float * Time.t * Time.t) list [@@deriving yojson]
+     
+  let select_errors_compressed db ?(streams = []) ?(priority = []) ?(pids = []) ?(errors = []) ~is_ts ~from ~till () =
+    let streams  = is_in "stream" Int32.to_string streams in
+    let priority = is_in "priority" string_of_int priority in
+    let pids     = is_in "pid" string_of_int pids in
+    let errors   = is_in "err_code"  string_of_int errors in
+    let intvals = Time.split ~from ~till in
+    let select = R.find Types.(tup3 bool ptime ptime ) Types.int
+                   (Printf.sprintf {|SELECT count(DISTINCT date_trunc('second',date)) FROM qos_niit_errors
+                                    WHERE %s %s %s %s is_ts = ? AND date >= ? AND date <= ?|}
+                      streams priority pids errors)
+    in Conn.request db Request.(with_trans (List.fold_left (fun acc (f,t) ->
+                                                let span = Time.(Period.to_float_s @@ diff till from) in
+                                                acc >>= fun l ->
+                                                find select (is_ts, f, t) >>= function
+                                                | None -> return l
+                                                | Some s -> let perc = (100. *. (float_of_int s) /. span) in
+                                                            return ((perc,f,t)::l))
+                                              (return []) intvals)
+                                >>= fun l -> return (Compressed { data = List.rev l }))
+
 end
