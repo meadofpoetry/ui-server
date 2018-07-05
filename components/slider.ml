@@ -1,4 +1,7 @@
 open Containers
+open Tyxml_js
+
+module Markup = Components_markup.Slider.Make(Xml)(Svg)(Html)
 
 class type mdc =
   object
@@ -32,7 +35,7 @@ let events =
 
 class t ?discrete ?markers ?step ?(min=0.0) ?(max=100.0) ?value  () =
 
-  let elt = Markup.Slider.create ?discrete ?markers ?value ?step ~min ~max () |> Tyxml_js.To_dom.of_div in
+  let elt = Markup.create ?discrete ?markers ?value ?step ~min ~max () |> Tyxml_js.To_dom.of_div in
   let s_input,s_input_push = React.S.create @@ Option.get_or ~default:min value in
   let s_value,s_value_push = React.S.create @@ Option.get_or ~default:min value in
   let mdc : mdc Js.t = elt |> (fun x -> Js.Unsafe.global##.mdc##.slider##.MDCSlider##attachTo x) in
@@ -53,7 +56,7 @@ class t ?discrete ?markers ?step ?(min=0.0) ?(max=100.0) ?value  () =
     method set_step x = mdc##.step := x
     method step       = mdc##.step
 
-    method get_disabled   = Js.to_bool mdc##.disabled
+    method disabled       = Js.to_bool mdc##.disabled
     method set_disabled x = mdc##.disabled := Js.bool x
 
     method layout ()      = mdc##layout ()

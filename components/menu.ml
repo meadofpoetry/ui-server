@@ -1,4 +1,7 @@
+open Tyxml_js
+
 module Divider = Item_list.Divider
+module Markup  = Components_markup.Menu.Make(Xml)(Svg)(Html)
 
 module Item = struct
 
@@ -23,6 +26,7 @@ end
 let focus_index_to_js_obj (x : int) : < focusIndex : int Js.prop > Js.t =
   Js.Unsafe.(obj [| "focusIndex", inject x |])
 
+(* TODO remove *)
 class type mdc =
   object
     method open_        : bool Js.t Js.prop
@@ -57,9 +61,10 @@ class t ?open_from ~(items:[ `Item of Item.t | `Divider of Divider.t ] list) () 
 
   let () = list#set_attribute "role" "menu";
            list#set_attribute "aria-hidden" "true";
-           list#add_class Markup.Menu.items_class in
+           list#add_class Markup.items_class in
 
-  let elt = Markup.Menu.create ?open_from ~list:(Widget.widget_to_markup list) () |> Tyxml_js.To_dom.of_div in
+  let elt = Markup.create ?open_from ~list:(Widget.widget_to_markup list) ()
+            |> Tyxml_js.To_dom.of_div in
   let e_selected,e_selected_push = React.E.create () in
   let e_cancel,e_cancel_push     = React.E.create () in
   object
@@ -81,12 +86,12 @@ class t ?open_from ~(items:[ `Item of Item.t | `Divider of Divider.t ] list) () 
     method e_cancel   = e_cancel
 
     initializer
-      Dom_events.listen super#root events.selected
-                        (fun _ (e:event Js.t) -> let idx  = e##.detail##.index in
-                                                 let item = e##.detail##.item in
-                                                 e_selected_push (idx,item); false)  |> ignore;
-      Dom_events.listen super#root events.cancel
-                        (fun _ _ -> e_cancel_push (); false) |> ignore
+      Dom_events.listen super#root events.selected (fun _ (e:event Js.t) ->
+          let idx  = e##.detail##.index in
+          let item = e##.detail##.item in
+          e_selected_push (idx,item); false)  |> ignore;
+      Dom_events.listen super#root events.cancel (fun _ _ ->
+          e_cancel_push (); false) |> ignore
   end
 
 module Wrapper = struct
@@ -95,9 +100,9 @@ module Wrapper = struct
 
   class ['a] t ~(anchor:'a) ~(menu:menu) () = object
 
-    inherit Widget.widget (Tyxml_js.Html.div ~a:[Tyxml_js.Html.a_class [Markup.Menu.anchor_class]]
-                                             [ Widget.widget_to_markup anchor
-                                             ; Widget.widget_to_markup menu ]
+    inherit Widget.widget (Tyxml_js.Html.div ~a:[Tyxml_js.Html.a_class [Markup.anchor_class]]
+                             [ Widget.widget_to_markup anchor
+                             ; Widget.widget_to_markup menu ]
                            |> Tyxml_js.To_dom.of_div) ()
     method anchor = anchor
     method menu   = menu
@@ -107,4 +112,4 @@ end
 
 let inject ~anchor ~(menu:t) =
   Dom.appendChild anchor#root menu#root;
-  anchor#add_class Markup.Menu.anchor_class
+  anchor#add_class Markup.anchor_class

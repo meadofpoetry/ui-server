@@ -1,4 +1,7 @@
 open Containers
+open Tyxml_js
+
+module Markup = Components_markup.Tree.Make(Xml)(Svg)(Html)
 
 module Item = struct
 
@@ -22,7 +25,7 @@ module Item = struct
 
     let item = new Item_list.Item.t ?ripple ?secondary_text ?graphic ?meta ~text () in
 
-    let elt = Markup.Tree.Item.create ~item:(Widget.widget_to_markup item)
+    let elt = Markup.Item.create ~item:(Widget.widget_to_markup item)
                 ?nested_list:(Option.map (fun x -> Widget.widget_to_markup x) nested)
                 ()
               |> Tyxml_js.To_dom.of_element in
@@ -37,12 +40,12 @@ module Item = struct
       method nested_tree : 'a option = nested
 
       initializer
-        Option.iter (fun x -> x#add_class Markup.Tree.Item.list_class;
+        Option.iter (fun x -> x#add_class Markup.Item.list_class;
                               item#style##.cursor := Js.string "pointer") nested;
         Dom_events.listen super#root
           Dom_events.Typ.click
-          (fun _ e -> let open_class = Markup.Tree.Item.item_open_class in
-                      let open_list  = Markup.Tree.Item.list_open_class in
+          (fun _ e -> let open_class = Markup.Item.item_open_class in
+                      let open_list  = Markup.Item.list_open_class in
                       Dom_html.stopPropagation e;
                       let list = (Js.Unsafe.coerce super#root)##querySelector (Js.string ".mdc-tree__list") in
                       let _ = list##.classList##toggle open_list in
@@ -56,7 +59,7 @@ end
 class t ~(items:t Item.t list) () =
 
   let two_line = Option.is_some @@ List.find_pred (fun x -> Option.is_some x#secondary_text) items in
-  let elt      = Markup.Tree.create ~two_line ~items:(Widget.widgets_to_markup items) ()
+  let elt      = Markup.create ~two_line ~items:(Widget.widgets_to_markup items) ()
                  |> Tyxml_js.To_dom.of_element in
 
   object(self)
@@ -67,13 +70,10 @@ class t ~(items:t Item.t list) () =
 
     method items = items
 
-    method set_dense x = if x
-                         then (super#add_class Markup.List_.dense_class;
-                               self#iter (fun (i:t Item.t) -> Option.iter (fun (t:t) -> t#set_dense x)
-                                                                i#nested_tree))
-                         else (super#remove_class Markup.List_.dense_class;
-                               self#iter (fun (i:t Item.t) -> Option.iter (fun (t:t) -> t#set_dense x)
-                                                                i#nested_tree))
+    method set_dense x =
+      self#add_or_remove_class x Markup.dense_class;
+      self#iter (fun (i:t Item.t) -> Option.iter (fun (t:t) -> t#set_dense x)
+                                       i#nested_tree)
 
     method private iter f =
       let rec iter l = List.iter (fun (x : t Item.t) ->

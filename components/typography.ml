@@ -1,5 +1,7 @@
 open Containers
-open Markup
+open Tyxml_js
+
+module Markup = Components_markup.Typography.Make(Xml)(Svg)(Html)
 
 type font = Display_4
           | Display_3
@@ -15,28 +17,28 @@ type font = Display_4
           | Button
 
 let font_to_class = function
-  | Display_4    -> Typography.display4_class
-  | Display_3    -> Typography.display3_class
-  | Display_2    -> Typography.display2_class
-  | Display_1    -> Typography.display1_class
-  | Headline     -> Typography.headline_class
-  | Title        -> Typography.title_class
-  | Subheading_2 -> Typography.subheading2_class
-  | Subheading_1 -> Typography.subheading1_class
-  | Body_2       -> Typography.body2_class
-  | Body_1       -> Typography.body1_class
-  | Caption      -> Typography.caption_class
-  | Button       -> Typography.button_class
+  | Display_4    -> Markup.display4_class
+  | Display_3    -> Markup.display3_class
+  | Display_2    -> Markup.display2_class
+  | Display_1    -> Markup.display1_class
+  | Headline     -> Markup.headline_class
+  | Title        -> Markup.title_class
+  | Subheading_2 -> Markup.subheading2_class
+  | Subheading_1 -> Markup.subheading1_class
+  | Body_2       -> Markup.body2_class
+  | Body_1       -> Markup.body1_class
+  | Caption      -> Markup.caption_class
+  | Button       -> Markup.button_class
 
 let remove (elt:#Widget.widget) =
-  List.iter (fun x -> if String.prefix ~pre:Typography.base_class x then elt#remove_class x)
+  List.iter (fun x -> if String.prefix ~pre:Markup.base_class x then elt#remove_class x)
             elt#classes
 
 let set ?(adjust_margin=true) ~font (elt:#Widget.widget) =
   remove elt;
-  elt#add_class Typography.base_class;
+  elt#add_class Markup.base_class;
   elt#add_class @@ font_to_class font;
-  if adjust_margin then elt#add_class Typography.adjust_margin_class
+  if adjust_margin then elt#add_class Markup.adjust_margin_class
 
 module Text = struct
 
@@ -60,16 +62,16 @@ module Text = struct
         self#add_class @@ font_to_class x;
         font <- Some x
 
-      method adjust_margin     = self#has_class Typography.adjust_margin_class
+      method adjust_margin     = self#has_class Markup.adjust_margin_class
       method set_adjust_margin = function
-        | true  -> self#add_class Typography.adjust_margin_class
-        | false -> self#remove_class Typography.adjust_margin_class
+        | true  -> self#add_class Markup.adjust_margin_class
+        | false -> self#remove_class Markup.adjust_margin_class
 
       method text       = self#text_content |> Option.get_or ~default:""
       method set_text s = self#set_text_content s
 
       initializer
-        self#add_class Typography.base_class;
+        self#add_class Markup.base_class;
         self#set_adjust_margin adjust_margin;
         Option.iter (fun x -> self#add_class @@ font_to_class x) font
 

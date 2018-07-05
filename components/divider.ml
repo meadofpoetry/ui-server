@@ -1,15 +1,16 @@
+open Tyxml_js
+
+module Markup = Components_markup.Divider.Make(Xml)(Svg)(Html)
+
 class t ?(inset=false) () =
-
-  let elt = Markup.Divider.create () |> Tyxml_js.To_dom.of_element in
-
+  let elt = Markup.create () |> Tyxml_js.To_dom.of_element in
   object(self)
 
     inherit Widget.widget elt ()
 
-    method set_inset x = self#add_or_remove_class x Markup.Divider.inset_class
-    method inset       = self#has_class Markup.Divider.inset_class
+    method set_inset x = self#add_or_remove_class x Markup.inset_class
+    method inset       = self#has_class Markup.inset_class
 
     initializer
       self#set_inset inset
-
   end

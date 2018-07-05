@@ -1,9 +1,12 @@
 open Containers
+open Tyxml_js
+
+module Markup = Components_markup.Icon.Make(Xml)(Svg)(Html)
 
 module Font = struct
 
   class t ~icon () =
-    let elt = Markup.Icon.Font.create ~icon () |> Tyxml_js.To_dom.of_i in
+    let elt = Markup.Font.create ~icon () |> Tyxml_js.To_dom.of_i in
     object
       inherit Widget.button_widget elt () as super
       method icon       = super#text_content |> Option.get_or ~default:""
@@ -20,12 +23,12 @@ module Button = struct
       val mutable _ripple = None
       inherit Font.t ~icon ()
 
-      method set_disabled x = self#add_or_remove_class x Markup.Icon.disabled_class
-      method disabled       = self#has_class Markup.Icon.disabled_class
+      method set_disabled x = self#add_or_remove_class x Markup.disabled_class
+      method disabled       = self#has_class Markup.disabled_class
       method layout ()      = Option.iter (fun r -> r##layout ()) _ripple
 
       initializer
-        self#add_class Markup.Icon.button_class;
+        self#add_class Markup.button_class;
         (let r = Ripple.attach self in
          _ripple <- Some r;
          self#add_class "mdc-ripple-surface"; (*FIXME*)

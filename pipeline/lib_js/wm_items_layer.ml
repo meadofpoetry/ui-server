@@ -32,7 +32,7 @@ module Make(I : Item) = struct
     let (c,r)   = React.S.value s_grid in
     let e_dblclick,e_dblclick_push = React.E.create () in
     let e_delete,e_delete_push     = React.E.create () in
-    let _class  = Markup.CSS.add_element base_class "grid" in
+    let _class  = Components_markup.CSS.add_element base_class "grid" in
     let ph      = Placeholder.make ~text:"Добавьте элементы в раскладку" ~icon:"add_box" () in
     let grid    = Dynamic_grid.to_grid ~cols:c ~rows:r ~restrict_move:true ~items_margin:(2,2) () in
     object(self)
@@ -43,8 +43,10 @@ module Make(I : Item) = struct
       val mutable layer        = layer
       val mutable enter_target = Js.null
 
-      method set_active x  = self#add_or_remove_class (not x) @@ Markup.CSS.add_modifier _class "background"
-      method set_visible x = self#add_or_remove_class (not x) @@ Markup.CSS.add_modifier _class "invisible"
+      method set_active x  = self#add_or_remove_class (not x)
+                             @@ Components_markup.CSS.add_modifier _class "background"
+      method set_visible x = self#add_or_remove_class (not x)
+                             @@ Components_markup.CSS.add_modifier _class "invisible"
       method layer : int   = layer
       method set_layer x   = layer <- x;
                              self#set_attribute "data-layer" @@ string_of_int layer;

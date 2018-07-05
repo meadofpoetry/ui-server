@@ -1,4 +1,7 @@
 open Containers
+open Tyxml_js
+
+module Markup = Components_markup.Form_field.Make(Xml)(Svg)(Html)
 
 let x = ref (Unix.time () |> int_of_float)
 let get_id = fun () -> incr x; Printf.sprintf "form-input-%d" !x
@@ -6,20 +9,19 @@ let get_id = fun () -> incr x; Printf.sprintf "form-input-%d" !x
 class ['a] t ?align_end ~(input: 'a) ~label () =
 
   let for_id = match (input : 'a :> #Widget.input_widget)#input_id with
-    | None -> let id = get_id () in
-              input#set_input_id id;
-              id
+    | None    -> let id = get_id () in input#set_input_id id; id
     | Some id -> id
   in
-  let label = new Widget.widget (Markup.Form_field.Label.create ~for_id ~label ()
+  let label = new Widget.widget (Markup.Label.create ~for_id ~label ()
                                  |> Tyxml_js.To_dom.of_label) () in
-  let elt = Markup.Form_field.create ?align_end
-                                     ~input:(Widget.widget_to_markup input)
-                                     ~label:(Widget.widget_to_markup label) ()
+  let elt = Markup.create ?align_end
+              ~input:(Widget.widget_to_markup input)
+              ~label:(Widget.widget_to_markup label) ()
             |> Tyxml_js.To_dom.of_div in
 
   object(self)
     inherit Widget.widget elt ()
+    inherit Widget.stateful ()
     method label_widget      = label
     method input_widget : 'a = input
 
@@ -27,7 +29,6 @@ class ['a] t ?align_end ~(input: 'a) ~label () =
     method set_label s = self#label_widget#set_text_content s
 
     initializer
-      React.S.map (fun x -> "color--disabled-on-light"
-                            |> (fun c -> if x then self#label_widget#add_class c
-                                         else self#label_widget#remove_class c)) input#s_disabled |> ignore
+      React.S.map (fun x -> self#label_widget#add_or_remove_class x "color--disabled-on-light")
+        input#s_disabled |> self#_keep_s
   end

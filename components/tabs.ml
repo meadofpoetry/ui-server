@@ -1,4 +1,5 @@
 open Containers
+open Tyxml_js
 
 type 'a tab =
   { href     : string option
@@ -8,11 +9,13 @@ type 'a tab =
   }
 and content = [ `Text of string | `Icon of string * (string option) | `Text_and_icon of string * string ]
 
+module Markup = Components_markup.Tabs.Make(Xml)(Svg)(Html)
+
 module Tab = struct
 
   class ['a] t push (props:'a tab) () =
 
-    let elt = Markup.Tabs.Tab.create ~content:props.content () |> Tyxml_js.To_dom.of_a in
+    let elt = Markup.Tab.create ~content:props.content () |> Tyxml_js.To_dom.of_a in
 
     object(self)
 
@@ -43,15 +46,15 @@ module Tab = struct
            super#set_text_content x;
            Result.return ()
         | `Icon _, `Icon (i,fallback) ->
-           let icon = super#get_child_element_by_class Markup.Tabs.Tab.icon_class in
+           let icon = super#get_child_element_by_class Markup.Tab.icon_class in
            (match icon with
             | Some icon -> icon##.textContent := Js.some @@ Js.string i;
                            Option.iter (fun x -> icon##setAttribute (Js.string "aria-label") (Js.string x)) fallback;
                            Result.return ()
             | None      -> Result.fail "icon element not found")
         | `Text_and_icon _, `Text_and_icon (t,i) ->
-           let icon = super#get_child_element_by_class Markup.Tabs.Tab.icon_class in
-           let text = super#get_child_element_by_class Markup.Tabs.Tab.icon_text_class in
+           let icon = super#get_child_element_by_class Markup.Tab.icon_class in
+           let text = super#get_child_element_by_class Markup.Tab.icon_text_class in
            (match icon,text with
             | Some icon, Some text -> icon##.textContent := Js.some @@ Js.string i;
                                       text##.textContent := Js.some @@ Js.string t;
@@ -63,9 +66,9 @@ module Tab = struct
       method active       = active
       method set_active x = active <- x;
                             if x
-                            then (self#add_class Markup.Tabs.Tab.active_class;
+                            then (self#add_class Markup.Tab.active_class;
                                   push (Some self))
-                            else self#remove_class Markup.Tabs.Tab.active_class
+                            else self#remove_class Markup.Tab.active_class
 
       method width = self#offset_width
       method left  = self#offset_left
@@ -96,7 +99,7 @@ module Tab_bar = struct
 
     let s_active,s_active_push = React.S.create None in
     let tabs      = List.map (fun x -> new Tab.t s_active_push x ()) tabs in
-    let indicator = new Widget.widget (Markup.Tabs.Tab_bar.Indicator.create () |> Tyxml_js.To_dom.of_span) () in
+    let indicator = new Widget.widget (Markup.Tab_bar.Indicator.create () |> Tyxml_js.To_dom.of_span) () in
     let typ_of_tab_content = function
       | `Text _          -> `Text
       | `Icon _          -> `Icon
@@ -107,7 +110,7 @@ module Tab_bar = struct
               |> (function
                   | [x] -> x
                   | _   -> failwith "All tabs must be of the same type: text, icon or text with icon") in
-    let elt = Markup.Tabs.Tab_bar.create ~typ
+    let elt = Markup.Tab_bar.create ~typ
                                          ~indicator:(Widget.widget_to_markup indicator)
                                          ~tabs:(Widget.widgets_to_markup tabs) ()
               |> Tyxml_js.To_dom.of_nav in
@@ -128,12 +131,12 @@ module Tab_bar = struct
       method s_active         = s_active
 
 
-      method set_indicator_default = super#remove_class Markup.Tabs.Tab_bar.indicator_accent_class;
-                                     super#remove_class Markup.Tabs.Tab_bar.indicator_primary_class
-      method set_indicator_primary = super#remove_class Markup.Tabs.Tab_bar.indicator_accent_class;
-                                     super#add_class Markup.Tabs.Tab_bar.indicator_primary_class
-      method set_indicator_accent  = super#remove_class Markup.Tabs.Tab_bar.indicator_primary_class;
-                                     super#add_class Markup.Tabs.Tab_bar.indicator_accent_class
+      method set_indicator_default = super#remove_class Markup.Tab_bar.indicator_accent_class;
+                                     super#remove_class Markup.Tab_bar.indicator_primary_class
+      method set_indicator_primary = super#remove_class Markup.Tab_bar.indicator_accent_class;
+                                     super#add_class Markup.Tab_bar.indicator_primary_class
+      method set_indicator_accent  = super#remove_class Markup.Tab_bar.indicator_primary_class;
+                                     super#add_class Markup.Tab_bar.indicator_accent_class
 
       (* Active getters *)
 
@@ -224,7 +227,7 @@ module Tab_bar = struct
                   init <- false
 
       initializer
-        self#add_class (Markup.Tabs.Tab_bar._class ^ "-upgraded");
+        self#add_class (Markup.Tab_bar._class ^ "-upgraded");
         Dom_events.listen Dom_html.window Dom_events.Typ.resize (fun _ _ -> self#layout (); false) |> ignore;
         React.S.map (fun _   -> self#layout ()) s_active |> ignore;
         React.E.map (fun tab -> Option.iter (fun x -> x#set_active false) tab) (React.S.diff (fun _ x -> x) s_active)
@@ -240,15 +243,15 @@ module Scroller = struct
   class ['a] t ~(tabs:'a tab list) () =
 
     let tab_bar = new Tab_bar.t ~tabs () in
-    let elt     = Markup.Tabs.Scroller.create ~tabs:(Widget.widget_to_markup tab_bar) ()
+    let elt     = Markup.Scroller.create ~tabs:(Widget.widget_to_markup tab_bar) ()
                   |> Tyxml_js.To_dom.of_div in
-    let wrapper = elt##querySelector (Js.string ("." ^ Markup.Tabs.Scroller.scroll_frame_tabs_class))
+    let wrapper = elt##querySelector (Js.string ("." ^ Markup.Scroller.scroll_frame_tabs_class))
                   |> Js.Opt.to_option |> Option.get_exn |> Widget.create
     in
-    let back    = elt##querySelector (Js.string ("." ^ Markup.Tabs.Scroller.indicator_back_class))
+    let back    = elt##querySelector (Js.string ("." ^ Markup.Scroller.indicator_back_class))
                   |> Js.Opt.to_option |> Option.get_exn |> Widget.create
     in
-    let forward = elt##querySelector (Js.string ("." ^ Markup.Tabs.Scroller.indicator_forward_class))
+    let forward = elt##querySelector (Js.string ("." ^ Markup.Scroller.indicator_forward_class))
                   |> Js.Opt.to_option |> Option.get_exn |> Widget.create
     in
     let on_scroll_change = (fun _ h -> wrapper#style##.marginBottom := Js.string (Printf.sprintf "-%dpx" h)) in
@@ -302,7 +305,7 @@ module Scroller = struct
         else (back#style##.display := Js.string ""; forward#style##.display := Js.string "");
         let show_left    = scroll_left > 0 in
         let show_rigth   = scroll_width > client_width + scroll_left in
-        let f x w        = w#add_or_remove_class x Markup.Tabs.Scroller.indicator_enabled_class in
+        let f x w        = w#add_or_remove_class x Markup.Scroller.indicator_enabled_class in
         f show_left back;
         f show_rigth forward
 

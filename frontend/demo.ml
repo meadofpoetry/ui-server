@@ -753,9 +753,9 @@ let expansion_panel_demo () =
                          ]
                 ~content:[]
                 () in
-  ep1#add_class (Elevation.get_elevation_class 2);
-  ep2#add_class (Elevation.get_elevation_class 2);
-  ep3#add_class (Elevation.get_elevation_class 2);
+  ep1#add_class (Elevation.Markup.get_elevation_class 2);
+  ep2#add_class (Elevation.Markup.get_elevation_class 2);
+  ep3#add_class (Elevation.Markup.get_elevation_class 2);
   let box = new Box.t ~widgets:[ep1;ep2;ep3] () in
   demo_section "Expansion panel" [ box ]
 

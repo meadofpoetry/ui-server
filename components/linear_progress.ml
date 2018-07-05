@@ -1,3 +1,8 @@
+open Tyxml_js
+
+module Markup = Components_markup.Linear_progress.Make(Xml)(Svg)(Html)
+
+(* TODO remove *)
 class type mdc =
   object
     method determinate : bool Js.t Js.writeonly_prop
@@ -9,7 +14,7 @@ class type mdc =
   end
 
 class t () =
-  let elt = Markup.Linear_progress.create () |> Tyxml_js.To_dom.of_div in
+  let elt = Markup.create () |> Tyxml_js.To_dom.of_div in
   object
     inherit Widget.widget elt ()
 

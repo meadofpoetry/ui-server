@@ -54,7 +54,7 @@ class ['a] t ~s_grid        (* grid props *)
     (* FIXME make normal signal *)
     val s_change      = React.S.create ~eq:(fun _ _ -> false) item.pos
     val ghost         = new cell ~typ:`Ghost ~s_col_w ~s_row_h ~s_grid ~pos:item.pos ()
-    val resize_button = Markup.Dynamic_grid.Item.create_resize_button ()
+    val resize_button = Markup.Item.create_resize_button ()
                         |> Tyxml_js.To_dom.of_element |> Widget.create
 
     val _s_draggable_global  = React.S.map ~eq:(Equal.option Equal.bool) (fun x -> x.draggable) s_grid
@@ -126,10 +126,10 @@ class ['a] t ~s_grid        (* grid props *)
                  then (if not self#selected then s_selected_push ((self :> 'a t) :: o))
                  else (List.iter (fun x -> if not (eq x self) then x#set_selected false) o;
                        s_selected_push [(self :> 'a t)]);
-                 self#add_class Markup.Dynamic_grid.Item.selected_class;
+                 self#add_class Markup.Item.selected_class;
                  selected <- true
       | false -> if self#selected
-                 then (self#remove_class Markup.Dynamic_grid.Item.selected_class;
+                 then (self#remove_class Markup.Item.selected_class;
                        selected <- false;
                        s_selected_push @@ List.filter (fun x -> not @@ eq x self) o)
 
@@ -144,7 +144,7 @@ class ['a] t ~s_grid        (* grid props *)
       (match x with
        | true  -> self#add_move_listener ()
        | false -> self#stop_move_listener ());
-      self#get_drag_target#add_or_remove_class x Markup.Dynamic_grid.Item.drag_handle_class
+      self#get_drag_target#add_or_remove_class x Markup.Item.drag_handle_class
 
     method private _set_resizable x =
       (match x with
@@ -159,7 +159,7 @@ class ['a] t ~s_grid        (* grid props *)
        | false -> self#stop_select_listener ();
                   self#set_attribute "tabindex" "-1";
                   self#set_selected false);
-      self#add_or_remove_class x Markup.Dynamic_grid.Item.select_handle_class
+      self#add_or_remove_class x Markup.Item.select_handle_class
 
     method private grid = React.S.value s_grid
 
@@ -249,7 +249,7 @@ class ['a] t ~s_grid        (* grid props *)
       stop_listen cancel_listener;
       if self#draggable
       then
-        (self#get_drag_target#add_class Markup.Dynamic_grid.Item.dragging_class;
+        (self#get_drag_target#add_class Markup.Item.dragging_class;
          ghost#style##.zIndex := Js.string "1";
          self#style##.zIndex  := Js.string "3";
          (* add ghost item to dom to show possible element position *)
@@ -284,7 +284,7 @@ class ['a] t ~s_grid        (* grid props *)
             self#layout ();
             Option.iter (fun f -> f self#pos ghost#pos col_px row_px) item.on_dragging
          | `End->
-            self#get_drag_target#remove_class Markup.Dynamic_grid.Item.dragging_class;
+            self#get_drag_target#remove_class Markup.Item.dragging_class;
             Option.iter (fun l -> Dom_events.stop_listen l) mov_listener;
             Option.iter (fun l -> Dom_events.stop_listen l) end_listener;
             Option.iter (fun l -> Dom_events.stop_listen l) cancel_listener;

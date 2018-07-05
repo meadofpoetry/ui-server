@@ -1,4 +1,8 @@
+open Tyxml_js
+
 module Position = Dynamic_grid_position
+
+module Markup = Components_markup.Dynamic_grid.Make(Xml)(Svg)(Html)
 
 type 'a item =
   { pos          : Position.t

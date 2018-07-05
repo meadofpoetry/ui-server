@@ -59,6 +59,10 @@ end
 
 class ['a] t ~input_type ~input_id ?label ?placeholder ?icon ?help_text ?box ?outline () =
 
+  let floating_label = match label with
+    | None   -> None
+    | Some x -> Some (Markup.Floating_label.create ~data:x ~fore:input_id ())
+  in
   let icon_widget =
     Option.map (fun { clickable; icon; _ } ->
         new Widget.widget
@@ -72,7 +76,7 @@ class ['a] t ~input_type ~input_id ?label ?placeholder ?icon ?help_text ?box ?ou
                         | _ -> None) in
     Markup.create ~input_type:(Widget.input_type_of_validation input_type)
                             ~input_id
-                            ?label
+                            ?label:floating_label
                             ?placeholder
                             ?leading_icon:(get_icon `Leading)
                             ?trailing_icon:(get_icon `Trailing)

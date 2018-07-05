@@ -1,4 +1,7 @@
 open Containers
+open Tyxml_js
+
+module Markup = Components_markup.Dialog.Make(Xml)(Svg)(Html)
 
 class type mdc =
   object
@@ -21,10 +24,10 @@ module Action = struct
   class t ?ripple ~typ ~label () = object
     inherit Button.t ?ripple ~label () as super
     initializer
-      super#add_class Markup.Dialog.Footer.button_class;
+      super#add_class Markup.Footer.button_class;
       super#add_class (match typ with
-                       | `Accept  -> Markup.Dialog.Footer.accept_button_class
-                       | `Decline -> Markup.Dialog.Footer.cancel_button_class)
+                       | `Accept  -> Markup.Footer.accept_button_class
+                       | `Decline -> Markup.Footer.cancel_button_class)
   end
 
 end
@@ -32,9 +35,9 @@ end
 module Header = struct
 
   class t ~title () =
-    let elt = Markup.Dialog.Header.create ~title () |> Tyxml_js.To_dom.of_header in
+    let elt = Markup.Header.create ~title () |> Tyxml_js.To_dom.of_header in
     object
-      val h2_widget = elt##querySelector (Js.string @@ "." ^ Markup.Dialog.Header.title_class)
+      val h2_widget = elt##querySelector (Js.string @@ "." ^ Markup.Header.title_class)
                       |> Js.Opt.to_option |> Option.get_exn |> Widget.create
       inherit Widget.widget elt ()
       method title       = h2_widget#text_content |> Option.get_or ~default:""
@@ -49,10 +52,10 @@ module Body = struct
     let content = (match content with
                    | `String  s -> [Tyxml_js.Html.pcdata s]
                    | `Widgets w -> Widget.widgets_to_markup w) in
-    let elt = Markup.Dialog.Body.create ?scrollable ~content () |> Tyxml_js.To_dom.of_element in
+    let elt = Markup.Body.create ?scrollable ~content () |> Tyxml_js.To_dom.of_element in
     object
       inherit Widget.widget elt () as super
-      method set_scrollable x = Markup.Dialog.Body.scrollable_class
+      method set_scrollable x = Markup.Body.scrollable_class
                                 |> (fun c -> if x then super#add_class c else super#remove_class c)
     end
 
@@ -61,7 +64,7 @@ end
 module Footer = struct
 
   class t ~(actions:Action.t list) () =
-    let elt = Markup.Dialog.Footer.create ~children:(Widget.widgets_to_markup actions) ()
+    let elt = Markup.Footer.create ~children:(Widget.widgets_to_markup actions) ()
               |> Tyxml_js.To_dom.of_footer in
     object
       val mutable actions = actions
@@ -77,7 +80,7 @@ class t ?scrollable ?title ?(actions:Action.t list option) ~content () =
   let body_widget   = new Body.t ?scrollable ~content () in
   let footer_widget = Option.map (fun x -> new Footer.t ~actions:x ()) actions in
 
-  let elt = Markup.Dialog.create
+  let elt = Markup.create
               ~content:([]
                         |> List.cons_maybe @@ Option.map Widget.widget_to_markup footer_widget
                         |> List.cons @@ Widget.widget_to_markup body_widget

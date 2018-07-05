@@ -1,15 +1,16 @@
 open Containers
 open Dynamic_grid
-open Dashboard_common
 
+include Dashboard_common
 include Dashboard_grid
 
 module Position = Dynamic_grid.Position
 module Item     = Dashboard_item
 
-let edit_button_class = Markup.CSS.add_element base_class "edit-button"
-
-type 'a lst = 'a list [@@deriving yojson]
+let list_to_yojson f l = `List (List.map f l)
+let list_of_yojson f = function
+  | `List l -> List.map f l |> List.all_ok
+  | _       -> Error "not a list"
 
 class ['a] t ~(items:'a Item.positioned_item list) (factory:'a #factory) () =
   let grid = new grid factory () in
@@ -30,12 +31,11 @@ class ['a] t ~(items:'a Item.positioned_item list) (factory:'a #factory) () =
     method grid = grid
 
     method serialize () : Yojson.Safe.json =
-      List.map (fun x -> let (i:'a Item.positioned_item) = { position = x#pos; item = fst x#value} in
-                         Item.positioned_item_to_yojson factory#serialize i) self#grid#items
-      |> fun l -> `List l
+      List.map (fun x -> ({ position = x#pos; item = fst x#value}:'a Item.positioned_item)) self#grid#items
+      |> list_to_yojson (Item.positioned_item_to_yojson factory#serialize)
 
     method deserialize (json:Yojson.Safe.json) : ('a Item.positioned_item list,string) result =
-      lst_of_yojson (fun x -> Item.positioned_item_of_yojson factory#deserialize x) json
+      list_of_yojson (fun x -> Item.positioned_item_of_yojson factory#deserialize x) json
     method restore (json:Yojson.Safe.json) : (unit,string) result =
       self#deserialize json
       |> Result.map (fun l -> List.iter (fun x -> x#remove ()) self#grid#items; (* remove previous items *)
@@ -54,8 +54,8 @@ class ['a] t ~(items:'a Item.positioned_item list) (factory:'a #factory) () =
                   fab#s_state |> ignore;
       Dom.appendChild Dom_html.document##.body add_panel#root;
       self#set_on_load @@ Some (fun () -> self#grid#layout (); fab#hide ());
-      fab#add_class edit_button_class;
-      self#add_class base_class;
+      fab#add_class Markup.edit_button_class;
+      self#add_class Markup.base_class;
       List.map self#grid#add items |> ignore;
       self#grid#set_editable false;
   end

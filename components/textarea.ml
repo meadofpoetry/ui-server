@@ -24,8 +24,12 @@ class type mdc =
 
 class t ~input_id ?label ?placeholder ?rows ?cols () =
 
-  let elt = (Markup.create ~input_id ?label ?placeholder ?rows ?cols ~textarea:true ()
-             |> Tyxml_js.To_dom.of_div) in
+  let floating_label = match label with
+    | None   -> None
+    | Some x -> Some (Markup.Floating_label.create ~fore:input_id ~data:x ())
+  in
+  let elt = Markup.create ~input_id ?label:floating_label ?placeholder ?rows ?cols ~textarea:true ()
+            |> Tyxml_js.To_dom.of_div in
   let input_elt = elt##querySelector (Js.string ("." ^ Markup.input_class))
                   |> Js.Opt.to_option |> Option.get_exn |> Js.Unsafe.coerce in
 

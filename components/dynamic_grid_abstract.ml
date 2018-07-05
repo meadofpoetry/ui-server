@@ -55,7 +55,7 @@ class ['a,'b,'c] t ~grid ~(get:'c -> 'a item) ~(items:'a item list) () =
                 s_grid
     |> React.S.switch
   in
-  let elt = Markup.Dynamic_grid.create ~items:[] () |> Tyxml_js.To_dom.of_element in
+  let elt = Markup.create ~items:[] () |> Tyxml_js.To_dom.of_element in
 
   object(self)
 

@@ -1,8 +1,11 @@
 open Containers
+open Tyxml_js
+
+module Markup = Components_markup.Item_list.Make(Xml)(Svg)(Html)
 
 module Divider = struct
   class t ?inset () = object
-    inherit Widget.widget (Markup.List_.Item.create_divider ?inset () |> Tyxml_js.To_dom.of_element) ()
+    inherit Widget.widget (Markup.Item.create_divider ?inset () |> Tyxml_js.To_dom.of_element) ()
   end
 end
 
@@ -10,11 +13,15 @@ module Item = struct
 
   (* TODO add ripple manually, without auto-init *)
   class t ?(ripple=false) ?secondary_text ?graphic ?meta ~text () =
-
-    let elt = Markup.List_.Item.create ?secondary_text
-                ?start_detail:(Option.map Widget.widget_to_markup graphic)
-                ?end_detail:(Option.map Widget.widget_to_markup meta)
-                ~text ()
+    let text_elt = match secondary_text with
+      | Some st -> let secondary = Markup.Item.create_secondary_text st () in
+                   Markup.Item.create_text ~secondary text ()
+      | None -> Markup.Item.create_text_simple text ()
+    in
+    let elt = Markup.Item.create
+                ?graphic:(Option.map Widget.widget_to_markup graphic)
+                ?meta:(Option.map Widget.widget_to_markup meta)
+                text_elt ()
               |> Tyxml_js.To_dom.of_element in
 
     object(self)
@@ -26,37 +33,34 @@ module Item = struct
 
       initializer
         if ripple then Ripple.attach self |> ignore;
-        Option.iter (fun x -> x#add_class Markup.List_.Item.graphic_class) graphic;
-        Option.iter (fun x -> x#add_class Markup.List_.Item.meta_class) meta
+        Option.iter (fun x -> x#add_class Markup.Item.graphic_class) graphic;
+        Option.iter (fun x -> x#add_class Markup.Item.meta_class) meta
     end
 
 end
 
 class t ?avatar ~(items:[ `Item of Item.t | `Divider of Divider.t ] list) () =
-
-  let two_line = Option.is_some @@ List.find_pred (function
-                                       | `Divider _ -> false
-                                       | `Item x    -> Option.is_some x#secondary_text)
-                                     items in
-
-  let elt = Markup.List_.create ?avatar ~two_line ~items:(List.map (function
-                                                              | `Divider x -> Widget.widget_to_markup x
-                                                              | `Item x    -> Widget.widget_to_markup x)
-                                                            items) ()
+  let two_line = List.find_pred (function
+                     | `Divider _ -> false
+                     | `Item x    -> Option.is_some x#secondary_text)
+                   items
+                 |> Option.is_some
+  in
+  let elt = Markup.create ?avatar ~two_line
+              ~items:(List.map (function
+                          | `Divider x -> Widget.widget_to_markup x
+                          | `Item x    -> Widget.widget_to_markup x)
+                        items) ()
             |> Tyxml_js.To_dom.of_element in
-
   object(self)
-
     inherit Widget.widget elt () as super
 
-    method set_dense x    = self#add_or_remove_class x Markup.List_.dense_class
+    method set_dense x    = self#add_or_remove_class x Markup.dense_class
 
     method add_item (x : Item.t) = Dom.appendChild self#root x#root
     method remove_item (x : Item.t) = try Dom.removeChild self#root x#root with _ -> ()
-
   end
 
-(* *)
 module List_group = struct
 
   type group =
@@ -72,7 +76,7 @@ module List_group = struct
 
   class t ?(dividers=true) ~(content:group list) () =
 
-    let elt = Markup.List_.List_group.create
+    let elt = Markup.List_group.create
                 ~content:(List.map (fun x -> let h = Option.map Widget.widget_to_markup x.subheader in
                                              [Widget.widget_to_markup x.list]
                                              |> List.cons_maybe h)

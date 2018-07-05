@@ -1,5 +1,4 @@
-module Markup            = Markup
-
+module Markup            = Components_markup
 module Avatar            = Avatar
 module Box               = Box
 module Button            = Button

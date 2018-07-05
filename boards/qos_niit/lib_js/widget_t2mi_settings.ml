@@ -13,11 +13,11 @@ let make_enabled () =
 
 let make_pid () =
   let pid = new Textfield.t
-                ~input_id:"t2mi_pid_field"
-                ~help_text:{validation=true;persistent=false;text=None}
-                ~input_type:(Integer ((Some 0),(Some 8192)))
-                ~label:"T2-MI PID"
-                ()
+              ~input_id:"t2mi_pid_field"
+              ~help_text:{validation=true;persistent=false;text=None}
+              ~input_type:(Integer ((Some 0),(Some 8192)))
+              ~label:"T2-MI PID"
+              ()
   in
   let set x = match x with
     | Some (x:t2mi_mode) -> pid#fill_in x.pid
@@ -28,11 +28,11 @@ let make_pid () =
 
 let make_sid () =
   let sid = new Textfield.t
-                ~input_id:"sid_field"
-                ~help_text:{validation=true;persistent=false;text=None}
-                ~input_type:(Integer (Some 0, Some 7))
-                ~label:"T2-MI Stream ID"
-                ()
+              ~input_id:"sid_field"
+              ~help_text:{validation=true;persistent=false;text=None}
+              ~input_type:(Integer (Some 0, Some 7))
+              ~label:"T2-MI Stream ID"
+              ()
   in
   let set x = match x with
     | Some (x:t2mi_mode) -> sid#fill_in x.t2mi_stream_id
