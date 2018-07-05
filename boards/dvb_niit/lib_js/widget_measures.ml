@@ -13,8 +13,8 @@ let name     = "Измерения"
 let settings = None
 
 let make ~(measures:(int * measures) React.event)
-         ~(config:Board_types.config React.signal)
-         (conf:config option) =
+      ~(config:Board_types.config React.signal)
+      (conf:config option) =
   let conf = Option.get_or ~default:default_config conf in
   let ids  = match conf.ids with Some x -> x | None -> List.map fst @@ React.S.value config in
   let open Widget_module_measures in

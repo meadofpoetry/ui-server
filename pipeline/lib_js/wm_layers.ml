@@ -49,8 +49,10 @@ let make_layer_item s_layers push layer =
   let vis      = make_show_toggle () in
   let color    = Tyxml_js.Html.(span ~a:[a_class [color_class]] [])
                  |> Tyxml_js.To_dom.of_element |> Widget.create in
-  let left     = new Box.t ~vertical:false ~widgets:[vis#widget; color#widget; text#widget ] () in
-  let box      = new Box.t ~vertical:false ~widgets:[left#widget; drag#widget] () in
+  let left     = new Hbox.t ~valign:`Center
+                   ~widgets:[vis#widget; color#widget; text#widget ] () in
+  let box      = new Hbox.t ~halign:`Space_between
+                   ~widgets:[left#widget; drag#widget] () in
   let y        = List.length layers - layer in
   let pos      = { x = 0; y; w = 1; h = 1 } in
   let value    = { original; actual = layer } in
@@ -60,9 +62,7 @@ let make_layer_item s_layers push layer =
   in
   let ()       = List.iter (fun i -> if i#pos.y >= y then i#set_pos { i#pos with y = i#pos.y + 1 }) layers in
   let ()       = vis#add_class show_icon_class in
-  let ()       = left#set_align_items `Center in
   let ()       = drag#add_class drag_handle_class in
-  let ()       = box#set_justify_content `Space_between in
   let ()       = box#add_class _class in
   item,vis#s_state
 
@@ -204,5 +204,5 @@ let make ~init ~max =
   let ()          = Dom.appendChild layers#root grid#root in
   let ()          = card#add_class _class in
   let title       = Wm_selectable_title.make ["Слои",card] in
-  let box         = new Box.t ~widgets:[title#widget; card#widget] () in
+  let box         = new Vbox.t ~widgets:[title#widget; card#widget] () in
   box,grid

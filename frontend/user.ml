@@ -37,12 +37,10 @@ let make_card user =
                       ~input_id:"user-repeat-pass"
                       ~label:"Повторите пароль"
                       ~input_type:(Widget.Password (fun pass -> eq_pass (React.S.value new_form#s_input) pass)) () in
-  let settings  = new Box.t
-                      ~vertical:true
-                      ~widgets:[ old_form#widget
-                               ; new_form#widget
-                               ; acc_form#widget ]
-                      () in
+  let settings  = new Vbox.t ~widgets:[ old_form#widget
+                                      ; new_form#widget
+                                      ; acc_form#widget ]
+                    () in
   let media     = new Card.Media.t ~widgets:[settings] () in
   old_form#set_required true; new_form#set_required true; acc_form#set_required true;
 

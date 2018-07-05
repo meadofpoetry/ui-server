@@ -38,7 +38,7 @@ module Row = struct
         val _s = React.S.map (function
                               | Some v -> value#set_text @@ M.to_string v ^ " " ^ measure_type_to_unit M.typ
                               | None   -> value#set_text "-") s
-        inherit Box.t ~vertical:false ~widgets:[name#widget;value#widget] ()
+        inherit Vbox.t ~widgets:[name#widget;value#widget] ()
         initializer
           self#add_class _class;
           name#add_class @@ Markup.CSS.add_element _class "name";
@@ -68,7 +68,7 @@ module Make(M:M) = struct
     let ids = match conf.ids with Some x -> x | None -> List.map fst @@ React.S.value config in
     let rows = List.map (fun id -> ROW.make id @@ React.S.hold None @@ M.get id event)
                @@ List.sort compare ids in
-    let box = new Box.t ~vertical:true ~widgets:rows () in
+    let box = new Vbox.t ~widgets:rows () in
     let ()  = box#add_class base_class in
     box#widget
 

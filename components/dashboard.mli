@@ -73,7 +73,7 @@ class ['a] grid :
 class ['a] t :
         items:'a Item.positioned_item list -> 'a #factory -> unit ->
         object
-          inherit Box.t
+          inherit Vbox.t
 
           method e_edited        : Yojson.Safe.json React.event
 

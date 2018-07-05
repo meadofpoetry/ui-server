@@ -24,7 +24,7 @@ class ['a] t ~(items:'a Item.positioned_item list) (factory:'a #factory) () =
   let e,push = React.E.create () in
   object(self)
 
-    inherit Box.t ~vertical:true ~widgets:[grid#widget;fab#widget] ()
+    inherit Vbox.t ~widgets:[grid#widget;fab#widget] ()
 
     method e_edited : Yojson.Safe.json React.event = e
 

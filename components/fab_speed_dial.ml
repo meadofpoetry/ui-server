@@ -24,7 +24,7 @@ class actions ~(items:Fab.t list) () =
   let items = List.mapi (fun i x -> new action ~z_index:(z + i) x ()) items in
   object(self)
     val mutable _items = items
-    inherit Box.t ~vertical:true ~widgets:items ()
+    inherit Vbox.t ~widgets:items ()
 
     method items = _items
 
@@ -50,9 +50,10 @@ class t ?(animation=`Scale) ?(direction=`Up) ~icon ~items () =
   let ()           = Dom.appendChild main_wrapper#root main#root in
   let actions      = new actions ~items () in
   let s,push       = React.S.create false in
+  let box          = new Vbox.t ~widgets:[main_wrapper#widget;actions#widget] () in
   object(self)
 
-    inherit Box.t ~widgets:[main_wrapper#widget;actions#widget] () as super
+    inherit Widget.t box#root () as super
 
     val mutable _animation = animation
     val mutable _direction = direction

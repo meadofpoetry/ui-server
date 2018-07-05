@@ -12,7 +12,7 @@ module Make(I : Item) = struct
 
   type t =
     { ig : IG.t
-    ; lt : Box.t
+    ; lt : Vbox.t
     ; rt : RT.t
     }
 

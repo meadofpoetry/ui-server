@@ -10,12 +10,12 @@ class t (info:info) () =
   let typ           = drag_type in
   let title         = new Typography.Text.t ~adjust_margin ~text:info.title () in
   let description   = new Typography.Text.t ~adjust_margin ~text:info.description () in
-  let text_box      = new Box.t ~vertical:true ~widgets:[title#widget;description#widget] () in
+  let text_box      = new Vbox.t ~widgets:[title#widget;description#widget] () in
   let thumbnail     = match info.thumbnail with
     | `Icon icon -> new Icon.Font.t ~icon ()
                     |> fun x -> x#add_class Markup.Add_item.thumbnail_icon_class; x#widget
   in
-  let box    = new Box.t ~vertical:false ~widgets:[thumbnail;text_box#widget] () in
+  let box    = new Hbox.t ~widgets:[thumbnail;text_box#widget] () in
   let s,push = React.S.create false in
   object(self)
     inherit Widget.t box#root ()
@@ -24,7 +24,6 @@ class t (info:info) () =
     method s_dragging = s
 
     initializer
-
       Dom_events.(listen self#root Typ.dragstart (fun _ e ->
                            push true;
                            self#add_class Markup.Add_item.dragging_class;

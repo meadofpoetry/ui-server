@@ -21,7 +21,7 @@ let button_demo () =
   let dense      = new Button.t ~label:"dense" ~dense:true () in
   let compact    = new Button.t ~label:"compact" ~compact:true () in
   let icon       = new Button.t ~label:"icon" ~icon:"favorite" () in
-  let box        = new Box.t ~widgets:[raised;flat;unelevated;stroked;ripple;dense;compact;icon] () in
+  let box        = new Vbox.t ~widgets:[raised;flat;unelevated;stroked;ripple;dense;compact;icon] () in
   box#set_gap 20;
   box#set_align_items `Start;
   demo_section "Button" [box]
@@ -30,7 +30,7 @@ let circular_progress_demo () =
   let indeterminate = new Circular_progress.t ~indeterminate:true () in
   let determinate   = new Circular_progress.t ~indeterminate:false ~max:100. () in
   let slider        = new Slider.t ~min:0.0 ~max:100. ~markers:true () in
-  let box           = new Box.t ~widgets:[ determinate#widget; slider#widget ] () in
+  let box           = new Vbox.t ~widgets:[ determinate#widget; slider#widget ] () in
   let _             = React.S.map (fun v -> determinate#set_progress v) slider#s_input in
   let section = demo_section "Circular progress" [ subsection "Indeterminate" indeterminate
                                                  ; subsection "Determinate" box ]
@@ -42,7 +42,7 @@ let fab_demo () =
   let fab    = new Fab.t ~icon:"favorite" () in
   let mini   = new Fab.t ~mini:true ~icon:"favorite" () in
   let ripple = new Fab.t ~ripple:true ~icon:"favorite" () in
-  let box    = new Box.t ~widgets:[ subsection "General" fab
+  let box    = new Vbox.t ~widgets:[ subsection "General" fab
                                   ; subsection "Mini" mini
                                   ; subsection "Ripple" ripple
                                   ]
@@ -64,13 +64,12 @@ let fab_speed_dial_demo () =
   let _     = f down in
   let _     = f left in
   let _     = f right in
-  let dbox = new Box.t
+  let dbox = new Hbox.t
                  ~widgets:[ new Form_field.t ~label:"Up" ~input:up ()
                           ; new Form_field.t ~label:"Down" ~input:down ()
                           ; new Form_field.t ~label:"Left" ~input:left ()
                           ; new Form_field.t ~label:"Right" ~input:right ()
                           ]
-                 ~vertical:false
                  ()
   in
   let fling = new Radio.t ~name:"anim" ~value:`Fling () in
@@ -80,11 +79,10 @@ let fab_speed_dial_demo () =
                                             fab#set_animation x#value | false -> ()) x#s_state in
   let _ = f fling in
   let _ = f scale in
-  let abox = new Box.t
+  let abox = new Hbox.t
                  ~widgets:[ new Form_field.t ~label:"Fling" ~input:fling ()
                           ; new Form_field.t ~label:"Scale" ~input:scale ()
                           ]
-                 ~vertical:false
                  ()
   in
   let _ = fling#set_checked true in
@@ -335,8 +333,8 @@ let linear_progress_demo () =
               det_btn#e_click |> ignore;
   React.E.map (fun _ -> linear_progress#show) open_btn#e_click                   |> ignore;
   React.E.map (fun _ -> linear_progress#hide) close_btn#e_click                  |> ignore;
-  let btn_box = new Box.t ~widgets:[ind_btn; det_btn; open_btn; close_btn ] () in
-  let sld_box = new Box.t ~widgets:[pgrs_txt#widget; pgrs#widget; buffer_txt#widget; buffer#widget] () in
+  let btn_box = new Vbox.t ~widgets:[ind_btn; det_btn; open_btn; close_btn ] () in
+  let sld_box = new Vbox.t ~widgets:[pgrs_txt#widget; pgrs#widget; buffer_txt#widget; buffer#widget] () in
   btn_box#set_justify_content `Start;
   btn_box#set_align_items `Start;
   btn_box#set_gap 20;
@@ -733,7 +731,7 @@ let dynamic_grid_demo () =
 let expansion_panel_demo () =
   let ep1 = new Expansion_panel.t
                 ~title:"Trip name"
-                ~details:[ new Box.t ~widgets:[ new Typography.Text.t ~text:"Caribbean cruise" ()
+                ~details:[ new Vbox.t ~widgets:[ new Typography.Text.t ~text:"Caribbean cruise" ()
                                               ; new Typography.Text.t ~text:"Second line" ()
                                               ] () ]
                 ~content:[]
@@ -756,7 +754,7 @@ let expansion_panel_demo () =
   ep1#add_class (Elevation.Markup.get_elevation_class 2);
   ep2#add_class (Elevation.Markup.get_elevation_class 2);
   ep3#add_class (Elevation.Markup.get_elevation_class 2);
-  let box = new Box.t ~widgets:[ep1;ep2;ep3] () in
+  let box = new Vbox.t ~widgets:[ep1;ep2;ep3] () in
   demo_section "Expansion panel" [ box ]
 
 let add_demos demos =

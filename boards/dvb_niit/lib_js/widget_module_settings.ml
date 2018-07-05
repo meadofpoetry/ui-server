@@ -35,11 +35,11 @@ let make_bw (init: bw) =
   bw,set
 
 let make_freq (standard : standard)
-              (init     : int) =
+      (init     : int) =
   let items = List.map (fun (c:Channel.t) -> `Item (new Select.Item.t ~text:c.name ~value:c.freq ()))
-                       (match standard with
-                        | T2 | T -> Channel.Terrestrial.lst
-                        | C      -> Channel.Cable.lst)
+                (match standard with
+                 | T2 | T -> Channel.Terrestrial.lst
+                 | C      -> Channel.Cable.lst)
   in
   let freq  = new Select.t ~label:"ТВ канал" ~items () in
   let set x = freq#set_selected_value ~eq:(=) x |> ignore in
@@ -49,11 +49,11 @@ let make_freq (standard : standard)
 let make_plp (init: int) =
   let ht : Textfield.Help_text.helptext = {persistent=false;validation=true;text=None} in
   let plp = new Textfield.t
-                ~input_id:"plp_field"
-                ~input_type:(Integer ((Some 0),(Some 255)))
-                ~help_text:ht
-                ~label:"PLP ID"
-                ()
+              ~input_id:"plp_field"
+              ~input_type:(Integer ((Some 0),(Some 255)))
+              ~help_text:ht
+              ~label:"PLP ID"
+              ()
   in
   let ()  = plp#set_required true in
   let set = plp#fill_in in
@@ -61,21 +61,21 @@ let make_plp (init: int) =
   plp,set
 
 let make_mode_box ~(standard : standard)
-                  ~(init     : channel)
-                  ~(event    : channel React.event)
-                  ~(state    : Common.Topology.state React.signal)
-                  () =
+      ~(init     : channel)
+      ~(event    : channel React.event)
+      ~(state    : Common.Topology.state React.signal)
+      () =
   let freq,set_freq = make_freq standard init.freq in
   let bw,set_bw     = make_bw init.bw in
   let plp,set_plp   = make_plp init.plp in
-  let b = new Box.t ~widgets:(match standard with
-                              | T | C -> [ freq#widget; bw#widget ]
-                              | T2    -> [ freq#widget; bw#widget; plp#widget ])
-              () in
+  let b = new Vbox.t ~widgets:(match standard with
+                               | T | C -> [ freq#widget; bw#widget ]
+                               | T2    -> [ freq#widget; bw#widget; plp#widget ]) ()
+  in
   let s = React.S.l3 (fun freq bw plp -> match freq,bw,plp with
                                          | Some freq,Some bw,Some plp -> Some { freq; bw; plp }
                                          | _                          -> None)
-                     freq#s_selected_value bw#s_selected_value plp#s_input
+            freq#s_selected_value bw#s_selected_value plp#s_input
   in
   let _ = React.E.map (fun (s:channel) -> set_freq s.freq; set_bw s.bw; set_plp s.plp) event in
   let _ = React.S.map (fun x -> let is_disabled = match x with
@@ -85,7 +85,7 @@ let make_mode_box ~(standard : standard)
                                 freq#set_disabled is_disabled;
                                 bw#set_disabled is_disabled;
                                 plp#set_disabled is_disabled)
-                      state
+            state
   in
   b,s
 
@@ -111,7 +111,7 @@ let make_module_settings ~(id:    int)
         | _                         -> None)
       standard#s_selected_value s_t2 s_t s_c state
   in
-  let box = new Box.t ~widgets:[ standard#widget; t2_box#widget; t_box#widget; c_box#widget ] () in
+  let box = new Vbox.t ~widgets:[ standard#widget; t2_box#widget; t_box#widget; c_box#widget ] () in
   let update_visibility = function
     | Some T2 -> (try Dom.removeChild box#root t_box#root with _ -> ());
                  (try Dom.removeChild box#root c_box#root with _ -> ());
@@ -142,19 +142,19 @@ let name conf = Printf.sprintf "Модуль %d. Настройки" (succ (Opti
 let settings  = None
 
 let make ~(state:  Common.Topology.state React.signal)
-         ~(config: Board_types.config React.signal)
-         (conf:    config option)
-         control =
+      ~(config: Board_types.config React.signal)
+      (conf:    config option)
+      control =
   let conf = Option.get_or ~default:default_config conf in
   let get = List.Assoc.get_exn ~eq:(=) conf.id in
   let w,s,set = make_module_settings ~id:conf.id
-                                     ~init:(get @@ React.S.value config)
-                                     ~event:(React.S.changes @@ React.S.map get config)
-                                     ~state
-                                     control
-                                     ()
+                  ~init:(get @@ React.S.value config)
+                  ~event:(React.S.changes @@ React.S.map get config)
+                  ~state
+                  control
+                  ()
   in
   let a   = Ui_templates.Buttons.create_apply s set in
-  let box = new Box.t ~vertical:true ~widgets:[w;a#widget] () in
+  let box = new Vbox.t ~widgets:[w;a#widget] () in
   let ()  = box#add_class "mdc-settings-widget" in
   box#widget

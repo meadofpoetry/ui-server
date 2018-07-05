@@ -58,7 +58,7 @@ let make_board_limited lim bid stream_list =
   Lwt_react.S.keep @@
     React.S.map (fun counter -> let str = Printf.sprintf "Board: %d, streams left: %d" id (lim - counter) in
                                 subheader#set_text str) counter;
-  let box  = new Box.t ~vertical:true ~widgets:[subheader#widget; list#widget] () in
+  let box  = new Vbox.t ~widgets:[subheader#widget; list#widget] () in
   box#widget, settings
 
 let make_board_unlimited bid stream_list =
@@ -77,7 +77,7 @@ let make_board_unlimited bid stream_list =
     React.S.merge ~eq:Equal.physical (fun acc v -> v::acc) [] stream_signals
     |> React.S.map (fun l -> (bid, List.filter_map Fun.id l))
   in
-  let box  = new Box.t ~vertical:true ~widgets:[subheader#widget; list#widget] () in
+  let box  = new Vbox.t ~widgets:[subheader#widget; list#widget] () in
   box#widget, settings
 
 let make_board_forbidden bid stream_list = 
@@ -90,7 +90,7 @@ let make_board_forbidden bid stream_list =
   in
   let subheader = new Typography.Text.t ~text:(Printf.sprintf "Board: %d" id) () in
   let list = new Item_list.t ~items:[] () in
-  let box  = new Box.t ~vertical:true ~widgets:[subheader#widget; list#widget] () in
+  let box  = new Vbox.t ~widgets:[subheader#widget; list#widget] () in
   box#widget, settings
   
 let make_board_entry (bid, state, stream_list) =
@@ -142,7 +142,7 @@ let make_stream_create_dialog () =
                     ()
   in
   let desc_box = new Textfield.t ~label:"description" ~input_id:"description" ~input_type:Widget.Text () in
-  let box     = new Box.t ~vertical:true ~widgets:[uri_box#widget; desc_box#widget] () in
+  let box     = new Vbox.t ~widgets:[uri_box#widget; desc_box#widget] () in
   
   let accept  = new Dialog.Action.t ~label:"accept" ~typ:`Accept () in
   let decline = new Dialog.Action.t ~label:"decline" ~typ:`Decline () in
@@ -186,7 +186,7 @@ let make_input_entry (iid, _, stream_list) =
                           | Error e -> Lwt.return @@ print_endline e
                           | Ok s    -> Lwt.return @@ add s)
                                         add_button#e_click;
-  let box = new Box.t ~vertical:true ~widgets:[subheader#widget; list#widget; add_button#widget] () in
+  let box = new Vbox.t ~widgets:[subheader#widget; list#widget; add_button#widget] () in
   box#widget, settings
 
 let make_entry : 'a -> Widget.t * (marker * Common.Stream.t list) React.signal = function
@@ -195,7 +195,7 @@ let make_entry : 'a -> Widget.t * (marker * Common.Stream.t list) React.signal =
 
 let make_table table =
   let widgets, signals = List.split @@ List.map make_entry table in
-  let list  = new Box.t ~vertical:true ~widgets () in
+  let list  = new Vbox.t ~widgets () in
   list, React.S.map Option.return (React.S.merge ~eq:Equal.physical (fun acc v -> v::acc) [] signals)
 
 let make ~(init:  stream_table)

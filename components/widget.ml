@@ -61,14 +61,14 @@ class t (elt:#Dom_html.element Js.t) () = object(self)
 
   method style = self#root##.style
 
-  method class_string         = Js.to_string @@ self#root##.className
+  method class_string = Js.to_string @@ self#root##.className
+  method classes      = String.split_on_char ' ' @@ self#class_string
   method set_class_string _classes = self#root##.className := (Js.string _classes)
-  method cons_class   _class = self#set_class_string @@ _class ^ " " ^ self#class_string
   method add_class    _class = self#root##.classList##add (Js.string _class)
   method remove_class _class = self#root##.classList##remove (Js.string _class)
   method toggle_class _class = self#root##.classList##toggle (Js.string _class) |> Js.to_bool
   method has_class    _class = Js.to_bool (self#root##.classList##contains (Js.string _class))
-  method classes             = String.split_on_char ' ' @@ self#class_string
+  method find_classes pre = List.find_all (fun c -> String.prefix ~pre c) self#classes
   method add_or_remove_class x _class = if x then self#add_class _class else self#remove_class _class
 
   method client_left   = self#root##.clientLeft

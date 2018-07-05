@@ -33,7 +33,7 @@ module Row = struct
         val _s = React.S.map (function
                               | Some v -> value#set_text @@ M.to_string v ^ " " ^ measure_type_to_unit M.typ
                               | None   -> value#set_text "-") s_value
-        inherit Box.t ~vertical:false ~widgets:[name#widget;value#widget] ()
+        inherit Hbox.t ~widgets:[name#widget;value#widget] ()
         initializer
           self#add_class _class;
           name#add_class @@ Markup.CSS.add_element _class "name";
@@ -73,6 +73,6 @@ let make ~(measures:(int * measures) React.event) (config:config option) =
   let bitrate = E.map (fun (_,m) -> Option.map (fun x -> float_of_int x /. 1_000_000.) m.bitrate) measures
                 |> S.hold None |> Bitrate.make
   in
-  let widget  = new Box.t ~vertical:true ~widgets:[power;mer;ber;freq;bitrate] () in
+  let widget  = new Vbox.t ~widgets:[power;mer;ber;freq;bitrate] () in
   let ()      = widget#add_class base_class in
   widget#widget

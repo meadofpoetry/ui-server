@@ -8,38 +8,42 @@ module Make(Xml : Xml_sigs.NoWrap)
            and module Svg := Svg) = struct
   open Html
 
-  let base_class = "mdc-box"
+  let base_class       = "mdc-box"
   let vertical_class   = CSS.add_modifier base_class "vertical"
   let horizontal_class = CSS.add_modifier base_class "horizontal"
 
+  let justify_content_class_prefix = CSS.add_modifier base_class "justify-content-"
+  let align_items_class_prefix     = CSS.add_modifier base_class "align-items-"
+  let align_content_class_prefix   = CSS.add_modifier base_class "align-content-"
+
   let get_justify_content_class x =
-    let _class = CSS.add_modifier base_class "justify-content-" in
-    _class ^ (match x with
-              | `Start         -> "start"
-              | `End           -> "end"
-              | `Center        -> "center"
-              | `Space_between -> "space-between"
-              | `Space_around  -> "space-around"
-              | `Space_evenly  -> "space-evenly")
+    justify_content_class_prefix
+    ^ (match x with
+       | `Start         -> "start"
+       | `End           -> "end"
+       | `Center        -> "center"
+       | `Space_between -> "space-between"
+       | `Space_around  -> "space-around"
+       | `Space_evenly  -> "space-evenly")
 
   let get_align_items_class x =
-    let _class = CSS.add_modifier base_class "align-items-" in
-    _class ^ (match x with
-              | `Start    -> "start"
-              | `End      -> "end"
-              | `Center   -> "center"
-              | `Stretch  -> "stretch"
-              | `Baseline -> "baseline")
+    align_items_class_prefix
+    ^ (match x with
+       | `Start    -> "start"
+       | `End      -> "end"
+       | `Center   -> "center"
+       | `Stretch  -> "stretch"
+       | `Baseline -> "baseline")
 
   let get_align_content_class x =
-    let _class = CSS.add_modifier base_class "align-content-" in
-    _class ^ (match x with
-              | `Start         -> "start"
-              | `End           -> "end"
-              | `Center        -> "center"
-              | `Stretch       -> "stretch"
-              | `Space_between -> "space-between"
-              | `Space_around  -> "space-around")
+    align_content_class_prefix
+    ^ (match x with
+       | `Start         -> "start"
+       | `End           -> "end"
+       | `Center        -> "center"
+       | `Stretch       -> "stretch"
+       | `Space_between -> "space-between"
+       | `Space_around  -> "space-around")
 
   let create ?(classes=[]) ?attrs ?tag
         ?justify_content ?align_items ?align_content ?(vertical=false) ~content () =

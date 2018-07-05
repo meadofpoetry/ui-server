@@ -44,21 +44,21 @@ class t ~(item:item) () =
         let cancel   = new Dialog.Action.t ~typ:`Decline ~label:"Отмена" () in
         let apply    = new Dialog.Action.t ~typ:`Accept  ~label:"ОК" () in
         let dialog   = new Dialog.t
-                           ~title:(Printf.sprintf "Настройки. %s" item.name)
-                           ~content:(`Widgets [s.widget])
-                           ~actions:[ cancel; apply ]
-                           ()
+                         ~title:(Printf.sprintf "Настройки. %s" item.name)
+                         ~content:(`Widgets [s.widget])
+                         ~actions:[ cancel; apply ]
+                         ()
         in
         let _ = connect_apply apply s in
         settings,dialog)
-               item.settings
+      item.settings
   in
   let buttons  = let widgets = match sd with
                    | Some (s,_) -> [s#widget;remove#widget]
                    | None       -> [remove#widget]
                  in
                  List.iter (fun x -> x#add_class Markup.Item.button_class) widgets;
-                 new Box.t ~vertical:false ~widgets ()
+                 new Hbox.t ~widgets ()
   in
   let heading  = new Card.Primary.t ~widgets:[title#widget] () in
   let content  = new Card.Media.t ~widgets:[item.widget] () in

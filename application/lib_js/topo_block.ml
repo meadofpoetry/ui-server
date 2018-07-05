@@ -14,12 +14,10 @@ module Header = struct
     let _class     = Markup.CSS.add_element base_class "header" in
     let title_w    = new Card.Primary.title title () in
     let subtitle_w = Option.map (fun x -> (new Card.Primary.subtitle x ())#widget) subtitle in
-    let box        = new Box.t
-                         ~vertical:true
-                         ~widgets:([]
-                                   |> List.cons_maybe subtitle_w
-                                   |> List.cons title_w#widget)
-                         () in
+    let box        = new Vbox.t ~widgets:([]
+                                          |> List.cons_maybe subtitle_w
+                                          |> List.cons title_w#widget)
+                       () in
     object(self)
       inherit Card.Primary.t ~widgets:([]
                                        |> List.cons_maybe action

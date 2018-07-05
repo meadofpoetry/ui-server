@@ -44,7 +44,7 @@ let make_eth (eth : Network_config.ethernet_conf) =
   
   let set (eth : Network_config.ethernet_conf) = address#fill_in eth.mac_address in
 
-  let media      = new Card.Media.t ~widgets:[new Box.t ~vertical:true ~widgets:[ address#widget ] ()] () in
+  let media      = new Card.Media.t ~widgets:[new Vbox.t ~widgets:[ address#widget ] ()] () in
   media#style##.margin := Js.string "15px";
   let eth_sets  = new Card.t ~widgets:[ eth_head#widget; media#widget ] () in
   
@@ -72,9 +72,9 @@ let make_dns (dns : Network_config.v4 list) =
 
   let address  = new Textfield.t ~input_id:"address-dns" ~label:"Адрес" ~input_type:Widget.IPV4 () in
   let add_but  = new Button.t ~label:"Добавить" () in
-  let add_box  = new Box.t ~vertical:false ~widgets:[address#widget; add_but#widget] () in
+  let add_box  = new Hbox.t ~widgets:[address#widget; add_but#widget] () in
 
-  let full_box = new Box.t ~widgets:[header#widget; list#widget; add_box#widget] () in
+  let full_box = new Vbox.t ~widgets:[header#widget; list#widget; add_box#widget] () in
 
   let signal, push = React.S.create [] in
 
@@ -127,9 +127,9 @@ let make_routes (routes : Network_config.address list) =
   let address  = new Textfield.t ~input_id:"address-route" ~label:"Адрес" ~input_type:Widget.IPV4 () in
   let mask     = new Textfield.t ~input_id:"mask-route" ~label:"Маска подсети" ~input_type:(Widget.Integer (Some 0, Some 32)) () in
   let add_but  = new Button.t ~label:"Добавить" () in
-  let add_box  = new Box.t ~vertical:false ~widgets:[address#widget; mask#widget; add_but#widget] () in
+  let add_box  = new Hbox.t ~widgets:[address#widget; mask#widget; add_but#widget] () in
 
-  let full_box = new Box.t ~widgets:[header#widget; list#widget; add_box#widget] () in
+  let full_box = new Vbox.t ~widgets:[header#widget; list#widget; add_box#widget] () in
 
   let signal, push = React.S.create [] in
 
@@ -205,12 +205,12 @@ let make_ipv4 (ipv4 : Network_config.ipv4_conf) =
   Lwt_react.S.keep @@
     Lwt_react.S.map (function None -> routes_disable false | _ -> routes_disable true) gateway#s_input;
 
-  let media      = new Card.Media.t ~widgets:[new Box.t ~vertical:true ~widgets:[ meth#widget;
-                                                                                  address#widget;
-                                                                                  mask#widget;
-                                                                                  gateway#widget;
-                                                                                  dns#widget;
-                                                                                  routes#widget ] ()
+  let media      = new Card.Media.t ~widgets:[new Vbox.t ~widgets:[ meth#widget;
+                                                                    address#widget;
+                                                                    mask#widget;
+                                                                    gateway#widget;
+                                                                    dns#widget;
+                                                                    routes#widget ] ()
                      ] ()
   in
   media#style##.margin := Js.string "15px";
@@ -236,7 +236,7 @@ let make_ipv4 (ipv4 : Network_config.ipv4_conf) =
   let signal = Lwt_react.S.l2 (fun (config : Network_config.ipv4_conf) dns -> { config with dns } ) signal dns_s in
   
   ipv4_sets, signal, set
-                
+  
 let make_card is_root post (config : Network_config.t) =
   let warning    = new Dialog.t
                      ~title:"Внимание!"
@@ -274,7 +274,7 @@ let make_card is_root post (config : Network_config.t) =
                               | `Cancel -> Lwt.return_unit)
       apply#e_click;
 
-  let box = new Box.t ~vertical:true ~widgets:[eth_sets#widget; ipv4_sets#widget; apply#widget] () in
+  let box = new Vbox.t ~widgets:[eth_sets#widget; ipv4_sets#widget; apply#widget] () in
   List.iter (fun card -> card#style##.marginBottom := Js.string "15px") box#widgets;
   box, set
 

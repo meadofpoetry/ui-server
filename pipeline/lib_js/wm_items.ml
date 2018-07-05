@@ -27,7 +27,7 @@ module Make(I : Item) = struct
         | None, None     -> "null:null"
       in
       let typ = drag_type_prefix ^ wh in
-      let box  = new Box.t ~vertical:false ~widgets () in
+      let box  = new Hbox.t ~widgets () in
       object(self)
         inherit Widget.t box#root ()
         inherit Touch_draggable.t ~data ~typ box#root ()
@@ -124,9 +124,9 @@ module Make(I : Item) = struct
     let props   = Properties.make [] selected in
     let title   = Wm_selectable_title.make [ add_title, add
                                            ; props_title, props ] in
-    let box     = new Box.t ~vertical:true ~widgets:[add#widget; props#widget] () in
+    let box     = new Vbox.t ~widgets:[add#widget; props#widget] () in
     let ()      = box#add_class base_class in
-    let box     = new Box.t ~vertical:true ~widgets:[title#widget; box#widget] () in
+    let box     = new Vbox.t ~widgets:[title#widget; box#widget] () in
     let sel     = function
       | `Add   -> title#select_by_name add_title
       | `Props -> title#select_by_name props_title

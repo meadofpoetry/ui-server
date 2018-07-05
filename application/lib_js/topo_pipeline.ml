@@ -9,7 +9,7 @@ open Lwt_result.Infix
  *     let w,s,set    = Streams_selector.make ~init ~event () in
  *     let a          = Ui_templates.Buttons.create_apply s set in
  *     let abox       = new Card.Actions.Buttons.t ~widgets:[a] () in
- *     let box        = new Box.t ~vertical:true ~widgets:[w;abox#widget] () in
+ *     let box        = new Vbox.t ~widgets:[w;abox#widget] () in
  *     let ()         = box#set_on_destroy @@ Some (fun () -> sock##close) in
  *     Lwt_result.return box#widget)
  * 
@@ -20,7 +20,7 @@ open Lwt_result.Infix
  *     let w,s,set    = Pipeline_js.Ui.Structure.make ~init ~event () in
  *     let a          = Ui_templates.Buttons.create_apply s set in
  *     let abox       = new Card.Actions.Buttons.t ~widgets:[a] () in
- *     let box        = new Box.t ~vertical:true ~widgets:[w;abox#widget] () in
+ *     let box        = new Vbox.t ~widgets:[w;abox#widget] () in
  *     let ()         = box#set_on_destroy @@ Some (fun () -> sock##close) in
  *     Lwt_result.return box#widget)
  * 
@@ -31,7 +31,7 @@ open Lwt_result.Infix
  *     let w,s,set    = Pipeline_js.Ui.Settings.make ~init ~event () in
  *     let a          = Ui_templates.Buttons.create_apply s set in
  *     let abox       = new Card.Actions.Buttons.t ~widgets:[a] () in
- *     let box        = new Box.t ~vertical:true ~widgets:[w;abox#widget] () in
+ *     let box        = new Vbox.t ~widgets:[w;abox#widget] () in
  *     let ()         = box#set_on_destroy @@ Some (fun () -> sock##close) in
  *     Lwt_result.return box#widget) *)
 

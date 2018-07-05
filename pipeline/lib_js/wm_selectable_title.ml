@@ -26,7 +26,7 @@ class t titles () =
     List.map (fun (title,widget) -> new title ~title ~widget ()) titles in
   object(self)
 
-    inherit Box.t ~vertical:false ~widgets:titles ()
+    inherit Hbox.t ~widgets:titles ()
 
     method titles : title list = titles
     method select (w:title) =

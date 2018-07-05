@@ -26,15 +26,15 @@ module Make(I : Item) = struct
     let menu_text  = new Typography.Text.t ~text:"Сетка:" () in
     let menu_sel   = new Typography.Text.t ~text:"" () in
     let menu_ico   = new Icon.Font.t ~icon:"arrow_drop_down" () in
-    let anchor     = new Box.t ~vertical:false ~widgets:[ menu_sel#widget; menu_ico#widget ] () in
+    let anchor     = new Hbox.t ~widgets:[ menu_sel#widget; menu_ico#widget ] () in
     let menu_wrap  = new Menu.Wrapper.t ~anchor ~menu () in
-    let menu_block = new Box.t ~vertical:false ~widgets:[ menu_text#widget; menu_wrap#widget ] () in
-    let icons      = new Box.t ~vertical:false ~widgets:[ grid_icon#widget; menu_block#widget ] () in
-    let header     = new Box.t ~vertical:false ~widgets:[ title#widget;icons#widget ] () in
+    let menu_block = new Hbox.t ~widgets:[ menu_text#widget; menu_wrap#widget ] () in
+    let icons      = new Hbox.t ~widgets:[ grid_icon#widget; menu_block#widget ] () in
+    let header     = new Hbox.t ~widgets:[ title#widget;icons#widget ] () in
     let storage    = Dom_html.window##.localStorage  in
     object(self)
 
-      inherit Box.t ~vertical:true ~widgets:[header#widget;wrapper#widget] ()
+      inherit Vbox.t ~widgets:[header#widget;wrapper#widget] ()
 
       val s_sel = let eq = fun _ _ -> false in
                   React.S.map ~eq:Equal.physical
