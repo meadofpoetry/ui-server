@@ -18,17 +18,29 @@ module Config_storage = Storage.Options.Make (Data)
 
 let log_prefix control = Printf.sprintf "(Board QoS: %d) " control
 
+let tick tm =
+  let open Lwt.Infix in
+  let e,push = Lwt_react.E.create () in
+  let rec loop () =
+    push (); Lwt_unix.sleep tm >>= loop
+  in
+  e, loop
+                       
 let create (b:topo_board) _ convert_streams send db_conf base step =
   let conv            = fun x -> convert_streams x b in
   let storage         = Config_storage.create base ["board"; (string_of_int b.control)] in
   let events,api,step = Board_protocol.SM.create (log_prefix b.control) send storage step conv in
-  let db              = Result.get_exn @@ Db.Conn.create db_conf in
+  let db              = Result.get_exn @@ Db.Conn.create db_conf b.control in
   let handlers        = Board_api.handlers b.control db api events in
+  let tick, tick_loop = tick 5. in
+  Lwt_react.E.keep @@
+    Lwt_react.E.map_p (fun e -> Db.Device.bump db e)
+    @@ Lwt_react.S.sample (fun () e -> e) tick events.device.state;
   Lwt_react.E.keep @@
     Lwt_react.E.map_p (fun e -> Db.Errors.insert_errors ~is_ts:true db e) events.errors.ts_errors;
   Lwt_react.E.keep @@
     Lwt_react.E.map_p (fun e -> Db.Errors.insert_errors ~is_ts:false db e) events.errors.t2mi_errors;
-  let state = (object val db = db method finalize () = () end) in (* TODO fix finalize *)
+  let state = (object val db = db val _tick = tick_loop () method finalize () = () end) in (* TODO fix finalize *)
   { handlers       = handlers
   ; control        = b.control
   ; streams_signal = events.streams.streams

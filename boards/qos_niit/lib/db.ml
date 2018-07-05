@@ -9,10 +9,16 @@ module R = Caqti_request
 
 module Model = struct
   open Key_t
+     
+  type init = int
+  type names = { state : string
+               ; errors : string
+               }
+            
   let name = "qos_niit"
 
   let keys_state = { time_key = Some "date_end"
-                   ; columns  = [ "status", key "INTEGER"
+                   ; columns  = [ "state",      key "INTEGER"
                                 ; "date_start", key "TIMESTAMP"
                                 ; "date_end",   key "TIMESTAMP"
                                 ]
@@ -34,9 +40,13 @@ module Model = struct
                                 ]
                     }
                  
-  let tables = [ "qos_niit_state", keys_state, None
-               ; "qos_niit_errors", keys_errors, None
-               ]
+  let tables id =
+    let id = string_of_int id in
+    let names = { state = "qos_niit_state_" ^ id; errors = "qos_niit_errors_" ^ id } in
+    names,
+    [ names.state, keys_state, None
+    ; names.errors, keys_errors, None
+    ]
            
 end
 
@@ -44,7 +54,44 @@ module Conn = Storage.Database.Make(Model)
 
 type t = Conn.t
 
-module Status = struct
+module Device = struct
+
+  type state = Common.Topology.state
+
+  let state_to_int = function `Fine -> 0 | `Init -> 1 | `No_response -> 2
+  let state_of_int = function 0 -> `Fine | 1 -> `Init | _ -> `No_response
+
+  let bump db state =
+    let open Printf in
+    let table = (Conn.names db).state in
+    let select_last = R.find_opt Types.unit Types.(tup3 int ptime ptime)
+                        (sprintf "SELECT * FROM %s ORDER BY date_end DESC LIMIT 1" table) in
+    let update_last = R.exec Types.(tup3 ptime ptime ptime)
+                        (sprintf "UPDATE %s SET date_end = ? WHERE date_start = ? AND date_end = ?" table)
+                         (* TODO optimize out*) in
+    let insert_new = R.exec Types.(tup3 int ptime ptime)
+                       (sprintf "INSERT INTO %s (state,date_start,date_end) VALUES (?,?,?)" table) in
+    let now = Time.Clock.now_s () in
+    let new_state = state_to_int state in
+    Conn.request db Request.(find select_last () >>= function
+                             | None -> exec insert_new (new_state,now,now)
+                             | Some (state,st,en) ->
+                                if state = new_state
+                                then exec update_last (now,st,en)
+                                else exec insert_new (new_state,en,now))
+
+  let select_state db ~from ~till =
+    let open Printf in
+    let table = (Conn.names db).state in
+    let select = R.collect Types.(tup2 pdate pdate) Types.(tup3 int pdate pdate)
+                  (sprintf "SELECT * FROM %s WHERE date_start <= ? AND date_end >= ?" table)
+    in Conn.request db Request.(list select (from,till) >>= fun l ->
+                                return @@ List.map (fun (st,s,e) -> (state_of_int st,s,e)) l)
+    
+end
+       
+module Streams = struct
+
   
   
 end
@@ -62,12 +109,14 @@ module Errors = struct
                                       ; err_ext; priority; multi_pid; pid; packet; param_1; param_2})))
 
   let insert_errors db ~is_ts errs =
+    let open Printf in
+    let table = (Conn.names db).errors in
     let errs = List.map (fun (s,e) -> List.map (Pair.make s) e) errs |> List.concat in
     let insert =
       R.exec Types.(tup2 bool error)
-        {|INSERT INTO qos_niit_errors(is_ts,stream,count,err_code,err_ext,priority,
-         multi_pid,pid,packet,param_1,param_2,date)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?)|}
+        (sprintf {|INSERT INTO %s(is_ts,stream,count,err_code,err_ext,priority,
+                  multi_pid,pid,packet,param_1,param_2,date)
+                  VALUES (?,?,?,?,?,?,?,?,?,?,?,?)|} table)
     in Conn.request db Request.(with_trans (List.fold_left (fun acc x -> acc >>= fun () -> exec insert (is_ts,x))
                                               (return ()) errs))
 
@@ -76,26 +125,30 @@ module Errors = struct
     | lst -> Printf.sprintf " %s IS IN (%s) AND " field (String.concat "," @@ List.map to_string lst)
      
   let select_has_any db ?(streams = []) ?(priority = []) ?(pids = []) ?(errors = []) ~is_ts ~from ~till () =
+    let open Printf in
+    let table = (Conn.names db).errors in
     let streams  = is_in "stream" Int32.to_string streams in
     let priority = is_in "priority" string_of_int priority in
     let pids     = is_in "pid" string_of_int pids in
     let errors   = is_in "err_code"  string_of_int errors in
     let select = R.find Types.(tup3 bool ptime ptime) Types.bool
-                   (Printf.sprintf {|SELECT TRUE FROM qos_niit_errors
-                                    WHERE %s %s %s %s is_ts = ? AND date >= ? AND date <= ? LIMIT 1|}
-                      streams priority pids errors)
+                   (sprintf {|SELECT TRUE FROM %s
+                             WHERE %s %s %s %s is_ts = ? AND date >= ? AND date <= ? LIMIT 1|}
+                      table streams priority pids errors)
     in Conn.request db Request.(find select (is_ts,from,till) >>= function None -> return false | Some x -> return x)
 
   let select_percent db ?(streams = []) ?(priority = []) ?(pids = []) ?(errors = []) ~is_ts ~from ~till () =
+    let open Printf in
+    let table = (Conn.names db).errors in
     let streams  = is_in "stream" Int32.to_string streams in
     let priority = is_in "priority" string_of_int priority in
     let pids     = is_in "pid" string_of_int pids in
     let errors   = is_in "err_code"  string_of_int errors in
     let span = Time.(Period.to_float_s @@ diff till from) in
     let select = R.find Types.(tup3 bool ptime ptime) Types.int
-                   (Printf.sprintf {|SELECT count(DISTINCT date_trunc('second',date)) FROM qos_niit_errors 
-                                    WHERE %s %s %s %s is_ts = ? AND date >= ? AND date <= ?|}
-                      streams priority pids errors)
+                   (sprintf {|SELECT count(DISTINCT date_trunc('second',date)) FROM %s 
+                             WHERE %s %s %s %s is_ts = ? AND date >= ? AND date <= ?|}
+                      table streams priority pids errors)
     in Conn.request db Request.(find select (is_ts,from,till) >>= function
                                 | None -> return 0.0
                                 | Some s -> return (100. *. (float_of_int s) /. span))
@@ -104,16 +157,18 @@ module Errors = struct
                 
   let select_errors db ?(streams = []) ?(priority = []) ?(pids = []) ?(errors = []) ?(limit = max_limit)
         ~is_ts ~from ~till () =
+    let open Printf in
+    let table    = (Conn.names db).errors in
     let streams  = is_in "stream" Int32.to_string streams in
     let priority = is_in "priority" string_of_int priority in
     let pids     = is_in "pid" string_of_int pids in
     let errors   = is_in "err_code"  string_of_int errors in
     let select = R.collect Types.(tup4 bool ptime ptime int) error
-                   (Printf.sprintf {|SELECT stream,count,err_code,err_ext,priority,
-                                    multi_pid,pid,packet,param_1,param_2,date FROM qos_niit_errors 
-                                    WHERE %s %s %s %s is_ts = ? AND date >= ? AND date <= ?
-                                    ORDER BY date DESC LIMIT ?|}
-                      streams priority pids errors)
+                   (sprintf {|SELECT stream,count,err_code,err_ext,priority,
+                             multi_pid,pid,packet,param_1,param_2,date FROM %s 
+                             WHERE %s %s %s %s is_ts = ? AND date >= ? AND date <= ?
+                             ORDER BY date DESC LIMIT ?|}
+                      table streams priority pids errors)
     in Conn.request db Request.(list select (is_ts,from,till,limit) >>= fun data ->
                                 return (Raw { data; has_more = (List.length data >= limit); order = `Desc }))
 
@@ -122,15 +177,17 @@ module Errors = struct
   type per = (float * Time.t * Time.t) list [@@deriving yojson]
      
   let select_errors_compressed db ?(streams = []) ?(priority = []) ?(pids = []) ?(errors = []) ~is_ts ~from ~till () =
+    let open Printf in
+    let table    = (Conn.names db).errors in
     let streams  = is_in "stream" Int32.to_string streams in
     let priority = is_in "priority" string_of_int priority in
     let pids     = is_in "pid" string_of_int pids in
     let errors   = is_in "err_code"  string_of_int errors in
     let intvals = Time.split ~from ~till in
     let select = R.find Types.(tup3 bool ptime ptime ) Types.int
-                   (Printf.sprintf {|SELECT count(DISTINCT date_trunc('second',date)) FROM qos_niit_errors
-                                    WHERE %s %s %s %s is_ts = ? AND date >= ? AND date <= ?|}
-                      streams priority pids errors)
+                   (sprintf {|SELECT count(DISTINCT date_trunc('second',date)) FROM %s
+                             WHERE %s %s %s %s is_ts = ? AND date >= ? AND date <= ?|}
+                      table streams priority pids errors)
     in Conn.request db Request.(with_trans (List.fold_left (fun acc (f,t) ->
                                                 let span = Time.(Period.to_float_s @@ diff till from) in
                                                 acc >>= fun l ->
