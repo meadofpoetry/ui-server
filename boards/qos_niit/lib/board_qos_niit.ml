@@ -34,9 +34,10 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
   let handlers        = Board_api.handlers b.control db api events in
   let tick, tick_loop = tick 5. in
   Lwt.ignore_result @@ Db.Device.init db;
-  Lwt_react.E.keep @@
-    Lwt_react.E.map_p (fun e -> Db.Device.bump db e)
-    @@ Lwt_react.S.sample (fun () e -> e) tick events.device.state;
+  Lwt_react.E.keep
+  @@ Lwt_react.E.map_p (fun e -> Db.Device.bump db e)
+  @@ Lwt_react.E.select [ Lwt_react.S.changes events.device.state
+                        ; Lwt_react.S.sample (fun _ e -> e) tick events.device.state ];
   Lwt_react.E.keep @@
     Lwt_react.E.map_p (fun e -> Db.Errors.insert_errors ~is_ts:true db e) events.errors.ts_errors;
   Lwt_react.E.keep @@
