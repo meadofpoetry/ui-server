@@ -33,11 +33,27 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
   let db              = Result.get_exn @@ Db.Conn.create db_conf b.control in
   let handlers        = Board_api.handlers b.control db api events in
   let tick, tick_loop = tick 5. in
+  (* State *)
   Lwt.ignore_result @@ Db.Device.init db;
   Lwt_react.E.keep
   @@ Lwt_react.E.map_p (fun e -> Db.Device.bump db e)
   @@ Lwt_react.E.select [ Lwt_react.S.changes events.device.state
                         ; Lwt_react.S.sample (fun _ e -> e) tick events.device.state ];
+  (* Streams *)
+  Lwt_react.S.keep
+  @@ Lwt_react.S.map (fun s -> Lwt.ignore_result @@ Db.Streams.insert_streams db s) events.streams.streams;
+  (* Structs ts *)
+  Lwt_react.E.keep
+  @@ Lwt_react.E.map_p (fun s -> Lwt.(catch (fun () -> Db.Streams.insert_structs_ts db s)
+                                        (fun e -> Logs_lwt.err (fun m -> m "ERROR %s" @@ Printexc.to_string e))))
+       events.streams.ts_structures;
+  (* Structs t2 *)
+  Lwt_react.E.keep
+  @@ Lwt_react.E.map_p (fun s -> Db.Streams.insert_structs_t2 db s) events.streams.t2mi_structures;
+  (* TS bitrates *)
+(*  Lwt_react.E.keep
+  @@ Lwt_react.E.map_p (fun b -> Db.Streams.insert_bitrate db b) events.streams.ts_bitrates; *)
+  (* Errors *)
   Lwt_react.E.keep @@
     Lwt_react.E.map_p (fun e -> Db.Errors.insert_errors ~is_ts:true db e) events.errors.ts_errors;
   Lwt_react.E.keep @@

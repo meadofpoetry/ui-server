@@ -21,9 +21,10 @@ let to_yojson (v:t) : Yojson.Safe.json =
 let of_yojson (j:Yojson.Safe.json) : (t,string) result =
   let to_err j = Printf.sprintf "of_yojson: bad json value (%s)" @@ Yojson.Safe.to_string j in
   match j with
-  | `List [ `Int d; `Intlit ps] -> (match Int64.of_string_opt ps with
-                                    | Some ps -> Ok (v (d,ps))
-                                    | None    -> Error (to_err j))
+  | `List [ d; ps] ->
+     Result.(Json.Int.of_yojson d >>= fun d ->
+             Json.Int64.of_yojson ps >>= fun ps ->
+             return (v (d,ps)))
   | _ -> Error (to_err j)
 
 
