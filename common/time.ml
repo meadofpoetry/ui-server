@@ -21,9 +21,10 @@ let to_yojson (v:t) : Yojson.Safe.json =
 let of_yojson (j:Yojson.Safe.json) : (t,string) result =
   let to_err j = Printf.sprintf "of_yojson: bad json value (%s)" @@ Yojson.Safe.to_string j in
   match j with
-  | `List [ `Int d; `Intlit ps] -> (match Int64.of_string_opt ps with
-                                    | Some ps -> Ok (v (d,ps))
-                                    | None    -> Error (to_err j))
+  | `List [ d; ps] ->
+     Result.(Json.Int.of_yojson d >>= fun d ->
+             Json.Int64.of_yojson ps >>= fun ps ->
+             return (v (d,ps)))
   | _ -> Error (to_err j)
 
 
@@ -94,6 +95,51 @@ let make_interval ?(from:t option) ?(till:t option) ?(duration:span option) () =
                              | Some s -> ok (`Range (s,e))
                              | None   -> err "time range exceeded")
   | None,None,None       -> ok `Whole
+
+let split ~from ~till =
+  let second = 1 in
+  let minute = second * 60 in
+  let hour = minute * 60 in
+  let day  = hour * 24 in
+  let week = day * 7 in
+  let year = day * 365 in
+  let check_diff dif =
+    if Span.compare dif (Span.of_int_s (year * 3)) > 0 then `Years
+    else if Span.compare dif (Span.of_int_s (week * 3)) > 0 then `Weeks
+    else if Span.compare dif (Span.of_int_s (day * 3)) > 0 then `Days
+    else if Span.compare dif (Span.of_int_s (hour * 2)) > 0 then `Hours
+    else if Span.compare dif (Span.of_int_s minute) > 0 then `Minutes
+    else `Seconds
+  in
+  let sep_days ~sz (fd,fps) (td,tps) =
+    if sz <= 0 then failwith "invariant is broken";
+    let rec loop acc d =
+      if d > (td - sz) then ((d,0L),(td,tps))::acc
+      else let nd = d + sz in loop (((d,0L),(nd,0L))::acc) nd
+    in let (d,dps) = fd + 1, 0L in
+       ((fd,fps),(d,dps)) :: (List.rev @@ loop [] d)
+  in
+  let sep_seconds ~sz from til =
+    if sz <= 0 then failwith "invariant is broken";
+    let sz = Span.of_int_s sz in
+    let rec loop acc st =
+      if compare st (sub_span til sz |> Option.get_exn) > 0 then (st,til)::acc
+      else let nst = Option.get_exn @@ add_span st sz in
+           loop ((st,nst)::acc) nst
+    in let s = Option.get_exn @@ add_span (truncate ~frac_s:0 from) (Span.of_int_s 1) in
+       (from,s)::(List.rev @@ loop [] s)
+  in
+  let merge (from, til) = unsafe_of_d_ps from, unsafe_of_d_ps til in
+  let dif = diff till from in
+  let fd,fps = Span.to_d_ps @@ to_span from in
+  let td,tps = Span.to_d_ps @@ to_span till in
+  match check_diff dif with
+  | `Years   -> List.map merge @@ sep_days ~sz:365 (fd,fps) (td,tps)
+  | `Weeks   -> List.map merge @@ sep_days ~sz:7 (fd,fps) (td,tps)
+  | `Days    -> List.map merge @@ sep_days ~sz:1 (fd,fps) (td,tps)
+  | `Hours   -> sep_seconds ~sz:3600 from till
+  | `Minutes -> sep_seconds ~sz:60 from till
+  | `Seconds -> [from, till]
 
 module Period = struct
   include Ptime.Span

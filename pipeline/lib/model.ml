@@ -15,7 +15,7 @@ type t = { struct_api : struct_api
          }
                     
 let create db_conf s_struct e_video e_audio =
-  let db = Result.get_exn @@ Db.Conn.create db_conf in
+  let db = Result.get_exn @@ Db.Conn.create db_conf () in
   Lwt_react.S.keep @@
     Lwt_react.S.map (fun x -> Lwt.catch (fun () -> Db.Structure.insert_structures db x)
                                 (function Failure e -> Lwt_io.printf "str error: %s\n" e)) s_struct;

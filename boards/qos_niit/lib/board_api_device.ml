@@ -91,8 +91,15 @@ module HTTP = struct
   (** Archive GET requests **)
   module Archive = struct
 
-    let state limit compress from till duration _ _ () =
-      respond_error ~status:`Not_implemented "not impelemented" ()
+    let state db limit compress from till duration _ _ () =
+      match Time.make_interval ?from ?till ?duration () with
+      | Ok `Range (from,till) ->
+         begin match compress with
+         | Some true -> Db.Device.select_state_compressed db ~from ~till
+         | _ -> Db.Device.select_state db ?limit ~from ~till
+         end >>= fun data ->
+         respond_result (Ok (Api.Api_types.rows_to_yojson Db.Device.err_to_yojson Db.Device.comp_to_yojson data))
+      | _ -> respond_error ~status:`Not_implemented "not impelemented" ()
 
     let errors errors limit compress from till duration _ _ () =
       respond_error ~status:`Not_implemented "not impelemented" ()
@@ -101,7 +108,7 @@ module HTTP = struct
 
 end
 
-let handler api events =
+let handler db api events =
   let open Uri in
   let open Boards.Board.Api_handler in
   create_dispatcher
@@ -172,7 +179,7 @@ let handler api events =
                               ; "from",     (module Option(Time.Show))
                               ; "to",       (module Option(Time.Show))
                               ; "duration", (module Option(Time.Relative)) ]
-                 HTTP.Archive.state
+                 (HTTP.Archive.state db)
              ; create_handler ~docstring:"Returns archived board errors"
                  ~path:Path.Format.("errors/archive" @/ empty)
                  ~query:Query.[ "errors",   (module List(Int))

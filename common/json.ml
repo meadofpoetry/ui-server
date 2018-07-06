@@ -24,7 +24,17 @@ module Int = struct
   let to_yojson (x:t) : json = `Int x
   let of_yojson : json -> t res = function
     | `Int x -> Ok x
+    | `Intlit x -> (try Ok (int_of_string x) with _ -> Error "Int.of_yojson: bad int")
     | _      -> Error "not an int"
+end
+
+module Int64 = struct
+  type t = int64
+  let to_yojson (x:t) : json = `Intlit (Int64.to_string x)
+  let of_yojson : json -> t res = function
+    | `Int x -> Ok (Int64.of_int x)
+    | `Intlit x -> (try Ok (Int64.of_string_exn x) with _ -> Error "Int64.of_yojson: bad int")
+    | _      -> Error "not an int64"
 end
 
 module List = struct

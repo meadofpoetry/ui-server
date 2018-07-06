@@ -13,7 +13,7 @@ module WS = struct
   module TS = struct
 
     open Board_types.Streams.TS
-
+(*
     let stream (events:events) id _ body sock_data () =
       let id = Stream.id_of_int32 id in
       let e  = React.E.map
@@ -23,7 +23,7 @@ module WS = struct
                                                       | _ -> false) streams)
                @@ React.S.changes events.streams
                |> React.E.changes ~eq:(Equal.option Stream.equal)
-      in Api.Socket.handler socket_table sock_data e (Json.Option.to_yojson Stream.to_yojson) body
+      in Api.Socket.handler socket_table sock_data e (Json.Option.to_yojson Stream.to_yojson) body*)
 
     let state (events:events) id _ body sock_data () =
       let id = Stream.id_of_int32 id in
@@ -64,15 +64,6 @@ module HTTP = struct
 
     open Board_types.Streams.TS
 
-    let stream (events:events) id _ _ () =
-      let id = Stream.id_of_int32 id in
-      let streams = React.S.value events.streams in
-      match List.find_opt (fun (s:Stream.t) -> match s.id with
-                                               | `Ts x -> Stream.equal_id id x
-                                               | _ -> false) streams with
-      | None   -> `String "stream not found" |> Result.fail |> respond_result ~err_status:`Not_found
-      | Some s -> Stream.to_yojson s |> Result.return |> respond_result
-
     let state (api:api) id _ _ () =
       let id = Stream.id_of_int32 id in
       match List.Assoc.get ~eq:(Stream.equal_id) id @@ api.get_ts_states () with
@@ -100,15 +91,18 @@ module HTTP = struct
       >>= respond_result
 
     module Archive = struct
+      
+    (*  let state id limit compress from till duration _ _ () =
+        respond_error ~status:`Not_implemented "FIXME" () *)
 
-      let stream id limit from till duration _ _ () =
-        respond_error ~status:`Not_implemented "FIXME" ()
-
-      let state id limit compress from till duration _ _ () =
-        respond_error ~status:`Not_implemented "FIXME" ()
-
-      let structure id limit from till duration _ _ () =
-        respond_error ~status:`Not_implemented "FIXME" ()
+      let structure db id limit from till duration _ _ () =
+        match Time.make_interval ?from ?till ?duration () with
+        | Ok `Range (from,till) ->
+           Db.Streams.select_structs_ts db ~with_pre:true ?limit ~ids:[id] ~from ~till
+           |> Lwt_result.map (fun d -> Api.Api_types.rows_to_yojson Db.Streams.struct_ts_to_yojson (fun () -> `Null) d)
+           |> Lwt_result.map_err (fun s -> (`String s : Yojson.Safe.json))
+           >>= fun x -> respond_result x
+        | _ -> respond_error ~status:`Not_implemented "FIXME" ()
 
       let bitrate id limit compress from till duration _ _ () =
         respond_error ~status:`Not_implemented "FIXME" ()
@@ -143,11 +137,17 @@ module HTTP = struct
 
       open Board_types.Streams.T2MI
 
-      let state id limit compress from till duration _ _ () =
-        respond_error ~status:`Not_implemented "FIXME" ()
+    (*  let state id limit compress from till duration _ _ () =
+        respond_error ~status:`Not_implemented "FIXME" () *)
 
-      let structure id limit from till duration _ _ () =
-        respond_error ~status:`Not_implemented "FIXME" ()
+      let structure db id limit from till duration _ _ () =
+        match Time.make_interval ?from ?till ?duration () with
+        | Ok `Range (from,till) ->
+           Db.Streams.select_structs_t2 db ~with_pre:true ?limit ~ids:[id] ~from ~till
+           |> Lwt_result.map (fun d -> Api.Api_types.rows_to_yojson Db.Streams.struct_t2_to_yojson (fun () -> `Null) d)
+           |> Lwt_result.map_err (fun s -> (`String s : Yojson.Safe.json))
+           >>= fun x -> respond_result x
+        | _ -> respond_error ~status:`Not_implemented "FIXME" ()
 
     end
 
@@ -155,16 +155,17 @@ module HTTP = struct
 
 end
 
-let ts_handler (api:api) events =
+let ts_handler db (api:api) events =
   let open Uri in
   let open Boards.Board.Api_handler in
   create_dispatcher
     "ts"
-    [ create_ws_handler ~docstring:"Pushes selected stream to the client"
+    [ (*create_ws_handler ~docstring:"Pushes selected stream to the client"
         ~path:Path.Format.(Int32 ^/ empty)
         ~query:Query.empty
         (WS.TS.stream events)
-    ; create_ws_handler ~docstring:"Pushes stream state to the client"
+    ; *)
+      create_ws_handler ~docstring:"Pushes stream state to the client"
         ~path:Path.Format.(Int32 ^/ "state" @/ empty)
         ~query:Query.empty
         (WS.TS.state events)
@@ -177,11 +178,7 @@ let ts_handler (api:api) events =
         ~query:Query.empty
         (WS.TS.structure events)
     ]
-    [ `GET, [ create_handler ~docstring:"Returns stream info"
-                ~path:Path.Format.(Int32 ^/ empty)
-                ~query:Query.empty
-                (HTTP.TS.stream events)
-            ; create_handler ~docstring:"Returns stream state"
+    [ `GET, [ create_handler ~docstring:"Returns stream state"
                 ~path:Path.Format.(Int32 ^/ "state" @/ empty)
                 ~query:Query.empty
                 (HTTP.TS.state api)
@@ -201,40 +198,33 @@ let ts_handler (api:api) events =
                              ; "eit-orig-nw-id", (module Option(Int)) ]
                 (HTTP.TS.si_psi_section api)
             (* Archive *)
-            ; create_handler ~docstring:"Returns archived stream"
-                ~path:Path.Format.(Int32 ^/ "archive" @/ empty)
-                ~query:Query.[ "limit",    (module Option(Int))
-                             ; "from",     (module Option(Time.Show))
-                             ; "to",       (module Option(Time.Show))
-                             ; "duration", (module Option(Time.Relative)) ]
-                HTTP.TS.Archive.stream
-            ; create_handler ~docstring:"Retunrs archived stream state"
+         (*   ; create_handler ~docstring:"Retunrs archived stream state"
                 ~path:Path.Format.(Int32 ^/ "state/archive" @/ empty)
                 ~query:Query.[ "limit",    (module Option(Int))
                              ; "compress", (module Option(Bool))
                              ; "from",     (module Option(Time.Show))
                              ; "to",       (module Option(Time.Show))
                              ; "duration", (module Option(Time.Relative)) ]
-                HTTP.TS.Archive.state;
-            create_handler ~docstring:"Retunrs archived stream bitrate"
+                (HTTP.TS.Archive.state db) *)
+            ; create_handler ~docstring:"Retunrs archived stream bitrate"
               ~path:Path.Format.(Int32 ^/ "bitrate/archive" @/ empty)
               ~query:Query.[ "limit",    (module Option(Int))
                            ; "compress", (module Option(Bool))
                            ; "from",     (module Option(Time.Show))
                            ; "to",       (module Option(Time.Show))
                            ; "duration", (module Option(Time.Relative)) ]
-              HTTP.TS.Archive.bitrate;
-            create_handler ~docstring:"Retunrs archived stream structure"
+              HTTP.TS.Archive.bitrate
+            ; create_handler ~docstring:"Retunrs archived stream structure"
               ~path:Path.Format.(Int32 ^/ "structure/archive" @/ empty)
               ~query:Query.[ "limit",    (module Option(Int))
                            ; "from",     (module Option(Time.Show))
                            ; "to",       (module Option(Time.Show))
                            ; "duration", (module Option(Time.Relative)) ]
-              HTTP.TS.Archive.structure
+              (HTTP.TS.Archive.structure db)
             ]
     ]
 
-let t2mi_handler (api:api) events =
+let t2mi_handler db (api:api) events =
   let open Uri in
   let open Boards.Board.Api_handler in
   create_dispatcher
@@ -261,25 +251,25 @@ let t2mi_handler (api:api) events =
                 ~query:Query.[ "duration", (module Option(Time.Relative)) ]
                 (HTTP.T2MI.sequence api)
             (* Archive *)
-            ; create_handler ~docstring:"Returns archived stream state"
+           (* ; create_handler ~docstring:"Returns archived stream state"
                 ~path:Path.Format.(Int ^/ "state/archive" @/ empty)
                 ~query:Query.[ "limit",    (module Option(Int))
                              ; "compress", (module Option(Bool))
                              ; "from",     (module Option(Time.Show))
                              ; "to",       (module Option(Time.Show))
                              ; "duration", (module Option(Time.Relative)) ]
-                HTTP.T2MI.Archive.state;
-            create_handler ~docstring:"Returns archived stream structure"
-              ~path:Path.Format.(Int ^/ "structure/archive" @/ empty)
-              ~query:Query.[ "limit",    (module Option(Int))
-                           ; "from",     (module Option(Time.Show))
-                           ; "to",       (module Option(Time.Show))
-                           ; "duration", (module Option(Time.Relative)) ]
-              HTTP.T2MI.Archive.structure
+                HTTP.T2MI.Archive.state *)
+            ; create_handler ~docstring:"Returns archived stream structure"
+                ~path:Path.Format.(Int ^/ "structure/archive" @/ empty)
+                ~query:Query.[ "limit",    (module Option(Int))
+                             ; "from",     (module Option(Time.Show))
+                             ; "to",       (module Option(Time.Show))
+                             ; "duration", (module Option(Time.Relative)) ]
+                (HTTP.T2MI.Archive.structure db)
             ]
     ]
 
-let handlers api events =
-  [ ts_handler api events
-  ; t2mi_handler api events
+let handlers db api events =
+  [ ts_handler db api events
+  ; t2mi_handler db api events
   ]
