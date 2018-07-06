@@ -19,6 +19,7 @@ module Fab               = Fab
 module Fab_speed_dial    = Fab_speed_dial
 module Form_field        = Form_field
 module Grid_list         = Grid_list
+module Hexdump           = Hexdump
 module Icon              = Icon
 module Icon_toggle       = Icon_toggle
 module Layout_grid       = Layout_grid

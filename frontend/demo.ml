@@ -273,7 +273,7 @@ let tree_demo () =
                ~items:(List.map (fun x -> item x) (List.range 0 5))
                () in
   tree#style##.maxWidth := Js.string "400px";
-  demo_section ~expanded:true "#Tree" [ tree ]
+  demo_section "Tree" [ tree ]
 
 let menu_demo () =
   let items    = List.map (fun x -> if x <> 2
@@ -730,32 +730,38 @@ let dynamic_grid_demo () =
 
 let expansion_panel_demo () =
   let ep1 = new Expansion_panel.t
-                ~title:"Trip name"
-                ~details:[ new Vbox.t ~widgets:[ new Typography.Text.t ~text:"Caribbean cruise" ()
-                                              ; new Typography.Text.t ~text:"Second line" ()
-                                              ] () ]
-                ~content:[]
-                () in
+              ~title:"Trip name"
+              ~details:[ new Vbox.t ~widgets:[ new Typography.Text.t ~text:"Caribbean cruise" ()
+                                             ; new Typography.Text.t ~text:"Second line" ()
+                           ] () ]
+              ~content:[]
+              () in
   let ep2 = new Expansion_panel.t
-                ~title:"Location"
-                ~heading_details:[ new Typography.Text.t ~text:"Optional" () ]
-                ~details:[ new Typography.Text.t ~text:"Barbados" () ]
-                ~content:[ new Typography.Text.t ~text:"This is an expansion panel body text!!!" () ]
-                ~actions:[ new Button.t ~label:"Cancel" ()
-                         ; new Button.t ~label:"Save" () ]
-                () in
+              ~title:"Location"
+              ~heading_details:[ new Typography.Text.t ~text:"Optional" () ]
+              ~details:[ new Typography.Text.t ~text:"Barbados" () ]
+              ~content:[ new Typography.Text.t ~text:"This is an expansion panel body text!!!" () ]
+              ~actions:[ new Button.t ~label:"Cancel" ()
+                       ; new Button.t ~label:"Save" () ]
+              () in
   let ep3 = new Expansion_panel.t
-                ~title:"Start and end dates"
-                ~details:[ new Typography.Text.t ~text:"Start date: Feb 29, 2016" ()
-                         ; new Typography.Text.t ~text:"End date: Not set" ()
-                         ]
-                ~content:[]
-                () in
+              ~title:"Start and end dates"
+              ~details:[ new Typography.Text.t ~text:"Start date: Feb 29, 2016" ()
+                       ; new Typography.Text.t ~text:"End date: Not set" ()
+              ]
+              ~content:[]
+              () in
   ep1#add_class (Elevation.Markup.get_elevation_class 2);
   ep2#add_class (Elevation.Markup.get_elevation_class 2);
   ep3#add_class (Elevation.Markup.get_elevation_class 2);
   let box = new Vbox.t ~widgets:[ep1;ep2;ep3] () in
   demo_section "Expansion panel" [ box ]
+
+let hexdump_demo () =
+  let el = new Hexdump.t ~config:(Hexdump.to_config ~base:`Hex ~grouping:1 ~width:8 ())
+             "@ð®5íð@DTT - Russian Federation" ()
+  in
+  demo_section ~expanded:true "#Hexdump" [ el ]
 
 let add_demos demos =
   let demos = CCList.sort (fun x y -> CCString.compare x#title y#title) demos in
@@ -792,6 +798,7 @@ let onload _ =
                         ; linear_progress_demo ()
                         ; circular_progress_demo ()
                         ; tabs_demo ()
+                        ; hexdump_demo ()
                         ] in
   let _ = new Page.t (`Static [Widget.create demos]) () in
   Js._false
