@@ -159,33 +159,9 @@ module HTTP = struct
                                                                       else if f >= ff && t <= tt then Some (s, f, t)
                                                                       else None
                                                                    | _ -> None) states) [] streams
-        in join (pair_streams streams) state
-       (* 
-        let later_opt from till = function
-          | None -> till
-          | Some (_,t) -> if Time.is_earlier t ~than:till && Time.is_later t ~than:from
-                          then t else till
-        in
-        let rec merge acc ?next (slst, t) = function
-          | [] -> List.rev acc
-          | (`Fine, from, till)::tl ->
-             if Time.is_earlier t ~than:till
-             then
-               let till = later_opt from till next in
-               if Time.is_later t ~than:from
-               then List.rev ((slst, t, till)::acc) (* TODO consider traversing tl anyway *)
-               else merge ((slst, from, till)::acc) ?next (slst, t) tl
-             else List.rev acc (* TODO merge acc ?next (slst, t) tl *)
-          | _::tl -> merge acc ?next (slst, t) tl
-        in
-        let rec loop acc = function
-          | [] -> List.concat @@ List.rev acc
-          | [x] -> List.concat ((merge [] x state) :: (List.rev acc))
-          | x::next::tl -> let acc = (merge [] ~next x state) :: acc in
-                           loop acc (next::tl)
-        in
-        loop [] streams
-        *)
+        in (* TODO add compress *) 
+        join (pair_streams streams) state
+
       let streams db limit from till duration _ _ () =
         let open Api.Api_types in
         match Time.make_interval ?from ?till ?duration () with
