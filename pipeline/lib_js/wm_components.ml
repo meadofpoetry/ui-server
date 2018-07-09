@@ -178,7 +178,7 @@ end
 
 module Placeholder = struct
   let make ~text ~icon () =
-    let ph = Ui_templates.Placeholder.create_icon ~text ~icon () in
+    let ph = Ui_templates.Placeholder.create_with_icon ~text ~icon () in
     ph#add_class "wm-placeholder";
     ph
 end

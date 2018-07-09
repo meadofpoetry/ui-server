@@ -38,7 +38,7 @@ module Make(Xml : Xml_sigs.NoWrap)
 
     let create ?(classes=[]) ?attrs ?(tag=li) ?graphic ?meta text () =
       tag ~a:([ a_class (_class :: classes)] <@> attrs)
-        (text :: (meta ^:: graphic ^:: []))
+        (graphic ^:: (text :: (meta ^:: [])))
 
   end
 

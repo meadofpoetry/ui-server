@@ -22,7 +22,7 @@ let item_to_info : item -> Dashboard.Item.info = fun item ->
        ~description:"График"
        ~serialized
        ()
-    | Structure _ ->
+  | Structure _ ->
      Dashboard.Item.to_info ~title:"Структура потока"
        ~thumbnail:(`Icon "list")
        ~description:"Отображает структуру обнаруженных транспортных потоков"
@@ -69,8 +69,8 @@ object(self)
     | Chart conf ->
        Widget_chart.make conf
        |> Dashboard.Item.to_item ~name:Widget_chart.name
-    | Structure conf ->
-       (fun s str -> Widget_structure.make ~state:s ~structs:str conf)
+    | Structure config ->
+       (fun s str -> Widget_structure.make ?config ~state:s ~signal:str ())
        |> Factory_state_lwt.l2 self#_state self#_structs
        |> Ui_templates.Loader.create_widget_loader
        |> Dashboard.Item.to_item ~name:Widget_structure.name

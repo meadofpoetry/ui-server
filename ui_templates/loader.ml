@@ -34,7 +34,7 @@ object(self)
                             | Some pfx -> Printf.sprintf "%s:\n %s" pfx e
                             | None     -> e)
                    in
-                   let error = Placeholder.create_error ?icon:error_icon ~text:s () in
+                   let error = Placeholder.create_with_error ?icon:error_icon ~text:s () in
                    Dom.appendChild self#root error#root;
                    Lwt.return_unit)
     |> Lwt.ignore_result

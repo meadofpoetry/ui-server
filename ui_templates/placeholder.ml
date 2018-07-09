@@ -14,7 +14,7 @@ let create_base ~widget ~text () =
   let ()  = text#add_class @@ Components_markup.CSS.add_element base_class "text" in
   ph
 
-let create_icon ?action ~text ~icon () =
+let create_with_icon ?action ~text ~icon () =
   let _class = Components_markup.CSS.add_modifier base_class "icon" in
   let ico    = match action with
     | Some _ -> let ico = new Icon.Button.Font.t ~icon () in
@@ -28,9 +28,9 @@ let create_icon ?action ~text ~icon () =
   let ()   = ph#add_class _class in
   ph
 
-let create_error ?action ?(icon="error") ?(text="error") () =
+let create_with_error ?action ?(icon="error") ?(text="error") () =
   let _class = Components_markup.CSS.add_modifier base_class "error" in
-  let ph     = create_icon ?action ~icon ~text () in
+  let ph     = create_with_icon ?action ~icon ~text () in
   let ()     = ph#add_class _class in
   ph
 

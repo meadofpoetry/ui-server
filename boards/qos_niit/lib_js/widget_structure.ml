@@ -13,10 +13,22 @@ type composition =
   } [@@deriving yojson]
 
 type config =
-  { auto_refresh : bool
-  ; streams      : Common.Stream.t list option
+  { stream       : Stream.id
+  ; auto_refresh : bool
   ; composition  : composition
   } [@@deriving yojson]
+
+let default_config =
+  { stream       = Single
+  ; auto_refresh = true
+  ; composition  = { services = true; pids = true; emm = true; tables = true }
+  }
+
+(* Widget default name *)
+let name = "Структура"
+
+(* Settings widget *)
+let settings = None
 
 let (^::) = List.cons_maybe
 
@@ -46,7 +58,7 @@ let make_emm (emm : emm_info) =
   new Tree.Item.t ~text ~secondary_text:stext ()
 
 let make_service (service : service_info) =
-  let text, stext = Printf.sprintf "Имя: %s" service.name,
+  let text, stext = service.name,
                     Printf.sprintf "Провайдер: %s" service.provider_name in
   let id      = new Tree.Item.t ~text:(Printf.sprintf "ID: %d" service.id) () in
   let pmt_pid = new Tree.Item.t ~text:(Printf.sprintf "PMT PID: %d" service.pmt_pid) () in
@@ -67,7 +79,8 @@ let make_service (service : service_info) =
                 else None in
   let opt     = es ^:: ecm ^:: [] in
   let nested  = new Tree.t ~items:([ id; pmt_pid; pcr_pid ] @ opt) () in
-  new Tree.Item.t ~text ~secondary_text:stext ~nested ()
+  let graphic = new Icon.Font.t ~icon:"tv" () in
+  new Tree.Item.t ~text ~secondary_text:stext ~graphic ~nested ()
 
 let make_section (s : section_info) =
   let text, stext = Printf.sprintf "ID: %d" s.id,
@@ -111,56 +124,50 @@ let make_general (ts : general_info) =
 
 let make_stream (ts : structure) =
   let gen  = make_general ts.general in
-  let pids = if not (List.is_empty ts.pids)
-             then Some (let pids = List.sort (fun (x:pid_info) y -> compare x.pid y.pid) ts.pids in
-                        new Tree.Item.t
-                          ~text:"PIDs"
-                          ~nested:(new Tree.t ~items:(List.map make_pid pids) ())
-                          ())
-             else None in
-  let serv = if not (List.is_empty ts.services)
-             then Some (let serv = List.sort (fun (x:service_info) y -> compare x.id y.id) ts.services in
-                        new Tree.Item.t
-                          ~text:"Сервисы"
-                          ~nested:(new Tree.t ~items:(List.map make_service serv) ())
-                          ())
-             else None in
-  let emm  = if not (List.is_empty ts.emm)
-             then Some (let emm = List.sort (fun (x:emm_info) y -> compare x.pid y.pid) ts.emm in
-                        new Tree.Item.t
-                          ~text:"EMM"
-                          ~nested:(new Tree.t ~items:(List.map make_emm emm) ())
-                          ())
-             else None in
-  let tabl = if not (List.is_empty ts.tables)
-             then Some (let tabl = List.sort (fun (x:table) y -> compare (table_common_of_table x).pid
-                                                                   (table_common_of_table y).pid)
-                                     ts.tables in
-                        new Tree.Item.t
-                          ~text:"Таблицы"
-                          ~nested:(new Tree.t ~items:(List.map make_table tabl) ())
-                          ())
-             else None in
-  let text, stext = "Поток", "" in
+  let pids =
+    if not (List.is_empty ts.pids)
+    then Some (let pids = List.sort (fun (x:pid_info) y -> compare x.pid y.pid) ts.pids in
+               new Tree.Item.t
+                 ~text:"PIDs"
+                 ~nested:(new Tree.t ~items:(List.map make_pid pids) ())
+                 ())
+    else None in
+  let serv =
+    if not (List.is_empty ts.services)
+    then Some (let serv = List.sort (fun (x:service_info) y -> compare x.id y.id) ts.services in
+               new Tree.Item.t
+                 ~text:"Сервисы"
+                 ~nested:(new Tree.t ~items:(List.map make_service serv) ())
+                 ())
+    else None in
+  let emm  =
+    if not (List.is_empty ts.emm)
+    then Some (let emm = List.sort (fun (x:emm_info) y -> compare x.pid y.pid) ts.emm in
+               new Tree.Item.t
+                 ~text:"EMM"
+                 ~nested:(new Tree.t ~items:(List.map make_emm emm) ())
+                 ())
+    else None in
+  let tabl =
+    if not (List.is_empty ts.tables)
+    then Some (let tabl = List.sort (fun (x:table) y -> compare (table_common_of_table x).pid
+                                                          (table_common_of_table y).pid)
+                            ts.tables in
+               new Tree.Item.t
+                 ~text:"Таблицы"
+                 ~nested:(new Tree.t ~items:(List.map make_table tabl) ())
+                 ())
+    else None in
   let opt    = serv ^:: tabl ^:: pids ^:: emm ^:: [] in
-  let nested = new Tree.t ~items:(gen :: opt) () in
-  new Tree.Item.t ~text ~secondary_text:stext ~nested ()
+  new Tree.t ~items:(gen :: opt) ()
 
-let make_streams_tree (ts : (Stream.id * Streams.TS.structure) list) =
-  let ts   = List.map Fun.(make_stream % snd) ts in
-  let tree = new Tree.t ~items:ts () in
-  tree#set_dense true;
-  tree#style##.maxWidth := Js.string "700px";
-  tree
-
-let name     = "Структура"
-let settings = None
-
-let make ~(state   : Common.Topology.state React.signal)
-      ~(structs : (Stream.id * Streams.TS.structure) list React.signal)
-      (config   : config option) =
+let make
+      ?(config=default_config)
+      ~(state:Common.Topology.state React.signal)
+      ~(signal:(Stream.id * structure) list React.signal)
+      () =
   (* FIXME remove *)
-  let structs,push = React.S.create [] in
+  let signal,push = React.S.create [] in
   let open Lwt.Infix in
   let _ = Api_js.Requests.Json_request.get
             ?scheme:None ?host:None ?port:None
@@ -172,16 +179,22 @@ let make ~(state   : Common.Topology.state React.signal)
       |> Result.get_exn
       |> push)
   in
-  (* end of temp block *)
-  let id  = "ts-structures" in
-  let div = Dom_html.createDiv Dom_html.document in
-  let make (ts : (Stream.id * Streams.TS.structure) list) =
-    let tree = make_streams_tree ts in
-    tree#set_id id;
-    tree
+  (* FIXME end of temp block *)
+  let div = Dom_html.createDiv Dom_html.document |> Widget.create in
+  let ph  = Ui_templates.Placeholder.create_with_icon
+              ~icon:"warning" ~text:"Поток отсутствует" () in
+  let ()  =
+    React.S.map (function
+        | None   -> div#set_empty ();
+                    Dom.appendChild div#root ph#root
+        | Some s ->
+           div#set_empty ();
+           let stream  = make_stream s in
+           let hexdump = new Hexdump.t ~config:(Hexdump.to_config ~width:8 ())
+                           "abcdefg" () in
+           let split   = new Hsplit.t stream hexdump () in
+           Dom.appendChild div#root split#root)
+    @@ React.S.map (List.Assoc.get ~eq:Stream.equal_id config.stream) signal
+    |> Lwt_react.S.keep
   in
-  let _ = React.S.map (fun s -> (try Dom.removeChild div (Dom_html.getElementById id) with _ -> ());
-                                Dom.appendChild div (make s)#root)
-            structs
-  in
-  Widget.create div
+  div
