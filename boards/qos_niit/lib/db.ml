@@ -148,7 +148,7 @@ module Device = struct
                                 let data = List.map (fun (st,s,e) -> (state_of_int st,s,e)) l in
                                 return (Raw { data; has_more = (List.length data >= limit); order = `Desc }))
 
-  let select_state_compressed db ~from ~till =
+  let select_state_compressed_internal db ~from ~till =
     let table = (Conn.names db).state in
     let dif   = Time.(Span.to_float_s @@ diff till from) in
     let select_i = R.collect Types.(tup2 ptime ptime) Types.(tup2 int ptime_span)
@@ -169,7 +169,11 @@ module Device = struct
                                WHERE date_end > $2 AND date_start < $1 
                                GROUP BY state LIMIT 1|} table) in
     Conn.request db Request.(find select_o (from,till) >>= function
-                             | Some s -> return (Compressed { data = [ state_of_int s, 100. ] })
+                             | Some s ->
+                                return (match state_of_int s with
+                                        | `Fine -> (100.,0.,0.)
+                                        | `Init -> (0.,100.,0.)
+                                        | `No_response -> (0.,0.,100.))
                              | None ->
                                 find select_l (from,till) >>= fun l ->
                                 find select_r (from,till) >>= fun r ->
@@ -190,9 +194,16 @@ module Device = struct
                                             let st, span = r @@ l @@ x in
                                             let st  = state_of_int st in
                                             let per = 100. *. (Time.Span.to_float_s span) /. dif in
-                                            st,per) i
-                                in return (Compressed { data = i } ))
-    
+                                            st,per) i in
+                                let res = List.fold_left (fun (f,i,n) -> function
+                                              | `Fine, x -> (f +. x, i, n)
+                                              | `Init, x -> (f, i +. x, n)
+                                              | `No_response, x -> (f, i, n +. x)) (0.,0.,0.) i
+                                in return res )
+
+  let select_state_compressed db ~from ~till =
+    select_state_compressed_internal db ~from ~till
+    >|= fun data -> Compressed { data }
     
 end
        
@@ -391,6 +402,13 @@ module Errors = struct
                                                 | Some s -> let perc = (100. *. (float_of_int s) /. span) in
                                                             return ((perc,f,t)::l))
                                               (return []) intvals)
-                                >>= fun l -> return (Compressed { data = List.rev l }))
+                                >>= return)
+       >>= fun l ->
+       List.fold_left (fun acc (p,from,till) ->
+           acc >>= fun acc ->
+           Device.select_state_compressed_internal db ~from ~till
+           >>= fun (f,_,_) -> Lwt.return (((100. *. p /. f), (100. -. f), from, till)::acc))
+         (Lwt.return []) l
+       >|= fun data -> Compressed { data }
 
 end

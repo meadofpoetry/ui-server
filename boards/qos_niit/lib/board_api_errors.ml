@@ -69,7 +69,7 @@ module HTTP = struct
 
       type err = (Common.Stream.id * Errors.t) list [@@deriving yojson]
      
-      type per = (float * Time.t * Time.t) list [@@deriving yojson]
+      type per = (float * float * Time.t * Time.t) list [@@deriving yojson]
       
       let errors db streams errors priority pids limit compress from till duration _ _ () =
         match Time.make_interval ?from ?till ?duration () with
@@ -104,7 +104,7 @@ module HTTP = struct
 
       type err = (Common.Stream.id * Errors.t) list [@@deriving yojson]
      
-      type per = (float * Time.t * Time.t) list [@@deriving yojson]
+      type per = (float * float * Time.t * Time.t) list [@@deriving yojson]
 
       let errors db streams t2mi_id errors pids limit compress from till duration _ _ () =
         match Time.make_interval ?from ?till ?duration () with
@@ -112,7 +112,8 @@ module HTTP = struct
             match compress with
             | Some true -> Db.Errors.select_errors_compressed db ~is_ts:false ~streams ~errors ~pids ~from ~till ()
             | _ -> Db.Errors.select_errors db ~is_ts:true ~streams ~errors ~pids ?limit ~from ~till ()
-          end >>= fun v -> respond_result (Ok Db.Errors.(Api.Api_types.rows_to_yojson err_to_yojson per_to_yojson v))
+          end >>= fun v ->
+          respond_result (Ok Db.Errors.(Api.Api_types.rows_to_yojson err_to_yojson per_to_yojson v))
         | _ -> respond_error ~status:`Not_implemented "not implemented" ()
         
       let percent db streams t2mi_id errors pids from till duration _ _ () =
