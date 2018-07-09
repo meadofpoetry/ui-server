@@ -11,6 +11,20 @@ let rec gcd a b =
 let resolution_to_aspect (w,h) =
   let d = gcd w h in w / d, h / d
 
+let sum_scroll_offsets (e:Dom_html.element Js.t) =
+  let rec aux cur acc_left acc_top =
+    match Js.Opt.to_option cur with
+    | None     -> acc_left,acc_top
+    | Some cur ->
+       (match Js.to_string cur##.nodeName with
+        | "BODY" -> acc_left,acc_top
+        | _      ->
+           aux cur##.parentNode
+             (acc_left + (Js.Unsafe.coerce cur)##.scrollLeft)
+             (acc_top  + (Js.Unsafe.coerce cur)##.scrollTop))
+  in
+  aux e##.parentNode 0 0
+
 module Keyboard_event = struct
 
   let event_to_key (e:Dom_html.keyboardEvent Js.t) =

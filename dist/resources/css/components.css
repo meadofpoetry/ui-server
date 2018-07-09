@@ -3797,9 +3797,45 @@
     left: 16px;
     right: initial; }
 
-.mdc-hexdump__char {
-  padding-left: 3px;
-  padding-right: 3px; }
+.mdc-hexdump {
+  overflow: auto; }
+  .mdc-hexdump__block {
+    /* @alternate */
+    background-color: #fff;
+    background-color: var(--mdc-theme-background, #fff);
+    margin: 0;
+    padding: 15px;
+    display: block;
+    position: relative;
+    font-size: 1.0em;
+    line-height: 1.4em; }
+  .mdc-hexdump__char--selected, .mdc-hexdump__hex--selected {
+    /* @alternate */
+    color: white;
+    color: var(--mdc-theme-text-primary-on-secondary, white);
+    /* @alternate */
+    background-color: #018786;
+    background-color: var(--mdc-theme-secondary, #018786); }
+  .mdc-hexdump__hex {
+    cursor: pointer; }
+  .mdc-hexdump__char {
+    padding-left: 3px;
+    padding-right: 3px; }
+
+.mdc-hexdump__block--line-numbers {
+  z-index: 2;
+  position: sticky;
+  left: 0;
+  overflow: visible;
+  border-right: 1px solid;
+  border-color: rgba(0, 0, 0, 0.12); }
+
+.mdc-hexdump__block--chars {
+  border-left: 1px solid;
+  border-color: rgba(0, 0, 0, 0.12); }
+
+.mdc-hexdump__block[unselectable="on"] {
+  user-select: none; }
 
 .mdc-icon--button {
   cursor: pointer; }
@@ -6433,6 +6469,45 @@ a.mdc-list-item {
   animation: none; }
 .mdc-slider--discrete.mdc-slider--display-markers .mdc-slider__track-marker-container {
   visibility: visible; }
+
+.mdc-split {
+  display: flex;
+  flex-wrap: nowrap; }
+  .mdc-split--vertical {
+    flex-direction: column; }
+    .mdc-split--vertical .mdc-split__splitter .mdc-split__splitter-icon {
+      cursor: row-resize;
+      flex-flow: column nowrap;
+      display: flex;
+      width: 20px;
+      height: 8px; }
+      .mdc-split--vertical .mdc-split__splitter .mdc-split__splitter-icon div {
+        border-bottom: 1px solid;
+        border-color: rgba(0, 0, 0, 0.24);
+        width: 20px;
+        height: 3px; }
+  .mdc-split--horizontal {
+    flex-direction: row; }
+    .mdc-split--horizontal .mdc-split__splitter .mdc-split__splitter-icon {
+      cursor: col-resize;
+      flex-flow: row nowrap;
+      display: flex;
+      height: 20px;
+      width: 8px; }
+      .mdc-split--horizontal .mdc-split__splitter .mdc-split__splitter-icon div {
+        border-right: 1px solid;
+        border-color: rgba(0, 0, 0, 0.24);
+        height: 20px;
+        width: 3px; }
+  .mdc-split__panel {
+    overflow: hidden;
+    display: flex;
+    flex-shrink: 1;
+    flex-basis: 0px; }
+  .mdc-split__splitter {
+    display: flex;
+    flex: 0 0 8px;
+    margin: auto; }
 
 /**
  * Creates a rule that will be applied when an MDC Web component is within the context of an RTL layout.

@@ -758,10 +758,21 @@ let expansion_panel_demo () =
   demo_section "Expansion panel" [ box ]
 
 let hexdump_demo () =
-  let el = new Hexdump.t ~config:(Hexdump.to_config ~base:`Hex ~grouping:1 ~width:8 ())
-             "@ð®5íð@DTT - Russian Federation" ()
-  in
-  demo_section ~expanded:true "#Hexdump" [ el ]
+  let el = new Hexdump.t ~config:(Hexdump.to_config ~base:`Hex ~grouping:1 ~width:16 ())
+             "@ð®5íð@DTT - Russian Federation" () in
+  demo_section "Hexdump" [ el ]
+
+let split_demo () =
+  let p s =
+    let w = new Typography.Text.t ~text:s () in
+    w#style##.margin := Js.string "20px";
+    w in
+  let el = new Hsplit.t (p "test1") (p "test2") () in
+  el#panel_1#style##.border  := Js.string "1px solid lightgrey";
+  el#panel_2#style##.border  := Js.string "1px solid lightgrey";
+  el#style##.height := Js.string "300px";
+  demo_section ~expanded:true "#Split" [ el ]
+
 
 let add_demos demos =
   let demos = CCList.sort (fun x y -> CCString.compare x#title y#title) demos in
@@ -799,6 +810,7 @@ let onload _ =
                         ; circular_progress_demo ()
                         ; tabs_demo ()
                         ; hexdump_demo ()
+                        ; split_demo ()
                         ] in
   let _ = new Page.t (`Static [Widget.create demos]) () in
   Js._false

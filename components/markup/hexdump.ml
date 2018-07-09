@@ -7,21 +7,28 @@ module Make(Xml : Xml_sigs.NoWrap)
            and module Svg := Svg) = struct
   open Html
 
-  let base_class = "mdc-hexdump"
+  let base_class               = "mdc-hexdump"
+  let block_class              = CSS.add_element base_class "block"
+  let chars_block_class        = CSS.add_modifier block_class "chars"
+  let line_numbers_block_class = CSS.add_modifier block_class "line-numbers"
 
   module Line_number = struct
     let _class = CSS.add_element base_class "line-number"
   end
 
   module Hex = struct
-    let _class = CSS.add_element base_class "hex"
+    let _class         = CSS.add_element base_class "hex"
+    let empty_class    = CSS.add_element base_class "hex-empty"
+    let selected_class = CSS.add_modifier _class "selected"
   end
 
   module Char = struct
-    let _class = CSS.add_element base_class "char"
+    let _class         = CSS.add_element base_class "char"
+    let empty_class    = CSS.add_element base_class "char-empty"
+    let selected_class = CSS.add_modifier _class "selected"
   end
 
-  let create ?(classes=[]) ?attrs contents () =
-    pre ~a:([ a_class (base_class :: classes)] <@> attrs) contents
+  let create_block ?(classes=[]) ?attrs () =
+    pre ~a:([ a_class (block_class :: classes)] <@> attrs) []
 
 end
