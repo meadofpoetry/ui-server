@@ -91,6 +91,8 @@ module HTTP = struct
       >>= respond_result
 
     module Archive = struct
+
+      type struct_ts = (Common.Stream.id * Board_types.Streams.TS.structure * Time.t) list [@@deriving yojson]
       
     (*  let state id limit compress from till duration _ _ () =
         respond_error ~status:`Not_implemented "FIXME" () *)
@@ -99,7 +101,7 @@ module HTTP = struct
         match Time.make_interval ?from ?till ?duration () with
         | Ok `Range (from,till) ->
            Db.Streams.select_structs_ts db ~with_pre:true ?limit ~ids:[id] ~from ~till
-           |> Lwt_result.map (fun d -> Api.Api_types.rows_to_yojson Db.Streams.struct_ts_to_yojson (fun () -> `Null) d)
+           |> Lwt_result.map (fun d -> Api.Api_types.rows_to_yojson struct_ts_to_yojson (fun () -> `Null) d)
            |> Lwt_result.map_err (fun s -> (`String s : Yojson.Safe.json))
            >>= fun x -> respond_result x
         | _ -> respond_error ~status:`Not_implemented "FIXME" ()
@@ -137,6 +139,8 @@ module HTTP = struct
 
       open Board_types.Streams.T2MI
 
+      type struct_t2 = (int * Board_types.Streams.T2MI.structure * Time.t) list [@@deriving yojson]
+
     (*  let state id limit compress from till duration _ _ () =
         respond_error ~status:`Not_implemented "FIXME" () *)
 
@@ -144,7 +148,7 @@ module HTTP = struct
         match Time.make_interval ?from ?till ?duration () with
         | Ok `Range (from,till) ->
            Db.Streams.select_structs_t2 db ~with_pre:true ?limit ~ids:[id] ~from ~till
-           |> Lwt_result.map (fun d -> Api.Api_types.rows_to_yojson Db.Streams.struct_t2_to_yojson (fun () -> `Null) d)
+           |> Lwt_result.map (fun d -> Api.Api_types.rows_to_yojson struct_t2_to_yojson (fun () -> `Null) d)
            |> Lwt_result.map_err (fun s -> (`String s : Yojson.Safe.json))
            >>= fun x -> respond_result x
         | _ -> respond_error ~status:`Not_implemented "FIXME" ()

@@ -137,11 +137,6 @@ module Device = struct
                                             if state = new_state
                                             then exec update_last (now,st,en)
                                             else exec insert_new (new_state,en,now)))
-    
-  type err = (Common.Topology.state * Time.t * Time.t) list [@@deriving yojson]
-
-  type comp = (Common.Topology.state * float) list [@@deriving yojson]
-
   let max_limit = 500
 
   let select_state db ?(limit = max_limit) ~from ~till =
@@ -211,8 +206,6 @@ module Streams = struct
     let insert = R.exec Types.string
                    (sprintf "INSERT INTO %s (streams) VALUES (?)" table)
     in Conn.request db Request.(exec insert data)
-
-  type strms = (Common.Stream.t list * Time.t) list [@@deriving yojson]
      
   let select_streams db ?(with_pre = true) ?(limit = 500) ~from ~till =
     let table  = (Conn.names db).streams in
@@ -241,8 +234,6 @@ module Streams = struct
                    (sprintf "INSERT INTO %s (stream,structure,date) VALUES (?,?,?)" table)
     in Conn.request db Request.(with_trans (List.fold_left (fun acc v -> acc >>= fun () -> exec insert v)
                                               (return ()) data))
-
-  type struct_ts = (Common.Stream.id * Board_types.Streams.TS.structure * Time.t) list [@@deriving yojson]
      
   let select_structs_ts db ?(with_pre = true) ?(limit = 500) ?(ids = []) ~from ~till =
     let table  = (Conn.names db).struct_ts in
@@ -275,8 +266,6 @@ module Streams = struct
                    (sprintf "INSERT INTO %s (stream,structure,date) VALUES (?,?,?)" table)
     in Conn.request db Request.(with_trans (List.fold_left (fun acc v -> acc >>= fun () -> exec insert v)
                                               (return ()) data))
-
-  type struct_t2 = (int * Board_types.Streams.T2MI.structure * Time.t) list [@@deriving yojson]
      
   let select_structs_t2 db ?(with_pre = true) ?(limit = 500) ?(ids = []) ~from ~till =
     let table  = (Conn.names db).struct_t2 in

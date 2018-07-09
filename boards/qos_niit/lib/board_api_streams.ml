@@ -92,7 +92,7 @@ module HTTP = struct
     open Board_types.Streams.TS
 
     let to_yojson f v = Json.(List.to_yojson (Pair.to_yojson Stream.id_to_yojson f) v)
-
+                      
     let streams (events:events) ids _ _ () =
       let ids = List.map Stream.id_of_int32 ids in
       let streams = match ids with
@@ -129,13 +129,79 @@ module HTTP = struct
 
     module Archive = struct
 
+      type strms = (Common.Stream.t list * Time.t) list [@@deriving yojson]
+
+      type struct_ts = (Common.Stream.id * Board_types.Streams.TS.structure * Time.t) list [@@deriving yojson]
+
+      type strms_state = (Common.Stream.t list * Time.t * Time.t) list [@@deriving yojson]
+
+      (* merge ordered descending lists of streams and board states *)
+      let merge_streams_state
+            (streams : (Common.Stream.t list * Time.t) list)
+            (state : (Common.Topology.state * Time.t * Time.t) list) =
+        (* TODO consider ord checks *)
+        let pair_streams streams =
+          let rec pair' acc = function
+            | (sx,tx)::(sy,ty)::tl -> pair' ((sy, ty, tx)::acc) ((sy,ty)::tl)
+            | [_] | [] -> List.rev acc
+          in
+          let (s,t) = List.hd streams in
+          (s,t,Time.max)::(pair' [] streams)
+        in
+        let (<=) l r = Time.compare l r <= 0 in
+        let (>=) l r = Time.compare l r >= 0 in
+        let join streams states = List.fold_left (fun acc (s,f,t) ->
+                                      List.append acc @@ List.filter_map
+                                                           (function (`Fine,ff,tt) ->
+                                                                      if f <= ff && t >= tt then Some (s,ff,tt)
+                                                                      else if f <=ff && t >= ff then Some (s, ff, t)
+                                                                      else if f <= tt && t >= tt then Some (s, f, tt)
+                                                                      else if f >= ff && t <= tt then Some (s, f, t)
+                                                                      else None
+                                                                   | _ -> None) states) [] streams
+        in join (pair_streams streams) state
+       (* 
+        let later_opt from till = function
+          | None -> till
+          | Some (_,t) -> if Time.is_earlier t ~than:till && Time.is_later t ~than:from
+                          then t else till
+        in
+        let rec merge acc ?next (slst, t) = function
+          | [] -> List.rev acc
+          | (`Fine, from, till)::tl ->
+             if Time.is_earlier t ~than:till
+             then
+               let till = later_opt from till next in
+               if Time.is_later t ~than:from
+               then List.rev ((slst, t, till)::acc) (* TODO consider traversing tl anyway *)
+               else merge ((slst, from, till)::acc) ?next (slst, t) tl
+             else List.rev acc (* TODO merge acc ?next (slst, t) tl *)
+          | _::tl -> merge acc ?next (slst, t) tl
+        in
+        let rec loop acc = function
+          | [] -> List.concat @@ List.rev acc
+          | [x] -> List.concat ((merge [] x state) :: (List.rev acc))
+          | x::next::tl -> let acc = (merge [] ~next x state) :: acc in
+                           loop acc (next::tl)
+        in
+        loop [] streams
+        *)
       let streams db limit from till duration _ _ () =
+        let open Api.Api_types in
         match Time.make_interval ?from ?till ?duration () with
         | Ok `Range (from,till) ->
+           (* TODO make it more sound *)
            Db.Streams.select_streams db ~with_pre:true ?limit ~from ~till
-           |> Lwt_result.map (fun d -> Api.Api_types.rows_to_yojson Db.Streams.strms_to_yojson (fun () -> `Null) d)
+           >>= fun (Ok Raw { data = streams; has_more; order = `Desc }) ->
+           let Some (_,oldest) = List.last_opt streams in
+           Db.Device.select_state db ?limit ~from:oldest ~till
+           >>= fun (Raw { data = states; has_more = _; order = `Desc }) ->
+           let v = merge_streams_state streams states in
+           let rval = Raw { data = v; has_more; order = `Desc } in
+           respond_result (Ok (rows_to_yojson strms_state_to_yojson (fun () -> `Null) rval))
+           (*|> Lwt_result.map (fun d -> Api.Api_types.rows_to_yojson strms_to_yojson (fun () -> `Null) d)
            |> Lwt_result.map_err (fun s -> (`String s : Yojson.Safe.json))
-           >>= fun x -> respond_result x
+           >>= fun x -> respond_result x*)
         | _ -> respond_error ~status:`Not_implemented "FIXME" ()
 
         (*
@@ -145,8 +211,8 @@ module HTTP = struct
       let structure db ids limit from till duration _ _ () =
         match Time.make_interval ?from ?till ?duration () with
         | Ok `Range (from,till) ->
-           Db.Streams.select_structs_ts db ~with_pre:true ?limit ~ids ~from ~till
-           |> Lwt_result.map (fun d -> Api.Api_types.rows_to_yojson Db.Streams.struct_ts_to_yojson (fun () -> `Null) d)
+           Db.Streams.select_structs_ts db ~with_pre:true ?limit ~ids ~from ~till          
+           |> Lwt_result.map (fun d -> Api.Api_types.rows_to_yojson struct_ts_to_yojson (fun () -> `Null) d)
            |> Lwt_result.map_err (fun s -> (`String s : Yojson.Safe.json))
            >>= fun x -> respond_result x
         | _ -> respond_error ~status:`Not_implemented "FIXME" ()
@@ -190,6 +256,8 @@ module HTTP = struct
     module Archive = struct
 
       open Board_types.Streams.T2MI
+
+      type struct_t2 = (int * Board_types.Streams.T2MI.structure * Time.t) list [@@deriving yojson]
          (*
       let state ids limit compress from till duration _ _ () =
         respond_error ~status:`Not_implemented "FIXME" ()
@@ -198,7 +266,7 @@ module HTTP = struct
         match Time.make_interval ?from ?till ?duration () with
         | Ok `Range (from,till) ->
            Db.Streams.select_structs_t2 db ~with_pre:true ?limit ~ids ~from ~till
-           |> Lwt_result.map (fun d -> Api.Api_types.rows_to_yojson Db.Streams.struct_t2_to_yojson (fun () -> `Null) d)
+           |> Lwt_result.map (fun d -> Api.Api_types.rows_to_yojson struct_t2_to_yojson (fun () -> `Null) d)
            |> Lwt_result.map_err (fun s -> (`String s : Yojson.Safe.json))
            >>= fun x -> respond_result x
         | _ -> respond_error ~status:`Not_implemented "FIXME" ()
