@@ -70,10 +70,16 @@ let to_hex_span ?value (config:config) =
                 [pcdata s])
   |> Format.asprintf "%a" (Tyxml.Html.pp_elt ())
 
+let is_printable (c:char) : bool =
+  match Char.code c with
+  | x when x > 31 && x < 255 -> true
+  | _ -> false
+
 let to_char_span ?value (config:config) =
   let empty = config.style.empty_char in
   let udata_id,udata_val,s = match value with
-    | Some (id,v) -> "char-id",string_of_int id,String.of_char v
+    | Some (id,v) -> "char-id",string_of_int id,
+                     String.of_char (if is_printable v then v else config.style.non_printable_char)
     | None        -> "char-empty","true",String.pad ~side:`Left ~c:empty 1 (String.of_char empty)
   in
   Tyxml.Html.(span ~a:[ a_class [Markup.Char._class]
@@ -82,34 +88,39 @@ let to_char_span ?value (config:config) =
   |> Format.asprintf "%a" (Tyxml.Html.pp_elt ())
 
 let make_data id (config:config) (data:char list) =
-  let grouping  = pred config.grouping in
+  let space cnt =
+    let g = config.grouping in
+    if g = 0 then false else (cnt mod g) = 0
+  in
   let conv_hex ?value () = to_hex_span ?value config in
   let conv_chr ?value () = to_char_span ?value config in
   let rec aux_empty cnt hex_acc chr_acc = function
-    | x when x > 0 -> let cnt,hex_acc = if cnt = grouping
-                                        then 0,(conv_hex () ^ " ") :: hex_acc
-                                        else (succ cnt),conv_hex () :: hex_acc
-                      in aux_empty cnt hex_acc (conv_chr () :: chr_acc) (pred x)
-    | _ -> hex_acc,chr_acc
+    | x when x > 0 ->
+       let cnt,hex_acc =
+         let hex = hex_acc ^ (conv_hex ()) in
+         let hex = if space cnt then hex ^ " " else hex in
+         (succ cnt),hex
+       in aux_empty cnt hex_acc (chr_acc ^ conv_chr ()) (pred x)
+    | _ -> Option.get_or ~default:hex_acc (String.chop_suffix ~suf:" " hex_acc),chr_acc
   in
   let rec aux id cnt hex_acc chr_acc = function
-    | [] -> let hex_acc,chr_acc = aux_empty cnt hex_acc chr_acc
-                                    (config.width - List.length hex_acc)
-            in id,hex_acc,chr_acc
+    | [] ->
+       let hex_acc,chr_acc = aux_empty cnt hex_acc chr_acc (config.width - cnt + 1)
+       in id,hex_acc,chr_acc
     | hd::tl ->
        let cnt,hex_acc =
          let code = Char.code hd in
-         if cnt = grouping
-         then 0,((conv_hex ~value:(id,code) () ^ " ") :: hex_acc)
-         else (succ cnt),((conv_hex ~value:(id,code) ()) :: hex_acc)
+         let hex  = hex_acc ^ (conv_hex ~value:(id,code) ()) in
+         let hex  = if space cnt then hex ^ " " else hex in
+         (succ cnt),hex
        in
-       let chr_acc = (conv_chr ~value:(id,hd) ()) :: chr_acc in
+       let chr_acc = chr_acc ^ (conv_chr ~value:(id,hd) ()) in
        aux (succ id) cnt hex_acc chr_acc tl
   in
-  let id,hex,chars = aux id 0 [] [] data in
+  let id,hex,chars = aux id 1 "" "" data in
   id,
-  (String.concat "" (List.rev hex)   |> pad config.style.hex) ^ "\n",
-  (String.concat "" (List.rev chars) |> pad config.style.char) ^ "\n"
+  (pad config.style.hex hex) ^ "\n",
+  (pad config.style.char chars) ^ "\n"
 
 class t ~(config:config) (data:string) () =
   let rec aux acc bytes = match List.take_drop config.width bytes with
