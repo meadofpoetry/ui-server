@@ -353,10 +353,8 @@ module Errors = struct
     in Conn.request db Request.(find select (is_ts,from,till) >>= function
                                 | None -> return 0.0
                                 | Some s -> return (100. *. (float_of_int s) /. span))
-
-  let max_limit = 500
                 
-  let select_errors db ?(streams = []) ?(priority = []) ?(pids = []) ?(errors = []) ?(limit = max_limit)
+  let select_errors db ?(streams = []) ?(priority = []) ?(pids = []) ?(errors = []) ?(limit = 500)
         ~is_ts ~from ~till () =
     let open Printf in
     let table    = (Conn.names db).errors in
@@ -372,10 +370,6 @@ module Errors = struct
                       table streams priority pids errors)
     in Conn.request db Request.(list select (is_ts,from,till,limit) >>= fun data ->
                                 return (Raw { data; has_more = (List.length data >= limit); order = `Desc }))
-
-  type err = (Common.Stream.id * Errors.t) list [@@deriving yojson]
-     
-  type per = (float * Time.t * Time.t) list [@@deriving yojson]
      
   let select_errors_compressed db ?(streams = []) ?(priority = []) ?(pids = []) ?(errors = []) ~is_ts ~from ~till () =
     let open Printf in

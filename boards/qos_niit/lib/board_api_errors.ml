@@ -67,6 +67,10 @@ module HTTP = struct
 
     module Archive = struct
 
+      type err = (Common.Stream.id * Errors.t) list [@@deriving yojson]
+     
+      type per = (float * Time.t * Time.t) list [@@deriving yojson]
+      
       let errors db streams errors priority pids limit compress from till duration _ _ () =
         match Time.make_interval ?from ?till ?duration () with
         | Ok (`Range (from,till)) -> begin
@@ -97,6 +101,10 @@ module HTTP = struct
   module T2MI = struct
 
     module Archive = struct
+
+      type err = (Common.Stream.id * Errors.t) list [@@deriving yojson]
+     
+      type per = (float * Time.t * Time.t) list [@@deriving yojson]
 
       let errors db streams t2mi_id errors pids limit compress from till duration _ _ () =
         match Time.make_interval ?from ?till ?duration () with
