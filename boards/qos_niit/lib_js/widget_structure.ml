@@ -54,16 +54,16 @@ let make_service (service : service_info) =
   let es      = if not (List.is_empty service.es)
                 then Some (let es = List.sort (fun (x:es_info) y -> compare x.pid y.pid) service.es in
                            new Tree.Item.t
-                               ~text:"Элементарные потоки"
-                               ~nested:(new Tree.t ~items:(List.map make_es es) ())
-                               ())
+                             ~text:"Элементарные потоки"
+                             ~nested:(new Tree.t ~items:(List.map make_es es) ())
+                             ())
                 else None in
   let ecm     = if not (List.is_empty service.ecm)
                 then Some (let ecm = List.sort (fun (x:ecm_info) y -> compare x.pid y.pid) service.ecm in
                            new Tree.Item.t
-                               ~text:"ECM"
-                               ~nested:(new Tree.t ~items:(List.map make_ecm ecm) ())
-                               ())
+                             ~text:"ECM"
+                             ~nested:(new Tree.t ~items:(List.map make_ecm ecm) ())
+                             ())
                 else None in
   let opt     = es ^:: ecm ^:: [] in
   let nested  = new Tree.t ~items:([ id; pmt_pid; pcr_pid ] @ opt) () in
@@ -92,9 +92,9 @@ let make_table (table : table) =
     | _     -> []
   in
   let sections = new Tree.Item.t
-                     ~text:(Printf.sprintf "Секции (%d)" @@ List.length common.sections)
-                     ~nested:(new Tree.t ~items:(List.map make_section common.sections) ())
-                     () in
+                   ~text:(Printf.sprintf "Секции (%d)" @@ List.length common.sections)
+                   ~nested:(new Tree.t ~items:(List.map make_section common.sections) ())
+                   () in
   let nested = new Tree.t ~items:(specific @ [sections]) () in
   new Tree.Item.t ~text ~secondary_text:stext ~nested ()
 
@@ -114,32 +114,32 @@ let make_stream (ts : structure) =
   let pids = if not (List.is_empty ts.pids)
              then Some (let pids = List.sort (fun (x:pid_info) y -> compare x.pid y.pid) ts.pids in
                         new Tree.Item.t
-                            ~text:"PIDs"
-                            ~nested:(new Tree.t ~items:(List.map make_pid pids) ())
-                            ())
+                          ~text:"PIDs"
+                          ~nested:(new Tree.t ~items:(List.map make_pid pids) ())
+                          ())
              else None in
   let serv = if not (List.is_empty ts.services)
              then Some (let serv = List.sort (fun (x:service_info) y -> compare x.id y.id) ts.services in
                         new Tree.Item.t
-                            ~text:"Сервисы"
-                            ~nested:(new Tree.t ~items:(List.map make_service serv) ())
-                            ())
+                          ~text:"Сервисы"
+                          ~nested:(new Tree.t ~items:(List.map make_service serv) ())
+                          ())
              else None in
   let emm  = if not (List.is_empty ts.emm)
              then Some (let emm = List.sort (fun (x:emm_info) y -> compare x.pid y.pid) ts.emm in
                         new Tree.Item.t
-                            ~text:"EMM"
-                            ~nested:(new Tree.t ~items:(List.map make_emm emm) ())
-                            ())
+                          ~text:"EMM"
+                          ~nested:(new Tree.t ~items:(List.map make_emm emm) ())
+                          ())
              else None in
   let tabl = if not (List.is_empty ts.tables)
              then Some (let tabl = List.sort (fun (x:table) y -> compare (table_common_of_table x).pid
-                                                                         (table_common_of_table y).pid)
-                                             ts.tables in
+                                                                   (table_common_of_table y).pid)
+                                     ts.tables in
                         new Tree.Item.t
-                            ~text:"Таблицы"
-                            ~nested:(new Tree.t ~items:(List.map make_table tabl) ())
-                            ())
+                          ~text:"Таблицы"
+                          ~nested:(new Tree.t ~items:(List.map make_table tabl) ())
+                          ())
              else None in
   let text, stext = "Поток", "" in
   let opt    = serv ^:: tabl ^:: pids ^:: emm ^:: [] in
