@@ -2,14 +2,14 @@ open Boards.Board
 open Common
 open Types
 
-let handle (api:api) (events:events) =
-  [ Board_api_device.handler api events.device
-  ; Api_handler.add_layer "errors"  (Board_api_errors.handlers events.errors)
-  ; Api_handler.add_layer "stream"  (Board_api_stream.handlers api events.streams)
-  ; Api_handler.add_layer "streams" (Board_api_streams.handlers api events.streams)
+let handle db (api:api) (events:events) =
+  [ Board_api_device.handler db api events.device
+  ; Api_handler.add_layer "errors"  (Board_api_errors.handlers db events.errors)
+  ; Api_handler.add_layer "stream"  (Board_api_stream.handlers db api events.streams)
+  ; Api_handler.add_layer "streams" (Board_api_streams.handlers db api events.streams)
   ; Api_handler.add_layer "jitter"  (Board_api_jitter.handlers events.jitter)
   ]
 
-let handlers id api events =
-  [ Api_handler.add_layer (Topology.get_api_path id) (handle api events)
+let handlers id db api events =
+  [ Api_handler.add_layer (Topology.get_api_path id) (handle db api events)
   ]

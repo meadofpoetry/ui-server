@@ -186,6 +186,7 @@ module Get_section : (Request
   let serialize { request_id;params } =
     let body = Cstruct.create sizeof_req_get_section in
     let ()   = set_req_get_section_stream_id body @@ Common.Stream.id_to_int32 params.stream_id in
+    let ()   = set_req_get_section_table_id body params.table_id in
     let ()   = Option.iter (set_req_get_section_section body) params.section in
     let ()   = Option.iter (set_req_get_section_table_id_ext body) params.table_id_ext in
     let ()   = Option.iter (set_req_get_section_adv_info_1 body) params.eit_ts_id in

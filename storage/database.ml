@@ -28,7 +28,7 @@ type state = { period  : float
 module Request : sig
   type ('a, 'typ) t
   val (>>=) : ('a, 'typ) t -> ('a -> ('b, 'typ) t) -> ('b, 'typ) t
-  val return : 'a -> ('a, 'b) t
+  val return : 'a -> ('a, [> `Simple]) t
   val exec : ('a, unit, [`Zero]) Caqti_request.t -> 'a -> (unit, [> `Simple]) t
   val find : ('a, 'b, [`One | `Zero]) Caqti_request.t -> 'a -> ('b option, [> `Simple]) t
   val list : ('a, 'b, [`Many | `One | `Zero]) Caqti_request.t -> 'a -> ('b list, [> `Simple]) t
@@ -73,40 +73,48 @@ end
 type keys = { columns  : (string * Key_t.t) list
             ; time_key : string option
             }
-        
+          
 module type MODEL = sig
+  type init
+  type names
   val name     : string
-  val tables   : (string * keys * (unit, _) Request.t option) list
+  val tables   : init -> names * ((string * keys * (unit, _) Request.t option) list)
 end
            
 module type CONN = sig
   type t
-  val create   : state -> (t, string) result
+  type init
+  type names
+  val create   : state -> init -> (t, string) result
   val request  : t -> ('req,_) Request.t -> 'req Lwt.t
   val delete   : t -> unit Lwt.t
+  val names    : t -> names
 end
 
-module Make (M : MODEL) : CONN = struct
-  
-  type t = state
+module Make (M : MODEL) : (CONN with type init := M.init and type names := M.names) = struct
+
+  type t = { state:  state
+           ; tables: (string * keys * (unit,[`Simple]) Request.t option) list
+           ; names:  M.names
+           } 
 
   let make_init_query name keys =
     let cols = String.concat ", " (List.map (fun (k,t) -> k ^ " " ^ (Key_t.to_string t)) keys) in
     let exp = Printf.sprintf "CREATE TABLE IF NOT EXISTS %s (%s)" name cols in
     Request.exec (Caqti_request.exec Caqti_type.unit exp)
  
-  let init_trans =
+  let init_trans tables =
     let open Request in
     with_trans (List.fold_left (fun acc (name,keys,_) -> acc >>= make_init_query name keys.columns)
-                  (return ()) M.tables)
+                  (return ()) tables)
 
-  let workers_trans =
+  let workers_trans tables =
     let open Request in
-    List.filter_map (fun (_,_,w) -> w) M.tables
+    List.filter_map (fun (_,_,w) -> w) tables
     |> function [] -> None
               | lst -> Some (with_trans (List.fold_left (fun acc m -> acc >>= fun () -> m) (return ()) lst))
                  
-  let cleanup_trans cleanup_dur =
+  let cleanup_trans tables cleanup_dur =
     let open Request in
     with_trans (List.fold_left (fun acc (table,keys,_) ->
                     match keys.time_key with
@@ -115,31 +123,35 @@ module Make (M : MODEL) : CONN = struct
                        acc >>= fun () -> exec (Caqti_request.exec Caqti_type.ptime_span
                                                  (Printf.sprintf "DELETE FROM %s WHERE %s <= (now()::TIMESTAMP - ?::INTERVAL)"
                                                     table time_key)) cleanup_dur)
-                  (return ()) M.tables)
+                  (return ()) tables)
 
-  let delete_trans =
+  let delete_trans tables =
     let open Request in
     with_trans (List.fold_left (fun acc (table,_,_) ->
                     acc >>= fun () -> exec (Caqti_request.exec Caqti_type.unit
                                               (Printf.sprintf "DELETE FROM %s" table)) ())
-                  (return ()) M.tables) 
+                  (return ()) tables) 
 
-  let request (state : t) req = pool_use state.db (fun db -> Request.run db req)
+  let request (state : t) req = pool_use state.state.db (fun db -> Request.run db req)
                
-  let create (state : state) =
+  let create (state : state) sign =
+    let names, tables = M.tables sign in
+    let obj = { state; tables; names } in
     let rec loop () =
-      Lwt_unix.sleep state.period >>= (fun () ->
-        match workers_trans with
+      Lwt_unix.sleep obj.state.period >>= (fun () ->
+        match workers_trans tables with
         | None   -> Lwt.return_unit
-        | Some w -> request state w)
+        | Some w -> request obj w)
       >>= fun () ->
-      request state (cleanup_trans state.cleanup) >>= loop
+      request obj (cleanup_trans tables obj.state.cleanup) >>= loop
     in
-    Lwt_main.run (request state init_trans );
+    Lwt_main.run (request obj @@ init_trans tables);
     Lwt.async loop;
-    Ok state
+    Ok obj
 
-  let delete state = request state delete_trans
+  let delete obj = request obj (delete_trans obj.tables)
+
+  let names obj = obj.names
 
 end
 
@@ -151,7 +163,7 @@ module Types = struct
 
     let (&) = Caqti_type.tup2
   end
-
+              
 end
                                
 type t = state
