@@ -3,6 +3,8 @@
 
 .mdc-icon {
 
+    @include mdc-theme-prop(fill, text-icon-on-background);
+
     &--button {
         cursor: pointer;
     }

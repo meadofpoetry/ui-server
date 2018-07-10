@@ -12,7 +12,7 @@ end
 module Item = struct
 
   (* TODO add ripple manually, without auto-init *)
-  class t ?(ripple=false) ?secondary_text ?graphic ?meta ~text () =
+  class ['a] t ?(ripple=false) ?secondary_text ?graphic ?meta ?tag ~(value:'a) ~text () =
     let text_elt = match secondary_text with
       | Some st -> let secondary = Markup.Item.create_secondary_text st () in
                    Markup.Item.create_text ~secondary text ()
@@ -21,15 +21,19 @@ module Item = struct
     let elt = Markup.Item.create
                 ?graphic:(Option.map Widget.to_markup graphic)
                 ?meta:(Option.map Widget.to_markup meta)
-                text_elt ()
+                ?tag text_elt ()
               |> Tyxml_js.To_dom.of_element in
 
     object(self)
+      val mutable _v = value
       inherit Widget.t elt ()
 
       (* TODO add setters, real getters *)
       method text           = text
       method secondary_text = secondary_text
+
+      method value = _v
+      method set_value (v:'a) = _v <- v
 
       initializer
         if ripple then Ripple.attach self |> ignore;
@@ -39,7 +43,15 @@ module Item = struct
 
 end
 
-class t ?avatar ~(items:[ `Item of Item.t | `Divider of Divider.t ] list) () =
+class base elt () =
+object(self)
+  inherit Widget.t elt ()
+
+  method set_dense x = self#add_or_remove_class x Markup.dense_class
+
+end
+
+class ['a] t ?avatar ~(items:[ `Item of 'a Item.t | `Divider of Divider.t ] list) () =
   let two_line = List.find_pred (function
                      | `Divider _ -> false
                      | `Item x    -> Option.is_some x#secondary_text)
@@ -53,19 +65,17 @@ class t ?avatar ~(items:[ `Item of Item.t | `Divider of Divider.t ] list) () =
                         items) ()
             |> Tyxml_js.To_dom.of_element in
   object(self)
-    inherit Widget.t elt () as super
+    inherit base elt ()
 
-    method set_dense x    = self#add_or_remove_class x Markup.dense_class
-
-    method add_item (x : Item.t) = Dom.appendChild self#root x#root
-    method remove_item (x : Item.t) = try Dom.removeChild self#root x#root with _ -> ()
+    method add_item (x : 'a Item.t)    = Dom.appendChild self#root x#root
+    method remove_item (x : 'a Item.t) = try Dom.removeChild self#root x#root with _ -> ()
   end
 
 module List_group = struct
 
   type group =
     { subheader : Typography.Text.t option
-    ; list      : t
+    ; list      : base
     }
 
   let rec add_dividers acc l =

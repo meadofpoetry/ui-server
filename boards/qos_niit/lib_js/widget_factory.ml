@@ -70,7 +70,7 @@ object(self)
        Widget_chart.make conf
        |> Dashboard.Item.to_item ~name:Widget_chart.name
     | Structure config ->
-       (fun s str -> Widget_structure.make ?config ~state:s ~signal:str ())
+       (fun s str -> Widget_structure.make ?config ~state:s ~signal:str control ())
        |> Factory_state_lwt.l2 self#_state self#_structs
        |> Ui_templates.Loader.create_widget_loader
        |> Dashboard.Item.to_item ~name:Widget_structure.name

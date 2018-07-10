@@ -6,7 +6,6 @@
     $short : if($direction == horizontal, width, height);
     $flow  : if($direction == horizontal, row, column);
 
-    cursor: if($direction == horizontal, col-resize, row-resize);
     flex-flow: $flow nowrap;
     display: flex;
 

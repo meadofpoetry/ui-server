@@ -401,7 +401,9 @@ module Streams = struct
     type section =
       { stream_id : Stream.id
       ; table_id  : int
-      ; section   : string } [@@deriving yojson]
+      ; section   : string
+      ; parsed    : Yojson.Safe.json option
+      } [@@deriving yojson]
 
   end
 

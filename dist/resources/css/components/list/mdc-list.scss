@@ -85,7 +85,8 @@
 }
 
 .mdc-list-item__meta {
-  @include mdc-rtl-reflexive-property(margin, auto, 0, ".mdc-list-item");
+    @include mdc-rtl-reflexive-property(margin, auto, 0, ".mdc-list-item");
+    font-size: 0.8em;
 }
 
 .mdc-list-item__text,

@@ -98,26 +98,30 @@ module Descriptor = struct
     let decode bs =
       match%bitstring bs with
       | {| mfr_flag : 1
-         ; frame_rate : 4 : map (fun x -> frame_rate_of_int x)
+         ; frame_rate : 4
          ; mpeg_1_only_flag : 1
          ; constrained_parameter_flag : 1
          ; still_picture_flag : 1
-         |} when not mpeg_1_only_flag -> { mfr_flag; frame_rate; mpeg_1_only_flag; constrained_parameter_flag;
-                                           still_picture_flag; mpeg_1_only = None }
+         |} when not mpeg_1_only_flag ->
+         { mfr_flag; frame_rate = frame_rate_of_int frame_rate;
+           mpeg_1_only_flag; constrained_parameter_flag;
+           still_picture_flag; mpeg_1_only = None }
       | {| mfr_flag : 1
-         ; frame_rate : 4 : map (fun x -> frame_rate_of_int x)
+         ; frame_rate : 4
          ; mpeg_1_only_flag : 1
          ; constrained_parameter_flag : 1
          ; still_picture_flag : 1
          ; profile_and_level_indication : 8
-         ; chroma_format: 2 : map (fun x -> chroma_format_of_int x)
+         ; chroma_format: 2
          ; frame_rate_extension_flag : 1
          ; reserved : 5
-         |} -> { mfr_flag; frame_rate; mpeg_1_only_flag; constrained_parameter_flag; still_picture_flag;
-                 mpeg_1_only = Some { profile_and_level_indication
-                                    ; chroma_format
-                                    ; frame_rate_extension_flag
-                                    ; reserved }}
+         |} ->
+         { mfr_flag; frame_rate = frame_rate_of_int frame_rate;
+           mpeg_1_only_flag; constrained_parameter_flag; still_picture_flag;
+           mpeg_1_only = Some { profile_and_level_indication
+                              ; chroma_format = chroma_format_of_int chroma_format
+                              ; frame_rate_extension_flag
+                              ; reserved }}
 
   end
 
@@ -208,7 +212,7 @@ module Descriptor = struct
          ; temporal_scalability           : 1
          ; spatial_scalability            : 1
          ; quality_scalability            : 1
-         ; hierarchy_type                 : 4 : map (fun x -> hierarchy_of_int x)
+         ; hierarchy_type                 : 4
          ; reserved_2                     : 2
          ; hierarchy_layer_index          : 6
          ; tref_present_flag              : 1
@@ -216,9 +220,12 @@ module Descriptor = struct
          ; hierarchy_embedded_layer_index : 6
          ; reserved_4                     : 2
          ; hierarchy_channel              : 6
-         |} -> { reserved_1; temporal_scalability; spatial_scalability; quality_scalability; hierarchy_type;
-                 reserved_2; hierarchy_layer_index; tref_present_flag; reserved_3; hierarchy_embedded_layer_index;
-                 reserved_4; hierarchy_channel }
+         |} ->
+         { reserved_1; temporal_scalability; spatial_scalability;
+           quality_scalability; hierarchy_type = hierarchy_of_int hierarchy_type;
+           reserved_2; hierarchy_layer_index; tref_present_flag; reserved_3;
+           hierarchy_embedded_layer_index;
+           reserved_4; hierarchy_channel }
 
   end
 
@@ -356,9 +363,12 @@ module Descriptor = struct
         if Bitstring.bitstring_length x = 0 then List.rev acc
         else (match%bitstring bs with
               | {| iso_639_language_code : 24
-                 ; audio_type            : 8  : map (fun x -> audio_type_of_int x)
+                 ; audio_type            : 8
                  ; rest                  : -1 : bitstring
-                 |} -> f ({ iso_639_language_code; audio_type } :: acc) rest) in
+                 |} ->
+                 f ({ iso_639_language_code
+                    ; audio_type = audio_type_of_int audio_type }
+                    :: acc) rest) in
       f [] bs
 
   end
@@ -433,12 +443,6 @@ module Descriptor = struct
 
   end
 
-                                       [%%cstruct
-                                        type descriptor =
-                                          { tag    : uint8_t
-                                          ; length : uint8_t
-                                          } [@@big_endian]]
-
   type descriptor = Video_stream           of Video_stream.t
                   | Audio_stream           of Audio_stream.t
                   | Hierarchy              of Hierarchy.t
@@ -475,13 +479,12 @@ module Descriptor = struct
     { tag; length; name; content }
 
   let of_bitstring bs =
-    Lwt_io.printf "Total length %d\n" (Bitstring.bitstring_length bs) |> ignore;
     match%bitstring bs with
     | {| tag    : 8
        ; length : 8
        ; body   : length * 8 : bitstring
        ; rest   : -1 : bitstring
-       |} -> Lwt_io.printf "Length is %d\n" length |> ignore; (decode tag length body),rest
+       |} -> (decode tag length body),rest
 
 end
 
@@ -558,7 +561,7 @@ module PAT = struct
     } [@@deriving yojson]
 
   let parse buf =
-    let bs = bitstring_of_string @@ Cstruct.to_string buf in
+    let bs = bitstring_of_string buf in
     let rec f = fun acc x ->
       if bitstring_length x = 0 then List.rev acc
       else (match%bitstring x with
@@ -613,7 +616,7 @@ module PMT = struct
     } [@@deriving yojson]
 
   let parse buf =
-    let bs = Bitstring.bitstring_of_string @@ Cstruct.to_string buf in
+    let bs = Bitstring.bitstring_of_string buf in
     let rec parse_streams = (fun acc x ->
         if Bitstring.bitstring_length x = 0 then List.rev acc
         else (match%bitstring x with
@@ -668,7 +671,7 @@ module CAT = struct
     } [@@deriving yojson]
 
   let parse buf =
-    let bs = bitstring_of_string @@ Cstruct.to_string buf in
+    let bs = bitstring_of_string buf in
     let header,rest = parse_header bs in
     match%bitstring rest with
     | {| reserved               : 18
@@ -711,7 +714,7 @@ module NIT = struct
     } [@@deriving yojson]
 
   let parse buf =
-    let bs = Bitstring.bitstring_of_string @@ Cstruct.to_string buf in
+    let bs = Bitstring.bitstring_of_string buf in
     let header,rest = parse_header bs in
     match%bitstring rest with
     | {| network_id                   : 16
@@ -757,7 +760,7 @@ module BAT = struct
     } [@@deriving yojson]
 
   let parse buf =
-    let bs = Bitstring.bitstring_of_string @@ Cstruct.to_string buf in
+    let bs = Bitstring.bitstring_of_string buf in
     let header,rest = parse_header bs in
     match%bitstring rest with
     | {| bouquet_id                   : 16
@@ -827,7 +830,7 @@ module SDT = struct
                                          running_status; free_ca_mode; descriptors_loop_length;
                                          descriptors = parse_descriptors [] descriptors} :: acc)
                          rest)) in
-    let bs = Bitstring.bitstring_of_string @@ Cstruct.to_string buf in
+    let bs = Bitstring.bitstring_of_string buf in
     let header,rest = parse_header bs in
     let len         = Bitstring.bitstring_length rest in
     match%bitstring rest with
@@ -893,7 +896,7 @@ module EIT = struct
                                        descriptors_loop_length;
                                        descriptors = parse_descriptors [] descriptors} :: acc)
                          rest)) in
-    let bs = Bitstring.bitstring_of_string @@ Cstruct.to_string buf in
+    let bs = Bitstring.bitstring_of_string buf in
     let header,rest = parse_header bs in
     match%bitstring rest with
     | {| service_id                  : 16
@@ -924,7 +927,7 @@ module TDT = struct
     } [@@deriving yojson]
 
   let parse buf =
-    let bs = Bitstring.bitstring_of_string @@ Cstruct.to_string buf in
+    let bs = Bitstring.bitstring_of_string buf in
     let header,rest = parse_header bs in
     match%bitstring rest with
     | {| utc_time : 40 |} -> { header; utc_time }
@@ -945,14 +948,14 @@ module TOT = struct
     } [@@deriving yojson]
 
   let parse buf =
-    let bs = Bitstring.bitstring_of_string @@ Cstruct.to_string buf in
+    let bs = Bitstring.bitstring_of_string buf in
     let header,rest = parse_header bs in
     match%bitstring rest with
-    | {| utc_time               : 40
-       ; reserved               : 4
+    | {| utc_time                : 40
+       ; reserved                : 4
        ; descriptors_loop_length : 12
-       ; descriptors            : descriptors_loop_length * 8 : bitstring
-       ; crc32                  : 32
+       ; descriptors             : descriptors_loop_length * 8 : bitstring
+       ; crc32                   : 32
        |} -> { header; utc_time; reserved; descriptors_loop_length;
                descriptors = parse_descriptors [] descriptors; crc32 }
 
@@ -977,7 +980,7 @@ module RST = struct
     } [@@deriving yojson]
 
   let parse buf =
-    let bs = Bitstring.bitstring_of_string @@ Cstruct.to_string buf in
+    let bs = Bitstring.bitstring_of_string buf in
     let header,rest = parse_header bs in
     let rec parse_events = fun acc x ->
       if Bitstring.bitstring_length x = 0 then List.rev acc
@@ -1006,7 +1009,7 @@ module ST = struct
     } [@@deriving yojson]
 
   let parse buf =
-    let bs = Bitstring.bitstring_of_string @@ Cstruct.to_string buf in
+    let bs = Bitstring.bitstring_of_string buf in
     let header,rest = parse_header bs in
     { header; bytes = Bitstring.string_of_bitstring rest }
 
@@ -1023,7 +1026,7 @@ module DIT = struct
     } [@@deriving yojson]
 
   let parse buf =
-    let bs = Bitstring.bitstring_of_string @@ Cstruct.to_string buf in
+    let bs = Bitstring.bitstring_of_string buf in
     let header,rest = parse_header bs in
     match%bitstring rest with
     | {| transition_flag : 1
@@ -1062,7 +1065,7 @@ module SIT = struct
     } [@@deriving yojson]
 
   let parse buf =
-    let bs = bitstring_of_string @@ Cstruct.to_string buf in
+    let bs = bitstring_of_string buf in
     let header,rest = parse_header bs in
     let len = bitstring_length rest in
     let rec parse_services = fun acc x ->
@@ -1100,3 +1103,30 @@ module SIT = struct
                                               services = parse_services [] services; crc32 }
 
 end
+
+let table_to_yojson : string ->
+                      Board_types.Streams.TS.table_label ->
+                      Yojson.Safe.json option =
+  fun buf tbl ->
+  try
+    (match tbl with
+     | `PAT  -> PAT.parse buf  |> PAT.to_yojson
+     | `CAT  -> CAT.parse buf  |> CAT.to_yojson
+     | `PMT  -> PMT.parse buf  |> PMT.to_yojson
+     | `TSDT -> TSDT.parse buf |> TSDT.to_yojson
+     | `NIT | `NITa | `NITo  ->
+        NIT.parse buf  |> NIT.to_yojson
+     | `SDT | `SDTa | `SDTo  ->
+        SDT.parse buf  |> SDT.to_yojson
+     | `BAT  -> BAT.parse buf  |> BAT.to_yojson
+     | `EIT | `EITap | `EITop | `EITas | `EITos ->
+        EIT.parse buf  |> EIT.to_yojson
+     | `TDT  -> TDT.parse buf  |> TDT.to_yojson
+     | `RST  -> RST.parse buf  |> RST.to_yojson
+     | `ST   -> ST.parse buf   |> ST.to_yojson
+     | `TOT  -> TOT.parse buf  |> TOT.to_yojson
+     | `DIT  -> DIT.parse buf  |> DIT.to_yojson
+     | `SIT  -> SIT.parse buf  |> SIT.to_yojson
+     | _     -> `Null)
+    |> Option.return
+  with _ -> None

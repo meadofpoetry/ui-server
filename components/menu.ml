@@ -5,8 +5,8 @@ module Markup  = Components_markup.Menu.Make(Xml)(Svg)(Html)
 
 module Item = struct
 
-  class t ?secondary_text ?graphic ?meta ~text () = object
-    inherit Item_list.Item.t ?secondary_text ?graphic ?meta ~text () as super
+  class ['a] t ?secondary_text ?graphic ?meta ~value ~text () = object
+    inherit ['a] Item_list.Item.t ?secondary_text ?graphic ?meta ~value ~text () as super
 
     method get_disabled   = (match super#get_attribute "aria-disabled" with
                              | Some "true" -> true
@@ -52,13 +52,14 @@ let events =
   ; cancel   = Dom_events.Typ.make "MDCMenu:cancel"
   }
 
-class t ?open_from ~(items:[ `Item of Item.t | `Divider of Divider.t ] list) () =
+class ['a] t ?open_from ~(items:[ `Item of 'a Item.t | `Divider of Divider.t ] list) () =
 
-  let list = new Item_list.t ~items:(List.map (function
-                                         | `Item x    -> `Item (x : Item.t :> Item_list.Item.t)
-                                         | `Divider x -> `Divider x)
-                                       items) () in
-
+  let list =
+    new Item_list.t
+      ~items:(List.map (function
+                  | `Item x    -> `Item (x : 'a Item.t :> 'a Item_list.Item.t)
+                  | `Divider x -> `Divider x)
+                items) () in
   let () = list#set_attribute "role" "menu";
            list#set_attribute "aria-hidden" "true";
            list#add_class Markup.items_class in
@@ -96,9 +97,9 @@ class t ?open_from ~(items:[ `Item of Item.t | `Divider of Divider.t ] list) () 
 
 module Wrapper = struct
 
-  type menu = t
+  type 'a menu = 'a t
 
-  class ['a] t ~(anchor:'a) ~(menu:menu) () = object
+  class ['a,'b] t ~(anchor:'a) ~(menu:'b menu) () = object
 
     inherit Widget.t (Tyxml_js.Html.div ~a:[Tyxml_js.Html.a_class [Markup.anchor_class]]
                              [ Widget.to_markup anchor
@@ -110,6 +111,6 @@ module Wrapper = struct
 
 end
 
-let inject ~anchor ~(menu:t) =
+let inject ~anchor ~(menu:'a t) =
   Dom.appendChild anchor#root menu#root;
   anchor#add_class Markup.anchor_class

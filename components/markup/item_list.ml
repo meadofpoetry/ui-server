@@ -19,7 +19,7 @@ module Make(Xml : Xml_sigs.NoWrap)
     let graphic_class        = CSS.add_element _class "graphic"
     let meta_class           = CSS.add_element _class "meta"
 
-    let create_divider ?(classes=[]) ?attrs ?(tag=li) ?(inset=false) () =
+    let create_divider ?(classes=[]) ?attrs ?(tag=div) ?(inset=false) () =
       tag ~a:([ a_class (classes
                          |> cons_if inset @@ CSS.add_modifier divider_class "inset"
                          |> List.cons divider_class)
@@ -36,7 +36,7 @@ module Make(Xml : Xml_sigs.NoWrap)
     let create_text_simple text () =
       pcdata text
 
-    let create ?(classes=[]) ?attrs ?(tag=li) ?graphic ?meta text () =
+    let create ?(classes=[]) ?attrs ?(tag=div) ?graphic ?meta text () =
       tag ~a:([ a_class (_class :: classes)] <@> attrs)
         (graphic ^:: (text :: (meta ^:: [])))
 
@@ -59,7 +59,7 @@ module Make(Xml : Xml_sigs.NoWrap)
   let two_line_class = CSS.add_modifier base_class "two-line"
   let avatar_class   = CSS.add_modifier base_class "avatar-list"
 
-  let create ?(classes=[]) ?(tag=ul) ?attrs
+  let create ?(classes=[]) ?(tag=div) ?attrs
         ?(avatar=false) ?(dense=false) ?(two_line=false) ~items () =
     tag ~a:([ a_class (classes
                        |> cons_if dense    dense_class

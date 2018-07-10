@@ -159,7 +159,7 @@ module Structure = struct
     let s, push        = React.S.create pid.to_be_analyzed in
     let pid_s          = React.S.map (fun b -> {pid with to_be_analyzed = b}) s in
     React.S.map push checkbox#s_state |> ignore;
-    let item = new Tree.Item.t ~text ~secondary_text:stext ~graphic:checkbox () in
+    let item = new Tree.Item.t ~text ~secondary_text:stext ~graphic:checkbox ~value:() () in
     item, pid_s
 
   let make_channel (ch : Structure.channel) =
@@ -171,7 +171,7 @@ module Structure = struct
     let ch_s   = React.S.map (fun pl -> {ch with pids = pl})
                  @@ React.S.merge ~eq:Equal.physical (fun a p -> p::a) [] sl in
     let nested = new Tree.t ~items:wl () in
-    let e      = new Tree.Item.t ~text ~secondary_text:stext ~nested ()
+    let e      = new Tree.Item.t ~text ~secondary_text:stext ~nested ~value:() ()
     in e, ch_s
 
   let make_structure (s : Structure.t) =
@@ -183,7 +183,7 @@ module Structure = struct
     let st_s   = React.S.map (fun chl -> {s with structure = {s.structure with channels = chl}}) @@
                    React.S.merge ~eq:Equal.physical (fun a p -> p::a) [] cl in
     let nested = new Tree.t ~items:wl () in
-    let e      = new Tree.Item.t ~text ~secondary_text:stext ~nested ()
+    let e      = new Tree.Item.t ~text ~secondary_text:stext ~nested ~value:() ()
     in e, st_s
 
   let make_structure_list (sl : Structure.t list) =

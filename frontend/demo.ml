@@ -231,25 +231,28 @@ let list_demo () =
                                                ~secondary_text:"some subtext here"
                                                ~graphic:(new Avatar.Letter.t ~text:"A" ())
                                                ~ripple:true
+                                               ~value:()
                                                ()))
                 (List.range 0 5) in
   let list = new Item_list.t ~avatar:true ~items () in
   list#style##.maxWidth := Js.string "400px";
   let list1 = new Item_list.t
-                ~items:[ `Item (new Item_list.Item.t ~text:"Item 1" ~secondary_text:"Subtext" ())
-                       ; `Item (new Item_list.Item.t ~text:"Item 2" ~secondary_text:"Subtext" ())
-                       ; `Item (new Item_list.Item.t ~text:"Item 3" ~secondary_text:"Subtext" ())
+                ~items:[ `Item (new Item_list.Item.t ~text:"Item 1" ~secondary_text:"Subtext" ~value:() ())
+                       ; `Item (new Item_list.Item.t ~text:"Item 2" ~secondary_text:"Subtext" ~value:() ())
+                       ; `Item (new Item_list.Item.t ~text:"Item 3" ~secondary_text:"Subtext" ~value:() ())
                 ]
                 () in
   let list2 = new Item_list.t
-                ~items:[ `Item (new Item_list.Item.t ~text:"Item 1" ~secondary_text:"Subtext" ())
-                       ; `Item (new Item_list.Item.t ~text:"Item 2" ~secondary_text:"Subtext" ())
-                       ; `Item (new Item_list.Item.t ~text:"Item 3" ~secondary_text:"Subtext" ())
+                ~items:[ `Item (new Item_list.Item.t ~text:"Item 1" ~secondary_text:"Subtext" ~value:() ())
+                       ; `Item (new Item_list.Item.t ~text:"Item 2" ~secondary_text:"Subtext" ~value:() ())
+                       ; `Item (new Item_list.Item.t ~text:"Item 3" ~secondary_text:"Subtext" ~value:() ())
                 ]
                 () in
   let group = new Item_list.List_group.t
-                ~content:[ { subheader = Some (new Typography.Text.t ~text:"Group 1" ()); list = list1 }
-                         ; { subheader = Some (new Typography.Text.t ~text:"Group 2" ()); list = list2 }
+                ~content:[ { subheader = Some (new Typography.Text.t ~text:"Group 1" ())
+                           ; list = (list1 :> Item_list.base) }
+                         ; { subheader = Some (new Typography.Text.t ~text:"Group 2" ())
+                           ; list = (list2 :> Item_list.base) }
                 ]
                 () in
   group#style##.maxWidth := Js.string "400px";
@@ -259,15 +262,16 @@ let tree_demo () =
   let item x = new Tree.Item.t
                  ~text:("Item " ^ string_of_int x)
                  ~nested:(new Tree.t
-                            ~items:[ new Tree.Item.t ~text:"Item 0"
+                            ~items:[ new Tree.Item.t ~text:"Item 0" ~value:()
                                        ~nested:(new Tree.t
-                                                  ~items:[ new Tree.Item.t ~text:"Item 0" ()
-                                                         ; new Tree.Item.t ~text:"Item 1" ()
-                                                         ; new Tree.Item.t ~text:"Item 2" () ]
+                                                  ~items:[ new Tree.Item.t ~text:"Item 0" ~value:() ()
+                                                         ; new Tree.Item.t ~text:"Item 1" ~value:() ()
+                                                         ; new Tree.Item.t ~text:"Item 2" ~value:() () ]
                                                   ()) ()
-                                   ; new Tree.Item.t ~text:"Item 1" ()
-                                   ; new Tree.Item.t ~text:"Item 2" () ]
+                                   ; new Tree.Item.t ~text:"Item 1" ~value:() ()
+                                   ; new Tree.Item.t ~text:"Item 2" ~value:() () ]
                             ())
+                 ~value:()
                  () in
   let tree = new Tree.t
                ~items:(List.map (fun x -> item x) (List.range 0 5))
@@ -276,9 +280,10 @@ let tree_demo () =
   demo_section "Tree" [ tree ]
 
 let menu_demo () =
-  let items    = List.map (fun x -> if x <> 2
-                                    then `Item (new Menu.Item.t ~text:("Menu item " ^ (string_of_int x)) ())
-                                    else `Divider (new Menu.Divider.t ()))
+  let items    = List.map (fun x ->
+                     if x <> 2
+                     then `Item (new Menu.Item.t ~text:("Menu item " ^ (string_of_int x)) ~value:() ())
+                     else `Divider (new Menu.Divider.t ()))
                    (List.range 0 5) in
   let anchor  = new Button.t ~label:"Open menu" () in
   anchor#style##.marginBottom := Js.string "50px";
@@ -287,9 +292,9 @@ let menu_demo () =
   menu#set_dense true;
   let icon_anchor = new Icon.Font.t ~icon:"more_horiz" () in
   let icon_menu   = new Menu.t
-                      ~items:[ `Item (new Menu.Item.t ~text:"Item 1" ())
-                             ; `Item (new Menu.Item.t ~text:"Item 2" ())
-                             ; `Item (new Menu.Item.t ~text:"Item 3" ()) ]
+                      ~items:[ `Item (new Menu.Item.t ~text:"Item 1" ~value:() ())
+                             ; `Item (new Menu.Item.t ~text:"Item 2" ~value:() ())
+                             ; `Item (new Menu.Item.t ~text:"Item 3" ~value:() ()) ]
                       () in
   let icon_wrapper = new Menu.Wrapper.t ~menu:icon_menu ~anchor:icon_anchor () in
   React.E.map (fun _ -> menu#show) anchor#e_click      |> ignore;

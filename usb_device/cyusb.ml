@@ -49,23 +49,23 @@ let send usb b =
   in
   send' buf_lst
 
-let recv usb = Cstruct.create 0
-  (* let open Cbuffer in
-   * let open Ctypes in
-   * let got  = allocate int32_t 1l in
-   * let rec recv' () =
-   *   let buf = Cbuffer.create_unsafe usb.in_max in
-   *   let _   = Cyusb_raw.bulk_transfer usb.handle (Unsigned.UChar.of_int usb.inp)
-   *                                     (get_ptr buf) (len buf)
-   *                                     got 2
-   *   in
-   *   match Int32.to_int (!@ got) with
-   *   | 0 -> []
-   *   | x when x < 0 -> failwith "usb: reading failure"
-   *   | len ->
-   *      let r = if len < (Cbuffer.len buf)
-   *              then Cbuffer.sub buf 0 len
-   *              else buf
-   *      in r::(recv' ())
-   * in 
-   * Cbuffer.concat @@ recv' () *)
+let recv usb =
+  let open Cbuffer in
+  let open Ctypes in
+  let got  = allocate int32_t 1l in
+  let rec recv' () =
+    let buf = Cbuffer.create_unsafe usb.in_max in
+    let _   = Cyusb_raw.bulk_transfer usb.handle (Unsigned.UChar.of_int usb.inp)
+                (get_ptr buf) (len buf)
+                got 2
+    in
+    match Int32.to_int (!@ got) with
+    | 0 -> []
+    | x when x < 0 -> failwith "usb: reading failure"
+    | len ->
+       let r = if len < (Cbuffer.len buf)
+               then Cbuffer.sub buf 0 len
+               else buf
+       in r::(recv' ())
+  in 
+  Cbuffer.concat @@ recv' ()

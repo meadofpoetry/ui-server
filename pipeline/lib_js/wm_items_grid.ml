@@ -137,7 +137,7 @@ module Make(I : Item) = struct
         |> ignore;
         (* show grid menu *)
         Dom_events.listen anchor#root Dom_events.Typ.click (fun _ _ ->
-                            let item text = new Menu.Item.t ~text () in
+                            let item text = new Menu.Item.t ~text ~value:() () in
                             let items = List.map (fun (w,h) -> let text = grid_to_string (w,h) in
                                                                item text) @@ React.S.value s_grids in
                             Utils.rm_children menu#list#root;

@@ -24,6 +24,12 @@ let default_config =
   ; composition  = { services = true; pids = true; emm = true; tables = true }
   }
 
+type dumpable =
+  { name   : string
+  ; get    : unit -> (string,string) Lwt_result.t
+  ; prev   : string option React.signal
+  }
+
 (* Widget default name *)
 let name = "Структура"
 
@@ -33,11 +39,20 @@ let settings = None
 let (^::) = List.cons_maybe
 
 let make_pid (pid : pid_info) =
-  let text, stext = Printf.sprintf "PID: %d" pid.pid,
-                    let pts = if pid.has_pts then "Есть PTS" else "" in
-                    let scr = if pid.scrambled then "Скремблирован" else "" in
-                    String.concat ", " (List.filter (fun x -> not (String.equal x "")) [ pts; scr ]) in
-  new Tree.Item.t ~text ~secondary_text:stext ()
+  let text, stext = Printf.sprintf "PID: %d" pid.pid, None in
+  let scrambled = match pid.scrambled with
+    | true  -> Some (new Icon.SVG.t ~icon:Lock ())
+    | false -> None in
+  let pts = match pid.has_pts with
+    | true  -> Some (new Icon.SVG.t ~icon:Clock_outline ())
+    | false -> None in
+  let meta = match scrambled,pts with
+    | Some s, Some pts -> Some (new Hbox.t ~widgets:[s;pts] ())#widget
+    | Some s, None     -> Some s#widget
+    | None, Some pts   -> Some pts#widget
+    | None, None       -> None
+  in
+  new Tree.Item.t ~text ?meta ?secondary_text:stext ~value:() ()
 
 let make_es (es : es_info) =
   let text, stext = Printf.sprintf "ES PID: %d" es.pid,
@@ -45,84 +60,142 @@ let make_es (es : es_info) =
                     let sid = Printf.sprintf "Stream ID: %d" es.es_stream_id in
                     let pts = if es.has_pts then "Есть PTS" else "" in
                     String.concat ", " (List.filter (fun x -> not (String.equal x "")) [ typ; sid; pts]) in
-  new Tree.Item.t ~text ~secondary_text:stext ()
+  new Tree.Item.t ~text ~secondary_text:stext ~value:() ()
 
 let make_ecm (ecm : ecm_info) =
   let text, stext = Printf.sprintf "ECM PID: %d" ecm.pid,
                     Printf.sprintf "CA System ID: %d" ecm.ca_sys_id in
-  new Tree.Item.t ~text ~secondary_text:stext ()
+  new Tree.Item.t ~text ~secondary_text:stext ~value:() ()
 
 let make_emm (emm : emm_info) =
   let text, stext = Printf.sprintf "EMM PID: %d" emm.pid,
                     Printf.sprintf "CA System ID: %d" emm.ca_sys_id in
-  new Tree.Item.t ~text ~secondary_text:stext ()
+  new Tree.Item.t ~text ~secondary_text:stext ~value:() ()
 
 let make_service (service : service_info) =
   let text, stext = service.name,
                     Printf.sprintf "Провайдер: %s" service.provider_name in
-  let id      = new Tree.Item.t ~text:(Printf.sprintf "ID: %d" service.id) () in
-  let pmt_pid = new Tree.Item.t ~text:(Printf.sprintf "PMT PID: %d" service.pmt_pid) () in
-  let pcr_pid = new Tree.Item.t ~text:(Printf.sprintf "PCR PID: %d" service.pcr_pid) () in
-  let es      = if not (List.is_empty service.es)
-                then Some (let es = List.sort (fun (x:es_info) y -> compare x.pid y.pid) service.es in
-                           new Tree.Item.t
-                             ~text:"Элементарные потоки"
-                             ~nested:(new Tree.t ~items:(List.map make_es es) ())
-                             ())
-                else None in
-  let ecm     = if not (List.is_empty service.ecm)
-                then Some (let ecm = List.sort (fun (x:ecm_info) y -> compare x.pid y.pid) service.ecm in
-                           new Tree.Item.t
-                             ~text:"ECM"
-                             ~nested:(new Tree.t ~items:(List.map make_ecm ecm) ())
-                             ())
-                else None in
+  let id =
+    new Tree.Item.t
+      ~text:(Printf.sprintf "ID: %d" service.id)
+      ~value:()
+      () in
+  let pmt_pid =
+    new Tree.Item.t
+      ~text:(Printf.sprintf "PMT PID: %d" service.pmt_pid)
+      ~value:()
+      () in
+  let pcr_pid =
+    new Tree.Item.t
+      ~text:(Printf.sprintf "PCR PID: %d" service.pcr_pid)
+      ~value:()
+      () in
+  let es =
+    if not (List.is_empty service.es)
+    then Some (let es = List.sort (fun (x:es_info) y -> compare x.pid y.pid) service.es in
+               new Tree.Item.t
+                 ~text:"Элементарные потоки"
+                 ~nested:(new Tree.t ~items:(List.map make_es es) ())
+                 ~value:()
+                 ())
+    else None in
+  let ecm =
+    if not (List.is_empty service.ecm)
+    then Some (let ecm = List.sort (fun (x:ecm_info) y -> compare x.pid y.pid) service.ecm in
+               new Tree.Item.t
+                 ~text:"ECM"
+                 ~nested:(new Tree.t ~items:(List.map make_ecm ecm) ())
+                 ~value:()
+                 ())
+    else None in
   let opt     = es ^:: ecm ^:: [] in
   let nested  = new Tree.t ~items:([ id; pmt_pid; pcr_pid ] @ opt) () in
-  let graphic = new Icon.Font.t ~icon:"tv" () in
-  new Tree.Item.t ~text ~secondary_text:stext ~graphic ~nested ()
+  let graphic = new Icon.SVG.t ~icon:Tv () in
+  new Tree.Item.t ~text ~secondary_text:stext ~graphic ~nested ~value:() ()
 
-let make_section (s : section_info) =
-  let text, stext = Printf.sprintf "ID: %d" s.id,
-                    Printf.sprintf "Длина: %d" s.length in
-  new Tree.Item.t ~text ~secondary_text:stext ()
+let req_of_table stream section tbl control =
+  let common = table_common_of_table tbl in
+  let r = Requests.Stream.HTTP.TS.get_si_psi_section
+            ~id:stream
+            ~table_id:common.id
+            ~section in
+  match tbl with
+  | PAT x -> r ~table_id_ext:x.ts_id control
+  | PMT x -> r ~table_id_ext:x.program_number control
+  | NIT x -> r ~table_id_ext:x.nw_id control
+  | SDT x -> r ~table_id_ext:x.ts_id control
+  | BAT x -> r ~table_id_ext:x.bouquet_id control
+  | EIT x -> r ~table_id_ext:x.service_id
+               ~eit_ts_id:x.params.ts_id
+               ~eit_orig_nw_id:x.params.orig_nw_id
+               control
+  | _     -> r control
 
-let make_table (table : table) =
+let make_section stream table ({id;length;_}:section_info) control =
+  let open Lwt_result.Infix in
+  let req ()      = req_of_table stream id table control in
+  let prev,push   = React.S.create None in
+  let text, stext = Printf.sprintf "ID: %d" id, None in
+  let meta    = Dom_html.createSpan Dom_html.document |> Widget.create in
+  let byte_s  = if length > 1 && length < 5 then "байта" else "байт" in
+  let str  = Printf.sprintf "%d %s" length byte_s in
+  let ()   = meta#set_text_content str in
+  let get  = fun () ->
+    req ()
+    >|= (fun dump -> push (Some dump.section); dump.section)
+    |> Lwt_result.map_err Api_js.Requests.err_to_string in
+  let item = new Tree.Item.t ~text ?secondary_text:stext ~meta ~value:() () in
+  let e,e_push = React.E.create () in
+  let name     = table_to_string table in
+  Dom_events.listen item#item#root Dom_events.Typ.click (fun _ _ ->
+      let dumpable = { name; get; prev } in
+      e_push dumpable; false) |> ignore;
+  item,e
+
+let make_table (stream:Stream.id) (table:table) control =
   let common = table_common_of_table table in
   let text,stext = Printf.sprintf "%s, PID: %d" (table_to_string table) common.pid,
                    Printf.sprintf "Версия: %d, ID: %d, LSN: %d" common.version common.id common.lsn in
+  let make_item = new Tree.Item.t ~value:() in
   let specific = match table with
-    | PAT x -> [ new Tree.Item.t ~text:(Printf.sprintf "TS ID: %d" x.ts_id) () ]
-    | PMT x -> [ new Tree.Item.t ~text:(Printf.sprintf "Номер программы: %d" x.program_number) () ]
-    | NIT x -> [ new Tree.Item.t ~text:(Printf.sprintf "Network ID: %d" x.nw_id) () ]
-    | SDT x -> [ new Tree.Item.t ~text:(Printf.sprintf "TS ID: %d" x.ts_id) () ]
-    | BAT x -> [ new Tree.Item.t ~text:(Printf.sprintf "Bouquet ID: %d" x.bouquet_id) () ]
-    | EIT x -> [ new Tree.Item.t ~text:(Printf.sprintf "Service ID: %d" x.service_id) ()
-               ; new Tree.Item.t ~text:(Printf.sprintf "TS ID: %d" x.params.ts_id) ()
-               ; new Tree.Item.t ~text:(Printf.sprintf "Oririnal network ID: %d" x.params.orig_nw_id) ()
-               ; new Tree.Item.t ~text:(Printf.sprintf "Segment LSN: %d" x.params.segment_lsn) ()
-               ; new Tree.Item.t ~text:(Printf.sprintf "Last table ID: %d" x.params.last_table_id) () ]
+    | PAT x -> [ make_item ~text:(Printf.sprintf "TS ID: %d" x.ts_id) () ]
+    | PMT x -> [ make_item ~text:(Printf.sprintf "Номер программы: %d" x.program_number) () ]
+    | NIT x -> [ make_item ~text:(Printf.sprintf "Network ID: %d" x.nw_id) () ]
+    | SDT x -> [ make_item ~text:(Printf.sprintf "TS ID: %d" x.ts_id) () ]
+    | BAT x -> [ make_item ~text:(Printf.sprintf "Bouquet ID: %d" x.bouquet_id) () ]
+    | EIT x -> [ make_item ~text:(Printf.sprintf "Service ID: %d" x.service_id) ()
+               ; make_item ~text:(Printf.sprintf "TS ID: %d" x.params.ts_id) ()
+               ; make_item ~text:(Printf.sprintf "Oririnal network ID: %d" x.params.orig_nw_id) ()
+               ; make_item ~text:(Printf.sprintf "Segment LSN: %d" x.params.segment_lsn) ()
+               ; make_item ~text:(Printf.sprintf "Last table ID: %d" x.params.last_table_id) () ]
     | _     -> []
   in
-  let sections = new Tree.Item.t
-                   ~text:(Printf.sprintf "Секции (%d)" @@ List.length common.sections)
-                   ~nested:(new Tree.t ~items:(List.map make_section common.sections) ())
-                   () in
+  let items,e  = List.map (fun x ->
+                     make_section stream table x control) common.sections
+                 |> List.split in
+  let e        = React.E.select e in
+  let sections =
+    new Tree.Item.t
+      ~text:(Printf.sprintf "Секции (%d)" @@ List.length common.sections)
+      ~nested:(new Tree.t ~items ())
+      ~value:()
+      () in
   let nested = new Tree.t ~items:(specific @ [sections]) () in
-  new Tree.Item.t ~text ~secondary_text:stext ~nested ()
+  new Tree.Item.t ~text ~secondary_text:stext ~nested ~value:() (),e
 
 let make_general (ts : general_info) =
-  let items = [ new Tree.Item.t ~text:(Printf.sprintf "Network PID: %d" ts.nw_pid) ()
-              ; new Tree.Item.t ~text:(Printf.sprintf "TS ID: %d" ts.ts_id) ()
-              ; new Tree.Item.t ~text:(Printf.sprintf "Network ID: %d" ts.nw_id) ()
-              ; new Tree.Item.t ~text:(Printf.sprintf "Original Network ID: %d" ts.orig_nw_id) ()
-              ; new Tree.Item.t ~text:(Printf.sprintf "Network name: %s" ts.nw_name) ()
+  let make_item = new Tree.Item.t ~value:() in
+  let items = [ make_item ~text:(Printf.sprintf "Network PID: %d" ts.nw_pid) ()
+              ; make_item ~text:(Printf.sprintf "TS ID: %d" ts.ts_id) ()
+              ; make_item ~text:(Printf.sprintf "Network ID: %d" ts.nw_id) ()
+              ; make_item ~text:(Printf.sprintf "Original Network ID: %d" ts.orig_nw_id) ()
+              ; make_item ~text:(Printf.sprintf "Network name: %s" ts.nw_name) ()
               ]
   in
   let nested = new Tree.t ~items () in
-  new Tree.Item.t ~text:"Сведения о потоке" ~nested ()
+  new Tree.Item.t ~text:"Сведения о потоке" ~nested ~value:() ()
 
-let make_stream (ts : structure) =
+let make_stream (id:Stream.id) (ts : structure) control =
   let gen  = make_general ts.general in
   let pids =
     if not (List.is_empty ts.pids)
@@ -130,6 +203,7 @@ let make_stream (ts : structure) =
                new Tree.Item.t
                  ~text:"PIDs"
                  ~nested:(new Tree.t ~items:(List.map make_pid pids) ())
+                 ~value:()
                  ())
     else None in
   let serv =
@@ -138,6 +212,7 @@ let make_stream (ts : structure) =
                new Tree.Item.t
                  ~text:"Сервисы"
                  ~nested:(new Tree.t ~items:(List.map make_service serv) ())
+                 ~value:()
                  ())
     else None in
   let emm  =
@@ -146,41 +221,78 @@ let make_stream (ts : structure) =
                new Tree.Item.t
                  ~text:"EMM"
                  ~nested:(new Tree.t ~items:(List.map make_emm emm) ())
+                 ~value:()
                  ())
     else None in
-  let tabl =
+  let tabl,e =
     if not (List.is_empty ts.tables)
-    then Some (let tabl = List.sort (fun (x:table) y -> compare (table_common_of_table x).pid
-                                                          (table_common_of_table y).pid)
-                            ts.tables in
-               new Tree.Item.t
-                 ~text:"Таблицы"
-                 ~nested:(new Tree.t ~items:(List.map make_table tabl) ())
-                 ())
-    else None in
+    then
+      let tabl =
+        List.sort (fun (x:table) y -> compare (table_common_of_table x).pid
+                                        (table_common_of_table y).pid)
+          ts.tables in
+      let items,e = List.map (fun x -> make_table id x control) tabl
+                    |> List.split in
+      let e       = React.E.select e in
+      let nested  = new Tree.t ~items () in
+      new Tree.Item.t ~text:"Таблицы" ~nested ~value:() ()
+      |> fun x -> Option.return x, e
+    else None, React.E.never in
   let opt    = serv ^:: tabl ^:: pids ^:: emm ^:: [] in
-  new Tree.t ~items:(gen :: opt) ()
+  new Tree.t ~items:(gen :: opt) (), e
+
+let make_parsed (event:dumpable React.event) =
+  let div = Dom_html.createDiv Dom_html.document |> Widget.create in
+  let s,p = React.S.create "" in
+  let _e  =
+    React.E.map (fun {name;get;prev} ->
+        let name = new Typography.Text.t ~text:name () in
+        let btn  = new Button.t ~label:"get" () in
+        let text = new Typography.Text.t ~text:"" () in
+        let _s   =
+          React.S.map (function
+              | Some raw -> text#set_text raw; p raw
+              | None     -> text#set_text "no prev"; p "") prev in
+        Dom_events.listen btn#root Dom_events.Typ.click (fun _ _ ->
+            get () |> Lwt.ignore_result; false) |> ignore;
+        let box  = new Vbox.t ~widgets:[name#widget;btn#widget;text#widget] () in
+        div#set_empty ();
+        Dom.appendChild div#root box#root;
+        _s) event
+    |> Lwt_react.E.keep
+  in
+  div,s
+
+let make_hexdump (signal:string React.signal) =
+  let hexdump = new Hexdump.t ~config:(Hexdump.to_config ~width:16 ()) "" () in
+  let _s = React.S.map hexdump#set signal in
+  Lwt_react.S.keep _s;
+  hexdump
 
 let make
       ?(config=default_config)
       ~(state:Common.Topology.state React.signal)
       ~(signal:(Stream.id * structure) list React.signal)
+      (control:int)
       () =
-  (* FIXME remove *)
-  let signal,push = React.S.create [] in
-  let open Lwt.Infix in
-  let _ = Api_js.Requests.Json_request.get
-            ?scheme:None ?host:None ?port:None
-            ~path:Uri.Path.Format.("/js/structure.json" @/ empty)
-            ~query:Uri.Query.empty
-          >|= (fun r ->
-      Result.get_exn r
-      |> Json.(List.of_yojson (Pair.of_yojson Stream.id_of_yojson Streams.TS.structure_of_yojson))
-      |> Result.get_exn
-      |> push)
-  in
-  (* FIXME end of temp block *)
+  (* (\* FIXME remove *\)
+   * let signal,push = React.S.create [] in
+   * let open Lwt.Infix in
+   * let _ = Api_js.Requests.Json_request.get
+   *           ?scheme:None ?host:None ?port:None
+   *           ~path:Uri.Path.Format.("/js/structure.json" @/ empty)
+   *           ~query:Uri.Query.empty
+   *         >|= (fun r ->
+   *     Result.get_exn r
+   *     |> Json.(List.of_yojson (Pair.of_yojson Stream.id_of_yojson Streams.TS.structure_of_yojson))
+   *     |> Result.get_exn
+   *     |> push)
+   * in
+   * (\* FIXME end of temp block *\) *)
+  let _ = config.stream in
+  let stream = Stream.Single in
   let div = Dom_html.createDiv Dom_html.document |> Widget.create in
+  let ()  = div#style##.height := Js.string "100%" in
   let ph  = Ui_templates.Placeholder.create_with_icon
               ~icon:"warning" ~text:"Поток отсутствует" () in
   let ()  =
@@ -189,12 +301,15 @@ let make
                     Dom.appendChild div#root ph#root
         | Some s ->
            div#set_empty ();
-           let stream  = make_stream s in
-           let hexdump = new Hexdump.t ~config:(Hexdump.to_config ~width:8 ())
-                           "abcdefg" () in
-           let split   = new Hsplit.t stream hexdump () in
-           Dom.appendChild div#root split#root)
-    @@ React.S.map (List.Assoc.get ~eq:Stream.equal_id config.stream) signal
+           let stream, e = make_stream stream s control in
+           let parsed, s = make_parsed e in
+           let hexdump   = make_hexdump s in
+           let vsplit    = new Vsplit.t parsed hexdump () in
+           let hsplit    = new Hsplit.t stream vsplit  () in
+           (Js.Unsafe.coerce vsplit#style)##.flexGrow := 1;
+           hsplit#style##.height := Js.string "100%";
+           Dom.appendChild div#root hsplit#root)
+    @@ React.S.map (fun l -> List.Assoc.get ~eq:Stream.equal_id stream l) signal
     |> Lwt_react.S.keep
   in
   div

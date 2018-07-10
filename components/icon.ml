@@ -15,6 +15,33 @@ module Font = struct
 
 end
 
+module SVG = struct
+
+  module To_dom = Tyxml_cast.MakeTo(struct
+                      type 'a elt = 'a Tyxml_js.Svg.elt
+                      let elt = Tyxml_js.Svg.toelt
+                    end)
+
+  module Of_dom = Tyxml_cast.MakeOf(struct
+                      type 'a elt = 'a Tyxml_js.Svg.elt
+                      let elt = Tyxml_js.Svg.tot
+                    end)
+
+  class t ~(icon:Markup.SVG.Path.t) () =
+    let path   = Markup.SVG.create_path icon () in
+    let elt    = Markup.SVG.create [path] () |> Tyxml_js.To_dom.of_element in
+    let path_w = To_dom.of_element path |> Widget.create in
+    object
+      val mutable _icon = icon
+      inherit Widget.button_widget elt () as super
+      method icon = _icon
+      method set_icon i =
+        path_w#set_attribute "d" (Markup.SVG.Path.to_string i);
+        _icon <- i
+    end
+
+end
+
 module Button = struct
 
   module Font = struct

@@ -114,7 +114,7 @@ module type Request = sig
   val req_code  : int
   val rsp_code  : int
   val serialize : req -> Cstruct.t
-  val parse     : Cstruct.t -> rsp
+  val parse     : req -> Cstruct.t -> rsp
 
 end
 
@@ -132,7 +132,7 @@ module Get_board_info : (Request with type req := unit with type rsp := devinfo)
   let req_code = 0x0080
   let rsp_code = 0x01
   let serialize () = to_common_header ~msg_code:req_code ()
-  let parse msg =
+  let parse _ msg =
     { typ = get_board_info_board_type msg
     ; ver = get_board_info_board_version msg
     }
@@ -144,7 +144,7 @@ module Get_board_mode : (Request with type req := unit with type rsp := Types.mo
   let req_code = 0x0081
   let rsp_code = 0x02
   let serialize () = to_common_header ~msg_code:req_code ()
-  let parse msg =
+  let parse _ msg =
     to_mode_exn (get_board_mode_mode msg)
       (get_board_mode_t2mi_pid msg)
       (get_board_mode_t2mi_stream_id msg)
@@ -156,7 +156,7 @@ module Get_board_errors : (Request with type req := int with type rsp := board_e
   let req_code = 0x0110
   let rsp_code = req_code
   let serialize request_id = to_complex_req ~request_id ~msg_code:req_code ~body:(Cstruct.create 0) ()
-  let parse msg =
+  let parse _ msg =
     let timestamp = Common.Time.Clock.now () in
     let iter      =
       Cstruct.iter (fun _ -> Some sizeof_t2mi_frame_seq_item)
@@ -193,14 +193,20 @@ module Get_section : (Request
     let ()   = Option.iter (set_req_get_section_adv_info_2 body) params.eit_orig_nw_id in
     to_complex_req ~request_id ~msg_code:req_code ~body ()
 
-  let parse msg =
+  let parse ({params;_}:req) msg =
     let hdr,bdy = Cstruct.split msg sizeof_section in
     let length  = get_section_length hdr in
     let result  = get_section_result hdr in
     if length > 0 && result = 0
     then let sid,data  = Cstruct.split bdy 4 in
+         let table_id  = params.table_id in
          let stream_id = Common.Stream.id_of_int32 @@ Cstruct.LE.get_uint32 sid 0 in
-         Ok { section = Cstruct.to_string data; stream_id; table_id = 0 }
+         let raw       = Cstruct.to_string data in
+         let table     = table_label_of_int table_id in
+         Ok { section   = raw
+            ; stream_id
+            ; table_id
+            ; parsed    = Si_psi_parser.table_to_yojson raw table }
     else (Error (match result with
                  | 0 | 3 -> Zero_length
                  | 1     -> Table_not_found
@@ -225,7 +231,7 @@ module Get_t2mi_frame_seq : (Request
     let ()   = set_req_get_t2mi_frame_seq_time body seconds in
     to_complex_req ~request_id:request_id ~msg_code:req_code ~body ()
 
-  let parse msg =
+  let parse _ msg =
     let iter = Cstruct.iter (fun _ -> Some sizeof_t2mi_frame_seq_item) (fun buf -> buf) msg in
     Cstruct.fold (fun (acc : sequence) el ->
         let sframe_stream = get_t2mi_frame_seq_item_sframe_stream el in
@@ -274,7 +280,7 @@ module Get_jitter : (Request with type req := jitter_req with type rsp := Types.
     ; period      = t_pcr_br /. 10e+6
     }
 
-  let parse msg : Types.jitter_raw =
+  let parse _ msg : Types.jitter_raw =
     let hdr,bdy'    = Cstruct.split msg sizeof_jitter in
     let count       = get_jitter_count hdr in
     let bdy,_       = Cstruct.split bdy' @@ sizeof_jitter_item * count in
@@ -470,7 +476,7 @@ module Get_ts_structs : (Request with type req := int
       }
     in (stream,rsp),rest
 
-  let parse msg : (Stream.id * structure) list =
+  let parse _ msg : (Stream.id * structure) list =
     let hdr,bdy'  = Cstruct.split msg sizeof_ts_structs in
     let count     = get_ts_structs_count hdr in
     let _,bdy     = Cstruct.split bdy' (count * 4) in
@@ -539,7 +545,7 @@ module Get_bitrates : (Request
     let rest       = if Cstruct.len rest > 0 then Some rest else None in
     rsp,rest
 
-  let parse msg =
+  let parse _ msg =
     let hdr,bdy   = Cstruct.split msg sizeof_bitrates in
     let count     = get_bitrates_count hdr in
     let timestamp = Common.Time.Clock.now () in
@@ -564,7 +570,7 @@ module Get_t2mi_info : (Request with type req := t2mi_info_req
     let ()   = set_req_get_t2mi_info_stream_id body stream_id in
     to_complex_req ~request_id ~msg_code:req_code ~body ()
 
-  let parse msg =
+  let parse _ msg =
     let hdr,rest  = Cstruct.split msg sizeof_t2mi_info in
     let iter      = Cstruct.iter (fun _ -> Some 1)
                       (fun buf -> Cstruct.get_uint8 buf 0)
@@ -820,46 +826,51 @@ end
 let try_parse f x = try Some (f x) with _ -> None
 
 let parse_get_board_info = function
-  | `Board_info buf -> try_parse Get_board_info.parse buf
+  | `Board_info buf -> try_parse (Get_board_info.parse ()) buf
   |  _ -> None
 
 let parse_get_board_mode = function
-  | `Board_mode buf -> try_parse Get_board_mode.parse buf
+  | `Board_mode buf -> try_parse (Get_board_mode.parse ()) buf
   | _ -> None
 
 let parse_get_board_errors id = function
   | `Board_errors (r_id,buf) when r_id = id ->
-     Option.map (fun x -> Board_errors x) @@ try_parse Get_board_errors.parse buf
+     Option.map (fun x -> Board_errors x)
+     @@ try_parse (Get_board_errors.parse id) buf
   | _ -> None
 
-let parse_get_section ({request_id=id;params={table_id;_}}:section_req) = function
-  | `Section (r_id,buf) when r_id = id ->
-     let open Streams.TS in
-     Option.map (Result.map (fun x -> { x with table_id })) @@ try_parse Get_section.parse buf
+let parse_get_section (req:section_req) = function
+  | `Section (r_id,buf) when r_id = req.request_id ->
+     try_parse (Get_section.parse req) buf
   | _ -> None
 
-let parse_get_t2mi_frame_seq ({request_id=id;_} : t2mi_frame_seq_req) = function
-  | `T2mi_frame_seq (r_id,buf) when r_id = id -> try_parse Get_t2mi_frame_seq.parse buf
+let parse_get_t2mi_frame_seq (req:t2mi_frame_seq_req) = function
+  | `T2mi_frame_seq (r_id,buf) when r_id = req.request_id ->
+     try_parse (Get_t2mi_frame_seq.parse req) buf
   | _ -> None
 
-let parse_get_jitter ({request_id=id;pointer=ptr;_}:jitter_req) = function
+let parse_get_jitter (({request_id=id;pointer=ptr;_} as req):jitter_req) = function
   | `Jitter (r_id,pointer,buf) when id = r_id && Int32.equal ptr pointer->
-     Option.map (fun x -> Jitter x) @@ try_parse Get_jitter.parse buf
+     Option.map (fun x -> Jitter x)
+     @@ try_parse (Get_jitter.parse req) buf
   | _ -> None
 
 let parse_get_ts_structs id = function
   | `Struct (r_id,_,buf) when r_id = id ->
-     Option.map (fun x -> Struct x) @@ try_parse Get_ts_structs.parse buf
+     Option.map (fun x -> Struct x)
+     @@ try_parse (Get_ts_structs.parse id) buf
   | _ -> None
 
 let parse_get_bitrates id = function
   | `Bitrates (r_id,_,buf) when id = r_id ->
-     Option.map (fun x -> Bitrate x) @@ try_parse Get_bitrates.parse buf
+     Option.map (fun x -> Bitrate x)
+     @@ try_parse (Get_bitrates.parse id) buf
   | _ -> None
 
-let parse_get_t2mi_info ({request_id=id;stream_id=sid;_} : t2mi_info_req) = function
+let parse_get_t2mi_info (({request_id=id;stream_id=sid;_} as req): t2mi_info_req) = function
   | `T2mi_info (r_id,_,stream_id,buf) when r_id = id && stream_id = sid ->
-     Option.map (fun x -> T2mi_info x) @@ try_parse Get_t2mi_info.parse buf
+     Option.map (fun x -> T2mi_info x)
+     @@ try_parse (Get_t2mi_info.parse req) buf
   | _ -> None
 
 let is_response (type a) (req : a request) msg : a option =
@@ -987,13 +998,12 @@ module Make(M : sig val log_prefix : string end) = struct
     with e ->
       Logs.warn (fun m -> m "%s" @@ fmt "failure while parsing simple message: %s" (Printexc.to_string e)); `N
 
-  let parse_complex_msg = fun ((code,r_id),msg) ->
+  let parse_complex_msg = fun ((code,r_id),(msg:Cstruct.t)) ->
     try
       let data = (r_id,msg) in
       (match code with
        | x when x = Get_board_errors.rsp_code   -> `ER (`Board_errors data)
-       | x when x = Get_section.rsp_code        -> Get_section.parse msg |> ignore;
-                                                   `R  (`Section data)
+       | x when x = Get_section.rsp_code        -> `R  (`Section data)
        | x when x = Get_t2mi_frame_seq.rsp_code -> `R  (`T2mi_frame_seq data)
        | x when x = Get_jitter.rsp_code         -> `ER (`Jitter (r_id,(get_jitter_req_ptr msg),msg))
        | x when x = Get_ts_structs.rsp_code     -> `ER (`Struct (r_id,(get_ts_structs_version msg),msg))

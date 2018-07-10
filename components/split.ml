@@ -40,7 +40,7 @@ class virtual t ~vertical panel1 panel2 () =
       Dom_events.listen splitter Dom_events.Typ.mousedown (fun _ e ->
           match e##.button with
           | 0 ->
-             (Dom_events.listen self#root Dom_events.Typ.mouseup (fun _ _ ->
+             (Dom_events.listen Dom_html.document##.body Dom_events.Typ.mouseup (fun _ _ ->
                   (* NOTE add callback? *)
                   self#_stop_drag ();
                   true) |> fun l -> _mouseup <- Some l);

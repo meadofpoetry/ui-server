@@ -121,17 +121,6 @@ let make_data id (config:config) (data:char list) =
   (pad config.style.char chars) ^ "\n"
 
 class t ~(config:config) (data:string) () =
-  let rec aux acc bytes = match List.take_drop config.width bytes with
-    | l,[] -> List.rev (l :: acc)
-    | l,r  -> aux (l :: acc) r
-  in
-  let bytes     = aux [] (String.to_list data) in
-  let _,num,hex,chr =
-    List.fold_left (fun (id, num, hex, chr) (x:char list) ->
-        let num'           = to_line_number (id / config.width) config in
-        let id, hex', chr' = make_data id config x in
-        id, num ^ num' ^ "\n", hex ^ hex',chr ^ chr') (0,"","","") bytes
-  in
   let num_elt = Markup.create_block ()
                 |> Tyxml_js.To_dom.of_element |> Widget.create in
   let hex_elt = Markup.create_block ()
@@ -144,6 +133,20 @@ class t ~(config:config) (data:string) () =
     method hex_widget  = hex_elt
     method char_widget = chr_elt
     method num_widget  = num_elt
+
+    method set (bytes:string) =
+      let rec aux acc bytes = match List.take_drop config.width bytes with
+        | l,[] -> List.rev (l :: acc)
+        | l,r  -> aux (l :: acc) r in
+      let bytes = aux [] (String.to_list bytes) in
+      let _,num,hex,chr =
+        List.fold_left (fun (id, num, hex, chr) (x:char list) ->
+            let num'           = to_line_number (id / config.width) config in
+            let id, hex', chr' = make_data id config x in
+            id, num ^ num' ^ "\n", hex ^ hex',chr ^ chr') (0,"","","") bytes in
+      hex_elt#set_inner_html hex;
+      chr_elt#set_inner_html chr;
+      num_elt#set_inner_html num;
 
     method select ?(flush=true) id =
       let eq = fun x -> id = self#_get_hex_id x in
@@ -234,14 +237,17 @@ class t ~(config:config) (data:string) () =
       _selected <- x :: _selected
 
     initializer
+      self#set data;
       Dom_events.listen self#hex_widget#root Dom_events.Typ.click (fun _ e ->
-          self#hex_widget#set_attribute "unselectable" "on";
-          let ctrl   = Js.to_bool e##.ctrlKey in
-          let to_elt = Option.flatten
-                       @@ Js.Optdef.to_option
-                       @@ Js.Optdef.map e##.toElement Js.Opt.to_option in
-          let () = match to_elt with
-            | Some e ->
+          let ctrl    = Js.to_bool e##.ctrlKey in
+          let target  = Js.Opt.to_option e##.target in
+          let class'  = Js.string Markup.Hex._class in
+          let is_span =
+            Option.map (fun e -> e##.classList##contains class' |> Js.to_bool)
+              target
+            |> Option.get_or ~default:false in
+          let () = match target,is_span with
+            | Some e, true ->
                (match List.find_opt (Equal.physical e) _selected with
                 | Some x ->
                    if not ctrl
@@ -249,17 +255,10 @@ class t ~(config:config) (data:string) () =
                           (List.remove ~eq:Equal.physical ~x _selected)
                    else self#_unselect x
                 | None   ->
-                   let class' = Js.string Markup.Hex._class in
-                   if Js.to_bool (e##.classList##contains class')
-                   then
-                     (if not ctrl then List.iter self#_unselect _selected;
-                      self#_select e))
-            | None   -> () in
-          self#hex_widget#remove_attribute "unselectable";
-          false) |> ignore;
-      hex_elt#set_inner_html hex;
-      chr_elt#set_inner_html chr;
-      num_elt#set_inner_html num;
+                   if not ctrl then List.iter self#_unselect _selected;
+                   self#_select e)
+            | _ -> () in
+          true) |> ignore;
       chr_elt#add_class Markup.chars_block_class;
       num_elt#add_class Markup.line_numbers_block_class;
       self#add_class Markup.base_class

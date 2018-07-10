@@ -1,0 +1,6 @@
+@import "../../components/theme/_mixins";
+@import "../../components/theme/_color-palette";
+
+.qos-niit-pid-pts {
+    @include mdc-theme-prop(color, $material-color-green-500);
+}
