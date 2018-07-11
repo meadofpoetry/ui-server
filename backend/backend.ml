@@ -24,8 +24,9 @@ let lwt_reporter () =
     reporter.Logs.report src level ~over:(fun () -> ()) k msgf;
   in
   { Logs.report = report }
-                   
+  
 let main log_level config =
+  let open Application in
   Nocrypto_entropy_lwt.initialize () |> ignore;
   Logs.set_reporter (lwt_reporter ());
   Logs.set_level (Some log_level);
