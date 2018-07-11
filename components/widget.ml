@@ -167,8 +167,9 @@ class input_widget ~(input_elt:Dom_html.inputElement Js.t) elt () =
 
   end
 
-class radio_or_cb_widget ~input_elt elt () =
-  let s_state,s_state_push = React.S.create ~eq:Equal.bool false in
+class radio_or_cb_widget ?(state=false) ~input_elt elt () =
+  let () = input_elt##.defaultChecked := Js.string @@ string_of_bool state in
+  let s_state,s_state_push = React.S.create ~eq:Equal.bool state in
   object(self)
 
     inherit input_widget ~input_elt elt ()
@@ -179,8 +180,8 @@ class radio_or_cb_widget ~input_elt elt () =
     method s_state = s_state
 
     initializer
-      Dom_events.listen input_elt Dom_events.Typ.change (fun _ _ -> s_state_push self#checked; false)
-      |> ignore;
+      Dom_events.listen input_elt Dom_events.Typ.change (fun _ _ ->
+          s_state_push self#checked; false) |> ignore;
 
   end
 

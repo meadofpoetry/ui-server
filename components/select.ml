@@ -4,7 +4,7 @@ open Tyxml_js
 module Markup = Components_markup.Select.Make(Xml)(Svg)(Html)
 
 module Item = struct
-  class ['a] t ?disabled ~(value:'a) ~text () =
+  class ['a] t ?selected ?disabled ~(value:'a) ~text () =
     let elt = Markup.Item.create ?disabled ~text () |> Tyxml_js.To_dom.of_option in
     object(self)
 
@@ -25,6 +25,9 @@ module Item = struct
       method set_disabled x = self#option_element##.disabled := Js.bool x
 
       method private option_element = elt
+
+      initializer
+        Option.iter (fun x -> self#set_selected x) selected
     end
 end
 

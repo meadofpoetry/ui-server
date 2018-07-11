@@ -672,6 +672,31 @@
 .dvb-niit-module-settings .mdc-select {
   margin-top: 16px; }
 
+.qos-niit-pid-pts {
+  color: #4caf50; }
+
+.qos-niit-hexdump .mdc-hexdump {
+  overflow: auto;
+  flex-grow: 2; }
+
+.qos-niit-hexdump__options {
+  overflow-x: auto;
+  padding: 10px;
+  align-items: center; }
+  .qos-niit-hexdump__options > * {
+    margin-right: 15px; }
+  .qos-niit-hexdump__options > *:last-child {
+    margin-right: 0; }
+  .qos-niit-hexdump__options .mdc-select {
+    min-width: 75px; }
+
+.qos-niit-dump {
+  flex-grow: 1;
+  overflow: hidden; }
+  .qos-niit-dump .qos-niit-hexdump, .qos-niit-dump .qos-niit-parsed {
+    flex-grow: 1;
+    min-height: 200px; }
+
 :root {
   --mdc-box-margin: 0px; }
 

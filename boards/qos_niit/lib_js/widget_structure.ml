@@ -242,8 +242,10 @@ let make_stream (id:Stream.id) (ts : structure) control =
   new Tree.t ~items:(gen :: opt) (), e
 
 let make_parsed (event:dumpable React.event) =
+  let base_class = "qos-niit-parsed" in
   let div = Dom_html.createDiv Dom_html.document |> Widget.create in
   let s,p = React.S.create "" in
+  let ()  = div#add_class base_class in
   let _e  =
     React.E.map (fun {name;get;prev} ->
         let name = new Typography.Text.t ~text:name () in
@@ -264,10 +266,62 @@ let make_parsed (event:dumpable React.event) =
   div,s
 
 let make_hexdump (signal:string React.signal) =
-  let hexdump = new Hexdump.t ~config:(Hexdump.to_config ~width:16 ()) "" () in
-  let _s = React.S.map hexdump#set signal in
-  Lwt_react.S.keep _s;
-  hexdump
+  let base_class = "qos-niit-hexdump" in
+  let config     = Hexdump.to_config ~width:16 () in
+  let base =
+    new Select.t
+      ~label:"Основание"
+      ~items:[ `Item (new Select.Item.t ~value:`Hex ~text:"16" ())
+             ; `Item (new Select.Item.t ~value:`Dec ~text:"10" ())
+             ; `Item (new Select.Item.t ~value:`Bin ~text:"2" ()) ]
+      () in
+  let width =
+    new Select.t
+      ~label:"Ширина"
+      ~items:[ `Item (new Select.Item.t ~value:4  ~text:"4"  ())
+             ; `Item (new Select.Item.t ~value:8  ~text:"8"  ~selected:true ())
+             ; `Item (new Select.Item.t ~value:16 ~text:"16" ())
+             ; `Item (new Select.Item.t ~value:32 ~text:"32" ()) ]
+      () in
+  let line_numbers  = new Switch.t ~state:true () in
+  let line_numbers' = new Form_field.t ~input:line_numbers
+                        ~label:"Номера" () in
+  let options = new Hbox.t
+                  ~widgets:[ base#widget
+                           ; width#widget
+                           ; line_numbers'#widget ] () in
+  let hexdump = new Hexdump.t ~config "dadharhwed" () in
+  (* let _s = React.S.map hexdump#set_bytes signal in *)
+  (* Lwt_react.S.keep _s; *)
+  let () = options#add_class @@ Markup.CSS.add_element base_class "options" in
+  let _  = React.S.map hexdump#set_line_numbers line_numbers#s_state in
+  let _  = React.S.map (function
+               | Some x -> hexdump#set_width x
+               | None   -> ()) width#s_selected_value in
+  let _  = React.S.map (function
+               | Some x -> hexdump#set_base x
+               | None   -> ()) base#s_selected_value in
+  let box = new Vbox.t
+              ~valign:`End
+              ~widgets:[ hexdump#widget
+                       ; (new Divider.t ())#widget
+                       ; options#widget ]
+              () in
+  let () = box#add_class base_class in
+  box#widget
+
+let make_dump (event:dumpable React.event) =
+  let base_class = "qos-niit-dump" in
+  let parsed, s = make_parsed event in
+  let hexdump   = make_hexdump s in
+  let vbox      =
+    new Vbox.t
+      ~widgets:[ parsed#widget
+               ; (new Divider.t ())#widget
+               ; hexdump#widget ]
+      () in
+  vbox#add_class base_class;
+  vbox#widget
 
 let make
       ?(config=default_config)
@@ -275,20 +329,20 @@ let make
       ~(signal:(Stream.id * structure) list React.signal)
       (control:int)
       () =
-  (* (\* FIXME remove *\)
-   * let signal,push = React.S.create [] in
-   * let open Lwt.Infix in
-   * let _ = Api_js.Requests.Json_request.get
-   *           ?scheme:None ?host:None ?port:None
-   *           ~path:Uri.Path.Format.("/js/structure.json" @/ empty)
-   *           ~query:Uri.Query.empty
-   *         >|= (fun r ->
-   *     Result.get_exn r
-   *     |> Json.(List.of_yojson (Pair.of_yojson Stream.id_of_yojson Streams.TS.structure_of_yojson))
-   *     |> Result.get_exn
-   *     |> push)
-   * in
-   * (\* FIXME end of temp block *\) *)
+  (* FIXME remove *)
+  let signal,push = React.S.create [] in
+  let open Lwt.Infix in
+  let _ = Api_js.Requests.Json_request.get
+            ?scheme:None ?host:None ?port:None
+            ~path:Uri.Path.Format.("/js/structure.json" @/ empty)
+            ~query:Uri.Query.empty
+          >|= (fun r ->
+      Result.get_exn r
+      |> Json.(List.of_yojson (Pair.of_yojson Stream.id_of_yojson Streams.TS.structure_of_yojson))
+      |> Result.get_exn
+      |> push)
+  in
+  (* FIXME end of temp block *)
   let _ = config.stream in
   let stream = Stream.Single in
   let div = Dom_html.createDiv Dom_html.document |> Widget.create in
@@ -302,11 +356,8 @@ let make
         | Some s ->
            div#set_empty ();
            let stream, e = make_stream stream s control in
-           let parsed, s = make_parsed e in
-           let hexdump   = make_hexdump s in
-           let vsplit    = new Vsplit.t parsed hexdump () in
-           let hsplit    = new Hsplit.t stream vsplit  () in
-           (Js.Unsafe.coerce vsplit#style)##.flexGrow := 1;
+           let dump      = make_dump e in
+           let hsplit    = new Hsplit.t stream dump () in
            hsplit#style##.height := Js.string "100%";
            Dom.appendChild div#root hsplit#root)
     @@ React.S.map (fun l -> List.Assoc.get ~eq:Stream.equal_id stream l) signal

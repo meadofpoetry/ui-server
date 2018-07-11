@@ -5,7 +5,7 @@ let line_number_len = 4
 
 module Markup = Components_markup.Hexdump.Make(Xml)(Svg)(Html)
 
-type base = [`Hex | `Dec | `Bin ]
+type base = [`Hex | `Dec | `Bin ] [@@deriving eq]
 
 let get_padding = function `Hex -> 2 | `Dec -> 3 | `Bin -> 8
 let get_converter = function
@@ -129,20 +129,44 @@ class t ~(config:config) (data:string) () =
                 |> Tyxml_js.To_dom.of_element |> Widget.create in
   object(self)
     val mutable _selected : #Dom_html.element Js.t list = []
+    val mutable _config : config = config
+    val mutable _bytes : string = data
     inherit Hbox.t ~widgets:[num_elt; hex_elt; chr_elt] ()
     method hex_widget  = hex_elt
     method char_widget = chr_elt
     method num_widget  = num_elt
 
-    method set (bytes:string) =
-      let rec aux acc bytes = match List.take_drop config.width bytes with
+    method set_base (x:base) =
+      if not (equal_base x _config.base)
+      then (_config <- { _config with base = x };
+            self#set_bytes _bytes)
+
+    method set_width (x:int) =
+      if not (x = _config.width)
+      then (_config <- { _config with width = x };
+            self#set_bytes _bytes)
+
+    method set_grouping (x:int) =
+      if not (x = _config.grouping)
+      then (_config <- { _config with grouping = x };
+            self#set_bytes _bytes)
+
+    method set_line_numbers (x:bool) =
+      if not (Equal.bool x _config.line_numbers)
+      then (_config <- { _config with line_numbers = x };
+            if x then num_elt#style##.display := Js.string ""
+            else num_elt#style##.display := Js.string "none")
+
+    method set_bytes (bytes:string) =
+      _bytes <- bytes;
+      let rec aux acc bytes = match List.take_drop _config.width bytes with
         | l,[] -> List.rev (l :: acc)
         | l,r  -> aux (l :: acc) r in
       let bytes = aux [] (String.to_list bytes) in
       let _,num,hex,chr =
         List.fold_left (fun (id, num, hex, chr) (x:char list) ->
-            let num'           = to_line_number (id / config.width) config in
-            let id, hex', chr' = make_data id config x in
+            let num'           = to_line_number (id / _config.width) _config in
+            let id, hex', chr' = make_data id _config x in
             id, num ^ num' ^ "\n", hex ^ hex',chr ^ chr') (0,"","","") bytes in
       hex_elt#set_inner_html hex;
       chr_elt#set_inner_html chr;
@@ -237,7 +261,7 @@ class t ~(config:config) (data:string) () =
       _selected <- x :: _selected
 
     initializer
-      self#set data;
+      self#set_bytes data;
       Dom_events.listen self#hex_widget#root Dom_events.Typ.click (fun _ e ->
           let ctrl    = Js.to_bool e##.ctrlKey in
           let target  = Js.Opt.to_option e##.target in
