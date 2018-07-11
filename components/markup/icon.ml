@@ -22,7 +22,7 @@ module Make(Xml : Xml_sigs.NoWrap)
 
     module Path = struct
 
-      open Icon_svg
+      include Icon_svg
 
       type t =
         | Tv | Chevron_down | Chevron_up | Lock | Clock_outline | Download
@@ -30,12 +30,12 @@ module Make(Xml : Xml_sigs.NoWrap)
 
       let to_string = function
         | Auto_fix      -> Action.auto_fix
+        | Download      -> Action.download
         | Tv            -> tv
         | Chevron_down  -> Navigation.chevron_down
         | Chevron_up    -> Navigation.chevron_up
         | Lock          -> lock
         | Clock_outline -> clock_outline
-        | Download      -> download
 
     end
 

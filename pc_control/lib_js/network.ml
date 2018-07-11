@@ -281,7 +281,7 @@ let make_card is_root post (config : Network_config.t) =
 let page user =
   let is_root = user = `Root in
   Requests.get_config () >>= function
-  | Error (`Data (_,e)) -> Lwt.fail_with e
+  | Error { data = Some e; _ } -> Lwt.fail_with e
   | Error _ -> Lwt.fail_with "unknown error"
   | Ok config ->
     let event, push = Lwt_react.E.create () in

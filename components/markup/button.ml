@@ -11,6 +11,7 @@ module Make(Xml : Xml_sigs.NoWrap)
 
   let base_class = "mdc-button"
   let icon_class = CSS.add_element base_class "icon"
+  let text_class = CSS.add_element base_class "text"
 
   let unelevated_class = CSS.add_modifier base_class "unelevated"
   let stroked_class    = CSS.add_modifier base_class "stroked"
@@ -34,8 +35,8 @@ module Make(Xml : Xml_sigs.NoWrap)
                |> cons_if disabled @@ a_disabled ()
                <@> attrs)
       ([]
-       |> map_cons_option pcdata label
-       |> map_cons_option (fun x -> Html.i ~a:[ a_class [icon_class;"material-icons"] ] [pcdata x])
-            icon)
+       |> map_cons_option (fun x -> span ~a:[a_class [ text_class ]]
+                                      [ pcdata x]) label
+       |> cons_option icon)
 
 end

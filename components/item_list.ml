@@ -36,7 +36,7 @@ module Item = struct
       method set_value (v:'a) = _v <- v
 
       initializer
-        if ripple then Ripple.attach self |> ignore;
+        (* if ripple then Ripple.attach self |> ignore; *)
         Option.iter (fun x -> x#add_class Markup.Item.graphic_class) graphic;
         Option.iter (fun x -> x#add_class Markup.Item.meta_class) meta
     end

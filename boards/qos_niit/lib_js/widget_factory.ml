@@ -71,29 +71,29 @@ object(self)
        |> Dashboard.Item.to_item ~name:Widget_chart.name
     | Structure config ->
        (fun s str -> Widget_structure.make ?config ~state:s ~signal:str control ())
-       |> Factory_state_lwt.l2 self#_state self#_structs
+       |> Factory_state_lwt.l2 self#state self#structs
        |> Ui_templates.Loader.create_widget_loader
        |> Dashboard.Item.to_item ~name:Widget_structure.name
             ?settings:Widget_structure.settings
     | Settings conf ->
        (fun s t j -> Widget_settings.make ~state:s ~t2mi_mode:t ~jitter_mode:j
-                       ~streams:self#_streams
+                       ~streams:self#streams
                        conf control)
-       |> Factory_state_lwt.l3 self#_state self#_t2mi_mode self#_jitter_mode
+       |> Factory_state_lwt.l3 self#state self#t2mi_mode self#jitter_mode
        |> Ui_templates.Loader.create_widget_loader
        |> Dashboard.Item.to_item ~name:Widget_settings.name
             ?settings:Widget_settings.settings
     | T2MI_settings conf ->
        (fun s m -> Widget_t2mi_settings.make ~state:s ~mode:m
-                     ~streams:self#_streams
+                     ~streams:self#streams
                      conf control )
-       |> Factory_state_lwt.l2 self#_state self#_t2mi_mode
+       |> Factory_state_lwt.l2 self#state self#t2mi_mode
        |> Ui_templates.Loader.create_widget_loader
        |> Dashboard.Item.to_item ~name:Widget_t2mi_settings.name
             ?settings:Widget_t2mi_settings.settings
     | Jitter_settings conf ->
        (fun s m -> Widget_jitter_settings.make ~state:s ~mode:m conf control)
-       |> Factory_state_lwt.l2 self#_state self#_jitter_mode
+       |> Factory_state_lwt.l2 self#state self#jitter_mode
        |> Ui_templates.Loader.create_widget_loader
        |> Dashboard.Item.to_item ~name:Widget_jitter_settings.name
             ?settings:Widget_jitter_settings.settings
@@ -109,43 +109,43 @@ object(self)
           ; item_to_info (T2MI_settings None)
           ; item_to_info (Jitter_settings None)
           ; item_to_info (Settings None)
-          ]
+      ]
 
   method serialize (x : item) : Yojson.Safe.json = item_to_yojson x
   method deserialize (json : Yojson.Safe.json) : (item,string) result = item_of_yojson json
 
-  (** Private methods **)
+  (* Requests *)
 
-  method private _state =
+  method state =
     Factory_state_lwt.get_value_as_signal
       ~get:(fun ()        -> Requests.Device.HTTP.get_state control |> map_err)
       ~get_socket:(fun () -> Requests.Device.WS.get_state control)
       _state
 
-  method private _t2mi_mode =
+  method t2mi_mode =
     Factory_state_lwt.get_value_as_signal
       ~get:(fun ()        -> Requests.Device.HTTP.get_t2mi_mode control |> map_err)
       ~get_socket:(fun () -> Requests.Device.WS.get_t2mi_mode control)
       _t2mi_mode
 
-  method private _jitter_mode =
+  method jitter_mode =
     Factory_state_lwt.get_value_as_signal
       ~get:(fun () ->        Requests.Device.HTTP.get_jitter_mode control |> map_err)
       ~get_socket:(fun () -> Requests.Device.WS.get_jitter_mode control)
       _jitter_mode
 
-  method private _structs =
+  method structs =
     Factory_state_lwt.get_value_as_signal
       ~get:(fun ()        -> Requests.Streams.HTTP.TS.get_structure control |> map_err)
       ~get_socket:(fun () -> Requests.Streams.WS.TS.get_structure control)
       _structs
 
-  method private _bitrates =
+  method bitrates =
     Factory_state_lwt.get_value_as_signal
       ~get:(fun ()        -> Requests.Streams.HTTP.TS.get_bitrate control |> map_err)
       ~get_socket:(fun () -> Requests.Streams.WS.TS.get_bitrate control)
       _bitrates
 
-  method private _streams = React.S.const []
+  method streams = React.S.const []
 
 end

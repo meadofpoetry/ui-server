@@ -667,35 +667,77 @@
 .mdc-simple-tabs__body {
   margin-top: 15px; }
 
+.mdc-get-button, .mdc-apply-button {
+  display: flex;
+  align-items: center;
+  justify-content: center; }
+  .mdc-get-button .mdc-circular-progress, .mdc-apply-button .mdc-circular-progress {
+    position: absolute;
+    color: inherit !important; }
+  .mdc-get-button--busy, .mdc-apply-button--busy {
+    pointer-events: none; }
+    .mdc-get-button--busy .mdc-button__text, .mdc-apply-button--busy .mdc-button__text {
+      opacity: 0; }
+
 .dvb-niit-module-settings__mode {
   margin-top: 0 !important; }
 .dvb-niit-module-settings .mdc-select {
   margin-top: 16px; }
 
-.qos-niit-pid-pts {
-  color: #4caf50; }
+/* TODO(sgomes): Figure out what to do about desktop font sizes. */
+/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
+.qos-niit-structure__stream-panel {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto; }
 
-.qos-niit-hexdump .mdc-hexdump {
-  overflow: auto;
-  flex-grow: 2; }
-
-.qos-niit-hexdump__options {
-  overflow-x: auto;
-  padding: 10px;
-  align-items: center; }
-  .qos-niit-hexdump__options > * {
-    margin-right: 15px; }
-  .qos-niit-hexdump__options > *:last-child {
-    margin-right: 0; }
-  .qos-niit-hexdump__options .mdc-select {
-    min-width: 75px; }
-
-.qos-niit-dump {
+.qos-niit-structure__dump {
   flex-grow: 1;
+  padding: 10px;
   overflow: hidden; }
-  .qos-niit-dump .qos-niit-hexdump, .qos-niit-dump .qos-niit-parsed {
-    flex-grow: 1;
+  .qos-niit-structure__dump .qos-niit-hexdump, .qos-niit-structure__dump .qos-niit-parsed {
     min-height: 200px; }
+
+.qos-niit-structure__parsed {
+  flex-grow: 2; }
+  .qos-niit-structure__parsed__title {
+    font-weight: 500; }
+  .qos-niit-structure__parsed__header {
+    font-family: Roboto, sans-serif;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-font-smoothing: antialiased;
+    font-size: 0.75rem;
+    line-height: 1.25rem;
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    text-decoration: inherit;
+    text-transform: inherit;
+    align-items: center;
+    margin-bottom: 10px; }
+    .qos-niit-structure__parsed__header .mdc-button {
+      margin-left: 15px;
+      flex-shrink: 0; }
+  .qos-niit-structure__parsed__body {
+    padding: 10px; }
+
+.qos-niit-structure__hexdump {
+  flex-grow: 1; }
+  .qos-niit-structure__hexdump .mdc-hexdump {
+    overflow: auto;
+    flex-grow: 2; }
+  .qos-niit-structure__hexdump__options {
+    padding-top: 10px;
+    overflow-x: auto;
+    align-items: center; }
+    .qos-niit-structure__hexdump__options > * {
+      margin-right: 15px; }
+    .qos-niit-structure__hexdump__options > *:last-child {
+      margin-right: 0; }
+    .qos-niit-structure__hexdump__options .mdc-select {
+      min-width: 75px; }
+
+.qos-niit-structure__section-item {
+  cursor: pointer; }
 
 :root {
   --mdc-box-margin: 0px; }

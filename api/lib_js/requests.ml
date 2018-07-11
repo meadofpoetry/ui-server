@@ -1,7 +1,55 @@
 open Lwt.Infix
 open Common
 
-type 'a err      = [ `Data of int * 'a | `Code of int ]
+let code_to_string = function
+  | 100 -> "Continue"
+  | 101 -> "Switching Protocols"
+  | 200 -> "OK"
+  | 201 -> "Created"
+  | 202 -> "Accepted"
+  | 203 -> "Non-Authoritative Information"
+  | 204 -> "No Content"
+  | 205 -> "Reset Content"
+  | 206 -> "Partial Content"
+  | 300 -> "Multiple Choices"
+  | 301 -> "Moved Permanently"
+  | 302 -> "Found"
+  | 303 -> "See Other"
+  | 304 -> "Not Modified"
+  | 305 -> "Use Proxy"
+  | 307 -> "Temporary Redirect"
+  | 400 -> "Bad Request"
+  | 401 -> "Unauthorized"
+  | 402 -> "Payment Required"
+  | 403 -> "Forbidden"
+  | 404 -> "Not Found"
+  | 405 -> "Method Not Allowed"
+  | 406 -> "Not Acceptable"
+  | 407 -> "Proxy Authentication Required"
+  | 408 -> "Request Time-out"
+  | 409 -> "Conflict"
+  | 410 -> "Gone"
+  | 411 -> "Length Required"
+  | 412 -> "Precondition Failed"
+  | 413 -> "Request Entity Too Large"
+  | 414 -> "Request-URI Too Large"
+  | 415 -> "Unsupported Media Type"
+  | 416 -> "Requested range not satisfiable"
+  | 417 -> "Expectation Failed"
+  | 500 -> "Internal Server Error"
+  | 501 -> "Not Implemented"
+  | 502 -> "Bad Gateway"
+  | 503 -> "Service Unavailable"
+  | 504 -> "Gateway Time-out"
+  | 505 -> "HTTP Version not supported"
+  | x   -> Printf.sprintf "Unknown HTTP status code: %d" x
+
+
+type 'a err =
+  { code  : int
+  ; error : string option
+  ; data  : 'a option
+  }
 type json        = Yojson.Safe.json
 type 'a contents = [ `Blob of (#File.blob Js.t as 'a)
                    | `Form_contents of Form.form_contents
@@ -10,23 +58,27 @@ type 'a contents = [ `Blob of (#File.blob Js.t as 'a)
                    ]
 
 let err_to_string : 'a. ?to_string:('a -> string) -> 'a err -> string = fun ?to_string err ->
-  match err with
-  | `Data (i,a) -> (match to_string with
-                    | Some f -> Printf.sprintf "Код %d. %s" i @@ f a
-                    | None   -> Printf.sprintf "Код %d" i)
-  | `Code i     -> Printf.sprintf "Код %d" i
+  let base = Printf.sprintf "%d. %s" err.code (code_to_string err.code) in
+  match err.data with
+  | Some a -> (match to_string with
+               | Some f -> base ^ Printf.sprintf "\n%s" (f a)
+               | None   -> base)
+  | None   -> (match err.error with
+               | Some e -> base ^ Printf.sprintf "\n%s" e
+               | None   -> base)
 
 module type Req = sig
 
   type t
   type response
 
-  val content_type  : string
-  val accept        : string
-  val response_type : response XmlHttpRequest.response
-  val parse         : response -> t
-  val to_contents   : t -> 'a contents
-  val of_socket_msg : WebSockets.webSocket WebSockets.messageEvent Js.t -> t
+  val content_type     : string
+  val accept           : string
+  val response_type    : response XmlHttpRequest.response
+  val to_error_message : response -> string option
+  val parse            : response -> t
+  val to_contents      : t -> 'a contents
+  val of_socket_msg    : WebSockets.webSocket WebSockets.messageEvent Js.t -> t
 
 end
 
@@ -91,7 +143,7 @@ module type Request = sig
     ?from_err:(t -> ('a, string) result) ->
     from:(t -> ('c, string) result) ->
     path:('e, 'f) Uri.Path.Format.t ->
-    query:('f, ('c, [> `Code of int | `Data of int * 'a ]) result Lwt.t)
+    query:('f, ('c, 'a err) result Lwt.t)
           Uri.Query.compose ->
     'e
   val post_raw' :
@@ -126,7 +178,7 @@ module type Request = sig
     ?from_err:(t -> ('a, string) result) ->
     from:(t -> ('c, string) result) ->
     path:('e, 'f) Uri.Path.Format.t ->
-    query:('f, ('c, [> `Code of int | `Data of int * 'a ]) result Lwt.t)
+    query:('f, ('c, 'a err) result Lwt.t)
           Uri.Query.compose ->
     'e
   val post_result_unit :
@@ -136,7 +188,7 @@ module type Request = sig
     ?contents:t ->
     ?from_err:(t -> ('a, string) result) ->
     path:('c, 'd) Uri.Path.Format.t ->
-    query:('d, (unit, [> `Code of int | `Data of int * 'a ]) result Lwt.t)
+    query:('d, (unit, 'a err) result Lwt.t)
           Uri.Query.compose ->
     'c
 
@@ -154,19 +206,32 @@ module Make(M:Req) : (Request with type t = M.t and type response = M.response) 
   module Default = struct
     let host ()   = Js.to_string @@ Dom_html.window##.location##.hostname
     let path ()   = ""
-    let scheme () = Js.to_string @@ Dom_html.window##.location##.protocol |> CCString.rdrop_while (Char.equal ':')
-    let port ()   = Js.to_string @@ Dom_html.window##.location##.port |> int_of_string_opt
+    let scheme () = Js.to_string @@ Dom_html.window##.location##.protocol
+                    |> CCString.rdrop_while (Char.equal ':')
+    let port ()   = Js.to_string @@ Dom_html.window##.location##.port
+                    |> int_of_string_opt
   end
 
-  let make_uri ?(scheme=Default.scheme ()) ?(host=Default.host ()) ?port ~f ~path ~query =
+  let make_uri ?(scheme=Default.scheme ()) ?(host=Default.host ())
+        ?port ~f ~path ~query =
     let port = match port with
       | None   -> Default.port ()
       | Some p -> Some p
     in
-    Uri.kconstruct ~scheme ~host ?port ~f:(fun u -> Uri.to_string u |> Uri.pct_decode |> f) ~path ~query
+    Uri.kconstruct ~scheme ~host ?port ~f:(fun u -> Uri.to_string u
+                                                    |> Uri.pct_decode
+                                                    |> f) ~path ~query
+
+  let to_err ?data ?error (frame:frame) =
+    { code  = frame.code
+    ; error = CCOpt.choice [ error
+                           ; M.to_error_message frame.content ]
+    ; data
+    }
 
   let get_raw' ?scheme ?host ?port ~f ~path ~query =
-    let f = fun uri -> Lwt_xmlHttpRequest.perform_raw ~response_type:M.response_type uri >|= f in
+    let f = fun uri -> Lwt_xmlHttpRequest.perform_raw
+                         ~response_type:M.response_type uri >|= f in
     make_uri ?scheme ?host ?port ~f ~path ~query
 
   let get_raw ?scheme ?host ?port ~path ~query =
@@ -184,12 +249,12 @@ module Make(M:Req) : (Request with type t = M.t and type response = M.response) 
       if frame.code = 200
       then match (from @@ M.parse frame.content) with
            | Ok _ as v -> v
-           | Error _   -> Error (`Code frame.code)
+           | Error s   -> Error (to_err ~error:s frame)
       else match from_err with
            | Some f -> (match (f @@ M.parse frame.content) with
-                        | Ok err  -> Error (`Data (frame.code,err))
-                        | Error _ -> Error (`Code frame.code))
-           | None   -> Error (`Code frame.code)
+                        | Ok data -> Error (to_err ~data frame)
+                        | Error _ -> Error (to_err frame))
+           | None   -> Error (to_err frame)
     in get_raw' ?scheme ?host ?port ~f ~path ~query
 
   let post_raw' ?scheme ?host ?port ?contents ~f ~path ~query =
@@ -223,12 +288,12 @@ module Make(M:Req) : (Request with type t = M.t and type response = M.response) 
       if frame.code = 200
       then match (from @@ M.parse frame.content) with
            | Ok _ as v -> v
-           | Error _   -> Error (`Code frame.code)
+           | Error s   -> Error (to_err ~error:s frame)
       else match from_err with
            | Some f -> (match (f @@ M.parse frame.content) with
-                        | Ok err  -> Error (`Data (frame.code,err))
-                        | Error _ -> Error (`Code frame.code))
-           | None   -> Error (`Code frame.code)
+                        | Ok data -> Error (to_err ~data frame)
+                        | Error _ -> Error (to_err frame))
+           | None   -> Error (to_err frame)
     in post_raw' ?scheme ?host ?port ?contents ~f ~path ~query
 
   let post_result_unit ?scheme ?host ?port ?contents ?from_err ~path ~query =
@@ -268,14 +333,19 @@ module Json_req : (Req with type t = json and type response = Js.js_string Js.t)
   type t        = json
   type response = Js.js_string Js.t
 
-  let content_type    = "application/json; charset=UTF-8"
-  let accept          = "application/json, text/javascript, */*; q=0.01"
-  let response_type   = XmlHttpRequest.Text
-  let parse x         = match Uri.pct_decode @@ Js.to_string x with
+  let content_type     = "application/json; charset=UTF-8"
+  let accept           = "application/json, text/javascript, */*; q=0.01"
+  let response_type    = XmlHttpRequest.Text
+  let parse x          = match Uri.pct_decode @@ Js.to_string x with
     | "" -> `String ""
     | s  -> Yojson.Safe.from_string s
-  let to_contents x   = (`String (Yojson.Safe.to_string x) : 'a contents)
-  let of_socket_msg m = Js.to_string m##.data |> Yojson.Safe.from_string
+  let to_error_message = fun s ->
+    let s = match parse s with
+      | `String s -> s
+      | _         -> Js.to_string s in
+    if CCString.is_empty s then None else Some s
+  let to_contents x    = (`String (Yojson.Safe.to_string x) : 'a contents)
+  let of_socket_msg m  = Js.to_string m##.data |> Yojson.Safe.from_string
 
 end
 

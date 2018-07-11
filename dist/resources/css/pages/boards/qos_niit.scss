@@ -1,37 +1,66 @@
 @import "../../components/theme/_mixins";
 @import "../../components/theme/_color-palette";
+@import "../../components/typography/_mixins";
 
-.qos-niit-pid-pts {
-    @include mdc-theme-prop(color, $material-color-green-500);
+.qos-niit-structure {
+    &__stream-panel {
+        width: 100%;
+        height: 100%;
+        overflow-y: auto;
+    }
 }
 
-.qos-niit-hexdump {
+.qos-niit-structure__dump {
+    flex-grow: 1;
+    padding: 10px;
+    overflow: hidden;
+    .qos-niit-hexdump, .qos-niit-parsed {
+        min-height: 200px;
+    }
+}
+
+.qos-niit-structure__parsed {
+    flex-grow: 2;
+    &__title {
+        font-weight: 500;
+    }
+    &__header {
+        @include mdc-typography(caption);
+        align-items: center;
+        margin-bottom: 10px;
+        .mdc-button {
+            margin-left: 15px;
+            flex-shrink: 0;
+        }
+    }
+    &__body {
+        padding: 10px;
+    }
+}
+
+.qos-niit-structure__hexdump {
+    flex-grow: 1;
     .mdc-hexdump {
         overflow: auto;
         flex-grow: 2;
     }
-}
-.qos-niit-hexdump__options {
-    overflow-x: auto;
-    padding: 10px;
-    align-items: center;
+    &__options {
+        padding-top: 10px;
+        overflow-x: auto;
+        align-items: center;
 
-    > * {
-        margin-right: 15px;
-    }
-    > *:last-child {
-        margin-right: 0;
-    }
-    .mdc-select {
-        min-width: 75px;
+        > * {
+            margin-right: 15px;
+        }
+        > *:last-child {
+            margin-right: 0;
+        }
+        .mdc-select {
+            min-width: 75px;
+        }
     }
 }
 
-.qos-niit-dump {
-    flex-grow: 1;
-    overflow: hidden;
-    .qos-niit-hexdump, .qos-niit-parsed {
-        flex-grow: 1;
-        min-height: 200px;
-    }
+.qos-niit-structure__section-item {
+    cursor: pointer;
 }

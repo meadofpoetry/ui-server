@@ -43,34 +43,43 @@ let set ?(adjust_margin=true) ~font (elt:#Widget.t) =
 module Text = struct
 
   class t ?(split=false) ?(adjust_margin=true) ?font ~text () =
-
-    let elt =
-      let text = if split
-                 then List.flatten @@ List.map (fun s -> Tyxml_js.Html.([pcdata s; br ()])) @@ String.lines text
-                 else Tyxml_js.Html.([ pcdata text ])in
-      Tyxml_js.Html.(span text) |> Tyxml_js.To_dom.of_element in
-
     object(self)
 
-      inherit Widget.t elt ()
+      inherit Widget.t (Dom_html.createSpan Dom_html.document) ()
 
-      val mutable font : font option = font
+      val mutable _text : string = text
+      val mutable _font : font option = font
 
-      method font       = font
+      method font       = _font
       method set_font x =
         Option.iter (fun x -> self#remove_class @@ font_to_class x) font;
         self#add_class @@ font_to_class x;
-        font <- Some x
+        _font <- Some x
 
       method adjust_margin     = self#has_class Markup.adjust_margin_class
       method set_adjust_margin = function
         | true  -> self#add_class Markup.adjust_margin_class
         | false -> self#remove_class Markup.adjust_margin_class
 
-      method text       = self#text_content |> Option.get_or ~default:""
-      method set_text s = self#set_text_content s
+      method text       = _text
+      method set_text s =
+        _text <- s;
+        self#set_inner_html (self#_to_inner_html s)
+
+      (* Private methods *)
+
+      method _to_inner_html text =
+        let open Tyxml.Html in
+        let inner =
+          if split
+          then List.map (fun s -> [ pcdata s; br () ]) (String.lines text)
+               |> List.flatten
+               |> List.rev |> List.drop 1 |> List.rev
+          else [ pcdata text ] in
+        span inner |> Format.asprintf "%a" (pp_elt ())
 
       initializer
+        self#set_text text;
         self#add_class Markup.base_class;
         self#set_adjust_margin adjust_margin;
         Option.iter (fun x -> self#add_class @@ font_to_class x) font

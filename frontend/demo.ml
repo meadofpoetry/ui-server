@@ -20,8 +20,8 @@ let button_demo () =
   let ripple     = new Button.t ~label:"ripple" ~ripple:true () in
   let dense      = new Button.t ~label:"dense" ~dense:true () in
   let compact    = new Button.t ~label:"compact" ~compact:true () in
-  let icon       = new Button.t ~label:"icon" ~icon:"favorite" () in
-  let box        = new Vbox.t ~widgets:[raised;flat;unelevated;stroked;ripple;dense;compact;icon] () in
+  (* let icon       = new Button.t ~label:"icon" ~icon:"favorite" () in *)
+  let box        = new Vbox.t ~widgets:[raised;flat;unelevated;stroked;ripple;dense;compact] () in
   box#set_gap 20;
   box#set_align_items `Start;
   demo_section "Button" [box]

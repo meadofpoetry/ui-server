@@ -1,24 +1,13 @@
-@import "../ripple/common";
-@import "../ripple/mixins";
-@import "../rtl/mixins";
-@import "../theme/functions";
-@import "../typography/mixins";
 @import "../typography/variables";
 @import "../list/mixins";
-@import "../list/variables";
 
 .mdc-tree {
-    @include mdc-typography(subheading2);
-    @include mdc-list-item-primary-text-ink-color(text-primary-on-background);
-
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
     width: 100%;
     margin: 0;
-    line-height: map-get(map-get($mdc-typography-styles, subheading1), line-height);
     list-style-type: none;
-    cursor: pointer;
     overflow-y: auto;
 }
 .mdc-tree__item {
@@ -28,7 +17,10 @@
     align-items: center;
     justify-content: flex-start;
     overflow: hidden;
-    cursor: pointer;
+
+    &:has(> .mdc-tree) {
+        cursor: pointer;
+    }
 
     &:focus {
         outline: none;
@@ -51,6 +43,12 @@
     padding-top: 4px;
     padding-bottom: 4px;
     font-size: .812rem;
+}
+
+// Match the font size to the primary text when dense
+// stylelint-disable plugin/selector-bem-pattern
+.mdc-tree--dense > li .mdc-list-item__secondary-text {
+    font-size: inherit;
 }
 
 .mdc-tree--dense > li > .mdc-list-item {

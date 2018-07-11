@@ -198,9 +198,8 @@ module SM = struct
           let p = Stream.to_topo_port b t in
           match t.id,p with
           | `Ts x, Some p when Stream.equal_id x id && p.port = port -> true
-          | _ -> false) streams
-    in
-    React.E.l2 (fun status streams ->
+          | _ -> false) streams in
+    React.S.l2 (fun status streams ->
         List.fold_left (fun acc (packer,{bitrate;enabled;has_data;_}) ->
             let s = find_stream b packer.stream packer.socket streams in
             match s,bitrate,enabled,has_data with
@@ -210,9 +209,8 @@ module SM = struct
                  ; id          = `Ip { ip = packer.dst_ip; port = packer.dst_port }
                  ; description = s.description }
                in stream :: acc
-            | _ -> acc) [] status.packers_status)
-      status (React.S.changes streams)
-    |> React.S.hold []
+            | _ -> acc) [] status)
+      (React.S.hold [] (React.E.map (fun x -> x.packers_status) status)) streams
 
   let create sender
         (storage       : config storage)

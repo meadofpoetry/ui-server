@@ -85,7 +85,7 @@ class ['a] t ~(items:('a,'a t) Item.t list) () =
                            | None   -> ()) l in
       iter self#items
 
-    method private padding () =
+    method private _padding () =
       let rec iter l n =
         List.iter (fun x ->
             let item = (Js.Unsafe.coerce x#root)##querySelector (Js.string ".mdc-list-item") in
@@ -96,6 +96,6 @@ class ['a] t ~(items:('a,'a t) Item.t list) () =
       iter self#items 1
 
     initializer
-      self#padding ();
+      self#_padding ();
 
   end
