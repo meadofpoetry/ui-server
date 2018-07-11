@@ -25,7 +25,7 @@ module HTTP = struct
   let set_streams streams =
     post_result_unit ?scheme:None ?host:None ?port:None
       ~path:Path.Format.("api/topology/streams" @/ empty)
-      ~contents:(stream_table_to_yojson streams)
+      ~contents:(stream_setting_to_yojson streams)
       ~from_err:set_error_of_yojson
       ~query:Query.empty
 
