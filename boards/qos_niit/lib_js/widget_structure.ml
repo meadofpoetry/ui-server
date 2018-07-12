@@ -14,14 +14,14 @@ type composition =
 
 type config =
   { stream       : Stream.id
-  ; auto_refresh : bool
-  ; composition  : composition
+  (* ; auto_refresh : bool
+   * ; composition  : composition *)
   } [@@deriving yojson]
 
 let default_config =
   { stream       = Single
-  ; auto_refresh = true
-  ; composition  = { services = true; pids = true; emm = true; tables = true }
+  (* ; auto_refresh = true
+   * ; composition  = { services = true; pids = true; emm = true; tables = true } *)
   }
 
 type dumpable =
@@ -414,23 +414,8 @@ let make
       ~(signal:(Stream.id * structure) list React.signal)
       (control:int)
       () =
-  (* FIXME remove *)
-  let signal,push = React.S.create [] in
-  let open Lwt.Infix in
-  let _ = Api_js.Requests.Json_request.get
-            ?scheme:None ?host:None ?port:None
-            ~path:Uri.Path.Format.("/js/structure.json" @/ empty)
-            ~query:Uri.Query.empty
-          >|= (fun r ->
-      Result.get_exn r
-      |> Json.(List.of_yojson (Pair.of_yojson Stream.id_of_yojson Streams.TS.structure_of_yojson))
-      |> Result.get_exn
-      |> push)
-  in
-  (* FIXME end of temp block *)
   let stream_panel_class = Markup.CSS.add_element base_class "stream-panel" in
-  let _ = config.stream in
-  let stream = Stream.Single in
+  let stream = config.stream in
   let ph  = Ui_templates.Placeholder.create_with_icon
               ~icon:"warning" ~text:"Нет потока" () in
   let stream_box = Dom_html.createDiv Dom_html.document
