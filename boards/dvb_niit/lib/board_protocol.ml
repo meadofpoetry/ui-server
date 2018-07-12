@@ -486,15 +486,30 @@ module SM = struct
     React.S.fold
       (fun acc (id,(m:measures)) ->
         let open Common.Stream in
-        let plp =
+        let std, plp, freq, bw =
           List.find_map (fun (x,c) -> if id = x then Some c else None) storage#get
           |> Option.get_exn
-          |> (fun x -> match x.standard with T2 -> x.t2.plp | _ -> 0)
+          |> (fun x -> match x.standard with
+                       | T2 -> T2, x.t2.plp, x.t2.freq, x.t2.bw
+                       | T  -> T, 0, x.t.freq, x.t.bw
+                       | C  -> C, 0, x.c.freq, x.c.bw)
         in
+        let round_freq x =
+          if x mod 1_000_000  = 0 then x / 1_000_000, "МГц"
+          else if x mod 1_000 = 0 then x / 1_000, "кГц"
+          else x, "Гц" in
+        let std_str = match std with T2 -> "T2" | T -> "T" | C -> "C" in
+        let bw_int  = match bw with Bw6 -> 6 | Bw7 -> 7 | Bw8 -> 8 in
+        let freq_val, freq_unit = round_freq freq in
+        let name = Printf.sprintf "DVB-%s, %d %s, полоса %d МГц"
+                     std_str freq_val freq_unit bw_int in
+        let name = match std with
+          | T2 -> name ^ (Printf.sprintf ", PLP %d" plp)
+          | _  -> name in
         let (stream:stream) =
           { source      = Port 0
           ; id          = `Ts (Dvb (id,plp))
-          ; description = Some ""
+          ; description = Some name
           }
         in
         match m.lock,m.bitrate with

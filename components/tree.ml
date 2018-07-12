@@ -31,9 +31,9 @@ module Item = struct
     let elt  = Markup.Item.create ~item:(Widget.to_markup item)
                  ?nested_list:(Option.map Widget.to_markup nested) ()
                |> Tyxml_js.To_dom.of_element in
-    object
+    object(self)
 
-      inherit Widget.t elt () as super
+      inherit Widget.t elt ()
 
       method item           = item
       method text           = item#text
@@ -41,16 +41,16 @@ module Item = struct
       method nested_tree : 'b option = nested
 
       initializer
-        Option.iter (fun x -> x#add_class Markup.Item.list_class;
-                              item#style##.cursor := Js.string "pointer") nested;
-        Dom_events.listen super#root Dom_events.Typ.click (fun _ e ->
+        Option.iter (fun x ->
+            x#add_class Markup.Item.list_class;
+            item#style##.cursor := Js.string "pointer") nested;
+        Dom_events.listen self#root Dom_events.Typ.click (fun _ e ->
             let open_class = Markup.Item.item_open_class in
             let open_list  = Markup.Item.list_open_class in
-            let list_class = Js.string ("." ^ Markup.Item.list_class) in
             Dom_html.stopPropagation e;
-            let l = (Js.Unsafe.coerce super#root)##querySelector list_class in
-            let _ = l##.classList##toggle open_list in
-            super#toggle_class open_class |> s_push;
+            Option.iter (fun x -> x#toggle_class open_list |> ignore)
+              self#nested_tree;
+            self#toggle_class open_class |> s_push;
             true)
         |> ignore;
     end

@@ -101,7 +101,9 @@ module SM = struct
            then Some (Get_jitter { request_id = get_id (); pointer = !jitter_ptr })
            else None
       in
-      let errors  = if status.errors then Some (Get_board_errors (get_id ())) else None in
+      (* FIXME commented because board not responding for this request *)
+      (* let errors  = if status.errors then Some (Get_board_errors (get_id ())) else None in *)
+      let errors  = None in
       let structs = match prev_t with
         | Some old ->
            (List.map (fun id -> Get_t2mi_info { request_id = get_id (); stream_id = id })

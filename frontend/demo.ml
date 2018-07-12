@@ -401,11 +401,11 @@ let tabs_demo () =
                                     ; remove#widget
                                     ; (subsection "With icon and text labels" both_bar)#widget
                                     ; (subsection "With scroller" scrl_bar)#widget
-                                    ]
+                  ]
   in
   let _ = React.S.map (fun x -> if x then (icon_bar#layout (); text_bar#layout ();
                                            both_bar#layout (); scrl_bar#layout ()))
-                      section#s_expanded
+            section#s_expanded
   in
   section
 
@@ -423,8 +423,8 @@ let snackbar_demo () =
                    () in
   let snackbar_btn = new Button.t ~label:"Open snackbar" () in
   let aligned_btn  = new Button.t ~label:"Open start-aligned snackbar" () in
-  React.E.map (fun _ -> snackbar#show) snackbar_btn#e_click |> ignore;
-  React.E.map (fun _ -> aligned#show) aligned_btn#e_click |> ignore;
+  React.E.map (fun _ -> snackbar#show ()) snackbar_btn#e_click |> ignore;
+  React.E.map (fun _ -> aligned#show ()) aligned_btn#e_click |> ignore;
   Dom.appendChild Dom_html.document##.body snackbar#root;
   Dom.appendChild Dom_html.document##.body aligned#root;
   demo_section "Snackbar" [ snackbar_btn; aligned_btn ]

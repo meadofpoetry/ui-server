@@ -318,7 +318,7 @@ module Get_ts_structs : (Request with type req := int
     let nw_name,bq_name  = Cstruct.split strings string_len in
     { services_num = get_general_struct_block_services_num bdy
     ; nw_pid       = nw_pid' land 0x1FFF
-    ; complete     = nw_pid' land 0x4000 <> 0
+    ; complete     = (nw_pid' land 0x4000) <> 0
     ; ts_id        = get_general_struct_block_ts_id bdy
     ; nw_id        = get_general_struct_block_nw_id bdy
     ; orig_nw_id   = get_general_struct_block_orig_nw_id bdy
@@ -327,12 +327,14 @@ module Get_ts_structs : (Request with type req := int
     }, string_len
 
   let of_pids_struct_block msg =
-    let iter = Cstruct.iter (fun _ -> Some 2) (fun buf -> Cstruct.LE.get_uint16 buf 0) msg in
-    List.rev @@ Cstruct.fold (fun acc el -> { pid       = el land 0x1FFF
-                                            ; bitrate   = None
-                                            ; has_pts   = el land 0x8000 <> 0
-                                            ; scrambled = el land 0x4000 <> 0
-                                            ; present   = el land 0x2000 <> 0 } :: acc) iter []
+    let iter = Cstruct.iter (fun _ -> Some 2)
+                 (fun buf -> Cstruct.LE.get_uint16 buf 0) msg in
+    List.rev @@ Cstruct.fold (fun acc el ->
+                    { pid       = el land 0x1FFF
+                    ; bitrate   = None
+                    ; has_pts   = (el land 0x8000) <> 0
+                    ; scrambled = (el land 0x4000) <> 0
+                    ; present   = (el land 0x2000) <> 0 } :: acc) iter []
 
   let of_services_struct_block string_len msg =
     let bdy,rest   = Cstruct.split msg sizeof_services_struct_block in
@@ -345,13 +347,13 @@ module Get_ts_structs : (Request with type req := int
     ; provider_name  = Text_decoder.get_encoding_and_convert pn
     ; pmt_pid        = get_services_struct_block_pmt_pid bdy
     ; pcr_pid        = get_services_struct_block_pcr_pid bdy
-    ; has_pmt        = flags land 0x8000 <> 0
-    ; has_sdt        = flags land 0x4000 <> 0
-    ; dscr           = flags land 0x2000 <> 0
-    ; list_dscr      = flags land 0x1000 <> 0
-    ; eit_schedule   = flags land 0x0080 <> 0
-    ; eit_pf         = flags land 0x0040 <> 0
-    ; free_ca_mode   = flags land 0x0020 <> 0
+    ; has_pmt        = (flags land 0x8000) <> 0
+    ; has_sdt        = (flags land 0x4000) <> 0
+    ; dscr           = (flags land 0x2000) <> 0
+    ; list_dscr      = (flags land 0x1000) <> 0
+    ; eit_schedule   = (flags land 0x0080) <> 0
+    ; eit_pf         = (flags land 0x0040) <> 0
+    ; free_ca_mode   = (flags land 0x0020) <> 0
     ; running_status = flags land 0x0007
     ; service_type_1 = get_services_struct_block_service_type_1 bdy
     ; service_type_2 = get_services_struct_block_service_type_2 bdy
@@ -365,7 +367,7 @@ module Get_ts_structs : (Request with type req := int
                     let pid' = get_es_struct_block_pid x in
                     { pid          = pid' land 0x1FFF
                     ; bitrate      = None
-                    ; has_pts      = pid' land 0x8000 > 0
+                    ; has_pts      = (pid' land 0x8000) > 0
                     ; es_type      = get_es_struct_block_es_type x
                     ; es_stream_id = get_es_struct_block_es_stream_id x
                     } :: acc) iter []
@@ -383,7 +385,7 @@ module Get_ts_structs : (Request with type req := int
                      (fun buf -> Cstruct.LE.get_uint16 buf 0) rest in
     let sections = Cstruct.fold (fun acc x ->
                        { id = List.length acc
-                       ; analyzed = x land 0x8000 > 0
+                       ; analyzed = (x land 0x8000) > 0
                        ; length   = x land 0x0FFF } :: acc) iter []
                    |> List.filter (fun x -> x.length > 0)
                    |> List.rev in
@@ -396,7 +398,7 @@ module Get_ts_structs : (Request with type req := int
       ; id             = get_table_struct_block_id bdy
       ; pid            = pid' land 0x1FFF
       ; lsn            = get_table_struct_block_lsn bdy
-      ; section_syntax = pid' land 0x8000 > 0
+      ; section_syntax = (pid' land 0x8000) > 0
       ; sections
       } in
     let params =

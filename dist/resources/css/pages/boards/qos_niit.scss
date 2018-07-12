@@ -2,6 +2,15 @@
 @import "../../components/theme/_color-palette";
 @import "../../components/typography/_mixins";
 
+/* Structure widget */
+
+@mixin structure-tree-stream-lost {
+    .mdc-tree, .mdc-list-item__text, .mdc-list-item__secondary-text {
+        @include mdc-theme-prop(color, text-disabled-on-background, true);
+        @include mdc-theme-prop(fill, text-disabled-on-background, true);
+    }
+}
+
 .qos-niit-structure {
     &__stream-panel {
         width: 100%;
@@ -11,20 +20,17 @@
 }
 
 .qos-niit-structure__dump {
-    flex-grow: 1;
+    width: 100%;
     padding: 10px;
     overflow: hidden;
     .qos-niit-hexdump, .qos-niit-parsed {
         min-height: 200px;
     }
-}
-
-.qos-niit-structure__parsed {
-    flex-grow: 2;
     &__title {
         font-weight: 500;
     }
     &__header {
+        flex-shrink: 0;
         @include mdc-typography(caption);
         align-items: center;
         margin-bottom: 10px;
@@ -33,34 +39,64 @@
             flex-shrink: 0;
         }
     }
-    &__body {
-        padding: 10px;
+    > .mdc-split {
+        flex-grow: 1;
+    }
+
+    .mdc-hexdump {
+        overflow: auto;
+        width: 100%;
     }
 }
 
-.qos-niit-structure__hexdump {
-    flex-grow: 1;
-    .mdc-hexdump {
-        overflow: auto;
-        flex-grow: 2;
-    }
-    &__options {
-        padding-top: 10px;
-        overflow-x: auto;
-        align-items: center;
+.qos-niit-structure__parsed {
+    width: 100%;
+    flex-grow: 2;
+    flex-shrink: 0;
+    padding: 10px;
+}
 
-        > * {
-            margin-right: 15px;
-        }
-        > *:last-child {
-            margin-right: 0;
-        }
-        .mdc-select {
-            min-width: 75px;
-        }
+.qos-niit-structure__hexdump-options {
+    flex-shrink: 0;
+    padding-top: 10px;
+    overflow-x: auto;
+    align-items: center;
+
+    > * {
+        margin-right: 15px;
+    }
+    > *:last-child {
+        margin-right: 0;
+    }
+    .mdc-select {
+        min-width: 75px;
     }
 }
 
 .qos-niit-structure__section-item {
     cursor: pointer;
+}
+
+/* Structure expansion panel for structure page */
+
+.qos-niit-structure-panel {
+    .qos-niit-structure {
+        height: 600px;
+    }
+}
+
+.qos-niit-structure-panel--lost {
+    $alarm-color: $material-color-red-100;
+    $fill-tone: mdc-theme-tone($alarm-color);
+    .mdc-expansion-panel__primary {
+        @include mdc-theme-prop(background-color, $alarm-color);
+        @if ($fill-tone == "dark") {
+            @include mdc-theme-prop(color, text-primary-on-dark);
+        } @else {
+            @include mdc-theme-prop(color, text-primary-on-light);
+        }
+    }
+    .qos-niit-structure__stream-panel {
+        @include structure-tree-stream-lost;
+    }
 }

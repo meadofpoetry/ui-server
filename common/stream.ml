@@ -4,7 +4,7 @@ open Containers
 type id = Single
         | T2mi_plp of int
         | Dvb of int * int
-        | Unknown of int32 [@@deriving show, eq]
+        | Unknown of int32 [@@deriving show, eq, ord]
 
 let id_of_int32 : int32 -> id = function
   | 0l -> Single

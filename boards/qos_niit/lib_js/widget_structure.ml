@@ -57,11 +57,13 @@ let make_pid (pid : pid_info) =
   new Tree.Item.t ~text ?meta ?secondary_text:stext ~value:() ()
 
 let make_es (es : es_info) =
-  let text, stext = Printf.sprintf "ES PID: %d" es.pid,
-                    let typ = Printf.sprintf "Тип: %d" es.es_type in
-                    let sid = Printf.sprintf "Stream ID: %d" es.es_stream_id in
-                    let pts = if es.has_pts then "Есть PTS" else "" in
-                    String.concat ", " (List.filter (fun x -> not (String.equal x "")) [ typ; sid; pts]) in
+  let text, stext =
+    Printf.sprintf "ES PID: %d" es.pid,
+    let typ = Printf.sprintf "Тип: %d" es.es_type in
+    let sid = Printf.sprintf "Stream ID: %d" es.es_stream_id in
+    let pts = if es.has_pts then "Есть PTS" else "" in
+    String.concat ", " (List.filter (fun x -> not (String.equal x ""))
+                          [ typ; sid; pts]) in
   new Tree.Item.t ~text ~secondary_text:stext ~value:() ()
 
 let make_ecm (ecm : ecm_info) =
@@ -94,7 +96,8 @@ let make_service (service : service_info) =
       () in
   let es =
     if not (List.is_empty service.es)
-    then Some (let es = List.sort (fun (x:es_info) y -> compare x.pid y.pid) service.es in
+    then Some (let es = List.sort (fun (x:es_info) y ->
+                            compare x.pid y.pid) service.es in
                new Tree.Item.t
                  ~text:"Элементарные потоки"
                  ~nested:(new Tree.t ~items:(List.map make_es es) ())
@@ -103,7 +106,8 @@ let make_service (service : service_info) =
     else None in
   let ecm =
     if not (List.is_empty service.ecm)
-    then Some (let ecm = List.sort (fun (x:ecm_info) y -> compare x.pid y.pid) service.ecm in
+    then Some (let ecm = List.sort (fun (x:ecm_info) y ->
+                             compare x.pid y.pid) service.ecm in
                new Tree.Item.t
                  ~text:"ECM"
                  ~nested:(new Tree.t ~items:(List.map make_ecm ecm) ())
@@ -157,8 +161,10 @@ let make_section_name table section =
 let make_section stream table ({id;length;_}:section_info) control =
   let open Lwt_result.Infix in
   let base_class  = Markup.CSS.add_element base_class "section-item" in
-  let req ()      = req_of_table stream id table control in
-  let prev,push   = React.S.create None in
+  let req ()
+    =
+    req_of_table stream id table control in
+  let prev, push  = React.S.create None in
   let text, stext = Printf.sprintf "ID: %d" id, None in
   let graphic = new Icon.SVG.t ~icon:Download () in
   let meta    = Dom_html.createSpan Dom_html.document |> Widget.create in
@@ -171,13 +177,13 @@ let make_section stream table ({id;length;_}:section_info) control =
     |> Lwt_result.map_err Api_js.Requests.err_to_string in
   let item = new Tree.Item.t ~text ?secondary_text:stext
                ~graphic ~meta ~value:() () in
-  let e,e_push = React.E.create () in
-  let name     = make_section_name table id in
+  let e, e_push = React.E.create () in
+  let name      = make_section_name table id in
   Dom_events.listen item#item#root Dom_events.Typ.click (fun _ _ ->
       let dumpable = { name; get; prev } in
-      e_push dumpable; false) |> ignore;
+      e_push dumpable; true) |> ignore;
   let () = item#add_class base_class in
-  item,e
+  item, e
 
 let make_table (stream:Stream.id) (table:table) control =
   let common = table_common_of_table table in
@@ -197,7 +203,7 @@ let make_table (stream:Stream.id) (table:table) control =
                ; make_item ~text:(Printf.sprintf "Last table ID: %d" x.params.last_table_id) () ]
     | _     -> []
   in
-  let items,e  = List.map (fun x ->
+  let items, e = List.map (fun x ->
                      make_section stream table x control) common.sections
                  |> List.split in
   let e        = React.E.select e in
@@ -208,7 +214,7 @@ let make_table (stream:Stream.id) (table:table) control =
       ~value:()
       () in
   let nested = new Tree.t ~items:(specific @ [sections]) () in
-  new Tree.Item.t ~text ~secondary_text:stext ~nested ~value:() (),e
+  new Tree.Item.t ~text ~secondary_text:stext ~nested ~value:() (), e
 
 let make_general (ts : general_info) =
   let make_item = new Tree.Item.t ~ripple:false ~value:() in
@@ -255,7 +261,7 @@ let make_stream (id:Stream.id) (ts : structure) control =
                  ~value:()
                  ())
     else None in
-  let tabl,e =
+  let tabl, e =
     if not (List.is_empty ts.tables)
     then
       let tabl =
@@ -269,90 +275,30 @@ let make_stream (id:Stream.id) (ts : structure) control =
       new Tree.Item.t ~text:"Таблицы" ~nested ~value:() ()
       |> fun x -> Option.return x, e
     else None, React.E.never in
-  let opt    = serv ^:: tabl ^:: pids ^:: emm ^:: [] in
-  let tree = new Tree.t ~items:(gen :: opt) () in
+  let time =
+    let (y,m,d),((h,min,s),_) =
+      Time.to_date_time
+        ?tz_offset_s:(Ptime_clock.current_tz_offset_s ())
+        ts.timestamp in
+    let s = Printf.sprintf "Получена: %02d.%02d.%04d %02d:%02d:%02d"
+              d m y h min s in
+    new Tree.Item.t
+      ~text:s
+      ~value:()
+      () in
+  let opt  = serv ^:: tabl ^:: pids ^:: emm ^:: [] in
+  let tree = new Tree.t ~items:(time :: gen :: opt) () in
   let ()   = tree#set_dense true in
   tree, e
 
-let make_parsed (event:dumpable React.event) =
-  (* CSS classes *)
-  let base_class   = Markup.CSS.add_element base_class "parsed" in
-  let header_class = Markup.CSS.add_element base_class "header" in
-  let title_class  = Markup.CSS.add_element base_class "title" in
-  let body_class   = Markup.CSS.add_element base_class "body" in
-  (* Signal for hexdump element *)
-  let s, p = React.S.create "" in
-  (* Elements *)
-  let title     = new Typography.Text.t
-                    ~adjust_margin:false
-                    ~text:"Выберите секцию таблицы SI/PSI для захвата" () in
-  let subtitle  = new Typography.Text.t
-                    ~adjust_margin:false
-                    ~split:true
-                    ~text:"" () in
-  let button    = new Ui_templates.Buttons.Get.t
-                    ~style:`Raised
-                    ~label:"Загрузить" () in
-  let body      = Dom_html.createDiv Dom_html.document |> Widget.create in
-  let title_box = new Vbox.t
-                    ~widgets:[ title#widget
-                             ; subtitle#widget ] () in
-  let header    = new Hbox.t
-                    ~halign:`Space_between
-                    ~widgets:[ title_box#widget
-                             ; button#widget] () in
-  let box       = new Vbox.t
-                    ~widgets:[ header#widget
-                             ; (new Divider.t ())#widget
-                             ; body#widget ] () in
-  (* CSS classes setup *)
-  let ()   = title#add_class title_class in
-  let ()   = header#add_class header_class in
-  let ()   = body#add_class body_class in
-  let ()   = box#add_class base_class in
-  let _e   =
-    React.E.map (fun {name;get;prev} ->
-        let open Lwt.Infix in
-        let text   = new Typography.Text.t ~text:"" () in
-        let err x  = Ui_templates.Placeholder.create_with_error ~text:x () in
-        let ph  x  = Ui_templates.Placeholder.create_with_icon
-                       ~icon:"info"
-                       ~text:x () in
-        let get    = fun () ->
-          Lwt.catch (fun () ->
-              get ()
-              >|= (function
-                   | Ok _    -> body#set_empty ();
-                                Dom.appendChild body#root text#root
-                   | Error s -> body#set_empty ();
-                                Dom.appendChild body#root (err s)#root))
-            (fun e ->
-              body#set_empty ();
-              Dom.appendChild body#root (err @@ Printexc.to_string e)#root;
-              Lwt.return_unit) in
-        let _s   =
-          React.S.map (function
-              | Some raw ->
-                 body#set_empty ();
-                 text#set_text raw;
-                 Dom.appendChild body#root text#root;
-                 p raw
-              | None     ->
-                 body#set_empty ();
-                 Dom.appendChild body#root (ph "Нет захваченных данных")#root;
-                 p "") prev in
-        let () = button#set_getter (Some get) in
-        let () = title#set_text @@ fst name in
-        let () = subtitle#set_text @@ snd name in
-        let () = button#set_disabled false in
-        _s) event
-    |> Lwt_react.E.keep
-  in
-  box#widget,s
+let make_parsed () =
+  let base_class = Markup.CSS.add_element base_class "parsed" in
+  let body       = Dom_html.createDiv Dom_html.document |> Widget.create in
+  let ()         = body#add_class base_class in
+  body#widget
 
-let make_hexdump (signal:string React.signal) =
-  let base_class = Markup.CSS.add_element base_class "hexdump" in
-  let config     = Hexdump.to_config ~width:16 () in
+let make_hexdump_options hexdump =
+  let base_class = Markup.CSS.add_element base_class "hexdump-options" in
   let base =
     new Select.t
       ~label:"Основание"
@@ -364,7 +310,7 @@ let make_hexdump (signal:string React.signal) =
     new Select.t
       ~label:"Ширина"
       ~items:[ `Item (new Select.Item.t ~value:4  ~text:"4"  ())
-             ; `Item (new Select.Item.t ~value:8  ~text:"8"  ~selected:true ())
+             ; `Item (new Select.Item.t ~value:8  ~text:"8" ~selected:true ())
              ; `Item (new Select.Item.t ~value:16 ~text:"16" ())
              ; `Item (new Select.Item.t ~value:32 ~text:"32" ()) ]
       () in
@@ -375,10 +321,7 @@ let make_hexdump (signal:string React.signal) =
                   ~widgets:[ base#widget
                            ; width#widget
                            ; line_numbers'#widget ] () in
-  let hexdump = new Hexdump.t ~config "" () in
-  let _s = React.S.map hexdump#set_bytes signal in
-  Lwt_react.S.keep _s;
-  let () = options#add_class @@ Markup.CSS.add_element base_class "options" in
+  let () = options#add_class base_class in
   let _  = React.S.map hexdump#set_line_numbers line_numbers#s_state in
   let _  = React.S.map (function
                | Some x -> hexdump#set_width x
@@ -386,56 +329,139 @@ let make_hexdump (signal:string React.signal) =
   let _  = React.S.map (function
                | Some x -> hexdump#set_base x
                | None   -> ()) base#s_selected_value in
-  let box = new Vbox.t
-              ~valign:`End
-              ~widgets:[ hexdump#widget
-                       ; (new Divider.t ())#widget
-                       ; options#widget ]
-              () in
-  let () = box#add_class base_class in
-  box#widget
+  options#widget
+
+let make_hexdump (signal:string React.signal) =
+  let config  = Hexdump.to_config ~width:16 () in
+  let hexdump = new Hexdump.t ~config "" () in
+  let _s = React.S.map hexdump#set_bytes signal in
+  Lwt_react.S.keep _s;
+  hexdump
+
+let make_dump_header base_class () =
+  (* CSS classes *)
+  let header_class = Markup.CSS.add_element base_class "header" in
+  let title_class  = Markup.CSS.add_element base_class "title" in
+  (* Elements *)
+  let title     = new Typography.Text.t
+                    ~adjust_margin:false
+                    ~text:"Выберите секцию таблицы SI/PSI для захвата" () in
+  let subtitle  = new Typography.Text.t
+                    ~adjust_margin:false
+                    ~split:true
+                    ~text:"" () in
+  let button    = new Ui_templates.Buttons.Get.t
+                    ~style:`Raised
+                    ~label:"Загрузить" () in
+  let title_box = new Vbox.t
+                    ~widgets:[ title#widget
+                             ; subtitle#widget ] () in
+  let header    = new Hbox.t
+                    ~halign:`Space_between
+                    ~widgets:[ title_box#widget
+                             ; button#widget] () in
+  (* CSS classes setup *)
+  let () = title#add_class title_class in
+  let () = header#add_class header_class in
+  header#widget, title, subtitle, button
 
 let make_dump (event:dumpable React.event) =
   let base_class = Markup.CSS.add_element base_class "dump" in
-  let parsed, s  = make_parsed event in
-  let hexdump    = make_hexdump s in
-  let vbox       =
-    new Vbox.t
-      ~widgets:[ parsed#widget
-               ; (new Divider.t ())#widget
-               ; hexdump#widget ]
-      () in
+  let header, title, subtitle, button = make_dump_header base_class () in
+  let s, push = React.S.create "" in
+  let parsed  = make_parsed () in
+  let hexdump = make_hexdump s in
+  let options = make_hexdump_options hexdump in
+  let () =
+    React.E.map (fun {name;get;prev} ->
+        let open Lwt.Infix in
+        let text   = new Typography.Text.t ~text:"" () in
+        let err x  = Ui_templates.Placeholder.create_with_error ~text:x () in
+        let ph  x  = Ui_templates.Placeholder.create_with_icon
+                       ~icon:"info"
+                       ~text:x () in
+        let get    = fun () ->
+          Lwt.catch (fun () ->
+              get ()
+              >|= (function
+                   | Ok _    -> parsed#set_empty ();
+                                Dom.appendChild parsed#root text#root
+                   | Error s -> parsed#set_empty ();
+                                Dom.appendChild parsed#root (err s)#root))
+            (fun e ->
+              parsed#set_empty ();
+              Dom.appendChild parsed#root (err @@ Printexc.to_string e)#root;
+              Lwt.return_unit) in
+        let _s   =
+          React.S.map (function
+              | Some raw ->
+                 parsed#set_empty ();
+                 text#set_text raw;
+                 Dom.appendChild parsed#root text#root;
+                 push raw
+              | None     ->
+                 parsed#set_empty ();
+                 Dom.appendChild parsed#root (ph "Нет захваченных данных")#root;
+                 push "") prev in
+        let () = button#set_getter (Some get) in
+        let () = title#set_text @@ fst name in
+        let () = subtitle#set_text @@ snd name in
+        let () = button#set_disabled false in
+        _s) event
+    |> Lwt_react.E.keep in
+  let vsplit = new Vsplit.t parsed hexdump () in
+  let vbox   = new Vbox.t ~widgets:[ header
+                                   ; (new Divider.t ())#widget
+                                   ; vsplit#widget
+                                   ; (new Divider.t ())#widget
+                                   ; options#widget ] () in
   vbox#add_class base_class;
   vbox#widget
 
-let make
-      ?(config=default_config)
-      ~(state:Common.Topology.state React.signal)
-      ~(signal:(Stream.id * structure) list React.signal)
-      (control:int)
-      () =
+class t ?(config=default_config)
+        ~(state:Common.Topology.state React.signal)
+        ~(stream:Common.Stream.t option React.signal)
+        ~(init:structure option)
+        ~(event:structure option React.event)
+        (control:int)
+        () =
   let stream_panel_class = Markup.CSS.add_element base_class "stream-panel" in
-  let stream = config.stream in
+  let id  = config.stream in
   let ph  = Ui_templates.Placeholder.create_with_icon
               ~icon:"warning" ~text:"Нет потока" () in
-  let stream_box = Dom_html.createDiv Dom_html.document
-                   |> Widget.create in
-  let e =
-    React.S.map ~eq:(fun _ _ -> false) (function
-        | None   ->
-           stream_box#set_empty ();
-           Dom.appendChild stream_box#root ph#root;
-           React.E.never
-        | Some s ->
-           stream_box#set_empty ();
-           let stream, e = make_stream stream s control in
-           Dom.appendChild stream_box#root stream#root;
-           e)
-    @@ React.S.map (List.Assoc.get ~eq:Stream.equal_id stream) signal
-    |> React.S.changes
-    |> React.E.switch React.E.never in
-  let dump   = make_dump e in
-  let hsplit = new Hsplit.t stream_box dump () in
-  let () = stream_box#add_class stream_panel_class in
-  let () = hsplit#add_class base_class in
-  hsplit#widget
+  let box = Dom_html.createDiv Dom_html.document
+            |> Widget.create in
+  let ()  = Dom.appendChild box#root ph#root in
+  let update = function
+    | None   ->
+       (* box#set_empty ();
+        * Dom.appendChild box#root ph#root; *)
+       React.E.never
+    | Some s ->
+       box#set_empty ();
+       let stream, e = make_stream id s control in
+       Dom.appendChild box#root stream#root;
+       e in
+  let init_dumpable = update init in
+  let dumpable =
+    event
+    |> React.E.map update
+    |> React.E.switch init_dumpable in
+  let dump = make_dump dumpable in
+  object(self)
+    inherit Hsplit.t box dump ()
+
+    initializer
+      box#add_class stream_panel_class;
+      self#add_class base_class
+  end
+
+let make
+      ?(config:config option)
+      ~(state:Common.Topology.state React.signal)
+      ~(stream:Common.Stream.t option React.signal)
+      ~(init:structure option)
+      ~(event:structure option React.event)
+      (control:int)
+      () =
+  new t ?config ~state ~stream ~init ~event control ()

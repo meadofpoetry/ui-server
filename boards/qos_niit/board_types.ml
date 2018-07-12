@@ -165,7 +165,7 @@ module Streams = struct
       ; has_pts   : bool
       ; scrambled : bool
       ; present   : bool
-      } [@@deriving yojson]
+      } [@@deriving yojson, eq]
 
     type es_info =
       { pid          : int
@@ -173,13 +173,13 @@ module Streams = struct
       ; has_pts      : bool
       ; es_type      : int
       ; es_stream_id : int
-      } [@@deriving yojson]
+      } [@@deriving yojson, eq]
 
     type ecm_info =
       { pid       : int
       ; bitrate   : int option
       ; ca_sys_id : int
-      } [@@deriving yojson]
+      } [@@deriving yojson, eq]
 
     type service_info =
       { id             : int
@@ -200,18 +200,18 @@ module Streams = struct
       ; service_type_2 : int
       ; es             : es_info list
       ; ecm            : ecm_info list
-      } [@@deriving yojson]
+      } [@@deriving yojson, eq]
 
-    type emm_info = ecm_info [@@deriving yojson]
+    type emm_info = ecm_info [@@deriving yojson, eq]
 
-    type actual_other = Actual  | Other    [@@deriving yojson]
-    type eit_type     = Present | Schedule [@@deriving yojson]
+    type actual_other = Actual  | Other    [@@deriving yojson, eq]
+    type eit_type     = Present | Schedule [@@deriving yojson, eq]
 
     type section_info =
       { id       : int
       ; analyzed : bool
       ; length   : int
-      } [@@deriving yojson]
+      } [@@deriving yojson, eq]
 
     type table_info =
       { version        : int
@@ -221,41 +221,41 @@ module Streams = struct
       ; lsn            : int
       ; section_syntax : bool
       ; sections       : section_info list
-      } [@@deriving yojson]
+      } [@@deriving yojson, eq]
 
     type pat_info =
       { common : table_info
       ; ts_id  : int (* table id ext *)
-      } [@@deriving yojson]
+      } [@@deriving yojson, eq]
 
     type pmt_info =
       { common         : table_info
       ; program_number : int (* table id ext *)
-      } [@@deriving yojson]
+      } [@@deriving yojson, eq]
 
     type nit_info =
       { common : table_info
       ; ts     : actual_other
       ; nw_id  : int (* table id ext *)
-      } [@@deriving yojson]
+      } [@@deriving yojson, eq]
 
     type sdt_info =
       { common : table_info
       ; ts_id  : int (* table id ext *)
       ; ts     : actual_other
-      } [@@deriving yojson]
+      } [@@deriving yojson, eq]
 
     type bat_info =
       { common     : table_info
       ; bouquet_id : int (* table id ext *)
-      } [@@deriving yojson]
+      } [@@deriving yojson, eq]
 
     type eit_params =
       { ts_id         : int (* eit param 1*)
       ; orig_nw_id    : int (* eit param 2*)
       ; segment_lsn   : int
       ; last_table_id : int
-      } [@@deriving yojson]
+      } [@@deriving yojson, eq]
 
     type eit_info =
       { common     : table_info
@@ -263,7 +263,7 @@ module Streams = struct
       ; ts         : actual_other
       ; typ        : eit_type
       ; params     : eit_params
-      } [@@deriving yojson]
+      } [@@deriving yojson, eq]
 
     type table = PAT     of pat_info
                | CAT     of table_info
@@ -279,7 +279,7 @@ module Streams = struct
                | TOT     of table_info
                | DIT     of table_info
                | SIT     of table_info
-               | Unknown of table_info [@@deriving yojson]
+               | Unknown of table_info [@@deriving yojson, eq]
 
     type general_info =
       { complete     : bool
@@ -290,7 +290,7 @@ module Streams = struct
       ; orig_nw_id   : int
       ; nw_name      : string
       ; bouquet_name : string
-      } [@@deriving yojson]
+      } [@@deriving yojson, eq]
 
     type structure =
       { timestamp : Time.t
@@ -300,7 +300,7 @@ module Streams = struct
       ; services  : service_info list
       ; emm       : emm_info list
       ; tables    : table list
-      } [@@deriving yojson]
+      } [@@deriving yojson, eq]
 
     type table_label = [ `PAT   | `CAT   | `PMT   | `TSDT  |
                          `NIT   | `NITa  | `NITo  |

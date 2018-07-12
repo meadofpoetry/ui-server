@@ -63,6 +63,7 @@ object(self)
   val _jitter_mode : jitter_mode option React.signal t_lwt = empty ()
   val _structs     : (Stream.id * Streams.TS.structure) list React.signal t_lwt = empty ()
   val _bitrates    : (Stream.id * Streams.TS.bitrate) list React.signal t_lwt = empty ()
+  val _streams     : Stream.t list React.signal t_lwt = empty ()
 
   (** Create widget of type **)
   method create : item -> Dashboard.Item.item = function
@@ -70,24 +71,31 @@ object(self)
        Widget_chart.make conf
        |> Dashboard.Item.to_item ~name:Widget_chart.name
     | Structure config ->
-       (fun s str -> Widget_structure.make ?config ~state:s ~signal:str control ())
-       |> Factory_state_lwt.l2 self#state self#structs
+       let id =
+         Option.get_or
+           ~default:Widget_structure.default_config.stream
+         @@ Option.map (fun (x:Widget_structure.config) -> x.stream) config in
+       (fun state signal stream ->
+         let init  = React.S.value signal in
+         let event = React.S.changes signal in
+         Widget_structure.make ?config ~state ~init ~event ~stream control ())
+       |> Factory_state_lwt.l3 self#state (self#structure id) (self#stream id)
+       |> Lwt_result.map Widget.coerce
        |> Ui_templates.Loader.create_widget_loader
        |> Dashboard.Item.to_item ~name:Widget_structure.name
             ?settings:Widget_structure.settings
     | Settings conf ->
-       (fun s t j -> Widget_settings.make ~state:s ~t2mi_mode:t ~jitter_mode:j
-                       ~streams:self#streams
-                       conf control)
-       |> Factory_state_lwt.l3 self#state self#t2mi_mode self#jitter_mode
+       (fun state t2mi_mode jitter_mode streams->
+         Widget_settings.make ~state ~t2mi_mode ~jitter_mode ~streams
+           conf control)
+       |> Factory_state_lwt.l4 self#state self#t2mi_mode self#jitter_mode self#streams
        |> Ui_templates.Loader.create_widget_loader
        |> Dashboard.Item.to_item ~name:Widget_settings.name
             ?settings:Widget_settings.settings
     | T2MI_settings conf ->
-       (fun s m -> Widget_t2mi_settings.make ~state:s ~mode:m
-                     ~streams:self#streams
-                     conf control )
-       |> Factory_state_lwt.l2 self#state self#t2mi_mode
+       (fun state mode streams ->
+         Widget_t2mi_settings.make ~state ~mode ~streams conf control )
+       |> Factory_state_lwt.l3 self#state self#t2mi_mode self#streams
        |> Ui_templates.Loader.create_widget_loader
        |> Dashboard.Item.to_item ~name:Widget_t2mi_settings.name
             ?settings:Widget_t2mi_settings.settings
@@ -134,7 +142,11 @@ object(self)
       ~get_socket:(fun () -> Requests.Device.WS.get_jitter_mode control)
       _jitter_mode
 
-  method structs =
+  method structure id =
+    self#structs >|= React.S.map (List.Assoc.get ~eq:Stream.equal_id id)
+
+  method structs : (Stream.id * Streams.TS.structure) list
+                     React.signal Factory_state_lwt.value =
     Factory_state_lwt.get_value_as_signal
       ~get:(fun ()        -> Requests.Streams.HTTP.TS.get_structure control |> map_err)
       ~get_socket:(fun () -> Requests.Streams.WS.TS.get_structure control)
@@ -146,6 +158,20 @@ object(self)
       ~get_socket:(fun () -> Requests.Streams.WS.TS.get_bitrate control)
       _bitrates
 
-  method streams = React.S.const []
+  method stream id =
+    self#streams
+    >|= fun streams ->
+    React.S.map (fun streams ->
+        List.find_opt (fun (stream:Stream.t) ->
+            match stream.id with
+            | `Ts x -> Stream.equal_id id x
+            | _     -> false) streams)
+      streams
+
+  method streams =
+    Factory_state_lwt.get_value_as_signal
+      ~get:(fun ()        -> Requests.Streams.HTTP.TS.get_streams control |> map_err)
+      ~get_socket:(fun () -> Requests.Streams.WS.TS.get_streams control)
+      _streams
 
 end

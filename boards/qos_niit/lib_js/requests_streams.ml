@@ -83,7 +83,7 @@ module HTTP = struct
 
     let of_yojson f v = Json.(List.of_yojson (Pair.of_yojson Stream.id_of_yojson f) v)
 
-    let get_stream ?(ids=[]) control =
+    let get_streams ?(ids=[]) control =
       get_result ~from:(Json.List.of_yojson Stream.of_yojson)
         ~path:(get_base_path ())
         ~query:Query.[ "id", (module List(Int32)) ]
