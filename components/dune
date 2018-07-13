@@ -1,15 +1,13 @@
-(jbuild_version 1)
-
 (library
- ((name        components)
+  (name        components)
   (public_name components)
   (synopsis    "various js widgets")
   ; (modules     (widget markup avatar box button card checkbox dialog divider expansion_panel
   ;               drawer elevation fab form_field grid_list icon icon_toggle circular_progress
   ;               item_list layout_grid linear_progress menu radio ripple select slider utils
   ;               snackbar switch tabs table textfield textarea toolbar tree typography color dynamic_grid))
-  (libraries (common react js_of_ocaml js_of_ocaml-tyxml js_of_ocaml-lwt gg vg))
+  (libraries   common react js_of_ocaml js_of_ocaml-tyxml js_of_ocaml-lwt gg vg)
   (flags (:standard -short-paths -strict-sequence -bin-annot
-          -thread -w "+1..49+60" -w "+a-4-7-23-33-39-40-41-42-44-45-48"))
-  (js_of_ocaml ((flags (:standard +weak.js --opt 3))))
-  (preprocess (pps (ppx_deriving_yojson js_of_ocaml-ppx ppx_deriving.eq)))))
+           -w A+1..49+60-4-7-23-27-32-33-36-39-40-41-42-44-45-48))
+  (js_of_ocaml  (flags (:standard +weak.js --opt 3)))
+  (preprocess   (pps ppx_deriving_yojson js_of_ocaml-ppx ppx_deriving.eq)))

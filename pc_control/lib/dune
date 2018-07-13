@@ -1,0 +1,18 @@
+(library
+  (name        pc_control)
+  (public_name pc_control)
+  (wrapped     true)
+  (modes       native)
+  (synopsis    "network interface controls implementation")
+  (libraries   containers lwt lwt_react
+               obus yojson
+               api storage)
+  (flags          (:standard -short-paths -strict-sequence -bin-annot
+                   -w A+1..49+60-4-6-7-23-27-33-39-40-41-42-44-45-48))
+  (ocamlopt_flags (:standard -O3 -unbox-closures))
+  (preprocess (pps ppx_deriving_yojson ppx_deriving.eq)))
+
+(rule
+  (targets network_config.ml)
+  (deps    (:x ../network_config.ml))
+  (action  (copy %{x} %{targets})))

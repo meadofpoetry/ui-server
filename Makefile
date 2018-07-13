@@ -1,4 +1,4 @@
-BUILD = jbuilder
+BUILD = dune
 CSS   = scss
 
 home:
@@ -44,6 +44,7 @@ frontend: home pipeline hardware user network demo input
 backend:
 	$(BUILD) build backend/backend.exe
 	cp _build/default/backend/backend.exe dist/backend
+
 
 build: backend frontend
 	@echo "Done"

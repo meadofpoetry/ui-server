@@ -1,0 +1,48 @@
+(library
+  (name        pipeline)
+  (public_name pipeline)
+  (wrapped     false)
+  (modes       native)
+  (synopsis   "pipeline implementation")
+  (libraries   containers yojson caqti-lwt angstrom logs.lwt
+               lwt zmq-lwt lwt_react websocket-lwt.cohttp
+               api storage common process)
+  (flags          (:standard -short-paths -strict-sequence -bin-annot
+                   -w A+1..49+60-4-7-8-23-27-33-39-40-41-42-44-45-48))
+  (ocamlopt_flags (:standard -O3 -unbox-closures))
+  (preprocess  (pps ppx_deriving_yojson ppx_deriving.eq)))
+
+(rule
+  (targets qoe_errors.ml)
+  (deps    (:x ../qoe_errors.ml))
+  (action  (copy %{x} %{targets})))
+
+(rule
+  (targets graph.ml)
+  (deps    (:x ../graph.ml))
+  (action  (copy %{x} %{targets})))
+
+(rule
+  (targets opt_update.ml)
+  (deps    (:x ../opt_update.ml))
+  (action  (copy %{x} %{targets})))
+
+(rule
+  (targets settings.ml)
+  (deps    (:x ../settings.ml))
+  (action  (copy %{x} %{targets})))
+
+(rule
+  (targets structure.ml)
+  (deps    (:x ../structure.ml))
+  (action  (copy %{x} %{targets})))
+
+(rule
+  (targets wm.ml)
+  (deps    (:x ../wm.ml))
+  (action  (copy %{x} %{targets})))
+
+(rule
+  (targets queries.ml)
+  (deps    (:x ../queries.ml))
+  (action  (copy %{x} %{targets})))

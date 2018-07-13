@@ -1,0 +1,8 @@
+(executable
+  (name         test)
+  (libraries    alcotest common boards))
+
+(alias
+  (name runtest)
+  (package boards)
+  (action  (run ${exe:test.exe})))
