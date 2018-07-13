@@ -467,13 +467,32 @@ module Get_ts_structs : (Request with type req := int
     let blocks   = of_ts_struct_blocks bdy in
     let stream   = Common.Stream.id_of_int32 @@ get_ts_struct_stream_id hdr in
     let rest     = if Cstruct.len rest > 0 then Some rest else None in
+    let general  =
+      get_exn @@ List.find_map (function `General x -> Some x
+                                       | _ -> None) blocks in
+    let pids     =
+      get_exn @@ List.find_map (function `Pids x -> Some x | _ -> None) blocks
+      |> List.sort (fun (x:pid_info) y -> Int.compare x.pid y.pid) in
+    let services =
+      List.filter_map (function `Services x -> Some x | _ -> None) blocks
+      |> List.sort (fun (x:service_info) y -> Int.compare x.id y.id) in
+    let emm      =
+      get_exn @@ List.find_map (function `Emm x -> Some x
+                                       | _ -> None) blocks
+      |> List.sort (fun (x:emm_info) y -> Int.compare x.pid y.pid) in
+    let tables   =
+      List.filter_map (function `Tables x -> Some x | _ -> None) blocks
+      |> List.sort (fun (x:table) y ->
+             let x = table_common_of_table x in
+             let y = table_common_of_table y in
+             Int.compare x.pid y.pid) in
     let rsp      =
       { bitrate   = None
-      ; general   = get_exn @@ List.find_map (function `General x -> Some x | _ -> None) blocks
-      ; pids      = get_exn @@ List.find_map (function `Pids x -> Some x | _ -> None) blocks
-      ; services  = List.filter_map (function `Services x -> Some x | _ -> None) blocks
-      ; emm       = get_exn @@ List.find_map (function `Emm x -> Some x | _ -> None) blocks
-      ; tables    = List.filter_map (function `Tables x -> Some x | _ -> None) blocks
+      ; general
+      ; pids
+      ; services
+      ; emm
+      ; tables
       ; timestamp = Common.Time.Clock.now ()
       }
     in (stream,rsp),rest

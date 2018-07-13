@@ -35,9 +35,7 @@ module Item = struct
 
       inherit Widget.t elt ()
 
-      method item           = item
-      method text           = item#text
-      method secondary_text = item#secondary_text
+      method item = item
       method nested_tree : 'b option = nested
 
       initializer
@@ -58,8 +56,9 @@ module Item = struct
 end
 
 class ['a] t ~(items:('a,'a t) Item.t list) () =
-  let two_line = List.find_pred (fun x -> Option.is_some x#secondary_text) items
-                 |> Option.is_some in
+  let two_line =
+    List.find_pred (fun x -> Option.is_some x#item#secondary_text) items
+    |> Option.is_some in
   let elt = Markup.create ~two_line
               ~items:(List.map Widget.to_markup items) ()
             |> Tyxml_js.To_dom.of_element in

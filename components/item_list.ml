@@ -11,7 +11,6 @@ end
 
 module Item = struct
 
-  (* TODO add ripple manually, without auto-init *)
   class ['a] t ?(ripple=false) ?secondary_text ?graphic ?meta ?tag ~(value:'a) ~text () =
     let text_elt = match secondary_text with
       | Some st -> let secondary = Markup.Item.create_secondary_text st () in
@@ -27,6 +26,9 @@ module Item = struct
     object(self)
       val mutable _v = value
       inherit Widget.t elt ()
+
+      method set_text (x:string) = ()
+      method set_secondary_text (x:string) = ()
 
       (* TODO add setters, real getters *)
       method text           = text

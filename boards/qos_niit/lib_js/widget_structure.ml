@@ -40,21 +40,83 @@ let (^::) = List.cons_maybe
 
 let base_class = "qos-niit-structure"
 
-let make_pid (pid : pid_info) =
-  let text, stext = Printf.sprintf "PID: %d" pid.pid, None in
-  let scrambled = match pid.scrambled with
-    | true  -> Some (new Icon.SVG.t ~icon:Lock ())
-    | false -> None in
-  let pts = match pid.has_pts with
-    | true  -> Some (new Icon.SVG.t ~icon:Clock_outline ())
-    | false -> None in
-  let meta = match scrambled,pts with
-    | Some s, Some pts -> Some (new Hbox.t ~widgets:[s;pts] ())#widget
-    | Some s, None     -> Some s#widget
-    | None, Some pts   -> Some pts#widget
-    | None, None       -> None
-  in
-  new Tree.Item.t ~text ?meta ?secondary_text:stext ~value:() ()
+module Make(M:sig type model end) = struct
+
+  type model = M.model
+
+  type 'a setter =
+    { get : model -> 'a
+    ; eq  : 'a -> 'a -> bool
+    ; upd : 'a -> unit
+    }
+
+  let setter (prev:model) (model:model) (s:'a setter) =
+    if s.eq (s.get prev) (s.get model)
+    then s.upd @@ s.get model
+
+end
+
+let ( % ) = Fun.( % )
+
+type item = (unit, unit Tree.t) Tree.Item.t
+
+module type Node = sig
+
+  type model
+  val make : model -> (model * model) React.event -> item
+
+end
+
+module Pid = struct
+
+  include Make(struct type model = pid_info end)
+
+  let make (init:model) =
+    let to_string = Printf.sprintf "PID: %d" in
+    let scrambled = new Icon.SVG.t ~icon:Lock () in
+    let pts       = new Icon.SVG.t ~icon:Clock_outline () in
+    let meta      = new Hbox.t ~widgets:[scrambled; pts] () in
+    let leaf      = new Tree.Item.t
+                      ~text:(to_string init.pid)
+                      ~meta:meta#widget ~value:() () in
+    let text_set =
+      { get = (fun x -> x.pid)
+      ; eq  = (=)
+      ; upd = (leaf#item#set_text % to_string) } in
+    let scr_set =
+      { get = (fun x -> x.scrambled)
+      ; eq  = Equal.bool
+      ; upd = (fun x ->
+        let s = if x then "" else "none" in
+        scrambled#style##.display := Js.string s) } in
+    let pts_set =
+      { get = (fun x -> x.has_pts)
+      ; eq  = Equal.bool
+      ; upd = (fun x ->
+        let s = if x then "" else "none" in
+        pts#style##.display := Js.string s) } in
+    let update = fun (prev, model) ->
+      let f x = setter prev model x in
+      f text_set; f scr_set; f pts_set in
+    leaf, update
+
+end
+
+module Pids : Node = struct
+
+  include Make(struct type model = pid_info list end)
+
+  let make (init:model) (event:(model * model) React.event) =
+    let init  = List.sort (fun (x:pid_info) y ->
+                    compare x.pid y.pid) init in
+    let items = List.map Pid.make init in
+    new Tree.Item.t
+      ~text:"PIDs"
+      ~nested:(new Tree.t ~items:(List.map fst items) ())
+      ~value:()
+      ()
+
+end
 
 let make_es (es : es_info) =
   let text, stext =
@@ -216,26 +278,76 @@ let make_table (stream:Stream.id) (table:table) control =
   let nested = new Tree.t ~items:(specific @ [sections]) () in
   new Tree.Item.t ~text ~secondary_text:stext ~nested ~value:() (), e
 
-let make_general (ts : general_info) =
-  let make_item = new Tree.Item.t ~ripple:false ~value:() in
-  let items =
-    [ make_item ~text:(Printf.sprintf "Network PID: %d" ts.nw_pid) ()
-    ; make_item ~text:(Printf.sprintf "TS ID: %d" ts.ts_id) ()
-    ; make_item ~text:(Printf.sprintf "Network ID: %d" ts.nw_id) ()
-    ; make_item ~text:(Printf.sprintf "Original Network ID: %d"
-                         ts.orig_nw_id) ()
-    ; make_item ~text:(Printf.sprintf "Network name: %s" ts.nw_name) ()
-    ; make_item ~text:(Printf.sprintf "Bouquet name: %s" ts.bouquet_name) ()
-    ] in
-  let nested = new Tree.t ~items () in
-  new Tree.Item.t ~text:"Сведения о потоке" ~nested ~value:() ()
+module General : ( Node with type model = general_info) = struct
 
-let make_stream (id:Stream.id) (ts : structure) control =
-  let gen  = make_general ts.general in
+  include Make(struct type model = general_info end)
+
+  let make (init:model) (event:(model * model) React.event) =
+    let open Printf in
+    let open Fun in
+    let make_item ~text () = new Tree.Item.t ~text ~value:() () in
+    let nw_pid, nw_pid_set =
+      let get x = x.nw_pid in
+      let to_string x = sprintf "Network PID: %d" x in
+      let w = make_item ~text:(to_string @@ get init) () in
+      let v = { get; eq = (=); upd = (w#item#set_text % to_string) } in
+      w, v in
+    let ts_id, ts_id_set =
+      let get x = x.ts_id in
+      let to_string x = sprintf "TS ID: %d" x in
+      let w = make_item ~text:(to_string @@ get init) () in
+      let v = { get; eq = (=); upd = (w#item#set_text % to_string) } in
+      w, v in
+    let nw_id, nw_id_set =
+      let get x = x.nw_id in
+      let to_string x = sprintf "Network ID: %d" x in
+      let w = make_item ~text:(to_string @@ get init) () in
+      let v = { get; eq = (=); upd = (w#item#set_text % to_string) } in
+      w, v in
+    let orig_nw_id, orig_nw_id_set =
+      let get x = x.orig_nw_id in
+      let to_string x = sprintf "Original network ID: %d" x in
+      let w = make_item ~text:(to_string @@ get init) () in
+      let v = { get; eq = (=); upd = (w#item#set_text % to_string) } in
+      w, v in
+    let nw_name, nw_name_set =
+      let eq    = String.equal in
+      let get x = x.nw_name in
+      let to_string x = Printf.sprintf "Network name: %s" x in
+      let w = make_item ~text:(to_string @@ get init) () in
+      let v = { get; eq; upd = (w#item#set_text % to_string) } in
+      w, v in
+    let bouquet_name, bq_name_set =
+      let eq    = String.equal in
+      let get x = x.bouquet_name in
+      let to_string x = Printf.sprintf "Bouquet name: %s" x in
+      let w = make_item ~text:(to_string @@ get init) () in
+      let v = { get; eq; upd = (w#item#set_text % to_string) } in
+      w, v in
+    let _e = React.E.map (fun (prev,model) ->
+                 let f x = setter prev model x in
+                 f nw_pid_set;
+                 f ts_id_set;
+                 f nw_id_set;
+                 f orig_nw_id_set;
+                 f nw_name_set;
+                 f bq_name_set) event in
+    let items  = [ nw_pid; ts_id; nw_id; orig_nw_id; nw_name; bouquet_name ] in
+    let nested = new Tree.t ~items () in
+    new Tree.Item.t ~text:"Сведения о потоке" ~nested ~value:() ()
+
+end
+
+let make_stream (id:Stream.id)
+      (init:structure)
+      (event:(structure * structure) React.event)
+      control =
+  let gen  = General.make init.general
+             @@ React.E.map (fun (o, n) -> o.general, n.general) event in
   let pids =
-    if not (List.is_empty ts.pids)
+    if not (List.is_empty init.pids)
     then Some (let pids = List.sort (fun (x:pid_info) y ->
-                              compare x.pid y.pid) ts.pids in
+                              compare x.pid y.pid) init.pids in
                new Tree.Item.t
                  ~text:"PIDs"
                  ~nested:(new Tree.t ~items:(List.map make_pid pids) ())
@@ -243,9 +355,9 @@ let make_stream (id:Stream.id) (ts : structure) control =
                  ())
     else None in
   let serv =
-    if not (List.is_empty ts.services)
+    if not (List.is_empty init.services)
     then Some (let serv = List.sort (fun (x:service_info) y ->
-                              compare x.id y.id) ts.services in
+                              compare x.id y.id) init.services in
                new Tree.Item.t
                  ~text:"Сервисы"
                  ~nested:(new Tree.t ~items:(List.map make_service serv) ())
@@ -253,9 +365,9 @@ let make_stream (id:Stream.id) (ts : structure) control =
                  ())
     else None in
   let emm  =
-    if not (List.is_empty ts.emm)
+    if not (List.is_empty init.emm)
     then Some (let emm = List.sort (fun (x:emm_info) y ->
-                             compare x.pid y.pid) ts.emm in
+                             compare x.pid y.pid) init.emm in
                new Tree.Item.t
                  ~text:"EMM"
                  ~nested:(new Tree.t ~items:(List.map make_emm emm) ())
@@ -263,12 +375,12 @@ let make_stream (id:Stream.id) (ts : structure) control =
                  ())
     else None in
   let tabl, e =
-    if not (List.is_empty ts.tables)
+    if not (List.is_empty init.tables)
     then
       let tabl =
         List.sort (fun (x:table) y -> compare (table_common_of_table x).pid
                                         (table_common_of_table y).pid)
-          ts.tables in
+          init.tables in
       let items,e = List.map (fun x -> make_table id x control) tabl
                     |> List.split in
       let e       = React.E.select e in
@@ -280,7 +392,7 @@ let make_stream (id:Stream.id) (ts : structure) control =
     let (y,m,d),((h,min,s),_) =
       Time.to_date_time
         ?tz_offset_s:(Ptime_clock.current_tz_offset_s ())
-        ts.timestamp in
+        init.timestamp in
     let s = Printf.sprintf "Получена: %02d.%02d.%04d %02d:%02d:%02d"
               d m y h min s in
     new Tree.Item.t
@@ -290,7 +402,7 @@ let make_stream (id:Stream.id) (ts : structure) control =
   let opt  = serv ^:: tabl ^:: pids ^:: emm ^:: [] in
   let tree = new Tree.t ~items:(time :: gen :: opt) () in
   let ()   = tree#set_dense true in
-  tree, e
+  tree
 
 let make_parsed () =
   let base_class = Markup.CSS.add_element base_class "parsed" in
@@ -426,33 +538,39 @@ class t ?(config=default_config)
         ~(event:structure option React.event)
         (control:int)
         () =
+  let ( >|= ) = Lwt.Infix.( >|= ) in
   let stream_panel_class = Markup.CSS.add_element base_class "stream-panel" in
   let id  = config.stream in
   let ph  = Ui_templates.Placeholder.create_with_icon
               ~icon:"warning" ~text:"Нет потока" () in
   let box = Dom_html.createDiv Dom_html.document
             |> Widget.create in
+  let e_dumpable, push = React.E.create () in
   let ()  = Dom.appendChild box#root ph#root in
-  let update = function
-    | None   ->
-       (* box#set_empty ();
-        * Dom.appendChild box#root ph#root; *)
-       React.E.never
-    | Some s ->
-       box#set_empty ();
-       let stream, e = make_stream id s control in
-       Dom.appendChild box#root stream#root;
-       e in
-  let init_dumpable = update init in
-  let dumpable =
-    event
-    |> React.E.map update
-    |> React.E.switch init_dumpable in
-  let dump = make_dump dumpable in
+  let make_event init =
+    React.S.diff (fun n o -> o,n)
+    @@ React.S.hold init @@ React.E.fmap (fun x -> x) event in
+  let make_struct init =
+    let event = make_event init in
+    let wdg   = make_stream id init event control in
+    wdg in
+  let ts_s = match init with
+    | None ->
+       let next = Lwt_react.E.next @@ React.E.fmap (fun x -> x) event in
+       next >|= (make_struct)
+    | Some init ->
+       let event = make_event init in
+       let wdg   = make_stream id init event control in
+       Lwt.return wdg in
+  let dump = make_dump e_dumpable in
   object(self)
     inherit Hsplit.t box dump ()
 
     initializer
+      Dom.appendChild box#root ph#root;
+      ts_s
+      >|= (fun w -> box#set_empty (); Dom.appendChild box#root w#root)
+      |> Lwt.ignore_result;
       box#add_class stream_panel_class;
       self#add_class base_class
   end
