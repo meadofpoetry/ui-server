@@ -1,0 +1,14 @@
+(library
+  (name        board_ts2ip_niit)
+  ;(public_name board_ts2ip_niit)
+  (synopsis    "ts2ip converter board implementation")
+  (libraries   containers lwt_react websocket-lwt.cohttp common storage boards api bitstring)
+  (flags          (:standard -short-paths -bin-annot
+                   -w A+1..49+60-4-7-23-27-33-39-40-41-42-44-45-48))
+  (ocamlopt_flags (-O3 -unbox-closures))
+  (preprocess     (pps ppx_cstruct bitstring.ppx ppx_deriving.show ppx_deriving_yojson)))
+
+(rule
+  (targets board_types.ml)
+  (deps    (:x ../board_types.ml))
+  (action  (copy %{x} %{targets})))

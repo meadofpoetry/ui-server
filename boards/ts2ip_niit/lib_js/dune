@@ -1,0 +1,14 @@
+(library
+  (name        board_ts2ip_niit_js)
+  ;(public_name board_ts2ip_niit_js)
+  (synopsis    "js interface of the ts2ip_niit board")
+  (libraries   containers common api_js components boards_js)
+  (flags       (:standard -short-paths -strict-sequence -bin-annot
+                -w A+1..49+60-4-7-23-33-39-40-41-42-44-45-48))
+  (js_of_ocaml (flags (:standard +weak.js --opt 3)))
+  (preprocess  (pps ppx_deriving_yojson ppx_deriving.show js_of_ocaml-ppx ppx_deriving.eq)))
+
+(rule
+  (targets board_types.ml)
+  (deps    (:x ../board_types.ml))
+  (action  (copy %{x} %{targets})))

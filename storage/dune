@@ -1,0 +1,9 @@
+(library
+  (name        storage)
+  ;(public_name storage)
+  (synopsis    "config and data storage implementation")
+  (libraries   common containers yojson ppx_deriving_yojson.runtime lwt caqti-lwt caqti-driver-postgresql)
+  (flags          (:standard -short-paths -strict-sequence -bin-annot
+                   -w A+1..49+60-4-7-23-33-39-40-41-42-44-45-48))
+  (ocamlopt_flags (:standard -O3 -unbox-closures))
+  (preprocess (pps ppx_deriving_yojson)))
