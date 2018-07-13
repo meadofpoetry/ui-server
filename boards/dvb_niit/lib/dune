@@ -1,6 +1,6 @@
 (library
   (name        board_dvb_niit)
-  (public_name board-dvb-niit)
+  ;(public_name board_dvb_niit)
   (synopsis    "dvb board implementation")
   (libraries   containers lwt_react websocket-lwt.cohttp common storage boards api)
   (flags          (:standard -short-paths -bin-annot

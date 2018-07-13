@@ -1,6 +1,6 @@
 (library
   (name        board_qos_niit)
-  (public_name board-qos-niit)
+  ;(public_name board_qos_niit)
   (synopsis    "qos board implementation")
   (libraries   containers lwt_react websocket-lwt.cohttp common storage boards api bitstring logs)
   (flags          (:standard -short-paths -bin-annot

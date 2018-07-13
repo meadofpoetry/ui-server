@@ -1,6 +1,6 @@
 (library
   (name        chartjs)
-  (public_name chartjs)
+  ;(public_name chartjs)
   (libraries   js_of_ocaml js_of_ocaml-tyxml lwt_react containers components)
   (flags       (:standard -short-paths -strict-sequence -bin-annot
                 -w A+1..49+60-4-7-23-33-36-39-40-41-42-44-45-48))

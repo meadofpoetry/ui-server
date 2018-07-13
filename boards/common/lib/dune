@@ -1,6 +1,6 @@
 (library
   (name        boards)
-  (public_name boards)
+  ;;(public_name boards)
   (synopsis    "boards common")
   (libraries   lwt containers containers.data react yojson common storage api cbuffer)
   (flags          (:standard -short-paths -strict-sequence -bin-annot

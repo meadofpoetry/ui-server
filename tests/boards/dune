@@ -4,5 +4,5 @@
 
 (alias
   (name runtest)
-  (package boards)
+  ;(package boards)
   (action  (run ${exe:test.exe})))

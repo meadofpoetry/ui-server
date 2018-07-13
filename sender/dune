@@ -1,6 +1,6 @@
 (library
   (name        sender)
-  (public_name sender)
+  ;(public_name sender)
   (modes       native)
   (synopsis   "sender implementation")
   (libraries  containers yojson caqti-lwt cohttp angstrom

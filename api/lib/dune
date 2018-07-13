@@ -1,6 +1,5 @@
 (library
   (name        api)
-  (public_name api)
   (synopsis   "api framework")
   (modes       native)
   (libraries   common containers cohttp cohttp.lwt tyxml yojson mustache msgpck ppx_deriving_yojson.runtime

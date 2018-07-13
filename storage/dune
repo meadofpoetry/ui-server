@@ -1,6 +1,6 @@
 (library
   (name        storage)
-  (public_name storage)
+  ;(public_name storage)
   (synopsis    "config and data storage implementation")
   (libraries   common containers yojson ppx_deriving_yojson.runtime lwt caqti-lwt caqti-driver-postgresql)
   (flags          (:standard -short-paths -strict-sequence -bin-annot

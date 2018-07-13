@@ -1,6 +1,6 @@
 (library
   (name        pipeline)
-  (public_name pipeline)
+  ;(public_name pipeline)
   (wrapped     false)
   (modes       native)
   (synopsis   "pipeline implementation")

@@ -1,6 +1,6 @@
 (library
   (name        pc_control)
-  (public_name pc_control)
+  ;(public_name pc_control)
   (wrapped     true)
   (modes       native)
   (synopsis    "network interface controls implementation")

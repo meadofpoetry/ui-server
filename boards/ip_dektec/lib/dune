@@ -1,6 +1,6 @@
 (library
   (name        board_ip_dektec)
-  (public_name board-ip-dektec)
+  ;(public_name board_ip_dektec)
   (synopsis "ip board implementation")
   (libraries   containers lwt_react websocket-lwt.cohttp common storage boards api)
   (flags          (:standard -short-paths -bin-annot

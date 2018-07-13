@@ -1,6 +1,6 @@
 (library
   (name        components)
-  (public_name components)
+  ;(public_name components)
   (synopsis    "various js widgets")
   ; (modules     (widget markup avatar box button card checkbox dialog divider expansion_panel
   ;               drawer elevation fab form_field grid_list icon icon_toggle circular_progress

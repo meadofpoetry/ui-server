@@ -1,6 +1,6 @@
 (library
   (name        board_ts2ip_niit)
-  (public_name board-ts2ip-niit)
+  ;(public_name board_ts2ip_niit)
   (synopsis    "ts2ip converter board implementation")
   (libraries   containers lwt_react websocket-lwt.cohttp common storage boards api bitstring)
   (flags          (:standard -short-paths -bin-annot

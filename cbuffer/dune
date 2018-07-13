@@ -1,6 +1,6 @@
 (library
   (name        cbuffer)
-  (public_name cbuffer)
+  ;(public_name cbuffer)
   (wrapped false)
   (synopsis "cstruct extension")
   (libraries  cstruct ctypes containers)
