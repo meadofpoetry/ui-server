@@ -225,6 +225,7 @@ let make_general (ts : general_info) =
     ; make_item ~text:(Printf.sprintf "Original Network ID: %d"
                          ts.orig_nw_id) ()
     ; make_item ~text:(Printf.sprintf "Network name: %s" ts.nw_name) ()
+    ; make_item ~text:(Printf.sprintf "Bouquet name: %s" ts.bouquet_name) ()
     ] in
   let nested = new Tree.t ~items () in
   new Tree.Item.t ~text:"Сведения о потоке" ~nested ~value:() ()

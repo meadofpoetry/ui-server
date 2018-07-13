@@ -322,8 +322,8 @@ module Get_ts_structs : (Request with type req := int
     ; ts_id        = get_general_struct_block_ts_id bdy
     ; nw_id        = get_general_struct_block_nw_id bdy
     ; orig_nw_id   = get_general_struct_block_orig_nw_id bdy
-    ; nw_name      = Text_decoder.get_encoding_and_convert nw_name
-    ; bouquet_name = Text_decoder.get_encoding_and_convert bq_name
+    ; nw_name      = Text_decoder.decode nw_name
+    ; bouquet_name = Text_decoder.decode bq_name
     }, string_len
 
   let of_pids_struct_block msg =
@@ -343,8 +343,8 @@ module Get_ts_structs : (Request with type req := int
     let sn,pn      = Cstruct.split strings string_len in
     { id             = get_services_struct_block_id bdy
     ; bitrate        = None
-    ; name           = Text_decoder.get_encoding_and_convert sn
-    ; provider_name  = Text_decoder.get_encoding_and_convert pn
+    ; name           = Text_decoder.decode sn
+    ; provider_name  = Text_decoder.decode pn
     ; pmt_pid        = get_services_struct_block_pmt_pid bdy
     ; pcr_pid        = get_services_struct_block_pcr_pid bdy
     ; has_pmt        = (flags land 0x8000) <> 0

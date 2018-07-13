@@ -90,6 +90,7 @@ class t ?(expanded=false)
     method actions         = actions
 
     initializer
+
       self#set_elevation elevation;
       self#set_expanded expanded;
       Dom_events.listen primary#root Dom_events.Typ.click (fun _ _ ->

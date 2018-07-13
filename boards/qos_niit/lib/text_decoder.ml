@@ -161,24 +161,45 @@ let convert_to_utf8 (text:Cstruct.t) (encoding:encoding_params) =
     ~dst:(encoding_to_table_name UTF8)
     text
 
+let error_to_string = function
+  | `E2BIG            -> "E2BIG"
+  | `Other i          -> Printf.sprintf "Unknown error: %d" i
+  | `Unexpected_exn   -> "Unexpected exception"
+  | `Unknown_encoding -> "Unknown encoding"
+
+let trim (text:Cstruct.t) =
+  if Cstruct.get_uint8 text 0 = 0
+  then Cstruct.empty
+  else
+    Cstruct.to_string text
+    |> String.rdrop_while (fun c -> Char.equal c '\000')
+    |> Cstruct.of_string
+
 let get_encoding_and_convert (text:Cstruct.t) =
   let (>>=) x f = match x with Ok x -> Ok x | Error e -> f e in
-  (match get_encoding text with
-   | x when equal_encoding x.encoding Unknown -> Error `Unknown_encoding
-   | enc ->
-      convert_to_utf8 text enc
-      >>= (fun e ->
-       match encoding_to_int enc.encoding with
-       | x when x >= (encoding_to_int ISO8859_2)
-                && x <= (encoding_to_int ISO8859_15) ->
-          (* Sometimes using the standard 8859-1 set fixes issues *)
-          convert_to_utf8 text { enc with encoding = ISO8859_1 }
-       | x when x = encoding_to_int ISO6937 ->
-          (* The first part of ISO 6937 is identical to ISO 8859-9, but
-           * they differ in the second part. Some channels don't
-           * provide the first byte that indicates ISO 8859-9 encoding.
-           * If decoding from ISO 6937 failed, we try ISO 8859-9 here.
-           *)
-          convert_to_utf8 text { enc with encoding = ISO8859_9 }
-       | _ -> Error e))
-  |> (function Ok s -> s | Error _ -> "!!! Не удалось декодировать строку !!!")
+  let result = match get_encoding text with
+    | x when equal_encoding x.encoding Unknown ->
+       Error `Unknown_encoding
+    | enc ->
+       convert_to_utf8 text enc
+       >>= (fun e ->
+        match encoding_to_int enc.encoding with
+        | x when x >= (encoding_to_int ISO8859_2)
+                 && x <= (encoding_to_int ISO8859_15) ->
+           (* Sometimes using the standard 8859-1 set fixes issues *)
+           convert_to_utf8 text { enc with encoding = ISO8859_1 }
+        | x when x = encoding_to_int ISO6937 ->
+           (* The first part of ISO 6937 is identical to ISO 8859-9, but
+            * they differ in the second part. Some channels don't
+            * provide the first byte that indicates ISO 8859-9 encoding.
+            * If decoding from ISO 6937 failed, we try ISO 8859-9 here.
+            *)
+           convert_to_utf8 text { enc with encoding = ISO8859_9 }
+        | _ -> Error e)
+  in
+  Result.get_or ~default:"" result
+
+let decode (text:Cstruct.t) =
+  let text = trim text in
+  if Cstruct.len text = 0
+  then "" else get_encoding_and_convert text

@@ -112,10 +112,8 @@ type api =
   ; set_jitter_mode     : jitter_mode option -> jitter_mode option Lwt.t
   ; get_t2mi_seq        : int option         -> Streams.T2MI.sequence Lwt.t
   ; get_section         : section_params -> (Streams.TS.section,Streams.TS.section_error) Lwt_result.t
-  ; get_ts_states       : unit -> (Stream.id * Streams.TS.state) list
   ; get_ts_structures   : unit -> (Stream.id * Streams.TS.structure) list
   ; get_ts_bitrates     : unit -> (Stream.id * Streams.TS.bitrate) list
-  ; get_t2mi_states     : unit -> (int * Streams.T2MI.state) list
   ; get_t2mi_structures : unit -> (int * Streams.T2MI.structure) list
   ; reset               : unit               -> unit Lwt.t
   ; config              : unit               -> config
@@ -168,6 +166,7 @@ type push_events =
   ; structs        : (Stream.id * Streams.TS.structure) list -> unit
   ; bitrates       : (Stream.id * Streams.TS.bitrate) list   -> unit
   ; t2mi_info      : int * Streams.T2MI.structure            -> unit
+  ; t2mi_info_list : (int * Streams.T2MI.structure) list     -> unit
   ; jitter         : Jitter.measures                         -> unit
   ; jitter_session : Jitter.session                          -> unit
   }

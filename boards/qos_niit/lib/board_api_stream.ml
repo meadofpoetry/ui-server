@@ -64,12 +64,6 @@ module HTTP = struct
 
     open Board_types.Streams.TS
 
-    let state (api:api) id _ _ () =
-      let id = Stream.id_of_int32 id in
-      match List.Assoc.get ~eq:(Stream.equal_id) id @@ api.get_ts_states () with
-      | None   -> `String "stream not found" |> Result.fail |> respond_result ~err_status:`Not_found
-      | Some s -> state_to_yojson s |> Result.return |> respond_result
-
     let bitrate (api:api) id _ _ () =
       let id = Stream.id_of_int32 id in
       match List.Assoc.get ~eq:(Stream.equal_id) id @@ api.get_ts_bitrates () with
@@ -116,11 +110,6 @@ module HTTP = struct
   module T2MI = struct
 
     open Board_types.Streams.T2MI
-
-    let state (api:api) id _ _ () =
-      match List.Assoc.get ~eq:(=) id @@ api.get_t2mi_states () with
-      | None   -> `String "stream not found" |> Result.fail |> respond_result ~err_status:`Not_found
-      | Some s -> state_to_yojson s |> Result.return |> respond_result
 
     let structure (api:api) id _ _ () =
       match List.Assoc.get ~eq:(=) id @@ api.get_t2mi_structures () with
@@ -182,11 +171,7 @@ let ts_handler db (api:api) events =
         ~query:Query.empty
         (WS.TS.structure events)
     ]
-    [ `GET, [ create_handler ~docstring:"Returns stream state"
-                ~path:Path.Format.(Int32 ^/ "state" @/ empty)
-                ~query:Query.empty
-                (HTTP.TS.state api)
-            ; create_handler ~docstring:"Returns stream bitrate"
+    [ `GET, [ create_handler ~docstring:"Returns stream bitrate"
                 ~path:Path.Format.(Int32 ^/ "bitrate" @/ empty)
                 ~query:Query.empty
                 (HTTP.TS.bitrate api)
@@ -242,11 +227,7 @@ let t2mi_handler db (api:api) events =
         ~query:Query.empty
         (WS.T2MI.structure events)
     ]
-    [ `GET, [ create_handler ~docstring:"Returns stream state"
-                ~path:Path.Format.(Int ^/ "state" @/ empty)
-                ~query:Query.empty
-                (HTTP.T2MI.state api)
-            ; create_handler ~docstring:"Returns T2-MI stream structure (L1 signalling)"
+    [ `GET, [ create_handler ~docstring:"Returns T2-MI stream structure (L1 signalling)"
                 ~path:Path.Format.(Int ^/ "structure" @/ empty)
                 ~query:Query.empty
                 (HTTP.T2MI.structure api)

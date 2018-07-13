@@ -103,14 +103,6 @@ module HTTP = struct
                 @@ React.S.value events.streams
       in (Json.List.to_yojson Stream.to_yojson) streams |> Result.return |> respond_result
 
-    let state (api:api) ids _ _ () =
-      let ids = List.map Stream.id_of_int32 ids in
-      let states = match ids with
-        | [] -> api.get_ts_states ()
-        | l  -> List.filter (fun (id,_) -> List.mem ~eq:Stream.equal_id id l)
-                  (api.get_ts_states ())
-      in (to_yojson state_to_yojson) states |> Result.return |> respond_result
-
     let bitrate (api:api) ids _ _ () =
       let ids = List.map Stream.id_of_int32 ids in
       let bitrates = match ids with
@@ -206,13 +198,6 @@ module HTTP = struct
 
     let to_yojson f v = Json.(List.to_yojson (Pair.to_yojson Int.to_yojson f) v)
 
-    let state (api:api) ids _ _ () =
-      let states = match ids with
-        | [] -> api.get_t2mi_states ()
-        | l  -> List.filter (fun (id,_) -> List.mem ~eq:(=) id l)
-                  (api.get_t2mi_states ())
-      in (to_yojson state_to_yojson) states |> Result.return |> respond_result
-
     let structure (api:api) ids _ _ () =
       let structs = match ids with
         | [] -> api.get_t2mi_structures ()
@@ -279,10 +264,6 @@ let ts_handler db (api:api) events =
                 ~path:Path.Format.empty
                 ~query:Query.[ "id", (module List(Int32)) ]
                 (HTTP.TS.streams events)
-            ; create_handler ~docstring:"Returns current TS states"
-                ~path:Path.Format.("state" @/ empty)
-                ~query:Query.[ "id", (module List(Int32)) ]
-                (HTTP.TS.state api)
             ; create_handler ~docstring:"Returns current TS bitrate"
                 ~path:Path.Format.("bitrate" @/ empty)
                 ~query:Query.[ "id", (module List(Int32)) ]
@@ -342,11 +323,7 @@ let t2mi_handler db (api:api) events =
         ~query:Query.["id", (module List(Int))]
         (WS.T2MI.structure events)
     ]
-    [ `GET, [ create_handler ~docstring:"Returns stream state"
-                ~path:Path.Format.("state" @/ empty)
-                ~query:Query.[ "id", (module List(Int)) ]
-                (HTTP.T2MI.state api)
-            ; create_handler ~docstring:"Returns T2-MI stream structure (L1 signalling)"
+    [ `GET, [ create_handler ~docstring:"Returns T2-MI stream structure (L1 signalling)"
                 ~path:Path.Format.("structure" @/ empty)
                 ~query:Query.[ "id", (module List(Int)) ]
                 (HTTP.T2MI.structure api)

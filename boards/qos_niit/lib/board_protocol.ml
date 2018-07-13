@@ -235,6 +235,12 @@ module SM = struct
                       | Bitrate x      -> pe.bitrates x) acc.probes;
     { acc with probes = [] }
 
+  let push_state (pe:push_events) state =
+    pe.bitrates [];
+    pe.structs [];
+    pe.t2mi_info_list [];
+    pe.state state
+
   let step msgs imsgs sender (storage:config storage) step_duration (pe:push_events) (log_prefix:string) =
     let board_info_err_msg = "board info was received during normal operation, restarting..." in
     let no_status_msg t    = Printf.sprintf "no status received for %d seconds, restarting..."
@@ -277,7 +283,7 @@ module SM = struct
       Await_queue.iter !msgs wakeup_timeout;
       msgs  := Await_queue.create [];
       imsgs := Queue.create [];
-      pe.state `No_response;
+      push_state pe `No_response;
       send_msg sender Get_board_info |> Lwt.ignore_result;
       `Continue (step_detect (Timer.create ~step_duration detect_timeout) Acc.empty)
 
@@ -287,7 +293,7 @@ module SM = struct
         match List.find_map (is_response Get_board_info) rsps with
         | None      -> `Continue (step_detect (Timer.step timer) acc)
         | Some info ->
-           pe.state `Init;
+           push_state pe `Init;
            pe.devinfo (Some info);
            let ({t2mi_mode;input;jitter_mode}:config) = storage#get in
            send_instant sender (Set_board_mode { t2mi=t2mi_mode; input }) |> Lwt.ignore_result;
@@ -312,7 +318,8 @@ module SM = struct
          | [],acc -> `Continue (step_ok_idle (Timer.step timer) acc)
          | (group::_) as groups,acc ->
             if Option.is_none acc.group
-            then (Logs.info (fun m -> m "%s" @@ fmt "initialization done!"); pe.state `Fine);
+            then (Logs.info (fun m -> m "%s" @@ fmt "initialization done!");
+                  push_state pe `Fine);
             log_groups groups;
             List.iter (fun x -> pe.group x) @@ List.rev groups;
             let stack = Events.get_req_stack group acc.group in
@@ -375,19 +382,6 @@ module SM = struct
   type t2mi_states = (int * Streams.T2MI.state) list
   type ts_states   = (Stream.id * Streams.TS.state) list
 
-  let to_t2mi_info_s (e:(int * Streams.T2MI.structure) event) : (int * Streams.T2MI.structure) list signal =
-    E.fold (fun acc (id,s) -> List.Assoc.set ~eq:(=) id s acc) [] e
-    |> S.hold ~eq:(fun _ _ -> false) []
-
-  let to_ts_states_s (e:(Stream.id * Streams.TS.state) list event) : ts_states signal =
-    let eq = Stream.equal_id in
-    E.fold (fun acc x -> List.fold_left (fun acc (id,s) -> List.Assoc.set ~eq id s acc) acc x) [] e
-    |> S.hold ~eq:(fun _ _ -> false) []
-
-  let to_t2mi_states_s (e:(int * Streams.T2MI.state) list event) : t2mi_states signal =
-    E.fold (fun acc x -> List.fold_left (fun acc (id,s) -> List.Assoc.set ~eq:(=) id s acc) acc x) [] e
-    |> S.hold ~eq:(fun _ _ -> false) []
-
   let to_raw_streams_s (group:group event) : Stream.stream list signal =
     let conv : input -> Stream.id -> Stream.stream = fun i x ->
       { id          = `Ts x
@@ -414,11 +408,15 @@ module SM = struct
 
     let s_ts,ts_push       = S.create ~eq:(fun _ _ -> false) [] in
     let s_br,br_push       = S.create ~eq:(fun _ _ -> false) [] in
-    let e_t2mi,t2mi_push   = E.create () in
     let e_pcr,pcr_push     = E.create () in
     let e_pcr_s,pcr_s_push = E.create () in
 
-    let s_t2mi   = to_t2mi_info_s e_t2mi in
+    let s_t2mi, t2mi_push, t2mi_list_push  =
+      let s, push_list = S.create [] in
+      let push = fun (id,structure) ->
+        let l = React.S.value s in
+        push_list @@ List.Assoc.set ~eq:(=) id structure l in
+      s, push, push_list in
     let s_config = S.hold ~eq:equal_config storage#get (to_config_e e_group) in
     let (events:events) =
       { device  =
@@ -455,6 +453,7 @@ module SM = struct
       ; structs        = ts_push
       ; bitrates       = br_push
       ; t2mi_info      = t2mi_push
+      ; t2mi_info_list = t2mi_list_push
       ; jitter         = pcr_push
       ; jitter_session = pcr_s_push
       }
@@ -474,8 +473,6 @@ module SM = struct
                           if eq x v then Lwt.return x
                           else Lwt.fail @@ Failure "got unexpected value")
     in
-    let s_ts_states   = to_ts_states_s   events.streams.ts_states in
-    let s_t2mi_states = to_t2mi_states_s events.streams.t2mi_states in
     let fmt fmt = let fs = "%s" ^^ fmt in Printf.sprintf fs log_prefix in
     let api =
       { set_input = (fun i ->
@@ -518,10 +515,8 @@ module SM = struct
           (Timer.steps ~step_duration (s + 10)) None)
 
       ; get_devinfo         = (fun () -> S.value s_devi)
-      ; get_ts_states       = (fun () -> S.value s_ts_states)
       ; get_ts_structures   = (fun () -> S.value s_ts)
       ; get_ts_bitrates     = (fun () -> S.value s_br)
-      ; get_t2mi_states     = (fun () -> S.value s_t2mi_states)
       ; get_t2mi_structures = (fun () -> S.value s_t2mi)
       ; config              = (fun () -> storage#get)
       }
