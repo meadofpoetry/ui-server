@@ -45,7 +45,7 @@ module Make
         span ~a:([a_class (_class :: classes)] <@> attrs) []
     end
 
-    let create ?id ?style ?(classes=[]) ?attrs
+    let create ?(classes=[]) ?attrs
           ?(indicator=Indicator.create ()) ?color_scheme ~typ ~tabs () =
       nav ~a:([ a_class (classes
                          |> (fun x -> match typ with

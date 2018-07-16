@@ -1,0 +1,19 @@
+(library
+  (name        application)
+  (wrapped     false)
+  (modes       native)
+  (synopsis    "app")
+  (libraries   containers yojson caqti-lwt
+               lwt lwt_react websocket-lwt.cohttp
+               api storage common pc_control pipeline usb_device
+               boards board_dvb_niit board_ip_dektec
+               board_qos_niit board_ts2ip_niit)
+  (flags          (:standard -short-paths -strict-sequence -bin-annot
+                   -w A+1..49+60-4-7-23-26-27-33-39-40-41-42-44-45-48))
+  (ocamlopt_flags (:standard -O3 -unbox-closures))
+  (preprocess (pps ppx_deriving_yojson ppx_deriving.eq)))
+
+(rule
+  (targets application_types.ml)
+  (deps    (:x ../application_types.ml))
+  (action  (copy %{x} %{targets})))

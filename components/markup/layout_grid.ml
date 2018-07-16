@@ -50,7 +50,7 @@ module Make(Xml : Xml_sigs.NoWrap)
                                            | `Middle -> "middle"
                                            | `Bottom -> "bottom"))
 
-    let create ?id ?style ?(classes=[]) ?attrs ?span ?align ?order ~content () =
+    let create ?(classes=[]) ?attrs ?span ?align ?order ~content () =
       div ~a:([ a_class (_class :: classes
                          |> map_cons_option (fun x -> get_cell_span ?device_type:x.device_type
                                                         x.columns) span
@@ -60,10 +60,10 @@ module Make(Xml : Xml_sigs.NoWrap)
 
   end
 
-  let create_inner ?id ?style ?(classes=[]) ?attrs ~cells () =
+  let create_inner ?(classes=[]) ?attrs ~cells () =
     div ~a:([ a_class (inner_class :: classes)] <@> attrs) cells
 
-  let create ?id ?style ?(classes=[]) ?attrs ?align ?(fixed_column_width=false) ~content () =
+  let create ?(classes=[]) ?attrs ?align ?(fixed_column_width=false) ~content () =
     div ~a:([ a_class (classes
                        |> map_cons_option get_grid_align align
                        |> cons_if fixed_column_width fixed_column_width_class

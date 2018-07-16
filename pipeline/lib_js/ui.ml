@@ -214,7 +214,7 @@ module Structure = struct
                                               Dom.appendChild div#root tree#root;
                                               n_s) s_div)
     in
-    let post = (* Requests.post_structure *) fun _ -> Lwt.return_ok () in
+    let post = Requests.post_structure in
     div,s,post
 
 end
@@ -427,6 +427,6 @@ module Settings = struct
                                               Dom.appendChild div#root w#root;
                                               n_s) s_div)
     in
-    let post = (* Requests.post_settings *) fun _ -> Lwt.return_ok () in
+    let post = Requests.post_settings in
     div,s,post
 end

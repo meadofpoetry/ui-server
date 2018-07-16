@@ -93,7 +93,7 @@ module HTTP = struct
 
     type err = (Common.Topology.state * Time.t * Time.t) list [@@deriving yojson]
 
-    type comp = (Common.Topology.state * float) list [@@deriving yojson]
+    type comp = float * float * float [@@deriving yojson]
 
     let state db limit compress from till duration _ _ () =
       match Time.make_interval ?from ?till ?duration () with

@@ -1,0 +1,10 @@
+(executables
+  (names       home pipeline topology user network demo input)
+  (libraries   js_of_ocaml
+               gg vg vg.htmlc js_of_ocaml-tyxml lwt_react
+               common components pipeline_js application_js pc_control_js
+               board_ip_dektec_js board_dvb_niit_js board_ts2ip_niit_js chartjs)
+  (flags (:standard -short-paths -strict-sequence -bin-annot
+          -w A+1..49+60-4-7-23-26-27-33-39-40-41-42-44-45-48))
+  (js_of_ocaml (flags (:standard +weak.js +toplevel.js --disable genprim --opt 3)))
+  (preprocess  (pps ppx_deriving_yojson js_of_ocaml-ppx)))
