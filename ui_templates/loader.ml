@@ -22,35 +22,43 @@ object(self)
   method set_on_success x = _on_success <- x
   method set_on_error   x = _on_error   <- x
 
+  method private _on_error e =
+    Dom.removeChild self#root pgs#root;
+    Option.iter (fun f -> f (self :> 'a loader) e) _on_error;
+    let s = (match error_prefix with
+             | Some pfx -> Printf.sprintf "%s:\n %s" pfx e
+             | None     -> e)
+    in
+    let error = Placeholder.create_with_error ?icon:error_icon ~text:s () in
+    Dom.appendChild self#root error#root;
+    Lwt.return_unit
+
   initializer
-    Dom.appendChild self#root pgs#root;
-    t >>= (fun r ->
-      Dom.removeChild self#root pgs#root;
-      match r with
-      | Ok x    -> Option.iter (fun f -> f (self :> 'a loader) x) _on_success;
-                   Lwt.return_unit
-      | Error e -> Option.iter (fun f -> f (self :> 'a loader) e) _on_error;
-                   let s = (match error_prefix with
-                            | Some pfx -> Printf.sprintf "%s:\n %s" pfx e
-                            | None     -> e)
-                   in
-                   let error = Placeholder.create_with_error ?icon:error_icon ~text:s () in
-                   Dom.appendChild self#root error#root;
-                   Lwt.return_unit)
+    Lwt.try_bind
+      (fun () -> Dom.appendChild self#root pgs#root; t)
+      (fun r ->
+        Dom.removeChild self#root pgs#root;
+        match r with
+        | Ok x    ->
+           Option.iter (fun f -> f (self :> 'a loader) x) _on_success;
+           Lwt.return_unit
+        | Error e -> self#_on_error e)
+      (fun e -> self#_on_error @@ Printexc.to_string e)
     |> Lwt.ignore_result
 
 end
 
 class widget_loader ?text ?error_icon ?error_prefix ?(parent:#Widget.t option)
-                    (t:(Widget.t,string) Lwt_result.t) () =
+        (t:(Widget.t,string) Lwt_result.t) () =
 object(self)
   inherit [Widget.t] loader ?text ?error_icon ?error_prefix t () as super
   initializer
-    Lwt_result.Infix.(t >>= (fun w -> (match parent with
-                                       | Some p -> Dom.appendChild p#root w#root;
-                                                   (try Dom.removeChild p#root self#root with _ -> ())
-                                       | None   -> Dom.appendChild self#root w#root);
-                                      Lwt_result.return ()))
+    Lwt_result.Infix.(
+    t >>= (fun w -> (match parent with
+                     | Some p -> Dom.appendChild p#root w#root;
+                                 (try Dom.removeChild p#root self#root with _ -> ())
+                     | None   -> Dom.appendChild self#root w#root);
+                    Lwt_result.return ()))
     |> Lwt.ignore_result;
     Option.iter (fun p -> Dom.appendChild p#root self#root) parent
 end

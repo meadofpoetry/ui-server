@@ -12,23 +12,43 @@ end
 module Item = struct
 
   class ['a] t ?(ripple=false) ?secondary_text ?graphic ?meta ?tag ~(value:'a) ~text () =
-    let text_elt = match secondary_text with
-      | Some st -> let secondary = Markup.Item.create_secondary_text st () in
-                   Markup.Item.create_text ~secondary text ()
-      | None -> Markup.Item.create_text_simple text ()
+    let text_elt, set_primary, set_secondary = match secondary_text with
+      | Some st ->
+         let primary   = Markup.Item.create_primary_text text ()
+                         |> Tyxml_js.To_dom.of_element
+                         |> Widget.create in
+         let secondary = Markup.Item.create_secondary_text st ()
+                         |> Tyxml_js.To_dom.of_element
+                         |> Widget.create in
+         let w = Markup.Item.create_text
+                   ~primary:(Widget.to_markup primary)
+                   ~secondary:(Widget.to_markup secondary) ()
+                 |> Tyxml_js.To_dom.of_element
+                 |> Widget.create in
+         let set_primary x   = primary#set_text_content x in
+         let set_secondary x = secondary#set_text_content x in
+         w, set_primary, set_secondary
+      | None ->
+         let primary = Markup.Item.create_text_simple text ()
+                       |> Tyxml_js.To_dom.of_element
+                       |> Widget.create in
+         let set_primary x   = primary#set_text_content x in
+         let set_secondary x = failwith "single-line list!" in
+         primary, set_primary, set_secondary
     in
     let elt = Markup.Item.create
                 ?graphic:(Option.map Widget.to_markup graphic)
                 ?meta:(Option.map Widget.to_markup meta)
-                ?tag text_elt ()
+                ?tag (Widget.to_markup text_elt) ()
               |> Tyxml_js.To_dom.of_element in
 
     object(self)
       val mutable _v = value
       inherit Widget.t elt ()
 
-      method set_text (x:string) = ()
-      method set_secondary_text (x:string) = ()
+      method set_text (x:string) = set_primary x
+      method set_secondary_text (x:string) =
+        set_secondary x
 
       (* TODO add setters, real getters *)
       method text           = text

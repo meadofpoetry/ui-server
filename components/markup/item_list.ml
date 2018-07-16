@@ -13,6 +13,7 @@ module Make(Xml : Xml_sigs.NoWrap)
 
     let _class               = "mdc-list-item"
     let text_class           = CSS.add_element _class "text"
+    let primary_text_class   = CSS.add_element _class "primary-text"
     let secondary_text_class = CSS.add_element _class "secondary-text"
     let divider_class        = "mdc-list-divider"
 
@@ -25,13 +26,17 @@ module Make(Xml : Xml_sigs.NoWrap)
                          |> List.cons divider_class)
               ; a_role ["separator"] ] <@> attrs) []
 
+    let create_primary_text ?(classes=[]) ?attrs text () =
+      span ~a:([ a_class (primary_text_class :: classes)] <@> attrs)
+        [ pcdata text ]
+
     let create_secondary_text ?(classes=[]) ?attrs text () =
       span ~a:([ a_class (secondary_text_class :: classes)] <@> attrs)
-        [ pcdata text]
+        [ pcdata text ]
 
-    let create_text ?(classes=[]) ?attrs ~secondary text () =
+    let create_text ?(classes=[]) ?attrs ~primary ~secondary () =
       span ~a:([ a_class (text_class :: classes)] <@> attrs)
-        [ pcdata text; secondary ]
+        [ primary; secondary ]
 
     let create_text_simple text () =
       pcdata text

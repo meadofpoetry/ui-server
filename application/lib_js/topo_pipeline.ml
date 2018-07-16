@@ -9,7 +9,7 @@ let make_streams () =
     let w,s,set    = Streams_selector.make ~init ~event () in
     let a          = Ui_templates.Buttons.create_apply s set in
     let abox       = new Card.Actions.Buttons.t ~widgets:[a] () in
-    let box        = new Box.t ~vertical:true ~widgets:[w;abox#widget] () in
+    let box        = new Vbox.t ~widgets:[w;abox#widget] () in
     let ()         = box#set_on_destroy @@ Some (fun () -> sock##close) in
     Lwt_result.return box#widget)
 
@@ -20,7 +20,7 @@ let make_structure () =
     let w,s,set    = Pipeline_js.Ui.Structure.make ~init ~event () in
     let a          = Ui_templates.Buttons.create_apply s set in
     let abox       = new Card.Actions.Buttons.t ~widgets:[a] () in
-    let box        = new Box.t ~vertical:true ~widgets:[w;abox#widget] () in
+    let box        = new Vbox.t ~widgets:[w;abox#widget] () in
     let ()         = box#set_on_destroy @@ Some (fun () -> sock##close) in
     Lwt_result.return box#widget)
 
@@ -31,11 +31,11 @@ let make_settings () =
     let w,s,set    = Pipeline_js.Ui.Settings.make ~init ~event () in
     let a          = Ui_templates.Buttons.create_apply s set in
     let abox       = new Card.Actions.Buttons.t ~widgets:[a] () in
-    let box        = new Box.t ~vertical:true ~widgets:[w;abox#widget] () in
+    let box        = new Vbox.t ~widgets:[w;abox#widget] () in
     let ()         = box#set_on_destroy @@ Some (fun () -> sock##close) in
     Lwt_result.return box#widget)
 
-let make ?error_prefix () : (#Widget.widget,string) Lwt_result.t =
+let make ?error_prefix () : (#Widget.t,string) Lwt_result.t =
   let pgs  = Fun.(Ui_templates.Loader.create_widget_loader ?error_prefix %> Widget.coerce) in
   let sms  = make_streams () |> Lwt_result.map_err @@ Api_js.Requests.err_to_string in
   let str  = make_structure () |> Lwt_result.map_err @@ Api_js.Requests.err_to_string in
