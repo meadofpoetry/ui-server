@@ -183,6 +183,8 @@ class t ?(config=default_config)
     inherit Hsplit.t box dump ()
 
     initializer
+      self#set_on_destroy @@ Some (fun () -> ts_s >|= (fun x -> x#destroy ())
+                                             |> Lwt.ignore_result);
       Dom.appendChild box#root ph#root;
       ts_s
       >|= (fun w -> box#set_empty (); Dom.appendChild box#root w#root)

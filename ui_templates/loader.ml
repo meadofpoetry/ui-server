@@ -23,7 +23,7 @@ object(self)
   method set_on_error   x = _on_error   <- x
 
   method private _on_error e =
-    Dom.removeChild self#root pgs#root;
+    (try Dom.removeChild self#root pgs#root with _ -> ());
     Option.iter (fun f -> f (self :> 'a loader) e) _on_error;
     let s = (match error_prefix with
              | Some pfx -> Printf.sprintf "%s:\n %s" pfx e
@@ -37,7 +37,7 @@ object(self)
     Lwt.try_bind
       (fun () -> Dom.appendChild self#root pgs#root; t)
       (fun r ->
-        Dom.removeChild self#root pgs#root;
+        (try Dom.removeChild self#root pgs#root with _ -> ());
         match r with
         | Ok x    ->
            Option.iter (fun f -> f (self :> 'a loader) x) _on_success;

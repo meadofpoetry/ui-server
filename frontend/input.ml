@@ -10,10 +10,10 @@ let dummy_tab = fun () -> let div = Dom_html.createDiv Dom_html.document in
 let board_to_tabs (control:int) : string -> (string * (unit -> Widget.t)) list = function
   | "IP2TS" -> [ "IP",        (fun () -> Board_ip_dektec_js.Input_page.make control |> Widget.coerce) ]
   | "DVB"   -> [ "RF",        (fun () -> Board_dvb_niit_js.Input_page.make control |> Widget.coerce) ]
-  | "TS"    -> [ "Структура", (fun () -> Board_qos_niit_js.Structure.page control () |> Widget.coerce)
-               ; "Скорости",  dummy_tab
-               ; "Джиттер",   dummy_tab
-               ; "QoS",       dummy_tab
+  | "TS"    -> [ "QoS",       (fun () -> Board_qos_niit_js.Qos_log.page control () |> Widget.coerce)
+               ; "Структура", (fun () -> Board_qos_niit_js.Structure.page control () |> Widget.coerce)
+               (* ; "Скорости",  dummy_tab
+                * ; "Джиттер",   dummy_tab *)
                ]
   | "TS2IP" -> [ ]
   | s       -> failwith ("input.js: unknown board " ^ s)

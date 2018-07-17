@@ -7065,6 +7065,11 @@ a.mdc-list-item {
       .mdc-data-table tbody .mdc-data-table__row--selected:hover, .mdc-data-table tbody .mdc-data-table__row:active:hover {
         background-color: rgba(98, 0, 238, 0.12); }
 
+.mdc-data-table--sticky-header thead tr:nth-child(1) th {
+  position: sticky;
+  top: 0;
+  z-index: 10; }
+
 /* TODO(sgomes): Figure out what to do about desktop font sizes. */
 /* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
 .mdc-tab {

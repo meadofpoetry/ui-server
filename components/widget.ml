@@ -167,9 +167,12 @@ class input_widget ~(input_elt:Dom_html.inputElement Js.t) elt () =
 
   end
 
-class radio_or_cb_widget ?(state=false) ~input_elt elt () =
-  let () = input_elt##.defaultChecked := Js.string @@ string_of_bool state in
-  let s_state,s_state_push = React.S.create ~eq:Equal.bool state in
+class radio_or_cb_widget ?state ~input_elt elt () =
+  let () = match state with
+    | Some s -> input_elt##.defaultChecked := Js.string @@ string_of_bool s
+    | None   -> () in
+  let s_state,s_state_push =
+    React.S.create ~eq:Equal.bool @@ Option.get_or ~default:false state in
   object(self)
 
     inherit input_widget ~input_elt elt ()

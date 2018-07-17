@@ -14,6 +14,10 @@ module Clock = struct
 
 end
 
+let to_human_string ?tz_offset_s (t:t) =
+  let (y,m,d),((h,min,s),_) = to_date_time ?tz_offset_s t in
+  Printf.sprintf "%02d.%02d.%04d %02d:%02d:%02d" d m y h min s
+
 let to_yojson (v:t) : Yojson.Safe.json =
   let d,ps = Ptime.to_span v |> Ptime.Span.to_d_ps in
   `List [ `Int d;`Intlit (Int64.to_string ps) ]

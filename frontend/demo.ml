@@ -562,7 +562,7 @@ let table_demo () =
       "Error description here"
   in
   List.iter (fun _ -> make_row ()) @@ List.range' 0 7;
-  demo_section "Table" [ table#widget ]
+  demo_section ~expanded:true "#Table" [ table#widget ]
 
 let chart_demo () =
   let range = 10 in
@@ -776,7 +776,7 @@ let split_demo () =
   el#panel_1#style##.border  := Js.string "1px solid lightgrey";
   el#panel_2#style##.border  := Js.string "1px solid lightgrey";
   el#style##.height := Js.string "300px";
-  demo_section ~expanded:true "#Split" [ el ]
+  demo_section "Split" [ el ]
 
 
 let add_demos demos =

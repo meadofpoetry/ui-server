@@ -1,6 +1,7 @@
 open Containers
 open Board_types
 open Api_js.Requests.Json_request
+open Api_js.Api_types
 open Common
 
 let get_base_path () = Uri.Path.Format.(Boards_js.Requests.get_board_path () / ("errors" @/ empty))
@@ -50,7 +51,7 @@ module HTTP = struct
 
       let get_errors ?(streams=[]) ?(errors=[]) ?(priority=[]) ?(pids=[])
             ?limit ?compress ?from ?till ?duration control =
-        get_result ~from:(fun _ -> Error "not implemented")
+        get_result ~from:(rows_of_yojson raw_of_yojson compressed_of_yojson)
           ~path:Path.Format.(get_base_path () / ("ts/archive" @/ empty))
           ~query:Query.[ "stream-id",(module List(Int32))
                        ; "errors",   (module List(Int))

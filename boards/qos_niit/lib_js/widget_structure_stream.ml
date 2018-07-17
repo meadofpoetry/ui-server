@@ -22,9 +22,9 @@ module type Node = sig
   type model
   type widget
 
-  val equal_model    : model -> model -> bool
-  val make           : model -> widget * (model -> unit)
-  val widget         : widget -> Widget.t
+  val equal_model : model -> model -> bool
+  val make        : model -> widget * (model -> unit)
+  val widget      : widget -> Widget.t
 
 end
 
@@ -36,10 +36,10 @@ module type Array_node = sig
     type t
     val of_string : string -> t option
     val to_string : t -> string
-    val compare : t -> t -> int
+    val compare   : t -> t -> int
   end
 
-  val id_of_model  : model -> Id.t
+  val id_of_model : model -> Id.t
 
 end
 
@@ -56,9 +56,9 @@ end
 
 module Make_array(M:Array_root_node) = struct
 
-  type id        = M.Node.Id.t
-  type model     = M.Node.model
-  type widget    = M.Node.widget
+  type id     = M.Node.Id.t
+  type model  = M.Node.model
+  type widget = M.Node.widget
 
   type nodes =
     { mutable hidden : (widget * (model -> unit)) list
@@ -863,17 +863,16 @@ let make_stream (id:Stream.id)
   let tabl, update_tabl = Tables.make (map_tables init.tables) in
   let time, update_time =
     let to_string x =
-      let (y,m,d),((h,min,s),_) =
-        Time.to_date_time
-          ?tz_offset_s:(Ptime_clock.current_tz_offset_s ()) x in
-      Printf.sprintf "Получена: %02d.%02d.%04d %02d:%02d:%02d" d m y h min s in
+      let tz_offset_s = Ptime_clock.current_tz_offset_s () in
+      let s = Time.to_human_string ?tz_offset_s x in
+      Printf.sprintf "Получена: %s" s in
     let w = new Tree.Item.t
               ~text:""
               ~value:() () in
     let upd = fun (model:Time.t) -> w#item#set_text @@ to_string model in
     w, upd in
   update_time init.timestamp;
-  let _ =
+  let _e =
     React.E.map (fun (prev,model) ->
         if not @@ equal_general_info prev.general model.general
         then update_gen model.general;
@@ -891,4 +890,6 @@ let make_stream (id:Stream.id)
   let opt  = (serv :: tabl :: pids :: emm :: []) in
   let tree = new Tree.t ~items:(time :: gen :: opt) () in
   let ()   = tree#set_dense true in
+  let ()   = tree#set_on_destroy
+             @@ Some (fun () -> React.E.stop ~strong:true _e) in
   tree

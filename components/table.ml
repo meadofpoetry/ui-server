@@ -127,9 +127,11 @@ module Row = struct
       method cells_arr  = arr
       method checkbox   = cb
       method s_selected = s_selected
+
       method set_selected' x =
         Option.iter (fun cb -> cb#set_checked x) self#checkbox;
         self#add_or_remove_class x Markup.Row.selected_class
+
       method set_selected x  =
         let v = (self :> t) in
         (match selection with
@@ -148,7 +150,9 @@ module Row = struct
             in s_selected_push l
          | None -> ());
         self#set_selected' x
+
       method selected = self#has_class Markup.Row.selected_class
+
       initializer
         match selection with
         | Some _ -> Dom_events.listen self#root Dom_events.Typ.click (fun _ _ ->

@@ -109,8 +109,10 @@ module HTTP = struct
 
     module Archive = struct
 
-      let get_stream ?(ids=[]) ?limit ?from ?till ?duration control =
-        get_result ~from:(fun _ -> Error "FIXME Not implemented")
+      let get_streams ?(ids=[]) ?limit ?from ?till ?duration control =
+        get_result ~from:(Api_js.Api_types.rows_of_yojson
+                            archived_list_of_yojson
+                            (fun _ -> Error "cannot be compressed"))
           ~path:Path.Format.(get_base_path () / ("archive" @/ empty))
           ~query:Query.[ "id",       (module List(Int32))
                        ; "limit",    (module Option(Int))

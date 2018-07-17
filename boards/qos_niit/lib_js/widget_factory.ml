@@ -8,6 +8,7 @@ open Common
 
 type item =
   | Chart           of Widget_chart.config option
+  | TS_log          of Widget_log.config option
   | Structure       of Widget_structure.config option
   | Settings        of Widget_settings.config option
   | T2MI_settings   of Widget_t2mi_settings.config option
@@ -20,6 +21,12 @@ let item_to_info : item -> Dashboard.Item.info = fun item ->
      Dashboard.Item.to_info ~title:"График"
        ~thumbnail:(`Icon "chart")
        ~description:"График"
+       ~serialized
+       ()
+  | TS_log _ ->
+     Dashboard.Item.to_info ~title:"Журнал ошибок (TS)"
+       ~thumbnail:(`Icon "list_alt")
+       ~description:"Сводный журнал ошибок"
        ~serialized
        ()
   | Structure _ ->
@@ -64,12 +71,16 @@ object(self)
   val _structs     : (Stream.id * Streams.TS.structure) list React.signal t_lwt = empty ()
   val _bitrates    : (Stream.id * Streams.TS.bitrate) list React.signal t_lwt = empty ()
   val _streams     : Stream.t list React.signal t_lwt = empty ()
+  val _ts_errors   : Errors.t list React.event Factory_state.t = empty ()
 
   (** Create widget of type **)
   method create : item -> Dashboard.Item.item = function
     | Chart conf ->
        Widget_chart.make conf
        |> Dashboard.Item.to_item ~name:Widget_chart.name
+    | TS_log config ->
+       Widget_log.make self#ts_errors config control
+       |> Dashboard.Item.to_item ~name:Widget_log.name
     | Structure config ->
        let id =
          Option.get_or
@@ -173,5 +184,15 @@ object(self)
       ~get:(fun ()        -> Requests.Streams.HTTP.TS.get_streams control |> map_err)
       ~get_socket:(fun () -> Requests.Streams.WS.TS.get_streams control)
       _streams
+
+  method ts_errors =
+    match _ts_errors.value with
+    | Some x -> Factory_state.succ_ref _ts_errors; x
+    | None   ->
+       Factory_state.set_ref _ts_errors 1;
+       let e,sock = Requests.Errors.WS.TS.get_errors control in
+       _ts_errors.value <- Some e;
+       _ts_errors.fin   <- (fun () -> sock##close; React.E.stop ~strong:true e);
+       e
 
 end

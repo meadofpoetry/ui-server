@@ -67,27 +67,29 @@ module HTTP = struct
 
     module Archive = struct
 
+      open Errors
+
       type err = (Common.Stream.id * Errors.t) list [@@deriving yojson]
-     
-      type per = (float * float * Time.t * Time.t) list [@@deriving yojson]
-      
+
       let errors db streams errors priority pids limit compress from till duration _ _ () =
         match Time.make_interval ?from ?till ?duration () with
-        | Ok (`Range (from,till)) -> begin
-            match compress with
-            | Some true -> Db.Errors.select_errors_compressed
-                             db ~is_ts:true ~streams ~priority ~errors ~pids ~from ~till ()
-            | _ -> Db.Errors.select_errors db ~is_ts:true ~streams ~priority ~errors ~pids ?limit ~from ~till ()
-          end >>= fun v -> respond_result (Ok Db.Errors.(Api.Api_types.rows_to_yojson err_to_yojson per_to_yojson v))
+        | Ok (`Range (from,till)) ->
+           (match compress with
+            | Some true ->
+               (Db.Errors.select_errors_compressed
+                  db ~is_ts:true ~streams ~priority ~errors ~pids ~from ~till ())
+            | _ -> Db.Errors.select_errors db ~is_ts:true ~streams ~priority ~errors ~pids ?limit ~from ~till ())
+           >>= fun v ->
+           respond_result (Ok Db.Errors.(Api.Api_types.rows_to_yojson raw_to_yojson compressed_to_yojson v))
         | _ -> respond_error ~status:`Not_implemented "not implemented" ()
-             
+
       let percent db streams errors priority pids from till duration _ _ () =
         match Time.make_interval ?from ?till ?duration () with
         | Ok (`Range (from,till)) ->
            Db.Errors.select_percent db ~is_ts:true ~streams ~priority ~errors ~pids ~from ~till ()
            >>= fun v -> respond_result (Ok (`Float v))
         | _ -> respond_error ~status:`Not_implemented "not implemented" ()
-        
+
       let has_any db streams errors priority pids from till duration _ _() =
         match Time.make_interval ?from ?till ?duration () with
         | Ok (`Range (from,till)) ->
@@ -102,10 +104,8 @@ module HTTP = struct
 
     module Archive = struct
 
-      type err = (Common.Stream.id * Errors.t) list [@@deriving yojson]
+      open Errors
      
-      type per = (float * float * Time.t * Time.t) list [@@deriving yojson]
-
       let errors db streams t2mi_id errors pids limit compress from till duration _ _ () =
         match Time.make_interval ?from ?till ?duration () with
         | Ok (`Range (from,till)) -> begin
@@ -113,7 +113,7 @@ module HTTP = struct
             | Some true -> Db.Errors.select_errors_compressed db ~is_ts:false ~streams ~errors ~pids ~from ~till ()
             | _ -> Db.Errors.select_errors db ~is_ts:true ~streams ~errors ~pids ?limit ~from ~till ()
           end >>= fun v ->
-          respond_result (Ok Db.Errors.(Api.Api_types.rows_to_yojson err_to_yojson per_to_yojson v))
+          respond_result (Ok Db.Errors.(Api.Api_types.rows_to_yojson raw_to_yojson compressed_to_yojson v))
         | _ -> respond_error ~status:`Not_implemented "not implemented" ()
         
       let percent db streams t2mi_id errors pids from till duration _ _ () =

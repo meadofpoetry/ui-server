@@ -92,7 +92,7 @@ module HTTP = struct
     open Board_types.Streams.TS
 
     let to_yojson f v = Json.(List.to_yojson (Pair.to_yojson Stream.id_to_yojson f) v)
-                      
+
     let streams (events:events) ids _ _ () =
       let ids = List.map Stream.id_of_int32 ids in
       let streams = match ids with
@@ -121,11 +121,7 @@ module HTTP = struct
 
     module Archive = struct
 
-      type strms = (Common.Stream.t list * Time.t) list [@@deriving yojson]
-
       type struct_ts = (Common.Stream.id * Board_types.Streams.TS.structure * Time.t) list [@@deriving yojson]
-
-      type strms_state = (Common.Stream.t list * Time.t * Time.t) list [@@deriving yojson]
 
       (* merge ordered descending lists of streams and board states *)
       let merge_streams_state
@@ -142,17 +138,20 @@ module HTTP = struct
         in
         let (<=) l r = Time.compare l r <= 0 in
         let (>=) l r = Time.compare l r >= 0 in
-        let join streams states = List.fold_left (fun acc (s,f,t) ->
-                                      List.append acc @@ List.filter_map
-                                                           (function (`Fine,ff,tt) ->
-                                                                      if f <= ff && t >= tt then Some (s,ff,tt)
-                                                                      else if f <=ff && t >= ff then Some (s, ff, t)
-                                                                      else if f <= tt && t >= tt then Some (s, f, tt)
-                                                                      else if f >= ff && t <= tt then Some (s, f, t)
-                                                                      else None
-                                                                   | _ -> None) states) [] streams
-        in (* TODO add compress *) 
+        let join streams states =
+          List.fold_left (fun acc (s,f,t) ->
+              List.append acc
+              @@ List.filter_map
+                   (function (`Fine,ff,tt) ->
+                              if f <= ff && t >= tt then Some (s,ff,tt)
+                              else if f <=ff && t >= ff then Some (s, ff, t)
+                              else if f <= tt && t >= tt then Some (s, f, tt)
+                              else if f >= ff && t <= tt then Some (s, f, t)
+                              else None
+                           | _ -> None) states) [] streams
+        in (* TODO add compress *)
         join (pair_streams streams) state
+        |> List.map (fun (s, f, t) -> { streams = s; period = f, t })
 
       let streams db limit from till duration _ _ () =
         let open Api.Api_types in
@@ -166,7 +165,7 @@ module HTTP = struct
            >>= fun (Raw { data = states; has_more = _; order = `Desc }) ->
            let v = merge_streams_state streams states in
            let rval = Raw { data = v; has_more; order = `Desc } in
-           respond_result (Ok (rows_to_yojson strms_state_to_yojson (fun () -> `Null) rval))
+           respond_result (Ok (rows_to_yojson archived_list_to_yojson  (fun () -> `Null) rval))
            (*|> Lwt_result.map (fun d -> Api.Api_types.rows_to_yojson strms_to_yojson (fun () -> `Null) d)
            |> Lwt_result.map_err (fun s -> (`String s : Yojson.Safe.json))
            >>= fun x -> respond_result x*)

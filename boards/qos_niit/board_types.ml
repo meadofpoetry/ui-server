@@ -405,6 +405,13 @@ module Streams = struct
       ; parsed    : Yojson.Safe.json option
       } [@@deriving yojson]
 
+    type archived_list =
+      archived_item list
+    and archived_item =
+      { streams : Stream.t list
+      ; period  : Time.t * Time.t
+      } [@@deriving yojson]
+
   end
 
   module T2MI = struct
@@ -488,5 +495,15 @@ module Errors = struct
     ; param_1   : int32
     ; param_2   : int32 (* t2mi stream id for t2mi error *)
     } [@@deriving yojson,eq]
+
+  type raw =
+    (Stream.id * t) list [@@deriving yojson]
+
+  type compressed = percent list
+  and percent =
+    { errors    : float
+    ; no_stream : float
+    ; period    : Time.t * Time.t
+    } [@@deriving yojson]
 
 end

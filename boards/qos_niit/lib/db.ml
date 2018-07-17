@@ -407,7 +407,10 @@ module Errors = struct
        List.fold_left (fun acc (p,from,till) ->
            acc >>= fun acc ->
            Device.select_state_compressed_internal db ~from ~till
-           >>= fun (f,_,_) -> Lwt.return (((100. *. p /. f), (100. -. f), from, till)::acc))
+           >>= fun (f,_,_) ->
+           Lwt.return ( { errors    = (100. *. p /. f)
+                        ; no_stream = (100. -. f)
+                        ; period    = from, till } :: acc))
          (Lwt.return []) l
        >|= fun data -> Compressed { data }
 
