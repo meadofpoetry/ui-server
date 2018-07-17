@@ -22,7 +22,7 @@ let find_stream (streams:Streams.TS.archived_list)
       then List.find_opt (fun (s:Stream.t) ->
                match s.id with
                | `Ts id -> Stream.equal_id id stream
-               | _ -> false) x.streams
+               | _      -> false) x.streams
       else None) streams
 
 let make_table
@@ -33,19 +33,23 @@ let make_table
   let time = Table.({ to_string  = show_time
                     ; compare    = String.compare
                     ; is_numeric = false }) in
-  let fmt  = Table.((to_column ~sortable:true "Время",     Custom time)
-                    :: (to_column ~sortable:true "Поток",    (Option (String, "")))
-                    :: (to_column ~sortable:true "Число ошибок", Int)
-                    (* :: (to_column ~sortable:true "Service",  String) *)
-                    :: (to_column ~sortable:true "PID",      Int)
-                    (* :: (to_column ~sortable:true "Severity", Option (String,"")) *)
-                    :: (to_column ~sortable:true "Событие",    String)
-                    :: (to_column "Подробности",                 String)
-                    :: []) in
+  let fmt  =
+    Table.((to_column ~sortable:true "Время",     Custom time)
+           :: (to_column ~sortable:true "Поток",    String)
+           :: (to_column ~sortable:true "Число ошибок", Int)
+           (* :: (to_column ~sortable:true "Service",  String) *)
+           :: (to_column ~sortable:true "PID",      Int)
+           (* :: (to_column ~sortable:true "Severity", Option (String,"")) *)
+           :: (to_column ~sortable:true "Событие",    String)
+           :: (to_column "Подробности",                 String)
+           :: []) in
   let table = new Table.t ~fmt () in
   let add_row (stream, (error:Errors.t)) =
-    let stream = find_stream streams.data (stream, error)
-                 |> Option.flat_map (fun (x:Stream.t) -> x.description) in
+    let default = Stream.show_id stream in
+    let stream =
+      find_stream streams.data (stream, error)
+      |> Option.flat_map (fun (x:Stream.t) -> x.description)
+      |> Option.get_or ~default in
     let date  = error.timestamp in
     let pid   = error.pid in
     let check = let num, name = Ts_error.to_name error in

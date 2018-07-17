@@ -671,7 +671,8 @@ module Section = struct
       let to_string x = Printf.sprintf "ID: %d" x in
       { get = (fun (x:model) -> x.section.id)
       ; eq  = Int.equal
-      ; upd = (leaf#item#set_text % to_string) } in
+      ; upd = (fun x -> leaf#item#set_text @@ to_string x;
+                        s_dump_push None) } in
     Dom_events.listen leaf#item#root Dom_events.Typ.click (fun _ _ ->
         let get = fun () ->
           req_of_table !prev
