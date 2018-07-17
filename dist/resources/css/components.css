@@ -9732,6 +9732,39 @@ a.mdc-list-item {
     margin-left: 20px;
     margin-right: 0; }
 
+.mdc-tree[data-level='0'] > li > .mdc-list-item {
+  padding-left: 16px; }
+
+.mdc-tree[data-level='1'] > li > .mdc-list-item {
+  padding-left: 32px; }
+
+.mdc-tree[data-level='2'] > li > .mdc-list-item {
+  padding-left: 48px; }
+
+.mdc-tree[data-level='3'] > li > .mdc-list-item {
+  padding-left: 64px; }
+
+.mdc-tree[data-level='4'] > li > .mdc-list-item {
+  padding-left: 80px; }
+
+.mdc-tree[data-level='5'] > li > .mdc-list-item {
+  padding-left: 96px; }
+
+.mdc-tree[data-level='6'] > li > .mdc-list-item {
+  padding-left: 112px; }
+
+.mdc-tree[data-level='7'] > li > .mdc-list-item {
+  padding-left: 128px; }
+
+.mdc-tree[data-level='8'] > li > .mdc-list-item {
+  padding-left: 144px; }
+
+.mdc-tree[data-level='9'] > li > .mdc-list-item {
+  padding-left: 160px; }
+
+.mdc-tree[data-level='10'] > li > .mdc-list-item {
+  padding-left: 176px; }
+
 /**
  * The css property used for elevation. In most cases this should not be changed. It is exposed
  * as a variable for abstraction / easy use when needing to reference the property directly, for

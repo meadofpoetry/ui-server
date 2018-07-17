@@ -209,7 +209,7 @@ module Streams = struct
 
     type section_info =
       { id       : int
-      ; analyzed : bool
+      (* ; analyzed : bool *)
       ; length   : int
       } [@@deriving yojson, eq]
 

@@ -35,6 +35,9 @@ let make_structs
   let to_add = to_add_event signal in
   let snackbar = new Snackbar.t ~message:"" () in
   let box = new Vbox.t ~widgets:[] () in
+  let ph  = Ui_templates.Placeholder.create_with_icon
+              ~text:"Потоки не обнаружены"
+              ~icon:"info" () in
   let add ?(notify=false) (id,structure) =
     let heading_details = new Typography.Text.t ~text:"" () in
     let details = new Typography.Text.t
@@ -84,10 +87,13 @@ let make_structs
     if notify
     then (snackbar#set_message @@ ts_found structure.general.ts_id;
           snackbar#show ());
+    (try Dom.removeChild box#root ph#root with _ -> ());
     Dom.appendChild box#root p#root in
   (* FIXME keep *)
   let _e = React.E.map (fun l -> List.iter (add ~notify:true) l) to_add in
+  Dom.appendChild box#root ph#root;
   List.iter add @@ React.S.value signal;
+  (* FIXME need to be removed when widget is destroyed *)
   Dom.appendChild Dom_html.document##.body snackbar#root;
   box#widget
 

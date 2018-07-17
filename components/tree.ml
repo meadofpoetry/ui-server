@@ -38,6 +38,16 @@ module Item = struct
       method item = item
       method nested_tree : 'b option = nested
 
+      method expand () =
+        Option.iter (fun x -> x#add_class Markup.Item.list_open_class)
+          nested;
+        self#add_class Markup.Item.item_open_class
+
+      method collapse () =
+        Option.iter (fun x -> x#remove_class Markup.Item.list_open_class)
+          nested;
+        self#remove_class Markup.Item.item_open_class
+
       initializer
         Option.iter (fun x ->
             x#add_class Markup.Item.list_class;
@@ -55,7 +65,7 @@ module Item = struct
 
 end
 
-class ['a] t ?(two_line) ~(items:('a,'a t) Item.t list) () =
+class ['a] t ?level ?two_line ~(items:('a,'a t) Item.t list) () =
   let two_line = match two_line with
     | Some x -> x
     | None   ->
@@ -97,6 +107,8 @@ class ['a] t ?(two_line) ~(items:('a,'a t) Item.t list) () =
       iter self#items 1
 
     initializer
-      self#_padding ();
+      match level with
+      | Some l -> self#set_attribute "data-level" @@ string_of_int l
+      | None   -> self#_padding ()
 
   end

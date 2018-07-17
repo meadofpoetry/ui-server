@@ -84,3 +84,15 @@
 .mdc-tree--avatar-list.mdc-tree--dense > li .mdc-list-item__graphic {
   @include mdc-list-graphic-size_(36px);
 }
+
+$max-levels: 10;
+
+@mixin wm-level-prop($level) {
+    .mdc-tree[data-level='#{$level}'] > li > .mdc-list-item {
+        padding-left: ($level + 1) * 16px;
+    }
+}
+
+@for $i from 0 through $max-levels {
+    @include wm-level-prop($i)
+}

@@ -385,7 +385,7 @@ module Get_ts_structs : (Request with type req := int
                      (fun buf -> Cstruct.LE.get_uint16 buf 0) rest in
     let sections = Cstruct.fold (fun acc x ->
                        { id = List.length acc
-                       ; analyzed = (x land 0x8000) > 0
+                       (* ; analyzed = (x land 0x8000) > 0 *)
                        ; length   = x land 0x0FFF } :: acc) iter []
                    |> List.filter (fun x -> x.length > 0)
                    |> List.rev in
