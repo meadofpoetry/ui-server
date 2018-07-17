@@ -675,32 +675,46 @@ module Section = struct
     | Some l -> name, String.concat divider (base :: l @ [ section ])
     | None   -> name, base ^ divider ^ section
 
-  let make (model:model) =
+  let make (init:model) =
     let open Lwt_result.Infix in
-    let id     = model.section.id in
-    let length = model.section.length in
-    let base_class  = Markup.CSS.add_element base_class "section-item" in
-    let req () = req_of_table model in
-    let prev, push  = React.S.create None in
-    let text, stext = Printf.sprintf "ID: %d" model.section.id, None in
+    let s_dump, s_dump_push  = React.S.create None in
+    let base_class = Markup.CSS.add_element base_class "section-item" in
+    let prev    = ref init in
     let graphic = new Icon.SVG.t ~icon:Download () in
-    let meta    = Dom_html.createSpan Dom_html.document |> Widget.create in
-    let byte_s  = if length > 1 && length < 5 then "байта" else "байт" in
-    let str  = Printf.sprintf "%d %s" length byte_s in
-    let ()   = meta#set_text_content str in
-    let get  = fun () ->
-      req ()
-      >|= (fun dump -> push (Some dump.section); dump.section)
-      |> Lwt_result.map_err Api_js.Requests.err_to_string in
-    let item = new Tree.Item.t ~text ?secondary_text:stext
-                 ~graphic ~meta ~value:() () in
-    let e, e_push = React.E.create () in
-    let name      = to_section_name model.table id in
-    Dom_events.listen item#item#root Dom_events.Typ.click (fun _ _ ->
-        let dumpable = { name; get; prev } in
-        e_push dumpable; true) |> ignore;
-    let () = item#add_class base_class in
-    item, fun _ -> ()
+    let bytes, update_bytes =
+      let to_string x =
+        let s = if x > 1 && x < 5 then "байта" else "байт" in
+        Printf.sprintf "%d %s" x s in
+      let w = new Typography.Text.t ~text:"" () in
+      let v = { get = (fun (x:model) -> x.section.length)
+              ; eq  = Int.equal
+              ; upd = (w#set_text % to_string) } in
+      w, v in
+    let leaf = new Tree.Item.t
+                 ~text:""
+                 ~graphic
+                 ~meta:bytes#widget
+                 ~value:() () in
+    let update_id =
+      let to_string x = Printf.sprintf "ID: %d" x in
+      { get = (fun (x:model) -> x.section.id)
+      ; eq  = Int.equal
+      ; upd = (leaf#item#set_text % to_string) } in
+    Dom_events.listen leaf#item#root Dom_events.Typ.click (fun _ _ ->
+        let get = fun () ->
+          req_of_table !prev
+          >|= (fun dump -> s_dump_push (Some dump.section); dump.section)
+          |> Lwt_result.map_err Api_js.Requests.err_to_string in
+        let name     = to_section_name init.table !prev.section.id in
+        let dumpable = { name; get; prev = s_dump } in
+        init.push dumpable; true) |> ignore;
+    let () = leaf#item#add_class base_class in
+    let update = fun ?previous (model:model) ->
+      setter ?previous model update_id;
+      setter ?previous model update_bytes;
+      prev := model in
+    update init;
+    leaf, fun x -> update ~previous:!prev x
 
 end
 
@@ -764,38 +778,74 @@ module Table = struct
                         ; eit_nw_id = x.params.orig_nw_id }
     | _     -> def
 
-  let make ({stream; push; control; table}:model) =
-    let common = table_common_of_table table in
-    let text,stext =
-      Printf.sprintf "%s, PID: %d" (table_to_string table) common.pid,
-      Printf.sprintf "Версия: %d, ID: %d, LSN: %d" common.version common.id common.lsn in
-    let make_item = new Tree.Item.t ~value:() in
-    let specific = match table with
-      | PAT x -> [ make_item ~text:(Printf.sprintf "TS ID: %d" x.ts_id) () ]
-      | PMT x -> [ make_item ~text:(Printf.sprintf "Номер программы: %d" x.program_number) () ]
-      | NIT x -> [ make_item ~text:(Printf.sprintf "Network ID: %d" x.nw_id) () ]
-      | SDT x -> [ make_item ~text:(Printf.sprintf "TS ID: %d" x.ts_id) () ]
-      | BAT x -> [ make_item ~text:(Printf.sprintf "Bouquet ID: %d" x.bouquet_id) () ]
-      | EIT x -> [ make_item ~text:(Printf.sprintf "Service ID: %d" x.service_id) ()
-                 ; make_item ~text:(Printf.sprintf "TS ID: %d" x.params.ts_id) ()
-                 ; make_item ~text:(Printf.sprintf "Oririnal network ID: %d" x.params.orig_nw_id) ()
-                 ; make_item ~text:(Printf.sprintf "Segment LSN: %d" x.params.segment_lsn) ()
-                 ; make_item ~text:(Printf.sprintf "Last table ID: %d" x.params.last_table_id) () ]
-      | _     -> []
-    in
-    let map : section_info list -> Section.model list =
+  let make (init:model) =
+    let to_primary   = Printf.sprintf "%s, PID: %d"  in
+    let to_secondary = Printf.sprintf "Версия: %d, ID: %d, LSN: %d" in
+    (* let make_item = new Tree.Item.t ~value:() in *)
+    (* let specific = match table with
+     *   | PAT x ->
+     *      [ make_item ~text:(Printf.sprintf "TS ID: %d" x.ts_id) () ]
+     *   | PMT x ->
+     *      [ make_item ~text:(Printf.sprintf "Номер программы: %d" x.program_number) () ]
+     *   | NIT x ->
+     *      [ make_item ~text:(Printf.sprintf "Network ID: %d" x.nw_id) () ]
+     *   | SDT x ->
+     *      [ make_item ~text:(Printf.sprintf "TS ID: %d" x.ts_id) () ]
+     *   | BAT x ->
+     *      [ make_item ~text:(Printf.sprintf "Bouquet ID: %d" x.bouquet_id) () ]
+     *   | EIT x ->
+     *      [ make_item ~text:(Printf.sprintf "Service ID: %d" x.service_id) ()
+     *      ; make_item ~text:(Printf.sprintf "TS ID: %d" x.params.ts_id) ()
+     *      ; make_item ~text:(Printf.sprintf "Oririnal network ID: %d" x.params.orig_nw_id) ()
+     *      ; make_item ~text:(Printf.sprintf "Segment LSN: %d" x.params.segment_lsn) ()
+     *      ; make_item ~text:(Printf.sprintf "Last table ID: %d" x.params.last_table_id) () ]
+     *   | _ -> []
+     * in *)
+    let map = fun stream table control push sections ->
       let open Section in
-      List.map (fun x -> { stream; table; control; push; section = x }) in
-    let sections, update_sections = Sections.make (map common.sections) in
-    let nested = new Tree.t ~items:(specific @ [sections]) () in
+      List.map (fun x -> { stream; table; control; push; section = x }) sections in
+    let sections, update_sections =
+      Sections.make (map init.stream
+                       init.table
+                       init.control
+                       init.push
+                       (table_common_of_table init.table).sections) in
+    let nested = new Tree.t ~items:((* specific @ *) [sections]) () in
     let ()     = nested#set_dense true in
-    let update _ = () in
-    let leaf = new Tree.Item.t
-                 ~text
-                 ~secondary_text:stext
-                 ~nested
-                 ~value:() () in
-    leaf, update
+    let prev   = ref init in
+    let leaf   = new Tree.Item.t
+                   ~text:""
+                   ~secondary_text:""
+                   ~nested
+                   ~value:() () in
+    let update_primary =
+      { get = (fun x -> let c = table_common_of_table x.table in
+                        c.pid, table_to_string x.table)
+      ; eq  = (fun (x1,y1) (x2,y2) ->
+        x1 = x2 && String.equal y1 y2)
+      ; upd = (fun (pid,s) ->
+        let s = to_primary s pid in
+        leaf#item#set_text s)
+      } in
+    let update_secondary =
+      { get = (fun x -> let c = table_common_of_table x.table in
+                        c.version, c.id, c.lsn)
+      ; eq  = (fun (x1,y1,z1) (x2,y2,z2) ->
+        x1 = x2 && y1 = y2 && z1 = z2)
+      ; upd = (fun (v,id,lsn) ->
+        let s = to_secondary v id lsn in
+        leaf#item#set_secondary_text s)
+      } in
+    let update = fun ?(previous:model option) (model:model) ->
+      let common = table_common_of_table model.table in
+      setter ?previous model update_primary;
+      setter ?previous model update_secondary;
+      update_sections @@ map model.stream
+                           model.table
+                           model.control
+                           model.push
+                           common.sections; in
+    leaf, fun x -> update ~previous:!prev x
 
 end
 
@@ -833,32 +883,33 @@ let make_stream (id:Stream.id)
   let serv, update_serv = Services.make init.services in
   let emm,  update_emm  = EMM_pids.make init.emm in
   let tabl, update_tabl = Tables.make (map_tables init.tables) in
-  let _ = React.E.map (fun (prev,model) ->
-              if not @@ equal_general_info prev.general model.general
-              then (print_endline "general changed!"; update_gen model.general);
-              if not @@ (Equal.list equal_pid_info) prev.pids model.pids
-              then (print_endline "pids changed!"; update_pids model.pids);
-              if not @@ (Equal.list equal_service_info) prev.services model.services
-              then (print_endline "services changed!"; update_serv model.services);
-              if not @@ (Equal.list equal_emm_info) prev.emm model.emm
-              then (print_endline "emm changed!"; update_emm model.emm);
-              if not @@ (Equal.list equal_table) prev.tables model.tables
-              then (print_endline "tables changed!";
-                    update_tabl @@ map_tables model.tables);
-              if not @@ Time.equal prev.timestamp model.timestamp
-              then print_endline "timestamp changed!")
-            event in
-  let time =
-    let (y,m,d),((h,min,s),_) =
-      Time.to_date_time
-        ?tz_offset_s:(Ptime_clock.current_tz_offset_s ())
-        init.timestamp in
-    let s = Printf.sprintf "Получена: %02d.%02d.%04d %02d:%02d:%02d"
-              d m y h min s in
-    new Tree.Item.t
-      ~text:s
-      ~value:()
-      () in
+  let time, update_time =
+    let to_string x =
+      let (y,m,d),((h,min,s),_) =
+        Time.to_date_time
+          ?tz_offset_s:(Ptime_clock.current_tz_offset_s ()) x in
+      Printf.sprintf "Получена: %02d.%02d.%04d %02d:%02d:%02d" d m y h min s in
+    let w = new Tree.Item.t
+              ~text:""
+              ~value:() () in
+    let upd = fun (model:Time.t) -> w#item#set_text @@ to_string model in
+    w, upd in
+  let _ =
+    React.E.map (fun (prev,model) ->
+        if not @@ equal_general_info prev.general model.general
+        then (print_endline "general changed!"; update_gen model.general);
+        if not @@ (Equal.list equal_pid_info) prev.pids model.pids
+        then (print_endline "pids changed!"; update_pids model.pids);
+        if not @@ (Equal.list equal_service_info) prev.services model.services
+        then (print_endline "services changed!"; update_serv model.services);
+        if not @@ (Equal.list equal_emm_info) prev.emm model.emm
+        then (print_endline "emm changed!"; update_emm model.emm);
+        if not @@ (Equal.list equal_table) prev.tables model.tables
+        then (print_endline "tables changed!";
+              update_tabl @@ map_tables model.tables);
+        if not @@ Time.equal prev.timestamp model.timestamp
+        then (print_endline "timestamp changed!"; update_time model.timestamp))
+      event in
   let opt  = (serv :: tabl :: pids :: emm :: []) in
   let tree = new Tree.t ~items:(time :: gen :: opt) () in
   let ()   = tree#set_dense true in
