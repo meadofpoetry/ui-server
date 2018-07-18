@@ -391,7 +391,8 @@ module SM = struct
                        | _          -> Port (match i with SPI -> 0 | ASI -> 1))
       }
     in
-    E.map (fun (g:group) -> List.map (fun x -> conv g.status.input x) g.status.streams) group
+    E.map (fun (g:group) ->
+        List.map (fun x -> conv g.status.input x) g.status.streams) group
     |> S.hold ~eq:(Equal.list Stream.equal_stream) []
 
   let to_config_e (group:group event) : config event =
@@ -399,6 +400,15 @@ module SM = struct
     @@ E.map (fun (x:group) -> { input       = x.status.input
                                ; t2mi_mode   = x.status.t2mi_mode
                                ; jitter_mode = x.status.jitter_mode }) group
+
+  let equal_ts_struct (x:Streams.TS.structure)
+        (y:Streams.TS.structure) =
+    let open Streams.TS in
+    equal_general_info x.general y.general
+    && (Equal.list equal_pid_info) x.pids y.pids
+    && (Equal.list equal_service_info) x.services y.services
+    && (Equal.list equal_emm_info) x.emm y.emm
+    && (Equal.list equal_table_info) x.tables y.tables
 
   let create (log_prefix:string) sender (storage:config storage) step_duration streams_conv =
     let state,state_push   = S.create `No_response in
@@ -417,7 +427,29 @@ module SM = struct
         let l = React.S.value s in
         push_list @@ List.Assoc.set ~eq:(=) id structure l in
       s, push, push_list in
-    let s_config = S.hold ~eq:equal_config storage#get (to_config_e e_group) in
+    (* Push only those TS structures that were really changed *)
+    (* TODO: can be done in another way. Board may request only
+       those structures that were changed. It will be the right approach *)
+    let ts_push s =
+      let old = React.S.value s_ts in
+      let eq  = fun (id1,s1) (id2,s2) ->
+        Stream.equal_id id1 id2
+        && equal_ts_struct s1 s2 in
+      let s = List.fold_left (fun acc x ->
+                  match List.find_opt (fun o -> eq x o) old with
+                  | Some i -> i :: acc
+                  | None   -> x :: acc) [] s in
+      ts_push s in
+    let s_config = S.hold ~eq:equal_config storage#get
+                     (to_config_e e_group) in
+    (* Event with list of TS structures that were updated compared
+       to previous structures *)
+    let e_ts_diff =
+      React.S.diff (fun n o ->
+          List.filter (fun x ->
+              let eq = Equal.pair Stream.equal_id equal_ts_struct in
+              not @@ List.mem ~eq x o) n) s_ts
+      |> React.E.fmap (function [] -> None | l -> Some l) in
     let (events:events) =
       { device  =
           { config = S.changes s_config
@@ -435,6 +467,7 @@ module SM = struct
           { streams         = streams_conv (to_raw_streams_s e_group)
           ; ts_states       = E.map Events.to_ts_states e_group
           ; ts_structures   = S.changes s_ts
+          ; ts_structures_d = e_ts_diff
           ; ts_bitrates     = S.changes s_br
           ; t2mi_states     = E.map Events.to_t2mi_states e_group
           ; t2mi_structures = S.changes s_t2mi

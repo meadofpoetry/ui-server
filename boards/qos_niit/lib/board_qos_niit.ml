@@ -44,9 +44,10 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
   @@ Lwt_react.S.map (fun s -> Lwt.ignore_result @@ Db.Streams.insert_streams db s) events.streams.streams;
   (* Structs ts *)
   Lwt_react.E.keep
-  @@ Lwt_react.E.map_p (fun s -> Lwt.(catch (fun () -> Db.Streams.insert_structs_ts db s)
-                                        (fun e -> Logs_lwt.err (fun m -> m "ERROR %s" @@ Printexc.to_string e))))
-       events.streams.ts_structures;
+  @@ Lwt_react.E.map_p (fun s ->
+         Lwt.(catch (fun () -> Db.Streams.insert_structs_ts db s)
+                (fun e -> Logs_lwt.err (fun m -> m "ERROR %s" @@ Printexc.to_string e))))
+       events.streams.ts_structures_d;
   (* Structs t2 *)
   Lwt_react.E.keep
   @@ Lwt_react.E.map_p (fun s -> Db.Streams.insert_structs_t2 db s) events.streams.t2mi_structures;

@@ -106,39 +106,48 @@ let make_dump (event:dumpable React.event) =
   let () =
     React.E.map (fun {name;get;prev} ->
         let open Lwt.Infix in
-        let text   = new Typography.Text.t ~text:"" () in
+        let text   = Dom_html.createPre Dom_html.document
+                     |> Widget.create in
         let err x  = Ui_templates.Placeholder.create_with_error ~text:x () in
         let ph  x  = Ui_templates.Placeholder.create_with_icon
                        ~icon:"info"
                        ~text:x () in
+        let upd = function
+          | Some { section; parsed = Some x; _ } ->
+             print_endline "parsed";
+             parsed#set_empty ();
+             text#set_text_content (Yojson.Safe.pretty_to_string x);
+             Dom.appendChild parsed#root text#root;
+             push section
+          | Some { section; parsed = None; _ } ->
+             print_endline "not parsed";
+             parsed#set_empty ();
+             Dom.appendChild parsed#root
+               (ph "Не удалось разобрать содержимое секции")#root;
+             push section
+          | None     ->
+             print_endline "empty";
+             parsed#set_empty ();
+             Dom.appendChild parsed#root (ph "Нет захваченных данных")#root;
+             push "" in
         let get    = fun () ->
           Lwt.catch (fun () ->
               get ()
               >|= (function
                    | Ok _    -> parsed#set_empty ();
-                                Dom.appendChild parsed#root text#root
+                                upd !prev;
                    | Error s -> parsed#set_empty ();
                                 Dom.appendChild parsed#root (err s)#root))
             (fun e ->
               parsed#set_empty ();
               Dom.appendChild parsed#root (err @@ Printexc.to_string e)#root;
               Lwt.return_unit) in
-        let _s   =
-          React.S.map (function
-              | Some raw ->
-                 parsed#set_empty ();
-                 text#set_text raw;
-                 Dom.appendChild parsed#root text#root;
-                 push raw
-              | None     ->
-                 parsed#set_empty ();
-                 Dom.appendChild parsed#root (ph "Нет захваченных данных")#root;
-                 push "") prev in
+        upd !prev;
         let () = button#set_getter (Some get) in
         let () = title#set_text @@ fst name in
         let () = subtitle#set_text @@ snd name in
         let () = button#set_disabled false in
-        _s) event
+        ()) event
     |> Lwt_react.E.keep in
   let vsplit = new Vsplit.t parsed hexdump () in
   let vbox   = new Vbox.t ~widgets:[ header

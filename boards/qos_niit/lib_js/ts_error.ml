@@ -21,16 +21,16 @@ module Description = struct
   type possible_pids =
     [ `One of int | `List of int list | `Range of int * int | `Unknown ]
 
-  let possible_si_pids : Streams.TS.table_label -> possible_pids = function
-    | `PAT -> `One 0x00
-    | `CAT -> `One 0x01
-    | `PMT -> `One 0x02
-    | `NIT -> `List [0x40;0x41;0x72]
-    | `SDT -> `List [0x42;0x46;0x4A;0x72]
-    | `EIT -> `Range (0x4E,0x6F)
-    | `RST -> `List [0x71;0x72]
-    | `TDT -> `List [0x70;0x72;0x73]
-    | _    -> `Unknown
+  let possible_si_pids : Streams.TS.table -> possible_pids = function
+    | `PAT   -> `One 0x00
+    | `CAT   -> `One 0x01
+    | `PMT   -> `One 0x02
+    | `NIT _ -> `List [0x40;0x41;0x72]
+    | `SDT _ -> `List [0x42;0x46;0x4A;0x72]
+    | `EIT _ -> `Range (0x4E,0x6F)
+    | `RST   -> `List [0x71;0x72]
+    | `TDT   -> `List [0x70;0x72;0x73]
+    | _      -> `Unknown
 
   let table_id_to_interval : int -> interval = function
     | x when x >= 0x00 && x <= 0x02    -> `Seconds 0.5
@@ -40,7 +40,8 @@ module Description = struct
     | 0x73                             -> `Seconds 30.0
     | _                                -> `Seconds_unk
 
-  let table_name = Streams.TS.table_label_to_string
+  (* FIXME extend basic table type and write its own converter *)
+  let table_name = Streams.TS.table_to_string ~simple:true
 
   let period_to_unit_name : interval -> string = function
     | `Seconds _      | `Seconds_unk      -> "с"
@@ -180,7 +181,7 @@ module Description = struct
          | 0x02 -> table_long_interval ~short ~period:(`Seconds 10.) e
          | 0x04 -> table_scrambled
          | _    -> table_ext_unknown
-       in f `NIT
+       in f (`NIT `Actual)
     | 0x32 ->
        let table_info = table_info_of_ts_error e in
        let f = match e.err_ext with
@@ -189,7 +190,7 @@ module Description = struct
          | 0x02 -> table_long_interval ~short
                      ~period:(table_id_to_interval table_info.id) e
          | _    -> table_ext_unknown
-       in f @@ Streams.TS.table_label_of_int table_info.id
+       in f @@ Streams.TS.table_of_int table_info.id
     | 0x34 -> "Пакет с неизвестным PID"
     | 0x35 ->
        let f = match e.err_ext with
@@ -197,14 +198,14 @@ module Description = struct
          | 0x02 -> table_long_interval ~short ~period:(`Seconds 2.) e
          | 0x04 -> table_scrambled
          | _    -> table_ext_unknown
-       in f `SDT
+       in f (`SDT `Actual)
     | 0x36 ->
        let f = match e.err_ext with
          | 0x01 -> table_id ~short ~hex e
          | 0x02 -> table_long_interval ~short ~period:(`Seconds 2.) e
          | 0x03 -> table_scrambled
          | _    -> table_ext_unknown
-       in f `EIT
+       in f (`EIT (`Actual, `Present))
     | 0x37 ->
        let f = match e.err_ext with
          | 0x01 -> table_id ~short ~hex e

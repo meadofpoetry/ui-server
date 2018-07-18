@@ -725,8 +725,9 @@
 .qos-niit-structure__parsed {
   width: 100%;
   flex-grow: 2;
-  flex-shrink: 0;
-  padding: 10px; }
+  /* flex-shrink: 0; */
+  padding: 10px;
+  overflow-y: auto; }
 
 .qos-niit-structure__hexdump-options {
   flex-shrink: 0;

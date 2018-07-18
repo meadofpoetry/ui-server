@@ -202,7 +202,7 @@ module Get_section : (Request
          let table_id  = params.table_id in
          let stream_id = Common.Stream.id_of_int32 @@ Cstruct.LE.get_uint32 sid 0 in
          let raw       = Cstruct.to_string data in
-         let table     = table_label_of_int table_id in
+         let table     = table_of_int table_id in
          Ok { section   = raw
             ; stream_id
             ; table_id
@@ -392,44 +392,24 @@ module Get_ts_structs : (Request with type req := int
                    |> List.filter (fun x -> x.length > 0)
                    |> List.rev in
     let pid'   = get_table_struct_block_pid msg in
-    let id     = get_table_struct_block_id msg in
+    let id     = get_table_struct_block_id bdy in
     let id_ext = get_table_struct_block_id_ext bdy in
-    let common =
-      { version        = get_table_struct_block_version bdy
-      ; bitrate        = None
-      ; id             = get_table_struct_block_id bdy
-      ; pid            = pid' land 0x1FFF
-      ; lsn            = get_table_struct_block_lsn bdy
-      ; section_syntax = (pid' land 0x8000) > 0
-      ; sections
-      } in
-    let params =
+    let eit_params =
       { ts_id         = get_table_struct_block_adv_info_1 bdy
       ; orig_nw_id    = get_table_struct_block_adv_info_2 bdy
       ; segment_lsn   = get_table_struct_block_adv_info_3 bdy
       ; last_table_id = get_table_struct_block_adv_info_4 bdy
       }  in
-    (match table_label_of_int id with
-     | `PAT   -> PAT  { common; ts_id = id_ext }
-     | `CAT   -> CAT  common
-     | `PMT   -> PMT  { common; program_number = id_ext }
-     | `TSDT  -> TSDT common
-     | `NITa  -> NIT  { common; nw_id = id_ext; ts = Actual }
-     | `NITo  -> NIT  { common; nw_id = id_ext; ts = Other }
-     | `SDTa  -> SDT  { common; ts_id = id_ext; ts = Actual }
-     | `SDTo  -> SDT  { common; ts_id = id_ext; ts = Other }
-     | `BAT   -> BAT  { common; bouquet_id = id_ext }
-     | `EITap -> EIT  { common; service_id = id_ext; params; ts = Actual; typ = Present }
-     | `EITop -> EIT  { common; service_id = id_ext; params; ts = Other ; typ = Present }
-     | `EITas -> EIT  { common; service_id = id_ext; params; ts = Actual; typ = Schedule }
-     | `EITos -> EIT  { common; service_id = id_ext; params; ts = Other ; typ = Schedule }
-     | `TDT   -> TDT  common
-     | `RST   -> RST  common
-     | `ST    -> ST   common
-     | `TOT   -> TOT  common
-     | `DIT   -> DIT  common
-     | `SIT   -> SIT  common
-     | _      -> Unknown common)
+    { version        = get_table_struct_block_version bdy
+    ; bitrate        = None
+    ; id
+    ; id_ext
+    ; eit_params
+    ; pid            = pid' land 0x1FFF
+    ; lsn            = get_table_struct_block_lsn bdy
+    ; section_syntax = (pid' land 0x8000) > 0
+    ; sections
+    }
 
   let of_ts_struct_blocks msg =
     let str_len = ref 0 in
@@ -495,9 +475,7 @@ module Get_ts_structs : (Request with type req := int
       |> List.sort (fun (x:emm_info) y -> Int.compare x.pid y.pid) in
     let tables   =
       List.filter_map (function `Tables x -> Some x | _ -> None) blocks
-      |> List.sort (fun (x:table) y ->
-             let x = table_common_of_table x in
-             let y = table_common_of_table y in
+      |> List.sort (fun (x:table_info) y ->
              Int.compare x.pid y.pid) in
     let rsp      =
       { bitrate   = None

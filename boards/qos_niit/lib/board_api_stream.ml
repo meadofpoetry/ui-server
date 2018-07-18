@@ -86,8 +86,11 @@ module HTTP = struct
 
     module Archive = struct
 
-      type struct_ts = (Common.Stream.id * Board_types.Streams.TS.structure * Time.t) list [@@deriving yojson]
-      
+      let struct_to_yojson =
+        Json.(List.to_yojson (Pair.to_yojson
+                                Stream.id_to_yojson
+                                structure_to_yojson))
+
     (*  let state id limit compress from till duration _ _ () =
         respond_error ~status:`Not_implemented "FIXME" () *)
 
@@ -95,7 +98,7 @@ module HTTP = struct
         match Time.make_interval ?from ?till ?duration () with
         | Ok `Range (from,till) ->
            Db.Streams.select_structs_ts db ~with_pre:true ?limit ~ids:[id] ~from ~till
-           |> Lwt_result.map (fun d -> Api.Api_types.rows_to_yojson struct_ts_to_yojson (fun () -> `Null) d)
+           |> Lwt_result.map (fun d -> Api.Api_types.rows_to_yojson struct_to_yojson (fun () -> `Null) d)
            |> Lwt_result.map_err (fun s -> (`String s : Yojson.Safe.json))
            >>= fun x -> respond_result x
         | _ -> respond_error ~status:`Not_implemented "FIXME" ()

@@ -206,50 +206,10 @@ module Streams = struct
 
     type emm_info = ecm_info [@@deriving yojson, eq]
 
-    type actual_other = Actual  | Other    [@@deriving yojson, eq]
-    type eit_type     = Present | Schedule [@@deriving yojson, eq]
-
     type section_info =
       { id       : int
       (* ; analyzed : bool *)
       ; length   : int
-      } [@@deriving yojson, eq]
-
-    type table_info =
-      { version        : int
-      ; bitrate        : int option
-      ; id             : int
-      ; pid            : int
-      ; lsn            : int
-      ; section_syntax : bool
-      ; sections       : section_info list
-      } [@@deriving yojson, eq]
-
-    type pat_info =
-      { common : table_info
-      ; ts_id  : int (* table id ext *)
-      } [@@deriving yojson, eq]
-
-    type pmt_info =
-      { common         : table_info
-      ; program_number : int (* table id ext *)
-      } [@@deriving yojson, eq]
-
-    type nit_info =
-      { common : table_info
-      ; ts     : actual_other
-      ; nw_id  : int (* table id ext *)
-      } [@@deriving yojson, eq]
-
-    type sdt_info =
-      { common : table_info
-      ; ts_id  : int (* table id ext *)
-      ; ts     : actual_other
-      } [@@deriving yojson, eq]
-
-    type bat_info =
-      { common     : table_info
-      ; bouquet_id : int (* table id ext *)
       } [@@deriving yojson, eq]
 
     type eit_params =
@@ -259,29 +219,17 @@ module Streams = struct
       ; last_table_id : int
       } [@@deriving yojson, eq]
 
-    type eit_info =
-      { common     : table_info
-      ; service_id : int (* table id ext *)
-      ; ts         : actual_other
-      ; typ        : eit_type
-      ; params     : eit_params
+    type table_info =
+      { version        : int
+      ; bitrate        : int option
+      ; id             : int
+      ; id_ext         : int
+      ; eit_params     : eit_params
+      ; pid            : int
+      ; lsn            : int
+      ; section_syntax : bool
+      ; sections       : section_info list
       } [@@deriving yojson, eq]
-
-    type table = PAT     of pat_info
-               | CAT     of table_info
-               | PMT     of pmt_info
-               | TSDT    of table_info
-               | NIT     of nit_info
-               | SDT     of sdt_info
-               | BAT     of bat_info
-               | EIT     of eit_info
-               | TDT     of table_info
-               | RST     of table_info
-               | ST      of table_info
-               | TOT     of table_info
-               | DIT     of table_info
-               | SIT     of table_info
-               | Unknown of table_info [@@deriving yojson, eq]
 
     type general_info =
       { complete     : bool
@@ -301,31 +249,45 @@ module Streams = struct
       ; pids      : pid_info list
       ; services  : service_info list
       ; emm       : emm_info list
-      ; tables    : table list
+      ; tables    : table_info list
       } [@@deriving yojson, eq]
 
-    type table_label = [ `PAT   | `CAT   | `PMT   | `TSDT  |
-                         `NIT   | `NITa  | `NITo  |
-                         `SDT   | `SDTa  | `SDTo  | `BAT   |
-                         `EIT   | `EITap | `EITop | `EITas | `EITos |
-                         `TDT   | `RST   | `ST    | `TOT   | `DIT   | `SIT   |
-                         `Unknown of int
-                       ]
+    type table =
+      [ `PAT
+      | `CAT
+      | `PMT
+      | `TSDT
+      | `NIT of ao
+      | `SDT of ao
+      | `BAT
+      | `EIT of ao * ps
+      | `TDT
+      | `RST
+      | `ST
+      | `TOT
+      | `DIT
+      | `SIT
+      | `Unknown of int
+      ]
+    and ao = [ `Actual | `Other ]
+    and ps = [ `Present | `Schedule ]
 
-    let table_label_of_int : int -> table_label = function
+    let table_of_int : int -> table = function
       | 0x00 -> `PAT
       | 0x01 -> `CAT
       | 0x02 -> `PMT
       | 0x03 -> `TSDT
-      | 0x40 -> `NITa
-      | 0x41 -> `NITo
-      | 0x42 -> `SDTa
-      | 0x46 -> `SDTo
+      | 0x40 -> `NIT `Actual
+      | 0x41 -> `NIT `Other
+      | 0x42 -> `SDT `Actual
+      | 0x46 -> `SDT `Other
       | 0x4A -> `BAT
-      | 0x4E -> `EITap
-      | 0x4F -> `EITop
-      | x when x >= 0x50 && x <= 0x5F -> `EITas
-      | x when x >= 0x60 && x <= 0x6F -> `EITos
+      | 0x4E -> `EIT (`Actual, `Present)
+      | 0x4F -> `EIT (`Other,  `Present)
+      | x when x >= 0x50 && x <= 0x5F ->
+         `EIT (`Actual, `Schedule)
+      | x when x >= 0x60 && x <= 0x6F ->
+         `EIT (`Other,  `Schedule)
       | 0x70 -> `TDT
       | 0x71 -> `RST
       | 0x72 -> `ST
@@ -334,23 +296,30 @@ module Streams = struct
       | 0x7F -> `SIT
       | x    -> `Unknown x
 
-    let table_label_to_string : table_label -> string = function
+    let table_to_string : ?simple:bool -> table -> string =
+      fun ?(simple=false) -> function
       | `PAT   -> "PAT"
       | `CAT   -> "CAT"
       | `PMT   -> "PMT"
       | `TSDT  -> "TSDT"
-      | `NIT   -> "NIT"
-      | `NITa  -> "NIT actual"
-      | `NITo  -> "NIT other"
-      | `SDT   -> "SDT"
-      | `SDTa  -> "SDT actual"
-      | `SDTo  -> "SDT other"
+      | `NIT x ->
+         if simple then "NIT"
+         else (match x with
+               | `Actual -> "NIT actual"
+               | `Other  -> "NIT other")
+      | `SDT x ->
+         if simple then "SDT"
+         else (match x with
+               | `Actual -> "SDT actual"
+               | `Other  -> "SDT other")
       | `BAT   -> "BAT"
-      | `EIT   -> "EIT"
-      | `EITap -> "EIT actual present"
-      | `EITop -> "EIT other present"
-      | `EITas -> "EIT actual schedule"
-      | `EITos -> "EIT other schedule"
+      | `EIT x ->
+         if simple then "EIT"
+         else (match x with
+               | `Actual, `Present  -> "EIT actual present"
+               | `Other , `Present  -> "EIT other present"
+               | `Actual, `Schedule -> "EIT actual schedule"
+               | `Other , `Schedule -> "EIT other schedule")
       | `TDT   -> "TDT"
       | `RST   -> "RST"
       | `ST    -> "ST"
@@ -358,39 +327,6 @@ module Streams = struct
       | `DIT   -> "DIT"
       | `SIT   -> "SIT"
       | `Unknown _ -> "Unknown"
-
-    let table_to_string = function
-      | PAT _     -> "PAT"
-      | CAT _     -> "CAT"
-      | PMT _     -> "PMT"
-      | TSDT _    -> "TSDT"
-      | NIT x     -> (match x.ts with
-                      | Actual -> "NIT actual"
-                      | Other  -> "NIT other")
-      | SDT x     -> (match x.ts with
-                      | Actual -> "SDT actual"
-                      | Other  -> "SDT other")
-      | BAT _     -> "BAT"
-      | EIT x     -> (match x.ts,x.typ with
-                      | Actual,Present  -> "EIT actual present"
-                      | Other, Present  -> "EIT other present"
-                      | Actual,Schedule -> "EIT actual schedule"
-                      | Other, Schedule -> "EIT other schedule")
-      | TDT _     -> "TDT"
-      | RST _     -> "RST"
-      | ST  _     -> "ST"
-      | TOT _     -> "TOT"
-      | DIT _     -> "DIT"
-      | SIT _     -> "SIT"
-      | Unknown _ -> "Unknown"
-
-    let table_common_of_table = function
-      | PAT x     -> x.common | CAT x     -> x        | PMT x     -> x.common
-      | TSDT x    -> x        | NIT x     -> x.common | SDT x     -> x.common
-      | BAT x     -> x.common | EIT x     -> x.common | TDT x     -> x
-      | RST x     -> x        | ST  x     -> x        | TOT x     -> x
-      | DIT x     -> x        | SIT x     -> x        | Unknown x -> x
-
 
     (** SI/PSI section **)
 

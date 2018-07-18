@@ -1105,28 +1105,25 @@ module SIT = struct
 end
 
 let table_to_yojson : string ->
-                      Board_types.Streams.TS.table_label ->
+                      Board_types.Streams.TS.table ->
                       Yojson.Safe.json option =
   fun buf tbl ->
   try
     (match tbl with
-     | `PAT  -> PAT.parse buf  |> PAT.to_yojson
-     | `CAT  -> CAT.parse buf  |> CAT.to_yojson
-     | `PMT  -> PMT.parse buf  |> PMT.to_yojson
-     | `TSDT -> TSDT.parse buf |> TSDT.to_yojson
-     | `NIT | `NITa | `NITo  ->
-        NIT.parse buf  |> NIT.to_yojson
-     | `SDT | `SDTa | `SDTo  ->
-        SDT.parse buf  |> SDT.to_yojson
-     | `BAT  -> BAT.parse buf  |> BAT.to_yojson
-     | `EIT | `EITap | `EITop | `EITas | `EITos ->
-        EIT.parse buf  |> EIT.to_yojson
-     | `TDT  -> TDT.parse buf  |> TDT.to_yojson
-     | `RST  -> RST.parse buf  |> RST.to_yojson
-     | `ST   -> ST.parse buf   |> ST.to_yojson
-     | `TOT  -> TOT.parse buf  |> TOT.to_yojson
-     | `DIT  -> DIT.parse buf  |> DIT.to_yojson
-     | `SIT  -> SIT.parse buf  |> SIT.to_yojson
-     | _     -> `Null)
+     | `PAT   -> PAT.parse buf  |> PAT.to_yojson
+     | `CAT   -> CAT.parse buf  |> CAT.to_yojson
+     | `PMT   -> PMT.parse buf  |> PMT.to_yojson
+     | `TSDT  -> TSDT.parse buf |> TSDT.to_yojson
+     | `NIT _ -> NIT.parse buf  |> NIT.to_yojson
+     | `SDT _ -> SDT.parse buf  |> SDT.to_yojson
+     | `BAT   -> BAT.parse buf  |> BAT.to_yojson
+     | `EIT _ -> EIT.parse buf  |> EIT.to_yojson
+     | `TDT   -> TDT.parse buf  |> TDT.to_yojson
+     | `RST   -> RST.parse buf  |> RST.to_yojson
+     | `ST    -> ST.parse buf   |> ST.to_yojson
+     | `TOT   -> TOT.parse buf  |> TOT.to_yojson
+     | `DIT   -> DIT.parse buf  |> DIT.to_yojson
+     | `SIT   -> SIT.parse buf  |> SIT.to_yojson
+     | _      -> `Null)
     |> Option.return
   with _ -> None

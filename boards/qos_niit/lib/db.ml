@@ -253,19 +253,26 @@ module Streams = struct
                    (sprintf {|SELECT * FROM %s WHERE %s date >= $1 AND date <= $2 
                              ORDER BY date DESC LIMIT $3|} table ids)
     in
-    let select_pre = R.collect Types.(tup3 ptime ptime int) Types.(tup3 int32 string ptime)
-                       (sprintf {|(SELECT * FROM %s WHERE %s date >= $1 AND date <= $2 ORDER BY date DESC)
-                                 UNION ALL
-                                 (SELECT * FROM %s WHERE %s date < $1 ORDER BY date DESC LIMIT 1) 
-                                 ORDER BY date LIMIT $3|} table ids table ids) in
-    Conn.request db Request.(list (if with_pre then select_pre else select) (from, till, limit) >>= fun l ->
-                             try let data = List.map (fun (id,s,t) -> Common.Stream.id_of_int32 id,
-                                                                      unwrap
-                                                                      @@ Board_types.Streams.TS.structure_of_yojson
-                                                                      @@ Yojson.Safe.from_string s,
-                                                                      t) l
-                                 in return @@ Ok (Raw { data; has_more = List.length data >= limit; order = `Desc })
-                             with e -> return @@ Error (Printexc.to_string e))
+    let select_pre =
+      R.collect Types.(tup3 ptime ptime int) Types.(tup3 int32 string ptime)
+        (sprintf {|(SELECT * FROM %s WHERE %s date >= $1 AND date <= $2 ORDER BY date DESC)
+                  UNION ALL
+                  (SELECT * FROM %s WHERE %s date < $1 ORDER BY date DESC LIMIT 1) 
+                  ORDER BY date LIMIT $3|} table ids table ids) in
+    Conn.request db
+      Request.(list (if with_pre then select_pre else select)
+                 (from, till, limit)
+               >>= fun l ->
+               try let data =
+                     List.map (fun (id,s,_) ->
+                         Common.Stream.id_of_int32 id,
+                         unwrap
+                         @@ Board_types.Streams.TS.structure_of_yojson
+                         @@ Yojson.Safe.from_string s) l
+                   in return @@ Ok (Raw { data
+                                        ; has_more = List.length data >= limit
+                                        ; order    = `Desc })
+               with e -> return @@ Error (Printexc.to_string e))
 
   let insert_structs_t2 db structs =
     let table  = (Conn.names db).struct_t2 in

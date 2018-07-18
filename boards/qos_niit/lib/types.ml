@@ -141,6 +141,7 @@ type streams_events =
   { streams         : Common.Stream.t list React.signal
   ; ts_states       : (Stream.id * Streams.TS.state) list React.event
   ; ts_structures   : (Stream.id * Streams.TS.structure) list React.event
+  ; ts_structures_d : (Stream.id * Streams.TS.structure) list React.event
   ; ts_bitrates     : (Stream.id * Streams.TS.bitrate) list React.event
   ; t2mi_states     : (int * Streams.T2MI.state) list React.event
   ; t2mi_structures : (int * Streams.T2MI.structure) list React.event

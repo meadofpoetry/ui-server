@@ -564,7 +564,7 @@ module Section = struct
 
   type model  =
     { stream  : Stream.id
-    ; table   : table
+    ; table   : table_info
     ; push    : dumpable -> unit
     ; control : int
     ; section : section_info
@@ -577,49 +577,48 @@ module Section = struct
 
   let req_of_table (model:model) =
     let control = model.control in
-    let common  = table_common_of_table model.table in
+    let table_id_ext = model.table.id_ext in
+    let eit_params = model.table.eit_params in
     let r = Requests.Stream.HTTP.TS.get_si_psi_section
               ~id:model.stream
-              ~table_id:common.id
+              ~table_id:model.table.id
               ~section:model.section.id in
-    match model.table with
-    | PAT x -> r ~table_id_ext:x.ts_id control
-    | PMT x -> r ~table_id_ext:x.program_number control
-    | NIT x -> r ~table_id_ext:x.nw_id control
-    | SDT x -> r ~table_id_ext:x.ts_id control
-    | BAT x -> r ~table_id_ext:x.bouquet_id control
-    | EIT x -> r ~table_id_ext:x.service_id
-                 ~eit_ts_id:x.params.ts_id
-                 ~eit_orig_nw_id:x.params.orig_nw_id
-                 control
-    | _     -> r control
+    match table_of_int model.table.id with
+    | `PAT   -> r ~table_id_ext control
+    | `PMT   -> r ~table_id_ext control
+    | `NIT _ -> r ~table_id_ext control
+    | `SDT _ -> r ~table_id_ext control
+    | `BAT   -> r ~table_id_ext control
+    | `EIT _ -> r ~table_id_ext
+                  ~eit_ts_id:eit_params.ts_id
+                  ~eit_orig_nw_id:eit_params.orig_nw_id
+                  control
+    | _      -> r control
 
   let to_section_name table section =
-    let divider = ", " in
-    let common  = table_common_of_table table in
-    let name    = table_to_string table in
-    let id s x  = Printf.sprintf "%s=0x%02X(%d)" s x x in
-    let base    = id "table_id" common.id in
-    let section = Printf.sprintf "секция %d" section in
-    let specific = match table with
-      | PAT x -> Some [ id "ts_id" x.ts_id ]
-      | PMT x -> Some [ id "program_number" x.program_number ]
-      | NIT x -> Some [ id "network_id" x.nw_id ]
-      | SDT x -> Some [ id "ts_id" x.ts_id ]
-      | BAT x -> Some [ id "bouquet_id" x.bouquet_id ]
-      | EIT x -> Some [ id "service_id" x.service_id
-                      ; id "ts_id" x.params.ts_id
-                      ; id "original_network_id" x.params.orig_nw_id ]
-      | _     -> None in
+    let divider  = ", " in
+    let name     = table_to_string @@ table_of_int table.id in
+    let id s x   = Printf.sprintf "%s=0x%02X(%d)" s x x in
+    let base     = id "table_id" table.id in
+    let section  = Printf.sprintf "секция %d" section in
+    let specific = match table_of_int table.id with
+      | `PAT   -> Some [ id "ts_id" table.id_ext ]
+      | `PMT   -> Some [ id "program_number" table.id_ext ]
+      | `NIT _ -> Some [ id "network_id" table.id_ext ]
+      | `SDT _ -> Some [ id "ts_id" table.id_ext ]
+      | `BAT   -> Some [ id "bouquet_id" table.id_ext ]
+      | `EIT _ -> Some [ id "service_id" table.id_ext
+                     ; id "ts_id" table.eit_params.ts_id
+                     ; id "original_network_id" table.eit_params.orig_nw_id ]
+      | _      -> None in
     match specific with
     | Some l -> name, String.concat divider (base :: l @ [ section ])
     | None   -> name, base ^ divider ^ section
 
   let make (init:model) =
     let open Lwt_result.Infix in
-    let s_dump, s_dump_push  = React.S.create None in
     let base_class = Markup.CSS.add_element base_class "section-item" in
-    let prev    = ref init in
+    let prev' = ref init in
     let graphic = new Icon.SVG.t ~icon:Download () in
     let bytes, update_bytes =
       let to_string x =
@@ -639,23 +638,23 @@ module Section = struct
       let to_string x = Printf.sprintf "ID: %d" x in
       { get = (fun (x:model) -> x.section.id)
       ; eq  = Int.equal
-      ; upd = (fun x -> leaf#item#set_text @@ to_string x;
-                        s_dump_push None) } in
+      ; upd = (fun x -> leaf#item#set_text @@ to_string x) } in
     Dom_events.listen leaf#item#root Dom_events.Typ.click (fun _ _ ->
-        let get = fun () ->
-          req_of_table !prev
-          >|= (fun dump -> s_dump_push (Some dump.section); dump.section)
+        let name = to_section_name init.table !prev'.section.id in
+        let prev = ref None in
+        let get  = fun () ->
+          req_of_table !prev'
+          >|= (fun dump -> prev := Some dump; dump)
           |> Lwt_result.map_err Api_js.Requests.err_to_string in
-        let name     = to_section_name init.table !prev.section.id in
-        let dumpable = { name; get; prev = s_dump } in
+        let dumpable = { name; get; prev } in
         init.push dumpable; true) |> ignore;
     let () = leaf#item#add_class base_class in
     let update = fun ?previous (model:model) ->
       setter ?previous model update_id;
       setter ?previous model update_bytes;
-      prev := model in
+      prev' := model in
     update init;
-    leaf, fun x -> update ~previous:!prev x
+    leaf, fun x -> update ~previous:!prev' x
 
 end
 
@@ -702,30 +701,19 @@ module Table = struct
     { stream  : Stream.id
     ; push    : dumpable -> unit
     ; control : int
-    ; table   : table
+    ; table   : table_info
     }
   type widget = item
 
   let widget      = fun w -> w#widget
-  let equal_model = fun x1 x2 -> equal_table x1.table x2.table
+  let equal_model = fun x1 x2 -> equal_table_info x1.table x2.table
   let id_of_model = fun (x:model)  ->
     let open Id in
-    let c   = table_common_of_table x.table in
-    let def = { id        = c.id
-              ; version   = c.version
-              ; id_ext    = 0
-              ; eit_ts_id = 0
-              ; eit_nw_id = 0 } in
-    match x.table with
-    | PAT x -> { def with id_ext = x.ts_id }
-    | PMT x -> { def with id_ext = x.program_number }
-    | NIT x -> { def with id_ext = x.nw_id }
-    | SDT x -> { def with id_ext = x.ts_id }
-    | BAT x -> { def with id_ext = x.bouquet_id }
-    | EIT x -> { def with id_ext = x.service_id
-                        ; eit_ts_id = x.params.ts_id
-                        ; eit_nw_id = x.params.orig_nw_id }
-    | _     -> def
+    { id        = x.table.id
+    ; version   = x.table.version
+    ; id_ext    = x.table.id_ext
+    ; eit_ts_id = x.table.eit_params.ts_id
+    ; eit_nw_id = x.table.eit_params.orig_nw_id }
 
   let make (init:model) =
     (* let make_item = new Tree.Item.t ~value:() in *)
@@ -756,7 +744,7 @@ module Table = struct
                        init.table
                        init.control
                        init.push
-                       (table_common_of_table init.table).sections) in
+                       init.table.sections) in
     let nested = new Tree.t ~level:2 ~items:((* specific @ *) [sections]) () in
     let ()     = nested#set_dense true in
     let prev   = ref init in
@@ -768,15 +756,15 @@ module Table = struct
     let to_primary   = Printf.sprintf "%s" in
     let to_secondary = Printf.sprintf "PID: %d, версия: %d, ID: %d, LSN: %d" in
     let update_primary =
-      { get = (fun x -> table_to_string x.table)
+      { get = (fun x -> table_to_string @@ table_of_int x.table.id)
       ; eq  = String.equal
       ; upd = (fun s ->
         let s = to_primary s in
         leaf#item#set_text s)
       } in
     let update_secondary =
-      { get = (fun x -> let c = table_common_of_table x.table in
-                        c.pid, c.version, c.id, c.lsn)
+      { get = (fun x -> x.table.pid, x.table.version,
+                        x.table.id, x.table.lsn)
       ; eq  = (fun (pid1, ver1, id1, lsn1)
                    (pid2, ver2, id2, lsn2) ->
         pid1 = pid2 && ver1 = ver2 && id1 = id2 && lsn1 = lsn2)
@@ -785,14 +773,13 @@ module Table = struct
         leaf#item#set_secondary_text s)
       } in
     let update = fun ?(previous:model option) (model:model) ->
-      let common = table_common_of_table model.table in
       setter ?previous model update_primary;
       setter ?previous model update_secondary;
       update_sections @@ map model.stream
                            model.table
                            model.control
                            model.push
-                           common.sections; in
+                           model.table.sections; in
     update init;
     leaf, fun x -> update ~previous:!prev x
 
@@ -854,7 +841,7 @@ let make_stream (id:Stream.id)
         then update_serv model.services;
         if not @@ (Equal.list equal_emm_info) prev.emm model.emm
         then update_emm model.emm;
-        if not @@ (Equal.list equal_table) prev.tables model.tables
+        if not @@ (Equal.list equal_table_info) prev.tables model.tables
         then update_tabl @@ map_tables model.tables;
         if not @@ Time.equal prev.timestamp model.timestamp
         then update_time model.timestamp)

@@ -142,7 +142,12 @@ module HTTP = struct
           control (Stream.id_to_int32 id) limit compress from till duration
 
       let get_structure ?limit ?from ?till ?duration ~id control =
-        get_result ~from:(fun _ -> Error "FIXME Not implemented")
+        get_result
+          ~from:(Api_js.Api_types.rows_of_yojson
+                   Json.(List.of_yojson (Pair.of_yojson
+                                           Stream.id_of_yojson
+                                           structure_of_yojson))
+                   (fun _ -> Error "cannot be compressed"))
           ~path:Path.Format.(get_base_path () / ("structure/archive" @/ empty))
           ~query:Query.[ "limit",    (module Option(Int))
                        ; "from",     (module Option(Time.Show))
