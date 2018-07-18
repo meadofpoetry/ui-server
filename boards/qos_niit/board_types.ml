@@ -163,6 +163,7 @@ module Streams = struct
       { pid       : int
       ; bitrate   : int option
       ; has_pts   : bool
+      ; has_pcr   : bool
       ; scrambled : bool
       ; present   : bool
       } [@@deriving yojson, eq]
@@ -170,6 +171,7 @@ module Streams = struct
     type es_info =
       { pid          : int
       ; bitrate      : int option
+      ; has_pcr      : bool
       ; has_pts      : bool
       ; es_type      : int
       ; es_stream_id : int

@@ -333,6 +333,7 @@ module Get_ts_structs : (Request with type req := int
                     { pid       = el land 0x1FFF
                     ; bitrate   = None
                     ; has_pts   = (el land 0x8000) <> 0
+                    ; has_pcr   = false
                     ; scrambled = (el land 0x4000) <> 0
                     ; present   = (el land 0x2000) <> 0 } :: acc) iter []
 
@@ -368,6 +369,7 @@ module Get_ts_structs : (Request with type req := int
                     { pid          = pid' land 0x1FFF
                     ; bitrate      = None
                     ; has_pts      = (pid' land 0x8000) > 0
+                    ; has_pcr      = false
                     ; es_type      = get_es_struct_block_es_type x
                     ; es_stream_id = get_es_struct_block_es_stream_id x
                     } :: acc) iter []
@@ -449,12 +451,19 @@ module Get_ts_structs : (Request with type req := int
           | 0x2400 -> `Tables (of_table_struct_block block)
           | _      -> `Unknown)
          |> function
-           | `Es es   -> (match acc with
-                          | (`Services s)::tl -> `Services ({ s with es }) :: tl |> aux rest
-                          | _ -> failwith "of_ts_struct_blocks: no services block before es block")
-           | `Ecm ecm -> (match acc with
-                          | (`Services s)::tl -> `Services ({ s with ecm }) :: tl |> aux rest
-                          | _ -> failwith "of_ts_struct_blocks: no services block before ecm block")
+           | `Es es   ->
+              (match acc with
+               | (`Services s) :: tl ->
+                  let pcr_pid = s.pcr_pid in
+                  let es = List.map (fun (es:es_info) ->
+                               if es.pid <> pcr_pid
+                               then es else { es with has_pcr = true }) es in
+                  `Services ({ s with es }) :: tl |> aux rest
+               | _ -> failwith "of_ts_struct_blocks: no services block before es block")
+           | `Ecm ecm ->
+              (match acc with
+               | (`Services s)::tl -> `Services ({ s with ecm }) :: tl |> aux rest
+               | _ -> failwith "of_ts_struct_blocks: no services block before ecm block")
            | x -> aux rest (x :: acc)
     in
     aux msg []
@@ -470,12 +479,16 @@ module Get_ts_structs : (Request with type req := int
     let general  =
       get_exn @@ List.find_map (function `General x -> Some x
                                        | _ -> None) blocks in
-    let pids     =
-      get_exn @@ List.find_map (function `Pids x -> Some x | _ -> None) blocks
-      |> List.sort (fun (x:pid_info) y -> Int.compare x.pid y.pid) in
     let services =
       List.filter_map (function `Services x -> Some x | _ -> None) blocks
       |> List.sort (fun (x:service_info) y -> Int.compare x.id y.id) in
+    let pcr_pids = List.map (fun (x:service_info) -> x.pcr_pid) services in
+    let pids     =
+      get_exn @@ List.find_map (function `Pids x -> Some x | _ -> None) blocks
+      |> List.sort (fun (x:pid_info) y -> Int.compare x.pid y.pid)
+      |> List.map (fun (x:pid_info) ->
+             if List.mem ~eq:(=) x.pid pcr_pids
+             then { x with has_pcr = true } else x) in
     let emm      =
       get_exn @@ List.find_map (function `Emm x -> Some x
                                        | _ -> None) blocks

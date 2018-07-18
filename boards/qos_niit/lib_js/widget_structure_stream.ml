@@ -256,8 +256,8 @@ module Pid = struct
   let make (init:model) : item * (model -> unit) =
     let to_string = Printf.sprintf "PID: %d" in
     let scrambled = new Icon.SVG.t ~icon:Lock () in
-    let pts  = new Icon.SVG.t ~icon:Clock_outline () in
-    let meta = new Hbox.t ~widgets:[scrambled; pts] () in
+    let pcr  = new Icon.SVG.t ~icon:Clock_outline () in
+    let meta = new Hbox.t ~widgets:[scrambled; pcr] () in
     let prev = ref init in
     let leaf = new Tree.Item.t ~text:"" ~meta:meta#widget ~value:() () in
     let pid_set =
@@ -271,15 +271,15 @@ module Pid = struct
       ; upd = (fun x ->
         let s = if x then "" else "none" in
         scrambled#style##.display := Js.string s) } in
-    let pts_set =
-      { get = (fun (x:model) -> x.has_pts)
+    let pcr_set =
+      { get = (fun (x:model) -> x.has_pcr)
       ; eq  = Equal.bool
       ; upd = (fun x ->
         let s = if x then "" else "none" in
-        pts#style##.display := Js.string s) } in
+        pcr#style##.display := Js.string s) } in
     let update = fun ?previous model ->
       let f x = setter ?previous model x in
-      f pid_set; f scr_set; f pts_set;
+      f pid_set; f scr_set; f pcr_set;
       prev := model in
     update init;
     leaf, fun x -> update ~previous:!prev x
@@ -315,65 +315,42 @@ module ES_pid = struct
   let widget      = fun w -> w#widget
 
   let make (init:model) : item * (model -> unit) =
-    let to_primary = Printf.sprintf "ES PID: %d" in
-    let to_secondary = Printf.sprintf "Тип %d, Stream ID: %d" in
-    let pts  = new Icon.SVG.t ~icon:Clock_outline () in
+    let to_primary = Printf.sprintf "PID: %d, Stream ID: %d" in
+    let to_secondary x =
+      let s = Mpeg_ts.stream_type_to_string x in
+      Printf.sprintf "%s (%d)" s x in
+    let pcr  = new Icon.SVG.t ~icon:Clock_outline () in
     let prev = ref init in
     let leaf = new Tree.Item.t
                  ~text:""
                  ~secondary_text:""
-                 ~meta:pts#widget
+                 ~meta:pcr#widget
                  ~value:() () in
-    let pid_set =
-      { get = (fun (x:model) -> x.pid)
-      ; eq  = (=)
-      ; upd = (fun pid ->
-        leaf#item#set_text @@ to_primary pid) } in
+    let primary_set =
+      { get = (fun (x:model) -> x.pid, x.es_stream_id)
+      ; eq  = Equal.pair (=) (=)
+      ; upd = (fun (pid, sid) ->
+        leaf#item#set_text @@ to_primary pid sid) } in
     let type_set =
       { get = (fun (x:model) -> x.es_type)
       ; eq  = Int.equal
       ; upd = (fun typ ->
-        leaf#item#set_secondary_text (to_secondary typ !prev.es_stream_id))
+        leaf#item#set_secondary_text (to_secondary typ))
       } in
-    let stream_id_set =
-      { get = (fun (x:model) -> x.es_stream_id)
-      ; eq  = Int.equal
-      ; upd = (fun sid ->
-        leaf#item#set_secondary_text (to_secondary !prev.es_type sid))
-      } in
-    let pts_set =
-      { get = (fun (x:model) -> x.has_pts)
+    let pcr_set =
+      { get = (fun (x:model) -> x.has_pcr)
       ; eq  = Equal.bool
       ; upd = (fun x ->
         let s = if x then "" else "none" in
-        pts#style##.display := Js.string s) } in
+        pcr#style##.display := Js.string s) } in
     let update = fun ?previous model ->
       let f x = setter ?previous model x in
-      f pid_set; f pts_set; f type_set; f stream_id_set;
+      f primary_set; f pcr_set; f type_set;
       prev := model in
     update init;
     leaf, fun x -> update ~previous:!prev x
 
 end
-
-module ES_pids =
-  Make_array(struct
-      type widget = item
-      module Node = ES_pid
-
-      let root (w:widget) =
-        (Option.get_exn w#nested_tree)#root
-      let make _ =
-        let nested = new Tree.t ~level:3 ~two_line:true ~items:[] () in
-        let ()     = nested#set_dense true in
-        let leaf   = new Tree.Item.t ~text:"Элементарные потоки"
-                       ~nested ~value:() () in
-        let update = fun model ->
-          match model with
-          | [ ] -> leaf#style##.display := Js.string "none";
-          | l   -> leaf#style##.display := Js.string "" in
-        leaf, update
-    end)
 
 module ECM_pid = struct
 
@@ -433,6 +410,22 @@ module ECM_pids =
         leaf, update
     end)
 
+module ES_pids =
+  Make_array(struct
+      type widget = unit Tree.t
+      module Node = ES_pid
+
+      let root (w:widget) = w#root
+      let make _ =
+        let nested = new Tree.t ~level:2 ~two_line:true ~items:[] () in
+        let ()     = nested#set_dense true in
+        let update = fun model ->
+          match model with
+          | [ ] -> nested#style##.display := Js.string "none";
+          | l   -> nested#style##.display := Js.string "" in
+        nested, update
+    end)
+
 module Service = struct
 
   module Id = Int
@@ -445,59 +438,34 @@ module Service = struct
 
   let make (init:model) =
     let open Printf in
-    let make_item () = new Tree.Item.t ~text:"" ~value:() () in
-    let id, update_id =
-      let to_string x = sprintf "ID: %d" x in
-      let w = make_item () in
-      let v = { get = (fun (x:model) -> x.id)
-              ; eq  = Int.equal
-              ; upd = (w#item#set_text % to_string) } in
-      w, v in
-    let pmt, update_pmt =
-      let to_string x = sprintf "PMT PID: %d" x in
-      let w = make_item () in
-      let v = { get = (fun (x:model) -> x.pmt_pid)
-              ; eq  = Int.equal
-              ; upd = (w#item#set_text % to_string) } in
-      w, v in
-    let pcr, update_pcr =
-      let to_string x = sprintf "PCR PID: %d" x in
-      let w = make_item () in
-      let v = { get = (fun (x:model) -> x.pcr_pid)
-              ; eq  = Int.equal
-              ; upd = (w#item#set_text % to_string) } in
-      w, v in
-    let es, update_es   = ES_pids.make init.es in
+    let es,  update_es  = ES_pids.make init.es in
     let ecm, update_ecm = ECM_pids.make init.ecm in
-    let opt     = es :: ecm :: [] in
-    let nested  = new Tree.t ~level:2 ~items:([ id; pmt; pcr ] @ opt) () in
-    let ()      = nested#set_dense true in
+    let ()      = Dom.appendChild es#root ecm#root in
     let graphic = new Icon.SVG.t ~icon:Tv () in
     let prev    = ref init in
-    let leaf, update_name, update_prov =
+    let leaf, update_primary, update_secondary =
       let to_primary x = x in
-      let to_secondary x = sprintf "Провайдер: %s" x in
+      let to_secondary x = sprintf "ID: %d, Провайдер: %s" x in
       let w = new Tree.Item.t
                 ~text:""
                 ~secondary_text:""
                 ~graphic
-                ~nested
+                ~nested:es
                 ~value:() () in
-      let v_name =
+      let v_primary =
         { get = (fun (x:model) -> x.name)
         ; eq  = String.equal
         ; upd = (w#item#set_text % to_primary) } in
       let v_prov =
-        { get = (fun (x:model) -> x.provider_name)
-        ; eq  = String.equal
-        ; upd = (w#item#set_secondary_text % to_secondary) } in
-      w, v_name, v_prov in
+        { get = (fun (x:model) -> x.id, x.provider_name)
+        ; eq  = Equal.pair (=) String.equal
+        ; upd = (fun (id, name) ->
+          let s = to_secondary id name in
+          w#item#set_secondary_text s) } in
+      w, v_primary, v_prov in
     let update = fun ?previous (model:model) ->
-      setter ?previous model update_id;
-      setter ?previous model update_pmt;
-      setter ?previous model update_pcr;
-      setter ?previous model update_name;
-      setter ?previous model update_prov;
+      setter ?previous model update_primary;
+      setter ?previous model update_secondary;
       update_es model.es;
       update_ecm model.ecm in
     update init;
@@ -720,11 +688,11 @@ module Table = struct
     type t     =
       { id        : int
       ; id_ext    : int
+      ; version   : int
       ; eit_ts_id : int
       ; eit_nw_id : int
-      } [@@deriving yojson]
-    let compare x1 x2 = compare x1.id x2.id
-    let to_string x = to_yojson x |> Yojson.Safe.to_string
+      } [@@deriving yojson, ord]
+    let to_string x   = to_yojson x |> Yojson.Safe.to_string
     let of_string s = Yojson.Safe.from_string s
                       |> of_yojson
                       |> Result.to_opt
@@ -743,7 +711,11 @@ module Table = struct
   let id_of_model = fun (x:model)  ->
     let open Id in
     let c   = table_common_of_table x.table in
-    let def = { id = c.id; id_ext = 0; eit_ts_id = 0; eit_nw_id = 0 } in
+    let def = { id        = c.id
+              ; version   = c.version
+              ; id_ext    = 0
+              ; eit_ts_id = 0
+              ; eit_nw_id = 0 } in
     match x.table with
     | PAT x -> { def with id_ext = x.ts_id }
     | PMT x -> { def with id_ext = x.program_number }
@@ -756,8 +728,6 @@ module Table = struct
     | _     -> def
 
   let make (init:model) =
-    let to_primary   = Printf.sprintf "%s, PID: %d"  in
-    let to_secondary = Printf.sprintf "Версия: %d, ID: %d, LSN: %d" in
     (* let make_item = new Tree.Item.t ~value:() in *)
     (* let specific = match table with
      *   | PAT x ->
@@ -795,22 +765,23 @@ module Table = struct
                    ~secondary_text:""
                    ~nested
                    ~value:() () in
+    let to_primary   = Printf.sprintf "%s" in
+    let to_secondary = Printf.sprintf "PID: %d, версия: %d, ID: %d, LSN: %d" in
     let update_primary =
-      { get = (fun x -> let c = table_common_of_table x.table in
-                        c.pid, table_to_string x.table)
-      ; eq  = (fun (x1,y1) (x2,y2) ->
-        x1 = x2 && String.equal y1 y2)
-      ; upd = (fun (pid,s) ->
-        let s = to_primary s pid in
+      { get = (fun x -> table_to_string x.table)
+      ; eq  = String.equal
+      ; upd = (fun s ->
+        let s = to_primary s in
         leaf#item#set_text s)
       } in
     let update_secondary =
       { get = (fun x -> let c = table_common_of_table x.table in
-                        c.version, c.id, c.lsn)
-      ; eq  = (fun (x1,y1,z1) (x2,y2,z2) ->
-        x1 = x2 && y1 = y2 && z1 = z2)
-      ; upd = (fun (v,id,lsn) ->
-        let s = to_secondary v id lsn in
+                        c.pid, c.version, c.id, c.lsn)
+      ; eq  = (fun (pid1, ver1, id1, lsn1)
+                   (pid2, ver2, id2, lsn2) ->
+        pid1 = pid2 && ver1 = ver2 && id1 = id2 && lsn1 = lsn2)
+      ; upd = (fun (pid, ver, id, lsn) ->
+        let s = to_secondary pid ver id lsn in
         leaf#item#set_secondary_text s)
       } in
     let update = fun ?(previous:model option) (model:model) ->
