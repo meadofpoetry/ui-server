@@ -175,7 +175,6 @@ module Pid_state = struct
                             table table)
      in
      let now = Time.Clock.now_s () in
-     Logs.err (fun m -> m "DB update pids len: %d" @@ List.length pids);
      Conn.request db Request.(with_trans (List.fold_left (fun acc (s,c,p,_) ->
                                               acc >>= fun () -> exec update_last (s,c,p,now))
                                             (return ()) pids))
