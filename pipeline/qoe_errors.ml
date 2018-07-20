@@ -85,3 +85,14 @@ let labels_of_int = function
   | 7 -> `Loudness_shortt
   | 8 -> `Loudness_moment
   | _ -> failwith "Qoe_errors.labels_of_int: wrong int"
+
+let labels_to_int = function
+  | `Black -> 0
+  | `Luma -> 1
+  | `Freeze -> 2
+  | `Diff -> 3
+  | `Blocky -> 4
+  | `Silence_shortt -> 5
+  | `Silence_moment -> 6
+  | `Loudness_shortt -> 7
+  | `Loudness_moment -> 8

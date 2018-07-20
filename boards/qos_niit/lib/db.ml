@@ -148,6 +148,7 @@ module Device = struct
                                 let data = List.map (fun (st,s,e) -> (state_of_int st,s,e)) l in
                                 return (Raw { data; has_more = (List.length data >= limit); order = `Desc }))
 
+  (* TODO fix it *)
   let select_state_compressed_internal db ~from ~till =
     let table = (Conn.names db).state in
     let dif   = Time.(Span.to_float_s @@ diff till from) in
@@ -344,8 +345,8 @@ module Errors = struct
     let pids     = is_in "pid" string_of_int pids in
     let errors   = is_in "err_code"  string_of_int errors in
     let select = R.find Types.(tup3 bool ptime ptime) Types.bool
-                   (sprintf {|SELECT TRUE FROM %s
-                             WHERE %s %s %s %s is_ts = ? AND date >= ? AND date <= ? LIMIT 1|}
+                   (sprintf {|SELECT EXISTS (SELECT 1 FROM %s
+                             WHERE %s %s %s %s is_ts = ? AND date >= ? AND date <= ?)|}
                       table streams priority pids errors)
     in Conn.request db Request.(find select (is_ts,from,till) >>= function None -> return false | Some x -> return x)
 
@@ -381,7 +382,8 @@ module Errors = struct
                       table streams priority pids errors)
     in Conn.request db Request.(list select (is_ts,from,till,limit) >>= fun data ->
                                 return (Raw { data; has_more = (List.length data >= limit); order = `Desc }))
-     
+
+  (* TODO consider stream presence *)
   let select_errors_compressed db ?(streams = []) ?(priority = []) ?(pids = []) ?(errors = []) ~is_ts ~from ~till () =
     let open Printf in
     let table    = (Conn.names db).errors in
@@ -401,8 +403,7 @@ module Errors = struct
                                                 | None -> return l
                                                 | Some s -> let perc = (100. *. (float_of_int s) /. span) in
                                                             return ((perc,f,t)::l))
-                                              (return []) intvals)
-                                >>= return)
+                                              (return []) intvals))
        >>= fun l ->
        List.fold_left (fun acc (p,from,till) ->
            acc >>= fun acc ->

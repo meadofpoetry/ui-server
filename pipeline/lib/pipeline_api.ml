@@ -118,6 +118,32 @@ let get_vdata_sock api stream channel pid _ body sock_data () =
      get_sock sock_data body Video_data.to_yojson (React.E.filter pred api.vdata)
   | _ -> get_sock sock_data body Video_data.to_yojson api.vdata
 
+module Archive = struct
+
+  type res = (Stream.t * Time.t * Time.t) list [@@deriving yojson]
+
+  type res_struct = (Structure.structure * Time.t) list [@@deriving yojson]
+  
+  let get_streams db limit from till duration _ _ () =
+    match Time.make_interval ?from ?till ?duration () with
+    | Ok `Range (from,till) ->
+       Db.Streams.select_streams db ?limit ~from ~till
+       |> Lwt_result.map (Api.Api_types.rows_to_yojson res_to_yojson (fun () -> `Null))
+       |> Lwt_result.map_err (fun e -> `String e)
+       >>= respond_result
+    | _ -> respond_error ~status:`Not_implemented "FIXME" ()
+
+  let get_structures db uris limit from till duration _ _ () =
+    match Time.make_interval ?from ?till ?duration () with
+    | Ok `Range (from,till) ->
+       Db.Structure.select_structures db ?limit ~uris ~from ~till
+       |> Lwt_result.map (Api.Api_types.rows_to_yojson res_struct_to_yojson (fun () -> `Null))
+       |> Lwt_result.map_err (fun e -> `String e)
+       >>= respond_result
+    | _ -> respond_error ~status:`Not_implemented "FIXME" ()  
+    
+end
+       
 let handlers api =
   let open Common.Uri in
   let open Api_handler in
@@ -158,6 +184,22 @@ let handlers api =
                  ~path:Path.Format.("wm" @/ empty)
                  ~query:Query.empty
                  (get_wm api)
+             (* Archive *)
+             ; create_handler ~docstring:"Streams archive"
+                 ~path:Path.Format.("streams/archive" @/ empty)
+                 ~query:Query.[ "limit",    (module Option(Int))
+                              ; "from",     (module Option(Time.Show))
+                              ; "to",       (module Option(Time.Show))
+                              ; "duration", (module Option(Time.Relative)) ]
+                 (Archive.get_streams api.model.db)
+             ; create_handler ~docstring:"Structure archive"
+                 ~path:Path.Format.("structure/archive" @/ empty)
+                 ~query:Query.[ "uris",     (module List(Common.Url.Q))
+                              ; "limit",    (module Option(Int))
+                              ; "from",     (module Option(Time.Show))
+                              ; "to",       (module Option(Time.Show))
+                              ; "duration", (module Option(Time.Relative)) ]
+                 (Archive.get_structures api.model.db)
              ]
     ; `POST, [ create_handler ~docstring:"Post structure"
                  ~restrict:[ `Guest ]
@@ -176,58 +218,3 @@ let handlers api =
                  (set_wm api)
              ]
     ]
-
-  
-(* [ (module struct
- *      let domain = "pipeline"
- *      let handle = pipeline_handle api
- *    end : Api_handler.HANDLER)
- * ]
- *)
-
-(* TODO fix dat *)
-
-(* let of_seconds s =
- *   int_of_string s
- *   |> (fun s -> Ptime.add_span Ptime.epoch (Ptime.Span.of_int_s s))
- *   |> function Some t -> Ptime.to_rfc3339 t | None -> failwith "of_seconds: failure"
- *                                  
- * let get_structures api input id () =
- *   let open Pipeline_protocol in
- *   let input, id = (Result.get_exn @@ Common.Topology.input_of_string input), int_of_string id in
- *   let input = Common.Topology.{ input; id } in
- *   Lwt.catch (fun () ->
- *       api.model.struct_api.get_input input
- *       >>= function None -> respond_error "No data" () (\* TODO fix *\)
- *                   | Some (str, date) ->
- *                      let s = Structure.Streams.to_yojson str in
- *                      (`Tuple [s; Time.Period.Seconds.to_yojson @@ Time.to_span date])
- *                      |> Result.return
- *                      |> Json.respond_result)
- *     (function Failure e -> respond_error e ())
- * 
- * let get_structures_between api input id from to' () =
- *   let open Pipeline_protocol in
- *   let input, id = (Result.get_exn @@ Common.Topology.input_of_string input), int_of_string id in
- *   let input = Common.Topology.{ input; id } in
- *   Lwt.catch (fun () ->
- *       api.model.struct_api.get_input_between input
- *         (Option.get_exn @@ Time.of_span @@ Time.Period.Seconds.of_string from) (\* TODO consider time instead of span *\)
- *         (Option.get_exn @@ Time.of_span @@ Time.Period.Seconds.of_string to')
- *       >>= fun l ->
- *       let l = List.map (fun (str, date) -> `Tuple [ Structure.Streams.to_yojson str
- *                                                   ; Time.Period.Seconds.to_yojson @@ Time.to_span date]) l in
- *       Json.respond_result @@ Result.return (`List l))
- *     (function Failure e -> respond_error e ())
- *                                  
- * let archive_handle api id meth uri_sep sock_data _ body =
- *   (\* TODO match string + query *\)
- *   let path_list = Common.Uri.(split @@  Path.to_string uri_sep.path) in
- *   match meth, path_list with
- *   | `GET,  ["structures";i;num]   -> get_structures api i num ()
- *   | `GET,  ["structures_between";i;num;from;to'] -> get_structures_between api i num from to' ()
- *   | _                             -> not_found ()                                        
- *   ; (module struct
- *        let domain = "pipeline_archive"
- *        let handle = archive_handle api
- *      end : Api_handler.HANDLER) *)
