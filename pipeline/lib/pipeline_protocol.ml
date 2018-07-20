@@ -252,7 +252,7 @@ let create (type a) (typ : a typ) db_conf config sock_in sock_out =
   in
   api, state, recv, send
 
-let reset typ send bin_path bin_name msg_fmt state (sources : (Common.Url.t * Common.Stream.t) list) =
+let reset typ send bin_path bin_name msg_fmt api state (sources : (Common.Url.t * Common.Stream.t) list) =
   let exec_path = (Filename.concat bin_path bin_name) in
   let msg_fmt   = Pipeline_settings.format_to_string msg_fmt in
   let uris      = List.map Fun.(fst %> Common.Url.to_string) sources in
@@ -267,6 +267,7 @@ let reset typ send bin_path bin_name msg_fmt state (sources : (Common.Url.t * Co
    state.ready := true;
    settings_init typ send state.options)
   |> Lwt.ignore_result;
+  Model.set_streams api.model (List.map snd sources);
   Logs.debug (fun m -> m "(Pipeline) reset [%s]" (Array.fold_left (fun acc x -> acc ^ " " ^ x) "" exec_opts))
   
 let finalize state =
