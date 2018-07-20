@@ -15,7 +15,8 @@ let sort_of_string = function
 
 type 'a custom =
   { to_string  : 'a -> string
-  ; compare    : string -> string -> int
+  ; of_string  : string -> 'a
+  ; compare    : 'a -> 'a -> int
   ; is_numeric : bool
   }
 
@@ -57,14 +58,21 @@ let rec is_numeric : type a. a fmt -> bool = function
   | Custom x       -> x.is_numeric
 
 let rec compare : type a. a fmt -> (string -> string -> int) = function
-  | Int            -> fun i1 i2 -> Int.compare (int_of_string i1) (int_of_string i2)
-  | Int32          -> fun i1 i2 -> Int32.compare (Int32.of_string_exn i1) (Int32.of_string_exn i2)
-  | Int64          -> fun i1 i2 -> Int64.compare (Int64.of_string_exn i1) (Int64.of_string_exn i2)
-  | String         -> String.compare
-  | Option (fmt,e) -> fun x1 x2 -> let o1 = if String.equal e x1 then None else Some x1 in
-                                   let o2 = if String.equal e x2 then None else Some x2 in
-                                   Option.compare (compare fmt) o1 o2
-  | Custom x       -> x.compare
+  | Int ->
+     fun i1 i2 -> Int.compare (int_of_string i1) (int_of_string i2)
+  | Int32 ->
+     fun i1 i2 -> Int32.compare (Int32.of_string_exn i1) (Int32.of_string_exn i2)
+  | Int64 ->
+     fun i1 i2 -> Int64.compare (Int64.of_string_exn i1) (Int64.of_string_exn i2)
+  | String -> String.compare
+  | Option (fmt,e) ->
+     fun x1 x2 -> let o1 = if String.equal e x1 then None else Some x1 in
+                  let o2 = if String.equal e x2 then None else Some x2 in
+                  Option.compare (compare fmt) o1 o2
+  | Custom x ->
+     fun x1 x2 -> let x1 = x.of_string x1 in
+                  let x2 = x.of_string x2 in
+                  x.compare x1 x2
 
 module Cell = struct
 
@@ -168,7 +176,11 @@ module Body = struct
     let s_rows,s_rows_push = React.S.create List.empty in
     object(self)
       inherit Widget.t elt ()
-      method add_row (cells:Cell.t list) =
+      method prepend_row (cells:Cell.t list) =
+        let row = new Row.t ?selection s_selected s_selected_push cells () in
+        s_rows_push @@ (List.cons row self#rows);
+        Dom.insertBefore self#root row#root self#root##.firstChild
+      method append_row (cells:Cell.t list) =
         let row = new Row.t ?selection s_selected s_selected_push cells () in
         s_rows_push @@ (List.cons row self#rows);
         Dom.appendChild self#root row#root
@@ -263,6 +275,13 @@ module Table = struct
     end
 end
 
+module Footer = struct
+  class t () =
+  object
+    
+  end
+end
+
 let rec make_cells : type ty v. (Cell.t list -> v) -> (ty,v) row -> ty = fun k ->
   let rec loop : type a b. int -> (Cell.t list -> b) -> (a,b) row -> a = fun i k ->
     function
@@ -289,7 +308,7 @@ class ['a] t ?selection ~(fmt:('a,_) row) () =
     method s_rows     = body#s_rows
     method s_selected = s_selected
 
-    method add_row = make_cells (fun cells -> body#add_row cells) fmt
+    method add_row = make_cells (fun cells -> body#append_row cells) fmt
 
     method sort index sort =
       let rows = List.sort (fun row_1 row_2 ->

@@ -54,7 +54,7 @@ module WS = struct
       let e   = React.E.fmap (fun (l:errors) ->
                     match List.filter (fun errs -> filter errs fns) l with
                     | [] -> None
-                    | l  -> Some l) events.ts_errors
+                    | l  -> Some l) events.t2mi_errors
       in Api.Socket.handler socket_table sock_data e (Json.List.to_yojson to_yojson) body
 
   end

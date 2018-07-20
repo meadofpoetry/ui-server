@@ -79,7 +79,7 @@ object(self)
        Widget_chart.make conf
        |> Dashboard.Item.to_item ~name:Widget_chart.name
     | TS_log config ->
-       Widget_log.make self#ts_errors config control
+       Widget_log.make self#ts_errors ?config control
        |> Dashboard.Item.to_item ~name:Widget_log.name
     | Structure config ->
        let id =

@@ -104,6 +104,23 @@ and topo_interface = { iface : string
                      ; conn  : topo_entry
                      }
 
+module Show_topo_input = struct
+  type t          = topo_input
+  let typ         = "topo input"
+  let to_string (x:t) =
+    input_to_string x.input
+    ^ "-"
+    ^ string_of_int x.id
+  let of_string s : t =
+    String.split_on_char '-' s
+    |> (function
+        | [ input; id ] ->
+           { input = input_of_string input |> Result.get_exn
+           ; id    = int_of_string id
+           }
+        | _ -> failwith "bad input string")
+end
+
 type cpu_opt = process_type option [@@deriving yojson,eq]
 
 let cpu_subbranches = function

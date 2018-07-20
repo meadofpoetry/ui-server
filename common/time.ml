@@ -18,6 +18,24 @@ let to_human_string ?tz_offset_s (t:t) =
   let (y,m,d),((h,min,s),_) = to_date_time ?tz_offset_s t in
   Printf.sprintf "%02d.%02d.%04d %02d:%02d:%02d" d m y h min s
 
+let of_human_string_exn ?(tz_offset_s=0) s =
+  match String.split_on_char ' ' s with
+  | [ date; time ] ->
+     let y, m, d = match String.split_on_char '.' date with
+       | [ day; month; year ] ->
+          int_of_string year,
+          int_of_string month,
+          int_of_string day
+       | _ -> failwith "bad date value(s)" in
+     let h, min, s = match String.split_on_char ':' time with
+       | [ hour; min; sec ] ->
+          int_of_string hour,
+          int_of_string min,
+          int_of_string sec
+       | _ -> failwith "bad time value(s)" in
+     of_date_time ((y, m, d), ((h, min, s), tz_offset_s)) |> Option.get_exn
+  | _ -> failwith "not a human-readable date time string"
+
 let to_yojson (v:t) : Yojson.Safe.json =
   let d,ps = Ptime.to_span v |> Ptime.Span.to_d_ps in
   `List [ `Int d;`Intlit (Int64.to_string ps) ]

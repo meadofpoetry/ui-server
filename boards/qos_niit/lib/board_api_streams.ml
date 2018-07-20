@@ -156,7 +156,7 @@ module HTTP = struct
         join (pair_streams streams) state
         |> List.map (fun (s, f, t) -> { streams = s; period = f, t })
 
-      let streams db limit from till duration _ _ () =
+      let streams db ids input limit from till duration _ _ () =
         let open Api.Api_types in
         match Time.make_interval ?from ?till ?duration () with
         | Ok `Range (from,till) ->
@@ -262,27 +262,30 @@ let ts_handler db (api:api) events =
         ~query:Query.[ "id", (module List(Int32)) ]
         (WS.TS.structure events)
     ]
-    [ `GET, [ create_handler ~docstring:"Returns current TS list"
-                ~path:Path.Format.empty
-                ~query:Query.[ "id", (module List(Int32)) ]
-                (HTTP.TS.streams events)
-            ; create_handler ~docstring:"Returns current TS bitrate"
-                ~path:Path.Format.("bitrate" @/ empty)
-                ~query:Query.[ "id", (module List(Int32)) ]
-                (HTTP.TS.bitrate api)
-            ; create_handler ~docstring:"Returns current TS structure"
-                ~path:Path.Format.("structure" @/ empty)
-                ~query:Query.[ "id", (module List(Int32)) ]
-                (HTTP.TS.structure api)
-            (* Archive *)
-            ; create_handler ~docstring:"Returns archived streams"
-                ~path:Path.Format.("archive" @/ empty)
-                ~query:Query.[ "limit",    (module Option(Int))
-                             ; "from",     (module Option(Time.Show))
-                             ; "to",       (module Option(Time.Show))
-                             ; "duration", (module Option(Time.Relative)) ]
-                (HTTP.TS.Archive.streams db)
-                (*  ; create_handler ~docstring:"Retunrs archived stream state"
+    [ `GET,
+      [ create_handler ~docstring:"Returns current TS list"
+          ~path:Path.Format.empty
+          ~query:Query.[ "id", (module List(Int32)) ]
+          (HTTP.TS.streams events)
+      ; create_handler ~docstring:"Returns current TS bitrate"
+          ~path:Path.Format.("bitrate" @/ empty)
+          ~query:Query.[ "id", (module List(Int32)) ]
+          (HTTP.TS.bitrate api)
+      ; create_handler ~docstring:"Returns current TS structure"
+          ~path:Path.Format.("structure" @/ empty)
+          ~query:Query.[ "id", (module List(Int32)) ]
+          (HTTP.TS.structure api)
+      (* Archive *)
+      ; create_handler ~docstring:"Returns archived streams"
+          ~path:Path.Format.("archive" @/ empty)
+          ~query:Query.[ "id",       (module List(Int32))
+                       ; "input",    (module List(Topology.Show_topo_input))
+                       ; "limit",    (module Option(Int))
+                       ; "from",     (module Option(Time.Show))
+                       ; "to",       (module Option(Time.Show))
+                       ; "duration", (module Option(Time.Relative)) ]
+          (HTTP.TS.Archive.streams db)
+      (*  ; create_handler ~docstring:"Retunrs archived stream state"
                 ~path:Path.Format.("state/archive" @/ empty)
                 ~query:Query.[ "id",       (module List(Int32))
                              ; "limit",    (module Option(Int))
@@ -291,24 +294,24 @@ let ts_handler db (api:api) events =
                              ; "to",       (module Option(Time.Show))
                              ; "duration", (module Option(Time.Relative)) ]
                 HTTP.TS.Archive.state;*)
-            ; create_handler ~docstring:"Retunrs archived stream bitrate"
-                ~path:Path.Format.("bitrate/archive" @/ empty)
-                ~query:Query.[ "id",       (module List(Int32))
-                             ; "limit",    (module Option(Int))
-                             ; "compress", (module Option(Bool))
-                             ; "from",     (module Option(Time.Show))
-                             ; "to",       (module Option(Time.Show))
-                             ; "duration", (module Option(Time.Relative)) ]
-                HTTP.TS.Archive.bitrate
-            ; create_handler ~docstring:"Retunrs archived stream structure"
-                ~path:Path.Format.("structure/archive" @/ empty)
-                ~query:Query.[ "id",       (module List(Int32))
-                             ; "limit",    (module Option(Int))
-                             ; "from",     (module Option(Time.Show))
-                             ; "to",       (module Option(Time.Show))
-                             ; "duration", (module Option(Time.Relative)) ]
-                (HTTP.TS.Archive.structure db)
-            ]
+      ; create_handler ~docstring:"Retunrs archived stream bitrate"
+          ~path:Path.Format.("bitrate/archive" @/ empty)
+          ~query:Query.[ "id",       (module List(Int32))
+                       ; "limit",    (module Option(Int))
+                       ; "compress", (module Option(Bool))
+                       ; "from",     (module Option(Time.Show))
+                       ; "to",       (module Option(Time.Show))
+                       ; "duration", (module Option(Time.Relative)) ]
+          HTTP.TS.Archive.bitrate
+      ; create_handler ~docstring:"Retunrs archived stream structure"
+          ~path:Path.Format.("structure/archive" @/ empty)
+          ~query:Query.[ "id",       (module List(Int32))
+                       ; "limit",    (module Option(Int))
+                       ; "from",     (module Option(Time.Show))
+                       ; "to",       (module Option(Time.Show))
+                       ; "duration", (module Option(Time.Relative)) ]
+          (HTTP.TS.Archive.structure db)
+      ]
     ]
 
 let t2mi_handler db (api:api) events =

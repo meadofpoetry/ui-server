@@ -5,7 +5,13 @@ open Board_types
 open Lwt_result.Infix
 open Api_js.Api_types
 
-type config = unit [@@deriving yojson]
+type config =
+  { inputs : Topology.topo_input list
+  } [@@deriving yojson]
+
+let default_config : config =
+  { inputs = []
+  }
 
 let name = "Журнал"
 
@@ -67,20 +73,24 @@ let make_table
       (structures:(Stream.id * Streams.TS.structure) list)
       (errors:Errors.raw Api_js.Api_types.raw) =
   let tz_offset_s = Ptime_clock.current_tz_offset_s () in
-  let show_time = Time.to_human_string ?tz_offset_s in
-  let time = Table.({ to_string  = show_time
-                    ; compare    = String.compare
+  let time = Table.({ to_string  = Time.to_human_string ?tz_offset_s
+                    ; of_string  = Time.of_human_string_exn ?tz_offset_s
+                    ; compare    = Time.compare
                     ; is_numeric = false }) in
+  let pid  = Table.({ to_string  = Printf.sprintf "%04d"
+                    ; of_string  = int_of_string
+                    ; compare    = Int.compare
+                    ; is_numeric = true }) in
   let fmt  =
-    Table.((to_column ~sortable:true "Время",     Custom time)
-           :: (to_column ~sortable:true "Поток",    String)
-           :: (to_column ~sortable:true "Service",  Option (String, ""))
-           :: (to_column ~sortable:true "Число ошибок", Int)
-           :: (to_column ~sortable:true "PID",      Int)
-           (* :: (to_column ~sortable:true "Severity", Option (String,"")) *)
-           :: (to_column ~sortable:true "Событие",    String)
-           :: (to_column "Подробности",                 String)
-           :: []) in
+    let open Table in
+    (   to_column ~sortable:true "Время",        Custom time)
+    :: (to_column ~sortable:true "Поток",        String)
+    :: (to_column ~sortable:true "Service",      Option (String, ""))
+    :: (to_column ~sortable:true "Число ошибок", Int)
+    :: (to_column ~sortable:true "PID",          Custom pid)
+    :: (to_column ~sortable:true "Событие",      String)
+    :: (to_column "Подробности",                 String)
+    :: [] in
   let table = new Table.t ~fmt () in
   let add_row (stream, (error:Errors.t)) =
     let default = Stream.show_id stream in
@@ -109,8 +119,8 @@ let l3 t1 t2 t3 f =
   >>= (fun (x1, x2) -> t3 >|= fun x3 -> f x1 x2 x3)
 
 let make
+      ?(config=default_config)
       (errors: Errors.t list React.event)
-      (config: config option)
       control =
   let now     = Time.Clock.now_s () in
   let from    =
@@ -118,7 +128,7 @@ let make
   let streams =
     let req () =
       Requests.Streams.HTTP.TS.Archive.get_streams
-        ~from ~till:now control in
+        ~inputs:config.inputs ~from ~till:now control in
     req ()
     >>= (function
          | Raw s -> Lwt_result.return s

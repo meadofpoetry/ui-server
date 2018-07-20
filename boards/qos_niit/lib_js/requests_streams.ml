@@ -23,11 +23,12 @@ module WS = struct
 
     let of_yojson f v = Json.(List.of_yojson (Pair.of_yojson Stream.id_of_yojson f) v)
 
-    let get_streams ?(ids=[]) control =
+    let get_streams ?(inputs=[]) ?(ids=[]) control =
       WS.get ~from:(Json.List.of_yojson Stream.of_yojson)
         ~path:Path.Format.(get_base_path ())
-        ~query:Query.[ "id", (module List(Int32)) ]
-        control (List.map Stream.id_to_int32 ids)
+        ~query:Query.[ "id",    (module List(Int32))
+                     ; "input", (module List(Topology.Show_topo_input)) ]
+        control (List.map Stream.id_to_int32 ids) inputs
 
     let get_state ?(ids=[]) control =
       WS.get ~from:(of_yojson state_of_yojson)
@@ -109,17 +110,18 @@ module HTTP = struct
 
     module Archive = struct
 
-      let get_streams ?(ids=[]) ?limit ?from ?till ?duration control =
+      let get_streams ?(ids=[]) ?(inputs=[]) ?limit ?from ?till ?duration control =
         get_result ~from:(Api_js.Api_types.rows_of_yojson
                             archived_list_of_yojson
                             (fun _ -> Error "cannot be compressed"))
           ~path:Path.Format.(get_base_path () / ("archive" @/ empty))
           ~query:Query.[ "id",       (module List(Int32))
+                       ; "input",    (module List(Topology.Show_topo_input))
                        ; "limit",    (module Option(Int))
                        ; "from",     (module Option(Time.Show))
                        ; "to",       (module Option(Time.Show))
                        ; "duration", (module Option(Time.Relative)) ]
-          control (List.map Stream.id_to_int32 ids) limit from till duration
+          control (List.map Stream.id_to_int32 ids) inputs limit from till duration
 
       let get_state ?(ids=[]) ?limit ?compress ?from ?till ?duration control =
         get_result ~from:(fun _ -> Error "FIXME Not implemented")

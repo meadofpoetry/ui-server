@@ -124,6 +124,12 @@ class t (elt:#Dom_html.element Js.t) () = object(self)
 
 end
 
+(* class container ~widgets elt () =
+ * object
+ *   val mutable _widgets = widgets
+ *   method append (t:t) = ()
+ * end *)
+
 class stateful () = object
   val mutable _s : unit React.signal list = []
   val mutable _e : unit React.event list  = []

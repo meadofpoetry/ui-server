@@ -540,7 +540,10 @@ let table_demo () =
            ((Js.Unsafe.meth_call d "getTimezoneOffset" [||] : int) * (-60))
   in
   let show_time = Format.asprintf "%a" (Common.Time.pp_human ~tz_offset_s:tz ()) in
-  let time  = Table.({ to_string = show_time; compare = String.compare; is_numeric = false }) in
+  let time  = Table.({ to_string  = Common.Time.to_human_string ~tz_offset_s:tz
+                     ; of_string  = Common.Time.of_human_string_exn ~tz_offset_s:tz
+                     ; compare    = Common.Time.compare
+                     ; is_numeric = false }) in
   let fmt   = Table.((   to_column ~sortable:true "Date",     Custom time)
                      :: (to_column ~sortable:true "Input",    String)
                      :: (to_column ~sortable:true "Service",  String)

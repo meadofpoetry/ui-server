@@ -421,6 +421,16 @@ module SM = struct
     let e_pcr,pcr_push     = E.create () in
     let e_pcr_s,pcr_s_push = E.create () in
 
+    (* let map_struct f =
+     *   S.map (List.map (fun (id,(s:Streams.TS.structure)) ->
+     *              id, f s)) s_ts in *)
+
+    (* let s_ts_info = map_struct (fun s -> s.general) in
+     * let s_ts_services = map_struct (fun s -> s.services) in
+     * let s_ts_tables = map_struct (fun s -> s.tables) in
+     * let s_ts_emm = map_struct (fun s -> s.emm) in
+     * let s_ts_pids = map_struct (fun s -> s.pids) in *)
+
     let s_t2mi, t2mi_push, t2mi_list_push  =
       let s, push_list = S.create [] in
       let push = fun (id,structure) ->
@@ -453,10 +463,13 @@ module SM = struct
     let (events:events) =
       { device  =
           { config = S.changes s_config
-          ; input  = React.S.map ~eq:equal_input (fun (x:config) -> x.input) s_config
+          ; input  = React.S.map ~eq:equal_input (fun (x:config) -> x.input)
+                       s_config
           ; state
-          ; status = E.changes ~eq:equal_status @@ E.map (fun (x:group) -> x.status.status) e_group
-          ; reset  = E.map (fun (x:group) -> { timestamp = x.status.status.timestamp }) e_group
+          ; status = E.changes ~eq:equal_status
+                     @@ E.map (fun (x:group) -> x.status.status) e_group
+          ; reset  = E.map (fun (x:group) ->
+                         { timestamp = x.status.status.timestamp }) e_group
           ; errors = e_be
           }
       ; errors  =
@@ -476,8 +489,7 @@ module SM = struct
           { session = E.changes ~eq:Jitter.equal_session e_pcr_s
           ; jitter  = e_pcr
           }
-      }
-    in
+      } in
     let push_events =
       { devinfo        = devi_push
       ; state          = state_push
@@ -489,8 +501,7 @@ module SM = struct
       ; t2mi_info_list = t2mi_list_push
       ; jitter         = pcr_push
       ; jitter_session = pcr_s_push
-      }
-    in
+      } in
     let ()    = Lwt_react.S.keep @@ React.S.map (fun c -> storage#store c) s_config in
     let msgs  = ref (Await_queue.create []) in
     let imsgs = ref (Queue.create []) in
@@ -504,8 +515,7 @@ module SM = struct
                                         ; Lwt_unix.timeout (float_of_int status_timeout)])
            >>= (fun x  -> React.S.stop s;
                           if eq x v then Lwt.return x
-                          else Lwt.fail @@ Failure "got unexpected value")
-    in
+                          else Lwt.fail @@ Failure "got unexpected value") in
     let fmt fmt = let fs = "%s" ^^ fmt in Printf.sprintf fs log_prefix in
     let api =
       { set_input = (fun i ->
@@ -537,14 +547,16 @@ module SM = struct
         Logs.debug (fun m ->
             let s = show_section_params r in
             m "%s" @@ fmt "Got SI/PSI section request: %s" s);
-        enqueue state msgs sender (Get_section { request_id = get_id (); params = r })
+        enqueue state msgs sender (Get_section { request_id = get_id ()
+                                               ; params = r })
           (Timer.steps ~step_duration 125) None)
 
       ; get_t2mi_seq = (fun s ->
         let s = Option.get_or ~default:5 s in
         Logs.debug (fun m -> let s = string_of_int s ^ " sec" in
                              m "%s" @@ fmt "Got T2-MI sequence request: %s" s);
-        enqueue state msgs sender (Get_t2mi_frame_seq { request_id = get_id (); seconds = s })
+        enqueue state msgs sender (Get_t2mi_frame_seq { request_id = get_id ()
+                                                      ; seconds = s })
           (Timer.steps ~step_duration (s + 10)) None)
 
       ; get_devinfo         = (fun () -> S.value s_devi)
@@ -553,6 +565,9 @@ module SM = struct
       ; get_t2mi_structures = (fun () -> S.value s_t2mi)
       ; config              = (fun () -> storage#get)
       }
-    in events,api,(step msgs imsgs sender storage step_duration push_events log_prefix)
+    in
+    events,
+    api,
+    (step msgs imsgs sender storage step_duration push_events log_prefix)
 
 end
