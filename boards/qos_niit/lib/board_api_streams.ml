@@ -133,21 +133,15 @@ module HTTP = struct
 
       type struct_ts = (Common.Stream.id * Board_types.Streams.TS.structure * Time.t) list [@@deriving yojson]
 
-      type strms_state = (Common.Stream.t list * Time.t * Time.t) list [@@deriving yojson]
+      type strms_state = (Common.Stream.t * Time.t * Time.t) list [@@deriving yojson]
+
+      type stream_ids = Common.Stream.stream_id list [@@deriving yojson]
 
       (* merge ordered descending lists of streams and board states *)
       let merge_streams_state
-            (streams : (Common.Stream.t list * Time.t) list)
+            (streams : (Common.Stream.t list * Time.t * Time.t) list)
             (state : (Common.Topology.state * Time.t * Time.t) list) =
         (* TODO consider ord checks *)
-        let pair_streams streams =
-          let rec pair' acc = function
-            | (sx,tx)::(sy,ty)::tl -> pair' ((sy, ty, tx)::acc) ((sy,ty)::tl)
-            | [_] | [] -> List.rev acc
-          in
-          let (s,t) = List.hd streams in
-          (s,t,Time.max)::(pair' [] streams)
-        in
         let (<=) l r = Time.compare l r <= 0 in
         let (>=) l r = Time.compare l r >= 0 in
         let join streams states = List.fold_left (fun acc (s,f,t) ->
@@ -160,21 +154,35 @@ module HTTP = struct
                                                                       else None
                                                                    | _ -> None) states) [] streams
         in (* TODO add compress *) 
-        join (pair_streams streams) state
+        join streams state
 
-      let streams db limit from till duration _ _ () =
+      let stream_ids db (events:events) limit from till duration _ _ () =
+        let open Api.Api_types in
+        let open Common.Stream in
+        let merge (cur:stream_id list) ids =
+          let cur = List.filter (function `Ip _ -> true
+                                        | `Ts id -> not @@ List.exists (Int32.equal (id_to_int32 id)) ids)
+                      cur
+          in cur @ List.map (fun x -> `Ts (id_of_int32 x)) ids
+        in
+        match Time.make_interval ?from ?till ?duration () with
+        | Ok `Range (from,till) ->
+           Db.Streams.select_stream_ids db ?limit ~from ~till ()
+           >>= fun (Raw { data; has_more; order }) ->
+           let current = List.map (fun s -> s.id) @@ React.S.value events.streams in
+           let rval = Raw { data = merge current data; has_more; order } in
+           respond_result (Ok (rows_to_yojson stream_ids_to_yojson (fun () -> `Null) rval))
+        | _ -> respond_error ~status:`Not_implemented "FIXME" ()
+      
+      let streams db limit ids from till duration _ _ () =
         let open Api.Api_types in
         match Time.make_interval ?from ?till ?duration () with
         | Ok `Range (from,till) ->
            (* TODO make it more sound *)
-           Db.Streams.select_streams db ~with_pre:true ?limit ~from ~till
-           >>= fun (Ok Raw { data = streams; has_more; order = `Desc }) ->
-           let Some (_,oldest) = List.last_opt streams in
-           Db.Device.select_state db ?limit ~from:oldest ~till
-           >>= fun (Raw { data = states; has_more = _; order = `Desc }) ->
-           let v = merge_streams_state streams states in
-           let rval = Raw { data = v; has_more; order = `Desc } in
-           respond_result (Ok (rows_to_yojson strms_state_to_yojson (fun () -> `Null) rval))
+           Db.Streams.select_streams db ?limit ~ids ~from ~till ()
+           |> Lwt_result.map (fun x -> rows_to_yojson strms_state_to_yojson (fun () -> `Null) x)
+           |> Lwt_result.map_err (fun s -> (`String s : Yojson.Safe.json))
+           >>= respond_result 
            (*|> Lwt_result.map (fun d -> Api.Api_types.rows_to_yojson strms_to_yojson (fun () -> `Null) d)
            |> Lwt_result.map_err (fun s -> (`String s : Yojson.Safe.json))
            >>= fun x -> respond_result x*)
@@ -295,11 +303,19 @@ let ts_handler db (api:api) events =
             ; create_handler ~docstring:"Returns archived streams"
                 ~path:Path.Format.("archive" @/ empty)
                 ~query:Query.[ "limit",    (module Option(Int))
+                             ; "ids",      (module List(Int32))
                              ; "from",     (module Option(Time.Show))
                              ; "to",       (module Option(Time.Show))
                              ; "duration", (module Option(Time.Relative)) ]
                 (HTTP.TS.Archive.streams db)
-                (*  ; create_handler ~docstring:"Retunrs archived stream state"
+            ; create_handler ~docstring:"Returns archived streams"
+                ~path:Path.Format.("archive/ids" @/ empty)
+                ~query:Query.[ "limit",    (module Option(Int))
+                             ; "from",     (module Option(Time.Show))
+                             ; "to",       (module Option(Time.Show))
+                             ; "duration", (module Option(Time.Relative)) ]
+                (HTTP.TS.Archive.stream_ids db events)
+            (*  ; create_handler ~docstring:"Retunrs archived stream state"
                 ~path:Path.Format.("state/archive" @/ empty)
                 ~query:Query.[ "id",       (module List(Int32))
                              ; "limit",    (module Option(Int))

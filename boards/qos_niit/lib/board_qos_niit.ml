@@ -25,6 +25,18 @@ let tick tm =
     push (); Lwt_unix.sleep tm >>= loop
   in
   e, loop
+
+let appeared_streams ~(past:Common.Stream.t list) ~(pres:Common.Stream.t list) =
+  let open Common.Stream in
+  let rec not_in_or_diff s = function
+    | [] -> true
+    | so::_ when equal so s -> false
+    | _::tl -> not_in_or_diff s tl
+  in
+  let appeared = List.fold_left (fun acc pres ->
+                     if not_in_or_diff pres past
+                     then pres::acc else acc) [] pres in
+  appeared
                        
 let create (b:topo_board) _ convert_streams send db_conf base step =
   let conv            = fun x -> convert_streams x b in
@@ -40,8 +52,18 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
   @@ Lwt_react.E.select [ Lwt_react.S.changes events.device.state
                         ; Lwt_react.S.sample (fun _ e -> e) tick events.device.state ];
   (* Streams *)
-  Lwt_react.S.keep
-  @@ Lwt_react.S.map (fun s -> Lwt.ignore_result @@ Db.Streams.insert_streams db s) events.streams.streams;
+  let streams_ev   =
+    Lwt_react.S.sample (fun () sl -> `Active sl) tick events.streams.streams
+  in
+  let streams_diff =
+    Lwt_react.S.diff (fun pres past -> `New (appeared_streams ~past ~pres)) events.streams.streams
+  in
+  Lwt_react.E.keep
+  @@ Lwt_react.E.map_s (function
+         | `Active streams -> Db.Streams.bump_streams db streams
+         | `New streams -> Db.Streams.insert_streams db streams)
+  @@ Lwt_react.E.select [streams_ev; streams_diff];
+  (* @@ Lwt_react.S.map (fun s -> Lwt.ignore_result @@ Db.Streams.insert_streams db s) events.streams.streams; *)
   (* Structs ts *)
   Lwt_react.E.keep
   @@ Lwt_react.E.map_p (fun s -> Lwt.(catch (fun () -> Db.Streams.insert_structs_ts db s)
