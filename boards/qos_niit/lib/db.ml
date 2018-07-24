@@ -248,19 +248,20 @@ module Streams = struct
   let select_stream_unique  db ?(limit = 500) ~from ~till () =
     let open Common.Stream in
     let table  = (Conn.names db).streams in
-    let select = R.collect Types.(tup3 ptime ptime int) Types.string
-                   (sprintf {|SELECT stream FROM %s 
+    let select = R.collect Types.(tup3 ptime ptime int) Types.(tup2 string ptime)
+                   (sprintf {|SELECT stream,MAX(date_end) FROM %s 
                              WHERE date_end >= $1 AND date_start <= $2 
                              GROUP BY stream LIMIT $3|} table) in
     Conn.request db Request.(list select (from,till,limit) >>= fun data ->
-                             try let data = List.map (fun s -> Result.get_exn @@ of_yojson @@ Yojson.Safe.from_string s) data in
+                             try let data = List.map (fun (s,t) ->
+                                                Result.get_exn @@ of_yojson @@ Yojson.Safe.from_string s, t) data in
                                  return (Ok (Raw { data; has_more = List.length data >= limit; order = `Desc }))
                              with _ -> return (Error "Stream parser failure"))
     
   let select_stream_ids  db ?(limit = 500) ~from ~till () =
     let table  = (Conn.names db).streams in
-    let select = R.collect Types.(tup3 ptime ptime int) Types.int32
-                       (sprintf {|SELECT id FROM %s 
+    let select = R.collect Types.(tup3 ptime ptime int) Types.(tup2 int32 ptime)
+                       (sprintf {|SELECT id,MAX(date_end) FROM %s 
                                  WHERE date_end >= $1 AND date_start <= $2 
                                  GROUP BY id LIMIT $3|} table) in
     Conn.request db Request.(list select (from,till,limit) >>= fun data ->

@@ -135,9 +135,9 @@ module HTTP = struct
 
       type strms_state = (Common.Stream.t * Time.t * Time.t) list [@@deriving yojson]
 
-      type stream_ids = Common.Stream.stream_id list [@@deriving yojson]
+      type stream_ids = (Common.Stream.stream_id * [`Now | `Last of Time.t]) list [@@deriving yojson]
 
-      type stream_uniq = Common.Stream.t list [@@deriving yojson]
+      type stream_uniq = (Common.Stream.t * [`Now | `Last of Time.t]) list [@@deriving yojson]
 
       (* merge ordered descending lists of streams and board states *)
       let merge_streams_state
@@ -163,8 +163,10 @@ module HTTP = struct
         let open Common.Stream in
         let open Lwt_result.Infix in
         let merge (cur:t list) streams =
-          let cur = List.filter (fun s -> List.exists (equal s) streams) cur in
-          cur @ streams
+          let streams = List.filter_map (fun (s,t) ->
+                            if List.exists (equal s) cur then None
+                            else Some (s, `Last t)) streams in
+          (List.map (fun s -> s,`Now) cur) @ streams
         in
         match Time.make_interval ?from ?till ?duration () with
         | Ok `Range (from,till) ->
@@ -182,10 +184,12 @@ module HTTP = struct
         let open Api.Api_types in
         let open Common.Stream in
         let merge (cur:stream_id list) ids =
-          let cur = List.filter (function `Ip _ -> true
-                                        | `Ts id -> not @@ List.exists (Int32.equal (id_to_int32 id)) ids)
-                      cur
-          in cur @ List.map (fun x -> `Ts (id_of_int32 x)) ids
+          let ids = List.filter_map (fun (x,t) ->
+                        let id = `Ts (id_of_int32 x) in
+                        if List.exists (equal_stream_id id) cur then None
+                        else Some (id, `Last t))
+                      ids
+          in (List.map (fun id -> id, `Now) cur) @ ids
         in
         match Time.make_interval ?from ?till ?duration () with
         | Ok `Range (from,till) ->
@@ -330,6 +334,13 @@ let ts_handler db (api:api) events =
                              ; "to",       (module Option(Time.Show))
                              ; "duration", (module Option(Time.Relative)) ]
                 (HTTP.TS.Archive.streams db)
+            ; create_handler ~docstring:"Returns archived streams"
+                ~path:Path.Format.("archive/streams" @/ empty)
+                ~query:Query.[ "limit",    (module Option(Int))
+                             ; "from",     (module Option(Time.Show))
+                             ; "to",       (module Option(Time.Show))
+                             ; "duration", (module Option(Time.Relative)) ]
+                (HTTP.TS.Archive.stream_unique db events)
             ; create_handler ~docstring:"Returns archived streams"
                 ~path:Path.Format.("archive/ids" @/ empty)
                 ~query:Query.[ "limit",    (module Option(Int))
