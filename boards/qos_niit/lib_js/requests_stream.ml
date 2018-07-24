@@ -26,12 +26,6 @@ module WS = struct
         ~query:Query.empty
         control (Stream.id_to_int32 id)
 
-    let get_state ~id control =
-      WS.get ~from:state_of_yojson
-        ~path:Path.Format.(get_base_path () / ("state" @/ empty))
-        ~query:Query.empty
-        control (Stream.id_to_int32 id)
-
     let get_bitrate ~id control =
       WS.get ~from:bitrate_of_yojson
         ~path:Path.Format.(get_base_path () / ("bitrate" @/ empty))
@@ -50,12 +44,6 @@ module WS = struct
 
     open Streams.T2MI
     include T2MI
-
-    let get_state ~id control =
-      WS.get ~from:state_of_yojson
-        ~path:Path.Format.(get_base_path () / ("state" @/ empty))
-        ~query:Query.empty
-        control id
 
     let get_structure ~id control =
       WS.get ~from:structure_of_yojson
@@ -79,12 +67,6 @@ module HTTP = struct
     let get_stream ~id control =
       get_result ~from:Stream.of_yojson
         ~path:(get_base_path ())
-        ~query:Query.empty
-        control (Stream.id_to_int32 id)
-
-    let get_state ~id control =
-      get_result ~from:state_of_yojson
-        ~path:Path.Format.(get_base_path () / ("state" @/ empty))
         ~query:Query.empty
         control (Stream.id_to_int32 id)
 
@@ -163,12 +145,6 @@ module HTTP = struct
 
     open Streams.T2MI
     include T2MI
-
-    let get_state ~id control =
-      get_result ~from:state_of_yojson
-        ~path:Path.Format.(get_base_path () / ("state" @/ empty))
-        ~query:Query.empty
-        control id
 
     let get_structure ~id control =
       get_result ~from:structure_of_yojson

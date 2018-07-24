@@ -127,13 +127,6 @@ module Streams = struct
 
   module TS = struct
 
-    (** TS state *)
-
-    type state =
-      { timestamp : Time.t
-      ; present   : bool
-      } [@@deriving yojson]
-
     (** TS bitrate *)
 
     type pid_bitrate =
@@ -354,21 +347,18 @@ module Streams = struct
 
   module T2MI = struct
 
-    (** T2MI state **)
-
-    type state =
-      { timestamp : Time.t
-      ; present   : bool
-      } [@@deriving yojson]
-
     (** T2MI structure **)
 
-    type structure =
+    type t2mi_stream_info =
       { packets      : int list
-      ; timestamp    : Time.t
       ; t2mi_pid     : int option
       ; l1_pre       : string option
       ; l1_post_conf : string option
+      } [@@deriving yojson]
+
+    type structure =
+      { timestamp : Time.t
+      ; streams   : (int * t2mi_stream_info) list
       } [@@deriving yojson]
 
     (** T2-MI packet sequence **)

@@ -41,28 +41,28 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
                         ; Lwt_react.S.sample (fun _ e -> e) tick events.device.state ];
   (* Streams *)
   Lwt_react.S.keep
-  @@ Lwt_react.S.map (fun s -> Lwt.ignore_result @@ Db.Streams.insert_streams db s) events.streams.streams;
+  @@ Lwt_react.S.map (fun s -> Lwt.ignore_result @@ Db.Streams.insert_streams db s) events.streams;
   (* Structs ts *)
   Lwt_react.E.keep
   @@ Lwt_react.E.map_p (fun s ->
          Lwt.(catch (fun () -> Db.Streams.insert_structs_ts db s)
                 (fun e -> Logs_lwt.err (fun m -> m "ERROR %s" @@ Printexc.to_string e))))
-       events.streams.ts_structures_d;
+       events.ts.structures;
   (* Structs t2 *)
-  Lwt_react.E.keep
-  @@ Lwt_react.E.map_p (fun s -> Db.Streams.insert_structs_t2 db s) events.streams.t2mi_structures;
+  (* Lwt_react.E.keep
+   * @@ Lwt_react.E.map_p (fun s -> Db.Streams.insert_structs_t2 db s) events.t2mi.structures; *)
   (* TS bitrates *)
 (*  Lwt_react.E.keep
   @@ Lwt_react.E.map_p (fun b -> Db.Streams.insert_bitrate db b) events.streams.ts_bitrates; *)
   (* Errors *)
   Lwt_react.E.keep @@
-    Lwt_react.E.map_p (fun e -> Db.Errors.insert_errors ~is_ts:true db e) events.errors.ts_errors;
+    Lwt_react.E.map_p (fun e -> Db.Errors.insert_errors ~is_ts:true db e) events.ts.errors;
   Lwt_react.E.keep @@
-    Lwt_react.E.map_p (fun e -> Db.Errors.insert_errors ~is_ts:false db e) events.errors.t2mi_errors;
+    Lwt_react.E.map_p (fun e -> Db.Errors.insert_errors ~is_ts:false db e) events.t2mi.errors;
   let state = (object val db = db val _tick = tick_loop () method finalize () = () end) in (* TODO fix finalize *)
   { handlers       = handlers
   ; control        = b.control
-  ; streams_signal = events.streams.streams
+  ; streams_signal = events.streams
   ; step           = step
   ; connection     = events.device.state
   ; ports_active   =

@@ -30,12 +30,6 @@ module WS = struct
                      ; "input", (module List(Topology.Show_topo_input)) ]
         control (List.map Stream.id_to_int32 ids) inputs
 
-    let get_state ?(ids=[]) control =
-      WS.get ~from:(of_yojson state_of_yojson)
-        ~path:Path.Format.(get_base_path () / ("state" @/ empty))
-        ~query:Query.[ "id", (module List(Int32)) ]
-        control (List.map Stream.id_to_int32 ids)
-
     let get_bitrate ?(ids=[]) control =
       WS.get ~from:(of_yojson bitrate_of_yojson)
         ~path:Path.Format.(get_base_path () / ("bitrate" @/ empty))
@@ -56,12 +50,6 @@ module WS = struct
     include T2MI
 
     let of_yojson f v = Json.(List.of_yojson (Pair.of_yojson Int.of_yojson f) v)
-
-    let get_state ?(ids=[]) control =
-      WS.get ~from:(of_yojson state_of_yojson)
-        ~path:Path.Format.(get_base_path () / ("state" @/ empty))
-        ~query:Query.[ "id", (module List(Int)) ]
-        control ids
 
     let get_structure ?(ids=[]) control =
       WS.get ~from:(of_yojson structure_of_yojson)
@@ -87,12 +75,6 @@ module HTTP = struct
     let get_streams ?(ids=[]) control =
       get_result ~from:(Json.List.of_yojson Stream.of_yojson)
         ~path:(get_base_path ())
-        ~query:Query.[ "id", (module List(Int32)) ]
-        control (List.map Stream.id_to_int32 ids)
-
-    let get_state ?(ids=[]) control =
-      get_result ~from:(of_yojson state_of_yojson)
-        ~path:Path.Format.(get_base_path () / ("state" @/ empty))
         ~query:Query.[ "id", (module List(Int32)) ]
         control (List.map Stream.id_to_int32 ids)
 
@@ -170,12 +152,6 @@ module HTTP = struct
     include T2MI
 
     let of_yojson f v = Json.(List.of_yojson (Pair.of_yojson Int.of_yojson f) v)
-
-    let get_state ?(ids=[]) control =
-      get_result ~from:(of_yojson state_of_yojson)
-        ~path:Path.Format.(get_base_path () / ("state" @/ empty))
-        ~query:Query.[ "id", (module List(Int32)) ]
-        control (List.map Stream.id_to_int32 ids)
 
     let get_structure ?(ids=[]) control =
       get_result ~from:(of_yojson structure_of_yojson)

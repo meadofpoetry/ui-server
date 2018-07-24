@@ -276,9 +276,10 @@ module Streams = struct
 
   let insert_structs_t2 db structs =
     let table  = (Conn.names db).struct_t2 in
-    let data   = List.map (fun (id,st) -> id,
-                                          Yojson.Safe.to_string @@ Board_types.Streams.T2MI.structure_to_yojson st,
-                                          st.timestamp)
+    let data   = List.map (fun (id,st) ->
+                     id,
+                     Yojson.Safe.to_string @@ Board_types.Streams.T2MI.structure_to_yojson st,
+                     st.timestamp)
                    structs in
     let insert = R.exec Types.(tup3 int string ptime)
                    (sprintf "INSERT INTO %s (stream,structure,date) VALUES (?,?,?)" table)
@@ -287,30 +288,36 @@ module Streams = struct
      
   let select_structs_t2 db ?(with_pre = true) ?(limit = 500) ?(ids = []) ~from ~till =
     let table  = (Conn.names db).struct_t2 in
-    let ids    = is_in "stream" string_of_int ids in
-    let select = R.collect Types.(tup3 ptime ptime int) Types.(tup3 int string ptime)
-                   (sprintf {|SELECT * FROM %s WHERE %s date >= $1 AND date <= $2 
-                             ORDER BY date DESC LIMIT $3|} table ids)
-    in
-    let select_pre = R.collect Types.(tup3 ptime ptime int) Types.(tup3 int string ptime)
-                       (sprintf {|(SELECT * FROM %s WHERE %s date >= $1 AND date <= $2 ORDER BY date DESC)
-                                 UNION ALL
-                                 (SELECT * FROM %s WHERE %s date < $1 ORDER BY date DESC LIMIT 1) 
-                                 ORDER BY date LIMIT $3|} table ids table ids) in
-    Conn.request db Request.(list (if with_pre then select_pre else select) (from, till, limit) >>= fun l ->
-                             try let data = List.map (fun (id,s,t) -> id,
-                                                                      unwrap
-                                                                      @@ Board_types.Streams.T2MI.structure_of_yojson
-                                                                      @@ Yojson.Safe.from_string s,
-                                                                      t) l
-                                 in return @@ Ok (Raw { data; has_more = List.length data >= limit; order = `Desc })
-                             with e -> return @@ Error (Printexc.to_string e))
+    let ids    = is_in "stream" Int32.to_string ids in
+    let select =
+      R.collect Types.(tup3 ptime ptime int) Types.(tup3 int32 string ptime)
+        (sprintf {|SELECT * FROM %s WHERE %s date >= $1 AND date <= $2
+                  ORDER BY date DESC LIMIT $3|} table ids) in
+    let select_pre =
+      R.collect Types.(tup3 ptime ptime int) Types.(tup3 int32 string ptime)
+        (sprintf {|(SELECT * FROM %s WHERE %s date >= $1 AND date <= $2 ORDER BY date DESC)
+                  UNION ALL
+                  (SELECT * FROM %s WHERE %s date < $1 ORDER BY date DESC LIMIT 1)
+                  ORDER BY date LIMIT $3|} table ids table ids) in
+    Conn.request db Request.(
+      list (if with_pre then select_pre else select) (from, till, limit)
+      >>= fun l ->
+      try let data = List.map (fun (id,s,t) ->
+                         Stream.id_of_int32 id,
+                         unwrap
+                         @@ Board_types.Streams.T2MI.structure_of_yojson
+                         @@ Yojson.Safe.from_string s,
+                         t) l
+          in return @@ Ok (Raw { data
+                               ; has_more = List.length data >= limit
+                               ; order = `Desc })
+      with e -> return @@ Error (Printexc.to_string e))
 
   let insert_bitrate db bits =
     let table  = (Conn.names db).bitrate in
     let data   = List.map (fun (id,bit) -> Common.Stream.id_to_int32 id,
-                                          Yojson.Safe.to_string @@ Board_types.Streams.TS.bitrate_to_yojson bit,
-                                          bit.timestamp)
+                                           Yojson.Safe.to_string @@ Board_types.Streams.TS.bitrate_to_yojson bit,
+                                           bit.timestamp)
                    bits in
     let insert = R.exec Types.(tup3 int32 string ptime)
                    (sprintf "INSERT INTO %s (stream,bitrates,date) VALUES (?,?,?)" table)

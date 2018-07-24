@@ -157,6 +157,11 @@
   }
 }
 
+.mdc-data-table-footer {
+    padding: 0px;
+    font-size: 0.75rem;
+}
+
 .mdc-data-table--sticky-header {
     thead tr:nth-child(1) th{
         position: sticky;

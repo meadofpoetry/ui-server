@@ -24,7 +24,7 @@ type probe_response =
   | Board_errors of board_errors
   | Bitrate      of (Stream.id * Streams.TS.bitrate) list
   | Struct       of (Stream.id * Streams.TS.structure) list
-  | T2mi_info    of (int * Streams.T2MI.structure)
+  | T2mi_info    of (Stream.id * Streams.T2MI.structure)
   | Jitter       of Types.jitter_raw
 
 type _ probe_request =
@@ -77,7 +77,7 @@ let to_complex_req ?client_id ?request_id ~msg_code ~body () =
   let hdr = to_complex_req_header ?client_id ?request_id ~msg_code ~length () in
   Cstruct.append hdr body
 
-let to_set_board_mode_req mode =
+let to_set_board_mode_req (mode:mode) =
   let t2mi = Option.get_or ~default:t2mi_mode_default mode.t2mi in
   let body = Cstruct.create sizeof_board_mode in
   let () = input_to_int mode.input
@@ -226,9 +226,9 @@ module Get_t2mi_frame_seq : (Request
   let req_code = 0x0306
   let rsp_code = req_code
 
-  let serialize { seconds; request_id } =
+  let serialize ({ request_id; params }:t2mi_frame_seq_req) =
     let body = Cstruct.create sizeof_req_get_t2mi_frame_seq in
-    let ()   = set_req_get_t2mi_frame_seq_time body seconds in
+    let ()   = set_req_get_t2mi_frame_seq_time body params.seconds in
     to_complex_req ~request_id:request_id ~msg_code:req_code ~body ()
 
   let parse _ msg =
@@ -569,49 +569,59 @@ module Get_bitrates : (Request
 
 end
 
-module Get_t2mi_info : (Request with type req := t2mi_info_req
-                                 and type rsp := int * Streams.T2MI.structure) = struct
+module Get_t2mi_info : (Request
+                        with type req := t2mi_info_req
+                         and type rsp := Stream.id * Streams.T2MI.structure) =
+  struct
 
   open Streams.T2MI
 
   let req_code = 0x030B
   let rsp_code = req_code
 
-  let serialize ({ request_id; stream_id } : t2mi_info_req) =
+  let serialize ({ request_id; stream_id; _ } : t2mi_info_req) =
     let body = Cstruct.create sizeof_req_get_t2mi_info in
     let ()   = set_req_get_t2mi_info_stream_id body stream_id in
     to_complex_req ~request_id ~msg_code:req_code ~body ()
 
-  let parse _ msg =
-    let hdr,rest  = Cstruct.split msg sizeof_t2mi_info in
+  let parse ({ stream; _ }:t2mi_info_req) msg =
+    let hdr, rest = Cstruct.split msg sizeof_t2mi_info in
     let iter      = Cstruct.iter (fun _ -> Some 1)
                       (fun buf -> Cstruct.get_uint8 buf 0)
                       (get_t2mi_info_packets hdr) in
-    let packets   = Cstruct.fold (fun acc el -> (List.rev @@ int_to_bool_list el) @ acc) iter []
-                    |> List.rev
-                    |> List.foldi (fun acc i x -> if x then i :: acc else acc) []
-    in
-    let sid       = get_t2mi_info_stream_id hdr in
-    let length    = get_t2mi_info_length hdr in
+    let packets =
+      Cstruct.fold (fun acc el ->
+          (List.rev @@ int_to_bool_list el) @ acc) iter []
+      |> List.rev
+      |> List.foldi (fun acc i x -> if x then i :: acc else acc) [] in
+    let sid = get_t2mi_info_stream_id hdr in
+    let length = get_t2mi_info_length hdr in
     let timestamp = Common.Time.Clock.now () in
     match length with
-    | 0 -> sid,{ packets; timestamp; t2mi_pid = None; l1_pre = None; l1_post_conf = None }
-    | l -> let body,_   = Cstruct.split rest l in
-           let conf_len = get_t2mi_info_ext_conf_len body
-                          |> fun x -> let r,d = x mod 8, x / 8 in d + (if r > 0 then 1 else 0)
-           in
+    | 0 -> stream,
+           { timestamp
+           ; streams = [ sid, { packets
+                              ; t2mi_pid     = None
+                              ; l1_pre       = None
+                              ; l1_post_conf = None }] }
+    | l -> let body, _ = Cstruct.split rest l in
+           let conf_len =
+             get_t2mi_info_ext_conf_len body
+             |> fun x -> let r, d = x mod 8,
+                                    x / 8 in d + (if r > 0 then 1 else 0) in
            let _,conf   = Cstruct.split body sizeof_t2mi_info_ext in
            let conf,_   = Cstruct.split conf conf_len in
            let l1_pre   = Cstruct.to_string @@ get_t2mi_info_ext_l1_pre body in
            let l1_post  = Cstruct.to_string conf in
-           sid,{ packets
-               ; timestamp
-               ; t2mi_pid     = Some (get_t2mi_info_ext_t2mi_pid body)
-               ; l1_pre       = Some l1_pre
-               ; l1_post_conf = Some l1_post
-               }
+           stream,
+           { timestamp
+           ; streams =
+               [ sid, { packets
+                      ; t2mi_pid     = Some (get_t2mi_info_ext_t2mi_pid body)
+                      ; l1_pre       = Some l1_pre
+                      ; l1_post_conf = Some l1_post } ] }
 
-end
+  end
 
 (* ---------------------- Events --------------------- *)
 
@@ -879,8 +889,9 @@ let parse_get_bitrates id = function
      @@ try_parse (Get_bitrates.parse id) buf
   | _ -> None
 
-let parse_get_t2mi_info (({request_id=id;stream_id=sid;_} as req): t2mi_info_req) = function
-  | `T2mi_info (r_id,_,stream_id,buf) when r_id = id && stream_id = sid ->
+let parse_get_t2mi_info (req:t2mi_info_req) = function
+  | `T2mi_info (r_id,_,stream_id,buf)
+       when r_id = req.request_id && stream_id = req.stream_id ->
      Option.map (fun x -> T2mi_info x)
      @@ try_parse (Get_t2mi_info.parse req) buf
   | _ -> None
@@ -913,14 +924,17 @@ module Make(M : sig val log_prefix : string end) = struct
            | Unknown_err          of string
 
   let string_of_err = function
-    | Bad_prefix x           -> "incorrect prefix: " ^ (string_of_int x)
-    | Bad_length x           -> "incorrect length: " ^ (string_of_int x)
-    | Bad_msg_code x         -> "incorrect code: "   ^ (string_of_int x)
-    | Bad_crc (code,x,y)     -> (Printf.sprintf "incorrect crc in msg with code = 0x%x, expected %d, got %d"
-                                   code x y)
-    | No_prefix_after_msg x  -> (Printf.sprintf "no prefix found after message payload, code = 0x%x" x)
+    | Bad_prefix x -> "incorrect prefix: " ^ (string_of_int x)
+    | Bad_length x -> "incorrect length: " ^ (string_of_int x)
+    | Bad_msg_code x -> "incorrect code: " ^ (string_of_int x)
+    | Bad_crc (code,x,y) ->
+       Printf.sprintf "incorrect crc in msg with code = 0x%x,\
+                       expected %d, got %d"
+         code x y
+    | No_prefix_after_msg x ->
+       Printf.sprintf "no prefix found after message payload, code = 0x%x" x
     | Insufficient_payload _ -> "insufficient payload"
-    | Unknown_err s          -> s
+    | Unknown_err s -> s
 
   let check_prefix buf =
     let prefix' = get_common_header_prefix buf in
@@ -930,17 +944,23 @@ module Make(M : sig val log_prefix : string end) = struct
     let hdr,rest = Cstruct.split buf sizeof_common_header in
     let code     = get_common_header_msg_code hdr in
     let has_crc  = (code land 2) > 0 in
-    let length   = (match code lsr 8 with
-                    | x when x = Get_board_info.rsp_code -> Some sizeof_board_info
-                    | x when x = Get_board_mode.rsp_code -> Some sizeof_board_mode
-                    | x when x = Status.msg_code         -> Some sizeof_status
-                    | x when x = Ts_errors.msg_code      -> Some ((get_ts_errors_length rest * 2) + 2)
-                    | x when x = T2mi_errors.msg_code    -> Some ((get_t2mi_errors_length rest * 2) + 2)
-                    | x when x = TS_streams.msg_code     -> Some ((get_streams_list_event_length rest * 2) + 2)
-                    | 0x09 -> Some ((get_complex_rsp_header_length rest * 2) + 2)
-                    | 0xFD -> Some 4 (* end of errors *)
-                    | 0xFF -> Some 0 (* end of transmission *)
-                    | _    -> None) in
+    let length   = match code lsr 8 with
+      | x when x = Get_board_info.rsp_code ->
+         Some sizeof_board_info
+      | x when x = Get_board_mode.rsp_code ->
+         Some sizeof_board_mode
+      | x when x = Status.msg_code ->
+         Some sizeof_status
+      | x when x = Ts_errors.msg_code ->
+         Some ((get_ts_errors_length rest * 2) + 2)
+      | x when x = T2mi_errors.msg_code ->
+         Some ((get_t2mi_errors_length rest * 2) + 2)
+      | x when x = TS_streams.msg_code ->
+         Some ((get_streams_list_event_length rest * 2) + 2)
+      | 0x09 -> Some ((get_complex_rsp_header_length rest * 2) + 2)
+      | 0xFD -> Some 4 (* end of errors *)
+      | 0xFF -> Some 0 (* end of transmission *)
+      | _    -> None in
     match length with
     | Some x -> Ok (x + (if has_crc then 2 else 0), has_crc, code, rest)
     | None   -> Error (Bad_msg_code code)
