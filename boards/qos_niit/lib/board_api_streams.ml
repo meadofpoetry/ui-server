@@ -137,6 +137,8 @@ module HTTP = struct
 
       type stream_ids = Common.Stream.stream_id list [@@deriving yojson]
 
+      type stream_uniq = Common.Stream.t list [@@deriving yojson]
+
       (* merge ordered descending lists of streams and board states *)
       let merge_streams_state
             (streams : (Common.Stream.t list * Time.t * Time.t) list)
@@ -155,6 +157,26 @@ module HTTP = struct
                                                                    | _ -> None) states) [] streams
         in (* TODO add compress *) 
         join streams state
+
+      let stream_unique db (events:events) limit from till duration _ _ () =
+        let open Api.Api_types in
+        let open Common.Stream in
+        let open Lwt_result.Infix in
+        let merge (cur:t list) streams =
+          let cur = List.filter (fun s -> List.exists (equal s) streams) cur in
+          cur @ streams
+        in
+        match Time.make_interval ?from ?till ?duration () with
+        | Ok `Range (from,till) ->
+           Db.Streams.select_stream_unique db ?limit ~from ~till ()
+           >>= (fun (Raw { data; has_more; order }) ->
+            let current = React.S.value events.streams in
+            Lwt_result.return (Raw { data = merge current data; has_more; order }))
+           |> Lwt_result.map (fun x -> rows_to_yojson stream_uniq_to_yojson (fun () -> `Null) x)
+           |> Lwt_result.map_err (fun s -> (`String s : Yojson.Safe.json))
+           |> fun t -> Lwt.bind t respond_result
+        | _ -> respond_error ~status:`Not_implemented "FIXME" ()
+        
 
       let stream_ids db (events:events) limit from till duration _ _ () =
         let open Api.Api_types in
