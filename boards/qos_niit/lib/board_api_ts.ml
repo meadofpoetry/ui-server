@@ -180,6 +180,7 @@ let handler db (api:api) events =
                        ; "pid",      (module List(Int))
                        ; "limit",    (module Option(Int))
                        ; "compress", (module Option(Bool))
+
                        ; "from",     (module Option(Time.Show))
                        ; "to",       (module Option(Time.Show))
                        ; "duration", (module Option(Time.Relative)) ]
