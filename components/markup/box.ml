@@ -16,6 +16,13 @@ module Make(Xml : Xml_sigs.NoWrap)
   let align_items_class_prefix     = CSS.add_modifier base_class "align-items-"
   let align_content_class_prefix   = CSS.add_modifier base_class "align-content-"
 
+  let get_wrap_class x =
+    CSS.add_modifier base_class
+      (match x with
+       | `Nowrap       -> "nowrap"
+       | `Wrap         -> "wrap"
+       | `Wrap_reverse -> "wrap-reverse")
+
   let get_justify_content_class x =
     justify_content_class_prefix
     ^ (match x with

@@ -237,7 +237,7 @@ module Streams = struct
     let data   = List.map (fun s -> id s.id, now) streams in
     let update_last = R.exec Types.(tup2 int32 ptime)
                         (sprintf {|UPDATE %s SET date_end = $2
-                                  WHERE id = $1 AND date_start = (SELECT date_start FROM %s
+                                  WHERE id = $1 AND date_start = (SELECT date_start FROM %s 
                                   WHERE id = $1 ORDER BY date_start DESC LIMIT 1)|}
                            table table)
     in
@@ -248,11 +248,11 @@ module Streams = struct
   let select_stream_unique  db ?(inputs = []) ~from ~till () =
     let open Common.Stream in
     let table  = (Conn.names db).streams in
-    let inputs = is_in "input" (fun i -> sprintf "'%s'::JSONB"
+    let inputs = is_in "input" (fun i -> sprintf "'%s'"
                                          @@ Yojson.Safe.to_string @@ Topology.topo_input_to_yojson i) inputs in
     let select = R.collect Types.(tup2 ptime ptime) Types.(tup3 string int32 ptime)
-                   (sprintf {|SELECT DISTINCT ON (id) stream,id,date_end FROM %s
-                             WHERE %s date_end >= $1 AND date_start <= $2
+                   (sprintf {|SELECT DISTINCT ON (id) stream,id,date_end FROM %s 
+                             WHERE %s date_end >= $1 AND date_start <= $2 
                              ORDER BY id, date_end DESC|} table inputs) in
     Conn.request db Request.(
       list select (from,till) >>= fun data ->
@@ -261,23 +261,24 @@ module Streams = struct
           return (Ok (Compressed { data }))
       with _ -> return (Error "Stream parser failure"))
 
-  let select_stream_ids  db ?(limit = 500) ~from ~till () =
+  let select_stream_ids  db ~from ~till () =
     let table  = (Conn.names db).streams in
-    let select = R.collect Types.(tup3 ptime ptime int) Types.(tup2 int32 ptime)
+    let select = R.collect Types.(tup2 ptime ptime) Types.(tup2 int32 ptime)
                        (sprintf {|SELECT id,MAX(date_end) FROM %s 
                                  WHERE date_end >= $1 AND date_start <= $2 
-                                 GROUP BY id LIMIT $3|} table) in
-    Conn.request db Request.(list select (from,till,limit) >>= fun data ->
-                             return (Raw { data; has_more = List.length data >= limit; order = `Desc }))
+                                 GROUP BY id|} table) in
+    Conn.request db Request.(list select (from,till) >>= fun data ->
+                             return (Compressed { data }))
     
 
   let select_streams db ?(limit = 500) ?(ids = []) ?(inputs = []) ~from ~till () =
     let table  = (Conn.names db).streams in
     let ids    = is_in "id" Int32.to_string ids in
-    let inputs = is_in "input" (fun i -> Yojson.Safe.to_string @@ Topology.topo_input_to_yojson i) inputs in
+    let inputs = is_in "input" (fun i -> sprintf "'%s'::JSONB"
+                                         @@ Yojson.Safe.to_string @@ Topology.topo_input_to_yojson i) inputs in
     let select = R.collect Types.(tup3 ptime ptime int) Types.(tup3 string ptime ptime)
                    (sprintf {|SELECT stream,date_start,date_end FROM %s
-                             WHERE %s %s date_start >= $1 AND date_end <= $2
+                             WHERE %s %s date_start >= $1 AND date_end <= $2 
                              ORDER BY date_end DESC LIMIT $3|} table ids inputs) in
     Conn.request db Request.(list select (from, till, limit) >>= fun l ->
                              try let data = List.map (fun (s,f,t) -> Result.get_exn
@@ -305,33 +306,27 @@ module Streams = struct
                    (sprintf {|SELECT * FROM %s WHERE %s date >= $1 AND date <= $2 
                              ORDER BY date DESC LIMIT $3|} table ids)
     in
-    let select_pre =
-      R.collect Types.(tup3 ptime ptime int) Types.(tup3 int32 string ptime)
-        (sprintf {|(SELECT * FROM %s WHERE %s date >= $1 AND date <= $2 ORDER BY date DESC)
-                  UNION ALL
-                  (SELECT * FROM %s WHERE %s date < $1 ORDER BY date DESC LIMIT 1) 
-                  ORDER BY date LIMIT $3|} table ids table ids) in
-    Conn.request db
-      Request.(list (if with_pre then select_pre else select)
-                 (from, till, limit)
-               >>= fun l ->
-               try let data =
-                     List.map (fun (id,s,_) ->
+    let select_pre = R.collect Types.(tup3 ptime ptime int) Types.(tup3 int32 string ptime)
+                       (sprintf {|(SELECT * FROM %s WHERE %s date >= $1 AND date <= $2 ORDER BY date DESC)
+                                 UNION ALL
+                                 (SELECT * FROM %s WHERE %s date < $1 ORDER BY date DESC LIMIT 1) 
+                                 ORDER BY date LIMIT $3|} table ids table ids) in
+    Conn.request db Request.(
+      list (if with_pre then select_pre else select) (from, till, limit)
+      >>= fun l ->
+      try let data = List.map (fun (id,s,_) ->
                          Common.Stream.id_of_int32 id,
                          unwrap
                          @@ Board_types.Streams.TS.structure_of_yojson
                          @@ Yojson.Safe.from_string s) l
-                   in return @@ Ok (Raw { data
-                                        ; has_more = List.length data >= limit
-                                        ; order    = `Desc })
-               with e -> return @@ Error (Printexc.to_string e))
+          in return @@ Ok (Raw { data; has_more = List.length data >= limit; order = `Desc })
+      with e -> return @@ Error (Printexc.to_string e))
 
   let insert_structs_t2 db structs =
     let table  = (Conn.names db).struct_t2 in
-    let data   = List.map (fun (id,st) ->
-                     id,
-                     Yojson.Safe.to_string @@ Board_types.Streams.T2MI.structure_to_yojson st,
-                     st.timestamp)
+    let data   = List.map (fun (id,st) -> id,
+                                          Yojson.Safe.to_string @@ Board_types.Streams.T2MI.structure_to_yojson st,
+                                          st.timestamp)
                    structs in
     let insert = R.exec Types.(tup3 int string ptime)
                    (sprintf "INSERT INTO %s (stream,structure,date) VALUES (?,?,?)" table)
@@ -340,36 +335,34 @@ module Streams = struct
      
   let select_structs_t2 db ?(with_pre = true) ?(limit = 500) ?(ids = []) ~from ~till =
     let table  = (Conn.names db).struct_t2 in
-    let ids    = is_in "stream" Int32.to_string ids in
+    let ids    = is_in "stream" Fun.(Stream.id_to_int32 %> Int32.to_string) ids in
     let select =
       R.collect Types.(tup3 ptime ptime int) Types.(tup3 int32 string ptime)
-        (sprintf {|SELECT * FROM %s WHERE %s date >= $1 AND date <= $2
-                  ORDER BY date DESC LIMIT $3|} table ids) in
+        (sprintf {|SELECT * FROM %s WHERE %s date >= $1 AND date <= $2 
+                  ORDER BY date DESC LIMIT $3|} table ids)
+    in
     let select_pre =
       R.collect Types.(tup3 ptime ptime int) Types.(tup3 int32 string ptime)
         (sprintf {|(SELECT * FROM %s WHERE %s date >= $1 AND date <= $2 ORDER BY date DESC)
                   UNION ALL
-                  (SELECT * FROM %s WHERE %s date < $1 ORDER BY date DESC LIMIT 1)
+                  (SELECT * FROM %s WHERE %s date < $1 ORDER BY date DESC LIMIT 1) 
                   ORDER BY date LIMIT $3|} table ids table ids) in
     Conn.request db Request.(
       list (if with_pre then select_pre else select) (from, till, limit)
       >>= fun l ->
-      try let data = List.map (fun (id,s,t) ->
+      try let data = List.map (fun (id,s,_) ->
                          Stream.id_of_int32 id,
                          unwrap
                          @@ Board_types.Streams.T2MI.structure_of_yojson
-                         @@ Yojson.Safe.from_string s,
-                         t) l
-          in return @@ Ok (Raw { data
-                               ; has_more = List.length data >= limit
-                               ; order = `Desc })
+                         @@ Yojson.Safe.from_string s) l
+          in return @@ Ok (Raw { data; has_more = List.length data >= limit; order = `Desc })
       with e -> return @@ Error (Printexc.to_string e))
 
   let insert_bitrate db bits =
     let table  = (Conn.names db).bitrate in
     let data   = List.map (fun (id,bit) -> Common.Stream.id_to_int32 id,
-                                           Yojson.Safe.to_string @@ Board_types.Streams.TS.bitrate_to_yojson bit,
-                                           bit.timestamp)
+                                          Yojson.Safe.to_string @@ Board_types.Streams.TS.bitrate_to_yojson bit,
+                                          bit.timestamp)
                    bits in
     let insert = R.exec Types.(tup3 int32 string ptime)
                    (sprintf "INSERT INTO %s (stream,bitrates,date) VALUES (?,?,?)" table)
@@ -473,10 +466,9 @@ module Errors = struct
        List.fold_left (fun acc (p,from,till) ->
            acc >>= fun acc ->
            Device.select_state_compressed_internal db ~from ~till
-           >>= fun (f,_,_) ->
-           Lwt.return ( { errors    = (100. *. p /. f)
-                        ; no_stream = (100. -. f)
-                        ; period    = from, till } :: acc))
+           >>= fun (f,_,_) -> Lwt.return ( { errors = 100. *. p /. f
+                                           ; no_stream = 100. -. f
+                                           ; period = from, till } :: acc))
          (Lwt.return []) l
        >|= fun data -> Compressed { data }
 

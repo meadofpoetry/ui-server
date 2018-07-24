@@ -135,7 +135,11 @@ module HTTP = struct
     | Ok `Range (from,till) ->
        Db.Streams.select_stream_unique db ~inputs ~from ~till ()
        >>= (fun (Compressed { data }) ->
-        let current = React.S.value events.streams in
+        let current =
+          React.S.value events.streams
+          |> List.filter (fun (s:Stream.t) ->
+                 let input = Stream.get_input s in
+                 List.mem ~eq:Topology.equal_topo_input input inputs) in
         Lwt_result.return (Compressed { data = merge current data }))
        |> Lwt_result.map (fun x -> rows_to_yojson (fun () -> `Null) streams_unique_to_yojson x)
        |> Lwt_result.map_err (fun s -> (`String s : Yojson.Safe.json))
@@ -208,16 +212,19 @@ module HTTP = struct
                     |> Result.return)
       >>= respond_result
 
-    type struct_t2 = (Stream.id * Board_types.Streams.T2MI.structure * Time.t)
-                       list [@@deriving yojson]
+    let struct_to_yojson =
+      Json.(List.to_yojson (Pair.to_yojson
+                              Stream.id_to_yojson
+                              structure_to_yojson))
 
     let structure db id ids limit from till duration _ _ () =
+      let id = Stream.id_of_int32 id in
       match Time.make_interval ?from ?till ?duration () with
       | Ok `Range (from,till) ->
          Db.Streams.select_structs_t2 db ~with_pre:true
            ?limit ~ids:[id] ~from ~till
          |> Lwt_result.map (fun d ->
-                Api.Api_types.rows_to_yojson struct_t2_to_yojson
+                Api.Api_types.rows_to_yojson struct_to_yojson
                   (fun () -> `Null) d)
          |> Lwt_result.map_err (fun s -> (`String s : Yojson.Safe.json))
          >>= fun x -> respond_result x

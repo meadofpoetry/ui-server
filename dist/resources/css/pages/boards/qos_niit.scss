@@ -2,6 +2,9 @@
 @import "../../components/theme/_color-palette";
 @import "../../components/typography/_mixins";
 
+$alarm-color: $material-color-red-100;
+$fill-tone: mdc-theme-tone($alarm-color);
+
 /* Structure widget */
 
 @mixin structure-tree-stream-lost {
@@ -99,5 +102,18 @@
     }
     .qos-niit-structure__stream-panel {
         @include structure-tree-stream-lost;
+    }
+}
+
+/* Streams items */
+
+.qos-niit-stream-item {
+    &--lost {
+        @include mdc-theme-prop(background-color, $alarm-color);
+        @if ($fill-tone == "dark") {
+            @include mdc-theme-prop(color, text-primary-on-dark);
+        } @else {
+            @include mdc-theme-prop(color, text-primary-on-light);
+        }
     }
 }

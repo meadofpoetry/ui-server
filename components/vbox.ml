@@ -2,9 +2,9 @@ open Containers
 
 module Markup = Box.Markup
 
-class t ?tag ?(gap=0) ?halign ?valign ~(widgets:#Widget.t list) () =
+class t ?tag ?(gap=0) ?wrap ?halign ?valign ~(widgets:#Widget.t list) () =
 object(self)
-  inherit Box.t ?tag ~gap ~direction:`Column ~widgets ()
+  inherit Box.t ?tag ?wrap ~gap ~direction:`Column ~widgets ()
 
   method! set_direction _ = failwith "not implemented for vertical box"
 

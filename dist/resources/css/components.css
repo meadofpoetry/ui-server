@@ -17,6 +17,12 @@
     flex-direction: column; }
   .mdc-box--horizontal {
     flex-direction: row; }
+  .mdc-box--wrap {
+    flex-wrap: wrap; }
+  .mdc-box--nowrap {
+    flex-wrap: nowrap; }
+  .mdc-box--wrap-reverse {
+    flex-wrap: wrap-reverse; }
   .mdc-box--justify-content-start {
     justify-content: flex-start; }
   .mdc-box--justify-content-end {
@@ -7064,6 +7070,10 @@ a.mdc-list-item {
       background-color: rgba(98, 0, 238, 0.07); }
       .mdc-data-table tbody .mdc-data-table__row--selected:hover, .mdc-data-table tbody .mdc-data-table__row:active:hover {
         background-color: rgba(98, 0, 238, 0.12); }
+
+.mdc-data-table-footer {
+  padding: 0px;
+  font-size: 0.75rem; }
 
 .mdc-data-table--sticky-header thead tr:nth-child(1) th {
   position: sticky;

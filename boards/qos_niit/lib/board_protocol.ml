@@ -363,7 +363,9 @@ module SM = struct
   let to_raw_streams_s (group:group event) : Stream.stream list signal =
     let conv : input -> Stream.id -> Stream.stream = fun i x ->
       { id          = `Ts x
-      ; description = Some ""
+      ; description = (match x with
+                       | T2mi_plp x -> Some (Printf.sprintf "T2-MI PLP %d" x)
+                       | _          -> Some "Входной поток")
       ; source      = (match x with (* FIXME *)
                        | T2mi_plp _ -> Stream Single
                        | _          -> Port (match i with SPI -> 0 | ASI -> 1))

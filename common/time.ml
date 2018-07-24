@@ -107,16 +107,16 @@ let make_interval ?(from:t option) ?(till:t option) ?(duration:span option) () =
   | Some s,None,Some d   -> (match add_span s d with
                              | Some e -> ok (`Range (s,e))
                              | None   -> err "time range exceeded")
-  | Some s,None,None     -> ok (`From s)
+  | Some s,None,None     -> ok (`Range (s, max))
   | None,Some e,Some d   -> (match sub_span e d with
                              | Some s -> ok (`Range (s,e))
                              | None   -> err "time range exceeded")
-  | None,Some e,None     -> ok (`Till e)
+  | None,Some e,None     -> ok (`Range (epoch, e))
   | None,None,Some d     -> let e = Clock.now () in
                             (match sub_span e d with
                              | Some s -> ok (`Range (s,e))
                              | None   -> err "time range exceeded")
-  | None,None,None       -> ok `Whole
+  | None,None,None       -> ok (`Range (epoch, max))
 
 let split ~from ~till =
   let second = 1 in

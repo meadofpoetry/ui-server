@@ -7,9 +7,10 @@ type direction       = [ `Row   | `Column ]
 type justify_content = [ `Start | `End | `Center | `Space_between | `Space_around | `Space_evenly ]
 type align_items     = [ `Start | `End | `Center | `Stretch | `Baseline ]
 type align_content   = [ `Start | `End | `Center | `Stretch | `Space_between | `Space_around ]
+type wrap            = [ `Nowrap | `Wrap | `Wrap_reverse ]
 
 class t ?tag ?(gap=0) ?(justify_content=`Start) ?(align_items=`Stretch) ?(align_content=`Stretch)
-        ~direction ~(widgets:#Widget.t list) () =
+        ?(wrap=`Nowrap) ~direction ~(widgets:#Widget.t list) () =
   let vertical = match direction with `Row -> false | `Column -> true in
   let elt = Markup.create ~vertical ~content:(List.map Widget.to_markup widgets) ?tag ()
             |> Tyxml_js.To_dom.of_element in
@@ -19,6 +20,7 @@ class t ?tag ?(gap=0) ?(justify_content=`Start) ?(align_items=`Stretch) ?(align_
     val mutable _justify_content : justify_content = justify_content
     val mutable _align_items     : align_items     = align_items
     val mutable _align_content   : align_content   = align_content
+    val mutable _wrap            : wrap            = wrap
     val mutable _gap             : int             = gap
 
     inherit Widget.t elt ()
@@ -32,6 +34,12 @@ class t ?tag ?(gap=0) ?(justify_content=`Start) ?(align_items=`Stretch) ?(align_
 
     method gap = _gap
     method set_gap (x:int) : unit = _gap <- x (* TODO implement *)
+
+    method wrap = _wrap
+    method set_wrap (x:wrap) : unit =
+      self#remove_wrap;
+      self#add_class @@ Markup.get_wrap_class x;
+      _wrap <-x
 
     method justify_content = justify_content
     method set_justify_content x =
@@ -51,6 +59,8 @@ class t ?tag ?(gap=0) ?(justify_content=`Start) ?(align_items=`Stretch) ?(align_
       self#add_class @@ Markup.get_align_content_class x;
       _align_content <- x
 
+    method remove_wrap =
+      self#remove_class @@ Markup.get_wrap_class _wrap
     method private remove_justify_content =
       List.iter (fun x -> self#remove_class x)
       @@ self#find_classes Markup.justify_content_class_prefix
@@ -62,6 +72,7 @@ class t ?tag ?(gap=0) ?(justify_content=`Start) ?(align_items=`Stretch) ?(align_
       @@ self#find_classes Markup.align_content_class_prefix
 
     initializer
+      self#set_wrap _wrap;
       self#set_justify_content _justify_content;
       self#set_align_items _align_items;
       self#set_align_content _align_content;

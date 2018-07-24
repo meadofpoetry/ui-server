@@ -761,6 +761,13 @@
   fill: rgba(0, 0, 0, 0.38) !important;
   fill: var(--mdc-theme-text-disabled-on-background, rgba(0, 0, 0, 0.38)) !important; }
 
+/* Streams items */
+.qos-niit-stream-item--lost {
+  background-color: #ffcdd2;
+  /* @alternate */
+  color: rgba(0, 0, 0, 0.87);
+  color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87)); }
+
 :root {
   --mdc-box-margin: 0px; }
 
