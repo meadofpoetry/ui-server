@@ -158,29 +158,33 @@ module HTTP = struct
         in (* TODO add compress *) 
         join streams state
 
-      let stream_unique db (events:events) limit from till duration _ _ () =
+      let stream_unique db (events:events) from till duration _ _ () =
         let open Api.Api_types in
         let open Common.Stream in
         let open Lwt_result.Infix in
         let merge (cur:t list) streams =
-          let streams = List.filter_map (fun (s,t) ->
-                            if List.exists (equal s) cur then None
-                            else Some (s, `Last t)) streams in
+          let filter (s,id,t) =
+            let id = `Ts (id_of_int32 id) in
+            if List.exists (fun s -> equal_stream_id id s.id) cur
+            then None
+            else Some (s,`Last t)
+          in
+          let streams = List.filter_map filter streams in
           (List.map (fun s -> s,`Now) cur) @ streams
         in
         match Time.make_interval ?from ?till ?duration () with
         | Ok `Range (from,till) ->
-           Db.Streams.select_stream_unique db ?limit ~from ~till ()
-           >>= (fun (Raw { data; has_more; order }) ->
+           Db.Streams.select_stream_unique db ~from ~till ()
+           >>= (fun (Compressed { data }) ->
             let current = React.S.value events.streams in
-            Lwt_result.return (Raw { data = merge current data; has_more; order }))
-           |> Lwt_result.map (fun x -> rows_to_yojson stream_uniq_to_yojson (fun () -> `Null) x)
+            Lwt_result.return (Compressed { data = merge current data }))
+           |> Lwt_result.map (fun x -> rows_to_yojson (fun () -> `Null) stream_uniq_to_yojson x)
            |> Lwt_result.map_err (fun s -> (`String s : Yojson.Safe.json))
            |> fun t -> Lwt.bind t respond_result
         | _ -> respond_error ~status:`Not_implemented "FIXME" ()
         
 
-      let stream_ids db (events:events) limit from till duration _ _ () =
+      let stream_ids db (events:events) from till duration _ _ () =
         let open Api.Api_types in
         let open Common.Stream in
         let merge (cur:stream_id list) ids =
@@ -193,11 +197,11 @@ module HTTP = struct
         in
         match Time.make_interval ?from ?till ?duration () with
         | Ok `Range (from,till) ->
-           Db.Streams.select_stream_ids db ?limit ~from ~till ()
-           >>= fun (Raw { data; has_more; order }) ->
+           Db.Streams.select_stream_ids db ~from ~till ()
+           >>= fun (Compressed { data }) ->
            let current = List.map (fun s -> s.id) @@ React.S.value events.streams in
-           let rval = Raw { data = merge current data; has_more; order } in
-           respond_result (Ok (rows_to_yojson stream_ids_to_yojson (fun () -> `Null) rval))
+           let rval = Compressed { data = merge current data } in
+           respond_result (Ok (rows_to_yojson (fun () -> `Null) stream_ids_to_yojson rval))
         | _ -> respond_error ~status:`Not_implemented "FIXME" ()
       
       let streams db limit ids from till duration _ _ () =
@@ -336,15 +340,13 @@ let ts_handler db (api:api) events =
                 (HTTP.TS.Archive.streams db)
             ; create_handler ~docstring:"Returns archived streams"
                 ~path:Path.Format.("archive/streams" @/ empty)
-                ~query:Query.[ "limit",    (module Option(Int))
-                             ; "from",     (module Option(Time.Show))
+                ~query:Query.[ "from",     (module Option(Time.Show))
                              ; "to",       (module Option(Time.Show))
                              ; "duration", (module Option(Time.Relative)) ]
                 (HTTP.TS.Archive.stream_unique db events)
             ; create_handler ~docstring:"Returns archived streams"
                 ~path:Path.Format.("archive/ids" @/ empty)
-                ~query:Query.[ "limit",    (module Option(Int))
-                             ; "from",     (module Option(Time.Show))
+                ~query:Query.[ "from",     (module Option(Time.Show))
                              ; "to",       (module Option(Time.Show))
                              ; "duration", (module Option(Time.Relative)) ]
                 (HTTP.TS.Archive.stream_ids db events)

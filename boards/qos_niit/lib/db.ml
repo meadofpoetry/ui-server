@@ -245,27 +245,29 @@ module Streams = struct
                                              acc >>= fun () -> exec update_last s)
                                            (return ()) data))
 
-  let select_stream_unique  db ?(limit = 500) ~from ~till () =
+  let select_stream_unique  db ?(inputs = []) ~from ~till () =
     let open Common.Stream in
     let table  = (Conn.names db).streams in
-    let select = R.collect Types.(tup3 ptime ptime int) Types.(tup2 string ptime)
-                   (sprintf {|SELECT stream,MAX(date_end) FROM %s 
-                             WHERE date_end >= $1 AND date_start <= $2 
-                             GROUP BY stream LIMIT $3|} table) in
-    Conn.request db Request.(list select (from,till,limit) >>= fun data ->
-                             try let data = List.map (fun (s,t) ->
-                                                Result.get_exn @@ of_yojson @@ Yojson.Safe.from_string s, t) data in
-                                 return (Ok (Raw { data; has_more = List.length data >= limit; order = `Desc }))
+    let inputs = is_in "input" (fun i -> sprintf "'%s'::JSONB"
+                                         @@ Yojson.Safe.to_string @@ Topology.topo_input_to_yojson i) inputs in
+    let select = R.collect Types.(tup2 ptime ptime) Types.(tup3 string int32 ptime)
+                   (sprintf {|SELECT DISTINCT ON (id) stream,id,date_end FROM %s 
+                             WHERE %s date_end >= $1 AND date_start <= $2 
+                             ORDER BY id, date_end DESC|} table inputs) in
+    Conn.request db Request.(list select (from,till) >>= fun data ->
+                             try let data = List.map (fun (s,id,t) ->
+                                                Result.get_exn @@ of_yojson @@ Yojson.Safe.from_string s, id, t) data in
+                                 return (Ok (Compressed { data }))
                              with _ -> return (Error "Stream parser failure"))
     
-  let select_stream_ids  db ?(limit = 500) ~from ~till () =
+  let select_stream_ids  db ~from ~till () =
     let table  = (Conn.names db).streams in
-    let select = R.collect Types.(tup3 ptime ptime int) Types.(tup2 int32 ptime)
+    let select = R.collect Types.(tup2 ptime ptime) Types.(tup2 int32 ptime)
                        (sprintf {|SELECT id,MAX(date_end) FROM %s 
                                  WHERE date_end >= $1 AND date_start <= $2 
-                                 GROUP BY id LIMIT $3|} table) in
-    Conn.request db Request.(list select (from,till,limit) >>= fun data ->
-                             return (Raw { data; has_more = List.length data >= limit; order = `Desc }))
+                                 GROUP BY id|} table) in
+    Conn.request db Request.(list select (from,till) >>= fun data ->
+                             return (Compressed { data }))
     
 
   let select_streams db ?(limit = 500) ?(ids = []) ?(inputs = []) ~from ~till () =
