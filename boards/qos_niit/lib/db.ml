@@ -104,7 +104,7 @@ let unwrap = function Ok v -> v | Error e -> failwith e
 
 let is_in field to_string = function
   | [] -> ""
-  | lst -> Printf.sprintf " %s IS IN (%s) AND " field (String.concat "," @@ List.map to_string lst)
+  | lst -> Printf.sprintf " %s IN (%s) AND " field (String.concat "," @@ List.map to_string lst)
 
 module Device = struct
 
@@ -271,7 +271,8 @@ module Streams = struct
   let select_streams db ?(limit = 500) ?(ids = []) ?(inputs = []) ~from ~till () =
     let table  = (Conn.names db).streams in
     let ids    = is_in "id" Int32.to_string ids in
-    let inputs = is_in "input" (fun i -> Yojson.Safe.to_string @@ Topology.topo_input_to_yojson i) inputs in
+    let inputs = is_in "input" (fun i -> sprintf "'%s'::JSONB"
+                                         @@ Yojson.Safe.to_string @@ Topology.topo_input_to_yojson i) inputs in
     let select = R.collect Types.(tup3 ptime ptime int) Types.(tup3 string ptime ptime)
                    (sprintf {|SELECT stream,date_start,date_end FROM %s
                              WHERE %s %s date_start >= $1 AND date_end <= $2 
