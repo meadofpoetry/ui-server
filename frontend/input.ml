@@ -20,8 +20,9 @@ let board_to_tabs input (control:int)
                   |> Widget.coerce) ]
   | "TS" ->
      [ "QoS",
-       (fun () -> Board_qos_niit_js.Qos_log.page input control ()
-                  |> Widget.coerce)
+       (fun () -> Board_qos_niit_js.Streams_page.make ())
+       (* (fun () -> Board_qos_niit_js.Qos_log.page input control ()
+        *            |> Widget.coerce) *)
      (* ; "Структура",
       *   (fun () -> Board_qos_niit_js.Structure.page control ()
       *              |> Widget.coerce) *)
