@@ -5,126 +5,373 @@ open Api.Interaction
 open Api.Interaction.Json
 open Common
 open Types
-   
-(* let ts_handler db (api:api) events =
- *   let open Uri in
- *   let open Boards.Board.Api_handler in
- *   create_dispatcher
- *     "ts"
- *     [ create_ws_handler ~docstring:"Pushes available TS to the client"
- *         ~path:Path.Format.empty
- *         ~query:Query.[ "id", (module List(Int32)) ]
- *         (WS.TS.streams events)
- *     ; create_ws_handler ~docstring:"Pushes TS state change to the client"
- *         ~path:Path.Format.("state" @/ empty)
- *         ~query:Query.[ "id", (module List(Int32)) ]
- *         (WS.TS.state events)
- *     ; create_ws_handler ~docstring:"Pushes TS bitrates to the client"
- *         ~path:Path.Format.("bitrate" @/ empty)
- *         ~query:Query.[ "id", (module List(Int32)) ]
- *         (WS.TS.bitrate events)
- *     ; create_ws_handler ~docstring:"Pushes TS structure to the client"
- *         ~path:Path.Format.("structure" @/ empty)
- *         ~query:Query.[ "id", (module List(Int32)) ]
- *         (WS.TS.structure events)
- *     ]
- *     [ `GET,
- *       [ create_handler ~docstring:"Returns current TS list"
- *           ~path:Path.Format.empty
- *           ~query:Query.[ "id", (module List(Int32)) ]
- *           (HTTP.TS.streams events)
- *       ; create_handler ~docstring:"Returns current TS bitrate"
- *           ~path:Path.Format.("bitrate" @/ empty)
- *           ~query:Query.[ "id", (module List(Int32)) ]
- *           (HTTP.TS.bitrate api)
- *       ; create_handler ~docstring:"Returns current TS structure"
- *           ~path:Path.Format.("structure" @/ empty)
- *           ~query:Query.[ "id", (module List(Int32)) ]
- *           (HTTP.TS.structure api)
- *       (\* Archive *\)
- *       ; create_handler ~docstring:"Returns archived streams"
- *           ~path:Path.Format.("archive" @/ empty)
- *           ~query:Query.[ "id",       (module List(Int32))
- *                        ; "input",    (module List(Topology.Show_topo_input))
- *                        ; "limit",    (module Option(Int))
- *                        ; "from",     (module Option(Time.Show))
- *                        ; "to",       (module Option(Time.Show))
- *                        ; "duration", (module Option(Time.Relative)) ]
- *           (HTTP.TS.Archive.streams db)
- *       (\*  ; create_handler ~docstring:"Retunrs archived stream state"
- *                 ~path:Path.Format.("state/archive" @/ empty)
- *                 ~query:Query.[ "id",       (module List(Int32))
- *                              ; "limit",    (module Option(Int))
- *                              ; "compress", (module Option(Bool))
- *                              ; "from",     (module Option(Time.Show))
- *                              ; "to",       (module Option(Time.Show))
- *                              ; "duration", (module Option(Time.Relative)) ]
- *                 HTTP.TS.Archive.state;*\)
- *       ; create_handler ~docstring:"Retunrs archived stream bitrate"
- *           ~path:Path.Format.("bitrate/archive" @/ empty)
- *           ~query:Query.[ "id",       (module List(Int32))
- *                        ; "limit",    (module Option(Int))
- *                        ; "compress", (module Option(Bool))
- *                        ; "from",     (module Option(Time.Show))
- *                        ; "to",       (module Option(Time.Show))
- *                        ; "duration", (module Option(Time.Relative)) ]
- *           HTTP.TS.Archive.bitrate
- *       ; create_handler ~docstring:"Retunrs archived stream structure"
- *           ~path:Path.Format.("structure/archive" @/ empty)
- *           ~query:Query.[ "id",       (module List(Int32))
- *                        ; "limit",    (module Option(Int))
- *                        ; "from",     (module Option(Time.Show))
- *                        ; "to",       (module Option(Time.Show))
- *                        ; "duration", (module Option(Time.Relative)) ]
- *           (HTTP.TS.Archive.structure db)
- *       ]
- *     ]
- * 
- * let t2mi_handler db (api:api) events =
- *   let open Uri in
- *   let open Boards.Board.Api_handler in
- *   create_dispatcher
- *     "t2mi"
- *     [ create_ws_handler ~docstring:"Pushes stream state to the client"
- *         ~path:Path.Format.("state" @/ empty)
- *         ~query:Query.["id", (module List(Int))]
- *         (WS.T2MI.state events)
- *     ; create_ws_handler ~docstring:"Pushes stream structure to the client"
- *         ~path:Path.Format.("structure" @/ empty)
- *         ~query:Query.["id", (module List(Int))]
- *         (WS.T2MI.structure events)
- *     ]
- *     [ `GET, [ create_handler ~docstring:"Returns T2-MI stream structure (L1 signalling)"
- *                 ~path:Path.Format.("structure" @/ empty)
- *                 ~query:Query.[ "id", (module List(Int)) ]
- *                 (HTTP.T2MI.structure api)
- *             ; create_handler ~docstring:"Returns T2-MI packet sequence"
- *                 ~path:Path.Format.("sequence" @/ empty)
- *                 ~query:Query.[ "id",       (module List(Int))
- *                              ; "duration", (module Option(Time.Relative)) ]
- *                 (HTTP.T2MI.sequence api)
- *             (\* Archive *\)
- *            (\* ; create_handler ~docstring:"Returns archived stream state"
- *                 ~path:Path.Format.("state/archive" @/ empty)
- *                 ~query:Query.[ "id",       (module List(Int))
- *                              ; "limit",    (module Option(Int))
- *                              ; "compress", (module Option(Bool))
- *                              ; "from",     (module Option(Time.Show))
- *                              ; "to",       (module Option(Time.Show))
- *                              ; "duration", (module Option(Time.Relative)) ]
- *                 HTTP.T2MI.Archive.state *\)
- *             ; create_handler ~docstring:"Returns archived stream structure"
- *                 ~path:Path.Format.("structure/archive" @/ empty)
- *                 ~query:Query.[ "id",       (module List(Int))
- *                              ; "limit",    (module Option(Int))
- *                              ; "from",     (module Option(Time.Show))
- *                              ; "to",       (module Option(Time.Show))
- *                              ; "duration", (module Option(Time.Relative)) ]
- *                 (HTTP.T2MI.Archive.structure db)
- *             ]
- *     ]
- * 
- * let handlers db api events =
- *   [ ts_handler db api events
- *   ; t2mi_handler db api events
- *   ] *)
+
+module WS = struct
+
+  open Board_types.Streams.TS
+
+  let streams (events:events) ids inputs _ body sock_data () =
+    let rec input_of_stream (t:Stream.t) = match t.source with
+      | Input x  -> x
+      | Parent t -> input_of_stream t in
+    let ids = List.map Stream.id_of_int32 ids in
+    let e = match ids with
+      | [] -> React.S.changes events.streams
+      | l  ->
+         React.E.fmap (fun streams ->
+             List.filter (fun (s:Stream.t) ->
+                 let mem = List.mem ~eq:Topology.equal_topo_input
+                             (input_of_stream s) inputs in
+                 match s.id, mem with
+                 | `Ts id, true -> List.mem ~eq:(Stream.equal_id) id l
+                 | _ -> false) streams
+             |> function [] -> None | l -> Some l)
+           (React.S.changes events.streams)
+    in Api.Socket.handler socket_table sock_data e
+         (Json.List.to_yojson Stream.to_yojson) body
+
+  let bitrate (events:events) id _ body sock_data () =
+    let id = Stream.id_of_int32 id in
+    let e  = React.E.fmap (List.Assoc.get ~eq:Stream.equal_id id)
+               events.ts.bitrates in
+    Api.Socket.handler socket_table sock_data e
+      bitrate_to_yojson body
+
+  let structure (events:events) id _ body sock_data () =
+    let id = Stream.id_of_int32 id in
+    let e  = React.E.fmap (List.Assoc.get ~eq:Stream.equal_id id) events.ts.structures in
+    Api.Socket.handler socket_table sock_data e structure_to_yojson body
+
+  module T2MI = struct
+
+    open Board_types.Streams.T2MI
+
+    let structure (events:events) id stream_ids _ body sock_data () =
+      let id = Stream.id_of_int32 id in
+      let eq = Stream.equal_id in
+      let e  = React.E.fmap (List.Assoc.get ~eq id) events.t2mi.structures in
+      Api.Socket.handler socket_table sock_data e structure_to_yojson body
+
+  end
+
+  module Errors = struct
+
+    open Errors
+
+    let rec filter (acc:t list) = function
+      | [ ]     -> acc
+      | f :: tl -> filter (f acc) tl
+
+    let flst fltr f = match fltr with [] -> None | l -> Some (f l)
+
+    let errors (events:events) id errors priority pids _ body sock_data () =
+      let id = Stream.id_of_int32 id in
+      let eq = ( = ) in
+      let f_errors =
+        flst errors (fun l e ->
+            List.filter (fun x -> List.mem ~eq x.err_code l) e) in
+      let f_prior =
+        flst priority (fun l e ->
+            List.filter (fun x -> List.mem ~eq x.priority l) e) in
+      let f_pids =
+        flst pids (fun l e ->
+            List.filter (fun x -> List.mem ~eq x.pid l) e) in
+      let fns = List.filter_map (fun x -> x) [f_errors; f_prior; f_pids] in
+      let e =
+        React.E.fmap (fun l ->
+            match List.fold_left (fun acc (x, errs) ->
+                      if not @@ Stream.equal_id x id
+                      then acc
+                      else acc @ filter errs fns) [] l with
+            | [] -> None
+            | l  -> Some l) events.ts.errors
+      in Api.Socket.handler socket_table sock_data e
+           (Json.List.to_yojson to_yojson) body
+
+  end
+
+end
+
+module HTTP = struct
+
+  open Board_types.Streams.TS
+
+  (* merge ordered descending lists of streams and board states *)
+  let merge_streams_state
+        (streams : (Common.Stream.t list * Time.t * Time.t) list)
+        (state : (Common.Topology.state * Time.t * Time.t) list) =
+    (* TODO consider ord checks *)
+    let (<=) l r = Time.compare l r <= 0 in
+    let (>=) l r = Time.compare l r >= 0 in
+    let join streams states =
+      List.fold_left (fun acc (s,f,t) ->
+          List.append acc
+          @@ List.filter_map
+               (function (`Fine,ff,tt) ->
+                          if f <= ff && t >= tt then Some (s,ff,tt)
+                          else if f <=ff && t >= ff then Some (s, ff, t)
+                          else if f <= tt && t >= tt then Some (s, f, tt)
+                          else if f >= ff && t <= tt then Some (s, f, t)
+                          else None
+                       | _ -> None) states) [] streams
+    in (* TODO add compress *)
+    join streams state
+
+  let streams_unique db (events:events) inputs from till duration _ _ () =
+    let open Api.Api_types in
+    let open Common.Stream in
+    let open Lwt_result.Infix in
+    let merge (cur:t list) streams =
+      let filter (s,id,t) =
+        let id = `Ts (id_of_int32 id) in
+        if List.exists (fun s -> equal_stream_id id s.id) cur
+        then None
+        else Some (s,`Last t)
+      in
+      let streams = List.filter_map filter streams in
+      (List.map (fun s -> s,`Now) cur) @ streams
+    in
+    match Time.make_interval ?from ?till ?duration () with
+    | Ok `Range (from,till) ->
+       Db.Streams.select_stream_unique db ~inputs ~from ~till ()
+       >>= (fun (Compressed { data }) ->
+        let current = React.S.value events.streams in
+        Lwt_result.return (Compressed { data = merge current data }))
+       |> Lwt_result.map (fun x -> rows_to_yojson (fun () -> `Null) streams_unique_to_yojson x)
+       |> Lwt_result.map_err (fun s -> (`String s : Yojson.Safe.json))
+       |> fun t -> Lwt.bind t respond_result
+    | _ -> respond_error ~status:`Not_implemented "FIXME" ()
+
+  let streams_states db ids inputs limit from till duration _ _ () =
+    let open Api.Api_types in
+    match Time.make_interval ?from ?till ?duration () with
+    | Ok `Range (from,till) ->
+       (* TODO make it more sound *)
+       Db.Streams.select_streams db ?limit ~ids ~inputs ~from ~till ()
+       |> Lwt_result.map (fun x -> rows_to_yojson streams_states_to_yojson (fun () -> `Null) x)
+       |> Lwt_result.map_err (fun s -> (`String s : Yojson.Safe.json))
+       >>= respond_result
+    | _ -> respond_error ~status:`Not_implemented "FIXME" ()
+
+  let streams db events ids inputs limit compress from till duration hdrs body () =
+    if Option.get_or ~default:false compress
+    then streams_unique db events inputs from till duration hdrs body ()
+    else streams_states db ids inputs limit from till duration hdrs body ()
+
+  let si_psi_section (api:api) id table_id section
+        table_id_ext eit_ts_id eit_orig_nw_id _ _ () =
+    let stream_id = Stream.id_of_int32 id in
+    let req = { stream_id
+              ; table_id
+              ; section
+              ; table_id_ext
+              ; eit_ts_id
+              ; eit_orig_nw_id } in
+    api.get_section req
+    >|= (function Ok x    -> Ok    (section_to_yojson x)
+                | Error e -> Error (section_error_to_yojson e))
+    >>= respond_result
+
+  let struct_to_yojson =
+    Json.(List.to_yojson (Pair.to_yojson
+                            Stream.id_to_yojson
+                            structure_to_yojson))
+
+  let structure db id limit from till duration _ _ () =
+    match Time.make_interval ?from ?till ?duration () with
+    | Ok `Range (from,till) ->
+       Db.Streams.select_structs_ts db ~with_pre:true
+         ?limit ~ids:[id] ~from ~till
+       |> Lwt_result.map (fun d -> Api.Api_types.rows_to_yojson
+                                     struct_to_yojson (fun () -> `Null) d)
+       |> Lwt_result.map_err (fun s -> (`String s : Yojson.Safe.json))
+       >>= fun x -> respond_result x
+    | _ -> respond_error ~status:`Not_implemented "FIXME" ()
+
+  let bitrate id limit compress from till duration _ _ () =
+    respond_error ~status:`Not_implemented "FIXME" ()
+
+  module T2MI = struct
+
+    open Board_types.Streams.T2MI
+
+    let sequence (api:api) id stream_ids (duration:Time.Relative.t option) _ _ () =
+      let seconds =
+        Option.flat_map Time.Relative.to_int_s duration
+        |> Option.get_or ~default:5 in
+      api.get_t2mi_seq { stream = Stream.id_of_int32 id; seconds }
+      >|= (fun x -> List.filter (fun (x:sequence_item) ->
+                        match stream_ids with
+                        | [] -> true
+                        | l  -> List.mem ~eq:(=) x.stream_id l) x
+                    |> sequence_to_yojson
+                    |> Result.return)
+      >>= respond_result
+
+    type struct_t2 = (Stream.id * Board_types.Streams.T2MI.structure * Time.t)
+                       list [@@deriving yojson]
+
+    let structure db id ids limit from till duration _ _ () =
+      match Time.make_interval ?from ?till ?duration () with
+      | Ok `Range (from,till) ->
+         Db.Streams.select_structs_t2 db ~with_pre:true
+           ?limit ~ids:[id] ~from ~till
+         |> Lwt_result.map (fun d ->
+                Api.Api_types.rows_to_yojson struct_t2_to_yojson
+                  (fun () -> `Null) d)
+         |> Lwt_result.map_err (fun s -> (`String s : Yojson.Safe.json))
+         >>= fun x -> respond_result x
+      | _ -> respond_error ~status:`Not_implemented "FIXME" ()
+
+  end
+
+  module Errors = struct
+
+    open Errors
+
+    let errors db streams errors priority pids
+          limit compress from till duration _ _ () =
+      match Time.make_interval ?from ?till ?duration () with
+      | Ok (`Range (from,till)) ->
+         (match compress with
+          | Some true ->
+             (Db.Errors.select_errors_compressed
+                db ~is_ts:true ~streams ~priority
+                ~errors ~pids ~from ~till ())
+          | _ -> Db.Errors.select_errors db ~is_ts:true ~streams
+                   ~priority ~errors ~pids ?limit ~from ~till ())
+         >>= fun v ->
+         let r = Ok Db.Errors.(Api.Api_types.rows_to_yojson
+                                 raw_to_yojson compressed_to_yojson v) in
+         respond_result r
+      | _ -> respond_error ~status:`Not_implemented "not implemented" ()
+
+    let percent db streams errors priority pids from till duration _ _ () =
+      match Time.make_interval ?from ?till ?duration () with
+      | Ok (`Range (from,till)) ->
+         Db.Errors.select_percent db ~is_ts:true ~streams ~priority
+           ~errors ~pids ~from ~till ()
+         >>= fun v -> respond_result (Ok (`Float v))
+      | _ -> respond_error ~status:`Not_implemented "not implemented" ()
+
+    let has_any db streams errors priority pids from till duration _ _() =
+      match Time.make_interval ?from ?till ?duration () with
+      | Ok (`Range (from,till)) ->
+         Db.Errors.select_has_any db ~is_ts:true ~streams ~priority
+           ~errors ~pids ~from ~till ()
+         >>= fun v -> respond_result (Ok (`Bool v))
+      | _ -> respond_error ~status:`Not_implemented "not implemented" ()
+
+  end
+
+end
+
+let handler db (api:api) events =
+  let open Uri in
+  let open Boards.Board.Api_handler in
+  create_dispatcher
+    "streams"
+    [ create_ws_handler ~docstring:"Pushes available streams to the client"
+        ~path:Path.Format.empty
+        ~query:Query.[ "id",    (module List(Int32))
+                     ; "input", (module List(Topology.Show_topo_input)) ]
+        (WS.streams events)
+    ; create_ws_handler ~docstring:"Pushes stream bitrate to the client"
+        ~path:Path.Format.(Int32 ^/ "bitrate" @/ empty)
+        ~query:Query.empty
+        (WS.bitrate events)
+    ; create_ws_handler ~docstring:"Pushes stream structure to the client"
+        ~path:Path.Format.(Int32 ^/ "structure" @/ empty)
+        ~query:Query.empty
+        (WS.structure events)
+    ; create_ws_handler ~docstring:"Pushes T2-MI structure to the client"
+        ~path:Path.Format.(Int32 ^/ "t2mi/structure" @/ empty)
+        ~query:Query.[ "t2mi-stream-id", (module List(Int)) ]
+        (WS.T2MI.structure events)
+    ; create_ws_handler ~docstring:"Pushes TS errors to the client"
+        ~path:Path.Format.(Int32 ^/ "errors" @/ empty)
+        ~query:Query.[ "errors",   (module List(Int))
+                     ; "priority", (module List(Int))
+                     ; "pid",      (module List(Int))]
+        (WS.Errors.errors events)
+    ]
+    [ `GET,
+      [ create_handler ~docstring:"Returns streams states"
+          ~path:Path.Format.empty
+          ~query:Query.[ "id",       (module List(Int32))
+                       ; "input",    (module List(Topology.Show_topo_input))
+                       ; "limit",    (module Option(Int))
+                       ; "compress", (module Option(Bool))
+                       ; "from",     (module Option(Time.Show))
+                       ; "to",       (module Option(Time.Show))
+                       ; "duration", (module Option(Time.Relative)) ]
+          (HTTP.streams db events)
+      ; create_handler ~docstring:"Returns SI/PSI table section"
+          ~path:Path.Format.(Int32 ^/ "section" @/ Int ^/ empty)
+          ~query:Query.[ "section",        (module Option(Int))
+                       ; "table-id-ext",   (module Option(Int))
+                       ; "eit-ts-id",      (module Option(Int))
+                       ; "eit-orig-nw-id", (module Option(Int)) ]
+          (HTTP.si_psi_section api)
+      ; create_handler ~docstring:"Returns TS bitrate"
+          ~path:Path.Format.(Int32 ^/ "bitrate" @/ empty)
+          ~query:Query.[ "limit",    (module Option(Int))
+                       ; "compress", (module Option(Bool))
+                       ; "from",     (module Option(Time.Show))
+                       ; "to",       (module Option(Time.Show))
+                       ; "duration", (module Option(Time.Relative)) ]
+          HTTP.bitrate
+      ; create_handler ~docstring:"Returns TS structure"
+          ~path:Path.Format.(Int32 ^/ "structure" @/ empty)
+          ~query:Query.[ "limit",    (module Option(Int))
+                       ; "from",     (module Option(Time.Show))
+                       ; "to",       (module Option(Time.Show))
+                       ; "duration", (module Option(Time.Relative)) ]
+          (HTTP.structure db)
+      (* T2-MI*)
+      ; create_handler ~docstring:"Returns T2-MI packet sequence"
+          ~path:Path.Format.(Int32 ^/ "t2mi/sequence" @/ empty)
+          ~query:Query.[ "t2mi-stream-id", (module List(Int))
+                       ; "duration",       (module Option(Time.Relative)) ]
+          (HTTP.T2MI.sequence api)
+      ; create_handler ~docstring:"Returns T2-MI structure"
+          ~path:Path.Format.(Int32 ^/ "t2mi/structure" @/ empty)
+          ~query:Query.[ "t2mi-stream-id", (module List(Int))
+                       ; "limit",          (module Option(Int))
+                       ; "from",           (module Option(Time.Show))
+                       ; "to",             (module Option(Time.Show))
+                       ; "duration",       (module Option(Time.Relative)) ]
+          (HTTP.T2MI.structure db)
+      (* Errors *)
+      ; create_handler ~docstring:"Returns archived TS errors"
+          ~path:Path.Format.(Int32 ^/ "errors" @/ empty)
+          ~query:Query.[ "errors",   (module List(Int))
+                       ; "priority", (module List(Int))
+                       ; "pid",      (module List(Int))
+                       ; "limit",    (module Option(Int))
+                       ; "compress", (module Option(Bool))
+
+                       ; "from",     (module Option(Time.Show))
+                       ; "to",       (module Option(Time.Show))
+                       ; "duration", (module Option(Time.Relative)) ]
+          (fun x -> HTTP.Errors.errors db [x])
+      ; create_handler ~docstring:"Returns TS errors presence percentage"
+          ~path:Path.Format.(Int32 ^/ "errors/percent" @/ empty)
+          ~query:Query.[ "errors",   (module List(Int))
+                       ; "priority", (module List(Int))
+                       ; "pid",      (module List(Int))
+                       ; "from",     (module Option(Time.Show))
+                       ; "to",       (module Option(Time.Show))
+                       ; "duration", (module Option(Time.Relative)) ]
+          (fun x -> HTTP.Errors.percent db [x])
+      ; create_handler ~docstring:"Returns if TS errors were present for the requested period"
+          ~path:Path.Format.(Int32 ^/ "errors/has-any" @/ empty)
+          ~query:Query.[ "errors",   (module List(Int))
+                       ; "priority", (module List(Int))
+                       ; "pid",      (module List(Int))
+                       ; "from",     (module Option(Time.Show))
+                       ; "to",       (module Option(Time.Show))
+                       ; "duration", (module Option(Time.Relative)) ]
+          (fun x -> HTTP.Errors.has_any db [x])
+      ]
+    ]

@@ -99,7 +99,7 @@ let make_structs
 
 let page control () =
   let factory = new Widget_factory.t control () in
-  (factory#structs
+  ((* factory#structs *) Lwt_result.return @@ React.S.const []
    >>= fun structs -> factory#state
    >>= fun state   -> factory#streams
    >|= fun streams -> make_structs state streams structs control)

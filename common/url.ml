@@ -1,5 +1,5 @@
 open Containers
-
+   
 type ip   = Ipaddr.V4.t
 let pp_ip = Ipaddr.V4.pp_hum
 let ip_to_yojson ip =
@@ -141,3 +141,11 @@ let gen_in_ranges ?(forbidden : t list = []) (vs : ('a * (t * t) list) list) : (
     let frees = generate_free used [] free in
     Ok(frees @ vals)
   with Gen_failure -> Error ()
+
+(* TODO remove *)
+module Q = struct
+  let typ = "url"
+  type nonrec t = t
+  let to_string = to_string
+  let of_string s = Result.get_exn @@ of_string s
+end

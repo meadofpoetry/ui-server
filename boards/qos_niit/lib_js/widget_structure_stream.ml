@@ -579,7 +579,7 @@ module Section = struct
     let control = model.control in
     let table_id_ext = model.table.id_ext in
     let eit_params = model.table.eit_params in
-    let r = Requests.Stream.HTTP.TS.get_si_psi_section
+    let r = Requests.Streams.HTTP.get_si_psi_section
               ~id:model.stream
               ~table_id:model.table.id
               ~section:model.section.id in

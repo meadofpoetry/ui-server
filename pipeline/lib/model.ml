@@ -4,30 +4,98 @@ open Common
 
 open Lwt.Infix
 
-type struct_api = { get_input : Common.Topology.topo_input -> (Structure.t list * Time.t) option Lwt.t
-                  ; get_input_between : Common.Topology.topo_input -> Time.t -> Time.t -> (Structure.t list * Time.t) list Lwt.t
-                  }
-
-type qoe_api = ()
-                    
-type t = { struct_api : struct_api
-         ; qoe_api    : qoe_api
+type t = { db : Db.Conn.t
+         ; tick  : unit Lwt_react.event
+         ; _loop : unit Lwt.t
          }
-                    
+
+let appeared_pids ~past ~pres =
+  let open Structure in
+  let flat (sl : structure list) =
+    List.fold_left (fun acc s ->
+        let stream = Int32.to_int s.id in
+        let l = List.fold_left (fun acc c ->
+                    let channel = c.number in
+                    let l = List.fold_left (fun acc p -> (stream, channel, p.pid, p.to_be_analyzed)::acc)
+                              [] c.pids in
+                    l @ acc)
+                  [] s.channels in
+        l @ acc) [] sl
+  in
+  let rec not_in_or_diff (s,c,p,tba) = function
+    | [] -> true
+    | (so,co,po,tbao)::_
+         when so = s && co = c && po = p && Bool.(not @@ equal tbao tba) -> true
+    | (so,co,po,tbao)::_
+         when so = s && co = c && po = p && Bool.(equal tbao tba) -> false
+    | _::tl -> not_in_or_diff (s,c,p,tba) tl
+  in                          
+  let past = flat past in
+  let pres = flat pres in
+  let appeared = List.fold_left (fun acc pres ->
+                     let (_,_,_,tba) = pres in
+                     if tba && not_in_or_diff pres past
+                     then pres::acc else acc) [] pres in
+  appeared
+
+let active_pids str =
+  let open Structure in
+  let flat_filter (sl : structure list) =
+    List.fold_left (fun acc s ->
+        let stream = Int32.to_int s.id in
+        let l = List.fold_left (fun acc c ->
+                    let channel = c.number in
+                    let l = List.fold_left (fun acc p ->
+                                if p.to_be_analyzed
+                                then (stream, channel, p.pid, p.to_be_analyzed)::acc
+                                else acc)
+                              [] c.pids in
+                    l @ acc)
+                  [] s.channels in
+        l @ acc) [] sl
+  in
+  flat_filter str
+                            
+let tick () =
+  let e,push = Lwt_react.E.create () in
+  let rec loop () =
+    Lwt_unix.sleep 5. >>= fun () -> push (); loop ()
+  in
+  e, loop
+       
 let create db_conf s_struct e_video e_audio =
   let db = Result.get_exn @@ Db.Conn.create db_conf () in
+  let tick, loop = tick () in
+  (* Pids *)
+  let strip = let open Structure in List.map (fun s -> s.structure) in
+  let pids =
+    let open Structure in
+    Lwt_react.S.sample (fun () sl -> `Active (active_pids @@ strip sl)) tick s_struct
+  in
+  let pids_diff =
+    let open Structure in
+    Lwt_react.S.diff (fun pres past -> `New (appeared_pids ~past:(strip past) ~pres:(strip pres))) s_struct
+  in
+  Lwt_react.E.keep
+  @@ Lwt_react.E.map_s (function
+         | `Active pids -> Db.Pid_state.bump db pids
+         | `New pids -> Db.Pid_state.init db pids)
+  @@ Lwt_react.E.select [pids; pids_diff];
+  (* Structures *)
   Lwt_react.S.keep @@
     Lwt_react.S.map (fun x -> Lwt.catch (fun () -> Db.Structure.insert_structures db x)
                                 (function Failure e -> Lwt_io.printf "str error: %s\n" e)) s_struct;
+  (* Errors *)
   Lwt_react.E.keep @@
     Lwt_react.E.map_p (fun x -> Lwt.catch (fun () -> Db.Errors.insert_video db x)
                                   (function Failure e -> Lwt_io.printf "vdata error: %s\n" e)) e_video;
   Lwt_react.E.keep @@
     Lwt_react.E.map_p (fun x -> Lwt.catch (fun () -> Db.Errors.insert_audio db x)
                                   (function Failure e -> Lwt_io.printf "adata error: %s\n" e)) e_audio;
-  let struct_api = { get_input = (fun i -> Db.Structure.select_input db i)
-                   ; get_input_between = (fun i f t -> Db.Structure.select_input_between db i f t)
-                   }
-  in
-  let qoe_api = () in
-  { struct_api; qoe_api }
+  { db; tick; _loop = loop () }
+  
+let set_streams model streams =
+  (* Streams *)
+  Lwt.ignore_result 
+    (Db.Streams.init model.db streams >|= fun () ->
+     Lwt_react.E.keep @@ Lwt_react.E.map_s (fun () -> Db.Streams.bump model.db) model.tick);

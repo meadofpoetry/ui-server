@@ -53,25 +53,22 @@ let find_structure (stream:Stream.id)
       then (Some x), `Continue
       else acc, `Stop) None s
 
-let find_stream (streams:Streams.TS.archived_list)
+let find_stream (streams:Streams.TS.streams_states)
       (stream, (error:Errors.t)) =
   let time = error.timestamp in
   let is_in_range (x:Time.t) (from, till) =
     let e = Time.is_earlier ~than:from x in
     let l = Time.is_later ~than:till x in
     not e && not l in
-  List.find_map (fun (x:Streams.TS.archived_item) ->
-      if is_in_range time x.period
-      then List.find_opt (fun (s:Stream.t) ->
-               match s.id with
-               | `Ts id -> Stream.equal_id id stream
-               | _      -> false) x.streams
+  List.find_map (fun (s, from, till) ->
+      if is_in_range time (from, till)
+      then Some s
       else None) streams
 
 let make_table
-      (streams:Streams.TS.archived_list Api_js.Api_types.raw)
+      (streams:Streams.TS.streams_states Api_js.Api_types.raw)
       (structures:(Stream.id * Streams.TS.structure) list)
-      (errors:Errors.raw Api_js.Api_types.raw) =
+      (errors:Errors.raw) =
   let tz_offset_s = Ptime_clock.current_tz_offset_s () in
   let time = Table.({ to_string  = Time.to_human_string ?tz_offset_s
                     ; of_string  = Time.of_human_string_exn ?tz_offset_s
@@ -108,7 +105,7 @@ let make_table
                 num ^ " " ^ name in
     let msg   = Ts_error.Description.of_ts_error error in
     table#add_row date stream service error.count pid check msg in
-  List.iter add_row @@ List.rev errors.data;
+  List.iter add_row @@ List.rev errors;
   table
 
 let l2 t1 t2 f =
@@ -127,26 +124,21 @@ let make
     Option.get_exn @@ Time.sub_span now (Time.Span.of_int_s 120) in
   let streams =
     let req () =
-      Requests.Streams.HTTP.TS.Archive.get_streams
+      Requests.Streams.HTTP.get_streams
         ~inputs:config.inputs ~from ~till:now control in
     req ()
     >>= (function
          | Raw s -> Lwt_result.return s
          | _     -> Lwt.fail_with "got compressed") in
-  let structures =
-    let req from till =
-      Requests.Streams.HTTP.TS.Archive.get_structure
-        ~from ~till control in
-    fetch_all [] req from now (fun (_,(x:Streams.TS.structure)) ->
-        x.timestamp) in
   let errors  =
-    let req () = Requests.Errors.HTTP.TS.Archive.get_errors
-                   ~from ~till:now control in
-    req ()
-    >>= (function Raw s -> Lwt_result.return s
-                | _     -> Lwt.fail_with "got compressed") in
+    Lwt_result.return [] in
+    (* let req () = Requests.Streams.HTTP.TS.Archive.get_errors
+     *                ~from ~till:now control in
+     * req ()
+     * >>= (function Raw s -> Lwt_result.return s
+     *             | _     -> Lwt.fail_with "got compressed") in *)
   let loader =
-    l3 streams structures errors (fun x y z -> x, y, z)
+    l3 streams (Lwt_result.return []) errors (fun x y z -> x, y, z)
     >>= (fun (sms, str, e) -> Lwt_result.return (make_table sms str e))
     >|= Widget.coerce
     |> Lwt_result.map_err Api_js.Requests.err_to_string

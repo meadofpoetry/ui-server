@@ -68,6 +68,7 @@ object(self)
   val _state       : state React.signal t_lwt              = empty ()
   val _t2mi_mode   : t2mi_mode option   React.signal t_lwt = empty ()
   val _jitter_mode : jitter_mode option React.signal t_lwt = empty ()
+  val _structure   : Streams.TS.structure option React.signal t_lwt = empty ()
   val _structs     : (Stream.id * Streams.TS.structure) list React.signal t_lwt = empty ()
   val _bitrates    : (Stream.id * Streams.TS.bitrate) list React.signal t_lwt = empty ()
   val _streams     : Stream.t list React.signal t_lwt = empty ()
@@ -79,7 +80,7 @@ object(self)
        Widget_chart.make conf
        |> Dashboard.Item.to_item ~name:Widget_chart.name
     | TS_log config ->
-       Widget_log.make self#ts_errors ?config control
+       Widget_log.make React.E.never ?config control
        |> Dashboard.Item.to_item ~name:Widget_log.name
     | Structure config ->
        let id =
@@ -154,20 +155,19 @@ object(self)
       _jitter_mode
 
   method structure id =
-    self#structs >|= React.S.map (List.Assoc.get ~eq:Stream.equal_id id)
-
-  method structs : (Stream.id * Streams.TS.structure) list
-                     React.signal Factory_state_lwt.value =
     Factory_state_lwt.get_value_as_signal
-      ~get:(fun ()        -> Requests.Streams.HTTP.TS.get_structure control |> map_err)
-      ~get_socket:(fun () -> Requests.Streams.WS.TS.get_structure control)
-      _structs
-
-  method bitrates =
-    Factory_state_lwt.get_value_as_signal
-      ~get:(fun ()        -> Requests.Streams.HTTP.TS.get_bitrate control |> map_err)
-      ~get_socket:(fun () -> Requests.Streams.WS.TS.get_bitrate control)
-      _bitrates
+      ~get:(fun () -> Requests.Streams.HTTP.get_structure ~limit:1 ~id control
+                      >>= (function
+                           | Raw x ->
+                              Lwt_result.return (match x.data with
+                                                 | [ (_, x) ] -> Some x
+                                                 | _   -> None)
+                           | _ -> Lwt.fail_with "compressed")
+                      |> map_err)
+      ~get_socket:(fun () ->
+        let ev, sock = Requests.Streams.WS.get_structure ~id control in
+        React.E.map Option.return ev, sock)
+      _structure
 
   method stream id =
     self#streams
@@ -181,18 +181,27 @@ object(self)
 
   method streams =
     Factory_state_lwt.get_value_as_signal
-      ~get:(fun ()        -> Requests.Streams.HTTP.TS.get_streams control |> map_err)
-      ~get_socket:(fun () -> Requests.Streams.WS.TS.get_streams control)
+      ~get:(fun () ->
+        Requests.Streams.HTTP.get_streams ~compress:true ~limit:1 control
+        >>= (function
+             | Compressed x ->
+                List.filter_map (function
+                    | s, `Now -> Some s
+                    | _       -> None) x.data
+                |> Lwt_result.return
+             | _ -> Lwt.fail_with "raw")
+        |> map_err)
+      ~get_socket:(fun () -> Requests.Streams.WS.get_streams control)
       _streams
 
-  method ts_errors =
-    match _ts_errors.value with
-    | Some x -> Factory_state.succ_ref _ts_errors; x
-    | None   ->
-       Factory_state.set_ref _ts_errors 1;
-       let e,sock = Requests.Errors.WS.TS.get_errors control in
-       _ts_errors.value <- Some e;
-       _ts_errors.fin   <- (fun () -> sock##close; React.E.stop ~strong:true e);
-       e
+  (* method ts_errors =
+   *   match _ts_errors.value with
+   *   | Some x -> Factory_state.succ_ref _ts_errors; x
+   *   | None   ->
+   *      Factory_state.set_ref _ts_errors 1;
+   *      let e,sock = Requests.Errors.WS.TS.get_errors control in
+   *      _ts_errors.value <- Some e;
+   *      _ts_errors.fin   <- (fun () -> sock##close; React.E.stop ~strong:true e);
+   *      e *)
 
 end

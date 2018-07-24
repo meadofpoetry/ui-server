@@ -180,7 +180,7 @@ let paths t =
      |> List.concat
   | `CPU c     ->
      List.map (add_cpu (Some c)) @@ topo_paths [] @@ List.map (fun p -> p.conn) c.ifaces
-     
+                                                 
 (*
 
 let topo_boards =

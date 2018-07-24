@@ -336,12 +336,10 @@ module Streams = struct
       ; parsed    : Yojson.Safe.json option
       } [@@deriving yojson]
 
-    type archived_list =
-      archived_item list
-    and archived_item =
-      { streams : Stream.t list
-      ; period  : Time.t * Time.t
-      } [@@deriving yojson]
+    type streams_states =
+      (Stream.t * Time.t * Time.t) list [@@deriving yojson]
+    type streams_unique =
+      (Stream.t * [`Now | `Last of Time.t]) list [@@deriving yojson]
 
   end
 

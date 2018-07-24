@@ -6,9 +6,7 @@ open Api.Interaction.Json
 open Common
 open Types
 
-(* type events = errors_events
- * 
- * module WS = struct
+(* module WS = struct
  * 
  *   open Errors
  * 
@@ -105,7 +103,7 @@ open Types
  *     module Archive = struct
  * 
  *       open Errors
- *      
+ *          
  *       let errors db streams t2mi_id errors pids limit compress from till duration _ _ () =
  *         match Time.make_interval ?from ?till ?duration () with
  *         | Ok (`Range (from,till)) -> begin
@@ -113,16 +111,16 @@ open Types
  *             | Some true -> Db.Errors.select_errors_compressed db ~is_ts:false ~streams ~errors ~pids ~from ~till ()
  *             | _ -> Db.Errors.select_errors db ~is_ts:true ~streams ~errors ~pids ?limit ~from ~till ()
  *           end >>= fun v ->
- *           respond_result (Ok Db.Errors.(Api.Api_types.rows_to_yojson raw_to_yojson compressed_to_yojson v))
+ *                                      respond_result (Ok Db.Errors.(Api.Api_types.rows_to_yojson raw_to_yojson compressed_to_yojson v))
  *         | _ -> respond_error ~status:`Not_implemented "not implemented" ()
- *         
+ *              
  *       let percent db streams t2mi_id errors pids from till duration _ _ () =
  *         match Time.make_interval ?from ?till ?duration () with
  *         | Ok (`Range (from,till)) ->
  *            Db.Errors.select_percent db ~is_ts:true ~streams ~errors ~pids ~from ~till ()
  *            >>= fun v -> respond_result (Ok (`Float v))
  *         | _ -> respond_error ~status:`Not_implemented "not implemented" ()
- *         
+ *              
  *       let has_any db streams t2mi_id errors pids from till duration _ _() =
  *         match Time.make_interval ?from ?till ?duration () with
  *         | Ok (`Range (from,till)) ->
@@ -142,10 +140,10 @@ open Types
  *     "ts"
  *     [ create_ws_handler ~docstring:"Pushes TS errors to the client"
  *         ~path:Path.Format.empty
- *         ~query:Query.[ "stream-id",(module List(Int32))
+ *         ~query:Query.[ "id",       (module List(Int32))
  *                      ; "errors",   (module List(Int))
  *                      ; "priority", (module List(Int))
- *                      ; "pid",      (module List(Int))]
+ *                      ; "pid",      (module List(Int)) ]
  *         (WS.TS.errors events)
  *     ]
  *     [ `GET, [ create_handler ~docstring:"Returns archived TS errors"
