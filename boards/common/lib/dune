@@ -2,7 +2,7 @@
   (name        boards)
   ;;(public_name boards)
   (synopsis    "boards common")
-  (libraries   lwt containers containers.data react yojson common storage api cbuffer)
+  (libraries   lwt containers containers.data react yojson common storage api cstruct ctypes)
   (flags          (:standard -short-paths -strict-sequence -bin-annot
                    -w A+1..49+60-4-7-23-27-33-39-40-41-42-44-45-48))
   (ocamlopt_flags (:standard -O3 -unbox-closures))
