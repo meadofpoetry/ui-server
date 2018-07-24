@@ -2,6 +2,8 @@ open Containers
 open Components
 open Lwt.Infix
 
+let base_class = "mdc-loader"
+
 class ['a] loader
            ?(text:         string option)
            ?(error_icon:   string option)
@@ -34,6 +36,7 @@ object(self)
     Lwt.return_unit
 
   initializer
+    self#add_class base_class;
     Lwt.try_bind
       (fun () -> Dom.appendChild self#root pgs#root; t)
       (fun r ->

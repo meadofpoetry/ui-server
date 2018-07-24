@@ -107,7 +107,13 @@ $fill-tone: mdc-theme-tone($alarm-color);
 
 /* Streams items */
 
-.qos-niit-stream-item {
+.qos-niit-stream-grid {
+    align-items: flex-start;
+    height: 100%;
+    width: 100%;
+}
+
+.qos-niit-stream-grid-item {
     &--lost {
         @include mdc-theme-prop(background-color, $alarm-color);
         @if ($fill-tone == "dark") {

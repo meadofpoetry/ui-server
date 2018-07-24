@@ -67,6 +67,11 @@ body {
 }
 #arbitrary-content {
     margin: 20px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     
     > .mdc-layout-grid {
         --mdc-layout-grid-margin-desktop: 0px;

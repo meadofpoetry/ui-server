@@ -9,15 +9,11 @@ type time = [ `Now | `Last of Time.t ]
 
 module Stream_item = struct
 
-  let base_class = "qos-niit-stream-item"
+  let base_class = "qos-niit-stream-grid-item"
   let lost_class = Markup.CSS.add_modifier base_class "lost"
 
-  let id_to_string = function
-    | `Ts id -> Stream.id_to_int32 id |> Int32.to_string
-    | `Ip ip -> Url.to_string ip
-
   let time_to_string = function
-    | `Now    -> "есть"
+    | `Now    -> "Активен"
     | `Last t ->
        let tz_offset_s = Ptime_clock.current_tz_offset_s () in
        Time.to_human_string ?tz_offset_s t
@@ -32,6 +28,9 @@ module Stream_item = struct
     object(self)
       inherit Card.t ~widgets:[ primary#widget ] ()
       inherit Widget.stateful ()
+
+      method stream = stream
+
       initializer
         React.E.map (function
             | Some _ ->
@@ -49,6 +48,50 @@ module Stream_item = struct
 
 end
 
+module Stream_grid = struct
+
+  let base_class = "qos-niit-stream-grid"
+
+  class t (init:(Stream.t * time) list)
+          (event:Stream.t list React.event)
+          () =
+    let ph = Ui_templates.Placeholder.create_with_icon
+               ~icon:"info"
+               ~text:"Не найдено ни одного потока"
+               () in
+    object(self)
+      val mutable _streams = []
+
+      inherit Hbox.t ~wrap:`Wrap ~widgets:[] ()
+      inherit Widget.stateful ()
+
+      method streams =
+        List.map (fun x -> x#stream) _streams
+
+      method add_stream ?(time=`Now) (stream:Stream.t) =
+        let e = React.E.map (List.find_opt (Stream.equal stream)) event
+                |> React.E.changes ~eq:(Equal.option (fun _ _ -> false)) in
+        let w = new Stream_item.t time stream e () in
+        _streams <- w :: _streams;
+        if List.is_empty _widgets
+        then Dom.removeChild self#root ph#root;
+        Dom.appendChild self#root w#root
+
+      initializer
+        self#add_class base_class;
+        List.iter (fun (s, time) -> self#add_stream ~time s) init;
+        if List.is_empty _streams
+        then Dom.appendChild self#root ph#root;
+        React.E.map (fun l ->
+            let added =
+              List.filter (fun x ->
+                  not @@ List.mem ~eq:Stream.equal x self#streams) l in
+            List.iter self#add_stream added) event
+        |> self#_keep_e
+    end
+
+end
+
 let make input control =
   let streams =
     Requests.Streams.HTTP.get_streams
@@ -61,20 +104,9 @@ let make input control =
     |> Lwt_result.map_err Api_js.Requests.err_to_string in
   streams
   >|= (fun streams ->
-    let event, sock = Requests.Streams.WS.get_streams
-                        ~inputs:[input]
-                        control in
-    let cards =
-      List.map (fun (s, time) ->
-          let e = React.E.map (List.find_opt (fun x -> Stream.equal s x))
-                    event
-                  |> React.E.changes ~eq:(fun x y -> match x, y with
-                                                     | Some _, None -> false
-                                                     | None, Some _ -> false
-                                                     | _ -> true) in
-          new Stream_item.t time s e ())
-        streams in
-    let grid  = new Hbox.t ~wrap:`Wrap ~widgets:cards () in
+    let event, sock =
+      Requests.Streams.WS.get_streams ~inputs:[input] control in
+    let grid = new Stream_grid.t streams event () in
     grid#widget)
   |> Ui_templates.Loader.create_widget_loader
   |> Widget.coerce
