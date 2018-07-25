@@ -41,7 +41,7 @@ let make_structs
   let add ?(notify=false) (id,structure) =
     let heading_details = new Typography.Text.t ~text:"" () in
     let details = new Typography.Text.t
-                    ~text:(Printf.sprintf "TS ID: %d" structure.general.ts_id)
+                    ~text:(* (Printf.sprintf "TS ID: %d" structure.general.ts_id) *) ""
                     () in
     let s       = React.S.map (List.Assoc.get ~eq:Stream.equal_id id) signal in
     let stream  =
@@ -70,13 +70,13 @@ let make_structs
           match o, n with
           | Some s, None ->
              p#add_class lost_class;
-             let message = ts_lost s.general.ts_id in
-             snackbar#set_message message;
+             (* let message = ts_lost s.general.ts_id in
+              * snackbar#set_message message; *)
              snackbar#show ()
           | None, Some s ->
              p#remove_class lost_class;
-             let message = ts_found s.general.ts_id in
-             snackbar#set_message message;
+             (* let message = ts_found s.general.ts_id in
+              * snackbar#set_message message; *)
              snackbar#show ()
           | _ -> ()) s in
     let _s = (* FIXME keep *)
@@ -85,7 +85,7 @@ let make_structs
              Option.iter heading_details#set_text s.description
           | None -> ()) stream in
     if notify
-    then (snackbar#set_message @@ ts_found structure.general.ts_id;
+    then ((* snackbar#set_message @@ ts_found structure.general.ts_id; *)
           snackbar#show ());
     (try Dom.removeChild box#root ph#root with _ -> ());
     Dom.appendChild box#root p#root in

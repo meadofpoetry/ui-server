@@ -12,75 +12,122 @@ module Model = struct
   open Key_t
      
   type init = int
-  type names = { state : string
-               ; streams : string
-               ; struct_ts : string
-               ; struct_t2 : string
-               ; bitrate : string
-               ; errors : string
-               }
-            
+  type names =
+    { state     : string
+    ; streams   : string
+    ; info_ts   : string
+    ; services  : string
+    ; tables    : string
+    ; pids      : string
+    ; struct_ts : string
+    ; struct_t2 : string
+    ; bitrate   : string
+    ; errors    : string
+    }
+
   let name = "qos_niit"
 
-  let keys_state = { time_key = Some "date_end"
-                   ; columns  = [ "state",      key "INTEGER"
-                                ; "date_start", key "TIMESTAMP"
-                                ; "date_end",   key "TIMESTAMP"
-                                ]
-                   }
+  let keys_state =
+    { time_key = Some "date_end"
+    ; columns  = [ "state",      key "INTEGER"
+                 ; "date_start", key "TIMESTAMP"
+                 ; "date_end",   key "TIMESTAMP"
+                 ]
+    }
 
-  let keys_streams = { time_key = Some "date"
-                     ; columns = [ "stream",     key "JSONB"
-                                 ; "id",         key "INTEGER"
-                                 ; "type",       key "TEXT"
-                                 ; "input",      key "JSONB"
-                                 ; "date_start", key "TIMESTAMP"
-                                 ; "date_end",   key "TIMESTAMP"
-                                 ]
-                     }
-                 
-  let keys_structs_ts = { time_key = Some "date"
-                        ; columns = [ "stream",    key "INTEGER"
-                                    ; "structure", key "TEXT"
-                                    ; "date",      key "TIMESTAMP"
-                                    ]
-                        }
+  let keys_streams =
+    { time_key = Some "date"
+    ; columns = [ "stream",     key "JSONB"
+                ; "id",         key "INTEGER"
+                ; "type",       key "TEXT"
+                ; "input",      key "JSONB"
+                ; "date_start", key "TIMESTAMP"
+                ; "date_end",   key "TIMESTAMP"
+                ]
+    }
 
-  let keys_structs_t2 = { time_key = Some "date"
-                        ; columns = [ "stream",    key "INTEGER"
-                                    ; "structure", key "TEXT"
-                                    ; "date",      key "TIMESTAMP"
-                                    ]
-                        }
+  let keys_info_ts =
+    { time_key = Some "date"
+    ; columns  = [ "stream", key "INTEGER"
+                 ; "info",   key "TEXT"
+                 ; "date",   key "TIMESTAMP"
+                 ]
+    }
 
-  let keys_bitrate = { time_key = Some "date"
-                     ; columns = [ "stream",    key "INTEGER"
-                                 ; "bitrates",  key "TEXT"
-                                 ; "date",      key "TIMESTAMP"
-                                 ]
-                     }
+  let keys_services_ts =
+    { time_key = Some "date"
+    ; columns  = [ "stream",   key "INTEGER"
+                 ; "services", key "TEXT"
+                 ; "date",     key "TIMESTAMP"
+                 ]
+    }
 
-  let keys_errors = { time_key = Some "date"
-                    ; columns = [ "is_ts",     key "BOOL"
-                                ; "stream",    key "INTEGER"
-                                ; "count",     key "INTEGER"
-                                ; "err_code",  key "INTEGER"
-                                ; "err_ext",   key "INTEGER"
-                                ; "priority",  key "INTEGER"
-                                ; "multi_pid", key "BOOL"
-                                ; "pid",       key "INTEGER"
-                                ; "packet",    key "INTEGER"
-                                ; "param_1",   key "INTEGER"
-                                ; "param_2",   key "INTEGER"
-                                ; "date",      key "TIMESTAMP"
-                                ]
-                    }
-                 
+  let keys_tables_ts =
+    { time_key = Some "date"
+    ; columns  = [ "stream", key "INTEGER"
+                 ; "tables", key "TEXT"
+                 ; "date",   key "TIMESTAMP"
+                 ]
+    }
+
+  let keys_pids_ts =
+    { time_key = Some "date"
+    ; columns  = [ "stream", key "INTEGER"
+                 ; "pids",   key "TEXT"
+                 ; "date",   key "TIMESTAMP"
+                 ]
+    }
+
+  let keys_structs_ts =
+    { time_key = Some "date"
+    ; columns = [ "stream",    key "INTEGER"
+                ; "structure", key "TEXT"
+                ; "date",      key "TIMESTAMP"
+                ]
+    }
+
+  let keys_structs_t2 =
+    { time_key = Some "date"
+    ; columns = [ "stream",    key "INTEGER"
+                ; "structure", key "TEXT"
+                ; "date",      key "TIMESTAMP"
+                ]
+    }
+
+  let keys_bitrate =
+    { time_key = Some "date"
+    ; columns = [ "stream",    key "INTEGER"
+                ; "bitrates",  key "TEXT"
+                ; "date",      key "TIMESTAMP"
+                ]
+    }
+
+  let keys_errors =
+    { time_key = Some "date"
+    ; columns = [ "is_ts",     key "BOOL"
+                ; "stream",    key "INTEGER"
+                ; "count",     key "INTEGER"
+                ; "err_code",  key "INTEGER"
+                ; "err_ext",   key "INTEGER"
+                ; "priority",  key "INTEGER"
+                ; "multi_pid", key "BOOL"
+                ; "pid",       key "INTEGER"
+                ; "packet",    key "INTEGER"
+                ; "param_1",   key "INTEGER"
+                ; "param_2",   key "INTEGER"
+                ; "date",      key "TIMESTAMP"
+                ]
+    }
+    
   let tables id =
     let id = string_of_int id in
     let names = { state     = "qos_niit_state_" ^ id
                 ; streams   = "qos_niit_streams_" ^ id
                 ; struct_ts = "qos_niit_structs_ts_" ^ id
+                ; info_ts   = "qos_niit_info_ts" ^ id
+                ; services  = "qos_niit_services" ^ id
+                ; tables    = "qos_niit_tables" ^ id
+                ; pids      = "qos_niit_pids" ^ id
                 ; struct_t2 = "qos_niit_structs_t2_" ^ id
                 ; bitrate   = "qos_niit_bitrate_" ^ id
                 ; errors    = "qos_niit_errors_" ^ id
@@ -287,18 +334,20 @@ module Streams = struct
                              ORDER BY date_end DESC LIMIT $3|} table ids inputs) in
     Conn.request db Request.(list select (from, till, limit) >>= fun l ->
                              try let data = List.map (fun (s,f,t) -> Result.get_exn
-                                                                   @@ Common.Stream.of_yojson
-                                                                   @@ Yojson.Safe.from_string s,
-                                                                   f,t) l
+                                                                     @@ Common.Stream.of_yojson
+                                                                     @@ Yojson.Safe.from_string s,
+                                                                     f,t) l
                                  in return @@ Ok (Raw { data; has_more = List.length data >= limit; order = `Desc })
                              with _ -> return @@ Error "select_streams failure")
 
   let insert_structs_ts db structs =
     let table  = (Conn.names db).struct_ts in
-    let data   = List.map (fun (id,st) -> Common.Stream.id_to_int32 id,
-                                          Yojson.Safe.to_string @@ Board_types.Streams.TS.structure_to_yojson st,
-                                          st.timestamp)
-                   structs in
+    let data   =
+      List.map (fun (id,st) ->
+          Common.Stream.id_to_int32 id,
+          Yojson.Safe.to_string @@ Board_types.Streams.TS.structure_to_yojson st,
+          st.info.timestamp)
+        structs in
     let insert = R.exec Types.(tup3 int32 string ptime)
                    (sprintf "INSERT INTO %s (stream,structure,date) VALUES (?,?,?)" table)
     in Conn.request db Request.(with_trans (List.fold_left (fun acc v -> acc >>= fun () -> exec insert v)

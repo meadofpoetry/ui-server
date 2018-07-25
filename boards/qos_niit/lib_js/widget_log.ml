@@ -31,27 +31,27 @@ let rec fetch_all acc req from till f =
          | _ -> assert false)
 
 let find_service (error:Errors.t)
-      (structure:Streams.TS.structure) =
-  let open Streams.TS in
-  let pid = error.pid in
-  List.find_opt (fun (x:service_info) ->
-      List.mem ~eq:(=) pid @@ List.map (fun (x:es_info) -> x.pid) x.es)
-    structure.services
+      (structure:Streams.TS.structure) = None
+  (* let open Streams.TS in
+   * let pid = error.pid in
+   * List.find_opt (fun (x:service_info) ->
+   *     List.mem ~eq:(=) pid @@ List.map (fun (x:es_info) -> x.pid) x.es)
+   *   structure.services *)
 
 let find_structure (stream:Stream.id)
       (error:Errors.t)
-      (structures:(Stream.id * Streams.TS.structure) list) =
-  let open Streams.TS in
-  let s = List.filter_map (fun (id,s) ->
-              if Stream.equal_id id stream
-              then Some s else None) structures
-          |> List.sort (fun (x:structure) y ->
-                 Time.compare x.timestamp y.timestamp) in
-  List.fold_while (fun acc x ->
-      if Time.is_earlier x.timestamp ~than:error.timestamp
-         || Time.equal x.timestamp error.timestamp
-      then (Some x), `Continue
-      else acc, `Stop) None s
+      (structures:(Stream.id * Streams.TS.structure) list) = None
+  (* let open Streams.TS in
+   * let s = List.filter_map (fun (id,s) ->
+   *             if Stream.equal_id id stream
+   *             then Some s else None) structures
+   *         |> List.sort (fun (x:structure) y ->
+   *                Time.compare x.timestamp y.timestamp) in
+   * List.fold_while (fun acc x ->
+   *     if Time.is_earlier x.timestamp ~than:error.timestamp
+   *        || Time.equal x.timestamp error.timestamp
+   *     then (Some x), `Continue
+   *     else acc, `Stop) None s *)
 
 let find_stream (streams:Streams.TS.streams_states)
       (stream, (error:Errors.t)) =

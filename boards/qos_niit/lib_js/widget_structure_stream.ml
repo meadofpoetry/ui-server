@@ -810,45 +810,46 @@ let make_stream (id:Stream.id)
       (event: structure React.event)
       (push:  dumpable -> unit)
       control =
-  let map_tables =
-    let open Table in
-    List.map (fun x -> { stream = id; push; control; table = x }) in
-  let event = React.S.diff (fun n o -> o, n)
-              @@ React.S.hold ~eq:(equal_structure) init event in
-  let gen,  update_gen  = General.make init.general in
-  let pids, update_pids = Pids.make init.pids in
-  let serv, update_serv = Services.make init.services in
-  let emm,  update_emm  = EMM_pids.make init.emm in
-  let tabl, update_tabl = Tables.make (map_tables init.tables) in
-  let time, update_time =
-    let to_string x =
-      let tz_offset_s = Ptime_clock.current_tz_offset_s () in
-      let s = Time.to_human_string ?tz_offset_s x in
-      Printf.sprintf "Получена: %s" s in
-    let w = new Tree.Item.t
-              ~text:""
-              ~value:() () in
-    let upd = fun (model:Time.t) -> w#item#set_text @@ to_string model in
-    w, upd in
-  update_time init.timestamp;
-  let _e =
-    React.E.map (fun (prev,model) ->
-        if not @@ equal_general_info prev.general model.general
-        then update_gen model.general;
-        if not @@ (Equal.list equal_pid_info) prev.pids model.pids
-        then update_pids model.pids;
-        if not @@ (Equal.list equal_service_info) prev.services model.services
-        then update_serv model.services;
-        if not @@ (Equal.list equal_emm_info) prev.emm model.emm
-        then update_emm model.emm;
-        if not @@ (Equal.list equal_table_info) prev.tables model.tables
-        then update_tabl @@ map_tables model.tables;
-        if not @@ Time.equal prev.timestamp model.timestamp
-        then update_time model.timestamp)
-      event in
-  let opt  = (serv :: tabl :: pids :: emm :: []) in
-  let tree = new Tree.t ~items:(time :: gen :: opt) () in
-  let ()   = tree#set_dense true in
-  let ()   = tree#set_on_destroy
-             @@ Some (fun () -> React.E.stop ~strong:true _e) in
-  tree
+  Widget.create @@ Dom_html.createDiv Dom_html.document
+  (* let map_tables =
+   *   let open Table in
+   *   List.map (fun x -> { stream = id; push; control; table = x }) in
+   * let event = React.S.diff (fun n o -> o, n)
+   *             @@ React.S.hold ~eq:(equal_structure) init event in
+   * let gen,  update_gen  = General.make init.general in
+   * let pids, update_pids = Pids.make init.pids in
+   * let serv, update_serv = Services.make init.services in
+   * let emm,  update_emm  = EMM_pids.make init.emm in
+   * let tabl, update_tabl = Tables.make (map_tables init.tables) in
+   * let time, update_time =
+   *   let to_string x =
+   *     let tz_offset_s = Ptime_clock.current_tz_offset_s () in
+   *     let s = Time.to_human_string ?tz_offset_s x in
+   *     Printf.sprintf "Получена: %s" s in
+   *   let w = new Tree.Item.t
+   *             ~text:""
+   *             ~value:() () in
+   *   let upd = fun (model:Time.t) -> w#item#set_text @@ to_string model in
+   *   w, upd in
+   * update_time init.timestamp;
+   * let _e =
+   *   React.E.map (fun (prev,model) ->
+   *       if not @@ equal_general_info prev.general model.general
+   *       then update_gen model.general;
+   *       if not @@ (Equal.list equal_pid_info) prev.pids model.pids
+   *       then update_pids model.pids;
+   *       if not @@ (Equal.list equal_service_info) prev.services model.services
+   *       then update_serv model.services;
+   *       if not @@ (Equal.list equal_emm_info) prev.emm model.emm
+   *       then update_emm model.emm;
+   *       if not @@ (Equal.list equal_table_info) prev.tables model.tables
+   *       then update_tabl @@ map_tables model.tables;
+   *       if not @@ Time.equal prev.timestamp model.timestamp
+   *       then update_time model.timestamp)
+   *     event in
+   * let opt  = (serv :: tabl :: pids :: emm :: []) in
+   * let tree = new Tree.t ~items:(time :: gen :: opt) () in
+   * let ()   = tree#set_dense true in
+   * let ()   = tree#set_on_destroy
+   *            @@ Some (fun () -> React.E.stop ~strong:true _e) in
+   * tree *)

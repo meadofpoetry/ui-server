@@ -82,6 +82,11 @@ type jitter_req =
   ; pointer    : int32
   }
 
+type ts_struct_req =
+  { request_id : int
+  ; stream     : [ `All | `Single of Stream.id ]
+  }
+
 type t2mi_info_req =
   { request_id : int
   ; stream_id  : int
@@ -137,10 +142,10 @@ type device_events =
 
 type ts_events =
   { structures : (Stream.id * structure) list event
-  ; info       : (Stream.id * general_info) list event
-  ; services   : (Stream.id * (service_info list)) list event
-  ; tables     : (Stream.id * (table_info list)) list event
-  ; pids       : (Stream.id * (pid_info list)) list event
+  ; info       : (Stream.id * info) list event
+  ; services   : (Stream.id * services) list event
+  ; tables     : (Stream.id * tables) list event
+  ; pids       : (Stream.id * pids) list event
   ; bitrates   : (Stream.id * Streams.TS.bitrate) list event
   ; errors     : (Stream.id * Errors.t list) list event
   }
@@ -168,7 +173,7 @@ type push_events =
   ; state          : Topology.state -> unit
   ; group          : group -> unit
   ; board_errors   : board_errors -> unit
-  ; structs        : (Stream.id * Streams.TS.structure) list -> unit
+  ; ts_struct      : (Stream.id * Streams.TS.structure) list -> unit
   ; bitrates       : (Stream.id * Streams.TS.bitrate) list -> unit
   ; t2mi_info      : (Stream.id * Streams.T2MI.structure) list -> unit
   ; jitter         : Jitter.measures -> unit

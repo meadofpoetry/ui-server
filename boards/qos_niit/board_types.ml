@@ -162,7 +162,6 @@ module Streams = struct
 
     type pid_info =
       { pid       : int
-      ; bitrate   : int option
       ; has_pts   : bool
       ; has_pcr   : bool
       ; scrambled : bool
@@ -173,7 +172,6 @@ module Streams = struct
 
     type es_info =
       { pid          : int
-      ; bitrate      : int option
       ; has_pcr      : bool
       ; has_pts      : bool
       ; es_type      : int
@@ -182,13 +180,11 @@ module Streams = struct
 
     type ecm_info =
       { pid       : int
-      ; bitrate   : int option
       ; ca_sys_id : int
       } [@@deriving yojson, eq]
 
     type service_info =
       { id             : int
-      ; bitrate        : int option
       ; name           : string
       ; provider_name  : string
       ; pmt_pid        : int
@@ -224,7 +220,6 @@ module Streams = struct
 
     type table_info =
       { version        : int
-      ; bitrate        : int option
       ; id             : int
       ; id_ext         : int
       ; eit_params     : eit_params
@@ -245,15 +240,60 @@ module Streams = struct
       ; bouquet_name : string
       } [@@deriving yojson, eq]
 
-    type structure =
+    (* type structure =
+     *   { timestamp : Time.t
+     *   ; bitrate   : int option
+     *   ; general   : general_info
+     *   ; pids      : pid_info list
+     *   ; services  : service_info list
+     *   ; emm       : emm_info list
+     *   ; tables    : table_info list
+     *   } [@@deriving yojson, eq] *)
+
+    type info =
       { timestamp : Time.t
-      ; bitrate   : int option
-      ; general   : general_info
-      ; pids      : pid_info list
+      ; info      : general_info
+      } [@@deriving yojson]
+
+    let equal_info x y =
+      equal_general_info x.info y.info
+
+    type services =
+      { timestamp : Time.t
       ; services  : service_info list
-      ; emm       : emm_info list
+      } [@@deriving yojson]
+
+    let equal_services x y =
+      (Equal.list equal_service_info) x.services y.services
+
+    type tables =
+      { timestamp : Time.t
       ; tables    : table_info list
-      } [@@deriving yojson, eq]
+      } [@@deriving yojson]
+
+    let equal_tables x y =
+      (Equal.list equal_table_info) x.tables y.tables
+
+    type pids =
+      { timestamp : Time.t
+      ; pids      : pid_info list
+      } [@@deriving yojson]
+
+    let equal_pids x y =
+      (Equal.list equal_pid_info) x.pids y.pids
+
+    type structure =
+      { info     : info
+      ; services : services
+      ; tables   : tables
+      ; pids     : pids
+      } [@@deriving yojson]
+
+    let equal_structure x y =
+      equal_info x.info y.info
+      && equal_services x.services y.services
+      && equal_tables x.tables y.tables
+      && equal_pids x.pids y.pids
 
     type table =
       [ `PAT

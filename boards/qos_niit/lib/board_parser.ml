@@ -30,7 +30,7 @@ type probe_response =
 type _ probe_request =
   | Get_board_errors : int           -> probe_response probe_request
   | Get_jitter       : jitter_req    -> probe_response probe_request
-  | Get_ts_structs   : int           -> probe_response probe_request
+  | Get_ts_struct    : ts_struct_req -> probe_response probe_request
   | Get_bitrates     : int           -> probe_response probe_request
   | Get_t2mi_info    : t2mi_info_req -> probe_response probe_request
 
@@ -297,17 +297,22 @@ module Get_jitter : (Request with type req := jitter_req with type rsp := Types.
 
 end
 
-module Get_ts_structs : (Request with type req := int
-                                  and type rsp := (Stream.id * Streams.TS.structure) list) = struct
+module Get_ts_structs
+       : (Request
+          with type req := ts_struct_req
+          with type rsp := (Stream.id * Streams.TS.structure) list) = struct
 
   open Streams.TS
 
   let req_code = 0x0309
   let rsp_code = req_code
 
-  let serialize request_id =
+  let serialize ({ stream; request_id }:ts_struct_req) =
+    let id   = match stream with
+      | `All      -> 0xFFFF_FFFFl
+      | `Single x -> Stream.id_to_int32 x in
     let body = Cstruct.create sizeof_req_get_ts_struct in
-    let ()   = set_req_get_ts_struct_stream_id body 0xFFFFFFFFl in
+    let ()   = set_req_get_ts_struct_stream_id body id in
     to_complex_req ~request_id ~msg_code:req_code ~body ()
 
   let of_general_struct_block msg =
@@ -331,7 +336,6 @@ module Get_ts_structs : (Request with type req := int
                  (fun buf -> Cstruct.LE.get_uint16 buf 0) msg in
     List.rev @@ Cstruct.fold (fun acc el ->
                     { pid       = el land 0x1FFF
-                    ; bitrate   = None
                     ; has_pts   = (el land 0x8000) <> 0
                     ; has_pcr   = false
                     ; scrambled = (el land 0x4000) <> 0
@@ -345,7 +349,6 @@ module Get_ts_structs : (Request with type req := int
     let strings,_  = Cstruct.split rest (string_len * 2) in
     let sn,pn      = Cstruct.split strings string_len in
     { id             = get_services_struct_block_id bdy
-    ; bitrate        = None
     ; name           = Text_decoder.decode sn
     ; provider_name  = Text_decoder.decode pn
     ; pmt_pid        = get_services_struct_block_pmt_pid bdy
@@ -369,7 +372,6 @@ module Get_ts_structs : (Request with type req := int
     List.rev @@ Cstruct.fold (fun acc x ->
                     let pid' = get_es_struct_block_pid x in
                     { pid          = pid' land 0x1FFF
-                    ; bitrate      = None
                     ; has_pts      = (pid' land 0x8000) > 0
                     ; has_pcr      = false
                     ; es_type      = get_es_struct_block_es_type x
@@ -380,7 +382,6 @@ module Get_ts_structs : (Request with type req := int
     let iter = Cstruct.iter (fun _ -> Some 4) (fun buf -> buf) msg in
     List.rev @@ Cstruct.fold (fun acc x ->
                     { pid       = get_ecm_struct_block_pid x land 0x1FFF
-                    ; bitrate   = None
                     ; ca_sys_id = get_ecm_struct_block_ca_system_id x} :: acc) iter []
 
   let of_table_struct_block msg =
@@ -403,7 +404,6 @@ module Get_ts_structs : (Request with type req := int
       ; last_table_id = get_table_struct_block_adv_info_4 bdy
       } in
     { version        = get_table_struct_block_version bdy
-    ; bitrate        = None
     ; id
     ; id_ext
     ; eit_params
@@ -515,56 +515,75 @@ module Get_ts_structs : (Request with type req := int
            { pid_info with service; pid_type })
 
   let of_ts_struct msg : (Stream.id * structure) * Cstruct.t option =
-    let open Option in
-    let hdr,rest = Cstruct.split msg sizeof_ts_struct in
-    let len      = (Int32.to_int @@ get_ts_struct_length hdr) in
-    let bdy,rest = Cstruct.split rest len in
-    let blocks   = of_ts_struct_blocks bdy in
-    let stream   = Common.Stream.id_of_int32 @@ get_ts_struct_stream_id hdr in
-    let rest     = if Cstruct.len rest > 0 then Some rest else None in
-    let general  =
-      get_exn @@ List.find_map (function `General x -> Some x
-                                       | _ -> None) blocks in
+    let hdr,rest  = Cstruct.split msg sizeof_ts_struct in
+    let len       = (Int32.to_int @@ get_ts_struct_length hdr) in
+    let bdy,rest  = Cstruct.split rest len in
+    let timestamp = Common.Time.Clock.now () in
+    let blocks    = of_ts_struct_blocks bdy in
+    let stream    = Common.Stream.id_of_int32 @@ get_ts_struct_stream_id hdr in
+    let general =
+      List.find_map (function
+          | `General x -> Some x
+          | _ -> None) blocks
+      |> Option.get_exn in
     let services =
-      List.filter_map (function `Services x -> Some x | _ -> None) blocks
-      |> List.sort (fun (x:service_info) y -> Int.compare x.id y.id) in
+      List.filter_map (function
+          | `Services x -> Some x
+          | _ -> None) blocks
+      |> List.sort (fun (x:service_info) y ->
+             Int.compare x.id y.id) in
     let emm =
-      get_exn @@ List.find_map (function `Emm x -> Some x
-                                       | _ -> None) blocks
-      |> List.sort (fun (x:emm_info) y -> Int.compare x.pid y.pid) in
+      List.find_map (function
+          | `Emm x -> Some x
+          | _ -> None) blocks
+      |> Option.get_exn
+      |> List.sort (fun (x:emm_info) y ->
+             Int.compare x.pid y.pid) in
     let tables =
-      List.filter_map (function `Tables x -> Some x | _ -> None) blocks
+      List.filter_map (function
+          | `Tables x -> Some x
+          | _ -> None) blocks
       |> List.sort (fun (x:table_info) y ->
              Int.compare x.pid y.pid) in
-    let pcr_pids = List.map (fun (x:service_info) -> x.pcr_pid) services in
+    let pcr_pids =
+      List.map (fun (x:service_info) -> x.pcr_pid) services in
     let pids =
-      get_exn @@ List.find_map (function `Pids x -> Some x | _ -> None) blocks
+      List.find_map (function
+          | `Pids x -> Some x
+          | _ -> None) blocks
+      |> Option.get_exn
       |> List.sort (fun (x:pid_info) y -> Int.compare x.pid y.pid)
       |> List.map (fun (x:pid_info) ->
              let pid_info =
                if List.mem ~eq:(=) x.pid pcr_pids
                then { x with has_pcr = true } else x in
              update_pid_type pid_info services tables emm) in
+    let rest = if Cstruct.len rest > 0 then Some rest else None in
     let rsp =
-      { bitrate   = None
-      ; general
-      ; pids
-      ; services
-      ; emm
-      ; tables
-      ; timestamp = Common.Time.Clock.now ()
+      { info     = { timestamp; info = general }
+      ; pids     = { timestamp; pids }
+      ; services = { timestamp; services }
+      ; tables   = { timestamp; tables }
       }
-    in (stream,rsp),rest
+    in (stream, rsp), rest
 
-  let parse _ msg : (Stream.id * structure) list =
+  let parse ({ stream; _}:ts_struct_req) msg : (Stream.id * structure) list =
     let hdr,bdy'  = Cstruct.split msg sizeof_ts_structs in
     let count     = get_ts_structs_count hdr in
+    (* stream id list *)
     let _,bdy     = Cstruct.split bdy' (count * 4) in
-    let rec parse = (fun acc buf -> let x,rest = of_ts_struct buf in
-                                    match rest with
-                                    | Some b -> parse (x :: acc) b
-                                    | None   -> List.rev (x :: acc)) in
-    if count > 0 then parse [] bdy else []
+    (* FIXME stuffing bytes when requesting for a single stream *)
+    let parse = match stream with
+      | `All ->
+         let rec f = fun acc buf ->
+           let x,rest = of_ts_struct buf in
+           match rest with
+           | Some b -> f (x :: acc) b
+           | None   -> List.rev (x :: acc) in
+         f []
+      | `Single _ ->
+         fun buf -> let s, _ = of_ts_struct buf in [s] in
+    if count > 0 then parse bdy else []
 
 end
 
@@ -699,52 +718,56 @@ module Status : (Event with type msg := status_raw) = struct
 
   let parse msg : status_raw =
     let timestamp = Common.Time.Clock.now () in
-    let iter      = fun x -> Cstruct.iter (fun _ -> Some 1) (fun buf -> Cstruct.get_uint8 buf 0) x in
-    let flags     = get_status_flags msg in
-    let has_sync  = not (flags land 0x04 > 0) in
-    let ts_num    = get_status_ts_num msg in
-    let flags2    = get_status_flags_2 msg in
-    let jpid      = get_status_jitter_pid msg in
-    let mode      = to_mode_exn (get_status_mode msg)
-                      (get_status_t2mi_pid msg)
-                      (get_status_t2mi_stream_id msg)
-    in
-    { status    = { timestamp
-                  ; load         = (float_of_int ((get_status_load msg) * 100)) /. 255.
-                  ; ts_num       = if has_sync then ts_num else 0
-                  ; services_num = if has_sync then get_status_services_num msg else 0
-                  ; bitrate      = Int32.to_int @@ get_status_bitrate msg
-                  ; packet_sz    = if      (flags land 0x08) <> 0 then Ts192
-                                   else if (flags land 0x10) <> 0 then Ts204
-                                   else Ts188
-                  ; has_sync
-                  ; has_stream   = flags land 0x80 = 0
-                  }
+    let iter     = fun x -> Cstruct.iter (fun _ -> Some 1) (fun buf -> Cstruct.get_uint8 buf 0) x in
+    let flags    = get_status_flags msg in
+    let has_sync = not (flags land 0x04 > 0) in
+    let ts_num   = get_status_ts_num msg in
+    let flags2   = get_status_flags_2 msg in
+    let mode     = to_mode_exn (get_status_mode msg)
+                     (get_status_t2mi_pid msg)
+                     (get_status_t2mi_stream_id msg) in
+    { status =
+        { timestamp
+        ; load         = (float_of_int ((get_status_load msg) * 100)) /. 255.
+        ; ts_num       = if has_sync then ts_num else 0
+        ; services_num = if has_sync then get_status_services_num msg else 0
+        ; bitrate      = Int32.to_int @@ get_status_bitrate msg
+        ; packet_sz    = if      (flags land 0x08) <> 0 then Ts192
+                         else if (flags land 0x10) <> 0 then Ts204
+                         else Ts188
+        ; has_sync
+        ; has_stream   = flags land 0x80 = 0
+        }
     ; reset       = flags2 land 0x02 <> 0
     ; input       = mode.input
     ; t2mi_mode   = mode.t2mi
-    ; jitter_mode = if not @@ Int.equal jpid 0x1fff
-                    then Some { stream  = Common.Stream.id_of_int32 (get_status_jitter_stream_id msg)
-                              ; pid     = jpid
-                           }
-                    else None
-    ; errors      = flags land 0x20 <> 0
-    ; t2mi_sync   = int_to_bool_list (get_status_t2mi_sync msg)
-                    |> (fun l -> List.foldi (fun acc i x -> if x then i :: acc else acc) [] l)
-    ; version     = get_status_version msg
-    ; versions    = { streams_ver      = get_status_streams_ver msg
-                    ; ts_ver_com       = get_status_ts_ver_com msg
-                    ; ts_ver_lst       = Cstruct.fold (fun acc el -> el :: acc)
-                                           (iter @@ get_status_ts_ver_lst msg) []
-                                         |> List.rev
-                                         |> List.take ts_num
-                    ; t2mi_ver_lst     = get_status_t2mi_ver_lst msg
-                                         |> (fun v -> List.map (fun x -> Int32.shift_right v (4 * x)
-                                                                         |> Int32.logand 0xfl
-                                                                         |> Int32.to_int)
-                                                        (List.range 0 7))
-                    }
-    ; streams     = []
+    ; jitter_mode =
+        (let pid = get_status_jitter_pid msg in
+         let id  = get_status_jitter_stream_id msg in
+         if not @@ Int.equal pid 0x1fff
+         then Some { stream = Common.Stream.id_of_int32 id; pid }
+         else None)
+    ; errors = flags land 0x20 <> 0
+    ; t2mi_sync =
+        int_to_bool_list (get_status_t2mi_sync msg)
+        |> (fun l -> List.foldi (fun acc i x ->
+                         if x then i :: acc else acc) [] l)
+    ; version = get_status_version msg
+    ; versions =
+        { streams_ver  = get_status_streams_ver msg
+        ; ts_ver_com   = get_status_ts_ver_com msg
+        ; ts_ver_lst   = Cstruct.fold (fun acc el -> el :: acc)
+                           (iter @@ get_status_ts_ver_lst msg) []
+                         |> List.rev
+                         |> List.take ts_num
+        ; t2mi_ver_lst = get_status_t2mi_ver_lst msg
+                         |> (fun v -> List.map (fun x ->
+                                          Int32.shift_right v (4 * x)
+                                          |> Int32.logand 0xfl
+                                          |> Int32.to_int)
+                                        (List.range 0 7))
+        }
+    ; streams = []
     }
 
 end
@@ -945,10 +968,10 @@ let parse_get_jitter (({request_id=id;pointer=ptr;_} as req):jitter_req) = funct
      @@ try_parse (Get_jitter.parse req) buf
   | _ -> None
 
-let parse_get_ts_structs id = function
-  | `Struct (r_id,_,buf) when r_id = id ->
+let parse_get_ts_struct (req:ts_struct_req) = function
+  | `Struct (r_id,_,buf) when r_id = req.request_id ->
      Option.map (fun x -> Struct x)
-     @@ try_parse (Get_ts_structs.parse id) buf
+     @@ try_parse (Get_ts_structs.parse req) buf
   | _ -> None
 
 let parse_get_bitrates id = function
@@ -975,7 +998,7 @@ let is_probe_response (type a) (req : a probe_request) msg : a option =
   match req with
   | Get_board_errors id -> parse_get_board_errors id msg
   | Get_jitter x        -> parse_get_jitter x msg
-  | Get_ts_structs x    -> parse_get_ts_structs x msg
+  | Get_ts_struct x     -> parse_get_ts_struct x msg
   | Get_bitrates x      -> parse_get_bitrates x msg
   | Get_t2mi_info x     -> parse_get_t2mi_info x msg
 
