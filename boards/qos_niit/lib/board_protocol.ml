@@ -210,7 +210,7 @@ module SM = struct
       |> List.fold_left (fun acc (id, s) ->
              List.Assoc.update ~eq ~f:(f s) id []) [] in
     List.iter (function Board_errors x -> pe.board_errors x
-                      | Struct x    -> pe.structs x
+                      | Struct x    -> Logs.err (fun m -> m "%s" @@ Yojson.Safe.pretty_to_string @@ (Json.List.to_yojson Streams.TS.structure_to_yojson) @@ List.map snd x); pe.structs x
                       | Jitter x    -> jitter_ptr := x.next_ptr; pe.jitter x.measures
                       | Bitrate x   -> pe.bitrates x
                       | T2mi_info _ -> ()) acc.probes;

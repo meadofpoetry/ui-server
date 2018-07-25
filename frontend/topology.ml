@@ -37,5 +37,5 @@ end
 
 let () =
   let elt = new t () in
-  let _ = new Page.t (`Static [elt#widget]) () in
+  let _ = new Ui_templates.Page.t (`Static [elt#widget]) () in
   ()

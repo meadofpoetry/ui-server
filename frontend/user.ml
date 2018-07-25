@@ -79,5 +79,5 @@ let () =
                        ; new Layout_grid.Cell.t ~widgets:[guest_card] () ]
                 ()
   in
-  let _ = new Page.t (`Static [box#widget]) () in
+  let _ = new Ui_templates.Page.t (`Static [box#widget]) () in
   ()

@@ -335,6 +335,8 @@ module Get_ts_structs : (Request with type req := int
                     ; has_pts   = (el land 0x8000) <> 0
                     ; has_pcr   = false
                     ; scrambled = (el land 0x4000) <> 0
+                    ; pid_type  = Null
+                    ; service   = None
                     ; present   = (el land 0x2000) <> 0 } :: acc) iter []
 
   let of_services_struct_block string_len msg =
@@ -399,7 +401,7 @@ module Get_ts_structs : (Request with type req := int
       ; orig_nw_id    = get_table_struct_block_adv_info_2 bdy
       ; segment_lsn   = get_table_struct_block_adv_info_3 bdy
       ; last_table_id = get_table_struct_block_adv_info_4 bdy
-      }  in
+      } in
     { version        = get_table_struct_block_version bdy
     ; bitrate        = None
     ; id
@@ -448,6 +450,70 @@ module Get_ts_structs : (Request with type req := int
     in
     aux msg []
 
+  let is_null (pid:int) : (string option * pid_type) option =
+    if pid = 0x1FFF then Some (None, Null) else None
+
+  let is_es_ecm (services:service_info list) (pid:int) 
+      : (string option * pid_type) option =
+    List.find_map (fun (x:service_info) ->
+        let es  = List.find_opt (fun (x:es_info)  -> x.pid = pid) in
+        let ecm = List.find_opt (fun (x:ecm_info) -> x.pid = pid) in
+        match es x.es with
+        | Some es -> Some (x.name, PES es.es_type)
+        | None    ->
+           (match ecm x.ecm with
+            | Some ecm -> Some (x.name, ECM ecm.ca_sys_id)
+            | None     -> None)) services
+    |> (function
+        | Some (name, typ) -> Some (Some name, typ)
+        | None             -> None)
+
+  let is_emm (emm:emm_info list) (pid:int)
+      : (string option * pid_type) option =
+    List.find_map (fun (x:emm_info) ->
+        if x.pid = pid then Some (None, EMM x.ca_sys_id)
+        else None) emm
+
+  let is_section (tables:table_info list)
+        (services:service_info list)
+        (pid:int)
+      : (string option * pid_type) option =
+    List.find_all (fun (x:table_info) -> x.pid = pid) tables
+    |> List.map (fun (x:table_info) -> x.id)
+    |> List.sort_uniq ~cmp:compare
+    |> (function
+        | [ ] -> None
+        | [x] ->
+           (match table_of_int x with
+            | `PMT ->
+               let service = List.find_opt (fun x -> x.pmt_pid = pid)
+                               services in
+               (match service with
+                | Some s -> Some (Some s.name, SEC [x])
+                | None   -> Some (None, SEC [x]))
+            | _ -> Some (None, SEC [x]))
+        | l  -> Some (None, SEC l))
+
+  let update_pid_type
+        (pid_info:pid_info)
+        (services:service_info list)
+        (tables:table_info list)
+        (emm:emm_info list) : pid_info =
+    let pid = pid_info.pid in
+    let ( >>= ) x f = match x with
+      | Some x -> Some x
+      | None   -> f pid in
+    None
+    >>= is_null
+    >>= is_es_ecm services
+    >>= is_emm emm
+    >>= is_section tables services
+    |> (function
+        | None ->
+           { pid_info with pid_type = Private }
+        | Some (service, pid_type) ->
+           { pid_info with service; pid_type })
+
   let of_ts_struct msg : (Stream.id * structure) * Cstruct.t option =
     let open Option in
     let hdr,rest = Cstruct.split msg sizeof_ts_struct in
@@ -462,22 +528,24 @@ module Get_ts_structs : (Request with type req := int
     let services =
       List.filter_map (function `Services x -> Some x | _ -> None) blocks
       |> List.sort (fun (x:service_info) y -> Int.compare x.id y.id) in
-    let pcr_pids = List.map (fun (x:service_info) -> x.pcr_pid) services in
-    let pids     =
-      get_exn @@ List.find_map (function `Pids x -> Some x | _ -> None) blocks
-      |> List.sort (fun (x:pid_info) y -> Int.compare x.pid y.pid)
-      |> List.map (fun (x:pid_info) ->
-             if List.mem ~eq:(=) x.pid pcr_pids
-             then { x with has_pcr = true } else x) in
-    let emm      =
+    let emm =
       get_exn @@ List.find_map (function `Emm x -> Some x
                                        | _ -> None) blocks
       |> List.sort (fun (x:emm_info) y -> Int.compare x.pid y.pid) in
-    let tables   =
+    let tables =
       List.filter_map (function `Tables x -> Some x | _ -> None) blocks
       |> List.sort (fun (x:table_info) y ->
              Int.compare x.pid y.pid) in
-    let rsp      =
+    let pcr_pids = List.map (fun (x:service_info) -> x.pcr_pid) services in
+    let pids =
+      get_exn @@ List.find_map (function `Pids x -> Some x | _ -> None) blocks
+      |> List.sort (fun (x:pid_info) y -> Int.compare x.pid y.pid)
+      |> List.map (fun (x:pid_info) ->
+             let pid_info =
+               if List.mem ~eq:(=) x.pid pcr_pids
+               then { x with has_pcr = true } else x in
+             update_pid_type pid_info services tables emm) in
+    let rsp =
       { bitrate   = None
       ; general
       ; pids

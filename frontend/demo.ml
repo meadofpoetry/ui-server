@@ -820,7 +820,7 @@ let onload _ =
                         ; hexdump_demo ()
                         ; split_demo ()
                         ] in
-  let _ = new Page.t (`Static [Widget.create demos]) () in
+  let _ = new Ui_templates.Page.t (`Static [Widget.create demos]) () in
   Js._false
 
 let () = Dom_html.addEventListener Dom_html.document

@@ -152,6 +152,14 @@ module Streams = struct
 
     (** TS structure *)
 
+    type pid_type =
+      | SEC of int list
+      | PES of int
+      | ECM of int
+      | EMM of int
+      | Private
+      | Null [@@deriving yojson, eq]
+
     type pid_info =
       { pid       : int
       ; bitrate   : int option
@@ -159,6 +167,8 @@ module Streams = struct
       ; has_pcr   : bool
       ; scrambled : bool
       ; present   : bool
+      ; service   : string option
+      ; pid_type  : pid_type
       } [@@deriving yojson, eq]
 
     type es_info =

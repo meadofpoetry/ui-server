@@ -9,5 +9,5 @@ let () =
   in
   Lwt.async (fun () ->
       Pc_control_js.Network.page user >>= fun page ->
-      let _ = new Page.t (`Static [page]) () in
+      let _ = new Ui_templates.Page.t (`Static [page]) () in
       Lwt.return_unit)
