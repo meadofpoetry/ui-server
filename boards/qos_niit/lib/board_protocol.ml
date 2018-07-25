@@ -210,7 +210,7 @@ module SM = struct
       |> List.fold_left (fun acc (id, s) ->
              List.Assoc.update ~eq ~f:(f s) id []) [] in
     List.iter (function Board_errors x -> pe.board_errors x
-                      | Struct x    -> Logs.err (fun m -> m "%s" @@ Yojson.Safe.pretty_to_string @@ (Json.List.to_yojson Streams.TS.structure_to_yojson) @@ List.map snd x); pe.structs x
+                      | Struct x    -> pe.structs x
                       | Jitter x    -> jitter_ptr := x.next_ptr; pe.jitter x.measures
                       | Bitrate x   -> pe.bitrates x
                       | T2mi_info _ -> ()) acc.probes;
@@ -407,16 +407,6 @@ module SM = struct
     let e_pcr,pcr_push     = E.create () in
     let e_pcr_s,pcr_s_push = E.create () in
 
-    (* let map_struct f =
-     *   S.map (List.map (fun (id,(s:Streams.TS.structure)) ->
-     *              id, f s)) s_ts in *)
-
-    (* let s_ts_info = map_struct (fun s -> s.general) in
-     * let s_ts_services = map_struct (fun s -> s.services) in
-     * let s_ts_tables = map_struct (fun s -> s.tables) in
-     * let s_ts_emm = map_struct (fun s -> s.emm) in
-     * let s_ts_pids = map_struct (fun s -> s.pids) in *)
-
     let e_t2mi, e_t2mi_push = E.create () in
     let s_config = S.hold ~eq:equal_config storage#get
                      (to_config_e e_group) in
@@ -442,6 +432,20 @@ module SM = struct
               let eq = Equal.pair Stream.equal_id equal_ts_struct in
               not @@ List.mem ~eq x o) n) s_ts
       |> React.E.fmap (function [] -> None | l -> Some l) in
+
+    let open Streams.TS in
+    let map_struct ~eq f =
+      E.map (List.map (fun (id,(s:Streams.TS.structure)) ->
+                 id, f s)) e_ts
+      |> E.changes ~eq:(Equal.list @@ Equal.pair Stream.equal_id eq) in
+    let e_ts_info  = map_struct ~eq:equal_general_info
+                       (fun s -> s.general) in
+    let e_services = map_struct ~eq:(Equal.list equal_service_info)
+                       (fun s -> s.services) in
+    let e_tables   = map_struct ~eq:(Equal.list equal_table_info)
+                       (fun s -> s.tables) in
+    let e_pids     = map_struct ~eq:(Equal.list equal_pid_info)
+                       (fun s -> s.pids) in
     let (events:events) =
       { device  =
           { config = S.changes s_config
@@ -455,6 +459,10 @@ module SM = struct
           ; errors = e_be
           }
       ; ts   = { structures = e_ts
+               ; info       = e_ts_info
+               ; services   = e_services
+               ; tables     = e_tables
+               ; pids       = e_pids
                ; bitrates   = e_bitrates
                ; errors     = E.map Events.to_ts_errors e_group
                }

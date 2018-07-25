@@ -123,34 +123,41 @@ type api =
 
 (* Events *)
 
+open React
+open Streams.TS
+
 type device_events =
-  { config : config React.event
-  ; input  : input React.signal
-  ; state  : Common.Topology.state React.signal
-  ; status : status React.event
-  ; reset  : reset_ts React.event
-  ; errors : board_errors React.event
+  { config : config event
+  ; input  : input signal
+  ; state  : Common.Topology.state signal
+  ; status : status event
+  ; reset  : reset_ts event
+  ; errors : board_errors event
   }
 
 type ts_events =
-  { structures : (Stream.id * Streams.TS.structure) list React.event
-  ; bitrates   : (Stream.id * Streams.TS.bitrate) list React.event
-  ; errors     : (Stream.id * Errors.t list) list React.event
+  { structures : (Stream.id * structure) list event
+  ; info       : (Stream.id * general_info) list event
+  ; services   : (Stream.id * (service_info list)) list event
+  ; tables     : (Stream.id * (table_info list)) list event
+  ; pids       : (Stream.id * (pid_info list)) list event
+  ; bitrates   : (Stream.id * Streams.TS.bitrate) list event
+  ; errors     : (Stream.id * Errors.t list) list event
   }
 
 type t2mi_events =
-  { structures : (Stream.id * Streams.T2MI.structure) list React.event
-  ; errors     : (Stream.id * Errors.t list) list React.event
+  { structures : (Stream.id * Streams.T2MI.structure) list event
+  ; errors     : (Stream.id * Errors.t list) list event
   }
 
 type jitter_events =
-  { session : Jitter.session React.event
-  ; jitter  : Jitter.measures React.event
+  { session : Jitter.session event
+  ; jitter  : Jitter.measures event
   }
 
 type events =
   { device  : device_events
-  ; streams : Stream.t list React.signal
+  ; streams : Stream.t list signal
   ; ts      : ts_events
   ; t2mi    : t2mi_events
   ; jitter  : jitter_events
