@@ -685,6 +685,7 @@ module SM = struct
         let (stream:Common.Stream.stream) =
           { source      = Port 0
           ; id          = `Ts Single
+          ; typ         = `Ts
           ; description = Some ""
           }
         in

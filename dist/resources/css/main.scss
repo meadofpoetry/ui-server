@@ -5,6 +5,9 @@
 @import './pages/boards/dvb_niit';
 @import './pages/boards/qos_niit';
 
+@import "./components/layout-grid/variables";
+@import "./components/layout-grid/mixins";
+
 $xsmall: 480px;
 $small: 600px;
 $small-840: 840px;
@@ -50,6 +53,10 @@ body {
     &.main-content--dynamic {
         margin-top: 128px;
         min-height: calc(100vh - 128px);
+        @media (max-width: 599px) {
+            margin-top: 112px;
+            min-height: calc(100vh - 112px);
+        }
     }
 }
 #main-toolbar, #main-content {
@@ -65,15 +72,23 @@ body {
         }
     }
 }
+
 #arbitrary-content {
-    margin: 20px;
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    
-    > .mdc-layout-grid {
+
+    @each $size in map-keys($mdc-layout-grid-columns) {
+        @include mdc-layout-grid-media-query_($size) {
+            $margin: map-get($mdc-layout-grid-default-margin, $size);
+
+            @include mdc-layout-grid($size, $margin, $mdc-layout-grid-max-width);
+        }
+    }
+
+    .mdc-layout-grid {
         --mdc-layout-grid-margin-desktop: 0px;
         --mdc-layout-grid-margin-tablet: 0px;
         --mdc-layout-grid-margin-phone: 0px;

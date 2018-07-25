@@ -207,6 +207,7 @@ module SM = struct
                let (stream:Common.Stream.t) =
                  { source      = Parent s
                  ; id          = `Ip { ip = packer.dst_ip; port = packer.dst_port }
+                 ; typ         = s.typ
                  ; description = s.description }
                in stream :: acc
             | _ -> acc) [] status)

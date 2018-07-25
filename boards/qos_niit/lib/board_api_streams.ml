@@ -122,9 +122,10 @@ module HTTP = struct
     let open Common.Stream in
     let open Lwt_result.Infix in
     let merge (cur:t list) streams =
-      let filter (s,id,t) =
+      let filter (s, id, typ, t) =
         let id = `Ts (id_of_int32 id) in
-        if List.exists (fun s -> equal_stream_id id s.id) cur
+        if List.exists (fun s -> equal_stream_id id s.id
+                                 && equal_typ typ s.typ) cur
         then None
         else Some (s,`Last t)
       in

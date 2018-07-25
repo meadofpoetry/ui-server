@@ -509,6 +509,7 @@ module SM = struct
         let (stream:stream) =
           { source      = Port 0
           ; id          = `Ts (Dvb (id,plp))
+          ; typ         = `Ts
           ; description = Some name
           }
         in

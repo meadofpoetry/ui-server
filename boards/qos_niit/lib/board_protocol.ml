@@ -361,18 +361,25 @@ module SM = struct
   open Lwt_react
 
   let to_raw_streams_s (group:group event) : Stream.stream list signal =
-    let conv : input -> Stream.id -> Stream.stream = fun i x ->
+    let conv : t2mi_mode option -> input -> Stream.id -> Stream.stream =
+      fun mode i x ->
       { id          = `Ts x
       ; description = (match x with
                        | T2mi_plp x -> Some (Printf.sprintf "T2-MI PLP %d" x)
                        | _          -> Some "Входной поток")
+      ; typ         = (match mode with
+                       | Some m ->
+                          if Stream.equal_id x m.stream && m.enabled
+                          then `T2mi else `Ts
+                       | _ -> `Ts)
       ; source      = (match x with (* FIXME *)
                        | T2mi_plp _ -> Stream Single
                        | _          -> Port (match i with SPI -> 0 | ASI -> 1))
       }
     in
     E.map (fun (g:group) ->
-        List.map (fun x -> conv g.status.input x) g.status.streams) group
+        List.map (fun x -> conv g.status.t2mi_mode g.status.input x)
+          g.status.streams) group
     |> S.hold ~eq:(Equal.list Stream.equal_stream) []
 
   let to_config_e (group:group event) : config event =

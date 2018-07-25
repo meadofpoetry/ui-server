@@ -42,18 +42,29 @@ type stream_id = [`Ip of Url.t | `Ts of id] [@@deriving yojson, show, eq]
 type stream =
   { source      : src
   ; id          : stream_id
+  ; typ         : typ
   ; description : string option
   }
+and typ = [ `Ts | `T2mi ]
 and src = Port   of int
         | Stream of id [@@deriving yojson, show, eq]
 
 type t =
   { source      : source
   ; id          : stream_id
+  ; typ         : typ
   ; description : string option
   }
 and source = Input  of Topology.topo_input
            | Parent of t [@@deriving yojson, show]
+
+let typ_to_string = function
+  | `Ts   -> "ts"
+  | `T2mi -> "t2mi"
+let typ_of_string = function
+  | "ts"   -> `Ts
+  | "t2mi" -> `T2mi
+  | _      -> failwith "bad typ string"
 
 let to_short_name (t:t) =
   let src = match t.source with
@@ -73,16 +84,24 @@ let rec equal l r =
   match l.id, r.id with
   | `Ip ul, `Ip ur ->
      if Url.equal ul ur
-     then equal_source l.source r.source
+     then if equal_source l.source r.source
+          then equal_typ l.typ r.typ
+          else false
      else false
   | `Ts il, `Ts ir ->
      if equal_id il ir
-     then equal_source l.source r.source
+     then if equal_source l.source r.source
+          then equal_typ l.typ r.typ
+          else false
      else false
   | _ -> false
 and equal_source l r = match l, r with
   | Input l, Input r -> Topology.equal_topo_input l r
   | Parent l, Parent r -> equal l r
+  | _ -> false
+and equal_typ l r = match l, r with
+  | `Ts, `Ts     -> true
+  | `T2mi, `T2mi -> true
   | _ -> false
 
 let to_topo_port (b:topo_board) (t:t) =

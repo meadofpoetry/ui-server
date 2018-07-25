@@ -93,6 +93,7 @@ let merge_streams (boards : t Map.t)
   let create_in_stream (s : stream) i =
     `Done (S.const (Some { source = (Input i)
                          ; id     = s.id
+                         ; typ    = s.typ
                          ; description = s.description }))
   in
   (* let g = S.fmap (function None -> None | Some x -> Some (string_of_int x)) "" a;; *)
@@ -107,6 +108,7 @@ let merge_streams (boards : t Map.t)
                  `Done (S.map (function
                               Some p -> Some ({ source = (Parent p)
                                               ; id     = s.id
+                                              ; typ    = s.typ
                                               ; description = s.description })
                             | None -> None)
                           v)

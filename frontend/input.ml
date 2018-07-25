@@ -66,6 +66,6 @@ let tabs () =
   in tabs
 
 let () =
-  let _ = new Page.t (`Dynamic (tabs ())) () in
+  let _ = new Ui_templates.Page.t (`Dynamic (tabs ())) () in
   ()
 

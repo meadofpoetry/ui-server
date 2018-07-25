@@ -151,7 +151,7 @@ let make_stream_create_dialog () =
   let merge uri description source =
     match uri with
     | None -> Error ("no uri provided")
-    | Some uri -> Ok { id = `Ip uri; description; source }
+    | Some uri -> Ok { id = `Ip uri; typ = `Ts; description; source }
   in
   let result = React.S.l3 merge uri_box#s_input desc_box#s_input input in
   Dom.appendChild Dom_html.document##.body dialog#root;

@@ -768,14 +768,24 @@
 /* Streams items */
 .qos-niit-stream-grid {
   align-items: flex-start;
+  align-content: flex-start;
   height: 100%;
   width: 100%; }
+  .qos-niit-stream-grid .mdc-layout-grid__cell {
+    display: flex; }
 
-.qos-niit-stream-grid-item--lost {
-  background-color: #ffcdd2;
-  /* @alternate */
-  color: rgba(0, 0, 0, 0.87);
-  color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87)); }
+.qos-niit-stream-grid-item {
+  cursor: pointer;
+  flex-grow: 1; }
+  .qos-niit-stream-grid-item .mdc-card__media {
+    display: flex;
+    flex-direction: column;
+    padding: 1rem; }
+  .qos-niit-stream-grid-item--lost {
+    background-color: #ffcdd2;
+    /* @alternate */
+    color: rgba(0, 0, 0, 0.87);
+    color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87)); }
 
 :root {
   --mdc-box-margin: 0px; }
@@ -826,6 +836,10 @@ body {
   #main-content.main-content--dynamic {
     margin-top: 128px;
     min-height: calc(100vh - 128px); }
+    @media (max-width: 599px) {
+      #main-content.main-content--dynamic {
+        margin-top: 112px;
+        min-height: calc(100vh - 112px); } }
 
 #main-toolbar, #main-content {
   left: 0px;
@@ -836,13 +850,30 @@ body {
     left: 240px;
     width: calc(100% - 240px); } }
 #arbitrary-content {
-  margin: 20px;
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0; }
-  #arbitrary-content > .mdc-layout-grid {
+  @media (min-width: 840px) {
+    #arbitrary-content {
+      box-sizing: border-box;
+      margin: 0 auto;
+      padding: 24px;
+      padding: var(--mdc-layout-grid-margin-desktop, 24px); } }
+  @media (min-width: 480px) and (max-width: 839px) {
+    #arbitrary-content {
+      box-sizing: border-box;
+      margin: 0 auto;
+      padding: 16px;
+      padding: var(--mdc-layout-grid-margin-tablet, 16px); } }
+  @media (max-width: 479px) {
+    #arbitrary-content {
+      box-sizing: border-box;
+      margin: 0 auto;
+      padding: 16px;
+      padding: var(--mdc-layout-grid-margin-phone, 16px); } }
+  #arbitrary-content .mdc-layout-grid {
     --mdc-layout-grid-margin-desktop: 0px;
     --mdc-layout-grid-margin-tablet: 0px;
     --mdc-layout-grid-margin-phone: 0px; }

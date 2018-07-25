@@ -18,28 +18,63 @@ module Stream_item = struct
        let tz_offset_s = Ptime_clock.current_tz_offset_s () in
        Time.to_human_string ?tz_offset_s t
 
+  let typ_to_string = function
+    | `Ts   -> "MPEG-TS"
+    | `T2mi -> "T2-MI"
+
+  let source_to_string (source:Stream.source) : string =
+    let rec aux acc : Stream.source -> string list =
+      function
+      | Input i -> ("Вход " ^ Topology.get_input_name i) :: acc
+      | Parent (stream:Stream.t) ->
+         let s = "Поток " ^ (match stream.description with
+                             | None   -> "без описания"
+                             | Some s -> s) in
+         aux (s :: acc) stream.source in
+    String.concat " -> " @@ aux [] source
+    |> fun s -> "Источник: " ^ s
+
   class t (time:time)
           (stream:Stream.t)
           (event:Stream.t option React.event) () =
-    let descr    = Option.get_or ~default:"Нет описания" stream.description in
-    let title    = new Card.Primary.title descr () in
-    let subtitle = new Card.Primary.subtitle (time_to_string time) () in
-    let primary  = new Card.Primary.t ~widgets:[ title; subtitle ] () in
+    let descr = Option.get_or ~default:"Нет описания" stream.description in
+    (* FIXME change to stream type *)
+    let title = new Card.Primary.title
+                  ~large:true (typ_to_string stream.typ) () in
+    let description = new Card.Primary.subtitle descr () in
+    let primary = new Card.Primary.t ~widgets:[ title
+                                              ; description ] () in
+    let source = new Typography.Text.t
+                   ~font:Caption ~adjust_margin:false
+                   ~text:(source_to_string stream.source) () in
+    let timestamp = new Typography.Text.t
+                      ~font:Caption ~adjust_margin:false
+                      ~text:(time_to_string time) () in
+    let media = new Card.Media.t ~widgets:[ source#widget
+                                          ; timestamp#widget ] () in
     object(self)
-      inherit Card.t ~widgets:[ primary#widget ] ()
+      inherit Card.t ~widgets:[ primary#widget
+                              ; (new Divider.t ())#widget
+                              ; media#widget ] ()
       inherit Widget.stateful ()
 
       method stream = stream
 
       initializer
+        self#add_class base_class;
+        Dom_events.listen self#root Dom_events.Typ.click (fun _ _ ->
+            Stream_page.make stream |> ignore;
+            print_endline "clicked"; true) |> ignore;
         React.E.map (function
             | Some _ ->
                self#remove_class lost_class;
-               subtitle#set_text_content @@ time_to_string `Now;
+               timestamp#set_text_content @@ time_to_string `Now;
             | None   ->
                self#add_class lost_class;
+               (* This time may differ from the time detected on a server-side.
+                  Maybe do a request? *)
                let time = time_to_string @@ `Last (Time.Clock.now_s ()) in
-               subtitle#set_text_content time) event
+               timestamp#set_text_content time) event
         |> self#_keep_e;
         (match time with
          | `Last _ -> self#add_class lost_class
@@ -62,7 +97,7 @@ module Stream_grid = struct
     object(self)
       val mutable _streams = []
 
-      inherit Hbox.t ~wrap:`Wrap ~widgets:[] ()
+      inherit Layout_grid.t ~cells:[] ()
       inherit Widget.stateful ()
 
       method streams =
@@ -72,16 +107,20 @@ module Stream_grid = struct
         let e = React.E.map (List.find_opt (Stream.equal stream)) event
                 |> React.E.changes ~eq:(Equal.option (fun _ _ -> false)) in
         let w = new Stream_item.t time stream e () in
+        if List.is_empty _streams
+        then (try Dom.removeChild self#root ph#root; with _ -> ());
         _streams <- w :: _streams;
-        if List.is_empty _widgets
-        then Dom.removeChild self#root ph#root;
-        Dom.appendChild self#root w#root
+        let cell = new Layout_grid.Cell.t ~widgets:[w] () in
+        cell#set_span_desktop @@ Some 3;
+        cell#set_span_tablet  @@ Some 4;
+        cell#set_span_phone   @@ Some 12;
+        Dom.appendChild self#inner#root cell#root
 
       initializer
         self#add_class base_class;
-        List.iter (fun (s, time) -> self#add_stream ~time s) init;
-        if List.is_empty _streams
-        then Dom.appendChild self#root ph#root;
+        if List.is_empty init
+        then Dom.appendChild self#root ph#root
+        else List.iter (fun (s, time) -> self#add_stream ~time s) init;
         React.E.map (fun l ->
             let added =
               List.filter (fun x ->

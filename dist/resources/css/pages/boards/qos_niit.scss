@@ -108,12 +108,28 @@ $fill-tone: mdc-theme-tone($alarm-color);
 /* Streams items */
 
 .qos-niit-stream-grid {
+
     align-items: flex-start;
+    align-content: flex-start;
     height: 100%;
     width: 100%;
+
+    .mdc-layout-grid__cell {
+        display: flex;
+    }
 }
 
 .qos-niit-stream-grid-item {
+
+    cursor: pointer;
+    flex-grow: 1;
+
+    .mdc-card__media {
+        display: flex;
+        flex-direction: column;
+        padding: 1rem;
+    }
+
     &--lost {
         @include mdc-theme-prop(background-color, $alarm-color);
         @if ($fill-tone == "dark") {

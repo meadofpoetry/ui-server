@@ -32,6 +32,7 @@ module Model = struct
   let keys_streams = { time_key = Some "date"
                      ; columns = [ "stream",     key "JSONB"
                                  ; "id",         key "INTEGER"
+                                 ; "type",       key "TEXT"
                                  ; "input",      key "JSONB"
                                  ; "date_start", key "TIMESTAMP"
                                  ; "date_end",   key "TIMESTAMP"
@@ -220,12 +221,15 @@ module Streams = struct
     let table  = (Conn.names db).streams in
     let id     = function `Ts x -> id_to_int32 x | _ -> failwith "URL" in (* TODO remove exn *)
     let now    = Time.Clock.now_s () in
-    let data   = List.map (fun s -> Yojson.Safe.to_string @@ to_yojson s,
-                                    id s.id,
-                                    Yojson.Safe.to_string @@ Common.Topology.topo_input_to_yojson @@ get_input s,
-                                    (now, now)) streams in
-    let insert = R.exec Types.(tup4 string int32 string (tup2 ptime ptime))
-                   (sprintf "INSERT INTO %s (stream,id,input,date_start,date_end) VALUES (?,?,?,?,?)" table)
+    let data   =
+      List.map (fun s ->
+          Yojson.Safe.to_string @@ to_yojson s,
+          (id s.id, typ_to_string s.typ),
+          Yojson.Safe.to_string @@ Common.Topology.topo_input_to_yojson @@ get_input s,
+          (now, now)) streams in
+    let insert =
+      R.exec Types.(tup4 string (tup2 int32 string) string (tup2 ptime ptime))
+        (sprintf "INSERT INTO %s (stream,id,type,input,date_start,date_end) VALUES (?,?,?,?,?,?)" table)
     in Conn.request db Request.(with_trans (List.fold_left (fun acc s -> acc >>= fun () -> exec insert s)
                                               (return ()) data))
 
@@ -250,14 +254,15 @@ module Streams = struct
     let table  = (Conn.names db).streams in
     let inputs = is_in "input" (fun i -> sprintf "'%s'"
                                          @@ Yojson.Safe.to_string @@ Topology.topo_input_to_yojson i) inputs in
-    let select = R.collect Types.(tup2 ptime ptime) Types.(tup3 string int32 ptime)
-                   (sprintf {|SELECT DISTINCT ON (id) stream,id,date_end FROM %s 
+    let select = R.collect Types.(tup2 ptime ptime) Types.(tup4 string int32 string ptime)
+                   (sprintf {|SELECT DISTINCT ON (type, id) stream,id,type,date_end FROM %s 
                              WHERE %s date_end >= $1 AND date_start <= $2 
-                             ORDER BY id, date_end DESC|} table inputs) in
+                             ORDER BY type, id, date_end DESC|} table inputs) in
     Conn.request db Request.(
       list select (from,till) >>= fun data ->
-      try let data = List.map (fun (s,id,t) ->
-                         Result.get_exn @@ of_yojson @@ Yojson.Safe.from_string s, id, t) data in
+      try let data = List.map (fun (s, id, typ, t) ->
+                         Result.get_exn @@ of_yojson @@ Yojson.Safe.from_string s,
+                         id, typ_of_string typ, t) data in
           return (Ok (Compressed { data }))
       with _ -> return (Error "Stream parser failure"))
 
