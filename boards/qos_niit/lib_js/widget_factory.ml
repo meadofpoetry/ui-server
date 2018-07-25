@@ -68,7 +68,7 @@ object(self)
   val _state       : state React.signal t_lwt              = empty ()
   val _t2mi_mode   : t2mi_mode option   React.signal t_lwt = empty ()
   val _jitter_mode : jitter_mode option React.signal t_lwt = empty ()
-  val _structure   : Streams.TS.structure option React.signal t_lwt = empty ()
+  (* val _structure   : Streams.TS.structure option React.signal t_lwt = empty () *)
   val _structs     : (Stream.id * Streams.TS.structure) list React.signal t_lwt = empty ()
   val _bitrates    : (Stream.id * Streams.TS.bitrate) list React.signal t_lwt = empty ()
   val _streams     : Stream.t list React.signal t_lwt = empty ()
@@ -91,7 +91,8 @@ object(self)
          let init  = React.S.value signal in
          let event = React.S.changes signal in
          Widget_structure.make ?config ~state ~init ~event ~stream control ())
-       |> Factory_state_lwt.l3 self#state (self#structure id) (self#stream id)
+       |> Factory_state_lwt.l3 self#state
+            (Lwt_result.return @@ React.S.const None) (self#stream id)
        |> Lwt_result.map Widget.coerce
        |> Ui_templates.Loader.create_widget_loader
        |> Dashboard.Item.to_item ~name:Widget_structure.name
@@ -154,20 +155,20 @@ object(self)
       ~get_socket:(fun () -> Requests.Device.WS.get_jitter_mode control)
       _jitter_mode
 
-  method structure id =
-    Factory_state_lwt.get_value_as_signal
-      ~get:(fun () -> Requests.Streams.HTTP.get_structure ~limit:1 ~id control
-                      >>= (function
-                           | Raw x ->
-                              Lwt_result.return (match x.data with
-                                                 | [ (_, x) ] -> Some x
-                                                 | _   -> None)
-                           | _ -> Lwt.fail_with "compressed")
-                      |> map_err)
-      ~get_socket:(fun () ->
-        let ev, sock = Requests.Streams.WS.get_structure ~id control in
-        React.E.map Option.return ev, sock)
-      _structure
+  (* method structure id =
+   *   Factory_state_lwt.get_value_as_signal
+   *     ~get:(fun () -> Requests.Streams.HTTP.get_structure ~limit:1 ~id control
+   *                     >>= (function
+   *                          | Raw x ->
+   *                             Lwt_result.return (match x.data with
+   *                                                | [ (_, x) ] -> Some x
+   *                                                | _   -> None)
+   *                          | _ -> Lwt.fail_with "compressed")
+   *                     |> map_err)
+   *     ~get_socket:(fun () ->
+   *       let ev, sock = Requests.Streams.WS.get_structure ~id control in
+   *       React.E.map Option.return ev, sock)
+   *     _structure *)
 
   method stream id =
     self#streams

@@ -141,13 +141,12 @@ type device_events =
   }
 
 type ts_events =
-  { structures : (Stream.id * structure) list event
-  ; info       : (Stream.id * info) list event
-  ; services   : (Stream.id * services) list event
-  ; tables     : (Stream.id * tables) list event
-  ; pids       : (Stream.id * pids) list event
-  ; bitrates   : (Stream.id * Streams.TS.bitrate) list event
-  ; errors     : (Stream.id * Errors.t list) list event
+  { info     : (Stream.id * info) list event
+  ; services : (Stream.id * services) list event
+  ; tables   : (Stream.id * tables) list event
+  ; pids     : (Stream.id * pids) list event
+  ; bitrates : (Stream.id * bitrate) list event
+  ; errors   : (Stream.id * Errors.t list) list event
   }
 
 type t2mi_events =
@@ -173,8 +172,11 @@ type push_events =
   ; state          : Topology.state -> unit
   ; group          : group -> unit
   ; board_errors   : board_errors -> unit
-  ; ts_struct      : (Stream.id * Streams.TS.structure) list -> unit
-  ; bitrates       : (Stream.id * Streams.TS.bitrate) list -> unit
+  ; info           : (Stream.id * info) list -> unit
+  ; services       : (Stream.id * services) list -> unit
+  ; tables         : (Stream.id * tables) list -> unit
+  ; pids           : (Stream.id * pids) list -> unit
+  ; bitrates       : (Stream.id * bitrate) list -> unit
   ; t2mi_info      : (Stream.id * Streams.T2MI.structure) list -> unit
   ; jitter         : Jitter.measures -> unit
   ; jitter_session : Jitter.session -> unit

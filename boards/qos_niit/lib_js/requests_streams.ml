@@ -25,9 +25,27 @@ module WS = struct
       ~query:Query.empty
       control (Stream.id_to_int32 id)
 
-  let get_structure ~id control =
-    WS.get ~from:structure_of_yojson
-      ~path:Path.Format.(get_base_path () / (Int32 ^/ "structure" @/ empty))
+  let get_info ~id control =
+    WS.get ~from:info_of_yojson
+      ~path:Path.Format.(get_base_path () / (Int32 ^/ "info" @/ empty))
+      ~query:Query.empty
+      control (Stream.id_to_int32 id)
+
+  let get_services ~id control =
+    WS.get ~from:services_of_yojson
+      ~path:Path.Format.(get_base_path () / (Int32 ^/ "services" @/ empty))
+      ~query:Query.empty
+      control (Stream.id_to_int32 id)
+
+  let get_tables ~id control =
+    WS.get ~from:tables_of_yojson
+      ~path:Path.Format.(get_base_path () / (Int32 ^/ "tables" @/ empty))
+      ~query:Query.empty
+      control (Stream.id_to_int32 id)
+
+  let get_pids ~id control =
+    WS.get ~from:pids_of_yojson
+      ~path:Path.Format.(get_base_path () / (Int32 ^/ "pids" @/ empty))
       ~query:Query.empty
       control (Stream.id_to_int32 id)
 
@@ -99,14 +117,45 @@ module HTTP = struct
                    ; "duration", (module Option(Time.Relative)) ]
       control (Stream.id_to_int32 id) limit compress from till duration
 
-  let get_structure ?limit ?from ?till ?duration ~id control =
+  let raw_of_yojson f =
+    Api_js.Api_types.rows_of_yojson
+      Json.(List.of_yojson (Pair.of_yojson Stream.id_of_yojson f))
+      (fun _ -> Error "cannot be compressed")
+
+  let get_info ?limit ?from ?till ?duration ~id control =
     get_result
-      ~from:(Api_js.Api_types.rows_of_yojson
-               Json.(List.of_yojson (Pair.of_yojson
-                                       Stream.id_of_yojson
-                                       structure_of_yojson))
-               (fun _ -> Error "cannot be compressed"))
-      ~path:Path.Format.(get_base_path () / (Int32 ^/ "structure" @/ empty))
+      ~from:(raw_of_yojson info_of_yojson)
+      ~path:Path.Format.(get_base_path () / (Int32 ^/ "info" @/ empty))
+      ~query:Query.[ "limit",    (module Option(Int))
+                   ; "from",     (module Option(Time.Show))
+                   ; "to",       (module Option(Time.Show))
+                   ; "duration", (module Option(Time.Relative)) ]
+      control (Stream.id_to_int32 id) limit from till duration
+
+  let get_services ?limit ?from ?till ?duration ~id control =
+    get_result
+      ~from:(raw_of_yojson services_of_yojson)
+      ~path:Path.Format.(get_base_path () / (Int32 ^/ "services" @/ empty))
+      ~query:Query.[ "limit",    (module Option(Int))
+                   ; "from",     (module Option(Time.Show))
+                   ; "to",       (module Option(Time.Show))
+                   ; "duration", (module Option(Time.Relative)) ]
+      control (Stream.id_to_int32 id) limit from till duration
+
+  let get_tables ?limit ?from ?till ?duration ~id control =
+    get_result
+      ~from:(raw_of_yojson tables_of_yojson)
+      ~path:Path.Format.(get_base_path () / (Int32 ^/ "tables" @/ empty))
+      ~query:Query.[ "limit",    (module Option(Int))
+                   ; "from",     (module Option(Time.Show))
+                   ; "to",       (module Option(Time.Show))
+                   ; "duration", (module Option(Time.Relative)) ]
+      control (Stream.id_to_int32 id) limit from till duration
+
+  let get_pids ?limit ?from ?till ?duration ~id control =
+    get_result
+      ~from:(raw_of_yojson pids_of_yojson)
+      ~path:Path.Format.(get_base_path () / (Int32 ^/ "pids" @/ empty))
       ~query:Query.[ "limit",    (module Option(Int))
                    ; "from",     (module Option(Time.Show))
                    ; "to",       (module Option(Time.Show))
@@ -124,7 +173,8 @@ module HTTP = struct
         control (Stream.id_to_int32 id) duration
 
     let get_structure ?limit ?from ?till ?duration ~id control =
-      get_result ~from:(fun _ -> Error "FIXME Not implemented")
+      get_result
+        ~from:(raw_of_yojson structure_of_yojson)
         ~path:Path.Format.(get_base_path () / (Int32 ^/ "structure" @/ empty))
         ~query:Query.[ "limit",    (module Option(Int))
                      ; "from",     (module Option(Time.Show))
