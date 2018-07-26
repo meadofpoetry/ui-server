@@ -113,27 +113,34 @@ module SM = struct
       (* let errors  = if status.errors then Some (Get_board_errors (get_id ())) else None in *)
       let errors = None in
       let ts_structs = match prev_t with
-        | Some old ->
-           let old_version = old.status.versions.ts_ver_lst in
-           let old_streams = old.status.streams in
-           let new_version = status.versions.ts_ver_lst in
-           let new_streams = status.streams in
-           let streams =
-             List.foldi (fun acc i id ->
-                 match List.find_idx (fun x -> Stream.equal_id id x)
-                         old_streams with
-                 | Some (idx, o) ->
-                    (try
-                       let ov = List.get_at_idx_exn idx old_version in
-                       let nv = List.get_at_idx_exn i new_version in
-                       if ov <> nv then id :: acc else acc
-                     with _ -> acc)
-                 | None -> id :: acc) [] new_streams in
-           List.map (fun x ->
-               Get_ts_struct { request_id = get_id ()
-                             ; stream     = `Single x }) streams
-        | None -> [ Get_ts_struct { request_id = get_id ()
-                                  ; stream     = `All } ] in
+        | Some (old:group) ->
+           if old.status.versions.ts_ver_com <> status.versions.ts_ver_com
+           then Some (Get_ts_struct { stream = `All; request_id = get_id () })
+           else None
+        | None ->
+           Some (Get_ts_struct { stream = `All; request_id = get_id () }) in
+      (* let ts_structs = match prev_t with
+       *   | Some old ->
+       *      let old_version = old.status.versions.ts_ver_lst in
+       *      let old_streams = old.status.streams in
+       *      let new_version = status.versions.ts_ver_lst in
+       *      let new_streams = status.streams in
+       *      let streams =
+       *        List.foldi (fun acc i id ->
+       *            match List.find_idx (fun x -> Stream.equal_id id x)
+       *                    old_streams with
+       *            | Some (idx, o) ->
+       *               (try
+       *                  let ov = List.get_at_idx_exn idx old_version in
+       *                  let nv = List.get_at_idx_exn i new_version in
+       *                  if ov <> nv then id :: acc else acc
+       *                with _ -> acc)
+       *            | None -> id :: acc) [] new_streams in
+       *      List.map (fun x ->
+       *          Get_ts_struct { request_id = get_id ()
+       *                        ; stream     = `Single x }) streams
+       *   | None -> [ Get_ts_struct { request_id = get_id ()
+       *                             ; stream     = `All } ] in *)
       let t2mi_structs = match status.t2mi_mode, prev_t with
         | Some m, Some old ->
            (List.map (fun id -> Get_t2mi_info { request_id = get_id ()
@@ -151,7 +158,8 @@ module SM = struct
                                                     ; stream_id  = id })
                     status.t2mi_sync))
       in
-      t2mi_structs @ ts_structs
+      t2mi_structs
+      |> List.cons_maybe ts_structs
       |> List.cons_maybe bitrate
       |> List.cons_maybe jitter
       |> List.cons_maybe errors
@@ -464,10 +472,10 @@ module SM = struct
     let devinfo,   set_devinfo   = S.create None in
     let group,     set_group     = E.create () in
     let hw_errors, set_hw_errors = E.create () in
-    let ts_info,   set_ts_info   = E.create () in
-    let services,  set_services  = E.create () in
-    let tables,    set_tables    = E.create () in
-    let pids,      set_pids      = E.create () in
+    let ts_info,   set_ts_info   = S.create [] in
+    let services,  set_services  = S.create [] in
+    let tables,    set_tables    = S.create [] in
+    let pids,      set_pids      = S.create [] in
     let bitrates,  set_bitrates  = E.create () in
     let t2mi_info, set_t2mi_info = E.create () in
 
@@ -488,13 +496,18 @@ module SM = struct
           ; errors = hw_errors
           }
       ; ts   =
-          (let eq x = Equal.(list @@ pair Stream.equal_id x) in
-           { info       = E.changes ~eq:(eq equal_info) ts_info
-           ; services   = E.changes ~eq:(eq equal_services) services
-           ; tables     = E.changes ~eq:(eq equal_tables) tables
-           ; pids       = E.changes ~eq:(eq equal_pids) pids
-           ; bitrates   = bitrates
-           ; errors     = E.map Events.to_ts_errors group
+          (let map ~eq s =
+             S.diff (fun _new old ->
+                 List.filter (fun (id, s) ->
+                     match List.Assoc.get ~eq:Stream.equal_id id old with
+                     | Some x -> not @@ eq x s
+                     | None   -> true) _new) s in
+           { info     = map ~eq:equal_info ts_info
+           ; services = map ~eq:equal_services services
+           ; tables   = map ~eq:equal_tables tables
+           ; pids     = map ~eq:equal_pids pids
+           ; bitrates = bitrates
+           ; errors   = E.map Events.to_ts_errors group
           })
       ; t2mi =
           { structures = t2mi_info

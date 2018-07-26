@@ -807,6 +807,7 @@ module Tables =
 
 let make_stream (id:Stream.id)
       (init:  structure)
+
       (event: structure React.event)
       (push:  dumpable -> unit)
       control =
