@@ -54,11 +54,7 @@ type column =
 let to_column ?(sortable=false) title =
   { sortable; title }
 
-type (_,_) row =
-  | (::) : (column * 'a fmt) * ('b,'c) row -> ('a -> 'b,'c) row
-  | []   : ('a,'a) row
-
-let rec to_string : type a. a fmt -> a -> string = fun fmt v ->
+  let rec to_string : type a. a fmt -> a -> string = fun fmt v ->
   match fmt with
   | Int            -> string_of_int v
   | Int32          -> Int32.to_string v
@@ -79,38 +75,6 @@ let rec is_numeric : type a. a fmt -> bool = function
   | Option (fmt,_) -> is_numeric fmt
   | Custom x       -> x.is_numeric
 
-let rec compare : type a. a fmt -> (string -> string -> int) = function
-  | Int   ->
-     fun i1 i2 ->
-     Int.compare (int_of_string i1) (int_of_string i2)
-  | Int32 ->
-     fun i1 i2 ->
-     Int32.(compare (of_string_exn i1) (of_string_exn i2))
-  | Int64 ->
-     fun i1 i2 ->
-     Int64.(compare (of_string_exn i1) (of_string_exn i2))
-  | Float t ->
-     fun i1 i2 ->
-     let t = Option.get_or ~default:default_float t in
-     Float.compare (t.of_string i1) (t.of_string i2)
-  | String -> String.compare
-  | Time t ->
-     fun x y ->
-     let t = Option.get_or ~default:default_time t in
-     let x = t.of_string x in
-     let y = t.of_string y in
-     Ptime.compare x y
-  | Option (fmt,e) ->
-     fun x1 x2 ->
-     let o1 = if String.equal e x1 then None else Some x1 in
-     let o2 = if String.equal e x2 then None else Some x2 in
-     Option.compare (compare fmt) o1 o2
-  | Custom x ->
-     fun x1 x2 ->
-     let x1 = x.of_string x1 in
-     let x2 = x.of_string x2 in
-     x.compare x1 x2
-
 let rec of_string : type a. a fmt -> string -> a = fun fmt s ->
   match fmt with
   | Int     -> int_of_string s
@@ -124,7 +88,7 @@ let rec of_string : type a. a fmt -> string -> a = fun fmt s ->
      else Some (of_string fmt s)
   | Custom c -> c.of_string s
 
-let rec compare' : type a. a fmt -> a -> a -> int = fun fmt x y ->
+let rec compare : type a. a fmt -> a -> a -> int = fun fmt x y ->
   match fmt with
   | Int            -> Int.compare x y
   | Int32          -> Int32.compare x y
@@ -132,7 +96,7 @@ let rec compare' : type a. a fmt -> a -> a -> int = fun fmt x y ->
   | Float _        -> Float.compare x y
   | String         -> String.compare x y
   | Time _         -> Ptime.compare x y
-  | Option (fmt,_) -> Option.compare (compare' fmt) x y
+  | Option (fmt,_) -> Option.compare (compare fmt) x y
   | Custom c       -> c.compare x y
 
 module Cell = struct
@@ -153,60 +117,9 @@ module Cell = struct
       method set_value (v:'a) =
         _value <- v;
         self#set_text_content (to_string fmt v)
-      method compare (other:'self) = compare' fmt other#value self#value
+      method compare (other:'self) = compare fmt other#value self#value
       inherit Widget.t elt ()
     end
-
-  type (_,_) cells =
-    | (::) : 'a t * ('b,'c) cells -> ('a -> 'b, 'c) cells
-    | []   : ('a,'a) cells
-
-  (* type opt =
-   *   | String of string option t
-   *   | Int    of int option t
-   *   | Int32  of int32 option t
-   *   | Int64  of int64 option t
-   *   | Float  of float option t
-   *   | Time   of Ptime.t option t
-   *   | Custom of Widget.t
-   * 
-   * type value =
-   *   | String of string t
-   *   | Int    of int t
-   *   | Int32  of int32 t
-   *   | Int64  of int64 t
-   *   | Float  of float t
-   *   | Time   of Ptime.t t
-   *   | Option of opt
-   *   | Custom of Widget.t
-   * 
-   * let rec cell_to_value : type a. a t -> a fmt -> value =
-   *   fun cell ->
-   *   function
-   *   | String   -> String cell
-   *   | Int      -> Int cell
-   *   | Int32    -> Int32 cell
-   *   | Int64    -> Int64 cell
-   *   | Float _  -> Float cell
-   *   | Time _   -> Time cell
-   *   | _        -> Custom cell#widget *)
-
-  let rec make_cells : type a b. ((a,b) cells -> b) -> (a,b) row -> a = fun k ->
-    function
-    | [] -> k []
-    | (::) ((_, fmt), rest) ->
-       let f x = make_cells (fun acc ->
-                     let cell = new t ~value:x fmt () in
-                     k @@ cell :: acc) rest in f
-
-  let rec cells_to_widget_list : type a b. (a,b) cells -> Widget.t list =
-    fun cells ->
-    let rec aux : type a b. Widget.t list -> (a,b) cells -> Widget.t list =
-      fun acc ->
-      function
-      | [] -> acc
-      | cell :: rest -> aux (cell#widget :: acc) rest
-    in List.rev @@ aux [] cells
 
 end
 
@@ -235,38 +148,80 @@ module Column = struct
     end
 end
 
+module Data = struct
+  type _ t =
+    | []   : unit t
+    | (::) : 'a * 'b t -> ('a * 'b) t
+end
+
+module Format = struct
+  type _ t =
+    | []   : unit t
+    | (::) : (column * 'a fmt) * 'b t -> ('a * 'b) t
+end
+
+type _ cells =
+  | []   : unit cells
+  | (::) : 'a Cell.t * 'b cells -> ('a * 'b) cells
+
 module Row = struct
 
-  let rec update : type ty v. ((ty,v) Cell.cells -> v) -> (ty,v) Cell.cells -> ty =
-    fun k ->
-    let open Cell in
-    function
-    | [] -> k []
-    | (::) (cell, rest) ->
-       let f x = update (fun acc ->
-                     cell#set_value x;
-                     k @@ cell :: acc) rest
-       in f
+  let rec make_cells : type a. a Format.t -> a Data.t -> a cells =
+    fun format data ->
+    match format, data with
+    | Format.[], Data.[] -> []
+    | Format.((_, fmt) :: l1), Data.( x :: l2) ->
+       let cell = new Cell.t ~value:x fmt () in
+       cell :: make_cells l1 l2
 
-  class ['a,'b] t
+  let rec cells_to_widgets : type a. a cells -> Widget.t list =
+    function
+    | [] -> []
+    | cell :: rest ->
+       List.cons cell#widget (cells_to_widgets rest)
+
+  class ['a] t
           ?selection
-          (s_selected:('a,'b) t list React.signal)
-          s_selected_push
-          (cells:('a,'b) Cell.cells) () =
+          (s_selected:'a t list React.signal)
+          (s_selected_push:'a t list -> unit)
+          (fmt:'a Format.t)
+          (data:'a Data.t)
+          () =
     let cb  = match selection with
       | Some `Multiple -> Some (new Checkbox.t ())
       | _ -> None
     in
-    let cells' = Cell.cells_to_widget_list cells in
-    let elt = Markup.Row.create ~cells:(List.map Widget.to_markup cells'
-                                        |> List.cons_maybe (Cell.wrap_checkbox cb)) ()
+    let cells  = make_cells fmt data in
+    let cells' = cells_to_widgets cells in
+    let elt = Markup.Row.create
+                ~cells:(List.map Widget.to_markup cells'
+                        |> List.cons_maybe (Cell.wrap_checkbox cb)) ()
               |> Tyxml_js.To_dom.of_element in
     object(self)
       inherit Widget.t elt ()
       method checkbox   = cb
-      method s_selected = s_selected
 
-      method update = update (fun _ -> ()) self#cells
+      method cells = cells
+      method cells_widgets = cells'
+
+      method update (data:'a Data.t) =
+        let rec aux : type a. a Data.t -> a cells -> unit =
+          fun data cells ->
+          match data, cells with
+          | Data.[], Cell.[] -> ()
+          | Data.(::) (x, l1), cell :: l2 ->
+             cell#set_value x;
+             aux l1 l2 in
+        aux data self#cells
+
+      method data : 'a Data.t =
+        let rec aux : type a. a cells -> a Data.t =
+          function
+          | [] -> []
+          | cell :: rest -> cell#value :: aux rest in
+        aux self#cells
+
+      method s_selected = s_selected
 
       method selected = self#has_class Markup.Row.selected_class
 
@@ -275,13 +230,13 @@ module Row = struct
         self#add_or_remove_class x Markup.Row.selected_class
 
       method set_selected x  =
-        let v = (self :> ('a,'b) t) in
+        let v = (self :> 'a t) in
         (match selection with
          | Some `Single ->
             if x
             then (match React.S.value s_selected with
                   | [] -> s_selected_push @@ List.pure v
-                  | l  -> List.iter (fun (t:('a,'b) t) -> t#set_selected' x) l;
+                  | l  -> List.iter (fun (t:'a t) -> t#set_selected' x) l;
                           s_selected_push @@ List.pure v)
             else (match React.S.value s_selected with
                   | [] -> ()
@@ -291,17 +246,13 @@ module Row = struct
             let l =
               if x
               then List.add_nodup ~eq:Equal.physical
-                     (self :> ('a,'b) t)
+                     (self :> 'a t)
                      (React.S.value s_selected)
               else List.remove ~eq:Equal.physical ~x:v
                      (React.S.value s_selected)
             in s_selected_push l
          | None -> ());
         self#set_selected' x
-
-      method cells = cells
-
-      method cells_widgets = cells'
 
       initializer
         match selection with
@@ -310,19 +261,20 @@ module Row = struct
                     |> ignore
         | _      -> ()
     end
+
 end
 
 module Body = struct
-  class ['a,'b] t ?selection () =
+  class ['a] t ?selection () =
     let elt = Markup.Body.create ~rows:[] ()
               |> Tyxml_js.To_dom.of_element in
     let s_rows,s_rows_push = React.S.create List.empty in
     object(self)
       inherit Widget.t elt ()
-      method prepend_row (row:('a,'b) Row.t) =
+      method prepend_row (row:'a Row.t) =
         s_rows_push @@ (List.cons row self#rows);
         Dom.insertBefore self#root row#root self#root##.firstChild
-      method append_row (row:('a,'b) Row.t) =
+      method append_row (row:'a Row.t) =
         s_rows_push @@ (List.cons row self#rows);
         Dom.appendChild self#root row#root
       method s_rows = s_rows
@@ -332,26 +284,34 @@ end
 
 module Header = struct
 
-  let rec make_columns : type a b. ((int * sort) option -> unit) -> (a,b) row -> Column.t list =
+  let rec make_columns : type a. ((int * sort) option -> unit) ->
+                              a Format.t -> Column.t list =
     fun push fmt ->
-    let rec loop : type a b. int -> ((int * sort) option -> unit) -> (a,b) row -> Column.t list =
+    let rec loop : type a. int -> ((int * sort) option -> unit) ->
+                        a Format.t -> Column.t list =
       fun i push fmt ->
+      let open Format in
       match fmt with
       | [] -> []
-      | (::) ((c,fmt),rest) -> (new Column.t i push c fmt ()) :: (loop (succ i) push rest)
+      | (c,fmt) :: rest ->
+         (new Column.t i push c fmt ()) :: (loop (succ i) push rest)
     in loop 0 push fmt
 
   class row ?selection ~(columns:Column.t list) () =
-    let cb = match selection with Some `Multiple -> Some (new Checkbox.t ()) | _ -> None in
-    let elt = Markup.Row.create ~cells:(List.map Widget.to_markup columns
-                                              |> List.cons_maybe (Column.wrap_checkbox cb)) ()
-              |> Tyxml_js.To_dom.of_element in
+    let cb = match selection with
+      | Some `Multiple -> Some (new Checkbox.t ())
+      | _ -> None in
+    let elt =
+      Markup.Row.create
+        ~cells:(List.map Widget.to_markup columns
+                |> List.cons_maybe (Column.wrap_checkbox cb)) ()
+      |> Tyxml_js.To_dom.of_element in
     object
       inherit Widget.t elt ()
       method checkbox = cb
     end
 
-  class ['a,'b] t ?selection s_selected s_selected_push s_rows fmt () =
+  class ['a] t ?selection s_selected s_selected_push s_rows fmt () =
     let s_sorted,s_sorted_push = React.S.create None in
     let columns = make_columns s_sorted_push fmt in
     let row = new row ?selection ~columns () in
@@ -367,9 +327,9 @@ module Header = struct
       method s_sorted = s_sorted
 
       method select_all () =
-        List.iter (fun (r:('a,'b) Row.t) -> r#set_selected true) self#_rows
+        List.iter (fun (r:'a Row.t) -> r#set_selected true) self#_rows
       method unselect_all () =
-        List.iter (fun (r:('a,'b) Row.t) -> r#set_selected false) self#_rows
+        List.iter (fun (r:'a Row.t) -> r#set_selected false) self#_rows
 
       method private _rows = React.S.value s_rows
 
@@ -383,7 +343,7 @@ module Header = struct
                       s_selected_push List.empty);
                 false)
             |> ignore) self#checkbox;
-        React.S.map (fun (x:('a,'b) Row.t list) ->
+        React.S.map (fun (x:'a Row.t list) ->
             match List.length x with
             | 0 ->
                Option.iter (fun cb -> cb#set_checked false;
@@ -416,9 +376,9 @@ module Table = struct
     end
 end
 
-let rec compare : type a b. int ->
-                       (a,b) Cell.cells ->
-                       (a,b) Cell.cells -> int =
+let rec compare : type a. int ->
+                       a cells ->
+                       a cells -> int =
   fun index cells1 cells2 ->
   let open Cell in
   match cells1, cells2 with
@@ -427,16 +387,15 @@ let rec compare : type a b. int ->
      if index = 0
      then x1#compare x2
      else compare (pred index) rest1 rest2
-  | [], _ -> assert false
-  | _, [] -> assert false
 
-class ['a] t ?selection ?(dense=false) ~(fmt:('a,_) row) () =
+class ['a] t ?selection ?(dense=false) ~(fmt:'a Format.t) () =
   let s_selected,s_selected_push = React.S.create List.empty in
-  let body       = new Body.t ?selection () in
-  let header     = new Header.t ?selection s_selected s_selected_push body#s_rows fmt () in
-  let table      = new Table.t ~header ~body () in
-  let elt        = Markup.create ?selection ~table:(Widget.to_markup table) ()
-                   |> Tyxml_js.To_dom.of_element in
+  let body   = new Body.t ?selection () in
+  let header = new Header.t ?selection s_selected
+                 s_selected_push body#s_rows fmt () in
+  let table  = new Table.t ~header ~body () in
+  let elt    = Markup.create ?selection ~table:(Widget.to_markup table) ()
+               |> Tyxml_js.To_dom.of_element in
   object(self)
     inherit Widget.t elt ()
     inherit Widget.stateful ()
@@ -449,19 +408,18 @@ class ['a] t ?selection ?(dense=false) ~(fmt:('a,_) row) () =
     method dense = self#has_class Markup.dense_class
     method set_dense x = self#add_or_remove_class x Markup.dense_class
 
-    method add_row =
-      Cell.make_cells (fun cells ->
-          let row = new Row.t ?selection
-                      s_selected
-                      s_selected_push
-                      cells
-                      () in
-          body#append_row row) fmt
+    method add_row (data:'a Data.t) =
+      let row =
+        new Row.t ?selection
+          s_selected
+          s_selected_push
+          fmt data () in
+      body#append_row row
 
     method sort index sort =
       let rows =
-        List.sort (fun (row_1:('a,'b) Row.t)
-                       (row_2:('a,'b) Row.t) ->
+        List.sort (fun (row_1:'a Row.t)
+                       (row_2:'a Row.t) ->
             match sort, compare index row_1#cells row_2#cells with
             | Asc,x -> x
             | Dsc,x -> ~-x) self#rows in

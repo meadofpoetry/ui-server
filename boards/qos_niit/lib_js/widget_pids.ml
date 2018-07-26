@@ -23,6 +23,7 @@ let make_table (init:pid_info list)
   let br_fmt = Table.(Option (Float None, "")) in
   let fmt =
     let open Table in
+    let open Format in
     (   to_column "PID",             Int)
     :: (to_column "Тип",             String)
     :: (to_column "Сервис",          Option (String, ""))
@@ -44,19 +45,23 @@ let make_table (init:pid_info list)
       | EMM x   -> "EMM -> " ^ (string_of_int x)
       | Null    -> "Null"
       | Private -> "Private" in
-    table#add_row pid.pid pid_type pid.service
-      None None None in
+    table#add_row (pid.pid :: pid_type :: pid.service
+                   :: None :: None :: None :: []) in
   List.iter add_row init;
   let _ =
     React.E.map (fun (br:bitrate) ->
         List.fold_left (fun rows (pid, br) ->
-            match List.find_opt (fun (row:('a,'b) Table.Row.t) ->
-                      let cell = List.get_at_idx_exn 0 row#cells_widgets in
-                      int_of_string (Option.get_exn cell#text_content) = pid) rows with
+            let open Table in
+            match List.find_opt (fun (row:'a Row.t) ->
+                      let cell = match row#cells with a :: _ -> a in
+                      cell#value = pid) rows with
             | Some x ->
+               let cell, _, _ =
+                 match x#cells with
+                 | _ :: _ :: _ :: a :: b :: c :: _ ->
+                    a, b, c in
                let br = float_of_int br /. 1_000_000. in
-               let f  = x#update in
-               f 0 "" None (Some br) None None;
+               cell#set_value @@ Some br;
                List.remove ~eq:Equal.physical ~x rows
             | None   -> rows) table#rows br.pids |> ignore;
         br) bitrate in

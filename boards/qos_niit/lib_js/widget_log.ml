@@ -80,6 +80,7 @@ let make_table
                     ; is_numeric = true }) in
   let fmt  =
     let open Table in
+    let open Format in
     (   to_column ~sortable:true "Время",        Custom time)
     :: (to_column ~sortable:true "Поток",        String)
     :: (to_column ~sortable:true "Service",      Option (String, ""))
@@ -89,23 +90,23 @@ let make_table
     :: (to_column "Подробности",                 String)
     :: [] in
   let table = new Table.t ~fmt () in
-  let add_row (stream, (error:Errors.t)) =
-    let default = Stream.show_id stream in
-    let service =
-      find_structure stream error structures
-      |> Option.flat_map (fun x -> find_service error x)
-      |> Option.map (fun (x:Streams.TS.service_info) -> x.name) in
-    let stream =
-      find_stream streams.data (stream, error)
-      |> Option.flat_map (fun (x:Stream.t) -> x.description)
-      |> Option.get_or ~default in
-    let date  = error.timestamp in
-    let pid   = error.pid in
-    let check = let num, name = Ts_error.to_name error in
-                num ^ " " ^ name in
-    let msg   = Ts_error.Description.of_ts_error error in
-    table#add_row date stream service error.count pid check msg in
-  List.iter add_row @@ List.rev errors;
+  (* let add_row (stream, (error:Errors.t)) =
+   *   let default = Stream.show_id stream in
+   *   let service =
+   *     find_structure stream error structures
+   *     |> Option.flat_map (fun x -> find_service error x)
+   *     |> Option.map (fun (x:Streams.TS.service_info) -> x.name) in
+   *   let stream =
+   *     find_stream streams.data (stream, error)
+   *     |> Option.flat_map (fun (x:Stream.t) -> x.description)
+   *     |> Option.get_or ~default in
+   *   let date  = error.timestamp in
+   *   let pid   = error.pid in
+   *   let check = let num, name = Ts_error.to_name error in
+   *               num ^ " " ^ name in
+   *   let msg   = Ts_error.Description.of_ts_error error in
+   *   table#add_row date stream service error.count pid check msg in
+   * List.iter add_row @@ List.rev errors; *)
   table
 
 let l2 t1 t2 f =

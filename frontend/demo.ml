@@ -536,22 +536,17 @@ let elevation_demo () =
   section
 
 let table_demo () =
-  let tz = let d = Js.Unsafe.new_obj (Js.Unsafe.global##.Date) [||] in
-           ((Js.Unsafe.meth_call d "getTimezoneOffset" [||] : int) * (-60))
-  in
-  let show_time = Format.asprintf "%a" (Common.Time.pp_human ~tz_offset_s:tz ()) in
-  let time  = Table.({ to_string  = Common.Time.to_human_string ~tz_offset_s:tz
-                     ; of_string  = Common.Time.of_human_string_exn ~tz_offset_s:tz
-                     ; compare    = Common.Time.compare
-                     ; is_numeric = false }) in
-  let fmt   = Table.((   to_column ~sortable:true "Date",     Custom time)
-                     :: (to_column ~sortable:true "Input",    String)
-                     :: (to_column ~sortable:true "Service",  String)
-                     :: (to_column ~sortable:true "PID",      Int)
-                     :: (to_column ~sortable:true "Severity", Option (String,""))
-                     :: (to_column ~sortable:true "Check",    String)
-                     :: (to_column "Message",                 String)
-                     :: []) in
+  let fmt   =
+    let open Table in
+    let open Format in
+    Table.((   to_column ~sortable:true "Date",     Time None)
+           :: (to_column ~sortable:true "Input",    String)
+           :: (to_column ~sortable:true "Service",  String)
+           :: (to_column ~sortable:true "PID",      Int)
+           :: (to_column ~sortable:true "Severity", Option (String,""))
+           :: (to_column ~sortable:true "Check",    String)
+           :: (to_column "Message",                 String)
+           :: []) in
   let table = new Table.t ~selection:`Multiple ~fmt () in
   let channels = [| "BBC"; "CNN"; "MTV"; "AnimalPlanet" |] in
   let err      = [| "1.3.1 PAT error"; "1.4. Continuity count error" |] in
@@ -560,11 +555,17 @@ let table_demo () =
     let ch  = channels.(Random.run (Random.int 4)) in
     let inp = Ipaddr.V4.make 224 1 2 (Random.run (Random.int 4)) in
     let err = err.(Random.run (Random.int 2)) in
-    table#add_row (Common.Time.Clock.now ())
-      (Ipaddr.V4.to_string inp) ch pid (Some "Warning") err
-      "Error description here"
-  in
+    table#add_row
+      ((Common.Time.Clock.now ())
+       :: (Ipaddr.V4.to_string inp)
+       :: ch
+       :: pid
+       :: (Some "Warning")
+       :: err
+       :: "Error description here"
+       :: []) in
   List.iter (fun _ -> make_row ()) @@ List.range' 0 7;
+  let row = table#rows |> List.hd in
   demo_section ~expanded:true "#Table" [ table#widget ]
 
 let chart_demo () =

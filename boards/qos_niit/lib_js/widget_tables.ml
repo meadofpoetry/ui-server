@@ -20,13 +20,14 @@ let settings = None
 let make_table (init:service_info list) =
   let fmt =
     let open Table in
+    let open Format in
     (to_column "ID", Int)
     :: (to_column "Имя", String)
     :: (to_column "Битрейт", Option (String, ""))
     :: [] in
   let table = new Table.t ~dense:true ~fmt () in
   let add_row (service:service_info) =
-    table#add_row service.id service.name None in
+    table#add_row (service.id :: service.name :: None :: []) in
   List.iter add_row init;
   table
 
