@@ -12,6 +12,7 @@ module Make(Xml : Xml_sigs.NoWrap)
   let content_class         = CSS.add_element base_class "content"
   let select_class          = CSS.add_modifier base_class "select"
   let select_multiple_class = CSS.add_modifier base_class "select-multiple"
+  let dense_class           = CSS.add_modifier base_class "dense"
 
   module Cell = struct
     let _class         = CSS.add_element  base_class "cell"

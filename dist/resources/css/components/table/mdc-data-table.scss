@@ -169,3 +169,15 @@
         z-index: 10;
     }
 }
+
+.mdc-data-table--dense {
+    .mdc-data-table__cell, .mdc-data-table__column {
+        height: 32px;
+    }
+    thead .mdc-data-table__row {
+        height: 32px;
+    }
+    tbody .mdc-data-table__row {
+        height: 32px;
+    }
+}

@@ -832,14 +832,15 @@ body {
   margin-top: 64px;
   position: absolute;
   width: 100%;
-  min-height: calc(100vh - 64px); }
+  display: flex;
+  min-height: calc(100% - 64px); }
   #main-content.main-content--dynamic {
     margin-top: 128px;
-    min-height: calc(100vh - 128px); }
+    min-height: calc(100% - 128px); }
     @media (max-width: 599px) {
       #main-content.main-content--dynamic {
         margin-top: 112px;
-        min-height: calc(100vh - 112px); } }
+        min-height: calc(100% - 112px); } }
 
 #main-toolbar, #main-content {
   left: 0px;
@@ -850,11 +851,7 @@ body {
     left: 240px;
     width: calc(100% - 240px); } }
 #arbitrary-content {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0; }
+  flex-grow: 2; }
   @media (min-width: 840px) {
     #arbitrary-content {
       box-sizing: border-box;

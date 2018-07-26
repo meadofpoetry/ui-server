@@ -35,7 +35,7 @@ module Model = struct
     }
 
   let keys_streams =
-    { time_key = Some "date"
+    { time_key = Some "date_start"
     ; columns  = [ "stream",     key "JSONB"
                  ; "id",         key "INTEGER"
                  ; "type",       key "TEXT"

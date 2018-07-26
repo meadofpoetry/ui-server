@@ -602,13 +602,16 @@ module Get_bitrates : (Request
     to_complex_req ~request_id ~msg_code:req_code ~body:(Cstruct.create 0) ()
 
   let of_pids_bitrate total_pids br_per_pkt buf =
-    let msg,rest = Cstruct.split buf (sizeof_pid_bitrate * total_pids) in
-    let iter     = Cstruct.iter (fun _ -> Some sizeof_pid_bitrate) (fun buf -> buf) msg in
-    let pids     = Cstruct.fold (fun acc el ->
-                       let packets = get_pid_bitrate_packets el in
-                       { pid     = get_pid_bitrate_pid el land 0x1FFF
-                       ; bitrate = int_of_float @@ br_per_pkt *. (Int32.to_float packets) } :: acc)
-                     iter []
+    let msg, rest = Cstruct.split buf (sizeof_pid_bitrate * total_pids) in
+    let iter = Cstruct.iter (fun _ -> Some sizeof_pid_bitrate)
+                 (fun buf -> buf) msg in
+    let pids =
+      Cstruct.fold (fun acc el ->
+          let packets = get_pid_bitrate_packets el in
+          let pid = get_pid_bitrate_pid el land 0x1FFF in
+          let br  = int_of_float @@ br_per_pkt *. (Int32.to_float packets) in
+          (pid, br) :: acc)
+        iter []
     in List.rev pids, rest
 
   let of_tbls_bitrate total_tbls br_per_pkt buf =

@@ -129,11 +129,6 @@ module Streams = struct
 
     (** TS bitrate *)
 
-    type pid_bitrate =
-      { pid     : int
-      ; bitrate : int
-      } [@@deriving yojson]
-
     type table_bitrate =
       { id             : int
       ; id_ext         : int
@@ -146,7 +141,7 @@ module Streams = struct
     type bitrate =
       { timestamp  : Time.t
       ; ts_bitrate : int
-      ; pids       : pid_bitrate list
+      ; pids       : (int * int) list
       ; tables     : table_bitrate list
       } [@@deriving yojson]
 

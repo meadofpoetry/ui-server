@@ -222,25 +222,25 @@ module HTTP = struct
   let info db id limit from till duration _ _ () =
     let select from till =
       Db.Streams.select_ts_info
-        ~with_pre:true ?limit ~ids:[id] ~from ~till db in
+        ~with_pre:false ?limit ~ids:[id] ~from ~till db in
     get' db select info_to_yojson from till duration ()
 
   let services db id limit from till duration _ _ () =
     let select from till =
       Db.Streams.select_services
-        ~with_pre:true ?limit ~ids:[id] ~from ~till db in
+        ~with_pre:false ?limit ~ids:[id] ~from ~till db in
     get' db select services_to_yojson from till duration ()
 
   let tables db id limit from till duration _ _ () =
     let select from till =
       Db.Streams.select_tables
-        ~with_pre:true ?limit ~ids:[id] ~from ~till db in
+        ~with_pre:false ?limit ~ids:[id] ~from ~till db in
     get' db select tables_to_yojson from till duration ()
 
   let pids db id limit from till duration _ _ () =
     let select from till =
       Db.Streams.select_pids
-        ~with_pre:true ?limit ~ids:[id] ~from ~till db in
+        ~with_pre:false ?limit ~ids:[id] ~from ~till db in
     get' db select pids_to_yojson from till duration ()
 
   let bitrate id limit compress from till duration _ _ () =

@@ -49,13 +49,14 @@ body {
     margin-top: 64px;
     position: absolute;
     width: 100%;
-    min-height: calc(100vh - 64px);
+    display: flex;
+    min-height: calc(100% - 64px);
     &.main-content--dynamic {
         margin-top: 128px;
-        min-height: calc(100vh - 128px);
+        min-height: calc(100% - 128px);
         @media (max-width: 599px) {
             margin-top: 112px;
-            min-height: calc(100vh - 112px);
+            min-height: calc(100% - 112px);
         }
     }
 }
@@ -74,11 +75,7 @@ body {
 }
 
 #arbitrary-content {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    flex-grow: 2;
 
     @each $size in map-keys($mdc-layout-grid-columns) {
         @include mdc-layout-grid-media-query_($size) {
