@@ -28,25 +28,32 @@ let pids (stream:Stream.t) control =
   |> Lwt.ignore_result;
   w#widget
 
-let tabs (stream:Stream.t) =
+let tables (stream:Stream.t) control =
+  let open Widget_tables_overview in
+  let w = make ~config:{ stream } control in
+  w#thread >|= (fun w -> Elevation.set_elevation w 2)
+  |> Lwt.ignore_result;
+  w#widget
+
+let tabs (stream:Stream.t) control =
   let base =
     [ "Ошибки",  dummy_tab
-    ; "Сервисы", (fun () -> services stream 1)
-    ; "PIDs",    (fun () -> pids stream 1)
-    ; "Таблицы", dummy_tab
+    ; "Сервисы", (fun () -> services stream control)
+    ; "PIDs",    (fun () -> pids stream control)
+    ; "Таблицы", (fun () -> tables stream control)
     ; "Джиттер", dummy_tab
     ] in
   match stream.typ with
   | `T2mi -> List.insert_at_idx 4 ("T2-MI", dummy_tab) base
   | `Ts   -> base
 
-let make_tabs (stream:Stream.t) =
+let make_tabs (stream:Stream.t) control =
   let open Tabs in
   List.map (fun (name, f) ->
       { content  = `Text name
       ; disabled = false
       ; href     = None
-      ; value    = f }) (tabs stream)
+      ; value    = f }) (tabs stream control)
 
-let make (stream:Stream.t) =
-  new Ui_templates.Page.t (`Dynamic (make_tabs stream)) ()
+let make (stream:Stream.t) control =
+  new Ui_templates.Page.t (`Dynamic (make_tabs stream control)) ()

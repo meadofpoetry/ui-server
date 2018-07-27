@@ -691,20 +691,25 @@
 /* TODO(sgomes): Figure out what to do about desktop font sizes. */
 /* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
 /* Structure widget */
-.qos-niit-structure__stream-panel {
-  width: 100%;
-  height: 100%;
-  overflow-y: auto; }
+.qos-niit-tables {
+  padding: 1rem;
+  /* @alternate */
+  background-color: #fff;
+  background-color: var(--mdc-theme-background, #fff); }
+  .qos-niit-tables__stream-panel {
+    width: 100%;
+    height: 100%;
+    overflow-y: auto; }
 
-.qos-niit-structure__dump {
+.qos-niit-tables__dump {
   width: 100%;
   padding: 10px;
   overflow: hidden; }
-  .qos-niit-structure__dump .qos-niit-hexdump, .qos-niit-structure__dump .qos-niit-parsed {
+  .qos-niit-tables__dump .qos-niit-hexdump, .qos-niit-tables__dump .qos-niit-parsed {
     min-height: 200px; }
-  .qos-niit-structure__dump__title {
+  .qos-niit-tables__dump__title {
     font-weight: 500; }
-  .qos-niit-structure__dump__header {
+  .qos-niit-tables__dump__header {
     flex-shrink: 0;
     font-family: Roboto, sans-serif;
     -moz-osx-font-smoothing: grayscale;
@@ -717,53 +722,36 @@
     text-transform: inherit;
     align-items: center;
     margin-bottom: 10px; }
-    .qos-niit-structure__dump__header .mdc-button {
+    .qos-niit-tables__dump__header .mdc-button {
       margin-left: 15px;
       flex-shrink: 0; }
-  .qos-niit-structure__dump > .mdc-split {
+  .qos-niit-tables__dump > .mdc-split {
     flex-grow: 1; }
-  .qos-niit-structure__dump .mdc-hexdump {
+  .qos-niit-tables__dump .mdc-hexdump {
     overflow: auto;
     width: 100%; }
 
-.qos-niit-structure__parsed {
+.qos-niit-tables__parsed {
   width: 100%;
   flex-grow: 2;
   /* flex-shrink: 0; */
   padding: 10px;
   overflow-y: auto; }
 
-.qos-niit-structure__hexdump-options {
+.qos-niit-tables__hexdump-options {
   flex-shrink: 0;
   padding-top: 10px;
   overflow-x: auto;
   align-items: center; }
-  .qos-niit-structure__hexdump-options > * {
+  .qos-niit-tables__hexdump-options > * {
     margin-right: 15px; }
-  .qos-niit-structure__hexdump-options > *:last-child {
+  .qos-niit-tables__hexdump-options > *:last-child {
     margin-right: 0; }
-  .qos-niit-structure__hexdump-options .mdc-select {
+  .qos-niit-tables__hexdump-options .mdc-select {
     min-width: 75px; }
 
-.qos-niit-structure__section-item {
+.qos-niit-tables__section-item {
   cursor: pointer; }
-
-/* Structure expansion panel for structure page */
-.qos-niit-structure-panel .qos-niit-structure {
-  height: 600px; }
-
-.qos-niit-structure-panel--lost .mdc-expansion-panel__primary {
-  background-color: #ffcdd2;
-  /* @alternate */
-  color: rgba(0, 0, 0, 0.87);
-  color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87)); }
-.qos-niit-structure-panel--lost .qos-niit-structure__stream-panel .mdc-tree, .qos-niit-structure-panel--lost .qos-niit-structure__stream-panel .mdc-list-item__text, .qos-niit-structure-panel--lost .qos-niit-structure__stream-panel .mdc-list-item__secondary-text {
-  /* @alternate */
-  color: rgba(0, 0, 0, 0.38) !important;
-  color: var(--mdc-theme-text-disabled-on-background, rgba(0, 0, 0, 0.38)) !important;
-  /* @alternate */
-  fill: rgba(0, 0, 0, 0.38) !important;
-  fill: var(--mdc-theme-text-disabled-on-background, rgba(0, 0, 0, 0.38)) !important; }
 
 /* Streams items */
 .qos-niit-stream-grid {

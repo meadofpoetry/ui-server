@@ -36,7 +36,8 @@ module Stream_item = struct
 
   class t (time:time)
           (stream:Stream.t)
-          (event:Stream.t option React.event) () =
+          (event:Stream.t option React.event)
+          control () =
     let descr = Option.get_or ~default:"Нет описания" stream.description in
     (* FIXME change to stream type *)
     let title = new Card.Primary.title
@@ -63,7 +64,7 @@ module Stream_item = struct
       initializer
         self#add_class base_class;
         Dom_events.listen self#root Dom_events.Typ.click (fun _ _ ->
-            Stream_page.make stream |> ignore;
+            Stream_page.make stream control |> ignore;
             print_endline "clicked"; true) |> ignore;
         React.E.map (function
             | Some _ ->
@@ -89,6 +90,7 @@ module Stream_grid = struct
 
   class t (init:(Stream.t * time) list)
           (event:Stream.t list React.event)
+          control
           () =
     let ph = Ui_templates.Placeholder.create_with_icon
                ~icon:"info"
@@ -106,7 +108,7 @@ module Stream_grid = struct
       method add_stream ?(time=`Now) (stream:Stream.t) =
         let e = React.E.map (List.find_opt (Stream.equal stream)) event
                 |> React.E.changes ~eq:(Equal.option (fun _ _ -> false)) in
-        let w = new Stream_item.t time stream e () in
+        let w = new Stream_item.t time stream e control () in
         if List.is_empty _streams
         then (try Dom.removeChild self#root ph#root; with _ -> ());
         _streams <- w :: _streams;
@@ -145,7 +147,7 @@ let make input control =
   >|= (fun streams ->
     let event, sock =
       Requests.Streams.WS.get_streams ~inputs:[input] control in
-    let grid = new Stream_grid.t streams event () in
+    let grid = new Stream_grid.t streams event control () in
     grid#widget)
   |> Ui_templates.Loader.create_widget_loader
   |> Widget.coerce

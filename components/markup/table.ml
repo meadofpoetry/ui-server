@@ -13,6 +13,7 @@ module Make(Xml : Xml_sigs.NoWrap)
   let select_class          = CSS.add_modifier base_class "select"
   let select_multiple_class = CSS.add_modifier base_class "select-multiple"
   let dense_class           = CSS.add_modifier base_class "dense"
+  let sticky_header_class   = CSS.add_modifier base_class "sticky-header"
 
   module Cell = struct
     let _class         = CSS.add_element  base_class "cell"
@@ -25,7 +26,7 @@ module Make(Xml : Xml_sigs.NoWrap)
                         |> cons_if is_numeric numeric_class
                         |> cons_if dense dense_class
                         |> List.cons _class)]
-             <@> attrs) [ content ]
+             <@> attrs) content
   end
 
   module Column = struct

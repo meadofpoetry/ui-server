@@ -389,10 +389,11 @@ module Get_ts_structs
     let iter     = Cstruct.iter (fun _ -> Some 2)
                      (fun buf -> Cstruct.LE.get_uint16 buf 0) rest in
     let sections = Cstruct.fold (fun acc x ->
-                       { id = List.length acc
-                       (* ; analyzed = (x land 0x8000) > 0 *)
-                       ; length   = x land 0x0FFF } :: acc) iter []
-                   |> List.filter (fun x -> x.length > 0)
+                       (List.length acc,     (* id*)
+                        (x land 0x8000) > 0, (* analyzed*)
+                        (x land 0x0FFF))     (* length *)
+                       :: acc) iter []
+                   |> List.filter (fun (_, _, x) -> x > 0)
                    |> List.rev in
     let pid'   = get_table_struct_block_pid msg in
     let id     = get_table_struct_block_id bdy in
@@ -403,15 +404,17 @@ module Get_ts_structs
       ; segment_lsn   = get_table_struct_block_adv_info_3 bdy
       ; last_table_id = get_table_struct_block_adv_info_4 bdy
       } in
-    { version        = get_table_struct_block_version bdy
-    ; id
-    ; id_ext
-    ; eit_params
-    ; pid            = pid' land 0x1FFF
-    ; lsn            = get_table_struct_block_lsn bdy
-    ; section_syntax = (pid' land 0x8000) > 0
-    ; sections
-    }
+    List.map (fun (section, _, length) ->
+        { version        = get_table_struct_block_version bdy
+        ; id
+        ; id_ext
+        ; eit_params
+        ; pid            = pid' land 0x1FFF
+        ; section
+        ; last_section   = get_table_struct_block_lsn bdy
+        ; section_syntax = (pid' land 0x8000) > 0
+        ; length
+        }) sections
 
   let of_ts_struct_blocks msg =
     let str_len = ref 0 in
@@ -543,6 +546,7 @@ module Get_ts_structs
       List.filter_map (function
           | `Tables x -> Some x
           | _ -> None) blocks
+      |> List.concat
       |> List.sort (fun (x:table_info) y ->
              Int.compare x.pid y.pid) in
     let pcr_pids =
@@ -614,36 +618,17 @@ module Get_bitrates : (Request
         iter []
     in List.rev pids, rest
 
-  let of_tbls_bitrate total_tbls br_per_pkt buf =
-    let msg,_ = Cstruct.split buf (sizeof_table_bitrate * total_tbls) in
-    let iter  = Cstruct.iter (fun _ -> Some sizeof_table_bitrate) (fun x -> x) msg in
-    Cstruct.fold (fun acc el ->
-        let packets    = get_table_bitrate_packets el in
-        let flags      = get_table_bitrate_flags el in
-        let adv_info_1 = get_table_bitrate_adv_info_1 el in
-        let adv_info_2 = get_table_bitrate_adv_info_2 el in
-        { id             = get_table_bitrate_table_id el
-        ; id_ext         = get_table_bitrate_table_id_ext el
-        ; fully_analyzed = flags land 2 > 0
-        ; section_syntax = flags land 1 > 0
-        ; eit_info       = Some (adv_info_1, adv_info_2)
-        ; bitrate        = int_of_float @@ br_per_pkt *. (Int32.to_float packets) } :: acc)
-      iter []
-    |> List.rev
-
   let of_stream_bitrate timestamp buf =
     let length     = (Int32.to_int @@ get_stream_bitrate_length buf) in
     let msg,rest   = Cstruct.split buf (length + 8) in
     let hdr,bdy    = Cstruct.split msg sizeof_stream_bitrate in
-    let ts_bitrate = Int32.to_int @@ get_stream_bitrate_ts_bitrate hdr in
+    let total      = Int32.to_int @@ get_stream_bitrate_ts_bitrate hdr in
     let total_pkts = get_stream_bitrate_total_packets hdr in
-    let br_per_pkt = (float_of_int ts_bitrate) /. (Int32.to_float total_pkts)  in
+    let br_per_pkt = (float_of_int total) /. (Int32.to_float total_pkts)  in
     let total_pids = get_stream_bitrate_total_pids hdr in
-    let total_tbls = get_stream_bitrate_total_tables hdr in
     let pids,tbls  = of_pids_bitrate total_pids br_per_pkt bdy in
-    let tables     = of_tbls_bitrate total_tbls br_per_pkt tbls in
     let stream     = Common.Stream.id_of_int32 @@ get_stream_bitrate_stream_id hdr in
-    let rsp        = stream, { ts_bitrate; pids; tables; timestamp } in
+    let rsp        = stream, { total; pids; timestamp } in
     let rest       = if Cstruct.len rest > 0 then Some rest else None in
     rsp,rest
 

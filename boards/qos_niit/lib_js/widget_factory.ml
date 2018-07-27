@@ -9,7 +9,6 @@ open Common
 type item =
   | Chart           of Widget_chart.config option
   | TS_log          of Widget_log.config option
-  | Structure       of Widget_structure.config option
   | Settings        of Widget_settings.config option
   | T2MI_settings   of Widget_t2mi_settings.config option
   | Jitter_settings of Widget_jitter_settings.config option [@@deriving yojson]
@@ -27,12 +26,6 @@ let item_to_info : item -> Dashboard.Item.info = fun item ->
      Dashboard.Item.to_info ~title:"Журнал ошибок (TS)"
        ~thumbnail:(`Icon "list_alt")
        ~description:"Сводный журнал ошибок"
-       ~serialized
-       ()
-  | Structure _ ->
-     Dashboard.Item.to_info ~title:"Структура потока"
-       ~thumbnail:(`Icon "list")
-       ~description:"Отображает структуру обнаруженных транспортных потоков"
        ~serialized
        ()
   | Settings _ ->
@@ -82,21 +75,6 @@ object(self)
     | TS_log config ->
        Widget_log.make React.E.never ?config control
        |> Dashboard.Item.to_item ~name:Widget_log.name
-    | Structure config ->
-       let id =
-         Option.get_or
-           ~default:Widget_structure.default_config.stream
-         @@ Option.map (fun (x:Widget_structure.config) -> x.stream) config in
-       (fun state signal stream ->
-         let init  = React.S.value signal in
-         let event = React.S.changes signal in
-         Widget_structure.make ?config ~state ~init ~event ~stream control ())
-       |> Factory_state_lwt.l3 self#state
-            (Lwt_result.return @@ React.S.const None) (self#stream id)
-       |> Lwt_result.map Widget.coerce
-       |> Ui_templates.Loader.create_widget_loader
-       |> Dashboard.Item.to_item ~name:Widget_structure.name
-            ?settings:Widget_structure.settings
     | Settings conf ->
        (fun state t2mi_mode jitter_mode streams->
          Widget_settings.make ~state ~t2mi_mode ~jitter_mode ~streams
@@ -126,8 +104,7 @@ object(self)
                              Factory_state.finalize _bitrates
 
   method available : Dashboard.available =
-    `List [ item_to_info (Structure None)
-          ; item_to_info (T2MI_settings None)
+    `List [ item_to_info (T2MI_settings None)
           ; item_to_info (Jitter_settings None)
           ; item_to_info (Settings None)
       ]

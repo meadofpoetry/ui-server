@@ -70,7 +70,7 @@ let make_table
       (structures:(Stream.id * Streams.TS.structure) list)
       (errors:Errors.raw) =
   let tz_offset_s = Ptime_clock.current_tz_offset_s () in
-  let time = Table.({ to_string  = Time.to_human_string ?tz_offset_s }) in
+  let time = Time.to_human_string ?tz_offset_s in
   let pid  = Table.({ to_string  = Printf.sprintf "%04d"
                     ; compare    = Int.compare
                     ; is_numeric = true }) in

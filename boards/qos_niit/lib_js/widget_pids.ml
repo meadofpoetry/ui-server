@@ -1,4 +1,3 @@
-
 open Containers
 open Components
 open Common
@@ -64,7 +63,7 @@ let make_table (init:pid_info list)
                  | _ :: _ :: _ :: a :: b :: c :: d :: _ ->
                     a, b, c, d in
                let pct = 100. *. (float_of_int br)
-                         /. (float_of_int bitrate.ts_bitrate) in
+                         /. (float_of_int bitrate.total) in
                let br = (float_of_int br) /. 1_000_000. in
                cur#set_value @@ Some br;
                per#set_value @@ Some pct;

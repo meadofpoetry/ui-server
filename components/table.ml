@@ -19,13 +19,19 @@ type 'a custom =
   ; is_numeric : bool
   }
 
-type 'a conv =
-  { to_string : 'a -> string }
+type 'a custom_elt =
+  { compare    : 'a -> 'a -> int
+  ; is_numeric : bool
+  }
 
-let default_time : Ptime.t conv =
-  { to_string = Format.asprintf "%a" Ptime.pp }
+let default_time = Format.asprintf "%a" Ptime.pp
 
 let default_float = Printf.sprintf "%f"
+
+let default_elt =
+  { compare    = (fun _ _ -> 0)
+  ; is_numeric = false
+  }
 
 type _ fmt =
   | String : string fmt
@@ -33,9 +39,12 @@ type _ fmt =
   | Int32  : int32 fmt
   | Int64  : int64 fmt
   | Float  : (float -> string) option   -> float fmt
-  | Time   : Ptime.t conv option -> Ptime.t fmt
-  | Option : ('a fmt * string)   -> 'a option fmt
-  | Custom : 'a custom -> 'a fmt
+  | Time   : (Ptime.t -> string) option -> Ptime.t fmt
+  | Option : ('a fmt * string) -> 'a option fmt
+  (* XXX maybe just Tyxml, not Tyxml_js? *)
+  | Html   : Tyxml_js.Xml.elt custom_elt option -> Tyxml_js.Xml.elt fmt
+  | Widget : 'a custom_elt option -> (#Widget.t as 'a) fmt
+  | Custom : 'a custom     -> 'a fmt
 
 type column =
   { sortable : bool
@@ -45,15 +54,19 @@ type column =
 let to_column ?(sortable=false) title =
   { sortable; title }
 
-  let rec to_string : type a. a fmt -> a -> string = fun fmt v ->
+let rec to_string : type a. a fmt -> a -> string = fun fmt v ->
   match fmt with
   | Int            -> string_of_int v
   | Int32          -> Int32.to_string v
   | Int64          -> Int64.to_string v
   | Float x        -> (Option.get_or ~default:default_float x) v
   | String         -> v
-  | Time x         -> (Option.get_or ~default:default_time x).to_string v
-  | Option (fmt,e) -> (match v with None -> e | Some v -> (to_string fmt) v)
+  | Time x         -> (Option.get_or ~default:default_time x) v
+  | Option (fmt,e) -> (match v with
+                       | None   -> e
+                       | Some v -> (to_string fmt) v)
+  | Html _         -> ""
+  | Widget _       -> ""
   | Custom x       -> x.to_string v
 
 let rec is_numeric : type a. a fmt -> bool = function
@@ -64,39 +77,69 @@ let rec is_numeric : type a. a fmt -> bool = function
   | String         -> false
   | Time _         -> false
   | Option (fmt,_) -> is_numeric fmt
+  | Html x         -> (Option.get_or ~default:default_elt x).is_numeric
+  | Widget x       -> (Option.get_or ~default:default_elt x).is_numeric
   | Custom x       -> x.is_numeric
 
-let rec compare : type a. a fmt -> a -> a -> int = fun fmt x y ->
+let rec compare : type a. a fmt -> (a -> a -> int) = fun fmt->
   match fmt with
-  | Int            -> Int.compare x y
-  | Int32          -> Int32.compare x y
-  | Int64          -> Int64.compare x y
-  | Float _        -> Float.compare x y
-  | String         -> String.compare x y
-  | Time _         -> Ptime.compare x y
-  | Option (fmt,_) -> Option.compare (compare fmt) x y
-  | Custom c       -> c.compare x y
+  | Int            -> Int.compare
+  | Int32          -> Int32.compare
+  | Int64          -> Int64.compare
+  | Float _        -> Float.compare
+  | String         -> String.compare
+  | Time _         -> Ptime.compare
+  | Option (fmt,_) -> Option.compare (compare fmt)
+  | Html x         -> (Option.get_or ~default:default_elt x).compare
+  | Widget x       -> (Option.get_or ~default:default_elt x).compare
+  | Custom x       -> x.compare
 
 module Cell = struct
 
+  let rec set_value : type a. a fmt -> a option -> a -> Widget.t -> unit =
+    fun fmt prev v w ->
+    let res = Option.map_or ~default:1 (compare fmt v) prev in
+    match res with
+    | 0 -> ()
+    | _ ->
+       let set_text = w#set_text_content in
+       (match fmt with
+        | Option (fmt,e) ->
+           (match v with
+            | None ->
+               w#set_empty ();
+               Dom.appendChild w#root Tyxml_js.Html.(toelt @@ pcdata e)
+            | Some x -> (match prev with
+                         | Some p -> set_value fmt p x w
+                         | None   -> set_value fmt None x w))
+        | Html _   -> w#set_empty ();
+                      Dom.appendChild w#root v
+        | Widget _ -> w#set_empty ();
+                      Dom.appendChild w#root v#root
+        | _        -> set_text @@ to_string fmt v)
+
   let wrap_checkbox = function
     | None    -> None
-    | Some cb -> Markup.Cell.create (Widget.to_markup cb) () |> Option.return
+    | Some cb -> Markup.Cell.create [ Widget.to_markup cb ] ()
+                 |> Option.return
 
   class ['a] t ~(value:'a) (fmt:'a fmt) () =
-    let s = to_string fmt value in
-    let content = Tyxml_js.Html.(pcdata s) in
-    let elt = Markup.Cell.create ~is_numeric:(is_numeric fmt) content ()
+    let elt = Markup.Cell.create ~is_numeric:(is_numeric fmt) [] ()
               |> Tyxml_js.To_dom.of_element in
     object(self : 'self)
       val mutable _value = value
+
+      inherit Widget.t elt ()
+
       method fmt   : 'a fmt = fmt
       method value : 'a = _value
       method set_value (v:'a) =
+        set_value fmt (Some _value) v self#widget;
         _value <- v;
-        self#set_text_content (to_string fmt v)
       method compare (other:'self) = compare fmt other#value self#value
-      inherit Widget.t elt ()
+
+      initializer
+        set_value fmt None _value self#widget;
     end
 
 end
@@ -366,7 +409,8 @@ let rec compare : type a. int ->
      then x1#compare x2
      else compare (pred index) rest1 rest2
 
-class ['a] t ?selection ?(dense=false) ~(fmt:'a Format.t) () =
+class ['a] t ?selection ?(sticky_header=false) ?(dense=false)
+        ~(fmt:'a Format.t) () =
   let s_selected,s_selected_push = React.S.create List.empty in
   let body   = new Body.t ?selection () in
   let header = new Header.t ?selection s_selected
@@ -383,8 +427,15 @@ class ['a] t ?selection ?(dense=false) ~(fmt:'a Format.t) () =
     method s_rows     = body#s_rows
     method s_selected = s_selected
 
-    method dense = self#has_class Markup.dense_class
-    method set_dense x = self#add_or_remove_class x Markup.dense_class
+    method sticky_header : bool =
+      self#has_class Markup.sticky_header_class
+    method set_sticky_header x =
+      self#add_or_remove_class x Markup.sticky_header_class
+
+    method dense : bool =
+      self#has_class Markup.dense_class
+    method set_dense x =
+      self#add_or_remove_class x Markup.dense_class
 
     method add_row (data:'a Data.t) =
       let row =
@@ -408,6 +459,7 @@ class ['a] t ?selection ?(dense=false) ~(fmt:'a Format.t) () =
 
     initializer
       self#set_dense dense;
+      self#set_sticky_header sticky_header;
       React.S.map (function
           | Some (index,sort) -> self#sort index sort
           | None -> ()) header#s_sorted

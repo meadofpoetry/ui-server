@@ -129,20 +129,10 @@ module Streams = struct
 
     (** TS bitrate *)
 
-    type table_bitrate =
-      { id             : int
-      ; id_ext         : int
-      ; fully_analyzed : bool
-      ; section_syntax : bool
-      ; eit_info       : (int * int) option
-      ; bitrate        : int
-      } [@@deriving yojson]
-
     type bitrate =
-      { timestamp  : Time.t
-      ; ts_bitrate : int
-      ; pids       : (int * int) list
-      ; tables     : table_bitrate list
+      { timestamp : Time.t
+      ; total     : int
+      ; pids      : (int * int) list
       } [@@deriving yojson]
 
     (** TS structure *)
@@ -200,12 +190,6 @@ module Streams = struct
 
     type emm_info = ecm_info [@@deriving yojson, eq]
 
-    type section_info =
-      { id       : int
-      (* ; analyzed : bool *)
-      ; length   : int
-      } [@@deriving yojson, eq]
-
     type eit_params =
       { ts_id         : int (* eit param 1*)
       ; orig_nw_id    : int (* eit param 2*)
@@ -219,9 +203,10 @@ module Streams = struct
       ; id_ext         : int
       ; eit_params     : eit_params
       ; pid            : int
-      ; lsn            : int
       ; section_syntax : bool
-      ; sections       : section_info list
+      ; section        : int
+      ; last_section   : int
+      ; length         : int
       } [@@deriving yojson, eq]
 
     type general_info =

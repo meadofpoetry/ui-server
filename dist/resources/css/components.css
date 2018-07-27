@@ -7022,6 +7022,9 @@ a.mdc-list-item {
     letter-spacing: 0;
     font-size: 12px;
     /* @alternate */
+    background-color: #fff;
+    background-color: var(--mdc-theme-background, #fff);
+    /* @alternate */
     color: rgba(0, 0, 0, 0.54);
     color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54)); }
     .mdc-data-table__column--sortable {

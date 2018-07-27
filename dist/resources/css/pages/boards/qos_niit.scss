@@ -14,7 +14,9 @@ $fill-tone: mdc-theme-tone($alarm-color);
     }
 }
 
-.qos-niit-structure {
+.qos-niit-tables {
+    padding: 1rem;
+    @include mdc-theme-prop(background-color, background);
     &__stream-panel {
         width: 100%;
         height: 100%;
@@ -22,7 +24,7 @@ $fill-tone: mdc-theme-tone($alarm-color);
     }
 }
 
-.qos-niit-structure__dump {
+.qos-niit-tables__dump {
     width: 100%;
     padding: 10px;
     overflow: hidden;
@@ -52,7 +54,7 @@ $fill-tone: mdc-theme-tone($alarm-color);
     }
 }
 
-.qos-niit-structure__parsed {
+.qos-niit-tables__parsed {
     width: 100%;
     flex-grow: 2;
     /* flex-shrink: 0; */
@@ -60,7 +62,7 @@ $fill-tone: mdc-theme-tone($alarm-color);
     overflow-y: auto;
 }
 
-.qos-niit-structure__hexdump-options {
+.qos-niit-tables__hexdump-options {
     flex-shrink: 0;
     padding-top: 10px;
     overflow-x: auto;
@@ -77,32 +79,8 @@ $fill-tone: mdc-theme-tone($alarm-color);
     }
 }
 
-.qos-niit-structure__section-item {
+.qos-niit-tables__section-item {
     cursor: pointer;
-}
-
-/* Structure expansion panel for structure page */
-
-.qos-niit-structure-panel {
-    .qos-niit-structure {
-        height: 600px;
-    }
-}
-
-.qos-niit-structure-panel--lost {
-    $alarm-color: $material-color-red-100;
-    $fill-tone: mdc-theme-tone($alarm-color);
-    .mdc-expansion-panel__primary {
-        @include mdc-theme-prop(background-color, $alarm-color);
-        @if ($fill-tone == "dark") {
-            @include mdc-theme-prop(color, text-primary-on-dark);
-        } @else {
-            @include mdc-theme-prop(color, text-primary-on-light);
-        }
-    }
-    .qos-niit-structure__stream-panel {
-        @include structure-tree-stream-lost;
-    }
 }
 
 /* Streams items */
