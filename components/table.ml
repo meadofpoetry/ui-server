@@ -20,7 +20,8 @@ type 'a custom =
   }
 
 type 'a custom_elt =
-  { compare    : 'a -> 'a -> int
+  { to_elt     : 'a -> Tyxml_js.Xml.elt
+  ; compare    : 'a -> 'a -> int
   ; is_numeric : bool
   }
 
@@ -28,16 +29,11 @@ let default_time = Format.asprintf "%a" Ptime.pp
 
 let default_float = Printf.sprintf "%f"
 
-let default_elt =
-  { compare    = (fun _ _ -> 0)
-  ; is_numeric = false
-  }
-
 type _ fmt =
-  | String : string fmt
-  | Int    : int fmt
-  | Int32  : int32 fmt
-  | Int64  : int64 fmt
+  | String : (string -> string) option -> string fmt
+  | Int    : (int -> string) option -> int fmt
+  | Int32  : (int32 -> string) option -> int32 fmt
+  | Int64  : (int64 -> string) option -> int64 fmt
   | Float  : (float -> string) option   -> float fmt
   | Time   : (Ptime.t -> string) option -> Ptime.t fmt
   | Option : ('a fmt * string) -> 'a option fmt
@@ -54,51 +50,58 @@ type column =
 let to_column ?(sortable=false) title =
   { sortable; title }
 
-let rec to_string : type a. a fmt -> a -> string = fun fmt v ->
+let rec to_string : type a. a fmt -> (a -> string) = fun fmt ->
+  let open Option in
   match fmt with
-  | Int            -> string_of_int v
-  | Int32          -> Int32.to_string v
-  | Int64          -> Int64.to_string v
-  | Float x        -> (Option.get_or ~default:default_float x) v
-  | String         -> v
-  | Time x         -> (Option.get_or ~default:default_time x) v
-  | Option (fmt,e) -> (match v with
+  | Int x          -> (get_or ~default:string_of_int x)
+  | Int32 x        -> (get_or ~default:Int32.to_string x)
+  | Int64 x        -> (get_or ~default:Int64.to_string x)
+  | Float x        -> (get_or ~default:default_float x)
+  | String x       -> (get_or ~default:(fun x -> x) x)
+  | Time x         -> (get_or ~default:default_time x)
+  | Option (fmt,e) -> (function
                        | None   -> e
                        | Some v -> (to_string fmt) v)
-  | Html _         -> ""
-  | Widget _       -> ""
-  | Custom x       -> x.to_string v
+  | Html _         -> fun _ -> ""
+  | Widget _       -> fun _ -> ""
+  | Custom x       -> x.to_string
 
 let rec is_numeric : type a. a fmt -> bool = function
-  | Int            -> true
-  | Int32          -> true
-  | Int64          -> true
+  | Int _          -> true
+  | Int32 _        -> true
+  | Int64 _        -> true
   | Float _        -> true
-  | String         -> false
+  | String _       -> false
   | Time _         -> false
   | Option (fmt,_) -> is_numeric fmt
-  | Html x         -> (Option.get_or ~default:default_elt x).is_numeric
-  | Widget x       -> (Option.get_or ~default:default_elt x).is_numeric
+  | Html x         ->
+     Option.map_or ~default:false (fun x -> x.is_numeric) x
+  | Widget x       ->
+     Option.map_or ~default:false (fun x -> x.is_numeric) x
   | Custom x       -> x.is_numeric
 
 let rec compare : type a. a fmt -> (a -> a -> int) = fun fmt->
   match fmt with
-  | Int            -> Int.compare
-  | Int32          -> Int32.compare
-  | Int64          -> Int64.compare
+  | Int _          -> Int.compare
+  | Int32 _        -> Int32.compare
+  | Int64 _        -> Int64.compare
   | Float _        -> Float.compare
-  | String         -> String.compare
+  | String _       -> String.compare
   | Time _         -> Ptime.compare
   | Option (fmt,_) -> Option.compare (compare fmt)
-  | Html x         -> (Option.get_or ~default:default_elt x).compare
-  | Widget x       -> (Option.get_or ~default:default_elt x).compare
+  | Html x         ->
+     Option.map_or ~default:(fun _ _ -> 0) (fun x -> x.compare) x
+  | Widget x       ->
+     Option.map_or ~default:(fun _ _ -> 0) (fun x -> x.compare) x
   | Custom x       -> x.compare
 
 module Cell = struct
 
-  let rec set_value : type a. a fmt -> a option -> a -> Widget.t -> unit =
-    fun fmt prev v w ->
-    let res = Option.map_or ~default:1 (compare fmt v) prev in
+  let rec set_value : type a. a fmt -> bool -> a option -> a -> Widget.t -> unit =
+    fun fmt force prev v w ->
+    let res =
+      if force then 1
+      else Option.map_or ~default:1 (compare fmt v) prev in
     match res with
     | 0 -> ()
     | _ ->
@@ -106,17 +109,32 @@ module Cell = struct
        (match fmt with
         | Option (fmt,e) ->
            (match v with
-            | None ->
-               w#set_empty ();
-               Dom.appendChild w#root Tyxml_js.Html.(toelt @@ pcdata e)
+            | None   -> set_value (String None) force None e w
             | Some x -> (match prev with
-                         | Some p -> set_value fmt p x w
-                         | None   -> set_value fmt None x w))
-        | Html _   -> w#set_empty ();
-                      Dom.appendChild w#root v
-        | Widget _ -> w#set_empty ();
-                      Dom.appendChild w#root v#root
+                         | Some p -> set_value fmt force p x w
+                         | None   -> set_value fmt force None x w))
+        | Html x   ->
+           let to_elt = Option.map_or ~default:(fun x -> x)
+                          (fun x -> x.to_elt) x in
+           w#set_empty ();
+           Dom.appendChild w#root (to_elt v)
+        | Widget x ->
+           let to_elt =
+             Option.map_or ~default:(fun x -> x#node) (fun x -> x.to_elt) x in
+           w#set_empty ();
+           Dom.appendChild w#root (to_elt v)
         | _        -> set_text @@ to_string fmt v)
+
+  let rec update : type a. a fmt -> a -> Widget.t -> unit =
+    fun fmt v w ->
+    match fmt with
+    | Html _   -> ()
+    | Widget _ -> ()
+    | Option (fmt, e) ->
+       (match v with
+        | Some v -> update fmt v w
+        | None   -> update (String None) e w)
+    | _ -> set_value fmt true None v w
 
   let wrap_checkbox = function
     | None    -> None
@@ -128,18 +146,24 @@ module Cell = struct
               |> Tyxml_js.To_dom.of_element in
     object(self : 'self)
       val mutable _value = value
+      val mutable _fmt   = fmt
 
       inherit Widget.t elt ()
 
-      method fmt   : 'a fmt = fmt
+      method format : 'a fmt = _fmt
+      method set_format : 'a fmt -> unit = fun (x:'a fmt) ->
+        _fmt <- x;
+        update x _value self#widget
+
       method value : 'a = _value
-      method set_value (v:'a) =
-        set_value fmt (Some _value) v self#widget;
+      method set_value ?(force=false) (v:'a) =
+        set_value fmt force (Some _value) v self#widget;
         _value <- v;
+
       method compare (other:'self) = compare fmt other#value self#value
 
       initializer
-        set_value fmt None _value self#widget;
+        self#set_value ~force:true value
     end
 
 end
@@ -421,6 +445,8 @@ class ['a] t ?selection ?(sticky_header=false) ?(dense=false)
   object(self)
     inherit Widget.t elt ()
     inherit Widget.stateful ()
+
+    val mutable _fmt : 'a Format.t = fmt
 
     method body       = body
     method rows       = body#rows

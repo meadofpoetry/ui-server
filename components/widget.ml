@@ -31,6 +31,7 @@ class t (elt:#Dom_html.element Js.t) () = object(self)
   val mutable _observer   = None
 
   method root   : Dom_html.element Js.t = (elt :> Dom_html.element Js.t)
+  method node   : Dom.node Js.t = (elt :> Dom.node Js.t)
   method widget : t = (self :> t)
 
   method set_on_destroy f = _on_destroy <- f

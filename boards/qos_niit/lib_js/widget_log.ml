@@ -78,12 +78,12 @@ let make_table
     let open Table in
     let open Format in
     (   to_column ~sortable:true "Время",        (Time (Some time)))
-    :: (to_column ~sortable:true "Поток",        String)
-    :: (to_column ~sortable:true "Service",      Option (String, ""))
-    :: (to_column ~sortable:true "Число ошибок", Int)
+    :: (to_column ~sortable:true "Поток",        String None)
+    :: (to_column ~sortable:true "Service",      Option (String None, ""))
+    :: (to_column ~sortable:true "Число ошибок", Int None)
     :: (to_column ~sortable:true "PID",          Custom pid)
-    :: (to_column ~sortable:true "Событие",      String)
-    :: (to_column "Подробности",                 String)
+    :: (to_column ~sortable:true "Событие",      String None)
+    :: (to_column "Подробности",                 String None)
     :: [] in
   let table = new Table.t ~fmt () in
   (* let add_row (stream, (error:Errors.t)) =

@@ -233,12 +233,12 @@ module Table = struct
                   control
     | _      -> r control
 
-  let to_table_name table section =
+  let to_table_name table =
     let divider  = ", " in
     let name     = table_to_string @@ table_of_int table.id in
     let id s x   = Printf.sprintf "%s=0x%02X(%d)" s x x in
     let base     = id "table_id" table.id in
-    let section  = Printf.sprintf "секция %d" section in
+    let section  = Printf.sprintf "секция %d" table.section in
     let specific = match table_of_int table.id with
       | `PAT   -> Some [ id "ts_id" table.id_ext ]
       | `PMT   -> Some [ id "program_number" table.id_ext ]
@@ -300,7 +300,8 @@ module Table = struct
         leaf#item#set_secondary_text s)
       } in
     Dom_events.listen leaf#item#root Dom_events.Typ.click (fun _ _ ->
-        let name = to_table_name init.table !prev.table.section in
+        (* FIXME why init? *)
+        let name = to_table_name init.table in
         let prev' = ref None in
         let get  = fun () ->
           req_of_table !prev

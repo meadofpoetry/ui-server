@@ -26,7 +26,7 @@ object
   val area = node_entry_to_area node
   inherit Widget.t elt ()
   method area : string     = area
-  method node : node_entry = node
+  method node_entry : node_entry = node
   method layout () : unit  = ()
   method output_point      = Topo_path.get_output_point body
 end
@@ -41,7 +41,11 @@ class parent ~port_setter
     List.mapi (fun i (x,p) ->
         let f_lp = fun () -> x#output_point in
         let f_rp = fun () -> Topo_path.get_input_point ~num i body in
-        new Topo_path.t ~left_node:x#node ~right_node:node ~right_point:p ~f_lp ~f_rp ~port_setter ()) connections
+        new Topo_path.t
+          ~left_node:x#node_entry
+          ~right_node:node
+          ~right_point:p
+          ~f_lp ~f_rp ~port_setter ()) connections
   in
   let switches = List.filter_map (fun x -> x#switch) paths in
   let s_switch_changing =

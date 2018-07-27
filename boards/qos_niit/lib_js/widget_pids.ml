@@ -25,9 +25,9 @@ let make_table (init:pid_info list)
     let open Table in
     let open Format in
     let to_column = to_column ~sortable:true in
-    (   to_column "PID",             Int)
-    :: (to_column "Тип",             String)
-    :: (to_column "Сервис",          Option (String, ""))
+    (   to_column "PID",             Int None)
+    :: (to_column "Тип",             String None)
+    :: (to_column "Сервис",          Option (String None, ""))
     :: (to_column "Битрейт, Мбит/с", br_fmt)
     :: (to_column "%",               pct_fmt)
     :: (to_column "Min, Мбит/с",     br_fmt)
