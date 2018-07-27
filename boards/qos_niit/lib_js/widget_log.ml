@@ -70,18 +70,14 @@ let make_table
       (structures:(Stream.id * Streams.TS.structure) list)
       (errors:Errors.raw) =
   let tz_offset_s = Ptime_clock.current_tz_offset_s () in
-  let time = Table.({ to_string  = Time.to_human_string ?tz_offset_s
-                    ; of_string  = Time.of_human_string_exn ?tz_offset_s
-                    ; compare    = Time.compare
-                    ; is_numeric = false }) in
+  let time = Table.({ to_string  = Time.to_human_string ?tz_offset_s }) in
   let pid  = Table.({ to_string  = Printf.sprintf "%04d"
-                    ; of_string  = int_of_string
                     ; compare    = Int.compare
                     ; is_numeric = true }) in
   let fmt  =
     let open Table in
     let open Format in
-    (   to_column ~sortable:true "Время",        Custom time)
+    (   to_column ~sortable:true "Время",        (Time (Some time)))
     :: (to_column ~sortable:true "Поток",        String)
     :: (to_column ~sortable:true "Service",      Option (String, ""))
     :: (to_column ~sortable:true "Число ошибок", Int)

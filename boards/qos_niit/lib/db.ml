@@ -35,7 +35,7 @@ module Model = struct
     }
 
   let keys_streams =
-    { time_key = Some "date_start"
+    { time_key = Some "date_end"
     ; columns  = [ "stream",     key "JSONB"
                  ; "id",         key "INTEGER"
                  ; "type",       key "TEXT"
@@ -279,6 +279,7 @@ module Streams = struct
     in Conn.request db Request.(
       with_trans (List.fold_left (fun acc s ->
                       acc >>= fun () -> exec insert s)
+
                     (return ()) data))
 
   let bump_streams db streams =

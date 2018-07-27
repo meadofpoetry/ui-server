@@ -20,14 +20,17 @@ let settings = None
 
 let make_table (init:pid_info list)
       (bitrate:bitrate React.event)=
-  let br_fmt = Table.(Option (Float None, "")) in
+  let br_fmt  = Table.(Option (Float None, "-")) in
+  let pct_fmt = Table.(Option (Float (Some (Printf.sprintf "%.2f")), "-")) in
   let fmt =
     let open Table in
     let open Format in
+    let to_column = to_column ~sortable:true in
     (   to_column "PID",             Int)
     :: (to_column "Тип",             String)
     :: (to_column "Сервис",          Option (String, ""))
     :: (to_column "Битрейт, Мбит/с", br_fmt)
+    :: (to_column "%",               pct_fmt)
     :: (to_column "Min, Мбит/с",     br_fmt)
     :: (to_column "Max, Мбит/с",     br_fmt)
     :: [] in
@@ -46,25 +49,34 @@ let make_table (init:pid_info list)
       | Null    -> "Null"
       | Private -> "Private" in
     table#add_row (pid.pid :: pid_type :: pid.service
-                   :: None :: None :: None :: []) in
+                   :: None :: None :: None :: None :: []) in
   List.iter add_row init;
   let _ =
-    React.E.map (fun (br:bitrate) ->
+    React.E.map (fun (bitrate:bitrate) ->
         List.fold_left (fun rows (pid, br) ->
             let open Table in
             match List.find_opt (fun (row:'a Row.t) ->
                       let cell = match row#cells with a :: _ -> a in
                       cell#value = pid) rows with
             | Some x ->
-               let cell, _, _ =
+               let cur, per, min, max =
                  match x#cells with
-                 | _ :: _ :: _ :: a :: b :: c :: _ ->
-                    a, b, c in
-               let br = float_of_int br /. 1_000_000. in
-               cell#set_value @@ Some br;
+                 | _ :: _ :: _ :: a :: b :: c :: d :: _ ->
+                    a, b, c, d in
+               let pct = 100. *. (float_of_int br)
+                         /. (float_of_int bitrate.ts_bitrate) in
+               let br = (float_of_int br) /. 1_000_000. in
+               cur#set_value @@ Some br;
+               per#set_value @@ Some pct;
+               (match min#value with
+                | None -> min#set_value (Some br)
+                | Some v -> if br <. v then min#set_value (Some br));
+               (match max#value with
+                | None -> max#set_value (Some br)
+                | Some v -> if br >. v then max#set_value (Some br));
                List.remove ~eq:Equal.physical ~x rows
-            | None   -> rows) table#rows br.pids |> ignore;
-        br) bitrate in
+            | None   -> rows) table#rows bitrate.pids |> ignore;
+        bitrate) bitrate in
   table
 
 let make ?(config=default_config)

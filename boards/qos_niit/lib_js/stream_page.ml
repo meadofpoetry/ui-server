@@ -1,7 +1,7 @@
 open Containers
 open Components
 open Api_js.Requests
-open Lwt.Infix
+open Lwt_result.Infix
 open Common
 
 let dummy_tab = fun () ->
@@ -10,23 +10,29 @@ let dummy_tab = fun () ->
 
 let services (stream:Stream.t) control =
   let open Widget_services in
-  make ~config:{ stream = match stream.id with
-                          | `Ts x -> x
-                          | _ -> Single }
-    control
+  let w = make ~config:{ stream = match stream.id with
+                                  | `Ts x -> x
+                                  | _ -> Single }
+            control in
+  w#thread >|= (fun w -> Elevation.set_elevation w 2)
+  |> Lwt.ignore_result;
+  w#widget
 
 let pids (stream:Stream.t) control =
   let open Widget_pids in
-  make ~config:{ stream = match stream.id with
-                          | `Ts x -> x
-                          | _ -> Single }
-    control
+  let w = make ~config:{ stream = match stream.id with
+                                  | `Ts x -> x
+                                  | _ -> Single }
+            control in
+  w#thread >|= (fun w -> Elevation.set_elevation w 2)
+  |> Lwt.ignore_result;
+  w#widget
 
 let tabs (stream:Stream.t) =
-  let base = 
+  let base =
     [ "Ошибки",  dummy_tab
-    ; "Сервисы", (fun () -> services stream 1 |> Widget.coerce)
-    ; "PIDs",    (fun () -> pids stream 1 |> Widget.coerce)
+    ; "Сервисы", (fun () -> services stream 1)
+    ; "PIDs",    (fun () -> pids stream 1)
     ; "Таблицы", dummy_tab
     ; "Джиттер", dummy_tab
     ] in

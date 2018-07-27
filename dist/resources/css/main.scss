@@ -49,7 +49,7 @@ body {
     margin-top: 64px;
     position: absolute;
     width: 100%;
-    display: flex;
+    /* display: flex; */
     min-height: calc(100% - 64px);
     &.main-content--dynamic {
         margin-top: 128px;

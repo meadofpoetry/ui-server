@@ -15,33 +15,24 @@ let sort_of_string = function
 
 type 'a custom =
   { to_string  : 'a -> string
-  ; of_string  : string -> 'a
   ; compare    : 'a -> 'a -> int
   ; is_numeric : bool
   }
 
 type 'a conv =
-  { to_string : 'a -> string
-  ; of_string : string -> 'a
-  }
+  { to_string : 'a -> string }
 
 let default_time : Ptime.t conv =
-  { to_string = Format.asprintf "%a" Ptime.pp
-  ; of_string = fun s ->
-                Result.get_exn @@ Ptime.of_rfc3339 s
-                |> fun (t, _, _) -> t }
+  { to_string = Format.asprintf "%a" Ptime.pp }
 
-let default_float : float conv =
-  { to_string = Printf.sprintf "%f"
-  ; of_string = float_of_string
-  }
+let default_float = Printf.sprintf "%f"
 
 type _ fmt =
   | String : string fmt
   | Int    : int fmt
   | Int32  : int32 fmt
   | Int64  : int64 fmt
-  | Float  : float conv option   -> float fmt
+  | Float  : (float -> string) option   -> float fmt
   | Time   : Ptime.t conv option -> Ptime.t fmt
   | Option : ('a fmt * string)   -> 'a option fmt
   | Custom : 'a custom -> 'a fmt
@@ -59,7 +50,7 @@ let to_column ?(sortable=false) title =
   | Int            -> string_of_int v
   | Int32          -> Int32.to_string v
   | Int64          -> Int64.to_string v
-  | Float x        -> (Option.get_or ~default:default_float x).to_string v
+  | Float x        -> (Option.get_or ~default:default_float x) v
   | String         -> v
   | Time x         -> (Option.get_or ~default:default_time x).to_string v
   | Option (fmt,e) -> (match v with None -> e | Some v -> (to_string fmt) v)
@@ -74,19 +65,6 @@ let rec is_numeric : type a. a fmt -> bool = function
   | Time _         -> false
   | Option (fmt,_) -> is_numeric fmt
   | Custom x       -> x.is_numeric
-
-let rec of_string : type a. a fmt -> string -> a = fun fmt s ->
-  match fmt with
-  | Int     -> int_of_string s
-  | Int32   -> Int32.of_string_exn s
-  | Int64   -> Int64.of_string_exn s
-  | Float x -> (Option.get_or ~default:default_float x).of_string s
-  | String  -> s
-  | Time x  -> (Option.get_or ~default:default_time x).of_string s
-  | Option (fmt, empty) ->
-     if String.equal s empty then None
-     else Some (of_string fmt s)
-  | Custom c -> c.of_string s
 
 let rec compare : type a. a fmt -> a -> a -> int = fun fmt x y ->
   match fmt with
@@ -423,6 +401,8 @@ class ['a] t ?selection ?(dense=false) ~(fmt:'a Format.t) () =
             match sort, compare index row_1#cells row_2#cells with
             | Asc,x -> x
             | Dsc,x -> ~-x) self#rows in
+      (* FIXME do it in a more smart way. Move only those rows that
+         have changed their positions *)
       body#set_empty ();
       List.iter (fun x -> Dom.appendChild body#root x#root) rows
 
