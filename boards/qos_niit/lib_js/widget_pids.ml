@@ -48,8 +48,8 @@ let make_table (init:pid_info list)
       | Null    -> "Null"
       | Private -> "Private" in
     table#add_row (pid.pid :: pid_type :: pid.service
-                   :: None :: None :: None :: None :: []) in
-  List.iter add_row init;
+                             :: None :: None :: None :: None :: []) in
+  List.iter Fun.(ignore % add_row) init;
   let _ =
     React.E.map (fun (bitrate:bitrate) ->
         List.fold_left (fun rows (pid, br) ->

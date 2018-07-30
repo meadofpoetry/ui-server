@@ -1,7 +1,6 @@
 open Tyxml_js
 
-module Divider = Item_list.Divider
-module Markup  = Components_markup.Menu.Make(Xml)(Svg)(Html)
+module Markup = Components_markup.Menu.Make(Xml)(Svg)(Html)
 
 module Item = struct
 

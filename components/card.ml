@@ -18,7 +18,7 @@ module Actions = struct
         initializer
           List.iter (fun x -> x#add_class Markup.Actions.action_class;
                               x#add_class Markup.Actions.action_button_class)
-                    widgets
+            widgets
 
       end
 

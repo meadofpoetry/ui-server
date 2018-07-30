@@ -89,7 +89,7 @@ let make_dns (dns : Network_config.v4 list) =
     if List.exists (Network_config.equal_v4 addr) rlst
     then failwith "dns exists"; (* TODO fix *)
     let entry = make_dns_entry del_dns addr in
-    list#add_item entry;
+    list#append_item entry;
     push (addr::rlst)
   in
   let set dns =
@@ -144,7 +144,7 @@ let make_routes (routes : Network_config.address list) =
     if List.exists (Network_config.equal_address (addr,mask)) rlst
     then failwith "route exists"; (* TODO fix *)
     let entry = make_route_entry del_route (addr, mask) in
-    list#add_item entry;
+    list#append_item entry;
     push ((addr, mask)::rlst)
   in
   let set routes =

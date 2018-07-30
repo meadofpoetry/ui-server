@@ -22,6 +22,10 @@ let to_rect (x:Dom_html.clientRect Js.t) =
   ; height = Js.Optdef.to_option x##.height
   }
 
+module Event = struct
+  include Dom_events.Typ
+end
+
 class t (elt:#Dom_html.element Js.t) () = object(self)
 
   val mutable _on_destroy = None
@@ -87,6 +91,20 @@ class t (elt:#Dom_html.element Js.t) () = object(self)
   method scroll_width  = self#root##.scrollWidth
   method scroll_height = self#root##.scrollHeight
 
+  method append_child : 'a. (< node : Dom.node Js.t; .. > as 'a) -> unit =
+    fun x ->
+    Dom.appendChild self#root x#node
+  method remove_child : 'a. (< node : Dom.node Js.t; .. > as 'a) -> unit =
+    fun x ->
+    try Dom.removeChild self#root x#node
+    with _ -> ()
+
+  method listen : 'a. (#Dom_html.event as 'a) Js.t Dom.Event.typ ->
+                  (Dom_html.element Js.t -> 'a Js.t -> bool) ->
+                  Dom_events.listener =
+    fun x f ->
+    Dom_events.listen self#root x f
+
   method set_empty () =
     Dom.list_of_nodeList @@ self#root##.childNodes
     |> List.iter (fun x -> Dom.removeChild self#root x)
@@ -140,7 +158,7 @@ class stateful () = object
     _e <- React.E.map ignore e :: _e
 end
 
-class button_widget elt () =
+class button_widget ?(on_click) elt () =
   let e_click,e_click_push = React.E.create () in
   object(self)
 
@@ -149,7 +167,8 @@ class button_widget elt () =
     method e_click = e_click
 
     initializer
-      Dom_events.listen self#root Dom_events.Typ.click (fun _ e -> e_click_push e; false) |> ignore
+      Dom_events.listen self#root Dom_events.Typ.click (fun _ e ->
+          e_click_push e; false) |> ignore
 
   end
 
@@ -174,23 +193,31 @@ class input_widget ~(input_elt:Dom_html.inputElement Js.t) elt () =
 
   end
 
-class radio_or_cb_widget ?state ~input_elt elt () =
+class radio_or_cb_widget ?on_change ?state ~input_elt elt () =
   let () = match state with
-    | Some s -> input_elt##.defaultChecked := Js.string @@ string_of_bool s
-    | None   -> () in
+    | Some true ->
+       input_elt##.checked := Js.bool true
+    | Some false | None -> () in
   let s_state,s_state_push =
     React.S.create ~eq:Equal.bool @@ Option.get_or ~default:false state in
   object(self)
 
+    val _on_change : (bool -> unit) option = on_change
+
     inherit input_widget ~input_elt elt ()
 
-    method set_checked x = input_elt##.checked := Js.bool x; s_state_push x
-    method checked       = Js.to_bool input_elt##.checked
+    method set_checked (x:bool) : unit =
+      input_elt##.checked := Js.bool x;
+      Option.iter (fun f -> f x) _on_change;
+      s_state_push x
+    method checked : bool =
+      Js.to_bool input_elt##.checked
 
     method s_state = s_state
 
     initializer
       Dom_events.listen input_elt Dom_events.Typ.change (fun _ _ ->
+          Option.iter (fun f -> f self#checked) _on_change;
           s_state_push self#checked; false) |> ignore;
 
   end

@@ -540,12 +540,12 @@ let table_demo () =
     let open Table in
     let open Format in
     Table.((   to_column ~sortable:true "Date",     Time None)
-           :: (to_column ~sortable:true "Input",    String)
-           :: (to_column ~sortable:true "Service",  String)
-           :: (to_column ~sortable:true "PID",      Int)
-           :: (to_column ~sortable:true "Severity", Option (String,""))
-           :: (to_column ~sortable:true "Check",    String)
-           :: (to_column "Message",                 String)
+           :: (to_column ~sortable:true "Input",    String None)
+           :: (to_column ~sortable:true "Service",  String None)
+           :: (to_column ~sortable:true "PID",      Int None)
+           :: (to_column ~sortable:true "Severity", Option (String None,""))
+           :: (to_column ~sortable:true "Check",    String None)
+           :: (to_column "Message",                 String None)
            :: []) in
   let table = new Table.t ~selection:`Multiple ~fmt () in
   let channels = [| "BBC"; "CNN"; "MTV"; "AnimalPlanet" |] in

@@ -4,13 +4,6 @@
 @import '../typography/mixins';
 @import '../typography/variables';
 
-@mixin mdc-theme-prop-alpha($property, $style, $alpha) {
-  $tone: mdc-theme-contrast-tone($style);
-  $tone-color: if($tone == dark, black, white);
-
-  #{$property}: rgba($tone-color, $alpha);
-}
-
 .mdc-data-table {
   display: flex;
   flex-flow: column nowrap;
@@ -90,33 +83,33 @@
     @include mdc-theme-prop(color, text-secondary-on-background);
 
     &--sortable {
-      user-select: none;
-      cursor: pointer;
+        user-select: none;
+        cursor: pointer;
 
-      &:before {
-        content: '';
-        font-family: 'Material Icons';
-        font-size: 16px;
-        font-feature-settings: 'liga';
-        vertical-align: sub;
-
-        display: inline-block;
-        margin-right: 5px;
-        transition: transform .2s ease;
-      }
-      &:hover:before {
-        @include mdc-theme-prop(color, text-icon-on-background);
-      }
-
-      &[aria-sort=descending], &[aria-sort=ascending] {
-        @include mdc-theme-prop(color, text-primary-on-background);
         &:before {
-          content: 'arrow_upward';
+            content: '';
+            font-family: 'Material Icons';
+            font-size: 16px;
+            font-feature-settings: 'liga';
+            vertical-align: sub;
+
+            display: inline-block;
+            margin-right: 5px;
+            transition: transform .2s ease;
         }
-      }
-      &[aria-sort=descending]:before {
-        transform: rotate(-180deg);
-      }
+        &:hover:before {
+            @include mdc-theme-prop(color, text-icon-on-background);
+        }
+
+        &[aria-sort=descending], &[aria-sort=ascending] {
+            @include mdc-theme-prop(color, text-primary-on-background);
+            &:before {
+                content: 'arrow_upward';
+            }
+        }
+        &[aria-sort=descending]:before {
+            transform: rotate(-180deg);
+        }
     }
   }
 
@@ -164,6 +157,9 @@
 }
 
 .mdc-data-table--sticky-header {
+    thead tr:nth-child(1) {
+        border-bottom: none;
+    }
     thead tr:nth-child(1) th{
         position: sticky;
         top: 0;

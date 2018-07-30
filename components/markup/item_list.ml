@@ -20,6 +20,9 @@ module Make(Xml : Xml_sigs.NoWrap)
     let graphic_class        = CSS.add_element _class "graphic"
     let meta_class           = CSS.add_element _class "meta"
 
+    let selected_class       = CSS.add_modifier _class "selected"
+    let activated_class      = CSS.add_modifier _class "activated"
+
     let create_divider ?(classes=[]) ?attrs ?(tag=div) ?(inset=false) () =
       tag ~a:([ a_class (classes
                          |> cons_if inset @@ CSS.add_modifier divider_class "inset"

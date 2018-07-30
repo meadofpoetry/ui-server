@@ -191,23 +191,24 @@ module Streams = struct
     type emm_info = ecm_info [@@deriving yojson, eq]
 
     type eit_params =
-      { ts_id         : int (* eit param 1*)
-      ; orig_nw_id    : int (* eit param 2*)
+      { orig_nw_id    : int (* eit param 2*)
+      ; ts_id         : int (* eit param 1*)
       ; segment_lsn   : int
       ; last_table_id : int
-      } [@@deriving yojson, eq]
+      } [@@deriving yojson, eq, ord]
 
     type table_info =
-      { version        : int
-      ; id             : int
+      { id             : int
       ; id_ext         : int
       ; eit_params     : eit_params
       ; pid            : int
+      ; version        : int
+      ; service        : string option
       ; section_syntax : bool
       ; section        : int
       ; last_section   : int
       ; length         : int
-      } [@@deriving yojson, eq]
+      } [@@deriving yojson, eq, ord]
 
     type general_info =
       { complete     : bool

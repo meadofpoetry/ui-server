@@ -31,9 +31,8 @@ let pids (stream:Stream.t) control =
 let tables (stream:Stream.t) control =
   let open Widget_tables_overview in
   let w = make ~config:{ stream } control in
-  w#thread >|= (fun w -> Elevation.set_elevation w 2)
-  |> Lwt.ignore_result;
-  w#widget
+  new Vbox.t ~widgets:[ w#widget ] ()
+  |> Widget.coerce
 
 let tabs (stream:Stream.t) control =
   let base =

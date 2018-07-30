@@ -29,6 +29,6 @@
     &--align-content-space-between   { align-content: space-between; }
     &--align-content-space-around    { align-content: space-around; }
 
-    > *            { margin-bottom: var(--mdc-box-margin); }
-    > *:last-child { margin-bottom : 0; }
+    /* > *            { margin-bottom: var(--mdc-box-margin); } */
+    /* > *:last-child { margin-bottom : 0; } */
 }

@@ -111,16 +111,21 @@ module Scroll_size_listener = struct
         if prev_h <> height || prev_w <> width
         then Option.iter (fun f -> f width height) on_change;
 
-      method private listen =
-        Dom_events.listen Dom_html.window Dom_events.Typ.resize (fun _ _ -> self#measure (); true)
+      method private _listen =
+        Dom_events.listen Dom_html.window Dom_events.Typ.resize (fun _ _ ->
+            self#measure (); true)
 
       initializer
         (* TODO maybe remove these listeners? *)
-        super#set_on_load   @@ Some (fun () -> self#measure ();
-                                               Option.iter (fun f -> f width height) on_change;
-                                               listener <- Some self#listen);
-        super#set_on_unload @@ Some (fun () -> Option.iter (fun l -> Dom_events.stop_listen l) listener;
-                                               listener <- None)
+        super#set_on_load
+        @@ Some (fun () ->
+               self#measure ();
+               Option.iter (fun f -> f width height) on_change;
+               listener <- Some self#_listen);
+        super#set_on_unload @@
+          Some (fun () ->
+              Option.iter (fun l -> Dom_events.stop_listen l) listener;
+              listener <- None)
 
     end
 

@@ -118,13 +118,13 @@ let make_input_stream_list stream_list =
     push @@ List.filter (fun x -> not @@ Common.Stream.equal s x) slst
   in
   let items = List.map (make_board_stream_entry del_item del_stream) stream_list in
-  List.iter (fun i -> list#add_item i) items;
+  List.iter (fun i -> list#append_item i) items;
   let add stream =
     let slst = React.S.value signal in
     if List.exists (Common.Stream.equal stream) slst
     then failwith "stream exists"; (* TODO fix *)
     let item = make_board_stream_entry del_item del_stream stream in
-    list#add_item item;
+    list#append_item item;
     push (stream::slst)
   in
   signal, list, add

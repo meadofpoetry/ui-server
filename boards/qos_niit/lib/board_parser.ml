@@ -410,6 +410,7 @@ module Get_ts_structs
         ; id_ext
         ; eit_params
         ; pid            = pid' land 0x1FFF
+        ; service        = None
         ; section
         ; last_section   = get_table_struct_block_lsn bdy
         ; section_syntax = (pid' land 0x8000) > 0
@@ -547,6 +548,25 @@ module Get_ts_structs
           | `Tables x -> Some x
           | _ -> None) blocks
       |> List.concat
+      |> List.map (fun (x:table_info) ->
+             let service = match table_of_int x.id with
+               | `PMT -> List.find_map (fun (s:service_info) ->
+                             if s.pmt_pid = x.pid then Some s.name else None)
+                           services
+               | _    -> None in
+             { x with service })
+      |> (fun l ->
+        List.map (fun (x:table_info) ->
+            let service = match table_of_int x.id with
+              | `EIT (`Actual, _) ->
+                 List.find_map (fun (t:table_info) ->
+                     match table_of_int x.id with
+                     | `PMT -> if t.id_ext = x.id_ext
+                               then t.service else None
+
+                     | _    -> None) l
+              | _ -> None in
+            { x with service }) l)
       |> List.sort (fun (x:table_info) y ->
              Int.compare x.pid y.pid) in
     let pcr_pids =

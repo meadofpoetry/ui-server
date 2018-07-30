@@ -3,15 +3,19 @@ open Tyxml_js
 
 module Markup = Components_markup.Item_list.Make(Xml)(Svg)(Html)
 
-module Divider = struct
-  class t ?inset () = object
-    inherit Widget.t (Markup.Item.create_divider ?inset () |> Tyxml_js.To_dom.of_element) ()
-  end
-end
+type selection =
+  [ `Single
+  | `Multiple ]
 
 module Item = struct
 
-  class ['a] t ?(ripple=false) ?secondary_text ?graphic ?meta ?tag ~(value:'a) ~text () =
+  class ['a] t ?(ripple=false)
+          ?secondary_text
+          ?graphic
+          ?meta
+          ?tag
+          ~(value:'a)
+          ~text () =
     let text_elt, set_primary, set_secondary = match secondary_text with
       | Some st ->
          let primary   = Markup.Item.create_primary_text text ()
@@ -57,6 +61,12 @@ module Item = struct
       method value = _v
       method set_value (v:'a) = _v <- v
 
+      method activated : bool =
+        self#has_class Markup.Item.activated_class
+
+      method selected : bool =
+        self#has_class Markup.Item.selected_class
+
       initializer
         (* if ripple then Ripple.attach self |> ignore; *)
         Option.iter (fun x -> x#add_class Markup.Item.graphic_class) graphic;
@@ -73,24 +83,95 @@ object(self)
 
 end
 
-class ['a] t ?avatar ~(items:[ `Item of 'a Item.t | `Divider of Divider.t ] list) () =
-  let two_line = List.find_pred (function
-                     | `Divider _ -> false
-                     | `Item x    -> Option.is_some x#secondary_text)
-                   items
-                 |> Option.is_some
-  in
+class ['a] t ?avatar
+        ?(selection:selection option)
+        ?two_line
+        ?(dense=false)
+        ~(items:[ `Item of 'a Item.t | `Divider of Divider.t ] list) () =
+  let two_line = match two_line with
+    | Some x -> x
+    | None   ->
+       List.find_pred (function
+           | `Divider _ -> false
+           | `Item x    -> Option.is_some x#secondary_text)
+         items
+       |> Option.is_some in
   let elt = Markup.create ?avatar ~two_line
               ~items:(List.map (function
                           | `Divider x -> Widget.to_markup x
                           | `Item x    -> Widget.to_markup x)
                         items) ()
             |> Tyxml_js.To_dom.of_element in
+  let s_selected, set_selected = React.S.create [] in
+  let s_active, set_active = React.S.create None in
   object(self)
+
+    val mutable _items = items
+
     inherit base elt ()
 
-    method add_item (x : 'a Item.t)    = Dom.appendChild self#root x#root
-    method remove_item (x : 'a Item.t) = try Dom.removeChild self#root x#root with _ -> ()
+    method items' = _items
+    method items  = List.filter_map (function
+                        | `Item i -> Some i
+                        | _       -> None) _items
+
+    method active : 'a Item.t option =
+      React.S.value s_active
+    method s_active : 'a Item.t option React.signal =
+      s_active
+    method set_active (item:'a Item.t) =
+      List.iter (fun i ->
+          if not @@ Equal.physical item i
+          then i#remove_class Markup.Item.activated_class) self#items;
+      item#add_class Markup.Item.activated_class;
+      set_active (Some item)
+
+    method selected : 'a Item.t list =
+      React.S.value s_selected
+    method s_selected : 'a Item.t list React.signal =
+      s_selected
+    method set_selected (item:'a Item.t) =
+      match selection with
+      | Some `Single ->
+         List.iter (fun i ->
+             if not @@ Equal.physical item i
+             then i#remove_class Markup.Item.selected_class) self#items;
+         item#add_class Markup.Item.selected_class;
+         set_selected [item]
+      | Some `Multiple ->
+         item#add_class Markup.Item.selected_class;
+         set_selected @@ item :: self#selected
+      | None -> ()
+
+    method dense : bool =
+      self#has_class Markup.dense_class
+    method set_dense (x:bool) : unit =
+      self#add_or_remove_class x Markup.dense_class
+
+    method append_item (x : 'a Item.t) =
+      _items <- _items @ [ `Item x];
+      Dom.appendChild self#root x#root
+
+    method cons_item (x : 'a Item.t) =
+      _items <- (`Item x) :: _items;
+      Dom.insertBefore self#root x#root self#node##.firstChild
+
+    method insert_item_at_idx (index:int) (x : 'a Item.t) =
+      _items <- List.insert_at_idx index (`Item x) _items;
+      let child = self#root##.childNodes##item index in
+      Dom.insertBefore self#root x#root child
+
+    method remove_item (x : 'a Item.t) =
+      match List.find_idx (function
+                | `Item i -> Equal.physical i x
+                | _       -> false) self#items' with
+      | Some (i, (`Item x)) ->
+         Dom.removeChild self#root x#root;
+         _items <- List.remove_at_idx i _items
+      | Some _ | None  -> ()
+
+    initializer
+      self#set_dense dense
   end
 
 module List_group = struct

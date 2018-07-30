@@ -18,4 +18,3 @@ class ['a] t ?(ripple=true) ?input_id ~name ~(value:'a) () =
     initializer
       if ripple then Js.Unsafe.global##.mdc##.radio##.MDCRadio##attachTo elt
   end
-

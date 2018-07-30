@@ -28,7 +28,7 @@ let make_table (init:service_info list) =
   let table = new Table.t ~dense:true ~fmt () in
   let add_row (service:service_info) =
     table#add_row (service.id :: service.name :: None :: []) in
-  List.iter add_row init;
+  List.iter Fun.(ignore % add_row) init;
   table
 
 let make ?(config=default_config)

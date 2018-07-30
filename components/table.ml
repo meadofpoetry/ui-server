@@ -30,17 +30,18 @@ let default_time = Format.asprintf "%a" Ptime.pp
 let default_float = Printf.sprintf "%f"
 
 type _ fmt =
-  | String : (string -> string) option -> string fmt
-  | Int    : (int -> string) option -> int fmt
-  | Int32  : (int32 -> string) option -> int32 fmt
-  | Int64  : (int64 -> string) option -> int64 fmt
-  | Float  : (float -> string) option   -> float fmt
-  | Time   : (Ptime.t -> string) option -> Ptime.t fmt
-  | Option : ('a fmt * string) -> 'a option fmt
+  | String     : (string -> string) option -> string fmt
+  | Int        : (int -> string) option -> int fmt
+  | Int32      : (int32 -> string) option -> int32 fmt
+  | Int64      : (int64 -> string) option -> int64 fmt
+  | Float      : (float -> string) option   -> float fmt
+  | Time       : (Ptime.t -> string) option -> Ptime.t fmt
+  | Option     : ('a fmt * string) -> 'a option fmt
   (* XXX maybe just Tyxml, not Tyxml_js? *)
-  | Html   : Tyxml_js.Xml.elt custom_elt option -> Tyxml_js.Xml.elt fmt
-  | Widget : 'a custom_elt option -> (#Widget.t as 'a) fmt
-  | Custom : 'a custom     -> 'a fmt
+  | Html       : Tyxml_js.Xml.elt custom_elt option -> Tyxml_js.Xml.elt fmt
+  | Widget     : 'a custom_elt option -> (#Widget.t as 'a) fmt
+  | Custom     : 'a custom     -> 'a fmt
+  | Custom_elt : 'a custom_elt -> 'a fmt
 
 type column =
   { sortable : bool
@@ -62,9 +63,10 @@ let rec to_string : type a. a fmt -> (a -> string) = fun fmt ->
   | Option (fmt,e) -> (function
                        | None   -> e
                        | Some v -> (to_string fmt) v)
+  | Custom x       -> x.to_string
   | Html _         -> fun _ -> ""
   | Widget _       -> fun _ -> ""
-  | Custom x       -> x.to_string
+  | Custom_elt _   -> fun _ -> ""
 
 let rec is_numeric : type a. a fmt -> bool = function
   | Int _          -> true
@@ -79,6 +81,7 @@ let rec is_numeric : type a. a fmt -> bool = function
   | Widget x       ->
      Option.map_or ~default:false (fun x -> x.is_numeric) x
   | Custom x       -> x.is_numeric
+  | Custom_elt x   -> x.is_numeric
 
 let rec compare : type a. a fmt -> (a -> a -> int) = fun fmt->
   match fmt with
@@ -94,6 +97,7 @@ let rec compare : type a. a fmt -> (a -> a -> int) = fun fmt->
   | Widget x       ->
      Option.map_or ~default:(fun _ _ -> 0) (fun x -> x.compare) x
   | Custom x       -> x.compare
+  | Custom_elt x   -> x.compare
 
 module Cell = struct
 
@@ -118,6 +122,9 @@ module Cell = struct
                           (fun x -> x.to_elt) x in
            w#set_empty ();
            Dom.appendChild w#root (to_elt v)
+        | Custom_elt x ->
+           w#set_empty ();
+           Dom.appendChild w#root (x.to_elt v)
         | Widget x ->
            let to_elt =
              Option.map_or ~default:(fun x -> x#node) (fun x -> x.to_elt) x in
@@ -469,7 +476,8 @@ class ['a] t ?selection ?(sticky_header=false) ?(dense=false)
           s_selected
           s_selected_push
           fmt data () in
-      body#append_row row
+      body#append_row row;
+      row
 
     method sort index sort =
       let rows =
