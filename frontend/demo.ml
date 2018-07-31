@@ -225,7 +225,7 @@ let dialog_demo () =
 
 let list_demo () =
   let items = List.map (fun x -> if x = 3
-                                 then `Divider (new Item_list.Divider.t ())
+                                 then `Divider (new Divider.t ())
                                  else `Item (new Item_list.Item.t
                                                ~text:("List item " ^ (string_of_int x))
                                                ~secondary_text:"some subtext here"
@@ -283,7 +283,7 @@ let menu_demo () =
   let items    = List.map (fun x ->
                      if x <> 2
                      then `Item (new Menu.Item.t ~text:("Menu item " ^ (string_of_int x)) ~value:() ())
-                     else `Divider (new Menu.Divider.t ()))
+                     else `Divider (new Divider.t ()))
                    (List.range 0 5) in
   let anchor  = new Button.t ~label:"Open menu" () in
   anchor#style##.marginBottom := Js.string "50px";
@@ -564,22 +564,27 @@ let table_demo () =
        :: err
        :: "Error description here"
        :: []) in
-  List.iter (fun _ -> make_row ()) @@ List.range' 0 7;
+  List.iter (fun _ -> make_row () |> ignore) @@ List.range' 0 7;
   let row = table#rows |> List.hd in
-  demo_section ~expanded:true "#Table" [ table#widget ]
+  demo_section ~expanded:true "Table" [ table#widget ]
 
 let chart_demo () =
+  let open Chartjs.Line in
   let range = 10 in
   let x = ref 40 in
   Random.init (Unix.time () |> int_of_float);
-  let open Chartjs.Line in
-  let to_data () = List.map (fun x -> { x ; y = Random.run (Random.int range) }) (List.range_by ~step:2 0 !x) in
-  let x_axis   = new Chartjs.Line.Axes.Linear.t ~id:"x" ~position:`Bottom ~typ:Int ~delta:!x () in
-  let y_axis   = new Chartjs.Line.Axes.Linear.t ~id:"y" ~position:`Top ~typ:Int () in
-  let options  = new Chartjs.Line.Options.t ~x_axes:[x_axis] ~y_axes:[y_axis] () in
-  let datasets = List.map (fun x -> new Chartjs.Line.Dataset.t ~x_axis ~y_axis ~label:x ~data:(to_data ()) ())
-                          ["Dataset 1"; "Dataset 2"]
-  in
+  let to_data () =
+    List.map (fun x -> { x; y = Random.run (Random.int range) })
+      (List.range_by ~step:2 0 !x) in
+  let x_axis   = new Axes.Linear.t ~id:"x" ~position:`Bottom
+                   ~typ:Int ~delta:!x () in
+  let y_axis   = new Axes.Linear.t ~id:"y" ~position:`Top
+                   ~typ:Int () in
+  let options  = new Options.t ~x_axes:[x_axis] ~y_axes:[y_axis] () in
+  let datasets =
+    List.map (fun x -> new Dataset.t ~x_axis ~y_axis
+                         ~label:x ~data:(to_data ()) ())
+      ["Dataset 1"; "Dataset 2"] in
   options#hover#set_mode `Index;
   options#hover#set_axis `X;
   options#hover#set_intersect true;
@@ -589,44 +594,54 @@ let chart_demo () =
   y_axis#ticks#set_suggested_max range;
   x_axis#scale_label#set_label_string "x axis";
   x_axis#scale_label#set_display true;
-  List.iter (fun x -> if String.equal x#label "Dataset 1"
-                      then x#set_border_color @@ Color.rgb_of_name (Color.Lime C500)
-                      else x#set_border_color @@ Color.rgb_of_name (Color.Pink C500);
-                      x#set_cubic_interpolation_mode `Monotone;
-                      x#set_fill `Disabled) datasets;
+  List.iter (fun x ->
+      if String.equal x#label "Dataset 1"
+      then x#set_border_color @@ Color.rgb_of_name (Color.Lime C500)
+      else x#set_border_color @@ Color.rgb_of_name (Color.Pink C500);
+      x#set_cubic_interpolation_mode `Monotone;
+      x#set_fill `Disabled) datasets;
   let update = new Button.t ~label:"update" () in
   let push   = new Button.t ~label:"push" () in
   let push_less = new Button.t ~label:"push less" () in
   let append    = new Button.t ~label:"append" () in
   let chart  = new Chartjs.Line.t ~options ~datasets () in
-  React.E.map (fun _ -> List.iter (fun x -> x#set_point_radius (`Fun (fun _ x -> if x.x mod 2 > 0 then 10 else 5))
-                                  ) datasets;
-                        chart#update None)
-              update#e_click |> ignore;
-  React.E.map (fun _ -> x := !x + 2;
-                        List.iter (fun ds -> ds#push { x = !x; y = Random.run (Random.int range) }) datasets;
-                        chart#update None)
-              push#e_click |> ignore;
-  React.E.map (fun _ -> List.iter (fun ds -> ds#push { x = !x - 1; y = Random.run (Random.int range) }) datasets;
-                        chart#update None)
-              push_less#e_click |> ignore;
-  React.E.map (fun _ -> x := !x + 6;
-                        List.iter (fun ds -> ds#append [ { x = !x - 6; y = Random.run (Random.int range) }
-                                                       ; { x = !x - 4; y = Random.run (Random.int range) }
-                                                       ; { x = !x - 2; y = Random.run (Random.int range) }
-                                                       ; { x = !x    ; y = Random.run (Random.int range) } ])
-                                  datasets;
-                        chart#update None)
-              append#e_click |> ignore;
-  let w = Html.div ~a:[ Html.a_style "max-width:700px"] [ Widget.to_markup chart
-                                                        ; Widget.to_markup update
-                                                        ; Widget.to_markup push
-                                                        ; Widget.to_markup push_less
-                                                        ; Widget.to_markup append ]
+  React.E.map (fun _ ->
+      List.iter (fun x ->
+          x#set_point_radius (`Fun (fun _ x -> if x.x mod 2 > 0
+                                               then 10 else 5))) datasets;
+      chart#update None)
+    update#e_click |> ignore;
+  React.E.map (fun _ ->
+      x := !x + 2;
+      List.iter (fun ds ->
+          ds#push { x = !x; y = Random.(run (int range)) }) datasets;
+      chart#update None)
+    push#e_click |> ignore;
+  React.E.map (fun _ ->
+      List.iter (fun ds ->
+          ds#push { x = !x - 1; y = Random.(run (int range)) }) datasets;
+      chart#update None)
+    push_less#e_click |> ignore;
+  React.E.map (fun _ ->
+      x := !x + 6;
+      List.iter (fun ds ->
+          ds#append [ { x = !x - 6; y = Random.run (Random.int range) }
+                    ; { x = !x - 4; y = Random.run (Random.int range) }
+                    ; { x = !x - 2; y = Random.run (Random.int range) }
+                    ; { x = !x    ; y = Random.run (Random.int range) } ])
+        datasets;
+      chart#update None)
+    append#e_click |> ignore;
+  let w = Html.div ~a:[ Html.a_style "max-width:700px"]
+            [ Widget.to_markup chart
+            ; Widget.to_markup update
+            ; Widget.to_markup push
+            ; Widget.to_markup push_less
+            ; Widget.to_markup append ]
           |> To_dom.of_element
           |> Widget.create
   in
-  demo_section "Chart" [w]
+  demo_section "Chart (Line)" [w]
 
 let time_chart_demo () =
   let range_i = 20 in
@@ -682,7 +697,7 @@ let time_chart_demo () =
           |> To_dom.of_element
           |> Widget.create
   in
-  demo_section "Chart (timeline)" [w]
+  demo_section "Chart (Timeline)" [w]
 
 let dynamic_grid_demo () =
   let (props:Dynamic_grid.grid) = Dynamic_grid.to_grid ~rows:20 ~cols:30 ~min_col_width:1
@@ -782,6 +797,20 @@ let split_demo () =
   el#style##.height := Js.string "300px";
   demo_section "Split" [ el ]
 
+let pie_demo () =
+  let options =
+    new Chartjs.Pie.Options.t () in
+  let dataset =
+    new Chartjs.Pie.Dataset.t
+      ~label:"Dataset1"
+      Int
+      Chartjs.Pie.Dataset.[ to_point (Color.rgb_of_name (Color.Blue C500)) 3
+                          ; to_point (Color.rgb_of_name (Color.Amber C500)) 7
+                          ; to_point (Color.rgb_of_name (Color.Deep_orange C500)) 1 ] in
+  let pie = new Chartjs.Pie.t ~options
+              ~labels:[ "Blue"; "Amber"; "Deep orange"]
+              ~datasets:[dataset] () in
+  demo_section "Chart (Pie)" [ pie ]
 
 let add_demos demos =
   let demos = CCList.sort (fun x y -> CCString.compare x#title y#title) demos in
@@ -820,6 +849,7 @@ let onload _ =
                         ; tabs_demo ()
                         ; hexdump_demo ()
                         ; split_demo ()
+                        ; pie_demo ()
                         ] in
   let _ = new Ui_templates.Page.t (`Static [Widget.create demos]) () in
   Js._false
