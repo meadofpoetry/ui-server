@@ -121,6 +121,7 @@ module Table = struct
         let s = to_secondary id sec pid ver in
         leaf#set_secondary_text s)
       } in
+    print_endline "make table!";
     let update = fun ?(previous:model option) (model:model) ->
       leaf#set_value (model, None);
       setter ?previous model update_primary;
@@ -148,11 +149,13 @@ module Tables =
         w#insert_item_at_idx idx i
       let remove_child (w:widget) (i:Node.widget) =
         w#remove_item i
-      let make (_:Node.model list) =
+      let make (nodes:Node.model list) =
+        let items  = List.map (fun x -> let w, _ = Node.make x in
+                                        `Item w) nodes in
         let list   = new Item_list.t
                        ~two_line:true
                        ~selection:`Single
-                       ~items:[] () in
+                       ~items () in
         let ()     = list#set_dense true in
         list, (fun _ -> ())
     end)

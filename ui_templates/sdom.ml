@@ -160,7 +160,6 @@ module Make_array(M:Array_root_node) = struct
       handle_changed changed nodes;
       update' model;
       prev := model in
-    update init;
     leaf, update
 
 end

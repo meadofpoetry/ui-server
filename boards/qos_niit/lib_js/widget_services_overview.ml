@@ -74,9 +74,11 @@ module Services =
         w#insert_item_at_idx idx i
       let remove_child (w:widget) (i:Node.widget) =
         w#remove_item i
-      let make _ =
-        let tree = new Item_list.t ~two_line:true ~items:[] () in
-        let ()   = tree#set_dense true in
+      let make nodes =
+        let items = List.map (fun x -> let w, _ = Node.make x in
+                                       `Item w) nodes in
+        let tree  = new Item_list.t ~two_line:true ~items () in
+        let ()    = tree#set_dense true in
         tree, fun _ -> ()
     end)
 
