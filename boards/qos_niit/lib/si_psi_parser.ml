@@ -1105,7 +1105,7 @@ module SIT = struct
 end
 
 let table_to_yojson : string ->
-                      Board_types.Streams.TS.table ->
+                      Common.Mpeg_ts.table ->
                       Yojson.Safe.json option =
   fun buf tbl ->
   try

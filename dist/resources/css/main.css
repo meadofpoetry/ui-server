@@ -789,6 +789,20 @@
 .qos-niit-table-overview .mdc-data-table tbody .mdc-data-table__row {
   cursor: pointer; }
 
+/* Pid overview widget */
+.qos-niit-pid-overview .mdc-card__actions {
+  justify-content: flex-end; }
+.qos-niit-pid-overview .mdc-form-field {
+  font-family: Roboto, sans-serif;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased;
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-decoration: inherit;
+  text-transform: inherit; }
+
 /* Streams items */
 .qos-niit-stream-grid {
   align-items: flex-start;

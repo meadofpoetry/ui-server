@@ -202,7 +202,7 @@ module Get_section : (Request
          let table_id  = params.table_id in
          let stream_id = Common.Stream.id_of_int32 @@ Cstruct.LE.get_uint32 sid 0 in
          let raw       = Cstruct.to_string data in
-         let table     = table_of_int table_id in
+         let table     = Mpeg_ts.table_of_int table_id in
          Ok { section   = raw
             ; stream_id
             ; table_id
@@ -348,23 +348,23 @@ module Get_ts_structs
     let flags      = get_services_struct_block_flags bdy in
     let strings,_  = Cstruct.split rest (string_len * 2) in
     let sn,pn      = Cstruct.split strings string_len in
-    { id             = get_services_struct_block_id bdy
-    ; name           = Text_decoder.decode sn
-    ; provider_name  = Text_decoder.decode pn
-    ; pmt_pid        = get_services_struct_block_pmt_pid bdy
-    ; pcr_pid        = get_services_struct_block_pcr_pid bdy
-    ; has_pmt        = (flags land 0x8000) <> 0
-    ; has_sdt        = (flags land 0x4000) <> 0
-    ; dscr           = (flags land 0x2000) <> 0
-    ; list_dscr      = (flags land 0x1000) <> 0
-    ; eit_schedule   = (flags land 0x0080) <> 0
-    ; eit_pf         = (flags land 0x0040) <> 0
-    ; free_ca_mode   = (flags land 0x0020) <> 0
-    ; running_status = flags land 0x0007
-    ; service_type_1 = get_services_struct_block_service_type_1 bdy
-    ; service_type_2 = get_services_struct_block_service_type_2 bdy
-    ; es             = []
-    ; ecm            = []
+    { id                = get_services_struct_block_id bdy
+    ; name              = Text_decoder.decode sn
+    ; provider_name     = Text_decoder.decode pn
+    ; pmt_pid           = get_services_struct_block_pmt_pid bdy
+    ; pcr_pid           = get_services_struct_block_pcr_pid bdy
+    ; has_pmt           = (flags land 0x8000) <> 0
+    ; has_sdt           = (flags land 0x4000) <> 0
+    ; dscr              = (flags land 0x2000) <> 0
+    ; dscr_list         = (flags land 0x1000) <> 0
+    ; eit_schedule      = (flags land 0x0080) <> 0
+    ; eit_pf            = (flags land 0x0040) <> 0
+    ; free_ca_mode      = (flags land 0x0020) <> 0
+    ; running_status    = flags land 0x0007
+    ; service_type      = get_services_struct_block_service_type bdy
+    ; service_type_list = get_services_struct_block_service_type_list bdy
+    ; es                = []
+    ; ecm               = []
     }
 
   let of_es_struct_block msg =
@@ -488,7 +488,7 @@ module Get_ts_structs
     |> (function
         | [ ] -> None
         | [x] ->
-           (match table_of_int x with
+           (match Mpeg_ts.table_of_int x with
             | `PMT ->
                let service = List.find_opt (fun x -> x.pmt_pid = pid)
                                services in
@@ -549,7 +549,7 @@ module Get_ts_structs
           | _ -> None) blocks
       |> List.concat
       |> List.map (fun (x:table_info) ->
-             let service = match table_of_int x.id with
+             let service = match Mpeg_ts.table_of_int x.id with
                | `PMT -> List.find_map (fun (s:service_info) ->
                              if s.pmt_pid = x.pid then Some s.name else None)
                            services
@@ -557,10 +557,10 @@ module Get_ts_structs
              { x with service })
       |> (fun l ->
         List.map (fun (x:table_info) ->
-            let service = match table_of_int x.id with
+            let service = match Mpeg_ts.table_of_int x.id with
               | `EIT (`Actual, _) ->
                  List.find_map (fun (t:table_info) ->
-                     match table_of_int x.id with
+                     match Mpeg_ts.table_of_int x.id with
                      | `PMT -> if t.id_ext = x.id_ext
                                then t.service else None
 

@@ -7080,10 +7080,7 @@ a.mdc-list-item {
 .mdc-data-table--sticky-header thead tr:nth-child(1) th {
   position: sticky;
   top: 0;
-  z-index: 10;
-  border-collapse: none !important;
-  border-bottom: 1px solid;
-  border-color: rgba(0, 0, 0, 0.12); }
+  z-index: 10; }
 
 .mdc-data-table--dense .mdc-data-table__cell, .mdc-data-table--dense .mdc-data-table__column {
   height: 32px; }

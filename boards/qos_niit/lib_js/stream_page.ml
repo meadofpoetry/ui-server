@@ -20,19 +20,13 @@ let services (stream:Stream.t) control =
 
 let pids (stream:Stream.t) control =
   let open Widget_pids in
-  let w = make ~config:{ stream = match stream.id with
-                                  | `Ts x -> x
-                                  | _ -> Single }
-            control in
-  w#thread >|= (fun w -> Elevation.set_elevation w 2)
-  |> Lwt.ignore_result;
+  let w = make ~config:{ stream } control in
   w#widget
 
 let tables (stream:Stream.t) control =
   let open Widget_tables_overview in
   let w = make ~config:{ stream } control in
-  new Vbox.t ~widgets:[ w#widget ] ()
-  |> Widget.coerce
+  w#widget
 
 let tabs (stream:Stream.t) control =
   let base =
@@ -40,7 +34,6 @@ let tabs (stream:Stream.t) control =
     ; "Сервисы", (fun () -> services stream control)
     ; "PIDs",    (fun () -> pids stream control)
     ; "Таблицы", (fun () -> tables stream control)
-    ; "Джиттер", dummy_tab
     ] in
   match stream.typ with
   | `T2mi -> List.insert_at_idx 4 ("T2-MI", dummy_tab) base

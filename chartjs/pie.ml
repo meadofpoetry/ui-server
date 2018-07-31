@@ -22,9 +22,10 @@ let to_data_js datasets labels : data_js Js.t =
       |> Js.array
   end
 
-class t ~(options:Options.t)
+class ['a] t
+        ~(options:Options.t)
         ~(labels:string list)
-        ~(datasets:#Dataset.t_base list) () =
+        ~(datasets:'a Dataset.t list) () =
   let data = to_data_js datasets labels |> Js.Unsafe.inject in
   object
     inherit Base_chart.t ~typ:`Pie ~options ~data ()

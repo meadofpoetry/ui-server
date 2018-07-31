@@ -18,7 +18,7 @@ let to_table_extra ?(hex=false) (x:table_info) =
   let id = match hex with
     | true  -> Printf.sprintf "0x%02X"
     | false -> Printf.sprintf "%d" in
-  let specific = match table_of_int x.id with
+  let specific = match Mpeg_ts.table_of_int x.id with
     | `PAT   -> Some [ "tsid", x.id_ext ]
     | `PMT   -> Some [ "program", x.id_ext ]
     | `NIT _ -> Some [ "network_id", x.id_ext ]
@@ -59,7 +59,7 @@ let make_table
   let hex_tid_fmt = Table.(Int (Some (Printf.sprintf "0x%02X"))) in
   let table_info_to_data (x:table_info) =
     let open Table.Data in
-    let name = table_to_string @@ table_of_int x.id in
+    let name = Mpeg_ts.(table_to_string @@ table_of_int x.id) in
     x.pid :: x.id :: name :: x :: x.version
     :: x.service :: x.section :: x.last_section :: [] in
   let fmt =

@@ -25,7 +25,7 @@ let req_of_table (table:table_info) =
     Requests.Streams.HTTP.get_si_psi_section
       ~table_id:table.id
       ~section:table.section in
-  match table_of_int table.id with
+  match Mpeg_ts.table_of_int table.id with
   | `PAT   -> r ~table_id_ext ?eit_ts_id:None ?eit_orig_nw_id:None
   | `PMT   -> r ~table_id_ext ?eit_ts_id:None ?eit_orig_nw_id:None
   | `NIT _ -> r ~table_id_ext ?eit_ts_id:None ?eit_orig_nw_id:None
@@ -38,11 +38,11 @@ let req_of_table (table:table_info) =
 
 let to_table_name table =
   let divider  = ", " in
-  let name     = table_to_string @@ table_of_int table.id in
+  let name     = Mpeg_ts.(table_to_string @@ table_of_int table.id) in
   let id s x   = Printf.sprintf "%s=0x%02X(%d)" s x x in
   let base     = id "table_id" table.id in
   let section  = Printf.sprintf "секция %d" table.section in
-  let specific = match table_of_int table.id with
+  let specific = match Mpeg_ts.table_of_int table.id with
     | `PAT   -> Some [ id "tsid" table.id_ext ]
     | `PMT   -> Some [ id "program" table.id_ext ]
     | `NIT _ -> Some [ id "network_id" table.id_ext ]
@@ -106,7 +106,7 @@ module Table = struct
     let to_primary   = Printf.sprintf "%s" in
     let to_secondary = Printf.sprintf "id: %d, section: %d, PID: %d, ver: %d" in
     let update_primary =
-      { get = (fun x -> table_to_string @@ table_of_int x.id)
+      { get = (fun x -> Mpeg_ts.(table_to_string @@ table_of_int x.id))
       ; eq  = String.equal
       ; upd = (fun name ->
         let s = to_primary name in

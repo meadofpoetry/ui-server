@@ -122,6 +122,17 @@ $fill-tone: mdc-theme-tone($alarm-color);
     }
 }
 
+/* Pid overview widget */
+
+.qos-niit-pid-overview {
+    .mdc-card__actions {
+        justify-content: flex-end;
+    }
+    .mdc-form-field {
+        @include mdc-typography(caption);
+    }
+}
+
 /* Streams items */
 
 .qos-niit-stream-grid {

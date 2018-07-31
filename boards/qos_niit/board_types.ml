@@ -169,23 +169,23 @@ module Streams = struct
       } [@@deriving yojson, eq]
 
     type service_info =
-      { id             : int
-      ; name           : string
-      ; provider_name  : string
-      ; pmt_pid        : int
-      ; pcr_pid        : int
-      ; has_pmt        : bool
-      ; has_sdt        : bool
-      ; dscr           : bool
-      ; list_dscr      : bool
-      ; eit_schedule   : bool
-      ; eit_pf         : bool
-      ; free_ca_mode   : bool
-      ; running_status : int
-      ; service_type_1 : int
-      ; service_type_2 : int
-      ; es             : es_info list
-      ; ecm            : ecm_info list
+      { id                : int
+      ; name              : string
+      ; provider_name     : string
+      ; pmt_pid           : int
+      ; pcr_pid           : int
+      ; has_pmt           : bool
+      ; has_sdt           : bool
+      ; dscr              : bool
+      ; dscr_list         : bool
+      ; eit_schedule      : bool
+      ; eit_pf            : bool
+      ; free_ca_mode      : bool
+      ; running_status    : int
+      ; service_type      : int
+      ; service_type_list : int
+      ; es                : es_info list
+      ; ecm               : ecm_info list
       } [@@deriving yojson, eq]
 
     type emm_info = ecm_info [@@deriving yojson, eq]
@@ -275,82 +275,6 @@ module Streams = struct
       && equal_services x.services y.services
       && equal_tables x.tables y.tables
       && equal_pids x.pids y.pids
-
-    type table =
-      [ `PAT
-      | `CAT
-      | `PMT
-      | `TSDT
-      | `NIT of ao
-      | `SDT of ao
-      | `BAT
-      | `EIT of ao * ps
-      | `TDT
-      | `RST
-      | `ST
-      | `TOT
-      | `DIT
-      | `SIT
-      | `Unknown of int
-      ]
-    and ao = [ `Actual | `Other ]
-    and ps = [ `Present | `Schedule ]
-
-    let table_of_int : int -> table = function
-      | 0x00 -> `PAT
-      | 0x01 -> `CAT
-      | 0x02 -> `PMT
-      | 0x03 -> `TSDT
-      | 0x40 -> `NIT `Actual
-      | 0x41 -> `NIT `Other
-      | 0x42 -> `SDT `Actual
-      | 0x46 -> `SDT `Other
-      | 0x4A -> `BAT
-      | 0x4E -> `EIT (`Actual, `Present)
-      | 0x4F -> `EIT (`Other,  `Present)
-      | x when x >= 0x50 && x <= 0x5F ->
-         `EIT (`Actual, `Schedule)
-      | x when x >= 0x60 && x <= 0x6F ->
-         `EIT (`Other,  `Schedule)
-      | 0x70 -> `TDT
-      | 0x71 -> `RST
-      | 0x72 -> `ST
-      | 0x73 -> `TOT
-      | 0x7E -> `DIT
-      | 0x7F -> `SIT
-      | x    -> `Unknown x
-
-    let table_to_string : ?simple:bool -> table -> string =
-      fun ?(simple=false) -> function
-      | `PAT   -> "PAT"
-      | `CAT   -> "CAT"
-      | `PMT   -> "PMT"
-      | `TSDT  -> "TSDT"
-      | `NIT x ->
-         if simple then "NIT"
-         else (match x with
-               | `Actual -> "NIT actual"
-               | `Other  -> "NIT other")
-      | `SDT x ->
-         if simple then "SDT"
-         else (match x with
-               | `Actual -> "SDT actual"
-               | `Other  -> "SDT other")
-      | `BAT   -> "BAT"
-      | `EIT x ->
-         if simple then "EIT"
-         else (match x with
-               | `Actual, `Present  -> "EIT actual present"
-               | `Other , `Present  -> "EIT other present"
-               | `Actual, `Schedule -> "EIT actual schedule"
-               | `Other , `Schedule -> "EIT other schedule")
-      | `TDT   -> "TDT"
-      | `RST   -> "RST"
-      | `ST    -> "ST"
-      | `TOT   -> "TOT"
-      | `DIT   -> "DIT"
-      | `SIT   -> "SIT"
-      | `Unknown _ -> "Unknown"
 
     (** SI/PSI section **)
 

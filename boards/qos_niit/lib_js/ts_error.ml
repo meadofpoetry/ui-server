@@ -1,5 +1,6 @@
 open Board_types
 open Containers
+open Common
 
 type table_info =
   { section : int
@@ -21,7 +22,7 @@ module Description = struct
   type possible_pids =
     [ `One of int | `List of int list | `Range of int * int | `Unknown ]
 
-  let possible_si_pids : Streams.TS.table -> possible_pids = function
+  let possible_si_pids : Mpeg_ts.table -> possible_pids = function
     | `PAT   -> `One 0x00
     | `CAT   -> `One 0x01
     | `PMT   -> `One 0x02
@@ -41,7 +42,7 @@ module Description = struct
     | _                                -> `Seconds_unk
 
   (* FIXME extend basic table type and write its own converter *)
-  let table_name = Streams.TS.table_to_string ~simple:true
+  let table_name = Mpeg_ts.table_to_string ~simple:true
 
   let period_to_unit_name : interval -> string = function
     | `Seconds _      | `Seconds_unk      -> "с"
@@ -190,7 +191,7 @@ module Description = struct
          | 0x02 -> table_long_interval ~short
                      ~period:(table_id_to_interval table_info.id) e
          | _    -> table_ext_unknown
-       in f @@ Streams.TS.table_of_int table_info.id
+       in f @@ Mpeg_ts.table_of_int table_info.id
     | 0x34 -> "Пакет с неизвестным PID"
     | 0x35 ->
        let f = match e.err_ext with
