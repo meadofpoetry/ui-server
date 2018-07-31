@@ -1,10 +1,69 @@
 open Topology
 open Containers
 
-type id = Single
-        | T2mi_plp of int
-        | Dvb of int * int
-        | Unknown of int32 [@@deriving show, eq, ord]
+type id =
+  | Single
+  | T2mi_plp of int
+  | Dvb of int * int
+  | Unknown of int32 [@@deriving show, eq, ord]
+
+module Description = struct
+
+  type base =
+    { tsid : int
+    ; onid : int
+    }
+
+  type dvb =
+    { mode : [ `T | `T2 | `C ]
+    ; freq : int
+    ; plp  : int
+    ; bw   : [ `Bw6 | `Bw7 | `Bw8 ]
+    }
+
+  type ip =
+    { addr : Ipaddr_ext.V4.t
+    ; port : int
+    }
+
+  type t2mi_plp =
+    { plp_id : int
+    }
+
+  type node =
+    | Dvb      of dvb
+    | Ip       of ip
+    | Asi
+    | T2mi_plp of t2mi_plp
+
+  type sid = [ `Multy_id of id | `Ip of Url.t | `Single ]
+
+  type typ = [ `Ts | `T2mi ]
+
+  type stream =
+    { source      : src
+    ; id          : sid
+    ; typ         : typ
+    ; label       : string
+    ; description : node
+    }
+  and src = Port   of int
+          | Local
+          | Stream of stream
+
+  type description = (node list) * topo_entry
+
+  type t =
+    { source      : source
+    ; id          : sid
+    ; typ         : typ
+    ; label       : string
+    ; description : description
+    }
+  and source = Entry  of Topology.topo_entry
+             | Parent of t
+
+end
 
 let id_of_int32 : int32 -> id = function
   | 0l -> Single
@@ -19,16 +78,16 @@ let id_of_int32 : int32 -> id = function
   | _ as x -> Unknown x
 
 let id_to_int32 : id -> int32 = function
-  | Single           -> 0l
-  | T2mi_plp plp     -> 1
-                        |> (fun x -> x lsl 8)
-                        |> Int32.of_int
-                        |> Int32.logor (Int32.of_int plp)
-  | Dvb (stream,plp) -> stream + 2
-                        |> (fun x -> x lsl 8)
-                        |> Int32.of_int
-                        |> Int32.logor (Int32.of_int plp)
-  | Unknown x        -> x
+  | Single -> 0l
+  | T2mi_plp plp ->
+     1 lsl 8
+     |> Int32.of_int
+     |> Int32.logor (Int32.of_int plp)
+  | Dvb (stream,plp) ->
+     (2 + stream) lsl 8
+     |> Int32.of_int
+     |> Int32.logor (Int32.of_int plp)
+  | Unknown x -> x
 
 let id_to_yojson id : Yojson.Safe.json =
   let i32 = id_to_int32 id in `Intlit (Int32.to_string i32)

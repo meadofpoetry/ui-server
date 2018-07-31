@@ -241,8 +241,7 @@ module Row = struct
           () =
     let cb  = match selection with
       | Some `Multiple -> Some (new Checkbox.t ())
-      | _ -> None
-    in
+      | _ -> None in
     let cells  = make_cells fmt data in
     let cells' = cells_to_widgets cells in
     let elt = Markup.Row.create

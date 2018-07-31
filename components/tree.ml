@@ -65,7 +65,7 @@ module Item = struct
 
 end
 
-class ['a] t ?level ?two_line ~(items:('a,'a t) Item.t list) () =
+class ['a] t ?level ?two_line ?(dense=false) ~(items:('a,'a t) Item.t list) () =
   let two_line = match two_line with
     | Some x -> x
     | None   ->
@@ -107,6 +107,7 @@ class ['a] t ?level ?two_line ~(items:('a,'a t) Item.t list) () =
       iter self#items 1
 
     initializer
+      self#set_dense true;
       match level with
       | Some l -> self#set_attribute "data-level" @@ string_of_int l
       | None   -> self#_padding ()

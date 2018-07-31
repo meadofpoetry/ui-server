@@ -94,6 +94,11 @@ class t (elt:#Dom_html.element Js.t) () = object(self)
   method append_child : 'a. (< node : Dom.node Js.t; .. > as 'a) -> unit =
     fun x ->
     Dom.appendChild self#root x#node
+  method insert_child_at_idx : 'a. int ->
+                               (< node : Dom.node Js.t; .. > as 'a) -> unit =
+    fun index x ->
+    let child = self#root##.childNodes##item index in
+    Dom.insertBefore self#root x#node child
   method remove_child : 'a. (< node : Dom.node Js.t; .. > as 'a) -> unit =
     fun x ->
     try Dom.removeChild self#root x#node

@@ -93,9 +93,9 @@ $fill-tone: mdc-theme-tone($alarm-color);
     cursor: pointer;
 }
 
-/* Table overview widget */
+/* Table overview widget, Services overview widget */
 
-.qos-niit-table-overview {
+.qos-niit-table-overview, .qos-niit-services-overview {
     &__back {
         cursor: pointer;
         .mdc-icon {
@@ -106,8 +106,8 @@ $fill-tone: mdc-theme-tone($alarm-color);
         }
     }
     .mdc-data-table {
-        max-height: 1000px;
-        overflow-y: auto;
+        /* max-height: 1000px; */
+        /* overflow-y: auto; */
     }
     .mdc-card__actions {
         justify-content: space-between;
@@ -119,6 +119,48 @@ $fill-tone: mdc-theme-tone($alarm-color);
         tbody .mdc-data-table__row {
             cursor: pointer;
         }
+    }
+}
+
+/* Services overview widget */
+
+.qos-niit-services-overview {
+    .mdc-list {
+        flex-grow: 1;
+        border-right: 1px solid;
+        @include mdc-theme-prop-alpha(border-color, $mdc-theme-background, .12);
+        max-width: 350px;
+        .mdc-list-item {
+            cursor: pointer;
+        }
+    }
+    &__info {
+        flex-grow: 1;
+        padding: 1rem;
+        display: flex;
+        flex-flow: column nowrap;
+        justify-content: flex-start;
+        align-items: flex-start;
+    }
+    &__info-row {
+        width: 100%;
+        align-items: stretch;
+    }
+    &__info-cell {
+        &:first-child {
+            justify-content: flex-end;
+            @include mdc-typography(body2);
+        }
+        &:last-child {
+            justify-content: flex-start;
+        }
+        align-items: center;
+        display: flex;
+        flex-flow: row nowrap;
+        flex-grow: 1;
+        flex-basis: 0;
+        padding: 0.5em;
+        word-break: break-word;
     }
 }
 

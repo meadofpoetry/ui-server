@@ -327,8 +327,8 @@ module Get_ts_structs
     ; ts_id        = get_general_struct_block_ts_id bdy
     ; nw_id        = get_general_struct_block_nw_id bdy
     ; orig_nw_id   = get_general_struct_block_orig_nw_id bdy
-    ; nw_name      = Text_decoder.decode nw_name
-    ; bouquet_name = Text_decoder.decode bq_name
+    ; nw_name      = Result.get_or ~default:"" @@ Text_decoder.decode nw_name
+    ; bouquet_name = Result.get_or ~default:"" @@ Text_decoder.decode bq_name
     }, string_len
 
   let of_pids_struct_block msg =
@@ -348,9 +348,11 @@ module Get_ts_structs
     let flags      = get_services_struct_block_flags bdy in
     let strings,_  = Cstruct.split rest (string_len * 2) in
     let sn,pn      = Cstruct.split strings string_len in
-    { id                = get_services_struct_block_id bdy
-    ; name              = Text_decoder.decode sn
-    ; provider_name     = Text_decoder.decode pn
+    let id         = get_services_struct_block_id bdy in
+    let default    = Printf.sprintf "Service %d" id in
+    { id
+    ; name              = Result.get_or ~default @@ Text_decoder.decode sn
+    ; provider_name     = Result.get_or ~default:"" @@ Text_decoder.decode pn
     ; pmt_pid           = get_services_struct_block_pmt_pid bdy
     ; pcr_pid           = get_services_struct_block_pcr_pid bdy
     ; has_pmt           = (flags land 0x8000) <> 0

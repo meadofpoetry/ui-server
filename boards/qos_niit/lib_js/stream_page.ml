@@ -9,13 +9,8 @@ let dummy_tab = fun () ->
   Widget.create div
 
 let services (stream:Stream.t) control =
-  let open Widget_services in
-  let w = make ~config:{ stream = match stream.id with
-                                  | `Ts x -> x
-                                  | _ -> Single }
-            control in
-  w#thread >|= (fun w -> Elevation.set_elevation w 2)
-  |> Lwt.ignore_result;
+  let open Widget_services_overview in
+  let w = make ~config:{ stream } control in
   w#widget
 
 let pids (stream:Stream.t) control =

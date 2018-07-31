@@ -177,29 +177,27 @@ let trim (text:Cstruct.t) =
 
 let get_encoding_and_convert (text:Cstruct.t) =
   let (>>=) x f = match x with Ok x -> Ok x | Error e -> f e in
-  let result = match get_encoding text with
-    | x when equal_encoding x.encoding Unknown ->
-       Error `Unknown_encoding
-    | enc ->
-       convert_to_utf8 text enc
-       >>= (fun e ->
-        match encoding_to_int enc.encoding with
-        | x when x >= (encoding_to_int ISO8859_2)
-                 && x <= (encoding_to_int ISO8859_15) ->
-           (* Sometimes using the standard 8859-1 set fixes issues *)
-           convert_to_utf8 text { enc with encoding = ISO8859_1 }
-        | x when x = encoding_to_int ISO6937 ->
-           (* The first part of ISO 6937 is identical to ISO 8859-9, but
-            * they differ in the second part. Some channels don't
-            * provide the first byte that indicates ISO 8859-9 encoding.
-            * If decoding from ISO 6937 failed, we try ISO 8859-9 here.
-            *)
-           convert_to_utf8 text { enc with encoding = ISO8859_9 }
-        | _ -> Error e)
-  in
-  Result.get_or ~default:"" result
+  match get_encoding text with
+  | x when equal_encoding x.encoding Unknown ->
+     Error `Unknown_encoding
+  | enc ->
+     convert_to_utf8 text enc
+     >>= (fun e ->
+      match encoding_to_int enc.encoding with
+      | x when x >= (encoding_to_int ISO8859_2)
+               && x <= (encoding_to_int ISO8859_15) ->
+         (* Sometimes using the standard 8859-1 set fixes issues *)
+         convert_to_utf8 text { enc with encoding = ISO8859_1 }
+      | x when x = encoding_to_int ISO6937 ->
+         (* The first part of ISO 6937 is identical to ISO 8859-9, but
+          * they differ in the second part. Some channels don't
+          * provide the first byte that indicates ISO 8859-9 encoding.
+          * If decoding from ISO 6937 failed, we try ISO 8859-9 here.
+          *)
+         convert_to_utf8 text { enc with encoding = ISO8859_9 }
+      | _ -> Error e)
 
 let decode (text:Cstruct.t) =
   let text = trim text in
   if Cstruct.len text = 0
-  then "" else get_encoding_and_convert text
+  then Ok "" else get_encoding_and_convert text

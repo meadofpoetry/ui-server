@@ -157,8 +157,7 @@ module Tables =
         list, (fun _ -> ())
     end)
 
-let make_stream (id:Stream.id)
-      (init:  table_info list)
+let make_stream (init:  table_info list)
       (event: table_info list React.event)
       control =
   let event : (table_info list * table_info list) React.event =
@@ -281,7 +280,7 @@ let make_dump (stream:Stream.id)
                 parsed#set_empty ();
                 Dom.appendChild parsed#root (ph "Нет захваченных данных")#root;
                 set_hexdump "" in
-           let get    = fun () ->
+           let get = fun () ->
              Lwt.catch (fun () ->
                  (req_of_table @@ fst item#value) ~id:stream control
                  |> Lwt_result.map_err Api_js.Requests.err_to_string
@@ -290,7 +289,7 @@ let make_dump (stream:Stream.id)
                          let info, prev = item#value in
                          item#set_value (info, Some dump);
                          parsed#set_empty ();
-                         upd prev;
+                         upd (Some dump);
                       | Error s -> parsed#set_empty ();
                                    Dom.appendChild parsed#root (err s)#root))
                (fun e ->
@@ -326,7 +325,7 @@ class t ~(config:config)
   let box = Dom_html.createDiv Dom_html.document
             |> Widget.create in
   let make_struct init =
-    let wdg = make_stream id init event control in
+    let wdg = make_stream init event control in
     wdg in
   let tables = make_struct init in
   let dump = make_dump id tables control in
