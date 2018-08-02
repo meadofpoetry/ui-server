@@ -113,8 +113,6 @@
  * }
  * ```
  */
-/* TODO(sgomes): Figure out what to do about desktop font sizes. */
-/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
 .mdc-button {
   font-family: Roboto, sans-serif;
   -moz-osx-font-smoothing: grayscale;
@@ -122,7 +120,7 @@
   font-size: 0.875rem;
   line-height: 2.25rem;
   font-weight: 500;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.0892857143em;
   text-decoration: none;
   text-transform: uppercase;
   --mdc-ripple-fg-size: 0;
@@ -341,8 +339,6 @@
  * }
  * ```
  */
-/* TODO(sgomes): Figure out what to do about desktop font sizes. */
-/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
 /**
  * Creates a rule that will be applied when an MDC Web component is within the context of an RTL layout.
  *
@@ -516,10 +512,10 @@
   font-family: Roboto, sans-serif;
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;
-  font-size: 0.875rem;
+  font-size: 1rem;
   line-height: 1.5rem;
-  font-weight: 500;
-  letter-spacing: 0.04em;
+  font-weight: 400;
+  letter-spacing: 0.03125em;
   text-decoration: inherit;
   text-transform: inherit;
   /* @alternate */
@@ -530,10 +526,10 @@
     font-family: Roboto, sans-serif;
     -moz-osx-font-smoothing: grayscale;
     -webkit-font-smoothing: antialiased;
-    font-size: 1.5rem;
+    font-size: 1.25rem;
     line-height: 2rem;
-    font-weight: 400;
-    letter-spacing: normal;
+    font-weight: 500;
+    letter-spacing: 0.0125em;
     text-decoration: inherit;
     text-transform: inherit;
     margin: 0; }
@@ -543,9 +539,9 @@
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;
   font-size: 0.875rem;
-  line-height: 1.25rem;
-  font-weight: 400;
-  letter-spacing: 0.04em;
+  line-height: 1.375rem;
+  font-weight: 500;
+  letter-spacing: 0.0071428571em;
   text-decoration: inherit;
   text-transform: inherit;
   /* @alternate */
@@ -1540,10 +1536,6 @@
  * ```
  * An optional third $root-selector argument may also be given, which is passed to `mdc-rtl`.
  */
-/* TODO(sgomes): Figure out what to do about desktop font sizes. */
-/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
-/* TODO(sgomes): Figure out what to do about desktop font sizes. */
-/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
 .mdc-dialog {
   display: flex;
   position: fixed;
@@ -1603,7 +1595,7 @@
   font-size: 1.25rem;
   line-height: 2rem;
   font-weight: 500;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.0125em;
   text-decoration: inherit;
   text-transform: inherit;
   flex: 1;
@@ -1616,10 +1608,10 @@
   font-family: Roboto, sans-serif;
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;
-  font-size: 0.875rem;
-  line-height: 1.25rem;
+  font-size: 1rem;
+  line-height: 1.5rem;
   font-weight: 400;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03125em;
   text-decoration: inherit;
   text-transform: inherit;
   margin-top: 20px;
@@ -1755,8 +1747,6 @@
     left: 0;
     top: 0; }
 
-/* TODO(sgomes): Figure out what to do about desktop font sizes. */
-/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
 .mdc-expansion-panel {
   /* @alternate */
   background-color: #fff;
@@ -1818,10 +1808,10 @@
       font-family: Roboto, sans-serif;
       -moz-osx-font-smoothing: grayscale;
       -webkit-font-smoothing: antialiased;
-      font-size: 0.938rem;
-      line-height: 1.5rem;
+      font-size: 1rem;
+      line-height: 1.75rem;
       font-weight: 400;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.009375em;
       text-decoration: inherit;
       text-transform: inherit;
       flex-direction: column;
@@ -2024,8 +2014,6 @@
  * ```
  * An optional third $root-selector argument may also be given, which is passed to `mdc-rtl`.
  */
-/* TODO(sgomes): Figure out what to do about desktop font sizes. */
-/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
 /**
  * Creates a rule that will be applied when an MDC Web component is within the context of an RTL layout.
  *
@@ -2216,9 +2204,9 @@
     -moz-osx-font-smoothing: grayscale;
     -webkit-font-smoothing: antialiased;
     font-size: 0.875rem;
-    line-height: 1.5rem;
-    font-weight: 500;
-    letter-spacing: 0.04em;
+    line-height: 1.25rem;
+    font-weight: 400;
+    letter-spacing: 0.0178571429em;
     text-decoration: inherit;
     text-transform: inherit;
     position: relative;
@@ -2413,8 +2401,6 @@
  * ```
  * An optional third $root-selector argument may also be given, which is passed to `mdc-rtl`.
  */
-/* TODO(sgomes): Figure out what to do about desktop font sizes. */
-/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
 .mdc-drawer--permanent {
   /* Use aspect ratio trick to maintain 16:9 aspect ratio on the header */
   color: rgba(0, 0, 0, 0.87);
@@ -2463,9 +2449,9 @@
     -moz-osx-font-smoothing: grayscale;
     -webkit-font-smoothing: antialiased;
     font-size: 0.875rem;
-    line-height: 1.5rem;
-    font-weight: 500;
-    letter-spacing: 0.04em;
+    line-height: 1.25rem;
+    font-weight: 400;
+    letter-spacing: 0.0178571429em;
     text-decoration: inherit;
     text-transform: inherit;
     position: relative;
@@ -2671,8 +2657,6 @@
  * ```
  * An optional third $root-selector argument may also be given, which is passed to `mdc-rtl`.
  */
-/* TODO(sgomes): Figure out what to do about desktop font sizes. */
-/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
 /**
  * Creates a rule that will be applied when an MDC Web component is within the context of an RTL layout.
  *
@@ -2873,9 +2857,9 @@
     -moz-osx-font-smoothing: grayscale;
     -webkit-font-smoothing: antialiased;
     font-size: 0.875rem;
-    line-height: 1.5rem;
-    font-weight: 500;
-    letter-spacing: 0.04em;
+    line-height: 1.25rem;
+    font-weight: 400;
+    letter-spacing: 0.0178571429em;
     text-decoration: inherit;
     text-transform: inherit;
     position: relative;
@@ -3457,17 +3441,15 @@
  * ```
  * An optional third $root-selector argument may also be given, which is passed to `mdc-rtl`.
  */
-/* TODO(sgomes): Figure out what to do about desktop font sizes. */
-/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
 /* stylelint-disable selector-max-type */
 .mdc-form-field {
   font-family: Roboto, sans-serif;
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;
-  font-size: 0.875rem;
-  line-height: 1.25rem;
+  font-size: 1rem;
+  line-height: 1.5rem;
   font-weight: 400;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03125em;
   text-decoration: inherit;
   text-transform: inherit;
   /* @alternate */
@@ -3645,8 +3627,6 @@
  * ```
  * An optional third $root-selector argument may also be given, which is passed to `mdc-rtl`.
  */
-/* TODO(sgomes): Figure out what to do about desktop font sizes. */
-/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
 .mdc-grid-tile__primary {
   padding-bottom: calc(100% / 1); }
 
@@ -3746,10 +3726,10 @@
   font-family: Roboto, sans-serif;
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;
-  font-size: 0.875rem;
-  line-height: 1.25rem;
+  font-size: 1rem;
+  line-height: 1.5rem;
   font-weight: 400;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03125em;
   text-decoration: inherit;
   text-transform: inherit;
   text-overflow: ellipsis;
@@ -4766,10 +4746,6 @@
  * ```
  * An optional third $root-selector argument may also be given, which is passed to `mdc-rtl`.
  */
-/* TODO(sgomes): Figure out what to do about desktop font sizes. */
-/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
-/* TODO(sgomes): Figure out what to do about desktop font sizes. */
-/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
 /**
  * Creates a rule that will be applied when an MDC Web component is within the context of an RTL layout.
  *
@@ -4928,7 +4904,7 @@
   font-size: 1rem;
   line-height: 1.75rem;
   font-weight: 400;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.009375em;
   text-decoration: inherit;
   text-transform: inherit;
   /* @alternate */
@@ -5015,10 +4991,10 @@
   font-family: Roboto, sans-serif;
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;
-  font-size: 0.875rem;
-  line-height: 1.25rem;
+  font-size: 1rem;
+  line-height: 1.5rem;
   font-weight: 400;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03125em;
   text-decoration: inherit;
   text-transform: inherit; }
 
@@ -5199,12 +5175,12 @@ a.mdc-list-item {
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;
   font-size: 0.875rem;
-  line-height: 1.5rem;
-  font-weight: 500;
-  letter-spacing: 0.04em;
+  line-height: 1.25rem;
+  font-weight: 400;
+  letter-spacing: 0.0178571429em;
   text-decoration: inherit;
   text-transform: inherit;
-  margin: 0.75rem 16px; }
+  margin: 0.875rem 16px; }
 
 .mdc-list-group__subheader {
   /* @alternate */
@@ -5239,8 +5215,6 @@ a.mdc-list-item {
  * }
  * ```
  */
-/* TODO(sgomes): Figure out what to do about desktop font sizes. */
-/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
 .mdc-menu {
   box-shadow: 0px 3px 1px -2px rgba(0, 0, 0, 0.2), 0px 2px 2px 0px rgba(0, 0, 0, 0.14), 0px 1px 5px 0px rgba(0, 0, 0, 0.12);
   /* @alternate */
@@ -5306,7 +5280,7 @@ a.mdc-list-item {
     font-size: 1rem;
     line-height: 1.75rem;
     font-weight: 400;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.009375em;
     text-decoration: inherit;
     text-transform: inherit;
     position: relative;
@@ -5626,8 +5600,6 @@ a.mdc-list-item {
   100% {
     transform: translateY(0);
     opacity: 1; } }
-/* TODO(sgomes): Figure out what to do about desktop font sizes. */
-/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
 /**
  * Creates a rule that will be applied when an MDC Web component is within the context of an RTL layout.
  *
@@ -6114,7 +6086,7 @@ a.mdc-list-item {
     font-size: 1rem;
     line-height: 1.75rem;
     font-weight: 400;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.009375em;
     text-decoration: inherit;
     text-transform: inherit; }
   .mdc-select--box .mdc-select__native-control {
@@ -6148,8 +6120,6 @@ a.mdc-list-item {
   .mdc-select--disabled .mdc-select__bottom-line {
     display: none; }
 
-/* TODO(sgomes): Figure out what to do about desktop font sizes. */
-/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
 /**
  * Creates a rule that will be applied when an MDC Web component is within the context of an RTL layout.
  *
@@ -6447,7 +6417,7 @@ a.mdc-list-item {
     font-size: 0.75rem;
     line-height: 1.25rem;
     font-weight: 400;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.0333333333em;
     text-decoration: inherit;
     text-transform: inherit;
     transform: rotate(45deg); }
@@ -6673,8 +6643,6 @@ a.mdc-list-item {
  * ```
  * An optional third $root-selector argument may also be given, which is passed to `mdc-rtl`.
  */
-/* TODO(sgomes): Figure out what to do about desktop font sizes. */
-/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
 /* postcss-bem-linter: define snackbar */
 .mdc-snackbar {
   display: flex;
@@ -6746,10 +6714,10 @@ a.mdc-list-item {
   font-family: Roboto, sans-serif;
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;
-  font-size: 0.875rem;
-  line-height: 1.25rem;
+  font-size: 1rem;
+  line-height: 1.5rem;
   font-weight: 400;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03125em;
   text-decoration: inherit;
   text-transform: inherit;
   margin-left: 0;
@@ -6795,7 +6763,7 @@ a.mdc-list-item {
   font-size: 0.875rem;
   line-height: 2.25rem;
   font-weight: 500;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.0892857143em;
   text-decoration: none;
   text-transform: uppercase;
   /* @alternate */
@@ -6961,10 +6929,6 @@ a.mdc-list-item {
 .mdc-switch__native-control:disabled ~ .mdc-switch__background .mdc-switch__knob {
   background-color: #bdbdbd; }
 
-/* TODO(sgomes): Figure out what to do about desktop font sizes. */
-/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
-/* TODO(sgomes): Figure out what to do about desktop font sizes. */
-/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
 .mdc-data-table {
   display: flex;
   flex-flow: column nowrap;
@@ -7089,18 +7053,16 @@ a.mdc-list-item {
 .mdc-data-table--dense tbody .mdc-data-table__row {
   height: 32px; }
 
-/* TODO(sgomes): Figure out what to do about desktop font sizes. */
-/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
 .mdc-tab {
   font-family: Roboto, sans-serif;
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;
   font-size: 0.875rem;
-  line-height: 1.5rem;
+  line-height: 2.25rem;
   font-weight: 500;
-  letter-spacing: 0.04em;
-  text-decoration: inherit;
-  text-transform: inherit;
+  letter-spacing: 0.0892857143em;
+  text-decoration: none;
+  text-transform: uppercase;
   /* @alternate */
   color: rgba(0, 0, 0, 0.54);
   color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54));
@@ -8003,10 +7965,6 @@ a.mdc-list-item {
  * ```
  * An optional third $root-selector argument may also be given, which is passed to `mdc-rtl`.
  */
-/* TODO(sgomes): Figure out what to do about desktop font sizes. */
-/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
-/* TODO(sgomes): Figure out what to do about desktop font sizes. */
-/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
 .mdc-text-field-helper-text {
   margin: 0;
   transition: opacity 180ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -8069,15 +8027,20 @@ a.mdc-list-item {
   font-family: Roboto, sans-serif;
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;
-  letter-spacing: 0.04em;
+  font-size: 1rem;
+  line-height: 1.75rem;
+  font-weight: 400;
+  letter-spacing: 0.009375em;
+  text-decoration: inherit;
+  text-transform: inherit;
   width: 100%;
-  padding: 20px 0 8px;
+  height: 30px;
+  padding: 20px 0 1px;
   transition: opacity 180ms cubic-bezier(0.4, 0, 0.2, 1);
   border: none;
   border-bottom: 1px solid;
   border-radius: 0;
   background: none;
-  font-size: inherit;
   appearance: none; }
   .mdc-text-field__input::placeholder {
     transition: color 180ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -9146,8 +9109,6 @@ a.mdc-list-item {
  * ```
  * An optional third $root-selector argument may also be given, which is passed to `mdc-rtl`.
  */
-/* TODO(sgomes): Figure out what to do about desktop font sizes. */
-/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
 .mdc-toolbar {
   /* @alternate */
   background-color: #6200ee;
@@ -9194,7 +9155,7 @@ a.mdc-list-item {
     font-size: 1.25rem;
     line-height: 2rem;
     font-weight: 500;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.0125em;
     text-decoration: inherit;
     text-transform: inherit;
     text-overflow: ellipsis;
@@ -9306,10 +9267,10 @@ a.mdc-list-item {
     font-family: Roboto, sans-serif;
     -moz-osx-font-smoothing: grayscale;
     -webkit-font-smoothing: antialiased;
-    font-size: 2.125rem;
-    line-height: 2.5rem;
-    font-weight: 400;
-    letter-spacing: normal;
+    font-size: 1.25rem;
+    line-height: 2rem;
+    font-weight: 500;
+    letter-spacing: 0.0125em;
     text-decoration: inherit;
     text-transform: inherit;
     align-self: flex-end;
@@ -9349,72 +9310,56 @@ a.mdc-list-item {
 .mdc-toolbar__section--shrink-to-fit {
   flex: none; }
 
-/* TODO(sgomes): Figure out what to do about desktop font sizes. */
-/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
-/* TODO(sgomes): Figure out what to do about desktop font sizes. */
-/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
 .mdc-typography {
   font-family: Roboto, sans-serif;
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased; }
 
-.mdc-typography--display4 {
+.mdc-typography--headline1 {
   font-family: Roboto, sans-serif;
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;
-  font-size: 7rem;
-  line-height: 7rem;
+  font-size: 6rem;
+  line-height: 6rem;
   font-weight: 300;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.015625em;
   text-decoration: inherit;
   text-transform: inherit; }
 
-.mdc-typography--adjust-margin.mdc-typography--display4 {
-  margin: -1rem 0 3.5rem -0.085em; }
-
-.mdc-typography--display3 {
+.mdc-typography--headline2 {
   font-family: Roboto, sans-serif;
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;
-  font-size: 3.5rem;
-  line-height: 3.5rem;
-  font-weight: 400;
-  letter-spacing: -0.02em;
+  font-size: 3.75rem;
+  line-height: 3.75rem;
+  font-weight: 300;
+  letter-spacing: -0.0083333333em;
   text-decoration: inherit;
   text-transform: inherit; }
 
-.mdc-typography--adjust-margin.mdc-typography--display3 {
-  margin: -8px 0 64px -0.07em; }
-
-.mdc-typography--display2 {
+.mdc-typography--headline3 {
   font-family: Roboto, sans-serif;
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;
-  font-size: 2.8125rem;
-  line-height: 3rem;
+  font-size: 3rem;
+  line-height: 3.125rem;
   font-weight: 400;
   letter-spacing: normal;
   text-decoration: inherit;
   text-transform: inherit; }
 
-.mdc-typography--adjust-margin.mdc-typography--display2 {
-  margin: -0.5rem 0 4rem -0.07em; }
-
-.mdc-typography--display1 {
+.mdc-typography--headline4 {
   font-family: Roboto, sans-serif;
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;
   font-size: 2.125rem;
   line-height: 2.5rem;
   font-weight: 400;
-  letter-spacing: normal;
+  letter-spacing: 0.0073529412em;
   text-decoration: inherit;
   text-transform: inherit; }
 
-.mdc-typography--adjust-margin.mdc-typography--display1 {
-  margin: -0.5rem 0 4rem -0.07em; }
-
-.mdc-typography--headline {
+.mdc-typography--headline5 {
   font-family: Roboto, sans-serif;
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;
@@ -9425,78 +9370,60 @@ a.mdc-list-item {
   text-decoration: inherit;
   text-transform: inherit; }
 
-.mdc-typography--adjust-margin.mdc-typography--headline {
-  margin: -0.5rem 0 1rem -0.06em; }
-
-.mdc-typography--title {
+.mdc-typography--headline6 {
   font-family: Roboto, sans-serif;
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;
   font-size: 1.25rem;
   line-height: 2rem;
   font-weight: 500;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.0125em;
   text-decoration: inherit;
   text-transform: inherit; }
 
-.mdc-typography--adjust-margin.mdc-typography--title {
-  margin: -0.5rem 0 1rem -0.05em; }
-
-.mdc-typography--subheading2 {
+.mdc-typography--subtitle1 {
   font-family: Roboto, sans-serif;
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;
   font-size: 1rem;
   line-height: 1.75rem;
   font-weight: 400;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.009375em;
   text-decoration: inherit;
   text-transform: inherit; }
 
-.mdc-typography--adjust-margin.mdc-typography--subheading2 {
-  margin: -0.5rem 0 1rem -0.06em; }
-
-.mdc-typography--subheading1 {
+.mdc-typography--subtitle2 {
   font-family: Roboto, sans-serif;
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;
-  font-size: 0.938rem;
-  line-height: 1.5rem;
-  font-weight: 400;
-  letter-spacing: 0.04em;
+  font-size: 0.875rem;
+  line-height: 1.375rem;
+  font-weight: 500;
+  letter-spacing: 0.0071428571em;
   text-decoration: inherit;
   text-transform: inherit; }
 
-.mdc-typography--adjust-margin.mdc-typography--subheading1 {
-  margin: -0.313rem 0 0.813rem -0.06em; }
+.mdc-typography--body1 {
+  font-family: Roboto, sans-serif;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased;
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 400;
+  letter-spacing: 0.03125em;
+  text-decoration: inherit;
+  text-transform: inherit; }
 
 .mdc-typography--body2 {
   font-family: Roboto, sans-serif;
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;
   font-size: 0.875rem;
-  line-height: 1.5rem;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  text-decoration: inherit;
-  text-transform: inherit; }
-
-.mdc-typography--adjust-margin.mdc-typography--body2 {
-  margin: -0.25rem 0 0.75rem 0; }
-
-.mdc-typography--body1 {
-  font-family: Roboto, sans-serif;
-  -moz-osx-font-smoothing: grayscale;
-  -webkit-font-smoothing: antialiased;
-  font-size: 0.875rem;
   line-height: 1.25rem;
   font-weight: 400;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.0178571429em;
   text-decoration: inherit;
   text-transform: inherit; }
-
-.mdc-typography--adjust-margin.mdc-typography--body1 {
-  margin: -0.25rem 0 0.75rem 0; }
 
 .mdc-typography--caption {
   font-family: Roboto, sans-serif;
@@ -9505,12 +9432,9 @@ a.mdc-list-item {
   font-size: 0.75rem;
   line-height: 1.25rem;
   font-weight: 400;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.0333333333em;
   text-decoration: inherit;
   text-transform: inherit; }
-
-.mdc-typography--adjust-margin.mdc-typography--caption {
-  margin: -0.5rem 0 1rem -0.04em; }
 
 .mdc-typography--button {
   font-family: Roboto, sans-serif;
@@ -9519,15 +9443,21 @@ a.mdc-list-item {
   font-size: 0.875rem;
   line-height: 2.25rem;
   font-weight: 500;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.0892857143em;
   text-decoration: none;
   text-transform: uppercase; }
 
-.mdc-typography--adjust-margin.mdc-typography--button {
-  margin: inherit; }
+.mdc-typography--overline {
+  font-family: Roboto, sans-serif;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased;
+  font-size: 0.75rem;
+  line-height: 2rem;
+  font-weight: 500;
+  letter-spacing: 0.1666666667em;
+  text-decoration: none;
+  text-transform: uppercase; }
 
-/* TODO(sgomes): Figure out what to do about desktop font sizes. */
-/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
 /**
  * Creates a rule that will be applied when an MDC Web component is within the context of an RTL layout.
  *
@@ -9818,8 +9748,6 @@ a.mdc-list-item {
  * }
  * ```
  */
-/* TODO(sgomes): Figure out what to do about desktop font sizes. */
-/* TODO(sgomes): Figure out what to do about i18n and i18n font sizes. */
 .mdc-dashboard__edit-button {
   position: fixed !important;
   right: 1rem;
@@ -9833,10 +9761,10 @@ a.mdc-list-item {
   font-family: Roboto, sans-serif;
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;
-  font-size: 1.5rem;
-  line-height: 2rem;
+  font-size: 1rem;
+  line-height: 1.75rem;
   font-weight: 400;
-  letter-spacing: normal;
+  letter-spacing: 0.009375em;
   text-decoration: inherit;
   text-transform: inherit;
   padding: 15px 18px; }
@@ -9881,7 +9809,7 @@ a.mdc-list-item {
     font-size: 1rem;
     line-height: 1.75rem;
     font-weight: 400;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.009375em;
     text-decoration: inherit;
     text-transform: inherit;
     margin-bottom: 12px;
@@ -9892,10 +9820,10 @@ a.mdc-list-item {
     font-family: Roboto, sans-serif;
     -moz-osx-font-smoothing: grayscale;
     -webkit-font-smoothing: antialiased;
-    font-size: 0.875rem;
-    line-height: 1.25rem;
+    font-size: 1rem;
+    line-height: 1.5rem;
     font-weight: 400;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.03125em;
     text-decoration: inherit;
     text-transform: inherit;
     text-overflow: ellipsis;
@@ -9923,7 +9851,7 @@ a.mdc-list-item {
       font-size: 0.75rem;
       line-height: 1.25rem;
       font-weight: 400;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.0333333333em;
       text-decoration: inherit;
       text-transform: inherit;
       text-overflow: ellipsis;
@@ -9974,20 +9902,20 @@ a.mdc-list-item {
       font-family: Roboto, sans-serif;
       -moz-osx-font-smoothing: grayscale;
       -webkit-font-smoothing: antialiased;
-      font-size: 0.938rem;
-      line-height: 1.5rem;
+      font-size: 1rem;
+      line-height: 1.75rem;
       font-weight: 400;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.009375em;
       text-decoration: inherit;
       text-transform: inherit; }
     .mdc-parameters-widget__row__value {
       font-family: Roboto, sans-serif;
       -moz-osx-font-smoothing: grayscale;
       -webkit-font-smoothing: antialiased;
-      font-size: 1rem;
-      line-height: 1.75rem;
-      font-weight: 400;
-      letter-spacing: 0.04em;
+      font-size: 0.875rem;
+      line-height: 1.375rem;
+      font-weight: 500;
+      letter-spacing: 0.0071428571em;
       text-decoration: inherit;
       text-transform: inherit;
       text-align: right; }

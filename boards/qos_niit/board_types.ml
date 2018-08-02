@@ -197,6 +197,11 @@ module Streams = struct
       ; last_table_id : int
       } [@@deriving yojson, eq, ord]
 
+    type section_info =
+      { id     : int
+      ; length : int
+      } [@@deriving yojson, eq, ord]
+
     type table_info =
       { id             : int
       ; id_ext         : int
@@ -205,9 +210,8 @@ module Streams = struct
       ; version        : int
       ; service        : string option
       ; section_syntax : bool
-      ; section        : int
       ; last_section   : int
-      ; length         : int
+      ; sections       : section_info list
       } [@@deriving yojson, eq, ord]
 
     type general_info =

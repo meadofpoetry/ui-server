@@ -445,3 +445,8 @@ let create x = new t x ()
 let coerce (x : #t) = (x :> t)
 
 let to_markup (x : #t) = Tyxml_js.Of_dom.of_element x#root
+
+open Dom_html
+
+let create_div ()  = create @@ createDiv document
+let create_span () = create @@ createDiv document

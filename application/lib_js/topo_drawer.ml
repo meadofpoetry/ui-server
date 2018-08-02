@@ -5,7 +5,7 @@ let base_class = "topology__drawer"
 
 let make_header ~title () =
   let close = new Icon.Button.Font.t ~icon:"close" () in
-  let title = new Typography.Text.t ~adjust_margin:false ~font:Typography.Headline ~text:title () in
+  let title = new Typography.Text.t ~adjust_margin:false ~font:Headline_5 ~text:title () in
   let box   = new Hbox.t ~widgets:[title#widget;close#widget] () in
   let ()    = box#add_class @@ Markup.CSS.add_element base_class "header" in
   let ()    = title#add_class @@ Markup.CSS.add_element base_class "title" in

@@ -50,7 +50,7 @@ $wm-placeholder-color: text-secondary-on-background;
         width: 50%;
     }
     &__label {
-        @include mdc-typography(subheading1);
+        @include mdc-typography(subtitle1);
         text-align: left;
         width: 50%;
     }
@@ -296,7 +296,7 @@ $wm-placeholder-color: text-secondary-on-background;
     }
 
     &__title {
-        @include mdc-typography(subheading2);
+        @include mdc-typography(subtitle1);
     }
 
     &__menu {

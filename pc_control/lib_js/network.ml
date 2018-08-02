@@ -67,7 +67,7 @@ let make_dns (dns : Network_config.v4 list) =
     item
   in
 
-  let header = new Typography.Text.t ~font:Typography.Subheading_1 ~text:"Список DNS" () in
+  let header = new Typography.Text.t ~font:Subtitle_1 ~text:"Список DNS" () in
   let list   = new Item_list.t ~items:[] () in
 
   let address  = new Textfield.t ~input_id:"address-dns" ~label:"Адрес" ~input_type:Widget.IPV4 () in
@@ -121,7 +121,7 @@ let make_routes (routes : Network_config.address list) =
     item
   in
 
-  let header = new Typography.Text.t ~font:Typography.Subheading_1 ~text:"Список статических маршрутов" () in
+  let header = new Typography.Text.t ~font:Subtitle_1 ~text:"Список статических маршрутов" () in
   let list   = new Item_list.t ~items:[] () in
   
   let address  = new Textfield.t ~input_id:"address-route" ~label:"Адрес" ~input_type:Widget.IPV4 () in

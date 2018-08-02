@@ -185,19 +185,26 @@ module List_group = struct
     match l with
     | []       -> acc
     | hd :: [] -> List.rev @@ hd :: acc
-    | hd :: tl -> add_dividers ((hd @ [Widget.to_markup @@ new Divider.t ()]) :: acc) tl
+    | hd :: tl ->
+       add_dividers ((hd @ [Widget.to_markup @@ new Divider.t ()])
+                     :: acc) tl
 
   class t ?(dividers=true) ~(content:group list) () =
 
-    let elt = Markup.List_group.create
-                ~content:(List.map (fun x -> let h = Option.map Widget.to_markup x.subheader in
-                                             [Widget.to_markup x.list]
-                                             |> List.cons_maybe h)
-                            content
-                          |> (fun x -> if dividers then add_dividers [] x else x)
-                          |> List.flatten)
-                ()
-              |> Tyxml_js.To_dom.of_div in
+    let elt =
+      Markup.List_group.create
+        ~content:(
+          List.map (fun x ->
+              let h = Option.map (fun w ->
+                          w#add_class Markup.List_group.subheader_class;
+                          Widget.to_markup w) x.subheader in
+              [Widget.to_markup x.list]
+              |> List.cons_maybe h)
+            content
+          |> (fun x -> if dividers then add_dividers [] x else x)
+          |> List.flatten)
+        ()
+      |> Tyxml_js.To_dom.of_div in
 
     object
       inherit Widget.t elt ()

@@ -48,20 +48,20 @@
 
 .mdc-card__title {
     margin: 0;
-    @include mdc-typography(body2);
+    @include mdc-typography(body1);
     @include mdc-theme-prop(color, text-primary-on-background);
 
     margin: -.063rem 0;
 
     &--large {
-        @include mdc-typography(headline);
+        @include mdc-typography(headline6);
 
         margin: 0;
     }
 }
 
 .mdc-card__subtitle {
-    @include mdc-typography(body1);
+    @include mdc-typography(subtitle2);
     @include mdc-theme-prop(color, text-secondary-on-background);
 
     margin: -.063rem 0;

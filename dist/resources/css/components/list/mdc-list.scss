@@ -24,15 +24,15 @@
 // postcss-bem-linter: define list
 
 .mdc-list {
-  @include mdc-typography(subheading2);
+  @include mdc-typography(subtitle1);
   @include mdc-list-item-primary-text-ink-color(text-primary-on-background);
 
   margin: 0;
   padding: 8px 0;
 
   // According to the mocks and stickersheet, the line-height is adjusted to 24px for text content,
-  // same as for subheading1.
-  line-height: map-get(map-get($mdc-typography-styles, subheading1), line-height);
+  // same as for body1.
+  line-height: map-get(map-get($mdc-typography-styles, body1), line-height);
   list-style-type: none;
 }
 

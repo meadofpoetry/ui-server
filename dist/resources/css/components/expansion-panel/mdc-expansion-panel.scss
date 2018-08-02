@@ -79,7 +79,7 @@
 
         .mdc-expansion-panel__heading {
 
-            @include mdc-typography(subheading1);
+            @include mdc-typography(subtitle1);
 
             flex-direction: column;
             display: flex;

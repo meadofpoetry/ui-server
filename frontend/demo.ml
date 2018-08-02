@@ -6,7 +6,7 @@ open Tyxml_js
 let demo_section ?expanded title content =
   new Expansion_panel.t ?expanded ~title ~content ()
 
-let subsection name w = Html.div [ Html.h3 ~a:[Html.a_class [Typography.font_to_class Subheading_2]]
+let subsection name w = Html.div [ Html.h3 ~a:[Html.a_class [Typography.font_to_class Subtitle_2]]
                                      [Html.pcdata name]
                                  ; Widget.to_markup w ]
                         |> To_dom.of_element

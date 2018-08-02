@@ -60,8 +60,9 @@ let make_table
   let table_info_to_data (x:table_info) =
     let open Table.Data in
     let name = Mpeg_ts.(table_to_string @@ table_of_int x.id) in
+    let sections = List.length x.sections in
     x.pid :: x.id :: name :: x :: x.version
-    :: x.service :: x.section :: x.last_section :: [] in
+    :: x.service :: sections :: x.last_section :: [] in
   let fmt =
     let open Table in
     let open Format in
@@ -74,13 +75,10 @@ let make_table
                                             then hex_ext_fmt else dec_ext_fmt)
     :: (to_column ~sortable:true "Версия",  Int None)
     :: (to_column ~sortable:true "Сервис",  Option (String None, ""))
-    :: (to_column "Section",                Int None)
+    :: (to_column "Количество секций",      Int None)
     :: (to_column "Last section",           Int None)
     :: [] in
   let table = new Table.t ~sticky_header:true ~dense:true ~fmt () in
-  let dump  = new Widget_tables_dump.t
-                ~config:{ stream = config.stream }
-                ~init ~event:React.E.never control () in
   let on_change = fun (x:bool) ->
     List.iter (fun row ->
         let open Table in
@@ -108,8 +106,8 @@ let make_table
                         ; (new Divider.t ())#widget
                         ; media#widget ] () in
   back#listen Widget.Event.click (fun _ _ ->
+      media#set_empty ();
       media#append_child table;
-      media#remove_child dump;
       hex#style##.visibility  := Js.string "";
       back#style##.visibility := Js.string "hidden";
       true) |> ignore;
@@ -117,15 +115,17 @@ let make_table
   let add_row (x:table_info) =
     let row = table#add_row (table_info_to_data x) in
     row#listen Widget.Event.click (fun _ _ ->
+        let dump = new Widget_tables_dump.t
+                     ~config:{ stream = config.stream }
+                     ~init:x
+                     ~event:React.E.never control () in
+        (match dump#list#items with
+         | hd :: _ -> dump#list#set_active hd
+         | _       -> ());
         back#style##.visibility := Js.string "";
         hex#style##.visibility  := Js.string "hidden";
         media#remove_child table;
         media#append_child dump;
-        (match List.find_opt (fun i -> equal_table_info (fst i#value) x)
-                 dump#tables#items with
-         | Some item -> dump#tables#set_active item;
-                        item#root##scrollIntoView Js._true;
-         | None      -> ());
         true) |> ignore in
   List.iter add_row init;
   card#add_class base_class;

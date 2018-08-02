@@ -18,7 +18,7 @@
     &__panel {
 
         &__title {
-            @include mdc-typography(headline);
+            @include mdc-typography(subtitle1);
             padding: 15px 18px;
         }
 
@@ -62,7 +62,7 @@
             flex-grow: 1;
         }
         &__title {
-            @include mdc-typography(subheading2);
+            @include mdc-typography(subtitle1);
             margin-bottom: 12px;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -151,10 +151,10 @@
             flex-basis: 50%;
         }
         &__name {
-            @include mdc-typography(subheading1);
+            @include mdc-typography(subtitle1);
         }
         &__value {
-            @include mdc-typography(subheading2);
+            @include mdc-typography(subtitle2);
             text-align: right;
         }
     }

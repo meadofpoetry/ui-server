@@ -18,14 +18,11 @@ let base_class = "qos-niit-tables"
 
 let ( % ) = Fun.( % )
 
-let req_of_table (table:table_info) =
-  let table_id_ext = table.id_ext in
-  let eit_params   = table.eit_params in
+let req_of_table table_id table_id_ext (eit_params:eit_params) section =
   let r =
     Requests.Streams.HTTP.get_si_psi_section
-      ~table_id:table.id
-      ~section:table.section in
-  match Mpeg_ts.table_of_int table.id with
+      ~table_id ~section:section in
+  match Mpeg_ts.table_of_int table_id with
   | `PAT   -> r ~table_id_ext ?eit_ts_id:None ?eit_orig_nw_id:None
   | `PMT   -> r ~table_id_ext ?eit_ts_id:None ?eit_orig_nw_id:None
   | `NIT _ -> r ~table_id_ext ?eit_ts_id:None ?eit_orig_nw_id:None
@@ -36,56 +33,35 @@ let req_of_table (table:table_info) =
                 ~eit_orig_nw_id:eit_params.orig_nw_id
   | _      -> r ?table_id_ext:None ?eit_ts_id:None ?eit_orig_nw_id:None
 
-let to_table_name table =
+let to_table_name table_id table_id_ext (eit_params:eit_params) section =
   let divider  = ", " in
-  let name     = Mpeg_ts.(table_to_string @@ table_of_int table.id) in
+  let name     = Mpeg_ts.(table_to_string @@ table_of_int table_id) in
   let id s x   = Printf.sprintf "%s=0x%02X(%d)" s x x in
-  let base     = id "table_id" table.id in
-  let section  = Printf.sprintf "секция %d" table.section in
-  let specific = match Mpeg_ts.table_of_int table.id with
-    | `PAT   -> Some [ id "tsid" table.id_ext ]
-    | `PMT   -> Some [ id "program" table.id_ext ]
-    | `NIT _ -> Some [ id "network_id" table.id_ext ]
-    | `SDT _ -> Some [ id "tsid" table.id_ext ]
-    | `BAT   -> Some [ id "bid" table.id_ext ]
-    | `EIT _ -> Some [ id "sid" table.id_ext
-                     ; id "tsid" table.eit_params.ts_id
-                     ; id "onid" table.eit_params.orig_nw_id ]
+  let base     = id "table_id" table_id in
+  let section  = Printf.sprintf "секция %d" section in
+  let specific = match Mpeg_ts.table_of_int table_id with
+    | `PAT   -> Some [ id "tsid" table_id_ext ]
+    | `PMT   -> Some [ id "program" table_id_ext ]
+    | `NIT _ -> Some [ id "network_id" table_id_ext ]
+    | `SDT _ -> Some [ id "tsid" table_id_ext ]
+    | `BAT   -> Some [ id "bid" table_id_ext ]
+    | `EIT _ -> Some [ id "sid" table_id_ext
+                     ; id "tsid" eit_params.ts_id
+                     ; id "onid" eit_params.orig_nw_id ]
     | _      -> None in
   match specific with
   | Some l -> name, String.concat divider (base :: l @ [ section ])
   | None   -> name, base ^ divider ^ section
 
-module Table = struct
+module Section = struct
 
-  module Id = struct
-    type t     =
-      { id        : int
-      ; id_ext    : int
-      ; section   : int
-      ; version   : int
-      ; eit_ts_id : int
-      ; eit_nw_id : int
-      } [@@deriving yojson, ord]
-    let to_string x   = to_yojson x |> Yojson.Safe.to_string
-    let of_string s = Yojson.Safe.from_string s
-                      |> of_yojson
-                      |> Result.to_opt
-  end
+  module Id = Int
 
-  type model  = table_info
-  type widget = (table_info * section option) Item_list.Item.t
+  type model  = section_info [@@deriving eq]
+  type widget = (section_info * section option) Item_list.Item.t
 
   let widget      = fun w -> w#widget
-  let equal_model = equal_table_info
-  let id_of_model = fun (x:model)  ->
-    let open Id in
-    { id        = x.id
-    ; section   = x.section
-    ; version   = x.version
-    ; id_ext    = x.id_ext
-    ; eit_ts_id = x.eit_params.ts_id
-    ; eit_nw_id = x.eit_params.orig_nw_id }
+  let id_of_model = fun (x:model) -> x.id
 
   let make (init:model) =
     let bytes, update_bytes =
@@ -100,48 +76,33 @@ module Table = struct
     let prev = ref init in
     let leaf = new Item_list.Item.t
                  ~text:""
-                 ~secondary_text:""
                  ~meta:bytes#widget
                  ~value:(init, None) () in
-    let to_primary   = Printf.sprintf "%s" in
-    let to_secondary = Printf.sprintf "id: %d, section: %d, PID: %d, ver: %d" in
+    let to_primary = Printf.sprintf "ID: %d" in
     let update_primary =
-      { get = (fun x -> Mpeg_ts.(table_to_string @@ table_of_int x.id))
-      ; eq  = String.equal
-      ; upd = (fun name ->
-        let s = to_primary name in
+      { get = (fun (x:model) -> x.id)
+      ; eq  = (=)
+      ; upd = (fun id ->
+        let s = to_primary id in
         leaf#set_text s)
       } in
-    let update_secondary =
-      { get = (fun (x:table_info) -> x.id, x.section, x.pid, x.version)
-      ; eq  = (fun (id1, sec1, pid1, ver1)
-                   (id2, sec2, pid2, ver2) ->
-        id1 = id2 && pid1 = pid2 && ver1 = ver2 && sec1 = sec2)
-      ; upd = (fun (id, sec, pid, ver) ->
-        let s = to_secondary id sec pid ver in
-        leaf#set_secondary_text s)
-      } in
-    print_endline "make table!";
     let update = fun ?(previous:model option) (model:model) ->
       leaf#set_value (model, None);
       setter ?previous model update_primary;
-      setter ?previous model update_secondary;
       setter ?previous model update_bytes in
     update init;
     leaf, fun x -> update ~previous:!prev x
 
 end
 
-module Tables =
+module Sections =
   Make_array(struct
-      module Node = Table
+      module Node = Section
 
-      type widget = (table_info * section option) Item_list.t
+      type widget = (section_info * section option) Item_list.t
 
       let root (w:widget) = w#root
       let append_child (w:widget) (i:Node.widget) =
-        i#listen Widget.Event.click (fun _ _ -> w#set_active i; true)
-        |> ignore;
         w#append_item i
       let insert_child_at_idx (w:widget) idx (i:Node.widget) =
         i#listen Widget.Event.click (fun _ _ -> w#set_active i; true)
@@ -150,32 +111,35 @@ module Tables =
       let remove_child (w:widget) (i:Node.widget) =
         w#remove_item i
       let make (nodes:Node.model list) =
-        let items  = List.map (fun x -> let w, _ = Node.make x in
-                                        `Item w) nodes in
+        let items  =
+          List.map (fun x -> let i, _ = Node.make x in
+                             `Item i) nodes in
         let list   = new Item_list.t
-                       ~two_line:true
                        ~selection:`Single
                        ~items () in
-        let ()     = list#set_dense true in
+        List.iter (fun (i:'a Item_list.Item.t) ->
+            i#listen Widget.Event.click (fun _ _ -> list#set_active i; true)
+            |> ignore) list#items;
+        let () = list#set_dense true in
         list, (fun _ -> ())
     end)
 
-let make_stream (init:  table_info list)
-      (event: table_info list React.event)
+let make_list (init:section_info list)
+      (event: section_info list React.event)
       control =
-  let event : (table_info list * table_info list) React.event =
+  let event : (section_info list * section_info list) React.event =
     React.S.diff (fun n o -> o, n)
-    @@ React.S.hold ~eq:(Equal.list equal_table_info) init event in
-  let list, update_list = Tables.make init in
+    @@ React.S.hold ~eq:(Equal.list Section.equal_model) init event in
+  let list, update_list = Sections.make init in
   let _e =
-    React.E.map (fun ((prev:table_info list),
-                      (model:table_info list)) ->
-        if not @@ (Equal.list equal_table_info) prev model
+    React.E.map (fun ((prev:section_info list),
+                      (model:section_info list)) ->
+        if not @@ (Equal.list Section.equal_model) prev model
         then update_list model)
       event in
-  let ()   = list#set_dense true in
-  let ()   = list#set_on_destroy
-             @@ Some (fun () -> React.E.stop ~strong:true _e) in
+  let () = list#set_dense true in
+  let () = list#set_on_destroy
+           @@ Some (fun () -> React.E.stop ~strong:true _e) in
   list
 
 let make_parsed () =
@@ -250,8 +214,10 @@ let make_dump_header base_class () =
   let () = header#add_class header_class in
   header#widget, title, subtitle, button
 
-let make_dump (stream:Stream.id)
-      (tables:(table_info * section option) Item_list.t) control =
+let make_dump
+      (stream:Stream.id)
+      (table:table_info)
+      (list:(section_info * section option) Item_list.t) control =
   let base_class = Markup.CSS.add_element base_class "dump" in
   let header, title, subtitle, button = make_dump_header base_class () in
   let hexdump, set_hexdump = make_hexdump () in
@@ -260,8 +226,10 @@ let make_dump (stream:Stream.id)
   let () =
     React.S.map (function
         | Some item ->
+           let { id; id_ext; eit_params; _ } = table in
+           let (section:section_info), prev_dump = item#value in
            let open Lwt.Infix in
-           let name  = to_table_name @@ fst item#value in
+           let name  = to_table_name id id_ext eit_params section.id in
            let text  = Dom_html.createPre Dom_html.document
                        |> Widget.create in
            let err x = Ui_templates.Placeholder.create_with_error ~text:x () in
@@ -285,27 +253,27 @@ let make_dump (stream:Stream.id)
                 set_hexdump "" in
            let get = fun () ->
              Lwt.catch (fun () ->
-                 (req_of_table @@ fst item#value) ~id:stream control
+                 (req_of_table id id_ext eit_params section.id) ~id:stream control
                  |> Lwt_result.map_err Api_js.Requests.err_to_string
                  >|= (function
                       | Ok dump ->
-                         let info, prev = item#value in
-                         item#set_value (info, Some dump);
+                         item#set_value (section, Some dump);
                          parsed#set_empty ();
                          upd (Some dump);
-                      | Error s -> parsed#set_empty ();
-                                   Dom.appendChild parsed#root (err s)#root))
+                      | Error s ->
+                         parsed#set_empty ();
+                         Dom.appendChild parsed#root (err s)#root))
                (fun e ->
                  parsed#set_empty ();
                  Dom.appendChild parsed#root (err @@ Printexc.to_string e)#root;
                  Lwt.return_unit) in
-           upd @@ snd item#value;
+           upd prev_dump;
            let () = button#set_getter (Some get) in
            let () = title#set_text @@ fst name in
            let () = subtitle#set_text @@ snd name in
            let () = button#set_disabled false in
            ()
-        | _ -> ()) tables#s_active
+        | _ -> ()) list#s_active
     |> Lwt_react.S.keep in
   let vsplit = new Vsplit.t parsed hexdump () in
   let vbox   = new Vbox.t ~widgets:[ header
@@ -317,28 +285,30 @@ let make_dump (stream:Stream.id)
   vbox#widget
 
 class t ~(config:config)
-        ~(init:table_info list)
-        ~(event:table_info list React.event)
+        ~(init:table_info)
+        ~(event:table_info React.event)
         (control:int)
         () =
   let stream_panel_class = Markup.CSS.add_element base_class "stream-panel" in
   let id  = match config.stream.id with
     | `Ts id -> id
     | `Ip _  -> failwith "UDP" in
-  let box = Dom_html.createDiv Dom_html.document
-            |> Widget.create in
-  let make_struct init =
-    let wdg = make_stream init event control in
-    wdg in
-  let tables = make_struct init in
-  let dump = make_dump id tables control in
+  let box   = Widget.create_div () in
+  let event = React.E.map (fun x -> x.sections) event in
+  let list  = make_list init.sections event control in
+  let dump  = make_dump id init list control in
+  let list_group =
+    let open Item_list.List_group in
+    new t ~content:[
+        { subheader = Some (new Typography.Text.t ~text:"Секции" ())
+        ; list = (list :> Item_list.base) } ] () in
   object(self)
     inherit Hbox.t ~widgets:[ box; dump ] ()
 
-    method tables = tables
+    method list = list
 
     initializer
-      Dom.appendChild box#root tables#root;
+      box#append_child list_group;
       box#add_class stream_panel_class;
       self#add_class base_class
   end

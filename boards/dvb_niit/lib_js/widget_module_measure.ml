@@ -21,7 +21,7 @@ module Make(M:sig type t val to_string : t -> string end) = struct
   class t (event:event) (config:config) () =
     let value = new Typography.Text.t
                     ~adjust_margin:false
-                    ~font:Headline
+                    ~font:Headline_5
                     ~text:(value_to_string config None)
                     ()
     in

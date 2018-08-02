@@ -391,11 +391,12 @@ module Get_ts_structs
     let iter     = Cstruct.iter (fun _ -> Some 2)
                      (fun buf -> Cstruct.LE.get_uint16 buf 0) rest in
     let sections = Cstruct.fold (fun acc x ->
-                       (List.length acc,     (* id*)
-                        (x land 0x8000) > 0, (* analyzed*)
-                        (x land 0x0FFF))     (* length *)
+                       let id     = List.length acc in
+                       let _      = (x land 0x8000) > 0 in (* analyzed *)
+                       let length = (x land 0x0FFF) in
+                       ({ id; length } : section_info)
                        :: acc) iter []
-                   |> List.filter (fun (_, _, x) -> x > 0)
+                   |> List.filter (fun { length; _ } -> length > 0)
                    |> List.rev in
     let pid'   = get_table_struct_block_pid msg in
     let id     = get_table_struct_block_id bdy in
@@ -406,18 +407,16 @@ module Get_ts_structs
       ; segment_lsn   = get_table_struct_block_adv_info_3 bdy
       ; last_table_id = get_table_struct_block_adv_info_4 bdy
       } in
-    List.map (fun (section, _, length) ->
-        { version        = get_table_struct_block_version bdy
-        ; id
-        ; id_ext
-        ; eit_params
-        ; pid            = pid' land 0x1FFF
-        ; service        = None
-        ; section
-        ; last_section   = get_table_struct_block_lsn bdy
-        ; section_syntax = (pid' land 0x8000) > 0
-        ; length
-        }) sections
+    { version        = get_table_struct_block_version bdy
+    ; id
+    ; id_ext
+    ; eit_params
+    ; pid            = pid' land 0x1FFF
+    ; service        = None
+    ; last_section   = get_table_struct_block_lsn bdy
+    ; section_syntax = (pid' land 0x8000) > 0
+    ; sections
+    }
 
   let of_ts_struct_blocks msg =
     let str_len = ref 0 in
@@ -549,7 +548,6 @@ module Get_ts_structs
       List.filter_map (function
           | `Tables x -> Some x
           | _ -> None) blocks
-      |> List.concat
       |> List.map (fun (x:table_info) ->
              let service = match Mpeg_ts.table_of_int x.id with
                | `PMT -> List.find_map (fun (s:service_info) ->
