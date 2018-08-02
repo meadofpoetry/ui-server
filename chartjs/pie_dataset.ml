@@ -124,6 +124,11 @@ class ['a] t ~(label:string) (fmt:'a fmt) (data:'a point list) =
 
     inherit t_base ~label o ()
 
+    method label : string =
+      Js.to_string _obj##.label
+    method set_label (x:string) : unit =
+      _obj##.label := Js.string x
+
     method data =
       List.map (of_js_number fmt)
       @@ Array.to_list @@ Js.to_array _obj##.data

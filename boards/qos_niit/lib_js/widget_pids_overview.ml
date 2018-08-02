@@ -27,8 +27,53 @@ let to_pid_extra (has_pcr:bool) (is_scrambled:bool) =
   let widgets = List.(cons_maybe pcr (cons_maybe scr [])) in
   new Hbox.t ~widgets ()
 
+let colors =
+  Color.[ Red C500
+        ; Orange C500
+        ; Yellow C500
+        ; Green C500
+        ; Blue C500
+        ; Purple C500
+        ; Grey C500
+        ; Brown C500
+        ; Pink C500
+        ; Blue_grey C500
+        ; Deep_purple C500
+        ; Deep_orange C500
+        ; Indigo C500
+        ; Amber C500
+        ; Light_blue C500 ]
+  |> List.map Color.rgb_of_name
+
+let update_row row total br pid =
+  let cur, per, min, max =
+    let open Table in
+    match row#cells with
+    | _ :: _ :: _ :: _ :: a :: b :: c :: d :: _ ->
+       a, b, c, d in
+  let pct = 100. *. (float_of_int br)
+            /. (float_of_int total) in
+  let br = (float_of_int br) /. 1_000_000. in
+  cur#set_value @@ Some br;
+  per#set_value @@ Some pct;
+  (match min#value with
+   | None -> min#set_value (Some br)
+   | Some v -> if br <. v then min#set_value (Some br));
+  (match max#value with
+   | None -> max#set_value (Some br)
+   | Some v -> if br >. v then max#set_value (Some br));
+  br, pct
+
 let make_table (init:pid_info list)
       (bitrate:bitrate React.event) =
+  let dataset = new Chartjs.Pie.Dataset.t ~label:"dataset" Float [] in
+  let options = new Chartjs.Pie.Options.t () in
+  dataset#set_bg_color colors;
+  options#set_responsive true;
+  let pie = new Chartjs.Pie.t
+              ~options
+              ~labels:[]
+              ~datasets:[dataset] () in
   (* FIXME should remember preffered state *)
   let is_hex  = false in
   let dec_pid_fmt = Table.(Int None) in
@@ -61,7 +106,8 @@ let make_table (init:pid_info list)
   let hex     = new Form_field.t ~input:switch ~label:"HEX IDs" () in
   let actions = new Card.Actions.t ~widgets:[ hex#widget ] () in
   let media   = new Card.Media.t ~widgets:[ table ] () in
-  let card    = new Card.t ~widgets:[ actions#widget
+  let card    = new Card.t ~widgets:[ pie#widget
+                                    ; actions#widget
                                     ; (new Divider.t ())#widget
                                     ; media#widget ] () in
   let add_row (pid:pid_info) =
@@ -84,29 +130,31 @@ let make_table (init:pid_info list)
   List.iter Fun.(ignore % add_row) init;
   let _ =
     React.E.map (fun (bitrate:bitrate) ->
-        List.fold_left (fun rows (pid, br) ->
-            let open Table in
-            match List.find_opt (fun (row:'a Row.t) ->
-                      let cell = match row#cells with a :: _ -> a in
-                      cell#value = pid) rows with
-            | Some x ->
-               let cur, per, min, max =
-                 match x#cells with
-                 | _ :: _ :: _ :: _ :: a :: b :: c :: d :: _ ->
-                    a, b, c, d in
-               let pct = 100. *. (float_of_int br)
-                         /. (float_of_int bitrate.total) in
-               let br = (float_of_int br) /. 1_000_000. in
-               cur#set_value @@ Some br;
-               per#set_value @@ Some pct;
-               (match min#value with
-                | None -> min#set_value (Some br)
-                | Some v -> if br <. v then min#set_value (Some br));
-               (match max#value with
-                | None -> max#set_value (Some br)
-                | Some v -> if br >. v then max#set_value (Some br));
-               List.remove ~eq:Equal.physical ~x rows
-            | None   -> rows) table#rows bitrate.pids |> ignore;
+        let _, br =
+          List.fold_left (fun (rows, acc) (pid, br) ->
+              let open Table in
+              match List.find_opt (fun (row:'a Row.t) ->
+                        let cell = match row#cells with a :: _ -> a in
+                        cell#value = pid) rows with
+              | Some x ->
+                 let br, pct = update_row x bitrate.total br pid in
+                 List.remove ~eq:Equal.physical ~x rows,
+                 (List.cons (pid, (br, pct)) acc)
+              | None   -> rows, acc) (table#rows, []) bitrate.pids in
+        let pids, oth =
+          List.fold_left (fun (pids, oth) (pid, (br, pct)) ->
+              if pct >. 1. then (pid, br) :: pids, oth
+              else pids, br :: oth) ([], []) br in
+        let labels =
+          let pids = List.map (fun x -> string_of_int @@ fst x) pids in
+          let oth  = match oth with
+            | [] -> None
+            | _  -> Some "Другие" in
+          List.cons_maybe oth pids in
+        let data = (List.fold_left (+.) 0. oth) :: (List.map snd pids) in
+        pie#set_labels labels;
+        dataset#set_data data;
+        pie#update None;
         bitrate) bitrate in
   let () = card#add_class base_class in
   card

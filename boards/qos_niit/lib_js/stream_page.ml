@@ -14,7 +14,7 @@ let services (stream:Stream.t) control =
   w#widget
 
 let pids (stream:Stream.t) control =
-  let open Widget_pids in
+  let open Widget_pids_overview in
   let w = make ~config:{ stream } control in
   w#widget
 
