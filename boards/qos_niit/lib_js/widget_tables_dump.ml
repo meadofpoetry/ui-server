@@ -33,26 +33,6 @@ let req_of_table table_id table_id_ext (eit_params:eit_params) section =
                 ~eit_orig_nw_id:eit_params.orig_nw_id
   | _      -> r ?table_id_ext:None ?eit_ts_id:None ?eit_orig_nw_id:None
 
-let to_table_name table_id table_id_ext (eit_params:eit_params) section =
-  let divider  = ", " in
-  let name     = Mpeg_ts.(table_to_string @@ table_of_int table_id) in
-  let id s x   = Printf.sprintf "%s=0x%02X(%d)" s x x in
-  let base     = id "table_id" table_id in
-  let section  = Printf.sprintf "секция %d" section in
-  let specific = match Mpeg_ts.table_of_int table_id with
-    | `PAT   -> Some [ id "tsid" table_id_ext ]
-    | `PMT   -> Some [ id "program" table_id_ext ]
-    | `NIT _ -> Some [ id "network_id" table_id_ext ]
-    | `SDT _ -> Some [ id "tsid" table_id_ext ]
-    | `BAT   -> Some [ id "bid" table_id_ext ]
-    | `EIT _ -> Some [ id "sid" table_id_ext
-                     ; id "tsid" eit_params.ts_id
-                     ; id "onid" eit_params.orig_nw_id ]
-    | _      -> None in
-  match specific with
-  | Some l -> name, String.concat divider (base :: l @ [ section ])
-  | None   -> name, base ^ divider ^ section
-
 module Section = struct
 
   module Id = Int
@@ -126,11 +106,17 @@ module Sections =
 
 let make_list (init:section_info list)
       (event: section_info list React.event)
+      (sections: (section_info * section) list)
       control =
   let event : (section_info list * section_info list) React.event =
     React.S.diff (fun n o -> o, n)
     @@ React.S.hold ~eq:(Equal.list Section.equal_model) init event in
   let list, update_list = Sections.make init in
+  let () = List.iter (fun x ->
+               let i, _ = x#value in
+               match List.Assoc.get ~eq:equal_section_info i sections with
+               | Some v -> x#set_value (i, Some v)
+               | None   -> ()) list#items in
   let _e =
     React.E.map (fun ((prev:section_info list),
                       (model:section_info list)) ->
@@ -189,12 +175,13 @@ let make_hexdump () =
 
 let make_dump_header base_class () =
   (* CSS classes *)
-  let header_class = Markup.CSS.add_element base_class "header" in
-  let title_class  = Markup.CSS.add_element base_class "title" in
+  let header_class   = Markup.CSS.add_element base_class "header" in
+  let title_class    = Markup.CSS.add_element base_class "title" in
+  let subtitle_class = Markup.CSS.add_element base_class "subtitle" in
   (* Elements *)
   let title     = new Typography.Text.t
                     ~adjust_margin:false
-                    ~text:"Выберите секцию таблицы SI/PSI для захвата" () in
+                    ~text:"Выберите секцию для захвата" () in
   let subtitle  = new Typography.Text.t
                     ~adjust_margin:false
                     ~split:true
@@ -211,6 +198,7 @@ let make_dump_header base_class () =
                              ; button#widget] () in
   (* CSS classes setup *)
   let () = title#add_class title_class in
+  let () = subtitle#add_class subtitle_class in
   let () = header#add_class header_class in
   header#widget, title, subtitle, button
 
@@ -229,31 +217,36 @@ let make_dump
            let { id; id_ext; eit_params; _ } = table in
            let (section:section_info), prev_dump = item#value in
            let open Lwt.Infix in
-           let name  = to_table_name id id_ext eit_params section.id in
            let text  = Dom_html.createPre Dom_html.document
                        |> Widget.create in
            let err x = Ui_templates.Placeholder.create_with_error ~text:x () in
            let ph  x = Ui_templates.Placeholder.create_with_icon
                          ~icon:"info"
                          ~text:x () in
+           let tz_offset_s = Ptime_clock.current_tz_offset_s () in
+           let fmt_time = Time.to_human_string ?tz_offset_s in
            let upd = function
-             | Some { section; parsed = Some x; _ } ->
+             | Some { timestamp; section; parsed = Some x; _ } ->
                 parsed#set_empty ();
+                subtitle#set_text @@ fmt_time timestamp;
                 text#set_text_content (Yojson.Safe.pretty_to_string x);
                 Dom.appendChild parsed#root text#root;
                 set_hexdump section
-             | Some { section; parsed = None; _ } ->
+             | Some { timestamp; section; parsed = None; _ } ->
                 parsed#set_empty ();
+                subtitle#set_text @@ fmt_time timestamp;
                 Dom.appendChild parsed#root
                   (ph "Не удалось разобрать содержимое секции")#root;
                 set_hexdump section
              | None     ->
                 parsed#set_empty ();
+                subtitle#set_text "-";
                 Dom.appendChild parsed#root (ph "Нет захваченных данных")#root;
                 set_hexdump "" in
            let get = fun () ->
              Lwt.catch (fun () ->
-                 (req_of_table id id_ext eit_params section.id) ~id:stream control
+                 (req_of_table id id_ext eit_params section.id)
+                   ~id:stream control
                  |> Lwt_result.map_err Api_js.Requests.err_to_string
                  >|= (function
                       | Ok dump ->
@@ -269,46 +262,57 @@ let make_dump
                  Lwt.return_unit) in
            upd prev_dump;
            let () = button#set_getter (Some get) in
-           let () = title#set_text @@ fst name in
-           let () = subtitle#set_text @@ snd name in
+           let () = title#set_text @@ Printf.sprintf "Секция %d" section.id in
            let () = button#set_disabled false in
            ()
         | _ -> ()) list#s_active
     |> Lwt_react.S.keep in
   let vsplit = new Vsplit.t parsed hexdump () in
-  let vbox   = new Vbox.t ~widgets:[ header
-                                   ; (new Divider.t ())#widget
-                                   ; vsplit#widget
-                                   ; (new Divider.t ())#widget
-                                   ; options#widget ] () in
-  vbox#add_class base_class;
-  vbox#widget
+  object(self)
+    inherit Vbox.t ~widgets:[ header
+                            ; (new Divider.t ())#widget
+                            ; vsplit#widget
+                            ; (new Divider.t ())#widget
+                            ; options#widget ] ()
+
+    method button = button
+
+    initializer
+      self#add_class base_class
+  end
 
 class t ~(config:config)
         ~(init:table_info)
+        ~(sections:(section_info * section) list)
         ~(event:table_info React.event)
         (control:int)
         () =
-  let stream_panel_class = Markup.CSS.add_element base_class "stream-panel" in
+  let stream_panel_class = Markup.CSS.add_element base_class "list" in
   let id  = match config.stream.id with
     | `Ts id -> id
     | `Ip _  -> failwith "UDP" in
   let box   = Widget.create_div () in
   let event = React.E.map (fun x -> x.sections) event in
-  let list  = make_list init.sections event control in
+  let list  = make_list init.sections event sections control in
   let dump  = make_dump id init list control in
-  let list_group =
-    let open Item_list.List_group in
-    new t ~content:[
-        { subheader = Some (new Typography.Text.t ~text:"Секции" ())
-        ; list = (list :> Item_list.base) } ] () in
+  let list_name =
+    let _class = Markup.CSS.add_element stream_panel_class "title" in
+    let w  = new Typography.Text.t ~text:"Секции" () in
+    let () = w#add_class _class in
+    w in
+  let list_box =
+    let box = Widget.create_div () in
+    let ()  = box#append_child list_name in
+    let ()  = box#append_child list in
+    box in
   object(self)
-    inherit Hbox.t ~widgets:[ box; dump ] ()
+    inherit Hbox.t ~widgets:[ box#widget; dump#widget ] ()
 
     method list = list
+    method dump = dump
 
     initializer
-      box#append_child list_group;
+      box#append_child list_box;
       box#add_class stream_panel_class;
       self#add_class base_class
   end

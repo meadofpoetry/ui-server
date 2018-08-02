@@ -289,10 +289,12 @@ module Streams = struct
                        | Unknown [@@deriving yojson]
 
     type section =
-      { stream_id : Stream.id
-      ; table_id  : int
-      ; section   : string
-      ; parsed    : Yojson.Safe.json option
+      { stream_id  : Stream.id
+      ; table_id   : int
+      ; section_id : int
+      ; section    : string
+      ; parsed     : Yojson.Safe.json option
+      ; timestamp  : Time.t
       } [@@deriving yojson]
 
     type streams_states =

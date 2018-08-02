@@ -693,14 +693,29 @@
   background-color: #fff;
   background-color: var(--mdc-theme-background, #fff); }
 
-.qos-niit-tables__stream-panel {
+.qos-niit-tables__list {
   border-right: 1px solid;
   border-color: rgba(0, 0, 0, 0.12);
   width: 100%;
   overflow-y: auto;
   max-width: 350px;
+  max-height: 1000px;
   flex-grow: 1; }
-  .qos-niit-tables__stream-panel .mdc-list-item {
+  .qos-niit-tables__list__title {
+    font-family: Roboto, sans-serif;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-font-smoothing: antialiased;
+    font-size: 0.75rem;
+    line-height: 1.25rem;
+    font-weight: 400;
+    letter-spacing: 0.0333333333em;
+    text-decoration: inherit;
+    text-transform: inherit;
+    /* @alternate */
+    color: rgba(0, 0, 0, 0.54);
+    color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54));
+    padding: 10px 16px; }
+  .qos-niit-tables__list .mdc-list-item {
     cursor: pointer; }
 
 .qos-niit-tables__dump {
@@ -769,9 +784,8 @@
 .qos-niit-table-overview .mdc-data-table, .qos-niit-services-overview .mdc-data-table {
   /* max-height: 1000px; */
   /* overflow-y: auto; */ }
-.qos-niit-table-overview .mdc-card__actions, .qos-niit-services-overview .mdc-card__actions {
-  justify-content: space-between; }
-.qos-niit-table-overview .mdc-form-field, .qos-niit-services-overview .mdc-form-field {
+.qos-niit-table-overview .mdc-card__actions .mdc-form-field, .qos-niit-services-overview .mdc-card__actions .mdc-form-field {
+  margin-left: auto;
   font-family: Roboto, sans-serif;
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;

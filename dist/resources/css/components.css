@@ -5174,13 +5174,13 @@ a.mdc-list-item {
   font-family: Roboto, sans-serif;
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;
-  font-size: 0.875rem;
-  line-height: 1.25rem;
+  font-size: 1rem;
+  line-height: 1.75rem;
   font-weight: 400;
-  letter-spacing: 0.0178571429em;
+  letter-spacing: 0.009375em;
   text-decoration: inherit;
   text-transform: inherit;
-  margin: 0.875rem 16px; }
+  margin: 0.75rem 16px; }
 
 .mdc-list-group__subheader {
   /* @alternate */

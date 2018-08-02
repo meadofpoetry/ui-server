@@ -566,7 +566,7 @@ let table_demo () =
        :: []) in
   List.iter (fun _ -> make_row () |> ignore) @@ List.range' 0 7;
   let row = table#rows |> List.hd in
-  demo_section ~expanded:true "Table" [ table#widget ]
+  demo_section "Table" [ table#widget ]
 
 let chart_demo () =
   let open Chartjs.Line in
@@ -747,38 +747,42 @@ let dynamic_grid_demo () =
                                          ; h#widget
                                          ; add#widget
                                          ; rem_all#widget
-                                         ]
+               ]
   in
   let _ = React.S.map (fun x -> if x then grid#layout ()) sect#s_expanded in
   sect
 
 let expansion_panel_demo () =
-  let ep1 = new Expansion_panel.t
-              ~title:"Trip name"
-              ~details:[ new Vbox.t ~widgets:[ new Typography.Text.t ~text:"Caribbean cruise" ()
-                                             ; new Typography.Text.t ~text:"Second line" ()
-                           ] () ]
-              ~content:[]
-              () in
-  let ep2 = new Expansion_panel.t
-              ~title:"Location"
-              ~heading_details:[ new Typography.Text.t ~text:"Optional" () ]
-              ~details:[ new Typography.Text.t ~text:"Barbados" () ]
-              ~content:[ new Typography.Text.t ~text:"This is an expansion panel body text!!!" () ]
-              ~actions:[ new Button.t ~label:"Cancel" ()
-                       ; new Button.t ~label:"Save" () ]
-              () in
-  let ep3 = new Expansion_panel.t
-              ~title:"Start and end dates"
-              ~details:[ new Typography.Text.t ~text:"Start date: Feb 29, 2016" ()
-                       ; new Typography.Text.t ~text:"End date: Not set" ()
-              ]
-              ~content:[]
-              () in
+  let open Typography in
+  let ep1 =
+    new Expansion_panel.t
+      ~title:"Trip name"
+      ~details:[ new Vbox.t
+                   ~widgets:[ new Text.t ~text:"Caribbean cruise" ()
+                            ; new Text.t ~text:"Second line" () ]
+                   () ]
+      ~content:[]
+      () in
+  let ep2 =
+    new Expansion_panel.t
+      ~title:"Location"
+      ~heading_details:[ new Text.t ~text:"Optional" () ]
+      ~details:[ new Text.t ~text:"Barbados" () ]
+      ~content:[ new Text.t ~text:"This is an expansion panel body text!!!" () ]
+      ~actions:[ new Button.t ~label:"Cancel" ()
+               ; new Button.t ~label:"Save" () ]
+      () in
+  let ep3 =
+    new Expansion_panel.t
+      ~title:"Start and end dates"
+      ~details:[ new Text.t ~text:"Start date: Feb 29, 2016" ()
+               ; new Text.t ~text:"End date: Not set" () ]
+      ~content:[]
+      () in
   ep1#add_class (Elevation.Markup.get_elevation_class 2);
   ep2#add_class (Elevation.Markup.get_elevation_class 2);
   ep3#add_class (Elevation.Markup.get_elevation_class 2);
-  let box = new Vbox.t ~widgets:[ep1;ep2;ep3] () in
+  let box = new Vbox.t ~widgets:[ep1; ep2; ep3] () in
   demo_section "Expansion panel" [ box ]
 
 let hexdump_demo () =
@@ -811,6 +815,43 @@ let pie_demo () =
               ~labels:[ "Blue"; "Amber"; "Deep orange"]
               ~datasets:[dataset] () in
   demo_section "Chart (Pie)" [ pie ]
+
+let typography_demo () =
+  let open Typography in
+  let lorem =
+    "Lorem ipsum dolor sit amet, consectetur adipisicing elit.\
+     Quos blanditiis tenetur unde suscipit, quam beatae rerum\
+     inventore consectetur, neque doloribus, cupiditate numquam\
+     dignissimos laborum fugiat deleniti? Eum quasi quidem quibusdam." in
+  let headline_1 = new Text.t ~text:"Headline 1" ~font:Headline_1 () in
+  let headline_2 = new Text.t ~text:"Headline 2" ~font:Headline_2 () in
+  let headline_3 = new Text.t ~text:"Headline 3" ~font:Headline_3 () in
+  let headline_4 = new Text.t ~text:"Headline 4" ~font:Headline_4 () in
+  let headline_5 = new Text.t ~text:"Headline 5" ~font:Headline_5 () in
+  let headline_6 = new Text.t ~text:"Headline 6" ~font:Headline_6 () in
+  let subtitle_1 = new Text.t ~text:"Subtitle 1" ~font:Subtitle_1 () in
+  let subtitle_2 = new Text.t ~text:"Subtitle 2" ~font:Subtitle_2 () in
+  let body_1     = new Text.t ~text:("Body 1. " ^ lorem) ~font:Body_1 () in
+  let body_2     = new Text.t ~text:("Body 2. " ^ lorem) ~font:Body_2 () in
+  let button     = new Text.t ~text:"Button text" ~font:Button () in
+  let caption    = new Text.t ~text:"Caption text" ~font:Caption () in
+  let overline   = new Text.t ~text:"Overline text" ~font:Overline () in
+  let box = new Vbox.t ~widgets:[ headline_1
+                                ; headline_2
+                                ; headline_3
+                                ; headline_4
+                                ; headline_5
+                                ; headline_6
+                                ; subtitle_1
+                                ; subtitle_2
+                                ; body_1
+                                ; body_2
+                                ; button
+                                ; caption
+                                ; overline ] () in
+  let () = List.iter (fun w -> w#style##.marginBottom := Js.string "20px")
+             box#widgets in
+  demo_section "Typography" [ box ]
 
 let add_demos demos =
   let demos = CCList.sort (fun x y -> CCString.compare x#title y#title) demos in
@@ -850,6 +891,7 @@ let onload _ =
                         ; hexdump_demo ()
                         ; split_demo ()
                         ; pie_demo ()
+                        ; typography_demo ()
                         ] in
   let _ = new Ui_templates.Page.t (`Static [Widget.create demos]) () in
   Js._false

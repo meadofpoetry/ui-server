@@ -183,7 +183,7 @@ module Get_section : (Request
   let req_code = 0x0302
   let rsp_code = req_code
 
-  let serialize { request_id;params } =
+  let serialize { request_id; params } =
     let body = Cstruct.create sizeof_req_get_section in
     let ()   = set_req_get_section_stream_id body @@ Common.Stream.id_to_int32 params.stream_id in
     let ()   = set_req_get_section_table_id body params.table_id in
@@ -194,19 +194,22 @@ module Get_section : (Request
     to_complex_req ~request_id ~msg_code:req_code ~body ()
 
   let parse ({params;_}:req) msg =
-    let hdr,bdy = Cstruct.split msg sizeof_section in
-    let length  = get_section_length hdr in
-    let result  = get_section_result hdr in
+    let hdr,bdy   = Cstruct.split msg sizeof_section in
+    let length    = get_section_length hdr in
+    let result    = get_section_result hdr in
+    let timestamp = Time.Clock.now_s () in
     if length > 0 && result = 0
     then let sid,data  = Cstruct.split bdy 4 in
          let table_id  = params.table_id in
          let stream_id = Common.Stream.id_of_int32 @@ Cstruct.LE.get_uint32 sid 0 in
          let raw       = Cstruct.to_string data in
          let table     = Mpeg_ts.table_of_int table_id in
-         Ok { section   = raw
+         Ok { section    = raw
             ; stream_id
             ; table_id
-            ; parsed    = Si_psi_parser.table_to_yojson raw table }
+            ; section_id = Option.get_or ~default:0 params.section
+            ; parsed     = Si_psi_parser.table_to_yojson raw table
+            ; timestamp }
     else (Error (match result with
                  | 0 | 3 -> Zero_length
                  | 1     -> Table_not_found

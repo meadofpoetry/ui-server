@@ -78,7 +78,7 @@ module Text = struct
                |> List.flatten
                |> List.rev |> List.drop 1 |> List.rev
           else [ pcdata text ] in
-        span inner |> Format.asprintf "%a" (pp_elt ())
+        String.concat "" @@ List.map (Format.asprintf "%a" (pp_elt ())) inner
 
       initializer
         self#set_text text;

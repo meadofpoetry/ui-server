@@ -21,14 +21,21 @@ $fill-tone: mdc-theme-tone($alarm-color);
     @include mdc-theme-prop(background-color, background);
 }
 
-.qos-niit-tables__stream-panel {
+.qos-niit-tables__list {
+    &__title {
+        @include mdc-typography(caption);
+        @include mdc-theme-prop(color, text-secondary-on-background);
+        padding: 10px 16px;
+    }
     border-right: 1px solid;
     @include mdc-theme-prop-alpha(border-color, $mdc-theme-background, .12);
     width: 100%;
     overflow-y: auto;
     max-width: 350px;
+    max-height: 1000px;
     flex-grow: 1;
     .mdc-list-item {
+
         cursor: pointer;
     }
 }
@@ -110,10 +117,8 @@ $fill-tone: mdc-theme-tone($alarm-color);
         /* max-height: 1000px; */
         /* overflow-y: auto; */
     }
-    .mdc-card__actions {
-        justify-content: space-between;
-    }
-    .mdc-form-field {
+    .mdc-card__actions .mdc-form-field {
+        margin-left: auto;
         @include mdc-typography(caption);
     }
     .mdc-data-table {

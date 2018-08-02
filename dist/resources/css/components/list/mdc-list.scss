@@ -209,11 +209,11 @@ a.mdc-list-item {
 
 .mdc-list-group__subheader {
   $mdc-list-subheader-virtual-height: 3rem;
-  $mdc-list-subheader-leading: map-get(map-get($mdc-typography-styles, body2), line-height);
+  $mdc-list-subheader-leading: map-get(map-get($mdc-typography-styles, body1), line-height);
   $mdc-list-subheader-margin:
     ($mdc-list-subheader-virtual-height - $mdc-list-subheader-leading) / 2;
 
-  @include mdc-typography(body2);
+  @include mdc-typography(subtitle1);
 
   margin: $mdc-list-subheader-margin $mdc-list-side-padding;
 }
