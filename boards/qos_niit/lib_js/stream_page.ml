@@ -9,9 +9,17 @@ let dummy_tab = fun () ->
   Widget.create div
 
 let services (stream:Stream.t) control =
-  let open Widget_services_overview in
-  let w = make ~config:{ stream } control in
-  w#widget
+  let overview = Widget_services_overview.make ~config:{ stream } control in
+  let box =
+    let open Layout_grid in
+    let open Typography in
+    let span = 12 in
+    let overview_cell = new Cell.t ~span ~widgets:[ overview ] () in
+    let cells =
+      [ new Cell.t ~span ~widgets:[new Text.t ~text:"Обзор" ()] ()
+      ; overview_cell ] in
+    new t ~cells () in
+  box#widget
 
 let pids (stream:Stream.t) control =
   let id = match stream.id with
@@ -40,25 +48,30 @@ let pids (stream:Stream.t) control =
       control in
   let box =
     let open Layout_grid in
-    let summary_cell  = new Cell.t ~span:12 ~widgets:[ summary ] () in
-    let overview_cell = new Cell.t ~span:12 ~widgets:[ overview ] () in
-    new Layout_grid.t
-      ~cells:[ new Cell.t
-                 ~span:12
-                 ~widgets:[new Typography.Text.t ~text:"Краткая сводка" ()]
-                 ()
-             ; summary_cell
-             ; new Cell.t
-                 ~span:12
-                 ~widgets:[new Typography.Text.t ~text:"Обзор PID" ()]
-                 ()
-             ; overview_cell ] () in
+    let open Typography in
+    let span = 12 in
+    let summary_cell  = new Cell.t ~span ~widgets:[ summary ] () in
+    let overview_cell = new Cell.t ~span ~widgets:[ overview ] () in
+    let cells =
+      [ new Cell.t ~span ~widgets:[new Text.t ~text:"Краткая сводка" ()] ()
+      ; summary_cell
+      ; new Cell.t ~span ~widgets:[new Text.t ~text:"Обзор" ()] ()
+      ; overview_cell ] in
+    new t ~cells () in
   box#widget
 
 let tables (stream:Stream.t) control =
-  let open Widget_tables_overview in
-  let w = make ~config:{ stream } control in
-  w#widget
+  let overview = Widget_tables_overview.make ~config:{ stream } control in
+  let box =
+    let open Layout_grid in
+    let open Typography in
+    let span = 12 in
+    let overview_cell = new Cell.t ~span ~widgets:[ overview ] () in
+    let cells =
+      [ new Cell.t ~span ~widgets:[new Text.t ~text:"Обзор" ()] ()
+      ; overview_cell ] in
+    new t ~cells () in
+  box#widget
 
 let tabs (stream:Stream.t) control =
   let base =

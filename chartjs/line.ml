@@ -19,10 +19,12 @@ let to_data_js datasets : data_js Js.t =
                            |> Js.array
   end
 
-class t ~(options:Options.t) ~(datasets:#Dataset.t_base list) () =
+class t ?width ?height
+        ~(options:Options.t)
+        ~(datasets:#Dataset.t_base list) () =
   let data = to_data_js datasets |> Js.Unsafe.inject in
   object
-    inherit Base_chart.t ~typ:`Line ~options ~data ()
+    inherit Base_chart.t ?width ?height ~typ:`Line ~options ~data ()
 
     method options  = options
   end

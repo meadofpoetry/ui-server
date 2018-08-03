@@ -654,6 +654,14 @@
 .mdc-loader {
   height: 100%;
   width: 100%; }
+  .mdc-loader .mdc-placeholder__widget {
+    height: 40px;
+    width: 40px;
+    font-size: 40px; }
+    .mdc-loader .mdc-placeholder__widget svg circle {
+      /* @alternate */
+      stroke: #6200ee;
+      stroke: var(--mdc-theme-primary, #6200ee); }
 
 .mdc-absolute-fab, .mdc-fixed-fab {
   position: absolute; }
@@ -839,10 +847,12 @@
     justify-content: flex-start; }
 
 /* Pids summary widget */
-.qos-niit-pids-summary__pie {
-  flex-grow: 1;
-  padding: 1rem;
-  max-width: 500px; }
+.qos-niit-pids-summary {
+  padding: 1rem; }
+  .qos-niit-pids-summary__pie {
+    position: relative;
+    width: 250px;
+    height: 250px; }
 
 /* Pids overview widget */
 .qos-niit-pid-overview .mdc-card__actions {

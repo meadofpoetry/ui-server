@@ -173,11 +173,12 @@ $fill-tone: mdc-theme-tone($alarm-color);
 /* Pids summary widget */
 
 .qos-niit-pids-summary {
+    padding: 1rem;
 
     &__pie {
-        flex-grow: 1;
-        padding: 1rem;
-        max-width: 500px;
+        position: relative;
+        width: 250px;
+        height: 250px;
     }
 }
 

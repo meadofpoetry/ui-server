@@ -597,8 +597,8 @@ let chart_demo () =
   x_axis#scale_label#set_display true;
   List.iter (fun x ->
       if String.equal x#label "Dataset 1"
-      then x#set_border_color @@ Color.rgb_of_name (Color.Lime C500)
-      else x#set_border_color @@ Color.rgb_of_name (Color.Pink C500);
+      then x#set_border_color @@ Color.(RGB (rgb_of_material (Lime C500)))
+      else x#set_border_color @@ Color.(RGB (rgb_of_material (Pink C500)));
       x#set_cubic_interpolation_mode `Monotone;
       x#set_fill `Disabled) datasets;
   let update = new Button.t ~label:"update" () in
@@ -674,11 +674,11 @@ let time_chart_demo () =
   x_axis#time#set_min_unit `Second;
   x_axis#time#set_tooltip_format "ll HH:mm:ss";
   List.iter (fun x -> if String.equal x#label "Dataset 1"
-                      then x#set_bg_color @@ Color.rgb_of_name (Color.Indigo C500)
-                      else x#set_bg_color @@ Color.rgb_of_name (Color.Amber C500);
+                      then x#set_bg_color @@ Color.(of_material (Indigo C500))
+                      else x#set_bg_color @@ Color.(of_material (Amber C500));
                       if String.equal x#label "Dataset 1"
-                      then x#set_border_color @@ Color.rgb_of_name (Color.Indigo C500)
-                      else x#set_border_color @@ Color.rgb_of_name (Color.Amber C500);
+                      then x#set_border_color @@ Color.(of_material (Indigo C500))
+                      else x#set_border_color @@ Color.(of_material (Amber C500));
                       x#set_cubic_interpolation_mode `Monotone;
                       x#set_fill `Disabled) datasets;
   let chart = new Chartjs.Line.t ~options ~datasets () in
@@ -809,9 +809,9 @@ let pie_demo () =
     new Chartjs.Pie.Dataset.t
       ~label:"Dataset1"
       Int
-      Chartjs.Pie.Dataset.[ to_point (Color.rgb_of_name (Color.Blue C500)) 3
-                          ; to_point (Color.rgb_of_name (Color.Amber C500)) 7
-                          ; to_point (Color.rgb_of_name (Color.Deep_orange C500)) 1 ] in
+      Chartjs.Pie.Dataset.[ to_point (Color.of_material (Blue C500)) 3
+                          ; to_point (Color.of_material (Amber C500)) 7
+                          ; to_point (Color.of_material (Deep_orange C500)) 1 ] in
   let pie = new Chartjs.Pie.t ~options
               ~labels:[ "Blue"; "Amber"; "Deep orange"]
               ~datasets:[dataset] () in
