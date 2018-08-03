@@ -5,62 +5,62 @@ module Markup = Components_markup.Layout_grid.Make(Xml)(Svg)(Html)
 
 module Cell = struct
 
-  class t ~(widgets:#Widget.t list) () =
+  class t ?span ?span_phone ?span_tablet ?span_desktop
+          ~(widgets:#Widget.t list) () =
 
-    let elt = Markup.Cell.create ~content:(List.map Widget.to_markup widgets) ()
-              |> Tyxml_js.To_dom.of_div in
+    let elt =
+      Markup.Cell.create ~content:(List.map Widget.to_markup widgets) ()
+      |> Tyxml_js.To_dom.of_div in
 
     object(self)
 
       inherit Widget.t elt () as super
 
-      val mutable widgets : Widget.t list = List.map (fun x -> (x :> Widget.t)) widgets
+      val mutable widgets : Widget.t list =
+        List.map (fun x -> (x :> Widget.t)) widgets
 
-      val mutable span         : int option = None
-      val mutable span_phone   : int option = None
-      val mutable span_tablet  : int option = None
-      val mutable span_desktop : int option = None
+      val mutable _span         : int option = span
+      val mutable _span_phone   : int option = span_phone
+      val mutable _span_tablet  : int option = span_tablet
+      val mutable _span_desktop : int option = span_desktop
 
       val mutable align        : [`Top | `Middle | `Bottom ] option = None
       val mutable order        : int option = None
 
-      method private rm_span ?dt x = super#remove_class @@ Markup.Cell.get_cell_span ?device_type:dt x
+      method private rm_span ?dt x =
+        super#remove_class @@ Markup.Cell.get_cell_span ?device_type:dt x
 
-      method remove_span =
-        Option.iter self#rm_span span;
-        span <- None
-      method span       = span
-      method set_span x =
-        self#remove_span;
-        super#add_class @@ Markup.Cell.get_cell_span x;
-        span <- Some x
+      method span = _span
+      method set_span = function
+        | Some x -> Option.iter self#rm_span _span;
+                    super#add_class @@ Markup.Cell.get_cell_span x;
+                    _span <- Some x
+        | None   -> Option.iter self#rm_span _span;
+                    _span <- None
 
-      method span_phone       = span_phone
+      method span_phone = _span_phone
       method set_span_phone : int option -> unit = function
-        | Some x -> Option.iter (self#rm_span ~dt:`Phone) span_phone;
+        | Some x -> Option.iter (self#rm_span ~dt:`Phone) _span_phone;
                     super#add_class @@ Markup.Cell.get_cell_span ~device_type:`Phone x;
-                    span_phone <- Some x
-        | None   -> Option.iter (self#rm_span ~dt:`Phone) span_phone;
-                    span_phone <- None
+                    _span_phone <- Some x
+        | None   -> Option.iter (self#rm_span ~dt:`Phone) _span_phone;
+                    _span_phone <- None
 
-      method span_tablet = span_tablet
+      method span_tablet = _span_tablet
       method set_span_tablet : int option -> unit = function
-        | Some x -> Option.iter (self#rm_span ~dt:`Tablet) span_tablet;
+        | Some x -> Option.iter (self#rm_span ~dt:`Tablet) _span_tablet;
                     super#add_class @@ Markup.Cell.get_cell_span ~device_type:`Tablet x;
-                    span_tablet <- Some x
-        | None   -> Option.iter (self#rm_span ~dt:`Tablet) span_tablet;
-                    span_tablet <- None
+                    _span_tablet <- Some x
+        | None   -> Option.iter (self#rm_span ~dt:`Tablet) _span_tablet;
+                    _span_tablet <- None
 
-      method remove_span_desktop =
-        Option.iter (self#rm_span ~dt:`Desktop) span_desktop;
-        span_desktop <- None
-      method span_desktop = span_desktop
+      method span_desktop = _span_desktop
       method set_span_desktop : int option -> unit = function
-        | Some x -> Option.iter (self#rm_span ~dt:`Desktop) span_desktop;
+        | Some x -> Option.iter (self#rm_span ~dt:`Desktop) _span_desktop;
                     super#add_class @@ Markup.Cell.get_cell_span ~device_type:`Desktop x;
-                    span_tablet <- Some x
-        | None   -> Option.iter (self#rm_span ~dt:`Desktop) span_desktop;
-                    span_desktop <- None
+                    _span_tablet <- Some x
+        | None   -> Option.iter (self#rm_span ~dt:`Desktop) _span_desktop;
+                    _span_desktop <- None
 
       method order = order
       method set_order : int option -> unit = function
@@ -79,6 +79,12 @@ module Cell = struct
                     align <- None
 
       method widgets = widgets
+
+      initializer
+        self#set_span _span;
+        self#set_span_phone _span_phone;
+        self#set_span_tablet _span_tablet;
+        self#set_span_desktop _span_desktop;
 
     end
 

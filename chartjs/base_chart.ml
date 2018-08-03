@@ -59,8 +59,8 @@ class t ~(options:#Options.t) ~typ ~data () =
     inherit Components.Widget.t elt () as super
 
     method canvas        = _canvas
-    method set_width x   = self#canvas#set_attribute "width"  @@ string_of_int x
-    method set_height x  = self#canvas#set_attribute "height" @@ string_of_int x
+    method set_width x   = self#canvas#set_attribute "width"  x
+    method set_height x  = self#canvas#set_attribute "height" x
 
     method destroy () = _chart##destroy
     method update  = function

@@ -838,7 +838,13 @@
   .qos-niit-services-overview__info-cell:last-child {
     justify-content: flex-start; }
 
-/* Pid overview widget */
+/* Pids summary widget */
+.qos-niit-pids-summary__pie {
+  flex-grow: 1;
+  padding: 1rem;
+  max-width: 500px; }
+
+/* Pids overview widget */
 .qos-niit-pid-overview .mdc-card__actions {
   justify-content: flex-end; }
 .qos-niit-pid-overview .mdc-form-field {

@@ -197,13 +197,14 @@ let layout_grid_demo () =
                                                                             else 1)))]
                                          |> Tyxml_js.To_dom.of_element
                                          |> Widget.create in
-                                 new Layout_grid.Cell.t ~widgets:[w] ()
-                                 |> (fun x -> x#set_span 1; x))
+                                 new Layout_grid.Cell.t ~span:1 ~widgets:[w] ())
                 (List.range 0 15) in
   let btn2 = new Button.t ~label:"set span 1" () in
   let btn4 = new Button.t ~label:"set span 2" () in
-  React.E.map (fun _ -> (List.get_at_idx_exn 4 cells)#set_span 1) btn2#e_click |> ignore;
-  React.E.map (fun _ -> (List.get_at_idx_exn 4 cells)#set_span 2) btn4#e_click |> ignore;
+  React.E.map (fun _ -> (List.get_at_idx_exn 4 cells)#set_span @@ Some 1)
+    btn2#e_click |> ignore;
+  React.E.map (fun _ -> (List.get_at_idx_exn 4 cells)#set_span @@ Some 2)
+    btn4#e_click |> ignore;
   let layout_grid = new Layout_grid.t ~cells () in
   demo_section "Layout grid" [ layout_grid#widget; btn2#widget; btn4#widget ]
 

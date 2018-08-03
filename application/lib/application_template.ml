@@ -30,7 +30,8 @@ let input topo (topo_input:topo_input) =
                                                var cpu = %s;"
                                  input boards cpu)
                         ; Src "/js/moment.min.js"
-                        ; Src "/js/Chart.min.js" ]
+                        ; Src "/js/Chart.min.js"
+                        ; Src "/js/Chart.PieceLabel.min.js"]
        ; post_scripts = [ Src "/js/input.js" ]
        ; stylesheets  = []
        ; content      = []

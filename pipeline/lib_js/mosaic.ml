@@ -58,13 +58,12 @@ let make_video () =
 
 class t () =
   let video = make_video () in
-  let cell  = new Layout_grid.Cell.t ~widgets:[Widget.create video] () in
+  let cell  = new Layout_grid.Cell.t ~span:12 ~widgets:[Widget.create video] () in
   object
     inherit Layout_grid.t ~cells:[cell] ()
     method on_load   = ()
     method on_unload = ()
     initializer
-      cell#set_span 12;
       (Lwt.catch
          (fun () -> (janus_pipe (`All false)))
          (function

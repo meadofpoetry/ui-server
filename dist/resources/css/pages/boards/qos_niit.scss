@@ -170,7 +170,18 @@ $fill-tone: mdc-theme-tone($alarm-color);
     }
 }
 
-/* Pid overview widget */
+/* Pids summary widget */
+
+.qos-niit-pids-summary {
+
+    &__pie {
+        flex-grow: 1;
+        padding: 1rem;
+        max-width: 500px;
+    }
+}
+
+/* Pids overview widget */
 
 .qos-niit-pid-overview {
     .mdc-card__actions {
