@@ -131,7 +131,7 @@ $fill-tone: mdc-theme-tone($alarm-color);
 /* Services overview widget */
 
 .qos-niit-services-overview {
-    .mdc-list {
+    &__list {
         flex-grow: 1;
         border-right: 1px solid;
         @include mdc-theme-prop-alpha(border-color, $mdc-theme-background, .12);
@@ -141,32 +141,17 @@ $fill-tone: mdc-theme-tone($alarm-color);
         }
     }
     &__info {
-        flex-grow: 1;
-        padding: 1rem;
         display: flex;
-        flex-flow: column nowrap;
-        justify-content: flex-start;
-        align-items: flex-start;
-    }
-    &__info-row {
-        width: 100%;
-        align-items: stretch;
-    }
-    &__info-cell {
-        &:first-child {
-            justify-content: flex-end;
-            @include mdc-typography(body2);
-        }
-        &:last-child {
-            justify-content: flex-start;
-        }
-        align-items: center;
-        display: flex;
-        flex-flow: row nowrap;
+        justify-content: center;
         flex-grow: 1;
-        flex-basis: 0;
-        padding: 0.5em;
-        word-break: break-word;
+        .mdc-list {
+            flex-grow: 1;
+            max-width: 350px;
+        }
+        .mdc-list-item__meta {
+            font-size: 0.9em;
+            @include mdc-theme-prop(color, text-primary-on-background);
+        }
     }
 }
 

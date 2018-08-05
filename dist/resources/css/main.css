@@ -807,44 +807,25 @@
   cursor: pointer; }
 
 /* Services overview widget */
-.qos-niit-services-overview .mdc-list {
+.qos-niit-services-overview__list {
   flex-grow: 1;
   border-right: 1px solid;
   border-color: rgba(0, 0, 0, 0.12);
   max-width: 350px; }
-  .qos-niit-services-overview .mdc-list .mdc-list-item {
+  .qos-niit-services-overview__list .mdc-list-item {
     cursor: pointer; }
 .qos-niit-services-overview__info {
-  flex-grow: 1;
-  padding: 1rem;
   display: flex;
-  flex-flow: column nowrap;
-  justify-content: flex-start;
-  align-items: flex-start; }
-.qos-niit-services-overview__info-row {
-  width: 100%;
-  align-items: stretch; }
-.qos-niit-services-overview__info-cell {
-  align-items: center;
-  display: flex;
-  flex-flow: row nowrap;
-  flex-grow: 1;
-  flex-basis: 0;
-  padding: 0.5em;
-  word-break: break-word; }
-  .qos-niit-services-overview__info-cell:first-child {
-    justify-content: flex-end;
-    font-family: Roboto, sans-serif;
-    -moz-osx-font-smoothing: grayscale;
-    -webkit-font-smoothing: antialiased;
-    font-size: 0.875rem;
-    line-height: 1.25rem;
-    font-weight: 400;
-    letter-spacing: 0.0178571429em;
-    text-decoration: inherit;
-    text-transform: inherit; }
-  .qos-niit-services-overview__info-cell:last-child {
-    justify-content: flex-start; }
+  justify-content: center;
+  flex-grow: 1; }
+  .qos-niit-services-overview__info .mdc-list {
+    flex-grow: 1;
+    max-width: 350px; }
+  .qos-niit-services-overview__info .mdc-list-item__meta {
+    font-size: 0.9em;
+    /* @alternate */
+    color: rgba(0, 0, 0, 0.87);
+    color: var(--mdc-theme-text-primary-on-background, rgba(0, 0, 0, 0.87)); }
 
 /* Pids summary widget */
 .qos-niit-pids-summary {

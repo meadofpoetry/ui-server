@@ -84,6 +84,7 @@ module Services =
 
 let make_list (init:service_info list)
       (event:service_info list React.event) =
+  let _class = Markup.CSS.add_element base_class "list" in
   let event =
     React.S.diff (fun n o -> o, n)
     @@ React.S.hold ~eq:(Equal.list equal_service_info) init event in
@@ -91,37 +92,34 @@ let make_list (init:service_info list)
   let _e = React.E.map (fun (prev, model) ->
                if not @@ (Equal.list equal_service_info) prev model
                then update_list model) event in
+  let () = list#add_class _class in
   list
 
 let make_info () =
   let _class = Markup.CSS.add_element base_class "info" in
-  let id, id_lbl, set_id =
-    let wdg = new Typography.Text.t ~text:"" () in
-    let lbl = new Typography.Text.t ~text:"Service ID:" () in
-    let set = fun x -> wdg#set_text @@ Printf.sprintf "%d" x in
-    wdg, lbl, set in
-  let pmt, pmt_lbl, set_pmt =
-    let wdg = new Typography.Text.t ~text:"" () in
-    let lbl = new Typography.Text.t ~text:"PMT PID:" () in
-    let set = fun x -> wdg#set_text @@ Printf.sprintf "%d" x in
-    wdg, lbl, set in
-  let pcr, pcr_lbl, set_pcr =
-    let wdg = new Typography.Text.t ~text:"" () in
-    let lbl = new Typography.Text.t ~text:"PCR PID:" () in
-    let set = fun x -> wdg#set_text @@ Printf.sprintf "%d" x in
-    wdg, lbl, set in
-  let to_row wdg lbl =
-    let row_class  = Markup.CSS.add_element base_class "info-row" in
-    let cell_class = Markup.CSS.add_element base_class "info-cell" in
-    let box = new Hbox.t ~widgets:[ lbl; wdg ] () in
-    box#add_class row_class;
-    wdg#add_class cell_class;
-    lbl#add_class cell_class;
-    box in
-  let box = new Vbox.t ~widgets:[ to_row id id_lbl
-                                ; to_row pmt pmt_lbl
-                                ; to_row pcr pcr_lbl ] () in
-  box#add_class _class;
+  let id, set_id =
+    let meta = new Typography.Text.t ~text:"" () in
+    let item = new Item_list.Item.t ~text:"Service ID" ~meta () in
+    item, fun x -> meta#set_text @@ string_of_int x in
+  let pmt, set_pmt =
+    let meta = new Typography.Text.t ~text:"" () in
+    let item = new Item_list.Item.t ~text:"PMT PID" ~meta () in
+    item, fun x -> meta#set_text @@ string_of_int x in
+  let pcr, set_pcr =
+    let meta = new Typography.Text.t ~text:"" () in
+    let item = new Item_list.Item.t ~text:"PCR PID" ~meta () in
+    item, fun x -> meta#set_text @@ string_of_int x in
+  let _class = Markup.CSS.add_element base_class "info" in
+  let list =
+    new Item_list.t
+      ~dense:true
+      ~non_interactive:true
+      ~items:[ `Item (id ~value:())
+             ; `Item (pmt ~value:())
+             ; `Item (pcr ~value:()) ] () in
+  let box = Widget.create_div () in
+  let ()  = box#append_child list in
+  let ()  = box#add_class _class in
   box, fun (x:service_info) ->
        set_id x.id;
        set_pmt x.pmt_pid;

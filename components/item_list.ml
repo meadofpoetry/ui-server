@@ -86,6 +86,7 @@ end
 class ['a] t ?avatar
         ?(selection:selection option)
         ?two_line
+        ?(non_interactive=false)
         ?(dense=false)
         ~(items:[ `Item of 'a Item.t | `Divider of Divider.t ] list) () =
   let two_line = match two_line with
@@ -114,6 +115,12 @@ class ['a] t ?avatar
     method items  = List.filter_map (function
                         | `Item i -> Some i
                         | _       -> None) _items
+
+
+    method non_interactive : bool =
+      self#has_class Markup.non_interactive_class
+    method set_non_interactive (x:bool) : unit =
+      self#add_or_remove_class x Markup.non_interactive_class
 
     method active : 'a Item.t option =
       React.S.value s_active
@@ -171,6 +178,7 @@ class ['a] t ?avatar
       | Some _ | None  -> ()
 
     initializer
+      self#set_non_interactive non_interactive;
       self#set_dense dense
   end
 
