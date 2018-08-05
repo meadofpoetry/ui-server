@@ -20,28 +20,11 @@ module Make(Xml : Xml_sigs.NoWrap)
 
   module SVG = struct
 
-    module Path = struct
-
-      include Icon_svg
-
-      type t =
-        | Tv | Chevron_down | Chevron_up | Lock | Clock_outline | Download
-        | Auto_fix
-
-      let to_string = function
-        | Auto_fix      -> Action.auto_fix
-        | Download      -> Action.download
-        | Tv            -> tv
-        | Chevron_down  -> Navigation.chevron_down
-        | Chevron_up    -> Navigation.chevron_up
-        | Lock          -> lock
-        | Clock_outline -> clock_outline
-
-    end
+    module Path = Svg_icons
 
     let create_path ?(classes=[]) ?attrs ?fill d () =
       Svg.path ~a:([ Svg.a_class classes
-                   ; Svg.a_d (Path.to_string d) ]
+                   ; Svg.a_d d ]
                    |> map_cons_option (fun x -> Svg.a_fill @@ `Color (x, None))
                         fill
                    <@> attrs) []

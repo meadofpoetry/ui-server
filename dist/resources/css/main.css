@@ -432,7 +432,7 @@
     display: inline-flex;
     flex-direction: column;
     box-sizing: border-box;
-    width: 240px;
+    width: 280px;
     overflow: hidden;
     touch-action: none;
     height: 100%; }
@@ -464,7 +464,7 @@
   .mdc-drawer__drawer {
     transition: transform 0.225s 0ms cubic-bezier(0, 0, 0.2, 1); }
   .mdc-drawer--custom.mdc-drawer--open {
-    width: 240px;
+    width: 280px;
     pointer-events: auto; }
     .mdc-drawer--custom.mdc-drawer--open .mdc-drawer__drawer {
       transform: none; }
@@ -564,7 +564,7 @@
       flex-direction: column;
       box-sizing: border-box;
       width: 100%;
-      max-width: 240px;
+      max-width: 280px;
       overflow: hidden;
       touch-action: none; }
       [dir="rtl"] .mdc-drawer--custom .mdc-drawer__drawer, .mdc-drawer--custom .mdc-drawer__drawer[dir="rtl"] {
@@ -695,13 +695,13 @@
 /* Table dump widget */
 .qos-niit-tables {
   min-height: 700px;
-  padding: 1rem;
   align-items: stretch;
   /* @alternate */
   background-color: #fff;
   background-color: var(--mdc-theme-background, #fff); }
 
 .qos-niit-tables__list {
+  padding: 1rem;
   border-right: 1px solid;
   border-color: rgba(0, 0, 0, 0.12);
   width: 100%;
@@ -728,7 +728,7 @@
 
 .qos-niit-tables__dump {
   width: 100%;
-  padding: 10px;
+  padding: 1rem;
   overflow: hidden; }
   .qos-niit-tables__dump .qos-niit-hexdump, .qos-niit-tables__dump .qos-niit-parsed {
     min-height: 200px; }
@@ -748,7 +748,7 @@
     text-decoration: inherit;
     text-transform: inherit;
     align-items: center;
-    margin-bottom: 10px; }
+    padding-bottom: 16px; }
     .qos-niit-tables__dump__header .mdc-button {
       margin-left: 15px;
       flex-shrink: 0; }
@@ -951,8 +951,8 @@ body {
 
 @media (min-width: 1200px) {
   body.hide-sidedrawer #main-toolbar, body.hide-sidedrawer #main-content {
-    left: 240px;
-    width: calc(100% - 240px); } }
+    left: 280px;
+    width: calc(100% - 280px); } }
 #arbitrary-content {
   flex-grow: 2; }
   @media (min-width: 840px) {

@@ -255,15 +255,16 @@ let create ~(init: Wm.t)
   in
   let wc = List.map Widget_item.t_of_layout_item @@ get_free_widgets init.layout init.widgets in
   let s_wc,s_wc_push = React.S.create wc in
-  let s_cc,s_cc_push = React.S.create [({ icon     = "crop_16_9"
-                                        ; name     = "Контейнер"
-                                        ; unique   = false
-                                        ; min_size = None
-                                        ; item     = { position = {left=0;right=0;top=0;bottom=0}
-                                                     ; widgets  = []
-                                                     }
-                                        } : Container_item.t)
-                                      ]
+  let s_cc,s_cc_push =
+    React.S.create [({ icon     = "crop_16_9"
+                     ; name     = "Контейнер"
+                     ; unique   = false
+                     ; min_size = None
+                     ; item     = { position = {left=0;right=0;top=0;bottom=0}
+                                  ; widgets  = []
+                                  }
+                     } : Container_item.t)
+      ]
   in
   let wz_dlg,wz_e,wz_show  = Wm_wizard.to_dialog init in
   let resolution           = init.resolution in

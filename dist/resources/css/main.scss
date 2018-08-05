@@ -68,8 +68,8 @@ body {
 {
     body.hide-sidedrawer {
         #main-toolbar, #main-content {
-            left: 240px;
-            width: calc(100% - 240px);
+            left: $mdc-persistent-drawer-width;
+            width: calc(100% - #{$mdc-persistent-drawer-width});
         }
     }
 }

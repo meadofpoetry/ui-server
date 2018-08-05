@@ -28,7 +28,7 @@ module Service = struct
 
   let make (init:model) =
     let open Printf in
-    let graphic = new Icon.SVG.t ~icon:Tv () in
+    let graphic = Icon.SVG.(new t ~paths:Path.[ new t television () ] ()) in
     let prev    = ref init in
     let leaf, update_primary, update_secondary =
       let to_primary x = x in

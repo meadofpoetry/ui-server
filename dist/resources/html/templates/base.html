@@ -74,22 +74,37 @@
               {{#simple}}
               <div class="mdc-tree">
                   <a href="{{href}}" class="mdc-list-item">
+                      {{#icon}}
+                      <div class="mdc-list-item__graphic">
+                          {{{value}}}
+                      </div>
+                      {{/icon}}
                       {{title}}
                   </a>
               </div>
               {{/simple}}
               {{^simple}}
               <div class="mdc-tree mdc-tree__item">
-                   <div class="mdc-list-item">
-                       {{title}}
-                       <i class="material-icons mdc-icon mdc-list-item__meta dropdown">
-                           arrow_drop_down
-                       </i>
-                   </div>
+                  <div class="mdc-list-item">
+                      {{#icon}}
+                      <div class="mdc-list-item__graphic">
+                          {{{value}}}
+                      </div>
+                      {{/icon}}
+                      {{title}}
+                      <i class="material-icons mdc-icon mdc-list-item__meta dropdown">
+                          arrow_drop_down
+                      </i>
+                  </div>
                    <div class="mdc-tree__list">
                    {{#subtree}}
                        <a href="{{href}}" class="mdc-list-item">
-                              {{title}}
+                           {{#icon}}
+                           <div class="mdc-list-item__graphic">
+                               {{{value}}}
+                           </div>
+                           {{/icon}}
+                           {{title}}
                        </a>
                    {{/subtree}}
                    </div>

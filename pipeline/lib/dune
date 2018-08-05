@@ -6,7 +6,7 @@
   (synopsis   "pipeline implementation")
   (libraries   containers yojson caqti-lwt angstrom logs.lwt
                lwt zmq-lwt lwt_react websocket-lwt.cohttp
-               api storage common process)
+               api storage common process components_markup)
   (flags          (:standard -short-paths -strict-sequence -bin-annot
                    -w A+1..49+60-4-7-8-23-27-33-39-40-41-42-44-45-48))
   (ocamlopt_flags (:standard -O3 -unbox-closures))

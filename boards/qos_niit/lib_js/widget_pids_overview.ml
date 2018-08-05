@@ -19,11 +19,11 @@ let to_pid_extra (has_pcr:bool) (is_scrambled:bool) =
   let pcr = match has_pcr with
     | false -> None
     | true  ->
-       Some (new Icon.SVG.t ~icon:Icon.Markup.SVG.Path.Clock_outline ()) in
+       Some Icon.SVG.(new t ~paths:Path.[ new t clock_outline () ] ()) in
   let scr = match is_scrambled with
     | false -> None
     | true  ->
-       Some (new Icon.SVG.t ~icon:Icon.Markup.SVG.Path.Lock ()) in
+       Some Icon.SVG.(new t ~paths:Path.[ new t lock () ] ()) in
   let widgets = List.(cons_maybe pcr (cons_maybe scr [])) in
   new Hbox.t ~widgets ()
 

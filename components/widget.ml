@@ -36,6 +36,9 @@ class t (elt:#Dom_html.element Js.t) () = object(self)
 
   method root   : Dom_html.element Js.t = (elt :> Dom_html.element Js.t)
   method node   : Dom.node Js.t = (elt :> Dom.node Js.t)
+  method markup : Tyxml_js.Xml.elt =
+    Tyxml_js.Of_dom.of_element self#root
+    |> Tyxml_js.Html.toelt
   method widget : t = (self :> t)
 
   method set_on_destroy f = _on_destroy <- f

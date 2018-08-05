@@ -270,7 +270,6 @@ let make_dump
   let vsplit = new Vsplit.t parsed hexdump () in
   object(self)
     inherit Vbox.t ~widgets:[ header
-                            ; (new Divider.t ())#widget
                             ; vsplit#widget
                             ; (new Divider.t ())#widget
                             ; options#widget ] ()

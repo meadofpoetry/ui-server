@@ -69,18 +69,22 @@ class t ?(expanded=false)
 
     inherit Widget.t elt ()
 
-    method s_expanded     = s_expanded
+    method s_expanded =
+      s_expanded
 
-    method expanded       = React.S.value s_expanded
-    method set_expanded x = self#add_or_remove_class x Markup.expanded_class;
-                            if not x
-                            then wrapper#style##.display := Js.string "none"
-                            else wrapper#style##.display := Js.string "";
-                            s_expanded_push x
+    method expanded = React.S.value s_expanded
+    method set_expanded x =
+      self#add_or_remove_class x Markup.expanded_class;
+      if not x
+      then wrapper#style##.display := Js.string "none"
+      else wrapper#style##.display := Js.string "";
+      s_expanded_push x
 
-    method elevation       = elevation
-    method set_elevation x = Elevation.remove_elevation self;
-                             self#add_class @@ Elevation.Markup.get_elevation_class x
+    method elevation =
+      elevation
+    method set_elevation x =
+      Elevation.remove_elevation self;
+      self#add_class @@ Elevation.Markup.get_elevation_class x
 
     method title           = title
     method details         = List.map Widget.coerce details

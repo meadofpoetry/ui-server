@@ -6,7 +6,7 @@
 @import "./components/animation/_functions";
 @import "./components/elevation/_mixins";
 
-$mdc-persistent-drawer-width: 240px;
+$mdc-persistent-drawer-width: 280px;
 
 .mdc-drawer--custom {
   @include mdc-drawer-base_;
@@ -173,7 +173,7 @@ $mdc-persistent-drawer-width: 240px;
     flex-direction: column;
     box-sizing: border-box;
     width: 100%;
-    max-width: 240px;
+    max-width: $mdc-persistent-drawer-width;
     overflow: hidden;
     touch-action: none;
   }

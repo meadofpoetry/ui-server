@@ -16,7 +16,6 @@ $fill-tone: mdc-theme-tone($alarm-color);
 
 .qos-niit-tables {
     min-height: 700px;
-    padding: 1rem;
     align-items: stretch;
     @include mdc-theme-prop(background-color, background);
 }
@@ -27,6 +26,7 @@ $fill-tone: mdc-theme-tone($alarm-color);
         @include mdc-theme-prop(color, text-secondary-on-background);
         padding: 10px 16px;
     }
+    padding: 1rem;
     border-right: 1px solid;
     @include mdc-theme-prop-alpha(border-color, $mdc-theme-background, .12);
     width: 100%;
@@ -42,7 +42,7 @@ $fill-tone: mdc-theme-tone($alarm-color);
 
 .qos-niit-tables__dump {
     width: 100%;
-    padding: 10px;
+    padding: 1rem;
     overflow: hidden;
     .qos-niit-hexdump, .qos-niit-parsed {
         min-height: 200px;
@@ -56,7 +56,7 @@ $fill-tone: mdc-theme-tone($alarm-color);
         flex-shrink: 0;
         @include mdc-typography(caption);
         align-items: center;
-        margin-bottom: 10px;
+        padding-bottom: 16px;
         .mdc-button {
             margin-left: 15px;
             flex-shrink: 0;
