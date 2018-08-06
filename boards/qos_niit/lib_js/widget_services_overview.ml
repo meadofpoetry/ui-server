@@ -16,100 +16,34 @@ let settings = None
 
 let base_class = "qos-niit-services-overview"
 
-module Service = struct
-
-  module Id = Int
-
-  type model = service_info [@@deriving eq]
-  type widget = service_info Item_list.Item.t
-
-  let id_of_model = fun (x:model) -> x.id
-  let widget      = fun w -> w#widget
-
-  let make (init:model) =
-    let open Printf in
-    let graphic = Icon.SVG.(new t ~paths:Path.[ new t television () ] ()) in
-    let prev    = ref init in
-    let leaf, update_primary, update_secondary =
-      let to_primary x = x in
-      let to_secondary x = sprintf "ID: %d" x in
-      let w = new Item_list.Item.t
-                ~text:""
-                ~secondary_text:""
-                ~graphic
-                ~value:init () in
-      let v_primary =
-        { get = (fun (x:model) -> x.name)
-        ; eq  = String.equal
-        ; upd = Fun.(w#set_text % to_primary) } in
-      let v_secondary =
-        { get = (fun (x:model) -> x.id)
-        ; eq  = (=)
-        ; upd = (fun id ->
-          let s = to_secondary id in
-          w#set_secondary_text s) } in
-      w, v_primary, v_secondary in
-    let update = fun ?previous (model:model) ->
-      leaf#set_value model;
-      setter ?previous model update_primary;
-      setter ?previous model update_secondary in
-    update init;
-    leaf, fun x -> update ~previous:!prev x
-
-end
-
-module Services =
-  Make_array(struct
-      type widget = service_info Item_list.t
-      module Node = Service
-
-      let root (w:widget) = w#root
-      let append_child (w:widget) (i:Node.widget) =
-        i#listen Widget.Event.click (fun _ _ -> w#set_active i; true)
-        |> ignore;
-        w#append_item i
-      let insert_child_at_idx (w:widget) idx (i:Node.widget) =
-        i#listen Widget.Event.click (fun _ _ -> w#set_active i; true)
-        |> ignore;
-        w#insert_item_at_idx idx i
-      let remove_child (w:widget) (i:Node.widget) =
-        w#remove_item i
-      let make nodes =
-        let items = List.map (fun x -> let w, _ = Node.make x in
-                                       `Item w) nodes in
-        let tree  = new Item_list.t ~two_line:true ~items () in
-        let ()    = tree#set_dense true in
-        tree, fun _ -> ()
-    end)
-
-let make_list (init:service_info list)
-      (event:service_info list React.event) =
-  let _class = Markup.CSS.add_element base_class "list" in
-  let event =
-    React.S.diff (fun n o -> o, n)
-    @@ React.S.hold ~eq:(Equal.list equal_service_info) init event in
-  let list, update_list = Services.make init in
-  let _e = React.E.map (fun (prev, model) ->
-               if not @@ (Equal.list equal_service_info) prev model
-               then update_list model) event in
-  let () = list#add_class _class in
+let make_menu_list () =
+  let open Item_list in
+  let info = new Item.t ~value:`Info ~text:"Информация о сервисе" () in
+  let pids = new Item.t ~value:`Pids ~text:"PIDs" () in
+  let list =
+    new t
+      ~dense:true
+      ~items:[ `Item info; `Item pids ] () in
+  list#add_class @@ Components_markup.CSS.add_element base_class "menu";
   list
 
-let make_info () =
-  let _class = Markup.CSS.add_element base_class "info" in
-  let id, set_id =
+let make_list_title title =
+  let text = new Typography.Text.t ~text:title () in
+  text#add_class "mdc-list-title";
+  text
+
+let make_general_info () =
+  let make_item title =
     let meta = new Typography.Text.t ~text:"" () in
-    let item = new Item_list.Item.t ~text:"Service ID" ~meta () in
-    item, fun x -> meta#set_text @@ string_of_int x in
-  let pmt, set_pmt =
-    let meta = new Typography.Text.t ~text:"" () in
-    let item = new Item_list.Item.t ~text:"PMT PID" ~meta () in
-    item, fun x -> meta#set_text @@ string_of_int x in
-  let pcr, set_pcr =
-    let meta = new Typography.Text.t ~text:"" () in
-    let item = new Item_list.Item.t ~text:"PCR PID" ~meta () in
-    item, fun x -> meta#set_text @@ string_of_int x in
-  let _class = Markup.CSS.add_element base_class "info" in
+    let item = new Item_list.Item.t ~text:title ~meta () in
+    item, fun ?(hex=false) x ->
+          let s = match hex with
+            | false -> Printf.sprintf "%04d" x
+            | true  -> Printf.sprintf "0x%04X" x in
+          meta#set_text s in
+  let id, set_id   = make_item "Service ID" in
+  let pmt, set_pmt = make_item "PMT PID" in
+  let pcr, set_pcr = make_item "PCR PID" in
   let list =
     new Item_list.t
       ~dense:true
@@ -117,23 +51,99 @@ let make_info () =
       ~items:[ `Item (id ~value:())
              ; `Item (pmt ~value:())
              ; `Item (pcr ~value:()) ] () in
+  list, fun ?hex (x:service_info) ->
+        set_id  ?hex x.id;
+        set_pmt ?hex x.pmt_pid;
+        set_pcr ?hex x.pcr_pid
+
+let make_sdt_info () =
+  let open Item_list in
+  let ok_class  = Components_markup.CSS.add_modifier "mdc-icon" "ok" in
+  let err_class = Components_markup.CSS.add_modifier "mdc-icon" "error" in
+  let name, set_name =
+    let meta = new Typography.Text.t ~text:"" () in
+    let item = new Item.t ~value:() ~text:"Имя" ~meta () in
+    item, fun x -> meta#set_text x in
+  let prov, set_prov =
+    let meta = new Typography.Text.t ~text:"" () in
+    let item = new Item.t ~value:() ~text:"Провайдер" ~meta () in
+    item, fun x -> meta#set_text x in
+  let typ, set_typ =
+    let meta = new Typography.Text.t ~text:"" () in
+    let item = new Item.t ~value:() ~text:"Тип" ~meta () in
+    item, fun x -> meta#set_text @@ Mpeg_ts.service_type_to_string x in
+  let eit_s, set_eit_s =
+    let meta = Icon.SVG.(create_simple Path.check_circle) in
+    let item = new Item.t ~value:() ~text:"EIT schedule" ~meta () in
+    item, function
+    | true  -> meta#add_class ok_class;
+               meta#path#set Icon.SVG.Path.check_circle
+    | false -> meta#add_class err_class;
+               meta#path#set Icon.SVG.Path.close_circle in
+  let scr, set_scr =
+    let meta = Icon.SVG.(create_simple Path.check_circle) in
+    let item = new Item.t ~value:() ~text:"Скремблирование" ~meta () in
+    item, function
+    | true  -> meta#add_class ok_class;
+               meta#path#set Icon.SVG.Path.check_circle
+    | false -> meta#add_class err_class;
+               meta#path#set Icon.SVG.Path.close_circle in
+  let eit_pf, set_eit_pf =
+    let meta = Icon.SVG.(create_simple Path.check_circle) in
+    let item = new Item.t ~value:() ~text:"EIT P/F" ~meta () in
+    item, function
+    | true  -> meta#add_class ok_class;
+               meta#path#set Icon.SVG.Path.check_circle
+    | false -> meta#add_class err_class;
+               meta#path#set Icon.SVG.Path.close_circle in
+  let running_status, set_running_status =
+    let meta = new Typography.Text.t ~text:"" () in
+    let item = new Item.t ~value:() ~text:"Running status" ~meta () in
+    item, fun x -> meta#set_text @@ Mpeg_ts.running_status_to_string x in
+  let list =
+    new Item_list.t
+      ~dense:true
+      ~non_interactive:true
+      ~items:[ `Item name
+             ; `Item prov
+             ; `Item typ
+             ; `Item eit_s
+             ; `Item scr
+             ; `Item eit_pf
+             ; `Item running_status ]
+      () in
+  list, fun (x:service_info) ->
+        set_name           x.name;
+        set_prov           x.provider_name;
+        set_typ            x.service_type;
+        set_eit_s          x.eit_schedule;
+        set_scr            x.free_ca_mode;
+        set_eit_pf         x.eit_pf;
+        set_running_status x.running_status
+
+let make_info () =
+  let _class = Markup.CSS.add_element base_class "info" in
+  let main, set_main = make_general_info () in
+  let sdt,  set_sdt  = make_sdt_info () in
   let box = Widget.create_div () in
-  let ()  = box#append_child list in
+  let ()  = box#append_child (make_list_title "Общая информация") in
+  let ()  = box#append_child main in
+  let ()  = box#append_child (new Divider.t ()) in
+  let ()  = box#append_child (make_list_title "Информация из SDT") in
+  let ()  = box#append_child sdt in
   let ()  = box#add_class _class in
   box, fun (x:service_info) ->
-       set_id x.id;
-       set_pmt x.pmt_pid;
-       set_pcr x.pcr_pid
+       set_main x;
+       set_sdt x
 
 let make_details (init:service_info list)
       (event:service_info list React.event) =
-  let list = make_list init event in
+  let menu_list = make_menu_list () in
   let info, set_info = make_info () in
-  let _s = React.S.map (function Some x -> set_info x#value
-                               | None   -> ()) list#s_active in
   object
-    inherit Hbox.t ~widgets:[ list#widget; info#widget ] ()
-    method list = list
+    inherit Hbox.t ~widgets:[ menu_list#widget; info#widget ] ()
+    method menu_list  = menu_list
+    method set_info x = set_info x
   end
 
 let get_service_bitrate
@@ -157,7 +167,7 @@ let make_table (init:service_info list)
   let is_hex     = false in
   let hex_id_fmt = Some (Printf.sprintf "0x%04X") in
   let br_fmt     = Table.(Option (Float None, "-")) in
-  let pct_fmt = Table.(Option (Float (Some (Printf.sprintf "%.2f")), "-")) in
+  let pct_fmt    = Table.(Option (Float (Some (Printf.sprintf "%.2f")), "-")) in
   let fmt =
     let open Table in
     let open Format in
@@ -167,10 +177,12 @@ let make_table (init:service_info list)
     :: (to_column "PCR PID", if is_hex then Int hex_id_fmt else Int None)
     :: (to_column "Битрейт, Мбит/с", br_fmt)
     :: (to_column "%", pct_fmt)
-    :: (to_column "Max, Мбит/с", br_fmt)
     :: (to_column "Min, Мбит/с", br_fmt)
+    :: (to_column "Max, Мбит/с", br_fmt)
     :: [] in
   let table   = new Table.t ~dense:true ~fmt () in
+  (* let tab_bar =
+   *   new Tabs.Scroller.t () in *)
   let details = make_details init event in
   let on_change = fun (x:bool) ->
     List.iter (fun row ->
@@ -213,11 +225,12 @@ let make_table (init:service_info list)
         show back; hide hex;
         media#remove_child table;
         media#append_child details;
-        (match List.find_opt (fun i -> equal_service_info i#value x)
-                 details#list#items with
-         | Some item -> details#list#set_active item;
-                        item#root##scrollIntoView Js._true;
-         | None      -> ());
+        details#set_info x;
+        (* (match List.find_opt (fun i -> equal_service_info i#value x)
+         *          details#list#items with
+         *  | Some item -> details#list#set_active item;
+         *                 item#root##scrollIntoView Js._true;
+         *  | None      -> ()); *)
         true) |> ignore in
   let _ =
     React.E.map (fun (bitrate:bitrate) ->

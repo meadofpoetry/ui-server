@@ -25,6 +25,13 @@ $mdc-grid-list-oneline-cap-secondary-height: 48px;
 $mdc-grid-list-twoline-cap-secondary-height: 68px;
 $mdc-grid-list-tile-secondary-icon-size: 24px;
 
+$mdc-grid-list-tile-width: 200px !default;
+$mdc-grid-list-tile-secondary-padding: 16px;
+$mdc-grid-list-tile-secondary-padding-narrow: 8px;
+$mdc-grid-list-oneline-cap-secondary-height: 48px;
+$mdc-grid-list-twoline-cap-secondary-height: 68px;
+$mdc-grid-list-tile-secondary-icon-size: 24px;
+
 @mixin mdc-grid-list-tile-aspect($width-height-ratio) {
   .mdc-grid-tile__primary {
     padding-bottom: calc(100% / #{$width-height-ratio});
@@ -117,7 +124,7 @@ $mdc-grid-list-tile-secondary-icon-size: 24px;
 
 .mdc-grid-tile__secondary {
   @include mdc-theme-prop(background-color, primary);
-  @include mdc-theme-prop(color, text-primary-on-primary);
+  @include mdc-theme-prop(color, on-primary);
 
   position: absolute;
   bottom: 0;
@@ -138,7 +145,7 @@ $mdc-grid-list-tile-secondary-icon-size: 24px;
 }
 
 .mdc-grid-tile__support-text {
-  @include mdc-typography(body1);
+  @include mdc-typography(subtitle1);
   @include mdc-typography-overflow-ellipsis;
 
   display: block;

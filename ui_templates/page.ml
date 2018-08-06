@@ -1,18 +1,15 @@
 open Containers
 open Components
+open Tabs
 
 let main_class    = "main-content"
 let toolbar_class = "main-toolbar"
 let row_id        = "main-toolbar__tabs"
 
 type ('a,'b) page_content =
-  [ `Static  of (#Widget.t as 'a) list
-  | `Dynamic of (unit -> (#Widget.t as 'b)) Tabs.tab list
+  [ `Static  of (#Widget.t as 'b) list
+  | `Dynamic of ('a, (unit -> (#Widget.t as 'b))) Tab.t list
   ]
-
-let remove_children container =
-  Dom.list_of_nodeList @@ container##.childNodes
-  |> List.iter (fun x -> Dom.removeChild container x)
 
 let switch_tab (container:#Dom.node Js.t) (s:#Widget.t option React.signal) =
   let init   = React.S.value s in
@@ -25,21 +22,21 @@ let switch_tab (container:#Dom.node Js.t) (s:#Widget.t option React.signal) =
   load init;
   React.S.diff (fun n o -> unload o; load n) s
 
-let create_toolbar_tabs_row (tabs:(unit -> #Widget.t) Tabs.tab list) =
+let create_toolbar_tabs_row (tabs:('a, (unit -> #Widget.t)) Tab.t list) =
   let open Tabs in
-  let bar  = new Tabs.Scroller.t ~tabs () in
-  let s    = React.S.map (function
-                          | Some x -> Some (x#value ())
-                          | None   -> None) bar#tab_bar#s_active in
+  let bar  = new Tab_bar.t ~align:Start ~tabs () in
+  (* let s    = React.S.map (function
+   *                | Some x -> Some (x#value ())
+   *                | None   -> None) bar#tab_bar#s_active in *)
   let section = new Toolbar.Row.Section.t ~align:`Start ~widgets:[bar] () in
   let row     = new Toolbar.Row.t ~sections:[section] () in
   (* FIXME move to css *)
   let () = (Js.Unsafe.coerce row#style)##.alignItems := Js.string "flex-end" in
   let () = (Js.Unsafe.coerce section#style)##.alignItems := Js.string "flex-end" in
-  let () = (Js.Unsafe.coerce bar#style)##.flexGrow := 1 in
-  let () = bar#set_on_load @@ Some bar#layout in
+  (* let () = (Js.Unsafe.coerce bar#style)##.flexGrow := 1 in *)
+  (* let () = bar#set_on_load @@ Some bar#layout in *)
   let () = row#set_id row_id in
-  row, s
+  row, (* s *) React.S.const None
 
 class t (content:('a,'b) page_content) () =
   let main      = Dom_html.getElementById "main-content" in
@@ -70,7 +67,8 @@ class t (content:('a,'b) page_content) () =
             Dom.removeChild toolbar#root elt
           with _ -> ());
          let _ = switch_tab arbitrary#root s in
-         self#add_class @@ Markup.CSS.add_modifier main_class "dynamic";
+         self#add_class
+         @@ Components_markup.CSS.add_modifier main_class "dynamic";
          Dom.appendChild toolbar#root (Option.get_exn row)#root;
 
     initializer

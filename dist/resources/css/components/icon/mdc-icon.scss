@@ -4,6 +4,7 @@
 .mdc-icon {
 
     /* @include mdc-theme-prop(fill, text-icon-on-background); */
+    fill: currentcolor;
 
     &--button {
         cursor: pointer;

@@ -15,7 +15,7 @@
     }
     &__char, &__hex {
         &--selected {
-            @include mdc-theme-prop(color, text-primary-on-secondary);
+            @include mdc-theme-prop(color, $mdc-theme-on-secondary);
             @include mdc-theme-prop(background-color, secondary);
         }
     }

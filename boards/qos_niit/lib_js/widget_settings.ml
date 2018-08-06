@@ -17,6 +17,7 @@ let make ~(state       : Common.Topology.state React.signal)
       control =
   let t2mi   = Widget_t2mi_settings.make ~state ~streams ~mode:t2mi_mode None control in
   let jitter = Widget_jitter_settings.make ~state ~mode:jitter_mode None control in
-  [ (`Text "T2-MI", t2mi); (`Text "Джиттер", jitter) ]
+  [ new Tab.t ~content:(Text "T2-MI") ~value:t2mi ()
+  ; new Tab.t ~content:(Text "Джиттер") ~value:jitter () ]
   |> Ui_templates.Tabs.create_simple_tabs
   |> Widget.coerce

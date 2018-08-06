@@ -6,61 +6,61 @@
 .topology__board[data-board='TS'] .topology__board__header {
   background-color: #e91e63; }
   .topology__board[data-board='TS'] .topology__board__header .mdc-icon {
-    /* @alternate */
     color: white;
+    /* @alternate */
     color: var(--mdc-theme-text-primary-on-dark, white); }
   .topology__board[data-board='TS'] .topology__board__header .mdc-card__title {
-    /* @alternate */
     color: white;
+    /* @alternate */
     color: var(--mdc-theme-text-primary-on-dark, white); }
   .topology__board[data-board='TS'] .topology__board__header .mdc-card__subtitle {
-    /* @alternate */
     color: rgba(255, 255, 255, 0.7);
+    /* @alternate */
     color: var(--mdc-theme-text-secondary-on-dark, rgba(255, 255, 255, 0.7)); }
 
 .topology__board[data-board='TS2IP'] .topology__board__header {
   background-color: #795548; }
   .topology__board[data-board='TS2IP'] .topology__board__header .mdc-icon {
-    /* @alternate */
     color: white;
+    /* @alternate */
     color: var(--mdc-theme-text-primary-on-dark, white); }
   .topology__board[data-board='TS2IP'] .topology__board__header .mdc-card__title {
-    /* @alternate */
     color: white;
+    /* @alternate */
     color: var(--mdc-theme-text-primary-on-dark, white); }
   .topology__board[data-board='TS2IP'] .topology__board__header .mdc-card__subtitle {
-    /* @alternate */
     color: rgba(255, 255, 255, 0.7);
+    /* @alternate */
     color: var(--mdc-theme-text-secondary-on-dark, rgba(255, 255, 255, 0.7)); }
 
 .topology__board[data-board='IP2TS'] .topology__board__header {
   background-color: #2196f3; }
   .topology__board[data-board='IP2TS'] .topology__board__header .mdc-icon {
-    /* @alternate */
     color: white;
+    /* @alternate */
     color: var(--mdc-theme-text-primary-on-dark, white); }
   .topology__board[data-board='IP2TS'] .topology__board__header .mdc-card__title {
-    /* @alternate */
     color: white;
+    /* @alternate */
     color: var(--mdc-theme-text-primary-on-dark, white); }
   .topology__board[data-board='IP2TS'] .topology__board__header .mdc-card__subtitle {
-    /* @alternate */
     color: rgba(255, 255, 255, 0.7);
+    /* @alternate */
     color: var(--mdc-theme-text-secondary-on-dark, rgba(255, 255, 255, 0.7)); }
 
 .topology__board[data-board='DVB'] .topology__board__header {
   background-color: #512da8; }
   .topology__board[data-board='DVB'] .topology__board__header .mdc-icon {
-    /* @alternate */
     color: white;
+    /* @alternate */
     color: var(--mdc-theme-text-primary-on-dark, white); }
   .topology__board[data-board='DVB'] .topology__board__header .mdc-card__title {
-    /* @alternate */
     color: white;
+    /* @alternate */
     color: var(--mdc-theme-text-primary-on-dark, white); }
   .topology__board[data-board='DVB'] .topology__board__header .mdc-card__subtitle {
-    /* @alternate */
     color: rgba(255, 255, 255, 0.7);
+    /* @alternate */
     color: var(--mdc-theme-text-secondary-on-dark, rgba(255, 255, 255, 0.7)); }
 
 #main-content {
@@ -130,11 +130,11 @@
   user-select: none;
   cursor: initial;
   align-items: center;
-  /* @alternate */
   background-color: #fff;
-  background-color: var(--mdc-theme-background, #fff);
   /* @alternate */
+  background-color: var(--mdc-theme-background, #fff);
   color: rgba(0, 0, 0, 0.87);
+  /* @alternate */
   color: var(--mdc-theme-text-primary-on-background, rgba(0, 0, 0, 0.87)); }
   .topology__input::before {
     opacity: 0 !important; }
@@ -145,8 +145,8 @@
     font-size: 0.95rem;
     white-space: nowrap; }
   .topology__input .mdc-chip__icon {
-    /* @alternate */
     color: rgba(0, 0, 0, 0.38);
+    /* @alternate */
     color: var(--mdc-theme-text-icon-on-background, rgba(0, 0, 0, 0.38)); }
 
 .topology__block {
@@ -154,13 +154,13 @@
   max-width: 250px; }
   .topology__block--fail .topology__block__body {
     background-color: #ef9a9a;
-    /* @alternate */
     color: rgba(0, 0, 0, 0.54);
+    /* @alternate */
     color: var(--mdc-theme-text-secondary-on-light, rgba(0, 0, 0, 0.54)); }
   .topology__block--init .topology__block__body {
     background-color: #bdbdbd;
-    /* @alternate */
     color: rgba(0, 0, 0, 0.54);
+    /* @alternate */
     color: var(--mdc-theme-text-secondary-on-light, rgba(0, 0, 0, 0.54)); }
   .topology__block--fine .topology__block__body {
     background-color: transparent; }
@@ -181,8 +181,8 @@
 .topology__cpu__header {
   background-color: #607d8b; }
   .topology__cpu__header .mdc-card__title, .topology__cpu__header .mdc-icon {
-    /* @alternate */
     color: white;
+    /* @alternate */
     color: var(--mdc-theme-text-primary-on-dark, white); }
 
 /*# sourceMappingURL=topology.css.map */

@@ -580,7 +580,8 @@ module PAT = struct
        ; last_section_number    : 8 : save_offset_to (off)
        ; programs               : bitstring_length bs - off - 8 - 32 : bitstring
        ; crc32                  : 32
-       |} -> { header; transport_stream_id; reserved; version_number; current_next_indicator;
+       |} ->
+       { header; transport_stream_id; reserved; version_number; current_next_indicator;
                section_number; last_section_number; programs = f [] programs; crc32 }
 
 end

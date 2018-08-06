@@ -356,62 +356,74 @@ let linear_progress_demo () =
   sect
 
 let tabs_demo () =
-  let open Components.Tabs in
-  let idx       = new Textfield.t ~input_id:"idx" ~input_type:(Integer (None,None)) ~label:"index" () in
+  let idx       = new Textfield.t
+                    ~input_id:"idx"
+                    ~input_type:(Integer (None,None))
+                    ~label:"index" () in
   let add       = new Button.t ~label:"add" () in
   let remove    = new Button.t ~label:"remove" () in
-  let icon_bar  = [ { content = `Icon ("pets", None)     ; href = Some "#1"; disabled = false; value = () }
-                  ; { content = `Icon ("favorite", None) ; href = Some "#2"; disabled = false; value = () }
-                  ; { content = `Icon ("grade", None)    ; href = Some "#3"; disabled = false; value = () }
-                  ; { content = `Icon ("room", None)     ; href = Some "#4"; disabled = false; value = () }
-                  ] |> (fun tabs -> new Tabs.Tab_bar.t ~tabs ()) in
-  let text_bar  = List.map (fun x -> { content  = `Text ("Tab " ^ (string_of_int x))
-                                     ; href     = None
-                                     ; disabled = if x = 2 then true else false
-                                     ; value    = ()})
-                    (List.range 0 3)
-                  |> (fun tabs -> new Tabs.Tab_bar.t ~tabs ()) in
-  let both_bar  = [ { content = `Text_and_icon ("Tab 0", "pets");     href = None; disabled = false; value = () }
-                  ; { content = `Text_and_icon ("Tab 1", "favorite"); href = None; disabled = false; value = () }
-                  ; { content = `Text_and_icon ("Tab 2", "grade");    href = None; disabled = true ; value = () }
-                  ; { content = `Text_and_icon ("Tab 3", "room");     href = None; disabled = false; value = () }
-                  ] |> (fun tabs -> new Tabs.Tab_bar.t ~tabs ()) in
-  let scrl_bar  = List.map (fun x -> { content = `Text ("Tab " ^ (string_of_int x))
-                                     ; href = None
-                                     ; disabled = false
-                                     ; value = () })
-                    (List.range 0 15)
-                  |> (fun tabs -> new Tabs.Scroller.t ~tabs ()) in
-  React.E.map (fun _ ->
-      let len  = List.length text_bar#tabs in
-      let name = Printf.sprintf "Tab %d" len in
-      match React.S.value idx#s_input with
-      | Some idx -> text_bar#insert_tab_at_index idx { content = `Text name
-                                                     ; href = None
-                                                     ; disabled = false
-                                                     ; value = ()
-                      }
-      | None     -> text_bar#append_tab { content = `Text name; href = None; disabled = false; value = () })
-    add#e_click
-  |> ignore;
-  React.E.map (fun _ ->
-      match React.S.value idx#s_input with
-      | Some idx -> text_bar#remove_tab_at_index idx |> ignore
-      | None     -> ())
-    remove#e_click
-  |> ignore;
-  let section = demo_section "Tabs" [ (subsection "With icon labels" icon_bar)#widget
-                                    ; (subsection "With text labels" text_bar)#widget
-                                    ; idx#widget
-                                    ; add#widget
-                                    ; remove#widget
-                                    ; (subsection "With icon and text labels" both_bar)#widget
-                                    ; (subsection "With scroller" scrl_bar)#widget
-                  ]
-  in
-  let _ = React.S.map (fun x -> if x then (icon_bar#layout (); text_bar#layout ();
-                                           both_bar#layout (); scrl_bar#layout ()))
-            section#s_expanded
+  let icon_bar  =
+    let icon = Icon.SVG.create_simple in
+    [ new Tab.t ~content:(Icon (icon Icon.SVG.Path.paw)) ~value:() ()
+    ; new Tab.t ~content:(Icon (icon Icon.SVG.Path.heart)) ~value:() ()
+    ; new Tab.t ~content:(Icon (icon Icon.SVG.Path.star)) ~value:() ()
+    ; new Tab.t ~content:(Icon (icon Icon.SVG.Path.map_marker)) ~value:() ()
+    ] |> (fun tabs -> new Tab_bar.t ~tabs ()) in
+  let text_bar  =
+    List.map (fun x ->
+        new Tab.t ~content:(Text ("Tab " ^ (string_of_int x))) ~value:() ())
+      (List.range 0 3)
+    |> (fun tabs -> new Tab_bar.t ~tabs ()) in
+  let both_bar  =
+    let icon = Icon.SVG.create_simple in
+    [ new Tab.t ~content:(Both ("Pets", icon Icon.SVG.Path.paw))
+        ~value:() ()
+    ; new Tab.t ~content:(Both ("Favorite", icon Icon.SVG.Path.heart))
+        ~value:() ()
+    ; new Tab.t ~content:(Both ("Starred", icon Icon.SVG.Path.star))
+        ~value:() ()
+    ; new Tab.t ~content:(Both ("GPS", icon Icon.SVG.Path.map_marker))
+        ~value:() ()
+    ] |> (fun tabs -> new Tab_bar.t ~tabs ()) in
+  (* React.E.map (fun _ ->
+   *     let len  = List.length text_bar#tabs in
+   *     let name = Printf.sprintf "Tab %d" len in
+   *     match React.S.value idx#s_input with
+   *     | Some idx ->
+   *        text_bar#insert_tab_at_index idx
+   *          { content  = name
+   *          ; href     = None
+   *          ; disabled = false
+   *          ; value    = ()
+   *          }
+   *     | None ->
+   *        text_bar#append_tab
+   *          { content  = name
+   *          ; href     = None
+   *          ; disabled = false
+   *          ; value    = () })
+   *   add#e_click
+   * |> ignore;
+   * React.E.map (fun _ ->
+   *     match React.S.value idx#s_input with
+   *     | Some idx -> text_bar#remove_tab_at_index idx |> ignore
+   *     | None     -> ())
+   *   remove#e_click
+   * |> ignore; *)
+  let section =
+    demo_section "Tabs"
+      [ (subsection "With icon labels" icon_bar)#widget
+      ; (subsection "With text labels" text_bar)#widget
+      (* ; idx#widget
+       * ; add#widget
+       * ; remove#widget *)
+      ; (subsection "With icon and text labels" both_bar)#widget
+      ] in
+  let _ =
+    React.S.map (fun x ->
+        if x then (icon_bar#layout (); text_bar#layout ();
+                   both_bar#layout ()))
+      section#s_expanded
   in
   section
 

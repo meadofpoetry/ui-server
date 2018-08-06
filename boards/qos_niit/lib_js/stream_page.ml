@@ -85,12 +85,9 @@ let tabs (stream:Stream.t) control =
   | `Ts   -> base
 
 let make_tabs (stream:Stream.t) control =
-  let open Tabs in
   List.map (fun (name, f) ->
-      { content  = `Text name
-      ; disabled = false
-      ; href     = None
-      ; value    = f }) (tabs stream control)
+      new Tab.t ~value:f ~content:(Text name) ())
+    (tabs stream control)
 
 let make (stream:Stream.t) control =
   new Ui_templates.Page.t (`Dynamic (make_tabs stream control)) ()

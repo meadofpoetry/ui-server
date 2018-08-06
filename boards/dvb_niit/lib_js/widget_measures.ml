@@ -22,6 +22,7 @@ let make ~(measures:(int * measures) React.event)
       let config = Some { id = x } in
       let name   = Printf.sprintf "Модуль %d" @@ succ x in
       let w      = make ~measures config in
-      `Text name, w) @@ List.sort compare ids
+      new Tab.t ~content:(Text name) ~value:w ())
+  @@ List.sort compare ids
   |> Ui_templates.Tabs.create_simple_tabs
   |> Widget.coerce

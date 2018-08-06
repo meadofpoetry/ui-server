@@ -108,7 +108,6 @@ $wm-placeholder-color: text-secondary-on-background;
 
         .mdc-icon {
             @include mdc-theme-prop(color,text-secondary-on-background);
-            @include mdc-theme-prop(fill,text-secondary-on-background);
             padding: 12px;
         }
     }
@@ -169,13 +168,13 @@ $wm-placeholder-color: text-secondary-on-background;
 
     .mdc-dynamic-grid__item--selected {
         .wm-layer-item {
-            @include mdc-theme-prop(color,text-primary-on-primary);
+            @include mdc-theme-prop(color,$mdc-theme-on-primary);
             @include mdc-theme-prop(background-color,primary);
             &__drag-handle {
-                @include mdc-theme-prop(color,text-primary-on-primary);
+                @include mdc-theme-prop(color,$mdc-theme-on-primary);
             }
             &__visibility {
-                @include mdc-theme-prop(color,text-primary-on-primary);
+                @include mdc-theme-prop(color,$mdc-theme-on-primary);
             }
         }
     }
@@ -184,13 +183,11 @@ $wm-placeholder-color: text-secondary-on-background;
 .wm-layers-actions {
     .mdc-icon {
         @include mdc-theme-prop(color,text-secondary-on-light);
-        @include mdc-theme-prop(fill,text-secondary-on-background);
         transition: color 150ms $mdc-animation-standard-curve-timing-function;
     }
     .mdc-icon--disabled {
         cursor: default;
         @include mdc-theme-prop(color,text-disabled-on-light);
-        @include mdc-theme-prop(fill,text-disabled-on-light);
     }
 }
 

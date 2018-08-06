@@ -46,6 +46,7 @@ $mdc-persistent-drawer-width: 280px;
   }
 
   .mdc-drawer__panel {
+      @include mdc-theme-prop(color, $mdc-theme-on-primary);
       @include mdc-typography(body1);
 
       -webkit-user-select: none;
@@ -101,7 +102,8 @@ $mdc-persistent-drawer-width: 280px;
         }
 
         .mdc-icon {
-            width: 72px;
+            @include mdc-theme-prop(color, text-icon-on-background);
+            margin-right: 32px;
         }
     }
   }

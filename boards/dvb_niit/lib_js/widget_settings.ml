@@ -17,8 +17,11 @@ let make ~(state:  Common.Topology.state React.signal)
          control =
   let conf = Option.get_or ~default:default_config conf in
   let ids  = match conf.ids with Some x -> x | None -> List.map fst @@ React.S.value config in
-  List.map (fun id -> `Text (Printf.sprintf "Модуль %d" (succ id)),
-                      (Widget_module_settings.make ~state ~config (Some {id}) control))
+  List.map (fun id ->
+      let open Widget_module_settings in
+      let name  = Printf.sprintf "Модуль %d" (succ id) in
+      let value = make ~state ~config (Some {id}) control in
+      new Tab.t ~value ~content:(Text name) ())
   @@ List.sort compare ids
   |> Ui_templates.Tabs.create_simple_tabs
   |> Widget.coerce

@@ -31,7 +31,11 @@
 @import "./snackbar/mdc-snackbar";
 @import "./switch/mdc-switch";
 @import './table/mdc-data-table';
-@import "./tabs/mdc-tabs";
+@import "./tab/mdc-tab";
+@import "./tab-indicator/mdc-tab-indicator";
+@import "./tab-scroller/mdc-tab-scroller";
+@import "./tab-bar/mdc-tab-bar";
+// @import "./tabs/mdc-tabs";
 @import "./textfield/mdc-text-field";
 @import "./theme/mdc-theme";
 @import "./toolbar/mdc-toolbar";

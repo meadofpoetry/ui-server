@@ -53,10 +53,13 @@ class t (elt:#Dom_html.element Js.t) () = object(self)
   method get_child_element_by_class x = Js.Opt.to_option @@ self#root##querySelector (Js.string ("." ^ x))
   method get_child_element_by_id    x = Js.Opt.to_option @@ self#root##querySelector (Js.string ("#" ^ x))
 
-  method get_attribute a    = self#root##getAttribute (Js.string a) |> Js.Opt.to_option |> Option.map Js.to_string
+  method get_attribute a    = self#root##getAttribute (Js.string a)
+                              |> Js.Opt.to_option
+                              |> Option.map Js.to_string
   method set_attribute a v  = self#root##setAttribute (Js.string a) (Js.string v)
   method remove_attribute a = self#root##removeAttribute (Js.string a)
   method has_attribute a    = self#root##hasAttribute (Js.string a)
+                              |> Js.to_bool
 
   method inner_html       = Js.to_string self#root##.innerHTML
   method outer_html       = Js.to_string self#root##.outerHTML

@@ -1,4 +1,20 @@
 /**
+  * @license
+  * Copyright 2018 Google Inc. All Rights Reserved.
+  *
+  * Licensed under the Apache License, Version 2.0 (the "License")
+  * you may not use this file except in compliance with the License.
+  * You may obtain a copy of the License at
+  *
+  *      http://www.apache.org/licenses/LICENSE-2.0
+  *
+  * Unless required by applicable law or agreed to in writing, software
+  * distributed under the License is distributed on an "AS IS" BASIS,
+  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  * See the License for the specific language governing permissions and
+  * limitations under the License.
+*/
+/**
  * Creates a rule that will be applied when an MDC Web component is within the context of an RTL layout.
  *
  * Usage Example:
@@ -330,8 +346,8 @@
  * ```
  */
 #navigation .mdc-icon {
-  /* @alternate */
   fill: rgba(0, 0, 0, 0.38);
+  /* @alternate */
   fill: var(--mdc-theme-text-icon-on-background, rgba(0, 0, 0, 0.38)); }
 
 .mdc-drawer--custom {
@@ -403,6 +419,7 @@
     padding: 0;
     width: 100%; }
   .mdc-drawer--custom .mdc-drawer__panel {
+    color: #fff;
     font-family: Roboto, sans-serif;
     -moz-osx-font-smoothing: grayscale;
     -webkit-font-smoothing: antialiased;
@@ -462,7 +479,10 @@
         transition: all 0.225s;
         overflow: hidden; }
       .mdc-drawer--custom .mdc-drawer__drawer .mdc-drawer__wrapper .mdc-icon {
-        width: 72px; }
+        color: rgba(0, 0, 0, 0.38);
+        /* @alternate */
+        color: var(--mdc-theme-text-icon-on-background, rgba(0, 0, 0, 0.38));
+        margin-right: 32px; }
   .mdc-drawer--custom.mdc-drawer--animating .mdc-drawer__drawer {
     transition: transform 0.195s 0ms cubic-bezier(0.4, 0, 0.6, 1); }
   .mdc-drawer--custom.mdc-drawer--animating.mdc-drawer--open
@@ -625,13 +645,13 @@
   .mdc-placeholder__text {
     margin-top: 10px;
     text-align: center;
-    /* @alternate */
     color: rgba(0, 0, 0, 0.54);
+    /* @alternate */
     color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54)); }
 
 .mdc-placeholder--icon .mdc-placeholder__widget {
-  /* @alternate */
   color: rgba(0, 0, 0, 0.54);
+  /* @alternate */
   color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54)); }
 
 .mdc-placeholder--error .mdc-placeholder__widget {
@@ -664,8 +684,8 @@
     width: 40px;
     font-size: 40px; }
     .mdc-loader .mdc-placeholder__widget svg circle {
-      /* @alternate */
       stroke: #6200ee;
+      /* @alternate */
       stroke: var(--mdc-theme-primary, #6200ee); }
 
 .mdc-absolute-fab, .mdc-fixed-fab {
@@ -697,12 +717,27 @@
 .dvb-niit-module-settings .mdc-select {
   margin-top: 16px; }
 
+.mdc-list-title {
+  font-family: Roboto, sans-serif;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased;
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+  font-weight: 400;
+  letter-spacing: 0.0333333333em;
+  text-decoration: inherit;
+  text-transform: inherit;
+  color: rgba(0, 0, 0, 0.54);
+  /* @alternate */
+  color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54));
+  padding: 10px 16px; }
+
 /* Table dump widget */
 .qos-niit-tables {
   min-height: 700px;
   align-items: stretch;
-  /* @alternate */
   background-color: #fff;
+  /* @alternate */
   background-color: var(--mdc-theme-background, #fff); }
 
 .qos-niit-tables__list {
@@ -724,8 +759,8 @@
     letter-spacing: 0.0333333333em;
     text-decoration: inherit;
     text-transform: inherit;
-    /* @alternate */
     color: rgba(0, 0, 0, 0.54);
+    /* @alternate */
     color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54));
     padding: 10px 16px; }
   .qos-niit-tables__list .mdc-list-item {
@@ -789,8 +824,8 @@
 .qos-niit-table-overview__back, .qos-niit-services-overview__back {
   cursor: pointer; }
   .qos-niit-table-overview__back .mdc-icon, .qos-niit-services-overview__back .mdc-icon {
-    /* @alternate */
     color: rgba(0, 0, 0, 0.38);
+    /* @alternate */
     color: var(--mdc-theme-text-icon-on-background, rgba(0, 0, 0, 0.38)); }
   .qos-niit-table-overview__back .mdc-typography, .qos-niit-services-overview__back .mdc-typography {
     padding-left: 4px; }
@@ -812,24 +847,32 @@
   cursor: pointer; }
 
 /* Services overview widget */
-.qos-niit-services-overview__list {
+.qos-niit-services-overview__menu {
   flex-grow: 1;
   border-right: 1px solid;
   border-color: rgba(0, 0, 0, 0.12);
   max-width: 350px; }
-  .qos-niit-services-overview__list .mdc-list-item {
+  .qos-niit-services-overview__menu .mdc-list-item {
     cursor: pointer; }
 .qos-niit-services-overview__info {
+  padding: 1rem;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
   flex-grow: 1; }
   .qos-niit-services-overview__info .mdc-list {
-    flex-grow: 1;
     max-width: 350px; }
-  .qos-niit-services-overview__info .mdc-list-item__meta {
+  .qos-niit-services-overview__info .mdc-list ~ hr {
+    max-width: 350px; }
+  .qos-niit-services-overview__info .mdc-list-item__meta.mdc-icon--ok {
+    color: #4caf50; }
+  .qos-niit-services-overview__info .mdc-list-item__meta.mdc-icon--error {
+    color: #f44336; }
+  .qos-niit-services-overview__info .mdc-list-item__meta.mdc-typography {
     font-size: 0.9em;
-    /* @alternate */
     color: rgba(0, 0, 0, 0.87);
+    /* @alternate */
     color: var(--mdc-theme-text-primary-on-background, rgba(0, 0, 0, 0.87)); }
 
 /* Pids summary widget */
@@ -842,8 +885,8 @@
 
 /* Pids overview widget */
 .qos-niit-pid-overview .mdc-data-table .mdc-icon {
-  /* @alternate */
   fill: rgba(0, 0, 0, 0.38);
+  /* @alternate */
   fill: var(--mdc-theme-text-icon-on-background, rgba(0, 0, 0, 0.38)); }
 .qos-niit-pid-overview .mdc-card__actions {
   justify-content: flex-end; }
@@ -876,8 +919,8 @@
     padding: 1rem; }
   .qos-niit-stream-grid-item--lost {
     background-color: #ffcdd2;
-    /* @alternate */
     color: rgba(0, 0, 0, 0.87);
+    /* @alternate */
     color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87)); }
 
 :root {
@@ -890,7 +933,7 @@ html {
 
 body {
   margin: 0;
-  background-color: #e0e0e0; }
+  background-color: #ececec; }
 
 .material-icons {
   user-select: none; }
@@ -900,23 +943,12 @@ body {
 
 #main-toolbar {
   z-index: 20; }
-  #main-toolbar .mdc-tab-bar__indicator,
-  #main-toolbar .mdc-tab__indicator {
-    /* @alternate */
-    background-color: white;
-    background-color: var(--mdc-theme-text-primary-on-primary, white); }
-  #main-toolbar .mdc-tab {
-    /* @alternate */
-    color: white;
-    color: var(--mdc-theme-text-primary-on-primary, white); }
-    #main-toolbar .mdc-tab .mdc-tab__icon {
-      /* @alternate */
-      color: white;
-      color: var(--mdc-theme-text-primary-on-primary, white); }
-  #main-toolbar .mdc-tab-bar-scroller__indicator {
-    /* @alternate */
-    color: white;
-    color: var(--mdc-theme-text-primary-on-primary, white); }
+  #main-toolbar .mdc-tab__text-label {
+    color: #fff; }
+  #main-toolbar .mdc-tab__icon {
+    color: #fff; }
+  #main-toolbar > .mdc-tab-indicator__content--underline {
+    background-color: #fff; }
   #main-toolbar .mdc-toolbar__title {
     font-weight: 300;
     font-size: 24px; }

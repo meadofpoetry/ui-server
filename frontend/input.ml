@@ -39,7 +39,6 @@ let cpu_to_tabs : string -> (string * (unit -> Widget.t)) list = function
 let append_maybe x l = match x with None -> l | Some x -> l @ x
 
 let tabs () =
-  let open Tabs in
   let input =
     Js.Unsafe.global##.input
     |> Js.to_string
@@ -59,10 +58,8 @@ let tabs () =
         (List.rev @@ board_to_tabs input control typ) @ acc) [] boards
     |> List.rev
     |> append_maybe (Option.map cpu_to_tabs cpu)
-    |> List.map (fun (name,f) -> { content  = `Text name
-                                 ; disabled = false
-                                 ; href     = None
-                                 ; value    = f })
+    |> List.map (fun (name,f) ->
+           new Tab.t ~content:(Text name) ~value:f ())
   in tabs
 
 let () =

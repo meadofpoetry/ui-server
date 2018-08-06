@@ -36,19 +36,24 @@ let make_settings () =
     Lwt_result.return box#widget)
 
 let make ?error_prefix () : (#Widget.t,string) Lwt_result.t =
-  let pgs  = Fun.(Ui_templates.Loader.create_widget_loader ?error_prefix %> Widget.coerce) in
-  let sms  = make_streams () |> Lwt_result.map_err @@ Api_js.Requests.err_to_string in
-  let str  = make_structure () |> Lwt_result.map_err @@ Api_js.Requests.err_to_string in
-  let set  = make_settings () |> Lwt_result.map_err @@ Api_js.Requests.err_to_string in
-  let tabs = Ui_templates.Tabs.create_simple_tabs [ `Text "Выбор потоков", pgs sms
-                                                  ; `Text "Выбор PID", pgs str
-                                                  ; `Text "Настройки анализа", pgs set
-                                                  ]
-  in
-  let fin () = sms >>= (fun w -> w#destroy (); Lwt_result.return ()) |> Lwt.ignore_result;
-               str >>= (fun w -> w#destroy (); Lwt_result.return ()) |> Lwt.ignore_result;
-               set >>= (fun w -> w#destroy (); Lwt_result.return ()) |> Lwt.ignore_result
+  let pgs  = Fun.(Ui_templates.Loader.create_widget_loader ?error_prefix
+                  %> Widget.coerce) in
+  let sms  = make_streams ()
+             |> Lwt_result.map_err @@ Api_js.Requests.err_to_string in
+  let str  = make_structure ()
+             |> Lwt_result.map_err @@ Api_js.Requests.err_to_string in
+  let set  = make_settings ()
+             |> Lwt_result.map_err @@ Api_js.Requests.err_to_string in
+  let tabs =
+    Ui_templates.Tabs.create_simple_tabs
+      [ new Tab.t ~content:(Text "Выбор потоков") ~value:(pgs sms) ()
+      ; new Tab.t ~content:(Text "Выбор PID") ~value:(pgs str) ()
+      ; new Tab.t ~content:(Text "Настройки анализа") ~value:(pgs set) ()
+      ] in
+  let fin () =
+    sms >>= (fun w -> w#destroy (); Lwt_result.return ()) |> Lwt.ignore_result;
+    str >>= (fun w -> w#destroy (); Lwt_result.return ()) |> Lwt.ignore_result;
+    set >>= (fun w -> w#destroy (); Lwt_result.return ()) |> Lwt.ignore_result
   in
   tabs#set_on_destroy @@ Some fin;
-  print_endline "created tabs";
   Lwt_result.return tabs

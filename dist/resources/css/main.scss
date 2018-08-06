@@ -1,5 +1,5 @@
-@import './components/tabs/tab/_mixins';
-@import './components/tabs/tab-bar/_mixins';
+@import './components/tab/_mixins';
+@import './components/tab-indicator/_mixins';
 @import './sidebar_drawer';
 @import './templates/templates';
 @import './pages/boards/dvb_niit';
@@ -25,21 +25,20 @@ html {
 }
 body {
     margin: 0;
-    background-color: #e0e0e0;
+    background-color: #ececec;
 }
 .material-icons { user-select: none; }
 #main-drawer {
     z-index: 21;
 }
 #main-toolbar {
-    @include mdc-tab-bar-indicator-ink-color(text-primary-on-primary);
+    // .mdc-tab {
+    //     @include mdc-tab-fixed-width(120px);
+    // }
+    @include mdc-tab-text-label-color($mdc-theme-on-primary);
+    @include mdc-tab-icon-color($mdc-theme-on-primary);
+    @include mdc-tab-indicator-underline-color($mdc-theme-on-primary);
     z-index: 20;
-    .mdc-tab {
-        @include mdc-tab-ink-color(text-primary-on-primary);
-    }
-    .mdc-tab-bar-scroller__indicator {
-        @include mdc-theme-prop(color, text-primary-on-primary);
-    }
     .mdc-toolbar__title {
         font-weight: 300;
         font-size: 24px;

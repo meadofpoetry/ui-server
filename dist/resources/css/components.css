@@ -113,6 +113,157 @@
  * }
  * ```
  */
+/**
+ * Creates a rule that will be applied when an MDC Web component is within the context of an RTL layout.
+ *
+ * Usage Example:
+ * ```scss
+ * .mdc-foo {
+ *   position: absolute;
+ *   left: 0;
+ *
+ *   @include mdc-rtl {
+ *     left: auto;
+ *     right: 0;
+ *   }
+ *
+ *   &__bar {
+ *     margin-left: 4px;
+ *     @include mdc-rtl(".mdc-foo") {
+ *       margin-left: auto;
+ *       margin-right: 4px;
+ *     }
+ *   }
+ * }
+ *
+ * .mdc-foo--mod {
+ *   padding-left: 4px;
+ *
+ *   @include mdc-rtl {
+ *     padding-left: auto;
+ *     padding-right: 4px;
+ *   }
+ * }
+ * ```
+ *
+ * Note that this works by checking for [dir="rtl"] on an ancestor element. While this will work
+ * in most cases, it will in some cases lead to false negatives, e.g.
+ *
+ * ```html
+ * <html dir="rtl">
+ *   <!-- ... -->
+ *   <div dir="ltr">
+ *     <div class="mdc-foo">Styled incorrectly as RTL!</div>
+ *   </div>
+ * </html>
+ * ```
+ *
+ * In the future, selectors such as :dir (http://mdn.io/:dir) will help us mitigate this.
+ */
+/**
+ * Takes a base box-model property - e.g. margin / border / padding - along with a default
+ * direction and value, and emits rules which apply the value to the
+ * "<base-property>-<default-direction>" property by default, but flips the direction
+ * when within an RTL context.
+ *
+ * For example:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   @include mdc-rtl-reflexive-box(margin, left, 8px);
+ * }
+ * ```
+ * is equivalent to:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   margin-left: 8px;
+ *
+ *   @include mdc-rtl {
+ *     margin-right: 8px;
+ *     margin-left: 0;
+ *   }
+ * }
+ * ```
+ * whereas:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   @include mdc-rtl-reflexive-box(margin, right, 8px);
+ * }
+ * ```
+ * is equivalent to:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   margin-right: 8px;
+ *
+ *   @include mdc-rtl {
+ *     margin-right: 0;
+ *     margin-left: 8px;
+ *   }
+ * }
+ * ```
+ *
+ * You can also pass a 4th optional $root-selector argument which will be forwarded to `mdc-rtl`,
+ * e.g. `@include mdc-rtl-reflexive-box(margin, left, 8px, ".mdc-component")`.
+ *
+ * Note that this function will always zero out the original value in an RTL context. If you're
+ * trying to flip the values, use mdc-rtl-reflexive-property().
+ */
+/**
+ * Takes a base property and emits rules that assign <base-property>-left to <left-value> and
+ * <base-property>-right to <right-value> in a LTR context, and vice versa in a RTL context.
+ * For example:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   @include mdc-rtl-reflexive-property(margin, auto, 12px);
+ * }
+ * ```
+ * is equivalent to:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   margin-left: auto;
+ *   margin-right: 12px;
+ *
+ *   @include mdc-rtl {
+ *     margin-left: 12px;
+ *     margin-right: auto;
+ *   }
+ * }
+ * ```
+ *
+ * A 4th optional $root-selector argument can be given, which will be passed to `mdc-rtl`.
+ */
+/**
+ * Takes an argument specifying a horizontal position property (either "left" or "right") as well
+ * as a value, and applies that value to the specified position in a LTR context, and flips it in a
+ * RTL context. For example:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   @include mdc-rtl-reflexive-position(left, 0);
+ *   position: absolute;
+ * }
+ * ```
+ * is equivalent to:
+ *
+ * ```scss
+ *  .mdc-foo {
+ *    position: absolute;
+ *    left: 0;
+ *    right: initial;
+ *
+ *    @include mdc-rtl {
+ *      right: 0;
+ *      left: initial;
+ *    }
+ *  }
+ * ```
+ * An optional third $root-selector argument may also be given, which is passed to `mdc-rtl`.
+ */
 .mdc-button {
   font-family: Roboto, sans-serif;
   -moz-osx-font-smoothing: grayscale;
@@ -131,15 +282,18 @@
   --mdc-ripple-fg-translate-start: 0;
   -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
   will-change: transform, opacity;
-  display: inline-block;
+  padding: 0 8px 0 8px;
+  display: inline-flex;
   position: relative;
+  align-items: center;
+  justify-content: center;
   box-sizing: border-box;
   min-width: 64px;
   height: 36px;
-  padding: 0 16px;
   border: none;
   outline: none;
-  text-align: center;
+  /* @alternate */
+  line-height: inherit;
   user-select: none;
   -webkit-appearance: none;
   overflow: hidden;
@@ -186,22 +340,20 @@
     cursor: pointer; }
   .mdc-button:disabled {
     background-color: transparent;
-    /* @alternate */
-    color: rgba(0, 0, 0, 0.38);
-    color: var(--mdc-theme-text-disabled-on-light, rgba(0, 0, 0, 0.38));
+    color: rgba(0, 0, 0, 0.37);
     cursor: default;
     pointer-events: none; }
   .mdc-button:not(:disabled) {
     background-color: transparent; }
   .mdc-button:not(:disabled) {
-    /* @alternate */
     color: #6200ee;
+    /* @alternate */
     color: var(--mdc-theme-primary, #6200ee); }
   .mdc-button::before, .mdc-button::after {
-    /* @alternate */
     background-color: #6200ee; }
     @supports not (-ms-ime-align: auto) {
       .mdc-button::before, .mdc-button::after {
+        /* @alternate */
         background-color: var(--mdc-theme-primary, #6200ee); } }
   .mdc-button:hover::before {
     opacity: 0.04; }
@@ -216,61 +368,76 @@
   .mdc-button.mdc-ripple-upgraded {
     --mdc-ripple-fg-opacity: 0.16; }
   .mdc-button .mdc-button__icon {
+    margin-left: 0;
+    margin-right: 8px;
     display: inline-block;
     width: 18px;
     height: 18px;
-    margin-right: 8px;
     font-size: 18px;
-    line-height: inherit;
     vertical-align: top; }
+    [dir="rtl"] .mdc-button .mdc-button__icon, .mdc-button .mdc-button__icon[dir="rtl"] {
+      margin-left: 8px;
+      margin-right: 0; }
+  .mdc-button svg.mdc-button__icon {
+    fill: currentColor; }
 
-.mdc-button--raised:disabled,
-.mdc-button--unelevated:disabled {
-  background-color: rgba(0, 0, 0, 0.12);
-  /* @alternate */
-  color: rgba(0, 0, 0, 0.38);
-  color: var(--mdc-theme-text-disabled-on-light, rgba(0, 0, 0, 0.38)); }
-.mdc-button--raised:not(:disabled),
-.mdc-button--unelevated:not(:disabled) {
-  /* @alternate */
-  background-color: #6200ee; }
-  @supports not (-ms-ime-align: auto) {
-    .mdc-button--raised:not(:disabled),
-    .mdc-button--unelevated:not(:disabled) {
-      background-color: var(--mdc-theme-primary, #6200ee); } }
-.mdc-button--raised:not(:disabled),
-.mdc-button--unelevated:not(:disabled) {
-  /* @alternate */
-  color: white;
-  color: var(--mdc-theme-text-primary-on-primary, white); }
-.mdc-button--raised::before, .mdc-button--raised::after,
-.mdc-button--unelevated::before,
-.mdc-button--unelevated::after {
-  /* @alternate */
-  background-color: white; }
-  @supports not (-ms-ime-align: auto) {
-    .mdc-button--raised::before, .mdc-button--raised::after,
-    .mdc-button--unelevated::before,
-    .mdc-button--unelevated::after {
-      background-color: var(--mdc-theme-text-primary-on-primary, white); } }
-.mdc-button--raised:hover::before,
-.mdc-button--unelevated:hover::before {
-  opacity: 0.08; }
-.mdc-button--raised:not(.mdc-ripple-upgraded):focus::before, .mdc-button--raised.mdc-ripple-upgraded--background-focused::before,
-.mdc-button--unelevated:not(.mdc-ripple-upgraded):focus::before,
-.mdc-button--unelevated.mdc-ripple-upgraded--background-focused::before {
-  transition-duration: 75ms;
-  opacity: 0.24; }
-.mdc-button--raised:not(.mdc-ripple-upgraded)::after,
-.mdc-button--unelevated:not(.mdc-ripple-upgraded)::after {
-  transition: opacity 150ms linear; }
-.mdc-button--raised:not(.mdc-ripple-upgraded):active::after,
-.mdc-button--unelevated:not(.mdc-ripple-upgraded):active::after {
-  transition-duration: 75ms;
-  opacity: 0.32; }
-.mdc-button--raised.mdc-ripple-upgraded,
-.mdc-button--unelevated.mdc-ripple-upgraded {
-  --mdc-ripple-fg-opacity: 0.32; }
+.mdc-button--raised .mdc-button__icon, .mdc-button--unelevated .mdc-button__icon, .mdc-button--outlined .mdc-button__icon {
+  margin-left: -4px;
+  margin-right: 8px; }
+  [dir="rtl"] .mdc-button--raised .mdc-button__icon, .mdc-button--raised .mdc-button__icon[dir="rtl"],
+  [dir="rtl"] .mdc-button--unelevated .mdc-button__icon, .mdc-button--unelevated .mdc-button__icon[dir="rtl"],
+  [dir="rtl"] .mdc-button--outlined .mdc-button__icon, .mdc-button--outlined .mdc-button__icon[dir="rtl"] {
+    margin-left: 8px;
+    margin-right: -4px; }
+
+.mdc-button--raised,
+.mdc-button--unelevated {
+  padding: 0 16px 0 16px; }
+  .mdc-button--raised:disabled,
+  .mdc-button--unelevated:disabled {
+    background-color: rgba(0, 0, 0, 0.12);
+    color: rgba(0, 0, 0, 0.37); }
+  .mdc-button--raised:not(:disabled),
+  .mdc-button--unelevated:not(:disabled) {
+    background-color: #6200ee; }
+    @supports not (-ms-ime-align: auto) {
+      .mdc-button--raised:not(:disabled),
+      .mdc-button--unelevated:not(:disabled) {
+        /* @alternate */
+        background-color: var(--mdc-theme-primary, #6200ee); } }
+  .mdc-button--raised:not(:disabled),
+  .mdc-button--unelevated:not(:disabled) {
+    color: #fff;
+    /* @alternate */
+    color: var(--mdc-theme-on-primary, #fff); }
+  .mdc-button--raised::before, .mdc-button--raised::after,
+  .mdc-button--unelevated::before,
+  .mdc-button--unelevated::after {
+    background-color: #fff; }
+    @supports not (-ms-ime-align: auto) {
+      .mdc-button--raised::before, .mdc-button--raised::after,
+      .mdc-button--unelevated::before,
+      .mdc-button--unelevated::after {
+        /* @alternate */
+        background-color: var(--mdc-theme-on-primary, #fff); } }
+  .mdc-button--raised:hover::before,
+  .mdc-button--unelevated:hover::before {
+    opacity: 0.08; }
+  .mdc-button--raised:not(.mdc-ripple-upgraded):focus::before, .mdc-button--raised.mdc-ripple-upgraded--background-focused::before,
+  .mdc-button--unelevated:not(.mdc-ripple-upgraded):focus::before,
+  .mdc-button--unelevated.mdc-ripple-upgraded--background-focused::before {
+    transition-duration: 75ms;
+    opacity: 0.24; }
+  .mdc-button--raised:not(.mdc-ripple-upgraded)::after,
+  .mdc-button--unelevated:not(.mdc-ripple-upgraded)::after {
+    transition: opacity 150ms linear; }
+  .mdc-button--raised:not(.mdc-ripple-upgraded):active::after,
+  .mdc-button--unelevated:not(.mdc-ripple-upgraded):active::after {
+    transition-duration: 75ms;
+    opacity: 0.32; }
+  .mdc-button--raised.mdc-ripple-upgraded,
+  .mdc-button--unelevated.mdc-ripple-upgraded {
+    --mdc-ripple-fg-opacity: 0.32; }
 
 .mdc-button--raised {
   box-shadow: 0px 3px 1px -2px rgba(0, 0, 0, 0.2), 0px 2px 2px 0px rgba(0, 0, 0, 0.14), 0px 1px 5px 0px rgba(0, 0, 0, 0.12);
@@ -282,33 +449,20 @@
   .mdc-button--raised:disabled {
     box-shadow: 0px 0px 0px 0px rgba(0, 0, 0, 0.2), 0px 0px 0px 0px rgba(0, 0, 0, 0.14), 0px 0px 0px 0px rgba(0, 0, 0, 0.12); }
 
-.mdc-button--stroked {
+.mdc-button--outlined {
   border-style: solid;
-  padding-right: 14px;
-  padding-left: 14px;
-  border-width: 2px;
-  line-height: 32px; }
-  .mdc-button--stroked:disabled {
-    /* @alternate */
-    border-color: rgba(0, 0, 0, 0.38);
-    border-color: var(--mdc-theme-text-disabled-on-light, rgba(0, 0, 0, 0.38)); }
-  .mdc-button--stroked.mdc-button--dense {
-    line-height: 27px; }
-  .mdc-button--stroked.mdc-button--compact {
-    padding-right: 6px;
-    padding-left: 6px; }
-  .mdc-button--stroked:not(:disabled) {
-    /* @alternate */
+  padding: 0 14px 0 14px;
+  border-width: 2px; }
+  .mdc-button--outlined:disabled {
+    border-color: rgba(0, 0, 0, 0.37); }
+  .mdc-button--outlined:not(:disabled) {
     border-color: #6200ee;
+    /* @alternate */
     border-color: var(--mdc-theme-primary, #6200ee); }
-
-.mdc-button--compact {
-  padding: 0 8px; }
 
 .mdc-button--dense {
   height: 32px;
-  font-size: .8125rem;
-  line-height: 32px; }
+  font-size: .8125rem; }
 
 /**
  * The css property used for elevation. In most cases this should not be changed. It is exposed
@@ -491,8 +645,8 @@
  * An optional third $root-selector argument may also be given, which is passed to `mdc-rtl`.
  */
 .mdc-card {
-  /* @alternate */
   background-color: #fff;
+  /* @alternate */
   background-color: var(--mdc-theme-background, #fff);
   border-radius: 2px;
   box-shadow: 0px 3px 1px -2px rgba(0, 0, 0, 0.2), 0px 2px 2px 0px rgba(0, 0, 0, 0.14), 0px 1px 5px 0px rgba(0, 0, 0, 0.12);
@@ -500,9 +654,9 @@
   flex-direction: column;
   box-sizing: border-box; }
 
-.mdc-card--stroked {
+.mdc-card--outlined {
   box-shadow: 0px 0px 0px 0px rgba(0, 0, 0, 0.2), 0px 0px 0px 0px rgba(0, 0, 0, 0.14), 0px 0px 0px 0px rgba(0, 0, 0, 0.12);
-  border: 1px solid #dbdbdb; }
+  border: 1px solid #e0e0e0; }
 
 .mdc-card__primary {
   padding: 1rem; }
@@ -518,8 +672,8 @@
   letter-spacing: 0.03125em;
   text-decoration: inherit;
   text-transform: inherit;
-  /* @alternate */
   color: rgba(0, 0, 0, 0.87);
+  /* @alternate */
   color: var(--mdc-theme-text-primary-on-background, rgba(0, 0, 0, 0.87));
   margin: -.063rem 0; }
   .mdc-card__title--large {
@@ -544,8 +698,8 @@
   letter-spacing: 0.0071428571em;
   text-decoration: inherit;
   text-transform: inherit;
-  /* @alternate */
   color: rgba(0, 0, 0, 0.54);
+  /* @alternate */
   color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54));
   margin: -.063rem 0; }
 
@@ -672,8 +826,8 @@
   box-sizing: border-box; }
 
 .mdc-card__action-icons {
-  /* @alternate */
   color: rgba(0, 0, 0, 0.38);
+  /* @alternate */
   color: var(--mdc-theme-text-icon-on-background, rgba(0, 0, 0, 0.38));
   flex-grow: 1;
   justify-content: flex-end; }
@@ -726,8 +880,8 @@
   padding: 12px; }
 
 .mdc-card__action--icon:not(:disabled) {
-  /* @alternate */
   color: rgba(0, 0, 0, 0.38);
+  /* @alternate */
   color: var(--mdc-theme-text-icon-on-background, rgba(0, 0, 0, 0.38)); }
 
 @keyframes mdc-circular-progress-rotate {
@@ -744,8 +898,8 @@
     stroke-dasharray: 100px, 200px;
     stroke-dashoffset: -120px; } }
 .mdc-circular-progress {
-  /* @alternate */
   color: #6200ee;
+  /* @alternate */
   color: var(--mdc-theme-primary, #6200ee); }
 
 .mdc-circular-progress {
@@ -1023,10 +1177,10 @@
     animation: 150ms mdc-ripple-fg-opacity-out;
     transform: translate(var(--mdc-ripple-fg-translate-end, 0)) scale(var(--mdc-ripple-fg-scale, 1)); }
   .mdc-checkbox::before, .mdc-checkbox::after {
-    /* @alternate */
     background-color: #018786; }
     @supports not (-ms-ime-align: auto) {
       .mdc-checkbox::before, .mdc-checkbox::after {
+        /* @alternate */
         background-color: var(--mdc-theme-secondary, #018786); } }
   .mdc-checkbox:hover::before {
     opacity: 0.04; }
@@ -1061,10 +1215,10 @@
   background-color: white; }
 
 .mdc-checkbox__background::before {
-  /* @alternate */
   background-color: #018786; }
   @supports not (-ms-ime-align: auto) {
     .mdc-checkbox__background::before {
+      /* @alternate */
       background-color: var(--mdc-theme-secondary, #018786); } }
 
 .mdc-checkbox__native-control:enabled:not(:checked):not(:indeterminate) ~ .mdc-checkbox__background {
@@ -1073,11 +1227,11 @@
 
 .mdc-checkbox__native-control:enabled:checked ~ .mdc-checkbox__background,
 .mdc-checkbox__native-control:enabled:indeterminate ~ .mdc-checkbox__background {
-  /* @alternate */
   border-color: #018786;
-  border-color: var(--mdc-theme-secondary, #018786);
   /* @alternate */
+  border-color: var(--mdc-theme-secondary, #018786);
   background-color: #018786;
+  /* @alternate */
   background-color: var(--mdc-theme-secondary, #018786); }
 
 @keyframes mdc-checkbox-fade-in-background-0 {
@@ -1085,20 +1239,20 @@
     border-color: rgba(0, 0, 0, 0.54);
     background-color: transparent; }
   50% {
-    /* @alternate */
     border-color: #018786;
-    border-color: var(--mdc-theme-secondary, #018786);
     /* @alternate */
+    border-color: var(--mdc-theme-secondary, #018786);
     background-color: #018786;
+    /* @alternate */
     background-color: var(--mdc-theme-secondary, #018786); } }
 @keyframes mdc-checkbox-fade-out-background-0 {
   0%,
     80% {
-    /* @alternate */
     border-color: #018786;
-    border-color: var(--mdc-theme-secondary, #018786);
     /* @alternate */
+    border-color: var(--mdc-theme-secondary, #018786);
     background-color: #018786;
+    /* @alternate */
     background-color: var(--mdc-theme-secondary, #018786); }
   100% {
     border-color: rgba(0, 0, 0, 0.54);
@@ -1270,8 +1424,8 @@
   will-change: transform, opacity;
   border-radius: 16px;
   background-color: rgba(0, 0, 0, 0.08);
-  /* @alternate */
   color: rgba(0, 0, 0, 0.87);
+  /* @alternate */
   color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87));
   display: inline-flex;
   position: relative;
@@ -1314,10 +1468,10 @@
     width: var(--mdc-ripple-fg-size, 100%);
     height: var(--mdc-ripple-fg-size, 100%); }
   .mdc-chip::before, .mdc-chip::after {
-    /* @alternate */
     background-color: rgba(0, 0, 0, 0.87); }
     @supports not (-ms-ime-align: auto) {
       .mdc-chip::before, .mdc-chip::after {
+        /* @alternate */
         background-color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87)); } }
   .mdc-chip:hover::before {
     opacity: 0.04; }
@@ -1549,8 +1703,8 @@
   z-index: 31; }
 
 .mdc-dialog__backdrop {
-  /* @alternate */
   background-color: rgba(0, 0, 0, 0.87);
+  /* @alternate */
   background-color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87));
   position: fixed;
   top: 0;
@@ -1564,8 +1718,8 @@
 
 .mdc-dialog__surface {
   box-shadow: 0px 11px 15px -7px rgba(0, 0, 0, 0.2), 0px 24px 38px 3px rgba(0, 0, 0, 0.14), 0px 9px 46px 8px rgba(0, 0, 0, 0.12);
-  /* @alternate */
   background-color: #fff;
+  /* @alternate */
   background-color: var(--mdc-theme-background, #fff);
   display: inline-flex;
   flex-direction: column;
@@ -1602,8 +1756,8 @@
   margin: 0; }
 
 .mdc-dialog__body {
-  /* @alternate */
   color: rgba(0, 0, 0, 0.54);
+  /* @alternate */
   color: var(--mdc-theme-text-secondary-on-light, rgba(0, 0, 0, 0.54));
   font-family: Roboto, sans-serif;
   -moz-osx-font-smoothing: grayscale;
@@ -1646,8 +1800,8 @@
       margin-right: 0; }
 
 .mdc-dialog__action {
-  /* @alternate */
   color: #018786;
+  /* @alternate */
   color: var(--mdc-theme-secondary, #018786); }
 
 @media (max-width: 640px) {
@@ -1711,9 +1865,9 @@
   .mdc-dynamic-grid__item__ghost {
     z-index: 2;
     position: absolute;
-    opacity: 0.5;
-    /* @alternate */
+    opacity: 0.3;
     background-color: #018786;
+    /* @alternate */
     background-color: var(--mdc-theme-secondary, #018786); }
   .mdc-dynamic-grid__item__resize {
     position: absolute;
@@ -1748,8 +1902,8 @@
     top: 0; }
 
 .mdc-expansion-panel {
-  /* @alternate */
   background-color: #fff;
+  /* @alternate */
   background-color: var(--mdc-theme-background, #fff);
   position: relative;
   margin: 0;
@@ -1823,8 +1977,8 @@
         font-size: 0.75rem;
         flex-direction: column; }
     .mdc-expansion-panel__primary .mdc-expansion-panel__summary .mdc-expansion-panel__details {
-      /* @alternate */
       color: rgba(0, 0, 0, 0.54);
+      /* @alternate */
       color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54));
       justify-content: flex-start;
       display: flex;
@@ -1840,8 +1994,8 @@
         padding-right: 16px;
         flex-grow: 2; }
   .mdc-expansion-panel__primary .mdc-expansion-panel__icon {
-    /* @alternate */
     color: rgba(0, 0, 0, 0.38);
+    /* @alternate */
     color: var(--mdc-theme-text-icon-on-background, rgba(0, 0, 0, 0.38));
     outline: none;
     width: 48px;
@@ -3111,6 +3265,157 @@
 /**
  * The default easing value for elevation transitions.
  */
+/**
+ * Creates a rule that will be applied when an MDC Web component is within the context of an RTL layout.
+ *
+ * Usage Example:
+ * ```scss
+ * .mdc-foo {
+ *   position: absolute;
+ *   left: 0;
+ *
+ *   @include mdc-rtl {
+ *     left: auto;
+ *     right: 0;
+ *   }
+ *
+ *   &__bar {
+ *     margin-left: 4px;
+ *     @include mdc-rtl(".mdc-foo") {
+ *       margin-left: auto;
+ *       margin-right: 4px;
+ *     }
+ *   }
+ * }
+ *
+ * .mdc-foo--mod {
+ *   padding-left: 4px;
+ *
+ *   @include mdc-rtl {
+ *     padding-left: auto;
+ *     padding-right: 4px;
+ *   }
+ * }
+ * ```
+ *
+ * Note that this works by checking for [dir="rtl"] on an ancestor element. While this will work
+ * in most cases, it will in some cases lead to false negatives, e.g.
+ *
+ * ```html
+ * <html dir="rtl">
+ *   <!-- ... -->
+ *   <div dir="ltr">
+ *     <div class="mdc-foo">Styled incorrectly as RTL!</div>
+ *   </div>
+ * </html>
+ * ```
+ *
+ * In the future, selectors such as :dir (http://mdn.io/:dir) will help us mitigate this.
+ */
+/**
+ * Takes a base box-model property - e.g. margin / border / padding - along with a default
+ * direction and value, and emits rules which apply the value to the
+ * "<base-property>-<default-direction>" property by default, but flips the direction
+ * when within an RTL context.
+ *
+ * For example:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   @include mdc-rtl-reflexive-box(margin, left, 8px);
+ * }
+ * ```
+ * is equivalent to:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   margin-left: 8px;
+ *
+ *   @include mdc-rtl {
+ *     margin-right: 8px;
+ *     margin-left: 0;
+ *   }
+ * }
+ * ```
+ * whereas:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   @include mdc-rtl-reflexive-box(margin, right, 8px);
+ * }
+ * ```
+ * is equivalent to:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   margin-right: 8px;
+ *
+ *   @include mdc-rtl {
+ *     margin-right: 0;
+ *     margin-left: 8px;
+ *   }
+ * }
+ * ```
+ *
+ * You can also pass a 4th optional $root-selector argument which will be forwarded to `mdc-rtl`,
+ * e.g. `@include mdc-rtl-reflexive-box(margin, left, 8px, ".mdc-component")`.
+ *
+ * Note that this function will always zero out the original value in an RTL context. If you're
+ * trying to flip the values, use mdc-rtl-reflexive-property().
+ */
+/**
+ * Takes a base property and emits rules that assign <base-property>-left to <left-value> and
+ * <base-property>-right to <right-value> in a LTR context, and vice versa in a RTL context.
+ * For example:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   @include mdc-rtl-reflexive-property(margin, auto, 12px);
+ * }
+ * ```
+ * is equivalent to:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   margin-left: auto;
+ *   margin-right: 12px;
+ *
+ *   @include mdc-rtl {
+ *     margin-left: 12px;
+ *     margin-right: auto;
+ *   }
+ * }
+ * ```
+ *
+ * A 4th optional $root-selector argument can be given, which will be passed to `mdc-rtl`.
+ */
+/**
+ * Takes an argument specifying a horizontal position property (either "left" or "right") as well
+ * as a value, and applies that value to the specified position in a LTR context, and flips it in a
+ * RTL context. For example:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   @include mdc-rtl-reflexive-position(left, 0);
+ *   position: absolute;
+ * }
+ * ```
+ * is equivalent to:
+ *
+ * ```scss
+ *  .mdc-foo {
+ *    position: absolute;
+ *    left: 0;
+ *    right: initial;
+ *
+ *    @include mdc-rtl {
+ *      right: 0;
+ *      left: initial;
+ *    }
+ *  }
+ * ```
+ * An optional third $root-selector argument may also be given, which is passed to `mdc-rtl`.
+ */
 .mdc-fab {
   --mdc-ripple-fg-size: 0;
   --mdc-ripple-left: 0;
@@ -3123,6 +3428,7 @@
   box-shadow: 0px 3px 5px -1px rgba(0, 0, 0, 0.2), 0px 6px 10px 0px rgba(0, 0, 0, 0.14), 0px 1px 18px 0px rgba(0, 0, 0, 0.12);
   display: inline-flex;
   position: relative;
+  align-items: center;
   justify-content: center;
   box-sizing: border-box;
   width: 56px;
@@ -3137,11 +3443,10 @@
   -moz-appearance: none;
   -webkit-appearance: none;
   overflow: hidden;
-  /* @alternate */
   background-color: #018786;
+  color: #fff;
   /* @alternate */
-  color: white;
-  color: var(--mdc-theme-text-primary-on-secondary, white); }
+  color: var(--mdc-theme-on-secondary, #fff); }
   .mdc-fab::before, .mdc-fab::after {
     position: absolute;
     border-radius: 50%;
@@ -3185,25 +3490,22 @@
     outline: none; }
   .mdc-fab:hover {
     cursor: pointer; }
-  .mdc-fab:disabled {
-    cursor: default;
-    pointer-events: none;
-    background-color: rgba(0, 0, 0, 0.12);
-    /* @alternate */
-    color: rgba(0, 0, 0, 0.38);
-    color: var(--mdc-theme-text-disabled-on-light, rgba(0, 0, 0, 0.38));
-    box-shadow: 0px 0px 0px 0px rgba(0, 0, 0, 0.2), 0px 0px 0px 0px rgba(0, 0, 0, 0.14), 0px 0px 0px 0px rgba(0, 0, 0, 0.12); }
   .mdc-fab > svg {
     width: 100%; }
   @supports not (-ms-ime-align: auto) {
     .mdc-fab {
+      /* @alternate */
       background-color: var(--mdc-theme-secondary, #018786); } }
+  .mdc-fab .mdc-fab__icon {
+    width: 24px;
+    height: 24px;
+    font-size: 24px; }
   .mdc-fab::before, .mdc-fab::after {
-    /* @alternate */
-    background-color: white; }
+    background-color: #fff; }
     @supports not (-ms-ime-align: auto) {
       .mdc-fab::before, .mdc-fab::after {
-        background-color: var(--mdc-theme-text-primary-on-secondary, white); } }
+        /* @alternate */
+        background-color: var(--mdc-theme-on-secondary, #fff); } }
   .mdc-fab:hover::before {
     opacity: 0.08; }
   .mdc-fab:not(.mdc-ripple-upgraded):focus::before, .mdc-fab.mdc-ripple-upgraded--background-focused::before {
@@ -3221,13 +3523,49 @@
   width: 40px;
   height: 40px; }
 
+.mdc-fab--extended {
+  font-family: Roboto, sans-serif;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased;
+  font-size: 0.875rem;
+  line-height: 2.25rem;
+  font-weight: 500;
+  letter-spacing: 0.0892857143em;
+  text-decoration: none;
+  text-transform: uppercase;
+  padding: 0 20px;
+  width: auto;
+  max-width: 100%;
+  height: 48px;
+  border-radius: 24px; }
+  .mdc-fab--extended .mdc-fab__icon {
+    margin-left: -8px;
+    margin-right: 12px; }
+    [dir="rtl"] .mdc-fab--extended .mdc-fab__icon, .mdc-fab--extended .mdc-fab__icon[dir="rtl"] {
+      margin-left: 12px;
+      margin-right: -8px; }
+  .mdc-fab--extended .mdc-fab__label + .mdc-fab__icon {
+    margin-left: 12px;
+    margin-right: -8px; }
+    [dir="rtl"] .mdc-fab--extended .mdc-fab__label + .mdc-fab__icon, .mdc-fab--extended .mdc-fab__label + .mdc-fab__icon[dir="rtl"] {
+      margin-left: -8px;
+      margin-right: 12px; }
+
+.mdc-fab__label {
+  justify-content: flex-start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden; }
+
 .mdc-fab__icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
   transition: transform 180ms 90ms cubic-bezier(0, 0, 0.2, 1);
+  fill: currentColor;
   will-change: transform; }
+
+.mdc-fab .mdc-fab__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center; }
 
 .mdc-fab--exited {
   transform: scale(0);
@@ -3452,8 +3790,8 @@
   letter-spacing: 0.03125em;
   text-decoration: inherit;
   text-transform: inherit;
-  /* @alternate */
   color: rgba(0, 0, 0, 0.87);
+  /* @alternate */
   color: var(--mdc-theme-text-primary-on-background, rgba(0, 0, 0, 0.87));
   display: inline-flex;
   align-items: center;
@@ -3677,11 +4015,11 @@
   width: var(--mdc-grid-list-tile-width, 200px); }
 
 .mdc-grid-tile__primary {
-  /* @alternate */
   background-color: #fff;
-  background-color: var(--mdc-theme-background, #fff);
   /* @alternate */
+  background-color: var(--mdc-theme-background, #fff);
   color: rgba(0, 0, 0, 0.87);
+  /* @alternate */
   color: var(--mdc-theme-text-primary-on-background, rgba(0, 0, 0, 0.87));
   position: relative;
   height: 0; }
@@ -3699,12 +4037,12 @@
   background-size: cover; }
 
 .mdc-grid-tile__secondary {
-  /* @alternate */
   background-color: #6200ee;
-  background-color: var(--mdc-theme-primary, #6200ee);
   /* @alternate */
-  color: white;
-  color: var(--mdc-theme-text-primary-on-primary, white);
+  background-color: var(--mdc-theme-primary, #6200ee);
+  color: #fff;
+  /* @alternate */
+  color: var(--mdc-theme-on-primary, #fff);
   position: absolute;
   bottom: 0;
   box-sizing: border-box;
@@ -3727,9 +4065,9 @@
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;
   font-size: 1rem;
-  line-height: 1.5rem;
+  line-height: 1.75rem;
   font-weight: 400;
-  letter-spacing: 0.03125em;
+  letter-spacing: 0.009375em;
   text-decoration: inherit;
   text-transform: inherit;
   text-overflow: ellipsis;
@@ -3784,8 +4122,8 @@
   overflow: auto; }
   .mdc-hexdump__block {
     font-family: monospace, monospace;
-    /* @alternate */
     background-color: #fff;
+    /* @alternate */
     background-color: var(--mdc-theme-background, #fff);
     margin: 0;
     padding: 15px;
@@ -3794,11 +4132,9 @@
     font-size: 1.0em;
     line-height: 1.4em; }
   .mdc-hexdump__char--selected, .mdc-hexdump__hex--selected {
-    /* @alternate */
-    color: white;
-    color: var(--mdc-theme-text-primary-on-secondary, white);
-    /* @alternate */
+    color: #fff;
     background-color: #018786;
+    /* @alternate */
     background-color: var(--mdc-theme-secondary, #018786); }
   .mdc-hexdump__hex {
     cursor: pointer; }
@@ -3822,15 +4158,16 @@
   user-select: none; }
 
 .mdc-icon {
-  /* @include mdc-theme-prop(fill, text-icon-on-background); */ }
+  /* @include mdc-theme-prop(fill, text-icon-on-background); */
+  fill: currentcolor; }
   .mdc-icon--button {
     cursor: pointer; }
   .mdc-icon--disabled {
-    /* @alternate */
     color: rgba(0, 0, 0, 0.38);
-    color: var(--mdc-theme-text-disabled-on-light, rgba(0, 0, 0, 0.38));
     /* @alternate */
+    color: var(--mdc-theme-text-disabled-on-light, rgba(0, 0, 0, 0.38));
     fill: rgba(0, 0, 0, 0.38);
+    /* @alternate */
     fill: var(--mdc-theme-text-disabled-on-light, rgba(0, 0, 0, 0.38));
     cursor: default;
     pointer-events: none; }
@@ -3845,8 +4182,8 @@
   --mdc-ripple-fg-translate-start: 0;
   -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
   will-change: transform, opacity;
-  /* @alternate */
   color: rgba(0, 0, 0, 0.87);
+  /* @alternate */
   color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87));
   display: flex;
   position: relative;
@@ -3920,8 +4257,8 @@
     content: ""; }
 
 .mdc-icon-toggle--disabled {
-  /* @alternate */
   color: rgba(0, 0, 0, 0.38);
+  /* @alternate */
   color: var(--mdc-theme-text-disabled-on-light, rgba(0, 0, 0, 0.38));
   pointer-events: none; }
 
@@ -4580,8 +4917,8 @@
     opacity: 0; }
 
 .mdc-linear-progress__bar-inner {
-  /* @alternate */
   background-color: #6200ee;
+  /* @alternate */
   background-color: var(--mdc-theme-primary, #6200ee); }
 
 .mdc-linear-progress__buffering-dots {
@@ -4908,8 +5245,8 @@
   letter-spacing: 0.009375em;
   text-decoration: inherit;
   text-transform: inherit;
-  /* @alternate */
   color: rgba(0, 0, 0, 0.87);
+  /* @alternate */
   color: var(--mdc-theme-text-primary-on-background, rgba(0, 0, 0, 0.87));
   margin: 0;
   padding: 8px 0;
@@ -4917,21 +5254,21 @@
   list-style-type: none; }
 
 .mdc-list-item__secondary-text {
-  /* @alternate */
   color: rgba(0, 0, 0, 0.54);
+  /* @alternate */
   color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54)); }
 
 .mdc-list-item__graphic {
   background-color: transparent; }
 
 .mdc-list-item__graphic {
-  /* @alternate */
   color: rgba(0, 0, 0, 0.38);
+  /* @alternate */
   color: var(--mdc-theme-text-icon-on-background, rgba(0, 0, 0, 0.38)); }
 
 .mdc-list-item__meta {
-  /* @alternate */
   color: rgba(0, 0, 0, 0.38);
+  /* @alternate */
   color: var(--mdc-theme-text-hint-on-background, rgba(0, 0, 0, 0.38)); }
 .mdc-list--dense {
   padding-top: 4px;
@@ -4951,13 +5288,13 @@
 
 .mdc-list-item--selected,
 .mdc-list-item--activated {
-  /* @alternate */
   color: #6200ee;
+  /* @alternate */
   color: var(--mdc-theme-primary, #6200ee); }
   .mdc-list-item--selected .mdc-list-item__graphic,
   .mdc-list-item--activated .mdc-list-item__graphic {
-    /* @alternate */
     color: #6200ee;
+    /* @alternate */
     color: var(--mdc-theme-primary, #6200ee); }
 
 .mdc-list-item__graphic {
@@ -5085,10 +5422,10 @@
   :not(.mdc-list--non-interactive) > .mdc-list-item--activated::before {
     opacity: 0.12; }
   :not(.mdc-list--non-interactive) > .mdc-list-item--activated::before, :not(.mdc-list--non-interactive) > .mdc-list-item--activated::after {
-    /* @alternate */
     background-color: #6200ee; }
     @supports not (-ms-ime-align: auto) {
       :not(.mdc-list--non-interactive) > .mdc-list-item--activated::before, :not(.mdc-list--non-interactive) > .mdc-list-item--activated::after {
+        /* @alternate */
         background-color: var(--mdc-theme-primary, #6200ee); } }
   :not(.mdc-list--non-interactive) > .mdc-list-item--activated:hover::before {
     opacity: 0.16; }
@@ -5105,10 +5442,10 @@
   :not(.mdc-list--non-interactive) > .mdc-list-item--selected::before {
     opacity: 0.04; }
   :not(.mdc-list--non-interactive) > .mdc-list-item--selected::before, :not(.mdc-list--non-interactive) > .mdc-list-item--selected::after {
-    /* @alternate */
     background-color: #6200ee; }
     @supports not (-ms-ime-align: auto) {
       :not(.mdc-list--non-interactive) > .mdc-list-item--selected::before, :not(.mdc-list--non-interactive) > .mdc-list-item--selected::after {
+        /* @alternate */
         background-color: var(--mdc-theme-primary, #6200ee); } }
   :not(.mdc-list--non-interactive) > .mdc-list-item--selected:hover::before {
     opacity: 0.08; }
@@ -5184,8 +5521,8 @@ a.mdc-list-item {
   margin: 0.75rem 16px; }
 
 .mdc-list-group__subheader {
-  /* @alternate */
   color: rgba(0, 0, 0, 0.87);
+  /* @alternate */
   color: var(--mdc-theme-text-primary-on-background, rgba(0, 0, 0, 0.87)); }
 /**
  * The css property used for elevation. In most cases this should not be changed. It is exposed
@@ -5218,8 +5555,8 @@ a.mdc-list-item {
  */
 .mdc-menu {
   box-shadow: 0px 3px 1px -2px rgba(0, 0, 0, 0.2), 0px 2px 2px 0px rgba(0, 0, 0, 0.14), 0px 1px 5px 0px rgba(0, 0, 0, 0.12);
-  /* @alternate */
   background-color: #fff;
+  /* @alternate */
   background-color: var(--mdc-theme-background, #fff);
   display: none;
   position: absolute;
@@ -5290,12 +5627,12 @@ a.mdc-list-item {
     text-decoration: none;
     user-select: none; }
   .mdc-menu .mdc-list-item__graphic {
-    /* @alternate */
     color: rgba(0, 0, 0, 0.54);
+    /* @alternate */
     color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54)); }
   .mdc-menu .mdc-list-item[aria-disabled="true"] {
-    /* @alternate */
     color: rgba(0, 0, 0, 0.38);
+    /* @alternate */
     color: var(--mdc-theme-text-disabled-on-background, rgba(0, 0, 0, 0.38));
     cursor: default;
     pointer-events: none; }
@@ -5325,22 +5662,22 @@ a.mdc-list-item {
   cursor: pointer;
   will-change: opacity, transform, border-color, background-color, color; }
   .mdc-radio .mdc-radio__native-control:enabled:not(:checked) + .mdc-radio__background .mdc-radio__outer-circle {
-    /* @alternate */
     border-color: rgba(0, 0, 0, 0.54);
+    /* @alternate */
     border-color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54)); }
   .mdc-radio .mdc-radio__native-control:enabled:checked + .mdc-radio__background .mdc-radio__outer-circle {
-    /* @alternate */
     border-color: #018786;
+    /* @alternate */
     border-color: var(--mdc-theme-secondary, #018786); }
   .mdc-radio .mdc-radio__native-control:enabled + .mdc-radio__background .mdc-radio__inner-circle {
-    /* @alternate */
     background-color: #018786;
+    /* @alternate */
     background-color: var(--mdc-theme-secondary, #018786); }
   .mdc-radio .mdc-radio__background::before {
-    /* @alternate */
     background-color: #018786; }
     @supports not (-ms-ime-align: auto) {
       .mdc-radio .mdc-radio__background::before {
+        /* @alternate */
         background-color: var(--mdc-theme-secondary, #018786); } }
   .mdc-radio::before, .mdc-radio::after {
     position: absolute;
@@ -5380,10 +5717,10 @@ a.mdc-list-item {
     width: var(--mdc-ripple-fg-size, 100%);
     height: var(--mdc-ripple-fg-size, 100%); }
   .mdc-radio::before, .mdc-radio::after {
-    /* @alternate */
     background-color: #018786; }
     @supports not (-ms-ime-align: auto) {
       .mdc-radio::before, .mdc-radio::after {
+        /* @alternate */
         background-color: var(--mdc-theme-secondary, #018786); } }
   .mdc-radio:hover::before {
     opacity: 0.04; }
@@ -5558,10 +5895,10 @@ a.mdc-list-item {
       width: var(--mdc-ripple-fg-size, 100%);
       height: var(--mdc-ripple-fg-size, 100%); }
   .mdc-ripple-surface--primary::before, .mdc-ripple-surface--primary::after {
-    /* @alternate */
     background-color: #6200ee; }
     @supports not (-ms-ime-align: auto) {
       .mdc-ripple-surface--primary::before, .mdc-ripple-surface--primary::after {
+        /* @alternate */
         background-color: var(--mdc-theme-primary, #6200ee); } }
   .mdc-ripple-surface--primary:hover::before {
     opacity: 0.04; }
@@ -5576,10 +5913,10 @@ a.mdc-list-item {
   .mdc-ripple-surface--primary.mdc-ripple-upgraded {
     --mdc-ripple-fg-opacity: 0.16; }
   .mdc-ripple-surface--accent::before, .mdc-ripple-surface--accent::after {
-    /* @alternate */
     background-color: #018786; }
     @supports not (-ms-ime-align: auto) {
       .mdc-ripple-surface--accent::before, .mdc-ripple-surface--accent::after {
+        /* @alternate */
         background-color: var(--mdc-theme-secondary, #018786); } }
   .mdc-ripple-surface--accent:hover::before {
     opacity: 0.04; }
@@ -5967,20 +6304,20 @@ a.mdc-list-item {
   .mdc-select:not(.mdc-select--disabled) {
     background-color: transparent; }
   .mdc-select:not(.mdc-select--disabled) .mdc-select__native-control {
-    /* @alternate */
     color: rgba(0, 0, 0, 0.87);
+    /* @alternate */
     color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87)); }
   .mdc-select:not(.mdc-select--disabled) .mdc-select__label {
     color: rgba(0, 0, 0, 0.6); }
   .mdc-select:not(.mdc-select--disabled) .mdc-select__bottom-line {
     background-color: rgba(0, 0, 0, 0.5); }
   .mdc-select:not(.mdc-select--disabled) .mdc-select__native-control:focus ~ .mdc-select__bottom-line {
-    /* @alternate */
     background-color: #6200ee;
+    /* @alternate */
     background-color: var(--mdc-theme-primary, #6200ee); }
   .mdc-select:not(.mdc-select--disabled) .mdc-select__bottom-line::after {
-    /* @alternate */
     background-color: #6200ee;
+    /* @alternate */
     background-color: var(--mdc-theme-primary, #6200ee); }
   .mdc-select:not(.mdc-select--disabled) .mdc-select__native-control:focus ~ .mdc-select__label {
     color: rgba(98, 0, 238, 0.87); }
@@ -6067,10 +6404,10 @@ a.mdc-list-item {
     width: var(--mdc-ripple-fg-size, 100%);
     height: var(--mdc-ripple-fg-size, 100%); }
   .mdc-select--box::before, .mdc-select--box::after {
-    /* @alternate */
     background-color: rgba(0, 0, 0, 0.87); }
     @supports not (-ms-ime-align: auto) {
       .mdc-select--box::before, .mdc-select--box::after {
+        /* @alternate */
         background-color: var(--mdc-theme-text-primary-on-background, rgba(0, 0, 0, 0.87)); } }
   .mdc-select--box:hover::before {
     opacity: mdc-states-opacity(text-primary-on-background, hover); }
@@ -6288,34 +6625,34 @@ a.mdc-list-item {
   touch-action: pan-x;
   -webkit-tap-highlight-color: rgba(0, 0, 0, 0); }
   .mdc-slider:not(.mdc-slider--disabled) .mdc-slider__track {
-    /* @alternate */
     background-color: #018786;
+    /* @alternate */
     background-color: var(--mdc-theme-secondary, #018786); }
   .mdc-slider:not(.mdc-slider--disabled) .mdc-slider__track-container {
     background-color: rgba(1, 135, 134, 0.26); }
   .mdc-slider:not(.mdc-slider--disabled) .mdc-slider__track-marker::after,
   .mdc-slider:not(.mdc-slider--disabled) .mdc-slider__track-marker-container::after {
-    /* @alternate */
     background-color: #018786;
+    /* @alternate */
     background-color: var(--mdc-theme-secondary, #018786); }
   .mdc-slider:not(.mdc-slider--disabled) .mdc-slider__thumb {
-    /* @alternate */
     fill: #018786;
-    fill: var(--mdc-theme-secondary, #018786);
     /* @alternate */
+    fill: var(--mdc-theme-secondary, #018786);
     stroke: #018786;
+    /* @alternate */
     stroke: var(--mdc-theme-secondary, #018786); }
   .mdc-slider:not(.mdc-slider--disabled) .mdc-slider__focus-ring {
-    /* @alternate */
     background-color: #018786;
+    /* @alternate */
     background-color: var(--mdc-theme-secondary, #018786); }
   .mdc-slider:not(.mdc-slider--disabled) .mdc-slider__pin {
-    /* @alternate */
     background-color: #018786;
+    /* @alternate */
     background-color: var(--mdc-theme-secondary, #018786); }
   .mdc-slider:not(.mdc-slider--disabled) .mdc-slider__pin {
-    /* @alternate */
     color: white;
+    /* @alternate */
     color: var(--mdc-theme-text-primary-on-dark, white); }
   .mdc-slider--disabled {
     cursor: auto; }
@@ -6767,8 +7104,8 @@ a.mdc-list-item {
   letter-spacing: 0.0892857143em;
   text-decoration: none;
   text-transform: uppercase;
-  /* @alternate */
   color: #018786;
+  /* @alternate */
   color: var(--mdc-theme-secondary, #018786);
   padding: 0;
   transition: opacity 0.3s 0ms cubic-bezier(0.4, 0, 1, 1);
@@ -6854,18 +7191,18 @@ a.mdc-list-item {
   background-color: #9e9e9e; }
 
 .mdc-switch__native-control:enabled:checked ~ .mdc-switch__background::before {
-  /* @alternate */
   background-color: #018786;
+  /* @alternate */
   background-color: var(--mdc-theme-secondary, #018786); }
 
 .mdc-switch__native-control:enabled:checked ~ .mdc-switch__background .mdc-switch__knob {
-  /* @alternate */
   background-color: #018786;
+  /* @alternate */
   background-color: var(--mdc-theme-secondary, #018786); }
 
 .mdc-switch__native-control:enabled:checked ~ .mdc-switch__background .mdc-switch__knob::before {
-  /* @alternate */
   background-color: #018786;
+  /* @alternate */
   background-color: var(--mdc-theme-secondary, #018786); }
 .mdc-switch__background {
   display: block;
@@ -6938,8 +7275,8 @@ a.mdc-list-item {
   font-size: 13px;
   overflow-x: auto;
   background-color: #fff;
-  /* @alternate */
   color: rgba(0, 0, 0, 0.87);
+  /* @alternate */
   color: var(--mdc-theme-text-primary-on-background, rgba(0, 0, 0, 0.87)); }
   .mdc-data-table--select-multiple tbody .mdc-data-table__row, .mdc-data-table--select tbody .mdc-data-table__row {
     cursor: pointer; }
@@ -6983,11 +7320,11 @@ a.mdc-list-item {
     line-height: 24px;
     letter-spacing: 0;
     font-size: 12px;
-    /* @alternate */
     background-color: #fff;
-    background-color: var(--mdc-theme-background, #fff);
     /* @alternate */
+    background-color: var(--mdc-theme-background, #fff);
     color: rgba(0, 0, 0, 0.54);
+    /* @alternate */
     color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54)); }
     .mdc-data-table__column--sortable {
       user-select: none;
@@ -7002,12 +7339,12 @@ a.mdc-list-item {
         margin-right: 5px;
         transition: transform .2s ease; }
       .mdc-data-table__column--sortable:hover:before {
-        /* @alternate */
         color: rgba(0, 0, 0, 0.38);
+        /* @alternate */
         color: var(--mdc-theme-text-icon-on-background, rgba(0, 0, 0, 0.38)); }
       .mdc-data-table__column--sortable[aria-sort=descending], .mdc-data-table__column--sortable[aria-sort=ascending] {
-        /* @alternate */
         color: rgba(0, 0, 0, 0.87);
+        /* @alternate */
         color: var(--mdc-theme-text-primary-on-background, rgba(0, 0, 0, 0.87)); }
         .mdc-data-table__column--sortable[aria-sort=descending]:before, .mdc-data-table__column--sortable[aria-sort=ascending]:before {
           content: 'arrow_upward'; }
@@ -7054,7 +7391,175 @@ a.mdc-list-item {
 .mdc-data-table--dense tbody .mdc-data-table__row {
   height: 32px; }
 
+/**
+ * Creates a rule that will be applied when an MDC Web component is within the context of an RTL layout.
+ *
+ * Usage Example:
+ * ```scss
+ * .mdc-foo {
+ *   position: absolute;
+ *   left: 0;
+ *
+ *   @include mdc-rtl {
+ *     left: auto;
+ *     right: 0;
+ *   }
+ *
+ *   &__bar {
+ *     margin-left: 4px;
+ *     @include mdc-rtl(".mdc-foo") {
+ *       margin-left: auto;
+ *       margin-right: 4px;
+ *     }
+ *   }
+ * }
+ *
+ * .mdc-foo--mod {
+ *   padding-left: 4px;
+ *
+ *   @include mdc-rtl {
+ *     padding-left: auto;
+ *     padding-right: 4px;
+ *   }
+ * }
+ * ```
+ *
+ * Note that this works by checking for [dir="rtl"] on an ancestor element. While this will work
+ * in most cases, it will in some cases lead to false negatives, e.g.
+ *
+ * ```html
+ * <html dir="rtl">
+ *   <!-- ... -->
+ *   <div dir="ltr">
+ *     <div class="mdc-foo">Styled incorrectly as RTL!</div>
+ *   </div>
+ * </html>
+ * ```
+ *
+ * In the future, selectors such as :dir (http://mdn.io/:dir) will help us mitigate this.
+ */
+/**
+ * Takes a base box-model property - e.g. margin / border / padding - along with a default
+ * direction and value, and emits rules which apply the value to the
+ * "<base-property>-<default-direction>" property by default, but flips the direction
+ * when within an RTL context.
+ *
+ * For example:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   @include mdc-rtl-reflexive-box(margin, left, 8px);
+ * }
+ * ```
+ * is equivalent to:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   margin-left: 8px;
+ *
+ *   @include mdc-rtl {
+ *     margin-right: 8px;
+ *     margin-left: 0;
+ *   }
+ * }
+ * ```
+ * whereas:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   @include mdc-rtl-reflexive-box(margin, right, 8px);
+ * }
+ * ```
+ * is equivalent to:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   margin-right: 8px;
+ *
+ *   @include mdc-rtl {
+ *     margin-right: 0;
+ *     margin-left: 8px;
+ *   }
+ * }
+ * ```
+ *
+ * You can also pass a 4th optional $root-selector argument which will be forwarded to `mdc-rtl`,
+ * e.g. `@include mdc-rtl-reflexive-box(margin, left, 8px, ".mdc-component")`.
+ *
+ * Note that this function will always zero out the original value in an RTL context. If you're
+ * trying to flip the values, use mdc-rtl-reflexive-property().
+ */
+/**
+ * Takes a base property and emits rules that assign <base-property>-left to <left-value> and
+ * <base-property>-right to <right-value> in a LTR context, and vice versa in a RTL context.
+ * For example:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   @include mdc-rtl-reflexive-property(margin, auto, 12px);
+ * }
+ * ```
+ * is equivalent to:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   margin-left: auto;
+ *   margin-right: 12px;
+ *
+ *   @include mdc-rtl {
+ *     margin-left: 12px;
+ *     margin-right: auto;
+ *   }
+ * }
+ * ```
+ *
+ * A 4th optional $root-selector argument can be given, which will be passed to `mdc-rtl`.
+ */
+/**
+ * Takes an argument specifying a horizontal position property (either "left" or "right") as well
+ * as a value, and applies that value to the specified position in a LTR context, and flips it in a
+ * RTL context. For example:
+ *
+ * ```scss
+ * .mdc-foo {
+ *   @include mdc-rtl-reflexive-position(left, 0);
+ *   position: absolute;
+ * }
+ * ```
+ * is equivalent to:
+ *
+ * ```scss
+ *  .mdc-foo {
+ *    position: absolute;
+ *    left: 0;
+ *    right: initial;
+ *
+ *    @include mdc-rtl {
+ *      right: 0;
+ *      left: initial;
+ *    }
+ *  }
+ * ```
+ * An optional third $root-selector argument may also be given, which is passed to `mdc-rtl`.
+ */
+/**
+  * @license
+  * Copyright 2018 Google Inc. All Rights Reserved.
+  *
+  * Licensed under the Apache License, Version 2.0 (the "License")
+  * you may not use this file except in compliance with the License.
+  * You may obtain a copy of the License at
+  *
+  *      http://www.apache.org/licenses/LICENSE-2.0
+  *
+  * Unless required by applicable law or agreed to in writing, software
+  * distributed under the License is distributed on an "AS IS" BASIS,
+  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  * See the License for the specific language governing permissions and
+  * limitations under the License.
+*/
 .mdc-tab {
+  position: relative;
   font-family: Roboto, sans-serif;
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;
@@ -7064,9 +7569,35 @@ a.mdc-list-item {
   letter-spacing: 0.0892857143em;
   text-decoration: none;
   text-transform: uppercase;
-  /* @alternate */
-  color: rgba(0, 0, 0, 0.54);
-  color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54));
+  display: flex;
+  flex: 1 0 auto;
+  justify-content: center;
+  box-sizing: border-box;
+  height: 48px;
+  padding: 0 24px;
+  border: none;
+  outline: none;
+  background: none;
+  text-align: center;
+  text-decoration: none;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-appearance: none;
+  z-index: 1; }
+  .mdc-tab .mdc-tab__text-label {
+    color: #000;
+    /* @alternate */
+    color: var(--mdc-theme-on-surface, #000); }
+  .mdc-tab .mdc-tab__icon {
+    color: #000;
+    /* @alternate */
+    color: var(--mdc-theme-on-surface, #000); }
+
+.mdc-tab--min-width {
+  flex: 0 1 auto; }
+
+.mdc-tab__ripple {
   --mdc-ripple-fg-size: 0;
   --mdc-ripple-left: 0;
   --mdc-ripple-top: 0;
@@ -7075,510 +7606,302 @@ a.mdc-list-item {
   --mdc-ripple-fg-translate-start: 0;
   -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
   will-change: transform, opacity;
-  display: flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  position: relative;
-  box-sizing: border-box;
-  min-width: 160px;
-  min-height: 48px;
-  padding: 0 24px;
-  text-align: center;
-  text-decoration: none;
-  white-space: nowrap;
-  cursor: pointer;
-  overflow: hidden;
-  vertical-align: middle; }
-  .mdc-tab .mdc-tab__icon {
-    /* @alternate */
-    color: rgba(0, 0, 0, 0.54);
-    color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54)); }
-  .mdc-tab::before, .mdc-tab::after {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden; }
+  .mdc-tab__ripple::before, .mdc-tab__ripple::after {
     position: absolute;
     border-radius: 50%;
     opacity: 0;
     pointer-events: none;
     content: ""; }
-  .mdc-tab::before {
+  .mdc-tab__ripple::before {
     transition: opacity 15ms linear;
     z-index: 1; }
-  .mdc-tab.mdc-ripple-upgraded::before {
+  .mdc-tab__ripple.mdc-ripple-upgraded::before {
     transform: scale(var(--mdc-ripple-fg-scale, 1)); }
-  .mdc-tab.mdc-ripple-upgraded::after {
+  .mdc-tab__ripple.mdc-ripple-upgraded::after {
     top: 0;
     left: 0;
     transform: scale(0);
     transform-origin: center center; }
-  .mdc-tab.mdc-ripple-upgraded--unbounded::after {
+  .mdc-tab__ripple.mdc-ripple-upgraded--unbounded::after {
     top: var(--mdc-ripple-top, 0);
     left: var(--mdc-ripple-left, 0); }
-  .mdc-tab.mdc-ripple-upgraded--foreground-activation::after {
+  .mdc-tab__ripple.mdc-ripple-upgraded--foreground-activation::after {
     animation: 225ms mdc-ripple-fg-radius-in forwards, 75ms mdc-ripple-fg-opacity-in forwards; }
-  .mdc-tab.mdc-ripple-upgraded--foreground-deactivation::after {
+  .mdc-tab__ripple.mdc-ripple-upgraded--foreground-deactivation::after {
     animation: 150ms mdc-ripple-fg-opacity-out;
     transform: translate(var(--mdc-ripple-fg-translate-end, 0)) scale(var(--mdc-ripple-fg-scale, 1)); }
-  .mdc-tab::before, .mdc-tab::after {
-    background-color: black; }
-  .mdc-tab:hover::before {
-    opacity: 0.04; }
-  .mdc-tab:not(.mdc-ripple-upgraded):focus::before, .mdc-tab.mdc-ripple-upgraded--background-focused::before {
-    transition-duration: 75ms;
-    opacity: 0.12; }
-  .mdc-tab:not(.mdc-ripple-upgraded)::after {
-    transition: opacity 150ms linear; }
-  .mdc-tab:not(.mdc-ripple-upgraded):active::after {
-    transition-duration: 75ms;
-    opacity: 0.16; }
-  .mdc-tab.mdc-ripple-upgraded {
-    --mdc-ripple-fg-opacity: 0.16; }
-  .mdc-tab::before, .mdc-tab::after {
+  .mdc-tab__ripple::before, .mdc-tab__ripple::after {
     top: calc(50% - 100%);
     left: calc(50% - 100%);
     width: 200%;
     height: 200%; }
-  .mdc-tab.mdc-ripple-upgraded::after {
+  .mdc-tab__ripple.mdc-ripple-upgraded::after {
     width: var(--mdc-ripple-fg-size, 100%);
     height: var(--mdc-ripple-fg-size, 100%); }
-  .mdc-tab:hover {
-    /* @alternate */
-    color: rgba(0, 0, 0, 0.87);
-    color: var(--mdc-theme-text-primary-on-background, rgba(0, 0, 0, 0.87)); }
-    .mdc-tab:hover .mdc-tab__icon {
-      /* @alternate */
-      color: rgba(0, 0, 0, 0.87);
-      color: var(--mdc-theme-text-primary-on-background, rgba(0, 0, 0, 0.87)); }
-  .mdc-tab:focus {
-    outline: none; }
-  @media screen and (max-width: 600px) {
-    .mdc-tab {
-      min-width: 72px;
-      padding: 0 12px; } }
-  .mdc-tab__icon {
-    display: block;
-    margin: 0 auto;
-    width: 24px;
-    height: 24px; }
-    .mdc-tab-bar--icons-with-text .mdc-tab__icon {
-      margin-top: 4px; }
-  .mdc-tab__icon-text {
-    display: block;
-    margin: 0 auto; }
-  .mdc-tab__icon + .mdc-tab__icon-text {
-    padding-top: 6px; }
+  .mdc-tab__ripple::before, .mdc-tab__ripple::after {
+    background-color: #6200ee; }
+    @supports not (-ms-ime-align: auto) {
+      .mdc-tab__ripple::before, .mdc-tab__ripple::after {
+        /* @alternate */
+        background-color: var(--mdc-theme-primary, #6200ee); } }
+  .mdc-tab__ripple:hover::before {
+    opacity: 0.04; }
+  .mdc-tab__ripple:not(.mdc-ripple-upgraded):focus::before, .mdc-tab__ripple.mdc-ripple-upgraded--background-focused::before {
+    transition-duration: 75ms;
+    opacity: 0.12; }
+  .mdc-tab__ripple:not(.mdc-ripple-upgraded)::after {
+    transition: opacity 150ms linear; }
+  .mdc-tab__ripple:not(.mdc-ripple-upgraded):active::after {
+    transition-duration: 75ms;
+    opacity: 0.16; }
+  .mdc-tab__ripple.mdc-ripple-upgraded {
+    --mdc-ripple-fg-opacity: 0.16; }
 
-.mdc-tab[disabled=true] {
-  /* @alternate */
-  color: rgba(0, 0, 0, 0.38);
-  color: var(--mdc-theme-text-disabled-on-background, rgba(0, 0, 0, 0.38));
-  pointer-events: none;
-  cursor: default; }
-
-.mdc-tab--active {
-  /* @alternate */
-  color: rgba(0, 0, 0, 0.87);
-  color: var(--mdc-theme-text-primary-on-background, rgba(0, 0, 0, 0.87)); }
-  .mdc-tab--active .mdc-tab__icon {
-    /* @alternate */
-    color: rgba(0, 0, 0, 0.87);
-    color: var(--mdc-theme-text-primary-on-background, rgba(0, 0, 0, 0.87)); }
-  .mdc-tab--active::before {
-    bottom: 0; }
-
-.mdc-tab__indicator {
-  /* @alternate */
-  background-color: rgba(0, 0, 0, 0.87);
-  background-color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87));
-  position: absolute;
-  bottom: 0;
-  height: 2px;
-  visibility: hidden;
-  left: 2px;
-  width: calc(100% - 4px); }
-
-.mdc-tab-bar:not(.mdc-tab-bar-upgraded) .mdc-tab--active .mdc-tab__indicator,
-.mdc-tab-bar:not(.mdc-tab-bar-upgraded) .mdc-tab:hover .mdc-tab__indicator,
-.mdc-tab-bar:not(.mdc-tab-bar-upgraded) .mdc-tab:active .mdc-tab__indicator {
-  visibility: visible; }
-.mdc-tab-bar:not(.mdc-tab-bar-upgraded) .mdc-tab:not(.mdc-tab--active):hover .mdc-tab__indicator {
-  opacity: .38; }
-.mdc-tab-bar:not(.mdc-tab-bar-upgraded) .mdc-tab--active,
-.mdc-tab-bar:not(.mdc-tab-bar-upgraded) .mdc-tab:not(.mdc-tab--active):active .mdc-tab__indicator {
-  opacity: .87; }
-
-/**
- * Creates a rule that will be applied when an MDC Web component is within the context of an RTL layout.
- *
- * Usage Example:
- * ```scss
- * .mdc-foo {
- *   position: absolute;
- *   left: 0;
- *
- *   @include mdc-rtl {
- *     left: auto;
- *     right: 0;
- *   }
- *
- *   &__bar {
- *     margin-left: 4px;
- *     @include mdc-rtl(".mdc-foo") {
- *       margin-left: auto;
- *       margin-right: 4px;
- *     }
- *   }
- * }
- *
- * .mdc-foo--mod {
- *   padding-left: 4px;
- *
- *   @include mdc-rtl {
- *     padding-left: auto;
- *     padding-right: 4px;
- *   }
- * }
- * ```
- *
- * Note that this works by checking for [dir="rtl"] on an ancestor element. While this will work
- * in most cases, it will in some cases lead to false negatives, e.g.
- *
- * ```html
- * <html dir="rtl">
- *   <!-- ... -->
- *   <div dir="ltr">
- *     <div class="mdc-foo">Styled incorrectly as RTL!</div>
- *   </div>
- * </html>
- * ```
- *
- * In the future, selectors such as :dir (http://mdn.io/:dir) will help us mitigate this.
- */
-/**
- * Takes a base box-model property - e.g. margin / border / padding - along with a default
- * direction and value, and emits rules which apply the value to the
- * "<base-property>-<default-direction>" property by default, but flips the direction
- * when within an RTL context.
- *
- * For example:
- *
- * ```scss
- * .mdc-foo {
- *   @include mdc-rtl-reflexive-box(margin, left, 8px);
- * }
- * ```
- * is equivalent to:
- *
- * ```scss
- * .mdc-foo {
- *   margin-left: 8px;
- *
- *   @include mdc-rtl {
- *     margin-right: 8px;
- *     margin-left: 0;
- *   }
- * }
- * ```
- * whereas:
- *
- * ```scss
- * .mdc-foo {
- *   @include mdc-rtl-reflexive-box(margin, right, 8px);
- * }
- * ```
- * is equivalent to:
- *
- * ```scss
- * .mdc-foo {
- *   margin-right: 8px;
- *
- *   @include mdc-rtl {
- *     margin-right: 0;
- *     margin-left: 8px;
- *   }
- * }
- * ```
- *
- * You can also pass a 4th optional $root-selector argument which will be forwarded to `mdc-rtl`,
- * e.g. `@include mdc-rtl-reflexive-box(margin, left, 8px, ".mdc-component")`.
- *
- * Note that this function will always zero out the original value in an RTL context. If you're
- * trying to flip the values, use mdc-rtl-reflexive-property().
- */
-/**
- * Takes a base property and emits rules that assign <base-property>-left to <left-value> and
- * <base-property>-right to <right-value> in a LTR context, and vice versa in a RTL context.
- * For example:
- *
- * ```scss
- * .mdc-foo {
- *   @include mdc-rtl-reflexive-property(margin, auto, 12px);
- * }
- * ```
- * is equivalent to:
- *
- * ```scss
- * .mdc-foo {
- *   margin-left: auto;
- *   margin-right: 12px;
- *
- *   @include mdc-rtl {
- *     margin-left: 12px;
- *     margin-right: auto;
- *   }
- * }
- * ```
- *
- * A 4th optional $root-selector argument can be given, which will be passed to `mdc-rtl`.
- */
-/**
- * Takes an argument specifying a horizontal position property (either "left" or "right") as well
- * as a value, and applies that value to the specified position in a LTR context, and flips it in a
- * RTL context. For example:
- *
- * ```scss
- * .mdc-foo {
- *   @include mdc-rtl-reflexive-position(left, 0);
- *   position: absolute;
- * }
- * ```
- * is equivalent to:
- *
- * ```scss
- *  .mdc-foo {
- *    position: absolute;
- *    left: 0;
- *    right: initial;
- *
- *    @include mdc-rtl {
- *      right: 0;
- *      left: initial;
- *    }
- *  }
- * ```
- * An optional third $root-selector argument may also be given, which is passed to `mdc-rtl`.
- */
-.mdc-tab-bar__indicator,
-.mdc-tab__indicator {
-  /* @alternate */
-  background-color: rgba(0, 0, 0, 0.87);
-  background-color: var(--mdc-theme-text-primary-on-background, rgba(0, 0, 0, 0.87)); }
-.mdc-tab-bar {
-  display: flex;
+.mdc-tab__content {
   position: relative;
-  height: 48px;
-  margin: 0 auto;
-  text-transform: uppercase; }
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: inherit;
+  pointer-events: none; }
 
-.mdc-tab-bar__indicator {
-  /* @alternate */
-  background-color: rgba(0, 0, 0, 0.87);
-  background-color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87));
-  position: absolute;
-  bottom: 0;
-  height: 2px;
-  visibility: hidden;
-  width: 100%;
-  left: 0;
-  transform-origin: left top;
-  transition: transform 240ms 0ms cubic-bezier(0, 0, 0.2, 1);
-  will-change: transform; }
+.mdc-tab__text-label,
+.mdc-tab__icon {
+  z-index: 2; }
 
-.mdc-tab-bar--icons-with-text {
+.mdc-tab__text-label {
+  display: inline-block;
+  opacity: 0.6;
+  line-height: 1; }
+
+.mdc-tab__icon {
+  width: 24px;
+  height: 24px;
+  opacity: 0.54; }
+
+.mdc-tab--stacked {
   height: 72px; }
 
+.mdc-tab--stacked .mdc-tab__content {
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between; }
+
+.mdc-tab--stacked .mdc-tab__icon {
+  padding-top: 12px; }
+
+.mdc-tab--stacked .mdc-tab__text-label {
+  padding-bottom: 16px; }
+
+.mdc-tab--animating-activate .mdc-tab__text-label,
+.mdc-tab--animating-activate .mdc-tab__icon,
+.mdc-tab--animating-deactivate .mdc-tab__text-label,
+.mdc-tab--animating-deactivate .mdc-tab__icon {
+  transition: 150ms color linear, 150ms opacity linear; }
+
+.mdc-tab--animating-activate .mdc-tab__text-label,
+.mdc-tab--animating-activate .mdc-tab__icon {
+  transition-delay: 100ms; }
+
+.mdc-tab--active .mdc-tab__text-label {
+  color: #6200ee;
+  /* @alternate */
+  color: var(--mdc-theme-primary, #6200ee); }
+.mdc-tab--active .mdc-tab__icon {
+  color: #6200ee;
+  /* @alternate */
+  color: var(--mdc-theme-primary, #6200ee); }
+.mdc-tab--active .mdc-tab__text-label,
+.mdc-tab--active .mdc-tab__icon {
+  opacity: 1; }
+
+.mdc-tab:not(.mdc-tab--stacked) .mdc-tab__icon + .mdc-tab__text-label {
+  padding-left: 8px;
+  padding-right: 0; }
+  [dir="rtl"] .mdc-tab:not(.mdc-tab--stacked) .mdc-tab__icon + .mdc-tab__text-label, .mdc-tab:not(.mdc-tab--stacked) .mdc-tab__icon + .mdc-tab__text-label[dir="rtl"] {
+    padding-left: 0;
+    padding-right: 8px; }
+
 /**
- * Creates a rule that will be applied when an MDC Web component is within the context of an RTL layout.
- *
- * Usage Example:
- * ```scss
- * .mdc-foo {
- *   position: absolute;
- *   left: 0;
- *
- *   @include mdc-rtl {
- *     left: auto;
- *     right: 0;
- *   }
- *
- *   &__bar {
- *     margin-left: 4px;
- *     @include mdc-rtl(".mdc-foo") {
- *       margin-left: auto;
- *       margin-right: 4px;
- *     }
- *   }
- * }
- *
- * .mdc-foo--mod {
- *   padding-left: 4px;
- *
- *   @include mdc-rtl {
- *     padding-left: auto;
- *     padding-right: 4px;
- *   }
- * }
- * ```
- *
- * Note that this works by checking for [dir="rtl"] on an ancestor element. While this will work
- * in most cases, it will in some cases lead to false negatives, e.g.
- *
- * ```html
- * <html dir="rtl">
- *   <!-- ... -->
- *   <div dir="ltr">
- *     <div class="mdc-foo">Styled incorrectly as RTL!</div>
- *   </div>
- * </html>
- * ```
- *
- * In the future, selectors such as :dir (http://mdn.io/:dir) will help us mitigate this.
- */
+  * @license
+  * Copyright 2018 Google Inc. All Rights Reserved.
+  *
+  * Licensed under the Apache License, Version 2.0 (the "License")
+  * you may not use this file except in compliance with the License.
+  * You may obtain a copy of the License at
+  *
+  *      http://www.apache.org/licenses/LICENSE-2.0
+  *
+  * Unless required by applicable law or agreed to in writing, software
+  * distributed under the License is distributed on an "AS IS" BASIS,
+  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  * See the License for the specific language governing permissions and
+  * limitations under the License.
+*/
 /**
- * Takes a base box-model property - e.g. margin / border / padding - along with a default
- * direction and value, and emits rules which apply the value to the
- * "<base-property>-<default-direction>" property by default, but flips the direction
- * when within an RTL context.
- *
- * For example:
- *
- * ```scss
- * .mdc-foo {
- *   @include mdc-rtl-reflexive-box(margin, left, 8px);
- * }
- * ```
- * is equivalent to:
- *
- * ```scss
- * .mdc-foo {
- *   margin-left: 8px;
- *
- *   @include mdc-rtl {
- *     margin-right: 8px;
- *     margin-left: 0;
- *   }
- * }
- * ```
- * whereas:
- *
- * ```scss
- * .mdc-foo {
- *   @include mdc-rtl-reflexive-box(margin, right, 8px);
- * }
- * ```
- * is equivalent to:
- *
- * ```scss
- * .mdc-foo {
- *   margin-right: 8px;
- *
- *   @include mdc-rtl {
- *     margin-right: 0;
- *     margin-left: 8px;
- *   }
- * }
- * ```
- *
- * You can also pass a 4th optional $root-selector argument which will be forwarded to `mdc-rtl`,
- * e.g. `@include mdc-rtl-reflexive-box(margin, left, 8px, ".mdc-component")`.
- *
- * Note that this function will always zero out the original value in an RTL context. If you're
- * trying to flip the values, use mdc-rtl-reflexive-property().
- */
-/**
- * Takes a base property and emits rules that assign <base-property>-left to <left-value> and
- * <base-property>-right to <right-value> in a LTR context, and vice versa in a RTL context.
- * For example:
- *
- * ```scss
- * .mdc-foo {
- *   @include mdc-rtl-reflexive-property(margin, auto, 12px);
- * }
- * ```
- * is equivalent to:
- *
- * ```scss
- * .mdc-foo {
- *   margin-left: auto;
- *   margin-right: 12px;
- *
- *   @include mdc-rtl {
- *     margin-left: 12px;
- *     margin-right: auto;
- *   }
- * }
- * ```
- *
- * A 4th optional $root-selector argument can be given, which will be passed to `mdc-rtl`.
- */
-/**
- * Takes an argument specifying a horizontal position property (either "left" or "right") as well
- * as a value, and applies that value to the specified position in a LTR context, and flips it in a
- * RTL context. For example:
- *
- * ```scss
- * .mdc-foo {
- *   @include mdc-rtl-reflexive-position(left, 0);
- *   position: absolute;
- * }
- * ```
- * is equivalent to:
- *
- * ```scss
- *  .mdc-foo {
- *    position: absolute;
- *    left: 0;
- *    right: initial;
- *
- *    @include mdc-rtl {
- *      right: 0;
- *      left: initial;
- *    }
- *  }
- * ```
- * An optional third $root-selector argument may also be given, which is passed to `mdc-rtl`.
- */
-.mdc-tab-bar-scroller {
-  overflow: hidden;
-  min-height: 48px;
-  -webkit-overflow-scrolling: touch; }
-  .mdc-tab-bar-scroller__scroll-frame {
-    display: flex; }
-    .mdc-tab-bar-scroller__scroll-frame__tabs {
-      overflow-x: scroll;
-      flex: 1 1 auto;
-      display: inline-block;
-      position: relative;
-      white-space: nowrap; }
-  .mdc-tab-bar-scroller__indicator {
-    flex: 0 0 48px;
-    align-items: center;
-    justify-content: center;
-    display: flex;
-    visibility: hidden;
+  * @license
+  * Copyright 2018 Google Inc. All Rights Reserved.
+  *
+  * Licensed under the Apache License, Version 2.0 (the "License")
+  * you may not use this file except in compliance with the License.
+  * You may obtain a copy of the License at
+  *
+  *      http://www.apache.org/licenses/LICENSE-2.0
+  *
+  * Unless required by applicable law or agreed to in writing, software
+  * distributed under the License is distributed on an "AS IS" BASIS,
+  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  * See the License for the specific language governing permissions and
+  * limitations under the License.
+*/
+.mdc-tab-indicator {
+  display: flex;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1; }
+  .mdc-tab-indicator > .mdc-tab-indicator__content--underline {
+    background-color: #6200ee;
     /* @alternate */
-    color: rgba(0, 0, 0, 0.54);
-    color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54)); }
-    .mdc-tab-bar-scroller__indicator:hover {
-      /* @alternate */
-      color: rgba(0, 0, 0, 0.87);
-      color: var(--mdc-theme-text-primary-on-background, rgba(0, 0, 0, 0.87)); }
-    .mdc-tab-bar-scroller__indicator__inner {
-      color: inherit;
-      text-decoration: inherit;
-      cursor: inherit; }
-      .mdc-tab-bar-scroller__indicator__inner:focus {
-        outline-color: inherit; }
-      .mdc-tab-bar-scroller[dir="rtl"] .mdc-tab-bar-scroller__indicator__inner, [dir="rtl"] .mdc-tab-bar-scroller .mdc-tab-bar-scroller__indicator__inner {
-        transform: rotate(180deg); }
-    .mdc-tab-bar-scroller__indicator__inner:hover {
-      color: inherit; }
-  .mdc-tab-bar-scroller__indicator--enabled {
-    cursor: pointer;
-    visibility: visible; }
-  @media (max-width: 600px) {
-    .mdc-tab-bar-scroller__indicator {
-      display: none; } }
+    background-color: var(--mdc-theme-primary, #6200ee); }
+  .mdc-tab-indicator > .mdc-tab-indicator__content--underline {
+    height: 2px; }
+  .mdc-tab-indicator > .mdc-tab-indicator__content--icon {
+    color: #018786;
+    /* @alternate */
+    color: var(--mdc-theme-secondary, #018786); }
+  .mdc-tab-indicator > .mdc-tab-indicator__content--icon {
+    height: 34px;
+    font-size: 34px; }
+
+.mdc-tab-indicator__content {
+  transform-origin: left;
+  opacity: 0; }
+
+.mdc-tab-indicator__content--underline {
+  align-self: flex-end;
+  width: 100%; }
+
+.mdc-tab-indicator__content--icon {
+  align-self: center;
+  margin: 0 auto; }
+
+.mdc-tab-indicator--active > .mdc-tab-indicator__content {
+  opacity: 1; }
+
+.mdc-tab-indicator--sliding-activate > .mdc-tab-indicator__content {
+  transition: 250ms transform cubic-bezier(0.4, 0, 0.2, 1); }
+
+.mdc-tab-indicator--fading-activate > .mdc-tab-indicator__content,
+.mdc-tab-indicator--fading-deactivate > .mdc-tab-indicator__content {
+  transition: 150ms opacity linear; }
+
+.mdc-tab-indicator--fading-activate > .mdc-tab-indicator__content {
+  transition-delay: 100ms; }
+
+/**
+  * @license
+  * Copyright 2018 Google Inc. All Rights Reserved.
+  *
+  * Licensed under the Apache License, Version 2.0 (the "License")
+  * you may not use this file except in compliance with the License.
+  * You may obtain a copy of the License at
+  *
+  *      http://www.apache.org/licenses/LICENSE-2.0
+  *
+  * Unless required by applicable law or agreed to in writing, software
+  * distributed under the License is distributed on an "AS IS" BASIS,
+  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  * See the License for the specific language governing permissions and
+  * limitations under the License.
+*/
+.mdc-tab-scroller {
+  overflow-y: hidden; }
+
+.mdc-tab-scroller__test {
+  position: absolute;
+  top: -9999px;
+  width: 100px;
+  height: 100px;
+  overflow-x: scroll; }
+
+.mdc-tab-scroller__scroll-area {
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  overflow-x: hidden; }
+
+.mdc-tab-scroller__scroll-area::-webkit-scrollbar,
+.mdc-tab-scroller__test::-webkit-scrollbar {
+  display: none; }
+
+.mdc-tab-scroller__scroll-area--scroll {
+  overflow-x: scroll; }
+
+.mdc-tab-scroller__scroll-content {
+  position: relative;
+  display: flex;
+  flex: 1 0 auto;
+  transform: none;
+  will-change: transform; }
+
+.mdc-tab-scroller--align-start .mdc-tab-scroller__scroll-content {
+  justify-content: flex-start; }
+
+.mdc-tab-scroller--align-end .mdc-tab-scroller__scroll-content {
+  justify-content: flex-end; }
+
+.mdc-tab-scroller--align-center .mdc-tab-scroller__scroll-content {
+  justify-content: center; }
+
+.mdc-tab-scroller--animating .mdc-tab-scroller__scroll-area {
+  -webkit-overflow-scrolling: auto; }
+
+.mdc-tab-scroller--animating .mdc-tab-scroller__scroll-content {
+  transition: 250ms transform cubic-bezier(0.4, 0, 0.2, 1); }
+
+/**
+  * @license
+  * Copyright 2018 Google Inc. All Rights Reserved.
+  *
+  * Licensed under the Apache License, Version 2.0 (the "License")
+  * you may not use this file except in compliance with the License.
+  * You may obtain a copy of the License at
+  *
+  *      http://www.apache.org/licenses/LICENSE-2.0
+  *
+  * Unless required by applicable law or agreed to in writing, software
+  * distributed under the License is distributed on an "AS IS" BASIS,
+  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  * See the License for the specific language governing permissions and
+  * limitations under the License.
+  */
+/**
+  * @license
+  * Copyright 2018 Google Inc. All Rights Reserved.
+  *
+  * Licensed under the Apache License, Version 2.0 (the "License")
+  * you may not use this file except in compliance with the License.
+  * You may obtain a copy of the License at
+  *
+  *      http://www.apache.org/licenses/LICENSE-2.0
+  *
+  * Unless required by applicable law or agreed to in writing, software
+  * distributed under the License is distributed on an "AS IS" BASIS,
+  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  * See the License for the specific language governing permissions and
+  * limitations under the License.
+*/
+.mdc-tab-bar {
+  width: 100%; }
 
 /**
  * Creates a rule that will be applied when an MDC Web component is within the context of an RTL layout.
@@ -8004,20 +8327,20 @@ a.mdc-list-item {
   .mdc-text-field:not(.mdc-text-field--disabled):not(.mdc-text-field--outlined):not(.mdc-text-field--textarea) .mdc-text-field__input:hover {
     border-bottom-color: black; }
   .mdc-text-field .mdc-line-ripple {
-    /* @alternate */
     background-color: #6200ee;
+    /* @alternate */
     background-color: var(--mdc-theme-primary, #6200ee); }
   .mdc-text-field:not(.mdc-text-field--disabled) .mdc-text-field__input {
-    /* @alternate */
     color: rgba(0, 0, 0, 0.87);
+    /* @alternate */
     color: var(--mdc-theme-text-primary-on-background, rgba(0, 0, 0, 0.87)); }
   .mdc-text-field:not(.mdc-text-field--disabled) .mdc-floating-label {
     color: rgba(0, 0, 0, 0.6); }
   .mdc-text-field:not(.mdc-text-field--disabled) .mdc-text-field__input::placeholder {
     color: rgba(0, 0, 0, 0.6); }
   .mdc-text-field:not(.mdc-text-field--disabled) + .mdc-text-field-helper-text {
-    /* @alternate */
     color: rgba(0, 0, 0, 0.38);
+    /* @alternate */
     color: var(--mdc-theme-text-hint-on-background, rgba(0, 0, 0, 0.38)); }
   .mdc-text-field:not(.mdc-text-field--disabled):not(.mdc-text-field--textarea) {
     border-bottom-color: rgba(0, 0, 0, 0.12); }
@@ -8068,8 +8391,8 @@ a.mdc-list-item {
   .mdc-text-field--outlined:not(.mdc-text-field--disabled):not(.mdc-text-field--focused) .mdc-text-field__icon:hover ~ .mdc-notched-outline .mdc-notched-outline__path {
     stroke: rgba(0, 0, 0, 0.87); }
   .mdc-text-field--outlined:not(.mdc-text-field--disabled).mdc-text-field--focused .mdc-notched-outline__path {
-    /* @alternate */
     stroke: #6200ee;
+    /* @alternate */
     stroke: var(--mdc-theme-primary, #6200ee); }
   .mdc-text-field--outlined .mdc-floating-label--float-above {
     transform: translateY(-130%) scale(0.75); }
@@ -8163,10 +8486,10 @@ a.mdc-list-item {
     animation: 150ms mdc-ripple-fg-opacity-out;
     transform: translate(var(--mdc-ripple-fg-translate-end, 0)) scale(var(--mdc-ripple-fg-scale, 1)); }
   .mdc-text-field--box::before, .mdc-text-field--box::after {
-    /* @alternate */
     background-color: rgba(0, 0, 0, 0.87); }
     @supports not (-ms-ime-align: auto) {
       .mdc-text-field--box::before, .mdc-text-field--box::after {
+        /* @alternate */
         background-color: var(--mdc-theme-text-primary-on-background, rgba(0, 0, 0, 0.87)); } }
   .mdc-text-field--box:hover::before {
     opacity: 0.04; }
@@ -8220,12 +8543,12 @@ a.mdc-list-item {
   .mdc-text-field--box.mdc-text-field--disabled .mdc-text-field__input {
     border-bottom-color: rgba(0, 0, 0, 0.06); }
   .mdc-text-field--box.mdc-text-field--disabled:not(.mdc-text-field--disabled) .mdc-floating-label {
-    /* @alternate */
     color: rgba(0, 0, 0, 0.38);
+    /* @alternate */
     color: var(--mdc-theme-text-hint-on-background, rgba(0, 0, 0, 0.38)); }
   .mdc-text-field--box.mdc-text-field--disabled:not(.mdc-text-field--disabled) .mdc-text-field__input::placeholder {
-    /* @alternate */
     color: rgba(0, 0, 0, 0.38);
+    /* @alternate */
     color: var(--mdc-theme-text-hint-on-background, rgba(0, 0, 0, 0.38)); }
 
 .mdc-text-field--box.mdc-text-field--dense .mdc-floating-label--float-above {
@@ -8409,12 +8732,12 @@ a.mdc-list-item {
   align-self: flex-start; }
 
 .mdc-text-field--focused:not(.mdc-text-field--disabled) .mdc-floating-label {
-  /* @alternate */
   color: #6200ee;
+  /* @alternate */
   color: var(--mdc-theme-primary, #6200ee); }
 .mdc-text-field--focused:not(.mdc-text-field--disabled) .mdc-text-field__input::placeholder {
-  /* @alternate */
   color: #6200ee;
+  /* @alternate */
   color: var(--mdc-theme-primary, #6200ee); }
 .mdc-text-field--focused .mdc-text-field__input:required + .mdc-floating-label::after {
   color: #d50000; }
@@ -8422,12 +8745,12 @@ a.mdc-list-item {
   opacity: 1; }
 
 .mdc-text-field--textarea.mdc-text-field--focused:not(.mdc-text-field--disabled) {
-  /* @alternate */
   border-color: #6200ee;
+  /* @alternate */
   border-color: var(--mdc-theme-primary, #6200ee); }
   .mdc-text-field--textarea.mdc-text-field--focused:not(.mdc-text-field--disabled) .mdc-text-field__input:focus {
-    /* @alternate */
     border-color: #6200ee;
+    /* @alternate */
     border-color: var(--mdc-theme-primary, #6200ee); }
 
 .mdc-text-field--invalid:not(.mdc-text-field--disabled):not(.mdc-text-field--outlined):not(.mdc-text-field--textarea) .mdc-text-field__input {
@@ -8468,20 +8791,20 @@ a.mdc-list-item {
   .mdc-text-field--disabled .mdc-text-field__input {
     border-bottom-color: rgba(35, 31, 32, 0.26); }
   .mdc-text-field--disabled .mdc-text-field__input {
-    /* @alternate */
     color: rgba(0, 0, 0, 0.38);
+    /* @alternate */
     color: var(--mdc-theme-text-disabled-on-background, rgba(0, 0, 0, 0.38)); }
   .mdc-text-field--disabled .mdc-floating-label {
-    /* @alternate */
     color: rgba(0, 0, 0, 0.38);
+    /* @alternate */
     color: var(--mdc-theme-text-disabled-on-background, rgba(0, 0, 0, 0.38)); }
   .mdc-text-field--disabled .mdc-text-field__input::placeholder {
-    /* @alternate */
     color: rgba(0, 0, 0, 0.38);
+    /* @alternate */
     color: var(--mdc-theme-text-disabled-on-background, rgba(0, 0, 0, 0.38)); }
   .mdc-text-field--disabled + .mdc-text-field-helper-text {
-    /* @alternate */
     color: rgba(0, 0, 0, 0.38);
+    /* @alternate */
     color: var(--mdc-theme-text-disabled-on-background, rgba(0, 0, 0, 0.38)); }
   .mdc-text-field--disabled .mdc-text-field__icon {
     color: rgba(0, 0, 0, 0.3); }
@@ -8588,42 +8911,12 @@ a.mdc-list-item {
     transform: translateX(calc(0 - 0%)) translateY(-50%) scale(0.923); } }
 :root {
   --mdc-theme-primary: #6200ee;
-  --mdc-theme-primary-light: #b37eff;
-  --mdc-theme-primary-dark: #8936ff;
   --mdc-theme-secondary: #018786;
-  --mdc-theme-secondary-light: #02cecc;
-  --mdc-theme-secondary-dark: #004040;
   --mdc-theme-background: #fff;
-  --mdc-theme-text-primary-on-primary: white;
-  --mdc-theme-text-secondary-on-primary: rgba(255, 255, 255, 0.7);
-  --mdc-theme-text-hint-on-primary: rgba(255, 255, 255, 0.5);
-  --mdc-theme-text-disabled-on-primary: rgba(255, 255, 255, 0.5);
-  --mdc-theme-text-icon-on-primary: rgba(255, 255, 255, 0.5);
-  --mdc-theme-text-primary-on-primary-light: rgba(0, 0, 0, 0.87);
-  --mdc-theme-text-secondary-on-primary-light: rgba(0, 0, 0, 0.54);
-  --mdc-theme-text-hint-on-primary-light: rgba(0, 0, 0, 0.38);
-  --mdc-theme-text-disabled-on-primary-light: rgba(0, 0, 0, 0.38);
-  --mdc-theme-text-icon-on-primary-light: rgba(0, 0, 0, 0.38);
-  --mdc-theme-text-primary-on-primary-dark: white;
-  --mdc-theme-text-secondary-on-primary-dark: rgba(255, 255, 255, 0.7);
-  --mdc-theme-text-hint-on-primary-dark: rgba(255, 255, 255, 0.5);
-  --mdc-theme-text-disabled-on-primary-dark: rgba(255, 255, 255, 0.5);
-  --mdc-theme-text-icon-on-primary-dark: rgba(255, 255, 255, 0.5);
-  --mdc-theme-text-primary-on-secondary: white;
-  --mdc-theme-text-secondary-on-secondary: rgba(255, 255, 255, 0.7);
-  --mdc-theme-text-hint-on-secondary: rgba(255, 255, 255, 0.5);
-  --mdc-theme-text-disabled-on-secondary: rgba(255, 255, 255, 0.5);
-  --mdc-theme-text-icon-on-secondary: rgba(255, 255, 255, 0.5);
-  --mdc-theme-text-primary-on-secondary-light: rgba(0, 0, 0, 0.87);
-  --mdc-theme-text-secondary-on-secondary-light: rgba(0, 0, 0, 0.54);
-  --mdc-theme-text-hint-on-secondary-light: rgba(0, 0, 0, 0.38);
-  --mdc-theme-text-disabled-on-secondary-light: rgba(0, 0, 0, 0.38);
-  --mdc-theme-text-icon-on-secondary-light: rgba(0, 0, 0, 0.38);
-  --mdc-theme-text-primary-on-secondary-dark: white;
-  --mdc-theme-text-secondary-on-secondary-dark: rgba(255, 255, 255, 0.7);
-  --mdc-theme-text-hint-on-secondary-dark: rgba(255, 255, 255, 0.5);
-  --mdc-theme-text-disabled-on-secondary-dark: rgba(255, 255, 255, 0.5);
-  --mdc-theme-text-icon-on-secondary-dark: rgba(255, 255, 255, 0.5);
+  --mdc-theme-surface: #fff;
+  --mdc-theme-on-primary: #fff;
+  --mdc-theme-on-secondary: #fff;
+  --mdc-theme-on-surface: #000;
   --mdc-theme-text-primary-on-background: rgba(0, 0, 0, 0.87);
   --mdc-theme-text-secondary-on-background: rgba(0, 0, 0, 0.54);
   --mdc-theme-text-hint-on-background: rgba(0, 0, 0, 0.38);
@@ -8640,295 +8933,125 @@ a.mdc-list-item {
   --mdc-theme-text-disabled-on-dark: rgba(255, 255, 255, 0.5);
   --mdc-theme-text-icon-on-dark: rgba(255, 255, 255, 0.5); }
 
-.mdc-theme--background {
-  /* @alternate */
-  background-color: #fff;
-  background-color: var(--mdc-theme-background, #fff); }
-
 .mdc-theme--primary {
-  /* @alternate */
   color: #6200ee !important;
+  /* @alternate */
   color: var(--mdc-theme-primary, #6200ee) !important; }
 
-.mdc-theme--primary-light {
-  /* @alternate */
-  color: #b37eff !important;
-  color: var(--mdc-theme-primary-light, #b37eff) !important; }
-
-.mdc-theme--primary-dark {
-  /* @alternate */
-  color: #8936ff !important;
-  color: var(--mdc-theme-primary-dark, #8936ff) !important; }
-
 .mdc-theme--secondary {
-  /* @alternate */
   color: #018786 !important;
+  /* @alternate */
   color: var(--mdc-theme-secondary, #018786) !important; }
 
-.mdc-theme--secondary-light {
+.mdc-theme--background {
+  background-color: #fff;
   /* @alternate */
-  color: #02cecc !important;
-  color: var(--mdc-theme-secondary-light, #02cecc) !important; }
+  background-color: var(--mdc-theme-background, #fff); }
 
-.mdc-theme--secondary-dark {
+.mdc-theme--surface {
+  background-color: #fff;
   /* @alternate */
-  color: #004040 !important;
-  color: var(--mdc-theme-secondary-dark, #004040) !important; }
+  background-color: var(--mdc-theme-surface, #fff); }
 
-.mdc-theme--text-primary-on-primary {
+.mdc-theme--on-primary {
+  color: #fff !important;
   /* @alternate */
-  color: white !important;
-  color: var(--mdc-theme-text-primary-on-primary, white) !important; }
+  color: var(--mdc-theme-on-primary, #fff) !important; }
 
-.mdc-theme--text-secondary-on-primary {
+.mdc-theme--on-secondary {
+  color: #fff !important;
   /* @alternate */
-  color: rgba(255, 255, 255, 0.7) !important;
-  color: var(--mdc-theme-text-secondary-on-primary, rgba(255, 255, 255, 0.7)) !important; }
+  color: var(--mdc-theme-on-secondary, #fff) !important; }
 
-.mdc-theme--text-hint-on-primary {
+.mdc-theme--on-surface {
+  color: #000 !important;
   /* @alternate */
-  color: rgba(255, 255, 255, 0.5) !important;
-  color: var(--mdc-theme-text-hint-on-primary, rgba(255, 255, 255, 0.5)) !important; }
-
-.mdc-theme--text-disabled-on-primary {
-  /* @alternate */
-  color: rgba(255, 255, 255, 0.5) !important;
-  color: var(--mdc-theme-text-disabled-on-primary, rgba(255, 255, 255, 0.5)) !important; }
-
-.mdc-theme--text-icon-on-primary {
-  /* @alternate */
-  color: rgba(255, 255, 255, 0.5) !important;
-  color: var(--mdc-theme-text-icon-on-primary, rgba(255, 255, 255, 0.5)) !important; }
-
-.mdc-theme--text-primary-on-primary-light {
-  /* @alternate */
-  color: rgba(0, 0, 0, 0.87) !important;
-  color: var(--mdc-theme-text-primary-on-primary-light, rgba(0, 0, 0, 0.87)) !important; }
-
-.mdc-theme--text-secondary-on-primary-light {
-  /* @alternate */
-  color: rgba(0, 0, 0, 0.54) !important;
-  color: var(--mdc-theme-text-secondary-on-primary-light, rgba(0, 0, 0, 0.54)) !important; }
-
-.mdc-theme--text-hint-on-primary-light {
-  /* @alternate */
-  color: rgba(0, 0, 0, 0.38) !important;
-  color: var(--mdc-theme-text-hint-on-primary-light, rgba(0, 0, 0, 0.38)) !important; }
-
-.mdc-theme--text-disabled-on-primary-light {
-  /* @alternate */
-  color: rgba(0, 0, 0, 0.38) !important;
-  color: var(--mdc-theme-text-disabled-on-primary-light, rgba(0, 0, 0, 0.38)) !important; }
-
-.mdc-theme--text-icon-on-primary-light {
-  /* @alternate */
-  color: rgba(0, 0, 0, 0.38) !important;
-  color: var(--mdc-theme-text-icon-on-primary-light, rgba(0, 0, 0, 0.38)) !important; }
-
-.mdc-theme--text-primary-on-primary-dark {
-  /* @alternate */
-  color: white !important;
-  color: var(--mdc-theme-text-primary-on-primary-dark, white) !important; }
-
-.mdc-theme--text-secondary-on-primary-dark {
-  /* @alternate */
-  color: rgba(255, 255, 255, 0.7) !important;
-  color: var(--mdc-theme-text-secondary-on-primary-dark, rgba(255, 255, 255, 0.7)) !important; }
-
-.mdc-theme--text-hint-on-primary-dark {
-  /* @alternate */
-  color: rgba(255, 255, 255, 0.5) !important;
-  color: var(--mdc-theme-text-hint-on-primary-dark, rgba(255, 255, 255, 0.5)) !important; }
-
-.mdc-theme--text-disabled-on-primary-dark {
-  /* @alternate */
-  color: rgba(255, 255, 255, 0.5) !important;
-  color: var(--mdc-theme-text-disabled-on-primary-dark, rgba(255, 255, 255, 0.5)) !important; }
-
-.mdc-theme--text-icon-on-primary-dark {
-  /* @alternate */
-  color: rgba(255, 255, 255, 0.5) !important;
-  color: var(--mdc-theme-text-icon-on-primary-dark, rgba(255, 255, 255, 0.5)) !important; }
-
-.mdc-theme--text-primary-on-secondary {
-  /* @alternate */
-  color: white !important;
-  color: var(--mdc-theme-text-primary-on-secondary, white) !important; }
-
-.mdc-theme--text-secondary-on-secondary {
-  /* @alternate */
-  color: rgba(255, 255, 255, 0.7) !important;
-  color: var(--mdc-theme-text-secondary-on-secondary, rgba(255, 255, 255, 0.7)) !important; }
-
-.mdc-theme--text-hint-on-secondary {
-  /* @alternate */
-  color: rgba(255, 255, 255, 0.5) !important;
-  color: var(--mdc-theme-text-hint-on-secondary, rgba(255, 255, 255, 0.5)) !important; }
-
-.mdc-theme--text-disabled-on-secondary {
-  /* @alternate */
-  color: rgba(255, 255, 255, 0.5) !important;
-  color: var(--mdc-theme-text-disabled-on-secondary, rgba(255, 255, 255, 0.5)) !important; }
-
-.mdc-theme--text-icon-on-secondary {
-  /* @alternate */
-  color: rgba(255, 255, 255, 0.5) !important;
-  color: var(--mdc-theme-text-icon-on-secondary, rgba(255, 255, 255, 0.5)) !important; }
-
-.mdc-theme--text-primary-on-secondary-light {
-  /* @alternate */
-  color: rgba(0, 0, 0, 0.87) !important;
-  color: var(--mdc-theme-text-primary-on-secondary-light, rgba(0, 0, 0, 0.87)) !important; }
-
-.mdc-theme--text-secondary-on-secondary-light {
-  /* @alternate */
-  color: rgba(0, 0, 0, 0.54) !important;
-  color: var(--mdc-theme-text-secondary-on-secondary-light, rgba(0, 0, 0, 0.54)) !important; }
-
-.mdc-theme--text-hint-on-secondary-light {
-  /* @alternate */
-  color: rgba(0, 0, 0, 0.38) !important;
-  color: var(--mdc-theme-text-hint-on-secondary-light, rgba(0, 0, 0, 0.38)) !important; }
-
-.mdc-theme--text-disabled-on-secondary-light {
-  /* @alternate */
-  color: rgba(0, 0, 0, 0.38) !important;
-  color: var(--mdc-theme-text-disabled-on-secondary-light, rgba(0, 0, 0, 0.38)) !important; }
-
-.mdc-theme--text-icon-on-secondary-light {
-  /* @alternate */
-  color: rgba(0, 0, 0, 0.38) !important;
-  color: var(--mdc-theme-text-icon-on-secondary-light, rgba(0, 0, 0, 0.38)) !important; }
-
-.mdc-theme--text-primary-on-secondary-dark {
-  /* @alternate */
-  color: white !important;
-  color: var(--mdc-theme-text-primary-on-secondary-dark, white) !important; }
-
-.mdc-theme--text-secondary-on-secondary-dark {
-  /* @alternate */
-  color: rgba(255, 255, 255, 0.7) !important;
-  color: var(--mdc-theme-text-secondary-on-secondary-dark, rgba(255, 255, 255, 0.7)) !important; }
-
-.mdc-theme--text-hint-on-secondary-dark {
-  /* @alternate */
-  color: rgba(255, 255, 255, 0.5) !important;
-  color: var(--mdc-theme-text-hint-on-secondary-dark, rgba(255, 255, 255, 0.5)) !important; }
-
-.mdc-theme--text-disabled-on-secondary-dark {
-  /* @alternate */
-  color: rgba(255, 255, 255, 0.5) !important;
-  color: var(--mdc-theme-text-disabled-on-secondary-dark, rgba(255, 255, 255, 0.5)) !important; }
-
-.mdc-theme--text-icon-on-secondary-dark {
-  /* @alternate */
-  color: rgba(255, 255, 255, 0.5) !important;
-  color: var(--mdc-theme-text-icon-on-secondary-dark, rgba(255, 255, 255, 0.5)) !important; }
+  color: var(--mdc-theme-on-surface, #000) !important; }
 
 .mdc-theme--text-primary-on-background {
-  /* @alternate */
   color: rgba(0, 0, 0, 0.87) !important;
+  /* @alternate */
   color: var(--mdc-theme-text-primary-on-background, rgba(0, 0, 0, 0.87)) !important; }
 
 .mdc-theme--text-secondary-on-background {
-  /* @alternate */
   color: rgba(0, 0, 0, 0.54) !important;
+  /* @alternate */
   color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54)) !important; }
 
 .mdc-theme--text-hint-on-background {
-  /* @alternate */
   color: rgba(0, 0, 0, 0.38) !important;
+  /* @alternate */
   color: var(--mdc-theme-text-hint-on-background, rgba(0, 0, 0, 0.38)) !important; }
 
 .mdc-theme--text-disabled-on-background {
-  /* @alternate */
   color: rgba(0, 0, 0, 0.38) !important;
+  /* @alternate */
   color: var(--mdc-theme-text-disabled-on-background, rgba(0, 0, 0, 0.38)) !important; }
 
 .mdc-theme--text-icon-on-background {
-  /* @alternate */
   color: rgba(0, 0, 0, 0.38) !important;
+  /* @alternate */
   color: var(--mdc-theme-text-icon-on-background, rgba(0, 0, 0, 0.38)) !important; }
 
 .mdc-theme--text-primary-on-light {
-  /* @alternate */
   color: rgba(0, 0, 0, 0.87) !important;
+  /* @alternate */
   color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87)) !important; }
 
 .mdc-theme--text-secondary-on-light {
-  /* @alternate */
   color: rgba(0, 0, 0, 0.54) !important;
+  /* @alternate */
   color: var(--mdc-theme-text-secondary-on-light, rgba(0, 0, 0, 0.54)) !important; }
 
 .mdc-theme--text-hint-on-light {
-  /* @alternate */
   color: rgba(0, 0, 0, 0.38) !important;
+  /* @alternate */
   color: var(--mdc-theme-text-hint-on-light, rgba(0, 0, 0, 0.38)) !important; }
 
 .mdc-theme--text-disabled-on-light {
-  /* @alternate */
   color: rgba(0, 0, 0, 0.38) !important;
+  /* @alternate */
   color: var(--mdc-theme-text-disabled-on-light, rgba(0, 0, 0, 0.38)) !important; }
 
 .mdc-theme--text-icon-on-light {
-  /* @alternate */
   color: rgba(0, 0, 0, 0.38) !important;
+  /* @alternate */
   color: var(--mdc-theme-text-icon-on-light, rgba(0, 0, 0, 0.38)) !important; }
 
 .mdc-theme--text-primary-on-dark {
-  /* @alternate */
   color: white !important;
+  /* @alternate */
   color: var(--mdc-theme-text-primary-on-dark, white) !important; }
 
 .mdc-theme--text-secondary-on-dark {
-  /* @alternate */
   color: rgba(255, 255, 255, 0.7) !important;
+  /* @alternate */
   color: var(--mdc-theme-text-secondary-on-dark, rgba(255, 255, 255, 0.7)) !important; }
 
 .mdc-theme--text-hint-on-dark {
-  /* @alternate */
   color: rgba(255, 255, 255, 0.5) !important;
+  /* @alternate */
   color: var(--mdc-theme-text-hint-on-dark, rgba(255, 255, 255, 0.5)) !important; }
 
 .mdc-theme--text-disabled-on-dark {
-  /* @alternate */
   color: rgba(255, 255, 255, 0.5) !important;
+  /* @alternate */
   color: var(--mdc-theme-text-disabled-on-dark, rgba(255, 255, 255, 0.5)) !important; }
 
 .mdc-theme--text-icon-on-dark {
-  /* @alternate */
   color: rgba(255, 255, 255, 0.5) !important;
+  /* @alternate */
   color: var(--mdc-theme-text-icon-on-dark, rgba(255, 255, 255, 0.5)) !important; }
 
 .mdc-theme--primary-bg {
-  /* @alternate */
   background-color: #6200ee !important;
+  /* @alternate */
   background-color: var(--mdc-theme-primary, #6200ee) !important; }
 
-.mdc-theme--primary-light-bg {
-  /* @alternate */
-  background-color: #b37eff !important;
-  background-color: var(--mdc-theme-primary-light, #b37eff) !important; }
-
-.mdc-theme--primary-dark-bg {
-  /* @alternate */
-  background-color: #8936ff !important;
-  background-color: var(--mdc-theme-primary-dark, #8936ff) !important; }
-
 .mdc-theme--secondary-bg {
-  /* @alternate */
   background-color: #018786 !important;
+  /* @alternate */
   background-color: var(--mdc-theme-secondary, #018786) !important; }
-
-.mdc-theme--secondary-light-bg {
-  /* @alternate */
-  background-color: #02cecc !important;
-  background-color: var(--mdc-theme-secondary-light, #02cecc) !important; }
-
-.mdc-theme--secondary-dark-bg {
-  /* @alternate */
-  background-color: #004040 !important;
-  background-color: var(--mdc-theme-secondary-dark, #004040) !important; }
 
 /**
  * The css property used for elevation. In most cases this should not be changed. It is exposed
@@ -9111,8 +9234,8 @@ a.mdc-list-item {
  * An optional third $root-selector argument may also be given, which is passed to `mdc-rtl`.
  */
 .mdc-toolbar {
-  /* @alternate */
   background-color: #6200ee;
+  /* @alternate */
   background-color: var(--mdc-theme-primary, #6200ee);
   color: white;
   display: flex;
@@ -9179,6 +9302,7 @@ a.mdc-list-item {
     border: none;
     background-color: transparent;
     color: inherit;
+    fill: inherit;
     text-decoration: none;
     cursor: pointer;
     padding-right: 12px;
@@ -9197,6 +9321,7 @@ a.mdc-list-item {
     border: none;
     background-color: transparent;
     color: inherit;
+    fill: inherit;
     text-decoration: none;
     cursor: pointer;
     padding-right: 24px;
@@ -9788,16 +9913,16 @@ a.mdc-list-item {
   min-height: 100px;
   max-height: 100px;
   border-top: 1px solid rgba(0, 0, 0, 0.12);
-  /* @alternate */
   background-color: #fff;
+  /* @alternate */
   background-color: var(--mdc-theme-background, #fff); }
   .mdc-dashboard__add-item__thumbnail {
     height: 72px;
     width: 72px;
     margin-right: 20px; }
     .mdc-dashboard__add-item__thumbnail--icon {
-      /* @alternate */
       color: rgba(0, 0, 0, 0.38);
+      /* @alternate */
       color: var(--mdc-theme-text-icon-on-background, rgba(0, 0, 0, 0.38));
       font-size: 72px !important; }
   .mdc-dashboard__add-item__text-box {
@@ -9836,8 +9961,8 @@ a.mdc-list-item {
 
 .mdc-dashboard__item {
   box-shadow: 0px 3px 1px -2px rgba(0, 0, 0, 0.2), 0px 2px 2px 0px rgba(0, 0, 0, 0.14), 0px 1px 5px 0px rgba(0, 0, 0, 0.12);
-  /* @alternate */
   background-color: #fff;
+  /* @alternate */
   background-color: var(--mdc-theme-background, #fff);
   height: 100%;
   overflow: hidden;
@@ -9866,8 +9991,8 @@ a.mdc-list-item {
     display: flex;
     justify-content: flex-end; }
   .mdc-dashboard__item__heading-button {
-    /* @alternate */
     color: rgba(0, 0, 0, 0.38);
+    /* @alternate */
     color: var(--mdc-theme-text-icon-on-background, rgba(0, 0, 0, 0.38));
     font-size: 16px;
     width: 24px;
