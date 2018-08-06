@@ -14,13 +14,21 @@ let list_of_yojson f = function
 
 class ['a] t ~(items:'a Item.positioned_item list) (factory:'a #factory) () =
   let grid = new grid factory () in
-  let add_panel = new Dashboard_panel.add ~widgets:(List.map (fun x -> new Dashboard_add_item.t x ())
-                                                             (match factory#available with
-                                                              | `List l -> l
-                                                              | `Groups _ -> [])) ()
+  let add_panel =
+    new Dashboard_panel.add
+      ~widgets:(List.map (fun x -> new Dashboard_add_item.t x ())
+                  (match factory#available with
+                   | `List l -> l
+                   | `Groups _ -> [])) ()
   in
-  let add    = new Fab.t ~icon:"add" () in
-  let fab    = new Fab_speed_dial.t ~direction:`Up ~animation:`Scale ~icon:"edit" ~items:[add] () in
+  let add_icon  = Icon.SVG.(new t ~paths:Path.[ new t plus () ] ()) in
+  let edit_icon = Icon.SVG.(new t ~paths:Path.[ new t pencil () ] ()) in
+  let add    = new Fab.t ~icon:add_icon () in
+  let fab    = new Fab_speed_dial.t
+                 ~direction:`Up
+                 ~animation:`Scale
+                 ~icon:edit_icon
+                 ~items:[add] () in
   let e,push = React.E.create () in
   object(self)
 
@@ -49,9 +57,12 @@ class ['a] t ~(items:'a Item.positioned_item list) (factory:'a #factory) () =
                             | true  -> push @@ self#serialize ();
                                        fab#hide ()) fab#main#e_click |> ignore;
       React.E.map (fun _ -> add_panel#show ()) add#e_click |> ignore;
-      React.S.map (function true  -> grid#set_editable true;  fab#main#set_icon "check"
-                          | false -> grid#set_editable false; fab#main#set_icon "edit")
-                  fab#s_state |> ignore;
+      React.S.map (function
+          | true  -> grid#set_editable true;
+                     edit_icon#path#set Icon.SVG.Path.check
+          | false -> grid#set_editable false;
+                     edit_icon#path#set Icon.SVG.Path.pencil)
+        fab#s_state |> ignore;
       Dom.appendChild Dom_html.document##.body add_panel#root;
       self#set_on_load @@ Some (fun () -> self#grid#layout (); fab#hide ());
       fab#add_class Markup.edit_button_class;

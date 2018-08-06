@@ -39,20 +39,25 @@ let circular_progress_demo () =
   section
 
 let fab_demo () =
-  let fab    = new Fab.t ~icon:"favorite" () in
-  let mini   = new Fab.t ~mini:true ~icon:"favorite" () in
-  let ripple = new Fab.t ~ripple:true ~icon:"favorite" () in
-  let box    = new Vbox.t ~widgets:[ subsection "General" fab
-                                  ; subsection "Mini" mini
-                                  ; subsection "Ripple" ripple
-                                  ]
-                   ()
+  let icon () = Icon.SVG.(create_simple Path.heart) in
+  let fab     = new Fab.t ~icon:(icon ()) () in
+  let mini    = new Fab.t ~mini:true ~icon:(icon ()) () in
+  let ripple  = new Fab.t ~ripple:true ~icon:(icon ()) () in
+  let box     = new Vbox.t ~widgets:[ subsection "General" fab
+                                    ; subsection "Mini" mini
+                                    ; subsection "Ripple" ripple
+                  ]
+                  ()
   in
   demo_section "FAB" [box]
 
 let fab_speed_dial_demo () =
-  let items = List.map (fun icon -> new Fab.t ~icon ()) ["face"; "add"; "close"] in
-  let fab   = new Fab_speed_dial.t ~icon:"edit" ~items () in
+  let items =
+    List.map (fun path ->
+        let icon = Icon.SVG.create_simple path in
+        new Fab.t ~icon ()) Icon.SVG.Path.[face; plus; close] in
+  let icon  = Icon.SVG.create_simple Icon.SVG.Path.pencil in
+  let fab   = new Fab_speed_dial.t ~icon ~items () in
   let up    = new Radio.t ~name:"dir" ~value:`Up () in
   let down  = new Radio.t ~name:"dir" ~value:`Down () in
   let left  = new Radio.t ~name:"dir" ~value:`Left () in

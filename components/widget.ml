@@ -59,6 +59,7 @@ class t (elt:#Dom_html.element Js.t) () = object(self)
   method has_attribute a    = self#root##hasAttribute (Js.string a)
 
   method inner_html       = Js.to_string self#root##.innerHTML
+  method outer_html       = Js.to_string self#root##.outerHTML
   method set_inner_html s = self#root##.innerHTML := Js.string s
 
   method text_content       = self#root##.textContent |> Js.Opt.to_option |> Option.map Js.to_string

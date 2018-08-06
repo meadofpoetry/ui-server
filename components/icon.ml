@@ -62,6 +62,11 @@ module SVG = struct
       method path = List.hd self#paths
     end
 
+  let create_simple path =
+    let path = new Path.t path () in
+    new t ~paths:[path] ()
+
+
 end
 
 module Button = struct
