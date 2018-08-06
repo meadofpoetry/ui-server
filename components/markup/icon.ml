@@ -30,11 +30,11 @@ module Make(Xml : Xml_sigs.NoWrap)
                    <@> attrs) []
 
     let create ?(classes=[]) ?attrs ?(size=24) paths () =
-      let sz    = Printf.sprintf "width:%dpx;height:%dpx" size size in
       let sz_fl = float_of_int size in
       svg ~a:([ Svg.a_class (base_class :: classes)
-              ; Svg.a_style sz
-              ; Svg.a_viewBox (0.,0.,sz_fl,sz_fl)
+              ; Svg.a_width (sz_fl, None)
+              ; Svg.a_height (sz_fl, None)
+              ; Svg.a_viewBox (0., 0., sz_fl, sz_fl)
               ] <@> attrs)
         paths
 

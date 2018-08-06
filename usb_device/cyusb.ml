@@ -33,12 +33,33 @@ let create ?(inp = in_point) ?(outp = out_point) () =
 
 let finalize = Cyusb_raw.close
 
+let get_ptr (b : Cstruct.t) =
+  Ctypes.(bigarray_start array1 (Cstruct.to_bigarray b)) (* TODO consider offset *)
+
+let split_size size (cs : Cstruct.t) =
+  let module BA = Bigarray.Array1 in
+  let open Cstruct in
+
+  let bufsz = cs.len in
+  let rec split point acc =
+    if bufsz - point < size
+    then
+      let sz = (bufsz - point) in
+      let r  = sub cs point sz in
+      r::acc
+    else
+      let sz = size in
+      let r  = sub cs point sz in
+      split (point+size) (r::acc)
+
+  in List.rev @@ split 0 []
+             
 let send usb b =
-  let open Cbuffer in
+  let open Cstruct in
   let open Ctypes in
   let got     = allocate int32_t 0l in
-  let buf_lst = Cbuffer.split_size usb.out_max b in
-  
+  let buf_lst = split_size usb.out_max b in
+
   let rec send' = function
     | [] -> ()
     | x::xs ->
@@ -50,11 +71,11 @@ let send usb b =
   send' buf_lst
 
 let recv usb =
-  let open Cbuffer in
+  let open Cstruct in
   let open Ctypes in
   let got  = allocate int32_t 1l in
   let rec recv' () =
-    let buf = Cbuffer.create_unsafe usb.in_max in
+    let buf = Cstruct.create_unsafe usb.in_max in
     let _   = Cyusb_raw.bulk_transfer usb.handle (Unsigned.UChar.of_int usb.inp)
                 (get_ptr buf) (len buf)
                 got 2
@@ -63,9 +84,9 @@ let recv usb =
     | 0 -> []
     | x when x < 0 -> failwith "usb: reading failure"
     | len ->
-       let r = if len < (Cbuffer.len buf)
-               then Cbuffer.sub buf 0 len
+       let r = if len < (Cstruct.len buf)
+               then Cstruct.sub buf 0 len
                else buf
        in r::(recv' ())
   in 
-  Cbuffer.concat @@ recv' ()
+  Cstruct.concat @@ recv' ()

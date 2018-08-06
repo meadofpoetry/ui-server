@@ -5,8 +5,15 @@
 @import "./components/drawer/slidable/_variables";
 @import "./components/animation/_functions";
 @import "./components/elevation/_mixins";
+@import "./components/theme/_mixins";
 
 $mdc-persistent-drawer-width: 280px;
+
+#navigation {
+    .mdc-icon {
+        @include mdc-theme-prop(fill, text-icon-on-background);
+    }
+}
 
 .mdc-drawer--custom {
   @include mdc-drawer-base_;

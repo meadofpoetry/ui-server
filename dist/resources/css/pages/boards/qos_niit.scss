@@ -170,6 +170,9 @@ $fill-tone: mdc-theme-tone($alarm-color);
 /* Pids overview widget */
 
 .qos-niit-pid-overview {
+    .mdc-data-table .mdc-icon {
+        @include mdc-theme-prop(fill, text-icon-on-background);
+    }
     .mdc-card__actions {
         justify-content: flex-end;
     }

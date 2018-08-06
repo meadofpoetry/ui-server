@@ -108,6 +108,7 @@ $wm-placeholder-color: text-secondary-on-background;
 
         .mdc-icon {
             @include mdc-theme-prop(color,text-secondary-on-background);
+            @include mdc-theme-prop(fill,text-secondary-on-background);
             padding: 12px;
         }
     }
@@ -181,13 +182,15 @@ $wm-placeholder-color: text-secondary-on-background;
 }
 
 .wm-layers-actions {
-    i.mdc-icon {
+    .mdc-icon {
         @include mdc-theme-prop(color,text-secondary-on-light);
+        @include mdc-theme-prop(fill,text-secondary-on-background);
         transition: color 150ms $mdc-animation-standard-curve-timing-function;
     }
-    i.mdc-icon--disabled {
+    .mdc-icon--disabled {
         cursor: default;
         @include mdc-theme-prop(color,text-disabled-on-light);
+        @include mdc-theme-prop(fill,text-disabled-on-light);
     }
 }
 
@@ -225,15 +228,15 @@ $wm-placeholder-color: text-secondary-on-background;
 
     padding: 12px;
     white-space: nowrap;
-    font-size: 14px;
 
     &__line {
+        @include mdc-typography(caption);
         margin-left: $icon-margin + $icon-size;
         line-height: 1.5;
     }
     &__line--with-icon {
         margin-left: 0;
-        i {
+        .mdc-icon {
             margin-right: $icon-margin;
             width: $icon-size;
             height: $icon-size;
@@ -318,7 +321,13 @@ $wm-placeholder-color: text-secondary-on-background;
         .mdc-dynamic-grid__item {
             overflow: hidden;
             text-overflow: ellipsis;
-            border: 2px solid rgba(0,0,0,.12);
+            @include mdc-elevation(2);
+            transition: box-shadow 100ms ease-out;
+            transition-delay: 100ms;
+        }
+        .mdc-dynamic-grid__item--dragging {
+            z-index: 100 !important;
+            @include mdc-elevation(8);
         }
         .mdc-dynamic-grid__item__ghost {
             @include mdc-theme-prop(background-color, secondary);

@@ -93,7 +93,7 @@ module R = Caqti_request
 
 let is_in field to_string = function
   | [] -> ""
-  | lst -> Printf.sprintf " %s IS IN (%s) AND " field (String.concat "," @@ List.map to_string lst)
+  | lst -> Printf.sprintf " %s IN (%s) AND " field (String.concat "," @@ List.map to_string lst)
 
 let merge_intervals =
   let (<=) l r = Time.compare l r <= 0 in

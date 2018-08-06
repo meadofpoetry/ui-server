@@ -3822,15 +3822,16 @@
   user-select: none; }
 
 .mdc-icon {
-  /* @alternate */
-  fill: rgba(0, 0, 0, 0.38);
-  fill: var(--mdc-theme-text-icon-on-background, rgba(0, 0, 0, 0.38)); }
+  /* @include mdc-theme-prop(fill, text-icon-on-background); */ }
   .mdc-icon--button {
     cursor: pointer; }
   .mdc-icon--disabled {
     /* @alternate */
     color: rgba(0, 0, 0, 0.38);
     color: var(--mdc-theme-text-disabled-on-light, rgba(0, 0, 0, 0.38));
+    /* @alternate */
+    fill: rgba(0, 0, 0, 0.38);
+    fill: var(--mdc-theme-text-disabled-on-light, rgba(0, 0, 0, 0.38));
     cursor: default;
     pointer-events: none; }
 
@@ -9885,7 +9886,7 @@ a.mdc-list-item {
     pointer-events: none; }
 
 .mdc-dynamic-grid__item--dragging .mdc-dashboard__item {
-  box-shadow: 0px 7px 8px -4px rgba(0, 0, 0, 0.2), 0px 12px 17px 2px rgba(0, 0, 0, 0.14), 0px 5px 22px 4px rgba(0, 0, 0, 0.12);
+  box-shadow: 0px 5px 5px -3px rgba(0, 0, 0, 0.2), 0px 8px 10px 1px rgba(0, 0, 0, 0.14), 0px 3px 14px 2px rgba(0, 0, 0, 0.12);
   z-index: 100; }
 
 .mdc-parameter-widget {

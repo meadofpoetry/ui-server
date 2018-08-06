@@ -4,11 +4,15 @@ open Components
 type icon = Widget.t
 
 let icon_to_yojson w =
+  print_endline w#outer_html;
   `String w#outer_html
 let icon_of_yojson = function
   | `String s ->
+     let div = Dom_html.createDiv Dom_html.document in
+     div##.innerHTML := Js.string s;
      let elt : Dom_html.element Js.t =
-       Js.Unsafe.coerce @@ Tyxml_js.Xml.entity s in
+       Js.Opt.get div##.firstChild (fun () -> assert false)
+       |> Js.Unsafe.coerce in
      Ok (Widget.create elt)
   | _ -> Error "bad json"
 let equal_icon x y =
