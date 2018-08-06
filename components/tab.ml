@@ -44,11 +44,13 @@ class ['a,'b] t
   let elt, elts = content_to_elt content indicator in
   let elt = To_dom.of_element elt in
 
-  object(self)
+  object(self : 'self)
 
     inherit Widget.t elt () as super
 
     val mutable _value : 'b = value
+
+    method indicator = indicator
 
     method value : 'b       = _value
     method set_value (x:'b) = _value <- x
@@ -64,9 +66,11 @@ class ['a,'b] t
 
     method active : bool =
       self#has_class Markup.active_class
-    method set_active (x:bool) : unit =
-      indicator#set_active x;
-      self#set_attribute "tabindex" (if active then "0" else "-1");
+    method set_active ?(previous:'self option) (x:bool) : unit =
+      let prev_indicator = Option.map (fun x -> x#indicator) previous in
+      indicator#set_active ?previous:prev_indicator x;
+      self#set_attribute "aria-selected" @@ string_of_bool x;
+      self#set_attribute "tabindex" (if x then "0" else "-1");
       self#add_or_remove_class x Markup.active_class
 
     method width = self#offset_width

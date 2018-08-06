@@ -22,20 +22,21 @@ module Make
       [ pcdata text ]
 
   let create_content ?(classes=[]) ?attrs content () =
-    div ~a:([ a_class (content_class :: classes) ] <@> attrs)
+    span ~a:([ a_class (content_class :: classes) ] <@> attrs)
       content
 
   let create ?(classes=[]) ?attrs ?(active=false) ?(stacked=false)
         ?(min_width=false) content indicator () =
-    div ~a:([ a_class (classes
-                       |> cons_if active active_class
-                       |> cons_if stacked stacked_class
-                       |> cons_if min_width min_width_class
-                       |> List.cons base_class) ]
-            <@> attrs)
+    button ~a:([ a_class (classes
+                          |> cons_if active active_class
+                          |> cons_if stacked stacked_class
+                          |> cons_if min_width min_width_class
+                          |> List.cons base_class)
+               ; a_role ["tab"] ]
+               <@> attrs)
       [ content
       ; indicator
-      ; div ~a:[ a_class [ ripple_class ]] []
+      ; span ~a:[ a_class [ ripple_class ]] []
       ]
 
 end

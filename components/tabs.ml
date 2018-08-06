@@ -30,45 +30,8 @@
  *       val mutable width        = 0
  * 
  *       method indicator_widget = indicator
- *       method tabs             = tabs
- *       method s_active         = s_active
- * 
- *       (\* Active getters *\)
- * 
- *       method active_tab_index = match React.S.value s_active with
- *         | Some tab -> List.find_idx (fun x -> Equal.physical x tab) self#tabs
- *                       |> (function Some (idx,_) -> Some idx | None -> None)
- *         | None     -> None
- *       method active_tab = React.S.value s_active
- *       method active_value =
- *         Option.map (fun x -> x#value) self#active_tab
- * 
- *       (\* Active setters *\)
- * 
- *       method set_active_tab_index x = match List.get_at_idx x self#tabs with
- *         | Some tab -> Ok (tab#set_active true)
- *         | None     -> Error (Printf.sprintf "set_active_tab_index:\
- *                                              tab with index %d not found" x)
- *       method set_active_tab tab =
- *         match List.find_idx (Equal.physical tab) self#tabs with
- *         | Some (_,tab) -> Ok (tab#set_active true)
- *         | None         -> Error "set_active_tab: tab not found"
  * 
  *       method get_tab_at_index i = List.get_at_idx i self#tabs
- * 
- *       method append_tab (tab:('a,'b) tab) =
- *         let t = new Tab.t s_active_push fmt tab () in
- *         tabs <- tabs @ [t];
- *         Dom.appendChild self#root t#root;
- *         self#layout ();
- *         tab
- * 
- *       method insert_tab_at_index index (tab:('a,'b) tab) =
- *         let t = new Tab.t s_active_push fmt tab () in
- *         tabs <- List.insert_at_idx index t tabs;
- *         self#insert_child_at_idx index t;
- *         self#layout ();
- *         tab
  * 
  *       method remove_tab_at_index i = match self#get_tab_at_index i with
  *         | Some tab ->

@@ -943,12 +943,14 @@ body {
 
 #main-toolbar {
   z-index: 20; }
+  #main-toolbar .mdc-tab-indicator > .mdc-tab-indicator__content--underline {
+    background-color: #fff; }
   #main-toolbar .mdc-tab__text-label {
     color: #fff; }
   #main-toolbar .mdc-tab__icon {
     color: #fff; }
-  #main-toolbar > .mdc-tab-indicator__content--underline {
-    background-color: #fff; }
+  #main-toolbar #main-toolbar__tabs .mdc-toolbar__section {
+    align-items: flex-end; }
   #main-toolbar .mdc-toolbar__title {
     font-weight: 300;
     font-size: 24px; }

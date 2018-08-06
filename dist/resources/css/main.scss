@@ -32,13 +32,15 @@ body {
     z-index: 21;
 }
 #main-toolbar {
-    // .mdc-tab {
-    //     @include mdc-tab-fixed-width(120px);
-    // }
+    .mdc-tab-indicator {
+        @include mdc-tab-indicator-underline-color($mdc-theme-on-primary);
+    }
     @include mdc-tab-text-label-color($mdc-theme-on-primary);
     @include mdc-tab-icon-color($mdc-theme-on-primary);
-    @include mdc-tab-indicator-underline-color($mdc-theme-on-primary);
     z-index: 20;
+    #main-toolbar__tabs .mdc-toolbar__section {
+        align-items: flex-end;
+    }
     .mdc-toolbar__title {
         font-weight: 300;
         font-size: 24px;
