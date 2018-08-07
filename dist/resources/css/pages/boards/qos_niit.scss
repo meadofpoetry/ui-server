@@ -2,9 +2,6 @@
 @import "../../components/theme/_color-palette";
 @import "../../components/typography/_mixins";
 
-$alarm-color: $material-color-red-100;
-$fill-tone: mdc-theme-tone($alarm-color);
-
 .mdc-list-title {
     @include mdc-typography(caption);
     @include mdc-theme-prop(color, text-secondary-on-surface);
@@ -165,9 +162,6 @@ $fill-tone: mdc-theme-tone($alarm-color);
             &--ok {
                 @include mdc-theme-prop(color, $material-color-green-500);
             }
-            &--error {
-                @include mdc-theme-prop(color, $material-color-red-500);
-            }
         }
         .mdc-list-item__meta.mdc-typography {
             font-size: 0.9em;
@@ -233,11 +227,10 @@ $fill-tone: mdc-theme-tone($alarm-color);
     }
 
     &--lost {
-        @include mdc-theme-prop(background-color, $alarm-color);
-        @if ($fill-tone == "dark") {
-            @include mdc-theme-prop(color, text-primary-on-dark);
-        } @else {
-            @include mdc-theme-prop(color, text-primary-on-light);
+        .mdc-card__subtitle {
+            @include mdc-theme-prop(color, text-secondary-on-error);
         }
+        @include mdc-theme-prop(background-color, error);
+        @include mdc-theme-prop(color, on-error);
     }
 }

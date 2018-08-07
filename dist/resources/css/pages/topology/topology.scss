@@ -121,8 +121,8 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
 
     &--fail {
         .topology__block__body {
-            background-color: $material-color-red-200;
-            @include mdc-theme-prop(color, text-secondary-on-light);
+            @include mdc-theme-prop(background-color, error);
+            @include mdc-theme-prop(color, on-error);
         }
     }
 
@@ -159,7 +159,7 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
 
 .topology__cpu {
     &__header {
-        $bg-color: $material-color-blue-grey-500;
+        $bg-color: $material-color-teal-500;
         $tone: mdc-theme-tone($bg-color);
         .mdc-card__title, .mdc-icon {
             @if ($tone == 'light') {

@@ -41,14 +41,18 @@
 //
 
 .mdc-card__primary {
+    margin: 0;
     padding: 1rem;
-    @include mdc-theme-prop(background-color, surface);
+}
+
+.mdc-card__overline {
+    margin: 0;
+    @include mdc-typography(overline);
 }
 
 .mdc-card__title {
     margin: 0;
     @include mdc-typography(body1);
-    @include mdc-theme-prop(color, text-primary-on-surface);
 
     margin: -.063rem 0;
 

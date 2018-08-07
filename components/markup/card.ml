@@ -52,17 +52,25 @@ module Make(Xml : Xml_sigs.NoWrap)
     let _class            = CSS.add_element base_class "primary"
     let title_class       = CSS.add_element base_class "title"
     let subtitle_class    = CSS.add_element base_class "subtitle"
+    let overline_class    = CSS.add_element base_class "overline"
     let large_title_class = CSS.add_modifier title_class "large"
 
+    let create_overline ?(classes=[]) ?attrs ~text () =
+      h5 ~a:([a_class (overline_class :: classes)]
+             <@> attrs)
+        [pcdata text]
+
     let create_title ?(classes=[]) ?attrs ?(large=false) ~title () =
-      h1 ~a:([a_class (classes
+      h2 ~a:([a_class (classes
                        |> cons_if large large_title_class
                        |> List.cons title_class)]
              <@> attrs)
         [pcdata title]
 
     let create_subtitle ?(classes=[]) ?attrs ~subtitle () =
-      h2 ~a:([a_class (subtitle_class :: classes)] <@> attrs) [pcdata subtitle]
+      h3 ~a:([a_class (subtitle_class :: classes)]
+             <@> attrs)
+        [pcdata subtitle]
 
     let create ?(classes=[]) ?attrs ~children () =
       section ~a:([a_class (_class :: classes)] <@> attrs) children

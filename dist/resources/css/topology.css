@@ -34,7 +34,7 @@
   align-self: start; }
 
 .topology__board[data-board='TS'] .topology__board__header {
-  background-color: #e91e63; }
+  background-color: #607d8b; }
   .topology__board[data-board='TS'] .topology__board__header .mdc-icon {
     color: white;
     /* @alternate */
@@ -184,9 +184,11 @@
   max-width: 250px; }
   .topology__block--fail .topology__block__body {
     background-color: #ef9a9a;
-    color: rgba(0, 0, 0, 0.54);
     /* @alternate */
-    color: var(--mdc-theme-text-secondary-on-light, rgba(0, 0, 0, 0.54)); }
+    background-color: var(--mdc-theme-error, #ef9a9a);
+    color: #000;
+    /* @alternate */
+    color: var(--mdc-theme-on-error, #000); }
   .topology__block--init .topology__block__body {
     background-color: #bdbdbd;
     color: rgba(0, 0, 0, 0.54);
@@ -209,7 +211,7 @@
     justify-content: space-around; }
 
 .topology__cpu__header {
-  background-color: #607d8b; }
+  background-color: #009688; }
   .topology__cpu__header .mdc-card__title, .topology__cpu__header .mdc-icon {
     color: white;
     /* @alternate */

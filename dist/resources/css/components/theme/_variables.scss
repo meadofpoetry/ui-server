@@ -15,6 +15,7 @@
 //
 
 @import "./functions";
+@import "./_color-palette";
 
 //
 // Main theme colors for your brand.
@@ -34,6 +35,9 @@ $mdc-theme-background: #ececec !default; // White
 
 $mdc-theme-surface: #fff !default;
 $mdc-theme-on-surface: if(mdc-theme-contrast-tone($mdc-theme-surface) == "dark", #000, #fff) !default;
+
+$mdc-theme-error: $material-color-red-200 !default;
+$mdc-theme-on-error: if(mdc-theme-contrast-tone($mdc-theme-error) == "dark", #000, #fff) !default;
 
 //
 // Text colors according to light vs dark and text type.
@@ -75,9 +79,12 @@ $mdc-theme-property-values: (
   background: $mdc-theme-background,
   // Surface
   surface: $mdc-theme-surface,
+  // Error
+  error: $mdc-theme-error,
   on-primary: $mdc-theme-on-primary,
   on-secondary: $mdc-theme-on-secondary,
   on-surface: $mdc-theme-on-surface,
+  on-error: $mdc-theme-on-error,
   // Text-primary on "background" background
   text-primary-on-background: mdc-theme-ink-color-for-fill_(primary, $mdc-theme-background),
   text-secondary-on-background: mdc-theme-ink-color-for-fill_(secondary, $mdc-theme-background),
@@ -90,6 +97,12 @@ $mdc-theme-property-values: (
   text-hint-on-surface: mdc-theme-ink-color-for-fill_(hint, $mdc-theme-surface),
   text-disabled-on-surface: mdc-theme-ink-color-for-fill_(disabled, $mdc-theme-surface),
   text-icon-on-surface: mdc-theme-ink-color-for-fill_(icon, $mdc-theme-surface),
+  // Text-primary on "error" background
+  text-primary-on-error: mdc-theme-ink-color-for-fill_(primary, $mdc-theme-error),
+  text-secondary-on-error: mdc-theme-ink-color-for-fill_(secondary, $mdc-theme-error),
+  text-hint-on-error: mdc-theme-ink-color-for-fill_(hint, $mdc-theme-error),
+  text-disabled-on-error: mdc-theme-ink-color-for-fill_(disabled, $mdc-theme-error),
+  text-icon-on-error: mdc-theme-ink-color-for-fill_(icon, $mdc-theme-error),
   // Text-primary on "light" background
   text-primary-on-light: mdc-theme-ink-color-for-fill_(primary, light),
   text-secondary-on-light: mdc-theme-ink-color-for-fill_(secondary, light),

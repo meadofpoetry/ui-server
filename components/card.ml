@@ -55,6 +55,13 @@ end
 
 module Primary = struct
 
+  class overline text () =
+    let elt = Markup.Primary.create_overline ~text ()
+              |> Tyxml_js.To_dom.of_element in
+    object
+      inherit Widget.t elt ()
+    end
+
   class title ?large text () =
     let elt = Markup.Primary.create_title ?large ~title:text ()
               |> Tyxml_js.To_dom.of_element in

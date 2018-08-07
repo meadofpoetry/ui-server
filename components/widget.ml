@@ -26,6 +26,10 @@ module Event = struct
   include Dom_events.Typ
 end
 
+module Event_lwt = struct
+  include Lwt_js_events
+end
+
 class t (elt:#Dom_html.element Js.t) () = object(self)
 
   val mutable _on_destroy = None
@@ -118,11 +122,26 @@ class t (elt:#Dom_html.element Js.t) () = object(self)
     try Dom.removeChild self#root x#node
     with _ -> ()
 
-  method listen : 'a. (#Dom_html.event as 'a) Js.t Dom.Event.typ ->
+  method listen : 'a. (#Dom_html.event as 'a) Js.t Event.typ ->
                   (Dom_html.element Js.t -> 'a Js.t -> bool) ->
                   Dom_events.listener =
     fun x f ->
     Dom_events.listen self#root x f
+
+  method listen_once_lwt : 'a. ?use_capture:bool ->
+                           (#Dom_html.event as 'a) Js.t Event.typ ->
+                           'a Js.t Lwt.t =
+    fun ?use_capture x ->
+    Event_lwt.make_event x ?use_capture self#root
+
+  method listen_lwt : 'a. ?cancel_handler:bool ->
+                      ?use_capture:bool ->
+                      (#Dom_html.event as 'a) Js.t Event.typ ->
+                      ('a Js.t -> unit Lwt.t -> unit Lwt.t) ->
+                      unit Lwt.t =
+    fun ?cancel_handler ?use_capture x ->
+    Event_lwt.seq_loop (Event_lwt.make_event x)
+      ?cancel_handler ?use_capture self#root
 
   method set_empty () =
     Dom.list_of_nodeList @@ self#root##.childNodes

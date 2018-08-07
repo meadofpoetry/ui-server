@@ -57,13 +57,14 @@ object(self)
   inherit [Widget.t] loader ?text ?error_icon ?error_prefix t () as super
   initializer
     Lwt_result.Infix.(
-    t >>= (fun w -> (match parent with
-                     | Some p -> Dom.appendChild p#root w#root;
-                                 (try Dom.removeChild p#root self#root with _ -> ())
-                     | None   -> Dom.appendChild self#root w#root);
-                    Lwt_result.return ()))
+    t >|= (fun w ->
+      (match parent with
+       | Some p -> p#append_child w;
+                   p#remove_child (self :> Widget.t)
+       | None   -> self#append_child w)))
     |> Lwt.ignore_result;
-    Option.iter (fun p -> Dom.appendChild p#root self#root) parent
+    Option.iter (fun (p:#Widget.t) ->
+        p#append_child (self :> Widget.t)) parent
 end
 
 let create_loader ?text ?error_icon ?error_prefix ?on_error ?on_success t =
