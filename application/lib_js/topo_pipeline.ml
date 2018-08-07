@@ -2,6 +2,8 @@ open Containers
 open Components
 open Lwt_result.Infix
 
+let base_class = "pipeline-settings"
+
 let make_streams () =
   Requests.HTTP.get_streams ()
   >>= (fun init ->
@@ -45,15 +47,18 @@ let make ?error_prefix () : (#Widget.t,string) Lwt_result.t =
   let set  = make_settings ()
              |> Lwt_result.map_err @@ Api_js.Requests.err_to_string in
   let tabs =
-    Ui_templates.Tabs.create_simple_tabs
-      [ new Tab.t ~content:(Text "Выбор потоков") ~value:(pgs sms) ()
-      ; new Tab.t ~content:(Text "Выбор PID") ~value:(pgs str) ()
-      ; new Tab.t ~content:(Text "Настройки анализа") ~value:(pgs set) ()
-      ] in
+    [ new Tab.t ~content:(Text "Выбор потоков") ~value:(pgs sms) ()
+    ; new Tab.t ~content:(Text "Выбор PID") ~value:(pgs str) ()
+    ; new Tab.t ~content:(Text "Настройки анализа") ~value:(pgs set) ()
+    ] in
+  let bar, body = Ui_templates.Tabs.create_simple tabs in
   let fin () =
     sms >>= (fun w -> w#destroy (); Lwt_result.return ()) |> Lwt.ignore_result;
     str >>= (fun w -> w#destroy (); Lwt_result.return ()) |> Lwt.ignore_result;
     set >>= (fun w -> w#destroy (); Lwt_result.return ()) |> Lwt.ignore_result
   in
-  tabs#set_on_destroy @@ Some fin;
-  Lwt_result.return tabs
+  let box = Ui_templates.Tabs.wrap_simple (bar, body) in
+  body#add_class @@ Markup.CSS.add_element base_class "body";
+  box#add_class base_class;
+  box#set_on_destroy @@ Some fin;
+  Lwt_result.return box

@@ -102,8 +102,8 @@ $mdc-grid-list-tile-secondary-icon-size: 24px;
 }
 
 .mdc-grid-tile__primary {
-  @include mdc-theme-prop(background-color, background);
-  @include mdc-theme-prop(color, text-primary-on-background);
+  @include mdc-theme-prop(background-color, surface);
+  @include mdc-theme-prop(color, text-primary-on-surface);
 
   position: relative;
   height: 0;

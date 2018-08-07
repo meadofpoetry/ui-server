@@ -137,6 +137,14 @@ $mdc-fab-extended-height_: 48px;
     cursor: pointer;
   }
 
+  &:disabled {
+      cursor: default;
+      pointer-events: none;
+      @include mdc-theme-prop(background-color, rgba(mdc-theme-prop-value(text-primary-on-surface), .12));
+      @include mdc-theme-prop(color, text-disabled-on-light);
+      @include mdc-elevation(0);
+  }
+
   // This allows for using SVGs within them to align properly in all browsers.
   // Can remove once: https://bugzilla.mozilla.org/show_bug.cgi?id=1294515 is resolved.
 

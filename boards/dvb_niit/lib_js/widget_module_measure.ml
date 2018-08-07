@@ -8,33 +8,35 @@ type config =
   ; typ : Widget_types.measure_type
   } [@@deriving yojson]
 
+let base_class = "dvb-niit-module-measure"
+
 module Make(M:sig type t val to_string : t -> string end) = struct
   type event  = M.t option React.event
 
-  let _class      = "mdc-parameter-widget"
-  let inner_class = Markup.CSS.add_element _class "inner"
+  let inner_class = Markup.CSS.add_element base_class "inner"
 
   let value_to_string (config:config) = function
     | Some v -> Printf.sprintf "%s %s" (M.to_string v) (measure_type_to_unit config.typ)
     | None   -> "-"
 
   class t (event:event) (config:config) () =
-    let value = new Typography.Text.t
-                    ~adjust_margin:false
-                    ~font:Headline_5
-                    ~text:(value_to_string config None)
-                    ()
-    in
-    let _     = React.E.map (fun v -> value#set_text @@ value_to_string config v) event in
-    let box   = Dom_html.createDiv Dom_html.document in
-    let inner = Dom_html.createDiv Dom_html.document |> Widget.create in
-    let ()    = inner#add_class inner_class in
-    let ()    = Dom.appendChild inner#root value#root in
-    let ()    = Dom.appendChild box inner#root in
+    let value =
+      new Typography.Text.t
+        ~adjust_margin:false
+        ~font:Headline_5
+        ~text:(value_to_string config None)
+        () in
+    let _e    = React.E.map (fun v -> value#set_text
+                                      @@ value_to_string config v) event in
+    let inner = Widget.create_div () in
     object(self)
-      inherit Widget.t box () as super
+      inherit Widget.t Dom_html.(createDiv document) () as super
       initializer
-        self#add_class _class
+        self#_keep_e _e;
+        self#append_child inner;
+        self#add_class base_class;
+        inner#append_child value;
+        inner#add_class inner_class;
     end
 
   let make (event:event) (config:config) =
@@ -64,7 +66,7 @@ let name conf = let conf = Option.get_or ~default:default_config conf in
 let settings  = None
 
 let make ~(measures:(int * measures) React.event)
-         (config:config option) =
+      (config:config option) =
   let config = Option.get_or ~default:default_config config in
   let e = React.E.filter (fun (id,_) -> id = config.id) measures in
   (match config.typ with
@@ -72,5 +74,8 @@ let make ~(measures:(int * measures) React.event)
    | `Mer     -> Mer.make     (React.E.map (fun (_,m) -> m.mer) e)     config
    | `Ber     -> Ber.make     (React.E.map (fun (_,m) -> m.ber) e)     config
    | `Freq    -> Freq.make    (React.E.map (fun (_,(m:measures)) -> m.freq) e)    config
-   | `Bitrate -> Bitrate.make (React.E.map (fun (_,m) ->
-                                   Option.map (fun b -> float_of_int b /. 1_000_000.) m.bitrate) e) config)
+   | `Bitrate ->
+      Bitrate.make (
+          React.E.map (fun (_,m) ->
+              Option.map (fun b -> float_of_int b /. 1_000_000.)
+                m.bitrate) e) config)

@@ -42,7 +42,6 @@ class t (content:('a,'b) page_content) () =
     val mutable _previous_content = None
 
     inherit Widget.t main ()
-    inherit Widget.stateful ()
 
     method set () =
       _previous_content <- Some arbitrary#root##.childNodes;

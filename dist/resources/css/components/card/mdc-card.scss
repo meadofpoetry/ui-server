@@ -25,7 +25,7 @@
 // postcss-bem-linter: define card
 
 .mdc-card {
-  @include mdc-card-fill-color(background);
+  @include mdc-card-fill-color(surface);
   @include mdc-card-corner-radius(2px);
   @include mdc-elevation(2);
   @include mdc-card-container-layout_;
@@ -42,12 +42,13 @@
 
 .mdc-card__primary {
     padding: 1rem;
+    @include mdc-theme-prop(background-color, surface);
 }
 
 .mdc-card__title {
     margin: 0;
     @include mdc-typography(body1);
-    @include mdc-theme-prop(color, text-primary-on-background);
+    @include mdc-theme-prop(color, text-primary-on-surface);
 
     margin: -.063rem 0;
 
@@ -60,7 +61,7 @@
 
 .mdc-card__subtitle {
     @include mdc-typography(subtitle2);
-    @include mdc-theme-prop(color, text-secondary-on-background);
+    @include mdc-theme-prop(color, text-secondary-on-surface);
 
     margin: -.063rem 0;
 }
@@ -154,7 +155,7 @@
 }
 
 .mdc-card__action-icons {
-  @include mdc-theme-prop(color, text-icon-on-background);
+  @include mdc-theme-prop(color, text-icon-on-surface);
 
   flex-grow: 1;
   justify-content: flex-end;
@@ -221,7 +222,7 @@
 }
 
 .mdc-card__action--icon:not(:disabled) {
-  @include mdc-theme-prop(color, text-icon-on-background);
+  @include mdc-theme-prop(color, text-icon-on-surface);
 }
 
 // postcss-bem-linter: end

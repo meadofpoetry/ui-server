@@ -30,7 +30,7 @@ $mdc-theme-on-primary: if(mdc-theme-contrast-tone($mdc-theme-primary) == "dark",
 $mdc-theme-accent: #018786 !default; // baseline teal, 600 tone
 $mdc-theme-secondary: $mdc-theme-accent !default;
 $mdc-theme-on-secondary: if(mdc-theme-contrast-tone($mdc-theme-secondary) == "dark", #000, #fff) !default;
-$mdc-theme-background: #fff !default; // White
+$mdc-theme-background: #ececec !default; // White
 
 $mdc-theme-surface: #fff !default;
 $mdc-theme-on-surface: if(mdc-theme-contrast-tone($mdc-theme-surface) == "dark", #000, #fff) !default;
@@ -84,6 +84,12 @@ $mdc-theme-property-values: (
   text-hint-on-background: mdc-theme-ink-color-for-fill_(hint, $mdc-theme-background),
   text-disabled-on-background: mdc-theme-ink-color-for-fill_(disabled, $mdc-theme-background),
   text-icon-on-background: mdc-theme-ink-color-for-fill_(icon, $mdc-theme-background),
+  // Text-primary on "surface" background
+  text-primary-on-surface: mdc-theme-ink-color-for-fill_(primary, $mdc-theme-surface),
+  text-secondary-on-surface: mdc-theme-ink-color-for-fill_(secondary, $mdc-theme-surface),
+  text-hint-on-surface: mdc-theme-ink-color-for-fill_(hint, $mdc-theme-surface),
+  text-disabled-on-surface: mdc-theme-ink-color-for-fill_(disabled, $mdc-theme-surface),
+  text-icon-on-surface: mdc-theme-ink-color-for-fill_(icon, $mdc-theme-surface),
   // Text-primary on "light" background
   text-primary-on-light: mdc-theme-ink-color-for-fill_(primary, light),
   text-secondary-on-light: mdc-theme-ink-color-for-fill_(secondary, light),

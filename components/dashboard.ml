@@ -52,11 +52,14 @@ class ['a] t ~(items:'a Item.positioned_item list) (factory:'a #factory) () =
     method destroy () = factory#destroy (); Dom.removeChild Dom_html.document##.body add_panel#root
 
     initializer
-      React.E.map (fun _ -> match React.S.value fab#s_state with
-                            | false -> fab#show ()
-                            | true  -> push @@ self#serialize ();
-                                       fab#hide ()) fab#main#e_click |> ignore;
-      React.E.map (fun _ -> add_panel#show ()) add#e_click |> ignore;
+      fab#main#listen Widget.Event.click (fun _ _ ->
+          (match React.S.value fab#s_state with
+           | false -> fab#show ()
+           | true  -> push @@ self#serialize ();
+                      fab#hide ());
+          true)|> ignore;
+      add#listen Widget.Event.click (fun _ _ ->
+          add_panel#show (); true) |> ignore;
       React.S.map (function
           | true  -> grid#set_editable true;
                      edit_icon#path#set Icon.SVG.Path.check

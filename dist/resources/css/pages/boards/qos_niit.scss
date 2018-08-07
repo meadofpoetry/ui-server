@@ -7,34 +7,45 @@ $fill-tone: mdc-theme-tone($alarm-color);
 
 .mdc-list-title {
     @include mdc-typography(caption);
-    @include mdc-theme-prop(color, text-secondary-on-background);
+    @include mdc-theme-prop(color, text-secondary-on-surface);
     padding: 10px 16px;
+}
+
+// Jitter settings widget
+
+.qos-niit-jitter-settings {
+    padding: 1rem;
+}
+
+// T2-MI settings widget
+
+.qos-niit-t2mi-settings {
+    padding: 1rem;
+}
+
+.qos-niit-jitter-settings, .qos-niit-t2mi-settings {
+    .mdc-apply-button {
+        align-self: flex-start;
+    }
 }
 
 /* Table dump widget */
 
-@mixin structure-tree-stream-lost {
-    .mdc-tree, .mdc-list-item__text, .mdc-list-item__secondary-text {
-        @include mdc-theme-prop(color, text-disabled-on-background, true);
-        @include mdc-theme-prop(fill, text-disabled-on-background, true);
-    }
-}
-
 .qos-niit-tables {
     min-height: 700px;
     align-items: stretch;
-    @include mdc-theme-prop(background-color, background);
+    @include mdc-theme-prop(background-color, surface);
 }
 
 .qos-niit-tables__list {
     &__title {
         @include mdc-typography(caption);
-        @include mdc-theme-prop(color, text-secondary-on-background);
+        @include mdc-theme-prop(color, text-secondary-on-surface);
         padding: 10px 16px;
     }
     padding: 1rem;
     border-right: 1px solid;
-    @include mdc-theme-prop-alpha(border-color, $mdc-theme-background, .12);
+    @include mdc-theme-prop-alpha(border-color, $mdc-theme-surface, .12);
     width: 100%;
     overflow-y: auto;
     max-width: 350px;
@@ -113,7 +124,7 @@ $fill-tone: mdc-theme-tone($alarm-color);
     &__back {
         cursor: pointer;
         .mdc-icon {
-            @include mdc-theme-prop(color, text-icon-on-background);
+            @include mdc-theme-prop(color, text-icon-on-surface);
         }
         .mdc-typography {
             padding-left: 4px;
@@ -134,19 +145,10 @@ $fill-tone: mdc-theme-tone($alarm-color);
     }
 }
 
-/* Services overview widget */
+/* Service info widget */
 
-.qos-niit-services-overview {
-    &__menu {
-        flex-grow: 1;
-        border-right: 1px solid;
-        @include mdc-theme-prop-alpha(border-color, $mdc-theme-background, .12);
-        max-width: 350px;
-        .mdc-list-item {
-            cursor: pointer;
-        }
-    }
-    &__info {
+.qos-niit-service-info {
+    &__description {
         padding: 1rem;
         display: flex;
         flex-direction: column;
@@ -169,9 +171,14 @@ $fill-tone: mdc-theme-tone($alarm-color);
         }
         .mdc-list-item__meta.mdc-typography {
             font-size: 0.9em;
-            @include mdc-theme-prop(color, text-primary-on-background);
+            @include mdc-theme-prop(color, text-primary-on-surface);
         }
     }
+}
+
+/* Services overview widget */
+
+.qos-niit-services-overview {
 }
 
 /* Pids summary widget */
@@ -190,7 +197,7 @@ $fill-tone: mdc-theme-tone($alarm-color);
 
 .qos-niit-pid-overview {
     .mdc-data-table .mdc-icon {
-        @include mdc-theme-prop(fill, text-icon-on-background);
+        @include mdc-theme-prop(fill, text-icon-on-surface);
     }
     .mdc-card__actions {
         justify-content: flex-end;

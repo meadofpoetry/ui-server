@@ -34,6 +34,9 @@ class t (elt:#Dom_html.element Js.t) () = object(self)
   val mutable _in_dom     = false
   val mutable _observer   = None
 
+  val mutable _e_storage : unit React.event list = []
+  val mutable _s_storage : unit React.signal list = []
+
   method root   : Dom_html.element Js.t = (elt :> Dom_html.element Js.t)
   method node   : Dom.node Js.t = (elt :> Dom.node Js.t)
   method markup : Tyxml_js.Xml.elt =
@@ -46,6 +49,10 @@ class t (elt:#Dom_html.element Js.t) () = object(self)
   method destroy () : unit =
     self#set_on_load None;
     self#set_on_unload None;
+    List.iter (React.S.stop ~strong:true) _s_storage;
+    List.iter (React.E.stop ~strong:true) _e_storage;
+    _s_storage <- [];
+    _e_storage <- [];
     Option.iter (fun f -> f ()) _on_destroy
 
   method layout () = ()
@@ -134,6 +141,13 @@ class t (elt:#Dom_html.element Js.t) () = object(self)
   method set_on_unload (f : (unit -> unit) option) =
     _on_unload <- f; self#_observe_if_needed
 
+  (* Private methods *)
+
+  method private _keep_s : 'a. 'a React.signal -> unit = fun s ->
+    _s_storage <- React.S.map ignore s :: _s_storage
+  method private _keep_e : 'a. 'a React.event -> unit  = fun e ->
+    _e_storage <- React.E.map ignore e :: _e_storage
+
   method private _observe_if_needed =
     let init () = MutationObserver.observe
                     ~node:Dom_html.document
@@ -153,21 +167,6 @@ class t (elt:#Dom_html.element Js.t) () = object(self)
     | _, _, None         -> _observer <- Some (init ())
     | _                  -> ()
 
-end
-
-(* class container ~widgets elt () =
- * object
- *   val mutable _widgets = widgets
- *   method append (t:t) = ()
- * end *)
-
-class stateful () = object
-  val mutable _s : unit React.signal list = []
-  val mutable _e : unit React.event list  = []
-  method private _keep_s : 'a. 'a React.signal -> unit = fun s ->
-    _s <- React.S.map ignore s :: _s
-  method private _keep_e : 'a. 'a React.event -> unit  = fun e ->
-    _e <- React.E.map ignore e :: _e
 end
 
 class button_widget ?(on_click) elt () =

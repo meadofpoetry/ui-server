@@ -25,7 +25,6 @@ class ['a,'b] t ?on_change ?align
     val mutable _align : align option = align
 
     inherit Widget.t elt ()
-    inherit Widget.stateful ()
 
     method s_active_tab : ('a,'b) Tab.t option React.signal =
       s_active

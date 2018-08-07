@@ -1,7 +1,37 @@
-.dvb-niit-module-settings__mode {
-  margin-top: 0 !important; }
-.dvb-niit-module-settings .mdc-select {
-  margin-top: 16px; }
+.dvb-niit-module-settings {
+  padding: 1rem; }
+  .dvb-niit-module-settings__mode {
+    margin-top: 0 !important; }
+  .dvb-niit-module-settings .mdc-select {
+    margin-top: 16px; }
+
+.dvb-niit-module-measure {
+  display: flex;
+  align-items: center;
+  justify-content: center; }
+  .dvb-niit-module-measure__inner {
+    display: flex;
+    flex-direction: column; }
+
+.mdc-card .dvb-niit-measures-line-chart {
+  padding: 1rem; }
+
+.dvb-niit-measure .mdc-list-item__meta, .dvb-niit-measures .mdc-list-item__meta, .dvb-niit-module-measures .mdc-list-item__meta {
+  color: rgba(0, 0, 0, 0.87);
+  /* @alternate */
+  color: var(--mdc-theme-text-primary-on-surface, rgba(0, 0, 0, 0.87));
+  font-family: Roboto, sans-serif;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased;
+  font-size: 0.875rem;
+  line-height: 1.375rem;
+  font-weight: 500;
+  letter-spacing: 0.0071428571em;
+  text-decoration: inherit;
+  text-transform: inherit; }
+
+.dvb-niit-settings .mdc-apply-button, .dvb-niit-module-settings .mdc-apply-button {
+  align-self: start; }
 
 .topology__board[data-board='TS'] .topology__board__header {
   background-color: #e91e63; }
@@ -132,10 +162,10 @@
   align-items: center;
   background-color: #fff;
   /* @alternate */
-  background-color: var(--mdc-theme-background, #fff);
+  background-color: var(--mdc-theme-surface, #fff);
   color: rgba(0, 0, 0, 0.87);
   /* @alternate */
-  color: var(--mdc-theme-text-primary-on-background, rgba(0, 0, 0, 0.87)); }
+  color: var(--mdc-theme-text-primary-on-surface, rgba(0, 0, 0, 0.87)); }
   .topology__input::before {
     opacity: 0 !important; }
   .topology__input::after {
@@ -147,7 +177,7 @@
   .topology__input .mdc-chip__icon {
     color: rgba(0, 0, 0, 0.38);
     /* @alternate */
-    color: var(--mdc-theme-text-icon-on-background, rgba(0, 0, 0, 0.38)); }
+    color: var(--mdc-theme-text-icon-on-surface, rgba(0, 0, 0, 0.38)); }
 
 .topology__block {
   margin: 20px;

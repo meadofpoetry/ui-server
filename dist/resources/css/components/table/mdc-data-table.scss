@@ -11,9 +11,8 @@
   white-space: nowrap;
   font-size: 13px;
   overflow-x: auto;
-  //border: 1px solid mdc-theme-prop-opacity($mdc-theme-background, .12);
-  background-color: $mdc-theme-background;
-  @include mdc-theme-prop(color, text-primary-on-background);
+  @include mdc-theme-prop(background-color, surface);
+  @include mdc-theme-prop(color, text-primary-on-surface);
 
   &--select-multiple, &--select {
     tbody .mdc-data-table__row {
@@ -79,8 +78,8 @@
     line-height: 24px;
     letter-spacing: 0;
     font-size: 12px;
-    @include mdc-theme-prop(background-color, background);
-    @include mdc-theme-prop(color, text-secondary-on-background);
+    @include mdc-theme-prop(background-color, surface);
+    @include mdc-theme-prop(color, text-secondary-on-surface);
 
     &--sortable {
         user-select: none;
@@ -98,11 +97,11 @@
             transition: transform .2s ease;
         }
         &:hover:before {
-            @include mdc-theme-prop(color, text-icon-on-background);
+            @include mdc-theme-prop(color, text-icon-on-surface);
         }
 
         &[aria-sort=descending], &[aria-sort=ascending] {
-            @include mdc-theme-prop(color, text-primary-on-background);
+            @include mdc-theme-prop(color, text-primary-on-surface);
             &:before {
                 content: 'arrow_upward';
             }

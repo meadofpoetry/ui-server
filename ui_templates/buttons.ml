@@ -29,7 +29,6 @@ module Set = struct
     val _loader = new Circular_progress.t ~size:25 ~indeterminate:true ()
     val mutable _thread : unit Lwt.t option = None
     inherit Button.t ?typ ?style ?icon ?dense ?compact ?ripple ~label ()
-    inherit Widget.stateful ()
     initializer
       React.S.map (function Some _ -> self#set_disabled false
                           | None   -> self#set_disabled true)

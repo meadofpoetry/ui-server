@@ -101,8 +101,8 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
     user-select: none;
     cursor: initial;
     align-items: center;
-    @include mdc-theme-prop(background-color, background);
-    @include mdc-theme-prop(color, text-primary-on-background);
+    @include mdc-theme-prop(background-color, surface);
+    @include mdc-theme-prop(color, text-primary-on-surface);
     &::before { opacity: 0 !important };
     &::after { opacity: 0 !important };
     .mdc-chip__text {
@@ -111,7 +111,7 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
         white-space: nowrap;
     }
     .mdc-chip__icon {
-        @include mdc-theme-prop(color, text-icon-on-background);
+        @include mdc-theme-prop(color, text-icon-on-surface);
     }
 }
 

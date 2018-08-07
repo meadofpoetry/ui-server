@@ -51,20 +51,18 @@ class t ~(item:item) () =
         in
         let _ = connect_apply apply s in
         settings,dialog)
-      item.settings
-  in
-  let buttons  = let widgets = match sd with
-                   | Some (s,_) -> [s#widget;remove#widget]
-                   | None       -> [remove#widget]
-                 in
-                 List.iter (fun x -> x#add_class Markup.Item.button_class) widgets;
-                 new Hbox.t ~widgets ()
-  in
+      item.settings in
+  let buttons  =
+    let widgets = match sd with
+      | Some (s,_) -> [s#widget;remove#widget]
+      | None       -> [remove#widget] in
+    List.iter (fun x -> x#add_class Markup.Item.button_class) widgets;
+    new Hbox.t ~widgets () in
   let heading  = new Card.Primary.t ~widgets:[title#widget] () in
   let content  = new Card.Media.t ~widgets:[item.widget] () in
   object(self)
     val mutable _editable = false
-    inherit Widget.t (Dom_html.createDiv Dom_html.document) () as super
+    inherit Card.t ~widgets:[ heading#widget; content#widget ] () as super
     method remove  = remove
     method content = content
     method heading = heading

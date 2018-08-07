@@ -16,7 +16,6 @@ class virtual t ~vertical panel1 panel2 () =
 
   object(self)
     inherit Widget.t elt ()
-    inherit Widget.stateful ()
 
     val mutable _mouseup   = None
     val mutable _mousemove = None
@@ -38,16 +37,17 @@ class virtual t ~vertical panel1 panel2 () =
 
     initializer
       Dom_events.listen splitter Dom_events.Typ.mousedown (fun _ e ->
+          let open Dom_events in
           match e##.button with
           | 0 ->
-             (Dom_events.listen Dom_html.document##.body Dom_events.Typ.mouseup (fun _ _ ->
+             (listen Dom_html.document##.body Typ.mouseup (fun _ _ ->
                   (* NOTE add callback? *)
                   self#_stop_drag ();
                   true) |> fun l -> _mouseup <- Some l);
-             (Dom_events.listen self#root Dom_events.Typ.mousemove (fun _ e ->
+             (listen self#root Typ.mousemove (fun _ e ->
                   s_perc_push (self#_calc_percent e);
                   true) |> fun l -> _mousemove <- Some l);
-             (Dom_events.listen self#root Dom_events.Typ.mouseout (fun _ e ->
+             (listen self#root Typ.mouseout (fun _ e ->
                   (match Option.flatten @@ Js.Optdef.to_option
                          @@ Js.Optdef.map e##.relatedTarget Js.Opt.to_option with
                    | None   -> ()

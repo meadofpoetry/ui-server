@@ -12,8 +12,8 @@
 @import './_variables';
 @import './_mixins';
 
-$wm-grid-background-color: background;
-$wm-placeholder-color: text-secondary-on-background;
+$wm-grid-background-color: surface;
+$wm-placeholder-color: text-secondary-on-surface;
 
 .wm, .mdc-layout-grid, .mdc-layout-grid__inner, .wm-grid-container {
     height: 100%;
@@ -98,7 +98,7 @@ $wm-placeholder-color: text-secondary-on-background;
     }
 
     &__add__item {
-        @include mdc-theme-prop(background-color,background);
+        @include mdc-theme-prop(background-color, surface);
 
         display: flex;
         align-items: center;
@@ -107,7 +107,7 @@ $wm-placeholder-color: text-secondary-on-background;
         cursor: pointer;
 
         .mdc-icon {
-            @include mdc-theme-prop(color,text-secondary-on-background);
+            @include mdc-theme-prop(color, text-secondary-on-surface);
             padding: 12px;
         }
     }
@@ -130,7 +130,7 @@ $wm-placeholder-color: text-secondary-on-background;
 // ---- LAYERS ----
 
 .wm-layer-item {
-    @include mdc-theme-prop(background-color,background);
+    @include mdc-theme-prop(background-color, surface);
 
     flex-grow: 1;
     padding: 10px 0 10px 5px;
@@ -140,11 +140,11 @@ $wm-placeholder-color: text-secondary-on-background;
     border-bottom: 1px solid rgba(0,0,0,.12);
 
     &__drag-handle {
-        @include mdc-theme-prop(color, text-icon-on-background);
+        @include mdc-theme-prop(color, text-icon-on-surface);
         padding: 12px;
     }
     &__visibility {
-        @include mdc-theme-prop(color, text-icon-on-background);
+        @include mdc-theme-prop(color, text-icon-on-surface);
         margin-right: 5px;
     }
     &__color-indicator {
@@ -168,13 +168,13 @@ $wm-placeholder-color: text-secondary-on-background;
 
     .mdc-dynamic-grid__item--selected {
         .wm-layer-item {
-            @include mdc-theme-prop(color,$mdc-theme-on-primary);
-            @include mdc-theme-prop(background-color,primary);
+            @include mdc-theme-prop(color, on-primary);
+            @include mdc-theme-prop(background-color, primary);
             &__drag-handle {
-                @include mdc-theme-prop(color,$mdc-theme-on-primary);
+                @include mdc-theme-prop(color, on-primary);
             }
             &__visibility {
-                @include mdc-theme-prop(color,$mdc-theme-on-primary);
+                @include mdc-theme-prop(color, on-primary);
             }
         }
     }
@@ -201,7 +201,7 @@ $wm-placeholder-color: text-secondary-on-background;
 .wm-left-toolbar {
     $phone: map-get($mdc-layout-grid-breakpoints, phone);
     &__action {
-        @include mdc-fab-accessible(mdc-theme-prop-value(background));
+        @include mdc-fab-accessible(mdc-theme-prop-value(surface));
 
         margin-bottom: 20px;
         &:last-child {
@@ -248,7 +248,7 @@ $wm-placeholder-color: text-secondary-on-background;
     .wm-placeholder {
         z-index: 12;
         .mdc-placeholder__content {
-            @include mdc-theme-prop(background-color, background);
+            @include mdc-theme-prop(background-color, surface);
             border-radius: 4px;
         }
     }
@@ -280,7 +280,7 @@ $wm-placeholder-color: text-secondary-on-background;
     }
 
     &__wrapper {
-        @include mdc-theme-prop(background-color,$wm-grid-background-color);
+        @include mdc-theme-prop(background-color, $wm-grid-background-color);
         @include mdc-elevation(2);
 
         width: 100%;

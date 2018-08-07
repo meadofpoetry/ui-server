@@ -57,7 +57,6 @@ module Stream_item = struct
       inherit Card.t ~widgets:[ primary#widget
                               ; (new Divider.t ())#widget
                               ; media#widget ] ()
-      inherit Widget.stateful ()
 
       method stream = stream
 
@@ -100,7 +99,6 @@ module Stream_grid = struct
       val mutable _streams = []
 
       inherit Layout_grid.t ~cells:[] ()
-      inherit Widget.stateful ()
 
       method streams =
         List.map (fun x -> x#stream) _streams

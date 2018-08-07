@@ -2,11 +2,15 @@
 @import './components/tab-indicator/_mixins';
 @import './sidebar_drawer';
 @import './templates/templates';
+
+@import './pages/pipeline/widgets';
+
 @import './pages/boards/dvb_niit';
 @import './pages/boards/qos_niit';
+@import './pages/boards/ip_dektec';
 
-@import "./components/layout-grid/variables";
-@import "./components/layout-grid/mixins";
+@import './components/layout-grid/variables';
+@import './components/layout-grid/mixins';
 
 $xsmall: 480px;
 $small: 600px;
@@ -38,6 +42,9 @@ body {
     @include mdc-tab-text-label-color($mdc-theme-on-primary);
     @include mdc-tab-icon-color($mdc-theme-on-primary);
     z-index: 20;
+    #main-toolbar__tabs {
+        align-items: flex-end;
+    }
     #main-toolbar__tabs .mdc-toolbar__section {
         align-items: flex-end;
     }

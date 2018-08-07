@@ -11,7 +11,7 @@ $mdc-persistent-drawer-width: 280px;
 
 #navigation {
     .mdc-icon {
-        @include mdc-theme-prop(fill, text-icon-on-background);
+        @include mdc-theme-prop(fill, text-icon-on-surface);
     }
 }
 
@@ -102,7 +102,7 @@ $mdc-persistent-drawer-width: 280px;
         }
 
         .mdc-icon {
-            @include mdc-theme-prop(color, text-icon-on-background);
+            @include mdc-theme-prop(color, text-icon-on-surface);
             margin-right: 32px;
         }
     }
