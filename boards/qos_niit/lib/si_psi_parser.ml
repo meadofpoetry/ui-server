@@ -9,9 +9,9 @@ and node =
   ; length : int
   ; name   : string
 	; value  : value
-  ; nested : node list
   }
 and value =
+  | List    of node list
   | Flag    of bool
   | Bytes   of string
   | String  of string
@@ -20,6 +20,9 @@ and value =
   | Int64   of int64
   | Name    of string * int
   | Val_hex of int [@@deriving yojson]
+
+let to_node ~offset length name value =
+  { offset; length; name; value }
 
 module Descriptor = struct
 
@@ -913,62 +916,47 @@ module Table_common = struct
 
   let parse_header bs =
     match%bitstring bs with
-    | {| table_id                 : 8  : save_offset_to (off_1)
-       ; section_syntax_indicator : 1  : save_offset_to (off_2)
-       ; rfu                      : 1  : save_offset_to (off_3)
-       ; reserved_1               : 2  : save_offset_to (off_4)
-       ; section_length           : 12 : save_offset_to (off_5)
-       ; rest                     : -1 : bitstring
-       |} -> [ { offset = off_1
-               ; length = 8
-               ; name   = "table_id"
-               ; value  = Val_hex table_id
-               ; nested = []
-               }
-             ; { offset = off_2
-               ; length = 1
-               ; name   = "section_syntax_indicator"
-               ; value  = Flag section_syntax_indicator
-               ; nested = []
-               }
-             ; { offset = off_3
-               ; length = 1
-               ; name   = "'0'"
-               ; value  = Flag rfu
-               ; nested = []
-               }
-             ; { offset = off_4
-               ; length = 2
-               ; name   = "reserved"
-               ; value  = Val_hex reserved_1
-               ; nested = []
-               }
-             ; { offset = off_5
-               ; length = 12
-               ; name   = "section_length"
-               ; value  = Int section_length
-               ; nested = []
-               }
-             ], rest
+    | {| table_id       : 8  : save_offset_to (off_1)
+       ; ssi            : 1  : save_offset_to (off_2)
+       ; rfu            : 1  : save_offset_to (off_3)
+       ; reserved_1     : 2  : save_offset_to (off_4)
+       ; section_length : 12 : save_offset_to (off_5)
+       ; rest           : -1 : bitstring
+       |} ->
+       [ to_node ~offset:off_1 8 "table_id"        (Val_hex table_id)
+       ; to_node ~offset:off_2 1 "section_syntax_indicator" (Flag ssi)
+       ; to_node ~offset:off_3 1 "'0'"             (Flag rfu)
+       ; to_node ~offset:off_4 2 "reserved"        (Val_hex reserved_1)
+       ; to_node ~offset:off_5 12 "section_length" (Int section_length)
+       ], rest
 
-  (* let rec parse_descriptors = (fun acc x ->
-   *     if Bitstring.bitstring_length x = 0 then List.rev acc
-   *     else let descr,rest = Descriptor.of_bitstring x in
-   *          parse_descriptors (descr :: acc) rest)
-   *
-   * let rec parse_ts = (fun acc x ->
-   *     if Bitstring.bitstring_length x = 0 then List.rev acc
-   *     else (match%bitstring x with
-   *           | {| transport_stream_id          : 16
-   *              ; original_network_id          : 16
-   *              ; rfu                          : 4
-   *              ; transport_descriptors_length : 12
-   *              ; descriptors                  : transport_descriptors_length * 8 : bitstring
-   *              ; rest                         : -1 : bitstring
-   *              |} -> parse_ts ({ transport_stream_id; original_network_id;
-   *                                rfu; transport_descriptors_length;
-   *                                descriptors = parse_descriptors [] descriptors} :: acc)
-   *                      rest)) *)
+  let rec parse_descriptors = fun _ _ -> []
+    (* fun acc x ->
+     * if Bitstring.bitstring_length x = 0 then List.rev acc
+     * else let descr,rest = Descriptor.of_bitstring x in
+     *      parse_descriptors (descr :: acc) rest *)
+
+  let rec parse_ts = fun acc x ->
+    if Bitstring.bitstring_length x = 0 then List.rev acc
+    else
+      match%bitstring x with
+      | {| ts_id       : 16 : save_offset_to (off_1)
+         ; on_id       : 16 : save_offset_to (off_2)
+         ; rfu         : 4  : save_offset_to (off_3)
+         ; length      : 12 : save_offset_to (off_4)
+         ; descriptors : length * 8 : save_offset_to (off_5), bitstring
+         ; rest        : -1 : bitstring
+         |} ->
+         let descriptors = parse_descriptors [] descriptors in
+         let nodes =
+           [ to_node ~offset:off_1 16 "" (Int ts_id)
+           ; to_node ~offset:off_2 16 "" (Int on_id)
+           ; to_node ~offset:off_3 4  "" (Int rfu)
+           ; to_node ~offset:off_4 12 "" (Int length)
+           ; to_node ~offset:off_5 (length * 8) "" (List descriptors)
+           ] in
+         (* FIXME *)
+         parse_ts (nodes @ acc) rest
 
 end
 
@@ -978,6 +966,9 @@ module PAT = struct
   open Bitstring
 
   let rec parse_programs = fun acc x ->
+    let to_name prog_num = if prog_num <> 0
+                           then "program_map_PID"
+                           else "network_PID" in
     if bitstring_length x = 0 then List.rev acc
     else match%bitstring x with
          | {| program_number : 16 : save_offset_to (off_1)
@@ -986,26 +977,9 @@ module PAT = struct
             ; rest           : -1 : bitstring
             |} ->
             let nodes =
-              [ { offset = off_1
-                ; length = 16
-                ; name   = "program_number"
-                ; value  = Int program_number
-                ; nested = []
-                }
-              ; { offset = off_2
-                ; length = 3
-                ; name   = "reserved"
-                ; value  = Val_hex reserved
-                ; nested = []
-                }
-              ; { offset = off_3
-                ; length = 13
-                ; name   = if program_number <> 0
-                           then "program_map_PID"
-                           else "network_PID"
-                ; value  = Val_hex pid
-                ; nested = []
-                }
+              [ to_node ~offset:off_1 16 "program_number" (Int program_number)
+              ; to_node ~offset:off_2 3 "reserved" (Val_hex reserved)
+              ; to_node ~offset:off_3 13 (to_name program_number) (Val_hex pid)
               ] in
             parse_programs (acc @ nodes) rest
 
@@ -1023,55 +997,15 @@ module PAT = struct
        ; programs               : progs_length off_6 : save_offset_to (off_7), bitstring
        ; crc32                  : 32 : save_offset_to (off_8)
        |} ->
-       let nodes = [ { offset = off_1
-                     ; length = 16
-                     ; name   = "transport_stream_id"
-                     ; value  = Val_hex transport_stream_id
-                     ; nested = []
-                     }
-                   ; { offset = off_2
-                     ; length = 2
-                     ; name   = "reserved"
-                     ; value  = Val_hex reserved
-                     ; nested = []
-                     }
-                   ; { offset = off_3
-                     ; length = 5
-                     ; name   = "version_number"
-                     ; value  = Int version_number
-                     ; nested = []
-                     }
-                   ; { offset = off_4
-                     ; length = 1
-                     ; name   = "current_next_indicator"
-                     ; value  = Flag current_next_indicator
-                     ; nested = []
-                     }
-                   ; { offset = off_5
-                     ; length = 8
-                     ; name   = "section_number"
-                     ; value  = Val_hex section_number
-                     ; nested = []
-                     }
-                   ; { offset = off_6
-                     ; length = 8
-                     ; name   = "last_section_number"
-                     ; value  = Val_hex last_section_number
-                     ; nested = []
-                     }
-                   ; { offset = off_7
-                     ; length = progs_length off_6
-
-                     ; name   = "programs"
-                     ; value  = Int 1
-                     ; nested = parse_programs [] programs
-                     }
-                   ; { offset = off_8
-                     ; length = 32
-                     ; name   = "CRC_32"
-                     ; value  = Int32 crc32
-                     ; nested = []
-                     }
+       let progs = parse_programs [] programs in
+       let nodes = [ to_node ~offset:off_1 16 "transport_stream_id" (Val_hex transport_stream_id)
+                   ; to_node ~offset:off_2 2 "reserved" (Val_hex reserved)
+                   ; to_node ~offset:off_3 5 "version_number" (Int version_number)
+                   ; to_node ~offset:off_4 1 "current_next_indicator" (Flag current_next_indicator)
+                   ; to_node ~offset:off_5 8 "section_number" (Val_hex section_number)
+                   ; to_node ~offset:off_6 8 "last_section_number" (Val_hex last_section_number)
+                   ; to_node ~offset:off_7 (progs_length off_6) "programs" (List progs)
+                   ; to_node ~offset:off_8 32 "CRC_32" (Int32 crc32)
                    ] in
        header @ nodes
 
@@ -1082,59 +1016,32 @@ module PMT = struct
 
   let parse buf =
     let bs = Bitstring.bitstring_of_string buf in
-    let rec parse_streams = (fun acc x ->
-        if Bitstring.bitstring_length x = 0 then List.rev acc
-        else (match%bitstring x with
-              | {| stream_type    : 8  : save_offset_to (off_1)
+    let rec parse_streams = fun acc x ->
+      if Bitstring.bitstring_length x = 0 then List.rev acc
+      else
+        (match%bitstring x with
+         | {| stream_type    : 8  : save_offset_to (off_1)
 
-                 ; reserved_1     : 3  : save_offset_to (off_2)
-                 ; elementary_pid : 13 : save_offset_to (off_3)
-                 ; reserved_2     : 4  : save_offset_to (off_4)
-                 ; es_info_length : 12 : save_offset_to (off_5)
-                 ; descriptors    : es_info_length * 8 : save_offset_to (off_6), bitstring
-                 ; rest           : -1 : bitstring
-                 |} -> let nodes = [ { offset = off_1
-                                     ; length = 8
-                                     ; name   = "stream_type"
-                                     ; value  = Val_hex stream_type
-                                     ; nested = []
-                                     }
-                                   ; { offset = off_2
-                                     ; length = 3
-                                     ; name   = "reserved"
-                                     ; value  = Val_hex reserved_1
-                                     ; nested = []
-                                     }
-                                   ; { offset = off_3
-                                     ; length = 13
-                                     ; name   = "elementary_PID"
-                                     ; value  = Val_hex elementary_pid
-                                     ; nested = []
-                                     }
-                                   ; { offset = off_4
-                                     ; length = 4
-                                     ; name   = "reserved"
-                                     ; value  = Val_hex reserved_2
-                                     ; nested = []
-                                     }
-                                   ; { offset = off_5
-                                     ; length = 12
-                                     ; name   = "ES_info_length"
-                                     ; value  = Val_hex es_info_length
-                                     ; nested = []
-                                     }
-                                   ; { offset = off_6
-                                     ; length = es_info_length * 8
-                                     ; name   = "descriptors"
-                                     ; value  = Val_hex 1
-                                     ; nested = []
-                                     }
-                                   ]
-                       in
-                       parse_streams (nodes @ acc) rest)) in
+            ; reserved_1     : 3  : save_offset_to (off_2)
+            ; elementary_pid : 13 : save_offset_to (off_3)
+            ; reserved_2     : 4  : save_offset_to (off_4)
+            ; es_info_length : 12 : save_offset_to (off_5)
+            ; descriptors    : es_info_length * 8 : save_offset_to (off_6), bitstring
+            ; rest           : -1 : bitstring
+            |} ->
+            let dscrs = parse_descriptors [] descriptors in
+            let nodes =
+              [ to_node ~offset:off_1 8 "stream_type" (Val_hex stream_type)
+              ; to_node ~offset:off_2 3 "reserved" (Val_hex reserved_1)
+              ; to_node ~offset:off_3 13 "elementary_PID" (Val_hex elementary_pid)
+              ; to_node ~offset:off_4 4 "reserved" (Val_hex reserved_2)
+              ; to_node ~offset:off_5 12 "ES_info_length" (Val_hex es_info_length)
+              ; to_node ~offset:off_6 (es_info_length * 8) "descriptors" (List dscrs)
+              ] in
+            parse_streams (nodes @ acc) rest) in
     let header,rest = parse_header bs in
     let len = Bitstring.bitstring_length rest in
-    let streams_length program_info_length offset = len - (program_info_length * 8) - offset - 32 in
+    let streams_length prog_length off = len - (prog_length * 8) - off - 32 in
     match%bitstring rest with
     | {| program_number         : 16 : save_offset_to (off_1)
        ; reserved_1             : 2  : save_offset_to (off_2)
@@ -1147,88 +1054,27 @@ module PMT = struct
        ; reserved_3             : 4  : save_offset_to (off_9)
        ; prog_inf_len           : 12 : save_offset_to (off_10)
        ; descriptors            : prog_inf_len * 8 : bitstring, save_offset_to (off_11)
-       ; streams                : streams_length prog_inf_len off_11 : bitstring,save_offset_to (off_12)
+       ; streams                : streams_length prog_inf_len off_11 : bitstring, save_offset_to (off_12)
        ; crc32                  : 32 : save_offset_to (off_13)
-       |} -> let nodes =[ { offset = off_1
-                          ; length = 16
-                          ; name   = "program_number"
-                          ; value  = Val_hex program_number
-                          ; nested = []
-                          }
-                        ; { offset = off_2
-                          ; length = 2
-                          ; name   = "reserved"
-                          ; value  = Val_hex reserved_1
-                          ; nested = []
-                          }
-                        ; { offset = off_3
-                          ; length = 5
-                          ; name   = "version_number"
-                          ; value  = Val_hex version_number
-                          ; nested = []
-                          }
-                        ; { offset = off_4
-                          ; length = 1
-                          ; name   = "current_next_indicator"
-                          ; value  = Flag current_next_indicator
-                          ; nested = []
-                          }
-                        ; { offset = off_5
-                          ; length = 8
-                          ; name   = "section_number"
-                          ; value  = Val_hex section_number
-                          ; nested = []
-                          }
-                        ; { offset = off_6
-                          ; length = 8
-                          ; name   = "last_section_number"
-                          ; value  = Val_hex last_section_number
-                          ; nested = []
-                          }
-                        ; { offset = off_7
-                          ; length = 3
-                          ; name   = "reserved"
-                          ; value  = Val_hex reserved_2
-                          ; nested = []
-                          }
-                        ; { offset = off_8
-                          ; length = 13
-                          ; name   = "PCR_PID"
-                          ; value  = Val_hex pcr_pid
-                          ; nested = []
-                          }
-                        ; { offset = off_9
-                          ; length = 4
-                          ; name   = "reserved"
-                          ; value  = Val_hex reserved_3
-                          ; nested = []
-                          }
-                        ; { offset = off_10
-                          ; length = 12
-                          ; name   = "program_info_length"
-                          ; value  = Val_hex prog_inf_len
-                          ; nested = []
-                          }
-                        ; { offset = off_11
-                          ; length = prog_inf_len * 8
-                          ; name   = "descriptors"
-                          ; value  = Val_hex 1
-                          ; nested = []
-                          }
-                        ; { offset = off_12
-                          ; length = streams_length prog_inf_len off_11
-                          ; name   = "streams"
-                          ; value  = Val_hex 1
-                          ; nested = parse_streams [] streams
-                          }
-                        ; { offset = off_13
-                          ; length = 32
-                          ; name   = "CRC_32"
-                          ; value  = Int32 crc32
-                          ; nested = []
-                          }
-                        ]
-             in
+       |} ->
+       let dscrs   = parse_descriptors [] descriptors in
+       let streams = parse_streams [] streams in
+       let nodes   =
+         [ to_node ~offset:off_1 16 "program_number" (Val_hex program_number)
+         ; to_node ~offset:off_2 2 "reserved" (Val_hex reserved_1)
+         ; to_node ~offset:off_3 5 "version_number" (Val_hex version_number)
+         ; to_node ~offset:off_4 1 "current_next_indicator" (Flag current_next_indicator)
+         ; to_node ~offset:off_5 8 "section_number" (Val_hex section_number)
+         ; to_node ~offset:off_6 8 "last_section_number" (Val_hex last_section_number)
+         ; to_node ~offset:off_7 3 "reserved" (Val_hex reserved_2)
+         ; to_node ~offset:off_8 13 "PCR_PID" (Val_hex pcr_pid)
+         ; to_node ~offset:off_9 4 "reserved" (Val_hex reserved_3)
+         ; to_node ~offset:off_10 12 "program_info_length" (Val_hex prog_inf_len)
+         ; to_node ~offset:off_11 (prog_inf_len * 8) "descriptors" (List dscrs)
+         ; to_node ~offset:off_12 (streams_length prog_inf_len off_11) "streams" (List streams)
+         ; to_node ~offset:off_13 32 "CRC_32" (Int32 crc32)
+         ]
+       in
              header @ nodes
 
 end
@@ -1250,51 +1096,19 @@ module CAT = struct
        ; last_section_number    : 8  : save_offset_to (off_5)
        ; descriptors            : descriptors_length off_5 : save_offset_to (off_6), bitstring
        ; crc32                  : 32 : save_offset_to (off_7)
-       |} -> let nodes =[ { offset = off_1
-                          ; length = 18
-                          ; name   = "reserved"
-                          ; value  = Val_hex reserved
-                          ; nested = []
-                          }
-                        ; { offset = off_2
-                          ; length = 5
-                          ; name   = "version_number"
-                          ; value  = Val_hex version_number
-                          ; nested = []
-                          }
-                        ; { offset = off_3
-                          ; length = 1
-                          ; name   = "current_next_indicator"
-                          ; value  = Flag current_next_indicator
-                          ; nested = []
-                          }
-                        ; { offset = off_4
-                          ; length = 8
-                          ; name   = "section_number"
-                          ; value  = Val_hex section_number
-                          ; nested = []
-                          }
-                        ; { offset = off_5
-                          ; length = 8
-                          ; name   = "last_section_number"
-                          ; value  = Val_hex last_section_number
-                          ; nested = []
-                          }
-                        ; { offset = off_6
-                          ; length = descriptors_length off_5
-                          ; name   = "descriptors"
-                          ; value  = Val_hex 1
-                          ; nested = []
-                          }
-                        ; { offset = off_7
-                          ; length = 32
-                          ; name   = "CRC_32"
-                          ; value  = Int32 crc32
-                          ; nested = []
-                          }
-                        ]
-             in
-             header @ nodes
+       |} ->
+       let dscrs = parse_descriptors [] descriptors in
+       let nodes =
+         [ to_node ~offset:off_1 18 "reserved" (Val_hex reserved)
+         ; to_node ~offset:off_2 5 "version_number" (Val_hex version_number)
+         ; to_node ~offset:off_3 1 "current_next_indicator" (Flag current_next_indicator)
+         ; to_node ~offset:off_4 8 "section_number" (Val_hex section_number)
+         ; to_node ~offset:off_5 8 "last_section_number" (Val_hex last_section_number)
+         ; to_node ~offset:off_6 (descriptors_length off_5) "descriptors" (List dscrs)
+         ; to_node ~offset:off_7 32 "CRC_32" (Int32 crc32)
+         ]
+       in
+       header @ nodes
 
 end
 
@@ -1313,101 +1127,40 @@ module NIT = struct
     let bs = Bitstring.bitstring_of_string buf in
     let header,rest = parse_header bs in
     match%bitstring rest with
-    | {| network_id                   : 16 : save_offset_to (off_1)
-       ; reserved                     : 2  : save_offset_to (off_2)
-       ; version_number               : 5  : save_offset_to (off_3)
-       ; current_next_indicator       : 1  : save_offset_to (off_4)
-       ; section_number               : 8  : save_offset_to (off_5)
-       ; last_section_number          : 8  : save_offset_to (off_6)
-       ; rfu_1                        : 4  : save_offset_to (off_7)
-       ; network_desc_length          : 12 : save_offset_to (off_8)
-       ; descriptors                  : network_desc_length * 8 : save_offset_to (off_9), bitstring
-       ; rfu_2                        : 4  : save_offset_to (off_10)
-       ; transport_stream_loop_len    : 12 : save_offset_to (off_11)
-       ; transport_streams            : transport_stream_loop_len*8 : save_offset_to (off_12),bitstring
-       ; crc32                        : 32 : save_offset_to (off_13)
-       |} -> let nodes =[ { offset = off_1
-                          ; length = 16
-                          ; name   = "network_id"
-                          ; value  = Val_hex network_id
-                          ; nested = []
-                          }
-                        ; { offset = off_2
-                          ; length = 2
-                          ; name   = "reserved"
-                          ; value  = Val_hex reserved
-                          ; nested = []
-                          }
-                        ; { offset = off_3
-                          ; length = 5
-                          ; name   = "version_number"
-                          ; value  = Val_hex version_number
-                          ; nested = []
-                          }
-                        ; { offset = off_4
-                          ; length = 1
-                          ; name   = "current_next_indicator"
-                          ; value  = Flag current_next_indicator
-                          ; nested = []
-                          }
-                        ; { offset = off_5
-                          ; length = 8
-                          ; name   = "section_number"
-                          ; value  = Val_hex section_number
-                          ; nested = []
-                          }
-                        ; { offset = off_6
-                          ; length = 8
-                          ; name   = "last_section_number"
-                          ; value  = Val_hex last_section_number
-                          ; nested = []
-                          }
-                        ; { offset = off_7
-                          ; length = 4
-                          ; name   = "reserved_future_use"
-                          ; value  = Val_hex rfu_1
-                          ; nested = []
-                          }
-                        ; { offset = off_8
-                          ; length = 12
-                          ; name   = "network_desc_length"
-                          ; value  = Val_hex network_desc_length
-                          ; nested = []
-                          }
-                        ; { offset = off_9
-                          ; length = network_desc_length * 8
-                          ; name   = "descriptors"
-                          ; value  = Val_hex 1
-                          ; nested = []
-                          }
-                        ; { offset = off_10
-                          ; length = 4
-                          ; name   = "reserved_future_use"
-                          ; value  = Val_hex rfu_2
-                          ; nested = []
-                          }
-                        ; { offset = off_11
-                          ; length = 12
-                          ; name   = "transport_stream_loop_length"
-                          ; value  = Val_hex transport_stream_loop_len
-                          ; nested = []
-                          }
-                        ; { offset = off_12
-                          ; length = transport_stream_loop_len * 8
-                          ; name   = "transport_streams"
-                          ; value  = Val_hex 1
-                          ; nested = []
-                          }
-                        ; { offset = off_13
-                          ; length = 32
-                          ; name   = "CRC_32"
-                          ; value  = Int32 crc32
-                          ; nested = []
-                          }
-                        ]
-             in
-             header @ nodes
- end
+    | {| network_id             : 16 : save_offset_to (off_1)
+       ; reserved               : 2  : save_offset_to (off_2)
+       ; version_number         : 5  : save_offset_to (off_3)
+       ; current_next_indicator : 1  : save_offset_to (off_4)
+       ; section_number         : 8  : save_offset_to (off_5)
+       ; last_section_number    : 8  : save_offset_to (off_6)
+       ; rfu_1                  : 4  : save_offset_to (off_7)
+       ; network_desc_length    : 12 : save_offset_to (off_8)
+       ; descriptors            : network_desc_length * 8 : save_offset_to (off_9), bitstring
+       ; rfu_2                  : 4  : save_offset_to (off_10)
+       ; ts_loop_len            : 12 : save_offset_to (off_11)
+       ; transport_streams      : ts_loop_len * 8 : save_offset_to (off_12),bitstring
+       ; crc32                  : 32 : save_offset_to (off_13)
+       |} ->
+       let ts    = parse_ts [] transport_streams in
+       let dscrs = parse_descriptors [] descriptors in
+       let nodes =
+         [ to_node ~offset:off_1 16 "network_id" (Val_hex network_id)
+         ; to_node ~offset:off_2 2 "reserved" (Val_hex reserved)
+         ; to_node ~offset:off_3 5 "version_number" (Val_hex version_number)
+         ; to_node ~offset:off_4 1 "current_next_indicator" (Flag current_next_indicator)
+         ; to_node ~offset:off_5 8 "section_number" (Val_hex section_number)
+         ; to_node ~offset:off_6 8 "last_section_number" (Val_hex last_section_number)
+         ; to_node ~offset:off_7 4 "reserved_future_use" (Val_hex rfu_1)
+         ; to_node ~offset:off_8 12 "network_desc_length" (Val_hex network_desc_length)
+         ; to_node ~offset:off_9 (network_desc_length * 8) "descriptors" (List dscrs)
+         ; to_node ~offset:off_10 4 "reserved_future_use" (Val_hex rfu_2)
+         ; to_node ~offset:off_11 12 "transport_stream_loop_length" (Val_hex ts_loop_len)
+         ; to_node ~offset:off_12 (ts_loop_len * 8) "transport_streams" (List ts)
+         ; to_node ~offset:off_13 32 "CRC_32" (Int32 crc32)
+         ]
+       in
+       header @ nodes
+end
 
 module BAT = struct
   open Table_common
@@ -1416,169 +1169,72 @@ module BAT = struct
     let bs = Bitstring.bitstring_of_string buf in
     let header,rest = parse_header bs in
     match%bitstring rest with
-    | {| bouquet_id                   : 16 : save_offset_to (off_1)
-       ; reserved                     : 2  : save_offset_to (off_2)
-       ; version_number               : 5  : save_offset_to (off_3)
-       ; current_next_indicator       : 1  : save_offset_to (off_4)
-       ; section_number               : 8  : save_offset_to (off_5)
-       ; last_section_number          : 8  : save_offset_to (off_6)
-       ; rfu_1                        : 4  : save_offset_to (off_7)
-       ; bouquet_desc_length          : 12 : save_offset_to (off_8)
-       ; descriptors                  : bouquet_desc_length * 8 : save_offset_to (off_9), bitstring
-       ; rfu_2                        : 4  : save_offset_to (off_10)
-       ; transport_stream_loop_len    : 12 : save_offset_to (off_11)
-       ; transport_streams            : transport_stream_loop_len * 8 : save_offset_to (off_12), bitstring
-       ; crc32                        : 32 : save_offset_to (off_13)
-       |} -> let nodes = [ { offset = off_1
-                           ; length = 16
-                           ; name   = "bouquet_id"
-                           ; value  = Val_hex bouquet_id
-                           ; nested = []
-                           }
-                         ; { offset = off_2
-                           ; length = 2
-                           ; name   = "reserved"
-                           ; value  = Val_hex reserved
-                           ; nested = []
-                           }
-                         ; { offset = off_3
-                           ; length = 5
-                           ; name   = "version_number"
-                           ; value  = Val_hex version_number
-                           ; nested = []
-                           }
-                         ; { offset = off_4
-                           ; length = 1
-                           ; name   = "current_next_indicator"
-                           ; value  = Flag current_next_indicator
-                           ; nested = []
-                           }
-                         ; { offset = off_5
-                           ; length = 8
-                           ; name   = "section_number"
-                           ; value  = Val_hex section_number
-                           ; nested = []
-                           }
-                         ; { offset = off_6
-                           ; length = 8
-                           ; name   = "last_section_number"
-                           ; value  = Val_hex last_section_number
-                           ; nested = []
-                           }
-                         ; { offset = off_7
-                           ; length = 4
-                           ; name   = "reserved_future_use"
-                           ; value  = Val_hex rfu_1
-                           ; nested = []
-                           }
-                         ; { offset = off_8
-                           ; length = 12
-                           ; name   = "bouquet_descriptors_length"
-                           ; value  = Val_hex bouquet_desc_length
-                           ; nested = []
-                           }
-                         ; { offset = off_9
-                           ; length = bouquet_desc_length * 8
-                           ; name   = "descriptors"
-                           ; value  = Val_hex 1
-                           ; nested = []
-                           }
-                         ; { offset = off_10
-                           ; length = 4
-                           ; name   = "reserved_future_use"
-                           ; value  = Val_hex rfu_2
-                           ; nested = []
-                           }
-                         ; { offset = off_11
-                           ; length = 12
-                           ; name   = "transport_stream_loop_length"
-                           ; value  = Val_hex transport_stream_loop_len
-                           ; nested = []
-                           }
-                         ; { offset = off_12
-                           ; length = transport_stream_loop_len * 8
-                           ; name   = "transport_streams"
-                           ; value  = Val_hex 1
-                           ; nested = []
-                           }
-                         ; { offset = off_13
-                           ; length = 32
-                           ; name   = "CRC_32"
-                           ; value  = Int32 crc32
-                           ; nested = []
-                           }
-                         ]
-             in
-             header @ nodes
+    | {| bouquet_id             : 16 : save_offset_to (off_1)
+       ; reserved               : 2  : save_offset_to (off_2)
+       ; version_number         : 5  : save_offset_to (off_3)
+       ; current_next_indicator : 1  : save_offset_to (off_4)
+       ; section_number         : 8  : save_offset_to (off_5)
+       ; last_section_number    : 8  : save_offset_to (off_6)
+       ; rfu_1                  : 4  : save_offset_to (off_7)
+       ; bouquet_desc_length    : 12 : save_offset_to (off_8)
+       ; descriptors            : bouquet_desc_length * 8 : save_offset_to (off_9), bitstring
+       ; rfu_2                  : 4  : save_offset_to (off_10)
+       ; ts_loop_len            : 12 : save_offset_to (off_11)
+       ; transport_streams      : ts_loop_len * 8 : save_offset_to (off_12), bitstring
+       ; crc32                  : 32 : save_offset_to (off_13)
+       |} ->
+       let ts    = parse_ts [] transport_streams in
+       let dscrs = parse_descriptors [] descriptors in
+       let nodes =
+         [ to_node ~offset:off_1 16 "bouquet_id" (Val_hex bouquet_id)
+         ; to_node ~offset:off_2 2 "reserved" (Val_hex reserved)
+         ; to_node ~offset:off_3 5 "version_number" (Val_hex version_number)
+         ; to_node ~offset:off_4 1 "current_next_indicator" (Flag current_next_indicator)
+         ; to_node ~offset:off_5 8 "section_number" (Val_hex section_number)
+         ; to_node ~offset:off_6 8 "last_section_number" (Val_hex last_section_number)
+         ; to_node ~offset:off_7 4 "reserved_future_use" (Val_hex rfu_1)
+         ; to_node ~offset:off_8 12 "bouquet_descriptors_length" (Val_hex bouquet_desc_length)
+         ; to_node ~offset:off_9 (bouquet_desc_length * 8) "descriptors" (List dscrs)
+         ; to_node ~offset:off_10 4 "reserved_future_use" (Val_hex rfu_2)
+         ; to_node ~offset:off_11 12 "transport_stream_loop_length" (Val_hex ts_loop_len)
+         ; to_node ~offset:off_12 (ts_loop_len * 8) "transport_streams" (List ts)
+         ; to_node ~offset:off_13 32 "CRC_32" (Int32 crc32)
+         ]
+       in
+       header @ nodes
  end
 
 module SDT = struct
   open Table_common
 
   let parse buf =
-    let rec parse_services = (fun acc x ->
-        if Bitstring.bitstring_length x = 0 then List.rev acc
-        else (match%bitstring x with
-              | {| service_id                 : 16 : save_offset_to (off_1)
-                 ; rfu                        : 6  : save_offset_to (off_2)
-                 ; eit_schedule_flag          : 1  : save_offset_to (off_3)
-                 ; eit_present_following_flag : 1  : save_offset_to (off_4)
-                 ; running_status             : 3  : save_offset_to (off_5)
-                 ; free_ca_mode               : 1  : save_offset_to (off_6)
-                 ; desc_loop_length           : 12 : save_offset_to (off_7)
-                 ; descriptors                : desc_loop_length * 8 : save_offset_to (off_8), bitstring
-                 ; rest                       : -1 : bitstring
-                 |} -> let nodes = [ { offset = off_1
-                                     ; length = 16
-                                     ; name   = "service_id"
-                                     ; value  = Val_hex service_id
-                                     ; nested = []
-                                     }
-                                   ; { offset = off_2
-                                     ; length = 6
-                                     ; name   = "reserved_fuure_use"
-                                     ; value  = Val_hex rfu
-                                     ; nested = []
-                                     }
-                                   ; { offset = off_3
-                                     ; length = 1
-                                     ; name   = "EIT_schedule_flag"
-                                     ; value  = Flag eit_schedule_flag
-                                     ; nested = []
-                                     }
-                                   ; { offset = off_4
-                                     ; length = 1
-                                     ; name   = "EIT_present_following_flag"
-                                     ; value  = Flag eit_present_following_flag
-                                     ; nested = []
-                                     }
-                                   ; { offset = off_5
-                                     ; length = 3
-                                     ; name   = "runnning_status"
-                                     ; value  = Val_hex running_status
-                                     ; nested = []
-                                     }
-                                   ; { offset = off_6
-                                     ; length = 1
-                                     ; name   = "free_CA_mode"
-                                     ; value  = Flag free_ca_mode
-                                     ; nested = []
-                                     }
-                                   ; { offset = off_7
-                                     ; length = 12
-                                     ; name   = "descriptors_loop_length"
-                                     ; value  = Val_hex desc_loop_length
-                                     ; nested = []
-                                     }
-                                   ; { offset = off_8
-                                     ; length = desc_loop_length * 8
-                                     ; name   = "descriptors"
-                                     ; value  = Val_hex 1
-                                     ; nested = []
-                                     }
-                                   ]
-                       in
-                       parse_services (nodes @ acc) rest))
+    let rec parse_services = fun acc x ->
+      if Bitstring.bitstring_length x = 0 then List.rev acc
+      else
+        (match%bitstring x with
+         | {| service_id                 : 16 : save_offset_to (off_1)
+            ; rfu                        : 6  : save_offset_to (off_2)
+            ; eit_schedule_flag          : 1  : save_offset_to (off_3)
+            ; eit_present_following_flag : 1  : save_offset_to (off_4)
+            ; running_status             : 3  : save_offset_to (off_5)
+            ; free_ca_mode               : 1  : save_offset_to (off_6)
+            ; desc_loop_length           : 12 : save_offset_to (off_7)
+            ; descriptors                : desc_loop_length * 8 : save_offset_to (off_8), bitstring
+            ; rest                       : -1 : bitstring
+            |} ->
+            let dscrs = parse_descriptors [] descriptors in
+            let nodes =
+              [ to_node ~offset:off_1 16 "service_id" (Val_hex service_id)
+              ; to_node ~offset:off_2  6 "reserved_fuure_use" (Val_hex rfu)
+              ; to_node ~offset:off_3  1 "EIT_schedule_flag" (Flag eit_schedule_flag)
+              ; to_node ~offset:off_4  1 "EIT_present_following_flag" (Flag eit_present_following_flag)
+              ; to_node ~offset:off_5  3 "runnning_status" (Val_hex running_status)
+              ; to_node ~offset:off_6  1 "free_CA_mode" (Flag free_ca_mode)
+              ; to_node ~offset:off_7 12 "descriptors_loop_length" (Val_hex desc_loop_length)
+              ; to_node ~offset:off_8 (desc_loop_length * 8) "descriptors" (List dscrs)
+              ]
+            in
+            parse_services (nodes @ acc) rest)
     in
     let bs = Bitstring.bitstring_of_string buf in
     let header,rest = parse_header bs in
@@ -1595,132 +1251,54 @@ module SDT = struct
        ; rfu                    : 8  : save_offset_to (off_8)
        ; services               : services_length off_8 : save_offset_to (off_9), bitstring
        ; crc32                  : 32 : save_offset_to (off_10)
-       |} -> let nodes = [ { offset = off_1
-                           ; length = 16
-                           ; name   = "transport_stream_id"
-                           ; value  = Val_hex transport_stream_id
-                           ; nested = []
-                           }
-                         ; { offset = off_2
-                           ; length = 2
-                           ; name   = "reserved"
-                           ; value  = Val_hex reserved
-                           ; nested = []
-                           }
-                         ; { offset = off_3
-                           ; length = 5
-                           ; name   = "version_number"
-                           ; value  = Val_hex version_number
-                           ; nested = []
-                           }
-                         ; { offset = off_4
-                           ; length = 1
-                           ; name   = "current_next_indicator"
-                           ; value  = Flag current_next_indicator
-                           ; nested = []
-                           }
-                         ; { offset = off_5
-                           ; length = 8
-                           ; name   = "section_number"
-                           ; value  = Val_hex section_number
-                           ; nested = []
-                           }
-                         ; { offset = off_6
-                           ; length = 8
-                           ; name   = "last_section_number"
-                           ; value  = Val_hex last_section_number
-                           ; nested = []
-                           }
-                         ; { offset = off_7
-                           ; length = 16
-                           ; name   = "original_network_id"
-                           ; value  = Val_hex original_network_id
-                           ; nested = []
-                           }
-                         ; { offset = off_8
-                           ; length = 8
-                           ; name   = "reserved_future_use"
-                           ; value  = Val_hex rfu
-                           ; nested = []
-                           }
-                         ; { offset = off_9
-                           ; length = services_length off_8
-                           ; name   = "services"
-                           ; value  = Val_hex 1
-                           ; nested = parse_services [] services
-                           }
-                         ; { offset = off_10
-                           ; length = 32
-                           ; name   = "CRC_32"
-                           ; value  = Int32 crc32
-                           ; nested = []
-                           }
-                         ]
-             in
-             header @ nodes
- end
+       |} ->
+       let services = parse_services [] services in
+       let nodes =
+         [ to_node ~offset:off_1 16 "transport_stream_id" (Val_hex transport_stream_id)
+         ; to_node ~offset:off_2 2 "reserved" (Val_hex reserved)
+         ; to_node ~offset:off_3 5 "version_number" (Val_hex version_number)
+         ; to_node ~offset:off_4 1 "current_next_indicator" (Flag current_next_indicator)
+         ; to_node ~offset:off_5 8 "section_number" (Val_hex section_number)
+         ; to_node ~offset:off_6 8 "last_section_number" (Val_hex last_section_number)
+         ; to_node ~offset:off_7 16 "original_network_id" (Val_hex original_network_id)
+         ; to_node ~offset:off_8 8 "reserved_future_use" (Val_hex rfu)
+         ; to_node ~offset:off_9 (services_length off_8) "services" (List services)
+         ; to_node ~offset:off_10 32 "CRC_32" (Int32 crc32)
+         ]
+       in
+       header @ nodes
+end
 
- module EIT = struct
+module EIT = struct
 
   open Table_common
 
   let parse buf =
-    let rec parse_events = (fun acc x ->
-        if Bitstring.bitstring_length x = 0 then List.rev acc
-        else (match%bitstring x with
-              | {| event_id             : 16 : save_offset_to (off_1)
-                 ; start_time           : 40 : save_offset_to (off_2)
-                 ; duration             : 24 : save_offset_to (off_3)
-                 ; running_status       : 3  : save_offset_to (off_4)
-                 ; free_ca_mode         : 1  : save_offset_to (off_5)
-                 ; desc_loop_length     : 12 : save_offset_to (off_6)
-                 ; descriptors          : desc_loop_length * 8 : save_offset_to (off_7), bitstring
-                 ; rest                 : -1 : bitstring
-                 |} -> let nodes = [ { offset = off_1
-                                     ; length = 16
-                                     ; name   = "event_id"
-                                     ; value  = Val_hex event_id
-                                     ; nested = []
-                                     }
-                                   ; { offset = off_2
-                                     ; length = 40
-                                     ; name   = "start_time"
-                                     ; value  = Int64 start_time
-                                     ; nested = []
-                                     }
-                                   ; { offset = off_3
-                                     ; length = 24
-                                     ; name   = "duration"
-                                     ; value  = Val_hex duration
-                                     ; nested = []
-                                     }
-                                   ; { offset = off_4
-                                     ; length = 3
-                                     ; name   = "running_status"
-                                     ; value  = Val_hex running_status
-                                     ; nested = []
-                                     }
-                                   ; { offset = off_5
-                                     ; length = 1
-                                     ; name   = "free_CA_mode"
-                                     ; value  = Flag free_ca_mode
-                                     ; nested = []
-                                     }
-                                   ; { offset = off_6
-                                     ; length = 12
-                                     ; name   = "decriptors_loop_length"
-                                     ; value  = Val_hex desc_loop_length
-                                     ; nested = []
-                                     }
-                                   ; { offset = off_7
-                                     ; length = desc_loop_length * 8
-                                     ; name   = "descriptors"
-                                     ; value  = Val_hex 1
-                                     ; nested = []
-                                     }
-                                   ]
-                       in
-                       parse_events (nodes @ acc) rest)) in
+    let rec parse_events = fun acc x ->
+      if Bitstring.bitstring_length x = 0 then List.rev acc
+      else
+        (match%bitstring x with
+         | {| event_id             : 16 : save_offset_to (off_1)
+            ; start_time           : 40 : save_offset_to (off_2)
+            ; duration             : 24 : save_offset_to (off_3)
+            ; running_status       : 3  : save_offset_to (off_4)
+            ; free_ca_mode         : 1  : save_offset_to (off_5)
+            ; desc_loop_length     : 12 : save_offset_to (off_6)
+            ; descriptors          : desc_loop_length * 8 : save_offset_to (off_7), bitstring
+            ; rest                 : -1 : bitstring
+            |} ->
+            let dscrs = parse_descriptors [] descriptors in
+            let nodes =
+              [ to_node ~offset:off_1 16 "event_id" (Val_hex event_id)
+              ; to_node ~offset:off_2 40 "start_time" (Int64 start_time)
+              ; to_node ~offset:off_3 24 "duration" (Val_hex duration)
+              ; to_node ~offset:off_4  3 "running_status" (Val_hex running_status)
+              ; to_node ~offset:off_5  1 "free_CA_mode" (Flag free_ca_mode)
+              ; to_node ~offset:off_6 12 "decriptors_loop_length" (Val_hex desc_loop_length)
+              ; to_node ~offset:off_7 (desc_loop_length * 8) "descriptors" (List dscrs)
+              ]
+            in
+            parse_events (nodes @ acc) rest) in
     let bs = Bitstring.bitstring_of_string buf in
     let header,rest = parse_header bs in
     let events_length off = Bitstring.bitstring_length rest - off - 8 - 32 in
@@ -1737,155 +1315,72 @@ module SDT = struct
        ; last_table_id               : 8  : save_offset_to (off_10)
        ; events                      : events_length off_10 : save_offset_to (off_11), bitstring
        ; crc32                       : 32 : save_offset_to (off_12)
-       |} -> let nodes = [ { offset = off_1
-                           ; length = 16
-                           ; name   = "service_id"
-                           ; value  = Val_hex service_id
-                           ; nested = []
-                           }
-                         ; { offset = off_2
-                           ; length = 2
-                           ; name   = "reserved"
-                           ; value  = Val_hex reserved
-                           ; nested = []
-                           }
-                         ; { offset = off_3
-                           ; length = 5
-                           ; name   = "version_number"
-                           ; value  = Val_hex version_number
-                           ; nested = []
-                           }
-                         ; { offset = off_4
-                           ; length = 1
-                           ; name   = "current_next_indicator"
-                           ; value  = Flag current_next_indicator
-                           ; nested = []
-                           }
-                         ; { offset = off_5
-                           ; length = 8
-                           ; name   = "section_number"
-                           ; value  = Val_hex section_number
-                           ; nested = []
-                           }
-                         ; { offset = off_6
-                           ; length = 8
-                           ; name   = "last_section_number"
-                           ; value  = Val_hex last_section_number
-                           ; nested = []
-                           }
-                         ; { offset = off_7
-                           ; length = 16
-                           ; name   = "transport_stream_id"
-                           ; value  = Val_hex original_network_id
-                           ; nested = []
-                           }
-                         ; { offset = off_8
-                           ; length = 16
-                           ; name   = "original_network_id"
-                           ; value  = Val_hex original_network_id
-                           ; nested = []
-                           }
-                         ; { offset = off_9
-                           ; length = 8
-                           ; name   = "segment_last_section_number"
-                           ; value  = Val_hex segment_last_section_number
-                           ; nested = parse_events [] events
-                           }
-                         ; { offset = off_10
-                           ; length = 8
-                           ; name   = "last_table_id"
-                           ; value  = Val_hex last_table_id
-                           ; nested = []
-                           }
-                         ; { offset = off_11
-                           ; length = events_length off_10
-                           ; name   = "events"
-                           ; value  = Val_hex 1
-                           ; nested = parse_events [] events
-                           }
-                         ; { offset = off_12
-                           ; length = 32
-                           ; name   = "CRC_32"
-                           ; value  = Int32 crc32
-                           ; nested = []
-                           }
-                         ]
-             in
-             header @ nodes
-
- end
-
- module TDT = struct
-
-  open Table_common
-
-  let parse buf =
-    let bs = Bitstring.bitstring_of_string buf in
-    let header,rest = parse_header bs in
-    match%bitstring rest with
-    | {| utc_time : 40 : save_offset_to (off) |}
-      -> let node =[ { offset = off
-                     ; length = 40
-                     ; name   = "utc_time"
-                     ; value  = Int64 utc_time
-                     ; nested = []
-                     }
-                   ]
-         in
-         header @ node
-
- end
-
- module TOT = struct
-
-  open Table_common
-
-  let parse buf =
-    let bs = Bitstring.bitstring_of_string buf in
-    let header,rest = parse_header bs in
-    match%bitstring rest with
-    | {| utc_time                : 40 : save_offset_to (off_1)
-       ; reserved                : 4  : save_offset_to (off_2)
-       ; descriptors_loop_length : 12 : save_offset_to (off_3)
-       ; descriptors             : descriptors_loop_length * 8 : save_offset_to (off_4), bitstring
-       ; crc32                   : 32 : save_offset_to (off_5)
-       |} -> let nodes =[ { offset = off_1
-                          ; length = 40
-                          ; name   = "utc_time"
-                          ; value  = Int64 utc_time
-                          ; nested = []
-                          }
-                        ; { offset = off_2
-                          ; length = 4
-                          ; name   = "reserved"
-                          ; value  = Val_hex reserved
-                          ; nested = []
-                          }
-                        ; { offset = off_3
-                          ; length = 12
-                          ; name   = "descriptors_loop_length"
-                          ; value  = Val_hex descriptors_loop_length
-                          ; nested = []
-                          }
-                        ; { offset = off_4
-                          ; length = descriptors_loop_length * 8
-                          ; name   = "descriptors"
-                          ; value  = Val_hex 1
-                          ; nested = []
-                          }
-                        ; { offset = off_5
-                          ; length = 32
-                          ; name   = "CRC_32"
-                          ; value  = Int32 crc32
-                          ; nested = []
-                          }
-                        ]
-             in
-             header @ nodes
+       |} ->
+       let events = parse_events [] events in
+       let nodes =
+         [ to_node ~offset:off_1 16 "service_id" (Val_hex service_id)
+         ; to_node ~offset:off_2 2 "reserved" (Val_hex reserved)
+         ; to_node ~offset:off_3 5 "version_number" (Val_hex version_number)
+         ; to_node ~offset:off_4 1 "current_next_indicator" (Flag current_next_indicator)
+         ; to_node ~offset:off_5 8 "section_number" (Val_hex section_number)
+         ; to_node ~offset:off_6 8 "last_section_number" (Val_hex last_section_number)
+         ; to_node ~offset:off_7 16 "transport_stream_id" (Val_hex original_network_id)
+         ; to_node ~offset:off_8 16 "original_network_id" (Val_hex original_network_id)
+         ; to_node ~offset:off_9 8 "segment_last_section_number" (Val_hex segment_last_section_number)
+         ; to_node ~offset:off_10 8 "last_table_id" (Val_hex last_table_id)
+         ; to_node ~offset:off_11 (events_length off_10) "events" (List events)
+         ; to_node ~offset:off_12 32 "CRC_32" (Int32 crc32)
+         ]
+       in
+       header @ nodes
 
 end
 
- module RST = struct
+module TDT = struct
+
+  open Table_common
+
+  let parse buf =
+    let bs = Bitstring.bitstring_of_string buf in
+    let header,rest = parse_header bs in
+    match%bitstring rest with
+    | {| utc_time : 40 : save_offset_to (off) |} ->
+       let node =
+         [ to_node ~offset:off 40 "utc_time" (Int64 utc_time)
+         ]
+       in
+       header @ node
+
+end
+
+module TOT = struct
+
+  open Table_common
+
+  let parse buf =
+    let bs = Bitstring.bitstring_of_string buf in
+    let header,rest = parse_header bs in
+    match%bitstring rest with
+    | {| utc_time    : 40 : save_offset_to (off_1)
+       ; reserved    : 4  : save_offset_to (off_2)
+       ; loop_length : 12 : save_offset_to (off_3)
+       ; descriptors : loop_length * 8 : save_offset_to (off_4), bitstring
+       ; crc32       : 32 : save_offset_to (off_5)
+       |} ->
+       let dscrs = parse_descriptors [] descriptors in
+       let nodes =
+         [ to_node ~offset:off_1 40 "utc_time" (Int64 utc_time)
+         ; to_node ~offset:off_2 4  "reserved" (Val_hex reserved)
+         ; to_node ~offset:off_3 12 "descriptors_loop_length" (Val_hex loop_length)
+         ; to_node ~offset:off_4 (loop_length * 8) "descriptors" (List dscrs)
+         ; to_node ~offset:off_5 32 "CRC_32" (Int32 crc32)
+         ]
+       in
+       header @ nodes
+
+end
+
+module RST = struct
 
   open Table_common
 
@@ -1894,69 +1389,51 @@ end
     let header,rest = parse_header bs in
     let rec parse_events = fun acc x ->
       if Bitstring.bitstring_length x = 0 then List.rev acc
-      else (match%bitstring x with
-            | {| transport_stream_id        : 16 : save_offset_to (off_1)
-               ; original_network_id        : 16 : save_offset_to (off_2)
-               ; service_id                 : 16 : save_offset_to (off_3)
-               ; event_id                   : 16 : save_offset_to (off_4)
-               ; rfu                        : 5  : save_offset_to (off_5)
-               ; running_status             : 3  : save_offset_to (off_6)
-               ; rest                       : -1 :  bitstring
-               |} -> let nodes =[ { offset = off_1
-                          ; length = 16
-                          ; name   = "transport_stream_id"
-                          ; value  = Val_hex transport_stream_id
-                          ; nested = []
-                          }
-                        ; { offset = off_2
-                          ; length = 16
-                          ; name   = "original_network_id"
-                          ; value  = Val_hex original_network_id
-                          ; nested = []
-                          }
-                        ; { offset = off_3
-                          ; length = 16
-                          ; name   = "service_id"
-                          ; value  = Val_hex service_id
-                          ; nested = []
-                          }
-                        ; { offset = off_4
-                          ; length = 16
-                          ; name   = "event_id"
-                          ; value  = Val_hex event_id
-                          ; nested = []
-                          }
-                        ; { offset = off_5
-                          ; length = 5
-                          ; name   = "reserved_future_use"
-                          ; value  = Val_hex rfu
-                          ; nested = []
-                          }
-                        ; { offset = off_6
-                          ; length = 3
-                          ; name   = "running_status"
-                          ; value  = Val_hex running_status
-                          ; nested = []
-                          }
-                        ]
-             in
-             parse_events (nodes @ acc) rest) in
-     header @ ( parse_events [] rest)
+      else
+        (match%bitstring x with
+         | {| ts_id          : 16 : save_offset_to (off_1)
+            ; on_id          : 16 : save_offset_to (off_2)
+            ; service_id     : 16 : save_offset_to (off_3)
+            ; event_id       : 16 : save_offset_to (off_4)
+            ; rfu            : 5  : save_offset_to (off_5)
+            ; running_status : 3  : save_offset_to (off_6)
+            ; rest           : -1 :  bitstring
+            |} ->
+            let nodes =
+              [ to_node ~offset:off_1 16 "transport_stream_id" (Val_hex ts_id)
+              ; to_node ~offset:off_2 16 "original_network_id" (Val_hex on_id)
+              ; to_node ~offset:off_3 16 "service_id" (Val_hex service_id)
+              ; to_node ~offset:off_4 16 "event_id" (Val_hex event_id)
+              ; to_node ~offset:off_5  5 "reserved_future_use" (Val_hex rfu)
+              ; to_node ~offset:off_6  3 "running_status" (Val_hex running_status)
+              ]
+            in
+            parse_events (nodes @ acc) rest) in
+    (* FIXME *)
+    header @ ( parse_events [] rest)
 
- end
+end
 
-(* module ST = struct
+module ST = struct
 
+  open Bitstring
   open Table_common
 
   let parse buf =
-    let bs = Bitstring.bitstring_of_string buf in
+    let bs = bitstring_of_string buf in
     let header,rest = parse_header bs in
-    header @ Bitstring.string_of_bitstring rest
+    (* FIXME *)
+    let bytes =
+      to_node
+        ~offset:0
+        (bitstring_length rest)
+        "bytes"
+        (Bytes (string_of_bitstring rest))
+    in header @ [ bytes ]
 
- end*)
+end
 
- module DIT = struct
+module DIT = struct
 
   open Table_common
 
@@ -1967,26 +1444,17 @@ end
     | {| transition_flag : 1  : save_offset_to (off_1)
        ; rfu             : 7  : save_offset_to (off_2)
        ; rest            : -1 : bitstring
-       |} when Bitstring.bitstring_length rest = 0
-      -> let nodes =[ { offset = off_1
-                      ; length = 1
-                      ; name   = "transition_flag"
-                      ; value  = Flag transition_flag
-                      ; nested = []
-                      }
-                    ; { offset = off_2
-                      ; length = 7
-                      ; name   = "reserved_future_use"
-                      ; value  = Val_hex rfu
-                      ; nested = []
-                      }
-                    ]
-         in
-         header @ nodes
+       |} when Bitstring.bitstring_length rest = 0 ->
+       let nodes =
+         [ to_node ~offset:off_1 1 "transition_flag" (Flag transition_flag)
+         ; to_node ~offset:off_2 7 "reserved_future_use" (Val_hex rfu)
+         ]
+       in
+       header @ nodes
 
- end
+end
 
- module SIT = struct
+module SIT = struct
 
   open Table_common
   open Bitstring
@@ -1997,130 +1465,56 @@ end
     let len = bitstring_length rest in
     let rec parse_services = fun acc x ->
       if Bitstring.bitstring_length x = 0 then List.rev acc
-      else (match%bitstring x with
-            | {| service_id          : 16 : save_offset_to (off_1)
-               ; dvb_rfu             : 1  : save_offset_to (off_2)
-               ; running_status      : 3  : save_offset_to (off_3)
-               ; service_loop_length : 12 : save_offset_to (off_4)
-               ; descriptors         : service_loop_length * 8 : save_offset_to (off_5), bitstring
-               ; rest                : -1 : bitstring
-               |} -> let nodes =[ { offset = off_1
-                                  ; length = 16
-                                  ; name   = "service_id"
-                                  ; value  = Val_hex service_id
-                                  ; nested = []
-                                  }
-                                ; { offset = off_2
-                                  ; length = 1
-                                  ; name   = "reserved_future_use"
-                                  ; value  = Flag dvb_rfu
-                                  ; nested = []
-                                  }
-                                ; { offset = off_3
-                                  ; length = 3
-                                  ; name   = "running_status"
-                                  ; value  = Val_hex running_status
-                                  ; nested = []
-                                  }
-                                ; { offset = off_4
-                                  ; length = 12
-                                  ; name   = "service_loop_length"
-                                  ; value  = Val_hex service_loop_length
-                                  ; nested = []
-                                  }
-                                ; { offset = off_5
-                                  ; length = service_loop_length * 8
-                                  ; name   = "descriptors"
-                                  ; value  = Val_hex 1
-                                  ; nested = []
-                                  }
-                                ]
-                     in
-                     parse_services (nodes @ acc) rest) in
+      else
+        (match%bitstring x with
+         | {| service_id          : 16 : save_offset_to (off_1)
+            ; dvb_rfu             : 1  : save_offset_to (off_2)
+            ; running_status      : 3  : save_offset_to (off_3)
+            ; service_loop_length : 12 : save_offset_to (off_4)
+            ; descriptors         : service_loop_length * 8 : save_offset_to (off_5), bitstring
+            ; rest                : -1 : bitstring
+            |} ->
+            let dscrs = parse_descriptors [] descriptors in
+            let nodes =
+              [ to_node ~offset:off_1 16 "service_id" (Val_hex service_id)
+              ; to_node ~offset:off_2  1 "reserved_future_use" (Flag dvb_rfu)
+              ; to_node ~offset:off_3  3 "running_status" (Val_hex running_status)
+              ; to_node ~offset:off_4 12 "service_loop_length" (Val_hex service_loop_length)
+              ; to_node ~offset:off_5 (service_loop_length * 8) "descriptors" (List dscrs) ]
+            in
+            parse_services (nodes @ acc) rest) in
     let services_length off till = len - off - (till * 8) - 32 in
     match%bitstring rest with
-    | {| dvb_rfu_1                     : 16 : save_offset_to (off_1)
-       ; iso_reserved                  : 2  : save_offset_to (off_2)
-       ; version_number                : 5  : save_offset_to (off_3)
-       ; current_next_indicator        : 1  : save_offset_to (off_4)
-       ; section_number                : 8  : save_offset_to (off_5)
-       ; last_section_number           : 8  : save_offset_to (off_6)
-       ; dvb_rfu_2                     : 4  : save_offset_to (off_7)
-       ; transmission_info_loop_length : 12 : save_offset_to (off_8)
-       ; descriptors                   : transmission_info_loop_length * 8 : bitstring, save_offset_to (off_9)
-       ; services                      : services_length off_9 transmission_info_loop_length : save_offset_to (off_10), bitstring
-       ; crc32                         : 32 : save_offset_to (off_11)
-       ; rest                          : -1 : bitstring
-       |} when bitstring_length rest = 0
-      -> let nodes =[ { offset = off_1
-                      ; length = 16
-                      ; name   = "dvb_rfu_1"
-                      ; value  = Val_hex dvb_rfu_1
-                      ; nested = []
-                      }
-                    ; { offset = off_2
-                      ; length = 2
-                      ; name   = "ISO_reserved"
-                      ; value  = Int iso_reserved
-                      ; nested = []
-                      }
-                    ; { offset = off_3
-                      ; length = 5
-                      ; name   = "version_number"
-                      ; value  = Val_hex version_number
-                      ; nested = []
-                      }
-                    ; { offset = off_4
-                      ; length = 1
-                      ; name   = "current_next_indicator"
-                      ; value  = Flag current_next_indicator
-                      ; nested = []
-                      }
-                    ; { offset = off_5
-                      ; length = 8
-                      ; name   = "section_number"
-                      ; value  = Val_hex section_number
-                      ; nested = []
-                      }
-                    ;  { offset = off_6
-                       ; length = 8
-                       ; name   = "last_section_number"
-                       ; value  = Val_hex last_section_number
-                       ; nested = []
-                       }
-                    ; { offset = off_7
-                      ; length = 4
-                      ; name   = "dvb_rfu_2"
-                      ; value  = Val_hex dvb_rfu_2
-                      ; nested = []
-                      }
-                    ; { offset = off_8
-                      ; length = 12
-                      ; name   = "transmission_info_loop_length"
-                      ; value  = Val_hex transmission_info_loop_length
-                      ; nested = []
-                      }
-                    ; { offset = off_9
-                      ; length = transmission_info_loop_length * 8
-                      ; name   = "descriptors"
-                      ; value  = Val_hex 1
-                      ; nested = []
-                      }
-                    ; { offset = off_10
-                      ; length = services_length off_9 transmission_info_loop_length
-                      ; name   = "services"
-                      ; value  = Val_hex 1
-                      ; nested = parse_services [] services
-                      }
-                    ; { offset = off_11
-                      ; length = 32
-                      ; name   = "CRC_32"
-                      ; value  = Int32 crc32
-                      ; nested = []
-                      }
-                    ]
-         in
-         header @ nodes
+    | {| dvb_rfu_1              : 16 : save_offset_to (off_1)
+       ; iso_reserved           : 2  : save_offset_to (off_2)
+       ; version_number         : 5  : save_offset_to (off_3)
+       ; current_next_indicator : 1  : save_offset_to (off_4)
+       ; section_number         : 8  : save_offset_to (off_5)
+       ; last_section_number    : 8  : save_offset_to (off_6)
+       ; dvb_rfu_2              : 4  : save_offset_to (off_7)
+       ; loop_length            : 12 : save_offset_to (off_8)
+       ; descriptors            : loop_length * 8 : bitstring, save_offset_to (off_9)
+       ; services               : services_length off_9 loop_length : save_offset_to (off_10), bitstring
+       ; crc32                  : 32 : save_offset_to (off_11)
+       ; rest                   : -1 : bitstring
+       |} when bitstring_length rest = 0 ->
+       let services = parse_services [] services in
+       let dscrs = parse_descriptors [] descriptors in
+       let nodes =
+         [ to_node ~offset:off_1 16 "dvb_rfu_1" (Val_hex dvb_rfu_1)
+         ; to_node ~offset:off_2 2 "ISO_reserved" (Int iso_reserved)
+         ; to_node ~offset:off_3 5 "version_number" (Val_hex version_number)
+         ; to_node ~offset:off_4 1 "current_next_indicator" (Flag current_next_indicator)
+         ; to_node ~offset:off_5 8 "section_number" (Val_hex section_number)
+         ; to_node ~offset:off_6 8 "last_section_number" (Val_hex last_section_number)
+         ; to_node ~offset:off_7 4 "dvb_rfu_2" (Val_hex dvb_rfu_2)
+         ; to_node ~offset:off_8 12 "transmission_info_loop_length" (Val_hex loop_length)
+         ; to_node ~offset:off_9 (loop_length * 8) "descriptors" (List dscrs)
+         ; to_node ~offset:off_10 (services_length off_9 loop_length) "services" (List services)
+         ; to_node ~offset:off_11 32 "CRC_32" (Int32 crc32)
+         ]
+       in
+       header @ nodes
 
 end
 
@@ -2130,20 +1524,21 @@ let table_to_yojson : string ->
   fun buf tbl ->
   try
     (match tbl with
-     | `PAT   -> PAT.parse buf |> parsed_to_yojson
-     (* | `CAT   -> CAT.parse buf  |> CAT.to_yojson
-      * | `PMT   -> PMT.parse buf  |> PMT.to_yojson
-      * | `TSDT  -> TSDT.parse buf |> TSDT.to_yojson
-      * | `NIT _ -> NIT.parse buf  |> NIT.to_yojson
-      * | `SDT _ -> SDT.parse buf  |> SDT.to_yojson
-      * | `BAT   -> BAT.parse buf  |> BAT.to_yojson
-      * | `EIT _ -> EIT.parse buf  |> EIT.to_yojson
-      * | `TDT   -> TDT.parse buf  |> TDT.to_yojson
-      * | `RST   -> RST.parse buf  |> RST.to_yojson
-      * | `ST    -> ST.parse buf   |> ST.to_yojson
-      * | `TOT   -> TOT.parse buf  |> TOT.to_yojson
-      * | `DIT   -> DIT.parse buf  |> DIT.to_yojson
-      * | `SIT   -> SIT.parse buf  |> SIT.to_yojson *)
-     | _      -> `Null)
+     | `PAT   -> PAT.parse buf
+     | `CAT   -> CAT.parse buf
+     | `PMT   -> PMT.parse buf
+     | `TSDT  -> TSDT.parse buf
+     | `NIT _ -> NIT.parse buf
+     | `SDT _ -> SDT.parse buf
+     | `BAT   -> BAT.parse buf
+     | `EIT _ -> EIT.parse buf
+     | `TDT   -> TDT.parse buf
+     | `RST   -> RST.parse buf
+     | `ST    -> ST.parse buf
+     | `TOT   -> TOT.parse buf
+     | `DIT   -> DIT.parse buf
+     | `SIT   -> SIT.parse buf
+     | _      -> [])
+    |> parsed_to_yojson
     |> Option.return
   with _ -> None
