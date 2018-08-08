@@ -169,7 +169,7 @@ module Period = struct
   let ps_in_s = 1000_000_000_000L
 
   let to_yojson (v:t) : Yojson.Safe.json =
-    let d,ps = Span.to_d_ps v in
+    let d, ps = Span.to_d_ps v in
     `List [ `Int d;`Intlit (Int64.to_string ps) ]
 
   let of_yojson (j:Yojson.Safe.json) : (t,string) result =

@@ -1,41 +1,18 @@
 open Containers
+open Board_types.Streams.TS
 
 let value_to_string name x = Printf.sprintf "%s (%d)" name x
 let rfu_to_string          = value_to_string "Reserved"
 
-type parsed = node list
-and node =
-  { offset : int
-  ; length : int
-  ; name   : string
-	; value  : value
-  }
-and value =
-  | List     of node list
-  | Flag     of bool
-  | Bytes    of string
-  | String   of string
-  | Int      of int
-  | Int32    of int32
-  | Int64    of int64
-  | Time     of Common.Time.t
-  | Duration of Common.Time.Period.t
-  | Name     of string * int
-  | Val_hex  of int [@@deriving yojson]
-
 let to_node ~offset length name value =
   { offset; length; name; value }
 
-let parse_date (bs:Bitstring.t) : Ptime.date option =
-  try
-    let s = Bitstring.string_of_bitstring bs in
-    let date = Option.get_exn @@ Ptime.of_date @@ (1858, 11, 17) in
-    let days = int_of_string @@ "0x" ^ s in
-    let sec  = 3600 * 24 * days in
-    let span = Ptime.Span.of_int_s sec in
-    Ptime.add_span date span
-    |> Option.map Ptime.to_date
-  with _ -> None
+let parse_date (days:int) : Ptime.date option =
+  let date = Option.get_exn @@ Ptime.of_date @@ (1858, 11, 17) in
+  let sec  = 3600 * 24 * days in
+  let span = Ptime.Span.of_int_s sec in
+  Ptime.add_span date span
+  |> Option.map Ptime.to_date
 
 let parse_time (bs:Bitstring.t) : Ptime.time option =
   try
@@ -46,14 +23,16 @@ let parse_time (bs:Bitstring.t) : Ptime.time option =
        ; min2 : 4
        ; sec1 : 4
        ; sec2 : 4
-       |} -> Some ((hr1 * 10 + hr2, min1 * 10 + min2, sec1 * 10 + sec2), 0)
+       |} ->
+       let hr, min, sec = hr1 * 10 + hr2, min1 * 10 + min2, sec1 * 10 + sec2 in
+       Some ((hr, min, sec), 0)
   with _ -> None
 
 let parse_timestamp (bs:Bitstring.t) : Ptime.t option =
   try
     match%bitstring bs with
     | {| x : 40 |} when Int64.equal x 0xFFFFFFFFFFL -> None
-    | {| date : 16 : bitstring
+    | {| date : 16
        ; time : 24 : bitstring
        |} ->
        let date = parse_date date in
@@ -1614,7 +1593,7 @@ end
 
 let table_to_yojson : string ->
                       Common.Mpeg_ts.table ->
-                      Yojson.Safe.json option =
+                      parsed option =
   fun buf tbl ->
   try
     (match tbl with
@@ -1633,7 +1612,6 @@ let table_to_yojson : string ->
      | `DIT   -> DIT.parse buf
      | `SIT   -> SIT.parse buf
      | _      -> [])
-    |> parsed_to_yojson
     |> Option.return
   with _ -> None
 
