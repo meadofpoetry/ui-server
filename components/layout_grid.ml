@@ -1,23 +1,29 @@
 open Containers
 open Tyxml_js
+open Fun
 
 module Markup = Components_markup.Layout_grid.Make(Xml)(Svg)(Html)
 
 module Cell = struct
 
-  class t ?span ?span_phone ?span_tablet ?span_desktop
-          ~(widgets:#Widget.t list) () =
+  open Markup.Cell
 
-    let elt =
-      Markup.Cell.create ~content:(List.map Widget.to_markup widgets) ()
-      |> Tyxml_js.To_dom.of_div in
+  let iter = Option.iter
+
+  class t
+          ?span ?span_phone ?span_tablet ?span_desktop
+          ~(widgets:#Widget.t list)
+          () =
+
+    let elt = create ~content:(List.map Widget.to_markup widgets) ()
+              |> To_dom.of_div in
 
     object(self)
 
       inherit Widget.t elt () as super
 
       val mutable widgets : Widget.t list =
-        List.map (fun x -> (x :> Widget.t)) widgets
+        List.map Widget.coerce widgets
 
       val mutable _span         : int option = span
       val mutable _span_phone   : int option = span_phone
@@ -28,55 +34,67 @@ module Cell = struct
       val mutable order        : int option = None
 
       method private rm_span ?dt x =
-        super#remove_class @@ Markup.Cell.get_cell_span ?device_type:dt x
+        super#remove_class @@ get_cell_span ?device_type:dt x
 
       method span = _span
       method set_span = function
-        | Some x -> Option.iter self#rm_span _span;
-                    super#add_class @@ Markup.Cell.get_cell_span x;
-                    _span <- Some x
-        | None   -> Option.iter self#rm_span _span;
-                    _span <- None
+        | Some x ->
+           iter self#rm_span _span;
+           super#add_class @@ get_cell_span x;
+           _span <- Some x
+        | None   ->
+           iter self#rm_span _span;
+           _span <- None
 
       method span_phone = _span_phone
       method set_span_phone : int option -> unit = function
-        | Some x -> Option.iter (self#rm_span ~dt:`Phone) _span_phone;
-                    super#add_class @@ Markup.Cell.get_cell_span ~device_type:`Phone x;
-                    _span_phone <- Some x
-        | None   -> Option.iter (self#rm_span ~dt:`Phone) _span_phone;
-                    _span_phone <- None
+        | Some x ->
+           iter (self#rm_span ~dt:`Phone) _span_phone;
+           super#add_class @@ get_cell_span ~device_type:`Phone x;
+           _span_phone <- Some x
+        | None   ->
+           iter (self#rm_span ~dt:`Phone) _span_phone;
+           _span_phone <- None
 
       method span_tablet = _span_tablet
       method set_span_tablet : int option -> unit = function
-        | Some x -> Option.iter (self#rm_span ~dt:`Tablet) _span_tablet;
-                    super#add_class @@ Markup.Cell.get_cell_span ~device_type:`Tablet x;
-                    _span_tablet <- Some x
-        | None   -> Option.iter (self#rm_span ~dt:`Tablet) _span_tablet;
-                    _span_tablet <- None
+        | Some x ->
+           iter (self#rm_span ~dt:`Tablet) _span_tablet;
+           super#add_class @@ get_cell_span ~device_type:`Tablet x;
+           _span_tablet <- Some x
+        | None   ->
+           iter (self#rm_span ~dt:`Tablet) _span_tablet;
+           _span_tablet <- None
 
       method span_desktop = _span_desktop
       method set_span_desktop : int option -> unit = function
-        | Some x -> Option.iter (self#rm_span ~dt:`Desktop) _span_desktop;
-                    super#add_class @@ Markup.Cell.get_cell_span ~device_type:`Desktop x;
-                    _span_tablet <- Some x
-        | None   -> Option.iter (self#rm_span ~dt:`Desktop) _span_desktop;
-                    _span_desktop <- None
+        | Some x ->
+           iter (self#rm_span ~dt:`Desktop) _span_desktop;
+           super#add_class @@ get_cell_span ~device_type:`Desktop x;
+           _span_tablet <- Some x
+        | None   ->
+           iter (self#rm_span ~dt:`Desktop) _span_desktop;
+           _span_desktop <- None
 
       method order = order
       method set_order : int option -> unit = function
-        | Some x -> Option.iter (fun x -> super#remove_class @@ Markup.Cell.get_cell_order x) order;
-                    super#add_class @@ Markup.Cell.get_cell_order x;
-                    order <- Some x
-        | None   -> Option.iter (fun x -> super#remove_class @@ Markup.Cell.get_cell_order x) order;
-                    order <- None
+        | Some x ->
+           iter (super#remove_class % get_cell_order) order;
+           super#add_class @@ get_cell_order x;
+           order <- Some x
+        | None   ->
+           iter (super#remove_class % get_cell_order) order;
+           order <- None
 
       method align = align
       method set_align : [`Top | `Middle | `Bottom ] option -> unit = function
-        | Some x -> Option.iter (fun x -> super#remove_class @@ Markup.Cell.get_cell_align x) align;
-                    super#add_class @@ Markup.Cell.get_cell_align x;
-                    align <- Some x
-        | None   -> Option.iter (fun x -> super#remove_class @@ Markup.Cell.get_cell_align x) align;
-                    align <- None
+        | Some x ->
+           iter (super#remove_class % get_cell_align) align;
+           super#add_class @@ get_cell_align x;
+           align <- Some x
+        | None   ->
+           iter (super#remove_class % get_cell_align) align;
+           align <- None
 
       method widgets = widgets
 
@@ -90,29 +108,49 @@ module Cell = struct
 
 end
 
-class t ~(cells:Cell.t list) () =
+let eq x y = Equal.physical x#root y#root
 
-  let inner = new Widget.t (Markup.create_inner ~cells:(List.map Widget.to_markup cells) ()
-                                 |> Tyxml_js.To_dom.of_div) () in
+class t ?align ~(cells:Cell.t list) () =
+
+  let inner = Markup.create_inner ~cells:(List.map Widget.to_markup cells) ()
+              |> To_dom.of_div
+              |> Widget.create in
   let elt   = Markup.create ~content:[Widget.to_markup inner] ()
-              |> Tyxml_js.To_dom.of_div in
+              |> To_dom.of_div in
 
-  object
+  object(self)
     inherit Widget.t elt () as super
 
-    val mutable align : [ `Left | `Right ] option = None
+    val mutable _cells = cells
+
+    val mutable _align : [ `Left | `Right ] option = align
 
     method inner = inner
-    method cells = cells
+    method cells = _cells
 
-    method align       = align
+    method insert_cell_at_idx (i:int) (x:Cell.t) =
+      _cells <- List.add_nodup ~eq x _cells;
+      self#inner#insert_child_at_idx i x
+
+    method append_cell (x:Cell.t) =
+      _cells <- List.add_nodup ~eq x _cells;
+      self#inner#append_child x
+
+    method remove_cell (x:Cell.t) =
+      _cells <- List.remove ~eq ~x _cells;
+      self#inner#remove_child x
+
+    method align = _align
     method set_align : [ `Left | `Right ] option -> unit = function
-      | Some x -> Option.iter (fun x -> super#remove_class @@ Markup.get_grid_align x) align;
-                  super#add_class @@ Markup.get_grid_align x;
-                  align <- Some x
-      | None   -> Option.iter (fun x -> super#remove_class @@ Markup.get_grid_align x) align;
-                  align <- None
+      | Some x ->
+         Option.iter (super#remove_class % Markup.get_grid_align) _align;
+         super#add_class @@ Markup.get_grid_align x;
+         _align <- Some x
+      | None   ->
+         Option.iter (super#remove_class % Markup.get_grid_align) _align;
+         _align <- None
 
-    method set_fixed_column_width x = Markup.fixed_column_width_class
-                                      |> (fun c -> if x then super#add_class c else super#remove_class c)
+    method set_fixed_column_width x =
+      super#add_or_remove_class x Markup.fixed_column_width_class
+
   end

@@ -60,8 +60,9 @@ class ['a] t ~s_grid        (* grid props *)
     val ghost         =
       new cell ~typ:`Ghost ~s_col_w ~s_row_h ~s_grid ~pos:item.pos ()
     val resize_button =
-      Markup.Item.create_resize_button ()
-      |> Tyxml_js.To_dom.of_element |> Widget.create
+      let icon = Icon.SVG.(create_simple Path.resize_bottom_right) in
+      icon#add_class Markup.Item.resize_class;
+      icon
 
     val _s_draggable_global  =
       React.S.map ~eq:(Equal.option Equal.bool) (fun x -> x.draggable) s_grid

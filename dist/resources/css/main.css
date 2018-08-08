@@ -950,8 +950,7 @@
     font-weight: 500;
     letter-spacing: 0.0071428571em;
     text-decoration: inherit;
-    text-transform: inherit;
-    padding-bottom: 16px; }
+    text-transform: inherit; }
   .qos-niit-stream-grid .mdc-layout-grid {
     width: 100%; }
   .qos-niit-stream-grid .mdc-layout-grid__cell {
@@ -1071,7 +1070,7 @@ body {
       margin: 0 auto;
       padding: 16px;
       padding: var(--mdc-layout-grid-margin-phone, 16px); } }
-  #arbitrary-content .mdc-layout-grid {
+  #arbitrary-content > .mdc-layout-grid {
     --mdc-layout-grid-margin-desktop: 0px;
     --mdc-layout-grid-margin-tablet: 0px;
     --mdc-layout-grid-margin-phone: 0px; }

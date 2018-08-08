@@ -9,10 +9,10 @@ module Uri_storage = Storage.Options.Make(External_uri_storage)
 
 module Input_map = CCMap.Make(struct
                        type t = input * int
-                        let compare (li, lid) (ri, rid) =
-                          let ci = input_compare li ri in
-                          if ci <> 0 then ci
-                          else compare lid rid
+                       let compare (li, lid) (ri, rid) =
+                         let ci = compare_input li ri in
+                         if ci <> 0 then ci
+                         else Int.compare lid rid
                      end)
                  
 type in_push = (url * Common.Stream.t) list -> unit

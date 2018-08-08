@@ -101,6 +101,13 @@ module Stream_item = struct
 
 end
 
+let find_cell (w:Stream_item.t)
+      (cells:Layout_grid.Cell.t list) =
+  let f : Widget.t list -> bool = function
+    | [ wdg ] -> Equal.physical w#root wdg#root
+    | _       -> false in
+  List.find_opt (fun x -> f x#widgets) cells
+
 module Stream_grid = struct
 
   let base_class = "qos-niit-stream-grid"
@@ -120,18 +127,15 @@ module Stream_grid = struct
     let archive_grid  = new Layout_grid.t ~cells:[] () in
     object(self)
 
-      val mutable _archive_cells = []
-      val mutable _current_cells = []
+      val mutable _streams : Stream_item.t list = []
 
       inherit Vbox.t ~widgets:[ title#widget
                               ; grid#widget
                               ; archive_title#widget
                               ; archive_grid#widget ] ()
 
-      method cells = _archive_cells @ _current_cells
-
-      method streams =
-        List.map (fun x -> x#stream) self#cells
+      method cells   = archive_grid#cells @ grid#cells
+      method streams = List.map (fun x -> x#stream) _streams
 
       method add_stream ?(time=`Now) (stream:Stream.t) =
         let e = React.E.map (List.find_opt (Stream.equal stream)) event
@@ -141,59 +145,48 @@ module Stream_grid = struct
             time stream e control () in
         if List.is_empty self#cells
         then self#remove_child ph;
-        let cell = new Layout_grid.Cell.t ~widgets:[w] () in
-        cell#set_span_desktop @@ Some 3;
-        cell#set_span_tablet  @@ Some 4;
-        cell#set_span_phone   @@ Some 12;
+        let cell =
+          new Layout_grid.Cell.t
+            ~span_desktop:3
+            ~span_tablet:4
+            ~span_phone:12
+            ~widgets:[w] () in
+        _streams <- w :: _streams;
         match time with
-        | `Now ->
-           _current_cells <- w :: _current_cells;
-           grid#inner#append_child cell
-        | `Last _ ->
-           _archive_cells <- w :: _archive_cells;
-           archive_grid#inner#append_child cell
+        | `Now    -> grid#append_cell cell
+        | `Last _ -> archive_grid#append_cell cell
 
       method private _check_and_rm_current () =
-        if List.is_empty _current_cells
+        if List.is_empty grid#cells
         then (self#remove_child title;
               self#remove_child grid)
 
       method private _check_and_rm_archive () =
-        if List.is_empty _current_cells
-        then (self#remove_child title;
-              self#remove_child grid)
+        if List.is_empty archive_grid#cells
+        then (self#remove_child archive_title;
+              self#remove_child archive_grid)
 
       method private _on_lost = fun w ->
-        grid#remove_child w;
-        archive_grid#insert_child_at_idx 0 w;
-        if List.is_empty _archive_cells
-        then (self#insert_child_at_idx 2 archive_title;
-              self#insert_child_at_idx 3 archive_grid);
-        _archive_cells <- List.add_nodup
-                            ~eq:Equal.physical
-                            w
-                            _archive_cells;
-        _current_cells <- List.remove
-                            ~eq:Equal.physical
-                            ~x:w
-                            _current_cells;
-        self#_check_and_rm_current ()
+        match find_cell w grid#cells with
+        | Some cell ->
+           grid#remove_cell cell;
+           if List.is_empty archive_grid#cells
+           then (self#insert_child_at_idx 2 archive_title;
+                 self#insert_child_at_idx 3 archive_grid);
+           archive_grid#insert_cell_at_idx 0 cell;
+           self#_check_and_rm_current ()
+        | _ -> ()
 
       method private _on_found = fun w ->
-        archive_grid#remove_child w;
-        grid#insert_child_at_idx 0 w;
-        if List.is_empty _current_cells
-        then (self#insert_child_at_idx 2 archive_title;
-              self#insert_child_at_idx 3 archive_grid);
-        _current_cells <- List.add_nodup
-                            ~eq:Equal.physical
-                            w
-                            _current_cells;
-        _archive_cells <- List.remove
-                            ~eq:Equal.physical
-                            ~x:w
-                            _archive_cells;
-        self#_check_and_rm_current ()
+        match find_cell w archive_grid#cells with
+        | Some cell ->
+           archive_grid#remove_cell cell;
+           if List.is_empty grid#cells
+           then (self#insert_child_at_idx 2 title;
+                 self#insert_child_at_idx 3 grid);
+           grid#insert_cell_at_idx 0 cell;
+           self#_check_and_rm_archive ()
+        | _ -> ()
 
       initializer
         self#add_class base_class;
