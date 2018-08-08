@@ -231,13 +231,13 @@ let make_dump
                 subtitle#set_text @@ fmt_time timestamp;
                 text#set_text_content (Yojson.Safe.pretty_to_string x);
                 Dom.appendChild parsed#root text#root;
-                set_hexdump section
+                set_hexdump @@ String.of_list @@ List.map Char.chr section
              | Some { timestamp; section; parsed = None; _ } ->
                 parsed#set_empty ();
                 subtitle#set_text @@ fmt_time timestamp;
                 Dom.appendChild parsed#root
                   (ph "Не удалось разобрать содержимое секции")#root;
-                set_hexdump section
+                set_hexdump @@ String.of_list @@ List.map Char.chr section
              | None     ->
                 parsed#set_empty ();
                 subtitle#set_text "-";
