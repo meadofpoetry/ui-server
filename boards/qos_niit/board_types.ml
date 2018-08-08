@@ -292,7 +292,7 @@ module Streams = struct
       { stream_id  : Stream.id
       ; table_id   : int
       ; section_id : int
-      ; section    : string
+      ; section    : int list
       ; parsed     : Yojson.Safe.json option
       ; timestamp  : Time.t
       } [@@deriving yojson]

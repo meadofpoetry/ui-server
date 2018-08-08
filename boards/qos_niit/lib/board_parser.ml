@@ -204,7 +204,7 @@ module Get_section : (Request
          let stream_id = Common.Stream.id_of_int32 @@ Cstruct.LE.get_uint32 sid 0 in
          let raw       = Cstruct.to_string data in
          let table     = Mpeg_ts.table_of_int table_id in
-         Ok { section    = raw
+         Ok { section    = List.map (Char.code) @@ String.to_list raw
             ; stream_id
             ; table_id
             ; section_id = Option.get_or ~default:0 params.section

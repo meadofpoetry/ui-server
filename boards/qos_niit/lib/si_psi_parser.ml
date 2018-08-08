@@ -24,6 +24,8 @@ and value =
 let to_node ~offset length name value =
   { offset; length; name; value }
 
+let parsed_length = List.fold_left (fun acc x -> x.length + acc) 0
+
 module Descriptor = struct
 
   module type Descriptor_base = sig
@@ -965,22 +967,27 @@ module PAT = struct
   open Bitstring
 
   let rec parse_programs = fun off acc x ->
-    let to_name prog_num = if prog_num <> 0
-                           then "program_map_PID"
-                           else "network_PID" in
+    let to_name = function
+      | 0 -> "network_PID"
+      | _ -> "program_map_PID" in
     if bitstring_length x = 0 then List.rev acc
-    else match%bitstring x with
-         | {| program_number : 16 : save_offset_to (off_1)
-            ; reserved       : 3  : save_offset_to (off_2)
-            ; pid            : 13 : save_offset_to (off_3)
-            ; rest           : -1 : save_offset_to (off_4), bitstring
-            |} ->
-            let nodes =
-              [ to_node ~offset:(off_1 + off) 16 "program_number" (Int program_number)
-              ; to_node ~offset:(off_2 + off) 3 "reserved" (Val_hex reserved)
-              ; to_node ~offset:(off_3 + off) 13 (to_name program_number) (Val_hex pid)
-              ] in
-            parse_programs (off_4 + off) (acc @ nodes) rest
+    else
+      match%bitstring x with
+      | {| id       : 16
+         ; reserved : 3  : save_offset_to (off_1)
+         ; pid      : 13 : save_offset_to (off_2)
+         ; rest     : -1 : save_offset_to (off_3), bitstring
+         |} ->
+         let nodes =
+           [ to_node ~offset:off 16 "program_number" (Int id)
+           ; to_node ~offset:(off_1 + off) 3 "reserved" (Val_hex reserved)
+           ; to_node ~offset:(off_2 + off) 13 (to_name id) (Val_hex pid)
+           ] in
+         let name = match id with
+           | 0 -> "network"
+           | x -> Printf.sprintf "program %d" x in
+         let node = to_node ~offset:off (parsed_length nodes) name (List nodes) in
+         parse_programs (off_3 + off) (node :: acc) rest
 
   let parse buf =
     let bs = bitstring_of_string buf in
@@ -1036,7 +1043,7 @@ module PMT = struct
             ; to_node ~offset:(off_5 + off) 12 "ES_info_length" (Val_hex es_info_length)
             ; to_node ~offset:(off_6 + off) (es_info_length * 8) "descriptors" (List dscrs)
             ] in
-          parse_streams (off_7+off) (nodes @ acc) rest)
+          parse_streams (off_7 + off) (nodes @ acc) rest)
 
   let parse buf =
     let bs = Bitstring.bitstring_of_string buf in
