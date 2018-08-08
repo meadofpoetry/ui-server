@@ -182,8 +182,8 @@ module Stream_grid = struct
         | Some cell ->
            archive_grid#remove_cell cell;
            if List.is_empty grid#cells
-           then (self#insert_child_at_idx 2 title;
-                 self#insert_child_at_idx 3 grid);
+           then (self#insert_child_at_idx 0 title;
+                 self#insert_child_at_idx 1 grid);
            grid#insert_cell_at_idx 0 cell;
            self#_check_and_rm_archive ()
         | _ -> ()
