@@ -19,6 +19,14 @@ module Config_storage = Storage.Options.Make (Data)
 
 let log_prefix control = Printf.sprintf "(Board TS2IP: %d) " control
 
+let get_ports_sync board streams =
+  let open React in
+  List.fold_left (fun acc p ->
+      S.map (fun (s:Stream.t list) ->
+          let ports = List.filter_map (Stream.to_topo_port board) s in
+          List.mem ~eq:equal_topo_port p ports) streams
+      |> fun x -> Ports.add p.port x acc) Ports.empty board.ports
+
 let create (b:topo_board) (streams:Common.Stream.t list React.signal) _ send db base step =
   let storage         = Config_storage.create base ["board"; (string_of_int b.control)] in
   let log_prefix      = log_prefix b.control in
@@ -69,7 +77,9 @@ let create (b:topo_board) (streams:Common.Stream.t list React.signal) _ send db 
   ; streams_signal = events.out_streams
   ; step           = step
   ; connection     = events.state
-  ; ports_active   = List.fold_left (fun acc (p:topo_port)-> Ports.add p.port (React.S.const true) acc)
+  ; ports_sync     = get_ports_sync b streams
+  ; ports_active   = List.fold_left (fun acc (p:topo_port)->
+                         Ports.add p.port (React.S.const true) acc)
                        Ports.empty b.ports
   ; settings_page  = ("TS2IP", React.S.const (Tyxml.Html.div []))
   ; widgets_page   = [("TS2IP", React.S.const (Tyxml.Html.div []))]

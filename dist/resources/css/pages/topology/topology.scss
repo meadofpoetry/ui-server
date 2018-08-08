@@ -84,16 +84,36 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
 
 .topology__path {
     stroke: black;
-    stroke-width: 2;
+
+    vector-effect: non-scaling-stroke;
+    stroke-width: 2px;
+    animation-name: marching-ants;
+    animation-duration: 4s;
+    animation-iteration-count: infinite;
+    animation-play-state: paused;
+    animation-timing-function: linear;
+
+    @keyframes marching-ants {
+        from {
+            stroke-dashoffset: 100px;
+        }
+
+        to {
+            stroke-dashoffset: 0;
+        }
+    }
 
     &--active {
-        stroke: $material-color-light-green-500;
+        stroke: $material-color-red-300;
     }
     &--muted {
         stroke: $material-color-grey-500;
     }
     &--sync {
         stroke: $material-color-green-500;
+        stroke-dasharray: 5px;
+        stroke-dashoffset: 0;
+        animation-play-state: running;
     }
 }
 

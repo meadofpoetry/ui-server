@@ -49,25 +49,36 @@ let topo_to_signal topo boards : Common.Topology.t React.signal =
     React.S.l2 (fun a p -> Board { b with connection = a; ports = p }) connection ports
   in
   let merge_ports lst =
-    List.map (fun (port, sw, list, child) ->
-        React.S.l2 (fun l c -> { port; listening = l; child = c; switchable = sw }) list child) lst
+    List.map (fun (port, sw, list, sync, child) ->
+        React.S.l3 (fun l s c ->
+            { port
+            ; listening  = l
+            ; has_sync   = s
+            ; child      = c
+            ; switchable = sw }) list sync child) lst
     |> React.S.merge (fun acc h -> h::acc) []
   in
   let rec entry_to_signal = function
     | Input _ as i -> React.S.const i
     | Board b ->
        let bstate    = Map.get b.control boards in
-       let connection, port_list =
+       let connection, port_list, sync_list =
          match bstate with
-         | None       -> React.S.const `No_response,
-                         fun _ -> React.S.const false
-         | Some state -> state.connection,
-                         fun p -> Ports.get_or p state.ports_active ~default:(React.S.const false)
-       in
+         | None       ->
+            React.S.const `No_response,
+            (fun _ -> React.S.const false),
+            (fun _ -> React.S.const false)
+         | Some state ->
+            state.connection,
+            (fun p -> Ports.get_or p state.ports_active
+                        ~default:(React.S.const false)),
+            (fun p -> Ports.get_or p state.ports_sync
+                        ~default:(React.S.const false)) in
        let ports = merge_ports @@
                      List.map (fun p -> p.port,
                                         p.switchable,
                                         port_list p.port,
+                                        sync_list p.port,
                                         entry_to_signal p.child)
                               b.ports
        in build_board b connection ports

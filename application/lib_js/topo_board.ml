@@ -126,17 +126,24 @@ class t ~(connections:(#Topo_node.t * connection_point) list)
     method e_settings   = e_settings
     method s_state      = s
     method board        = _board
-    method set_board x  = _board <- x;
-                          push x.connection;
-                          super#set_state x.connection;
-                          match x.connection with
-                          | `Fine -> self#set_ports x.ports;
-                          | _     -> List.iter (fun p -> p#set_state `Unavailable) self#paths
+    method set_board x  =
+      _board <- x;
+      push x.connection;
+      super#set_state x.connection;
+      match x.connection with
+      | `Fine -> self#set_ports x.ports;
+      | _     -> List.iter (fun p -> p#set_state `Unavailable)
+                   self#paths
 
     method private set_ports l  =
       List.iter (fun (x:Common.Topology.topo_port) ->
-          match List.find_opt (fun p -> eq_node_entry p#left_node (`Entry x.child)) self#paths with
-          | Some path -> path#set_state (if x.listening then `Active else `Muted)
+          match List.find_opt (fun p -> eq_node_entry p#left_node
+                                          (`Entry x.child)) self#paths with
+          | Some path -> path#set_state (if x.has_sync
+                                         then `Sync
+                                         else if x.listening
+                                         then `Active
+                                         else `Muted)
           | None      -> ()) l
 
     initializer

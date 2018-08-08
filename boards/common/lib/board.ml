@@ -27,21 +27,23 @@ type constraints =
   }
 
 type stream_handler = < streams     : (url option * Common.Stream.t) list React.signal
-                      ; set         : (url * Common.Stream.t) list -> (unit,set_error) Lwt_result.t
-                      ; constraints : constraints
-                      >
+                    ; set         : (url * Common.Stream.t) list -> (unit,set_error) Lwt_result.t
+                    ; constraints : constraints
+                                    >
 
-type t = { handlers        : (module Api_handler.HANDLER) list
-         ; control         : int
-         ; streams_signal  : Common.Stream.t list React.signal
-         ; step            : (Cstruct.t list -> 'c cc as 'c) cc
-         ; connection      : state React.signal
-         ; ports_active    : bool React.signal Ports.t
-         ; settings_page   : (string * [`Div] Tyxml.Html.elt React.signal)
-         ; widgets_page    : (string * [`Div] Tyxml.Html.elt React.signal) list
-         ; stream_handler  : stream_handler option
-         ; state           : < finalize : unit -> unit >
-         }
+type t =
+  { handlers        : (module Api_handler.HANDLER) list
+  ; control         : int
+  ; streams_signal  : Common.Stream.t list React.signal
+  ; step            : (Cstruct.t list -> 'c cc as 'c) cc
+  ; connection      : state React.signal
+  ; ports_active    : bool React.signal Ports.t
+  ; ports_sync      : bool React.signal Ports.t
+  ; settings_page   : (string * [`Div] Tyxml.Html.elt React.signal)
+  ; widgets_page    : (string * [`Div] Tyxml.Html.elt React.signal) list
+  ; stream_handler  : stream_handler option
+  ; state           : < finalize : unit -> unit >
+  }
 
 module type BOARD = sig
   val create : topo_board ->

@@ -1,5 +1,3 @@
-open Containers
-
 type state = [ `Fine
              | `No_response
              | `Init
@@ -53,12 +51,13 @@ type version = int [@@deriving yojson, show, eq, ord]
 
 type id = int [@@deriving yojson, show, eq, ord]
 
-module Env = Map.Make(String)
+module Env = CCMap.Make(String)
 type env = string Env.t [@@deriving ord]
 let env_to_yojson e : Yojson.Safe.json =
   `Assoc (Env.fold (fun k v a -> (k, `String v)::a) e [])
 let env_of_yojson : Yojson.Safe.json -> (env, string) result = function
   | `Assoc ls -> begin
+      let open Containers in
       try ls
           |> List.map (function (k, `String v) -> (k, v)
                               | _ -> raise_notrace (Failure "env_of_yojson :value should be string"))
@@ -67,10 +66,13 @@ let env_of_yojson : Yojson.Safe.json -> (env, string) result = function
       with Failure e -> Error e
     end
   | _ -> Error "env_of_yojson"
-let pp_env = Env.pp String.pp String.pp
+let pp_env = Env.pp CCString.pp CCString.pp
 let equal_env = Env.equal String.equal
 
-type t = [`CPU of topo_cpu | `Boards of topo_board list] [@@deriving yojson, show, eq, ord]
+type t =
+  [`CPU of topo_cpu
+  | `Boards of topo_board list
+  ] [@@deriving yojson { strict = false }, show, eq, ord]
 
 and topo_entry =
   | Input  : topo_input -> topo_entry
@@ -87,15 +89,16 @@ and topo_board =
   ; manufacturer : string
   ; version      : version
   ; control      : int
-  ; connection   : state
-  ; env          : env
+  ; connection   : (state [@default `No_response])
+  ; env          : (env [@default Env.empty])
   ; ports        : topo_port list
   }
 
 and topo_port =
   { port       : int
-  ; listening  : bool
-  ; switchable : bool
+  ; listening  : (bool [@default false])
+  ; has_sync   : (bool [@default false])
+  ; switchable : (bool [@default false])
   ; child      : topo_entry
   }
 
@@ -120,7 +123,7 @@ module Show_topo_input = struct
     String.split_on_char '-' s
     |> (function
         | [ input; id ] ->
-           { input = input_of_string input |> Result.get_exn
+           { input = input_of_string input |> CCResult.get_exn
            ; id    = int_of_string id
            }
         | _ -> failwith "bad input string")
