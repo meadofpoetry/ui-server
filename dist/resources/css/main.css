@@ -937,10 +937,23 @@
 
 /* Streams items */
 .qos-niit-stream-grid {
-  align-items: flex-start;
+  align-items: stretch;
   align-content: flex-start;
   height: 100%;
   width: 100%; }
+  .qos-niit-stream-grid > .mdc-typography {
+    font-family: Roboto, sans-serif;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-font-smoothing: antialiased;
+    font-size: 0.875rem;
+    line-height: 1.375rem;
+    font-weight: 500;
+    letter-spacing: 0.0071428571em;
+    text-decoration: inherit;
+    text-transform: inherit;
+    padding-bottom: 16px; }
+  .qos-niit-stream-grid .mdc-layout-grid {
+    width: 100%; }
   .qos-niit-stream-grid .mdc-layout-grid__cell {
     display: flex; }
 

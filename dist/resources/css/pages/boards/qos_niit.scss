@@ -205,10 +205,19 @@
 
 .qos-niit-stream-grid {
 
-    align-items: flex-start;
+    align-items: stretch;
     align-content: flex-start;
     height: 100%;
     width: 100%;
+
+    > .mdc-typography {
+        @include mdc-typography(subtitle2);
+        padding-bottom: 16px;
+    }
+
+    .mdc-layout-grid {
+        width: 100%;
+    }
 
     .mdc-layout-grid__cell {
         display: flex;

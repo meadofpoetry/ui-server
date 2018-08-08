@@ -4,6 +4,8 @@ open Lwt.Infix
 
 let base_class = "mdc-loader"
 
+let timeout = 0.4
+
 class ['a] loader
            ?(text:         string option)
            ?(error_icon:   string option)
@@ -16,31 +18,37 @@ object(self)
   val pgs = Placeholder.create_progress ?text ()
   val mutable _on_success = on_success
   val mutable _on_error   = on_error
-  inherit Widget.t (Dom_html.createDiv Dom_html.document) ()
+  inherit Widget.t Dom_html.(createDiv document) ()
 
   method progress = pgs
   method thread   = t
-  method iter f   = Lwt_result.Infix.(t >>= (fun x -> f x; Lwt_result.return ()) |> Lwt.ignore_result)
+  method iter f   =
+    Lwt_result.Infix.(
+      t >>= (fun x -> f x; Lwt_result.return ())
+      |> Lwt.ignore_result)
   method set_on_success x = _on_success <- x
   method set_on_error   x = _on_error   <- x
 
   method private _on_error e =
     (try Dom.removeChild self#root pgs#root with _ -> ());
     Option.iter (fun f -> f (self :> 'a loader) e) _on_error;
-    let s = (match error_prefix with
-             | Some pfx -> Printf.sprintf "%s:\n %s" pfx e
-             | None     -> e)
-    in
+    let s = match error_prefix with
+      | Some pfx -> Printf.sprintf "%s:\n %s" pfx e
+      | None     -> e in
     let error = Placeholder.create_with_error ?icon:error_icon ~text:s () in
     Dom.appendChild self#root error#root;
     Lwt.return_unit
 
   initializer
     self#add_class base_class;
+    let ph_lwt =
+      Lwt_js.sleep timeout
+      >|= (fun () -> self#append_child pgs) in
     Lwt.try_bind
-      (fun () -> Dom.appendChild self#root pgs#root; t)
+      (fun () -> t)
       (fun r ->
-        (try Dom.removeChild self#root pgs#root with _ -> ());
+        Lwt.cancel ph_lwt;
+        self#remove_child pgs;
         match r with
         | Ok x    ->
            Option.iter (fun f -> f (self :> 'a loader) x) _on_success;
