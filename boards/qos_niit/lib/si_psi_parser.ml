@@ -921,14 +921,13 @@ module Table_common = struct
        ; rfu            : 1  : save_offset_to (off_3)
        ; reserved_1     : 2  : save_offset_to (off_4)
        ; section_length : 12 : save_offset_to (off_5)
-       ; rest           : -1 : bitstring
        |} ->
        [ to_node ~offset:off_1 8  "table_id"        (Val_hex table_id)
        ; to_node ~offset:off_2 1  "section_syntax_indicator" (Flag ssi)
        ; to_node ~offset:off_3 1  "'0'"             (Flag rfu)
        ; to_node ~offset:off_4 2  "reserved"        (Val_hex reserved_1)
-       ; to_node ~offset:off_5 12 "section_length" (Int section_length)
-       ], rest
+       ; to_node ~offset:off_5 12 "section_length"  (Int section_length)
+       ]
 
   let rec parse_descriptors = fun _ _ _ -> []
     (* fun acc x ->
@@ -985,10 +984,9 @@ module PAT = struct
 
   let parse buf =
     let bs = bitstring_of_string buf in
-    let header, _ = parse_header bs in
     let progs_length off = bitstring_length bs - off - 8 - 32 in
     match%bitstring bs with
-    | {| _                      : 24
+    | {| header                 : 24 : bitstring
        ; transport_stream_id    : 16 : save_offset_to (off_1)
        ; reserved               : 2  : save_offset_to (off_2)
        ; version_number         : 5  : save_offset_to (off_3)
@@ -998,8 +996,9 @@ module PAT = struct
        ; programs               : progs_length off_6 : save_offset_to (off_7), bitstring
        ; crc32                  : 32 : save_offset_to (off_8)
        |} ->
-       let progs = parse_programs off_7 [] programs in
-       let nodes =
+       let progs  = parse_programs off_7 [] programs in
+       let header = parse_header header in
+       let nodes  =
          [ to_node ~offset:off_1 16 "transport_stream_id" (Val_hex transport_stream_id)
          ; to_node ~offset:off_2 2 "reserved" (Val_hex reserved)
          ; to_node ~offset:off_3 5 "version_number" (Int version_number)
@@ -1041,11 +1040,9 @@ module PMT = struct
 
   let parse buf =
     let bs = Bitstring.bitstring_of_string buf in
-    let header,rest = parse_header bs in
-    let len = Bitstring.bitstring_length rest in
-    let streams_len prog_length off = len - (prog_length * 8) - off - 32 in
+    let streams_len prog_length off = Bitstring.bitstring_length bs - (prog_length * 8) - off - 32 in
     match%bitstring bs with
-    | {| _                      : 24
+    | {| header                 : 24 : bitstring
        ; program_number         : 16 : save_offset_to (off_1)
        ; reserved_1             : 2  : save_offset_to (off_2)
        ; version_number         : 5  : save_offset_to (off_3)
@@ -1061,6 +1058,7 @@ module PMT = struct
        ; crc32                  : 32 : save_offset_to (off_13)
        |} ->
        let dscrs   = parse_descriptors off_11 [] descriptors in
+       let header  = parse_header header in
        let streams = parse_streams off_12 [] streams in
        let nodes   =
          [ to_node ~offset:off_1 16 "program_number" (Val_hex program_number)
@@ -1089,10 +1087,9 @@ module CAT = struct
 
   let parse buf =
     let bs = bitstring_of_string buf in
-    let header,rest = parse_header bs in
-    let descriptors_length off = bitstring_length rest - off - 8 - 32 in
+    let descriptors_length off = bitstring_length bs - off - 8 - 32 in
     match%bitstring bs with
-    | {| _                      : 24
+    | {| header                 : 24 : bitstring
        ; reserved               : 18 : save_offset_to (off_1)
        ; version_number         : 5  : save_offset_to (off_2)
        ; current_next_indicator : 1  : save_offset_to (off_3)
@@ -1101,8 +1098,9 @@ module CAT = struct
        ; descriptors            : descriptors_length off_5 : save_offset_to (off_6), bitstring
        ; crc32                  : 32 : save_offset_to (off_7)
        |} ->
-       let dscrs = parse_descriptors off_6 [] descriptors in
-       let nodes =
+       let dscrs  = parse_descriptors off_6 [] descriptors in
+       let header = parse_header header in
+       let nodes  =
          [ to_node ~offset:off_1 18 "reserved" (Val_hex reserved)
          ; to_node ~offset:off_2 5 "version_number" (Val_hex version_number)
          ; to_node ~offset:off_3 1 "current_next_indicator" (Flag current_next_indicator)
@@ -1129,9 +1127,8 @@ module NIT = struct
 
   let parse buf =
     let bs = Bitstring.bitstring_of_string buf in
-    let header,_ = parse_header bs in
     match%bitstring bs with
-    | {| _                      : 24
+    | {| header                 : 24 : bitstring
        ; network_id             : 16 : save_offset_to (off_1)
        ; reserved               : 2  : save_offset_to (off_2)
        ; version_number         : 5  : save_offset_to (off_3)
@@ -1146,9 +1143,10 @@ module NIT = struct
        ; transport_streams      : ts_loop_len * 8 : save_offset_to (off_12),bitstring
        ; crc32                  : 32 : save_offset_to (off_13)
        |} ->
-       let ts    = parse_ts off_12 [] transport_streams in
-       let dscrs = parse_descriptors off_9 [] descriptors in
-       let nodes =
+       let ts     = parse_ts off_12 [] transport_streams in
+       let dscrs  = parse_descriptors off_9 [] descriptors in
+       let header = parse_header header in
+       let nodes  =
          [ to_node ~offset:off_1 16 "network_id" (Val_hex network_id)
          ; to_node ~offset:off_2 2 "reserved" (Val_hex reserved)
          ; to_node ~offset:off_3 5 "version_number" (Val_hex version_number)
@@ -1172,9 +1170,8 @@ module BAT = struct
 
   let parse buf =
     let bs = Bitstring.bitstring_of_string buf in
-    let header,_ = parse_header bs in
     match%bitstring bs with
-    | {| _                      : 24
+    | {| header                 : 24 : bitstring
        ; bouquet_id             : 16 : save_offset_to (off_1)
        ; reserved               : 2  : save_offset_to (off_2)
        ; version_number         : 5  : save_offset_to (off_3)
@@ -1189,9 +1186,10 @@ module BAT = struct
        ; transport_streams      : ts_loop_len * 8 : save_offset_to (off_12), bitstring
        ; crc32                  : 32 : save_offset_to (off_13)
        |} ->
-       let ts    = parse_ts off_12 [] transport_streams in
-       let dscrs = parse_descriptors off_9 [] descriptors in
-       let nodes =
+       let ts     = parse_ts off_12 [] transport_streams in
+       let dscrs  = parse_descriptors off_9 [] descriptors in
+       let header = parse_header header in
+       let nodes  =
          [ to_node ~offset:off_1 16 "bouquet_id" (Val_hex bouquet_id)
          ; to_node ~offset:off_2 2 "reserved" (Val_hex reserved)
          ; to_node ~offset:off_3 5 "version_number" (Val_hex version_number)
@@ -1244,11 +1242,9 @@ module SDT = struct
             parse_services (nodes @ acc) rest)
     in
     let bs = Bitstring.bitstring_of_string buf in
-    let header,rest = parse_header bs in
-    let len         = Bitstring.bitstring_length rest in
-    let services_length off = len - off - 8 - 32 in
+    let services_length off = Bitstring.bitstring_length bs - off - 8 - 32 in
     match%bitstring bs with
-    | {| _                      : 24
+    | {| header                 : 24 : bitstring
        ; transport_stream_id    : 16 : save_offset_to (off_1)
        ; reserved               : 2  : save_offset_to (off_2)
        ; version_number         : 5  : save_offset_to (off_3)
@@ -1261,6 +1257,7 @@ module SDT = struct
        ; crc32                  : 32 : save_offset_to (off_10)
        |} ->
        let services = parse_services [] services in
+       let header   = parse_header header in
        let nodes =
          [ to_node ~offset:off_1 16 "transport_stream_id" (Val_hex transport_stream_id)
          ; to_node ~offset:off_2 2 "reserved" (Val_hex reserved)
@@ -1309,10 +1306,9 @@ module EIT = struct
 
   let parse buf =
     let bs = Bitstring.bitstring_of_string buf in
-    let header,rest = parse_header bs in
-    let events_length off = Bitstring.bitstring_length rest - off - 8 - 32 in
-    match%bitstring rest with
-    | {| _                      : 24
+    let events_length off = Bitstring.bitstring_length bs - off - 8 - 32 in
+    match%bitstring bs with
+    | {| header                 : 24 : bitstring
        ; service_id             : 16 : save_offset_to (off_1)
        ; reserved               : 2  : save_offset_to (off_2)
        ; version_number         : 5  : save_offset_to (off_3)
@@ -1327,6 +1323,7 @@ module EIT = struct
        ; crc32                  : 32 : save_offset_to (off_12)
        |} ->
        let events = parse_events off_11 [] events in
+       let header = parse_header header in
        let nodes =
          [ to_node ~offset:off_1 16 "service_id" (Val_hex service_id)
          ; to_node ~offset:off_2 2 "reserved" (Val_hex reserved)
@@ -1352,14 +1349,14 @@ module TDT = struct
 
   let parse buf =
     let bs = Bitstring.bitstring_of_string buf in
-    let header,rest = parse_header bs in
-    match%bitstring rest with
-    | {| _        : 24
+    match%bitstring bs with
+    | {| header   : 24 : bitstring
        ; utc_time : 40 : save_offset_to (off) |} ->
        let node =
          [ to_node ~offset:off 40 "utc_time" (Int64 utc_time)
          ]
        in
+       let header = parse_header header in
        header @ node
 
 end
@@ -1370,17 +1367,17 @@ module TOT = struct
 
   let parse buf =
     let bs = Bitstring.bitstring_of_string buf in
-    let header,rest = parse_header bs in
-    match%bitstring rest with
-    | {| _           : 24
+    match%bitstring bs with
+    | {| header      : 24 : bitstring
        ; utc_time    : 40 : save_offset_to (off_1)
        ; reserved    : 4  : save_offset_to (off_2)
        ; loop_length : 12 : save_offset_to (off_3)
        ; descriptors : loop_length * 8 : save_offset_to (off_4), bitstring
        ; crc32       : 32 : save_offset_to (off_5)
        |} ->
-       let dscrs = parse_descriptors off_4 [] descriptors in
-       let nodes =
+       let dscrs  = parse_descriptors off_4 [] descriptors in
+       let header = parse_header header in
+       let nodes  =
          [ to_node ~offset:off_1 40 "utc_time" (Int64 utc_time)
          ; to_node ~offset:off_2 4  "reserved" (Val_hex reserved)
          ; to_node ~offset:off_3 12 "descriptors_loop_length" (Val_hex loop_length)
@@ -1396,34 +1393,38 @@ module RST = struct
 
   open Table_common
 
+  let rec parse_events = fun acc x ->
+    if Bitstring.bitstring_length x = 0 then List.rev acc
+    else
+      (match%bitstring x with
+       | {| ts_id          : 16 : save_offset_to (off_1)
+          ; on_id          : 16 : save_offset_to (off_2)
+          ; service_id     : 16 : save_offset_to (off_3)
+          ; event_id       : 16 : save_offset_to (off_4)
+          ; rfu            : 5  : save_offset_to (off_5)
+          ; running_status : 3  : save_offset_to (off_6)
+          ; rest           : -1 :  bitstring
+          |} ->
+          let nodes =
+            [ to_node ~offset:off_1 16 "transport_stream_id" (Val_hex ts_id)
+            ; to_node ~offset:off_2 16 "original_network_id" (Val_hex on_id)
+            ; to_node ~offset:off_3 16 "service_id" (Val_hex service_id)
+            ; to_node ~offset:off_4 16 "event_id" (Val_hex event_id)
+            ; to_node ~offset:off_5  5 "reserved_future_use" (Val_hex rfu)
+            ; to_node ~offset:off_6  3 "running_status" (Val_hex running_status)
+            ]
+          in
+          parse_events (nodes @ acc) rest)
+
   let parse buf =
     let bs = Bitstring.bitstring_of_string buf in
-    let header,rest = parse_header bs in
-    let rec parse_events = fun acc x ->
-      if Bitstring.bitstring_length x = 0 then List.rev acc
-      else
-        (match%bitstring x with
-         | {| _              : 24
-            ; ts_id          : 16 : save_offset_to (off_1)
-            ; on_id          : 16 : save_offset_to (off_2)
-            ; service_id     : 16 : save_offset_to (off_3)
-            ; event_id       : 16 : save_offset_to (off_4)
-            ; rfu            : 5  : save_offset_to (off_5)
-            ; running_status : 3  : save_offset_to (off_6)
-            ; rest           : -1 :  bitstring
-            |} ->
-            let nodes =
-              [ to_node ~offset:off_1 16 "transport_stream_id" (Val_hex ts_id)
-              ; to_node ~offset:off_2 16 "original_network_id" (Val_hex on_id)
-              ; to_node ~offset:off_3 16 "service_id" (Val_hex service_id)
-              ; to_node ~offset:off_4 16 "event_id" (Val_hex event_id)
-              ; to_node ~offset:off_5  5 "reserved_future_use" (Val_hex rfu)
-              ; to_node ~offset:off_6  3 "running_status" (Val_hex running_status)
-              ]
-            in
-            parse_events (nodes @ acc) rest) in
-    (* FIXME *)
-    header @ ( parse_events [] rest)
+    match%bitstring bs with
+       | {| header : 24 : bitstring
+          ; rest   : -1 : bitstring
+          |} ->
+          (* FIXME *)
+          let header = parse_header header in
+          header @ ( parse_events [] rest)
 
 end
 
@@ -1434,15 +1435,20 @@ module ST = struct
 
   let parse buf =
     let bs = bitstring_of_string buf in
-    let header,rest = parse_header bs in
-    (* FIXME *)
-    let bytes =
-      to_node
-        ~offset:24
-        (bitstring_length rest)
-        "bytes"
-        (Bytes (string_of_bitstring rest))
-    in header @ [ bytes ]
+    match%bitstring bs with
+       | {| header : 24 : bitstring
+          ; rest   : -1 : bitstring
+          |} ->
+          (* FIXME *)
+          let bytes =
+            to_node
+              ~offset:24
+              (bitstring_length rest)
+              "bytes"
+              (Bytes (string_of_bitstring rest))
+          in
+          let header = parse_header header in
+          header @ [ bytes ]
 
 end
 
@@ -1452,9 +1458,8 @@ module DIT = struct
 
   let parse buf =
     let bs = Bitstring.bitstring_of_string buf in
-    let header, rest = parse_header bs in
-    match%bitstring rest with
-    | {| _               : 24
+    match%bitstring bs with
+    | {| header          : 24 : bitstring
        ; transition_flag : 1  : save_offset_to (off_1)
        ; rfu             : 7  : save_offset_to (off_2)
        ; rest            : -1 : bitstring
@@ -1464,6 +1469,7 @@ module DIT = struct
          ; to_node ~offset:off_2 7 "reserved_future_use" (Val_hex rfu)
          ]
        in
+       let header = parse_header header in
        header @ nodes
 
 end
@@ -1496,11 +1502,9 @@ module SIT = struct
 
   let parse buf =
     let bs = bitstring_of_string buf in
-    let header, rest = parse_header bs in
-    let len = bitstring_length rest in
-    let services_length off till = len - off - (till * 8) - 32 in
-    match%bitstring rest with
-    | {| _                      : 24
+    let services_length off till = bitstring_length bs - off - (till * 8) - 32 in
+    match%bitstring bs with
+    | {| header                 : 24 : bitstring
        ; dvb_rfu_1              : 16 : save_offset_to (off_1)
        ; iso_reserved           : 2  : save_offset_to (off_2)
        ; version_number         : 5  : save_offset_to (off_3)
@@ -1530,6 +1534,7 @@ module SIT = struct
          ; to_node ~offset:off_11 32 "CRC_32" (Int32 crc32)
          ]
        in
+       let header = parse_header header in
        header @ nodes
 
 end
