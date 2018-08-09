@@ -2,39 +2,39 @@
 
 @function wm-layer-color($layer) {
     @if $layer == 0 {
-        @return $material-color-purple-500;
+        @return $material-color-purple-500, $material-color-purple-700;
     }
     @else if $layer == 1 {
-        @return $material-color-red-500;
+        @return $material-color-red-500, $material-color-red-700;
     }
     @else if $layer == 2 {
-        @return $material-color-indigo-500;
+        @return $material-color-indigo-500, $material-color-indigo-700;
     }
     @else if $layer == 3 {
-        @return $material-color-blue-500;
+        @return $material-color-blue-500, $material-color-blue-700;
     }
     @else if $layer == 4 {
-        @return $material-color-yellow-500;
+        @return $material-color-yellow-500, $material-color-yellow-700;
     }
     @else if $layer == 5 {
-        @return $material-color-green-500;
+        @return $material-color-green-500, $material-color-green-700;
     }
     @else if $layer == 6 {
-        @return $material-color-lime-500;
+        @return $material-color-lime-500, $material-color-lime-700;
     }
     @else if $layer == 7 {
-        @return $material-color-cyan-500;
+        @return $material-color-cyan-500, $material-color-cyan-700;
     }
     @else if $layer == 8 {
-        @return $material-color-deep-orange-500;
+        @return $material-color-deep-orange-500, $material-color-deep-orange-700;
     }
     @else if $layer == 9 {
-        @return $material-color-brown-500;
+        @return $material-color-brown-500, $material-color-brown-700;
     }
     @else if $layer == 10 {
-        @return $material-color-blue-grey-500;
+        @return $material-color-blue-grey-500, $material-color-blue-grey-700;
     }
     @else {
-        @return $material-color-purple-500;
+        @return $material-color-purple-500, $material-color-purple-700;
     }
 }

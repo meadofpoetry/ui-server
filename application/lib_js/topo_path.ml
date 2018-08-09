@@ -26,12 +26,17 @@ class switch (node:node_entry) (port:Common.Topology.topo_port) setter () =
     method port        = port
     method s_changing  = s
 
-    method set_state (x:Topo_types.connection_state) =
+    method set_state x =
       _state <- x;
-      match x with
-      | `Active | `Sync -> self#set_disabled false; self#set_checked true
-      | `Muted          -> self#set_disabled false; self#set_checked false
-      | `Unavailable    -> self#set_disabled true
+      match (x:connection_state) with
+      | `Active | `Sync | `Sync_lost ->
+         self#set_disabled false;
+         self#set_checked true
+      | `Muted ->
+         self#set_disabled false;
+         self#set_checked false
+      | `Unavailable ->
+         self#set_disabled true
 
     method set_changing x =
       if x then self#set_disabled true
@@ -42,11 +47,12 @@ class switch (node:node_entry) (port:Common.Topology.topo_port) setter () =
           push true;
           setter port.port self#checked
           >>= (function
-               | Ok _    -> push false;
-                            Lwt.return_unit
-               | Error _ -> push false;
-                            self#set_state _state; (* return current state back *)
-                            Lwt.return_unit)
+               | Ok _    -> push false; Lwt.return_unit
+               | Error _ ->
+                  push false;
+                  (* return current state back *)
+                  self#set_state _state;
+                  Lwt.return_unit)
           |> Lwt.ignore_result;
           true)
       |> ignore;
@@ -61,18 +67,21 @@ class t ~(left_node:node_entry)
         ~(f_rp:unit -> point)
         ~port_setter
         () =
-  let _class       = "topology__path" in
-  let active_class = Markup.CSS.add_modifier _class "active" in
-  let muted_class  = Markup.CSS.add_modifier _class "muted"  in
-  let sync_class   = Markup.CSS.add_modifier _class "sync"   in
-  let switch       = match right_point with
+  let _class        = "topology__path" in
+  let active_class  = Markup.CSS.add_modifier _class "active"  in
+  let muted_class   = Markup.CSS.add_modifier _class "muted"   in
+  let sync_class    = Markup.CSS.add_modifier _class "sync"    in
+  let no_sync_class = Markup.CSS.add_modifier _class "no-sync" in
+  let switch = match right_point with
     | `Iface _ -> None
-    | `Port p  -> if p.switchable then Some (new switch right_node p port_setter ()) else None
-  in
-  let elt    = Tyxml_js.Svg.(path ~a:([ a_fill `None
-                                      ; a_stroke (`Color ("white",None))
-                                      ; a_stroke_width (2., None)])[] |> toelt)
-               |> Js.Unsafe.coerce in
+    | `Port p  ->
+       if not p.switchable then None
+       else Some (new switch right_node p port_setter ()) in
+  let elt = Tyxml_js.Svg.(
+      path ~a:([ a_fill `None
+               ; a_stroke (`Color ("white",None))
+               ; a_stroke_width (2., None)])[]
+      |> toelt) |> Js.Unsafe.coerce in
   object(self)
 
     inherit Widget.t elt ()
@@ -85,46 +94,72 @@ class t ~(left_node:node_entry)
       state <- x;
       Option.iter (fun sw -> sw#set_state x) self#switch;
       match state with
-      | `Muted | `Unavailable -> self#add_class muted_class;
-                                 self#remove_class active_class;
-                                 self#remove_class sync_class;
-      | `Active               -> self#add_class active_class;
-                                 self#remove_class muted_class;
-                                 self#remove_class sync_class;
-      | `Sync                 -> self#add_class sync_class;
-                                 self#remove_class active_class;
-                                 self#remove_class muted_class;
+      | `Muted | `Unavailable ->
+         self#add_class muted_class;
+         self#remove_class active_class;
+         self#remove_class sync_class;
+         self#remove_class no_sync_class;
+      | `Active ->
+         self#add_class active_class;
+         self#remove_class muted_class;
+         self#remove_class sync_class;
+         self#remove_class no_sync_class;
+      | `Sync ->
+         self#add_class sync_class;
+         self#remove_class active_class;
+         self#remove_class muted_class;
+         self#remove_class no_sync_class;
+      | `Sync_lost ->
+         self#add_class no_sync_class;
+         self#remove_class active_class;
+         self#remove_class muted_class;
+         self#remove_class sync_class
 
     method layout () =
       let left   = f_lp () in
       let right  = f_rp () in
-      let top,height = if left.y > right.y
-                       then left.y,  left.y  - right.y
-                       else right.y, right.y - left.y
-      in
-      let () = Option.iter (fun sw ->
-                   let sw_pos = { right with y = right.y - (sw#offset_height / 2)
-                                           ; x = right.x + 15 } in
-                   sw#style##.top := Js.string (Printf.sprintf "%dpx" sw_pos.y);
-                   sw#style##.left := Js.string (Printf.sprintf "%dpx" sw_pos.x)) self#switch
-      in
+      let top,height =
+        if left.y > right.y
+        then left.y,  left.y  - right.y
+        else right.y, right.y - left.y in
+      let () =
+        Option.iter (fun sw ->
+            let sw_pos = { right with y = right.y - (sw#offset_height / 2)
+                                    ; x = right.x + 15 } in
+            let top  = Printf.sprintf "%dpx" sw_pos.y in
+            let left = Printf.sprintf "%dpx" sw_pos.x in
+            sw#style##.top  := Js.string top;
+            sw#style##.left := Js.string left) self#switch in
       let width = right.x - left.x in
-      let path  = if abs (left.y - right.y) < 4
-                  then Printf.sprintf "M %d %d L %d %d" left.x left.y right.x left.y
-                  else
-                    if right.x - left.x < 80
-                    then Printf.sprintf "M %d %d C %d %d %d %d %d %d C %d %d %d %d %d %d"
-                           left.x left.y
-                           left.x left.y (left.x + width/2) left.y (left.x + width/2) (top - height/2)
-                           (left.x + width/2) (top - height/2) (left.x + width/2) right.y right.x right.y
-                    else Printf.sprintf "M %d %d L %d %d C %d %d %d %d %d %d C %d %d %d %d %d %d"
-                           left.x left.y
-                           (right.x - 80) left.y
-                           (right.x - 80) left.y (right.x - 40) left.y (right.x - 40) (top - height/2)
-                           (right.x - 40) (top - height/2) (right.x - 40) (right.y) right.x right.y
-      in
+      let path  =
+        if abs (left.y - right.y) < 4
+        then Printf.sprintf "M %d %d L %d %d" left.x left.y right.x left.y
+        else
+          if right.x - left.x < 80
+          then
+            self#_make_straight_path
+              left.x left.y
+              left.x left.y (left.x + width/2) left.y
+              (left.x + width/2) (top - height/2)
+              (left.x + width/2) (top - height/2)
+              (left.x + width/2) right.y right.x right.y
+          else
+            self#_make_curved_path
+              left.x left.y
+              (right.x - 80) left.y
+              (right.x - 80) left.y (right.x - 40) left.y
+              (right.x - 40) (top - height/2)
+              (right.x - 40) (top - height/2)
+              (right.x - 40) (right.y) right.x right.y in
       self#set_attribute "d" path
 
+    method private _make_straight_path =
+      Printf.sprintf "M %d %d C %d %d %d %d %d %d C %d %d %d %d %d %d"
+
+    method private _make_curved_path =
+      Printf.sprintf "M %d %d L %d %d C %d %d %d %d %d %d C %d %d %d %d %d %d"
+
     initializer
+      self#add_class _class;
       self#set_state state
   end

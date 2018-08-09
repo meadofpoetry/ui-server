@@ -84,16 +84,38 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
 
 .topology__path {
     stroke: black;
-    stroke-width: 2;
 
+    vector-effect: non-scaling-stroke;
+    stroke-width: 2px;
+    animation-name: marching-ants;
+    animation-duration: 4s;
+    animation-iteration-count: infinite;
+    animation-play-state: paused;
+    animation-timing-function: linear;
+
+    @keyframes marching-ants {
+        from {
+            stroke-dashoffset: 100px;
+        }
+
+        to {
+            stroke-dashoffset: 0;
+        }
+    }
     &--active {
-        stroke: $material-color-light-green-500;
+        stroke: $material-color-green-500;
     }
     &--muted {
         stroke: $material-color-grey-500;
     }
+    &--no-sync {
+        stroke: $material-color-red-300;
+    }
     &--sync {
         stroke: $material-color-green-500;
+        stroke-dasharray: 5px;
+        stroke-dashoffset: 0;
+        animation-play-state: running;
     }
 }
 
@@ -101,8 +123,8 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
     user-select: none;
     cursor: initial;
     align-items: center;
-    @include mdc-theme-prop(background-color, background);
-    @include mdc-theme-prop(color, text-primary-on-background);
+    @include mdc-theme-prop(background-color, surface);
+    @include mdc-theme-prop(color, text-primary-on-surface);
     &::before { opacity: 0 !important };
     &::after { opacity: 0 !important };
     .mdc-chip__text {
@@ -111,7 +133,7 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
         white-space: nowrap;
     }
     .mdc-chip__icon {
-        @include mdc-theme-prop(color, text-icon-on-background);
+        @include mdc-theme-prop(color, text-icon-on-surface);
     }
 }
 
@@ -121,8 +143,8 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
 
     &--fail {
         .topology__block__body {
-            background-color: $material-color-red-200;
-            @include mdc-theme-prop(color, text-secondary-on-light);
+            @include mdc-theme-prop(background-color, error);
+            @include mdc-theme-prop(color, on-error);
         }
     }
 
@@ -159,7 +181,7 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
 
 .topology__cpu {
     &__header {
-        $bg-color: $material-color-blue-grey-500;
+        $bg-color: $material-color-teal-500;
         $tone: mdc-theme-tone($bg-color);
         .mdc-card__title, .mdc-icon {
             @if ($tone == 'light') {

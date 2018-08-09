@@ -39,20 +39,25 @@ let circular_progress_demo () =
   section
 
 let fab_demo () =
-  let fab    = new Fab.t ~icon:"favorite" () in
-  let mini   = new Fab.t ~mini:true ~icon:"favorite" () in
-  let ripple = new Fab.t ~ripple:true ~icon:"favorite" () in
-  let box    = new Vbox.t ~widgets:[ subsection "General" fab
-                                  ; subsection "Mini" mini
-                                  ; subsection "Ripple" ripple
-                                  ]
-                   ()
+  let icon () = Icon.SVG.(create_simple Path.heart) in
+  let fab     = new Fab.t ~icon:(icon ()) () in
+  let mini    = new Fab.t ~mini:true ~icon:(icon ()) () in
+  let ripple  = new Fab.t ~ripple:true ~icon:(icon ()) () in
+  let box     = new Vbox.t ~widgets:[ subsection "General" fab
+                                    ; subsection "Mini" mini
+                                    ; subsection "Ripple" ripple
+                  ]
+                  ()
   in
   demo_section "FAB" [box]
 
 let fab_speed_dial_demo () =
-  let items = List.map (fun icon -> new Fab.t ~icon ()) ["face"; "add"; "close"] in
-  let fab   = new Fab_speed_dial.t ~icon:"edit" ~items () in
+  let items =
+    List.map (fun path ->
+        let icon = Icon.SVG.create_simple path in
+        new Fab.t ~icon ()) Icon.SVG.Path.[face; plus; close] in
+  let icon  = Icon.SVG.create_simple Icon.SVG.Path.pencil in
+  let fab   = new Fab_speed_dial.t ~icon ~items () in
   let up    = new Radio.t ~name:"dir" ~value:`Up () in
   let down  = new Radio.t ~name:"dir" ~value:`Down () in
   let left  = new Radio.t ~name:"dir" ~value:`Left () in
@@ -197,13 +202,14 @@ let layout_grid_demo () =
                                                                             else 1)))]
                                          |> Tyxml_js.To_dom.of_element
                                          |> Widget.create in
-                                 new Layout_grid.Cell.t ~widgets:[w] ()
-                                 |> (fun x -> x#set_span 1; x))
+                                 new Layout_grid.Cell.t ~span:1 ~widgets:[w] ())
                 (List.range 0 15) in
   let btn2 = new Button.t ~label:"set span 1" () in
   let btn4 = new Button.t ~label:"set span 2" () in
-  React.E.map (fun _ -> (List.get_at_idx_exn 4 cells)#set_span 1) btn2#e_click |> ignore;
-  React.E.map (fun _ -> (List.get_at_idx_exn 4 cells)#set_span 2) btn4#e_click |> ignore;
+  React.E.map (fun _ -> (List.get_at_idx_exn 4 cells)#set_span @@ Some 1)
+    btn2#e_click |> ignore;
+  React.E.map (fun _ -> (List.get_at_idx_exn 4 cells)#set_span @@ Some 2)
+    btn4#e_click |> ignore;
   let layout_grid = new Layout_grid.t ~cells () in
   demo_section "Layout grid" [ layout_grid#widget; btn2#widget; btn4#widget ]
 
@@ -259,23 +265,30 @@ let list_demo () =
   demo_section "List" [ list#widget; group#widget ]
 
 let tree_demo () =
-  let item x = new Tree.Item.t
-                 ~text:("Item " ^ string_of_int x)
-                 ~nested:(new Tree.t
-                            ~items:[ new Tree.Item.t ~text:"Item 0" ~value:()
-                                       ~nested:(new Tree.t
-                                                  ~items:[ new Tree.Item.t ~text:"Item 0" ~value:() ()
-                                                         ; new Tree.Item.t ~text:"Item 1" ~value:() ()
-                                                         ; new Tree.Item.t ~text:"Item 2" ~value:() () ]
-                                                  ()) ()
-                                   ; new Tree.Item.t ~text:"Item 1" ~value:() ()
-                                   ; new Tree.Item.t ~text:"Item 2" ~value:() () ]
-                            ())
-                 ~value:()
+  let item x =
+    new Tree.Item.t
+      ~text:("Item " ^ string_of_int x)
+      ~nested:(
+        new Tree.t
+          ~level:1
+          ~items:[ new Tree.Item.t ~text:"Item 0" ~value:()
+                     ~nested:(
+                       new Tree.t
+                         ~level:2
+                         ~items:[ new Tree.Item.t ~text:"Item 0" ~value:() ()
+                                ; new Tree.Item.t ~text:"Item 1" ~value:() ()
+                                ; new Tree.Item.t ~text:"Item 2" ~value:() () ]
+                         ()) ()
+                 ; new Tree.Item.t ~text:"Item 1" ~value:() ()
+                 ; new Tree.Item.t ~text:"Item 2" ~value:() () ]
+          ())
+      ~value:()
                  () in
-  let tree = new Tree.t
-               ~items:(List.map (fun x -> item x) (List.range 0 5))
-               () in
+  let tree =
+    new Tree.t
+      ~level:0
+      ~items:(List.map (fun x -> item x) (List.range 0 5))
+      () in
   tree#style##.maxWidth := Js.string "400px";
   demo_section "Tree" [ tree ]
 
@@ -350,62 +363,74 @@ let linear_progress_demo () =
   sect
 
 let tabs_demo () =
-  let open Components.Tabs in
-  let idx       = new Textfield.t ~input_id:"idx" ~input_type:(Integer (None,None)) ~label:"index" () in
+  let idx       = new Textfield.t
+                    ~input_id:"idx"
+                    ~input_type:(Integer (None,None))
+                    ~label:"index" () in
   let add       = new Button.t ~label:"add" () in
   let remove    = new Button.t ~label:"remove" () in
-  let icon_bar  = [ { content = `Icon ("pets", None)     ; href = Some "#1"; disabled = false; value = () }
-                  ; { content = `Icon ("favorite", None) ; href = Some "#2"; disabled = false; value = () }
-                  ; { content = `Icon ("grade", None)    ; href = Some "#3"; disabled = false; value = () }
-                  ; { content = `Icon ("room", None)     ; href = Some "#4"; disabled = false; value = () }
-                  ] |> (fun tabs -> new Tabs.Tab_bar.t ~tabs ()) in
-  let text_bar  = List.map (fun x -> { content  = `Text ("Tab " ^ (string_of_int x))
-                                     ; href     = None
-                                     ; disabled = if x = 2 then true else false
-                                     ; value    = ()})
-                    (List.range 0 3)
-                  |> (fun tabs -> new Tabs.Tab_bar.t ~tabs ()) in
-  let both_bar  = [ { content = `Text_and_icon ("Tab 0", "pets");     href = None; disabled = false; value = () }
-                  ; { content = `Text_and_icon ("Tab 1", "favorite"); href = None; disabled = false; value = () }
-                  ; { content = `Text_and_icon ("Tab 2", "grade");    href = None; disabled = true ; value = () }
-                  ; { content = `Text_and_icon ("Tab 3", "room");     href = None; disabled = false; value = () }
-                  ] |> (fun tabs -> new Tabs.Tab_bar.t ~tabs ()) in
-  let scrl_bar  = List.map (fun x -> { content = `Text ("Tab " ^ (string_of_int x))
-                                     ; href = None
-                                     ; disabled = false
-                                     ; value = () })
-                    (List.range 0 15)
-                  |> (fun tabs -> new Tabs.Scroller.t ~tabs ()) in
-  React.E.map (fun _ ->
-      let len  = List.length text_bar#tabs in
-      let name = Printf.sprintf "Tab %d" len in
-      match React.S.value idx#s_input with
-      | Some idx -> text_bar#insert_tab_at_index idx { content = `Text name
-                                                     ; href = None
-                                                     ; disabled = false
-                                                     ; value = ()
-                      }
-      | None     -> text_bar#append_tab { content = `Text name; href = None; disabled = false; value = () })
-    add#e_click
-  |> ignore;
-  React.E.map (fun _ ->
-      match React.S.value idx#s_input with
-      | Some idx -> text_bar#remove_tab_at_index idx |> ignore
-      | None     -> ())
-    remove#e_click
-  |> ignore;
-  let section = demo_section "Tabs" [ (subsection "With icon labels" icon_bar)#widget
-                                    ; (subsection "With text labels" text_bar)#widget
-                                    ; idx#widget
-                                    ; add#widget
-                                    ; remove#widget
-                                    ; (subsection "With icon and text labels" both_bar)#widget
-                                    ; (subsection "With scroller" scrl_bar)#widget
-                  ]
-  in
-  let _ = React.S.map (fun x -> if x then (icon_bar#layout (); text_bar#layout ();
-                                           both_bar#layout (); scrl_bar#layout ()))
-            section#s_expanded
+  let icon_bar  =
+    let icon = Icon.SVG.create_simple in
+    [ new Tab.t ~content:(Icon (icon Icon.SVG.Path.paw)) ~value:() ()
+    ; new Tab.t ~content:(Icon (icon Icon.SVG.Path.heart)) ~value:() ()
+    ; new Tab.t ~content:(Icon (icon Icon.SVG.Path.star)) ~value:() ()
+    ; new Tab.t ~content:(Icon (icon Icon.SVG.Path.map_marker)) ~value:() ()
+    ] |> (fun tabs -> new Tab_bar.t ~tabs ()) in
+  let text_bar  =
+    List.map (fun x ->
+        new Tab.t ~content:(Text ("Tab " ^ (string_of_int x))) ~value:() ())
+      (List.range 0 3)
+    |> (fun tabs -> new Tab_bar.t ~tabs ()) in
+  let both_bar  =
+    let icon = Icon.SVG.create_simple in
+    [ new Tab.t ~content:(Both ("Pets", icon Icon.SVG.Path.paw))
+        ~value:() ()
+    ; new Tab.t ~content:(Both ("Favorite", icon Icon.SVG.Path.heart))
+        ~value:() ()
+    ; new Tab.t ~content:(Both ("Starred", icon Icon.SVG.Path.star))
+        ~value:() ()
+    ; new Tab.t ~content:(Both ("GPS", icon Icon.SVG.Path.map_marker))
+        ~value:() ()
+    ] |> (fun tabs -> new Tab_bar.t ~tabs ()) in
+  (* React.E.map (fun _ ->
+   *     let len  = List.length text_bar#tabs in
+   *     let name = Printf.sprintf "Tab %d" len in
+   *     match React.S.value idx#s_input with
+   *     | Some idx ->
+   *        text_bar#insert_tab_at_index idx
+   *          { content  = name
+   *          ; href     = None
+   *          ; disabled = false
+   *          ; value    = ()
+   *          }
+   *     | None ->
+   *        text_bar#append_tab
+   *          { content  = name
+   *          ; href     = None
+   *          ; disabled = false
+   *          ; value    = () })
+   *   add#e_click
+   * |> ignore;
+   * React.E.map (fun _ ->
+   *     match React.S.value idx#s_input with
+   *     | Some idx -> text_bar#remove_tab_at_index idx |> ignore
+   *     | None     -> ())
+   *   remove#e_click
+   * |> ignore; *)
+  let section =
+    demo_section "Tabs"
+      [ (subsection "With icon labels" icon_bar)#widget
+      ; (subsection "With text labels" text_bar)#widget
+      (* ; idx#widget
+       * ; add#widget
+       * ; remove#widget *)
+      ; (subsection "With icon and text labels" both_bar)#widget
+      ] in
+  let _ =
+    React.S.map (fun x ->
+        if x then (icon_bar#layout (); text_bar#layout ();
+                   both_bar#layout ()))
+      section#s_expanded
   in
   section
 
@@ -596,8 +621,8 @@ let chart_demo () =
   x_axis#scale_label#set_display true;
   List.iter (fun x ->
       if String.equal x#label "Dataset 1"
-      then x#set_border_color @@ Color.rgb_of_name (Color.Lime C500)
-      else x#set_border_color @@ Color.rgb_of_name (Color.Pink C500);
+      then x#set_border_color @@ Color.(RGB (rgb_of_material (Lime C500)))
+      else x#set_border_color @@ Color.(RGB (rgb_of_material (Pink C500)));
       x#set_cubic_interpolation_mode `Monotone;
       x#set_fill `Disabled) datasets;
   let update = new Button.t ~label:"update" () in
@@ -673,11 +698,11 @@ let time_chart_demo () =
   x_axis#time#set_min_unit `Second;
   x_axis#time#set_tooltip_format "ll HH:mm:ss";
   List.iter (fun x -> if String.equal x#label "Dataset 1"
-                      then x#set_bg_color @@ Color.rgb_of_name (Color.Indigo C500)
-                      else x#set_bg_color @@ Color.rgb_of_name (Color.Amber C500);
+                      then x#set_bg_color @@ Color.(of_material (Indigo C500))
+                      else x#set_bg_color @@ Color.(of_material (Amber C500));
                       if String.equal x#label "Dataset 1"
-                      then x#set_border_color @@ Color.rgb_of_name (Color.Indigo C500)
-                      else x#set_border_color @@ Color.rgb_of_name (Color.Amber C500);
+                      then x#set_border_color @@ Color.(of_material (Indigo C500))
+                      else x#set_border_color @@ Color.(of_material (Amber C500));
                       x#set_cubic_interpolation_mode `Monotone;
                       x#set_fill `Disabled) datasets;
   let chart = new Chartjs.Line.t ~options ~datasets () in
@@ -808,9 +833,9 @@ let pie_demo () =
     new Chartjs.Pie.Dataset.t
       ~label:"Dataset1"
       Int
-      Chartjs.Pie.Dataset.[ to_point (Color.rgb_of_name (Color.Blue C500)) 3
-                          ; to_point (Color.rgb_of_name (Color.Amber C500)) 7
-                          ; to_point (Color.rgb_of_name (Color.Deep_orange C500)) 1 ] in
+      Chartjs.Pie.Dataset.[ to_point (Color.of_material (Blue C500)) 3
+                          ; to_point (Color.of_material (Amber C500)) 7
+                          ; to_point (Color.of_material (Deep_orange C500)) 1 ] in
   let pie = new Chartjs.Pie.t ~options
               ~labels:[ "Blue"; "Amber"; "Deep orange"]
               ~datasets:[dataset] () in

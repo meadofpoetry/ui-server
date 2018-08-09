@@ -23,6 +23,7 @@ let to_data_js datasets labels : data_js Js.t =
   end
 
 class ['a] t
+        ?width ?height
         ?(options:Options.t option)
         ~(labels:string list)
         ~(datasets:'a Dataset.t list) () =
@@ -31,7 +32,8 @@ class ['a] t
     | None   -> new Options.t () in
   let data = to_data_js datasets labels in
   object
-    inherit Base_chart.t ~typ:`Pie ~options ~data:(Js.Unsafe.inject data) ()
+    inherit Base_chart.t ?width ?height
+              ~typ:`Pie ~options ~data:(Js.Unsafe.inject data) ()
 
     method set_labels (x:string list) =
       let l = List.map Js.string x |> Array.of_list |> Js.array in

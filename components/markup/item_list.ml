@@ -7,7 +7,11 @@ module Make(Xml : Xml_sigs.NoWrap)
            and module Svg := Svg) = struct
   open Html
 
-  let base_class   = "mdc-list"
+  let base_class            = "mdc-list"
+  let dense_class           = CSS.add_modifier base_class "dense"
+  let two_line_class        = CSS.add_modifier base_class "two-line"
+  let avatar_class          = CSS.add_modifier base_class "avatar-list"
+  let non_interactive_class = CSS.add_modifier base_class "non-interactive"
 
   module Item = struct
 
@@ -62,10 +66,6 @@ module Make(Xml : Xml_sigs.NoWrap)
       div ~a:([ a_class (_class :: classes)] <@> attrs) content
 
   end
-
-  let dense_class    = CSS.add_modifier base_class "dense"
-  let two_line_class = CSS.add_modifier base_class "two-line"
-  let avatar_class   = CSS.add_modifier base_class "avatar-list"
 
   let create ?(classes=[]) ?(tag=div) ?attrs
         ?(avatar=false) ?(dense=false) ?(two_line=false) ~items () =

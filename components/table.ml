@@ -371,7 +371,6 @@ module Header = struct
     object(self)
       val _columns = columns
       inherit Widget.t elt ()
-      inherit Widget.stateful ()
 
       method checkbox = row#checkbox
       method columns  = _columns
@@ -450,7 +449,6 @@ class ['a] t ?selection ?(sticky_header=false) ?(dense=false)
                |> Tyxml_js.To_dom.of_element in
   object(self)
     inherit Widget.t elt ()
-    inherit Widget.stateful ()
 
     val mutable _fmt : 'a Format.t = fmt
 

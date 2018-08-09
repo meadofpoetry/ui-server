@@ -78,21 +78,29 @@ class t () =
     val _labels = new labels ()
 
     (** is the legend shown *)
-    method display : bool = Js.to_bool _obj##.display
-    method set_display x = _obj##.display := Js.bool x
+    method display : bool =
+      Js.to_bool _obj##.display
+    method set_display (x:bool) : unit =
+      _obj##.display := Js.bool x
 
     (** Position of the legend. *)
-    method position : position = position_of_string_exn @@ Js.to_string _obj##.position
-    method set_position (x:position) = _obj##.position := Js.string @@ position_to_string x
+    method position : position =
+      position_of_string_exn @@ Js.to_string _obj##.position
+    method set_position (x:position) : unit =
+      _obj##.position := Js.string @@ position_to_string x
 
     (** Marks that this box should take the full width of the canvas (pushing down other boxes).
-      This is unlikely to need to be changed in day-to-day use. *)
-    method full_width : bool = Js.to_bool _obj##.fullWidth
-    method set_full_width x = _obj##.fullWidth := Js.bool x
+        This is unlikely to need to be changed in day-to-day use. *)
+    method full_width : bool =
+      Js.to_bool _obj##.fullWidth
+    method set_full_width (x:bool) : unit =
+      _obj##.fullWidth := Js.bool x
 
     (** Legend will show datasets in reverse order. *)
-    method reverse : bool = Js.to_bool _obj##.reverse
-    method set_reverse x = _obj##.reverse := Js.bool x
+    method reverse : bool =
+      Js.to_bool _obj##.reverse
+    method set_reverse (x:bool) : unit =
+      _obj##.reverse := Js.bool x
 
     method labels = _labels
 

@@ -1,3 +1,4 @@
+open Containers
 open Base
 
 type event = [ `Mousemove
@@ -74,14 +75,15 @@ object(self)
   method tooltip   = _tooltip
   method elements  = _elements
 
-  method! replace x = super#replace x;
-                      self#hover#replace     _obj##.hover;
-                      self#animation#replace _obj##.animation;
-                      self#layout#replace    _obj##.layout;
-                      self#legend#replace    _obj##.legend;
-                      self#title#replace     _obj##.title;
-                      self#tooltip#replace   _obj##.tooltips;
-                      self#elements#replace  _obj##.elements
+  method! replace x =
+    super#replace x;
+    self#hover#replace     _obj##.hover;
+    self#animation#replace _obj##.animation;
+    self#layout#replace    _obj##.layout;
+    self#legend#replace    _obj##.legend;
+    self#title#replace     _obj##.title;
+    self#tooltip#replace   _obj##.tooltips;
+    self#elements#replace  _obj##.elements;
 
   initializer
     self#set_responsive true;

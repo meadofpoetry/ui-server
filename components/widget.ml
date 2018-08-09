@@ -26,6 +26,10 @@ module Event = struct
   include Dom_events.Typ
 end
 
+module Event_lwt = struct
+  include Lwt_js_events
+end
+
 class t (elt:#Dom_html.element Js.t) () = object(self)
 
   val mutable _on_destroy = None
@@ -34,8 +38,14 @@ class t (elt:#Dom_html.element Js.t) () = object(self)
   val mutable _in_dom     = false
   val mutable _observer   = None
 
+  val mutable _e_storage : unit React.event list = []
+  val mutable _s_storage : unit React.signal list = []
+
   method root   : Dom_html.element Js.t = (elt :> Dom_html.element Js.t)
   method node   : Dom.node Js.t = (elt :> Dom.node Js.t)
+  method markup : Tyxml_js.Xml.elt =
+    Tyxml_js.Of_dom.of_element self#root
+    |> Tyxml_js.Html.toelt
   method widget : t = (self :> t)
 
   method set_on_destroy f = _on_destroy <- f
@@ -43,6 +53,10 @@ class t (elt:#Dom_html.element Js.t) () = object(self)
   method destroy () : unit =
     self#set_on_load None;
     self#set_on_unload None;
+    List.iter (React.S.stop ~strong:true) _s_storage;
+    List.iter (React.E.stop ~strong:true) _e_storage;
+    _s_storage <- [];
+    _e_storage <- [];
     Option.iter (fun f -> f ()) _on_destroy
 
   method layout () = ()
@@ -50,12 +64,16 @@ class t (elt:#Dom_html.element Js.t) () = object(self)
   method get_child_element_by_class x = Js.Opt.to_option @@ self#root##querySelector (Js.string ("." ^ x))
   method get_child_element_by_id    x = Js.Opt.to_option @@ self#root##querySelector (Js.string ("#" ^ x))
 
-  method get_attribute a    = self#root##getAttribute (Js.string a) |> Js.Opt.to_option |> Option.map Js.to_string
+  method get_attribute a    = self#root##getAttribute (Js.string a)
+                              |> Js.Opt.to_option
+                              |> Option.map Js.to_string
   method set_attribute a v  = self#root##setAttribute (Js.string a) (Js.string v)
   method remove_attribute a = self#root##removeAttribute (Js.string a)
   method has_attribute a    = self#root##hasAttribute (Js.string a)
+                              |> Js.to_bool
 
   method inner_html       = Js.to_string self#root##.innerHTML
+  method outer_html       = Js.to_string self#root##.outerHTML
   method set_inner_html s = self#root##.innerHTML := Js.string s
 
   method text_content       = self#root##.textContent |> Js.Opt.to_option |> Option.map Js.to_string
@@ -104,11 +122,26 @@ class t (elt:#Dom_html.element Js.t) () = object(self)
     try Dom.removeChild self#root x#node
     with _ -> ()
 
-  method listen : 'a. (#Dom_html.event as 'a) Js.t Dom.Event.typ ->
+  method listen : 'a. (#Dom_html.event as 'a) Js.t Event.typ ->
                   (Dom_html.element Js.t -> 'a Js.t -> bool) ->
                   Dom_events.listener =
     fun x f ->
     Dom_events.listen self#root x f
+
+  method listen_once_lwt : 'a. ?use_capture:bool ->
+                           (#Dom_html.event as 'a) Js.t Event.typ ->
+                           'a Js.t Lwt.t =
+    fun ?use_capture x ->
+    Event_lwt.make_event x ?use_capture self#root
+
+  method listen_lwt : 'a. ?cancel_handler:bool ->
+                      ?use_capture:bool ->
+                      (#Dom_html.event as 'a) Js.t Event.typ ->
+                      ('a Js.t -> unit Lwt.t -> unit Lwt.t) ->
+                      unit Lwt.t =
+    fun ?cancel_handler ?use_capture x ->
+    Event_lwt.seq_loop (Event_lwt.make_event x)
+      ?cancel_handler ?use_capture self#root
 
   method set_empty () =
     Dom.list_of_nodeList @@ self#root##.childNodes
@@ -126,6 +159,13 @@ class t (elt:#Dom_html.element Js.t) () = object(self)
     _on_load <- f; self#_observe_if_needed
   method set_on_unload (f : (unit -> unit) option) =
     _on_unload <- f; self#_observe_if_needed
+
+  (* Private methods *)
+
+  method private _keep_s : 'a. 'a React.signal -> unit = fun s ->
+    _s_storage <- React.S.map ignore s :: _s_storage
+  method private _keep_e : 'a. 'a React.event -> unit  = fun e ->
+    _e_storage <- React.E.map ignore e :: _e_storage
 
   method private _observe_if_needed =
     let init () = MutationObserver.observe
@@ -146,21 +186,6 @@ class t (elt:#Dom_html.element Js.t) () = object(self)
     | _, _, None         -> _observer <- Some (init ())
     | _                  -> ()
 
-end
-
-(* class container ~widgets elt () =
- * object
- *   val mutable _widgets = widgets
- *   method append (t:t) = ()
- * end *)
-
-class stateful () = object
-  val mutable _s : unit React.signal list = []
-  val mutable _e : unit React.event list  = []
-  method private _keep_s : 'a. 'a React.signal -> unit = fun s ->
-    _s <- React.S.map ignore s :: _s
-  method private _keep_e : 'a. 'a React.event -> unit  = fun e ->
-    _e <- React.E.map ignore e :: _e
 end
 
 class button_widget ?(on_click) elt () =

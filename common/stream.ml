@@ -96,7 +96,9 @@ let id_of_yojson json : (id,string) result = match json with
   | `Int i    -> Ok (id_of_int32 @@ Int32.of_int i)
   | _         -> Error "not an int32"
 
-type stream_id = [`Ip of Url.t | `Ts of id] [@@deriving yojson, show, eq]
+type stream_id =
+  [ `Ip of Url.t
+  | `Ts of id ] [@@deriving yojson, show, eq, ord]
 
 type stream =
   { source      : src
@@ -106,7 +108,7 @@ type stream =
   }
 and typ = [ `Ts | `T2mi ]
 and src = Port   of int
-        | Stream of id [@@deriving yojson, show, eq]
+        | Stream of id [@@deriving yojson, show, eq, ord]
 
 type t =
   { source      : source
@@ -115,7 +117,7 @@ type t =
   ; description : string option
   }
 and source = Input  of Topology.topo_input
-           | Parent of t [@@deriving yojson, show]
+           | Parent of t [@@deriving yojson, show, ord]
 
 let typ_to_string = function
   | `Ts   -> "ts"

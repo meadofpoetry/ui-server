@@ -16,8 +16,8 @@ exception Parse_error
 type parsed =
   { id   : int
   ; code : int
-  ; body : Cbuffer.t
-  ; res  : Cbuffer.t
+  ; body : Cstruct.t
+  ; res  : Cstruct.t
   }
 
 type err = Bad_tag_start        of int
@@ -25,7 +25,7 @@ type err = Bad_tag_start        of int
          | Bad_msg_code         of int
          | Bad_crc              of (int * int)
          | Bad_tag_stop         of int
-         | Insufficient_payload of Cbuffer.t
+         | Insufficient_payload of Cstruct.t
          | Unknown_err          of string
 
 let string_of_err = function
@@ -52,36 +52,36 @@ type _ event_request = Get_measure  : int -> event event_request
 
 (* Helper functions *)
 
-let calc_crc (msg:Cbuffer.t) =
-  let _,body = Cbuffer.split msg (sizeof_prefix - 1) in
-  let iter = Cbuffer.iter (fun _ -> Some 1)
-                          (fun buf -> Cbuffer.get_uint8 buf 0)
+let calc_crc (msg:Cstruct.t) =
+  let _,body = Cstruct.split msg (sizeof_prefix - 1) in
+  let iter = Cstruct.iter (fun _ -> Some 1)
+                          (fun buf -> Cstruct.get_uint8 buf 0)
                           body in
-  Cbuffer.fold (fun acc el -> el lxor acc) iter 0
+  Cstruct.fold (fun acc el -> el lxor acc) iter 0
 
 (* Message constructors *)
 
 let to_prefix ~length ~msg_code =
-  let prefix = Cbuffer.create sizeof_prefix in
+  let prefix = Cstruct.create sizeof_prefix in
   let () = set_prefix_tag_start prefix tag_start in
   let () = set_prefix_length prefix length in
   let () = set_prefix_msg_code prefix msg_code in
   prefix
 
 let to_suffix ~crc =
-  let suffix = Cbuffer.create sizeof_suffix in
+  let suffix = Cstruct.create sizeof_suffix in
   let () = set_suffix_crc suffix crc in
   let () = set_suffix_tag_stop suffix tag_stop in
   suffix
 
 let to_msg ~msg_code ~body =
-  let prefix = to_prefix ~length:(Cbuffer.len body + 1) ~msg_code in
-  let msg = Cbuffer.append prefix body in
+  let prefix = to_prefix ~length:(Cstruct.len body + 1) ~msg_code in
+  let msg = Cstruct.append prefix body in
   let suffix  = to_suffix ~crc:(calc_crc msg) in
-  Cbuffer.append msg suffix
+  Cstruct.append msg suffix
 
 let to_empty_msg ~msg_code =
-  let body = Cbuffer.create 1 in
+  let body = Cstruct.create 1 in
   to_msg ~msg_code ~body
 
 (* Message validation *)
@@ -106,12 +106,12 @@ let check_msg_code buf =
 let check_msg_crc (id,code,buf) =
   let payload_len = (get_prefix_length buf) - 1 in
   let total_len   = payload_len + sizeof_prefix + sizeof_suffix in
-  let msg,res     = Cbuffer.split buf total_len in
-  let pfx,msg'    = Cbuffer.split msg sizeof_prefix in
-  let body,sfx    = Cbuffer.split msg' payload_len in
+  let msg,res     = Cstruct.split buf total_len in
+  let pfx,msg'    = Cstruct.split msg sizeof_prefix in
+  let body,sfx    = Cstruct.split msg' payload_len in
   let tag         = get_suffix_tag_stop sfx in
   if tag <> tag_stop then Error (Bad_tag_stop tag)
-  else let crc  = (calc_crc (Cbuffer.append pfx body)) in
+  else let crc  = (calc_crc (Cstruct.append pfx body)) in
        let crc' = get_suffix_crc sfx in
        if crc <> crc' then Error (Bad_crc (crc,crc'))
        else Ok { id; code; body; res }
@@ -141,7 +141,7 @@ let bw_of_int : int -> bw option = function
 (* Devinfo *)
 
 let to_devinfo_req reset =
-  let body = Cbuffer.create sizeof_cmd_devinfo in
+  let body = Cstruct.create sizeof_cmd_devinfo in
   let () = set_cmd_devinfo_reset body (if reset then 0xFF else 0) in
   to_msg ~msg_code:0x10 ~body
 
@@ -164,7 +164,7 @@ let parse_devinfo_rsp_exn msg =
 (* Mode *)
 
 let to_mode_req id (mode:mode) =
-  let body = Cbuffer.create sizeof_mode in
+  let body = Cstruct.create sizeof_mode in
   let () = set_mode_standard body (standard_to_int mode.standard) in
   let () = set_mode_bw body (bw_to_int mode.channel.bw) in
   let () = set_mode_freq body @@ Int32.of_int mode.channel.freq in
@@ -194,7 +194,7 @@ let parse_measures_rsp_exn id msg =
   let int_to_opt   x = if Int.equal   x max_uint16 then None else Some x in
   let int32_to_opt x = if Int32.equal x max_uint32 then None else Some x in
   try
-    id,{ timestamp = Common.Time.Clock.now ()
+    id,{ timestamp = Common.Time.Clock.now_s ()
        ; lock      = int_to_bool8 (get_rsp_measure_lock msg) |> Option.get_exn |> bool_of_bool8
        ; power     = Fun.(int_to_opt % get_rsp_measure_power) msg
                      |> Option.map (fun x -> -.((float_of_int x) /. 10.))
@@ -261,14 +261,14 @@ let to_plp_list_req id =
 
 let parse_plp_list_rsp_exn id msg : int * plp_list =
   try
-    let plp_num = Cbuffer.get_uint8 msg 1 |> (fun x -> if x = 0xFF then None else Some x) in
+    let plp_num = Cstruct.get_uint8 msg 1 |> (fun x -> if x = 0xFF then None else Some x) in
     id,{ timestamp = Common.Time.Clock.now ()
-       ; lock = int_to_bool8 (Cbuffer.get_uint8 msg 0) |> Option.get_exn |> bool_of_bool8
+       ; lock = int_to_bool8 (Cstruct.get_uint8 msg 0) |> Option.get_exn |> bool_of_bool8
        ; plps = begin match plp_num with
-                | Some _ -> let iter = Cbuffer.iter (fun _ -> Some 1)
-                                         (fun buf -> Cbuffer.get_uint8 buf 0)
-                                         (Cbuffer.shift msg 2) in
-                            Cbuffer.fold (fun acc el -> el :: acc) iter []
+                | Some _ -> let iter = Cstruct.iter (fun _ -> Some 1)
+                                         (fun buf -> Cstruct.get_uint8 buf 0)
+                                         (Cstruct.shift msg 2) in
+                            Cstruct.fold (fun acc el -> el :: acc) iter []
                             |> List.sort compare
                 | None   -> []
                 end
@@ -278,7 +278,7 @@ let parse_plp_list_rsp_exn id msg : int * plp_list =
 (* PLP set *)
 
 let to_plp_set_req id (plp:int) =
-  let body = Cbuffer.create sizeof_cmd_plp_set in
+  let body = Cstruct.create sizeof_cmd_plp_set in
   let () = set_cmd_plp_set_plp_id body plp in
   to_msg ~msg_code:(0x60 lor id) ~body
 
@@ -302,7 +302,7 @@ let deserialize buf =
     | _,6      -> `R (`Plp_setting (id, body))
     | _        -> `N in
   let rec f events responses b =
-    if Cbuffer.len b > (sizeof_prefix + 1 + sizeof_suffix)
+    if Cstruct.len b > (sizeof_prefix + 1 + sizeof_suffix)
     then (match check_msg b with
           | Ok x    -> parse_msg x
                        |> (function
@@ -311,10 +311,10 @@ let deserialize buf =
                            | `N     -> f events responses x.res)
           | Error e -> (match e with
                         | Insufficient_payload x -> List.rev events, List.rev responses, x
-                        | _                      -> f events responses (Cbuffer.shift b 1)))
+                        | _                      -> f events responses (Cstruct.shift b 1)))
     else List.rev events, List.rev responses, b in
   let events, responses, res = f [] [] buf in
-  events, responses, if Cbuffer.len res > 0 then Some res else None
+  events, responses, if Cstruct.len res > 0 then Some res else None
 
 let try_parse f x =
   try Some (f x) with Parse_error -> None

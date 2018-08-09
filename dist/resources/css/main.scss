@@ -1,12 +1,16 @@
-@import './components/tabs/tab/_mixins';
-@import './components/tabs/tab-bar/_mixins';
+@import './components/tab/_mixins';
+@import './components/tab-indicator/_mixins';
 @import './sidebar_drawer';
 @import './templates/templates';
+
+@import './pages/pipeline/widgets';
+
 @import './pages/boards/dvb_niit';
 @import './pages/boards/qos_niit';
+@import './pages/boards/ip_dektec';
 
-@import "./components/layout-grid/variables";
-@import "./components/layout-grid/mixins";
+@import './components/layout-grid/variables';
+@import './components/layout-grid/mixins';
 
 $xsmall: 480px;
 $small: 600px;
@@ -25,20 +29,24 @@ html {
 }
 body {
     margin: 0;
-    background-color: #e0e0e0;
+    background-color: #ececec;
 }
 .material-icons { user-select: none; }
 #main-drawer {
     z-index: 21;
 }
 #main-toolbar {
-    @include mdc-tab-bar-indicator-ink-color(text-primary-on-primary);
-    z-index: 20;
-    .mdc-tab {
-        @include mdc-tab-ink-color(text-primary-on-primary);
+    .mdc-tab-indicator {
+        @include mdc-tab-indicator-underline-color($mdc-theme-on-primary);
     }
-    .mdc-tab-bar-scroller__indicator {
-        @include mdc-theme-prop(color, text-primary-on-primary);
+    @include mdc-tab-text-label-color($mdc-theme-on-primary);
+    @include mdc-tab-icon-color($mdc-theme-on-primary);
+    z-index: 20;
+    #main-toolbar__tabs {
+        align-items: flex-end;
+    }
+    #main-toolbar__tabs .mdc-toolbar__section {
+        align-items: flex-end;
     }
     .mdc-toolbar__title {
         font-weight: 300;
@@ -68,8 +76,8 @@ body {
 {
     body.hide-sidedrawer {
         #main-toolbar, #main-content {
-            left: 240px;
-            width: calc(100% - 240px);
+            left: $mdc-persistent-drawer-width;
+            width: calc(100% - #{$mdc-persistent-drawer-width});
         }
     }
 }
@@ -85,7 +93,7 @@ body {
         }
     }
 
-    .mdc-layout-grid {
+    > .mdc-layout-grid {
         --mdc-layout-grid-margin-desktop: 0px;
         --mdc-layout-grid-margin-tablet: 0px;
         --mdc-layout-grid-margin-phone: 0px;

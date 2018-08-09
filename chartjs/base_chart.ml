@@ -1,4 +1,5 @@
 open Base
+open Containers
 
 type config =
   { duration : int option
@@ -45,8 +46,11 @@ class type chart =
 let constr : (Dom_html.canvasElement Js.t -> chart_config Js.t -> chart Js.t) Js.constr =
   Js.Unsafe.global##.Chart
 
-class t ~(options:#Options.t) ~typ ~data () =
-  let elt = Tyxml_js.Html.canvas [] |> Tyxml_js.To_dom.of_canvas in
+class t ~(options:#Options.t) ?width ?height ~typ ~data () =
+  let elt = Tyxml_js.Html.(
+      canvas ~a:(List.cons_maybe (Option.map a_width width)
+                 @@ List.cons_maybe (Option.map a_height height) []) [ ])
+            |> Tyxml_js.To_dom.of_canvas in
   let conf = [ "type", Js.Unsafe.inject @@ Js.string @@ Base.typ_to_string typ
              ; "options", Js.Unsafe.inject options#get_obj
              ; "data", data ]
@@ -59,8 +63,8 @@ class t ~(options:#Options.t) ~typ ~data () =
     inherit Components.Widget.t elt () as super
 
     method canvas        = _canvas
-    method set_width x   = self#canvas#set_attribute "width"  @@ string_of_int x
-    method set_height x  = self#canvas#set_attribute "height" @@ string_of_int x
+    method set_width x   = self#canvas#set_attribute "width"  x
+    method set_height x  = self#canvas#set_attribute "height" x
 
     method destroy () = _chart##destroy
     method update  = function

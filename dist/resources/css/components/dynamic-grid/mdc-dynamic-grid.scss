@@ -31,7 +31,7 @@
     &__item__ghost {
         z-index: 2;
         position: absolute;
-        opacity: 0.5;
+        opacity: 0.3;
         @include mdc-theme-prop(background-color, secondary);
     }
 

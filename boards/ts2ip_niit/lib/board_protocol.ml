@@ -192,11 +192,13 @@ module SM = struct
 
   end
 
-  let to_out_streams_s b (status:status React.event) (streams:Stream.t list React.signal) =
+  let to_out_streams_s b
+        (status:status React.event)
+        (streams:Stream.t list React.signal) =
     let find_stream (b:Topology.topo_board) (id:Stream.id) (port:int) (streams:Stream.t list) =
       List.find_opt (fun (t:Stream.t) ->
           let p = Stream.to_topo_port b t in
-          match t.id,p with
+          match t.id, p with
           | `Ts x, Some p when Stream.equal_id x id && p.port = port -> true
           | _ -> false) streams in
     React.S.l2 (fun status streams ->

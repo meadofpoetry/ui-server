@@ -17,6 +17,8 @@ type config =
   ; settings : settings option
   } [@@deriving yojson]
 
+let base_class = "dvb-niit-measures-line-chart"
+
 let colors = Color.([ Indigo C500; Amber C500; Green C500; Cyan C500 ])
 
 let get_suggested_range = function
@@ -70,8 +72,8 @@ let make_chart_base ~(config: config)
   in
   List.iteri (fun i x -> let clr = Option.get_or ~default:(Color.Red C500)
                                    @@ List.get_at_idx i colors in
-                         x#set_bg_color @@ Color.rgb_of_name clr;
-                         x#set_border_color @@ Color.rgb_of_name clr;
+                         x#set_bg_color @@ Color.(RGB (rgb_of_material clr));
+                         x#set_border_color @@ Color.(RGB (rgb_of_material clr));
                          x#set_cubic_interpolation_mode `Monotone;
                          x#set_fill `Disabled)
     datasets;
@@ -86,10 +88,14 @@ let make_chart_base ~(config: config)
   let set   = fun ds data -> List.iter (fun point -> ds#push point) data;
                              chart#update None
   in
-  let _ = React.E.map (fun d -> List.iter (fun (id,data) -> Option.iter (fun ds -> set ds data)
-                                                            @@ List.get_at_idx id datasets)
-                                  d)
+  let _ = React.E.map (fun d ->
+              List.iter (fun (id,data) -> Option.iter (fun ds -> set ds data)
+                                          @@ List.get_at_idx id datasets)
+                d)
             event in
+  let box = Widget.create_div () in
+  box#add_class base_class;
+  box#append_child chart;
   Dashboard.Item.to_item
     ~name:(measure_type_to_string config.typ)
     ~settings:{ widget = settings#widget
@@ -100,7 +106,7 @@ let make_chart_base ~(config: config)
                                      Lwt_result.return ()
                          | None   -> Lwt_result.fail "no settings available"
     }
-    chart#widget
+    box
 
 type event = (int * measures) React.event
 let to_event (get: Board_types.measures -> float option)

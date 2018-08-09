@@ -5,8 +5,10 @@ module Markup = Components_markup.Icon.Make(Xml)(Svg)(Html)
 
 module Font = struct
 
+  module Markup = Markup.Font
+
   class t ~icon () =
-    let elt = Markup.Font.create ~icon () |> Tyxml_js.To_dom.of_i in
+    let elt = Markup.create ~icon () |> Tyxml_js.To_dom.of_i in
     object
       inherit Widget.button_widget elt () as super
       method icon       = super#text_content |> Option.get_or ~default:""
@@ -16,6 +18,8 @@ module Font = struct
 end
 
 module SVG = struct
+
+  module Markup = Markup.SVG
 
   module To_dom = Tyxml_cast.MakeTo(struct
                       type 'a elt = 'a Tyxml_js.Svg.elt
@@ -27,18 +31,41 @@ module SVG = struct
                       let elt = Tyxml_js.Svg.tot
                     end)
 
-  class t ~(icon:Markup.SVG.Path.t) () =
-    let path   = Markup.SVG.create_path icon () in
-    let elt    = Markup.SVG.create [path] () |> Tyxml_js.To_dom.of_element in
-    let path_w = To_dom.of_element path |> Widget.create in
-    object
-      val mutable _icon = icon
-      inherit Widget.button_widget elt () as super
-      method icon = _icon
-      method set_icon i =
-        path_w#set_attribute "d" (Markup.SVG.Path.to_string i);
-        _icon <- i
+  module Path = struct
+
+    include Markup.Path
+
+    class t ?(fill:Color.t option) path () =
+      let fill = Option.map Color.string_of_t fill in
+      let elt  = Markup.create_path ?fill path ()
+                 |> To_dom.of_element in
+      object(self)
+        inherit Widget.t elt ()
+
+        method get : string =
+          Option.get_or ~default:"" @@ self#get_attribute "d"
+        method set (s:string) : unit =
+          self#set_attribute "d" s
+
     end
+
+  end
+
+  class t ~(paths:Path.t list) () =
+    let paths' = List.map (fun x -> Of_dom.of_element x#root) paths in
+    let elt = Markup.create paths' ()
+              |> Tyxml_js.To_dom.of_element in
+    object(self)
+      inherit Widget.button_widget elt ()
+
+      method paths = paths
+      method path = List.hd self#paths
+    end
+
+  let create_simple path =
+    let path = new Path.t path () in
+    new t ~paths:[path] ()
+
 
 end
 

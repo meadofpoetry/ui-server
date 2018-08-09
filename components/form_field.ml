@@ -21,7 +21,6 @@ class ['a] t ?align_end ~(input: 'a) ~label () =
 
   object(self)
     inherit Widget.t elt ()
-    inherit Widget.stateful ()
     method label_widget      = label
     method input_widget : 'a = input
 

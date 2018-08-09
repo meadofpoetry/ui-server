@@ -1,4 +1,15 @@
+@import "../components/theme/_mixins";
+
 .mdc-loader {
     height: 100%;
     width: 100%;
+
+    .mdc-placeholder__widget {
+        height: 40px;
+        width: 40px;
+        font-size: 40px;
+        svg circle {
+            @include mdc-theme-prop(stroke, primary);
+        }
+    }
 }

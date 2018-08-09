@@ -1,4 +1,20 @@
 /**
+  * @license
+  * Copyright 2018 Google Inc. All Rights Reserved.
+  *
+  * Licensed under the Apache License, Version 2.0 (the "License")
+  * you may not use this file except in compliance with the License.
+  * You may obtain a copy of the License at
+  *
+  *      http://www.apache.org/licenses/LICENSE-2.0
+  *
+  * Unless required by applicable law or agreed to in writing, software
+  * distributed under the License is distributed on an "AS IS" BASIS,
+  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  * See the License for the specific language governing permissions and
+  * limitations under the License.
+*/
+/**
  * Creates a rule that will be applied when an MDC Web component is within the context of an RTL layout.
  *
  * Usage Example:
@@ -329,6 +345,11 @@
  * }
  * ```
  */
+#navigation .mdc-icon {
+  fill: rgba(0, 0, 0, 0.38);
+  /* @alternate */
+  fill: var(--mdc-theme-text-icon-on-surface, rgba(0, 0, 0, 0.38)); }
+
 .mdc-drawer--custom {
   /* Use aspect ratio trick to maintain 16:9 aspect ratio on the header */
   color: rgba(0, 0, 0, 0.87);
@@ -398,6 +419,7 @@
     padding: 0;
     width: 100%; }
   .mdc-drawer--custom .mdc-drawer__panel {
+    color: #fff;
     font-family: Roboto, sans-serif;
     -moz-osx-font-smoothing: grayscale;
     -webkit-font-smoothing: antialiased;
@@ -432,7 +454,7 @@
     display: inline-flex;
     flex-direction: column;
     box-sizing: border-box;
-    width: 240px;
+    width: 280px;
     overflow: hidden;
     touch-action: none;
     height: 100%; }
@@ -457,14 +479,17 @@
         transition: all 0.225s;
         overflow: hidden; }
       .mdc-drawer--custom .mdc-drawer__drawer .mdc-drawer__wrapper .mdc-icon {
-        width: 72px; }
+        color: rgba(0, 0, 0, 0.38);
+        /* @alternate */
+        color: var(--mdc-theme-text-icon-on-surface, rgba(0, 0, 0, 0.38));
+        margin-right: 32px; }
   .mdc-drawer--custom.mdc-drawer--animating .mdc-drawer__drawer {
     transition: transform 0.195s 0ms cubic-bezier(0.4, 0, 0.6, 1); }
   .mdc-drawer--custom.mdc-drawer--animating.mdc-drawer--open
   .mdc-drawer__drawer {
     transition: transform 0.225s 0ms cubic-bezier(0, 0, 0.2, 1); }
   .mdc-drawer--custom.mdc-drawer--open {
-    width: 240px;
+    width: 280px;
     pointer-events: auto; }
     .mdc-drawer--custom.mdc-drawer--open .mdc-drawer__drawer {
       transform: none; }
@@ -564,7 +589,7 @@
       flex-direction: column;
       box-sizing: border-box;
       width: 100%;
-      max-width: 240px;
+      max-width: 280px;
       overflow: hidden;
       touch-action: none; }
       [dir="rtl"] .mdc-drawer--custom .mdc-drawer__drawer, .mdc-drawer--custom .mdc-drawer__drawer[dir="rtl"] {
@@ -620,13 +645,13 @@
   .mdc-placeholder__text {
     margin-top: 10px;
     text-align: center;
-    /* @alternate */
     color: rgba(0, 0, 0, 0.54);
+    /* @alternate */
     color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54)); }
 
 .mdc-placeholder--icon .mdc-placeholder__widget {
-  /* @alternate */
   color: rgba(0, 0, 0, 0.54);
+  /* @alternate */
   color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54)); }
 
 .mdc-placeholder--error .mdc-placeholder__widget {
@@ -654,6 +679,14 @@
 .mdc-loader {
   height: 100%;
   width: 100%; }
+  .mdc-loader .mdc-placeholder__widget {
+    height: 40px;
+    width: 40px;
+    font-size: 40px; }
+    .mdc-loader .mdc-placeholder__widget svg circle {
+      stroke: #6200ee;
+      /* @alternate */
+      stroke: var(--mdc-theme-primary, #6200ee); }
 
 .mdc-absolute-fab, .mdc-fixed-fab {
   position: absolute; }
@@ -679,21 +712,78 @@
     .mdc-get-button--busy .mdc-button__text, .mdc-apply-button--busy .mdc-button__text {
       opacity: 0; }
 
-.dvb-niit-module-settings__mode {
-  margin-top: 0 !important; }
-.dvb-niit-module-settings .mdc-select {
-  margin-top: 16px; }
+.pipeline-settings__body {
+  padding: 1rem; }
+
+.dvb-niit-module-settings {
+  padding: 1rem; }
+  .dvb-niit-module-settings__mode {
+    margin-top: 0 !important; }
+  .dvb-niit-module-settings .mdc-select {
+    margin-top: 16px; }
+
+.dvb-niit-module-measure {
+  display: flex;
+  align-items: center;
+  justify-content: center; }
+  .dvb-niit-module-measure__inner {
+    display: flex;
+    flex-direction: column; }
+
+.mdc-card .dvb-niit-measures-line-chart {
+  padding: 1rem; }
+
+.dvb-niit-measure .mdc-list-item__meta, .dvb-niit-measures .mdc-list-item__meta, .dvb-niit-module-measures .mdc-list-item__meta {
+  color: rgba(0, 0, 0, 0.87);
+  /* @alternate */
+  color: var(--mdc-theme-text-primary-on-surface, rgba(0, 0, 0, 0.87));
+  font-family: Roboto, sans-serif;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased;
+  font-size: 0.875rem;
+  line-height: 1.375rem;
+  font-weight: 500;
+  letter-spacing: 0.0071428571em;
+  text-decoration: inherit;
+  text-transform: inherit; }
+
+.dvb-niit-settings .mdc-apply-button, .dvb-niit-module-settings .mdc-apply-button {
+  align-self: start; }
+
+.mdc-list-title {
+  font-family: Roboto, sans-serif;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased;
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+  font-weight: 400;
+  letter-spacing: 0.0333333333em;
+  text-decoration: inherit;
+  text-transform: inherit;
+  color: rgba(0, 0, 0, 0.54);
+  /* @alternate */
+  color: var(--mdc-theme-text-secondary-on-surface, rgba(0, 0, 0, 0.54));
+  padding: 10px 16px; }
+
+.qos-niit-jitter-settings {
+  padding: 1rem; }
+
+.qos-niit-t2mi-settings {
+  padding: 1rem; }
+
+.qos-niit-jitter-settings .mdc-apply-button, .qos-niit-t2mi-settings .mdc-apply-button {
+  align-self: flex-start; }
 
 /* Table dump widget */
 .qos-niit-tables {
   min-height: 700px;
-  padding: 1rem;
   align-items: stretch;
-  /* @alternate */
   background-color: #fff;
-  background-color: var(--mdc-theme-background, #fff); }
+  /* @alternate */
+  background-color: var(--mdc-theme-surface, #fff); }
 
 .qos-niit-tables__list {
+  padding: 1rem;
   border-right: 1px solid;
   border-color: rgba(0, 0, 0, 0.12);
   width: 100%;
@@ -711,16 +801,16 @@
     letter-spacing: 0.0333333333em;
     text-decoration: inherit;
     text-transform: inherit;
-    /* @alternate */
     color: rgba(0, 0, 0, 0.54);
-    color: var(--mdc-theme-text-secondary-on-background, rgba(0, 0, 0, 0.54));
+    /* @alternate */
+    color: var(--mdc-theme-text-secondary-on-surface, rgba(0, 0, 0, 0.54));
     padding: 10px 16px; }
   .qos-niit-tables__list .mdc-list-item {
     cursor: pointer; }
 
 .qos-niit-tables__dump {
   width: 100%;
-  padding: 10px;
+  padding: 1rem;
   overflow: hidden; }
   .qos-niit-tables__dump .qos-niit-hexdump, .qos-niit-tables__dump .qos-niit-parsed {
     min-height: 200px; }
@@ -740,7 +830,7 @@
     text-decoration: inherit;
     text-transform: inherit;
     align-items: center;
-    margin-bottom: 10px; }
+    padding-bottom: 16px; }
     .qos-niit-tables__dump__header .mdc-button {
       margin-left: 15px;
       flex-shrink: 0; }
@@ -776,9 +866,9 @@
 .qos-niit-table-overview__back, .qos-niit-services-overview__back {
   cursor: pointer; }
   .qos-niit-table-overview__back .mdc-icon, .qos-niit-services-overview__back .mdc-icon {
-    /* @alternate */
     color: rgba(0, 0, 0, 0.38);
-    color: var(--mdc-theme-text-icon-on-background, rgba(0, 0, 0, 0.38)); }
+    /* @alternate */
+    color: var(--mdc-theme-text-icon-on-surface, rgba(0, 0, 0, 0.38)); }
   .qos-niit-table-overview__back .mdc-typography, .qos-niit-services-overview__back .mdc-typography {
     padding-left: 4px; }
 .qos-niit-table-overview .mdc-data-table, .qos-niit-services-overview .mdc-data-table {
@@ -798,47 +888,40 @@
 .qos-niit-table-overview .mdc-data-table tbody .mdc-data-table__row, .qos-niit-services-overview .mdc-data-table tbody .mdc-data-table__row {
   cursor: pointer; }
 
-/* Services overview widget */
-.qos-niit-services-overview .mdc-list {
-  flex-grow: 1;
-  border-right: 1px solid;
-  border-color: rgba(0, 0, 0, 0.12);
-  max-width: 350px; }
-  .qos-niit-services-overview .mdc-list .mdc-list-item {
-    cursor: pointer; }
-.qos-niit-services-overview__info {
-  flex-grow: 1;
+/* Service info widget */
+.qos-niit-service-info__description {
   padding: 1rem;
   display: flex;
-  flex-flow: column nowrap;
+  flex-direction: column;
+  align-items: stretch;
   justify-content: flex-start;
-  align-items: flex-start; }
-.qos-niit-services-overview__info-row {
-  width: 100%;
-  align-items: stretch; }
-.qos-niit-services-overview__info-cell {
-  align-items: center;
-  display: flex;
-  flex-flow: row nowrap;
-  flex-grow: 1;
-  flex-basis: 0;
-  padding: 0.5em;
-  word-break: break-word; }
-  .qos-niit-services-overview__info-cell:first-child {
-    justify-content: flex-end;
-    font-family: Roboto, sans-serif;
-    -moz-osx-font-smoothing: grayscale;
-    -webkit-font-smoothing: antialiased;
-    font-size: 0.875rem;
-    line-height: 1.25rem;
-    font-weight: 400;
-    letter-spacing: 0.0178571429em;
-    text-decoration: inherit;
-    text-transform: inherit; }
-  .qos-niit-services-overview__info-cell:last-child {
-    justify-content: flex-start; }
+  flex-grow: 1; }
+  .qos-niit-service-info__description .mdc-list {
+    max-width: 350px; }
+  .qos-niit-service-info__description .mdc-list ~ hr {
+    max-width: 350px; }
+  .qos-niit-service-info__description .mdc-list-item__meta.mdc-icon--ok {
+    color: #4caf50; }
+  .qos-niit-service-info__description .mdc-list-item__meta.mdc-typography {
+    font-size: 0.9em;
+    color: rgba(0, 0, 0, 0.87);
+    /* @alternate */
+    color: var(--mdc-theme-text-primary-on-surface, rgba(0, 0, 0, 0.87)); }
 
-/* Pid overview widget */
+/* Services overview widget */
+/* Pids summary widget */
+.qos-niit-pids-summary {
+  padding: 1rem; }
+  .qos-niit-pids-summary__pie {
+    position: relative;
+    width: 250px;
+    height: 250px; }
+
+/* Pids overview widget */
+.qos-niit-pid-overview .mdc-data-table .mdc-icon {
+  fill: rgba(0, 0, 0, 0.38);
+  /* @alternate */
+  fill: var(--mdc-theme-text-icon-on-surface, rgba(0, 0, 0, 0.38)); }
 .qos-niit-pid-overview .mdc-card__actions {
   justify-content: flex-end; }
 .qos-niit-pid-overview .mdc-form-field {
@@ -854,10 +937,22 @@
 
 /* Streams items */
 .qos-niit-stream-grid {
-  align-items: flex-start;
+  align-items: stretch;
   align-content: flex-start;
   height: 100%;
   width: 100%; }
+  .qos-niit-stream-grid > .mdc-typography {
+    font-family: Roboto, sans-serif;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-font-smoothing: antialiased;
+    font-size: 0.875rem;
+    line-height: 1.375rem;
+    font-weight: 500;
+    letter-spacing: 0.0071428571em;
+    text-decoration: inherit;
+    text-transform: inherit; }
+  .qos-niit-stream-grid .mdc-layout-grid {
+    width: 100%; }
   .qos-niit-stream-grid .mdc-layout-grid__cell {
     display: flex; }
 
@@ -869,10 +964,35 @@
     flex-direction: column;
     padding: 1rem; }
   .qos-niit-stream-grid-item--lost {
-    background-color: #ffcdd2;
+    background-color: #ef9a9a;
     /* @alternate */
-    color: rgba(0, 0, 0, 0.87);
-    color: var(--mdc-theme-text-primary-on-light, rgba(0, 0, 0, 0.87)); }
+    background-color: var(--mdc-theme-error, #ef9a9a);
+    color: #000;
+    /* @alternate */
+    color: var(--mdc-theme-on-error, #000); }
+    .qos-niit-stream-grid-item--lost .mdc-card__subtitle {
+      color: rgba(0, 0, 0, 0.54);
+      /* @alternate */
+      color: var(--mdc-theme-text-secondary-on-error, rgba(0, 0, 0, 0.54)); }
+
+.ip-dektec-network-settings {
+  padding: 1rem; }
+
+.ip-dektec-receiver-settings {
+  padding: 1rem; }
+  .ip-dektec-receiver-settings .mdc-form-field {
+    padding-bottom: 1rem; }
+
+.ip-dektec-parameter {
+  display: flex;
+  align-items: center;
+  justify-content: center; }
+  .ip-dektec-parameter__inner {
+    display: flex;
+    flex-direction: column; }
+
+.ip-dektec-network-settings .mdc-apply-button, .ip-dektec-receiver-settings .mdc-apply-button {
+  align-self: flex-start; }
 
 :root {
   --mdc-box-margin: 0px; }
@@ -884,7 +1004,7 @@ html {
 
 body {
   margin: 0;
-  background-color: #e0e0e0; }
+  background-color: #ececec; }
 
 .material-icons {
   user-select: none; }
@@ -894,23 +1014,16 @@ body {
 
 #main-toolbar {
   z-index: 20; }
-  #main-toolbar .mdc-tab-bar__indicator,
-  #main-toolbar .mdc-tab__indicator {
-    /* @alternate */
-    background-color: white;
-    background-color: var(--mdc-theme-text-primary-on-primary, white); }
-  #main-toolbar .mdc-tab {
-    /* @alternate */
-    color: white;
-    color: var(--mdc-theme-text-primary-on-primary, white); }
-    #main-toolbar .mdc-tab .mdc-tab__icon {
-      /* @alternate */
-      color: white;
-      color: var(--mdc-theme-text-primary-on-primary, white); }
-  #main-toolbar .mdc-tab-bar-scroller__indicator {
-    /* @alternate */
-    color: white;
-    color: var(--mdc-theme-text-primary-on-primary, white); }
+  #main-toolbar .mdc-tab-indicator > .mdc-tab-indicator__content--underline {
+    background-color: #fff; }
+  #main-toolbar .mdc-tab__text-label {
+    color: #fff; }
+  #main-toolbar .mdc-tab__icon {
+    color: #fff; }
+  #main-toolbar #main-toolbar__tabs {
+    align-items: flex-end; }
+  #main-toolbar #main-toolbar__tabs .mdc-toolbar__section {
+    align-items: flex-end; }
   #main-toolbar .mdc-toolbar__title {
     font-weight: 300;
     font-size: 24px; }
@@ -935,8 +1048,8 @@ body {
 
 @media (min-width: 1200px) {
   body.hide-sidedrawer #main-toolbar, body.hide-sidedrawer #main-content {
-    left: 240px;
-    width: calc(100% - 240px); } }
+    left: 280px;
+    width: calc(100% - 280px); } }
 #arbitrary-content {
   flex-grow: 2; }
   @media (min-width: 840px) {
@@ -957,7 +1070,7 @@ body {
       margin: 0 auto;
       padding: 16px;
       padding: var(--mdc-layout-grid-margin-phone, 16px); } }
-  #arbitrary-content .mdc-layout-grid {
+  #arbitrary-content > .mdc-layout-grid {
     --mdc-layout-grid-margin-desktop: 0px;
     --mdc-layout-grid-margin-tablet: 0px;
     --mdc-layout-grid-margin-phone: 0px; }

@@ -15,6 +15,7 @@ let make ~(state: Topology.state React.signal)
          control =
   let nw = Widget_network_settings.make ~state ~mode:nw None control in
   let ip = Widget_receiver_settings.make ~state ~mode:ip None control in
-  [ (`Text "Сеть", nw); (`Text "Приём TSoIP", ip) ]
-  |> Ui_templates.Tabs.create_simple_tabs
-  |> Widget.coerce
+  let tabs =
+    [ new Tab.t ~content:(Text "Сеть") ~value:nw ()
+    ; new Tab.t ~content:(Text "Приём TSoIP") ~value:ip () ] in
+  Ui_templates.Tabs.(create_simple tabs |> wrap_simple)

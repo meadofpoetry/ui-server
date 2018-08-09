@@ -2,8 +2,7 @@
 @import './_mixins';
 
 .mdc-icon {
-
-    @include mdc-theme-prop(fill, text-icon-on-background);
+    fill: currentcolor;
 
     &--button {
         cursor: pointer;
@@ -11,6 +10,7 @@
 
     &--disabled {
         @include mdc-theme-prop(color, text-disabled-on-light);
+        @include mdc-theme-prop(fill, text-disabled-on-light);
         cursor: default;
         pointer-events: none;
 

@@ -157,8 +157,8 @@ module Streams = struct
 
     type es_info =
       { pid          : int
-      ; has_pcr      : bool
       ; has_pts      : bool
+      ; has_pcr      : bool
       ; es_type      : int
       ; es_stream_id : int
       } [@@deriving yojson, eq]
@@ -224,16 +224,6 @@ module Streams = struct
       ; nw_name      : string
       ; bouquet_name : string
       } [@@deriving yojson, eq]
-
-    (* type structure =
-     *   { timestamp : Time.t
-     *   ; bitrate   : int option
-     *   ; general   : general_info
-     *   ; pids      : pid_info list
-     *   ; services  : service_info list
-     *   ; emm       : emm_info list
-     *   ; tables    : table_info list
-     *   } [@@deriving yojson, eq] *)
 
     type info =
       { timestamp : Time.t

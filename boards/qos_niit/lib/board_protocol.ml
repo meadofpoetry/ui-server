@@ -434,7 +434,8 @@ module SM = struct
 
   open Lwt_react
 
-  let to_raw_streams_s (group:group event) : Stream.stream list signal =
+  let to_raw_streams_s (group:group event)
+        (state:Topology.state signal) : Stream.stream list signal =
     let conv : t2mi_mode option -> input -> Stream.id -> Stream.stream =
       fun mode i x ->
       { id = `Ts x
@@ -454,9 +455,13 @@ module SM = struct
            | _          -> Port (match i with SPI -> 0 | ASI -> 1))
       }
     in
-    E.map (fun (g:group) ->
-        List.map (fun x -> conv g.status.t2mi_mode g.status.input x)
-          g.status.streams) group
+    let e_group =
+      E.map (fun (g:group) ->
+          let streams = g.status.streams in
+          List.map (conv g.status.t2mi_mode g.status.input) streams)
+        group in
+    let e_state = S.changes @@ S.map (fun _ -> []) state in
+    React.E.select [ e_state; e_group ]
     |> S.hold ~eq:(Equal.list Stream.equal_stream) []
 
   let to_config_e (group:group event) : config event =
@@ -513,7 +518,7 @@ module SM = struct
           { structures = t2mi_info
           ; errors     = E.map Events.to_t2mi_errors group
           }
-      ; streams = streams_conv (to_raw_streams_s group)
+      ; streams = streams_conv (to_raw_streams_s group state)
       ; jitter  =
           { session = E.changes ~eq:Jitter.equal_session e_pcr_s
           ; jitter  = e_pcr

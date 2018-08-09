@@ -5,7 +5,6 @@
     overflow: auto;
     &__block {
         font-family: monospace, monospace;
-        @include mdc-theme-prop(background-color, background);
         margin: 0;
         padding: 15px;
         display: block;
@@ -15,7 +14,7 @@
     }
     &__char, &__hex {
         &--selected {
-            @include mdc-theme-prop(color, text-primary-on-secondary);
+            @include mdc-theme-prop(color, $mdc-theme-on-secondary);
             @include mdc-theme-prop(background-color, secondary);
         }
     }
@@ -33,11 +32,11 @@
     left: 0;
     overflow: visible;
     border-right: 1px solid;
-    @include mdc-theme-prop-alpha(border-color, $mdc-theme-background, .12);
+    @include mdc-theme-prop-alpha(border-color, $mdc-theme-surface, .12);
 }
 .mdc-hexdump__block--chars {
     border-left: 1px solid;
-    @include mdc-theme-prop-alpha(border-color, $mdc-theme-background, .12);
+    @include mdc-theme-prop-alpha(border-color, $mdc-theme-surface, .12);
 }
 .mdc-hexdump__block[unselectable="on"] {
     user-select: none;

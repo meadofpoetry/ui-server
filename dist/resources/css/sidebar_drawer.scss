@@ -5,8 +5,15 @@
 @import "./components/drawer/slidable/_variables";
 @import "./components/animation/_functions";
 @import "./components/elevation/_mixins";
+@import "./components/theme/_mixins";
 
-$mdc-persistent-drawer-width: 240px;
+$mdc-persistent-drawer-width: 280px;
+
+#navigation {
+    .mdc-icon {
+        @include mdc-theme-prop(fill, text-icon-on-surface);
+    }
+}
 
 .mdc-drawer--custom {
   @include mdc-drawer-base_;
@@ -39,6 +46,7 @@ $mdc-persistent-drawer-width: 240px;
   }
 
   .mdc-drawer__panel {
+      @include mdc-theme-prop(color, $mdc-theme-on-primary);
       @include mdc-typography(body1);
 
       -webkit-user-select: none;
@@ -94,7 +102,8 @@ $mdc-persistent-drawer-width: 240px;
         }
 
         .mdc-icon {
-            width: 72px;
+            @include mdc-theme-prop(color, text-icon-on-surface);
+            margin-right: 32px;
         }
     }
   }
@@ -173,7 +182,7 @@ $mdc-persistent-drawer-width: 240px;
     flex-direction: column;
     box-sizing: border-box;
     width: 100%;
-    max-width: 240px;
+    max-width: $mdc-persistent-drawer-width;
     overflow: hidden;
     touch-action: none;
   }

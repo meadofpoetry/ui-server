@@ -59,7 +59,6 @@ module Label = struct
     let elt = Markup.Label.create ~label () |> Tyxml_js.To_dom.of_element in
     object(self)
       inherit Widget.t elt ()
-      inherit Widget.stateful ()
       initializer
         React.S.map (fun v -> self#add_or_remove_class (Option.is_some v) Markup.Label.float_above_class)
           s_selected

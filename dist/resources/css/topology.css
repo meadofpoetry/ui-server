@@ -1,66 +1,96 @@
-.dvb-niit-module-settings__mode {
-  margin-top: 0 !important; }
-.dvb-niit-module-settings .mdc-select {
-  margin-top: 16px; }
+.dvb-niit-module-settings {
+  padding: 1rem; }
+  .dvb-niit-module-settings__mode {
+    margin-top: 0 !important; }
+  .dvb-niit-module-settings .mdc-select {
+    margin-top: 16px; }
+
+.dvb-niit-module-measure {
+  display: flex;
+  align-items: center;
+  justify-content: center; }
+  .dvb-niit-module-measure__inner {
+    display: flex;
+    flex-direction: column; }
+
+.mdc-card .dvb-niit-measures-line-chart {
+  padding: 1rem; }
+
+.dvb-niit-measure .mdc-list-item__meta, .dvb-niit-measures .mdc-list-item__meta, .dvb-niit-module-measures .mdc-list-item__meta {
+  color: rgba(0, 0, 0, 0.87);
+  /* @alternate */
+  color: var(--mdc-theme-text-primary-on-surface, rgba(0, 0, 0, 0.87));
+  font-family: Roboto, sans-serif;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased;
+  font-size: 0.875rem;
+  line-height: 1.375rem;
+  font-weight: 500;
+  letter-spacing: 0.0071428571em;
+  text-decoration: inherit;
+  text-transform: inherit; }
+
+.dvb-niit-settings .mdc-apply-button, .dvb-niit-module-settings .mdc-apply-button {
+  align-self: start; }
 
 .topology__board[data-board='TS'] .topology__board__header {
-  background-color: #e91e63; }
+  background-color: #607d8b; }
   .topology__board[data-board='TS'] .topology__board__header .mdc-icon {
-    /* @alternate */
     color: white;
+    /* @alternate */
     color: var(--mdc-theme-text-primary-on-dark, white); }
   .topology__board[data-board='TS'] .topology__board__header .mdc-card__title {
-    /* @alternate */
     color: white;
+    /* @alternate */
     color: var(--mdc-theme-text-primary-on-dark, white); }
   .topology__board[data-board='TS'] .topology__board__header .mdc-card__subtitle {
-    /* @alternate */
     color: rgba(255, 255, 255, 0.7);
+    /* @alternate */
     color: var(--mdc-theme-text-secondary-on-dark, rgba(255, 255, 255, 0.7)); }
 
 .topology__board[data-board='TS2IP'] .topology__board__header {
   background-color: #795548; }
   .topology__board[data-board='TS2IP'] .topology__board__header .mdc-icon {
-    /* @alternate */
     color: white;
+    /* @alternate */
     color: var(--mdc-theme-text-primary-on-dark, white); }
   .topology__board[data-board='TS2IP'] .topology__board__header .mdc-card__title {
-    /* @alternate */
     color: white;
+    /* @alternate */
     color: var(--mdc-theme-text-primary-on-dark, white); }
   .topology__board[data-board='TS2IP'] .topology__board__header .mdc-card__subtitle {
-    /* @alternate */
     color: rgba(255, 255, 255, 0.7);
+    /* @alternate */
     color: var(--mdc-theme-text-secondary-on-dark, rgba(255, 255, 255, 0.7)); }
 
 .topology__board[data-board='IP2TS'] .topology__board__header {
   background-color: #2196f3; }
   .topology__board[data-board='IP2TS'] .topology__board__header .mdc-icon {
-    /* @alternate */
     color: white;
+    /* @alternate */
     color: var(--mdc-theme-text-primary-on-dark, white); }
   .topology__board[data-board='IP2TS'] .topology__board__header .mdc-card__title {
-    /* @alternate */
     color: white;
+    /* @alternate */
     color: var(--mdc-theme-text-primary-on-dark, white); }
   .topology__board[data-board='IP2TS'] .topology__board__header .mdc-card__subtitle {
-    /* @alternate */
     color: rgba(255, 255, 255, 0.7);
+    /* @alternate */
     color: var(--mdc-theme-text-secondary-on-dark, rgba(255, 255, 255, 0.7)); }
 
 .topology__board[data-board='DVB'] .topology__board__header {
   background-color: #512da8; }
   .topology__board[data-board='DVB'] .topology__board__header .mdc-icon {
-    /* @alternate */
     color: white;
+    /* @alternate */
     color: var(--mdc-theme-text-primary-on-dark, white); }
   .topology__board[data-board='DVB'] .topology__board__header .mdc-card__title {
-    /* @alternate */
     color: white;
+    /* @alternate */
     color: var(--mdc-theme-text-primary-on-dark, white); }
   .topology__board[data-board='DVB'] .topology__board__header .mdc-card__subtitle {
-    /* @alternate */
     color: rgba(255, 255, 255, 0.7);
+    /* @alternate */
     color: var(--mdc-theme-text-secondary-on-dark, rgba(255, 255, 255, 0.7)); }
 
 #main-content {
@@ -118,24 +148,40 @@
 
 .topology__path {
   stroke: black;
-  stroke-width: 2; }
+  vector-effect: non-scaling-stroke;
+  stroke-width: 2px;
+  animation-name: marching-ants;
+  animation-duration: 4s;
+  animation-iteration-count: infinite;
+  animation-play-state: paused;
+  animation-timing-function: linear; }
+@keyframes marching-ants {
+  from {
+    stroke-dashoffset: 100px; }
+  to {
+    stroke-dashoffset: 0; } }
   .topology__path--active {
-    stroke: #8bc34a; }
+    stroke: #4caf50; }
   .topology__path--muted {
     stroke: #9e9e9e; }
+  .topology__path--no-sync {
+    stroke: #e57373; }
   .topology__path--sync {
-    stroke: #4caf50; }
+    stroke: #4caf50;
+    stroke-dasharray: 5px;
+    stroke-dashoffset: 0;
+    animation-play-state: running; }
 
 .topology__input {
   user-select: none;
   cursor: initial;
   align-items: center;
-  /* @alternate */
   background-color: #fff;
-  background-color: var(--mdc-theme-background, #fff);
   /* @alternate */
+  background-color: var(--mdc-theme-surface, #fff);
   color: rgba(0, 0, 0, 0.87);
-  color: var(--mdc-theme-text-primary-on-background, rgba(0, 0, 0, 0.87)); }
+  /* @alternate */
+  color: var(--mdc-theme-text-primary-on-surface, rgba(0, 0, 0, 0.87)); }
   .topology__input::before {
     opacity: 0 !important; }
   .topology__input::after {
@@ -145,9 +191,9 @@
     font-size: 0.95rem;
     white-space: nowrap; }
   .topology__input .mdc-chip__icon {
-    /* @alternate */
     color: rgba(0, 0, 0, 0.38);
-    color: var(--mdc-theme-text-icon-on-background, rgba(0, 0, 0, 0.38)); }
+    /* @alternate */
+    color: var(--mdc-theme-text-icon-on-surface, rgba(0, 0, 0, 0.38)); }
 
 .topology__block {
   margin: 20px;
@@ -155,12 +201,14 @@
   .topology__block--fail .topology__block__body {
     background-color: #ef9a9a;
     /* @alternate */
-    color: rgba(0, 0, 0, 0.54);
-    color: var(--mdc-theme-text-secondary-on-light, rgba(0, 0, 0, 0.54)); }
+    background-color: var(--mdc-theme-error, #ef9a9a);
+    color: #000;
+    /* @alternate */
+    color: var(--mdc-theme-on-error, #000); }
   .topology__block--init .topology__block__body {
     background-color: #bdbdbd;
-    /* @alternate */
     color: rgba(0, 0, 0, 0.54);
+    /* @alternate */
     color: var(--mdc-theme-text-secondary-on-light, rgba(0, 0, 0, 0.54)); }
   .topology__block--fine .topology__block__body {
     background-color: transparent; }
@@ -179,10 +227,10 @@
     justify-content: space-around; }
 
 .topology__cpu__header {
-  background-color: #607d8b; }
+  background-color: #009688; }
   .topology__cpu__header .mdc-card__title, .topology__cpu__header .mdc-icon {
-    /* @alternate */
     color: white;
+    /* @alternate */
     color: var(--mdc-theme-text-primary-on-dark, white); }
 
 /*# sourceMappingURL=topology.css.map */

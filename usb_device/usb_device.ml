@@ -1,7 +1,7 @@
 open Containers
 open Lwt.Infix
 open Boards
-
+       
 [@@@ocaml.warning "-32"]
 
 [%%cstruct
@@ -15,8 +15,8 @@ open Boards
 
 type 'a cc = 'a Boards.Board.cc
 
-type t = { dispatch : (int * (Cbuffer.t list -> 'c cc as 'c) cc) list ref
-         ; send     : int -> Cbuffer.t -> unit Lwt.t
+type t = { dispatch : (int * (Cstruct.t list -> 'c cc as 'c) cc) list ref
+         ; send     : int -> Cstruct.t -> unit Lwt.t
          ; usb      : Cyusb.t
          }
 
@@ -27,22 +27,22 @@ type header = { len    : int
 let prefix = 0x44BB
 
 let to_header port parity length =
-  let hdr = Cbuffer.create sizeof_header in
+  let hdr = Cstruct.create sizeof_header in
   let ()  = set_header_prefix hdr prefix in
   let ()  = set_header_port hdr ((if parity then 0x10 else 0) lor (port land 0xF)) in
   let ()  = set_header_length hdr length in
   hdr
 
 let serialize port buf =
-  let buf_len = Cbuffer.len buf in
+  let buf_len = Cstruct.len buf in
   let parity  = (buf_len mod 2) <> 0 in
   let len     = (buf_len / 2) + (if parity then 1 else 0) in
-  let buf'    = if parity then Cbuffer.append buf (Cbuffer.create 1) else buf in
-  Cbuffer.append (to_header port parity len) buf'
+  let buf'    = if parity then Cstruct.append buf (Cstruct.create 1) else buf in
+  Cstruct.append (to_header port parity len) buf'
 
 type err = Bad_prefix           of int
          | Bad_length           of int
-         | Insufficient_payload of Cbuffer.t
+         | Insufficient_payload of Cstruct.t
          | No_prefix_after_msg
          | Unknown_err          of string
 
@@ -58,7 +58,7 @@ let check_prefix buf =
   if prefix <> prefix' then Error (Bad_prefix prefix') else Ok buf
 
 let check_length buf =
-  let hdr,buf'  = Cbuffer.split buf sizeof_header in
+  let hdr,buf'  = Cstruct.split buf sizeof_header in
   let length    = get_header_length hdr in
   if (length <= 0) || (length > 256)
   then Error (Bad_length length)
@@ -67,13 +67,13 @@ let check_length buf =
        let port      = port' land 0xF in
        let len       = (length * 2) - (if parity then 1 else 0) in
        try
-         let msg',rest = Cbuffer.split buf' (length * 2) in
-         let msg,_     = Cbuffer.split msg' len in
+         let msg',rest = Cstruct.split buf' (length * 2) in
+         let msg,_     = Cstruct.split msg' len in
          Ok ((port,msg),rest)
        with _ -> Error (Insufficient_payload buf)
 
 let check_next_prefix ((_,rest) as x) =
-  if Cbuffer.len rest < sizeof_header then Ok x
+  if Cstruct.len rest < sizeof_header then Ok x
   else (match check_prefix rest with
         | Ok _    -> Ok x
         | Error _ -> Error (No_prefix_after_msg))
@@ -87,18 +87,18 @@ let get_msg buf =
 
 let deserialize acc buf =
   let buf = (match acc with
-             | Some x -> Cbuffer.append x buf
+             | Some x -> Cstruct.append x buf
              | None   -> buf) in
   let rec f acc b =
-    if Cbuffer.len b >= sizeof_header
+    if Cstruct.len b >= sizeof_header
     then (match get_msg b with
           | Ok (msg,rest) -> f (msg :: acc) rest
           | Error e       -> (match e with
                               | Insufficient_payload b -> acc, b
-                              | e                      -> f acc (Cbuffer.shift b 1)))
+                              | e                      -> f acc (Cstruct.shift b 1)))
     else acc,b in
   let msgs,new_acc = f [] buf in
-  (if Cbuffer.len new_acc > 0 then Some new_acc else None), msgs
+  (if Cstruct.len new_acc > 0 then Some new_acc else None), msgs
 
 let recv usb =
   Lwt_preemptive.detach (fun () -> Cyusb.recv usb)
@@ -143,5 +143,67 @@ let get_send obj id = obj.send id
 (* TODO add proper finalize *)
                     
 let finalize obj =
-  Cyusb.send obj.usb (Cbuffer.create 10);
+  Cyusb.send obj.usb (Cstruct.create 10);
   Cyusb.finalize ()
+
+(* (TODO) Angstrom parser and Faraday serialyzer *)
+
+(*
+let prefix = 0x44BB
+
+let msg_parser =
+  let open Angstrom in
+  let prefix_parser =
+    BE.uint16 >>= fun v ->
+    if v = prefix then return () else fail "Not a prefix"
+  in
+  let len_parser =
+    any_uint8 >>= fun port' ->
+    any_uint8 >>= fun length ->
+    let parity    = port' land 0x10 > 0 in
+    let port      = port' land 0xF in
+    let len       = (length * 2) - (if parity then 1 else 0) in
+    return (port,len)
+  in
+  let header_parser =
+    prefix_parser *> len_parser
+  in
+  let msg_parser' = 
+    header_parser >>= fun (port,len) ->
+    take_bigstring len >>= fun msg ->
+    return (port, Cstruct.of_bigarray msg)
+  in
+  many @@ fix (fun p ->
+              msg_parser' <|> (any_char *> p))
+
+let parse_msg ?(prev : Angstrom.Buffered.unconsumed option) s =
+  let open Angstrom in
+  let state  = Buffered.parse msg_parser in
+  let state' = match prev with
+    | None -> state
+    | Some x -> Buffered.feed state (`Bigstring (Bigarray.Array1.sub x.buf x.off x.len))
+  in
+  Buffered.feed state' (`Bigstring (Cstruct.to_bigarray s))
+  |> (fun state -> Buffered.feed state (`Eof))
+  |> fun state ->
+    let res = Buffered.state_to_result state in
+    let unc = Option.(>>=) (Buffered.state_to_unconsumed state) (fun v -> if v.len = 0 then None else Some v) in
+    (unc, res)
+
+let msg_serializer t (port, msg) =
+  let open Faraday in
+  let buf_len = Cstruct.len msg in
+  let parity  = (buf_len mod 2) <> 0 in
+  let len     = (buf_len / 2) + (if parity then 1 else 0) in
+  let buf     = if parity then Cstruct.append msg (Cstruct.create 1) else msg in
+  BE.write_uint16 t prefix;
+  write_uint8 t ((if parity then 0x10 else 0) lor (port land 0xF));
+  write_uint8 t len;
+  write_bigstring t ~off:(buf.off) ~len:(buf.len) (buf.buffer)
+  
+let serialize_msg (port, msg) =
+  let open Faraday in
+  let buf = Faraday.create 0x4096 in
+  msg_serializer buf (port, msg);
+  Cstruct.of_bigarray @@ serialize_to_bigstring buf
+ *)

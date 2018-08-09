@@ -46,7 +46,9 @@ module Section = struct
   let make (init:model) =
     let bytes, update_bytes =
       let to_string x =
-        let s = if x > 1 && x < 5 then "байта" else "байт" in
+        let s = match x mod 10 with
+          | 2 | 3 | 4 when x / 10 <> 1 -> "байта"
+          | _ -> "байт" in
         Printf.sprintf "%d %s" x s in
       let w = new Typography.Text.t ~text:"" () in
       let v = { get = (fun (x:model) -> x.length)
@@ -270,7 +272,6 @@ let make_dump
   let vsplit = new Vsplit.t parsed hexdump () in
   object(self)
     inherit Vbox.t ~widgets:[ header
-                            ; (new Divider.t ())#widget
                             ; vsplit#widget
                             ; (new Divider.t ())#widget
                             ; options#widget ] ()

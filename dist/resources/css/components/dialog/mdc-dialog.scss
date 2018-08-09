@@ -52,7 +52,7 @@
 
 .mdc-dialog__surface {
   @include mdc-elevation(24);
-  @include mdc-theme-prop(background-color, background);
+  @include mdc-theme-prop(background-color, surface);
 
   display: inline-flex;
   flex-direction: column;

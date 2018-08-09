@@ -40,6 +40,32 @@ let appeared_streams
                      then pres :: acc else acc) [] pres in
   appeared
 
+let invalid_port x =
+  let s = "Board_qos_niit: invalid port " ^ (string_of_int x) in
+  raise (Invalid_port s)
+
+let get_ports_sync streams input ports =
+  let open React in
+  List.fold_left (fun acc p ->
+      (match p.port with
+       | 0 -> S.l2 (fun i s -> match i, s with
+                               | SPI, _ :: _ -> true
+                               | _ -> false) input streams
+       | 1 -> S.l2 (fun i s -> match i, s with
+                               | ASI, _ :: _ -> true
+                               | _ -> false) input streams
+       | x -> invalid_port x)
+      |> fun x -> Ports.add p.port x acc) Ports.empty ports
+
+let get_ports_active input ports =
+  let open React in
+  List.fold_left (fun acc p ->
+      (match p.port with
+       | 0 -> S.map (function SPI -> true | _ -> false) input
+       | 1 -> S.map (function ASI -> true | _ -> false) input
+       | x -> invalid_port x)
+      |> fun x -> Ports.add p.port x acc) Ports.empty ports
+
 let create (b:topo_board) _ convert_streams send db_conf base step =
   let conv    = fun x -> convert_streams x b in
   let storage =
@@ -90,19 +116,8 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
   ; streams_signal = events.streams
   ; step           = step
   ; connection     = events.device.state
-  ; ports_active   =
-      List.fold_left (fun acc p ->
-          (match p.port with
-           | 0 -> S.map (function
-                      | SPI -> true
-                      | _   -> false) events.device.input
-           | 1 -> S.map (function
-                      | ASI -> true
-                      | _ -> false) events.device.input
-           | x -> let s = "Board_qos_niit: invalid port "
-                          ^ (string_of_int x) in
-                  raise (Invalid_port s))
-          |> fun x -> Ports.add p.port x acc) Ports.empty b.ports
+  ; ports_sync     = get_ports_sync events.streams events.device.input b.ports
+  ; ports_active   = get_ports_active events.device.input b.ports
   ; settings_page  = ("QOS", React.S.const (Tyxml.Html.div []))
   ; widgets_page   = [("QOS", React.S.const (Tyxml.Html.div []))]
   ; stream_handler = None

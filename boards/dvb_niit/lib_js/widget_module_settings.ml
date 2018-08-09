@@ -12,11 +12,11 @@ let (%>) = Fun.(%>)
 let base_class = "dvb-niit-module-settings"
 
 let make_standard (init: standard) =
-  let items = [ `Item (new Select.Item.t ~text:"DVB-T2" ~value:T2 ())
-              ; `Item (new Select.Item.t ~text:"DVB-T"  ~value:T  ())
-              ; `Item (new Select.Item.t ~text:"DVB-C"  ~value:C  ())
-              ]
-  in
+  let items =
+    [ `Item (new Select.Item.t ~text:"DVB-T2" ~value:T2 ())
+    ; `Item (new Select.Item.t ~text:"DVB-T"  ~value:T  ())
+    ; `Item (new Select.Item.t ~text:"DVB-C"  ~value:C  ())
+    ] in
   let mode  = new Select.t ~label:"Стандарт" ~items () in
   let set x = mode#set_selected_value ~eq:equal_standard x |> ignore in
   set init;
@@ -130,10 +130,9 @@ let make_module_settings ~(id:    int)
   let _ = React.E.map (fun c -> set_standard c.standard) event in
   let _ = React.S.map (function
               | `No_response | `Init -> standard#set_disabled true
-              | `Fine                -> standard#set_disabled false) state
-  in
-  let () = box#add_class base_class in
-  let submit = fun (id,m) -> Requests.Receiver.HTTP.post_mode ~id m control >|= (fun _ -> ()) in
+              | `Fine                -> standard#set_disabled false) state in
+  let submit = fun (id, m) ->
+    Requests.Receiver.HTTP.post_mode ~id m control >|= (fun _ -> ()) in
   box#widget,s,submit
 
 let default_config = { id = 0 }
@@ -156,5 +155,5 @@ let make ~(state:  Common.Topology.state React.signal)
   in
   let a   = Ui_templates.Buttons.create_apply s set in
   let box = new Vbox.t ~widgets:[w;a#widget] () in
-  let ()  = box#add_class "mdc-settings-widget" in
+  let ()  = box#add_class base_class in
   box#widget

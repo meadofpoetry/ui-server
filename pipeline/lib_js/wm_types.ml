@@ -1,13 +1,30 @@
 open Containers
 open Components
 
+type icon = Widget.t
+
+let icon_to_yojson w =
+  print_endline w#outer_html;
+  `String w#outer_html
+let icon_of_yojson = function
+  | `String s ->
+     let div = Dom_html.createDiv Dom_html.document in
+     div##.innerHTML := Js.string s;
+     let elt : Dom_html.element Js.t =
+       Js.Opt.get div##.firstChild (fun () -> assert false)
+       |> Js.Unsafe.coerce in
+     Ok (Widget.create elt)
+  | _ -> Error "bad json"
+let equal_icon x y =
+  Equal.physical x#root y#root
+
 type 'a wm_item =
-  { icon     : string
+  { icon     : icon
   ; name     : string
   ; unique   : bool
   ; min_size : (int * int) option
   ; item     : 'a
-  } [@@deriving yojson,eq]
+  } [@@deriving yojson, eq]
 
 type item_properties_action =
   { label    : string
@@ -23,15 +40,15 @@ type editor_config =
   }
 
 type action =
-  { icon   : string
+  { icon   : Widget.t
   ; name   : string
   }
 
 module type Item = sig
 
-  type item [@@deriving yojson,eq]
+  type item [@@deriving yojson, eq]
   type layout_item = string * item
-  type t = item wm_item [@@deriving yojson,eq]
+  type t = item wm_item [@@deriving yojson, eq]
 
   val max_layers           : int
 

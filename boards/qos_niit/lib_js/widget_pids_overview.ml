@@ -7,7 +7,7 @@ open Api_js.Api_types
 
 type config =
   { stream : Stream.t
-  }
+  } [@@deriving yojson]
 
 let name = "PIDs"
 
@@ -19,31 +19,13 @@ let to_pid_extra (has_pcr:bool) (is_scrambled:bool) =
   let pcr = match has_pcr with
     | false -> None
     | true  ->
-       Some (new Icon.SVG.t ~icon:Icon.Markup.SVG.Path.Clock_outline ()) in
+       Some Icon.SVG.(new t ~paths:Path.[ new t clock_outline () ] ()) in
   let scr = match is_scrambled with
     | false -> None
     | true  ->
-       Some (new Icon.SVG.t ~icon:Icon.Markup.SVG.Path.Lock ()) in
+       Some Icon.SVG.(new t ~paths:Path.[ new t lock () ] ()) in
   let widgets = List.(cons_maybe pcr (cons_maybe scr [])) in
   new Hbox.t ~widgets ()
-
-let colors =
-  Color.[ Red C500
-        ; Orange C500
-        ; Yellow C500
-        ; Green C500
-        ; Blue C500
-        ; Purple C500
-        ; Grey C500
-        ; Brown C500
-        ; Pink C500
-        ; Blue_grey C500
-        ; Deep_purple C500
-        ; Deep_orange C500
-        ; Indigo C500
-        ; Amber C500
-        ; Light_blue C500 ]
-  |> List.map Color.rgb_of_name
 
 let update_row row total br pid =
   let cur, per, min, max =
@@ -66,14 +48,6 @@ let update_row row total br pid =
 
 let make_table (init:pid_info list)
       (bitrate:bitrate React.event) =
-  let dataset = new Chartjs.Pie.Dataset.t ~label:"dataset" Float [] in
-  let options = new Chartjs.Pie.Options.t () in
-  dataset#set_bg_color colors;
-  options#set_responsive true;
-  let pie = new Chartjs.Pie.t
-              ~options
-              ~labels:[]
-              ~datasets:[dataset] () in
   (* FIXME should remember preffered state *)
   let is_hex  = false in
   let dec_pid_fmt = Table.(Int None) in
@@ -106,8 +80,7 @@ let make_table (init:pid_info list)
   let hex     = new Form_field.t ~input:switch ~label:"HEX IDs" () in
   let actions = new Card.Actions.t ~widgets:[ hex#widget ] () in
   let media   = new Card.Media.t ~widgets:[ table ] () in
-  let card    = new Card.t ~widgets:[ pie#widget
-                                    ; actions#widget
+  let card    = new Card.t ~widgets:[ actions#widget
                                     ; (new Divider.t ())#widget
                                     ; media#widget ] () in
   let add_row (pid:pid_info) =
@@ -130,54 +103,31 @@ let make_table (init:pid_info list)
   List.iter Fun.(ignore % add_row) init;
   let _ =
     React.E.map (fun (bitrate:bitrate) ->
-        let _, br =
-          List.fold_left (fun (rows, acc) (pid, br) ->
-              let open Table in
-              match List.find_opt (fun (row:'a Row.t) ->
-                        let cell = match row#cells with a :: _ -> a in
-                        cell#value = pid) rows with
-              | Some x ->
-                 let br, pct = update_row x bitrate.total br pid in
-                 List.remove ~eq:Equal.physical ~x rows,
-                 (List.cons (pid, (br, pct)) acc)
-              | None   -> rows, acc) (table#rows, []) bitrate.pids in
-        let pids, oth =
-          List.fold_left (fun (pids, oth) (pid, (br, pct)) ->
-              if pct >. 1. then (pid, br) :: pids, oth
-              else pids, br :: oth) ([], []) br in
-        let labels =
-          let pids = List.map (fun x -> string_of_int @@ fst x) pids in
-          let oth  = match oth with
-            | [] -> None
-            | _  -> Some "Другие" in
-          List.cons_maybe oth pids in
-        let data = (List.fold_left (+.) 0. oth) :: (List.map snd pids) in
-        pie#set_labels labels;
-        dataset#set_data data;
-        pie#update None;
+        List.fold_left (fun rows (pid, br) ->
+            let open Table in
+            match List.find_opt (fun (row:'a Row.t) ->
+                      let cell = match row#cells with a :: _ -> a in
+                      cell#value = pid) rows with
+            | Some x ->
+               update_row x bitrate.total br pid |> ignore;
+               List.remove ~eq:Equal.physical ~x rows
+            | None   -> rows) table#rows bitrate.pids
+        |> ignore;
         bitrate) bitrate in
   let () = card#add_class base_class in
   card
 
-let make ~(config:config) control =
-  let id   = match config.stream.id with
-    | `Ts id -> id
-    | `Ip _  -> failwith "UDP" in
-  let init =
-    Requests.Streams.HTTP.get_pids ~id ~limit:1 control
-    >>= (function
-         | Raw s -> Lwt_result.return s.data
-         | _     -> Lwt.fail_with "got compressed") in
+let make ~(config:config)
+      (init:(pid_info list, string) Lwt_result.t)
+      (bitrate:bitrate React.event)
+      control =
+  (* let id = match config.stream.id with
+   *   | `Ts id -> id
+   *   | `Ip _  -> failwith "UDP" in *)
   let loader =
     init
-    >|= (fun init ->
-      let e, sock = Requests.Streams.WS.get_bitrate ~id control in
-      let pids = match List.head_opt init with
-        | Some (_, pids) -> pids.pids
-        | None -> [] in
-      make_table pids e)
+    >|= (fun init -> make_table init bitrate)
     >|= Widget.coerce
-    |> Lwt_result.map_err Api_js.Requests.err_to_string
     |> Ui_templates.Loader.create_widget_loader
   in loader
 

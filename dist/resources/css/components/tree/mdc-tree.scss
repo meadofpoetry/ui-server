@@ -1,5 +1,6 @@
 @import "../typography/variables";
 @import "../list/mixins";
+@import '../animation/variables';
 
 .mdc-tree {
     -webkit-user-select: none;
@@ -17,6 +18,9 @@
     align-items: center;
     justify-content: flex-start;
     overflow: hidden;
+    .dropdown {
+        transition: transform 150ms $mdc-animation-standard-curve-timing-function;
+    }
 
     &:has(> .mdc-tree) {
         cursor: pointer;

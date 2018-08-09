@@ -20,10 +20,12 @@ module Item = struct
        | Some x -> Some x
        | None   ->
           Option.map (fun _ ->
-              let icon = new Icon.SVG.t ~icon:Chevron_down () in
+              let open Icon.SVG in
+              let path = new Path.t Markup.Path.chevron_down () in
+              let icon = new Icon.SVG.t ~paths:[path] () in
               React.S.map (fun x ->
-                  if x then icon#set_icon Chevron_up
-                  else icon#set_icon Chevron_down) s |> ignore;
+                  if x then path#set Markup.Path.chevron_up
+                  else path#set Markup.Path.chevron_down) s |> ignore;
               icon#widget)
             nested) in
     let item = new Item_list.Item.t ?ripple ?secondary_text

@@ -25,7 +25,7 @@
 
 .mdc-list {
   @include mdc-typography(subtitle1);
-  @include mdc-list-item-primary-text-ink-color(text-primary-on-background);
+  @include mdc-list-item-primary-text-ink-color(text-primary-on-surface);
 
   margin: 0;
   padding: 8px 0;
@@ -37,10 +37,10 @@
 }
 
 @at-root {
-  @include mdc-list-item-secondary-text-ink-color(text-secondary-on-background);
+  @include mdc-list-item-secondary-text-ink-color(text-secondary-on-surface);
   @include mdc-list-item-graphic-fill-color(transparent);
-  @include mdc-list-item-graphic-ink-color(text-icon-on-background);
-  @include mdc-list-item-meta-ink-color(text-hint-on-background);
+  @include mdc-list-item-graphic-ink-color(text-icon-on-surface);
+  @include mdc-list-item-meta-ink-color(text-hint-on-surface);
 }
 
 .mdc-list--dense {
@@ -219,7 +219,7 @@ a.mdc-list-item {
 }
 
 @at-root {
-  @include mdc-list-group-subheader-ink-color(text-primary-on-background);
+  @include mdc-list-group-subheader-ink-color(text-primary-on-surface);
 }
 
 // postcss-bem-linter: end
