@@ -204,6 +204,44 @@ let make_dump_header base_class () =
   let () = header#add_class header_class in
   header#widget, title, subtitle, button
 
+let make_tree (x:parsed) =
+  let value_to_string = function
+    | Flag b      -> if b then "1" else "0"
+    | Bytes s     -> s
+    | String s    -> s
+    | Int i       -> string_of_int i
+    | Int32 i     -> Int32.to_string i
+    | Int64 i     -> Int64.to_string i
+    | Time t      -> Format.asprintf "%a" (Time.pp_human ()) t
+    | Duration d  ->
+       let w, d, h, m, s = Time.Relative.split_units d in
+       List.filter_map (fun v ->
+           let v, unit = v in
+           if v = 0 then None else Some (string_of_int v ^ " " ^ unit))
+         [ w, "нед"; d, "дн"; h, "ч"; m, "мин"; s, "сек" ]
+       |> String.concat " "
+    | Name (n, i) -> n ^ " " ^ string_of_int i
+    | Val_hex i   -> Printf.sprintf "%d (0x%X)" i i
+    | List _      -> "" in
+  let rec aux acc = function
+    | [] -> List.rev acc
+    | hd :: tl ->
+       let value = value_to_string hd.value in
+       let meta, nested = match hd.value with
+         | List [] ->
+            let meta = Icon.SVG.(create_simple Path.code_brackets) in
+            Some meta#widget, None
+         | List l ->
+            let items = aux [] l in
+            let tree  = new Tree.t ~items () in
+            None, Some tree
+         | _ -> Some (new Typography.Text.t ~text:value ())#widget, None in
+       let item = new Tree.Item.t ?meta ?nested ~value:() ~text:hd.name () in
+       aux (item :: acc) tl in
+  let items = aux [] x in
+  let tree  = new Tree.t ~items () in
+  tree#widget
+
 let make_dump
       (stream:Stream.id)
       (table:table_info)
@@ -219,8 +257,6 @@ let make_dump
            let { id; id_ext; eit_params; _ } = table in
            let (section:section_info), prev_dump = item#value in
            let open Lwt.Infix in
-           let text  = Dom_html.createPre Dom_html.document
-                       |> Widget.create in
            let err x = Ui_templates.Placeholder.create_with_error ~text:x () in
            let ph  x = Ui_templates.Placeholder.create_with_icon
                          ~icon:"info"
@@ -231,8 +267,7 @@ let make_dump
              | Some { timestamp; section; parsed = Some x; _ } ->
                 parsed#set_empty ();
                 subtitle#set_text @@ fmt_time timestamp;
-                text#set_text_content (show_parsed x);
-                Dom.appendChild parsed#root text#root;
+                parsed#append_child (make_tree x);
                 set_hexdump @@ String.of_list @@ List.map Char.chr section
              | Some { timestamp; section; parsed = None; _ } ->
                 parsed#set_empty ();
