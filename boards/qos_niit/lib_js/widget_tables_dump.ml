@@ -231,7 +231,7 @@ let make_dump
              | Some { timestamp; section; parsed = Some x; _ } ->
                 parsed#set_empty ();
                 subtitle#set_text @@ fmt_time timestamp;
-                text#set_text_content (Yojson.Safe.pretty_to_string x);
+                text#set_text_content (show_parsed x);
                 Dom.appendChild parsed#root text#root;
                 set_hexdump @@ String.of_list @@ List.map Char.chr section
              | Some { timestamp; section; parsed = None; _ } ->

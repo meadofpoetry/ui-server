@@ -278,12 +278,32 @@ module Streams = struct
                        | Stream_not_found
                        | Unknown [@@deriving yojson]
 
+    type parsed = node list
+    and node =
+      { offset : int
+      ; length : int
+      ; name   : string
+	    ; value  : value
+      }
+    and value =
+      | List     of node list
+      | Flag     of bool
+      | Bytes    of string
+      | String   of string
+      | Int      of int
+      | Int32    of int32
+      | Int64    of int64
+      | Time     of Time.t
+      | Duration of Time.Period.t
+      | Name     of string * int
+      | Val_hex  of int [@@deriving yojson, show]
+
     type section =
       { stream_id  : Stream.id
       ; table_id   : int
       ; section_id : int
       ; section    : int list
-      ; parsed     : Yojson.Safe.json option
+      ; parsed     : parsed option
       ; timestamp  : Time.t
       } [@@deriving yojson]
 

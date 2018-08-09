@@ -1,28 +1,52 @@
 open Containers
+open Board_types.Streams.TS
 
 let value_to_string name x = Printf.sprintf "%s (%d)" name x
 let rfu_to_string          = value_to_string "Reserved"
 
-type parsed = node list
-and node =
-  { offset : int
-  ; length : int
-  ; name   : string
-	; value  : value
-  }
-and value =
-  | List    of node list
-  | Flag    of bool
-  | Bytes   of string
-  | String  of string
-  | Int     of int
-  | Int32   of int32
-  | Int64   of int64
-  | Name    of string * int
-  | Val_hex of int [@@deriving yojson]
-
 let to_node ~offset length name value =
   { offset; length; name; value }
+
+let parse_date (days:int) : Ptime.date option =
+  let date = Option.get_exn @@ Ptime.of_date @@ (1858, 11, 17) in
+  let sec  = 3600 * 24 * days in
+  let span = Ptime.Span.of_int_s sec in
+  Ptime.add_span date span
+  |> Option.map Ptime.to_date
+
+let parse_time (bs:Bitstring.t) : Ptime.time option =
+  try
+    match%bitstring bs with
+    | {| hr1  : 4
+       ; hr2  : 4
+       ; min1 : 4
+       ; min2 : 4
+       ; sec1 : 4
+       ; sec2 : 4
+       |} ->
+       let hr, min, sec = hr1 * 10 + hr2, min1 * 10 + min2, sec1 * 10 + sec2 in
+       Some ((hr, min, sec), 0)
+  with _ -> None
+
+let parse_timestamp (bs:Bitstring.t) : Ptime.t option =
+  try
+    match%bitstring bs with
+    | {| x : 40 |} when Int64.equal x 0xFFFFFFFFFFL -> None
+    | {| date : 16
+       ; time : 24 : bitstring
+       |} ->
+       let date = parse_date date in
+       let time = parse_time time in
+       Option.map2 (fun date time ->
+           Ptime.of_date_time (date, time)) date time
+       |> Option.flatten
+  with _ -> None
+
+let parse_duration (bs:Bitstring.t) : Ptime.span option =
+  let time = parse_time bs in
+  let date = Ptime.to_date @@ Ptime.epoch in
+  let ts   = Option.flat_map (fun x -> Ptime.of_date_time (date, x)) time in
+  Option.map Ptime.to_span ts
 
 let parsed_length = List.fold_left (fun acc x -> x.length + acc) 0
 
@@ -918,17 +942,17 @@ module Table_common = struct
 
   let parse_header bs =
     match%bitstring bs with
-    | {| table_id       : 8  : save_offset_to (off_1)
-       ; ssi            : 1  : save_offset_to (off_2)
-       ; rfu            : 1  : save_offset_to (off_3)
-       ; reserved_1     : 2  : save_offset_to (off_4)
-       ; section_length : 12 : save_offset_to (off_5)
+    | {| table_id       : 8
+       ; ssi            : 1  : save_offset_to (off_1)
+       ; rfu            : 1  : save_offset_to (off_2)
+       ; reserved_1     : 2  : save_offset_to (off_3)
+       ; section_length : 12 : save_offset_to (off_4)
        |} ->
-       [ to_node ~offset:off_1 8  "table_id"        (Val_hex table_id)
-       ; to_node ~offset:off_2 1  "section_syntax_indicator" (Flag ssi)
-       ; to_node ~offset:off_3 1  "'0'"             (Flag rfu)
-       ; to_node ~offset:off_4 2  "reserved"        (Val_hex reserved_1)
-       ; to_node ~offset:off_5 12 "section_length"  (Int section_length)
+       [ to_node ~offset:0     8  "table_id"        (Val_hex table_id)
+       ; to_node ~offset:off_1 1  "section_syntax_indicator" (Flag ssi)
+       ; to_node ~offset:off_2 1  "'0'"             (Flag rfu)
+       ; to_node ~offset:off_3 2  "reserved"        (Val_hex reserved_1)
+       ; to_node ~offset:off_4 12 "section_length"  (Int section_length)
        ]
 
   let rec parse_descriptors = fun _ _ _ -> []
@@ -941,23 +965,23 @@ module Table_common = struct
     if Bitstring.bitstring_length x = 0 then List.rev acc
     else
       match%bitstring x with
-      | {| ts_id       : 16 : save_offset_to (off_1)
-         ; on_id       : 16 : save_offset_to (off_2)
-         ; rfu         : 4  : save_offset_to (off_3)
-         ; length      : 12 : save_offset_to (off_4)
-         ; descriptors : length * 8 : save_offset_to (off_5), bitstring
-         ; rest        : -1 : save_offset_to (off_6), bitstring
+      | {| ts_id       : 16
+         ; on_id       : 16 : save_offset_to (off_1)
+         ; rfu         : 4  : save_offset_to (off_2)
+         ; length      : 12 : save_offset_to (off_3)
+         ; descriptors : length * 8 : save_offset_to (off_4), bitstring
+         ; rest        : -1 : save_offset_to (off_5), bitstring
          |} ->
-         let descriptors = parse_descriptors off_6 [] descriptors in
+         let descriptors = parse_descriptors off_4 [] descriptors in
          let nodes =
-           [ to_node ~offset:(off_1 + off) 16 "transport_stream_id" (Int ts_id)
-           ; to_node ~offset:(off_2 + off) 16 "original_network_id" (Int on_id)
-           ; to_node ~offset:(off_3 + off) 4  "reserved_future_use" (Int rfu)
-           ; to_node ~offset:(off_4 + off) 12 "transport_descriptors_length" (Int length)
-           ; to_node ~offset:(off_5 + off) (length * 8) "descriptors" (List descriptors)
+           [ to_node ~offset:off           16 "transport_stream_id" (Int ts_id)
+           ; to_node ~offset:(off_1 + off) 16 "original_network_id" (Int on_id)
+           ; to_node ~offset:(off_2 + off) 4  "reserved_future_use" (Int rfu)
+           ; to_node ~offset:(off_3 + off) 12 "transport_descriptors_length" (Int length)
+           ; to_node ~offset:(off_4 + off) (length * 8) "descriptors" (List descriptors)
            ] in
          (* FIXME *)
-         parse_ts (off_6 + off) (nodes @ acc) rest
+         parse_ts (off_5 + off) (nodes @ acc) rest
 
 end
 
@@ -1026,24 +1050,25 @@ module PMT = struct
     if Bitstring.bitstring_length x = 0 then List.rev acc
     else
       (match%bitstring x with
-       | {| stream_type    : 8  : save_offset_to (off_1)
-          ; reserved_1     : 3  : save_offset_to (off_2)
-          ; elementary_pid : 13 : save_offset_to (off_3)
-          ; reserved_2     : 4  : save_offset_to (off_4)
-          ; es_info_length : 12 : save_offset_to (off_5)
-          ; descriptors    : es_info_length * 8 : save_offset_to (off_6), bitstring
-          ; rest           : -1 : save_offset_to (off_7), bitstring
+       | {| stream_type    : 8
+          ; reserved_1     : 3  : save_offset_to (off_1)
+          ; elementary_pid : 13 : save_offset_to (off_2)
+          ; reserved_2     : 4  : save_offset_to (off_3)
+          ; es_info_length : 12 : save_offset_to (off_4)
+          ; descriptors    : es_info_length * 8 : save_offset_to (off_5), bitstring
+          ; rest           : -1 : save_offset_to (off_6), bitstring
           |} ->
           let dscrs = parse_descriptors off_6 [] descriptors in
           let nodes =
-            [ to_node ~offset:(off_1 + off) 8 "stream_type" (Val_hex stream_type)
-            ; to_node ~offset:(off_2 + off) 3 "reserved" (Val_hex reserved_1)
-            ; to_node ~offset:(off_3 + off) 13 "elementary_PID" (Val_hex elementary_pid)
-            ; to_node ~offset:(off_4 + off) 4 "reserved" (Val_hex reserved_2)
-            ; to_node ~offset:(off_5 + off) 12 "ES_info_length" (Val_hex es_info_length)
-            ; to_node ~offset:(off_6 + off) (es_info_length * 8) "descriptors" (List dscrs)
+            [ to_node ~offset:off           8 "stream_type" (Val_hex stream_type)
+            ; to_node ~offset:(off_1 + off) 3 "reserved" (Val_hex reserved_1)
+            ; to_node ~offset:(off_2 + off) 13 "elementary_PID" (Val_hex elementary_pid)
+            ; to_node ~offset:(off_3 + off) 4 "reserved" (Val_hex reserved_2)
+            ; to_node ~offset:(off_4 + off) 12 "ES_info_length" (Val_hex es_info_length)
+            ; to_node ~offset:(off_5 + off) (es_info_length * 8) "descriptors" (List dscrs)
             ] in
-          parse_streams (off_7 + off) (nodes @ acc) rest)
+          let node = to_node ~offset:off (parsed_length nodes) "streams" (List nodes) in
+          parse_streams (off_6 + off) (node :: acc) rest)
 
   let parse buf =
     let bs = Bitstring.bitstring_of_string buf in
@@ -1218,36 +1243,36 @@ module BAT = struct
 module SDT = struct
   open Table_common
 
+  let rec parse_services = fun off acc x ->
+    if Bitstring.bitstring_length x = 0 then List.rev acc
+    else
+      (match%bitstring x with
+       | {| service_id        : 16
+          ; rfu               : 6  : save_offset_to (off_1)
+          ; eit_schedule_flag : 1  : save_offset_to (off_2)
+          ; eit_present_flag  : 1  : save_offset_to (off_3)
+          ; running_status    : 3  : save_offset_to (off_4)
+          ; free_ca_mode      : 1  : save_offset_to (off_5)
+          ; desc_loop_length  : 12 : save_offset_to (off_6)
+          ; descriptors       : desc_loop_length * 8 : save_offset_to (off_7), bitstring
+          ; rest              : -1 : save_offset_to (off_8), bitstring
+          |} ->
+          let dscrs = parse_descriptors off_7 [] descriptors in
+          let nodes =
+            [ to_node ~offset:off            16 "service_id" (Val_hex service_id)
+            ; to_node ~offset:(off_1 + off)  6  "reserved_fuure_use" (Val_hex rfu)
+            ; to_node ~offset:(off_2 + off)  1  "EIT_schedule_flag" (Flag eit_schedule_flag)
+            ; to_node ~offset:(off_3 + off)  1  "EIT_present_following_flag" (Flag eit_present_flag)
+            ; to_node ~offset:(off_4 + off)  3  "runnning_status" (Val_hex running_status)
+            ; to_node ~offset:(off_5 + off)  1  "free_CA_mode" (Flag free_ca_mode)
+            ; to_node ~offset:(off_6 + off)  12 "descriptors_loop_length" (Val_hex desc_loop_length)
+            ; to_node ~offset:(off_7 + off) (desc_loop_length * 8) "descriptors" (List dscrs)
+            ]
+          in
+          let node = to_node ~offset:off (parsed_length nodes) "services" (List nodes) in
+          parse_services (off_8 + off) (node :: acc) rest)
+
   let parse buf =
-    let rec parse_services = fun acc x ->
-      if Bitstring.bitstring_length x = 0 then List.rev acc
-      else
-        (match%bitstring x with
-         | {| service_id                 : 16 : save_offset_to (off_1)
-            ; rfu                        : 6  : save_offset_to (off_2)
-            ; eit_schedule_flag          : 1  : save_offset_to (off_3)
-            ; eit_present_following_flag : 1  : save_offset_to (off_4)
-            ; running_status             : 3  : save_offset_to (off_5)
-            ; free_ca_mode               : 1  : save_offset_to (off_6)
-            ; desc_loop_length           : 12 : save_offset_to (off_7)
-            ; descriptors                : desc_loop_length * 8 : save_offset_to (off_8), bitstring
-            ; rest                       : -1 : bitstring
-            |} ->
-            let dscrs = parse_descriptors off_8
-                          [] descriptors in
-            let nodes =
-              [ to_node ~offset:off_1 16 "service_id" (Val_hex service_id)
-              ; to_node ~offset:off_2  6 "reserved_fuure_use" (Val_hex rfu)
-              ; to_node ~offset:off_3  1 "EIT_schedule_flag" (Flag eit_schedule_flag)
-              ; to_node ~offset:off_4  1 "EIT_present_following_flag" (Flag eit_present_following_flag)
-              ; to_node ~offset:off_5  3 "runnning_status" (Val_hex running_status)
-              ; to_node ~offset:off_6  1 "free_CA_mode" (Flag free_ca_mode)
-              ; to_node ~offset:off_7 12 "descriptors_loop_length" (Val_hex desc_loop_length)
-              ; to_node ~offset:off_8 (desc_loop_length * 8) "descriptors" (List dscrs)
-              ]
-            in
-            parse_services (nodes @ acc) rest)
-    in
     let bs = Bitstring.bitstring_of_string buf in
     let services_length off = Bitstring.bitstring_length bs - off - 8 - 32 in
     match%bitstring bs with
@@ -1263,7 +1288,7 @@ module SDT = struct
        ; services               : services_length off_8 : save_offset_to (off_9), bitstring
        ; crc32                  : 32 : save_offset_to (off_10)
        |} ->
-       let services = parse_services [] services in
+       let services = parse_services off_9 [] services in
        let header   = parse_header header in
        let nodes =
          [ to_node ~offset:off_1 16 "transport_stream_id" (Val_hex transport_stream_id)
@@ -1289,27 +1314,36 @@ module EIT = struct
     if Bitstring.bitstring_length x = 0 then List.rev acc
     else
       (match%bitstring x with
-       | {| event_id             : 16 : save_offset_to (off_1)
-          ; start_time           : 40 : save_offset_to (off_2)
-          ; duration             : 24 : save_offset_to (off_3)
-          ; running_status       : 3  : save_offset_to (off_4)
-          ; free_ca_mode         : 1  : save_offset_to (off_5)
-          ; desc_loop_length     : 12 : save_offset_to (off_6)
-          ; descriptors          : desc_loop_length * 8 : save_offset_to (off_7), bitstring
-          ; rest                 : -1 : save_offset_to (off_8), bitstring
+       | {| event_id         : 16
+          ; start_time       : 40 : save_offset_to (off_1), bitstring
+          ; duration         : 24 : save_offset_to (off_2), bitstring
+          ; running_status   : 3  : save_offset_to (off_3)
+          ; free_ca_mode     : 1  : save_offset_to (off_4)
+          ; desc_loop_length : 12 : save_offset_to (off_5)
+          ; descriptors      : desc_loop_length * 8 : save_offset_to (off_6), bitstring
+          ; rest             : -1 : save_offset_to (off_7), bitstring
           |} ->
           let dscrs = parse_descriptors off_7 [] descriptors in
+          let time = match parse_timestamp start_time with
+            | Some x -> Time x
+            | None   -> match%bitstring start_time with
+                        | {| i : 40 |} -> Int64 i in
+          let dur  = match parse_duration duration with
+            | Some x -> Duration x
+            | None   -> match%bitstring duration with
+                        | {| i : 24 |} -> Int i in
           let nodes =
-            [ to_node ~offset:(off_1 + off) 16 "event_id" (Val_hex event_id)
-            ; to_node ~offset:(off_2 + off) 40 "start_time" (Int64 start_time)
-            ; to_node ~offset:(off_3 + off) 24 "duration" (Val_hex duration)
-            ; to_node ~offset:(off_4 + off)  3 "running_status" (Val_hex running_status)
-            ; to_node ~offset:(off_5 + off)  1 "free_CA_mode" (Flag free_ca_mode)
-            ; to_node ~offset:(off_6 + off) 12 "decriptors_loop_length" (Val_hex desc_loop_length)
-            ; to_node ~offset:(off_7 + off) (desc_loop_length * 8) "descriptors" (List dscrs)
+            [ to_node ~offset:off           16 "event_id" (Val_hex event_id)
+            ; to_node ~offset:(off_1 + off) 40 "start_time" time
+            ; to_node ~offset:(off_2 + off) 24 "duration" dur
+            ; to_node ~offset:(off_3 + off)  3 "running_status" (Val_hex running_status)
+            ; to_node ~offset:(off_4 + off)  1 "free_CA_mode" (Flag free_ca_mode)
+            ; to_node ~offset:(off_5 + off) 12 "decriptors_loop_length" (Val_hex desc_loop_length)
+            ; to_node ~offset:(off_6 + off) (desc_loop_length * 8) "descriptors" (List dscrs)
             ]
           in
-          parse_events (off_8 + off) (nodes @ acc) rest)
+          let node = to_node ~offset:off (parsed_length nodes) "events" (List nodes) in
+          parse_events (off_7 + off) (node :: acc) rest)
 
   let parse buf =
     let bs = Bitstring.bitstring_of_string buf in
@@ -1358,9 +1392,14 @@ module TDT = struct
     let bs = Bitstring.bitstring_of_string buf in
     match%bitstring bs with
     | {| header   : 24 : bitstring
-       ; utc_time : 40 : save_offset_to (off) |} ->
+       ; utc_time : 40 : save_offset_to (off), bitstring
+       |} ->
+       let utc_time = match parse_timestamp utc_time with
+         | Some x -> Time x
+         | None   -> match%bitstring utc_time with
+                     | {| i : 40 |} -> Int64 i in
        let node =
-         [ to_node ~offset:off 40 "utc_time" (Int64 utc_time)
+         [ to_node ~offset:off 40 "utc_time" utc_time
          ]
        in
        let header = parse_header header in
@@ -1376,7 +1415,7 @@ module TOT = struct
     let bs = Bitstring.bitstring_of_string buf in
     match%bitstring bs with
     | {| header      : 24 : bitstring
-       ; utc_time    : 40 : save_offset_to (off_1)
+       ; utc_time    : 40 : save_offset_to (off_1), bitstring
        ; reserved    : 4  : save_offset_to (off_2)
        ; loop_length : 12 : save_offset_to (off_3)
        ; descriptors : loop_length * 8 : save_offset_to (off_4), bitstring
@@ -1384,8 +1423,12 @@ module TOT = struct
        |} ->
        let dscrs  = parse_descriptors off_4 [] descriptors in
        let header = parse_header header in
+       let utc_time = match parse_timestamp utc_time with
+         | Some x -> Time x
+         | None   -> match%bitstring utc_time with
+                     | {| i : 40 |} -> Int64 i in
        let nodes  =
-         [ to_node ~offset:off_1 40 "utc_time" (Int64 utc_time)
+         [ to_node ~offset:off_1 40 "utc_time" utc_time
          ; to_node ~offset:off_2 4  "reserved" (Val_hex reserved)
          ; to_node ~offset:off_3 12 "descriptors_loop_length" (Val_hex loop_length)
          ; to_node ~offset:off_4 (loop_length * 8) "descriptors" (List dscrs)
@@ -1399,39 +1442,40 @@ end
 module RST = struct
 
   open Table_common
-
-  let rec parse_events = fun acc x ->
+     
+  let rec parse_events = fun off acc x ->
     if Bitstring.bitstring_length x = 0 then List.rev acc
     else
       (match%bitstring x with
-       | {| ts_id          : 16 : save_offset_to (off_1)
-          ; on_id          : 16 : save_offset_to (off_2)
-          ; service_id     : 16 : save_offset_to (off_3)
-          ; event_id       : 16 : save_offset_to (off_4)
-          ; rfu            : 5  : save_offset_to (off_5)
-          ; running_status : 3  : save_offset_to (off_6)
-          ; rest           : -1 :  bitstring
+       | {| ts_id          : 16
+          ; on_id          : 16 : save_offset_to (off_1)
+          ; service_id     : 16 : save_offset_to (off_2)
+          ; event_id       : 16 : save_offset_to (off_3)
+          ; rfu            : 5  : save_offset_to (off_4)
+          ; running_status : 3  : save_offset_to (off_5)
+          ; rest           : -1 : save_offset_to (off_6), bitstring
           |} ->
           let nodes =
-            [ to_node ~offset:off_1 16 "transport_stream_id" (Val_hex ts_id)
-            ; to_node ~offset:off_2 16 "original_network_id" (Val_hex on_id)
-            ; to_node ~offset:off_3 16 "service_id" (Val_hex service_id)
-            ; to_node ~offset:off_4 16 "event_id" (Val_hex event_id)
-            ; to_node ~offset:off_5  5 "reserved_future_use" (Val_hex rfu)
-            ; to_node ~offset:off_6  3 "running_status" (Val_hex running_status)
+            [ to_node ~offset:off           16 "transport_stream_id" (Val_hex ts_id)
+            ; to_node ~offset:(off_1 + off) 16 "original_network_id" (Val_hex on_id)
+            ; to_node ~offset:(off_2 + off) 16 "service_id" (Val_hex service_id)
+            ; to_node ~offset:(off_3 + off) 16 "event_id" (Val_hex event_id)
+            ; to_node ~offset:(off_4 + off)  5 "reserved_future_use" (Val_hex rfu)
+            ; to_node ~offset:(off_5 + off)  3 "running_status" (Val_hex running_status)
             ]
           in
-          parse_events (nodes @ acc) rest)
+          let node = to_node ~offset:off (parsed_length nodes) "events" (List nodes) in
+          parse_events (off_6 + off) (node :: acc) rest)
 
   let parse buf =
     let bs = Bitstring.bitstring_of_string buf in
     match%bitstring bs with
        | {| header : 24 : bitstring
-          ; rest   : -1 : bitstring
+          ; rest   : -1 : save_offset_to (off), bitstring
           |} ->
           (* FIXME *)
           let header = parse_header header in
-          header @ ( parse_events [] rest)
+          header @ ( parse_events off [] rest)
 
 end
 
@@ -1490,22 +1534,23 @@ module SIT = struct
     if Bitstring.bitstring_length x = 0 then List.rev acc
     else
       (match%bitstring x with
-       | {| service_id          : 16 : save_offset_to (off_1)
-          ; dvb_rfu             : 1  : save_offset_to (off_2)
-          ; running_status      : 3  : save_offset_to (off_3)
-          ; service_loop_length : 12 : save_offset_to (off_4)
-          ; descriptors         : service_loop_length * 8 : save_offset_to (off_5), bitstring
-          ; rest                : -1 : save_offset_to (off_6), bitstring
+       | {| service_id          : 16
+          ; dvb_rfu             : 1  : save_offset_to (off_1)
+          ; running_status      : 3  : save_offset_to (off_2)
+          ; service_loop_length : 12 : save_offset_to (off_3)
+          ; descriptors         : service_loop_length * 8 : save_offset_to (off_4), bitstring
+          ; rest                : -1 : save_offset_to (off_5), bitstring
           |} ->
-          let dscrs = parse_descriptors off_5 [] descriptors in
+          let dscrs = parse_descriptors off_4 [] descriptors in
           let nodes =
-            [ to_node ~offset:(off_1 + off) 16 "service_id" (Val_hex service_id)
-            ; to_node ~offset:(off_2 + off)  1 "reserved_future_use" (Flag dvb_rfu)
-            ; to_node ~offset:(off_3 + off)  3 "running_status" (Val_hex running_status)
-            ; to_node ~offset:(off_4 + off) 12 "service_loop_length" (Val_hex service_loop_length)
-            ; to_node ~offset:(off_5 + off) (service_loop_length * 8) "descriptors" (List dscrs) ]
+            [ to_node ~offset:off           16 "service_id" (Val_hex service_id)
+            ; to_node ~offset:(off_1 + off)  1 "reserved_future_use" (Flag dvb_rfu)
+            ; to_node ~offset:(off_2 + off)  3 "running_status" (Val_hex running_status)
+            ; to_node ~offset:(off_3 + off) 12 "service_loop_length" (Val_hex service_loop_length)
+            ; to_node ~offset:(off_4 + off) (service_loop_length * 8) "descriptors" (List dscrs) ]
           in
-          parse_services (off_6 + off) (nodes @ acc) rest)
+          let node = to_node ~offset:off (parsed_length nodes) "services" (List nodes) in
+          parse_services (off_5 + off) (node :: acc) rest)
 
   let parse buf =
     let bs = bitstring_of_string buf in
@@ -1548,7 +1593,7 @@ end
 
 let table_to_yojson : string ->
                       Common.Mpeg_ts.table ->
-                      Yojson.Safe.json option =
+                      parsed option =
   fun buf tbl ->
   try
     (match tbl with
@@ -1567,7 +1612,6 @@ let table_to_yojson : string ->
      | `DIT   -> DIT.parse buf
      | `SIT   -> SIT.parse buf
      | _      -> [])
-    |> parsed_to_yojson
     |> Option.return
   with _ -> None
 

@@ -393,14 +393,15 @@ module Get_ts_structs
     let bdy,rest = Cstruct.split msg sizeof_table_struct_block in
     let iter     = Cstruct.iter (fun _ -> Some 2)
                      (fun buf -> Cstruct.LE.get_uint16 buf 0) rest in
-    let sections = Cstruct.fold (fun acc x ->
-                       let id     = List.length acc in
-                       let _      = (x land 0x8000) > 0 in (* analyzed *)
-                       let length = (x land 0x0FFF) in
-                       ({ id; length } : section_info)
-                       :: acc) iter []
-                   |> List.filter (fun { length; _ } -> length > 0)
-                   |> List.rev in
+    let sections =
+      Cstruct.fold (fun acc x ->
+          let id     = List.length acc in
+          let _      = (x land 0x8000) > 0 in (* analyzed *)
+          let length = (x land 0x0FFF) in
+          ({ id; length } : section_info)
+          :: acc) iter []
+      |> List.filter (fun ({ length; _ }:section_info) -> length > 0)
+      |> List.rev in
     let pid'   = get_table_struct_block_pid msg in
     let id     = get_table_struct_block_id bdy in
     let id_ext = get_table_struct_block_id_ext bdy in
