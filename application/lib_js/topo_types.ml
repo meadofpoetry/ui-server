@@ -1,6 +1,12 @@
 open Common.Topology
 
-type connection_state = [ `Active | `Muted | `Sync | `Unavailable ]
+type connection_state =
+  [ `Active      (* path is active, but there is not info about streams *)
+  | `Muted       (* path is not active*)
+  | `Sync        (* path is active, streams detected *)
+  | `Sync_lost   (* path is active, no streams *)
+  | `Unavailable (* path parent is not responding/unavailable *)
+  ]
 
 type point =
   { x : int

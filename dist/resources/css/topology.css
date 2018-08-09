@@ -161,9 +161,11 @@
   to {
     stroke-dashoffset: 0; } }
   .topology__path--active {
-    stroke: #e57373; }
+    stroke: #4caf50; }
   .topology__path--muted {
     stroke: #9e9e9e; }
+  .topology__path--no-sync {
+    stroke: #e57373; }
   .topology__path--sync {
     stroke: #4caf50;
     stroke-dasharray: 5px;

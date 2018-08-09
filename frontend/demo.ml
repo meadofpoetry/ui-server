@@ -265,23 +265,30 @@ let list_demo () =
   demo_section "List" [ list#widget; group#widget ]
 
 let tree_demo () =
-  let item x = new Tree.Item.t
-                 ~text:("Item " ^ string_of_int x)
-                 ~nested:(new Tree.t
-                            ~items:[ new Tree.Item.t ~text:"Item 0" ~value:()
-                                       ~nested:(new Tree.t
-                                                  ~items:[ new Tree.Item.t ~text:"Item 0" ~value:() ()
-                                                         ; new Tree.Item.t ~text:"Item 1" ~value:() ()
-                                                         ; new Tree.Item.t ~text:"Item 2" ~value:() () ]
-                                                  ()) ()
-                                   ; new Tree.Item.t ~text:"Item 1" ~value:() ()
-                                   ; new Tree.Item.t ~text:"Item 2" ~value:() () ]
-                            ())
-                 ~value:()
+  let item x =
+    new Tree.Item.t
+      ~text:("Item " ^ string_of_int x)
+      ~nested:(
+        new Tree.t
+          ~level:1
+          ~items:[ new Tree.Item.t ~text:"Item 0" ~value:()
+                     ~nested:(
+                       new Tree.t
+                         ~level:2
+                         ~items:[ new Tree.Item.t ~text:"Item 0" ~value:() ()
+                                ; new Tree.Item.t ~text:"Item 1" ~value:() ()
+                                ; new Tree.Item.t ~text:"Item 2" ~value:() () ]
+                         ()) ()
+                 ; new Tree.Item.t ~text:"Item 1" ~value:() ()
+                 ; new Tree.Item.t ~text:"Item 2" ~value:() () ]
+          ())
+      ~value:()
                  () in
-  let tree = new Tree.t
-               ~items:(List.map (fun x -> item x) (List.range 0 5))
-               () in
+  let tree =
+    new Tree.t
+      ~level:0
+      ~items:(List.map (fun x -> item x) (List.range 0 5))
+      () in
   tree#style##.maxWidth := Js.string "400px";
   demo_section "Tree" [ tree ]
 

@@ -102,12 +102,14 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
             stroke-dashoffset: 0;
         }
     }
-
     &--active {
-        stroke: $material-color-red-300;
+        stroke: $material-color-green-500;
     }
     &--muted {
         stroke: $material-color-grey-500;
+    }
+    &--no-sync {
+        stroke: $material-color-red-300;
     }
     &--sync {
         stroke: $material-color-green-500;

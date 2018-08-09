@@ -21,10 +21,9 @@ let log_prefix control = Printf.sprintf "(Board TS2IP: %d) " control
 
 let get_ports_sync board streams =
   let open React in
+  let s = S.map (List.filter_map (Stream.to_topo_port board)) streams in
   List.fold_left (fun acc p ->
-      S.map (fun (s:Stream.t list) ->
-          let ports = List.filter_map (Stream.to_topo_port board) s in
-          List.mem ~eq:equal_topo_port p ports) streams
+      S.map (List.mem ~eq:equal_topo_port p) s
       |> fun x -> Ports.add p.port x acc) Ports.empty board.ports
 
 let create (b:topo_board) (streams:Common.Stream.t list React.signal) _ send db base step =

@@ -139,11 +139,12 @@ class t ~(connections:(#Topo_node.t * connection_point) list)
       List.iter (fun (x:Common.Topology.topo_port) ->
           match List.find_opt (fun p -> eq_node_entry p#left_node
                                           (`Entry x.child)) self#paths with
-          | Some path -> path#set_state (if x.has_sync
-                                         then `Sync
-                                         else if x.listening
-                                         then `Active
-                                         else `Muted)
+          | Some path ->
+             let state = match x.has_sync, x.listening with
+               | true, _ -> `Sync
+               | _, true -> `Sync_lost
+               | _, _    -> `Muted in
+             path#set_state state
           | None      -> ()) l
 
     initializer

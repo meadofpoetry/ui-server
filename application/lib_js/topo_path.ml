@@ -26,14 +26,17 @@ class switch (node:node_entry) (port:Common.Topology.topo_port) setter () =
     method port        = port
     method s_changing  = s
 
-    method set_state (x:Topo_types.connection_state) =
+    method set_state x =
       _state <- x;
-      match x with
-      | `Active | `Sync -> self#set_disabled false;
-                           self#set_checked true
-      | `Muted          -> self#set_disabled false;
-                           self#set_checked false
-      | `Unavailable    -> self#set_disabled true
+      match (x:connection_state) with
+      | `Active | `Sync | `Sync_lost ->
+         self#set_disabled false;
+         self#set_checked true
+      | `Muted ->
+         self#set_disabled false;
+         self#set_checked false
+      | `Unavailable ->
+         self#set_disabled true
 
     method set_changing x =
       if x then self#set_disabled true
@@ -44,11 +47,12 @@ class switch (node:node_entry) (port:Common.Topology.topo_port) setter () =
           push true;
           setter port.port self#checked
           >>= (function
-               | Ok _    -> push false;
-                            Lwt.return_unit
-               | Error _ -> push false;
-                            self#set_state _state; (* return current state back *)
-                            Lwt.return_unit)
+               | Ok _    -> push false; Lwt.return_unit
+               | Error _ ->
+                  push false;
+                  (* return current state back *)
+                  self#set_state _state;
+                  Lwt.return_unit)
           |> Lwt.ignore_result;
           true)
       |> ignore;
@@ -63,11 +67,12 @@ class t ~(left_node:node_entry)
         ~(f_rp:unit -> point)
         ~port_setter
         () =
-  let _class       = "topology__path" in
-  let active_class = Markup.CSS.add_modifier _class "active" in
-  let muted_class  = Markup.CSS.add_modifier _class "muted"  in
-  let sync_class   = Markup.CSS.add_modifier _class "sync"   in
-  let switch       = match right_point with
+  let _class        = "topology__path" in
+  let active_class  = Markup.CSS.add_modifier _class "active"  in
+  let muted_class   = Markup.CSS.add_modifier _class "muted"   in
+  let sync_class    = Markup.CSS.add_modifier _class "sync"    in
+  let no_sync_class = Markup.CSS.add_modifier _class "no-sync" in
+  let switch = match right_point with
     | `Iface _ -> None
     | `Port p  ->
        if not p.switchable then None
@@ -93,14 +98,22 @@ class t ~(left_node:node_entry)
          self#add_class muted_class;
          self#remove_class active_class;
          self#remove_class sync_class;
+         self#remove_class no_sync_class;
       | `Active ->
          self#add_class active_class;
          self#remove_class muted_class;
          self#remove_class sync_class;
+         self#remove_class no_sync_class;
       | `Sync ->
          self#add_class sync_class;
          self#remove_class active_class;
          self#remove_class muted_class;
+         self#remove_class no_sync_class;
+      | `Sync_lost ->
+         self#add_class no_sync_class;
+         self#remove_class active_class;
+         self#remove_class muted_class;
+         self#remove_class sync_class
 
     method layout () =
       let left   = f_lp () in
@@ -124,14 +137,14 @@ class t ~(left_node:node_entry)
         else
           if right.x - left.x < 80
           then
-            Printf.sprintf "M %d %d C %d %d %d %d %d %d C %d %d %d %d %d %d"
+            self#_make_straight_path
               left.x left.y
               left.x left.y (left.x + width/2) left.y
               (left.x + width/2) (top - height/2)
               (left.x + width/2) (top - height/2)
               (left.x + width/2) right.y right.x right.y
           else
-            Printf.sprintf "M %d %d L %d %d C %d %d %d %d %d %d C %d %d %d %d %d %d"
+            self#_make_curved_path
               left.x left.y
               (right.x - 80) left.y
               (right.x - 80) left.y (right.x - 40) left.y
@@ -139,6 +152,12 @@ class t ~(left_node:node_entry)
               (right.x - 40) (top - height/2)
               (right.x - 40) (right.y) right.x right.y in
       self#set_attribute "d" path
+
+    method private _make_straight_path =
+      Printf.sprintf "M %d %d C %d %d %d %d %d %d C %d %d %d %d %d %d"
+
+    method private _make_curved_path =
+      Printf.sprintf "M %d %d L %d %d C %d %d %d %d %d %d C %d %d %d %d %d %d"
 
     initializer
       self#add_class _class;
