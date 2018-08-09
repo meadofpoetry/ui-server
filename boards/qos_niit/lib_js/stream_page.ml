@@ -4,12 +4,43 @@ open Api_js.Requests
 open Lwt_result.Infix
 open Common
 
+let get_pids ~id control =
+  Requests.Streams.HTTP.get_pids ~id ~limit:1 control
+  >>= (function
+       | Raw s ->
+          (match List.head_opt s.data with
+           | Some (_, pids) -> pids.pids
+           | None -> [])
+          |> Lwt_result.return
+       | _     -> Lwt.fail_with "got compressed")
+  |> Lwt_result.map_err Api_js.Requests.err_to_string
+
+let get_services ~id control =
+  Requests.Streams.HTTP.get_services ~id ~limit:1 control
+  >>= (function
+       | Raw s ->
+          (match List.head_opt s.data with
+           | Some (_, services) -> services.services
+           | None -> [])
+          |> Lwt_result.return
+       | _     -> Lwt.fail_with "got compressed")
+  |> Lwt_result.map_err Api_js.Requests.err_to_string
+
 let dummy_tab = fun () ->
   let div = Dom_html.createDiv Dom_html.document in
   Widget.create div
 
 let services (stream:Stream.t) control =
-  let overview = Widget_services_overview.make ~config:{ stream } control in
+  let id = match stream.id with
+    | `Ts id -> id
+    | `Ip _  -> failwith "UDP" in
+  let e_br, br_sock = Requests.Streams.WS.get_bitrate ~id control in
+  let overview =
+    get_pids ~id control
+    >>= (fun pids -> get_services ~id control >|= fun x -> x, pids)
+    >|= (fun (svs, pids) -> Widget_services_overview.make svs pids e_br)
+    >|= Widget.coerce
+    |> Ui_templates.Loader.create_widget_loader in
   let box =
     let open Layout_grid in
     let open Typography in
@@ -25,27 +56,18 @@ let pids (stream:Stream.t) control =
   let id = match stream.id with
     | `Ts id -> id
     | _      -> failwith "bad id" in
-  let init =
-    Requests.Streams.HTTP.get_pids ~id ~limit:1 control
-    >>= (function
-         | Raw s ->
-            (match List.head_opt s.data with
-             | Some (_, pids) -> pids.pids
-             | None -> [])
-            |> Lwt_result.return
-         | _     -> Lwt.fail_with "got compressed")
-    |> Lwt_result.map_err Api_js.Requests.err_to_string in
   let bitrate, sock = Requests.Streams.WS.get_bitrate ~id control in
+  let init = get_pids ~id control in
   let summary =
     Widget_pids_summary.make
       ~config:{ stream }
       init bitrate
       control in
   let overview =
-    Widget_pids_overview.make
-      ~config:{ stream }
-      init bitrate
-      control in
+    init
+    >|= Widget_pids_overview.make
+    >|= Widget.coerce
+    |> Ui_templates.Loader.create_widget_loader in
   let box =
     let open Layout_grid in
     let open Typography in

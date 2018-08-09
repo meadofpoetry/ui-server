@@ -212,7 +212,8 @@ let make_tree (x:parsed) =
     | Int i       -> string_of_int i
     | Int32 i     -> Int32.to_string i
     | Int64 i     -> Int64.to_string i
-    | Time t      -> Format.asprintf "%a" (Time.pp_human ()) t
+    | Time t      -> let tz_offset_s = Ptime_clock.current_tz_offset_s () in
+                     Format.asprintf "%a" (Time.pp_human ?tz_offset_s ()) t
     | Duration d  ->
        let w, d, h, m, s = Time.Relative.split_units d in
        List.filter_map (fun v ->

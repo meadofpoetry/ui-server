@@ -46,8 +46,7 @@ let update_row row total br pid =
    | Some v -> if br >. v then max#set_value (Some br));
   br, pct
 
-let make_table (init:pid_info list)
-      (bitrate:bitrate React.event) =
+class t (init:pid_info list) () =
   (* FIXME should remember preffered state *)
   let is_hex  = false in
   let dec_pid_fmt = Table.(Int None) in
@@ -80,9 +79,6 @@ let make_table (init:pid_info list)
   let hex     = new Form_field.t ~input:switch ~label:"HEX IDs" () in
   let actions = new Card.Actions.t ~widgets:[ hex#widget ] () in
   let media   = new Card.Media.t ~widgets:[ table ] () in
-  let card    = new Card.t ~widgets:[ actions#widget
-                                    ; (new Divider.t ())#widget
-                                    ; media#widget ] () in
   let add_row (pid:pid_info) =
     let pid_type = match pid.pid_type with
       | SEC l   ->
@@ -100,35 +96,31 @@ let make_table (init:pid_info list)
     table#add_row (
         pid.pid :: pid_type :: extra :: pid.service
         :: None :: None :: None :: None :: []) in
-  List.iter Fun.(ignore % add_row) init;
-  let _ =
-    React.E.map (fun (bitrate:bitrate) ->
-        List.fold_left (fun rows (pid, br) ->
-            let open Table in
-            match List.find_opt (fun (row:'a Row.t) ->
-                      let cell = match row#cells with a :: _ -> a in
-                      cell#value = pid) rows with
-            | Some x ->
-               update_row x bitrate.total br pid |> ignore;
-               List.remove ~eq:Equal.physical ~x rows
-            | None   -> rows) table#rows bitrate.pids
-        |> ignore;
-        bitrate) bitrate in
-  let () = card#add_class base_class in
-  card
+  let set_rate = function
+    | None -> () (* FIXME do smth *)
+    | Some (total, (rate:(int * int) list)) ->
+       List.fold_left (fun rows (pid, br) ->
+           let open Table in
+           match List.find_opt (fun (row:'a Row.t) ->
+                     let cell = match row#cells with a :: _ -> a in
+                     cell#value = pid) rows with
+           | Some x ->
+              update_row x total br pid |> ignore;
+              List.remove ~eq:Equal.physical ~x rows
+           | None   -> rows) table#rows rate
+       |> ignore in
+  object(self)
+    inherit Card.t ~widgets:[ actions#widget
+                            ; (new Divider.t ())#widget
+                            ; media#widget ] ()
+    method set_rate  = set_rate
+    method table     = table
+    method switch    = hex
+    method set_hex x = on_change x
+    initializer
+      List.iter Fun.(ignore % add_row) init;
+      self#add_class base_class
+  end
 
-let make ~(config:config)
-      (init:(pid_info list, string) Lwt_result.t)
-      (bitrate:bitrate React.event)
-      control =
-  (* let id = match config.stream.id with
-   *   | `Ts id -> id
-   *   | `Ip _  -> failwith "UDP" in *)
-  let loader =
-    init
-    >|= (fun init -> make_table init bitrate)
-    >|= Widget.coerce
-    |> Ui_templates.Loader.create_widget_loader
-  in loader
-
+let make (init:pid_info list) = new t init ()
 

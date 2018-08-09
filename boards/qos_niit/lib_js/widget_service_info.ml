@@ -5,29 +5,7 @@ open Board_types.Streams.TS
 
 let base_class = "qos-niit-service-info"
 
-let get_service_bitrate
-      (br:(int * int) list)
-      (s:service_info) =
-  let ecm =
-    List.fold_left (fun acc (x:ecm_info) ->
-        match List.Assoc.get ~eq:(=) x.pid br with
-        | None   -> acc
-        | Some x -> x + acc) 0 s.ecm in
-  let es  =
-    List.fold_left (fun acc (x:es_info) ->
-        match List.Assoc.get ~eq:(=) x.pid br with
-        | None   -> acc
-        | Some x -> x + acc) 0 s.es in
-  let pmt =
-    Option.get_or ~default:0
-    @@ List.Assoc.get ~eq:(=) s.pmt_pid br in
-  ecm + es + pmt
-
-let map_bitrate (info:service_info) (bitrate:bitrate) =
-  let br  = get_service_bitrate bitrate.pids info in
-  let pct = Float.(100. * (of_int br / of_int bitrate.total)) in
-  let br  = Float.(of_int br / 1_000_000.) in
-  br, pct
+let sum_bitrate = List.fold_left (fun acc (_, x) -> acc + x) 0
 
 let make_list_title title =
   let text = new Typography.Text.t ~text:title () in
@@ -49,7 +27,8 @@ let make_general_info () =
     let meta = new Typography.Text.t ~text:"" () in
     let item = new Item.t ~text:title ~value:() ~meta () in
     item, function
-    | Some x -> let s = Printf.sprintf "%.2f Мбит/с" x in
+    | Some x -> let x = Float.(of_int x /. 1_000_000.) in
+                let s = Printf.sprintf "%.2f Мбит/с" x in
                 meta#set_text s
     | None   -> meta#set_text "-" in
   let id,   set_id   = make_item "Service ID" in
@@ -150,44 +129,92 @@ let make_description () =
   let ()  = box#append_child (make_list_title "Информация из SDT") in
   let ()  = box#append_child sdt in
   let ()  = box#add_class _class in
-  let set = fun (x:service_info) ->
-    set_main x;
+  let set = fun ?hex (x:service_info) ->
+    set_main ?hex x;
     set_sdt x in
   box, set, set_rate, set_min, set_max
 
-let make_pids () =
-  (* FIXME implement *)
-  Widget.create_div ()
+let make_pids
+      (service:service_info)
+      (init:pid_info list) =
+  let service_pids =
+    let es = List.map (fun (es:es_info) -> es.pid) service.es in
+    let ecm = List.map (fun (ecm:ecm_info) -> ecm.pid) service.ecm in
+    let pmt = if service.has_pmt then Some service.pmt_pid else None in
+    List.cons_maybe pmt (es @ ecm)
+    |> List.sort_uniq ~cmp:compare in
+  let init   =
+    List.filter (fun (x:pid_info) -> List.mem ~eq:(=) x.pid service_pids)
+      init in
+  let _class = Markup.CSS.add_element base_class "pids" in
+  let pids   = Widget_pids_overview.make init in
+  pids#table#add_class _class;
+  pids
 
-class t (init:service_info) () =
+class t ?rate ?min ?max
+        (init:service_info)
+        (pids:pid_info list)
+        () =
   let info, set_info, set_rate, set_min, set_max = make_description () in
-  let pids = make_pids () in
+  let pids = make_pids init pids in
   let tabs =
     let info_icon =
       Icon.SVG.(create_simple Path.file_document_box_outline) in
     let list_icon =
       Icon.SVG.(create_simple Path.view_list) in
     [ new Tab.t ~content:(Both ("Описание", info_icon)) ~value:info ()
-    ; new Tab.t ~content:(Both ("PIDs", list_icon)) ~value:pids () ] in
+    ; new Tab.t ~content:(Both ("PIDs", list_icon)) ~value:pids#table#widget () ] in
   let div    = Widget.create_div () in
   let bar, _ = Ui_templates.Tabs.create_simple ~body:div tabs in
   object(self)
     inherit Vbox.t ~widgets:[ bar#widget
                             ; (new Divider.t ())#widget
                             ; div ] ()
+    val mutable _hex  = false (* FIXME init value *)
     val mutable _info = init
+    val mutable _min  = Option.map sum_bitrate min
+    val mutable _max  = Option.map sum_bitrate max
 
     method info = _info
-    method set_info x = _info <- x; set_info x
-    method set_rate x = set_rate x
-    method set_min  x = set_min x
-    method set_max  x = set_max x
+    method set_hex x =
+      _hex <- x;
+      set_info ~hex:x _info;
+      pids#set_hex x
+    method set_info x =
+      _info <- x; set_info ~hex:_hex x
+    method set_rate (rate:(int * int) list option) =
+      let sum = match rate with
+        | None   -> None
+        | Some x -> Some (sum_bitrate x) in
+      pids#set_rate @@ Option.map2 Pair.make sum rate;
+      self#_set_max sum;
+      self#_set_min sum;
+      set_rate sum
+
+    (* Private methods *)
+
+    method private _set_min x =
+      let eq = match _min, x with
+        | None, None     -> true
+        | None, Some _   -> false
+        | Some p, Some c -> p <= c
+        | Some _, None   -> false in
+      if not eq then (_min <- x; set_min x)
+
+    method private _set_max x =
+      let eq = match _max, x with
+        | None, None     -> true
+        | None, Some _   -> false
+        | Some p, Some c -> p >= c
+        | Some _, None   -> false in
+      if not eq then (_max <- x; set_max x)
 
     initializer
-      self#set_info self#info;
-      self#set_rate None;
-      self#set_min  None;
-      self#set_max  None
+      set_info _info;
+      set_rate @@ Option.map sum_bitrate rate;
+      set_min _min;
+      set_max _max;
   end
 
-let make (init:service_info) = new t init ()
+let make ?rate ?min ?max (init:service_info) (pids:pid_info list) =
+  new t ?rate ?min ?max init pids ()

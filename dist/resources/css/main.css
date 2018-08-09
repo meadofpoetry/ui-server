@@ -862,6 +862,9 @@
 .qos-niit-tables__section-item {
   cursor: pointer; }
 
+.qos-niit-table-overview .mdc-data-table tbody .mdc-data-table__row {
+  cursor: pointer; }
+
 /* Table overview widget, Services overview widget */
 .qos-niit-table-overview__back, .qos-niit-services-overview__back {
   cursor: pointer; }
@@ -885,10 +888,16 @@
   letter-spacing: 0.0333333333em;
   text-decoration: inherit;
   text-transform: inherit; }
-.qos-niit-table-overview .mdc-data-table tbody .mdc-data-table__row, .qos-niit-services-overview .mdc-data-table tbody .mdc-data-table__row {
-  cursor: pointer; }
 
 /* Service info widget */
+.qos-niit-service-info__pids .mdc-data-table__row {
+  cursor: auto !important; }
+.qos-niit-service-info__pids .mdc-data-table__cell .mdc-icon {
+  fill: rgba(0, 0, 0, 0.38);
+  /* @alternate */
+  fill: var(--mdc-theme-text-icon-on-surface, rgba(0, 0, 0, 0.38)); }
+.qos-niit-service-info__pids th:nth-of-type(4), .qos-niit-service-info__pids td:nth-of-type(4) {
+  display: none; }
 .qos-niit-service-info__description {
   padding: 1rem;
   display: flex;
@@ -909,6 +918,9 @@
     color: var(--mdc-theme-text-primary-on-surface, rgba(0, 0, 0, 0.87)); }
 
 /* Services overview widget */
+.qos-niit-services-overview .mdc-data-table tbody .mdc-data-table__row {
+  cursor: pointer; }
+
 /* Pids summary widget */
 .qos-niit-pids-summary {
   padding: 1rem; }

@@ -92,8 +92,8 @@ object(self)
     | Pids_summary config ->
        Widget_pids_summary.make ~config (Lwt.fail_with "") React.E.never control
        |> Dashboard.Item.to_item ~name:""
-    | Pids_overview config ->
-       Widget_pids_overview.make ~config (Lwt.fail_with "") React.E.never control
+    | Pids_overview _ ->
+       Widget_pids_overview.make []
        |> Dashboard.Item.to_item ~name:""
     | Settings conf ->
        (fun state t2mi_mode jitter_mode streams->

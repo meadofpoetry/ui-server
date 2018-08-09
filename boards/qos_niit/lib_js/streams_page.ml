@@ -5,6 +5,8 @@ open Lwt_result
 open Api_js.Api_types
 open Board_types.Streams.TS
 
+(* TODO refactor cell management. quite dirty now *)
+
 type time = [ `Now | `Last of Time.t ]
 
 let compare_time (x:time) (y:time) = match x, y with
@@ -153,8 +155,16 @@ module Stream_grid = struct
             ~widgets:[w] () in
         _streams <- w :: _streams;
         match time with
-        | `Now    -> grid#append_cell cell
-        | `Last _ -> archive_grid#append_cell cell
+        | `Now    ->
+           if List.is_empty self#cells
+           then (self#insert_child_at_idx 0 title;
+                 self#insert_child_at_idx 1 grid);
+           grid#append_cell cell;
+        | `Last _ ->
+           if List.is_empty self#cells
+           then (self#insert_child_at_idx 2 archive_title;
+                 self#insert_child_at_idx 3 archive_grid);
+           archive_grid#append_cell cell
 
       method private _check_and_rm_current () =
         if List.is_empty grid#cells

@@ -159,12 +159,16 @@ module Streams = struct
       { pid          : int
       ; has_pts      : bool
       ; has_pcr      : bool
+      ; scrambled    : bool
+      ; present      : bool
       ; es_type      : int
       ; es_stream_id : int
       } [@@deriving yojson, eq]
 
     type ecm_info =
       { pid       : int
+      ; scrambled : bool
+      ; present   : bool
       ; ca_sys_id : int
       } [@@deriving yojson, eq]
 
