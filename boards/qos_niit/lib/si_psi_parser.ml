@@ -4,8 +4,8 @@ open Board_types.Streams.TS
 let value_to_string name x = Printf.sprintf "%s (%d)" name x
 let rfu_to_string          = value_to_string "Reserved"
 
-let to_node ~offset length name value =
-  { offset; length; name; value }
+let to_node ?parsed ~offset length name value =
+  { offset; length; name; value = value, parsed }
 
 let parse_date (days:int) : Ptime.date option =
   let date = Option.get_exn @@ Ptime.of_date @@ (1858, 11, 17) in
@@ -949,11 +949,11 @@ module Table_common = struct
        ; reserved_1     : 2  : save_offset_to (off_3)
        ; section_length : 12 : save_offset_to (off_4)
        |} ->
-       [ to_node ~offset:0     8  "table_id"        (Val_hex table_id)
-       ; to_node ~offset:off_1 1  "section_syntax_indicator" (Flag ssi)
-       ; to_node ~offset:off_2 1  "'0'"             (Flag rfu)
-       ; to_node ~offset:off_3 2  "reserved"        (Val_hex reserved_1)
-       ; to_node ~offset:off_4 12 "section_length"  (Int section_length)
+       [ to_node ~offset:0     8  "table_id"        (Hex (Int table_id))
+       ; to_node ~offset:off_1 1  "section_syntax_indicator" (Bits (Bool ssi))
+       ; to_node ~offset:off_2 1  "'0'"             (Bits (Bool rfu))
+       ; to_node ~offset:off_3 2  "reserved"        (Hex (Int reserved_1))
+       ; to_node ~offset:off_4 12 "section_length"  (Dec (Int section_length))
        ]
 
   let rec parse_descriptors = fun _ _ _ -> []
@@ -975,13 +975,12 @@ module Table_common = struct
          |} ->
          let descriptors = parse_descriptors off_4 [] descriptors in
          let nodes =
-           [ to_node ~offset:off           16 "transport_stream_id" (Int ts_id)
-           ; to_node ~offset:(off_1 + off) 16 "original_network_id" (Int on_id)
-           ; to_node ~offset:(off_2 + off) 4  "reserved_future_use" (Int rfu)
-           ; to_node ~offset:(off_3 + off) 12 "transport_descriptors_length" (Int length)
+           [ to_node ~offset:off           16 "transport_stream_id" (Dec (Int ts_id))
+           ; to_node ~offset:(off_1 + off) 16 "original_network_id" (Dec (Int on_id))
+           ; to_node ~offset:(off_2 + off) 4  "reserved_future_use" (Bits (Int rfu))
+           ; to_node ~offset:(off_3 + off) 12 "transport_descriptors_length" (Dec (Int length))
            ; to_node ~offset:(off_4 + off) (length * 8) "descriptors" (List descriptors)
            ] in
-         (* FIXME *)
          let ts_name = Printf.sprintf "transport stream %d" ts_id in
          let node = to_node ~offset:off (parsed_length nodes) ts_name (List nodes) in
          parse_ts (off_5 + off) (node :: acc) rest
@@ -1006,9 +1005,9 @@ module PAT = struct
          ; rest     : -1 : save_offset_to (off_3), bitstring
          |} ->
          let nodes =
-           [ to_node ~offset:off 16 "program_number" (Val_hex id)
-           ; to_node ~offset:(off_1 + off) 3 "reserved" (Val_hex reserved)
-           ; to_node ~offset:(off_2 + off) 13 (to_name id) (Val_hex pid)
+           [ to_node ~offset:off 16 "program_number" (Hex (Int id))
+           ; to_node ~offset:(off_1 + off) 3 "reserved" (Bits (Int reserved))
+           ; to_node ~offset:(off_2 + off) 13 (to_name id) (Hex (Int pid))
            ] in
          let name = match id with
            | 0 -> "network"
@@ -1033,14 +1032,14 @@ module PAT = struct
        let progs  = parse_programs off_7 [] programs in
        let header = parse_header header in
        let nodes  =
-         [ to_node ~offset:off_1 16 "transport_stream_id" (Val_hex ts_id)
-         ; to_node ~offset:off_2 2 "reserved" (Val_hex reserved)
-         ; to_node ~offset:off_3 5 "version_number" (Int version_number)
-         ; to_node ~offset:off_4 1 "current_next_indicator" (Flag current_next_ind)
-         ; to_node ~offset:off_5 8 "section_number" (Int section_number)
-         ; to_node ~offset:off_6 8 "last_section_number" (Int last_section_num)
+         [ to_node ~offset:off_1 16 "transport_stream_id" (Hex (Int ts_id))
+         ; to_node ~offset:off_2 2 "reserved" (Bits (Int reserved))
+         ; to_node ~offset:off_3 5 "version_number" (Dec (Int version_number))
+         ; to_node ~offset:off_4 1 "current_next_indicator" (Bits (Bool current_next_ind))
+         ; to_node ~offset:off_5 8 "section_number" (Dec (Int section_number))
+         ; to_node ~offset:off_6 8 "last_section_number" (Dec (Int last_section_num))
          ; to_node ~offset:off_7 (progs_length off_6) "programs" (List progs)
-         ; to_node ~offset:off_8 32 "CRC_32" (Int32 crc32)
+         ; to_node ~offset:off_8 32 "CRC_32" (Dec (Uint32 crc32))
          ] in
        header @ nodes
 
@@ -1063,11 +1062,11 @@ module PMT = struct
           |} ->
           let dscrs = parse_descriptors off_6 [] descriptors in
           let nodes =
-            [ to_node ~offset:off           8 "stream_type" (Val_hex stream_type)
-            ; to_node ~offset:(off_1 + off) 3 "reserved" (Val_hex reserved_1)
-            ; to_node ~offset:(off_2 + off) 13 "elementary_PID" (Val_hex pid)
-            ; to_node ~offset:(off_3 + off) 4 "reserved" (Val_hex reserved_2)
-            ; to_node ~offset:(off_4 + off) 12 "ES_info_length" (Val_hex length)
+            [ to_node ~offset:off           8 "stream_type" (Hex (Int stream_type))
+            ; to_node ~offset:(off_1 + off) 3 "reserved" (Bits (Int reserved_1))
+            ; to_node ~offset:(off_2 + off) 13 "elementary_PID" (Hex (Int pid))
+            ; to_node ~offset:(off_3 + off) 4 "reserved" (Bits (Int reserved_2))
+            ; to_node ~offset:(off_4 + off) 12 "ES_info_length" (Hex (Int length))
             ; to_node ~offset:(off_5 + off) (length * 8) "descriptors" (List dscrs)
             ] in
           let stream_name = Printf.sprintf "stream %d" pid in
@@ -1097,19 +1096,19 @@ module PMT = struct
        let header  = parse_header header in
        let streams = parse_streams off_12 [] streams in
        let nodes   =
-         [ to_node ~offset:off_1 16 "program_number" (Int program_number)
-         ; to_node ~offset:off_2 2 "reserved" (Val_hex reserved_1)
-         ; to_node ~offset:off_3 5 "version_number" (Int version_number)
-         ; to_node ~offset:off_4 1 "current_next_indicator" (Flag current_next_ind)
-         ; to_node ~offset:off_5 8 "section_number" (Int section_number)
-         ; to_node ~offset:off_6 8 "last_section_number" (Int last_section_num)
-         ; to_node ~offset:off_7 3 "reserved" (Val_hex reserved_2)
-         ; to_node ~offset:off_8 13 "PCR_PID" (Val_hex pcr_pid)
-         ; to_node ~offset:off_9 4 "reserved" (Val_hex reserved_3)
-         ; to_node ~offset:off_10 12 "program_info_length" (Int length)
+         [ to_node ~offset:off_1 16 "program_number" (Dec (Int program_number))
+         ; to_node ~offset:off_2 2 "reserved" (Bits (Int reserved_1))
+         ; to_node ~offset:off_3 5 "version_number" (Dec (Int version_number))
+         ; to_node ~offset:off_4 1 "current_next_indicator" (Bits (Bool current_next_ind))
+         ; to_node ~offset:off_5 8 "section_number" (Dec (Int section_number))
+         ; to_node ~offset:off_6 8 "last_section_number" (Dec (Int last_section_num))
+         ; to_node ~offset:off_7 3 "reserved" (Bits (Int reserved_2))
+         ; to_node ~offset:off_8 13 "PCR_PID" (Bits (Int pcr_pid))
+         ; to_node ~offset:off_9 4 "reserved" (Bits (Int reserved_3))
+         ; to_node ~offset:off_10 12 "program_info_length" (Dec (Int length))
          ; to_node ~offset:off_11 (length * 8) "descriptors" (List dscrs)
          ; to_node ~offset:off_12 (streams_len length off_11) "streams" (List streams)
-         ; to_node ~offset:off_13 32 "CRC_32" (Int32 crc32)
+         ; to_node ~offset:off_13 32 "CRC_32" (Dec (Uint32 crc32))
          ]
        in
        header @ nodes
@@ -1137,13 +1136,13 @@ module CAT = struct
        let dscrs  = parse_descriptors off_6 [] descriptors in
        let header = parse_header header in
        let nodes  =
-         [ to_node ~offset:off_1 18 "reserved" (Val_hex reserved)
-         ; to_node ~offset:off_2 5 "version_number" (Int version_number)
-         ; to_node ~offset:off_3 1 "current_next_indicator" (Flag current_next_ind)
-         ; to_node ~offset:off_4 8 "section_number" (Int section_number)
-         ; to_node ~offset:off_5 8 "last_section_number" (Int last_section_number)
+         [ to_node ~offset:off_1 18 "reserved" (Bits (Int reserved))
+         ; to_node ~offset:off_2 5 "version_number" (Dec (Int version_number))
+         ; to_node ~offset:off_3 1 "current_next_indicator" (Bits (Bool current_next_ind))
+         ; to_node ~offset:off_4 8 "section_number" (Dec (Int section_number))
+         ; to_node ~offset:off_5 8 "last_section_number" (Dec (Int last_section_number))
          ; to_node ~offset:off_6 (dscrs_length off_5) "descriptors" (List dscrs)
-         ; to_node ~offset:off_7 32 "CRC_32" (Int32 crc32)
+         ; to_node ~offset:off_7 32 "CRC_32" (Dec (Uint32 crc32))
          ]
        in
        header @ nodes
@@ -1183,19 +1182,19 @@ module NIT = struct
        let dscrs  = parse_descriptors off_9 [] descriptors in
        let header = parse_header header in
        let nodes  =
-         [ to_node ~offset:off_1 16 "network_id" (Val_hex network_id)
-         ; to_node ~offset:off_2 2 "reserved" (Val_hex reserved)
-         ; to_node ~offset:off_3 5 "version_number" (Int version_number)
-         ; to_node ~offset:off_4 1 "current_next_indicator" (Flag current_next_ind)
-         ; to_node ~offset:off_5 8 "section_number" (Int section_number)
-         ; to_node ~offset:off_6 8 "last_section_number" (Int last_section_number)
-         ; to_node ~offset:off_7 4 "reserved_future_use" (Val_hex rfu_1)
-         ; to_node ~offset:off_8 12 "network_desc_length" (Val_hex nw_desc_length)
+         [ to_node ~offset:off_1 16 "network_id" (Hex (Int network_id))
+         ; to_node ~offset:off_2 2 "reserved" (Hex (Int reserved))
+         ; to_node ~offset:off_3 5 "version_number" (Dec (Int version_number))
+         ; to_node ~offset:off_4 1 "current_next_indicator" (Bits (Bool current_next_ind))
+         ; to_node ~offset:off_5 8 "section_number" (Dec (Int section_number))
+         ; to_node ~offset:off_6 8 "last_section_number" (Dec (Int last_section_number))
+         ; to_node ~offset:off_7 4 "reserved_future_use" (Hex (Int rfu_1))
+         ; to_node ~offset:off_8 12 "network_desc_length" (Hex (Int nw_desc_length))
          ; to_node ~offset:off_9 (nw_desc_length * 8) "descriptors" (List dscrs)
-         ; to_node ~offset:off_10 4 "reserved_future_use" (Val_hex rfu_2)
-         ; to_node ~offset:off_11 12 "transport_stream_loop_length" (Int ts_loop_len)
+         ; to_node ~offset:off_10 4 "reserved_future_use" (Hex (Int rfu_2))
+         ; to_node ~offset:off_11 12 "transport_stream_loop_length" (Dec (Int ts_loop_len))
          ; to_node ~offset:off_12 (ts_loop_len * 8) "transport_streams" (List ts)
-         ; to_node ~offset:off_13 32 "CRC_32" (Int32 crc32)
+         ; to_node ~offset:off_13 32 "CRC_32" (Dec (Uint32 crc32))
          ]
        in
        header @ nodes
@@ -1226,19 +1225,19 @@ module BAT = struct
        let dscrs  = parse_descriptors off_9 [] descriptors in
        let header = parse_header header in
        let nodes  =
-         [ to_node ~offset:off_1 16 "bouquet_id" (Val_hex bouquet_id)
-         ; to_node ~offset:off_2 2 "reserved" (Val_hex reserved)
-         ; to_node ~offset:off_3 5 "version_number" (Int version_number)
-         ; to_node ~offset:off_4 1 "current_next_indicator" (Flag current_next_ind)
-         ; to_node ~offset:off_5 8 "section_number" (Int section_number)
-         ; to_node ~offset:off_6 8 "last_section_number" (Int last_section_num)
-         ; to_node ~offset:off_7 4 "reserved_future_use" (Val_hex rfu_1)
-         ; to_node ~offset:off_8 12 "bouquet_descriptors_length" (Int desc_len)
+         [ to_node ~offset:off_1 16 "bouquet_id" (Hex (Int bouquet_id))
+         ; to_node ~offset:off_2 2 "reserved" (Bits (Int reserved))
+         ; to_node ~offset:off_3 5 "version_number" (Dec (Int version_number))
+         ; to_node ~offset:off_4 1 "current_next_indicator" (Bits (Bool current_next_ind))
+         ; to_node ~offset:off_5 8 "section_number" (Dec (Int section_number))
+         ; to_node ~offset:off_6 8 "last_section_number" (Dec (Int last_section_num))
+         ; to_node ~offset:off_7 4 "reserved_future_use" (Bits (Int rfu_1))
+         ; to_node ~offset:off_8 12 "bouquet_descriptors_length" (Dec (Int desc_len))
          ; to_node ~offset:off_9 (desc_len * 8) "descriptors" (List dscrs)
-         ; to_node ~offset:off_10 4 "reserved_future_use" (Val_hex rfu_2)
-         ; to_node ~offset:off_11 12 "transport_stream_loop_length" (Int ts_len)
+         ; to_node ~offset:off_10 4 "reserved_future_use" (Bits (Int rfu_2))
+         ; to_node ~offset:off_11 12 "transport_stream_loop_length" (Dec (Int ts_len))
          ; to_node ~offset:off_12 (ts_len * 8) "transport_streams" (List ts)
-         ; to_node ~offset:off_13 32 "CRC_32" (Int32 crc32)
+         ; to_node ~offset:off_13 32 "CRC_32" (Dec (Uint32 crc32))
          ]
        in
        header @ nodes
@@ -1263,18 +1262,27 @@ module SDT = struct
           |} ->
           let dscrs = parse_descriptors off_7 [] descriptors in
           let nodes =
-            [ to_node ~offset:off            16 "service_id" (Val_hex service_id)
-            ; to_node ~offset:(off_1 + off)  6  "reserved_fuure_use" (Val_hex rfu)
-            ; to_node ~offset:(off_2 + off)  1  "EIT_schedule_flag" (Flag schedule_flag)
-            ; to_node ~offset:(off_3 + off)  1  "EIT_present_following_flag" (Flag present_flag)
-            ; to_node ~offset:(off_4 + off)  3  "runnning_status" (Val_hex running_status)
-            ; to_node ~offset:(off_5 + off)  1  "free_CA_mode" (Flag free_ca_mode)
-            ; to_node ~offset:(off_6 + off)  12 "descriptors_loop_length" (Val_hex length)
+            [ to_node ~offset:off            16 "service_id" (Hex (Int service_id))
+            ; to_node ~offset:(off_1 + off)  6  "reserved_fuure_use" (Bits (Int rfu))
+            ; to_node ~offset:(off_2 + off)  1  "EIT_schedule_flag" (Bits (Bool schedule_flag))
+            ; to_node ~offset:(off_3 + off)  1  "EIT_present_following_flag" (Bits (Bool present_flag))
+            ; to_node ~offset:(off_4 + off)  3  "runnning_status" (Hex (Int running_status))
+            ; to_node ~offset:(off_5 + off)  1  "free_CA_mode" (Bits (Bool free_ca_mode))
+            ; to_node ~offset:(off_6 + off)  12 "descriptors_loop_length" (Hex (Int length))
             ; to_node ~offset:(off_7 + off) (length * 8) "descriptors" (List dscrs)
             ]
           in
+          let status = match running_status with
+            | 0 -> "undefined"
+            | 1 -> "not running"
+            | 2 -> "starts in a few seconds"
+            | 3 -> "pausing"
+            | 4 -> "running"
+            | 5 -> "service off-air"
+            | 6 | 7 -> "reserved for future use"
+            | _ -> "status error" in
           let service_name = Printf.sprintf "service %d" service_id in
-          let node = to_node ~offset:off (parsed_length nodes) service_name (List nodes) in
+          let node = to_node ?parsed:(Some status) ~offset:off (parsed_length nodes) service_name (List nodes) in
           parse_services (off_8 + off) (node :: acc) rest)
 
   let parse buf =
@@ -1296,16 +1304,16 @@ module SDT = struct
        let services = parse_services off_9 [] services in
        let header   = parse_header header in
        let nodes =
-         [ to_node ~offset:off_1 16 "transport_stream_id" (Val_hex ts_id)
-         ; to_node ~offset:off_2 2 "reserved" (Val_hex reserved)
-         ; to_node ~offset:off_3 5 "version_number" (Int version_number)
-         ; to_node ~offset:off_4 1 "current_next_indicator" (Flag current_next_ind)
-         ; to_node ~offset:off_5 8 "section_number" (Int section_number)
-         ; to_node ~offset:off_6 8 "last_section_number" (Int last_section_num)
-         ; to_node ~offset:off_7 16 "original_network_id" (Val_hex on_id)
-         ; to_node ~offset:off_8 8 "reserved_future_use" (Val_hex rfu)
+         [ to_node ~offset:off_1 16 "transport_stream_id" (Hex (Int ts_id))
+         ; to_node ~offset:off_2 2 "reserved" (Hex (Int reserved))
+         ; to_node ~offset:off_3 5 "version_number" (Dec (Int version_number))
+         ; to_node ~offset:off_4 1 "current_next_indicator" (Bits (Bool current_next_ind))
+         ; to_node ~offset:off_5 8 "section_number" (Dec (Int section_number))
+         ; to_node ~offset:off_6 8 "last_section_number" (Dec (Int last_section_num))
+         ; to_node ~offset:off_7 16 "original_network_id" (Hex (Int on_id))
+         ; to_node ~offset:off_8 8 "reserved_future_use" (Hex (Int rfu))
          ; to_node ~offset:off_9 (services_length off_8) "services" (List services)
-         ; to_node ~offset:off_10 32 "CRC_32" (Int32 crc32)
+         ; to_node ~offset:off_10 32 "CRC_32" (Dec (Uint32 crc32))
          ]
        in
        header @ nodes
@@ -1332,12 +1340,12 @@ module EIT = struct
           let time = match parse_timestamp start_time with
             | Some x -> Time x
             | None   -> match%bitstring start_time with
-                        | {| i : 40 |} -> Int64 i in
+                        | {| i : 40 |} -> Dec (Uint64  i) in
           let dur  = match parse_duration duration with
             | Some x -> Duration x
             | None   -> match%bitstring duration with
-                        | {| i : 24 |} -> Int i in
-          let running_status = match running_status with
+                        | {| i : 24 |} -> Dec (Uint i) in
+          let status = match running_status with
             | 0 -> "undefined"
             | 1 -> "not running"
             | 2 -> "starts in a few seconds"
@@ -1345,20 +1353,19 @@ module EIT = struct
             | 4 -> "running"
             | 5 -> "service off-air"
             | 6 | 7 -> "reserved for future use"
-            | _ -> "status error"
-          in
+            | _ -> "status error" in
           let nodes =
-            [ to_node ~offset:off           16 "event_id" (Val_hex event_id)
+            [ to_node ~offset:off           16 "event_id" (Hex (Int event_id))
             ; to_node ~offset:(off_1 + off) 40 "start_time" time
             ; to_node ~offset:(off_2 + off) 24 "duration" dur
-            ; to_node ~offset:(off_3 + off) 3  "running_status" (String running_status)
-            ; to_node ~offset:(off_4 + off) 1  "free_CA_mode" (Flag free_ca_mode)
-            ; to_node ~offset:(off_5 + off) 12 "decriptors_loop_length" (Int length)
+            ; to_node ~offset:(off_3 + off) 3  "running_status" (Dec (Int running_status))
+            ; to_node ~offset:(off_4 + off) 1  "free_CA_mode" (Bits (Bool free_ca_mode))
+            ; to_node ~offset:(off_5 + off) 12 "decriptors_loop_length" (Dec (Int length))
             ; to_node ~offset:(off_6 + off) (length * 8) "descriptors" (List dscrs)
             ]
           in
           let event_name = Printf.sprintf "event %d" event_id in
-          let node = to_node ~offset:off (parsed_length nodes) event_name (List nodes) in
+          let node = to_node ?parsed:(Some status) ~offset:off (parsed_length nodes) event_name (List nodes) in
           parse_events (off_7 + off) (node :: acc) rest)
 
   let parse buf =
@@ -1382,18 +1389,18 @@ module EIT = struct
        let events = parse_events off_11 [] events in
        let header = parse_header header in
        let nodes =
-         [ to_node ~offset:off_1 16 "service_id" (Val_hex service_id)
-         ; to_node ~offset:off_2 2 "reserved" (Val_hex reserved)
-         ; to_node ~offset:off_3 5 "version_number" (Int version_number)
-         ; to_node ~offset:off_4 1 "current_next_indicator" (Flag current_next_ind)
-         ; to_node ~offset:off_5 8 "section_number" (Int section_number)
-         ; to_node ~offset:off_6 8 "last_section_number" (Int last_section_num)
-         ; to_node ~offset:off_7 16 "transport_stream_id" (Val_hex ts_id)
-         ; to_node ~offset:off_8 16 "original_network_id" (Val_hex on_id)
-         ; to_node ~offset:off_9 8 "segment_last_section_number" (Int seg_last_sec_num)
-         ; to_node ~offset:off_10 8 "last_table_id" (Val_hex last_table_id)
+         [ to_node ~offset:off_1 16 "service_id" (Hex (Int service_id))
+         ; to_node ~offset:off_2 2 "reserved" (Hex (Int reserved))
+         ; to_node ~offset:off_3 5 "version_number" (Dec (Int version_number))
+         ; to_node ~offset:off_4 1 "current_next_indicator" (Bits (Bool current_next_ind))
+         ; to_node ~offset:off_5 8 "section_number" (Dec (Int section_number))
+         ; to_node ~offset:off_6 8 "last_section_number" (Dec (Int last_section_num))
+         ; to_node ~offset:off_7 16 "transport_stream_id" (Hex (Int ts_id))
+         ; to_node ~offset:off_8 16 "original_network_id" (Hex (Int on_id))
+         ; to_node ~offset:off_9 8 "segment_last_section_number" (Dec (Int seg_last_sec_num))
+         ; to_node ~offset:off_10 8 "last_table_id" (Hex (Int last_table_id))
          ; to_node ~offset:off_11 (events_length off_10) "events" (List events)
-         ; to_node ~offset:off_12 32 "CRC_32" (Int32 crc32)
+         ; to_node ~offset:off_12 32 "CRC_32" (Dec (Uint32 crc32))
          ]
        in
        header @ nodes
@@ -1413,7 +1420,7 @@ module TDT = struct
        let utc_time = match parse_timestamp utc_time with
          | Some x -> Time x
          | None   -> match%bitstring utc_time with
-                     | {| i : 40 |} -> Int64 i in
+                     | {| i : 40 |} -> Dec (Uint64 i) in
        let node =
          [ to_node ~offset:off 40 "utc_time" utc_time
          ]
@@ -1442,13 +1449,13 @@ module TOT = struct
        let utc_time = match parse_timestamp utc_time with
          | Some x -> Time x
          | None   -> match%bitstring utc_time with
-                     | {| i : 40 |} -> Int64 i in
+                     | {| i : 40 |} -> Dec (Uint64 i) in
        let nodes  =
          [ to_node ~offset:off_1 40 "utc_time" utc_time
-         ; to_node ~offset:off_2 4  "reserved" (Val_hex reserved)
-         ; to_node ~offset:off_3 12 "descriptors_loop_length" (Val_hex length)
+         ; to_node ~offset:off_2 4  "reserved" (Hex (Int reserved))
+         ; to_node ~offset:off_3 12 "descriptors_loop_length" (Hex (Int length))
          ; to_node ~offset:off_4 (length * 8) "descriptors" (List dscrs)
-         ; to_node ~offset:off_5 32 "CRC_32" (Int32 crc32)
+         ; to_node ~offset:off_5 32 "CRC_32" (Dec (Uint32 crc32))
          ]
        in
        header @ nodes
@@ -1472,12 +1479,12 @@ module RST = struct
           ; rest       : -1 : save_offset_to (off_6), bitstring
           |} ->
           let nodes =
-            [ to_node ~offset:off           16 "transport_stream_id" (Val_hex ts_id)
-            ; to_node ~offset:(off_1 + off) 16 "original_network_id" (Val_hex on_id)
-            ; to_node ~offset:(off_2 + off) 16 "service_id" (Val_hex service_id)
-            ; to_node ~offset:(off_3 + off) 16 "event_id" (Val_hex event_id)
-            ; to_node ~offset:(off_4 + off)  5 "reserved_future_use" (Val_hex rfu)
-            ; to_node ~offset:(off_5 + off)  3 "running_status" (Val_hex status)
+            [ to_node ~offset:off           16 "transport_stream_id" (Hex (Int ts_id))
+            ; to_node ~offset:(off_1 + off) 16 "original_network_id" (Hex (Int on_id))
+            ; to_node ~offset:(off_2 + off) 16 "service_id" (Hex (Int service_id))
+            ; to_node ~offset:(off_3 + off) 16 "event_id" (Hex (Int event_id))
+            ; to_node ~offset:(off_4 + off)  5 "reserved_future_use" (Bits (Int rfu))
+            ; to_node ~offset:(off_5 + off)  3 "running_status" (Hex (Int status))
             ]
           in
           let event_name = Printf.sprintf "event %d" event_id in
@@ -1490,7 +1497,6 @@ module RST = struct
        | {| header : 24 : bitstring
           ; rest   : -1 : save_offset_to (off), bitstring
           |} ->
-          (* FIXME *)
           let header = parse_header header in
           header @ ( parse_events off [] rest)
 
@@ -1507,13 +1513,14 @@ module ST = struct
        | {| header : 24 : bitstring
           ; rest   : -1 : bitstring
           |} ->
-          (* FIXME *)
+          let char_list = string_of_bitstring rest |> String.to_list in
+          let int_list  = List.map (fun x -> Char.code x) char_list in
           let bytes =
             to_node
               ~offset:24
               (bitstring_length rest)
               "bytes"
-              (Bytes (string_of_bitstring rest))
+              (Bytes int_list)
           in
           let header = parse_header header in
           header @ [ bytes ]
@@ -1533,8 +1540,8 @@ module DIT = struct
        ; rest            : -1 : bitstring
        |} when Bitstring.bitstring_length rest = 0 ->
        let nodes =
-         [ to_node ~offset:off_1 1 "transition_flag" (Flag transition_flag)
-         ; to_node ~offset:off_2 7 "reserved_future_use" (Val_hex rfu)
+         [ to_node ~offset:off_1 1 "transition_flag" (Bits (Bool transition_flag))
+         ; to_node ~offset:off_2 7 "reserved_future_use" (Bits (Int rfu))
          ]
        in
        let header = parse_header header in
@@ -1560,10 +1567,10 @@ module SIT = struct
           |} ->
           let dscrs = parse_descriptors off_4 [] descriptors in
           let nodes =
-            [ to_node ~offset:off           16 "service_id" (Val_hex service_id)
-            ; to_node ~offset:(off_1 + off)  1 "reserved_future_use" (Flag dvb_rfu)
-            ; to_node ~offset:(off_2 + off)  3 "running_status" (Val_hex running_status)
-            ; to_node ~offset:(off_3 + off) 12 "service_loop_length" (Val_hex length)
+            [ to_node ~offset:off           16 "service_id" (Hex (Int service_id))
+            ; to_node ~offset:(off_1 + off)  1 "reserved_future_use" (Bits (Bool dvb_rfu))
+            ; to_node ~offset:(off_2 + off)  3 "running_status" (Dec (Int running_status))
+            ; to_node ~offset:(off_3 + off) 12 "service_loop_length" (Dec (Int length))
             ; to_node ~offset:(off_4 + off) (length * 8) "descriptors" (List dscrs) ]
           in
           let service_name = Printf.sprintf "event %d" service_id in
@@ -1591,17 +1598,17 @@ module SIT = struct
        let services = parse_services off_10 [] services in
        let dscrs = parse_descriptors off_9 [] descriptors in
        let nodes =
-         [ to_node ~offset:off_1 16 "dvb_rfu_1" (Val_hex dvb_rfu_1)
-         ; to_node ~offset:off_2 2  "ISO_reserved" (Int iso_reserved)
-         ; to_node ~offset:off_3 5  "version_number" (Val_hex version_number)
-         ; to_node ~offset:off_4 1  "current_next_indicator" (Flag current_next_ind)
-         ; to_node ~offset:off_5 8  "section_number" (Val_hex section_number)
-         ; to_node ~offset:off_6 8  "last_section_number" (Val_hex last_section_num)
-         ; to_node ~offset:off_7 4  "dvb_rfu_2" (Val_hex dvb_rfu_2)
-         ; to_node ~offset:off_8 12 "transmission_info_loop_length" (Val_hex length)
+         [ to_node ~offset:off_1 16 "dvb_rfu_1" (Bits (Int dvb_rfu_1))
+         ; to_node ~offset:off_2 2  "ISO_reserved" (Bits (Int iso_reserved))
+         ; to_node ~offset:off_3 5  "version_number" (Dec (Int version_number))
+         ; to_node ~offset:off_4 1  "current_next_indicator" (Bits (Bool current_next_ind))
+         ; to_node ~offset:off_5 8  "section_number" (Dec (Int section_number))
+         ; to_node ~offset:off_6 8  "last_section_number" (Dec (Int last_section_num))
+         ; to_node ~offset:off_7 4  "dvb_rfu_2" (Bits (Int dvb_rfu_2))
+         ; to_node ~offset:off_8 12 "transmission_info_loop_length" (Dec (Int length))
          ; to_node ~offset:off_9 (length * 8) "descriptors" (List dscrs)
          ; to_node ~offset:off_10 (services_length off_9 length) "services" (List services)
-         ; to_node ~offset:off_11 32 "CRC_32" (Int32 crc32)
+         ; to_node ~offset:off_11 32 "CRC_32" (Dec (Uint32 crc32))
          ]
        in
        let header = parse_header header in
