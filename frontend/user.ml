@@ -22,17 +22,17 @@ let make_card user =
     new Card.Primary.t ~widgets:[title] () in
   let old_form  =
     new Textfield.t
-      ~input_id:"user-ol-pass"
+      ~input_id:("user-ol-pass-" ^ to_string user)
       ~label:"Пароль"
       ~input_type:(Widget.Password (fun pass -> Ok ())) () in
   let new_form  =
     new Textfield.t
-      ~input_id:"user-new-pass"
+      ~input_id:("user-new-pass-" ^ to_string user)
       ~label:"Новый пароль"
       ~input_type:(Widget.Password (fun pass -> verify_pass pass)) () in
   let acc_form  =
     new Textfield.t
-      ~input_id:"user-repeat-pass"
+      ~input_id:("user-repeat-pass-" ^ to_string user)
       ~label:"Повторите пароль"
       ~input_type:(Widget.Password (fun pass ->
                        eq_pass (React.S.value new_form#s_input) pass)) () in

@@ -1,5 +1,5 @@
 BUILD   = dune
-CSS     = scss
+CSS     = scss --style compressed
 CSS_DIR = dist/resources/css
 
 home:
@@ -31,13 +31,13 @@ demo:
 	cp _build/default/frontend/demo.bc.js dist/resources/js/demo.js
 
 css-components:
-	$(CSS) $(CSS_DIR)/components/components.scss $(CSS_DIR)/components.css
+	$(CSS) $(CSS_DIR)/components/components.scss $(CSS_DIR)/components.min.css
 
 css-pages:
-	$(CSS) $(CSS_DIR)/main.scss $(CSS_DIR)/main.css
-	$(CSS) $(CSS_DIR)/pages/topology/topology.scss $(CSS_DIR)/topology.css
-	$(CSS) $(CSS_DIR)/pages/pipeline/pipeline.scss $(CSS_DIR)/pipeline.css
-	$(CSS) $(CSS_DIR)/pages/user/user.scss $(CSS_DIR)/user.css
+	$(CSS) $(CSS_DIR)/main.scss $(CSS_DIR)/main.min.css
+	$(CSS) $(CSS_DIR)/pages/topology/topology.scss $(CSS_DIR)/topology.min.css
+	$(CSS) $(CSS_DIR)/pages/pipeline/pipeline.scss $(CSS_DIR)/pipeline.min.css
+	$(CSS) $(CSS_DIR)/pages/user/user.scss $(CSS_DIR)/user.min.css
 
 css: css-components css-pages
 

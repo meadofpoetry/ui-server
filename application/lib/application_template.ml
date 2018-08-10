@@ -56,7 +56,7 @@ let create (app : Application.t) : upper ordered_item list user_table =
     { title        = Some "Конфигурация"
     ; pre_scripts  = []
     ; post_scripts = [ Src "js/topology.js" ]
-    ; stylesheets  = [ "/css/topology.css" ]
+    ; stylesheets  = [ "/css/topology.min.css" ]
     ; content      = []
     } in
   let demo_props =
