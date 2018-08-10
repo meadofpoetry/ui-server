@@ -8,7 +8,7 @@ let create () : upper ordered_item list user_table =
   let props = { title        = None
               ; pre_scripts  = []
               ; post_scripts = [ Src "/js/user.js" ]
-              ; stylesheets  = []
+              ; stylesheets  = [ "/css/user.css" ]
               ; content      = []
               } in
   let icon x =
