@@ -240,8 +240,8 @@ let make_tree (x:parsed) =
        let item = new Tree.Item.t ?meta ?nested ~value:hd ~text:hd.name () in
        aux (item :: acc) tl in
   let items = aux [] x in
-  let tree  = new Tree.t ~items () in
-  tree#widget
+  let tree  = new Tree.t ~dense:true ~items () in
+  tree
 
 let make_dump
       (stream:Stream.id)
@@ -268,7 +268,32 @@ let make_dump
              | Some { timestamp; section; parsed = Some x; _ } ->
                 parsed#set_empty ();
                 subtitle#set_text @@ fmt_time timestamp;
-                parsed#append_child (make_tree x);
+                let tree = make_tree x in
+                let rec get_items acc = function
+                  | [] -> acc
+                  | hd :: tl ->
+                     let acc = match hd#nested_tree with
+                       | None      ->
+                          (match hd#value.value with
+                           | List _ -> acc
+                           | _      -> hd :: acc)
+                       | Some tree -> get_items acc tree#items in
+                     get_items acc tl in
+                let items = get_items [] tree#items in
+                List.iter (fun (i:(node, _) Tree.Item.t) ->
+                    i#listen_lwt Widget.Event.click (fun _ _ ->
+                        let { offset; length; _ } = i#value in
+                        Printf.printf "off: %d, len: %d\n" offset length;
+                        let res       = offset mod 8 in
+                        let from      = offset / 8 in
+                        let len       = float_of_int @@ length + res in
+                        let len       = int_of_float @@ ceil @@ len /. 8. in
+                        let till      = from + (pred len) in
+                        Printf.printf "from: %d, till: %d\n" from till;
+                        hexdump#select_range from till;
+                        tree#set_active i;
+                        Lwt.return_unit) |> Lwt.ignore_result) items;
+                parsed#append_child tree;
                 set_hexdump @@ String.of_list @@ List.map Char.chr section
              | Some { timestamp; section; parsed = None; _ } ->
                 parsed#set_empty ();
@@ -304,7 +329,7 @@ let make_dump
            let () = button#set_disabled false in
            ()
         | _ -> ()) list#s_active
-    |> Lwt_react.S.keep in
+    |> Lwt_react.S.keep in (* FIXME *)
   let vsplit = new Vsplit.t parsed hexdump () in
   object(self)
     inherit Vbox.t ~widgets:[ header

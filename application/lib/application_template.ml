@@ -60,7 +60,7 @@ let create (app : Application.t) : upper ordered_item list user_table =
     ; content      = []
     } in
   let demo_props =
-    { title        = Some "Демо"
+    { title        = Some "UI Демо"
     ; pre_scripts  = [ Src "/js/moment.min.js"
                      ; Src "/js/Chart.min.js" ]
     ; post_scripts = [ Src "/js/demo.js" ]
@@ -81,7 +81,7 @@ let create (app : Application.t) : upper ordered_item list user_table =
               ; href  = Path.of_string "application"
               ; template = props }
     ; `Index 4,
-      Simple  { title = "Демо"
+      Simple  { title = "UI Демо"
               ; icon  = Some (make_icon Icon.SVG.Path.material_design)
               ; href  = Path.of_string "demo"
               ; template = demo_props }

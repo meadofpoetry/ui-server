@@ -35,16 +35,21 @@ and padding =
 
 let pad (p:padding) s = p.prefix ^ s ^ p.suffix
 
-let to_style ?(line_number={prefix="";suffix=""})
-      ?(hex ={prefix="" ;suffix=""})
-      ?(char={prefix="";suffix=""})
-      ?(empty_hex='.')
-      ?(empty_char=' ')
-      ?(non_printable_char='.')
+let to_style ?(line_number = { prefix = ""; suffix = "" })
+      ?(hex ={prefix = ""; suffix = "" })
+      ?(char={prefix = ""; suffix = "" })
+      ?(empty_hex = '.')
+      ?(empty_char = ' ')
+      ?(non_printable_char = '.')
       () =
   { line_number; hex; char; empty_hex; empty_char; non_printable_char }
 
-let to_config ?(style=to_style ()) ?(base=`Hex) ?(width=16) ?(grouping=1) ?(line_numbers=true) () =
+let to_config
+      ?(style=to_style ())
+      ?(base=`Hex)
+      ?(width=16)
+      ?(grouping=1)
+      ?(line_numbers=true) () =
   { style; base; width; grouping; line_numbers }
 
 let to_line_number i (config:config) =
@@ -57,9 +62,10 @@ let to_line_number i (config:config) =
 let to_hex_span ?value (config:config) =
   let empty = config.style.empty_hex in
   let udata_id, udata_val, s, _class = match value with
-    | None -> "hex-empty","true",
-              String.pad ~c:empty (get_padding config.base) (String.of_char empty),
-              Markup.Hex.empty_class
+    | None ->
+       "hex-empty","true",
+       String.pad ~c:empty (get_padding config.base) (String.of_char empty),
+       Markup.Hex.empty_class
     | Some (id,v) ->
        let s = (get_converter config.base) v
                |> String.pad ~c:'0' (get_padding config.base) in
@@ -71,17 +77,20 @@ let to_hex_span ?value (config:config) =
 
 let is_printable (c:char) : bool =
   match Char.code c with
-  | x when x > 31 && x < 255 -> true
+  | x when x > 31 && x < 128 -> true
   | _ -> false
 
 let to_char_span ?value (config:config) =
   let empty = config.style.empty_char in
   let udata_id, udata_val, s, _class = match value with
-    | Some (id,v) -> "char-id",string_of_int id,
-                     String.of_char (if is_printable v then v else config.style.non_printable_char),
-                     Markup.Char._class
-    | None        -> "char-empty", "true", String.pad ~c:empty 1 (String.of_char empty),
-                     Markup.Char.empty_class
+    | Some (id,v) ->
+       "char-id",string_of_int id,
+       String.of_char (if is_printable v then v
+                       else config.style.non_printable_char),
+       Markup.Char._class
+    | None ->
+       "char-empty", "true", String.pad ~c:empty 1 (String.of_char empty),
+       Markup.Char.empty_class
   in
   Tyxml.Html.(span ~a:[ a_class [_class]; a_user_data udata_id udata_val]
                 [pcdata s])
@@ -100,38 +109,42 @@ let make_data id (config:config) (data:char list) =
          let hex = if space cnt then hex ^ " " else hex in
          (succ cnt),hex
        in aux_empty cnt hex_acc (chr_acc ^ conv_chr ()) (pred x)
-    | _ -> Option.
-           get_or ~default:hex_acc (String.chop_suffix ~suf:" " hex_acc),chr_acc in
+    | _ -> Option.get_or
+             ~default:hex_acc
+             (String.chop_suffix ~suf:" " hex_acc),chr_acc in
   let rec aux id cnt hex_acc chr_acc = function
     | [] ->
-       let hex_acc,chr_acc = aux_empty cnt hex_acc chr_acc (config.width - cnt + 1)
-       in id,hex_acc,chr_acc
+       let hex_acc, chr_acc =
+         aux_empty cnt hex_acc chr_acc (config.width - cnt + 1)
+       in id, hex_acc, chr_acc
     | hd::tl ->
-       let cnt,hex_acc =
+       let cnt, hex_acc =
          let code = Char.code hd in
          let hex  = hex_acc ^ (conv_hex ~value:(id,code) ()) in
          let hex  = if space cnt then hex ^ " " else hex in
-         (succ cnt),hex
+         (succ cnt), hex
        in
        let chr_acc = chr_acc ^ (conv_chr ~value:(id,hd) ()) in
        aux (succ id) cnt hex_acc chr_acc tl in
-  let id,hex,chars = aux id 1 "" "" data in
+  let id, hex, chars = aux id 1 "" "" data in
   id,
-  (pad config.style.hex hex) ^ "\n",
+  (pad config.style.hex hex)    ^ "\n",
   (pad config.style.char chars) ^ "\n"
 
 class t ~(config:config) (data:string) () =
   let num_elt = Markup.create_block ()
-                |> Tyxml_js.To_dom.of_element |> Widget.create in
+                |> To_dom.of_element |> Widget.create in
   let hex_elt = Markup.create_block ()
-                |> Tyxml_js.To_dom.of_element |> Widget.create in
+                |> To_dom.of_element |> Widget.create in
   let chr_elt = Markup.create_block ()
-                |> Tyxml_js.To_dom.of_element |> Widget.create in
+                |> To_dom.of_element |> Widget.create in
   object(self)
     val mutable _selected : #Dom_html.element Js.t list = []
-    val mutable _config : config = config
-    val mutable _bytes : string = data
+    val mutable _config   : config = config
+    val mutable _bytes    : string = data
+
     inherit Hbox.t ~widgets:[num_elt; hex_elt; chr_elt] ()
+
     method hex_widget  = hex_elt
     method char_widget = chr_elt
     method num_widget  = num_elt
@@ -160,10 +173,10 @@ class t ~(config:config) (data:string) () =
     method set_bytes (bytes:string) =
       _bytes <- bytes;
       let rec aux acc bytes = match List.take_drop _config.width bytes with
-        | l,[] -> List.rev (l :: acc)
-        | l,r  -> aux (l :: acc) r in
+        | l, [] -> List.rev (l :: acc)
+        | l, r  -> aux (l :: acc) r in
       let bytes = aux [] (String.to_list bytes) in
-      let _,num,hex,chr =
+      let _, num, hex, chr =
         List.fold_left (fun (id, num, hex, chr) (x:char list) ->
             let num'           = to_line_number (id / _config.width) _config in
             let id, hex', chr' = make_data id _config x in
@@ -175,12 +188,13 @@ class t ~(config:config) (data:string) () =
     method select ?(flush=true) id =
       let eq = fun x -> id = self#_get_hex_id x in
       match List.find_opt eq self#_hex_items with
-      | Some elt -> (match List.find_opt (Equal.physical elt) _selected with
-                     | Some _ -> () (* already selected *)
-                     | None   ->
-                        if flush then List.iter self#_unselect _selected;
-                        self#_select elt)
       | None     -> ()
+      | Some elt ->
+         (match List.find_opt (Equal.physical elt) _selected with
+          | Some _ -> () (* already selected *)
+          | None   ->
+             if flush then List.iter self#_unselect _selected;
+             self#_select elt)
 
     method select_range ?(flush=true) from till =
       if till < from || from < 0 || till < 0
@@ -193,7 +207,9 @@ class t ~(config:config) (data:string) () =
 
     method private _hex_items : Dom_html.element Js.t list =
       Dom.list_of_nodeList @@ self#hex_widget#root##.childNodes
-      |> List.filter_map (fun x -> match Dom.nodeType x with Element e -> Some e | _ -> None)
+      |> List.filter_map (fun x -> match Dom.nodeType x with
+                                   | Element e -> Some e
+                                   | _         -> None)
       |> List.map Js.Unsafe.coerce
       |> List.filter (fun x ->
              let class' = Js.string Markup.Hex._class in
@@ -204,7 +220,9 @@ class t ~(config:config) (data:string) () =
 
     method private _char_items : Dom_html.element Js.t list =
       Dom.list_of_nodeList @@ self#char_widget#root##.childNodes
-      |> List.filter_map (fun x -> match Dom.nodeType x with Element e -> Some e | _ -> None)
+      |> List.filter_map (fun x -> match Dom.nodeType x with
+                                   | Element e -> Some e
+                                   | _         -> None)
       |> List.map Js.Unsafe.coerce
       |> List.filter (fun x ->
              let class' = Js.string Markup.Char._class in
@@ -262,7 +280,7 @@ class t ~(config:config) (data:string) () =
 
     initializer
       self#set_bytes data;
-      Dom_events.listen self#hex_widget#root Dom_events.Typ.click (fun _ e ->
+      self#hex_widget#listen Widget.Event.click (fun _ e ->
           let ctrl    = Js.to_bool e##.ctrlKey in
           let target  = Js.Opt.to_option e##.target in
           let class'  = Js.string Markup.Hex._class in
@@ -285,5 +303,5 @@ class t ~(config:config) (data:string) () =
           true) |> ignore;
       chr_elt#add_class Markup.chars_block_class;
       num_elt#add_class Markup.line_numbers_block_class;
-      self#add_class Markup.base_class
+      self#add_class    Markup.base_class
   end

@@ -6,6 +6,7 @@ module Markup = Components_markup.Tree.Make(Xml)(Svg)(Html)
 module Item = struct
 
   class ['a,'b] t ?ripple
+          ?(expand_on_click=true)
           ?secondary_text
           ?(graphic:#Widget.t option)
           ?(meta:#Widget.t option)
@@ -21,6 +22,7 @@ module Item = struct
        | None   ->
           Option.map (fun _ ->
               let open Icon.SVG in
+              (* FIXME *)
               let path = new Path.t Markup.Path.chevron_down () in
               let icon = new Icon.SVG.t ~paths:[path] () in
               React.S.map (fun x ->
@@ -35,10 +37,19 @@ module Item = struct
                |> Tyxml_js.To_dom.of_element in
     object(self)
 
+      val mutable _value = value
+
       inherit Widget.t elt ()
+
+      method value : 'a = _value
+      method set_value (x:'a) : unit =
+        _value <- x
 
       method item = item
       method nested_tree : 'b option = nested
+
+      method expanded : bool =
+        self#has_class Markup.Item.item_open_class
 
       method expand () =
         Option.iter (fun x -> x#add_class Markup.Item.list_open_class)
@@ -54,20 +65,31 @@ module Item = struct
         Option.iter (fun x ->
             x#add_class Markup.Item.list_class;
             item#style##.cursor := Js.string "pointer") nested;
-        Dom_events.listen self#root Dom_events.Typ.click (fun _ e ->
-            let open_class = Markup.Item.item_open_class in
-            let open_list  = Markup.Item.list_open_class in
-            Dom_html.stopPropagation e;
-            Option.iter (fun x -> x#toggle_class open_list |> ignore)
-              self#nested_tree;
-            self#toggle_class open_class |> s_push;
-            true)
-        |> ignore;
+        if expand_on_click
+        then
+          self#listen Widget.Event.click (fun _ e ->
+              let open_class = Markup.Item.item_open_class in
+              let open_list  = Markup.Item.list_open_class in
+              Dom_html.stopPropagation e;
+              Option.iter (fun x -> x#toggle_class open_list |> ignore)
+                self#nested_tree;
+              self#toggle_class open_class |> s_push;
+              true)
+          |> ignore;
     end
 
 end
 
-class ['a] t ?level ?two_line ?(dense=false) ~(items:('a,'a t) Item.t list) () =
+type selection =
+  [ `Single
+  | `Multiple ]
+
+class ['a] t
+        ?(selection:selection option)
+        ?level
+        ?two_line
+        ?(dense=false)
+        ~(items:('a,'a t) Item.t list) () =
   let two_line = match two_line with
     | Some x -> x
     | None   ->
@@ -76,19 +98,53 @@ class ['a] t ?level ?two_line ?(dense=false) ~(items:('a,'a t) Item.t list) () =
   let elt = Markup.create ~two_line
               ~items:(List.map Widget.to_markup items) ()
             |> Tyxml_js.To_dom.of_element in
+  let s_selected, set_selected = React.S.create [] in
+  let s_active,   set_active = React.S.create None in
   object(self)
 
-    val mutable items = items
+    val mutable _items = items
 
     inherit Widget.t elt () as super
 
-    method items = items
+    method items = _items
 
+    method active : ('a, 'a t) Item.t option =
+      React.S.value s_active
+    method s_active : ('a, 'a t) Item.t option React.signal =
+      s_active
+    method set_active (item:('a, 'a t) Item.t) =
+      Option.iter (fun x ->
+          x#item#remove_class Markup.Item_list.Item.activated_class) self#active;
+      item#item#add_class Markup.Item_list.Item.activated_class;
+      set_active (Some item)
+
+    method selected : ('a, 'a t) Item.t list =
+      React.S.value s_selected
+    method s_selected : ('a, 'a t) Item.t list React.signal =
+      s_selected
+    method set_selected (item:('a, 'a t) Item.t) =
+      match selection with
+      | Some `Single ->
+         List.iter (fun i ->
+             i#item#remove_class Markup.Item_list.Item.selected_class) self#selected;
+         item#item#add_class Markup.Item_list.Item.selected_class;
+         set_selected [item]
+      | Some `Multiple ->
+         item#item#add_class Markup.Item_list.Item.selected_class;
+         set_selected @@ item :: self#selected
+      | None -> ()
+
+    method dense : bool =
+      self#has_class Markup.dense_class
     method set_dense x =
       self#add_or_remove_class x Markup.dense_class;
       self#iter (fun (i:('a,'a t) Item.t) ->
           Option.iter (fun (t:'a t) -> t#set_dense x)
             i#nested_tree)
+
+    method append_item (x: ('a, 'a t) Item.t) =
+      _items <- _items @ [ x ];
+      self#append_child x
 
     method private iter f =
       let rec iter l = List.iter (fun (x : ('a,'a t) Item.t) ->
@@ -109,7 +165,7 @@ class ['a] t ?level ?two_line ?(dense=false) ~(items:('a,'a t) Item.t list) () =
       iter self#items 1
 
     initializer
-      self#set_dense true;
+      self#set_dense dense;
       match level with
       | Some l -> self#set_attribute "data-level" @@ string_of_int l
       | None   -> self#_padding ()
