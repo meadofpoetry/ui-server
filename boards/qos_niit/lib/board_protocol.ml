@@ -440,9 +440,13 @@ module SM = struct
       fun mode i x ->
       { id = `Ts x
       ; description =
-          (match x with
-           | T2mi_plp x -> Some (Printf.sprintf "T2-MI PLP %d" x)
-           | _          -> Some "Входной поток")
+          (match x, mode with
+           | T2mi_plp x, Some mode ->
+              T2MI { stream_id = mode.t2mi_stream_id
+                   ; plp       = x }
+           | _ -> match i with
+                  | SPI -> SPI
+                  | ASI -> ASI)
       ; typ =
           (match mode with
            | Some m ->

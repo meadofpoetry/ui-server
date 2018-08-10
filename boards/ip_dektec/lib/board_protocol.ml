@@ -680,15 +680,27 @@ module SM = struct
 
     in first_step ()
 
-  let to_streams_s status =
+  let to_streams_s storage status =
     React.E.map (fun (x:status) ->
         let (stream:Common.Stream.stream) =
+          let config : config = storage#get in
           { source      = Port 0
           ; id          = `Ts Single
           ; typ         = `Ts
-          ; description = Some ""
-          }
-        in
+          ; description =
+              let scheme = match x.protocol with
+                | Rtp -> "rtp"
+                | Udp -> "udp" in
+              IPV4 (match config.ip.multicast with
+                    | Some x -> { addr = x
+                                ; port = config.ip.port
+                                ; scheme
+                                }
+                    | None   -> { addr = config.nw.ip
+                                ; port = config.ip.port
+                                ; scheme
+                })
+          } in
         if x.asi_bitrate > 0 then List.pure stream else List.empty)
     @@ React.E.changes status
     |> React.S.hold []
@@ -702,7 +714,7 @@ module SM = struct
     let s_status = React.S.hold ~eq:(Equal.option equal_status) None
                    @@ React.E.map (fun x -> Some x) status
     in
-    let streams  = to_streams_s status in
+    let streams  = to_streams_s storage status in
     let events   = { streams; state; status; config } in
     let (pe:push_events) =
       { state   = state_push

@@ -35,9 +35,7 @@ module Stream_item = struct
       function
       | Input i -> ("Вход " ^ Topology.get_input_name i) :: acc
       | Parent (stream:Stream.t) ->
-         let s = "Поток " ^ (match stream.description with
-                             | None   -> "без описания"
-                             | Some s -> s) in
+         let s = "Поток " ^ (Stream.Source.to_string stream.description) in
          aux (s :: acc) stream.source in
     String.concat " -> " @@ aux [] source
 
@@ -46,7 +44,7 @@ module Stream_item = struct
           (stream:Stream.t)
           (event:Stream.t option React.event)
           control () =
-    let descr = Option.get_or ~default:"Нет описания" stream.description in
+    let descr = Stream.Source.to_string stream.description in
     (* FIXME change to stream type *)
     let title =
       new Card.Primary.title ~large:true (typ_to_string stream.typ) () in

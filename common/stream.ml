@@ -1,6 +1,98 @@
 open Topology
 open Containers
 
+module Source = struct
+
+  let round_freq (x:int64) =
+    let ( mod ), ( / ), (=) = Int64.(rem, div, equal) in
+    if x mod 1_000_000_000L  = 0L then x / 1_000_000_000L, "ГГц"
+    else if x mod 1_000_000L = 0L then x / 1_000_000L, "МГц"
+    else if x mod 1_000L     = 0L then x / 1_000L, "кГц"
+    else x, "Гц"
+
+  (** DVB-T2 source description *)
+  type dvb_t2 =
+    { freq : int64
+    ; plp  : int
+    ; bw   : float
+    } [@@deriving yojson, show, eq, ord]
+
+  (** DVB-T source description *)
+  type dvb_t =
+    { freq : int64
+    ; bw   : float
+    } [@@deriving yojson, show, eq, ord]
+
+  (** DVB-C source description *)
+  type dvb_c = dvb_t [@@deriving yojson, show, eq, ord]
+
+  (** T2-MI source description *)
+  type t2mi =
+    { stream_id : int
+    ; plp       : int
+    } [@@deriving yojson, show, eq, ord]
+
+  (** IP v4 source description *)
+  type ipv4 =
+    { scheme : string
+    ; addr   : Ipaddr_ext.V4.t
+    ; port   : int
+    } [@@deriving yojson, show, eq, ord]
+
+  (** Source desciption type *)
+  type t =
+    | DVB_T2 of dvb_t2
+    | DVB_T  of dvb_t
+    | DVB_C  of dvb_c
+    | IPV4   of ipv4
+    | ASI
+    | SPI
+    | T2MI   of t2mi [@@deriving yojson, show, eq, ord]
+
+  let dvb_t2_to_string (x:dvb_t2) =
+    let open Printf in
+    let freq, unit = round_freq x.freq in
+    let bw = sprintf "полоса %g МГц" x.bw in
+    sprintf "DVB-T2, %Lu %s, %s, PLP %d" freq unit bw x.plp
+
+  let dvb_t_to_string (x:dvb_t) =
+    let open Printf in
+    let freq, unit = round_freq x.freq in
+    let bw = sprintf "полоса %g МГц" x.bw in
+    sprintf "DVB-T, %Lu %s, %s" freq unit bw
+
+  let dvb_c_to_string (x:dvb_c) =
+    dvb_t_to_string x
+
+  let asi_to_string () =
+    "ASI"
+
+  let spi_to_string () =
+    "SPI"
+
+  let t2mi_to_string (x:t2mi) =
+    let open Printf in
+    sprintf "T2-MI Stream ID: %d, PLP %d" x.stream_id x.plp
+
+  let ipv4_to_string (x:ipv4) =
+    Uri.make
+      ~scheme:x.scheme
+      ~host:(Ipaddr_ext.V4.to_string x.addr)
+      ~port:x.port
+      ()
+    |> Uri.to_string
+
+  let to_string = function
+    | DVB_T2 x -> dvb_t2_to_string x
+    | DVB_T  x -> dvb_t_to_string x
+    | DVB_C  x -> dvb_c_to_string x
+    | ASI      -> asi_to_string ()
+    | SPI      -> spi_to_string ()
+    | T2MI   x -> t2mi_to_string x
+    | IPV4   x -> ipv4_to_string x
+
+end
+
 type id =
   | Single
   | T2mi_plp of int
@@ -104,7 +196,7 @@ type stream =
   { source      : src
   ; id          : stream_id
   ; typ         : typ
-  ; description : string option
+  ; description : Source.t
   }
 and typ = [ `Ts | `T2mi ]
 and src = Port   of int
@@ -114,7 +206,7 @@ type t =
   { source      : source
   ; id          : stream_id
   ; typ         : typ
-  ; description : string option
+  ; description : Source.t
   }
 and source = Input  of Topology.topo_input
            | Parent of t [@@deriving yojson, show, ord]
@@ -179,15 +271,6 @@ let to_topo_port (b:topo_board) (t:t) =
                               | Some _ -> Some h
                               | None   -> get_port tl))
   in get_port b.ports
-
-let header : t -> string = fun s ->
-  let h = match s.id with
-    | `Ip _  -> "IP stream"
-    | `Ts id -> Printf.sprintf "TS stream %s" @@ show_id id
-  in
-  match s.description with
-  | None -> h
-  | Some d -> h ^ " (" ^ d ^ ")"
 
 let rec get_input s =
   match s.source with

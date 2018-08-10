@@ -176,7 +176,7 @@ module Structure = struct
 
   let make_structure (s : Structure.t) =
     let text, stext =
-      let h = Printf.sprintf "Поток: %s" (CCOpt.get_or ~default:"-" s.source.description)
+      let h = Printf.sprintf "Поток: %s" (Common.Stream.Source.to_string s.source.description)
       in h, (Printf.sprintf "ip: %s" @@ Common.Url.to_string s.structure.uri)
     in
     let wl, cl = List.split @@ List.map make_channel s.structure.channels in

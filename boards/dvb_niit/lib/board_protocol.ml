@@ -492,25 +492,18 @@ module SM = struct
           |> (fun x -> match x.standard with
                        | T2 -> T2, x.t2.plp, x.t2.freq, x.t2.bw
                        | T  -> T, 0, x.t.freq, x.t.bw
-                       | C  -> C, 0, x.c.freq, x.c.bw)
-        in
-        let round_freq x =
-          if x mod 1_000_000  = 0 then x / 1_000_000, "МГц"
-          else if x mod 1_000 = 0 then x / 1_000, "кГц"
-          else x, "Гц" in
-        let std_str = match std with T2 -> "T2" | T -> "T" | C -> "C" in
-        let bw_int  = match bw with Bw6 -> 6 | Bw7 -> 7 | Bw8 -> 8 in
-        let freq_val, freq_unit = round_freq freq in
-        let name = Printf.sprintf "DVB-%s, %d %s, полоса %d МГц"
-                     std_str freq_val freq_unit bw_int in
-        let name = match std with
-          | T2 -> name ^ (Printf.sprintf ", PLP %d" plp)
-          | _  -> name in
+                       | C  -> C, 0, x.c.freq, x.c.bw) in
+        let freq = Int64.of_int freq in
+        let bw   = match bw with Bw8 -> 8. | Bw7 -> 7. | Bw6 -> 6. in
+        let source : Source.t = match std with
+          | T2 -> DVB_T2 { freq; bw; plp }
+          | T  -> DVB_T  { freq; bw }
+          | C  -> DVB_C  { freq; bw} in
         let (stream:stream) =
           { source      = Port 0
           ; id          = `Ts (Dvb (id,plp))
           ; typ         = `Ts
-          ; description = Some name
+          ; description = source
           }
         in
         match m.lock,m.bitrate with

@@ -16,8 +16,8 @@ type stream_dialog = { dialog : Dialog.t
                    
 let make_board_stream_entry ?(check = None)
                             ?(uri = None)
-                            stream =
-  let text           = Common.Stream.header stream in
+                            (stream:Common.Stream.t) =
+  let text           = Common.Stream.Source.to_string stream.description in
   let checkbox       = new Checkbox.t ~ripple:false () in
   checkbox#set_checked @@ Option.is_some uri;
   begin match check with
@@ -100,8 +100,8 @@ let make_board_entry (bid, state, stream_list) =
   | `Unlimited   -> make_board_unlimited bid stream_list
 
 let make_input_stream_list stream_list =
-  let make_board_stream_entry del_item del_stream stream =
-    let text           = Common.Stream.header stream in
+  let make_board_stream_entry del_item del_stream (stream:Common.Stream.t) =
+    let text           = Common.Stream.Source.to_string stream.description in
     let del_button     = new Button.t ~label:"delete" () in
     let uri            = match stream.id with `Ip u -> u in
     let item           =
@@ -141,7 +141,12 @@ let make_stream_create_dialog () =
                     ~label:"Uri"
                     ()
   in
-  let desc_box = new Textfield.t ~label:"description" ~input_id:"description" ~input_type:Widget.Text () in
+  let desc_box =
+    new Textfield.t
+      ~label:"description"
+      ~input_id:"description"
+      ~input_type:Widget.Text
+      () in
   let box     = new Vbox.t ~widgets:[uri_box#widget; desc_box#widget] () in
   
   let accept  = new Dialog.Action.t ~label:"accept" ~typ:`Accept () in
@@ -151,7 +156,13 @@ let make_stream_create_dialog () =
   let merge uri description source =
     match uri with
     | None -> Error ("no uri provided")
-    | Some uri -> Ok { id = `Ip uri; typ = `Ts; description; source }
+    | Some uri ->
+       Ok { id  = `Ip uri
+          ; typ = `Ts
+          ; description = IPV4 { scheme = "udp"
+                               ; addr   = uri.ip
+                               ; port   = uri.port }
+          ; source }
   in
   let result = React.S.l3 merge uri_box#s_input desc_box#s_input input in
   Dom.appendChild Dom_html.document##.body dialog#root;
