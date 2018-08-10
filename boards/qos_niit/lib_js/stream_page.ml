@@ -3,6 +3,7 @@ open Components
 open Api_js.Requests
 open Lwt_result.Infix
 open Common
+open Board_types.Streams.TS
 
 let get_pids ~id control =
   Requests.Streams.HTTP.get_pids ~id ~limit:1 control
@@ -27,8 +28,7 @@ let get_services ~id control =
   |> Lwt_result.map_err Api_js.Requests.err_to_string
 
 let dummy_tab = fun () ->
-  let div = Dom_html.createDiv Dom_html.document in
-  Widget.create div
+  Ui_templates.Placeholder.under_development ()
 
 let services (stream:Stream.t) control =
   let id = match stream.id with
@@ -65,7 +65,15 @@ let pids (stream:Stream.t) control =
       control in
   let overview =
     init
-    >|= Widget_pids_overview.make
+    >|= (fun init ->
+      let w = Widget_pids_overview.make init in
+      let _e = React.E.map (fun (x:bitrate) ->
+                   w#set_rate @@ Some (x.total, x.pids)) bitrate in
+      w#set_on_destroy
+      @@ Some (fun () -> React.E.stop ~strong:true _e;
+                         React.E.stop ~strong:true bitrate;
+                         sock##close);
+      w)
     >|= Widget.coerce
     |> Ui_templates.Loader.create_widget_loader in
   let box =
@@ -101,6 +109,9 @@ let tabs (stream:Stream.t) control =
     ; "Сервисы", (fun () -> services stream control)
     ; "PIDs",    (fun () -> pids stream control)
     ; "Таблицы", (fun () -> tables stream control)
+    ; "Битрейт", dummy_tab
+    ; "Джиттер", dummy_tab
+    ; "Архив",   dummy_tab
     ] in
   match stream.typ with
   | `T2mi -> List.insert_at_idx 4 ("T2-MI", dummy_tab) base
