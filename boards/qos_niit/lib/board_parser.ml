@@ -559,23 +559,16 @@ module Get_ts_structs
       List.filter_map (function `Tables x -> Some x | _ -> None) blocks
       |> List.map (fun (x:table_info) ->
              let service = match Mpeg_ts.table_of_int x.id with
-               | `PMT -> List.find_map (fun (s:service_info) ->
-                             if s.pmt_pid = x.pid then Some s.name else None)
-                           services
+               | `EIT (`Actual, _) ->
+                  List.find_map (fun (s:service_info) ->
+                      if s.id = x.id_ext then Some s.name else None)
+                    services
+               | `PMT ->
+                  List.find_map (fun (s:service_info) ->
+                      if s.has_pmt && s.pmt_pid = x.pid then Some s.name else None)
+                    services
                | _    -> None in
              { x with service })
-      |> (fun l ->
-        List.map (fun (x:table_info) ->
-            let service = match Mpeg_ts.table_of_int x.id with
-              | `EIT (`Actual, _) ->
-                 List.find_map (fun (t:table_info) ->
-                     match Mpeg_ts.table_of_int x.id with
-                     | `PMT -> if t.id_ext = x.id_ext
-                               then t.service else None
-
-                     | _    -> None) l
-              | _ -> None in
-            { x with service }) l)
       |> List.sort (fun (x:table_info) y -> Int.compare x.pid y.pid) in
     let pcr_pids =
       List.map (fun (x:service_info) -> x.pcr_pid) services in

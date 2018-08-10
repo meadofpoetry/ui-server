@@ -57,8 +57,6 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
            | x -> invalid_port x)
           |> fun x -> Ports.add p.port x acc)
         Ports.empty b.ports
-  ; settings_page  = ("DVB", React.S.const (Tyxml.Html.div []))
-  ; widgets_page   = [("DVB", React.S.const (Tyxml.Html.div []))]
   ; stream_handler = None
   ; state          = (state :> < finalize : unit -> unit >)
   }

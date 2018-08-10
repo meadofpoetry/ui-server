@@ -98,11 +98,19 @@ module Media = struct
 
 end
 
-class t ?(form=false) ~(widgets:#Widget.t list) () =
+class t ?(outlined=false) ?(form=false) ~(widgets:#Widget.t list) () =
   let tag = if form then Some Tyxml_js.Html.form else None in
   let elt = Markup.create ?tag ~sections:(List.map Widget.to_markup widgets) ()
             |> Tyxml_js.To_dom.of_element in
 
-  object
+  object(self)
     inherit Widget.t elt ()
+
+    method outlined : bool =
+      self#has_class Markup.outlined_class
+    method set_outlined (x:bool) : unit =
+      self#add_or_remove_class x Markup.outlined_class
+
+    initializer
+      self#set_outlined outlined
   end

@@ -115,7 +115,7 @@ let make_table
            pmt#set_format fmt;
            pcr#set_format fmt)
       table#rows in
-  on_change is_hex;
+  if is_hex then on_change true;
   table, on_change
 
 let map_details (details:Widget_service_info.t option ref)

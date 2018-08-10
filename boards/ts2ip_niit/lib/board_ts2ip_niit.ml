@@ -80,8 +80,6 @@ let create (b:topo_board) (streams:Common.Stream.t list React.signal) _ send db 
   ; ports_active   = List.fold_left (fun acc (p:topo_port)->
                          Ports.add p.port (React.S.const true) acc)
                        Ports.empty b.ports
-  ; settings_page  = ("TS2IP", React.S.const (Tyxml.Html.div []))
-  ; widgets_page   = [("TS2IP", React.S.const (Tyxml.Html.div []))]
   ; stream_handler = Some (object
                            method streams     = available
                            method set x       = set x

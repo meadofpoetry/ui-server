@@ -132,9 +132,9 @@ let make_list (init:section_info list)
 
 let make_parsed () =
   let base_class = Markup.CSS.add_element base_class "parsed" in
-  let body       = Dom_html.createDiv Dom_html.document |> Widget.create in
+  let body       = Widget.create_div () in
   let ()         = body#add_class base_class in
-  body#widget
+  body
 
 let make_hexdump_options hexdump =
   let base_class = Markup.CSS.add_element base_class "hexdump-options" in
@@ -237,7 +237,7 @@ let make_tree (x:parsed) =
             let tree  = new Tree.t ~items () in
             None, Some tree
          | _ -> Some (new Typography.Text.t ~text:value ())#widget, None in
-       let item = new Tree.Item.t ?meta ?nested ~value:() ~text:hd.name () in
+       let item = new Tree.Item.t ?meta ?nested ~value:hd ~text:hd.name () in
        aux (item :: acc) tl in
   let items = aux [] x in
   let tree  = new Tree.t ~items () in

@@ -901,12 +901,15 @@
 .qos-niit-service-info__description {
   padding: 1rem;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: stretch;
   justify-content: flex-start;
+  flex-wrap: wrap;
   flex-grow: 1; }
-  .qos-niit-service-info__description .mdc-list {
-    max-width: 350px; }
+  .qos-niit-service-info__description > * {
+    flex-grow: 1; }
+  .qos-niit-service-info__description .mdc-card {
+    margin: 1rem; }
   .qos-niit-service-info__description .mdc-list ~ hr {
     max-width: 350px; }
   .qos-niit-service-info__description .mdc-list-item__meta.mdc-icon--ok {

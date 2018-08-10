@@ -1,9 +1,10 @@
 open Containers
+open Common
 open Common.Topology
 open Storage.Options
 open Lwt.Infix
 
-module Api_handler = Api.Handler.Make(Common.User)
+module Api_handler = Api.Handler.Make(User)
 
 type 'a cc = [`Continue of 'a]
 
@@ -11,7 +12,7 @@ module Ports = Map.Make(Int)
 
 exception Invalid_port of string
 
-type url = Common.Url.t
+type url = Url.t
 type set_state = [ `Forbidden
                  | `Limited   of int
                  | `Unlimited
@@ -26,10 +27,11 @@ type constraints =
   ; state : set_state React.signal
   }
 
-type stream_handler = < streams     : (url option * Common.Stream.t) list React.signal
-                    ; set         : (url * Common.Stream.t) list -> (unit,set_error) Lwt_result.t
-                    ; constraints : constraints
-                                    >
+type stream_handler =
+  < streams     : (url option * Stream.t) list React.signal
+  ; set         : (url * Stream.t) list -> (unit,set_error) Lwt_result.t
+  ; constraints : constraints
+                  >
 
 type t =
   { handlers        : (module Api_handler.HANDLER) list
@@ -39,16 +41,14 @@ type t =
   ; connection      : state React.signal
   ; ports_active    : bool React.signal Ports.t
   ; ports_sync      : bool React.signal Ports.t
-  ; settings_page   : (string * [`Div] Tyxml.Html.elt React.signal)
-  ; widgets_page    : (string * [`Div] Tyxml.Html.elt React.signal) list
   ; stream_handler  : stream_handler option
   ; state           : < finalize : unit -> unit >
   }
 
 module type BOARD = sig
   val create : topo_board ->
-               Common.Stream.t list React.signal ->
-               (Common.Stream.stream list React.signal -> topo_board -> Common.Stream.t list React.signal) ->
+               Stream.t list React.signal ->
+               (Stream.stream list React.signal -> topo_board -> Stream.t list React.signal) ->
                (Cstruct.t -> unit Lwt.t) ->
                Storage.Database.t ->
                path ->
@@ -65,7 +65,7 @@ module Map  = Map.Make(Int)
 
 let get_streams (boards : t Map.t)
                 (topo : topo_board)
-    : Common.Stream.t list React.signal =
+    : Stream.t list React.signal =
   let rec get_streams' acc = function
     | []    -> acc
     | h::tl -> match h.child with
@@ -77,11 +77,11 @@ let get_streams (boards : t Map.t)
   get_streams' (React.S.const []) topo.ports
 
 let merge_streams (boards : t Map.t)
-                  (raw_streams : Common.Stream.stream list React.signal)
+                  (raw_streams : Stream.stream list React.signal)
                   (topo : topo_board)
-    : Common.Stream.t list React.signal =
+    : Stream.t list React.signal =
   let open React in
-  let open Common.Stream in
+  let open Stream in
   let open Option in
   let ports =
     List.fold_left (fun m port ->
@@ -105,25 +105,26 @@ let merge_streams (boards : t Map.t)
   in
   let compose_hier (s : stream) id sms =
     List.find_pred (fun ((stream : stream), _) -> equal_stream_id stream.id (`Ts id)) sms
-    |> function None        -> `Await s
-              | Some (_ ,v) ->
-                 `Done (S.map (function
-                              Some p -> Some ({ source = (Parent p)
-                                              ; id     = s.id
-                                              ; typ    = s.typ
-                                              ; description = s.description })
-                            | None -> None)
-                          v)
-  in
+    |> function
+      | None        -> `Await s
+      | Some (_ ,v) ->
+         `Done (S.map (function
+                      Some p -> Some ({ source = (Parent p)
+                                      ; id     = s.id
+                                      ; typ    = s.typ
+                                      ; description = s.description })
+                    | None -> None)
+                  v) in
   let transform acc (s : stream) =
     match s.source with
-    | Port i -> (Map.get i ports
-                 |> function
-                   | None                -> `Error (Printf.sprintf "merge_streams: port %d is not connected" i) 
-                   | Some (`Input i)     -> create_in_stream s i
-                   | Some (`Streams lst) -> find_cor_stream s lst)
-    | Stream id -> compose_hier s id acc
-  in
+    | Port i ->
+       (Map.get i ports
+        |> function
+          | None                -> `Error (Printf.sprintf "merge_streams: \
+                                                           port %d is not connected" i)
+          | Some (`Input i)     -> create_in_stream s i
+          | Some (`Streams lst) -> find_cor_stream s lst)
+    | Stream id -> compose_hier s id acc in
   let rec lookup acc await = function
     | []    -> cleanup acc await
     | x::tl -> 
@@ -147,8 +148,11 @@ let merge_streams (boards : t Map.t)
                           cleanup acc (List.append tl [s])
                       with _ -> cleanup acc tl)
   in
+  let eq = Equal.physical in
   raw_streams
-  |> S.map ~eq:(Equal.physical) (lookup [] [])
-  |> S.map ~eq:(Equal.physical) (List.map snd)
-  |> S.map ~eq:(Equal.physical) (fun l -> S.merge ~eq:(Equal.physical) (fun acc x -> match x with None -> acc | Some x -> x::acc) [] l)
-  |> S.switch ~eq:(Equal.physical)
+  |> S.map ~eq (lookup [] [])
+  |> S.map ~eq (List.map snd)
+  |> S.map ~eq (S.merge ~eq (fun acc -> function
+                    | None -> acc
+                    | Some x -> x::acc) [])
+  |> S.switch ~eq

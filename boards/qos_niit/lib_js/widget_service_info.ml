@@ -122,17 +122,26 @@ let make_description () =
   let _class = Markup.CSS.add_element base_class "description" in
   let main, set_main, set_rate, set_min, set_max = make_general_info () in
   let sdt,  set_sdt  = make_sdt_info () in
-  let box = Widget.create_div () in
-  let ()  = box#append_child (make_list_title "Общая информация") in
-  let ()  = box#append_child main in
-  let ()  = box#append_child (new Divider.t ()) in
-  let ()  = box#append_child (make_list_title "Информация из SDT") in
-  let ()  = box#append_child sdt in
+  let main_title   = new Card.Primary.title "Общая информация" () in
+  let main_primary = new Card.Primary.t ~widgets:[ main_title ] () in
+  let main_media   = new Card.Media.t ~widgets:[ main ] () in
+  let sdt_title    = new Card.Primary.title "Информация из SDT" () in
+  let sdt_primary  = new Card.Primary.t ~widgets:[ sdt_title ] () in
+  let sdt_media    = new Card.Media.t ~widgets:[ sdt ] () in
+  let main_box     = new Card.t
+                       ~outlined:true
+                       ~widgets:[ main_primary#widget
+                                ; main_media#widget] () in
+  let sdt_box      = new Card.t
+                       ~outlined:true
+                       ~widgets:[ sdt_primary#widget
+                                ; sdt_media#widget ] () in
+  let box = new Hbox.t ~wrap:`Wrap ~widgets:[ main_box; sdt_box ] () in
   let ()  = box#add_class _class in
   let set = fun ?hex (x:service_info) ->
     set_main ?hex x;
     set_sdt x in
-  box, set, set_rate, set_min, set_max
+  box#widget, set, set_rate, set_min, set_max
 
 let make_pids
       (service:service_info)

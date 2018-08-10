@@ -164,12 +164,16 @@
     &__description {
         padding: 1rem;
         display: flex;
-        flex-direction: column;
+        flex-direction: row;
         align-items: stretch;
         justify-content: flex-start;
+        flex-wrap: wrap;
         flex-grow: 1;
-        .mdc-list {
-            max-width: 350px;
+        > * {
+            flex-grow: 1;
+        }
+        .mdc-card {
+            margin: 1rem;
         }
         .mdc-list ~ hr {
             max-width: 350px;

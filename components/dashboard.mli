@@ -33,7 +33,7 @@ module Item : sig
   class t :
           item:item -> unit ->
           object
-            inherit Widget.t
+            inherit Card.t
             method remove       : Icon.Button.Font.t
             method content      : Card.Media.t
             method heading      : Card.Primary.t

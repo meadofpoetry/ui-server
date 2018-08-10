@@ -65,8 +65,6 @@ let create (({control;ports;_} as b):topo_board) _ convert_streams send db_conf 
   ; connection     = events.state
   ; ports_sync     = get_sync_ports streams ports
   ; ports_active   = get_active_ports ports
-  ; settings_page  = ("IP", React.S.const (Tyxml.Html.div []))
-  ; widgets_page   = [("IP", React.S.const (Tyxml.Html.div []))]
   ; stream_handler = None
   ; state          = (state :> < finalize : unit -> unit >)
   }

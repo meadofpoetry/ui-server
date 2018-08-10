@@ -6,7 +6,7 @@ open Common.Topology
 
 let dummy_tab = fun () ->
   let div = Dom_html.createDiv Dom_html.document in
-  Widget.create div
+  Ui_templates.Placeholder.under_development ()
 
 let board_to_tabs input (control:int)
     : string -> (string * (unit -> Widget.t)) list = function
@@ -21,14 +21,7 @@ let board_to_tabs input (control:int)
   | "TS" ->
      [ "QoS",
        (fun () -> Board_qos_niit_js.Streams_page.make input control)
-       (* (fun () -> Board_qos_niit_js.Qos_log.page input control ()
-        *            |> Widget.coerce) *)
-     (* ; "Структура",
-      *   (fun () -> Board_qos_niit_js.Structure.page control ()
-      *              |> Widget.coerce) *)
-(* ; "Скорости",  dummy_tab
- * ; "Джиттер",   dummy_tab *)
-               ]
+     ]
   | "TS2IP" -> [ ]
   | s       -> failwith ("input.js: unknown board " ^ s)
 

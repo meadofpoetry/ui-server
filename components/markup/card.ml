@@ -9,8 +9,8 @@ module Make(Xml : Xml_sigs.NoWrap)
   open Html
 
   let base_class           = "mdc-card"
-  let stroked_class        = CSS.add_modifier "stroked"
-  let primary_action_class = CSS.add_element "primary-action"
+  let outlined_class       = CSS.add_modifier base_class "outlined"
+  let primary_action_class = CSS.add_element base_class "primary-action"
 
   module Media = struct
     let _class           = CSS.add_element base_class "media"

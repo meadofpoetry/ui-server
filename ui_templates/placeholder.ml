@@ -47,3 +47,12 @@ let create_progress ?(text="Загрузка") () =
   let ph = create_base ~widget:w ~text:p () in
   let () = ph#add_class _class in
   ph
+
+let under_development () =
+  let icon = Icon.SVG.(create_simple Path.crane) in
+  let text = new Typography.Text.t
+               ~text:"Страница находится в разработке" () in
+  let ph   = create_base ~widget:icon ~text () in
+  let _class = Components_markup.CSS.add_modifier base_class "icon" in
+  ph#add_class _class;
+  ph

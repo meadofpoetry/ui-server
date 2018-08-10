@@ -166,6 +166,7 @@ let error_to_string = function
   | `Other i          -> Printf.sprintf "Unknown error: %d" i
   | `Unexpected_exn   -> "Unexpected exception"
   | `Unknown_encoding -> "Unknown encoding"
+  | `Empty            -> "empty string"
 
 let trim (text:Cstruct.t) =
   if Cstruct.get_uint8 text 0 = 0
@@ -200,4 +201,5 @@ let get_encoding_and_convert (text:Cstruct.t) =
 let decode (text:Cstruct.t) =
   let text = trim text in
   if Cstruct.len text = 0
-  then Ok "" else get_encoding_and_convert text
+  then Error `Empty
+  else get_encoding_and_convert text
