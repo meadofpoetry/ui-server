@@ -11,6 +11,7 @@ module Make(Xml : Xml_sigs.NoWrap)
   let block_class              = CSS.add_element base_class "block"
   let chars_block_class        = CSS.add_modifier block_class "chars"
   let line_numbers_block_class = CSS.add_modifier block_class "line-numbers"
+  let interactive_class        = CSS.add_modifier base_class "interactive"
 
   module Line_number = struct
     let _class = CSS.add_element base_class "line-number"

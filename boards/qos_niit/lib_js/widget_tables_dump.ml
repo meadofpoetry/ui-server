@@ -172,7 +172,7 @@ let make_hexdump_options hexdump =
 
 let make_hexdump () =
   let config  = Hexdump.to_config ~width:16 () in
-  let hexdump = new Hexdump.t ~config "" () in
+  let hexdump = new Hexdump.t ~interactive:false ~config "" () in
   hexdump, hexdump#set_bytes
 
 let make_dump_header base_class () =
@@ -283,13 +283,10 @@ let make_dump
                 List.iter (fun (i:(node, _) Tree.Item.t) ->
                     i#listen_lwt Widget.Event.click (fun _ _ ->
                         let { offset; length; _ } = i#value in
-                        Printf.printf "off: %d, len: %d\n" offset length;
-                        let res       = offset mod 8 in
-                        let from      = offset / 8 in
-                        let len       = float_of_int @@ length + res in
-                        let len       = int_of_float @@ ceil @@ len /. 8. in
-                        let till      = from + (pred len) in
-                        Printf.printf "from: %d, till: %d\n" from till;
+                        let res, from = offset mod 8, offset / 8 in
+                        let len  = float_of_int @@ length + res in
+                        let len  = int_of_float @@ ceil @@ len /. 8. in
+                        let till = from + (pred len) in
                         hexdump#select_range from till;
                         tree#set_active i;
                         Lwt.return_unit) |> Lwt.ignore_result) items;

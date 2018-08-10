@@ -131,7 +131,9 @@ let make_data id (config:config) (data:char list) =
   (pad config.style.hex hex)    ^ "\n",
   (pad config.style.char chars) ^ "\n"
 
-class t ~(config:config) (data:string) () =
+class t ?(interactive=true)
+        ~(config:config)
+        (data:string) () =
   let num_elt = Markup.create_block ()
                 |> To_dom.of_element |> Widget.create in
   let hex_elt = Markup.create_block ()
@@ -139,6 +141,7 @@ class t ~(config:config) (data:string) () =
   let chr_elt = Markup.create_block ()
                 |> To_dom.of_element |> Widget.create in
   object(self)
+    val mutable _listener = None
     val mutable _selected : #Dom_html.element Js.t list = []
     val mutable _config   : config = config
     val mutable _bytes    : string = data
@@ -202,6 +205,17 @@ class t ~(config:config) (data:string) () =
       else
         let () = if flush then List.iter self#_unselect _selected in
         List.iter (self#select ~flush:false) (List.range from till)
+
+    method interactive : bool =
+      self#has_class Markup.interactive_class
+    method set_interactive (x:bool) : unit =
+      self#add_or_remove_class x Markup.interactive_class;
+      match x, _listener with
+      | true, None   ->
+         _listener <- Some (self#listen_lwt Widget.Event.click self#_on_click)
+      | false, Some l -> Lwt.cancel l; _listener <- None
+      | _ -> ()
+
 
     (* Private methods *)
 
@@ -278,29 +292,31 @@ class t ~(config:config) (data:string) () =
       self#_add_hex_selected x;
       _selected <- x :: _selected
 
+    method private _on_click = fun e _ ->
+      let eq      = Equal.physical in
+      let ctrl    = Js.to_bool e##.ctrlKey in
+      let target  = Js.Opt.to_option e##.target in
+      let class'  = Js.string Markup.Hex._class in
+      let is_span =
+        Option.map (fun e -> e##.classList##contains class' |> Js.to_bool)
+          target
+        |> Option.get_or ~default:false in
+      let () = match target, is_span with
+        | Some e, true ->
+           (match List.find_opt (eq e) _selected with
+            | Some x ->
+               if not ctrl
+               then List.iter self#_unselect (List.remove ~eq ~x _selected)
+               else self#_unselect x
+            | None ->
+               if not ctrl then List.iter self#_unselect _selected;
+               self#_select e)
+        | _ -> () in
+      Lwt.return_unit
+
     initializer
       self#set_bytes data;
-      self#hex_widget#listen Widget.Event.click (fun _ e ->
-          let ctrl    = Js.to_bool e##.ctrlKey in
-          let target  = Js.Opt.to_option e##.target in
-          let class'  = Js.string Markup.Hex._class in
-          let is_span =
-            Option.map (fun e -> e##.classList##contains class' |> Js.to_bool)
-              target
-            |> Option.get_or ~default:false in
-          let () = match target,is_span with
-            | Some e, true ->
-               (match List.find_opt (Equal.physical e) _selected with
-                | Some x ->
-                   if not ctrl
-                   then List.iter self#_unselect
-                          (List.remove ~eq:Equal.physical ~x _selected)
-                   else self#_unselect x
-                | None   ->
-                   if not ctrl then List.iter self#_unselect _selected;
-                   self#_select e)
-            | _ -> () in
-          true) |> ignore;
+      self#set_interactive interactive;
       chr_elt#add_class Markup.chars_block_class;
       num_elt#add_class Markup.line_numbers_block_class;
       self#add_class    Markup.base_class
