@@ -9,7 +9,7 @@ open Boards.Pools
 open Board_parser
 
 type events =
-  { streams : Stream.stream list React.signal
+  { streams : Stream.Raw.t list React.signal
   ; state   : Topology.state React.signal
   ; status  : status React.event
   ; config  : config React.event
@@ -682,24 +682,25 @@ module SM = struct
 
   let to_streams_s storage status =
     React.E.map (fun (x:status) ->
-        let (stream:Common.Stream.stream) =
-          let config : config = storage#get in
-          { source      = Port 0
-          ; id          = `Ts Single
-          ; typ         = `Ts
-          ; description =
-              let scheme = match x.protocol with
-                | Rtp -> "rtp"
-                | Udp -> "udp" in
-              IPV4 (match config.ip.multicast with
-                    | Some x -> { addr = x
-                                ; port = config.ip.port
-                                ; scheme
-                                }
-                    | None   -> { addr = config.nw.ip
-                                ; port = config.ip.port
-                                ; scheme
-                })
+        let config : config = storage#get in
+        let info =
+          let open Stream.Source in
+          let scheme = match x.protocol with
+            | Rtp -> "rtp"
+            | Udp -> "udp" in
+          match config.ip.multicast with
+          | Some x -> { addr = x
+                      ; port = config.ip.port
+                      ; scheme
+                      }
+          | None   -> { addr = config.nw.ip
+                      ; port = config.ip.port
+                      ; scheme
+                      } in
+        let (stream:Stream.Raw.t) =
+          { source      = { info = IPV4 info; node = Port 0 }
+          ; orig_id     = TS_raw
+          ; typ         = TS
           } in
         if x.asi_bitrate > 0 then List.pure stream else List.empty)
     @@ React.E.changes status

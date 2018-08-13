@@ -25,7 +25,7 @@ type stream_settings =
   } [@@deriving yojson]
 
 type packer_settings =
-  { stream    : Stream.id (* stream id to listen to *)
+  { stream    : Stream.Multi_TS_ID.t (* stream id to listen to *)
   ; dst_ip    : Ipaddr.V4.t
   ; dst_port  : int
   ; self_port : int

@@ -151,14 +151,16 @@ module SM = struct
                  Stream.t list -> (packer_settings list,packers_error) result
   end = struct
 
-    let to_packer_settings (b:Topology.topo_board) (s:stream_settings) : packer_settings option =
-      match s.stream.id, Common.Stream.to_topo_port b s.stream with
-      | `Ts id, Some p -> Some { dst_ip    = s.dst_ip
-                               ; dst_port  = s.dst_port
-                               ; self_port = 2027
-                               ; enabled   = s.enabled
-                               ; stream    = id
-                               ; socket    = p.port }
+    let to_packer_settings (b:Topology.topo_board)
+          (s:stream_settings) : packer_settings option =
+      match s.stream.orig_id, Stream.to_topo_port b s.stream with
+      | TS_multi id, Some p ->
+         Some { dst_ip    = s.dst_ip
+              ; dst_port  = s.dst_port
+              ; self_port = 2027
+              ; enabled   = s.enabled
+              ; stream    = id
+              ; socket    = p.port }
       | _ -> None
 
     let full b devinfo streams =
@@ -166,10 +168,10 @@ module SM = struct
       | None   -> Error `Undefined_limit
       | Some n ->
          let streams =
-           List.filter (fun (s:stream_settings) -> match s.stream.id with
-                                                   | `Ts _ -> true
-                                                   | _     -> false) streams
-         in
+           List.filter (fun (s:stream_settings) ->
+               match s.stream.orig_id with
+               | TS_multi _ -> true
+               | _          -> false) streams in
          let len = List.length streams in
          if len > n then Error (`Limit_exceeded (n,len))
          else let rec pack acc = function
@@ -195,11 +197,13 @@ module SM = struct
   let to_out_streams_s b
         (status:status React.event)
         (streams:Stream.t list React.signal) =
-    let find_stream (b:Topology.topo_board) (id:Stream.id) (port:int) (streams:Stream.t list) =
+    let find_stream (b:Topology.topo_board) (id:Stream.Multi_TS_ID.t)
+          (port:int) (streams:Stream.t list) =
       List.find_opt (fun (t:Stream.t) ->
           let p = Stream.to_topo_port b t in
-          match t.id, p with
-          | `Ts x, Some p when Stream.equal_id x id && p.port = port -> true
+          match t.orig_id, p with
+          | TS_multi x, Some p when Stream.Multi_TS_ID.equal x id
+                                    && p.port = port -> true
           | _ -> false) streams in
     React.S.l2 (fun status streams ->
         List.fold_left (fun acc (packer,{bitrate;enabled;has_data;_}) ->
@@ -207,10 +211,11 @@ module SM = struct
             match s,bitrate,enabled,has_data with
             | Some s, Some _, true, true ->
                let (stream:Common.Stream.t) =
-                 { source      = Parent s
-                 ; id          = `Ip { ip = packer.dst_ip; port = packer.dst_port }
-                 ; typ         = s.typ
-                 ; description = s.description }
+                 { source  = s.source
+                 ; orig_id = TSoIP { addr = packer.dst_ip; port = packer.dst_port }
+                 ; id      = s.id
+                 ; typ     = s.typ
+                 }
                in stream :: acc
             | _ -> acc) [] status)
       (React.S.hold [] (React.E.map (fun x -> x.packers_status) status)) streams

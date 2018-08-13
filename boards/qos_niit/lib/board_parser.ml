@@ -22,10 +22,11 @@ type _ instant_request =
 
 type probe_response =
   | Board_errors of board_errors
-  | Bitrate      of (Stream.id * Streams.TS.bitrate) list
-  | Struct       of (Stream.id * Streams.TS.structure) list
-  | T2mi_info    of (Stream.id * Streams.T2MI.structure)
+  | Bitrate      of (id * Streams.TS.bitrate) list
+  | Struct       of (id * Streams.TS.structure) list
+  | T2mi_info    of (id * Streams.T2MI.structure)
   | Jitter       of Types.jitter_raw
+and id = Stream.Multi_TS_ID.t
 
 type _ probe_request =
   | Get_board_errors : int           -> probe_response probe_request
@@ -38,7 +39,7 @@ type _ request =
   | Get_board_info     : devinfo request
   | Get_board_mode     : Types.mode request
   | Get_t2mi_frame_seq : t2mi_frame_seq_req -> Streams.T2MI.sequence request
-  | Get_section        : section_req -> (Streams.TS.section,Streams.TS.section_error) result request
+  | Get_section        : section_req -> (Streams.TS.section, Streams.TS.section_error) result request
 
 (* ------------------- Misc ------------------- *)
 
@@ -78,32 +79,36 @@ let to_complex_req ?client_id ?request_id ~msg_code ~body () =
   Cstruct.append hdr body
 
 let to_set_board_mode_req (mode:mode) =
-  let t2mi = Option.get_or ~default:t2mi_mode_default mode.t2mi in
+  let t2mi_pid, t2mi_enabled, t2mi_stream = match mode.t2mi with
+    | Some (m:t2mi_mode) -> m.pid, m.enabled, m.stream
+    | None -> 0, false, 0l in
   let body = Cstruct.create sizeof_board_mode in
   let () = input_to_int mode.input
-           |> (lor) (if t2mi.enabled then 4 else 0)
+           |> (lor) (if t2mi_enabled then 4 else 0)
            |> (lor) 8 (* disable board storage by default *)
            |> set_board_mode_mode body in
-  let () = set_board_mode_t2mi_pid body t2mi.pid in
-  let () = set_board_mode_t2mi_stream_id body (Stream.id_to_int32 t2mi.stream) in
+  let () = set_board_mode_t2mi_pid body t2mi_pid in
+  let () = set_board_mode_t2mi_stream_id body t2mi_stream in
   to_simple_req ~msg_code:0x0082 ~body ()
 
-let to_set_jitter_mode_req mode =
-  let req  = Option.get_or ~default:jitter_mode_default mode in
+let to_set_jitter_mode_req (mode:jitter_mode option) =
+  let pid, stream = match mode with
+    | Some m -> m.pid, m.stream
+    | None -> 0, 0l in
   let body = Cstruct.create sizeof_req_set_jitter_mode in
-  let () = set_req_set_jitter_mode_stream_id body (Stream.id_to_int32 req.stream) in
-  let () = set_req_set_jitter_mode_pid body req.pid in
+  let () = set_req_set_jitter_mode_stream_id body stream in
+  let () = set_req_set_jitter_mode_pid body pid in
   to_complex_req ~msg_code:0x0112 ~body ()
 
 (* -------------------- Requests/responses/events ------------------*)
 
 let to_mode_exn mode t2mi_pid stream_id : Types.mode =
   { input = Option.get_exn @@ input_of_int (mode land 1)
-  ; t2mi  = Some { enabled        = if (mode land 4) > 0 then true else false
-                 ; pid            = t2mi_pid land 0x1fff
-                 ; t2mi_stream_id = (t2mi_pid lsr 13) land 0x7
-                 ; stream         = Common.Stream.id_of_int32 stream_id
-              }
+  ; t2mi  =
+      Some { enabled        = if (mode land 4) > 0 then true else false
+           ; pid            = t2mi_pid land 0x1fff
+           ; t2mi_stream_id = (t2mi_pid lsr 13) land 0x7
+           ; stream         = stream_id }
   }
 
 module type Request = sig
@@ -185,7 +190,7 @@ module Get_section : (Request
 
   let serialize { request_id; params } =
     let body = Cstruct.create sizeof_req_get_section in
-    let ()   = set_req_get_section_stream_id body @@ Common.Stream.id_to_int32 params.stream_id in
+    let ()   = set_req_get_section_stream_id body params.stream_id in
     let ()   = set_req_get_section_table_id body params.table_id in
     let ()   = Option.iter (set_req_get_section_section body) params.section in
     let ()   = Option.iter (set_req_get_section_table_id_ext body) params.table_id_ext in
@@ -193,7 +198,7 @@ module Get_section : (Request
     let ()   = Option.iter (set_req_get_section_adv_info_2 body) params.eit_orig_nw_id in
     to_complex_req ~request_id ~msg_code:req_code ~body ()
 
-  let parse ({params;_}:req) msg =
+  let parse ({ params; _ }:req) msg =
     let hdr,bdy   = Cstruct.split msg sizeof_section in
     let length    = get_section_length hdr in
     let result    = get_section_result hdr in
@@ -201,7 +206,7 @@ module Get_section : (Request
     if length > 0 && result = 0
     then let sid,data  = Cstruct.split bdy 4 in
          let table_id  = params.table_id in
-         let stream_id = Common.Stream.id_of_int32 @@ Cstruct.LE.get_uint32 sid 0 in
+         let stream_id = Cstruct.LE.get_uint32 sid 0 in
          let raw       = Cstruct.to_string data in
          let table     = Mpeg_ts.table_of_int table_id in
          Ok { section    = List.map (Char.code) @@ String.to_list raw
@@ -303,7 +308,7 @@ end
 module Get_ts_structs
        : (Request
           with type req := ts_struct_req
-          with type rsp := (Stream.id * Streams.TS.structure) list) = struct
+          with type rsp := (id * Streams.TS.structure) list) = struct
 
   open Streams.TS
 
@@ -313,7 +318,7 @@ module Get_ts_structs
   let serialize ({ stream; request_id }:ts_struct_req) =
     let id   = match stream with
       | `All      -> 0xFFFF_FFFFl
-      | `Single x -> Stream.id_to_int32 x in
+      | `Single x -> x in
     let body = Cstruct.create sizeof_req_get_ts_struct in
     let ()   = set_req_get_ts_struct_stream_id body id in
     to_complex_req ~request_id ~msg_code:req_code ~body ()
@@ -535,13 +540,13 @@ module Get_ts_structs
   let find_pid pid pids =
     List.find_opt (fun (p:pid_info) -> pid = p.pid) pids
 
-  let of_ts_struct msg : (Stream.id * structure) * Cstruct.t option =
+  let of_ts_struct msg : (id * structure) * Cstruct.t option =
     let hdr,rest  = Cstruct.split msg sizeof_ts_struct in
     let len       = (Int32.to_int @@ get_ts_struct_length hdr) in
     let bdy,rest  = Cstruct.split rest len in
-    let timestamp = Common.Time.Clock.now () in
+    let timestamp = Time.Clock.now () in
     let blocks    = of_ts_struct_blocks bdy in
-    let stream    = Common.Stream.id_of_int32 @@ get_ts_struct_stream_id hdr in
+    let stream    = get_ts_struct_stream_id hdr in
     (* FIXME refactor this to be more efficient.
        Think of update algorithm that merges all in one map cycle *)
     let general =
@@ -605,7 +610,7 @@ module Get_ts_structs
       }
     in (stream, rsp), rest
 
-  let parse ({ stream; _}:ts_struct_req) msg : (Stream.id * structure) list =
+  let parse ({ stream; _ }:ts_struct_req) msg : (id * structure) list =
     let hdr,bdy'  = Cstruct.split msg sizeof_ts_structs in
     let count     = get_ts_structs_count hdr in
     (* stream id list *)
@@ -627,11 +632,9 @@ end
 
 module Get_bitrates : (Request
                        with type req := int
-                       with type rsp = (Stream.id * Streams.TS.bitrate) list) = struct
+                       with type rsp := (id * Streams.TS.bitrate) list) = struct
 
   open Streams.TS
-
-  type rsp = (Stream.id * bitrate) list
 
   let req_code = 0x030A
   let rsp_code = req_code
@@ -661,10 +664,10 @@ module Get_bitrates : (Request
     let br_per_pkt = (float_of_int total) /. (Int32.to_float total_pkts)  in
     let total_pids = get_stream_bitrate_total_pids hdr in
     let pids,tbls  = of_pids_bitrate total_pids br_per_pkt bdy in
-    let stream     = Common.Stream.id_of_int32 @@ get_stream_bitrate_stream_id hdr in
+    let stream     = get_stream_bitrate_stream_id hdr in
     let rsp        = stream, { total; pids; timestamp } in
     let rest       = if Cstruct.len rest > 0 then Some rest else None in
-    rsp,rest
+    rsp, rest
 
   let parse _ msg =
     let hdr,bdy   = Cstruct.split msg sizeof_bitrates in
@@ -680,7 +683,7 @@ end
 
 module Get_t2mi_info : (Request
                         with type req := t2mi_info_req
-                         and type rsp := Stream.id * Streams.T2MI.structure) =
+                         and type rsp := id * Streams.T2MI.structure) =
   struct
 
   open Streams.T2MI
@@ -767,7 +770,7 @@ module Status : (Event with type msg := status_raw) = struct
         (let pid = get_status_jitter_pid msg in
          let id  = get_status_jitter_stream_id msg in
          if not @@ Int.equal pid 0x1fff
-         then Some { stream = Common.Stream.id_of_int32 id; pid }
+         then Some { stream = id; pid }
          else None)
     ; errors = flags land 0x20 <> 0
     ; t2mi_sync =
@@ -794,9 +797,7 @@ module Status : (Event with type msg := status_raw) = struct
 
 end
 
-module TS_streams : (Event with type msg = Common.Stream.id list) = struct
-
-  type msg = Common.Stream.id list
+module TS_streams : (Event with type msg := id list) = struct
 
   let msg_code = 0x0B
 
@@ -804,12 +805,13 @@ module TS_streams : (Event with type msg = Common.Stream.id list) = struct
     let hdr,bdy' = Cstruct.split msg sizeof_streams_list_event in
     let count    = get_streams_list_event_count hdr in
     let bdy,_    = Cstruct.split bdy' (count * 4) in
-    let iter     = Cstruct.iter (fun _ -> Some 4) (fun buf -> Cstruct.LE.get_uint32 buf 0) bdy in
-    List.rev @@ Cstruct.fold (fun acc el -> (Common.Stream.id_of_int32 el) :: acc) iter []
+    let iter     = Cstruct.iter (fun _ -> Some 4)
+                     (fun buf -> Cstruct.LE.get_uint32 buf 0) bdy in
+    List.rev @@ Cstruct.fold (fun acc el -> el :: acc) iter []
 
 end
 
-module Ts_errors : (Event with type msg := Stream.id * (Errors.t list)) = struct
+module Ts_errors : (Event with type msg := id * (Errors.t list)) = struct
 
   open Board_types.Errors
 
@@ -826,11 +828,11 @@ module Ts_errors : (Event with type msg := Stream.id * (Errors.t list)) = struct
     | 0 -> Int32.compare x.packet y.packet
     | x -> x
 
-  let parse msg : Stream.id * (t list) =
+  let parse msg : id * (t list) =
     let common,rest = Cstruct.split msg sizeof_ts_errors in
     let number      = get_ts_errors_count common in
     let errors,_    = Cstruct.split rest (number * sizeof_ts_error) in
-    let stream_id   = Common.Stream.id_of_int32 (get_ts_errors_stream_id common) in
+    let stream_id   = get_ts_errors_stream_id common in
     let timestamp   = Common.Time.Clock.now () in
     let iter        = Cstruct.iter (fun _ -> Some sizeof_ts_error) (fun x -> x) errors in
     Cstruct.fold (fun acc el ->
@@ -853,7 +855,7 @@ module Ts_errors : (Event with type msg := Stream.id * (Errors.t list)) = struct
 
 end
 
-module T2mi_errors : (Event with type msg := Stream.id * (Errors.t list)) = struct
+module T2mi_errors : (Event with type msg := id * (Errors.t list)) = struct
 
   open Board_types.Errors
 
@@ -917,12 +919,12 @@ module T2mi_errors : (Event with type msg := Stream.id * (Errors.t list)) = stru
 
   let compare = fun x y -> Time.compare x.timestamp y.timestamp
 
-  let parse msg : Stream.id * (t list) =
+  let parse msg : id * (t list) =
     let timestamp   = Common.Time.Clock.now () in
     let common,rest = Cstruct.split msg sizeof_t2mi_errors in
     let number      = get_t2mi_errors_count common in
     let errors,_    = Cstruct.split rest (number * sizeof_t2mi_error) in
-    let stream_id   = Common.Stream.id_of_int32 (get_t2mi_errors_stream_id common) in
+    let stream_id   = get_t2mi_errors_stream_id common in
     let pid         = get_t2mi_errors_pid common in
     let _           = int_to_t2mi_sync_list (get_t2mi_errors_sync common) in
     let iter        = Cstruct.iter (fun _ -> Some sizeof_t2mi_error) (fun buf -> buf) errors in

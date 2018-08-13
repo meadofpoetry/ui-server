@@ -239,7 +239,8 @@ module Structure = struct
   let select_structures db ?(uris=[]) ?(limit=500) ~from ~till =
     let open Printf in
     let table   = (Conn.names db).structs in
-    let uris    = is_in "id" (fun x -> Yojson.Safe.to_string @@ Stream.stream_id_to_yojson (`Ip x)) uris in
+    let uris    = is_in "id" (fun x -> Yojson.Safe.to_string
+                                       @@ Stream.container_id_to_yojson (TSoIP x)) uris in
     let select = 
       R.collect Types.(tup3 ptime ptime int) Caqti_type.(tup2 string ptime)
         (sprintf {|(SELECT structs, date FROM %s WHERE %s date > $1 AND date <= $2)

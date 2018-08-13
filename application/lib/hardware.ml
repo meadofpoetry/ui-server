@@ -7,26 +7,28 @@ module Map  = CCMap.Make(Int)
 
 module Uri_storage = Storage.Options.Make(External_uri_storage)
 
-module Input_map = CCMap.Make(struct
-                       type t = input * int
-                       let compare (li, lid) (ri, rid) =
-                         let ci = compare_input li ri in
-                         if ci <> 0 then ci
-                         else Int.compare lid rid
-                     end)
-                 
+module Input_map =
+  CCMap.Make(struct
+      type t = input * int
+      let compare (li, lid) (ri, rid) =
+        let ci = compare_input li ri in
+        if ci <> 0 then ci
+        else Int.compare lid rid
+    end)
+
 type in_push = (url * Common.Stream.t) list -> unit
 type input_control  = { inputs : in_push Input_map.t
                       ; boards : stream_handler Map.t
                       }
-                    
-type t = { boards      : Boards.Board.t Map.t
-         ; usb         : Usb_device.t
-         ; topo        : Common.Topology.t React.signal
-         ; sources     : input_control
-         ; streams     : stream_table React.signal
-         ; uri_storage : Uri_storage.data Storage.Options.storage
-         }
+
+type t =
+  { boards      : Boards.Board.t Map.t
+  ; usb         : Usb_device.t
+  ; topo        : Common.Topology.t React.signal
+  ; sources     : input_control
+  ; streams     : stream_table React.signal
+  ; uri_storage : Uri_storage.data Storage.Options.storage
+  }
 
 let create_board db usb (b:topo_board) boards path step_duration =
   let (module B : BOARD) =
@@ -35,13 +37,12 @@ let create_board db usb (b:topo_board) boards path step_duration =
     | "IP2TS", "dtm-3200", "dektec", 1  -> (module Board_ip_dektec  : BOARD)
     | "TS",    "qos",      "niitv",  1  -> (module Board_qos_niit   : BOARD)
     | "TS2IP", "ts2ip",    "niitv",  1  -> (module Board_ts2ip_niit : BOARD)
-    | _ -> raise (Failure ("create board: unknown board "))
-  in
+    | _ -> raise (Failure ("create board: unknown board ")) in
   B.create b
-           (get_streams boards b)
-           (merge_streams boards)
-           (Usb_device.get_send usb b.control)
-           db path step_duration
+    (get_streams boards b)
+    (merge_streams boards)
+    (Usb_device.get_send usb b.control)
+    db path step_duration
 
 (* TODO do some refactoring later on *)
 let topo_to_signal topo boards : Common.Topology.t React.signal =
@@ -158,9 +159,10 @@ let create config db (topo : Common.Topology.t) =
   let topo_entries = Common.Topology.get_entries topo in
   let boards = List.fold_left traverse [] topo_entries (* TODO; Attention: traverse order now matters; 
                                                 child nodes come before parents *)
-               |> List.fold_left (fun m b -> let board = create_board db usb b m stor.config_dir step_duration in
-                                             Usb_device.subscribe usb b.control board.step;
-                                             Map.add b.control board m)
+               |> List.fold_left (fun m b ->
+                      let board = create_board db usb b m stor.config_dir step_duration in
+                      Usb_device.subscribe usb b.control board.step;
+                      Map.add b.control board m)
                     Map.empty
   in
   let sources, streams = get_sources topo_entries uri_storage#get boards in
@@ -188,21 +190,20 @@ let set_stream hw (ss : stream_setting) =
        | [] -> acc
        | (`Input _, _)::tl -> rebuild_boards acc streams tl
        | (`Board id, _)::tl ->
-          let same, rest = List.partition_map (function ((`Board bid,bs),buri) as v ->
-                                                 if id = bid
-                                                 then `Left  (buri,bs)
-                                                 else `Right v
-                             ) streams
-          in
-          rebuild_boards ((`Board id, same)::acc) rest tl
-     in
+          let same, rest =
+            List.partition_map (function ((`Board bid,bs),buri) as v ->
+                                  if id = bid
+                                  then `Left  (buri,bs)
+                                  else `Right v) streams in
+          rebuild_boards ((`Board id, same)::acc) rest tl in
      let rec input_add_uri (`Input i, sl) =
        let open Common.Stream in
-       let s_to_uri s = match s.id with
-         | `Ts _ -> raise_notrace (Constraints (`Internal_error "set_stream: expected ip stream from an input"))
-         | `Ip u -> (u, s)
-       in (`Input i, List.map s_to_uri sl)
-     in
+       let s_to_uri s = match s.orig_id with
+         | TSoIP x -> (Common.Url.{ ip = x.addr; port = x.port }, s)
+         | _ -> raise_notrace (
+                    Constraints (`Internal_error "set_stream: \
+                                                  expected ip stream from an input")) in
+       (`Input i, List.map s_to_uri sl) in
      let rec grep_input_uris acc = function
        | [] -> acc
        | (_, sl)::tl ->

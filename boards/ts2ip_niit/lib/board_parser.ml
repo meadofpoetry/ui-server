@@ -91,7 +91,7 @@ module Set_board_mode : (Instant_request with type t := (nw_settings * (packer_s
                |> fun mac -> set_packer_settings_dst_mac mac 0 buf in
     let ()   = set_packer_settings_self_port buf (reverse_port s.self_port) in
     let ()   = set_packer_settings_mode buf mode in
-    let ()   = set_packer_settings_stream_id buf (reverse_int32 @@ Stream.id_to_int32 s.stream) in
+    let ()   = set_packer_settings_stream_id buf (reverse_int32 s.stream) in
     buf
 
   let serialize_main ip mask gw (pkrs:packer_settings list) =

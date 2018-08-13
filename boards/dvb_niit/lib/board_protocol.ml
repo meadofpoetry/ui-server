@@ -17,7 +17,7 @@ type events =
   ; measures : (int * measures) React.event
   ; params   : (int * params) React.event
   ; plp_list : (int * plp_list) React.event
-  ; streams  : Common.Stream.stream list React.signal
+  ; streams  : Common.Stream.Raw.t list React.signal
   }
 
 type push_events =
@@ -484,10 +484,12 @@ module SM = struct
 
   let to_streams_s storage (e:(int * measures) React.event) =
     React.S.fold
-      (fun acc (id,(m:measures)) ->
+      (fun acc (id, (m:measures)) ->
         let open Common.Stream in
+        let eq = Raw.equal in
         let std, plp, freq, bw =
-          List.find_map (fun (x,c) -> if id = x then Some c else None) storage#get
+          List.find_map (fun (x, c) ->
+              if id = x then Some c else None) storage#get
           |> Option.get_exn
           |> (fun x -> match x.standard with
                        | T2 -> T2, x.t2.plp, x.t2.freq, x.t2.bw
@@ -495,20 +497,19 @@ module SM = struct
                        | C  -> C, 0, x.c.freq, x.c.bw) in
         let freq = Int64.of_int freq in
         let bw   = match bw with Bw8 -> 8. | Bw7 -> 7. | Bw6 -> 6. in
-        let source : Source.t = match std with
+        let info : Source.t = match std with
           | T2 -> DVB_T2 { freq; bw; plp }
           | T  -> DVB_T  { freq; bw }
           | C  -> DVB_C  { freq; bw} in
-        let (stream:stream) =
-          { source      = Port 0
-          ; id          = `Ts (Dvb (id,plp))
-          ; typ         = `Ts
-          ; description = source
-          }
-        in
-        match m.lock,m.bitrate with
-        | true,Some x when x > 0 -> List.add_nodup ~eq:(Common.Stream.equal_stream) stream acc
-        | _                      -> List.remove ~eq:(Common.Stream.equal_stream) ~x:stream acc)
+        let id = id_to_int32 (Dvb (id, plp)) in
+        let (stream:Raw.t) =
+          { source      = { info; node = Port 0 }
+          ; orig_id     = TS_multi id
+          ; typ         = TS
+          } in
+        match m.lock, m.bitrate with
+        | true, Some x when x > 0 -> List.add_nodup ~eq stream acc
+        | _ -> List.remove ~eq ~x:stream acc)
       [] e
 
   let map_measures storage (e:(int * measures) React.event) : (int * measures) React.event =
@@ -530,15 +531,15 @@ module SM = struct
     let e_params,params_push     = React.E.create () in
     let e_plp_list,plp_list_push = React.E.create () in
     let s_state,state_push       = React.S.create `No_response in
-    let e_config    = React.E.map (fun (id,mode) ->
-                          let c = update_config id mode storage#get in
-                          storage#store c;
-                          c) e_mode
-    in
-    let hold_e f e  = React.E.fold (fun acc x -> List.Assoc.set ~eq:(=) (f x) x acc) [] e
-                      |> React.E.map (List.map snd)
-                      |> React.S.hold []
-    in
+    let e_config =
+      React.E.map (fun (id, mode) ->
+          let c = update_config id mode storage#get in
+          storage#store c;
+          c) e_mode in
+    let hold_e f e  =
+      React.E.fold (fun acc x -> List.Assoc.set ~eq:(=) (f x) x acc) [] e
+      |> React.E.map (List.map snd)
+      |> React.S.hold [] in
     let s_lock      = hold_e fst e_lock in
     let s_measures  = hold_e fst e_measures in
     let s_params    = hold_e fst e_params in

@@ -35,12 +35,15 @@ let create (b:topo_board) (streams:Common.Stream.t list React.signal) _ send db 
     React.S.l2 (fun incoming outgoing ->
         List.map (fun x ->
             let open Stream in
-            match List.find_opt (fun o -> match o.source with
-                                          | Parent s -> Stream.equal x s
-                                          | _        -> false) outgoing with
-            | Some o -> (match o.id with
-                         | `Ip uri -> Some uri, x
-                         | _       -> None, x)
+            match List.find_opt (fun o ->
+                      match o.source.node with
+                      | Stream s -> Stream.equal x s
+                      | _        -> false) outgoing with
+            | Some o ->
+               (match o.orig_id with
+                | TSoIP uri ->
+                   Some ({ ip = uri.addr; port = uri.port }:Url.t), x
+                | _ -> None, x)
             | None   -> None,x) incoming) events.in_streams events.out_streams
   in
   let constraints =

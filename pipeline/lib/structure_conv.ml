@@ -15,6 +15,7 @@ let match_streams
   List.filter_map (merge !sources) sl
 
 let dump_structures (entries : Structure.t list) =
-  List.map (fun (x : Structure.t) -> (Yojson.Safe.to_string @@ Common.Stream.stream_id_to_yojson x.source.id)
-                                   , (Yojson.Safe.to_string @@ Structure.structure_to_yojson x.structure))
+  List.map (fun (x : Structure.t) ->
+      (Yojson.Safe.to_string @@ `Int x.source.id),
+      (Yojson.Safe.to_string @@ Structure.structure_to_yojson x.structure))
     entries

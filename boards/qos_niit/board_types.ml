@@ -12,7 +12,9 @@ type devinfo =
 
 (** Modes **)
 
-type input = SPI | ASI [@@deriving yojson,show,eq]
+type input =
+  | SPI
+  | ASI [@@deriving yojson, show, eq]
 
 let input_to_string = function SPI -> "SPI" | ASI -> "ASI"
 
@@ -20,13 +22,13 @@ type t2mi_mode =
   { enabled        : bool
   ; pid            : int
   ; t2mi_stream_id : int
-  ; stream         : Stream.id
-  } [@@deriving yojson,eq,show]
+  ; stream         : Stream.Multi_TS_ID.t
+  } [@@deriving yojson, eq, show]
 
 type jitter_mode =
-  { stream  : Stream.id
+  { stream  : Stream.Multi_TS_ID.t
   ; pid     : int
-  } [@@deriving yojson,eq,show]
+  } [@@deriving yojson, eq, show]
 
 (** Config **)
 
@@ -35,9 +37,6 @@ type config =
   ; t2mi_mode   : t2mi_mode option
   ; jitter_mode : jitter_mode option
   } [@@deriving yojson,eq]
-
-let t2mi_mode_default   = { enabled = false; pid = 0; t2mi_stream_id = 0; stream = Single }
-let jitter_mode_default = { pid = 0x1fff; stream = Single }
 
 let config_to_string c = Yojson.Safe.to_string @@ config_to_yojson c
 let config_of_string s = config_of_yojson @@ Yojson.Safe.from_string s
@@ -303,7 +302,7 @@ module Streams = struct
       | Val_hex  of int [@@deriving yojson, show]
 
     type section =
-      { stream_id  : Stream.id
+      { stream_id  : Stream.Multi_TS_ID.t
       ; table_id   : int
       ; section_id : int
       ; section    : int list

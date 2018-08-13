@@ -1,6 +1,40 @@
 open Topology
 open Containers
 
+type id = int [@@deriving yojson, show, eq, ord]
+
+(** Legacy ID *)
+type id' =
+  | Single
+  | T2mi_plp of int
+  | Dvb of int * int
+  | Unknown of int32 [@@deriving show, eq, ord]
+
+let id_of_int32 : int32 -> id' = function
+  | 0l -> Single
+  | x when Int32.equal (Int32.logand x (Int32.of_int 0xFFFF0000)) Int32.zero
+    -> let x'     = Int32.to_int x in
+       let stream = (x' land 0x0000FF00) lsr 8 in
+       let plp    = (x' land 0xFF) in
+       (match stream with
+        | 1             -> T2mi_plp plp
+        | 2 | 3 | 4 | 5 -> Dvb (stream - 2, plp)
+        | _             -> Unknown x)
+  | _ as x -> Unknown x
+
+let id_to_int32 : id' -> int32 = function
+  | Single -> 0l
+  | T2mi_plp plp ->
+     1 lsl 8
+     |> Int32.of_int
+     |> Int32.logor (Int32.of_int plp)
+  | Dvb (stream,plp) ->
+     (2 + stream) lsl 8
+     |> Int32.of_int
+     |> Int32.logor (Int32.of_int plp)
+  | Unknown x -> x
+
+(** Stream source description/parameters *)
 module Source = struct
 
   let round_freq (x:int64) =
@@ -93,186 +127,119 @@ module Source = struct
 
 end
 
-type id =
-  | Single
-  | T2mi_plp of int
-  | Dvb of int * int
-  | Unknown of int32 [@@deriving show, eq, ord]
+(** Multi TS ID *)
+module Multi_TS_ID = struct
 
-module Description = struct
+  type t = int32 [@@deriving yojson, eq, show, ord]
 
-  type base =
-    { tsid : int
-    ; onid : int
+  type parsed =
+    { source_id : int
+    ; stream_id : int
     }
 
-  type dvb =
-    { mode : [ `T | `T2 | `C ]
-    ; freq : int
-    ; plp  : int
-    ; bw   : [ `Bw6 | `Bw7 | `Bw8 ]
-    }
+  (** Parse ID *)
+  let to_parsed (t:t) : (parsed, string) result =
+    Error "FIXME implement"
 
-  type ip =
-    { addr : Ipaddr_ext.V4.t
-    ; port : int
-    }
+  (** Returns ID as it is defined in board exchange protocols *)
+  let of_parsed (x:parsed) : t =
+    failwith "FIXME implement"
 
-  type t2mi_plp =
-    { plp_id : int
-    }
-
-  type node =
-    | Dvb      of dvb
-    | Ip       of ip
-    | Asi
-    | T2mi_plp of t2mi_plp
-
-  type sid = [ `Multy_id of id | `Ip of Url.t | `Single ]
-
-  type typ = [ `Ts | `T2mi ]
-
-  type stream =
-    { source      : src
-    ; id          : sid
-    ; typ         : typ
-    ; label       : string
-    ; description : node
-    }
-  and src = Port   of int
-          | Local
-          | Stream of stream
-
-  type description = (node list) * topo_entry
-
-  type t =
-    { source      : source
-    ; id          : sid
-    ; typ         : typ
-    ; label       : string
-    ; description : description
-    }
-  and source = Entry  of Topology.topo_entry
-             | Parent of t
+  (** Returns raw ID as it is transmitted in a multi stream *)
+  let of_parsed_raw (x:parsed) : t =
+    failwith "FIXME implement"
 
 end
 
-let id_of_int32 : int32 -> id = function
-  | 0l -> Single
-  | x when Int32.equal (Int32.logand x (Int32.of_int 0xFFFF0000)) Int32.zero
-    -> let x'     = Int32.to_int x in
-       let stream = (x' land 0x0000FF00) lsr 8 in
-       let plp    = (x' land 0xFF) in
-       (match stream with
-        | 1             -> T2mi_plp plp
-        | 2 | 3 | 4 | 5 -> Dvb (stream - 2, plp)
-        | _             -> Unknown x)
-  | _ as x -> Unknown x
+type stream_type =
+  | TS
+  | T2MI [@@deriving yojson, eq, show, ord]
 
-let id_to_int32 : id -> int32 = function
-  | Single -> 0l
-  | T2mi_plp plp ->
-     1 lsl 8
-     |> Int32.of_int
-     |> Int32.logor (Int32.of_int plp)
-  | Dvb (stream,plp) ->
-     (2 + stream) lsl 8
-     |> Int32.of_int
-     |> Int32.logor (Int32.of_int plp)
-  | Unknown x -> x
+type tsoip_id =
+  { addr : Ipaddr_ext.V4.t
+  ; port : int
+  } [@@deriving yojson, eq, show, ord]
 
-let id_to_yojson id : Yojson.Safe.json =
-  let i32 = id_to_int32 id in `Intlit (Int32.to_string i32)
-let id_of_yojson json : (id,string) result = match json with
-  | `Intlit i -> Result.of_opt (Option.map id_of_int32 @@ Int32.of_string i)
-  | `Int i    -> Ok (id_of_int32 @@ Int32.of_int i)
-  | _         -> Error "not an int32"
+type container_id =
+  | TS_raw
+  | TS_multi of Multi_TS_ID.t
+  | TSoIP    of tsoip_id [@@deriving yojson, eq, show, ord]
 
-type stream_id =
-  [ `Ip of Url.t
-  | `Ts of id ] [@@deriving yojson, show, eq, ord]
-
-type stream =
-  { source      : src
-  ; id          : stream_id
-  ; typ         : typ
-  ; description : Source.t
+let tsoip_id_of_url (x:Url.t) : tsoip_id =
+  { addr = x.ip
+  ; port = x.port
   }
-and typ = [ `Ts | `T2mi ]
-and src = Port   of int
-        | Stream of id [@@deriving yojson, show, eq, ord]
+
+module Raw = struct
+
+  type t =
+    { source  : source
+    ; typ     : stream_type
+    ; orig_id : container_id
+    }
+  and source_node =
+    | Port   of int
+    | Board
+    | Stream of container_id
+  and source =
+    { node : source_node
+    ; info : Source.t
+    } [@@deriving eq, show]
+
+end
 
 type t =
-  { source      : source
-  ; id          : stream_id
-  ; typ         : typ
-  ; description : Source.t
+  (* stream source node and description *)
+  { source  : source
+  (* unique generated stream id. just a numeric representation of source *)
+  ; id      : id
+  (* stream type *)
+  ; typ     : stream_type
+  (* original container id *)
+  ; orig_id : container_id
   }
-and source = Input  of Topology.topo_input
-           | Parent of t [@@deriving yojson, show, ord]
+and source_node =
+  | Entry  of topo_entry (* stream from input or generated by a board*)
+  | Stream of t          (* stream extracted from another stream *)
+and source =
+  { node : source_node   (* source node *)
+  ; info : Source.t      (* details about stream source *)
+  } [@@deriving yojson, eq, show, ord]
+
+let make_id (src:source) : id =
+    Hashtbl.hash src
+
+let to_multi_id (t:t) : Multi_TS_ID.t =
+  match t.orig_id with
+  | TS_multi x -> x
+  | _          -> failwith "not a multi TS"
 
 let typ_to_string = function
-  | `Ts   -> "ts"
-  | `T2mi -> "t2mi"
+  | TS   -> "ts"
+  | T2MI -> "t2mi"
 let typ_of_string = function
-  | "ts"   -> `Ts
-  | "t2mi" -> `T2mi
+  | "ts"   -> TS
+  | "t2mi" -> T2MI
   | _      -> failwith "bad typ string"
 
-let to_short_name (t:t) =
-  let src = match t.source with
-    | Input i  -> Topology.get_input_name i
-    | Parent _ -> "Поток"
-  in
-  let id  = match t.id with
-    | `Ip uri -> Some (Url.to_string uri)
-    | _       -> None
-  in
-  let s = Printf.sprintf "Источник: %s" src in
-  match id with
-  | Some id -> s ^ ", " ^ id
-  | None    -> s
+let rec equal l r = l.id = r.id
 
-let rec equal l r =
-  match l.id, r.id with
-  | `Ip ul, `Ip ur ->
-     if Url.equal ul ur
-     then if equal_source l.source r.source
-          then equal_typ l.typ r.typ
-          else false
-     else false
-  | `Ts il, `Ts ir ->
-     if equal_id il ir
-     then if equal_source l.source r.source
-          then equal_typ l.typ r.typ
-          else false
-     else false
-  | _ -> false
-and equal_source l r = match l, r with
-  | Input l, Input r -> Topology.equal_topo_input l r
-  | Parent l, Parent r -> equal l r
-  | _ -> false
-and equal_typ l r = match l, r with
-  | `Ts, `Ts     -> true
-  | `T2mi, `T2mi -> true
-  | _ -> false
+let rec get_input (s:t) : topo_input option =
+  match s.source.node with
+  | Stream s      -> get_input s
+  | Entry Input i -> Some i
+  | Entry Board _ -> None
 
-let to_topo_port (b:topo_board) (t:t) =
-  let rec get_input = function
-    | Parent x -> get_input x.source
-    | Input x  -> x
-  in
-  let input = get_input t.source in
-  let rec get_port = function
+let to_topo_port (b:topo_board) (t:t) : topo_port option =
+  let input = get_input t in
+  let rec get_port input = function
     | []    -> None
-    | h::tl -> (match h.child with
-                | Input x -> if equal_topo_input x input then Some h else get_port tl
-                | Board x -> (match get_port x.ports with
-                              | Some _ -> Some h
-                              | None   -> get_port tl))
-  in get_port b.ports
-
-let rec get_input s =
-  match s.source with
-  | Parent s -> get_input s
-  | Input  i -> i
+    | hd :: tl ->
+       (match hd.child with
+        | Input x -> if equal_topo_input x input
+                     then Some hd else get_port input tl
+        | Board x -> (match get_port input x.ports with
+                      | Some _ -> Some hd
+                      | None   -> get_port input tl))
+  in
+  Option.flat_map (fun x -> get_port x b.ports) input
