@@ -14,9 +14,9 @@ module WS = struct
 
   let get id l =
     List.find_map (fun ((s:Stream.t), x) ->
-        if s.id = id then Some x else None) l
+        if ID.equal s.id id then Some x else None) l
 
-  let streams (events:events) (ids:int list) inputs _ body sock_data () =
+  let streams (events:events) (ids:ID.t list) inputs _ body sock_data () =
     let rec input_of_stream (t:Stream.t) = match t.source.node with
       | Entry (Topology.Input x) -> x
       | Entry _  -> assert false (* FIXME implement *)
@@ -29,7 +29,7 @@ module WS = struct
                  let mem = List.mem ~eq:Topology.equal_topo_input
                              (input_of_stream s) inputs in
                  match mem with
-                 | true -> List.mem ~eq:(=) s.id l
+                 | true -> List.mem ~eq:ID.equal s.id l
                  | _    -> false) streams
              |> function [] -> None | l -> Some l)
            (S.changes events.streams)
@@ -92,7 +92,7 @@ module WS = struct
       let e =
         React.E.fmap (fun l ->
             match List.fold_left (fun acc ((s:Stream.t), errs) ->
-                      if not (s.id = id)
+                      if not (ID.equal s.id id)
                       then acc
                       else acc @ filter errs fns) [] l with
             | [] -> None
@@ -135,7 +135,8 @@ module HTTP = struct
     let open Lwt_result.Infix in
     let merge (cur:t list) streams =
       let filter (s, id, typ, t) =
-        if List.exists (fun s -> id = s.id && equal_stream_type typ s.typ) cur
+        if List.exists (fun s -> Stream.ID.equal id s.id
+                                 && equal_stream_type typ s.typ) cur
         then None
         else Some (s,`Last t) in
       let streams = List.filter_map filter streams in
@@ -180,22 +181,15 @@ module HTTP = struct
 
   let si_psi_section (api:api) id table_id section
         table_id_ext eit_ts_id eit_orig_nw_id _ _ () =
-    let req =
-      { stream_id = id
-      ; table_id
-      ; section
-      ; table_id_ext
-      ; eit_ts_id
-      ; eit_orig_nw_id
-      } in
-    api.get_section req
+    api.get_section ?section ?table_id_ext ?eit_ts_id ?eit_orig_nw_id
+      ~id ~table_id ()
     >|= (function
          | Ok x    -> Ok    (section_to_yojson x)
          | Error e -> Error (section_error_to_yojson e))
     >>= respond_result
 
   let to_yojson _to =
-    Json.(List.to_yojson (Pair.to_yojson Int.to_yojson _to))
+    Json.(List.to_yojson (Pair.to_yojson Stream.ID.to_yojson _to))
 
   let get' (db:Db.t) select _to from till duration () =
     match Time.make_interval ?from ?till ?duration () with
@@ -309,35 +303,35 @@ let handler db (api:api) events =
     "streams"
     [ create_ws_handler ~docstring:"Pushes available streams to the client"
         ~path:Path.Format.empty
-        ~query:Query.[ "id",    (module List(Int))
+        ~query:Query.[ "id",    (module List(Stream.ID))
                      ; "input", (module List(Topology.Show_topo_input)) ]
         (WS.streams events)
     ; create_ws_handler ~docstring:"Pushes stream bitrate to the client"
-        ~path:Path.Format.(Int ^/ "bitrate" @/ empty)
+        ~path:Path.Format.(Stream.ID.fmt ^/ "bitrate" @/ empty)
         ~query:Query.empty
         (WS.bitrate events)
     ; create_ws_handler ~docstring:"Pushes TS info to the client"
-        ~path:Path.Format.(Int ^/ "info" @/ empty)
+        ~path:Path.Format.(Stream.ID.fmt ^/ "info" @/ empty)
         ~query:Query.empty
         (WS.info events)
     ; create_ws_handler ~docstring:"Pushes TS services to the client"
-        ~path:Path.Format.(Int ^/ "services" @/ empty)
+        ~path:Path.Format.(Stream.ID.fmt ^/ "services" @/ empty)
         ~query:Query.empty
         (WS.services events)
     ; create_ws_handler ~docstring:"Pushes TS SI/PSI tables to the client"
-        ~path:Path.Format.(Int ^/ "tables" @/ empty)
+        ~path:Path.Format.(Stream.ID.fmt ^/ "tables" @/ empty)
         ~query:Query.empty
         (WS.tables events)
     ; create_ws_handler ~docstring:"Pushes TS PIDs to the client"
-        ~path:Path.Format.(Int ^/ "pids" @/ empty)
+        ~path:Path.Format.(Stream.ID.fmt ^/ "pids" @/ empty)
         ~query:Query.empty
         (WS.pids events)
     ; create_ws_handler ~docstring:"Pushes T2-MI structure to the client"
-        ~path:Path.Format.(Int ^/ "t2mi/structure" @/ empty)
+        ~path:Path.Format.(Stream.ID.fmt ^/ "t2mi/structure" @/ empty)
         ~query:Query.[ "t2mi-stream-id", (module List(Int)) ]
         (WS.T2MI.structure events)
     ; create_ws_handler ~docstring:"Pushes TS errors to the client"
-        ~path:Path.Format.(Int ^/ "errors" @/ empty)
+        ~path:Path.Format.(Stream.ID.fmt ^/ "errors" @/ empty)
         ~query:Query.[ "errors",   (module List(Int))
                      ; "priority", (module List(Int))
                      ; "pid",      (module List(Int))]
@@ -346,7 +340,7 @@ let handler db (api:api) events =
     [ `GET,
       [ create_handler ~docstring:"Returns streams states"
           ~path:Path.Format.empty
-          ~query:Query.[ "id",       (module List(Int32))
+          ~query:Query.[ "id",       (module List(Stream.ID))
                        ; "input",    (module List(Topology.Show_topo_input))
                        ; "limit",    (module Option(Int))
                        ; "compress", (module Option(Bool))
@@ -355,14 +349,14 @@ let handler db (api:api) events =
                        ; "duration", (module Option(Time.Relative)) ]
           (HTTP.streams db events)
       ; create_handler ~docstring:"Returns SI/PSI table section"
-          ~path:Path.Format.(Int32 ^/ "section" @/ Int ^/ empty)
+          ~path:Path.Format.(Stream.ID.fmt ^/ "section" @/ Int ^/ empty)
           ~query:Query.[ "section",        (module Option(Int))
                        ; "table-id-ext",   (module Option(Int))
                        ; "eit-ts-id",      (module Option(Int))
                        ; "eit-orig-nw-id", (module Option(Int)) ]
           (HTTP.si_psi_section api)
       ; create_handler ~docstring:"Returns TS bitrate"
-          ~path:Path.Format.(Int ^/ "bitrate" @/ empty)
+          ~path:Path.Format.(Stream.ID.fmt ^/ "bitrate" @/ empty)
           ~query:Query.[ "limit",    (module Option(Int))
                        ; "compress", (module Option(Bool))
                        ; "from",     (module Option(Time.Show))
@@ -370,28 +364,28 @@ let handler db (api:api) events =
                        ; "duration", (module Option(Time.Relative)) ]
           HTTP.bitrate
       ; create_handler ~docstring:"Returns TS info"
-          ~path:Path.Format.(Int ^/ "info" @/ empty)
+          ~path:Path.Format.(Stream.ID.fmt ^/ "info" @/ empty)
           ~query:Query.[ "limit",    (module Option(Int))
                        ; "from",     (module Option(Time.Show))
                        ; "to",       (module Option(Time.Show))
                        ; "duration", (module Option(Time.Relative)) ]
           (HTTP.info db)
       ; create_handler ~docstring:"Returns TS services"
-          ~path:Path.Format.(Int ^/ "services" @/ empty)
+          ~path:Path.Format.(Stream.ID.fmt ^/ "services" @/ empty)
           ~query:Query.[ "limit",    (module Option(Int))
                        ; "from",     (module Option(Time.Show))
                        ; "to",       (module Option(Time.Show))
                        ; "duration", (module Option(Time.Relative)) ]
           (HTTP.services db)
       ; create_handler ~docstring:"Returns TS tables"
-          ~path:Path.Format.(Int ^/ "tables" @/ empty)
+          ~path:Path.Format.(Stream.ID.fmt ^/ "tables" @/ empty)
           ~query:Query.[ "limit",    (module Option(Int))
                        ; "from",     (module Option(Time.Show))
                        ; "to",       (module Option(Time.Show))
                        ; "duration", (module Option(Time.Relative)) ]
           (HTTP.tables db)
       ; create_handler ~docstring:"Returns TS PIDs"
-          ~path:Path.Format.(Int ^/ "pids" @/ empty)
+          ~path:Path.Format.(Stream.ID.fmt ^/ "pids" @/ empty)
           ~query:Query.[ "limit",    (module Option(Int))
                        ; "from",     (module Option(Time.Show))
                        ; "to",       (module Option(Time.Show))
@@ -399,12 +393,12 @@ let handler db (api:api) events =
           (HTTP.pids db)
       (* T2-MI*)
       ; create_handler ~docstring:"Returns T2-MI packet sequence"
-          ~path:Path.Format.(Int32 ^/ "t2mi/sequence" @/ empty)
+          ~path:Path.Format.(Stream.ID.fmt ^/ "t2mi/sequence" @/ empty)
           ~query:Query.[ "t2mi-stream-id", (module List(Int))
                        ; "duration",       (module Option(Time.Relative)) ]
           (HTTP.T2MI.sequence api)
       ; create_handler ~docstring:"Returns T2-MI structure"
-          ~path:Path.Format.(Int ^/ "t2mi/structure" @/ empty)
+          ~path:Path.Format.(Stream.ID.fmt ^/ "t2mi/structure" @/ empty)
           ~query:Query.[ "limit",          (module Option(Int))
                        ; "from",           (module Option(Time.Show))
                        ; "to",             (module Option(Time.Show))
@@ -412,7 +406,7 @@ let handler db (api:api) events =
           (HTTP.T2MI.structure db)
       (* Errors *)
       ; create_handler ~docstring:"Returns archived TS errors"
-          ~path:Path.Format.(Int ^/ "errors" @/ empty)
+          ~path:Path.Format.(Stream.ID.fmt ^/ "errors" @/ empty)
           ~query:Query.[ "errors",   (module List(Int))
                        ; "priority", (module List(Int))
                        ; "pid",      (module List(Int))
@@ -424,7 +418,7 @@ let handler db (api:api) events =
                        ; "duration", (module Option(Time.Relative)) ]
           (fun x -> HTTP.Errors.errors db [x])
       ; create_handler ~docstring:"Returns TS errors presence percentage"
-          ~path:Path.Format.(Int ^/ "errors/percent" @/ empty)
+          ~path:Path.Format.(Stream.ID.fmt ^/ "errors/percent" @/ empty)
           ~query:Query.[ "errors",   (module List(Int))
                        ; "priority", (module List(Int))
                        ; "pid",      (module List(Int))
@@ -433,7 +427,7 @@ let handler db (api:api) events =
                        ; "duration", (module Option(Time.Relative)) ]
           (fun x -> HTTP.Errors.percent db [x])
       ; create_handler ~docstring:"Returns if TS errors were present for the requested period"
-          ~path:Path.Format.(Int ^/ "errors/has-any" @/ empty)
+          ~path:Path.Format.(Stream.ID.fmt ^/ "errors/has-any" @/ empty)
           ~query:Query.[ "errors",   (module List(Int))
                        ; "priority", (module List(Int))
                        ; "pid",      (module List(Int))

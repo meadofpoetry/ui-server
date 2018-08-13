@@ -14,10 +14,10 @@ let state_of_string = function
   | "init"        -> Some `Init
   | _             -> None
 
-type input = RF
-           | TSOIP
-           | ASI
-[@@deriving show, eq]
+type input =
+  | RF
+  | TSOIP
+  | ASI [@@deriving show, eq, enum]
 
 type board_type = string [@@deriving yojson, show, eq, ord]
 

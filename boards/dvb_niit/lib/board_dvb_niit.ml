@@ -33,6 +33,11 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
    * let _s              = Lwt_react.E.map_p (fun m -> Database.request db (Board_model.Store_measures m))
    *                       @@ React.E.changes events.measures in *)
   let streams = convert_streams events.streams b in
+  let () = React.S.map (fun l ->
+               Common.Json.List.to_yojson Common.Stream.to_yojson l
+               |> Yojson.Safe.pretty_to_string
+               |> (fun s -> Logs.err (fun m -> m "Streams: %s\n" s))) streams
+           |> Lwt_react.S.keep in
   let state = (object
                  (* method _s = _s;
                   * method db = db; *)

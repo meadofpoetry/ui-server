@@ -100,7 +100,7 @@ type t2mi_frame_seq_req =
   }
 and frame_seq_params =
   { seconds : int
-  ; stream  : Stream.Multi_TS_ID.t
+  ; stream  : Stream.ID.t
   }
 
 type section_req =
@@ -122,7 +122,15 @@ type api =
   ; set_t2mi_mode   : t2mi_mode option -> t2mi_mode option Lwt.t
   ; set_jitter_mode : jitter_mode option -> jitter_mode option Lwt.t
   ; get_t2mi_seq    : frame_seq_params -> Streams.T2MI.sequence Lwt.t
-  ; get_section     : section_params -> (Streams.TS.section,Streams.TS.section_error) Lwt_result.t
+  ; get_section     :
+      ?section:int ->
+      ?table_id_ext:int ->
+      ?eit_ts_id:int ->
+      ?eit_orig_nw_id:int ->
+      id:Stream.ID.t ->
+      table_id:int ->
+      unit ->
+      (Streams.TS.section, Streams.TS.section_error) Lwt_result.t
   ; reset           : unit -> unit Lwt.t
   ; config          : unit -> config
   }

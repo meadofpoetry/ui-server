@@ -6,8 +6,9 @@ include Board_msg_formats
 
 open Board_types
 open Types
-open Common.Dvb_t2_types
 open Common
+open Common.Dvb_t2_types
+open Common.Stream
 
 type part =
   { first : bool
@@ -22,11 +23,10 @@ type _ instant_request =
 
 type probe_response =
   | Board_errors of board_errors
-  | Bitrate      of (id * Streams.TS.bitrate) list
-  | Struct       of (id * Streams.TS.structure) list
-  | T2mi_info    of (id * Streams.T2MI.structure)
+  | Bitrate      of (Multi_TS_ID.t * Streams.TS.bitrate) list
+  | Struct       of (Multi_TS_ID.t * Streams.TS.structure) list
+  | T2mi_info    of (Multi_TS_ID.t * Streams.T2MI.structure)
   | Jitter       of Types.jitter_raw
-and id = Stream.Multi_TS_ID.t
 
 type _ probe_request =
   | Get_board_errors : int           -> probe_response probe_request
@@ -308,7 +308,7 @@ end
 module Get_ts_structs
        : (Request
           with type req := ts_struct_req
-          with type rsp := (id * Streams.TS.structure) list) = struct
+          with type rsp := (Multi_TS_ID.t * Streams.TS.structure) list) = struct
 
   open Streams.TS
 
@@ -503,7 +503,7 @@ module Get_ts_structs
       : (string option * pid_type) option =
     List.find_all (fun (x:table_info) -> x.pid = pid) tables
     |> List.map (fun (x:table_info) -> x.id)
-    |> List.sort_uniq ~cmp:compare
+    |> List.sort_uniq ~cmp:Int.compare
     |> (function
         | [ ] -> None
         | [x] ->
@@ -540,7 +540,7 @@ module Get_ts_structs
   let find_pid pid pids =
     List.find_opt (fun (p:pid_info) -> pid = p.pid) pids
 
-  let of_ts_struct msg : (id * structure) * Cstruct.t option =
+  let of_ts_struct msg : (Multi_TS_ID.t * structure) * Cstruct.t option =
     let hdr,rest  = Cstruct.split msg sizeof_ts_struct in
     let len       = (Int32.to_int @@ get_ts_struct_length hdr) in
     let bdy,rest  = Cstruct.split rest len in
@@ -610,7 +610,7 @@ module Get_ts_structs
       }
     in (stream, rsp), rest
 
-  let parse ({ stream; _ }:ts_struct_req) msg : (id * structure) list =
+  let parse ({ stream; _ }:ts_struct_req) msg : (Multi_TS_ID.t * structure) list =
     let hdr,bdy'  = Cstruct.split msg sizeof_ts_structs in
     let count     = get_ts_structs_count hdr in
     (* stream id list *)
@@ -632,7 +632,7 @@ end
 
 module Get_bitrates : (Request
                        with type req := int
-                       with type rsp := (id * Streams.TS.bitrate) list) = struct
+                       with type rsp := (Multi_TS_ID.t * Streams.TS.bitrate) list) = struct
 
   open Streams.TS
 
@@ -683,7 +683,7 @@ end
 
 module Get_t2mi_info : (Request
                         with type req := t2mi_info_req
-                         and type rsp := id * Streams.T2MI.structure) =
+                         and type rsp := Multi_TS_ID.t * Streams.T2MI.structure) =
   struct
 
   open Streams.T2MI
@@ -797,7 +797,7 @@ module Status : (Event with type msg := status_raw) = struct
 
 end
 
-module TS_streams : (Event with type msg := id list) = struct
+module TS_streams : (Event with type msg := Multi_TS_ID.t list) = struct
 
   let msg_code = 0x0B
 
@@ -811,7 +811,7 @@ module TS_streams : (Event with type msg := id list) = struct
 
 end
 
-module Ts_errors : (Event with type msg := id * (Errors.t list)) = struct
+module Ts_errors : (Event with type msg := Multi_TS_ID.t * (Errors.t list)) = struct
 
   open Board_types.Errors
 
@@ -828,7 +828,7 @@ module Ts_errors : (Event with type msg := id * (Errors.t list)) = struct
     | 0 -> Int32.compare x.packet y.packet
     | x -> x
 
-  let parse msg : id * (t list) =
+  let parse msg : Multi_TS_ID.t * (t list) =
     let common,rest = Cstruct.split msg sizeof_ts_errors in
     let number      = get_ts_errors_count common in
     let errors,_    = Cstruct.split rest (number * sizeof_ts_error) in
@@ -855,7 +855,7 @@ module Ts_errors : (Event with type msg := id * (Errors.t list)) = struct
 
 end
 
-module T2mi_errors : (Event with type msg := id * (Errors.t list)) = struct
+module T2mi_errors : (Event with type msg := Multi_TS_ID.t * (Errors.t list)) = struct
 
   open Board_types.Errors
 
@@ -919,7 +919,7 @@ module T2mi_errors : (Event with type msg := id * (Errors.t list)) = struct
 
   let compare = fun x y -> Time.compare x.timestamp y.timestamp
 
-  let parse msg : id * (t list) =
+  let parse msg : Multi_TS_ID.t * (t list) =
     let timestamp   = Common.Time.Clock.now () in
     let common,rest = Cstruct.split msg sizeof_t2mi_errors in
     let number      = get_t2mi_errors_count common in

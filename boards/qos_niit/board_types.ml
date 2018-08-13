@@ -275,12 +275,6 @@ module Streams = struct
 
     (** SI/PSI section **)
 
-    type section_error = Zero_length
-                       | Table_not_found
-                       | Section_not_found
-                       | Stream_not_found
-                       | Unknown [@@deriving yojson]
-
     type parsed = node list
     and node =
       { offset : int
@@ -300,6 +294,13 @@ module Streams = struct
       | Duration of Time.Period.t
       | Name     of string * int
       | Val_hex  of int [@@deriving yojson, show]
+
+    type section_error =
+      | Zero_length
+      | Table_not_found
+      | Section_not_found
+      | Stream_not_found
+      | Unknown [@@deriving yojson]
 
     type section =
       { stream_id  : Stream.Multi_TS_ID.t
@@ -397,7 +398,7 @@ module Errors = struct
     } [@@deriving yojson,eq]
 
   type raw =
-    (Stream.id * t) list [@@deriving yojson]
+    (Stream.ID.t * t) list [@@deriving yojson]
 
   type compressed = percent list
   and percent =

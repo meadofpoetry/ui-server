@@ -1,38 +1,46 @@
 open Topology
 open Containers
 
-type id = int [@@deriving yojson, show, eq, ord]
+module ID : sig
 
-(** Legacy ID *)
-type id' =
-  | Single
-  | T2mi_plp of int
-  | Dvb of int * int
-  | Unknown of int32 [@@deriving show, eq, ord]
+  type t
+  type api_fmt = t
+  val to_string     : t -> string
+  val of_string_opt : string -> t option
+  val of_string     : string -> t
+  val to_yojson     : t -> Yojson.Safe.json
+  val of_yojson     : Yojson.Safe.json -> (t, string) result
+  val compare       : t -> t -> int
+  val equal         : t -> t -> bool
+  val pp            : Format.formatter -> t -> unit
+  val make          : string -> t
+  val typ           : string
+  val fmt           : api_fmt Uri_ext.Path.Format.fmt
 
-let id_of_int32 : int32 -> id' = function
-  | 0l -> Single
-  | x when Int32.equal (Int32.logand x (Int32.of_int 0xFFFF0000)) Int32.zero
-    -> let x'     = Int32.to_int x in
-       let stream = (x' land 0x0000FF00) lsr 8 in
-       let plp    = (x' land 0xFF) in
-       (match stream with
-        | 1             -> T2mi_plp plp
-        | 2 | 3 | 4 | 5 -> Dvb (stream - 2, plp)
-        | _             -> Unknown x)
-  | _ as x -> Unknown x
+end = struct
 
-let id_to_int32 : id' -> int32 = function
-  | Single -> 0l
-  | T2mi_plp plp ->
-     1 lsl 8
-     |> Int32.of_int
-     |> Int32.logor (Int32.of_int plp)
-  | Dvb (stream,plp) ->
-     (2 + stream) lsl 8
-     |> Int32.of_int
-     |> Int32.logor (Int32.of_int plp)
-  | Unknown x -> x
+  include Uuidm
+
+  type api_fmt = t
+
+  let typ = "uuid"
+
+  let fmt = Uri_ext.Path.Format.Uuid
+
+  let to_string (x:t)          = to_string x
+  let of_string_opt (s:string) = of_string s
+  let of_string (s:string)     = Option.get_exn @@ of_string_opt s
+
+  let to_yojson (x:t) : Yojson.Safe.json =
+    `String (Uuidm.to_string x)
+  let of_yojson : Yojson.Safe.json -> (t, string) result = function
+    | `String s -> Result.of_opt @@ Uuidm.of_string s
+    | _         -> Error "uuid_of_yojson: not a string"
+
+  let make (s:string) =
+    v5 ns_url s
+
+end
 
 (** Stream source description/parameters *)
 module Source = struct
@@ -139,7 +147,10 @@ module Multi_TS_ID = struct
 
   (** Parse ID *)
   let to_parsed (t:t) : (parsed, string) result =
-    Error "FIXME implement"
+    (* FIXME implement *)
+    Ok ({ source_id = 0
+        ; stream_id = 0
+        })
 
   (** Returns ID as it is defined in board exchange protocols *)
   let of_parsed (x:parsed) : t =
@@ -173,9 +184,9 @@ let tsoip_id_of_url (x:Url.t) : tsoip_id =
 module Raw = struct
 
   type t =
-    { source  : source
-    ; typ     : stream_type
-    ; orig_id : container_id
+    { source : source
+    ; typ    : stream_type
+    ; id     : container_id
     }
   and source_node =
     | Port   of int
@@ -191,8 +202,8 @@ end
 type t =
   (* stream source node and description *)
   { source  : source
-  (* unique generated stream id. just a numeric representation of source *)
-  ; id      : id
+  (* unique stream ID across the system *)
+  ; id      : ID.t
   (* stream type *)
   ; typ     : stream_type
   (* original container id *)
@@ -206,8 +217,20 @@ and source =
   ; info : Source.t      (* details about stream source *)
   } [@@deriving yojson, eq, show, ord]
 
-let make_id (src:source) : id =
-    Hashtbl.hash src
+let make_id (src:source) : ID.t =
+  let node = match src.node with
+    | Entry (Input i) -> Printf.sprintf "%d/%d" (input_to_enum i.input) i.id
+    | Entry (Board b) -> string_of_int b.control
+    | Stream s        -> ID.to_string s.id in
+  let info = match src.info with
+    | DVB_T2 x -> "dvbt2/" ^ Source.dvb_t2_to_string x
+    | DVB_T  x -> "dvbt/"  ^ Source.dvb_t_to_string  x
+    | DVB_C  x -> "dvbc/"  ^ Source.dvb_c_to_string  x
+    | ASI      -> "asi"
+    | SPI      -> "spi"
+    | T2MI x   -> "t2mi/"  ^ Source.t2mi_to_string x
+    | IPV4 x   -> "ipv4/"  ^ Source.ipv4_to_string x in
+  ID.make (node ^ "/" ^ info)
 
 let to_multi_id (t:t) : Multi_TS_ID.t =
   match t.orig_id with
@@ -222,7 +245,7 @@ let typ_of_string = function
   | "t2mi" -> T2MI
   | _      -> failwith "bad typ string"
 
-let rec equal l r = l.id = r.id
+let rec equal l r = ID.equal l.id r.id
 
 let rec get_input (s:t) : topo_input option =
   match s.source.node with

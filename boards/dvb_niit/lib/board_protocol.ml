@@ -501,11 +501,13 @@ module SM = struct
           | T2 -> DVB_T2 { freq; bw; plp }
           | T  -> DVB_T  { freq; bw }
           | C  -> DVB_C  { freq; bw} in
-        let id = id_to_int32 (Dvb (id, plp)) in
+        let id = (2 + id) lsl 8
+                 |> Int32.of_int
+                 |> Int32.logor (Int32.of_int plp) in
         let (stream:Raw.t) =
-          { source      = { info; node = Port 0 }
-          ; orig_id     = TS_multi id
-          ; typ         = TS
+          { source = { info; node = Port 0 }
+          ; id     = TS_multi id
+          ; typ    = TS
           } in
         match m.lock, m.bitrate with
         | true, Some x when x > 0 -> List.add_nodup ~eq stream acc

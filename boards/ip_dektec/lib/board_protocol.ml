@@ -698,9 +698,9 @@ module SM = struct
                       ; scheme
                       } in
         let (stream:Stream.Raw.t) =
-          { source      = { info = IPV4 info; node = Port 0 }
-          ; orig_id     = TS_raw
-          ; typ         = TS
+          { source = { info = IPV4 info; node = Port 0 }
+          ; id     = TS_raw
+          ; typ    = TS
           } in
         if x.asi_bitrate > 0 then List.pure stream else List.empty)
     @@ React.E.changes status

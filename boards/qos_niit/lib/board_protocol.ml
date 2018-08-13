@@ -13,11 +13,15 @@ let probes_timeout = 5 (* seconds *)
 
 module Timer = Boards.Timer
 
-let find_stream (id:Stream.Multi_TS_ID.t) (streams:Stream.t list) =
+let find_stream_by_multi_id (id:Stream.Multi_TS_ID.t) (streams:Stream.t list) =
   List.find_opt (fun (s:Stream.t) ->
       match s.orig_id with
       | TS_multi x -> Stream.Multi_TS_ID.equal x id
       | _          -> false) streams
+
+let find_stream_by_id (id:Stream.ID.t) (streams:Stream.t list) =
+  List.find_opt (fun (s:Stream.t) ->
+      Stream.ID.equal s.id id) streams
 
 module Acc = struct
   type t =
@@ -468,13 +472,13 @@ module SM = struct
            T2MI { stream_id = mode.t2mi_stream_id
                 ; plp       = id.stream_id }
         | _ -> (match i with SPI -> SPI | ASI -> ASI) in
-      { orig_id = TS_multi x
-      ; source  = { info; node }
-      ; typ     = match mode with
-                  | Some m ->
-                     if Stream.Multi_TS_ID.equal x m.stream && m.enabled
-                     then T2MI else TS
-                  | _ -> TS
+      { id     = TS_multi x
+      ; source = { info; node }
+      ; typ    = match mode with
+                 | Some m ->
+                    if Stream.Multi_TS_ID.equal x m.stream && m.enabled
+                    then T2MI else TS
+                 | _ -> TS
       } in
     let e_group =
       E.map (fun (g:group) ->
@@ -512,7 +516,7 @@ module SM = struct
     let streams = streams_conv (to_raw_streams_s group state) in
     let fmap l streams =
       List.filter_map (fun (id, x) ->
-          match find_stream id streams with
+          match find_stream_by_multi_id id streams with
           | None   -> None
           | Some s -> Some (s, x)) l in
     let map ~eq s =
@@ -611,13 +615,28 @@ module SM = struct
         Logs.info (fun m -> m "%s" @@ fmt "Got reset request");
         enqueue_instant state imsgs sender Reset)
 
-      ; get_section = (fun r ->
-        Logs.debug (fun m ->
-            let s = show_section_params r in
-            m "%s" @@ fmt "Got SI/PSI section request: %s" s);
-        enqueue state msgs sender (Get_section { request_id = get_id ()
-                                               ; params = r })
-          (Timer.steps ~step_duration 125) None)
+      ; get_section = (fun ?section ?table_id_ext ?eit_ts_id ?eit_orig_nw_id
+                           ~id ~table_id () ->
+        (* Logs.debug (fun m ->
+         *     let s = show_section_params r in
+         *     m "%s" @@ fmt "Got SI/PSI section request: %s" s); *)
+        match find_stream_by_id id @@ React.S.value streams with
+        | Some s ->
+           (match s.orig_id with
+            | TS_multi id ->
+               let params = { stream_id = id
+                            ; table_id
+                            ; section
+                            ; table_id_ext
+                            ; eit_ts_id
+                            ; eit_orig_nw_id
+                            } in
+               let req = { request_id = get_id (); params } in
+               let timer = Timer.steps ~step_duration 125 in
+               enqueue state msgs sender (Get_section req) timer None
+            (* XXX maybe other error here *)
+            | _ -> Lwt_result.fail Stream_not_found)
+        | None -> Lwt_result.fail Stream_not_found)
 
       ; get_t2mi_seq = (fun params ->
         Logs.debug (fun m -> let s = string_of_int params.seconds ^ " sec" in
