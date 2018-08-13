@@ -38,9 +38,9 @@ let find_service (error:Errors.t)
    *     List.mem ~eq:(=) pid @@ List.map (fun (x:es_info) -> x.pid) x.es)
    *   structure.services *)
 
-let find_structure (stream:Stream.id)
+let find_structure (stream:Stream.t)
       (error:Errors.t)
-      (structures:(Stream.id * Streams.TS.structure) list) = None
+      (structures:(Stream.ID.t * Streams.TS.structure) list) = None
   (* let open Streams.TS in
    * let s = List.filter_map (fun (id,s) ->
    *             if Stream.equal_id id stream
@@ -67,7 +67,7 @@ let find_stream (streams:Streams.TS.streams_states)
 
 let make_table
       (streams:Streams.TS.streams_states Api_js.Api_types.raw)
-      (structures:(Stream.id * Streams.TS.structure) list)
+      (structures:(Stream.ID.t * Streams.TS.structure) list)
       (errors:Errors.raw) =
   let tz_offset_s = Ptime_clock.current_tz_offset_s () in
   let time = Time.to_human_string ?tz_offset_s in

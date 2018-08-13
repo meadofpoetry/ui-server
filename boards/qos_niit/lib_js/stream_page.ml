@@ -30,10 +30,7 @@ let get_services ~id control =
 let dummy_tab = fun () ->
   Ui_templates.Placeholder.under_development ()
 
-let services (stream:Stream.t) control =
-  let id = match stream.id with
-    | `Ts id -> id
-    | `Ip _  -> failwith "UDP" in
+let services ({ id; _ }:Stream.t) control =
   let e_br, br_sock = Requests.Streams.WS.get_bitrate ~id control in
   let overview =
     get_pids ~id control
@@ -52,10 +49,7 @@ let services (stream:Stream.t) control =
     new t ~cells () in
   box#widget
 
-let pids (stream:Stream.t) control =
-  let id = match stream.id with
-    | `Ts id -> id
-    | _      -> failwith "bad id" in
+let pids ({ id; _ } as stream : Stream.t) control =
   let bitrate, sock = Requests.Streams.WS.get_bitrate ~id control in
   let init = get_pids ~id control in
   let summary =
@@ -114,8 +108,8 @@ let tabs (stream:Stream.t) control =
     ; "Архив",   dummy_tab
     ] in
   match stream.typ with
-  | `T2mi -> List.insert_at_idx 4 ("T2-MI", dummy_tab) base
-  | `Ts   -> base
+  | T2MI -> List.insert_at_idx 4 ("T2-MI", dummy_tab) base
+  | TS   -> base
 
 let make_tabs (stream:Stream.t) control =
   List.map (fun (name, f) ->

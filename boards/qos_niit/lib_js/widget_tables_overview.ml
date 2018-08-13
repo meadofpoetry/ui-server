@@ -206,11 +206,8 @@ let make_card
   card#widget
 
 let make ~(config:config) control =
-  let id   = match config.stream.id with
-    | `Ts id -> id
-    | `Ip _  -> failwith "UDP" in
   let init =
-    Requests.Streams.HTTP.get_tables ~id ~limit:1 control
+    Requests.Streams.HTTP.get_tables ~id:config.stream.id ~limit:1 control
     >>= (function
          | Raw s -> Lwt_result.return s.data
          | _     -> Lwt.fail_with "got compressed") in

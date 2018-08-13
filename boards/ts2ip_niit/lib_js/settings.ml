@@ -1,6 +1,7 @@
 open Containers
 open Board_types
 open Components
+open Common
 
 type state =
   { streams : WebSockets.webSocket Js.t
@@ -25,30 +26,31 @@ let streams ~(init   : init)
   let id            = "streams-list" in
   let div           = Dom_html.createDiv Dom_html.document in
   let s,s_push      = React.S.create [] in
-  let _ = React.S.map (fun sms ->
-              let items =
-                List.map (fun x ->
-                    let open Common.Stream in
-                    let rec get_input = function
-                      | Input x -> x
-                      | Parent x -> get_input x.source
-                    in
-                    let input = get_input x.source in
-                    let cb    = new Checkbox.t () in
-                    let text  = Printf.sprintf "Источник: %s" (Common.Topology.input_to_string input.input) in
-                    new Item_list.Item.t ~ripple:true ~graphic:cb ~text ~value:() (),
-                    React.S.map (function true  -> Some x | false -> None) cb#s_state) sms
-              in
-              let lst = new Item_list.t ~items:(List.map (fun x -> `Item (fst x)) items) () in
-              lst#set_id id;
-              (try Dom.removeChild div (Dom_html.getElementById id) with _ -> ());
-              Dom.appendChild div lst#root;
-              let s = React.S.merge (fun acc x -> match x with
-                                                  | Some x -> x :: acc
-                                                  | None   -> acc) [] @@ List.map snd items
-              in
-              React.S.map (fun x -> s_push x) s |> ignore)
-            (React.S.hold init.streams events.streams)
+  let _ =
+    React.S.map (fun sms ->
+        let items =
+          List.map (fun x ->
+              let open Stream in
+              let open Topology in
+              let rec get_input = function
+                | Entry (Input x) -> Printf.sprintf "Вход %s" @@ input_to_string x.input
+                | Entry (Board b) -> Printf.sprintf "Плата %s" b.model
+                | Stream x        -> get_input x.source.node in
+              let text = get_input x.source.node in
+              let cb   = new Checkbox.t () in
+              new Item_list.Item.t ~ripple:true ~graphic:cb ~text ~value:() (),
+              React.S.map (function true  -> Some x | false -> None) cb#s_state) sms
+        in
+        let lst = new Item_list.t ~items:(List.map (fun x -> `Item (fst x)) items) () in
+        lst#set_id id;
+        (try Dom.removeChild div (Dom_html.getElementById id) with _ -> ());
+        Dom.appendChild div lst#root;
+        let s = React.S.merge (fun acc x -> match x with
+                                            | Some x -> x :: acc
+                                            | None   -> acc) [] @@ List.map snd items
+        in
+        React.S.map (fun x -> s_push x) s |> ignore)
+      (React.S.hold init.streams events.streams)
   in
   Widget.create div,s
 

@@ -244,7 +244,7 @@ let make_tree (x:parsed) =
   tree
 
 let make_dump
-      (stream:Stream.id)
+      (stream:Stream.t)
       (table:table_info)
       (list:(section_info * section option) Item_list.t) control =
   let base_class = Markup.CSS.add_element base_class "dump" in
@@ -306,7 +306,7 @@ let make_dump
            let get = fun () ->
              Lwt.catch (fun () ->
                  (req_of_table id id_ext eit_params section.id)
-                   ~id:stream control
+                   ~id:stream.id control
                  |> Lwt_result.map_err Api_js.Requests.err_to_string
                  >|= (function
                       | Ok dump ->
@@ -347,13 +347,10 @@ class t ~(config:config)
         (control:int)
         () =
   let stream_panel_class = Markup.CSS.add_element base_class "list" in
-  let id  = match config.stream.id with
-    | `Ts id -> id
-    | `Ip _  -> failwith "UDP" in
   let box   = Widget.create_div () in
   let event = React.E.map (fun x -> x.sections) event in
   let list  = make_list init.sections event sections control in
-  let dump  = make_dump id init list control in
+  let dump  = make_dump config.stream init list control in
   let list_name =
     let _class = Markup.CSS.add_element stream_panel_class "title" in
     let w  = new Typography.Text.t ~text:"Секции" () in

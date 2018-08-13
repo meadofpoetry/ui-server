@@ -2,6 +2,7 @@ open Board_types
 open Containers
 open Components
 open Lwt_result.Infix
+open Common
 
 type config = unit [@@deriving yojson]
 
@@ -52,12 +53,12 @@ let make_sid () =
   sid#set_required true;
   sid#widget, set, sid#s_input, sid#set_disabled
 
-let make_stream_select (streams : Common.Stream.t list React.signal) =
+let make_stream_select (streams : Stream.t list React.signal) =
   let make_items sms =
-    List.map (fun s ->
+    List.map (fun (s:Stream.t) ->
         new Select.Item.t
           ~value:s
-          ~text:(Common.Stream.to_short_name s)
+          ~text:(Stream.Source.to_string s.source.info) (* FIXME make normal name *)
           ()) sms in
   let select =
     new Select.t
@@ -75,9 +76,9 @@ let make_stream_select (streams : Common.Stream.t list React.signal) =
 let name     = "Настройки. T2-MI"
 let settings = None
 
-let make ~(state:   Common.Topology.state React.signal)
+let make ~(state:   Topology.state React.signal)
          ~(mode:    t2mi_mode option React.signal)
-         ~(streams: Common.Stream.t list React.signal)
+         ~(streams: Stream.t list React.signal)
          (conf:     config option)
          control =
   let en, set_en, s_en, dis_en     = make_enabled () in
@@ -88,10 +89,10 @@ let make ~(state:   Common.Topology.state React.signal)
     React.S.l4 (fun en pid sid state->
         match en, pid, sid, state with
         | true, Some pid, Some sid, `Fine ->
-           Some (Some { enabled = en
+           Some (Some { enabled        = en
                       ; pid
                       ; t2mi_stream_id = sid
-                      ; stream = Common.Stream.Single })
+                      ; stream         = 0l }) (* FIXME stream *)
         | false, _, _, `Fine -> Some None
         | _ -> None)
       s_en s_pid s_sid state in

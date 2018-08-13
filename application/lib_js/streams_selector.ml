@@ -4,20 +4,23 @@ open Lwt.Infix
 
 open Application_types
 
+module Stream = Common.Stream
+
 type check = { avail   : bool React.signal
              ; enable  : unit -> unit
              ; disable : unit -> unit
              }
 
-type stream_dialog = { dialog : Dialog.t
-                     ; push   : (Common.Topology.input * int) -> unit
-                     ; result : (Common.Stream.t, string) result React.signal
-                     }
+type stream_dialog =
+  { dialog : Dialog.t
+  ; push   : (Common.Topology.input * int) -> unit
+  ; result : (Stream.t, string) result React.signal
+  }
                    
 let make_board_stream_entry ?(check = None)
                             ?(uri = None)
-                            (stream:Common.Stream.t) =
-  let text           = Common.Stream.Source.to_string stream.description in
+                            (stream:Stream.t) =
+  let text           = Stream.Source.to_string stream.source.info in
   let checkbox       = new Checkbox.t ~ripple:false () in
   checkbox#set_checked @@ Option.is_some uri;
   begin match check with
@@ -100,10 +103,11 @@ let make_board_entry (bid, state, stream_list) =
   | `Unlimited   -> make_board_unlimited bid stream_list
 
 let make_input_stream_list stream_list =
-  let make_board_stream_entry del_item del_stream (stream:Common.Stream.t) =
-    let text           = Common.Stream.Source.to_string stream.description in
+  let make_board_stream_entry del_item del_stream (stream:Stream.t) =
+    let text           = Stream.Source.to_string stream.source.info in
     let del_button     = new Button.t ~label:"delete" () in
-    let uri            = match stream.id with `Ip u -> u in
+    let uri            = match stream.orig_id with
+      | TSoIP x -> ({ ip = x.addr; port = x.port } : Common.Url.t) in
     let item           =
       new Item_list.Item.t ~text ~secondary_text:(Common.Url.to_string uri) ~meta:del_button ~value:() () in
     (* TODO remove event *)
@@ -115,13 +119,13 @@ let make_input_stream_list stream_list =
   let del_item   i = list#remove_item i in
   let del_stream s =
     let slst = React.S.value signal in
-    push @@ List.filter (fun x -> not @@ Common.Stream.equal s x) slst
+    push @@ List.filter (fun x -> not @@ Stream.equal s x) slst
   in
   let items = List.map (make_board_stream_entry del_item del_stream) stream_list in
   List.iter (fun i -> list#append_item i) items;
   let add stream =
     let slst = React.S.value signal in
-    if List.exists (Common.Stream.equal stream) slst
+    if List.exists (Stream.equal stream) slst
     then failwith "stream exists"; (* TODO fix *)
     let item = make_board_stream_entry del_item del_stream stream in
     list#append_item item;
@@ -130,9 +134,9 @@ let make_input_stream_list stream_list =
   signal, list, add
   
 let make_stream_create_dialog () =
-  let open Common.Stream in
-  let input, push_input = React.S.create (Input { input = RF; id = 0} ) in
-  let push (input, id) = push_input (Input { input; id}) in
+  let open Stream in
+  let input, push_input = React.S.create ({ input = RF; id = 0} : Common.Topology.topo_input) in
+  let push (input, id) = push_input ({ input; id}) in
 
   let header = new Typography.Text.t ~text:"Create stream" () in
   let uri_box = new Textfield.t
@@ -156,13 +160,17 @@ let make_stream_create_dialog () =
   let merge uri description source =
     match uri with
     | None -> Error ("no uri provided")
-    | Some uri ->
-       Ok { id  = `Ip uri
-          ; typ = `Ts
-          ; description = IPV4 { scheme = "udp"
-                               ; addr   = uri.ip
-                               ; port   = uri.port }
-          ; source }
+    | Some (uri:Common.Url.t) ->
+       let source =
+         { info = IPV4 { scheme = "udp"
+                       ; addr   = uri.ip
+                       ; port   = uri.port }
+         ; node = Entry (Input source) } in
+       Ok { id      = make_id source
+          ; orig_id = TSoIP { addr = uri.ip; port = uri.port }
+          ; typ     = TS
+          ; source
+         }
   in
   let result = React.S.l3 merge uri_box#s_input desc_box#s_input input in
   Dom.appendChild Dom_html.document##.body dialog#root;

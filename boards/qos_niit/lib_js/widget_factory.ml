@@ -76,8 +76,8 @@ object(self)
   val _t2mi_mode   : t2mi_mode option   React.signal t_lwt = empty ()
   val _jitter_mode : jitter_mode option React.signal t_lwt = empty ()
   (* val _structure   : Streams.TS.structure option React.signal t_lwt = empty () *)
-  val _structs     : (Stream.id * Streams.TS.structure) list React.signal t_lwt = empty ()
-  val _bitrates    : (Stream.id * Streams.TS.bitrate) list React.signal t_lwt = empty ()
+  val _structs     : (Stream.ID.t * Streams.TS.structure) list React.signal t_lwt = empty ()
+  val _bitrates    : (Stream.ID.t * Streams.TS.bitrate) list React.signal t_lwt = empty ()
   val _streams     : Stream.t list React.signal t_lwt = empty ()
   val _ts_errors   : Errors.t list React.event Factory_state.t = empty ()
 
@@ -172,9 +172,7 @@ object(self)
     >|= fun streams ->
     React.S.map (fun streams ->
         List.find_opt (fun (stream:Stream.t) ->
-            match stream.id with
-            | `Ts x -> Stream.equal_id id x
-            | _     -> false) streams)
+            Stream.ID.equal stream.id id) streams)
       streams
 
   method streams =
