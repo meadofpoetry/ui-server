@@ -70,4 +70,5 @@ let create config auth_filter routes templates =
   in
   let handler  = get_handler ~settings ~auth_filter ~routes ~pages in
   Cohttp_lwt_unix.Server.create ~mode:(`TCP (`Port settings.port))
+                                ~on_exn:(fun e -> Logs.err (fun m -> m "(Server) Exception: %s" (Printexc.to_string e)))
                                 (Cohttp_lwt_unix.Server.make ~callback:handler ())
