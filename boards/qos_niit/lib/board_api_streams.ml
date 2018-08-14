@@ -145,13 +145,15 @@ module HTTP = struct
     match Time.make_interval ?from ?till ?duration () with
     | Ok `Range (from,till) ->
        Db.Streams.select_stream_unique db ~inputs ~from ~till ()
-       >>= (fun (Compressed { data }) ->
-        let current =
-          React.S.value events.streams
-          |> List.filter (fun (s:Stream.t) ->
-                 let input = Option.get_exn @@ Stream.get_input s in (* FIXME handle None *)
-                 List.mem ~eq:Topology.equal_topo_input input inputs) in
-        Lwt_result.return (Compressed { data = merge current data }))
+       >>= (function
+            | Raw _ -> assert false
+            | Compressed { data } ->
+               let current =
+                 React.S.value events.streams
+                 |> List.filter (fun (s:Stream.t) ->
+                        let input = Option.get_exn @@ Stream.get_input s in (* FIXME handle None *)
+                        List.mem ~eq:Topology.equal_topo_input input inputs) in
+               Lwt_result.return (Compressed { data = merge current data }))
        |> Lwt_result.map (fun x ->
               rows_to_yojson
                 (fun () -> `Null)

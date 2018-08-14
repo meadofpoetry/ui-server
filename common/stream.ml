@@ -136,29 +136,125 @@ module Source = struct
 end
 
 (** Multi TS ID *)
-module Multi_TS_ID = struct
+module Multi_TS_ID : sig
 
-  type t = int32 [@@deriving yojson, eq, show, ord]
+  (** Pure multi TS ID format.
+      Pure format is usually used in exchange protocol messages because
+      it is easier to parse then the raw format.
 
+      | [31:28] |   [27:8]   |  [7:0]   |
+      |---------+------------+----------|
+      |  rfu    |  num[19:0] | src[7:0] |
+
+      Raw multi TS ID format.
+      Raw format is used when ID is transmitted in TS stream.
+      Constants in this formats guarantee that inner bytes will never
+      take the value 0x47 (sync byte in MPEG-TS).
+
+
+      | [31] |   [30:23]  | [22] |  [21:10]  | [9] |   [8:1]   | [0] |
+      |------+------------+------+-----------+-----+-----------+-----|
+      |  1   | num[19:12] |  0   | num[11:0] |  0  |  src[7:0] |  0  |
+
+   *)
+
+  type t
   type parsed =
     { source_id : int
     ; stream_id : int
     }
 
-  (** Parse ID *)
-  let to_parsed (t:t) : (parsed, string) result =
-    (* FIXME implement *)
-    Ok ({ source_id = 0
-        ; stream_id = 0
-        })
+  val to_yojson : t -> Yojson.Safe.json
+  val of_yojson : Yojson.Safe.json -> (t, string) result
+  val compare : t -> t -> int
+  val equal : t -> t -> bool
+  val pp : Format.formatter -> t -> unit
+  val show : t -> string
+  val parse : t -> parsed
+  val make : parsed -> t
+  val of_int32_raw : int32 -> t
+  val of_int32_pure : int32 -> t
+  val to_int32_raw : t -> int32
+  val to_int32_pure : t -> int32
 
-  (** Returns ID as it is defined in board exchange protocols *)
-  let of_parsed (x:parsed) : t =
-    failwith "FIXME implement"
+end = struct
 
-  (** Returns raw ID as it is transmitted in a multi stream *)
-  let of_parsed_raw (x:parsed) : t =
-    failwith "FIXME implement"
+  type t =
+    | Raw  of int32
+    | Pure of int32 [@@deriving yojson]
+
+  type parsed =
+    { source_id : int
+    ; stream_id : int
+    } [@@deriving eq, ord]
+
+  let parse_pure (i:int32) : parsed =
+    let open Int32 in
+    let src = to_int @@ i land 0xFFl in
+    let num = to_int @@ (i land 0xFFFFF00l) lsr 8 in
+    { source_id = src
+    ; stream_id = num
+    }
+
+  let parse_raw (i:int32) : parsed =
+    let open Int32 in
+    let src = to_int @@ i land 0x1FEl in
+    let num1 = (i land 0x7F800000l) lsr 11 in
+    let num2 = (i land 0x3FFC00l) lsr 10 in
+    let num = to_int @@ num1 lor num2 in
+    { source_id = src
+    ; stream_id = num
+    }
+
+  let make_pure (p:parsed) : int32 =
+    let open Int32 in
+    let src = Int32.of_int p.source_id in
+    let num = Int32.of_int p.stream_id in
+    (num lsl 8) lor src
+
+  let make_raw (p:parsed) : int32 =
+    let open Int32 in
+    let src = Int32.of_int p.source_id in
+    let num = Int32.of_int p.stream_id in
+    let num1 = (num land 0xFF000l) lsl 11 in
+    let num2 = num land 0xFFFl lsl 10 in
+    (num1 lor num2 lor src)
+    |> (land) 0x3FBFFDFEl  (* ensure zeros at right places *)
+    |> (lor) 0x80000000l   (* ensure ones at right places *)
+
+  let make (p:parsed) : t =
+    Pure (make_pure p)
+
+  let parse = function
+    | Raw i -> parse_raw i
+    | Pure i -> parse_pure i
+
+  let compare (x:t) (y:t) = match x, y with
+    | Raw x, Raw y -> Int32.compare x y
+    | Pure x, Pure y -> Int32.compare x y
+    | x, y -> compare_parsed (parse x) (parse y)
+
+  let equal x y = 0 = compare x y
+
+  let of_int32_raw (i:int32)  = Raw i
+
+  let of_int32_pure (i:int32) = Pure i
+
+  let to_int32_raw = function
+    | Raw i -> i
+    | Pure i -> parse_pure i |> make_raw
+
+  let to_int32_pure = function
+    | Pure i -> i
+    | Raw i -> parse_raw i |> make_pure
+
+  let pp ppf t =
+    let p = parse t in
+    Format.fprintf ppf "{ source_id = %d; stream_id = %d }"
+      p.source_id p.stream_id
+
+  let show t =
+    Format.asprintf "%a" pp t
 
 end
 

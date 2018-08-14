@@ -83,6 +83,7 @@ module Set_board_mode : (Instant_request with type t := (nw_settings * (packer_s
 
   let serialize_packer_settings (s:packer_settings) =
     let buf  = Cstruct.create sizeof_packer_settings in
+    let id   = Stream.Multi_TS_ID.to_int32_raw s.stream in
     let mode = (s.socket lsl 1) |> (fun x -> if s.enabled then x lor 1 else x) in
     (* FIXME temp reverse *)
     let ()   = Ipaddr.V4.to_int32 (reverse_ip s.dst_ip) |> set_packer_settings_dst_ip buf in
@@ -91,7 +92,7 @@ module Set_board_mode : (Instant_request with type t := (nw_settings * (packer_s
                |> fun mac -> set_packer_settings_dst_mac mac 0 buf in
     let ()   = set_packer_settings_self_port buf (reverse_port s.self_port) in
     let ()   = set_packer_settings_mode buf mode in
-    let ()   = set_packer_settings_stream_id buf (reverse_int32 s.stream) in
+    let ()   = set_packer_settings_stream_id buf (reverse_int32 id) in
     buf
 
   let serialize_main ip mask gw (pkrs:packer_settings list) =

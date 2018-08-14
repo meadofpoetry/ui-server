@@ -2,6 +2,13 @@ open Common
 open Board_types
 open Containers
 
+(** Init *)
+
+type init =
+  { input : int
+  ; t2mi  : int
+  } [@@deriving of_yojson]
+
 (** Mode **)
 
 type mode =
@@ -68,6 +75,7 @@ type event =
   | `T2mi_errors   of Stream.Multi_TS_ID.t * (Errors.t list)
   | `Ts_errors     of Stream.Multi_TS_ID.t * (Errors.t list)
   | `End_of_errors
+  | `End_of_transmission
   ] [@@deriving eq]
 
 type group =
@@ -141,12 +149,13 @@ open React
 open Streams.TS
 
 type device_events =
-  { config : config event
+  { config : config signal
   ; input  : input signal
   ; state  : Topology.state signal
   ; status : status event
   ; reset  : reset_ts event
   ; errors : board_errors event
+  ; info   : devinfo option React.signal
   }
 
 type ts_events =

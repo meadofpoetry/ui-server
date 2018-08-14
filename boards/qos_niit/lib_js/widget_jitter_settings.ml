@@ -56,7 +56,7 @@ let make ~(state: Topology.state React.signal)
     React.S.l3 (fun en pid state ->
         match en, pid, state with
         | true, Some pid, `Fine ->
-           Some (Some { pid; stream = 0l }) (* FIXME stream *)
+           Some (Some { pid; stream = Stream.Multi_TS_ID.of_int32_raw 0l }) (* FIXME stream *)
         | false, _, `Fine -> Some None
         | _ -> None)
       s_en s_pid state in

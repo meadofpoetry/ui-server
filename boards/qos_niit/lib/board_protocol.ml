@@ -71,11 +71,13 @@ module SM = struct
       | `Streams_event x ->
          Printf.sprintf "streams: %s" (show_streams x)
       | `T2mi_errors (id, e) ->
-         Printf.sprintf "T2-MI errors(stream=%ld,len=%d)" id (List.length e)
+         Printf.sprintf "T2-MI errors(stream = %s,len = %d)"
+           (Multi_TS_ID.show id) (List.length e)
       | `Ts_errors (id, e) ->
-         Printf.sprintf "TS errors(stream=%ld,len=%d)" id (List.length e)
-      | `End_of_errors ->
-         "end of errors"
+         Printf.sprintf "TS errors(stream = %s, len = %d)"
+           (Multi_TS_ID.show id) (List.length e)
+      | `End_of_errors -> "end of errors"
+      | `End_of_transmission -> "end_of_transmission"
 
     let group_to_string (g:group) : string =
       let e = String.concat "; " (List.map event_to_string g.events) in
@@ -99,7 +101,7 @@ module SM = struct
 
     (** Returns merged groups and accumulator. Last group received is head of list *)
     let handle (events:event list) (acc:Acc.t) =
-      let groups,rest = split_by (acc.events @ events) `End_of_errors in
+      let groups, rest = split_by (acc.events @ events) `End_of_transmission in
       let groups =
         List.filter (function
             | `Status _ :: `Streams_event _ :: _ -> true
@@ -161,6 +163,7 @@ module SM = struct
        *   | None -> [ Get_ts_struct { request_id = get_id ()
        *                             ; stream     = `All } ] in *)
       let t2mi_structs = match status.t2mi_mode, prev_t with
+        | None, _ -> []
         | Some m, Some old ->
            (List.map (fun id -> Get_t2mi_info { request_id = get_id ()
                                               ; stream     = m.stream
@@ -168,14 +171,14 @@ module SM = struct
               (List.foldi (fun acc i x ->
                    if (x <> (List.nth old.status.versions.t2mi_ver_lst i))
                       && List.mem ~eq:(=) i status.t2mi_sync
-                   then i :: acc
-                   else acc) [] status.versions.t2mi_ver_lst))
+                   then i :: acc else acc)
+                 [] status.versions.t2mi_ver_lst))
         | Some m, None ->
-           (if List.is_empty status.t2mi_sync then []
-            else (List.map (fun id -> Get_t2mi_info { request_id = get_id ()
-                                                    ; stream     = m.stream
-                                                    ; stream_id  = id })
-                    status.t2mi_sync))
+           if List.is_empty status.t2mi_sync then [] else
+             List.map (fun id -> Get_t2mi_info { request_id = get_id ()
+                                               ; stream     = m.stream
+                                               ; stream_id  = id })
+               status.t2mi_sync
       in
       t2mi_structs
       |> List.cons_maybe ts_structs
@@ -193,40 +196,40 @@ module SM = struct
 
   let probe_req_to_string = function
     | Get_board_errors _ -> "Board errors"
-    | Get_jitter _       -> "Jitter"
-    | Get_ts_struct _    -> "TS structure"
-    | Get_bitrates _     -> "TS bitrates"
-    | Get_t2mi_info _    -> "T2-MI info"
+    | Get_jitter _ -> "Jitter"
+    | Get_ts_struct _ -> "TS structure"
+    | Get_bitrates _ -> "TS bitrates"
+    | Get_t2mi_info _ -> "T2-MI info"
 
   let probe_rsp_to_string = function
     | Board_errors _ -> "Board errors"
-    | Bitrate _      -> "TS bitrates"
-    | Struct _       -> "TS structures"
-    | T2mi_info _    -> "T2-MI info"
-    | Jitter _       -> "Jitter"
+    | Bitrate _ -> "TS bitrates"
+    | Struct _ -> "TS structures"
+    | T2mi_info _ -> "T2-MI info"
+    | Jitter _ -> "Jitter"
 
   let send_msg (type a) sender (msg:a request) : unit Lwt.t =
     (match msg with
-     | Get_board_info       -> Get_board_info.serialize ()
-     | Get_board_mode       -> Get_board_mode.serialize ()
+     | Get_board_info -> Get_board_info.serialize ()
+     | Get_board_mode -> Get_board_mode.serialize ()
      | Get_t2mi_frame_seq x -> Get_t2mi_frame_seq.serialize x
-     | Get_section x        -> Get_section.serialize x)
+     | Get_section x -> Get_section.serialize x)
     |> sender
 
   let send_event (type a) sender (msg:a probe_request) : unit Lwt.t =
     (match msg with
      | Get_board_errors id -> Get_board_errors.serialize id
-     | Get_jitter req      -> Get_jitter.serialize req
-     | Get_ts_struct req   -> Get_ts_structs.serialize req
-     | Get_bitrates req    -> Get_bitrates.serialize req
-     | Get_t2mi_info req   -> Get_t2mi_info.serialize req)
+     | Get_jitter req -> Get_jitter.serialize req
+     | Get_ts_struct req -> Get_ts_structs.serialize req
+     | Get_bitrates req -> Get_bitrates.serialize req
+     | Get_t2mi_info req -> Get_t2mi_info.serialize req)
     |> sender
 
   let send_instant (type a) sender (msg : a instant_request) : unit Lwt.t =
     (match msg with
-     | Reset             -> to_complex_req ~msg_code:0x0111
-                              ~body:(Cstruct.create 0) ()
-     | Set_board_mode x  -> to_set_board_mode_req x
+     | Reset -> to_complex_req ~msg_code:0x0111 ~body:(Cstruct.create 0) ()
+     | Set_board_init x -> to_set_board_init_req x
+     | Set_board_mode x -> to_set_board_mode_req x
      | Set_jitter_mode x -> to_set_jitter_mode_req x)
     |> sender
 
@@ -286,7 +289,7 @@ module SM = struct
     pe.bitrates [];
     pe.state state
 
-  let step msgs imsgs sender (storage:config storage) step_duration
+  let step sources msgs imsgs sender (storage:config storage) step_duration
         (pe:push_events) (log_prefix:string) =
 
     let board_info_err_msg =
@@ -323,7 +326,7 @@ module SM = struct
              let pre = "received events" in
              let evs = List.map Events.event_to_string ev
                        |> String.concat "; " in
-             m "%s" @@ fmt "%s: [%s]" pre evs) in
+             m "%s" @@ fmt "%s: [ %s ]" pre evs) in
 
     let handle_msgs rsps =
       if Await_queue.has_pending !msgs
@@ -357,6 +360,8 @@ module SM = struct
            send_instant sender (Set_board_mode { t2mi=t2mi_mode; input })
            |> Lwt.ignore_result;
            send_instant sender (Set_jitter_mode jitter_mode)
+           |> Lwt.ignore_result;
+           send_instant sender (Set_board_init sources)
            |> Lwt.ignore_result;
            Logs.info (fun m -> m "%s" @@ fmt "connection established, waiting \
                                               for 'status' message");
@@ -458,36 +463,47 @@ module SM = struct
 
   open Lwt_react
 
-  let to_raw_streams_s (group:group event)
+  let to_raw_stream ({ input; t2mi }:Types.init) mode
+        (i:input) (id:Multi_TS_ID.t) =
+    let open Stream.Source in
+    let open Stream.Raw in
+    let parsed = Multi_TS_ID.parse id in
+    let spi_id = input_to_int SPI in
+    let asi_id = input_to_int ASI in
+    let src = match parsed.source_id, parsed.stream_id with
+      | x, id when x = input && id = spi_id -> `Spi
+      | x, id when x = input && id = asi_id -> `Asi
+      | x, id when x = t2mi -> `T2mi id
+      | _ -> `Unknown in
+    let source = match src, mode with
+      | `T2mi plp, Some { stream; t2mi_stream_id = stream_id; _ } ->
+         let node = Stream (TS_multi stream) in
+         let info = T2MI { stream_id; plp } in
+         Some { node; info }
+      | `T2mi _, None -> None
+      | `Spi, _ -> Some { node = Port spi_id; info = SPI }
+      | `Asi, _ -> Some { node = Port asi_id; info = ASI }
+      | `Unknown, _ -> None
+    in
+    match source with
+    | None -> None
+    | Some source ->
+       let typ : Stream.stream_type = match mode with
+         | None -> TS
+         | Some m -> if Multi_TS_ID.equal id m.stream && m.enabled
+                     then T2MI else TS in
+       Some { id = TS_multi id; source; typ }
+
+  let to_raw_streams_s sources (group:group event)
         (state:Topology.state signal) : Stream.Raw.t list signal =
-    let conv : t2mi_mode option -> input -> Stream.Multi_TS_ID.t -> Stream.Raw.t =
-      fun mode i x ->
-      let open Stream.Source in
-      let id   = Result.get_exn @@ Stream.Multi_TS_ID.to_parsed x in
-      let node = match x with (* FIXME *)
-        | 0l  -> Stream.Raw.Stream (TS_multi 0l) (* FIXME *)
-        | _   -> Port (match i with SPI -> 0 | ASI -> 1) in
-      let info = match x, mode with
-        | _, Some mode -> (* FIXME *)
-           T2MI { stream_id = mode.t2mi_stream_id
-                ; plp       = id.stream_id }
-        | _ -> (match i with SPI -> SPI | ASI -> ASI) in
-      { id     = TS_multi x
-      ; source = { info; node }
-      ; typ    = match mode with
-                 | Some m ->
-                    if Stream.Multi_TS_ID.equal x m.stream && m.enabled
-                    then T2MI else TS
-                 | _ -> TS
-      } in
     let e_group =
-      E.map (fun (g:group) ->
-          let streams = g.status.streams in
-          List.map (conv g.status.t2mi_mode g.status.input) streams)
+      E.map (fun ({ status = { streams; t2mi_mode; input; _ }; _ }:group) ->
+          List.filter_map (to_raw_stream sources t2mi_mode input) streams)
         group in
+    let eq = Equal.list Stream.Raw.equal in
     let e_state = S.changes @@ S.map (fun _ -> []) state in
     React.E.select [ e_state; e_group ]
-    |> S.hold ~eq:(Equal.list Stream.Raw.equal) []
+    |> S.hold ~eq []
 
   let to_config_e (group:group event) : config event =
     E.changes ~eq:equal_config
@@ -496,8 +512,7 @@ module SM = struct
            ; t2mi_mode   = x.status.t2mi_mode
            ; jitter_mode = x.status.jitter_mode }) group
 
-  let create (log_prefix:string) sender (storage:config storage)
-        step_duration streams_conv =
+  let create_events sources storage streams_conv =
     let state,     set_state     = S.create `No_response in
     let devinfo,   set_devinfo   = S.create None in
     let group,     set_group     = E.create () in
@@ -513,7 +528,7 @@ module SM = struct
     let e_pcr_s,pcr_s_push = E.create () in
 
     let config  = S.hold ~eq:equal_config storage#get (to_config_e group) in
-    let streams = streams_conv (to_raw_streams_s group state) in
+    let streams = streams_conv (to_raw_streams_s sources group state) in
     let fmap l streams =
       List.filter_map (fun (id, x) ->
           match find_stream_by_multi_id id streams with
@@ -528,37 +543,36 @@ module SM = struct
                  | None   -> true) _new) in
     let map_errors f e =
       S.sample (fun l streams -> fmap (f l) streams) e streams in
+    let () = Lwt_react.S.keep @@ S.map (fun c -> storage#store c) config in
     let open Streams.TS in
-    let open Fun in
-    let (events:events) =
-      { device  =
-          { config = S.changes config
-          ; input  = S.map ~eq:equal_input (fun (x:config) -> x.input) config
-          ; state
-          ; status = E.changes ~eq:equal_status
-                     @@ E.map (fun (x:group) -> x.status.status) group
-          ; reset  = E.map (fun (x:group) ->
-                         { timestamp = x.status.status.timestamp }) group
-          ; errors = hw_errors
-          }
-      ; ts   =
-          { info     = map ~eq:equal_info ts_info
-          ; services = map ~eq:equal_services services
-          ; tables   = map ~eq:equal_tables tables
-          ; pids     = map ~eq:equal_pids pids
-          ; bitrates = S.sample fmap bitrates streams
-          ; errors   = map_errors Events.to_ts_errors group
-          }
-      ; t2mi =
-          { structures = S.sample fmap t2mi_info streams
-          ; errors     = map_errors Events.to_t2mi_errors group
-          }
-      ; streams
-      ; jitter  =
-          { session = E.changes ~eq:Jitter.equal_session e_pcr_s
-          ; jitter  = e_pcr
-          }
+    let device =
+      { state
+      ; info = devinfo
+      ; config
+      ; input = S.map ~eq:equal_input (fun (x:config) -> x.input) config
+      ; status = E.changes ~eq:equal_status
+                 @@ E.map (fun (x:group) -> x.status.status) group
+      ; reset = E.map (fun (x:group) ->
+                    { timestamp = x.status.status.timestamp }) group
+      ; errors = hw_errors
       } in
+    let ts =
+      { info = map ~eq:equal_info ts_info
+      ; services = map ~eq:equal_services services
+      ; tables = map ~eq:equal_tables tables
+      ; pids = map ~eq:equal_pids pids
+      ; bitrates = S.sample fmap bitrates streams
+      ; errors = map_errors Events.to_ts_errors group
+      } in
+    let t2mi =
+      { structures = S.sample fmap t2mi_info streams
+      ; errors = map_errors Events.to_t2mi_errors group
+      } in
+    let jitter =
+      { session = E.changes ~eq:Jitter.equal_session e_pcr_s
+      ; jitter = e_pcr
+      } in
+    let (events:events) = { device; ts; t2mi; streams; jitter } in
     let push_events =
       { devinfo        = set_devinfo
       ; state          = set_state
@@ -573,85 +587,112 @@ module SM = struct
       ; jitter         = pcr_push
       ; jitter_session = pcr_s_push
       } in
-    let ()    = Lwt_react.S.keep
-                @@ React.S.map (fun c -> storage#store c) config in
-    let msgs  = ref (Await_queue.create []) in
-    let imsgs = ref (Queue.create []) in
-    let wait  = fun ~eq v getter to_req ->
-      let open Lwt.Infix in
-      let s = S.map ~eq getter config in
+    events, push_events
+
+  let wait = fun ~eq t s v ->
+    let open Lwt.Infix in
+    if eq (S.value s) v then Lwt.return v else
+      t
+      >>= (fun () ->
       if eq (S.value s) v then Lwt.return v
-      else enqueue_instant state imsgs sender (to_req v)
-           >>= (fun () -> if eq (S.value s) v then Lwt.return v
-                          else Lwt.pick [ E.next @@ S.changes s
-                                        ; Lwt_unix.timeout (float_of_int status_timeout)])
-           >>= (fun x  -> React.S.stop s;
-                          if eq x v then Lwt.return x
-                          else Lwt.fail @@ Failure "got unexpected value") in
+      else Lwt.pick [ E.next @@ S.changes s
+                    ; Lwt_unix.timeout (float_of_int status_timeout)])
+      >>= (fun x  ->
+      React.S.stop s;
+      if eq x v then Lwt.return x
+      else Lwt.fail @@ Failure "got unexpected value")
+
+  let create_api sources log_prefix sender step_duration
+        (storage:config storage) events =
+    let { device = { config; state; _ }; _ }  = events in
+    let msgs = ref (Await_queue.create []) in
+    let imsgs = ref (Queue.create []) in
     let fmt fmt = let fs = "%s" ^^ fmt in Printf.sprintf fs log_prefix in
-    let api =
-      { set_input = (fun i ->
+    let isend = enqueue_instant state imsgs sender in
+    { set_input =
+        (fun i ->
           Logs.info (fun m ->
               let s = fmt "input switch request: %s" (input_to_string i) in
               m "%s" s);
-          wait ~eq:equal_input i (fun (c:config) -> c.input)
-            (fun i -> Set_board_mode { t2mi = storage#get.t2mi_mode; input = i }))
+          let eq = equal_input in
+          let s  = S.map (fun (c:config) -> c.input) config in
+          let t  = isend (Set_board_mode { t2mi = storage#get.t2mi_mode
+                                         ; input = i }) in
+          wait ~eq t s i)
+    ; set_t2mi_mode =
+        (fun mode ->
+          Logs.info (fun m ->
+              let md = Option.map_or ~default:"none" show_t2mi_mode mode in
+              m "%s" @@ fmt "T2-MI mode change request: %s" md);
+          let eq = Equal.option equal_t2mi_mode in
+          let s  = S.map (fun (c:config) -> c.t2mi_mode) config in
+          let t  = isend (Set_board_mode { t2mi = mode
+                                         ; input = storage#get.input }) in
+          wait ~eq t s mode)
+    ; set_jitter_mode =
+        (fun mode ->
+          Logs.info (fun m ->
+              let md = Option.map_or ~default:"none" show_jitter_mode mode in
+              m "%s" @@ fmt "Jitter mode change request: %s" md);
+          let eq = Equal.option equal_jitter_mode in
+          let s  = S.map (fun (c:config) -> c.jitter_mode) config in
+          let t  = isend (Set_jitter_mode mode) in
+          wait ~eq t s mode)
+    ; reset =
+        (fun () ->
+          Logs.info (fun m -> m "%s" @@ fmt "Got reset request");
+          isend Reset)
+    ; get_section =
+        (fun ?section ?table_id_ext ?eit_ts_id ?eit_orig_nw_id
+             ~id ~table_id () ->
+          Logs.debug (fun m ->
+              m "got section request: stream = %a, tid = %d"
+                (Stream.ID.pp) id table_id);
+          match find_stream_by_id id @@ React.S.value events.streams with
+          | Some s ->
+             begin match s.orig_id with
+             | TS_multi id ->
+                let params =
+                  { stream_id = id
+                  ; table_id
+                  ; section
+                  ; table_id_ext
+                  ; eit_ts_id
+                  ; eit_orig_nw_id
+                  } in
+                let req = Get_section { request_id = get_id (); params } in
+                let timer = Timer.steps ~step_duration 125 in
+                enqueue state msgs sender req timer None
+             (* XXX maybe other error here *)
+             | _ -> Lwt_result.fail Streams.TS.Stream_not_found
+             end
+          | None -> Lwt_result.fail Streams.TS.Stream_not_found)
+    ; get_t2mi_seq =
+        (fun params ->
+          Logs.debug (fun m -> let s = string_of_int params.seconds ^ " sec" in
+                               m "%s" @@ fmt "Got T2-MI sequence request: %s" s);
+          let req = Get_t2mi_frame_seq { request_id = get_id ()
+                                       ; params } in
+          let timer = Timer.steps ~step_duration (params.seconds + 10) in
+          enqueue state msgs sender req timer None)
+    ; get_devinfo =
+        (fun () -> S.value events.device.info)
+    ; config =
+        (fun () -> storage#get)
+    },
+    msgs,
+    imsgs
 
-      ; set_t2mi_mode = (fun mode ->
-        Logs.info (fun m ->
-            let md = Option.map_or ~default:"none" show_t2mi_mode mode in
-            m "%s" @@ fmt "T2-MI mode change request: %s" md);
-        wait ~eq:(Equal.option equal_t2mi_mode) mode (fun c -> c.t2mi_mode)
-          (fun m -> Set_board_mode { input = storage#get.input; t2mi = m }))
-
-      ; set_jitter_mode = (fun mode ->
-        Logs.info (fun m ->
-            let md = Option.map_or ~default:"none" show_jitter_mode mode in
-            m "%s" @@ fmt "Jitter mode change request: %s" md);
-        wait ~eq:(Equal.option equal_jitter_mode) mode (fun c -> c.jitter_mode)
-          (fun m -> Set_jitter_mode m))
-
-      ; reset = (fun () ->
-        Logs.info (fun m -> m "%s" @@ fmt "Got reset request");
-        enqueue_instant state imsgs sender Reset)
-
-      ; get_section = (fun ?section ?table_id_ext ?eit_ts_id ?eit_orig_nw_id
-                           ~id ~table_id () ->
-        (* Logs.debug (fun m ->
-         *     let s = show_section_params r in
-         *     m "%s" @@ fmt "Got SI/PSI section request: %s" s); *)
-        match find_stream_by_id id @@ React.S.value streams with
-        | Some s ->
-           (match s.orig_id with
-            | TS_multi id ->
-               let params = { stream_id = id
-                            ; table_id
-                            ; section
-                            ; table_id_ext
-                            ; eit_ts_id
-                            ; eit_orig_nw_id
-                            } in
-               let req = { request_id = get_id (); params } in
-               let timer = Timer.steps ~step_duration 125 in
-               enqueue state msgs sender (Get_section req) timer None
-            (* XXX maybe other error here *)
-            | _ -> Lwt_result.fail Stream_not_found)
-        | None -> Lwt_result.fail Stream_not_found)
-
-      ; get_t2mi_seq = (fun params ->
-        Logs.debug (fun m -> let s = string_of_int params.seconds ^ " sec" in
-                             m "%s" @@ fmt "Got T2-MI sequence request: %s" s);
-        enqueue state msgs sender
-          (Get_t2mi_frame_seq { request_id = get_id ()
-                              ; params })
-          (Timer.steps ~step_duration (params.seconds + 10)) None)
-
-      ; get_devinfo = (fun () -> S.value devinfo)
-      ; config      = (fun () -> storage#get)
-      }
+  let create sources (log_prefix:string) sender (storage:config storage)
+        step_duration streams_conv =
+    let events, push_events =
+      create_events sources storage streams_conv in
+    let api, msgs, imsgs =
+      create_api sources log_prefix sender step_duration storage events
     in
     events,
     api,
-    (step msgs imsgs sender storage step_duration push_events log_prefix)
+    step sources msgs imsgs sender storage
+      step_duration push_events log_prefix
 
 end

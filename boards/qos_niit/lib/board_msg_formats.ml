@@ -32,6 +32,13 @@
    } [@@little_endian]]
 
 [%%cstruct
+ type req_set_init =
+   { input_src_id : uint8_t
+   ; t2mi_src_id  : uint8_t
+   ; rfu          : uint8_t [@len 254]
+   } [@@little_endian]]
+
+[%%cstruct
  type board_info =
    { board_type    : uint8_t
    ; board_version : uint8_t

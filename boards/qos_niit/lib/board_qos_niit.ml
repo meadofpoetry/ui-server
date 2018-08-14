@@ -67,12 +67,19 @@ let get_ports_active input ports =
       |> fun x -> Ports.add p.port x acc) Ports.empty ports
 
 let create (b:topo_board) _ convert_streams send db_conf base step =
+  let sources = match b.sources with
+    | None -> raise (Invalid_sources "no sources provided!")
+    | Some x ->
+       begin match Types.init_of_yojson x with
+       | Ok init -> init
+       | Error s -> raise (Invalid_sources s)
+       end in
   let conv    = fun x -> convert_streams x b in
   let storage =
     Config_storage.create base
       ["board"; (string_of_int b.control)] in
   let events,api,step =
-    Board_protocol.SM.create (log_prefix b.control)
+    Board_protocol.SM.create sources (log_prefix b.control)
       send storage step conv in
   let db       = Result.get_exn @@ Db.Conn.create db_conf b.control in
   let handlers = Board_api.handlers b.control db api events in
@@ -85,6 +92,11 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
   @@ E.select [ S.changes events.device.state
               ; S.sample (fun _ e -> e) tick events.device.state ];
   (* Streams *)
+  let () = S.map (fun s ->
+               List.map Common.Stream.show s
+               |> String.concat "\n"
+               |> fun s -> Logs.err (fun m -> m "%s\n" s)) events.streams
+           |> Lwt_react.S.keep in
   let streams_ev =
     S.sample (fun () sl -> `Active sl) tick events.streams in
   let streams_diff =

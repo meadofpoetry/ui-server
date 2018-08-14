@@ -3,20 +3,25 @@ open Common.Dvb_t2_types
 open Common.Topology
 open Containers
 
-(** Board info **)
+(** Board info *)
 
 type devinfo =
   { typ : int
   ; ver : int
   } [@@deriving yojson]
 
-(** Modes **)
+(** Modes *)
 
 type input =
   | SPI
   | ASI [@@deriving yojson, show, eq]
 
 let input_to_string = function SPI -> "SPI" | ASI -> "ASI"
+
+let input_to_int = function SPI -> 0 | ASI -> 1
+let input_of_int = function 0 -> Some SPI
+                          | 1 -> Some ASI
+                          | _ -> None
 
 type t2mi_mode =
   { enabled        : bool

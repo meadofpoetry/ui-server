@@ -343,15 +343,17 @@ module SM = struct
 
   let initial_timeout = -1
 
-  let step msgs sender (storage : config storage) step_duration (pe:push_events) (log_prefix:string) =
+  let step msgs sender (storage : config storage)
+        step_duration (pe:push_events) (log_prefix:string) =
 
     let fmt fmt = let fs = "%s" ^^ fmt in Printf.sprintf fs log_prefix in
 
-    let module Probes = Make_probes(struct
-                            let duration = step_duration
-                            let send     = send_event sender
-                            let timeout  = Boards.Timer.steps ~step_duration timeout
-                          end) in
+    let module Probes =
+      Make_probes(struct
+          let duration = step_duration
+          let send     = send_event sender
+          let timeout  = Boards.Timer.steps ~step_duration timeout
+        end) in
 
     let rec first_step () =
       Logs.info (fun m -> m "%s" @@ fmt "start of connection establishment...");
@@ -501,9 +503,7 @@ module SM = struct
           | T2 -> DVB_T2 { freq; bw; plp }
           | T  -> DVB_T  { freq; bw }
           | C  -> DVB_C  { freq; bw} in
-        let id = (2 + id) lsl 8
-                 |> Int32.of_int
-                 |> Int32.logor (Int32.of_int plp) in
+        let id = Multi_TS_ID.make { source_id = 0; stream_id = id } in
         let (stream:Raw.t) =
           { source = { info; node = Port 0 }
           ; id     = TS_multi id

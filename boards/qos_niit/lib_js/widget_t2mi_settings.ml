@@ -92,7 +92,7 @@ let make ~(state:   Topology.state React.signal)
            Some (Some { enabled        = en
                       ; pid
                       ; t2mi_stream_id = sid
-                      ; stream         = 0l }) (* FIXME stream *)
+                      ; stream         = Stream.Multi_TS_ID.of_int32_pure 0l }) (* FIXME stream *)
         | false, _, _, `Fine -> Some None
         | _ -> None)
       s_en s_pid s_sid state in

@@ -26,14 +26,18 @@ module WS = struct
     in Api.Socket.handler socket_table sock_data e board_errors_to_yojson body
 
   let mode mode (events:events) _ body sock_data () =
+    let open React.S in
+    let config = events.config in
     let f = fun e conv -> Api.Socket.handler socket_table sock_data e conv body in
-    (match mode with
-     | `T2MI   -> let e = React.E.map (fun (x:config) -> x.t2mi_mode) events.config
-                          |> React.E.changes ~eq:(Equal.option equal_t2mi_mode)
-                  in f e (Json.Option.to_yojson t2mi_mode_to_yojson)
-     | `JITTER -> let e = React.E.map (fun (x:config) -> x.jitter_mode) events.config
-                          |> React.E.changes ~eq:(Equal.option equal_jitter_mode)
-                  in f e (Json.Option.to_yojson jitter_mode_to_yojson))
+    match mode with
+    | `T2MI ->
+       let eq = Equal.option equal_t2mi_mode in
+       let e = changes @@ map ~eq (fun (x:config) -> x.t2mi_mode) config in
+       f e (Json.Option.to_yojson t2mi_mode_to_yojson)
+    | `JITTER ->
+       let eq = Equal.option equal_jitter_mode in
+       let e = changes @@ map ~eq (fun (x:config) -> x.jitter_mode) config in
+       f e (Json.Option.to_yojson jitter_mode_to_yojson)
 
 end
 
@@ -60,7 +64,7 @@ module HTTP = struct
     >>= respond_result
 
   let post_port (api:api) port en _ _ () =
-    let input = match Board_parser.input_of_int port, en with
+    let input = match Board_types.input_of_int port, en with
       | Some i,   true  -> Some i
       | Some ASI, false -> Some SPI
       | Some SPI, false -> Some ASI

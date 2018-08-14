@@ -27,7 +27,7 @@ let compare_input l r = match l, r with
   | RF, RF | TSOIP, TSOIP | ASI, ASI -> 0
   | RF, _  | _, ASI -> -1
   | ASI, _ | _, RF  -> 1
-                         
+
 let input_to_string = function
   | RF    -> "RF"
   | TSOIP -> "TSOIP"
@@ -90,6 +90,7 @@ and topo_board =
   ; version      : version
   ; control      : int
   ; connection   : (state [@default `No_response])
+  ; sources      : (Json.t option [@default None])
   ; env          : (env [@default Env.empty])
   ; ports        : topo_port list
   }
@@ -129,7 +130,7 @@ module Show_topo_input = struct
         | _ -> failwith "bad input string")
 end
 
-type cpu_opt = process_type option [@@deriving yojson,eq]
+type cpu_opt = process_type option [@@deriving yojson, eq]
 
 let cpu_subbranches = function
   | `Boards _ -> `No_cpu
