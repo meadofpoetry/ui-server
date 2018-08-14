@@ -16,42 +16,51 @@ let strmtst = Alcotest.testable Common.Stream.pp (=)
             
 let rec dummy_cont _ = `Continue dummy_cont
                      
-let topo = { typ   = TS
+let topo = { typ   = "TS"
            ; model = ""
            ; manufacturer = ""
            ; version = 1
            ; control = 1
+           ; env     = Common.Topology.Env.empty
            ; connection = `Fine
            ; ports = [ { port = 1
                        ; listening = true
-                       ; child     = Board ({ typ   = DVB
+                       ; switchable = false
+                       ; child     = Board ({ typ   = "DVB"
                                             ; model = ""
                                             ; manufacturer = ""
                                             ; version = 1
                                             ; control = 2
+                                            ; env     = Common.Topology.Env.empty
                                             ; connection = `Fine
                                             ; ports = [ { port = 1
                                                         ; listening = true
+                                                        ; switchable = false
                                                         ; child = Input ( { input = RF; id = 0 } ) } ]
                        } ) }
                      ; { port = 2
                        ; listening = true
-                       ; child     = Board ( { typ = IP2TS
+                       ; switchable = false
+                       ; child     = Board ( { typ = "IP2TS"
                                              ; model = ""
                                              ; manufacturer = ""
                                              ; version = 1
                                              ; control = 3
+                                             ; env     = Common.Topology.Env.empty
                                              ; connection = `Fine
                                              ; ports = [ { port = 1
                                                          ; listening = true
-                                                         ; child = Board ( { typ = TS2IP
+                                                         ; switchable = false
+                                                         ; child = Board ( { typ = "TS2IP"
                                                                            ; model = ""
                                                                            ; manufacturer = ""
                                                                            ; version = 1
                                                                            ; control = 4
+                                                                           ; env     = Common.Topology.Env.empty
                                                                            ; connection = `Fine
                                                                            ; ports = [ { port = 1
                                                                                        ; listening = true
+                                                                                       ; switchable = false
                                                                                        ; child = Input ( { input = ASI
                                                                                                          ; id = 1
                                                                                      } ) } ]
@@ -59,39 +68,43 @@ let topo = { typ   = TS
                        } ) }
                      ; { port = 3
                        ; listening = true
+                       ; switchable = false
                        ; child = Input ( { input = TSOIP; id = 2 } ) } ]
            }
 
-let make_board i : (Meta_board.board * _) =
+let make_board i : (Boards.Board.t * _) =
   let s, push = React.S.create [] in
   { handlers = []
   ; control  = i
   ; streams_signal = s
+  ; settings_page = ("", React.S.const (Tyxml_html.div []))
+  ; widgets_page = []
+  ; stream_handler = None
   ; step = `Continue dummy_cont
   ; connection = React.S.const `Fine
-  ; ports_active = Meta_board.Ports.empty
-  ; state = object end
+  ; ports_active = Boards.Board.Ports.empty
+  ; state = object method finalize () = () end
   },
   push
 
-let pack_boards (blist : Meta_board.board list) =
-  List.fold_left (fun acc (b : Meta_board.board) -> Meta_board.Map.add b.control b acc)
-                  Meta_board.Map.empty
+let pack_boards (blist : Boards.Board.t list) =
+  List.fold_left (fun acc (b : Boards.Board.t) -> Boards.Board.Map.add b.control b acc)
+                  Boards.Board.Map.empty
                   blist
 
-let gen_stream_ts src id ?(desc = None) : Common.Stream.t =
+let gen_stream_ts ?(desc = None) src id : Common.Stream.t =
   { source = src
   ; id     = `Ts id
   ; description = desc
   }
 
-let gen_stream_ip src ip ?(desc = None) : Common.Stream.t =
+let gen_stream_ip ?(desc = None) src ip : Common.Stream.t =
   { source = src
   ; id     = `Ip ip
   ; description = desc
   }
 
-let gen_raw_stream_ts src id ?(desc = None) : Common.Stream.stream =
+let gen_raw_stream_ts ?(desc = None) src id : Common.Stream.stream =
   { source = src
   ; id     = `Ts id
   ; description = desc
@@ -110,7 +123,7 @@ let init_topo () =
 (* Find stream on port 1 *)
 let stream_on_port1 () =
   let boards, raw_streams, topo, p1, p2, _, _ = init_topo () in
-  let streams = Meta_board.merge_streams boards raw_streams topo in
+  let streams = Boards.Board.merge_streams boards raw_streams topo in
   let parent  = gen_stream_ts (Input { input = RF; id = 0 }) Single ~desc:(Some "this stream") in
   p2 [parent];
   p1 [(gen_raw_stream_ts (Port 1) Single ~desc:None)];
@@ -129,7 +142,7 @@ let stream_on_port1 () =
 (* No parent stream exists *)
 let no_parent_streams () =
   let boards, raw_streams, topo, p1, _, p3, p4 = init_topo () in
-  let streams = Meta_board.merge_streams boards raw_streams topo in
+  let streams = Boards.Board.merge_streams boards raw_streams topo in
   let plpstrm = gen_stream_ts (Input { input = ASI; id = 1 }) (T2mi_plp 1) ~desc:(Some "this stream") in
   p4 [ plpstrm ];
   p3 [(gen_stream_ts (Parent plpstrm) Single ~desc:(Some "this stream"));
@@ -150,7 +163,7 @@ let no_parent_streams () =
 (* Deeper stream hierarchy *)
 let hierarchy () =
   let boards, raw_streams, topo, p1, _, p3, p4 = init_topo () in
-  let streams = Meta_board.merge_streams boards raw_streams topo in
+  let streams = Boards.Board.merge_streams boards raw_streams topo in
   let plpstrm = gen_stream_ts (Input { input = ASI; id = 1 }) (T2mi_plp 1) ~desc:(Some "this stream") in
   let child   = gen_stream_ts (Parent plpstrm) (Unknown 42l) ~desc:(Some "this stream") in
   p4 [plpstrm];
@@ -171,7 +184,7 @@ let hierarchy () =
 (* Bad id *)
 let bad_id () =
   let boards, raw_streams, topo, p1, _, p3, p4 = init_topo () in
-  let streams = Meta_board.merge_streams boards raw_streams topo in
+  let streams = Boards.Board.merge_streams boards raw_streams topo in
   let plpstrm = gen_stream_ts (Input { input = ASI; id = 1 }) (T2mi_plp 1) ~desc:(Some "this stream") in
   let child   = gen_stream_ts (Parent plpstrm) (Unknown 42l) ~desc:(Some "this stream") in
   p4 [plpstrm];
@@ -192,7 +205,7 @@ let bad_id () =
 (* Locally unpacked plp *)
 let unpacked_plp () =
   let boards, raw_streams, topo, p1, p2, _, _ = init_topo () in
-  let streams = Meta_board.merge_streams boards raw_streams topo in
+  let streams = Boards.Board.merge_streams boards raw_streams topo in
   let parent  = gen_stream_ts (Input { input = RF; id = 0 }) (T2mi_plp 42) ~desc:(Some "plp parent") in
   p2 [parent];
   p1 [(gen_raw_stream_ts (Stream (T2mi_plp 42)) (Unknown 43l) ~desc:(Some "43rd stream"));
@@ -206,7 +219,7 @@ let unpacked_plp () =
       let b = List.find (fun s -> s.id = `Ts (Unknown 44l)) sms in
       let p = List.find (fun s -> s.id = `Ts (T2mi_plp 42)) sms in
       [a;b;p]
-    with e -> []
+    with _ -> []
   in
   let expected_a = gen_stream_ts (Parent parent) (Unknown 43l) ~desc:(Some "43rd stream") in
   let expected_b = gen_stream_ts (Parent parent) (Unknown 44l) ~desc:(Some "44th stream") in
@@ -218,7 +231,7 @@ let unpacked_plp () =
 (* Locally unpacked plp + additional stream *)
 let unpacked_plp_plus_single () =
   let boards, raw_streams, topo, p1, p2, p3, p4 = init_topo () in
-  let streams = Meta_board.merge_streams boards raw_streams topo in
+  let streams = Boards.Board.merge_streams boards raw_streams topo in
   let additional = gen_stream_ts (Input { input = ASI; id = 1 }) Single ~desc:(Some "additional") in
   let parent     = gen_stream_ts (Input { input = RF; id = 0 }) (T2mi_plp 42) ~desc:(Some "plp parent") in
   p4 [additional];
@@ -248,7 +261,7 @@ let unpacked_plp_plus_single () =
 (* Lost stream  *)
 let lost_stream () =
   let boards, raw_streams, topo, p1, p2, _, _ = init_topo () in
-  let streams = Meta_board.merge_streams boards raw_streams topo in
+  let streams = Boards.Board.merge_streams boards raw_streams topo in
   let parent  = gen_stream_ts (Input { input = RF; id = 0 }) Single ~desc:(Some "this stream") in
   p2 [parent];
   p1 [(gen_raw_stream_ts (Port 1) Single ~desc:None)];
@@ -269,7 +282,7 @@ let lost_stream () =
 (* removed stream *)
 let removed_stream () =
   let boards, raw_streams, topo, p1, p2, _, _ = init_topo () in
-  let streams = Meta_board.merge_streams boards raw_streams topo in
+  let streams = Boards.Board.merge_streams boards raw_streams topo in
   let parent  = gen_stream_ts (Input { input = RF; id = 0 }) (T2mi_plp 42) ~desc:(Some "plp parent") in
   p2 [parent];
   p1 [(gen_raw_stream_ts (Stream (T2mi_plp 42)) (Unknown 43l) ~desc:(Some "43rd stream"));
@@ -300,7 +313,7 @@ let removed_stream () =
 (* removed stream  *)
 let removed_stream_v2 () =
   let boards, raw_streams, topo, p1, p2, _, _ = init_topo () in
-  let streams = Meta_board.merge_streams boards raw_streams topo in
+  let streams = Boards.Board.merge_streams boards raw_streams topo in
   let addit   = gen_stream_ts (Input { input = RF; id = 0 }) (Unknown 13l) ~desc:(Some "additional") in
   let parent  = gen_stream_ts (Input { input = RF; id = 0 }) (T2mi_plp 42) ~desc:(Some "plp parent") in
   p2 [parent; addit];
@@ -330,7 +343,7 @@ let removed_stream_v2 () =
 (* Lost and removed stream  *)
 let removed_lost_stream () =
   let boards, raw_streams, topo, p1, p2, _, _ = init_topo () in
-  let streams = Meta_board.merge_streams boards raw_streams topo in
+  let streams = Boards.Board.merge_streams boards raw_streams topo in
   let parent  = gen_stream_ts (Input { input = RF; id = 0 }) Single ~desc:(Some "this stream") in
   p2 [parent];
   p1 [(gen_raw_stream_ts (Port 1) Single ~desc:None)];
@@ -357,7 +370,7 @@ let removed_lost_stream () =
 (* Local stream  *)
 let local_stream () =
   let boards, raw_streams, topo, p1, _, _, _ = init_topo () in
-  let streams = Meta_board.merge_streams boards raw_streams topo in
+  let streams = Boards.Board.merge_streams boards raw_streams topo in
   p1 [(gen_raw_stream_ts (Port 3) (Unknown 13l) ~desc:(Some "Lucky 13th"))];
   let reslt =
     try 
@@ -374,7 +387,7 @@ let local_stream () =
 (* A lot of streams *)
 let alot_streams () =
   let boards, raw_streams, topo, p1, p2, p3, p4 = init_topo () in
-  let streams = Meta_board.merge_streams boards raw_streams topo in
+  let streams = Boards.Board.merge_streams boards raw_streams topo in
   let additional = gen_stream_ts (Input { input = ASI; id = 1 }) Single ~desc:(Some "additional") in
   let parent     = gen_stream_ts (Input { input = RF; id = 0 }) (T2mi_plp 42) ~desc:(Some "plp parent") in
   p4 [additional];
@@ -407,7 +420,7 @@ let alot_streams () =
 (* Appeared stream *)
 let appeared_stream () =
   let boards, raw_streams, topo, p1, p2, _, _ = init_topo () in
-  let streams = Meta_board.merge_streams boards raw_streams topo in
+  let streams = Boards.Board.merge_streams boards raw_streams topo in
   let parent  = gen_stream_ts (Input { input = RF; id = 0 }) Single ~desc:(Some "this stream") in
   p1 [(gen_raw_stream_ts (Port 1) Single ~desc:None)];
   p2 [parent];
