@@ -2,9 +2,10 @@
   (name        common)
   ;(public_name common)
   (synopsis   "code shared between frontend and backend")
-  (libraries  yojson ptime ptime.clock.os uri ipaddr ppx_deriving_yojson.runtime tyxml fmt containers angstrom)
-  (flags      (:standard -short-paths -strict-sequence -bin-annot
-               -w A+1..49+60+a-4-7-23-32-33-39-40-41-42-44-45-48))
+  (libraries  yojson ptime ptime.clock.os uri ipaddr ppx_deriving_yojson.runtime
+              tyxml fmt containers angstrom)
+  (flags          (:standard -short-paths -strict-sequence -bin-annot
+                   -w A+1..49+60-4-7-8-23-27-32-33-34-39-40-41-42-44-45-48))
   (ocamlopt_flags (:standard -O3 -unbox-closures))
   (js_of_ocaml (flags (:standard  --disable genprim --opt 3)))
-  (preprocess (pps ppx_deriving_yojson ppx_deriving.show ppx_deriving.eq)))
+  (preprocess (pps ppx_deriving_yojson ppx_deriving.show ppx_deriving.eq ppx_deriving.ord)))

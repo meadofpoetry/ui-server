@@ -1,0 +1,49 @@
+@import '../theme/mixins';
+@import '../theme/variables';
+
+.mdc-hexdump {
+    overflow: auto;
+    &__block {
+        font-family: monospace, monospace;
+        margin: 0;
+        padding: 15px;
+        display: block;
+        position: relative;
+        font-size: 1.0em;
+        line-height: 1.4em;
+    }
+    &__char, &__hex {
+        &--selected {
+            @include mdc-theme-prop(color, $mdc-theme-on-secondary);
+            @include mdc-theme-prop(background-color, secondary);
+        }
+    }
+    &__char {
+        padding-left: 3px;
+        padding-right: 3px;
+    }
+}
+
+.mdc-hexdump--interactive {
+    .mdc-hexdump__hex {
+        cursor: pointer;
+    }
+}
+
+.mdc-hexdump__block--line-numbers {
+    z-index: 2;
+    position: sticky;
+    left: 0;
+    overflow: visible;
+    border-right: 1px solid;
+    @include mdc-theme-prop-alpha(border-color, $mdc-theme-surface, .12);
+}
+
+.mdc-hexdump__block--chars {
+    border-left: 1px solid;
+    @include mdc-theme-prop-alpha(border-color, $mdc-theme-surface, .12);
+}
+
+.mdc-hexdump__block[unselectable="on"] {
+    user-select: none;
+}

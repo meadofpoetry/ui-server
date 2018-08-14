@@ -5,6 +5,10 @@
     &--vertical   { flex-direction: column; }
     &--horizontal { flex-direction: row; }
 
+    &--wrap         { flex-wrap: wrap; }
+    &--nowrap       { flex-wrap: nowrap; }
+    &--wrap-reverse { flex-wrap: wrap-reverse; }
+
     &--justify-content-start         { justify-content: flex-start; }
     &--justify-content-end           { justify-content: flex-end; }
     &--justify-content-center        { justify-content: center; }
@@ -25,6 +29,6 @@
     &--align-content-space-between   { align-content: space-between; }
     &--align-content-space-around    { align-content: space-around; }
 
-    > *            { margin-bottom: var(--mdc-box-margin); }
-    > *:last-child { margin-bottom : 0; }
+    /* > *            { margin-bottom: var(--mdc-box-margin); } */
+    /* > *:last-child { margin-bottom : 0; } */
 }

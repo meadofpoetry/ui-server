@@ -20,22 +20,20 @@
 @import "../ripple/mixins";
 @import "../rtl/mixins";
 @import "./mixins";
+@import "./variables";
 
 // postcss-bem-linter: define card
 
 .mdc-card {
-  @include mdc-card-fill-color(background);
+  @include mdc-card-fill-color(surface);
   @include mdc-card-corner-radius(2px);
   @include mdc-elevation(2);
   @include mdc-card-container-layout_;
 }
 
-.mdc-card--stroked {
-  $fill-color: mdc-theme-prop-value(background);
-  $stroke-color: mdc-theme-dark-variant($fill-color, 1);
-
-  @include mdc-elevation(0);
-  @include mdc-card-stroke($stroke-color);
+.mdc-card--outlined {
+    @include mdc-elevation(0);
+    @include mdc-card-outline($mdc-card-outline-color);
 }
 
 //
@@ -43,26 +41,31 @@
 //
 
 .mdc-card__primary {
+    margin: 0;
     padding: 1rem;
+}
+
+.mdc-card__overline {
+    margin: 0;
+    @include mdc-typography(overline);
 }
 
 .mdc-card__title {
     margin: 0;
-    @include mdc-typography(body2);
-    @include mdc-theme-prop(color, text-primary-on-background);
+    @include mdc-typography(body1);
 
     margin: -.063rem 0;
 
     &--large {
-        @include mdc-typography(headline);
+        @include mdc-typography(headline6);
 
         margin: 0;
     }
 }
 
 .mdc-card__subtitle {
-    @include mdc-typography(body1);
-    @include mdc-theme-prop(color, text-secondary-on-background);
+    @include mdc-typography(subtitle2);
+    @include mdc-theme-prop(color, text-secondary-on-surface);
 
     margin: -.063rem 0;
 }
@@ -156,7 +159,7 @@
 }
 
 .mdc-card__action-icons {
-  @include mdc-theme-prop(color, text-icon-on-background);
+  @include mdc-theme-prop(color, text-icon-on-surface);
 
   flex-grow: 1;
   justify-content: flex-end;
@@ -223,7 +226,7 @@
 }
 
 .mdc-card__action--icon:not(:disabled) {
-  @include mdc-theme-prop(color, text-icon-on-background);
+  @include mdc-theme-prop(color, text-icon-on-surface);
 }
 
 // postcss-bem-linter: end

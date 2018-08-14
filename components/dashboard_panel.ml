@@ -1,16 +1,13 @@
 open Containers
 open Dashboard_common
 
-let _class      = Markup.CSS.add_element base_class "panel"
-let title_class = Markup.CSS.add_element _class "title"
-
 class t ~(title:string) ~widgets () =
   let title  = new Typography.Text.t ~adjust_margin:false ~text:title () in
   object(self)
     inherit Drawer.t ~anchor:`Right ~content:(title#widget :: List.map Widget.coerce widgets) ()
     initializer
-      title#add_class title_class;
-      self#add_class _class
+      title#add_class Markup.Panel.title_class;
+      self#add_class Markup.Panel._class
   end
 
 class add ~(widgets:Dashboard_add_item.t list) () =

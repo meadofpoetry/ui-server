@@ -8,16 +8,16 @@
 
     background-color: $color;
     @if ($fill-tone == "dark") {
-        @include mdc-theme-prop(color,text-primary-on-dark);
+        @include mdc-theme-prop(color, text-primary-on-dark);
     } @else {
-        @include mdc-theme-prop(color,text-primary-on-light);
+        @include mdc-theme-prop(color, text-primary-on-light);
     }
 }
 
 @mixin wm-layer-prop($layer) {
     $color     :     wm-layer-color($layer);
-    $base-color:     mdc-theme-light-variant($color,2);
-    $selected-color: mdc-theme-light-variant($color,1);
+    $base-color:     nth($color, 1);
+    $selected-color: nth($color, 2);
 
     .wm-layers-grid {
         .mdc-dynamic-grid__item[data-layer='#{$layer}'] {

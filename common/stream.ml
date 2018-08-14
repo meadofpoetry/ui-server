@@ -1,10 +1,69 @@
 open Topology
 open Containers
 
-type id = Single
-        | T2mi_plp of int
-        | Dvb of int * int
-        | Unknown of int32 [@@deriving show, eq]
+type id =
+  | Single
+  | T2mi_plp of int
+  | Dvb of int * int
+  | Unknown of int32 [@@deriving show, eq, ord]
+
+module Description = struct
+
+  type base =
+    { tsid : int
+    ; onid : int
+    }
+
+  type dvb =
+    { mode : [ `T | `T2 | `C ]
+    ; freq : int
+    ; plp  : int
+    ; bw   : [ `Bw6 | `Bw7 | `Bw8 ]
+    }
+
+  type ip =
+    { addr : Ipaddr_ext.V4.t
+    ; port : int
+    }
+
+  type t2mi_plp =
+    { plp_id : int
+    }
+
+  type node =
+    | Dvb      of dvb
+    | Ip       of ip
+    | Asi
+    | T2mi_plp of t2mi_plp
+
+  type sid = [ `Multy_id of id | `Ip of Url.t | `Single ]
+
+  type typ = [ `Ts | `T2mi ]
+
+  type stream =
+    { source      : src
+    ; id          : sid
+    ; typ         : typ
+    ; label       : string
+    ; description : node
+    }
+  and src = Port   of int
+          | Local
+          | Stream of stream
+
+  type description = (node list) * topo_entry
+
+  type t =
+    { source      : source
+    ; id          : sid
+    ; typ         : typ
+    ; label       : string
+    ; description : description
+    }
+  and source = Entry  of Topology.topo_entry
+             | Parent of t
+
+end
 
 let id_of_int32 : int32 -> id = function
   | 0l -> Single
@@ -19,16 +78,16 @@ let id_of_int32 : int32 -> id = function
   | _ as x -> Unknown x
 
 let id_to_int32 : id -> int32 = function
-  | Single           -> 0l
-  | T2mi_plp plp     -> 1
-                        |> (fun x -> x lsl 8)
-                        |> Int32.of_int
-                        |> Int32.logor (Int32.of_int plp)
-  | Dvb (stream,plp) -> stream + 2
-                        |> (fun x -> x lsl 8)
-                        |> Int32.of_int
-                        |> Int32.logor (Int32.of_int plp)
-  | Unknown x        -> x
+  | Single -> 0l
+  | T2mi_plp plp ->
+     1 lsl 8
+     |> Int32.of_int
+     |> Int32.logor (Int32.of_int plp)
+  | Dvb (stream,plp) ->
+     (2 + stream) lsl 8
+     |> Int32.of_int
+     |> Int32.logor (Int32.of_int plp)
+  | Unknown x -> x
 
 let id_to_yojson id : Yojson.Safe.json =
   let i32 = id_to_int32 id in `Intlit (Int32.to_string i32)
@@ -37,23 +96,36 @@ let id_of_yojson json : (id,string) result = match json with
   | `Int i    -> Ok (id_of_int32 @@ Int32.of_int i)
   | _         -> Error "not an int32"
 
-type stream_id = [`Ip of Url.t | `Ts of id] [@@deriving yojson, show, eq]
+type stream_id =
+  [ `Ip of Url.t
+  | `Ts of id ] [@@deriving yojson, show, eq, ord]
 
 type stream =
   { source      : src
   ; id          : stream_id
+  ; typ         : typ
   ; description : string option
   }
+and typ = [ `Ts | `T2mi ]
 and src = Port   of int
-        | Stream of id [@@deriving yojson, show, eq]
+        | Stream of id [@@deriving yojson, show, eq, ord]
 
 type t =
   { source      : source
-  ; id          : stream_id 
+  ; id          : stream_id
+  ; typ         : typ
   ; description : string option
   }
 and source = Input  of Topology.topo_input
-           | Parent of t [@@deriving yojson, show]
+           | Parent of t [@@deriving yojson, show, ord]
+
+let typ_to_string = function
+  | `Ts   -> "ts"
+  | `T2mi -> "t2mi"
+let typ_of_string = function
+  | "ts"   -> `Ts
+  | "t2mi" -> `T2mi
+  | _      -> failwith "bad typ string"
 
 let to_short_name (t:t) =
   let src = match t.source with
@@ -73,16 +145,24 @@ let rec equal l r =
   match l.id, r.id with
   | `Ip ul, `Ip ur ->
      if Url.equal ul ur
-     then equal_source l.source r.source
+     then if equal_source l.source r.source
+          then equal_typ l.typ r.typ
+          else false
      else false
   | `Ts il, `Ts ir ->
      if equal_id il ir
-     then equal_source l.source r.source
+     then if equal_source l.source r.source
+          then equal_typ l.typ r.typ
+          else false
      else false
   | _ -> false
 and equal_source l r = match l, r with
   | Input l, Input r -> Topology.equal_topo_input l r
   | Parent l, Parent r -> equal l r
+  | _ -> false
+and equal_typ l r = match l, r with
+  | `Ts, `Ts     -> true
+  | `T2mi, `T2mi -> true
   | _ -> false
 
 let to_topo_port (b:topo_board) (t:t) =
@@ -107,7 +187,7 @@ let header : t -> string = fun s ->
   in
   match s.description with
   | None -> h
-  | Some d -> h ^ " (" ^ d ^ ")" 
+  | Some d -> h ^ " (" ^ d ^ ")"
 
 let rec get_input s =
   match s.source with

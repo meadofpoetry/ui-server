@@ -29,8 +29,9 @@ let emit_new_pos (s_layers:value Dynamic_grid.Item.t list React.signal) push =
   | l  -> push (`Changed l)
 
 let make_show_toggle () =
-  let on_data  = Markup.Icon_toggle.({ icon = "visibility";     label = None; css_class = None }) in
-  let off_data = Markup.Icon_toggle.({ icon = "visibility_off"; label = None; css_class = None }) in
+  let open Icon_toggle in
+  let on_data  = ({ icon = "visibility";     label = None; css_class = None }:data) in
+  let off_data = ({ icon = "visibility_off"; label = None; css_class = None }:data) in
   let toggle   = new Icon_toggle.t ~propagate:false ~on_data ~off_data () in
   let ()       = toggle#set_on true in
   toggle
@@ -48,8 +49,10 @@ let make_layer_item s_layers push layer =
   let vis      = make_show_toggle () in
   let color    = Tyxml_js.Html.(span ~a:[a_class [color_class]] [])
                  |> Tyxml_js.To_dom.of_element |> Widget.create in
-  let left     = new Box.t ~vertical:false ~widgets:[vis#widget; color#widget; text#widget ] () in
-  let box      = new Box.t ~vertical:false ~widgets:[left#widget; drag#widget] () in
+  let left     = new Hbox.t ~valign:`Center
+                   ~widgets:[vis#widget; color#widget; text#widget ] () in
+  let box      = new Hbox.t ~halign:`Space_between
+                   ~widgets:[left#widget; drag#widget] () in
   let y        = List.length layers - layer in
   let pos      = { x = 0; y; w = 1; h = 1 } in
   let value    = { original; actual = layer } in
@@ -59,9 +62,7 @@ let make_layer_item s_layers push layer =
   in
   let ()       = List.iter (fun i -> if i#pos.y >= y then i#set_pos { i#pos with y = i#pos.y + 1 }) layers in
   let ()       = vis#add_class show_icon_class in
-  let ()       = left#set_align_items `Center in
   let ()       = drag#add_class drag_handle_class in
-  let ()       = box#set_justify_content `Space_between in
   let ()       = box#add_class _class in
   item,vis#s_state
 
@@ -203,5 +204,5 @@ let make ~init ~max =
   let ()          = Dom.appendChild layers#root grid#root in
   let ()          = card#add_class _class in
   let title       = Wm_selectable_title.make ["Слои",card] in
-  let box         = new Box.t ~widgets:[title#widget; card#widget] () in
+  let box         = new Vbox.t ~widgets:[title#widget; card#widget] () in
   box,grid

@@ -20,11 +20,23 @@ module Config_storage = Storage.Options.Make (Data)
  * 
  * module Database = Storage.Database.Make(Board_model) *)
 
+let invalid_port x =
+  let s = "Board_ip_dektec: invalid_port " ^ (string_of_int x) in
+  raise (Invalid_port s)
+
+let get_sync_ports streams (ports:topo_port list) =
+  List.fold_left (fun acc (p : topo_port) ->
+      (match p.port with
+       | 0 -> React.S.map (function [] -> false | _ -> true) streams
+       | x -> invalid_port x)
+      |> fun x -> Ports.add p.port x acc)
+    Ports.empty ports
+
 let get_active_ports (ports:topo_port list) =
   List.fold_left (fun acc (p : topo_port) ->
       (match p.port with
        | 0 -> React.S.const true
-       | x -> raise (Invalid_port ("Board_ip_dektec: invalid_port " ^ (string_of_int x))))
+       | x -> invalid_port x)
       |> fun x -> Ports.add p.port x acc)
     Ports.empty ports
 
@@ -39,6 +51,7 @@ let create (({control;ports;_} as b):topo_board) _ convert_streams send db_conf 
    * let _s       = Lwt_react.E.map_p (fun s -> Database.request db (Board_model.Store_status s))
    *                @@ React.E.changes events.status
    * in *)
+  let streams = convert_streams events.streams b in
   let state = object
       (* method s = _s;
        * method db = db; *)
@@ -47,12 +60,11 @@ let create (({control;ports;_} as b):topo_board) _ convert_streams send db_conf 
   in
   { handlers
   ; control
-  ; streams_signal = convert_streams events.streams b
+  ; streams_signal = streams
   ; step
   ; connection     = events.state
+  ; ports_sync     = get_sync_ports streams ports
   ; ports_active   = get_active_ports ports
-  ; settings_page  = ("IP", React.S.const (Tyxml.Html.div []))
-  ; widgets_page   = [("IP", React.S.const (Tyxml.Html.div []))]
   ; stream_handler = None
   ; state          = (state :> < finalize : unit -> unit >)
   }

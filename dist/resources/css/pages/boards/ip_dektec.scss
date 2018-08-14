@@ -1,0 +1,33 @@
+// Network settings widget
+
+.ip-dektec-network-settings {
+    padding: 1rem;
+}
+
+// Receiver settings widget
+.ip-dektec-receiver-settings {
+    .mdc-form-field {
+        padding-bottom: 1rem;
+    }
+    padding: 1rem;
+}
+
+// Parameter widget
+
+.ip-dektec-parameter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    &__inner {
+        display: flex;
+        flex-direction: column;
+    }
+}
+
+// Common
+
+.ip-dektec-network-settings, .ip-dektec-receiver-settings {
+    .mdc-apply-button {
+        align-self: flex-start;
+    }
+}

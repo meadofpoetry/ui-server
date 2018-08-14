@@ -36,7 +36,7 @@ let streams ~(init   : init)
                     let input = get_input x.source in
                     let cb    = new Checkbox.t () in
                     let text  = Printf.sprintf "Источник: %s" (Common.Topology.input_to_string input.input) in
-                    new Item_list.Item.t ~ripple:true ~start_detail:cb ~text (),
+                    new Item_list.Item.t ~ripple:true ~graphic:cb ~text ~value:() (),
                     React.S.map (function true  -> Some x | false -> None) cb#s_state) sms
               in
               let lst = new Item_list.t ~items:(List.map (fun x -> `Item (fst x)) items) () in
@@ -82,7 +82,7 @@ class settings control () = object(self)
   val mutable state : state option = None
   val mutable observer             = None
 
-  inherit Widget.widget (Dom_html.createDiv Dom_html.document) ()
+  inherit Widget.t (Dom_html.createDiv Dom_html.document) ()
 
   method private observe =
     MutationObserver.observe

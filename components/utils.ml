@@ -11,6 +11,20 @@ let rec gcd a b =
 let resolution_to_aspect (w,h) =
   let d = gcd w h in w / d, h / d
 
+let sum_scroll_offsets (e:Dom_html.element Js.t) =
+  let rec aux cur acc_left acc_top =
+    match Js.Opt.to_option cur with
+    | None     -> acc_left,acc_top
+    | Some cur ->
+       (match Js.to_string cur##.nodeName with
+        | "BODY" -> acc_left,acc_top
+        | _      ->
+           aux cur##.parentNode
+             (acc_left + (Js.Unsafe.coerce cur)##.scrollLeft)
+             (acc_top  + (Js.Unsafe.coerce cur)##.scrollTop))
+  in
+  aux e##.parentNode 0 0
+
 module Keyboard_event = struct
 
   let event_to_key (e:Dom_html.keyboardEvent Js.t) =
@@ -18,16 +32,17 @@ module Keyboard_event = struct
     (match key,e##.keyCode with
      | Some "Delete", _ | _, 46                -> `Delete e
      | Some "Enter", _  | _, 13                -> `Enter e
+     | Some "Space", _  | _, 32                -> `Space e
      | Some "Escape",_  | Some "Esc",_ | _, 27 -> `Escape e
      | _                                       -> `Unknown e)
 
-  let listen ?(typ=`Keydown) ?(prevent_default=false) ~f elt =
+  let listen ?(typ=`Keydown) elt f =
     let typ = match typ with
       | `Keydown  -> Dom_events.Typ.keydown
       | `Keypress -> Dom_events.Typ.keypress
       | `Keyup    -> Dom_events.Typ.keyup
     in
-    Dom_events.listen elt typ (fun _ e -> f @@ event_to_key e; not prevent_default)
+    Dom_events.listen elt typ (fun _ e -> f @@ event_to_key e)
 
 end
 
@@ -81,7 +96,7 @@ module Scroll_size_listener = struct
       val mutable height    = 0
       val mutable width     = 0
 
-      inherit Widget.widget elt () as super
+      inherit Widget.t elt () as super
 
       method on_change       = on_change
       method set_on_change x = on_change <- x
@@ -96,16 +111,21 @@ module Scroll_size_listener = struct
         if prev_h <> height || prev_w <> width
         then Option.iter (fun f -> f width height) on_change;
 
-      method private listen =
-        Dom_events.listen Dom_html.window Dom_events.Typ.resize (fun _ _ -> self#measure (); true)
+      method private _listen =
+        Dom_events.listen Dom_html.window Dom_events.Typ.resize (fun _ _ ->
+            self#measure (); true)
 
       initializer
         (* TODO maybe remove these listeners? *)
-        super#set_on_load   @@ Some (fun () -> self#measure ();
-                                               Option.iter (fun f -> f width height) on_change;
-                                               listener <- Some self#listen);
-        super#set_on_unload @@ Some (fun () -> Option.iter (fun l -> Dom_events.stop_listen l) listener;
-                                               listener <- None)
+        super#set_on_load
+        @@ Some (fun () ->
+               self#measure ();
+               Option.iter (fun f -> f width height) on_change;
+               listener <- Some self#_listen);
+        super#set_on_unload @@
+          Some (fun () ->
+              Option.iter (fun l -> Dom_events.stop_listen l) listener;
+              listener <- None)
 
     end
 

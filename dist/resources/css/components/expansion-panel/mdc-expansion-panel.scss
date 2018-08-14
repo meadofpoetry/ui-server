@@ -5,7 +5,7 @@
 
 .mdc-expansion-panel {
 
-    @include mdc-theme-prop(background-color, background);
+    @include mdc-theme-prop(background-color, surface);
 
     position: relative;
     margin: 0;
@@ -79,7 +79,7 @@
 
         .mdc-expansion-panel__heading {
 
-            @include mdc-typography(subheading1);
+            @include mdc-typography(subtitle1);
 
             flex-direction: column;
             display: flex;
@@ -96,7 +96,7 @@
         }
 
         .mdc-expansion-panel__details {
-            @include mdc-theme-prop(color, text-secondary-on-background);
+            @include mdc-theme-prop(color, text-secondary-on-surface);
 
             justify-content: flex-start;
             display: flex;
@@ -113,7 +113,7 @@
     }
 
     .mdc-expansion-panel__icon {
-        @include mdc-theme-prop(color, text-icon-on-background);
+        @include mdc-theme-prop(color, text-icon-on-surface);
         outline: none;
         width:  48px;
         height: 48px;

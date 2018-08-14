@@ -194,7 +194,7 @@ let parse_measures_rsp_exn id msg =
   let int_to_opt   x = if Int.equal   x max_uint16 then None else Some x in
   let int32_to_opt x = if Int32.equal x max_uint32 then None else Some x in
   try
-    id,{ timestamp = Common.Time.Clock.now ()
+    id,{ timestamp = Common.Time.Clock.now_s ()
        ; lock      = int_to_bool8 (get_rsp_measure_lock msg) |> Option.get_exn |> bool_of_bool8
        ; power     = Fun.(int_to_opt % get_rsp_measure_power) msg
                      |> Option.map (fun x -> -.((float_of_int x) /. 10.))

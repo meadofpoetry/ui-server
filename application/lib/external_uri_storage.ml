@@ -3,7 +3,7 @@ open Application_types
 
 let compare l r = match l, r with
   | (`Input (li, lid)), (`Input (ri, rid)) ->
-     let c = Common.Topology.input_compare li ri in
+     let c = Common.Topology.compare_input li ri in
      if c <> 0 then c
      else compare lid rid
   | (`Board l), (`Board r) -> compare l r

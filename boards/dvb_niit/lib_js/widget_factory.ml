@@ -116,40 +116,40 @@ object(self)
   method private _create_module_measure conf =
     Widget_module_measure.make ~measures:self#_measures conf
     |> Dashboard.Item.to_item ~name:(Widget_module_measure.name conf)
-                              ?settings:Widget_module_measure.settings
+         ?settings:Widget_module_measure.settings
 
   method private _create_module_measures conf =
     Widget_module_measures.make ~measures:self#_measures conf
     |> Dashboard.Item.to_item ~name:(Widget_module_measures.name conf)
-                              ?settings:Widget_module_measures.settings
+         ?settings:Widget_module_measures.settings
 
   method private _create_measures conf =
     (fun c -> Widget_measures.make ~measures:self#_measures ~config:c conf)
     |> Factory_state_lwt.l1 self#_config
     |> Ui_templates.Loader.create_widget_loader
     |> Dashboard.Item.to_item ~name:Widget_measures.name
-                              ?settings:Widget_measures.settings
+         ?settings:Widget_measures.settings
 
   method private _create_measure conf =
     (fun c -> Widget_measure.make ~measures:self#_measures ~config:c conf)
     |> Factory_state_lwt.l1 self#_config
     |> Ui_templates.Loader.create_widget_loader
     |> Dashboard.Item.to_item ~name:(Widget_measure.name conf)
-                              ?settings:Widget_measure.settings
+         ?settings:Widget_measure.settings
 
   method private _create_module_settings conf =
     (fun s c -> Widget_module_settings.make ~state:s ~config:c conf control)
     |> Factory_state_lwt.l2 self#_state self#_config
     |> Ui_templates.Loader.create_widget_loader
     |> Dashboard.Item.to_item ~name:(Widget_module_settings.name conf)
-                              ?settings:Widget_module_settings.settings
+         ?settings:Widget_module_settings.settings
 
   method private _create_settings conf =
     (fun s c -> Widget_settings.make ~state:s ~config:c conf control)
     |> Factory_state_lwt.l2 self#_state self#_config
     |> Ui_templates.Loader.create_widget_loader
     |> Dashboard.Item.to_item ~name:Widget_settings.name
-                              ?settings:Widget_settings.settings
+         ?settings:Widget_settings.settings
 
   method private _create_chart conf =
     Widget_chart.make ~measures:self#_measures conf

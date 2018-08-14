@@ -26,75 +26,98 @@ let tick tm =
   in
   e, loop
 
-let appeared_streams ~(past:Common.Stream.t list) ~(pres:Common.Stream.t list) =
+let appeared_streams
+      ~(past:Common.Stream.t list)
+      ~(pres:Common.Stream.t list) =
   let open Common.Stream in
   let rec not_in_or_diff s = function
     | [] -> true
-    | so::_ when equal so s -> false
-    | _::tl -> not_in_or_diff s tl
+    | so :: _ when equal so s -> false
+    | _ :: tl -> not_in_or_diff s tl
   in
   let appeared = List.fold_left (fun acc pres ->
                      if not_in_or_diff pres past
-                     then pres::acc else acc) [] pres in
+                     then pres :: acc else acc) [] pres in
   appeared
-                       
+
+let invalid_port x =
+  let s = "Board_qos_niit: invalid port " ^ (string_of_int x) in
+  raise (Invalid_port s)
+
+let get_ports_sync streams input ports =
+  let open React in
+  List.fold_left (fun acc p ->
+      (match p.port with
+       | 0 -> S.l2 (fun i s -> match i, s with
+                               | SPI, _ :: _ -> true
+                               | _ -> false) input streams
+       | 1 -> S.l2 (fun i s -> match i, s with
+                               | ASI, _ :: _ -> true
+                               | _ -> false) input streams
+       | x -> invalid_port x)
+      |> fun x -> Ports.add p.port x acc) Ports.empty ports
+
+let get_ports_active input ports =
+  let open React in
+  List.fold_left (fun acc p ->
+      (match p.port with
+       | 0 -> S.map (function SPI -> true | _ -> false) input
+       | 1 -> S.map (function ASI -> true | _ -> false) input
+       | x -> invalid_port x)
+      |> fun x -> Ports.add p.port x acc) Ports.empty ports
+
 let create (b:topo_board) _ convert_streams send db_conf base step =
-  let conv            = fun x -> convert_streams x b in
-  let storage         = Config_storage.create base ["board"; (string_of_int b.control)] in
-  let events,api,step = Board_protocol.SM.create (log_prefix b.control) send storage step conv in
-  let db              = Result.get_exn @@ Db.Conn.create db_conf b.control in
-  let handlers        = Board_api.handlers b.control db api events in
+  let conv    = fun x -> convert_streams x b in
+  let storage =
+    Config_storage.create base
+      ["board"; (string_of_int b.control)] in
+  let events,api,step =
+    Board_protocol.SM.create (log_prefix b.control)
+      send storage step conv in
+  let db       = Result.get_exn @@ Db.Conn.create db_conf b.control in
+  let handlers = Board_api.handlers b.control db api events in
   let tick, tick_loop = tick 5. in
+  let open Lwt_react in
   (* State *)
   Lwt.ignore_result @@ Db.Device.init db;
-  Lwt_react.E.keep
-  @@ Lwt_react.E.map_p (fun e -> Db.Device.bump db e)
-  @@ Lwt_react.E.select [ Lwt_react.S.changes events.device.state
-                        ; Lwt_react.S.sample (fun _ e -> e) tick events.device.state ];
+  E.keep
+  @@ E.map_p (fun e -> Db.Device.bump db e)
+  @@ E.select [ S.changes events.device.state
+              ; S.sample (fun _ e -> e) tick events.device.state ];
   (* Streams *)
-  let streams_ev   =
-    Lwt_react.S.sample (fun () sl -> `Active sl) tick events.streams.streams
-  in
+  let streams_ev =
+    S.sample (fun () sl -> `Active sl) tick events.streams in
   let streams_diff =
-    Lwt_react.S.diff (fun pres past -> `New (appeared_streams ~past ~pres)) events.streams.streams
-  in
-  Lwt_react.E.keep
-  @@ Lwt_react.E.map_s (function
-         | `Active streams -> Db.Streams.bump_streams db streams
-         | `New streams -> Db.Streams.insert_streams db streams)
-  @@ Lwt_react.E.select [streams_ev; streams_diff];
-  (* @@ Lwt_react.S.map (fun s -> Lwt.ignore_result @@ Db.Streams.insert_streams db s) events.streams.streams; *)
+    S.diff (fun pres past -> `New (appeared_streams ~past ~pres))
+      events.streams in
+  E.(keep
+     @@ map_s (function
+            | `Active x -> Db.Streams.bump_streams db x
+            | `New x    -> Db.Streams.insert_streams db x)
+     @@ select [streams_ev; streams_diff]);
   (* Structs ts *)
-  Lwt_react.E.keep
-  @@ Lwt_react.E.map_p (fun s -> Lwt.(catch (fun () -> Db.Streams.insert_structs_ts db s)
-                                        (fun e -> Logs_lwt.err (fun m -> m "ERROR %s" @@ Printexc.to_string e))))
-       events.streams.ts_structures;
+  E.(keep @@ map_p (Db.Streams.insert_ts_info db) events.ts.info);
+  E.(keep @@ map_p (Db.Streams.insert_services db) events.ts.services);
+  E.(keep @@ map_p (Db.Streams.insert_tables db) events.ts.tables);
+  E.(keep @@ map_p (Db.Streams.insert_pids db) events.ts.pids);
   (* Structs t2 *)
-  Lwt_react.E.keep
-  @@ Lwt_react.E.map_p (fun s -> Db.Streams.insert_structs_t2 db s) events.streams.t2mi_structures;
+  E.(keep @@ map_p (Db.Streams.insert_t2mi_info db) events.t2mi.structures);
   (* TS bitrates *)
-(*  Lwt_react.E.keep
-  @@ Lwt_react.E.map_p (fun b -> Db.Streams.insert_bitrate db b) events.streams.ts_bitrates; *)
   (* Errors *)
-  Lwt_react.E.keep @@
-    Lwt_react.E.map_p (fun e -> Db.Errors.insert_errors ~is_ts:true db e) events.errors.ts_errors;
-  Lwt_react.E.keep @@
-    Lwt_react.E.map_p (fun e -> Db.Errors.insert_errors ~is_ts:false db e) events.errors.t2mi_errors;
-  let state = (object val db = db val _tick = tick_loop () method finalize () = () end) in (* TODO fix finalize *)
+  E.(keep @@ map_p (Db.Errors.insert ~is_ts:true  db) events.ts.errors);
+  E.(keep @@ map_p (Db.Errors.insert ~is_ts:false db) events.t2mi.errors);
+  let state = (object
+                 val db    = db
+                 val _tick = tick_loop ()
+                 method finalize () = ()
+               end) in (* TODO fix finalize *)
   { handlers       = handlers
   ; control        = b.control
-  ; streams_signal = events.streams.streams
+  ; streams_signal = events.streams
   ; step           = step
   ; connection     = events.device.state
-  ; ports_active   =
-      List.fold_left (fun acc p ->
-          (match p.port with
-           | 0 -> React.S.map (function SPI -> true | _ -> false) events.device.input
-           | 1 -> React.S.map (function ASI -> true | _ -> false) events.device.input
-           | x -> raise (Invalid_port ("Board_qos_niit: invalid port " ^ (string_of_int x))))
-          |> fun x -> Ports.add p.port x acc) Ports.empty b.ports
-  ; settings_page  = ("QOS", React.S.const (Tyxml.Html.div []))
-  ; widgets_page   = [("QOS", React.S.const (Tyxml.Html.div []))]
+  ; ports_sync     = get_ports_sync events.streams events.device.input b.ports
+  ; ports_active   = get_ports_active events.device.input b.ports
   ; stream_handler = None
   ; state          = (state :> < finalize : unit -> unit >)
   }

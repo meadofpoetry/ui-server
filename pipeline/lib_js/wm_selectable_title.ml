@@ -8,7 +8,7 @@ class title ~title ~widget () =
   let active_class = Markup.CSS.add_modifier title_class "active" in
   object(self)
 
-    inherit Typography.Text.t ~adjust_margin:false ~text:title ~font:Subheading_2 ()
+    inherit Typography.Text.t ~adjust_margin:false ~text:title ~font:Subtitle_2 ()
 
     method set_active x =
       self#add_or_remove_class x active_class;
@@ -26,7 +26,7 @@ class t titles () =
     List.map (fun (title,widget) -> new title ~title ~widget ()) titles in
   object(self)
 
-    inherit Box.t ~vertical:false ~widgets:titles ()
+    inherit Hbox.t ~widgets:titles ()
 
     method titles : title list = titles
     method select (w:title) =

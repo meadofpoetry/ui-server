@@ -1,14 +1,15 @@
 open Containers
 open Vg
 open Gg
+open Dynamic_grid_types
 
 type line = | Column | Row
 
 class overlay_grid ~parent ~s_col_w ~s_row_h ~s_cols ~s_rows ~s_im () =
-  let elt = Markup.Dynamic_grid.Overlay_grid.create () |> Tyxml_js.To_dom.of_canvas in
+  let elt = Markup.Overlay_grid.create () |> Tyxml_js.To_dom.of_canvas in
   object(self)
 
-    inherit Widget.widget elt () as super
+    inherit Widget.t elt () as super
 
     val mutable grid_color     = Color.v 0. 0. 0. 0.25
     val mutable divider_color  = Color.v 0. 0. 0. 0.5
@@ -16,9 +17,9 @@ class overlay_grid ~parent ~s_col_w ~s_row_h ~s_cols ~s_rows ~s_im () =
     val mutable divider_period = 10,10
 
     method show () : unit = Dom.appendChild parent self#root;
-                            parent##.classList##add (Js.string Markup.Dynamic_grid.with_overlay_grid_class)
+                            parent##.classList##add (Js.string Markup.with_overlay_grid_class)
     method hide () : unit = (try Dom.removeChild parent self#root with _ -> ());
-                            parent##.classList##remove (Js.string Markup.Dynamic_grid.with_overlay_grid_class)
+                            parent##.classList##remove (Js.string Markup.with_overlay_grid_class)
 
     method set_grid_color r g b a = grid_color <- Color.v r g b a; self#layout ()
     method grid_color             = grid_color

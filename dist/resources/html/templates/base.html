@@ -7,14 +7,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="">
     <title>{{title}}</title>
-    <!-- https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css -->
-    <link rel="stylesheet" href="/css/components.css">
+    <link rel="stylesheet" href="/css/components.min.css">
     <link rel="stylesheet" href="/css/icon.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto+Mono">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans">
     <link rel="stylesheet" href="/css/normalize.css" type="text/css">
-    <link rel="stylesheet" href="/css/main.css" type="text/css">
+    <link rel="stylesheet" href="/css/main.min.css" type="text/css">
     <style>
          @font-face {
          font-family: "Open Sans";
@@ -74,22 +73,37 @@
               {{#simple}}
               <div class="mdc-tree">
                   <a href="{{href}}" class="mdc-list-item">
+                      {{#icon}}
+                      <div class="mdc-list-item__graphic">
+                          {{{value}}}
+                      </div>
+                      {{/icon}}
                       {{title}}
                   </a>
               </div>
               {{/simple}}
               {{^simple}}
               <div class="mdc-tree mdc-tree__item">
-                   <div class="mdc-list-item">
-                       {{title}}
-                       <i class="material-icons mdc-icon mdc-list-item__meta dropdown">
-                           arrow_drop_down
-                       </i>
-                   </div>
+                  <div class="mdc-list-item">
+                      {{#icon}}
+                      <div class="mdc-list-item__graphic">
+                          {{{value}}}
+                      </div>
+                      {{/icon}}
+                      {{title}}
+                      <i class="material-icons mdc-icon mdc-list-item__meta dropdown">
+                          arrow_drop_down
+                      </i>
+                  </div>
                    <div class="mdc-tree__list">
                    {{#subtree}}
                        <a href="{{href}}" class="mdc-list-item">
-                              {{title}}
+                           {{#icon}}
+                           <div class="mdc-list-item__graphic">
+                               {{{value}}}
+                           </div>
+                           {{/icon}}
+                           {{title}}
                        </a>
                    {{/subtree}}
                    </div>
@@ -104,8 +118,13 @@
         <div class="mdc-toolbar__row">
             <section class="mdc-toolbar__section mdc-toolbar__section--align-start">
                 <button id="demo-menu" class="demo-menu material-icons mdc-toolbar__menu-icon"
-                style="outline: none;">
-                    menu
+                        style="outline: none;">
+                    <svg xmlns="http://www.w3.org/2000/svg"
+                         xmlns:xlink="http://www.w3.org/1999/xlink"
+                         class="mdc-icon" style="width:24px;height:24px"
+                         viewBox="0 0 24 24">
+                        <path class="" d="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z"></path>
+                    </svg>
                 </button>
                 <span id="page-title" class="mdc-toolbar__title ui__title">{{title}}</span>
             </section>

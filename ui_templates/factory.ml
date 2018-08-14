@@ -16,6 +16,7 @@ module Factory_state = struct
 
   type 'a t_lwt = 'a value_lwt t
 
+
   type ws = WebSockets.webSocket Js.t
 
   let finalize (state:'a t) = state.fin (); state.value <- None; state.ref_count <- 0
@@ -45,14 +46,30 @@ module Factory_state_lwt = struct
   type 'a value = ('a,string) Lwt_result.t
   type 'a t     = ('a value) Factory_state.t
 
-  let l1 : 'a. 'a value -> ('a -> 'b) -> 'b value = fun t1 f ->
+  let l1 : 'a. 'a value -> ('a -> 'b) -> 'b value =
+    fun t1 f ->
     t1 >>= fun t1 -> Lwt_result.return @@ f t1
 
-  let l2 : 'a 'b. 'a value -> 'b value -> ('a -> 'b -> 'c) -> 'c value = fun t1 t2 f ->
-    t1 >>= fun t1 -> t2 >>= (fun t2 -> Lwt_result.return @@ f t1 t2)
+  let l2 : 'a 'b. 'a value -> 'b value -> ('a -> 'b -> 'c) -> 'c value =
+    fun t1 t2 f ->
+    t1 >>= fun t1 -> t2 >>= fun t2 -> Lwt_result.return @@ f t1 t2
 
-  let l3 : 'a 'b 'c. 'a value -> 'b value -> 'c value -> ('a -> 'b -> 'c -> 'd) -> 'd value = fun t1 t2 t3 f ->
-    t1 >>= fun t1 -> t2 >>= fun t2 -> t3 >>= (fun t3 -> Lwt_result.return @@ f t1 t2 t3)
+  let l3 : 'a 'b 'c. 'a value -> 'b value -> 'c value ->
+           ('a -> 'b -> 'c -> 'd) -> 'd value =
+    fun t1 t2 t3 f ->
+    t1
+    >>= fun t1 -> t2
+    >>= fun t2 -> t3
+    >>= fun t3 -> Lwt_result.return @@ f t1 t2 t3
+
+  let l4 : 'a 'b 'c 'd. 'a value -> 'b value -> 'c value -> 'd value ->
+           ('a -> 'b -> 'c -> 'd -> 'e) -> 'e value =
+    fun t1 t2 t3 t4 f ->
+    t1
+    >>= fun t1 -> t2
+    >>= fun t2 -> t3
+    >>= fun t3 -> t4
+    >>= fun t4 -> Lwt_result.return @@ f t1 t2 t3 t4
 
   let get_value_as_signal ~(get:(unit -> 'a value))
                           ~(get_socket:(unit -> 'a React.event * Factory_state.ws))

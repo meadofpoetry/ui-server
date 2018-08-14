@@ -27,7 +27,7 @@ $mdc-menu-scale-duration: .12s;
 // postcss-bem-linter: define menu
 .mdc-menu {
   @include mdc-elevation(2);
-  @include mdc-theme-prop(background-color, background);
+  @include mdc-theme-prop(background-color, surface);
 
   display: none;
   position: absolute;
@@ -111,7 +111,7 @@ $mdc-menu-scale-duration: .12s;
   }
 
   .mdc-list-item {
-    @include mdc-typography(subheading2);
+    @include mdc-typography(subtitle1);
 
     position: relative;
     outline: none;
@@ -121,11 +121,11 @@ $mdc-menu-scale-duration: .12s;
   }
 
   .mdc-list-item__graphic {
-    @include mdc-theme-prop(color, text-secondary-on-background);
+    @include mdc-theme-prop(color, text-secondary-on-surface);
   }
 
   .mdc-list-item[aria-disabled="true"] {
-    @include mdc-theme-prop(color, text-disabled-on-background);
+    @include mdc-theme-prop(color, text-disabled-on-surface);
 
     cursor: default;
     pointer-events: none;

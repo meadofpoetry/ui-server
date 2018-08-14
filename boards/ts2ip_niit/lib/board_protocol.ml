@@ -192,14 +192,15 @@ module SM = struct
 
   end
 
-  let to_out_streams_s b (status:status React.event) (streams:Stream.t list React.signal) =
+  let to_out_streams_s b
+        (status:status React.event)
+        (streams:Stream.t list React.signal) =
     let find_stream (b:Topology.topo_board) (id:Stream.id) (port:int) (streams:Stream.t list) =
       List.find_opt (fun (t:Stream.t) ->
           let p = Stream.to_topo_port b t in
-          match t.id,p with
+          match t.id, p with
           | `Ts x, Some p when Stream.equal_id x id && p.port = port -> true
-          | _ -> false) streams
-    in
+          | _ -> false) streams in
     React.S.l2 (fun status streams ->
         List.fold_left (fun acc (packer,{bitrate;enabled;has_data;_}) ->
             let s = find_stream b packer.stream packer.socket streams in
@@ -208,11 +209,11 @@ module SM = struct
                let (stream:Common.Stream.t) =
                  { source      = Parent s
                  ; id          = `Ip { ip = packer.dst_ip; port = packer.dst_port }
+                 ; typ         = s.typ
                  ; description = s.description }
                in stream :: acc
             | _ -> acc) [] status)
-      (React.S.hold [] (React.E.map (fun x -> x.packers_status) status))
-  streams
+      (React.S.hold [] (React.E.map (fun x -> x.packers_status) status)) streams
 
   let create sender
         (storage       : config storage)

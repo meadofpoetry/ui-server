@@ -3,7 +3,7 @@ module Position = Dynamic_grid.Position
 module Item : sig
 
   type settings =
-    { widget : Widget.widget
+    { widget : Widget.t
     ; ready  : bool React.signal
     ; set    : unit -> (unit,string) Lwt_result.t
     }
@@ -18,7 +18,7 @@ module Item : sig
   type item =
     { name        : string
     ; settings    : settings option
-    ; widget      : Widget.widget
+    ; widget      : Widget.t
     }
 
   type 'a positioned_item =
@@ -28,12 +28,12 @@ module Item : sig
 
   val to_info : ?description:string -> ?thumbnail:[`Icon of string] ->
                 serialized:Yojson.Safe.json -> title:string -> unit -> info
-  val to_item : ?settings:settings -> name:string -> #Widget.widget -> item
+  val to_item : ?settings:settings -> name:string -> #Widget.t -> item
 
   class t :
           item:item -> unit ->
           object
-            inherit Widget.widget
+            inherit Card.t
             method remove       : Icon.Button.Font.t
             method content      : Card.Media.t
             method heading      : Card.Primary.t
@@ -73,7 +73,7 @@ class ['a] grid :
 class ['a] t :
         items:'a Item.positioned_item list -> 'a #factory -> unit ->
         object
-          inherit Box.t
+          inherit Vbox.t
 
           method e_edited        : Yojson.Safe.json React.event
 

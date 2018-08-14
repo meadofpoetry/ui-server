@@ -2,7 +2,7 @@
 
 @function topology-board-color($board) {
     @if $board == 'TS' {
-        @return $material-color-pink-500;
+        @return $material-color-blue-grey-500;
     }
     @else if $board == 'TS2IP' {
         @return $material-color-brown-500;

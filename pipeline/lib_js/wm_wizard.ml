@@ -80,7 +80,7 @@ let to_layout ~resolution (widgets:(string * Wm.widget) list) =
 let to_dialog (wm:Wm.t) =
   let e,push     = React.E.create () in
   let checkboxes = to_checkboxes wm.widgets in
-  let box        = new Box.t ~vertical:true ~widgets:checkboxes () in
+  let box        = new Vbox.t ~widgets:checkboxes () in
   let dialog     = new Dialog.t
                        ~title:"Выберите виджеты"
                        ~scrollable:true

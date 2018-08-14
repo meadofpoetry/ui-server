@@ -1,14 +1,17 @@
+open Tyxml_js
+open Containers
+
+module Markup = Components_markup.Button.Make(Xml)(Svg)(Html)
+
 type style = [ `Raised | `Unelevated | `Stroked ]
 
 class t ?typ ?style ?icon ?dense ?compact ?(ripple=false) ~label () =
 
-  let elt = Markup.Button.create ?button_type:typ
-                                 ?button_style:style
-                                 ?dense
-                                 ?compact
-                                 ?icon
-                                 ~label ()
-            |> Tyxml_js.To_dom.of_button in
+  let ()   = Option.iter (fun x -> x#add_class Markup.icon_class) icon in
+  let icon = Option.map Widget.to_markup icon in
+  let elt  = Markup.create ?button_type:typ ?button_style:style
+               ?dense ?compact ?icon ~label ()
+             |> Tyxml_js.To_dom.of_button in
 
   object(self)
 

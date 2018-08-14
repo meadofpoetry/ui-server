@@ -1,9 +1,7 @@
-open Containers
-
 type state = [ `Fine
              | `No_response
              | `Init
-             ] [@@deriving yojson, show, eq]
+             ] [@@deriving yojson, show, eq, ord]
 
 let state_to_string = function
   | `Fine        -> "fine"
@@ -21,11 +19,11 @@ type input = RF
            | ASI
 [@@deriving show, eq]
 
-type board_type = string [@@deriving yojson, show, eq]
+type board_type = string [@@deriving yojson, show, eq, ord]
 
-type process_type = string [@@deriving yojson, show, eq]
+type process_type = string [@@deriving yojson, show, eq, ord]
 
-let input_compare l r = match l, r with
+let compare_input l r = match l, r with
   | RF, RF | TSOIP, TSOIP | ASI, ASI -> 0
   | RF, _  | _, ASI -> -1
   | ASI, _ | _, RF  -> 1
@@ -49,16 +47,17 @@ let input_of_yojson = function
 
 type boards = (int * board_type) list [@@deriving yojson, eq]
 
-type version = int [@@deriving yojson, show, eq]
+type version = int [@@deriving yojson, show, eq, ord]
 
-type id = int [@@deriving yojson, show, eq]
+type id = int [@@deriving yojson, show, eq, ord]
 
-module Env = Map.Make(String)
-type env = string Env.t
+module Env = CCMap.Make(String)
+type env = string Env.t [@@deriving ord]
 let env_to_yojson e : Yojson.Safe.json =
   `Assoc (Env.fold (fun k v a -> (k, `String v)::a) e [])
 let env_of_yojson : Yojson.Safe.json -> (env, string) result = function
   | `Assoc ls -> begin
+      let open Containers in
       try ls
           |> List.map (function (k, `String v) -> (k, v)
                               | _ -> raise_notrace (Failure "env_of_yojson :value should be string"))
@@ -67,42 +66,68 @@ let env_of_yojson : Yojson.Safe.json -> (env, string) result = function
       with Failure e -> Error e
     end
   | _ -> Error "env_of_yojson"
-let pp_env = Env.pp String.pp String.pp
+let pp_env = Env.pp CCString.pp CCString.pp
 let equal_env = Env.equal String.equal
 
-type t = [`CPU of topo_cpu | `Boards of topo_board list] [@@deriving yojson, show, eq]
+type t =
+  [`CPU of topo_cpu
+  | `Boards of topo_board list
+  ] [@@deriving yojson { strict = false }, show, eq, ord]
 
 and topo_entry =
   | Input  : topo_input -> topo_entry
   | Board  : topo_board -> topo_entry
 
-and topo_input = { input        : input
-                 ; id           : int
-                 }
+and topo_input =
+  { input        : input
+  ; id           : int
+  }
 
-and topo_board = { typ          : board_type
-                 ; model        : string
-                 ; manufacturer : string
-                 ; version      : version
-                 ; control      : int
-                 ; connection   : state
-                 ; env          : env
-                 ; ports        : topo_port list
-                 }
+and topo_board =
+  { typ          : board_type
+  ; model        : string
+  ; manufacturer : string
+  ; version      : version
+  ; control      : int
+  ; connection   : (state [@default `No_response])
+  ; env          : (env [@default Env.empty])
+  ; ports        : topo_port list
+  }
 
-and topo_port = { port       : int
-                ; listening  : bool
-                ; switchable : bool
-                ; child      : topo_entry
-                }
+and topo_port =
+  { port       : int
+  ; listening  : (bool [@default false])
+  ; has_sync   : (bool [@default false])
+  ; switchable : (bool [@default false])
+  ; child      : topo_entry
+  }
 
-and topo_cpu  = { process : process_type
-                ; ifaces  : topo_interface list
-                }
+and topo_cpu  =
+  { process : process_type
+  ; ifaces  : topo_interface list
+  }
 
-and topo_interface = { iface : string
-                     ; conn  : topo_entry
-                     }
+and topo_interface =
+  { iface : string
+  ; conn  : topo_entry
+  }
+
+module Show_topo_input = struct
+  type t          = topo_input
+  let typ         = "topo input"
+  let to_string (x:t) =
+    input_to_string x.input
+    ^ "-"
+    ^ string_of_int x.id
+  let of_string s : t =
+    String.split_on_char '-' s
+    |> (function
+        | [ input; id ] ->
+           { input = input_of_string input |> CCResult.get_exn
+           ; id    = int_of_string id
+           }
+        | _ -> failwith "bad input string")
+end
 
 type cpu_opt = process_type option [@@deriving yojson,eq]
 
