@@ -56,6 +56,17 @@ let parse_duration (bs:Bitstring.t) : Ptime.span option =
 
 let parsed_length = List.fold_left (fun acc x -> x.length + acc) 0
 
+let rec parse_bytes off acc x str =
+  if Bitstring.bitstring_length x = 0 then acc
+  else match%bitstring x with
+       | {| smth : 8
+          ; rest : -1 : save_offset_to (off_1), bitstring
+          |} ->
+          let node =
+            [ to_node ~offset:off 8 str (Bits (Int smth)) ]
+          in
+          parse_bytes (off + off_1) (acc @ node) rest str
+
 module Descriptor = struct
 
   module type Descriptor_base = sig
@@ -204,17 +215,6 @@ module Descriptor = struct
 
     let name = "registration_descriptor"
 
-    let rec f off acc x =
-      if Bitstring.bitstring_length x = 0 then List.rev acc
-      else match%bitstring x with
-           | {| add_id_info : 8
-              ; rest        : -1 : save_offset_to (off_1), bitstring
-              |} ->
-              let node =
-                [ to_node ~offset:off 8 "additional_identification_info" (Hex (Int add_id_info))]
-              in
-              f (off + off_1) (node @ acc) rest
-
     let decode bs off =
       match%bitstring bs with
       | {| format_id : 32
@@ -223,7 +223,7 @@ module Descriptor = struct
          let node =
            [ to_node ~offset:off 32 "format_identifier" (Hex (Int32 format_id)) ]
          in
-         f (off + off_1) node rest
+         parse_bytes (off + off_1) node rest "additional_identification_info"
 
   end
 
@@ -290,17 +290,6 @@ module Descriptor = struct
 
     let name = "CA_descriptor"
 
-    let rec f off acc x =
-      if Bitstring.bitstring_length x = 0 then List.rev acc
-      else match%bitstring x with
-           | {| private_data_byte : 8
-              ; rest        : -1 : save_offset_to (off_1), bitstring
-              |} ->
-              let node =
-                [ to_node ~offset:off 8 "private_data_byte" (Hex (Int private_data_byte))]
-              in
-              f (off + off_1) (node @ acc) rest
-
     let decode bs off =
       match%bitstring bs with
       | {| ca_system_id : 16
@@ -314,7 +303,7 @@ module Descriptor = struct
            ; to_node ~offset:(off_2 + off) 13 "CA_PID" (Hex (Int ca_pid))
            ]
          in
-         f (off + off_3) nodes private_data
+         parse_bytes (off + off_3) nodes private_data "private_data_byte"
 
 
   end
@@ -405,17 +394,6 @@ module Descriptor = struct
 
     let name = "copyright_descriptor"
 
-    let rec f off acc x =
-      if Bitstring.bitstring_length x = 0 then List.rev acc
-      else match%bitstring x with
-           | {| private_data_byte : 8
-              ; rest        : -1 : save_offset_to (off_1), bitstring
-              |} ->
-              let node =
-                [ to_node ~offset:off 8 "private_data_byte" (Hex (Int private_data_byte))]
-              in
-              f (off + off_1) (node @ acc) rest
-
     let decode bs off =
       match%bitstring bs with
       | {| copyright_id : 32
@@ -424,7 +402,7 @@ module Descriptor = struct
          let node =
            [ to_node ~offset:off 32 "copyright_identifier" (Hex (Int32 copyright_id))]
          in
-         f (off + off_1) node rest
+         parse_bytes (off + off_1) node rest "private_data_byte"
 
   end
 
@@ -691,17 +669,6 @@ module Descriptor = struct
     (* This might be working, but can be re-organized I guess *)
     let name = "content_labelling_descriptor"
 
-    let rec decode_ext off acc x name =
-      if Bitstring.bitstring_length x = 0 then List.rev acc
-      else match%bitstring x with
-           | {| x    : 8
-              ; rest : -1 : save_offset_to (off_1), bitstring
-              |} ->
-              let node =
-                [ to_node ~offset:off 8 name (Hex (Int x))]
-              in
-              decode_ext (off + off_1) (node @ acc) rest name
-
     let decode_2 bs off tbi =
       match tbi with
       | 1 -> (match%bitstring bs with
@@ -718,7 +685,7 @@ module Descriptor = struct
                   ; to_node ~offset:(off + off_3) 33 "metadata_time_base_value" (Hex (Int64 md_value))
                   ]
                 in
-                decode_ext (off + off_4) nodes rest "private_data_byte"
+                parse_bytes (off + off_4) nodes rest "private_data_byte"
              )
       | 2 -> (match%bitstring bs with
              | {| reserved_1 : 7
@@ -738,7 +705,7 @@ module Descriptor = struct
                   ; to_node ~offset:(off + off_5) 33 "contentId" (Hex (Int contentid))
                   ]
                 in
-                decode_ext (off + off_6) nodes rest "private_data_byte"
+                parse_bytes(off + off_6) nodes rest "private_data_byte"
              )
       | _ -> (match%bitstring bs with
               | {| tbad_length : 8
@@ -748,8 +715,8 @@ module Descriptor = struct
                 let nodes =
                   [ to_node ~offset:off 8 "time_base_association_data_length" (Bits (Int tbad_length))]
                 in
-                let nodes = (decode_ext (off + off_1) nodes reserved "reserved") in
-                decode_ext (off + off_2) nodes rest "private_data_byte"
+                let nodes = (parse_bytes (off + off_1) nodes reserved "reserved") in
+                parse_bytes (off + off_2) nodes rest "private_data_byte"
              )
 
     let decode_1 bs off =
@@ -768,7 +735,7 @@ module Descriptor = struct
            ; to_node ~offset:(off + off_3) 8 "content_reference_id_record_length" (Dec (Int crir_len))
            ]
          in
-         let nodes = decode_ext (off + off_4) nodes cont_ref_id_byte "content_reference_id_byte" in
+         let nodes = parse_bytes (off + off_4) nodes cont_ref_id_byte "content_reference_id_byte" in
          nodes @ decode_2 rest (off + off_5) ctb_ind
       | {| false            : 1
          ; ctb_ind          : 4 : save_offset_to (off_1)
@@ -1044,17 +1011,6 @@ module Descriptor = struct
 
     let name = "J2K video descriptor"
 
-    let rec f off acc x =
-      if Bitstring.bitstring_length x = 0 then List.rev acc
-      else match%bitstring x with
-           | {| private_data_byte : 8
-              ; rest              : -1 : save_offset_to (off_1), bitstring
-              |} ->
-              let node =
-                [ to_node ~offset:off 8 "private_data_byte" (Hex (Int private_data_byte))]
-              in
-              f (off + off_1) (node @ acc) rest
-
     let decode bs off =
       match%bitstring bs with
       | {| profile_and_level   : 16
@@ -1084,7 +1040,7 @@ module Descriptor = struct
          ; to_node ~offset:(off + off_10) 6  "reserved" (Bits (Int reserved))
          ]
          in
-         f (off + off_11) nodes rest
+         parse_bytes (off + off_11) nodes rest "private_data_byte"
 
   end
 
@@ -1238,17 +1194,6 @@ module Descriptor = struct
 
     let name = "Transport_profile_descriptor"
 
-    let rec f off acc x =
-      if Bitstring.bitstring_length x = 0 then List.rev acc
-      else match%bitstring x with
-           | {| private_data_byte : 8
-              ; rest              : -1 : save_offset_to (off_1), bitstring
-              |} ->
-              let node =
-                [ to_node ~offset:off 8 "private_data_byte" (Hex (Int private_data_byte))]
-              in
-              f (off + off_1) (node @ acc) rest
-
     let decode bs off =
       match%bitstring bs with
       | {| transport_profile : 8
@@ -1257,7 +1202,7 @@ module Descriptor = struct
          let node =
            [ to_node ~offset:off 8 "transport_profile" (Hex (Int transport_profile))]
          in
-         f (off + off_1) node rest
+         parse_bytes (off + off_1) node rest "private_data_byte"
 
   end
 
@@ -1403,17 +1348,6 @@ module Descriptor = struct
 
     let name = "Extension_descriptor"
 
-    let rec f off acc x =
-      if Bitstring.bitstring_length x = 0 then List.rev acc
-      else match%bitstring x with
-           | {| reserved : 8
-              ; rest     : -1 : save_offset_to (off_1), bitstring
-              |} ->
-              let node =
-                [ to_node ~offset:off 8 "reserved" (Hex (Int reserved))]
-              in
-              f (off + off_1) (node @ acc) rest
-
     let decode bs off =
       match%bitstring bs with
       | {| 0x02                     :  8
@@ -1440,7 +1374,7 @@ module Descriptor = struct
          let node =
            [ to_node ~offset:off 8  "extension_descriptor_tag" (Hex (Int ext_desc_tag))]
          in
-         f (off + off_1) node rest
+         parse_bytes (off + off_1) node rest "reserved"
 
   end
 
@@ -1614,19 +1548,8 @@ module Descriptor = struct
 
     let name = "bouquet_name_descriptor"
 
-    let rec f off acc x =
-      if Bitstring.bitstring_length x = 0 then List.rev acc
-      else match%bitstring x with
-           | {| char : 8
-              ; rest : -1 : save_offset_to (off_1), bitstring
-              |} ->
-              let node =
-                [ to_node ~offset:off 8 "char" (Hex (Int char)) ]
-              in
-              f (off + off_1) node rest
-
     let decode bs off =
-      f off [] bs
+      parse_bytes off [] bs "char"
 
   end
 
@@ -1711,7 +1634,7 @@ module Descriptor = struct
   module Extended_event = struct
 
     let name = "extended_event_descriptor"
-
+    (* TODO page 57*)
     let decode bs off = []
 
   end
@@ -1733,7 +1656,7 @@ module Descriptor = struct
     (* TODO parse this*)
 
     let rec f off acc x =
-      if Bitstring.bitstring_length x = 0 then List.rev acc
+      if Bitstring.bitstring_length x = 0 then acc
       else match%bitstring x with
            | {| text_char : 8
               ; rest      : -1 : save_offset_to (off_1), bitstring
@@ -1741,7 +1664,7 @@ module Descriptor = struct
               let node =
                 [ to_node ~offset:off 8 "text_char" (Hex (Int text_char)) ]
               in
-              f (off + off_1) node rest
+              f (off + off_1) (acc @ node) rest
 
     let decode bs off =
       match%bitstring bs with
@@ -2065,17 +1988,6 @@ module Descriptor = struct
 
     let name = "data_broadcast_descriptor"
 
-    let rec f off acc x str =
-      if Bitstring.bitstring_length x = 0 then List.rev acc
-      else match%bitstring x with
-           | {| smth : 8
-              ; rest : -1 : save_offset_to (off_1), bitstring
-              |} ->
-              let node =
-                [ to_node ~offset:off 8 str (Hex (Int smth)) ]
-              in
-              f (off + off_1) node rest str
-
     let decode bs off =
       match%bitstring bs with
       | {| data_broadcast_id : 16
@@ -2091,11 +2003,11 @@ module Descriptor = struct
            ; to_node ~offset:(off + off_1) 8 "component_tag" (Hex (Int component_tag))
            ; to_node ~offset:(off + off_2) 8 "selector_length" (Dec (Int sel_length)) ]
          in
-         let nodes = (f (off + off_3) nodes_1 selector_bytes "selector_byte")
+         let nodes = (parse_bytes (off + off_3) nodes_1 selector_bytes "selector_byte")
                      @ [ to_node ~offset:(off + off_4) 24 "ISO_639_language_code" (Hex (Int lang_code))
                        ; to_node ~offset:(off + off_5) 8 "text_length" (Dec (Int text_length)) ]
          in
-         f (off + off_6) nodes text_chars "text_char"
+         parse_bytes (off + off_6) nodes text_chars "text_char"
 
   end
 
@@ -2113,17 +2025,6 @@ module Descriptor = struct
 
     let name = "data_broadcast_id_descriptor"
 
-    let rec f off acc x =
-      if Bitstring.bitstring_length x = 0 then List.rev acc
-      else match%bitstring x with
-           | {| id_selector_byte : 8
-              ; rest             : -1 : save_offset_to (off_1), bitstring
-              |} ->
-              let node =
-                [ to_node ~offset:off 8 "id_selector_byte" (Hex (Int id_selector_byte)) ]
-              in
-              f (off + off_1) node rest
-
     let decode bs off =
       match%bitstring bs with
       | {| data_broadcast_id : 16
@@ -2132,7 +2033,7 @@ module Descriptor = struct
          let node =
            [ to_node ~offset:off 16 "data_broadcast_id" (Hex (Int data_broadcast_id)) ]
          in
-         f (off + off_1) node rest
+         parse_bytes (off + off_1) node rest "id_selector_byte"
 
   end
 
@@ -2198,7 +2099,7 @@ module Descriptor = struct
   module Cell_frequency_link = struct
 
     let name = "cell_frequency_link_descriptor"
-
+    (* FIXME wtf is this actually *)
     (* let rec f_2 off acc x =
      *   match%bitstring x with
      *   | {|
