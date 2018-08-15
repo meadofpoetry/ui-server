@@ -7,7 +7,6 @@ open Common.Topology
 open Common
 
 type item =
-  | Chart           of Widget_chart.config option
   | TS_log          of Widget_log.config option
   | Pids_summary    of Widget_pids_summary.config
   | Pids_overview   of Widget_pids_overview.config
@@ -18,12 +17,6 @@ type item =
 let item_to_info : item -> Dashboard.Item.info = fun item ->
   let serialized = item_to_yojson item in
   match item with
-  | Chart _ ->
-     Dashboard.Item.to_info ~title:"График"
-       ~thumbnail:(`Icon "chart")
-       ~description:"График"
-       ~serialized
-       ()
   | TS_log _ ->
      Dashboard.Item.to_info ~title:"Журнал ошибок (TS)"
        ~thumbnail:(`Icon "list_alt")
@@ -83,9 +76,6 @@ object(self)
 
   (** Create widget of type **)
   method create : item -> Dashboard.Item.item = function
-    | Chart conf ->
-       Widget_chart.make conf
-       |> Dashboard.Item.to_item ~name:Widget_chart.name
     | TS_log config ->
        Widget_log.make React.E.never ?config control
        |> Dashboard.Item.to_item ~name:Widget_log.name

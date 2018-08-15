@@ -16,8 +16,6 @@ end
 
 module Config_storage = Storage.Options.Make (Data)
 
-let log_prefix control = Printf.sprintf "(Board QoS: %d) " control
-
 let tick tm =
   let open Lwt.Infix in
   let e,push = Lwt_react.E.create () in
@@ -67,10 +65,14 @@ let get_ports_active input ports =
       |> fun x -> Ports.add p.port x acc) Ports.empty ports
 
 let create (b:topo_board) _ convert_streams send db_conf base step =
-  let prefix = log_prefix b.control in
+  let log_name = Printf.sprintf "board.%s_%s.%d"
+                   b.manufacturer b.model b.control in
+  let log_src =
+    Logs.Src.create log_name in
+  let logs = Logs.src_log log_src in
   let sources = match b.sources with
     | None ->
-       let s = prefix ^ "no sources provided!" in
+       let s = log_name ^ "no sources provided!" in
        raise (Invalid_sources s)
     | Some x ->
        begin match Types.init_of_yojson x with
@@ -82,8 +84,7 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
     Config_storage.create base
       ["board"; (string_of_int b.control)] in
   let events, api, step =
-    Board_protocol.SM.create sources prefix
-      send storage step conv in
+    Board_protocol.SM.create sources logs send storage step conv in
   let db       = Result.get_exn @@ Db.Conn.create db_conf b.control in
   let handlers = Board_api.handlers b.control db api events in
   let tick, tick_loop = tick 5. in

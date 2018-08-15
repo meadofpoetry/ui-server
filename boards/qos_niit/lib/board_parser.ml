@@ -1039,9 +1039,7 @@ let is_probe_response (type a) (req : a probe_request) msg : a option =
   | Get_bitrates x      -> parse_get_bitrates x msg
   | Get_t2mi_info x     -> parse_get_t2mi_info x msg
 
-module Make(M : sig val log_prefix : string end) = struct
-
-  let fmt fmt = let fs = "%s" ^^ fmt in Printf.sprintf fs M.log_prefix
+module Make(Logs:Logs.LOG) = struct
 
   type err = Bad_prefix           of int
            | Bad_length           of int
@@ -1154,9 +1152,9 @@ module Make(M : sig val log_prefix : string end) = struct
                          | Some x -> Some (part :: x)
                          | None   -> Some ([part]))
                        parts)
-       | _ -> Logs.debug (fun m -> m "%s" @@ fmt "unknown simple message code: 0x%x" code); `N)
+       | _ -> Logs.debug (fun m -> m "unknown simple message code: 0x%x" code); `N)
     with e ->
-      Logs.warn (fun m -> m "%s" @@ fmt "failure while parsing simple message: %s" (Printexc.to_string e)); `N
+      Logs.warn (fun m -> m "failure while parsing simple message: %s" (Printexc.to_string e)); `N
 
   let parse_complex_msg = fun ((code,r_id),(msg:Cstruct.t)) ->
     try
@@ -1172,9 +1170,9 @@ module Make(M : sig val log_prefix : string end) = struct
                                                                     (get_t2mi_info_version msg),
                                                                     (get_t2mi_info_stream_id msg),
                                                                     msg))
-       | _ -> Logs.debug (fun m -> m "%s" @@ fmt "unknown complex message code: 0x%x" code); `N)
+       | _ -> Logs.debug (fun m -> m "unknown complex message code: 0x%x" code); `N)
     with e ->
-      Logs.warn (fun m -> m "%s" @@ fmt "failure while parsing complex message: %s" (Printexc.to_string e)); `N
+      Logs.warn (fun m -> m "failure while parsing complex message: %s" (Printexc.to_string e)); `N
 
   let try_compose_parts ((id,gp) as x) =
     let gp = List.sort (fun x y -> if x.first then (-1)
@@ -1192,8 +1190,7 @@ module Make(M : sig val log_prefix : string end) = struct
       if Int32.equal first.param (Int32.of_int (Cstruct.len acc)) then `F (id,acc) else `P x
     with e ->
       Logs.warn (fun m ->
-          let s = fmt "failure while composing complex message parts: %s" @@ Printexc.to_string e in
-          m "%s" s); `N
+          m "failure while composing complex message parts: %s" @@ Printexc.to_string e); `N
 
   let deserialize parts buf =
     let rec f events event_rsps rsps parts b =
@@ -1208,8 +1205,7 @@ module Make(M : sig val log_prefix : string end) = struct
            | Error e ->
               (match e with
                | Insufficient_payload x -> List.(rev events, rev event_rsps, rev rsps, rev parts, x)
-               | e -> Logs.warn (fun m -> let s = fmt "parser error: %s" @@ string_of_err e in
-                                          m "%s" s);
+               | e -> Logs.warn (fun m -> m "parser error: %s" @@ string_of_err e);
                       f events event_rsps rsps parts (Cstruct.shift b 1))
       else List.(rev events, rev event_rsps, rev rsps, rev parts, b) in
     let ev,ev_rsps,rsps,parts,res = f [] [] [] parts buf in
