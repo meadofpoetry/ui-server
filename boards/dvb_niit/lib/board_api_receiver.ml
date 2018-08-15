@@ -2,9 +2,7 @@ open Containers
 open Board_types
 open Board_protocol
 open Board_api_common
-open Api.Interaction
 open Api.Interaction.Json
-open Api.Redirect
 open Common
 
 module WS = struct
@@ -61,14 +59,14 @@ module HTTP = struct
 
   module Archive = struct
 
-    let mode id limit from till duration _ _ () =
-      respond_error ~status:`Not_implemented "not implemented" ()
-
-    let measures id limit compress from till duration _ _ () =
-      respond_error ~status:`Not_implemented "not implemented" ()
-
-    let parameters id limit from till duration _ _ () =
-      respond_error ~status:`Not_implemented "not implemented" ()
+    (* let mode id limit from till duration _ _ () =
+     *   respond_error ~status:`Not_implemented "not implemented" ()
+     * 
+     * let measures id limit compress from till duration _ _ () =
+     *   respond_error ~status:`Not_implemented "not implemented" ()
+     * 
+     * let parameters id limit from till duration _ _ () =
+     *   respond_error ~status:`Not_implemented "not implemented" () *)
 
   end
 
@@ -127,27 +125,27 @@ let handler api events =
                  ~query:Query.empty
                  (HTTP.plps api)
              (* Archive *)
-             ; create_handler ~docstring:"Returns archived receiver mode"
-                 ~path:Path.Format.(Int ^/ "mode/archive" @/ empty)
-                 ~query:Query.[ "limit",    (module Option(Int))
-                              ; "from",     (module Option(Time.Show))
-                              ; "to",       (module Option(Time.Show))
-                              ; "duration", (module Option(Time.Relative)) ]
-                 HTTP.Archive.mode
-             ; create_handler ~docstring:"Returns archived measures"
-                 ~path:Path.Format.(Int ^/ "measures/archive" @/ empty)
-                 ~query:Query.[ "limit",    (module Option(Int))
-                              ; "compress", (module Option(Bool))
-                              ; "from",     (module Option(Time.Show))
-                              ; "to",       (module Option(Time.Show))
-                              ; "duration", (module Option(Time.Relative)) ]
-                 HTTP.Archive.measures
-             ; create_handler ~docstring:"Returns archived DVB-T2 signal parameters"
-                 ~path:Path.Format.(Int ^/ "parameters/archive" @/ empty)
-                 ~query:Query.[ "limit",    (module Option(Int))
-                              ; "from",     (module Option(Time.Show))
-                              ; "to",       (module Option(Time.Show))
-                              ; "duration", (module Option(Time.Relative)) ]
-                 HTTP.Archive.parameters
+             (* ; create_handler ~docstring:"Returns archived receiver mode"
+              *     ~path:Path.Format.(Int ^/ "mode/archive" @/ empty)
+              *     ~query:Query.[ "limit",    (module Option(Int))
+              *                  ; "from",     (module Option(Time.Show))
+              *                  ; "to",       (module Option(Time.Show))
+              *                  ; "duration", (module Option(Time.Relative)) ]
+              *     HTTP.Archive.mode
+              * ; create_handler ~docstring:"Returns archived measures"
+              *     ~path:Path.Format.(Int ^/ "measures/archive" @/ empty)
+              *     ~query:Query.[ "limit",    (module Option(Int))
+              *                  ; "compress", (module Option(Bool))
+              *                  ; "from",     (module Option(Time.Show))
+              *                  ; "to",       (module Option(Time.Show))
+              *                  ; "duration", (module Option(Time.Relative)) ]
+              *     HTTP.Archive.measures
+              * ; create_handler ~docstring:"Returns archived DVB-T2 signal parameters"
+              *     ~path:Path.Format.(Int ^/ "parameters/archive" @/ empty)
+              *     ~query:Query.[ "limit",    (module Option(Int))
+              *                  ; "from",     (module Option(Time.Show))
+              *                  ; "to",       (module Option(Time.Show))
+              *                  ; "duration", (module Option(Time.Relative)) ]
+              *     HTTP.Archive.parameters *)
              ]
     ]

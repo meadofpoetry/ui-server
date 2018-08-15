@@ -23,6 +23,17 @@ let bool_of_bool8 = function
    } [@@little_endian]]
 
 [%%cstruct
+ type cmd_src_id =
+   { source_id : uint8
+   } [@@little_endian]]
+
+[%%cstruct
+ type rsp_src_id =
+   { source_id : uint8
+   ; rfu       : uint8
+   } [@@little_endian]]
+
+[%%cstruct
  type cmd_devinfo =
    { reset    : uint8_t
    } [@@little_endian]]

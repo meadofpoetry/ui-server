@@ -67,8 +67,11 @@ let get_ports_active input ports =
       |> fun x -> Ports.add p.port x acc) Ports.empty ports
 
 let create (b:topo_board) _ convert_streams send db_conf base step =
+  let prefix = log_prefix b.control in
   let sources = match b.sources with
-    | None -> raise (Invalid_sources "no sources provided!")
+    | None ->
+       let s = prefix ^ "no sources provided!" in
+       raise (Invalid_sources s)
     | Some x ->
        begin match Types.init_of_yojson x with
        | Ok init -> init
@@ -78,8 +81,8 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
   let storage =
     Config_storage.create base
       ["board"; (string_of_int b.control)] in
-  let events,api,step =
-    Board_protocol.SM.create sources (log_prefix b.control)
+  let events, api, step =
+    Board_protocol.SM.create sources prefix
       send storage step conv in
   let db       = Result.get_exn @@ Db.Conn.create db_conf b.control in
   let handlers = Board_api.handlers b.control db api events in

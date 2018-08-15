@@ -1,12 +1,9 @@
 open Containers
 open Common.Topology
-open Api.Interaction
 open Boards.Board
 open Board_types
 
 module Api_handler = Api.Handler.Make (Common.User)
-
-open Lwt.Infix
 
 module Data = struct
   type t      = config
@@ -25,37 +22,40 @@ let invalid_port port =
   let s = "Board_dvb_niit: invalid port " ^ (string_of_int port) in
   raise (Invalid_port s)
 
-let create (b:topo_board) _ convert_streams send db_conf base step =
+let create (b:topo_board) _ convert_streams send _ (* db_conf*) base step =
+  let prefix = log_prefix b.control in
+  let source = match b.sources with
+    | None ->
+       let s = prefix ^ "no source provided!" in
+       raise (Invalid_sources s)
+    | Some i ->
+       begin match Common.Json.Int.of_yojson i with
+       | Ok i -> i
+       | Error s -> raise (Invalid_sources s)
+       end in
   let storage = Config_storage.create base ["board"; (string_of_int b.control)] in
-  let events,api,step = Board_protocol.SM.create (log_prefix b.control) send storage step in
-  let handlers        = Board_api.handlers b.control api events in
-  (* let db              = Result.get_exn @@ Database.create db_conf in
-   * let _s              = Lwt_react.E.map_p (fun m -> Database.request db (Board_model.Store_measures m))
-   *                       @@ React.E.changes events.measures in *)
+  let events, api, step =
+    Board_protocol.SM.create source prefix send storage step in
+  let handlers = Board_api.handlers b.control api events in
   let streams = convert_streams events.streams b in
-  let () = React.S.map (fun l ->
-               Common.Json.List.to_yojson Common.Stream.to_yojson l
-               |> Yojson.Safe.pretty_to_string
-               |> (fun s -> Logs.err (fun m -> m "Streams: %s\n" s))) streams
-           |> Lwt_react.S.keep in
-  let state = (object
-                 (* method _s = _s;
-                  * method db = db; *)
-                 method finalize () = ()
-               end) in
+  let state = object
+      (* method _s = _s;
+       * method db = db; *)
+      method finalize () = ()
+    end in
   { handlers
-  ; control        = b.control
+  ; control = b.control
   ; streams_signal = streams
   ; step
-  ; connection     = events.state
-  ; ports_sync     =
+  ; connection = events.state
+  ; ports_sync =
       List.fold_left (fun acc p ->
           (match p.port with
            | 0 -> React.S.map (function [] -> false | _ -> true) streams
            | x -> invalid_port x)
           |> fun x -> Ports.add p.port x acc)
         Ports.empty b.ports
-  ; ports_active   =
+  ; ports_active =
       List.fold_left (fun acc p ->
           (match p.port with
            | 0 -> React.S.const true
@@ -63,5 +63,5 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
           |> fun x -> Ports.add p.port x acc)
         Ports.empty b.ports
   ; stream_handler = None
-  ; state          = (state :> < finalize : unit -> unit >)
+  ; state = (state :> < finalize : unit -> unit >)
   }

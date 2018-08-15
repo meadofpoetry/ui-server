@@ -10,13 +10,15 @@ type devinfo =
   ; receivers : int list
   } [@@deriving yojson]
 
-type standard = T2
-              | T
-              | C [@@deriving yojson, eq, show]
+type standard =
+  | T2
+  | T
+  | C [@@deriving yojson, eq, show]
 
-type bw = Bw8
-        | Bw7
-        | Bw6 [@@deriving yojson, eq, show]
+type bw =
+  | Bw8
+  | Bw7
+  | Bw6 [@@deriving yojson, eq, show]
 
 type channel =
   { bw   : bw

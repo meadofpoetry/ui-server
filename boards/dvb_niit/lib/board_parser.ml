@@ -14,50 +14,55 @@ exception Parse_error
 (* Misc *)
 
 type parsed =
-  { id   : int
-  ; code : int
+  { code : int
   ; body : Cstruct.t
   ; res  : Cstruct.t
   }
 
-type err = Bad_tag_start        of int
-         | Bad_length           of int
-         | Bad_msg_code         of int
-         | Bad_crc              of (int * int)
-         | Bad_tag_stop         of int
-         | Insufficient_payload of Cstruct.t
-         | Unknown_err          of string
+type err =
+  | Bad_tag_start of int
+  | Bad_length of int
+  | Bad_msg_code of int
+  | Bad_crc of (int * int)
+  | Bad_tag_stop of int
+  | Insufficient_payload of Cstruct.t
+  | Unknown_err of string
 
 let string_of_err = function
-  | Bad_tag_start x        -> "incorrect start tag: "    ^ (string_of_int x)
-  | Bad_length x           -> "incorrect length: "       ^ (string_of_int x)
-  | Bad_msg_code x         -> "incorrect code/addr: "    ^ (string_of_int x)
-  | Bad_crc (x,y)          -> "incorrect crc: expected " ^ (string_of_int x) ^ ", got " ^ (string_of_int y)
-  | Bad_tag_stop x         -> "incorrect stop tag: "     ^ (string_of_int x)
+  | Bad_tag_start x -> "incorrect start tag: "    ^ (string_of_int x)
+  | Bad_length x -> "incorrect length: "       ^ (string_of_int x)
+  | Bad_msg_code x -> "incorrect code/addr: "    ^ (string_of_int x)
+  | Bad_crc (x,y) -> "incorrect crc: expected " ^ (string_of_int x)
+                     ^ ", got " ^ (string_of_int y)
+  | Bad_tag_stop x -> "incorrect stop tag: "     ^ (string_of_int x)
   | Insufficient_payload _ -> "insufficient payload"
-  | Unknown_err s          -> s
+  | Unknown_err s -> s
 
-type _ request = Get_devinfo  : devinfo request
-               | Reset        : unit request
-               | Set_mode     : (int * mode)        -> (int * mode_rsp) request
-               | Set_plp      : (int * plp_set_req) -> (int * plp_set_rsp) request
+type _ request =
+  | Get_devinfo : devinfo request
+  | Reset       : unit request
+  | Set_src_id  : int -> int request
+  | Set_mode    : (int * mode)        -> (int * mode_rsp) request
+  | Set_plp     : (int * plp_set_req) -> (int * plp_set_rsp) request
 
-type event = Measures of (int * measures)
-           | Params   of (int * params)
-           | Plp_list of (int * plp_list) [@@deriving show]
+type event =
+  | Measures of (int * measures)
+  | Params   of (int * params)
+  | Plp_list of (int * plp_list) [@@deriving show]
 
-type _ event_request = Get_measure  : int -> event event_request
-                     | Get_params   : int -> event event_request
-                     | Get_plp_list : int -> event event_request
+type _ event_request =
+  | Get_measure  : int -> event event_request
+  | Get_params   : int -> event event_request
+  | Get_plp_list : int -> event event_request
 
 (* Helper functions *)
 
 let calc_crc (msg:Cstruct.t) =
-  let _,body = Cstruct.split msg (sizeof_prefix - 1) in
+  let _, body = Cstruct.split msg (sizeof_prefix - 1) in
   let iter = Cstruct.iter (fun _ -> Some 1)
-                          (fun buf -> Cstruct.get_uint8 buf 0)
-                          body in
-  Cstruct.fold (fun acc el -> el lxor acc) iter 0
+               (fun buf -> Cstruct.get_uint8 buf 0)
+               body in
+  Cstruct.fold (lxor) iter 0
 
 (* Message constructors *)
 
@@ -75,9 +80,10 @@ let to_suffix ~crc =
   suffix
 
 let to_msg ~msg_code ~body =
-  let prefix = to_prefix ~length:(Cstruct.len body + 1) ~msg_code in
+  let length = Cstruct.len body + 1 in
+  let prefix = to_prefix ~length ~msg_code in
   let msg = Cstruct.append prefix body in
-  let suffix  = to_suffix ~crc:(calc_crc msg) in
+  let suffix = to_suffix ~crc:(calc_crc msg) in
   Cstruct.append msg suffix
 
 let to_empty_msg ~msg_code =
@@ -86,57 +92,91 @@ let to_empty_msg ~msg_code =
 
 (* Message validation *)
 
+let split_code (code:int) =
+  code land 0x0F, code lsr 4
+
 let check_tag_start buf =
   let tag = get_prefix_tag_start buf in
-  if tag <> tag_start then Error (Bad_tag_start tag) else Ok buf
+  if tag <> tag_start
+  then Error (Bad_tag_start tag) else Ok buf
 
 let check_length buf =
   let length = get_prefix_length buf in
-  if (length < 2) || (length > 41) then Error (Bad_length length) else Ok buf
+  if (length < 2) || (length > 41)
+  then Error (Bad_length length) else Ok buf
 
 let check_msg_code buf =
-  let code'     = get_prefix_msg_code buf in
-  let (id,code) = (code' land 0x0F, code' lsr 4) in
-  match (id,code) with
-  | 0xE,0xE                                          -> Ok (id,code,buf)           (* ack*)
-  | 0,1                                              -> Ok (id,code,buf)           (* devinfo *)
-  | (x,y) when (x >= 0 && x < 4) && (y > 1 && y < 7) -> Ok (id,code,buf)           (* other *)
-  | _                                                -> Error (Bad_msg_code code')
+  match get_prefix_msg_code buf with
+  | 0xEE as x -> Ok (x, buf) (* ack *)
+  | 0xD0 as x -> Ok (x, buf) (* src id *)
+  | 0x10 as x -> Ok (x, buf) (* devinfo *)
+  | code ->
+     (* other *)
+     begin match split_code code with
+     | id, c when (id >= 0 && id < 4) && (c > 1 && c < 7) ->
+        Ok (code, buf)
+     | _ -> Error (Bad_msg_code code)
+     end
 
-let check_msg_crc (id,code,buf) =
+let check_msg_crc (code, buf) =
   let payload_len = (get_prefix_length buf) - 1 in
-  let total_len   = payload_len + sizeof_prefix + sizeof_suffix in
-  let msg,res     = Cstruct.split buf total_len in
-  let pfx,msg'    = Cstruct.split msg sizeof_prefix in
-  let body,sfx    = Cstruct.split msg' payload_len in
-  let tag         = get_suffix_tag_stop sfx in
-  if tag <> tag_stop then Error (Bad_tag_stop tag)
-  else let crc  = (calc_crc (Cstruct.append pfx body)) in
-       let crc' = get_suffix_crc sfx in
-       if crc <> crc' then Error (Bad_crc (crc,crc'))
-       else Ok { id; code; body; res }
+  let total_len = payload_len + sizeof_prefix + sizeof_suffix in
+  let msg, res = Cstruct.split buf total_len in
+  let pfx, msg' = Cstruct.split msg sizeof_prefix in
+  let body, sfx = Cstruct.split msg' payload_len in
+  let tag = get_suffix_tag_stop sfx in
+  if tag <> tag_stop then Error (Bad_tag_stop tag) else
+    let crc = (calc_crc (Cstruct.append pfx body)) in
+    let crc' = get_suffix_crc sfx in
+    if crc <> crc' then Error (Bad_crc (crc, crc'))
+    else Ok { code; body; res }
 
 let check_msg msg =
   try
-    Result.(check_tag_start msg
-            >>= check_length
-            >>= check_msg_code
-            >>= check_msg_crc)
+    Result.(
+    check_tag_start msg
+    >>= check_length
+    >>= check_msg_code
+    >>= check_msg_crc)
   with
   | Invalid_argument _ -> Error (Insufficient_payload msg)
-  | e                  -> Error (Unknown_err (Printexc.to_string e))
+  | e -> Error (Unknown_err (Printexc.to_string e))
 
 (* Requests/responses *)
 
 let standard_to_int : standard -> int = function
-  | T2 -> 1 | T -> 2 | C -> 3
+  | T2 -> 1
+  | T -> 2
+  | C -> 3
+
 let standard_of_int : int -> standard option = function
-  | 1 -> Some T2 | 2 -> Some T | 3 -> Some C | _ -> None
+  | 1 -> Some T2
+  | 2 -> Some T
+  | 3 -> Some C
+  | _ -> None
 
 let bw_to_int : bw -> int = function
-  | Bw8 -> 1 | Bw7 -> 2 | Bw6 -> 3
+  | Bw8 -> 1
+  | Bw7 -> 2
+  | Bw6 -> 3
+
 let bw_of_int : int -> bw option = function
-  | 1 -> Some Bw8 | 2 -> Some Bw7 | 3 -> Some Bw6 | _ -> None
+  | 1 -> Some Bw8
+  | 2 -> Some Bw7
+  | 3 -> Some Bw6
+  | _ -> None
+
+(* Src id *)
+
+let to_src_id_req id =
+  let body = Cstruct.create sizeof_cmd_src_id in
+  let () = set_cmd_src_id_source_id body id in
+  to_msg ~msg_code:0xD0 ~body
+
+let parse_src_id_rsp_exn msg =
+  try
+    get_rsp_src_id_source_id msg
+  with _ -> raise Parse_error
 
 (* Devinfo *)
 
@@ -191,22 +231,23 @@ let to_measure_req id =
   to_empty_msg ~msg_code:(0x30 lor id)
 
 let parse_measures_rsp_exn id msg =
-  let int_to_opt   x = if Int.equal   x max_uint16 then None else Some x in
+  let int_to_opt   x = if Int.equal x max_uint16 then None else Some x in
   let int32_to_opt x = if Int32.equal x max_uint32 then None else Some x in
   try
-    id,{ timestamp = Common.Time.Clock.now_s ()
-       ; lock      = int_to_bool8 (get_rsp_measure_lock msg) |> Option.get_exn |> bool_of_bool8
-       ; power     = Fun.(int_to_opt % get_rsp_measure_power) msg
-                     |> Option.map (fun x -> -.((float_of_int x) /. 10.))
-       ; mer       = Fun.(int_to_opt % get_rsp_measure_mer) msg
-                     |> Option.map (fun x -> (float_of_int x) /. 10.)
-       ; ber       = Fun.(int32_to_opt % get_rsp_measure_ber) msg
-                     |> Option.map (fun x -> (Int32.to_float x) /. (2.**24.))
-       ; freq      = Fun.(int32_to_opt % get_rsp_measure_freq) msg
-                     |> Option.map Int32.to_int
-       ; bitrate   = Fun.(int32_to_opt % get_rsp_measure_bitrate) msg
-                     |> Option.map Int32.to_int
-       }
+    let timestamp = Common.Time.Clock.now_s () in
+    let lock = int_to_bool8 (get_rsp_measure_lock msg)
+               |> Option.get_exn |> bool_of_bool8 in
+    let power = Fun.(int_to_opt % get_rsp_measure_power) msg
+                |> Option.map (fun x -> -.((float_of_int x) /. 10.)) in
+    let mer = Fun.(int_to_opt % get_rsp_measure_mer) msg
+              |> Option.map (fun x -> (float_of_int x) /. 10.) in
+    let ber = Fun.(int32_to_opt % get_rsp_measure_ber) msg
+              |> Option.map (fun x -> (Int32.to_float x) /. (2.**24.)) in
+    let freq = Fun.(int32_to_opt % get_rsp_measure_freq) msg
+               |> Option.map Int32.to_int in
+    let bitrate = Fun.(int32_to_opt % get_rsp_measure_bitrate) msg
+                  |> Option.map Int32.to_int in
+    id, { timestamp; lock; power; mer; ber; freq; bitrate }
   with _ -> raise Parse_error
 
 (* Params *)
@@ -217,7 +258,9 @@ let to_params_req id =
 let parse_params_rsp_exn id msg : int * params =
   let bool_of_int x = if x = 0 then false else true in
   try
-    let lock   = int_to_bool8 (get_rsp_params_lock msg) |> Option.get_exn |> bool_of_bool8 in
+    let lock = int_to_bool8 (get_rsp_params_lock msg)
+               |> Option.get_exn
+               |> bool_of_bool8 in
     let params =
       { fft             = get_rsp_params_fft msg
       ; gi              = get_rsp_params_gi  msg
@@ -249,9 +292,9 @@ let parse_params_rsp_exn id msg : int * params =
       ; in_band_flag    = get_rsp_params_in_band_flag msg |> bool_of_int
       }
     in
-    id,{ timestamp = Common.Time.Clock.now ()
-       ; params    = if lock then Some params else None
-       }
+    id, { timestamp = Common.Time.Clock.now ()
+        ; params    = if lock then Some params else None
+        }
   with _ -> raise Parse_error
 
 (* PLP list *)
@@ -261,18 +304,25 @@ let to_plp_list_req id =
 
 let parse_plp_list_rsp_exn id msg : int * plp_list =
   try
-    let plp_num = Cstruct.get_uint8 msg 1 |> (fun x -> if x = 0xFF then None else Some x) in
-    id,{ timestamp = Common.Time.Clock.now ()
-       ; lock = int_to_bool8 (Cstruct.get_uint8 msg 0) |> Option.get_exn |> bool_of_bool8
-       ; plps = begin match plp_num with
-                | Some _ -> let iter = Cstruct.iter (fun _ -> Some 1)
-                                         (fun buf -> Cstruct.get_uint8 buf 0)
-                                         (Cstruct.shift msg 2) in
-                            Cstruct.fold (fun acc el -> el :: acc) iter []
-                            |> List.sort compare
-                | None   -> []
-                end
-       }
+    let plp_num =
+      Cstruct.get_uint8 msg 1
+      |> (fun x -> if x = 0xFF then None else Some x) in
+    id, { timestamp = Common.Time.Clock.now ()
+        ; lock =
+            int_to_bool8 (Cstruct.get_uint8 msg 0)
+            |> Option.get_exn
+            |> bool_of_bool8
+        ; plps =
+            begin match plp_num with
+            | Some _ ->
+               let iter = Cstruct.iter (fun _ -> Some 1)
+                            (fun buf -> Cstruct.get_uint8 buf 0)
+                            (Cstruct.shift msg 2) in
+               Cstruct.fold (fun acc el -> el :: acc) iter []
+               |> List.sort compare
+            | None   -> []
+            end
+        }
   with _ -> raise Parse_error
 
 (* PLP set *)
@@ -284,46 +334,63 @@ let to_plp_set_req id (plp:int) =
 
 let parse_plp_set_rsp_exn id msg =
   try
-    id,{ lock = int_to_bool8 (get_rsp_plp_set_lock msg) |> Option.get_exn |> bool_of_bool8
-       ; plp  = get_rsp_plp_set_plp msg
-       }
+    id, { lock = int_to_bool8 (get_rsp_plp_set_lock msg)
+                 |> Option.get_exn
+                 |> bool_of_bool8
+        ; plp  = get_rsp_plp_set_plp msg
+        }
   with _ -> raise Parse_error
 
 let deserialize buf =
   (* split buffer into valid messages and residue (if any) *)
-  let parse_msg = fun {id;code;body;_} ->
-    match (id,code) with
-    | 0xE,0xE0 -> `R `Ack
-    | 0,1      -> `R (`Devinfo body)
-    | _,2      -> `R (`Settings (id, body))
-    | _,3      -> `E (`Measure (id, body))
-    | _,4      -> `E (`Params (id,body))
-    | _,5      -> `E (`Plps (id, body))
-    | _,6      -> `R (`Plp_setting (id, body))
-    | _        -> `N in
+  let parse_msg = fun { code; body; _ } ->
+    match code with
+    | 0xEE -> `R `Ack
+    | 0x10 -> `R (`Devinfo body)
+    | 0xD0 -> `R (`Src_id body)
+    | code ->
+       let id, code = split_code code in
+       begin match code with
+       | 2 -> `R (`Settings (id, body))
+       | 3 -> `E (`Measure (id, body))
+       | 4 -> `E (`Params (id, body))
+       | 5 -> `E (`Plps (id, body))
+       | 6 -> `R (`Plp_setting (id, body))
+       | _ -> `N
+       end in
   let rec f events responses b =
-    if Cstruct.len b > (sizeof_prefix + 1 + sizeof_suffix)
-    then (match check_msg b with
-          | Ok x    -> parse_msg x
-                       |> (function
-                           | `E e   -> f (e::events) responses x.res
-                           | `R r   -> f events (r::responses) x.res
-                           | `N     -> f events responses x.res)
-          | Error e -> (match e with
-                        | Insufficient_payload x -> List.rev events, List.rev responses, x
-                        | _                      -> f events responses (Cstruct.shift b 1)))
-    else List.rev events, List.rev responses, b in
+    if Cstruct.len b <= (sizeof_prefix + 1 + sizeof_suffix)
+    then List.rev events, List.rev responses, b
+    else
+      match check_msg b with
+      | Ok x ->
+         parse_msg x
+         |> (function
+             | `E e -> f (e::events) responses x.res
+             | `R r -> f events (r::responses) x.res
+             | `N -> f events responses x.res)
+      | Error e ->
+         begin match e with
+         | Insufficient_payload x -> List.rev events, List.rev responses, x
+         | _ -> f events responses (Cstruct.shift b 1)
+         end in
   let events, responses, res = f [] [] buf in
   events, responses, if Cstruct.len res > 0 then Some res else None
 
 let try_parse f x =
   try Some (f x) with Parse_error -> None
 
+let parse_src_id_rsp = function
+  | `Src_id buf -> try_parse parse_src_id_rsp_exn buf
+  | _ -> None
+
 let parse_devinfo_rsp = function
   | `Devinfo buf -> try_parse parse_devinfo_rsp_exn buf
   | _ -> None
 
-let parse_reset_rsp = function `Ack -> Some () | _ -> None
+let parse_reset_rsp = function
+  | `Ack -> Some ()
+  | _ -> None
 
 let parse_mode_rsp id = function
   | `Settings (idx, buf) when idx = id ->
@@ -352,10 +419,11 @@ let parse_plp_list_rsp id = function
 
 let is_response (type a) (req : a request) msg : a option =
   match req with
-  | Reset           -> parse_reset_rsp msg
-  | Get_devinfo     -> parse_devinfo_rsp msg
+  | Reset -> parse_reset_rsp msg
+  | Set_src_id _ -> parse_src_id_rsp msg
+  | Get_devinfo -> parse_devinfo_rsp msg
   | Set_mode (id,_) -> parse_mode_rsp id msg
-  | Set_plp (id,_)  -> parse_plp_set_rsp id msg
+  | Set_plp (id,_) -> parse_plp_set_rsp id msg
 
 let is_event (type a) (req : a event_request) msg : a option =
   match req with
