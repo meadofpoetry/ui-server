@@ -392,6 +392,7 @@ module SM = struct
              ; exn = None
              } in
            let pool = Pool.create [ msg ] in
+           Pool.send pool () |> ignore;
            `Continue (step_init_src_id devinfo pool None)
         | _         ->
            `Continue (step_detect (Pool.step detect_pool) acc)
@@ -534,7 +535,7 @@ module SM = struct
 
     first_step ()
 
-  let to_streams_s storage (e:(int * measures) React.event) =
+  let to_streams_s src storage (e:(int * measures) React.event) =
     React.S.fold
       (fun acc (id, (m:measures)) ->
         let open Common.Stream in
@@ -553,11 +554,11 @@ module SM = struct
           | T2 -> DVB_T2 { freq; bw; plp }
           | T  -> DVB_T  { freq; bw }
           | C  -> DVB_C  { freq; bw} in
-        let id = Multi_TS_ID.make { source_id = 0; stream_id = id } in
+        let id = Multi_TS_ID.make { source_id = src; stream_id = id } in
         let (stream:Raw.t) =
           { source = { info; node = Port 0 }
-          ; id     = TS_multi id
-          ; typ    = TS
+          ; id = TS_multi id
+          ; typ = TS
           } in
         match m.lock, m.bitrate with
         | true, Some x when x > 0 -> List.add_nodup ~eq stream acc
@@ -566,7 +567,7 @@ module SM = struct
 
   let map_measures storage (e:(int * measures) React.event)
       : (int * measures) React.event =
-    React.E.map (fun (id,(m:measures)) ->
+    React.E.map (fun (id, (m:measures)) ->
         match m.freq, List.Assoc.get ~eq:(=) id storage#get with
         | Some x, Some c ->
            let freq = match c.standard with
@@ -575,7 +576,7 @@ module SM = struct
              | T2 -> c.t2.freq
            in
            id, ({ m with freq = Some (x - freq) } : measures)
-        | _ -> id,{ m with freq = None }) e
+        | _ -> id, { m with freq = None }) e
 
   let create source (log_prefix:string) sender
         (storage:config storage) step_duration =
@@ -609,7 +610,7 @@ module SM = struct
       ; devinfo  = s_devinfo
       ; config   = e_config
       ; state    = s_state
-      ; streams  = to_streams_s storage measures
+      ; streams  = to_streams_s source storage measures
       } in
     let (push_events : push_events) =
       { mode     = mode_push

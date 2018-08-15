@@ -471,10 +471,10 @@ module SM = struct
     let spi_id = input_to_int SPI in
     let asi_id = input_to_int ASI in
     let src = match parsed.source_id, parsed.stream_id with
-      | x, id when x = input && id = spi_id -> `Spi
-      | x, id when x = input && id = asi_id -> `Asi
-      | x, id when x = t2mi -> `T2mi id
-      | _ -> `Unknown in
+      | src, id when src = input && id = spi_id -> `Spi
+      | src, id when src = input && id = asi_id -> `Asi
+      | src, id when src = t2mi -> `T2mi id
+      | _ -> begin match i with SPI -> `Spi | ASI -> `Asi end in
     let source = match src, mode with
       | `T2mi plp, Some { stream; t2mi_stream_id = stream_id; _ } ->
          let node = Stream (TS_multi stream) in

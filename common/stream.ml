@@ -198,7 +198,7 @@ end = struct
 
   let parse_raw (i:int32) : parsed =
     let open Int32 in
-    let src = to_int @@ i land 0x1FEl in
+    let src = to_int @@ (i land 0x1FEl) lsr 1 in
     let num1 = (i land 0x7F800000l) lsr 11 in
     let num2 = (i land 0x3FFC00l) lsr 10 in
     let num = to_int @@ num1 lor num2 in
@@ -214,13 +214,13 @@ end = struct
 
   let make_raw (p:parsed) : int32 =
     let open Int32 in
-    let src = Int32.of_int p.source_id in
+    let src = (Int32.of_int p.source_id) lsl 1 in
     let num = Int32.of_int p.stream_id in
     let num1 = (num land 0xFF000l) lsl 11 in
-    let num2 = num land 0xFFFl lsl 10 in
-    (num1 lor num2 lor src)
-    |> (land) 0x3FBFFDFEl  (* ensure zeros at right places *)
+    let num2 = (num land 0xFFFl) lsl 10 in
+    ((num1 lor num2) lor src)
     |> (lor) 0x80000000l   (* ensure ones at right places *)
+    |> (land) 0xFFBFFDFEl  (* ensure zeros at right places *)
 
   let make (p:parsed) : t =
     Pure (make_pure p)

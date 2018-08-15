@@ -33,10 +33,12 @@ let streams ~(init   : init)
               let open Stream in
               let open Topology in
               let rec get_input = function
-                | Entry (Input x) -> Printf.sprintf "Вход %s" @@ input_to_string x.input
+                | Entry (Input x) -> "Вход " ^ (Topology.get_input_name x)
                 | Entry (Board b) -> Printf.sprintf "Плата %s" b.model
                 | Stream x        -> get_input x.source.node in
-              let text = get_input x.source.node in
+              let info = Stream.Source.to_string x.source.info in
+              let text =
+                Printf.sprintf "%s: %s" (get_input x.source.node) info in
               let cb   = new Checkbox.t () in
               new Item_list.Item.t ~ripple:true ~graphic:cb ~text ~value:() (),
               React.S.map (function true  -> Some x | false -> None) cb#s_state) sms

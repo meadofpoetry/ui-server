@@ -4,6 +4,7 @@ open Lwt.Infix
 
 open Application_types
 
+module Topology = Common.Topology
 module Stream = Common.Stream
 
 type check = { avail   : bool React.signal
@@ -20,8 +21,13 @@ type stream_dialog =
 let make_board_stream_entry ?(check = None)
                             ?(uri = None)
                             (stream:Stream.t) =
-  let text           = Stream.Source.to_string stream.source.info in
-  let checkbox       = new Checkbox.t ~ripple:false () in
+  let text =
+    let i = Stream.get_input stream in
+    let s = Stream.Source.to_string stream.source.info in
+    match i with
+    | Some i -> Printf.sprintf "Вход %s: %s" (Topology.get_input_name i) s
+    | None   -> s in
+  let checkbox = new Checkbox.t ~ripple:false () in
   checkbox#set_checked @@ Option.is_some uri;
   begin match check with
   | None -> ()
@@ -30,8 +36,14 @@ let make_board_stream_entry ?(check = None)
      Lwt_react.E.keep @@ React.S.diff (fun s _ -> if s then check.enable () else check.disable ()) checkbox#s_state;
   end;
   let item = match uri with
-    | None   -> new Item_list.Item.t ~text ~meta:checkbox ~value:() ()
-    | Some u -> new Item_list.Item.t ~text ~secondary_text:(Common.Url.to_string u) ~meta:checkbox ~value:() ()
+    | None   -> new Item_list.Item.t
+                  ~text
+                  ~meta:checkbox
+                  ~value:() ()
+    | Some u -> new Item_list.Item.t
+                  ~text
+                  ~secondary_text:(Common.Url.to_string u)
+                  ~meta:checkbox ~value:() ()
   in
   item, React.S.map (fun s -> if s then Some stream else None) checkbox#s_state
   
@@ -109,7 +121,10 @@ let make_input_stream_list stream_list =
     let uri            = match stream.orig_id with
       | TSoIP x -> ({ ip = x.addr; port = x.port } : Common.Url.t) in
     let item           =
-      new Item_list.Item.t ~text ~secondary_text:(Common.Url.to_string uri) ~meta:del_button ~value:() () in
+      new Item_list.Item.t ~text
+        ~secondary_text:(Common.Url.to_string uri)
+        ~meta:del_button
+        ~value:() () in
     (* TODO remove event *)
     Lwt_react.E.map (fun _ -> del_item item; del_stream stream) del_button#e_click |> ignore;
     item

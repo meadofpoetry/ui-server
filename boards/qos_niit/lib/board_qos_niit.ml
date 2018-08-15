@@ -95,11 +95,6 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
   @@ E.select [ S.changes events.device.state
               ; S.sample (fun _ e -> e) tick events.device.state ];
   (* Streams *)
-  let () = S.map (fun s ->
-               List.map Common.Stream.show s
-               |> String.concat "\n"
-               |> fun s -> Logs.err (fun m -> m "%s\n" s)) events.streams
-           |> Lwt_react.S.keep in
   let streams_ev =
     S.sample (fun () sl -> `Active sl) tick events.streams in
   let streams_diff =
