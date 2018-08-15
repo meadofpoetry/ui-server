@@ -45,14 +45,16 @@ module SM = struct
   let jitter_ptr = ref (-1l)
 
   exception Status_timeout
-  exception Unexpected_init
+  exception Unexpected_init of devinfo
 
   let get_id () = incr request_id; !request_id
 
   let wakeup_timeout (_, t) = t.pred `Timeout |> ignore
 
-  let has_board_info rsps =
-    Fun.(Option.is_some % List.find_map (is_response Get_board_info)) rsps
+  let check_board_info rsps =
+    match List.find_map (is_response Get_board_info) rsps with
+    | None -> ()
+    | Some x -> raise_notrace (Unexpected_init x)
 
   module Events : sig
     open Stream
@@ -350,22 +352,10 @@ module SM = struct
 
     and step_detect (timer:Timer.t) (acc:Acc.t) recvd =
       try
-        let _,_,rsps,acc = deserialize acc recvd in
+        let _, _, rsps, acc = deserialize acc recvd in
         match List.find_map (is_response Get_board_info) rsps with
         | None      -> `Continue (step_detect (Timer.step timer) acc)
-        | Some info ->
-           push_state pe `Init;
-           pe.devinfo (Some info);
-           let ({t2mi_mode;input;jitter_mode}:config) = storage#get in
-           send_instant sender (Set_board_mode { t2mi=t2mi_mode; input })
-           |> Lwt.ignore_result;
-           send_instant sender (Set_jitter_mode jitter_mode)
-           |> Lwt.ignore_result;
-           send_instant sender (Set_board_init sources)
-           |> Lwt.ignore_result;
-           Logs.info (fun m -> m "%s" @@ fmt "connection established, waiting \
-                                              for 'status' message");
-           `Continue (step_ok_idle (Timer.create ~step_duration status_timeout) acc)
+        | Some info -> `Continue (step_init info acc)
       with Timer.Timeout t ->
         (Logs.warn (fun m ->
              let s = fmt "connection is not established after \
@@ -373,18 +363,32 @@ module SM = struct
              m "%s" s);
          first_step ())
 
+    and step_init devinfo (acc:Acc.t) recvd =
+      push_state pe `Init;
+      pe.devinfo (Some devinfo);
+      let { t2mi_mode; input; jitter_mode } : config = storage#get in
+      send_instant sender (Set_board_mode { t2mi=t2mi_mode; input })
+      |> Lwt.ignore_result;
+      send_instant sender (Set_jitter_mode jitter_mode)
+      |> Lwt.ignore_result;
+      send_instant sender (Set_board_init sources)
+      |> Lwt.ignore_result;
+      Logs.info (fun m -> m "%s" @@ fmt "connection established, waiting \
+                                         for 'status' message");
+      step_ok_idle (Timer.create ~step_duration status_timeout) acc recvd
+
     and step_ok_idle (timer:Timer.t) (acc:Acc.t) recvd =
       try
-        let events,_,rsps,acc = deserialize acc recvd in
+        let events, _, rsps, acc = deserialize acc recvd in
         log_events events;
-        if has_board_info rsps then raise_notrace Unexpected_init;
+        check_board_info events; (* raises Unexpected_init if fails *)
         let () = handle_msgs rsps in
         let () = if not (Queue.empty !imsgs)
                  then Queue.send !imsgs () |> Lwt.ignore_result in
         let () = imsgs := Queue.next !imsgs in
         (match Events.handle events acc with
-         | [],acc -> `Continue (step_ok_idle (Timer.step timer) acc)
-         | (group::_) as groups,acc ->
+         | [], acc -> `Continue (step_ok_idle (Timer.step timer) acc)
+         | (group :: _) as groups, acc ->
             if Option.is_none acc.group
             then (Logs.info (fun m -> m "%s" @@ fmt "initialization done!");
                   push_state pe `Fine);
@@ -405,12 +409,14 @@ module SM = struct
                 m "%s" @@ fmt "%s: [%s]" pre stk);
             step_ok_probes_send pool (Timer.reset timer)
               { acc with group = Some group })
-      with Unexpected_init ->
-            Logs.warn (fun m -> m "%s" @@ fmt "%s" board_info_err_msg);
-            first_step ()
-         | Timer.Timeout t ->
-            Logs.warn (fun m -> m "%s" @@ fmt "%s" (no_status_msg t));
-            first_step ()
+      with
+      | Unexpected_init info ->
+         Logs.warn (fun m -> m "%s" @@ fmt "%s" board_info_err_msg);
+         push_state pe `No_response;
+         `Continue (step_init info Acc.empty)
+      | Timer.Timeout t ->
+         Logs.warn (fun m -> m "%s" @@ fmt "%s" (no_status_msg t));
+         first_step ()
 
     and step_ok_probes_send pool (timer:Timer.t) (acc:Acc.t) =
       if Pool.empty pool
@@ -422,20 +428,19 @@ module SM = struct
       try
         let events,probes,rsps,acc = deserialize acc recvd in
         log_events events;
-        if has_board_info rsps then raise_notrace Unexpected_init;
+        check_board_info rsps; (* raises Unexpected_init if fails *)
         let () = handle_msgs rsps in
         let () = if not (Queue.empty !imsgs)
                  then Queue.send !imsgs () |> Lwt.ignore_result in
         let () = imsgs := Queue.next !imsgs in
         let timer,acc = match Events.handle events acc with
-          | [],acc           -> (Timer.step timer),acc
-          | (hd::_) as l,acc ->
+          | [], acc -> (Timer.step timer), acc
+          | (hd :: _) as l, acc ->
              log_groups l;
              List.iter (fun x -> pe.group x) @@ List.rev l;
-             (Timer.reset timer),(Events.update_versions acc hd)
-        in
+             (Timer.reset timer), (Events.update_versions acc hd) in
         (match Pool.responsed pool probes with
-         | None   ->
+         | None ->
             `Continue (step_ok_probes_wait (Pool.step pool) timer acc)
          | Some x ->
             Logs.debug (fun m ->
@@ -446,9 +451,10 @@ module SM = struct
             match Pool.last pool with
             | true  -> `Continue (step_ok_idle timer (handle_probes pe acc))
             | false -> step_ok_probes_send (Pool.next pool) timer acc)
-      with Unexpected_init ->
+      with Unexpected_init info ->
             Logs.warn (fun m -> m "%s" @@ fmt "%s" board_info_err_msg);
-            first_step ()
+            push_state pe `No_response;
+            `Continue (step_init info Acc.empty);
          | Timer.Timeout t ->
             Logs.warn (fun m -> m "%s" @@ fmt "%s" (no_status_msg t));
             first_step ()
@@ -669,10 +675,10 @@ module SM = struct
           | None -> Lwt_result.fail Streams.TS.Stream_not_found)
     ; get_t2mi_seq =
         (fun params ->
-          Logs.debug (fun m -> let s = string_of_int params.seconds ^ " sec" in
-                               m "%s" @@ fmt "Got T2-MI sequence request: %s" s);
-          let req = Get_t2mi_frame_seq { request_id = get_id ()
-                                       ; params } in
+          Logs.debug (fun m ->
+              let s = string_of_int params.seconds ^ " sec" in
+              m "%s" @@ fmt "Got T2-MI sequence request: %s" s);
+          let req = Get_t2mi_frame_seq { request_id = get_id (); params } in
           let timer = Timer.steps ~step_duration (params.seconds + 10) in
           enqueue state msgs sender req timer None)
     ; get_devinfo =

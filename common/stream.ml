@@ -84,12 +84,12 @@ module Source = struct
   (** Source desciption type *)
   type t =
     | DVB_T2 of dvb_t2
-    | DVB_T  of dvb_t
-    | DVB_C  of dvb_c
-    | IPV4   of ipv4
+    | DVB_T of dvb_t
+    | DVB_C of dvb_c
+    | IPV4 of ipv4
     | ASI
     | SPI
-    | T2MI   of t2mi [@@deriving yojson, show, eq, ord]
+    | T2MI of t2mi [@@deriving yojson, show, eq, ord]
 
   let dvb_t2_to_string (x:dvb_t2) =
     let open Printf in
@@ -126,12 +126,12 @@ module Source = struct
 
   let to_string = function
     | DVB_T2 x -> dvb_t2_to_string x
-    | DVB_T  x -> dvb_t_to_string x
-    | DVB_C  x -> dvb_c_to_string x
-    | ASI      -> asi_to_string ()
-    | SPI      -> spi_to_string ()
-    | T2MI   x -> t2mi_to_string x
-    | IPV4   x -> ipv4_to_string x
+    | DVB_T x -> dvb_t_to_string x
+    | DVB_C x -> dvb_c_to_string x
+    | T2MI x -> t2mi_to_string x
+    | IPV4 x -> ipv4_to_string x
+    | ASI -> asi_to_string ()
+    | SPI -> spi_to_string ()
 
 end
 
@@ -352,13 +352,16 @@ let rec get_input (s:t) : topo_input option =
 let to_topo_port (b:topo_board) (t:t) : topo_port option =
   let input = get_input t in
   let rec get_port input = function
-    | []    -> None
+    | [] -> None
     | hd :: tl ->
-       (match hd.child with
-        | Input x -> if equal_topo_input x input
-                     then Some hd else get_port input tl
-        | Board x -> (match get_port input x.ports with
-                      | Some _ -> Some hd
-                      | None   -> get_port input tl))
+       begin match hd.child with
+       | Input x -> if equal_topo_input x input
+                    then Some hd else get_port input tl
+       | Board x ->
+          begin match get_port input x.ports with
+          | Some _ -> Some hd
+          | None   -> get_port input tl
+          end
+       end
   in
   Option.flat_map (fun x -> get_port x b.ports) input
