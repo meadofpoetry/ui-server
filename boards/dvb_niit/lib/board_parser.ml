@@ -13,31 +13,6 @@ exception Parse_error
 
 (* Misc *)
 
-type parsed =
-  { code : int
-  ; body : Cstruct.t
-  ; res  : Cstruct.t
-  }
-
-type err =
-  | Bad_tag_start of int
-  | Bad_length of int
-  | Bad_msg_code of int
-  | Bad_crc of (int * int)
-  | Bad_tag_stop of int
-  | Insufficient_payload of Cstruct.t
-  | Unknown_err of string
-
-let string_of_err = function
-  | Bad_tag_start x -> "incorrect start tag: "    ^ (string_of_int x)
-  | Bad_length x -> "incorrect length: "       ^ (string_of_int x)
-  | Bad_msg_code x -> "incorrect code/addr: "    ^ (string_of_int x)
-  | Bad_crc (x,y) -> "incorrect crc: expected " ^ (string_of_int x)
-                     ^ ", got " ^ (string_of_int y)
-  | Bad_tag_stop x -> "incorrect stop tag: "     ^ (string_of_int x)
-  | Insufficient_payload _ -> "insufficient payload"
-  | Unknown_err s -> s
-
 type _ request =
   | Get_devinfo : devinfo request
   | Reset       : unit request
@@ -89,58 +64,6 @@ let to_msg ~msg_code ~body =
 let to_empty_msg ~msg_code =
   let body = Cstruct.create 1 in
   to_msg ~msg_code ~body
-
-(* Message validation *)
-
-let split_code (code:int) =
-  code land 0x0F, code lsr 4
-
-let check_tag_start buf =
-  let tag = get_prefix_tag_start buf in
-  if tag <> tag_start
-  then Error (Bad_tag_start tag) else Ok buf
-
-let check_length buf =
-  let length = get_prefix_length buf in
-  if (length < 2) || (length > 41)
-  then Error (Bad_length length) else Ok buf
-
-let check_msg_code buf =
-  match get_prefix_msg_code buf with
-  | 0xEE as x -> Ok (x, buf) (* ack *)
-  | 0xD0 as x -> Ok (x, buf) (* src id *)
-  | 0x10 as x -> Ok (x, buf) (* devinfo *)
-  | code ->
-     (* other *)
-     begin match split_code code with
-     | id, c when (id >= 0 && id < 4) && (c > 1 && c < 7) ->
-        Ok (code, buf)
-     | _ -> Error (Bad_msg_code code)
-     end
-
-let check_msg_crc (code, buf) =
-  let payload_len = (get_prefix_length buf) - 1 in
-  let total_len = payload_len + sizeof_prefix + sizeof_suffix in
-  let msg, res = Cstruct.split buf total_len in
-  let pfx, msg' = Cstruct.split msg sizeof_prefix in
-  let body, sfx = Cstruct.split msg' payload_len in
-  let tag = get_suffix_tag_stop sfx in
-  if tag <> tag_stop then Error (Bad_tag_stop tag) else
-    let crc = (calc_crc (Cstruct.append pfx body)) in
-    let crc' = get_suffix_crc sfx in
-    if crc <> crc' then Error (Bad_crc (crc, crc'))
-    else Ok { code; body; res }
-
-let check_msg msg =
-  try
-    Result.(
-    check_tag_start msg
-    >>= check_length
-    >>= check_msg_code
-    >>= check_msg_crc)
-  with
-  | Invalid_argument _ -> Error (Insufficient_payload msg)
-  | e -> Error (Unknown_err (Printexc.to_string e))
 
 (* Requests/responses *)
 
@@ -341,41 +264,128 @@ let parse_plp_set_rsp_exn id msg =
         }
   with _ -> raise Parse_error
 
-let deserialize buf =
-  (* split buffer into valid messages and residue (if any) *)
+module Make(Logs:Logs.LOG) = struct
+
+  type parsed =
+    { code : int
+    ; body : Cstruct.t
+    ; res  : Cstruct.t
+    }
+
+  type err =
+    | Bad_tag_start of int
+    | Bad_length of int
+    | Bad_msg_code of int
+    | Bad_crc of (int * int)
+    | Bad_tag_stop of int
+    | Insufficient_payload of Cstruct.t
+    | Unknown_err of string
+
+  let err_to_string = function
+    | Bad_tag_start x ->
+       Printf.sprintf "incorrect start tag: 0x%x" x
+    | Bad_length x ->
+       Printf.sprintf "incorrect length: %d" x
+    | Bad_msg_code x ->
+       Printf.sprintf "incorrect msg code: 0x%x" x
+    | Bad_crc (x,y) ->
+       Printf.sprintf "incorrect crc: expected 0x%x, got 0x%x" x y
+    | Bad_tag_stop x ->
+       Printf.sprintf "incorrect stop tag: 0x%x" x
+    | Insufficient_payload _ ->
+       "insufficient payload"
+    | Unknown_err s -> s
+
+  let split_code (code:int) =
+    code land 0x0F, code lsr 4
+
+  let check_tag_start buf =
+    let tag = get_prefix_tag_start buf in
+    if tag <> tag_start
+    then Error (Bad_tag_start tag) else Ok buf
+
+  let check_length buf =
+    let length = get_prefix_length buf in
+    if (length < 2) || (length > 41)
+    then Error (Bad_length length) else Ok buf
+
+  let check_msg_code buf =
+    match get_prefix_msg_code buf with
+    | 0xEE as x -> Ok (x, buf) (* ack *)
+    | 0xD0 as x -> Ok (x, buf) (* src id *)
+    | 0x10 as x -> Ok (x, buf) (* devinfo *)
+    | code ->
+       (* other *)
+       begin match split_code code with
+       | id, c when (id >= 0 && id < 4) && (c > 1 && c < 7) ->
+          Ok (code, buf)
+       | _ -> Error (Bad_msg_code code)
+       end
+
+  let check_msg_crc (code, buf) =
+    let payload_len = (get_prefix_length buf) - 1 in
+    let total_len = payload_len + sizeof_prefix + sizeof_suffix in
+    let msg, res = Cstruct.split buf total_len in
+    let pfx, msg' = Cstruct.split msg sizeof_prefix in
+    let body, sfx = Cstruct.split msg' payload_len in
+    let tag = get_suffix_tag_stop sfx in
+    if tag <> tag_stop then Error (Bad_tag_stop tag) else
+      let crc = (calc_crc (Cstruct.append pfx body)) in
+      let crc' = get_suffix_crc sfx in
+      if crc <> crc' then Error (Bad_crc (crc, crc'))
+      else Ok { code; body; res }
+
+  let check_msg msg =
+    try
+      Result.(
+      check_tag_start msg
+      >>= check_length
+      >>= check_msg_code
+      >>= check_msg_crc)
+    with
+    | Invalid_argument _ -> Error (Insufficient_payload msg)
+    | e -> Error (Unknown_err (Printexc.to_string e))
+
   let parse_msg = fun { code; body; _ } ->
     match code with
     | 0xEE -> `R `Ack
     | 0x10 -> `R (`Devinfo body)
     | 0xD0 -> `R (`Src_id body)
     | code ->
-       let id, code = split_code code in
-       begin match code with
+       let id, code' = split_code code in
+       begin match code' with
        | 2 -> `R (`Settings (id, body))
        | 3 -> `E (`Measure (id, body))
        | 4 -> `E (`Params (id, body))
        | 5 -> `E (`Plps (id, body))
        | 6 -> `R (`Plp_setting (id, body))
-       | _ -> `N
-       end in
-  let rec f events responses b =
-    if Cstruct.len b <= (sizeof_prefix + 1 + sizeof_suffix)
-    then List.rev events, List.rev responses, b
-    else
-      match check_msg b with
-      | Ok x ->
-         parse_msg x
-         |> (function
-             | `E e -> f (e::events) responses x.res
-             | `R r -> f events (r::responses) x.res
-             | `N -> f events responses x.res)
-      | Error e ->
-         begin match e with
-         | Insufficient_payload x -> List.rev events, List.rev responses, x
-         | _ -> f events responses (Cstruct.shift b 1)
-         end in
-  let events, responses, res = f [] [] buf in
-  events, responses, if Cstruct.len res > 0 then Some res else None
+       | _ -> Logs.warn (fun m -> m "unknown message code 0x%x" code); `N
+       end
+
+  let deserialize buf =
+    let rec f events responses b =
+      if Cstruct.len b <= (sizeof_prefix + 1 + sizeof_suffix)
+      then List.rev events, List.rev responses, b
+      else
+        match check_msg b with
+        | Ok x ->
+           parse_msg x
+           |> (function
+               | `E e -> f (e :: events) responses x.res
+               | `R r -> f events (r :: responses) x.res
+               | `N -> f events responses x.res)
+        | Error e ->
+           begin match e with
+           | Insufficient_payload x ->
+              List.rev events, List.rev responses, x
+           | e ->
+              Logs.warn (fun m -> m "parser error: %s" @@ err_to_string e);
+              f events responses (Cstruct.shift b 1)
+           end in
+    let events, responses, res = f [] [] buf in
+    events, responses, if Cstruct.len res > 0 then Some res else None
+
+end
 
 let try_parse f x =
   try Some (f x) with Parse_error -> None
@@ -422,8 +432,8 @@ let is_response (type a) (req : a request) msg : a option =
   | Reset -> parse_reset_rsp msg
   | Set_src_id _ -> parse_src_id_rsp msg
   | Get_devinfo -> parse_devinfo_rsp msg
-  | Set_mode (id,_) -> parse_mode_rsp id msg
-  | Set_plp (id,_) -> parse_plp_set_rsp id msg
+  | Set_mode (id, _) -> parse_mode_rsp id msg
+  | Set_plp (id, _) -> parse_plp_set_rsp id msg
 
 let is_event (type a) (req : a event_request) msg : a option =
   match req with

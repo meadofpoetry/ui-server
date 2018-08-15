@@ -61,6 +61,10 @@ module type BOARD = sig
     float -> t
 end
 
+let log_name (b:topo_board) =
+  Printf.sprintf "board.%s_%s.%d"
+  b.manufacturer b.model b.control
+
 let concat_acc acc recvd = match acc with
   | Some acc -> Cstruct.append acc (Cstruct.concat (List.rev recvd))
   | None     -> Cstruct.concat (List.rev recvd)

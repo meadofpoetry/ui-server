@@ -30,12 +30,27 @@ type _ devi =
   | Get_serial   : int devi
   | Get_type     : int devi
 
-let mode_to_int        = function Asi2ip -> 0 | Ip2asi -> 1
-let mode_of_int        = function 0 -> Some Asi2ip | 1 -> Some Ip2asi | _ -> None
-let application_to_int = function Failsafe -> 0 | Normal -> 1
-let application_of_int = function 0 -> Some Failsafe | 1 -> Some Normal | _ -> None
-let storage_to_int     = function Flash -> 0 | Ram -> 1
-let storage_of_int     = function 0 -> Some Flash | 1 -> Some Ram | _ -> None
+let mode_to_int = function
+  | Asi2ip -> 0
+  | Ip2asi -> 1
+let mode_of_int = function
+  | 0 -> Some Asi2ip
+  | 1 -> Some Ip2asi
+  | _ -> None
+let application_to_int = function
+  | Failsafe -> 0
+  | Normal -> 1
+let application_of_int = function
+  | 0 -> Some Failsafe
+  | 1 -> Some Normal
+  | _ -> None
+let storage_to_int = function
+  | Flash -> 0
+  | Ram -> 1
+let storage_of_int = function
+  | 0 -> Some Flash
+  | 1 -> Some Ram
+  | _ -> None
 
 type _ overall =
   | Get_mode        : mode overall
@@ -58,21 +73,40 @@ type _ nw =
   | Reboot      : unit nw
 
 let meth_to_int = function
-  | Unicast -> 0 | Multicast -> 1
+  | Unicast -> 0
+  | Multicast -> 1
 let meth_of_int = function
-  | 0 -> Some Unicast | 1 -> Some Multicast | _ -> None
+  | 0 -> Some Unicast
+  | 1 -> Some Multicast
+  | _ -> None
 let rate_mode_to_int = function
-  | On -> 0 | Fixed -> 1 | Without_pcr -> 2 | Off -> 3
+  | On -> 0
+  | Fixed -> 1
+  | Without_pcr -> 2
+  | Off -> 3
 let rate_mode_of_int = function
-  | 0 -> Some On | 1 -> Some Fixed | 2 -> Some Without_pcr | 3 -> Some Off | _ -> None
+  | 0 -> Some On
+  | 1 -> Some Fixed
+  | 2 -> Some Without_pcr
+  | 3 -> Some Off
+  | _ -> None
 let status_of_int = function
-  | 0 -> Some Enabled | 1 -> Some Disabled | 2 -> Some Failure | _ -> None
+  | 0 -> Some Enabled
+  | 1 -> Some Disabled
+  | 2 -> Some Failure
+  | _ -> None
 let protocol_of_int = function
-  | 0 -> Some Udp | 1 -> Some Rtp | _ -> None
+  | 0 -> Some Udp
+  | 1 -> Some Rtp
+  | _ -> None
 let output_of_int = function
-  | 0 -> Some Asi | 1 -> Some Spi | _ -> None
+  | 0 -> Some Asi
+  | 1 -> Some Spi
+  | _ -> None
 let packet_sz_of_int = function
-  | 0 -> Some Ts188 | 1 -> Some Ts204 | _ -> None
+  | 0 -> Some Ts188
+  | 1 -> Some Ts204
+  | _ -> None
 
 type _ ip =
   | Get_method           : meth ip
@@ -108,9 +142,14 @@ type _ ip =
   | Get_delay_factor     : event ip
 
 let asi_packet_sz_to_int = function
-  | Sz Ts188 -> 0 | Sz Ts204 -> 1 | As_is -> 2
+  | Sz Ts188 -> 0
+  | Sz Ts204 -> 1
+  | As_is -> 2
 let asi_packet_sz_of_int = function
-  | 0 -> Some (Sz Ts188) | 1 -> Some (Sz Ts204) | 2 -> Some (As_is) | _ -> None
+  | 0 -> Some (Sz Ts188)
+  | 1 -> Some (Sz Ts204)
+  | 2 -> Some (As_is)
+  | _ -> None
 
 type _ asi =
   | Get_packet_size : asi_packet_sz asi
@@ -126,96 +165,106 @@ type _ request =
 
 let request_to_cat_set : type a. a request -> int * int = function
   | Devinfo x ->
-     0x01, (match x with
-            | Get_fpga_ver         -> 0x01
-            | Get_hw_ver           -> 0x02
-            | Get_fw_ver           -> 0x03
-            | Get_serial           -> 0x04
-            | Get_type             -> 0x05)
+     0x01, begin match x with
+           | Get_fpga_ver         -> 0x01
+           | Get_hw_ver           -> 0x02
+           | Get_fw_ver           -> 0x03
+           | Get_serial           -> 0x04
+           | Get_type             -> 0x05
+           end
   | Overall x ->
-     0x02, (match x with
-            | Get_mode             -> 0x01
-            | Set_mode _           -> 0x01
-            | Get_application      -> 0x02
-            | Set_application _    -> 0x02
-            | Get_storage          -> 0x03
-            | Set_storage _        -> 0x03)
+     0x02, begin match x with
+           | Get_mode             -> 0x01
+           | Set_mode _           -> 0x01
+           | Get_application      -> 0x02
+           | Set_application _    -> 0x02
+           | Get_storage          -> 0x03
+           | Set_storage _        -> 0x03
+           end
   | Nw x ->
-     0x03, (match x with
-            | Get_ip               -> 0x01
-            | Set_ip _             -> 0x01
-            | Get_mask             -> 0x02
-            | Set_mask _           -> 0x02
-            | Get_gateway          -> 0x03
-            | Set_gateway _        -> 0x03
-            | Get_dhcp             -> 0x04
-            | Set_dhcp _           -> 0x04
-            | Reboot               -> 0x05
-            | Get_mac              -> 0x06)
+     0x03, begin match x with
+           | Get_ip               -> 0x01
+           | Set_ip _             -> 0x01
+           | Get_mask             -> 0x02
+           | Set_mask _           -> 0x02
+           | Get_gateway          -> 0x03
+           | Set_gateway _        -> 0x03
+           | Get_dhcp             -> 0x04
+           | Set_dhcp _           -> 0x04
+           | Reboot               -> 0x05
+           | Get_mac              -> 0x06
+           end
   | Ip x ->
-     0x81, (match x with
-            | Get_method           -> 0x01
-            | Set_method _         -> 0x01
-            | Get_enable           -> 0x02
-            | Set_enable _         -> 0x02
-            | Get_fec_delay        -> 0x03
-            | Get_fec_enable       -> 0x04
-            | Set_fec_enable _     -> 0x04
-            | Get_fec_cols         -> 0x05
-            | Get_fec_rows         -> 0x06
-            | Get_jitter_tol       -> 0x07
-            | Get_lost_after_fec   -> 0x08
-            | Get_lost_before_fec  -> 0x09
-            | Get_udp_port         -> 0x0A
-            | Set_udp_port _       -> 0x0A
-            | Get_delay            -> 0x0B
-            | Set_delay _          -> 0x0B
-            | Get_mcast_addr       -> 0x0C
-            | Set_mcast_addr _     -> 0x0C
-            | Get_tp_per_ip        -> 0x0D
-            | Get_status           -> 0x0E
-            | Get_protocol         -> 0x0F
-            | Get_output           -> 0x11
-            | Get_packet_size      -> 0x12
-            | Get_bitrate          -> 0x13
-            | Get_pcr_present      -> 0x14
-            | Get_rate_change_cnt  -> 0x15
-            | Get_rate_est_mode    -> 0x16
-            | Set_rate_est_mode _  -> 0x16
-            | Get_jitter_err_cnt   -> 0x17
-            | Get_lock_err_cnt     -> 0x18
-            | Get_delay_factor     -> 0x19)
+     0x81, begin match x with
+           | Get_method           -> 0x01
+           | Set_method _         -> 0x01
+           | Get_enable           -> 0x02
+           | Set_enable _         -> 0x02
+           | Get_fec_delay        -> 0x03
+           | Get_fec_enable       -> 0x04
+           | Set_fec_enable _     -> 0x04
+           | Get_fec_cols         -> 0x05
+           | Get_fec_rows         -> 0x06
+           | Get_jitter_tol       -> 0x07
+           | Get_lost_after_fec   -> 0x08
+           | Get_lost_before_fec  -> 0x09
+           | Get_udp_port         -> 0x0A
+           | Set_udp_port _       -> 0x0A
+           | Get_delay            -> 0x0B
+           | Set_delay _          -> 0x0B
+           | Get_mcast_addr       -> 0x0C
+           | Set_mcast_addr _     -> 0x0C
+           | Get_tp_per_ip        -> 0x0D
+           | Get_status           -> 0x0E
+           | Get_protocol         -> 0x0F
+           | Get_output           -> 0x11
+           | Get_packet_size      -> 0x12
+           | Get_bitrate          -> 0x13
+           | Get_pcr_present      -> 0x14
+           | Get_rate_change_cnt  -> 0x15
+           | Get_rate_est_mode    -> 0x16
+           | Set_rate_est_mode _  -> 0x16
+           | Get_jitter_err_cnt   -> 0x17
+           | Get_lock_err_cnt     -> 0x18
+           | Get_delay_factor     -> 0x19
+           end
   | Asi x     ->
-     0x84, (match x with
-            | Get_packet_size      -> 0x01
-            | Set_packet_size _    -> 0x01
-            | Get_bitrate          -> 0x03)
+     0x84, begin match x with
+           | Get_packet_size      -> 0x01
+           | Set_packet_size _    -> 0x01
+           | Get_bitrate          -> 0x03
+           end
 
 let cat_set_to_data_length = function
   (* Devinfo *)
-  | 0x01,x ->
-     (match x with
-      | 0x01 | 0x02 -> sizeof_setting8
-      | _           -> sizeof_setting32)
+  | 0x01, x ->
+     begin match x with
+     | 0x01 | 0x02 -> sizeof_setting8
+     | _ -> sizeof_setting32
+     end
   (* Overall *)
-  | 0x02,_ -> sizeof_setting8
-  | 0x03,x ->
-     (match x with
-      | 0x04 -> sizeof_setting8
-      | 0x05 -> 0
-      | 0x06 -> sizeof_setting48
-      | _    -> sizeof_setting32)
-  | 0x81,x ->
-     (match x with
-      | 0x03 | 0x07 | 0x0C |0x10 | 0x13 | 0x15 | 0x17 | 0x018 | 0x19 -> sizeof_setting32
-      | 0x05 | 0x06 | 0x0A | 0x0B                                    -> sizeof_setting16
-      | 0x08 | 0x09                                                  -> sizeof_setting64
-      | _                                                            -> sizeof_setting8)
-  | 0x84,x ->
-     (match x with
-      | 0x01 | 0x02 -> sizeof_setting8
-      | _           -> sizeof_setting32)
-  | _      -> assert false
+  | 0x02, _ -> sizeof_setting8
+  | 0x03, x ->
+     begin match x with
+     | 0x04 -> sizeof_setting8
+     | 0x05 -> 0
+     | 0x06 -> sizeof_setting48
+     | _ -> sizeof_setting32
+     end
+  | 0x81, x ->
+     begin match x with
+     | 0x03 | 0x07 | 0x0C |0x10 | 0x13 | 0x15 | 0x17 | 0x018 | 0x19 ->
+        sizeof_setting32
+     | 0x05 | 0x06 | 0x0A | 0x0B -> sizeof_setting16
+     | 0x08 | 0x09 -> sizeof_setting64
+     | _ -> sizeof_setting8
+     end
+  | 0x84, x ->
+     begin match x with
+     | 0x01 | 0x02 -> sizeof_setting8
+     | _ -> sizeof_setting32
+     end
+  | _ -> assert false
 
 (* ------------------- Misc ------------------- *)
 
@@ -257,7 +306,10 @@ module Parse : sig
   module Bool   : Getter with type t = bool
 end = struct
 
-  module Make(M:sig type t val of_string : string -> t option end) : (Getter with type t = M.t) = struct
+  module Make(M:sig
+                  type t
+                  val of_string : string -> t option
+                end) : (Getter with type t = M.t) = struct
     type t = M.t
     let get (b:Cstruct.t) : t option =
       let s = "0x" ^ (Cstruct.to_string b) in M.of_string s
@@ -274,8 +326,15 @@ end = struct
   end
   module Bool   : (Getter with type t = bool) = struct
     type t = bool
-    let get b     = Option.flat_map (function 0 -> Some false | 1 -> Some true | _ -> None) @@ Int.get b
-    let get_exn b = Int.get_exn b |> function 0 -> false | 1 -> true | _ -> failwith "bad bool value"
+    let get b = Option.flat_map (function
+                    | 0 -> Some false
+                    | 1 -> Some true
+                    | _ -> None) @@ Int.get b
+    let get_exn b = Int.get_exn b
+                    |> function
+                      | 0 -> false
+                      | 1 -> true
+                      | _ -> failwith "bad bool value"
   end
 
 end
@@ -351,45 +410,59 @@ end = struct
   let make_get request = to_empty_msg ~request ~rw:Read ()
 
   module Set = struct
-    let bool r x   = to_msg ~request:r ~rw:Write ~body:(serialize (`I8 (if x then 1 else 0))) ()
-    let int8 r x   = to_msg ~request:r ~rw:Write ~body:(serialize (`I8 x)) ()
-    let int16 r x  = to_msg ~request:r ~rw:Write ~body:(serialize (`I16 x)) ()
-    let int32 r x  = to_msg ~request:r ~rw:Write ~body:(serialize (`I32 x)) ()
-    let ipaddr r x = to_msg ~request:r ~rw:Write ~body:(serialize (`I32 (Ipaddr.V4.to_int32 x))) ()
+    let bool r x   =
+      to_msg ~request:r
+        ~rw:Write
+        ~body:(serialize (`I8 (if x then 1 else 0))) ()
+    let int8 r x   =
+      to_msg ~request:r
+        ~rw:Write
+        ~body:(serialize (`I8 x)) ()
+    let int16 r x  =
+      to_msg ~request:r
+        ~rw:Write
+        ~body:(serialize (`I16 x)) ()
+    let int32 r x  =
+      to_msg ~request:r
+        ~rw:Write
+        ~body:(serialize (`I32 x)) ()
+    let ipaddr r x =
+      to_msg ~request:r
+        ~rw:Write
+        ~body:(serialize (`I32 (Ipaddr.V4.to_int32 x))) ()
   end
 
 end
 
 (* ----------------- Message deserialization ---------------- *)
 
-module Make(M : sig val log_prefix : string end) = struct
+module Make(Logs:Logs.LOG) = struct
 
-  let fmt fmt = let fs = "%s" ^^ fmt in Printf.sprintf fs M.log_prefix
+  let sprintf = Printf.sprintf
 
-  type err = Bad_stx              of int
-           | Bad_etx              of int
-           | Bad_length           of int
-           | Bad_address          of int
-           | Bad_category         of int
-           | Bad_setting          of int * int
-           | Bad_rw               of int
-           | Bad_crc              of int * int
-           | Insufficient_payload of Cstruct.t
-           | Unknown              of string
+  type err =
+    | Bad_stx              of int
+    | Bad_etx              of int
+    | Bad_length           of int
+    | Bad_address          of int
+    | Bad_category         of int
+    | Bad_setting          of int * int
+    | Bad_rw               of int
+    | Bad_crc              of int * int
+    | Insufficient_payload of Cstruct.t
+    | Unknown              of string
 
-  let string_of_err = function
-    | Bad_stx x              -> "incorrect STX: "          ^ (string_of_int x)
-    | Bad_etx x              -> "incorrect ETX: "          ^ (string_of_int x)
-    | Bad_length x           -> "incorrect length: "       ^ (string_of_int x)
-    | Bad_address x          -> "incorrect address: "      ^ (string_of_int x)
-    | Bad_category x         -> "incorrect category: "     ^ (string_of_int x)
-    | Bad_setting (x,y)      -> "incorrect setting: "      ^ (string_of_int y)
-                                ^ ", in category " ^ (string_of_int x)
-    | Bad_rw x               -> "incorrect rw: "           ^ (string_of_int x)
-    | Bad_crc (x,y)          -> "incorrect crc, expected " ^ (string_of_int x)
-                                ^ ", got " ^ (string_of_int y)
+  let err_to_string = function
+    | Bad_stx x -> sprintf "incorrect STX: %d" x
+    | Bad_etx x -> sprintf "incorrect ETX: %d" x
+    | Bad_length x -> sprintf "incorrect length: %d" x
+    | Bad_address x -> sprintf "incorrect address: %d" x
+    | Bad_category x -> sprintf "incorrect category: %d" x
+    | Bad_setting (x, y) -> sprintf "incorrect setting: %d, in category %d" y x
+    | Bad_rw x -> sprintf "incorrect rw: %d" x
+    | Bad_crc (x, y) -> sprintf "incorrect crc, expected %d, got %d" x y
     | Insufficient_payload _ -> "insufficient payload"
-    | Unknown s              -> s
+    | Unknown s -> s
 
   let check_stx buf =
     let stx' = get_prefix_stx buf in
@@ -402,157 +475,170 @@ module Make(M : sig val log_prefix : string end) = struct
   let check_category buf =
     let category' = get_prefix_category buf |> Parse.Int.get_exn in
     match category' with
-    | 0x01 | 0x02 | 0x03 | 0x81 | 0x84 -> Ok (category',buf)
-    | _                                -> Error (Bad_category category')
+    | 0x01 | 0x02 | 0x03 | 0x81 | 0x84 -> Ok (category', buf)
+    | _ -> Error (Bad_category category')
 
   let check_setting (cat,buf) =
     let setting' = get_prefix_setting buf |> Parse.Int.get_exn in
     match cat,setting' with
-    | 0x01, x when x > 0 && x <= 0x05 -> Ok (cat,setting',buf)
-    | 0x02, x when x > 0 && x <= 0x03 -> Ok (cat,setting',buf)
-    | 0x03, x when x > 0 && x <= 0x06 -> Ok (cat,setting',buf)
-    | 0x81, x when x > 0 && x <= 0x19 -> Ok (cat,setting',buf)
-    | 0x84, x when x > 0 && x <= 0x03 -> Ok (cat,setting',buf)
-    | _                               -> Error (Bad_setting (cat,setting'))
+    | 0x01, x when x > 0 && x <= 0x05 -> Ok (cat, setting', buf)
+    | 0x02, x when x > 0 && x <= 0x03 -> Ok (cat, setting', buf)
+    | 0x03, x when x > 0 && x <= 0x06 -> Ok (cat, setting', buf)
+    | 0x81, x when x > 0 && x <= 0x19 -> Ok (cat, setting', buf)
+    | 0x84, x when x > 0 && x <= 0x03 -> Ok (cat, setting', buf)
+    | _ -> Error (Bad_setting (cat,setting'))
 
-  let check_rw (cat,set,buf) =
+  let check_rw (cat, set, buf) =
     let rw' = get_prefix_rw buf in
     match rw_of_int rw' with
-    | Some x -> Ok (cat,set,x,buf)
+    | Some x -> Ok (cat, set, x, buf)
     | None   -> Error (Bad_rw rw')
 
-  let check_rest (cat,set,rw,buf) =
+  let check_rest (cat, set, rw, buf) =
     let length = match rw with
       | Fail -> 0
-      | _    -> cat_set_to_data_length (cat,set)
-    in
+      | _ -> cat_set_to_data_length (cat, set) in
     let pfx_len  =
       if (cat >= 1 && cat <= 3)
       then sizeof_prefix
-      else sizeof_prefix + sizeof_setting16
-    in
+      else sizeof_prefix + sizeof_setting16  in
     if Cstruct.len buf < (pfx_len + length + sizeof_suffix)
     then Error (Insufficient_payload buf)
-    else (let pfx,msg'  = Cstruct.split buf pfx_len in
-          let body,rst' = Cstruct.split msg' length in
-          let sfx,rest  = Cstruct.split rst' sizeof_suffix in
-          let crc'      = get_suffix_crc sfx |> Parse.Int.get_exn in
-          let etx'      = get_suffix_etx sfx in
-          let crc       = Request.calc_crc (Cstruct.append pfx body) in
-          if      crc' <> crc then Error (Bad_crc (crc, crc'))
-          else if etx' <> etx then Error (Bad_etx etx')
-          else Ok { category = cat; setting = set; rw; body; rest })
+    else (
+      let pfx, msg' = Cstruct.split buf pfx_len in
+      let body, rst' = Cstruct.split msg' length in
+      let sfx, rest = Cstruct.split rst' sizeof_suffix in
+      let crc' = get_suffix_crc sfx |> Parse.Int.get_exn in
+      let etx' = get_suffix_etx sfx in
+      let crc  = Request.calc_crc (Cstruct.append pfx body) in
+      if      crc' <> crc then Error (Bad_crc (crc, crc'))
+      else if etx' <> etx then Error (Bad_etx etx')
+      else Ok { category = cat; setting = set; rw; body; rest })
 
   let get_msg buf =
     try
-      Result.(check_stx buf
-              >>= check_address
-              >>= check_category
-              >>= check_setting
-              >>= check_rw
-              >>= check_rest)
+      Result.(
+      check_stx buf
+      >>= check_address
+      >>= check_category
+      >>= check_setting
+      >>= check_rw
+      >>= check_rest)
     with
     | Invalid_argument _ -> Error (Insufficient_payload buf)
-    | e                  -> Error (Unknown (Printexc.to_string e))
+    | e -> Error (Unknown (Printexc.to_string e))
 
   let deserialize buf =
     let parse x = match x.rw with
       | Read | Write -> `Ok x
-      | Fail         -> `Error x
-    in
+      | Fail ->
+         Logs.warn (fun m -> m "got error in respose: cat = %d, set = %d"
+                               x.category x.setting);
+         `Error x in
     let rec f responses b =
       if Cstruct.len b > (sizeof_prefix + sizeof_suffix)
-      then match get_msg b with
-           | Ok x    -> f ((parse x) :: responses) x.rest
-           | Error e ->
-              (match e with
-               | Insufficient_payload x -> List.rev responses, x
-               | e -> Logs.warn (fun m -> m "%s" (fmt "parser error: %s" @@ string_of_err e));
-                      f responses (Cstruct.shift b 1))
+      then
+        match get_msg b with
+        | Ok x -> f ((parse x) :: responses) x.rest
+        | Error e ->
+           begin match e with
+           | Insufficient_payload x -> List.rev responses, x
+           | e -> Logs.warn (fun m -> m "parser error: %s" @@ err_to_string e);
+                  f responses (Cstruct.shift b 1)
+           end
       else List.rev responses, b in
-    let r,res = f [] buf in (List.rev r, if Cstruct.len res > 0 then Some res else None)
+    let r, res = f [] buf
+    in
+    List.rev r, if Cstruct.len res > 0 then Some res else None
 
 end
 
 let is_response (type a) (req : a request) m : a option =
   let open Parse in
-  let c,s = request_to_cat_set req in
+  let c, s = request_to_cat_set req in
   match m with
-  | `Ok {category;setting;body=b;_} when c = category && s = setting ->
-     (match req with
-      | Devinfo x ->
-         (match x with
-          | Get_fpga_ver -> Int.get b
-          | Get_hw_ver   -> Int.get b
-          | Get_fw_ver   -> Int.get b
-          | Get_serial   -> Int.get b
-          | Get_type     -> Int.get b)
-      | Overall x ->
-         let open Option.Infix in
-         (match x with
-          | Get_mode            -> Int.get b >>= mode_of_int
-          | Get_application     -> Int.get b >>= application_of_int
-          | Get_storage         -> Int.get b >>= storage_of_int
-          | Set_mode _          -> Int.get b >>= mode_of_int
-          | Set_application _   -> Int.get b >>= application_of_int
-          | Set_storage _       -> Int.get b >>= storage_of_int)
-      | Nw x ->
-         (match x with
-          | Get_ip              -> Ipaddr.get b
-          | Get_mask            -> Ipaddr.get b
-          | Get_gateway         -> Ipaddr.get b
-          | Get_dhcp            -> Bool.get b
-          | Get_mac             -> let rec f = fun acc s ->
-                                     match String.take_drop 2 s with
-                                     | (x,"")  -> (acc ^ x)
-                                     | (x,res) -> f (acc ^ x ^ ":") res in
-                                   Macaddr.of_string (f "" (Cstruct.to_string b))
-          | Set_ip _            -> Ipaddr.get b
-          | Set_mask _          -> Ipaddr.get b
-          | Set_gateway _       -> Ipaddr.get b
-          | Set_dhcp _          -> Bool.get b
-          | Reboot              -> Some ())
-      | Ip x ->
-         let open Option.Infix in
-         (match x with
-          | Get_enable          -> Bool.get b
-          | Get_fec_enable      -> Bool.get b
-          | Get_pcr_present     -> Bool.get b  >|= (fun x -> Pcr_present x)
-          | Get_method          -> Int.get b   >>= meth_of_int
-          | Get_fec_delay       -> Int.get b   >|= (fun x -> Fec_delay x)
-          | Get_fec_cols        -> Int.get b   >|= (fun x -> Fec_cols x)
-          | Get_fec_rows        -> Int.get b   >|= (fun x -> Fec_rows x)
-          | Get_jitter_tol      -> Int.get b   >|= (fun x -> Jitter_tol x)
-          | Get_udp_port        -> Int.get b
-          | Get_delay           -> Int.get b
-          | Get_tp_per_ip       -> Int.get b   >|= (fun x -> Tp_per_ip x)
-          | Get_status          -> Int.get b   >>= status_of_int    >|= (fun x -> Status x)
-          | Get_protocol        -> Int.get b   >>= protocol_of_int  >|= (fun x -> Protocol x)
-          | Get_output          -> Int.get b   >>= output_of_int
-          | Get_packet_size     -> Int.get b   >>= packet_sz_of_int >|= (fun x -> Packet_size x)
-          | Get_bitrate         -> Int.get b   >|= (fun x -> Bitrate x)
-          | Get_rate_est_mode   -> Int.get b   >>= rate_mode_of_int
-          | Get_rate_change_cnt -> Int32.get b >|= (fun x -> Rate_change_cnt x)
-          | Get_jitter_err_cnt  -> Int32.get b >|= (fun x -> Jitter_err_cnt x)
-          | Get_lock_err_cnt    -> Int32.get b >|= (fun x -> Lock_err_cnt x)
-          | Get_delay_factor    -> Int32.get b >|= (fun x -> Delay_factor x)
-          | Get_lost_after_fec  -> Int64.get b >|= (fun x -> Lost_after_fec x)
-          | Get_lost_before_fec -> Int64.get b >|= (fun x -> Lost_before_fec x)
-          | Get_mcast_addr      -> Ipaddr.get b
-          (* Setters *)
-          | Set_enable _        -> Bool.get b
-          | Set_fec_enable _    -> Bool.get b
-          | Set_method _        -> Int.get b   >>= meth_of_int
-          | Set_udp_port _      -> Int.get b
-          | Set_delay _         -> Int.get b
-          | Set_rate_est_mode _ -> Int.get b   >>= rate_mode_of_int
-          | Set_mcast_addr _    -> Ipaddr.get b)
-      | Asi x ->
-         let open Option.Infix in
-         (match x with
-          | Get_packet_size     -> Int.get b   >>= asi_packet_sz_of_int
-          | Get_bitrate         -> Int.get b   >|= (fun x -> Asi_bitrate x)
-          | Set_packet_size _   -> Int.get b   >>= asi_packet_sz_of_int))
+  | `Ok { category; setting; body = b; _ }
+       when c = category && s = setting ->
+     begin match req with
+     | Devinfo x ->
+        begin match x with
+        | Get_fpga_ver -> Int.get b
+        | Get_hw_ver -> Int.get b
+        | Get_fw_ver -> Int.get b
+        | Get_serial -> Int.get b
+        | Get_type -> Int.get b
+        end
+     | Overall x ->
+        let open Option.Infix in
+        begin match x with
+        | Get_mode -> Int.get b >>= mode_of_int
+        | Get_application -> Int.get b >>= application_of_int
+        | Get_storage -> Int.get b >>= storage_of_int
+        | Set_mode _ -> Int.get b >>= mode_of_int
+        | Set_application _ -> Int.get b >>= application_of_int
+        | Set_storage _ -> Int.get b >>= storage_of_int
+        end
+     | Nw x ->
+        begin match x with
+        | Get_ip -> Ipaddr.get b
+        | Get_mask -> Ipaddr.get b
+        | Get_gateway -> Ipaddr.get b
+        | Get_dhcp -> Bool.get b
+        | Get_mac -> let rec f = fun acc s ->
+                       match String.take_drop 2 s with
+                       | (x,"")  -> (acc ^ x)
+                       | (x,res) -> f (acc ^ x ^ ":") res in
+                     Macaddr.of_string (f "" (Cstruct.to_string b))
+        | Set_ip _ -> Ipaddr.get b
+        | Set_mask _ -> Ipaddr.get b
+        | Set_gateway _ -> Ipaddr.get b
+        | Set_dhcp _ -> Bool.get b
+        | Reboot -> Some ()
+        end
+     | Ip x ->
+        let open Option.Infix in
+        begin match x with
+        | Get_enable          -> Bool.get b
+        | Get_fec_enable      -> Bool.get b
+        | Get_pcr_present     -> Bool.get b  >|= (fun x -> Pcr_present x)
+        | Get_method          -> Int.get b   >>= meth_of_int
+        | Get_fec_delay       -> Int.get b   >|= (fun x -> Fec_delay x)
+        | Get_fec_cols        -> Int.get b   >|= (fun x -> Fec_cols x)
+        | Get_fec_rows        -> Int.get b   >|= (fun x -> Fec_rows x)
+        | Get_jitter_tol      -> Int.get b   >|= (fun x -> Jitter_tol x)
+        | Get_udp_port        -> Int.get b
+        | Get_delay           -> Int.get b
+        | Get_tp_per_ip       -> Int.get b   >|= (fun x -> Tp_per_ip x)
+        | Get_status          -> Int.get b   >>= status_of_int    >|= (fun x -> Status x)
+        | Get_protocol        -> Int.get b   >>= protocol_of_int  >|= (fun x -> Protocol x)
+        | Get_output          -> Int.get b   >>= output_of_int
+        | Get_packet_size     -> Int.get b   >>= packet_sz_of_int >|= (fun x -> Packet_size x)
+        | Get_bitrate         -> Int.get b   >|= (fun x -> Bitrate x)
+        | Get_rate_est_mode   -> Int.get b   >>= rate_mode_of_int
+        | Get_rate_change_cnt -> Int32.get b >|= (fun x -> Rate_change_cnt x)
+        | Get_jitter_err_cnt  -> Int32.get b >|= (fun x -> Jitter_err_cnt x)
+        | Get_lock_err_cnt    -> Int32.get b >|= (fun x -> Lock_err_cnt x)
+        | Get_delay_factor    -> Int32.get b >|= (fun x -> Delay_factor x)
+        | Get_lost_after_fec  -> Int64.get b >|= (fun x -> Lost_after_fec x)
+        | Get_lost_before_fec -> Int64.get b >|= (fun x -> Lost_before_fec x)
+        | Get_mcast_addr      -> Ipaddr.get b
+        (* Setters *)
+        | Set_enable _        -> Bool.get b
+        | Set_fec_enable _    -> Bool.get b
+        | Set_method _        -> Int.get b   >>= meth_of_int
+        | Set_udp_port _      -> Int.get b
+        | Set_delay _         -> Int.get b
+        | Set_rate_est_mode _ -> Int.get b   >>= rate_mode_of_int
+        | Set_mcast_addr _    -> Ipaddr.get b
+        end
+     | Asi x ->
+        let open Option.Infix in
+        begin match x with
+        | Get_packet_size -> Int.get b   >>= asi_packet_sz_of_int
+        | Get_bitrate -> Int.get b   >|= (fun x -> Asi_bitrate x)
+        | Set_packet_size _ -> Int.get b   >>= asi_packet_sz_of_int
+        end
+     end
   | `Ok _    -> None
   | `Error _ -> None
   | _        -> None

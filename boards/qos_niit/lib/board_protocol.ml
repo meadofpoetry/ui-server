@@ -271,7 +271,7 @@ module SM = struct
           | T2mi_info x -> Some x
           | _           -> None) acc.probes
       |> List.fold_left (fun acc (id, s) ->
-             List.Assoc.update ~eq ~f:(f s) id []) [] in
+             List.Assoc.update ~eq ~f:(f s) id acc) [] in
     List.iter (function
         | Board_errors x -> pe.board_errors x
         | Struct x       ->
@@ -305,9 +305,9 @@ module SM = struct
     let module Parser = Board_parser.Make(Logs) in
 
     let deserialize (acc:Acc.t) recvd =
-      let events,probes,rsps,parts,bytes =
+      let events, probes, rsps, parts, bytes =
         Parser.deserialize acc.parts (concat_acc acc.bytes recvd) in
-      events,probes,rsps,{ acc with parts; bytes } in
+      events, probes, rsps, { acc with parts; bytes } in
 
     let log_groups groups =
       Logs.debug (fun m ->
@@ -605,7 +605,7 @@ module SM = struct
       if eq x v then Lwt.return x
       else Lwt.fail @@ Failure "got unexpected value")
 
-  let create_api sources (module Logs:Logs.LOG) sender step_duration
+  let create_api (module Logs:Logs.LOG) sender step_duration
         (storage:config storage) events =
     let { device = { config; state; _ }; _ }  = events in
     let msgs = ref (Await_queue.create []) in
@@ -689,7 +689,7 @@ module SM = struct
     let events, push_events =
       create_events sources storage streams_conv in
     let api, msgs, imsgs =
-      create_api sources logs sender step_duration storage events
+      create_api logs sender step_duration storage events
     in
     events,
     api,

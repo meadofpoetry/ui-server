@@ -18,7 +18,7 @@ let pp_time ?tz_offset_s () ppf t =
   in
   let (y, m, d), ((hh, ss, mm), _) =
     Ptime.to_date_time ~tz_offset_s t in
-  Format.fprintf ppf "%04d-%02d-%02d %02d:%02d:%02d" y m d hh ss mm
+  Format.fprintf ppf "[%04d-%02d-%02d %02d:%02d:%02d]" y m d hh ss mm
 
 let lwt_reporter ppf =
   let buf_fmt ~like =
@@ -44,11 +44,11 @@ let lwt_reporter ppf =
       let pp = pp_time ?tz_offset_s () in
       match Logs.Src.equal src Logs.default with
       | true ->
-         Format.kfprintf k ppf ("[%a] %a @[" ^^ fmt ^^ "@]@.")
+         Format.kfprintf k ppf ("%a %a @[" ^^ fmt ^^ "@]@.")
            pp dt Logs.pp_header (level, h)
       | false ->
-         Format.kfprintf k ppf ("[%a] %a (%s) @[" ^^ fmt ^^ "@]@.")
-           pp dt Logs.pp_header (level, h) (Logs.Src.name src)
+         Format.kfprintf k ppf ("%a [%s] %a @[" ^^ fmt ^^ "@]@.")
+           pp dt (Logs.Src.name src) Logs.pp_header (level, h)
     in
     msgf @@ fun ?header ?tags fmt -> with_stamp header tags k ppf fmt
   in

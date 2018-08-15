@@ -14,10 +14,31 @@ let state_of_string = function
   | "init"        -> Some `Init
   | _             -> None
 
+type log_level = Logs.level
+
+let log_level_to_yojson x =
+  `String (Logs.level_to_string @@ Some x)
+let log_level_of_yojson = function
+  | `String s ->
+     begin match Logs.level_of_string s with
+     | Ok (Some x) -> Ok x
+     | Ok None -> Error "log_level_of_yojson: bad json"
+     | Error (`Msg s) -> Error s
+     end
+  | _ -> Error "log_level_of_yojson: bad json"
+
+let pp_log_level = Logs.pp_level
+let compare_log_level x y =
+  let x = Logs.level_to_string @@ Some x in
+  let y = Logs.level_to_string @@ Some y in
+  String.compare x y
+let equal_log_level x y = 0 = compare_log_level x y
+
 type input =
   | RF
   | TSOIP
-  | ASI [@@deriving show, eq, enum]
+  | ASI
+[@@deriving show, eq, enum]
 
 type board_type = string [@@deriving yojson, show, eq, ord]
 
@@ -93,6 +114,7 @@ and topo_board =
   ; sources      : (Json.t option [@default None])
   ; env          : (env [@default Env.empty])
   ; ports        : topo_port list
+  ; logs         : (log_level option [@default None])
   }
 
 and topo_port =

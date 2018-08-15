@@ -2,7 +2,6 @@ open Containers
 open Board_types
 open Lwt.Infix
 open Storage.Options
-open Api.Handler
 open Boards.Board
 open Boards.Pools
 open Common
@@ -77,7 +76,7 @@ module SM = struct
     | _ -> Lwt.fail (Failure "board is not responding")
 
   let step msgs imsgs sender (storage:config storage)
-        step_duration (pe:push_events) log_prefix =
+        step_duration (pe:push_events) logs =
 
     let board_info_err_msg =
       "board info was received during normal operation, restarting..." in
@@ -85,9 +84,8 @@ module SM = struct
       Printf.sprintf "no status received for %d seconds, restarting..."
         (Timer.period t) in
 
-    let module Parser = Board_parser.Make(struct let log_prefix = log_prefix end) in
-
-    let fmt fmt = let fs = "%s" ^^ fmt in Printf.sprintf fs log_prefix in
+    let (module Logs : Logs.LOG) = logs in
+    let module Parser = Board_parser.Make(Logs) in
 
     let wakeup_timeout (_,t) = t.pred `Timeout |> ignore in
     let events_push _ = function
@@ -98,14 +96,13 @@ module SM = struct
                       ; packers_status = List.map2 Pair.make sms pkrs
                       }
          in
-         Logs.debug (fun m ->
-             m "%s" @@ fmt "got status event: %s" @@ show_status status);
+         Logs.debug (fun m -> m "got status event: %s" @@ show_status status);
          pe.status status
       | _ -> ()
     in
 
     let rec first_step () =
-      Logs.info (fun m -> m "%s" @@ fmt "start of connection establishment...");
+      Logs.info (fun m -> m "start of connection establishment...");
       Await_queue.iter !msgs wakeup_timeout;
       msgs  := Await_queue.create [];
       imsgs := Queue.create [];
@@ -125,16 +122,15 @@ module SM = struct
            |> Lwt.ignore_result;
            send_instant sender (Set_board_mode (config.nw_mode,config.packers))
            |> Lwt.ignore_result;
-           Logs.info (fun m -> m "%s" @@ fmt "connection established, \
-                                              waiting for 'status' message");
+           Logs.info (fun m -> m "connection established, \
+                                  waiting for 'status' message");
            `Continue (step_ok_idle true r (Timer.reset timer) None)
         | None -> `Continue (step_detect (Timer.step timer) acc)
       with Timer.Timeout t ->
-        (Logs.warn (fun m ->
-             let s = fmt "connection is not established after %d seconds, \
-                          restarting..." (Timer.period t) in
-             m "%s" s);
-         first_step ())
+        Logs.warn (fun m ->
+            m "connection is not established after %d seconds, \
+               restarting..." (Timer.period t));
+        first_step ()
 
     and step_ok_idle is_init info (timer:Timer.t) acc recvd =
       try
@@ -146,16 +142,16 @@ module SM = struct
         | [] -> `Continue (step_ok_idle is_init info (Timer.step timer) acc)
         | l  ->
            if is_init
-           then (Logs.info (fun m -> m "%s" @@ fmt "initialization done!");
+           then (Logs.info (fun m -> m "initialization done!");
                  pe.state `Fine);
            List.iter (events_push info) l;
            `Continue (step_ok_idle false info (Timer.reset timer) acc)
       with
       | Unexpected_init ->
-         Logs.warn (fun m -> m "%s" @@ fmt "%s" board_info_err_msg);
+         Logs.warn (fun m -> m "%s" board_info_err_msg);
          first_step ()
       | Timer.Timeout t ->
-         Logs.warn (fun m -> m "%s" @@ fmt "%s" @@ no_status_msg t);
+         Logs.warn (fun m -> m "%s" @@ no_status_msg t);
          first_step ()
 
     in first_step ()
@@ -248,12 +244,14 @@ module SM = struct
             | _ -> acc) [] status)
       (React.S.hold [] (React.E.map (fun x -> x.packers_status) status)) streams
 
-  let create sender
+  let create
+        logs
+        sender
         (storage       : config storage)
         (step_duration : float)
         (streams       : Stream.t list React.signal)
-        (board         : Topology.topo_board)
-        (log_prefix    : string) =
+        (board         : Topology.topo_board) =
+    let (module Logs : Logs.LOG) = logs in
     let state, state_push = React.S.create `No_response in
     let devinfo, devinfo_push = React.S.create None in
     let config, config_push = React.S.create storage#get in
@@ -280,20 +278,27 @@ module SM = struct
     let api =
       { set_nw_mode =
           (fun (x:nw_settings) ->
+            Logs.info (fun m -> m "got nw settings request: %s"
+                                @@ show_nw_settings x);
             let ss = storage#get.packers in
             enqueue_instant state imsgs sender storage (Set_board_mode (x,ss))
             >>= (fun _ -> config_push storage#get; Lwt.return_unit))
       ; set_streams =
           (fun (x:Stream.t list) ->
+            Logs.info (fun m -> m "got set streams request: %s"
+                                @@ String.concat ";\n"
+                                @@ List.map Stream.show x);
             match Streams_setup.simple board (React.S.value devinfo) x with
             | Ok x ->
                let nw = storage#get.nw_mode in
                enqueue_instant state imsgs sender storage (Set_board_mode (nw,x))
                >>= (fun _ -> config_push storage#get; Lwt.return_ok ())
             | Error e -> Lwt.return_error e)
-
       ; set_packers =
           (fun (x:stream_settings list) ->
+            Logs.info (fun m -> m "got set packers request: %s"
+                                @@ String.concat ";\n"
+                                @@ List.map show_stream_settings x);
             match Streams_setup.full board (React.S.value devinfo) x with
             | Ok x ->
                let nw = storage#get.nw_mode in
@@ -309,6 +314,6 @@ module SM = struct
     in
     events,
     api,
-    (step msgs imsgs sender storage step_duration push_events log_prefix)
+    (step msgs imsgs sender storage step_duration push_events logs)
 
 end

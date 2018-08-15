@@ -206,47 +206,52 @@ module Make_probes(M:M) : Probes = struct
          (* push event in any case *)
          pe.measure rsp;
          (* update previous field *)
-         (match List.find_opt (fun (x,_) -> x = id) t.states with
-          | None -> None
-          | Some (id,tmr) ->
-             (* push lock event only if it is first event of lock state has changed *)
-             (match tmr.measures.prev with
-              | Some p -> if not @@ Equal.bool p.lock m.lock
-                          then pe.lock (id,lock_of_measures m)
-              | None   -> pe.lock (id,lock_of_measures m));
-             let tmr = { tmr with measures = { tmr.measures with prev = Some m }} in
-             let tmr = Timer.reset_measures tmr in
-             Some (List.Assoc.set ~eq:(=) id tmr t.states))
-      | Params ((id, p) as rsp)   ->
-         (match List.find_opt (fun (x, _) -> x = id) t.states with
-          | None -> None
-          | Some (id,tmr) ->
-             (* push event only if it is different from the previous one or it is first *)
-             (match tmr.params.prev with
-              | Some prev ->
-                 let eq = Equal.option equal_t2_params in
-                 if not (eq prev.params p.params)
-                 then pe.params rsp
-              | None   -> pe.params rsp);
-             (* update previous field *)
-             let tmr = { tmr with params = { tmr.params with prev = Some p }} in
-             let tmr = Timer.reset_params tmr in
-             Some (List.Assoc.set ~eq:(=) id tmr t.states))
+         begin match List.find_opt (fun (x,_) -> x = id) t.states with
+         | None -> None
+         | Some (id, tmr) ->
+            (* push lock event only if it is first event of lock state has changed *)
+            begin match tmr.measures.prev with
+            | None -> pe.lock (id, lock_of_measures m)
+            | Some p -> if not @@ Equal.bool p.lock m.lock
+                        then pe.lock (id, lock_of_measures m)
+            end;
+            let tmr = { tmr with measures = { tmr.measures with prev = Some m }} in
+            let tmr = Timer.reset_measures tmr in
+            Some (List.Assoc.set ~eq:(=) id tmr t.states)
+         end
+      | Params ((id, p) as rsp) ->
+         begin match List.find_opt (fun (x, _) -> x = id) t.states with
+         | None -> None
+         | Some (id, tmr) ->
+            (* push event only if it is different from the previous one or it is first *)
+            begin match tmr.params.prev with
+            | None -> pe.params rsp
+            | Some prev ->
+               let eq = Equal.option equal_t2_params in
+               if not (eq prev.params p.params)
+               then pe.params rsp
+            end;
+            (* update previous field *)
+            let tmr = { tmr with params = { tmr.params with prev = Some p }} in
+            let tmr = Timer.reset_params tmr in
+            Some (List.Assoc.set ~eq:(=) id tmr t.states)
+         end
       | Plp_list ((id, l) as rsp) ->
-         (match List.find_opt (fun (x,_) -> x = id) t.states with
-          | Some (id, tmr) ->
-             (* push event only if it is different from the previous one or it is first *)
-             (match tmr.plp_list.prev with
-              | Some prev ->
-                 let eq = Equal.list (=) in
-                 if not (eq prev.plps l.plps)
-                 then pe.plp_list rsp
-              | None   -> pe.plp_list rsp);
-             (* update previous field *)
-             let tmr = { tmr with plp_list = { tmr.plp_list with prev = Some l }} in
-             let tmr = Timer.reset_plp_list tmr in
-             Some (List.Assoc.set ~eq:(=) id tmr t.states)
-          | None   -> None)
+         begin match List.find_opt (fun (x, _) -> x = id) t.states with
+         | None -> None
+         | Some (id, tmr) ->
+            (* push event only if it is different from the previous one or it is first *)
+            begin match tmr.plp_list.prev with
+            | None -> pe.plp_list rsp
+            | Some prev ->
+               let eq = Equal.list (=) in
+               if not (eq prev.plps l.plps) then pe.plp_list rsp
+            end;
+            (* update previous field *)
+            let tmr = { tmr with plp_list = { tmr.plp_list with prev = Some l }} in
+            let tmr = Timer.reset_plp_list tmr in
+            Some (List.Assoc.set ~eq:(=) id tmr t.states)
+         end
     in match states with Some states -> { t with states } | None -> t
 
   let make_pool (config:config) (states:(id * States.t) list) : pool =
@@ -305,13 +310,13 @@ module SM = struct
     List.Assoc.update
       ~eq:(=)
       ~f:(function
-          | Some (os:config_item) ->
-             let os = { os with standard = mode.standard } in
-             Some (match mode.standard with
-                   | T2 -> { os with t2 = mode.channel }
-                   | T  -> { os with t  = mode.channel }
-                   | C  -> { os with c  = mode.channel })
-          | None   -> None)
+        | Some (os:config_item) ->
+           let os = { os with standard = mode.standard } in
+           Some (match mode.standard with
+                 | T2 -> { os with t2 = mode.channel }
+                 | T  -> { os with t  = mode.channel }
+                 | C  -> { os with c  = mode.channel })
+        | None   -> None)
       id config
 
   let send_msg (type a) sender (msg:a request) : unit Lwt.t =
@@ -353,9 +358,10 @@ module SM = struct
   let initial_timeout = -1
 
   let step source msgs sender (storage : config storage)
-        step_duration (pe:push_events) (log_prefix:string) =
+        step_duration (pe:push_events) logs =
 
-    let fmt fmt = let fs = "%s" ^^ fmt in Printf.sprintf fs log_prefix in
+    let (module Logs : Logs.LOG) = logs in
+    let module Parser = Board_parser.Make(Logs) in
 
     let module Probes =
       Make_probes(struct
@@ -364,8 +370,12 @@ module SM = struct
           let timeout  = Boards.Timer.steps ~step_duration timeout
         end) in
 
+    let deserialize acc recvd =
+      let recvd = concat_acc acc recvd in
+      Parser.deserialize recvd in
+
     let rec first_step () =
-      Logs.info (fun m -> m "%s" @@ fmt "start of connection establishment...");
+      Logs.info (fun m -> m "start of connection establishment...");
       Queue.iter !msgs wakeup_timeout;
       msgs := Queue.create [];
       pe.state `No_response;
@@ -375,15 +385,14 @@ module SM = struct
 
     and step_detect detect_pool acc recvd =
       try
-        let recvd = concat_acc acc recvd in
-        let _, responses, acc = deserialize recvd in
+        let _, responses, acc = deserialize acc recvd in
         match Pool.responsed detect_pool responses with
         | Some devinfo ->
            pe.state `Init;
            pe.devinfo (Some devinfo);
            Logs.info (fun m ->
-               m "%s" @@ fmt "connection established, \
-                              board initialization started...");
+               m "connection established, \
+                  board initialization started...");
            let req = Set_src_id source in
            let msg =
              { send = (fun () -> (send_msg sender) req)
@@ -398,31 +407,27 @@ module SM = struct
            `Continue (step_detect (Pool.step detect_pool) acc)
       with Timeout ->
         Logs.warn (fun m ->
-            let s = fmt "connection is not established after %d seconds, \
-                         restarting..." timeout in
-            m "%s" s);
+            m "connection is not established after %d seconds, \
+               restarting..." timeout);
         first_step ()
 
     and step_init_src_id devinfo pool acc recvd =
       try
-        let recvd = concat_acc acc recvd in
-        let _, responses, acc = deserialize recvd in
+        let _, responses, acc = deserialize acc recvd in
         match Pool.responsed pool responses with
         | None ->
            `Continue (step_init_src_id devinfo (Pool.step pool) acc)
         | Some id when id = source ->
-           Logs.debug (fun m ->
-               m "%s" @@ fmt "source id setup done! id = %d" id);
+           Logs.debug (fun m -> m "source id setup done! id = %d" id);
            step_start_init devinfo
         | Some id ->
            Logs.warn (fun m ->
-               m "%s" @@ fmt "failed setup source id! board returned id = %d, \
-                              expected %d" id source);
+               m "failed setup source id! board returned id = %d, \
+                  expected %d" id source);
            first_step ()
       with Timeout ->
-        Logs.warn (fun m ->
-            m "%s" @@ fmt "timeout while initializing source id, \
-                           restarting...");
+        Logs.warn (fun m -> m "timeout while initializing source id, \
+                               restarting...");
         first_step ()
 
     and step_start_init devinfo =
@@ -430,31 +435,28 @@ module SM = struct
       match init_msgs (send_msg sender) step_duration
               storage#get devinfo.receivers with
       | [] ->
-         Logs.debug (fun m ->
-             m "%s" @@ fmt "nothing to initialize, skipping...");
+         Logs.debug (fun m -> m "nothing to initialize, skipping...");
          `Continue (step_ok_tee probes None)
       | lst ->
-         Logs.debug (fun m ->
-             let s = fmt "found %d receivers to be initialized..."
-                     @@ List.length lst in m "%s" s);
+         Logs.debug (fun m -> m "found %d receivers to be initialized..."
+                              @@ List.length lst);
          let init_pool = Pool.create lst in
          Pool.send init_pool () |> ignore;
          `Continue (step_init devinfo probes init_pool None)
 
     and step_init devinfo probes init_pool acc recvd =
       try
-        let recvd = concat_acc acc recvd in
-        let _, responses, acc = deserialize recvd in
+        let _, responses, acc = deserialize acc recvd in
         match Pool.responsed init_pool responses with
         | None ->
            `Continue (step_init devinfo probes (Pool.step init_pool) acc)
         | Some (id, mode) ->
            Logs.debug (fun m ->
                let s = show_mode_rsp mode in
-               m "%s" @@ fmt "receiver #%d initialized! mode = %s" id s);
+               m "receiver #%d initialized! mode = %s" id s);
            begin match Pool.last init_pool with
            | true ->
-              Logs.info (fun m -> m "%s" @@ fmt "initialization done!");
+              Logs.info (fun m -> m "initialization done!");
               pe.state `Fine;
               `Continue (step_ok_tee probes acc)
            | false  ->
@@ -463,8 +465,8 @@ module SM = struct
               `Continue (step_init devinfo probes init_pool acc)
            end
       with Timeout ->
-        Logs.warn (fun m ->
-            m "%s" @@ fmt "timeout while initilizing receivers, restarting...");
+        Logs.warn (fun m -> m "timeout while initilizing receivers, \
+                               restarting...");
         first_step ()
 
     and step_ok_tee probes acc recvd =
@@ -483,26 +485,23 @@ module SM = struct
 
     and step_ok_probes_wait probes acc recvd =
       let probes       = Probes.wait probes in
-      let recvd_buf    = concat_acc acc recvd in
-      let events,_,acc = deserialize recvd_buf in
+      let events,_,acc = deserialize acc recvd in
       try
         (match Probes.responsed probes events with
          | None    ->
             let probes = Probes.step probes in
             `Continue (step_ok_probes_wait probes acc)
          | Some ev ->
-            Logs.debug (fun m ->
-                let s = show_event ev in
-                m "%s" @@ fmt "got probe response: %s" s);
+            Logs.debug (fun m -> m "got probe response: %s"
+                                 @@ show_event ev);
             let probes = Probes.handle_event pe ev probes in
             if Probes.last probes
             then `Continue (step_ok_tee probes acc)
             else let probes = Probes.next probes in
                  `Continue (step_ok_probes_send probes acc))
       with Timeout ->
-        Logs.warn (fun m ->
-            m "%s" @@ fmt "timeout while waiting for probe response, \
-                           restarting...");
+        Logs.warn (fun m -> m "timeout while waiting for probe response, \
+                               restarting...");
         first_step ()
 
     and step_ok_requests_send probes acc _ =
@@ -514,8 +513,7 @@ module SM = struct
 
     and step_ok_requests_wait probes acc recvd =
       let probes = Probes.wait probes in
-      let recvd  = concat_acc acc recvd in
-      let _,responses,acc = deserialize recvd in
+      let _, responses, acc = deserialize acc recvd in
       try
         match Queue.responsed !msgs responses with
         | None    ->
@@ -526,9 +524,8 @@ module SM = struct
            `Continue (step_ok_requests_send probes acc)
       with Timeout ->
         Logs.warn (fun m ->
-            let s = fmt "timeout while waiting for client request response, \
-                         restarting..." in
-            m "%s" s);
+            m "timeout while waiting for client request response, \
+               restarting...");
         first_step ()
 
     in
@@ -578,15 +575,16 @@ module SM = struct
            id, ({ m with freq = Some (x - freq) } : measures)
         | _ -> id, { m with freq = None }) e
 
-  let create source (log_prefix:string) sender
+  let create source logs sender
         (storage:config storage) step_duration =
-    let s_devinfo,devinfo_push   = React.S.create None in
-    let e_mode,mode_push         = React.E.create () in
-    let e_lock,lock_push         = React.E.create () in
-    let e_measures,measures_push = React.E.create () in
-    let e_params,params_push     = React.E.create () in
-    let e_plp_list,plp_list_push = React.E.create () in
-    let s_state,state_push       = React.S.create `No_response in
+    let (module Logs : Logs.LOG) = logs in
+    let s_devinfo, devinfo_push   = React.S.create None in
+    let e_mode, mode_push         = React.E.create () in
+    let e_lock, lock_push         = React.E.create () in
+    let e_measures, measures_push = React.E.create () in
+    let e_params, params_push     = React.E.create () in
+    let e_plp_list, plp_list_push = React.E.create () in
+    let s_state, state_push       = React.S.create `No_response in
     let e_config =
       React.E.map (fun (id, mode) ->
           let c = update_config id mode storage#get in
@@ -624,17 +622,15 @@ module SM = struct
     let msgs    = ref (Queue.create []) in
     let steps   = Boards.Timer.steps ~step_duration timeout in
     let send x  = send s_state msgs sender push_events steps x in
-    let fmt fmt = let fs = "%s" ^^ fmt in Printf.sprintf fs log_prefix in
     let api : api  =
       { get_devinfo  = (fun () -> Lwt.return @@ React.S.value s_devinfo)
       ; reset        = (fun () ->
-        Logs.info (fun m -> m "%s" @@ fmt "got reset request");
+        Logs.info (fun m -> m "got reset request");
         send Reset)
       ; set_mode     = (fun r  ->
         Logs.info (fun m ->
-            let s = fmt "got set mode request for receiver #%d: %s"
-                      (fst r) (show_mode (snd r)) in
-            m "%s" s);
+            m "got set mode request for receiver #%d: %s"
+              (fst r) (show_mode (snd r)));
         send (Set_mode r))
       ; get_config   = (fun () -> storage#get)
       ; get_lock     = (fun () -> React.S.value s_lock)
@@ -645,6 +641,6 @@ module SM = struct
     in
     events,
     api,
-    (step source msgs sender storage step_duration push_events log_prefix)
+    (step source msgs sender storage step_duration push_events logs)
 
 end

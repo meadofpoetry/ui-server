@@ -61,7 +61,7 @@ module WS = struct
 
     open Board_types.Streams.T2MI
 
-    let structure (events:events) id stream_ids _ body sock_data () =
+    let structure (events:events) id _ _ body sock_data () =
       let e  = React.E.fmap (get id) events.t2mi.structures in
       Api.Socket.handler socket_table sock_data e structure_to_yojson body
 
@@ -193,7 +193,7 @@ module HTTP = struct
   let to_yojson _to =
     Json.(List.to_yojson (Pair.to_yojson Stream.ID.to_yojson _to))
 
-  let get' (db:Db.t) select _to from till duration () =
+  let get' select _to from till duration () =
     match Time.make_interval ?from ?till ?duration () with
     | Ok `Range (from, till) ->
        select from till
@@ -209,28 +209,28 @@ module HTTP = struct
     let select from till =
       Db.Streams.select_ts_info
         ~with_pre:false ?limit ~ids:[id] ~from ~till db in
-    get' db select info_to_yojson from till duration ()
+    get' select info_to_yojson from till duration ()
 
   let services db id limit from till duration _ _ () =
     let select from till =
       Db.Streams.select_services
         ~with_pre:false ?limit ~ids:[id] ~from ~till db in
-    get' db select services_to_yojson from till duration ()
+    get' select services_to_yojson from till duration ()
 
   let tables db id limit from till duration _ _ () =
     let select from till =
       Db.Streams.select_tables
         ~with_pre:false ?limit ~ids:[id] ~from ~till db in
-    get' db select tables_to_yojson from till duration ()
+    get' select tables_to_yojson from till duration ()
 
   let pids db id limit from till duration _ _ () =
     let select from till =
       Db.Streams.select_pids
         ~with_pre:false ?limit ~ids:[id] ~from ~till db in
-    get' db select pids_to_yojson from till duration ()
+    get' select pids_to_yojson from till duration ()
 
-  let bitrate id limit compress from till duration _ _ () =
-    respond_error ~status:`Not_implemented "FIXME" ()
+  (* let bitrate id limit compress from till duration _ _ () =
+   *   respond_error ~status:`Not_implemented "FIXME" () *)
 
   module T2MI = struct
 
@@ -253,7 +253,7 @@ module HTTP = struct
       let select from till =
         Db.Streams.select_t2mi_info
           ~with_pre:true ?limit ~ids:[id] ~from ~till db in
-      get' db select structure_to_yojson from till duration ()
+      get' select structure_to_yojson from till duration ()
 
   end
 
@@ -273,8 +273,8 @@ module HTTP = struct
           | _ -> Db.Errors.select_errors db ~is_ts:true ~streams
                    ~priority ~errors ~pids ?limit ~from ~till ())
          >>= fun v ->
-         let r = Ok Db.Errors.(Api.Api_types.rows_to_yojson
-                                 raw_to_yojson compressed_to_yojson v) in
+         let r = Ok (Api.Api_types.rows_to_yojson
+                       raw_to_yojson compressed_to_yojson v) in
          respond_result r
       | _ -> respond_error ~status:`Not_implemented "not implemented" ()
 
@@ -357,14 +357,14 @@ let handler db (api:api) events =
                        ; "eit-ts-id",      (module Option(Int))
                        ; "eit-orig-nw-id", (module Option(Int)) ]
           (HTTP.si_psi_section api)
-      ; create_handler ~docstring:"Returns TS bitrate"
-          ~path:Path.Format.(Stream.ID.fmt ^/ "bitrate" @/ empty)
-          ~query:Query.[ "limit",    (module Option(Int))
-                       ; "compress", (module Option(Bool))
-                       ; "from",     (module Option(Time.Show))
-                       ; "to",       (module Option(Time.Show))
-                       ; "duration", (module Option(Time.Relative)) ]
-          HTTP.bitrate
+      (* ; create_handler ~docstring:"Returns TS bitrate"
+       *     ~path:Path.Format.(Stream.ID.fmt ^/ "bitrate" @/ empty)
+       *     ~query:Query.[ "limit",    (module Option(Int))
+       *                  ; "compress", (module Option(Bool))
+       *                  ; "from",     (module Option(Time.Show))
+       *                  ; "to",       (module Option(Time.Show))
+       *                  ; "duration", (module Option(Time.Relative)) ]
+       *     HTTP.bitrate *)
       ; create_handler ~docstring:"Returns TS info"
           ~path:Path.Format.(Stream.ID.fmt ^/ "info" @/ empty)
           ~query:Query.[ "limit",    (module Option(Int))

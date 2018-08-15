@@ -20,9 +20,10 @@ module WS = struct
   let errors (events:events) errors _ body sock_data () =
     let e = match errors with
       | [] -> events.errors
-      | l  -> React.E.fmap (fun l ->
-                  List.filter (fun (x:board_error) -> List.mem ~eq:(=) x.err_code errors) l
-                  |> function [] -> None | l -> Some l) events.errors
+      | _  ->
+         React.E.fmap (fun l ->
+             List.filter (fun (x:board_error) -> List.mem ~eq:(=) x.err_code errors) l
+             |> function [] -> None | l -> Some l) events.errors
     in Api.Socket.handler socket_table sock_data e board_errors_to_yojson body
 
   let mode mode (events:events) _ body sock_data () =
@@ -109,8 +110,8 @@ module HTTP = struct
          respond_result (Ok (Api.Api_types.rows_to_yojson err_to_yojson comp_to_yojson data))
       | _ -> respond_error ~status:`Not_implemented "not impelemented" ()
 
-    let errors errors limit compress from till duration _ _ () =
-      respond_error ~status:`Not_implemented "not impelemented" ()
+    (* let errors errors limit compress from till duration _ _ () =
+     *   respond_error ~status:`Not_implemented "not impelemented" () *)
 
   end
 
@@ -188,14 +189,14 @@ let handler db api events =
                               ; "to",       (module Option(Time.Show))
                               ; "duration", (module Option(Time.Relative)) ]
                  (HTTP.Archive.state db)
-             ; create_handler ~docstring:"Returns archived board errors"
-                 ~path:Path.Format.("errors/archive" @/ empty)
-                 ~query:Query.[ "errors",   (module List(Int))
-                              ; "limit",    (module Option(Int))
-                              ; "compress", (module Option(Bool))
-                              ; "from",     (module Option(Time.Show))
-                              ; "to",       (module Option(Time.Show))
-                              ; "duration", (module Option(Time.Relative)) ]
-                 HTTP.Archive.errors
+             (* ; create_handler ~docstring:"Returns archived board errors"
+              *     ~path:Path.Format.("errors/archive" @/ empty)
+              *     ~query:Query.[ "errors",   (module List(Int))
+              *                  ; "limit",    (module Option(Int))
+              *                  ; "compress", (module Option(Bool))
+              *                  ; "from",     (module Option(Time.Show))
+              *                  ; "to",       (module Option(Time.Show))
+              *                  ; "duration", (module Option(Time.Relative)) ]
+              *     HTTP.Archive.errors *)
              ]
     ]

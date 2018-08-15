@@ -209,9 +209,7 @@ end
 
 (* Message deserialization *)
 
-module Make(M : sig val log_prefix : string end) = struct
-
-  let fmt fmt = let fmt = "%s" ^^ fmt in Printf.sprintf fmt M.log_prefix
+module Make(Logs : Logs.LOG) = struct
 
   type err =
     | Bad_prefix           of int
@@ -276,8 +274,8 @@ module Make(M : sig val log_prefix : string end) = struct
          | x when x = Get_board_info.rsp_code -> `R (`Board_info body)
          | x when x = Status.msg_code -> `E (`Status (Status.parse body))
          | x -> Logs.debug (fun m ->
-                    m "%s" @@ fmt "parser error: \
-                                   unknown message code (0x%x)" x); `N)
+                    m "parser error: \
+                       unknown message code (0x%x)" x); `N)
       with _ -> `N in
     let rec f events responses b =
       if Cstruct.len b >= sizeof_header
@@ -296,8 +294,7 @@ module Make(M : sig val log_prefix : string end) = struct
                  x
               | e ->
                  Logs.warn (fun m ->
-                     let s = fmt "parser error: %s" @@ string_of_err e in
-                     m "%s" s);
+                     m "parser error: %s" @@ string_of_err e);
                  Cstruct.split b 1
                  |> fun (_, x) -> f events responses x
               end

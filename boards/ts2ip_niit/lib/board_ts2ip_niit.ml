@@ -4,8 +4,6 @@ open Boards.Board
 open Board_types
 open Common
 
-open Lwt.Infix
-
 module Data = struct
 
   type t      = Board_types.config
@@ -17,8 +15,6 @@ end
 
 module Config_storage = Storage.Options.Make (Data)
 
-let log_prefix control = Printf.sprintf "(Board TS2IP: %d) " control
-
 let get_ports_sync board streams =
   let open React in
   let s = S.map (List.filter_map (Stream.to_topo_port board)) streams in
@@ -27,12 +23,16 @@ let get_ports_sync board streams =
       |> fun x -> Ports.add p.port x acc) Ports.empty board.ports
 
 let create (b:topo_board) (streams:Stream.t list React.signal) _
-      send db base step =
-  let log_prefix = log_prefix b.control in
+      send _ base step =
+  let log_name = Boards.Board.log_name b in
+  let log_src = Logs.Src.create log_name in
+  let () = Option.iter (fun x -> Logs.Src.set_level log_src
+                                 @@ Some x) b.logs in
+  let logs = Logs.src_log log_src in
   let storage =
     Config_storage.create base ["board"; (string_of_int b.control)] in
   let events, api, step =
-    Board_protocol.SM.create send storage step streams b log_prefix in
+    Board_protocol.SM.create logs send storage step streams b in
   let handlers = Board_api.handlers b.control api events in
   let available =
     React.S.l2 (fun incoming outgoing ->

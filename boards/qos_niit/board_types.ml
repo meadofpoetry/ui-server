@@ -1,6 +1,4 @@
 open Common
-open Common.Dvb_t2_types
-open Common.Topology
 open Containers
 
 (** Board info *)
@@ -380,8 +378,6 @@ module Streams = struct
 end
 
 module Errors = struct
-
-  open Common.Time
 
   type segmentation =
     { errors     : float
