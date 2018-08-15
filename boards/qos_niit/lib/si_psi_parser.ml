@@ -1590,6 +1590,8 @@ module Descriptor = struct
 
     let name = "VBI_data_descriptor"
 
+    (* TODO page 87 *)
+
     let decode bs off = []
 
   end
@@ -1600,7 +1602,36 @@ module Descriptor = struct
 
     let name = "VBI_teletext_descriptor"
 
-    let decode bs off = []
+    let parse_type = function
+      | 0x00 -> "reserved for future use"
+      | 0x01 -> "initial Teletext page"
+      | 0x02 -> "Teletext subtitle page"
+      | 0x03 -> "additional information page"
+      | 0x04 -> "programme schedule page"
+      | 0x05 -> "Teletext subtitle page for hearing impaired people"
+      | x when x > 0x05 && x < 0x20 -> "reserved_for_future_use"
+      | x    -> Printf.sprintf "%d" x
+
+    let rec f off acc x =
+      if Bitstring.bitstring_length x = 0 then acc
+      else match%bitstring x with
+           | {| lang_code : 24
+              ; txt_type  : 5  : save_offset_to (off_1)
+              ; mag_num   : 3  : save_offset_to (off_2)
+              ; page_num  : 8  : save_offset_to (off_3)
+              ; rest      : -1 : save_offset_to (off_4), bitstring
+              |} ->
+              let typ = parse_type txt_type in
+              let nodes =
+                [ to_node ~offset:off 24 "ISO_639_language_code" (Bits (Int lang_code))
+                ; to_node ?parsed:(Some typ) ~offset:(off + off_1) 5 "teletext_type" (Hex(Int txt_type))
+                ; to_node ~offset:(off + off_2) 3 "teletext_magazine_number" (Dec (Int mag_num))
+                ; to_node ~offset:(off + off_3) 8 "teletext_page_number" (Dec (Int page_num)) ]
+              in
+              f (off + off_4) nodes rest
+
+    let decode bs off =
+      f off [] bs
 
   end
 
