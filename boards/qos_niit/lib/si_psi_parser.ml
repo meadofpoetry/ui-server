@@ -81,6 +81,38 @@ let rec parse_bytes ?bytes ~offset acc x str =
           in
           parse_bytes ~offset:(offset + off_1) (acc @ node) rest str
 
+let parse_service = function
+      | 0x00 | 0xFF | 0x09 -> "reserved for future use"
+      | 0x01 -> "digital television service"
+      | 0x02 -> "digital radio sound service"
+      | 0x03 -> "Teletext service"
+      | 0x04 -> "NVOD reference service"
+      | 0x05 -> "NVOD time-shifted service"
+      | 0x06 -> "mosaic service"
+      | 0x07 -> "FM radio service"
+      | 0x08 -> "DVB SRM service [49]"
+      | 0x0A -> "advanced codec digital radio sound service"
+      | 0x0B -> "H.264/AVC mosaic service"
+      | 0x0C -> "data broadcast service"
+      | 0x0D -> "reserved for Common Interface Usage (CENELEC EN 50221 [37])"
+      | 0x0E -> "RCS Map (see ETSI EN 301 790 [7])"
+      | 0x0F -> "RCS FLS (see ETSI EN 301 790 [7])"
+      | 0x10 -> "DVB MHP service"
+      | 0x11 -> "MPEG-2 HD digital television service"
+      | 0x16 -> "H.264/AVC SD digital television service"
+      | 0x17 -> "H.264/AVC SD NVOD time-shifted service"
+      | 0x18 -> "H.264/AVC SD NVOD reference service"
+      | 0x19 -> "H.264/AVC HD digital television service"
+      | 0x1A -> "H.264/AVC HD NVOD time-shifted service"
+      | 0x1B -> "H.264/AVC HD NVOD reference service"
+      | 0x1C -> "H.264/AVC frame compatible plano-stereoscopic HD digital television service"
+      | 0x1D -> "H.264/AVC frame compatible plano-stereoscopic HD NVOD time-shifted service"
+      | 0x1E -> "H.264/AVC frame compatible plano-stereoscopic HD NVOD reference service"
+      | 0x1F -> "HEVC digital television service"
+      | x when x > 0x11 && x < 0x16 || x > 0x1F && x < 0x80 -> ""
+      | x when x > 0x7F && x < 0xFF -> ""
+      | x    -> Printf.sprintf "%d" x
+
 module Descriptor = struct
 
   module type Descriptor_base = sig
@@ -1395,7 +1427,8 @@ module Descriptor = struct
 
     let name = "network_name_descriptor"
 
-    let decode bs off = []
+    let decode bs off =
+      parse_bytes ~offset:off [] bs "char"
 
   end
 
@@ -1404,7 +1437,22 @@ module Descriptor = struct
 
     let name = "service_list_descriptor"
 
-    let decode bs off = []
+    let rec f off acc x =
+      if Bitstring.bitstring_length x = 0 then acc
+      else match%bitstring x with
+           | {| service_id   : 16
+              ; service_type : 8  : save_offset_to (off_1)
+              ; rest         : -1 : save_offset_to (off_2), bitstring
+              |} ->
+              let typ = parse_service service_type in
+              let nodes =
+                [ to_node ~offset:off 16 "service_id" (Hex (Int service_id))
+                ; to_node ?parsed:(Some typ) ~offset:(off + off_1) 8 "service_type" (Hex (Int service_type))]
+              in
+              f (off + off_2) nodes rest
+
+    let decode bs off =
+      f off [] bs
 
   end
 
@@ -1413,7 +1461,8 @@ module Descriptor = struct
 
     let name = "stuffing_descriptor"
 
-    let decode bs off = []
+    let decode bs off =
+      parse_bytes ~offset:off [] bs "stuffing_byte"
 
   end
 
@@ -1570,7 +1619,24 @@ module Descriptor = struct
 
     let name = "service_descriptor"
 
-    let decode bs off = []
+    let decode bs off =
+      match%bitstring bs with
+      | {| service_type     : 8
+         ; length_1         : 8 : save_offset_to (off_1)
+         ; service_provider : length_1 * 8 : save_offset_to (off_2), bitstring
+         ; length_2         : 8 : save_offset_to (off_3)
+         ; service          : length_2 * 8 : save_offset_to (off_4), bitstring
+         |} ->
+         let typ = parse_service service_type in
+         let nodes_1 =
+           [ to_node ?parsed:(Some typ) ~offset:off 8 "service_type" (Hex (Int service_type))
+           ; to_node ~offset:(off + off_1) 8 "service_provider_name_length" (Dec (Int length_1)) ]
+         in
+         let node_2 =
+           [ to_node ~offset:(off + off_3) 8 "service_name_length" (Dec (Int length_2))]
+         in
+         let ser_p = parse_bytes ~offset:(off + off_2) nodes_1 service_provider "char" in
+         parse_bytes ~offset:(off + off_4) (ser_p @ node_2) service "char"
 
   end
 
@@ -1609,7 +1675,23 @@ module Descriptor = struct
 
     let name = "NVOD_reference_descriptor"
 
-    let decode bs off = []
+    let rec f off acc x =
+      if Bitstring.bitstring_length x = 0 then acc
+      else match%bitstring x with
+           | {| ts_id : 16
+              ; on_id : 16 : save_offset_to (off_1)
+              ; sv_id : 16 : save_offset_to (off_2)
+              ; rest  : -1 : save_offset_to (off_3), bitstring
+              |} ->
+              let nodes =
+                [ to_node ~offset:off 16 "transport_stream_id" (Hex (Int ts_id))
+                ; to_node ~offset:(off + off_1) 16 "original_network_id" (Hex (Int on_id))
+                ; to_node ~offset:(off + off_2) 16 "service_id" (Hex (Int sv_id)) ]
+              in
+              f (off + off_3) (acc @ nodes) rest
+
+    let decode bs off =
+      f off [] bs
 
   end
 
@@ -1618,7 +1700,10 @@ module Descriptor = struct
 
     let name = "time_shifted_service_descriptor"
 
-    let decode bs off = []
+    let decode bs off =
+      match%bitstring bs with
+      | {| service_id : 16 |} ->
+         [ to_node ~offset:off 16 "reference_service_id" (Hex (Int service_id)) ]
 
   end
 
@@ -1627,7 +1712,31 @@ module Descriptor = struct
 
     let name = "short_event_descriptor"
 
-    let decode bs off = []
+    (* XXX  is this supposed to work like it does
+     *  let parse_lang_code code =
+     *   match%bitstring code with
+     *   | {| ch_1 : 8 : string
+     *      ; ch_2 : 8 : string
+     *      ; ch_3 : 8 : string
+     *      |} ->
+     *      Printf.sprintf "%s%s%s" ch_1 ch_2 ch_3 *)
+
+    let decode bs off =
+      match%bitstring bs with
+      | {| lang_code  : 24
+         ; length_1   : 8  : save_offset_to (off_1)
+         ; event_name : length_1 * 8 : save_offset_to (off_2), bitstring
+         ; length_2   : 8  : save_offset_to (off_3)
+         ; text       : length_2 * 8 : save_offset_to (off_4), bitstring
+         |} ->
+         let nodes_1 =
+         [ to_node ~offset:off 24 "ISO_639_language_code" (Bits (Int lang_code))
+         ; to_node ~offset:(off + off_1) 8 "event_name_length" (Dec (Int length_1)) ]
+         in
+         let with_event = parse_bytes ~offset:(off + off_2) nodes_1 event_name "event_name_char" in
+         let nodes_2 = with_event @ [to_node ~offset:(off + off_3) 8 "text_length" (Dec (Int length_2))]
+         in
+         parse_bytes ~offset:(off + off_4) nodes_2 text "text_char"
 
   end
 
@@ -1645,7 +1754,13 @@ module Descriptor = struct
 
     let name = "time_shifted_service_descriptor"
 
-    let decode bs off = []
+    let decode bs off =
+      match%bitstring bs with
+      | {| service_id : 16
+         ; event_id   : 16 : save_offset_to (off_1)
+         |} ->
+         [ to_node ~offset:off 16 "reference_service_id" (Hex (Int service_id))
+         ; to_node ~offset:(off + off_1) 16 "reference_event_id" (Hex (Int event_id)) ]
 
   end
 
@@ -1807,7 +1922,9 @@ module Descriptor = struct
 
     let name = "stream_identifier_descriptor"
 
-    let decode bs off = []
+    let decode bs off =
+      match%bitstring bs with
+      | {| comp_tag : 8 |} -> [to_node ~offset:off 8 "component_tag" (Hex (Int comp_tag))]
 
   end
 
@@ -1853,7 +1970,28 @@ module Descriptor = struct
 
     let name = "patental_rating_descriptor"
 
-    let decode bs off = []
+    let parse_rating rating =
+      match rating with
+      | 0x00 -> "undefined"
+      | x when x > 0x00 && x < 0x10 -> Printf.sprintf "%d+" (x + 3)
+      | _ -> "defined by the broadcaster"
+
+    let rec f off acc x =
+      if Bitstring.bitstring_length x = 0 then acc
+      else match%bitstring x with
+           | {| country_code : 24
+              ; rating       : 8  : save_offset_to (off_1)
+              ; rest         : -1 : save_offset_to (off_2), bitstring
+              |} ->
+              let age = parse_rating rating in
+              let nodes =
+                [ to_node ~offset:off 24 "country_code" (Bits (Int country_code))
+                ; to_node ?parsed:(Some age) ~offset:(off + off_1) 8 "rating" (Dec (Int rating)) ]
+              in
+              f (off + off_2) (acc @ nodes) rest
+
+    let decode bs off =
+      f off [] bs
 
   end
 
@@ -1862,7 +2000,37 @@ module Descriptor = struct
 
     let name = "teletext_descriptor"
 
-    let decode bs off = []
+    let parse_type = function
+      | 0x00 -> "reserved for future use"
+      | 0x01 -> "initial Teletext page"
+      | 0x02 -> "Teletext subtitle page"
+      | 0x03 -> "additional information page"
+      | 0x04 -> "programme schedule page"
+      | 0x05 -> "Teletext subtitle page for hearing impaired people"
+      | x when x > 0x05 && x < 0x20 -> "reserved_for_future_use"
+      | x    -> Printf.sprintf "%d" x
+
+    let rec f off acc x =
+      if Bitstring.bitstring_length x = 0 then acc
+      else match%bitstring x with
+           | {| lang_code : 24
+              ; txt_type  : 5  : save_offset_to (off_1)
+              ; mag_num   : 3  : save_offset_to (off_2)
+              ; page_num  : 8  : save_offset_to (off_3)
+              ; rest      : -1 : save_offset_to (off_4), bitstring
+              |} ->
+              let typ = parse_type txt_type in
+              let nodes =
+                [ to_node ~offset:off 24 "ISO_639_language_code" (Bits (Int lang_code))
+                ; to_node ?parsed:(Some typ) ~offset:(off + off_1) 5 "teletext_type" (Hex(Int txt_type))
+                ; to_node ~offset:(off + off_2) 3 "teletext_magazine_number" (Dec (Int mag_num))
+                ; to_node ~offset:(off + off_3) 8 "teletext_page_number" (Dec (Int page_num)) ]
+              in
+              f (off + off_4) nodes rest
+
+    let decode bs off =
+      f off [] bs
+
 
   end
 
@@ -1871,8 +2039,42 @@ module Descriptor = struct
 
     let name = "telephone_descriptor"
 
-    let decode bs off = []
-
+    let decode bs off =
+      match%bitstring bs with
+      | {| rfu_1          : 2
+         ; foreign_avail  : 1 : save_offset_to (off_1)
+         ; connection     : 5 : save_offset_to (off_2)
+         ; rfu_2          : 1 : save_offset_to (off_3)
+         ; length_1       : 2 : save_offset_to (off_4)
+         ; length_2       : 3 : save_offset_to (off_5)
+         ; length_3       : 2 : save_offset_to (off_6)
+         ; rfu_3          : 1 : save_offset_to (off_7)
+         ; length_4       : 3 : save_offset_to (off_8)
+         ; length_5       : 4 : save_offset_to (off_9)
+         ; country_prefix : length_1 * 8 : save_offset_to (off_10), bitstring
+         ; int_area_code  : length_2 * 8 : save_offset_to (off_11), bitstring
+         ; operator_code  : length_3 * 8 : save_offset_to (off_12), bitstring
+         ; nat_area_code  : length_4 * 8 : save_offset_to (off_13), bitstring
+         ; core_number    : length_5 * 8 : save_offset_to (off_14), bitstring
+         |} ->
+         let nodes =
+           [ to_node ~offset:off 2 "reserved_future_use" (Bits (Int rfu_1))
+           ; to_node ~offset:(off + off_1) 1 "foreign_availability" (Bits (Bool foreign_avail))
+           ; to_node ~offset:(off + off_2) 5 "connection_type" (Hex (Int connection))
+           ; to_node ~offset:(off + off_3) 1 "reserved_future_use" (Bits (Bool rfu_2))
+           ; to_node ~offset:(off + off_4) 2 "country_prefix_length" (Dec (Int length_1))
+           ; to_node ~offset:(off + off_5) 3 "international_area_code_length" (Dec (Int length_2))
+           ; to_node ~offset:(off + off_6) 2 "operator_code_length" (Dec (Int length_3))
+           ; to_node ~offset:(off + off_7) 1 "reserved_future_use" (Bits (Bool rfu_3))
+           ; to_node ~offset:(off + off_8) 3 "national_area_code_length" (Dec (Int length_4))
+           ; to_node ~offset:(off + off_9) 4 "core_number_length" (Dec (Int length_5))]
+         in
+         let for_1 = parse_bytes ~offset:(off + off_10) nodes country_prefix "country_prefix_char" in
+         let for_2 = parse_bytes ~offset:(off + off_11) for_1
+                       int_area_code "international_area_code_char" in
+         let for_3 = parse_bytes ~offset:(off + off_12) for_2 operator_code "operator_code_char"in
+         let for_4 = parse_bytes ~offset:(off + off_13) for_3 nat_area_code "national_area_code_char" in
+         parse_bytes ~offset:(off + off_14) for_4 core_number "core_number_char"
   end
 
   (* 0x58 *)
@@ -1934,7 +2136,25 @@ module Descriptor = struct
 
     let name = "subtitling_descriptor"
 
-    let decode bs off = []
+    let rec f off acc x =
+      if Bitstring.bitstring_length x = 0 then acc
+      else match%bitstring x with
+           | {| lang_code : 24
+              ; sub_type  : 8  : save_offset_to (off_1)
+              ; cp_id     : 16 : save_offset_to (off_2)
+              ; ap_id     : 16 : save_offset_to (off_3)
+              ; rest      : -1 : save_offset_to (off_4), bitstring
+              |} ->
+              let nodes =
+                [ to_node ~offset:off 24 "ISO_639_language_code" (Bits (Int lang_code))
+                ; to_node ~offset:(off + off_1) 8  "subtitling_type" (Hex (Int sub_type))
+                ; to_node ~offset:(off + off_2) 16 "composition_page_id" (Hex (Int cp_id))
+                ; to_node ~offset:(off + off_3) 16 "ancillary_page_id" (Hex (Int ap_id)) ]
+              in
+              f (off + off_4) nodes rest
+
+    let decode bs off =
+      f off [] bs
 
   end
 
@@ -2160,7 +2380,11 @@ module Descriptor = struct
 
     let name = "private_data_specifier_descriptor"
 
-    let decode bs off = []
+    let decode bs off =
+      match%bitstring bs with
+      | {| pds : 32
+         |} ->
+         [ to_node ~offset:off 32 "private_data_specifier" (Hex (Int32 pds)) ]
 
   end
 
@@ -2169,7 +2393,15 @@ module Descriptor = struct
 
     let name = "service_move_descriptor"
 
-    let decode bs off = []
+    let decode bs off =
+      match%bitstring bs with
+      | {| new_on_id : 16
+         ; new_ts_id : 16 : save_offset_to (off_1)
+         ; new_sv_id : 16 : save_offset_to (off_2)
+         |} ->
+         [ to_node ~offset:off 16 "new_original_network_id" (Hex (Int new_on_id))
+         ; to_node ~offset:(off + off_1) 16 "new_transport_stream_id" (Hex (Int new_ts_id))
+         ; to_node ~offset:(off + off_2) 16 "new_service_id" (Hex (Int new_sv_id)) ]
 
   end
 
@@ -2178,7 +2410,40 @@ module Descriptor = struct
 
     let name = "short_smoothing_buffer_descriptor"
 
-    let decode bs off = []
+    let parse_size size =
+      match size with
+      | 1 -> "1 536"
+      | _ -> "DVB_reserved"
+
+    let parse_leak_rate = function
+      | 0  -> "DVB_reserved"
+      | 1  -> "0,0009" | 2  -> "0,0018" | 3  -> "0,0036" | 4  -> "0,0072" | 5  -> "0,0108"
+      | 6  -> "0,0144" | 7  -> "0,0216" | 8  -> "0,0288" | 9  -> "0,075"  | 10 -> "0,5"
+      | 11 -> "0,5625" | 12 -> "0,8437" | 13 -> "1,0"    | 14 -> "1,1250" | 15 -> "1,5"
+      | 16 -> "1,6875" | 17 -> "2,0"    | 18 -> "2,25"   | 19 -> "2,5"    | 20 -> "3,0"
+      | 21 -> "3,3750" | 22 -> "3,5"    | 23 -> "4,0"    | 24 -> "4,5"    | 25 -> "5,0"
+      | 26 -> "5,5"    | 27 -> "6,0"    | 28 -> "6,5"    | 29 -> "6,75"   | 30 -> "7,0"
+      | 31 -> "7,5"    | 32 -> "8,0"    | 38 -> "13,5"   | 48 -> "27"     | 56 -> "44"
+      | 57 -> "48"     | 58 -> "54"     | 59 -> "72"     | 60 -> "108"
+      | x when x > 60 && x < 64 -> "DVB_reserved"
+      | x when x > 32 && x < 38 -> Printf.sprintf "%d" ((x - 16) / 2)
+      | x when x > 38 && x < 44 -> Printf.sprintf "%d" (x - 24)
+      | x when x > 43 && x < 48 -> Printf.sprintf "%d" (x - 25)
+      | x when x > 48 && x < 56 -> Printf.sprintf "%d" ((x - 34) * 2)
+
+    let decode bs off =
+      match%bitstring bs with
+      | {| sb_size : 2
+         ; sb_lr   : 6  : save_offset_to (off_1)
+         ; rest    : -1 : save_offset_to (off_2), bitstring
+         |} ->
+         let size  = parse_size sb_size in
+         let lr    = parse_leak_rate sb_lr in
+         let nodes =
+           [ to_node ?parsed:(Some size) ~offset:off 2 "sb_size" (Dec (Int sb_size))
+           ; to_node ?parsed:(Some lr) ~offset:(off + off_1) 6 "sb_leak_rate" (Dec (Int sb_lr)) ]
+         in
+         parse_bytes ~offset:(off + off_2) nodes rest "DVB_reserved"
 
   end
 
@@ -2251,7 +2516,26 @@ module Descriptor = struct
 
     let name = "scrambling_descriptor"
 
-    let decode bs off = []
+    let parse_mode mode =
+      match mode with
+      | 0x01 -> "DVB-CSA1"
+      | 0x02 -> "DVB-CSA2"
+      | 0x03 -> "DVB-CSA3 in standard mode"
+      | 0x04 -> "DVB-CSA3 in minimally enhanced mode"
+      | 0x05 -> "DVB-CSA3 in fully enhanced mode"
+      | 0x10 -> "DVB-CISSA version 1"
+      | 0x00 | 0xFF -> "Reserved for future use"
+      | x when (x > 0x05 && x < 0x10 || x > 0x1F && x < 0x70)-> "Reserved for future use"
+      | x when x > 0x10 && x < 0x20 -> "Reserved for future DVB-CSIISA versions"
+      | x when x > 0x6F && x < 0x80 -> "ATIS defined (ATIS-0800006, see annex J)"
+      | x when x > 0x80 && x < 0xFF -> "User defined"
+
+    let decode bs off =
+      match%bitstring bs with
+      | {| scrambling_mode : 8
+         |} ->
+         let scr = parse_mode scrambling_mode in
+         [ to_node ?parsed:(Some scr) ~offset:off 32 "scrambling_mode" (Hex (Int scrambling_mode)) ]
 
   end
 
@@ -2277,7 +2561,7 @@ module Descriptor = struct
 
     let name = "transport_stream_descriptor"
 
-    let decode bs off = []
+    let decode bs off = parse_bytes ~offset:off [] bs "byte"
 
   end
 
@@ -2295,7 +2579,40 @@ module Descriptor = struct
 
     let name = "PDC_descriptor"
 
-    let decode bs off = []
+    let parse_label pil =
+      match%bitstring pil with
+      | {| day   : 5
+         ; month : 4
+         ; hour  : 5
+         ; min   : 6
+         |} ->
+         let month = match month with
+           | 1  -> "January"
+           | 2  -> "February"
+           | 3  -> "March"
+           | 4  -> "April"
+           | 5  -> "May"
+           | 6  -> "June"
+           | 7  -> "July"
+           | 8  -> "August"
+           | 9  -> "September"
+           | 10 -> "October"
+           | 11 -> "November"
+           | 12 -> "December"
+           | x  -> Printf.sprintf "%d" x
+         in
+         Printf.sprintf "%d %s %d:%d" day month hour min
+
+    let decode bs off =
+      match%bitstring bs with
+      | {| rfu : 4
+         ; pil : 20 : save_offset_to (off_1), bitstring
+         |} ->
+         let label = parse_label pil in
+         let pil = match%bitstring pil with | {|pil : 20|} -> pil in
+         [ to_node ~offset:off 4 "reserved_future_use" (Bits (Int rfu))
+         ; to_node ?parsed:(Some label) ~offset:(off + off_1) 20
+             "programme_identification_label" (Bits (Int pil)) ]
 
   end
 
@@ -2476,7 +2793,17 @@ module Descriptor = struct
 
     let name = "service_availability_descriptor"
 
-    let decode bs off = []
+    let decode bs off =
+      match%bitstring bs with
+      | {| availability_flag : 1
+         ; reserved          : 7  : save_offset_to (off_1)
+         ; rest              : -1 : save_offset_to (off_2), bitstring
+         |} ->
+         let nodes =
+           [ to_node ~offset:off 1 "availability_flag" (Bits (Bool availability_flag))
+           ; to_node ~offset:(off + off_1) 7 "reserved" (Bits (Int reserved)) ]
+         in
+         parse_bytes ?bytes:(Some 2) ~offset:(off + off_2) nodes rest "cell_id"
 
   end
 
