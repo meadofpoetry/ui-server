@@ -3144,7 +3144,7 @@ module Descriptor = struct
     } [@@deriving yojson]
 
   let decode tag _ body off =
-    let _, content =
+    let name, content =
       (match tag with
        | 0x02 -> Video_stream.name, Video_stream.decode body off
        | 0x03 -> Audio_stream.name, Audio_stream.decode body off
@@ -3263,7 +3263,7 @@ module Descriptor = struct
        | 0xFF -> Forbidden.name, Forbidden.decode body off
        | x when x > 0x7F && x < 0xFF -> User_defined.name, User_defined.decode body off
        | _  -> Unknown.name, Unknown.decode body off) in
-    content
+    [ to_node ~offset:off 0 name (List content) ]
 
   let of_bitstring off bs =
     match%bitstring bs with
