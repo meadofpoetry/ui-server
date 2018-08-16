@@ -283,20 +283,24 @@ module Streams = struct
       { offset : int
       ; length : int
       ; name   : string
-	    ; value  : value
+	    ; value  : value * string option
       }
+    and integer =
+      | Bool   of bool
+      | Int    of int
+      | Int32  of int32
+      | Int64  of int64
+      | Uint   of int
+      | Uint32 of int32
+      | Uint64 of int64
     and value =
       | List     of node list
-      | Flag     of bool
-      | Bytes    of string
-      | String   of string
-      | Int      of int
-      | Int32    of int32
-      | Int64    of int64
+      | Bytes    of int list
+      | Bits     of integer
+      | Dec      of integer
+      | Hex      of integer
       | Time     of Time.t
-      | Duration of Time.Period.t
-      | Name     of string * int
-      | Val_hex  of int [@@deriving yojson, show]
+      | Duration of Time.Period.t [@@deriving yojson, show]
 
     type section_error =
       | Zero_length
