@@ -10,7 +10,7 @@
         "extern" : null,
         "intern" : {
             "interface": "eno1",
-            "address": ["192.168.111.205", 24]
+            "address": ["192.168.111.205", 24],
             "routes": { "gateway" : "192.168.111.1",
                         "static"  : [] },
             "mac_address": null
@@ -24,69 +24,64 @@
     },
     "topology":
     [ "CPU",
-      { "process":"pipeline",
+      { "process": "pipeline",
         "ifaces":
-        [ { "iface":"eth0", "conn":
+        [ { "iface": "eth0", "conn":
             [ "Board",
-              { "typ":"TS2IP",
-                "control":0,
-                "model":"ts2ip",
-                "manufacturer":"niitv",
-                "connection":["No_response"],
-                "version":1,
-                "env":{},
+              { "typ": "TS2IP",
+                "control": 0,
+                "model": "ts2ip",
+                "manufacturer": "niitv",
+                "version": 1,
                 "ports": [ {"port":1,
-                            "listening":true,
-                            "switchable":false,
                             "child":
                             [ "Board",
-                              { "typ":"TS",
+                              { "typ": "TS",
                                 "control": 2,
                                 "model": "qos",
                                 "manufacturer": "niitv",
-                                "connection":["No_response"],
                                 "version": 1,
-                                "env":{},
+                                "sources": { "input": 1,
+                                             "t2mi": 2
+                                           },
                                 "ports": [{"port": 0,
-                                           "listening": true,
                                            "switchable": true,
                                            "child":
                                            [ "Board",
-                                             { "typ":"IP2TS",
+                                             { "typ": "IP2TS",
                                                "control": 5,
                                                "model": "dtm-3200",
                                                "manufacturer": "dektec",
-                                               "connection":["No_response"],
                                                "version": 1,
-                                               "env":{},
-                                               "ports": [{"port": 0,
-                                                          "listening": true,
-                                                          "switchable": false,
-                                                          "child": [ "Input", { "input":"TSOIP", "id": 1} ]
-                                                         }]
+                                               "ports": [ {"port": 0,
+                                                           "child": [ "Input",
+                                                                      { "input":"TSOIP",
+                                                                        "id": 1
+                                                                      }]
+                                                          }]
                                              }]
                                           },
                                           {"port": 1,
-                                           "listening": false,
                                            "switchable": true,
-                                           "child": [ "Input", { "input": "ASI", "id": 1}]
+                                           "child": [ "Input",
+                                                      { "input": "ASI",
+                                                        "id": 1
+                                                      }]
                                           }]
                               }]
                            },
                            {"port":0,
-                            "listening":true,
-                            "switchable": false,
                             "child":
                             [ "Board",
-                              {"typ":"TS",
+                              {"typ": "TS",
                                "control": 1,
                                "model": "qos",
                                "manufacturer": "niitv",
-                               "connection":["No_response"],
                                "version": 1,
-                               "env":{},
+                               "sources": { "input": 3,
+                                            "t2mi": 4
+                                          },
                                "ports": [{"port": 0,
-                                          "listening": true,
                                           "switchable": true,
                                           "child":
                                           ["Board",
@@ -94,20 +89,22 @@
                                             "control": 4,
                                             "model": "rf",
                                             "manufacturer": "niitv",
-                                            "connection":["No_response"],
                                             "version": 1,
-                                            "env":{},
+                                            "sources": 5,
                                             "ports": [{"port": 0,
-                                                       "listening": true,
-                                                       "switchable": false,
-                                                       "child": [ "Input", { "input":"RF", "id": 1} ]
+                                                       "child": [ "Input",
+                                                                  { "input":"RF",
+                                                                    "id": 1
+                                                                  }]
                                                       }]
                                            }]
                                          },
                                          {"port": 1,
-                                          "listening": false,
                                           "switchable": true,
-                                          "child": [ "Input", { "input": "ASI", "id": 2}]
+                                          "child": [ "Input",
+                                                     { "input": "ASI",
+                                                       "id": 2
+                                                     }]
                                          }]
                               }]
                            }]
