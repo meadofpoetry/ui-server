@@ -5,6 +5,8 @@ open Lwt_result.Infix
 open Common
 open Board_types.Streams.TS
 
+let ( >>* ) x f = Lwt_result.map_err f x
+
 let get_pids ~id control =
   Requests.Streams.HTTP.get_pids ~id ~limit:1 control
   >>= (function
@@ -18,17 +20,43 @@ let get_pids ~id control =
 
 let get_services ~id control =
   Requests.Streams.HTTP.get_services ~id ~limit:1 control
-  >>= (function
-       | Raw s ->
-          (match List.head_opt s.data with
-           | Some (_, services) -> services.services
-           | None -> [])
-          |> Lwt_result.return
-       | _     -> Lwt.fail_with "got compressed")
-  |> Lwt_result.map_err Api_js.Requests.err_to_string
+  >>* Api_js.Requests.err_to_string
+  >>= function
+  | Raw s ->
+     begin match List.head_opt s.data with
+     | Some (_, services) -> services.services
+     | None -> []
+     end
+     |> Lwt_result.return
+  | _ -> Lwt.fail_with "got compressed"
+
+let get_errors ?from ?till ?duration ?limit ~id control =
+  let open Requests.Streams.HTTP.Errors in
+  get_errors ?limit ?from ?till ?duration ~id control
+  >>* Api_js.Requests.err_to_string
+  >>= function
+  | Raw s -> Lwt_result.return s.data
+  | _ -> Lwt.fail_with "got compressed"
 
 let dummy_tab = fun () ->
   Ui_templates.Placeholder.under_development ()
+
+let errors ({ id; _}:Stream.t) control =
+  let overview =
+    get_errors ~limit:20 ~id control
+    >|= Widget_errors_log.make
+    >|= Widget.coerce
+    |> Ui_templates.Loader.create_widget_loader in
+  let box =
+    let open Layout_grid in
+    let open Typography in
+    let span = 12 in
+    let overview_cell = new Cell.t ~span ~widgets:[ overview ] () in
+    let cells =
+      [ new Cell.t ~span ~widgets:[ new Text.t ~text:"Обзор" ()] ()
+      ; overview_cell ] in
+    new t ~cells () in
+  box#widget
 
 let services ({ id; _ }:Stream.t) control =
   let e_br, br_sock = Requests.Streams.WS.get_bitrate ~id control in
@@ -99,7 +127,7 @@ let tables (stream:Stream.t) control =
 
 let tabs (stream:Stream.t) control =
   let base =
-    [ "Ошибки",  dummy_tab
+    [ "Ошибки",  (fun () -> errors stream control)
     ; "Сервисы", (fun () -> services stream control)
     ; "PIDs",    (fun () -> pids stream control)
     ; "Таблицы", (fun () -> tables stream control)

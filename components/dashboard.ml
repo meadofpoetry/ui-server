@@ -23,13 +23,13 @@ class ['a] t ~(items:'a Item.positioned_item list) (factory:'a #factory) () =
   in
   let add_icon  = Icon.SVG.(new t ~paths:Path.[ new t plus () ] ()) in
   let edit_icon = Icon.SVG.(new t ~paths:Path.[ new t pencil () ] ()) in
-  let add    = new Fab.t ~icon:add_icon () in
-  let fab    = new Fab_speed_dial.t
-                 ~direction:`Up
-                 ~animation:`Scale
-                 ~icon:edit_icon
-                 ~items:[add] () in
-  let e,push = React.E.create () in
+  let add = new Fab.t ~icon:add_icon () in
+  let fab = new Fab_speed_dial.t
+              ~direction:`Up
+              ~animation:`Scale
+              ~icon:edit_icon
+              ~items:[add] () in
+  let e, push = React.E.create () in
   object(self)
 
     inherit Vbox.t ~widgets:[grid#widget;fab#widget] ()

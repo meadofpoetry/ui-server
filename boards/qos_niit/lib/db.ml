@@ -18,6 +18,9 @@ module SID = struct
     Stream.ID.to_string id
   let to_stream_id (t:t) =
     Stream.ID.of_string t
+  let to_query_string x =
+    let s = Stream.ID.to_string x in
+    Printf.sprintf "'%s'::%s" s db_type
 
 end
 
@@ -423,10 +426,7 @@ module Streams = struct
 
   let select' ?(with_pre = true) ?(limit = 500)
         ?(ids  = []) ~from ~till db table of_yojson =
-    let to_string x =
-      let s = Stream.ID.to_string x in
-      Printf.sprintf "'%s'::%s" s SID.db_type in
-    let ids    = is_in "stream" to_string ids in
+    let ids    = is_in "stream" SID.to_query_string ids in
     let select =
       R.collect Types.(tup3 ptime ptime int) Types.(tup3 SID.typ string ptime)
         (sprintf {|SELECT * FROM %s WHERE %s date >= $1 AND date <= $2
@@ -556,7 +556,7 @@ module Errors = struct
         ?(errors = []) ~is_ts ~from ~till () =
     let open Printf in
     let table = (Conn.names db).errors in
-    let streams  = is_in "stream" Stream.ID.to_string streams in
+    let streams  = is_in "stream" SID.to_query_string streams in
     let priority = is_in "priority" string_of_int priority in
     let pids     = is_in "pid" string_of_int pids in
     let errors   = is_in "err_code"  string_of_int errors in
@@ -577,7 +577,7 @@ module Errors = struct
         ~is_ts ~from ~till () =
     let open Printf in
     let table    = (Conn.names db).errors in
-    let streams  = is_in "stream" Stream.ID.to_string streams in
+    let streams  = is_in "stream" SID.to_query_string streams in
     let priority = is_in "priority" string_of_int priority in
     let pids     = is_in "pid" string_of_int pids in
     let errors   = is_in "err_code"  string_of_int errors in
@@ -600,7 +600,7 @@ module Errors = struct
         ?(errors = []) ~is_ts ~from ~till () =
     let open Printf in
     let table    = (Conn.names db).errors in
-    let streams  = is_in "stream" Stream.ID.to_string streams in
+    let streams  = is_in "stream" SID.to_query_string streams in
     let priority = is_in "priority" string_of_int priority in
     let pids     = is_in "pid" string_of_int pids in
     let errors   = is_in "err_code"  string_of_int errors in
