@@ -678,7 +678,53 @@ module Descriptor = struct
 
     let name = "MuxCode_descriptor"
 
-    let decode bs off = []
+    let rec f_2 ~offset ~i ~k acc x =
+      if Bitstring.bitstring_length x = 0 then acc
+      else match%bitstring x with
+           | {| channel : 8
+              ; num     : 8  : save_offset_to (off_1)
+              ; rest    : -1 : save_offset_to (off_2), bitstring
+              |} ->
+              let s_1 = Printf.sprintf "flexMuxChannel[%d][%d]" i k in
+              let s_2 = Printf.sprintf "numberOfBytes[%d][%d]" i k in
+              let nodes =
+                [ to_node ~offset 8 s_1 (Dec (Int channel))
+                ; to_node ~offset:(offset + off_1) 8 s_2 (Dec (Int num)) ]
+              in
+              f_2 ~offset:(offset + off_2) ~i ~k:(k + 1) (acc @ nodes) rest
+
+    let rec f_1 ~offset ~i acc x =
+      if Bitstring.bitstring_length x = 0 then acc
+      else  match%bitstring x with
+            | {| slot_count : 5
+               ; rep_count  : 3 : save_offset_to (off_1)
+               ; channels   : slot_count * 16 : save_offset_to (off_2), bitstring
+               ; rest       : -1 : save_offset_to (off_3), bitstring
+               |} ->
+              let nodes =
+                [ to_node ~offset 5 "slotCount" (Dec (Int slot_count))
+                ; to_node ~offset:(offset + off_1) 8 "repetitionCount" (Dec (Int rep_count)) ]
+              in
+              let channels = f_2 ~offset:(offset + off_2) ~i ~k:0 (acc @ nodes) channels in
+              f_1 ~offset:(offset + off_3) ~i:(i + 1) channels rest
+
+    (* ISO/IEC 14496-1 11.2.4.3 *)
+    let decode bs off =
+      match%bitstring bs with
+      | {| length    : 8
+         ; mux_code  : 4  : save_offset_to (off_1)
+         ; version   : 4  : save_offset_to (off_2)
+         ; sub_count : 8  : save_offset_to (off_3)
+         ; rest      : -1 : save_offset_to (off_4), bitstring
+         |} ->
+         let nodes =
+           [ to_node ~offset:off 8 "length" (Dec (Int length))
+           ; to_node ~offset:(off + off_1) 4 "MuxCode" (Dec (Int mux_code))
+           ; to_node ~offset:(off + off_2) 4 "version" (Dec (Int version))
+           ; to_node ~offset:(off + off_3) 8 "substructureCount" (Dec (Int sub_count)) ]
+         in
+         f_1 ~offset:(off + off_4) ~i:0 nodes rest
+
 
   end
 
@@ -3886,3 +3932,4 @@ let table_to_yojson : string ->
      | _      -> [])
     |> Option.return
   with _ -> None
+
