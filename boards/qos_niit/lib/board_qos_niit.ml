@@ -69,7 +69,8 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
   let log_src = Logs.Src.create log_name in
   let () = Option.iter (fun x -> Logs.Src.set_level log_src
                                  @@ Some x) b.logs in
-  let logs = Logs.src_log log_src in
+  let (module Logs : Logs.LOG) = Logs.src_log log_src in
+  let module SM = Board_protocol.Make(Logs) in
   let sources = match b.sources with
     | None ->
        let s = log_name ^ ": no sources provided!" in
@@ -84,7 +85,7 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
     Config_storage.create base
       ["board"; (string_of_int b.control)] in
   let events, api, step =
-    Board_protocol.SM.create sources logs send storage step conv in
+    SM.create sources send storage step conv in
   let db       = Result.get_exn @@ Db.Conn.create db_conf b.control in
   let handlers = Board_api.handlers b.control db api events in
   let tick, tick_loop = tick 5. in

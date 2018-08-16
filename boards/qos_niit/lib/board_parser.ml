@@ -1148,53 +1148,66 @@ module Make(Logs:Logs.LOG) = struct
     | Invalid_argument _ -> Error (Insufficient_payload buf)
     | e                  -> Error (Unknown_err (Printexc.to_string e))
 
-  let parse_simple_msg = fun (code,body,parts) ->
+  let parse_simple_msg = fun (code, body, parts) ->
     try
       (match code lsr 8 with
        | x when x = Get_board_info.rsp_code ->
+          Logs.debug (fun m -> m "deserializer - got board info");
           `R (`Board_info body)
        | x when x = Get_board_mode.rsp_code ->
+          Logs.debug (fun m -> m "deserializer - got board mode");
           `R (`Board_mode body)
        | x when x = Status.msg_code ->
+          Logs.debug (fun m -> m "deserializer - got status");
           `E (`Status (Status.parse body))
        | x when x = Ts_errors.msg_code ->
+          Logs.debug (fun m -> m "deserializer - got ts errors");
           `E (`Ts_errors (Ts_errors.parse body))
        | x when x = T2mi_errors.msg_code ->
+          Logs.debug (fun m -> m "deserializer - got t2mi errors");
           `E (`T2mi_errors (T2mi_errors.parse body))
        | x when x = TS_streams.msg_code ->
+          Logs.debug (fun m -> m "deserializer - got streams");
           `E (`Streams_event (TS_streams.parse body))
-       | 0xFD -> `E `End_of_errors
-       | 0xFF -> `E `End_of_transmission (* exit from receive loop *)
+       | 0xFD ->
+          Logs.debug (fun m -> m "deserializer - got end of errors");
+          `E `End_of_errors
+       | 0xFF ->
+          Logs.debug (fun m -> m "deserializer - got end of transmission");
+          `E `End_of_transmission (* exit from receive loop *)
        | 0x09 ->
           let code_ext = get_complex_rsp_header_code_ext body in
           let long = code_ext land 0x2000 <> 0 in
           let parity = if code_ext land 0x1000 <> 0 then 1 else 0 in
+          let first = code_ext land 0x8000 <> 0 in
+          let code = code_ext land 0x0FFF in
+          let req_id = get_complex_rsp_header_request_id body in
           let data' =
             if long then Cstruct.shift body sizeof_complex_rsp_header_ext
             else Cstruct.shift body sizeof_complex_rsp_header in
           let data, _ = Cstruct.(split data' (len data' - parity)) in
-          let part =
-            { data
-            ; first = code_ext land 0x8000 <> 0
-            ; param =
-                Int32.mul 2l
-                  (if long then get_complex_rsp_header_ext_param body
-                   else Int32.of_int @@ get_complex_rsp_header_param body)
-                |> Int32.(sub (of_int parity))
-            } in
-          let code = code_ext land 0x0FFF in
-          let req_id = get_complex_rsp_header_request_id body in
-          `P (List.Assoc.update (code, req_id)
-                ~eq:(Pair.equal (=) (=))
+          let param =
+            Int32.mul 2l
+              (if long then get_complex_rsp_header_ext_param body
+               else Int32.of_int @@ get_complex_rsp_header_param body)
+            |> fun x -> Int32.sub x (Int32.of_int parity) in
+          Logs.debug (fun m ->
+              m "deserializer - got complex message part \
+                 (first: %B, code: 0x%X, parity: %d, req_id: %d, \
+                 length: %d, param: %ld)"
+                first code parity req_id (Cstruct.len data) param);
+          let part = { data; first; param } in
+          `P (List.Assoc.update (code, req_id) ~eq:(Pair.equal (=) (=))
                 ~f:(function
                   | Some x -> Some (part :: x)
-                  | None   -> Some ([part]))
+                  | None   -> Some [ part ])
                 parts)
-       | _ -> Logs.debug (fun m -> m "unknown simple message code: 0x%x" code);
+       | _ -> Logs.debug (fun m ->
+                  m "deserializer - unknown simple message code: 0x%x" code);
               `N)
     with e ->
       Logs.warn (fun m ->
-          m "failure while parsing simple message: %s"
+          m "deserializer - failure while parsing simple message: %s"
           @@ Printexc.to_string e);
       `N
 
@@ -1203,26 +1216,35 @@ module Make(Logs:Logs.LOG) = struct
       let data = (r_id,msg) in
       (match code with
        | x when x = Get_board_errors.rsp_code ->
+          Logs.debug (fun m -> m "deserializer - got board errors");
           `ER (`Board_errors data)
        | x when x = Get_section.rsp_code ->
+          Logs.debug (fun m -> m "deserializer - got section");
           `R  (`Section data)
        | x when x = Get_t2mi_frame_seq.rsp_code ->
+          Logs.debug (fun m -> m "deserializer - got t2mi frame sequence");
           `R  (`T2mi_frame_seq data)
        | x when x = Get_jitter.rsp_code ->
+          Logs.debug (fun m -> m "deserializer - got jitter");
           `ER (`Jitter (r_id, (get_jitter_req_ptr msg), msg))
        | x when x = Get_ts_structs.rsp_code ->
+          Logs.debug (fun m -> m "deserializer - got ts structs");
           `ER (`Struct (r_id, (get_ts_structs_version msg), msg))
        | x when x = Get_bitrates.rsp_code ->
+          Logs.debug (fun m -> m "deserializer - got bitrates");
           `ER (`Bitrates (r_id, (get_bitrates_version msg), msg))
        | x when x = Get_t2mi_info.rsp_code ->
+          Logs.debug (fun m -> m "deserializer - got t2mi info");
           `ER (`T2mi_info (r_id,
                            (get_t2mi_info_version msg),
                            (get_t2mi_info_stream_id msg),
                            msg))
-       | _ -> Logs.debug (fun m -> m "unknown complex message code: 0x%x" code); `N)
+       | _ -> Logs.debug (fun m ->
+                  m "deserializer - unknown complex message code: 0x%x" code); `N)
     with e ->
-      Logs.warn (fun m -> m "failure while parsing complex message: %s"
-                            (Printexc.to_string e)); `N
+      Logs.warn (fun m ->
+          m "deserializer - failure while parsing complex message: %s"
+            (Printexc.to_string e)); `N
 
   let try_compose_parts ((id, gp) as x) =
     let open Int32 in
@@ -1243,7 +1265,7 @@ module Make(Logs:Logs.LOG) = struct
       then `F (id, acc) else `P x
     with e ->
       Logs.warn (fun m ->
-          m "failure while composing complex message parts: %s"
+          m "deserializer - failure while composing complex message parts: %s"
           @@ Printexc.to_string e); `N
 
   let deserialize parts buf =
@@ -1265,7 +1287,8 @@ module Make(Logs:Logs.LOG) = struct
            | Insufficient_payload x ->
               List.(rev events, rev event_rsps, rev rsps, rev parts, x)
            | e ->
-              Logs.warn (fun m -> m "parser error: %s" @@ err_to_string e);
+              Logs.warn (fun m -> m "deserializer - composer error: %s"
+                                  @@ err_to_string e);
               f events event_rsps rsps parts (Cstruct.shift b 1)
            end in
     let ev, ev_rsps, rsps, parts, res = f [] [] [] parts buf in

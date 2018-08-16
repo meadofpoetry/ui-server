@@ -89,18 +89,18 @@ type group =
 type jitter_req =
   { request_id : int
   ; pointer    : int32
-  }
+  } [@@deriving show]
 
 type ts_struct_req =
   { request_id : int
   ; stream     : [ `All | `Single of Stream.Multi_TS_ID.t ]
-  }
+  } [@@deriving show]
 
 type t2mi_info_req =
   { request_id : int
   ; stream_id  : int
   ; stream     : Stream.Multi_TS_ID.t
-  }
+  } [@@deriving show]
 
 type t2mi_frame_seq_req =
   { request_id : int
@@ -109,7 +109,7 @@ type t2mi_frame_seq_req =
 and frame_seq_params =
   { seconds : int
   ; stream  : Stream.ID.t
-  }
+  } [@@deriving show]
 
 type section_req =
   { request_id : int

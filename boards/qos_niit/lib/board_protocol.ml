@@ -39,7 +39,7 @@ module Acc = struct
     ; bytes  = None }
 end
 
-module SM = struct
+module Make(Logs:Logs.LOG) = struct
 
   let request_id = ref (-1)
   let jitter_ptr = ref (-1l)
@@ -69,7 +69,7 @@ module SM = struct
 
     let event_to_string : event -> string = function
       | `Status x ->
-         Printf.sprintf "status: %s" (show_status_raw x)
+         Printf.sprintf "status: \n%s" (show_status_raw x)
       | `Streams_event x ->
          Printf.sprintf "streams: %s" (show_streams x)
       | `T2mi_errors (id, e) ->
@@ -212,27 +212,58 @@ module SM = struct
 
   let send_msg (type a) sender (msg:a request) : unit Lwt.t =
     (match msg with
-     | Get_board_info -> Get_board_info.serialize ()
-     | Get_board_mode -> Get_board_mode.serialize ()
-     | Get_t2mi_frame_seq x -> Get_t2mi_frame_seq.serialize x
-     | Get_section x -> Get_section.serialize x)
+     | Get_board_info ->
+        Logs.debug (fun m -> m "requesting board info");
+        Get_board_info.serialize ()
+     | Get_board_mode ->
+        Logs.debug (fun m -> m "requesting board mode");
+        Get_board_mode.serialize ()
+     | Get_t2mi_frame_seq x ->
+        Logs.debug (fun m -> m "requesting t2mi frame sequence: %s"
+                             @@ show_t2mi_frame_seq_req x);
+        Get_t2mi_frame_seq.serialize x
+     | Get_section x ->
+        Logs.debug (fun m -> m "requesting section: %s"
+                             @@ show_section_req x);
+        Get_section.serialize x)
     |> sender
 
   let send_event (type a) sender (msg:a probe_request) : unit Lwt.t =
     (match msg with
-     | Get_board_errors id -> Get_board_errors.serialize id
-     | Get_jitter req -> Get_jitter.serialize req
-     | Get_ts_struct req -> Get_ts_structs.serialize req
-     | Get_bitrates req -> Get_bitrates.serialize req
-     | Get_t2mi_info req -> Get_t2mi_info.serialize req)
+     | Get_board_errors id ->
+        Logs.debug (fun m -> m "requesting board errors");
+        Get_board_errors.serialize id
+     | Get_jitter req ->
+        Logs.debug (fun m -> m "requesting jitter: %s"
+                             @@ show_jitter_req req);
+        Get_jitter.serialize req
+     | Get_ts_struct req ->
+        Logs.debug (fun m -> m "requesting ts structs: %s"
+                             @@ show_ts_struct_req req);
+        Get_ts_structs.serialize req
+     | Get_bitrates req ->
+        Logs.debug (fun m -> m "requesting bitrates");
+        Get_bitrates.serialize req
+     | Get_t2mi_info req ->
+        Logs.debug (fun m -> m "requesting t2mi info: %s"
+                             @@ show_t2mi_info_req req);
+        Get_t2mi_info.serialize req)
     |> sender
 
   let send_instant (type a) sender (msg : a instant_request) : unit Lwt.t =
     (match msg with
-     | Reset -> to_complex_req ~msg_code:0x0111 ~body:(Cstruct.create 0) ()
-     | Set_board_init x -> to_set_board_init_req x
-     | Set_board_mode x -> to_set_board_mode_req x
-     | Set_jitter_mode x -> to_set_jitter_mode_req x)
+     | Reset ->
+        Logs.debug (fun m -> m "requesting reset");
+        to_complex_req ~msg_code:0x0111 ~body:(Cstruct.create 0) ()
+     | Set_board_init x ->
+        Logs.debug (fun m -> m "requesting board init");
+        to_set_board_init_req x
+     | Set_board_mode x ->
+        Logs.debug (fun m -> m "requesting board mode setup");
+        to_set_board_mode_req x
+     | Set_jitter_mode x ->
+        Logs.debug (fun m -> m "requesting set jitter mode setup");
+        to_set_jitter_mode_req x)
     |> sender
 
   let enqueue (type a) state msgs sender (msg : a request) timeout exn : a Lwt.t =
@@ -292,7 +323,7 @@ module SM = struct
     pe.state state
 
   let step sources msgs imsgs sender (storage:config storage) step_duration
-        (pe:push_events) logs =
+        (pe:push_events) =
 
     let board_info_err_msg =
       "board info was received during normal \
@@ -301,7 +332,6 @@ module SM = struct
       Printf.sprintf "no status received for %d seconds, restarting..."
         (Timer.period t) in
 
-    let (module Logs : Logs.LOG) = logs in
     let module Parser = Board_parser.Make(Logs) in
 
     let deserialize (acc:Acc.t) recvd =
@@ -400,7 +430,7 @@ module SM = struct
                   ; exn     = None }) stack
               |> Pool.create in
             Logs.debug (fun m ->
-                let pre = "prepared stack of following probe requests" in
+                let pre = "prepared stack of probe requests" in
                 let stk = String.concat "; "
                           @@ List.map probe_req_to_string stack in
                 m "%s: [%s]" pre stk);
@@ -430,7 +460,7 @@ module SM = struct
         let () = if not (Queue.empty !imsgs)
                  then Queue.send !imsgs () |> Lwt.ignore_result in
         let () = imsgs := Queue.next !imsgs in
-        let timer,acc = match Events.handle events acc with
+        let timer, acc = match Events.handle events acc with
           | [], acc -> (Timer.step timer), acc
           | (hd :: _) as l, acc ->
              log_groups l;
@@ -441,7 +471,7 @@ module SM = struct
             `Continue (step_ok_probes_wait (Pool.step pool) timer acc)
          | Some x ->
             Logs.debug (fun m ->
-                let pre = "received probe response of type" in
+                let pre = "got probe response" in
                 let rsp = probe_rsp_to_string x in
                 m "%s: '%s'" pre rsp);
             let acc = { acc with probes = x :: acc.probes } in
@@ -605,7 +635,7 @@ module SM = struct
       if eq x v then Lwt.return x
       else Lwt.fail @@ Failure "got unexpected value")
 
-  let create_api (module Logs:Logs.LOG) sender step_duration
+  let create_api sender step_duration
         (storage:config storage) events =
     let { device = { config; state; _ }; _ }  = events in
     let msgs = ref (Await_queue.create []) in
@@ -613,8 +643,6 @@ module SM = struct
     let isend = enqueue_instant state imsgs sender in
     { set_input =
         (fun i ->
-          Logs.info (fun m ->
-              m "input switch request: %s" (input_to_string i));
           let eq = equal_input in
           let s  = S.map (fun (c:config) -> c.input) config in
           let t  = isend (Set_board_mode { t2mi = storage#get.t2mi_mode
@@ -622,9 +650,6 @@ module SM = struct
           wait ~eq t s i)
     ; set_t2mi_mode =
         (fun mode ->
-          Logs.info (fun m ->
-              let md = Option.map_or ~default:"none" show_t2mi_mode mode in
-              m "T2-MI mode change request: %s" md);
           let eq = Equal.option equal_t2mi_mode in
           let s  = S.map (fun (c:config) -> c.t2mi_mode) config in
           let t  = isend (Set_board_mode { t2mi = mode
@@ -632,23 +657,15 @@ module SM = struct
           wait ~eq t s mode)
     ; set_jitter_mode =
         (fun mode ->
-          Logs.info (fun m ->
-              let md = Option.map_or ~default:"none" show_jitter_mode mode in
-              m "Jitter mode change request: %s" md);
           let eq = Equal.option equal_jitter_mode in
           let s  = S.map (fun (c:config) -> c.jitter_mode) config in
           let t  = isend (Set_jitter_mode mode) in
           wait ~eq t s mode)
     ; reset =
-        (fun () ->
-          Logs.info (fun m -> m "Got reset request");
-          isend Reset)
+        (fun () -> isend Reset)
     ; get_section =
         (fun ?section ?table_id_ext ?eit_ts_id ?eit_orig_nw_id
              ~id ~table_id () ->
-          Logs.debug (fun m ->
-              m "got section request: stream = %a, tid = %d"
-                (Stream.ID.pp) id table_id);
           match find_stream_by_id id @@ React.S.value events.streams with
           | Some s ->
              begin match s.orig_id with
@@ -670,9 +687,6 @@ module SM = struct
           | None -> Lwt_result.fail Streams.TS.Stream_not_found)
     ; get_t2mi_seq =
         (fun params ->
-          Logs.debug (fun m ->
-              let s = string_of_int params.seconds ^ " sec" in
-              m "Got T2-MI sequence request: %s" s);
           let req = Get_t2mi_frame_seq { request_id = get_id (); params } in
           let timer = Timer.steps ~step_duration (params.seconds + 10) in
           enqueue state msgs sender req timer None)
@@ -684,16 +698,16 @@ module SM = struct
     msgs,
     imsgs
 
-  let create sources logs sender (storage:config storage)
+  let create sources sender (storage:config storage)
         step_duration streams_conv =
     let events, push_events =
       create_events sources storage streams_conv in
     let api, msgs, imsgs =
-      create_api logs sender step_duration storage events
+      create_api sender step_duration storage events
     in
     events,
     api,
     step sources msgs imsgs sender storage
-      step_duration push_events logs
+      step_duration push_events
 
 end
