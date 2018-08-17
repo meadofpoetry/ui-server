@@ -86,38 +86,6 @@ let rec parse_bytes ?bytes ~offset acc x str =
           in
           parse_bytes ~offset:(offset + off_1) (acc @ node) rest str
 
-let parse_service = function
-      | 0x00 | 0xFF | 0x09 -> "reserved for future use"
-      | 0x01 -> "digital television service"
-      | 0x02 -> "digital radio sound service"
-      | 0x03 -> "Teletext service"
-      | 0x04 -> "NVOD reference service"
-      | 0x05 -> "NVOD time-shifted service"
-      | 0x06 -> "mosaic service"
-      | 0x07 -> "FM radio service"
-      | 0x08 -> "DVB SRM service [49]"
-      | 0x0A -> "advanced codec digital radio sound service"
-      | 0x0B -> "H.264/AVC mosaic service"
-      | 0x0C -> "data broadcast service"
-      | 0x0D -> "reserved for Common Interface Usage (CENELEC EN 50221 [37])"
-      | 0x0E -> "RCS Map (see ETSI EN 301 790 [7])"
-      | 0x0F -> "RCS FLS (see ETSI EN 301 790 [7])"
-      | 0x10 -> "DVB MHP service"
-      | 0x11 -> "MPEG-2 HD digital television service"
-      | 0x16 -> "H.264/AVC SD digital television service"
-      | 0x17 -> "H.264/AVC SD NVOD time-shifted service"
-      | 0x18 -> "H.264/AVC SD NVOD reference service"
-      | 0x19 -> "H.264/AVC HD digital television service"
-      | 0x1A -> "H.264/AVC HD NVOD time-shifted service"
-      | 0x1B -> "H.264/AVC HD NVOD reference service"
-      | 0x1C -> "H.264/AVC frame compatible plano-stereoscopic HD digital television service"
-      | 0x1D -> "H.264/AVC frame compatible plano-stereoscopic HD NVOD time-shifted service"
-      | 0x1E -> "H.264/AVC frame compatible plano-stereoscopic HD NVOD reference service"
-      | 0x1F -> "HEVC digital television service"
-      | x when x > 0x11 && x < 0x16 || x > 0x1F && x < 0x80 -> "reserved for future use"
-      | x when x > 0x7F && x < 0xFF -> "user defined"
-      | _    -> assert false
-
 let parse_lang_code code =
   match%bitstring code with
   | {| s : 24 : string |} -> s,
@@ -1538,7 +1506,7 @@ module Descriptor = struct
               ; service_type : 8  : save_offset_to (off_1)
               ; rest         : -1 : save_offset_to (off_2), bitstring
               |} ->
-              let parsed = parse_service service_type in
+              let parsed = Common.Mpeg_ts.service_type_to_string service_type in
               let nodes =
                 [ to_node ~offset:off 16 "service_id" (Hex (Int service_id))
                 ; to_node ~parsed ~offset:(off + off_1) 8 "service_type" (Hex (Int service_type))]
@@ -1758,7 +1726,7 @@ module Descriptor = struct
          ; length_2         : 8 : save_offset_to (off_3)
          ; service          : length_2 * 8 : save_offset_to (off_4), bitstring
          |} ->
-         let parsed = parse_service service_type in
+         let parsed = Common.Mpeg_ts.service_type_to_string service_type in
          let serv = match Text_decoder.decode @@ Bitstring.to_cstruct service with
            | Ok parsed -> [to_node ~parsed ~offset:(off + off_3) (length_2 * 8)
                              "service" (Bits (Int 1))]
@@ -1766,7 +1734,7 @@ module Descriptor = struct
          in
          let ser_p = match Text_decoder.decode @@ Bitstring.to_cstruct service_provider with
            | Ok parsed -> [to_node ~parsed ~offset:(off + off_2) (length_1 * 8)
-                            "service_provider" (Bits (Int 1))]
+                             "service_provider" (Bits (Int 1))]
            | Error _ -> parse_bytes ~offset:(off + off_4) [] service_provider "char"
          in
          let nodes_1 =
@@ -1869,15 +1837,19 @@ module Descriptor = struct
          ; length_2   : 8  : save_offset_to (off_3)
          ; text       : length_2 * 8 : save_offset_to (off_4), bitstring
          |} ->
+         let name = match Text_decoder.decode @@ Bitstring.to_cstruct event_name with
+           | Ok s -> s
+           | Error _ -> "Failed to decode" in
+         let text = match Text_decoder.decode @@ Bitstring.to_cstruct text with
+           | Ok s -> s
+           | Error _ -> "Failed to decode" in
          let parsed_code, lang_code = parse_lang_code lang_code in
-         let nodes_1 =
          [ to_node ~parsed:parsed_code ~offset:off 24 "ISO_639_language_code" (Bits (Int lang_code))
-         ; to_node ~offset:(off + off_1) 8 "event_name_length" (Dec (Int length_1)) ]
-         in
-         let with_event = parse_bytes ~offset:(off + off_2) nodes_1 event_name "event_name_char" in
-         let nodes_2 = with_event @ [to_node ~offset:(off + off_3) 8 "text_length" (Dec (Int length_2))]
-         in
-         parse_bytes ~offset:(off + off_4) nodes_2 text "text_char"
+         ; to_node ~offset:(off + off_1) 8 "event_name_length" (Dec (Int length_1))
+         ; to_node ~offset:(off + off_2) length_1 "event_name" (String name)
+         ; to_node ~offset:(off + off_3) 8 "text_length" (Dec (Int length_2))
+         ; to_node ~offset:(off + off_4) length_2 "text" (String text)
+         ]
 
   end
 

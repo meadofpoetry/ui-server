@@ -238,6 +238,7 @@ let make_tree (x:parsed) =
     | Bits x -> integer_to_bits x
     | Dec x -> integer_to_dec x
     | Hex x -> integer_to_hex x
+    | String s -> s
     | Time t-> let tz_offset_s = Ptime_clock.current_tz_offset_s () in
                Format.asprintf "%a" (Time.pp_human ?tz_offset_s ()) t
     | Duration d ->
@@ -255,7 +256,7 @@ let make_tree (x:parsed) =
        let vs = value_to_string value in
        let text = match name with
          | None -> vs
-         | Some n -> n ^ " " ^ vs in
+         | Some n -> Printf.sprintf "%s (%s)" n vs in
        let meta, nested = match value with
          | List [] ->
             let meta = Icon.SVG.(create_simple Path.code_brackets) in
