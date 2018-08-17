@@ -168,13 +168,18 @@ let error_to_string = function
   | `Unknown_encoding -> "Unknown encoding"
   | `Empty            -> "empty string"
 
+let trim' s =
+  String.rdrop_while (fun c -> Char.equal c '\000') s
+
 let trim (text:Cstruct.t) =
-  if Cstruct.get_uint8 text 0 = 0
-  then Cstruct.empty
-  else
-    Cstruct.to_string text
-    |> String.rdrop_while (fun c -> Char.equal c '\000')
-    |> Cstruct.of_string
+  try
+    if Cstruct.get_uint8 text 0 = 0
+    then Cstruct.empty
+    else
+      Cstruct.to_string text
+      |> trim'
+      |> Cstruct.of_string
+  with _ -> Cstruct.empty
 
 let get_encoding_and_convert (text:Cstruct.t) =
   let (>>=) x f = match x with Ok x -> Ok x | Error e -> f e in
