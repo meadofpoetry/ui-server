@@ -5,17 +5,17 @@ module ID : sig
 
   type t
   type api_fmt = t
-  val to_string     : t -> string
+  val to_string : t -> string
   val of_string_opt : string -> t option
-  val of_string     : string -> t
-  val to_yojson     : t -> Yojson.Safe.json
-  val of_yojson     : Yojson.Safe.json -> (t, string) result
-  val compare       : t -> t -> int
-  val equal         : t -> t -> bool
-  val pp            : Format.formatter -> t -> unit
-  val make          : string -> t
-  val typ           : string
-  val fmt           : api_fmt Uri_ext.Path.Format.fmt
+  val of_string : string -> t
+  val to_yojson : t -> Yojson.Safe.json
+  val of_yojson : Yojson.Safe.json -> (t, string) result
+  val compare : t -> t -> int
+  val equal : t -> t -> bool
+  val pp : Format.formatter -> t -> unit
+  val make : string -> t
+  val typ : string
+  val fmt : api_fmt Uri_ext.Path.Format.fmt
 
 end = struct
 
@@ -27,15 +27,15 @@ end = struct
 
   let fmt = Uri_ext.Path.Format.Uuid
 
-  let to_string (x:t)          = to_string x
+  let to_string (x:t) = to_string x
   let of_string_opt (s:string) = of_string s
-  let of_string (s:string)     = Option.get_exn @@ of_string_opt s
+  let of_string (s:string) = Option.get_exn @@ of_string_opt s
 
   let to_yojson (x:t) : Yojson.Safe.json =
     `String (Uuidm.to_string x)
   let of_yojson : Yojson.Safe.json -> (t, string) result = function
     | `String s -> Result.of_opt @@ Uuidm.of_string s
-    | _         -> Error "uuid_of_yojson: not a string"
+    | _ -> Error "uuid_of_yojson: not a string"
 
   let make (s:string) =
     v5 ns_url s

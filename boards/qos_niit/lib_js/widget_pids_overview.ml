@@ -57,15 +57,15 @@ class t (init:pid_info list) () =
     let open Table in
     let open Format in
     let to_sort_column = to_column ~sortable:true in
-    (   to_sort_column "PID",             if is_hex then hex_pid_fmt
-                                          else dec_pid_fmt)
-    :: (to_sort_column "Тип",             String None)
-    :: (to_column      "Доп. инфо",       Widget None)
-    :: (to_sort_column "Сервис",          Option (String None, ""))
+    (to_sort_column "PID", if is_hex then hex_pid_fmt
+                           else dec_pid_fmt)
+    :: (to_sort_column "Тип", String None)
+    :: (to_column "Доп. инфо", Widget None)
+    :: (to_sort_column "Сервис", Option (String None, ""))
     :: (to_sort_column "Битрейт, Мбит/с", br_fmt)
-    :: (to_sort_column "%",               pct_fmt)
-    :: (to_sort_column "Min, Мбит/с",     br_fmt)
-    :: (to_sort_column "Max, Мбит/с",     br_fmt)
+    :: (to_sort_column "%", pct_fmt)
+    :: (to_sort_column "Min, Мбит/с", br_fmt)
+    :: (to_sort_column "Max, Мбит/с", br_fmt)
     :: [] in
   let table = new Table.t ~dense:true ~fmt () in
   let on_change = fun (x:bool) ->
@@ -80,22 +80,25 @@ class t (init:pid_info list) () =
   let actions = new Card.Actions.t ~widgets:[ hex#widget ] () in
   let media   = new Card.Media.t ~widgets:[ table ] () in
   let add_row (pid:pid_info) =
+    let open Table in
     let pid_type = match pid.pid_type with
       | SEC l   ->
          let s = List.map Fun.(Mpeg_ts.(table_to_string % table_of_int)) l
                  |> String.concat ", " in
          "SEC -> " ^ s
-      | PES x   ->
+      | PES x ->
          let s = Mpeg_ts.stream_type_to_string x in
          "PES -> " ^ s
-      | ECM x   -> "ECM -> " ^ (string_of_int x)
-      | EMM x   -> "EMM -> " ^ (string_of_int x)
-      | Null    -> "Null"
+      | ECM x -> "ECM -> " ^ (string_of_int x)
+      | EMM x -> "EMM -> " ^ (string_of_int x)
+      | Null -> "Null"
       | Private -> "Private" in
     let extra = to_pid_extra pid.has_pcr pid.scrambled in
-    table#add_row (
+    let data = Data.(
         pid.pid :: pid_type :: extra :: pid.service
         :: None :: None :: None :: None :: []) in
+    let row = table#add_row data in
+    row in
   let set_rate = function
     | None -> () (* FIXME do smth *)
     | Some (total, (rate:(int * int) list)) ->

@@ -42,9 +42,14 @@ let dummy_tab = fun () ->
   Ui_templates.Placeholder.under_development ()
 
 let errors ({ id; _}:Stream.t) control =
+  let e, sock = Requests.Streams.WS.Errors.get_errors ~id control in
   let overview =
     get_errors ~limit:20 ~id control
     >|= Widget_errors_log.make
+    >|= (fun w ->
+      (* FIXME save event *)
+      let _ = React.E.map (List.map w#add_error) e in
+      w)
     >|= Widget.coerce
     |> Ui_templates.Loader.create_widget_loader in
   let box =
@@ -56,6 +61,7 @@ let errors ({ id; _}:Stream.t) control =
       [ new Cell.t ~span ~widgets:[ new Text.t ~text:"Обзор" ()] ()
       ; overview_cell ] in
     new t ~cells () in
+  box#set_on_destroy @@ Some (fun () -> sock##close);
   box#widget
 
 let services ({ id; _ }:Stream.t) control =
