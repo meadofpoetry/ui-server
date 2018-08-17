@@ -519,6 +519,7 @@ module Errors = struct
               ; priority
               ; multi_pid
               ; pid
+              ; service = None (* FIXME *)
               ; packet
               ; param_1
               ; param_2

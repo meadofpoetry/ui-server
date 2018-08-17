@@ -76,13 +76,13 @@ type event =
   | `Ts_errors     of Stream.Multi_TS_ID.t * (Errors.t list)
   | `End_of_errors
   | `End_of_transmission
-  ] [@@deriving eq]
+  ] [@@deriving eq, show]
 
 type group =
   { status      : status_raw
   ; prev_status : status_raw option
   ; events      : event list
-  }
+  } [@@deriving show]
 
 (* API *)
 
@@ -155,7 +155,7 @@ type device_events =
   ; status : status event
   ; reset  : reset_ts event
   ; errors : board_errors event
-  ; info   : devinfo option React.signal
+  ; info   : devinfo option signal
   }
 
 type ts_events =

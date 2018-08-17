@@ -398,9 +398,10 @@ module Errors = struct
     ; multi_pid : bool
     ; pid       : int
     ; packet    : int32
+    ; service   : string option
     ; param_1   : int32
     ; param_2   : int32 (* t2mi stream id for t2mi error *)
-    } [@@deriving yojson,eq]
+    } [@@deriving yojson, eq, show]
 
   type raw =
     (Stream.ID.t * t) list [@@deriving yojson]
