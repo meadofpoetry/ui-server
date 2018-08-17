@@ -828,14 +828,18 @@ module Descriptor = struct
          ; rest             : -1 : save_offset_to (off_5), bitstring
          |} ->
          let parsed = parse_time_base ctb_ind in
+         let cri = match Text_decoder.decode @@ Bitstring.to_cstruct cont_ref_id_byte with
+           | Ok s    -> s
+           | Error _ -> "Unable to decode"
+         in
          let nodes =
            [ to_node ~offset:off 1 "content_reference_id_record_flag" (Bits (Bool true))
            ; to_node ~parsed ~offset:(off + off_1) 4 "content_time_base_indicator" (Hex (Int ctb_ind))
            ; to_node ~offset:(off + off_2) 3 "reserved" (Bits (Int reserved_1))
            ; to_node ~offset:(off + off_3) 8 "content_reference_id_record_length" (Dec (Int crir_len))
+           ; to_node ~offset:(off + off_4) (crir_len * 8) "content_reference_id" (String cri)
            ]
          in
-         let nodes = parse_bytes ~offset:(off + off_4) nodes cont_ref_id_byte "content_reference_id_byte" in
          nodes @ decode_2 rest (off + off_5) ctb_ind
       | {| false            : 1
          ; ctb_ind          : 4 : save_offset_to (off_1)
@@ -1488,9 +1492,11 @@ module Descriptor = struct
     let name = "network_name_descriptor"
 
     let decode bs off =
-      match Text_decoder.decode @@ Bitstring.to_cstruct bs with
-        | Ok parsed -> [to_node ~parsed ~offset:off (Bitstring.length bs) "network name" (Bits (Int 1))]
-        | Error _   -> parse_bytes ~offset:off [] bs "char"
+      let s = match Text_decoder.decode @@ Bitstring.to_cstruct bs with
+        | Ok s    -> s
+        | Error _ -> "Unable to decode"
+      in
+      [to_node ~offset:off (Bitstring.length bs) "network name" (String s)]
 
   end
 
@@ -1707,9 +1713,11 @@ module Descriptor = struct
     let name = "bouquet_name_descriptor"
 
     let decode bs off =
-      match Text_decoder.decode @@ Bitstring.to_cstruct bs with
-        | Ok parsed -> [to_node ~parsed ~offset:off (Bitstring.length bs) "bouquet name" (Bits (Int 1))]
-        | Error _   -> parse_bytes ~offset:off [] bs "char"
+      let s = match Text_decoder.decode @@ Bitstring.to_cstruct bs with
+        | Ok s    -> s
+        | Error _ -> "Unable to decode"
+      in
+      [to_node ~offset:off (Bitstring.length bs) "bouquet name" (String s)]
 
   end
 
@@ -1727,24 +1735,19 @@ module Descriptor = struct
          ; service          : length_2 * 8 : save_offset_to (off_4), bitstring
          |} ->
          let parsed = Common.Mpeg_ts.service_type_to_string service_type in
-         let serv = match Text_decoder.decode @@ Bitstring.to_cstruct service with
-           | Ok parsed -> [to_node ~parsed ~offset:(off + off_3) (length_2 * 8)
-                             "service" (Bits (Int 1))]
-           | Error _ -> parse_bytes ~offset:(off + off_4) [] service "char"
+         let service = match Text_decoder.decode @@ Bitstring.to_cstruct service with
+           | Ok s    -> s
+           | Error _ -> "Unable to decode"
          in
-         let ser_p = match Text_decoder.decode @@ Bitstring.to_cstruct service_provider with
-           | Ok parsed -> [to_node ~parsed ~offset:(off + off_2) (length_1 * 8)
-                             "service_provider" (Bits (Int 1))]
-           | Error _ -> parse_bytes ~offset:(off + off_4) [] service_provider "char"
+         let sp = match Text_decoder.decode @@ Bitstring.to_cstruct service_provider with
+           | Ok s    -> s
+           | Error _ -> "Unable to decode"
          in
-         let nodes_1 =
-           [ to_node ~parsed ~offset:off 8 "service_type" (Hex (Int service_type))
-           ; to_node ~offset:(off + off_1) 8 "service_provider_name_length" (Dec (Int length_1)) ]
-         in
-         let node_2 =
-           [ to_node ~offset:(off + off_3) 8 "service_name_length" (Dec (Int length_2))]
-         in
-         ( nodes_1 @ ser_p @ node_2 @ serv)
+         [ to_node ~parsed ~offset:off 8 "service_type" (Hex (Int service_type))
+         ; to_node ~offset:(off + off_1) 8 "service_provider_name_length" (Dec (Int length_1))
+         ; to_node ~offset:(off + off_2) (length_1 * 8) "service_provider" (String sp)
+         ; to_node ~offset:(off + off_3) 8 "service_name_length" (Dec (Int length_2))
+         ; to_node ~offset:(off + off_4) (length_2 * 8) "service" (String service) ]
 
   end
 
@@ -1753,7 +1756,15 @@ module Descriptor = struct
 
     let name = "country_availability_descriptor"
 
-    (* TODO do we need to parse this? *)
+    let rec f off acc x =
+      if Bitstring.length x = 0 then acc
+      else match%bitstring x with
+           | {| country_code : 24 : bitstring
+              ; rest         : -1 : save_offset_to (off_1), bitstring
+              |} ->
+              let parsed, code = parse_lang_code country_code in
+              let node =[to_node ~parsed ~offset:off 24 "country code" (Bits (Int code))] in
+              f (off + off_1) (acc @ node) rest
 
     let decode bs off =
       match%bitstring bs with
@@ -1765,7 +1776,7 @@ module Descriptor = struct
          [ to_node ~offset:off 1 "country_availability_flag" (Bits (Bool country_avail_flag))
          ; to_node ~offset:(off + off_1) 7 "reserved_future_use" (Bits (Int rfu)) ]
          in
-         parse_bytes ~bytes:3 ~offset:(off + off_2) nodes rest "country_code"
+         f (off + off_2) nodes rest
 
   end
 
@@ -1894,14 +1905,16 @@ module Descriptor = struct
          ; rest               : -1 : save_offset_to (off_5), bitstring
          |} ->
          let parsed, lang_code = parse_lang_code lang_code in
-         let nodes =
+         let text = match Text_decoder.decode @@ Bitstring.to_cstruct rest with
+           | Ok s    -> s
+           | Error _ -> "Unable to decode"
+         in
          [ to_node ~offset:off 4 "stream_content_ext" (Hex (Int stream_content_ext))
          ; to_node ~offset:(off + off_1) 4  "stream_content" (Hex (Int stream_content))
          ; to_node ~offset:(off + off_2) 8  "component_type" (Hex (Int component_type))
          ; to_node ~offset:(off + off_3) 8  "component_tag" (Hex (Int component_tag))
-         ; to_node ~parsed ~offset:(off + off_4) 24 "ISO_639_language_code" (Hex (Int lang_code)) ]
-         in
-         parse_bytes ~offset:(off + off_5) nodes rest "text_char"
+         ; to_node ~parsed ~offset:(off + off_4) 24 "ISO_639_language_code" (Hex (Int lang_code))
+         ; to_node ~offset:(off + off_5) (Bitstring.length bs - 48) "text" (String text)]
   end
 
   (* 0x51 *)
@@ -2055,8 +2068,26 @@ module Descriptor = struct
 
     let name = "CA_identifier_descriptor"
 
+    let parse_system_id = function
+      | 0x0000 -> "Reserved"
+      | x when x > 0x0000 && x < 0x0100 -> "Reserved for registration to standardized \
+                                            systems through the DVB Project Office"
+      | x when x > 0x00FF && x <= 0xFFFF -> "Reserved for general registration through \
+                                             the DVB Project Office"
+      | _ -> assert false
+
+    let rec f off acc x =
+      if Bitstring.length x = 0 then acc
+      else match%bitstring x with
+           | {| ca_sys_id : 16
+              ; rest      : -1 : save_offset_to (off_1), bitstring
+              |} ->
+              let parsed = parse_system_id ca_sys_id in
+              let node = [ to_node ~parsed ~offset:off 16 "CA_system_id" (Hex (Int ca_sys_id)) ] in
+              f (off + off_1) (acc @ node) rest
+
     let decode bs off =
-      parse_bytes ~bytes:2 ~offset:off [] bs "CA_system_id"
+      f off [] bs
 
   end
 
@@ -2180,24 +2211,41 @@ module Descriptor = struct
          ; nat_area_code  : length_4 * 8 : save_offset_to (off_13), bitstring
          ; core_number    : length_5 * 8 : save_offset_to (off_14), bitstring
          |} ->
-         let nodes =
-           [ to_node ~offset:off 2 "reserved_future_use" (Bits (Int rfu_1))
-           ; to_node ~offset:(off + off_1) 1 "foreign_availability" (Bits (Bool foreign_avail))
-           ; to_node ~offset:(off + off_2) 5 "connection_type" (Hex (Int connection))
-           ; to_node ~offset:(off + off_3) 1 "reserved_future_use" (Bits (Bool rfu_2))
-           ; to_node ~offset:(off + off_4) 2 "country_prefix_length" (Dec (Int length_1))
-           ; to_node ~offset:(off + off_5) 3 "international_area_code_length" (Dec (Int length_2))
-           ; to_node ~offset:(off + off_6) 2 "operator_code_length" (Dec (Int length_3))
-           ; to_node ~offset:(off + off_7) 1 "reserved_future_use" (Bits (Bool rfu_3))
-           ; to_node ~offset:(off + off_8) 3 "national_area_code_length" (Dec (Int length_4))
-           ; to_node ~offset:(off + off_9) 4 "core_number_length" (Dec (Int length_5))]
+         let country_prefix = match Text_decoder.decode @@ Bitstring.to_cstruct country_prefix with
+           | Ok s    -> s
+           | Error _ -> "Unable to decode"
          in
-         let for_1 = parse_bytes ~offset:(off + off_10) nodes country_prefix "country_prefix_char" in
-         let for_2 = parse_bytes ~offset:(off + off_11) for_1
-                       int_area_code "international_area_code_char" in
-         let for_3 = parse_bytes ~offset:(off + off_12) for_2 operator_code "operator_code_char"in
-         let for_4 = parse_bytes ~offset:(off + off_13) for_3 nat_area_code "national_area_code_char" in
-         parse_bytes ~offset:(off + off_14) for_4 core_number "core_number_char"
+         let int_code = match Text_decoder.decode @@ Bitstring.to_cstruct int_area_code with
+           | Ok s    -> s
+           | Error _ -> "Unable to decode"
+         in
+         let operator_code = match Text_decoder.decode @@ Bitstring.to_cstruct operator_code with
+           | Ok s    -> s
+           | Error _ -> "Unable to decode"
+         in
+         let nat_area_code = match Text_decoder.decode @@ Bitstring.to_cstruct nat_area_code with
+           | Ok s    -> s
+           | Error _ -> "Unable to decode"
+         in
+         let core_number = match Text_decoder.decode @@ Bitstring.to_cstruct core_number with
+           | Ok s    -> s
+           | Error _ -> "Unable to decode"
+         in
+         [ to_node ~offset:off 2 "reserved_future_use" (Bits (Int rfu_1))
+         ; to_node ~offset:(off + off_1) 1 "foreign_availability" (Bits (Bool foreign_avail))
+         ; to_node ~offset:(off + off_2) 5 "connection_type" (Hex (Int connection))
+         ; to_node ~offset:(off + off_3) 1 "reserved_future_use" (Bits (Bool rfu_2))
+         ; to_node ~offset:(off + off_4) 2 "country_prefix_length" (Dec (Int length_1))
+         ; to_node ~offset:(off + off_5) 3 "international_area_code_length" (Dec (Int length_2))
+         ; to_node ~offset:(off + off_6) 2 "operator_code_length" (Dec (Int length_3))
+         ; to_node ~offset:(off + off_7) 1 "reserved_future_use" (Bits (Bool rfu_3))
+         ; to_node ~offset:(off + off_8) 3 "national_area_code_length" (Dec (Int length_4))
+         ; to_node ~offset:(off + off_9) 4 "core_number_length" (Dec (Int length_5))
+         ; to_node ~offset:(off + off_10) (length_1 * 8) "country_prefix" (String country_prefix)
+         ; to_node ~offset:(off + off_11) (length_2 * 8) "international_area_code" (String int_code)
+         ; to_node ~offset:(off + off_12) (length_3 * 8) "operator_code" (String operator_code)
+         ; to_node ~offset:(off + off_13) (length_4 * 8) "national_area_code" (String nat_area_code)
+         ; to_node ~offset:(off + off_14) (length_5 * 8) "core_number" (String core_number)]
   end
 
   (* 0x58 *)
@@ -2406,11 +2454,15 @@ module Descriptor = struct
               ; rest      : -1 : save_offset_to (off_3), bitstring
               |} ->
               let parsed, lang_code = parse_lang_code lang_code in
+              let network_name = match Text_decoder.decode @@ Bitstring.to_cstruct network with
+                | Ok s    -> s
+                | Error _ -> "Unable to decode"
+              in
               let nodes =
                 [ to_node ~parsed ~offset:off 24 "ISO_639_language_code" (Bits (Int lang_code))
-                ; to_node ~offset:(off + off_1) 8 "network_name_length" (Dec (Int length)) ]
+                ; to_node ~offset:(off + off_1) 8 "network_name_length" (Dec (Int length))
+                ; to_node ~offset:(off + off_2) (length * 8) "network_name" (String network_name)]
               in
-              let nodes = parse_bytes ~offset:(off + off_2) nodes network "char" in
               f (off + off_3) nodes rest
 
     let decode bs off =
@@ -2432,11 +2484,15 @@ module Descriptor = struct
               ; rest      : -1 : save_offset_to (off_3), bitstring
               |} ->
               let parsed, lang_code = parse_lang_code lang_code in
+              let name = match Text_decoder.decode @@ Bitstring.to_cstruct bouquet with
+                | Ok s    -> s
+                | Error _ -> "Unable to decode"
+              in
               let nodes =
                 [ to_node ~parsed ~offset:off 24 "ISO_639_language_code" (Bits (Int lang_code))
-                ; to_node ~offset:(off + off_1) 8 "bouquet_name_length" (Dec (Int length)) ]
+                ; to_node ~offset:(off + off_1) 8 "bouquet_name_length" (Dec (Int length))
+                ; to_node ~offset:(off + off_2) (length * 8) "bouquet_name" (String name) ]
               in
-              let nodes = parse_bytes ~offset:(off + off_2) nodes bouquet "char" in
               f (off + off_3) nodes rest
 
     let decode bs off =
@@ -2460,14 +2516,22 @@ module Descriptor = struct
               ; rest      : -1 : save_offset_to (off_5), bitstring
               |} ->
               let parsed, lang_code = parse_lang_code lang_code in
+              let ser_p = match Text_decoder.decode @@ Bitstring.to_cstruct service_p with
+                | Ok s    -> s
+                | Error _ -> "Unable to decode"
+              in
+              let ser = match Text_decoder.decode @@ Bitstring.to_cstruct service with
+                | Ok s    -> s
+                | Error _ -> "Unable to decode"
+              in
               let nodes =
                 [ to_node ~parsed ~offset:off 24 "ISO_639_language_code" (Bits (Int lang_code))
-                ; to_node ~offset:(off + off_1) 8 "network_name_length" (Dec (Int length_1)) ]
+                ; to_node ~offset:(off + off_1) 8 "service_provider_name_length" (Dec (Int length_1))
+                ; to_node ~offset:(off + off_2) (length_1 * 8) "service_provider_name" (String ser_p)
+                ; to_node ~offset:(off + off_3) 8 "service_name_length" (Dec (Int length_2))
+                ; to_node ~offset:(off + off_4) (length_2 * 8) "service__name" (String ser) ]
               in
-              let nodes = parse_bytes ~offset:(off + off_2) nodes service_p "char" in
-              let nodes = nodes @ [to_node ~offset:(off + off_3) 8 "service_name_length" (Dec (Int length_2))] in
-              let nodes = parse_bytes ~offset:(off + off_4) nodes service "char" in
-              f (off + off_5) nodes rest
+              f (off + off_5) (acc @ nodes) rest
 
     let decode bs off =
       f off [] bs
@@ -2488,11 +2552,15 @@ module Descriptor = struct
               ; rest      : -1 : save_offset_to (off_3), bitstring
               |} ->
               let parsed, lang_code = parse_lang_code lang_code in
+              let text = match Text_decoder.decode @@ Bitstring.to_cstruct descr with
+                | Ok s    -> s
+                | Error _ -> "Unable to decode"
+              in
               let nodes =
                 [ to_node ~parsed ~offset:off 24 "ISO_639_language_code" (Bits (Int lang_code))
-                ; to_node ~offset:(off + off_1) 8 "text_description_length" (Dec (Int length)) ]
+                ; to_node ~offset:(off + off_1) 8 "text_description_length" (Dec (Int length))
+                ; to_node ~offset:(off + off_2) (length * 8) "text_description" (String text) ]
               in
-              let nodes = parse_bytes ~offset:(off + off_2) nodes descr "text_char" in
               f (off + off_3) nodes rest
 
     let decode bs off =
@@ -2633,17 +2701,19 @@ module Descriptor = struct
          ; text_chars        : text_length * 8 : save_offset_to (off_6), bitstring
          |} ->
          let parsed, lang_code = parse_lang_code lang_code in
+         let text =match Text_decoder.decode @@ Bitstring.to_cstruct text_chars with
+           | Ok s    -> s
+           | Error _ -> "Unable to decode"
+         in
          let nodes_1 =
            [ to_node ~offset:off 16 "data_broadcast_id" (Hex (Int data_broadcast_id))
            ; to_node ~offset:(off + off_1) 8 "component_tag" (Hex (Int component_tag))
            ; to_node ~offset:(off + off_2) 8 "selector_length" (Dec (Int sel_length)) ]
          in
-         let nodes = (parse_bytes ~offset:(off + off_3) nodes_1 selector_bytes "selector_byte")
-                     @ [ to_node ~parsed ~offset:(off + off_4) 24
-                           "ISO_639_language_code" (Hex (Int lang_code))
-                       ; to_node ~offset:(off + off_5) 8 "text_length" (Dec (Int text_length)) ]
-         in
-         parse_bytes ~offset:(off + off_6) nodes text_chars "text_char"
+         (parse_bytes ~offset:(off + off_3) nodes_1 selector_bytes "selector_byte")
+         @ [ to_node ~parsed ~offset:(off + off_4) 24 "ISO_639_language_code" (Hex (Int lang_code))
+           ; to_node ~offset:(off + off_5) 8 "text_length" (Dec (Int text_length))
+           ; to_node ~offset:(off + off_6) (text_length * 8) "text" (String text) ]
 
   end
 
@@ -3140,7 +3210,6 @@ module Descriptor = struct
 
     let decode _ _ = []
 
-
   end
 
   (*0x80 to 0xFE*)
@@ -3149,6 +3218,7 @@ module Descriptor = struct
     let name = "user defined"
 
     let decode _ _ = []
+
   end
 
   module Unknown = struct
@@ -3294,9 +3364,9 @@ module Descriptor = struct
     match%bitstring bs with
     | {| tag    : 8
        ; length : 8
-       ; body   : length * 8 : bitstring
+       ; body   : length * 8 : save_offset_to (off_1), bitstring
        ; rest   : -1 : bitstring
-       |} -> (decode tag length body off),rest
+       |} -> (decode tag length body (off + off_1)),rest
 
   end
 
@@ -3318,9 +3388,9 @@ module Table_common = struct
        ]
 
   let rec parse_descriptors = fun off acc x ->
-    if Bitstring.length x = 0 then List.rev acc
+    if Bitstring.length x = 0 then acc
     else let descr,rest = Descriptor.of_bitstring off x in
-         parse_descriptors off (descr @ acc) rest
+         parse_descriptors off (acc @ descr) rest
 
   let rec parse_ts = fun off acc x ->
     if Bitstring.length x = 0 then List.rev acc
