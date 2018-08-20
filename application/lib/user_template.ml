@@ -5,7 +5,7 @@ open Api
 module Icon = Components_markup.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
 
 let create () : upper ordered_item list user_table =
-  let props = { title        = None
+  let props = { title        = Some "Пользователи"
               ; pre_scripts  = []
               ; post_scripts = [ Src "/js/user.js" ]
               ; stylesheets  = [ "/css/user.min.css" ]

@@ -32,7 +32,7 @@ let input topo (topo_input:topo_input) =
                   |> cpu_opt_to_yojson |> Yojson.Safe.to_string in
      let input  = Common.Topology.Show_topo_input.to_string topo_input in
      let template =
-       { title        = Some ("Вход " ^ title)
+       { title = Some title
        ; pre_scripts  = [ Raw (Printf.sprintf "var input = \"%s\";\
                                                var boards = %s;\
                                                var cpu = %s;"
@@ -41,8 +41,8 @@ let input topo (topo_input:topo_input) =
                         ; Src "/js/Chart.min.js"
                         ; Src "/js/Chart.PieceLabel.min.js"]
        ; post_scripts = [ Src "/js/input.js" ]
-       ; stylesheets  = []
-       ; content      = []
+       ; stylesheets = []
+       ; content = []
        } in
      `Index topo_input.id,
      Simple { title

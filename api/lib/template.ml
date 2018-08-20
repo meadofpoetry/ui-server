@@ -72,8 +72,9 @@ let rec merge_subtree items =
   | (p, Subtree { title; icon; href; templates })::tl ->
      let related, rest = List.partition (subtree_eq p title href) tl in
      let templates = List.fold_left subtree_merge templates related
-     in (p, Subtree { title; icon; href; templates }) :: (merge_subtree rest)
-  | h::tl -> h :: (merge_subtree tl)
+     in
+     (p, Subtree { title; icon; href; templates }) :: (merge_subtree rest)
+  | h :: tl -> h :: (merge_subtree tl)
 
 let make_template (props : tmpl_props) =
   let script_to_object = function
@@ -151,9 +152,14 @@ let build_templates ?(href_base="") mustache_tmpl user (vals : upper ordered_ite
                                         | None -> acc
                                         | Some v -> v::acc) [] vals) ]
   in
-  let fill_in_sub base_href = function
-    | _, Simple { title;href;template;_ } ->
+  let fill_in_sub base_title base_href = function
+    | _, Simple { title; href; template; _ } ->
        Some (Path.concat [base_href;href],
+             let template = match template.title with
+               | None -> template
+               | Some t ->
+                  let title = base_title ^ " / " ^ t in
+                  { template with title = Some title } in
              Mustache.render mustache_tmpl (`O (items @ make_template template)))
     | _                                 -> None
   in
@@ -162,7 +168,7 @@ let build_templates ?(href_base="") mustache_tmpl user (vals : upper ordered_ite
     | Ref  r    -> [ ]
     | Home t    -> [ Path.empty, (Mustache.render mustache_tmpl (`O (items @ make_template t)))]
     | Simple s  -> [ s.href,     (Mustache.render mustache_tmpl (`O (items @ make_template s.template)))]
-    | Subtree s -> List.filter_map (fill_in_sub s.href) s.templates
+    | Subtree s -> List.filter_map (fill_in_sub s.title s.href) s.templates
   in List.fold_left (fun acc v -> (fill_in v) @ acc) [] vals
 
 type route_table = (string, string) Hashtbl.t (* TODO: proper hash *)
