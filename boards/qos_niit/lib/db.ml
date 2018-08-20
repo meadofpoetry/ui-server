@@ -320,8 +320,9 @@ module Streams = struct
                       acc >>= fun () -> exec update_last s)
                     (return ()) data))
 
-  let select_stream_unique  db ?(inputs = []) ~from ~till () =
+  let select_stream_unique  db ?(inputs = []) ?(ids = []) ~from ~till () =
     let table  = (Conn.names db).streams in
+    let ids = is_in "id" ID.to_value_string ids in
     let inputs =
       is_in "input" (fun i ->
           sprintf "'%s'"
@@ -330,8 +331,8 @@ module Streams = struct
     let select =
       R.collect Types.(tup2 ptime ptime) Types.(tup4 string ID.db string ptime)
         (sprintf {|SELECT DISTINCT ON (type, id) stream,id,type,date_end FROM %s
-                  WHERE %s date_end >= $1 AND date_start <= $2
-                  ORDER BY type, id, date_end DESC|} table inputs) in
+                  WHERE %s %s date_end >= $1 AND date_start <= $2
+                  ORDER BY type, id, date_end DESC|} table ids inputs) in
     Conn.request db Request.(
       list select (from,till) >>= fun data ->
       try
@@ -359,7 +360,7 @@ module Streams = struct
   let select_streams ?(limit = 500) ?(ids = []) ?(inputs = [])
         ~from ~till db =
     let table  = (Conn.names db).streams in
-    let ids    = is_in "id" Stream.ID.to_string ids in
+    let ids    = is_in "id" ID.to_value_string ids in
     let inputs =
       is_in "input" (fun i ->
           sprintf "'%s'::JSONB"

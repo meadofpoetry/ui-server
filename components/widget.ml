@@ -61,22 +61,24 @@ class t (elt:#Dom_html.element Js.t) () = object(self)
 
   method layout () = ()
 
-  method get_child_element_by_class x = Js.Opt.to_option @@ self#root##querySelector (Js.string ("." ^ x))
-  method get_child_element_by_id    x = Js.Opt.to_option @@ self#root##querySelector (Js.string ("#" ^ x))
+  method get_child_element_by_class x =
+    Js.Opt.to_option @@ self#root##querySelector (Js.string ("." ^ x))
+  method get_child_element_by_id x =
+    Js.Opt.to_option @@ self#root##querySelector (Js.string ("#" ^ x))
 
-  method get_attribute a    = self#root##getAttribute (Js.string a)
-                              |> Js.Opt.to_option
-                              |> Option.map Js.to_string
+  method get_attribute a = self#root##getAttribute (Js.string a)
+                           |> Js.Opt.to_option
+                           |> Option.map Js.to_string
   method set_attribute a v  = self#root##setAttribute (Js.string a) (Js.string v)
   method remove_attribute a = self#root##removeAttribute (Js.string a)
-  method has_attribute a    = self#root##hasAttribute (Js.string a)
-                              |> Js.to_bool
+  method has_attribute a = self#root##hasAttribute (Js.string a)
+                           |> Js.to_bool
 
-  method inner_html       = Js.to_string self#root##.innerHTML
-  method outer_html       = Js.to_string self#root##.outerHTML
+  method inner_html = Js.to_string self#root##.innerHTML
+  method outer_html = Js.to_string self#root##.outerHTML
   method set_inner_html s = self#root##.innerHTML := Js.string s
 
-  method text_content       = self#root##.textContent |> Js.Opt.to_option |> Option.map Js.to_string
+  method text_content = self#root##.textContent |> Js.Opt.to_option |> Option.map Js.to_string
   method set_text_content s = self#root##.textContent := Js.some @@ Js.string s
 
   method id        = Js.to_string self#root##.id
@@ -85,12 +87,12 @@ class t (elt:#Dom_html.element Js.t) () = object(self)
   method style = self#root##.style
 
   method class_string = Js.to_string @@ self#root##.className
-  method classes      = String.split_on_char ' ' @@ self#class_string
+  method classes = String.split_on_char ' ' @@ self#class_string
   method set_class_string _classes = self#root##.className := (Js.string _classes)
-  method add_class    _class = self#root##.classList##add (Js.string _class)
+  method add_class _class = self#root##.classList##add (Js.string _class)
   method remove_class _class = self#root##.classList##remove (Js.string _class)
   method toggle_class _class = self#root##.classList##toggle (Js.string _class) |> Js.to_bool
-  method has_class    _class = Js.to_bool (self#root##.classList##contains (Js.string _class))
+  method has_class _class = Js.to_bool (self#root##.classList##contains (Js.string _class))
   method find_classes pre = List.find_all (fun c -> String.prefix ~pre c) self#classes
   method add_or_remove_class x _class = if x then self#add_class _class else self#remove_class _class
 
@@ -147,13 +149,14 @@ class t (elt:#Dom_html.element Js.t) () = object(self)
     Dom.list_of_nodeList @@ self#root##.childNodes
     |> List.iter (fun x -> Dom.removeChild self#root x)
 
-  method bounding_client_rect = (self#root##getBoundingClientRect)
-                                |> (fun x -> { top    = x##.top
-                                             ; right  = x##.right
-                                             ; bottom = x##.bottom
-                                             ; left   = x##.left
-                                             ; width  = Js.Optdef.to_option x##.width
-                                             ; height = Js.Optdef.to_option x##.height })
+  method bounding_client_rect =
+    (self#root##getBoundingClientRect)
+    |> (fun x -> { top    = x##.top
+                 ; right  = x##.right
+                 ; bottom = x##.bottom
+                 ; left   = x##.left
+                 ; width  = Js.Optdef.to_option x##.width
+                 ; height = Js.Optdef.to_option x##.height })
 
   method set_on_load (f : (unit -> unit) option) =
     _on_load <- f; self#_observe_if_needed
@@ -168,18 +171,19 @@ class t (elt:#Dom_html.element Js.t) () = object(self)
     _e_storage <- React.E.map ignore e :: _e_storage
 
   method private _observe_if_needed =
-    let init () = MutationObserver.observe
-                    ~node:Dom_html.document
-                    ~f:(fun _ _ ->
-                      let in_dom_new = (Js.Unsafe.coerce Dom_html.document)##contains self#root in
-                      if _in_dom && (not in_dom_new)
-                      then CCOpt.iter (fun f -> f ()) _on_unload
-                      else if (not _in_dom) && in_dom_new
-                      then CCOpt.iter (fun f -> f ()) _on_load;
-                      _in_dom <- in_dom_new)
-                    ~child_list:true
-                    ~subtree:true
-                    ()
+    let init () =
+      MutationObserver.observe
+        ~node:Dom_html.document
+        ~f:(fun _ _ ->
+          let in_dom_new = (Js.Unsafe.coerce Dom_html.document)##contains self#root in
+          if _in_dom && (not in_dom_new)
+          then CCOpt.iter (fun f -> f ()) _on_unload
+          else if (not _in_dom) && in_dom_new
+          then CCOpt.iter (fun f -> f ()) _on_load;
+          _in_dom <- in_dom_new)
+        ~child_list:true
+        ~subtree:true
+        ()
     in
     match _on_load, _on_unload, _observer with
     | None, None, Some o -> o##disconnect; _observer <- None

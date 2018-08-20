@@ -2,6 +2,7 @@ open Common.Topology
 open Boards.Board
 open Board_types
 open Containers
+open Common
 
 module Api_handler = Api.Handler.Make (Common.User)
 
@@ -18,15 +19,15 @@ module Config_storage = Storage.Options.Make (Data)
 
 let tick tm =
   let open Lwt.Infix in
-  let e,push = Lwt_react.E.create () in
+  let e, push = Lwt_react.E.create () in
   let rec loop () =
     push (); Lwt_unix.sleep tm >>= loop
   in
   e, loop
 
 let appeared_streams
-      ~(past:Common.Stream.t list)
-      ~(pres:Common.Stream.t list) =
+      ~(past:Stream.t list)
+      ~(pres:Stream.t list) =
   let open Common.Stream in
   let rec not_in_or_diff s = function
     | [] -> true
@@ -45,24 +46,48 @@ let invalid_port prefix x =
 let get_ports_sync prefix streams input ports =
   let open React in
   List.fold_left (fun acc p ->
-      (match p.port with
-       | 0 -> S.l2 (fun i s -> match i, s with
-                               | SPI, _ :: _ -> true
-                               | _ -> false) input streams
-       | 1 -> S.l2 (fun i s -> match i, s with
-                               | ASI, _ :: _ -> true
-                               | _ -> false) input streams
-       | x -> invalid_port prefix x)
+      begin match p.port with
+      | 0 -> S.l2 (fun i s -> match i, s with
+                              | SPI, _ :: _ -> true
+                              | _ -> false) input streams
+      | 1 -> S.l2 (fun i s -> match i, s with
+                              | ASI, _ :: _ -> true
+                              | _ -> false) input streams
+      | x -> invalid_port prefix x
+      end
       |> fun x -> Ports.add p.port x acc) Ports.empty ports
 
 let get_ports_active prefix input ports =
   let open React in
   List.fold_left (fun acc p ->
-      (match p.port with
-       | 0 -> S.map (function SPI -> true | _ -> false) input
-       | 1 -> S.map (function ASI -> true | _ -> false) input
-       | x -> invalid_port prefix x)
+      begin match p.port with
+      | 0 -> S.map (function SPI -> true | _ -> false) input
+      | 1 -> S.map (function ASI -> true | _ -> false) input
+      | x -> invalid_port prefix x
+      end
       |> fun x -> Ports.add p.port x acc) Ports.empty ports
+
+let make_templates (b:topo_board) =
+  let open Api.Template in
+  let open Common.Uri in
+  let template =
+    { title = Some ""
+    ; pre_scripts = [ Src "/js/moment.min.js"
+                    ; Src "/js/Chart.min.js"
+                    ; Src "/js/Chart.PieceLabel.min.js" ]
+    ; post_scripts = [ Src "/js/board_qos_stream.js" ]
+    ; stylesheets = []
+    ; content = []
+    } in
+  let node =
+    let pre = Printf.sprintf "board/%d/stream" b.control in
+    Pure { path = Path.Format.(pre @/ Stream.ID.fmt ^/ empty)
+         ; template } in
+  let rval = [ `Index 1, node ]
+  in
+  User.({ root = rval
+        ; operator = rval
+        ; guest = rval })
 
 let create (b:topo_board) _ convert_streams send db_conf base step =
   let log_name = Boards.Board.log_name b in
@@ -123,18 +148,19 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
                  val _tick = tick_loop ()
                  method finalize () = ()
                end) in (* TODO fix finalize *)
-  { handlers       = handlers
-  ; control        = b.control
+  { handlers = handlers
+  ; control = b.control
   ; streams_signal = events.streams
-  ; step           = step
-  ; connection     = events.device.state
-  ; ports_sync     = get_ports_sync log_name
-                       events.streams
-                       events.device.input
-                       b.ports
-  ; ports_active   = get_ports_active log_name
-                       events.device.input
-                       b.ports
+  ; step
+  ; connection = events.device.state
+  ; ports_sync = get_ports_sync log_name
+                   events.streams
+                   events.device.input
+                   b.ports
+  ; ports_active = get_ports_active log_name
+                     events.device.input
+                     b.ports
   ; stream_handler = None
-  ; state          = (state :> < finalize : unit -> unit >)
+  ; state = (state :> < finalize : unit -> unit >)
+  ; templates = Some (make_templates b)
   }

@@ -1,6 +1,7 @@
 open Common.User
 open Api.Template
 open Api
+open Common.Uri
 
 module Icon = Components_markup.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
 

@@ -21,9 +21,9 @@ let switch_tab (container:#Widget.t)
 
 let create_toolbar_tabs_row (tabs:('a, (unit -> #Widget.t)) Tab.t list) =
   let open Tabs in
-  let bar     = new Tab_bar.t ~align:Start ~tabs () in
+  let bar = new Tab_bar.t ~align:Start ~tabs () in
   let section = new Toolbar.Row.Section.t ~align:`Start ~widgets:[bar] () in
-  let row     = new Toolbar.Row.t ~sections:[section] () in
+  let row = new Toolbar.Row.t ~sections:[section] () in
   let () = row#set_id row_id in
   let s  = React.S.map (function
                | Some x -> Some (x#value ())
@@ -31,11 +31,11 @@ let create_toolbar_tabs_row (tabs:('a, (unit -> #Widget.t)) Tab.t list) =
   row, s
 
 class t (content:('a,'b) page_content) () =
-  let main      = Dom_html.getElementById "main-content" in
+  let main = Dom_html.getElementById "main-content" in
   let arbitrary = Dom_html.getElementById "arbitrary-content"
                   |> Widget.create in
-  let toolbar   = Dom_html.getElementById "main-toolbar"
-                  |> Widget.create in
+  let toolbar = Dom_html.getElementById "main-toolbar"
+                |> Widget.create in
   object(self)
 
     val mutable _previous_toolbar = None

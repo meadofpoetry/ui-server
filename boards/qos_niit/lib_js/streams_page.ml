@@ -78,9 +78,11 @@ module Stream_item = struct
 
       initializer
         self#add_class base_class;
-        Dom_events.listen self#root Dom_events.Typ.click (fun _ _ ->
-            Stream_page.make stream control |> ignore;
-            print_endline "clicked"; true) |> ignore;
+        self#listen_lwt Widget.Event.click (fun _ _ ->
+            let id = Stream.ID.to_string self#stream.id in
+            let url = Printf.sprintf "/board/%d/stream/%s" control id in
+            Dom_html.window##.location##.href := Js.string url;
+            Lwt.return_unit) |> Lwt.ignore_result;
         React.E.map (function
             | Some _ ->
                on_found self;

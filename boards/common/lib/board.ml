@@ -3,6 +3,8 @@ open Common
 open Common.Topology
 open Storage.Options
 open Lwt.Infix
+open Api.Template
+open Common.User
 
 module Api_handler = Api.Handler.Make(User)
 
@@ -46,6 +48,7 @@ type t =
   ; ports_active    : bool React.signal Ports.t
   ; ports_sync      : bool React.signal Ports.t
   ; stream_handler  : stream_handler option
+  ; templates       : upper ordered_item list user_table option
   ; state           : < finalize : unit -> unit >
   }
 

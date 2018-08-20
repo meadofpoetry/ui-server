@@ -129,7 +129,7 @@ module HTTP = struct
     in (* TODO add compress *)
     join streams state
 
-  let streams_unique db (events:events) inputs from till duration () =
+  let streams_unique db (events:events) ids inputs from till duration () =
     let open Api.Api_types in
     let open Common.Stream in
     let open Lwt_result.Infix in
@@ -144,7 +144,7 @@ module HTTP = struct
     in
     match Time.make_interval ?from ?till ?duration () with
     | Ok `Range (from,till) ->
-       Db.Streams.select_stream_unique db ~inputs ~from ~till ()
+       Db.Streams.select_stream_unique db ~ids ~inputs ~from ~till ()
        >>= (function
             | Raw _ -> assert false
             | Compressed { data } ->
@@ -178,7 +178,7 @@ module HTTP = struct
 
   let streams db events ids inputs limit compress from till duration _ _ () =
     if Option.get_or ~default:false compress
-    then streams_unique db events inputs from till duration ()
+    then streams_unique db events ids inputs from till duration ()
     else streams_states db ids inputs limit from till duration ()
 
   let si_psi_section (api:api) id table_id section

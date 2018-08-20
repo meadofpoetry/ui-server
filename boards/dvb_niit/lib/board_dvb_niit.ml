@@ -67,4 +67,5 @@ let create (b:topo_board) _ convert_streams send _ (* db_conf*) base step =
         Ports.empty b.ports
   ; stream_handler = None
   ; state = (state :> < finalize : unit -> unit >)
+  ; templates = None
   }

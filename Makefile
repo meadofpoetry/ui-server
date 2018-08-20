@@ -21,6 +21,8 @@ pipeline-editor:
 hardware:
 	$(BUILD) build frontend/topology.bc.js
 	cp _build/default/frontend/topology.bc.js dist/resources/js/topology.js
+	$(BUILD) build frontend/board_qos_stream.bc.js
+	cp _build/default/frontend/board_qos_stream.bc.js dist/resources/js/board_qos_stream.js
 
 user:
 	$(BUILD) build frontend/user.bc.js

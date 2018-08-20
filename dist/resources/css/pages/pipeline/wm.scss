@@ -370,7 +370,7 @@ $wm-placeholder-color: text-secondary-on-surface;
     > * {
         margin-bottom: 20px;
         flex-grow: 2;
-        max-height: 40vh;
+        /* max-height: 40vh; */
     }
     > *:last-child { margin-bottom: 0; }
 }
