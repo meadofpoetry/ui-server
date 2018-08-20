@@ -181,10 +181,10 @@ module SM = struct
 
     let full b devinfo streams =
       match Option.(devinfo >>= (fun x -> x.packers_num)) with
-      | None   -> Error `Undefined_limit
+      | None -> Error `Undefined_limit
       | Some n ->
          let streams =
-           List.filter (fun (s:stream_settings) ->
+           List.filter (fun (s : stream_settings) ->
                match s.stream.orig_id with
                | TS_raw | TSoIP _ -> false
                | TS_multi _ -> true) streams in
@@ -199,7 +199,6 @@ module SM = struct
                 end
            in
            Ok (pack [] streams)
-
 
     let succ_mcast addr =
       Int32.add (Ipaddr.V4.to_int32 addr) 1l
@@ -217,24 +216,25 @@ module SM = struct
 
   end
 
+  let find_stream (b : Topology.topo_board) (id : Stream.Multi_TS_ID.t)
+        (port : int) (streams : Stream.t list) =
+    List.find_opt (fun (t:Stream.t) ->
+        let p = Stream.to_topo_port b t in
+        match t.orig_id, p with
+        | TS_multi x, Some p when Stream.Multi_TS_ID.equal x id
+                                  && p.port = port -> true
+        | _ -> false) streams
+
   let to_out_streams_s b
-        (status:status React.event)
-        (streams:Stream.t list React.signal) =
-    let find_stream (b:Topology.topo_board) (id:Stream.Multi_TS_ID.t)
-          (port:int) (streams:Stream.t list) =
-      List.find_opt (fun (t:Stream.t) ->
-          let p = Stream.to_topo_port b t in
-          match t.orig_id, p with
-          | TS_multi x, Some p when Stream.Multi_TS_ID.equal x id
-                                    && p.port = port -> true
-          | _ -> false) streams in
+        (status : status React.event)
+        (streams : Stream.t list React.signal) =
     React.S.l2 (fun status streams ->
-        List.fold_left (fun acc (packer,{bitrate;enabled;has_data;_}) ->
+        List.fold_left (fun acc (packer, { bitrate; enabled; has_data; _ }) ->
             let s = find_stream b packer.stream packer.socket streams in
-            match s,bitrate,enabled,has_data with
+            match s, bitrate, enabled, has_data with
             | Some s, Some _, true, true ->
-               let (stream:Common.Stream.t) =
-                 { source  = s.source
+               let (stream : Common.Stream.t) =
+                 { source = s.source
                  ; orig_id = TSoIP { addr = packer.dst_ip
                                    ; port = packer.dst_port }
                  ; id = s.id
@@ -247,10 +247,10 @@ module SM = struct
   let create
         logs
         sender
-        (storage       : config storage)
+        (storage : config storage)
         (step_duration : float)
-        (streams       : Stream.t list React.signal)
-        (board         : Topology.topo_board) =
+        (streams : Stream.t list React.signal)
+        (board : Topology.topo_board) =
     let (module Logs : Logs.LOG) = logs in
     let state, state_push = React.S.create `No_response in
     let devinfo, devinfo_push = React.S.create None in

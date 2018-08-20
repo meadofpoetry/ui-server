@@ -38,16 +38,16 @@ let create (b:topo_board) (streams:Stream.t list React.signal) _
     React.S.l2 (fun incoming outgoing ->
         List.map (fun x ->
             let open Stream in
-            match List.find_opt (fun o ->
-                      match o.source.node with
-                      | Stream s -> Stream.equal x s
-                      | _ -> false) outgoing with
+            match List.find_opt (fun o -> Stream.ID.equal o.id x.id)
+                    outgoing with
             | Some o ->
-               (match o.orig_id with
-                | TSoIP uri ->
-                   Some ({ ip = uri.addr; port = uri.port }:Url.t), x
-                | _ -> None, x)
-            | None   -> None, x) incoming)
+               begin match o.orig_id with
+               | TSoIP uri ->
+                  Some ({ ip = uri.addr
+                        ; port = uri.port } : Url.t), x
+               | _ -> None, x
+               end
+            | None -> None, x) incoming)
       events.in_streams events.out_streams in
   let constraints =
     { state =
@@ -61,7 +61,7 @@ let create (b:topo_board) (streams:Stream.t list React.signal) _
             | _ -> `Forbidden)
           events.state events.devinfo
     ; range =
-        [ { ip = Ipaddr.V4.make 224 1 2 2;       port = 1234 },
+        [ { ip = Ipaddr.V4.make 224 1 2 2; port = 1234 },
           { ip = Ipaddr.V4.make 239 255 255 255; port = 65535 }
         ]
     } in
