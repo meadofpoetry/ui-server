@@ -38,14 +38,14 @@ let create (b:topo_board) (streams:Stream.t list React.signal) _
     React.S.l2 (fun incoming outgoing ->
         List.map (fun x ->
             let open Stream in
-            match List.find_opt (fun o -> Stream.ID.equal o.id x.id)
-                    outgoing with
+            let stream = List.find_opt (fun o -> ID.equal o.id x.id) outgoing in
+            match stream with
             | Some o ->
                begin match o.orig_id with
                | TSoIP uri ->
-                  Some ({ ip = uri.addr
-                        ; port = uri.port } : Url.t), x
-               | _ -> None, x
+                  let uri : Url.t = { ip = uri.addr; port = uri.port } in
+                  Some uri, x
+               | _ -> assert false (* unreachable *)
                end
             | None -> None, x) incoming)
       events.in_streams events.out_streams in
