@@ -138,27 +138,31 @@ let make_item (_, v) =
   match v with
   | Home _ -> None
   | Pure _ -> None
-  | Ref  r ->
+  | Ref r ->
+     let href = if r.absolute
+                then Path.to_string @@ make_absolute_ref r.href
+                else Path.to_string @@ make_absolute r.href in
      Some (`O [ "title", `String r.title
-              ; "href", `String (if r.absolute
-                                 then Path.to_string @@ make_absolute_ref r.href
-                                 else Path.to_string @@ make_absolute r.href)
+              ; "href", `String href
               ; "simple", `Bool true ])
   | Simple s ->
-     Some (`O [ "title",   `String s.title
-              ; "icon",    (match s.icon with
-                            | Some e -> `O ["value", `String (elt_to_string e)]
-                            | None   -> `Null)
-              ; "href",    `String (Path.to_string @@ make_absolute s.href)
-              ; "simple",  `Bool true ])
+     let icon = match s.icon with
+       | Some e -> `O ["value", `String (elt_to_string e)]
+       | None   -> `Null in
+     Some (`O [ "title", `String s.title
+              ; "icon", icon
+              ; "href", `String (Path.to_string @@ make_absolute s.href)
+              ; "simple", `Bool true ])
   | Subtree s ->
-     Some (`O [ "title",   `String s.title
-              ; "icon",    (match s.icon with
-                            | Some e -> `O ["value", `String (elt_to_string e)]
-                            | None   -> `Null)
-              ; "href",    `Null
-              ; "subtree", `A (make_subtree (Path.to_string s.href) s.templates)
-              ; "simple",  `Bool false])
+     let icon = match s.icon with
+       | Some e -> `O ["value", `String (elt_to_string e)]
+       | None   -> `Null in
+     let subtree = make_subtree (Path.to_string s.href) s.templates in
+     Some (`O [ "title", `String s.title
+              ; "icon", icon
+              ; "href", `Null
+              ; "subtree", `A subtree
+              ; "simple", `Bool false])
 
 let sort_items items =
   let compare : type a. a ordered_item -> a ordered_item -> int =
@@ -183,17 +187,19 @@ let make_node path tmpl : 'a Dispatcher.node =
   ; handler = fun _ -> respond_string tmpl ()
   }
 
-let build_templates ?(href_base="") mustache_tmpl user (vals : upper ordered_item list) =
-  let vals          = sort_items @@ merge_subtree vals in
+let build_templates ?(href_base = "") mustache_tmpl user
+      (vals : upper ordered_item list) =
+  let vals = sort_items @@ merge_subtree vals in
   let mustache_tmpl = Mustache.of_string mustache_tmpl in
-  let items         =
-    [ "user",       `String user
-    ; "navigation", `A (List.rev @@ List.fold_left
-                                      (fun acc v ->
-                                        match make_item v with
-                                        | None -> acc
-                                        | Some v -> v::acc) [] vals) ]
-  in
+  let items =
+    [ "user", `String user
+    ; "navigation",
+      `A (List.fold_left
+            (fun acc v ->
+              match make_item v with
+              | None -> acc
+              | Some v -> v :: acc) [] vals
+          |> List.rev) ] in
   let fill_in_sub base_title base_href = function
     | _, Simple { title; href; template; _ } ->
        let path = base_href @ href in
@@ -202,25 +208,25 @@ let build_templates ?(href_base="") mustache_tmpl user (vals : upper ordered_ite
          | Some t ->
             let title = base_title ^ " / " ^ t in
             { template with title = Some title } in
-       let tmpl = Mustache.render mustache_tmpl (`O (items @ make_template template)) in
-       Some (make_node (`Path path) tmpl)
-    | _ -> None
-in
+       Mustache.render mustache_tmpl (`O (items @ make_template template))
+       |> make_node (`Path path)
+       |> Option.return
+    | _ -> None in
   let fill_in (_, v) =
     match v with
     | Ref r -> [ ]
     | Home t ->
-       let open Dispatcher in
-       let tmpl = Mustache.render mustache_tmpl (`O (items @ make_template t)) in
-       [ make_node (`Path Path.empty) tmpl ]
+       Mustache.render mustache_tmpl (`O (items @ make_template t))
+       |> make_node (`Path Path.empty)
+       |> List.pure
     | Pure s ->
-       let open Dispatcher in
-       let tmpl = Mustache.render mustache_tmpl (`O (items @ make_template s.template)) in
-       [ make_node (`Fmt s.path) tmpl ]
+       Mustache.render mustache_tmpl (`O (items @ make_template s.template))
+       |> make_node (`Fmt s.path)
+       |> List.pure
     | Simple s ->
-       let open Dispatcher in
-       let tmpl = Mustache.render mustache_tmpl (`O (items @ make_template s.template)) in
-       [ make_node (`Path s.href) tmpl ]
+       Mustache.render mustache_tmpl (`O (items @ make_template s.template))
+       |> make_node (`Path s.href)
+       |> List.pure
     | Subtree s ->
        List.filter_map (fill_in_sub s.title s.href) s.templates
   in

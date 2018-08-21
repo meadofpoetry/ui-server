@@ -36,12 +36,19 @@ class t (content:('a,'b) page_content) () =
                   |> Widget.create in
   let toolbar = Dom_html.getElementById "main-toolbar"
                 |> Widget.create in
+  let title = toolbar#get_child_element_by_id "page-title"
+              |> Option.get_exn
+              |> Widget.create in
   object(self)
 
     val mutable _previous_toolbar = None
     val mutable _previous_content = None
 
     inherit Widget.t main ()
+
+    method set_title x =
+      Dom_html.document##.title := Js.string x;
+      title#set_text_content x
 
     method set () =
       _previous_content <- Some arbitrary#root##.childNodes;
