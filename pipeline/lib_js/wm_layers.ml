@@ -29,54 +29,57 @@ let emit_new_pos (s_layers:value Dynamic_grid.Item.t list React.signal) push =
   | l  -> push (`Changed l)
 
 let make_show_toggle () =
-  let open Icon_toggle in
-  let on_data  = ({ icon = "visibility";     label = None; css_class = None }:data) in
-  let off_data = ({ icon = "visibility_off"; label = None; css_class = None }:data) in
-  let toggle   = new Icon_toggle.t ~propagate:false ~on_data ~off_data () in
-  let ()       = toggle#set_on true in
+  let on = Icon.SVG.(create_simple Path.eye) in
+  let off = Icon.SVG.(create_simple Path.eye_off) in
+  let toggle = new Icon_button.t ~on:true ~on_icon:on ~icon:off () in
   toggle
 
 let make_layer_item s_layers push layer =
   let open Dynamic_grid.Position in
-  let _class            = "wm-layer-item" in
+  let _class = "wm-layer-item" in
   let drag_handle_class = Markup.CSS.add_element _class "drag-handle" in
-  let show_icon_class   = Markup.CSS.add_element _class "visibility" in
-  let color_class       = Markup.CSS.add_element _class "color-indicator" in
-  let layers   = React.S.value s_layers in
-  let drag     = new Icon.Font.t ~icon:"drag_handle" () in
+  let show_icon_class = Markup.CSS.add_element _class "visibility" in
+  let color_class = Markup.CSS.add_element _class "color-indicator" in
+
+  let layers = React.S.value s_layers in
+  let drag = new Icon.Font.t ~icon:"drag_handle" () in
   let original = List.fold_left (fun acc x -> max (succ x#value.original) acc) 0 layers in
-  let text     = new Typography.Text.t ~text:(Printf.sprintf "Слой %d" (original + 1)) () in
-  let vis      = make_show_toggle () in
-  let color    = Tyxml_js.Html.(span ~a:[a_class [color_class]] [])
-                 |> Tyxml_js.To_dom.of_element |> Widget.create in
-  let left     = new Hbox.t ~valign:`Center
+  let text = new Typography.Text.t ~text:(Printf.sprintf "Слой %d" (original + 1)) () in
+  let vis = make_show_toggle () in
+  let color = Tyxml_js.Html.(span ~a:[a_class [color_class]] [])
+              |> Tyxml_js.To_dom.of_element |> Widget.create in
+  let left = new Hbox.t ~valign:`Center
                    ~widgets:[vis#widget; color#widget; text#widget ] () in
-  let box      = new Hbox.t ~halign:`Space_between
-                   ~widgets:[left#widget; drag#widget] () in
-  let y        = List.length layers - layer in
-  let pos      = { x = 0; y; w = 1; h = 1 } in
-  let value    = { original; actual = layer } in
-  let item     = Dynamic_grid.Item.to_item ~pos ~move_widget:drag#widget ~widget:box#widget
-                                           ~on_drag:(fun _ _ _ _ -> emit_new_pos s_layers push)
-                                           ~resizable:false ~selectable:true ~value ()
+  let box = new Hbox.t ~halign:`Space_between
+              ~widgets:[left#widget; drag#widget] () in
+  let y = List.length layers - layer in
+  let pos = { x = 0; y; w = 1; h = 1 } in
+  let value = { original; actual = layer } in
+  let item =
+    Dynamic_grid.Item.to_item ~pos ~move_widget:drag#widget ~widget:box#widget
+      ~on_drag:(fun _ _ _ _ -> emit_new_pos s_layers push)
+      ~resizable:false ~selectable:true ~value ()
   in
-  let ()       = List.iter (fun i -> if i#pos.y >= y then i#set_pos { i#pos with y = i#pos.y + 1 }) layers in
-  let ()       = vis#add_class show_icon_class in
-  let ()       = drag#add_class drag_handle_class in
-  let ()       = box#add_class _class in
-  item,vis#s_state
+  let () = List.iter (fun i ->
+               if i#pos.y >= y
+               then i#set_pos { i#pos with y = i#pos.y + 1 }) layers in
+  let () = vis#add_class show_icon_class in
+  let () = drag#add_class drag_handle_class in
+  let () = box#add_class _class in
+  item, vis#s_state
 
 let on_add grid push =
   let open Dynamic_grid.Position in
   let f layer =
-    let i,s = make_layer_item grid#s_items push layer in
+    let i, s = make_layer_item grid#s_items push layer in
     (match grid#add i with
-     | Ok item -> let _ = React.S.map  (fun x -> push @@ `Visibility (item#value.actual,x)) s in
-                  set_data_layer_attr item item#value.actual;
-                  emit_new_pos grid#s_items push;
-                  item#set_selected true;
-                  push (`Added item#value.actual);
-                  push (`Selected item#value.actual);
+     | Ok item ->
+        let _ = React.S.map (fun x -> push @@ `Visibility (item#value.actual, x)) s in
+        set_data_layer_attr item item#value.actual;
+        emit_new_pos grid#s_items push;
+        item#set_selected true;
+        push (`Added item#value.actual);
+        push (`Selected item#value.actual);
      | Error _ -> ())
   in
   let selected = React.S.value grid#s_selected in

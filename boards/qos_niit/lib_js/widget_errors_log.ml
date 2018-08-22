@@ -32,10 +32,11 @@ let make_table is_hex (init : Errors.raw) =
     :: [] in
   let footer =
     let fwd = Icon.SVG.(create_simple Path.chevron_right) in
+    let btn = new Icon_button.t ~icon:fwd () in
     let select = new Table.Footer.Select.t
                    [ 5; 10; 15; 20 ] () in
     new Table.Footer.t
-      ~actions:[ fwd ]
+      ~actions:[ btn ]
       ~rows_per_page:("Ошибок на странице: ", select) () in
   let table = new Table.t ~footer ~dense:true ~fmt () in
   let on_change = fun (x : bool) ->

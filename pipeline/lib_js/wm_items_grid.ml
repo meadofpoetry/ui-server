@@ -22,13 +22,12 @@ module Make(I : Item) = struct
     let wrapper    = Widget.create_div () in
     let title      =
       new Typography.Text.t ~adjust_margin:false ~text:title () in
-    let on_data    = ({ icon      = "grid_off"
-                      ; label     = None
-                      ; css_class = None }:Icon_toggle.data) in
-    let off_data   = ({ icon      = "grid_on"
-                      ; label     = None
-                      ; css_class = None }:Icon_toggle.data) in
-    let grid_icon  = new Icon_toggle.t ~on_data ~off_data () in
+    let grid_on = Icon.SVG.(create_simple Path.grid) in
+    let grid_off = Icon.SVG.(create_simple Path.grid_off) in
+    let grid_icon = new Icon_button.t
+                      ~on_icon:grid_on
+                      ~icon:grid_off
+                      () in
     let menu       = new Menu.t ~items:[] () in
     let menu_text  = new Typography.Text.t ~text:"Сетка:" () in
     let menu_sel   = new Typography.Text.t ~text:"" () in

@@ -112,22 +112,26 @@ let checkbox_demo () =
   React.E.map (fun _ -> checkbox#set_indeterminate @@ not checkbox#indeterminate;
                         css_checkbox#set_indeterminate @@ not css_checkbox#indeterminate)
     btn#e_click |> ignore;
-  demo_section "Checkbox" [ (subsection "Checkbox (css only)" css_checkbox)#widget
-                          ; (subsection "Checkbox with label" form_field)#widget
-                          ; btn#widget ]
+  demo_section "Checkbox"
+    [ (subsection "Checkbox (css only)" css_checkbox)#widget
+    ; (subsection "Checkbox with label" form_field)#widget
+    ; btn#widget ]
 
 let switch_demo () =
-  let switch   = new Switch.t ~input_id:"demo-switch" () in
-  let form     = new Form_field.t ~label:"switch label" ~input:switch () in
-  React.S.map (fun x -> print_endline @@ "Switch is " ^ (if x then "on" else "off")) switch#s_state |> ignore;
-  demo_section "Switch" [ subsection "Switch" @@ new Switch.t (); subsection "Switch with label" form ]
+  let switch = new Switch.t ~input_id:"demo-switch" () in
+  let form = new Form_field.t ~label:"switch label" ~input:switch () in
+  demo_section "Switch"
+    [ subsection "Switch" @@ new Switch.t ()
+    ; subsection "Switch with label" form ]
 
 let toggle_demo () =
-  let toggle = new Icon_toggle.t
-                 ~on_data:{ icon = "favorite"; label = None; css_class = None }
-                 ~off_data:{ icon = "favorite_border"; label = None; css_class = None }
-                 () in
-  React.S.map (fun x -> print_endline @@ "Icon toggle is " ^ (if x then "on" else "off")) toggle#s_state |> ignore;
+  let on = Icon.SVG.(create_simple Path.heart) in
+  let off = Icon.SVG.(create_simple Path.heart_outline) in
+  let toggle =
+    new Icon_button.t
+      ~on_icon:on
+      ~icon:off
+      () in
   demo_section "Icon toggle" [ toggle ]
 
 let card_demo () =
