@@ -641,7 +641,7 @@ module Make(Logs : Logs.LOG) = struct
     ; reset =
         (fun () -> isend Reset)
     ; get_section =
-        (fun ?section ?table_id_ext ?eit_ts_id ?eit_orig_nw_id
+        (fun ?section ?table_id_ext ?ext_info_1 ?ext_info_2
              ~id ~table_id () ->
           match find_stream_by_id id @@ React.S.value events.streams with
           | Some s ->
@@ -652,8 +652,8 @@ module Make(Logs : Logs.LOG) = struct
                   ; table_id
                   ; section
                   ; table_id_ext
-                  ; eit_ts_id
-                  ; eit_orig_nw_id
+                  ; ext_info_1
+                  ; ext_info_2
                   } in
                 let req = Get_section { request_id = get_id (); params } in
                 let timer = Timer.steps ~step_duration 125 in

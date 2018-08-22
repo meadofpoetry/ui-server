@@ -14,8 +14,8 @@ let base_class = "qos-niit-table-overview"
 
 let settings = None
 
-let to_table_name ?(is_hex=false) table_id table_id_ext
-      service (eit_params:eit_params) =
+let to_table_name ?(is_hex = false) table_id table_id_ext
+      service (ext_info : ext_info) =
   let open Printf in
   let divider  = ", " in
   let name     = Mpeg_ts.(table_to_string @@ table_of_int table_id) in
@@ -27,15 +27,16 @@ let to_table_name ?(is_hex=false) table_id table_id_ext
     | None -> s in
   let base     = id "table_id" table_id in
   let specific = match Mpeg_ts.table_of_int table_id with
-    | `PAT   -> Some [ id "tsid" table_id_ext ]
-    | `PMT   -> Some [ id ?service "program" table_id_ext ]
+    | `PAT -> Some [ id "tsid" table_id_ext ]
+    | `PMT -> Some [ id ?service "program" table_id_ext ]
     | `NIT _ -> Some [ id "network_id" table_id_ext ]
-    | `SDT _ -> Some [ id "tsid" table_id_ext ]
-    | `BAT   -> Some [ id "bid" table_id_ext ]
+    | `SDT _ -> Some [ id "tsid" table_id_ext
+                     ; id "onid" ext_info.ext_1 ]
+    | `BAT -> Some [ id "bid" table_id_ext ]
     | `EIT _ -> Some [ id ?service "sid" table_id_ext
-                     ; id "tsid" eit_params.ts_id
-                     ; id "onid" eit_params.orig_nw_id ]
-    | _      -> None in
+                     ; id "tsid" ext_info.ext_1
+                     ; id "onid" ext_info.ext_2 ]
+    | _ -> None in
   match specific with
   | Some l -> name, String.concat divider (base :: l)
   | None   -> name, base
@@ -48,10 +49,11 @@ let to_table_extra ?(hex=false) (x:table_info) =
     | `PAT   -> Some [ "tsid", x.id_ext ]
     | `PMT   -> Some [ "program", x.id_ext ]
     | `NIT _ -> Some [ "network_id", x.id_ext ]
-    | `SDT _ -> Some [ "tsid", x.id_ext ]
+    | `SDT _ -> Some [ "tsid", x.id_ext
+                     ; "onid", x.ext_info.ext_1 ]
     | `BAT   -> Some [ "bid", x.id_ext ]
-    | `EIT _ -> Some [ "onid", x.eit_params.orig_nw_id
-                     ; "tsid", x.eit_params.ts_id
+    | `EIT _ -> Some [ "onid", x.ext_info.ext_1
+                     ; "tsid", x.ext_info.ext_2
                      ; "sid",  x.id_ext ]
     | _      -> None in
   let open Tyxml_js.Html in
@@ -83,13 +85,13 @@ let make_back () =
   back
 
 let make_dump_title ?is_hex
-      ({ id; id_ext; eit_params; service; _ }:table_info) =
-  let name     = to_table_name ?is_hex id id_ext service eit_params in
+      ({ id; id_ext; ext_info; service; _ }:table_info) =
+  let name     = to_table_name ?is_hex id id_ext service ext_info in
   let title    = new Card.Primary.title (fst name) () in
   let subtitle = new Card.Primary.subtitle (snd name) () in
   let primary  = new Card.Primary.t ~widgets:[ title; subtitle ] () in
   primary, fun x ->
-           let name = to_table_name ~is_hex:x id id_ext service eit_params in
+           let name = to_table_name ~is_hex:x id id_ext service ext_info in
            subtitle#set_text_content @@ snd name
 
 let make_table

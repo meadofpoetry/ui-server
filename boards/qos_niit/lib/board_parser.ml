@@ -140,6 +140,7 @@ module Get_board_info : (Request with type req := unit with type rsp := devinfo)
 
   let req_code = 0x0080
   let rsp_code = 0x01
+
   let serialize () = to_common_header ~msg_code:req_code ()
   let parse _ msg =
     { typ = get_board_info_board_type msg
@@ -152,6 +153,7 @@ module Get_board_mode : (Request with type req := unit with type rsp := Types.mo
 
   let req_code = 0x0081
   let rsp_code = 0x02
+               
   let serialize () = to_common_header ~msg_code:req_code ()
   let parse _ msg =
     to_mode_exn (get_board_mode_mode msg)
@@ -164,6 +166,7 @@ module Get_board_errors : (Request with type req := int with type rsp := board_e
 
   let req_code = 0x0110
   let rsp_code = req_code
+
   let serialize request_id =
     to_complex_req ~request_id
       ~msg_code:req_code
@@ -203,8 +206,8 @@ module Get_section : (Request
     let () = set_req_get_section_table_id body params.table_id in
     let () = Option.iter (set_req_get_section_section body) params.section in
     let () = Option.iter (set_req_get_section_table_id_ext body) params.table_id_ext in
-    let () = Option.iter (set_req_get_section_adv_info_1 body) params.eit_ts_id in
-    let () = Option.iter (set_req_get_section_adv_info_2 body) params.eit_orig_nw_id in
+    let () = Option.iter (set_req_get_section_ext_info_1 body) params.ext_info_1 in
+    let () = Option.iter (set_req_get_section_ext_info_2 body) params.ext_info_2 in
     to_complex_req ~request_id ~msg_code:req_code ~body ()
 
   let parse ({ params; _ } : req) msg =
@@ -426,16 +429,16 @@ module Get_ts_structs
     let pid' = get_table_struct_block_pid msg in
     let id = get_table_struct_block_id bdy in
     let id_ext = get_table_struct_block_id_ext bdy in
-    let eit_params =
-      { ts_id = get_table_struct_block_adv_info_1 bdy
-      ; orig_nw_id = get_table_struct_block_adv_info_2 bdy
-      ; segment_lsn = get_table_struct_block_adv_info_3 bdy
-      ; last_table_id = get_table_struct_block_adv_info_4 bdy
+    let ext_info =
+      { ext_1 = get_table_struct_block_ext_info_1 bdy
+      ; ext_2 = get_table_struct_block_ext_info_2 bdy
+      ; ext_3 = get_table_struct_block_ext_info_3 bdy
+      ; ext_4 = get_table_struct_block_ext_info_4 bdy
       } in
     { version = get_table_struct_block_version bdy
     ; id
     ; id_ext
-    ; eit_params
+    ; ext_info
     ; pid = pid' land 0x1FFF
     ; service = None (* Filled in later *)
     ; last_section = get_table_struct_block_lsn bdy

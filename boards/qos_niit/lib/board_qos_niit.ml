@@ -74,7 +74,8 @@ let make_templates (b:topo_board) =
     { title = Some ""
     ; pre_scripts = [ Src "/js/moment.min.js"
                     ; Src "/js/Chart.min.js"
-                    ; Src "/js/Chart.PieceLabel.min.js" ]
+                    ; Src "/js/Chart.PieceLabel.min.js"
+                    ]
     ; post_scripts = [ Src "/js/board_qos_stream.js" ]
     ; stylesheets = []
     ; content = []

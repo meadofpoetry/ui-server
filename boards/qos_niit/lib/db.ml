@@ -583,7 +583,7 @@ module Errors = struct
 
   let select_errors db ?(streams = [])
         ?(priority = []) ?(pids = [])
-        ?(errors = []) ?(limit = 500)
+        ?(errors = []) ?(limit = 500) ?(order = `Desc)
         ~is_ts ~from ~till () =
     let open Printf in
     let table    = (Conn.names db).errors in
@@ -591,18 +591,21 @@ module Errors = struct
     let priority = is_in "priority" string_of_int priority in
     let pids     = is_in "pid" string_of_int pids in
     let errors   = is_in "err_code"  string_of_int errors in
+    let ord      = match order with
+      | `Desc -> "DESC"
+      | `Asc -> "ASC" in
     let select =
       R.collect Types.(tup4 bool ptime ptime int) error
         (sprintf {|SELECT stream,count,err_code,err_ext,priority,
                   multi_pid,pid,packet,param_1,param_2,date FROM %s 
                   WHERE %s %s %s %s is_ts = ? AND date >= ? AND date <= ?
-                  ORDER BY date DESC LIMIT ?|}
-           table streams priority pids errors)
+                  ORDER BY date %s LIMIT ?|}
+           table streams priority pids errors ord)
     in Conn.request db Request.(
       list select (is_ts, from, till, limit) >>= fun data ->
       return (Raw { data
                   ; has_more = List.length data >= limit
-                  ; order    = `Desc }))
+                  ; order }))
 
   (* TODO consider stream presence *)
   let select_errors_compressed db ?(streams = [])

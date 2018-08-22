@@ -317,8 +317,12 @@ let switch ~grid
   s_state_push (`Widget w)
 
 let create ~(init: Wm.t)
-           ~(post: Wm.t -> unit)
-           () =
+      ~(post: Wm.t -> unit)
+      () =
+  let toolbar = Ui_templates.Page.get_toolbar () in
+  let actions = new Toolbar.Row.Section.t ~align:`Start ~widgets:[] () in
+  let row = new Toolbar.Row.t ~sections:[ actions ] () in
+  toolbar#append_child row;
   (* Convert widgets positions to relative *)
   let conv p =
     List.map (fun (n,(v:Wm.widget)) ->
@@ -334,27 +338,27 @@ let create ~(init: Wm.t)
   let s_cc, s_cc_push =
     React.S.create
       (* FIXME icon shoud be common *)
-      [({ icon     = Icon.SVG.(create_simple Path.contain)#widget
-        ; name     = "Контейнер"
-        ; unique   = false
+      [({ icon = Icon.SVG.(create_simple Path.contain)#widget
+        ; name = "Контейнер"
+        ; unique = false
         ; min_size = None
-        ; item     =
+        ; item =
             { position = { left = 0; right = 0; top = 0; bottom = 0 }
-            ; widgets  = []
+            ; widgets = []
             }
         } : Container_item.t)
       ] in
-  let wz_dlg,wz_e,wz_show  = Wm_wizard.to_dialog init in
-  let resolution           = init.resolution in
-  let s_state,s_state_push = React.S.create `Container in
-  let title                = "Контейнеры" in
+  let wz_dlg, wz_e, wz_show = Wm_wizard.to_dialog init in
+  let resolution = init.resolution in
+  let s_state, s_state_push = React.S.create `Container in
+  let title = "Контейнеры" in
   let open Wm_left_toolbar in
   let open Icon.SVG in
-  let edit   =
+  let edit =
     make_action
       { icon = Icon.SVG.(create_simple Path.pencil)#widget
       ; name = "Редактировать" } in
-  let save   =
+  let save =
     make_action
       { icon = Icon.SVG.(create_simple Path.content_save)#widget
       ; name = "Сохранить" } in
@@ -362,7 +366,7 @@ let create ~(init: Wm.t)
     make_action
       { icon = Icon.SVG.(create_simple Path.auto_fix)#widget
       ; name = "Авто" } in
-  let size   =
+  let size =
     make_action
       { icon = Icon.SVG.(create_simple Path.aspect_ratio)#widget
       ; name = "Разрешение" } in
@@ -452,8 +456,8 @@ let create ~(init: Wm.t)
     rc#set_empty (); rc#append_child rt in
   let _ =
     React.S.map (function
-        | `Widget (w:Widg.t) -> add_to_view w.lt w.ig w.rt
-        | `Container         -> add_to_view cont.lt cont.ig cont.rt)
+        | `Widget (w : Widg.t) -> add_to_view w.lt w.ig w.rt
+        | `Container -> add_to_view cont.lt cont.ig cont.rt)
       s_state in
   cont.ig#append_child wz_dlg;
   cont.ig#append_child size_dlg;

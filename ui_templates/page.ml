@@ -30,12 +30,18 @@ let create_toolbar_tabs_row (tabs:('a, (unit -> #Widget.t)) Tab.t list) =
                | None   -> None) bar#scroller#s_active_tab in
   row, s
 
+let get_arbitrary () =
+  Dom_html.getElementById "arbitrary-content"
+  |> Widget.create
+
+let get_toolbar () =
+  Dom_html.getElementById "main-toolbar"
+  |> Widget.create
+
 class t (content:('a,'b) page_content) () =
   let main = Dom_html.getElementById "main-content" in
-  let arbitrary = Dom_html.getElementById "arbitrary-content"
-                  |> Widget.create in
-  let toolbar = Dom_html.getElementById "main-toolbar"
-                |> Widget.create in
+  let arbitrary = get_arbitrary () in
+  let toolbar = get_toolbar () in
   let title = toolbar#get_child_element_by_id "page-title"
               |> Option.get_exn
               |> Widget.create in

@@ -89,32 +89,32 @@ module HTTP = struct
                         streams_states_of_yojson
                         streams_unique_of_yojson)
       ~path:(get_base_path ())
-      ~query:Query.[ "id",       (module List(ID))
-                   ; "input",    (module List(Topology.Show_topo_input))
-                   ; "limit",    (module Option(Int))
+      ~query:Query.[ "id", (module List(ID))
+                   ; "input", (module List(Topology.Show_topo_input))
+                   ; "limit", (module Option(Int))
                    ; "compress", (module Option(Bool))
-                   ; "from",     (module Option(Time.Show))
-                   ; "to",       (module Option(Time.Show))
+                   ; "from", (module Option(Time.Show))
+                   ; "to", (module Option(Time.Show))
                    ; "duration", (module Option(Time.Relative)) ]
       control ids inputs limit compress from till duration
 
-  let get_si_psi_section ?section ?table_id_ext ?eit_ts_id ?eit_orig_nw_id ~id ~table_id control =
+  let get_si_psi_section ?section ?table_id_ext ?ext_info_1 ?ext_info_2 ~id ~table_id control =
     get_result ~from:section_of_yojson
       ~from_err:section_error_of_yojson
       ~path:Path.Format.(get_base_path () / (ID.fmt ^/ "section" @/ Int ^/ empty))
-      ~query:Query.[ "section",        (module Option(Int))
-                   ; "table-id-ext",   (module Option(Int))
-                   ; "eit-ts-id",      (module Option(Int))
-                   ; "eit-orig-nw-id", (module Option(Int)) ]
-      control id table_id section table_id_ext eit_ts_id eit_orig_nw_id
+      ~query:Query.[ "section", (module Option(Int))
+                   ; "table-id-ext", (module Option(Int))
+                   ; "ext-info-1", (module Option(Int))
+                   ; "ext-info-2", (module Option(Int)) ]
+      control id table_id section table_id_ext ext_info_1 ext_info_2
 
   let get_bitrate ?limit ?compress ?from ?till ?duration ~id control =
     get_result ~from:(fun _ -> Error "FIXME Not implemented")
       ~path:Path.Format.(get_base_path () / (ID.fmt ^/ "bitrate" @/ empty))
-      ~query:Query.[ "limit",    (module Option(Int))
+      ~query:Query.[ "limit", (module Option(Int))
                    ; "compress", (module Option(Bool))
-                   ; "from",     (module Option(Time.Show))
-                   ; "to",       (module Option(Time.Show))
+                   ; "from", (module Option(Time.Show))
+                   ; "to", (module Option(Time.Show))
                    ; "duration", (module Option(Time.Relative)) ]
       control id limit compress from till duration
 
@@ -127,9 +127,9 @@ module HTTP = struct
     get_result
       ~from:(raw_of_yojson info_of_yojson)
       ~path:Path.Format.(get_base_path () / (ID.fmt ^/ "info" @/ empty))
-      ~query:Query.[ "limit",    (module Option(Int))
-                   ; "from",     (module Option(Time.Show))
-                   ; "to",       (module Option(Time.Show))
+      ~query:Query.[ "limit", (module Option(Int))
+                   ; "from", (module Option(Time.Show))
+                   ; "to", (module Option(Time.Show))
                    ; "duration", (module Option(Time.Relative)) ]
       control id limit from till duration
 
@@ -137,9 +137,9 @@ module HTTP = struct
     get_result
       ~from:(raw_of_yojson services_of_yojson)
       ~path:Path.Format.(get_base_path () / (ID.fmt ^/ "services" @/ empty))
-      ~query:Query.[ "limit",    (module Option(Int))
-                   ; "from",     (module Option(Time.Show))
-                   ; "to",       (module Option(Time.Show))
+      ~query:Query.[ "limit", (module Option(Int))
+                   ; "from", (module Option(Time.Show))
+                   ; "to", (module Option(Time.Show))
                    ; "duration", (module Option(Time.Relative)) ]
       control id limit from till duration
 
@@ -147,9 +147,9 @@ module HTTP = struct
     get_result
       ~from:(raw_of_yojson tables_of_yojson)
       ~path:Path.Format.(get_base_path () / (ID.fmt ^/ "tables" @/ empty))
-      ~query:Query.[ "limit",    (module Option(Int))
-                   ; "from",     (module Option(Time.Show))
-                   ; "to",       (module Option(Time.Show))
+      ~query:Query.[ "limit", (module Option(Int))
+                   ; "from", (module Option(Time.Show))
+                   ; "to", (module Option(Time.Show))
                    ; "duration", (module Option(Time.Relative)) ]
       control id limit from till duration
 
@@ -157,9 +157,9 @@ module HTTP = struct
     get_result
       ~from:(raw_of_yojson pids_of_yojson)
       ~path:Path.Format.(get_base_path () / (ID.fmt ^/ "pids" @/ empty))
-      ~query:Query.[ "limit",    (module Option(Int))
-                   ; "from",     (module Option(Time.Show))
-                   ; "to",       (module Option(Time.Show))
+      ~query:Query.[ "limit", (module Option(Int))
+                   ; "from", (module Option(Time.Show))
+                   ; "to", (module Option(Time.Show))
                    ; "duration", (module Option(Time.Relative)) ]
       control id limit from till duration
 

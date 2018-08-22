@@ -62,7 +62,7 @@ module WS = struct
     open Board_types.Streams.T2MI
 
     let structure (events:events) id _ _ body sock_data () =
-      let e  = React.E.fmap (get id) events.t2mi.structures in
+      let e = React.E.fmap (get id) events.t2mi.structures in
       Api.Socket.handler socket_table sock_data e structure_to_yojson body
 
   end
@@ -129,11 +129,11 @@ module HTTP = struct
     in (* TODO add compress *)
     join streams state
 
-  let streams_unique db (events:events) ids inputs from till duration () =
+  let streams_unique db (events : events) ids inputs from till duration () =
     let open Api.Api_types in
     let open Common.Stream in
     let open Lwt_result.Infix in
-    let merge (cur:t list) streams =
+    let merge (cur : t list) streams =
       let filter (s, id, typ, t) =
         if List.exists (fun s -> Stream.ID.equal id s.id
                                  && equal_stream_type typ s.typ) cur
@@ -181,12 +181,12 @@ module HTTP = struct
     then streams_unique db events ids inputs from till duration ()
     else streams_states db ids inputs limit from till duration ()
 
-  let si_psi_section (api:api) id table_id section
-        table_id_ext eit_ts_id eit_orig_nw_id _ _ () =
-    api.get_section ?section ?table_id_ext ?eit_ts_id ?eit_orig_nw_id
+  let si_psi_section (api : api) id table_id section
+        table_id_ext ext_info_1 ext_info_2 _ _ () =
+    api.get_section ?section ?table_id_ext ?ext_info_1 ?ext_info_2
       ~id ~table_id ()
     >|= (function
-         | Ok x    -> Ok    (section_to_yojson x)
+         | Ok x -> Ok (section_to_yojson x)
          | Error e -> Error (section_error_to_yojson e))
     >>= respond_result
 
@@ -262,7 +262,10 @@ module HTTP = struct
     open Errors
 
     let errors db streams errors priority pids
-          limit compress from till duration _ _ () =
+          limit compress desc from till duration _ _ () =
+      let order = Option.map (function
+                      | true -> `Desc
+                      | false -> `Asc) desc in
       match Time.make_interval ?from ?till ?duration () with
       | Ok (`Range (from,till)) ->
          (match compress with
@@ -271,7 +274,7 @@ module HTTP = struct
                 db ~is_ts:true ~streams ~priority
                 ~errors ~pids ~from ~till ())
           | _ -> Db.Errors.select_errors db ~is_ts:true ~streams
-                   ~priority ~errors ~pids ?limit ~from ~till ())
+                   ~priority ~errors ~pids ?order ?limit ~from ~till ())
          >>= fun v ->
          let r = Ok (Api.Api_types.rows_to_yojson
                        raw_to_yojson compressed_to_yojson v) in
@@ -342,20 +345,20 @@ let handler db (api:api) events =
     [ `GET,
       [ create_handler ~docstring:"Returns streams states"
           ~path:Path.Format.empty
-          ~query:Query.[ "id",       (module List(Stream.ID))
-                       ; "input",    (module List(Topology.Show_topo_input))
-                       ; "limit",    (module Option(Int))
+          ~query:Query.[ "id", (module List(Stream.ID))
+                       ; "input", (module List(Topology.Show_topo_input))
+                       ; "limit", (module Option(Int))
                        ; "compress", (module Option(Bool))
-                       ; "from",     (module Option(Time.Show))
-                       ; "to",       (module Option(Time.Show))
+                       ; "from", (module Option(Time.Show))
+                       ; "to", (module Option(Time.Show))
                        ; "duration", (module Option(Time.Relative)) ]
           (HTTP.streams db events)
       ; create_handler ~docstring:"Returns SI/PSI table section"
           ~path:Path.Format.(Stream.ID.fmt ^/ "section" @/ Int ^/ empty)
-          ~query:Query.[ "section",        (module Option(Int))
-                       ; "table-id-ext",   (module Option(Int))
-                       ; "eit-ts-id",      (module Option(Int))
-                       ; "eit-orig-nw-id", (module Option(Int)) ]
+          ~query:Query.[ "section", (module Option(Int))
+                       ; "table-id-ext", (module Option(Int))
+                       ; "ext-info-1", (module Option(Int))
+                       ; "ext-info-2", (module Option(Int)) ]
           (HTTP.si_psi_section api)
       (* ; create_handler ~docstring:"Returns TS bitrate"
        *     ~path:Path.Format.(Stream.ID.fmt ^/ "bitrate" @/ empty)
@@ -414,6 +417,7 @@ let handler db (api:api) events =
                        ; "pid",      (module List(Int))
                        ; "limit",    (module Option(Int))
                        ; "compress", (module Option(Bool))
+                       ; "desc",     (module Option(Bool))
 
                        ; "from",     (module Option(Time.Show))
                        ; "to",       (module Option(Time.Show))

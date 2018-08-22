@@ -59,8 +59,8 @@
    ; table_id     : uint8_t
    ; section      : uint8_t
    ; table_id_ext : uint16_t
-   ; adv_info_1   : uint16_t
-   ; adv_info_2   : uint16_t
+   ; ext_info_1   : uint16_t
+   ; ext_info_2   : uint16_t
    } [@@little_endian]]
 
 [%%cstruct
@@ -276,10 +276,10 @@
    ; id_ext     : uint16_t
    ; lsn        : uint8_t
    ; rfu        : uint8_t
-   ; adv_info_1 : uint16_t
-   ; adv_info_2 : uint16_t
-   ; adv_info_3 : uint8_t
-   ; adv_info_4 : uint8_t
+   ; ext_info_1 : uint16_t
+   ; ext_info_2 : uint16_t
+   ; ext_info_3 : uint8_t
+   ; ext_info_4 : uint8_t
    ; pid        : uint16_t
    } [@@little_endian]]
 

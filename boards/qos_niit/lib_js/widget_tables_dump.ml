@@ -18,20 +18,20 @@ let base_class = "qos-niit-tables"
 
 let ( % ) = Fun.( % )
 
-let req_of_table table_id table_id_ext (eit_params:eit_params) section =
+let req_of_table table_id table_id_ext (ext_info : ext_info) section =
   let r =
     Requests.Streams.HTTP.get_si_psi_section
       ~table_id ~section:section in
   match Mpeg_ts.table_of_int table_id with
-  | `PAT   -> r ~table_id_ext ?eit_ts_id:None ?eit_orig_nw_id:None
-  | `PMT   -> r ~table_id_ext ?eit_ts_id:None ?eit_orig_nw_id:None
-  | `NIT _ -> r ~table_id_ext ?eit_ts_id:None ?eit_orig_nw_id:None
-  | `SDT _ -> r ~table_id_ext ?eit_ts_id:None ?eit_orig_nw_id:None
-  | `BAT   -> r ~table_id_ext ?eit_ts_id:None ?eit_orig_nw_id:None
+  | `PAT   -> r ~table_id_ext ?ext_info_1:None ?ext_info_2:None
+  | `PMT   -> r ~table_id_ext ?ext_info_1:None ?ext_info_2:None
+  | `NIT _ -> r ~table_id_ext ?ext_info_1:None ?ext_info_2:None
+  | `SDT _ -> r ~table_id_ext ~ext_info_1:ext_info.ext_1 ?ext_info_2:None
+  | `BAT   -> r ~table_id_ext ?ext_info_1:None ?ext_info_2:None
   | `EIT _ -> r ~table_id_ext
-                ~eit_ts_id:eit_params.ts_id
-                ~eit_orig_nw_id:eit_params.orig_nw_id
-  | _      -> r ?table_id_ext:None ?eit_ts_id:None ?eit_orig_nw_id:None
+                ~ext_info_1:ext_info.ext_1
+                ~ext_info_2:ext_info.ext_2
+  | _ -> r ?table_id_ext:None ?ext_info_1:None ?ext_info_2:None
 
 module Section = struct
 
@@ -283,7 +283,7 @@ let make_dump
   let () =
     React.S.map (function
         | Some item ->
-           let { id; id_ext; eit_params; _ } = table in
+           let { id; id_ext; ext_info; _ } = table in
            let (section:section_info), prev_dump = item#value in
            let open Lwt.Infix in
            let err x = Ui_templates.Placeholder.create_with_error ~text:x () in
@@ -333,7 +333,7 @@ let make_dump
                 set_hexdump "" in
            let get = fun () ->
              Lwt.catch (fun () ->
-                 (req_of_table id id_ext eit_params section.id)
+                 (req_of_table id id_ext ext_info section.id)
                    ~id:stream.id control
                  |> Lwt_result.map_err Api_js.Requests.err_to_string
                  >|= (function
