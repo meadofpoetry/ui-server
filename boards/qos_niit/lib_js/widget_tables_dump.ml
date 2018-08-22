@@ -288,9 +288,10 @@ let make_dump
            let (section:section_info), prev_dump = item#value in
            let open Lwt.Infix in
            let err x = Ui_templates.Placeholder.create_with_error ~text:x () in
-           let ph  x = Ui_templates.Placeholder.create_with_icon
-                         ~icon:"info"
-                         ~text:x () in
+           let ph  x =
+             Ui_templates.Placeholder.create_with_icon
+               ~icon:Icon.SVG.(create_simple Path.information)
+               ~text:x () in
            let tz_offset_s = Ptime_clock.current_tz_offset_s () in
            let fmt_time = Time.to_human_string ?tz_offset_s in
            let upd = function

@@ -8,7 +8,7 @@ let timeout = 0.4
 
 class ['a] loader
         ?(text : string option)
-        ?(error_icon : string option)
+        ?(error_icon : #Widget.t option)
         ?(error_prefix : string option)
         ?(on_error : ('a loader -> string -> unit) option)
         ?(on_success : ('a loader -> 'a     -> unit) option)

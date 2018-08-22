@@ -3,15 +3,16 @@ open Components
 
 type value  =
   { original : int
-  ; actual   : int
+  ; actual : int
   }
 
-type action = [ `Added of int
-              | `Removed of int
-              | `Changed of (int * int) list
-              | `Visibility of (int * bool)
-              | `Selected of int
-              ]
+type action =
+  [ `Added of int
+  | `Removed of int
+  | `Changed of (int * int) list
+  | `Visibility of (int * bool)
+  | `Selected of int
+  ]
 
 let set_data_layer_attr w l =
   w#set_attribute "data-layer" @@ string_of_int l
@@ -19,14 +20,16 @@ let set_data_layer_attr w l =
 let emit_new_pos (s_layers:value Dynamic_grid.Item.t list React.signal) push =
   let open Dynamic_grid.Position in
   let layers  = React.S.value s_layers in
-  let changed = List.fold_left (fun acc x ->
-                    let op,np = x#value.actual,(List.length layers - 1) - x#pos.y in
-                    if op <> np
-                    then (x#set_value { x#value with actual = np }; set_data_layer_attr x np; (op,np) :: acc)
-                    else acc) [] layers in
+  let changed =
+    List.fold_left (fun acc x ->
+        let op, np = x#value.actual,(List.length layers - 1) - x#pos.y in
+        if op = np then acc else
+          (x#set_value { x#value with actual = np };
+           set_data_layer_attr x np; (op,np) :: acc)) [] layers
+  in
   match changed with
   | [] -> ()
-  | l  -> push (`Changed l)
+  | l -> push (`Changed l)
 
 let make_show_toggle () =
   let on = Icon.SVG.(create_simple Path.eye) in
@@ -82,11 +85,10 @@ let on_add grid push =
         push (`Selected item#value.actual);
      | Error _ -> ())
   in
-  let selected = React.S.value grid#s_selected in
-  match selected with
-  | []    -> f 0
-  | [sel] -> f (sel#value.actual + 1)
-  | _     -> ()
+  match React.S.value grid#s_selected with
+  | [ ] -> f 0
+  | [x] -> f (x#value.actual + 1)
+  | _ -> ()
 
 
 let remove_layer s_layers push layer =
@@ -164,34 +166,46 @@ let make_layers_grid ~init =
 
 let make_layers_actions max layers_grid push =
   let open Dynamic_grid.Position in
+  let open Icon.SVG in
   let _class = "wm-layers-actions" in
-  let add    = new Icon.Button.Font.t ~icon:"add_box" () in
-  let rm     = new Icon.Button.Font.t ~icon:"delete" () in
-  let up     = new Icon.Button.Font.t ~icon:"arrow_upward" () in
-  let down   = new Icon.Button.Font.t ~icon:"arrow_downward" () in
-  let icons  = new Card.Actions.Icons.t ~widgets:[down#widget;up#widget;add#widget;rm#widget] () in
-  let ()     = icons#add_class _class in
+  let add = new Icon_button.t ~icon:(create_simple Path.plus_box) () in
+  let rm = new Icon_button.t ~icon:(create_simple Path.delete) () in
+  let up = new Icon_button.t ~icon:(create_simple Path.arrow_up) () in
+  let down = new Icon_button.t ~icon:(create_simple Path.arrow_down) () in
+  let icons = new Card.Actions.Icons.t ~widgets:[down#widget;up#widget;add#widget;rm#widget] () in
+  let () = icons#add_class _class in
   (* Actions with layers *)
-  let s_sel  = React.S.map (function [x] -> Some x | _ -> None) layers_grid#s_selected in
-  let a_map (a,f) = React.E.map (fun _ -> Option.iter f @@ React.S.value s_sel) a#e_click in
-  let _           = React.S.l2 (fun s l -> let len = List.length l in
-                                           let sel = Option.is_some s in
-                                           let is_first = Option.map (fun x -> x#pos.y = 0) s
-                                                          |> Option.get_or ~default:false in
-                                           let is_last  = Option.map (fun x -> x#pos.y = pred len) s
-                                                          |> Option.get_or ~default:false in
-                                           add#set_disabled  (len >= max);
-                                           up#set_disabled   ((len <= 1) || not sel || is_first);
-                                           down#set_disabled ((len <= 1) || not sel || is_last);
-                                           rm#set_disabled   ((len <= 1) || not sel))
-                               s_sel layers_grid#s_change in
-  let _           = React.E.map (fun _ -> on_add layers_grid push) add#e_click in
-  let l           = [ rm,   (fun w -> remove_layer    layers_grid#s_items push w)
-                    ; up,   (fun w -> move_layer_up   layers_grid#s_items push w)
-                    ; down, (fun w -> move_layer_down layers_grid#s_items push w)
-                    ]
+  let s_sel =
+    React.S.map (function
+        | [x] -> Some x
+        | _ -> None) layers_grid#s_selected in
+  let a_map ((a : #Widget.t), f) =
+    a#listen_lwt Widget.Event.click (fun _ _ ->
+        Option.iter f @@ React.S.value s_sel;
+        Lwt.return_unit) |> Lwt.ignore_result in
+  let _  =
+    React.S.l2 (fun s l ->
+        let len = List.length l in
+        let sel = Option.is_some s in
+        let is_first = Option.map (fun x -> x#pos.y = 0) s
+                       |> Option.get_or ~default:false in
+        let is_last = Option.map (fun x -> x#pos.y = pred len) s
+                      |> Option.get_or ~default:false in
+        add#set_disabled  (len >= max);
+        up#set_disabled   ((len <= 1) || not sel || is_first);
+        down#set_disabled ((len <= 1) || not sel || is_last);
+        rm#set_disabled   ((len <= 1) || not sel))
+      s_sel layers_grid#s_change in
+  add#listen_lwt Widget.Event.click (fun _ _ ->
+      on_add layers_grid push;
+      Lwt.return_unit) |> Lwt.ignore_result;
+  let l =
+    [ rm, (fun w -> remove_layer layers_grid#s_items push w)
+    ; up, (fun w -> move_layer_up layers_grid#s_items push w)
+    ; down, (fun w -> move_layer_down layers_grid#s_items push w)
+    ]
   in
-  let _           = List.map a_map l in
+  List.iter a_map l;
   icons
 
 let make ~init ~max =

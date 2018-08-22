@@ -72,7 +72,7 @@ let to_table_extra ?(hex=false) (x:table_info) =
 
 let make_back () =
   let back_ico =
-    new Icon.Button.Font.t ~icon:"arrow_back" () in
+    new Icon_button.t ~icon:Icon.SVG.(create_simple Path.arrow_left) () in
   let back_txt =
     new Typography.Text.t ~adjust_margin:false
       ~font:Caption

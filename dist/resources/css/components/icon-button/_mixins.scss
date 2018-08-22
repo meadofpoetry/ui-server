@@ -55,6 +55,9 @@
   cursor: pointer;
   user-select: none;
 
+  &:focus { outline:none; }
+  &::-moz-focus-inner { border:0; }
+
   &:disabled {
     @include mdc-theme-prop(color, text-disabled-on-light);
 

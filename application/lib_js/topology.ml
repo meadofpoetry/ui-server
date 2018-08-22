@@ -135,39 +135,36 @@ let update_nodes nodes (t:Common.Topology.t) =
       | _ -> ()) nodes
 
 let create ~(parent: #Widget.t)
-      ~(init:   Common.Topology.t)
-      ~(event:  Common.Topology.t React.event)
+      ~(init : Common.Topology.t)
+      ~(event : Common.Topology.t React.event)
       () =
   let svg = Tyxml_js.Svg.(
       svg ~a:[a_class [Markup.CSS.add_element _class "paths"]] [] |> toelt) in
   let nodes = make_nodes init in
-  let e_s =
-    List.filter_map (function
-        | `Board b -> Some (React.E.map (fun x -> `Board x) b#e_settings)
-        | `CPU c -> Some (React.E.map (fun x -> `CPU x) c#e_settings)
-        | _ -> None) nodes
-    |> React.E.select in
-  let drawer,drawer_box,set_drawer_title = Topo_drawer.make ~title:"" () in
-  let () =
-    React.E.map (fun node ->
-        drawer_box#set_empty ();
-        let error_prefix = "Ошибка при загрузке страницы" in
-        let res = match node with
-          | `Board board -> set_drawer_title @@ Topo_board.get_board_name board;
-                            Topo_board.make_board_page ~error_prefix board
-          | `CPU cpu -> set_drawer_title @@ Topo_cpu.get_cpu_name cpu;
-                        Topo_cpu.make_cpu_page ~error_prefix cpu in
-        let pgs = Ui_templates.Loader.create_widget_loader
-                    ~parent:drawer_box
-                    ~error_prefix
-                    res in
-        Lwt.Infix.(
-          drawer#show_await ()
-          >>= (fun () -> pgs#iter (fun w -> w#destroy ());
-                         Lwt.return_unit))
-        |> Lwt.ignore_result) e_s
-    |> Lwt_react.E.keep
-  in
+  let drawer, drawer_box, set_drawer_title = Topo_drawer.make ~title:"" () in
+  let on_settings = fun node ->
+    drawer_box#set_empty ();
+    let error_prefix = "Ошибка при загрузке страницы" in
+    let res = match node with
+      | `Board board -> set_drawer_title @@ Topo_board.get_board_name board;
+                        Topo_board.make_board_page ~error_prefix board
+      | `CPU cpu -> set_drawer_title @@ Topo_cpu.get_cpu_name cpu;
+                    Topo_cpu.make_cpu_page ~error_prefix cpu in
+    let pgs = Ui_templates.Loader.create_widget_loader
+                ~parent:drawer_box
+                ~error_prefix
+                res in
+    Lwt.Infix.(
+      drawer#show_await ()
+      >|= (fun () -> pgs#iter (fun w -> w#destroy ()))) in
+  List.iter (function
+      | `Board (b : Topo_board.t) ->
+         b#settings_button#listen_lwt Widget.Event.click (fun _ _ ->
+             on_settings @@ `Board b#board) |> Lwt.ignore_result
+      | `CPU (c : Topo_cpu.t) ->
+         c#settings_button#listen_lwt Widget.Event.click (fun _ _ ->
+             on_settings @@ `CPU c#cpu) |> Lwt.ignore_result
+      | _ -> ()) nodes;
   iter_paths (fun _ x ->
       Option.iter (fun sw -> parent#append_child sw) x#switch;
       Dom.appendChild svg x#root) nodes;

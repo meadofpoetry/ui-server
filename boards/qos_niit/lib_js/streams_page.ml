@@ -122,7 +122,7 @@ module Stream_grid = struct
           () =
     let ph =
       Ui_templates.Placeholder.create_with_icon
-        ~icon:"info"
+        ~icon:Icon.SVG.(create_simple Path.information)
         ~text:"Не найдено ни одного потока"
         () in
     let title         = new Typography.Text.t ~text:"Текущие потоки" () in
