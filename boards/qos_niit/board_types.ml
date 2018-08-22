@@ -296,6 +296,7 @@ module Streams = struct
     and value =
       | List     of node list
       | Bytes    of int list
+      | String   of string
       | Bits     of integer
       | Dec      of integer
       | Hex      of integer
