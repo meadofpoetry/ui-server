@@ -10,7 +10,6 @@
   position: relative;
   white-space: nowrap;
   font-size: 13px;
-  overflow-x: auto;
   @include mdc-theme-prop(background-color, surface);
   @include mdc-theme-prop(color, text-primary-on-surface);
 
@@ -38,6 +37,10 @@
   }
 
   &__content {
+    overflow-x: auto;
+  }
+
+  &__table {
     width: 100%;
     border-collapse: collapse;
   }
@@ -150,9 +153,75 @@
   }
 }
 
+.mdc-data-table--with-footer {
+    tbody .mdc-data-table__row:last-of-type {
+        border-bottom: 1px solid;
+        @include mdc-theme-prop-alpha(border-color, $mdc-theme-background, .12);
+    }
+}
+
 .mdc-data-table-footer {
-    padding: 0px;
-    font-size: 0.75rem;
+    display: table-footer-group;
+    tr {
+        height: 56px;
+    }
+    &__cell {
+        &:last-child {
+            padding: 0;
+            font-size: 0.75rem;
+            border: none;
+        }
+    }
+    &__toolbar {
+        height: 56px;
+        min-height: 56px;
+        padding-right: 2px;
+        display: flex;
+        position: relative;
+        align-items: center;
+        padding-left: 16px;
+
+        @include mdc-theme-prop(color, text-secondary-on-surface);
+
+// FIXME add common breakpoints
+        @media (min-width: 600px) {
+            min-height: 64px;
+            padding-left: 24px;
+        }
+        @media (min-width: 0px) and (orientation: landscape) {
+            min-height: 48px;
+        }
+    }
+    &__spacer {
+        flex: 1 1 100%;
+    }
+    &__caption {
+        flex-shrink: 0;
+    }
+    &__select {
+        font-size: inherit;
+        flex-shrink: 0;
+        display: inline-flex;
+        position: relative;
+        .mdc-select {
+            margin-right: 32px;
+            margin-left: 8px;
+            height: initial;
+            font-size: inherit;
+            .mdc-select__native-control {
+                font-size: inherit;
+                padding-left: 8px;
+                padding-top: 6px;
+                padding-bottom: 7px;
+                color: currentColor;
+            }
+        }
+    }
+    &__actions {
+        flex-shrink: 0;
+        @include mdc-theme-prop(color, text-icon-on-surface);
+        margin-left: 20px;
+    }
 }
 
 .mdc-data-table--sticky-header {

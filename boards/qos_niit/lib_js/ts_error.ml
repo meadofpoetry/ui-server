@@ -16,8 +16,14 @@ let table_info_of_ts_error (e:Errors.t) =
 module Description = struct
 
   type interval =
-    [ `Seconds of float | `Milliseconds of float | `Nanoseconds of float |
-      `Seconds_unk      | `Milliseconds_unk      | `Nanoseconds_unk
+    [ `Seconds of float
+    | `Milliseconds of float
+    | `Microseconds of float
+    | `Nanoseconds of float
+    | `Seconds_unk
+    | `Milliseconds_unk
+    | `Microseconds_unk
+    | `Nanoseconds_unk
     ]
   type possible_pids =
     [ `One of int | `List of int list | `Range of int * int | `Unknown ]
@@ -47,10 +53,34 @@ module Description = struct
   let period_to_unit_name : interval -> string = function
     | `Seconds _ | `Seconds_unk -> "с"
     | `Milliseconds _ | `Milliseconds_unk -> "мс"
+    | `Microseconds _ | `Microseconds_unk -> "мкс"
     | `Nanoseconds _ | `Nanoseconds_unk -> "нс"
 
+  let integrate_interval (x : float) : interval -> interval = function
+    | `Seconds _ | `Seconds_unk -> `Seconds x
+    | `Milliseconds _ | `Milliseconds_unk ->
+       let div = x /. 1e3 in
+       if div >. 1. then `Seconds div else `Milliseconds x
+    | `Microseconds _ | `Microseconds_unk ->
+       let s = x /. 1e6 in
+       if s >. 1. then `Seconds s
+       else
+         let ms = x /. 1e3 in
+         if ms >. 1. then `Milliseconds ms
+         else `Microseconds x
+    | `Nanoseconds _ | `Nanoseconds_unk ->
+       let s = x /. 1e9 in
+       if s >. 1. then `Seconds s
+       else
+         let ms = x /. 1e6 in
+         if ms >. 1. then `Milliseconds ms
+         else
+           let mks = x /. 1e3 in
+           if mks >. 1. then `Microseconds mks
+           else `Nanoseconds x
+
   let period_to_float = function
-    | `Seconds x | `Milliseconds x | `Nanoseconds x -> x
+    | `Seconds x | `Milliseconds x | `Microseconds x  | `Nanoseconds x -> x
     | _ -> 0.0
 
   let crc_err ?(hex=false) ?(short=false) ?table (e:Errors.t) =
@@ -69,16 +99,20 @@ module Description = struct
         ~prefix ~cmp_word ~period (e : Errors.t) =
     if e.err_code = 0x24
     then Printf.printf "param1: %ld\n" e.param_1;
-    let unit = period_to_unit_name period in
-    let got = Int32.to_float e.param_1 *. coef in
+    let got = Int32.to_float e.param_1 *. coef
+              |> fun x -> integrate_interval x period in
     match period with
     | `Seconds_unk | `Milliseconds_unk | `Nanoseconds_unk ->
-       Printf.sprintf "%s %g %s" prefix got unit
+       Printf.sprintf "%s %g %s" prefix
+         (period_to_float got) (period_to_unit_name got)
     | _  ->
        let must = period_to_float period in
-       let ext  = Printf.sprintf "%s %g %s" cmp_word must unit in
+       let ext = Printf.sprintf "%s %g %s" cmp_word must
+                   (period_to_unit_name period) in
        if short then Printf.sprintf "%s %s" prefix ext
-       else Printf.sprintf "%s %g %s (%s)" prefix got unit ext
+       else Printf.sprintf "%s %g %s (%s)" prefix
+              (period_to_float got)
+              (period_to_unit_name got) ext
 
   let table_short_interval ?(short=false) ~period (e:Errors.t) table =
     let prefix = Printf.sprintf "Период следования таблицы %s -"
@@ -165,11 +199,11 @@ module Description = struct
        | _ -> ""
        end
     | 0x24 ->
-       interval_err ~coef:1.0 ~prefix:"Неравномерность PCR -"
+       interval_err ~coef:1.0 ~prefix:"Неравномерность PCR "
          ~cmp_word:"больше"
          ~period:(`Nanoseconds 500.) e
     | 0x25 ->
-       interval_err ~prefix:"Период повторения PTS -"
+       interval_err ~prefix:"Период повторения PTS "
          ~cmp_word:"больше"
          ~period:(`Milliseconds 700.) e
     | 0x26 ->

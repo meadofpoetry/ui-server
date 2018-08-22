@@ -76,26 +76,33 @@ module Bottom_line = struct
     end
 end
 
-class ['a] t ?(disabled=false)
-        ?(default_selected=true)
-        ~label
+class ['a] t ?(disabled = false)
+        ?(bottom_line = true)
+        ?(default_selected = true)
+        ?(label : string option)
         ~(items:[ `Item of 'a Item.t | `Group of 'a Group.t ] list)
         () =
   let make_empty () = Markup.Item.create ~disabled:true ~selected:true ~text:"" () in
-  let s,push        = React.S.create None in
-  let s_value       = React.S.map (fun i -> Option.map (fun x -> x#value) i) s in
-  let item_elts     = List.map (function `Group g -> Widget.to_markup g
-                                       | `Item i  -> Widget.to_markup i) items
-                      |> (fun l -> if not default_selected then make_empty () :: l else l)
+  let s, push = React.S.create None in
+  let s_value = React.S.map (fun i -> Option.map (fun x -> x#value) i) s in
+  let item_elts =
+    List.map (function
+        | `Group g -> Widget.to_markup g
+        | `Item i  -> Widget.to_markup i) items
+    |> (fun l -> if not default_selected then make_empty () :: l else l) in
+  let bottom_line = match bottom_line with
+    | false -> None
+    | true -> Some (new Bottom_line.t ()) in
+  let label = match label with
+    | None -> None
+    | Some label -> Some (new Label.t ~label ~s_selected:s_value ()) in
+  let select = Markup.create_select ~items:item_elts ()
+               |> To_dom.of_element
+               |> Widget.create
   in
-  let bottom_line = new Bottom_line.t () in
-  let label       = new Label.t ~label ~s_selected:s_value () in
-  let select      = Markup.create_select ~items:item_elts ()
-                    |> Tyxml_js.To_dom.of_element
-                    |> Widget.create
-  in
-  let elt = Markup.create ~bottom_line:(Widget.to_markup bottom_line)
-              ~label:(Widget.to_markup label)
+  let elt = Markup.create
+              ?bottom_line:(Option.map Widget.to_markup bottom_line)
+              ?label:(Option.map Widget.to_markup label)
               ~select:(Widget.to_markup select)
               ()
             |> Tyxml_js.To_dom.of_div
@@ -159,13 +166,15 @@ class ['a] t ?(disabled=false)
 
     initializer
       push self#selected_item;
-      Dom_events.(listen select#root Typ.focus (fun _ _ -> self#bottom_line#activate true;true))
-      |> ignore;
-      Dom_events.(listen select#root Typ.blur (fun _ _ -> self#bottom_line#activate false;true))
-      |> ignore;
-      Dom_events.(listen select#root Typ.change (fun _ _ ->
-                      Option.iter self#set_selected_index self#selected_index; true))
-      |> ignore;
+      select#listen_lwt Widget.Event.focus (fun _ _ ->
+          Option.iter (fun x -> x#activate true) self#bottom_line;
+          Lwt.return_unit) |> Lwt.ignore_result;
+      select#listen_lwt Widget.Event.blur (fun _ _ ->
+          Option.iter (fun x -> x#activate false) self#bottom_line;
+          Lwt.return_unit) |> Lwt.ignore_result;
+      select#listen_lwt Widget.Event.change (fun _ _ ->
+          Option.iter self#set_selected_index self#selected_index;
+          Lwt.return_unit) |> Lwt.ignore_result;
       self#set_disabled disabled
 
   end

@@ -48,7 +48,7 @@ let errors ({ id; _}:Stream.t) control =
     >|= Widget_errors_log.make
     >|= (fun w ->
       (* FIXME save event *)
-      let _ = React.E.map (List.map w#add_error) e in
+      (* let _ = React.E.map (List.map w#add_error) e in *)
       w)
     >|= Widget.coerce
     |> Ui_templates.Loader.create_widget_loader in

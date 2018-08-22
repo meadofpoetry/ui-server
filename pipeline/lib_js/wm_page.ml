@@ -319,10 +319,10 @@ let switch ~grid
 let create ~(init: Wm.t)
       ~(post: Wm.t -> unit)
       () =
-  let toolbar = Ui_templates.Page.get_toolbar () in
-  let actions = new Toolbar.Row.Section.t ~align:`Start ~widgets:[] () in
-  let row = new Toolbar.Row.t ~sections:[ actions ] () in
-  toolbar#append_child row;
+  (* let toolbar = Ui_templates.Page.get_toolbar () in
+   * let actions = new Toolbar.Row.Section.t ~align:`Start ~widgets:[] () in
+   * let row = new Toolbar.Row.t ~sections:[ actions ] () in
+   * toolbar#append_child row; *)
   (* Convert widgets positions to relative *)
   let conv p =
     List.map (fun (n,(v:Wm.widget)) ->

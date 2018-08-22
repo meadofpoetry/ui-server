@@ -30,7 +30,14 @@ let make_table is_hex (init : Errors.raw) =
     :: (to_column ~sortable:true "Количество", Int None)
     :: (to_column "Подробности", String None)
     :: [] in
-  let table = new Table.t ~dense:true ~fmt () in
+  let footer =
+    let fwd = Icon.SVG.(create_simple Path.chevron_right) in
+    let select = new Table.Footer.Select.t
+                   [ 5; 10; 15; 20 ] () in
+    new Table.Footer.t
+      ~actions:[ fwd ]
+      ~rows_per_page:("Ошибок на странице: ", select) () in
+  let table = new Table.t ~footer ~dense:true ~fmt () in
   let on_change = fun (x : bool) ->
     List.iter (fun row ->
         let open Table in

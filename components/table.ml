@@ -355,27 +355,6 @@ module Row = struct
 
 end
 
-module Body = struct
-  class ['a] t ?selection () =
-    let elt = Markup.Body.create ~rows:[] ()
-              |> To_dom.of_element in
-    let s_rows,s_rows_push = React.S.create List.empty in
-    object(self)
-      inherit Widget.t elt ()
-
-      method prepend_row (row : 'a Row.t) =
-        s_rows_push @@ (List.cons row self#rows);
-        Dom.insertBefore self#root row#root self#root##.firstChild
-
-      method append_row (row : 'a Row.t) =
-        s_rows_push @@ (List.cons row self#rows);
-        self#append_child row;
-
-      method s_rows = s_rows
-      method rows = List.rev @@ React.S.value s_rows
-    end
-end
-
 module Header = struct
 
   let rec make_columns : type a. ((int * sort) option -> unit) ->
@@ -466,10 +445,100 @@ module Header = struct
     end
 end
 
+module Body = struct
+  class ['a] t ?selection () =
+    let elt = Markup.Body.create ~rows:[] ()
+              |> To_dom.of_element in
+    let s_rows,s_rows_push = React.S.create List.empty in
+    object(self)
+      inherit Widget.t elt ()
+
+      method prepend_row (row : 'a Row.t) =
+        s_rows_push @@ (List.cons row self#rows);
+        Dom.insertBefore self#root row#root self#root##.firstChild
+
+      method append_row (row : 'a Row.t) =
+        s_rows_push @@ (List.cons row self#rows);
+        self#append_child row;
+
+      method s_rows = s_rows
+      method rows = List.rev @@ React.S.value s_rows
+    end
+end
+
+module Footer = struct
+
+  type per_page =
+    | Num of int
+    | All
+
+  let rec col_num : type a. a Format.t -> int = fun l ->
+    let open Format in
+    match l with
+    | [] -> 0
+    | _ :: tl -> 1 + (col_num tl)
+
+  module Select = struct
+
+    class t ?(all : string option)
+            (num : int list)
+            () =
+      let items =
+        let init = match all with
+          | None -> List.empty
+          | Some s -> [ `Item (new Select.Item.t ~value:All ~text:s ()) ] in
+        let items =
+          List.map (fun x ->
+              let text = string_of_int x in
+              let item = new Select.Item.t ~value:(Num x) ~text () in
+              `Item item) num in
+        items @ init in
+      let select = new Select.t
+                     ~bottom_line:false
+                     ~items () in
+      let elt = Markup.Footer.create_select
+                  (Widget.to_markup select) ()
+                |> To_dom.of_element in
+      object
+        inherit Widget.t elt ()
+
+        method select = select
+      end
+
+  end
+
+  class t ?(spacer = true)
+          ?(rows_per_page : (string * Select.t) option)
+          ?(actions = List.empty)
+          () =
+    let spacer = match spacer with
+      | false -> None
+      | true -> Option.return @@ Markup.Footer.create_spacer () in
+    let rpp : 'a list = match rows_per_page with
+      | Some (s, select) ->
+         let caption = Markup.Footer.create_caption s () in
+         [ caption; Widget.to_markup select ]
+      | None -> [] in
+    let actions : 'a list = match actions with
+      | [] -> []
+      | l -> let actions = List.map Widget.to_markup l in
+             [ Markup.Footer.create_actions actions () ] in
+    let content = List.cons_maybe spacer rpp @ actions in
+    let elt = Markup.Footer.create_toolbar content ()
+              |> To_dom.of_element in
+    object(self)
+      inherit Widget.t elt ()
+    end
+
+end
+
 module Table = struct
-  class t ~header ~body () =
-    let elt = Markup.create_table ~header:(Widget.to_markup header)
-                ~body:(Widget.to_markup body) ()
+  class t ?header ~body ?footer () =
+    let elt = Markup.create_table
+                ?header:(Option.map Widget.to_markup header)
+                ~body:(Widget.to_markup body)
+                ?footer:(Option.map Widget.to_markup footer)
+                ()
               |> To_dom.of_element in
     object
       inherit Widget.t elt ()
@@ -488,14 +557,20 @@ let rec compare : type a. int ->
      then x1#compare x2
      else compare (pred index) rest1 rest2
 
-class ['a] t ?selection ?(sticky_header = false) ?(dense = false)
+class ['a] t ?selection
+        ?footer
+        ?(sticky_header = false)
+        ?(dense = false)
         ~(fmt : 'a Format.t) () =
   let s_selected, set_selected = React.S.create List.empty in
   let body = new Body.t ?selection () in
   let header = new Header.t ?selection s_selected
                  set_selected body#s_rows fmt () in
   let table = new Table.t ~header ~body () in
-  let elt = Markup.create ?selection ~table:(Widget.to_markup table) ()
+  let content = Markup.create_content ~table:(Widget.to_markup table) () in
+  let elt = Markup.create ?selection
+              ?footer:(Option.map Widget.to_markup footer)
+              ~content ()
             |> To_dom.of_element in
   object(self)
     inherit Widget.t elt ()
