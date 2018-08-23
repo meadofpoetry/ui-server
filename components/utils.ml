@@ -27,20 +27,20 @@ let sum_scroll_offsets (e:Dom_html.element Js.t) =
 
 module Keyboard_event = struct
 
-  let event_to_key (e:Dom_html.keyboardEvent Js.t) =
+  let event_to_key (e : Dom_html.keyboardEvent Js.t) =
     let key  = Option.map Js.to_string @@ Js.Optdef.to_option e##.key in
-    (match key,e##.keyCode with
-     | Some "Delete", _ | _, 46                -> `Delete e
-     | Some "Enter", _  | _, 13                -> `Enter e
-     | Some "Space", _  | _, 32                -> `Space e
+    (match key, e##.keyCode with
+     | Some "Delete", _ | _, 46 -> `Delete e
+     | Some "Enter", _  | _, 13 -> `Enter e
+     | Some "Space", _  | _, 32 -> `Space e
      | Some "Escape",_  | Some "Esc",_ | _, 27 -> `Escape e
-     | _                                       -> `Unknown e)
+     | _ -> `Unknown e)
 
-  let listen ?(typ=`Keydown) elt f =
+  let listen ?(typ = `Keydown) elt f =
     let typ = match typ with
       | `Keydown  -> Dom_events.Typ.keydown
       | `Keypress -> Dom_events.Typ.keypress
-      | `Keyup    -> Dom_events.Typ.keyup
+      | `Keyup -> Dom_events.Typ.keyup
     in
     Dom_events.listen elt typ (fun _ e -> f @@ event_to_key e)
 

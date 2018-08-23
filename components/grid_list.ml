@@ -21,11 +21,12 @@ module Tile = struct
         inherit Widget.t elt ()
         method content_widget = content_widget
 
-        method src       = src
-        method set_src s = if is_div
-                           then content_widget#style##.backgroundImage := Js.string ("url(" ^ s ^ ")")
-                           else (Js.Unsafe.coerce content_widget#root)##.src := Js.string s;
-                           src <- Some s
+        method src = src
+        method set_src s =
+          if is_div
+          then content_widget#style##.backgroundImage := Js.string ("url(" ^ s ^ ")")
+          else (Js.Unsafe.coerce content_widget#root)##.src := Js.string s;
+          src <- Some s
 
       end
 

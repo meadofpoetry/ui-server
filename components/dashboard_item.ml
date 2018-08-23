@@ -45,7 +45,7 @@ class t ~(item:item) () =
     Option.map (fun (s:settings) ->
         let icon = Icon.SVG.(create_simple Path.settings) in
         let settings = new Icon_button.t ~icon () in
-        let cancel = new Dialog.Action.t ~typ:`Decline ~label:"Отмена" () in
+        let cancel = new Dialog.Action.t ~typ:`Cancel ~label:"Отмена" () in
         let apply = new Dialog.Action.t ~typ:`Accept  ~label:"ОК" () in
         let dialog = new Dialog.t
                        ~title:(Printf.sprintf "Настройки. %s" item.name)
@@ -56,12 +56,11 @@ class t ~(item:item) () =
         let _ = connect_apply apply s in
         settings, dialog)
       item.settings in
-  let buttons =
-    let widgets = match sd with
-      | Some (s, _) -> [ s#widget; remove#widget ]
-      | None -> [ remove#widget ] in
-    List.iter (fun x -> x#add_class Markup.Item.button_class) widgets;
-    new Hbox.t ~widgets () in
+  let icons = match sd with
+    | Some (s, _) -> [ s#widget; remove#widget ]
+    | None -> [ remove#widget ] in
+  let buttons = new Card.Actions.Icons.t ~widgets:icons () in
+  let actions = new Card.Actions.t ~widgets:[ buttons ] () in
   let heading = new Card.Primary.t ~widgets:[ title#widget ] () in
   let content = new Card.Media.t ~widgets:[ item.widget ] () in
   object(self)
@@ -75,15 +74,15 @@ class t ~(item:item) () =
     method editable = _editable
     method set_editable x =
       _editable <- x;
-      if x then (if self#editable then self#heading#append_child buttons)
-      else self#heading#remove_child buttons;
+      if x then (if self#editable then self#heading#append_child actions)
+      else self#heading#remove_child actions;
       item.widget#add_or_remove_class x Markup.Item.editing_class;
-      List.iter (fun x -> x#layout ()) buttons#widgets
+      List.iter (fun x -> x#layout ()) icons
 
     initializer
       Option.iter (fun ((settings : #Widget.t), (dialog : Dialog.t)) ->
           let open Lwt.Infix in
-          settings#listen_lwt Widget.Event.click (fun _ _ ->
+          settings#listen_click_lwt (fun _ _ ->
               dialog#show_await () >|= ignore) |> Lwt.ignore_result;
           Dom.appendChild Dom_html.document##.body dialog#root) sd;
       self#add_class Markup.Item._class;

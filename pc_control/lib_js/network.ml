@@ -240,7 +240,7 @@ let make_card is_root post (config : Network_config.t) =
   let warning =
     new Dialog.t
       ~title:"Внимание!"
-      ~actions:[ new Dialog.Action.t ~typ:`Decline ~label:"Отмена" ()
+      ~actions:[ new Dialog.Action.t ~typ:`Cancel ~label:"Отмена" ()
                ; new Dialog.Action.t ~typ:`Accept ~label:"Применить" () ]
       ~content:(`String "Применение настроек может привести к разрыву соединения. \
                          Вы уверены, что хотите применить данные настройки?") ()

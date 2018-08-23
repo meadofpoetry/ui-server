@@ -11,7 +11,9 @@ class t ?(on = false) ?on_change ?on_icon ~icon () =
             |> To_dom.of_button in
   object(self)
 
-    inherit Widget.t elt ()
+    val mutable _ripple = None
+
+    inherit Widget.t elt () as super
 
     method disabled : bool =
       Js.to_bool elt##.disabled
@@ -33,10 +35,15 @@ class t ?(on = false) ?on_change ?on_icon ~icon () =
       set_state x;
       self#add_or_remove_class x Markup.on_class
 
+    method! layout () =
+      super#layout ();
+      Option.iter (fun r -> r##layout ()) _ripple
+
     initializer
       if on then self#set_on true;
       (* FIXME implement ripple normally *)
       (let r = Ripple.attach self in
+       _ripple <- Some r;
        self#add_class "mdc-ripple-surface";
        r##.unbounded := Js.bool true;
        Ripple.set_unbounded self);

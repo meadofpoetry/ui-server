@@ -98,10 +98,10 @@ class t ?(animating=true) ~(anchor:anchor) ~(content:#Widget.t list) () =
 
     initializer
 
-      Dom_events.listen self#root Dom_events.Typ.touchstart (fun _ ev ->
-          let touch  = Js.Optdef.get (ev##.changedTouches##item 0) (fun () -> failwith "touch fail") in
-          let target = Js.Opt.get (ev##.target) (fun () -> failwith "touch fail") in
-          let is_anchor x = CCEqual.physical self#anchor x in
+      self#listen_lwt Widget.Event.touchstart (fun e _ ->
+          let touch = Js.Optdef.get (e##.changedTouches##item 0) (fun () -> failwith "touch fail") in
+          let target = Js.Opt.get (e##.target) (fun () -> failwith "touch fail") in
+          let is_anchor x = Equal.physical self#anchor x in
           if self#has_class Markup.open_class
              && not ((is_anchor `Top ||is_anchor `Bottom) &&
                        target##.scrollHeight > target##.offsetHeight)
@@ -110,29 +110,32 @@ class t ?(animating=true) ~(anchor:anchor) ~(content:#Widget.t list) () =
           then
             ( let start_x, start_y = touch##.clientX, touch##.clientY in
               let move_l =
-                Dom_events.listen self#root Dom_events.Typ.touchmove
-                  (fun _ e ->
+                self#listen_lwt Widget.Event.touchmove
+                  (fun e _ ->
                     Dom_html.stopPropagation e;
-                    let touch = Js.Optdef.get (e##.changedTouches##item 0)
-                                  (fun () -> failwith "touch fail")
-                    in
-                    let delta, transform =
-                      (match self#anchor with
-                       | `Left   -> let dx = start_x - touch##.clientX in
-                                    dx, "translateX(-"^(string_of_int dx)^"px)"
-                       | `Right  -> let dx = touch##.clientX - start_x in
-                                    dx, "translateX(" ^(string_of_int dx)^"px)"
-                       | `Top    -> let dy = start_y - touch##.clientY in
-                                    dy, "translateY(-"^(string_of_int dy)^"px)"
-                       | `Bottom -> let dy = touch##.clientY - start_y in
-                                    dy, "translateY(" ^(string_of_int dy)^"px)")
+                    let touch =
+                      Js.Optdef.get (e##.changedTouches##item 0)
+                        (fun () -> failwith "touch fail") in
+                    let delta, transform = match self#anchor with
+                      | `Left ->
+                         let dx = start_x - touch##.clientX in
+                         dx, "translateX(-"^(string_of_int dx)^"px)"
+                      | `Right ->
+                         let dx = touch##.clientX - start_x in
+                         dx, "translateX(" ^(string_of_int dx)^"px)"
+                      | `Top ->
+                         let dy = start_y - touch##.clientY in
+                         dy, "translateY(-"^(string_of_int dy)^"px)"
+                      | `Bottom ->
+                         let dy = touch##.clientY - start_y in
+                         dy, "translateY(" ^(string_of_int dy)^"px)"
                     in
                     if delta > 0
                     then self#drawer#style##.transform := Js.string transform;
-                    true)
+                    Lwt.return_unit)
               in
               let end_ev e =
-                Dom_events.stop_listen move_l;
+                Lwt.cancel move_l;
                 Option.iter (fun x -> Dom_events.stop_listen x) end_l;
                 Option.iter (fun x -> Dom_events.stop_listen x) cancel_l;
                 let touch = Js.Optdef.get (e##.changedTouches##item 0)
@@ -150,19 +153,19 @@ class t ?(animating=true) ~(anchor:anchor) ~(content:#Widget.t list) () =
               Dom_events.listen Dom_html.window Dom_events.Typ.touchcancel
                 (fun _ e -> end_ev e; true)
               |> (fun x -> cancel_l <- Some x));
-          true) |> ignore;
+          Lwt.return_unit) |> Lwt.ignore_result;
 
       Utils.Keyboard_event.listen Dom_html.window (function
           | `Escape _ -> if self#has_class Markup.open_class
                          then self#hide (); true
           | _         -> true) |> ignore;
 
-      Dom_events.listen self#root Dom_events.Typ.click (fun _ ev ->
-          let target = Js.Opt.get (ev##.target) (fun () -> failwith "touch fail") in
+      self#listen_click_lwt (fun e _ ->
+          let target = Js.Opt.get (e##.target) (fun () -> failwith "touch fail") in
           if self#has_class Markup.open_class
              && Js.to_bool @@ target##.classList##contains (Js.string Markup.base_class)
           then self#hide ();
-          true) |> ignore;
+          Lwt.return_unit) |> Lwt.ignore_result;
 
       self#add_or_remove_class animating Markup.animating_class;
       self#set_anchor anchor

@@ -240,8 +240,8 @@ let dialog_demo () =
     new Dialog.t
       ~title:"This is dialog"
       ~content:(`String "Dialog body")
-      ~actions:[ new Dialog.Action.t ~typ:`Decline ~label:"Decline" ()
-               ; new Dialog.Action.t ~typ:`Accept  ~label:"Accept" ()
+      ~actions:[ new Dialog.Action.t ~typ:`Cancel ~label:"Decline" ()
+               ; new Dialog.Action.t ~typ:`Accept ~label:"Accept" ()
       ]
       () in
   let button = new Button.t ~label:"show dialog" () in

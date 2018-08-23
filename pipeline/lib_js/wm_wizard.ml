@@ -85,7 +85,7 @@ let to_dialog (wm:Wm.t) =
                        ~title:"Выберите виджеты"
                        ~scrollable:true
                        ~content:(`Widgets [box])
-                       ~actions:[ new Dialog.Action.t ~typ:`Decline ~label:"Отмена" ()
+                       ~actions:[ new Dialog.Action.t ~typ:`Cancel ~label:"Отмена" ()
                                 ; new Dialog.Action.t ~typ:`Accept  ~label:"Применить"  ()
                                 ]
                        ()

@@ -169,7 +169,7 @@ let make_stream_create_dialog () =
   let box     = new Vbox.t ~widgets:[uri_box#widget; desc_box#widget] () in
   
   let accept  = new Dialog.Action.t ~label:"accept" ~typ:`Accept () in
-  let decline = new Dialog.Action.t ~label:"decline" ~typ:`Decline () in
+  let decline = new Dialog.Action.t ~label:"decline" ~typ:`Cancel () in
   let dialog  = new Dialog.t ~actions:[accept; decline] ~content:(`Widgets [header#widget; box#widget]) () in
 
   let merge uri description source =

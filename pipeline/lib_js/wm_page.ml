@@ -285,7 +285,7 @@ let create_widgets_grid
       ; name = "Назад" } in
   let dlg =
     new Dialog.t
-      ~actions:[ new Dialog.Action.t ~typ:`Decline ~label:"Отмена" ()
+      ~actions:[ new Dialog.Action.t ~typ:`Cancel ~label:"Отмена" ()
                ; new Dialog.Action.t ~typ:`Accept ~label:"Ok" () ]
       ~title:"Сохранить изменения?"
       ~content:(`Widgets []) () in
