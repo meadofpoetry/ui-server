@@ -305,9 +305,9 @@ module Streams = struct
                     (return ()) data))
 
   let bump_streams db streams =
-    let table  = (Conn.names db).streams in
-    let now    = Time.Clock.now_s () in
-    let data   = List.map (fun (s:Stream.t) -> ID.to_db s.id, now) streams in
+    let table = (Conn.names db).streams in
+    let now = Time.Clock.now_s () in
+    let data = List.map (fun (s:Stream.t) -> ID.to_db s.id, now) streams in
     let update_last =
       R.exec Types.(tup2 ID.db ptime)
         (sprintf {|UPDATE %s SET date_end = $2

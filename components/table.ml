@@ -449,7 +449,7 @@ module Body = struct
   class ['a] t ?selection () =
     let elt = Markup.Body.create ~rows:[] ()
               |> To_dom.of_element in
-    let s_rows,s_rows_push = React.S.create List.empty in
+    let s_rows, s_rows_push = React.S.create List.empty in
     object(self)
       inherit Widget.t elt ()
 
@@ -460,6 +460,10 @@ module Body = struct
       method append_row (row : 'a Row.t) =
         s_rows_push @@ (List.cons row self#rows);
         self#append_child row;
+
+      method remove_all_rows () =
+        self#set_empty ();
+        s_rows_push []
 
       method s_rows = s_rows
       method rows = List.rev @@ React.S.value s_rows
@@ -601,6 +605,9 @@ class ['a] t ?selection
       let row = self#_make_row data in
       body#append_row row;
       row
+
+    method remove_all_rows () =
+      body#remove_all_rows ()
 
     method sort index sort =
       let rows =

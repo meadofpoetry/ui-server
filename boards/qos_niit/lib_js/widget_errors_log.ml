@@ -16,7 +16,34 @@ let base_class = "qos-niit-errors-log"
 
 let settings = None
 
-let make_table is_hex (init : Errors.raw) =
+let ( >>* ) x f = Lwt_result.map_err f x
+let ( % ) = Fun.( % )
+
+let get_errors ?from ?till ?duration ?limit ?order ~id control =
+  let open Requests.Streams.HTTP.Errors in
+  get_errors ?limit ?from ?till ?duration ?order ~id control
+  >>* Api_js.Requests.err_to_string
+  >>= function
+  | Raw s -> Lwt_result.return s.data
+  | _ -> Lwt.fail_with "got compressed"
+
+
+let add_error (table : 'a Table.t) (error : Errors.t) =
+  let open Table in
+  let service = None in
+  let date = error.timestamp in
+  let pid = error.pid in
+  let count = error.count in
+  let check =
+    let num, name = Ts_error.to_name error in
+    num ^ " " ^ name in
+  let extra = Ts_error.Description.of_ts_error error in
+  let data = Data.(
+      date :: check :: pid :: service :: count :: extra :: []) in
+  let row = table#prepend_row data in
+  row
+
+let make_table ~id is_hex (init : Errors.raw) control =
   let hex_id_fmt = Some (Printf.sprintf "0x%04X") in
   let tz_offset_s = Ptime_clock.current_tz_offset_s () in
   let show_time = Time.to_human_string ?tz_offset_s in
@@ -30,15 +57,73 @@ let make_table is_hex (init : Errors.raw) =
     :: (to_column ~sortable:true "Количество", Int None)
     :: (to_column "Подробности", String None)
     :: [] in
+  let fwd =
+    let icon = Icon.SVG.(create_simple Path.chevron_right) in
+    new Icon_button.t ~icon () in
+  let bwd =
+    let icon = Icon.SVG.(create_simple Path.chevron_left) in
+    new Icon_button.t ~icon () in
+  let fst =
+    let icon = Icon.SVG.(create_simple Path.page_first) in
+    new Icon_button.t ~icon () in
+  let lst =
+    let icon = Icon.SVG.(create_simple Path.page_last) in
+    new Icon_button.t ~icon () in
+  let select = new Table.Footer.Select.t
+                 [ 5; 10; 15; 20 ] () in
   let footer =
-    let fwd = Icon.SVG.(create_simple Path.chevron_right) in
-    let btn = new Icon_button.t ~icon:fwd () in
-    let select = new Table.Footer.Select.t
-                   [ 5; 10; 15; 20 ] () in
     new Table.Footer.t
-      ~actions:[ btn ]
+      ~actions:[ fst; bwd; fwd; lst ]
       ~rows_per_page:("Ошибок на странице: ", select) () in
   let table = new Table.t ~footer ~dense:true ~fmt () in
+  fst#listen_click_lwt (fun _ _ ->
+      get_errors ~limit:20 ~order:`Desc ~id control
+      >|= (fun e -> table#remove_all_rows ();
+                    List.iter (ignore % add_error table % snd) e)
+      |> Lwt.map ignore)
+  |> Lwt.ignore_result;
+  fwd#listen_click_lwt (fun _ _ ->
+      let open Table in
+      let till =
+        List.fold_left (fun acc x ->
+            let cell = match x#cells with
+              | c :: _ -> c in
+            match acc with
+            | None -> Some cell#value
+            | Some acc ->
+               if Time.compare cell#value acc >= 0
+               then Some acc else Some cell#value)
+          None table#rows in
+      print_endline @@ show_time @@ Option.get_exn till;
+      get_errors ?till ~limit:20 ~order:`Desc ~id control
+      >|= (fun e -> table#remove_all_rows ();
+                    List.iter (ignore % add_error table % snd) e)
+      |> Lwt.map ignore)
+  |> Lwt.ignore_result;
+  bwd#listen_click_lwt (fun _ _ ->
+      let open Table in
+      let from =
+        List.fold_left (fun acc x ->
+            let cell = match x#cells with
+              | c :: _ -> c in
+            match acc with
+            | None -> Some cell#value
+            | Some acc ->
+               if Time.compare cell#value acc < 0
+               then Some acc else Some cell#value)
+          None table#rows in
+      print_endline @@ show_time @@ Option.get_exn from;
+      get_errors ?from ~limit:20 ~order:`Asc ~id control
+      >|= (fun e -> table#remove_all_rows ();
+                    List.iter (ignore % add_error table % snd) @@ List.rev e)
+      |> Lwt.map ignore)
+  |> Lwt.ignore_result;
+  lst#listen_click_lwt (fun _ _ ->
+      get_errors ~limit:20 ~order:`Asc ~id control
+      >|= (fun e -> table#remove_all_rows ();
+                    List.iter (ignore % add_error table % snd) @@ List.rev e)
+      |> Lwt.map ignore)
+  |> Lwt.ignore_result;
   let on_change = fun (x : bool) ->
     List.iter (fun row ->
         let open Table in
@@ -48,12 +133,12 @@ let make_table is_hex (init : Errors.raw) =
            pid#set_format fmt)
       table#rows in
   if is_hex then on_change true;
-  table, on_change
+  table, on_change, add_error
 
-class t (init : Errors.raw) () =
+class t ~id (init : Errors.raw) control () =
   (* FIXME should remember preffered state *)
   let is_hex = false in
-  let table, on_change = make_table is_hex init in
+  let table, on_change, add_row = make_table ~id is_hex init control in
   let actions = new Card.Actions.t ~widgets:[] () in
   let media = new Card.Media.t ~widgets:[ table ] () in
   let switch = new Switch.t ~state:is_hex ~on_change () in
@@ -64,20 +149,8 @@ class t (init : Errors.raw) () =
                             ; (new Divider.t ())#widget
                             ; media#widget ] ()
 
-    method add_error (error : Errors.t) =
-      let open Table in
-      let service = None in
-      let date = error.timestamp in
-      let pid = error.pid in
-      let count = error.count in
-      let check =
-        let num, name = Ts_error.to_name error in
-        num ^ " " ^ name in
-      let extra = Ts_error.Description.of_ts_error error in
-      let data = Data.(
-          date :: check :: pid :: service :: count :: extra :: []) in
-      let row = table#prepend_row data in
-      row
+    method add_error : Errors.t -> 'a Table.Row.t =
+      add_row table
 
     initializer
       List.iter Fun.(ignore % self#add_error % snd) init;
@@ -85,4 +158,4 @@ class t (init : Errors.raw) () =
       self#add_class base_class
   end
 
-let make init = new t init ()
+let make ~id init control = new t ~id init control ()

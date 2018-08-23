@@ -190,7 +190,8 @@ module HTTP = struct
     open Errors
 
     let get_errors?(errors=[]) ?(priority=[]) ?(pids=[])
-          ?limit ?compress ?from ?till ?duration ~id control =
+          ?limit ?compress ?order ?from ?till ?duration ~id control =
+      let desc = Option.map (function `Asc -> false | `Desc -> true) order in
       get_result ~from:(rows_of_yojson raw_of_yojson compressed_of_yojson)
         ~path:Path.Format.(get_base_path () / (ID.fmt ^/ "errors" @/ empty))
         ~query:Query.[ "errors",   (module List(Int))
@@ -198,10 +199,11 @@ module HTTP = struct
                      ; "pid",      (module List(Int))
                      ; "limit",    (module Option(Int))
                      ; "compress", (module Option(Bool))
+                     ; "desc",     (module Option(Bool))
                      ; "from",     (module Option(Time.Show))
                      ; "to",       (module Option(Time.Show))
                      ; "duration", (module Option(Time.Relative)) ]
-        control id errors priority pids limit compress from till duration
+        control id errors priority pids limit compress desc from till duration
 
     let get_errors_percent ?(errors=[]) ?(priority=[]) ?(pids=[])
           ?from ?till ?duration ~id control =

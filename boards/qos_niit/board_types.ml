@@ -405,7 +405,7 @@ module Errors = struct
     } [@@deriving yojson, eq, show]
 
   type raw =
-    (Stream.ID.t * t) list [@@deriving yojson]
+    (Stream.ID.t * t) list [@@deriving yojson, show]
 
   type compressed = percent list
   and percent =
