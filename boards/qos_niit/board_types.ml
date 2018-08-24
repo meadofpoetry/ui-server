@@ -201,12 +201,12 @@ module Streams = struct
       ; ext_2 : int (* For EIT - orig nw id *)
       ; ext_3 : int (* For EIT - segment lsn *)
       ; ext_4 : int (* For EIT - last table id *)
-      } [@@deriving yojson, eq, ord]
+      } [@@deriving yojson, eq, ord, show]
 
     type section_info =
       { id : int
       ; length : int
-      } [@@deriving yojson, eq, ord]
+      } [@@deriving yojson, eq, ord, show]
 
     type table_info =
       { id : int
@@ -218,7 +218,7 @@ module Streams = struct
       ; section_syntax : bool
       ; last_section : int
       ; sections : section_info list
-      } [@@deriving yojson, eq, ord]
+      } [@@deriving yojson, eq, ord, show]
 
     type general_info =
       { complete     : bool

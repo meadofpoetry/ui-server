@@ -46,12 +46,12 @@ let update_row row total br pid =
    | Some v -> if br >. v then max#set_value (Some br));
   br, pct
 
-class t (init:pid_info list) () =
+class t (init : pid_info list) () =
   (* FIXME should remember preffered state *)
-  let is_hex  = false in
+  let is_hex = false in
   let dec_pid_fmt = Table.(Int None) in
   let hex_pid_fmt = Table.(Int (Some (Printf.sprintf "0x%04X"))) in
-  let br_fmt  = Table.(Option (Float None, "-")) in
+  let br_fmt = Table.(Option (Float None, "-")) in
   let pct_fmt = Table.(Option (Float (Some (Printf.sprintf "%.2f")), "-")) in
   let fmt =
     let open Table in
@@ -68,21 +68,21 @@ class t (init:pid_info list) () =
     :: (to_sort_column "Max, Мбит/с", br_fmt)
     :: [] in
   let table = new Table.t ~dense:true ~fmt () in
-  let on_change = fun (x:bool) ->
+  let on_change = fun (x : bool) ->
     List.iter (fun row ->
         let open Table in
         match row#cells with
         | pid :: _ ->
            pid#set_format (if x then hex_pid_fmt else dec_pid_fmt))
-    table#rows in
-  let switch  = new Switch.t ~state:is_hex ~on_change () in
-  let hex     = new Form_field.t ~input:switch ~label:"HEX IDs" () in
+      table#rows in
+  let switch = new Switch.t ~state:is_hex ~on_change () in
+  let hex = new Form_field.t ~input:switch ~label:"HEX IDs" () in
   let actions = new Card.Actions.t ~widgets:[ hex#widget ] () in
-  let media   = new Card.Media.t ~widgets:[ table ] () in
-  let add_row (pid:pid_info) =
+  let media = new Card.Media.t ~widgets:[ table ] () in
+  let add_row (pid : pid_info) =
     let open Table in
     let pid_type = match pid.pid_type with
-      | SEC l   ->
+      | SEC l ->
          let s = List.map Fun.(Mpeg_ts.(table_to_string % table_of_int)) l
                  |> String.concat ", " in
          "SEC -> " ^ s
@@ -116,9 +116,9 @@ class t (init:pid_info list) () =
     inherit Card.t ~widgets:[ actions#widget
                             ; (new Divider.t ())#widget
                             ; media#widget ] ()
-    method set_rate  = set_rate
-    method table     = table
-    method switch    = hex
+    method set_rate = set_rate
+    method table = table
+    method switch = hex
     method set_hex x = on_change x
     initializer
       List.iter Fun.(ignore % add_row) init;

@@ -3439,7 +3439,7 @@ module PAT = struct
          ; to_node ~offset:off_5 8 "section_number" (Dec (Int section_number))
          ; to_node ~offset:off_6 8 "last_section_number" (Dec (Int last_section_num))
          ; to_node ~offset:off_7 (progs_length off_6) "programs" (List progs)
-         ; to_node ~offset:off_8 32 "CRC_32" (Dec (Uint32 crc32))
+         ; to_node ~offset:off_8 32 "CRC_32" (Hex (Uint32 crc32))
          ] in
        header @ nodes
 
@@ -3508,7 +3508,7 @@ module PMT = struct
          ; to_node ~offset:off_10 12 "program_info_length" (Dec (Int length))
          ; to_node ~offset:off_11 (length * 8) "descriptors" (List dscrs)
          ; to_node ~offset:off_12 (streams_len length off_11) "streams" (List streams)
-         ; to_node ~offset:off_13 32 "CRC_32" (Dec (Uint32 crc32))
+         ; to_node ~offset:off_13 32 "CRC_32" (Hex (Uint32 crc32))
          ]
        in
        header @ nodes
@@ -3542,7 +3542,7 @@ module CAT = struct
          ; to_node ~offset:off_4 8 "section_number" (Dec (Int section_number))
          ; to_node ~offset:off_5 8 "last_section_number" (Dec (Int last_section_number))
          ; to_node ~offset:off_6 (dscrs_length off_5) "descriptors" (List dscrs)
-         ; to_node ~offset:off_7 32 "CRC_32" (Dec (Uint32 crc32))
+         ; to_node ~offset:off_7 32 "CRC_32" (Hex (Uint32 crc32))
          ]
        in
        header @ nodes
@@ -3594,7 +3594,7 @@ module NIT = struct
          ; to_node ~offset:off_10 4 "reserved_future_use" (Hex (Int rfu_2))
          ; to_node ~offset:off_11 12 "transport_stream_loop_length" (Dec (Int ts_loop_len))
          ; to_node ~offset:off_12 (ts_loop_len * 8) "transport_streams" (List ts)
-         ; to_node ~offset:off_13 32 "CRC_32" (Dec (Uint32 crc32))
+         ; to_node ~offset:off_13 32 "CRC_32" (Hex (Uint32 crc32))
          ]
        in
        header @ nodes
@@ -3637,7 +3637,7 @@ module BAT = struct
          ; to_node ~offset:off_10 4 "reserved_future_use" (Bits (Int rfu_2))
          ; to_node ~offset:off_11 12 "transport_stream_loop_length" (Dec (Int ts_len))
          ; to_node ~offset:off_12 (ts_len * 8) "transport_streams" (List ts)
-         ; to_node ~offset:off_13 32 "CRC_32" (Dec (Uint32 crc32))
+         ; to_node ~offset:off_13 32 "CRC_32" (Hex (Uint32 crc32))
          ]
        in
        header @ nodes
@@ -3715,7 +3715,7 @@ module SDT = struct
          ; to_node ~offset:off_7 16 "original_network_id" (Hex (Int on_id))
          ; to_node ~offset:off_8 8 "reserved_future_use" (Hex (Int rfu))
          ; to_node ~offset:off_9 (services_length off_8) "services" (List services)
-         ; to_node ~offset:off_10 32 "CRC_32" (Dec (Uint32 crc32))
+         ; to_node ~offset:off_10 32 "CRC_32" (Hex (Uint32 crc32))
          ]
        in
        header @ nodes
@@ -3804,7 +3804,7 @@ module EIT = struct
          ; to_node ~offset:off_9 8 "segment_last_section_number" (Dec (Int seg_last_sec_num))
          ; to_node ~offset:off_10 8 "last_table_id" (Hex (Int last_table_id))
          ; to_node ~offset:off_11 (events_length off_10) "events" (List events)
-         ; to_node ~offset:off_12 32 "CRC_32" (Dec (Uint32 crc32))
+         ; to_node ~offset:off_12 32 "CRC_32" (Hex (Uint32 crc32))
          ]
        in
        header @ nodes
@@ -3859,7 +3859,7 @@ module TOT = struct
          ; to_node ~offset:off_2 4  "reserved" (Hex (Int reserved))
          ; to_node ~offset:off_3 12 "descriptors_loop_length" (Hex (Int length))
          ; to_node ~offset:off_4 (length * 8) "descriptors" (List dscrs)
-         ; to_node ~offset:off_5 32 "CRC_32" (Dec (Uint32 crc32))
+         ; to_node ~offset:off_5 32 "CRC_32" (Hex (Uint32 crc32))
          ]
        in
        header @ nodes
@@ -4012,7 +4012,7 @@ module SIT = struct
          ; to_node ~offset:off_8 12 "transmission_info_loop_length" (Dec (Int len))
          ; to_node ~offset:off_9 (len * 8) "descriptors" (List dscrs)
          ; to_node ~offset:off_10 (services_length off_9 len) "services" (List services)
-         ; to_node ~offset:off_11 32 "CRC_32" (Dec (Uint32 crc32))
+         ; to_node ~offset:off_11 32 "CRC_32" (Hex (Uint32 crc32))
          ]
        in
        let header = parse_header header in

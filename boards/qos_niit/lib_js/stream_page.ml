@@ -30,6 +30,18 @@ let get_services ~id control =
      |> Lwt_result.return
   | _ -> Lwt.fail_with "got compressed"
 
+let get_tables ~id control =
+  Requests.Streams.HTTP.get_tables ~id ~limit:1 control
+  >>* Api_js.Requests.err_to_string
+  >>= function
+  | Raw s ->
+     begin match List.head_opt s.data with
+     | Some (_, tables) -> tables.tables
+     | None -> []
+     end
+     |> Lwt_result.return
+  | _ -> Lwt.fail_with "got compressed"
+
 let get_errors ?from ?till ?duration ?limit ~id control =
   let open Requests.Streams.HTTP.Errors in
   get_errors ?limit ?from ?till ?duration ~id control
@@ -118,8 +130,17 @@ let pids ({ id; _ } as stream : Stream.t) control =
     new t ~cells () in
   box#widget
 
-let tables (stream:Stream.t) control =
-  let overview = Widget_tables_overview.make ~config:{ stream } control in
+let tables ({ id; _ } as stream : Stream.t) control =
+  let e, sock = Requests.Streams.WS.get_tables ~id:stream.id  control in
+  let overview =
+    get_tables ~id control
+    >|= (fun x -> Widget_tables_overview.make stream x control)
+    >|= (fun w ->
+      (* FIXME save event *)
+      let _ = React.E.map (fun (x:tables) -> w#update x.tables) e in
+      w)
+    >|= Widget.coerce
+    |> Ui_templates.Loader.create_widget_loader in
   let box =
     let open Layout_grid in
     let open Typography in
@@ -129,25 +150,26 @@ let tables (stream:Stream.t) control =
       [ new Cell.t ~span ~widgets:[new Text.t ~text:"Обзор" ()] ()
       ; overview_cell ] in
     new t ~cells () in
+  box#set_on_destroy @@ Some (fun () -> sock##close);
   box#widget
 
 let tabs (stream:Stream.t) control =
   let base =
-    [ "Ошибки",  (fun () -> errors stream control)
-    ; "Сервисы", (fun () -> services stream control)
-    ; "PIDs",    (fun () -> pids stream control)
-    ; "Таблицы", (fun () -> tables stream control)
-    ; "Битрейт", dummy_tab
-    ; "Джиттер", dummy_tab
-    ; "Архив",   dummy_tab
+    [ "Лог", "log", (fun () -> errors stream control)
+    ; "Сервисы", "services", (fun () -> services stream control)
+    ; "PIDs", "pids", (fun () -> pids stream control)
+    ; "Таблицы", "tables", (fun () -> tables stream control)
+    ; "Битрейт", "bitrate", dummy_tab
+    ; "Джиттер", "jitter", dummy_tab
+    ; "Архив", "archive", dummy_tab
     ] in
   match stream.typ with
-  | T2MI -> List.insert_at_idx 4 ("T2-MI", dummy_tab) base
+  | T2MI -> List.insert_at_idx 4 ("T2-MI", "t2mi", dummy_tab) base
   | TS   -> base
 
-let make_tabs (stream:Stream.t) control =
-  List.map (fun (name, f) ->
-      new Tab.t ~value:f ~content:(Text name) ())
+let make_tabs (stream : Stream.t) control =
+  List.map (fun (name, hash, f) ->
+      new Tab.t ~value:(hash, f) ~content:(Text name) ())
     (tabs stream control)
 
 let make (stream:Stream.t) control =

@@ -289,13 +289,13 @@ module Row = struct
       method cells = cells
       method cells_widgets = cells'
 
-      method update (data:'a Data.t) =
+      method update ?force (data : 'a Data.t) =
         let rec aux : type a. a Data.t -> a cells -> unit =
           fun data cells ->
           match data, cells with
           | Data.[], Cell.[] -> ()
           | Data.(::) (x, l1), cell :: l2 ->
-             cell#set_value x;
+             cell#set_value ?force x;
              aux l1 l2 in
         aux data self#cells
 

@@ -37,13 +37,16 @@ module Section = struct
 
   module Id = Int
 
-  type model  = section_info [@@deriving eq]
+  type model  = section_info * section option
   type widget = (section_info * section option) Item_list.Item.t
 
-  let widget      = fun w -> w#widget
-  let id_of_model = fun (x:model) -> x.id
+  let equal_model (a : model) (b : model) =
+    equal_section_info (fst a) (fst b)
 
-  let make (init:model) =
+  let widget      = fun w -> w#widget
+  let id_of_model = fun ((x : section_info), _) -> x.id
+
+  let make (init : model) =
     let bytes, update_bytes =
       let to_string x =
         let s = match x mod 10 with
@@ -51,7 +54,7 @@ module Section = struct
           | _ -> "байт" in
         Printf.sprintf "%d %s" x s in
       let w = new Typography.Text.t ~text:"" () in
-      let v = { get = (fun (x:model) -> x.length)
+      let v = { get = (fun (x : model) -> (fst x).length)
               ; eq  = Int.equal
               ; upd = (w#set_text % to_string) } in
       w, v in
@@ -59,17 +62,17 @@ module Section = struct
     let leaf = new Item_list.Item.t
                  ~text:""
                  ~meta:bytes#widget
-                 ~value:(init, None) () in
+                 ~value:init () in
     let to_primary = Printf.sprintf "ID: %d" in
     let update_primary =
-      { get = (fun (x:model) -> x.id)
+      { get = (fun (x : model) -> (fst x).id)
       ; eq  = (=)
       ; upd = (fun id ->
         let s = to_primary id in
         leaf#set_text s)
       } in
-    let update = fun ?(previous:model option) (model:model) ->
-      leaf#set_value (model, None);
+    let update = fun ?(previous : model option) (model : model) ->
+      leaf#set_value model;
       setter ?previous model update_primary;
       setter ?previous model update_bytes in
     update init;
@@ -83,51 +86,38 @@ module Sections =
 
       type widget = (section_info * section option) Item_list.t
 
-      let root (w:widget) = w#root
-      let append_child (w:widget) (i:Node.widget) =
+      let root (w : widget) = w#root
+
+      let append_child (w : widget) (i : Node.widget) =
         w#append_item i
+
       let insert_child_at_idx (w:widget) idx (i:Node.widget) =
         i#listen Widget.Event.click (fun _ _ -> w#set_active i; true)
         |> ignore;
         w#insert_item_at_idx idx i
-      let remove_child (w:widget) (i:Node.widget) =
+
+      let remove_child (w : widget) (i : Node.widget) =
         w#remove_item i
-      let make (nodes:Node.model list) =
-        let items  =
+
+      let make (nodes : Node.model list) =
+        let items =
           List.map (fun x -> let i, _ = Node.make x in
                              `Item i) nodes in
-        let list   = new Item_list.t
-                       ~selection:`Single
-                       ~items () in
-        List.iter (fun (i:'a Item_list.Item.t) ->
-            i#listen Widget.Event.click (fun _ _ -> list#set_active i; true)
-            |> ignore) list#items;
-        let () = list#set_dense true in
+        let list = new Item_list.t
+                     ~dense:true
+                     ~selection:`Single
+                     ~items () in
+        List.iter (fun (i : 'a Item_list.Item.t) ->
+            i#listen_click_lwt (fun _ _ -> list#set_active i; Lwt.return_unit)
+            |> Lwt.ignore_result) list#items;
         list, (fun _ -> ())
     end)
 
-let make_list (init:section_info list)
-      (event: section_info list React.event)
-      (sections: (section_info * section) list)
-      control =
-  let event : (section_info list * section_info list) React.event =
-    React.S.diff (fun n o -> o, n)
-    @@ React.S.hold ~eq:(Equal.list Section.equal_model) init event in
-  let list, update_list = Sections.make init in
-  let () = List.iter (fun x ->
-               let i, _ = x#value in
-               match List.Assoc.get ~eq:equal_section_info i sections with
-               | Some v -> x#set_value (i, Some v)
-               | None   -> ()) list#items in
-  let _e =
-    React.E.map (fun ((prev:section_info list),
-                      (model:section_info list)) ->
-        if not @@ (Equal.list Section.equal_model) prev model
-        then update_list model)
-      event in
+let make_list
+      (sections : (section_info * section option) list)
+      (control : int) =
+  let list, update_list = Sections.make sections in
   let () = list#set_dense true in
-  let () = list#set_on_destroy
-           @@ Some (fun () -> React.E.stop ~strong:true _e) in
   list
 
 let make_parsed () =
@@ -161,43 +151,48 @@ let make_hexdump_options hexdump =
                            ; width#widget
                            ; line_numbers'#widget ] () in
   let () = options#add_class base_class in
-  let _  = React.S.map hexdump#set_line_numbers line_numbers#s_state in
-  let _  = React.S.map (function
-               | Some x -> hexdump#set_width x
-               | None   -> ()) width#s_selected_value in
-  let _  = React.S.map (function
-               | Some x -> hexdump#set_base x
-               | None   -> ()) base#s_selected_value in
+  let _ = React.S.map hexdump#set_line_numbers line_numbers#s_state in
+  let _ = React.S.map (function
+              | Some x -> hexdump#set_width x
+              | None   -> ()) width#s_selected_value in
+  let _ = React.S.map (function
+              | Some x -> hexdump#set_base x
+              | None   -> ()) base#s_selected_value in
   options#widget
 
 let make_hexdump () =
-  let config  = Hexdump.to_config ~width:16 () in
+  let config = Hexdump.to_config ~width:16 () in
   let hexdump = new Hexdump.t ~interactive:false ~config "" () in
   hexdump, hexdump#set_bytes
 
 let make_dump_header base_class () =
   (* CSS classes *)
-  let header_class   = Markup.CSS.add_element base_class "header" in
-  let title_class    = Markup.CSS.add_element base_class "title" in
+  let header_class = Markup.CSS.add_element base_class "header" in
+  let title_class = Markup.CSS.add_element base_class "title" in
   let subtitle_class = Markup.CSS.add_element base_class "subtitle" in
   (* Elements *)
-  let title     = new Typography.Text.t
-                    ~adjust_margin:false
-                    ~text:"Выберите секцию для захвата" () in
-  let subtitle  = new Typography.Text.t
-                    ~adjust_margin:false
-                    ~split:true
-                    ~text:"" () in
-  let button    = new Ui_templates.Buttons.Get.t
-                    ~style:`Raised
-                    ~label:"Загрузить" () in
-  let title_box = new Vbox.t
-                    ~widgets:[ title#widget
-                             ; subtitle#widget ] () in
-  let header    = new Hbox.t
-                    ~halign:`Space_between
-                    ~widgets:[ title_box#widget
-                             ; button#widget] () in
+  let title =
+    new Typography.Text.t
+      ~adjust_margin:false
+      ~text:"Выберите секцию для захвата" () in
+  let subtitle =
+    new Typography.Text.t
+      ~adjust_margin:false
+      ~split:true
+      ~text:"" () in
+  let button =
+    new Ui_templates.Buttons.Get.t
+      ~style:`Raised
+      ~label:"Загрузить" () in
+  let title_box =
+    new Vbox.t
+      ~widgets:[ title#widget
+               ; subtitle#widget ] () in
+  let header =
+    new Hbox.t
+      ~halign:`Space_between
+      ~widgets:[ title_box#widget
+               ; button#widget ] () in
   (* CSS classes setup *)
   let () = title#add_class title_class in
   let () = subtitle#add_class subtitle_class in
@@ -273,9 +268,12 @@ let make_tree (x:parsed) =
   tree
 
 let make_dump
-      (stream:Stream.t)
-      (table:table_info)
-      (list:(section_info * section option) Item_list.t) control =
+      ~(id : int)
+      ~(id_ext : int)
+      ~(ext_info : ext_info)
+      (stream : Stream.t)
+      (list : (section_info * section option) Item_list.t)
+      (control : int) =
   let base_class = Markup.CSS.add_element base_class "dump" in
   let header, title, subtitle, button = make_dump_header base_class () in
   let hexdump, set_hexdump = make_hexdump () in
@@ -284,7 +282,6 @@ let make_dump
   let () =
     React.S.map (function
         | Some item ->
-           let { id; id_ext; ext_info; _ } = table in
            let (section:section_info), prev_dump = item#value in
            let open Lwt.Infix in
            let err x = Ui_templates.Placeholder.create_with_error ~text:x () in
@@ -371,25 +368,25 @@ let make_dump
   end
 
 class t ~(config:config)
-        ~(init:table_info)
-        ~(sections:(section_info * section) list)
-        ~(event:table_info React.event)
-        (control:int)
+        ~(id : int)
+        ~(id_ext : int)
+        ~(ext_info : ext_info)
+        ~(sections : (section_info * section option) list)
+        (control : int)
         () =
   let stream_panel_class = Markup.CSS.add_element base_class "list" in
-  let box   = Widget.create_div () in
-  let event = React.E.map (fun x -> x.sections) event in
-  let list  = make_list init.sections event sections control in
-  let dump  = make_dump config.stream init list control in
+  let box = Widget.create_div () in
+  let list = make_list sections control in
+  let dump = make_dump ~id ~id_ext ~ext_info config.stream list control in
   let list_name =
     let _class = Markup.CSS.add_element stream_panel_class "title" in
-    let w  = new Typography.Text.t ~text:"Секции" () in
-    let () = w#add_class _class in
+    let w = new Typography.Text.t ~text:"Секции" () in
+    w#add_class _class;
     w in
   let list_box =
     let box = Widget.create_div () in
-    let ()  = box#append_child list_name in
-    let ()  = box#append_child list in
+    let () = box#append_child list_name in
+    let () = box#append_child list in
     box in
   object(self)
     inherit Hbox.t ~widgets:[ box#widget; dump#widget ] ()

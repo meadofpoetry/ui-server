@@ -4,8 +4,8 @@ open Tyxml_js
 module Markup = Components_markup.Tab.Make(Xml)(Svg)(Html)
 
 type _ content =
-  | Text : string                     -> Widget.t content
-  | Icon : (#Widget.t as 'a)          -> 'a content
+  | Text : string -> Widget.t content
+  | Icon : (#Widget.t as 'a) -> 'a content
   | Both : string * (#Widget.t as 'a) -> (Widget.t * 'a) content
 
 let content_to_elt : type a. a content ->
@@ -36,8 +36,8 @@ let content_to_elt : type a. a content ->
 class ['a,'b] t
         ?(disabled=false)
         ?(active=false)
-        ~(value:'b)
-        ~(content:'a content)
+        ~(value : 'b)
+        ~(content : 'a content)
         () =
 
   let indicator = new Tab_indicator.t () in
@@ -55,7 +55,7 @@ class ['a,'b] t
     method value : 'b       = _value
     method set_value (x:'b) = _value <- x
 
-    method content : 'a = elts
+    method content : 'a content = content
 
     method disabled : bool =
       self#has_attribute "disabled"
