@@ -53,7 +53,7 @@ let get_errors ?from ?till ?duration ?limit ~id control =
 let dummy_tab = fun () ->
   Ui_templates.Placeholder.under_development ()
 
-let errors ({ id; _}:Stream.t) control =
+let errors ({ id; _ } : Stream.t) control =
   let e, sock = Requests.Streams.WS.Errors.get_errors ~id control in
   let overview =
     get_errors ~limit:20 ~id control
@@ -131,16 +131,13 @@ let pids ({ id; _ } as stream : Stream.t) control =
   box#widget
 
 let tables ({ id; _ } as stream : Stream.t) control =
-  let e, sock = Requests.Streams.WS.get_tables ~id:stream.id  control in
-  let overview =
-    get_tables ~id control
-    >|= (fun x -> Widget_tables_overview.make stream x control)
-    >|= (fun w ->
-      (* FIXME save event *)
-      let _ = React.E.map (fun (x:tables) -> w#update x.tables) e in
-      w)
-    >|= Widget.coerce
-    |> Ui_templates.Loader.create_widget_loader in
+  let overview = Widget_tables_overview.make stream control in
+  let sock_lwt =
+    overview#thread
+    >|= fun w ->
+    let e, sock = Requests.Streams.WS.get_tables ~id:stream.id  control in
+    let e = React.E.map (fun (x : tables) -> w#update x.tables) e in
+    e, sock in
   let box =
     let open Layout_grid in
     let open Typography in
@@ -150,7 +147,12 @@ let tables ({ id; _ } as stream : Stream.t) control =
       [ new Cell.t ~span ~widgets:[new Text.t ~text:"Обзор" ()] ()
       ; overview_cell ] in
     new t ~cells () in
-  box#set_on_destroy @@ Some (fun () -> sock##close);
+  box#set_on_destroy
+  @@ Some (fun () ->
+         sock_lwt
+         >|= (fun (e, sock) -> React.E.stop ~strong:true e;
+                               sock##close)
+         |> Lwt.ignore_result);
   box#widget
 
 let tabs (stream:Stream.t) control =

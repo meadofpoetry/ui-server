@@ -10,6 +10,19 @@ type config =
   }
 
 let ( % ) = Fun.( % )
+let ( >>* ) x f = Lwt_result.map_err f x
+
+let get_tables ~id control =
+  Requests.Streams.HTTP.get_tables ~id ~limit:1 control
+  >>* Api_js.Requests.err_to_string
+  >>= function
+  | Raw s ->
+     begin match List.head_opt s.data with
+     | Some (_, { timestamp; tables }) -> Some timestamp, tables
+     | None -> None, []
+     end
+     |> Lwt_result.return
+  | _ -> Lwt.fail_with "got compressed"
 
 let name = "Обзор таблиц"
 let base_class = "qos-niit-table-overview"
@@ -29,8 +42,11 @@ module Table_info = struct
   let to_id ({ id; id_ext; ext_info; pid; _ } : t) : id =
     { id; id_ext; ext_info; pid }
 
-  let compare (a : t) (b : t) =
+  let compare (a : t) (b : t) : int =
     compare_id (to_id a) (to_id b)
+
+  let equal (a : t) (b : t) : bool =
+    0 = compare a b
 
 end
 
@@ -62,7 +78,7 @@ let to_table_name ?(is_hex = false) table_id table_id_ext
     | _ -> None in
   match specific with
   | Some l -> name, String.concat divider (base :: l)
-  | None   -> name, base
+  | None -> name, base
 
 (** Returns HTML element to insert into 'Extra' table column *)
 let to_table_extra ?(hex = false) (x : table_info) =
@@ -123,12 +139,14 @@ let make_table
       (is_hex : bool)
       (init : table_info list) =
   let open Table in
-  let dec_ext_fmt = Custom_elt { is_numeric = false
-                               ; compare = compare_table_info
-                               ; to_elt = to_table_extra } in
-  let hex_ext_fmt = Custom_elt { is_numeric = false
-                               ; compare = compare_table_info
-                               ; to_elt = to_table_extra ~hex:true } in
+  let dec_ext_fmt =
+    Custom_elt { is_numeric = false
+               ; compare = compare_table_info
+               ; to_elt = to_table_extra } in
+  let hex_ext_fmt =
+    Custom_elt { is_numeric = false
+               ; compare = compare_table_info
+               ; to_elt = to_table_extra ~hex:true } in
   let dec_pid_fmt = Int (Some (Printf.sprintf "%d")) in
   let hex_pid_fmt = Int (Some (Printf.sprintf "0x%04X")) in
   let hex_tid_fmt = Int (Some (Printf.sprintf "0x%02X")) in
@@ -175,7 +193,8 @@ let add_row (table : 'a Table.t)
       (media : Card.Media.t)
       (actions : Card.Actions.t)
       (control : int)
-      (set_title' : (bool -> unit) option ref)
+      (set_dump_title : (bool -> unit) option -> unit)
+      (set_dump : (table_info * Widget_tables_dump.t) option -> unit)
       (x : table_info) =
   let row = table#add_row (table_info_to_data x) in
   row#listen_click_lwt (fun _ _ ->
@@ -185,7 +204,7 @@ let add_row (table : 'a Table.t)
         | _ :: _ :: _ :: _ :: _ :: _ :: x :: _ -> x in
       let back = make_back () in
       let title, set_title = make_dump_title x in
-      set_title' := Some set_title;
+      set_dump_title @@ Some set_title;
       let divider = new Divider.t () in
       let dump =
         new Widget_tables_dump.t
@@ -195,8 +214,8 @@ let add_row (table : 'a Table.t)
           ~id_ext:x.id_ext
           ~ext_info:x.ext_info
           control () in
-      back#listen Widget.Event.click (fun _ _ ->
-          set_title' := None;
+      set_dump @@ Some (x, dump);
+      back#listen_click_lwt (fun _ _ ->
           let sections = List.map (fun i -> i#value) dump#list#items in
           cell#set_value ~force:true sections;
           card#remove_child title;
@@ -204,7 +223,10 @@ let add_row (table : 'a Table.t)
           media#set_empty ();
           media#append_child table;
           actions#remove_child back;
-          true) |> ignore;
+          set_dump_title None;
+          set_dump None;
+          dump#destroy ();
+          Lwt.return_unit) |> Lwt.ignore_result;
       (match dump#list#items with
        | hd :: _ -> dump#list#set_active hd
        | _ -> ());
@@ -217,16 +239,18 @@ let add_row (table : 'a Table.t)
   |> Lwt.ignore_result;
   row
 
-class t stream
+class t (stream : Stream.t)
+        (timestamp : Time.t option)
         (init : table_info list)
-        control
+        (control : int)
         () =
   (* FIXME should remember preffered state *)
   let is_hex = false in
   let table, on_change  = make_table is_hex init in
-  let set_title' = ref None in
+  let dump_title, set_dump_title = React.S.create None in
+  let dump, set_dump = React.S.create None in
   let on_change = fun x ->
-    Option.iter (fun f -> f x) !set_title';
+    Option.iter (fun f -> f x) @@ React.S.value dump_title;
     on_change x in
   object(self)
 
@@ -242,7 +266,8 @@ class t stream
     (** Adds new table to the overview *)
     method add_row (t : table_info) =
       let card = (self :> Card.t) in
-      add_row table stream card media actions control set_title' t
+      add_row table stream card media actions control
+        set_dump_title set_dump t
 
     (** Updates the overview *)
     method update (data : table_info list) =
@@ -256,11 +281,15 @@ class t stream
       List.iter (fun (row : 'a Table.Row.t) ->
           let info = self#_row_to_table_info row in
           begin match Set.find_opt info lost with
-          | Some _ -> table#body#remove_child row
+          | Some _ -> table#remove_row row
           | None -> ()
           end;
           begin match Set.find_opt info upd with
-          | Some x -> self#_update_row row x
+          | Some x ->
+             Option.iter (fun (ti, dump) ->
+                 if Table_info.equal ti info
+                 then dump#update x.sections) @@ React.S.value dump;
+             self#_update_row row x
           | None -> ()
           end) table#rows;
       Set.iter (ignore % self#add_row) found;
@@ -290,7 +319,6 @@ class t stream
       match row#cells with
       | _ :: _ :: _ :: x :: _ -> x#value
 
-
     initializer
       actions#append_child hex;
       Set.iter (ignore % self#add_row) _data;
@@ -300,7 +328,12 @@ class t stream
       self#append_child media;
   end
 
-let make stream (init : table_info list) control =
-  new t stream init control ()
+let make ?(init : tables option) (stream : Stream.t) control =
+  let init = match init with
+    | Some x -> Lwt_result.return (Some x.timestamp, x.tables)
+    | None -> get_tables ~id:stream.id control in
+  init
+  >|= (fun (ts, data) -> new t stream ts data control ())
+  |> Ui_templates.Loader.create_widget_loader
 
 

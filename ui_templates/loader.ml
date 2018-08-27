@@ -11,7 +11,7 @@ class ['a] loader
         ?(error_icon : #Widget.t option)
         ?(error_prefix : string option)
         ?(on_error : ('a loader -> string -> unit) option)
-        ?(on_success : ('a loader -> 'a     -> unit) option)
+        ?(on_success : ('a loader -> 'a -> unit) option)
         (t : ('a,string) Lwt_result.t)
         () =
 object(self)
@@ -56,19 +56,22 @@ object(self)
 
 end
 
-class widget_loader ?text ?error_icon ?error_prefix ?(parent:#Widget.t option)
-        (t:(Widget.t,string) Lwt_result.t) () =
+class ['a] widget_loader ?text ?error_icon ?error_prefix
+        ?(parent : #Widget.t option)
+        (t : ((#Widget.t as 'a), string) Lwt_result.t) () =
 object(self)
-  inherit [Widget.t] loader ?text ?error_icon ?error_prefix t () as super
+  inherit ['a] loader ?text ?error_icon ?error_prefix t () as super
+
   initializer
     Lwt_result.Infix.(
-    t >|= (fun w ->
+    self#thread
+    >|= (fun (w : #Widget.t) ->
       (match parent with
        | Some p -> p#append_child w;
                    p#remove_child (self :> Widget.t)
        | None -> self#append_child w)))
     |> Lwt.ignore_result;
-    Option.iter (fun (p:#Widget.t) ->
+    Option.iter (fun (p : #Widget.t) ->
         p#append_child (self :> Widget.t)) parent
 end
 
@@ -77,4 +80,3 @@ let create_loader ?text ?error_icon ?error_prefix ?on_error ?on_success t =
 
 let create_widget_loader ?text ?error_icon ?error_prefix ?parent t =
   new widget_loader ?text ?error_icon ?error_prefix ?parent t ()
-

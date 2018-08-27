@@ -156,7 +156,11 @@ let create ~(parent: #Widget.t)
                 res in
     Lwt.Infix.(
       drawer#show_await ()
-      >|= (fun () -> pgs#iter (fun w -> w#destroy ()))) in
+      >|= (fun () ->
+        pgs#thread
+        >|= (function Error _ -> ()
+                    | Ok w -> w#destroy ())
+        |> Lwt.ignore_result)) in
   List.iter (function
       | `Board (b : Topo_board.t) ->
          b#settings_button#listen_lwt Widget.Event.click (fun _ _ ->

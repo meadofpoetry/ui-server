@@ -113,7 +113,7 @@ module Cell = struct
     | true  ->
        let set_text = w#set_text_content in
        begin match fmt with
-       | Option (fmt,e) ->
+       | Option (fmt, e) ->
           begin match v with
           | None -> ignore @@ set_value (String None) force None e w
           | Some x ->
@@ -208,8 +208,9 @@ module Column = struct
 
   let wrap_checkbox = function
     | None -> None
-    | Some cb -> Markup.Column.create (Widget.to_markup cb) ()
-                 |> Option.return
+    | Some cb ->
+       Markup.Column.create (Widget.to_markup cb) ()
+       |> Option.return
 
   class t i push ({ sortable; title = text; _ } : column) (fmt : 'a fmt) () =
     let is_numeric = is_numeric fmt in
@@ -453,20 +454,27 @@ module Body = struct
     object(self)
       inherit Widget.t elt ()
 
-      method prepend_row (row : 'a Row.t) =
+      method prepend_row (row : 'a Row.t) : unit =
         s_rows_push @@ (List.cons row self#rows);
         Dom.insertBefore self#root row#root self#root##.firstChild
 
-      method append_row (row : 'a Row.t) =
+      method append_row (row : 'a Row.t) : unit =
         s_rows_push @@ (List.cons row self#rows);
         self#append_child row;
 
-      method remove_all_rows () =
+      method remove_row (row : 'a Row.t) : unit =
+        s_rows_push @@ List.remove ~eq:Equal.physical ~x:row self#rows;
+        self#remove_child row
+
+      method remove_all_rows () : unit =
         self#set_empty ();
         s_rows_push []
 
-      method s_rows = s_rows
-      method rows = List.rev @@ React.S.value s_rows
+      method s_rows : 'a Row.t list React.signal =
+        s_rows
+
+      method rows : 'a Row.t list =
+        List.rev @@ React.S.value s_rows
     end
 end
 
@@ -581,14 +589,21 @@ class ['a] t ?selection
 
     val mutable _fmt : 'a Format.t = fmt
 
-    method body = body
-    method rows = body#rows
-    method s_rows = body#s_rows
-    method s_selected = s_selected
+    method body : 'a Body.t =
+      body
+
+    method rows : 'a Row.t list =
+      body#rows
+
+    method s_rows : 'a Row.t list React.signal =
+      body#s_rows
+
+    method s_selected : 'a Row.t list React.signal =
+      s_selected
 
     method sticky_header : bool =
       self#has_class Markup.sticky_header_class
-    method set_sticky_header x =
+    method set_sticky_header (x : bool) : unit =
       self#add_or_remove_class x Markup.sticky_header_class
 
     method dense : bool =
@@ -596,17 +611,20 @@ class ['a] t ?selection
     method set_dense x =
       self#add_or_remove_class x Markup.dense_class
 
-    method prepend_row (data : 'a Data.t) =
+    method prepend_row (data : 'a Data.t) : 'a Row.t =
       let row = self#_make_row data in
       body#prepend_row row;
       row
 
-    method add_row (data : 'a Data.t) =
+    method add_row (data : 'a Data.t) : 'a Row.t =
       let row = self#_make_row data in
       body#append_row row;
       row
 
-    method remove_all_rows () =
+    method remove_row (row : 'a Row.t) : unit =
+      body#remove_row row
+
+    method remove_all_rows () : unit =
       body#remove_all_rows ()
 
     method sort index sort =
@@ -623,7 +641,7 @@ class ['a] t ?selection
 
     (* Private methods *)
 
-    method private _make_row (data : 'a Data.t) =
+    method private _make_row (data : 'a Data.t) : 'a Row.t =
       new Row.t ?selection s_selected set_selected fmt data ()
 
     initializer
