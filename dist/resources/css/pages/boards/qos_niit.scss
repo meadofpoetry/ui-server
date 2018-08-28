@@ -143,19 +143,27 @@
 
 .qos-niit-table-overview, .qos-niit-services-overview, .qos-niit-errors-log {
     &__back {
+        margin-right: 8px;
         cursor: pointer;
         .mdc-icon {
             @include mdc-theme-prop(color, text-icon-on-surface);
         }
-        .mdc-typography {
-            padding-left: 4px;
+    }
+    &--failure {
+        .mdc-data-table {
+            @include mdc-theme-prop(background-color, error);
         }
     }
     .mdc-data-table {
         /* max-height: 1000px; */
         /* overflow-y: auto; */
     }
-    .mdc-card__actions .mdc-form-field {
+    .mdc-card__primary {
+        display: flex;
+        height: 46px;
+        align-items: center;
+    }
+    .mdc-card__primary .mdc-form-field {
         margin-left: auto;
         @include mdc-typography(caption);
     }

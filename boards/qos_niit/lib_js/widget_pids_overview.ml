@@ -15,6 +15,17 @@ let base_class = "qos-niit-pid-overview"
 
 let settings = None
 
+let get_pids ~id control =
+  Requests.Streams.HTTP.get_pids ~id ~limit:1 control
+  >>= (function
+       | Raw s ->
+          (match List.head_opt s.data with
+           | Some (_, { timestamp; pids }) -> Some timestamp, pids
+           | None -> None, [])
+          |> Lwt_result.return
+       | _     -> Lwt.fail_with "got compressed")
+  |> Lwt_result.map_err Api_js.Requests.err_to_string
+
 let to_pid_extra (has_pcr:bool) (is_scrambled:bool) =
   let pcr = match has_pcr with
     | false -> None
@@ -46,19 +57,17 @@ let update_row row total br pid =
    | Some v -> if br >. v then max#set_value (Some br));
   br, pct
 
-class t (init : pid_info list) () =
-  (* FIXME should remember preffered state *)
-  let is_hex = false in
-  let dec_pid_fmt = Table.(Int None) in
-  let hex_pid_fmt = Table.(Int (Some (Printf.sprintf "0x%04X"))) in
-  let br_fmt = Table.(Option (Float None, "-")) in
-  let pct_fmt = Table.(Option (Float (Some (Printf.sprintf "%.2f")), "-")) in
+let make_table (is_hex : bool)
+      (init : pid_info list) =
+  let open Table in
+  let dec_pid_fmt = Int None in
+  let hex_pid_fmt = Int (Some (Printf.sprintf "0x%04X")) in
+  let br_fmt = Option (Float None, "-") in
+  let pct_fmt = Option (Float (Some (Printf.sprintf "%.2f")), "-") in
   let fmt =
-    let open Table in
     let open Format in
     let to_sort_column = to_column ~sortable:true in
-    (to_sort_column "PID", if is_hex then hex_pid_fmt
-                           else dec_pid_fmt)
+    (to_sort_column "PID", dec_pid_fmt)
     :: (to_sort_column "Тип", String None)
     :: (to_column "Доп. инфо", Widget None)
     :: (to_sort_column "Сервис", Option (String None, ""))
@@ -67,7 +76,7 @@ class t (init : pid_info list) () =
     :: (to_sort_column "Min, Мбит/с", br_fmt)
     :: (to_sort_column "Max, Мбит/с", br_fmt)
     :: [] in
-  let table = new Table.t ~dense:true ~fmt () in
+  let table = new t ~dense:true ~fmt () in
   let on_change = fun (x : bool) ->
     List.iter (fun row ->
         let open Table in
@@ -75,36 +84,56 @@ class t (init : pid_info list) () =
         | pid :: _ ->
            pid#set_format (if x then hex_pid_fmt else dec_pid_fmt))
       table#rows in
+  if is_hex then on_change true;
+  table, on_change
+
+let add_row (table : 'a Table.t) (pid : pid_info) =
+  let open Table in
+  let pid_type = match pid.pid_type with
+    | SEC l ->
+       let s = List.map Fun.(Mpeg_ts.(table_to_string % table_of_int)) l
+               |> String.concat ", " in
+       "SEC -> " ^ s
+    | PES x ->
+       let s = Mpeg_ts.stream_type_to_string x in
+       "PES -> " ^ s
+    | ECM x -> "ECM -> " ^ (string_of_int x)
+    | EMM x -> "EMM -> " ^ (string_of_int x)
+    | Null -> "Null"
+    | Private -> "Private" in
+  let extra = to_pid_extra pid.has_pcr pid.scrambled in
+  let data = Data.(
+      pid.pid :: pid_type :: extra :: pid.service
+      :: None :: None :: None :: None :: []) in
+  let row = table#add_row data in
+  row
+
+let make_timestamp_string (timestamp : Time.t option) =
+  let tz_offset_s = Ptime_clock.current_tz_offset_s () in
+  let s = match timestamp with
+    | None -> "-"
+    | Some t -> Time.to_human_string ?tz_offset_s t
+  in
+  "Обновлено: " ^ s
+
+class t (timestamp : Time.t option)
+        (init : pid_info list)
+        (control : int)
+        () =
+  (* FIXME should remember preffered state *)
+  let is_hex = false in
+  let table, on_change = make_table is_hex init in
+  let title = "Обзор" in
+  let subtitle = make_timestamp_string timestamp in
   let switch = new Switch.t ~state:is_hex ~on_change () in
   let hex = new Form_field.t ~input:switch ~label:"HEX IDs" () in
-  let actions = new Card.Actions.t ~widgets:[ hex#widget ] () in
   let media = new Card.Media.t ~widgets:[ table ] () in
-  let add_row (pid : pid_info) =
-    let open Table in
-    let pid_type = match pid.pid_type with
-      | SEC l ->
-         let s = List.map Fun.(Mpeg_ts.(table_to_string % table_of_int)) l
-                 |> String.concat ", " in
-         "SEC -> " ^ s
-      | PES x ->
-         let s = Mpeg_ts.stream_type_to_string x in
-         "PES -> " ^ s
-      | ECM x -> "ECM -> " ^ (string_of_int x)
-      | EMM x -> "EMM -> " ^ (string_of_int x)
-      | Null -> "Null"
-      | Private -> "Private" in
-    let extra = to_pid_extra pid.has_pcr pid.scrambled in
-    let data = Data.(
-        pid.pid :: pid_type :: extra :: pid.service
-        :: None :: None :: None :: None :: []) in
-    let row = table#add_row data in
-    row in
   let set_rate = function
     | None -> () (* FIXME do smth *)
     | Some (total, (rate:(int * int) list)) ->
        List.fold_left (fun rows (pid, br) ->
            let open Table in
-           match List.find_opt (fun (row:'a Row.t) ->
+           match List.find_opt (fun (row : 'a Row.t) ->
                      let cell = match row#cells with a :: _ -> a in
                      cell#value = pid) rows with
            | Some x ->
@@ -112,18 +141,39 @@ class t (init : pid_info list) () =
               List.remove ~eq:Equal.physical ~x rows
            | None   -> rows) table#rows rate
        |> ignore in
+  let title' = new Card.Primary.title title () in
+  let subtitle' = new Card.Primary.subtitle subtitle () in
+  let text_box = Widget.create_div () in
+  let primary = new Card.Primary.t ~widgets:[text_box] () in
   object(self)
-    inherit Card.t ~widgets:[ actions#widget
-                            ; (new Divider.t ())#widget
-                            ; media#widget ] ()
+    inherit Card.t ~widgets:[ ] ()
+
+    (** Updates bitrate values *)
     method set_rate = set_rate
+
     method table = table
+
     method switch = hex
+
     method set_hex x = on_change x
+
     initializer
-      List.iter Fun.(ignore % add_row) init;
-      self#add_class base_class
+      List.iter Fun.(ignore % add_row table) init;
+      text_box#append_child title';
+      text_box#append_child subtitle';
+      self#add_class base_class;
+      self#append_child primary#widget;
+      self#append_child @@ new Divider.t ();
+      self#append_child media#widget;
   end
 
-let make (init:pid_info list) = new t init ()
+let make ?(init : pids option)
+      (stream : Stream.t)
+      control =
+  let init = match init with
+    | Some x -> Lwt_result.return (Some x.timestamp, x.pids)
+    | None -> get_pids ~id:stream.id control in
+  init
+  >|= (fun (ts, data) -> new t ts data control ())
+  |> Ui_templates.Loader.create_widget_loader
 

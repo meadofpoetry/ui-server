@@ -7,17 +7,6 @@ open Board_types.Streams.TS
 
 let ( >>* ) x f = Lwt_result.map_err f x
 
-let get_pids ~id control =
-  Requests.Streams.HTTP.get_pids ~id ~limit:1 control
-  >>= (function
-       | Raw s ->
-          (match List.head_opt s.data with
-           | Some (_, pids) -> pids.pids
-           | None -> [])
-          |> Lwt_result.return
-       | _     -> Lwt.fail_with "got compressed")
-  |> Lwt_result.map_err Api_js.Requests.err_to_string
-
 let get_services ~id control =
   Requests.Streams.HTTP.get_services ~id ~limit:1 control
   >>* Api_js.Requests.err_to_string
@@ -25,18 +14,6 @@ let get_services ~id control =
   | Raw s ->
      begin match List.head_opt s.data with
      | Some (_, services) -> services.services
-     | None -> []
-     end
-     |> Lwt_result.return
-  | _ -> Lwt.fail_with "got compressed"
-
-let get_tables ~id control =
-  Requests.Streams.HTTP.get_tables ~id ~limit:1 control
-  >>* Api_js.Requests.err_to_string
-  >>= function
-  | Raw s ->
-     begin match List.head_opt s.data with
-     | Some (_, tables) -> tables.tables
      | None -> []
      end
      |> Lwt_result.return
@@ -76,13 +53,12 @@ let errors ({ id; _ } : Stream.t) control =
   box#set_on_destroy @@ Some (fun () -> sock##close);
   box#widget
 
-let services ({ id; _ }:Stream.t) control =
+let services ({ id; _ } as stream : Stream.t) control =
   let e_br, br_sock = Requests.Streams.WS.get_bitrate ~id control in
   let overview =
-    get_pids ~id control
-    >>= (fun pids -> get_services ~id control >|= fun x -> x, pids)
-    >|= (fun (svs, pids) -> Widget_services_overview.make svs pids e_br)
-    >|= Widget.coerce
+    Widget_pids_overview.get_pids ~id control
+    >>= (fun (_, pids) -> get_services ~id control >|= fun x -> x, pids)
+    >|= (fun (svs, pids) -> Widget_services_overview.make stream svs pids e_br control)
     |> Ui_templates.Loader.create_widget_loader in
   let box =
     let open Layout_grid in
@@ -96,26 +72,20 @@ let services ({ id; _ }:Stream.t) control =
   box#widget
 
 let pids ({ id; _ } as stream : Stream.t) control =
-  let bitrate, sock = Requests.Streams.WS.get_bitrate ~id control in
-  let init = get_pids ~id control in
   let summary =
     Widget_pids_summary.make
       ~config:{ stream }
-      init bitrate
+      (Lwt_result.fail "") React.E.never
       control in
-  let overview =
-    init
-    >|= (fun init ->
-      let w = Widget_pids_overview.make init in
-      let _e = React.E.map (fun (x:bitrate) ->
-                   w#set_rate @@ Some (x.total, x.pids)) bitrate in
-      w#set_on_destroy
-      @@ Some (fun () -> React.E.stop ~strong:true _e;
-                         React.E.stop ~strong:true bitrate;
-                         sock##close);
-      w)
-    >|= Widget.coerce
-    |> Ui_templates.Loader.create_widget_loader in
+  let overview = Widget_pids_overview.make stream control in
+  let sock_lwt =
+    overview#thread
+    >|= fun w ->
+    let rate, rate_sock = Requests.Streams.WS.get_bitrate ~id control in
+    let rate =
+      React.E.map (fun (x : bitrate) ->
+          w#set_rate @@ Some (x.total, x.pids)) rate in
+    rate, rate_sock in
   let box =
     let open Layout_grid in
     let open Typography in
@@ -123,11 +93,16 @@ let pids ({ id; _ } as stream : Stream.t) control =
     let summary_cell  = new Cell.t ~span ~widgets:[ summary ] () in
     let overview_cell = new Cell.t ~span ~widgets:[ overview ] () in
     let cells =
-      [ new Cell.t ~span ~widgets:[new Text.t ~text:"Краткая сводка" ()] ()
-      ; summary_cell
-      ; new Cell.t ~span ~widgets:[new Text.t ~text:"Обзор" ()] ()
+      [ summary_cell
       ; overview_cell ] in
     new t ~cells () in
+  box#set_on_destroy
+  @@ Some (fun () ->
+         sock_lwt
+         >|= (fun (rate, rate_sock) ->
+             React.E.stop ~strong:true rate;
+             rate_sock##close)
+         |> Lwt.ignore_result);
   box#widget
 
 let tables ({ id; _ } as stream : Stream.t) control =
@@ -135,23 +110,26 @@ let tables ({ id; _ } as stream : Stream.t) control =
   let sock_lwt =
     overview#thread
     >|= fun w ->
+    let rate, rate_sock = Requests.Streams.WS.get_bitrate ~id control in
     let e, sock = Requests.Streams.WS.get_tables ~id:stream.id  control in
     let e = React.E.map (fun (x : tables) -> w#update x.tables) e in
-    e, sock in
+    let rate = React.E.map w#set_rate rate in
+    e, sock, rate, rate_sock in
   let box =
     let open Layout_grid in
     let open Typography in
     let span = 12 in
     let overview_cell = new Cell.t ~span ~widgets:[ overview ] () in
-    let cells =
-      [ new Cell.t ~span ~widgets:[new Text.t ~text:"Обзор" ()] ()
-      ; overview_cell ] in
+    let cells = [overview_cell] in
     new t ~cells () in
   box#set_on_destroy
   @@ Some (fun () ->
          sock_lwt
-         >|= (fun (e, sock) -> React.E.stop ~strong:true e;
-                               sock##close)
+         >|= (fun (e, sock, rate, rate_sock) ->
+             React.E.stop ~strong:true e;
+             React.E.stop ~strong:true rate;
+             sock##close;
+             rate_sock##close)
          |> Lwt.ignore_result);
   box#widget
 

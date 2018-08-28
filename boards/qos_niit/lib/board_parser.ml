@@ -666,10 +666,33 @@ module Get_bitrates : (
       Cstruct.fold (fun acc el ->
           let packets = get_pid_bitrate_packets el in
           let pid = get_pid_bitrate_pid el land 0x1FFF in
-          let br  = int_of_float @@ br_per_pkt *. (Int32.to_float packets) in
+          let br = int_of_float @@ br_per_pkt *. (Int32.to_float packets) in
           (pid, br) :: acc)
         iter []
-    in List.rev pids, rest
+    in
+    List.rev pids, rest
+
+  let of_tables_bitrate total_tbls br_per_pkt buf =
+    let msg, _ = Cstruct.split buf (sizeof_table_bitrate * total_tbls) in
+    let iter = Cstruct.iter (fun _ -> Some sizeof_table_bitrate)
+                 (fun x -> x) msg in
+    let tables =
+      Cstruct.fold (fun acc el ->
+          let packets = get_table_bitrate_packets el in
+          let flags = get_table_bitrate_flags el in
+          let ext_info_1 = get_table_bitrate_adv_info_1 el in
+          let ext_info_2 = get_table_bitrate_adv_info_2 el in
+          let rate = int_of_float @@ br_per_pkt *. (Int32.to_float packets) in
+          { id = get_table_bitrate_table_id el
+          ; id_ext = get_table_bitrate_table_id_ext el
+          ; fully_analyzed = flags land 2 > 0
+          ; section_syntax = flags land 1 > 0
+          ; ext_info_1
+          ; ext_info_2
+          ; bitrate = rate } :: acc)
+        iter []
+    in
+    List.rev tables
 
   let of_stream_bitrate timestamp buf =
     let length = (Int32.to_int @@ get_stream_bitrate_length buf) in
@@ -679,10 +702,12 @@ module Get_bitrates : (
     let total_pkts = get_stream_bitrate_total_packets hdr in
     let br_per_pkt = (float_of_int total) /. (Int32.to_float total_pkts)  in
     let total_pids = get_stream_bitrate_total_pids hdr in
-    let pids, _ = of_pids_bitrate total_pids br_per_pkt bdy in
+    let total_tbls = get_stream_bitrate_total_tables hdr in
+    let pids, tbls = of_pids_bitrate total_pids br_per_pkt bdy in
+    let tables = of_tables_bitrate total_tbls br_per_pkt tbls in
     let stream = get_stream_bitrate_stream_id hdr in
     let rsp = Multi_TS_ID.of_int32_pure stream,
-              { total; pids; timestamp } in
+              { total; pids; tables; timestamp } in
     let rest = if Cstruct.len rest > 0 then Some rest else None in
     rsp, rest
 

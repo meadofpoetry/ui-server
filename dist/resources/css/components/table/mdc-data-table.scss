@@ -81,7 +81,6 @@
     line-height: 24px;
     letter-spacing: 0;
     font-size: 12px;
-    @include mdc-theme-prop(background-color, surface);
     @include mdc-theme-prop(color, text-secondary-on-surface);
 
     &--sortable {
@@ -227,6 +226,7 @@
 .mdc-data-table--sticky-header {
     thead tr:nth-child(1) {
         border-bottom: none;
+        @include mdc-theme-prop(background-color, surface);
     }
     thead tr:nth-child(1) th{
         position: sticky;

@@ -549,6 +549,9 @@ class ['a] text_input_widget ?v_msg ~input_elt (v : 'a validation) elt () =
 
   end
 
+let equal (x : (#t as 'a)) (y : 'a) =
+  Equal.physical x#root y#root
+
 let coerce (x : #t) = (x :> t)
 
 let to_markup (x : #t) = Tyxml_js.Of_dom.of_element x#root

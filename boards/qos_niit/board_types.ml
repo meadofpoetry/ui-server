@@ -131,9 +131,20 @@ module Streams = struct
 
     (** TS bitrate *)
 
+    type table_bitrate =
+      { id             : int
+      ; id_ext         : int
+      ; fully_analyzed : bool
+      ; section_syntax : bool
+      ; ext_info_1     : int
+      ; ext_info_2     : int
+      ; bitrate        : int
+      } [@@deriving yojson]
+
     type bitrate =
       { timestamp : Time.t
       ; total     : int
+      ; tables    : table_bitrate list
       ; pids      : (int * int) list
       } [@@deriving yojson]
 

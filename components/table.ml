@@ -463,7 +463,7 @@ module Body = struct
         self#append_child row;
 
       method remove_row (row : 'a Row.t) : unit =
-        s_rows_push @@ List.remove ~eq:Equal.physical ~x:row self#rows;
+        s_rows_push @@ List.remove ~eq:Widget.equal ~x:row self#rows;
         self#remove_child row
 
       method remove_all_rows () : unit =

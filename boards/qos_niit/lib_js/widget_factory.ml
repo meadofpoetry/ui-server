@@ -8,7 +8,6 @@ open Common
 
 type item =
   | Pids_summary    of Widget_pids_summary.config
-  | Pids_overview   of Widget_pids_overview.config
   | Settings        of Widget_settings.config option
   | T2MI_settings   of Widget_t2mi_settings.config option
   | Jitter_settings of Widget_jitter_settings.config option [@@deriving yojson]
@@ -20,12 +19,6 @@ let item_to_info : item -> Dashboard.Item.info = fun item ->
      Dashboard.Item.to_info ~title:"PIDs. Краткая сводка"
        ~thumbnail:(`Icon "list_alt")
        ~description:"Краткая информация о PID в потоке"
-       ~serialized
-       ()
-  | Pids_overview _ ->
-     Dashboard.Item.to_info ~title:"PIDs. Обзор"
-       ~thumbnail:(`Icon "list_alt")
-       ~description:"Таблица PID"
        ~serialized
        ()
   | Settings _ ->
@@ -71,9 +64,6 @@ object(self)
   method create : item -> Dashboard.Item.item = function
     | Pids_summary config ->
        Widget_pids_summary.make ~config (Lwt.fail_with "") React.E.never control
-       |> Dashboard.Item.to_item ~name:""
-    | Pids_overview _ ->
-       Widget_pids_overview.make []
        |> Dashboard.Item.to_item ~name:""
     | Settings conf ->
        (fun state t2mi_mode jitter_mode streams->

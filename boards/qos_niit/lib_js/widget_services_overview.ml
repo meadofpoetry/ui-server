@@ -142,11 +142,12 @@ let set_bitrate init (rate:bitrate) details' row =
      max#set_value @@ Some lst;
      iter (fun x -> x#set_rate @@ Some lst) details
 
-let make_card
-      (init:service_info list)
-      (pids:pid_info list)
-      (event:service_info list React.event)
-      (bitrate:bitrate React.event) =
+let make_card (stream : Stream.t)
+      (init : service_info list)
+      (pids : pid_info list)
+      (event : service_info list React.event)
+      (bitrate : bitrate React.event)
+      (control : int) =
   let is_hex  = false in
   let table, on_change = make_table is_hex init event in
   let actions = new Card.Actions.t ~widgets:[ ] () in
@@ -168,7 +169,8 @@ let make_card
           | _ :: _ :: _ :: _ :: a :: _ :: b :: c :: _ ->
              a#value, b#value, c#value in
         let back    = make_back () in
-        let details = Widget_service_info.make ?rate ?min ?max x pids in
+        let details =
+          Widget_service_info.make ?rate ?min ?max stream x pids control in
         details' := Some details;
         back#listen_once_lwt Widget.Event.click
         >|= (fun _ -> media#append_child table;
@@ -195,9 +197,11 @@ let make_card
   let () = card#add_class base_class in
   card
 
-let make (init:service_info list)
-      (pids:pid_info list)
-      (bitrate:bitrate React.event) =
-  make_card init pids React.E.never bitrate
+let make (stream : Stream.t)
+      (init : service_info list)
+      (pids : pid_info list)
+      (bitrate : bitrate React.event)
+      (control : int) =
+  make_card stream init pids React.E.never bitrate control
 
 

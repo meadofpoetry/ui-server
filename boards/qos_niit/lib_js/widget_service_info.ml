@@ -2,6 +2,7 @@ open Containers
 open Components
 open Common
 open Board_types.Streams.TS
+open Lwt_result.Infix
 
 let base_class = "qos-niit-service-info"
 
@@ -144,8 +145,10 @@ let make_description () =
   box#widget, set, set_rate, set_min, set_max
 
 let make_pids
-      (service:service_info)
-      (init:pid_info list) =
+      (stream : Stream.t)
+      (service : service_info)
+      (init : pid_info list)
+      (control : int) =
   let service_pids =
     let es = List.map (fun (es:es_info) -> es.pid) service.es in
     let ecm = List.map (fun (ecm:ecm_info) -> ecm.pid) service.ecm in
@@ -153,27 +156,39 @@ let make_pids
     List.cons_maybe pmt (es @ ecm)
     |> List.sort_uniq ~cmp:compare in
   let init   =
-    List.filter (fun (x:pid_info) -> List.mem ~eq:(=) x.pid service_pids)
-      init in
+    List.filter (fun (x : pid_info) ->
+        List.mem ~eq:(=) x.pid service_pids)
+      init
+    |> fun l ->
+       { timestamp = Time.Clock.now_s ()
+       ; pids = l } in
   let _class = Markup.CSS.add_element base_class "pids" in
-  let pids   = Widget_pids_overview.make init in
-  pids#table#add_class _class;
+  let pids = Widget_pids_overview.make ~init stream control in
+  pids#thread
+  >|= (fun x -> x#table#add_class _class)
+  |> Lwt.ignore_result;
   pids
 
 class t ?rate ?min ?max
-        (init:service_info)
-        (pids:pid_info list)
+        (stream : Stream.t)
+        (init : service_info)
+        (pids : pid_info list)
+        (control : int)
         () =
   let info, set_info, set_rate, set_min, set_max = make_description () in
-  let pids = make_pids init pids in
+  let pids = make_pids stream init pids control in
+  let table =
+    pids#thread
+    >|= (fun x -> x#table)
+    |> Ui_templates.Loader.create_widget_loader in
   let tabs =
     let info_icon =
       Icon.SVG.(create_simple Path.file_document_box_outline) in
     let list_icon =
       Icon.SVG.(create_simple Path.view_list) in
     [ new Tab.t ~content:(Both ("Описание", info_icon)) ~value:info ()
-    ; new Tab.t ~content:(Both ("PIDs", list_icon)) ~value:pids#table#widget () ] in
-  let div    = Widget.create_div () in
+    ; new Tab.t ~content:(Both ("PIDs", list_icon)) ~value:table#widget () ] in
+  let div = Widget.create_div () in
   let bar, _ = Ui_templates.Tabs.create_simple ~body:div tabs in
   object(self)
     inherit Vbox.t ~widgets:[ bar#widget
@@ -188,14 +203,15 @@ class t ?rate ?min ?max
     method set_hex x =
       _hex <- x;
       set_info ~hex:x _info;
-      pids#set_hex x
+      pids#thread >|= (fun w -> w#set_hex x) |> Lwt.ignore_result
     method set_info x =
       _info <- x; set_info ~hex:_hex x
     method set_rate (rate:(int * int) list option) =
       let sum = match rate with
-        | None   -> None
+        | None -> None
         | Some x -> Some (sum_bitrate x) in
-      pids#set_rate @@ Option.map2 Pair.make sum rate;
+      pids#thread >|= (fun w -> w#set_rate @@ Option.map2 Pair.make sum rate)
+      |> Lwt.ignore_result;
       self#_set_max sum;
       self#_set_min sum;
       set_rate sum
@@ -225,5 +241,9 @@ class t ?rate ?min ?max
       set_max _max;
   end
 
-let make ?rate ?min ?max (init:service_info) (pids:pid_info list) =
-  new t ?rate ?min ?max init pids ()
+let make ?rate ?min ?max
+      (stream : Stream.t)
+      (init : service_info)
+      (pids : pid_info list)
+      (control : int) =
+  new t ?rate ?min ?max stream init pids control ()
