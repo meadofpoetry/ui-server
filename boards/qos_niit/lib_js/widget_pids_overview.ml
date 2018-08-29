@@ -9,34 +9,50 @@ type config =
   { stream : Stream.t
   } [@@deriving yojson]
 
+type pid_flags =
+  { has_pcr : bool
+  ; scrambled : bool
+  } [@@deriving ord]
+
 let name = "PIDs"
 
-let base_class = "qos-niit-pid-overview"
+let base_class = "qos-niit-pids-overview"
 
 let settings = None
+
+let ( % ) = Fun.( % )
+
+module Pid_info = struct
+  type t = pid_info
+
+  let compare (a : t) (b : t) : int =
+    Int.compare a.pid b.pid
+end
+
+module Set = Set.Make(Pid_info)
 
 let get_pids ~id control =
   Requests.Streams.HTTP.get_pids ~id ~limit:1 control
   >>= (function
        | Raw s ->
           (match List.head_opt s.data with
-           | Some (_, { timestamp; pids }) -> Some timestamp, pids
-           | None -> None, [])
+           | Some (_, pids) -> Some pids
+           | None -> None)
           |> Lwt_result.return
        | _     -> Lwt.fail_with "got compressed")
   |> Lwt_result.map_err Api_js.Requests.err_to_string
 
-let to_pid_extra (has_pcr:bool) (is_scrambled:bool) =
+let to_pid_flags { has_pcr; scrambled } =
   let pcr = match has_pcr with
     | false -> None
-    | true  ->
+    | true ->
        Some Icon.SVG.(new t ~paths:Path.[ new t clock_outline () ] ()) in
-  let scr = match is_scrambled with
+  let scr = match scrambled with
     | false -> None
-    | true  ->
+    | true ->
        Some Icon.SVG.(new t ~paths:Path.[ new t lock () ] ()) in
   let widgets = List.(cons_maybe pcr (cons_maybe scr [])) in
-  new Hbox.t ~widgets ()
+  (new Hbox.t ~widgets ())#node
 
 let update_row row total br pid =
   let cur, per, min, max =
@@ -57,6 +73,31 @@ let update_row row total br pid =
    | Some v -> if br >. v then max#set_value (Some br));
   br, pct
 
+let pid_type_to_string : pid_type -> string = function
+  | SEC l ->
+     let s = List.map Fun.(Mpeg_ts.(table_to_string % table_of_int)) l
+             |> String.concat ", " in
+     "SEC -> " ^ s
+  | PES x ->
+     let s = Mpeg_ts.stream_type_to_string x in
+     "PES -> " ^ s
+  | ECM x -> "ECM -> " ^ (string_of_int x)
+  | EMM x -> "EMM -> " ^ (string_of_int x)
+  | Null -> "Null"
+  | Private -> "Private"
+
+let pid_type_fmt : pid_type Table.custom =
+  { to_string = pid_type_to_string
+  ; compare = compare_pid_type
+  ; is_numeric = false
+  }
+
+let pid_flags_fmt : pid_flags Table.custom_elt =
+  { to_elt = to_pid_flags
+  ; compare = compare_pid_flags
+  ; is_numeric = false
+  }
+
 let make_table (is_hex : bool)
       (init : pid_info list) =
   let open Table in
@@ -68,8 +109,8 @@ let make_table (is_hex : bool)
     let open Format in
     let to_sort_column = to_column ~sortable:true in
     (to_sort_column "PID", dec_pid_fmt)
-    :: (to_sort_column "Тип", String None)
-    :: (to_column "Доп. инфо", Widget None)
+    :: (to_sort_column "Тип", Custom pid_type_fmt)
+    :: (to_column "Доп. инфо", Custom_elt pid_flags_fmt)
     :: (to_sort_column "Сервис", Option (String None, ""))
     :: (to_sort_column "Битрейт, Мбит/с", br_fmt)
     :: (to_sort_column "%", pct_fmt)
@@ -89,21 +130,12 @@ let make_table (is_hex : bool)
 
 let add_row (table : 'a Table.t) (pid : pid_info) =
   let open Table in
-  let pid_type = match pid.pid_type with
-    | SEC l ->
-       let s = List.map Fun.(Mpeg_ts.(table_to_string % table_of_int)) l
-               |> String.concat ", " in
-       "SEC -> " ^ s
-    | PES x ->
-       let s = Mpeg_ts.stream_type_to_string x in
-       "PES -> " ^ s
-    | ECM x -> "ECM -> " ^ (string_of_int x)
-    | EMM x -> "EMM -> " ^ (string_of_int x)
-    | Null -> "Null"
-    | Private -> "Private" in
-  let extra = to_pid_extra pid.has_pcr pid.scrambled in
+  let flags =
+    { has_pcr = pid.has_pcr
+    ; scrambled = pid.scrambled
+    } in
   let data = Data.(
-      pid.pid :: pid_type :: extra :: pid.service
+      pid.pid :: pid.pid_type :: flags :: pid.service
       :: None :: None :: None :: None :: []) in
   let row = table#add_row data in
   row
@@ -127,35 +159,81 @@ class t (timestamp : Time.t option)
   let subtitle = make_timestamp_string timestamp in
   let switch = new Switch.t ~state:is_hex ~on_change () in
   let hex = new Form_field.t ~input:switch ~label:"HEX IDs" () in
-  let media = new Card.Media.t ~widgets:[ table ] () in
-  let set_rate = function
-    | None -> () (* FIXME do smth *)
-    | Some (total, (rate:(int * int) list)) ->
-       List.fold_left (fun rows (pid, br) ->
-           let open Table in
-           match List.find_opt (fun (row : 'a Row.t) ->
-                     let cell = match row#cells with a :: _ -> a in
-                     cell#value = pid) rows with
-           | Some x ->
-              update_row x total br pid |> ignore;
-              List.remove ~eq:Equal.physical ~x rows
-           | None   -> rows) table#rows rate
-       |> ignore in
   let title' = new Card.Primary.title title () in
   let subtitle' = new Card.Primary.subtitle subtitle () in
   let text_box = Widget.create_div () in
-  let primary = new Card.Primary.t ~widgets:[text_box] () in
+  let primary = new Card.Primary.t ~widgets:[text_box; hex#widget] () in
+  let media = new Card.Media.t ~widgets:[ table ] () in
   object(self)
+
+    val mutable _timestamp : Time.t option = timestamp
+    val mutable _data : Set.t = Set.of_list init
+
     inherit Card.t ~widgets:[ ] ()
 
+    (** Adds new row to the overview *)
+    method add_row (x : pid_info) =
+      add_row table x
+
+    (** Updates the overview *)
+    method update ({ timestamp; pids } : pids) =
+      (* Update timestamp *)
+      _timestamp <- Some timestamp;
+      subtitle'#set_text_content @@ make_timestamp_string _timestamp;
+      (* Manage found, lost and updated items *)
+      let prev = _data in
+      _data <- Set.of_list pids;
+      let lost = Set.diff prev _data in
+      let found = Set.diff _data prev in
+      let inter = Set.inter prev _data in
+      let upd = Set.filter (fun (x : pid_info) ->
+                    List.mem ~eq:equal_pid_info x pids) inter in
+      List.iter (fun (row : 'a Table.Row.t) ->
+          let open Table in
+          let pid = match row#cells with
+            | pid :: _ -> pid#value in
+          begin match Set.find_first_opt (fun x -> x.pid = pid) lost with
+          | Some _ -> table#remove_row row
+          | None -> ()
+          end;
+          begin match Set.find_first_opt (fun x -> x.pid = pid) upd with
+          | Some x -> self#_update_row row x
+          | None -> ()
+          end) table#rows;
+      Set.iter (ignore % self#add_row) found
+
     (** Updates bitrate values *)
-    method set_rate = set_rate
+    method set_rate : bitrate option -> unit = function
+      | None -> () (* FIXME do smth *)
+      | Some { total; pids; _ } ->
+         List.fold_left (fun rows (pid, br) ->
+             let open Table in
+             match List.find_opt (fun (row : 'a Row.t) ->
+                       let cell = match row#cells with a :: _ -> a in
+                       cell#value = pid) rows with
+             | Some x ->
+                update_row x total br pid |> ignore;
+                List.remove ~eq:Equal.physical ~x rows
+             | None -> rows) table#rows pids
+         |> ignore
 
     method table = table
 
     method switch = hex
 
     method set_hex x = on_change x
+
+    (* Private methods *)
+
+    method private _update_row (row : 'a Table.Row.t) (x : pid_info) =
+      let open Table in
+      match row#cells with
+      | pid :: typ :: flags :: service :: _ ->
+         pid#set_value x.pid;
+         typ#set_value x.pid_type;
+         flags#set_value { has_pcr = x.has_pcr
+                         ; scrambled = x.scrambled };
+         service#set_value x.service;
 
     initializer
       List.iter Fun.(ignore % add_row table) init;
@@ -167,13 +245,16 @@ class t (timestamp : Time.t option)
       self#append_child media#widget;
   end
 
-let make ?(init : pids option)
+let make ?(init : (pids option, string) Lwt_result.t option)
       (stream : Stream.t)
       control =
   let init = match init with
-    | Some x -> Lwt_result.return (Some x.timestamp, x.pids)
+    | Some x -> x
     | None -> get_pids ~id:stream.id control in
   init
+  >|= (function
+       | None -> None, []
+       | Some x -> Some x.timestamp, x.pids)
   >|= (fun (ts, data) -> new t ts data control ())
   |> Ui_templates.Loader.create_widget_loader
 

@@ -156,7 +156,7 @@ module Streams = struct
       | ECM of int
       | EMM of int
       | Private
-      | Null [@@deriving yojson, eq]
+      | Null [@@deriving yojson, eq, ord]
 
     type pid_info =
       { pid       : int

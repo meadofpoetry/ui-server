@@ -368,19 +368,20 @@ module Make(Logs : Logs.LOG) = struct
                 restarting" (Timer.period t));
          first_step ())
 
-    and step_init devinfo (acc : Acc.t) recvd =
+    and step_init devinfo (acc : Acc.t) _ =
       push_state pe `Init;
       pe.devinfo (Some devinfo);
       let { t2mi_mode; input; jitter_mode } : config = storage#get in
+      send_instant sender (Set_board_init sources)
+      |> Lwt.ignore_result;
       send_instant sender (Set_board_mode { t2mi=t2mi_mode; input })
       |> Lwt.ignore_result;
       send_instant sender (Set_jitter_mode jitter_mode)
       |> Lwt.ignore_result;
-      send_instant sender (Set_board_init sources)
-      |> Lwt.ignore_result;
       Logs.info (fun m -> m "connection established, waiting \
                              for 'status' message");
-      step_ok_idle (Timer.create ~step_duration status_timeout) acc recvd
+      let timer = Timer.create ~step_duration status_timeout in
+      `Continue (step_ok_idle timer acc)
 
     and step_ok_idle (timer : Timer.t) (acc : Acc.t) recvd =
       try

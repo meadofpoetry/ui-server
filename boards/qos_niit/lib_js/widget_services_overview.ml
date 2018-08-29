@@ -14,7 +14,7 @@ let get_service_bitrate (br:(int * int) list) (s:service_info) =
         match List.Assoc.get ~eq:(=) x.pid br with
         | None   -> acc
         | Some b -> (x.pid, b) :: acc) [] s.ecm in
-  let es  =
+  let es =
     List.fold_left (fun acc (x:es_info) ->
         match List.Assoc.get ~eq:(=) x.pid br with
         | None   -> acc
@@ -129,7 +129,7 @@ let set_bitrate init (rate:bitrate) details' row =
   let open Table in
   let id, cur, per, min, max = match row#cells with
     | id :: _ :: _ :: _ :: a :: b :: c :: d :: _ -> id, a, b, c, d in
-  match List.find_opt (fun (x:service_info) -> x.id = id#value) init with
+  match List.find_opt (fun (x : service_info) -> x.id = id#value) init with
   | None -> ()
   | Some info ->
      let open Option in
@@ -140,7 +140,7 @@ let set_bitrate init (rate:bitrate) details' row =
      per#set_value @@ Some pct;
      min#set_value @@ Some lst;
      max#set_value @@ Some lst;
-     iter (fun x -> x#set_rate @@ Some lst) details
+     iter (fun x -> x#set_rate @@ Some { rate with pids = lst }) details
 
 let make_card (stream : Stream.t)
       (init : service_info list)

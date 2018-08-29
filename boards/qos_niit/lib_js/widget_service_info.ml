@@ -155,13 +155,14 @@ let make_pids
     let pmt = if service.has_pmt then Some service.pmt_pid else None in
     List.cons_maybe pmt (es @ ecm)
     |> List.sort_uniq ~cmp:compare in
-  let init   =
+  let init =
     List.filter (fun (x : pid_info) ->
         List.mem ~eq:(=) x.pid service_pids)
       init
     |> fun l ->
-       { timestamp = Time.Clock.now_s ()
-       ; pids = l } in
+       Some { timestamp = Time.Clock.now_s ()
+            ; pids = l }
+       |> Lwt_result.return in
   let _class = Markup.CSS.add_element base_class "pids" in
   let pids = Widget_pids_overview.make ~init stream control in
   pids#thread
@@ -200,21 +201,30 @@ class t ?rate ?min ?max
     val mutable _max  = Option.map sum_bitrate max
 
     method info = _info
+
     method set_hex x =
       _hex <- x;
       set_info ~hex:x _info;
       pids#thread >|= (fun w -> w#set_hex x) |> Lwt.ignore_result
+
     method set_info x =
       _info <- x; set_info ~hex:_hex x
-    method set_rate (rate:(int * int) list option) =
-      let sum = match rate with
-        | None -> None
-        | Some x -> Some (sum_bitrate x) in
-      pids#thread >|= (fun w -> w#set_rate @@ Option.map2 Pair.make sum rate)
-      |> Lwt.ignore_result;
-      self#_set_max sum;
-      self#_set_min sum;
-      set_rate sum
+
+    method set_rate : bitrate option -> unit = function
+      | None ->
+         self#_set_max None;
+         self#_set_min None;
+         set_rate None;
+         pids#thread >|= (fun w -> w#set_rate None)
+         |> Lwt.ignore_result
+      | Some rate ->
+         let sum = sum_bitrate rate.pids in
+         let rate = { rate with total = sum } in
+         pids#thread >|= (fun w -> w#set_rate @@ Some rate)
+         |> Lwt.ignore_result;
+         self#_set_max @@ Some sum;
+         self#_set_min @@ Some sum;
+         set_rate @@ Some sum
 
     (* Private methods *)
 

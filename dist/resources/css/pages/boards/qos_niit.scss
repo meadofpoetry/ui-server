@@ -1,6 +1,8 @@
 @import "../../components/theme/_mixins";
 @import "../../components/theme/_color-palette";
 @import "../../components/typography/_mixins";
+@import "../../components/card/_mixins";
+@import "../../components/card/_variables";
 
 .mdc-list-title {
     @include mdc-typography(caption);
@@ -141,7 +143,8 @@
 
 /* Table overview widget, Services overview widget */
 
-.qos-niit-table-overview, .qos-niit-services-overview, .qos-niit-errors-log {
+.qos-niit-table-overview, .qos-niit-services-overview,
+.qos-niit-errors-log, .qos-niit-pids-overview {
     &__back {
         margin-right: 8px;
         cursor: pointer;
@@ -225,18 +228,63 @@
 /* Pids summary widget */
 
 .qos-niit-pids-summary {
-    padding: 1rem;
+
+    &__content {
+        display: flex;
+        justify-content: space-around;
+        flex-wrap: nowrap;
+        align-items: center;
+        @media (max-width: 600px) {
+            flex-wrap: wrap;
+        }
+    }
 
     &__pie {
-        position: relative;
-        width: 250px;
-        height: 250px;
+        padding: 1rem;
+        flex-shrink: 0;
+        &__title {
+            display: flex;
+            justify-content: center;
+            padding-bottom: 1rem;
+        }
+        &__wrapper {
+            position: relative;
+            width: 250px;
+            height: 250px;
+        }
+    }
+
+    &__pids {
+        margin: 1rem;
+        &__title {
+            padding-bottom: 1rem;
+        }
+        &__box {
+            @include mdc-card-outline($mdc-card-outline-color);
+            padding: 1rem;
+            font-size: 13px;
+            align-self: stretch;
+            display: flex;
+            align-items: flex-start;
+            align-content: flex-start;
+            flex-wrap: wrap;
+        }
+    }
+
+    &__pids__pid {
+        width: 48px;
+        line-height: 2rem;
+        text-align: center;
+    }
+
+    &__pids__pid--lost {
+        @include mdc-theme-prop(color, error);
     }
 }
 
 /* Pids overview widget */
 
-.qos-niit-pid-overview {
+.qos-niit-pids-overview {
     .mdc-data-table {
         th:nth-of-type(2), td:nth-of-type(2) {
             max-width: 200px;

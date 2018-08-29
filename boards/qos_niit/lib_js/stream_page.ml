@@ -6,6 +6,7 @@ open Common
 open Board_types.Streams.TS
 
 let ( >>* ) x f = Lwt_result.map_err f x
+let ( % ) = Fun.( % )
 
 let get_services ~id control =
   Requests.Streams.HTTP.get_services ~id ~limit:1 control
@@ -57,8 +58,12 @@ let services ({ id; _ } as stream : Stream.t) control =
   let e_br, br_sock = Requests.Streams.WS.get_bitrate ~id control in
   let overview =
     Widget_pids_overview.get_pids ~id control
-    >>= (fun (_, pids) -> get_services ~id control >|= fun x -> x, pids)
-    >|= (fun (svs, pids) -> Widget_services_overview.make stream svs pids e_br control)
+    >>= (fun pids -> get_services ~id control >|= fun x -> x, pids)
+    >|= (fun (svs, pids) ->
+      let pids = match pids with
+        | None -> []
+        | Some x -> x.pids in
+      Widget_services_overview.make stream svs pids e_br control)
     |> Ui_templates.Loader.create_widget_loader in
   let box =
     let open Layout_grid in
@@ -72,36 +77,65 @@ let services ({ id; _ } as stream : Stream.t) control =
   box#widget
 
 let pids ({ id; _ } as stream : Stream.t) control =
-  let summary =
-    Widget_pids_summary.make
-      ~config:{ stream }
-      (Lwt_result.fail "") React.E.never
-      control in
-  let overview = Widget_pids_overview.make stream control in
-  let sock_lwt =
+  let init = Widget_pids_summary.get_pids ~id control in
+  let summary = Widget_pids_summary.make ~init stream control in
+  let overview = Widget_pids_overview.make ~init stream control in
+  let ws_lwt =
+    Lwt.choose [ summary#thread >|= Widget.coerce
+               ; overview#thread >|= Widget.coerce ]
+    >|= fun _ ->
+    (Requests.Streams.WS.get_bitrate ~id control),
+    (Requests.Streams.WS.get_pids ~id control) in
+  let rate =
+    Lwt_react.E.delay
+    @@ Lwt.bind ws_lwt
+         (function
+          | Ok (x, _) -> Lwt.return @@ fst x
+          | Error e -> Lwt.fail_with e) in
+  let pids =
+    Lwt_react.E.delay
+    @@ Lwt.bind ws_lwt
+         (function
+          | Ok (_, x) -> Lwt.return @@ fst x
+          | Error e -> Lwt.fail_with e) in
+  let summary_state_lwt =
+    summary#thread
+    >|= fun w ->
+    React.E.map w#update pids,
+    React.E.map (w#set_rate % Option.return) rate in
+  let overview_state_lwt =
     overview#thread
     >|= fun w ->
-    let rate, rate_sock = Requests.Streams.WS.get_bitrate ~id control in
-    let rate =
-      React.E.map (fun (x : bitrate) ->
-          w#set_rate @@ Some (x.total, x.pids)) rate in
-    rate, rate_sock in
+    React.E.map w#update pids,
+    React.E.map (w#set_rate % Option.return) rate in
   let box =
     let open Layout_grid in
     let open Typography in
     let span = 12 in
-    let summary_cell  = new Cell.t ~span ~widgets:[ summary ] () in
-    let overview_cell = new Cell.t ~span ~widgets:[ overview ] () in
+    let summary_cell  = new Cell.t ~span ~widgets:[summary] () in
+    let overview_cell = new Cell.t ~span ~widgets:[overview] () in
     let cells =
       [ summary_cell
       ; overview_cell ] in
     new t ~cells () in
   box#set_on_destroy
   @@ Some (fun () ->
-         sock_lwt
-         >|= (fun (rate, rate_sock) ->
-             React.E.stop ~strong:true rate;
-             rate_sock##close)
+         ws_lwt
+         >|= (fun ((e1, sock1), (e2, sock2)) ->
+             React.E.stop ~strong:true e1;
+             React.E.stop ~strong:true e2;
+             sock1##close;
+             sock2##close)
+         |> Lwt.ignore_result;
+         summary_state_lwt
+         >|= (fun (e1, e2) ->
+           React.E.stop ~strong:true e1;
+           React.E.stop ~strong:true e2)
+         |> Lwt.ignore_result;
+         overview_state_lwt
+         >|= (fun (e1, e2) ->
+           React.E.stop ~strong:true e1;
+           React.E.stop ~strong:true e2)
          |> Lwt.ignore_result);
   box#widget
 
@@ -111,8 +145,8 @@ let tables ({ id; _ } as stream : Stream.t) control =
     overview#thread
     >|= fun w ->
     let rate, rate_sock = Requests.Streams.WS.get_bitrate ~id control in
-    let e, sock = Requests.Streams.WS.get_tables ~id:stream.id  control in
-    let e = React.E.map (fun (x : tables) -> w#update x.tables) e in
+    let e, sock = Requests.Streams.WS.get_tables ~id  control in
+    let e = React.E.map w#update e in
     let rate = React.E.map w#set_rate rate in
     e, sock, rate, rate_sock in
   let box =

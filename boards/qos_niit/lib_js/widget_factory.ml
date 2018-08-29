@@ -7,7 +7,6 @@ open Common.Topology
 open Common
 
 type item =
-  | Pids_summary    of Widget_pids_summary.config
   | Settings        of Widget_settings.config option
   | T2MI_settings   of Widget_t2mi_settings.config option
   | Jitter_settings of Widget_jitter_settings.config option [@@deriving yojson]
@@ -15,12 +14,6 @@ type item =
 let item_to_info : item -> Dashboard.Item.info = fun item ->
   let serialized = item_to_yojson item in
   match item with
-  | Pids_summary _ ->
-     Dashboard.Item.to_info ~title:"PIDs. Краткая сводка"
-       ~thumbnail:(`Icon "list_alt")
-       ~description:"Краткая информация о PID в потоке"
-       ~serialized
-       ()
   | Settings _ ->
      Dashboard.Item.to_info ~title:Widget_settings.name
        ~thumbnail:(`Icon "settings")
@@ -62,9 +55,6 @@ object(self)
 
   (** Create widget of type **)
   method create : item -> Dashboard.Item.item = function
-    | Pids_summary config ->
-       Widget_pids_summary.make ~config (Lwt.fail_with "") React.E.never control
-       |> Dashboard.Item.to_item ~name:""
     | Settings conf ->
        (fun state t2mi_mode jitter_mode streams->
          Widget_settings.make ~state ~t2mi_mode ~jitter_mode ~streams

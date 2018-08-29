@@ -118,6 +118,11 @@ let make_back () =
   back#add_class @@ Markup.CSS.add_element base_class "back";
   back
 
+let section_fmt : 'a list Table.custom =
+  { is_numeric = true
+  ; compare = (fun x y -> Int.compare (List.length x) (List.length y))
+  ; to_string = Fun.(string_of_int % List.length) }
+
 let make_table (is_hex : bool)
       (init : table_info list) =
   let open Table in
@@ -133,12 +138,6 @@ let make_table (is_hex : bool)
   let hex_pid_fmt = Int (Some (Printf.sprintf "0x%04X")) in
   let hex_tid_fmt = Int (Some (Printf.sprintf "0x%02X")) in
   (* let br_fmt = Table.(Option (Float None, "-")) in *)
-  let section_fmt =
-    Custom { is_numeric = true
-           ; compare = (fun x y -> Int.compare
-                                     (List.length x)
-                                     (List.length y))
-           ; to_string = Fun.(string_of_int % List.length) } in
   let fmt =
     let open Format in
     (to_column ~sortable:true "ID", dec_pid_fmt)
@@ -147,7 +146,7 @@ let make_table (is_hex : bool)
     :: (to_column "Доп. инфо", dec_ext_fmt)
     :: (to_column ~sortable:true "Версия", Int None)
     :: (to_column ~sortable:true "Сервис", Option (String None, ""))
-    :: (to_column "Количество секций", section_fmt)
+    :: (to_column "Количество секций", Custom section_fmt)
     :: (to_column "Last section", Int None)
     (* :: (to_column "Битрейт, Мбит/с", br_fmt) *)
     :: [] in
@@ -233,9 +232,10 @@ let add_row (table : 'a Table.t)
           set_dump None;
           dump#destroy ();
           Lwt.return_unit) |> Lwt.ignore_result;
-      (match dump#list#items with
-       | hd :: _ -> dump#list#set_active hd
-       | _ -> ());
+      begin match dump#list#items with
+      | hd :: _ -> dump#list#set_active hd
+      | _ -> ()
+      end;
       primary#insert_child_at_idx 0 back;
       media#remove_child table;
       media#append_child dump;
@@ -276,7 +276,7 @@ class t (stream : Stream.t)
 
     inherit Card.t ~widgets:[ ] ()
 
-    (** Adds new table to the overview *)
+    (** Adds new row to the overview *)
     method add_row (t : table_info) =
       add_row table stream primary media control set_dump t
 
@@ -314,23 +314,22 @@ class t (stream : Stream.t)
       aux (x.tables, table#rows)
 
     (** Updates the overview *)
-    method update (data : table_info list) =
+    method update ({ timestamp; tables } : tables) =
       (* Update timestamp *)
-      let now = Time.Clock.now_s () in
-      _timestamp <- Some now;
+      _timestamp <- Some timestamp;
       (* Set timestamp in a heading only if dump view is not active *)
       begin match React.S.value dump with
-      | None -> primary#set_subtitle @@ make_timestamp_string @@ Some now;
+      | None -> primary#set_subtitle @@ make_timestamp_string _timestamp;
       | Some _ -> ()
       end;
       (* Manage found, lost and updated items *)
       let prev = _data in
-      _data <- Set.of_list data;
+      _data <- Set.of_list tables;
       let lost = Set.diff prev _data in
       let found = Set.diff _data prev in
       let inter = Set.inter prev _data in
       let upd = Set.filter (fun (x : table_info) ->
-                    List.mem ~eq:equal_table_info x data) inter in
+                    List.mem ~eq:equal_table_info x tables) inter in
       List.iter (fun (row : 'a Table.Row.t) ->
           let info = self#_row_to_table_info row in
           begin match Set.find_opt info lost with
@@ -345,8 +344,7 @@ class t (stream : Stream.t)
              self#_update_row row x
           | None -> ()
           end) table#rows;
-      Set.iter (ignore % self#add_row) found;
-      ()
+      Set.iter (ignore % self#add_row) found
 
     (* Private methods *)
 
