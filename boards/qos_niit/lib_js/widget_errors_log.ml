@@ -27,12 +27,23 @@ let get_errors ?from ?till ?duration ?limit ?order ~id control =
   | Raw s -> Lwt_result.return s.data
   | _ -> Lwt.fail_with "got compressed"
 
+let pid_fmt hex =
+  let open Table in
+  let to_string = fun (pid, multi) ->
+    let f =
+      if hex then Printf.sprintf "0x%04X"
+      else Printf.sprintf "%d" in
+    let s = f pid in
+    if multi then s ^ "*" else s in
+  let compare = fun (pid1, _) (pid2, _) ->
+    Int.compare pid1 pid2 in
+  Custom { to_string; compare; is_numeric = true }
 
 let add_error (table : 'a Table.t) (error : Errors.t) =
   let open Table in
   let service = None in
   let date = error.timestamp in
-  let pid = error.pid in
+  let pid = error.pid, error.multi_pid in
   let count = error.count in
   let check =
     let num, name = Ts_error.to_name error in
@@ -44,7 +55,6 @@ let add_error (table : 'a Table.t) (error : Errors.t) =
   row
 
 let make_table ~id is_hex (init : Errors.raw) control =
-  let hex_id_fmt = Some (Printf.sprintf "0x%04X") in
   let tz_offset_s = Ptime_clock.current_tz_offset_s () in
   let show_time = Time.to_human_string ?tz_offset_s in
   let fmt =
@@ -52,7 +62,7 @@ let make_table ~id is_hex (init : Errors.raw) control =
     let open Format in
     (to_column ~sortable:true "Время", Time (Some show_time))
     :: (to_column ~sortable:true "Событие", String None)
-    :: (to_column ~sortable:true "PID", Int None)
+    :: (to_column ~sortable:true "PID", pid_fmt false)
     :: (to_column ~sortable:true "Сервис", Option (String None, ""))
     :: (to_column ~sortable:true "Количество", Int None)
     :: (to_column "Подробности", String None)
@@ -129,7 +139,7 @@ let make_table ~id is_hex (init : Errors.raw) control =
         let open Table in
         match row#cells with
         | _ :: _ :: pid :: _ ->
-           let fmt  = if x then Int hex_id_fmt else Int None in
+           let fmt = pid_fmt x in
            pid#set_format fmt)
       table#rows in
   if is_hex then on_change true;

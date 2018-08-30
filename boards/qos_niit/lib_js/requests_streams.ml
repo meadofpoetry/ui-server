@@ -163,6 +163,18 @@ module HTTP = struct
                    ; "duration", (module Option(Time.Relative)) ]
       control id limit from till duration
 
+  let get_last_pids ~id control =
+    let open Lwt_result.Infix in
+    get_pids ~id ~limit:1 control
+    >>= (function
+         | Raw s ->
+            (match List.head_opt s.data with
+             | Some (_, pids) -> Some pids
+             | None -> None)
+            |> Lwt_result.return
+         | _     -> Lwt.fail_with "got compressed")
+    |> Lwt_result.map_err Api_js.Requests.err_to_string
+
   module T2MI = struct
 
     open Streams.T2MI

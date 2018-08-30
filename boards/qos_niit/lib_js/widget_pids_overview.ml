@@ -31,17 +31,6 @@ end
 
 module Set = Set.Make(Pid_info)
 
-let get_pids ~id control =
-  Requests.Streams.HTTP.get_pids ~id ~limit:1 control
-  >>= (function
-       | Raw s ->
-          (match List.head_opt s.data with
-           | Some (_, pids) -> Some pids
-           | None -> None)
-          |> Lwt_result.return
-       | _     -> Lwt.fail_with "got compressed")
-  |> Lwt_result.map_err Api_js.Requests.err_to_string
-
 let to_pid_flags { has_pcr; scrambled } =
   let pcr = match has_pcr with
     | false -> None
@@ -188,18 +177,19 @@ class t (timestamp : Time.t option)
       let inter = Set.inter prev _data in
       let upd = Set.filter (fun (x : pid_info) ->
                     List.mem ~eq:equal_pid_info x pids) inter in
-      List.iter (fun (row : 'a Table.Row.t) ->
-          let open Table in
-          let pid = match row#cells with
-            | pid :: _ -> pid#value in
-          begin match Set.find_first_opt (fun x -> x.pid = pid) lost with
-          | Some _ -> table#remove_row row
+      let find = fun (pid : pid_info) (row : 'a Table.Row.t) ->
+        let open Table in
+        let pid' = match row#cells with
+          | x :: _ -> x#value in
+        pid.pid = pid' in
+      Set.iter (fun (pid : pid_info) ->
+          match List.find_opt (find pid) table#rows with
           | None -> ()
-          end;
-          begin match Set.find_first_opt (fun x -> x.pid = pid) upd with
-          | Some x -> self#_update_row row x
+          | Some row -> table#remove_row row) lost;
+      Set.iter (fun (pid : pid_info) ->
+          match List.find_opt (find pid) table#rows with
           | None -> ()
-          end) table#rows;
+          | Some row -> self#_update_row row pid) upd;
       Set.iter (ignore % self#add_row) found
 
     (** Updates bitrate values *)
@@ -250,7 +240,9 @@ let make ?(init : (pids option, string) Lwt_result.t option)
       control =
   let init = match init with
     | Some x -> x
-    | None -> get_pids ~id:stream.id control in
+    | None ->
+       let open Requests.Streams.HTTP in
+       get_last_pids ~id:stream.id control in
   init
   >|= (function
        | None -> None, []

@@ -330,20 +330,18 @@ class t (stream : Stream.t)
       let inter = Set.inter prev _data in
       let upd = Set.filter (fun (x : table_info) ->
                     List.mem ~eq:equal_table_info x tables) inter in
-      List.iter (fun (row : 'a Table.Row.t) ->
-          let info = self#_row_to_table_info row in
-          begin match Set.find_opt info lost with
-          | Some _ -> table#remove_row row
+      let find = fun (table : table_info) (row : 'a Table.Row.t) ->
+        let open Table in
+        let info = self#_row_to_table_info row in
+        Table_info.equal table info in
+      Set.iter (fun (info : table_info) ->
+          match List.find_opt (find info) table#rows with
           | None -> ()
-          end;
-          begin match Set.find_opt info upd with
-          | Some x ->
-             Option.iter (fun (ti, dump) ->
-                 if Table_info.equal ti info
-                 then dump#update x.sections) @@ React.S.value dump;
-             self#_update_row row x
+          | Some row -> table#remove_row row) lost;
+      Set.iter (fun (info : table_info) ->
+          match List.find_opt (find info) table#rows with
           | None -> ()
-          end) table#rows;
+          | Some row -> self#_update_row row info) upd;
       Set.iter (ignore % self#add_row) found
 
     (* Private methods *)

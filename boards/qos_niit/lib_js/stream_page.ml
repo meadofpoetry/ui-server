@@ -57,7 +57,7 @@ let errors ({ id; _ } : Stream.t) control =
 let services ({ id; _ } as stream : Stream.t) control =
   let e_br, br_sock = Requests.Streams.WS.get_bitrate ~id control in
   let overview =
-    Widget_pids_overview.get_pids ~id control
+    Requests.Streams.HTTP.get_last_pids ~id control
     >>= (fun pids -> get_services ~id control >|= fun x -> x, pids)
     >|= (fun (svs, pids) ->
       let pids = match pids with
@@ -77,7 +77,7 @@ let services ({ id; _ } as stream : Stream.t) control =
   box#widget
 
 let pids ({ id; _ } as stream : Stream.t) control =
-  let init = Widget_pids_summary.get_pids ~id control in
+  let init = Requests.Streams.HTTP.get_last_pids ~id control in
   let summary = Widget_pids_summary.make ~init stream control in
   let overview = Widget_pids_overview.make ~init stream control in
   let ws_lwt =

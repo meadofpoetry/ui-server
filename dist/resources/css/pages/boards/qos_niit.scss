@@ -144,7 +144,8 @@
 /* Table overview widget, Services overview widget */
 
 .qos-niit-table-overview, .qos-niit-services-overview,
-.qos-niit-errors-log, .qos-niit-pids-overview {
+.qos-niit-errors-log, .qos-niit-pids-overview,
+.qos-niit-pids-summary {
     &__back {
         margin-right: 8px;
         cursor: pointer;
@@ -253,9 +254,23 @@
             height: 250px;
         }
     }
+    &__info__rate {
+        .mdc-list-item__meta {
+            font-size: 1em;
+            @include mdc-theme-prop(color, text-primary-on-surface);
+        }
+    }
 
-    &__pids {
+    &__info__pids {
         margin: 1rem;
+        &__pid {
+            width: 56px;
+            line-height: 2rem;
+            text-align: center;
+        }
+        &__pid--lost {
+            @include mdc-theme-prop(color, error);
+        }
         &__title {
             padding-bottom: 1rem;
         }
@@ -271,15 +286,6 @@
         }
     }
 
-    &__pids__pid {
-        width: 48px;
-        line-height: 2rem;
-        text-align: center;
-    }
-
-    &__pids__pid--lost {
-        @include mdc-theme-prop(color, error);
-    }
 }
 
 /* Pids overview widget */
