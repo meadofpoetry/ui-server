@@ -4,6 +4,7 @@ open Common
 open Board_types.Streams.TS
 open Lwt_result.Infix
 open Api_js.Api_types
+open Widget_common
 
 type config =
   { stream : Stream.t
@@ -18,14 +19,9 @@ end
 
 module Set = Set.Make(Pid_info)
 
-let to_hex_string =
-  Printf.sprintf "0x%04X"
-
-let to_dec_string =
-  Printf.sprintf "%d"
-
 let base_class = "qos-niit-pids-summary"
 
+(* TODO improve tooltip. add pid type, bitrate units *)
 module Pie = struct
 
   let colors =
@@ -129,8 +125,8 @@ module Pie = struct
 
       method private make_labels pids oth =
         let to_string =
-          if _hex then to_hex_string
-          else to_dec_string in
+          if _hex then PID.to_hex_string
+          else PID.to_dec_string in
         let pids = List.map (fun x -> to_string @@ fst x) pids in
         match oth with
         | [] -> pids
@@ -205,8 +201,8 @@ module Info = struct
 
         method set_hex (x : bool) : unit =
           let s = match x with
-            | true -> to_hex_string self#pid
-            | false -> to_dec_string self#pid in
+            | true -> PID.to_hex_string self#pid
+            | false -> PID.to_dec_string self#pid in
           self#set_text_content s
 
         method pid : int =
@@ -313,23 +309,15 @@ module Info = struct
 
 end
 
-let make_timestamp_string (timestamp : Time.t option) =
-  let tz_offset_s = Ptime_clock.current_tz_offset_s () in
-  let s = match timestamp with
-    | None -> "-"
-    | Some t -> Time.to_human_string ?tz_offset_s t
-  in
-  "Обновлено: " ^ s
-
 class t (timestamp : Time.t option)
         (init : pid_info list)
         () =
   (* FIXME read from storage *)
   let is_hex = false in
   let content_class = Markup.CSS.add_element base_class "content" in
-  let title = "Краткая сводка" in
+  let title = "Сводка" in
   let subtitle = make_timestamp_string timestamp in
-  let title = new Card.Primary.title title () in
+  let title = new Card.Primary.title ~large:true title () in
   let subtitle = new Card.Primary.subtitle subtitle () in
   let text_box = Widget.create_div () in
   let pie = new Pie.t ~hex:is_hex () in

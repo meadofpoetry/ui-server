@@ -8,18 +8,6 @@ open Board_types.Streams.TS
 let ( >>* ) x f = Lwt_result.map_err f x
 let ( % ) = Fun.( % )
 
-let get_services ~id control =
-  Requests.Streams.HTTP.get_services ~id ~limit:1 control
-  >>* Api_js.Requests.err_to_string
-  >>= function
-  | Raw s ->
-     begin match List.head_opt s.data with
-     | Some (_, services) -> services.services
-     | None -> []
-     end
-     |> Lwt_result.return
-  | _ -> Lwt.fail_with "got compressed"
-
 let get_errors ?from ?till ?duration ?limit ~id control =
   let open Requests.Streams.HTTP.Errors in
   get_errors ?limit ?from ?till ?duration ~id control
@@ -55,25 +43,31 @@ let errors ({ id; _ } : Stream.t) control =
   box#widget
 
 let services ({ id; _ } as stream : Stream.t) control =
-  let e_br, br_sock = Requests.Streams.WS.get_bitrate ~id control in
-  let overview =
-    Requests.Streams.HTTP.get_last_pids ~id control
-    >>= (fun pids -> get_services ~id control >|= fun x -> x, pids)
-    >|= (fun (svs, pids) ->
-      let pids = match pids with
-        | None -> []
-        | Some x -> x.pids in
-      Widget_services_overview.make stream svs pids e_br control)
-    |> Ui_templates.Loader.create_widget_loader in
+  let overview = Widget_services_overview.make stream control in
+  let sock_lwt =
+    overview#thread
+    >|= fun w ->
+    let rate, rate_sock = Requests.Streams.WS.get_bitrate ~id control in
+    let e, sock = Requests.Streams.WS.get_services ~id  control in
+    let e = React.E.map w#update e in
+    let rate = React.E.map (w#set_rate % Option.return) rate in
+    e, sock, rate, rate_sock in
   let box =
     let open Layout_grid in
     let open Typography in
     let span = 12 in
     let overview_cell = new Cell.t ~span ~widgets:[ overview ] () in
-    let cells =
-      [ new Cell.t ~span ~widgets:[new Text.t ~text:"Обзор" ()] ()
-      ; overview_cell ] in
+    let cells = [overview_cell] in
     new t ~cells () in
+  box#set_on_destroy
+  @@ Some (fun () ->
+         sock_lwt
+         >|= (fun (e, sock, rate, rate_sock) ->
+             React.E.stop ~strong:true e;
+             React.E.stop ~strong:true rate;
+             sock##close;
+             rate_sock##close)
+         |> Lwt.ignore_result);
   box#widget
 
 let pids ({ id; _ } as stream : Stream.t) control =

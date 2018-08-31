@@ -4,6 +4,7 @@ open Common
 open Board_types.Streams.TS
 open Lwt_result.Infix
 open Api_js.Api_types
+open Widget_common
 
 type config =
   { stream : Stream.t
@@ -87,6 +88,7 @@ let pid_flags_fmt : pid_flags Table.custom_elt =
   ; is_numeric = false
   }
 
+(* TODO add table empty state *)
 let make_table (is_hex : bool)
       (init : pid_info list) =
   let open Table in
@@ -129,14 +131,6 @@ let add_row (table : 'a Table.t) (pid : pid_info) =
   let row = table#add_row data in
   row
 
-let make_timestamp_string (timestamp : Time.t option) =
-  let tz_offset_s = Ptime_clock.current_tz_offset_s () in
-  let s = match timestamp with
-    | None -> "-"
-    | Some t -> Time.to_human_string ?tz_offset_s t
-  in
-  "Обновлено: " ^ s
-
 class t (timestamp : Time.t option)
         (init : pid_info list)
         (control : int)
@@ -144,11 +138,11 @@ class t (timestamp : Time.t option)
   (* FIXME should remember preffered state *)
   let is_hex = false in
   let table, on_change = make_table is_hex init in
-  let title = "Обзор" in
+  let title = "Список PID" in
   let subtitle = make_timestamp_string timestamp in
   let switch = new Switch.t ~state:is_hex ~on_change () in
   let hex = new Form_field.t ~input:switch ~label:"HEX IDs" () in
-  let title' = new Card.Primary.title title () in
+  let title' = new Card.Primary.title ~large:true title () in
   let subtitle' = new Card.Primary.subtitle subtitle () in
   let text_box = Widget.create_div () in
   let primary = new Card.Primary.t ~widgets:[text_box; hex#widget] () in

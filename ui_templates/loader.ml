@@ -56,6 +56,7 @@ object(self)
 
 end
 
+(* TODO add loader to DOM only after certain timeout *)
 class ['a] widget_loader ?text ?error_icon ?error_prefix
         ?(parent : #Widget.t option)
         (t : ((#Widget.t as 'a), string) Lwt_result.t) () =

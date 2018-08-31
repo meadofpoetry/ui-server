@@ -3,6 +3,7 @@ open Board_types
 open Api_js.Requests.Json_request
 open Api_js.Api_types
 open Common
+open Lwt_result.Infix
 
 let get_base_path () = Uri.Path.Format.(
     Boards_js.Requests.get_board_path () / ("streams" @/ empty))
@@ -163,17 +164,41 @@ module HTTP = struct
                    ; "duration", (module Option(Time.Relative)) ]
       control id limit from till duration
 
-  let get_last_pids ~id control =
-    let open Lwt_result.Infix in
-    get_pids ~id ~limit:1 control
-    >>= (function
-         | Raw s ->
-            (match List.head_opt s.data with
-             | Some (_, pids) -> Some pids
-             | None -> None)
-            |> Lwt_result.return
-         | _     -> Lwt.fail_with "got compressed")
+  let get_last_services ~id control =
+    get_services ~id ~limit:1 control
     |> Lwt_result.map_err Api_js.Requests.err_to_string
+    >>= function
+    | Raw s ->
+       begin match List.head_opt s.data with
+       | Some (_, services) -> Some services
+       | None -> None
+       end
+       |> Lwt_result.return
+    | _ -> Lwt.fail_with "got compressed"
+
+  let get_last_tables ~id control =
+    get_tables ~id ~limit:1 control
+    |> Lwt_result.map_err Api_js.Requests.err_to_string
+    >>= function
+    | Raw s ->
+       begin match List.head_opt s.data with
+       | Some (_, { timestamp; tables }) -> Some timestamp, tables
+       | None -> None, []
+       end
+       |> Lwt_result.return
+    | _ -> Lwt.fail_with "got compressed"
+
+  let get_last_pids ~id control =
+    get_pids ~id ~limit:1 control
+    |> Lwt_result.map_err Api_js.Requests.err_to_string
+    >>= function
+    | Raw s ->
+       begin match List.head_opt s.data with
+       | Some (_, pids) -> Some pids
+       | None -> None
+       end
+       |> Lwt_result.return
+    | _     -> Lwt.fail_with "got compressed"
 
   module T2MI = struct
 

@@ -4,25 +4,13 @@ open Common
 open Board_types.Streams.TS
 open Lwt_result.Infix
 open Api_js.Api_types
+open Widget_common
 
 type config =
   { stream : Stream.t
   }
 
 let ( % ) = Fun.( % )
-let ( >>* ) x f = Lwt_result.map_err f x
-
-let get_tables ~id control =
-  Requests.Streams.HTTP.get_tables ~id ~limit:1 control
-  >>* Api_js.Requests.err_to_string
-  >>= function
-  | Raw s ->
-     begin match List.head_opt s.data with
-     | Some (_, { timestamp; tables }) -> Some timestamp, tables
-     | None -> None, []
-     end
-     |> Lwt_result.return
-  | _ -> Lwt.fail_with "got compressed"
 
 let name = "Обзор таблиц"
 let base_class = "qos-niit-table-overview"
@@ -176,9 +164,9 @@ let make_dump_title ?is_hex
 module Heading = struct
 
   class t ?title ?subtitle ~meta () =
-    let title' = new Card.Primary.title "" () in
+    let title' = new Card.Primary.title ~large:true "" () in
     let subtitle' = new Card.Primary.subtitle "" () in
-    let box = Widget.create_div () in
+    let box = Widget.create_div ~widgets:[title'; subtitle'] () in
     object(self)
       inherit Card.Primary.t ~widgets:[box; meta#widget] ()
 
@@ -189,8 +177,6 @@ module Heading = struct
         subtitle'#set_text_content s
 
       initializer
-        box#append_child title';
-        box#append_child subtitle';
         Option.iter self#set_title title;
         Option.iter self#set_subtitle subtitle;
     end
@@ -206,6 +192,7 @@ let add_row (table : 'a Table.t)
       (x : table_info) =
   let row = table#add_row (table_info_to_data x) in
   row#listen_click_lwt (fun _ _ ->
+      let open Lwt.Infix in
       let cell =
         let open Table in
         match row#cells with
@@ -223,15 +210,17 @@ let add_row (table : 'a Table.t)
           ~ext_info:x.ext_info
           control () in
       set_dump @@ Some (x, dump);
-      back#listen_click_lwt (fun _ _ ->
-          let sections = List.map (fun i -> i#value) dump#list#items in
-          cell#set_value ~force:true sections;
-          media#set_empty ();
-          media#append_child table;
-          primary#remove_child back;
-          set_dump None;
-          dump#destroy ();
-          Lwt.return_unit) |> Lwt.ignore_result;
+      back#listen_once_lwt Widget.Event.click
+      >|= (fun _ ->
+        let sections = List.map (fun i -> i#value) dump#list#items in
+        cell#set_value ~force:true sections;
+        media#set_empty ();
+        media#append_child table;
+        primary#remove_child back;
+        set_dump None;
+        dump#destroy ();
+        back#destroy ())
+      |> Lwt.ignore_result;
       begin match dump#list#items with
       | hd :: _ -> dump#list#set_active hd
       | _ -> ()
@@ -243,14 +232,6 @@ let add_row (table : 'a Table.t)
   |> Lwt.ignore_result;
   row
 
-let make_timestamp_string (timestamp : Time.t option) =
-  let tz_offset_s = Ptime_clock.current_tz_offset_s () in
-  let s = match timestamp with
-    | None -> "-"
-    | Some t -> Time.to_human_string ?tz_offset_s t
-  in
-  "Обновлено: " ^ s
-
 class t (stream : Stream.t)
         (timestamp : Time.t option)
         (init : table_info list)
@@ -259,7 +240,7 @@ class t (stream : Stream.t)
   (* FIXME should remember preffered state *)
   let is_hex = false in
   let table, on_change = make_table is_hex init in
-  let title = "Обзор" in
+  let title = "Список таблиц SI/PSI" in
   let subtitle = make_timestamp_string timestamp in
   let dump, set_dump = React.S.create None in
   let on_change = fun x ->
@@ -388,7 +369,9 @@ let make ?(init : tables option)
       control =
   let init = match init with
     | Some x -> Lwt_result.return (Some x.timestamp, x.tables)
-    | None -> get_tables ~id:stream.id control in
+    | None ->
+       let open Requests_streams.HTTP in
+       get_last_tables ~id:stream.id control in
   init
   >|= (fun (ts, data) -> new t stream ts data control ())
   |> Ui_templates.Loader.create_widget_loader

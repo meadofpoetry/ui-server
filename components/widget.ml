@@ -14,11 +14,11 @@ type rect =
   }
 
 let to_rect (x:Dom_html.clientRect Js.t) =
-  { top    = x##.top
-  ; right  = x##.right
+  { top = x##.top
+  ; right = x##.right
   ; bottom = x##.bottom
-  ; left   = x##.left
-  ; width  = Js.Optdef.to_option x##.width
+  ; left = x##.left
+  ; width = Js.Optdef.to_option x##.width
   ; height = Js.Optdef.to_option x##.height
   }
 
@@ -383,8 +383,8 @@ type 'a validation =
   | Custom : ((string -> ('a, string) result) * ('a -> string)) -> 'a validation
 
 let input_type_of_validation :
-      type a. a validation -> [> `Email | `Number | `Text ]
-  = function
+      type a. a validation -> [> `Email | `Number | `Text ] =
+  function
   | Email -> `Email
   | Integer _ -> `Number
   | Float _ -> `Number
@@ -478,8 +478,10 @@ class ['a] text_input_widget ?v_msg ~input_elt (v : 'a validation) elt () =
 
     method s_input   = s_input
 
-    method fill_in (x : 'a) = s_input_push (Some x); self#_set_value (valid_to_string v x)
-    method clear () = s_input_push None; self#_set_value ""
+    method fill_in (x : 'a) =
+      s_input_push (Some x); self#_set_value (valid_to_string v x)
+    method clear () =
+      s_input_push None; self#_set_value ""
 
     method private set_max (x : float) =
       (Js.Unsafe.coerce input_elt)##.max := x
@@ -560,6 +562,12 @@ open Dom_html
 
 let create x = new t x ()
 
-let create_div () = create @@ createDiv document
+let create_div ?(widgets = []) () =
+  let div = create @@ createDiv document in
+  List.iter div#append_child widgets;
+  div
 
-let create_span () = create @@ createDiv document
+let create_span ?(widgets = []) () =
+  let span = create @@ createSpan document in
+  List.iter span#append_child widgets;
+  span
