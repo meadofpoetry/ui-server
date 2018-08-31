@@ -48,10 +48,12 @@ let services ({ id; _ } as stream : Stream.t) control =
     overview#thread
     >|= fun w ->
     let rate, rate_sock = Requests.Streams.WS.get_bitrate ~id control in
+    let pids, pids_sock = Requests.Streams.WS.get_pids ~id control in
     let e, sock = Requests.Streams.WS.get_services ~id  control in
     let e = React.E.map w#update e in
+    let pids = React.E.map w#update_pids pids in
     let rate = React.E.map (w#set_rate % Option.return) rate in
-    e, sock, rate, rate_sock in
+    e, sock, pids, pids_sock, rate, rate_sock in
   let box =
     let open Layout_grid in
     let open Typography in
@@ -62,11 +64,13 @@ let services ({ id; _ } as stream : Stream.t) control =
   box#set_on_destroy
   @@ Some (fun () ->
          sock_lwt
-         >|= (fun (e, sock, rate, rate_sock) ->
+         >|= (fun (e, sock, pids, pids_sock, rate, rate_sock) ->
              React.E.stop ~strong:true e;
              React.E.stop ~strong:true rate;
+             React.E.stop ~strong:true pids;
              sock##close;
-             rate_sock##close)
+             rate_sock##close;
+             pids_sock##close)
          |> Lwt.ignore_result);
   box#widget
 

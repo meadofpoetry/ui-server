@@ -123,9 +123,9 @@ let make_table (is_hex : bool)
   table, on_change
 
 let map_details (details : Widget_service_info.t option React.signal)
-      (info : service_info) =
+      ({ id; _ } : service_info) =
   match React.S.value details with
-  | Some x when equal_service_info x#info info -> Some x
+  | Some x when x#service_id = id -> Some x
   | _ -> None
 
 module Heading = struct
@@ -150,13 +150,12 @@ module Heading = struct
 
 end
 
-let make_details_title (name : string) =
-  name, ""
-
 let add_row (stream : Stream.t)
       (primary : Heading.t)
       (media : Card.Media.t)
       (table : 'a Table.t)
+      (pids : pids option React.signal)
+      (rate : bitrate option React.signal)
       (set_details : Widget_service_info.t option -> unit)
       (x : service_info)
       (control : int) =
@@ -165,17 +164,17 @@ let add_row (stream : Stream.t)
                    :: None :: None :: None :: None :: []) in
   row#listen_lwt Widget.Event.click (fun _ _ ->
       let open Lwt.Infix in
-      let name, rate, min, max =
+      let name, min, max =
         let open Table in
         match row#cells with
-        | _ :: name :: _ :: _ :: a :: _ :: b :: c :: _ ->
-           name#value, a#value, b#value, c#value in
+        | _ :: name :: _ :: _ :: _ :: _ :: b :: c :: _ ->
+           name#value, b#value, c#value in
       let back = make_back () in
-      let title, subtitle = make_details_title name in
-      primary#set_title title;
-      primary#set_subtitle subtitle;
+      primary#set_title name;
+      let rate = React.S.value rate in
+      let pids = React.S.value pids in
       let details =
-        Widget_service_info.make ?rate ?min ?max stream x [] control in
+        Widget_service_info.make ?rate ?min ?max stream x pids control in
       set_details @@ Some details;
       back#listen_once_lwt Widget.Event.click
       >|= (fun _ ->
@@ -195,6 +194,7 @@ let add_row (stream : Stream.t)
 class t (stream : Stream.t)
         (timestamp : Time.t option)
         (init : service_info list)
+        (pids : pids option)
         (control : int)
         () =
   (* FIXME should remember previous state *)
@@ -202,14 +202,16 @@ class t (stream : Stream.t)
   let table, on_change = make_table is_hex init in
   let title = "Список сервисов" in
   let subtitle = make_timestamp_string timestamp in
+  let rate, set_rate = React.S.create None in
   let details, set_details = React.S.create None in
+  let pids, set_pids = React.S.create pids in
   let on_change = fun x ->
     Option.iter (fun d -> d#set_hex x) @@ React.S.value details;
     on_change x in
   let switch = new Switch.t ~state:is_hex ~on_change () in
   let hex = new Form_field.t ~input:switch ~label:"HEX IDs" () in
   let primary = new Heading.t ~title ~subtitle ~meta:hex () in
-  let media = new Card.Media.t ~widgets:[ table ] () in
+  let media = new Card.Media.t ~widgets:[table] () in
   object(self)
 
     val mutable _timestamp : Time.t option = timestamp
@@ -219,17 +221,20 @@ class t (stream : Stream.t)
 
     (** Adds new row to the overview *)
     method add_row (s : service_info) =
-      add_row stream primary media table set_details s control
+      add_row stream primary media table pids rate set_details s control
+
+    (** Updates PID list *)
+    method update_pids (pids : pids) : unit =
+      set_pids @@ Some pids;
+      Option.iter (fun (x : Widget_service_info.t) -> x#update_pids pids)
+      @@ React.S.value details
 
     (** Updates the overview *)
     method update ({ timestamp; services } : services) =
       (* Update timestamp *)
       _timestamp <- Some timestamp;
       (* Set timestamp in heading only if details view is not active *)
-      begin match React.S.value details with
-      | None -> primary#set_subtitle @@ make_timestamp_string _timestamp
-      | Some _ -> ()
-      end;
+      primary#set_subtitle @@ make_timestamp_string _timestamp;
       (* Manage found, lost and updated items *)
       let prev = _data in
       _data <- Set.of_list services;
@@ -244,19 +249,42 @@ class t (stream : Stream.t)
           | x :: _ -> x#value in
         id = service.id in
       Set.iter (fun (info : service_info) ->
+          (* TODO update details somehow to show that the service is lost *)
+          begin match map_details details info with
+          | Some details ->
+             details#set_not_available true;
+             details#set_rate None
+          | None -> ()
+          end;
           match List.find_opt (find info) table#rows with
           | None -> ()
           | Some row -> table#remove_row row) lost;
       Set.iter (fun (info : service_info) ->
+          (* Update details, if opened *)
+          begin match map_details details info with
+          | Some details -> details#update info
+          | None -> ()
+          end;
           match List.find_opt (find info) table#rows with
           | None -> ()
           | Some row -> self#_update_row row info) upd;
-      Set.iter (ignore % self#add_row) found
+      Set.iter (fun (info : service_info) ->
+          (* Update details, if opened *)
+          begin match map_details details info with
+          | Some details ->
+             details#update info;
+             details#set_not_available false
+          | None -> ()
+          end;
+          ignore @@ self#add_row info) found
 
     (** Updates bitrate values *)
-    method set_rate : bitrate option -> unit = function
+    method set_rate (rate : bitrate option) : unit =
+      set_rate rate;
+      match rate with
       | None -> () (* FIXME do smth *)
-      | Some rate -> List.iter (self#_update_row_rate rate) table#rows
+      | Some rate ->
+         List.iter (self#_update_row_rate rate) table#rows
 
     (* Private methods *)
 
@@ -288,14 +316,11 @@ class t (stream : Stream.t)
          pmt#set_value service.pmt_pid;
          pcr#set_value service.pcr_pid
 
-
     initializer
       self#_keep_e
       @@ React.E.map (function
              | Some _ -> ()
-             | None ->
-                primary#set_title title;
-                primary#set_subtitle @@ make_timestamp_string _timestamp)
+             | None -> primary#set_title title)
       @@ React.S.changes details;
       List.iter Fun.(ignore % self#add_row) init;
       self#add_class base_class;
@@ -305,7 +330,15 @@ class t (stream : Stream.t)
 
   end
 
+let lwt_l2 (a : 'a Lwt.t) (b : 'b Lwt.t) =
+  a >>= fun a -> b >|= fun b -> a, b
+
+let map_init = function
+  | None -> None, []
+  | Some (x : services) -> Some x.timestamp, x.services
+
 let make ?(init : (services option, string) Lwt_result.t option)
+      ?(pids : (pids option, string) Lwt_result.t option)
       (stream : Stream.t)
       (control : int) =
   let init = match init with
@@ -313,11 +346,13 @@ let make ?(init : (services option, string) Lwt_result.t option)
     | None ->
        let open Requests.Streams.HTTP in
        get_last_services ~id:stream.id control in
-  init
-  >|= (function
-       | None -> None, []
-       | Some x -> Some x.timestamp, x.services)
-  >|= (fun (ts, data) -> new t stream ts data control ())
+  let pids = match pids with
+    | Some x -> x
+    | None ->
+       let open Requests.Streams.HTTP in
+       get_last_pids ~id:stream.id control in
+  lwt_l2 (init >|= map_init) pids
+  >|= (fun ((ts, data), pids) -> new t stream ts data pids control ())
   |> Ui_templates.Loader.create_widget_loader
 
 

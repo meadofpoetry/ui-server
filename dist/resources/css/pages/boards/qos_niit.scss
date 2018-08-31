@@ -176,6 +176,15 @@
 /* Service info widget */
 
 .qos-niit-service-info {
+    $border-color: mix(mdc-theme-prop-value(on-error), mdc-theme-prop-value(error), 12%);
+    &--not-available {
+        .qos-niit-service-info__pids, .qos-niit-service-info__description,
+        .qos-niit-service-info__description > .mdc-card {
+            @include mdc-theme-prop(border-color, $border-color);
+            @include mdc-theme-prop(color, text-primary-on-error);
+            @include mdc-theme-prop(background-color, error);
+        }
+    }
     &__pids {
         .mdc-data-table__row {
             cursor: auto !important;
@@ -241,6 +250,7 @@
     }
 
     &__pie {
+        align-self: flex-start;
         padding: 1rem;
         flex-shrink: 0;
         &__title {
@@ -254,14 +264,19 @@
             height: 250px;
         }
     }
+    &__info {
+        flex-grow: 1;
+    }
     &__info__rate {
         .mdc-list-item__meta {
+            white-space: nowrap;
             font-size: 1em;
             @include mdc-theme-prop(color, text-primary-on-surface);
         }
     }
 
     &__info__pids {
+        align-self: flex-start;
         margin: 1rem;
         &__pid {
             width: 56px;

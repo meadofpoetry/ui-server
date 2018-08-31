@@ -144,6 +144,8 @@ module Pie = struct
 
 end
 
+(* TODO show only N pids, and allow user to expand if necessary
+   TODO sort pids by value *)
 module Info = struct
 
   let _class = Markup.CSS.add_element base_class "info"

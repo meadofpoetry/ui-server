@@ -131,10 +131,10 @@ let add_row (table : 'a Table.t) (pid : pid_info) =
   let row = table#add_row data in
   row
 
-class t (timestamp : Time.t option)
-        (init : pid_info list)
-        (control : int)
-        () =
+class t (pids : pids option) () =
+  let timestamp, init = match pids with
+    | None -> None, []
+    | Some { timestamp; pids } -> Some timestamp, pids in
   (* FIXME should remember preffered state *)
   let is_hex = false in
   let table, on_change = make_table is_hex init in
@@ -201,6 +201,8 @@ class t (timestamp : Time.t option)
              | None -> rows) table#rows pids
          |> ignore
 
+    method pids = Set.to_list _data
+
     method table = table
 
     method switch = hex
@@ -238,9 +240,6 @@ let make ?(init : (pids option, string) Lwt_result.t option)
        let open Requests.Streams.HTTP in
        get_last_pids ~id:stream.id control in
   init
-  >|= (function
-       | None -> None, []
-       | Some x -> Some x.timestamp, x.pids)
-  >|= (fun (ts, data) -> new t ts data control ())
+  >|= (fun pids-> new t pids ())
   |> Ui_templates.Loader.create_widget_loader
 
