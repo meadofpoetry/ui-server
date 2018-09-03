@@ -13,6 +13,18 @@ let probes_timeout = 5 (* seconds *)
 
 module Timer = Boards.Timer
 
+let is_incoming ({ input; _ } : Types.init) =
+  fun (s : Stream.t) ->
+  match s.orig_id with
+  | TS_multi x ->
+     let spi_id = input_to_int SPI in
+     let asi_id = input_to_int ASI in
+     let parsed = Multi_TS_ID.parse x in
+     if parsed.source_id = input
+        && (parsed.stream_id = spi_id || parsed.stream_id = asi_id)
+     then true else false
+  | _ -> false
+
 let find_stream_by_multi_id (id : Stream.Multi_TS_ID.t)
       (streams : Stream.t list) =
   List.find_opt (fun (s : Stream.t) ->
@@ -148,8 +160,7 @@ module Make(Logs : Logs.LOG) = struct
        *   | None -> [ Get_ts_struct { request_id = get_id ()
        *                             ; stream     = `All } ] in *)
       let t2mi_structs = match status.t2mi_mode, prev_t with
-        | None, _ -> []
-        | Some m, Some old ->
+        | m, Some old ->
            (List.map (fun id -> Get_t2mi_info { request_id = get_id ()
                                               ; stream = m.stream
                                               ; stream_id = id })
@@ -158,7 +169,7 @@ module Make(Logs : Logs.LOG) = struct
                       && List.mem ~eq:(=) i status.t2mi_sync
                    then i :: acc else acc)
                  [] status.versions.t2mi_ver_lst))
-        | Some m, None ->
+        | m, None ->
            if List.is_empty status.t2mi_sync then [] else
              List.map (fun id -> Get_t2mi_info { request_id = get_id ()
                                                ; stream = m.stream
@@ -243,9 +254,17 @@ module Make(Logs : Logs.LOG) = struct
      | Set_board_init x ->
         Logs.debug (fun m -> m "requesting board init");
         to_set_board_init_req x
-     | Set_board_mode x ->
+     | Set_board_mode (i, m) ->
         Logs.debug (fun m -> m "requesting board mode setup");
-        to_set_board_mode_req x
+        let mode_raw = match m with
+          | None -> None
+          | Some { stream; pid; enabled; t2mi_stream_id } ->
+             begin match stream.orig_id with
+             | TS_multi x ->
+                Some { pid; enabled; t2mi_stream_id; stream = x }
+             | _ -> None
+             end in
+        to_set_board_mode_req (i, mode_raw)
      | Set_jitter_mode x ->
         Logs.debug (fun m -> m "requesting set jitter mode setup");
         to_set_jitter_mode_req x)
@@ -374,7 +393,7 @@ module Make(Logs : Logs.LOG) = struct
       let { t2mi_mode; input; jitter_mode } : config = storage#get in
       send_instant sender (Set_board_init sources)
       |> Lwt.ignore_result;
-      send_instant sender (Set_board_mode { t2mi=t2mi_mode; input })
+      send_instant sender (Set_board_mode (input, t2mi_mode))
       |> Lwt.ignore_result;
       send_instant sender (Set_jitter_mode jitter_mode)
       |> Lwt.ignore_result;
@@ -473,7 +492,8 @@ module Make(Logs : Logs.LOG) = struct
 
   open Lwt_react
 
-  let to_raw_stream ({ input; t2mi } : Types.init) mode
+  let to_raw_stream ({ input; t2mi } : Types.init)
+        (mode : t2mi_mode_raw)
         (i : input) (id : Multi_TS_ID.t) =
     let open Stream.Source in
     let open Stream.Raw in
@@ -486,11 +506,14 @@ module Make(Logs : Logs.LOG) = struct
       | src, id when src = t2mi -> `T2mi id
       | _ -> begin match i with SPI -> `Spi | ASI -> `Asi end in
     let source = match src, mode with
-      | `T2mi plp, Some { stream; t2mi_stream_id = stream_id; _ } ->
+      | `T2mi plp, { stream
+                   ; t2mi_stream_id = stream_id
+                   ; enabled = true
+                   ; _ } ->
          let node = Stream (TS_multi stream) in
          let info = T2MI { stream_id; plp } in
          Some { node; info }
-      | `T2mi _, None -> None
+      | `T2mi _, _ -> None
       | `Spi, _ -> Some { node = Port spi_id; info = SPI }
       | `Asi, _ -> Some { node = Port asi_id; info = ASI }
       | `Unknown, _ -> None
@@ -498,10 +521,9 @@ module Make(Logs : Logs.LOG) = struct
     match source with
     | None -> None
     | Some source ->
-       let typ : Stream.stream_type = match mode with
-         | None -> TS
-         | Some m -> if Multi_TS_ID.equal id m.stream && m.enabled
-                     then T2MI else TS in
+       let typ : Stream.stream_type =
+         if Multi_TS_ID.equal id mode.stream && mode.enabled
+         then T2MI else TS in
        Some { id = TS_multi id; source; typ }
 
   let to_raw_streams_s sources (group : group event)
@@ -515,11 +537,37 @@ module Make(Logs : Logs.LOG) = struct
     React.E.select [ e_state; e_group ]
     |> S.hold ~eq []
 
-  let to_config_e (group : group event) : config event =
+  let lift_t2mi_mode (stream : Stream.t)
+        (streams : Stream.t list React.signal) =
+    let find =
+      List.find_opt (fun (s : Stream.t) ->
+          not @@ Stream.ID.equal s.id stream.id
+          && Stream.equal_container_id s.orig_id stream.orig_id) in
+    let other =
+      React.S.map (fun s ->
+          match find s with
+          | None ->
+             Some ({ enabled = true
+                   ; pid = 4096
+                   ; t2mi_stream_id = 0
+                   ; stream } : t2mi_mode)
+          | Some _ -> None) streams in
+    other
+
+  let to_config_e (storage : config storage)
+        (group : group event) : config event =
     E.changes ~eq:equal_config
     @@ E.map (fun (x : group) ->
+           let ({ enabled; pid; t2mi_stream_id; stream } : t2mi_mode_raw) =
+             x.status.t2mi_mode in
+           let t2mi_mode =
+             Option.flat_map (fun (x : t2mi_mode) ->
+                 let eq = Stream.Multi_TS_ID.equal in
+                 if not @@ eq (Stream.to_multi_id x.stream) stream then None
+                 else Some { x with enabled; pid; t2mi_stream_id })
+               storage#get.t2mi_mode in
            { input = x.status.input
-           ; t2mi_mode = x.status.t2mi_mode
+           ; t2mi_mode
            ; jitter_mode = x.status.jitter_mode }) group
 
   let create_events sources storage streams_conv =
@@ -537,7 +585,7 @@ module Make(Logs : Logs.LOG) = struct
     let e_pcr, pcr_push = E.create () in
     let e_pcr_s, pcr_s_push = E.create () in
 
-    let config = S.hold ~eq:equal_config storage#get (to_config_e group) in
+    let config = S.hold ~eq:equal_config storage#get (to_config_e storage group) in
     let streams = streams_conv (to_raw_streams_s sources group state) in
     let fmap l streams =
       List.filter_map (fun (id, x) ->
@@ -553,7 +601,7 @@ module Make(Logs : Logs.LOG) = struct
                  | None -> true) _new) in
     let map_errors f e =
       S.sample (fun l streams -> fmap (f l) streams) e streams in
-    let () = Lwt_react.S.keep @@ S.map (fun c -> storage#store c) config in
+    Lwt_react.S.keep @@ S.map (fun c -> storage#store c) config;
     let open Streams.TS in
     let device =
       { state
@@ -582,7 +630,12 @@ module Make(Logs : Logs.LOG) = struct
       { session = E.changes ~eq:Jitter.equal_session e_pcr_s
       ; jitter = e_pcr
       } in
-    let (events : events) = { device; ts; t2mi; streams; jitter } in
+    let (events : events) =
+      { device
+      ; ts
+      ; t2mi
+      ; streams
+      ; jitter } in
     let push_events =
       { devinfo = set_devinfo
       ; state = set_state
@@ -622,22 +675,20 @@ module Make(Logs : Logs.LOG) = struct
     { set_input =
         (fun i ->
           let eq = equal_input in
-          let s  = S.map (fun (c : config) -> c.input) config in
-          let t  = isend (Set_board_mode { t2mi = storage#get.t2mi_mode
-                                         ; input = i }) in
+          let s = S.map (fun (c : config) -> c.input) config in
+          let t = isend (Set_board_mode (i, storage#get.t2mi_mode)) in
           wait ~eq t s i)
     ; set_t2mi_mode =
         (fun mode ->
           let eq = Equal.option equal_t2mi_mode in
-          let s  = S.map (fun (c : config) -> c.t2mi_mode) config in
-          let t  = isend (Set_board_mode { t2mi = mode
-                                         ; input = storage#get.input }) in
+          let s = S.map (fun (c : config) -> c.t2mi_mode) config in
+          let t = isend (Set_board_mode (storage#get.input, mode)) in
           wait ~eq t s mode)
     ; set_jitter_mode =
         (fun mode ->
           let eq = Equal.option equal_jitter_mode in
-          let s  = S.map (fun (c : config) -> c.jitter_mode) config in
-          let t  = isend (Set_jitter_mode mode) in
+          let s = S.map (fun (c : config) -> c.jitter_mode) config in
+          let t = isend (Set_jitter_mode mode) in
           wait ~eq t s mode)
     ; reset =
         (fun () -> isend Reset)

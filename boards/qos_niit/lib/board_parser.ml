@@ -18,7 +18,7 @@ type part =
 
 type _ instant_request =
   | Set_board_init : Types.init -> unit instant_request
-  | Set_board_mode : Types.mode -> unit instant_request
+  | Set_board_mode : input * (t2mi_mode option) -> unit instant_request
   | Set_jitter_mode : jitter_mode option -> unit instant_request
   | Reset : unit instant_request
 
@@ -38,7 +38,7 @@ type _ probe_request =
 
 type _ request =
   | Get_board_info : devinfo request
-  | Get_board_mode : Types.mode request
+  | Get_board_mode : (input * t2mi_mode_raw) request
   | Get_t2mi_frame_seq : t2mi_frame_seq_req -> Streams.T2MI.sequence request
   | Get_section : section_req -> (Streams.TS.section, Streams.TS.section_error) result request
 
@@ -82,12 +82,12 @@ let to_set_board_init_req (src : Types.init) =
   let () = set_req_set_init_t2mi_src_id body src.t2mi in
   to_simple_req ~msg_code:0x0089  ~body ()
 
-let to_set_board_mode_req (mode : mode) =
-  let t2mi_pid, t2mi_enabled, t2mi_stream = match mode.t2mi with
+let to_set_board_mode_req ((input : input), (mode : t2mi_mode_raw option)) =
+  let t2mi_pid, t2mi_enabled, t2mi_stream = match mode with
     | Some m -> m.pid, m.enabled, Multi_TS_ID.to_int32_pure m.stream
     | None -> 0, false, 0l in
   let body = Cstruct.create sizeof_board_mode in
-  let () = input_to_int mode.input
+  let () = input_to_int input
            |> (lor) (if t2mi_enabled then 4 else 0)
            |> (lor) 8 (* disable board storage by default *)
            |> set_board_mode_mode body in
@@ -106,14 +106,12 @@ let to_set_jitter_mode_req (mode : jitter_mode option) =
 
 (* -------------------- Requests/responses/events ------------------*)
 
-let to_mode_exn mode t2mi_pid stream_id : Types.mode =
-  { input = Option.get_exn @@ input_of_int (mode land 1)
-  ; t2mi  =
-      Some { enabled = if (mode land 4) > 0 then true else false
-           ; pid = t2mi_pid land 0x1fff
-           ; t2mi_stream_id = (t2mi_pid lsr 13) land 0x7
-           ; stream = stream_id }
-  }
+let to_mode_exn mode t2mi_pid stream_id : input * t2mi_mode_raw =
+  Option.get_exn @@ input_of_int (mode land 1),
+  { enabled = if (mode land 4) > 0 then true else false
+  ; pid = t2mi_pid land 0x1fff
+  ; t2mi_stream_id = (t2mi_pid lsr 13) land 0x7
+  ; stream = stream_id }
 
 module type Request = sig
 
@@ -136,7 +134,9 @@ module type Event = sig
 
 end
 
-module Get_board_info : (Request with type req := unit with type rsp := devinfo) = struct
+module Get_board_info : (Request
+                         with type req := unit
+                         with type rsp := devinfo) = struct
 
   let req_code = 0x0080
   let rsp_code = 0x01
@@ -149,11 +149,13 @@ module Get_board_info : (Request with type req := unit with type rsp := devinfo)
 
 end
 
-module Get_board_mode : (Request with type req := unit with type rsp := Types.mode) = struct
+module Get_board_mode : (Request
+                         with type req := unit
+                         with type rsp := input * t2mi_mode_raw) = struct
 
   let req_code = 0x0081
   let rsp_code = 0x02
-               
+
   let serialize () = to_common_header ~msg_code:req_code ()
   let parse _ msg =
     to_mode_exn (get_board_mode_mode msg)
@@ -796,7 +798,7 @@ module Status : (Event with type msg := status_raw) = struct
     let has_sync = not (flags land 0x04 > 0) in
     let ts_num = get_status_ts_num msg in
     let flags2 = get_status_flags_2 msg in
-    let mode =
+    let input, t2mi_mode =
       to_mode_exn (get_status_mode msg)
         (get_status_t2mi_pid msg)
         (Multi_TS_ID.of_int32_pure @@ get_status_t2mi_stream_id msg) in
@@ -813,8 +815,8 @@ module Status : (Event with type msg := status_raw) = struct
         ; has_stream = flags land 0x80 = 0
         }
     ; reset = flags2 land 0x02 <> 0
-    ; input = mode.input
-    ; t2mi_mode = mode.t2mi
+    ; input
+    ; t2mi_mode
     ; jitter_mode =
         (let pid = get_status_jitter_pid msg in
          let id = get_status_jitter_stream_id msg in

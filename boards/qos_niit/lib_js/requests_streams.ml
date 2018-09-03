@@ -14,12 +14,13 @@ module WS = struct
   open Streams.TS
   open Stream
 
-  let get_streams ?(inputs=[]) ?(ids=[]) control =
+  let get_streams ?(inputs = []) ?(ids = []) ?incoming control =
     WS.get ~from:(Json.List.of_yojson of_yojson)
       ~path:Path.Format.(get_base_path ())
-      ~query:Query.[ "id",    (module List(ID))
-                   ; "input", (module List(Topology.Show_topo_input)) ]
-      control ids inputs
+      ~query:Query.[ "id", (module List(ID))
+                   ; "input", (module List(Topology.Show_topo_input))
+                   ; "incoming", (module Option(Bool)) ]
+      control ids inputs incoming
 
   let get_bitrate ~id control =
     WS.get ~from:bitrate_of_yojson
@@ -85,19 +86,20 @@ module HTTP = struct
   open Streams.TS
   open Stream
 
-  let get_streams ?(ids=[]) ?(inputs=[]) ?limit ?compress ?from ?till ?duration control =
+  let get_streams ?(ids=[]) ?(inputs=[]) ?incoming ?limit ?compress ?from ?till ?duration control =
     get_result ~from:(Api_js.Api_types.rows_of_yojson
                         streams_states_of_yojson
                         streams_unique_of_yojson)
       ~path:(get_base_path ())
       ~query:Query.[ "id", (module List(ID))
                    ; "input", (module List(Topology.Show_topo_input))
+                   ; "incoming", (module Option(Bool))
                    ; "limit", (module Option(Int))
                    ; "compress", (module Option(Bool))
                    ; "from", (module Option(Time.Show))
                    ; "to", (module Option(Time.Show))
                    ; "duration", (module Option(Time.Relative)) ]
-      control ids inputs limit compress from till duration
+      control ids inputs incoming limit compress from till duration
 
   let get_si_psi_section ?section ?table_id_ext ?ext_info_1 ?ext_info_2 ~id ~table_id control =
     get_result ~from:section_of_yojson

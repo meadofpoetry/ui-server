@@ -13,55 +13,68 @@ module WS = struct
   open React
 
   let get id l =
-    List.find_map (fun ((s:Stream.t), x) ->
+    List.find_map (fun ((s : Stream.t), x) ->
         if ID.equal s.id id then Some x else None) l
 
-  let streams (events:events) (ids:ID.t list) inputs _ body sock_data () =
-    let rec input_of_stream (t:Stream.t) = match t.source.node with
-      | Entry (Topology.Input x) -> x
-      | Entry _  -> assert false (* FIXME implement *)
-      | Stream t -> input_of_stream t in
-    let e   = match ids with
-      | [] -> S.changes events.streams
-      | l  ->
+  let streams (events : events) (sources : Types.init)
+        (ids : ID.t list) (inputs : Topology.topo_input list)
+        (incoming : bool option) _ body sock_data () =
+    let filter_incoming = match incoming with
+      | Some true -> Some (Board_protocol.is_incoming sources)
+      | _ -> None in
+    let filter_inputs = match inputs with
+      | [] -> None
+      | l ->
+         let f s =
+           match get_input s with
+           | None -> false
+           | Some i -> List.mem ~eq:Topology.equal_topo_input i l in
+         Option.return f in
+    let filter_ids = match ids with
+      | [] -> None
+      | l -> let f (s : Stream.t) =
+               List.mem ~eq:ID.equal s.id l in
+             Option.return f in
+    let filter = List.all_some [filter_incoming; filter_inputs; filter_ids] in
+    let rec apply fns s = match fns with
+      | [] -> true
+      | f :: tl -> if f s then apply tl s else false in
+    let e = match filter with
+      | None -> S.changes events.streams
+      | Some fns ->
          E.fmap (fun streams ->
-             List.filter (fun (s:Stream.t) ->
-                 let mem = List.mem ~eq:Topology.equal_topo_input
-                             (input_of_stream s) inputs in
-                 match mem with
-                 | true -> List.mem ~eq:ID.equal s.id l
-                 | _    -> false) streams
+             List.filter (apply fns) streams
              |> function [] -> None | l -> Some l)
            (S.changes events.streams)
     in Api.Socket.handler socket_table sock_data e
          (Json.List.to_yojson Stream.to_yojson) body
 
-  let bitrate (events:events) id _ body sock_data () =
+  let bitrate (events : events) id _ body sock_data () =
     let e = E.fmap (get id) events.ts.bitrates in
     Api.Socket.handler socket_table sock_data e
       bitrate_to_yojson body
 
-  let info (events:events) id _ body sock_data () =
-    let e  = E.fmap (get id) events.ts.info in
+  let info (events : events) id _ body sock_data () =
+    let e = E.fmap (get id) events.ts.info in
     Api.Socket.handler socket_table sock_data e info_to_yojson body
 
-  let services (events:events) id _ body sock_data () =
-    let e  = E.fmap (get id) events.ts.services in
+  let services (events : events) id _ body sock_data () =
+    let e = E.fmap (get id) events.ts.services in
     Api.Socket.handler socket_table sock_data e services_to_yojson body
 
-  let tables (events:events) id _ body sock_data () =
-    let e  = E.fmap (get id) events.ts.tables in
+  let tables (events : events) id _ body sock_data () =
+    let e = E.fmap (get id) events.ts.tables in
     Api.Socket.handler socket_table sock_data e tables_to_yojson body
 
-  let pids (events:events) id _ body sock_data () =
-    let e  = E.fmap (get id) events.ts.pids in
+  let pids (events : events) id _ body sock_data () =
+    let e = E.fmap (get id) events.ts.pids in
     Api.Socket.handler socket_table sock_data e pids_to_yojson body
 
   module T2MI = struct
 
     open Board_types.Streams.T2MI
 
-    let structure (events:events) id _ _ body sock_data () =
+    let structure (events : events) id _ _ body sock_data () =
       let e = React.E.fmap (get id) events.t2mi.structures in
       Api.Socket.handler socket_table sock_data e structure_to_yojson body
 
@@ -71,13 +84,13 @@ module WS = struct
 
     open Errors
 
-    let rec filter (acc:t list) = function
-      | [ ]     -> acc
+    let rec filter (acc : t list) = function
+      | [] -> acc
       | f :: tl -> filter (f acc) tl
 
     let flst fltr f = match fltr with [] -> None | l -> Some (f l)
 
-    let errors (events:events) id errors priority pids _ body sock_data () =
+    let errors (events : events) id errors priority pids _ body sock_data () =
       let eq = ( = ) in
       let f_errors =
         flst errors (fun l e ->
@@ -129,14 +142,13 @@ module HTTP = struct
     in (* TODO add compress *)
     join streams state
 
-  let streams_unique db (events : events) ids inputs from till duration () =
+  let streams_unique db (events : events) ids inputs incoming from till duration () =
     let open Api.Api_types in
     let open Common.Stream in
     let open Lwt_result.Infix in
     let merge (cur : t list) streams =
-      let filter (s, id, typ, t) =
-        if List.exists (fun s -> Stream.ID.equal id s.id
-                                 && equal_stream_type typ s.typ) cur
+      let filter (s, id, t) =
+        if List.exists (fun s -> Stream.ID.equal id s.id) cur
         then None
         else Some (s,`Last t) in
       let streams = List.filter_map filter streams in
@@ -144,7 +156,7 @@ module HTTP = struct
     in
     match Time.make_interval ?from ?till ?duration () with
     | Ok `Range (from,till) ->
-       Db.Streams.select_stream_unique db ~ids ~inputs ~from ~till ()
+       Db.Streams.select_stream_unique db ~ids ~inputs ?incoming ~from ~till ()
        >>= (function
             | Raw _ -> assert false
             | Compressed { data } ->
@@ -176,9 +188,9 @@ module HTTP = struct
        >>= respond_result
     | _ -> respond_error ~status:`Not_implemented "FIXME" ()
 
-  let streams db events ids inputs limit compress from till duration _ _ () =
+  let streams db events ids inputs incoming limit compress from till duration _ _ () =
     if Option.get_or ~default:false compress
-    then streams_unique db events ids inputs from till duration ()
+    then streams_unique db events ids inputs incoming from till duration ()
     else streams_states db ids inputs limit from till duration ()
 
   let si_psi_section (api : api) id table_id section
@@ -301,16 +313,17 @@ module HTTP = struct
 
 end
 
-let handler db (api:api) events =
+let handler db (sources : Types.init) (api : api) events =
   let open Uri in
   let open Boards.Board.Api_handler in
   create_dispatcher
     "streams"
     [ create_ws_handler ~docstring:"Pushes available streams to the client"
         ~path:Path.Format.empty
-        ~query:Query.[ "id",    (module List(Stream.ID))
-                     ; "input", (module List(Topology.Show_topo_input)) ]
-        (WS.streams events)
+        ~query:Query.[ "id", (module List(Stream.ID))
+                     ; "input", (module List(Topology.Show_topo_input))
+                     ; "incoming", (module Option(Bool)) ]
+        (WS.streams events sources)
     ; create_ws_handler ~docstring:"Pushes stream bitrate to the client"
         ~path:Path.Format.(Stream.ID.fmt ^/ "bitrate" @/ empty)
         ~query:Query.empty
@@ -347,6 +360,7 @@ let handler db (api:api) events =
           ~path:Path.Format.empty
           ~query:Query.[ "id", (module List(Stream.ID))
                        ; "input", (module List(Topology.Show_topo_input))
+                       ; "incoming", (module Option(Bool))
                        ; "limit", (module Option(Int))
                        ; "compress", (module Option(Bool))
                        ; "from", (module Option(Time.Show))
@@ -360,14 +374,6 @@ let handler db (api:api) events =
                        ; "ext-info-1", (module Option(Int))
                        ; "ext-info-2", (module Option(Int)) ]
           (HTTP.si_psi_section api)
-      (* ; create_handler ~docstring:"Returns TS bitrate"
-       *     ~path:Path.Format.(Stream.ID.fmt ^/ "bitrate" @/ empty)
-       *     ~query:Query.[ "limit",    (module Option(Int))
-       *                  ; "compress", (module Option(Bool))
-       *                  ; "from",     (module Option(Time.Show))
-       *                  ; "to",       (module Option(Time.Show))
-       *                  ; "duration", (module Option(Time.Relative)) ]
-       *     HTTP.bitrate *)
       ; create_handler ~docstring:"Returns TS info"
           ~path:Path.Format.(Stream.ID.fmt ^/ "info" @/ empty)
           ~query:Query.[ "limit",    (module Option(Int))

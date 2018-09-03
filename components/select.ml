@@ -135,10 +135,10 @@ class ['a] t ?(disabled = false)
 
     method append_item (i:'a Item.t) =
       _items <- `Item i :: _items;
-      Dom.appendChild self#select#root i#root
+      self#select#append_child i
     method append_group (g:'a Group.t) =
       _items <- `Group g :: _items;
-      Dom.appendChild self#select#root g#root
+      self#select#append_child g
 
     method selected_index : int option =
       self#_native_select##.selectedIndex |> (fun x -> if x = -1 then None else Some x)

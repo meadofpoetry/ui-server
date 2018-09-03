@@ -30,14 +30,14 @@ module Stream_item = struct
     | TS   -> "MPEG-TS"
     | T2MI -> "T2-MI"
 
-  let source_to_string (source:Stream.source) : string =
-    let rec aux acc (source:Stream.source) =
+  let source_to_string (source : Stream.source) : string =
+    let rec aux acc (source : Stream.source) =
       let open Topology in
       match source.node with
       | Entry (Input i) -> ("Вход "  ^ Topology.get_input_name i) :: acc
       | Entry (Board b) -> ("Плата " ^ b.model) :: acc
-      | Stream (stream:Stream.t) ->
-         let s = "Поток " ^ (Stream.Source.to_string source.info) in
+      | Stream (stream : Stream.t) ->
+         let s = "Поток " ^ (Stream.Source.to_string stream.source.info) in
          aux (s :: acc) stream.source in
     String.concat " -> " @@ aux [] source
 
@@ -105,19 +105,19 @@ module Stream_item = struct
 
 end
 
-let find_cell (w:Stream_item.t)
-      (cells:Layout_grid.Cell.t list) =
+let find_cell (w : Stream_item.t)
+      (cells : Layout_grid.Cell.t list) =
   let f : Widget.t list -> bool = function
-    | [ wdg ] -> Equal.physical w#root wdg#root
-    | _       -> false in
+    | [wdg] -> Widget.equal w#widget wdg
+    | _ -> false in
   List.find_opt (fun x -> f x#widgets) cells
 
 module Stream_grid = struct
 
   let base_class = "qos-niit-stream-grid"
 
-  class t (init:(Stream.t * time) list)
-          (event:Stream.t list React.event)
+  class t (init : (Stream.t * time) list)
+          (event : Stream.t list React.event)
           control
           () =
     let ph =
@@ -226,7 +226,7 @@ let make input control =
       control
     >>= (function
          | Compressed x -> Lwt_result.return x.data
-         | _            -> Lwt.fail_with "raw")
+         | _ -> Lwt.fail_with "raw")
     |> Lwt_result.map_err Api_js.Requests.err_to_string in
   streams
   >|= (fun streams ->

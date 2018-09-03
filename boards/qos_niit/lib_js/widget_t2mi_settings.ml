@@ -66,10 +66,12 @@ let make_stream_select (streams : Stream.t list React.signal) =
       () in
   let _ =
     React.S.map (fun sms ->
+        let json = (Json.List.to_yojson Stream.to_yojson) sms in
+        print_endline @@ Yojson.Safe.pretty_to_string json;
         let items = make_items sms in
         select#set_empty ();
         List.iter (fun i -> select#append_item i) items) streams in
-  select#widget
+  select#widget, select#s_selected_value, select#set_disabled
 
 let name = "Настройки. T2-MI"
 let settings = None
@@ -82,18 +84,18 @@ let make ~(state : Topology.state React.signal)
   let en, set_en, s_en, dis_en = make_enabled () in
   let pid, set_pid, s_pid, dis_pid = make_pid () in
   let sid, set_sid, s_sid, dis_sid = make_sid () in
-  let ss = make_stream_select streams in
+  let ss, s_stream, dis_stream = make_stream_select streams in
   let s : t2mi_mode option option React.signal =
-    React.S.l4 (fun en pid sid state->
-        match en, pid, sid, state with
-        | true, Some pid, Some sid, `Fine ->
+    React.S.l5 (fun en pid sid stream state ->
+        match en, pid, sid, stream, state with
+        | true, Some pid, Some sid, Some stream, `Fine ->
            Some (Some { enabled = en
                       ; pid
                       ; t2mi_stream_id = sid
-                      ; stream = Stream.Multi_TS_ID.of_int32_pure 0l }) (* FIXME stream *)
-        | false, _, _, `Fine -> Some None
+                      ; stream }) (* FIXME stream *)
+        | false, _, _, _, `Fine -> Some None
         | _ -> None)
-      s_en s_pid s_sid state in
+      s_en s_pid s_sid s_stream state in
   let _ =
     React.S.l2 (fun state en ->
         let is_disabled = match state with
@@ -101,7 +103,7 @@ let make ~(state : Topology.state React.signal)
           | _ -> true in
         dis_en is_disabled;
         List.iter (fun f -> f (if is_disabled then true else not en))
-          [dis_pid; dis_sid]) state s_en in
+          [dis_pid; dis_sid; dis_stream]) state s_en in
   let _ =
     React.S.map (fun x ->
         let setters = [set_en; set_pid; set_sid] in

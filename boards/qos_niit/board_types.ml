@@ -29,7 +29,7 @@ type t2mi_mode =
   { enabled : bool
   ; pid : int
   ; t2mi_stream_id : int
-  ; stream : Stream.Multi_TS_ID.t
+  ; stream : Stream.t
   } [@@deriving yojson, eq, show]
 
 type jitter_mode =

@@ -114,7 +114,7 @@ module Source = struct
 
   let t2mi_to_string (x:t2mi) =
     let open Printf in
-    sprintf "T2-MI Stream ID: %d, PLP %d" x.stream_id x.plp
+    sprintf "T2-MI PLP. Stream ID %d, PLP %d" x.stream_id x.plp
 
   let ipv4_to_string (x:ipv4) =
     Uri.make
@@ -317,46 +317,47 @@ let make_id (src:source) : ID.t =
   let node = match src.node with
     | Entry (Input i) -> Printf.sprintf "%d/%d" (input_to_enum i.input) i.id
     | Entry (Board b) -> string_of_int b.control
-    | Stream s        -> ID.to_string s.id in
+    | Stream s -> ID.to_string s.id in
   let info = match src.info with
     | DVB_T2 x -> "dvbt2/" ^ Source.dvb_t2_to_string x
-    | DVB_T  x -> "dvbt/"  ^ Source.dvb_t_to_string  x
-    | DVB_C  x -> "dvbc/"  ^ Source.dvb_c_to_string  x
-    | ASI      -> "asi"
-    | SPI      -> "spi"
-    | T2MI x   -> "t2mi/"  ^ Source.t2mi_to_string x
-    | IPV4 x   -> "ipv4/"  ^ Source.ipv4_to_string x in
+    | DVB_T x -> "dvbt/" ^ Source.dvb_t_to_string  x
+    | DVB_C x -> "dvbc/" ^ Source.dvb_c_to_string  x
+    | ASI -> "asi"
+    | SPI -> "spi"
+    | T2MI x -> "t2mi/" ^ Source.t2mi_to_string x
+    | IPV4 x -> "ipv4/" ^ Source.ipv4_to_string x in
   ID.make (node ^ "/" ^ info)
 
-let to_multi_id (t:t) : Multi_TS_ID.t =
+let to_multi_id (t : t) : Multi_TS_ID.t =
   match t.orig_id with
   | TS_multi x -> x
-  | _          -> failwith "not a multi TS"
+  | _ -> failwith "not a multi TS"
 
 let typ_to_string = function
-  | TS   -> "ts"
+  | TS -> "ts"
   | T2MI -> "t2mi"
 let typ_of_string = function
-  | "ts"   -> TS
+  | "ts" -> TS
   | "t2mi" -> T2MI
-  | _      -> failwith "bad typ string"
+  | _ -> failwith "bad typ string"
 
 let rec equal l r = ID.equal l.id r.id
 
-let rec get_input (s:t) : topo_input option =
+let rec get_input (s : t) : topo_input option =
   match s.source.node with
-  | Stream s      -> get_input s
+  | Stream s -> get_input s
   | Entry Input i -> Some i
   | Entry Board _ -> None
 
-let to_topo_port (b:topo_board) (t:t) : topo_port option =
+let to_topo_port (b : topo_board) (t : t) : topo_port option =
   let input = get_input t in
   let rec get_port input = function
     | [] -> None
     | hd :: tl ->
        begin match hd.child with
-       | Input x -> if equal_topo_input x input
-                    then Some hd else get_port input tl
+       | Input x ->
+          if equal_topo_input x input
+          then Some hd else get_port input tl
        | Board x ->
           begin match get_port input x.ports with
           | Some _ -> Some hd

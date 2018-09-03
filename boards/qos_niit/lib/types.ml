@@ -11,9 +11,16 @@ type init =
 
 (** Mode **)
 
+type t2mi_mode_raw =
+  { enabled : bool
+  ; pid : int
+  ; t2mi_stream_id : int
+  ; stream : Stream.Multi_TS_ID.t
+  } [@@deriving show, eq]
+
 type mode =
   { input : input
-  ; t2mi : t2mi_mode option
+  ; t2mi : t2mi_mode_raw option
   } [@@deriving eq]
 
 (** Status **)
@@ -29,7 +36,7 @@ type status_raw =
   { status : status
   ; reset : bool
   ; input : input
-  ; t2mi_mode : t2mi_mode option
+  ; t2mi_mode : t2mi_mode_raw
   ; jitter_mode : jitter_mode option
   ; errors : bool
   ; t2mi_sync : int list

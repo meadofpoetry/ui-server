@@ -26,6 +26,7 @@ let tick tm =
   e, loop
 
 let appeared_streams
+      sources
       ~(past:Stream.t list)
       ~(pres:Stream.t list) =
   let open Common.Stream in
@@ -34,9 +35,11 @@ let appeared_streams
     | so :: _ when equal so s -> false
     | _ :: tl -> not_in_or_diff s tl
   in
-  let appeared = List.fold_left (fun acc pres ->
-                     if not_in_or_diff pres past
-                     then pres :: acc else acc) [] pres in
+  let appeared =
+    List.fold_left (fun acc pres ->
+        if not_in_or_diff pres past
+        then (Board_protocol.is_incoming sources pres, pres) :: acc
+        else acc) [] pres in
   appeared
 
 let invalid_port prefix x =
@@ -67,7 +70,7 @@ let get_ports_active prefix input ports =
       end
       |> fun x -> Ports.add p.port x acc) Ports.empty ports
 
-let make_templates (b:topo_board) =
+let make_templates (b : topo_board) =
   let open Api.Template in
   let open Common.Uri in
   let template =
@@ -90,11 +93,10 @@ let make_templates (b:topo_board) =
         ; operator = rval
         ; guest = rval })
 
-let create (b:topo_board) _ convert_streams send db_conf base step =
+let create (b : topo_board) _ convert_streams send db_conf base step =
   let log_name = Boards.Board.log_name b in
   let log_src = Logs.Src.create log_name in
-  let () = Option.iter (fun x -> Logs.Src.set_level log_src
-                                 @@ Some x) b.logs in
+  Option.iter (fun x -> Logs.Src.set_level log_src @@ Some x) b.logs;
   let (module Logs : Logs.LOG) = Logs.src_log log_src in
   let module SM = Board_protocol.Make(Logs) in
   let sources = match b.sources with
@@ -106,14 +108,14 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
        | Ok init -> init
        | Error s -> raise (Invalid_sources s)
        end in
-  let conv    = fun x -> convert_streams x b in
+  let conv = fun x -> convert_streams x b in
   let storage =
     Config_storage.create base
       ["board"; (string_of_int b.control)] in
   let events, api, step =
     SM.create sources send storage step conv in
-  let db       = Result.get_exn @@ Db.Conn.create db_conf b.control in
-  let handlers = Board_api.handlers b.control db api events in
+  let db = Result.get_exn @@ Db.Conn.create db_conf b.control in
+  let handlers = Board_api.handlers b.control db sources api events in
   let tick, tick_loop = tick 5. in
   let open Lwt_react in
   (* State *)
@@ -126,12 +128,12 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
   let streams_ev =
     S.sample (fun () sl -> `Active sl) tick events.streams in
   let streams_diff =
-    S.diff (fun pres past -> `New (appeared_streams ~past ~pres))
+    S.diff (fun pres past -> `New (appeared_streams sources ~past ~pres))
       events.streams in
   E.(keep
      @@ map_s (function
             | `Active x -> Db.Streams.bump_streams db x
-            | `New x    -> Db.Streams.insert_streams db x)
+            | `New x -> Db.Streams.insert_streams db x)
      @@ select [streams_ev; streams_diff]);
   (* Structs ts *)
   E.(keep @@ map_p (Db.Streams.insert_ts_info db) events.ts.info);
