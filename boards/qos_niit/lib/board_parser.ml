@@ -23,7 +23,7 @@ type _ instant_request =
   | Reset : unit instant_request
 
 type probe_response =
-  | Board_errors of board_errors
+  | Board_errors of board_error list
   | Bitrate of (Multi_TS_ID.t * Streams.TS.bitrate) list
   | Struct of (Multi_TS_ID.t * Streams.TS.structure) list
   | T2mi_info of (Multi_TS_ID.t * Streams.T2MI.structure)
@@ -162,7 +162,9 @@ module Get_board_mode : (Request with type req := unit with type rsp := Types.mo
 
 end
 
-module Get_board_errors : (Request with type req := int with type rsp := board_errors) = struct
+module Get_board_errors : (Request
+                           with type req := int
+                           with type rsp := board_error list) = struct
 
   let req_code = 0x0110
   let rsp_code = req_code

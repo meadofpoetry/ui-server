@@ -154,7 +154,7 @@ type device_events =
   ; state : Topology.state signal
   ; status : status event
   ; reset : reset_ts event
-  ; errors : board_errors event
+  ; errors : board_error list event
   ; info : devinfo option signal
   }
 
@@ -189,7 +189,7 @@ type push_events =
   { devinfo : devinfo option -> unit
   ; state : Topology.state -> unit
   ; group : group -> unit
-  ; board_errors : board_errors -> unit
+  ; board_errors : board_error list -> unit
   ; info : (Stream.Multi_TS_ID.t * info) list -> unit
   ; services : (Stream.Multi_TS_ID.t * services) list -> unit
   ; tables : (Stream.Multi_TS_ID.t * tables) list -> unit

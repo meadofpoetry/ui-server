@@ -108,7 +108,26 @@ let make_table (is_hex : bool)
     :: (to_sort_column "Min, Мбит/с", br_fmt)
     :: (to_sort_column "Max, Мбит/с", br_fmt)
     :: [] in
-  let table = new t ~dense:true ~fmt () in
+  (* let fwd =
+   *   let icon = Icon.SVG.(create_simple Path.chevron_right) in
+   *   new Icon_button.t ~icon () in
+   * let bwd =
+   *   let icon = Icon.SVG.(create_simple Path.chevron_left) in
+   *   new Icon_button.t ~icon () in
+   * let fst =
+   *   let icon = Icon.SVG.(create_simple Path.page_first) in
+   *   new Icon_button.t ~icon () in
+   * let lst =
+   *   let icon = Icon.SVG.(create_simple Path.page_last) in
+   *   new Icon_button.t ~icon () in
+   * let select = new Footer.Select.t
+   *                ~all:"Все"
+   *                [ 5; 10; 15; 20 ] () in
+   * let footer =
+   *   new Footer.t
+   *     ~actions:[ fst; bwd; fwd; lst ]
+   *     ~rows_per_page:("Рядов на странице: ", select) () in *)
+  let table = new t (* ~footer *) ~dense:true ~fmt () in
   let on_change = fun (x : bool) ->
     List.iter (fun row ->
         let open Table in

@@ -151,9 +151,10 @@ class t (elt : #Dom_html.element Js.t) () = object(self)
   method scroll_width = self#root##.scrollWidth
   method scroll_height = self#root##.scrollHeight
 
-  method append_child : 'a. (< node : Dom.node Js.t; .. > as 'a) -> unit =
-    fun x ->
-    Dom.appendChild self#root x#node
+  method append_child : 'a. (< node : Dom.node Js.t;
+                             layout : unit -> unit;
+                             .. > as 'a) -> unit =
+    fun x -> Dom.appendChild self#root x#node; x#layout ()
 
   method insert_child_at_idx : 'a. int ->
                                (< node : Dom.node Js.t; .. > as 'a) -> unit =

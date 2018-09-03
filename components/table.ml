@@ -447,34 +447,63 @@ module Header = struct
 end
 
 module Body = struct
+
+  type pagination =
+    { rpp : int
+    ; offset : int
+    }
+
   class ['a] t ?selection () =
     let elt = Markup.Body.create ~rows:[] ()
               |> To_dom.of_element in
     let s_rows, s_rows_push = React.S.create List.empty in
     object(self)
-      inherit Widget.t elt ()
+
+      val mutable _pagination : pagination option = None
+
+      inherit Widget.t elt () as super
 
       method prepend_row (row : 'a Row.t) : unit =
-        s_rows_push @@ (List.cons row self#rows);
-        Dom.insertBefore self#root row#root self#root##.firstChild
+        s_rows_push (List.cons row self#rows);
+        Dom.insertBefore self#root row#root self#root##.firstChild;
+        self#layout ();
 
       method append_row (row : 'a Row.t) : unit =
-        s_rows_push @@ (List.cons row self#rows);
+        s_rows_push (self#rows @ [row]);
         self#append_child row;
+        self#layout ();
 
       method remove_row (row : 'a Row.t) : unit =
         s_rows_push @@ List.remove ~eq:Widget.equal ~x:row self#rows;
-        self#remove_child row
+        self#remove_child row;
+        self#layout ();
 
       method remove_all_rows () : unit =
         self#set_empty ();
-        s_rows_push []
+        s_rows_push [];
+        self#layout ();
 
       method s_rows : 'a Row.t list React.signal =
         s_rows
 
       method rows : 'a Row.t list =
         List.rev @@ React.S.value s_rows
+
+      method set_pagination (x : pagination option) : unit =
+        _pagination <- x;
+        self#layout ()
+
+      method! layout () =
+        super#layout ();
+        (* match _pagination with
+         * | None ->
+         *    List.iter self#append_child (React.S.value s_rows)
+         * | Some { rpp; offset } ->
+         *    let rows = React.S.value s_rows in
+         *    let prev, visible' = List.take_drop offset rows in
+         *    let visible, next = List.take_drop rpp visible' in
+         *    List.iter self#remove_child (prev @ next);
+         *    List.iter self#append_child visible; *)
     end
 end
 
@@ -554,6 +583,8 @@ module Table = struct
               |> To_dom.of_element in
     object
       inherit Widget.t elt ()
+      initializer
+        body#layout ()
     end
 end
 
