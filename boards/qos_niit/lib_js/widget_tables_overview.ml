@@ -125,7 +125,8 @@ let make_table (is_hex : bool)
   let dec_pid_fmt = Int (Some (Printf.sprintf "%d")) in
   let hex_pid_fmt = Int (Some (Printf.sprintf "0x%04X")) in
   let hex_tid_fmt = Int (Some (Printf.sprintf "0x%02X")) in
-  (* let br_fmt = Table.(Option (Float None, "-")) in *)
+  let br_fmt = Table.(Option (Float None, "-")) in
+  let pct_fmt = Option (Float (Some (Printf.sprintf "%.2f")), "-") in
   let fmt =
     let open Format in
     (to_column ~sortable:true "ID", dec_pid_fmt)
@@ -134,9 +135,12 @@ let make_table (is_hex : bool)
     :: (to_column "Доп. инфо", dec_ext_fmt)
     :: (to_column ~sortable:true "Версия", Int None)
     :: (to_column ~sortable:true "Сервис", Option (String None, ""))
-    :: (to_column "Количество секций", Custom section_fmt)
-    :: (to_column "Last section", Int None)
-    (* :: (to_column "Битрейт, Мбит/с", br_fmt) *)
+    :: (to_column "Кол-во секций", Custom section_fmt)
+    :: (to_column "LSN", Int None)
+    :: (to_column "Битрейт, Мбит/с", br_fmt)
+    :: (to_column "%", pct_fmt)
+    :: (to_column "Min, Мбит/с", br_fmt)
+    :: (to_column "Max, Мбит/с", br_fmt)
     :: [] in
   let table = new t ~dense:true ~fmt () in
   let on_change = fun (x : bool) ->
@@ -155,7 +159,8 @@ let table_info_to_data (x : table_info) =
   let name = Mpeg_ts.(table_to_string @@ table_of_int x.id) in
   let sections = List.map (fun x -> x, None) x.sections in
   x.id :: x.pid :: name :: x :: x.version
-  :: x.service :: sections :: x.last_section (* :: None *) :: []
+  :: x.service :: sections :: x.last_section
+  :: None :: None :: None :: None :: []
 
 let make_dump_title ?is_hex
       ({ id; id_ext; ext_info; service; _ } : table_info) =
@@ -273,7 +278,6 @@ class t (stream : Stream.t)
         | [], _ -> ()
         | _, [] -> ()
         | (rate : table_bitrate) :: tl, rows ->
-           (* let val_float = Float.(of_int rate.bitrate / 1_000_000.) in *)
            let find (row : 'a Table.Row.t) =
              let x : table_info = self#_row_to_table_info row in
              x.id = rate.id
@@ -284,11 +288,25 @@ class t (stream : Stream.t)
            | None ->
               aux (tl, rows)
            | Some row ->
-              (* let open Table in
-               * let rate' = match row#cells with
-               *   | _ :: _ :: _ :: _ :: _ :: _ :: _ :: _ :: a :: _ ->
-               *      a in
-               * rate'#set_value @@ Some val_float; *)
+              let open Table in
+              let rate', pct', min', max' = match row#cells with
+                | _ :: _ :: _ :: _ :: _ :: _ :: _ :: _
+                  :: rate :: pct :: min :: max :: [] ->
+                   rate, pct, min, max in
+              let br =
+                Float.(of_int rate.bitrate / 1_000_000.) in
+              let pct =
+                Float.(100. * (of_int rate.bitrate) / (of_int x.total)) in
+              rate'#set_value @@ Some br;
+              pct'#set_value @@ Some pct;
+              begin match min'#value with
+              | None -> min'#set_value (Some br)
+              | Some v -> if br <. v then min'#set_value (Some br)
+              end;
+              begin match max'#value with
+              | None -> max'#set_value (Some br)
+              | Some v -> if br >. v then max'#set_value (Some br)
+              end;
               let rows = List.remove ~eq:Widget.equal ~x:row rows in
               aux (tl, rows)
       in
