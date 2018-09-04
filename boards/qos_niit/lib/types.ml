@@ -18,6 +18,13 @@ type t2mi_mode_raw =
   ; stream : Stream.Multi_TS_ID.t
   } [@@deriving show, eq]
 
+
+let t2mi_mode_raw_default : t2mi_mode_raw =
+  { pid = 0
+  ; enabled = false
+  ; t2mi_stream_id = 0
+  ; stream = Stream.Multi_TS_ID.of_int32_pure 0l }
+
 type mode =
   { input : input
   ; t2mi : t2mi_mode_raw option
@@ -157,6 +164,9 @@ open Streams.TS
 
 type device_events =
   { config : config signal
+  ; t2mi_mode : t2mi_mode option signal
+  ; t2mi_mode_raw : t2mi_mode_raw event
+  ; jitter_mode : jitter_mode option signal
   ; input : input signal
   ; state : Topology.state signal
   ; status : status event
@@ -195,6 +205,8 @@ type events =
 type push_events =
   { devinfo : devinfo option -> unit
   ; state : Topology.state -> unit
+  ; t2mi_mode : t2mi_mode option -> unit
+  ; jitter_mode : jitter_mode option -> unit
   ; group : group -> unit
   ; board_errors : board_error list -> unit
   ; info : (Stream.Multi_TS_ID.t * info) list -> unit

@@ -11,14 +11,12 @@
 }
 
 // Jitter settings widget
-
-.qos-niit-jitter-settings {
-    padding: 1rem;
-}
-
 // T2-MI settings widget
 
-.qos-niit-t2mi-settings {
+.qos-niit-t2mi-settings, .qos-niit-jitter-settings {
+    .mdc-form-field {
+        padding-bottom: 1rem;
+    }
     padding: 1rem;
 }
 

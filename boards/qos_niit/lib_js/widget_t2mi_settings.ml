@@ -61,17 +61,32 @@ let make_stream_select (streams : Stream.t list React.signal) =
   let select =
     new Select.t
       ~default_selected:false
-      ~label:"Потоки"
+      ~label:"Поток для анализа T2-MI"
       ~items:[]
       () in
   let _ =
     React.S.map (fun sms ->
-        let json = (Json.List.to_yojson Stream.to_yojson) sms in
-        print_endline @@ Yojson.Safe.pretty_to_string json;
-        let items = make_items sms in
-        select#set_empty ();
-        List.iter (fun i -> select#append_item i) items) streams in
-  select#widget, select#s_selected_value, select#set_disabled
+        let sms = match select#selected_item with
+          | None -> sms
+          | Some s -> List.add_nodup ~eq:Stream.equal s#value sms in
+        let eq = Stream.equal in
+        let prev = List.map (fun x -> x#value) select#items in
+        let found =
+          List.filter (fun s -> not @@ List.mem ~eq s prev) sms
+          |> make_items in
+        let lost =
+          List.filter (fun i ->
+              not @@ List.mem ~eq i#value sms) select#items in
+        List.iter select#remove_item lost;
+        List.iter (fun i -> select#append_item i) found)
+    @@ React.S.map ~eq:(Equal.list Stream.equal) Fun.id streams in
+  let set x = match x with
+    | Some (x : t2mi_mode) ->
+       select#set_selected_value ~eq:Stream.equal x.stream
+       |> (function Ok _ -> print_endline "ok"
+                  | Error e -> print_endline e)
+    | None -> select#set_selected_index 0 in
+  select#widget, set, select#s_selected_value, select#set_disabled
 
 let name = "Настройки. T2-MI"
 let settings = None
@@ -84,11 +99,11 @@ let make ~(state : Topology.state React.signal)
   let en, set_en, s_en, dis_en = make_enabled () in
   let pid, set_pid, s_pid, dis_pid = make_pid () in
   let sid, set_sid, s_sid, dis_sid = make_sid () in
-  let ss, s_stream, dis_stream = make_stream_select streams in
+  let ss, set_stream, s_stream, dis_stream = make_stream_select streams in
   let s : t2mi_mode option option React.signal =
     React.S.l5 (fun en pid sid stream state ->
         match en, pid, sid, stream, state with
-        | true, Some pid, Some sid, Some stream, `Fine ->
+        | en, Some pid, Some sid, Some stream, `Fine ->
            Some (Some { enabled = en
                       ; pid
                       ; t2mi_stream_id = sid
@@ -106,7 +121,7 @@ let make ~(state : Topology.state React.signal)
           [dis_pid; dis_sid; dis_stream]) state s_en in
   let _ =
     React.S.map (fun x ->
-        let setters = [set_en; set_pid; set_sid] in
+        let setters = [set_en; set_pid; set_sid; set_stream] in
         List.iter (fun f -> f x) setters) mode in
   let submit = fun x -> Requests.Device.HTTP.post_t2mi_mode x control in
   let apply = Ui_templates.Buttons.create_apply s submit in

@@ -47,10 +47,10 @@
 
 [%%cstruct
  type board_mode =
-   { mode           : uint8_t
-   ; rfu            : uint8_t
-   ; t2mi_pid       : uint16_t
-   ; t2mi_stream_id : uint32_t
+   { mode : uint8_t
+   ; rfu : uint8_t
+   ; t2mi_pid : uint16_t (* [15:13] - t2mi stream id *)
+   ; stream_id : uint32_t
    } [@@little_endian]]
 
 [%%cstruct

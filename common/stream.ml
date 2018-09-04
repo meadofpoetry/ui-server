@@ -27,11 +27,11 @@ end = struct
 
   let fmt = Uri_ext.Path.Format.Uuid
 
-  let to_string (x:t) = to_string x
-  let of_string_opt (s:string) = of_string s
-  let of_string (s:string) = Option.get_exn @@ of_string_opt s
+  let to_string (x : t) = to_string x
+  let of_string_opt (s : string) = of_string s
+  let of_string (s : string) = Option.get_exn @@ of_string_opt s
 
-  let to_yojson (x:t) : Yojson.Safe.json =
+  let to_yojson (x : t) : Yojson.Safe.json =
     `String (Uuidm.to_string x)
   let of_yojson : Yojson.Safe.json -> (t, string) result = function
     | `String s -> Result.of_opt @@ Uuidm.of_string s
@@ -45,24 +45,24 @@ end
 (** Stream source description/parameters *)
 module Source = struct
 
-  let round_freq (x:int64) =
+  let round_freq (x : int64) =
     let ( mod ), ( / ), (=) = Int64.(rem, div, equal) in
-    if x mod 1_000_000_000L  = 0L then x / 1_000_000_000L, "ГГц"
+    if x mod 1_000_000_000L = 0L then x / 1_000_000_000L, "ГГц"
     else if x mod 1_000_000L = 0L then x / 1_000_000L, "МГц"
-    else if x mod 1_000L     = 0L then x / 1_000L, "кГц"
+    else if x mod 1_000L = 0L then x / 1_000L, "кГц"
     else x, "Гц"
 
   (** DVB-T2 source description *)
   type dvb_t2 =
     { freq : int64
-    ; plp  : int
-    ; bw   : float
+    ; plp : int
+    ; bw : float
     } [@@deriving yojson, show, eq, ord]
 
   (** DVB-T source description *)
   type dvb_t =
     { freq : int64
-    ; bw   : float
+    ; bw : float
     } [@@deriving yojson, show, eq, ord]
 
   (** DVB-C source description *)
@@ -71,14 +71,14 @@ module Source = struct
   (** T2-MI source description *)
   type t2mi =
     { stream_id : int
-    ; plp       : int
+    ; plp : int
     } [@@deriving yojson, show, eq, ord]
 
   (** IP v4 source description *)
   type ipv4 =
     { scheme : string
-    ; addr   : Ipaddr_ext.V4.t
-    ; port   : int
+    ; addr : Ipaddr_ext.V4.t
+    ; port : int
     } [@@deriving yojson, show, eq, ord]
 
   (** Source desciption type *)
@@ -91,19 +91,19 @@ module Source = struct
     | SPI
     | T2MI of t2mi [@@deriving yojson, show, eq, ord]
 
-  let dvb_t2_to_string (x:dvb_t2) =
+  let dvb_t2_to_string (x : dvb_t2) =
     let open Printf in
     let freq, unit = round_freq x.freq in
     let bw = sprintf "полоса %g МГц" x.bw in
     sprintf "DVB-T2, %Lu %s, %s, PLP %d" freq unit bw x.plp
 
-  let dvb_t_to_string (x:dvb_t) =
+  let dvb_t_to_string (x : dvb_t) =
     let open Printf in
     let freq, unit = round_freq x.freq in
     let bw = sprintf "полоса %g МГц" x.bw in
     sprintf "DVB-T, %Lu %s, %s" freq unit bw
 
-  let dvb_c_to_string (x:dvb_c) =
+  let dvb_c_to_string (x : dvb_c) =
     dvb_t_to_string x
 
   let asi_to_string () =
@@ -112,11 +112,11 @@ module Source = struct
   let spi_to_string () =
     "SPI"
 
-  let t2mi_to_string (x:t2mi) =
+  let t2mi_to_string (x : t2mi) =
     let open Printf in
     sprintf "T2-MI PLP. Stream ID %d, PLP %d" x.stream_id x.plp
 
-  let ipv4_to_string (x:ipv4) =
+  let ipv4_to_string (x : ipv4) =
     Uri.make
       ~scheme:x.scheme
       ~host:(Ipaddr_ext.V4.to_string x.addr)
@@ -180,7 +180,7 @@ module Multi_TS_ID : sig
 end = struct
 
   type t =
-    | Raw  of int32
+    | Raw of int32
     | Pure of int32 [@@deriving yojson]
 
   type parsed =
@@ -188,7 +188,7 @@ end = struct
     ; stream_id : int
     } [@@deriving eq, ord]
 
-  let parse_pure (i:int32) : parsed =
+  let parse_pure (i : int32) : parsed =
     let open Int32 in
     let src = to_int @@ i land 0xFFl in
     let num = to_int @@ (i land 0xFFFFF00l) lsr 8 in
@@ -196,7 +196,7 @@ end = struct
     ; stream_id = num
     }
 
-  let parse_raw (i:int32) : parsed =
+  let parse_raw (i : int32) : parsed =
     let open Int32 in
     let src = to_int @@ (i land 0x1FEl) lsr 1 in
     let num1 = (i land 0x7F800000l) lsr 11 in
@@ -206,13 +206,13 @@ end = struct
     ; stream_id = num
     }
 
-  let make_pure (p:parsed) : int32 =
+  let make_pure (p : parsed) : int32 =
     let open Int32 in
     let src = Int32.of_int p.source_id in
     let num = Int32.of_int p.stream_id in
     (num lsl 8) lor src
 
-  let make_raw (p:parsed) : int32 =
+  let make_raw (p : parsed) : int32 =
     let open Int32 in
     let src = (Int32.of_int p.source_id) lsl 1 in
     let num = Int32.of_int p.stream_id in
@@ -222,23 +222,23 @@ end = struct
     |> (lor) 0x80000000l   (* ensure ones at right places *)
     |> (land) 0xFFBFFDFEl  (* ensure zeros at right places *)
 
-  let make (p:parsed) : t =
+  let make (p : parsed) : t =
     Pure (make_pure p)
 
   let parse = function
     | Raw i -> parse_raw i
     | Pure i -> parse_pure i
 
-  let compare (x:t) (y:t) = match x, y with
+  let compare (x : t) (y : t) = match x, y with
     | Raw x, Raw y -> Int32.compare x y
     | Pure x, Pure y -> Int32.compare x y
     | x, y -> compare_parsed (parse x) (parse y)
 
   let equal x y = 0 = compare x y
 
-  let of_int32_raw (i:int32)  = Raw i
+  let of_int32_raw (i : int32)  = Raw i
 
-  let of_int32_pure (i:int32) = Pure i
+  let of_int32_pure (i : int32) = Pure i
 
   let to_int32_raw = function
     | Raw i -> i
@@ -270,9 +270,9 @@ type tsoip_id =
 type container_id =
   | TS_raw
   | TS_multi of Multi_TS_ID.t
-  | TSoIP    of tsoip_id [@@deriving yojson, eq, show, ord]
+  | TSoIP of tsoip_id [@@deriving yojson, eq, show, ord]
 
-let tsoip_id_of_url (x:Url.t) : tsoip_id =
+let tsoip_id_of_url (x : Url.t) : tsoip_id =
   { addr = x.ip
   ; port = x.port
   }
@@ -281,11 +281,11 @@ module Raw = struct
 
   type t =
     { source : source
-    ; typ    : stream_type
-    ; id     : container_id
+    ; typ : stream_type
+    ; id : container_id
     }
   and source_node =
-    | Port   of int
+    | Port of int
     | Board
     | Stream of container_id
   and source =
@@ -297,23 +297,23 @@ end
 
 type t =
   (* stream source node and description *)
-  { source  : source
+  { source : source
   (* unique stream ID across the system *)
-  ; id      : ID.t
+  ; id : ID.t
   (* stream type *)
-  ; typ     : stream_type
+  ; typ : stream_type
   (* original container id *)
   ; orig_id : container_id
   }
 and source_node =
-  | Entry  of topo_entry (* stream from input or generated by a board*)
+  | Entry of topo_entry (* stream from input or generated by a board*)
   | Stream of t          (* stream extracted from another stream *)
 and source =
   { node : source_node   (* source node *)
   ; info : Source.t      (* details about stream source *)
   } [@@deriving yojson, eq, show, ord]
 
-let make_id (src:source) : ID.t =
+let make_id (src : source) : ID.t =
   let node = match src.node with
     | Entry (Input i) -> Printf.sprintf "%d/%d" (input_to_enum i.input) i.id
     | Entry (Board b) -> string_of_int b.control

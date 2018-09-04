@@ -35,13 +35,13 @@ module WS = struct
       | l -> let f (s : Stream.t) =
                List.mem ~eq:ID.equal s.id l in
              Option.return f in
-    let filter = List.all_some [filter_incoming; filter_inputs; filter_ids] in
+    let filter = List.keep_some [filter_incoming; filter_inputs; filter_ids] in
     let rec apply fns s = match fns with
       | [] -> true
       | f :: tl -> if f s then apply tl s else false in
     let e = match filter with
-      | None -> S.changes events.streams
-      | Some fns ->
+      | [] -> S.changes events.streams
+      | fns ->
          E.fmap (fun streams ->
              List.filter (apply fns) streams
              |> function [] -> None | l -> Some l)

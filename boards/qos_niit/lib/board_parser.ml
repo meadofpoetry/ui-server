@@ -18,7 +18,7 @@ type part =
 
 type _ instant_request =
   | Set_board_init : Types.init -> unit instant_request
-  | Set_board_mode : input * (t2mi_mode option) -> unit instant_request
+  | Set_board_mode : input * t2mi_mode_raw -> unit instant_request
   | Set_jitter_mode : jitter_mode option -> unit instant_request
   | Reset : unit instant_request
 
@@ -82,17 +82,16 @@ let to_set_board_init_req (src : Types.init) =
   let () = set_req_set_init_t2mi_src_id body src.t2mi in
   to_simple_req ~msg_code:0x0089  ~body ()
 
-let to_set_board_mode_req ((input : input), (mode : t2mi_mode_raw option)) =
-  let t2mi_pid, t2mi_enabled, t2mi_stream = match mode with
-    | Some m -> m.pid, m.enabled, Multi_TS_ID.to_int32_pure m.stream
-    | None -> 0, false, 0l in
+let to_set_board_mode_req ((input : input), (mode : t2mi_mode_raw)) =
+  let { pid; enabled; stream; t2mi_stream_id } = mode in
   let body = Cstruct.create sizeof_board_mode in
-  let () = input_to_int input
-           |> (lor) (if t2mi_enabled then 4 else 0)
-           |> (lor) 8 (* disable board storage by default *)
-           |> set_board_mode_mode body in
-  let () = set_board_mode_t2mi_pid body t2mi_pid in
-  let () = set_board_mode_t2mi_stream_id body t2mi_stream in
+  let pid = (t2mi_stream_id lsl 13) lor (pid land 0x1FFF) in
+  input_to_int input
+  |> (lor) (if enabled then 4 else 0)
+  |> (lor) 8 (* disable board storage by default *)
+  |> set_board_mode_mode body;
+  set_board_mode_t2mi_pid body pid;
+  set_board_mode_stream_id body @@ Multi_TS_ID.to_int32_pure stream;
   to_simple_req ~msg_code:0x0082 ~body ()
 
 let to_set_jitter_mode_req (mode : jitter_mode option) =
@@ -160,7 +159,7 @@ module Get_board_mode : (Request
   let parse _ msg =
     to_mode_exn (get_board_mode_mode msg)
       (get_board_mode_t2mi_pid msg)
-      (Multi_TS_ID.of_int32_pure (get_board_mode_t2mi_stream_id msg))
+      (Multi_TS_ID.of_int32_pure (get_board_mode_stream_id msg))
 
 end
 
