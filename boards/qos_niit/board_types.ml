@@ -346,21 +346,121 @@ module Streams = struct
 
   module T2MI = struct
 
-    (** T2MI structure **)
+    (** T2MI structure *)
+
+    type l1_pre =
+      { typ : int
+      ; preamble : int
+      ; fft : int
+      ; mixed_flag : bool
+      ; bwt_ext : bool
+      ; s1 : int
+      ; s2 : int
+      ; l1_repetition_flag : bool
+      ; guard_interval : int
+      ; papr : int
+      ; l1_mod : int
+      ; l1_cod : int
+      ; l1_fec_type : int
+      ; l1_post_size : int
+      ; l1_post_info_size : int
+      ; pilot_pattern : int
+      ; tx_id_availability : int
+      ; cell_id : int
+      ; network_id : int
+      ; t2_system_id : int
+      ; num_t2_frames : int
+      ; num_data_symbols : int
+      ; regen_flag : int
+      ; l1_post_extension : bool
+      ; num_rf : int
+      ; current_rf_idx : int
+      ; t2_version : int
+      ; l1_post_scrambled : bool
+      ; t2_base_lite : bool
+      ; reserved : int
+      } [@@deriving yojson, show]
+
+    type l1_post_conf =
+      { sub_slices_per_frame : int
+      ; aux_config_rfu : int
+      ; rf : t2_l1_post_conf_rf list
+      ; fef : t2_l1_post_conf_fef option
+      ; plp : t2_l1_post_conf_plp list
+      ; fef_length_msb : int
+      ; reserved_2 : int
+      ; aux : t2_l1_post_conf_aux list
+      }
+    and t2_l1_post_conf_rf =
+      { rf_idx : int
+      ; frequency : int
+      }
+    and t2_l1_post_conf_fef =
+      { fef_type : int
+      ; fef_length : int
+      ; fef_interval : int
+      }
+    and t2_l1_post_conf_plp =
+      { plp_id : int
+      ; plp_type : int
+      ; plp_payload_type : int
+      ; ff_flag : bool
+      ; first_rf_idx : int
+      ; first_frame_idx : int
+      ; plp_group_id : int
+      ; plp_cod : int
+      ; plp_mod : int
+      ; plp_rotation : bool
+      ; plp_fec_type : int
+      ; plp_num_blocks_max : int
+      ; frame_interval : int
+      ; time_il_length : int
+      ; time_il_type : bool
+      ; in_band_a_flag : bool
+      ; in_band_b_flag : bool
+      ; reserved_1 : int
+      ; plp_mode : int
+      ; static_flag : bool
+      ; static_padding_flag : bool
+      }
+    and t2_l1_post_conf_aux =
+      { aux_stream_type : int
+      ; aux_private_conf : int
+      } [@@deriving yojson, show]
+
+    type l1_error =
+      | Empty
+      | Parser_error of string [@@deriving yojson, show]
+
+    type l1_pre_result =
+      (l1_pre, l1_error) result [@@deriving show]
+
+    type l1_post_conf_result =
+      (l1_post_conf, l1_error) result [@@deriving show]
+
+    let l1_pre_result_to_yojson =
+      Json.(Result.to_yojson l1_pre_to_yojson l1_error_to_yojson)
+    let l1_pre_result_of_yojson =
+      Json.(Result.of_yojson l1_pre_of_yojson l1_error_of_yojson)
+
+    let l1_post_conf_result_to_yojson =
+      Json.(Result.to_yojson l1_post_conf_to_yojson l1_error_to_yojson)
+    let l1_post_conf_result_of_yojson =
+      Json.(Result.of_yojson l1_post_conf_of_yojson l1_error_of_yojson)
 
     type t2mi_stream_info =
       { packets : int list
       ; t2mi_pid : int option
-      ; l1_pre : string option
-      ; l1_post_conf : string option
-      } [@@deriving yojson]
+      ; l1_pre : l1_pre_result
+      ; l1_post_conf : l1_post_conf_result
+      } [@@deriving yojson, show]
 
     type structure =
       { timestamp : Time.t
       ; streams : (int * t2mi_stream_info) list
-      } [@@deriving yojson]
+      } [@@deriving yojson, show]
 
-    (** T2-MI packet sequence **)
+    (** T2-MI packet sequence *)
 
     (* T2-MI packet types:
      * 0x00  - BB frame

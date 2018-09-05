@@ -1,7 +1,7 @@
 open Containers
 include Yojson.Safe
 
-type 'a res = ('a,string) result
+type 'a res = ('a, string) result
 
 type t = Yojson.Safe.json
 
@@ -91,12 +91,34 @@ module String = struct
 end
 
 module Pair = struct
-  type ('a,'b) t = 'a * 'b
-  let to_yojson (f1:'a -> json) (f2:'b -> json) (t:('a,'b) t) : json =
+  type ('a, 'b) t = 'a * 'b
+  let to_yojson (f1 : 'a -> json) (f2 : 'b -> json) (t : ('a, 'b) t) : json =
     let j1 = f1 @@ fst t in
     let j2 = f2 @@ snd t in
-    `List [j1;j2]
-  let of_yojson (f1:json -> 'a res) (f2:json -> 'b res) = function
-    | `List [x;y] -> Result.(f1 x >>= fun v1 -> f2 y >|= fun v2 -> v1,v2)
-    | _           -> Error "not a pair"
+    `List [j1; j2]
+  let of_yojson (f1 : json -> 'a res) (f2 : json -> 'b res) = function
+    | `List [x; y] -> Result.(f1 x >>= fun v1 -> f2 y >|= fun v2 -> v1, v2)
+    | _ -> Error "not a pair"
+end
+
+module Result = struct
+  type ('a, 'b) t = ('a, 'b) result
+  let to_yojson (f1 : 'a -> json) (f2 : 'b -> json) (t : ('a, 'b) t) : json =
+    match t with
+    | Ok x -> `List [`String "Ok"; f1 x]
+    | Error e -> `List [`String "Error"; f2 e]
+  let of_yojson (f1 : json -> 'a res)
+        (f2 : json -> 'b res) : json -> ('a, 'b) t res = function
+    | `List [`String "Ok"; x] ->
+       begin match f1 x with
+       | Ok v -> Ok (Ok v)
+       | Error e -> Error e
+       end
+    | `List [`String "Error"; x] ->
+       begin match f2 x with
+       | Ok v -> Ok (Error v)
+       | Error e -> Error e
+       end
+    | _ -> Error "not a result"
+
 end

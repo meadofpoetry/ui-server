@@ -63,12 +63,13 @@ module Model = struct
 
   let keys_streams =
     { time_key = Some "date_end"
-    ; columns  = [ "stream",     key "JSONB"
-                 ; "id",         key ID.typ
-                 ; "incoming",   key "BOOL"
-                 ; "input",      key "JSONB"
+    ; columns  = [ "stream", key "JSONB"
+                 ; "id", key ID.typ
+                 ; "incoming", key "BOOL"
+                 ; "type", key "TEXT"
+                 ; "input", key "JSONB"
                  ; "date_start", key "TIMESTAMP"
-                 ; "date_end",   key "TIMESTAMP"
+                 ; "date_end", key "TIMESTAMP"
                  ]
     }
 
@@ -279,7 +280,7 @@ module Device = struct
     >|= fun data -> Compressed { data }
     
 end
-       
+              
 module Streams = struct
 
   type state = Common.Topology.state
@@ -289,16 +290,16 @@ module Streams = struct
     let now = Time.Clock.now_s () in
     let data =
       List.map (fun (incoming, s) ->
-          Yojson.Safe.to_string @@ Stream.to_yojson s,
-          (ID.to_db s.id, incoming),
+          (Yojson.Safe.to_string @@ Stream.to_yojson s, ID.to_db s.id),
+          (incoming, Stream.typ_to_string s.typ),
           Yojson.Safe.to_string
           @@ Topology.topo_input_to_yojson
           @@ Option.get_exn @@ Stream.get_input s, (* FIXME make optional in table *)
           (now, now)) streams in
     let insert =
-      R.exec Types.(tup4 string (tup2 ID.db bool) string (tup2 ptime ptime))
-        (sprintf "INSERT INTO %s (stream,id,incoming,input,date_start,date_end) \
-                  VALUES (?,?,?,?,?,?)" table)
+      R.exec Types.(tup4 (tup2 string ID.db) (tup2 bool string) string (tup2 ptime ptime))
+        (sprintf "INSERT INTO %s (stream,id,incoming,type,input,date_start,date_end) \
+                  VALUES (?,?,?,?,?,?,?)" table)
     in Conn.request db Request.(
       with_trans (List.fold_left (fun acc s ->
                       acc >>= fun () -> exec insert s)

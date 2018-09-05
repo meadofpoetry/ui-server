@@ -209,12 +209,12 @@ type push_events =
   ; jitter_mode : jitter_mode option -> unit
   ; group : group -> unit
   ; board_errors : board_error list -> unit
-  ; info : (Stream.Multi_TS_ID.t * info) list -> unit
-  ; services : (Stream.Multi_TS_ID.t * services) list -> unit
-  ; tables : (Stream.Multi_TS_ID.t * tables) list -> unit
-  ; pids : (Stream.Multi_TS_ID.t * pids) list -> unit
-  ; bitrates : (Stream.Multi_TS_ID.t * bitrate) list -> unit
-  ; t2mi_info : (Stream.Multi_TS_ID.t * Streams.T2MI.structure) list -> unit
+  ; info : (Stream.t * info) list -> unit
+  ; services : (Stream.t * services) list -> unit
+  ; tables : (Stream.t * tables) list -> unit
+  ; pids : (Stream.t * pids) list -> unit
+  ; bitrates : (Stream.t * bitrate) list -> unit
+  ; t2mi_info : (Stream.t * Streams.T2MI.structure) list -> unit
   ; jitter : Jitter.measures -> unit
   ; jitter_session : Jitter.session -> unit
   }
