@@ -168,12 +168,12 @@ let make_dump_title ?is_hex
 
 module Heading = struct
 
-  class t ?title ?subtitle ~meta () =
+  class t ?title ?subtitle () =
     let title' = new Card.Primary.title ~large:true "" () in
     let subtitle' = new Card.Primary.subtitle "" () in
     let box = Widget.create_div ~widgets:[title'; subtitle'] () in
     object(self)
-      inherit Card.Primary.t ~widgets:[box; meta#widget] ()
+      inherit Card.Primary.t ~widgets:[box] ()
 
       method set_title (s : string) : unit =
         title'#set_text_content s
@@ -191,6 +191,7 @@ end
 let add_row (table : 'a Table.t)
       (stream : Stream.t)
       (primary : Heading.t)
+      (hex : bool React.signal)
       (media : Card.Media.t)
       (control : int)
       (set_dump : (table_info * Widget_tables_dump.t) option -> unit)
@@ -203,7 +204,8 @@ let add_row (table : 'a Table.t)
         match row#cells with
         | _ :: _ :: _ :: _ :: _ :: _ :: x :: _ -> x in
       let back = make_back () in
-      let title, subtitle = make_dump_title x in
+      let is_hex = React.S.value hex in
+      let title, subtitle = make_dump_title ~is_hex x in
       primary#set_title title;
       primary#set_subtitle subtitle;
       let dump =
@@ -248,12 +250,18 @@ class t (stream : Stream.t)
   let title = "Список таблиц SI/PSI" in
   let subtitle = make_timestamp_string timestamp in
   let dump, set_dump = React.S.create None in
+  let primary = new Heading.t ~title ~subtitle () in
   let on_change = fun x ->
-    (* FIXME change dump title too *)
+    begin match React.S.value dump with
+    | None -> ()
+    | Some (i, _) ->
+       primary#set_subtitle
+       @@ snd
+       @@ make_dump_title ~is_hex:x i
+    end;
     on_change x in
   let hex = let switch = new Switch.t ~state:is_hex ~on_change () in
             new Form_field.t ~input:switch ~label:"HEX IDs" () in
-  let primary = new Heading.t ~title ~subtitle ~meta:hex () in
   object(self)
 
     val mutable _timestamp : Time.t option = timestamp
@@ -264,7 +272,8 @@ class t (stream : Stream.t)
 
     (** Adds new row to the overview *)
     method add_row (t : table_info) =
-      add_row table stream primary media control set_dump t
+      add_row table stream primary hex#input_widget#s_state
+        media control set_dump t
 
     method set_sync (x : bool) : unit =
       self#add_or_remove_class (not x) failure_class
@@ -368,6 +377,7 @@ class t (stream : Stream.t)
       | _ :: _ :: _ :: x :: _ -> x#value
 
     initializer
+      primary#append_child hex;
       self#_keep_e
       @@ React.E.map (function
              | Some _ -> ()
