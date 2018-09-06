@@ -253,12 +253,14 @@ module HTTP = struct
         Option.flat_map Time.Relative.to_int_s duration
         |> Option.get_or ~default:5 in
       api.get_t2mi_seq { stream = id; seconds }
-      >|= (fun x -> List.filter (fun (x:sequence_item) ->
-                        match stream_ids with
-                        | [] -> true
-                        | l  -> List.mem ~eq:(=) x.stream_id l) x
-                    |> sequence_to_yojson
-                    |> Result.return)
+      >|= (fun x ->
+        List.filter (fun (x : sequence_item) ->
+            match stream_ids with
+            | [] -> true
+            | l  -> List.mem ~eq:(=) x.stream_id l) x.items
+        |> (fun items -> { x with items })
+        |> sequence_to_yojson
+        |> Result.return)
       >>= respond_result
 
     let structure db id limit from till duration _ _ () =

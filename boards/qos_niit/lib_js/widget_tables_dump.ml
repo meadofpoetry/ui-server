@@ -324,7 +324,7 @@ let make_dump
              | None ->
                 parsed#set_empty ();
                 subtitle#set_text "-";
-                Dom.appendChild parsed#root (ph "Нет захваченных данных")#root;
+                parsed#append_child (ph "Нет захваченных данных");
                 set_hexdump "" in
            let get = fun () ->
              Lwt.catch (fun () ->

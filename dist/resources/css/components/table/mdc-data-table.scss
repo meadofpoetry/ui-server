@@ -41,8 +41,8 @@
   }
 
   &__table {
-    width: 100%;
-    border-collapse: collapse;
+      width: 100%;
+      border-spacing: 0;
   }
 
   &__cell {
@@ -114,12 +114,20 @@
     }
   }
 
+  .mdc-data-table__content, table, tbody, thead, tr, th, td {
+      background: inherit;
+  }
+
   // row in table column
   thead .mdc-data-table__row {
     position: relative;
     height: 56px;
-    border-bottom: 1px solid;
-    @include mdc-theme-prop-alpha(border-color, $mdc-theme-background, .12);
+  }
+
+  th, td {
+      border-bottom-width: 1px;
+      border-bottom-style: solid;
+      @include mdc-theme-prop-alpha(border-bottom-color, $mdc-theme-background, .12);
   }
 
   // row in table body
@@ -128,8 +136,6 @@
     height: 48px;
     overflow: hidden;
     transition: background-color .15s linear;
-    border-bottom: 1px solid;
-    @include mdc-theme-prop-alpha(border-color, $mdc-theme-background, .12);
 
     &:hover {
       @include mdc-theme-prop-alpha(background-color, $mdc-theme-background, .07);
@@ -226,12 +232,12 @@
 .mdc-data-table--sticky-header {
     thead tr:nth-child(1) {
         border-bottom: none;
-        @include mdc-theme-prop(background-color, surface);
     }
-    thead tr:nth-child(1) th{
-        position: sticky;
+    thead tr:nth-child(1) th {
         top: 0;
-        z-index: 10;
+        position: sticky;
+        z-index: 5;
+        background-color: inherit;
     }
 }
 

@@ -151,7 +151,7 @@ let tables ({ id; _ } as stream : Stream.t) control =
     let open Layout_grid in
     let open Typography in
     let span = 12 in
-    let overview_cell = new Cell.t ~span ~widgets:[ overview ] () in
+    let overview_cell = new Cell.t ~span ~widgets:[overview] () in
     let cells = [overview_cell] in
     new t ~cells () in
   box#set_on_destroy
@@ -165,6 +165,17 @@ let tables ({ id; _ } as stream : Stream.t) control =
          |> Lwt.ignore_result);
   box#widget
 
+let t2mi ({ id; _ } as stream : Stream.t) control =
+  let sequence = Widget_t2mi_sequence.make stream control in
+  let box =
+    let open Layout_grid in
+    let open Typography in
+    let span = 12 in
+    let sequence_cell = new Cell.t ~span ~widgets:[sequence] () in
+    let cells = [sequence_cell] in
+    new t ~cells () in
+  box#widget
+
 let tabs (stream:Stream.t) control =
   let base =
     [ "Лог", "log", (fun () -> errors stream control)
@@ -176,7 +187,9 @@ let tabs (stream:Stream.t) control =
     ; "Архив", "archive", dummy_tab
     ] in
   match stream.typ with
-  | T2MI -> List.insert_at_idx 4 ("T2-MI", "t2mi", dummy_tab) base
+  | T2MI ->
+     List.insert_at_idx 4
+       ("T2-MI", "t2mi", (fun () -> t2mi stream control)) base
   | TS   -> base
 
 let make_tabs (stream : Stream.t) control =

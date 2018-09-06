@@ -629,6 +629,10 @@ class ['a] t ?selection
     method s_rows : 'a Row.t list React.signal =
       body#s_rows
 
+    method is_empty : bool = match self#rows with
+      | [] -> true
+      | _ -> false
+
     method s_selected : 'a Row.t list React.signal =
       s_selected
 

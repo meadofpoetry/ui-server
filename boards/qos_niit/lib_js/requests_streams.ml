@@ -208,17 +208,17 @@ module HTTP = struct
 
     let get_sequence ?duration ~id control =
       get_result ~from:sequence_of_yojson
-        ~path:Path.Format.(get_base_path () / (ID.fmt ^/ "sequence" @/ empty))
+        ~path:Path.Format.(get_base_path () / (ID.fmt ^/ "t2mi/sequence" @/ empty))
         ~query:Query.[ "duration", (module Option(Time.Relative)) ]
         control id duration
 
     let get_structure ?limit ?from ?till ?duration ~id control =
       get_result
         ~from:(raw_of_yojson structure_of_yojson)
-        ~path:Path.Format.(get_base_path () / (ID.fmt ^/ "structure" @/ empty))
-        ~query:Query.[ "limit",    (module Option(Int))
-                     ; "from",     (module Option(Time.Show))
-                     ; "to",       (module Option(Time.Show))
+        ~path:Path.Format.(get_base_path () / (ID.fmt ^/ "t2mi/structure" @/ empty))
+        ~query:Query.[ "limit", (module Option(Int))
+                     ; "from", (module Option(Time.Show))
+                     ; "to", (module Option(Time.Show))
                      ; "duration", (module Option(Time.Relative)) ]
         control id limit from till duration
 
@@ -233,14 +233,14 @@ module HTTP = struct
       let desc = Option.map (function `Asc -> false | `Desc -> true) order in
       get_result ~from:(rows_of_yojson raw_of_yojson compressed_of_yojson)
         ~path:Path.Format.(get_base_path () / (ID.fmt ^/ "errors" @/ empty))
-        ~query:Query.[ "errors",   (module List(Int))
+        ~query:Query.[ "errors", (module List(Int))
                      ; "priority", (module List(Int))
-                     ; "pid",      (module List(Int))
-                     ; "limit",    (module Option(Int))
+                     ; "pid", (module List(Int))
+                     ; "limit", (module Option(Int))
                      ; "compress", (module Option(Bool))
-                     ; "desc",     (module Option(Bool))
-                     ; "from",     (module Option(Time.Show))
-                     ; "to",       (module Option(Time.Show))
+                     ; "desc", (module Option(Bool))
+                     ; "from", (module Option(Time.Show))
+                     ; "to", (module Option(Time.Show))
                      ; "duration", (module Option(Time.Relative)) ]
         control id errors priority pids limit compress desc from till duration
 
@@ -248,11 +248,11 @@ module HTTP = struct
           ?from ?till ?duration ~id control =
       get_result ~from:(fun _ -> Error "not implemented")
         ~path:Path.Format.(get_base_path () / (ID.fmt ^/ "errors/percent" @/ empty))
-        ~query:Query.[ "errors",   (module List(Int))
+        ~query:Query.[ "errors", (module List(Int))
                      ; "priority", (module List(Int))
-                     ; "pid",      (module List(Int))
-                     ; "from",     (module Option(Time.Show))
-                     ; "to",       (module Option(Time.Show))
+                     ; "pid", (module List(Int))
+                     ; "from", (module Option(Time.Show))
+                     ; "to", (module Option(Time.Show))
                      ; "duration", (module Option(Time.Relative)) ]
         control id errors priority pids from till duration
 
@@ -260,11 +260,11 @@ module HTTP = struct
           ?from ?till ?duration ~id control =
       get_result ~from:(fun _ -> Error "not implemented")
         ~path:Path.Format.(get_base_path () / (ID.fmt ^/ "errors/has-any" @/ empty))
-        ~query:Query.[ "errors",   (module List(Int))
+        ~query:Query.[ "errors", (module List(Int))
                      ; "priority", (module List(Int))
-                     ; "pid",      (module List(Int))
-                     ; "from",     (module Option(Time.Show))
-                     ; "to",       (module Option(Time.Show))
+                     ; "pid", (module List(Int))
+                     ; "from", (module Option(Time.Show))
+                     ; "to", (module Option(Time.Show))
                      ; "duration", (module Option(Time.Relative)) ]
         control id errors priority pids from till duration
 

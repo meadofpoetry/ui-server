@@ -143,7 +143,7 @@
 
 .qos-niit-table-overview, .qos-niit-services-overview,
 .qos-niit-errors-log, .qos-niit-pids-overview,
-.qos-niit-pids-summary {
+.qos-niit-pids-summary, .qos-niit-t2mi-sequence {
     &__back {
         margin-right: 8px;
         cursor: pointer;
@@ -318,6 +318,25 @@
     .mdc-form-field {
         @include mdc-typography(caption);
     }
+}
+
+// T2-MI sequence widget
+
+.qos-niit-t2mi-sequence {
+
+    .mdc-select {
+        min-width: 100px;
+        margin-left: auto;
+    }
+
+    .mdc-card__media, .mdc-data-table {
+        height: 500px;
+    }
+
+    .mdc-data-table__content {
+        overflow-y: auto;
+    }
+
 }
 
 /* QoS errors overview 

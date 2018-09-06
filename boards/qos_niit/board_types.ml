@@ -494,7 +494,10 @@ module Streams = struct
       ; ts_packet : int
       } [@@deriving yojson]
 
-    type sequence = sequence_item list [@@deriving yojson]
+    type sequence =
+      { timestamp : Time.t
+      ; items : sequence_item list
+      } [@@deriving yojson]
 
   end
 

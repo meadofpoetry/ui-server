@@ -254,23 +254,25 @@ module Get_t2mi_frame_seq : (Request
     let ()   = set_req_get_t2mi_frame_seq_time body params.seconds in
     to_complex_req ~request_id:request_id ~msg_code:req_code ~body ()
 
-  let parse _ msg =
+  let parse _ msg : rsp =
     let iter = Cstruct.iter (fun _ -> Some sizeof_t2mi_frame_seq_item)
                  (fun buf -> buf) msg in
-    Cstruct.fold (fun (acc : sequence) el ->
-        let sframe_stream = get_t2mi_frame_seq_item_sframe_stream el in
-        { typ = get_t2mi_frame_seq_item_typ el
-        ; super_frame = (sframe_stream land 0xF0) lsr 4
-        ; stream_id = sframe_stream land 0x07
-        ; frame = get_t2mi_frame_seq_item_frame el
-        ; count = Int32.to_int @@ get_t2mi_frame_seq_item_count el
-        ; plp = get_t2mi_frame_seq_item_plp el
-        ; l1_param_1 = get_t2mi_frame_seq_item_dyn1_frame el
-        ; l1_param_2 = get_t2mi_frame_seq_item_dyn2_frame el
-        ; ts_packet = Int32.to_int @@ get_t2mi_frame_seq_item_time el
-        } :: acc)
-      iter []
-    |> List.rev
+    let items =
+      Cstruct.fold (fun (acc : sequence_item list) el ->
+          let sframe_stream = get_t2mi_frame_seq_item_sframe_stream el in
+          { typ = get_t2mi_frame_seq_item_typ el
+          ; super_frame = (sframe_stream land 0xF0) lsr 4
+          ; stream_id = sframe_stream land 0x07
+          ; frame = get_t2mi_frame_seq_item_frame el
+          ; count = Int32.to_int @@ get_t2mi_frame_seq_item_count el
+          ; plp = get_t2mi_frame_seq_item_plp el
+          ; l1_param_1 = get_t2mi_frame_seq_item_dyn1_frame el
+          ; l1_param_2 = get_t2mi_frame_seq_item_dyn2_frame el
+          ; ts_packet = Int32.to_int @@ get_t2mi_frame_seq_item_time el
+          } :: acc)
+        iter []
+      |> List.rev in
+    { timestamp = Time.Clock.now_s (); items }
 
 end
 
