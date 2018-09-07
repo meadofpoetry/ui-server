@@ -53,19 +53,45 @@ module Sequence = struct
     }
 
   let dec_fmt = Table.(Int None)
+  let hex_fmt = Table.(Int (Some (Printf.sprintf "0x%X")))
 
-  let fmt =
+  let extra_fmt ~is_hex =
+    let open Table in
+    Custom { is_numeric = false
+           ; compare = (fun _ _ -> 0)
+           ; to_string =
+               (fun i ->
+                 let to_string =
+                   if is_hex
+                   then Printf.sprintf "0x%X"
+                   else Printf.sprintf "%d" in
+                 match i.typ with
+                 | 0x00 ->
+                    Printf.sprintf "PLP %s" @@ to_string i.plp
+                 | 0x10 ->
+                    Printf.sprintf "L1DYN_CURR.FRAME_IDX = %s"
+                    @@ to_string i.l1_param_1
+                 | 0x11 ->
+                    Printf.sprintf "L1DYN_NEXT.FRAME_IDX = %s, \
+                                    L1DYN_NEXT2.FRAME_IDX = %s"
+                      (to_string i.l1_param_1)
+                      (to_string i.l1_param_2)
+                 | _ -> "")
+      }
+
+  let fmt is_hex =
     let open Table in
     let open Format in
+    let int_fmt = if is_hex then hex_fmt else dec_fmt in
     (to_column "Тип пакета", Custom packet_type)
     :: (to_column "Кол-во пакетов", Int None)
-    :: (to_column "T2-MI Stream ID", Int None)
-    :: (to_column "frame", Option ((Int None), ""))
-    :: (to_column "super-frame", Int None)
-    :: (to_column "Подробности", String None)
+    :: (to_column "T2-MI Stream ID", int_fmt)
+    :: (to_column "frame", Option (int_fmt, ""))
+    :: (to_column "super-frame", int_fmt)
+    :: (to_column "Подробности", extra_fmt ~is_hex)
     :: []
 
-  class ['a] t progress () =
+  class ['a] t is_hex () =
     let icon = Icon.SVG.(create_simple Path.download) in
     let ph =
       Ui_templates.Placeholder.create_with_icon
@@ -77,17 +103,24 @@ module Sequence = struct
       new Table.t
         ~sticky_header:true
         ~dense:true
-        ~fmt () in
+        ~fmt:(fmt is_hex) () in
     object(self)
+
+      val mutable _is_hex = is_hex
 
       inherit Card.Media.t ~widgets:[table] ()
 
       method set_hex (x : bool) : unit =
-        List.iter (fun row ->
+        _is_hex <- x;
+        List.iter (fun (row : 'a Table.Row.t) ->
             let open Table in
             match row#cells with
             | _ :: _ :: sid :: frame :: sframe :: extra :: [] ->
-               ()) table#rows
+               let fmt = if x then hex_fmt else dec_fmt in
+               sid#set_format fmt;
+               frame#set_format (Option (fmt, ""));
+               sframe#set_format fmt;
+               extra#set_format (extra_fmt ~is_hex:x)) table#rows
 
       method set_lwt (t : (sequence, string) Lwt_result.t) =
         Lwt.try_bind
@@ -140,16 +173,9 @@ module Sequence = struct
           | 0x00 | 0x01 | 0x02 -> Some i.frame
           | 0x10 | 0x11 | 0x12 -> Some i.frame
           | _ -> None in
-        let extra = match i.typ with
-          | 0x00 -> Printf.sprintf "PLP %d" i.plp
-          | 0x10 -> Printf.sprintf "L1DYN_CURR.FRAME_IDX = %d" i.l1_param_1
-          | 0x11 -> Printf.sprintf "L1DYN_NEXT.FRAME_IDX = %d, \
-                                    L1DYN_NEXT2.FRAME_IDX = %d"
-                      i.l1_param_1 i.l1_param_2
-          | _ -> "" in
         let data =
           i.typ :: i.count :: i.stream_id
-          :: frame :: i.super_frame :: extra :: [] in
+          :: frame :: i.super_frame :: i :: [] in
         table#add_row data |> ignore
 
       initializer
@@ -185,7 +211,7 @@ class t (stream : Stream.t) (control : int) () =
       ~style:`Raised
       ~label:"Загрузить"
       () in
-  let sequence = new Sequence.t button#progress () in
+  let sequence = new Sequence.t is_hex () in
   let getter () =
     let duration =
       Option.get_exn
