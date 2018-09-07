@@ -177,15 +177,15 @@ module Get_board_errors : (Request
 
   let parse _ msg =
     let timestamp = Time.Clock.now () in
-    let iter      =
-      Cstruct.iter (fun _ -> Some sizeof_t2mi_frame_seq_item)
+    let iter =
+      Cstruct.iter (fun _ -> Some 4)
         (fun buf -> Cstruct.LE.get_uint32 buf 0)
         (get_board_errors_errors msg)
     in
     List.rev @@ Cstruct.fold (fun acc el -> el :: acc) iter []
     |> List.foldi (fun acc i x ->
            let count = Int32.to_int x in
-           if count <> 0 && i >= 0 && i <= 16 then acc
+           if count = 0 || i < 0 || i > 16 then acc
            else { timestamp; err_code = i; count } :: acc) []
 
 end
@@ -1266,7 +1266,7 @@ module Make(Logs:Logs.LOG) = struct
 
   let parse_complex_msg = fun ((code, r_id), (msg:Cstruct.t)) ->
     try
-      let data = (r_id,msg) in
+      let data = (r_id, msg) in
       (match code with
        | x when x = Get_board_errors.rsp_code ->
           Logs.debug (fun m -> m "deserializer - got board errors");

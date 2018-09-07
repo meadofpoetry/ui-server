@@ -99,7 +99,7 @@ type board_error =
   { timestamp : Time.t
   ; err_code : int
   ; count : int
-  } [@@deriving yojson]
+  } [@@deriving yojson, show]
 
 module Jitter = struct
 

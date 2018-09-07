@@ -186,9 +186,9 @@ module Make(Logs : Logs.LOG) = struct
            then Some (Get_jitter { request_id = get_id ()
                                  ; pointer    = !jitter_ptr })
            else None in
-      (* FIXME commented because board not responding for this request *)
-      (* let errors  = if status.errors then Some (Get_board_errors (get_id ())) else None in *)
-      let errors = None in
+      let errors =
+        if not status.errors then None else
+          Some (Get_board_errors (get_id ())) in
       let ts_structs = match prev_t with
         | Some (old : group) ->
            if old.status.versions.ts_ver_com <> status.versions.ts_ver_com
@@ -379,7 +379,12 @@ module Make(Logs : Logs.LOG) = struct
     let _, rdy = split ts_structs in
     (push_structs pe) rdy;
     (* Streams independent probes *)
-    List.iter pe.board_errors acc.probes.board_errors;
+    List.iter (fun x ->
+        Logs.warn (fun m ->
+            let s = String.concat ",\n"
+                    @@ List.map show_board_error x in
+            m "got board errors: %s" s);
+        pe.board_errors x) acc.probes.board_errors;
     List.iter (fun x ->
         (* XXX pointer update requires right order *)
         jitter_ptr := x.next_ptr;
