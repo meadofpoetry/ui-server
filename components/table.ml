@@ -172,12 +172,12 @@ module Cell = struct
 
       method value : 'a = _value
       method set_value ?(force = false) (v : 'a) =
-        match set_value fmt force (Some _value) v self#widget with
+        match set_value self#format force (Some _value) v self#widget with
         | false -> ()
         | true -> _value <- v
 
       method compare (other : 'self) =
-        compare fmt other#value self#value
+        compare self#format other#value self#value
 
       initializer
         (* Initialize cell value *)
@@ -266,6 +266,14 @@ module Row = struct
     | cell :: rest ->
        List.cons cell#widget (cells_to_widgets rest)
 
+  let rec set_format : type a. a Format.t -> a cells -> unit =
+    fun format cells ->
+    match format, cells with
+    | Format.[], [] -> ()
+    | Format.((_, fmt) :: l1), x :: l2 ->
+       x#set_format fmt;
+       set_format l1 l2
+
   class ['a] t
           ?selection
           (s_selected : 'a t list React.signal)
@@ -283,7 +291,13 @@ module Row = struct
                         |> List.cons_maybe (Cell.wrap_checkbox cb)) ()
               |> To_dom.of_element in
     object(self)
+      val mutable _fmt : 'a Format.t = fmt
+
       inherit Widget.t elt ()
+
+      method set_format (x : 'a Format.t) : unit =
+        _fmt <- x;
+        set_format x self#cells
 
       method checkbox = cb
 
@@ -610,15 +624,22 @@ class ['a] t ?selection
   let header = new Header.t ?selection s_selected
                  set_selected body#s_rows fmt () in
   let table = new Table.t ~header ~body () in
-  let content = Markup.create_content ~table:(Widget.to_markup table) () in
-  let elt = Markup.create ?selection
-              ?footer:(Option.map Widget.to_markup footer)
-              ~content ()
-            |> To_dom.of_element in
+  let content =
+    Markup.create_content ~table:(Widget.to_markup table) ()
+    |> To_dom.of_element
+    |> Widget.create in
+  let elt =
+    Markup.create ?selection
+      ?footer:(Option.map Widget.to_markup footer)
+      ~content:(Widget.to_markup content) ()
+    |> To_dom.of_element in
   object(self)
     inherit Widget.t elt ()
 
     val mutable _fmt : 'a Format.t = fmt
+
+    method content : Widget.t =
+      content
 
     method body : 'a Body.t =
       body
@@ -632,6 +653,10 @@ class ['a] t ?selection
     method is_empty : bool = match self#rows with
       | [] -> true
       | _ -> false
+
+    method set_format (x : 'a Format.t) : unit =
+      _fmt <- x;
+      List.iter (fun row -> row#set_format x) self#rows
 
     method s_selected : 'a Row.t list React.signal =
       s_selected
@@ -649,6 +674,11 @@ class ['a] t ?selection
     method prepend_row (data : 'a Data.t) : 'a Row.t =
       let row = self#_make_row data in
       body#prepend_row row;
+      row
+
+    method append_row (data : 'a Data.t) : 'a Row.t =
+      let row = self#_make_row data in
+      body#append_row row;
       row
 
     method add_row (data : 'a Data.t) : 'a Row.t =
@@ -677,7 +707,7 @@ class ['a] t ?selection
     (* Private methods *)
 
     method private _make_row (data : 'a Data.t) : 'a Row.t =
-      new Row.t ?selection s_selected set_selected fmt data ()
+      new Row.t ?selection s_selected set_selected _fmt data ()
 
     initializer
       self#set_dense dense;

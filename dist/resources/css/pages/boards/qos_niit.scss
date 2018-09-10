@@ -339,7 +339,16 @@
 
 }
 
-/* QoS errors overview 
+// QoS errors log
+
+.qos-niit-errors-log {
+    /* .mdc-card__media, .mdc-data-table { */
+    /*     height: 500px; */
+    /* } */
+    .mdc-data-table__content {
+        overflow-y: auto;
+    }
+}
 
 /* Streams items */
 

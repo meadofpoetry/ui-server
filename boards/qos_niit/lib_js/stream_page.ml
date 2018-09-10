@@ -8,38 +8,31 @@ open Board_types.Streams.TS
 let ( >>* ) x f = Lwt_result.map_err f x
 let ( % ) = Fun.( % )
 
-let get_errors ?from ?till ?duration ?limit ~id control =
-  let open Requests.Streams.HTTP.Errors in
-  get_errors ?limit ?from ?till ?duration ~id control
-  >>* Api_js.Requests.err_to_string
-  >>= function
-  | Raw s -> Lwt_result.return s.data
-  | _ -> Lwt.fail_with "got compressed"
-
 let dummy_tab = fun () ->
   Ui_templates.Placeholder.under_development ()
 
-let errors ({ id; _ } : Stream.t) control =
-  let e, sock = Requests.Streams.WS.Errors.get_errors ~id control in
-  let overview =
-    get_errors ~limit:20 ~id control
-    >|= (fun x -> Widget_errors_log.make ~id x control)
-    >|= (fun w ->
-      (* FIXME save event *)
-      (* let _ = React.E.map (List.map w#add_error) e in *)
-      w)
-    >|= Widget.coerce
-    |> Ui_templates.Loader.create_widget_loader in
+let errors ({ id; _ } as stream : Stream.t) control =
+  let overview = Widget_errors_log.make stream control in
+  let sock_lwt =
+    overview#thread
+    >|= fun w ->
+    let e, sock = Requests.Streams.WS.Errors.get_errors ~id control in
+    let e = React.E.map (List.iter (ignore % w#prepend_error)) e in
+    e, sock in
   let box =
     let open Layout_grid in
     let open Typography in
     let span = 12 in
     let overview_cell = new Cell.t ~span ~widgets:[ overview ] () in
-    let cells =
-      [ new Cell.t ~span ~widgets:[ new Text.t ~text:"Обзор" ()] ()
-      ; overview_cell ] in
+    let cells = [overview_cell] in
     new t ~cells () in
-  box#set_on_destroy @@ Some (fun () -> sock##close);
+  box#set_on_destroy
+  @@ Some (fun () ->
+         sock_lwt
+         >|= (fun (e, sock) ->
+             React.E.stop ~strong:true e;
+             sock##close)
+         |> Lwt.ignore_result);
   box#widget
 
 let services ({ id; _ } as stream : Stream.t) control =
@@ -182,9 +175,9 @@ let tabs (stream:Stream.t) control =
     ; "Сервисы", "services", (fun () -> services stream control)
     ; "PIDs", "pids", (fun () -> pids stream control)
     ; "Таблицы", "tables", (fun () -> tables stream control)
-    ; "Битрейт", "bitrate", dummy_tab
-    ; "Джиттер", "jitter", dummy_tab
-    ; "Архив", "archive", dummy_tab
+    (* ; "Битрейт", "bitrate", dummy_tab
+     * ; "Джиттер", "jitter", dummy_tab
+     * ; "Архив", "archive", dummy_tab *)
     ] in
   match stream.typ with
   | T2MI ->

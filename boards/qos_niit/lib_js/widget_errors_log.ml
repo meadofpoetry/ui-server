@@ -24,7 +24,7 @@ let get_errors ?from ?till ?duration ?limit ?order ~id control =
   get_errors ?limit ?from ?till ?duration ?order ~id control
   >>* Api_js.Requests.err_to_string
   >>= function
-  | Raw s -> Lwt_result.return s.data
+  | Raw s -> Lwt_result.return (s.has_more, s.data)
   | _ -> Lwt.fail_with "got compressed"
 
 let pid_fmt hex =
@@ -39,7 +39,7 @@ let pid_fmt hex =
     Int.compare pid1 pid2 in
   Custom { to_string; compare; is_numeric = true }
 
-let add_error (table : 'a Table.t) (error : Errors.t) =
+let make_row_data (error : Errors.t) =
   let open Table in
   let service = None in
   let date = error.timestamp in
@@ -49,123 +49,166 @@ let add_error (table : 'a Table.t) (error : Errors.t) =
     let num, name = Ts_error.to_name error in
     num ^ " " ^ name in
   let extra = Ts_error.Description.of_ts_error error in
-  let data = Data.(
-      date :: check :: pid :: service :: count :: extra :: []) in
-  let row = table#prepend_row data in
-  row
+  Data.(date :: check :: pid :: service :: count :: extra :: [])
 
 let make_table ~id is_hex (init : Errors.raw) control =
   let tz_offset_s = Ptime_clock.current_tz_offset_s () in
   let show_time = Time.to_human_string ?tz_offset_s in
   let fmt =
+    let sortable = false in
     let open Table in
     let open Format in
-    (to_column ~sortable:true "Время", Time (Some show_time))
-    :: (to_column ~sortable:true "Событие", String None)
-    :: (to_column ~sortable:true "PID", pid_fmt false)
-    :: (to_column ~sortable:true "Сервис", Option (String None, ""))
-    :: (to_column ~sortable:true "Количество", Int None)
+    (to_column ~sortable "Время", Time (Some show_time))
+    :: (to_column ~sortable "Событие", String None)
+    :: (to_column ~sortable "PID", pid_fmt false)
+    :: (to_column ~sortable "Сервис", Option (String None, ""))
+    :: (to_column ~sortable "Количество", Int None)
     :: (to_column "Подробности", String None)
     :: [] in
-  let fwd =
-    let icon = Icon.SVG.(create_simple Path.chevron_right) in
-    new Icon_button.t ~icon () in
-  let bwd =
-    let icon = Icon.SVG.(create_simple Path.chevron_left) in
-    new Icon_button.t ~icon () in
-  let fst =
-    let icon = Icon.SVG.(create_simple Path.page_first) in
-    new Icon_button.t ~icon () in
-  let lst =
-    let icon = Icon.SVG.(create_simple Path.page_last) in
-    new Icon_button.t ~icon () in
-  let select = new Table.Footer.Select.t
-                 [ 5; 10; 15; 20 ] () in
-  let footer =
-    new Table.Footer.t
-      ~actions:[ fst; bwd; fwd; lst ]
-      ~rows_per_page:("Ошибок на странице: ", select) () in
-  let table = new Table.t ~footer ~dense:true ~fmt () in
-  fst#listen_click_lwt (fun _ _ ->
-      get_errors ~limit:20 ~order:`Desc ~id control
-      >|= (fun e -> table#remove_all_rows ();
-                    List.iter (ignore % add_error table % snd) e)
-      |> Lwt.map ignore)
-  |> Lwt.ignore_result;
-  fwd#listen_click_lwt (fun _ _ ->
-      let open Table in
-      let till =
-        List.fold_left (fun acc x ->
-            let cell = match x#cells with
-              | c :: _ -> c in
-            match acc with
-            | None -> Some cell#value
-            | Some acc ->
-               if Time.compare cell#value acc >= 0
-               then Some acc else Some cell#value)
-          None table#rows in
-      print_endline @@ show_time @@ Option.get_exn till;
-      get_errors ?till ~limit:20 ~order:`Desc ~id control
-      >|= (fun e -> table#remove_all_rows ();
-                    List.iter (ignore % add_error table % snd) e)
-      |> Lwt.map ignore)
-  |> Lwt.ignore_result;
-  bwd#listen_click_lwt (fun _ _ ->
-      let open Table in
-      let from =
-        List.fold_left (fun acc x ->
-            let cell = match x#cells with
-              | c :: _ -> c in
-            match acc with
-            | None -> Some cell#value
-            | Some acc ->
-               if Time.compare cell#value acc < 0
-               then Some acc else Some cell#value)
-          None table#rows in
-      print_endline @@ show_time @@ Option.get_exn from;
-      get_errors ?from ~limit:20 ~order:`Asc ~id control
-      >|= (fun e -> table#remove_all_rows ();
-                    List.iter (ignore % add_error table % snd) @@ List.rev e)
-      |> Lwt.map ignore)
-  |> Lwt.ignore_result;
-  lst#listen_click_lwt (fun _ _ ->
-      get_errors ~limit:20 ~order:`Asc ~id control
-      >|= (fun e -> table#remove_all_rows ();
-                    List.iter (ignore % add_error table % snd) @@ List.rev e)
-      |> Lwt.map ignore)
-  |> Lwt.ignore_result;
+  (* let fwd =
+   *   let icon = Icon.SVG.(create_simple Path.chevron_right) in
+   *   new Icon_button.t ~icon () in
+   * let bwd =
+   *   let icon = Icon.SVG.(create_simple Path.chevron_left) in
+   *   new Icon_button.t ~icon () in
+   * let fst =
+   *   let icon = Icon.SVG.(create_simple Path.page_first) in
+   *   new Icon_button.t ~icon () in
+   * let lst =
+   *   let icon = Icon.SVG.(create_simple Path.page_last) in
+   *   new Icon_button.t ~icon () in
+   * let select = new Table.Footer.Select.t
+   *                [ 5; 10; 15; 20 ] () in
+   * let footer =
+   *   new Table.Footer.t
+   *     ~actions:[ fst; bwd; fwd; lst ]
+   *     ~rows_per_page:("Ошибок на странице: ", select) () in
+   * let table = new Table.t ~footer ~dense:true ~fmt () in
+   * fst#listen_click_lwt (fun _ _ ->
+   *     get_errors ~limit:200 ~order:`Desc ~id control
+   *     >|= (fun e -> table#remove_all_rows ();
+   *                   List.iter (ignore % add_error table % snd) e)
+   *     |> Lwt.map ignore)
+   * |> Lwt.ignore_result;
+   * fwd#listen_click_lwt (fun _ _ ->
+   *     let open Table in
+   *     let till =
+   *       List.fold_left (fun acc x ->
+   *           let cell = match x#cells with
+   *             | c :: _ -> c in
+   *           match acc with
+   *           | None -> Some cell#value
+   *           | Some acc ->
+   *              if Time.compare cell#value acc >= 0
+   *              then Some acc else Some cell#value)
+   *         None table#rows in
+   *     print_endline @@ show_time @@ Option.get_exn till;
+   *     get_errors ?till ~limit:20 ~order:`Desc ~id control
+   *     >|= (fun e -> table#remove_all_rows ();
+   *                   List.iter (ignore % add_error table % snd) e)
+   *     |> Lwt.map ignore)
+   * |> Lwt.ignore_result;
+   * bwd#listen_click_lwt (fun _ _ ->
+   *     let open Table in
+   *     let from =
+   *       List.fold_left (fun acc x ->
+   *           let cell = match x#cells with
+   *             | c :: _ -> c in
+   *           match acc with
+   *           | None -> Some cell#value
+   *           | Some acc ->
+   *              if Time.compare cell#value acc < 0
+   *              then Some acc else Some cell#value)
+   *         None table#rows in
+   *     print_endline @@ show_time @@ Option.get_exn from;
+   *     get_errors ?from ~limit:20 ~order:`Asc ~id control
+   *     >|= (fun e -> table#remove_all_rows ();
+   *                   List.iter (ignore % add_error table % snd) @@ List.rev e)
+   *     |> Lwt.map ignore)
+   * |> Lwt.ignore_result;
+   * lst#listen_click_lwt (fun _ _ ->
+   *     get_errors ~limit:20 ~order:`Asc ~id control
+   *     >|= (fun e -> table#remove_all_rows ();
+   *                   List.iter (ignore % add_error table % snd) @@ List.rev e)
+   *     |> Lwt.map ignore)
+   * |> Lwt.ignore_result; *)
+  let table =
+    new Table.t
+      ~sticky_header:true
+      ~dense:true
+      ~fmt () in
   let on_change = fun (x : bool) ->
-    List.iter (fun row ->
-        let open Table in
-        match row#cells with
-        | _ :: _ :: pid :: _ ->
-           let fmt = pid_fmt x in
-           pid#set_format fmt)
-      table#rows in
+    let fmt =
+      let open Table.Format in
+      match fmt with
+      | a :: b :: (c, _) :: tl -> a :: b :: (c, pid_fmt x) :: tl in
+    table#set_format fmt in
   if is_hex then on_change true;
-  table, on_change, add_error
+  table, on_change
 
 class t ~id (init : Errors.raw) control () =
   (* FIXME should remember preffered state *)
   let is_hex = false in
-  let table, on_change, add_row = make_table ~id is_hex init control in
-  let actions = new Card.Actions.t ~widgets:[] () in
+  let title = "Журнал ошибок" in
+  let subtitle = "" in
+  let title' = new Card.Primary.title ~large:true title () in
+  let subtitle' = new Card.Primary.title ~large:true subtitle () in
+  let text_box = Widget.create_div ~widgets:[title'; subtitle'] () in
+  let table, on_change = make_table ~id is_hex init control in
   let media = new Card.Media.t ~widgets:[ table ] () in
   let switch = new Switch.t ~state:is_hex ~on_change () in
   let hex = new Form_field.t ~input:switch ~label:"HEX IDs" () in
+  let primary = new Card.Primary.t ~widgets:[text_box; hex#widget] () in
   object(self)
 
-    inherit Card.t ~widgets:[ actions#widget
-                            ; (new Divider.t ())#widget
-                            ; media#widget ] ()
+    val mutable _has_more = true
 
-    method add_error : Errors.t -> 'a Table.Row.t =
-      add_row table
+    inherit Card.t ~widgets:[] ()
+
+    method prepend_error (e : Errors.t) =
+      table#prepend_row (make_row_data e)
+
+    method append_error (e : Errors.t) =
+      table#append_row (make_row_data e)
 
     initializer
-      List.iter Fun.(ignore % self#add_error % snd) init;
-      actions#append_child hex;
-      self#add_class base_class
+      table#content#listen_lwt Widget.Event.scroll (fun _ _ ->
+          let el = table#content in
+          begin match _has_more,
+                      el#client_height = el#scroll_height - el#scroll_top with
+          | true, true ->
+             let till =
+               List.fold_left (fun acc row ->
+                   let time =
+                     let open Table in
+                     match row#cells with
+                     | t :: _ -> t#value in
+                   match acc with
+                   | None -> Some time
+                   | Some acc ->
+                      if Time.compare time acc >= 0
+                      then Some acc else Some time) None table#rows in
+             get_errors ?till ~limit:200 ~order:`Desc ~id control
+             >|= (fun (more, l) -> _has_more <- more; List.rev l)
+             >|= List.iter (ignore % self#append_error % snd)
+             |> Lwt.map ignore
+          | _ -> Lwt.return_unit
+          end)
+      |> Lwt.ignore_result;
+      List.iter Fun.(ignore % self#prepend_error % snd) init;
+      self#add_class base_class;
+      self#append_child primary;
+      self#append_child @@ new Divider.t ();
+      self#append_child media;
   end
 
-let make ~id init control = new t ~id init control ()
+let make ?(init : (Errors.raw, string) Lwt_result.t option)
+      (stream : Stream.t)
+      (control : int) =
+  let init = match init with
+    | Some x -> x
+    | None -> get_errors ~id:stream.id control
+              >|= snd in
+  init
+  >|= (fun errors -> new t ~id:stream.id errors control ())
+  |> Ui_templates.Loader.create_widget_loader

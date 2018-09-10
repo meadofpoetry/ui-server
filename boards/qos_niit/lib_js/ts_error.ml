@@ -97,8 +97,6 @@ module Description = struct
 
   let interval_err ?(coef = 0.1) ?(short = false)
         ~prefix ~cmp_word ~period (e : Errors.t) =
-    if e.err_code = 0x24
-    then Printf.printf "param1: %ld\n" e.param_1;
     let got = Int32.to_float e.param_1 *. coef
               |> fun x -> integrate_interval x period in
     match period with

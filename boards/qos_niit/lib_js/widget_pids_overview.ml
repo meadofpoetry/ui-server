@@ -259,6 +259,6 @@ let make ?(init : (pids option, string) Lwt_result.t option)
        let open Requests.Streams.HTTP in
        get_last_pids ~id:stream.id control in
   init
-  >|= (fun pids-> new t pids ())
+  >|= (fun pids -> new t pids ())
   |> Ui_templates.Loader.create_widget_loader
 
