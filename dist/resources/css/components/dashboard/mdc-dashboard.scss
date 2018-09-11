@@ -91,8 +91,11 @@
     transition: all 100ms ease-out;
     transition-delay: 140ms;
     &__heading {
-        height: 18px;
+        padding: 0;
+        align-items: center;
+        height: 52px;
         .mdc-card__title {
+            padding: 1rem;
             @include mdc-typography(caption);
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -101,21 +104,6 @@
         display: flex;
         flex-direction: row;
         justify-content: space-between;
-    }
-    &__heading-buttons {
-        display: flex;
-        justify-content: flex-end;
-    }
-    &__heading-button {
-        @include mdc-theme-prop(color,text-icon-on-surface);
-        font-size: 16px;
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-left: 10px;
     }
     &__content {
         // margin: 15px;

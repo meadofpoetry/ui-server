@@ -188,8 +188,10 @@ module Structure = struct
 
   let make_structure_list (sl : Structure.t list) =
     match sl with
-    | [] -> let ph = Ui_templates.Placeholder.create_with_icon
-                       ~text:"Потоки не обнаружены" ~icon:"info" () in
+    | [] -> let ph =
+              Ui_templates.Placeholder.create_with_icon
+                ~text:"Потоки не обнаружены"
+                ~icon:Icon.SVG.(create_simple Path.information) () in
             ph#widget, React.S.const None
     | sl -> let wl, sl = List.split @@ List.map make_structure sl in
             let sl_s   = React.S.merge ~eq:Equal.physical (fun a p -> p::a) [] sl in

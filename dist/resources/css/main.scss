@@ -31,7 +31,9 @@ body {
     margin: 0;
     background-color: #ececec;
 }
-.material-icons { user-select: none; }
+.material-icons {
+    user-select: none;
+}
 #main-drawer {
     z-index: 21;
 }
@@ -51,6 +53,9 @@ body {
     .mdc-toolbar__title {
         font-weight: 300;
         font-size: 24px;
+    }
+    .mdc-toolbar__icon {
+        fill: currentcolor;
     }
 }
 #main-content {

@@ -23,23 +23,25 @@ class ['a] t ~(items:'a Item.positioned_item list) (factory:'a #factory) () =
   in
   let add_icon  = Icon.SVG.(new t ~paths:Path.[ new t plus () ] ()) in
   let edit_icon = Icon.SVG.(new t ~paths:Path.[ new t pencil () ] ()) in
-  let add    = new Fab.t ~icon:add_icon () in
-  let fab    = new Fab_speed_dial.t
-                 ~direction:`Up
-                 ~animation:`Scale
-                 ~icon:edit_icon
-                 ~items:[add] () in
-  let e,push = React.E.create () in
+  let add = new Fab.t ~icon:add_icon () in
+  let fab = new Fab_speed_dial.t
+              ~direction:`Up
+              ~animation:`Scale
+              ~icon:edit_icon
+              ~items:[add] () in
+  let e, push = React.E.create () in
   object(self)
 
-    inherit Vbox.t ~widgets:[grid#widget;fab#widget] ()
+    inherit Vbox.t ~widgets:[ grid#widget; fab#widget ] ()
 
     method e_edited : Yojson.Safe.json React.event = e
 
     method grid = grid
 
     method serialize () : Yojson.Safe.json =
-      List.map (fun x -> ({ position = x#pos; item = fst x#value}:'a Item.positioned_item)) self#grid#items
+      List.map (fun x ->
+          ({ position = x#pos; item = fst x#value} : 'a Item.positioned_item))
+        self#grid#items
       |> list_to_yojson (Item.positioned_item_to_yojson factory#serialize)
 
     method deserialize (json:Yojson.Safe.json) : ('a Item.positioned_item list,string) result =

@@ -18,13 +18,14 @@ module WS = struct
     Api.Socket.handler socket_table sock_data events.status status_to_yojson body
 
   let errors (events:events) errors _ body sock_data () =
+    let to_yojson = Json.List.to_yojson board_error_to_yojson in
     let e = match errors with
       | [] -> events.errors
       | _  ->
          React.E.fmap (fun l ->
              List.filter (fun (x:board_error) -> List.mem ~eq:(=) x.err_code errors) l
              |> function [] -> None | l -> Some l) events.errors
-    in Api.Socket.handler socket_table sock_data e board_errors_to_yojson body
+    in Api.Socket.handler socket_table sock_data e to_yojson body
 
   let mode mode (events:events) _ body sock_data () =
     let open React.S in

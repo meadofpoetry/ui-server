@@ -16,7 +16,7 @@ module WS = struct
     WS.get ~from:status_of_yojson ~path ~query:Query.empty control
 
   let get_errors ?(errors=[]) control =
-    WS.get ~from:board_errors_of_yojson
+    WS.get ~from:(Json.List.of_yojson board_error_of_yojson)
       ~path:Path.Format.(get_base_path () / ("errors" @/ empty))
       ~query:Query.["errors", (module List(Int))]
       control errors

@@ -41,8 +41,9 @@ module Row = struct
           | `End    -> super#add_class Markup.Row.Section.align_end_class
           | `Center -> ()
 
-        method set_shrink_to_fit x = Markup.Row.Section.shrink_to_fit_class
-                                     |> (fun c -> if x then super#add_class c else super#remove_class c)
+        method set_shrink_to_fit x =
+          Markup.Row.Section.shrink_to_fit_class
+          |> (fun c -> if x then super#add_class c else super#remove_class c)
 
         method private remove_align =
           align <- `Center;

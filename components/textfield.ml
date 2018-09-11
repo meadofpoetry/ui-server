@@ -3,6 +3,9 @@ open Tyxml_js
 
 module Markup = Components_markup.Textfield.Make(Xml)(Svg)(Html)
 
+let x = ref (Unix.time () |> int_of_float)
+let get_id = fun () -> incr x; Printf.sprintf "text-field-%d" !x
+
 module Pure = struct
 
   class ['a] t ?(input_type = Widget.Text) ~input_id ?placeholder ?box () =
@@ -57,12 +60,15 @@ module Help_text = struct
 
 end
 
-class ['a] t ~input_type ~input_id ?label ?placeholder ?icon ?help_text ?box ?outline () =
+class ['a] t ?input_id ?label ?placeholder ?icon ?help_text ?box ?outline
+        ~input_type () =
 
+  let input_id = match input_id with
+    | None -> get_id ()
+    | Some s -> s in
   let floating_label = match label with
     | None   -> None
-    | Some x -> Some (Markup.Floating_label.create ~data:x ~fore:input_id ())
-  in
+    | Some x -> Some (Markup.Floating_label.create ~data:x ~fore:input_id ()) in
   let icon_widget =
     Option.map (fun { clickable; icon; _ } ->
         new Widget.t
@@ -71,9 +77,9 @@ class ['a] t ~input_type ~input_id ?label ?placeholder ?icon ?help_text ?box ?ou
       icon in
   let help_text_widget  = Option.map (fun x -> new Help_text.t x ()) help_text in
   let text_field_widget =
-    let get_icon pos = (match icon,icon_widget with
-                        | (Some x,Some w) when Equal.poly x.pos pos -> Some (Widget.to_markup w)
-                        | _ -> None) in
+    let get_icon pos = match icon, icon_widget with
+      | Some x, Some w when Equal.poly x.pos pos -> Some (Widget.to_markup w)
+      | _ -> None in
     Markup.create ~input_type:(Widget.input_type_of_validation input_type)
       ~input_id
       ?label:floating_label
@@ -86,7 +92,7 @@ class ['a] t ~input_type ~input_id ?label ?placeholder ?icon ?help_text ?box ?ou
       ?outline
       ()
     |> Tyxml_js.To_dom.of_element
-    |> (fun x -> new Widget.t x ()) in
+    |> Widget.create in
   let elt =
     let tf = Widget.to_markup text_field_widget in
     Option.map_or
@@ -130,6 +136,7 @@ class ['a] t ~input_type ~input_id ?label ?placeholder ?icon ?help_text ?box ?ou
 
     method set_dense x       =
       self#text_field_widget#add_or_remove_class x Markup.dense_class
+
     method set_full_width x  =
       self#add_or_remove_class x Markup.fullwidth_class
 
@@ -144,6 +151,7 @@ class ['a] t ~input_type ~input_id ?label ?placeholder ?icon ?help_text ?box ?ou
 
     method! disabled       =
       Js.to_bool mdc##.disabled
+
     method! set_disabled x =
       mdc##.disabled := Js.bool x
 
@@ -152,6 +160,7 @@ class ['a] t ~input_type ~input_id ?label ?placeholder ?icon ?help_text ?box ?ou
       self#text_field_widget#add_class Markup.upgraded_class;
       Option.iter (fun x -> x#add_class Markup.label_float_above_class)
         self#label_widget
+
     method! clear () =
       super#clear ();
       self#text_field_widget#remove_class Markup.upgraded_class;

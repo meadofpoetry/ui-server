@@ -11,12 +11,16 @@ input:
 	cp _build/default/frontend/input.bc.js dist/resources/js/input.js
 
 pipeline:
-	$(BUILD) build frontend/pipeline.bc.js
-	cp _build/default/frontend/pipeline.bc.js dist/resources/js/pipeline.js
+	$(BUILD) build frontend/pipeline_video.bc.js
+	$(BUILD) build frontend/pipeline_editor.bc.js
+	cp _build/default/frontend/pipeline_video.bc.js dist/resources/js/pipeline_video.js
+	cp _build/default/frontend/pipeline_editor.bc.js dist/resources/js/pipeline_editor.js
 
 hardware:
 	$(BUILD) build frontend/topology.bc.js
+	$(BUILD) build frontend/board_qos_stream.bc.js
 	cp _build/default/frontend/topology.bc.js dist/resources/js/topology.js
+	cp _build/default/frontend/board_qos_stream.bc.js dist/resources/js/board_qos_stream.js
 
 user:
 	$(BUILD) build frontend/user.bc.js

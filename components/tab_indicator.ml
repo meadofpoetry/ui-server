@@ -50,7 +50,7 @@ class t ?(fade=false) ?(active=false) () =
          let cur_rect  = self#content#bounding_client_rect in
          let width_delta = match prev_rect.width, cur_rect.width with
            | Some pw, Some cw -> pw /. cw
-           | _                -> 1. (* FIXME*) in
+           | _ -> 1. (* FIXME*) in
          let x_position  = prev_rect.left -. cur_rect.left in
          let s = Printf.sprintf "translateX(%gpx) scaleX(%g)"
                    x_position width_delta in

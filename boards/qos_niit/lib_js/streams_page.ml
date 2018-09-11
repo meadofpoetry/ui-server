@@ -30,14 +30,14 @@ module Stream_item = struct
     | TS   -> "MPEG-TS"
     | T2MI -> "T2-MI"
 
-  let source_to_string (source:Stream.source) : string =
-    let rec aux acc (source:Stream.source) =
+  let source_to_string (source : Stream.source) : string =
+    let rec aux acc (source : Stream.source) =
       let open Topology in
       match source.node with
       | Entry (Input i) -> ("Вход "  ^ Topology.get_input_name i) :: acc
       | Entry (Board b) -> ("Плата " ^ b.model) :: acc
-      | Stream (stream:Stream.t) ->
-         let s = "Поток " ^ (Stream.Source.to_string source.info) in
+      | Stream (stream : Stream.t) ->
+         let s = "Поток " ^ (Stream.Source.to_string stream.source.info) in
          aux (s :: acc) stream.source in
     String.concat " -> " @@ aux [] source
 
@@ -78,9 +78,11 @@ module Stream_item = struct
 
       initializer
         self#add_class base_class;
-        Dom_events.listen self#root Dom_events.Typ.click (fun _ _ ->
-            Stream_page.make stream control |> ignore;
-            print_endline "clicked"; true) |> ignore;
+        self#listen_lwt Widget.Event.click (fun _ _ ->
+            let id = Stream.ID.to_string self#stream.id in
+            let url = Printf.sprintf "/board/%d/stream/%s" control id in
+            Dom_html.window##.location##.href := Js.string url;
+            Lwt.return_unit) |> Lwt.ignore_result;
         React.E.map (function
             | Some _ ->
                on_found self;
@@ -103,24 +105,24 @@ module Stream_item = struct
 
 end
 
-let find_cell (w:Stream_item.t)
-      (cells:Layout_grid.Cell.t list) =
+let find_cell (w : Stream_item.t)
+      (cells : Layout_grid.Cell.t list) =
   let f : Widget.t list -> bool = function
-    | [ wdg ] -> Equal.physical w#root wdg#root
-    | _       -> false in
+    | [wdg] -> Widget.equal w#widget wdg
+    | _ -> false in
   List.find_opt (fun x -> f x#widgets) cells
 
 module Stream_grid = struct
 
   let base_class = "qos-niit-stream-grid"
 
-  class t (init:(Stream.t * time) list)
-          (event:Stream.t list React.event)
+  class t (init : (Stream.t * time) list)
+          (event : Stream.t list React.event)
           control
           () =
     let ph =
       Ui_templates.Placeholder.create_with_icon
-        ~icon:"info"
+        ~icon:Icon.SVG.(create_simple Path.information)
         ~text:"Не найдено ни одного потока"
         () in
     let title         = new Typography.Text.t ~text:"Текущие потоки" () in
@@ -224,7 +226,7 @@ let make input control =
       control
     >>= (function
          | Compressed x -> Lwt_result.return x.data
-         | _            -> Lwt.fail_with "raw")
+         | _ -> Lwt.fail_with "raw")
     |> Lwt_result.map_err Api_js.Requests.err_to_string in
   streams
   >|= (fun streams ->

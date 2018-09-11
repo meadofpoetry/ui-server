@@ -16,10 +16,12 @@ let get_board_name (board:Common.Topology.topo_board) = match board.typ with
 module Header = struct
 
   class t (board:Common.Topology.topo_board) () =
-    let _class     = Markup.CSS.add_element base_class "header" in
-    let title      = get_board_name board in
-    let subtitle   = Printf.sprintf "%s" board.model in
-    let settings   = new Icon.Button.Font.t ~icon:"settings" () in
+    let _class = Markup.CSS.add_element base_class "header" in
+    let title = get_board_name board in
+    let subtitle = Printf.sprintf "%s" board.model in
+    let settings =
+      new Icon_button.t
+        ~icon:Icon.SVG.(create_simple Path.settings) () in
     object(self)
       inherit Topo_block.Header.t ~action:settings#widget ~title ~subtitle ()
       initializer
@@ -28,14 +30,14 @@ module Header = struct
       method layout () = self#settings_icon#layout ()
     end
 
-  let create (board:Common.Topology.topo_board) =
+  let create (board : Common.Topology.topo_board) =
     new t board ()
 
 end
 
 module Body = struct
 
-  class t (board:Common.Topology.topo_board) () =
+  class t (board : Common.Topology.topo_board) () =
     let _class = Markup.CSS.add_element base_class "body" in
     object(self)
       inherit Topo_block.Body.t (List.length board.ports) ()
@@ -65,78 +67,84 @@ and eq_board b1 b2 =
   && equal_env b1.env b2.env
   && (Equal.list eq_port) b1.ports b2.ports
 
-let eq_node_entry (e1:Topo_node.node_entry) (e2:Topo_node.node_entry) =
+let eq_node_entry (e1 : Topo_node.node_entry) (e2 : Topo_node.node_entry) =
   let open Common.Topology in
-  match e1,e2 with
-  | `CPU c1, `CPU c2     -> equal_topo_cpu c1 c2
-  | `Entry e1, `Entry e2 -> (match e1,e2 with
-                             | Board b1, Board b2 -> eq_board b1 b2
-                             | Input i1, Input i2 -> equal_topo_input i1 i2
-                             | _                  -> false)
-  | _                    -> false
+  match e1, e2 with
+  | `CPU c1, `CPU c2 -> equal_topo_cpu c1 c2
+  | `Entry e1, `Entry e2 ->
+     begin match e1,e2 with
+     | Board b1, Board b2 -> eq_board b1 b2
+     | Input i1, Input i2 -> equal_topo_input i1 i2
+     | _ -> false
+     end
+  | _ -> false
 
-let make_board_page ?error_prefix (board:Common.Topology.topo_board) =
-  match board.typ,board.model,board.manufacturer,board.version with
-  | "TS","qos","niitv",1 ->
+let make_board_page ?error_prefix (board : Common.Topology.topo_board) =
+  match board.typ, board.model, board.manufacturer, board.version with
+  | "TS", "qos", "niitv", 1 ->
      Board_qos_niit_js.Topo_page.make ?error_prefix board
-  | "DVB","rf","niitv",1 ->
+  | "DVB", "rf", "niitv", 1 ->
      let open Board_dvb_niit_js in
      let factory    = new Widget_factory.t board.control () in
-     let {widget;_} : Dashboard.Item.item = factory#create @@ Settings (Some { ids = None }) in
+     let { widget; _ } : Dashboard.Item.item =
+       factory#create @@ Settings (Some { ids = None }) in
      widget#set_on_destroy @@ Some factory#destroy;
      Lwt_result.return widget
-  | "TS2IP","ts2ip","niitv",1 ->
+  | "TS2IP", "ts2ip", "niitv", 1 ->
      let w = new Board_ts2ip_niit_js.Settings.settings board.control () in
      Lwt_result.return w
-  | "IP2TS","dtm-3200","dektec",1 ->
+  | "IP2TS", "dtm-3200", "dektec", 1 ->
      let open Board_ip_dektec_js in
      let factory = new Widget_factory.t board.control () in
-     let ({widget;_}:Dashboard.Item.item) = factory#create @@ Settings None in
+     let ({ widget; _ } : Dashboard.Item.item) = factory#create @@ Settings None in
      widget#set_on_destroy @@ Some factory#destroy;
      Lwt_result.return widget
-  | typ,model,manuf,_ ->
-     let s = Printf.sprintf "Неизвестная плата: %s\nМодель: %s\nПроизводитель: %s" typ model manuf in
+  | typ, model, manuf, _ ->
+     let s = Printf.sprintf "Неизвестная плата: %s\n\
+                             Модель: %s\n\
+                             Производитель: %s" typ model manuf in
      Lwt_result.fail s
 
 let port_setter (b:Common.Topology.topo_board) port state =
-  match b.typ,b.model,b.manufacturer,b.version with
-  | "TS","qos","niitv",1 -> Board_qos_niit_js.Requests.Device.HTTP.post_port ~port ~state b.control
-                            |> Lwt_result.map (fun _ -> ())
-                            |> Lwt_result.map_err (fun _ -> "failed switching port")
-  | "DVB","rf","niitv",1          -> Lwt_result.fail "ports not switchable"
-  | "TS2IP","ts2ip","niitv",1     -> Lwt_result.fail "ports not switchable"
-  | "IP2TS","dtm-3200","dektec",1 -> Lwt_result.fail "ports not switchable"
-  | _                             -> Lwt_result.fail "Unknown board"
+  match b.typ, b.model, b.manufacturer, b.version with
+  | "TS", "qos", "niitv", 1 ->
+     Board_qos_niit_js.Requests.Device.HTTP.post_port ~port ~state b.control
+     |> Lwt_result.map (fun _ -> ())
+     |> Lwt_result.map_err (fun _ -> "failed switching port")
+  | "DVB", "rf", "niitv", 1 -> Lwt_result.fail "ports not switchable"
+  | "TS2IP", "ts2ip", "niitv", 1 -> Lwt_result.fail "ports not switchable"
+  | "IP2TS", "dtm-3200", "dektec", 1 -> Lwt_result.fail "ports not switchable"
+  | _ -> Lwt_result.fail "Unknown board"
 
-class t ~(connections:(#Topo_node.t * connection_point) list)
-        (board:Common.Topology.topo_board)
+class t ~(connections : (#Topo_node.t * connection_point) list)
+        (board : Common.Topology.topo_board)
         () =
-  let s,push     = React.S.create board.connection in
-  let header     = Header.create board in
-  let body       = Body.create board in
-  let e_settings = React.E.map (fun _ -> board) header#settings_icon#e_click in
+  let s, push = React.S.create board.connection in
+  let header = Header.create board in
+  let body = Body.create board in
   object(self)
     val mutable _board = board
 
     inherit Topo_block.t
               ~port_setter:(port_setter board)
-              ~node:(`Entry (Board board)) ~connections ~header ~body () as super
+              ~node:(`Entry (Board board))
+              ~connections ~header ~body () as super
 
-    method layout ()    = super#layout (); header#layout ()
-    method e_settings   = e_settings
-    method s_state      = s
-    method board        = _board
-    method set_board x  =
+    method layout () = super#layout (); header#layout ()
+    method settings_button = header#settings_icon
+    method s_state = s
+    method board = _board
+    method set_board x =
       _board <- x;
       push x.connection;
       super#set_state x.connection;
       match x.connection with
       | `Fine -> self#set_ports x.ports;
-      | _     -> List.iter (fun p -> p#set_state `Unavailable)
-                   self#paths
+      | _ -> List.iter (fun p -> p#set_state `Unavailable)
+               self#paths
 
     method private set_ports l  =
-      List.iter (fun (x:Common.Topology.topo_port) ->
+      List.iter (fun (x : Common.Topology.topo_port) ->
           match List.find_opt (fun p -> eq_node_entry p#left_node
                                           (`Entry x.child)) self#paths with
           | Some path ->
@@ -153,5 +161,5 @@ class t ~(connections:(#Topo_node.t * connection_point) list)
       self#set_attribute "data-board" _board.typ
   end
 
-let create ~connections (board:Common.Topology.topo_board) =
+let create ~connections (board : Common.Topology.topo_board) =
   new t ~connections board ()

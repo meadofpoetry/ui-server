@@ -136,8 +136,7 @@ module Descriptor = struct
          ; to_node ~parsed:fr ~offset:(off + off_1) 4 "frame_rate" (Hex (Int frame_rate))
          ; to_node ~offset:(off + off_2) 1 "MPEG_1_only_flag" (Bits (Bool true))
          ; to_node ~offset:(off + off_3) 1 "constrained_parameter_flag" (Bits (Bool const_par_flag))
-         ; to_node ~offset:(off + off_4) 1 "still_picture_flag" (Bits (Bool still_pict_flag))
-         ]
+         ; to_node ~offset:(off + off_4) 1 "still_picture_flag" (Bits (Bool still_pict_flag)) ]
       | {| mfr_flag        : 1
          ; frame_rate      : 4 : save_offset_to (off_1)
          ; false           : 1 : save_offset_to (off_2)
@@ -158,8 +157,7 @@ module Descriptor = struct
          ; to_node ~offset:(off + off_5) 8 "profile_and_level_indication" (Hex (Int profile_lvl_ind))
          ; to_node ~parsed:chroma ~offset:(off + off_6) 2 "chroma_format" (Bits (Bool true))
          ; to_node ~offset:(off + off_7) 1 "frame_rate_extension_flag" (Bits (Bool fr_ext_flag))
-         ; to_node ~offset:(off + off_8) 5 "reserved" (Bits (Int reserved))
-         ]
+         ; to_node ~offset:(off + off_8) 5 "reserved" (Bits (Int reserved)) ]
   end
 
   (* 0x03 *)
@@ -179,8 +177,7 @@ module Descriptor = struct
          ; to_node ~offset:(off + off_1) 1 "id" (Bits (Bool id))
          ; to_node ~offset:(off + off_2) 2 "layer" (Dec (Int layer))
          ; to_node ~offset:(off + off_3) 1 "variable_rate" (Bits (Bool variable_rate))
-         ; to_node ~offset:(off + off_4) 3 "reserved" (Bits (Int reserved))
-         ]
+         ; to_node ~offset:(off + off_4) 3 "reserved" (Bits (Int reserved)) ]
   end
 
   (* 0x04 *)
@@ -220,16 +217,15 @@ module Descriptor = struct
          [ to_node ~offset:off 1 "reserved_1" (Bits (Bool reserved_1))
          ; to_node ~offset:(off_1 + off)  1 "temporal_scalability" (Bits (Bool temporal_scalability))
          ; to_node ~offset:(off_2 + off)  1 "quality_scalability" (Bits (Bool quality_scalability))
-         ; to_node ~offset:(off_3 + off)  6 "spatial_scalability" (Bits (Bool spatial_scalability))
-         ; to_node ~parsed ~offset:(off_4 + off)  4 "hierarchy_type" (Hex (Int hier_typ))
+         ; to_node ~offset:(off_3 + off)  1 "spatial_scalability" (Bits (Bool spatial_scalability))
+         ; to_node ~parsed ~offset:(off_4 + off) 4 "hierarchy_type" (Hex (Int hier_typ))
          ; to_node ~offset:(off_5 + off)  2 "reserved_2" (Bits (Int reserved_2))
          ; to_node ~offset:(off_6 + off)  6 "hierarchy_layer_index" (Dec (Int hierarchy_index))
          ; to_node ~offset:(off_7 + off)  1 "tref_present_flag" (Bits (Bool tref_present_flag))
          ; to_node ~offset:(off_8 + off)  1 "reserved_3" (Bits (Bool reserved_3))
          ; to_node ~offset:(off_9 + off)  6 "hierarchy_embedded_layer_index" (Dec (Int emb_index))
          ; to_node ~offset:(off_10 + off) 2 "reserved_4" (Bits (Int reserved_4))
-         ; to_node ~offset:(off_11 + off) 6 "hierarchy_channel" (Dec (Int hierarchy_channel))
-         ]
+         ; to_node ~offset:(off_11 + off) 6 "hierarchy_channel" (Dec (Int hierarchy_channel)) ]
 
   end
 
@@ -243,8 +239,13 @@ module Descriptor = struct
       | {| format_id : 32
          ; rest      : -1 : save_offset_to (off_1), bitstring
          |} ->
-         let node = to_node ~offset:off 32 "format_identifier" (Hex (Int32 format_id)) in
-        node ::  parse_bytes ~offset:(off + off_1) rest "additional_identification_info"
+         let info = match Text_decoder.decode @@ Bitstring.to_cstruct rest with
+           | Ok s    -> s
+           | Error _ -> "Unable to decode"
+         in
+         [ to_node ~offset:off 32 "format_identifier" (Hex (Int32 format_id))
+         ; to_node ~offset:(off + off_1) (Bitstring.length rest)
+             "additional_identification_info" (String info) ]
 
   end
 
@@ -282,8 +283,7 @@ module Descriptor = struct
          |} ->
          [ to_node ~offset:off 14 "horizontal_size" (Dec (Int horizontal_size))
          ; to_node ~offset:(off_1 + off) 14 "vertical_size" (Dec (Int vertical_size))
-         ; to_node ~offset:(off_2 + off) 4  "aspect_ratio_information" (Hex (Int asp_ratio_inf))
-         ]
+         ; to_node ~offset:(off_2 + off) 4  "aspect_ratio_information" (Hex (Int asp_ratio_inf)) ]
 
   end
 
@@ -300,8 +300,7 @@ module Descriptor = struct
          |} ->
          [ to_node ~offset:off 14 "horizontal_offset" (Dec (Int horizontal_offset))
          ; to_node ~offset:(off_1 + off) 14 "vertical_offset" (Dec (Int vertical_offset))
-         ; to_node ~offset:(off_2 + off) 4  "window_priority" (Dec (Int window_priority))
-         ]
+         ; to_node ~offset:(off_2 + off) 4  "window_priority" (Dec (Int window_priority)) ]
 
   end
 
@@ -320,8 +319,7 @@ module Descriptor = struct
          let nodes =
            [ to_node ~offset:off 16 "CA_system_id" (Hex (Int ca_system_id))
            ; to_node ~offset:(off_1 + off) 3  "reserved" (Bits (Int reserved))
-           ; to_node ~offset:(off_2 + off) 13 "CA_PID" (Hex (Int ca_pid))
-           ]
+           ; to_node ~offset:(off_2 + off) 13 "CA_PID" (Hex (Int ca_pid)) ]
          in
          nodes @ parse_bytes ~offset:(off + off_3) private_data "private_data_byte"
 
@@ -341,20 +339,21 @@ module Descriptor = struct
 
     let name = "ISO_639_language_descriptor"
 
-    let rec f  = fun offset x ->
+    let rec f = fun off x ->
       if Bitstring.length x = 0 then []
       else (match%bitstring x with
-            | {| language_code : 24
-               ; audio         : 8  : save_offset_to (off_1)
-               ; rest          : -1 : save_offset_to (off_2), bitstring
+            | {| lang_code : 24 : bitstring
+               ; audio     : 8  : save_offset_to (off_1)
+               ; rest      : -1 : save_offset_to (off_2), bitstring
                |} ->
                let typ = audio_to_string audio in
+               let lang, lang_code = parse_lang_code lang_code in
                let nodes =
-                 [ to_node ~offset 24 "ISO_639_language_code" (Hex (Int language_code))
-                 ; to_node ~parsed:typ ~offset:(off_1 +offset) 8 "audio_type" (Hex (Int audio))
-                 ]
+                 [ to_node ~parsed:lang ~offset:off 24 "ISO_639_language_code" (Bits (Int lang_code))
+                 ; to_node ~parsed:typ  ~offset:(off_1 + off) 8 "audio_type" (Hex (Int audio)) ]
                in
-               nodes @ f (offset + off_2) rest)
+               let node = to_node ~offset:off 32 lang (List nodes) in
+               node :: f (off + off_2) rest)
 
     let decode bs off = f off bs
 
@@ -382,8 +381,7 @@ module Descriptor = struct
          ; to_node ~offset:(off_1 + off) 1 "reserved" (Bits (Bool reserved_1))
          ; to_node ~offset:(off_2 + off) 6 "clock_accuracy_integer" (Dec (Int clock_acc_int))
          ; to_node ~offset:(off_3 + off) 3 "clock_accuracy_exponent" (Dec (Int clock_acc_exp))
-         ; to_node ~offset:(off_4 + off) 5 "reserved"  (Bits (Int reserved_2))
-	       ]
+         ; to_node ~offset:(off_4 + off) 5 "reserved" (Bits (Int reserved_2)) ]
 
   end
 
@@ -401,9 +399,8 @@ module Descriptor = struct
          |} ->
          [ to_node ~offset:off 1 "bound_valid_flag" (Bits (Bool bound_valid_flag))
          ; to_node ~offset:(off_1 + off) 15 "LTW_offset_lower_bound" (Dec (Int lower_bound))
-         ; to_node ~offset:(off_2 + off) 1 "reserved" (Bits (Bool reserved))
-         ; to_node ~offset:(off_3 + off) 15 "LTW_offset_upper_bound" (Dec (Int upper_bound))
-         ]
+         ; to_node ~offset:(off_2 + off) 1  "reserved" (Bits (Bool reserved))
+         ; to_node ~offset:(off_3 + off) 15 "LTW_offset_upper_bound" (Dec (Int upper_bound)) ]
 
   end
 
@@ -422,7 +419,8 @@ module Descriptor = struct
            | Error _ -> "Unable to decode"
          in
          [ to_node ~offset:off 32 "copyright_identifier" (Hex (Int32 copyright_id))
-         ; to_node ~offset:(off + off_1) (Bitstring.length rest) "additional copyright info" (String info)]
+         ; to_node ~offset:(off + off_1) (Bitstring.length rest)
+             "additional copyright info" (String info) ]
 
   end
 
@@ -437,8 +435,7 @@ module Descriptor = struct
          ; maximum_bitrate : 22 : save_offset_to (off_1)
          |} ->
          [ to_node ~offset:off 2 "reserved" (Bits (Int reserved))
-         ; to_node ~offset:(off+off_1) 22 "maximum_bitrate" (Dec (Uint maximum_bitrate))
-         ]
+         ; to_node ~offset:(off+off_1) 22 "maximum_bitrate" (Dec (Uint maximum_bitrate)) ]
 
   end
 
@@ -451,7 +448,7 @@ module Descriptor = struct
       match%bitstring bs with
       | {| private_data_indicator : 32
          |} ->
-         [ to_node ~offset:off 32 "private_data_indicator" (Hex (Int32 private_data_indicator))]
+         [ to_node ~offset:off 32 "private_data_indicator" (Hex (Int32 private_data_indicator)) ]
 
   end
 
@@ -470,8 +467,7 @@ module Descriptor = struct
          [ to_node ~offset:off 2 "reserved" (Bits (Int reserved_1))
          ; to_node ~offset:(off_1 + off) 22 "sb_leak_rate" (Dec (Int sb_leak_rate))
          ; to_node ~offset:(off_2 + off) 2  "reserved" (Bits (Int reserved_2))
-         ; to_node ~offset:(off_3 + off) 22 "sb_size" (Dec (Int sb_size))
-         ]
+         ; to_node ~offset:(off_3 + off) 22 "sb_size" (Dec (Int sb_size)) ]
 
   end
 
@@ -486,8 +482,7 @@ module Descriptor = struct
          ; leak_valid_flag : 1 : save_offset_to (off_1)
          |} ->
          [ to_node ~offset:off 7 "reserved" (Bits (Int reserved))
-         ; to_node ~offset:(off_1 + off) 1 "leak_valid_flag" (Bits (Bool leak_valid_flag))
-         ]
+         ; to_node ~offset:(off_1 + off) 1 "leak_valid_flag" (Bits (Bool leak_valid_flag)) ]
 
   end
 
@@ -504,8 +499,7 @@ module Descriptor = struct
          |} ->
          [ to_node ~offset:off 7 "closed_gop_flag" (Bits (Bool closed_gop_flag))
          ; to_node ~offset:(off_1 + off) 1 "identical_gop_flag" (Bits (Bool identical_gop_flag))
-         ; to_node ~offset:(off_2 + off) 1 "max_gop_length" (Dec (Int max_gop_length))
-         ]
+         ; to_node ~offset:(off_2 + off) 1 "max_gop_length" (Dec (Int max_gop_length)) ]
 
   end
 
@@ -614,8 +608,7 @@ module Descriptor = struct
          |} ->
          [ to_node ~offset:off 8 "Scope_of_IOD_label" (Hex (Int scope_of_iod_label))
          ; to_node ~offset:(off_1 + off) 8 "IOD_label" (Hex (Int iod_label))
-         ; to_node ~offset:(off_2 + off) 8 "InitialObjectDesc" (Hex (Int initial_obj_desc))
-         ]
+         ; to_node ~offset:(off_2 + off) 8 "InitialObjectDesc" (Hex (Int initial_obj_desc)) ]
 
   end
 
@@ -637,7 +630,7 @@ module Descriptor = struct
 
     let name = "FMC_descriptor"
 
-    let rec f = fun offset x ->
+    let rec f = fun off x ->
       if Bitstring.length x = 0 then []
       else (match%bitstring x with
             | {| es_id       : 16
@@ -645,10 +638,12 @@ module Descriptor = struct
                ; rest        : -1 : save_offset_to (off_2), bitstring
                |} ->
                let nodes =
-                 [ to_node ~offset 16 "ES_ID" (Hex (Int es_id))
-                 ; to_node ~offset:(offset + off_1) 8 "FlexMuxChannel" (Hex (Int flex_mux_ch))]
+                 [ to_node ~offset:off 16 "ES_ID" (Hex (Int es_id))
+                 ; to_node ~offset:(off + off_1) 8 "FlexMuxChannel" (Hex (Int flex_mux_ch))]
                in
-               nodes @ f (offset + off_2) rest)
+               let id = Printf.sprintf "ES_ID %s" (string_of_int es_id) in
+               let node = to_node ~offset:off 24 id (List nodes) in
+               node :: f (off + off_2) rest)
 
     let decode bs off = f off bs
 
@@ -685,7 +680,9 @@ module Descriptor = struct
                 [ to_node ~offset 8 s_1 (Dec (Int channel))
                 ; to_node ~offset:(offset + off_1) 8 s_2 (Dec (Int num)) ]
               in
-              nodes @ f_2 ~offset:(offset + off_2) ~i ~k:(k + 1) rest
+              let channel_name = Printf.sprintf "Channel %s" (string_of_int channel) in
+              let node = to_node ~offset 16 channel_name (List nodes) in
+              node :: f_2 ~offset:(offset + off_2) ~i ~k:(k + 1) rest
 
     let rec f_1 ~offset ~i x =
       if Bitstring.length x = 0 then []
@@ -697,10 +694,12 @@ module Descriptor = struct
                |} ->
               let nodes =
                 [ to_node ~offset 5 "slotCount" (Dec (Int slot_count))
-                ; to_node ~offset:(offset + off_1) 8 "repetitionCount" (Dec (Int rep_count)) ]
+                ; to_node ~offset:(offset + off_1) 3 "repetitionCount" (Dec (Int rep_count)) ]
               in
               let channels = nodes @ f_2 ~offset:(offset + off_2) ~i ~k:0 channels in
-              channels @ f_1 ~offset:(offset + off_3) ~i:(i + 1) rest
+              let slot_name = Printf.sprintf "Slot %s" (string_of_int slot_count) in
+              let node = to_node ~offset (8 + slot_count * 16) slot_name (List channels) in
+              node :: f_1 ~offset:(offset + off_3) ~i:(i + 1) rest
 
     (* ISO/IEC 14496-1 11.2.4.3 *)
     let decode bs off =
@@ -799,8 +798,7 @@ module Descriptor = struct
                   ; to_node ~offset:(off + off_2) 7  "reserved" (Bits (Int reserved_2))
                   ; to_node ~offset:(off + off_3) 33 "metadata_time_base_value" (Hex (Int64 md_value))
                   ; to_node ~offset:(off + off_4) 1  "reserved" (Bits (Bool reserved_3))
-                  ; to_node ~offset:(off + off_5) 33 "contentId" (Hex (Int contentid))
-                  ]
+                  ; to_node ~offset:(off + off_5) 33 "contentId" (Hex (Int contentid)) ]
                 in
                 nodes @ parse_bytes ~offset:(off + off_6) rest "private_data_byte"
              )
@@ -848,8 +846,7 @@ module Descriptor = struct
          let nodes =
            [ to_node ~offset:off 1 "content_reference_id_record_flag" (Bits (Bool false))
            ; to_node ~parsed ~offset:(off + off_1) 4 "content_time_base_indicator" (Hex (Int ctb_ind))
-           ; to_node ~offset:(off + off_2) 3 "reserved" (Bits (Int reserved_1))
-           ]
+           ; to_node ~offset:(off + off_2) 3 "reserved" (Bits (Int reserved_1)) ]
          in
          nodes @ decode_2 rest (off + off_3) ctb_ind
 
@@ -912,8 +909,7 @@ module Descriptor = struct
          ; to_node ~offset:(off + off_2) 2  "reserved" (Bits (Int reserved_2))
          ; to_node ~offset:(off + off_3) 22 "metadata_buffer_size" (Dec (Int metadata_buf))
          ; to_node ~offset:(off + off_4) 2  "reserved" (Bits (Int reserved_3))
-         ; to_node ~offset:(off + off_5) 22 "metadata_output_leak_rate" (Dec (Int metadata_out))
-         ]
+         ; to_node ~offset:(off + off_5) 22 "metadata_output_leak_rate" (Dec (Int metadata_out)) ]
 
   end
 
@@ -951,8 +947,7 @@ module Descriptor = struct
          ; to_node ~offset:(off + off_9) 1 "AVC_still_present" (Bits (Bool avc_still_present))
          ; to_node ~offset:(off + off_10) 1 "AVC_24_hour_picture_flag" (Bits (Bool avc_24_hr_pict_flag))
          ; to_node ~offset:(off + off_11) 1 "Frame_Packing_SEI_not_present_flag" (Bits (Bool fr_flag))
-         ; to_node ~offset:(off + off_12) 5 "reserved" (Bits (Int reserved))
-         ]
+         ; to_node ~offset:(off + off_12) 5 "reserved" (Bits (Int reserved)) ]
 
   end
 
@@ -996,9 +991,9 @@ module Descriptor = struct
          ; to_node ~offset:(off + off_7)  32 "num_units_in_tick" (Bits (Int32 num_units_in_tick))
          ; to_node ~offset:(off + off_8)  1  "fixed_frame_rate_flag" (Bits (Bool fixed_fr_rate_flag))
          ; to_node ~offset:(off + off_9)  1  "temporal_poc_flag" (Bits (Bool temporal_poc_flag))
-         ; to_node ~offset:(off + off_10) 1  "picture_to_display_conversion_flag" (Bits (Bool pict_to_display_flag))
-         ; to_node ~offset:(off + off_11) 5  "reserved" (Bits (Int reserved_3))
-         ]
+         ; to_node ~offset:(off + off_10) 1  "picture_to_display_conversion_flag"
+             (Bits (Bool pict_to_display_flag))
+         ; to_node ~offset:(off + off_11) 5  "reserved" (Bits (Int reserved_3)) ]
       | {| hrd_mng_valid_flag   : 1
          ; reserved_1           : 6  : save_offset_to (off_1)
          ; true                 : 1  : save_offset_to (off_2)
@@ -1018,9 +1013,9 @@ module Descriptor = struct
          ; to_node ~offset:(off + off_5)  32 "num_units_in_tick" (Bits (Int32 num_units_in_tick))
          ; to_node ~offset:(off + off_6)  1  "fixed_frame_rate_flag" (Bits (Bool fixed_fr_rate_flag))
          ; to_node ~offset:(off + off_7)  1  "temporal_poc_flag" (Bits (Bool temporal_poc_flag))
-         ; to_node ~offset:(off + off_8)  1  "picture_to_display_conversion_flag" (Bits (Bool pict_to_display_flag))
-         ; to_node ~offset:(off + off_9)  5  "reserved" (Bits (Int reserved_3))
-         ]
+         ; to_node ~offset:(off + off_8)  1  "picture_to_display_conversion_flag"
+             (Bits (Bool pict_to_display_flag))
+         ; to_node ~offset:(off + off_9)  5  "reserved" (Bits (Int reserved_3)) ]
       | {| hrd_mng_valid_flag   : 1
          ; reserved_1           : 6 : save_offset_to (off_1)
          ; false                : 1 : save_offset_to (off_2)
@@ -1034,9 +1029,9 @@ module Descriptor = struct
          ; to_node ~offset:(off + off_2)  1  "picture_and_timing_info_present" (Bits (Bool false))
          ; to_node ~offset:(off + off_3)  1  "fixed_frame_rate_flag" (Bits (Bool fixed_fr_rate_flag))
          ; to_node ~offset:(off + off_4)  1  "temporal_poc_flag" (Bits (Bool temporal_poc_flag))
-         ; to_node ~offset:(off + off_5)  1  "picture_to_display_conversion_flag" (Bits (Bool pict_to_display_flag))
-         ; to_node ~offset:(off + off_6)  5  "reserved" (Bits (Int reserved_2))
-         ]
+         ; to_node ~offset:(off + off_5)  1  "picture_to_display_conversion_flag"
+             (Bits (Bool pict_to_display_flag))
+         ; to_node ~offset:(off + off_6)  5  "reserved" (Bits (Int reserved_2)) ]
 
   end
 
@@ -1053,8 +1048,7 @@ module Descriptor = struct
          |} ->
          [ to_node ~offset:off 8 "MPEG-2_AAC_profile" (Hex (Int profile))
          ; to_node ~offset:(off + off_1) 8 "MPEG-2_AAC_channel_configuration" (Hex (Int channel_config))
-         ; to_node ~offset:(off + off_2) 8 "MPEG-2_AAC_additional_information" (Hex (Int add_info))
-         ]
+         ; to_node ~offset:(off + off_2) 8 "MPEG-2_AAC_additional_information" (Hex (Int add_info)) ]
 
   end
 
@@ -1229,8 +1223,7 @@ module Descriptor = struct
          ; to_node ~offset:(off + off_9)  3  "temporal_id_start" (Hex (Int temporal_id_start))
          ; to_node ~offset:(off + off_10) 3  "temportal_id_end" (Hex (Int temporal_id_end))
          ; to_node ~offset:(off + off_11) 1  "no_sei_nal_unit_present" (Bits (Bool nsnu_present))
-         ; to_node ~offset:(off + off_12) 1  "reserved" (Bits (Bool reserved_2))
-         ]
+         ; to_node ~offset:(off + off_12) 1  "reserved" (Bits (Bool reserved_2)) ]
 
   end
 
@@ -1263,8 +1256,7 @@ module Descriptor = struct
          ; to_node ~offset:(off + off_7)  3  "temporal_id_start" (Hex (Int temporal_id_start))
          ; to_node ~offset:(off + off_8)  3  "temporal_id_end" (Hex (Int temporal_id_end))
          ; to_node ~offset:(off + off_9)  1  "no_sei_nal_unit_present" (Bits (Bool nsnu_present))
-         ; to_node ~offset:(off + off_10) 1  "no_prefix_nal_unit_present" (Bits (Bool npnu_present))
-         ]
+         ; to_node ~offset:(off + off_10) 1  "no_prefix_nal_unit_present" (Bits (Bool npnu_present)) ]
 
   end
 
@@ -1299,8 +1291,7 @@ module Descriptor = struct
          ; to_node ~offset:(off + off_7)  8  "color_specification" (Hex (Int color_specification))
          ; to_node ~offset:(off + off_8)  1  "still_mode" (Bits (Bool still_mode))
          ; to_node ~offset:(off + off_9)  1  "interlaced_video" (Bits (Bool interlaced_video))
-         ; to_node ~offset:(off + off_10) 6  "reserved" (Bits (Int reserved))
-         ]
+         ; to_node ~offset:(off + off_10) 6  "reserved" (Bits (Int reserved)) ]
          in
          nodes @ parse_bytes ~offset:(off + off_11) rest "private_data_byte"
 
@@ -1320,10 +1311,11 @@ module Descriptor = struct
               |} ->
               let nodes =
                 [ to_node ~offset:off 8 "level_idc" (Hex (Int level_idc))
-                ; to_node ~offset:(off + off_1) 8 "operation_points_count" (Hex (Int points_count))
-                ]
+                ; to_node ~offset:(off + off_1) 8 "operation_points_count" (Hex (Int points_count)) ]
               in
-              nodes @ parse_recommendations (off + off_2) rest
+              let level_name = Printf.sprintf "Level %s" (string_of_int level_idc) in
+              let node = to_node ~offset:off 16 level_name (List nodes) in
+              node :: parse_recommendations (off + off_2) rest
 
     (* FIXME *)
 
@@ -1366,14 +1358,12 @@ module Descriptor = struct
          ; arr_type : 7 : save_offset_to (off_1)
          |} ->
          [ to_node ~offset:off 1 "stereo_video_arrangement_type" (Bits (Bool true))
-         ; to_node ~offset:(off + off_1) 7 "arrangement_type" (Hex (Int arr_type))
-         ]
+         ; to_node ~offset:(off + off_1) 7 "arrangement_type" (Hex (Int arr_type)) ]
       | {| false    : 1
          ; reserved : 7 : save_offset_to (off_1)
          |} ->
          [ to_node ~offset:off 1 "stereo_video_arrangement_type" (Bits (Bool false))
-         ; to_node ~offset:(off + off_1) 7 "reserved" (Hex (Int reserved))
-         ]
+         ; to_node ~offset:(off + off_1) 7 "reserved" (Hex (Int reserved)) ]
 
   end
 
@@ -1388,8 +1378,7 @@ module Descriptor = struct
          ; service_type : 3 : save_offset_to (off_1)
          |} ->
          [ to_node ~offset:off 5 "reserved" (Bits (Int reserved))
-         ; to_node ~offset:(off + off_1) 3 "stereoscopic_service_type" (Bits (Int service_type))
-         ]
+         ; to_node ~offset:(off + off_1) 3 "stereoscopic_service_type" (Bits (Int service_type)) ]
 
   end
 
@@ -1419,33 +1408,22 @@ module Descriptor = struct
          [ to_node ~offset:off 7 "reserved" (Bits (Int reserved_1))
          ; to_node ~offset:(off + off_1) 1 "base_video_flag" (Bits (Bool true))
          ; to_node ~offset:(off + off_2) 7 "reserved" (Bits (Int reserved_2))
-         ; to_node ~offset:(off + off_3) 1 "leftview_flag" (Bits (Bool leftview_flag))
-         ]
+         ; to_node ~offset:(off + off_3) 1 "leftview_flag" (Bits (Bool leftview_flag)) ]
       | {| reserved_1   : 7
          ; false        : 1 : save_offset_to (off_1)
          ; reserved_2   : 7 : save_offset_to (off_2)
          ; usable_as_2d : 1 : save_offset_to (off_3)
-         ; hu_factor    : 4 : save_offset_to (off_4)
-         ; vu_factor    : 4 : save_offset_to (off_5)
+         ; hu_f         : 4 : save_offset_to (off_4)
+         ; vu_f         : 4 : save_offset_to (off_5)
          |} ->
-         let vu_parsed = parse_factor vu_factor in
-         let hu_parsed = parse_factor hu_factor in
+         let vu = parse_factor vu_f in
+         let hu = parse_factor hu_f in
          [ to_node ~offset:off 7 "reserved" (Bits (Int reserved_1))
          ; to_node ~offset:(off + off_1) 1 "base_video_flag" (Bits (Bool false))
          ; to_node ~offset:(off + off_2) 7 "reserved" (Bits (Int reserved_2))
          ; to_node ~offset:(off + off_3) 1 "usable_as_2D" (Bits (Bool usable_as_2d))
-         ; to_node
-             ~parsed:hu_parsed
-             ~offset:(off + off_4)
-             4
-             "horizontal_upsampling_factor"
-             (Bits (Int hu_factor))
-         ; to_node
-             ~parsed:vu_parsed
-             ~offset:(off + off_5)
-             4
-             "vertical_upsampling_factor"
-             (Bits (Int vu_factor))
+         ; to_node ~parsed:hu ~offset:(off + off_4) 4 "horizontal_upsampling_factor" (Bits (Int hu_f))
+         ; to_node ~parsed:vu ~offset:(off + off_5) 4 "vertical_upsampling_factor" (Bits (Int vu_f))
          ]
 
   end
@@ -1510,8 +1488,7 @@ module Descriptor = struct
          ; to_node ~offset:(off + off_15) 3  "temporal_id_min" (Dec (Int temp_id_min))
          ; to_node ~offset:(off + off_16) 5  "reserved" (Bits (Int reserved_2))
          ; to_node ~offset:(off + off_17) 3  "temporal_id_max" (Dec (Int temp_id_max))
-         ; to_node ~offset:(off + off_18) 5  "reserved" (Bits (Int reserved_3))
-         ]
+         ; to_node ~offset:(off + off_18) 5  "reserved" (Bits (Int reserved_3)) ]
 
       | {| profile_space       : 2
          ; tier_flag           : 1  : save_offset_to (off_1)
@@ -1543,8 +1520,7 @@ module Descriptor = struct
          ; to_node ~offset:(off + off_11) 1  "HEVC_still_present_flag" (Bits (Bool hevc_still_flag))
          ; to_node ~offset:(off + off_12) 1  "HEVC_24hr_picture_present_flag" (Bits (Bool hevc_24_flag))
          ; to_node ~offset:(off + off_13) 1 "sub_pic_hrd_params_not_present_flag" (Bits (Bool sph_flag))
-         ; to_node ~offset:(off + off_14) 4  "reserved" (Bits (Int reserved_1))
-         ]
+         ; to_node ~offset:(off + off_14) 4  "reserved" (Bits (Int reserved_1)) ]
 
   end
 
@@ -1565,8 +1541,7 @@ module Descriptor = struct
          |} ->
          [ to_node ~offset:off 1 "hrd_management_valid_flag" (Bits (Bool hrd_man_valid_flag))
          ; to_node ~offset:(off + off_1) 6 "reserved" (Bits (Int reserved_1))
-         ; to_node ~offset:(off + off_2) 1 "picture_and_timing_info_present_flag" (Bits (Bool false))
-         ]
+         ; to_node ~offset:(off + off_2) 1 "picture_and_timing_info_present_flag" (Bits (Bool false)) ]
       | {| hrd_man_valid_flag : 1
          ; reserved_1         : 6  : save_offset_to (off_1)
          ; true               : 1  : save_offset_to (off_2)
@@ -1579,8 +1554,7 @@ module Descriptor = struct
          ; to_node ~offset:(off + off_2) 1  "picture_and_timing_info_present_flag" (Bits (Bool true))
          ; to_node ~offset:(off + off_3) 1  "90kHz_flag" (Bits (Bool true))
          ; to_node ~offset:(off + off_4) 7  "reserved" (Bits (Int reserved_2))
-         ; to_node ~offset:(off + off_5) 32 "num_units_in_tick" (Dec (Int32 num_units_in_tick))
-         ]
+         ; to_node ~offset:(off + off_5) 32 "num_units_in_tick" (Dec (Int32 num_units_in_tick)) ]
       | {| hrd_man_valid_flag : 1
          ; reserved_1         : 6  : save_offset_to (off_1)
          ; true               : 1  : save_offset_to (off_2)
@@ -1597,8 +1571,7 @@ module Descriptor = struct
          ; to_node ~offset:(off + off_4) 7  "reserved" (Bits (Int reserved_2))
          ; to_node ~offset:(off + off_5) 32 "N" (Dec (Int32 n))
          ; to_node ~offset:(off + off_6) 32 "K" (Dec (Int32 k))
-         ; to_node ~offset:(off + off_7) 32 "num_units_in_tick" (Dec (Int32 num_units_in_tick))
-         ]
+         ; to_node ~offset:(off + off_7) 32 "num_units_in_tick" (Dec (Int32 num_units_in_tick)) ]
 
   end
 
@@ -1645,7 +1618,7 @@ module Descriptor = struct
         | Ok s    -> s
         | Error _ -> "Unable to decode"
       in
-      [to_node ~offset:off (Bitstring.length bs) "network name" (String s)]
+      [ to_node ~offset:off (Bitstring.length bs) "network name" (String s) ]
 
   end
 
@@ -1654,7 +1627,7 @@ module Descriptor = struct
 
     let name = "service_list_descriptor"
 
-    let rec f off  x =
+    let rec f off x =
       if Bitstring.length x = 0 then []
       else match%bitstring x with
            | {| service_id   : 16
@@ -1664,9 +1637,11 @@ module Descriptor = struct
               let parsed = Common.Mpeg_ts.service_type_to_string service_type in
               let nodes =
                 [ to_node ~offset:off 16 "service_id" (Hex (Int service_id))
-                ; to_node ~parsed ~offset:(off + off_1) 8 "service_type" (Hex (Int service_type))]
+                ; to_node ~parsed ~offset:(off + off_1) 8 "service_type" (Hex (Int service_type)) ]
               in
-              nodes @ f (off + off_2) rest
+              let service_name = Printf.sprintf "Service %s" (string_of_int service_id) in
+              let node = to_node ~offset:off 24 service_name (List nodes) in
+              node :: f (off + off_2) rest
 
     let decode bs off = f off bs
 
@@ -1827,7 +1802,7 @@ module Descriptor = struct
       | 0x03 -> "additional information page"
       | 0x04 -> "programme schedule page"
       | 0x05 -> "Teletext subtitle page for hearing impaired people"
-      | x when x > 0x05 && x < 0x20 -> "reserved_for_future_use"
+      | x when x >= 0x06 && x <= 0x1F -> "reserved_for_future_use"
       | x    -> Printf.sprintf "%d" x
 
     let rec f off x =
@@ -1842,7 +1817,7 @@ module Descriptor = struct
               let parsed_code, lang_code = parse_lang_code lang_code in
               let parsed_typ = parse_type txt_type in
               let nodes =
-                [ to_node ~parsed:parsed_code~offset:off 24 "ISO_639_language_code" (Bits (Int lang_code))
+                [ to_node ~parsed:parsed_code ~offset:off 24 "ISO_639_language_code" (Bits (Int lang_code))
                 ; to_node ~parsed:parsed_typ ~offset:(off + off_1) 5 "teletext_type" (Hex(Int txt_type))
                 ; to_node ~offset:(off + off_2) 3 "teletext_magazine_number" (Dec (Int mag_num))
                 ; to_node ~offset:(off + off_3) 8 "teletext_page_number" (Dec (Int page_num)) ]
@@ -1863,7 +1838,7 @@ module Descriptor = struct
         | Ok s    -> s
         | Error _ -> "Unable to decode"
       in
-      [to_node ~offset:off (Bitstring.length bs) "bouquet name" (String s)]
+      [ to_node ~offset:off (Bitstring.length bs) "bouquet name" (String s) ]
 
   end
 
@@ -2057,8 +2032,10 @@ module Descriptor = struct
                   [ to_node ~offset:off 16 "target_event_id" (Dec (Int target_event_id))
                   ; to_node ~offset:(off + off_1) 1 "target_listed" (Bits (Bool target_listed))
                   ; to_node ~offset:(off + off_2) 1 "event_simulcast" (Bits (Bool event_simulcast))
-                  ; to_node ~parsed:(parse_link_type ~linkage ~link:link_type) ~offset:(off + off_3) 2 "link_type" (Hex (Int link_type))
-                  ; to_node ~parsed:(parse_target_id target_id_type) ~offset:(off + off_4) 2 "target_id_type" (Hex (Int target_id_type))
+                  ; to_node ~parsed:(parse_link_type ~linkage ~link:link_type)
+                      ~offset:(off + off_3) 2 "link_type" (Hex (Int link_type))
+                  ; to_node ~parsed:(parse_target_id target_id_type) ~offset:(off + off_4)
+                      2 "target_id_type" (Hex (Int target_id_type))
                   ; to_node ~offset:(off + off_5) 1 "original_network_id_flag" (Bits (Bool on_id_flag))
                   ; to_node ~offset:(off + off_6) 1 "service_id_flag" (Bits (Bool service_id_flag))]
                 in
@@ -2072,7 +2049,8 @@ module Descriptor = struct
          let extended_linkage = f (off + off_1) extended_event in
          let private_data     = parse_bytes ~offset:(off + off_2) rest "private_data_byte" in
          [ to_node ~offset:off 8 "loop_length" (Dec (Int loop_length))
-         ; to_node ~offset:(off + off_1) (loop_length * 8) "extended_event_linkage" (List extended_linkage)
+         ; to_node ~offset:(off + off_1) (loop_length * 8) "extended_event_linkage"
+             (List extended_linkage)
          ; to_node ~offset:(off + off_1) (length rest) "private_data_bytes" (List private_data) ]
 
     let name = "linkage_descriptor"
@@ -2118,7 +2096,8 @@ module Descriptor = struct
          [ to_node ~offset:off 16 "transport_stream_id" (Hex (Int ts_id))
          ; to_node ~offset:(off + off_1) 16 "original_network_id" (Hex (Int on_id))
          ; to_node ~offset:(off + off_2) 16 "service_id" (Hex (Int service_id))
-         ; to_node ~parsed:(parse_linkage_type linkage_type)~offset:(off + off_3) 8  "linkage_type" (Hex (Int linkage_type))
+         ; to_node ~parsed:(parse_linkage_type linkage_type)~offset:(off + off_3) 8
+             "linkage_type" (Hex (Int linkage_type))
          ; to_node ~offset:(off + off_4) (length rest) "private_data_bytes" (List bytes) ]
 
   end
@@ -2223,7 +2202,9 @@ module Descriptor = struct
                 ; to_node ~offset:(off + off_2) 8 "item_length" (Dec (Int item_length))
                 ; to_node ~offset:(off + off_3) (item_length * 8) "item" (String item) ]
               in
-              nodes @ decode_items rest (off + off_4)
+              let real_len = 16 + item_descr_length * 8 + item_length * 8 in
+              let node = to_node ~offset:off real_len item (List nodes) in
+              node :: decode_items rest (off + off_4)
 
     let decode bs off =
       match%bitstring bs with
@@ -2242,11 +2223,12 @@ module Descriptor = struct
          let parsed_code, lang_code = parse_lang_code lang_code in
          [ to_node ~offset:off 4 "descriptor_number" (Dec (Int desc_num))
          ; to_node ~offset:(off + off_1) 4 "last_desc_num" (Dec (Int last_desc_num))
-         ; to_node ~parsed:parsed_code ~offset:(off + off_2) 24 "ISO_639_language_code" (Bits (Int lang_code))
+         ; to_node ~parsed:parsed_code ~offset:(off + off_2) 24 "ISO_639_language_code"
+             (Bits (Int lang_code))
          ; to_node ~offset:(off + off_3) 8 "items_length" (Dec (Int items_length))
          ; to_node ~offset:(off + off_4) (items_length * 8) "items" (List items)
          ; to_node ~offset:(off + off_5) 8 "text_length" (Dec (Int text_length))
-         ; to_node ~offset:(off + off_6) (text_length * 8) "text" (String text)]
+         ; to_node ~offset:(off + off_6) (text_length * 8) "text" (String text) ]
 
   end
 
@@ -2510,7 +2492,7 @@ module Descriptor = struct
          ; to_node ~offset:(off + off_3) 8  "component_tag" (Hex (Int component_tag))
          ; to_node ~parsed:parsed_lang ~offset:(off + off_4) 24
              "ISO_639_language_code" (Hex (Int lang_code))
-         ; to_node ~offset:(off + off_5) (Bitstring.length bs - 48) "text" (String text)]
+         ; to_node ~offset:(off + off_5) (Bitstring.length bs - 48) "text" (String text) ]
   end
 
   (* 0x51 *)
@@ -2883,16 +2865,18 @@ module Descriptor = struct
     let rec f off x =
       if Bitstring.length x = 0 then []
       else match%bitstring x with
-           | {| country_code : 24
+           | {| country_code : 24 : bitstring
               ; rating       : 8  : save_offset_to (off_1)
               ; rest         : -1 : save_offset_to (off_2), bitstring
               |} ->
-              let parsed = parse_rating rating in
+              let p_rating = parse_rating rating in
+              let p_code, country_code = parse_lang_code country_code in
               let nodes =
-                [ to_node ~offset:off 24 "country_code" (Bits (Int country_code))
-                ; to_node ~parsed ~offset:(off + off_1) 8 "rating" (Dec (Int rating)) ]
+                [ to_node ~parsed:p_code ~offset:off 24 "country_code" (Bits (Int country_code))
+                ; to_node ~parsed:p_rating ~offset:(off + off_1) 8 "rating" (Dec (Int rating)) ]
               in
-              nodes @ f (off + off_2) rest
+              let node = to_node ~offset:off 32 p_code (List nodes) in
+              node :: f (off + off_2) rest
 
     let decode bs off = f off bs
 
@@ -2913,7 +2897,7 @@ module Descriptor = struct
       | x when x > 0x05 && x < 0x20 -> "reserved_for_future_use"
       | x    -> Printf.sprintf "%d" x
 
-    let rec f off  x =
+    let rec f off x =
       if Bitstring.length x = 0 then []
       else match%bitstring x with
            | {| lang_code : 24 : bitstring
@@ -2922,15 +2906,16 @@ module Descriptor = struct
               ; page_num  : 8  : save_offset_to (off_3)
               ; rest      : -1 : save_offset_to (off_4), bitstring
               |} ->
-              let parsed_code, lang_code = parse_lang_code lang_code in
+              let p_code, lang_code = parse_lang_code lang_code in
               let parsed = parse_type txt_type in
               let nodes =
-                [ to_node ~parsed:parsed_code ~offset:off 24 "ISO_639_language_code" (Bits (Int lang_code))
+                [ to_node ~parsed:p_code ~offset:off 24 "ISO_639_language_code" (Bits (Int lang_code))
                 ; to_node ~parsed ~offset:(off + off_1) 5 "teletext_type" (Hex(Int txt_type))
                 ; to_node ~offset:(off + off_2) 3 "teletext_magazine_number" (Dec (Int mag_num))
                 ; to_node ~offset:(off + off_3) 8 "teletext_page_number" (Dec (Int page_num)) ]
               in
-              nodes @ f (off + off_4) rest
+              let node = to_node ~offset:off 40 p_code (List nodes) in
+              node :: f (off + off_4) rest
 
     let decode bs off = f off bs
 
@@ -3011,7 +2996,7 @@ module Descriptor = struct
     let rec f off x =
       if Bitstring.length x = 0 then []
       else match%bitstring x with
-           | {| country_code     : 24
+           | {| country_code     : 24 : bitstring
               ; country_reg_id   : 6  : save_offset_to (off_1)
               ; reserved         : 1  : save_offset_to (off_2)
               ; offset_pol       : 1  : save_offset_to (off_3)
@@ -3020,6 +3005,7 @@ module Descriptor = struct
               ; next_time_offset : 16 : save_offset_to (off_6), bitstring
               ; rest             : -1 : save_offset_to (off_7), bitstring
               |} ->
+              let p_code, country_code = parse_lang_code country_code in
               let time_ch = match parse_timestamp time_of_change with
                 | Some x -> Time x
                 | None   -> match%bitstring time_of_change with
@@ -3036,7 +3022,7 @@ module Descriptor = struct
                             | {| i : 40 |} -> Dec (Uint64  i)
               in
               let nodes =
-                [ to_node ~offset:off 24 "country_code" (Bits (Int country_code))
+                [ to_node ~parsed:p_code ~offset:off 24 "country_code" (Bits (Int country_code))
                 ; to_node ~offset:(off + off_1) 6  "country_reg_id" (Hex (Int country_reg_id))
                 ; to_node ~offset:(off + off_2) 1  "reserved" (Bits (Bool reserved))
                 ; to_node ~offset:(off + off_3) 1  "local_time_offset_polarity" (Bits (Bool offset_pol))
@@ -3044,7 +3030,8 @@ module Descriptor = struct
                 ; to_node ~offset:(off + off_5) 40 "time_of_change" time_ch
                 ; to_node ~offset:(off + off_6) 16 "next_time_offset" nt_offset ]
               in
-              nodes @ f (off + off_7) rest
+              let node = to_node ~offset:off 104 p_code (List nodes) in
+              node :: f (off + off_7) rest
 
     let decode bs off = f off bs
 
@@ -3071,7 +3058,8 @@ module Descriptor = struct
                 ; to_node ~offset:(off + off_2) 16 "composition_page_id" (Hex (Int cp_id))
                 ; to_node ~offset:(off + off_3) 16 "ancillary_page_id" (Hex (Int ap_id)) ]
               in
-              nodes @ f (off + off_4) rest
+              let node = to_node ~offset:off 64 parsed (List nodes) in
+              node :: f (off + off_4) rest
 
     let decode bs off = f off bs
 
@@ -3210,7 +3198,8 @@ module Descriptor = struct
                 ; to_node ~offset:(off + off_1) 8 "network_name_length" (Dec (Int length))
                 ; to_node ~offset:(off + off_2) (length * 8) "network_name" (String network_name)]
               in
-              nodes @ f (off + off_3) rest
+              let node = to_node ~offset:off (32 + length * 8) parsed (List nodes) in
+              node :: f (off + off_3) rest
 
     let decode bs off = f off bs
 
@@ -3239,7 +3228,8 @@ module Descriptor = struct
                 ; to_node ~offset:(off + off_1) 8 "bouquet_name_length" (Dec (Int length))
                 ; to_node ~offset:(off + off_2) (length * 8) "bouquet_name" (String name) ]
               in
-              nodes @ f (off + off_3) rest
+              let node = to_node ~offset:off (32 + length * 8) parsed (List nodes) in
+              node :: f (off + off_3) rest
 
     let decode bs off = f off bs
 
@@ -3276,7 +3266,9 @@ module Descriptor = struct
                 ; to_node ~offset:(off + off_3) 8 "service_name_length" (Dec (Int length_2))
                 ; to_node ~offset:(off + off_4) (length_2 * 8) "service__name" (String ser) ]
               in
-              nodes @ f (off + off_5) rest
+              let real_length = 40 + (length_1 + length_2) * 8 in
+              let node = to_node ~offset:off real_length parsed (List nodes) in
+              node :: f (off + off_5) rest
 
     let decode bs off = f off bs
 
@@ -3305,7 +3297,9 @@ module Descriptor = struct
                 ; to_node ~offset:(off + off_1) 8 "text_description_length" (Dec (Int length))
                 ; to_node ~offset:(off + off_2) (length * 8) "text_description" (String text) ]
               in
-              nodes @ f (off + off_3) rest
+              let real_length = 32 + length * 8 in
+              let node = to_node ~offset:off real_length parsed (List nodes) in
+              node :: f (off + off_3) rest
 
     let decode bs off =
       match%bitstring bs with
@@ -3686,8 +3680,7 @@ module Descriptor = struct
                 ; to_node ~offset:(off + off_3) 16 "original_network_id" (Hex (Int original_network_id))
                 ; to_node ~offset:(off + off_4) 16 "transport_stream_id" (Hex (Int transport_stream_id))
                 ; to_node ~offset:(off + off_5) 16 "service_id" (Hex (Int service_id))
-                ; to_node ~offset:(off + off_6) 8  "component_tag" (Hex (Int component_tag))
-                ]
+                ; to_node ~offset:(off + off_6) 8  "component_tag" (Hex (Int component_tag)) ]
               in
               nodes @ f (off + off_7) rest
            | {| ann_type        : 4
@@ -3701,10 +3694,11 @@ module Descriptor = struct
                 [ to_node ~parsed:ann_typ ~offset:off 4 "announcement_type" (Bits (Int ann_type))
                 ; to_node ~offset:(off + off_1) 1  "reserved_future_use" (Bits (Bool rfu))
                 ; to_node ~parsed:ref_typ ~offset:(off + off_2) 3
-                    "reference_type" (Hex (Int reference_type))
-                ]
+                    "reference_type" (Hex (Int reference_type)) ]
               in
-              nodes @ f (off + off_3) rest
+              let type_name = (Printf.sprintf "Type %s" (string_of_int ann_type)) ^ ann_typ in
+              let node = to_node ~offset:off 64 type_name (List nodes) in
+              node :: f (off + off_3) rest
 
     let decode bs off =
       match%bitstring bs with
@@ -3835,8 +3829,9 @@ information in DVB transport streams". *)
                 ; to_node ~offset:(off + off_1) 5 "reserved" (Bits (Int reserved))
                 ; to_node ~offset:(off + off_2) 3 "running_status" (Dec (Int status)) ]
               in
-              let node = [ to_node ~offset:off 24 "TVA_id" (List node_list) ] in
-              node @ f rest (off + off_3)
+              let tva_name = Printf.sprintf "TVA_id %s" (string_of_int tva_id) in
+              let node = to_node ~offset:off 24 tva_name (List node_list) in
+              node :: f rest (off + off_3)
 
     let decode bs off = f bs off
 
@@ -3869,7 +3864,9 @@ information in DVB transport streams", page 101 *)
                 ; to_node ~offset:(off + off_2) 8 "crid_length" (Dec (Int crid_length))
                 ; to_node ~offset:(off + off_3) (crid_length * 8) "crid" (String crid) ]
               in
-              nodes @ f rest (off + off_4)
+              let real_length = 16 + crid_length * 8 in
+              let node = to_node ~offset:off real_length crid (List nodes) in
+              node :: f rest (off + off_4)
            | {| crid_type   : 6
               ; 01          : 2  : save_offset_to (off_1)
               ; crid_ref    : 16 : save_offset_to (off_2)
@@ -3880,7 +3877,8 @@ information in DVB transport streams", page 101 *)
                 ; to_node ~offset:(off + off_1) 2 "crid_location" (Bits (Int 00))
                 ; to_node ~offset:(off + off_2) 16 "crid_ref" (Dec (Int crid_ref)) ]
               in
-              nodes @ f rest (off + off_3)
+              let node = to_node ~offset:off 24 "identifier" (List nodes) in
+              node :: f rest (off + off_3)
            | {| crid_type     : 6
               ; crid_location : 2  : save_offset_to (off_1)
               ; rest          : -1 : save_offset_to (off_2), bitstring
@@ -3889,7 +3887,8 @@ information in DVB transport streams", page 101 *)
                 [ to_node ~offset:off 6 "crid_type" (Dec (Int crid_type))
                 ; to_node ~offset:(off + off_1) 2 "crid_location" (Bits (Int crid_location)) ]
               in
-              nodes @ f rest (off + off_2)
+              let node = to_node ~offset:off 8 "identifier" (List nodes) in
+              node :: f rest (off + off_2)
 
     let decode bs off = f bs off
 
@@ -4011,6 +4010,7 @@ information in DVB transport streams", page 101 *)
   module DTS = struct
 
     let name = "DTS descriptor"
+    (* TODO *)
 
     let decode _ _ = []
 
@@ -4020,6 +4020,7 @@ information in DVB transport streams", page 101 *)
   module AAC = struct
 
     let name = "AAC descriptor"
+    (* TODO *)
 
     let decode _ _ = []
 
@@ -4029,6 +4030,7 @@ information in DVB transport streams", page 101 *)
   module XAIT_location = struct
 
     let name = "XAIT location descriptor"
+    (* TODO *)
 
     let decode _ _ = []
 
@@ -4353,7 +4355,7 @@ module PAT = struct
          ; to_node ~offset:off_5 8 "section_number" (Dec (Int section_number))
          ; to_node ~offset:off_6 8 "last_section_number" (Dec (Int last_section_num))
          ; to_node ~offset:off_7 (progs_length off_6) "programs" (List progs)
-         ; to_node ~offset:off_8 32 "CRC_32" (Dec (Uint32 crc32))
+         ; to_node ~offset:off_8 32 "CRC_32" (Hex (Uint32 crc32))
          ] in
        header @ nodes
 
@@ -4422,7 +4424,7 @@ module PMT = struct
          ; to_node ~offset:off_10 12 "program_info_length" (Dec (Int length))
          ; to_node ~offset:off_11 (length * 8) "descriptors" (List dscrs)
          ; to_node ~offset:off_12 (streams_len length off_11) "streams" (List streams)
-         ; to_node ~offset:off_13 32 "CRC_32" (Dec (Uint32 crc32))
+         ; to_node ~offset:off_13 32 "CRC_32" (Hex (Uint32 crc32))
          ]
        in
        header @ nodes
@@ -4508,7 +4510,7 @@ module NIT = struct
          ; to_node ~offset:off_10 4 "reserved_future_use" (Hex (Int rfu_2))
          ; to_node ~offset:off_11 12 "transport_stream_loop_length" (Dec (Int ts_loop_len))
          ; to_node ~offset:off_12 (ts_loop_len * 8) "transport_streams" (List ts)
-         ; to_node ~offset:off_13 32 "CRC_32" (Dec (Uint32 crc32))
+         ; to_node ~offset:off_13 32 "CRC_32" (Hex (Uint32 crc32))
          ]
        in
        header @ nodes
@@ -4551,7 +4553,7 @@ module BAT = struct
          ; to_node ~offset:off_10 4 "reserved_future_use" (Bits (Int rfu_2))
          ; to_node ~offset:off_11 12 "transport_stream_loop_length" (Dec (Int ts_len))
          ; to_node ~offset:off_12 (ts_len * 8) "transport_streams" (List ts)
-         ; to_node ~offset:off_13 32 "CRC_32" (Dec (Uint32 crc32))
+         ; to_node ~offset:off_13 32 "CRC_32" (Hex (Uint32 crc32))
          ]
        in
        header @ nodes
@@ -4629,7 +4631,7 @@ module SDT = struct
          ; to_node ~offset:off_7 16 "original_network_id" (Hex (Int on_id))
          ; to_node ~offset:off_8 8 "reserved_future_use" (Hex (Int rfu))
          ; to_node ~offset:off_9 (services_length off_8) "services" (List services)
-         ; to_node ~offset:off_10 32 "CRC_32" (Dec (Uint32 crc32))
+         ; to_node ~offset:off_10 32 "CRC_32" (Hex (Uint32 crc32))
          ]
        in
        header @ nodes
@@ -4718,7 +4720,7 @@ module EIT = struct
          ; to_node ~offset:off_9 8 "segment_last_section_number" (Dec (Int seg_last_sec_num))
          ; to_node ~offset:off_10 8 "last_table_id" (Hex (Int last_table_id))
          ; to_node ~offset:off_11 (events_length off_10) "events" (List events)
-         ; to_node ~offset:off_12 32 "CRC_32" (Dec (Uint32 crc32))
+         ; to_node ~offset:off_12 32 "CRC_32" (Hex (Uint32 crc32))
          ]
        in
        header @ nodes
@@ -4773,7 +4775,7 @@ module TOT = struct
          ; to_node ~offset:off_2 4  "reserved" (Hex (Int reserved))
          ; to_node ~offset:off_3 12 "descriptors_loop_length" (Hex (Int length))
          ; to_node ~offset:off_4 (length * 8) "descriptors" (List dscrs)
-         ; to_node ~offset:off_5 32 "CRC_32" (Dec (Uint32 crc32))
+         ; to_node ~offset:off_5 32 "CRC_32" (Hex (Uint32 crc32))
          ]
        in
        header @ nodes
@@ -4926,7 +4928,7 @@ module SIT = struct
          ; to_node ~offset:off_8 12 "transmission_info_loop_length" (Dec (Int len))
          ; to_node ~offset:off_9 (len * 8) "descriptors" (List dscrs)
          ; to_node ~offset:off_10 (services_length off_9 len) "services" (List services)
-         ; to_node ~offset:off_11 32 "CRC_32" (Dec (Uint32 crc32))
+         ; to_node ~offset:off_11 32 "CRC_32" (Hex (Uint32 crc32))
          ]
        in
        let header = parse_header header in

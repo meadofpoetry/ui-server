@@ -14,30 +14,34 @@ type input =
   | SPI
   | ASI [@@deriving yojson, show, eq]
 
-let input_to_string = function SPI -> "SPI" | ASI -> "ASI"
+let input_to_string = function
+  | SPI -> "SPI" | ASI -> "ASI"
 
-let input_to_int = function SPI -> 0 | ASI -> 1
-let input_of_int = function 0 -> Some SPI
-                          | 1 -> Some ASI
-                          | _ -> None
+let input_to_int = function
+  | SPI -> 0
+  | ASI -> 1
+let input_of_int = function
+  | 0 -> Some SPI
+  | 1 -> Some ASI
+  | _ -> None
 
 type t2mi_mode =
-  { enabled        : bool
-  ; pid            : int
+  { enabled : bool
+  ; pid : int
   ; t2mi_stream_id : int
-  ; stream         : Stream.Multi_TS_ID.t
+  ; stream : Stream.t
   } [@@deriving yojson, eq, show]
 
 type jitter_mode =
-  { stream  : Stream.Multi_TS_ID.t
-  ; pid     : int
+  { stream : Stream.Multi_TS_ID.t
+  ; pid : int
   } [@@deriving yojson, eq, show]
 
 (** Config **)
 
 type config =
-  { input       : input
-  ; t2mi_mode   : t2mi_mode option
+  { input : input
+  ; t2mi_mode : t2mi_mode option
   ; jitter_mode : jitter_mode option
   } [@@deriving yojson,eq]
 
@@ -45,12 +49,15 @@ let config_to_string c = Yojson.Safe.to_string @@ config_to_yojson c
 let config_of_string s = config_of_yojson @@ Yojson.Safe.from_string s
 
 let config_default =
-  { input       = ASI
-  ; t2mi_mode   = None
+  { input = ASI
+  ; t2mi_mode = None
   ; jitter_mode = None
   }
 
-type packet_sz = Ts188 | Ts192 | Ts204 [@@deriving show,eq]
+type packet_sz =
+  | Ts188
+  | Ts192
+  | Ts204 [@@deriving show,eq]
 let packet_sz_to_string : packet_sz -> string = function
   | Ts188 -> "Ts188"
   | Ts192 -> "Ts192"
@@ -59,65 +66,65 @@ let packet_sz_of_string_option : string -> packet_sz option = function
   | "Ts188" -> Some Ts188
   | "Ts192" -> Some Ts192
   | "Ts204" -> Some Ts204
-  | _       -> None
-let packet_sz_to_yojson x : Yojson.Safe.json = `String (packet_sz_to_string x)
+  | _ -> None
+let packet_sz_to_yojson x : Yojson.Safe.json =
+  `String (packet_sz_to_string x)
 let packet_sz_of_yojson = function
-  | `String s -> (match packet_sz_of_string_option s with
-                  | Some x -> Ok x
-                  | None   -> Error (Printf.sprintf "packet_sz_of_yojson: bad string (%s)" s))
-  | x         -> Error (Printf.sprintf "packet_sz_of_yojson: not string value (%s)" @@ Yojson.Safe.to_string x)
+  | `String s ->
+     begin match packet_sz_of_string_option s with
+     | Some x -> Ok x
+     | None -> Error (Printf.sprintf "packet_sz_of_yojson: bad string (%s)" s)
+     end
+  | x -> Error (Printf.sprintf "packet_sz_of_yojson: not string value (%s)"
+                @@ Yojson.Safe.to_string x)
 
 type status =
-  { timestamp    : Time.t
-  ; load         : float
-  ; ts_num       : int
+  { timestamp : Time.t
+  ; load : float
+  ; ts_num : int
   ; services_num : int
-  ; bitrate      : int
-  ; packet_sz    : packet_sz
-  ; has_sync     : bool
-  ; has_stream   : bool
-  } [@@deriving yojson,show,eq]
+  ; bitrate : int
+  ; packet_sz : packet_sz
+  ; has_sync : bool
+  ; has_stream : bool
+  } [@@deriving yojson, show, eq]
 
 type reset_ts =
   { timestamp : Time.t
   }
 
-type statuses = status list [@@deriving yojson]
-
 (** Board errors **)
 
 type board_error =
   { timestamp : Time.t
-  ; err_code  : int
-  ; count     : int
-  } [@@deriving yojson]
-
-type board_errors = board_error list [@@deriving yojson]
+  ; err_code : int
+  ; count : int
+  } [@@deriving yojson, show]
 
 module Jitter = struct
 
   type session =
     { timestamp : Time.t
-    ; t_pcr     : float
-    ; mode      : jitter_mode
+    ; t_pcr : float
+    ; mode : jitter_mode
     } [@@deriving yojson,eq]
 
   type measure =
     { discont_err : bool
-    ; discont_ok  : bool
-    ; t_pcr       : float
+    ; discont_ok : bool
+    ; t_pcr : float
     (* for charts *)
-    ; accuracy    : float
-    ; jitter      : int
-    ; drift       : float
-    ; fo          : float
-    ; period      : float
+    ; accuracy : float
+    ; jitter : int
+    ; drift : float
+    ; fo : float
+    ; period : float
     } [@@deriving yojson]
 
   type measures = measure list [@@deriving yojson]
 
   type archive_item =
-    { session  : session
+    { session : session
     ; measures : measure list
     } [@@deriving yojson]
 
@@ -131,10 +138,21 @@ module Streams = struct
 
     (** TS bitrate *)
 
+    type table_bitrate =
+      { id : int
+      ; id_ext : int
+      ; fully_analyzed : bool
+      ; section_syntax : bool
+      ; ext_info_1 : int
+      ; ext_info_2 : int
+      ; bitrate : int
+      } [@@deriving yojson]
+
     type bitrate =
       { timestamp : Time.t
-      ; total     : int
-      ; pids      : (int * int) list
+      ; total : int
+      ; tables : table_bitrate list
+      ; pids : (int * int) list
       } [@@deriving yojson]
 
     (** TS structure *)
@@ -145,95 +163,95 @@ module Streams = struct
       | ECM of int
       | EMM of int
       | Private
-      | Null [@@deriving yojson, eq]
+      | Null [@@deriving yojson, eq, ord]
 
     type pid_info =
-      { pid       : int
-      ; has_pts   : bool
-      ; has_pcr   : bool
+      { pid : int
+      ; has_pts : bool
+      ; has_pcr : bool
       ; scrambled : bool
-      ; present   : bool
-      ; service   : string option
-      ; pid_type  : pid_type
+      ; present : bool
+      ; service : string option
+      ; pid_type : pid_type
       } [@@deriving yojson, eq]
 
     type es_info =
-      { pid          : int
-      ; has_pts      : bool
-      ; has_pcr      : bool
-      ; scrambled    : bool
-      ; present      : bool
-      ; es_type      : int
+      { pid : int
+      ; has_pts : bool
+      ; has_pcr : bool
+      ; scrambled : bool
+      ; present : bool
+      ; es_type : int
       ; es_stream_id : int
       } [@@deriving yojson, eq]
 
     type ecm_info =
-      { pid       : int
+      { pid : int
       ; scrambled : bool
-      ; present   : bool
+      ; present : bool
       ; ca_sys_id : int
       } [@@deriving yojson, eq]
 
     type service_info =
-      { id                : int
-      ; name              : string
-      ; provider_name     : string
-      ; pmt_pid           : int
-      ; pcr_pid           : int
-      ; has_pmt           : bool
-      ; has_sdt           : bool
-      ; dscr              : bool
-      ; dscr_list         : bool
-      ; eit_schedule      : bool
-      ; eit_pf            : bool
-      ; free_ca_mode      : bool
-      ; running_status    : int
-      ; service_type      : int
+      { id : int
+      ; name : string
+      ; provider_name : string
+      ; pmt_pid : int
+      ; pcr_pid : int
+      ; has_pmt : bool
+      ; has_sdt : bool
+      ; dscr : bool
+      ; dscr_list : bool
+      ; eit_schedule : bool
+      ; eit_pf : bool
+      ; free_ca_mode : bool
+      ; running_status : int
+      ; service_type : int
       ; service_type_list : int
-      ; es                : es_info list
-      ; ecm               : ecm_info list
+      ; es : es_info list
+      ; ecm : ecm_info list
       } [@@deriving yojson, eq]
 
     type emm_info = ecm_info [@@deriving yojson, eq]
 
-    type eit_params =
-      { orig_nw_id    : int (* eit param 2*)
-      ; ts_id         : int (* eit param 1*)
-      ; segment_lsn   : int
-      ; last_table_id : int
-      } [@@deriving yojson, eq, ord]
+    type ext_info =
+      { ext_1 : int (* For SDT - orig nw id, for EIT - ts id *)
+      ; ext_2 : int (* For EIT - orig nw id *)
+      ; ext_3 : int (* For EIT - segment lsn *)
+      ; ext_4 : int (* For EIT - last table id *)
+      } [@@deriving yojson, eq, ord, show]
 
     type section_info =
-      { id     : int
+      { id : int
       ; length : int
-      } [@@deriving yojson, eq, ord]
+      } [@@deriving yojson, eq, ord, show]
 
     type table_info =
-      { id             : int
-      ; id_ext         : int
-      ; eit_params     : eit_params
-      ; pid            : int
-      ; version        : int
-      ; service        : string option
+      { id : int
+      ; id_ext : int
+      ; ext_info : ext_info
+      ; pid : int
+      ; version : int
+      ; service : string option
       ; section_syntax : bool
-      ; last_section   : int
-      ; sections       : section_info list
-      } [@@deriving yojson, eq, ord]
+      ; last_section : int
+      ; sections : section_info list
+      } [@@deriving yojson, eq, ord, show]
 
     type general_info =
-      { complete     : bool
+      { complete : bool
       ; services_num : int
-      ; nw_pid       : int
-      ; ts_id        : int
-      ; nw_id        : int
-      ; orig_nw_id   : int
-      ; nw_name      : string
+      ; nw_pid : int
+      ; ts_id : int
+      ; nw_id : int
+      ; orig_nw_id : int
+      ; nw_name : string
       ; bouquet_name : string
       } [@@deriving yojson, eq]
 
     type info =
       { timestamp : Time.t
-      ; info      : general_info
+      ; info : general_info
       } [@@deriving yojson]
 
     let equal_info x y =
@@ -241,7 +259,7 @@ module Streams = struct
 
     type services =
       { timestamp : Time.t
-      ; services  : service_info list
+      ; services : service_info list
       } [@@deriving yojson]
 
     let equal_services x y =
@@ -249,7 +267,7 @@ module Streams = struct
 
     type tables =
       { timestamp : Time.t
-      ; tables    : table_info list
+      ; tables : table_info list
       } [@@deriving yojson]
 
     let equal_tables x y =
@@ -257,17 +275,17 @@ module Streams = struct
 
     type pids =
       { timestamp : Time.t
-      ; pids      : pid_info list
+      ; pids : pid_info list
       } [@@deriving yojson]
 
     let equal_pids x y =
       (Equal.list equal_pid_info) x.pids y.pids
 
     type structure =
-      { info     : info
+      { info : info
       ; services : services
-      ; tables   : tables
-      ; pids     : pids
+      ; tables : tables
+      ; pids : pids
       } [@@deriving yojson]
 
     let equal_structure x y =
@@ -282,25 +300,25 @@ module Streams = struct
     and node =
       { offset : int
       ; length : int
-      ; name   : string
-	    ; value  : value * string option
+      ; name : string
+	    ; value : value * string option
       }
     and integer =
-      | Bool   of bool
-      | Int    of int
-      | Int32  of int32
-      | Int64  of int64
-      | Uint   of int
+      | Bool of bool
+      | Int of int
+      | Int32 of int32
+      | Int64 of int64
+      | Uint of int
       | Uint32 of int32
       | Uint64 of int64
     and value =
-      | List     of node list
-      | Bytes    of int list
-      | String   of string
-      | Bits     of integer
-      | Dec      of integer
-      | Hex      of integer
-      | Time     of Time.t
+      | List of node list
+      | Bytes of int list
+      | String of string
+      | Bits of integer
+      | Dec of integer
+      | Hex of integer
+      | Time of Time.t
       | Duration of Time.Period.t [@@deriving yojson, show]
 
     type section_error =
@@ -311,12 +329,12 @@ module Streams = struct
       | Unknown [@@deriving yojson]
 
     type section =
-      { stream_id  : Stream.Multi_TS_ID.t
-      ; table_id   : int
+      { stream_id : Stream.Multi_TS_ID.t
+      ; table_id : int
       ; section_id : int
-      ; section    : int list
-      ; parsed     : parsed option
-      ; timestamp  : Time.t
+      ; section : int list
+      ; parsed : parsed option
+      ; timestamp : Time.t
       } [@@deriving yojson]
 
     type streams_states =
@@ -328,21 +346,121 @@ module Streams = struct
 
   module T2MI = struct
 
-    (** T2MI structure **)
+    (** T2MI structure *)
+
+    type l1_pre =
+      { typ : int
+      ; preamble : int
+      ; fft : int
+      ; mixed_flag : bool
+      ; bwt_ext : bool
+      ; s1 : int
+      ; s2 : int
+      ; l1_repetition_flag : bool
+      ; guard_interval : int
+      ; papr : int
+      ; l1_mod : int
+      ; l1_cod : int
+      ; l1_fec_type : int
+      ; l1_post_size : int
+      ; l1_post_info_size : int
+      ; pilot_pattern : int
+      ; tx_id_availability : int
+      ; cell_id : int
+      ; network_id : int
+      ; t2_system_id : int
+      ; num_t2_frames : int
+      ; num_data_symbols : int
+      ; regen_flag : int
+      ; l1_post_extension : bool
+      ; num_rf : int
+      ; current_rf_idx : int
+      ; t2_version : int
+      ; l1_post_scrambled : bool
+      ; t2_base_lite : bool
+      ; reserved : int
+      } [@@deriving yojson, show]
+
+    type l1_post_conf =
+      { sub_slices_per_frame : int
+      ; aux_config_rfu : int
+      ; rf : t2_l1_post_conf_rf list
+      ; fef : t2_l1_post_conf_fef option
+      ; plp : t2_l1_post_conf_plp list
+      ; fef_length_msb : int
+      ; reserved_2 : int
+      ; aux : t2_l1_post_conf_aux list
+      }
+    and t2_l1_post_conf_rf =
+      { rf_idx : int
+      ; frequency : int
+      }
+    and t2_l1_post_conf_fef =
+      { fef_type : int
+      ; fef_length : int
+      ; fef_interval : int
+      }
+    and t2_l1_post_conf_plp =
+      { plp_id : int
+      ; plp_type : int
+      ; plp_payload_type : int
+      ; ff_flag : bool
+      ; first_rf_idx : int
+      ; first_frame_idx : int
+      ; plp_group_id : int
+      ; plp_cod : int
+      ; plp_mod : int
+      ; plp_rotation : bool
+      ; plp_fec_type : int
+      ; plp_num_blocks_max : int
+      ; frame_interval : int
+      ; time_il_length : int
+      ; time_il_type : bool
+      ; in_band_a_flag : bool
+      ; in_band_b_flag : bool
+      ; reserved_1 : int
+      ; plp_mode : int
+      ; static_flag : bool
+      ; static_padding_flag : bool
+      }
+    and t2_l1_post_conf_aux =
+      { aux_stream_type : int
+      ; aux_private_conf : int
+      } [@@deriving yojson, show]
+
+    type l1_error =
+      | Empty
+      | Parser_error of string [@@deriving yojson, show]
+
+    type l1_pre_result =
+      (l1_pre, l1_error) result [@@deriving show]
+
+    type l1_post_conf_result =
+      (l1_post_conf, l1_error) result [@@deriving show]
+
+    let l1_pre_result_to_yojson =
+      Json.(Result.to_yojson l1_pre_to_yojson l1_error_to_yojson)
+    let l1_pre_result_of_yojson =
+      Json.(Result.of_yojson l1_pre_of_yojson l1_error_of_yojson)
+
+    let l1_post_conf_result_to_yojson =
+      Json.(Result.to_yojson l1_post_conf_to_yojson l1_error_to_yojson)
+    let l1_post_conf_result_of_yojson =
+      Json.(Result.of_yojson l1_post_conf_of_yojson l1_error_of_yojson)
 
     type t2mi_stream_info =
-      { packets      : int list
-      ; t2mi_pid     : int option
-      ; l1_pre       : string option
-      ; l1_post_conf : string option
-      } [@@deriving yojson]
+      { packets : int list
+      ; t2mi_pid : int option
+      ; l1_pre : l1_pre_result
+      ; l1_post_conf : l1_post_conf_result
+      } [@@deriving yojson, show]
 
     type structure =
       { timestamp : Time.t
-      ; streams   : (int * t2mi_stream_info) list
-      } [@@deriving yojson]
+      ; streams : (int * t2mi_stream_info) list
+      } [@@deriving yojson, show]
 
-    (** T2-MI packet sequence **)
+    (** T2-MI packet sequence *)
 
     (* T2-MI packet types:
      * 0x00  - BB frame
@@ -365,18 +483,21 @@ module Streams = struct
      *)
 
     type sequence_item =
-      { typ         : int (* T2-MI packet type according to TS 102 773 *)
+      { typ : int (* T2-MI packet type according to TS 102 773 *)
       ; super_frame : int
-      ; stream_id   : int
-      ; frame       : int (* for packet types 0x00 .. 0x02, 0x10 .. 0x12 *)
-      ; count       : int
-      ; plp         : int (* only for BB frames *)
-      ; l1_param_1  : int (* L1DYN_CURR.FRAME_IDX  for L1 current, L1DYN_NEXT.FRAME_IDX for L1 future *)
-      ; l1_param_2  : int (* L1DYN_NEXT2.FRAME_IDX for L1 future *)
-      ; ts_packet   : int
+      ; stream_id : int
+      ; frame : int (* for packet types 0x00 .. 0x02, 0x10 .. 0x12 *)
+      ; count : int
+      ; plp : int (* only for BB frames *)
+      ; l1_param_1 : int (* L1DYN_CURR.FRAME_IDX  for L1 current, L1DYN_NEXT.FRAME_IDX for L1 future *)
+      ; l1_param_2 : int (* L1DYN_NEXT2.FRAME_IDX for L1 future *)
+      ; ts_packet : int
       } [@@deriving yojson]
 
-    type sequence = sequence_item list [@@deriving yojson]
+    type sequence =
+      { timestamp : Time.t
+      ; items : sequence_item list
+      } [@@deriving yojson]
 
   end
 
@@ -385,32 +506,33 @@ end
 module Errors = struct
 
   type segmentation =
-    { errors     : float
-    ; no_stream  : float
+    { errors : float
+    ; no_stream : float
     ; no_measure : float
     } [@@deriving yojson]
 
   type t =
     { timestamp : Time.t
-    ; count     : int
-    ; err_code  : int
-    ; err_ext   : int
-    ; priority  : int
+    ; count : int
+    ; err_code : int
+    ; err_ext : int
+    ; priority : int
     ; multi_pid : bool
-    ; pid       : int
-    ; packet    : int32
-    ; param_1   : int32
-    ; param_2   : int32 (* t2mi stream id for t2mi error *)
-    } [@@deriving yojson,eq]
+    ; pid : int
+    ; packet : int32
+    ; service : string option
+    ; param_1 : int32
+    ; param_2 : int32 (* t2mi stream id for t2mi error *)
+    } [@@deriving yojson, eq, show]
 
   type raw =
-    (Stream.ID.t * t) list [@@deriving yojson]
+    (Stream.ID.t * t) list [@@deriving yojson, show]
 
   type compressed = percent list
   and percent =
-    { errors    : float
+    { errors : float
     ; no_stream : float
-    ; period    : Time.t * Time.t
+    ; period : Time.t * Time.t
     } [@@deriving yojson]
 
 end

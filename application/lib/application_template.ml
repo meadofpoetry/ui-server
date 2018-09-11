@@ -3,6 +3,7 @@ open Common.Topology
 open Common.User
 open Api.Template
 open Api
+open Common.Uri
 
 module Icon = Components_markup.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
 
@@ -25,14 +26,14 @@ let input topo (topo_input:topo_input) =
   match path with
   | None              -> failwith "input not found"
   | Some (boards, cpu) ->
-     let title  = Common.Topology.get_input_name topo_input in
+     let title = Common.Topology.get_input_name topo_input in
      let boards = List.map (fun x -> x.control, x.typ) boards
                   |> boards_to_yojson |> Yojson.Safe.to_string in
-     let cpu    = Option.map (fun x -> x.process) cpu
-                  |> cpu_opt_to_yojson |> Yojson.Safe.to_string in
-     let input  = Common.Topology.Show_topo_input.to_string topo_input in
+     let cpu = Option.map (fun x -> x.process) cpu
+               |> cpu_opt_to_yojson |> Yojson.Safe.to_string in
+     let input = Common.Topology.Show_topo_input.to_string topo_input in
      let template =
-       { title        = Some ("Вход " ^ title)
+       { title = Some title
        ; pre_scripts  = [ Raw (Printf.sprintf "var input = \"%s\";\
                                                var boards = %s;\
                                                var cpu = %s;"
@@ -41,8 +42,8 @@ let input topo (topo_input:topo_input) =
                         ; Src "/js/Chart.min.js"
                         ; Src "/js/Chart.PieceLabel.min.js"]
        ; post_scripts = [ Src "/js/input.js" ]
-       ; stylesheets  = []
-       ; content      = []
+       ; stylesheets = []
+       ; content = []
        } in
      `Index topo_input.id,
      Simple { title
@@ -52,6 +53,9 @@ let input topo (topo_input:topo_input) =
 
 let create (app : Application.t) : upper ordered_item list user_table =
   let topo  = React.S.value app.topo in
+  let hw_templates =
+    Hardware.Map.fold (fun _ (x:Boards.Board.t) acc ->
+        List.cons_maybe x.templates acc) app.hw.boards [] in
   let props =
     { title        = Some "Конфигурация"
     ; pre_scripts  = []
@@ -91,9 +95,11 @@ let create (app : Application.t) : upper ordered_item list user_table =
     | None -> Common.User.empty_table
     | Some p -> p#template ()
   in
-  Common.User.concat_table [ Responses.home_template ()
-                           ; User_template.create ()
-                           ; Pc_control.Network_template.create ()
-                           ; proc
-                           ; { root = rval; operator = rval; guest = rval }
-    ]
+  Common.User.concat_table
+    ([ Responses.home_template ()
+     ; User_template.create ()
+     ; Pc_control.Network_template.create ()
+     ; proc
+     ; { root = rval; operator = rval; guest = rval }
+     ]
+     @ hw_templates)
