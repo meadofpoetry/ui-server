@@ -4455,7 +4455,7 @@ module CAT = struct
          ; to_node ~offset:off_3 1 "current_next_indicator" (Bits (Bool current_next_ind))
          ; to_node ~offset:off_4 8 "section_number" (Dec (Int section_number))
          ; to_node ~offset:off_5 8 "last_section_number" (Dec (Int last_section_number))
-         ; to_node ~offset:off_6 (dscrs_length off_6) "descriptors" (List dscrs)
+         ; to_node ~offset:off_6 (dscrs_length off_5) "descriptors" (List dscrs)
          ; to_node ~offset:off_7 32 "CRC_32" (Dec (Uint32 crc32))
          ]
        in
