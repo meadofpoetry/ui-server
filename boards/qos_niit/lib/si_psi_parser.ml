@@ -395,9 +395,9 @@ module Descriptor = struct
     let decode bs off =
       match%bitstring bs with
       | {| bound_valid_flag : 1
-         ; lower_bound  : 15 : save_offset_to (off_1)
+         ; lower_bound      : 15 : save_offset_to (off_1)
          ; reserved         : 1  : save_offset_to (off_2)
-         ; upper_bound  : 15 : save_offset_to (off_3)
+         ; upper_bound      : 15 : save_offset_to (off_3)
          |} ->
          [ to_node ~offset:off 1 "bound_valid_flag" (Bits (Bool bound_valid_flag))
          ; to_node ~offset:(off_1 + off) 15 "LTW_offset_lower_bound" (Dec (Int lower_bound))
@@ -417,8 +417,12 @@ module Descriptor = struct
       | {| copyright_id : 32
          ; rest         : -1 : save_offset_to (off_1), bitstring
          |} ->
-         let node = to_node ~offset:off 32 "copyright_identifier" (Hex (Int32 copyright_id)) in
-         node :: parse_bytes ~offset:(off + off_1) rest "additional_copyright_info"
+         let info = match Text_decoder.decode @@ Bitstring.to_cstruct rest with
+           | Ok s    -> s
+           | Error _ -> "Unable to decode"
+         in
+         [ to_node ~offset:off 32 "copyright_identifier" (Hex (Int32 copyright_id))
+         ; to_node ~offset:(off + off_1) (Bitstring.length rest) "additional copyright info" (String info)]
 
   end
 
@@ -719,7 +723,7 @@ module Descriptor = struct
 
   (* 0x22 *)
   module Fmx_buffer_size = struct
-
+    (* ITU-T Rec. H.222.0 page 89 *)
     let name = "FmxBufferSize_descriptor"
 
     let decode _ _ = []
@@ -871,6 +875,7 @@ module Descriptor = struct
 
   (* 0x25 *)
   module Metadata_pointer = struct
+    (* ITU-T Rec. H.222.0 page 93 *)
 
     let name = "metadata_pointer_descriptor"
 
@@ -881,7 +886,7 @@ module Descriptor = struct
 
   (* 0x26 *)
   module Metadata = struct
-
+    (* ITU-T Rec. H.222.0 page 95 *)
     let name = "metadata_descriptor"
 
     let decode _ _ = []
@@ -956,6 +961,7 @@ module Descriptor = struct
 
     let name = "IPMP_descriptor"
 
+    (* refers to ISO/IEC 13818-11, which is not accessible *)
     let decode _ _ = []
 
   end
@@ -965,7 +971,72 @@ module Descriptor = struct
 
     let name = "AVC timing and HRD descriptor"
 
-    let decode _ _ = []
+    let decode bs off =
+      match%bitstring bs with
+      | {| hrd_mng_valid_flag   : 1
+         ; reserved_1           : 6  : save_offset_to (off_1)
+         ; true                 : 1  : save_offset_to (off_2)
+         ; false                : 1  : save_offset_to (off_3)
+         ; reserved_2           : 7  : save_offset_to (off_4)
+         ; n                    : 32 : save_offset_to (off_5)
+         ; k                    : 32 : save_offset_to (off_6)
+         ; num_units_in_tick    : 32 : save_offset_to (off_7)
+         ; fixed_fr_rate_flag   : 1  : save_offset_to (off_8)
+         ; temporal_poc_flag    : 1  : save_offset_to (off_9)
+         ; pict_to_display_flag : 1  : save_offset_to (off_10)
+         ; reserved_3           : 5  : save_offset_to (off_11)
+         |} ->
+         [ to_node ~offset:off 1 "hrd_management_valid_flag" (Bits (Bool hrd_mng_valid_flag))
+         ; to_node ~offset:(off + off_1)  6  "reserved" (Bits (Int reserved_1))
+         ; to_node ~offset:(off + off_2)  1  "picture_and_timing_info_present" (Bits (Bool true))
+         ; to_node ~offset:(off + off_3)  1  "90kHz_flag" (Bits (Bool false))
+         ; to_node ~offset:(off + off_4)  7  "reserved" (Bits (Int reserved_2))
+         ; to_node ~offset:(off + off_5)  32 "N" (Dec (Int32 n))
+         ; to_node ~offset:(off + off_6)  32 "K" (Dec (Int32 k))
+         ; to_node ~offset:(off + off_7)  32 "num_units_in_tick" (Bits (Int32 num_units_in_tick))
+         ; to_node ~offset:(off + off_8)  1  "fixed_frame_rate_flag" (Bits (Bool fixed_fr_rate_flag))
+         ; to_node ~offset:(off + off_9)  1  "temporal_poc_flag" (Bits (Bool temporal_poc_flag))
+         ; to_node ~offset:(off + off_10) 1  "picture_to_display_conversion_flag" (Bits (Bool pict_to_display_flag))
+         ; to_node ~offset:(off + off_11) 5  "reserved" (Bits (Int reserved_3))
+         ]
+      | {| hrd_mng_valid_flag   : 1
+         ; reserved_1           : 6  : save_offset_to (off_1)
+         ; true                 : 1  : save_offset_to (off_2)
+         ; true                 : 1  : save_offset_to (off_3)
+         ; reserved_2           : 7  : save_offset_to (off_4)
+         ; num_units_in_tick    : 32 : save_offset_to (off_5)
+         ; fixed_fr_rate_flag   : 1  : save_offset_to (off_6)
+         ; temporal_poc_flag    : 1  : save_offset_to (off_7)
+         ; pict_to_display_flag : 1  : save_offset_to (off_8)
+         ; reserved_3           : 5  : save_offset_to (off_9)
+         |} ->
+         [ to_node ~offset:off 1 "hrd_management_valid_flag" (Bits (Bool hrd_mng_valid_flag))
+         ; to_node ~offset:(off + off_1)  6  "reserved" (Bits (Int reserved_1))
+         ; to_node ~offset:(off + off_2)  1  "picture_and_timing_info_present" (Bits (Bool true))
+         ; to_node ~offset:(off + off_3)  1  "90kHz_flag" (Bits (Bool true))
+         ; to_node ~offset:(off + off_4)  7  "reserved" (Bits (Int reserved_2))
+         ; to_node ~offset:(off + off_5)  32 "num_units_in_tick" (Bits (Int32 num_units_in_tick))
+         ; to_node ~offset:(off + off_6)  1  "fixed_frame_rate_flag" (Bits (Bool fixed_fr_rate_flag))
+         ; to_node ~offset:(off + off_7)  1  "temporal_poc_flag" (Bits (Bool temporal_poc_flag))
+         ; to_node ~offset:(off + off_8)  1  "picture_to_display_conversion_flag" (Bits (Bool pict_to_display_flag))
+         ; to_node ~offset:(off + off_9)  5  "reserved" (Bits (Int reserved_3))
+         ]
+      | {| hrd_mng_valid_flag   : 1
+         ; reserved_1           : 6 : save_offset_to (off_1)
+         ; false                : 1 : save_offset_to (off_2)
+         ; fixed_fr_rate_flag   : 1 : save_offset_to (off_3)
+         ; temporal_poc_flag    : 1 : save_offset_to (off_4)
+         ; pict_to_display_flag : 1 : save_offset_to (off_5)
+         ; reserved_2           : 5 : save_offset_to (off_6)
+         |} ->
+         [ to_node ~offset:off 1 "hrd_management_valid_flag" (Bits (Bool hrd_mng_valid_flag))
+         ; to_node ~offset:(off + off_1)  6  "reserved" (Bits (Int reserved_1))
+         ; to_node ~offset:(off + off_2)  1  "picture_and_timing_info_present" (Bits (Bool false))
+         ; to_node ~offset:(off + off_3)  1  "fixed_frame_rate_flag" (Bits (Bool fixed_fr_rate_flag))
+         ; to_node ~offset:(off + off_4)  1  "temporal_poc_flag" (Bits (Bool temporal_poc_flag))
+         ; to_node ~offset:(off + off_5)  1  "picture_to_display_conversion_flag" (Bits (Bool pict_to_display_flag))
+         ; to_node ~offset:(off + off_6)  5  "reserved" (Bits (Int reserved_2))
+         ]
 
   end
 
@@ -985,7 +1056,6 @@ module Descriptor = struct
          ; to_node ~offset:(off + off_2) 8 "MPEG-2_AAC_additional_information" (Hex (Int add_info))
          ]
 
-
   end
 
   (* 0x2C *)
@@ -1003,8 +1073,7 @@ module Descriptor = struct
          [ to_node ~offset:off 16 "FCR_ES_ID" (Hex (Int fcr_es_id))
          ; to_node ~offset:(off + off_1) 32 "FCRResolution" (Hex (Int32 fcr_resolution))
          ; to_node ~offset:(off + off_2) 8  "FCRLength" (Dec (Int fcr_length))
-         ; to_node ~offset:(off + off_3) 8  "FmxRateLength" (Dec (Int fmx_rate_length))
-         ]
+         ; to_node ~offset:(off + off_3) 8  "FmxRateLength" (Dec (Int fmx_rate_length)) ]
 
   end
 
@@ -1012,8 +1081,68 @@ module Descriptor = struct
   module MPEG4_text = struct
 
     let name = "MPEG-4_text_descriptor"
+    (* FIXME *)
+    (* defined in ITU-T Rec.H.220.0 and refers to ISO/IEC 14496-17 TextConfig 5.3 page 3 and to TS 26.245 then*)
 
-    let decode _ _ = []
+    let parse_base_format = function
+      | 0x10 -> "Timed Text as specified in 3GPP TS 26.245"
+      | x when x >= 0x00 && x <= 0x0F || x >= 0x11 && x <= 0xFF -> "Reserved"
+      | _ -> assert false
+
+    let parse_profile_level = function
+      | 0x10 -> "Base profile, base level"
+      | x when x >= 0x00 && x <= 0x0F || x >= 0x11 && x <= 0xFF -> "Reserved"
+      | _ -> assert false
+
+    let parse_descr_flags = function
+      | 0x00 -> "Forbidden"
+      | 0x01 -> "No in-band, out-of band only"
+      | 0x10 -> "In-band onlym no out-of band"
+      | 0x11 -> "Both in-band and out-of band"
+      | _    -> assert false
+
+    let parse_text_format = function
+      | 0x00 | 0xFF -> "Reserved"
+      | 0x01 -> "Timed Text as specified in 3GPP TS 26.245"
+      | x when x >= 0x02 && x <= 0xEF -> "Reserved"
+      | x when x >= 0xF0 && x <= 0xFE -> "User-private"
+      | _ -> assert false
+
+(*    let decode_specific_text_config bs off =
+      match%bitstring bs with
+      | {| base_format    : 8
+         ; profile_level  : 8  : save_offset_to (off_1)
+         ; duration_clock : 24 : save_offset_to (off_2)
+         ; true           : 1  : save_offset_to (off_3)
+         ; descr_flags    : 2  : save_offset_to (off_4)
+         ; true           : 1  : save_offset_to (off_5)
+         ; true           : 1  : save_offset_to (off_6)
+         ; reserved       : 3  : save_offset_to (off_7)
+         ; layer          : 8  : save_offset_to (off_8)
+         ; text_track_w   : 16 : save_offset_to (off_9)
+         ; text_track_h   : 16 : save_offset_to (off_10)
+         ; num_of_formats : 8  : save_offset_to (off_11)
+         ; comp_format    : 8  : save_offset_to (off_12)
+         ; num_sam_descr  : 8  : save_offset_to (off_13)
+         ; sample_index   : 8  : save_offset_to (off_14)
+         ; sample_descr   :    : save_offset_to (off_15) idk how to parse dis
+         ; scene_width    : 16 : save_offset_to (off_16)
+         ; scene_height   : 16 : save_offset_to (off_17)
+         ; hor_scene_off  : 16 : save_offset_to (off_18)
+         ; ver_scene_off  : 16 : save_offset_to (off_19)
+         |} ->
+         []*)
+
+    let decode bs off =
+      match%bitstring bs with
+      | {| text_format : 8
+         ; length      : 16 : save_offset_to (off_1)
+         ; _    : length * 8 : save_offset_to (off_2), bitstring
+         |} ->
+      (*   let specific = decode_specific_text_config specific (off + off_2) in*)
+         [ to_node ~offset:off 8 "text_format" (String (parse_text_format text_format))
+         ; to_node ~offset:(off + off_1) 16 "text_config_length" (Dec (Uint length))
+         ; to_node ~offset:(off + off_2) (length * 8) "format_specific_text_config" (List []) ]
 
   end
 
@@ -1022,7 +1151,37 @@ module Descriptor = struct
 
     let name = "MPEG-4_audio_extension_descriptor"
 
-    let decode _ _ = []
+    let decode bs off =
+      match%bitstring bs with
+      | {| true          : 1
+         ; reserved      : 3  : save_offset_to (off_1)
+         ; num_of_loops  : 4  : save_offset_to (off_2)
+         ; audio_profile : num_of_loops * 8 : save_offset_to (off_3), bitstring
+         ; asc_size      : 8  : save_offset_to (off_4)
+         ; _             : -1 : bitstring
+         |} ->
+         (* TODO the rest here must be decoded considering ISO 1496-3 page 38 (AudioSpecificConfig), but its kinda messy *)
+         let audio_profile =
+           parse_bytes ~offset:(off + off_3) audio_profile "audioProfileLevelIndication"
+         in
+         [ to_node ~offset:off 1 "ASC_flag" (Bits (Bool true))
+         ; to_node ~offset:(off + off_1) 3 "reserved" (Bits (Int reserved))
+         ; to_node ~offset:(off + off_2) 4 "num_of_loops" (Dec (Int num_of_loops))
+         ; to_node ~offset:(off + off_3) (num_of_loops * 8) "" (List audio_profile)
+         ; to_node ~offset:(off + off_4) 8 "ASC_size" (Dec (Int asc_size))]
+
+      | {| false         : 1
+         ; reserved      : 3 : save_offset_to (off_1)
+         ; num_of_loops  : 4 : save_offset_to (off_2)
+         ; audio_profile : num_of_loops * 8 : save_offset_to (off_3), bitstring
+         |} ->
+         let audio_profile =
+           parse_bytes ~offset:(off + off_3) audio_profile "audioProfileLevelIndication"
+         in
+         [ to_node ~offset:off 1 "ASC_flag" (Bits (Bool false))
+         ; to_node ~offset:(off + off_1) 3 "reserved" (Bits (Int reserved))
+         ; to_node ~offset:(off + off_2) 4 "num_of_loops" (Dec (Int num_of_loops))
+         ; to_node ~offset:(off + off_3) (num_of_loops * 8) "audio_profile" (List audio_profile)]
 
   end
 
@@ -1030,6 +1189,8 @@ module Descriptor = struct
   module Aux_video_stream = struct
 
     let name = "Auxiliary_video_stream_descriptor"
+
+    (* refers to ISO/IEC 23002-3, not accessible *)
 
     let decode _ _ = []
 
@@ -1070,7 +1231,6 @@ module Descriptor = struct
          ; to_node ~offset:(off + off_11) 1  "no_sei_nal_unit_present" (Bits (Bool nsnu_present))
          ; to_node ~offset:(off + off_12) 1  "reserved" (Bits (Bool reserved_2))
          ]
-
 
   end
 
@@ -1165,7 +1325,7 @@ module Descriptor = struct
               in
               nodes @ parse_recommendations (off + off_2) rest
 
- (* FIXME *)
+    (* FIXME *)
 
     let decode bs off =
       match%bitstring bs with
@@ -1189,8 +1349,7 @@ module Descriptor = struct
          ; to_node ~offset:(off + off_5) 1 "constraint_set4_flag" (Bits (Bool constraint_set4_flag))
          ; to_node ~offset:(off + off_6) 1 "constraint_set5_flag" (Bits (Bool constraint_set5_flag))
          ; to_node ~offset:(off + off_7) 2 "AVC_compatible_flags" (Bits (Int avc_compatible_flags))
-         ; to_node ~offset:(off + off_8) 8 "level_count" (Hex (Int level_count))
-         ]
+         ; to_node ~offset:(off + off_8) 8 "level_count" (Hex (Int level_count)) ]
          in
          nodes @ parse_recommendations (off + off_9) rest
 
@@ -1649,7 +1808,7 @@ module Descriptor = struct
 
     let name = "VBI_data_descriptor"
 
-    (* TODO page 87 *)
+    (* TODO EN 300 468 page 86 *)
 
     let decode _ _ = []
 
@@ -1770,9 +1929,197 @@ module Descriptor = struct
   (* 0x4A *)
   module Linkage = struct
 
+    open Bitstring
+
+    let parse_linkage_type = function
+      | 0x00 | 0xFF -> "reserved for future use"
+      | 0x01 -> "information service"
+      | 0x02 -> "EPG service"
+      | 0x03 -> "CA replacement service"
+      | 0x04 -> "TS containing complete Network/Bouquet SI"
+      | 0x05 -> "service replacement service"
+      | 0x06 -> "data broadcast service"
+      | 0x07 -> "RCS Map"
+      | 0x08 -> "mobile hand-over"
+      | 0x09 -> "System Software Update Service (ERSI TS 102 006 [11])"
+      | 0x0A -> "TS containing SSU BAT or NIT (ETSI EN 102 006 [11])"
+      | 0x0B -> "IP/MAC Notification Service (ETSI EN 301 192 [4])"
+      | 0x0C -> "TS containing INT BAT or NIT (ETSI EN 301 192 [4])"
+      | 0x0D -> "event linkage"
+      | x when x >= 0x0E && x <= 0x1F -> "extended event linkage"
+      | x when x >= 0x20 && x <= 0x7F -> "reserved for future use"
+      | x when x >= 0x80 && x <= 0xFE -> "user defined"
+      | _    -> assert false
+
+    let parse_handover_type = function
+      | 0x00 -> "reserved for future use"
+      | 0x01 -> "DVB hand-over to and identical service in a neighbouring country"
+      | 0x02 -> "DVB hand-over to an associated service"
+      | 0x03 -> "DVB hand-over to an associated service"
+      | x when x >= 0x04 && x <= 0x0F -> "reserved for future use"
+      | _    -> assert false
+
+    let parse_origin_type = function
+      | 0x00 -> "NIT"
+      | 0x01 -> "SDT"
+      | _    -> assert false
+
+    let parse_link_type ~linkage ~link =
+      match linkage with
+      | 0x0E -> ( match link with
+                  | 0 -> "SD"
+                  | 1 -> "HD"
+                  | 2 -> "frame compatible plano-stereoscopic H.264/AVC"
+                  | 3 -> "service compatible plano-stereoscopic MVC"
+                  | _ -> assert false)
+      | 0x0F -> ( match link with
+                  | 0 -> "UHD"
+                  | 1 -> "service frame compatible plano-stereoscopic"
+                  | 2 | 3 -> "reserved or future use"
+                  | _ -> assert false)
+      | x when x >= 0x10 && x <= 0x1F -> ( match link with
+                                           | x when x >= 0 && x <= 3 -> "reserved for future use"
+                                           | _ -> assert false)
+      | _ -> assert false
+
+    let parse_target_id = function
+      | 0 -> "use transport_stream_id"
+      | 1 -> "use target_transport_stream_id"
+      | 2 -> "match any transport_stream_id (wildcard)"
+      | 3 -> "use user_defined_id"
+      | _ -> assert false
+
+    let decode_handover_linkage bs off =
+      match%bitstring bs with
+      | {| 0x01        : 4
+         ; rfu         : 3  : save_offset_to (off_1)
+         ; origin_type : 1  : save_offset_to (off_2)
+         ; network_id  : 16 : save_offset_to (off_3)
+         |} ->
+         [ to_node ~offset:off 4 "hand-over_type" (Hex (Int 0x01))
+         ; to_node ~offset:(off + off_1) 3  "reserved_future_use" (Bits (Int rfu))
+         ; to_node ~offset:(off + off_2) 1  "origin_type" (Bits (Bool origin_type))
+         ; to_node ~offset:(off + off_3) 16 "network_id" (Dec (Int network_id)) ]
+      | {| 0x02        : 4
+         ; rfu         : 3  : save_offset_to (off_1)
+         ; origin_type : 1  : save_offset_to (off_2)
+         ; network_id  : 16 : save_offset_to (off_3)
+         |} ->
+         [ to_node ~offset:off 4 "hand-over_type" (Hex (Int 0x02))
+         ; to_node ~offset:(off + off_1) 3  "reserved_future_use" (Bits (Int rfu))
+         ; to_node ~offset:(off + off_2) 1  "origin_type" (Bits (Bool origin_type))
+         ; to_node ~offset:(off + off_3) 16 "network_id" (Dec (Int network_id)) ]
+      | {| 0x03        : 4
+         ; rfu         : 3  : save_offset_to (off_1)
+         ; origin_type : 1  : save_offset_to (off_2)
+         ; network_id  : 16 : save_offset_to (off_3)
+         |} ->
+         [ to_node ~offset:off 4 "hand-over_type" (Hex (Int 0x03))
+         ; to_node ~offset:(off + off_1) 3  "reserved_future_use" (Bits (Int rfu))
+         ; to_node ~offset:(off + off_2) 1  "origin_type" (Bits (Bool origin_type))
+         ; to_node ~offset:(off + off_3) 16 "network_id" (Dec (Int network_id)) ]
+      | {| 0x00            : 4
+         ; rfu             : 3  : save_offset_to (off_1)
+         ; origin_type     : 1  : save_offset_to (off_2)
+         ; init_service_id : 16 : save_offset_to (off_3)
+         |} ->
+         [ to_node ~offset:off 4 "hand-over_type" (Hex (Int 0x03))
+         ; to_node ~offset:(off + off_1) 3  "reserved_future_use" (Bits (Int rfu))
+         ; to_node ~offset:(off + off_2) 1  "origin_type" (Bits (Bool origin_type))
+         ; to_node ~offset:(off + off_3) 16 "initial_service_id" (Dec (Int init_service_id)) ]
+
+    let decode_event_linkage bs off =
+      match%bitstring bs with
+      | {| target_event_id : 16
+         ; target_listed   : 1 : save_offset_to (off_1)
+         ; event_simulcast : 1 : save_offset_to (off_2)
+         ; reserved        : 6 : save_offset_to (off_3)
+         |} ->
+         [ to_node ~offset:off 16 "target_event_id" (Dec (Int target_event_id))
+         ; to_node ~offset:(off + off_1) 1 "target_listed" (Bits (Bool target_listed))
+         ; to_node ~offset:(off + off_2) 1 "event_simulcast" (Bits (Bool event_simulcast))
+         ; to_node ~offset:(off + off_3) 6 "reserved" (Bits (Int reserved)) ]
+
+    let decode_extended_event_linkage ~linkage bs off =
+      let rec f off x =
+        if Bitstring.length x = 0 then []
+        else match%bitstring x with
+             | {| target_event_id : 16
+                ; target_listed   : 1  : save_offset_to (off_1)
+                ; event_simulcast : 1  : save_offset_to (off_2)
+                ; link_type       : 2  : save_offset_to (off_3)
+                ; target_id_type  : 2  : save_offset_to (off_4)
+                ; on_id_flag      : 1  : save_offset_to (off_5)
+                ; service_id_flag : 1  : save_offset_to (off_6)
+                ; rest            : -1 : save_offset_to (off_7), bitstring
+                |} ->
+                let nodes =
+                  [ to_node ~offset:off 16 "target_event_id" (Dec (Int target_event_id))
+                  ; to_node ~offset:(off + off_1) 1 "target_listed" (Bits (Bool target_listed))
+                  ; to_node ~offset:(off + off_2) 1 "event_simulcast" (Bits (Bool event_simulcast))
+                  ; to_node ~parsed:(parse_link_type ~linkage ~link:link_type) ~offset:(off + off_3) 2 "link_type" (Hex (Int link_type))
+                  ; to_node ~parsed:(parse_target_id target_id_type) ~offset:(off + off_4) 2 "target_id_type" (Hex (Int target_id_type))
+                  ; to_node ~offset:(off + off_5) 1 "original_network_id_flag" (Bits (Bool on_id_flag))
+                  ; to_node ~offset:(off + off_6) 1 "service_id_flag" (Bits (Bool service_id_flag))]
+                in
+                nodes @ f (off + off_7) rest
+      in
+      match%bitstring bs with
+      | {| loop_length    : 8
+         ; extended_event : loop_length * 8 : save_offset_to (off_1), bitstring
+         ; rest           : -1 : save_offset_to (off_2), bitstring
+         |} ->
+         let extended_linkage = f (off + off_1) extended_event in
+         let private_data     = parse_bytes ~offset:(off + off_2) rest "private_data_byte" in
+         [ to_node ~offset:off 8 "loop_length" (Dec (Int loop_length))
+         ; to_node ~offset:(off + off_1) (loop_length * 8) "extended_event_linkage" (List extended_linkage)
+         ; to_node ~offset:(off + off_1) (length rest) "private_data_bytes" (List private_data) ]
+
     let name = "linkage_descriptor"
-    (* TODO page 62 one of the biggest*)
-    let decode _ _ = []
+    let decode bs off =
+      match%bitstring bs with
+      | {| ts_id                : 16
+         ; on_id                : 16 : save_offset_to (off_1)
+         ; service_id           : 16 : save_offset_to (off_2)
+         ; 0x08                 : 8  : save_offset_to (off_3)
+         ; mobile_handover_info : 24 : save_offset_to (off_4), bitstring
+         ; rest                 : -1 : save_offset_to (off_5), bitstring
+         |} ->
+         let handover = decode_handover_linkage mobile_handover_info (off + off_4) in
+         let bytes = parse_bytes ~offset:(off + off_5) rest "private_data_bytes" in
+         [ to_node ~offset:off 16 "transport_stream_id" (Hex (Int ts_id))
+         ; to_node ~offset:(off + off_1) 16 "original_network_id" (Hex (Int on_id))
+         ; to_node ~offset:(off + off_2) 16 "service_id" (Hex (Int service_id))
+         ; to_node ~offset:(off + off_3) 8  "linkage_type" (Dec (Int 0x08))
+         ; to_node ~offset:(off + off_4) 24 "mobile_handover_info" (List handover)
+         ; to_node ~offset:(off + off_5) (length rest) "private_data_bytes" (List bytes) ]
+      | {| ts_id              : 16
+         ; on_id              : 16 : save_offset_to (off_1)
+         ; service_id         : 16 : save_offset_to (off_2)
+         ; 0x0D               : 8  : save_offset_to (off_3)
+         ; event_linkage_info : 24 : save_offset_to (off_4), bitstring
+         ; rest               : -1 : save_offset_to (off_5), bitstring
+         |} ->
+         let bytes = parse_bytes ~offset:(off + off_5) rest "private_data_bytes" in
+         let event_linkage = decode_event_linkage event_linkage_info (off + off_4) in
+         [ to_node ~offset:off 16 "transport_stream_id" (Hex (Int ts_id))
+         ; to_node ~offset:(off + off_1) 16 "original_network_id" (Hex (Int on_id))
+         ; to_node ~offset:(off + off_2) 16 "service_id" (Hex (Int service_id))
+         ; to_node ~offset:(off + off_3) 8  "linkage_type" (Hex (Int 0x0D))
+         ; to_node ~offset:(off + off_4) 24 "event_linkage_info" (List event_linkage)
+         ; to_node ~offset:(off + off_5) (length rest) "private_data_bytes" (List bytes) ]
+      | {| ts_id        : 16
+         ; on_id        : 16 : save_offset_to (off_1)
+         ; service_id   : 16 : save_offset_to (off_2)
+         ; linkage_type : 8  : save_offset_to (off_3)
+         ; rest         : -1 : save_offset_to (off_4), bitstring
+         |} ->
+         let bytes = parse_bytes ~offset:(off + off_4) rest "private_data_bytes" in
+         [ to_node ~offset:off 16 "transport_stream_id" (Hex (Int ts_id))
+         ; to_node ~offset:(off + off_1) 16 "original_network_id" (Hex (Int on_id))
+         ; to_node ~offset:(off + off_2) 16 "service_id" (Hex (Int service_id))
+         ; to_node ~parsed:(parse_linkage_type linkage_type)~offset:(off + off_3) 8  "linkage_type" (Hex (Int linkage_type))
+         ; to_node ~offset:(off + off_4) (length rest) "private_data_bytes" (List bytes) ]
 
   end
 
@@ -1817,7 +2164,7 @@ module Descriptor = struct
 
     let name = "short_event_descriptor"
 
-    (* XXX  is this supposed to work like it does
+    (* TODO  is this supposed to work like it does
      *  let parse_lang_code code =
      *   match%bitstring code with
      *   | {| ch_1 : 8 : string
@@ -1843,9 +2190,9 @@ module Descriptor = struct
          let parsed_code, lang_code = parse_lang_code lang_code in
          [ to_node ~parsed:parsed_code ~offset:off 24 "ISO_639_language_code" (Bits (Int lang_code))
          ; to_node ~offset:(off + off_1) 8 "event_name_length" (Dec (Int length_1))
-         ; to_node ~offset:(off + off_2) length_1 "event_name" (String name)
+         ; to_node ~offset:(off + off_2) (length_1 * 8) "event_name" (String name)
          ; to_node ~offset:(off + off_3) 8 "text_length" (Dec (Int length_2))
-         ; to_node ~offset:(off + off_4) length_2 "text" (String text)
+         ; to_node ~offset:(off + off_4) (length_2 * 8) "text" (String text)
          ]
 
   end
@@ -1854,8 +2201,52 @@ module Descriptor = struct
   module Extended_event = struct
 
     let name = "extended_event_descriptor"
-    (* TODO page 57 *)
-    let decode _ _ = []
+
+    let rec decode_items bs off =
+      if Bitstring.length bs = 0 then []
+      else match%bitstring bs with
+           | {| item_descr_length : 8
+              ; item_descr        : item_descr_length * 8 : save_offset_to (off_1), bitstring
+              ; item_length       : 8  : save_offset_to (off_2)
+              ; item              : item_length * 8 : save_offset_to (off_3), bitstring
+              ; rest              : -1 : save_offset_to (off_4), bitstring
+              |} ->
+              let item_descr = match Text_decoder.decode @@ Bitstring.to_cstruct item_descr with
+                | Ok s -> s
+                | Error _ -> "Failed to decode" in
+              let item = match Text_decoder.decode @@ Bitstring.to_cstruct item with
+                | Ok s -> s
+                | Error _ -> "Failed to decode" in
+              let nodes =
+                [ to_node ~offset:off 8 "item_description_length" (Dec (Int item_descr_length))
+                ; to_node ~offset:(off + off_1) (item_descr_length * 8) "item_description" (String item_descr)
+                ; to_node ~offset:(off + off_2) 8 "item_length" (Dec (Int item_length))
+                ; to_node ~offset:(off + off_3) (item_length * 8) "item" (String item) ]
+              in
+              nodes @ decode_items rest (off + off_4)
+
+    let decode bs off =
+      match%bitstring bs with
+      | {| desc_num      : 4
+         ; last_desc_num : 4  : save_offset_to (off_1)
+         ; lang_code     : 24 : save_offset_to (off_2), bitstring
+         ; items_length  : 8  : save_offset_to (off_3)
+         ; items         : items_length * 8 : save_offset_to (off_4), bitstring
+         ; text_length   : 8  : save_offset_to (off_5)
+         ; text          : text_length * 8 : save_offset_to (off_6), bitstring
+         |} ->
+         let items = decode_items items (off + off_4) in
+         let text = match Text_decoder.decode @@ Bitstring.to_cstruct text with
+           | Ok s -> s
+           | Error _ -> "Failed to decode" in
+         let parsed_code, lang_code = parse_lang_code lang_code in
+         [ to_node ~offset:off 4 "descriptor_number" (Dec (Int desc_num))
+         ; to_node ~offset:(off + off_1) 4 "last_desc_num" (Dec (Int last_desc_num))
+         ; to_node ~parsed:parsed_code ~offset:(off + off_2) 24 "ISO_639_language_code" (Bits (Int lang_code))
+         ; to_node ~offset:(off + off_3) 8 "items_length" (Dec (Int items_length))
+         ; to_node ~offset:(off + off_4) (items_length * 8) "items" (List items)
+         ; to_node ~offset:(off + off_5) 8 "text_length" (Dec (Int text_length))
+         ; to_node ~offset:(off + off_6) (text_length * 8) "text" (String text)]
 
   end
 
@@ -1879,7 +2270,224 @@ module Descriptor = struct
 
     let name = "component_descriptor"
 
-    (* TODO parse this*)
+    (* page 42 EN 300 468 *)
+    let parse ~stream_content ~stream_content_ext ~component_type =
+      match stream_content with
+      | 0x0 -> (match stream_content_ext with
+                | x when x >= 0x0 && x <= 0xF -> (match component_type with
+                                                  | x when x >= 0x00 && x <= 0xFF -> "reserved for future use"
+                                                  | _ -> assert false)
+                | _ -> assert false)
+      | 0x1 -> (match component_type with
+                | 0x00 -> "reserved for future use"
+                | 0x01 -> "MPEG-2 video, 4:3 aspect ratio, 25 Hz"
+                | 0x02 -> "MPEG-2 video, 16:9 aspect ratio with pan vectors, 25 Hz"
+                | 0x03 -> "MPEG-2 video, 16:9 aspect ratio without pan vectors, 25 Hz"
+                | 0x04 -> "MPEG-2 video, > 16:9 aspect ratio, 25 Hz"
+                | 0x05 -> "MPEG-2 video, 4:3 aspect ratio, 30 Hz"
+                | 0x06 -> "MPEG-2 video, 16:9 aspect ratio with pan"
+                | 0x07 -> "MPEG-2 video, 16:9 aspect ratio without pan"
+                | 0x08 -> "MPEG-2 video, > 16:9 aspect ratio, 30 Hz"
+                | 0x09 -> "MPEG-2 high definition video, 4:3 aspect ratio"
+                | 0x0A -> "MPEG-2 high definition video, 16:9 aspect ratio with pan vectors, 25 Hz "
+                | 0x0B -> "MPEG-2 high definition video, 16:9 aspect ratio without pan vectors, 25 Hz"
+                | 0x0C -> "MPEG-2 high definition video, > 16:9 aspect ratio, 25 Hz"
+                | 0x0D -> "MPEG-2 high definition video, 4:3 aspect ratio, 30 Hz"
+                | 0x0E -> "MPEG-2 high definition video, 16:9 aspect ratio with pan vectors, 30 Hz"
+                | 0x0F -> "MPEG-2 high definition video, 16:9 aspect ratio without pan vectors, 30 Hz"
+                | 0x10 -> "MPEG-2 high definition video, > 16:9 aspect ratio, 30 Hz"
+                | 0xFF -> "reserved for future use"
+                | x when x >= 0x11 && x <= 0xAF -> "reserved for future use"
+                | x when x >= 0xB0 && x <= 0xFE -> "user defined"
+                | _    -> assert false)
+      | 0x2 -> (match component_type with
+                | 0x00 -> "reserved for future use"
+                | 0x01 -> "MPEG-1 Layer 2 audio, single mono channel"
+                | 0x02 -> "MPEG-1 Layer 2 audio, dual mono channel"
+                | 0x03 -> "MPEG-1 Layer 2 audio, stereo (2 channel)"
+                | 0x04 -> "MPEG-1 Layer 2 audio, multi-lingual, multi-channel"
+                | 0x05 -> "MPEG-1 Layer 2 audio, surround sound"
+                | 0x40 -> "MPEG-1 Layer 2 audio description for the visually impaired"
+                | 0x41 -> "MPEG-1 Layer 2 audio for the hard of hearing"
+                | 0x42 -> "receiver-mix supplementary audio as per annex E of ETSI TS 101 154"
+                | 0x47 -> "MPEG-1 Layer 2 audio, receiver-mix audio description"
+                | 0x48 -> "MPEG-1 Layer 2 audio, broadcast-mix audio description"
+                | 0xFF -> "reserved for future use"
+                | 0x43 | 0x44 | 0x45 | 0x46 -> "reserved for future use"
+                | x when x >= 0x06 && x <= 0x3F -> "reserved for future use"
+                | x when x >= 0x49 && x <= 0xAF -> "reserved for future use"
+                | x when x >= 0xB0 && x <= 0xFE -> "user-defined"
+                | _    -> assert false)
+      | 0x3 -> (match component_type with
+                | 0x01 -> "EBU Teletext subtitles"
+                | 0x02 -> "associated EBU Teletext"
+                | 0x03 -> "VBI data"
+                | 0x10 -> "DVB subtitles (normal) with no monitor aspect ratio criticality"
+                | 0x11 -> "DVB subtitles (normal) for display on 4:3 aspect ratio monitor"
+                | 0x12 -> "DVB subtitles (normal) for display on 16:9 aspect ratio monitor"
+                | 0x13 -> "DVB subtitles (normal) for display on 2.21:1 aspect ratio monitor"
+                | 0x14 -> "DVB subtitles (normal) for display on a high definition monitor"
+                | 0x15 -> "DVB subtitles (normal) with plano-stereoscopic \
+                           disparity for display on a high definition monitor"
+                | 0x20 -> "DVB subtitles (for the hard of hearing) with \
+                           no monitor aspect ratio criticality"
+                | 0x21 -> "DVB subtitles (for the hard of hearing) for  \
+                           display on 4:3 aspect ratio monitor"
+                | 0x22 -> "DVB subtitles (for the hard of hearing) for \
+                           display on 16:9 aspect ratio monitor"
+                | 0x23 -> "DVB subtitles (for the hard of hearing) for \
+                           display on 2.21:1 aspect ratio monitor"
+                | 0x24 -> "DVB subtitles (for the hard of hearing) for \
+                           display on a high definition monitor"
+                | 0x25 -> "DVB subtitles (for the hard of hearing) with \
+                           plano-stereoscopic disparity for display on a high definition monitor"
+                | 0x30 -> "open (in-vision) sign language interpretation for the deaf"
+                | 0x31 -> "closed sign language interpretation for the deaf"
+                | 0x40 -> "video up-sampled from standard definition source material"
+                | 0x80 -> "dependent SAOC-DE data stream"
+                | 0xFF -> "reserved for future use"
+                | x when x >= 0x04 && x <= 0x0F ||
+                           x >= 0x16 && x <= 0x1F ||
+                             x >= 0x26 && x <= 0x2F ||
+                               x >= 0x32 && x <= 0x3F ||
+                                 x >= 0x41 && x <= 0x7F ||
+                                   x >= 0x81 && x <= 0xAF ||
+                                     x = 0xFF ||
+                                       x = 0x00 -> "reserved for future use"
+                | x when x >= 0xB0 && x <= 0xFE -> "user defined"
+                | _   -> assert false)
+      | 0x4 -> (match component_type with
+                | x when x >= 0x00 && x <= 0x7F -> "reserved for AC-3 audio modules"
+                | x when x >= 0x80 && x <= 0xFF -> "reserved for enhanced AC-3 audio modules"
+                | _ -> assert false)
+      | 0x5 -> (match component_type with
+                | 0x01 -> "H.264/AVC standard definition video, 4:3 aspect ratio, 25 Hz"
+                | 0x03 -> "H.264/AVC standard definition video, 16:9 aspect ratio, 25 Hz"
+                | 0x04 -> "H.264/AVC standard definition video, > 16:9 aspect ratio, 25 Hz"
+                | 0x05 -> "H.264/AVC standard definition video, 4:3 aspect ratio, 30 Hz"
+                | 0x07 -> "H.264/AVC standard definition video, 16:9 aspect ratio, 30 Hz"
+                | 0x08 -> "H.264/AVC standard definition video, > 16:9 aspect ratio, 30 Hz"
+                | 0x0B -> "H.264/AVC high definition video, 16:9 aspect ratio, 25 Hz"
+                | 0x0C -> "H.264/AVC high definition video, > 16:9 aspect ratio, 25 Hz"
+                | 0x0F -> "H.264/AVC high definition video, 16:9 aspect ratio, 30 Hz"
+                | 0x10 -> "H.264/AVC high definition video, > 16:9 aspect ratio, 30 Hz"
+                | 0x80 -> "H.264/AVC plano-stereoscopic frame compatible high \
+                           definition video, 16:9 aspect ratio, 25 Hz, Side-by-Side"
+                | 0x81 -> "H.264/AVC plano-stereoscopic frame compatible high \
+                           definition video, 16:9 aspect ratio, 25 Hz, Top-and-Bottom"
+                | 0x82 -> "H.264/AVC plano-stereoscopic frame compatible high \
+                           definition video, 16:9 aspect ratio, 30 Hz, Side-by-Side"
+                | 0x83 -> "H.264/AVC stereoscopic frame compatible high \
+                           definition video, 16:9 aspect ratio, 30 Hz, Top-and-Bottom"
+                | 0x84 -> "H.264/MVC dependent view, planostereoscopic service compatible video"
+                | x when x = 0x00 ||
+                           x = 0x02 ||
+                             x = 0x06 ||
+                               x = 0xFF ||
+                                 x >= 0x09 && x <= 0x0A ||
+                                   x >= 0x0D && x <= 0x0E ||
+                                     x >= 0x11 && x <= 0x7F ||
+                                       x >= 0x85 && x <= 0xAF -> "reserved for future use"
+                | x when x >= 0xB0 && x <= 0xFE -> "user defined"
+                | _    -> assert false)
+      | 0x6 -> (match component_type with
+                | 0x01 -> "HE AAC audio, single mono channel"
+                | 0x03 -> "HE AAC audio, stereo"
+                | 0x05 -> "HE AAC audio, surround sound"
+                | 0x40 -> "HE AAC audio description for the visually impaired"
+                | 0x41 -> "HE AAC audio for the hard of hearing"
+                | 0x42 -> "HE AAC receiver-mix supplementary audio as per \
+                           annex E of ETSI TS 101 154 [9]"
+                | 0x43 -> "HE AAC v2 audio, stereo"
+                | 0x44 -> "HE AAC v2 audio description for the visually impaired"
+                | 0x45 -> "HE AAC v2 audio for the hard of hearing"
+                | 0x46 -> "HE AAC v2 receiver-mix supplementary audio as per \
+                           annex E of ETSI TS 101 154 [9]"
+                | 0x47 -> "HE AAC receiver-mix audio description for the visually impaired"
+                | 0x48 -> "HE AAC broadcast-mix audio description for the visually impaired"
+                | 0x49 -> "HE AAC v2 receiver-mix audio description for the visually impaired"
+                | 0x4A -> "HE AAC v2 broadcast-mix audio description for the visually impaired"
+                | 0xA0 -> "HE AAC, or HE AAC v2 with SAOC-DE ancillary data"
+                | x when x = 0xFF ||
+                           x = 0x00 ||
+                             x = 0x02 ||
+                               x = 0x04 ||
+                                 x >= 0x06 && x <= 0x3F ||
+                                   x >= 0x4B && x <= 0x9F ||
+                                     x >= 0xA1 && x <= 0xAF -> "reserved for future use"
+                | x when x >= 0xB0 && x <= 0xFE -> "user defined"
+                | _   -> assert false)
+      | 0x7 -> (match component_type with
+                | x when x >= 0x00 && x <= 0x7F -> "reserved for DTS® and DTS-HD® audio modes"
+                | x when x >= 0x80 && x <= 0xFF -> "reserved for future use"
+                | _ -> assert false)
+      | 0x8 -> (match component_type with
+                | 0x00 -> "reserved for future use"
+                | 0x01 -> "DVB SRM data"
+                | x when x >= 0x02 && x <= 0xFF -> "reserved for DVB CPCM modes"
+                | _    -> assert false)
+      | 0x9 -> (match stream_content_ext with
+                | 0x0 -> (match component_type with
+                          | 0x00 -> "HEVC Main Profile high definition video, 50 Hz"
+                          | 0x01 -> "HEVC Main 10 Profile high definition video, 50 Hz"
+                          | 0x02 -> "HEVC Main Profile high definition video, 60 Hz"
+                          | 0x03 -> "HEVC Main 10 Profile high definition video, 60 Hz"
+                          | 0x04 -> "HEVC ultra high definition video"
+                          | x when x >= 0x05 && x <= 0xFF -> "reserved for future use"
+                          | _    -> assert false)
+                | 0x1 -> (match component_type with
+                          | 0x00 -> "AC-4 main audio, mono"
+                          | 0x01 -> "AC-4 main audio, mono, dialogue enhancement enabled"
+                          | 0x02 -> "AC-4 main audio, stereo"
+                          | 0x03 -> "AC-4 main audio, stereo, dialogue enhancement enabled"
+                          | 0x04 -> "AC-4 main audio, multichannel"
+                          | 0x05 -> "AC-4 main audio, multichannel, dialogue enhancement enabled"
+                          | 0x06 -> "AC-4 broadcast-mix audio description, mono, \
+                                     for the visually impaired"
+                          | 0x07 -> "AC-4 broadcast-mix audio description, mono, \
+                                     for the visually impaired, dialogue enhancement enabled"
+                          | 0x08 -> "AC-4 broadcast-mix audio description, stereo, \
+                                     for the visually impaired"
+                          | 0x09 -> "AC-4 broadcast-mix audio description, stereo, \
+                                     for the visually impaired, dialogue enhancement enabled"
+                          | 0x0A -> "AC-4 broadcast-mix audio description, \
+                                     multichannel, for the visually impaired"
+                          | 0x0B -> "AC-4 broadcast-mix audio description, multichannel, \
+                                     for the visually impaired, dialogue enhancement enabled"
+                          | 0x0C -> "AC-4 receiver-mix audio description, mono, \
+                                     for the visually impaired"
+                          | 0x0D -> "AC-4 receiver-mix audio description, stereo, \
+                                     for the visually impaired"
+                          | x when x >= 0x0E && x <= 0xFF -> "reserved for future use"
+                          | _    -> assert false)
+                | x when x >= 0x2 && x <= 0xF -> (match component_type with
+                                                  | x when x >= 0x00 && x <= 0xFF ->
+                                                     "reserved for future use"
+                                                  | _ -> assert false)
+                | _ -> assert false)
+      | 0xA -> (match stream_content_ext with
+                | x when x >= 0x0 && x <= 0xF -> (match component_type with
+                                                  | x when x >= 0x00 && x <= 0xFF ->
+                                                     "reserved for future use"
+                                                  | _ -> assert false)
+                | _ -> assert false)
+      | 0xB -> (match stream_content_ext with
+                | x when x >= 0x0 && x <= 0xE -> (match component_type with
+                                                  | x when x >= 0x00 && x <= 0xFF ->
+                                                     "reserved for future use"
+                                                  | _ -> assert false)
+                | 0xF -> (match component_type with
+                          | 0x00 -> "less than 16:9 aspect ratio"
+                          | 0x01 -> "16:9 aspect ratio"
+                          | 0x02 -> "greater than 16:9 aspect ratio"
+                          | 0x03 -> "plano-stereoscopic top and bottom (TaB) frame-packing"
+                          | x when x >= 0x04 && x <= 0xFF -> "reserved for future use"
+                          | _    -> assert false)
+                | _ -> assert false)
+      | x when x >= 0xC && x <= 0xF -> (match component_type with
+                                        | x when x >= 0x00 && x <= 0xFF -> "user defined"
+                                        | _ -> assert false)
+      | _ -> assert false
 
     let decode bs off =
       match%bitstring bs with
@@ -1890,16 +2498,18 @@ module Descriptor = struct
          ; lang_code          : 24 : save_offset_to (off_4), bitstring
          ; rest               : -1 : save_offset_to (off_5), bitstring
          |} ->
-         let parsed, lang_code = parse_lang_code lang_code in
+         let parsed_lang, lang_code = parse_lang_code lang_code in
+         let parsed = parse ~stream_content_ext ~stream_content ~component_type in
          let text = match Text_decoder.decode @@ Bitstring.to_cstruct rest with
            | Ok s    -> s
            | Error _ -> "Unable to decode"
          in
          [ to_node ~offset:off 4 "stream_content_ext" (Hex (Int stream_content_ext))
          ; to_node ~offset:(off + off_1) 4  "stream_content" (Hex (Int stream_content))
-         ; to_node ~offset:(off + off_2) 8  "component_type" (Hex (Int component_type))
+         ; to_node ~parsed ~offset:(off + off_2) 8  "component_type" (Hex (Int component_type))
          ; to_node ~offset:(off + off_3) 8  "component_tag" (Hex (Int component_tag))
-         ; to_node ~parsed ~offset:(off + off_4) 24 "ISO_639_language_code" (Hex (Int lang_code))
+         ; to_node ~parsed:parsed_lang ~offset:(off + off_4) 24
+             "ISO_639_language_code" (Hex (Int lang_code))
          ; to_node ~offset:(off + off_5) (Bitstring.length bs - 48) "text" (String text)]
   end
 
@@ -2081,19 +2691,176 @@ module Descriptor = struct
 
     let name = "content_descriptor"
 
-    (* TODO parse this*)
+    let parse_lvl1 = function
+      | 0x0 -> "Undefined"
+      | 0x1 -> "Movie/Drama"
+      | 0x2 -> "News/Current affairs"
+      | 0x3 -> "Show/Game show"
+      | 0x4 -> "Sports"
+      | 0x5 -> "Children's/Youth programmes"
+      | 0x6 -> "Music/Ballet/Dance"
+      | 0x7 -> "Arts/Culture (without music)"
+      | 0x8 -> "Social/Political issues/Economics"
+      | 0x9 -> "Education/Science/Factual topics"
+      | 0xA -> "Leisure hobbies"
+      | 0xB -> "Special characteristics"
+      | 0xF -> "User defined"
+      | 0xC | 0xD | 0xE -> "Reserved for future use"
+      | _   -> assert false
+
+    let parse_lvl2 ~lvl_1 ~lvl_2 =
+      match lvl_1 with
+      | 0x0 -> (match lvl_2 with
+                | x when x >= 0x0 && x <= 0xF -> "undefined content"
+                | _ -> assert false)
+      | 0x1 -> (match lvl_2 with
+                | 0x0 -> "movie/drama (general)"
+                | 0x1 -> "detective/thriller"
+                | 0x2 -> "adventure/western/war"
+                | 0x3 -> "science fiction/fantasy/horror"
+                | 0x4 -> "comedy"
+                | 0x5 -> "soap/melodrama/folkloric"
+                | 0x6 -> "romance"
+                | 0x7 -> "serious/classical/religious movie/drama"
+                | 0x8 -> "adult movie/drama"
+                | 0xF -> "user defined"
+                | x when x >= 0x9 && x <= 0xE -> "reserved for future use"
+                | _   -> assert false)
+      | 0x2 -> (match lvl_2 with
+                | 0x0 -> "news/current affairs (general)"
+                | 0x1 -> "news/weather report"
+                | 0x2 -> "news magazine"
+                | 0x3 -> "documentary"
+                | 0x4 -> "discussion/interview/debate"
+                | 0xF -> "user defined"
+                | x when x >= 0x5 && x <= 0xE -> "reserved for future use"
+                | _   -> assert false)
+      | 0x3 -> (match lvl_2 with
+                | 0x0 -> "show/game show (general)"
+                | 0x1 -> "game show/quiz/contest"
+                | 0x2 -> "variety show"
+                | 0x3 -> "talk show"
+                | 0xF -> "user defined"
+                | x when x >= 0x4 && x <= 0xE -> "reserved for future use"
+                | _   -> assert false)
+      | 0x4 -> (match lvl_2 with
+                | 0x0 -> "sports (general)"
+                | 0x1 -> "special events (Olympic Games, World Cup, etc.)"
+                | 0x2 -> "sport magazines"
+                | 0x3 -> "football/soccer"
+                | 0x4 -> "tennis/squash"
+                | 0x5 -> "team sports (excluding football)"
+                | 0x6 -> "athletics"
+                | 0x7 -> "motor sport"
+                | 0x8 -> "water sport"
+                | 0x9 -> "winter sports"
+                | 0xA -> "equestrian"
+                | 0xB -> "martial sports"
+                | 0xF -> "user defined"
+                | x when x >= 0xC && x <= 0xE -> "reserved for future use"
+                | _   -> assert false)
+      | 0x5 -> (match lvl_2 with
+                | 0x0 -> "children's/youth programmes (general)"
+                | 0x1 -> "pre-school children's programmes"
+                | 0x2 -> "entertainment programmes for 6 to 14"
+                | 0x3 -> "entertainment programmes for 10 to 16"
+                | 0x4 -> "informational/educational/school programmes"
+                | 0x5 -> "cartoons/puppets"
+                | 0xF -> "user defined"
+                | x when x >= 0x6 && x <= 0xE -> "reserved for future use"
+                | _   -> assert false)
+      | 0x6 -> (match lvl_2 with
+                | 0x0 -> "music/ballet/dance (general)"
+                | 0x1 -> "rock/pop"
+                | 0x2 -> "serious music/classical music"
+                | 0x3 -> "folk/traditional music"
+                | 0x4 -> "jazz"
+                | 0x5 -> "musical/opera"
+                | 0x6 -> "ballet"
+                | 0xF -> "user defined"
+                | x when x >= 0x7 && x <= 0xE -> "reserved for future use"
+                | _   -> assert false)
+      | 0x7 -> (match lvl_2 with
+                | 0x0 -> "arts/culture (without music, general)"
+                | 0x1 -> "performing arts"
+                | 0x2 -> "fine arts"
+                | 0x3 -> "religion"
+                | 0x4 -> "popular culture/traditional arts"
+                | 0x5 -> "literature"
+                | 0x6 -> "film/cinema"
+                | 0x7 -> "experimental film/video"
+                | 0x8 -> "broadcasting/press"
+                | 0x9 -> "new media"
+                | 0xA -> "arts/culture magazines"
+                | 0xB -> "fashion"
+                | 0xF -> "user defined"
+                | 0xC | 0xD | 0xE -> "reserved for future use"
+                | _   -> assert false)
+      | 0x8 -> (match lvl_2 with
+                | 0x0 -> "social/political issues/economics (general)"
+                | 0x1 -> "magazines/reports/documentary"
+                | 0x2 -> "economics/social advisory"
+                | 0x3 -> "remarkable people"
+                | 0xF -> "user defined"
+                | x when x >= 0x4 && x <= 0xE -> "reserved for future use"
+                | _   -> assert false)
+      | 0x9 -> (match lvl_2 with
+                | 0x0 -> "education/science/factual topics (general)"
+                | 0x1 -> "nature/animals/environment"
+                | 0x2 -> "technology/natural sciences"
+                | 0x3 -> "medicine/physiology/psychology"
+                | 0x4 -> "foreign countries/expeditions"
+                | 0x5 -> "social/spiritual sciences"
+                | 0x6 -> "further education"
+                | 0x7 -> "languages"
+                | 0xF -> "user defined"
+                | x when x >= 0x8 && x <= 0xE -> "reserved for future use"
+                | _   -> assert false)
+      | 0xA -> (match lvl_2 with
+                | 0x0 -> "leisure hobbies (general)"
+                | 0x1 -> "tourism/travel"
+                | 0x2 -> "handicraft"
+                | 0x3 -> "motoring"
+                | 0x4 -> "fitness and health"
+                | 0x5 -> "cooking"
+                | 0x6 -> "advertisement/shopping"
+                | 0x7 -> "gardening"
+                | 0xF -> "user defined"
+                | x when x >= 0x8 && x <= 0xE -> "reserved for future use"
+                | _   -> assert false)
+      | 0xB -> (match lvl_2 with
+                | 0x0 -> "original language"
+                | 0x1 -> "black and white"
+                | 0x2 -> "unpublished"
+                | 0x3 -> "live broadcast"
+                | 0x4 -> "plano-stereoscopic"
+                | 0x5 -> "local or regional"
+                | 0xF -> "user defined"
+                | x when x >= 0x6 && x <= 0xE -> "reserved for future use"
+                | _   -> assert false)
+      | 0xF -> (match lvl_2 with
+                | x when x >= 0x0 && x <= 0xF -> "user defined"
+                | _ -> assert false)
+      | 0xC | 0xD | 0xE -> (match lvl_2 with
+                            | x when x >= 0x0 && x <= 0xF -> "reserved for future use"
+                            | _ -> assert false)
+      | _ -> assert false
+
+
 
     let rec f off x =
       if Bitstring.length x = 0 then []
       else match%bitstring x with
-           | {| content_lvl1 : 4
-              ; content_lvl2 : 4  : save_offset_to (off_1)
-              ; user_byte    : 8  : save_offset_to (off_2)
-              ; rest         : -1 : save_offset_to (off_3), bitstring
+           | {| cont_lvl1 : 4
+              ; cont_lvl2 : 4  : save_offset_to (off_1)
+              ; user_byte : 8  : save_offset_to (off_2)
+              ; rest      : -1 : save_offset_to (off_3), bitstring
               |} ->
+              let lvl_1 = parse_lvl1 cont_lvl1 in
+              let lvl_2 = parse_lvl2 ~lvl_1:cont_lvl1 ~lvl_2:cont_lvl2 in
               let nodes =
-                [ to_node ~offset:off 4 "content_nibble_level_1" (Hex (Int content_lvl1))
-                ; to_node ~offset:(off + off_1) 4 "content_nibble_level_2" (Hex (Int content_lvl2))
+                [ to_node ~parsed:lvl_1 ~offset:off 4 "content_nibble_level_1" (Hex (Int cont_lvl1))
+                ; to_node ~parsed:lvl_2 ~offset:(off + off_1) 4 "content_nibble_level_2" (Hex (Int cont_lvl2))
                 ; to_node ~offset:(off + off_2) 8 "user_byte" (Bits (Int user_byte))]
               in
               nodes @ f (off + off_3) rest
@@ -2227,7 +2994,7 @@ module Descriptor = struct
          ; to_node ~offset:(off + off_11) (length_2 * 8) "international_area_code" (String int_code)
          ; to_node ~offset:(off + off_12) (length_3 * 8) "operator_code" (String operator_code)
          ; to_node ~offset:(off + off_13) (length_4 * 8) "national_area_code" (String nat_area_code)
-         ; to_node ~offset:(off + off_14) (length_5 * 8) "core_number" (String core_number)]
+         ; to_node ~offset:(off + off_14) (length_5 * 8) "core_number" (String core_number) ]
   end
 
   (* 0x58 *)
@@ -2654,9 +3421,23 @@ module Descriptor = struct
   (* 0x63 *)
   module Partial_transport_stream = struct
 
-    let name = ""
+    let name = "Partial Transport Stream (TS) descriptor"
 
-    let decode _ _ = []
+    let decode bs off =
+      match%bitstring bs with
+      | {| dvb_rfu_1 : 2
+         ; peak_rate : 22 : save_offset_to (off_1)
+         ; dvb_rfu_2 : 2  : save_offset_to (off_2)
+         ; min_rate  : 22 : save_offset_to (off_3)
+         ; dvb_rfu_3 : 2  : save_offset_to (off_4)
+         ; max_rate  : 14 : save_offset_to (off_5)
+         |} ->
+         [ to_node ~offset:off 2 "DVB_reserved_future_use" (Bits (Int dvb_rfu_1))
+         ; to_node ~offset:(off + off_1) 22 "peak_rate" (Dec (Uint peak_rate))
+         ; to_node ~offset:(off + off_2) 2  "DVB_reserved_future_use" (Bits (Int dvb_rfu_2))
+         ; to_node ~offset:(off + off_3) 22 "minimum_overall_smoothing_rate" (Dec (Uint min_rate))
+         ; to_node ~offset:(off + off_4) 2  "DVB_reserved_future_use" (Bits (Int dvb_rfu_3))
+         ; to_node ~offset:(off + off_5) 14 "maximum_overall_smoothing_rate" (Dec (Uint max_rate)) ]
 
   end
 
@@ -2939,9 +3720,29 @@ module Descriptor = struct
   (* 0x6F *)
   module Application_signalling = struct
 
+    (* refers to ETSI TS 102 809: "Digital Video Broadcasting (DVB); Signalling and carriage of interactive applications and services in Hybrid Broadcast/Broadband environments". *)
+
     let name = "application_signalling_descriptor"
 
-    let decode _ _ = []
+    let rec f bs off =
+      if Bitstring.length bs = 0 then []
+      else match%bitstring bs with
+           | {| rfu_1       : 1
+              ; app_type    : 15 : save_offset_to (off_1)
+              ; rfu_2       : 3  : save_offset_to (off_2)
+              ; ait_ver_num : 5  : save_offset_to (off_3)
+              ; rest        : -1 : save_offset_to (off_4), bitstring
+              |} ->
+              let node_list =
+                [ to_node ~offset:off 1 "reserved_future_use" (Bits (Bool rfu_1))
+                ; to_node ~offset:(off + off_1) 15 "application_type" (Hex (Int app_type))
+                ; to_node ~offset:(off + off_2) 3  "reserved_future_use" (Bits (Int rfu_2))
+                ; to_node ~offset:(off + off_3) 5  "AIT_version_number" (Dec (Int ait_ver_num)) ]
+              in
+              let node = [ to_node ~offset:off 24 "application signalling" (List node_list) ] in
+              node @ f rest (off + off_4)
+
+    let decode bs off = f bs off
 
   end
 
@@ -2961,9 +3762,12 @@ module Descriptor = struct
   (* 0x71 *)
   module Service_identifier = struct
 
+    (* refers to ETSI TS 102 812: "Digital Video Broadcasting (DVB); Multimedia Home Platform (MHP)
+Specification 1.1.1" *)
+
     let name = "service_identifier_descriptor"
 
-    let decode _ _ = []
+    let decode bs off = parse_bytes ~offset:off bs "textual_service_identifier_bytes"
 
   end
 
@@ -2989,17 +3793,23 @@ module Descriptor = struct
   (* 0x73 *)
   module Default_authority = struct
 
+    (* ETSI TS 102 323: "Digital Video Broadcasting (DVB); Carriage and signalling of TV-Anytime
+information in DVB transport streams". *)
+
     let name = "default_authority_descriptor"
 
-    let decode _ _ = []
+    let decode bs off = parse_bytes ~offset:off bs "default_authority_byte"
 
   end
 
   (* 0x74 *)
   module Related_content = struct
 
-    let name = "related_content_descriptor"
+    (* ETSI TS 102 323: "Digital Video Broadcasting (DVB); Carriage and signalling of TV-Anytime
+information in DVB transport streams". *)
 
+    let name = "related_content_descriptor"
+    (* DO NOT CHANGE THIS IS LEGIT SEE ETSI TS 102 323 *)
     let decode _ _ = []
 
   end
@@ -3007,36 +3817,137 @@ module Descriptor = struct
   (* 0x75 *)
   module TVA_id = struct
 
+    (* ETSI TS 102 323: "Digital Video Broadcasting (DVB); Carriage and signalling of TV-Anytime
+information in DVB transport streams". *)
+
     let name = "TVA_id_descriptor"
 
-    let decode _ _ = []
+    let rec f bs off =
+      if Bitstring.length bs = 0 then []
+      else match%bitstring bs with
+           | {| tva_id   : 16
+              ; reserved : 5  : save_offset_to (off_1)
+              ; status   : 3  : save_offset_to (off_2)
+              ; rest     : -1 : save_offset_to (off_3), bitstring
+              |} ->
+              let node_list =
+                [ to_node ~offset:off 16 "TVA_id" (Dec (Int tva_id))
+                ; to_node ~offset:(off + off_1) 5 "reserved" (Bits (Int reserved))
+                ; to_node ~offset:(off + off_2) 3 "running_status" (Dec (Int status)) ]
+              in
+              let node = [ to_node ~offset:off 24 "TVA_id" (List node_list) ] in
+              node @ f rest (off + off_3)
+
+    let decode bs off = f bs off
 
   end
 
   (* 0x76 *)
   module Content_identifier = struct
 
+    (* ETSI TS 102 323: "Digital Video Broadcasting (DVB); Carriage and signalling of TV-Anytime
+information in DVB transport streams", page 101 *)
+
     let name = "content_identifier_descriptor"
 
-    let decode _ _ = []
+    let rec f bs off =
+      if Bitstring.length bs = 0 then []
+      else match%bitstring bs with
+           | {| crid_type   : 6
+              ; 00          : 2  : save_offset_to (off_1)
+              ; crid_length : 8  : save_offset_to (off_2)
+              ; crid        : crid_length * 8 : save_offset_to (off_3), bitstring
+              ; rest        : -1 : save_offset_to (off_4), bitstring
+              |} ->
+              let crid = match Text_decoder.decode @@ Bitstring.to_cstruct crid with
+                | Ok s    -> s
+                | Error _ -> "Unable to decode"
+              in
+              let nodes =
+                [ to_node ~offset:off 6 "crid_type" (Dec (Int crid_type))
+                ; to_node ~offset:(off + off_1) 2 "crid_location" (Bits (Int 00))
+                ; to_node ~offset:(off + off_2) 8 "crid_length" (Dec (Int crid_length))
+                ; to_node ~offset:(off + off_3) (crid_length * 8) "crid" (String crid) ]
+              in
+              nodes @ f rest (off + off_4)
+           | {| crid_type   : 6
+              ; 01          : 2  : save_offset_to (off_1)
+              ; crid_ref    : 16 : save_offset_to (off_2)
+              ; rest        : -1 : save_offset_to (off_3), bitstring
+              |} ->
+              let nodes =
+                [ to_node ~offset:off 6 "crid_type" (Dec (Int crid_type))
+                ; to_node ~offset:(off + off_1) 2 "crid_location" (Bits (Int 00))
+                ; to_node ~offset:(off + off_2) 16 "crid_ref" (Dec (Int crid_ref)) ]
+              in
+              nodes @ f rest (off + off_3)
+           | {| crid_type     : 6
+              ; crid_location : 2  : save_offset_to (off_1)
+              ; rest          : -1 : save_offset_to (off_2), bitstring
+              |} ->
+              let nodes =
+                [ to_node ~offset:off 6 "crid_type" (Dec (Int crid_type))
+                ; to_node ~offset:(off + off_1) 2 "crid_location" (Bits (Int crid_location)) ]
+              in
+              nodes @ f rest (off + off_2)
+
+    let decode bs off = f bs off
 
   end
 
   (* 0x77 *)
   module Time_slice_fec_id = struct
 
+    (* ETSI EN 301 192: "Digital Video Broadcasting (DVB); DVB specification for data broadcasting". *)
+
     let name = "time_slice_fec_identifier_descriptor"
 
-    let decode _ _ = []
+    let decode bs off =
+      match%bitstring bs with
+      | {| time_slicing      : 1
+         ; mpe_fec           : 2  : save_offset_to (off_1)
+         ; rfu               : 2  : save_offset_to (off_2)
+         ; frame_size        : 3  : save_offset_to (off_3)
+         ; max_burst_dur     : 8  : save_offset_to (off_4)
+         ; max_aver_rate     : 4  : save_offset_to (off_5)
+         ; time_slice_fec_id : 4  : save_offset_to (off_6)
+         ; rest              : -1 : save_offset_to (off_7), bitstring
+         |} ->
+         let id_selector = match Text_decoder.decode @@ Bitstring.to_cstruct rest with
+           | Ok s    -> s
+           | Error _ -> "Unable to decode"
+         in
+         [ to_node ~offset:off 1 "time_slicing" (Bits (Bool time_slicing))
+         ; to_node ~offset:(off + off_1) 2 "mpe_fec" (Dec (Int mpe_fec))
+         ; to_node ~offset:(off + off_2) 2 "reserved_for_future_use" (Bits (Int rfu))
+         ; to_node ~offset:(off + off_3) 3 "frame_size" (Dec (Int frame_size))
+         ; to_node ~offset:(off + off_4) 8 "max_burst_duration" (Dec (Int max_burst_dur))
+         ; to_node ~offset:(off + off_5) 4 "max_average_rate" (Dec (Int max_aver_rate))
+         ; to_node ~offset:(off + off_6) 4 "time_slice_fec_id" (Dec (Int time_slice_fec_id))
+         ; to_node ~offset:(off + off_7) (Bitstring.length rest) "id_selector" (String id_selector) ]
 
   end
 
   (* 0x78 *)
   module ECM_repetition_rate = struct
 
+    (* ETSI EN 301 192: "Digital Video Broadcasting (DVB); DVB specification for data broadcasting". *)
+
     let name = "ECM_repetition_rate_descriptor"
 
-    let decode _ _ = []
+    let decode bs off =
+      match%bitstring bs with
+      | {| ca_system_id        : 16
+         ; ecm_repetition_rate : 16 : save_offset_to (off_1)
+         ; rest                : -1 : save_offset_to (off_2), bitstring
+         |} ->
+         let private_data = match Text_decoder.decode @@ Bitstring.to_cstruct rest with
+           | Ok s    -> s
+           | Error _ -> "Unable to decode"
+         in
+         [ to_node ~offset:off 16 "CA_system_ID" (Dec (Int ca_system_id))
+         ; to_node ~offset:(off + off_1) 16 "ECM repetition rate" (Dec (Int ecm_repetition_rate))
+         ; to_node ~offset:(off + off_2) (Bitstring.length rest) "private_data" (String private_data) ]
 
   end
 
@@ -3089,6 +4000,8 @@ module Descriptor = struct
   module Enhanced_AC3 = struct
 
     let name = "enhanced_AC-3_descriptor"
+
+    (* TODO needs a better method of parsing, ~= 128 variants *)
 
     let decode _ _ = []
 
@@ -3410,6 +4323,7 @@ module PAT = struct
            ; to_node ~offset:(off_2 + off) 13 (to_name id) (Hex (Int pid))
            ] in
          let name = match id with
+
            | 0 -> "network"
            | x -> Printf.sprintf "program %d" x in
          let node = to_node ~offset:off (parsed_length nodes) name (List nodes) in
@@ -4043,4 +4957,3 @@ let table_to_yojson : string ->
      | _      -> [])
     |> Option.return
   with _ -> None
-
