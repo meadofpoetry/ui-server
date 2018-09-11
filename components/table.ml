@@ -641,6 +641,9 @@ class ['a] t ?selection
     method content : Widget.t =
       content
 
+    method table : Table.t =
+      table
+
     method body : 'a Body.t =
       body
 

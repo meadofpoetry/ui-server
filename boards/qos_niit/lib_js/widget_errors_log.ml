@@ -166,7 +166,15 @@ class t ~id (init : Errors.raw) control () =
     inherit Card.t ~widgets:[] ()
 
     method prepend_error (e : Errors.t) =
-      table#prepend_row (make_row_data e)
+      let el = table#content in
+      let top = el#scroll_top in
+      let height = el#scroll_height in
+      ignore @@ table#prepend_row (make_row_data e);
+      if top <> 0
+      then begin
+          let diff = el#scroll_height - height in
+          el#set_scroll_top (el#scroll_top + diff)
+        end
 
     method append_error (e : Errors.t) =
       table#append_row (make_row_data e)

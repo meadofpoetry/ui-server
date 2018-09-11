@@ -151,6 +151,18 @@ class t (elt : #Dom_html.element Js.t) () = object(self)
   method scroll_width = self#root##.scrollWidth
   method scroll_height = self#root##.scrollHeight
 
+  method set_scroll_left (x : int) : unit =
+    self#root##.scrollLeft := x
+
+  method set_scroll_top (x : int) : unit =
+    self#root##.scrollTop := x
+
+  method set_scroll_width (x : int) : unit =
+    self#root##.scrollWidth := x
+
+  method set_scroll_height (x : int) : unit =
+    self#root##.scrollHeight := x
+
   method append_child : 'a. (< node : Dom.node Js.t;
                              layout : unit -> unit;
                              .. > as 'a) -> unit =
