@@ -722,7 +722,7 @@ module Descriptor = struct
 
   (* 0x22 *)
   module Fmx_buffer_size = struct
-    (* ITU-T Rec. H.222.0 page 89 *)
+    (* TODO ITU-T Rec. H.222.0 page 89 and then to 11.2 of ISO/IEC 14496-1*)
     let name = "FmxBufferSize_descriptor"
 
     let decode _ _ = []
@@ -872,7 +872,7 @@ module Descriptor = struct
 
   (* 0x25 *)
   module Metadata_pointer = struct
-    (* ITU-T Rec. H.222.0 page 93 *)
+    (* TODO ITU-T Rec. H.222.0 page 93 *)
 
     let name = "metadata_pointer_descriptor"
 
@@ -883,7 +883,7 @@ module Descriptor = struct
 
   (* 0x26 *)
   module Metadata = struct
-    (* ITU-T Rec. H.222.0 page 95 *)
+    (* TODO ITU-T Rec. H.222.0 page 95 *)
     let name = "metadata_descriptor"
 
     let decode _ _ = []
@@ -956,7 +956,7 @@ module Descriptor = struct
 
     let name = "IPMP_descriptor"
 
-    (* refers to ISO/IEC 13818-11, which is not accessible *)
+    (* TODO refers to ISO/IEC 13818-11, which is not accessible *)
     let decode _ _ = []
 
   end
@@ -1076,7 +1076,9 @@ module Descriptor = struct
 
     let name = "MPEG-4_text_descriptor"
     (* FIXME *)
-    (* defined in ITU-T Rec.H.220.0 and refers to ISO/IEC 14496-17 TextConfig 5.3 page 3 and to TS 26.245 then*)
+    (* defined in ITU-T Rec.H.220.0 *)
+    (* and refers to ISO/IEC 14496-17 TextConfig 5.3 page 3 *)
+    (* and to TS 26.245 page 12 then*)
 
     let parse_base_format = function
       | 0x10 -> "Timed Text as specified in 3GPP TS 26.245"
@@ -1103,27 +1105,28 @@ module Descriptor = struct
       | _ -> assert false
 
 (*    let decode_specific_text_config bs off =
+      let len = Bitstring.length bs - 184 in
       match%bitstring bs with
       | {| base_format    : 8
-         ; profile_level  : 8  : save_offset_to (off_1)
-         ; duration_clock : 24 : save_offset_to (off_2)
-         ; true           : 1  : save_offset_to (off_3)
-         ; descr_flags    : 2  : save_offset_to (off_4)
-         ; true           : 1  : save_offset_to (off_5)
-         ; true           : 1  : save_offset_to (off_6)
-         ; reserved       : 3  : save_offset_to (off_7)
-         ; layer          : 8  : save_offset_to (off_8)
-         ; text_track_w   : 16 : save_offset_to (off_9)
-         ; text_track_h   : 16 : save_offset_to (off_10)
-         ; num_of_formats : 8  : save_offset_to (off_11)
-         ; comp_format    : 8  : save_offset_to (off_12)
-         ; num_sam_descr  : 8  : save_offset_to (off_13)
-         ; sample_index   : 8  : save_offset_to (off_14)
-         ; sample_descr   :    : save_offset_to (off_15) idk how to parse dis
-         ; scene_width    : 16 : save_offset_to (off_16)
-         ; scene_height   : 16 : save_offset_to (off_17)
-         ; hor_scene_off  : 16 : save_offset_to (off_18)
-         ; ver_scene_off  : 16 : save_offset_to (off_19)
+         ; profile_level  : 8   : save_offset_to (off_1)
+         ; duration_clock : 24  : save_offset_to (off_2)
+         ; true           : 1   : save_offset_to (off_3)
+         ; descr_flags    : 2   : save_offset_to (off_4)
+         ; true           : 1   : save_offset_to (off_5)
+         ; true           : 1   : save_offset_to (off_6)
+         ; reserved       : 3   : save_offset_to (off_7)
+         ; layer          : 8   : save_offset_to (off_8)
+         ; text_track_w   : 16  : save_offset_to (off_9)
+         ; text_track_h   : 16  : save_offset_to (off_10)
+         ; num_of_formats : 8   : save_offset_to (off_11)
+         ; comp_format    : 8   : save_offset_to (off_12)
+         ; num_sam_descr  : 8   : save_offset_to (off_13)
+         ; sample_index   : 8   : save_offset_to (off_14)
+         ; sample_descr   : len : save_offset_to (off_15) idk how to parse dis line
+         ; scene_width    : 16  : save_offset_to (off_16)
+         ; scene_height   : 16  : save_offset_to (off_17)
+         ; hor_scene_off  : 16  : save_offset_to (off_18)
+         ; ver_scene_off  : 16  : save_offset_to (off_19)
          |} ->
          []*)
 
@@ -1184,7 +1187,7 @@ module Descriptor = struct
 
     let name = "Auxiliary_video_stream_descriptor"
 
-    (* refers to ISO/IEC 23002-3, not accessible *)
+    (* TODO refers to ISO/IEC 23002-3, not accessible *)
 
     let decode _ _ = []
 
@@ -1580,30 +1583,40 @@ module Descriptor = struct
 
     let name = "Extension_descriptor"
 
+    let parse_tag = function
+      | 0 -> "Reserved"
+      | 1 -> "Forbidden"
+      | 2 -> "ODUpdata_descriptor"
+      | 3 -> "HEVC_timing_and_HRD_descriptor"
+      | x when x >= 4 && x <= 255 -> "Rec. ITU-T H.222.0 | ISO/IEC 13818-1 Reserved"
+      | _ -> assert false
+
     let decode bs off =
       match%bitstring bs with
       | {| 0x02                     :  8
-         ; rest  : -1 : save_offset_to (off_1),bitstring
+         ; rest  : -1 : save_offset_to (off_1), bitstring
          |} ->
-         (* FIXME *)
+         (* NOTE refers to 8.5.5.2 of ISO/IEC 14496-1, doesn't exist *)
          let str = Bitstring.string_of_bitstring rest in
-         let node =
-           [ to_node ~offset:off 8 "extension_descriptor_tag" (Hex (Int 0x02))
-           ; to_node ~parsed:str ~offset:(off + off_1) (Bitstring.length rest) "rest" (Bits (Bool false))]
+         let nodes =
+           [ to_node ~parsed:(parse_tag 2) ~offset:off 8 "extension_descriptor_tag" (Hex (Int 0x02))
+           ; to_node ~parsed:str ~offset:(off + off_1) (Bitstring.length rest)
+               "rest" (Bits (Bool false))]
          in
-         node @ []
+         nodes @ []
       (* FIXME *)
       | {| 0x03     : 8
          ; rest     : -1 : save_offset_to (off_1), bitstring
          |} ->
          let node =
-         [ to_node ~offset:off 8 "extension_descriptor_tag" (Hex (Int 0x03))]
+         [ to_node ~parsed:(parse_tag 3) ~offset:off 8 "extension_descriptor_tag" (Hex (Int 0x03))]
          in
          node @ (HEVC_HRD.decode (off + off_1) rest)
       | {| ext_desc_tag : 8
          ; rest         : -1 : save_offset_to (off_1), bitstring
          |} ->
-         let node = to_node ~offset:off 8  "extension_descriptor_tag" (Hex (Int ext_desc_tag)) in
+         let node = to_node ~parsed:(parse_tag ext_desc_tag) ~offset:off
+                      8 "extension_descriptor_tag" (Hex (Int ext_desc_tag)) in
          node :: parse_bytes ~offset:(off + off_1) rest "reserved"
 
   end
@@ -2538,7 +2551,7 @@ module Descriptor = struct
          | {| bouquet_id : 16
             ; rest       : -1 : save_offset_to (off_1), bitstring
             |} ->
-            [ to_node ~offset 16 "bouquet_id" (Hex (Int bouquet_id))], rest, off_1
+            [ to_node ~offset 16 "bouquet_id" (Hex (Int bouquet_id))], rest, (offset + off_1)
          end
       | 0x02 | 0x03 ->
          begin match%bitstring x with
@@ -2550,7 +2563,7 @@ module Descriptor = struct
             [ to_node ~offset 16 "original_network_id" (Hex (Int on_id))
             ; to_node ~offset:(offset + off_1) 16 "transport_stream_id" (Hex (Int ts_id))
             ; to_node ~offset:(offset + off_2) 16 "service_id" (Hex (Int sv_id))],
-            rest, off_3
+            rest, (offset + off_3)
          end
       | 0x04 ->
          begin match%bitstring x with
@@ -2563,7 +2576,7 @@ module Descriptor = struct
             [ to_node ~offset 16 "original_network_id" (Hex (Int on_id))
             ; to_node ~offset:(offset + off_1) 16 "transport_stream_id" (Hex (Int ts_id))
             ; to_node ~offset:(offset + off_2) 16 "service_id" (Hex (Int sv_id))
-            ; to_node ~offset:(offset + off_3) 16 "event_id" (Hex (Int ev_id))], rest, off_4
+            ; to_node ~offset:(offset + off_3) 16 "event_id" (Hex (Int ev_id))], rest, (offset + off_4)
            end
       | _ -> assert false
 
@@ -3156,9 +3169,9 @@ module Descriptor = struct
          [ to_node ~offset:off 32 "centre_frequency" (Dec (Int32 centre_frequency))
          ; to_node ~parsed:bandw ~offset:(off + off_1)  3  "bandwith" (Dec (Int bandwith))
          ; to_node ~parsed:prior ~offset:(off + off_2)  1  "priority" (Bits (Bool priority))
-         ; to_node ~offset:(off + off_3)  1  "Time_slicing_indicator" (Bits (Bool time_slicing_ind))
-         ; to_node ~offset:(off + off_4)  1  "MPE-FEC-indicator" (Bits (Bool mpe_fec_ind))
-         ; to_node ~offset:(off + off_5)  2  "reserved_future_use" (Bits (Int rfu_1))
+         ; to_node ~offset:(off + off_3) 1 "Time_slicing_indicator" (Bits (Bool time_slicing_ind))
+         ; to_node ~offset:(off + off_4) 1 "MPE-FEC-indicator" (Bits (Bool mpe_fec_ind))
+         ; to_node ~offset:(off + off_5) 2 "reserved_future_use" (Bits (Int rfu_1))
          ; to_node ~parsed:const ~offset:(off + off_6)  2  "constellation" (Bits (Int rfu_1))
          ; to_node ~parsed:hier  ~offset:(off + off_7)  3
              "hierarchy_information" (Hex (Int hierarchy_info))
@@ -3575,7 +3588,7 @@ module Descriptor = struct
   module AC3 = struct
 
     let name = "AC-3_descriptor"
-
+    (* TODO *)
     let decode _ _ = []
 
   end
@@ -3598,7 +3611,70 @@ module Descriptor = struct
 
     let name = "cell_list_descriptor"
 
-    let decode _ _ = []
+    let decode_lat lat = Printf.sprintf "%f deg" @@ (float_of_int @@ lat * 90) /. 32268.
+    let decode_lon lon = Printf.sprintf "%f deg" @@ (float_of_int @@ lon * 180) /. 32268.
+
+    let rec decode_second_loop off x =
+      if Bitstring.length x = 0 then []
+      else match%bitstring x with
+           | {| cell_id_ext : 8
+              ; subcell_lat : 16 : save_offset_to (off_1)
+              ; subcell_lon : 16 : save_offset_to (off_2)
+              ; sub_ext_lat : 12 : save_offset_to (off_3)
+              ; sub_ext_lon : 12 : save_offset_to (off_4)
+              ; rest        : -1 : save_offset_to (off_5), bitstring
+              |} ->
+              let lat, ext_lat = decode_lat subcell_lat, decode_lat sub_ext_lat in
+              let lon, ext_lon = decode_lon subcell_lon, decode_lon sub_ext_lon in
+              let nodes =
+                [ to_node ~offset:off 8 "cell_id_extension" (Dec (Int cell_id_ext))
+                ; to_node ~parsed:lat ~offset:(off + off_1) 16
+                    "subcell_latitude" (Dec (Int subcell_lat))
+                ; to_node ~parsed:lon ~offset:(off + off_2) 16
+                    "subcell_longtitude" (Dec (Int subcell_lon))
+                ; to_node ~parsed:ext_lat ~offset:(off + off_3) 12
+                    "subcell_extent_of_latitude" (Dec (Int sub_ext_lat))
+                ; to_node ~parsed:ext_lon ~offset:(off + off_4) 12
+                    "subcell_extent_of_longtitude" (Dec (Int sub_ext_lon)) ]
+              in
+              let name = Printf.sprintf "Subcell %s" (string_of_int cell_id_ext) in
+              let node = to_node ~offset:off 64 name (List nodes) in
+              node :: decode_second_loop (off + off_5) rest
+
+    let rec decode_first_loop off x =
+      if Bitstring.length x = 0 then []
+      else match%bitstring x with
+           | {| cell_id      : 16
+              ; cell_lat     : 16 : save_offset_to (off_1)
+              ; cell_lon     : 16 : save_offset_to (off_2)
+              ; cell_ext_lat : 12 : save_offset_to (off_3)
+              ; cell_ext_lon : 12 : save_offset_to (off_4)
+              ; loop_length  : 8  : save_offset_to (off_5)
+              ; snd_loop     : loop_length * 8 : save_offset_to (off_6), bitstring
+              ; rest         : -1 : save_offset_to (off_7), bitstring
+              |} ->
+              let lat, ext_lat = decode_lat cell_lat, decode_lat cell_ext_lat in
+              let lon, ext_lon = decode_lon cell_lon, decode_lon cell_ext_lon in
+              let name  = Printf.sprintf "Cell %s" (string_of_int cell_id) in
+              let snd_loop = decode_second_loop (off + off_6) snd_loop in
+              let nodes =
+                [ to_node ~offset:off 16 "cell_id" (Dec (Int cell_id))
+                ; to_node ~parsed:lat ~offset:(off + off_1) 16
+                    "cell_latitude" (Dec (Int cell_lat))
+                ; to_node ~parsed:lon ~offset:(off + off_2) 16
+                    "cell_longtitude" (Dec (Int cell_lon))
+                ; to_node ~parsed:ext_lat ~offset:(off + off_3) 16
+                    "cell_extent_of_latitude" (Dec (Int cell_ext_lat))
+                ; to_node ~parsed:ext_lon ~offset:(off + off_4) 16
+                    "cell_extent_of_longtitude" (Dec (Int cell_ext_lon))
+                ; to_node ~offset:(off + off_5) 8 "subcell_info_loop_length" (Dec (Int loop_length))
+                ; to_node ~offset:(off + off_6) (loop_length * 8) "Subcells" (List snd_loop) ]
+              in
+              let real_length = 88 + loop_length * 8 in
+              let node = to_node ~offset:off real_length name (List nodes) in
+              node :: decode_first_loop (off + off_7) rest
+
+    let decode bs off = decode_first_loop off bs
 
   end
 
@@ -3606,30 +3682,44 @@ module Descriptor = struct
   module Cell_frequency_link = struct
 
     let name = "cell_frequency_link_descriptor"
-    (* FIXME wtf is this actually *)
-    (* let rec f_2 off acc x =
-     *   match%bitstring x with
-     *   | {|
-     *      |} -> []
-     * 
-     * let rec f_1 off acc x =
-     *   if Bitstring.length x = 0 then List.rev acc
-     *   else match%bitstring x with
-     *        | {| call_id     : 16
-     *           ; frequency   : 32 : save_offset_to (off_2)
-     *           ; loop_length : 8  : save_offset_to (off_3)
-     *           ; rest        : -1 : save_offset_to (off_4)
-     *           |} ->
-     *           let nodes_1, nodes_2, rest =
-     *             [ to_node ~offset:off 16 "call_id" (Hex (Int call_id))
-     *             ; to_node ~offset:(off + off_1) 32 "frequency" (Dec (Int32 frequency))
-     *             ; to_node ~offset:(off + off_2) 8  "subcell_info_loop_length" (Dec (Int loop_length))
-     *             ],
-     *             f_2 (off + off_4) [] rest
-     *           in
-     *           f1  *)
 
-    let decode _ _ = []
+    let rec decode_second_loop off x =
+      if Bitstring.length x = 0 then []
+      else match%bitstring x with
+           | {| cell_id_ext : 8
+              ; trans_freq  : 32 : save_offset_to (off_1)
+              ; rest        : -1 : save_offset_to (off_2), bitstring
+              |} ->
+              let nodes =
+                [ to_node ~offset:off 8 "cell_id_extension" (Dec (Int cell_id_ext))
+                ; to_node ~offset:(off + off_1) 32 "transposer_frequency" (Dec (Uint32 trans_freq)) ]
+              in
+              let name = Printf.sprintf "Subcell %s" (string_of_int cell_id_ext) in
+              let node = to_node ~offset:off 40 name (List nodes) in
+              node :: decode_second_loop (off + off_2) rest
+
+    let rec decode_first_loop off x =
+      if Bitstring.length x = 0 then []
+      else match%bitstring x with
+           | {| cell_id     : 16
+              ; frequency   : 32 : save_offset_to (off_1)
+              ; loop_length : 8  : save_offset_to (off_2)
+              ; snd_loop    : loop_length * 8 : save_offset_to (off_3), bitstring
+              ; rest        : -1 : save_offset_to (off_4), bitstring
+              |} ->
+              let name  = Printf.sprintf "Cell %s" (string_of_int cell_id) in
+              let snd_loop = decode_second_loop (off + off_3) snd_loop in
+              let nodes =
+                [ to_node ~offset:off 16 "cell_id" (Dec (Int cell_id))
+                ; to_node ~offset:(off + off_1) 32 "frequency" (Dec (Uint32 frequency))
+                ; to_node ~offset:(off + off_2) 8 "subcell_info_loop_length" (Dec (Int loop_length))
+                ; to_node ~offset:(off + off_3) (loop_length * 8) "Subcells" (List snd_loop) ]
+              in
+              let real_length = 56 + loop_length * 8 in
+              let node = to_node ~offset:off real_length name (List nodes) in
+              node :: decode_first_loop (off + off_4) rest
+
+    let decode bs off = decode_first_loop off bs
 
   end
 
@@ -3653,9 +3743,12 @@ module Descriptor = struct
     let parse_ref_type rf =
       match rf with
       | 0 -> "Announcement is broadcast in the usual audio stream of the service"
-      | 1 -> "Announcement is broadcast in a separate audio stream that is part of the service"
-      | 2 -> "Announcement is broadcast by means of a different service within the same transport system"
-      | 3 -> "Announcement is broadcast by means of a different service within a different transport stream"
+      | 1 -> "Announcement is broadcast in a separate audio stream that \
+              is part of the service"
+      | 2 -> "Announcement is broadcast by means of a different service \
+              within the same transport system"
+      | 3 -> "Announcement is broadcast by means of a different service \
+              within a different transport stream"
       | _ -> "Reserved for future use"
 
     let rec f off x =
@@ -3714,7 +3807,7 @@ module Descriptor = struct
   (* 0x6F *)
   module Application_signalling = struct
 
-    (* refers to ETSI TS 102 809: "Digital Video Broadcasting (DVB); Signalling and carriage of interactive applications and services in Hybrid Broadcast/Broadband environments". *)
+    (* refers to ETSI TS 102 809 *)
 
     let name = "application_signalling_descriptor"
 
@@ -3756,8 +3849,7 @@ module Descriptor = struct
   (* 0x71 *)
   module Service_identifier = struct
 
-    (* refers to ETSI TS 102 812: "Digital Video Broadcasting (DVB); Multimedia Home Platform (MHP)
-Specification 1.1.1" *)
+    (* refers to ETSI TS 102 812 *)
 
     let name = "service_identifier_descriptor"
 
@@ -3787,8 +3879,7 @@ Specification 1.1.1" *)
   (* 0x73 *)
   module Default_authority = struct
 
-    (* ETSI TS 102 323: "Digital Video Broadcasting (DVB); Carriage and signalling of TV-Anytime
-information in DVB transport streams". *)
+    (* ETSI TS 102 323 *)
 
     let name = "default_authority_descriptor"
 
@@ -3799,8 +3890,7 @@ information in DVB transport streams". *)
   (* 0x74 *)
   module Related_content = struct
 
-    (* ETSI TS 102 323: "Digital Video Broadcasting (DVB); Carriage and signalling of TV-Anytime
-information in DVB transport streams". *)
+    (* ETSI TS 102 323  *)
 
     let name = "related_content_descriptor"
     (* DO NOT CHANGE THIS IS LEGIT SEE ETSI TS 102 323 *)
@@ -3811,8 +3901,7 @@ information in DVB transport streams". *)
   (* 0x75 *)
   module TVA_id = struct
 
-    (* ETSI TS 102 323: "Digital Video Broadcasting (DVB); Carriage and signalling of TV-Anytime
-information in DVB transport streams". *)
+    (* ETSI TS 102 323 *)
 
     let name = "TVA_id_descriptor"
 
@@ -3840,8 +3929,7 @@ information in DVB transport streams". *)
   (* 0x76 *)
   module Content_identifier = struct
 
-    (* ETSI TS 102 323: "Digital Video Broadcasting (DVB); Carriage and signalling of TV-Anytime
-information in DVB transport streams", page 101 *)
+    (* ETSI TS 102 323  page 101 *)
 
     let name = "content_identifier_descriptor"
 
@@ -3897,7 +3985,7 @@ information in DVB transport streams", page 101 *)
   (* 0x77 *)
   module Time_slice_fec_id = struct
 
-    (* ETSI EN 301 192: "Digital Video Broadcasting (DVB); DVB specification for data broadcasting". *)
+    (* ETSI EN 301 192 *)
 
     let name = "time_slice_fec_identifier_descriptor"
 
@@ -3930,7 +4018,7 @@ information in DVB transport streams", page 101 *)
   (* 0x78 *)
   module ECM_repetition_rate = struct
 
-    (* ETSI EN 301 192: "Digital Video Broadcasting (DVB); DVB specification for data broadcasting". *)
+    (* ETSI EN 301 192 *)
 
     let name = "ECM_repetition_rate_descriptor"
 
