@@ -258,6 +258,8 @@ let make_tree (x : parsed) =
             None, Some tree
          | _ -> Some (new Typography.Text.t ~text ())#widget, None in
        let item = new Tree.Item.t ?meta ?nested ~value:hd ~text:hd.name () in
+       let info = Printf.sprintf "Длина: %d, смещение: %d" hd.length hd.offset in
+       item#set_attribute "title" info;
        aux (item :: acc) tl in
   let items = aux [] x in
   let tree  = new Tree.t ~dense:true ~items () in
