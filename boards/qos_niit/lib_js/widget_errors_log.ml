@@ -173,6 +173,8 @@ class t ~id (init : Errors.raw) control () =
       if top <> 0
       then begin
           let diff = el#scroll_height - height in
+          Printf.printf "height: %d, cur: %d, diff: %d\n"
+            height el#scroll_height diff;
           el#set_scroll_top (el#scroll_top + diff)
         end
 

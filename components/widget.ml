@@ -136,20 +136,41 @@ class t (elt : #Dom_html.element Js.t) () = object(self)
     if x then self#add_class _class
     else self#remove_class _class
 
-  method client_left = self#root##.clientLeft
-  method client_top = self#root##.clientTop
-  method client_width = self#root##.clientWidth
-  method client_height = self#root##.clientHeight
+  method client_left : int =
+    self#root##.clientLeft
 
-  method offset_left = self#root##.offsetLeft
-  method offset_top = self#root##.offsetTop
-  method offset_width = self#root##.offsetWidth
-  method offset_height = self#root##.offsetHeight
+  method client_top : int =
+    self#root##.clientTop
 
-  method scroll_left = self#root##.scrollLeft
-  method scroll_top = self#root##.scrollTop
-  method scroll_width = self#root##.scrollWidth
-  method scroll_height = self#root##.scrollHeight
+  method client_width : int =
+    self#root##.clientWidth
+
+  method client_height : int =
+    self#root##.clientHeight
+
+  method offset_left : int =
+    self#root##.offsetLeft
+
+  method offset_top : int =
+    self#root##.offsetTop
+
+  method offset_width : int =
+    self#root##.offsetWidth
+
+  method offset_height : int =
+    self#root##.offsetHeight
+
+  method scroll_left : int =
+    self#root##.scrollLeft
+
+  method scroll_top : int =
+    self#root##.scrollTop
+
+  method scroll_width : int =
+    self#root##.scrollWidth
+
+  method scroll_height : int =
+    self#root##.scrollHeight
 
   method set_scroll_left (x : int) : unit =
     self#root##.scrollLeft := x
