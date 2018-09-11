@@ -4248,8 +4248,8 @@ information in DVB transport streams", page 101 *)
     | {| tag    : 8
        ; length : 8
        ; body   : length * 8 : save_offset_to (off_1), bitstring
-       ; rest   : -1 : bitstring
-       |} -> (decode tag length body (off + off_1)),rest
+       ; rest   : -1 : save_offset_to (off_2), bitstring
+       |} -> (decode tag length body (off + off_1)),rest, (off + off_2)
 
   end
 
@@ -4272,7 +4272,7 @@ module Table_common = struct
 
   let rec parse_descriptors = fun off x ->
     if Bitstring.length x = 0 then []
-    else let descr,rest = Descriptor.of_bitstring off x in
+    else let descr,rest, off = Descriptor.of_bitstring off x in
          descr :: parse_descriptors off rest
 
   let rec parse_ts = fun off x ->
@@ -4286,7 +4286,7 @@ module Table_common = struct
          ; descriptors : length * 8 : save_offset_to (off_4), bitstring
          ; rest        : -1 : save_offset_to (off_5), bitstring
          |} ->
-         let descriptors = parse_descriptors off_4 descriptors in
+         let descriptors = parse_descriptors (off + off_4) descriptors in
          let nodes =
            [ to_node ~offset:off           16 "transport_stream_id" (Dec (Int ts_id))
            ; to_node ~offset:(off_1 + off) 16 "original_network_id" (Dec (Int on_id))
@@ -4374,7 +4374,7 @@ module PMT = struct
           ; descriptors    : length * 8 : save_offset_to (off_5), bitstring
           ; rest           : -1 : save_offset_to (off_6), bitstring
           |} ->
-          let dscrs = parse_descriptors off_5 descriptors in
+          let dscrs = parse_descriptors (off + off_5) descriptors in
           let nodes =
             [ to_node ~offset:off           8 "stream_type" (Hex (Int stream_type))
             ; to_node ~offset:(off_1 + off) 3 "reserved" (Bits (Int reserved_1))
@@ -4436,7 +4436,7 @@ module CAT = struct
 
   let parse buf =
     let bs = bitstring_of_string buf in
-    let dscrs_length off = length bs - off - 8 - 32 in
+    let dscrs_length off = length bs - off - 8 -32 in
     match%bitstring bs with
     | {| header              : 24 : bitstring
        ; reserved            : 18 : save_offset_to (off_1)
@@ -4455,7 +4455,7 @@ module CAT = struct
          ; to_node ~offset:off_3 1 "current_next_indicator" (Bits (Bool current_next_ind))
          ; to_node ~offset:off_4 8 "section_number" (Dec (Int section_number))
          ; to_node ~offset:off_5 8 "last_section_number" (Dec (Int last_section_number))
-         ; to_node ~offset:off_6 (dscrs_length off_5) "descriptors" (List dscrs)
+         ; to_node ~offset:off_6 (dscrs_length off_6) "descriptors" (List dscrs)
          ; to_node ~offset:off_7 32 "CRC_32" (Dec (Uint32 crc32))
          ]
        in
@@ -4584,7 +4584,7 @@ module SDT = struct
           ; descriptors    : length * 8 : save_offset_to (off_7), bitstring
           ; rest           : -1 : save_offset_to (off_8), bitstring
           |} ->
-          let dscrs = parse_descriptors off_7 descriptors in
+          let dscrs = parse_descriptors (off + off_7) descriptors in
           let nodes =
             [ to_node ~offset:off            16 "service_id" (Hex (Int service_id))
             ; to_node ~offset:(off_1 + off)  6  "reserved_fuure_use" (Bits (Int rfu))
@@ -4662,7 +4662,7 @@ module EIT = struct
           ; descriptors    : length * 8 : save_offset_to (off_6), bitstring
           ; rest           : -1 : save_offset_to (off_7), bitstring
           |} ->
-          let dscrs = parse_descriptors off_6 descriptors in
+          let dscrs = parse_descriptors (off + off_6) descriptors in
           let time = match parse_timestamp start_time with
             | Some x -> Time x
             | None   -> match%bitstring start_time with
@@ -4883,7 +4883,7 @@ module SIT = struct
           ; descriptors    : length * 8 : save_offset_to (off_4), bitstring
           ; rest           : -1 : save_offset_to (off_5), bitstring
           |} ->
-          let dscrs = parse_descriptors off_4 descriptors in
+          let dscrs = parse_descriptors (off + off_4) descriptors in
           let nodes =
             [ to_node ~offset:off           16 "service_id" (Hex (Int service_id))
             ; to_node ~offset:(off_1 + off)  1 "reserved_future_use" (Bits (Bool dvb_rfu))
