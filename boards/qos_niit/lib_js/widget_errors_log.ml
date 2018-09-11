@@ -170,12 +170,11 @@ class t ~id (init : Errors.raw) control () =
       let top = el#scroll_top in
       let height = el#scroll_height in
       ignore @@ table#prepend_row (make_row_data e);
-      if top <> 0
+      let top' = el#scroll_top in
+      if top <> 0 && top' = top
       then begin
           let diff = el#scroll_height - height in
-          Printf.printf "height: %d, cur: %d, diff: %d\n"
-            height el#scroll_height diff;
-          el#set_scroll_top (el#scroll_top + diff)
+          el#set_scroll_top (el#scroll_top + diff);
         end
 
     method append_error (e : Errors.t) =
