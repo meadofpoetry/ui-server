@@ -214,12 +214,16 @@ module Device = struct
 
   let select_state db ?(limit = max_limit) ~from ~till =
     let table = (Conn.names db).state in
-    let select = R.collect Types.(tup3 ptime ptime int) Types.(tup3 int ptime ptime)
-                  (sprintf {|SELECT * FROM %s WHERE date_start <= $2 AND date_end >= $1 
-                            ORDER BY date_end DESC LIMIT $3|} table)
-    in Conn.request db Request.(list select (from,till,limit) >>= fun l ->
-                                let data = List.map (fun (st,s,e) -> (state_of_int st,s,e)) l in
-                                return (Raw { data; has_more = (List.length data >= limit); order = `Desc }))
+    let select =
+      R.collect Types.(tup3 ptime ptime int) Types.(tup3 int ptime ptime)
+        (sprintf {|SELECT * FROM %s WHERE date_start <= $2 AND date_end >= $1 
+                  ORDER BY date_end DESC LIMIT $3|} table)
+    in Conn.request db Request.(
+      list select (from,till,limit) >>= fun l ->
+      let data =
+        List.map (fun (st, from, till) ->
+            { state = state_of_int st; from; till }) l in
+      return (Raw { data; has_more = (List.length data >= limit); order = `Desc }))
 
   (* TODO fix it *)
   let select_state_compressed_internal db ~from ~till =
@@ -242,38 +246,41 @@ module Device = struct
                      (sprintf {|SELECT state FROM %s 
                                WHERE date_end > $2 AND date_start < $1 
                                GROUP BY state LIMIT 1|} table) in
-    Conn.request db Request.(find select_o (from,till) >>= function
-                             | Some s ->
-                                return (match state_of_int s with
-                                        | `Fine -> (100.,0.,0.)
-                                        | `Init -> (0.,100.,0.)
-                                        | `No_response -> (0.,0.,100.))
-                             | None ->
-                                find select_l (from,till) >>= fun l ->
-                                find select_r (from,till) >>= fun r ->
-                                list select_i (from,till) >>= fun i ->
-                                let l = match l with
-                                  | None -> fun x -> x
-                                  | Some (st,t) ->
-                                     let sp = Time.diff t from in
-                                     fun (s,v) -> if Pervasives.(=) s st then (s,Time.Span.add sp v)
-                                                  else (s,v) in
-                                let r = match r with
-                                  | None -> fun x -> x
-                                  | Some (st,t) ->
-                                     let sp = Time.diff till t in
-                                     fun (s,v) -> if s = st then (s,Time.Span.add sp v)
-                                                  else (s,v) in
-                                let i = List.map (fun x ->
-                                            let st, span = r @@ l @@ x in
-                                            let st  = state_of_int st in
-                                            let per = 100. *. (Time.Span.to_float_s span) /. dif in
-                                            st,per) i in
-                                let res = List.fold_left (fun (f,i,n) -> function
-                                              | `Fine, x -> (f +. x, i, n)
-                                              | `Init, x -> (f, i +. x, n)
-                                              | `No_response, x -> (f, i, n +. x)) (0.,0.,0.) i
-                                in return res )
+    Conn.request db Request.(
+      find select_o (from, till) >>= function
+      | Some s ->
+         let fine, init, no_response = match state_of_int s with
+           | `Fine -> (100.,0.,0.)
+           | `Init -> (0.,100.,0.)
+           | `No_response -> (0.,0.,100.) in
+         return { fine; init; no_response }
+      | None ->
+         find select_l (from,till) >>= fun l ->
+         find select_r (from,till) >>= fun r ->
+         list select_i (from,till) >>= fun i ->
+         let l = match l with
+           | None -> fun x -> x
+           | Some (st,t) ->
+              let sp = Time.diff t from in
+              fun (s,v) -> if Pervasives.(=) s st then (s,Time.Span.add sp v)
+                           else (s,v) in
+         let r = match r with
+           | None -> fun x -> x
+           | Some (st,t) ->
+              let sp = Time.diff till t in
+              fun (s,v) -> if s = st then (s,Time.Span.add sp v)
+                           else (s,v) in
+         let i = List.map (fun x ->
+                     let st, span = r @@ l @@ x in
+                     let st  = state_of_int st in
+                     let per = 100. *. (Time.Span.to_float_s span) /. dif in
+                     st,per) i in
+         let (fine, init, no_response) =
+           List.fold_left (fun (f, i, n) -> function
+               | `Fine, x -> (f +. x, i, n)
+               | `Init, x -> (f, i +. x, n)
+               | `No_response, x -> (f, i, n +. x)) (0., 0., 0.) i
+         in return { fine; init; no_response })
 
   let select_state_compressed db ~from ~till =
     select_state_compressed_internal db ~from ~till
@@ -556,7 +563,7 @@ module Errors = struct
         ?(errors = []) ~is_ts ~from ~till () =
     let open Printf in
     let table = (Conn.names db).errors in
-    let streams  = is_in "stream" Stream.ID.to_string streams in
+    let streams  = is_in "stream" ID.to_value_string streams in
     let priority = is_in "priority" string_of_int priority in
     let pids     = is_in "pid" string_of_int pids in
     let errors   = is_in "err_code"  string_of_int errors in
@@ -606,7 +613,7 @@ module Errors = struct
     let select =
       R.collect Types.(tup4 bool ptime ptime int) error
         (sprintf {|SELECT stream,count,err_code,err_ext,priority,
-                  multi_pid,pid,packet,param_1,param_2,date FROM %s 
+                  multi_pid,pid,packet,param_1,param_2,date FROM %s
                   WHERE %s %s %s %s is_ts = ? AND date >= ? AND date <= ?
                   ORDER BY date %s LIMIT ?|}
            table streams priority pids errors ord)
@@ -646,9 +653,9 @@ module Errors = struct
        List.fold_left (fun acc (p,from,till) ->
            acc >>= fun acc ->
            Device.select_state_compressed_internal db ~from ~till
-           >>= fun (f,_,_) ->
-           Lwt.return ( { errors    = 100. *. p /. f
-                        ; no_stream = 100. -. f
+           >>= fun { fine; _ } ->
+           Lwt.return ( { errors    = 100. *. p /. fine
+                        ; no_stream = 100. -. fine
                         ; period    = from, till } :: acc))
          (Lwt.return []) l
        >|= fun data -> Compressed { data }

@@ -177,7 +177,7 @@ module HTTP = struct
   let streams_states db ids inputs limit from till duration () =
     let open Api.Api_types in
     match Time.make_interval ?from ?till ?duration () with
-    | Ok `Range (from,till) ->
+    | Ok `Range (from, till) ->
        (* TODO make it more sound *)
        Db.Streams.select_streams ?limit ~ids ~inputs ~from ~till db
        |> Lwt_result.map (fun x ->

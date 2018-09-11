@@ -7,7 +7,7 @@ type table_info =
   ; id : int
   ; id_ext : int
   }
-let table_info_of_ts_error (e:Errors.t) =
+let table_info_of_ts_error (e : Errors.t) =
   { section = Int32.to_int @@ Int32.((e.param_2 land 0xFF00_0000l) lsr 24)
   ; id = Int32.to_int @@ Int32.((e.param_2 land 0x00FF_0000l) lsr 16)
   ; id_ext = Int32.to_int @@ Int32.(e.param_2 land 0x0000_FFFFl)
@@ -24,7 +24,8 @@ module Description = struct
     | `Milliseconds_unk
     | `Microseconds_unk
     | `Nanoseconds_unk
-    ]
+    ] [@@deriving show]
+
   type possible_pids =
     [ `One of int | `List of int list | `Range of int * int | `Unknown ]
 
@@ -83,7 +84,7 @@ module Description = struct
     | `Seconds x | `Milliseconds x | `Microseconds x  | `Nanoseconds x -> x
     | _ -> 0.0
 
-  let crc_err ?(hex=false) ?(short=false) ?table (e:Errors.t) =
+  let crc_err ?(hex = false) ?(short = false) ?table (e : Errors.t) =
     let base = "Ошибка CRC" in
     let prefix = match table with
       | Some t -> Printf.sprintf "%s в %s" base @@ table_name t
@@ -97,27 +98,35 @@ module Description = struct
 
   let interval_err ?(coef = 0.1) ?(short = false)
         ~prefix ~cmp_word ~period (e : Errors.t) =
-    let got = Int32.to_float e.param_1 *. coef
-              |> fun x -> integrate_interval x period in
-    match period with
-    | `Seconds_unk | `Milliseconds_unk | `Nanoseconds_unk ->
+    let got = match e.param_1 with
+      | -1l -> None
+      | x -> Int32.to_float e.param_1 *. coef
+             |> (fun x -> integrate_interval x period)
+             |> Option.return in
+    let must = match period with
+      | `Seconds_unk | `Milliseconds_unk | `Nanoseconds_unk -> None
+      | x ->
+         let s = Printf.sprintf "%s %g %s"
+                   cmp_word (period_to_float x) (period_to_unit_name x) in
+         Some s in
+    match got, must with
+    | None, None -> prefix
+    | Some got, None ->
        Printf.sprintf "%s %g %s" prefix
          (period_to_float got) (period_to_unit_name got)
-    | _  ->
-       let must = period_to_float period in
-       let ext = Printf.sprintf "%s %g %s" cmp_word must
-                   (period_to_unit_name period) in
+    | None, Some ext -> Printf.sprintf "%s %s" prefix ext
+    | Some got, Some ext ->
        if short then Printf.sprintf "%s %s" prefix ext
        else Printf.sprintf "%s %g %s (%s)" prefix
               (period_to_float got)
               (period_to_unit_name got) ext
 
-  let table_short_interval ?(short=false) ~period (e:Errors.t) table =
+  let table_short_interval ?(short = false) ~period (e : Errors.t) table =
     let prefix = Printf.sprintf "Период следования таблицы %s -"
                  @@ table_name table in
     interval_err ~short ~prefix ~cmp_word:"менее" ~period e
 
-  let table_long_interval ?(short=false) ~period (e:Errors.t) table =
+  let table_long_interval ?(short = false) ~period (e : Errors.t) table =
     let prefix = Printf.sprintf "Таблица %s отсутствует в потоке"
                  @@ table_name table in
     interval_err ~short ~prefix ~cmp_word:"более" ~period e
@@ -127,7 +136,7 @@ module Description = struct
 
   let table_crc ?short ?hex e table = crc_err ?short ?hex ~table e
 
-  let table_id ?(short=false) ?(hex=false) (e:Errors.t) table =
+  let table_id ?(short = false) ?(hex = false) (e : Errors.t) table =
     let to_s = if hex then Printf.sprintf "0x%02X"
                else Printf.sprintf "%u" in
     let got = to_s @@ Int32.to_int e.param_1 in
@@ -147,7 +156,7 @@ module Description = struct
 
   let table_ext_unknown _ = ""
 
-  let of_ts_error ?(hex=true) ?(short=false) (e:Errors.t) =
+  let of_ts_error ?(hex = true) ?(short = false) (e : Errors.t) =
     match e.err_code with
     (* First priority *)
     | 0x11 -> "Пропадание синхронизации"

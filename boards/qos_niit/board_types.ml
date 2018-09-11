@@ -101,6 +101,19 @@ type board_error =
   ; count : int
   } [@@deriving yojson, show]
 
+(** Device state *)
+type state =
+  { state : Common.Topology.state
+  ; from : Time.t
+  ; till : Time.t
+  } [@@deriving yojson, show]
+
+type state_compressed =
+  { no_response : float
+  ; init : float
+  ; fine : float
+  } [@@deriving yojson, show]
+
 module Jitter = struct
 
   type session =

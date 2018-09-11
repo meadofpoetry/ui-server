@@ -10,9 +10,14 @@ type config =
   { stream : Stream.t
   }
 
+type state_list = state list [@@deriving show]
+
 let name = "Errors"
 
 let base_class = "qos-niit-errors-log"
+let failure_class = Markup.CSS.add_modifier base_class "failure"
+let dander_class = Markup.CSS.add_modifier base_class "danger"
+let warning_class = Markup.CSS.add_modifier base_class "warning"
 
 let settings = None
 
@@ -25,6 +30,14 @@ let get_errors ?from ?till ?duration ?limit ?order ~id control =
   >>* Api_js.Requests.err_to_string
   >>= function
   | Raw s -> Lwt_result.return (s.has_more, s.data)
+  | _ -> Lwt.fail_with "got compressed"
+
+let get_state ?from ?till ?duration ?limit control =
+  let open Requests.Device.HTTP.Archive in
+  get_state ?limit ?from ?till ?duration control
+  >>* Api_js.Requests.err_to_string
+  >>= function
+  | Raw s -> Lwt_result.return (s.data : state list)
   | _ -> Lwt.fail_with "got compressed"
 
 let pid_fmt hex =
@@ -65,73 +78,6 @@ let make_table ~id is_hex (init : Errors.raw) control =
     :: (to_column ~sortable "Количество", Int None)
     :: (to_column "Подробности", String None)
     :: [] in
-  (* let fwd =
-   *   let icon = Icon.SVG.(create_simple Path.chevron_right) in
-   *   new Icon_button.t ~icon () in
-   * let bwd =
-   *   let icon = Icon.SVG.(create_simple Path.chevron_left) in
-   *   new Icon_button.t ~icon () in
-   * let fst =
-   *   let icon = Icon.SVG.(create_simple Path.page_first) in
-   *   new Icon_button.t ~icon () in
-   * let lst =
-   *   let icon = Icon.SVG.(create_simple Path.page_last) in
-   *   new Icon_button.t ~icon () in
-   * let select = new Table.Footer.Select.t
-   *                [ 5; 10; 15; 20 ] () in
-   * let footer =
-   *   new Table.Footer.t
-   *     ~actions:[ fst; bwd; fwd; lst ]
-   *     ~rows_per_page:("Ошибок на странице: ", select) () in
-   * let table = new Table.t ~footer ~dense:true ~fmt () in
-   * fst#listen_click_lwt (fun _ _ ->
-   *     get_errors ~limit:200 ~order:`Desc ~id control
-   *     >|= (fun e -> table#remove_all_rows ();
-   *                   List.iter (ignore % add_error table % snd) e)
-   *     |> Lwt.map ignore)
-   * |> Lwt.ignore_result;
-   * fwd#listen_click_lwt (fun _ _ ->
-   *     let open Table in
-   *     let till =
-   *       List.fold_left (fun acc x ->
-   *           let cell = match x#cells with
-   *             | c :: _ -> c in
-   *           match acc with
-   *           | None -> Some cell#value
-   *           | Some acc ->
-   *              if Time.compare cell#value acc >= 0
-   *              then Some acc else Some cell#value)
-   *         None table#rows in
-   *     print_endline @@ show_time @@ Option.get_exn till;
-   *     get_errors ?till ~limit:20 ~order:`Desc ~id control
-   *     >|= (fun e -> table#remove_all_rows ();
-   *                   List.iter (ignore % add_error table % snd) e)
-   *     |> Lwt.map ignore)
-   * |> Lwt.ignore_result;
-   * bwd#listen_click_lwt (fun _ _ ->
-   *     let open Table in
-   *     let from =
-   *       List.fold_left (fun acc x ->
-   *           let cell = match x#cells with
-   *             | c :: _ -> c in
-   *           match acc with
-   *           | None -> Some cell#value
-   *           | Some acc ->
-   *              if Time.compare cell#value acc < 0
-   *              then Some acc else Some cell#value)
-   *         None table#rows in
-   *     print_endline @@ show_time @@ Option.get_exn from;
-   *     get_errors ?from ~limit:20 ~order:`Asc ~id control
-   *     >|= (fun e -> table#remove_all_rows ();
-   *                   List.iter (ignore % add_error table % snd) @@ List.rev e)
-   *     |> Lwt.map ignore)
-   * |> Lwt.ignore_result;
-   * lst#listen_click_lwt (fun _ _ ->
-   *     get_errors ~limit:20 ~order:`Asc ~id control
-   *     >|= (fun e -> table#remove_all_rows ();
-   *                   List.iter (ignore % add_error table % snd) @@ List.rev e)
-   *     |> Lwt.map ignore)
-   * |> Lwt.ignore_result; *)
   let table =
     new Table.t
       ~sticky_header:true
@@ -165,11 +111,12 @@ class t ~id (init : Errors.raw) control () =
 
     inherit Card.t ~widgets:[] ()
 
-    method prepend_error (e : Errors.t) =
+    method prepend_error (e : Errors.t) : unit =
       let el = table#content in
       let top = el#scroll_top in
       let height = el#scroll_height in
-      ignore @@ table#prepend_row (make_row_data e);
+      let row = table#prepend_row (make_row_data e) in
+      self#set_row_priority row e;
       let top' = el#scroll_top in
       if top <> 0 && top' = top
       then begin
@@ -177,8 +124,22 @@ class t ~id (init : Errors.raw) control () =
           el#set_scroll_top (el#scroll_top + diff);
         end
 
-    method append_error (e : Errors.t) =
-      table#append_row (make_row_data e)
+    method append_error (e : Errors.t) : unit =
+      let row = table#append_row (make_row_data e) in
+      self#set_row_priority row e
+
+    (* Private methods *)
+
+    method private set_row_priority (row : 'a Table.Row.t) (e : Errors.t) =
+      let el =
+        let open Table in
+        match row#cells with
+        | _ :: cell :: _ -> cell in
+      match e.priority with
+      | 1 -> el#add_class failure_class
+      | 2 -> el#add_class dander_class
+      | 3 -> el#add_class warning_class
+      | _ -> ()
 
     initializer
       table#content#listen_lwt Widget.Event.scroll (fun _ _ ->
@@ -199,12 +160,12 @@ class t ~id (init : Errors.raw) control () =
                       then Some acc else Some time) None table#rows in
              get_errors ?till ~limit:200 ~order:`Desc ~id control
              >|= (fun (more, l) -> _has_more <- more; List.rev l)
-             >|= List.iter (ignore % self#append_error % snd)
+             >|= List.iter (self#append_error % snd)
              |> Lwt.map ignore
           | _ -> Lwt.return_unit
           end)
       |> Lwt.ignore_result;
-      List.iter Fun.(ignore % self#prepend_error % snd) init;
+      List.iter (self#prepend_error % snd) init;
       self#add_class base_class;
       self#append_child primary;
       self#append_child @@ new Divider.t ();
@@ -214,6 +175,11 @@ class t ~id (init : Errors.raw) control () =
 let make ?(init : (Errors.raw, string) Lwt_result.t option)
       (stream : Stream.t)
       (control : int) =
+  let state = get_state control in
+  state
+  |> Lwt.map (function Error e -> print_endline e; Error e | Ok x -> Ok x)
+  >|= (fun x -> print_endline @@ show_state_list x)
+  |> Lwt.ignore_result;
   let init = match init with
     | Some x -> x
     | None -> get_errors ~id:stream.id control

@@ -343,10 +343,19 @@
 
 .qos-niit-errors-log {
     .mdc-card__media, .mdc-data-table {
-        height: 500px;
+        height: calc(100vh - 256px);
     }
     .mdc-data-table__content {
         overflow-y: auto;
+    }
+    &--failure {
+        @include mdc-theme-prop(background-color, error, true);
+    }
+    &--danger {
+        background-color: $material-color-orange-200 !important;
+    }
+    &--warning {
+        background-color: $material-color-yellow-200 !important;
     }
 }
 

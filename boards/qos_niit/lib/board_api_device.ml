@@ -97,9 +97,10 @@ module HTTP = struct
   (** Archive GET requests **)
   module Archive = struct
 
-    type err = (Common.Topology.state * Time.t * Time.t) list [@@deriving yojson]
-
-    type comp = float * float * float [@@deriving yojson]
+    let to_yojson =
+      Api.Api_types.rows_to_yojson
+        (Json.List.to_yojson state_to_yojson)
+        state_compressed_to_yojson
 
     let state db limit compress from till duration _ _ () =
       match Time.make_interval ?from ?till ?duration () with
@@ -108,7 +109,7 @@ module HTTP = struct
          | Some true -> Db.Device.select_state_compressed db ~from ~till
          | _ -> Db.Device.select_state db ?limit ~from ~till
          end >>= fun data ->
-         respond_result (Ok (Api.Api_types.rows_to_yojson err_to_yojson comp_to_yojson data))
+         respond_result (Ok (to_yojson data))
       | _ -> respond_error ~status:`Not_implemented "not impelemented" ()
 
     (* let errors errors limit compress from till duration _ _ () =
