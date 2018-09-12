@@ -9,7 +9,7 @@ type init =
   ; t2mi : int
   } [@@deriving of_yojson]
 
-(** Mode **)
+(** Mode *)
 
 type t2mi_mode_raw =
   { enabled : bool
@@ -30,7 +30,7 @@ type mode =
   ; t2mi : t2mi_mode_raw option
   } [@@deriving eq]
 
-(** Status **)
+(** Status *)
 
 type status_versions =
   { streams_ver : int
@@ -52,7 +52,7 @@ type status_raw =
   ; streams : Stream.Multi_TS_ID.t list
   } [@@deriving show, eq]
 
-(** T2-MI errors **)
+(** T2-MI errors *)
 
 type t2mi_error_raw =
   { code : int
@@ -66,7 +66,7 @@ type t2mi_error_adv_raw =
   ; param : int
   }
 
-(** Jitter **)
+(** Jitter *)
 
 type jitter_raw =
   { measures : Jitter.measures
@@ -77,11 +77,21 @@ type jitter_raw =
   ; t_pcr : float
   }
 
-(** Streams **)
+(** Streams *)
 
-type streams = Stream.Multi_TS_ID.t list [@@deriving yojson,show,eq]
+type streams =
+  Stream.Multi_TS_ID.t list [@@deriving yojson, show, eq]
 
-(** Event group **)
+(** TS *)
+
+type structure =
+  { info : Streams.TS.general_info
+  ; services : Streams.TS.service_info list
+  ; tables : Streams.TS.table_info list
+  ; pids : Streams.TS.pid_info list
+  } [@@deriving yojson]
+
+(** Event group *)
 
 type event =
   [ `Status of status_raw
@@ -157,7 +167,7 @@ type api =
   ; config : unit -> config
   }
 
-(* Events *)
+(** Events *)
 
 open React
 open Streams.TS
@@ -176,10 +186,10 @@ type device_events =
   }
 
 type ts_events =
-  { info : (Stream.t * info) list event
-  ; services : (Stream.t * services) list event
-  ; tables : (Stream.t * tables) list event
-  ; pids : (Stream.t * pids) list event
+  { info : (Stream.t * (general_info timestamped)) list event
+  ; services : (Stream.t * (service_info list timestamped)) list event
+  ; tables : (Stream.t * (table_info list timestamped)) list event
+  ; pids : (Stream.t * (pid_info list timestamped)) list event
   ; bitrates : (Stream.t * bitrate) list event
   ; errors : (Stream.t * Errors.t list) list event
   }
@@ -209,10 +219,10 @@ type push_events =
   ; jitter_mode : jitter_mode option -> unit
   ; group : group -> unit
   ; board_errors : board_error list -> unit
-  ; info : (Stream.t * info) list -> unit
-  ; services : (Stream.t * services) list -> unit
-  ; tables : (Stream.t * tables) list -> unit
-  ; pids : (Stream.t * pids) list -> unit
+  ; info : (Stream.t * (general_info timestamped)) list -> unit
+  ; services : (Stream.t * (service_info list timestamped)) list -> unit
+  ; tables : (Stream.t * (table_info list timestamped)) list -> unit
+  ; pids : (Stream.t * (pid_info list timestamped)) list -> unit
   ; bitrates : (Stream.t * bitrate) list -> unit
   ; t2mi_info : (Stream.t * Streams.T2MI.structure) list -> unit
   ; jitter : Jitter.measures -> unit

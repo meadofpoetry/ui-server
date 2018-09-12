@@ -54,7 +54,7 @@ let pid_fmt hex =
 
 let make_row_data (error : Errors.t) =
   let open Table in
-  let service = None in
+  let service = error.service in
   let date = error.timestamp in
   let pid = error.pid, error.multi_pid in
   let count = error.count in

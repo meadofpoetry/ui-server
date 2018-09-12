@@ -25,7 +25,7 @@ type _ instant_request =
 type probe_response =
   | Board_errors of board_error list
   | Bitrate of (Multi_TS_ID.t * Streams.TS.bitrate) list
-  | Struct of (Multi_TS_ID.t * Streams.TS.structure) list
+  | Struct of (Multi_TS_ID.t * structure) list
   | T2mi_info of (Multi_TS_ID.t * Streams.T2MI.structure)
   | Jitter of Types.jitter_raw
 
@@ -190,14 +190,16 @@ module Get_board_errors : (Request
 
 end
 
-module Get_section : (Request
-                      with type req = section_req
-                      with type rsp = (Streams.TS.section, Streams.TS.section_error) result) = struct
+module Get_section
+       : (Request
+          with type req = section_req
+          with type rsp = (Streams.TS.section timestamped,
+                           Streams.TS.section_error) result) = struct
 
   open Streams.TS
 
   type req = section_req
-  type rsp = (section,section_error) result
+  type rsp = (section timestamped, section_error) result
 
   let req_code = 0x0302
   let rsp_code = req_code
@@ -224,12 +226,13 @@ module Get_section : (Request
          let stream_id = Cstruct.LE.get_uint32 sid 0 in
          let raw = Cstruct.to_string data in
          let table = Mpeg_ts.table_of_int table_id in
-         Ok { section = List.map (Char.code) @@ String.to_list raw
-            ; stream_id = Multi_TS_ID.of_int32_pure stream_id
-            ; table_id
-            ; section_id = Option.get_or ~default:0 params.section
-            ; parsed = Si_psi_parser.table_to_yojson raw table
-            ; timestamp }
+         let data =
+           { section = List.map (Char.code) @@ String.to_list raw
+           ; stream_id = Multi_TS_ID.of_int32_pure stream_id
+           ; table_id
+           ; section_id = Option.get_or ~default:0 params.section
+           ; parsed = Si_psi_parser.table_to_yojson raw table } in
+         Ok { timestamp; data }
     else (Error (match result with
                  | 0 | 3 -> Zero_length
                  | 1 -> Table_not_found
@@ -327,7 +330,7 @@ end
 module Get_ts_structs
        : (Request
           with type req := ts_struct_req
-          with type rsp := (Multi_TS_ID.t * Streams.TS.structure) list) = struct
+          with type rsp := (Multi_TS_ID.t * structure) list) = struct
 
   open Streams.TS
 
@@ -358,17 +361,18 @@ module Get_ts_structs
     ; bouquet_name = Result.get_or ~default:"" @@ Text_decoder.decode bq_name
     }, string_len
 
-  let of_pids_struct_block msg =
+  let of_pids_struct_block (msg : Cstruct.t) : pid_info list =
     let iter = Cstruct.iter (fun _ -> Some 2)
                  (fun buf -> Cstruct.LE.get_uint16 buf 0) msg in
-    List.rev @@ Cstruct.fold (fun acc el ->
-                    { pid = el land 0x1FFF
-                    ; has_pts = (el land 0x8000) <> 0
-                    ; has_pcr = false (* Filled in later *)
-                    ; scrambled = (el land 0x4000) <> 0
-                    ; pid_type = Null (* Filled in later *)
-                    ; service = None (* Filled in later *)
-                    ; present = (el land 0x2000) <> 0 } :: acc) iter []
+    List.rev
+    @@ Cstruct.fold (fun acc el ->
+           { pid = el land 0x1FFF
+           ; has_pts = (el land 0x8000) <> 0
+           ; has_pcr = false (* Filled in later *)
+           ; scrambled = (el land 0x4000) <> 0
+           ; pid_type = Null (* Filled in later *)
+           ; service_id = None (* Filled in later *)
+           ; present = (el land 0x2000) <> 0 } :: acc) iter []
 
   let of_services_struct_block string_len msg =
     let bdy, rest = Cstruct.split msg sizeof_services_struct_block in
@@ -392,34 +396,31 @@ module Get_ts_structs
     ; running_status = flags land 0x0007
     ; service_type = get_services_struct_block_service_type bdy
     ; service_type_list = get_services_struct_block_service_type_list bdy
-    ; es = [] (* Filled in later *)
-    ; ecm = [] (* Filled in later *)
+    ; elements = [] (* Filled in later *)
     }
 
-  let of_es_struct_block msg =
+  let of_es_struct_block (msg : Cstruct.t) : element list =
     let iter = Cstruct.iter (fun _ -> Some 4) (fun buf -> buf) msg in
     Cstruct.fold (fun acc x ->
-        let pid' = get_es_struct_block_pid x in
-        { pid = pid' land 0x1FFF
-        ; has_pts = (pid' land 0x8000) > 0
-        ; has_pcr = false (* Filled in later *)
-        ; scrambled = false (* Filled in later *)
-        ; present = true (* Filled in later *)
-        ; es_type = get_es_struct_block_es_type x
-        ; es_stream_id = get_es_struct_block_es_stream_id x
+        let pid = (get_es_struct_block_pid x) land 0x1FFF in
+        { pid
+        ; info = PES { stream_type = get_es_struct_block_es_type x
+                     ; stream_id = get_es_struct_block_es_stream_id x }
         } :: acc) iter []
     |> List.rev
 
-  let of_ecm_struct_block msg =
+  let of_ecm_struct_block (msg : Cstruct.t) : ecm list =
     let iter = Cstruct.iter (fun _ -> Some 4) (fun buf -> buf) msg in
     Cstruct.fold (fun acc x ->
         { pid = get_ecm_struct_block_pid x land 0x1FFF
-        ; present = true (* Filled in later *)
-        ; scrambled = false (* Filled in later *)
-        ; ca_sys_id = get_ecm_struct_block_ca_system_id x} :: acc) iter []
+        ; ca_sys_id = get_ecm_struct_block_ca_system_id x } :: acc)
+      iter []
     |> List.rev
 
-  let of_table_struct_block msg =
+  let of_emm_struct_block (msg : Cstruct.t) : emm list =
+    of_ecm_struct_block msg
+
+  let of_table_struct_block (msg : Cstruct.t) : table_info =
     let bdy, rest = Cstruct.split msg sizeof_table_struct_block in
     let iter = Cstruct.iter (fun _ -> Some 2)
                  (fun buf -> Cstruct.LE.get_uint16 buf 0) rest in
@@ -465,27 +466,24 @@ module Get_ts_structs
                      str_len := len;
                      `General gen
          | 0x2100 -> `Pids (of_pids_struct_block block)
-         | 0x2200 -> `Services (of_services_struct_block !str_len block)
-         | 0x2201 -> `Es  (of_es_struct_block  block)
+         | 0x2200 -> `Services (of_services_struct_block !str_len block, [], [])
+         | 0x2201 -> `Es (of_es_struct_block  block)
          | 0x2202 -> `Ecm (of_ecm_struct_block block)
          | 0x2300 -> `Emm (of_ecm_struct_block block)
          | 0x2400 -> `Tables (of_table_struct_block block)
          | _ -> `Unknown
          end
          |> function
-           | `Es es ->
+           | `Es elements ->
               (match acc with
                | (`Services s) :: tl ->
-                  let pcr_pid = s.pcr_pid in
-                  let es = List.map (fun (es : es_info) ->
-                               if es.pid <> pcr_pid
-                               then es else { es with has_pcr = true }) es in
-                  `Services ({ s with es }) :: tl |> aux rest
+                  `Services ({ s with elements }) :: tl |> aux rest
                | _ -> failwith "of_ts_struct_blocks: \
                                 no services block before es block")
            | `Ecm ecm ->
               (match acc with
                | (`Services s) :: tl ->
+                  let ecm = List.map fst ecm in
                   `Services ({ s with ecm }) :: tl |> aux rest
                | _ -> failwith "of_ts_struct_blocks: \
                                 no services block before ecm block")

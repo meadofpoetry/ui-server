@@ -1,6 +1,13 @@
 open Common
 open Containers
 
+(** Misc *)
+
+type 'a timestamped =
+  { timestamp : Time.t
+  ; data : 'a
+  } [@@deriving yojson]
+
 (** Board info *)
 
 type devinfo =
@@ -37,7 +44,7 @@ type jitter_mode =
   ; pid : int
   } [@@deriving yojson, eq, show]
 
-(** Config **)
+(** Config *)
 
 type config =
   { input : input
@@ -162,19 +169,29 @@ module Streams = struct
       } [@@deriving yojson]
 
     type bitrate =
-      { timestamp : Time.t
-      ; total : int
+      { total : int
       ; tables : table_bitrate list
       ; pids : (int * int) list
       } [@@deriving yojson]
 
     (** TS structure *)
 
+    type pes =
+      { stream_type : int
+      ; stream_id : int
+      } [@@deriving yojson, eq, ord]
+
+    type ecm =
+      { ca_sys_id : int
+      } [@@deriving yojson, eq, ord]
+
+    type emm = ecm [@@deriving yojson, eq, ord]
+
     type pid_type =
       | SEC of int list
-      | PES of int
-      | ECM of int
-      | EMM of int
+      | PES of pes
+      | ECM of ecm
+      | EMM of emm
       | Private
       | Null [@@deriving yojson, eq, ord]
 
@@ -184,26 +201,17 @@ module Streams = struct
       ; has_pcr : bool
       ; scrambled : bool
       ; present : bool
-      ; service : string option
+      ; service_id : int option
       ; pid_type : pid_type
       } [@@deriving yojson, eq]
 
-    type es_info =
+    type element =
       { pid : int
-      ; has_pts : bool
-      ; has_pcr : bool
-      ; scrambled : bool
-      ; present : bool
-      ; es_type : int
-      ; es_stream_id : int
-      } [@@deriving yojson, eq]
-
-    type ecm_info =
-      { pid : int
-      ; scrambled : bool
-      ; present : bool
-      ; ca_sys_id : int
-      } [@@deriving yojson, eq]
+      ; info : element_info
+      }
+    and element_info =
+      | PES of pes
+      | ECM of ecm [@@deriving yojson, eq, ord]
 
     type service_info =
       { id : int
@@ -221,11 +229,8 @@ module Streams = struct
       ; running_status : int
       ; service_type : int
       ; service_type_list : int
-      ; es : es_info list
-      ; ecm : ecm_info list
+      ; elements : element list
       } [@@deriving yojson, eq]
-
-    type emm_info = ecm_info [@@deriving yojson, eq]
 
     type ext_info =
       { ext_1 : int (* For SDT - orig nw id, for EIT - ts id *)
@@ -261,51 +266,6 @@ module Streams = struct
       ; nw_name : string
       ; bouquet_name : string
       } [@@deriving yojson, eq]
-
-    type info =
-      { timestamp : Time.t
-      ; info : general_info
-      } [@@deriving yojson]
-
-    let equal_info x y =
-      equal_general_info x.info y.info
-
-    type services =
-      { timestamp : Time.t
-      ; services : service_info list
-      } [@@deriving yojson]
-
-    let equal_services x y =
-      (Equal.list equal_service_info) x.services y.services
-
-    type tables =
-      { timestamp : Time.t
-      ; tables : table_info list
-      } [@@deriving yojson]
-
-    let equal_tables x y =
-      (Equal.list equal_table_info) x.tables y.tables
-
-    type pids =
-      { timestamp : Time.t
-      ; pids : pid_info list
-      } [@@deriving yojson]
-
-    let equal_pids x y =
-      (Equal.list equal_pid_info) x.pids y.pids
-
-    type structure =
-      { info : info
-      ; services : services
-      ; tables : tables
-      ; pids : pids
-      } [@@deriving yojson]
-
-    let equal_structure x y =
-      equal_info x.info y.info
-      && equal_services x.services y.services
-      && equal_tables x.tables y.tables
-      && equal_pids x.pids y.pids
 
     (** SI/PSI section **)
 
@@ -347,7 +307,6 @@ module Streams = struct
       ; section_id : int
       ; section : int list
       ; parsed : parsed option
-      ; timestamp : Time.t
       } [@@deriving yojson]
 
     type streams_states =

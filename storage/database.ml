@@ -133,7 +133,12 @@ module Make (M : MODEL) : (CONN with type init := M.init and type names := M.nam
                                               (Printf.sprintf "DELETE FROM %s" table)) ())
                   (return ()) tables) 
 
-  let request (state : t) req = pool_use state.state.db (fun db -> Request.run db req)
+  (* FIXME remove log *)
+  let request (state : t) req =
+    pool_use state.state.db (fun db -> Request.run db req)
+    |> fun x -> Lwt.catch (fun () -> x)
+                  (fun e -> Logs.err (fun m -> m "DB ERR: %s" @@ Printexc.to_string e);
+                            raise e)
                
   let create (state : state) sign =
     let names, tables = M.tables sign in

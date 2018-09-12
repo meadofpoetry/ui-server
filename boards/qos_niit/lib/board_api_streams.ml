@@ -32,8 +32,7 @@ module WS = struct
          Option.return f in
     let filter_ids = match ids with
       | [] -> None
-      | l -> let f (s : Stream.t) =
-               List.mem ~eq:ID.equal s.id l in
+      | l -> let f (s : Stream.t) = List.mem ~eq:ID.equal s.id l in
              Option.return f in
     let filter = List.keep_some [filter_incoming; filter_inputs; filter_ids] in
     let rec apply fns s = match fns with
