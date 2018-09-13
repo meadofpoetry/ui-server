@@ -207,11 +207,8 @@ module Streams = struct
 
     type element =
       { pid : int
-      ; info : element_info
-      }
-    and element_info =
-      | PES of pes
-      | ECM of ecm [@@deriving yojson, eq, ord]
+      ; info : pid_type
+      } [@@deriving yojson, eq, ord]
 
     type service_info =
       { id : int
@@ -244,15 +241,19 @@ module Streams = struct
       ; length : int
       } [@@deriving yojson, eq, ord, show]
 
-    type table_info =
+    type table_main_info =
       { id : int
       ; id_ext : int
       ; ext_info : ext_info
       ; pid : int
       ; version : int
-      ; service : string option
+      ; service_id : int option
       ; section_syntax : bool
       ; last_section : int
+      } [@@deriving yojson, eq, ord, show]
+
+    type table_info =
+      { info : table_main_info
       ; sections : section_info list
       } [@@deriving yojson, eq, ord, show]
 

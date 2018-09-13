@@ -60,8 +60,8 @@ module Acc = struct
 
   type probes =
     { board_errors : (board_error list) list
-    ; bitrate : (Multi_TS_ID.t * Streams.TS.bitrate) list
-    ; ts_structs : (Multi_TS_ID.t * Streams.TS.structure) list
+    ; bitrate : (Multi_TS_ID.t * Streams.TS.bitrate timestamped) list
+    ; ts_structs : (Multi_TS_ID.t * structure) list
     ; t2mi_info : (Multi_TS_ID.t * Streams.T2MI.structure) list
     ; jitter : Types.jitter_raw list
     }
@@ -351,13 +351,15 @@ module Make(Logs : Logs.LOG) = struct
     | _ -> Lwt.fail (Failure "board is not responding")
 
   let push_structs (pe : push_events)
-        (x : (Stream.t * Streams.TS.structure) list) =
+        (timestamp : Time.t)
+        (x : (Stream.t * structure) list) =
     let open Streams.TS in
-    let map_snd f l = List.map (fun (s, x) -> s, f x) l in
-    pe.info @@ map_snd (fun x -> x.info) x;
-    pe.services @@ map_snd (fun x -> x.services) x;
-    pe.tables @@ map_snd (fun x -> x.tables) x;
-    pe.pids @@ map_snd (fun x -> x.pids) x
+    let map_snd f l =
+      List.map (fun (s, x) -> s, { timestamp; data = f x }) l in
+    pe.info @@ map_snd (fun (x : structure) -> x.info) x;
+    pe.services @@ map_snd (fun (x : structure) -> x.services) x;
+    pe.tables @@ map_snd (fun (x : structure) -> x.tables) x;
+    pe.pids @@ map_snd (fun (x : structure) -> x.pids) x
 
   type t2mi = (Stream.t * Streams.T2MI.structure) list [@@deriving show]
 
@@ -377,7 +379,9 @@ module Make(Logs : Logs.LOG) = struct
     let _, rdy = split bitrate in
     pe.bitrates rdy;
     let _, rdy = split ts_structs in
-    (push_structs pe) rdy;
+    (* FIXME timestamp for previous *)
+    let timestamp = (Option.get_exn acc.group).status.status.timestamp in
+    (push_structs pe timestamp) rdy;
     (* Streams independent probes *)
     List.iter (fun x ->
         Logs.warn (fun m ->
@@ -400,7 +404,7 @@ module Make(Logs : Logs.LOG) = struct
       await in
     let ts_structs =
       let await, rdy = split acc.probes.ts_structs in
-      (push_structs pe) rdy;
+      (push_structs pe timestamp) rdy;
       await in
     let await =
       { Acc.probes_empty with t2mi_info; ts_structs; bitrate } in

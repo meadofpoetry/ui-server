@@ -223,7 +223,7 @@ type push_events =
   ; services : (Stream.t * (service_info list timestamped)) list -> unit
   ; tables : (Stream.t * (table_info list timestamped)) list -> unit
   ; pids : (Stream.t * (pid_info list timestamped)) list -> unit
-  ; bitrates : (Stream.t * bitrate) list -> unit
+  ; bitrates : (Stream.t * bitrate timestamped) list -> unit
   ; t2mi_info : (Stream.t * Streams.T2MI.structure) list -> unit
   ; jitter : Jitter.measures -> unit
   ; jitter_session : Jitter.session -> unit
