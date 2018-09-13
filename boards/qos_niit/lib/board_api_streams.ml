@@ -226,27 +226,27 @@ let handler (sources : Types.init) (api : api) events =
         (WS.streams events sources)
     ; create_ws_handler ~docstring:"Pushes stream bitrate to the client"
         ~path:Path.Format.("bitrate" @/ empty)
-        ~query:Query.["ids", (module List(Stream.ID))]
+        ~query:Query.["id", (module List(Stream.ID))]
         (WS.bitrate events)
     ; create_ws_handler ~docstring:"Pushes TS info to the client"
         ~path:Path.Format.("info" @/ empty)
-        ~query:Query.["ids", (module List(Stream.ID))]
+        ~query:Query.["id", (module List(Stream.ID))]
         (WS.ts_info events)
      ; create_ws_handler ~docstring:"Pushes TS services to the client"
         ~path:Path.Format.("services" @/ empty)
-        ~query:Query.["ids", (module List(Stream.ID))]
+        ~query:Query.["id", (module List(Stream.ID))]
         (WS.services events)
     ; create_ws_handler ~docstring:"Pushes TS SI/PSI tables to the client"
         ~path:Path.Format.("tables" @/ empty)
-        ~query:Query.["ids", (module List(Stream.ID))]
+        ~query:Query.["id", (module List(Stream.ID))]
         (WS.tables events)
     ; create_ws_handler ~docstring:"Pushes TS PIDs to the client"
         ~path:Path.Format.("pids" @/ empty)
-        ~query:Query.["ids", (module List(Stream.ID))]
+        ~query:Query.["id", (module List(Stream.ID))]
         (WS.pids events)
     ; create_ws_handler ~docstring:"Pushes T2-MI structure to the client"
         ~path:Path.Format.("t2mi/structure" @/ empty)
-        ~query:Query.[ "ids", (module List(Stream.ID))
+        ~query:Query.[ "id", (module List(Stream.ID))
                      ; "t2mi-stream-id", (module List(Int)) ]
         (WS.t2mi_structure events)
     ; create_ws_handler ~docstring:"Pushes TS errors to the client"
@@ -266,19 +266,19 @@ let handler (sources : Types.init) (api : api) events =
           (HTTP.si_psi_section api)
       ; create_handler ~docstring:"Returns TS info"
           ~path:Path.Format.("ts-info" @/ empty)
-          ~query:Query.["ids", (module List(Stream.ID))]
+          ~query:Query.["id", (module List(Stream.ID))]
           (HTTP.ts_info api)
       ; create_handler ~docstring:"Returns TS services"
           ~path:Path.Format.("services" @/ empty)
-          ~query:Query.["ids", (module List(Stream.ID))]
+          ~query:Query.["id", (module List(Stream.ID))]
           (HTTP.services api)
       ; create_handler ~docstring:"Returns TS tables"
           ~path:Path.Format.("tables" @/ empty)
-          ~query:Query.["ids", (module List(Stream.ID))]
+          ~query:Query.["id", (module List(Stream.ID))]
           (HTTP.tables api)
       ; create_handler ~docstring:"Returns TS PIDs"
           ~path:Path.Format.("pids" @/ empty)
-          ~query:Query.["ids", (module List(Stream.ID))]
+          ~query:Query.["id", (module List(Stream.ID))]
           (HTTP.pids api)
       (* T2-MI*)
       ; create_handler ~docstring:"Returns T2-MI packet sequence"
@@ -288,7 +288,7 @@ let handler (sources : Types.init) (api : api) events =
           (HTTP.t2mi_sequence api)
       ; create_handler ~docstring:"Returns T2-MI structure"
           ~path:Path.Format.("t2mi/info" @/ empty)
-          ~query:Query.["ids", (module List(Stream.ID))]
+          ~query:Query.["id", (module List(Stream.ID))]
           (HTTP.t2mi_info api)
       ]
     ]

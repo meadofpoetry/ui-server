@@ -25,10 +25,28 @@ let tick tm =
   in
   e, loop
 
+let split
+      ~(eq_id : 'a -> 'a -> bool)
+      ~(eq : 'a -> 'a -> bool)
+      ~(past : 'a list)
+      ~(pres : 'a list) =
+  let rec not_in_or_diff s = function
+    | [] -> `Not_in
+    | so :: _ when eq so s && eq_id so s -> `In
+    | so :: _ when not (eq so s) && eq_id so s -> `Diff
+    | _ :: tl -> not_in_or_diff s tl in
+  let appeared =
+    List.fold_left (fun acc pres ->
+        match not_in_or_diff pres past with
+        | `Not_in -> pres :: acc
+        | `Diff -> pres :: acc
+        | `In -> acc) [] pres in
+  appeared
+
 let appeared_streams
       sources
-      ~(past:Stream.t list)
-      ~(pres:Stream.t list) =
+      ~(past : Stream.t list)
+      ~(pres : Stream.t list) =
   let open Common.Stream in
   let rec not_in_or_diff s = function
     | [] -> true
@@ -137,6 +155,7 @@ let create (b : topo_board) _ convert_streams send db_conf base step =
      @@ select [streams_ev; streams_diff]);
   (* Structs ts *)
   E.(keep @@ map_p (Db.Ts_info.insert db) @@ React.S.changes events.ts.info);
+  E.(keep @@ map_p (Db.Pids.insert db) @@ React.S.changes events.ts.pids);
   (* E.(keep @@ map_p (Db.Streams.insert_services db) events.ts.services);
    * E.(keep @@ map_p (Db.Streams.insert_tables db) events.ts.tables);
    * E.(keep @@ map_p (Db.Pids.insert db) events.ts.pids); *)

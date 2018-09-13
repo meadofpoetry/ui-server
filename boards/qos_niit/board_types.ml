@@ -8,6 +8,12 @@ type 'a timestamped =
   ; data : 'a
   } [@@deriving yojson]
 
+type 'a timespan =
+  { from : Time.t
+  ; till : Time.t
+  ; data : 'a
+  } [@@deriving yojson]
+
 (** Board info *)
 
 type devinfo =
