@@ -1,4 +1,4 @@
-open Board_types.Streams.T2MI
+open Board_types.T2mi_info
 
 let l1_pre_of_string (msg : string) : l1_pre option =
   let bs = Bitstring.bitstring_of_string msg in

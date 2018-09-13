@@ -105,25 +105,33 @@ module Show = struct
   let to_string t = Show_time.to_string (`Left t)
 end
 
-let make_interval ?(from:t option) ?(till:t option) ?(duration:span option) () =
-  let ok v  = Result.return v in
+let make_interval ?(from : t option)
+      ?(till : t option)
+      ?(duration : span option) () =
+  let ok v = Result.return v in
   let err s = Result.fail s in
-  match from,till,duration with
-  | Some _,Some _,Some _ -> err "excessive duration query"
-  | Some s,Some e,None   -> ok (`Range (s,e))
-  | Some s,None,Some d   -> (match add_span s d with
-                             | Some e -> ok (`Range (s,e))
-                             | None   -> err "time range exceeded")
-  | Some s,None,None     -> ok (`Range (s, max))
-  | None,Some e,Some d   -> (match sub_span e d with
-                             | Some s -> ok (`Range (s,e))
-                             | None   -> err "time range exceeded")
-  | None,Some e,None     -> ok (`Range (epoch, e))
-  | None,None,Some d     -> let e = Clock.now () in
-                            (match sub_span e d with
-                             | Some s -> ok (`Range (s,e))
-                             | None   -> err "time range exceeded")
-  | None,None,None       -> ok (`Range (epoch, max))
+  match from, till, duration with
+  | Some _, Some _, Some _ -> err "excessive duration query"
+  | Some s, Some e, None -> ok (`Range (s,e))
+  | Some s, None, Some d ->
+     begin match add_span s d with
+     | Some e -> ok (`Range (s,e))
+     | None -> err "time range exceeded"
+     end
+  | Some s, None, None -> ok (`Range (s, max))
+  | None, Some e, Some d ->
+     begin match sub_span e d with
+     | Some s -> ok (`Range (s, e))
+     | None   -> err "time range exceeded"
+     end
+  | None, Some e, None -> ok (`Range (epoch, e))
+  | None, None, Some d ->
+     let e = Clock.now () in
+     begin match sub_span e d with
+     | Some s -> ok (`Range (s, e))
+     | None -> err "time range exceeded"
+     end
+  | None, None, None -> ok (`Range (epoch, max))
 
 let split ~from ~till =
   let second = 1 in

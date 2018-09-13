@@ -75,10 +75,18 @@ module Model = struct
 
   let keys_ts_info =
     { time_key = Some "date"
-    ; columns  = [ "stream", key ID.typ
-                 ; "data",   key "TEXT"
-                 ; "date",   key "TIMESTAMP"
-                 ]
+    ; columns =
+        [ "stream", key ID.typ
+        ; "complete", key "BOOL"
+        ; "services", key "INTEGER"
+        ; "nw_pid", key "INTEGER"
+        ; "ts_id", key "INTEGER"
+        ; "nw_id", key "INTEGER"
+        ; "orig_nw_id", key "INTEGER"
+        ; "nw_name", key "TEXT"
+        ; "bouquet_name", key "TEXT"
+        ; "date", key "TIMESTAMP"
+        ]
     }
 
   let keys_services =
@@ -181,7 +189,8 @@ let unwrap = function Ok v -> v | Error e -> failwith e
 
 let is_in field to_string = function
   | [] -> ""
-  | lst -> Printf.sprintf " %s IN (%s) AND " field (String.concat "," @@ List.map to_string lst)
+  | lst -> Printf.sprintf " %s IN (%s) AND "
+             field (String.concat "," @@ List.map to_string lst)
 
 module Device = struct
 
@@ -420,35 +429,35 @@ module Streams = struct
       with_trans (List.fold_left (fun acc v ->
                       acc >>= fun () -> exec insert v) (return ()) data))
 
-  let insert_ts_info db info =
-    let open Streams.TS in
-    let table = (Conn.names db).ts_info in
-    insert' db table info (fun (x:info) -> x.timestamp)
-      info_to_yojson
+  (* let insert_ts_info db info =
+   *   let open Streams.TS in
+   *   let table = (Conn.names db).ts_info in
+   *   insert' db table info (fun (x:info) -> x.timestamp)
+   *     info_to_yojson
+   * 
+   * let insert_services db services =
+   *   let open Streams.TS in
+   *   let table = (Conn.names db).services in
+   *   insert' db table services (fun (x:services) -> x.timestamp)
+   *     services_to_yojson
+   * 
+   * let insert_tables db tables =
+   *   let open Streams.TS in
+   *   let table = (Conn.names db).tables in
+   *   insert' db table tables (fun (x:tables) -> x.timestamp)
+   *     tables_to_yojson
+   * 
+   * let insert_bitrate db bitrate =
+   *   let open Streams.TS in
+   *   let table = (Conn.names db).bitrate in
+   *   insert' db table bitrate (fun (x:bitrate) -> x.timestamp)
+   *     bitrate_to_yojson *)
 
-  let insert_services db services =
-    let open Streams.TS in
-    let table = (Conn.names db).services in
-    insert' db table services (fun (x:services) -> x.timestamp)
-      services_to_yojson
-
-  let insert_tables db tables =
-    let open Streams.TS in
-    let table = (Conn.names db).tables in
-    insert' db table tables (fun (x:tables) -> x.timestamp)
-      tables_to_yojson
-
-  let insert_bitrate db bitrate =
-    let open Streams.TS in
-    let table = (Conn.names db).bitrate in
-    insert' db table bitrate (fun (x:bitrate) -> x.timestamp)
-      bitrate_to_yojson
-
-  let insert_t2mi_info db info =
-    let open Streams.T2MI in
-    let table = (Conn.names db).t2mi_info in
-    insert' db table info (fun (x:structure) -> x.timestamp)
-      structure_to_yojson
+  (* let insert_t2mi_info db info =
+   *   let open Streams.T2MI in
+   *   let table = (Conn.names db).t2mi_info in
+   *   insert' db table info (fun (x:structure) -> x.timestamp)
+   *     structure_to_yojson *)
 
   let select' ?(with_pre = true) ?(limit = 500)
         ?(ids  = []) ~from ~till db table of_data =
@@ -478,151 +487,233 @@ module Streams = struct
                                ; order    = `Desc })
       with e -> return @@ Error (Printexc.to_string e))
 
-  let select_ts_info ?with_pre ?limit ?ids ~from ~till db =
-    let open Streams.TS in
+  (* let select_ts_info ?with_pre ?limit ?ids ~from ~till db =
+   *   let open Streams.TS in
+   *   let table = (Conn.names db).ts_info in
+   *   let of_data = fun (id, json, _) ->
+   *     let ts_info = unwrap @@ info_of_yojson json in
+   *     id, ts_info in
+   *   select' ?with_pre ?limit ?ids ~from ~till db table of_data
+   * 
+   * let select_services ?with_pre ?limit ?ids ~from ~till db =
+   *   let open Streams.TS in
+   *   let table = (Conn.names db).services in
+   *   let of_data = fun (id, json, _) ->
+   *     let services = unwrap @@ services_of_yojson json in
+   *     id, services in
+   *   select' ?with_pre ?limit ?ids ~from ~till db table of_data
+   * 
+   * let select_tables ?with_pre ?limit ?ids ~from ~till db =
+   *   let open Streams.TS in
+   *   let table = (Conn.names db).tables in
+   *   let of_data = fun (id, json, _) ->
+   *     let tables = unwrap @@ tables_of_yojson json in
+   *     id, tables in
+   *   select' ?with_pre ?limit ?ids ~from ~till db table of_data
+   * 
+   * let select_pids ?with_pre ?limit ?ids ~from ~till db =
+   *   let open Streams.TS in
+   *   let table = (Conn.names db).pids in
+   *   let of_data = fun (id, json, timestamp) ->
+   *     let pids = unwrap @@ (Json.List.of_yojson pid_info_of_yojson) json in
+   *     id, { timestamp; pids } in
+   *   select' ?with_pre ?limit ?ids ~from ~till db table of_data *)
+
+  (* let select_t2mi_info ?with_pre ?limit ?ids ~from ~till db =
+   *   let open Streams.T2MI in
+   *   let table = (Conn.names db).t2mi_info in
+   *   let of_data = fun (id, json, _) ->
+   *     let info = unwrap @@ structure_of_yojson json in
+   *     id, info in
+   *   select' ?with_pre ?limit ?ids ~from ~till db table of_data *)
+
+end
+
+module Ts_info = struct
+
+  open Board_types.Ts_info
+
+  let typ : (ID.t * t timestamped) Caqti_type.t =
+    Types.custom
+      Types.(List.(ID.db & bool & int & int & int & int
+                   & int & string & string & ptime))
+      ~encode:(fun (id, ({ timestamp; data } : t timestamped)) ->
+        Ok (ID.to_db id,
+            (data.complete,
+             (data.services_num,
+              (data.nw_pid,
+               (data.ts_id,
+                (data.nw_id,
+                 (data.orig_nw_id,
+                  (data.nw_name,
+                   (data.bouquet_name, timestamp))))))))))
+      ~decode:(fun (id,
+                    (complete,
+                     (services_num,
+                      (nw_pid,
+                       (ts_id,
+                        (nw_id,
+                         (orig_nw_id,
+                          (nw_name,
+                           (bouquet_name, timestamp))))))))) ->
+        Ok (let (data : t) =
+              { complete
+              ; services_num
+              ; nw_pid
+              ; ts_id
+              ; nw_id
+              ; orig_nw_id
+              ; nw_name
+              ; bouquet_name
+              } in
+            ID.of_db id, { timestamp; data }))
+
+  let insert db (info : (Stream.ID.t * t timestamped) list) =
     let table = (Conn.names db).ts_info in
-    let of_data = fun (id, json, _) ->
-      let ts_info = unwrap @@ info_of_yojson json in
-      id, ts_info in
-    select' ?with_pre ?limit ?ids ~from ~till db table of_data
-
-  let select_services ?with_pre ?limit ?ids ~from ~till db =
-    let open Streams.TS in
-    let table = (Conn.names db).services in
-    let of_data = fun (id, json, _) ->
-      let services = unwrap @@ services_of_yojson json in
-      id, services in
-    select' ?with_pre ?limit ?ids ~from ~till db table of_data
-
-  let select_tables ?with_pre ?limit ?ids ~from ~till db =
-    let open Streams.TS in
-    let table = (Conn.names db).tables in
-    let of_data = fun (id, json, _) ->
-      let tables = unwrap @@ tables_of_yojson json in
-      id, tables in
-    select' ?with_pre ?limit ?ids ~from ~till db table of_data
-
-  let select_pids ?with_pre ?limit ?ids ~from ~till db =
-    let open Streams.TS in
-    let table = (Conn.names db).pids in
-    let of_data = fun (id, json, timestamp) ->
-      let pids = unwrap @@ (Json.List.of_yojson pid_info_of_yojson) json in
-      id, { timestamp; pids } in
-    select' ?with_pre ?limit ?ids ~from ~till db table of_data
-
-  let select_t2mi_info ?with_pre ?limit ?ids ~from ~till db =
-    let open Streams.T2MI in
-    let table = (Conn.names db).t2mi_info in
-    let of_data = fun (id, json, _) ->
-      let info = unwrap @@ structure_of_yojson json in
-      id, info in
-    select' ?with_pre ?limit ?ids ~from ~till db table of_data
-
-end
-
-module Pids = struct
-
-  open Board_types.Streams.TS
-
-  type pids_list = (Stream.t * pids) list
-
-  let insert db (pids : pids_list) =
-    let table = (Conn.names db).pids in
-    let data =
-      List.map (fun ((stream : Stream.t), (x : pids)) ->
-          List.map (fun (pid : pid_info) ->
-              let typ = Yojson.Safe.to_string
-                        @@ pid_type_to_yojson pid.pid_type in
-              (ID.to_db stream.id, pid.pid, pid.service, typ),
-              (pid.has_pts, pid.has_pcr, pid.scrambled, pid.present),
-              (x.timestamp, x.timestamp)) x.pids) pids
-      |> List.flatten in
     let insert =
-      R.exec
-        Types.(tup3
-                 (tup4 ID.db int (option string) string)
-                 (tup4 bool bool bool bool)
-                 (tup2 ptime ptime))
-        (sprintf "INSERT INTO %s (stream,pid,service,type,
-                  has_pts,has_pcr,scrambled,present,
-                  date_start,date_end)
-                  VALUES (?,?,?,?,?,?,?,?,?,?)" table)
+      R.exec typ
+        (sprintf {|INSERT INTO %s(stream,complete,services,nw_pid,ts_id,nw_id,
+                  orig_nw_id,nw_name,bouquet_name,date)
+                  VALUES (?,?,?,?,?,?,?,?,?,?)|} table)
     in Conn.request db Request.(
-      with_trans (List.fold_left (fun acc v ->
-                      acc >>= fun () -> exec insert v) (return ()) data))
+      with_trans (List.fold_left (fun acc ((id : Stream.ID.t), info) ->
+                      acc >>= fun () -> exec insert (id, info))
+                    (return ()) info))
 
-  let bump db (pids : pids_list) =
-    let table = (Conn.names db).pids in
-    let now = Time.Clock.now_s () in
-    let data =
-      List.map (fun ((stream : Stream.t), (x : pids)) ->
-          List.map (fun (pid : pid_info) ->
-              ID.to_db stream.id, pid.pid, now) x.pids) pids
-      |> List.flatten in
-    let update_last =
-      R.exec Types.(tup3 ID.db int ptime)
-        (sprintf {|UPDATE %s SET date_end = $2
-                  WHERE stream = $1
-                  AND pid = $2
-                  AND date_start = (SELECT date_start FROM %s
-                  WHERE id = $1 AND PID = $2 ORDER BY date_start DESC LIMIT 1)|}
-           table table)
-    in
+  let select ?(with_pre = true) ?(limit = 500)
+        ?(ids = []) ~from ~till db =
+    let table = (Conn.names db).ts_info in
+    let ids = is_in "stream" ID.to_value_string ids in
+    let select =
+      R.collect Types.(tup3 ptime ptime int) typ
+        (sprintf {|SELECT * FROM %s
+                  WHERE %s date >= $1 AND date <= $2
+                  ORDER BY date DESC LIMIT $3|} table ids) in
+    let select_pre =
+      R.collect Types.(tup3 ptime ptime int) typ
+        (sprintf {|(SELECT * FROM %s
+                  WHERE %s date >= $1 AND date <= $2
+                  ORDER BY date DESC)
+                  UNION ALL
+                  (SELECT * FROM %s WHERE %s date < $1
+                  ORDER BY date DESC LIMIT 1)
+                  ORDER BY date LIMIT $3|} table ids table ids) in
     Conn.request db Request.(
-      with_trans (List.fold_left (fun acc s ->
-                      acc >>= fun () -> exec update_last s)
-                    (return ()) data))
+      list (if with_pre then select_pre else select) (from, till, limit)
+      >>= fun data ->
+      try return @@ Ok (Raw { data
+                            ; has_more = List.length data >= limit
+                            ; order = `Desc })
+      with e -> return @@ Error (Printexc.to_string e))
 
 end
+
+(* module Pids = struct
+ * 
+ *   open Board_types.Streams.TS
+ * 
+ *   type pids_list = (Stream.t * pids) list
+ * 
+ *   let insert db (pids : pids_list) =
+ *     let table = (Conn.names db).pids in
+ *     let data =
+ *       List.map (fun ((stream : Stream.t), (x : pids)) ->
+ *           List.map (fun (pid : pid_info) ->
+ *               let typ = Yojson.Safe.to_string
+ *                         @@ pid_type_to_yojson pid.pid_type in
+ *               (ID.to_db stream.id, pid.pid, pid.service, typ),
+ *               (pid.has_pts, pid.has_pcr, pid.scrambled, pid.present),
+ *               (x.timestamp, x.timestamp)) x.pids) pids
+ *       |> List.flatten in
+ *     let insert =
+ *       R.exec
+ *         Types.(tup3
+ *                  (tup4 ID.db int (option string) string)
+ *                  (tup4 bool bool bool bool)
+ *                  (tup2 ptime ptime))
+ *         (sprintf "INSERT INTO %s (stream,pid,service,type,
+ *                   has_pts,has_pcr,scrambled,present,
+ *                   date_start,date_end)
+ *                   VALUES (?,?,?,?,?,?,?,?,?,?)" table)
+ *     in Conn.request db Request.(
+ *       with_trans (List.fold_left (fun acc v ->
+ *                       acc >>= fun () -> exec insert v) (return ()) data))
+ * 
+ *   let bump db (pids : pids_list) =
+ *     let table = (Conn.names db).pids in
+ *     let now = Time.Clock.now_s () in
+ *     let data =
+ *       List.map (fun ((stream : Stream.t), (x : pids)) ->
+ *           List.map (fun (pid : pid_info) ->
+ *               ID.to_db stream.id, pid.pid, now) x.pids) pids
+ *       |> List.flatten in
+ *     let update_last =
+ *       R.exec Types.(tup3 ID.db int ptime)
+ *         (sprintf {|UPDATE %s SET date_end = $2
+ *                   WHERE stream = $1
+ *                   AND pid = $2
+ *                   AND date_start = (SELECT date_start FROM %s
+ *                   WHERE id = $1 AND PID = $2 ORDER BY date_start DESC LIMIT 1)|}
+ *            table table)
+ *     in
+ *     Conn.request db Request.(
+ *       with_trans (List.fold_left (fun acc s ->
+ *                       acc >>= fun () -> exec update_last s)
+ *                     (return ()) data))
+ * 
+ * end *)
 
 module Errors = struct
-  open Board_types.Errors
 
-  let error = Types.(
-      custom List.(ID.db & int & int & int & int & bool
-                   & int & int32 & int32 & int32 & ptime & option string)
-        ~encode:(fun (id, (err : Errors.t)) ->
-          Ok (ID.to_db id,
-              (err.count,
-               (err.err_code,
-                (err.err_ext,
-                 (err.priority,
-                  (err.multi_pid,
-                   (err.pid,
-                    (err.packet,
-                     (err.param_1,
-                      (err.param_2,
-                       (err.timestamp, err.service))))))))))))
-        ~decode:(fun (id,
-                      (count,
-                       (err_code,
-                        (err_ext,
-                         (priority,
-                          (multi_pid,
-                           (pid,
-                            (packet,
-                             (param_1,
-                              (param_2,
-                               (timestamp, service))))))))))) ->
-          Ok (ID.of_db id,
-              { timestamp
-              ; count
-              ; err_code
-              ; err_ext
-              ; priority
-              ; multi_pid
-              ; pid
-              ; service
-              ; packet
-              ; param_1
-              ; param_2
-              })))
+  open Board_types.Error
+
+  let error =
+    Types.custom
+      Types.(List.(ID.db & int & int & int & int & bool
+                   & int & int32 & int32 & int32 & ptime & option string))
+      ~encode:(fun (id, (err : Error.t)) ->
+        Ok (ID.to_db id,
+            (err.count,
+             (err.err_code,
+              (err.err_ext,
+               (err.priority,
+                (err.multi_pid,
+                 (err.pid,
+                  (err.packet,
+                   (err.param_1,
+                    (err.param_2,
+                     (err.timestamp, err.service))))))))))))
+      ~decode:(fun (id,
+                    (count,
+                     (err_code,
+                      (err_ext,
+                       (priority,
+                        (multi_pid,
+                         (pid,
+                          (packet,
+                           (param_1,
+                            (param_2,
+                             (timestamp, service))))))))))) ->
+        let error =
+          { timestamp
+          ; count
+          ; err_code
+          ; err_ext
+          ; priority
+          ; multi_pid
+          ; pid
+          ; service
+          ; packet
+          ; param_1
+          ; param_2
+          } in
+        Ok (ID.of_db id, error))
 
   let insert db ~is_ts errs =
     let open Printf in
     let table = (Conn.names db).errors in
     let errs =
-      List.map (fun ((s:Stream.t), e) -> List.map (Pair.make s.id) e) errs
+      List.map (fun ((id : Stream.ID.t), e) -> List.map (Pair.make id) e) errs
       |> List.concat in
     let insert =
       R.exec Types.(tup2 bool error)

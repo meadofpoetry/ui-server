@@ -136,12 +136,12 @@ let create (b : topo_board) _ convert_streams send db_conf base step =
             | `New x -> Db.Streams.insert_streams db x)
      @@ select [streams_ev; streams_diff]);
   (* Structs ts *)
-  E.(keep @@ map_p (Db.Streams.insert_ts_info db) events.ts.info);
-  E.(keep @@ map_p (Db.Streams.insert_services db) events.ts.services);
-  E.(keep @@ map_p (Db.Streams.insert_tables db) events.ts.tables);
-  E.(keep @@ map_p (Db.Pids.insert db) events.ts.pids);
+  E.(keep @@ map_p (Db.Ts_info.insert db) @@ React.S.changes events.ts.info);
+  (* E.(keep @@ map_p (Db.Streams.insert_services db) events.ts.services);
+   * E.(keep @@ map_p (Db.Streams.insert_tables db) events.ts.tables);
+   * E.(keep @@ map_p (Db.Pids.insert db) events.ts.pids); *)
   (* Structs t2 *)
-  E.(keep @@ map_p (Db.Streams.insert_t2mi_info db) events.t2mi.structures);
+  (* E.(keep @@ map_p (Db.Streams.insert_t2mi_info db) events.t2mi.structures); *)
   (* TS bitrates *)
   (* Errors *)
   E.(keep @@ map_p (Db.Errors.insert ~is_ts:true  db) events.ts.errors);

@@ -50,19 +50,22 @@ module Acc = struct
         List.Assoc.set ~eq:Multi_TS_ID.equal id x acc) acc l
 
   let merge_t2mi_info ~acc (id, x) =
-    let open Streams.T2MI in
+    let open T2mi_info in
     let eq = Multi_TS_ID.equal in
-    let f (x : structure) = function
-      | None -> Some x
-      | Some (o : structure) ->
-         Some { o with streams = o.streams @ x.streams } in
+    let f (x : t) = function
+      | None -> Some [x]
+      | Some (o : t list) ->
+         let eq = fun (x : t) y ->
+           x.t2mi_stream_id = y.t2mi_stream_id in
+         let n = List.add_nodup ~eq x o in
+         Some n in
     List.Assoc.update ~eq ~f:(f x) id acc
 
   type probes =
     { board_errors : (board_error list) list
-    ; bitrate : (Multi_TS_ID.t * Streams.TS.bitrate timestamped) list
+    ; bitrate : (Multi_TS_ID.t * Bitrate.t timestamped) list
     ; ts_structs : (Multi_TS_ID.t * structure) list
-    ; t2mi_info : (Multi_TS_ID.t * Streams.T2MI.structure) list
+    ; t2mi_info : (Multi_TS_ID.t * T2mi_info.t list) list
     ; jitter : Types.jitter_raw list
     }
   let probes_empty =
@@ -86,7 +89,7 @@ module Acc = struct
 
   type t =
     { group : Types.group option
-    ; events : Types.event list
+    ; events : Types.board_event list
     ; probes : probes
     ; await_probes : probes
     ; parts : (int * int, part list) List.Assoc.t
@@ -128,8 +131,8 @@ module Make(Logs : Logs.LOG) = struct
     val partition : Acc.t -> group list * Acc.t
     val update_versions : Acc.t -> group -> Acc.t
     val get_req_stack : group -> group option -> probe_response probe_request list
-    val to_ts_errors : group -> (Multi_TS_ID.t * Errors.t list) list
-    val to_t2mi_errors : group -> (Multi_TS_ID.t * Errors.t list) list
+    val to_ts_errors : group -> (Multi_TS_ID.t * Error.t list) list
+    val to_t2mi_errors : group -> (Multi_TS_ID.t * Error.t list) list
   end = struct
 
     let update_versions (acc : Acc.t) (t : group) : Acc.t = match acc.group with
@@ -142,7 +145,7 @@ module Make(Logs : Logs.LOG) = struct
     let split_by l sep =
       let res, acc =
         List.fold_left (fun (res, acc) x ->
-            if equal_event x sep
+            if equal_board_event x sep
             then ((List.rev acc) :: res), [ ]
             else res, (x :: acc))
           ([ ], [ ]) l
@@ -162,7 +165,7 @@ module Make(Logs : Logs.LOG) = struct
         List.filter (function
             | `Status _ :: `Streams_event _ :: _ -> true
             | _ -> false) groups
-        |> List.fold_left (fun (gps : group list) (x : event list) ->
+        |> List.fold_left (fun (gps : group list) (x : board_event list) ->
                let prev_status = match gps with
                  | [ ] -> Option.(acc.group >|= (fun x -> x.status))
                  | x :: _ -> Some x.status in
@@ -352,16 +355,14 @@ module Make(Logs : Logs.LOG) = struct
 
   let push_structs (pe : push_events)
         (timestamp : Time.t)
-        (x : (Stream.t * structure) list) =
-    let open Streams.TS in
+        (x : (Stream.ID.t * structure) list) =
     let map_snd f l =
-      List.map (fun (s, x) -> s, { timestamp; data = f x }) l in
+      List.map (fun ((s : Stream.ID.t), x) ->
+          s, { timestamp; data = f x }) l in
     pe.info @@ map_snd (fun (x : structure) -> x.info) x;
     pe.services @@ map_snd (fun (x : structure) -> x.services) x;
     pe.tables @@ map_snd (fun (x : structure) -> x.tables) x;
     pe.pids @@ map_snd (fun (x : structure) -> x.pids) x
-
-  type t2mi = (Stream.t * Streams.T2MI.structure) list [@@deriving show]
 
   let handle_probes (pe : push_events)
         (streams : Stream.t list)
@@ -370,17 +371,17 @@ module Make(Logs : Logs.LOG) = struct
         List.partition_map (fun (id, x) ->
             match find_stream_by_multi_id id streams with
             | None -> `Left (id, x)
-            | Some s -> `Right (s, x)) l in
+            | Some s -> `Right (s.id, x)) l in
+    (* FIXME timestamp for previous *)
+    let timestamp = (Option.get_exn acc.group).status.status.timestamp in
     (* Try to merge previous *)
     let { t2mi_info; bitrate; ts_structs; _ } : Acc.probes =
       acc.await_probes in
     let _, rdy = split t2mi_info in
-    pe.t2mi_info rdy;
+    pe.t2mi_info @@ List.map (fun (s, x)-> s, { timestamp; data = x }) rdy;
     let _, rdy = split bitrate in
     pe.bitrates rdy;
     let _, rdy = split ts_structs in
-    (* FIXME timestamp for previous *)
-    let timestamp = (Option.get_exn acc.group).status.status.timestamp in
     (push_structs pe timestamp) rdy;
     (* Streams independent probes *)
     List.iter (fun x ->
@@ -396,7 +397,7 @@ module Make(Logs : Logs.LOG) = struct
     (* Streams dependent probes *)
     let t2mi_info =
       let await, rdy = split acc.probes.t2mi_info in
-      pe.t2mi_info rdy;
+      pe.t2mi_info @@ List.map (fun (s, x) -> s, { timestamp; data = x }) rdy;
       await in
     let bitrate =
       let await, rdy = split acc.probes.bitrate in
@@ -656,7 +657,7 @@ module Make(Logs : Logs.LOG) = struct
     let tables, set_tables = S.create [] in
     let pids, set_pids = S.create [] in
     let bitrates, set_bitrates = E.create () in
-    let t2mi_info, set_t2mi_info = E.create () in
+    let t2mi_info, set_t2mi_info = S.create [] in
     let t2mi_mode, set_t2mi_mode = S.create storage#get.t2mi_mode in
     let jitter_mode, set_jitter_mode = S.create storage#get.jitter_mode in
     let input =
@@ -674,19 +675,18 @@ module Make(Logs : Logs.LOG) = struct
       List.filter_map (fun (id, x) ->
           match find_stream_by_multi_id id streams with
           | None -> None
-          | Some s -> Some (s, x)) l in
-    let map ~eq s =
-      (* S.l2 fmap s streams
-       * |>  *)
-      S.diff (fun _new old ->
-          List.filter (fun (stream, s) ->
-              match List.Assoc.get ~eq:Stream.equal stream old with
-              | Some x -> not @@ eq x s
-              | None -> true) _new) s in
+          | Some s -> Some (s.id, x)) l in
+    (* let map ~eq s =
+     *   (\* S.l2 fmap s streams
+     *    * |>  *\)
+     *   S.diff (fun _new old ->
+     *       List.filter (fun (stream, s) ->
+     *           match List.Assoc.get ~eq:Stream.equal stream old with
+     *           | Some x -> not @@ eq x s
+     *           | None -> true) _new) s in *)
     let map_errors f e =
       S.sample (fun l streams -> fmap (f l) streams) e streams in
     Lwt_react.S.keep @@ S.map (fun c -> storage#store c) config;
-    let open Streams.TS in
     let device =
       { state
       ; info = devinfo
@@ -706,10 +706,10 @@ module Make(Logs : Logs.LOG) = struct
       ; errors = hw_errors
       } in
     let ts =
-      { info = map ~eq:equal_info ts_info
-      ; services = map ~eq:equal_services services
-      ; tables = map ~eq:equal_tables tables
-      ; pids = map ~eq:equal_pids pids
+      { info = ts_info
+      ; services
+      ; tables
+      ; pids
       ; bitrates
       ; errors = map_errors Events.to_ts_errors group
       } in
@@ -797,7 +797,7 @@ module Make(Logs : Logs.LOG) = struct
         (fun ?section ?table_id_ext ?ext_info_1 ?ext_info_2
              ~id ~table_id () ->
           match find_stream_by_id id @@ React.S.value events.streams with
-          | None -> Lwt_result.fail Streams.TS.Stream_not_found
+          | None -> Lwt_result.fail SI_PSI_section.Stream_not_found
           | Some s ->
              begin match s.orig_id with
              | TS_multi id ->
@@ -813,15 +813,27 @@ module Make(Logs : Logs.LOG) = struct
                 let timer = Timer.steps ~step_duration 125 in
                 enqueue state msgs sender req timer None
              (* XXX maybe other error here *)
-             | _ -> Lwt_result.fail Streams.TS.Stream_not_found
+             | _ -> Lwt_result.fail SI_PSI_section.Stream_not_found
              end)
     ; get_t2mi_seq =
         (fun params ->
           let req = Get_t2mi_frame_seq { request_id = get_id (); params } in
           let timer = Timer.steps ~step_duration (params.seconds + 10) in
           enqueue state msgs sender req timer None)
-    ; get_devinfo = (fun () -> S.value events.device.info)
-    ; config = (fun () -> storage#get)
+    ; config =
+        (fun () -> storage#get)
+    ; get_devinfo =
+        (fun () -> S.value events.device.info)
+    ; get_ts_info =
+        (fun () -> Lwt.return @@ React.S.value events.ts.info)
+    ; get_pids =
+        (fun () -> Lwt.return @@ React.S.value events.ts.pids)
+    ; get_services =
+        (fun () -> Lwt.return @@ React.S.value events.ts.services)
+    ; get_tables =
+        (fun () -> Lwt.return @@ React.S.value events.ts.tables)
+    ; get_t2mi_info =
+        (fun () -> Lwt.return @@ React.S.value events.t2mi.structures)
     },
     msgs,
     imsgs

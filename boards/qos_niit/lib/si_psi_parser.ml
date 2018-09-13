@@ -1,5 +1,5 @@
 open Containers
-open Board_types.Streams.TS
+open Board_types.SI_PSI_section
 
 let ( % ) = Fun.( % )
 
