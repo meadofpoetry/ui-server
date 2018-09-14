@@ -1,9 +1,8 @@
 open Containers
-open Board_types
+open Board_qos_types
 open Board_api_common
 open Api.Interaction.Json
 open Common
-open Types
 
 let filter_streams (ids : Stream.ID.t list) x =
   match ids with
@@ -21,7 +20,7 @@ module WS = struct
     List.find_map (fun ((s : Stream.ID.t), x) ->
         if ID.equal s id then Some x else None) l
 
-  let streams (events : events) (sources : Types.init)
+  let streams (events : events) (sources : init)
         (ids : ID.t list) (inputs : Topology.topo_input list)
         (incoming : bool option) _ body sock_data () =
     let filter_incoming = match incoming with
@@ -90,14 +89,9 @@ module WS = struct
     Api.Socket.handler socket_table sock_data e to_yojson body
 
   let pids (events : events) ids _ body sock_data () =
-    let to_yojson =
-      stream_assoc_to_yojson
-      @@ timestamped_to_yojson
-      @@ Json.List.to_yojson Pid.to_yojson in
-    let e =
-      E.map (filter_streams ids)
-      @@ React.S.changes events.ts.pids in
-    Api.Socket.handler socket_table sock_data e to_yojson body
+    let e = E.map (filter_streams ids)
+            @@ React.S.changes events.ts.pids in
+    Api.Socket.handler socket_table sock_data e pids_to_yojson body
 
   let t2mi_structure (events : events) ids _ _ body sock_data () =
     let to_yojson =
@@ -160,12 +154,9 @@ module HTTP = struct
     >>= respond_result
 
   let pids (api : api) ids _ _ () =
-    let to_yojson : Pid.t list timestamped -> Yojson.Safe.json =
-      timestamped_to_yojson
-      @@ Json.List.to_yojson Pid.to_yojson in
     api.get_pids ()
     >|= filter_streams ids
-    >|= (Result.return % stream_assoc_to_yojson to_yojson)
+    >|= (Result.return % pids_to_yojson)
     >>= respond_result
 
   let services (api : api) ids _ _ () =
@@ -213,7 +204,7 @@ module HTTP = struct
 
 end
 
-let handler (sources : Types.init) (api : api) events =
+let handler (sources : init) (api : api) events =
   let open Uri in
   let open Boards.Board.Api_handler in
   create_dispatcher

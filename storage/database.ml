@@ -60,19 +60,32 @@ end
 
 module Key_t : sig
   type t
-  val key : ?default:string -> string -> t
+  val key : ?default:string -> ?primary:bool -> string -> t
+  val is_primary : t -> bool
+  val typ : t -> string
   val to_string : t -> string
 end = struct
-  type t = string
-  let key ?default (typ : string) : t = match default with
-    | None -> typ
-    | Some def -> typ ^ " DEFAULT " ^ def (* TODO add check *)
-  let to_string (t : t) : string = t
+  type t =
+    { typ : string
+    ; default : string option
+    ; primary : bool
+    }
+  let key ?default ?(primary = false) (typ : string) : t =
+    { typ; default; primary }
+  let typ (t : t) = t.typ
+  let is_primary (t : t) = t.primary
+  let to_string (t : t) : string = match t.default with
+    | Some def -> t.typ ^ " DEFAULT " ^ def (* TODO add check *)
+    | None -> t.typ
 end
-                
-type keys = { columns  : (string * Key_t.t) list
-            ; time_key : string option
-            }
+
+type keys =
+  { columns  : (string * Key_t.t) list
+  ; time_key : string option
+  }
+
+let make_keys ?time_key columns =
+  { columns; time_key }
           
 module type MODEL = sig
   type init
@@ -99,10 +112,19 @@ module Make (M : MODEL) : (CONN with type init := M.init and type names := M.nam
            } 
 
   let make_init_query name keys =
+    let primary =
+      List.filter_map (fun (k, t) ->
+          if Key_t.is_primary t then Some k else None) keys
+      |> function
+        | [] -> None
+        | s -> Some (Printf.sprintf "PRIMARY KEY (%s)" @@ String.concat "," s) in
     let cols = String.concat ", " (List.map (fun (k,t) -> k ^ " " ^ (Key_t.to_string t)) keys) in
+    let cols = match primary with
+      | None -> cols
+      | Some s -> cols ^ ", " ^ s in
     let exp = Printf.sprintf "CREATE TABLE IF NOT EXISTS %s (%s)" name cols in
     Request.exec (Caqti_request.exec Caqti_type.unit exp)
- 
+
   let init_trans tables =
     let open Request in
     with_trans (List.fold_left (fun acc (name,keys,_) -> acc >>= make_init_query name keys.columns)

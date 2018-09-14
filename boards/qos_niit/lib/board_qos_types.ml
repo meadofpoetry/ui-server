@@ -1,7 +1,8 @@
 open Common
-open Board_types
 open Containers
 open React
+
+include Board_types
 
 (** Init *)
 
@@ -18,7 +19,6 @@ type t2mi_mode_raw =
   ; t2mi_stream_id : int
   ; stream : Stream.Multi_TS_ID.t
   } [@@deriving show, eq]
-
 
 let t2mi_mode_raw_default : t2mi_mode_raw =
   { pid = 0
@@ -89,7 +89,7 @@ type structure =
   { info : Ts_info.t
   ; services : Service.t list
   ; tables : SI_PSI_table.t list
-  ; pids : (Pid.id * Pid.t) list
+  ; pids : Pid.t list
   } [@@deriving yojson]
 
 (** Event group *)
@@ -112,14 +112,13 @@ type group =
 (* Helper types *)
 
 type bitrates = (Stream.ID.t * Bitrate.t timestamped) list
-(* type pids = (Stream.ID.t * (Pid.t list timestamped)) list *)
 type ts_info = (Stream.ID.t * Ts_info.t timestamped) list
 type services = (Stream.ID.t * (Service.t list timestamped)) list
 type tables = (Stream.ID.t * (SI_PSI_table.t list timestamped)) list
 type t2mi_info = (Stream.ID.t * T2mi_info.t list timestamped) list
 type errors = (Stream.ID.t * (Error.t list)) list
 
-type pids = ((Stream.ID.t * Pid.id) * Pid.t timestamped) list
+type pids = (Stream.ID.t * Pid.t list timestamped) list [@@deriving eq, yojson]
 
 (* API *)
 

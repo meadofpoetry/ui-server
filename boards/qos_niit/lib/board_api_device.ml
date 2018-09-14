@@ -1,10 +1,9 @@
 open Containers
-open Board_types
+open Board_qos_types
 open Board_api_common
 open Api.Interaction
 open Api.Interaction.Json
 open Common
-open Types
 
 type events = device_events
 

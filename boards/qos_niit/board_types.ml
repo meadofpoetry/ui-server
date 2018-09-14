@@ -8,6 +8,9 @@ type 'a timestamped =
   ; data : 'a
   } [@@deriving yojson, eq]
 
+let make_timestamped timestamp data =
+  { timestamp; data }
+
 type 'a timespan =
   { from : Time.t
   ; till : Time.t
@@ -215,9 +218,9 @@ module Pid = struct
     | Private
     | Null [@@deriving yojson, eq, ord]
 
-  type id = int [@@deriving yojson, eq]
-
-  type t =
+  type t = id * info
+  and id = int
+  and info =
     { has_pts : bool
     ; has_pcr : bool
     ; scrambled : bool

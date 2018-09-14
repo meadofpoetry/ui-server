@@ -36,11 +36,11 @@ let of_human_string_exn ?(tz_offset_s = 0) s =
      of_date_time ((y, m, d), ((h, min, s), tz_offset_s)) |> Option.get_exn
   | _ -> failwith "not a human-readable date time string"
 
-let to_yojson (v : t) : Yojson.Safe.json =
+let to_yojson' (v : t) : Yojson.Safe.json =
   let d, ps = Ptime.to_span v |> Ptime.Span.to_d_ps in
   `List [`Int d; `Intlit (Int64.to_string ps)]
 
-let of_yojson (j : Yojson.Safe.json) : (t, string) result =
+let of_yojson' (j : Yojson.Safe.json) : (t, string) result =
   let to_err j =
     Printf.sprintf "of_yojson: bad json value (%s)"
     @@ Yojson.Safe.to_string j in
@@ -50,6 +50,22 @@ let of_yojson (j : Yojson.Safe.json) : (t, string) result =
       Json.Int.of_yojson d
       >>= fun d -> Json.Int64.of_yojson ps
       >>= fun ps -> return (v (d,ps)))
+  | _ -> Error (to_err j)
+
+let to_yojson (v : t) : Yojson.Safe.json =
+  let t = to_rfc3339 ~frac_s:6 v in
+  `String t
+
+let of_yojson (j : Yojson.Safe.json) : (t, string) result =
+  let to_err j =
+    Printf.sprintf "of_yojson: bad json value (%s)"
+    @@ Yojson.Safe.to_string j in
+  match j with
+  | `String s ->
+     begin match of_rfc3339 s with
+     | Ok (t, _, _) -> Ok t
+     | Error _ -> Error "of_yojson: bad rfc3339 string"
+     end
   | _ -> Error (to_err j)
 
 

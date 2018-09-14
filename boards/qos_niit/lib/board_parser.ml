@@ -4,9 +4,8 @@ let prefix = 0x55AA
 
 include Board_msg_formats
 
-open Board_types
-open Types
 open Common
+open Board_qos_types
 
 module Multi_TS_ID = Stream.Multi_TS_ID
 
@@ -19,7 +18,7 @@ type part =
   }
 
 type _ instant_request =
-  | Set_board_init : Types.init -> unit instant_request
+  | Set_board_init : init -> unit instant_request
   | Set_board_mode : input * t2mi_mode_raw -> unit instant_request
   | Set_jitter_mode : jitter_mode option -> unit instant_request
   | Reset : unit instant_request
@@ -29,7 +28,7 @@ type probe_response =
   | Bitrate of (Multi_TS_ID.t * Bitrate.t timestamped) list
   | Struct of (Multi_TS_ID.t * structure) list
   | T2mi_info of (Multi_TS_ID.t * T2mi_info.t)
-  | Jitter of Types.jitter_raw
+  | Jitter of jitter_raw
 
 type _ probe_request =
   | Get_board_errors : int -> probe_response probe_request
@@ -79,7 +78,7 @@ let to_complex_req ?client_id ?request_id ~msg_code ~body () =
   let hdr = to_complex_req_header ?client_id ?request_id ~msg_code ~length () in
   Cstruct.append hdr body
 
-let to_set_board_init_req (src : Types.init) =
+let to_set_board_init_req (src : init) =
   let body = Cstruct.create sizeof_req_set_init in
   let () = set_req_set_init_input_src_id body src.input in
   let () = set_req_set_init_t2mi_src_id body src.t2mi in
@@ -283,7 +282,7 @@ end
 
 module Get_jitter : (Request
                      with type req := jitter_req
-                     with type rsp := Types.jitter_raw) = struct
+                     with type rsp := jitter_raw) = struct
 
   let req_code = 0x0307
   let rsp_code = req_code
@@ -313,7 +312,7 @@ module Get_jitter : (Request
     ; period = t_pcr_br /. 10e+6
     }
 
-  let parse _ msg : Types.jitter_raw =
+  let parse _ msg : jitter_raw =
     let hdr, bdy' = Cstruct.split msg sizeof_jitter in
     let count  = get_jitter_count hdr in
     let bdy, _  = Cstruct.split bdy' @@ sizeof_jitter_item * count in
@@ -392,7 +391,7 @@ module Get_ts_structs
     ; bouquet_name = Result.get_or ~default:"" @@ Text_decoder.decode bq_name
     }, string_len
 
-  let of_pids_block (msg : Cstruct.t) : (Pid.id * Pid.t) list =
+  let of_pids_block (msg : Cstruct.t) : Pid.t list =
     let open Pid in
     let iter = Cstruct.iter (fun _ -> Some 2)
                  (fun buf -> Cstruct.LE.get_uint16 buf 0) msg in
@@ -544,18 +543,18 @@ module Get_ts_structs
     let info = of_service_block slen acc.info in
     { info with elements = es @ ecm }
 
-  let update_if_null (pid, info) : (Pid.id * Pid.t) option =
+  let update_if_null (pid, info) : Pid.t option =
     if pid = 0x1FFF
     then Some (pid, { info with typ = Null }) else None
 
-  let find_in_elements ((pid, _) : Pid.id * Pid.t)
+  let find_in_elements ((pid, _) : Pid.t)
         (elements : Service.element list) : Pid.typ option =
     List.find_map (fun (x : Service.element) ->
         if x.pid = pid then Some x.info else None)
       elements
 
   let update_if_in_services (services : Service.t list)
-        ((pid, info) : Pid.id * Pid.t) : (Pid.id * Pid.t) option =
+        ((pid, info) : Pid.t) : (Pid.t) option =
     let result =
       List.find_map (fun (x : Service.t) ->
           match find_in_elements (pid, info) x.elements with
@@ -568,13 +567,13 @@ module Get_ts_structs
        Some (pid, { info with service_id = Some id; typ; has_pcr })
 
   let update_if_in_emm (emm : Service.element list)
-        (pid, info) : (Pid.id * Pid.t) option =
+        (pid, info) : Pid.t option =
     match find_in_elements (pid, info) emm with
     | None -> None
     | Some typ -> Some (pid, { info with typ })
 
   let update_if_in_sections (tables : SI_PSI_table.t list)
-        (pid, (info : Pid.t)) : (Pid.id * Pid.t) option =
+        ((pid, info) : Pid.t) : Pid.t option =
     List.find_all (fun (x : SI_PSI_table.t) -> x.main.pid = pid) tables
     |> (function
         | [ ] -> None
@@ -596,7 +595,7 @@ module Get_ts_structs
   let update_pid (services : Service.t list)
         (tables : SI_PSI_table.t list)
         (emm : Service.element list)
-        (pid : Pid.id * Pid.t) : Pid.id * Pid.t =
+        (pid : Pid.t) : Pid.t =
     let ( >>= ) x f = match x with
       | Some x -> Some x
       | None -> f pid in
@@ -1027,7 +1026,7 @@ module T2mi_errors : (Event with type msg := Multi_TS_ID.t * (Error.t list)) = s
           match index land 8 with
           | 0 -> if data > 0 (* filter zero errors *)
                  then
-                   let (x : Types.t2mi_error_raw) =
+                   let (x : t2mi_error_raw) =
                      { code; stream_id = sid; count = data } in
                    (x :: cnt), adv, oth
                  else cnt,adv,oth

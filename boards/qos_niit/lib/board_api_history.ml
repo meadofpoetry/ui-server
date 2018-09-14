@@ -1,10 +1,9 @@
 open Containers
-open Board_types
+open Board_qos_types
 open Api.Interaction
 open Api.Interaction.Json
 open Board_api_common
 open Common
-open Types
 
 module HTTP = struct
 

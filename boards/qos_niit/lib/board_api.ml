@@ -1,6 +1,6 @@
 open Boards.Board
+open Board_qos_types
 open Common
-open Types
 
 let handlers id db sources api events =
   [ Api_handler.add_layer (Topology.get_api_path id)

@@ -1,6 +1,6 @@
 open Common.Topology
 open Boards.Board
-open Board_types
+open Board_qos_types
 open Containers
 open Common
 
@@ -25,23 +25,43 @@ let tick tm =
   in
   e, loop
 
-let split
-      ~(eq : 'a -> 'a -> bool)
-      (past : 'a list)
-      (pres : 'a list) =
-  let rec not_in_or_diff s acc = function
-    | [] -> true, acc
-    | so :: tl when eq so s -> false, (acc @ tl)
-    | so :: tl -> not_in_or_diff s (so :: acc) tl in
-  let rec accum appeared past = function
-    | [] -> appeared, past
-    | pres :: tl ->
-       begin match not_in_or_diff pres [] past with
-       | true, past -> accum (pres :: appeared) past tl
-       | false, past -> accum appeared past tl
-       end in
-  let found, lost = accum [] past pres in
-  found, lost
+module Split = struct
+
+  type 'a coll = 'a list timestamped
+  type 'a flat = 'a timestamped list
+
+  let flatten_item (c : 'a coll) : 'a flat =
+    List.map (fun x -> make_timestamped c.timestamp x) c.data
+
+  let flatten (c : (Stream.ID.t * 'a coll) list) =
+    List.map (Pair.map2 flatten_item) c
+
+  let split
+        ~(eq : 'a -> 'a -> bool)
+        (past : (Stream.ID.t * 'a coll) list)
+        (pres : (Stream.ID.t * 'a coll) list) =
+    let l =
+      List.map (fun (id, ({ timestamp; data } as inner)) ->
+          match List.Assoc.get ~eq:Stream.ID.equal id past with
+          | None -> id, [], flatten_item inner
+          | Some { timestamp = past_time; data = past_data } ->
+             let (lost : 'a flat) =
+               List.filter_map (fun x ->
+                   if List.mem ~eq x data then None else
+                     Some (make_timestamped timestamp x)) past_data in
+             let (upd : 'a flat) =
+               List.map (fun x ->
+                   if List.mem ~eq x past_data
+                   then make_timestamped past_time x
+                   else make_timestamped timestamp x) data in
+             id, lost, upd) pres in
+    List.fold_left (fun (lost, upd) (id, l, u) ->
+        let lost = match l with
+          | [] -> lost
+          | x -> (id, x) :: lost in
+        (lost, (id, u) :: upd)) ([], []) l
+
+end
 
 let appeared_streams
       sources
@@ -112,6 +132,7 @@ let make_templates (b : topo_board) =
         ; guest = rval })
 
 let create (b : topo_board) _ convert_streams send db_conf base step =
+  let open Split in
   let log_name = Boards.Board.log_name b in
   let log_src = Logs.Src.create log_name in
   Option.iter (fun x -> Logs.Src.set_level log_src @@ Some x) b.logs;
@@ -122,7 +143,7 @@ let create (b : topo_board) _ convert_streams send db_conf base step =
        let s = log_name ^ ": no sources provided!" in
        raise (Invalid_sources s)
     | Some x ->
-       begin match Types.init_of_yojson x with
+       begin match init_of_yojson x with
        | Ok init -> init
        | Error s -> raise (Invalid_sources s)
        end in
@@ -130,7 +151,7 @@ let create (b : topo_board) _ convert_streams send db_conf base step =
   let storage =
     Config_storage.create base
       ["board"; (string_of_int b.control)] in
-  let events, api, step =
+  let ({ ts; _ } as events), api, step =
     SM.create sources send storage step conv in
   let db = Result.get_exn @@ Db.Conn.create db_conf b.control in
   let handlers = Board_api.handlers b.control db sources api events in
@@ -153,15 +174,24 @@ let create (b : topo_board) _ convert_streams send db_conf base step =
             | `Active x -> Db.Streams.bump_streams db x
             | `New x -> Db.Streams.insert_streams db x)
      @@ select [streams_ev; streams_diff]);
-  (* Structs ts *)
-  E.(keep
-     @@ map_s (function
-            | `Bump x -> Db.Pids.bump db x
-            | `Insert x -> Db.Pids.insert db x)
-     @@ select [ S.sample (fun () x -> `Bump x) tick events.ts.pids
-               ; S.diff (fun n o -> split ~eq:Types.equal_pids n o) events.ts.pids ]);
-  E.(keep @@ map_p (Db.Ts_info.insert db) @@ React.S.changes events.ts.info);
-  E.(keep @@ map_p (Db.Pids.insert db) @@ React.S.changes events.ts.pids);
+  E.(keep @@ map_p (Db.Ts_info.insert db) @@ S.changes events.ts.info);
+  E.(keep @@ map_s (function
+                 | `New (lost, upd) ->
+                    Logs.err (fun m -> m "lost: %d" (List.length lost));
+                    let open Lwt.Infix in
+                    Db.Pids.bump ~now:false db lost
+                    >>= fun () -> Db.Pids.insert db upd
+                 | `Bump x -> Db.Pids.bump ~now:true db x)
+     @@ select [ map (fun x -> `New x) @@ S.diff (split ~eq:Pid.equal) ts.pids
+               ; S.sample (fun () e -> `Bump (flatten e)) tick ts.pids ]);
+  (* E.(keep @@ map_s (function
+   *                | `Tick x -> Db.Pids.bump db x
+   *                | `New (prev, pres) ->
+   *                   let open Lwt.Infix in
+   *                   Db.Pids.bump db prev
+   *                   >>= fun () -> Db.Pids.insert db pres)
+   *    @@ select [ S.diff (fun pres prev -> `New (prev, pres)) events.ts.pids
+   *              ; S.sample (fun _ e -> `Tick e) tick events.ts.pids]); *)
   (* E.(keep @@ map_p (Db.Streams.insert_services db) events.ts.services);
    * E.(keep @@ map_p (Db.Streams.insert_tables db) events.ts.tables);
    * E.(keep @@ map_p (Db.Pids.insert db) events.ts.pids); *)
@@ -169,8 +199,8 @@ let create (b : topo_board) _ convert_streams send db_conf base step =
   (* E.(keep @@ map_p (Db.Streams.insert_t2mi_info db) events.t2mi.structures); *)
   (* TS bitrates *)
   (* Errors *)
-  E.(keep @@ map_p (Db.Errors.insert ~is_ts:true  db) events.ts.errors);
-  E.(keep @@ map_p (Db.Errors.insert ~is_ts:false db) events.t2mi.errors);
+  (* E.(keep @@ map_p (Db.Errors.insert ~is_ts:true  db) events.ts.errors);
+   * E.(keep @@ map_p (Db.Errors.insert ~is_ts:false db) events.t2mi.errors); *)
   let state = (object
                  val db    = db
                  val _tick = tick_loop ()

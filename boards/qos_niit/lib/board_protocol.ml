@@ -1,6 +1,5 @@
 open Containers
-open Board_types
-open Types
+open Board_qos_types
 open Storage.Options
 open Boards.Board
 open Boards.Pools
@@ -14,7 +13,7 @@ let probes_timeout = 5 (* seconds *)
 module Timer = Boards.Timer
 
 (** Checks if the stream is received from board input *)
-let is_incoming ({ t2mi; _ } : Types.init) =
+let is_incoming ({ t2mi; _ } : init) =
   fun (s : Stream.t) ->
   match s.orig_id with
   | TS_multi x ->
@@ -62,34 +61,49 @@ module Acc = struct
     List.Assoc.update ~eq ~f:(f x) id acc
 
   type probes =
-    { board_errors : (board_error list) list
-    ; bitrate : (Multi_TS_ID.t * Bitrate.t timestamped) list
-    ; ts_structs : (Multi_TS_ID.t * structure) list
-    ; t2mi_info : (Multi_TS_ID.t * T2mi_info.t list) list
-    ; jitter : Types.jitter_raw list
+    { board_errors : (board_error list) list option
+    ; bitrate : (Multi_TS_ID.t * Bitrate.t timestamped) list option
+    ; ts_structs : (Multi_TS_ID.t * structure) list option
+    ; t2mi_info : (Multi_TS_ID.t * T2mi_info.t list) list option
+    ; jitter : jitter_raw list option
     }
   let probes_empty =
-    { board_errors = []
-    ; bitrate = []
-    ; ts_structs = []
-    ; t2mi_info = []
-    ; jitter = []
+    { board_errors = None
+    ; bitrate = None
+    ; ts_structs = None
+    ; t2mi_info = None
+    ; jitter = None
     }
   let cons (p : probes) = function
     | Board_errors x ->
-       { p with board_errors = x :: p.board_errors }
+       let board_errors = match p.board_errors with
+         | None -> Some [x]
+         | Some l -> Some (x :: l) in
+       { p with board_errors }
     | Bitrate x ->
-       { p with bitrate = merge_ts_probes ~acc:p.bitrate x }
+       let bitrate = match p.bitrate with
+         | None -> Some x
+         | Some l -> Some (merge_ts_probes ~acc:l x) in
+       { p with bitrate }
     | Struct x ->
-       { p with ts_structs = merge_ts_probes ~acc:p.ts_structs x }
+       let ts_structs = match p.ts_structs with
+         | None -> Some x
+         | Some l -> Some (merge_ts_probes ~acc:l x) in
+       { p with ts_structs }
     | T2mi_info x ->
-       { p with t2mi_info = merge_t2mi_info ~acc:p.t2mi_info x }
+       let t2mi_info = match p.t2mi_info with
+         | None -> Some [Pair.map2 List.pure x]
+         | Some l -> Some (merge_t2mi_info ~acc:l x) in
+       { p with t2mi_info }
     | Jitter x ->
-       { p with jitter = x :: p.jitter }
+       let jitter = match p.jitter with
+         | None -> Some [x]
+         | Some l -> Some (x :: l) in
+       { p with jitter }
 
   type t =
-    { group : Types.group option
-    ; events : Types.board_event list
+    { group : group option
+    ; events : board_event list
     ; probes : probes
     ; await_probes : probes
     ; parts : (int * int, part list) List.Assoc.t
@@ -354,21 +368,17 @@ module Make(Logs : Logs.LOG) = struct
     | _ -> Lwt.fail (Failure "board is not responding")
 
   let push_structs (pe : push_events)
-        (timestamp : Time.t)
+        (time : Time.t)
         (x : (Stream.ID.t * structure) list) =
     let map_snd f l =
       List.map (fun ((s : Stream.ID.t), x) ->
-          s, { timestamp; data = f x }) l in
-    let map_pids structures =
-      List.map (fun ((s : Stream.ID.t), (x : structure)) ->
-          List.map (fun ((pid, descr) : Pid.id * Pid.t) ->
-              (s, pid), { timestamp
-                        ; data = descr }) x.pids) structures
-      |> List.concat in
+          s, { timestamp = time; data = f x }) l in
     pe.info @@ map_snd (fun (x : structure) -> x.info) x;
     pe.services @@ map_snd (fun (x : structure) -> x.services) x;
     pe.tables @@ map_snd (fun (x : structure) -> x.tables) x;
-    pe.pids @@ map_pids x
+    pe.pids
+    @@ List.map (fun (id, (x : structure)) ->
+           id, make_timestamped time x.pids) x
 
   let handle_probes (pe : push_events)
         (streams : Stream.t list)
@@ -381,38 +391,42 @@ module Make(Logs : Logs.LOG) = struct
     (* FIXME timestamp for previous *)
     let timestamp = (Option.get_exn acc.group).status.status.timestamp in
     (* Try to merge previous *)
-    let { t2mi_info; bitrate; ts_structs; _ } : Acc.probes =
-      acc.await_probes in
-    let _, rdy = split t2mi_info in
-    pe.t2mi_info @@ List.map (fun (s, x)-> s, { timestamp; data = x }) rdy;
-    let _, rdy = split bitrate in
-    pe.bitrates rdy;
-    let _, rdy = split ts_structs in
-    (push_structs pe timestamp) rdy;
+    (* let { t2mi_info; bitrate; ts_structs; _ } : Acc.probes =
+     *   acc.await_probes in
+     * let _, rdy = split t2mi_info in
+     * pe.t2mi_info @@ List.map (fun (s, x)-> s, { timestamp; data = x }) rdy;
+     * let _, rdy = split bitrate in
+     * pe.bitrates rdy;
+     * let _, rdy = split ts_structs in
+     * (push_structs pe timestamp) rdy; *)
     (* Streams independent probes *)
-    List.iter (fun x ->
-        Logs.warn (fun m ->
-            let s = String.concat ",\n"
-                    @@ List.map show_board_error x in
-            m "got board errors: %s" s);
-        pe.board_errors x) acc.probes.board_errors;
-    List.iter (fun x ->
-        (* XXX pointer update requires right order *)
-        jitter_ptr := x.next_ptr;
-        pe.jitter x.measures) acc.probes.jitter;
+    Option.iter (
+        List.iter (fun x ->
+            Logs.warn (fun m ->
+                let s = String.concat ",\n"
+                        @@ List.map show_board_error x in
+                m "got board errors: %s" s);
+            pe.board_errors x)) acc.probes.board_errors;
+    Option.iter (
+        List.iter (fun x ->
+            jitter_ptr := x.next_ptr;
+            pe.jitter x.measures)) acc.probes.jitter;
     (* Streams dependent probes *)
-    let t2mi_info =
-      let await, rdy = split acc.probes.t2mi_info in
-      pe.t2mi_info @@ List.map (fun (s, x) -> s, { timestamp; data = x }) rdy;
-      await in
-    let bitrate =
-      let await, rdy = split acc.probes.bitrate in
-      pe.bitrates rdy;
-      await in
-    let ts_structs =
-      let await, rdy = split acc.probes.ts_structs in
-      (push_structs pe timestamp) rdy;
-      await in
+    let t2mi_info = match Option.map split acc.probes.t2mi_info with
+      | None -> None
+      | Some (await, rdy) ->
+         pe.t2mi_info @@ List.map (fun (s, x) -> s, { timestamp; data = x }) rdy;
+         Some await in
+    let bitrate = match Option.map split acc.probes.bitrate with
+      | None -> None
+      | Some (await, rdy) ->
+         pe.bitrates rdy;
+         Some await in
+    let ts_structs = match Option.map split acc.probes.ts_structs with
+      | None -> None
+      | Some (await, rdy) ->
+         (push_structs pe timestamp) rdy;
+         Some await in
     let await =
       { Acc.probes_empty with t2mi_info; ts_structs; bitrate } in
     { acc with probes = Acc.probes_empty
@@ -555,7 +569,7 @@ module Make(Logs : Logs.LOG) = struct
           | [], acc -> (Timer.step timer), acc
           | (hd :: _) as l, acc ->
              log_groups l;
-             List.iter (fun x -> pe.group x) @@ List.rev l;
+             List.iter pe.group @@ List.rev l;
              (Timer.reset timer), (Events.update_versions acc hd) in
         begin match Pool.responsed pool probes with
         | None -> `Continue (step_ok_probes_wait (Pool.step pool) timer acc)
@@ -592,7 +606,7 @@ module Make(Logs : Logs.LOG) = struct
 
   open Lwt_react
 
-  let to_raw_stream ({ input; t2mi } : Types.init)
+  let to_raw_stream ({ input; t2mi } : init)
         (mode : t2mi_mode_raw)
         (i : input) (id : Multi_TS_ID.t) =
     let open Stream.Source in
@@ -661,7 +675,7 @@ module Make(Logs : Logs.LOG) = struct
     let ts_info, set_ts_info = S.create [] in
     let services, set_services = S.create [] in
     let tables, set_tables = S.create [] in
-    let e_pids, set_pids = E.create () in
+    let pids, set_pids = S.create [] in
     let bitrates, set_bitrates = E.create () in
     let t2mi_info, set_t2mi_info = S.create [] in
     let t2mi_mode, set_t2mi_mode = S.create storage#get.t2mi_mode in
@@ -675,24 +689,6 @@ module Make(Logs : Logs.LOG) = struct
           { input; t2mi_mode; jitter_mode }) input t2mi_mode jitter_mode in
     let e_pcr, pcr_push = E.create () in
     let e_pcr_s, pcr_s_push = E.create () in
-
-    (* Accumulating *)
-    let pids =
-      React.S.fold (fun acc pres ->
-          let eq = Equal.pair Stream.ID.equal Int.equal in
-          (* Remove items that are absent in new list *)
-          let acc =
-            List.filter (fun (id, _) -> List.Assoc.mem ~eq id pres) acc in
-          (* Update existing items *)
-          let acc =
-            List.fold_left (fun acc (id, (x : Pid.t timestamped)) ->
-                let f = function
-                  | None -> Some x
-                  | Some (prev : Pid.t timestamped) ->
-                     if Pid.equal prev.data x.data
-                     then None else Some x in
-                List.Assoc.update ~eq ~f id acc) acc pres in
-          acc) [] e_pids in
 
     let streams = streams_conv (to_raw_streams_s sources group state) in
     let fmap l streams =

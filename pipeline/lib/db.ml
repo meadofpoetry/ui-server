@@ -38,45 +38,45 @@ module Model = struct
             
   let name = "qoe(pipeline)"
 
-  let streams_keys = { time_key = Some "date_end"
-                     ; columns  = [ "streams",    key "JSONB"
-                                  ; "date_start", key "TIMESTAMP"
-                                  ; "date_end",   key "TIMESTAMP"
-                                  ]
-                     }
+  let streams_keys =
+    make_keys ~time_key:"date_end"
+      [ "streams",    key "JSONB"
+      ; "date_start", key "TIMESTAMP"
+      ; "date_end",   key "TIMESTAMP"
+      ]
 
-  let pid_state_keys = { time_key = Some "date_end"
-                       ; columns  = [ "stream",     key "INTEGER"
-                                    ; "channel",    key "INTEGER"
-                                    ; "pid",        key "INTEGER"
-                                    ; "date_start", key "TIMESTAMP"
-                                    ; "date_end",   key "TIMESTAMP"
-                                    ]
-                       }
-           
-  let struct_keys  = { time_key = Some "date"
-                     ; columns  = [ "id",      key "JSONB"
-                                  ; "struct",  key "JSONB"
-                                  ; "date",    key "TIMESTAMP" ~default:"CURRENT_TIMESTAMP"
-                                  ]
-                     }
+  let pid_state_keys =
+    make_keys ~time_key:"date_end"
+      [ "stream",     key "INTEGER"
+      ; "channel",    key "INTEGER"
+      ; "pid",        key "INTEGER"
+      ; "date_start", key "TIMESTAMP"
+      ; "date_end",   key "TIMESTAMP"
+      ]
+    
+  let struct_keys  =
+    make_keys ~time_key:"date"
+      [ "id",      key "JSONB"
+      ; "struct",  key "JSONB"
+      ; "date",    key "TIMESTAMP" ~default:"CURRENT_TIMESTAMP"
+      ]
 
-  let err_keys = { time_key = Some "date"
-                 ; columns = [ "stream", key "INTEGER"
-                             ; "channel", key "INTEGER"
-                             ; "pid",     key "INTEGER"
-                             ; "error",   key "INTEGER"
-                             ; "counter", key "INTEGER"
-                             ; "size",    key "INTEGER"
-                             ; "min",     key "REAL"
-                             ; "max",     key "REAL"
-                             ; "avg",     key "REAL"
-                             ; "peak_flag", key "BOOLEAN"
-                             ; "cont_flag", key "BOOLEAN"
-                             ; "date",      key "TIMESTAMP" ~default:"CURRENT_TIMESTAMP"
-                             ]
-                 }
-        
+  let err_keys =
+    make_keys ~time_key:"date"
+      [ "stream", key "INTEGER"
+      ; "channel", key "INTEGER"
+      ; "pid",     key "INTEGER"
+      ; "error",   key "INTEGER"
+      ; "counter", key "INTEGER"
+      ; "size",    key "INTEGER"
+      ; "min",     key "REAL"
+      ; "max",     key "REAL"
+      ; "avg",     key "REAL"
+      ; "peak_flag", key "BOOLEAN"
+      ; "cont_flag", key "BOOLEAN"
+      ; "date",      key "TIMESTAMP" ~default:"CURRENT_TIMESTAMP"
+      ]
+    
   let tables () =
     let names = { streams = "qoe_streams"; pid_state = "qoe_pid_state"; structs = "qoe_structures"; errors = "qoe_errors" } in
     names,
