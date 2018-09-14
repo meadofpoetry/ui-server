@@ -89,7 +89,7 @@ type structure =
   { info : Ts_info.t
   ; services : Service.t list
   ; tables : SI_PSI_table.t list
-  ; pids : Pid.t list
+  ; pids : (Pid.id * Pid.t) list
   } [@@deriving yojson]
 
 (** Event group *)
@@ -112,12 +112,14 @@ type group =
 (* Helper types *)
 
 type bitrates = (Stream.ID.t * Bitrate.t timestamped) list
-type pids = (Stream.ID.t * (Pid.t list timestamped)) list
+(* type pids = (Stream.ID.t * (Pid.t list timestamped)) list *)
 type ts_info = (Stream.ID.t * Ts_info.t timestamped) list
 type services = (Stream.ID.t * (Service.t list timestamped)) list
 type tables = (Stream.ID.t * (SI_PSI_table.t list timestamped)) list
 type t2mi_info = (Stream.ID.t * T2mi_info.t list timestamped) list
 type errors = (Stream.ID.t * (Error.t list)) list
+
+type pids = ((Stream.ID.t * Pid.id) * Pid.t timestamped) list
 
 (* API *)
 
@@ -154,7 +156,8 @@ and section_params =
   { stream_id : Stream.Multi_TS_ID.t
   ; table_id : int
   ; section : int option (* needed for tables containing multiple sections *)
-  ; table_id_ext : int option (* needed for tables with extra parameter, like ts id for PAT *)
+  ; table_id_ext : int option (* needed for tables with extra parameter,
+                               * like ts id for PAT *)
   ; ext_info_1 : int option (* ts_id for EIT, orig_nw_id for SDT *)
   ; ext_info_2 : int option (* orig_nw_id for EIT *)
   } [@@deriving yojson, show]

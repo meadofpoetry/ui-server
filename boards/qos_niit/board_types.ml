@@ -6,13 +6,13 @@ open Containers
 type 'a timestamped =
   { timestamp : Time.t
   ; data : 'a
-  } [@@deriving yojson]
+  } [@@deriving yojson, eq]
 
 type 'a timespan =
   { from : Time.t
   ; till : Time.t
   ; data : 'a
-  } [@@deriving yojson]
+  } [@@deriving yojson, eq]
 
 (** Board info *)
 
@@ -215,9 +215,10 @@ module Pid = struct
     | Private
     | Null [@@deriving yojson, eq, ord]
 
+  type id = int [@@deriving yojson, eq]
+
   type t =
-    { pid : int
-    ; has_pts : bool
+    { has_pts : bool
     ; has_pcr : bool
     ; scrambled : bool
     ; present : bool

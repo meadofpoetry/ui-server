@@ -26,22 +26,22 @@ let tick tm =
   e, loop
 
 let split
-      ~(eq_id : 'a -> 'a -> bool)
       ~(eq : 'a -> 'a -> bool)
-      ~(past : 'a list)
-      ~(pres : 'a list) =
-  let rec not_in_or_diff s = function
-    | [] -> `Not_in
-    | so :: _ when eq so s && eq_id so s -> `In
-    | so :: _ when not (eq so s) && eq_id so s -> `Diff
-    | _ :: tl -> not_in_or_diff s tl in
-  let appeared =
-    List.fold_left (fun acc pres ->
-        match not_in_or_diff pres past with
-        | `Not_in -> pres :: acc
-        | `Diff -> pres :: acc
-        | `In -> acc) [] pres in
-  appeared
+      (past : 'a list)
+      (pres : 'a list) =
+  let rec not_in_or_diff s acc = function
+    | [] -> true, acc
+    | so :: tl when eq so s -> false, (acc @ tl)
+    | so :: tl -> not_in_or_diff s (so :: acc) tl in
+  let rec accum appeared past = function
+    | [] -> appeared, past
+    | pres :: tl ->
+       begin match not_in_or_diff pres [] past with
+       | true, past -> accum (pres :: appeared) past tl
+       | false, past -> accum appeared past tl
+       end in
+  let found, lost = accum [] past pres in
+  found, lost
 
 let appeared_streams
       sources
@@ -154,6 +154,12 @@ let create (b : topo_board) _ convert_streams send db_conf base step =
             | `New x -> Db.Streams.insert_streams db x)
      @@ select [streams_ev; streams_diff]);
   (* Structs ts *)
+  E.(keep
+     @@ map_s (function
+            | `Bump x -> Db.Pids.bump db x
+            | `Insert x -> Db.Pids.insert db x)
+     @@ select [ S.sample (fun () x -> `Bump x) tick events.ts.pids
+               ; S.diff (fun n o -> split ~eq:Types.equal_pids n o) events.ts.pids ]);
   E.(keep @@ map_p (Db.Ts_info.insert db) @@ React.S.changes events.ts.info);
   E.(keep @@ map_p (Db.Pids.insert db) @@ React.S.changes events.ts.pids);
   (* E.(keep @@ map_p (Db.Streams.insert_services db) events.ts.services);

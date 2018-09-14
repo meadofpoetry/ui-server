@@ -359,10 +359,16 @@ module Make(Logs : Logs.LOG) = struct
     let map_snd f l =
       List.map (fun ((s : Stream.ID.t), x) ->
           s, { timestamp; data = f x }) l in
+    let map_pids structures =
+      List.map (fun ((s : Stream.ID.t), (x : structure)) ->
+          List.map (fun ((pid, descr) : Pid.id * Pid.t) ->
+              (s, pid), { timestamp
+                        ; data = descr }) x.pids) structures
+      |> List.concat in
     pe.info @@ map_snd (fun (x : structure) -> x.info) x;
     pe.services @@ map_snd (fun (x : structure) -> x.services) x;
     pe.tables @@ map_snd (fun (x : structure) -> x.tables) x;
-    pe.pids @@ map_snd (fun (x : structure) -> x.pids) x
+    pe.pids @@ map_pids x
 
   let handle_probes (pe : push_events)
         (streams : Stream.t list)
@@ -655,7 +661,7 @@ module Make(Logs : Logs.LOG) = struct
     let ts_info, set_ts_info = S.create [] in
     let services, set_services = S.create [] in
     let tables, set_tables = S.create [] in
-    let pids, set_pids = S.create [] in
+    let e_pids, set_pids = E.create () in
     let bitrates, set_bitrates = E.create () in
     let t2mi_info, set_t2mi_info = S.create [] in
     let t2mi_mode, set_t2mi_mode = S.create storage#get.t2mi_mode in
@@ -669,6 +675,24 @@ module Make(Logs : Logs.LOG) = struct
           { input; t2mi_mode; jitter_mode }) input t2mi_mode jitter_mode in
     let e_pcr, pcr_push = E.create () in
     let e_pcr_s, pcr_s_push = E.create () in
+
+    (* Accumulating *)
+    let pids =
+      React.S.fold (fun acc pres ->
+          let eq = Equal.pair Stream.ID.equal Int.equal in
+          (* Remove items that are absent in new list *)
+          let acc =
+            List.filter (fun (id, _) -> List.Assoc.mem ~eq id pres) acc in
+          (* Update existing items *)
+          let acc =
+            List.fold_left (fun acc (id, (x : Pid.t timestamped)) ->
+                let f = function
+                  | None -> Some x
+                  | Some (prev : Pid.t timestamped) ->
+                     if Pid.equal prev.data x.data
+                     then None else Some x in
+                List.Assoc.update ~eq ~f id acc) acc pres in
+          acc) [] e_pids in
 
     let streams = streams_conv (to_raw_streams_s sources group state) in
     let fmap l streams =

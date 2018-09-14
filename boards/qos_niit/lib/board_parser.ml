@@ -392,18 +392,21 @@ module Get_ts_structs
     ; bouquet_name = Result.get_or ~default:"" @@ Text_decoder.decode bq_name
     }, string_len
 
-  let of_pids_block (msg : Cstruct.t) : Pid.t list =
+  let of_pids_block (msg : Cstruct.t) : (Pid.id * Pid.t) list =
+    let open Pid in
     let iter = Cstruct.iter (fun _ -> Some 2)
                  (fun buf -> Cstruct.LE.get_uint16 buf 0) msg in
     List.rev
     @@ Cstruct.fold (fun acc el ->
-           Pid.{ pid = el land 0x1FFF
-               ; has_pts = (el land 0x8000) <> 0
-               ; has_pcr = false (* Filled in later *)
-               ; scrambled = (el land 0x4000) <> 0
-               ; typ = Private (* Filled in later *)
-               ; service_id = None (* Filled in later *)
-               ; present = (el land 0x2000) <> 0 } :: acc) iter []
+           let pid = el land 0x1FFF in
+           let description =
+             { has_pts = (el land 0x8000) <> 0
+             ; has_pcr = false (* Filled in later *)
+             ; scrambled = (el land 0x4000) <> 0
+             ; typ = Private (* Filled in later *)
+             ; service_id = None (* Filled in later *)
+             ; present = (el land 0x2000) <> 0 } in
+           (pid, description) :: acc) iter []
 
   let of_service_block (string_len : int)
         (msg : Cstruct.t) : Service.t =
@@ -541,38 +544,38 @@ module Get_ts_structs
     let info = of_service_block slen acc.info in
     { info with elements = es @ ecm }
 
-  let update_if_null (pid : Pid.t) : Pid.t option =
-    if pid.pid = 0x1FFF
-    then Some { pid with typ = Null } else None
+  let update_if_null (pid, info) : (Pid.id * Pid.t) option =
+    if pid = 0x1FFF
+    then Some (pid, { info with typ = Null }) else None
 
-  let find_in_elements (pid : Pid.t)
+  let find_in_elements ((pid, _) : Pid.id * Pid.t)
         (elements : Service.element list) : Pid.typ option =
     List.find_map (fun (x : Service.element) ->
-        if x.pid = pid.pid then Some x.info else None)
+        if x.pid = pid then Some x.info else None)
       elements
 
   let update_if_in_services (services : Service.t list)
-        (pid : Pid.t) : Pid.t option =
+        ((pid, info) : Pid.id * Pid.t) : (Pid.id * Pid.t) option =
     let result =
       List.find_map (fun (x : Service.t) ->
-          match find_in_elements pid x.elements with
+          match find_in_elements (pid, info) x.elements with
           | None -> None
           | Some t -> Some (x.id, x.pcr_pid, t)) services in
     match result with
     | None -> None
     | Some (id, pcr_pid, typ) ->
-       let has_pcr = pid.pid = pcr_pid in
-       Some { pid with service_id = Some id; typ; has_pcr }
+       let has_pcr = pid = pcr_pid in
+       Some (pid, { info with service_id = Some id; typ; has_pcr })
 
   let update_if_in_emm (emm : Service.element list)
-        (pid : Pid.t) : Pid.t option =
-    match find_in_elements pid emm with
+        (pid, info) : (Pid.id * Pid.t) option =
+    match find_in_elements (pid, info) emm with
     | None -> None
-    | Some typ -> Some { pid with typ }
+    | Some typ -> Some (pid, { info with typ })
 
   let update_if_in_sections (tables : SI_PSI_table.t list)
-        (pid : Pid.t) : Pid.t option =
-    List.find_all (fun (x : SI_PSI_table.t) -> x.main.pid = pid.pid) tables
+        (pid, (info : Pid.t)) : (Pid.id * Pid.t) option =
+    List.find_all (fun (x : SI_PSI_table.t) -> x.main.pid = pid) tables
     |> (function
         | [ ] -> None
         | [x] ->
@@ -588,12 +591,12 @@ module Get_ts_structs
            Some (None, SEC ids))
     |> function
       | None -> None
-      | Some (id, typ) -> Some { pid with service_id = id; typ }
+      | Some (id, typ) -> Some (pid, { info with service_id = id; typ })
 
   let update_pid (services : Service.t list)
         (tables : SI_PSI_table.t list)
         (emm : Service.element list)
-        (pid : Pid.t) : Pid.t =
+        (pid : Pid.id * Pid.t) : Pid.id * Pid.t =
     let ( >>= ) x f = match x with
       | Some x -> Some x
       | None -> f pid in
@@ -649,7 +652,7 @@ module Get_ts_structs
     let parse = match stream with
       | `All ->
          let rec f = fun acc buf ->
-           let x,rest = of_ts_struct buf in
+           let x, rest = of_ts_struct buf in
            match rest with
            | Some b -> f (x :: acc) b
            | None -> List.rev (x :: acc) in
