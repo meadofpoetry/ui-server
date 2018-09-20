@@ -26,18 +26,18 @@ module Stream_item = struct
        let tz_offset_s = Ptime_clock.current_tz_offset_s () in
        Time.to_human_string ?tz_offset_s t
 
-  let typ_to_string = function
-    | `Ts   -> "MPEG-TS"
-    | `T2mi -> "T2-MI"
+  let typ_to_string : Stream.stream_type -> string = function
+    | TS   -> "MPEG-TS"
+    | T2MI -> "T2-MI"
 
   let source_to_string (source:Stream.source) : string =
-    let rec aux acc : Stream.source -> string list =
-      function
-      | Input i -> ("Вход " ^ Topology.get_input_name i) :: acc
-      | Parent (stream:Stream.t) ->
-         let s = "Поток " ^ (match stream.description with
-                             | None   -> "без описания"
-                             | Some s -> s) in
+    let rec aux acc (source:Stream.source) =
+      let open Topology in
+      match source.node with
+      | Entry (Input i) -> ("Вход "  ^ Topology.get_input_name i) :: acc
+      | Entry (Board b) -> ("Плата " ^ b.model) :: acc
+      | Stream (stream:Stream.t) ->
+         let s = "Поток " ^ (Stream.Source.to_string source.info) in
          aux (s :: acc) stream.source in
     String.concat " -> " @@ aux [] source
 
@@ -46,7 +46,7 @@ module Stream_item = struct
           (stream:Stream.t)
           (event:Stream.t option React.event)
           control () =
-    let descr = Option.get_or ~default:"Нет описания" stream.description in
+    let descr = Stream.Source.to_string stream.source.info in
     (* FIXME change to stream type *)
     let title =
       new Card.Primary.title ~large:true (typ_to_string stream.typ) () in

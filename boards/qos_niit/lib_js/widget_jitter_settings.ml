@@ -1,6 +1,7 @@
 open Board_types
 open Containers
 open Components
+open Common
 
 type config = unit [@@deriving yojson]
 
@@ -33,7 +34,7 @@ let make_pid () =
 let name     = "Настройки. Джиттер"
 let settings = None
 
-let make ~(state: Common.Topology.state React.signal)
+let make ~(state: Topology.state React.signal)
          ~(mode:  jitter_mode option React.signal)
          (conf:   config option)
          control : Widget.t =
@@ -55,7 +56,7 @@ let make ~(state: Common.Topology.state React.signal)
     React.S.l3 (fun en pid state ->
         match en, pid, state with
         | true, Some pid, `Fine ->
-           Some (Some { pid; stream = Common.Stream.Single })
+           Some (Some { pid; stream = Stream.Multi_TS_ID.of_int32_raw 0l }) (* FIXME stream *)
         | false, _, `Fine -> Some None
         | _ -> None)
       s_en s_pid state in

@@ -12,16 +12,20 @@ module Ports = Map.Make(Int)
 
 exception Invalid_port of string
 
+exception Invalid_sources of string
+
 type url = Url.t
-type set_state = [ `Forbidden
-                 | `Limited   of int
-                 | `Unlimited
-                 ]
-type set_error = [ `Not_in_range
-                 | `Limit_exceeded of (int * int)
-                 | `Forbidden
-                 | `Internal_error of string
-                 ] [@@deriving yojson]
+type set_state =
+  [ `Forbidden
+  | `Limited   of int
+  | `Unlimited
+  ]
+type set_error =
+  [ `Not_in_range
+  | `Limit_exceeded of (int * int)
+  | `Forbidden
+  | `Internal_error of string
+  ] [@@deriving yojson]
 type constraints =
   { range : (url * url) list
   ; state : set_state React.signal
@@ -46,14 +50,20 @@ type t =
   }
 
 module type BOARD = sig
-  val create : topo_board ->
-               Stream.t list React.signal ->
-               (Stream.stream list React.signal -> topo_board -> Stream.t list React.signal) ->
-               (Cstruct.t -> unit Lwt.t) ->
-               Storage.Database.t ->
-               path ->
-               float -> t
+  open React
+  val create :
+    topo_board ->
+    Stream.t list signal ->
+    (Stream.Raw.t list signal -> topo_board -> Stream.t list signal) ->
+    (Cstruct.t -> unit Lwt.t) ->
+    Storage.Database.t ->
+    path ->
+    float -> t
 end
+
+let log_name (b:topo_board) =
+  Printf.sprintf "board.%s_%s.%d"
+  b.manufacturer b.model b.control
 
 let concat_acc acc recvd = match acc with
   | Some acc -> Cstruct.append acc (Cstruct.concat (List.rev recvd))
@@ -77,7 +87,7 @@ let get_streams (boards : t Map.t)
   get_streams' (React.S.const []) topo.ports
 
 let merge_streams (boards : t Map.t)
-                  (raw_streams : Stream.stream list React.signal)
+                  (raw_streams : Stream.Raw.t list React.signal)
                   (topo : topo_board)
     : Stream.t list React.signal =
   let open React in
@@ -90,69 +100,88 @@ let merge_streams (boards : t Map.t)
         | Board b -> try let b = Map.find b.control boards in
                          Map.add port.port (`Streams b.streams_signal) m
                      with _ -> m)
-      Map.empty topo.ports
-  in
-  let create_in_stream (s : stream) i =
-    `Done (S.const (Some { source = (Input i)
-                         ; id     = s.id
-                         ; typ    = s.typ
-                         ; description = s.description }))
-  in
-  (* let g = S.fmap (function None -> None | Some x -> Some (string_of_int x)) "" a;; *)
-  let find_cor_stream (s : stream) lst = (* use S.fmap `None*)
-    let initial = S.map (List.find_pred (fun n -> equal_stream_id n.id s.id)) lst in
-    `Done (S.fmap (function None -> None | Some x -> Some (Some x)) None initial)
-  in
-  let compose_hier (s : stream) id sms =
-    List.find_pred (fun ((stream : stream), _) -> equal_stream_id stream.id (`Ts id)) sms
+      Map.empty topo.ports in
+  (* When a board itself generated the stream *)
+  let create_board_stream (s : Raw.t) =
+    let source = { node = Entry (Board topo)
+                 ; info = s.source.info } in
+    `Done (S.const (Some { source
+                         ; typ     = s.typ
+                         ; orig_id = s.id
+                         ; id      = make_id source })) in
+  (* When board is connected directly to input *)
+  let create_in_stream (s : Raw.t) (i:topo_input) =
+    let source = { node = Entry (Input i)
+                 ; info = s.source.info } in
+    `Done (S.const (Some { source
+                         ; typ     = s.typ
+                         ; orig_id = s.id
+                         ; id      = make_id source })) in
+  (* When a board is connected to another board *)
+  let find_cor_stream (s : Raw.t) (lst : Stream.t list signal) = (* use S.fmap `None*)
+    let map (s : Raw.t) prev = match prev.orig_id, s.id with
+      | TS_raw, (TS_multi _ as id) -> Some { prev with orig_id = id }
+      | id, sid -> if equal_container_id id sid
+                   then Some prev else None in
+    `Done (S.map (List.find_map (map s)) lst) in
+  (* When source of raw stream is another stream *)
+  let compose_hier (s : Raw.t) (parent : container_id) sms =
+    List.find_pred (fun ((stream : Raw.t), _) ->
+        equal_container_id stream.id parent) sms
     |> function
       | None        -> `Await s
-      | Some (_ ,v) ->
-         `Done (S.map (function
-                      Some p -> Some ({ source = (Parent p)
-                                      ; id     = s.id
-                                      ; typ    = s.typ
-                                      ; description = s.description })
-                    | None -> None)
-                  v) in
-  let transform acc (s : stream) =
-    match s.source with
+      | Some (_, v) ->
+         S.map (function
+             | None   -> None
+             | Some p ->
+                let source = { node = Stream p
+                             ; info = s.source.info } in
+                Some ({ source
+                      ; id      = make_id source
+                      ; typ     = s.typ
+                      ; orig_id = s.id })) v
+         |> fun x -> `Done x in
+  let transform acc (s : Raw.t) =
+    match s.source.node with
     | Port i ->
        (Map.get i ports
         |> function
-          | None                -> `Error (Printf.sprintf "merge_streams: \
-                                                           port %d is not connected" i)
+          | None -> `Error (Printf.sprintf "merge_streams: \
+                                            port %d is not connected" i)
           | Some (`Input i)     -> create_in_stream s i
           | Some (`Streams lst) -> find_cor_stream s lst)
-    | Stream id -> compose_hier s id acc in
+    | Stream id -> compose_hier s id acc
+    | Board     -> create_board_stream s in
   let rec lookup acc await = function
-    | []    -> cleanup acc await
-    | x::tl -> 
+    | []      -> cleanup acc await
+    | x :: tl ->
        (match transform acc x with
-        | `Done s  -> lookup ((x,s)::acc) await tl
-        | `Await s -> lookup acc (s::await) tl
+        | `Done s  -> lookup ((x, s) :: acc) await tl
+        | `Await s -> lookup acc (s :: await) tl
         | `None    -> lookup acc await tl
         | `Error e -> failwith e)
   and cleanup acc = function
-    | []    -> acc
-    | x::tl ->
+    | []      -> acc
+    | x :: tl ->
        (match transform acc x with
-        | `Done s  -> cleanup ((x,s)::acc) tl
+        | `Done s  -> cleanup ((x, s) :: acc) tl
         | `None    -> cleanup acc tl
         | `Error e -> failwith e
-        | `Await s -> try List.find (fun (p : stream) ->
-                              match s.source with
-                              | Stream id -> equal_stream_id (`Ts id) p.id
-                              | _ -> false)
-                            tl |> ignore; (* parent exists TODO: check it more thoroughly *)
-                          cleanup acc (List.append tl [s])
-                      with _ -> cleanup acc tl)
+        | `Await s ->
+           (* XXX What is this case for? *)
+           try List.find (fun (p : Raw.t) ->
+                   match s.source.node with
+                   | Stream s -> equal_container_id p.id s
+                   | _        -> false)
+                 tl |> ignore; (* parent exists TODO: check it more thoroughly *)
+               cleanup acc (tl @ [s])
+           with _ -> cleanup acc tl)
   in
   let eq = Equal.physical in
   raw_streams
   |> S.map ~eq (lookup [] [])
   |> S.map ~eq (List.map snd)
   |> S.map ~eq (S.merge ~eq (fun acc -> function
-                    | None -> acc
-                    | Some x -> x::acc) [])
+                    | None   -> acc
+                    | Some x -> x :: acc) [])
   |> S.switch ~eq

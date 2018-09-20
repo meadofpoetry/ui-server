@@ -7,7 +7,6 @@ open Common.Topology
 open Common
 
 type item =
-  | Chart           of Widget_chart.config option
   | TS_log          of Widget_log.config option
   | Pids_summary    of Widget_pids_summary.config
   | Pids_overview   of Widget_pids_overview.config
@@ -18,12 +17,6 @@ type item =
 let item_to_info : item -> Dashboard.Item.info = fun item ->
   let serialized = item_to_yojson item in
   match item with
-  | Chart _ ->
-     Dashboard.Item.to_info ~title:"График"
-       ~thumbnail:(`Icon "chart")
-       ~description:"График"
-       ~serialized
-       ()
   | TS_log _ ->
      Dashboard.Item.to_info ~title:"Журнал ошибок (TS)"
        ~thumbnail:(`Icon "list_alt")
@@ -76,16 +69,13 @@ object(self)
   val _t2mi_mode   : t2mi_mode option   React.signal t_lwt = empty ()
   val _jitter_mode : jitter_mode option React.signal t_lwt = empty ()
   (* val _structure   : Streams.TS.structure option React.signal t_lwt = empty () *)
-  val _structs     : (Stream.id * Streams.TS.structure) list React.signal t_lwt = empty ()
-  val _bitrates    : (Stream.id * Streams.TS.bitrate) list React.signal t_lwt = empty ()
+  val _structs     : (Stream.ID.t * Streams.TS.structure) list React.signal t_lwt = empty ()
+  val _bitrates    : (Stream.ID.t * Streams.TS.bitrate) list React.signal t_lwt = empty ()
   val _streams     : Stream.t list React.signal t_lwt = empty ()
   val _ts_errors   : Errors.t list React.event Factory_state.t = empty ()
 
   (** Create widget of type **)
   method create : item -> Dashboard.Item.item = function
-    | Chart conf ->
-       Widget_chart.make conf
-       |> Dashboard.Item.to_item ~name:Widget_chart.name
     | TS_log config ->
        Widget_log.make React.E.never ?config control
        |> Dashboard.Item.to_item ~name:Widget_log.name
@@ -172,9 +162,7 @@ object(self)
     >|= fun streams ->
     React.S.map (fun streams ->
         List.find_opt (fun (stream:Stream.t) ->
-            match stream.id with
-            | `Ts x -> Stream.equal_id id x
-            | _     -> false) streams)
+            Stream.ID.equal stream.id id) streams)
       streams
 
   method streams =

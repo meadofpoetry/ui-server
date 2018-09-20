@@ -16,8 +16,6 @@ end
 
 module Config_storage = Storage.Options.Make (Data)
 
-let log_prefix control = Printf.sprintf "(Board QoS: %d) " control
-
 let tick tm =
   let open Lwt.Infix in
   let e,push = Lwt_react.E.create () in
@@ -40,11 +38,11 @@ let appeared_streams
                      then pres :: acc else acc) [] pres in
   appeared
 
-let invalid_port x =
-  let s = "Board_qos_niit: invalid port " ^ (string_of_int x) in
+let invalid_port prefix x =
+  let s = prefix ^ ": invalid port " ^ (string_of_int x) in
   raise (Invalid_port s)
 
-let get_ports_sync streams input ports =
+let get_ports_sync prefix streams input ports =
   let open React in
   List.fold_left (fun acc p ->
       (match p.port with
@@ -54,26 +52,40 @@ let get_ports_sync streams input ports =
        | 1 -> S.l2 (fun i s -> match i, s with
                                | ASI, _ :: _ -> true
                                | _ -> false) input streams
-       | x -> invalid_port x)
+       | x -> invalid_port prefix x)
       |> fun x -> Ports.add p.port x acc) Ports.empty ports
 
-let get_ports_active input ports =
+let get_ports_active prefix input ports =
   let open React in
   List.fold_left (fun acc p ->
       (match p.port with
        | 0 -> S.map (function SPI -> true | _ -> false) input
        | 1 -> S.map (function ASI -> true | _ -> false) input
-       | x -> invalid_port x)
+       | x -> invalid_port prefix x)
       |> fun x -> Ports.add p.port x acc) Ports.empty ports
 
 let create (b:topo_board) _ convert_streams send db_conf base step =
+  let log_name = Boards.Board.log_name b in
+  let log_src = Logs.Src.create log_name in
+  let () = Option.iter (fun x -> Logs.Src.set_level log_src
+                                 @@ Some x) b.logs in
+  let (module Logs : Logs.LOG) = Logs.src_log log_src in
+  let module SM = Board_protocol.Make(Logs) in
+  let sources = match b.sources with
+    | None ->
+       let s = log_name ^ ": no sources provided!" in
+       raise (Invalid_sources s)
+    | Some x ->
+       begin match Types.init_of_yojson x with
+       | Ok init -> init
+       | Error s -> raise (Invalid_sources s)
+       end in
   let conv    = fun x -> convert_streams x b in
   let storage =
     Config_storage.create base
       ["board"; (string_of_int b.control)] in
-  let events,api,step =
-    Board_protocol.SM.create (log_prefix b.control)
-      send storage step conv in
+  let events, api, step =
+    SM.create sources send storage step conv in
   let db       = Result.get_exn @@ Db.Conn.create db_conf b.control in
   let handlers = Board_api.handlers b.control db api events in
   let tick, tick_loop = tick 5. in
@@ -116,8 +128,13 @@ let create (b:topo_board) _ convert_streams send db_conf base step =
   ; streams_signal = events.streams
   ; step           = step
   ; connection     = events.device.state
-  ; ports_sync     = get_ports_sync events.streams events.device.input b.ports
-  ; ports_active   = get_ports_active events.device.input b.ports
+  ; ports_sync     = get_ports_sync log_name
+                       events.streams
+                       events.device.input
+                       b.ports
+  ; ports_active   = get_ports_active log_name
+                       events.device.input
+                       b.ports
   ; stream_handler = None
   ; state          = (state :> < finalize : unit -> unit >)
   }

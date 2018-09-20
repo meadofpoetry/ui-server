@@ -1,32 +1,37 @@
 open Common
-open Common.Dvb_t2_types
-open Common.Topology
 open Containers
 
-(** Board info **)
+(** Board info *)
 
 type devinfo =
   { typ : int
   ; ver : int
   } [@@deriving yojson]
 
-(** Modes **)
+(** Modes *)
 
-type input = SPI | ASI [@@deriving yojson,show,eq]
+type input =
+  | SPI
+  | ASI [@@deriving yojson, show, eq]
 
 let input_to_string = function SPI -> "SPI" | ASI -> "ASI"
+
+let input_to_int = function SPI -> 0 | ASI -> 1
+let input_of_int = function 0 -> Some SPI
+                          | 1 -> Some ASI
+                          | _ -> None
 
 type t2mi_mode =
   { enabled        : bool
   ; pid            : int
   ; t2mi_stream_id : int
-  ; stream         : Stream.id
-  } [@@deriving yojson,eq,show]
+  ; stream         : Stream.Multi_TS_ID.t
+  } [@@deriving yojson, eq, show]
 
 type jitter_mode =
-  { stream  : Stream.id
+  { stream  : Stream.Multi_TS_ID.t
   ; pid     : int
-  } [@@deriving yojson,eq,show]
+  } [@@deriving yojson, eq, show]
 
 (** Config **)
 
@@ -35,9 +40,6 @@ type config =
   ; t2mi_mode   : t2mi_mode option
   ; jitter_mode : jitter_mode option
   } [@@deriving yojson,eq]
-
-let t2mi_mode_default   = { enabled = false; pid = 0; t2mi_stream_id = 0; stream = Single }
-let jitter_mode_default = { pid = 0x1fff; stream = Single }
 
 let config_to_string c = Yojson.Safe.to_string @@ config_to_yojson c
 let config_of_string s = config_of_yojson @@ Yojson.Safe.from_string s
@@ -276,34 +278,39 @@ module Streams = struct
 
     (** SI/PSI section **)
 
-    type section_error = Zero_length
-                       | Table_not_found
-                       | Section_not_found
-                       | Stream_not_found
-                       | Unknown [@@deriving yojson]
-
     type parsed = node list
     and node =
       { offset : int
       ; length : int
       ; name   : string
-	    ; value  : value
+	    ; value  : value * string option
       }
+    and integer =
+      | Bool   of bool
+      | Int    of int
+      | Int32  of int32
+      | Int64  of int64
+      | Uint   of int
+      | Uint32 of int32
+      | Uint64 of int64
     and value =
       | List     of node list
-      | Flag     of bool
-      | Bytes    of string
-      | String   of string
-      | Int      of int
-      | Int32    of int32
-      | Int64    of int64
+      | Bytes    of int list
+      | Bits     of integer
+      | Dec      of integer
+      | Hex      of integer
       | Time     of Time.t
-      | Duration of Time.Period.t
-      | Name     of string * int
-      | Val_hex  of int [@@deriving yojson, show]
+      | Duration of Time.Period.t [@@deriving yojson, show]
+
+    type section_error =
+      | Zero_length
+      | Table_not_found
+      | Section_not_found
+      | Stream_not_found
+      | Unknown [@@deriving yojson]
 
     type section =
-      { stream_id  : Stream.id
+      { stream_id  : Stream.Multi_TS_ID.t
       ; table_id   : int
       ; section_id : int
       ; section    : int list
@@ -376,8 +383,6 @@ end
 
 module Errors = struct
 
-  open Common.Time
-
   type segmentation =
     { errors     : float
     ; no_stream  : float
@@ -398,7 +403,7 @@ module Errors = struct
     } [@@deriving yojson,eq]
 
   type raw =
-    (Stream.id * t) list [@@deriving yojson]
+    (Stream.ID.t * t) list [@@deriving yojson]
 
   type compressed = percent list
   and percent =

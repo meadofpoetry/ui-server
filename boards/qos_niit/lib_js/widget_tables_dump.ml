@@ -204,31 +204,59 @@ let make_dump_header base_class () =
   let () = header#add_class header_class in
   header#widget, title, subtitle, button
 
+let integer_to_dec = function
+  | Bool x -> if x then "1" else "0"
+  | Int x -> string_of_int x
+  | Int32 x -> Int32.to_string x
+  | Int64 x -> Int64.to_string x
+  | Uint x -> Printf.sprintf "%u" x
+  | Uint32 x -> Printf.sprintf "%lu" x
+  | Uint64 x -> Printf.sprintf "%Lu" x
+
+let integer_to_hex = function
+  | Bool x -> if x then "1" else "0"
+  | Int x -> Printf.sprintf "0x%X" x
+  | Int32 x -> Printf.sprintf "0x%lX" x
+  | Int64 x -> Printf.sprintf "0x%LX" x
+  | Uint x -> Printf.sprintf "%0xX" x
+  | Uint32 x -> Printf.sprintf "0x%lX" x
+  | Uint64 x -> Printf.sprintf "0x%LX" x
+
+let integer_to_bits = function
+  | Bool x -> if x then "1" else "0"
+  | Int x -> Printf.sprintf "0x%X" x
+  | Int32 x -> Printf.sprintf "0x%lX" x
+  | Int64 x -> Printf.sprintf "0x%LX" x
+  | Uint x -> Printf.sprintf "%0xX" x
+  | Uint32 x -> Printf.sprintf "0x%lX" x
+  | Uint64 x -> Printf.sprintf "0x%LX" x
+
 let make_tree (x:parsed) =
   let value_to_string = function
-    | Flag b      -> if b then "1" else "0"
-    | Bytes s     -> s
-    | String s    -> s
-    | Int i       -> string_of_int i
-    | Int32 i     -> Int32.to_string i
-    | Int64 i     -> Int64.to_string i
-    | Time t      -> let tz_offset_s = Ptime_clock.current_tz_offset_s () in
-                     Format.asprintf "%a" (Time.pp_human ?tz_offset_s ()) t
-    | Duration d  ->
+    | Bytes s -> String.concat " "
+                 @@ List.map Fun.(String.of_char % Char.chr) s
+    | Bits x -> integer_to_bits x
+    | Dec x -> integer_to_dec x
+    | Hex x -> integer_to_hex x
+    | Time t-> let tz_offset_s = Ptime_clock.current_tz_offset_s () in
+               Format.asprintf "%a" (Time.pp_human ?tz_offset_s ()) t
+    | Duration d ->
        let w, d, h, m, s = Time.Relative.split_units d in
        List.filter_map (fun v ->
            let v, unit = v in
            if v = 0 then None else Some (string_of_int v ^ " " ^ unit))
          [ w, "нед"; d, "дн"; h, "ч"; m, "мин"; s, "сек" ]
        |> String.concat " "
-    | Name (n, i) -> n ^ " " ^ string_of_int i
-    | Val_hex i   -> Printf.sprintf "%d (0x%X)" i i
-    | List _      -> "" in
+    | List _ -> "" in
   let rec aux acc = function
     | [] -> List.rev acc
     | hd :: tl ->
-       let value = value_to_string hd.value in
-       let meta, nested = match hd.value with
+       let value, name = hd.value in
+       let vs = value_to_string value in
+       let text = match name with
+         | None -> vs
+         | Some n -> n ^ " " ^ vs in
+       let meta, nested = match value with
          | List [] ->
             let meta = Icon.SVG.(create_simple Path.code_brackets) in
             Some meta#widget, None
@@ -236,7 +264,7 @@ let make_tree (x:parsed) =
             let items = aux [] l in
             let tree  = new Tree.t ~items () in
             None, Some tree
-         | _ -> Some (new Typography.Text.t ~text:value ())#widget, None in
+         | _ -> Some (new Typography.Text.t ~text ())#widget, None in
        let item = new Tree.Item.t ?meta ?nested ~value:hd ~text:hd.name () in
        aux (item :: acc) tl in
   let items = aux [] x in
@@ -244,7 +272,7 @@ let make_tree (x:parsed) =
   tree
 
 let make_dump
-      (stream:Stream.id)
+      (stream:Stream.t)
       (table:table_info)
       (list:(section_info * section option) Item_list.t) control =
   let base_class = Markup.CSS.add_element base_class "dump" in
@@ -275,8 +303,8 @@ let make_dump
                      let acc = match hd#nested_tree with
                        | None      ->
                           (match hd#value.value with
-                           | List _ -> acc
-                           | _      -> hd :: acc)
+                           | List _, _ -> acc
+                           | _ -> hd :: acc)
                        | Some tree -> get_items acc tree#items in
                      get_items acc tl in
                 let items = get_items [] tree#items in
@@ -306,7 +334,7 @@ let make_dump
            let get = fun () ->
              Lwt.catch (fun () ->
                  (req_of_table id id_ext eit_params section.id)
-                   ~id:stream control
+                   ~id:stream.id control
                  |> Lwt_result.map_err Api_js.Requests.err_to_string
                  >|= (function
                       | Ok dump ->
@@ -347,13 +375,10 @@ class t ~(config:config)
         (control:int)
         () =
   let stream_panel_class = Markup.CSS.add_element base_class "list" in
-  let id  = match config.stream.id with
-    | `Ts id -> id
-    | `Ip _  -> failwith "UDP" in
   let box   = Widget.create_div () in
   let event = React.E.map (fun x -> x.sections) event in
   let list  = make_list init.sections event sections control in
-  let dump  = make_dump id init list control in
+  let dump  = make_dump config.stream init list control in
   let list_name =
     let _class = Markup.CSS.add_element stream_panel_class "title" in
     let w  = new Typography.Text.t ~text:"Секции" () in

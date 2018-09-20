@@ -1,10 +1,11 @@
 open Containers
+open Common
  
 let match_streams
-      (sources : (Common.Url.t * Common.Stream.t) list ref)
+      (sources : (Url.t * Stream.t) list ref)
       (sl : Structure.structure list) : Structure.t list =
   let open Structure in
-  let rec merge (sources : (Common.Url.t * Common.Stream.t) list) structure =
+  let rec merge (sources : (Url.t * Stream.t) list) structure =
     match sources with
     | [] -> None (* TODO fix merging with unsaved streams *)
     | (uri, s)::ss ->
@@ -15,6 +16,7 @@ let match_streams
   List.filter_map (merge !sources) sl
 
 let dump_structures (entries : Structure.t list) =
-  List.map (fun (x : Structure.t) -> (Yojson.Safe.to_string @@ Common.Stream.stream_id_to_yojson x.source.id)
-                                   , (Yojson.Safe.to_string @@ Structure.structure_to_yojson x.structure))
+  List.map (fun (x : Structure.t) ->
+      (Yojson.Safe.to_string @@ Stream.ID.to_yojson x.source.id),
+      (Yojson.Safe.to_string @@ Structure.structure_to_yojson x.structure))
     entries

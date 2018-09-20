@@ -14,10 +14,31 @@ let state_of_string = function
   | "init"        -> Some `Init
   | _             -> None
 
-type input = RF
-           | TSOIP
-           | ASI
-[@@deriving show, eq]
+type log_level = Logs.level
+
+let log_level_to_yojson x =
+  `String (Logs.level_to_string @@ Some x)
+let log_level_of_yojson = function
+  | `String s ->
+     begin match Logs.level_of_string s with
+     | Ok (Some x) -> Ok x
+     | Ok None -> Error "log_level_of_yojson: bad json"
+     | Error (`Msg s) -> Error s
+     end
+  | _ -> Error "log_level_of_yojson: bad json"
+
+let pp_log_level = Logs.pp_level
+let compare_log_level x y =
+  let x = Logs.level_to_string @@ Some x in
+  let y = Logs.level_to_string @@ Some y in
+  String.compare x y
+let equal_log_level x y = 0 = compare_log_level x y
+
+type input =
+  | RF
+  | TSOIP
+  | ASI
+[@@deriving show, eq, enum]
 
 type board_type = string [@@deriving yojson, show, eq, ord]
 
@@ -27,7 +48,7 @@ let compare_input l r = match l, r with
   | RF, RF | TSOIP, TSOIP | ASI, ASI -> 0
   | RF, _  | _, ASI -> -1
   | ASI, _ | _, RF  -> 1
-                         
+
 let input_to_string = function
   | RF    -> "RF"
   | TSOIP -> "TSOIP"
@@ -90,8 +111,10 @@ and topo_board =
   ; version      : version
   ; control      : int
   ; connection   : (state [@default `No_response])
+  ; sources      : (Json.t option [@default None])
   ; env          : (env [@default Env.empty])
   ; ports        : topo_port list
+  ; logs         : (log_level option [@default None])
   }
 
 and topo_port =
@@ -129,7 +152,7 @@ module Show_topo_input = struct
         | _ -> failwith "bad input string")
 end
 
-type cpu_opt = process_type option [@@deriving yojson,eq]
+type cpu_opt = process_type option [@@deriving yojson, eq]
 
 let cpu_subbranches = function
   | `Boards _ -> `No_cpu

@@ -134,6 +134,7 @@ module Archive = struct
     | _ -> respond_error ~status:`Not_implemented "FIXME" ()
 
   let get_structures db uris limit from till duration _ _ () =
+    let uris = List.map Stream.tsoip_id_of_url uris in
     match Time.make_interval ?from ?till ?duration () with
     | Ok `Range (from,till) ->
        Db.Structure.select_structures db ?limit ~uris ~from ~till

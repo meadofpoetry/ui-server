@@ -19,6 +19,7 @@ let create () : upper ordered_item list user_table =
     let open Icon.SVG in
     let path = create_path Path.collage () in
     let icon = create [path] () in
+
     Tyxml.Html.toelt icon in
   let rval = [`Index 1, Simple { title    = "Мозаика"
                                ; icon     = Some icon

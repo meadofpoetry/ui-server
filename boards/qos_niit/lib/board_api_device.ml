@@ -20,20 +20,25 @@ module WS = struct
   let errors (events:events) errors _ body sock_data () =
     let e = match errors with
       | [] -> events.errors
-      | l  -> React.E.fmap (fun l ->
-                  List.filter (fun (x:board_error) -> List.mem ~eq:(=) x.err_code errors) l
-                  |> function [] -> None | l -> Some l) events.errors
+      | _  ->
+         React.E.fmap (fun l ->
+             List.filter (fun (x:board_error) -> List.mem ~eq:(=) x.err_code errors) l
+             |> function [] -> None | l -> Some l) events.errors
     in Api.Socket.handler socket_table sock_data e board_errors_to_yojson body
 
   let mode mode (events:events) _ body sock_data () =
+    let open React.S in
+    let config = events.config in
     let f = fun e conv -> Api.Socket.handler socket_table sock_data e conv body in
-    (match mode with
-     | `T2MI   -> let e = React.E.map (fun (x:config) -> x.t2mi_mode) events.config
-                          |> React.E.changes ~eq:(Equal.option equal_t2mi_mode)
-                  in f e (Json.Option.to_yojson t2mi_mode_to_yojson)
-     | `JITTER -> let e = React.E.map (fun (x:config) -> x.jitter_mode) events.config
-                          |> React.E.changes ~eq:(Equal.option equal_jitter_mode)
-                  in f e (Json.Option.to_yojson jitter_mode_to_yojson))
+    match mode with
+    | `T2MI ->
+       let eq = Equal.option equal_t2mi_mode in
+       let e = changes @@ map ~eq (fun (x:config) -> x.t2mi_mode) config in
+       f e (Json.Option.to_yojson t2mi_mode_to_yojson)
+    | `JITTER ->
+       let eq = Equal.option equal_jitter_mode in
+       let e = changes @@ map ~eq (fun (x:config) -> x.jitter_mode) config in
+       f e (Json.Option.to_yojson jitter_mode_to_yojson)
 
 end
 
@@ -60,7 +65,7 @@ module HTTP = struct
     >>= respond_result
 
   let post_port (api:api) port en _ _ () =
-    let input = match Board_parser.input_of_int port, en with
+    let input = match Board_types.input_of_int port, en with
       | Some i,   true  -> Some i
       | Some ASI, false -> Some SPI
       | Some SPI, false -> Some ASI
@@ -105,8 +110,8 @@ module HTTP = struct
          respond_result (Ok (Api.Api_types.rows_to_yojson err_to_yojson comp_to_yojson data))
       | _ -> respond_error ~status:`Not_implemented "not impelemented" ()
 
-    let errors errors limit compress from till duration _ _ () =
-      respond_error ~status:`Not_implemented "not impelemented" ()
+    (* let errors errors limit compress from till duration _ _ () =
+     *   respond_error ~status:`Not_implemented "not impelemented" () *)
 
   end
 
@@ -184,14 +189,14 @@ let handler db api events =
                               ; "to",       (module Option(Time.Show))
                               ; "duration", (module Option(Time.Relative)) ]
                  (HTTP.Archive.state db)
-             ; create_handler ~docstring:"Returns archived board errors"
-                 ~path:Path.Format.("errors/archive" @/ empty)
-                 ~query:Query.[ "errors",   (module List(Int))
-                              ; "limit",    (module Option(Int))
-                              ; "compress", (module Option(Bool))
-                              ; "from",     (module Option(Time.Show))
-                              ; "to",       (module Option(Time.Show))
-                              ; "duration", (module Option(Time.Relative)) ]
-                 HTTP.Archive.errors
+             (* ; create_handler ~docstring:"Returns archived board errors"
+              *     ~path:Path.Format.("errors/archive" @/ empty)
+              *     ~query:Query.[ "errors",   (module List(Int))
+              *                  ; "limit",    (module Option(Int))
+              *                  ; "compress", (module Option(Bool))
+              *                  ; "from",     (module Option(Time.Show))
+              *                  ; "to",       (module Option(Time.Show))
+              *                  ; "duration", (module Option(Time.Relative)) ]
+              *     HTTP.Archive.errors *)
              ]
     ]

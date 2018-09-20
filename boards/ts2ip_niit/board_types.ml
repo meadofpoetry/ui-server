@@ -15,17 +15,17 @@ type nw_settings     =
   { ip      : Ipaddr.V4.t
   ; mask    : Ipaddr.V4.t
   ; gateway : Ipaddr.V4.t
-  } [@@deriving yojson]
+  } [@@deriving yojson, show]
 
 type stream_settings =
   { stream   : Stream.t
   ; dst_ip   : Ipaddr.V4.t
   ; dst_port : int
   ; enabled  : bool
-  } [@@deriving yojson]
+  } [@@deriving yojson, show]
 
 type packer_settings =
-  { stream    : Stream.id (* stream id to listen to *)
+  { stream    : Stream.Multi_TS_ID.t (* stream id to listen to *)
   ; dst_ip    : Ipaddr.V4.t
   ; dst_port  : int
   ; self_port : int

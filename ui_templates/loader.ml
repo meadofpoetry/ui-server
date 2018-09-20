@@ -7,13 +7,13 @@ let base_class = "mdc-loader"
 let timeout = 0.4
 
 class ['a] loader
-           ?(text:         string option)
-           ?(error_icon:   string option)
-           ?(error_prefix: string option)
-           ?(on_error:     ('a loader -> string -> unit) option)
-           ?(on_success:   ('a loader -> 'a     -> unit) option)
-           (t:             ('a,string) Lwt_result.t)
-           () =
+        ?(text : string option)
+        ?(error_icon : string option)
+        ?(error_prefix : string option)
+        ?(on_error : ('a loader -> string -> unit) option)
+        ?(on_success : ('a loader -> 'a     -> unit) option)
+        (t : ('a,string) Lwt_result.t)
+        () =
 object(self)
   val pgs = Placeholder.create_progress ?text ()
   val mutable _on_success = on_success
@@ -30,24 +30,21 @@ object(self)
   method set_on_error   x = _on_error   <- x
 
   method private _on_error e =
-    (try Dom.removeChild self#root pgs#root with _ -> ());
+    self#remove_child pgs;
     Option.iter (fun f -> f (self :> 'a loader) e) _on_error;
     let s = match error_prefix with
       | Some pfx -> Printf.sprintf "%s:\n %s" pfx e
-      | None     -> e in
+      | None -> e in
     let error = Placeholder.create_with_error ?icon:error_icon ~text:s () in
-    Dom.appendChild self#root error#root;
+    self#append_child error;
     Lwt.return_unit
 
   initializer
     self#add_class base_class;
-    let ph_lwt =
-      Lwt_js.sleep timeout
-      >|= (fun () -> self#append_child pgs) in
+    self#append_child pgs;
     Lwt.try_bind
       (fun () -> t)
       (fun r ->
-        Lwt.cancel ph_lwt;
         self#remove_child pgs;
         match r with
         | Ok x    ->
@@ -69,7 +66,7 @@ object(self)
       (match parent with
        | Some p -> p#append_child w;
                    p#remove_child (self :> Widget.t)
-       | None   -> self#append_child w)))
+       | None -> self#append_child w)))
     |> Lwt.ignore_result;
     Option.iter (fun (p:#Widget.t) ->
         p#append_child (self :> Widget.t)) parent

@@ -1,195 +1,367 @@
 open Topology
 open Containers
 
-type id =
-  | Single
-  | T2mi_plp of int
-  | Dvb of int * int
-  | Unknown of int32 [@@deriving show, eq, ord]
+module ID : sig
 
-module Description = struct
+  type t
+  type api_fmt = t
+  val to_string     : t -> string
+  val of_string_opt : string -> t option
+  val of_string     : string -> t
+  val to_yojson     : t -> Yojson.Safe.json
+  val of_yojson     : Yojson.Safe.json -> (t, string) result
+  val compare       : t -> t -> int
+  val equal         : t -> t -> bool
+  val pp            : Format.formatter -> t -> unit
+  val make          : string -> t
+  val typ           : string
+  val fmt           : api_fmt Uri_ext.Path.Format.fmt
 
-  type base =
-    { tsid : int
-    ; onid : int
-    }
+end = struct
 
-  type dvb =
-    { mode : [ `T | `T2 | `C ]
-    ; freq : int
-    ; plp  : int
-    ; bw   : [ `Bw6 | `Bw7 | `Bw8 ]
-    }
+  include Uuidm
 
-  type ip =
-    { addr : Ipaddr_ext.V4.t
-    ; port : int
-    }
+  type api_fmt = t
 
-  type t2mi_plp =
-    { plp_id : int
-    }
+  let typ = "uuid"
 
-  type node =
-    | Dvb      of dvb
-    | Ip       of ip
-    | Asi
-    | T2mi_plp of t2mi_plp
+  let fmt = Uri_ext.Path.Format.Uuid
 
-  type sid = [ `Multy_id of id | `Ip of Url.t | `Single ]
+  let to_string (x:t)          = to_string x
+  let of_string_opt (s:string) = of_string s
+  let of_string (s:string)     = Option.get_exn @@ of_string_opt s
 
-  type typ = [ `Ts | `T2mi ]
+  let to_yojson (x:t) : Yojson.Safe.json =
+    `String (Uuidm.to_string x)
+  let of_yojson : Yojson.Safe.json -> (t, string) result = function
+    | `String s -> Result.of_opt @@ Uuidm.of_string s
+    | _         -> Error "uuid_of_yojson: not a string"
 
-  type stream =
-    { source      : src
-    ; id          : sid
-    ; typ         : typ
-    ; label       : string
-    ; description : node
-    }
-  and src = Port   of int
-          | Local
-          | Stream of stream
-
-  type description = (node list) * topo_entry
-
-  type t =
-    { source      : source
-    ; id          : sid
-    ; typ         : typ
-    ; label       : string
-    ; description : description
-    }
-  and source = Entry  of Topology.topo_entry
-             | Parent of t
+  let make (s:string) =
+    v5 ns_url s
 
 end
 
-let id_of_int32 : int32 -> id = function
-  | 0l -> Single
-  | x when Int32.equal (Int32.logand x (Int32.of_int 0xFFFF0000)) Int32.zero
-    -> let x'     = Int32.to_int x in
-       let stream = (x' land 0x0000FF00) lsr 8 in
-       let plp    = (x' land 0xFF) in
-       (match stream with
-        | 1             -> T2mi_plp plp
-        | 2 | 3 | 4 | 5 -> Dvb (stream - 2, plp)
-        | _             -> Unknown x)
-  | _ as x -> Unknown x
+(** Stream source description/parameters *)
+module Source = struct
 
-let id_to_int32 : id -> int32 = function
-  | Single -> 0l
-  | T2mi_plp plp ->
-     1 lsl 8
-     |> Int32.of_int
-     |> Int32.logor (Int32.of_int plp)
-  | Dvb (stream,plp) ->
-     (2 + stream) lsl 8
-     |> Int32.of_int
-     |> Int32.logor (Int32.of_int plp)
-  | Unknown x -> x
+  let round_freq (x:int64) =
+    let ( mod ), ( / ), (=) = Int64.(rem, div, equal) in
+    if x mod 1_000_000_000L  = 0L then x / 1_000_000_000L, "ГГц"
+    else if x mod 1_000_000L = 0L then x / 1_000_000L, "МГц"
+    else if x mod 1_000L     = 0L then x / 1_000L, "кГц"
+    else x, "Гц"
 
-let id_to_yojson id : Yojson.Safe.json =
-  let i32 = id_to_int32 id in `Intlit (Int32.to_string i32)
-let id_of_yojson json : (id,string) result = match json with
-  | `Intlit i -> Result.of_opt (Option.map id_of_int32 @@ Int32.of_string i)
-  | `Int i    -> Ok (id_of_int32 @@ Int32.of_int i)
-  | _         -> Error "not an int32"
+  (** DVB-T2 source description *)
+  type dvb_t2 =
+    { freq : int64
+    ; plp  : int
+    ; bw   : float
+    } [@@deriving yojson, show, eq, ord]
 
-type stream_id =
-  [ `Ip of Url.t
-  | `Ts of id ] [@@deriving yojson, show, eq, ord]
+  (** DVB-T source description *)
+  type dvb_t =
+    { freq : int64
+    ; bw   : float
+    } [@@deriving yojson, show, eq, ord]
 
-type stream =
-  { source      : src
-  ; id          : stream_id
-  ; typ         : typ
-  ; description : string option
+  (** DVB-C source description *)
+  type dvb_c = dvb_t [@@deriving yojson, show, eq, ord]
+
+  (** T2-MI source description *)
+  type t2mi =
+    { stream_id : int
+    ; plp       : int
+    } [@@deriving yojson, show, eq, ord]
+
+  (** IP v4 source description *)
+  type ipv4 =
+    { scheme : string
+    ; addr   : Ipaddr_ext.V4.t
+    ; port   : int
+    } [@@deriving yojson, show, eq, ord]
+
+  (** Source desciption type *)
+  type t =
+    | DVB_T2 of dvb_t2
+    | DVB_T of dvb_t
+    | DVB_C of dvb_c
+    | IPV4 of ipv4
+    | ASI
+    | SPI
+    | T2MI of t2mi [@@deriving yojson, show, eq, ord]
+
+  let dvb_t2_to_string (x:dvb_t2) =
+    let open Printf in
+    let freq, unit = round_freq x.freq in
+    let bw = sprintf "полоса %g МГц" x.bw in
+    sprintf "DVB-T2, %Lu %s, %s, PLP %d" freq unit bw x.plp
+
+  let dvb_t_to_string (x:dvb_t) =
+    let open Printf in
+    let freq, unit = round_freq x.freq in
+    let bw = sprintf "полоса %g МГц" x.bw in
+    sprintf "DVB-T, %Lu %s, %s" freq unit bw
+
+  let dvb_c_to_string (x:dvb_c) =
+    dvb_t_to_string x
+
+  let asi_to_string () =
+    "ASI"
+
+  let spi_to_string () =
+    "SPI"
+
+  let t2mi_to_string (x:t2mi) =
+    let open Printf in
+    sprintf "T2-MI Stream ID: %d, PLP %d" x.stream_id x.plp
+
+  let ipv4_to_string (x:ipv4) =
+    Uri.make
+      ~scheme:x.scheme
+      ~host:(Ipaddr_ext.V4.to_string x.addr)
+      ~port:x.port
+      ()
+    |> Uri.to_string
+
+  let to_string = function
+    | DVB_T2 x -> dvb_t2_to_string x
+    | DVB_T x -> dvb_t_to_string x
+    | DVB_C x -> dvb_c_to_string x
+    | T2MI x -> t2mi_to_string x
+    | IPV4 x -> ipv4_to_string x
+    | ASI -> asi_to_string ()
+    | SPI -> spi_to_string ()
+
+end
+
+(** Multi TS ID *)
+module Multi_TS_ID : sig
+
+  (** Pure multi TS ID format.
+      Pure format is usually used in exchange protocol messages because
+      it is easier to parse then the raw format.
+
+      | [31:28] |   [27:8]   |  [7:0]   |
+      |---------+------------+----------|
+      |  rfu    |  num[19:0] | src[7:0] |
+
+      Raw multi TS ID format.
+      Raw format is used when ID is transmitted in TS stream.
+      Constants in this formats guarantee that inner bytes will never
+      take the value 0x47 (sync byte in MPEG-TS).
+
+
+      | [31] |   [30:23]  | [22] |  [21:10]  | [9] |   [8:1]   | [0] |
+      |------+------------+------+-----------+-----+-----------+-----|
+      |  1   | num[19:12] |  0   | num[11:0] |  0  |  src[7:0] |  0  |
+
+   *)
+
+  type t
+  type parsed =
+    { source_id : int
+    ; stream_id : int
+    }
+
+  val to_yojson : t -> Yojson.Safe.json
+  val of_yojson : Yojson.Safe.json -> (t, string) result
+  val compare : t -> t -> int
+  val equal : t -> t -> bool
+  val pp : Format.formatter -> t -> unit
+  val show : t -> string
+  val parse : t -> parsed
+  val make : parsed -> t
+  val of_int32_raw : int32 -> t
+  val of_int32_pure : int32 -> t
+  val to_int32_raw : t -> int32
+  val to_int32_pure : t -> int32
+
+end = struct
+
+  type t =
+    | Raw  of int32
+    | Pure of int32 [@@deriving yojson]
+
+  type parsed =
+    { source_id : int
+    ; stream_id : int
+    } [@@deriving eq, ord]
+
+  let parse_pure (i:int32) : parsed =
+    let open Int32 in
+    let src = to_int @@ i land 0xFFl in
+    let num = to_int @@ (i land 0xFFFFF00l) lsr 8 in
+    { source_id = src
+    ; stream_id = num
+    }
+
+  let parse_raw (i:int32) : parsed =
+    let open Int32 in
+    let src = to_int @@ (i land 0x1FEl) lsr 1 in
+    let num1 = (i land 0x7F800000l) lsr 11 in
+    let num2 = (i land 0x3FFC00l) lsr 10 in
+    let num = to_int @@ num1 lor num2 in
+    { source_id = src
+    ; stream_id = num
+    }
+
+  let make_pure (p:parsed) : int32 =
+    let open Int32 in
+    let src = Int32.of_int p.source_id in
+    let num = Int32.of_int p.stream_id in
+    (num lsl 8) lor src
+
+  let make_raw (p:parsed) : int32 =
+    let open Int32 in
+    let src = (Int32.of_int p.source_id) lsl 1 in
+    let num = Int32.of_int p.stream_id in
+    let num1 = (num land 0xFF000l) lsl 11 in
+    let num2 = (num land 0xFFFl) lsl 10 in
+    ((num1 lor num2) lor src)
+    |> (lor) 0x80000000l   (* ensure ones at right places *)
+    |> (land) 0xFFBFFDFEl  (* ensure zeros at right places *)
+
+  let make (p:parsed) : t =
+    Pure (make_pure p)
+
+  let parse = function
+    | Raw i -> parse_raw i
+    | Pure i -> parse_pure i
+
+  let compare (x:t) (y:t) = match x, y with
+    | Raw x, Raw y -> Int32.compare x y
+    | Pure x, Pure y -> Int32.compare x y
+    | x, y -> compare_parsed (parse x) (parse y)
+
+  let equal x y = 0 = compare x y
+
+  let of_int32_raw (i:int32)  = Raw i
+
+  let of_int32_pure (i:int32) = Pure i
+
+  let to_int32_raw = function
+    | Raw i -> i
+    | Pure i -> parse_pure i |> make_raw
+
+  let to_int32_pure = function
+    | Pure i -> i
+    | Raw i -> parse_raw i |> make_pure
+
+  let pp ppf t =
+    let p = parse t in
+    Format.fprintf ppf "{ source_id = %d; stream_id = %d }"
+      p.source_id p.stream_id
+
+  let show t =
+    Format.asprintf "%a" pp t
+
+end
+
+type stream_type =
+  | TS
+  | T2MI [@@deriving yojson, eq, show, ord]
+
+type tsoip_id =
+  { addr : Ipaddr_ext.V4.t
+  ; port : int
+  } [@@deriving yojson, eq, show, ord]
+
+type container_id =
+  | TS_raw
+  | TS_multi of Multi_TS_ID.t
+  | TSoIP    of tsoip_id [@@deriving yojson, eq, show, ord]
+
+let tsoip_id_of_url (x:Url.t) : tsoip_id =
+  { addr = x.ip
+  ; port = x.port
   }
-and typ = [ `Ts | `T2mi ]
-and src = Port   of int
-        | Stream of id [@@deriving yojson, show, eq, ord]
+
+module Raw = struct
+
+  type t =
+    { source : source
+    ; typ    : stream_type
+    ; id     : container_id
+    }
+  and source_node =
+    | Port   of int
+    | Board
+    | Stream of container_id
+  and source =
+    { node : source_node
+    ; info : Source.t
+    } [@@deriving eq, show]
+
+end
 
 type t =
-  { source      : source
-  ; id          : stream_id
-  ; typ         : typ
-  ; description : string option
+  (* stream source node and description *)
+  { source  : source
+  (* unique stream ID across the system *)
+  ; id      : ID.t
+  (* stream type *)
+  ; typ     : stream_type
+  (* original container id *)
+  ; orig_id : container_id
   }
-and source = Input  of Topology.topo_input
-           | Parent of t [@@deriving yojson, show, ord]
+and source_node =
+  | Entry  of topo_entry (* stream from input or generated by a board*)
+  | Stream of t          (* stream extracted from another stream *)
+and source =
+  { node : source_node   (* source node *)
+  ; info : Source.t      (* details about stream source *)
+  } [@@deriving yojson, eq, show, ord]
+
+let make_id (src:source) : ID.t =
+  let node = match src.node with
+    | Entry (Input i) -> Printf.sprintf "%d/%d" (input_to_enum i.input) i.id
+    | Entry (Board b) -> string_of_int b.control
+    | Stream s        -> ID.to_string s.id in
+  let info = match src.info with
+    | DVB_T2 x -> "dvbt2/" ^ Source.dvb_t2_to_string x
+    | DVB_T  x -> "dvbt/"  ^ Source.dvb_t_to_string  x
+    | DVB_C  x -> "dvbc/"  ^ Source.dvb_c_to_string  x
+    | ASI      -> "asi"
+    | SPI      -> "spi"
+    | T2MI x   -> "t2mi/"  ^ Source.t2mi_to_string x
+    | IPV4 x   -> "ipv4/"  ^ Source.ipv4_to_string x in
+  ID.make (node ^ "/" ^ info)
+
+let to_multi_id (t:t) : Multi_TS_ID.t =
+  match t.orig_id with
+  | TS_multi x -> x
+  | _          -> failwith "not a multi TS"
 
 let typ_to_string = function
-  | `Ts   -> "ts"
-  | `T2mi -> "t2mi"
+  | TS   -> "ts"
+  | T2MI -> "t2mi"
 let typ_of_string = function
-  | "ts"   -> `Ts
-  | "t2mi" -> `T2mi
+  | "ts"   -> TS
+  | "t2mi" -> T2MI
   | _      -> failwith "bad typ string"
 
-let to_short_name (t:t) =
-  let src = match t.source with
-    | Input i  -> Topology.get_input_name i
-    | Parent _ -> "Поток"
-  in
-  let id  = match t.id with
-    | `Ip uri -> Some (Url.to_string uri)
-    | _       -> None
-  in
-  let s = Printf.sprintf "Источник: %s" src in
-  match id with
-  | Some id -> s ^ ", " ^ id
-  | None    -> s
+let rec equal l r = ID.equal l.id r.id
 
-let rec equal l r =
-  match l.id, r.id with
-  | `Ip ul, `Ip ur ->
-     if Url.equal ul ur
-     then if equal_source l.source r.source
-          then equal_typ l.typ r.typ
-          else false
-     else false
-  | `Ts il, `Ts ir ->
-     if equal_id il ir
-     then if equal_source l.source r.source
-          then equal_typ l.typ r.typ
-          else false
-     else false
-  | _ -> false
-and equal_source l r = match l, r with
-  | Input l, Input r -> Topology.equal_topo_input l r
-  | Parent l, Parent r -> equal l r
-  | _ -> false
-and equal_typ l r = match l, r with
-  | `Ts, `Ts     -> true
-  | `T2mi, `T2mi -> true
-  | _ -> false
+let rec get_input (s:t) : topo_input option =
+  match s.source.node with
+  | Stream s      -> get_input s
+  | Entry Input i -> Some i
+  | Entry Board _ -> None
 
-let to_topo_port (b:topo_board) (t:t) =
-  let rec get_input = function
-    | Parent x -> get_input x.source
-    | Input x  -> x
+let to_topo_port (b:topo_board) (t:t) : topo_port option =
+  let input = get_input t in
+  let rec get_port input = function
+    | [] -> None
+    | hd :: tl ->
+       begin match hd.child with
+       | Input x -> if equal_topo_input x input
+                    then Some hd else get_port input tl
+       | Board x ->
+          begin match get_port input x.ports with
+          | Some _ -> Some hd
+          | None   -> get_port input tl
+          end
+       end
   in
-  let input = get_input t.source in
-  let rec get_port = function
-    | []    -> None
-    | h::tl -> (match h.child with
-                | Input x -> if equal_topo_input x input then Some h else get_port tl
-                | Board x -> (match get_port x.ports with
-                              | Some _ -> Some h
-                              | None   -> get_port tl))
-  in get_port b.ports
-
-let header : t -> string = fun s ->
-  let h = match s.id with
-    | `Ip _  -> "IP stream"
-    | `Ts id -> Printf.sprintf "TS stream %s" @@ show_id id
-  in
-  match s.description with
-  | None -> h
-  | Some d -> h ^ " (" ^ d ^ ")"
-
-let rec get_input s =
-  match s.source with
-  | Parent s -> get_input s
-  | Input  i -> i
+  Option.flat_map (fun x -> get_port x b.ports) input
