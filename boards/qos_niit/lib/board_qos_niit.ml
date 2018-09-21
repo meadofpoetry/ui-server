@@ -25,66 +25,105 @@ let tick tm =
   in
   e, loop
 
-(* let pids b t =
- *   let info =
- *     Pid.{ has_pts = true
- *         ; has_pcr = true
- *         ; scrambled = false
- *         ; present = not b
- *         ; service_id = None
- *         ; typ = Null } in
- *   let id i = Stream.ID.make @@ string_of_int i in
- *   [ id 1, make_timestamped t [ 100, info
- *                              ; 101, info
- *                              ; 102, info ]]
- * 
- * let s_pids i f tm =
- *   let open Lwt.Infix in
- *   let e, push = Lwt_react.S.create i in
- *   let rec loop () =
- *     let now = Time.Clock.now_s () in
- *     let (_, ((_, _, sec), _)) = Ptime.to_date_time now in
- *     push (f (sec mod 13 = 0) now);
- *     Lwt_unix.sleep tm >>= loop
- *   in
- *   e, loop *)
-
-module Split = struct
+module DB_handler = struct
 
   type 'a coll = 'a list timestamped
-  type 'a flat = 'a timestamped list
+  type 'a flat = 'a timespan list
 
-  let flatten_item (c : 'a coll) : 'a flat =
-    List.map (fun x -> make_timestamped c.timestamp x) c.data
+  module Split_item = struct
 
-  let flatten (c : (Stream.ID.t * 'a coll) list) =
-    List.map (Pair.map2 flatten_item) c
+    type 'a t =
+      { lost : 'a flat
+      ; found : 'a flat
+      ; upd : 'a flat
+      }
+
+    let flatten ?till (c : 'a coll) : 'a flat =
+      let till = match till with
+        | Some x -> x
+        | None -> c.timestamp in
+      List.map (make_timespan ~from:c.timestamp ~till) c.data
+
+    let split ~(eq : 'a -> 'a -> bool)
+          (past : (Stream.ID.t * 'a flat) list)
+          (id, (data : 'a coll)) =
+      match List.Assoc.get ~eq:Stream.ID.equal id past with
+      | None -> id, { lost = []; upd = []; found = flatten data }
+      | Some past_data ->
+         let (lost : 'a flat) =
+           List.filter_map (fun (x : 'a timespan) ->
+               if List.mem ~eq x.data data.data then None else
+                 Some { x with till = data.timestamp }) past_data in
+         let (found : 'a flat), (upd : 'a flat) =
+           List.fold_left (fun (acc_new, acc_upd) (x : 'a) ->
+               match List.find_opt (fun (i : 'a timespan) -> eq x i.data)
+                       past_data with
+               | Some p ->
+                  let i = { p with till = data.timestamp } in
+                  (acc_new, i :: acc_upd)
+               | None ->
+                  let till = data.timestamp in
+                  let from = data.timestamp in
+                  let i = make_timespan ~from ~till x in
+                  (i :: acc_new, acc_upd)) ([], []) data.data in
+         (id, { lost; found; upd })
+
+  end
+
+  type 'a t =
+    { lost : (Stream.ID.t * 'a flat) list
+    ; found : (Stream.ID.t * 'a flat) list
+    ; upd : (Stream.ID.t * 'a flat) list
+    }
+
+  let flatten ?till x =
+    List.map (fun (id, x) ->
+        id, Split_item.flatten ?till x) x
 
   let split
         ~(eq : 'a -> 'a -> bool)
         (pres : (Stream.ID.t * 'a coll) list)
-        (past : (Stream.ID.t * 'a flat) list) =
-    let (l : (Stream.ID.t * 'a flat * 'a flat) list) =
-      List.map (fun (id, (data : 'a coll)) ->
-          match List.Assoc.get ~eq:Stream.ID.equal id past with
-          | None -> id, [], flatten_item data
-          | Some past_data ->
-             let (lost : 'a flat) =
-               List.filter_map (fun (x : 'a timestamped) ->
-                   if List.mem ~eq x.data data.data then None else
-                     Some { x with timestamp = data.timestamp }) past_data in
-             let (upd : 'a flat) =
-               List.map (fun (x : 'a) ->
-                   match List.find_opt (fun (i : 'a timestamped) -> eq x i.data)
-                           past_data with
-                   | Some p -> p
-                   | None -> make_timestamped data.timestamp x) data.data in
-             id, lost, upd) pres in
-    List.fold_left (fun (lost, upd) (id, (l : 'a flat), (u : 'a flat)) ->
-        let lost = match l with
-          | [] -> lost
-          | x -> (id, x) :: lost in
-        (lost, (id, u) :: upd)) ([], []) l
+        (past : (Stream.ID.t * 'a flat) list) : 'a t =
+    let (l : (Stream.ID.t * 'a Split_item.t) list) =
+      List.map (Split_item.split ~eq past) pres in
+    let lost, upd, found =
+      List.fold_left (fun (lost_acc, found_acc, upd_acc)
+                          (id, ({ lost; found; upd } : 'a Split_item.t)) ->
+          let lost = match lost with
+            | [] -> lost_acc
+            | x -> (id, x) :: lost_acc in
+          let found = match found with
+            | [] -> found_acc
+            | x -> (id, x) :: found_acc in
+          let upd = match upd with
+            | [] -> upd_acc
+            | x -> (id, x) :: upd_acc in
+          (lost, upd, found)) ([], [], []) l
+    in
+    { lost; found; upd }
+
+  let handle_list db tick s =
+    let open Lwt_react in
+    let open E in
+    S.changes s
+    |> fold (fun { upd; found; _ } n ->
+           split ~eq:Pid.equal n (upd @ found))
+         { lost = []; upd = []; found = [] }
+    |> (fun e ->
+      select [e; S.sample (fun () e ->
+                     let upd = flatten ~till:(Time.Clock.now_s ()) e in
+                     { upd; lost = []; found = [] }) tick s])
+    |> map_s (fun { lost; upd; found } ->
+           let t = if List.is_empty lost then Lwt.return_unit
+                   else Db.Pids.bump db lost in
+           t
+           >>= (fun () ->
+             if List.is_empty upd then Lwt.return_unit
+             else Db.Pids.bump db upd)
+           >>= (fun () ->
+             if List.is_empty found then Lwt.return_unit
+             else Db.Pids.insert db found))
+    |> keep
 
 end
 
@@ -157,7 +196,6 @@ let make_templates (b : topo_board) =
         ; guest = rval })
 
 let create (b : topo_board) _ convert_streams send db_conf base step =
-  let open Split in
   let log_name = Boards.Board.log_name b in
   let log_src = Logs.Src.create log_name in
   Option.iter (fun x -> Logs.Src.set_level log_src @@ Some x) b.logs;
@@ -200,17 +238,8 @@ let create (b : topo_board) _ convert_streams send db_conf base step =
             | `New x -> Db.Streams.insert_streams db x)
      @@ select [streams_ev; streams_diff]);
   E.(keep @@ map_p (Db.Ts_info.insert db) @@ S.changes events.ts.info);
-  E.([ map (fun x -> `New x)
-       @@ fold (fun (_, o) n -> split ~eq:Pid.equal n o) ([], [])
-       @@ S.changes ts.pids
-     ; S.sample (fun () e -> `Bump (flatten e)) tick ts.pids ]
-     |> select
-     |> map_s (function
-            | `New (lost, upd) ->
-               Db.Pids.bump ~now:false db lost
-               >>= fun () -> Db.Pids.insert db upd
-            | `Bump x -> Db.Pids.bump ~now:true db x)
-     |> keep);
+  (* PIDs *)
+  DB_handler.handle_list db tick ts.pids;
   (* Errors *)
   (* E.(keep @@ map_p (Db.Errors.insert ~is_ts:true  db) events.ts.errors);
    * E.(keep @@ map_p (Db.Errors.insert ~is_ts:false db) events.t2mi.errors); *)

@@ -17,6 +17,9 @@ type 'a timespan =
   ; data : 'a
   } [@@deriving yojson, eq]
 
+let make_timespan ~from ~till data =
+  { from; till; data }
+
 (** Board info *)
 
 type devinfo =

@@ -25,9 +25,9 @@ end = struct
 
   let typ : string = "UUID"
   let db : db Caqti_type.t = Types.string
-  let to_db (id:t) : db =
+  let to_db (id : t) : db =
     Stream.ID.to_string id
-  let of_db (db:db) : t =
+  let of_db (db : db) : t =
     Stream.ID.of_string db
   let to_value_string x =
     let s = Stream.ID.to_string x in
@@ -40,15 +40,15 @@ module Model = struct
 
   type init = int
   type names =
-    { state     : string
-    ; streams   : string
-    ; ts_info   : string
-    ; services  : string
-    ; tables    : string
-    ; pids      : string
+    { state : string
+    ; streams : string
+    ; ts_info : string
+    ; services : string
+    ; tables : string
+    ; pids : string
     ; t2mi_info : string
-    ; bitrate   : string
-    ; errors    : string
+    ; bitrate : string
+    ; errors : string
     }
 
   let name = "qos_niit"
@@ -212,8 +212,8 @@ module Device = struct
                        (sprintf "INSERT INTO %s (state,date_start,date_end) VALUES (?,?,?)" table) in
     let now = Time.Clock.now_s () in
     let new_state = state_to_int `No_response in
-    Conn.request db Request.(exec insert_new (new_state,now,now))
-                                                           
+    Conn.request db Request.(exec insert_new (new_state, now, now))
+
   let bump db state =
     let open Printf in
     let table = (Conn.names db).state in
@@ -238,36 +238,42 @@ module Device = struct
     let table = (Conn.names db).state in
     let select =
       R.collect Types.(tup3 ptime ptime int) Types.(tup3 int ptime ptime)
-        (sprintf {|SELECT * FROM %s WHERE date_start <= $2 AND date_end >= $1 
+        (sprintf {|SELECT * FROM %s WHERE date_start <= $2 AND date_end >= $1
                   ORDER BY date_end DESC LIMIT $3|} table)
     in Conn.request db Request.(
-      list select (from,till,limit) >>= fun l ->
+      list select (from, till, limit) >>= fun l ->
       let data =
         List.map (fun (st, from, till) ->
             { state = state_of_int st; from; till }) l in
-      return (Raw { data; has_more = (List.length data >= limit); order = `Desc }))
+      return (Raw { data
+                  ; has_more = (List.length data >= limit)
+                  ; order = `Desc }))
 
   (* TODO fix it *)
   let select_state_compressed_internal db ~from ~till =
     let table = (Conn.names db).state in
     let dif   = Time.(Span.to_float_s @@ diff till from) in
-    let select_i = R.collect Types.(tup2 ptime ptime) Types.(tup2 int ptime_span)
-                     (sprintf {|SELECT state, sum(date_end - date_start) FROM %s 
-                               WHERE date_start <= $2 AND date_start >= $1
-                               AND date_end <= $2 AND date_end >= $1
-                               GROUP BY state|} table) in
-    let select_l = R.find_opt Types.(tup2 ptime ptime) Types.(tup2 int ptime)
-                     (sprintf {|SELECT state, max(date_end) FROM %s 
-                               WHERE date_start < $1 AND date_end <= $2 AND date_end >= $1 
-                               GROUP BY state LIMIT 1|} table) in 
-    let select_r = R.find_opt Types.(tup2 ptime ptime) Types.(tup2 int ptime)
-                     (sprintf {|SELECT state, min(date_start) FROM %s 
-                               WHERE date_end > $2 AND date_start <= $2 AND date_start >= $1 
-                               GROUP BY state LIMIT 1|} table) in
-    let select_o = R.find_opt Types.(tup2 ptime ptime) Types.int
-                     (sprintf {|SELECT state FROM %s 
-                               WHERE date_end > $2 AND date_start < $1 
-                               GROUP BY state LIMIT 1|} table) in
+    let select_i =
+      R.collect Types.(tup2 ptime ptime) Types.(tup2 int ptime_span)
+        (sprintf {|SELECT state, sum(date_end - date_start) FROM %s
+                  WHERE date_start <= $2 AND date_start >= $1
+                  AND date_end <= $2 AND date_end >= $1
+                  GROUP BY state|} table) in
+    let select_l =
+      R.find_opt Types.(tup2 ptime ptime) Types.(tup2 int ptime)
+        (sprintf {|SELECT state, max(date_end) FROM %s
+                  WHERE date_start < $1 AND date_end <= $2 AND date_end >= $1
+                  GROUP BY state LIMIT 1|} table) in
+    let select_r =
+      R.find_opt Types.(tup2 ptime ptime) Types.(tup2 int ptime)
+        (sprintf {|SELECT state, min(date_start) FROM %s
+                  WHERE date_end > $2 AND date_start <= $2 AND date_start >= $1
+                  GROUP BY state LIMIT 1|} table) in
+    let select_o =
+      R.find_opt Types.(tup2 ptime ptime) Types.int
+        (sprintf {|SELECT state FROM %s
+                  WHERE date_end > $2 AND date_start < $1
+                  GROUP BY state LIMIT 1|} table) in
     Conn.request db Request.(
       find select_o (from, till) >>= function
       | Some s ->
@@ -277,18 +283,18 @@ module Device = struct
            | `No_response -> (0.,0.,100.) in
          return { fine; init; no_response }
       | None ->
-         find select_l (from,till) >>= fun l ->
-         find select_r (from,till) >>= fun r ->
-         list select_i (from,till) >>= fun i ->
+         find select_l (from, till) >>= fun l ->
+         find select_r (from, till) >>= fun r ->
+         list select_i (from, till) >>= fun i ->
          let l = match l with
            | None -> fun x -> x
-           | Some (st,t) ->
+           | Some (st, t) ->
               let sp = Time.diff t from in
               fun (s,v) -> if Pervasives.(=) s st then (s,Time.Span.add sp v)
                            else (s,v) in
          let r = match r with
            | None -> fun x -> x
-           | Some (st,t) ->
+           | Some (st, t) ->
               let sp = Time.diff till t in
               fun (s,v) -> if s = st then (s,Time.Span.add sp v)
                            else (s,v) in
@@ -584,13 +590,10 @@ module Pids = struct
                  } in
                (ID.of_db id, { from; till; data = (pid, data) })))
 
-  let insert db (pids : (ID.t * Pid.t timestamped list) list) =
+  let insert db (pids : (ID.t * Pid.t timespan list) list) =
     let table = (Conn.names db).pids in
     let pids =
-      List.map (fun (id, pids) ->
-          List.map (fun { timestamp; data } ->
-              let from, till = timestamp, timestamp in
-              id, { from; till; data }) pids) pids
+      List.map (fun (id, pids) -> List.map (Pair.make id) pids) pids
       |> List.concat in
     let insert =
       R.exec typ
@@ -602,16 +605,13 @@ module Pids = struct
     in Conn.request db Request.(
       with_trans (List.fold_left (fun acc v ->
                       acc >>= fun () -> exec insert v) (return ()) pids))
-  
-  let bump ?(now = false) db (pids : (ID.t * Pid.t timestamped list) list) =
+
+  let bump db (pids : (ID.t * Pid.t timespan list) list) =
     let table = (Conn.names db).pids in
     let data =
       List.map (fun (id, pids) ->
-          List.map (fun ({ data = (pid, _); timestamp } : Pid.t timestamped) ->
-              let timestamp = match now with
-                | true -> Time.Clock.now_s ()
-                | false -> timestamp in
-              ID.to_db id, pid, timestamp) pids) pids
+          List.map (fun ({ data = (pid, _); till; _ } : Pid.t timespan) ->
+              ID.to_db id, pid, till) pids) pids
       |> List.concat in
     let update_last =
       R.exec Types.(tup3 ID.db int ptime)
