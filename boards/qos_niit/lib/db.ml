@@ -86,10 +86,26 @@ module Model = struct
       ]
 
   let keys_services =
-    make_keys ~time_key:"date"
-      [ "stream", key ID.typ
-      ; "data", key "TEXT"
-      ; "date", key "TIMESTAMP"
+    make_keys ~time_key:"date_end"
+      [ "stream", key ~primary:true ID.typ
+      ; "id", key ~primary:true "INTEGER"
+      ; "name", key "TEXT"
+      ; "provider", key "TEXT"
+      ; "pmt_pid", key "INTEGER"
+      ; "pcr_pid", key "INTEGER"
+      ; "has_pmt", key "BOOL"
+      ; "has_sdt", key "BOOL"
+      ; "dscr", key "BOOL"
+      ; "dscr_list", key "BOOL"
+      ; "eit_schedule", key "BOOL"
+      ; "eit_pf", key "BOOL"
+      ; "free_ca_mode", key "BOOL"
+      ; "running_status", key "INTEGER"
+      ; "service_type", key "INTEGER"
+      ; "service_type_list", key "INTEGER"
+      ; "elements", key "JSONB"
+      ; "date_start", key ~primary:true "TIMESTAMP"
+      ; "date_end", key "TIMESTAMP"
       ]
 
   let keys_tables =
@@ -582,8 +598,7 @@ module Pids = struct
                   has_pts,has_pcr,scrambled,present,
                   date_start,date_end)
                   VALUES (?,?,?,?,?,?,?,?,?,?)
-                  ON CONFLICT (stream,pid,date_start) DO UPDATE
-                  SET date_end = EXCLUDED.date_end|} table)
+                  ON CONFLICT DO NOTHING|} table)
     in Conn.request db Request.(
       with_trans (List.fold_left (fun acc v ->
                       acc >>= fun () -> exec insert v) (return ()) pids))
