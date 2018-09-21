@@ -415,23 +415,22 @@ module Get_ts_structs
     let sn, pn = Cstruct.split strings string_len in
     let id = get_services_struct_block_id bdy in
     let default = Printf.sprintf "Service %d" id in
-    { id
-    ; name = Result.get_or ~default @@ Text_decoder.decode sn
-    ; provider_name = Result.get_or ~default:"" @@ Text_decoder.decode pn
-    ; pmt_pid = get_services_struct_block_pmt_pid bdy
-    ; pcr_pid = get_services_struct_block_pcr_pid bdy
-    ; has_pmt = (flags land 0x8000) <> 0
-    ; has_sdt = (flags land 0x4000) <> 0
-    ; dscr = (flags land 0x2000) <> 0
-    ; dscr_list = (flags land 0x1000) <> 0
-    ; eit_schedule = (flags land 0x0080) <> 0
-    ; eit_pf = (flags land 0x0040) <> 0
-    ; free_ca_mode = (flags land 0x0020) <> 0
-    ; running_status = flags land 0x0007
-    ; service_type = get_services_struct_block_service_type bdy
-    ; service_type_list = get_services_struct_block_service_type_list bdy
-    ; elements = [] (* Filled in later *)
-    }
+    id, { name = Result.get_or ~default @@ Text_decoder.decode sn
+        ; provider_name = Result.get_or ~default:"" @@ Text_decoder.decode pn
+        ; pmt_pid = get_services_struct_block_pmt_pid bdy
+        ; pcr_pid = get_services_struct_block_pcr_pid bdy
+        ; has_pmt = (flags land 0x8000) <> 0
+        ; has_sdt = (flags land 0x4000) <> 0
+        ; dscr = (flags land 0x2000) <> 0
+        ; dscr_list = (flags land 0x1000) <> 0
+        ; eit_schedule = (flags land 0x0080) <> 0
+        ; eit_pf = (flags land 0x0040) <> 0
+        ; free_ca_mode = (flags land 0x0020) <> 0
+        ; running_status = flags land 0x0007
+        ; service_type = get_services_struct_block_service_type bdy
+        ; service_type_list = get_services_struct_block_service_type_list bdy
+        ; elements = [] (* Filled in later *)
+        }
 
   let of_es_block (msg : Cstruct.t) : Service.element list =
     let iter = Cstruct.iter (fun _ -> Some 4) (fun buf -> buf) msg in
@@ -540,8 +539,8 @@ module Get_ts_structs
   let parse_service (slen : int) (acc : service_acc) : Service.t =
     let es = of_es_block acc.es in
     let ecm = of_ecm_block acc.ecm in
-    let info = of_service_block slen acc.info in
-    { info with elements = es @ ecm }
+    let sid, sinfo = of_service_block slen acc.info in
+    sid, { sinfo with elements = es @ ecm }
 
   let update_if_null (pid, info) : Pid.t option =
     if pid = 0x1FFF
@@ -556,10 +555,10 @@ module Get_ts_structs
   let update_if_in_services (services : Service.t list)
         ((pid, info) : Pid.t) : (Pid.t) option =
     let result =
-      List.find_map (fun (x : Service.t) ->
-          match find_in_elements (pid, info) x.elements with
+      List.find_map (fun ((sid, sinfo) : Service.t) ->
+          match find_in_elements (pid, info) sinfo.elements with
           | None -> None
-          | Some t -> Some (x.id, x.pcr_pid, t)) services in
+          | Some t -> Some (sid, sinfo.pcr_pid, t)) services in
     match result with
     | None -> None
     | Some (id, pcr_pid, typ) ->
@@ -609,13 +608,13 @@ module Get_ts_structs
         (table : SI_PSI_table.t) : SI_PSI_table.t =
     let service_id = match Mpeg_ts.table_of_int table.main.id with
       | `EIT (`Actual, _) ->
-         List.find_map (fun (s : Service.t) ->
-             if s.id = table.main.id_ext then Some s.id else None)
+         List.find_map (fun ((sid, _) : Service.t) ->
+             if sid = table.main.id_ext then Some sid else None)
            services
       | `PMT ->
-         List.find_map (fun (s : Service.t) ->
-             if s.has_pmt && s.pmt_pid = table.main.pid
-             then Some s.id else None)
+         List.find_map (fun ((sid, sinfo) : Service.t) ->
+             if sinfo.has_pmt && sinfo.pmt_pid = table.main.pid
+             then Some sid else None)
            services
       | _ -> None
     in

@@ -179,6 +179,12 @@ type api =
        SI_PSI_section.dump_error) Lwt_result.t
   ; reset : unit -> unit Lwt.t
   ; config : unit -> config
+  ; get_streams :
+      ?ids:Stream.ID.t list ->
+      ?incoming:bool ->
+      ?inputs:Topology.topo_input list ->
+      unit ->
+      Stream.t list Lwt.t
   ; get_ts_info : unit -> ts_info Lwt.t
   ; get_pids : unit -> pids Lwt.t
   ; get_services : unit -> services Lwt.t

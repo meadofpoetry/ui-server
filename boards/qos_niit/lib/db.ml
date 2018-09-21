@@ -48,6 +48,7 @@ module Model = struct
     ; pids : string
     ; t2mi_info : string
     ; bitrate : string
+    ; pids_bitrate : string
     ; errors : string
     }
 
@@ -72,8 +73,8 @@ module Model = struct
       ]
 
   let keys_ts_info =
-    make_keys ~time_key:"date"
-      [ "stream", key ID.typ
+    make_keys ~time_key:"date_end"
+      [ "stream", key ~primary:true ID.typ
       ; "complete", key "BOOL"
       ; "services", key "INTEGER"
       ; "nw_pid", key "INTEGER"
@@ -82,7 +83,8 @@ module Model = struct
       ; "orig_nw_id", key "INTEGER"
       ; "nw_name", key "TEXT"
       ; "bouquet_name", key "TEXT"
-      ; "date", key "TIMESTAMP"
+      ; "date_start", key ~primary:true "TIMESTAMP"
+      ; "date_end", key "TIMESTAMP"
       ]
 
   let keys_services =
@@ -138,9 +140,17 @@ module Model = struct
 
   let keys_bitrate =
     make_keys ~time_key:"date"
-      [ "stream", key ID.typ
-      ; "data", key "TEXT"
-      ; "date", key "TIMESTAMP"
+      [ "stream", key ~primary:true ID.typ
+      ; "bitrate", key "INTEGER"
+      ; "date", key ~primary:true "TIMESTAMP"
+      ]
+
+  let keys_pids_bitrate =
+    make_keys ~time_key:"date"
+      [ "stream", key ~primary:true ID.typ
+      ; "pid", key ~primary:true "INTEGER"
+      ; "bitrate", key "INTEGER"
+      ; "date", key ~primary:true "TIMESTAMP"
       ]
 
   let keys_errors =
@@ -162,27 +172,29 @@ module Model = struct
   let tables id =
     let id = string_of_int id in
     let names =
-      { state     = "qos_niit_state_"     ^ id
-      ; streams   = "qos_niit_streams_"   ^ id
-      ; ts_info   = "qos_niit_ts_info_"   ^ id
-      ; services  = "qos_niit_services_"  ^ id
-      ; tables    = "qos_niit_tables_"    ^ id
-      ; pids      = "qos_niit_pids_"      ^ id
+      { state = "qos_niit_state_" ^ id
+      ; streams = "qos_niit_streams_" ^ id
+      ; ts_info = "qos_niit_ts_info_" ^ id
+      ; services = "qos_niit_services_" ^ id
+      ; tables = "qos_niit_tables_" ^ id
+      ; pids = "qos_niit_pids_" ^ id
       ; t2mi_info = "qos_niit_t2mi_info_" ^ id
-      ; bitrate   = "qos_niit_bitrate_"   ^ id
-      ; errors    = "qos_niit_errors_"    ^ id
+      ; bitrate = "qos_niit_bitrate_" ^ id
+      ; pids_bitrate = "qos_niit_pids_bitrate_" ^ id
+      ; errors = "qos_niit_errors_" ^ id
       }
     in
     names,
-    [ names.state,     keys_state,     None
-    ; names.streams,   keys_streams,   None
-    ; names.ts_info,   keys_ts_info,   None
-    ; names.services,  keys_services,  None
-    ; names.tables,    keys_tables,    None
-    ; names.pids,      keys_pids,      None
-    ; names.t2mi_info, keys_t2mi_info, None
-    ; names.bitrate,   keys_bitrate,   None
-    ; names.errors,    keys_errors,    None
+    [ names.state,        keys_state,        None
+    ; names.streams,      keys_streams,      None
+    ; names.ts_info,      keys_ts_info,      None
+    ; names.services,     keys_services,     None
+    ; names.tables,       keys_tables,       None
+    ; names.pids,         keys_pids,         None
+    ; names.t2mi_info,    keys_t2mi_info,    None
+    ; names.bitrate,      keys_bitrate,      None
+    ; names.pids_bitrate, keys_pids_bitrate, None
+    ; names.errors,       keys_errors,       None
     ]
 
 end
@@ -313,7 +325,7 @@ module Device = struct
   let select_state_compressed db ~from ~till =
     select_state_compressed_internal db ~from ~till
     >|= fun data -> Compressed { data }
-    
+
 end
 
 module Streams = struct
@@ -475,11 +487,11 @@ module Ts_info = struct
 
   open Board_types.Ts_info
 
-  let typ : (ID.t * t timestamped) Caqti_type.t =
+  let typ : (ID.t * t timespan) Caqti_type.t =
     Types.custom
       Types.(List.(ID.db & bool & int & int & int & int
-                   & int & string & string & ptime))
-      ~encode:(fun (id, ({ timestamp; data } : t timestamped)) ->
+                   & int & string & string & ptime & ptime))
+      ~encode:(fun (id, ({ from; till; data } : t timespan)) ->
         Ok (ID.to_db id,
             (data.complete,
              (data.services_num,
@@ -488,7 +500,8 @@ module Ts_info = struct
                 (data.nw_id,
                  (data.orig_nw_id,
                   (data.nw_name,
-                   (data.bouquet_name, timestamp))))))))))
+                   (data.bouquet_name,
+                    (from, till)))))))))))
       ~decode:(fun (id,
                     (complete,
                      (services_num,
@@ -497,7 +510,8 @@ module Ts_info = struct
                         (nw_id,
                          (orig_nw_id,
                           (nw_name,
-                           (bouquet_name, timestamp))))))))) ->
+                           (bouquet_name,
+                            (from, till)))))))))) ->
         Ok (let (data : t) =
               { complete
               ; services_num
@@ -508,19 +522,40 @@ module Ts_info = struct
               ; nw_name
               ; bouquet_name
               } in
-            ID.of_db id, { timestamp; data }))
+            ID.of_db id, { from; till; data }))
 
-  let insert db (info : (Stream.ID.t * t timestamped) list) =
+  let insert db (info : (Stream.ID.t * t timespan) list) =
     let table = (Conn.names db).ts_info in
     let insert =
       R.exec typ
         (sprintf {|INSERT INTO %s(stream,complete,services,nw_pid,ts_id,nw_id,
-                  orig_nw_id,nw_name,bouquet_name,date)
-                  VALUES (?,?,?,?,?,?,?,?,?,?)|} table)
-    in Conn.request db Request.(
+                  orig_nw_id,nw_name,bouquet_name,date_start,date_end)
+                  VALUES (?,?,?,?,?,?,?,?,?,?,?)
+                  ON CONFLICT DO NOTHING|} table)
+    in
+    Conn.request db Request.(
       with_trans (List.fold_left (fun acc ((id : Stream.ID.t), info) ->
                       acc >>= fun () -> exec insert (id, info))
                     (return ()) info))
+
+  let bump db (info : (Stream.ID.t * t timespan) list) =
+    let table = (Conn.names db).ts_info in
+    let data =
+      List.map (fun (id, ({ till; _ } : t timespan)) ->
+          ID.to_db id, till) info in
+    let update_last =
+      R.exec Types.(tup2 ID.db ptime)
+        (sprintf {|UPDATE %s SET date_end = $3
+                  WHERE stream = $1
+                  AND date_start = (SELECT date_start FROM %s
+                  WHERE stream = $1
+                  ORDER BY date_start DESC LIMIT 1)|}
+           table table)
+    in
+    Conn.request db Request.(
+      with_trans (List.fold_left (fun acc s ->
+                      acc >>= fun () -> exec update_last s)
+                    (return ()) data))
 
   let select ?(with_pre = true) ?(limit = 500)
         ?(ids = []) ~from ~till db =
@@ -547,6 +582,30 @@ module Ts_info = struct
                             ; has_more = List.length data >= limit
                             ; order = `Desc })
       with e -> return @@ Error (Printexc.to_string e))
+
+end
+
+module Services = struct
+
+  let insert db (data : (ID.t * Service.t timespan list) list) =
+    let table = (Conn.names db).services in
+    let data =
+      List.map (fun (id, services) -> List.map (Pair.make id) services) data
+      |> List.concat in
+    ignore data;
+    ignore table;
+    Lwt.return_unit
+
+  let bump db (data : (ID.t * Service.t timespan list) list) =
+    let table = (Conn.names db).services in
+    let data =
+      List.map (fun (id, services) ->
+          List.map (fun ({ data = (sid, _); till; _ } : Service.t timespan) ->
+              ID.to_db id, sid, till) services) data
+      |> List.concat in
+    ignore data;
+    ignore table;
+    Lwt.return_unit
 
 end
 
@@ -627,6 +686,44 @@ module Pids = struct
       with_trans (List.fold_left (fun acc s ->
                       acc >>= fun () -> exec update_last s)
                     (return ()) data))
+
+end
+
+module Bitrate = struct
+
+  open Bitrate
+
+  let insert db (data : bitrates) =
+    let table = (Conn.names db).bitrate in
+    let data =
+      List.map (fun (id, ({ data; timestamp } : t timestamped)) ->
+          ID.to_db id, data.total, timestamp) data in
+    let insert =
+      R.exec Types.(tup3 ID.db int ptime)
+        (sprintf {|INSERT INTO %s (stream,bitrate,date)
+                  VALUES (?,?,?)
+                  ON CONFLICT DO NOTHING|} table)
+    in
+    Conn.request db Request.(
+      with_trans (List.fold_left (fun acc v ->
+                      acc >>= fun () -> exec insert v) (return ()) data))
+
+  let insert_pids db (data : bitrates) =
+    let table = (Conn.names db).pids_bitrate in
+    let data =
+      List.map (fun (id, ({ data; timestamp } : t timestamped)) ->
+          List.map (fun (pid, rate) ->
+              ID.to_db id, pid, rate, timestamp) data.pids) data
+      |> List.concat in
+    let insert =
+      R.exec Types.(tup4 ID.db int int ptime)
+        (sprintf {|INSERT INTO %s (stream,pid,bitrate,date)
+                  VALUES (?,?,?,?)
+                  ON CONFLICT DO NOTHING|} table)
+    in
+    Conn.request db Request.(
+      with_trans (List.fold_left (fun acc v ->
+                      acc >>= fun () -> exec insert v) (return ()) data))
 
 end
 

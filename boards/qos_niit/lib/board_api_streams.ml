@@ -137,6 +137,11 @@ end
 
 module HTTP = struct
 
+  let streams (api : api) ids inputs incoming _ _ () =
+    api.get_streams ?incoming ~ids ~inputs ()
+    >|= (Result.return % (Json.List.to_yojson Stream.to_yojson))
+    >>= respond_result
+
   let si_psi_section (api : api) id table_id section
         table_id_ext ext_info_1 ext_info_2 _ _ () =
     api.get_section ?section ?table_id_ext ?ext_info_1 ?ext_info_2
@@ -248,7 +253,13 @@ let handler (sources : init) (api : api) events =
         (WS.errors events)
     ]
     [ `GET,
-      [ create_handler ~docstring:"Returns SI/PSI table section"
+      [ create_handler ~docstring:"Returns list of streams"
+          ~path:Path.Format.empty
+          ~query:Query.[ "id", (module List(Stream.ID))
+                       ; "input", (module List(Topology.Show_topo_input))
+                       ; "incoming", (module Option(Bool))]
+          (HTTP.streams api)
+      ; create_handler ~docstring:"Returns SI/PSI table section"
           ~path:Path.Format.(Stream.ID.fmt ^/ "section" @/ Int ^/ empty)
           ~query:Query.[ "section", (module Option(Int))
                        ; "table-id-ext", (module Option(Int))

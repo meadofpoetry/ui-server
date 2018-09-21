@@ -241,9 +241,10 @@ module Service = struct
     ; info : Pid.typ
     } [@@deriving yojson, eq, ord]
 
-  type t =
-    { id : int
-    ; name : string
+  type t = id * info
+  and id = int
+  and info =
+    { name : string
     ; provider_name : string
     ; pmt_pid : int
     ; pcr_pid : int

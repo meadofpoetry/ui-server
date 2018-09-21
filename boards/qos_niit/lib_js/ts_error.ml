@@ -1,13 +1,14 @@
 open Board_types
 open Containers
 open Common
+open Error
 
 type table_info =
   { section : int
   ; id : int
   ; id_ext : int
   }
-let table_info_of_ts_error (e : Errors.t) =
+let table_info_of_ts_error (e : t) =
   { section = Int32.to_int @@ Int32.((e.param_2 land 0xFF00_0000l) lsr 24)
   ; id = Int32.to_int @@ Int32.((e.param_2 land 0x00FF_0000l) lsr 16)
   ; id_ext = Int32.to_int @@ Int32.(e.param_2 land 0x0000_FFFFl)
@@ -84,7 +85,7 @@ module Description = struct
     | `Seconds x | `Milliseconds x | `Microseconds x  | `Nanoseconds x -> x
     | _ -> 0.0
 
-  let crc_err ?(hex = false) ?(short = false) ?table (e : Errors.t) =
+  let crc_err ?(hex = false) ?(short = false) ?table (e : t) =
     let base = "Ошибка CRC" in
     let prefix = match table with
       | Some t -> Printf.sprintf "%s в %s" base @@ table_name t
@@ -97,7 +98,7 @@ module Description = struct
          Printf.sprintf "%s, CRC = %s, должно быть %s" prefix computed actual
 
   let interval_err ?(coef = 0.1) ?(short = false)
-        ~prefix ~cmp_word ~period (e : Errors.t) =
+        ~prefix ~cmp_word ~period (e : t) =
     let got = match e.param_1 with
       | -1l -> None
       | x -> Int32.to_float e.param_1 *. coef
@@ -121,12 +122,12 @@ module Description = struct
               (period_to_float got)
               (period_to_unit_name got) ext
 
-  let table_short_interval ?(short = false) ~period (e : Errors.t) table =
+  let table_short_interval ?(short = false) ~period (e : t) table =
     let prefix = Printf.sprintf "Период следования таблицы %s -"
                  @@ table_name table in
     interval_err ~short ~prefix ~cmp_word:"менее" ~period e
 
-  let table_long_interval ?(short = false) ~period (e : Errors.t) table =
+  let table_long_interval ?(short = false) ~period (e : t) table =
     let prefix = Printf.sprintf "Таблица %s отсутствует в потоке"
                  @@ table_name table in
     interval_err ~short ~prefix ~cmp_word:"более" ~period e
@@ -136,7 +137,7 @@ module Description = struct
 
   let table_crc ?short ?hex e table = crc_err ?short ?hex ~table e
 
-  let table_id ?(short = false) ?(hex = false) (e : Errors.t) table =
+  let table_id ?(short = false) ?(hex = false) (e : t) table =
     let to_s = if hex then Printf.sprintf "0x%02X"
                else Printf.sprintf "%u" in
     let got = to_s @@ Int32.to_int e.param_1 in
@@ -156,7 +157,7 @@ module Description = struct
 
   let table_ext_unknown _ = ""
 
-  let of_ts_error ?(hex = true) ?(short = false) (e : Errors.t) =
+  let of_ts_error ?(hex = true) ?(short = false) (e : t) =
     match e.err_code with
     (* First priority *)
     | 0x11 -> "Пропадание синхронизации"
@@ -271,7 +272,7 @@ module Description = struct
 
 end
 
-let to_name (e : Errors.t) = match e.err_code with
+let to_name (e : t) = match e.err_code with
   | 0x11 -> "1.1", "TS sync loss"
   | 0x12 -> "1.2", "Sync byte error"
   | 0x13 -> "1.3", "PAT error"

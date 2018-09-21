@@ -779,7 +779,7 @@ module Make(Logs : Logs.LOG) = struct
       if eq x v then Lwt.return x
       else Lwt.fail @@ Failure "got unexpected value")
 
-  let create_api sender step_duration
+  let create_api sources sender step_duration
         (storage : config storage) events (push_events : push_events) =
     let open Lwt.Infix in
     let { device = { config; state; _ }; _ }  = events in
@@ -844,6 +844,27 @@ module Make(Logs : Logs.LOG) = struct
         (fun () -> storage#get)
     ; get_devinfo =
         (fun () -> S.value events.device.info)
+    ; get_streams =
+        (fun ?ids ?incoming ?inputs () ->
+          let v = React.S.value events.streams in
+          let v = match incoming with
+            | None | Some false -> v
+            | Some true -> List.filter (is_incoming sources) v in
+          let v = match inputs with
+            | None | Some [] -> v
+            | Some l ->
+               List.filter (fun s ->
+                   let eq = Topology.equal_topo_input in
+                   match Stream.get_input s with
+                   | None -> false
+                   | Some i -> List.mem ~eq i l) v in
+          let v = match ids with
+            | None | Some [] -> v
+            | Some l ->
+               List.filter (fun (s : Stream.t) ->
+                   let eq = Stream.ID.equal in
+                   List.mem ~eq s.id l) v in
+          Lwt.return v)
     ; get_ts_info =
         (fun () -> Lwt.return @@ React.S.value events.ts.info)
     ; get_pids =
@@ -863,7 +884,7 @@ module Make(Logs : Logs.LOG) = struct
     let events, push_events =
       create_events sources storage streams_conv in
     let api, msgs, imsgs =
-      create_api sender step_duration storage events push_events in
+      create_api sources sender step_duration storage events push_events in
     let t2mi_locker = to_t2mi_locker events.device.t2mi_mode events.streams in
     E.keep
     @@ E.map (fun (lock : bool) ->

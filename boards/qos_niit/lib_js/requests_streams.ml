@@ -11,7 +11,6 @@ let get_base_path () = Uri.Path.Format.(
 module WS = struct
 
   open Common.Uri
-  open Streams.TS
   open Stream
 
   let get_streams ?(inputs = []) ?(ids = []) ?incoming control =
@@ -83,23 +82,15 @@ end
 module HTTP = struct
 
   open Common.Uri
-  open Streams.TS
   open Stream
 
-  let get_streams ?(ids=[]) ?(inputs=[]) ?incoming ?limit ?compress ?from ?till ?duration control =
-    get_result ~from:(Api_js.Api_types.rows_of_yojson
-                        streams_states_of_yojson
-                        streams_unique_of_yojson)
+  let get_streams ?(ids = []) ?(inputs = []) ?incoming control =
+    get_result ~from:(Json.List.of_yojson Stream.of_yojson)
       ~path:(get_base_path ())
       ~query:Query.[ "id", (module List(ID))
                    ; "input", (module List(Topology.Show_topo_input))
-                   ; "incoming", (module Option(Bool))
-                   ; "limit", (module Option(Int))
-                   ; "compress", (module Option(Bool))
-                   ; "from", (module Option(Time.Show))
-                   ; "to", (module Option(Time.Show))
-                   ; "duration", (module Option(Time.Relative)) ]
-      control ids inputs incoming limit compress from till duration
+                   ; "incoming", (module Option(Bool)) ]
+      control ids inputs incoming
 
   let get_si_psi_section ?section ?table_id_ext ?ext_info_1 ?ext_info_2 ~id ~table_id control =
     get_result ~from:section_of_yojson
@@ -166,67 +157,25 @@ module HTTP = struct
                    ; "duration", (module Option(Time.Relative)) ]
       control id limit from till duration
 
-  let get_last_services ~id control =
-    get_services ~id ~limit:1 control
-    |> Lwt_result.map_err Api_js.Requests.err_to_string
-    >>= function
-    | Raw s ->
-       begin match List.head_opt s.data with
-       | Some (_, services) -> Some services
-       | None -> None
-       end
-       |> Lwt_result.return
-    | _ -> Lwt.fail_with "got compressed"
+  let get_t2mi_sequence ?duration ~id control =
+    let open T2mi_sequence in
+    get_result ~from:(timestamped_of_yojson of_yojson)
+      ~path:Path.Format.(get_base_path () / (ID.fmt ^/ "t2mi/sequence" @/ empty))
+      ~query:Query.[ "duration", (module Option(Time.Relative)) ]
+      control id duration
 
-  let get_last_tables ~id control =
-    get_tables ~id ~limit:1 control
-    |> Lwt_result.map_err Api_js.Requests.err_to_string
-    >>= function
-    | Raw s ->
-       begin match List.head_opt s.data with
-       | Some (_, { timestamp; tables }) -> Some timestamp, tables
-       | None -> None, []
-       end
-       |> Lwt_result.return
-    | _ -> Lwt.fail_with "got compressed"
-
-  let get_last_pids ~id control =
-    get_pids ~id ~limit:1 control
-    |> Lwt_result.map_err Api_js.Requests.err_to_string
-    >>= function
-    | Raw s ->
-       begin match List.head_opt s.data with
-       | Some (_, pids) -> Some pids
-       | None -> None
-       end
-       |> Lwt_result.return
-    | _     -> Lwt.fail_with "got compressed"
-
-  module T2MI = struct
-
-    open Streams.T2MI
-
-    let get_sequence ?duration ~id control =
-      get_result ~from:sequence_of_yojson
-        ~path:Path.Format.(get_base_path () / (ID.fmt ^/ "t2mi/sequence" @/ empty))
-        ~query:Query.[ "duration", (module Option(Time.Relative)) ]
-        control id duration
-
-    let get_structure ?limit ?from ?till ?duration ~id control =
-      get_result
-        ~from:(raw_of_yojson structure_of_yojson)
-        ~path:Path.Format.(get_base_path () / (ID.fmt ^/ "t2mi/structure" @/ empty))
-        ~query:Query.[ "limit", (module Option(Int))
-                     ; "from", (module Option(Time.Show))
-                     ; "to", (module Option(Time.Show))
-                     ; "duration", (module Option(Time.Relative)) ]
-        control id limit from till duration
+  let get_t2mi_info ?(ids = []) control =
+    let open T2mi_info in
+    get_result ~from:(timestamped_of_yojson @@ Json.List.of_yojson of_yojson)
+      ~path:Path.Format.(get_base_path () / ("t2mi/structure" @/ empty))
+      ~query:Query.["id", (module List(Stream.ID))]
+      control ids
 
   end
 
   module Errors = struct
 
-    open Errors
+    open Error
 
     let get_errors?(errors=[]) ?(priority=[]) ?(pids=[])
           ?limit ?compress ?order ?from ?till ?duration ~id control =
