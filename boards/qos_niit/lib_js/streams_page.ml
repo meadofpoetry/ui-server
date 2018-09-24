@@ -3,7 +3,6 @@ open Components
 open Common
 open Lwt_result
 open Api_js.Api_types
-open Board_types.Streams.TS
 
 (* TODO refactor cell management. quite dirty now *)
 
@@ -220,9 +219,9 @@ end
 
 let make input control =
   let streams =
-    Requests.Streams.HTTP.get_streams
-      ~inputs:[input]
+    Requests.History.HTTP.Streams.get
       ~compress:true
+      ~inputs:[input]
       control
     >>= (function
          | Compressed x -> Lwt_result.return x.data

@@ -1,20 +1,21 @@
 open Containers
 open Components
 open Common
-open Board_types.Streams.TS
 open Lwt_result.Infix
 open Api_js.Api_types
 open Widget_common
+open Board_types
 
 type config =
   { stream : Stream.t
   } [@@deriving yojson]
 
 module Pid_info = struct
-  type t = pid_info
+
+  include Pid
 
   let compare (a : t) (b : t) : int =
-    Int.compare a.pid b.pid
+    Int.compare (fst a) (fst b)
 end
 
 module Set = Set.Make(Pid_info)
@@ -92,7 +93,7 @@ module Pie = struct
            pie#set_labels @@ self#make_labels pids oth;
            pie#update None;
 
-      method set_rate : bitrate option -> unit = function
+      method set_rate : Bitrate.t option -> unit = function
         | None ->
            pie#set_datasets [];
            _rate <- None;
@@ -194,12 +195,12 @@ module Info = struct
     let make_title num =
       Printf.sprintf "PIDs (%d)" num
 
-    let make_pid ?(hex = false) (pid : pid_info) =
+    let make_pid ?(hex = false) ((pid, info) : Pid.t) =
       object(self)
         inherit Widget.t Dom_html.(createSpan document) ()
 
-        method update (pid : pid_info) : unit =
-          self#add_or_remove_class (not pid.present) lost_class
+        method update (info : Pid.info) : unit =
+          self#add_or_remove_class (not info.present) lost_class
 
         method set_hex (x : bool) : unit =
           let s = match x with
@@ -207,16 +208,15 @@ module Info = struct
             | false -> PID.to_dec_string self#pid in
           self#set_text_content s
 
-        method pid : int =
-          pid.pid
+        method pid : int = pid
 
         initializer
-          self#update pid;
+          self#update info;
           self#add_class pid_class;
           self#set_hex hex
       end
 
-    class t ?hex (init : pid_info list) () =
+    class t ?hex (init : Pid.t list) () =
       let text = make_title @@ List.length init in
       let title = new Typography.Text.t ~font:Caption ~text () in
       let pids_box = new Hbox.t ~widgets:[] () in
@@ -241,20 +241,20 @@ module Info = struct
 
         (* Private methods *)
 
-        method private update_pid (x : pid_info) : unit =
+        method private update_pid ((pid, info) : Pid.t) : unit =
           match List.find_opt (fun cell ->
-                    cell#pid = x.pid) _pids with
+                    cell#pid = pid) _pids with
           | None -> ()
-          | Some cell -> cell#update x
+          | Some cell -> cell#update info
 
-        method private add_pid (x : pid_info) : unit =
+        method private add_pid (x : Pid.t) : unit =
           let pid = make_pid x in
           _pids <- pid :: _pids;
           pids_box#append_child pid
 
-        method private remove_pid (x : pid_info) : unit =
+        method private remove_pid ((pid, info) : Pid.t) : unit =
           match List.find_opt (fun cell ->
-                    cell#pid = x.pid) _pids with
+                    cell#pid = pid) _pids with
           | None -> ()
           | Some cell ->
              pids_box#remove_child cell;
@@ -272,7 +272,7 @@ module Info = struct
 
   end
 
-  class t ?hex (init : pid_info list) () =
+  class t ?hex (init : Pid.t list) () =
     let rate, set_total, set_effective = make_rate () in
     let pids = new Pids.t ?hex init () in
     object(self)
@@ -284,7 +284,7 @@ module Info = struct
                          ; (new Divider.t ())#widget
                          ; pids#widget ] ()
 
-      method set_rate (rate : bitrate option) =
+      method set_rate (rate : Bitrate.t option) =
         match rate with
         | None -> set_total None; set_effective None
         | Some x ->
@@ -312,7 +312,7 @@ module Info = struct
 end
 
 class t (timestamp : Time.t option)
-        (init : pid_info list)
+        (init : Pid.t list)
         () =
   (* FIXME read from storage *)
   let is_hex = false in
@@ -339,21 +339,22 @@ class t (timestamp : Time.t option)
 
     inherit Card.t ~widgets:[] ()
 
-    method update ({ timestamp; pids } : pids) =
+    method update ({ timestamp; data } : Pid.t list timestamped) =
       (* Update timestamp *)
       _timestamp <- Some timestamp;
       subtitle#set_text_content @@ make_timestamp_string _timestamp;
       (* Manage found, lost and updated items *)
       let prev = _data in
-      _data <- Set.of_list pids;
+      _data <- Set.of_list data;
       let lost = Set.diff prev _data in
       let found = Set.diff _data prev in
       let inter = Set.inter prev _data in
-      let upd = Set.filter (fun (x : pid_info) ->
-                    List.mem ~eq:equal_pid_info x pids) inter in
+      let upd =
+        Set.filter (fun ((_, info) : Pid.t) ->
+            List.mem ~eq:Pid.equal_info info @@ List.map snd data) inter in
       info#update ~lost ~found ~changed:upd
 
-    method set_rate (x : bitrate option) =
+    method set_rate (x : Bitrate.t option) =
       info#set_rate x;
       pie#set_rate x
 
@@ -370,17 +371,18 @@ class t (timestamp : Time.t option)
 
   end
 
-let make ?(init : (pids option, string) Lwt_result.t option)
+let make ?(init : (pids, string) Lwt_result.t option)
       (stream : Stream.t)
       (control : int) =
   let init = match init with
     | Some x -> x
     | None ->
        let open Requests.Streams.HTTP in
-       get_last_pids ~id:stream.id control in
+       get_pids ~ids:[stream.id] control
+       |> Lwt_result.map_err Api_js.Requests.err_to_string in
   init
   >|= (function
-       | None -> None, []
-       | Some x -> Some x.timestamp, x.pids)
+       | [(_, x)] -> Some x.timestamp, x.data
+       | _ -> None, []) (* FIXME show error *)
   >|= (fun (ts, data) -> new t ts data ())
   |> Ui_templates.Loader.create_widget_loader

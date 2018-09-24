@@ -1,7 +1,7 @@
 open Containers
 open Components
 open Common
-open Board_types.Streams.TS
+open Board_types
 open Lwt_result.Infix
 open Api_js.Api_types
 open Ui_templates.Sdom
@@ -10,33 +10,28 @@ open Widget_common
 let ( % ) = Fun.( % )
 
 module Service_info = struct
-  type t = service_info
+  type t = Service.t
 
   let compare (a : t) (b : t) : int =
-    Int.compare a.id b.id
+    Int.compare (fst a) (fst b)
 end
 
 module Set = Set.Make(Service_info)
 
 let base_class = "qos-niit-services-overview"
 
-let get_service_bitrate (br : (int * int) list) (s : service_info) =
-  let ecm =
-    List.fold_left (fun acc (x:ecm_info) ->
-        match List.Assoc.get ~eq:(=) x.pid br with
+let get_service_bitrate (br : (int * int) list) ((_, info) : Service.t) =
+  let elts =
+    List.fold_left (fun acc ((pid, _) : Service.element) ->
+        match List.Assoc.get ~eq:(=) pid br with
         | None -> acc
-        | Some b -> (x.pid, b) :: acc) [] s.ecm in
-  let es =
-    List.fold_left (fun acc (x:es_info) ->
-        match List.Assoc.get ~eq:(=) x.pid br with
-        | None -> acc
-        | Some b -> (x.pid, b) :: acc) [] s.es in
-  let pmt = match s.has_pmt with
+        | Some b -> (pid, b) :: acc) [] info.elements in
+  let pmt = match info.has_pmt with
     | false -> None
-    | true -> Some (s.pmt_pid,
+    | true -> Some (info.pmt_pid,
                     Option.get_or ~default:0
-                    @@ List.Assoc.get ~eq:(=) s.pmt_pid br) in
-  List.cons_maybe pmt (es @ ecm)
+                    @@ List.Assoc.get ~eq:(=) info.pmt_pid br) in
+  List.cons_maybe pmt elts
 
 let sum_bitrate rate =
   List.fold_left (fun acc x -> acc + snd x) 0 rate
@@ -93,7 +88,7 @@ let max_fmt =
   }
 
 let make_table (is_hex : bool)
-      (init : service_info list) =
+      (init : Service.t list) =
   let open Table in
   let hex_id_fmt = Some (Printf.sprintf "0x%04X") in
   let pct_fmt = Option (Float (Some (Printf.sprintf "%.2f")), "-") in
@@ -123,7 +118,7 @@ let make_table (is_hex : bool)
   table, on_change
 
 let map_details (details : Widget_service_info.t option React.signal)
-      ({ id; _ } : service_info) =
+      ((id, _) : Service.t) =
   match React.S.value details with
   | Some x when x#service_id = id -> Some x
   | _ -> None
@@ -154,13 +149,13 @@ let add_row (stream : Stream.t)
       (primary : Heading.t)
       (media : Card.Media.t)
       (table : 'a Table.t)
-      (pids : pids option React.signal)
-      (rate : bitrate option React.signal)
+      (pids : Pid.t list timestamped option React.signal)
+      (rate : Bitrate.t option React.signal)
       (set_details : Widget_service_info.t option -> unit)
-      (x : service_info)
+      ((id, info) : Service.t)
       (control : int) =
   let row =
-    table#add_row (x.id :: x.name :: x.pmt_pid :: x.pcr_pid
+    table#add_row (id :: info.name :: info.pmt_pid :: info.pcr_pid
                    :: None :: None :: None :: None :: []) in
   row#listen_lwt Widget.Event.click (fun _ _ ->
       let open Lwt.Infix in
@@ -174,7 +169,7 @@ let add_row (stream : Stream.t)
       let rate = React.S.value rate in
       let pids = React.S.value pids in
       let details =
-        Widget_service_info.make ?rate ?min ?max stream x pids control in
+        Widget_service_info.make ?rate ?min ?max stream (id, info) pids control in
       set_details @@ Some details;
       back#listen_once_lwt Widget.Event.click
       >|= (fun _ ->
@@ -192,11 +187,13 @@ let add_row (stream : Stream.t)
   |> Lwt.ignore_result
 
 class t (stream : Stream.t)
-        (timestamp : Time.t option)
-        (init : service_info list)
-        (pids : pids option)
+        (init : Service.t list timestamped option)
+        (pids : Pid.t list timestamped option)
         (control : int)
         () =
+  let init, timestamp = match init with
+    | None -> [], None
+    | Some { data; timestamp } -> data, Some timestamp in
   (* FIXME should remember previous state *)
   let is_hex = false in
   let table, on_change = make_table is_hex init in
@@ -220,35 +217,36 @@ class t (stream : Stream.t)
     inherit Card.t ~widgets:[ ] ()
 
     (** Adds new row to the overview *)
-    method add_row (s : service_info) =
+    method add_row (s : Service.t) =
       add_row stream primary media table pids rate set_details s control
 
     (** Updates PID list *)
-    method update_pids (pids : pids) : unit =
+    method update_pids (pids : Pid.t list timestamped) : unit =
       set_pids @@ Some pids;
       Option.iter (fun (x : Widget_service_info.t) -> x#update_pids pids)
       @@ React.S.value details
 
     (** Updates the overview *)
-    method update ({ timestamp; services } : services) =
+    method update ({ timestamp; data } : Service.t list timestamped) =
       (* Update timestamp *)
       _timestamp <- Some timestamp;
       (* Set timestamp in heading only if details view is not active *)
       primary#set_subtitle @@ make_timestamp_string _timestamp;
       (* Manage found, lost and updated items *)
       let prev = _data in
-      _data <- Set.of_list services;
+      _data <- Set.of_list data;
       let lost = Set.diff prev _data in
       let found = Set.diff _data prev in
       let inter = Set.inter prev _data in
-      let upd = Set.filter (fun (x : service_info) ->
-                    List.mem ~eq:equal_service_info x services) inter in
-      let find = fun (service : service_info) (row : 'a Table.Row.t) ->
+      let upd =
+        Set.filter (fun ((_, info) : Service.t) ->
+            List.mem ~eq:Service.equal_info info @@ List.map snd data) inter in
+      let find = fun ((id, _) : Service.t) (row : 'a Table.Row.t) ->
         let open Table in
-        let id = match row#cells with
+        let id' = match row#cells with
           | x :: _ -> x#value in
-        id = service.id in
-      Set.iter (fun (info : service_info) ->
+        id' = id in
+      Set.iter (fun (info : Service.t) ->
           (* TODO update details somehow to show that the service is lost *)
           begin match map_details details info with
           | Some details ->
@@ -259,7 +257,7 @@ class t (stream : Stream.t)
           match List.find_opt (find info) table#rows with
           | None -> ()
           | Some row -> table#remove_row row) lost;
-      Set.iter (fun (info : service_info) ->
+      Set.iter (fun (info : Service.t) ->
           (* Update details, if opened *)
           begin match map_details details info with
           | Some details -> details#update info
@@ -268,7 +266,7 @@ class t (stream : Stream.t)
           match List.find_opt (find info) table#rows with
           | None -> ()
           | Some row -> self#_update_row row info) upd;
-      Set.iter (fun (info : service_info) ->
+      Set.iter (fun (info : Service.t) ->
           (* Update details, if opened *)
           begin match map_details details info with
           | Some details ->
@@ -279,7 +277,7 @@ class t (stream : Stream.t)
           ignore @@ self#add_row info) found
 
     (** Updates bitrate values *)
-    method set_rate (rate : bitrate option) : unit =
+    method set_rate (rate : Bitrate.t option) : unit =
       set_rate rate;
       match rate with
       | None -> () (* FIXME do smth *)
@@ -288,12 +286,12 @@ class t (stream : Stream.t)
 
     (* Private methods *)
 
-    method private _update_row_rate (rate : bitrate) (row : 'a Table.Row.t) =
+    method private _update_row_rate (rate : Bitrate.t) (row : 'a Table.Row.t) =
       let open Table in
-      let id, cur, per, min, max = match row#cells with
+      let id', cur, per, min, max = match row#cells with
         | id :: _ :: _ :: _ :: a :: b :: c :: d :: _ -> id, a, b, c, d in
       (* XXX optimize search? It is a very frequent operation *)
-      match List.find_opt (fun (x : service_info) -> x.id = id#value)
+      match List.find_opt (fun ((id, _) : Service.t) -> id = id'#value)
             @@ Set.to_list _data with
       | None -> ()
       | Some info ->
@@ -307,14 +305,14 @@ class t (stream : Stream.t)
          max#set_value @@ Some lst;
          iter (fun x -> x#set_rate @@ Some { rate with pids = lst }) details
 
-    method private _update_row (row : 'a Table.Row.t) (service : service_info) =
+    method private _update_row (row : 'a Table.Row.t) ((id, info) : Service.t) =
       let open Table in
       match row#cells with
-      | id :: name :: pmt :: pcr :: _ ->
-         id#set_value service.id;
-         name#set_value service.name;
-         pmt#set_value service.pmt_pid;
-         pcr#set_value service.pcr_pid
+      | id' :: name :: pmt :: pcr :: _ ->
+         id'#set_value id;
+         name#set_value info.name;
+         pmt#set_value info.pmt_pid;
+         pcr#set_value info.pcr_pid
 
     initializer
       self#_keep_e
@@ -333,26 +331,34 @@ class t (stream : Stream.t)
 let lwt_l2 (a : 'a Lwt.t) (b : 'b Lwt.t) =
   a >>= fun a -> b >|= fun b -> a, b
 
-let map_init = function
-  | None -> None, []
-  | Some (x : services) -> Some x.timestamp, x.services
-
-let make ?(init : (services option, string) Lwt_result.t option)
-      ?(pids : (pids option, string) Lwt_result.t option)
+let make ?(init : (services, string) Lwt_result.t option)
+      ?(pids : (pids, string) Lwt_result.t option)
       (stream : Stream.t)
       (control : int) =
-  let init = match init with
+  let init =
+    begin match init with
     | Some x -> x
     | None ->
        let open Requests.Streams.HTTP in
-       get_last_services ~id:stream.id control in
-  let pids = match pids with
+       get_services ~ids:[stream.id] control
+       |> Lwt_result.map_err Api_js.Requests.err_to_string
+    end
+    >|= function
+    | [(_, x)] -> Some x
+    | _ -> None in (* FIXME show error *)
+  let pids =
+    begin match pids with
     | Some x -> x
     | None ->
        let open Requests.Streams.HTTP in
-       get_last_pids ~id:stream.id control in
-  lwt_l2 (init >|= map_init) pids
-  >|= (fun ((ts, data), pids) -> new t stream ts data pids control ())
+       get_pids ~ids:[stream.id] control
+       |> Lwt_result.map_err Api_js.Requests.err_to_string
+    end
+  >|= function
+    | [(_, x)] -> Some x
+    | _ -> None in (* FIXME show error *)
+  lwt_l2 init pids
+  >|= (fun (services, pids) -> new t stream services pids control ())
   |> Ui_templates.Loader.create_widget_loader
 
 

@@ -8,8 +8,9 @@ open Api_js.Api_types
 open Components
 
 let get_stream id control =
-  Requests.Streams.HTTP.get_streams
-    ~compress:true ~limit:1 ~ids:[id] control
+  Requests.History.HTTP.Streams.get
+    ~compress:true
+    ~ids:[id] control
 
 let () =
   let arbitrary = Dom_html.getElementById "arbitrary-content"

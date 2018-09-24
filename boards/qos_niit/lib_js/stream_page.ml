@@ -3,7 +3,7 @@ open Components
 open Api_js.Requests
 open Lwt_result.Infix
 open Common
-open Board_types.Streams.TS
+open Board_types
 
 let ( >>* ) x f = Lwt_result.map_err f x
 let ( % ) = Fun.( % )
@@ -16,8 +16,10 @@ let errors ({ id; _ } as stream : Stream.t) control =
   let sock_lwt =
     overview#thread
     >|= fun w ->
-    let e, sock = Requests.Streams.WS.Errors.get_errors ~id control in
-    let e = React.E.map (List.iter (ignore % w#prepend_error)) e in
+    let e, sock = Requests.Streams.WS.get_errors ~ids:[id] control in
+    let e = React.E.map (
+                List.iter (fun (_, x) ->
+                    List.iter (ignore % w#prepend_error) x)) e in
     e, sock in
   let box =
     let open Layout_grid in
@@ -38,20 +40,25 @@ let errors ({ id; _ } as stream : Stream.t) control =
 let services ({ id; _ } as stream : Stream.t) control =
   let overview = Widget_services_overview.make stream control in
   let sock_lwt =
+    let open React in
     overview#thread
     >|= fun w ->
-    let rate, rate_sock = Requests.Streams.WS.get_bitrate ~id control in
-    let pids, pids_sock = Requests.Streams.WS.get_pids ~id control in
-    let e, sock = Requests.Streams.WS.get_services ~id  control in
-    let e = React.E.map w#update e in
-    let pids = React.E.map w#update_pids pids in
-    let rate = React.E.map (w#set_rate % Option.return) rate in
+    let rate, rate_sock = Requests.Streams.WS.get_bitrate ~ids:[id] control in
+    let pids, pids_sock = Requests.Streams.WS.get_pids ~ids:[id] control in
+    let e, sock = Requests.Streams.WS.get_services ~ids:[id]  control in
+    let e = E.map (function [(_, x)] -> w#update x | _ -> ()) e in
+    let pids = E.map (function [(_, x)] -> w#update_pids x | _ -> ()) pids in
+    let rate =
+      E.map (function
+          | [(_, (x : Bitrate.t timestamped))] ->
+             w#set_rate @@ Option.return x.data
+          | _ -> ()) rate in
     e, sock, pids, pids_sock, rate, rate_sock in
   let box =
     let open Layout_grid in
     let open Typography in
     let span = 12 in
-    let overview_cell = new Cell.t ~span ~widgets:[ overview ] () in
+    let overview_cell = new Cell.t ~span ~widgets:[overview] () in
     let cells = [overview_cell] in
     new t ~cells () in
   box#set_on_destroy
@@ -68,15 +75,16 @@ let services ({ id; _ } as stream : Stream.t) control =
   box#widget
 
 let pids ({ id; _ } as stream : Stream.t) control =
-  let init = Requests.Streams.HTTP.get_last_pids ~id control in
+  let init = Requests.Streams.HTTP.get_pids ~ids:[id] control
+             |> Lwt_result.map_err Api_js.Requests.err_to_string in
   let summary = Widget_pids_summary.make ~init stream control in
   let overview = Widget_pids_overview.make ~init stream control in
   let ws_lwt =
     Lwt.choose [ summary#thread >|= Widget.coerce
                ; overview#thread >|= Widget.coerce ]
     >|= fun _ ->
-    (Requests.Streams.WS.get_bitrate ~id control),
-    (Requests.Streams.WS.get_pids ~id control) in
+    (Requests.Streams.WS.get_bitrate ~ids:[id] control),
+    (Requests.Streams.WS.get_pids ~ids:[id] control) in
   let rate =
     Lwt_react.E.delay
     @@ Lwt.bind ws_lwt
@@ -90,15 +98,27 @@ let pids ({ id; _ } as stream : Stream.t) control =
           | Ok (_, x) -> Lwt.return @@ fst x
           | Error e -> Lwt.fail_with e) in
   let summary_state_lwt =
+    let open React in
     summary#thread
     >|= fun w ->
-    React.E.map w#update pids,
-    React.E.map (w#set_rate % Option.return) rate in
+    let pids = E.map (function [(_, x)] -> w#update x | _ -> ()) pids in
+    let rate =
+      E.map (function
+          | [(_, (x : Bitrate.t timestamped))] ->
+             w#set_rate @@ Option.return x.data
+          | _ -> ()) rate in
+    pids, rate in
   let overview_state_lwt =
+    let open React in
     overview#thread
     >|= fun w ->
-    React.E.map w#update pids,
-    React.E.map (w#set_rate % Option.return) rate in
+    let pids = E.map (function [(_, x)] -> w#update x | _ -> ()) pids in
+    let rate =
+      E.map (function
+          | [(_, (x : Bitrate.t timestamped))] ->
+             w#set_rate @@ Option.return x.data
+          | _ -> ()) rate in
+    pids, rate in
   let box =
     let open Layout_grid in
     let open Typography in
@@ -131,14 +151,19 @@ let pids ({ id; _ } as stream : Stream.t) control =
   box#widget
 
 let tables ({ id; _ } as stream : Stream.t) control =
+  let open React in
   let overview = Widget_tables_overview.make stream control in
   let sock_lwt =
     overview#thread
     >|= fun w ->
-    let rate, rate_sock = Requests.Streams.WS.get_bitrate ~id control in
-    let e, sock = Requests.Streams.WS.get_tables ~id  control in
-    let e = React.E.map w#update e in
-    let rate = React.E.map w#set_rate rate in
+    let rate, rate_sock = Requests.Streams.WS.get_bitrate ~ids:[id] control in
+    let e, sock = Requests.Streams.WS.get_tables ~ids:[id] control in
+    let e = E.map (function [(_, x)] -> w#update x | _ -> ()) e in
+    let rate =
+      E.map (function
+          | [(_, (x : Bitrate.t timestamped))] ->
+             w#set_rate x.data
+          | _ -> ()) rate in
     e, sock, rate, rate_sock in
   let box =
     let open Layout_grid in

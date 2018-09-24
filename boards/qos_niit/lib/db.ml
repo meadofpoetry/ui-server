@@ -44,7 +44,7 @@ module Model = struct
     ; streams : string
     ; ts_info : string
     ; services : string
-    ; tables : string
+    ; si_psi_sections : string
     ; pids : string
     ; t2mi_info : string
     ; bitrate : string
@@ -110,11 +110,22 @@ module Model = struct
       ; "date_end", key "TIMESTAMP"
       ]
 
-  let keys_tables =
-    make_keys ~time_key:"date"
-      [ "stream", key ID.typ
-      ; "data", key "TEXT"
-      ; "date", key "TIMESTAMP"
+  let keys_si_psi_sections =
+    make_keys ~time_key:"date_end"
+      [ "stream", key ~primary:true ID.typ
+      ; "table_id", key ~primary:true "INTEGER"
+      ; "table_id_ext", key ~primary:true "INTEGER"
+      ; "id_ext_1", key ~primary:true "INTEGER"
+      ; "id_ext_2", key ~primary:true "INTEGER"
+      ; "section", key ~primary:true "INTEGER"
+      ; "pid", key "INTEGER"
+      ; "version", key "INTEGER"
+      ; "service_id", key "INTEGER"
+      ; "section_syntax", key "BOOL"
+      ; "last_section", key "INTEGER"
+      ; "length", key "INTEGER"
+      ; "date_start", key ~primary:true "TIMESTAMP"
+      ; "date_end", key "TIMESTAMP"
       ]
 
   let keys_pids =
@@ -176,7 +187,7 @@ module Model = struct
       ; streams = "qos_niit_streams_" ^ id
       ; ts_info = "qos_niit_ts_info_" ^ id
       ; services = "qos_niit_services_" ^ id
-      ; tables = "qos_niit_tables_" ^ id
+      ; si_psi_sections = "qos_niit_si_psi_sections_" ^ id
       ; pids = "qos_niit_pids_" ^ id
       ; t2mi_info = "qos_niit_t2mi_info_" ^ id
       ; bitrate = "qos_niit_bitrate_" ^ id
@@ -185,16 +196,16 @@ module Model = struct
       }
     in
     names,
-    [ names.state,        keys_state,        None
-    ; names.streams,      keys_streams,      None
-    ; names.ts_info,      keys_ts_info,      None
-    ; names.services,     keys_services,     None
-    ; names.tables,       keys_tables,       None
-    ; names.pids,         keys_pids,         None
-    ; names.t2mi_info,    keys_t2mi_info,    None
-    ; names.bitrate,      keys_bitrate,      None
+    [ names.state, keys_state, None
+    ; names.streams, keys_streams, None
+    ; names.ts_info, keys_ts_info, None
+    ; names.services, keys_services, None
+    ; names.si_psi_sections, keys_si_psi_sections, None
+    ; names.pids, keys_pids, None
+    ; names.t2mi_info, keys_t2mi_info, None
+    ; names.bitrate, keys_bitrate, None
     ; names.pids_bitrate, keys_pids_bitrate, None
-    ; names.errors,       keys_errors,       None
+    ; names.errors, keys_errors, None
     ]
 
 end
@@ -431,10 +442,11 @@ module Streams = struct
       list select (from, till, limit) >>= fun l ->
       try let data =
             List.map (fun (s,f,t) ->
-                Result.get_exn
-                @@ Common.Stream.of_yojson
-                @@ Yojson.Safe.from_string s,
-                f,t) l
+                { data = Result.get_exn
+                         @@ Common.Stream.of_yojson
+                         @@ Yojson.Safe.from_string s
+                ; from = f
+                ; till = t }) l
           in return @@ Ok (Raw { data
                                ; has_more = List.length data >= limit
                                ; order = `Desc })
@@ -645,6 +657,7 @@ module Pids = struct
                  ; scrambled
                  ; present
                  ; service_id
+                 ; service_name = None
                  ; typ
                  } in
                (ID.of_db id, { from; till; data = (pid, data) })))
@@ -734,7 +747,7 @@ module Errors = struct
   let error =
     Types.custom
       Types.(List.(ID.db & int & int & int & int & bool
-                   & int & int32 & int32 & int32 & ptime & option string))
+                   & int & int32 & int32 & int32 & ptime & option int))
       ~encode:(fun (id, (err : Error.t)) ->
         Ok (ID.to_db id,
             (err.count,
@@ -746,7 +759,7 @@ module Errors = struct
                   (err.packet,
                    (err.param_1,
                     (err.param_2,
-                     (err.timestamp, err.service))))))))))))
+                     (err.timestamp, err.service_id))))))))))))
       ~decode:(fun (id,
                     (count,
                      (err_code,
@@ -757,7 +770,7 @@ module Errors = struct
                           (packet,
                            (param_1,
                             (param_2,
-                             (timestamp, service))))))))))) ->
+                             (timestamp, service_id))))))))))) ->
         let error =
           { timestamp
           ; count
@@ -766,7 +779,8 @@ module Errors = struct
           ; priority
           ; multi_pid
           ; pid
-          ; service
+          ; service_id
+          ; service_name = None
           ; packet
           ; param_1
           ; param_2
@@ -896,9 +910,10 @@ module Errors = struct
            acc >>= fun acc ->
            Device.select_state_compressed_internal db ~from ~till
            >>= fun { fine; _ } ->
-           Lwt.return ( { errors    = 100. *. p /. fine
-                        ; no_stream = 100. -. fine
-                        ; period    = from, till } :: acc))
+           let data =
+             { errors = 100. *. p /. fine
+             ; no_stream = 100. -. fine } in
+           Lwt.return ({ from; till; data } :: acc))
          (Lwt.return []) l
        >|= fun data -> Compressed { data }
 

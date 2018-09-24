@@ -109,17 +109,6 @@ type group =
   ; events : board_event list
   } [@@deriving show]
 
-(* Helper types *)
-
-type bitrates = (Stream.ID.t * Bitrate.t timestamped) list
-type ts_info = (Stream.ID.t * Ts_info.t timestamped) list
-type services = (Stream.ID.t * (Service.t list timestamped)) list
-type tables = (Stream.ID.t * (SI_PSI_table.t list timestamped)) list
-type t2mi_info = (Stream.ID.t * T2mi_info.t list timestamped) list
-type errors = (Stream.ID.t * (Error.t list)) list
-
-type pids = (Stream.ID.t * Pid.t list timestamped) list [@@deriving eq, yojson]
-
 (* API *)
 
 type jitter_req =
@@ -154,11 +143,10 @@ type section_req =
 and section_params =
   { stream_id : Stream.Multi_TS_ID.t
   ; table_id : int
-  ; section : int option (* needed for tables containing multiple sections *)
-  ; table_id_ext : int option (* needed for tables with extra parameter,
-                               * like ts id for PAT *)
-  ; ext_info_1 : int option (* ts_id for EIT, orig_nw_id for SDT *)
-  ; ext_info_2 : int option (* orig_nw_id for EIT *)
+  ; table_id_ext : int option
+  ; id_ext_1 : int option (* ts_id for EIT, orig_nw_id for SDT *)
+  ; id_ext_2 : int option (* orig_nw_id for EIT *)
+  ; section : int option
   } [@@deriving yojson, show]
 
 type api =
@@ -170,13 +158,13 @@ type api =
   ; get_section :
       ?section:int ->
       ?table_id_ext:int ->
-      ?ext_info_1:int ->
-      ?ext_info_2:int ->
+      ?id_ext_1:int ->
+      ?id_ext_2:int ->
       id:Stream.ID.t ->
       table_id:int ->
       unit ->
-      (SI_PSI_section.t timestamped,
-       SI_PSI_section.dump_error) Lwt_result.t
+      (SI_PSI_section.Dump.t timestamped,
+       SI_PSI_section.Dump.error) Lwt_result.t
   ; reset : unit -> unit Lwt.t
   ; config : unit -> config
   ; get_streams :
@@ -188,6 +176,7 @@ type api =
   ; get_ts_info : unit -> ts_info Lwt.t
   ; get_pids : unit -> pids Lwt.t
   ; get_services : unit -> services Lwt.t
+  ; get_sections : unit -> sections Lwt.t
   ; get_tables : unit -> tables Lwt.t
   ; get_t2mi_info : unit -> t2mi_info Lwt.t
   }
@@ -211,6 +200,7 @@ type ts_events =
   { info : ts_info signal
   ; services : services signal
   ; tables : tables signal
+  ; sections : sections signal
   ; pids : pids signal
   ; bitrates : bitrates event
   ; errors : errors event

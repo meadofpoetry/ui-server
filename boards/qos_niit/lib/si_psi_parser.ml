@@ -1,5 +1,5 @@
 open Containers
-open Board_types.SI_PSI_section
+open Board_types.SI_PSI_section.Dump
 
 let ( % ) = Fun.( % )
 
@@ -14,7 +14,7 @@ end
 let value_to_string name x = Printf.sprintf "%s (%d)" name x
 let rfu_to_string          = value_to_string "Reserved"
 
-let to_node ?parsed ~offset length name value =
+let to_node ?parsed ~offset length name value : node =
   { offset; length; name; value = value, parsed }
 
 let parse_date (days:int) : Ptime.date option =
@@ -69,7 +69,8 @@ let parse_duration (bs:Bitstring.t) : Ptime.span option =
   let ts   = Option.flat_map (fun x -> Ptime.of_date_time (date, x)) time in
   Option.map Ptime.to_span ts
 
-let parsed_length = List.fold_left (fun acc x -> x.length + acc) 0
+let parsed_length : node list -> int =
+  List.fold_left (fun acc (x : node) -> x.length + acc) 0
 
 let rec parse_bytes ?bytes ~offset x str =
   let bytes = match bytes with

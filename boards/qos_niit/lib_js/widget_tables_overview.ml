@@ -1,7 +1,7 @@
 open Containers
 open Components
 open Common
-open Board_types.Streams.TS
+open Board_types
 open Lwt_result.Infix
 open Api_js.Api_types
 open Widget_common
@@ -19,20 +19,11 @@ let failure_class = Markup.CSS.add_modifier base_class "failure"
 let settings = None
 
 module Table_info = struct
-  type t = table_info
 
-  type id =
-    { id : int
-    ; id_ext : int
-    ; ext_info : ext_info
-    ; pid : int
-    } [@@deriving ord]
-
-  let to_id ({ id; id_ext; ext_info; pid; _ } : t) : id =
-    { id; id_ext; ext_info; pid }
+  include SI_PSI_table
 
   let compare (a : t) (b : t) : int =
-    compare_id (to_id a) (to_id b)
+    compare_id (fst a) (fst b)
 
   let equal (a : t) (b : t) : bool =
     0 = compare a b
@@ -43,7 +34,7 @@ module Set = Set.Make(Table_info)
 
 (** Returns string representing human-readable section name *)
 let to_table_name ?(is_hex = false) table_id table_id_ext
-      service (ext_info : ext_info) =
+      id_ext_1 id_ext_2 service =
   let open Printf in
   let divider  = ", " in
   let name     = Mpeg_ts.(table_to_string @@ table_of_int table_id) in
@@ -59,36 +50,36 @@ let to_table_name ?(is_hex = false) table_id table_id_ext
     | `PMT -> Some [ id ?service "program" table_id_ext ]
     | `NIT _ -> Some [ id "network_id" table_id_ext ]
     | `SDT _ -> Some [ id "tsid" table_id_ext
-                     ; id "onid" ext_info.ext_1 ]
+                     ; id "onid" id_ext_1 ]
     | `BAT -> Some [ id "bid" table_id_ext ]
     | `EIT _ -> Some [ id ?service "sid" table_id_ext
-                     ; id "tsid" ext_info.ext_1
-                     ; id "onid" ext_info.ext_2 ]
+                     ; id "tsid" id_ext_1
+                     ; id "onid" id_ext_2 ]
     | _ -> None in
   match specific with
   | Some l -> name, String.concat divider (base :: l)
   | None -> name, base
 
 (** Returns HTML element to insert into 'Extra' table column *)
-let to_table_extra ?(hex = false) (x : table_info) =
-  let id = match hex with
+let to_table_extra ?(hex = false) ((id, info) : SI_PSI_table.t) =
+  let to_id_string = match hex with
     | true  -> Printf.sprintf "0x%02X"
     | false -> Printf.sprintf "%d" in
-  let specific = match Mpeg_ts.table_of_int x.id with
-    | `PAT   -> Some [ "tsid", x.id_ext ]
-    | `PMT   -> Some [ "program", x.id_ext ]
-    | `NIT _ -> Some [ "network_id", x.id_ext ]
-    | `SDT _ -> Some [ "tsid", x.id_ext
-                     ; "onid", x.ext_info.ext_1 ]
-    | `BAT   -> Some [ "bid", x.id_ext ]
-    | `EIT _ -> Some [ "onid", x.ext_info.ext_1
-                     ; "tsid", x.ext_info.ext_2
-                     ; "sid",  x.id_ext ]
+  let specific = match Mpeg_ts.table_of_int id.table_id with
+    | `PAT   -> Some [ "tsid", id.table_id_ext ]
+    | `PMT   -> Some [ "program", id.table_id_ext ]
+    | `NIT _ -> Some [ "network_id", id.table_id_ext ]
+    | `SDT _ -> Some [ "tsid", id.table_id_ext
+                     ; "onid", id.id_ext_1 ]
+    | `BAT   -> Some [ "bid", id.table_id_ext ]
+    | `EIT _ -> Some [ "onid", id.id_ext_1
+                     ; "tsid", id.id_ext_2
+                     ; "sid",  id.table_id_ext ]
     | _      -> None in
   let open Tyxml_js.Html in
   let wrap x =
     List.mapi (fun i (s, v) ->
-        let v = id v in
+        let v = to_id_string v in
         let v = if i = pred @@ List.length x then v else v ^ ", " in
         span [ span ~a:[ a_class [ Typography.Markup.subtitle2_class ]]
                  [pcdata (s ^ ": ")]
@@ -106,21 +97,21 @@ let make_back () =
   back#add_class @@ Markup.CSS.add_element base_class "back";
   back
 
-let section_fmt : 'a list Table.custom =
+let section_fmt : 'a. unit -> 'a list Components.Table.custom = fun () -> 
   { is_numeric = true
   ; compare = (fun x y -> Int.compare (List.length x) (List.length y))
   ; to_string = Fun.(string_of_int % List.length) }
 
 let make_table (is_hex : bool)
-      (init : table_info list) =
+      (init : SI_PSI_table.t list) =
   let open Table in
   let dec_ext_fmt =
     Custom_elt { is_numeric = false
-               ; compare = compare_table_info
+               ; compare = SI_PSI_table.compare
                ; to_elt = to_table_extra } in
   let hex_ext_fmt =
     Custom_elt { is_numeric = false
-               ; compare = compare_table_info
+               ; compare = SI_PSI_table.compare
                ; to_elt = to_table_extra ~hex:true } in
   let dec_pid_fmt = Int (Some (Printf.sprintf "%d")) in
   let hex_pid_fmt = Int (Some (Printf.sprintf "0x%04X")) in
@@ -135,7 +126,7 @@ let make_table (is_hex : bool)
     :: (to_column "Доп. инфо", dec_ext_fmt)
     :: (to_column ~sortable:true "Версия", Int None)
     :: (to_column ~sortable:true "Сервис", Option (String None, ""))
-    :: (to_column "Кол-во секций", Custom section_fmt)
+    :: (to_column "Кол-во секций", Custom (section_fmt ()))
     :: (to_column "LSN", Int None)
     :: (to_column "Битрейт, Мбит/с", br_fmt)
     :: (to_column "%", pct_fmt)
@@ -154,17 +145,18 @@ let make_table (is_hex : bool)
   if is_hex then on_change true;
   table, on_change
 
-let table_info_to_data (x : table_info) =
+let table_info_to_data ((id, info) : SI_PSI_table.t) =
   let open Table.Data in
-  let name = Mpeg_ts.(table_to_string @@ table_of_int x.id) in
-  let sections = List.map (fun x -> x, None) x.sections in
-  x.id :: x.pid :: name :: x :: x.version
-  :: x.service :: sections :: x.last_section
+  let name = Mpeg_ts.(table_to_string @@ table_of_int id.table_id) in
+  let sections = List.map (fun x -> x, None) info.sections in
+  id.table_id :: info.pid :: name :: (id, info) :: info.version
+  :: info.service_name :: sections :: info.last_section
   :: None :: None :: None :: None :: []
 
 let make_dump_title ?is_hex
-      ({ id; id_ext; ext_info; service; _ } : table_info) =
-  to_table_name ?is_hex id id_ext service ext_info
+      (({ table_id; table_id_ext; id_ext_1; id_ext_2; _ } : SI_PSI_table.id),
+       ({ service_name; _ } : SI_PSI_table.info)) =
+  to_table_name ?is_hex table_id table_id_ext id_ext_1 id_ext_2 service_name
 
 module Heading = struct
 
@@ -194,9 +186,9 @@ let add_row (table : 'a Table.t)
       (hex : bool React.signal)
       (media : Card.Media.t)
       (control : int)
-      (set_dump : (table_info * Widget_tables_dump.t) option -> unit)
-      (x : table_info) =
-  let row = table#add_row (table_info_to_data x) in
+      (set_dump : (SI_PSI_table.t * Widget_tables_dump.t) option -> unit)
+      ((id, info) : SI_PSI_table.t) =
+  let row = table#add_row (table_info_to_data (id, info)) in
   row#listen_click_lwt (fun _ _ ->
       let open Lwt.Infix in
       let cell =
@@ -205,18 +197,19 @@ let add_row (table : 'a Table.t)
         | _ :: _ :: _ :: _ :: _ :: _ :: x :: _ -> x in
       let back = make_back () in
       let is_hex = React.S.value hex in
-      let title, subtitle = make_dump_title ~is_hex x in
+      let title, subtitle = make_dump_title ~is_hex (id, info) in
       primary#set_title title;
       primary#set_subtitle subtitle;
       let dump =
         new Widget_tables_dump.t
           ~config:{ stream }
           ~sections:cell#value
-          ~id:x.id
-          ~id_ext:x.id_ext
-          ~ext_info:x.ext_info
+          ~table_id:id.table_id
+          ~table_id_ext:id.table_id_ext
+          ~id_ext_1:id.id_ext_1
+          ~id_ext_2:id.id_ext_2
           control () in
-      set_dump @@ Some (x, dump);
+      set_dump @@ Some ((id, info), dump);
       back#listen_once_lwt Widget.Event.click
       >|= (fun _ ->
         let sections = List.map (fun i -> i#value) dump#list#items in
@@ -240,10 +233,12 @@ let add_row (table : 'a Table.t)
   row
 
 class t (stream : Stream.t)
-        (timestamp : Time.t option)
-        (init : table_info list)
+        (init : SI_PSI_table.t list timestamped option)
         (control : int)
         () =
+  let init, timestamp = match init with
+    | None -> [], None
+    | Some { data; timestamp } -> data, Some timestamp in
   (* FIXME should remember preffered state *)
   let is_hex = false in
   let table, on_change = make_table is_hex init in
@@ -271,7 +266,7 @@ class t (stream : Stream.t)
     inherit Card.t ~widgets:[ ] ()
 
     (** Adds new row to the overview *)
-    method add_row (t : table_info) =
+    method add_row (t : SI_PSI_table.t) =
       add_row table stream primary hex#input_widget#s_state
         media control set_dump t
 
@@ -282,17 +277,17 @@ class t (stream : Stream.t)
       ()
 
     (** Updates bitrate values *)
-    method set_rate (x : bitrate) : unit =
+    method set_rate (x : Bitrate.t) : unit =
       let rec aux = function
         | [], _ -> ()
         | _, [] -> ()
-        | (rate : table_bitrate) :: tl, rows ->
+        | (rate : Bitrate.table) :: tl, rows ->
            let find (row : 'a Table.Row.t) =
-             let x : table_info = self#_row_to_table_info row in
-             x.id = rate.id
-             && x.id_ext = rate.id_ext
-             && x.ext_info.ext_1 = rate.ext_info_1
-             && x.ext_info.ext_2 = rate.ext_info_2 in
+             let ((id, info) : SI_PSI_table.t) = self#_row_to_table_info row in
+             id.table_id = rate.table_id
+             && id.table_id_ext = rate.table_id_ext
+             && id.id_ext_1 = rate.id_ext_1
+             && id.id_ext_2 = rate.id_ext_2 in
            match List.find_opt find rows with
            | None ->
               aux (tl, rows)
@@ -322,7 +317,8 @@ class t (stream : Stream.t)
       aux (x.tables, table#rows)
 
     (** Updates the overview *)
-    method update ({ timestamp; tables } : tables) =
+    method update ({ timestamp; data } : SI_PSI_table.t list timestamped) =
+      let open SI_PSI_table in
       (* Update timestamp *)
       _timestamp <- Some timestamp;
       (* Set timestamp in a heading only if dump view is not active *)
@@ -332,21 +328,21 @@ class t (stream : Stream.t)
       end;
       (* Manage found, lost and updated items *)
       let prev = _data in
-      _data <- Set.of_list tables;
+      _data <- Set.of_list data;
       let lost = Set.diff prev _data in
       let found = Set.diff _data prev in
       let inter = Set.inter prev _data in
-      let upd = Set.filter (fun (x : table_info) ->
-                    List.mem ~eq:equal_table_info x tables) inter in
-      let find = fun (table : table_info) (row : 'a Table.Row.t) ->
+      let upd = Set.filter (fun ((_, info) : t) ->
+                    List.mem ~eq:equal_info info @@ List.map snd data) inter in
+      let find = fun (table : t) (row : 'a Table.Row.t) ->
         let open Table in
         let info = self#_row_to_table_info row in
         Table_info.equal table info in
-      Set.iter (fun (info : table_info) ->
+      Set.iter (fun (info : t) ->
           match List.find_opt (find info) table#rows with
           | None -> ()
           | Some row -> table#remove_row row) lost;
-      Set.iter (fun (info : table_info) ->
+      Set.iter (fun (info : t) ->
           match List.find_opt (find info) table#rows with
           | None -> ()
           | Some row -> self#_update_row row info) upd;
@@ -354,8 +350,9 @@ class t (stream : Stream.t)
 
     (* Private methods *)
 
-    method private _update_row (row : 'a Table.Row.t) (x : table_info) =
+    method private _update_row (row : 'a Table.Row.t) ((id, info) : SI_PSI_table.t) =
       let open Table in
+      let open SI_PSI_table in
       begin match row#cells with
       | _ :: _ :: _ :: _ :: ver :: serv :: sect :: lsn :: _ ->
          let sections =
@@ -364,11 +361,11 @@ class t (stream : Stream.t)
                            sect#value in
                match  res with
                | Some (_, dump) -> x, dump
-               | None -> x, None) x.sections in
-         ver#set_value x.version;
-         serv#set_value x.service;
+               | None -> x, None) info.sections in
+         ver#set_value info.version;
+         serv#set_value info.service_name;
          sect#set_value sections;
-         lsn#set_value x.last_section
+         lsn#set_value info.last_section
       end
 
     method private _row_to_table_info (row : 'a Table.Row.t) =
@@ -392,14 +389,17 @@ class t (stream : Stream.t)
       self#append_child media;
   end
 
-let make ?(init : tables option)
+let make ?(init : (tables, string) Lwt_result.t option)
       (stream : Stream.t)
       control =
   let init = match init with
-    | Some x -> Lwt_result.return (Some x.timestamp, x.tables)
+    | Some x -> x
     | None ->
        let open Requests_streams.HTTP in
-       get_last_tables ~id:stream.id control in
+       get_tables ~ids:[stream.id] control
+       |> Lwt_result.map_err Api_js.Requests.err_to_string in
   init
-  >|= (fun (ts, data) -> new t stream ts data control ())
+  >|= (function
+       | [(_, x)] -> new t stream (Some x) control ()
+       | _ -> new t stream None control ()) (* FIXME show error *)
   |> Ui_templates.Loader.create_widget_loader

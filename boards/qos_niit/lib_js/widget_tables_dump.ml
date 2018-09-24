@@ -1,7 +1,8 @@
 open Containers
 open Components
 open Common
-open Board_types.Streams.TS
+open Board_types
+open Board_types.SI_PSI_section
 open Lwt_result.Infix
 open Api_js.Api_types
 open Ui_templates.Sdom
@@ -18,33 +19,32 @@ let base_class = "qos-niit-tables"
 
 let ( % ) = Fun.( % )
 
-let req_of_table table_id table_id_ext (ext_info : ext_info) section =
-  let r =
-    Requests.Streams.HTTP.get_si_psi_section
-      ~table_id ~section:section in
+let req_of_table table_id table_id_ext id_ext_1 id_ext_2 section =
+  let r = Requests.Streams.HTTP.get_si_psi_section
+            ~table_id ~section:section in
   match Mpeg_ts.table_of_int table_id with
-  | `PAT -> r ~table_id_ext ?ext_info_1:None ?ext_info_2:None
-  | `PMT -> r ~table_id_ext ?ext_info_1:None ?ext_info_2:None
-  | `NIT _ -> r ~table_id_ext ?ext_info_1:None ?ext_info_2:None
-  | `SDT _ -> r ~table_id_ext ~ext_info_1:ext_info.ext_1 ?ext_info_2:None
-  | `BAT -> r ~table_id_ext ?ext_info_1:None ?ext_info_2:None
-  | `EIT _ -> r ~table_id_ext
-                ~ext_info_1:ext_info.ext_1
-                ~ext_info_2:ext_info.ext_2
-  | _ -> r ?table_id_ext:None ?ext_info_1:None ?ext_info_2:None
+  | `PAT -> r ~table_id_ext ?id_ext_1:None ?id_ext_2:None
+  | `PMT -> r ~table_id_ext ?id_ext_1:None ?id_ext_2:None
+  | `NIT _ -> r ~table_id_ext ?id_ext_1:None ?id_ext_2:None
+  | `SDT _ -> r ~table_id_ext ~id_ext_1 ?id_ext_2:None
+  | `BAT -> r ~table_id_ext ?id_ext_1:None ?id_ext_2:None
+  | `EIT _ -> r ~table_id_ext ~id_ext_1 ~id_ext_2
+  | _ -> r ?table_id_ext:None ?id_ext_1:None ?id_ext_2:None
 
 module Section = struct
 
+  open SI_PSI_table
+
   module Id = Int
 
-  type model  = section_info * section option
-  type widget = (section_info * section option) Item_list.Item.t
+  type model  = section_info * Dump.t timestamped option
+  type widget = (section_info * Dump.t timestamped option) Item_list.Item.t
 
   let equal_model (a : model) (b : model) =
     equal_section_info (fst a) (fst b)
 
   let widget = fun w -> w#widget
-  let id_of_model = fun ((x : section_info), _) -> x.id
+  let id_of_model = fun ((x : section_info), _) -> x.section
 
   let make (init : model) =
     let bytes, update_bytes =
@@ -65,7 +65,7 @@ module Section = struct
                  ~value:init () in
     let to_primary = Printf.sprintf "ID: %d" in
     let update_primary =
-      { get = (fun (x : model) -> (fst x).id)
+      { get = (fun (x : model) -> (fst x).section)
       ; eq = (=)
       ; upd = (fun id ->
         let s = to_primary id in
@@ -82,9 +82,11 @@ end
 
 module Sections =
   Make_array(struct
+      open SI_PSI_table
+
       module Node = Section
 
-      type widget = (section_info * section option) Item_list.t
+      type widget = (section_info * Dump.t timestamped option) Item_list.t
 
       let root (w : widget) = w#root
 
@@ -110,7 +112,7 @@ module Sections =
     end)
 
 let make_list
-      (sections : (section_info * section option) list)
+      (sections : (SI_PSI_table.section_info * Dump.t timestamped option) list)
       (control : int) =
   let list, update_list = Sections.make sections in
   list#set_dense true;
@@ -195,7 +197,7 @@ let make_dump_header base_class () =
   header#add_class header_class;
   header#widget, title, subtitle, button
 
-let integer_to_dec = function
+let integer_to_dec : Dump.integer -> string = function
   | Bool x -> if x then "1" else "0"
   | Int x -> string_of_int x
   | Int32 x -> Int32.to_string x
@@ -204,7 +206,7 @@ let integer_to_dec = function
   | Uint32 x -> Printf.sprintf "%lu" x
   | Uint64 x -> Printf.sprintf "%Lu" x
 
-let integer_to_hex = function
+let integer_to_hex : Dump.integer -> string = function
   | Bool x -> if x then "1" else "0"
   | Int x -> Printf.sprintf "0x%X" x
   | Int32 x -> Printf.sprintf "0x%lX" x
@@ -213,7 +215,7 @@ let integer_to_hex = function
   | Uint32 x -> Printf.sprintf "0x%lX" x
   | Uint64 x -> Printf.sprintf "0x%LX" x
 
-let integer_to_bits = function
+let integer_to_bits : Dump.integer -> string = function
   | Bool x -> if x then "1" else "0"
   | Int x -> Printf.sprintf "0x%X" x
   | Int32 x -> Printf.sprintf "0x%lX" x
@@ -222,8 +224,9 @@ let integer_to_bits = function
   | Uint32 x -> Printf.sprintf "0x%lX" x
   | Uint64 x -> Printf.sprintf "0x%LX" x
 
-let make_tree (x : parsed) =
-  let value_to_string = function
+let make_tree (x : Dump.parsed) =
+  let open Dump in
+  let value_to_string : value -> string = function
     | Bytes s -> String.concat " "
                  @@ List.map Fun.(String.of_char % Char.chr) s
     | Bits x -> integer_to_bits x
@@ -266,12 +269,14 @@ let make_tree (x : parsed) =
   tree
 
 let make_dump
-      ~(id : int)
-      ~(id_ext : int)
-      ~(ext_info : ext_info)
+      ~(table_id : int)
+      ~(table_id_ext : int)
+      ~(id_ext_1 : int)
+      ~(id_ext_2 : int)
       (stream : Stream.t)
-      (list : (section_info * section option) Item_list.t)
+      (list : (SI_PSI_table.section_info * Dump.t timestamped option) Item_list.t)
       (control : int) =
+  let open SI_PSI_table in
   let base_class = Markup.CSS.add_element base_class "dump" in
   let header, title, subtitle, button = make_dump_header base_class () in
   let hexdump, set_hexdump = make_hexdump () in
@@ -282,6 +287,7 @@ let make_dump
         | Some item ->
            let (section : section_info), prev_dump = item#value in
            let open Lwt.Infix in
+           let open Dump in
            let err x = Ui_templates.Placeholder.create_with_error ~text:x () in
            let ph x =
              Ui_templates.Placeholder.create_with_icon
@@ -289,8 +295,8 @@ let make_dump
                ~text:x () in
            let tz_offset_s = Ptime_clock.current_tz_offset_s () in
            let fmt_time = Time.to_human_string ?tz_offset_s in
-           let upd = function
-             | Some { timestamp; section; parsed = Some x; _ } ->
+           let upd : Dump.t timestamped option -> unit = function
+             | Some { timestamp; data = { section; content = Some x; _ } } ->
                 parsed#set_empty ();
                 subtitle#set_text @@ fmt_time timestamp;
                 let tree = make_tree x in
@@ -317,7 +323,7 @@ let make_dump
                         Lwt.return_unit) |> Lwt.ignore_result) items;
                 parsed#append_child tree;
                 set_hexdump @@ String.of_list @@ List.map Char.chr section
-             | Some { timestamp; section; parsed = None; _ } ->
+             | Some { timestamp; data = { section; content = None; _ }} ->
                 let ph = ph "Не удалось разобрать содержимое секции" in
                 parsed#set_empty ();
                 subtitle#set_text @@ fmt_time timestamp;
@@ -330,7 +336,8 @@ let make_dump
                 set_hexdump "" in
            let get = fun () ->
              Lwt.catch (fun () ->
-                 (req_of_table id id_ext ext_info section.id)
+                 (req_of_table table_id table_id_ext
+                    id_ext_1 id_ext_2 section.section)
                    ~id:stream.id control
                  |> Lwt_result.map_err Api_js.Requests.err_to_string
                  >|= (function
@@ -347,7 +354,7 @@ let make_dump
                  Lwt.return_unit) in
            upd prev_dump;
            button#set_getter (Some get);
-           title#set_text @@ Printf.sprintf "Секция %d" section.id;
+           title#set_text @@ Printf.sprintf "Секция %d" section.section;
            button#set_disabled false;
            ()
         | _ -> ()) list#s_active
@@ -366,16 +373,18 @@ let make_dump
   end
 
 class t ~(config : config)
-        ~(id : int)
-        ~(id_ext : int)
-        ~(ext_info : ext_info)
-        ~(sections : (section_info * section option) list)
+        ~(table_id : int)
+        ~(table_id_ext : int)
+        ~(id_ext_1 : int)
+        ~(id_ext_2 : int)
+        ~(sections : (SI_PSI_table.section_info * Dump.t timestamped option) list)
         (control : int)
         () =
   let stream_panel_class = Markup.CSS.add_element base_class "list" in
   let box = Widget.create_div () in
   let list, update_list = make_list sections control in
-  let dump = make_dump ~id ~id_ext ~ext_info config.stream list control in
+  let dump = make_dump ~table_id ~table_id_ext
+               ~id_ext_1 ~id_ext_2 config.stream list control in
   let list_name =
     let _class = Markup.CSS.add_element stream_panel_class "title" in
     let w = new Typography.Text.t ~text:"Секции" () in
@@ -393,8 +402,9 @@ class t ~(config : config)
 
     method dump = dump
 
-    method update (data : section_info list) : unit =
-      let eq (a : section_info) (b : section_info) = a.id = b.id in
+    method update (data : SI_PSI_table.section_info list) : unit =
+      let eq (a : SI_PSI_table.section_info as 'a) (b : 'a) =
+        a.section = b.section in
       let items = List.map (fun x -> x#value) list#items in
       let data =
         List.map (fun x ->

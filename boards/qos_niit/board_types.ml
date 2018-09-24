@@ -1,5 +1,4 @@
 open Common
-open Containers
 
 (** Misc *)
 
@@ -167,12 +166,12 @@ end
 module Bitrate = struct
 
   type table =
-    { id : int
-    ; id_ext : int
+    { table_id : int
+    ; table_id_ext : int
+    ; id_ext_1 : int
+    ; id_ext_2 : int
     ; fully_analyzed : bool
     ; section_syntax : bool
-    ; ext_info_1 : int
-    ; ext_info_2 : int
     ; bitrate : int
     } [@@deriving yojson]
 
@@ -229,6 +228,7 @@ module Pid = struct
     ; scrambled : bool
     ; present : bool
     ; service_id : int option
+    ; service_name : string option [@default None]
     ; typ : typ [@key "type"]
     } [@@deriving yojson, eq]
 
@@ -236,10 +236,7 @@ end
 
 module Service = struct
 
-  type element =
-    { pid : int
-    ; info : Pid.typ
-    } [@@deriving yojson, eq, ord]
+  type element = int * Pid.typ [@@deriving yojson, eq]
 
   type t = id * info
   and id = int
@@ -263,81 +260,98 @@ module Service = struct
 
 end
 
-module SI_PSI_table = struct
+module SI_PSI_section = struct
 
-  type ext_info =
-    { ext_1 : int (* For SDT - orig nw id, for EIT - ts id *)
-    ; ext_2 : int (* For EIT - orig nw id *)
-    ; ext_3 : int (* For EIT - segment lsn *)
-    ; ext_4 : int (* For EIT - last table id *)
-    } [@@deriving yojson, eq, ord, show]
-
-  type section_info =
-    { id : int
-    ; length : int
-    } [@@deriving yojson, eq, ord, show]
-
-  type main =
-    { id : int
-    ; id_ext : int
-    ; ext_info : ext_info
-    ; pid : int
+  type t = id * info
+  and id =
+    { table_id : int
+    ; table_id_ext : int
+    ; id_ext_1 : int (* For SDT - orig nw id, for EIT - ts id *)
+    ; id_ext_2 : int (* For EIT - orig nw id *)
+    ; section : int
+    }
+  and info =
+    { pid : int
     ; version : int
     ; service_id : int option
+    ; service_name : string option [@default None]
+    ; eit_segment_lsn : int
+    ; eit_last_table_id : int
     ; section_syntax : bool
     ; last_section : int
-    } [@@deriving yojson, eq, ord, show]
+    ; length : int
+    } [@@deriving yojson, show, eq, ord]
 
-  type t =
-    { main : main
-    ; sections : section_info list
-    } [@@deriving yojson, eq, ord, show]
+  module Dump = struct
+
+    type parsed = node list
+    and node =
+      { offset : int
+      ; length : int
+      ; name : string
+	    ; value : value * string option
+      }
+    and integer =
+      | Bool of bool
+      | Int of int
+      | Int32 of int32
+      | Int64 of int64
+      | Uint of int
+      | Uint32 of int32
+      | Uint64 of int64
+    and value =
+      | List of node list
+      | Bytes of int list
+      | String of string
+      | Bits of integer
+      | Dec of integer
+      | Hex of integer
+      | Time of Time.t
+      | Duration of Time.Period.t [@@deriving yojson, show]
+
+    type error =
+      | Zero_length
+      | Table_not_found
+      | Section_not_found
+      | Stream_not_found
+      | Unknown [@@deriving yojson]
+
+    type t =
+      { stream_id : Stream.Multi_TS_ID.t
+      ; table_id : int
+      ; section_id : int
+      ; section : int list
+      ; content : parsed option
+      } [@@deriving yojson]
+
+  end
 
 end
 
-module SI_PSI_section = struct
+module SI_PSI_table = struct
 
-  (** SI/PSI section dump *)
-
-  type parsed = node list
-  and node =
-    { offset : int
-    ; length : int
-    ; name : string
-	  ; value : value * string option
+  type t = id * info
+  and id =
+    { table_id : int
+    ; table_id_ext : int
+    ; id_ext_1 : int (* See SI_PSI_section.id *)
+    ; id_ext_2 : int (* See SI_PSI_section.id *)
     }
-  and integer =
-    | Bool of bool
-    | Int of int
-    | Int32 of int32
-    | Int64 of int64
-    | Uint of int
-    | Uint32 of int32
-    | Uint64 of int64
-  and value =
-    | List of node list
-    | Bytes of int list
-    | String of string
-    | Bits of integer
-    | Dec of integer
-    | Hex of integer
-    | Time of Time.t
-    | Duration of Time.Period.t [@@deriving yojson, show]
-
-  type dump_error =
-    | Zero_length
-    | Table_not_found
-    | Section_not_found
-    | Stream_not_found
-    | Unknown [@@deriving yojson]
-
-  type t =
-    { stream_id : Stream.Multi_TS_ID.t
-    ; table_id : int
-    ; section_id : int
-    ; section : int list
-    ; content : parsed option
-    } [@@deriving yojson]
+  and section_info =
+    { section : int
+    ; length : int
+    }
+  and info =
+    { pid : int
+    ; version : int
+    ; service_id : int option
+    ; service_name : string option [@default None]
+    ; section_syntax : bool
+    ; last_section : int
+    ; eit_segment_lsn : int
+    ; eit_last_table_id : int
+    ; sections : section_info list
+    } [@@deriving yojson, show, eq, ord]
 
 end
 
@@ -374,7 +388,7 @@ module T2mi_info = struct
     ; l1_post_scrambled : bool
     ; t2_base_lite : bool
     ; reserved : int
-    } [@@deriving yojson, show]
+    } [@@deriving yojson, show, eq]
 
   type l1_post_conf =
     { sub_slices_per_frame : int
@@ -421,17 +435,17 @@ module T2mi_info = struct
   and t2_l1_post_conf_aux =
     { aux_stream_type : int
     ; aux_private_conf : int
-    } [@@deriving yojson, show]
+    } [@@deriving yojson, show, eq]
 
   type l1_error =
     | Empty
-    | Parser_error of string [@@deriving yojson, show]
+    | Parser_error of string [@@deriving yojson, show, eq]
 
   type l1_pre_result =
-    (l1_pre, l1_error) result [@@deriving show]
+    (l1_pre, l1_error) result [@@deriving show, eq]
 
   type l1_post_conf_result =
-    (l1_post_conf, l1_error) result [@@deriving show]
+    (l1_post_conf, l1_error) result [@@deriving show, eq]
 
   let l1_pre_result_to_yojson =
     Json.(Result.to_yojson l1_pre_to_yojson l1_error_to_yojson)
@@ -443,13 +457,14 @@ module T2mi_info = struct
   let l1_post_conf_result_of_yojson =
     Json.(Result.of_yojson l1_post_conf_of_yojson l1_error_of_yojson)
 
-  type t =
-    { t2mi_stream_id : int
-    ; packets : int list
+  type t = id * info
+  and id = int
+  and info =
+    { packets : int list
     ; t2mi_pid : int option
     ; l1_pre : l1_pre_result
     ; l1_post_conf : l1_post_conf_result
-    } [@@deriving yojson, show]
+    } [@@deriving yojson, show, eq]
 
 end
 
@@ -498,7 +513,7 @@ end
 module Streams = struct
 
   type streams_states =
-    (Stream.t * Time.t * Time.t) list [@@deriving yojson]
+    (Stream.t timespan) list [@@deriving yojson]
 
   type streams_unique =
     (Stream.t * [`Now | `Last of Time.t]) list [@@deriving yojson]
@@ -522,7 +537,8 @@ module Error = struct
     ; multi_pid : bool
     ; pid : int
     ; packet : int32
-    ; service : string option
+    ; service_id : int option
+    ; service_name : string option [@default None]
     ; param_1 : int32
     ; param_2 : int32 (* t2mi stream id for t2mi error *)
     } [@@deriving yojson, eq, show]
@@ -530,11 +546,21 @@ module Error = struct
   type raw =
     (Stream.ID.t * t) list [@@deriving yojson, show]
 
-  type compressed = percent list
+  type compressed = percent timespan list
   and percent =
     { errors : float
     ; no_stream : float
-    ; period : Time.t * Time.t
     } [@@deriving yojson]
 
 end
+
+(* Helper types *)
+
+type bitrates = (Stream.ID.t * Bitrate.t timestamped) list [@@deriving yojson]
+type ts_info = (Stream.ID.t * Ts_info.t timestamped) list [@@deriving yojson]
+type pids = (Stream.ID.t * Pid.t list timestamped) list [@@deriving yojson]
+type services = (Stream.ID.t * (Service.t list timestamped)) list [@@deriving yojson]
+type tables = (Stream.ID.t * (SI_PSI_table.t list timestamped)) list [@@deriving yojson]
+type sections = (Stream.ID.t * (SI_PSI_section.t list timestamped)) list [@@deriving yojson]
+type t2mi_info = (Stream.ID.t * T2mi_info.t list timestamped) list [@@deriving yojson]
+type errors = (Stream.ID.t * (Error.t list)) list [@@deriving yojson]

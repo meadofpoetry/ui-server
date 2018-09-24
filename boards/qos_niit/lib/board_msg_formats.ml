@@ -55,12 +55,12 @@
 
 [%%cstruct
  type req_get_section =
-   { stream_id    : uint32_t
-   ; table_id     : uint8_t
-   ; section      : uint8_t
+   { stream_id : uint32_t
+   ; table_id : uint8_t
    ; table_id_ext : uint16_t
-   ; ext_info_1   : uint16_t
-   ; ext_info_2   : uint16_t
+   ; id_ext_1 : uint16_t
+   ; id_ext_2 : uint16_t
+   ; section : uint8_t
    } [@@little_endian]]
 
 [%%cstruct
@@ -168,8 +168,8 @@
 
 [%%cstruct
  type section =
-   { length    : uint16_t
-   ; result    : uint16_t
+   { length : uint16_t
+   ; result : uint16_t
    } [@@little_endian]]
 
 (* T2-MI frame sequence*)
@@ -271,16 +271,16 @@
 
 [%%cstruct
  type table_struct_block =
-   { version    : uint8_t
-   ; id         : uint8_t
-   ; id_ext     : uint16_t
-   ; lsn        : uint8_t
-   ; rfu        : uint8_t
-   ; ext_info_1 : uint16_t
-   ; ext_info_2 : uint16_t
-   ; ext_info_3 : uint8_t
-   ; ext_info_4 : uint8_t
-   ; pid        : uint16_t
+   { version : uint8_t
+   ; table_id : uint8_t
+   ; table_id_ext : uint16_t
+   ; lsn : uint8_t
+   ; rfu : uint8_t
+   ; id_ext_1 : uint16_t
+   ; id_ext_2 : uint16_t
+   ; eit_segment_lsn : uint8_t
+   ; eit_last_table_id : uint8_t
+   ; pid : uint16_t
    } [@@little_endian]]
 
 [%%cstruct
@@ -300,18 +300,18 @@
 
 [%%cstruct
  type pid_bitrate =
-   { pid     : uint16_t
+   { pid : uint16_t
    ; packets : uint32_t
    } [@@little_endian]]
 
 [%%cstruct
  type table_bitrate =
-   { table_id     : uint8_t
-   ; flags        : uint8_t
+   { table_id : uint8_t
+   ; flags : uint8_t
    ; table_id_ext : uint16_t
-   ; adv_info_1   : uint16_t
-   ; adv_info_2   : uint16_t
-   ; packets      : uint32_t
+   ; id_ext_1 : uint16_t
+   ; id_ext_2 : uint16_t
+   ; packets : uint32_t
    } [@@little_endian]]
 
 [%%cstruct

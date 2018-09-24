@@ -51,12 +51,10 @@ module Acc = struct
   let merge_t2mi_info ~acc (id, x) =
     let open T2mi_info in
     let eq = Multi_TS_ID.equal in
-    let f (x : t) = function
-      | None -> Some [x]
+    let f ((id, info) : t) = function
+      | None -> Some [(id, info)]
       | Some (o : t list) ->
-         let eq = fun (x : t) y ->
-           x.t2mi_stream_id = y.t2mi_stream_id in
-         let n = List.add_nodup ~eq x o in
+         let n = List.Assoc.set ~eq:equal_id id info o in
          Some n in
     List.Assoc.update ~eq ~f:(f x) id acc
 
@@ -652,6 +650,7 @@ module Make(Logs : Logs.LOG) = struct
     |> S.hold ~eq []
 
   (* T2-MI mode signal, contains value to apply to the board *)
+  (* FIXME check this *)
   let to_t2mi_locker
         (mode : t2mi_mode option signal)
         (streams : Stream.t list signal) =
@@ -666,6 +665,31 @@ module Make(Logs : Logs.LOG) = struct
         match find streams stream with
         | None -> false
         | Some _ -> true) streams mode
+
+  (* Map SI/PSI tables to separate SI/PSI sections *)
+  let to_sections (tables : SI_PSI_table.t list) : SI_PSI_section.t list =
+    let open SI_PSI_section in
+    List.flat_map (fun ((id : SI_PSI_table.id), (info : SI_PSI_table.info)) ->
+        List.map (fun ({ section; length } : SI_PSI_table.section_info) ->
+            let (id : id) =
+              { table_id = id.table_id
+              ; table_id_ext = id.table_id_ext
+              ; id_ext_1 = id.id_ext_1
+              ; id_ext_2 = id.id_ext_2
+              ; section
+              } in
+            let (info : info) =
+              { pid = info.pid
+              ; version = info.version
+              ; service_id = info.service_id
+              ; service_name = info.service_name
+              ; section_syntax = info.section_syntax
+              ; last_section = info.last_section
+              ; eit_segment_lsn = info.eit_segment_lsn
+              ; eit_last_table_id = info.eit_last_table_id
+              ; length
+              } in
+            id, info) info.sections) tables
 
   let create_events sources (storage : config storage) streams_conv =
     let state, set_state  = S.create `No_response in
@@ -704,6 +728,9 @@ module Make(Logs : Logs.LOG) = struct
      *           match List.Assoc.get ~eq:Stream.equal stream old with
      *           | Some x -> not @@ eq x s
      *           | None -> true) _new) s in *)
+    let sections =
+      S.map (List.map (fun (id, { timestamp; data }) ->
+                 id, { timestamp; data = to_sections data })) tables in
     let map_errors f e =
       S.sample (fun l streams -> fmap (f l) streams) e streams in
     Lwt_react.S.keep @@ S.map (fun c -> storage#store c) config;
@@ -728,6 +755,7 @@ module Make(Logs : Logs.LOG) = struct
     let ts =
       { info = ts_info
       ; services
+      ; sections
       ; tables
       ; pids
       ; bitrates
@@ -746,7 +774,8 @@ module Make(Logs : Logs.LOG) = struct
       ; ts
       ; t2mi
       ; streams
-      ; jitter } in
+      ; jitter
+      } in
     let (push_events : push_events) =
       { devinfo = set_devinfo
       ; t2mi_mode = set_t2mi_mode
@@ -814,10 +843,11 @@ module Make(Logs : Logs.LOG) = struct
           >|= (fun () -> mode))
     ; reset = (fun () -> isend Reset)
     ; get_section =
-        (fun ?section ?table_id_ext ?ext_info_1 ?ext_info_2
+        (fun ?section ?table_id_ext ?id_ext_1 ?id_ext_2
              ~id ~table_id () ->
+          let open SI_PSI_section.Dump in
           match find_stream_by_id id @@ React.S.value events.streams with
-          | None -> Lwt_result.fail SI_PSI_section.Stream_not_found
+          | None -> Lwt_result.fail Stream_not_found
           | Some s ->
              begin match s.orig_id with
              | TS_multi id ->
@@ -826,14 +856,14 @@ module Make(Logs : Logs.LOG) = struct
                   ; table_id
                   ; section
                   ; table_id_ext
-                  ; ext_info_1
-                  ; ext_info_2
+                  ; id_ext_1
+                  ; id_ext_2
                   } in
                 let req = Get_section { request_id = get_id (); params } in
                 let timer = Timer.steps ~step_duration 125 in
                 enqueue state msgs sender req timer None
              (* XXX maybe other error here *)
-             | _ -> Lwt_result.fail SI_PSI_section.Stream_not_found
+             | _ -> Lwt_result.fail Stream_not_found
              end)
     ; get_t2mi_seq =
         (fun params ->
@@ -873,6 +903,8 @@ module Make(Logs : Logs.LOG) = struct
         (fun () -> Lwt.return @@ React.S.value events.ts.services)
     ; get_tables =
         (fun () -> Lwt.return @@ React.S.value events.ts.tables)
+    ; get_sections =
+        (fun () -> Lwt.return @@ React.S.value events.ts.sections)
     ; get_t2mi_info =
         (fun () -> Lwt.return @@ React.S.value events.t2mi.structures)
     },

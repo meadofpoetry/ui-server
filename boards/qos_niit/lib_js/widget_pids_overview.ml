@@ -1,10 +1,10 @@
 open Containers
 open Components
 open Common
-open Board_types.Streams.TS
 open Lwt_result.Infix
 open Api_js.Api_types
 open Widget_common
+open Board_types
 
 type config =
   { stream : Stream.t
@@ -24,10 +24,10 @@ let settings = None
 let ( % ) = Fun.( % )
 
 module Pid_info = struct
-  type t = pid_info
+  type t = Pid.t
 
   let compare (a : t) (b : t) : int =
-    Int.compare a.pid b.pid
+    Int.compare (fst a) (fst b)
 end
 
 module Set = Set.Make(Pid_info)
@@ -63,22 +63,22 @@ let update_row row total br pid =
    | Some v -> if br >. v then max#set_value (Some br));
   br, pct
 
-let pid_type_to_string : pid_type -> string = function
+let pid_type_to_string : Pid.typ -> string = function
   | SEC l ->
      let s = List.map Fun.(Mpeg_ts.(table_to_string % table_of_int)) l
              |> String.concat ", " in
      "SEC -> " ^ s
   | PES x ->
-     let s = Mpeg_ts.stream_type_to_string x in
+     let s = Mpeg_ts.stream_type_to_string x.stream_type in
      "PES -> " ^ s
-  | ECM x -> "ECM -> " ^ (string_of_int x)
-  | EMM x -> "EMM -> " ^ (string_of_int x)
+  | ECM x -> "ECM -> " ^ (string_of_int x.ca_sys_id)
+  | EMM x -> "EMM -> " ^ (string_of_int x.ca_sys_id)
   | Null -> "Null"
   | Private -> "Private"
 
-let pid_type_fmt : pid_type Table.custom =
+let pid_type_fmt : Pid.typ Table.custom =
   { to_string = pid_type_to_string
-  ; compare = compare_pid_type
+  ; compare = Pid.compare_typ
   ; is_numeric = false
   }
 
@@ -90,7 +90,7 @@ let pid_flags_fmt : pid_flags Table.custom_elt =
 
 (* TODO add table empty state *)
 let make_table (is_hex : bool)
-      (init : pid_info list) =
+      (init : Pid.t list) =
   let open Table in
   let dec_pid_fmt = Int None in
   let hex_pid_fmt = Int (Some (Printf.sprintf "0x%04X")) in
@@ -108,25 +108,6 @@ let make_table (is_hex : bool)
     :: (to_sort_column "Min, Мбит/с", br_fmt)
     :: (to_sort_column "Max, Мбит/с", br_fmt)
     :: [] in
-  (* let fwd =
-   *   let icon = Icon.SVG.(create_simple Path.chevron_right) in
-   *   new Icon_button.t ~icon () in
-   * let bwd =
-   *   let icon = Icon.SVG.(create_simple Path.chevron_left) in
-   *   new Icon_button.t ~icon () in
-   * let fst =
-   *   let icon = Icon.SVG.(create_simple Path.page_first) in
-   *   new Icon_button.t ~icon () in
-   * let lst =
-   *   let icon = Icon.SVG.(create_simple Path.page_last) in
-   *   new Icon_button.t ~icon () in
-   * let select = new Footer.Select.t
-   *                ~all:"Все"
-   *                [ 5; 10; 15; 20 ] () in
-   * let footer =
-   *   new Footer.t
-   *     ~actions:[ fst; bwd; fwd; lst ]
-   *     ~rows_per_page:("Рядов на странице: ", select) () in *)
   let table = new t (* ~footer *) ~dense:true ~fmt () in
   let on_change = fun (x : bool) ->
     List.iter (fun row ->
@@ -138,23 +119,23 @@ let make_table (is_hex : bool)
   if is_hex then on_change true;
   table, on_change
 
-let add_row (table : 'a Table.t) (pid : pid_info) =
+let add_row (table : 'a Table.t) ((pid, info) : Pid.t) =
   let open Table in
   let flags =
-    { has_pcr = pid.has_pcr
-    ; scrambled = pid.scrambled
+    { has_pcr = info.has_pcr
+    ; scrambled = info.scrambled
     } in
   let data = Data.(
-      pid.pid :: pid.pid_type :: flags :: pid.service
+      pid :: info.typ :: flags :: info.service_name
       :: None :: None :: None :: None :: []) in
   let row = table#add_row data in
   row
 
-class t (pids : pids option) () =
-  let timestamp, init = match pids with
-    | None -> None, []
-    | Some { timestamp; pids } -> Some timestamp, pids in
+class t (init : Pid.t list timestamped option) () =
   (* FIXME should remember preffered state *)
+  let init, timestamp = match init with
+    | None -> [], None
+    | Some { data; timestamp } -> data, Some timestamp in
   let is_hex = false in
   let table, on_change = make_table is_hex init in
   let title = "Список PID" in
@@ -174,39 +155,40 @@ class t (pids : pids option) () =
     inherit Card.t ~widgets:[ ] ()
 
     (** Adds new row to the overview *)
-    method add_row (x : pid_info) =
+    method add_row (x : Pid.t) =
       add_row table x
 
     (** Updates the overview *)
-    method update ({ timestamp; pids } : pids) =
+    method update ({ timestamp; data } : Pid.t list timestamped) =
       (* Update timestamp *)
       _timestamp <- Some timestamp;
       subtitle'#set_text_content @@ make_timestamp_string _timestamp;
       (* Manage found, lost and updated items *)
       let prev = _data in
-      _data <- Set.of_list pids;
+      _data <- Set.of_list data;
       let lost = Set.diff prev _data in
       let found = Set.diff _data prev in
       let inter = Set.inter prev _data in
-      let upd = Set.filter (fun (x : pid_info) ->
-                    List.mem ~eq:equal_pid_info x pids) inter in
-      let find = fun (pid : pid_info) (row : 'a Table.Row.t) ->
+      let upd =
+        Set.filter (fun ((_, info) : Pid.t) ->
+            List.mem ~eq:Pid.equal_info info @@ List.map snd data) inter in
+      let find = fun ((pid, _) : Pid.t) (row : 'a Table.Row.t) ->
         let open Table in
         let pid' = match row#cells with
           | x :: _ -> x#value in
-        pid.pid = pid' in
-      Set.iter (fun (pid : pid_info) ->
+        pid = pid' in
+      Set.iter (fun (pid : Pid.t) ->
           match List.find_opt (find pid) table#rows with
           | None -> ()
           | Some row -> table#remove_row row) lost;
-      Set.iter (fun (pid : pid_info) ->
+      Set.iter (fun (pid : Pid.t) ->
           match List.find_opt (find pid) table#rows with
           | None -> ()
           | Some row -> self#_update_row row pid) upd;
       Set.iter (ignore % self#add_row) found
 
     (** Updates bitrate values *)
-    method set_rate : bitrate option -> unit = function
+    method set_rate : Bitrate.t option -> unit = function
       | None -> () (* FIXME do smth *)
       | Some { total; pids; _ } ->
          List.fold_left (fun rows (pid, br) ->
@@ -230,15 +212,15 @@ class t (pids : pids option) () =
 
     (* Private methods *)
 
-    method private _update_row (row : 'a Table.Row.t) (x : pid_info) =
+    method private _update_row (row : 'a Table.Row.t) ((pid, info) : Pid.t) =
       let open Table in
       match row#cells with
-      | pid :: typ :: flags :: service :: _ ->
-         pid#set_value x.pid;
-         typ#set_value x.pid_type;
-         flags#set_value { has_pcr = x.has_pcr
-                         ; scrambled = x.scrambled };
-         service#set_value x.service;
+      | pid' :: typ :: flags :: service :: _ ->
+         pid'#set_value pid;
+         typ#set_value info.typ;
+         flags#set_value { has_pcr = info.has_pcr
+                         ; scrambled = info.scrambled };
+         service#set_value info.service_name;
 
     initializer
       List.iter Fun.(ignore % add_row table) init;
@@ -250,15 +232,18 @@ class t (pids : pids option) () =
       self#append_child media#widget;
   end
 
-let make ?(init : (pids option, string) Lwt_result.t option)
+let make ?(init : (pids, string) Lwt_result.t option)
       (stream : Stream.t)
       control =
   let init = match init with
     | Some x -> x
     | None ->
        let open Requests.Streams.HTTP in
-       get_last_pids ~id:stream.id control in
+       get_pids ~ids:[stream.id] control
+       |> Lwt_result.map_err Api_js.Requests.err_to_string in
   init
-  >|= (fun pids -> new t pids ())
+  >|= (function
+       | [(_, x)] -> new t (Some x) ()
+       | _ -> new t None ()) (* FIXME show error *)
   |> Ui_templates.Loader.create_widget_loader
 

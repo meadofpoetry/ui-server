@@ -2,7 +2,7 @@ open Containers
 open Components
 open Common
 open Board_types
-open Board_types.Streams.TS
+open Board_types
 open Lwt_result.Infix
 open Api_js.Api_types
 
@@ -25,8 +25,8 @@ let ( >>* ) x f = Lwt_result.map_err f x
 let ( % ) = Fun.( % )
 
 let get_errors ?from ?till ?duration ?limit ?order ~id control =
-  let open Requests.Streams.HTTP.Errors in
-  get_errors ?limit ?from ?till ?duration ?order ~id control
+  let open Requests.History.HTTP.Errors in
+  get ?limit ?from ?till ?duration ?order ~ids:[id] control
   >>* Api_js.Requests.err_to_string
   >>= function
   | Raw s -> Lwt_result.return (s.has_more, s.data)
@@ -52,9 +52,9 @@ let pid_fmt hex =
     Int.compare pid1 pid2 in
   Custom { to_string; compare; is_numeric = true }
 
-let make_row_data (error : Errors.t) =
+let make_row_data (error : Error.t) =
   let open Table in
-  let service = error.service in
+  let service = error.service_name in
   let date = error.timestamp in
   let pid = error.pid, error.multi_pid in
   let count = error.count in
@@ -64,7 +64,7 @@ let make_row_data (error : Errors.t) =
   let extra = Ts_error.Description.of_ts_error error in
   Data.(date :: check :: pid :: service :: count :: extra :: [])
 
-let make_table ~id is_hex (init : Errors.raw) control =
+let make_table ~id is_hex (init : Error.raw) control =
   let tz_offset_s = Ptime_clock.current_tz_offset_s () in
   let show_time = Time.to_human_string ?tz_offset_s in
   let fmt =
@@ -92,7 +92,7 @@ let make_table ~id is_hex (init : Errors.raw) control =
   if is_hex then on_change true;
   table, on_change
 
-class t ~id (init : Errors.raw) control () =
+class t ~id (init : Error.raw) control () =
   (* FIXME should remember preffered state *)
   let is_hex = false in
   let title = "Журнал ошибок" in
@@ -111,7 +111,7 @@ class t ~id (init : Errors.raw) control () =
 
     inherit Card.t ~widgets:[] ()
 
-    method prepend_error (e : Errors.t) : unit =
+    method prepend_error (e : Error.t) : unit =
       let el = table#content in
       let top = el#scroll_top in
       let height = el#scroll_height in
@@ -124,13 +124,13 @@ class t ~id (init : Errors.raw) control () =
           el#set_scroll_top (el#scroll_top + diff);
         end
 
-    method append_error (e : Errors.t) : unit =
+    method append_error (e : Error.t) : unit =
       let row = table#append_row (make_row_data e) in
       self#set_row_priority row e
 
     (* Private methods *)
 
-    method private set_row_priority (row : 'a Table.Row.t) (e : Errors.t) =
+    method private set_row_priority (row : 'a Table.Row.t) (e : Error.t) =
       let el =
         let open Table in
         match row#cells with
@@ -172,7 +172,7 @@ class t ~id (init : Errors.raw) control () =
       self#append_child media;
   end
 
-let make ?(init : (Errors.raw, string) Lwt_result.t option)
+let make ?(init : (Error.raw, string) Lwt_result.t option)
       (stream : Stream.t)
       (control : int) =
   let state = get_state control in

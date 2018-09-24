@@ -1,7 +1,7 @@
 open Containers
 open Components
 open Common
-open Board_types.Streams.TS
+open Board_types
 open Lwt_result.Infix
 
 let base_class = "qos-niit-service-info"
@@ -51,10 +51,10 @@ let make_general_info () =
              ; `Item rate
              ; `Item min
              ; `Item max ] () in
-  let set_info = fun ?hex (x:service_info) ->
-    set_id ?hex x.id;
-    set_pmt ?hex x.pmt_pid;
-    set_pcr ?hex x.pcr_pid in
+  let set_info = fun ?hex ((id, info) : Service.t) ->
+    set_id ?hex id;
+    set_pmt ?hex info.pmt_pid;
+    set_pcr ?hex info.pcr_pid in
   list, set_info, set_rate, set_min, set_max
 
 let make_sdt_info () =
@@ -119,14 +119,14 @@ let make_sdt_info () =
              ; `Item eit_pf
              ; `Item running_status ]
       () in
-  list, fun (x : service_info) ->
-        set_name x.name;
-        set_prov x.provider_name;
-        set_typ x.service_type;
-        set_eit_s x.eit_schedule;
-        set_scr x.free_ca_mode;
-        set_eit_pf x.eit_pf;
-        set_running_status x.running_status
+  list, fun ((_, info) : Service.t) ->
+        set_name info.name;
+        set_prov info.provider_name;
+        set_typ info.service_type;
+        set_eit_s info.eit_schedule;
+        set_scr info.free_ca_mode;
+        set_eit_pf info.eit_pf;
+        set_running_status info.running_status
 
 let make_description () =
   let _class = Markup.CSS.add_element base_class "description" in
@@ -150,7 +150,7 @@ let make_description () =
                ; sdt_media#widget ] () in
   let box = new Hbox.t ~wrap:`Wrap ~widgets:[main_box; sdt_box] () in
   box#add_class _class;
-  let set = fun ?hex (x : service_info) ->
+  let set = fun ?hex (x : Service.t) ->
     set_main ?hex x;
     set_sdt x in
   box#widget, set, set_rate, set_min, set_max
@@ -159,39 +159,36 @@ module Pids = struct
 
   let _class = Markup.CSS.add_element base_class "pids"
 
-  let get_service_pids (service : service_info) =
-    let es = List.map (fun (es : es_info) -> es.pid) service.es in
-    let ecm = List.map (fun (ecm : ecm_info) -> ecm.pid) service.ecm in
-    let pmt = if service.has_pmt then Some service.pmt_pid else None in
-    List.cons_maybe pmt (es @ ecm)
+  let get_service_pids ((_, info) : Service.t) =
+    let elts = List.map fst info.elements  in
+    let pmt = if info.has_pmt then Some info.pmt_pid else None in
+    List.cons_maybe pmt elts
     |> List.sort_uniq ~cmp:compare
 
-  let filter_pids service (pids : pid_info list) =
+  let filter_pids service (pids : Pid.t list) =
   let service_pids = get_service_pids service in
-      List.filter (fun (x : pid_info) ->
-          List.mem ~eq:(=) x.pid service_pids)
+      List.filter (fun ((pid, _) : Pid.t) ->
+          List.mem ~eq:(=) pid service_pids)
         pids
 
-  class t (service : service_info)
-          (init : pids option)
+  class t (service : Service.t)
+          (init : Pid.t list timestamped option)
           () =
     let init = match init with
       | None -> None
-      | Some x ->
-         let pids = filter_pids service x.pids in
-         Some { x with pids } in
+      | Some x -> Some { x with data = filter_pids service x.data } in
     object(self)
-      val mutable _service : service_info = service
+      val mutable _service : Service.t = service
 
       inherit Widget_pids_overview.t init () as super
 
-      method update_service (service : service_info) =
+      method update_service (service : Service.t) =
         _service <- service;
-        let pids = filter_pids service self#pids in
-        self#update { pids; timestamp = Time.Clock.now_s () }
+        let data = filter_pids service self#pids in
+        self#update { data; timestamp = Time.Clock.now_s () }
 
-      method! update (pids : pids) =
-        super#update { pids with pids = filter_pids _service pids.pids }
+      method! update (pids : Pid.t list timestamped) =
+        super#update { pids with data = filter_pids _service pids.data }
 
       initializer
         self#table#add_class _class
@@ -199,11 +196,11 @@ module Pids = struct
 
 end
 
-class t ?(rate : bitrate option)
+class t ?(rate : Bitrate.t option)
         ?min ?max
         (stream : Stream.t)
-        (init : service_info)
-        (pids : pids option)
+        (init : Service.t)
+        (pids : Pid.t list timestamped option)
         (control : int)
         () =
   let info, set_info, set_rate, set_min, set_max = make_description () in
@@ -227,11 +224,11 @@ class t ?(rate : bitrate option)
     val mutable _min = Option.map sum_bitrate min
     val mutable _max = Option.map sum_bitrate max
 
-    method info : service_info =
+    method info : Service.t =
       _info
 
     method service_id : int =
-      _info.id
+      fst _info
 
     method not_available : bool =
       self#has_class not_available_class
@@ -246,16 +243,16 @@ class t ?(rate : bitrate option)
       pids#set_hex x
 
     (** Updates the description *)
-    method update (x : service_info) =
+    method update (x : Service.t) =
       _info <- x;
       pids#update_service x;
       set_info ~hex:_hex x
 
-    method update_pids (x : pids) : unit =
+    method update_pids (x : Pid.t list timestamped) : unit =
       pids#update x
 
     (** Updates bitrate values *)
-    method set_rate : bitrate option -> unit = function
+    method set_rate : Bitrate.t option -> unit = function
       | None ->
          self#_set_max None;
          self#_set_min None;
@@ -290,14 +287,14 @@ class t ?(rate : bitrate option)
     initializer
       self#update _info;
       pids#set_rate rate;
-      set_rate @@ Option.map (fun (x : bitrate) -> sum_bitrate x.pids) rate;
+      set_rate @@ Option.map (fun (x : Bitrate.t) -> sum_bitrate x.pids) rate;
       set_min _min;
       set_max _max;
   end
 
 let make ?rate ?min ?max
       (stream : Stream.t)
-      (init : service_info)
-      (pids : pids option)
+      (init : Service.t)
+      (pids : Pid.t list timestamped option)
       (control : int) =
   new t ?rate ?min ?max stream init pids control ()

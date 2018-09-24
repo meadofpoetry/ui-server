@@ -32,7 +32,8 @@ module HTTP = struct
       in (* TODO add compress *)
       join streams state
 
-    let streams_unique db (events : events) ids inputs incoming from till duration () =
+    let streams_unique db (events : events) ids inputs incoming
+          from till duration () =
       let open Api.Api_types in
       let open Common.Stream in
       let open Lwt_result.Infix in
@@ -58,30 +59,33 @@ module HTTP = struct
                  Lwt_result.return (Compressed { data = merge current data }))
          |> Lwt_result.map (fun x ->
                 rows_to_yojson
-                  (fun () -> `Null)
+                  (fun _ -> assert false)
                   streams_unique_to_yojson x)
          |> Lwt_result.map_err (fun s -> (`String s : Yojson.Safe.json))
          |> fun t -> Lwt.bind t respond_result
       | _ -> respond_error ~status:`Not_implemented "FIXME" ()
 
-    let streams_states db ids inputs limit from till duration () =
+    let streams_states db ids inputs limit incoming from till duration () =
       let open Api.Api_types in
       match Time.make_interval ?from ?till ?duration () with
       | Ok `Range (from, till) ->
          (* TODO make it more sound *)
-         Db.Streams.select_streams ?limit ~ids ~inputs ~from ~till db
+         Db.Streams.select_streams ?limit ?incoming ~ids ~inputs ~from ~till db
          |> Lwt_result.map (fun x ->
                 rows_to_yojson
                   streams_states_to_yojson
-                  (fun () -> `Null) x)
+                  (fun _ -> assert false) x)
          |> Lwt_result.map_err (fun s -> (`String s : Yojson.Safe.json))
          >>= respond_result
       | _ -> respond_error ~status:`Not_implemented "FIXME" ()
 
-    let streams db events ids inputs incoming limit compress from till duration _ _ () =
-      if Option.get_or ~default:false compress
-      then streams_unique db events ids inputs incoming from till duration ()
-      else streams_states db ids inputs limit from till duration ()
+    let streams db events ids inputs limit incoming compress
+          from till duration _ _ () =
+      match compress with
+      | Some false | None ->
+         streams_states db ids inputs limit incoming from till duration ()
+      | Some true ->
+         streams_unique db events ids inputs incoming from till duration ()
 
   end
 
@@ -126,22 +130,26 @@ module HTTP = struct
     open Error
 
     let errors db streams errors priority pids
-          limit compress desc from till duration _ _ () =
+          limit desc compress from till duration _ _ () =
       let order = Option.map (function
                       | true -> `Desc
                       | false -> `Asc) desc in
       match Time.make_interval ?from ?till ?duration () with
-      | Ok (`Range (from,till)) ->
-         (match compress with
-          | Some true ->
-             (Db.Errors.select_errors_compressed
-                db ~is_ts:true ~streams ~priority
-                ~errors ~pids ~from ~till ())
-          | _ -> Db.Errors.select_errors db ~is_ts:true ~streams
-                   ~priority ~errors ~pids ?order ?limit ~from ~till ())
+      | Ok (`Range (from, till)) ->
+         begin match compress with
+         | None | Some false ->
+            Db.Errors.select_errors db ~is_ts:true ~streams
+              ~priority ~errors ~pids ?order ?limit ~from ~till ()
+         | Some true ->
+            Db.Errors.select_errors_compressed
+              db ~is_ts:true ~streams ~priority
+              ~errors ~pids ~from ~till ()
+         end
          >>= fun v ->
          let r = Ok (Api.Api_types.rows_to_yojson
-                       raw_to_yojson compressed_to_yojson v) in
+                       raw_to_yojson
+                       compressed_to_yojson
+                       v) in
          respond_result r
       | _ -> respond_error ~status:`Not_implemented "not implemented" ()
 
@@ -165,7 +173,7 @@ module HTTP = struct
 
 end
 
-let handler db =
+let handler db events =
   let open Uri in
   let open Boards.Board.Api_handler in
   create_dispatcher
@@ -180,36 +188,51 @@ let handler db =
                        ; "to", (module Option(Time.Show))
                        ; "duration", (module Option(Time.Relative)) ]
           (HTTP.Ts_info.get db)
-      (* Errors *)
-      ; create_handler ~docstring:"Returns archived TS errors"
-          ~path:Path.Format.(Stream.ID.fmt ^/ "errors" @/ empty)
-          ~query:Query.[ "errors",   (module List(Int))
-                       ; "priority", (module List(Int))
-                       ; "pid",      (module List(Int))
-                       ; "limit",    (module Option(Int))
+      (* Streams *)
+      ; create_handler ~docstring:"Returns streams"
+          ~path:Path.Format.("streams" @/ empty)
+          ~query:Query.[ "id", (module List(Stream.ID))
+                       ; "input", (module List(Topology.Show_topo_input))
+                       ; "limit", (module Option(Int))
+                       ; "incoming", (module Option(Bool))
                        ; "compress", (module Option(Bool))
-                       ; "desc",     (module Option(Bool))
-                       ; "from",     (module Option(Time.Show))
-                       ; "to",       (module Option(Time.Show))
+                       ; "from", (module Option(Time.Show))
+                       ; "to", (module Option(Time.Show))
                        ; "duration", (module Option(Time.Relative)) ]
-          (fun x -> HTTP.Errors.errors db [x])
+          (HTTP.Streams.streams db events)
+      (* Errors *)
+      ; create_handler ~docstring:"Returns TS errors"
+          ~path:Path.Format.("errors" @/ empty)
+          ~query:Query.[ "id", (module List(Stream.ID))
+                       ; "errors", (module List(Int))
+                       ; "priority", (module List(Int))
+                       ; "pid", (module List(Int))
+                       ; "limit", (module Option(Int))
+                       ; "desc", (module Option(Bool))
+                       ; "compress", (module Option(Bool))
+                       ; "from", (module Option(Time.Show))
+                       ; "to", (module Option(Time.Show))
+                       ; "duration", (module Option(Time.Relative)) ]
+          (HTTP.Errors.errors db)
       ; create_handler ~docstring:"Returns TS errors presence percentage"
-          ~path:Path.Format.(Stream.ID.fmt ^/ "errors/percent" @/ empty)
-          ~query:Query.[ "errors",   (module List(Int))
+          ~path:Path.Format.("errors/percent" @/ empty)
+          ~query:Query.[ "id", (module List(Stream.ID))
+                       ; "errors", (module List(Int))
                        ; "priority", (module List(Int))
-                       ; "pid",      (module List(Int))
-                       ; "from",     (module Option(Time.Show))
-                       ; "to",       (module Option(Time.Show))
+                       ; "pid", (module List(Int))
+                       ; "from", (module Option(Time.Show))
+                       ; "to", (module Option(Time.Show))
                        ; "duration", (module Option(Time.Relative)) ]
-          (fun x -> HTTP.Errors.percent db [x])
+          (HTTP.Errors.percent db)
       ; create_handler ~docstring:"Returns if TS errors were present for the requested period"
-          ~path:Path.Format.(Stream.ID.fmt ^/ "errors/has-any" @/ empty)
-          ~query:Query.[ "errors",   (module List(Int))
+          ~path:Path.Format.("errors/has-any" @/ empty)
+          ~query:Query.[ "id", (module List(Stream.ID))
+                       ; "errors", (module List(Int))
                        ; "priority", (module List(Int))
-                       ; "pid",      (module List(Int))
-                       ; "from",     (module Option(Time.Show))
-                       ; "to",       (module Option(Time.Show))
+                       ; "pid", (module List(Int))
+                       ; "from", (module Option(Time.Show))
+                       ; "to", (module Option(Time.Show))
                        ; "duration", (module Option(Time.Relative)) ]
-          (fun x -> HTTP.Errors.has_any db [x])
+          (HTTP.Errors.has_any db)
       ]
     ]

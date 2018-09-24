@@ -47,11 +47,8 @@ object(self)
   val _state : state React.signal t_lwt = empty ()
   val _t2mi_mode : t2mi_mode option React.signal t_lwt = empty ()
   val _jitter_mode : jitter_mode option React.signal t_lwt = empty ()
-  val _structs : (Stream.ID.t * Streams.TS.structure) list React.signal t_lwt = empty ()
-  val _bitrates : (Stream.ID.t * Streams.TS.bitrate) list React.signal t_lwt = empty ()
   val _streams : Stream.t list React.signal t_lwt = empty ()
   val _incoming_streams : Stream.t list React.signal t_lwt = empty ()
-  val _ts_errors : Errors.t list React.event Factory_state.t = empty ()
 
   (** Create widget of type **)
   method create : item -> Dashboard.Item.item = function
@@ -81,8 +78,6 @@ object(self)
     Factory_state.finalize _state;
     Factory_state.finalize _t2mi_mode;
     Factory_state.finalize _jitter_mode;
-    Factory_state.finalize _structs;
-    Factory_state.finalize _bitrates
 
   method available : Dashboard.available =
     `List [ item_to_info (T2MI_settings None)
@@ -117,29 +112,16 @@ object(self)
   method incoming_streams =
     Factory_state_lwt.get_value_as_signal
       ~get:(fun () ->
-        Requests.Streams.HTTP.get_streams
-          ~incoming:true
-          ~compress:true
-          control
-        >>= (function
-             | Compressed x -> Lwt_result.return @@ List.map fst x.data
-             | _ -> Lwt.fail_with "raw")
+        Requests.Streams.HTTP.get_streams ~incoming:true control
         |> map_err)
       ~get_socket:(fun () ->
-        Requests.Streams.WS.get_streams
-          ~incoming:true
-          control)
+        Requests.Streams.WS.get_streams ~incoming:true control)
       _incoming_streams
 
   method streams =
     Factory_state_lwt.get_value_as_signal
       ~get:(fun () ->
-        Requests.Streams.HTTP.get_streams
-          ~compress:true
-          control
-        >>= (function
-             | Compressed x -> Lwt_result.return @@ List.map fst x.data
-             | _ -> Lwt.fail_with "raw")
+        Requests.Streams.HTTP.get_streams ~incoming:false control
         |> map_err)
       ~get_socket:(fun () -> Requests.Streams.WS.get_streams control)
       _streams

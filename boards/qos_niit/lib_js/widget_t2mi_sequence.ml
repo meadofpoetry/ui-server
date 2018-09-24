@@ -1,9 +1,10 @@
 open Containers
 open Components
 open Common
-open Board_types.Streams.T2MI
 open Widget_common
 open Lwt_result.Infix
+open Board_types
+open Board_types.T2mi_sequence
 
 let base_class = "qos-niit-t2mi-sequence"
 
@@ -122,14 +123,14 @@ module Sequence = struct
                sframe#set_format fmt;
                extra#set_format (extra_fmt ~is_hex:x)) table#rows
 
-      method set_lwt (t : (sequence, string) Lwt_result.t) =
+      method set_lwt (t : (T2mi_sequence.t, string) Lwt_result.t) =
         Lwt.try_bind
           (fun () -> t)
           (fun r ->
             match r with
             | Ok x ->
                table#remove_all_rows ();
-               begin match x.items with
+               begin match x with
                | [] ->
                   ph#set_text "Не обнаружено пакетов T2-MI!";
                   icon#path#set Icon.SVG.Path.information;
@@ -167,7 +168,7 @@ module Sequence = struct
         ph#style##.display := Js.string "";
         table#style##.display := Js.string "none"
 
-      method private _add_row (i : sequence_item) : unit =
+      method private _add_row (i : item) : unit =
         let open Table.Data in
         let frame = match i.typ with
           | 0x00 | 0x01 | 0x02 -> Some i.frame
@@ -217,13 +218,13 @@ class t (stream : Stream.t) (control : int) () =
       Option.get_exn
       @@ React.S.value
       @@ select#s_selected_value in
-    Requests.Streams.HTTP.T2MI.get_sequence
+    Requests.Streams.HTTP.get_t2mi_sequence
       ~id:stream.id control
       ~duration:(Option.get_exn @@ Time.Span.of_float_s duration)
     |> Lwt_result.map_err Api_js.Requests.err_to_string
     >|= (fun x ->
       primary#set_subtitle @@ make_timestamp_string @@ Some x.timestamp;
-      x)
+      x.data)
     |> sequence#set_lwt in
   let on_change = fun (x : bool) -> sequence#set_hex x in
   let buttons =
