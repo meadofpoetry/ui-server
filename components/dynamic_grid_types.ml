@@ -1,4 +1,8 @@
+open Tyxml_js
+
 module Position = Dynamic_grid_position
+
+module Markup = Components_markup.Dynamic_grid.Make(Xml)(Svg)(Html)
 
 type 'a item =
   { pos          : Position.t
@@ -11,9 +15,9 @@ type 'a item =
   ; draggable    : bool
   ; selectable   : bool
 
-  ; move_widget  : Widget.widget option
-  ; close_widget : Widget.widget option
-  ; widget       : Widget.widget option
+  ; move_widget  : Widget.t option
+  ; close_widget : Widget.t option
+  ; widget       : Widget.t option
   ; value        : 'a
 
   ; on_resize    : (Position.t -> Position.t -> int -> int -> unit) option

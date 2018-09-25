@@ -159,7 +159,7 @@ module Structure = struct
     let s, push        = React.S.create pid.to_be_analyzed in
     let pid_s          = React.S.map (fun b -> {pid with to_be_analyzed = b}) s in
     React.S.map push checkbox#s_state |> ignore;
-    let item = new Tree.Item.t ~text ~secondary_text:stext ~start_detail:checkbox () in
+    let item = new Tree.Item.t ~text ~secondary_text:stext ~graphic:checkbox ~value:() () in
     item, pid_s
 
   let make_channel (ch : Structure.channel) =
@@ -171,24 +171,25 @@ module Structure = struct
     let ch_s   = React.S.map (fun pl -> {ch with pids = pl})
                  @@ React.S.merge ~eq:Equal.physical (fun a p -> p::a) [] sl in
     let nested = new Tree.t ~items:wl () in
-    let e      = new Tree.Item.t ~text ~secondary_text:stext ~nested ()
+    let e      = new Tree.Item.t ~text ~secondary_text:stext ~nested ~value:() ()
     in e, ch_s
 
   let make_structure (s : Structure.t) =
     let text, stext =
-      let h = Printf.sprintf "Поток: %s" (CCOpt.get_or ~default:"-" s.source.description)
+      let h = Printf.sprintf "Поток: %s" (Common.Stream.Source.to_string s.source.source.info)
       in h, (Printf.sprintf "ip: %s" @@ Common.Url.to_string s.structure.uri)
     in
     let wl, cl = List.split @@ List.map make_channel s.structure.channels in
     let st_s   = React.S.map (fun chl -> {s with structure = {s.structure with channels = chl}}) @@
                    React.S.merge ~eq:Equal.physical (fun a p -> p::a) [] cl in
     let nested = new Tree.t ~items:wl () in
-    let e      = new Tree.Item.t ~text ~secondary_text:stext ~nested ()
+    let e      = new Tree.Item.t ~text ~secondary_text:stext ~nested ~value:() ()
     in e, st_s
 
   let make_structure_list (sl : Structure.t list) =
     match sl with
-    | [] -> let ph = Ui_templates.Placeholder.create_icon ~text:"Потоки не обнаружены" ~icon:"info" () in
+    | [] -> let ph = Ui_templates.Placeholder.create_with_icon
+                       ~text:"Потоки не обнаружены" ~icon:"info" () in
             ph#widget, React.S.const None
     | sl -> let wl, sl = List.split @@ List.map make_structure sl in
             let sl_s   = React.S.merge ~eq:Equal.physical (fun a p -> p::a) [] sl in
@@ -244,23 +245,21 @@ module Settings = struct
     peak_field#fill_in s.peak;
     cont_field#fill_in s.cont;
     dur_field#fill_in s.duration;
-    let peak_box           = new Box.t ~vertical:true
-                               ~widgets:[peak_en_field#widget; peak_field#widget;] () in
-    let cont_box           = new Box.t ~vertical:true
-                               ~widgets:[cont_en_field#widget; cont_field#widget;] () in
-    let box                = new Box.t ~widgets:[(Widget.create header);
+    let peak_box = new Vbox.t ~widgets:[peak_en_field#widget; peak_field#widget;] () in
+    let cont_box = new Vbox.t ~widgets:[cont_en_field#widget; cont_field#widget;] () in
+    let box      = new Vbox.t ~widgets:[(Widget.create header);
                                                  peak_box#widget;
                                                  cont_box#widget;
                                                  dur_field#widget] () in
-    let signal             = React.S.l5 (fun peak_en peak cont_en cont dur ->
-                                 Settings.{ peak_en
-                                          ; peak     = Option.get_or ~default:(s.peak) peak
-                                          ; cont_en
-                                          ; cont     = Option.get_or ~default:(s.cont) cont
-                                          ; duration = Option.get_or ~default:(s.duration) dur } )
-                               peak_en_chck#s_state peak_field#s_input
-                               cont_en_chck#s_state cont_field#s_input
-                               dur_field#s_input in
+    let signal   = React.S.l5 (fun peak_en peak cont_en cont dur ->
+                       Settings.{ peak_en
+                                ; peak     = Option.get_or ~default:(s.peak) peak
+                                ; cont_en
+                                ; cont     = Option.get_or ~default:(s.cont) cont
+                                ; duration = Option.get_or ~default:(s.duration) dur } )
+                     peak_en_chck#s_state peak_field#s_input
+                     cont_en_chck#s_state cont_field#s_input
+                     dur_field#s_input in
     box, signal
     
   let make_black (b : Settings.black) =
@@ -273,7 +272,7 @@ module Settings = struct
                                ~label:"Чёрный пиксель"
                                ~input_type:(Widget.Integer ((Some 1),(Some 256))) () in
     bpixel_field#fill_in b.black_pixel;
-    let box                = new Box.t ~widgets:[(Widget.create header);
+    let box                = new Vbox.t ~widgets:[(Widget.create header);
                                                  black_w#widget;
                                                  luma_w#widget;
                                                  bpixel_field#widget] () in
@@ -294,7 +293,7 @@ module Settings = struct
                                ~label:"Идентичный пиксель"
                                ~input_type:(Widget.Integer ((Some 1),(Some 256))) () in
     pixeld_field#fill_in f.pixel_diff;
-    let box                = new Box.t ~widgets:[(Widget.create header);
+    let box                = new Vbox.t ~widgets:[(Widget.create header);
                                                  freeze_w#widget;
                                                  diff_w#widget;
                                                  pixeld_field#widget] () in
@@ -312,7 +311,7 @@ module Settings = struct
     let mark_chck          = new Checkbox.t () in
     let mark_field         = new Form_field.t ~label:"Визуализировать блоки" ~input:mark_chck () in
     mark_chck#set_checked b.mark_blocks;
-    let box                = new Box.t ~widgets:[(Widget.create header);
+    let box                = new Vbox.t ~widgets:[(Widget.create header);
                                                  blocky_w#widget;
                                                  mark_field#widget] () in
     let signal             = React.S.l2 (fun blocky markb -> Settings.{ blocky; mark_blocks = markb })
@@ -330,7 +329,7 @@ module Settings = struct
     let black_w, black_s   = make_black v.black in
     let freeze_w, freeze_s = make_freeze v.freeze in
     let blocky_w, blocky_s = make_blocky v.blocky in
-    let box                = new Box.t ~widgets:[(Widget.create header);
+    let box                = new Vbox.t ~widgets:[(Widget.create header);
                                                  loss_field#widget;
                                                  black_w#widget;
                                                  freeze_w#widget;
@@ -346,7 +345,7 @@ module Settings = struct
     let header             = Dom_html.createH5 Dom_html.document in
     header##.textContent   := Js.some @@ Js.string "Тишина";
     let sil_w, sil_s       = make_setting "Громкость" s.silence in
-    let box                = new Box.t ~widgets:[(Widget.create header); sil_w#widget] () in
+    let box                = new Vbox.t ~widgets:[(Widget.create header); sil_w#widget] () in
     let signal             = React.S.map (fun silence -> Settings.{ silence } ) sil_s in
     box, signal
 
@@ -354,7 +353,7 @@ module Settings = struct
     let header             = Dom_html.createH5 Dom_html.document in
     header##.textContent   := Js.some @@ Js.string "Перегрузка звука";
     let sil_w, sil_s       = make_setting "Громкость" s.loudness in
-    let box                = new Box.t ~widgets:[(Widget.create header); sil_w#widget] () in
+    let box                = new Vbox.t ~widgets:[(Widget.create header); sil_w#widget] () in
     let signal             = React.S.map (fun loudness -> Settings.{ loudness } ) sil_s in
     box, signal
 
@@ -371,7 +370,7 @@ module Settings = struct
                                ~input_type:(Widget.Integer ((Some 0),(Some 100))) () in
     diff#fill_in s.adv_diff;
     buf#fill_in s.adv_buf;
-    let box                = new Box.t ~widgets:[(Widget.create header); diff#widget; buf#widget] () in
+    let box                = new Vbox.t ~widgets:[(Widget.create header); diff#widget; buf#widget] () in
     let signal             = React.S.l2 (fun diff buf ->
                                  Settings.{ adv_diff = Option.get_or ~default:(s.adv_diff) diff
                                           ; adv_buf  = Option.get_or ~default:(s.adv_buf) buf })
@@ -389,7 +388,7 @@ module Settings = struct
     let silence_w, sil_s   = make_silence  a.silence in
     let loudness_w, loud_s = make_loudness a.loudness in
     let adv_w, adv_s       = make_adv      a.adv in
-    let box                = new Box.t ~widgets:[(Widget.create header);
+    let box                = new Vbox.t ~widgets:[(Widget.create header);
                                                  loss_field#widget;
                                                  silence_w#widget;
                                                  loudness_w#widget;
@@ -407,7 +406,7 @@ module Settings = struct
     let v, v_s = make_video s.video in
     let a, a_s = make_audio s.audio in
     let s      = React.S.l2 (fun v a -> Some Settings.{ video = v; audio = a; }) v_s a_s in
-    let box    = new Box.t ~widgets:[(Widget.create header); v#widget; a#widget] () in
+    let box    = new Vbox.t ~widgets:[(Widget.create header); v#widget; a#widget] () in
     box, s
 
   let make ~(init:  Settings.t)

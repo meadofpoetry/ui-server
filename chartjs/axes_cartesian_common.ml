@@ -10,7 +10,7 @@ type _ numeric =
   | Float : float numeric
 
 type (_,_) time =
-  | Ptime : (Common.Time.t,Common.Time.span) time
+  | Ptime : (Ptime.t,Ptime.span) time
 
 type position = [`Top | `Left | `Bottom | `Right]
 

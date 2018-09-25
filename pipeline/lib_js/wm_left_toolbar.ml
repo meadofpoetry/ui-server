@@ -12,6 +12,6 @@ let make_action (action : action) =
   w
 
 let make widgets =
-  let box = new Box.t ~widgets () in
+  let box = new Vbox.t ~widgets () in
   let ()  = box#add_class base_class in
   box

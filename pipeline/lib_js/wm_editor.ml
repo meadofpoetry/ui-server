@@ -12,7 +12,7 @@ module Make(I : Item) = struct
 
   type t =
     { ig : IG.t
-    ; lt : Box.t
+    ; lt : Vbox.t
     ; rt : RT.t
     }
 
@@ -24,8 +24,10 @@ module Make(I : Item) = struct
            ~(set_candidates: I.t list -> unit)
            ~(actions:        Fab.t list)
            () =
-    let rm = Wm_left_toolbar.make_action { icon = "delete"; name = "Удалить" } in
-
+    let rm =
+      Wm_left_toolbar.make_action
+        { icon = Icon.SVG.(new t ~paths:Path.[ new t delete ()] ())#widget
+        ; name = "Удалить" } in
     let layers = I.layers_of_t_list init |> List.sort compare in
     (* fix layers indexes to be from 0 to n *)
     let init   = List.foldi (fun acc i layer ->

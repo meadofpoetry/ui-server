@@ -17,6 +17,8 @@ type config =
   ; settings : settings option
   } [@@deriving yojson]
 
+let base_class = "dvb-niit-measures-line-chart"
+
 let colors = Color.([ Indigo C500; Amber C500; Green C500; Cyan C500 ])
 
 let get_suggested_range = function
@@ -29,7 +31,7 @@ let get_suggested_range = function
 let make_settings (settings:settings) =
   let range_min = new Textfield.t ~label:"Min" ~input_id:"range_min" ~input_type:(Float (None,None)) () in
   let range_max = new Textfield.t ~label:"Max" ~input_id:"range_max" ~input_type:(Float (None,None)) () in
-  let box       = new Box.t ~vertical:false ~widgets:[range_min;range_max] () in
+  let box       = new Hbox.t ~widgets:[range_min;range_max] () in
   let s         = React.S.l2 (fun min max ->
                       match min,max with
                       | Some min, Some max -> Some { range = Some (min,max) }
@@ -38,9 +40,9 @@ let make_settings (settings:settings) =
   box,s
 
 let make_chart_base ~(config: config)
-                    ~(init:   float data)
-                    ~(event:  float data React.event)
-                    () : Dashboard.Item.item =
+      ~(init:   float data)
+      ~(event:  float data React.event)
+      () : Dashboard.Item.item =
   let settings,s_settings = make_settings { range = None } in
   let range = get_suggested_range config.typ in
   let init = List.map (fun x -> match List.Assoc.get ~eq:Int.equal x init with
@@ -66,15 +68,15 @@ let make_chart_base ~(config: config)
   let datasets = List.map (fun (id,data) ->
                      let label = Printf.sprintf "Модуль %d" @@ succ id in
                      new Chartjs.Line.Dataset.t ~label ~data ~x_axis ~y_axis ())
-                          init
+                   init
   in
   List.iteri (fun i x -> let clr = Option.get_or ~default:(Color.Red C500)
                                    @@ List.get_at_idx i colors in
-                         x#set_bg_color @@ Color.rgb_of_name clr;
-                         x#set_border_color @@ Color.rgb_of_name clr;
+                         x#set_bg_color @@ Color.(RGB (rgb_of_material clr));
+                         x#set_border_color @@ Color.(RGB (rgb_of_material clr));
                          x#set_cubic_interpolation_mode `Monotone;
                          x#set_fill `Disabled)
-             datasets;
+    datasets;
   x_axis#ticks#set_auto_skip_padding 2;
   x_axis#scale_label#set_display true;
   x_axis#scale_label#set_label_string "Время";
@@ -86,10 +88,14 @@ let make_chart_base ~(config: config)
   let set   = fun ds data -> List.iter (fun point -> ds#push point) data;
                              chart#update None
   in
-  let _ = React.E.map (fun d -> List.iter (fun (id,data) -> Option.iter (fun ds -> set ds data)
-                                                            @@ List.get_at_idx id datasets)
-                                          d)
-                      event in
+  let _ = React.E.map (fun d ->
+              List.iter (fun (id,data) -> Option.iter (fun ds -> set ds data)
+                                          @@ List.get_at_idx id datasets)
+                d)
+            event in
+  let box = Widget.create_div () in
+  box#add_class base_class;
+  box#append_child chart;
   Dashboard.Item.to_item
     ~name:(measure_type_to_string config.typ)
     ~settings:{ widget = settings#widget
@@ -99,12 +105,12 @@ let make_chart_base ~(config: config)
                          | Some s -> f s.range; chart#update None;
                                      Lwt_result.return ()
                          | None   -> Lwt_result.fail "no settings available"
-              }
-    chart#widget
+    }
+    box
 
 type event = (int * measures) React.event
 let to_event (get: Board_types.measures -> float option)
-             (event: event) : float data React.event =
+      (event: event) : float data React.event =
   React.E.map (fun (id,m) ->
       let y = Option.get_or ~default:nan (get m) in
       [ id, List.return ({ x = m.timestamp; y }:'a point) ]) event

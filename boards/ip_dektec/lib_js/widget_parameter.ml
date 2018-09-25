@@ -6,24 +6,25 @@ module type M = sig
   val to_string : t -> string
 end
 
-type parameter_type = [ `FEC_delay
-                      | `FEC_cols
-                      | `FEC_rows
-                      | `Jitter_tolerance
-                      | `Lost_after_FEC
-                      | `Lost_before_FEC
-                      | `TP_per_IP
-                      | `Status
-                      | `Protocol
-                      | `Packet_size
-                      | `Input_bitrate
-                      | `Output_bitrate
-                      | `PCR_present
-                      | `Rate_change_counter
-                      | `Jitter_error_counter
-                      | `Lock_error_counter
-                      | `Delay_factor
-                      ] [@@deriving yojson]
+type parameter_type =
+  [ `FEC_delay
+  | `FEC_cols
+  | `FEC_rows
+  | `Jitter_tolerance
+  | `Lost_after_FEC
+  | `Lost_before_FEC
+  | `TP_per_IP
+  | `Status
+  | `Protocol
+  | `Packet_size
+  | `Input_bitrate
+  | `Output_bitrate
+  | `PCR_present
+  | `Rate_change_counter
+  | `Jitter_error_counter
+  | `Lock_error_counter
+  | `Delay_factor
+  ] [@@deriving yojson]
 
 let parameter_type_to_string = function
   | `FEC_delay            -> "Задержка FEC"
@@ -67,12 +68,13 @@ type config =
   { typ : parameter_type
   } [@@deriving yojson]
 
+let base_class = "ip-dektec-parameter"
+
 module Make(M:M) = struct
 
   type event = M.t option React.event
 
-  let _class      = "mdc-parameter-widget"
-  let inner_class = Markup.CSS.add_element _class "inner"
+  let inner_class = Markup.CSS.add_element base_class "inner"
 
   let value_to_string (config:config) = function
     | Some v -> (match parameter_type_to_unit config.typ with
@@ -85,7 +87,7 @@ module Make(M:M) = struct
   class t (event:event) (config:config) () =
     let value = new Typography.Text.t
                     ~adjust_margin:false
-                    ~font:Headline
+                    ~font:Headline_5
                     ~text:(value_to_string config None)
                     ()
     in
@@ -96,10 +98,10 @@ module Make(M:M) = struct
     let ()    = Dom.appendChild inner#root value#root in
     let ()    = Dom.appendChild box inner#root in
     object(self)
-      inherit Widget.widget box () as super
+      inherit Widget.t box () as super
       method! destroy = super#destroy
       initializer
-        self#add_class _class
+        self#add_class base_class
     end
 
   let make (event:event) (config:config) : Dashboard.Item.item =

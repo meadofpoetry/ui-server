@@ -1,8 +1,6 @@
 open Containers
 open Board_protocol
 open Board_types
-open Api.Redirect
-open Api.Interaction
 open Api.Interaction.Json
 open Board_api_common
 open Common
@@ -46,19 +44,19 @@ module HTTP = struct
                   |> Lwt_result.map_err packers_error_to_yojson)
     >>= respond_result_unit
 
-  let get_mode (api:api) _ body () =
+  let get_mode (api:api) _ _ () =
     (api.config ()).packers |> Json.List.to_yojson packer_settings_to_yojson
     |> Result.return |> respond_result
 
-  let get_in_streams (api:api) _ body () =
+  let get_in_streams (api:api) _ _ () =
     api.in_streams () |> Json.List.to_yojson Stream.to_yojson
     |> Result.return |> respond_result
 
-  let get_out_streams (api:api) _ body () =
+  let get_out_streams (api:api) _ _ () =
     api.out_streams () |> Json.List.to_yojson Stream.to_yojson
     |> Result.return |> respond_result
 
-  let get_status (api:api) _ body () =
+  let get_status (api:api) _ _ () =
     api.status () |> Json.Option.to_yojson status_to_yojson
     |> Result.return |> respond_result
 

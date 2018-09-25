@@ -1,7 +1,20 @@
 open Containers
+include Yojson.Safe
 
-type json   = Yojson.Safe.json
 type 'a res = ('a,string) result
+
+type t = Yojson.Safe.json
+
+let equal x y = Equal.physical x y
+
+let compare x y = Ord.compare x y
+
+let pp ppf t =
+  Format.fprintf ppf "%s" (Yojson.Safe.pretty_to_string t)
+
+(** Dummy converters for ppx derivers *)
+let to_yojson = fun x -> x
+let of_yojson = fun x -> Ok x
 
 module Bool = struct
   type t = bool
@@ -26,6 +39,19 @@ module Int = struct
     | `Int x -> Ok x
     | `Intlit x -> (try Ok (int_of_string x) with _ -> Error "Int.of_yojson: bad int")
     | _      -> Error "not an int"
+end
+
+module Int32 = struct
+  type t = int32
+  let to_yojson (x:t) : json = `Intlit (Int32.to_string x)
+  let of_yojson : json -> t res = function
+    | `Int x -> Ok (Int32.of_int x)
+    | `Intlit x -> begin
+        match Int32.of_string x with
+        | Some x -> Ok x
+        | None -> Error "int32_of_yojson: bad value"
+      end
+    | _ -> Error "int32_of_yojson: not an int32"
 end
 
 module Int64 = struct

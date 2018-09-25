@@ -1,4 +1,3 @@
-open Board_protocol
 open Boards.Board
 open Common
 

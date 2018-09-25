@@ -8,14 +8,14 @@ class ['a] cell ?(typ=`Item)
            ~(pos: Position.t)
            () =
   let elt = match typ with
-    | `Item  -> Markup.Dynamic_grid.Item.create ()       |> Tyxml_js.To_dom.of_element
-    | `Ghost -> Markup.Dynamic_grid.Item.create_ghost () |> Tyxml_js.To_dom.of_element
+    | `Item  -> Markup.Item.create ()       |> Tyxml_js.To_dom.of_element
+    | `Ghost -> Markup.Item.create_ghost () |> Tyxml_js.To_dom.of_element
   in
   let s_pos, s_pos_push = React.S.create pos in
 
   object(self)
 
-    inherit Widget.widget elt ()
+    inherit Widget.t elt ()
 
     val s_margin = React.S.map (fun x -> x.items_margin) s_grid
     val mutable px_pos = Position.empty

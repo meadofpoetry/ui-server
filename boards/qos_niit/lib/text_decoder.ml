@@ -104,9 +104,12 @@ let get_encoding (text:Cstruct.t) =
        let encoding = int_to_encoding (x + 4) |> Option.get_exn in
        { p with encoding; start_text = 1 }
     | x when x > 0x0B && x <= 0x0F -> p
-    | 0x10 -> (match Cstruct.BE.get_uint16 text 1 with
-               | x when x < 17 -> { p with encoding = int_to_encoding x |> Option.get_exn; start_text = 3 }
-               | _             -> { p with start_text = 3 })
+    | 0x10 ->
+       (match Cstruct.BE.get_uint16 text 1 with
+        | x when x < 17 ->
+           { p with encoding = int_to_encoding x
+                               |> Option.get_exn; start_text = 3 }
+        | _ -> { p with start_text = 3 })
     | 0x11 -> { encoding = UCS_2BE; start_text = 1; multibyte = true }
     | 0x12 -> { encoding = EUC_KR;  start_text = 1; multibyte = true }
     | 0x13 -> { p with encoding = GB2312; start_text = 1 }
@@ -117,19 +120,23 @@ let get_encoding (text:Cstruct.t) =
   with _ -> p
 
 let fold_multibyte (text:Cstruct.t) =
-  let iter = Cstruct.iter (fun b ->
-                 if Cstruct.len b >= 2 && (not @@ Char.equal (Cstruct.get_char b 0) '\000')
-                 then Some 2 else None) (fun b -> b) text
-  in
+  let iter =
+    Cstruct.iter (fun b ->
+        if Cstruct.len b >= 2
+           && (not @@ Char.equal (Cstruct.get_char b 0) '\000')
+        then Some 2 else None) (fun b -> b) text in
   Cstruct.fold (fun acc u16 ->
       let code = Cstruct.BE.get_uint16 u16 0 in
       match code with
-      | 0xE086 | 0xE087 -> acc (* 0xE086 - emphasis on, 0xE087 - emphasis off, skip these symbols *)
-      | 0xE08A          -> let n  = Cstruct.create 2 in
-                           let () = Cstruct.set_uint8 n 0 0x00 in
-                           let () = Cstruct.set_uint8 n 1 0x0A in
-                           Cstruct.append acc n
-      | _               -> Cstruct.append acc u16) iter (Cstruct.create 0)
+      | 0xE086 | 0xE087 ->
+         (* 0xE086 - emphasis on, 0xE087 - emphasis off, skip these symbols *)
+         acc
+      | 0xE08A ->
+         let n  = Cstruct.create 2 in
+         let () = Cstruct.set_uint8 n 0 0x00 in
+         let () = Cstruct.set_uint8 n 1 0x0A in
+         Cstruct.append acc n
+      | _ -> Cstruct.append acc u16) iter (Cstruct.create 0)
 
 let fold_singlebyte (text:Cstruct.t) =
   let iter = Cstruct.iter (fun b ->
@@ -154,22 +161,45 @@ let convert_to_utf8 (text:Cstruct.t) (encoding:encoding_params) =
     ~dst:(encoding_to_table_name UTF8)
     text
 
+let error_to_string = function
+  | `E2BIG            -> "E2BIG"
+  | `Other i          -> Printf.sprintf "Unknown error: %d" i
+  | `Unexpected_exn   -> "Unexpected exception"
+  | `Unknown_encoding -> "Unknown encoding"
+  | `Empty            -> "empty string"
+
+let trim (text:Cstruct.t) =
+  if Cstruct.get_uint8 text 0 = 0
+  then Cstruct.empty
+  else
+    Cstruct.to_string text
+    |> String.rdrop_while (fun c -> Char.equal c '\000')
+    |> Cstruct.of_string
+
 let get_encoding_and_convert (text:Cstruct.t) =
   let (>>=) x f = match x with Ok x -> Ok x | Error e -> f e in
-  (match get_encoding text with
-   | x when equal_encoding x.encoding Unknown -> Error `Unknown_encoding
-   | enc ->
-      convert_to_utf8 text enc
-      >>= (fun e -> match encoding_to_int enc.encoding with
-                    | x when x >= (encoding_to_int ISO8859_2) && x <= (encoding_to_int ISO8859_15) ->
-                       (* Sometimes using the standard 8859-1 set fixes issues *)
-                       convert_to_utf8 text { enc with encoding = ISO8859_1 }
-                    | x when x = encoding_to_int ISO6937 ->
-                       (* The first part of ISO 6937 is identical to ISO 8859-9, but
-                        * they differ in the second part. Some channels don't
-                        * provide the first byte that indicates ISO 8859-9 encoding.
-                        * If decoding from ISO 6937 failed, we try ISO 8859-9 here.
-                        *)
-                       convert_to_utf8 text { enc with encoding = ISO8859_9 }
-                    | _ -> Error e))
-  |> (function Ok s -> s | Error _ -> Cstruct.to_string text)
+  match get_encoding text with
+  | x when equal_encoding x.encoding Unknown ->
+     Error `Unknown_encoding
+  | enc ->
+     convert_to_utf8 text enc
+     >>= (fun e ->
+      match encoding_to_int enc.encoding with
+      | x when x >= (encoding_to_int ISO8859_2)
+               && x <= (encoding_to_int ISO8859_15) ->
+         (* Sometimes using the standard 8859-1 set fixes issues *)
+         convert_to_utf8 text { enc with encoding = ISO8859_1 }
+      | x when x = encoding_to_int ISO6937 ->
+         (* The first part of ISO 6937 is identical to ISO 8859-9, but
+          * they differ in the second part. Some channels don't
+          * provide the first byte that indicates ISO 8859-9 encoding.
+          * If decoding from ISO 6937 failed, we try ISO 8859-9 here.
+          *)
+         convert_to_utf8 text { enc with encoding = ISO8859_9 }
+      | _ -> Error e)
+
+let decode (text:Cstruct.t) =
+  let text = trim text in
+  if Cstruct.len text = 0
+  then Error `Empty
+  else get_encoding_and_convert text

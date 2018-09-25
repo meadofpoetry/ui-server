@@ -1,33 +1,20 @@
 open Containers
+open Tyxml_js
+
+module Markup = Components_markup.Fab_speed_dial.Make(Xml)(Svg)(Html)
 
 type animation = [`Fling | `Scale]
 type direction = [`Up | `Down | `Left | `Right]
-
-let base_class   = "mdc-fab-speed-dial"
-
-let main_class    = Markup.CSS.add_element base_class "main"
-let action_class  = Markup.CSS.add_element base_class "action"
-let actions_class = Markup.CSS.add_element base_class "actions"
-
-let fling_class  = Markup.CSS.add_modifier base_class "animation-fling"
-let scale_class  = Markup.CSS.add_modifier base_class "animation-scale"
-
-let up_class     = Markup.CSS.add_modifier base_class "direction-up"
-let down_class   = Markup.CSS.add_modifier base_class "direction-down"
-let left_class   = Markup.CSS.add_modifier base_class "direction-left"
-let right_class  = Markup.CSS.add_modifier base_class "direction-right"
-
-let opened_class = Markup.CSS.add_modifier base_class "opened"
 
 let item_delay = 65
 
 class action ~(z_index:int) (fab:Fab.t) () =
 object(self)
-  inherit Widget.widget (Dom_html.createDiv Dom_html.document) ()
+  inherit Widget.t (Dom_html.createDiv Dom_html.document) ()
   method fab = fab
   method z_index = z_index
   initializer
-    self#add_class action_class;
+    self#add_class Markup.action_class;
     self#style##.zIndex := (Js.string (string_of_int self#z_index));
     Dom.appendChild self#root fab#root
 end
@@ -37,7 +24,7 @@ class actions ~(items:Fab.t list) () =
   let items = List.mapi (fun i x -> new action ~z_index:(z + i) x ()) items in
   object(self)
     val mutable _items = items
-    inherit Box.t ~vertical:true ~widgets:items ()
+    inherit Vbox.t ~widgets:items ()
 
     method items = _items
 
@@ -54,7 +41,7 @@ class actions ~(items:Fab.t list) () =
       | None   -> ()
 
     initializer
-      self#add_class actions_class
+      self#add_class Markup.actions_class
   end
 
 class t ?(animation=`Scale) ?(direction=`Up) ~icon ~items () =
@@ -63,9 +50,10 @@ class t ?(animation=`Scale) ?(direction=`Up) ~icon ~items () =
   let ()           = Dom.appendChild main_wrapper#root main#root in
   let actions      = new actions ~items () in
   let s,push       = React.S.create false in
+  let box          = new Vbox.t ~widgets:[main_wrapper#widget;actions#widget] () in
   object(self)
 
-    inherit Box.t ~widgets:[main_wrapper#widget;actions#widget] () as super
+    inherit Widget.t box#root () as super
 
     val mutable _animation = animation
     val mutable _direction = direction
@@ -100,22 +88,22 @@ class t ?(animation=`Scale) ?(direction=`Up) ~icon ~items () =
       List.iteri (fun i x -> self#_transform_show i x) self#actions#items;
       Dom_html.setTimeout self#layout
                           (float_of_int (150 + (List.length self#items * item_delay))) |> ignore;
-      self#add_class opened_class; push true
+      self#add_class Markup.opened_class; push true
     method hide () =
       List.iteri (fun i x -> self#_transform_hide i x) self#actions#items;
-      self#remove_class opened_class; push false
+      self#remove_class Markup.opened_class; push false
 
     (** Private methods **)
 
     method private _animation_to_class : animation -> string = function
-      | `Fling -> fling_class
-      | `Scale -> scale_class
+      | `Fling -> Markup.fling_class
+      | `Scale -> Markup.scale_class
 
     method private _direction_to_class : direction -> string = function
-      | `Up    -> up_class
-      | `Down  -> down_class
-      | `Left  -> left_class
-      | `Right -> right_class
+      | `Up    -> Markup.up_class
+      | `Down  -> Markup.down_class
+      | `Left  -> Markup.left_class
+      | `Right -> Markup.right_class
 
     method private _transform_show = match self#animation with
       | `Fling -> (fun _ (item:action) ->
@@ -166,13 +154,13 @@ class t ?(animation=`Scale) ?(direction=`Up) ~icon ~items () =
 
     initializer
       self#_set_main_z_index ();
-      Utils.Keyboard_event.listen ~f:(function `Escape _ -> self#hide () | _ -> ()) self#main#root
-      |> ignore;
+      Utils.Keyboard_event.listen self#main#root (function
+          | `Escape _ -> self#hide (); true | _ -> true) |> ignore;
       List.iter (fun x -> x#set_mini true) self#items;
       self#hide (); (* FIXME not working for `Fling cause can't get dimensions *)
       self#set_animation animation;
       self#set_direction direction;
-      main_wrapper#add_class main_class;
-      self#add_class base_class
+      main_wrapper#add_class Markup.main_class;
+      self#add_class Markup.base_class
 
   end

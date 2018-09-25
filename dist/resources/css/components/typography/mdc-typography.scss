@@ -18,15 +18,11 @@
 @import "./mixins";
 
 .mdc-typography {
-  @include mdc-typography-base;
+    @include mdc-typography-base;
 }
 
 @each $style in map-keys($mdc-typography-styles) {
-  .mdc-typography--#{$style} {
-    @include mdc-typography($style);
-  }
-
-  .mdc-typography--adjust-margin.mdc-typography--#{$style} {
-    @include mdc-typography-adjust-margin($style);
-  }
+    .mdc-typography--#{$style} {
+        @include mdc-typography($style);
+    }
 }

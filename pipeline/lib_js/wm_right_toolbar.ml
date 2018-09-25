@@ -11,7 +11,7 @@ module Make(I : Item) = struct
     let layers,layers_grid = Wm_layers.make ~init:layers ~max:I.max_layers in
     let _class             = "wm-right-toolbar" in
     object(self)
-      inherit Box.t ~vertical:true ~widgets:[items#widget;layers#widget] ()
+      inherit Vbox.t ~widgets:[items#widget;layers#widget] ()
       method e_layers_action : Wm_layers.action React.event = layers_grid#e_layer
       method initialize_layers = layers_grid#initialize
       initializer

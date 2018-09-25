@@ -32,6 +32,13 @@
    } [@@little_endian]]
 
 [%%cstruct
+ type req_set_init =
+   { input_src_id : uint8_t
+   ; t2mi_src_id  : uint8_t
+   ; rfu          : uint8_t [@len 254]
+   } [@@little_endian]]
+
+[%%cstruct
  type board_info =
    { board_type    : uint8_t
    ; board_version : uint8_t
@@ -239,13 +246,13 @@
 
 [%%cstruct
  type services_struct_block =
-   { id             : uint16_t
-   ; pmt_pid        : uint16_t
-   ; pcr_pid        : uint16_t
-   ; flags          : uint16_t
-   ; service_type_2 : uint8_t
-   ; service_type_1 : uint8_t
-   ; bitrate        : uint32_t
+   { id                : uint16_t
+   ; pmt_pid           : uint16_t
+   ; pcr_pid           : uint16_t
+   ; flags             : uint16_t
+   ; service_type      : uint8_t
+   ; service_type_list : uint8_t
+   ; bitrate           : uint32_t
    } [@@little_endian]]
 
 [%%cstruct

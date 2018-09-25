@@ -1,13 +1,13 @@
 open Containers
-open Widget
-open Markup
 
-let get_elevation_class = Elevation.get_elevation_class
+module Markup = Components_markup.Elevation
 
-let remove_elevation (elt:#widget) = List.iter (fun x -> if String.prefix ~pre:Elevation.base_class x
-                                                         then elt#remove_class x)
-                                               elt#classes
+let remove_elevation (elt:#Widget.t) =
+  List.iter (fun x -> if String.prefix ~pre:Markup.base_class x
+                      then elt#remove_class x)
+    elt#classes
 
-let set_elevation (elt:#widget) x = remove_elevation elt;
-                                    elt#add_class Elevation.transition_class;
-                                    elt#add_class @@ get_elevation_class x
+let set_elevation (elt:#Widget.t) x =
+  remove_elevation elt;
+  elt#add_class Markup.transition_class;
+  elt#add_class @@ Markup.get_elevation_class x

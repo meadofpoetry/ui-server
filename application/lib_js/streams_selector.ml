@@ -4,21 +4,30 @@ open Lwt.Infix
 
 open Application_types
 
+module Topology = Common.Topology
+module Stream = Common.Stream
+
 type check = { avail   : bool React.signal
              ; enable  : unit -> unit
              ; disable : unit -> unit
              }
 
-type stream_dialog = { dialog : Dialog.t
-                     ; push   : (Common.Topology.input * int) -> unit
-                     ; result : (Common.Stream.t, string) result React.signal
-                     }
+type stream_dialog =
+  { dialog : Dialog.t
+  ; push   : (Common.Topology.input * int) -> unit
+  ; result : (Stream.t, string) result React.signal
+  }
                    
 let make_board_stream_entry ?(check = None)
                             ?(uri = None)
-                            stream =
-  let text           = Common.Stream.header stream in
-  let checkbox       = new Checkbox.t ~ripple:false () in
+                            (stream:Stream.t) =
+  let text =
+    let i = Stream.get_input stream in
+    let s = Stream.Source.to_string stream.source.info in
+    match i with
+    | Some i -> Printf.sprintf "Вход %s: %s" (Topology.get_input_name i) s
+    | None   -> s in
+  let checkbox = new Checkbox.t ~ripple:false () in
   checkbox#set_checked @@ Option.is_some uri;
   begin match check with
   | None -> ()
@@ -27,8 +36,14 @@ let make_board_stream_entry ?(check = None)
      Lwt_react.E.keep @@ React.S.diff (fun s _ -> if s then check.enable () else check.disable ()) checkbox#s_state;
   end;
   let item = match uri with
-    | None   -> new Item_list.Item.t ~text ~end_detail:checkbox ()
-    | Some u -> new Item_list.Item.t ~text ~secondary_text:(Common.Url.to_string u) ~end_detail:checkbox ()
+    | None   -> new Item_list.Item.t
+                  ~text
+                  ~meta:checkbox
+                  ~value:() ()
+    | Some u -> new Item_list.Item.t
+                  ~text
+                  ~secondary_text:(Common.Url.to_string u)
+                  ~meta:checkbox ~value:() ()
   in
   item, React.S.map (fun s -> if s then Some stream else None) checkbox#s_state
   
@@ -58,7 +73,7 @@ let make_board_limited lim bid stream_list =
   Lwt_react.S.keep @@
     React.S.map (fun counter -> let str = Printf.sprintf "Board: %d, streams left: %d" id (lim - counter) in
                                 subheader#set_text str) counter;
-  let box  = new Box.t ~vertical:true ~widgets:[subheader#widget; list#widget] () in
+  let box  = new Vbox.t ~widgets:[subheader#widget; list#widget] () in
   box#widget, settings
 
 let make_board_unlimited bid stream_list =
@@ -77,7 +92,7 @@ let make_board_unlimited bid stream_list =
     React.S.merge ~eq:Equal.physical (fun acc v -> v::acc) [] stream_signals
     |> React.S.map (fun l -> (bid, List.filter_map Fun.id l))
   in
-  let box  = new Box.t ~vertical:true ~widgets:[subheader#widget; list#widget] () in
+  let box  = new Vbox.t ~widgets:[subheader#widget; list#widget] () in
   box#widget, settings
 
 let make_board_forbidden bid stream_list = 
@@ -90,7 +105,7 @@ let make_board_forbidden bid stream_list =
   in
   let subheader = new Typography.Text.t ~text:(Printf.sprintf "Board: %d" id) () in
   let list = new Item_list.t ~items:[] () in
-  let box  = new Box.t ~vertical:true ~widgets:[subheader#widget; list#widget] () in
+  let box  = new Vbox.t ~widgets:[subheader#widget; list#widget] () in
   box#widget, settings
   
 let make_board_entry (bid, state, stream_list) =
@@ -100,12 +115,16 @@ let make_board_entry (bid, state, stream_list) =
   | `Unlimited   -> make_board_unlimited bid stream_list
 
 let make_input_stream_list stream_list =
-  let make_board_stream_entry del_item del_stream stream =
-    let text           = Common.Stream.header stream in
+  let make_board_stream_entry del_item del_stream (stream:Stream.t) =
+    let text           = Stream.Source.to_string stream.source.info in
     let del_button     = new Button.t ~label:"delete" () in
-    let uri            = match stream.id with `Ip u -> u in
+    let uri            = match stream.orig_id with
+      | TSoIP x -> ({ ip = x.addr; port = x.port } : Common.Url.t) in
     let item           =
-      new Item_list.Item.t ~text ~secondary_text:(Common.Url.to_string uri) ~end_detail:del_button () in
+      new Item_list.Item.t ~text
+        ~secondary_text:(Common.Url.to_string uri)
+        ~meta:del_button
+        ~value:() () in
     (* TODO remove event *)
     Lwt_react.E.map (fun _ -> del_item item; del_stream stream) del_button#e_click |> ignore;
     item
@@ -115,24 +134,24 @@ let make_input_stream_list stream_list =
   let del_item   i = list#remove_item i in
   let del_stream s =
     let slst = React.S.value signal in
-    push @@ List.filter (fun x -> not @@ Common.Stream.equal s x) slst
+    push @@ List.filter (fun x -> not @@ Stream.equal s x) slst
   in
   let items = List.map (make_board_stream_entry del_item del_stream) stream_list in
-  List.iter (fun i -> list#add_item i) items;
+  List.iter (fun i -> list#append_item i) items;
   let add stream =
     let slst = React.S.value signal in
-    if List.exists (Common.Stream.equal stream) slst
+    if List.exists (Stream.equal stream) slst
     then failwith "stream exists"; (* TODO fix *)
     let item = make_board_stream_entry del_item del_stream stream in
-    list#add_item item;
+    list#append_item item;
     push (stream::slst)
   in
   signal, list, add
   
 let make_stream_create_dialog () =
-  let open Common.Stream in
-  let input, push_input = React.S.create (Input { input = RF; id = 0} ) in
-  let push (input, id) = push_input (Input { input; id}) in
+  let open Stream in
+  let input, push_input = React.S.create ({ input = RF; id = 0} : Common.Topology.topo_input) in
+  let push (input, id) = push_input ({ input; id}) in
 
   let header = new Typography.Text.t ~text:"Create stream" () in
   let uri_box = new Textfield.t
@@ -141,8 +160,13 @@ let make_stream_create_dialog () =
                     ~label:"Uri"
                     ()
   in
-  let desc_box = new Textfield.t ~label:"description" ~input_id:"description" ~input_type:Widget.Text () in
-  let box     = new Box.t ~vertical:true ~widgets:[uri_box#widget; desc_box#widget] () in
+  let desc_box =
+    new Textfield.t
+      ~label:"description"
+      ~input_id:"description"
+      ~input_type:Widget.Text
+      () in
+  let box     = new Vbox.t ~widgets:[uri_box#widget; desc_box#widget] () in
   
   let accept  = new Dialog.Action.t ~label:"accept" ~typ:`Accept () in
   let decline = new Dialog.Action.t ~label:"decline" ~typ:`Decline () in
@@ -151,7 +175,17 @@ let make_stream_create_dialog () =
   let merge uri description source =
     match uri with
     | None -> Error ("no uri provided")
-    | Some uri -> Ok { id = `Ip uri; description; source }
+    | Some (uri:Common.Url.t) ->
+       let source =
+         { info = IPV4 { scheme = "udp"
+                       ; addr   = uri.ip
+                       ; port   = uri.port }
+         ; node = Entry (Input source) } in
+       Ok { id      = make_id source
+          ; orig_id = TSoIP { addr = uri.ip; port = uri.port }
+          ; typ     = TS
+          ; source
+         }
   in
   let result = React.S.l3 merge uri_box#s_input desc_box#s_input input in
   Dom.appendChild Dom_html.document##.body dialog#root;
@@ -186,16 +220,16 @@ let make_input_entry (iid, _, stream_list) =
                           | Error e -> Lwt.return @@ print_endline e
                           | Ok s    -> Lwt.return @@ add s)
                                         add_button#e_click;
-  let box = new Box.t ~vertical:true ~widgets:[subheader#widget; list#widget; add_button#widget] () in
+  let box = new Vbox.t ~widgets:[subheader#widget; list#widget; add_button#widget] () in
   box#widget, settings
 
-let make_entry : 'a -> Widget.widget * (marker * Common.Stream.t list) React.signal = function
+let make_entry : 'a -> Widget.t * (marker * Common.Stream.t list) React.signal = function
   | `Input _, _, _ as x -> make_input_entry x
   | `Board _, _, _ as x -> make_board_entry x
 
 let make_table table =
   let widgets, signals = List.split @@ List.map make_entry table in
-  let list  = new Box.t ~vertical:true ~widgets () in
+  let list  = new Vbox.t ~widgets () in
   list, React.S.map Option.return (React.S.merge ~eq:Equal.physical (fun acc v -> v::acc) [] signals)
 
 let make ~(init:  stream_table)

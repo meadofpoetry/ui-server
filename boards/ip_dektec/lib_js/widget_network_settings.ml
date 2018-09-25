@@ -5,27 +5,51 @@ open Common
 
 type config = unit [@@deriving yojson]
 
+let base_class = "ip-dektec-network-settings"
+
 let make_ip () =
-  let help_text : Textfield.Help_text.helptext = { validation=true;persistent=false;text=None} in
-  let ip = new Textfield.t ~input_id:"ip" ~input_type:IPV4 ~help_text ~label:"IP адрес" () in
+  let help_text : Textfield.Help_text.helptext =
+    { validation=true;persistent=false;text=None} in
+  let ip =
+    new Textfield.t
+      ~input_id:"ip"
+      ~input_type:IPV4
+      ~help_text
+      ~label:"IP адрес" () in
   let set (x:nw) = ip#fill_in x.ip in
   ip#widget,set,ip#s_input,ip#set_disabled
 
 let make_mask () =
-  let help_text : Textfield.Help_text.helptext = { validation=true;persistent=false;text=None} in
-  let mask = new Textfield.t ~input_id:"mask" ~input_type:IPV4 ~help_text ~label:"Маска подсети" () in
+  let help_text : Textfield.Help_text.helptext =
+    { validation=true;persistent=false;text=None} in
+  let mask =
+    new Textfield.t
+      ~input_id:"mask"
+      ~input_type:IPV4
+      ~help_text
+      ~label:"Маска подсети" () in
   let set (x:nw) = mask#fill_in x.mask in
   mask#widget,set,mask#s_input,mask#set_disabled
 
 let make_gateway () =
-  let help_text : Textfield.Help_text.helptext = { validation=true;persistent=false;text=None} in
-  let gw = new Textfield.t ~input_id:"gw" ~input_type:IPV4 ~help_text ~label:"Шлюз" () in
+  let help_text : Textfield.Help_text.helptext =
+    { validation=true;persistent=false;text=None} in
+  let gw =
+    new Textfield.t
+      ~input_id:"gw"
+      ~input_type:IPV4
+      ~help_text
+      ~label:"Шлюз" () in
   let set (x:nw) = gw#fill_in x.gateway in
   gw#widget,set,gw#s_input,gw#set_disabled
 
 let make_dhcp () =
   let dhcp  = new Switch.t () in
-  let form  = new Form_field.t ~input:dhcp ~label:"DHCP" ~align_end:true () in
+  let form  =
+    new Form_field.t
+      ~input:dhcp
+      ~label:"DHCP"
+      ~align_end:true () in
   let set (x:nw) = dhcp#set_checked x.dhcp in
   form#widget,set,dhcp#s_state,dhcp#set_disabled
 
@@ -59,6 +83,6 @@ let make ~(state: Topology.state React.signal)
   in
   let submit = fun x -> Requests.Device.HTTP.set_mode x control in
   let apply  = Ui_templates.Buttons.create_apply s submit in
-  let box    = new Box.t ~vertical:true ~widgets:[dhcp;ip;mask;gw;apply#widget] () in
-  let ()     = box#add_class "mdc-settings-widget" in
+  let box    = new Vbox.t ~widgets:[ dhcp; ip; mask; gw; apply#widget ] () in
+  let ()     = box#add_class base_class in
   box#widget

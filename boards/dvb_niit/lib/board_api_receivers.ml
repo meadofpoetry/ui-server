@@ -2,9 +2,7 @@ open Containers
 open Board_types
 open Board_protocol
 open Board_api_common
-open Api.Interaction
 open Api.Interaction.Json
-open Api.Redirect
 open Common
 
 module WS = struct
@@ -68,14 +66,14 @@ module HTTP = struct
 
   module Archive = struct
 
-    let mode ids limit from till duration _ _ () =
-      respond_error ~status:`Not_implemented "not implemented" ()
-
-    let measures ids limit compress from till duration _ _ () =
-      respond_error ~status:`Not_implemented "not implemented" ()
-
-    let parameters ids limit from till duration _ _ () =
-      respond_error ~status:`Not_implemented "not implemented" ()
+    (* let mode ids limit from till duration _ _ () =
+     *   respond_error ~status:`Not_implemented "not implemented" ()
+     * 
+     * let measures ids limit compress from till duration _ _ () =
+     *   respond_error ~status:`Not_implemented "not implemented" ()
+     * 
+     * let parameters ids limit from till duration _ _ () =
+     *   respond_error ~status:`Not_implemented "not implemented" () *)
 
   end
 
@@ -128,31 +126,31 @@ let handler api events =
                 ~query:Query.[ "id", (module List(Int)) ]
                 (HTTP.plps api)
             (* Archive *)
-            ; create_handler ~docstring:"Returns archived receiver mode"
-                ~path:Path.Format.("mode/archive" @/ empty)
-                ~query:Query.[ "id",       (module List(Int))
-                             ; "limit",    (module Option(Int))
-                             ; "from",     (module Option(Time.Show))
-                             ; "to",       (module Option(Time.Show))
-                             ; "duration", (module Option(Time.Relative)) ]
-                HTTP.Archive.mode
-            ; create_handler ~docstring:"Returns archived measures"
-                ~path:Path.Format.("measures/archive" @/ empty)
-                ~query:Query.[ "id",       (module List(Int))
-                             ; "limit",    (module Option(Int))
-                             ; "compress", (module Option(Bool))
-                             ; "from",     (module Option(Time.Show))
-                             ; "to",       (module Option(Time.Show))
-                             ; "duration", (module Option(Time.Relative)) ]
-                HTTP.Archive.measures
-            ; create_handler ~docstring:"Returns archived DVB-T2 signal parameters"
-                ~path:Path.Format.("parameters/archive" @/ empty)
-                ~query:Query.[ "id",       (module List(Int))
-                             ; "limit",    (module Option(Int))
-                             ; "from",     (module Option(Time.Show))
-                             ; "to",       (module Option(Time.Show))
-                             ; "duration", (module Option(Time.Relative)) ]
-                HTTP.Archive.parameters
+            (* ; create_handler ~docstring:"Returns archived receiver mode"
+             *     ~path:Path.Format.("mode/archive" @/ empty)
+             *     ~query:Query.[ "id",       (module List(Int))
+             *                  ; "limit",    (module Option(Int))
+             *                  ; "from",     (module Option(Time.Show))
+             *                  ; "to",       (module Option(Time.Show))
+             *                  ; "duration", (module Option(Time.Relative)) ]
+             *     HTTP.Archive.mode
+             * ; create_handler ~docstring:"Returns archived measures"
+             *     ~path:Path.Format.("measures/archive" @/ empty)
+             *     ~query:Query.[ "id",       (module List(Int))
+             *                  ; "limit",    (module Option(Int))
+             *                  ; "compress", (module Option(Bool))
+             *                  ; "from",     (module Option(Time.Show))
+             *                  ; "to",       (module Option(Time.Show))
+             *                  ; "duration", (module Option(Time.Relative)) ]
+             *     HTTP.Archive.measures
+             * ; create_handler ~docstring:"Returns archived DVB-T2 signal parameters"
+             *     ~path:Path.Format.("parameters/archive" @/ empty)
+             *     ~query:Query.[ "id",       (module List(Int))
+             *                  ; "limit",    (module Option(Int))
+             *                  ; "from",     (module Option(Time.Show))
+             *                  ; "to",       (module Option(Time.Show))
+             *                  ; "duration", (module Option(Time.Relative)) ]
+             *     HTTP.Archive.parameters *)
             ]
     ]
 

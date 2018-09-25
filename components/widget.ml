@@ -3,7 +3,7 @@ open Containers
 (* TODO remove *)
 let (<=) = Pervasives.(<=)
 let (>=) = Pervasives.(>=)
-   
+
 type rect =
   { top    : float
   ; right  : float
@@ -19,9 +19,18 @@ let to_rect (x:Dom_html.clientRect Js.t) =
   ; bottom = x##.bottom
   ; left   = x##.left
   ; width  = Js.Optdef.to_option x##.width
-  ; height = Js.Optdef.to_option x##.height }
+  ; height = Js.Optdef.to_option x##.height
+  }
 
-class widget (elt:#Dom_html.element Js.t) () = object(self)
+module Event = struct
+  include Dom_events.Typ
+end
+
+module Event_lwt = struct
+  include Lwt_js_events
+end
+
+class t (elt:#Dom_html.element Js.t) () = object(self)
 
   val mutable _on_destroy = None
   val mutable _on_load    = None
@@ -29,14 +38,25 @@ class widget (elt:#Dom_html.element Js.t) () = object(self)
   val mutable _in_dom     = false
   val mutable _observer   = None
 
+  val mutable _e_storage : unit React.event list = []
+  val mutable _s_storage : unit React.signal list = []
+
   method root   : Dom_html.element Js.t = (elt :> Dom_html.element Js.t)
-  method widget : widget = (self :> widget)
+  method node   : Dom.node Js.t = (elt :> Dom.node Js.t)
+  method markup : Tyxml_js.Xml.elt =
+    Tyxml_js.Of_dom.of_element self#root
+    |> Tyxml_js.Html.toelt
+  method widget : t = (self :> t)
 
   method set_on_destroy f = _on_destroy <- f
 
   method destroy () : unit =
     self#set_on_load None;
     self#set_on_unload None;
+    List.iter (React.S.stop ~strong:true) _s_storage;
+    List.iter (React.E.stop ~strong:true) _e_storage;
+    _s_storage <- [];
+    _e_storage <- [];
     Option.iter (fun f -> f ()) _on_destroy
 
   method layout () = ()
@@ -44,12 +64,16 @@ class widget (elt:#Dom_html.element Js.t) () = object(self)
   method get_child_element_by_class x = Js.Opt.to_option @@ self#root##querySelector (Js.string ("." ^ x))
   method get_child_element_by_id    x = Js.Opt.to_option @@ self#root##querySelector (Js.string ("#" ^ x))
 
-  method get_attribute a    = self#root##getAttribute (Js.string a) |> Js.Opt.to_option |> Option.map Js.to_string
+  method get_attribute a    = self#root##getAttribute (Js.string a)
+                              |> Js.Opt.to_option
+                              |> Option.map Js.to_string
   method set_attribute a v  = self#root##setAttribute (Js.string a) (Js.string v)
   method remove_attribute a = self#root##removeAttribute (Js.string a)
   method has_attribute a    = self#root##hasAttribute (Js.string a)
+                              |> Js.to_bool
 
   method inner_html       = Js.to_string self#root##.innerHTML
+  method outer_html       = Js.to_string self#root##.outerHTML
   method set_inner_html s = self#root##.innerHTML := Js.string s
 
   method text_content       = self#root##.textContent |> Js.Opt.to_option |> Option.map Js.to_string
@@ -60,14 +84,14 @@ class widget (elt:#Dom_html.element Js.t) () = object(self)
 
   method style = self#root##.style
 
-  method class_string         = Js.to_string @@ self#root##.className
+  method class_string = Js.to_string @@ self#root##.className
+  method classes      = String.split_on_char ' ' @@ self#class_string
   method set_class_string _classes = self#root##.className := (Js.string _classes)
-  method cons_class   _class = self#set_class_string @@ _class ^ " " ^ self#class_string
   method add_class    _class = self#root##.classList##add (Js.string _class)
   method remove_class _class = self#root##.classList##remove (Js.string _class)
   method toggle_class _class = self#root##.classList##toggle (Js.string _class) |> Js.to_bool
   method has_class    _class = Js.to_bool (self#root##.classList##contains (Js.string _class))
-  method classes             = String.split_on_char ' ' @@ self#class_string
+  method find_classes pre = List.find_all (fun c -> String.prefix ~pre c) self#classes
   method add_or_remove_class x _class = if x then self#add_class _class else self#remove_class _class
 
   method client_left   = self#root##.clientLeft
@@ -85,6 +109,40 @@ class widget (elt:#Dom_html.element Js.t) () = object(self)
   method scroll_width  = self#root##.scrollWidth
   method scroll_height = self#root##.scrollHeight
 
+  method append_child : 'a. (< node : Dom.node Js.t; .. > as 'a) -> unit =
+    fun x ->
+    Dom.appendChild self#root x#node
+  method insert_child_at_idx : 'a. int ->
+                               (< node : Dom.node Js.t; .. > as 'a) -> unit =
+    fun index x ->
+    let child = self#root##.childNodes##item index in
+    Dom.insertBefore self#root x#node child
+  method remove_child : 'a. (< node : Dom.node Js.t; .. > as 'a) -> unit =
+    fun x ->
+    try Dom.removeChild self#root x#node
+    with _ -> ()
+
+  method listen : 'a. (#Dom_html.event as 'a) Js.t Event.typ ->
+                  (Dom_html.element Js.t -> 'a Js.t -> bool) ->
+                  Dom_events.listener =
+    fun x f ->
+    Dom_events.listen self#root x f
+
+  method listen_once_lwt : 'a. ?use_capture:bool ->
+                           (#Dom_html.event as 'a) Js.t Event.typ ->
+                           'a Js.t Lwt.t =
+    fun ?use_capture x ->
+    Event_lwt.make_event x ?use_capture self#root
+
+  method listen_lwt : 'a. ?cancel_handler:bool ->
+                      ?use_capture:bool ->
+                      (#Dom_html.event as 'a) Js.t Event.typ ->
+                      ('a Js.t -> unit Lwt.t -> unit Lwt.t) ->
+                      unit Lwt.t =
+    fun ?cancel_handler ?use_capture x ->
+    Event_lwt.seq_loop (Event_lwt.make_event x)
+      ?cancel_handler ?use_capture self#root
+
   method set_empty () =
     Dom.list_of_nodeList @@ self#root##.childNodes
     |> List.iter (fun x -> Dom.removeChild self#root x)
@@ -101,6 +159,13 @@ class widget (elt:#Dom_html.element Js.t) () = object(self)
     _on_load <- f; self#_observe_if_needed
   method set_on_unload (f : (unit -> unit) option) =
     _on_unload <- f; self#_observe_if_needed
+
+  (* Private methods *)
+
+  method private _keep_s : 'a. 'a React.signal -> unit = fun s ->
+    _s_storage <- React.S.map ignore s :: _s_storage
+  method private _keep_e : 'a. 'a React.event -> unit  = fun e ->
+    _e_storage <- React.E.map ignore e :: _e_storage
 
   method private _observe_if_needed =
     let init () = MutationObserver.observe
@@ -123,16 +188,17 @@ class widget (elt:#Dom_html.element Js.t) () = object(self)
 
 end
 
-class button_widget elt () =
+class button_widget ?(on_click) elt () =
   let e_click,e_click_push = React.E.create () in
   object(self)
 
-    inherit widget elt ()
+    inherit t elt ()
 
     method e_click = e_click
 
     initializer
-      Dom_events.listen self#root Dom_events.Typ.click (fun _ e -> e_click_push e; false) |> ignore
+      Dom_events.listen self#root Dom_events.Typ.click (fun _ e ->
+          e_click_push e; false) |> ignore
 
   end
 
@@ -140,7 +206,7 @@ class input_widget ~(input_elt:Dom_html.inputElement Js.t) elt () =
   let s_disabled,s_disabled_push = React.S.create false in
   object
 
-    inherit widget elt ()
+    inherit t elt ()
 
     method disabled       = Js.to_bool input_elt##.disabled
     method set_disabled x = input_elt##.disabled := Js.bool x; s_disabled_push x
@@ -157,20 +223,32 @@ class input_widget ~(input_elt:Dom_html.inputElement Js.t) elt () =
 
   end
 
-class radio_or_cb_widget ~input_elt elt () =
-  let s_state,s_state_push = React.S.create ~eq:Equal.bool false in
+class radio_or_cb_widget ?on_change ?state ~input_elt elt () =
+  let () = match state with
+    | Some true ->
+       input_elt##.checked := Js.bool true
+    | Some false | None -> () in
+  let s_state,s_state_push =
+    React.S.create ~eq:Equal.bool @@ Option.get_or ~default:false state in
   object(self)
+
+    val _on_change : (bool -> unit) option = on_change
 
     inherit input_widget ~input_elt elt ()
 
-    method set_checked x = input_elt##.checked := Js.bool x; s_state_push x
-    method checked       = Js.to_bool input_elt##.checked
+    method set_checked (x:bool) : unit =
+      input_elt##.checked := Js.bool x;
+      Option.iter (fun f -> f x) _on_change;
+      s_state_push x
+    method checked : bool =
+      Js.to_bool input_elt##.checked
 
     method s_state = s_state
 
     initializer
-      Dom_events.listen input_elt Dom_events.Typ.change (fun _ _ -> s_state_push self#checked; false)
-      |> ignore;
+      Dom_events.listen input_elt Dom_events.Typ.change (fun _ _ ->
+          Option.iter (fun f -> f self#checked) _on_change;
+          s_state_push self#checked; false) |> ignore;
 
   end
 
@@ -388,8 +466,12 @@ class ['a] text_input_widget ?v_msg ~input_elt (v : 'a validation) elt () =
 
   end
 
-let create x = new widget x ()
-let coerce (x : #widget) = (x :> widget)
+let create x = new t x ()
+let coerce (x : #t) = (x :> t)
 
-let widget_to_markup (x : #widget) = Tyxml_js.Of_dom.of_element x#root
-let widgets_to_markup (x : #widget list) = List.map widget_to_markup x
+let to_markup (x : #t) = Tyxml_js.Of_dom.of_element x#root
+
+open Dom_html
+
+let create_div ()  = create @@ createDiv document
+let create_span () = create @@ createDiv document

@@ -120,7 +120,7 @@ let update_nodes nodes (t:Common.Topology.t) =
                             | None    -> ())
              | _        -> ()) nodes
 
-let create ~(parent: #Widget.widget)
+let create ~(parent: #Widget.t)
       ~(init:   Common.Topology.t)
       ~(event:  Common.Topology.t React.event)
       () =

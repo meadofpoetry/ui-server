@@ -30,16 +30,17 @@ module Path : sig
       | String : string fmt
       | Int    : int fmt
       | Int32  : int32 fmt
+      | Uuid   : Uuidm.t fmt
       | Bool   : bool fmt
     type (_,_) t
-    val to_templ : (_,_) t -> templ
-    val empty : ('a,'a) t
-    val (@/) : string -> ('a,'b) t -> ('a,'b) t
-    val (^/) : 'a fmt -> ('b,'c) t -> ('a -> 'b,'c) t
-    val (/)  : ('a,'b) t -> ('b,'c) t -> ('a,'c) t
+    val to_templ    : (_,_) t -> templ
+    val empty       : ('a,'a) t
+    val (@/)        : string -> ('a,'b) t -> ('a,'b) t
+    val (^/)        : 'a fmt -> ('b,'c) t -> ('a -> 'b,'c) t
+    val (/)         : ('a,'b) t -> ('b,'c) t -> ('a,'c) t
     val scan_unsafe : string list -> ('a,'b) t -> 'a -> 'b
-    val kprint : (string list -> 'b) -> ('a, 'b) t -> 'a
-    val doc : ('a, 'b) t -> string 
+    val kprint      : (string list -> 'b) -> ('a, 'b) t -> 'a
+    val doc         : ('a, 'b) t -> string
   end
 end = struct
 
@@ -77,6 +78,7 @@ end = struct
       | String : string fmt
       | Int    : int fmt
       | Int32  : int32 fmt
+      | Uuid   : Uuidm.t fmt
       | Bool   : bool fmt
     type (_,_) t =
       | S : string * ('a,'b) t -> ('a,'b) t
@@ -106,11 +108,12 @@ end = struct
 
     let rec scan_unsafe : type a b. string list -> (a,b) t -> a -> b = fun path fmt f ->
       match path, fmt with
-      | _::tl, S (_,fmt)       -> scan_unsafe tl fmt f
-      | h::tl, F (String, fmt) -> scan_unsafe tl fmt (f h)
-      | h::tl, F (Int, fmt)    -> scan_unsafe tl fmt (f @@ int_of_string h)
-      | h::tl, F (Int32, fmt)  -> scan_unsafe tl fmt (f @@ Int32.of_string h)
-      | h::tl, F (Bool, fmt)   -> scan_unsafe tl fmt (f @@ bool_of_string h)
+      | _ :: tl, S (_,fmt)       -> scan_unsafe tl fmt f
+      | h :: tl, F (String, fmt) -> scan_unsafe tl fmt (f h)
+      | h :: tl, F (Int, fmt)    -> scan_unsafe tl fmt (f @@ int_of_string h)
+      | h :: tl, F (Int32, fmt)  -> scan_unsafe tl fmt (f @@ Int32.of_string h)
+      | h :: tl, F (Uuid, fmt)   -> scan_unsafe tl fmt (f @@ CCOpt.get_exn @@ Uuidm.of_string h)
+      | h :: tl, F (Bool, fmt)   -> scan_unsafe tl fmt (f @@ bool_of_string h)
       | [], E                  -> f
       | _                      -> failwith "bad path"
 
@@ -122,6 +125,7 @@ end = struct
       | F (String, rest) -> let f x = kprint (fun lst -> k (x :: lst)) rest in f
       | F (Int, rest)    -> let f x = kprint (fun lst -> k ((string_of_int x) :: lst)) rest in f
       | F (Int32, rest)  -> let f x = kprint (fun lst -> k ((Int32.to_string x) :: lst)) rest in f
+      | F (Uuid, rest)   -> let f x = kprint (fun lst -> k ((Uuidm.to_string x) :: lst)) rest in f
       | F (Bool, rest)   -> let f x = kprint (fun lst -> k ((string_of_bool x) :: lst)) rest in f
 
     let doc : type a b. (a, b) t -> string = fun fmt ->
@@ -131,6 +135,7 @@ end = struct
         | F (String, fmt) -> ":string" :: (loop fmt)
         | F (Int, fmt)    -> ":int" :: (loop fmt)
         | F (Int32, fmt)  -> ":int32" :: (loop fmt)
+        | F (Uuid, fmt)   -> ":uuid"  :: (loop fmt)
         | F (Bool, fmt)   -> ":bool" :: (loop fmt)
       in
       merge @@ loop fmt

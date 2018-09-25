@@ -2,6 +2,13 @@ open Common
 open Board_types
 open Containers
 
+(** Init *)
+
+type init =
+  { input : int
+  ; t2mi  : int
+  } [@@deriving of_yojson]
+
 (** Mode **)
 
 type mode =
@@ -28,7 +35,7 @@ type status_raw =
   ; t2mi_sync    : int list
   ; version      : int
   ; versions     : status_versions
-  ; streams      : Stream.id list
+  ; streams      : Stream.Multi_TS_ID.t list
   } [@@deriving show, eq]
 
 (** T2-MI errors **)
@@ -58,16 +65,18 @@ type jitter_raw =
 
 (** Streams **)
 
-type streams = Common.Stream.id list [@@deriving yojson,show,eq]
+type streams = Stream.Multi_TS_ID.t list [@@deriving yojson,show,eq]
 
 (** Event group **)
 
-type event = [ `Status        of status_raw
-             | `Streams_event of streams
-             | `T2mi_errors   of Stream.id * (Errors.t list)
-             | `Ts_errors     of Stream.id * (Errors.t list)
-             | `End_of_errors
-             ] [@@deriving eq]
+type event =
+  [ `Status        of status_raw
+  | `Streams_event of streams
+  | `T2mi_errors   of Stream.Multi_TS_ID.t * (Errors.t list)
+  | `Ts_errors     of Stream.Multi_TS_ID.t * (Errors.t list)
+  | `End_of_errors
+  | `End_of_transmission
+  ] [@@deriving eq]
 
 type group =
   { status      : status_raw
@@ -80,24 +89,34 @@ type group =
 type jitter_req =
   { request_id : int
   ; pointer    : int32
-  }
+  } [@@deriving show]
+
+type ts_struct_req =
+  { request_id : int
+  ; stream     : [ `All | `Single of Stream.Multi_TS_ID.t ]
+  } [@@deriving show]
 
 type t2mi_info_req =
   { request_id : int
   ; stream_id  : int
-  }
+  ; stream     : Stream.Multi_TS_ID.t
+  } [@@deriving show]
 
 type t2mi_frame_seq_req =
   { request_id : int
-  ; seconds    : int
+  ; params     : frame_seq_params
   }
+and frame_seq_params =
+  { seconds : int
+  ; stream  : Stream.ID.t
+  } [@@deriving show]
 
 type section_req =
   { request_id : int
   ; params     : section_params
   }
 and section_params =
-  { stream_id      : Common.Stream.id
+  { stream_id      : Stream.Multi_TS_ID.t
   ; table_id       : int
   ; section        : int option (* needed for tables containing multiple sections *)
   ; table_id_ext   : int option (* needed for tables with extra parameter, like ts id for PAT *)
@@ -106,68 +125,77 @@ and section_params =
   } [@@deriving yojson, show]
 
 type api =
-  { get_devinfo         : unit               -> devinfo option
-  ; set_input           : input              -> input Lwt.t
-  ; set_t2mi_mode       : t2mi_mode option   -> t2mi_mode option Lwt.t
-  ; set_jitter_mode     : jitter_mode option -> jitter_mode option Lwt.t
-  ; get_t2mi_seq        : int option         -> Streams.T2MI.sequence Lwt.t
-  ; get_section         : section_params -> (Streams.TS.section,Streams.TS.section_error) Lwt_result.t
-  ; get_ts_states       : unit -> (Stream.id * Streams.TS.state) list
-  ; get_ts_structures   : unit -> (Stream.id * Streams.TS.structure) list
-  ; get_ts_bitrates     : unit -> (Stream.id * Streams.TS.bitrate) list
-  ; get_t2mi_states     : unit -> (int * Streams.T2MI.state) list
-  ; get_t2mi_structures : unit -> (int * Streams.T2MI.structure) list
-  ; reset               : unit               -> unit Lwt.t
-  ; config              : unit               -> config
+  { get_devinfo     : unit -> devinfo option
+  ; set_input       : input -> input Lwt.t
+  ; set_t2mi_mode   : t2mi_mode option -> t2mi_mode option Lwt.t
+  ; set_jitter_mode : jitter_mode option -> jitter_mode option Lwt.t
+  ; get_t2mi_seq    : frame_seq_params -> Streams.T2MI.sequence Lwt.t
+  ; get_section     :
+      ?section:int ->
+      ?table_id_ext:int ->
+      ?eit_ts_id:int ->
+      ?eit_orig_nw_id:int ->
+      id:Stream.ID.t ->
+      table_id:int ->
+      unit ->
+      (Streams.TS.section, Streams.TS.section_error) Lwt_result.t
+  ; reset           : unit -> unit Lwt.t
+  ; config          : unit -> config
   }
 
 (* Events *)
 
+open React
+open Streams.TS
+
 type device_events =
-  { config : config React.event
-  ; input  : input React.signal
-  ; state  : Common.Topology.state React.signal
-  ; status : status React.event
-  ; reset  : reset_ts React.event
-  ; errors : board_errors React.event
+  { config : config signal
+  ; input  : input signal
+  ; state  : Topology.state signal
+  ; status : status event
+  ; reset  : reset_ts event
+  ; errors : board_errors event
+  ; info   : devinfo option React.signal
   }
 
-type errors = (Stream.id,Errors.t list) List.Assoc.t
-
-type errors_events =
-  { ts_errors   : errors React.event
-  ; t2mi_errors : errors React.event
+type ts_events =
+  { info     : (Stream.t * info) list event
+  ; services : (Stream.t * services) list event
+  ; tables   : (Stream.t * tables) list event
+  ; pids     : (Stream.t * pids) list event
+  ; bitrates : (Stream.t * bitrate) list event
+  ; errors   : (Stream.t * Errors.t list) list event
   }
 
-type streams_events =
-  { streams         : Common.Stream.t list React.signal
-  ; ts_states       : (Stream.id * Streams.TS.state) list React.event
-  ; ts_structures   : (Stream.id * Streams.TS.structure) list React.event
-  ; ts_bitrates     : (Stream.id * Streams.TS.bitrate) list React.event
-  ; t2mi_states     : (int * Streams.T2MI.state) list React.event
-  ; t2mi_structures : (int * Streams.T2MI.structure) list React.event
+type t2mi_events =
+  { structures : (Stream.t * Streams.T2MI.structure) list event
+  ; errors     : (Stream.t * Errors.t list) list event
   }
 
 type jitter_events =
-  { session : Jitter.session React.event
-  ; jitter  : Jitter.measures React.event
+  { session : Jitter.session event
+  ; jitter  : Jitter.measures event
   }
 
 type events =
   { device  : device_events
-  ; errors  : errors_events
-  ; streams : streams_events
+  ; streams : Stream.t list signal
+  ; ts      : ts_events
+  ; t2mi    : t2mi_events
   ; jitter  : jitter_events
   }
 
 type push_events =
-  { devinfo        : devinfo option                          -> unit
-  ; state          : Topology.state                          -> unit
-  ; group          : group                                   -> unit
-  ; board_errors   : board_errors                            -> unit
-  ; structs        : (Stream.id * Streams.TS.structure) list -> unit
-  ; bitrates       : (Stream.id * Streams.TS.bitrate) list   -> unit
-  ; t2mi_info      : int * Streams.T2MI.structure            -> unit
-  ; jitter         : Jitter.measures                         -> unit
-  ; jitter_session : Jitter.session                          -> unit
+  { devinfo        : devinfo option -> unit
+  ; state          : Topology.state -> unit
+  ; group          : group -> unit
+  ; board_errors   : board_errors -> unit
+  ; info           : (Stream.Multi_TS_ID.t * info) list -> unit
+  ; services       : (Stream.Multi_TS_ID.t * services) list -> unit
+  ; tables         : (Stream.Multi_TS_ID.t * tables) list -> unit
+  ; pids           : (Stream.Multi_TS_ID.t * pids) list -> unit
+  ; bitrates       : (Stream.Multi_TS_ID.t * bitrate) list -> unit
+  ; t2mi_info      : (Stream.Multi_TS_ID.t * Streams.T2MI.structure) list -> unit
+  ; jitter         : Jitter.measures -> unit
+  ; jitter_session : Jitter.session -> unit
   }

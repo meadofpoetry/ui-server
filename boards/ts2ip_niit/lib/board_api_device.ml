@@ -1,8 +1,6 @@
 open Containers
 open Board_protocol
 open Board_types
-open Api.Redirect
-open Api.Interaction
 open Api.Interaction.Json
 open Board_api_common
 open Common
@@ -29,26 +27,26 @@ module HTTP = struct
      | Ok mode -> api.set_nw_mode mode >|= Result.return)
     >>= respond_result_unit
 
-  let get_state (events:events) _ body () =
+  let get_state (events:events) _ _ () =
     React.S.value events.state |> Topology.state_to_yojson
     |> Result.return |> respond_result
 
-  let get_devinfo (api:api) _ body () =
+  let get_devinfo (api:api) _ _ () =
     api.devinfo () |> Json.Option.to_yojson devinfo_to_yojson
     |> Result.return |> respond_result
 
-  let get_mac (api:api) _ body () =
+  let get_mac (api:api) _ _ () =
     (api.config ()).factory_mode.mac |> Macaddr.to_yojson
     |> Result.return |> respond_result
 
-  let get_mode (api:api) _ body () =
+  let get_mode (api:api) _ _ () =
     (api.config ()).nw_mode |> nw_settings_to_yojson
     |> Result.return |> respond_result
 
   module Archive = struct
 
-    let get_state limit compress from till duration _ _ () =
-      not_found ()
+    (* let get_state limit compress from till duration _ _ () =
+     *   not_found () *)
 
   end
 
@@ -91,13 +89,13 @@ let handler api events =
                  ~query:Query.empty
                  (HTTP.get_mode api)
              (* Archive *)
-             ; create_handler ~docstring:"Returns archived board state"
-                 ~path:Path.Format.("state/archive" @/ empty)
-                 ~query:Query.[ "limit",    (module Option(Int))
-                              ; "compress", (module Option(Bool))
-                              ; "from",     (module Option(Time.Show))
-                              ; "to",       (module Option(Time.Show))
-                              ; "duration", (module Option(Time.Relative)) ]
-                 (HTTP.Archive.get_state)
+             (* ; create_handler ~docstring:"Returns archived board state"
+              *     ~path:Path.Format.("state/archive" @/ empty)
+              *     ~query:Query.[ "limit",    (module Option(Int))
+              *                  ; "compress", (module Option(Bool))
+              *                  ; "from",     (module Option(Time.Show))
+              *                  ; "to",       (module Option(Time.Show))
+              *                  ; "duration", (module Option(Time.Relative)) ]
+              *     (HTTP.Archive.get_state) *)
              ]
     ]

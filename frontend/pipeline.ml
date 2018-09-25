@@ -1,3 +1,3 @@
 let () =
-  let _ = new Page.t (`Dynamic Pipeline_js.pages) () in
+  let _ = new Ui_templates.Page.t (`Dynamic Pipeline_js.pages) () in
   ()

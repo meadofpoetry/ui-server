@@ -14,6 +14,28 @@ module Clock = struct
 
 end
 
+let to_human_string ?tz_offset_s (t:t) =
+  let (y,m,d),((h,min,s),_) = to_date_time ?tz_offset_s t in
+  Printf.sprintf "%02d.%02d.%04d %02d:%02d:%02d" d m y h min s
+
+let of_human_string_exn ?(tz_offset_s=0) s =
+  match String.split_on_char ' ' s with
+  | [ date; time ] ->
+     let y, m, d = match String.split_on_char '.' date with
+       | [ day; month; year ] ->
+          int_of_string year,
+          int_of_string month,
+          int_of_string day
+       | _ -> failwith "bad date value(s)" in
+     let h, min, s = match String.split_on_char ':' time with
+       | [ hour; min; sec ] ->
+          int_of_string hour,
+          int_of_string min,
+          int_of_string sec
+       | _ -> failwith "bad time value(s)" in
+     of_date_time ((y, m, d), ((h, min, s), tz_offset_s)) |> Option.get_exn
+  | _ -> failwith "not a human-readable date time string"
+
 let to_yojson (v:t) : Yojson.Safe.json =
   let d,ps = Ptime.to_span v |> Ptime.Span.to_d_ps in
   `List [ `Int d;`Intlit (Int64.to_string ps) ]
@@ -85,16 +107,16 @@ let make_interval ?(from:t option) ?(till:t option) ?(duration:span option) () =
   | Some s,None,Some d   -> (match add_span s d with
                              | Some e -> ok (`Range (s,e))
                              | None   -> err "time range exceeded")
-  | Some s,None,None     -> ok (`From s)
+  | Some s,None,None     -> ok (`Range (s, max))
   | None,Some e,Some d   -> (match sub_span e d with
                              | Some s -> ok (`Range (s,e))
                              | None   -> err "time range exceeded")
-  | None,Some e,None     -> ok (`Till e)
+  | None,Some e,None     -> ok (`Range (epoch, e))
   | None,None,Some d     -> let e = Clock.now () in
                             (match sub_span e d with
                              | Some s -> ok (`Range (s,e))
                              | None   -> err "time range exceeded")
-  | None,None,None       -> ok `Whole
+  | None,None,None       -> ok (`Range (epoch, max))
 
 let split ~from ~till =
   let second = 1 in
@@ -147,7 +169,7 @@ module Period = struct
   let ps_in_s = 1000_000_000_000L
 
   let to_yojson (v:t) : Yojson.Safe.json =
-    let d,ps = Span.to_d_ps v in
+    let d, ps = Span.to_d_ps v in
     `List [ `Int d;`Intlit (Int64.to_string ps) ]
 
   let of_yojson (j:Yojson.Safe.json) : (t,string) result =
