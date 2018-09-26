@@ -160,9 +160,8 @@ module Pids = struct
   let _class = Markup.CSS.add_element base_class "pids"
 
   let get_service_pids ((_, info) : Service.t) =
-    let elts = List.map fst info.elements  in
     let pmt = if info.has_pmt then Some info.pmt_pid else None in
-    List.cons_maybe pmt elts
+    List.cons_maybe pmt info.elements
     |> List.sort_uniq ~cmp:compare
 
   let filter_pids service (pids : Pid.t list) =

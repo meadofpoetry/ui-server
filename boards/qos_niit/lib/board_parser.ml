@@ -541,11 +541,13 @@ module Get_ts_structs
     in
     aux msg acc_empty
 
-  let parse_service (slen : int) (acc : service_acc) : Service.t =
+  let parse_service (slen : int)
+        (acc : service_acc) : Service.t * (Service.element list) =
     let es = of_es_block acc.es in
     let ecm = of_ecm_block acc.ecm in
+    let elements = List.map fst @@ es @ ecm in
     let sid, sinfo = of_service_block slen acc.info in
-    sid, { sinfo with elements = es @ ecm }
+    (sid, { sinfo with elements }), (es @ ecm)
 
   let update_if_null (pid, info) : Pid.t option =
     if pid = 0x1FFF
@@ -557,13 +559,13 @@ module Get_ts_structs
         if pid' = pid then Some info else None)
       elements
 
-  let update_if_in_services (services : Service.t list)
+  let update_if_in_services (elements : (Service.t * (Service.element list)) list)
         ((pid, info) : Pid.t) : (Pid.t) option =
     let result =
-      List.find_map (fun ((sid, sinfo) : Service.t) ->
-          match find_in_elements (pid, info) sinfo.elements with
+      List.find_map (fun (((sid, sinfo), elts) : Service.t * Service.element list) ->
+          match find_in_elements (pid, info) elts with
           | None -> None
-          | Some t -> Some (sid, sinfo.name, sinfo.pcr_pid, t)) services in
+          | Some t -> Some (sid, sinfo.name, sinfo.pcr_pid, t)) elements in
     match result with
     | None -> None
     | Some (id, name, pcr_pid, typ) ->
@@ -588,19 +590,22 @@ module Get_ts_structs
         | [(id, info)] ->
            let open Pid in
            begin match Mpeg_ts.table_of_int id.table_id with
-           | `PMT -> Some (info.service_id, SEC [id.table_id])
-           | _ -> Some (None, SEC [id.table_id])
+           | `PMT -> Some (info.service_id, info.service_name, SEC [id.table_id])
+           | _ -> Some (None, None, SEC [id.table_id])
            end
         | l ->
            let ids =
              List.map (fun ((id, _) : t) -> id.table_id) l
              |> List.sort_uniq ~cmp:Int.compare in
-           Some (None, SEC ids))
+           Some (None, None, SEC ids))
     |> function
       | None -> None
-      | Some (id, typ) -> Some (pid, { info with service_id = id; typ })
+      | Some (id, name, typ) ->
+         Some (pid, { info with service_id = id
+                              ; service_name = name
+                              ; typ })
 
-  let update_pid (services : Service.t list)
+  let update_pid (elements : (Service.t * Service.element list) list)
         (tables : SI_PSI_table.t list)
         (emm : Service.element list)
         (pid : Pid.t) : Pid.t =
@@ -608,7 +613,7 @@ module Get_ts_structs
       | Some x -> Some x
       | None -> f pid in
     update_if_null pid
-    >>= update_if_in_services services
+    >>= update_if_in_services elements
     >>= update_if_in_emm emm
     >>= update_if_in_tables tables
     |> function None -> pid | Some x -> x
@@ -638,14 +643,17 @@ module Get_ts_structs
   let parse_blocks (msg : Cstruct.t) : structure =
     let acc = split_into_blocks msg in
     let info, slen = of_general_block acc.general in
+    let elements =
+      List.map (parse_service slen) acc.services in
     let services =
-      List.map (parse_service slen) acc.services
+      List.split elements
+      |> fst
       |> List.sort (fun (a, _) (b, _) -> compare a b) in
     let tables =
       List.rev_map (update_table services % of_table_block)
         acc.tables in
     let emm = of_emm_block acc.emm in
-    let pids = List.map (update_pid services tables emm)
+    let pids = List.map (update_pid elements tables emm)
                @@ of_pids_block acc.pids in
     { info; services; tables; pids }
 

@@ -255,7 +255,7 @@ module Service = struct
     ; running_status : int
     ; service_type : int
     ; service_type_list : int
-    ; elements : element list
+    ; elements : int list
     } [@@deriving yojson, eq]
 
 end
@@ -560,6 +560,7 @@ type bitrates = (Stream.ID.t * Bitrate.t timestamped) list [@@deriving yojson]
 type ts_info = (Stream.ID.t * Ts_info.t timestamped) list [@@deriving yojson]
 type pids = (Stream.ID.t * Pid.t list timestamped) list [@@deriving yojson]
 type services = (Stream.ID.t * (Service.t list timestamped)) list [@@deriving yojson]
+type elements = (Stream.ID.t * ((int * int) * Pid.typ) list timestamped) list [@@deriving yojson]
 type tables = (Stream.ID.t * (SI_PSI_table.t list timestamped)) list [@@deriving yojson]
 type sections = (Stream.ID.t * (SI_PSI_section.t list timestamped)) list [@@deriving yojson]
 type t2mi_info = (Stream.ID.t * T2mi_info.t list timestamped) list [@@deriving yojson]

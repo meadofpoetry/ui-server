@@ -289,8 +289,8 @@ let create (b : topo_board) _ convert_streams send db_conf base step =
   E.(keep @@ map_s (Db.Bitrate.insert db) ts.bitrates);
   E.(keep @@ map_s (Db.Bitrate.insert_pids db) ts.bitrates);
   (* Errors *)
-  (* E.(keep @@ map_p (Db.Errors.insert ~is_ts:true  db) events.ts.errors);
-   * E.(keep @@ map_p (Db.Errors.insert ~is_ts:false db) events.t2mi.errors); *)
+  E.(keep @@ map_p (Db.Errors.insert ~is_ts:true  db) events.ts.errors);
+  E.(keep @@ map_p (Db.Errors.insert ~is_ts:false db) events.t2mi.errors);
   let state = (object
                  val db    = db
                  val _tick = tick_loop ()

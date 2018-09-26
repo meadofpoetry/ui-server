@@ -22,7 +22,7 @@ let base_class = "qos-niit-services-overview"
 
 let get_service_bitrate (br : (int * int) list) ((_, info) : Service.t) =
   let elts =
-    List.fold_left (fun acc ((pid, _) : Service.element) ->
+    List.fold_left (fun acc pid ->
         match List.Assoc.get ~eq:(=) pid br with
         | None -> acc
         | Some b -> (pid, b) :: acc) [] info.elements in

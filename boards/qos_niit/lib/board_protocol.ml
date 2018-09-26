@@ -666,6 +666,11 @@ module Make(Logs : Logs.LOG) = struct
         | None -> false
         | Some _ -> true) streams mode
 
+  let to_elements (services : Service.t list) : (int * int) list =
+    List.flat_map (fun ((id, info) : Service.t) ->
+        List.map (fun pid ->
+            (id, pid)) info.elements) services
+
   (* Map SI/PSI tables to separate SI/PSI sections *)
   let to_sections (tables : SI_PSI_table.t list) : SI_PSI_section.t list =
     let open SI_PSI_section in

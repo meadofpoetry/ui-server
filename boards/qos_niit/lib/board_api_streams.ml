@@ -81,8 +81,9 @@ module WS = struct
     Api.Socket.handler socket_table sock_data e sections_to_yojson body
 
   let pids (events : events) ids _ body sock_data () =
-    let e = E.map (filter_streams ids)
-            @@ React.S.changes events.ts.pids in
+    let e =
+      E.map (filter_streams ids)
+      @@ React.S.changes events.ts.pids in
     Api.Socket.handler socket_table sock_data e pids_to_yojson body
 
   let t2mi_info (events : events) ids t2mi_stream_ids _ body sock_data () =
