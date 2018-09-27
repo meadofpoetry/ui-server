@@ -115,6 +115,9 @@ let to_mode_exn mode t2mi_pid stream_id : input * t2mi_mode_raw =
   ; t2mi_stream_id = (t2mi_pid lsr 13) land 0x7
   ; stream = stream_id }
 
+
+module Make(Logs:Logs.LOG) = struct
+
 module type Request = sig
 
   type req
@@ -346,7 +349,6 @@ module Get_ts_structs
     ; services : service_acc list
     ; emm : Cstruct.t
     ; tables : Cstruct.t list
-    ; service : service_acc option
     }
 
   let service_acc_empty =
@@ -361,7 +363,7 @@ module Get_ts_structs
     ; services = []
     ; emm = Cstruct.empty
     ; tables = []
-    ; service = None }
+    }
 
   let req_code = 0x0309
   let rsp_code = req_code
@@ -501,45 +503,43 @@ module Get_ts_structs
     id, info
 
   let split_into_blocks (msg : Cstruct.t) : acc =
-    let rec aux msg acc = match Cstruct.len msg with
+    let rec aux service_flag msg acc = match Cstruct.len msg with
       | 0 -> acc
       | _ ->
          let hdr, data = Cstruct.split msg sizeof_struct_block_header in
          let len = get_struct_block_header_length hdr in
          let block, rest = Cstruct.split data len in
-         let acc = match get_struct_block_header_code hdr with
-           | 0x2000 -> { acc with general = block }
-           | 0x2100 -> { acc with pids = Cstruct.append acc.pids block }
+         let acc, flag = match get_struct_block_header_code hdr with
+           | 0x2000 -> { acc with general = block }, false
+           | 0x2100 -> { acc with pids = Cstruct.append acc.pids block }, false
            | 0x2200 ->
-              let acc = match acc.service with
-                | None -> acc
-                | Some x -> { acc with services = x :: acc.services } in
-              let service = Some { service_acc_empty with info = block } in
-              { acc with service }
+              let service = { service_acc_empty with info = block } in
+              { acc with services = service :: acc.services }, true
            | 0x2201 ->
-              begin match acc.service with
-              | None -> failwith "got es block before service info block"
-              | Some ({ es; _ } as service) ->
+              begin match service_flag, acc.services with
+              | false, _ | _, [] ->
+                 failwith "no service block before es block"
+              | _, ({ es; _ } as hd) :: tl ->
                  let es = Cstruct.append es block in
-                 let service = Some { service with es } in
-                 { acc with service }
+                 { acc with services = { hd with es } :: tl }, true
               end
            | 0x2202 ->
-              begin match acc.service with
-              | None -> failwith "got ecm block before service info block"
-              | Some ({ ecm; _ } as service) ->
+              begin match service_flag, acc.services with
+              | false, _ | _, [] ->
+                 failwith "no service block before ecm block"
+              | _, ({ ecm; _ } as hd) :: tl ->
                  let ecm = Cstruct.append ecm block in
-                 let service = Some { service with ecm } in
-                 { acc with service }
+                 { acc with services = { hd with ecm } :: tl }, true
               end
-           | 0x2300 -> { acc with emm = Cstruct.append acc.emm block }
-           | 0x2400 -> { acc with tables = block :: acc.tables }
+           | 0x2300 ->
+              { acc with emm = Cstruct.append acc.emm block }, false
+           | 0x2400 -> { acc with tables = block :: acc.tables }, false
            | x ->
               let s = Printf.sprintf "unknown structure block: 0x%X" x in
               failwith s in
-         aux rest acc
+         aux flag rest acc
     in
-    aux msg acc_empty
+    aux false msg acc_empty
 
   let parse_service (slen : int)
         (acc : service_acc) : Service.t * (Service.element list) =
@@ -1148,7 +1148,6 @@ let is_probe_response (type a) (req : a probe_request) msg : a option =
   | Get_bitrates x -> parse_get_bitrates x msg
   | Get_t2mi_info x -> parse_get_t2mi_info x msg
 
-module Make(Logs:Logs.LOG) = struct
 
   type err =
     | Bad_prefix of int

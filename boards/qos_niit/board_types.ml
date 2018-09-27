@@ -256,7 +256,7 @@ module Service = struct
     ; service_type : int
     ; service_type_list : int
     ; elements : int list
-    } [@@deriving yojson, eq]
+    } [@@deriving yojson, eq, show]
 
 end
 

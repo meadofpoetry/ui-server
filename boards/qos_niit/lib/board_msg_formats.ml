@@ -57,10 +57,10 @@
  type req_get_section =
    { stream_id : uint32_t
    ; table_id : uint8_t
+   ; section : uint8_t
    ; table_id_ext : uint16_t
    ; id_ext_1 : uint16_t
    ; id_ext_2 : uint16_t
-   ; section : uint8_t
    } [@@little_endian]]
 
 [%%cstruct

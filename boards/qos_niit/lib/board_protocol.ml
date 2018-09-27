@@ -121,11 +121,16 @@ end
 
 module Make(Logs : Logs.LOG) = struct
 
+  type protocol_error =
+    | Unexpected_info of devinfo
+    | Unexpected_status
+
+  module Parser = Board_parser.Make(Logs)
+
   let request_id = ref (-1)
   let jitter_ptr = ref (-1l)
 
-  exception Status_timeout
-  exception Unexpected_init of devinfo
+  exception Protocol_invariant of protocol_error
 
   let get_id () =
     incr request_id;
@@ -134,25 +139,17 @@ module Make(Logs : Logs.LOG) = struct
   let wakeup_timeout (_, t) = t.pred `Timeout |> ignore
 
   let check_board_info rsps =
-    match List.find_map (is_response Get_board_info) rsps with
+    match List.find_map (Parser.is_response Get_board_info) rsps with
     | None -> ()
-    | Some x -> raise_notrace (Unexpected_init x)
+    | Some x -> raise_notrace (Protocol_invariant (Unexpected_info x))
 
   module Events : sig
     open Stream
     val partition : Acc.t -> group list * Acc.t
-    val update_versions : Acc.t -> group -> Acc.t
     val get_req_stack : group -> group option -> probe_response probe_request list
     val to_ts_errors : group -> (Multi_TS_ID.t * Error.t list) list
     val to_t2mi_errors : group -> (Multi_TS_ID.t * Error.t list) list
   end = struct
-
-    let update_versions (acc : Acc.t) (t : group) : Acc.t = match acc.group with
-      | None -> acc
-      | Some from ->
-         let status = { t.status with versions = from.status.versions } in
-         let group = { t with status } in
-         { acc with group = Some group }
 
     let split_by l sep =
       let res, acc =
@@ -288,40 +285,40 @@ module Make(Logs : Logs.LOG) = struct
     (match msg with
      | Get_board_info ->
         Logs.debug (fun m -> m "requesting board info");
-        Get_board_info.serialize ()
+        Parser.Get_board_info.serialize ()
      | Get_board_mode ->
         Logs.debug (fun m -> m "requesting board mode");
-        Get_board_mode.serialize ()
+        Parser.Get_board_mode.serialize ()
      | Get_t2mi_frame_seq x ->
         Logs.debug (fun m -> m "requesting t2mi frame sequence: %s"
                              @@ show_t2mi_frame_seq_req x);
-        Get_t2mi_frame_seq.serialize x
+        Parser.Get_t2mi_frame_seq.serialize x
      | Get_section x ->
         Logs.debug (fun m -> m "requesting section: %s"
                              @@ show_section_req x);
-        Get_section.serialize x)
+        Parser.Get_section.serialize x)
     |> sender
 
   let send_event (type a) sender (msg : a probe_request) : unit Lwt.t =
     (match msg with
      | Get_board_errors id ->
         Logs.debug (fun m -> m "requesting board errors");
-        Get_board_errors.serialize id
+        Parser.Get_board_errors.serialize id
      | Get_jitter req ->
         Logs.debug (fun m -> m "requesting jitter: %s"
                              @@ show_jitter_req req);
-        Get_jitter.serialize req
+        Parser.Get_jitter.serialize req
      | Get_ts_struct req ->
         Logs.debug (fun m -> m "requesting ts structs: %s"
                              @@ show_ts_struct_req req);
-        Get_ts_structs.serialize req
+        Parser.Get_ts_structs.serialize req
      | Get_bitrates req ->
         Logs.debug (fun m -> m "requesting bitrates");
-        Get_bitrates.serialize req
+        Parser.Get_bitrates.serialize req
      | Get_t2mi_info req ->
         Logs.debug (fun m -> m "requesting t2mi info: %s"
                              @@ show_t2mi_info_req req);
-        Get_t2mi_info.serialize req)
+        Parser.Get_t2mi_info.serialize req)
     |> sender
 
   let send_instant (type a) sender (msg : a instant_request) : unit Lwt.t =
@@ -347,7 +344,7 @@ module Make(Logs : Logs.LOG) = struct
        let t, w = Lwt.wait () in
        let pred = function
          | `Timeout -> Lwt.wakeup_exn w (Failure "msg timeout"); None
-         | l  -> Option.( is_response msg l >|= Lwt.wakeup w ) in
+         | l  -> Option.(Parser.is_response msg l >|= Lwt.wakeup w) in
        let send = fun () -> send_msg sender msg in
        msgs := Await_queue.append !msgs { send; pred; timeout; exn };
        t
@@ -403,7 +400,7 @@ module Make(Logs : Logs.LOG) = struct
             Logs.warn (fun m ->
                 let s = String.concat ",\n"
                         @@ List.map show_board_error x in
-                m "got board errors: %s" s);
+                m "got board errors (%d): %s" (List.length x) s);
             pe.board_errors x)) acc.probes.board_errors;
     Option.iter (
         List.iter (fun x ->
@@ -444,8 +441,6 @@ module Make(Logs : Logs.LOG) = struct
       Printf.sprintf "no status received for %d seconds, restarting..."
         (Timer.period t) in
 
-    let module Parser = Board_parser.Make(Logs) in
-
     let deserialize ~with_init_exn (acc : Acc.t) recvd =
       let events, probes, rsps, parts, bytes =
         Parser.deserialize acc.parts (concat_acc acc.bytes recvd) in
@@ -453,15 +448,6 @@ module Make(Logs : Logs.LOG) = struct
       if with_init_exn then check_board_info rsps;
       let events = acc.events @ events in
       probes, rsps, { acc with events; parts; bytes } in
-
-    let log_groups groups =
-      Logs.debug (fun m ->
-          let pre = "received group(s)" in
-          let gps =
-            List.map show_group groups
-            |> String.concat "\n\n"
-          in
-          m "%s: \n%s" pre gps) in
 
     let handle_msgs rsps =
       if Await_queue.has_pending !msgs
@@ -486,7 +472,7 @@ module Make(Logs : Logs.LOG) = struct
     and step_detect (timer : Timer.t) (acc : Acc.t) recvd =
       try
         let _, rsps, acc = deserialize ~with_init_exn:false acc recvd in
-        match List.find_map (is_response Get_board_info) rsps with
+        match List.find_map (Parser.is_response Get_board_info) rsps with
         | None -> `Continue (step_detect (Timer.step timer) acc)
         | Some info -> `Continue (step_init info acc)
       with Timer.Timeout t ->
@@ -520,17 +506,18 @@ module Make(Logs : Logs.LOG) = struct
         let () = imsgs := Queue.next !imsgs in
         (match Events.partition acc with
          | [], acc -> `Continue (step_ok_idle (Timer.step timer) acc)
-         | (group :: _) as groups, acc ->
+         | [group], acc ->
             if Option.is_none acc.group
             then (Logs.info (fun m -> m "initialization done!");
                   push_state pe `Fine);
-            log_groups groups;
-            List.iter (fun x -> pe.group x) @@ List.rev groups;
+            Logs.debug (fun m ->
+              m "received group: load=%g%%" group.status.status.load);
+            pe.group group;
             let stack = Events.get_req_stack group acc.group in
             let pool =
               List.map (fun req ->
                   { send = (fun () -> send_event sender req)
-                  ; pred = is_probe_response req
+                  ; pred = Parser.is_probe_response req
                   ; timeout = Timer.steps ~step_duration probes_timeout
                   ; exn = None }) stack
               |> Pool.create in
@@ -540,12 +527,17 @@ module Make(Logs : Logs.LOG) = struct
                           @@ List.map probe_req_to_string stack in
                 m "%s: [%s]" pre stk);
             step_ok_probes_send pool (Timer.reset timer)
-              { acc with group = Some group })
+              { acc with group = Some group }
+         | _ -> raise_notrace (Protocol_invariant Unexpected_status))
       with
-      | Unexpected_init info ->
+      | Protocol_invariant (Unexpected_info info) ->
          Logs.warn (fun m -> m "%s" board_info_err_msg);
          push_state pe `No_response;
          `Continue (step_init info Acc.empty)
+      | Protocol_invariant Unexpected_status ->
+         Logs.warn (fun m -> m "Got more than one status at once, \
+                                restarting...");
+         first_step ()
       | Timer.Timeout t ->
          Logs.warn (fun m -> m "%s" (no_status_msg t));
          first_step ()
@@ -559,16 +551,13 @@ module Make(Logs : Logs.LOG) = struct
     and step_ok_probes_wait pool (timer : Timer.t) (acc : Acc.t) recvd =
       try
         let probes, rsps, acc = deserialize ~with_init_exn:true acc recvd in
-        let () = handle_msgs rsps in
-        let () = if not (Queue.empty !imsgs)
-                 then Queue.send !imsgs () |> Lwt.ignore_result in
-        let () = imsgs := Queue.next !imsgs in
+        handle_msgs rsps;
+        if not (Queue.empty !imsgs)
+        then Queue.send !imsgs () |> Lwt.ignore_result;
+        imsgs := Queue.next !imsgs;
         let timer, acc = match Events.partition acc with
           | [], acc -> (Timer.step timer), acc
-          | (hd :: _) as l, acc ->
-             log_groups l;
-             List.iter pe.group @@ List.rev l;
-             (Timer.reset timer), (Events.update_versions acc hd) in
+          | _ -> raise_notrace (Protocol_invariant Unexpected_status) in
         begin match Pool.responsed pool probes with
         | None -> `Continue (step_ok_probes_wait (Pool.step pool) timer acc)
         | Some x ->
@@ -586,7 +575,11 @@ module Make(Logs : Logs.LOG) = struct
            end
         end
       with
-      | Unexpected_init info ->
+      | Protocol_invariant Unexpected_status ->
+         Logs.warn (fun m -> m "got status while waiting for probes. \
+                                Looks like an overload, restarting...");
+         first_step ()
+      | Protocol_invariant (Unexpected_info info) ->
          Logs.warn (fun m -> m "%s" board_info_err_msg);
          push_state pe `No_response;
          `Continue (step_init info Acc.empty);
@@ -751,7 +744,9 @@ module Make(Logs : Logs.LOG) = struct
       ; input
       ; status =
           E.changes ~eq:equal_status
-          @@ E.map (fun (x : group) -> x.status.status) group
+          @@ E.map (fun (x : group) ->
+                 Logs.warn (fun m -> m "%f" x.status.status.load);
+                 x.status.status) group
       ; reset =
           E.map (fun (x : group) ->
               { timestamp = x.status.status.timestamp }) group
