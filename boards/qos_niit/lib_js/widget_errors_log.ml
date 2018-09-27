@@ -52,17 +52,16 @@ let pid_fmt hex =
     Int.compare pid1 pid2 in
   Custom { to_string; compare; is_numeric = true }
 
-let make_row_data (error : Error.t) =
+let make_row_data ({ data = error; timestamp } : Error.t timestamped) =
   let open Table in
   let service = error.service_name in
-  let date = error.timestamp in
   let pid = error.pid, error.multi_pid in
   let count = error.count in
   let check =
     let num, name = Ts_error.to_name error in
     num ^ " " ^ name in
   let extra = Ts_error.Description.of_ts_error error in
-  Data.(date :: check :: pid :: service :: count :: extra :: [])
+  Data.(timestamp :: check :: pid :: service :: count :: extra :: [])
 
 let make_table ~id is_hex (init : Error.raw) control =
   let tz_offset_s = Ptime_clock.current_tz_offset_s () in
@@ -111,7 +110,7 @@ class t ~id (init : Error.raw) control () =
 
     inherit Card.t ~widgets:[] ()
 
-    method prepend_error (e : Error.t) : unit =
+    method prepend_error (e : Error.t timestamped) : unit =
       let el = table#content in
       let top = el#scroll_top in
       let height = el#scroll_height in
@@ -124,18 +123,19 @@ class t ~id (init : Error.raw) control () =
           el#set_scroll_top (el#scroll_top + diff);
         end
 
-    method append_error (e : Error.t) : unit =
+    method append_error (e : Error.t timestamped) : unit =
       let row = table#append_row (make_row_data e) in
       self#set_row_priority row e
 
     (* Private methods *)
 
-    method private set_row_priority (row : 'a Table.Row.t) (e : Error.t) =
+    method private set_row_priority (row : 'a Table.Row.t)
+                     (e : Error.t timestamped) =
       let el =
         let open Table in
         match row#cells with
         | _ :: cell :: _ -> cell in
-      match e.priority with
+      match e.data.priority with
       | 1 -> el#add_class failure_class
       | 2 -> el#add_class dander_class
       | 3 -> el#add_class warning_class

@@ -99,15 +99,31 @@ module WS = struct
       @@ React.S.changes events.t2mi.structures in
     Api.Socket.handler socket_table sock_data e t2mi_info_to_yojson body
 
-  let rec filter (acc : Error.t list) = function
-    | [] -> acc
-    | f :: tl -> filter (f acc) tl
+  let merge_service (e : Error.t timestamped)
+        (services : Service.t list) =
+    List.find_opt (fun (_, (info : Service.info)) ->
+        List.mem ~eq:(=) e.data.pid (info.pmt_pid :: info.elements))
+      services
+    |> function
+      | None -> e
+      | Some (id, info) ->
+         let data = { e.data with service_id = Some id
+                                ; service_name = Some info.name } in
+         { e with data }
+
+  let merge_services (errors : errors) (services : services) =
+    List.map (fun (id, errors) ->
+        match List.Assoc.get ~eq:Stream.ID.equal id services with
+        | None -> id, errors
+        | Some { data; _ } ->
+           let errors =
+             List.map (fun (e : Error.t timestamped) ->
+                 merge_service e data) errors in
+           id, errors) errors
 
   let errors (events : events) ids errors priority pids _ body sock_data () =
     let open Error in
     let eq = ( = ) in
-    let to_yojson =
-      stream_assoc_to_yojson @@ Json.List.to_yojson to_yojson in
     let f_streams vals x = match vals with
       | [] -> x
       | vals ->
@@ -116,20 +132,23 @@ module WS = struct
     let f_errors vals x = match vals with
       | [] -> x
       | vals ->
-         List.filter_map (fun (id, (e : Error.t list)) ->
-             List.filter (fun (x : t) -> List.mem ~eq x.err_code vals) e
+         List.filter_map (fun (id, (e : Error.t timestamped list)) ->
+             List.filter (fun (x : t timestamped) ->
+                 List.mem ~eq x.data.err_code vals) e
              |> function [] -> None | x -> Some (id, x)) x in
     let f_priority vals x = match vals with
       | [] -> x
       | vals ->
-         List.filter_map (fun (id, (e : Error.t list)) ->
-             List.filter (fun (x : t) -> List.mem ~eq x.priority vals) e
+         List.filter_map (fun (id, (e : Error.t timestamped list)) ->
+             List.filter (fun (x : t timestamped) ->
+                 List.mem ~eq x.data.priority vals) e
              |> function [] -> None | x -> Some (id, x)) x in
     let f_pids vals x = match vals with
       | [] -> x
       | vals ->
-         List.filter_map (fun (id, (e : Error.t list)) ->
-             List.filter (fun (x : t) -> List.mem ~eq x.pid vals) e
+         List.filter_map (fun (id, (e : Error.t timestamped list)) ->
+             List.filter (fun (x : t timestamped) ->
+                 List.mem ~eq x.data.pid vals) e
              |> function [] -> None | x -> Some (id, x)) x in
     let filter =
       f_pids pids
@@ -141,7 +160,8 @@ module WS = struct
           match filter l with
           | [] -> None
           | l  -> Some l) events.ts.errors
-    in Api.Socket.handler socket_table sock_data e to_yojson body
+      |> fun e -> React.S.sample merge_services e events.ts.services
+    in Api.Socket.handler socket_table sock_data e errors_to_yojson body
 
 end
 

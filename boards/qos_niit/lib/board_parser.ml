@@ -25,7 +25,7 @@ type _ instant_request =
 
 type probe_response =
   | Board_errors of board_error list
-  | Bitrate of (Multi_TS_ID.t * Bitrate.t timestamped) list
+  | Bitrate of (Multi_TS_ID.t * Bitrate.t) list
   | Struct of (Multi_TS_ID.t * structure) list
   | T2mi_info of (Multi_TS_ID.t * T2mi_info.t)
   | Jitter of jitter_raw
@@ -690,7 +690,7 @@ end
 module Get_bitrates : (
   Request
   with type req := int
-  with type rsp := (Multi_TS_ID.t * Bitrate.t timestamped) list) = struct
+  with type rsp := (Multi_TS_ID.t * Bitrate.t) list) = struct
 
   open Board_types.Bitrate
 
@@ -737,7 +737,7 @@ module Get_bitrates : (
     in
     List.rev tables
 
-  let of_stream_bitrate (timestamp : Ptime.t) (buf : Cstruct.t) =
+  let of_stream_bitrate (buf : Cstruct.t) =
     let length = (Int32.to_int @@ get_stream_bitrate_length buf) in
     let msg, rest = Cstruct.split buf (length + 8) in
     let hdr, bdy = Cstruct.split msg sizeof_stream_bitrate in
@@ -749,17 +749,16 @@ module Get_bitrates : (
     let pids, tbls = of_pids_bitrate total_pids br_per_pkt bdy in
     let tables = of_tables_bitrate total_tbls br_per_pkt tbls in
     let stream = get_stream_bitrate_stream_id hdr in
-    let stamped = { timestamp; data = { total; pids; tables }} in
-    let rsp = Multi_TS_ID.of_int32_pure stream, stamped in
+    let data = { total; pids; tables } in
+    let rsp = Multi_TS_ID.of_int32_pure stream, data in
     let rest = if Cstruct.len rest > 0 then Some rest else None in
     rsp, rest
 
-  let parse _ (msg : Cstruct.t) : (Multi_TS_ID.t * t timestamped) list =
+  let parse _ (msg : Cstruct.t) : (Multi_TS_ID.t * t) list =
     let hdr, bdy = Cstruct.split msg sizeof_bitrates in
     let count = get_bitrates_count hdr in
-    let timestamp = Time.Clock.now () in
     let rec parse = fun acc buf ->
-      let x, rest = of_stream_bitrate timestamp buf in
+      let x, rest = of_stream_bitrate buf in
       match rest with
       | Some b -> parse (x :: acc) b
       | None -> List.rev (x :: acc) in
@@ -852,6 +851,7 @@ module Status : (Event with type msg := status_raw) = struct
     { status =
         { timestamp
         ; load = (float_of_int ((get_status_load msg) * 100)) /. 255.
+        ; reset = flags2 land 0x02 <> 0
         ; ts_num = if has_sync then ts_num else 0
         ; services_num = if has_sync then get_status_services_num msg else 0
         ; bitrate = Int32.to_int @@ get_status_bitrate msg
@@ -861,7 +861,6 @@ module Status : (Event with type msg := status_raw) = struct
         ; has_sync
         ; has_stream = flags land 0x80 = 0
         }
-    ; reset = flags2 land 0x02 <> 0
     ; input
     ; t2mi_mode
     ; jitter_mode =
@@ -924,9 +923,7 @@ module Ts_errors : (Event with type msg := Multi_TS_ID.t * (Error.t list)) = str
     | _ -> 0 (* Unknown *)
 
   let compare = fun x y ->
-    match Time.compare x.timestamp y.timestamp with
-    | 0 -> Int32.compare x.packet y.packet
-    | x -> x
+    Int32.compare x.packet y.packet
 
   let parse msg : Multi_TS_ID.t * (t list) =
     let common, rest = Cstruct.split msg sizeof_ts_errors in
@@ -934,14 +931,12 @@ module Ts_errors : (Event with type msg := Multi_TS_ID.t * (Error.t list)) = str
     let errors, _ = Cstruct.split rest (number * sizeof_ts_error) in
     let stream_id = Multi_TS_ID.of_int32_pure
                     @@ get_ts_errors_stream_id common in
-    let timestamp = Time.Clock.now () in
     let iter = Cstruct.iter (fun _ -> Some sizeof_ts_error) (fun x -> x) errors in
     Cstruct.fold (fun acc el ->
         let pid' = get_ts_error_pid el in
         let pid = pid' land 0x1FFF in
         let err_code = get_ts_error_err_code el in
-        { timestamp
-        ; count = get_ts_error_count el
+        { count = get_ts_error_count el
         ; err_code
         ; err_ext = get_ts_error_err_ext el
         ; priority = prioriry_of_err_code err_code
@@ -972,9 +967,8 @@ module T2mi_errors : (Event with type msg := Multi_TS_ID.t * (Error.t list)) = s
     | 5 -> Some 5 | 6 -> Some 6 | 9 -> Some 7
     | 20 -> Some 8 | _ -> None
 
-  let make_error ~count ~err_code ~timestamp ~param_1 ~param_2 ~pid () =
-    { timestamp
-    ; count
+  let make_error ~count ~err_code ~param_1 ~param_2 ~pid () =
+    { count
     ; err_code
     ; err_ext = 0
     ; priority = 0
@@ -989,7 +983,7 @@ module T2mi_errors : (Event with type msg := Multi_TS_ID.t * (Error.t list)) = s
 
   (* Merge t2mi errors with counter and advanced errors.
      Result is common t2mi error type *)
-  let merge timestamp pid (count : t2mi_error_raw list)
+  let merge pid (count : t2mi_error_raw list)
         (param : t2mi_error_adv_raw list) : t list =
     List.map (fun (x : t2mi_error_raw) ->
         let open Option in
@@ -1004,38 +998,32 @@ module T2mi_errors : (Event with type msg := Multi_TS_ID.t * (Error.t list)) = s
         in
         make_error ~count:x.count
           ~err_code:x.code
-          ~timestamp
           ~pid
           ~param_1:param
           ~param_2:(Int32.of_int x.stream_id)
           ()) count
 
   (* Convert t2mi advanced errors with 'code' = 0 to common t2mi error type *)
-  let convert_other timestamp pid (other : t2mi_error_adv_raw list) : t list =
+  let convert_other pid (other : t2mi_error_adv_raw list) : t list =
     List.map (fun (x : t2mi_error_adv_raw) ->
         make_error ~count:1
           ~err_code:t2mi_parser_error_code
-          ~timestamp
           ~pid
           ~param_1:(Int32.of_int x.param)
           ~param_2:(Int32.of_int x.stream_id)
           ()) other
 
   (* Convert ts parser flags to common t2mi error type *)
-  let convert_ts timestamp pid (ts : int list) : t list =
+  let convert_ts pid (ts : int list) : t list =
     List.map (fun (x : int) ->
         make_error ~count:1
           ~err_code:ts_parser_error_code
-          ~timestamp
           ~pid
           ~param_1:(Int32.of_int x)
           ~param_2:0l
           ()) ts
 
-  let compare = fun x y -> Time.compare x.timestamp y.timestamp
-
   let parse msg : Multi_TS_ID.t * (t list) =
-    let timestamp = Time.Clock.now () in
     let common, rest = Cstruct.split msg sizeof_t2mi_errors in
     let number = get_t2mi_errors_count common in
     let errors, _ = Cstruct.split rest (number * sizeof_t2mi_error) in
@@ -1068,10 +1056,9 @@ module T2mi_errors : (Event with type msg := Multi_TS_ID.t * (Error.t list)) = s
                  if pe land (Int.pow 2 x) <> 0
                  then Some x else None)
                (List.range 0 3) in
-    let errors = merge timestamp pid cnt adv
-                 @ convert_other timestamp pid oth
-                 @ convert_ts timestamp pid ts
-                 |> List.sort compare
+    let errors = merge pid cnt adv
+                 @ convert_other pid oth
+                 @ convert_ts pid ts
     in
     Multi_TS_ID.of_int32_pure stream_id, errors
 

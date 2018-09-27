@@ -11,7 +11,7 @@ let error =
   Types.custom
     Types.(List.(ID.db & int & int & int & int & bool
                  & int & int32 & int32 & int32 & ptime))
-    ~encode:(fun (id, (err : Error.t)) ->
+    ~encode:(fun (id, ({ data = err; timestamp } : Error.t timestamped)) ->
       Ok (ID.to_db id,
           (err.count,
            (err.err_code,
@@ -21,7 +21,7 @@ let error =
                (err.pid,
                 (err.packet,
                  (err.param_1,
-                  (err.param_2, err.timestamp)))))))))))
+                  (err.param_2, timestamp)))))))))))
     ~decode:(fun (id,
                   (count,
                    (err_code,
@@ -33,8 +33,7 @@ let error =
                          (param_1,
                           (param_2, timestamp)))))))))) ->
       let (error : Error.t) =
-        { timestamp
-        ; count
+        { count
         ; err_code
         ; err_ext
         ; priority
@@ -46,7 +45,7 @@ let error =
         ; param_1
         ; param_2
         } in
-      Ok (ID.of_db id, error))
+      Ok (ID.of_db id, { data = error; timestamp }))
 
 let insert db ~is_ts errs =
   let table = (Conn.names db).errors in
@@ -135,8 +134,9 @@ let select_errors db ?(streams = [])
     list select (is_ts, from, till, limit)
     >>= fun data ->
     let data =
-      List.map (fun ((id, (e : Error.t)), service_id, service_name) ->
-          id, { e with service_id; service_name }) data in
+      List.map (fun ((id, (e : Error.t timestamped)), service_id, service_name) ->
+          let data = { e.data with service_id; service_name } in
+          id, { e with data }) data in
     return (Raw { data
                 ; has_more = List.length data >= limit
                 ; order }))

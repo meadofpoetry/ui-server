@@ -42,7 +42,6 @@ type status_versions =
 
 type status_raw =
   { status : status
-  ; reset : bool
   ; input : input
   ; t2mi_mode : t2mi_mode_raw
   ; jitter_mode : jitter_mode option
@@ -94,7 +93,12 @@ type structure =
 
 (** Event group *)
 
-type board_event =
+type group =
+  { status : status_raw
+  ; prev_status : status_raw option
+  ; events : board_event list
+  }
+and board_event =
   [ `Status of status_raw
   | `Streams_event of streams
   | `T2mi_errors of Stream.Multi_TS_ID.t * (Error.t list)
@@ -102,12 +106,6 @@ type board_event =
   | `End_of_errors
   | `End_of_transmission
   ] [@@deriving eq, show]
-
-type group =
-  { status : status_raw
-  ; prev_status : status_raw option
-  ; events : board_event list
-  } [@@deriving show]
 
 (* API *)
 
@@ -191,7 +189,6 @@ type device_events =
   ; input : input signal
   ; state : Topology.state signal
   ; status : status event
-  ; reset : reset_ts event
   ; errors : board_error list event
   ; info : devinfo option signal
   }
@@ -208,7 +205,7 @@ type ts_events =
 
 type t2mi_events =
   { structures : t2mi_info signal
-  ; errors : (Stream.ID.t * Error.t list) list event
+  ; errors : errors event
   }
 
 type jitter_events =
@@ -226,10 +223,15 @@ type events =
 
 type push_events =
   { devinfo : devinfo option -> unit
+  ; input : input -> unit
+  ; status : status -> unit
   ; state : Topology.state -> unit
+  ; t2mi_mode_raw : t2mi_mode_raw -> unit
   ; t2mi_mode : t2mi_mode option -> unit
   ; jitter_mode : jitter_mode option -> unit
-  ; group : group -> unit
+  ; raw_streams : Stream.Raw.t list -> unit
+  ; ts_errors : errors -> unit
+  ; t2mi_errors : errors -> unit
   ; board_errors : board_error list -> unit
   ; info : ts_info -> unit
   ; services : services -> unit

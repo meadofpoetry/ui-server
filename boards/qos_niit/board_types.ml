@@ -5,7 +5,7 @@ open Common
 type 'a timestamped =
   { timestamp : Time.t
   ; data : 'a
-  } [@@deriving yojson, eq]
+  } [@@deriving yojson, eq, show]
 
 let make_timestamped timestamp data =
   { timestamp; data }
@@ -99,6 +99,7 @@ let packet_sz_of_yojson = function
 type status =
   { timestamp : Time.t
   ; load : float
+  ; reset : bool
   ; ts_num : int
   ; services_num : int
   ; bitrate : int
@@ -529,8 +530,7 @@ module Error = struct
     } [@@deriving yojson]
 
   type t =
-    { timestamp : Time.t
-    ; count : int
+    { count : int
     ; err_code : int
     ; err_ext : int
     ; priority : int
@@ -544,7 +544,7 @@ module Error = struct
     } [@@deriving yojson, eq, show]
 
   type raw =
-    (Stream.ID.t * t) list [@@deriving yojson, show]
+    (Stream.ID.t * t timestamped) list [@@deriving yojson, show]
 
   type compressed = percent timespan list
   and percent =
@@ -564,4 +564,4 @@ type elements = (Stream.ID.t * ((int * int) * Pid.typ) list timestamped) list [@
 type tables = (Stream.ID.t * (SI_PSI_table.t list timestamped)) list [@@deriving yojson]
 type sections = (Stream.ID.t * (SI_PSI_section.t list timestamped)) list [@@deriving yojson]
 type t2mi_info = (Stream.ID.t * T2mi_info.t list timestamped) list [@@deriving yojson]
-type errors = (Stream.ID.t * (Error.t list)) list [@@deriving yojson]
+type errors = (Stream.ID.t * (Error.t timestamped list)) list [@@deriving yojson]
