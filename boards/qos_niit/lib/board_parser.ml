@@ -798,9 +798,9 @@ module Get_t2mi_info : (Request
          stream,
          (sid, { packets
                ; t2mi_pid = None
-               ; l1_pre = Error Empty
-               ; l1_post_conf = Error Empty
-         })
+               ; l1 = None
+               ; l1_empty = true
+               ; l1_parse_error = false })
       | l ->
          let body, _ = Cstruct.split rest l in
          let conf_len =
@@ -811,22 +811,20 @@ module Get_t2mi_info : (Request
          let conf, _ = Cstruct.split conf conf_len in
          let l1_pre' = Cstruct.to_string @@ get_t2mi_info_ext_l1_pre body in
          let l1_post' = Cstruct.to_string conf in
-         let l1_pre = match L1_parser.l1_pre_of_string l1_pre' with
-           | Some x -> Ok x
-           | None -> Error (Parser_error "bad L1 pre format") in
-         let l1_post = match l1_pre with
-           | Error e -> Error e
-           | Ok x ->
-              begin match L1_parser.l1_post_conf_of_string x l1_post' with
-              | None -> Error (Parser_error "bad L1 post conf format")
-              | Some x -> Ok x
+         let l1 = match L1_parser.l1_pre_of_string l1_pre' with
+           | None -> None
+           | Some l1_pre ->
+              begin match L1_parser.l1_post_conf_of_string l1_pre l1_post' with
+              | None -> None
+              | Some x -> Some { l1_pre; l1_post_conf = x }
               end in
          stream,
          (sid, { packets
                ; t2mi_pid = Some (get_t2mi_info_ext_t2mi_pid body)
-               ; l1_pre
-               ; l1_post_conf = l1_post
-               })
+               ; l1
+               ; l1_empty = false
+               ; l1_parse_error = Option.is_none l1
+         })
 
   end
 

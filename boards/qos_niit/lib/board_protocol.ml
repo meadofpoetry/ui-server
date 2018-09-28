@@ -361,7 +361,6 @@ module Make(Logs : Logs.LOG) = struct
          |> List.map (Pair.map2 (List.map (make_timestamped timestamp)))
          |> pe.t2mi_errors
       end;
-      (* Push group *)
       { acc with probes = Acc.probes_empty }
 
   end

@@ -438,33 +438,19 @@ module T2mi_info = struct
     ; aux_private_conf : int
     } [@@deriving yojson, show, eq]
 
-  type l1_error =
-    | Empty
-    | Parser_error of string [@@deriving yojson, show, eq]
-
-  type l1_pre_result =
-    (l1_pre, l1_error) result [@@deriving show, eq]
-
-  type l1_post_conf_result =
-    (l1_post_conf, l1_error) result [@@deriving show, eq]
-
-  let l1_pre_result_to_yojson =
-    Json.(Result.to_yojson l1_pre_to_yojson l1_error_to_yojson)
-  let l1_pre_result_of_yojson =
-    Json.(Result.of_yojson l1_pre_of_yojson l1_error_of_yojson)
-
-  let l1_post_conf_result_to_yojson =
-    Json.(Result.to_yojson l1_post_conf_to_yojson l1_error_to_yojson)
-  let l1_post_conf_result_of_yojson =
-    Json.(Result.of_yojson l1_post_conf_of_yojson l1_error_of_yojson)
+  type l1 =
+    { l1_pre : l1_pre
+    ; l1_post_conf : l1_post_conf
+    } [@@deriving yojson, show, eq]
 
   type t = id * info
   and id = int
   and info =
     { packets : int list
     ; t2mi_pid : int option
-    ; l1_pre : l1_pre_result
-    ; l1_post_conf : l1_post_conf_result
+    ; l1 : l1 option
+    ; l1_empty : bool [@default false]
+    ; l1_parse_error : bool [@default false]
     } [@@deriving yojson, show, eq]
 
 end

@@ -140,9 +140,15 @@ module Model = struct
 
   let keys_t2mi_info =
     make_keys ~time_key:"date"
-      [ "stream", key ID.typ
-      ; "data", key "TEXT"
-      ; "date", key "TIMESTAMP"
+      [ "stream", key ~primary:true ID.typ
+      ; "t2mi_pid", key ~primary:true "INTEGER"
+      ; "t2mi_stream_id", key ~primary:true "INTEGER"
+      ; "packets", key "JSONB"
+      ; "l1_pre", key "JSONB"
+      ; "l1_post_conf", key "JSONB"
+      ; "l1_empty", key "BOOL"
+      ; "l1_parse_error", key "BOOL"
+      ; "date", key ~primary:true "TIMESTAMP"
       ]
 
   let keys_bitrate =

@@ -260,7 +260,7 @@ let create (b : topo_board) _ convert_streams send db_conf base step =
   let storage =
     Config_storage.create base
       ["board"; (string_of_int b.control)] in
-  let ({ ts; _ } as events), api, step =
+  let ({ ts; t2mi; _ } as events), api, step =
     SM.create sources send storage step conv in
   let db = Result.get_exn @@ Db.Conn.create db_conf b.control in
   let handlers = Board_api.handlers b.control db sources api events in
@@ -286,9 +286,9 @@ let create (b : topo_board) _ convert_streams send db_conf base step =
   Db.Ts_info.(Single.handle ~eq:Ts_info.equal ~insert ~bump db tick ts.info);
   Db.Pids.(Coll.handle ~eq:Pid.equal ~insert ~bump db tick ts.pids);
   Db.Services.(Coll.handle ~eq:Service.equal ~insert ~bump db tick ts.services);
+  Db.T2mi_info.(Coll.handle ~eq:T2mi_info.equal ~insert ~bump db tick t2mi.structures);
   E.(keep @@ map_s (Db.Bitrate.insert db) ts.bitrates);
   E.(keep @@ map_s (Db.Bitrate.insert_pids db) ts.bitrates);
-  (* Errors *)
   E.(keep @@ map_p (Db.Errors.insert ~is_ts:true  db) events.ts.errors);
   E.(keep @@ map_p (Db.Errors.insert ~is_ts:false db) events.t2mi.errors);
   let state = (object
