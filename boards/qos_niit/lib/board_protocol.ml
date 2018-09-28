@@ -219,12 +219,14 @@ module Make(Logs : Logs.LOG) = struct
       |> List.cons_maybe errors
 
     let to_ts_errors (g : group) =
-      List.filter_map (function `Ts_errors x -> Some x
-                              | _ -> None) g.events
+      List.filter_map (function
+          | `Ts_errors x -> Some x
+          | _ -> None) g.events
 
     let to_t2mi_errors (g : group) =
-      List.filter_map (function `T2mi_errors x -> Some x
-                              | _ -> None) g.events
+      List.filter_map (function
+          | `T2mi_errors x -> Some x
+          | _ -> None) g.events
 
     (* let split_streams streams l =
      *   List.partition_map (fun (id, x) ->
@@ -235,7 +237,9 @@ module Make(Logs : Logs.LOG) = struct
     let merge_streams streams l =
       List.filter_map (fun (id, x) ->
           match find_stream_by_multi_id id streams with
-          | None -> None
+          | None ->
+             Logs.err (fun m -> m "Not found a stream for data!");
+             None
           | Some s -> Some (s.id, x)) l
 
     let to_raw_stream ({ input; t2mi } : init)
@@ -267,7 +271,12 @@ module Make(Logs : Logs.LOG) = struct
       match source with
       | None -> None
       | Some source ->
-         let typ : Stream.stream_type =
+         let (typ : Stream.stream_type) =
+           Logs.err (fun m -> m "%a %a %b, eq: %b"
+                                Multi_TS_ID.pp id
+                                Multi_TS_ID.pp mode.stream
+                                mode.enabled
+                                (Multi_TS_ID.equal id mode.stream));
            if Multi_TS_ID.equal id mode.stream && mode.enabled
            then T2MI else TS in
          Some { id = TS_multi id; source; typ }
@@ -308,6 +317,7 @@ module Make(Logs : Logs.LOG) = struct
          jitter_ptr := x.next_ptr;
          pe.jitter x.measures
       end;
+      (* Stream dependent events *)
       (* Push TS bitrates *)
       begin match acc.probes.bitrate with
       | None -> ()

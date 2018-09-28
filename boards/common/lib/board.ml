@@ -123,9 +123,13 @@ let merge_streams (boards : t Map.t)
   (* When a board is connected to another board *)
   let find_cor_stream (s : Raw.t) (lst : Stream.t list signal) = (* use S.fmap `None*)
     let map (s : Raw.t) prev = match prev.orig_id, s.id with
-      | TS_raw, (TS_multi _ as id) -> Some { prev with orig_id = id }
-      | id, sid -> if equal_container_id id sid
-                   then Some prev else None in
+      | TS_raw, (TS_multi _ as id) ->
+         Some { prev with orig_id = id
+                        ; typ = s.typ }
+      | id, sid ->
+         if equal_container_id id sid
+         then Some { prev with typ = s.typ }
+         else None in
     `Done (S.map (List.find_map (map s)) lst) in
   (* When source of raw stream is another stream *)
   let compose_hier (s : Raw.t) (parent : container_id) sms =
