@@ -30,10 +30,11 @@ module Model = struct
 
   type init = ()
 
-  type names = { streams   : string
-               ; pid_state : string
-               ; structs   : string
-               ; errors    : string
+  type names = { streams     : string
+               ; pid_state   : string
+               ; structs     : string
+               ; stream_loss : string
+               ; errors      : string
                }
             
   let name = "qoe(pipeline)"
@@ -61,6 +62,15 @@ module Model = struct
                                   ]
                      }
 
+  let stream_loss_keys = { time_key = Some "date_end"
+                         ; columns  = [ "stream",     key "INTEGER"
+                                      ; "channel",    key "INTEGER"
+                                      ; "pid",        key "INTEGER"
+                                      ; "date_start", key "TIMESTAMP"
+                                      ; "date_end",   key "TIMESTAMP"
+                                      ]
+                         }
+
   let err_keys = { time_key = Some "date"
                  ; columns = [ "stream", key "INTEGER"
                              ; "channel", key "INTEGER"
@@ -78,11 +88,16 @@ module Model = struct
                  }
         
   let tables () =
-    let names = { streams = "qoe_streams"; pid_state = "qoe_pid_state"; structs = "qoe_structures"; errors = "qoe_errors" } in
+    let names = { streams = "qoe_streams"
+                ; pid_state = "qoe_pid_state"
+                ; structs = "qoe_structures"
+                ; stream_loss = "qoe_stream_loss"
+                ; errors = "qoe_errors" } in
     names,
     [ (names.streams, streams_keys, None)
     ; (names.pid_state, pid_state_keys, None)
     ; (names.structs, struct_keys, None)
+    ; (names.stream_loss, stream_loss_keys, None)
     ; (names.errors, err_keys, None)
     ]
 end
@@ -256,6 +271,39 @@ module Structure = struct
                                 with Failure e -> return (Error e))
 
 end
+
+module Stream_status = struct
+
+  let init db pids =
+    let open Printf in
+    let open Qoe_status in
+    let table = (Conn.names db).pid_state in
+    let insert_new = R.exec Types.(tup4 int int int (tup2 ptime ptime))
+                       (sprintf "INSERT INTO %s (stream,channel,pid,date_start,date_end) VALUES (?,?,?,?,?)" table) in
+    let now = Time.Clock.now_s () in
+    Logs.err (fun m -> m "DB pids len: %d" @@ List.length pids);
+    Conn.request db Request.(with_trans (List.fold_left (fun acc {stream;channel;pid;_} ->
+                                             acc >>= fun () -> exec insert_new (stream,channel,pid,(now,now)))
+                                           (return ()) pids))
+    
+  let bump db pids =
+    let open Printf in
+    let open Qoe_status in
+    let table = (Conn.names db).pid_state in
+    let update_last = R.exec Types.(tup4 int int int ptime)
+                        (sprintf {|UPDATE %s SET date_end = $4
+                                  WHERE stream = $1 AND channel = $2 AND pid = $3
+                                  AND date_start = (SELECT date_start FROM %s 
+                                  WHERE stream = $1 AND channel = $2 AND pid = $3 
+                                  ORDER BY date_start DESC LIMIT 1)|}
+                           table table)
+    in
+    let now = Time.Clock.now_s () in
+    Conn.request db Request.(with_trans (List.fold_left (fun acc {stream;channel;pid;_} ->
+                                             acc >>= fun () -> exec update_last (stream,channel,pid,now))
+                                           (return ()) pids))
+     
+end 
 
 module Errors = struct
   let insert_data db data =

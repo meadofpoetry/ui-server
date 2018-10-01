@@ -63,7 +63,7 @@ let tick () =
   in
   e, loop
        
-let create db_conf s_struct e_video e_audio =
+let create db_conf s_struct s_status e_video e_audio =
   let db = Result.get_exn @@ Db.Conn.create db_conf () in
   let tick, loop = tick () in
   (* Pids *)
@@ -82,15 +82,45 @@ let create db_conf s_struct e_video e_audio =
          | `New pids -> Db.Pid_state.init db pids)
   @@ Lwt_react.E.select [pids; pids_diff];
   (* Structures *)
-  Lwt_react.S.keep @@
-    Lwt_react.S.map (fun x -> Lwt.catch (fun () -> Db.Structure.insert_structures db x)
-                                (function Failure e -> Lwt_io.printf "str error: %s\n" e)) s_struct;
+  Lwt_react.S.keep
+  @@ Lwt_react.S.map (fun x -> Lwt.catch (fun () -> Db.Structure.insert_structures db x)
+                                 (function Failure e -> Lwt_io.printf "str error: %s\n" e)) s_struct;
+  (* Stream status *)
+  let stream_status =
+    let open Qoe_status in
+    Lwt_react.S.sample (fun () sl -> `Bump (List.filter (fun s -> not s.playing) sl))
+      tick s_status
+  in
+  let stream_status_diff =
+    let open Qoe_status in
+    let merge pres past =
+      let find s = List.find (fun sold ->
+                       s.stream = sold.stream
+                       && s.channel = sold.channel
+                       && s.pid = sold.pid)
+                     past
+      in
+      List.fold_left (fun acc s ->
+          if s.playing then acc
+          else try if (find s).playing
+                   then s::acc
+                   else acc
+               with _ -> s::acc)
+        [] pres
+    in        
+    Lwt_react.S.diff (fun pres past -> `Lost (merge pres past)) s_status
+  in
+  Lwt_react.E.keep
+  @@ Lwt_react.E.map (function
+         | `Bump pids -> Db.Stream_status.bump db pids
+         | `Lost pids -> Db.Stream_status.init db pids)
+  @@ Lwt_react.E.select [stream_status; stream_status_diff];
   (* Errors *)
-  Lwt_react.E.keep @@
-    Lwt_react.E.map_p (fun x -> Lwt.catch (fun () -> Db.Errors.insert_video db x)
+  Lwt_react.E.keep
+  @@ Lwt_react.E.map_p (fun x -> Lwt.catch (fun () -> Db.Errors.insert_video db x)
                                   (function Failure e -> Lwt_io.printf "vdata error: %s\n" e)) e_video;
-  Lwt_react.E.keep @@
-    Lwt_react.E.map_p (fun x -> Lwt.catch (fun () -> Db.Errors.insert_audio db x)
+  Lwt_react.E.keep
+  @@ Lwt_react.E.map_p (fun x -> Lwt.catch (fun () -> Db.Errors.insert_audio db x)
                                   (function Failure e -> Lwt_io.printf "adata error: %s\n" e)) e_audio;
   { db; tick; _loop = loop () }
   

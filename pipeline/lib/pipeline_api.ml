@@ -104,6 +104,16 @@ let get_wm_sock api _ body sock_data () =
   let open Pipeline_protocol in
   get_sock sock_data body Wm.to_yojson (React.S.changes api.notifs.wm)
 
+let get_status api _ body () =
+  let open Pipeline_protocol in
+  Lwt_react.S.value api.notifs.status
+  |> Qoe_status.status_list_to_yojson
+  |> fun r -> respond_result (Ok r)
+  
+let get_status_sock api _ body sock_data () =
+  let open Pipeline_protocol in
+  get_sock sock_data body Qoe_status.status_list_to_yojson (React.S.changes api.notifs.status)
+
 let get_vdata_sock api stream channel pid _ body sock_data () =
   let open Pipeline_protocol in
   match stream, channel, pid with
@@ -162,6 +172,10 @@ let handlers (api : Pipeline_protocol.api) =
         ~path:Path.Format.("wm" @/ empty)
         ~query:Query.empty
         (get_wm_sock api)
+    ; create_ws_handler ~docstring:"Stream status socket"
+        ~path:Path.Format.("status" @/ empty)
+        ~query:Query.empty
+        (get_status_sock api)
     ; create_ws_handler ~docstring:"Video data socket"
         ~path:Path.Format.("vdata" @/ empty)
         ~query:Query.[ "stream",  (module Option(Int))
@@ -185,6 +199,10 @@ let handlers (api : Pipeline_protocol.api) =
                  ~path:Path.Format.("wm" @/ empty)
                  ~query:Query.empty
                  (get_wm api)
+             ; create_handler ~docstring:"Status"
+                 ~path:Path.Format.("status" @/ empty)
+                 ~query:Query.empty
+                 (get_status api)
              (* Archive *)
              ; create_handler ~docstring:"Streams archive"
                  ~path:Path.Format.("streams/archive" @/ empty)

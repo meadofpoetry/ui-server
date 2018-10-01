@@ -6,32 +6,6 @@ open Msg_conv
 open Message
 open Notif
 open Qoe_errors
-(*
-let limit f e =
-  let limiter = ref Lwt.return_unit in
-  let delayed = ref None in
-  let event, push = React.E.create () in
-  let iter =
-    React.E.fmap
-      (fun x ->
-        if Lwt.is_sleeping !limiter then begin
-            match !delayed with
-            | Some cell ->
-               cell := x;
-               None
-            | None ->
-               let cell = ref x in
-               delayed := Some cell;
-               None
-          end else begin
-            limiter := f ();
-            push x;
-            None
-          end)
-      e
-  in
-  React.E.select [iter; event]
- *)
         
 type options = { wm         : Wm.t Storage.Options.storage
                ; structures : Structure.Structures.t Storage.Options.storage
@@ -58,7 +32,7 @@ type notifs =
   { streams   : Structure.t list signal
   ; settings  : Settings.t signal
   ; wm        : Wm.t signal
-  ; status    : Qoe_status.t event
+  ; status    : Qoe_status.t list signal
   ; vdata     : Video_data.t event (* TODO to be split by purpose later *)
   ; adata     : Audio_data.t event
   }
@@ -173,6 +147,16 @@ let init_exchange (type a) (typ : a typ) send structures_packer options =
     List.iter (fun (n,f) -> Hashtbl.add table n f) lst;
     table
   in
+  let rec update_status (lst : Qoe_status.t list) (entry : Qoe_status.t) =
+    match lst with
+    | [] -> [entry]
+    | h::tl ->
+       if h.stream = entry.stream
+          && h.channel = entry.channel
+          && h.pid = entry.pid
+       then entry::tl
+       else h::(update_status tl entry)
+  in
   let unwrap f result =
     match result with
     | Ok r -> (f r : unit)
@@ -185,7 +169,7 @@ let init_exchange (type a) (typ : a typ) send structures_packer options =
   let wm  , wm_push     = E.create () in
   let vdata, vdata_push = E.create () in
   let adata, adata_push = E.create () in
-  let status, stat_push = E.create () in
+  let stat, stat_push   = E.create () in
   let table =
     create_table [ Notif.Ready.create typ (unwrap ready_push)
                  ; Wm_notif.create typ (unwrap wm_push)
@@ -205,6 +189,8 @@ let init_exchange (type a) (typ : a typ) send structures_packer options =
 
   let structures, wm, settings = add_storages typ send options strm wm sets in
   let streams = S.map structures_packer structures in
+  let status = S.fold update_status [] stat in
+  
   let notifs = { streams; wm; settings; adata; vdata; status } in
   
   epush, ready, notifs, requests
@@ -246,7 +232,7 @@ let create (type a) (typ : a typ) db_conf config sock_in sock_out =
     init_exchange typ send merge options
   in
 
-  let model = Model.create db_conf notifs.streams notifs.vdata notifs.adata in
+  let model = Model.create db_conf notifs.streams notifs.status notifs.vdata notifs.adata in
   
   let api = { notifs; requests; model } in
   

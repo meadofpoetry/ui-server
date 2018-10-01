@@ -6,3 +6,5 @@ type t =
   ; pid     : int
   ; playing : bool
   } [@@deriving yojson]
+
+type status_list = t list [@@deriving yojson]
