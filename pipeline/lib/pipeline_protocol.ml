@@ -58,7 +58,7 @@ type notifs =
   { streams   : Structure.t list signal
   ; settings  : Settings.t signal
   ; wm        : Wm.t signal
-  (*; graph     : Graph.t event*)
+  ; status    : Qoe_status.t event
   ; vdata     : Video_data.t event (* TODO to be split by purpose later *)
   ; adata     : Audio_data.t event
   }
@@ -78,6 +78,7 @@ module Settings_notif = Notif.Make(Settings)
 (*module Graph_notif = Notif.Make(Graph)*)
 module Video_data_notif = Notif.Make(Video_data)
 module Audio_data_notif = Notif.Make(Audio_data)
+module Qoe_status_notif = Notif.Make(Qoe_status)
 
 module Wm_msg = Message.Make(Wm)
 module Structure_msg = Message.Make(Structure.Structures)
@@ -184,6 +185,7 @@ let init_exchange (type a) (typ : a typ) send structures_packer options =
   let wm  , wm_push     = E.create () in
   let vdata, vdata_push = E.create () in
   let adata, adata_push = E.create () in
+  let status, stat_push = E.create () in
   let table =
     create_table [ Notif.Ready.create typ (unwrap ready_push)
                  ; Wm_notif.create typ (unwrap wm_push)
@@ -191,6 +193,7 @@ let init_exchange (type a) (typ : a typ) send structures_packer options =
                  ; Settings_notif.create typ (unwrap sets_push)
                  ; Video_data_notif.create typ (unwrap vdata_push)
                  ; Audio_data_notif.create typ (unwrap adata_push)
+                 ; Qoe_status_notif.create typ (unwrap stat_push)
       ]
   in
   let dispatch = dispatch typ table in
@@ -202,7 +205,7 @@ let init_exchange (type a) (typ : a typ) send structures_packer options =
 
   let structures, wm, settings = add_storages typ send options strm wm sets in
   let streams = S.map structures_packer structures in
-  let notifs = { streams; wm; settings; adata; vdata } in
+  let notifs = { streams; wm; settings; adata; vdata; status } in
   
   epush, ready, notifs, requests
   
@@ -251,6 +254,7 @@ let create (type a) (typ : a typ) db_conf config sock_in sock_out =
                 options; srcs; proc;
                 ready; ready_e }
   in
+  
   let recv () =
     Socket.recv ev_sock
     >>= fun msg ->

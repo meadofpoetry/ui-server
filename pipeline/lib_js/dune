@@ -15,6 +15,11 @@
   (action  (copy %{x} %{targets})))
 
 (rule
+  (targets qoe_status.ml)
+  (deps    (:x ../qoe_status.ml))
+  (action  (copy %{x} %{targets})))
+
+(rule
   (targets graph.ml)
   (deps    (:x ../graph.ml))
   (action  (copy %{x} %{targets})))
