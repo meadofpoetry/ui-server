@@ -21,15 +21,52 @@ let errors ({ id; _ } as stream : Stream.t) control =
                 List.iter (fun (_, x) ->
                     List.iter (ignore % w#prepend_error) x)) e in
     e, sock in
-  let box =
+  let box, dialog_lwt =
     let open Layout_grid in
     let open Typography in
     let span = 12 in
-    let overview_cell = new Cell.t ~span ~widgets:[ overview ] () in
+    let icon = Icon.SVG.(create_simple Path.settings) in
+    let button = new Icon_button.t ~disabled:true ~icon () in
+    let overview_cell = new Cell.t ~span ~widgets:[overview] () in
     let cells = [overview_cell] in
-    new t ~cells () in
+    let grid = new t ~cells () in
+    let t =
+      overview#thread
+      >|= (fun w ->
+        button#set_disabled false;
+        let settings = w#settings_widget in
+        let dialog =
+          let open Dialog in
+          new t
+            ~title:"Настройки отображения"
+            ~content:(`Widgets [settings])
+            ~actions:[ new Action.t ~typ:`Cancel ~label:"Отмена" ()
+                     ; new Action.t ~typ:`Accept ~label:"Применить" () ]
+            () in
+        Dom.appendChild Dom_html.document##.body dialog#root;
+        button#listen_click_lwt (fun _ _ ->
+            Lwt.(settings#reset ();
+                 dialog#show_await ()
+                 >|= function `Accept -> settings#apply ()
+                            | `Cancel -> ()))
+        |> Lwt.ignore_result;
+        let title = new Text.t ~text:"Журнал ошибок" () in
+        let title_box =
+          new Hbox.t
+            ~halign:`Space_between
+            ~valign:`Center
+            ~widgets:[title#widget; button#widget]
+            () in
+        let title_cell = new Cell.t ~span ~widgets:[title_box] () in
+        grid#insert_cell_at_idx 0 title_cell;
+        dialog) in
+    (grid, t) in
   box#set_on_destroy
   @@ Some (fun () ->
+         dialog_lwt
+         >|= (fun dialog ->
+             Dom.removeChild Dom_html.document##.body dialog#root)
+         |> Lwt.ignore_result;
          sock_lwt
          >|= (fun (e, sock) ->
              React.E.stop ~strong:true e;

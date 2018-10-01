@@ -3,6 +3,7 @@
 @import "../../components/typography/_mixins";
 @import "../../components/card/_mixins";
 @import "../../components/card/_variables";
+@import "../../components/elevation/_mixins";
 
 .mdc-list-title {
     @include mdc-typography(caption);
@@ -342,12 +343,7 @@
 // QoS errors log
 
 .qos-niit-errors-log {
-    .mdc-card__media, .mdc-data-table {
-        height: calc(100vh - 256px);
-    }
-    .mdc-data-table__content {
-        overflow-y: auto;
-    }
+    @include mdc-elevation(2);
     &--failure {
         @include mdc-theme-prop(background-color, error, true);
     }

@@ -1,37 +1,38 @@
-BUILD   = dune
+BUILD   = dune build
+CLEAN   = dune clean
 CSS     = scss --style compressed
 CSS_DIR = dist/resources/css
 
 home:
-	$(BUILD) build frontend/home.bc.js
+	$(BUILD) frontend/home.bc.js
 	cp _build/default/frontend/home.bc.js dist/resources/js/home.js
 
 input:
-	$(BUILD) build frontend/input.bc.js
+	$(BUILD) frontend/input.bc.js
 	cp _build/default/frontend/input.bc.js dist/resources/js/input.js
 
 pipeline:
-	$(BUILD) build frontend/pipeline_video.bc.js
-	$(BUILD) build frontend/pipeline_editor.bc.js
+	$(BUILD) frontend/pipeline_video.bc.js
+	$(BUILD) frontend/pipeline_editor.bc.js
 	cp _build/default/frontend/pipeline_video.bc.js dist/resources/js/pipeline_video.js
 	cp _build/default/frontend/pipeline_editor.bc.js dist/resources/js/pipeline_editor.js
 
 hardware:
-	$(BUILD) build frontend/topology.bc.js
-	$(BUILD) build frontend/board_qos_stream.bc.js
+	$(BUILD) frontend/topology.bc.js
+	$(BUILD) frontend/board_qos_stream.bc.js
 	cp _build/default/frontend/topology.bc.js dist/resources/js/topology.js
 	cp _build/default/frontend/board_qos_stream.bc.js dist/resources/js/board_qos_stream.js
 
 user:
-	$(BUILD) build frontend/user.bc.js
+	$(BUILD) frontend/user.bc.js
 	cp _build/default/frontend/user.bc.js dist/resources/js/user.js
 
 network:
-	$(BUILD) build frontend/network.bc.js
+	$(BUILD) frontend/network.bc.js
 	cp _build/default/frontend/network.bc.js dist/resources/js/network.js
 
 demo:
-	$(BUILD) build frontend/demo.bc.js
+	$(BUILD) frontend/demo.bc.js
 	cp _build/default/frontend/demo.bc.js dist/resources/js/demo.js
 
 css-components:
@@ -48,7 +49,7 @@ css: css-components css-pages
 frontend: home pipeline hardware user network demo input
 
 backend:
-	$(BUILD) build backend/backend.exe
+	$(BUILD) backend/backend.exe
 	cp _build/default/backend/backend.exe dist/backend
 
 
@@ -64,6 +65,6 @@ test:
 all: build
 
 clean:
-	$(BUILD) clean
+	$(CLEAN) clean
 
 .PHONY: build doc test all frontend backend pipeline hardware clean

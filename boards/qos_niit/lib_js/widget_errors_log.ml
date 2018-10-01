@@ -24,6 +24,49 @@ let settings = None
 let ( >>* ) x f = Lwt_result.map_err f x
 let ( % ) = Fun.( % )
 
+module Settings = struct
+
+  type t =
+    { hex : bool
+    }
+
+  let (default : t) =
+    { hex = false (* FIXME *)
+    }
+
+  class view () =
+    let hex_switch =
+      new Switch.t
+        ~state:default.hex
+        () in
+    let hex_form =
+      new Form_field.t
+        ~input:hex_switch
+        ~label:"HEX IDs"
+        () in
+    let s, set = React.S.create default in
+    object(self)
+
+      inherit Vbox.t ~widgets:[hex_form] ()
+
+      (* Applies changes to the signal *)
+      method apply () : unit =
+        let hex = hex_switch#checked in
+        set { hex }
+
+      (* Resets UI controls to current signal state *)
+      method reset () : unit =
+        let { hex } = React.S.value self#s in
+        hex_switch#set_checked hex
+
+      method s : t React.signal = s
+
+    end
+
+  let make () = new view ()
+
+end
+
 let get_errors ?from ?till ?duration ?limit ?order ~id control =
   let open Requests.History.HTTP.Errors in
   get ?limit ?from ?till ?duration ?order ~ids:[id] control
@@ -39,6 +82,11 @@ let get_state ?from ?till ?duration ?limit control =
   >>= function
   | Raw s -> Lwt_result.return (s.data : state list)
   | _ -> Lwt.fail_with "got compressed"
+
+let get_stream ?from ?till ?duration ?limit ~id control =
+  let open Requests.History.HTTP.Streams in
+  get ?limit ?from ?till ?duration ~ids:[id] control
+  >>* Api_js.Requests.err_to_string
 
 let pid_fmt hex =
   let open Table in
@@ -63,7 +111,8 @@ let make_row_data ({ data = error; timestamp } : Error.t timestamped) =
   let extra = Ts_error.Description.of_ts_error error in
   Data.(timestamp :: check :: pid :: service :: count :: extra :: [])
 
-let make_table ~id is_hex (init : Error.raw) control =
+class ['a] t ~id (init : Error.raw) control () =
+  let settings = Settings.make () in
   let tz_offset_s = Ptime_clock.current_tz_offset_s () in
   let show_time = Time.to_human_string ?tz_offset_s in
   let fmt =
@@ -77,44 +126,32 @@ let make_table ~id is_hex (init : Error.raw) control =
     :: (to_column ~sortable "Количество", Int None)
     :: (to_column "Подробности", String None)
     :: [] in
-  let table =
-    new Table.t
-      ~sticky_header:true
-      ~dense:true
-      ~fmt () in
-  let on_change = fun (x : bool) ->
-    let fmt =
-      let open Table.Format in
-      match fmt with
-      | a :: b :: (c, _) :: tl -> a :: b :: (c, pid_fmt x) :: tl in
-    table#set_format fmt in
-  if is_hex then on_change true;
-  table, on_change
-
-class t ~id (init : Error.raw) control () =
-  (* FIXME should remember preffered state *)
-  let is_hex = false in
-  let title = "Журнал ошибок" in
-  let subtitle = "" in
-  let title' = new Card.Primary.title ~large:true title () in
-  let subtitle' = new Card.Primary.title ~large:true subtitle () in
-  let text_box = Widget.create_div ~widgets:[title'; subtitle'] () in
-  let table, on_change = make_table ~id is_hex init control in
-  let media = new Card.Media.t ~widgets:[ table ] () in
-  let switch = new Switch.t ~state:is_hex ~on_change () in
-  let hex = new Form_field.t ~input:switch ~label:"HEX IDs" () in
-  let primary = new Card.Primary.t ~widgets:[text_box; hex#widget] () in
   object(self)
 
     val mutable _has_more = true
 
-    inherit Card.t ~widgets:[] ()
+    inherit ['a] Table.t ~sticky_header:true
+              ~dense:true ~fmt ()
+
+    method settings_widget : Settings.view =
+      settings
+
+    method set_settings (x : Settings.t) : unit =
+      let ({ hex } : Settings.t) = x in
+      self#set_hex hex
+
+    method set_hex (x : bool) : unit =
+      let fmt =
+        let open Table.Format in
+        match fmt with
+        | a :: b :: (c, _) :: tl -> a :: b :: (c, pid_fmt x) :: tl in
+      self#set_format fmt
 
     method prepend_error (e : Error.t timestamped) : unit =
-      let el = table#content in
+      let el = self#content in
       let top = el#scroll_top in
       let height = el#scroll_height in
-      let row = table#prepend_row (make_row_data e) in
+      let row = self#prepend_row (make_row_data e) in
       self#set_row_priority row e;
       let top' = el#scroll_top in
       if top <> 0 && top' = top
@@ -124,7 +161,7 @@ class t ~id (init : Error.raw) control () =
         end
 
     method append_error (e : Error.t timestamped) : unit =
-      let row = table#append_row (make_row_data e) in
+      let row = self#append_row (make_row_data e) in
       self#set_row_priority row e
 
     (* Private methods *)
@@ -142,8 +179,11 @@ class t ~id (init : Error.raw) control () =
       | _ -> ()
 
     initializer
-      table#content#listen_lwt Widget.Event.scroll (fun _ _ ->
-          let el = table#content in
+      React.S.map self#set_settings settings#s
+      |> self#_keep_s;
+      (* FIXME implement infinite scroll *)
+      self#content#listen_lwt Widget.Event.scroll (fun _ _ ->
+          let el = self#content in
           begin match _has_more,
                       el#client_height = el#scroll_height - el#scroll_top with
           | true, true ->
@@ -157,7 +197,7 @@ class t ~id (init : Error.raw) control () =
                    | None -> Some time
                    | Some acc ->
                       if Time.compare time acc >= 0
-                      then Some acc else Some time) None table#rows in
+                      then Some acc else Some time) None self#rows in
              get_errors ?till ~limit:200 ~order:`Desc ~id control
              >|= (fun (more, l) -> _has_more <- more; List.rev l)
              >|= List.iter (self#append_error % snd)
@@ -167,9 +207,6 @@ class t ~id (init : Error.raw) control () =
       |> Lwt.ignore_result;
       List.iter (self#prepend_error % snd) init;
       self#add_class base_class;
-      self#append_child primary;
-      self#append_child @@ new Divider.t ();
-      self#append_child media;
   end
 
 let make ?(init : (Error.raw, string) Lwt_result.t option)
