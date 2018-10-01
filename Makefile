@@ -11,6 +11,10 @@ input:
 	$(BUILD) frontend/input.bc.js
 	cp _build/default/frontend/input.bc.js dist/resources/js/input.js
 
+stream:
+	$(BUILD) frontend/stream.bc.js
+	cp _build/default/frontend/stream.bc.js dist/resources/js/stream.js
+
 pipeline:
 	$(BUILD) frontend/pipeline_video.bc.js
 	$(BUILD) frontend/pipeline_editor.bc.js
@@ -19,9 +23,7 @@ pipeline:
 
 hardware:
 	$(BUILD) frontend/topology.bc.js
-	$(BUILD) frontend/board_qos_stream.bc.js
 	cp _build/default/frontend/topology.bc.js dist/resources/js/topology.js
-	cp _build/default/frontend/board_qos_stream.bc.js dist/resources/js/board_qos_stream.js
 
 user:
 	$(BUILD) frontend/user.bc.js
@@ -46,7 +48,7 @@ css-pages:
 
 css: css-components css-pages
 
-frontend: home pipeline hardware user network demo input
+frontend: home pipeline hardware user network demo input stream
 
 backend:
 	$(BUILD) backend/backend.exe

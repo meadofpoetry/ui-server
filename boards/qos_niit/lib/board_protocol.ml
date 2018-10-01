@@ -272,11 +272,6 @@ module Make(Logs : Logs.LOG) = struct
       | None -> None
       | Some source ->
          let (typ : Stream.stream_type) =
-           Logs.err (fun m -> m "%a %a %b, eq: %b"
-                                Multi_TS_ID.pp id
-                                Multi_TS_ID.pp mode.stream
-                                mode.enabled
-                                (Multi_TS_ID.equal id mode.stream));
            if Multi_TS_ID.equal id mode.stream && mode.enabled
            then T2MI else TS in
          Some { id = TS_multi id; source; typ }

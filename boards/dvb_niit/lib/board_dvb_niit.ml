@@ -23,9 +23,9 @@ let invalid_port prefix port =
 let create (b:topo_board) _ convert_streams send _ (* db_conf*) base step =
   let log_name = Boards.Board.log_name b in
   let log_src = Logs.Src.create log_name in
-  let () = Option.iter (fun x -> Logs.Src.set_level log_src
-                                 @@ Some x) b.logs in
-  let logs = Logs.src_log log_src in
+  Option.iter (fun x -> Logs.Src.set_level log_src @@ Some x) b.logs;
+  let (module Logs : Logs.LOG) = Logs.src_log log_src in
+  let module SM = Board_protocol.Make(Logs) in
   let source = match b.sources with
     | None ->
        let s = log_name ^ ": no source provided!" in
@@ -38,9 +38,8 @@ let create (b:topo_board) _ convert_streams send _ (* db_conf*) base step =
   let storage = Config_storage.create base
                   ["board"; (string_of_int b.control)] in
   let events, api, step =
-    Board_protocol.SM.create source logs send storage step in
+    SM.create source send (fun x -> convert_streams x b) storage step in
   let handlers = Board_api.handlers b.control api events in
-  let streams = convert_streams events.streams b in
   let state = object
       (* method _s = _s;
        * method db = db; *)
@@ -48,13 +47,13 @@ let create (b:topo_board) _ convert_streams send _ (* db_conf*) base step =
     end in
   { handlers
   ; control = b.control
-  ; streams_signal = streams
+  ; streams_signal = events.streams
   ; step
   ; connection = events.state
   ; ports_sync =
       List.fold_left (fun acc p ->
           (match p.port with
-           | 0 -> React.S.map (function [] -> false | _ -> true) streams
+           | 0 -> React.S.map (function [] -> false | _ -> true) events.streams
            | x -> invalid_port log_name x)
           |> fun x -> Ports.add p.port x acc)
         Ports.empty b.ports

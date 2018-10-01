@@ -3,40 +3,41 @@ open Board_types
 open Storage.Options
 open Boards.Board
 open Boards.Pools
-
-include Board_parser
+open Common
+open Board_parser
 
 type events =
-  { devinfo  : devinfo option React.signal
-  ; state    : Common.Topology.state React.signal
-  ; config   : config React.event
-  ; mode     : (int * mode) React.event
-  ; lock     : (int * lock) React.event
+  { devinfo : devinfo option React.signal
+  ; state : Topology.state React.signal
+  ; config : config React.event
+  ; mode : (int * mode) React.event
+  ; lock : (int * lock) React.event
   ; measures : (int * measures) React.event
-  ; params   : (int * params) React.event
+  ; params : (int * params) React.event
   ; plp_list : (int * plp_list) React.event
-  ; streams  : Common.Stream.Raw.t list React.signal
+  ; raw_streams : Stream.Raw.t list React.signal
+  ; streams : Stream.t list React.signal
   }
 
 type push_events =
-  { mode     : int * mode            -> unit
-  ; lock     : int * lock            -> unit
-  ; measure  : int * measures        -> unit
-  ; params   : int * params          -> unit
+  { mode : int * mode            -> unit
+  ; lock : int * lock            -> unit
+  ; measure : int * measures        -> unit
+  ; params : int * params          -> unit
   ; plp_list : int * plp_list        -> unit
-  ; state    : Common.Topology.state -> unit
-  ; devinfo  : devinfo option        -> unit
+  ; state : Topology.state -> unit
+  ; devinfo : devinfo option        -> unit
   }
 
 type api =
-  { get_devinfo  : unit       -> (devinfo option) Lwt.t
-  ; reset        : unit       -> unit Lwt.t
-  ; set_mode     : int * mode -> (int * mode_rsp) Lwt.t
-  ; get_config   : unit       -> config
-  ; get_lock     : unit       -> (int * lock) list
-  ; get_measures : unit       -> (int * measures) list
-  ; get_params   : unit       -> (int * params) list
-  ; get_plp_list : unit       -> (int * plp_list) list
+  { get_devinfo : unit -> (devinfo option) Lwt.t
+  ; reset : unit -> unit Lwt.t
+  ; set_mode : int * mode -> (int * mode_rsp) Lwt.t
+  ; get_config : unit -> config
+  ; get_lock : unit -> (int * lock) list
+  ; get_measures : unit -> (int * measures) list
+  ; get_params : unit -> (int * params) list
+  ; get_plp_list : unit -> (int * plp_list) list
   }
 
 (* Board protocol implementation *)
@@ -45,10 +46,10 @@ let timeout = 3 (* seconds *)
 
 let detect_msgs (send_req : 'a request -> unit Lwt.t) step_duration =
   let req = Get_devinfo in
-  [ { send    = (fun () -> send_req req)
-    ; pred    = (is_response req)
+  [ { send = (fun () -> send_req req)
+    ; pred = (is_response req)
     ; timeout = Boards.Timer.steps ~step_duration timeout
-    ; exn     = None
+    ; exn = None
   } ]
 
 let init_requests =
@@ -298,7 +299,7 @@ module Make_probes(M:M) : Probes = struct
 
 end
 
-module SM = struct
+module Make(Logs : Logs.LOG) = struct
 
   type group =
     { measures : measures list
@@ -358,9 +359,8 @@ module SM = struct
   let initial_timeout = -1
 
   let step source msgs sender (storage : config storage)
-        step_duration (pe:push_events) logs =
+        step_duration (pe:push_events) =
 
-    let (module Logs : Logs.LOG) = logs in
     let module Parser = Board_parser.Make(Logs) in
 
     let module Probes =
@@ -575,16 +575,15 @@ module SM = struct
            id, ({ m with freq = Some (x - freq) } : measures)
         | _ -> id, { m with freq = None }) e
 
-  let create source logs sender
+  let create source sender streams_conv
         (storage:config storage) step_duration =
-    let (module Logs : Logs.LOG) = logs in
-    let s_devinfo, devinfo_push   = React.S.create None in
-    let e_mode, mode_push         = React.E.create () in
-    let e_lock, lock_push         = React.E.create () in
+    let s_devinfo, devinfo_push = React.S.create None in
+    let e_mode, mode_push = React.E.create () in
+    let e_lock, lock_push = React.E.create () in
     let e_measures, measures_push = React.E.create () in
-    let e_params, params_push     = React.E.create () in
+    let e_params, params_push = React.E.create () in
     let e_plp_list, plp_list_push = React.E.create () in
-    let s_state, state_push       = React.S.create `No_response in
+    let s_state, state_push = React.S.create `No_response in
     let e_config =
       React.E.map (fun (id, mode) ->
           let c = update_config id mode storage#get in
@@ -598,49 +597,51 @@ module SM = struct
     let s_measures = hold_e fst e_measures in
     let s_params = hold_e fst e_params in
     let s_plp_list = hold_e fst e_plp_list in
-    let (events : events)   =
-      let measures = map_measures storage e_measures in
-      { mode     = e_mode
-      ; lock     = e_lock
+    let measures = map_measures storage e_measures in
+    let raw_streams = to_streams_s source storage measures in
+    let (events : events) =
+      { mode = e_mode
+      ; lock = e_lock
       ; measures
-      ; params   = e_params
+      ; params = e_params
       ; plp_list = e_plp_list
-      ; devinfo  = s_devinfo
-      ; config   = e_config
-      ; state    = s_state
-      ; streams  = to_streams_s source storage measures
+      ; devinfo = s_devinfo
+      ; config = e_config
+      ; state = s_state
+      ; raw_streams
+      ; streams = streams_conv raw_streams
       } in
     let (push_events : push_events) =
-      { mode     = mode_push
-      ; lock     = lock_push
-      ; measure  = measures_push
-      ; params   = params_push
-      ; state    = state_push
+      { mode = mode_push
+      ; lock = lock_push
+      ; measure = measures_push
+      ; params = params_push
+      ; state = state_push
       ; plp_list = plp_list_push
-      ; devinfo  = devinfo_push
+      ; devinfo = devinfo_push
       } in
-    let msgs    = ref (Queue.create []) in
-    let steps   = Boards.Timer.steps ~step_duration timeout in
-    let send x  = send s_state msgs sender push_events steps x in
-    let api : api  =
-      { get_devinfo  = (fun () -> Lwt.return @@ React.S.value s_devinfo)
-      ; reset        = (fun () ->
+    let msgs = ref (Queue.create []) in
+    let steps = Boards.Timer.steps ~step_duration timeout in
+    let send x = send s_state msgs sender push_events steps x in
+    let (api : api) =
+      { get_devinfo = (fun () -> Lwt.return @@ React.S.value s_devinfo)
+      ; reset = (fun () ->
         Logs.info (fun m -> m "got reset request");
         send Reset)
-      ; set_mode     = (fun r  ->
+      ; set_mode = (fun r  ->
         Logs.info (fun m ->
             m "got set mode request for receiver #%d: %s"
               (fst r) (show_mode (snd r)));
         send (Set_mode r))
-      ; get_config   = (fun () -> storage#get)
-      ; get_lock     = (fun () -> React.S.value s_lock)
+      ; get_config = (fun () -> storage#get)
+      ; get_lock = (fun () -> React.S.value s_lock)
       ; get_measures = (fun () -> React.S.value s_measures)
-      ; get_params   = (fun () -> React.S.value s_params)
+      ; get_params = (fun () -> React.S.value s_params)
       ; get_plp_list = (fun () -> React.S.value s_plp_list)
       }
     in
     events,
     api,
-    (step source msgs sender storage step_duration push_events logs)
+    (step source msgs sender storage step_duration push_events)
 
 end

@@ -217,29 +217,6 @@ let get_ports_active prefix input ports =
       end
       |> fun x -> Ports.add p.port x acc) Ports.empty ports
 
-let make_templates (b : topo_board) =
-  let open Api.Template in
-  let open Common.Uri in
-  let template =
-    { title = Some ""
-    ; pre_scripts = [ Src "/js/moment.min.js"
-                    ; Src "/js/Chart.min.js"
-                    ; Src "/js/Chart.PieceLabel.min.js"
-                    ]
-    ; post_scripts = [ Src "/js/board_qos_stream.js" ]
-    ; stylesheets = []
-    ; content = []
-    } in
-  let node =
-    let pre = Printf.sprintf "board/%d/stream" b.control in
-    Pure { path = Path.Format.(pre @/ Stream.ID.fmt ^/ empty)
-         ; template } in
-  let rval = [ `Index 1, node ]
-  in
-  User.({ root = rval
-        ; operator = rval
-        ; guest = rval })
-
 let create (b : topo_board) _ convert_streams send db_conf base step =
   let open DB_handler in
   let log_name = Boards.Board.log_name b in
@@ -310,5 +287,5 @@ let create (b : topo_board) _ convert_streams send db_conf base step =
                      b.ports
   ; stream_handler = None
   ; state = (state :> < finalize : unit -> unit >)
-  ; templates = Some (make_templates b)
+  ; templates = None
   }
