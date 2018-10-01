@@ -277,7 +277,7 @@ module Stream_status = struct
   let init db pids =
     let open Printf in
     let open Qoe_status in
-    let table = (Conn.names db).pid_state in
+    let table = (Conn.names db).stream_loss in
     let insert_new = R.exec Types.(tup4 int int int (tup2 ptime ptime))
                        (sprintf "INSERT INTO %s (stream,channel,pid,date_start,date_end) VALUES (?,?,?,?,?)" table) in
     let now = Time.Clock.now_s () in
@@ -289,7 +289,7 @@ module Stream_status = struct
   let bump db pids =
     let open Printf in
     let open Qoe_status in
-    let table = (Conn.names db).pid_state in
+    let table = (Conn.names db).stream_loss in
     let update_last = R.exec Types.(tup4 int int int ptime)
                         (sprintf {|UPDATE %s SET date_end = $4
                                   WHERE stream = $1 AND channel = $2 AND pid = $3
